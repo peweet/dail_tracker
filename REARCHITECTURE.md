@@ -811,6 +811,7 @@ df.to_parquet("silver/attendance/td_attendance.parquet")
 - [x] ~~**Fix `bills_by_td.py` tuple/encoding bugs**~~ — `uri[0]`, plain URL, null check fixed.
 - [ ] **Remove hardcoded paths** — Replace `C:\\Users\\pglyn\\...` with relative paths for portability.
 
+
 ### Rearchitecture
 
 - [ ] Create `bronze/`, `silver/`, `gold/` directory structure
