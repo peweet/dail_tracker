@@ -5,6 +5,8 @@ import requests    # HTTP client for calling the Oireachtas API
 with open("members/members.json", "r") as f:
     members_data = json.load(f)
 
+# TODO: We should probably move the JSON loading and flattening logic into a separate module (e.g. `data_loader.py`) that can be reused across different services (e.g. questions, bills, etc.). This would help avoid code duplication and make it easier to maintain the data loading logic in one place.
+# logic is redundant and can be improved by creating a reusable function that takes the file path as an argument and returns the flattened list of member records. This would allow us to easily load and flatten different JSON files (e.g. questions, bills) without duplicating code.
 # --- Extract the unique URI for each TD from the nested JSON structure ---
 # Each element in `questions` is one party's API response: { "results": [...] }
 results = [value['results'] for value in members_data]
@@ -15,14 +17,6 @@ flat_members = [member for group in results for member in group]
 
 # Drill into each record to get the 'member' dict
 members= [member['member'] for member in flat_members]
-
-# Extract just the 'uri' string from each member dict
-list_of_td_uris = [uri['uri'] for uri in members]
-
-# --- Persist the URI list as a JSON file ---
-# bills_by_td.py loads this to know which TDs to query
-with open("key_data/key_data.json", "w") as f:
-    json.dump(list_of_td_uris, f, indent=2)
 
 
 # --- Commented-out: Fetch parliamentary questions for each TD ---
