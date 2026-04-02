@@ -1,5 +1,3 @@
-import unicodedata
-import re
 import polars as pl
 import pandas as pd
 # # https://docs.python.org/3/library/unicodedata.html#unicodedata.normalize
@@ -23,15 +21,18 @@ def normalise_df_td_name(df : pl.DataFrame ) -> pl.DataFrame:
     if 'first_name' not in df.columns or 'last_name' not in df.columns:
         raise ValueError("DataFrame must contain 'first_name' and 'last_name' columns for normalization.")   
     # both_names = dataframe.select({'first_name', 'last_name'})
-    both_names = df.with_columns(pl.concat_str(pl.col(['first_name', 'last_name'])).alias('join_key').str.to_lowercase())
+    both_names = df.with_columns(
+        pl.concat_str(
+        pl.col(['first_name', 'last_name'])
+        ).alias('join_key').str.to_lowercase()
+        )
     full_name = both_names.with_columns(
-        # NFD decomposes accented chars into base letter + combining accent mark
+        # NFD converts accented chars into base letter + combining accent mark
         # e.g. á → a + U+0301, é → e + U+0301, ó → o + U+0301
         pl.col('join_key').str.normalize("NFD")
         # [\u0300-\u036f] is the Unicode "Combining Diacritical Marks" block.
         # After NFD, accents become separate code points in this range.
         # Stripping them converts á→a, é→e, ó→o etc. while keeping the base letter.
-        # NFKC alone would DELETE accented chars via the [^a-z] step, losing letters entirely.
         .str.replace_all(r"[\u0300-\u036f]", "")
         .str.replace_all(r"[^a-z\s]", "").alias('join_key')
         .str.replace_all(r"\s+", "")# Remove all whitespace
