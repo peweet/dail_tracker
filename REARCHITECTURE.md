@@ -71,6 +71,13 @@ All original bugs documented in the first version of this file have been fixed:
 | Inflated totals | Name regex failed on Irish names → wrong TD accumulation | **Fixed** — structural marker detection |
 | `main.py` | Prototype duplicating `attendance_2024.py` | **Retired** (can be deleted) |
 | `first_line.py` | Scratch script with duplicated functions | **Retired** (can be deleted) |
+| `enrich.py` | Join direction: PDF was driving table, TDs missing from PDF were lost | **Fixed** — API master list is now the left table (`large_df.join(small_df)`) |
+| `enrich.py` | Typo `arge_df = large_df.unique(...)` — dead variable, duplicates never removed | **Fixed** → `large_df = large_df.unique(...)` |
+| `bills_by_td.py` | `{uri}` interpolated full tuple `('name',)` into URL instead of `uri[0]` | **Fixed** → `{uri[0]}` |
+| `bills_by_td.py` | `member_id` pre-encoded (`%3A`) then double-encoded by `requests.get(params=)` | **Fixed** → plain URL `https://data.oireachtas.ie/...` letting `requests` encode once |
+| `bills_by_td.py` | `if uri is not None` always True (tuples are never None) | **Fixed** → `if uri[0] is not None` |
+| `bills_by_td-REVISE.py` | `return URLS` inside `for` loop — returned after first TD | **Fixed** — dedented to after loop |
+| `bills_by_td-REVISE.py` | Migrated to `concurrent.futures.ThreadPoolExecutor` for parallel API calls | **Done** |
 
 ---
 
@@ -79,6 +86,12 @@ All original bugs documented in the first version of this file have been fixed:
 ### 1. Missing TD — 127 of 128 detected
 
 The attendance PDF contains 128 TDs but `td_tables.csv` only captures 127. One TD's record is missed — likely an edge case where the structural marker `DESC_RE` doesn't match (unusual formatting on a specific page). Needs investigation: iterate all pages and log which ones have tables but no name match.
+
+**Update (2 Apr 2026):** The join direction fix in `enrich.py` mitigates this for the enriched output — all TDs from the API master list now appear regardless of PDF parsing. However, the root cause in `attendance_2024.py` PDF parsing still needs investigation for completeness of attendance counts.
+
+### 1b. TDs with 0 attendance dropped incorrectly
+
+TDs with `0` in attendance fields were being dropped by `dropna()` logic in `attendance_2024.py` because `0` values were treated as empty. The join direction fix ensures these TDs still appear in the final enriched output (with null attendance), but the PDF parsing logic should be reviewed to preserve legitimate `0` values.
 
 ### 2. `flatten_members_json_to_csv.py` produces overly wide CSV
 
@@ -100,17 +113,17 @@ for f in ['members/filtered_members.json', 'members/flattened_members.json']:
         os.remove(f)
 ```
 
-### 4. `bills_by_td-REVISE.py` — duplicate file
+### 4. `bills_by_td-REVISE.py` — concurrent rewrite in progress
 
-Appears identical to `bills_by_td.py`. Should be deleted or consolidated.
+Active rewrite of `bills_by_td.py` using `concurrent.futures.ThreadPoolExecutor` for parallel API calls. URL construction and tuple extraction bugs have been fixed. Still needs: collecting executor results into a list and writing combined JSON output.
 
 ### 5. 2025 attendance PDF URL defined but unused
 
 `attendance_2024.py` defines `pdf_2025` pointing to the Feb 2025–Dec 2025 report. The pipeline should be parameterised to accept any year's PDF.
 
-### 6. `enrich.py` join relies on exact name match
+### 6. `enrich.py` join relies on fuzzy name match
 
-The join `on=['first_name', 'last_name']` between attendance and member data is fragile. Names in the PDF may not exactly match the API (e.g. accented characters, middle names). Consider joining on `member_code` / `memberCode` or URI instead.
+~~The join `on=['first_name', 'last_name']` between attendance and member data is fragile.~~ **Partially fixed (2 Apr 2026):** The join now uses `normalise_join_key`'s sorted-character fuzzy key and the API master list drives the join (left table), so no TDs are lost. However, the fuzzy key approach could still produce false matches on very similar names. Consider joining on `member_code`/URI once the PDF parsing extracts a stable identifier.
 
 ---
 
@@ -787,11 +800,16 @@ df.to_parquet("silver/attendance/td_attendance.parquet")
 ### Remaining Fixes
 
 - [ ] **Investigate missing TD** — 127 of 128 captured. Log pages with tables but no name match.
+- [ ] **Preserve 0-value attendance rows** — Review `dropna()`/`fillna()` logic in `attendance_2024.py` to keep TDs with legitimate 0 attendance.
 - [ ] **Fix `flatten_members_json_to_csv.py`** — Narrow the flattened schema; fix `os.path.exists()` logic bug.
-- [ ] **Delete `bills_by_td-REVISE.py`** — Duplicate of `bills_by_td.py`.
+- [x] ~~**Delete `bills_by_td-REVISE.py`**~~ — Now the concurrent rewrite; consolidate into `bills_by_td.py` when complete.
+- [ ] **Finish `bills_by_td-REVISE.py`** — Collect executor results into list and write combined JSON.
 - [ ] **Delete `main.py` and `first_line.py`** — Retired prototypes.
 - [ ] **Parameterise PDF year** — Make `attendance_2024.py` accept 2024/2025 as an argument.
-- [ ] **Fix `enrich.py` join key** — Use `member_code`/URI instead of name match.
+- [x] ~~**Fix `enrich.py` join key**~~ — API is now the driving table; fuzzy join key in use. Consider `member_code` long-term.
+- [x] ~~**Fix `enrich.py` typo**~~ — `arge_df` → `large_df` on `.unique()` call.
+- [x] ~~**Fix `bills_by_td.py` tuple/encoding bugs**~~ — `uri[0]`, plain URL, null check fixed.
+- [ ] **Remove hardcoded paths** — Replace `C:\\Users\\pglyn\\...` with relative paths for portability.
 
 ### Rearchitecture
 
