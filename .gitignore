@@ -7,10 +7,8 @@
 .venv/
 
 # === Pipeline data outputs (regenerable, don't track) ===
+*.json
 /pdf_storage/
-members/members.json
-members/filtered_members.json
-members/flattened_members.json
 members/flattened_members.csv
 members/flattened_members_normalised.csv
 members/enriched_td_attendance.csv
