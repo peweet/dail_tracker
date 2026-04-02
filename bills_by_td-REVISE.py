@@ -6,11 +6,14 @@ import polars as pl
 #https://api.oireachtas.ie/v1/legislation?&bill_source=Government,Private%20Member&date_start=1900-01-01&date_end=2099-01-01&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en
 
 # Another working test URL for a single TD
-test_working = "https://api.oireachtas.ie/v1/legislation?date_start=1900-01-01&date_end=&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en"
+working = "https://api.oireachtas.ie/v1/legislation?date_start=1900-01-01&date_end=&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en"
+
+# --- Load the list of TD member URIs from the pickle file ---
+# These URIs were extracted from the Oireachtas members API in question_api.py
 
 
-df = pl.read_csv('members/enriched_td_attendance.csv')
-td_uris = df.select('unique_member_code').is_unique()
+df = pl.read_csv('/members/unique_member_code.csv')
+df = df.select(pl.col('member_uri').is_unique()
 counter = 0       # Tracks how many successful API responses we've collected
 combined = []     # Accumulates all bill JSON responses
 
@@ -44,7 +47,7 @@ for uri in df.iter_rows():
         print(f"Failed request {uri}: {response.status_code}")
 
 # --- Write the combined results to a single JSON file ---
-with open('bills/all_bills_by__current_td.json', 'w', encoding='utf-8') as f:
+with open('bills/all_bills_by_td.json', 'w', encoding='utf-8') as f:
     print("loading json...")
     json.dump(combined, f, ensure_ascii=False, indent=2)
     print("finished dumping various bill info")
