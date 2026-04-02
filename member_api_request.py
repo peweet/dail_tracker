@@ -16,12 +16,6 @@ import json                  # JSON encoding
 link="https://api.oireachtas.ie/v1/parties?chamber_id=&chamber=dail&house_no=33&limit=60"
 
 
-# Commented-out: test call to the parties endpoint
-#response = requests.get(url=link)
-#data =response.json()
-#print(data)
-#print(response.content)
-#print(response.url)
 
 # List of party codes to iterate over
 # NOTE: '100%_RDR' and 'Independent_Ireland' were added for the 34th Dáil;

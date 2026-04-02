@@ -12,27 +12,33 @@ working = "https://api.oireachtas.ie/v1/legislation?date_start=1900-01-01&date_e
 # These URIs were extracted from the Oireachtas members API in question_api.py
 
 
-df = pl.read_csv('/members/unique_member_code.csv')
-df = df.select(pl.col('member_uri').is_unique()
+df = pl.read_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\enriched_td_attendance.csv')
+df = df.select(pl.col('unique_member_code')).filter(pl.col('unique_member_code').is_not_null())
+df = df.unique()
+
 counter = 0       # Tracks how many successful API responses we've collected
 combined = []     # Accumulates all bill JSON responses
 
 # --- Loop over every TD URI and fetch their associated legislation ---
-for uri in df.iter_rows():
-    params = {
-        "bill_status": "Enacted,Rejected,Defeated,Lapsed",
-        "bill_source": "Government,Private Member",
-        "date_start": "1900-01-01",
-        "date_end": "2099-01-01",
-        "limit": "1000",     # Request up to 1000 bills per TD
-        "member_id": uri,    # The unique Oireachtas URI identifying this TD
-        "chamber_id": "",
-        "lang": "en"
-    }
-    # Call the Oireachtas legislation endpoint
-    response = requests.get("https://api.oireachtas.ie/v1/legislation?", params=params)
-    print(f"response passed: {response.status_code}")
-
+for uri in df.rows():
+    if uri is not None:
+        print(f"Processing TD {counter+1} with URI: {uri[0]}")  # Debug: print the current TD URI
+        params = {
+            "bill_status": "Enacted,Rejected,Defeated,Lapsed",
+            "bill_source": "Government,Private Member",
+            "date_start": "1900-01-01",
+            "date_end": "2099-01-01",
+            "limit": "1000",     # Request up to 1000 bills per TD
+            "member_id": uri,    # The unique Oireachtas URI identifying this TD
+            "chamber_id": "",
+            "lang": "en"
+        }
+        # Call the Oireachtas legislation endpoint
+        response = requests.get("https://api.oireachtas.ie/v1/legislation?", params=params)
+        print(f"response passed: {response.status_code}")
+    else:
+        print(f"Skipping empty URI at index {counter}")
+        continue
 
     if response.status_code == 200:
         try:
@@ -46,8 +52,5 @@ for uri in df.iter_rows():
     else:
         print(f"Failed request {uri}: {response.status_code}")
 
-# --- Write the combined results to a single JSON file ---
-with open('bills/all_bills_by_td.json', 'w', encoding='utf-8') as f:
-    print("loading json...")
-    json.dump(combined, f, ensure_ascii=False, indent=2)
-    print("finished dumping various bill info")
+write_dict_to_json = pl.from_dict({"bills_by_td": combined})
+write_dict_to_json.write_json('bills/all_bills_by_td.json')
