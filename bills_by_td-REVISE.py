@@ -52,5 +52,5 @@ for uri in df.rows():
     else:
         print(f"Failed request {uri}: {response.status_code}")
 
-write_dict_to_json = pl.from_dict({"bills_by_td": combined})
+write_dict_to_json = pl.from_dict(combined)
 write_dict_to_json.write_json('bills/all_bills_by_td.json')

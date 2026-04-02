@@ -18,16 +18,11 @@ doc = fitz.open(pdf_path_2025)  # Open the PDF document using PyMuPDF
 
 IRISH_NAME_REGEX = re.compile(r"^[A-ZÁÉÍÓÚ][a-zA-ZáéíóúÁÉÍÓÚ'\s\-]+$")
 EXCLUDE_CASES = re.compile(r"^(Member|Sitting|Totals|Total)")
-# Irish surname prefixes: when the first word is one of these, combine it with
-# the next word to form the last name (e.g. "Ó Súilleabháin Fionntán" →
-# last="Ó Súilleabháin", first="Fionntán")
-IRISH_PREFIXES = {"Ó", "Ní", "Nic", "Mac", "de"}
 current_name = None # Tracks the active TD name as we iterate through pages; updated when a new name is detected
 
 for page in doc: 
     text = page.get_text("text")
     lines = text.split('\n')
-   
     for line in lines:
         if IRISH_NAME_REGEX.search(line) and not EXCLUDE_CASES.search(line):    
             names = line.split(maxsplit=1)
@@ -47,7 +42,7 @@ df = pd.concat(dataframes).drop(['Col1', 'Col2','Col3', 'Col4', 'Col5'], axis=1)
 # take only the first 5 columns (date + 4 attendance types); drop any extra columns that may have been created by camelot's parsing artifacts
 df = df.iloc[:, :5].fillna(nan) 
 df = df.replace('', nan).rename(columns={'Sitting days attendance recorded on system': 'sitting_days_attendance', 'Other days attendance recorded on system *' : 'other_days_attendance'}) 
-df = df.dropna(subset=['sitting_days_attendance', 'other_days_attendance'], how='all')
+df[['sitting_days_attendance', 'other_days_attendance']] = df[['sitting_days_attendance', 'other_days_attendance']].fillna(0)
 result = (
     df.groupby('identifier')[['sitting_days_attendance', 'other_days_attendance']]
     .count()
