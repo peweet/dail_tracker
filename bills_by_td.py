@@ -24,9 +24,11 @@ URLS = []
 # Another working test URL for a single TD
 working = "https://api.oireachtas.ie/v1/legislation?date_start=1900-01-01&date_end=&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en"
 
-
 # # --- Loop over every TD URI and fetch their associated legislation ---
 bills = {}
+#todo make this service more generic (it can be adapated to fetch any endpoint, not just legislation, by changing the URL construction logic and the output file name)
+# The main bug here is that the `else` block runs on success, not failure. We should move the success print statement into the `try` block and have the `except` block handle failures.
+# do for questions, and other endpoints as well, not just legislation. We can make the URL construction logic more generic to accommodate different endpoints and parameters.
 def construct_urls_for_api():
     df = pl.read_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\enriched_td_attendance.csv')
     df = df.select(pl.col('unique_member_code')).filter(pl.col('unique_member_code').is_not_null())
@@ -37,7 +39,6 @@ def construct_urls_for_api():
     return URLS
 construct_urls_for_api()
 print(f"test loading of: {URLS}")
-
 
 def load_url(url, timeout):
     with urllib.request.urlopen(url, timeout=timeout) as conn:
@@ -63,5 +64,7 @@ with open('bills/all_bills_by_td.json', 'w', encoding='utf-8') as f:
     print("loading json...")
     json.dump(results, f, indent=2)
 print("Finished dumping Dail bill info")
+
+# keep for future testing in Polars
 # # write_dict_to_json = pl.from_dict({"TD": combined}, strict=False)
 # # write_dict_to_json.write_json('bills/all_bills_by_td.json')

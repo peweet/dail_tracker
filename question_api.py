@@ -1,16 +1,3 @@
-# =============================================================================
-# question_api.py — Reads the members JSON, extracts each TD's unique URI,
-# and saves them to a pickle file for use by bills_by_td.py.
-#
-# Also contains a large commented-out block that would fetch parliamentary
-# questions for every TD from the Oireachtas Questions API.
-#
-# This is Step 2 of the data collection pipeline:
-#   member_api_request.py → question_api.py → bills_by_td.py
-#
-# Input:   members/members.json  (produced by member_api_request.py)
-# Output:  key_data/key_data.pkl (list of TD URI strings)
-# =============================================================================
 
 import json        # JSON parsing
 import requests    # HTTP client for calling the Oireachtas API
