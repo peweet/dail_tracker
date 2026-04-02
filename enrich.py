@@ -1,7 +1,7 @@
 import polars as pl 
 import normalise_join_key
 cols_to_select = ['join_key',
-                  'primary_key',
+                  'unique_member_code',
                   'party', 
                   'first_name', 
                   'last_name', 
@@ -33,10 +33,11 @@ print('normalised small_df TD names')
 # https://regex101.com/r/OOLuZU/1
 large_df = large_df.select(cols_to_select)
 enriched_df = small_df.join(large_df, on=['join_key'], how='left')
-enriched_df = enriched_df.with_columns(pl.col('primary_key').str.extract(r"\b\d{4}\b", 0).alias('year_elected')
+enriched_df = enriched_df.with_columns(pl.col('unique_member_code').str.extract(r"\b\d{4}\b", 0).alias('year_elected')
                                        )
 enriched_df= enriched_df.with_columns(
     pl.when(pl.col('ministerial_office') != 'Null').then(pl.lit('true')).otherwise(pl.lit('false')).alias('ministerial_office_filled')
-    ).drop('join_key')
+    )
+# .drop('join_key')
 enriched_df.write_csv('members/enriched_td_attendance.csv')
 print("Enriched TD attendance CSV created successfully.")
