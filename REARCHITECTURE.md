@@ -76,8 +76,9 @@ All original bugs documented in the first version of this file have been fixed:
 | `bills_by_td.py` | `{uri}` interpolated full tuple `('name',)` into URL instead of `uri[0]` | **Fixed** → `{uri[0]}` |
 | `bills_by_td.py` | `member_id` pre-encoded (`%3A`) then double-encoded by `requests.get(params=)` | **Fixed** → plain URL `https://data.oireachtas.ie/...` letting `requests` encode once |
 | `bills_by_td.py` | `if uri is not None` always True (tuples are never None) | **Fixed** → `if uri[0] is not None` |
-| `bills_by_td-REVISE.py` | `return URLS` inside `for` loop — returned after first TD | **Fixed** — dedented to after loop |
-| `bills_by_td-REVISE.py` | Migrated to `concurrent.futures.ThreadPoolExecutor` for parallel API calls | **Done** |
+| `bills_by_td.py` | `return URLS` inside `for` loop — returned after first TD | **Fixed** — dedented to after loop |
+| `bills_by_td.py` | Migrated to `concurrent.futures.ThreadPoolExecutor` for parallel API calls | **Done** — `bills_by_td-REVISE.py` consolidated into `bills_by_td.py` |
+| `.gitignore` | JSON files (e.g. `questions_all_current_tds.json`) not excluded from repo | **Fixed** — added `*.json` blanket rule |
 
 ---
 
@@ -113,9 +114,9 @@ for f in ['members/filtered_members.json', 'members/flattened_members.json']:
         os.remove(f)
 ```
 
-### 4. `bills_by_td-REVISE.py` — concurrent rewrite in progress
+### 4. `bills_by_td.py` — minor cleanup remaining
 
-Active rewrite of `bills_by_td.py` using `concurrent.futures.ThreadPoolExecutor` for parallel API calls. URL construction and tuple extraction bugs have been fixed. Still needs: collecting executor results into a list and writing combined JSON output.
+`bills_by_td-REVISE.py` has been consolidated into `bills_by_td.py`. Concurrent fetching via `ThreadPoolExecutor` is working. Remaining: remove redundant standalone `load_url(URLS[0], 60)` call (dead code, line 63).
 
 ### 5. 2025 attendance PDF URL defined but unused
 
