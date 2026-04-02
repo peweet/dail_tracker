@@ -863,3 +863,181 @@ df.to_parquet("silver/attendance/td_attendance.parquet")
 - [ ] Set up GitHub Actions CI/CD
 - [ ] Write a polished README with badges and architecture diagram
 - [ ] Generate automated data quality HTML report
+
+---
+
+## Experimental — Senior-Level Improvements
+
+These are the gaps between the current codebase and what a senior data engineer would produce. Not ordered by priority — pick what interests you.
+
+### 1. The code has no abstraction layer
+
+The same pattern — "build params, call API, check status, parse JSON, append to list" — is copy-pasted across `member_api_request.py`, `question_api.py`, and `bills_by_td.py` with slight variations. A senior engineer writes one reusable API client:
+
+```python
+class OireachtasClient:
+    BASE_URL = "https://api.oireachtas.ie/v1"
+
+    def __init__(self, max_retries=3, backoff_factor=0.5):
+        self.session = requests.Session()
+        self.session.mount("https://", HTTPAdapter(
+            max_retries=Retry(total=max_retries, backoff_factor=backoff_factor)
+        ))
+
+    def get(self, endpoint: str, params: dict) -> dict:
+        response = self.session.get(f"{self.BASE_URL}/{endpoint}", params=params)
+        response.raise_for_status()
+        return response.json()
+
+    def get_members(self, party: str) -> list[dict]: ...
+    def get_bills(self, member_uri: str) -> list[dict]: ...
+    def get_questions(self, member_uri: str) -> list[dict]: ...
+```
+
+Three scripts collapse to one class. Every endpoint gets retry logic, session reuse, and consistent error handling for free. This is the single biggest gap — senior code is **composable**, not copy-pasted.
+
+### 2. No schema contracts between pipeline stages
+
+If `attendance_2024.py` changes a column name from `sitting_days_attendance` to `sitting_attendance`, `enrich.py` silently produces nulls. Nothing validates that the output of one stage matches the input expectations of the next.
+
+Senior approach — define explicit schemas using **Pandera**:
+
+```python
+import pandera as pa
+
+attendance_schema = pa.DataFrameSchema({
+    "first_name": pa.Column(str, nullable=False),
+    "last_name": pa.Column(str, nullable=False),
+    "sitting_days_attendance": pa.Column(str, nullable=True),
+    "other_days_attendance": pa.Column(str, nullable=True),
+})
+
+attendance_schema.validate(df)  # raises if schema violated
+```
+
+This is commonly called a **data contract**. It catches breaking changes at the point they happen, not three stages downstream.
+
+### 3. No idempotency or incremental processing
+
+Every run re-fetches all 175 TDs, re-parses the entire PDF, re-flattens all JSON. If half the API calls fail, you start from scratch. Senior pipelines:
+
+- **Track what's been fetched** — e.g. a manifest table: `{member_code, endpoint, last_fetched, etag}`
+- **Only fetch what's changed** — use HTTP `If-Modified-Since` or compare checksums
+- **Are idempotent** — running the same stage twice produces the same output without duplication
+- **Support partial recovery** — if 100/175 API calls succeed, the next run only retries the 75 failures
+
+### 4. Print statements instead of logging
+
+`print()` disappears when the script finishes. Senior code uses Python's `logging` module:
+
+```python
+import logging
+logger = logging.getLogger(__name__)
+logger.info("Fetched %d members for party %s", len(results), party)
+logger.warning("No attendance data for TD %s — PDF parsing gap?", td_name)
+```
+
+Log levels, timestamps, file output, and structured output for monitoring tools. Small change, but interviewers notice it because it signals production awareness.
+
+### 5. No type hints or data classes
+
+Every function accepts and returns untyped dicts, DataFrames, and bare strings. Senior code uses types as documentation:
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class TDRecord:
+    first_name: str
+    last_name: str
+    member_code: str
+    party: str
+    constituency: str
+
+def fetch_members(party: str) -> list[TDRecord]: ...
+```
+
+Self-documenting, enables IDE autocompletion, and catches bugs with `mypy` before runtime.
+
+### 6. No configuration management
+
+Party codes, date ranges, file paths, API URLs, and PDF URLs are scattered as literals across files. `C:\\Users\\pglyn\\...` appears in multiple places. Senior approach:
+
+```python
+# config.py
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).parent
+DATA_DIR = PROJECT_ROOT / "data"
+API_BASE = "https://api.oireachtas.ie/v1"
+PARTY_CODES = ["Social_Democrats", "Sinn_Féin", ...]
+DATE_RANGE = ("2024-01-01", "2099-01-01")
+```
+
+Or for environment-specific overrides, use **pydantic-settings** or `python-dotenv`.
+
+### 7. No dependency pinning or reproducible environment
+
+No `requirements.txt`, `pyproject.toml`, or lock file. Someone cloning the repo has to guess which packages to install:
+
+```toml
+# pyproject.toml
+[project]
+dependencies = [
+    "polars>=1.0",
+    "PyMuPDF>=1.24",
+    "requests>=2.31",
+    "flatten-json>=0.1.14",
+]
+```
+
+Or a `Dockerfile` for full reproducibility.
+
+### 8. No rate limiting or backoff on API calls
+
+The `ThreadPoolExecutor` fires 5 concurrent requests with no throttle. If the Oireachtas API has rate limits (most do), you'll get 429s or IP bans. Senior code adds:
+
+- **Exponential backoff** on failures (the `Retry` adapter in tip #1)
+- **Rate limiting** — e.g. a semaphore limiting concurrent calls
+- **Circuit breaker** — after N consecutive failures, stop hitting the API entirely
+
+### 9. The pipeline has no orchestration
+
+Scripts must run in a specific order and nothing enforces this. Out-of-order execution causes silent failures or stale data.
+
+Options from simple to heavy:
+- **Simple:** A `Makefile` or `pipeline.py` with explicit stage dependencies (already proposed in the medallion section)
+- **Medium:** `Prefect` or `Dagster` — Python-native orchestrators with DAGs, retries, and a UI
+- **Heavy:** `Airflow` — industry standard but overkill here
+
+Even a basic dependency check helps:
+
+```python
+if not Path("members/flattened_members.csv").exists():
+    raise FileNotFoundError("Run flatten_members_json_to_csv.py first")
+```
+
+### 10. No containerisation
+
+Hardcoded Windows paths mean this can't run on another machine. A `Dockerfile` makes it portable:
+
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY pyproject.toml .
+RUN pip install .
+COPY . .
+CMD ["python", "pipeline.py"]
+```
+
+### Summary: what makes code "senior"
+
+Junior code **works**. Senior code works **and also**:
+
+- Fails gracefully and recovers (retry, idempotency, logging)
+- Is composable and DRY (abstractions, shared client, config)
+- Validates its own assumptions (schema contracts, type hints, tests)
+- Can be run by someone who isn't you (config, Docker, README, no hardcoded paths)
+- Can be debugged at 3am from a log file (logging, lineage, metadata)
+
+The project's domain work (PDF parsing, fuzzy name matching, API integration, join logic) is solid. The gap is purely in **operational maturity** — the things that make code survive beyond the laptop it was written on.
