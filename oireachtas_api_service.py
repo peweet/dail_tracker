@@ -1,10 +1,20 @@
-
-import requests     # HTTP client for calling the Oireachtas REST API
-import json         # JSON encoding / decoding
+import requests              # HTTP client for calling the Oireachtas API
+import requests           
+import json        
 import polars as pl
 import concurrent.futures
-import urllib.request
+import urllib.request       
+import logging
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+file_handler = logging.FileHandler("pipeline.log")
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+logger = logging.getLogger(__name__)
+logger.addHandler(file_handler)
 # The below code is directly copied  from the Python docs for concurrent.futures, 
 # with some adjustments to fit our use case of loading multiple URLs in parallel. 
 # The `construct_urls_for_api` function builds the list of URLs to fetch based on the unique_member_code values *
@@ -17,8 +27,21 @@ import urllib.request
 #https://api.oireachtas.ie/v1/legislation?&bill_source=Government,Private%20Member&date_start=1900-01-01&date_end=2099-01-01&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en
 
 URLS = []
-# Another working test URL for a single TD
-working = "https://api.oireachtas.ie/v1/legislation?date_start=1900-01-01&date_end=&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en"
+def member_api_request():
+    chamber_id = "%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34"
+    URL = f"https://api.oireachtas.ie/v1/members?chamber_id={chamber_id}&date_start=2024-01-01&date_end=2099-01-01&limit=200"
+    all_members = []  # Accumulates one API response dict per party
+    response = requests.get(URL)
+    data = response.json()    # Parse the JSON response
+    all_members.append(data)  # Add this party's member data to the list
+    # Flatten the list of API responses into a single list of member records
+    strip_head = [member for group in all_members for member in group.get("results", [])]
+    logger.info(f"Loaded member data for {len(strip_head)} members from the API.")
+    with open("members/members.json", "w") as f:
+        json.dump(all_members, f, indent=2)
+
+member_api_request()
+logger.info("Finished loading members JSON data from the API.")
 
 # # --- Loop over every TD URI and fetch their associated legislation ---
 bills = {}
@@ -34,7 +57,7 @@ def construct_urls_for_api():
             URLS.append(f"https://api.oireachtas.ie/v1/legislation?date_start=1900-01-01&date_end=2099-01-01&limit=1000&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2F{uri[0]}&chamber_id=&lang=en")  # Construct the URL for this TD and add it to the list
     return URLS
 construct_urls_for_api()
-print(f"test loading of: {URLS}")
+logger.info(f"Test loading of: {URLS}")
 
 def load_url(url, timeout):
     with urllib.request.urlopen(url, timeout=timeout) as conn:
@@ -50,16 +73,16 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             data = future.result()
             results.append(json.loads(data))
         except Exception as exc:
-            print('%r generated an exception: %s' % (url, exc))
+            logger.error("API call failed for %s: %s", url, exc)
         else:
-            print('%r page is %d bytes' % (url, len(data)))
-print("loading json...")
+            logger.info('%r page is %d bytes' % (url, len(data)))
+logger.info("loading json...")
 value = load_url(URLS[0], 60)
 
 with open('bills/all_bills_by_td.json', 'w', encoding='utf-8') as f:
-    print("loading json...")
+    logger.info("loading all bills by TD json...")
     json.dump(results, f, indent=2)
-print("Finished dumping Dail bill info")
+logger.info("Finished dumping Dail bill info")
 
 # keep for future testing in Polars
 # # write_dict_to_json = pl.from_dict({"TD": combined}, strict=False)
