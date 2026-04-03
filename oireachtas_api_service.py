@@ -16,13 +16,10 @@ import logging
 
 # Reference URL used during development (single TD: Noel Grealish)
 #https://api.oireachtas.ie/v1/legislation?&bill_source=Government,Private%20Member&date_start=1900-01-01&date_end=2099-01-01&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en
-
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-
 #LOGGING SETUP
 file_handler = logging.FileHandler("pipeline.log")
 file_handler.setLevel(logging.INFO)
@@ -46,16 +43,20 @@ def member_api_request():
     logger.info(f"Loaded member data for {len(strip_head)} members from the API.")
     with open("members/members.json", "w") as f:
         json.dump(all_members, f, indent=2)
-
+logger.info("Member data starting to load from API...")    
 member_api_request()
 logger.info("Finished loading members JSON data from the API. This will serve as the basis for fetching legislation and questions for each TD and master reference for all current members.")
-
 # # --- Loop over every TD URI and fetch their associated legislation ---
 bills = {}
 def construct_urls_for_api(api_scenario: str = None) -> list:
     URLS = []
     df = pl.read_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\enriched_td_attendance.csv')
-    df = df.select(pl.col('unique_member_code')).filter(pl.col('unique_member_code').is_not_null())
+    df = df.select(
+        pl.col('unique_member_code')
+        ).filter(
+        pl.col('unique_member_code'
+               ).is_not_null()
+        )
     df = df.unique()
     for uri in df.rows():
         if uri[0] is not None and api_scenario == "legislation":
@@ -65,15 +66,14 @@ def construct_urls_for_api(api_scenario: str = None) -> list:
         else:
             logger.warning(f"Skipping URI {uri[0]} due to null value or unrecognized API scenario.")
             return 
+    logging.info(f"Constructed {len(URLS)} URLs for API scenario '{api_scenario}'.")
     return URLS
 construct_urls_for_api(api_scenario="legislation")
-
-
 def load_url(url, timeout):
+    # Load a single URL with a timeout and return the response data
     with urllib.request.urlopen(url, timeout=timeout) as conn:
         return conn.read()
-# We can use a with statement to ensure threads are cleaned up promptly
-
+    
 def fetch_all(urls):
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -91,24 +91,16 @@ def fetch_all(urls):
     return results
 logger.info("loading json...")
 
-
 construct_urls_for_api(api_scenario="questions")
 
-#todo fix api scenario logic below, it's currently broken and only 
-# loads legislation URLs, not questions. 
-# We should refactor the URL construction logic to be more
-#  flexible and accommodate different API scenarios 
-# without hardcoding the URL patterns for each scenario. 
-# This would allow us to easily add new scenarios in the 
-# future without having to modify the core logic of the service.
 def save_results(results, scenario):
+    # Save the results to a JSON file named after the scenario (e.g. legislation_results.json, questions_results.json)
     file_name = f"bills/{scenario}_results.json"
     with open(file_name, 'w', encoding='utf-8') as f:
         logger.info(f"loading {scenario} json...")
         json.dump(results, f, indent=2)
     logger.info(f"Saved {len(results)} results to {file_name}")
 member_api_request()
-
 
 for scenario in ["legislation", "questions"]:
     logger.info(f"Starting {scenario} pipeline")
@@ -120,58 +112,3 @@ for scenario in ["legislation", "questions"]:
 # keep for future testing in Polars
 # # write_dict_to_json = pl.from_dict({"TD": combined}, strict=False)
 # # write_dict_to_json.write_json('bills/all_bills_by_td.json')
-
-
-
-
-# import json        # JSON parsing
-# import requests    # HTTP client for calling the Oireachtas API
-# # --- Load the members JSON produced by member_api_request.py ---
-# with open("members/members.json", "r") as f:
-#     members_data = json.load(f)
-
-# # TODO: We should probably move the JSON loading and flattening logic into a separate module (e.g. `data_loader.py`) that can be reused across different services (e.g. questions, bills, etc.). This would help avoid code duplication and make it easier to maintain the data loading logic in one place.
-# # logic is redundant and can be improved by creating a reusable function that takes the file path as an argument and returns the flattened list of member records. This would allow us to easily load and flatten different JSON files (e.g. questions, bills) without duplicating code.
-# # --- Extract the unique URI for each TD from the nested JSON structure ---
-# # Each element in `questions` is one party's API response: { "results": [...] }
-# results = [value['results'] for value in members_data]
-
-# # Flatten the list-of-lisnto a single list of member records
-# #same as nested for loop [leats if for leaf in tree for tree in forest]
-# flat_members = [member for group in results for member in group]
-
-# # Drill into each record to get the 'member' dict
-# members= [member['member'] for member in flat_members]
-
-
-# # --- Commented-out: Fetch parliamentary questions for each TD ---
-# # This would call /v1/questions for every TD URI and save them to JSON.
-# # Has the same try/except/else bug as bills_by_td.py (the `else` runs
-# # on success, not failure).
-# counter = 0
-# combined = []
-# for uri in list_of_td_uris:
-#    params = {
-#        "date_start": "1900-01-01",
-#        "date_end":"2099-01-01",
-#        "type": "oral,written",
-#        "member_id":uri
-
-# }
-#    response = requests.get("https://api.oireachtas.ie/v1/questions?", params=params)
-#    counter+=1
-#    if response.status_code == 200:
-#        try:
-#            print(f"procssesing api...TD: {counter}")
-#            questions = response.json()
-#            combined.append(questions)
-#        except json.JSONDecodeError:
-#                print(f"Invalid JSON at call {uri}")
-#        else:
-#            print(f"Failed request {uri}: {response.status_code}")
-
-# with open('questions/questions_all_current_tds.json', 'w', encoding='utf-8') as f:
-#    print("loading json...")
-#    json.dump(combined, f, ensure_ascii=False,  indent=2)
-#    print("finished dumping TD info")
-   
