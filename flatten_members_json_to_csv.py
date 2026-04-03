@@ -36,7 +36,7 @@ with open(filtered_members_path) as f:
 #delete no longer needed data
 if os.path.exists('members/filtered_members.json' or os.path.exists('members/flattened_members.json') or os.path.exists('members/members.json')):
     os.remove('members/filtered_members.json')
-    # os.remove('members/members.json')
+    os.remove('members/members.json')
     os.remove('members/flattened_members.json')
     print('Filtered and flattened JSON files deleted successfully.')
     

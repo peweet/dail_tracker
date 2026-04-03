@@ -6,6 +6,7 @@
 # API link: https://api.oireachtas.ie/
 
 #SOURCE https://www.oireachtas.ie/en/publications/?q=&author%5B%5D=dail-eireann&date=&term=%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34&fromDate=03%2F04%2F2026&toDate=03%2F04%2F2026&topic%5B%5D=record-of-attendance
+working_api_question_request="https://api.oireachtas.ie/v1/questions?skip=0&limit=50&qtype=oral,written&member_id=%2Fie%2Foireachtas%2Fmember%2Fid%2FBrendan-Howlin.S.1983-02-23"
 
 test_working_legislation_single_td = "https://api.oireachtas.ie/v1/legislation?date_start=1900-01-01&date_end=&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en"
 # Another working test URL for a single TD
@@ -19,4 +20,5 @@ pdf_2025_gap="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceF
 pdf_2025="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2026/2026-02-16_deputies-verification-of-attendance-for-the-payment-of-taa-01-february-2025-to-30-december-2025_en.pdf"
 pdf_2026="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2026/2026-04-02_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2026-to-28-february-2026_en.pdf"
 
-# Reference URL for the parties endpoint (used during development)link="https://api.oireachtas.ie/v1/parties?chamber_id=&chamber=dail&house_no=33&limit=60"
+# Reference URL for the parties endpoint (used during development)
+link="https://api.oireachtas.ie/v1/parties?chamber_id=&chamber=dail&house_no=33&limit=60"
