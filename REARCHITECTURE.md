@@ -1437,3 +1437,160 @@ ORDER BY avg_attendance DESC;
 ```
 
 This single view joins 3 tables and produces a party-level summary — the kind of "build me a dashboard query" task that shows up in take-home assignments.
+
+### 16. Surfaced from IrishSmurf/OireachtasAPI docs — unused parameters, endpoints, and efficiency gains
+
+_Source: https://github.com/Irishsmurf/OireachtasAPI — a Swagger-codegen wrapper (6 years old, single commit). The code is not useful, but the auto-generated docs catalogue **every parameter on every endpoint**, exposing filters you may not have discovered from the raw API alone._
+
+---
+
+#### 16.1 Full endpoint inventory — what you use vs what exists
+
+| Endpoint | Your project | Status |
+|---|---|---|
+| `GET /members` | `oireachtas_api_service.py` — `member_api_request()` | **In use** |
+| `GET /legislation` | `oireachtas_api_service.py` — `construct_urls_for_api("legislation")` | **In use** |
+| `GET /questions` | `oireachtas_api_service.py` — `construct_urls_for_api("questions")` | **In use** |
+| `GET /divisions` | — | **Not used** — voting records (Tá/Níl/Staon per TD) |
+| `GET /debates` | — | **Not used** — debate transcripts with speakers, speech counts |
+| `GET /constituencies` | — | **Not used** — constituency metadata |
+| `GET /houses` | — | **Not used** — house (Dáil/Seanad) metadata |
+| `GET /parties` | — | **Not used** — party metadata with date ranges |
+
+---
+
+#### 16.2 Parameters you're not using on endpoints you already call
+
+##### `/v1/members` — currently used with `chamber_id` and `date_start/end` only
+
+| Parameter | What it does | Potential use |
+|---|---|---|
+| `member_id` | Fetch a single TD by URI | Could replace the full 175-member pull when you only need to refresh one TD's data (e.g., after a party change). Avoids re-fetching 174 unchanged records. |
+| `house_no` | Filter by Dáil number (e.g., `33`, `34`) | Allows you to pull 33rd Dáil separately from the 34th. Currently you hardcode `dail/34` — adding `house_no=33` as a second call would give you historical comparison data without date-range guessing. |
+| `party_code` | Filter by party code | Could fetch all Sinn Féin or Fine Gael members in one targeted call, useful if you ever need a party-scoped refresh. |
+| `party_id` | Filter by party URI | Same as above but using the full URI identifier. |
+| `const_code` | Filter by constituency code | Enables constituency-scoped member pulls — useful for constituency-level dashboards or verifying your PDF data against API constituency assignments. |
+| `const_id` | Filter by constituency URI | Same as above but URI-based. |
+
+**Efficiency gain:** Your `member_api_request()` currently does a single big pull (`limit=200`). The `member_id` parameter means you could implement incremental updates — only fetch the TD who changed instead of all 175.
+
+##### `/v1/legislation` — currently used with `member_id`, `date_start/end`, `limit`, `lang`
+
+| Parameter | What it does | Potential use |
+|---|---|---|
+| `bill_status` | Array filter: `[Current, Withdrawn, Enacted, Rejected, Defeated, Lapsed]` | **This is the big one.** You currently pull ALL bills regardless of status, then flatten+drop columns downstream. Filtering server-side by status (e.g., only `Enacted` or only `Current`) would reduce response payloads significantly and eliminate irrelevant records before they ever hit your pipeline. |
+| `bill_source` | Array filter: `[Government, Private Member]` | Enables fetching government bills and private member bills separately — different analytical populations. A private member bill that passes has a very different story than a government one. |
+| `bill_id` | Single bill URI | Lookup a specific bill — useful for enrichment joins where you've found a bill reference in questions/debates and want the full bill record. |
+| `bill_no` | Filter by bill number | Look up a bill by its Dáil number (e.g., Bill No. 42 of 2024). |
+| `bill_year` | Filter by bill year | **Date-scoped fetching.** Instead of `date_start=1900-01-01`, you could fetch by year to implement year-by-year incremental loads. Combined with caching, this means only the current year needs re-fetching. |
+| `chamber_id` | Filter by house/committee URI | You pass this as empty string. Setting it to a specific Dáil or committee URI would scope results — e.g., only bills that went through a specific committee. |
+| `act_year` / `act_no` | Filter by Act year/number | For enacted bills only — cross-reference a specific Act. |
+
+**Efficiency gain:** Adding `bill_status=Current,Enacted` to your URL template would eliminate Withdrawn/Lapsed/Rejected bills from the response. For prolific TDs, this could halve the payload. Adding `bill_year=2024` would avoid re-fetching historical bills that haven't changed.
+
+##### `/v1/questions` — currently used with `member_id`, `skip`, `limit`, `qtype`
+
+| Parameter | What it does | Potential use |
+|---|---|---|
+| `date_start` / `date_end` | Filter questions by date range | **You're not using date filtering on questions.** You set `limit=1000` but no date bounds, so you get all questions from all time. Adding `date_start=2024-03-22` (34th Dáil start) would scope to the current term only and reduce payloads for TDs with long careers. |
+| `question_id` | Single question URI | Useful for drilling into a specific question — e.g., following up from a division/debate where a question was referenced. |
+| `question_no` | Filter by question number | Look up a specific numbered question. |
+
+**Efficiency gain:** Adding date bounds to your questions URL template (matching the Dáil term) would stop you from pulling 10+ years of questions for veteran TDs like Michael Healy-Rae or Mary Lou McDonald when you only need the current term.
+
+---
+
+#### 16.3 New endpoints worth adding as scenarios
+
+##### `/v1/divisions` — voting records
+
+Parameters: `chamber_type`, `chamber_id`, `chamber`, `date_start`, `date_end`, `skip`, `limit`, `outcome`, `member_id`, `debate_id`, `vote_id`
+
+Why it matters:
+- Each division contains **individual TD votes** (Tá/Níl/Staon) — the most granular engagement data available
+- The `outcome` filter lets you pull only `Carried` or `Defeated` divisions
+- The `member_id` filter means you can use the same concurrent pattern from `construct_urls_for_api` — one call per TD
+- The `debate_id` filter lets you cross-reference a debate with its votes
+
+Fits naturally as a third scenario in `construct_urls_for_api("divisions")`:
+```
+https://api.oireachtas.ie/v1/divisions?chamber=dail&date_start=2024-03-22&date_end=2099-01-01&limit=1000&member_id=...
+```
+
+##### `/v1/debates` — speech records
+
+Parameters: `chamber_type`, `chamber_id`, `chamber`, `date_start`, `date_end`, `skip`, `limit`, `member_id`, `debate_id`
+
+Why it matters:
+- Contains individual speeches per TD per debate session — speech counts, word volume
+- The `member_id` filter enables per-TD fetching using your existing concurrent architecture
+- The `chamber_type` filter is **unique to this endpoint** — can filter to committees specifically, which your other endpoints can't
+- Combined with divisions, you can answer: "Was this TD in the chamber speaking AND voting, or just voting?"
+
+##### `/v1/constituencies` — reference data
+
+Parameters: `chamber_id`, `chamber`, `house_no`, `skip`, `limit`
+
+Why it matters:
+- Returns **canonical constituency names and codes** — currently you depend on the member API's constituency field, which is embedded deep in nested JSON
+- A single call gets a clean lookup table: constituency code → name → house → seat count
+- Eliminates dependency on your PDF for constituency data and gives you a join key for CSO demographic enrichment
+
+##### `/v1/parties` — reference data
+
+Parameters: `chamber_id`, `chamber`, `house_no`, `skip`, `limit`
+
+Why it matters:
+- Returns canonical party names, codes, and URIs
+- Useful as a dimension table in DuckDB (`dim_party`)
+- Could replace the hardcoded party references elsewhere in your pipeline
+
+##### `/v1/houses` — reference data
+
+Parameters: `chamber_id`, `chamber`, `skip`, `limit`
+
+Why it matters:
+- Returns house metadata (Dáil number, date ranges, seat counts)
+- A single call with `chamber=dail` gives you all Dáil terms and their start/end dates — no more hardcoding `2024-03-22` for the 34th Dáil start date, you'd read it from the API
+
+---
+
+#### 16.4 Paging — the silent data loss risk
+
+Every endpoint defaults to `limit=50`. The docs confirm paging via `skip` and `limit` on **all** endpoints. Your current code sets `limit=1000` for legislation and questions, and `limit=200` for members.
+
+**Risk:** If any TD sponsors more than 1000 bills or asks more than 1000 questions, you silently truncate. This is unlikely for legislation but plausible for questions — some TDs ask hundreds of written questions per year.
+
+**Mitigation documented in the Swagger docs:** Use `skip` for pagination. A `while` loop that increments `skip` by `limit` until the response returns fewer results than `limit` would guarantee completeness:
+
+```
+Page 1: skip=0, limit=1000 → 1000 results → continue
+Page 2: skip=1000, limit=1000 → 412 results → done (total: 1412)
+```
+
+This is a pattern the Swagger docs imply by having both `skip` and `limit` on every endpoint. Your current single-page fetch is a known gap.
+
+---
+
+#### 16.5 `lang` parameter — hidden on legislation, absent elsewhere
+
+The legislation endpoint uniquely has a `lang` parameter (default: `en`). Setting `lang=ga` returns Irish-language document metadata. No other endpoint exposes this — questions, debates, and divisions don't have it.
+
+This is niche, but if you ever wanted to analyse bilingual legislation or track Irish-language bills specifically, the parameter exists. More practically, it confirms that `en` is the default and you don't need to explicitly set it (though doing so is defensive).
+
+---
+
+#### 16.6 Summary — quick-win improvements by priority
+
+| Priority | Change | Impact | Effort |
+|---|---|---|---|
+| **High** | Add `date_start` to questions URL (scope to 34th Dáil) | Reduces payload by 60-80% for veteran TDs | 1 line change |
+| **High** | Add `bill_status` filter to legislation URL | Eliminates irrelevant bills server-side | 1 line change |
+| **High** | Implement `skip`-based pagination loop | Prevents silent data truncation | ~10 lines in `fetch_all` |
+| **Medium** | Add `divisions` scenario to `construct_urls_for_api` | Unlocks voting records — highest-value new data | Mirrors existing pattern |
+| **Medium** | Add `debates` scenario | Unlocks speech/speaking data | Mirrors existing pattern |
+| **Medium** | Fetch `/v1/houses` once to get Dáil term dates dynamically | Eliminates hardcoded `2024-03-22` | Single API call |
+| **Low** | Fetch `/v1/constituencies` as reference table | Cleaner constituency dimension for DuckDB | Single API call |
+| **Low** | Fetch `/v1/parties` as reference table | Cleaner party dimension for DuckDB | Single API call |
+| **Low** | Use `bill_source` to split government/private member bills | Richer analytical segmentation | URL parameter addition |
+| **Low** | Use `member_id` on `/v1/members` for incremental refresh | Avoids re-fetching 174 TDs when 1 changes | Conditional logic |
