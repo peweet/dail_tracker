@@ -33,12 +33,13 @@ This project scrapes data about Irish TDs (members of the Dáil) from the Oireac
 ## Current Pipeline
 
 ```
-1. member_api_request.py                → Fetches all current TDs by party → members/members.json
-2. question_api.py                      → Reads members.json → extracts TD URIs → key_data/key_data.json
-3. bills_by_td.py                       → Reads key_data.json → fetches bills per TD → bills/all_bills_by_td.json
-4. attendance_2024.py                   → PyMuPDF extracts PDF tables → members/td_tables.csv
-5. members/flatten_members_json_to_csv.py → Flattens members.json → members/flattened_members.csv
-6. enrich.py                            → Joins td_tables.csv + flattened_members.csv → members/enriched_td_attendance.csv
+1. oireachtas_api_service.py            → Fetches all TDs by chamber (single call) → members/members.json
+                                        → Fetches legislation per TD (concurrent) → bills/legislation_results.json
+                                        → Fetches questions per TD (concurrent) → bills/questions_results.json
+2. flatten_members_json_to_csv.py       → Flattens members.json → members/flattened_members.csv
+3. attendance_2024.py                   → PyMuPDF extracts PDF tables → members/aggregated_td_tables.csv
+4. enrich.py                            → Joins td_tables.csv + flattened_members.csv → members/enriched_td_attendance.csv
+5. flatten_service.py                   → Flattens bills JSON → bills/drop_cols_flattened_bills.csv
 ```
 
 ### Key technical decisions
@@ -46,7 +47,11 @@ This project scrapes data about Irish TDs (members of the Dáil) from the Oireac
 - **PyMuPDF (fitz)** replaced camelot for PDF extraction after benchmarking (16.9s vs 34.2s on 244 pages). PyMuPDF's `find_tables()` handles page-spanning records natively — no orphan fragment stitching needed.
 - **Structural name detection** (`DESC_RE = re.compile(r"Deputy.*Limit:\s*\d+")`) finds the "Deputy...Limit:" line and reads the TD name from the line above it. This handles Irish names (O'Brien, Ó Broin, Boyd Barrett, Murnane-O'Connor) that broke the earlier regex approach.
 - **JSON** replaced pickle for inter-script data transfer (security + portability).
-- **pandas** used in `attendance_2024.py` for the PyMuPDF table pipeline; **polars** used in `enrich.py` for the join.
+- **pandas** used for JSON flattening (`flatten_json` + `pd.DataFrame`) in `flatten_service.py`, `flatten_members_json_to_csv.py`, and `attendance_2024.py`. pandas handles deeply nested JSON → flat record conversion more naturally than polars, and given dataset sizes (~1200 rows), the overhead is negligible.
+- **polars** used in `enrich.py` for the join and in `oireachtas_api_service.py` for CSV reads. polars is faster for the tabular filtering/joining steps. Converting between them via `.to_pandas()` / `pl.from_pandas()` is trivial at this scale.
+- **Logging** implemented in `oireachtas_api_service.py` using Python's `logging` module with both console and file output (`pipeline.log`). Log levels: `INFO` for progress, `WARNING` for skipped records, `ERROR` for failed API calls.
+- **Unified API service** — `member_api_request.py`, `bills_by_td.py`, and `question_api.py` consolidated into a single `oireachtas_api_service.py` with parameterised scenario handling (`legislation`, `questions`). Member API now uses a single chamber-based call instead of iterating over hardcoded party codes.
+- **Column configuration centralised** in `utility/select_cols_drop_cols.py` — drop lists, rename dicts, and select lists for both members and bills. `utility/constants.py` holds PDF download links and reference API URLs.
 
 ---
 
@@ -796,6 +801,81 @@ df.to_parquet("silver/attendance/td_attendance.parquet")
 
 ---
 
+## Visualization & Time Series Analysis
+
+### Is this data a time series?
+
+**Partially, yes.** The data has two temporal dimensions:
+
+1. **Attendance dates** — Individual `dd/mm/yyyy` sitting dates per TD from the PDF. These are genuine time-series data points and the richest source for temporal analysis.
+2. **Bill timestamps** — `bill_lastUpdated`, debate dates, and event dates. These are event-based rather than periodic, but still support temporal grouping and trend analysis.
+3. **Cross-sectional snapshots** — The enriched dataset (`enriched_td_attendance.csv`) is a point-in-time snapshot (one row per TD). Not a time series on its own, but becomes one when you stack multiple snapshots (2023, 2024, 2025, 2026).
+
+So: the **attendance dates are time series**, the **bills are event data**, and the **enriched output becomes a time series when you add year-over-year data**.
+
+### matplotlib/seaborn — where they add value
+
+matplotlib and seaborn are the right tools here. They're not just for pretty pictures — they're how you **find patterns you can't see in a spreadsheet**. Some concrete examples with your data:
+
+#### High-value charts (matplotlib/seaborn)
+
+| Chart type | Library | What it reveals | Your data |
+|---|---|---|---|
+| **Horizontal bar chart** | seaborn `barplot` | Attendance ranking by TD | `enriched_td_attendance.csv` → sitting_days by name |
+| **Grouped bar chart** | seaborn `barplot` with `hue` | Attendance by party | sitting_days grouped by party |
+| **Box plot** | seaborn `boxplot` | Attendance spread per party | Shows median, outliers — which parties have consistent attendance vs wide variation |
+| **Heatmap (calendar)** | matplotlib `imshow` or seaborn `heatmap` | Attendance calendar per TD | Individual sitting dates → binary grid (present/absent per day) |
+| **Line chart** | matplotlib `plot` | Attendance trend over time | Monthly attendance counts 2023→2026 per TD or per party |
+| **Scatter plot** | seaborn `scatterplot` | Bills sponsored vs attendance | Do active legislators attend more or less? |
+| **Stacked bar** | matplotlib `bar` | Committee workload distribution | TDs on 1 committee vs 3 vs 5 |
+| **Strip/swarm plot** | seaborn `stripplot` | Individual TD dots within party groups | See every TD, not just the average |
+
+#### The charts that would actually tell a story
+
+**1. Party attendance comparison (box plot)** — One box per party showing median and spread. Instantly answers: "Is Sinn Féin attending more than Fine Gael?" including outliers.
+
+```python
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+df = pd.read_csv('members/enriched_td_attendance.csv')
+fig, ax = plt.subplots(figsize=(12, 6))
+sns.boxplot(data=df, x='party', y='sitting_days_attendance', ax=ax)
+ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+plt.tight_layout()
+plt.savefig('charts/party_attendance_boxplot.png', dpi=150)
+```
+
+**2. Attendance vs bills sponsored (scatter)** — Each dot is a TD, x-axis = sitting days, y-axis = bills sponsored. Colour by party. Reveals whether the most active legislators are the most present.
+
+**3. Monthly attendance heatmap** — Rows = TDs, columns = months, cell colour = % of sitting days attended. Instantly shows who dropped off mid-year.
+
+**4. Year-over-year trend lines** — If you extract 2023+2024+2025 PDFs, plot each TD's attendance across years. ministerial_office_filled as a marker to see if ministers attend less.
+
+**5. New TD vs veteran attendance** — Use `year_elected` to group TDs into cohorts. Bar chart comparing mean attendance of 2024 freshmen vs 2020 cohort vs pre-2016 veterans.
+
+#### When matplotlib/seaborn vs Plotly/Streamlit
+
+| Goal | Use |
+|---|---|
+| Exploratory analysis (for yourself) | matplotlib/seaborn in a Jupyter notebook |
+| Static charts for a report or README | matplotlib/seaborn → `savefig()` to PNG |
+| Interactive dashboard others can use | Plotly + Streamlit (later) |
+| Quick data sanity checks | seaborn `pairplot` or `heatmap` of correlation matrix |
+
+**Recommendation:** Start with matplotlib/seaborn in a Jupyter notebook. Plot the box plot and scatter plot above — they'll immediately reveal patterns. When you have charts worth sharing, export as PNGs for the README. Graduate to Streamlit only when you want interactivity (dropdown to select party, slider for year range).
+
+### Time-series specific techniques
+
+If you parse individual attendance dates from the PDFs:
+
+- **Rolling average** — `df.rolling(window=30).mean()` on a daily attendance flag. Smooths out week-to-week noise to show trend direction.
+- **Resampling** — `df.resample('M').sum()` to get monthly attendance counts. Good for line charts.
+- **Seasonal decomposition** — `statsmodels.tsa.seasonal.seasonal_decompose()` can separate the Dáil's natural recess pattern from actual attendance changes. Probably overkill here but good to know.
+- **Gap analysis** — Calculate `(date - previous_date).days` per TD. Histogram of gap lengths shows common absence patterns.
+
+---
+
 ## Action Items Checklist
 
 ### Remaining Fixes
@@ -804,13 +884,22 @@ df.to_parquet("silver/attendance/td_attendance.parquet")
 - [ ] **Preserve 0-value attendance rows** — Review `dropna()`/`fillna()` logic in `attendance_2024.py` to keep TDs with legitimate 0 attendance.
 - [ ] **Fix `flatten_members_json_to_csv.py`** — Narrow the flattened schema; fix `os.path.exists()` logic bug.
 - [x] ~~**Delete `bills_by_td-REVISE.py`**~~ — Now the concurrent rewrite; consolidate into `bills_by_td.py` when complete.
-- [ ] **Finish `bills_by_td-REVISE.py`** — Collect executor results into list and write combined JSON.
+- [x] ~~**Finish `bills_by_td-REVISE.py`**~~ — Consolidated into `oireachtas_api_service.py`.
 - [ ] **Delete `main.py` and `first_line.py`** — Retired prototypes.
 - [ ] **Parameterise PDF year** — Make `attendance_2024.py` accept 2024/2025 as an argument.
 - [x] ~~**Fix `enrich.py` join key**~~ — API is now the driving table; fuzzy join key in use. Consider `member_code` long-term.
 - [x] ~~**Fix `enrich.py` typo**~~ — `arge_df` → `large_df` on `.unique()` call.
 - [x] ~~**Fix `bills_by_td.py` tuple/encoding bugs**~~ — `uri[0]`, plain URL, null check fixed.
-- [ ] **Remove hardcoded paths** — Replace `C:\\Users\\pglyn\\...` with relative paths for portability.
+- [x] ~~**Remove hardcoded party list**~~ — `member_api_request()` now uses single chamber-based call instead of iterating 11 party codes.
+- [x] ~~**Implement logging**~~ — `oireachtas_api_service.py` uses `logging` module with console + file (`pipeline.log`) output.
+- [x] ~~**Consolidate API scripts**~~ — `member_api_request.py`, `bills_by_td.py`, and `question_api.py` merged into `oireachtas_api_service.py` with scenario parameter.
+- [x] ~~**Centralise column config**~~ — Drop/rename/select lists moved to `utility/select_cols_drop_cols.py`.
+- [x] ~~**Fix bill flattening data loss**~~ — `flatten_service.py` now extracts individual bill records from each TD response before flattening (1170 rows, not 494).
+- [x] ~~**Fix `bill_rename` duplicates**~~ — Removed 18 duplicate entries from rename dict.
+- [x] ~~**Fix `bill_cols_to_drop` typos**~~ — Trailing space, missing `i`, extra `i` in three column names.
+- [ ] **Fix Unicode encoding in URLs** — 4 TDs with fada characters fail (`'ascii' codec can't encode`). Switch `urllib.request.urlopen` to `requests.get` with params dict, or percent-encode fada characters.
+- [ ] **Remove hardcoded Windows paths** — Replace `C:\\Users\\pglyn\\...` with relative paths for portability.
+- [ ] **Wire `constants.py` into scripts** — PDF URLs and API base URL defined but not yet imported by consuming scripts.
 
 
 ### Rearchitecture
@@ -926,18 +1015,9 @@ Every run re-fetches all 175 TDs, re-parses the entire PDF, re-flattens all JSON
 - **Are idempotent** — running the same stage twice produces the same output without duplication
 - **Support partial recovery** — if 100/175 API calls succeed, the next run only retries the 75 failures
 
-### 4. Print statements instead of logging
+### 4. ~~Print statements instead of logging~~ ✅ DONE
 
-`print()` disappears when the script finishes. Senior code uses Python's `logging` module:
-
-```python
-import logging
-logger = logging.getLogger(__name__)
-logger.info("Fetched %d members for party %s", len(results), party)
-logger.warning("No attendance data for TD %s — PDF parsing gap?", td_name)
-```
-
-Log levels, timestamps, file output, and structured output for monitoring tools. Small change, but interviewers notice it because it signals production awareness.
+Logging implemented in `oireachtas_api_service.py` using `logging.basicConfig()` with console and `FileHandler` for `pipeline.log`. Remaining scripts (`attendance_2024.py`, `enrich.py`, `flatten_service.py`, `flatten_members_json_to_csv.py`) still use `print()` — extend logging to these as time allows.
 
 ### 5. No type hints or data classes
 
