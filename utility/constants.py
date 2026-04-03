@@ -1,0 +1,19 @@
+#  Hardcoded API links and constants used across multiple services (e.g. bills_by_td.py, question_api.py, etc.) can be centralized here to avoid duplication and make it easier to maintain. For example, we can define the base API URL, common query parameters, and any other constants that are shared across services in this file. This way, if we need to update the API endpoint or parameters in the future, we can do it in one place instead of having to search through multiple files.
+#  This also helps improve code readability and organization by keeping all constants in a dedicated module.
+#  TODO: create tests and validation
+
+
+# API link: https://api.oireachtas.ie/
+
+#SOURCE https://www.oireachtas.ie/en/publications/?q=&author%5B%5D=dail-eireann&date=&term=%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34&fromDate=03%2F04%2F2026&toDate=03%2F04%2F2026&topic%5B%5D=record-of-attendance
+
+test_working_legislation_single_td = "https://api.oireachtas.ie/v1/legislation?date_start=1900-01-01&date_end=&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en"
+
+
+#ATTENDANCE PDF LINKS
+pdf_2023="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2024/2024-02-01_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2023-to-31-december-2023_en.pdf"
+pdf_2024="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2025/2025-02-17_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2024-to-08-november-2024_en.pdf"
+pdf_2024_gap="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2025/2025-02-28_deputies-verification-of-attendance-for-the-payment-of-taa-29-november-2024-to-31-december-2024_en.pdf"
+pdf_2025_gap="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2025/2025-04-09_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2025-to-31-january-2025_en.pdf"
+pdf_2025="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2026/2026-02-16_deputies-verification-of-attendance-for-the-payment-of-taa-01-february-2025-to-30-december-2025_en.pdf"
+pdf_2026="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2026/2026-04-02_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2026-to-28-february-2026_en.pdf"

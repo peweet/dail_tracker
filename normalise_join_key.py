@@ -13,6 +13,7 @@ def normalise_df_td_name(df : pl.DataFrame ) -> pl.DataFrame:
          "Oabhiillnsuu").
     This process creates a 'join_key' that can be used to match 
     TD names across different datasets, even if there are variations in spelling, formatting, or special characters.
+    It is an intermediate step in the data enrichment pipeline, used to join attendance records with member metadata.
     """
     print('normalising names in dataframe...')
     if type(df) == pd.DataFrame:

@@ -1,6 +1,8 @@
 This is a civic project to ingest open source data published by the Oireachtas and to collate it 
 into a dataset for civic purposes.
 
+API link: https://api.oireachtas.ie/
+
 Some notes on the data pipeline. Data extracted from the PDF files is inherently brittle 
 and may contain data gaps. The data is extracted from 2024-2025 periods and some TD's are simply missing from the PDFs for reasons I can not surmise
 
