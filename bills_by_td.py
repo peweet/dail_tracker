@@ -5,8 +5,6 @@ import polars as pl
 import concurrent.futures
 import urllib.request
 
-
-
 # The below code is directly copied  from the Python docs for concurrent.futures, 
 # with some adjustments to fit our use case of loading multiple URLs in parallel. 
 # The `construct_urls_for_api` function builds the list of URLs to fetch based on the unique_member_code values *
