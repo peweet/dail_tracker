@@ -9,6 +9,7 @@
 # === Pipeline data outputs (regenerable, don't track) ===
 *.csv
 *.json
+*.pdf
 /pdf_storage/
 /payments_pdf/
 members/flattened_members.csv
