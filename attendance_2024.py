@@ -8,7 +8,7 @@ import pandas as pd
 from numpy import nan
 import os                                                                   
 import glob    
-import logger
+import logging
 # ---Attendance Dail Eireann 2023, 2024, 2025 attendance PDF ---
 dataframes = []
 IRISH_NAME_REGEX = re.compile(r"^[A-ZÁÉÍÓÚ][a-zA-ZáéíóúÁÉÍÓÚ'\s\-]+$")

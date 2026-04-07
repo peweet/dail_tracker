@@ -22,3 +22,30 @@ pdf_2026="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTa
 
 # Reference URL for the parties endpoint (used during development)
 link="https://api.oireachtas.ie/v1/parties?chamber_id=&chamber=dail&house_no=33&limit=60"
+
+
+#Payment pdf reference URL
+payment_feb_td_2026="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2026/2026-04-02_parliamentary-standard-allowance-payments-to-deputies-for-february-2026_en.pdf"
+payment_jan_td_2026="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2026/2026-03-06_parliamentary-standard-allowance-payments-to-deputies-for-january-2026_en.pdf"
+payment_dec_td_2025="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2026/2026-02-16_parliamentary-standard-allowance-payments-to-deputies-for-december-2025_en.pdf"
+payment_nov_td_2025="https://data.oireachtas.ie/ie/oireachtas/caighdeanOifigiul/2026/2026-01-16_parliamentary-standard-allowance-payments-to-deputies-for-november-2025_en.pdf"
+
+payment_september_td_2025="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-11-18_parliamentary-standard-allowance-payments-to-deputies-for-september-2025_en.pdf"
+payment_august_td_2025="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-10-06_parliamentary-standard-allowance-payments-to-deputies-for-august-2025_en.pdf"
+payment_july_td_2025="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-09-03_parliamentary-standard-allowance-payments-to-deputies-for-july-2025_en.pdf"
+payment_june_td_2025="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-08-15_parliamentary-standard-allowance-payments-to-deputies-for-june-2025_en.pdf"
+payment_may_td_2025="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-07-03_parliamentary-standard-allowance-payments-to-deputies-for-may-2025_en.pdf"
+payment_april_2025="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-06-10_parliamentary-standard-allowance-payments-to-deputies-for-april-2025_en.pdf"
+
+payment_feb_2025="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-04-22_parliamentary-standard-allowance-payments-to-deputies-for-february-2025_en.pdf"
+payment_jan_2025="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-04-09_parliamentary-standard-allowance-payments-to-deputies-for-january-2025_en.pdf"
+
+
+
+WIKI_url = "https://www.wikidata.org/wiki/Wikidata:WikiProject_every_politician/Ireland/data/Dail/Current_Members"
+
+
+lobbying_source_github = "https://github.com/robmcelhinney/lobbyieng/blob/main/parser.py"
+
+lobbying_url = "https://www.lobbying.ie/app/home/search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&publicBodys=&jobTitles=&returnDateFrom=&returnDateTo=&period=&dpo=&client=&responsible=&lobbyist=&lobbyistId="
+lobbying_url_2 = "https://www.lobbying.ie/"
