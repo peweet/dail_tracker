@@ -1,6 +1,5 @@
 appdirs==1.4.4
 babel==2.18.0
-camelot-py==1.0.9
 certifi==2026.2.25
 cffi==2.0.0
 chardet==7.4.0.post2
