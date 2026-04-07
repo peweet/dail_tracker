@@ -39,20 +39,28 @@ df = normalise_df_td_name(df, 'Full_Name').with_columns(
     pl.col('Date_Paid').str.to_date(format="%d/%m/%Y"),
 )
 
-top_tds_by_payment = df.select(
-    ['Full_Name', 'Amount', 'join_key']
-    ).unique()
-top_tds_by_payment.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\aggregated_payment_tables.csv')
-top_tds_by_payment = top_tds_by_payment.with_columns(
+# top_tds_by_payment = df.select(
+#     ['Full_Name', 'Amount', 'join_key']
+#     ).unique()
+df.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\aggregated_payment_tables.csv')
+top_tds_by_payment = df.with_columns(
     pl.col('Amount').str.replace_all(
         r"[^.0-9\-]", ""
         ).cast(pl.Float64) #remove euro sign
     )
 top_tds_by_payment = top_tds_by_payment.with_columns(
     pl.sum('Amount').over('join_key').alias('total_amount_paid_since_31_01_2025')
-).sort('total_amount_paid_since_31_01_2025', descending=True)
-top_tds_by_payment= top_tds_by_payment.unique(subset=['join_key']).select(['Full_Name', "join_key", 'total_amount_paid_since_31_01_2025']).sort('total_amount_paid_since_31_01_2025', descending=True)
+).sort(
+    'total_amount_paid_since_31_01_2025', 
+    descending=True)
+top_tds_by_payment= top_tds_by_payment.unique(subset=['join_key'])
+# top_tds_by_payment= top_tds_by_payment.unique(
+#             subset=['join_key']).select(
+#                 ['Full_Name', "join_key", 'total_amount_paid_since_31_01_2025']
+#                 ).sort('total_amount_paid_since_31_01_2025', 
+#                descending=True
+#                )
 #TODO filter logic for Ceann Comhairle 
 #TODO filter logic for TDs who were elected after the payment date (e.g. payments made in 2024 should only be matched to TDs elected in 2024 or earlier)
-top_tds_by_payment.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\top_tds_by_payment.csv')
+top_tds_by_payment.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\top_tds_by_payment_2024.csv')
       
