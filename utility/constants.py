@@ -45,8 +45,19 @@ payment_april_2025="https://data.oireachtas.ie/ie/oireachtas/members/parliamenta
 
 payment_feb_2025="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-04-22_parliamentary-standard-allowance-payments-to-deputies-for-february-2025_en.pdf"
 payment_jan_2025="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-04-09_parliamentary-standard-allowance-payments-to-deputies-for-january-2025_en.pdf"
-
-
+payment_dec_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-02-28_parliamentary-standard-allowance-payments-to-deputies-for-1-31-december-2024_en.pdf"
+payment_29_30_nov_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-02-28_parliamentary-standard-allowance-payments-to-deputies-for-29-30-november-2024_en.pdf"
+payments_1_8_nov_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2025/2025-02-17_parliamentary-standard-allowance-payments-to-deputies-for-1-8-november-2024_en.pdf"
+payments_oct_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-12-16_parliamentary-standard-allowance-payments-to-deputies-for-october-2024_en.pdf"
+payments_sep_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-11-01_parliamentary-standard-allowance-payments-to-deputies-for-september-2024_en.pdf"
+payments_aug_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-10-11_parliamentary-standard-allowance-payments-to-deputies-for-august-2024_en.pdf"
+payments_july_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-09-04_parliamentary-standard-allowance-payments-to-deputies-for-july-2024_en.pdf"
+payments_june_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-07-29_parliamentary-standard-allowance-payments-to-deputies-for-june-2024_en.pdf"
+payments_may_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-07-29_parliamentary-standard-allowance-payments-to-deputies-for-june-2024_en.pdf"
+payments_april_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-06-02_parliamentary-standard-allowance-payments-to-deputies-for-april-2024_en.pdf"
+payments_march_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-05-02_parliamentary-standard-allowance-payments-to-deputies-for-march-2024_en.pdf"
+paymenents_feb_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-04-02_parliamentary-standard-allowance-payments-to-deputies-for-february-2024_en.pdf"
+payments_jan_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-03-01_parliamentary-standard-allowance-payments-to-deputies-for-january-2024_en.pdf"
 
 WIKI_url = "https://www.wikidata.org/wiki/Wikidata:WikiProject_every_politician/Ireland/data/Dail/Current_Members"
 
