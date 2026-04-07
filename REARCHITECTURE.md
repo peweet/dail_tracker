@@ -1594,3 +1594,295 @@ This is niche, but if you ever wanted to analyse bilingual legislation or track 
 | **Low** | Fetch `/v1/parties` as reference table | Cleaner party dimension for DuckDB | Single API call |
 | **Low** | Use `bill_source` to split government/private member bills | Richer analytical segmentation | URL parameter addition |
 | **Low** | Use `member_id` on `/v1/members` for incremental refresh | Avoids re-fetching 174 TDs when 1 changes | Conditional logic |
+
+### 17. Patterns borrowed from comparable civic-tech projects
+
+_The projects below tackle the same fundamental problem — ingest parliamentary API data, enrich/join it, and present it — in different countries. None of their code is directly portable, but their architectural decisions are worth stealing._
+
+---
+
+#### 17.1 From openkamer (Netherlands parliament — Django/Python)
+
+**Source:** https://github.com/openkamer/openkamer — 71 stars, actively maintained, MIT licensed.
+
+openkamer scrapes the Tweede Kamer OData API + Wikidata + overheid.nl, stores everything in PostgreSQL, and serves it through a Django web app. Key patterns:
+
+**a) Django management commands as pipeline entry points**
+
+openkamer wraps every pipeline stage in a Django management command:
+
+```
+python manage.py create_data          # full scrape (12-24 hours)
+python manage.py create_demo_data     # subset for testing (10-15 min)
+python manage.py loaddata dump.json   # restore from snapshot (5 min)
+```
+
+**Applicable improvement:** Your pipeline currently requires running individual scripts in the right order (`oireachtas_api_service.py` → `flatten_members_json_to_csv.py` → `attendance_2024.py` → `enrich.py` → `flatten_service.py`). Even without Django, you can create a single `run_pipeline.py` with subcommands:
+
+```python
+# run_pipeline.py
+import argparse
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("stage", choices=[
+        "members", "legislation", "questions", "flatten", "attendance", "enrich", "all"
+    ])
+    parser.add_argument("--demo", action="store_true", help="Process only 10 TDs for quick testing")
+    args = parser.parse_args()
+    # dispatch to the appropriate module
+```
+
+The `--demo` flag is especially valuable — openkamer's `create_demo_data` lets contributors test the full pipeline in 10 minutes instead of 24 hours. For your project, `--demo` could limit to 10 TDs and 1 PDF instead of 175 TDs and 7 PDFs.
+
+**b) JSON dump/restore for reproducibility**
+
+openkamer provides database dumps at `openkamer.org/database/dumps/` so anyone can get a working dataset without running the scraper. This means:
+
+- New contributors are productive in 5 minutes
+- If the external API is down, development continues
+- CI/CD tests run against a known dataset
+
+**Applicable improvement:** After each successful pipeline run, dump your enriched CSVs + a metadata file (run timestamp, row counts, API response codes) into a `snapshots/` directory. Version them with the date: `snapshots/2026-04-07/`. This also gives you rollback capability if a new pipeline run produces bad data.
+
+**c) Wikidata enrichment for politician photos and metadata**
+
+openkamer pulls politician photos, birth dates, and social media links from Wikidata. The Oireachtas API doesn't provide photos, but Wikidata has entries for most Irish TDs.
+
+**Applicable improvement:** A single SPARQL query to Wikidata can return photo URLs, Twitter handles, and birth dates for all Dáil members:
+
+```sparql
+SELECT ?person ?personLabel ?image ?twitter WHERE {
+  ?person wdt:P39 wd:Q654291 .  # Q654291 = Teachta Dála
+  OPTIONAL { ?person wdt:P18 ?image . }
+  OPTIONAL { ?person wdt:P2002 ?twitter . }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
+}
+```
+
+This isn't core to your pipeline but would add a "photos" column for any future dashboard and demonstrates external API integration beyond the Oireachtas ecosystem.
+
+**d) Cron-driven incremental updates**
+
+openkamer runs cron jobs every 5 minutes via `django-cron` to check for new data. This is overkill for your batch pipeline, but the principle matters: separate "first-time full load" from "incremental refresh."
+
+**Applicable improvement:** Add a `--since` flag to your pipeline that only fetches bills/questions/divisions after a given date. Combined with the `date_start` parameter from §16.2, this means daily refreshes only pull the delta:
+
+```
+python run_pipeline.py legislation --since 2026-04-01
+```
+
+---
+
+#### 17.2 From unitedstates/congress (US Congress — Python scrapers)
+
+**Source:** https://github.com/unitedstates/congress — 1k stars, community-maintained, CC0 public domain.
+
+A Python scraper suite that collects bills, amendments, votes, and nominations from the US Congress. Key patterns:
+
+**a) `cache/` and `data/` directory separation**
+
+unitedstates/congress maintains a strict split:
+
+```
+cache/       # raw downloaded files, never committed to git
+data/        # processed output (JSON + XML per bill), committed
+```
+
+**Applicable improvement:** This maps directly to your medallion plan but with clear git rules:
+
+```
+bronze/      # raw API responses, raw PDFs — .gitignored
+silver/      # flattened CSVs, cleaned data — .gitignored (too large)
+gold/        # final enriched outputs, DuckDB file — committed (or versioned separately)
+```
+
+The key insight is that `cache/` (bronze) should be cheaply re-creatable from the API and never committed. Your current `members/members.json` and `bills/legislation_results.json` are cache, not output.
+
+**b) One output-per-entity directory structure**
+
+unitedstates/congress stores data organized by entity:
+
+```
+data/117/bills/hr/hr1/data.json     # House Resolution 1, 117th Congress
+data/117/bills/hr/hr1/data.xml
+data/117/votes/2021/h123/data.json  # House vote 123, 2021
+```
+
+**Applicable improvement:** Instead of one giant flat CSV, consider also producing per-TD JSON profiles in gold:
+
+```
+gold/td/Ivana-Bacik.D.2021-07-09/profile.json    # all data for this TD
+gold/td/Ivana-Bacik.D.2021-07-09/legislation.json
+gold/td/Ivana-Bacik.D.2021-07-09/questions.json
+```
+
+This is useful for any future per-TD dashboard page and makes it trivial to serve static JSON (like robmcelhinney/OireachtasVote does).
+
+**c) CLI runner with `--force` and `--log` flags**
+
+```
+usc-run bills --congress=117 --force --log=info
+```
+
+`--force` bypasses cache and re-downloads. `--log` controls verbosity. These are cheap to add and make the pipeline self-documenting.
+
+**Applicable improvement:** Your logging is already in place. Add `--force` to bypass any cached JSON files and `--log` level control:
+
+```python
+parser.add_argument("--force", action="store_true", help="Re-fetch from API, ignore cached JSON")
+parser.add_argument("--log", choices=["debug", "info", "warning", "error"], default="info")
+```
+
+**d) Dual output format (JSON + XML)**
+
+unitedstates/congress outputs both JSON and XML for every entity for maximum compatibility. For your project, the equivalent is outputting both CSV (for pandas/Excel users) and Parquet (for DuckDB/Spark). Parquet is 5-10x smaller and preserves column types:
+
+```python
+df.to_parquet("gold/enriched_td_attendance.parquet")
+```
+
+DuckDB reads Parquet natively and faster than CSV.
+
+---
+
+#### 17.3 From mysociety/theyworkforyou (UK Parliament — PHP/Perl)
+
+**Source:** https://github.com/mysociety/theyworkforyou — 247 stars, actively maintained (commits last week), BSD license.
+
+The gold standard for parliamentary monitoring — everything MPs say in Hansard, plus Lords, Scottish Parliament, and Northern Ireland Assembly. Key patterns:
+
+**a) Separate parser repo from presentation repo**
+
+theyworkforyou has two repos:
+- `parlparse` — the data parser/scraper (Perl/Python)
+- `theyworkforyou` — the web frontend (PHP)
+
+They are entirely decoupled. The parser writes to a MySQL database that the frontend reads.
+
+**Applicable improvement:** Your data pipeline and any future dashboard should not share code. Keep `dail_extractor/` as the pipeline. If you ever build a Streamlit/Dash/React frontend, it should be a separate project that reads from `gold/` outputs or a DuckDB file. This prevents "just one more UI feature" from creeping into your ETL scripts.
+
+**b) Data limitations page**
+
+theyworkforyou has an explicit `/data-limitations` page documenting what's missing, what's delayed, and what's known-incorrect. robmcelhinney's lobbyieng project does the same.
+
+**Applicable improvement:** Add a `DATA_LIMITATIONS.md` to your repo documenting:
+- The 4 TDs with fada characters that fail API calls (and which ones)
+- The 1 TD missing from PDF extraction (which one and why)
+- Attendance data only covers sitting days, not committee attendance
+- Bill sponsorship vs co-sponsorship ambiguity in the API response
+- Questions data has no date bounds currently (§16.2)
+
+This is both honest engineering and interview-impressive — it shows you understand your data's boundaries.
+
+**c) Codespaces / one-click setup**
+
+theyworkforyou offers a GitHub Codespaces devcontainer that sets up the full environment. Their `scripts/quick-populate` seeds the database with minimal data in ~1 hour.
+
+**Applicable improvement:** A `devcontainer.json` for your project would let anyone clone and run in VS Code with zero local setup. Even without Codespaces, a `Makefile` or `justfile` with common commands is valuable:
+
+```makefile
+install:
+    pip install -r requirements.txt
+
+run-all:
+    python run_pipeline.py all
+
+run-demo:
+    python run_pipeline.py all --demo
+
+test:
+    python -m pytest tests/
+```
+
+---
+
+#### 17.4 From okfn-brasil/serenata-de-amor (Brazil — Python + AI)
+
+**Source:** https://github.com/okfn-brasil/serenata-de-amor — 4.6k stars, 105 contributors, MIT license.
+
+Uses ML to flag suspicious congressperson expenses. Key patterns:
+
+**a) Three-component architecture: Rosie + Jarbas + Toolbox**
+
+- **Rosie** — the analysis engine (ML classifiers for expense anomalies)
+- **Jarbas** — the Django web UI for browsing flagged expenses
+- **serenata-toolbox** — a pip-installable data access package
+
+**Applicable improvement:** If your project grows, consider extracting your data access layer (API fetching, PDF parsing, CSV reading) into a small `dail_toolbox` package. This means any future notebook, dashboard, or analysis script can `from dail_toolbox import fetch_members` without importing your entire pipeline. Even just putting shared functions in a proper Python package with `__init__.py` exports is a step toward this.
+
+**b) Research notebooks alongside production code**
+
+serenata-de-amor maintains a separate `notebooks/` repo for exploratory analysis, distinct from production code. Contributors experiment in notebooks, then graduate working code into the main repo.
+
+**Applicable improvement:** Add a `notebooks/` directory for your DuckDB SQL practice queries (from §11), exploratory visualizations, and data quality checks. Keep them separate from pipeline code. This also gives you material for the portfolio section of REARCHITECTURE.md — embedded notebook outputs make excellent README screenshots.
+
+**c) Versioned datasets via toolbox**
+
+"A few times per year, we upload versioned datasets accessible via the toolbox." This means consumers can pin to a known dataset version while the scrapers evolve.
+
+**Applicable improvement:** Tag your gold outputs with a version or date when you produce them. Even a simple `gold/metadata.json`:
+
+```json
+{
+  "pipeline_version": "0.2.0",
+  "run_date": "2026-04-07T14:30:00",
+  "members_count": 175,
+  "bills_count": 1170,
+  "questions_count": null,
+  "source_pdfs": 7,
+  "failed_api_calls": 4,
+  "notes": "4 TDs with fada encoding errors excluded"
+}
+```
+
+---
+
+#### 17.5 From robmcelhinney/lobbyieng (Ireland lobbying data — Next.js/Python/SQLite)
+
+**Source:** https://github.com/robmcelhinney/lobbyieng — the most architecturally polished Irish civic project.
+
+**a) SQLite as intermediate analytical store**
+
+lobbyieng uses `parser.py` → SQLite → Next.js API routes. Tables are dropped and recreated on each parse run (idempotent). Indexes are created post-load.
+
+**Applicable improvement:** This validates your DuckDB plan. The pattern is: Python parser populates the DB, the DB serves queries. Your equivalent:
+
+```
+oireachtas_api_service.py → bronze JSON
+flatten + enrich scripts → silver CSVs
+load into DuckDB → gold/dail.duckdb
+```
+
+One insight from lobbyieng: **create indexes after bulk-loading**, not during. DuckDB does this automatically for most queries, but explicit indexes on join keys (`unique_member_code`, `bill_id`) will speed up multi-table queries.
+
+**b) API caching and precomputed insights**
+
+lobbyieng's latest commit is literally "perf: add SQLite tuning, API caching, and precomputed explore insights." They precompute expensive aggregations at build time rather than query time.
+
+**Applicable improvement:** After loading data into DuckDB, run your most expensive aggregation queries (party summaries, per-TD bill counts, committee network) and materialize them as tables. When your future dashboard needs them, it reads a precomputed table instead of re-aggregating 1170 bills.
+
+**c) Data limitations page built into the app**
+
+lobbyieng has a dedicated `/data-limitations` route documenting coverage gaps, update cadence, and known issues.
+
+**Applicable improvement:** Reinforces §17.3b above — document your data boundaries. Do this in your README or a separate file. Interviewers will ask "what are the limitations of your data?" and having a documented answer is better than improvising.
+
+---
+
+#### 17.6 Summary — concrete actions from comparable projects
+
+| Action | Inspired by | Priority | Effort |
+|---|---|---|---|
+| Create `run_pipeline.py` with subcommands + `--demo` flag | openkamer, unitedstates/congress | **High** | ~50 lines |
+| Separate `bronze/` (gitignored cache) from `gold/` (outputs) | unitedstates/congress | **High** | Directory restructure |
+| Add `--force` and `--since` flags for incremental runs | openkamer, unitedstates/congress | **Medium** | ~20 lines |
+| Create `gold/metadata.json` after each pipeline run | serenata-de-amor | **Medium** | ~15 lines |
+| Write `DATA_LIMITATIONS.md` documenting known gaps | theyworkforyou, lobbyieng | **Medium** | Documentation only |
+| Add `Makefile` with `install`, `run-all`, `run-demo`, `test` targets | theyworkforyou | **Medium** | ~15 lines |
+| Output Parquet alongside CSV for DuckDB performance | unitedstates/congress dual-format pattern | **Low** | 1 line per output |
+| Add `notebooks/` directory for DuckDB SQL exploration | serenata-de-amor | **Low** | Directory + notebooks |
+| Extract shared utilities into installable `dail_toolbox` package | serenata-de-amor | **Low** | Package restructure |
+| Wikidata SPARQL query for TD photos/social links | openkamer | **Low** | Single API call |
+| Create `devcontainer.json` for one-click dev setup | theyworkforyou | **Low** | Config file |
+| Precompute expensive aggregations as materialised DuckDB tables | lobbyieng | **Low** | After DuckDB setup |
