@@ -7,9 +7,10 @@ import re
 pdf_payment = pathlib.Path(r"C:\Users\pglyn\PycharmProjects\dail_extractor\pdf_payments")
 #https://www.oireachtas.ie/en/publications/?q=standard%20allowance&date=&term=%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34&fromDate=03%2F04%2F2026&toDate=03%2F04%2F2026
 
+td_area = pl.read_csv('members/enriched_td_attendance.csv')
+td_area = td_area.select(pl.col('join_key'), pl.col('member_constituency')).unique(subset=['join_key'])
+print(type(td_area))
 # TODO to file checks to see if end .csv are created successfully and contain expected number of rows, and if not, log errors and reasons why (e.g. API call failure, PDF parsing failure, etc.)
-
-
 EXCLUDE_PLACEHOLDER = re.compile(r"^(Parliamentary Standard)")
 all_rows = []
 print('Starting to process payment PDFs...')
@@ -36,12 +37,9 @@ df = df.with_columns(pl.col('Name_Split'
                     ).unnest("Name_Split").drop('Name')
 
 df = normalise_df_td_name(df, 'Full_Name').with_columns(
-    pl.col('Date_Paid').str.to_date(format="%d/%m/%Y"),
+    pl.col('Date_Paid').str.to_date(format="%d/%m/%Y")
 )
 
-# top_tds_by_payment = df.select(
-#     ['Full_Name', 'Amount', 'join_key']
-#     ).unique()
 df.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\aggregated_payment_tables.csv')
 top_tds_by_payment = df.with_columns(
     pl.col('Amount').str.replace_all(
@@ -49,18 +47,21 @@ top_tds_by_payment = df.with_columns(
         ).cast(pl.Float64) #remove euro sign
     )
 top_tds_by_payment = top_tds_by_payment.with_columns(
-    pl.sum('Amount').over('join_key').alias('total_amount_paid_since_31_01_2025')
+    pl.sum('Amount').over('join_key').alias('total_amount_paid_since_31_01_2024')
 ).sort(
-    'total_amount_paid_since_31_01_2025', 
+    'total_amount_paid_since_31_01_2024', 
     descending=True)
-top_tds_by_payment= top_tds_by_payment.unique(subset=['join_key'])
+# top_tds_by_payment= top_tds_by_payment.unique(subset=['join_key'])
 # top_tds_by_payment= top_tds_by_payment.unique(
-#             subset=['join_key']).select(
-#                 ['Full_Name', "join_key", 'total_amount_paid_since_31_01_2025']
-#                 ).sort('total_amount_paid_since_31_01_2025', 
-#                descending=True
-#                )
+top_tds_by_payment = top_tds_by_payment.select(
+                ['Full_Name', "join_key", 'total_amount_paid_since_31_01_2024']
+                ).sort('total_amount_paid_since_31_01_2024', 
+               descending=True
+               ).unique(subset=['join_key']
+            ).sort('total_amount_paid_since_31_01_2024', 
+               descending=True)
 #TODO filter logic for Ceann Comhairle 
 #TODO filter logic for TDs who were elected after the payment date (e.g. payments made in 2024 should only be matched to TDs elected in 2024 or earlier)
 top_tds_by_payment.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\top_tds_by_payment_2024.csv')
-      
+current_td_payments = df.join(td_area, on='join_key', how='inner').select(pl.col('Full_Name'), pl.col('member_constituency'), pl.col('Amount'))
+current_td_payments.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\current_td_payments_2024.csv')     
