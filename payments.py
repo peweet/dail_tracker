@@ -15,17 +15,14 @@ print('Starting to process payment PDFs...')
 for pdf in pdf_payment.glob("*.pdf"):
     # print(f"Processing payment file: {pdf}...")
     doc = fitz.open(pdf)  # Open the PDF document using PyMuPDF
-    # print(f"Number of pages in {pdf}: {doc.page_count}")  # Debug: print the number of pages
     print(f"Processing payment file: {pdf} with {doc.page_count} pages...")
     for page in doc:
-        # print(f"Processing page {page.number} of {pdf}...")  # Debug: print the current page number
-        # table = page.find_tables()
         for table in page.find_tables().tables:
             all_rows.extend(table.extract()) 
 
 cleaned_rows = []
 for row in all_rows:
-    if not EXCLUDE_PLACEHOLDER.search(str(row[0] or "")):
+    if not EXCLUDE_PLACEHOLDER.search(str(row[0])):
         cleaned_rows.append(row)
 all_rows = cleaned_rows
 
@@ -37,7 +34,19 @@ df = df.with_columns(pl.col('Name_Split'
                     ).struct.rename_fields(["Position", "Full_Name"])
                     ).unnest("Name_Split").drop('Name')
 df = normalise_df_td_name(df, 'Full_Name')
+
+top_tds_by_payment = df.select(['Full_Name', 'Amount', 'join_key']).unique()
+top_tds_by_payment.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\aggregated_payment_tables.csv')
+print("Top 10 TDs by total payments:")
+top_tds_by_payment = top_tds_by_payment.with_columns(
+    # pl.col('Date_Paid').str.to_date(format="%d/%m/%Y"),
+    pl.col('Amount').str.replace_all(r"[^.0-9\-]", "").cast(pl.Float64), #remove euro sign
+    )
+top_tds_by_payment = top_tds_by_payment.with_columns(
+    pl.sum('Amount').over('join_key').alias('total_amount_paid_since_31_01_2025')
+).sort('total_amount_paid_since_31_01_2025', descending=True)
+top_tds_by_payment= top_tds_by_payment.unique(subset=['join_key']).select(['Full_Name', "join_key", 'total_amount_paid_since_31_01_2025']).sort('total_amount_paid_since_31_01_2025', descending=True)
 #TODO filter logic for Ceann Comhairle 
 #TODO filter logic for TDs who were elected after the payment date (e.g. payments made in 2024 should only be matched to TDs elected in 2024 or earlier)
-df.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\aggregated_payment_tables.csv')
+top_tds_by_payment.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\top_tds_by_payment.csv')
       
