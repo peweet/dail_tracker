@@ -7,6 +7,7 @@
 .venv/
 
 # === Pipeline data outputs (regenerable, don't track) ===
+*.csv
 *.json
 /pdf_storage/
 /payments_pdf/

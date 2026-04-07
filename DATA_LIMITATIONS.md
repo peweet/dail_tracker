@@ -58,12 +58,17 @@ Inspired by theyworkforyou's DATA_LIMITATIONS.md pattern (§17.3b) and lobbyieng
 - Same limitation for related documents: only index-0 related doc is kept.
 - The API response **does** distinguish `isPrimary`, but the flattening only keeps the first sponsor element.
 
-## 6. Fuzzy Join Risks (normalise_join_key.py → enrich.py)
+## 6. Name-Based Join Risks (normalise_join_key.py → enrich.py)
 
-- Join key is built by: strip accents → remove non-alpha → sort characters alphabetically.
-- **Collision risk:** two different names that contain the same letters produce the same key (e.g., anagram names).
-- **Unmatched attendance rows** are silently lost — left join is driven from the API side, so any PDF-only TD that fails key matching disappears.
+The PDF sources (attendance, payments) provide **no primary key or unique identifier** for individual TDs — only human-readable names in varying formats (e.g., "Surname, Firstname", "Firstname Surname", with or without fadas). The Oireachtas API similarly uses name-based URIs rather than stable numeric IDs. This makes deterministic joining across datasets impossible at the early pipeline stage.
+
+The normalised join key (strip accents → remove non-alpha → sort characters alphabetically) is a pragmatic workaround, but it introduces several known risks:
+
+- **Minor spelling variations break joins.** A name rendered as "Ahern" in one PDF and "Aherne" in another produces different sorted keys (`aaacehinnrr` vs `aaaceehinnrr`). These mismatches cause silent NULLs in the enriched output. There is no fallback — the join is exact on the sorted key.
+- **Collision risk:** two different names that are anagrams of each other produce the same key, causing one TD to overwrite the other in the join.
+- **Unmatched rows are silently lost** — left join is driven from the API side, so any PDF-only TD that fails key matching disappears without warning.
 - `enrich.py` deduplicates on `join_key` with `keep='first'` — if the API returns two members with the same sorted key, one is silently dropped.
+- **Normalisation logic is currently duplicated** across `normalise_join_key.py` and `payments.py`. Any divergence between the two (e.g., one lowercases before stripping non-alpha and the other does not) will produce different keys for the same TD, guaranteeing a join miss. This should be consolidated into a single shared service.
 - The `join_key` column is left in the final CSV (commented-out `.drop('join_key')` on line 23).
 
 ## 7. Column Dropping
