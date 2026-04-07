@@ -1,7 +1,7 @@
 import fitz  # PyMuPDF
 import glob
 import pathlib
-# import pandas as pd
+from normalise_join_key import normalise_df_td_name
 import polars as pl
 import re 
 pdf_payment = pathlib.Path(r"C:\Users\pglyn\PycharmProjects\dail_extractor\pdf_payments")
@@ -36,20 +36,8 @@ df = df.with_columns(pl.col('Name').str.splitn(by=' ', n=2
 df = df.with_columns(pl.col('Name_Split'
                     ).struct.rename_fields(["Position", "Full_Name"])
                     ).unnest("Name_Split").drop('Name')
+df = normalise_df_td_name(df, 'Full_Name')
 #TODO filter logic for Ceann Comhairle 
 #TODO filter logic for TDs who were elected after the payment date (e.g. payments made in 2024 should only be matched to TDs elected in 2024 or earlier)
-df = df.with_columns(
-        # NFD converts accented chars into base letter + combining accent mark to make it easier to join
-        pl.col('Full_Name')
-        .str.to_lowercase()
-        .str.replace_all(r"[\x27\u2019]", "")
-        .str.replace_all(r"[\u0300-\u036f]", "") # remove accents and fadas as it becomes too difficult to join names with special characters otherwise (e.g. O'Sullivan, Ó Súilleabháin)
-        .str.replace_all(r"[^a-z\s]", "")
-        .str.normalize("NFD").alias('join_key')
-        .str.replace_all(r"\s+", "")# Remove all whitespace
-        .str.extract_all(r".")    # Extract individual characters into a list       
-        .list.sort() # Sort the list of characters alphabetically (e.g. "OSuilleabhain" → "Oabhiillnsuu")
-        .list.join("") # Join the sorted characters back into a string
-        )
 df.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\aggregated_payment_tables.csv')
       

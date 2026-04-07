@@ -12,6 +12,12 @@ test_working_legislation_single_td = "https://api.oireachtas.ie/v1/legislation?d
 # Another working test URL for a single TD
 legislation_working = "https://api.oireachtas.ie/v1/legislation?date_start=1900-01-01&date_end=&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en"
 
+
+interesting_github="https://github.com/robmcelhinney/OireachtasVote"
+interesting_github_2="https://github.com/robmcelhinney/OireachtasVote/blob/master/python/OireachtasVotingHistory.py"
+interesting_github_3="https://github.com/robmcelhinney/OireachtasVote/blob/master/python/OireachtasVoting.py"
+
+
 #ATTENDANCE PDF LINKS
 pdf_2023="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2024/2024-02-01_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2023-to-31-december-2023_en.pdf"
 pdf_2024="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2025/2025-02-17_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2024-to-08-november-2024_en.pdf"
