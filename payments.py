@@ -7,8 +7,9 @@ import re
 pdf_payment = pathlib.Path(r"C:\Users\pglyn\PycharmProjects\dail_extractor\pdf_payments")
 #https://www.oireachtas.ie/en/publications/?q=standard%20allowance&date=&term=%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34&fromDate=03%2F04%2F2026&toDate=03%2F04%2F2026
 
-# totally_exclude = ['Parliamentary', 'Standard', 'Allowance']
-# header_names = ['Name', 'TAA Band', 'Narrative', 'Date Paid', 'Amount']
+# TODO to file checks to see if end .csv are created successfully and contain expected number of rows, and if not, log errors and reasons why (e.g. API call failure, PDF parsing failure, etc.)
+
+
 EXCLUDE_PLACEHOLDER = re.compile(r"^(Parliamentary Standard)")
 all_rows = []
 print('Starting to process payment PDFs...')
@@ -33,14 +34,19 @@ df = df.with_columns(pl.col('Name').str.splitn(by=' ', n=2
 df = df.with_columns(pl.col('Name_Split'
                     ).struct.rename_fields(["Position", "Full_Name"])
                     ).unnest("Name_Split").drop('Name')
-df = normalise_df_td_name(df, 'Full_Name')
 
-top_tds_by_payment = df.select(['Full_Name', 'Amount', 'join_key']).unique()
+df = normalise_df_td_name(df, 'Full_Name').with_columns(
+    pl.col('Date_Paid').str.to_date(format="%d/%m/%Y"),
+)
+
+top_tds_by_payment = df.select(
+    ['Full_Name', 'Amount', 'join_key']
+    ).unique()
 top_tds_by_payment.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\aggregated_payment_tables.csv')
-print("Top 10 TDs by total payments:")
 top_tds_by_payment = top_tds_by_payment.with_columns(
-    # pl.col('Date_Paid').str.to_date(format="%d/%m/%Y"),
-    pl.col('Amount').str.replace_all(r"[^.0-9\-]", "").cast(pl.Float64), #remove euro sign
+    pl.col('Amount').str.replace_all(
+        r"[^.0-9\-]", ""
+        ).cast(pl.Float64) #remove euro sign
     )
 top_tds_by_payment = top_tds_by_payment.with_columns(
     pl.sum('Amount').over('join_key').alias('total_amount_paid_since_31_01_2025')
