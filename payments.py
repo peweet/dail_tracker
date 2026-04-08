@@ -8,8 +8,6 @@ pdf_payment = pathlib.Path(r"C:\Users\pglyn\PycharmProjects\dail_extractor\pdf_p
 #https://www.oireachtas.ie/en/publications/?q=standard%20allowance&date=&term=%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34&fromDate=03%2F04%2F2026&toDate=03%2F04%2F2026
 
 # TODO to file checks to see if end .csv are created successfully and contain expected number of rows, and if not, log errors and reasons why (e.g. API call failure, PDF parsing failure, etc.)
-
-
 EXCLUDE_PLACEHOLDER = re.compile(r"^(Parliamentary Standard)")
 all_rows = []
 print('Starting to process payment PDFs...')
@@ -38,10 +36,6 @@ df = df.with_columns(pl.col('Name_Split'
 df = normalise_df_td_name(df, 'Full_Name').with_columns(
     pl.col('Date_Paid').str.to_date(format="%d/%m/%Y"),
 )
-
-# top_tds_by_payment = df.select(
-#     ['Full_Name', 'Amount', 'join_key']
-#     ).unique()
 df.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\aggregated_payment_tables.csv')
 top_tds_by_payment = df.with_columns(
     pl.col('Amount').str.replace_all(
@@ -54,12 +48,6 @@ top_tds_by_payment = top_tds_by_payment.with_columns(
     'total_amount_paid_since_31_01_2025', 
     descending=True)
 top_tds_by_payment= top_tds_by_payment.unique(subset=['join_key'])
-# top_tds_by_payment= top_tds_by_payment.unique(
-#             subset=['join_key']).select(
-#                 ['Full_Name', "join_key", 'total_amount_paid_since_31_01_2025']
-#                 ).sort('total_amount_paid_since_31_01_2025', 
-#                descending=True
-#                )
 #TODO filter logic for Ceann Comhairle 
 #TODO filter logic for TDs who were elected after the payment date (e.g. payments made in 2024 should only be matched to TDs elected in 2024 or earlier)
 top_tds_by_payment.write_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\top_tds_by_payment_2024.csv')
