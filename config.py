@@ -33,6 +33,9 @@ SCAN_PDF = DATA_DIR / "scan_pdf"
 UTILITY = ROOT / "utility"
 PDF_STORAGE = DATA_DIR / "pdf_storage"
 
+
+#TODO adapt config to reflect bronze, silver, gold medallion architecture, and to include more specific paths for different types of data (e.g. attendance, payments, lobbying, etc.) and for different stages of the pipeline (e.g. raw, processed, etc.). This will help to keep the project organized and make it easier to manage the data and the codebase as the project grows and evolves over time. For example, we could have a directory structure like this:
+# data/
 # Collect all directories that need to exist
 _DIRS = [
     # RAW_DIR,
