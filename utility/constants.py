@@ -68,3 +68,5 @@ lobbying_source_github = "https://github.com/robmcelhinney/lobbyieng/blob/main/p
 
 lobbying_url = "https://www.lobbying.ie/app/home/search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&publicBodys=&jobTitles=&returnDateFrom=&returnDateTo=&period=&dpo=&client=&responsible=&lobbyist=&lobbyistId="
 lobbying_url_2 = "https://www.lobbying.ie/"
+
+member_interests_2025="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2026/2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
