@@ -17,7 +17,7 @@ if __name__ == '__main__':  # To ensure correct behavior on Windows and macOS
     )
     ocrmypdf.ocr(options)
 
-
+#TODO replace path with config variable and add error handling and logging to this process, and to the rest of the codebase (e.g. log when OCR process starts and finishes, log any errors that occur during OCR, log when text extraction starts and finishes, log any errors that occur during text extraction, etc.)
 pdf_payment = pathlib.Path(r"C:\Users\pglyn\PycharmProjects\dail_extractor\scan_pdf\output\scan_pdf-ocr.pdf")
 print('Starting to process scanned PDFs...')
 doc = fitz.open(pdf_payment)  # Open the PDF document using PyMuPDF
