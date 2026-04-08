@@ -2,15 +2,16 @@
 
 # config.py
 from pathlib import Path
-# PROJECT_ROOT = Path(__file__)
-# print(f"Project root directory: {PROJECT_ROOT}")
-# DATA_DIR = PROJECT_ROOT / "dail_extractor"
-# print(f"Data directory: {DATA_DIR}")
-# API_BASE = "https://api.oireachtas.ie/v1"
-# # PARTY_CODES = ["Social_Democrats", "Sinn_Féin", ...]
-# DATE_RANGE = ("2024-01-01", "2099-01-01")
-# CHAMBER_DAIL = "chamber=dail"
-# Y_M_D_format = "%Y-%m-%d"
+PROJECT_ROOT = Path(__file__)
+print(f"Project root directory: {PROJECT_ROOT}")
+DATA_DIR = PROJECT_ROOT / "dail_extractor"
+print(f"Data directory: {DATA_DIR}")
+API_BASE = "https://api.oireachtas.ie/v1"
+# PARTY_CODES = ["Social_Democrats", "Sinn_Féin", ...]
+DATE_RANGE = ("2024-01-01", "2099-01-01")
+CHAMBER_DAIL = "chamber=dail"
+CHAMBER_SEANAD = "chamber=seanad"
+Y_M_D_format = "%Y-%m-%d"
 
 # Project root - anchored relative to this file
 ROOT = Path(__file__).resolve().parent

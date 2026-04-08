@@ -34,6 +34,7 @@ with open(filtered_members_path) as f:
     print("CSV file created successfully.")
 
 #delete no longer needed data
+#TODO: put this type of logic at the end of the pipeline, and make it more robust (e.g. check if files exist before trying to delete them, and only delete files that are no longer needed for any future steps in the pipeline)
 if os.path.exists('members/filtered_members.json' or os.path.exists('members/flattened_members.json') or os.path.exists('members/members.json')):
     os.remove('members/filtered_members.json')
     os.remove('members/members.json')
