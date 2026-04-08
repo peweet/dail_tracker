@@ -85,11 +85,11 @@ def fetch_all(urls):
                 data = future.result()
                 results.append(json.loads(data))
             except Exception as exc:
-                logger.error("API call failed for %s: %s", url, exc)
+                logging.error("API call failed for %s: %s", url, exc)
             else:
-                logger.info('%r page is %d bytes' % (url, len(data)))
+                logging.info('%r page is %d bytes' % (url, len(data)))
     return results
-logger.info("loading json...")
+logging.info("loading json...")
 
 construct_urls_for_api(api_scenario="questions")
 

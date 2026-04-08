@@ -267,3 +267,24 @@ members_rename = {
         'member_firstName': 'first_name', 
         'member_lastName': 'last_name'
         }
+
+lobbying_rename = {
+    "Id" :"primary_key", 
+    "Url" : "lobby_enterprise_uri",
+    "Lobbyist Name" : "lobbyist_name",
+    "Date Published" : "date_published_timestamp",
+    "Period" : "lobbying_period",
+    "DPOs Lobbied" : "dpo_lobbied",
+		"Relevant Matter" : "relevant_matter",
+		"Public Policy Area" : "public_policy_area",
+    "Specific Details" : "specific_details",
+    "Intended Results" : "intended_results",
+    "Lobbying Activities" : "lobbying_activities",
+    "Person primarily responsible for lobbying on this activity" : "person_primarily_responsible",
+    "Any DPOs or Former DPOs who carried out lobbying activities" : "dpos_or_former_dpos_who_carried_out_lobbying",
+    "Current or Former DPOs" : "current_or_former_dpos",    
+    "Was this a grassroots campaign?" : "was_this_a_grassroots_campaign",
+    "Grassroots directive" : "grassroots_directive",
+    "Was this lobbying done on behalf of a client?" : "was_this_lobbying_done_on_behalf_of_a_client",
+    "Client(s)" : "clients"
+    }
