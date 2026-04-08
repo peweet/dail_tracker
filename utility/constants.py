@@ -19,6 +19,8 @@ interesting_github_3="https://github.com/robmcelhinney/OireachtasVote/blob/maste
 
 
 #ATTENDANCE PDF LINKS
+
+#TODO make api calls to persist this into dedicated folders and files in the data directory, and then read from those files in the relevant services (e.g. payments.py, attendance.py, etc.) instead of hardcoding the URLs in those services. This way we can easily update the data by just updating the files in the data directory without having to change the code in multiple places.
 pdf_2023="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2024/2024-02-01_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2023-to-31-december-2023_en.pdf"
 pdf_2024="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2025/2025-02-17_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2024-to-08-november-2024_en.pdf"
 pdf_2024_gap="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2025/2025-02-28_deputies-verification-of-attendance-for-the-payment-of-taa-29-november-2024-to-31-december-2024_en.pdf"
