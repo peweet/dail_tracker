@@ -2,7 +2,7 @@ import json
 from flatten_json import flatten
 import pandas as pd
 import os
-from utility.select_cols_drop_cols import members_drop_cols,members_rename
+from utility.select_drop_rename_cols_mappings import members_drop_cols,members_rename
 
 members_json_path = "members/members.json"
 json_data = json.load(open(members_json_path, "r"))
