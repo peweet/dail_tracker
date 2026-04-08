@@ -8,8 +8,10 @@ import pandas as pd
 from numpy import nan
 import os                                                                   
 import glob    
-import logging
-# ---Attendance Dail Eireann 2023, 2024, 2025 attendance PDF ---
+
+# --- Remote URL for the  2023, 2024, 2025 attendance PDF ---
+
+
 dataframes = []
 IRISH_NAME_REGEX = re.compile(r"^[A-ZÁÉÍÓÚ][a-zA-ZáéíóúÁÉÍÓÚ'\s\-]+$")
 EXCLUDE_CASES = re.compile(r"^(Member|Sitting|Totals|Total)")
@@ -55,8 +57,8 @@ for pdf in list(glob.glob('*.pdf')):
     )   # Add a column counting non-empty attendance entries
     df = pd.merge(df, result, on='identifier', how='left') # Join the counts back to the original DataFrame
     df = df.drop('identifier', axis=1) # Drop the identifier column as it's no longer needed
-    logging.info('Final DataFrame with attendance counts:')
+    print('Final DataFrame with attendance counts:')
     df['sitting_total_days'] = df['sitting_days_count'] + df['other_days_count']
     df.to_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\aggregated_td_tables.csv', index=False) 
-    logging.info("TD attendance CSV created successfully.")
+    print("TD attendance CSV created successfully.")
 
