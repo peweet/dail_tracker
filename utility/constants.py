@@ -70,3 +70,11 @@ lobbying_url = "https://www.lobbying.ie/app/home/search?currentPage=0&pageSize=2
 lobbying_url_2 = "https://www.lobbying.ie/"
 
 member_interests_2025="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2026/2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
+
+parrse="https://github.com/mysociety/parlparse"
+they_work_for_you="github.com/mysociety/theyworkforyou"
+
+kildare_street_code="https://github.com/shoveyourgaggingorderupyourarse/oireachtasdata/blob/master/bin/search"
+
+cro_api = "https://services.cro.ie/overview.aspx"
+cro_data_dict="https://services.cro.ie/datadict.aspx"

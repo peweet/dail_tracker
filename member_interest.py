@@ -2,26 +2,9 @@ import fitz  # PyMuPDF
 import pathlib
 import json
 import re
+import os
 import polars as pl
 import normalise_join_key 
-
-
-member_interest = pathlib.Path(r"C:\Users\pglyn\PycharmProjects\dail_extractor\pdf_member_interest\2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf")
-categories = re.compile(r"^\d+\.\s")       # "1. ", "2. " etc.
-member_name = re.compile(r"^[A-Z]{2,},\s")  # "ARDAGH, Catherine"
-
-print("Starting to process member interest PDF...")
-doc = fitz.open(member_interest)
-print(f"Processing file: {member_interest} with {doc.page_count} pages...")
-
-# Extract and flatten all text lines
-text_boxes = []
-for page in doc:
-    text = page.get_text(option="text")
-    # The strip method removes any leading or trailing whitespace characters from the extracted text, which can help clean up the data and make it easier to process further. This is especially useful when dealing with text extracted from PDFs, as there can often be extra spaces or newline characters that are not relevant to the actual content we want to analyze.
-    text = text.strip()
-    # The splitlines method with keepends=False (which is the default) splits the text into lines and removes the newline characters. This gives us a list of lines that we can then process further to group them by member and their interests.
-
 """
 member_interest.py
 ------------------
@@ -40,10 +23,25 @@ Cleaning steps:
 - Remove empty lines, headers, and footers
 - Group lines by member and interest category
 - Normalize and split out names and interests for further analysis
-
 The result is a structured dataset of members and their declared interests, suitable for downstream analysis.
 """
 
+
+member_interest = pathlib.Path(r"C:\Users\pglyn\PycharmProjects\dail_extractor\pdf_member_interest\2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf")
+categories = re.compile(r"^\d+\.\s")       # "1. ", "2. " etc.
+member_name = re.compile(r"^[A-Z]{2,},\s")  # "ARDAGH, Catherine"
+
+print("Starting to process member interest PDF...")
+doc = fitz.open(member_interest)
+print(f"Processing file: {member_interest} with {doc.page_count} pages...")
+
+# Extract and flatten all text lines
+text_boxes = []
+for page in doc:
+    text = page.get_text(option="text")
+    # The strip method removes any leading or trailing whitespace characters from the extracted text, which can help clean up the data and make it easier to process further. This is especially useful when dealing with text extracted from PDFs, as there can often be extra spaces or newline characters that are not relevant to the actual content we want to analyze.
+    text = text.strip()
+    # The splitlines method with keepends=False (which is the default) splits the text into lines and removes the newline characters. This gives us a list of lines that we can then process further to group them by member and their interests.
     lines = text.splitlines(False)
     text_boxes.append(lines)
 
@@ -93,7 +91,7 @@ if current.strip():
 # Structure into members with their interests
 members = []
 current_member = None
-
+#TODO can the flatten_service.py replace the below logic for grouping the lines into member entries and their interests? It seems like a similar problem of grouping fragmented lines together, and we could potentially reuse some of the logic from there to make this more robust and easier to maintain. For example, we could use a similar approach of checking for patterns that indicate the start of a new member entry (e.g., a line that matches the member name pattern), and then grouping subsequent lines as interests until we encounter the next member entry. This would allow us to handle cases where a member's interests are split across multiple lines in the PDF, and ensure that they are grouped together correctly in our final output.
 for line in grouped:
     # If the line matches the member name pattern (e.g., "SMITH, John"),
     # this signals the start of a new member's entry.
@@ -178,10 +176,6 @@ df = df.with_columns(
     .when(pl.col('interest_code')   == "3").then(pl.lit("Directorships"))
     .when(pl.col('interest_code')   == "4").then(pl.lit("Land (including property)"))
     .when(pl.col('interest_code')   == "5").then(pl.lit("Gifts"))
-
-if __name__ == "__main__":
-    # This ensures the script only runs when executed directly, not on import
-    pass
     .when(pl.col('interest_code')   == "6").then(pl.lit("Property supplied or lent or a Service supplied"))
     .when(pl.col('interest_code')   == "7").then(pl.lit("Travel Facilities"))
     .when(pl.col('interest_code')   == "8").then(pl.lit("Remunerated Position"))
@@ -204,3 +198,10 @@ df = df.join(enrich_data, on='join_key', how='left').drop("name", "join_key", "i
 df.write_csv(r"C:\Users\pglyn\PycharmProjects\dail_extractor\members\member_interests_grouped.csv")
 print(f"Processed {len(members)} members")
 print(f"Output saved to {output_path}")
+
+if os.path.exists('members/member_interests_grouped.json' ):
+    os.remove('members/member_interests_grouped.json')
+    print('JSON files deleted successfully.')
+    
+if __name__ == "__main__":
+    print("Member interest extraction complete. CSV and JSON files created successfully.")
