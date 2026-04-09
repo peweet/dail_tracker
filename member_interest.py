@@ -21,6 +21,29 @@ for page in doc:
     # The strip method removes any leading or trailing whitespace characters from the extracted text, which can help clean up the data and make it easier to process further. This is especially useful when dealing with text extracted from PDFs, as there can often be extra spaces or newline characters that are not relevant to the actual content we want to analyze.
     text = text.strip()
     # The splitlines method with keepends=False (which is the default) splits the text into lines and removes the newline characters. This gives us a list of lines that we can then process further to group them by member and their interests.
+
+"""
+member_interest.py
+------------------
+Extracts, cleans, and structures the Register of Members' Interests from a PDF file.
+
+This script processes the messy, unstructured PDF text, groups lines into member entries and their interests,
+and outputs a normalized CSV and JSON. The main challenge is that the PDF contains a lot of superfluous data
+(headers, footers, disclaimers, and line breaks in awkward places), so the approach is to aggressively cut away
+the fluff and only keep the core data (member names and their interests). This is much easier and more robust
+than trying to extract the relevant data directly from a very messy and inconsistent structure.
+
+Regexes are used to:
+- Identify category headers (e.g., "1. ", "2. ")
+- Identify member name lines (e.g., "SMITH, John")
+Cleaning steps:
+- Remove empty lines, headers, and footers
+- Group lines by member and interest category
+- Normalize and split out names and interests for further analysis
+
+The result is a structured dataset of members and their declared interests, suitable for downstream analysis.
+"""
+
     lines = text.splitlines(False)
     text_boxes.append(lines)
 
@@ -155,13 +178,16 @@ df = df.with_columns(
     .when(pl.col('interest_code')   == "3").then(pl.lit("Directorships"))
     .when(pl.col('interest_code')   == "4").then(pl.lit("Land (including property)"))
     .when(pl.col('interest_code')   == "5").then(pl.lit("Gifts"))
+
+if __name__ == "__main__":
+    # This ensures the script only runs when executed directly, not on import
+    pass
     .when(pl.col('interest_code')   == "6").then(pl.lit("Property supplied or lent or a Service supplied"))
     .when(pl.col('interest_code')   == "7").then(pl.lit("Travel Facilities"))
     .when(pl.col('interest_code')   == "8").then(pl.lit("Remunerated Position"))
     .when(pl.col('interest_code')   == "9").then(pl.lit("Contracts")).otherwise(pl.col('interest_code')
     ).alias('interest_category')
 )
-
 df = df.with_columns(
     pl.col('full_name').list.get(0).alias('last_name'),
     pl.col('full_name').list.get(1).alias('first_name')
