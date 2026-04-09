@@ -4,6 +4,23 @@ from utility.select_drop_rename_cols_mappings import lobbying_rename
 # eg: https://www.lobbying.ie/app/home/search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&publicBodys=&jobTitles=11&returnDateFrom=01-02-2026&returnDateTo=08-04-2026&period=&dpo=&client=&responsible=&lobbyist=&lobbyistId=
 #TODO make read csv more agnostic and read any pdf from the lobbying folder, and then persist the cleaned and filtered data to a dedicated folder in the processed data directory, instead of hardcoding the file paths in the code. This way we can easily update the data by just updating the files in the data directory without having to change the code in multiple places.
 df = pl.read_csv("C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/Lobbying_ie_returns_results_1.csv")
+df1=pl.read_csv("C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/Lobbying_ie_returns_results_01_02_2024_to_01_02_2025.csv")
+df2=pl.read_csv("C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/Lobbying_ie_returns_results_01_02_2025_to_1_02_2026.csv")
+
+lobby_org = pl.read_csv("C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/Lobbying_ie_organisation_results.csv", schema_overrides=True, infer_schema_length=10000)
+lobby_org = lobby_org.select("Id","Name","Main activities of the organisation", "CompanyRegistrationNumber", "CompanyRegisteredName")
+#construct hyperlinks for the lobby orgs
+lobby_org = lobby_org.with_columns(pl.col('Name').lower_case().replace(" ", "-").alias("name_for_link"))
+lobby_org = lobby_org.with_columns(
+    #https://www.lobbying.ie/organisation
+    pl.format("https://www.lobbying.ie/organisation/{}/{}", pl.col("Id"), pl.col('name_for_link')).alias("lobby_org_link")
+    )
+lobby_org = lobby_org.drop("name_for_link")
+lobby_org = lobby_org.rename({"Id": "lobby_enterprise_uri", "Name": "lobbyist_name", "Main activities of the organisation": "lobby_activities", "CompanyRegistrationNumber": "company_registration_number", "CompanyRegisteredName": "company_registered_name"})    
+lobby_org = lobby_org.select("lobby_enterprise_uri", "lobbyist_name", "lobby_activities", "company_registration_number", "company_registered_name", "lobby_org_link")
+lobby_org.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/lobby_orgs.csv')
+lobby_org.with_columns(pl.col(''))
+df = df.vstack(df1).vstack(df2)
 df = df.rename(lobbying_rename)
 split_df = df.with_columns(pl.col("dpo_lobbied").str.split("::").alias("lobbyists")
         ).explode("lobbyists").with_columns(
@@ -17,6 +34,7 @@ split_df = split_df.with_columns(
 split_df.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/filtered_lobby_1.csv')
 most_prolific_lobbyist = df.select(
         pl.col('primary_key'),
+        pl.col("lobby_enterprise_uri"),
         pl.col("lobbyist_name"),
         pl.col("dpo_lobbied").str.split("::").list.len().alias("politicians_involved_count")
     )
