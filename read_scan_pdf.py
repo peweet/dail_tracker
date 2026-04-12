@@ -1,7 +1,7 @@
 import fitz  # PyMuPDF
-import os   
-import glob
-import re
+# import os   
+# import glob
+# import re
 import pathlib
 import ocrmypdf
 from ocrmypdf import OcrOptions

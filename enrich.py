@@ -1,6 +1,6 @@
 import polars as pl 
 import normalise_join_key
-from utility.select_cols_drop_cols import enrich_cols_to_select
+from utility.select_drop_rename_cols_mappings import enrich_cols_to_select
 import logging
 small_df = pl.read_csv('members/aggregated_td_tables.csv')
 large_df = pl.read_csv('members/flattened_members.csv')
@@ -29,6 +29,5 @@ enriched_df = enriched_df.with_columns(pl.col('unique_member_code').str.extract(
 enriched_df= enriched_df.with_columns(
     pl.when(pl.col('ministerial_office') != 'Null').then(pl.lit('true')).otherwise(pl.lit('false')).alias('ministerial_office_filled')
     )
-# .drop('join_key')
 enriched_df.write_csv('members/enriched_td_attendance.csv')
 logging.info("Enriched TD attendance CSV created successfully.")

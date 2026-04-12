@@ -1,9 +1,9 @@
 import fitz  # PyMuPDF
-import glob
 import pathlib
 from normalise_join_key import normalise_df_td_name
 import polars as pl
 import re 
+#TODO replace path with config variable 
 pdf_payment = pathlib.Path(r"C:\Users\pglyn\PycharmProjects\dail_extractor\pdf_payments")
 #https://www.oireachtas.ie/en/publications/?q=standard%20allowance&date=&term=%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34&fromDate=03%2F04%2F2026&toDate=03%2F04%2F2026
 
@@ -21,7 +21,7 @@ for pdf in pdf_payment.glob("*.pdf"):
 
 cleaned_rows = []
 for row in all_rows:
-    if not EXCLUDE_PLACEHOLDER.search(str(row[0])):
+    if not EXCLUDE_PLACEHOLDER.search(str(row[0])): # exclude rows that contain placeholder text like "Parliamentary Standard" in the first column, which are not actual payment records but just headers or footers in the PDF
         cleaned_rows.append(row)
 all_rows = cleaned_rows
 
