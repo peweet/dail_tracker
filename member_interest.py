@@ -129,17 +129,6 @@ df = df.with_columns(  pl.col('constituency').str.strip_chars("()"),
                        pl.col('interests').str.splitn(by=r".", n=2).alias('interests_code'
                         )
 ).unnest("interests_code")
-# interest_mapping = {
-#     "1": "Occupations",
-#     "2": "Shares",
-#     "3": "Directorships",
-#     "4": "Land (including property)",
-#     "5": "Gifts",
-#     "6": "Property supplied or lent or a Service supplied",
-#     "7": "Travel Facilities",
-#     "8": "Remunerated Position",
-#     "9": "Contracts"
-# }
 df = df.rename({'field_0':'interest_code', 'field_1':'interest_description_raw'})
 df = df.with_columns(
     pl.col('interests')

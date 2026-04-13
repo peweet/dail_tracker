@@ -3,7 +3,20 @@ from flatten_json import flatten
 import pandas as pd
 import os
 from utility.select_drop_rename_cols_mappings import members_drop_cols,members_rename
-
+docstring="""
+This script processes the members.json file, which contains metadata about TDs (members of the Irish
+parliament). It performs the following steps:
+1. Loads the members.json file and extracts individual member records.
+2. Flattens the nested JSON structure of each member record into a flat dictionary format.
+3. Converts the list of flattened member records into a Pandas DataFrame.
+4. Cleans the DataFrame by renaming columns according to a predefined mapping and dropping unnecessary
+columns.
+5. Saves the cleaned DataFrame to a CSV file named 'flattened_members.csv'.
+6. Deletes the intermediate JSON files that are no longer needed after creating the CSV.
+This script is part of the data processing pipeline for enriching TD attendance records with member
+metadata. The resulting 'flattened_members.csv' file will be used in subsequent steps to join with
+attendance data and create an enriched dataset for analysis.
+"""
 members_json_path = "members/members.json"
 json_data = json.load(open(members_json_path, "r"))
 members = json_data
