@@ -1,9 +1,14 @@
 This is a civic project to ingest open source data published by the Oireachtas and to collate it 
 into a dataset for civic purposes. 
 
-Unfortunately parts of this project are inherently brittle as many of the crucial Irish information is in PDFs and it makes extraction quite tricky and complicated. To over come this there is a lot of manual download and loading of PDFs to allow the project to work. Also some direct extract of CSVs from lobbying.ie is required. There is a plan to automate this via Playwright but it is quite a lot of work for a process than can take 5 mins manually.
+Unfortunately parts of the data pipeline for this project are inherently brittle. 
+Many of the crucial Irish information are in PDF's and it makes extraction quite tricky and complicated. To over come this there is a lot of manual download and loading of PDFs to allow the project to work. Also some direct extract of CSVs from lobbying.ie is required. There is a plan to automate this via Playwright but it is quite a lot of work for a process than can take 5 mins manually.
 
-I will provide a list of steps to follow if you want to recreate this project from scratch. If there are any glaring errors it is a genuine mistake on my part. 
+There is included a endpoint checker to try alert if a particular endpoint goes down but that is no guarnatee it will remain in the future until a dedicated API is created.
+
+There will be a list of steps to follow if you want to recreate this project from scratch and deploy it locally. If there are any glaring errors it is a genuine mistake on my part. 
+
+If you are journalist and simply want the Data as is please download it directly from the csv folder on Github.
 
 There is some convertion using OCR libraries of scanned SIPO General Election Expense PDFs and a basic attempt of loading into a table but for now this is just an expermimental feature!
 
