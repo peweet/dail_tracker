@@ -1,0 +1,141 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dail-tracker"
+version = "0.1.0"
+description = "Civic data pipeline for Irish parliamentary transparency — attendance, payments, lobbying, legislation, and member interests from the Oireachtas"
+readme = "doc/README.MD"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "peweet" },
+]
+keywords = ["oireachtas", "dail", "lobbying", "civic-tech", "ireland", "transparency"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Sociology",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+# ── Core dependencies ────────────────────────────────────────────────────────
+# These are the packages actually imported across the codebase.
+# Transitive deps (certifi, urllib3, charset-normalizer, etc.) are handled
+# automatically by the resolver — don't pin them here.
+dependencies = [
+    "polars>=1.39",
+    "pandas>=2.2",
+    "numpy>=2.0",
+    "PyMuPDF>=1.25",
+    "requests>=2.31",
+    "flatten-json>=0.1.14",
+]
+
+[project.urls]
+Repository = "https://github.com/peweet/dail_tracker"
+Issues = "https://github.com/peweet/dail_tracker/issues"
+
+# ── Optional dependency groups ───────────────────────────────────────────────
+# Install with: pip install -e ".[ocr]" or pip install -e ".[dev]" etc.
+[project.optional-dependencies]
+
+# OCR pipeline for scanned PDFs (read_scan_pdf.py)
+ocr = [
+    "ocrmypdf>=17.0",
+]
+
+# Gold layer / analytical database (planned medallion architecture)
+db = [
+    "duckdb>=1.0",
+]
+
+# Development and testing
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.11",
+]
+
+# Everything — for a full local setup
+all = [
+    "dail-tracker[ocr,db,dev]",
+]
+
+# ── Script entry points ──────────────────────────────────────────────────────
+# After `pip install -e .` you can run these directly from the command line:
+#   dail-members        → fetch member data from API
+#   dail-attendance     → extract attendance from PDFs
+#   dail-payments       → extract payment data from PDFs
+#   dail-enrich         → join attendance + member metadata
+#   dail-lobbying       → clean and process lobbying CSVs
+#   dail-interests      → extract member interests from PDF
+#   dail-endpoints      → health-check all PDF/API URLs
+#
+# TODO: each script currently executes on import (no __main__ guard in most).
+# Wrap the top-level logic in a main() function so these entry points work
+# cleanly. Example for oireachtas_api_service.py:
+#
+#   def main():
+#       member_api_request()
+#       for scenario in ["legislation", "questions"]:
+#           urls = construct_urls_for_api(scenario)
+#           results = fetch_all(urls)
+#           save_results(results, scenario)
+#
+# Until then, you can still run scripts directly: python oireachtas_api_service.py
+[project.scripts]
+# dail-members    = "oireachtas_api_service:main"
+# dail-attendance = "attendance:main"
+# dail-payments   = "payments:main"
+# dail-enrich     = "enrich:main"
+# dail-lobbying   = "lobbying_processing:main"
+# dail-interests  = "member_interest:main"
+# dail-endpoints  = "pdf_enpoint_check:main"
+
+# ── Tool configuration ───────────────────────────────────────────────────────
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort (import ordering)
+    "UP",   # pyupgrade (modernise syntax)
+    "B",    # flake8-bugbear (common gotchas)
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long — let the formatter handle it
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["utility", "normalise_join_key"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+pythonpath = ["."]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "utility",
+    "oireachtas_api_service.py",
+    "attendance.py",
+    "payments.py",
+    "enrich.py",
+    "lobbying_processing.py",
+    "member_interest.py",
+    "normalise_join_key.py",
+    "flatten_members_json_to_csv.py",
+    "flatten_service.py",
+    "pdf_enpoint_check.py",
+    "read_scan_pdf.py",
+    "tear_down.py",
+]

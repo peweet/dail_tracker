@@ -11,3 +11,17 @@ You must do some of your own investigation prior to blindly trustin the data. I 
 my very best effort to create a high quality data piece of work however some gaps may be present.
 
 Feel free to fork it and see if I missed anything.
+
+
+For interst mapping
+# interest_mapping = 
+#     "1": "Occupations",
+#     "2": "Shares",
+#     "3": "Directorships",
+#     "4": "Land (including property)",
+#     "5": "Gifts",
+#     "6": "Property supplied or lent or a Service supplied",
+#     "7": "Travel Facilities",
+#     "8": "Remunerated Position",
+#     "9": "Contracts"
+# 
