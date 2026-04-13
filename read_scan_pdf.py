@@ -2,26 +2,39 @@ import fitz  # PyMuPDF
 # import os   
 # import glob
 # import re
-import pathlib
+import logging
 import ocrmypdf
 from ocrmypdf import OcrOptions
-
+from config import SCAN_PDF_DIR
 #conversion of scanned PDF files to readable output UNDER TEST - not yet working, but will be used to convert scanned PDFs of attendance and payments data into readable text that can then be parsed and structured into a DataFrame. The code uses the ocrmypdf library to perform OCR on the scanned PDF, and then uses PyMuPDF to extract the text from the resulting OCR'd PDF. The extracted text can then be processed further to extract relevant information such as TD names, attendance records, payment amounts, etc. This will allow us to include data from scanned PDFs in our analysis alongside data obtained from APIs and other sources.
-scanned_pdf = pathlib.Path(r"C:\Users\pglyn\PycharmProjects\dail_extractor\scan_pdf\target\scan_pdf.pdf")      
+scanned_pdf = SCAN_PDF_DIR / "target" / "scan_pdf.pdf"
+ge_ff_2024 = SCAN_PDF_DIR / "target" / "ff_sipo_ge_2024_expenses.pdf"
 if __name__ == '__main__':  # To ensure correct behavior on Windows and macOS
     options = OcrOptions(
-        input_file=f"{scanned_pdf}",
-        output_file=f"scan_pdf\\{scanned_pdf.stem}-ocr.pdf",
+        input_file=f"{ge_ff_2024}",
+        output_file=f"{SCAN_PDF_DIR / 'output' / f'{ge_ff_2024.stem}-ocr.pdf'}",
         deskew=True,
         languages=['eng'],
+        progress_bar=True,
+        force_ocr=True,  # Force OCR even if the PDF already has text (useful for scanned PDFs)
+        
     )
-    ocrmypdf.ocr(options)
+    try:
+        logging.info(f"Starting OCR process for {ge_ff_2024}...")
+        ocrmypdf.ocr(options)
+        logging.info(f"OCR completed successfully for {ge_ff_2024}. Output saved to {options.output_file}.")
+    except Exception as e:
+        logging.error(f"Skipping {ge_ff_2024}: {e} already has text (OCR previously run).")
 
-#TODO replace path with config variable and add error handling and logging to this process, and to the rest of the codebase (e.g. log when OCR process starts and finishes, log any errors that occur during OCR, log when text extraction starts and finishes, log any errors that occur during text extraction, etc.)
-pdf_payment = pathlib.Path(r"C:\Users\pglyn\PycharmProjects\dail_extractor\scan_pdf\output\scan_pdf-ocr.pdf")
-print('Starting to process scanned PDFs...')
+# #TODO replace path with config variable and add error handling and logging to this process, and to the rest of the codebase (e.g. log when OCR process starts and finishes, log any errors that occur during OCR, log when text extraction starts and finishes, log any errors that occur during text extraction, etc.)
+pdf_payment = SCAN_PDF_DIR / "output" / f"{ge_ff_2024.stem}-ocr.pdf"
+logging.info('Starting to process scanned PDFs...')
 doc = fitz.open(pdf_payment)  # Open the PDF document using PyMuPDF
-print(f"Processing scanned file: {pdf_payment} with {doc.page_count} pages...")
+noOfPages = doc.page_count 
+logging.info(f"Processing scanned file: {pdf_payment} with {noOfPages} pages...")
 for page in doc:
     text = page.get_text("text")
-    print(text)
+    logging.info(text)
+
+if __name__ == "__main__":
+    logging.info("Scanned PDF processing complete. Extracted text logged.")
