@@ -145,8 +145,8 @@ df = df.with_columns(
     pl.col('interests')
     .str.strip_chars_start('" ')
     .str.strip_chars_end('"')
-    .str.replace_all(r"\xa0", " "
-    ).str.replace_all(
+    .str.replace_all(r"\xa0", " ")
+    .str.replace_all(
         r"(Etc|including property|Property supplied |or lent  or a Service supplied  )",
         ""
     ).str.replace_all(
@@ -160,14 +160,16 @@ df = df.with_columns(
     .str.replace_all(r"\b[1-9]\b", "")              # digits FIRST
     .str.replace_all(r"\s*\(\)\s*", " ")             # THEN clean empty ()
     .str.replace_all(r" {2,}", " ")
-    .str.replace_all(r'["""]', ""
-    ).str.replace_all(r"or lent\s*Nil?\s*or a Service supplied\s*Nil?", "Nil")
-    .str.replace_all(r" {2,}", " "
-    ).str.replace(r"^\(\)\s*", ""
-    ).str.replace(r'^"', ""
-    ).str.replace(r'^"', ""
-    ).str.replace(r'"$', ""
-    ).str.strip_chars()
+    .str.replace_all(r'["""]', "")
+    .str.replace_all(r'or lent or a Service supplied ', '')
+    .str.replace_all(r"or lent\s*Nil?\s*or a Service supplied\s*Nil?", "Nil")
+    .str.replace_all(r" {2,}", " ")
+    .str.replace(r"^\(\)\s*", "")
+    .str.replace(r'^"', "")
+    .str.replace(r'^"', "")
+    .str.replace(r'"$', "")
+    .str.replace(r"Nil", "No interests declared")
+    .str.strip_chars()
     .alias('interest_description_cleaned')
 )
 df = df.with_columns(
@@ -190,11 +192,14 @@ df = df.with_columns(
     pl.concat_str(
     pl.col(['first_name', 'last_name'])
     ).alias('join_key')
-    )
+    ).filter(pl.col('interest_description_raw') !="2025", 
+             pl.col('interest_description_cleaned') !="2025", 
+             pl.col('interest_category') !="2025")
+
 df = normalise_join_key.normalise_df_td_name(df, 'join_key')
 enrich_data = pl.read_csv('members/enriched_td_attendance.csv')
 enrich_data = enrich_data.select(['join_key', 'unique_member_code', 'party', 'year_elected']).unique()
-df = df.join(enrich_data, on='join_key', how='left').drop("name", "join_key", "interests")
+df = df.join(enrich_data, on='join_key', how='left').drop("name", "join_key", "interests").drop('interest_description_raw')
 df.write_csv(r"C:\Users\pglyn\PycharmProjects\dail_extractor\members\member_interests_grouped.csv")
 print(f"Processed {len(members)} members")
 print(f"Output saved to {output_path}")

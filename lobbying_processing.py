@@ -150,3 +150,204 @@ os.remove('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/cleaned_output
 
 
 
+#
+# =============================================================================
+# TODO: DPO (Designated Public Official) INTEGRATION
+# =============================================================================
+# This snippet should be placed after the split_df explode logic in 
+# lobbying_processing.py (after line ~107). It filters, cleans, and normalises
+# the DPO data so it can be joined onto enriched_td_attendance.csv, giving
+# each TD a full lobbying profile alongside attendance, payments, and interests.
+#
+# The key insight from robmcelhinney/lobbyieng is that the raw dpo_lobbied
+# field contains a lot of garbage entries that inflate counts. Filtering by
+# recognised job titles and banning known junk values is essential before
+# any aggregation.
+# =============================================================================
+
+# import normalise_join_key  # already imported in lobbying_processing.py
+
+# # --- Step 1: Banned names list ---
+# # These appear in the dpo_lobbied field but are not real individual DPOs.
+# # They are generic references, corporate names pasted into the wrong column,
+# # or placeholder text from the lobbying.ie export. Without filtering these
+# # out, your "most lobbied politician" counts will be inflated.
+# # Add to this list as you discover more junk entries in your data.
+# BANNED_DPO_NAMES = [
+#     "All TDs",
+#     "All Galway West and Galway East TD;s",
+#     "All Public Representatives.",
+#     "ALL TDS of O.",
+#     "Members of Government",
+#     "Members of Oireachtas Committee on Children and Youth Affairs",
+#     "Members of Oireachtas Health Committee",
+#     "Dublin South West GE 2024 Candidates",
+#     "(Vacant)",
+# ]
+
+# # --- Step 2: Recognised DPO job titles ---
+# # The position field (pipe-delimited index 1) tells you what kind of
+# # official was lobbied. Filter to the titles relevant to your analysis.
+# # "TD" is the core target for your project, but Ministers and Ministers
+# # of State are also TDs who hold additional office, so include them.
+# VALID_TD_POSITIONS = [
+#     "TD",
+#     "Minister",
+#     "Minister of State",
+#     "Ceann Comhairle",
+#     "Leas-Cheann Comhairle",
+#     "Taoiseach",
+#     "Tánaiste",
+# ]
+# # If you expand to the Seanad later, add: "Senator", "Cathaoirleach", etc.
+
+# # --- Step 3: Clean the DPO name field ---
+# # Strip titles, suffixes, and whitespace that prevent joins.
+# # This mirrors what lobbyieng does in normalize_person_name().
+# dpo_df = split_df.with_columns(
+#     # Strip common prefixes that appear inconsistently in the lobbying data
+#     pl.col("full_name")
+#       .str.strip_chars()
+#       .str.replace(r"^(Minister |Mr\.? |Ms\.? |Dr\.? |Dep\.? |Deputy )", "")
+#       .str.replace(r",.*$", "")        # drop everything after a comma (e.g. "Harris, Simon, TD")
+#       .str.replace(r"\s+TD$", "")       # strip trailing " TD" suffix
+#       .str.strip_chars()
+#       .alias("dpo_name_cleaned")
+# )
+
+# # --- Step 4: Filter out banned names and non-TD positions ---
+# dpo_df = dpo_df.filter(
+#     ~pl.col("dpo_name_cleaned").is_in(BANNED_DPO_NAMES)
+#     & pl.col("dpo_name_cleaned").str.len_chars() > 3   # drop empty or single-char junk
+#     & pl.col("position").is_in(VALID_TD_POSITIONS)
+# )
+
+# # --- Step 5: Normalise names for joining to enriched_td_attendance ---
+# # Reuse the existing normalise_join_key module so the join key is consistent
+# # across attendance, payments, member interests, and now lobbying.
+# dpo_df = normalise_join_key.normalise_df_td_name(dpo_df, "dpo_name_cleaned")
+
+# # --- Step 6: Extract lobbying method from activities ---
+# # The delivery field (pipe index 1 from lobbying_activities) contains values
+# # like "Email", "Meeting", "Telephone", "Letter", "Other". Keeping this
+# # lets you analyse HOW politicians are being lobbied, not just by whom.
+# # This is something lobbyieng surfaces in its per-official method breakdown.
+# dpo_df = dpo_df.with_columns(
+#     pl.col("delivery")
+#       .str.strip_chars()
+#       .str.to_titlecase()
+#       .alias("lobbying_method")
+# )
+
+# # --- Step 7: Join lobbying data onto enriched TD dataset ---
+# enriched = pl.read_csv("members/enriched_td_attendance.csv")
+# enriched_cols = enriched.select(
+#     "join_key", "unique_member_code", "party",
+#     "member_constituency", "ministerial_office"
+# ).unique()
+#
+# td_lobbying = dpo_df.join(enriched_cols, on="join_key", how="left")
+#
+# # Flag unmatched rows — these are DPOs whose names didn't normalise
+# # correctly or who aren't in the current Dáil (e.g. former TDs still
+# # appearing in historical lobbying returns). Investigate these manually.
+# unmatched = td_lobbying.filter(pl.col("unique_member_code").is_null())
+# if unmatched.height > 0:
+#     print(f"WARNING: {unmatched.height} lobbying records could not be matched to a current TD.")
+#     print(unmatched.select("dpo_name_cleaned", "position").unique())
+
+# # --- Step 8: Aggregated counts per TD (corrected) ---
+# # Your current code has a bug where segmented.join(total) then
+# # most_lobbied_politician.join(total) double-joins the total_count column.
+# # This version computes both in one pass.
+# td_lobby_counts = td_lobbying.group_by("join_key").agg(
+#     pl.col("dpo_name_cleaned").first().alias("td_name"),
+#     pl.col("party").first(),
+#     pl.col("member_constituency").first(),
+#     pl.col("unique_member_code").first(),
+#     pl.len().alias("total_lobby_contacts"),
+#     pl.col("lobbyist_name").n_unique().alias("unique_lobbyists"),
+#     pl.col("lobbying_method").value_counts().alias("method_breakdown"),
+# ).sort("total_lobby_contacts", descending=True)
+
+# # --- Step 9: Period-over-period "biggest movers" ---
+# # This is the analysis lobbyieng does that you're currently missing.
+# # It compares consecutive reporting periods to surface which TDs saw
+# # the biggest spike or drop in lobbying contacts — the kind of insight
+# # journalists want: "who suddenly became a target?"
+# periods = td_lobbying.select("lobbying_period").unique().sort("lobbying_period")
+# if periods.height >= 2:
+#     latest_period = periods.row(-1)[0]
+#     previous_period = periods.row(-2)[0]
+#
+#     latest_counts = (
+#         td_lobbying
+#         .filter(pl.col("lobbying_period") == latest_period)
+#         .group_by("join_key")
+#         .agg(pl.len().alias("latest_count"),
+#              pl.col("dpo_name_cleaned").first().alias("td_name"))
+#     )
+#     previous_counts = (
+#         td_lobbying
+#         .filter(pl.col("lobbying_period") == previous_period)
+#         .group_by("join_key")
+#         .agg(pl.len().alias("previous_count"))
+#     )
+#     biggest_movers = (
+#         latest_counts
+#         .join(previous_counts, on="join_key", how="full", coalesce=True)
+#         .with_columns(
+#             pl.col("latest_count").fill_null(0),
+#             pl.col("previous_count").fill_null(0),
+#         )
+#         .with_columns(
+#             (pl.col("latest_count") - pl.col("previous_count")).alias("delta")
+#         )
+#         .sort("delta", descending=True)
+#     )
+#     print(f"Biggest movers between {previous_period} and {latest_period}:")
+#     print(biggest_movers.head(10))
+#     # biggest_movers.write_csv("lobbyist/biggest_movers_by_period.csv")
+
+# # --- Step 10: Shared lobbyists between TD pairs (network analysis) ---
+# # Which TDs are being lobbied by the exact same organisations?
+# # This is the "shared_lobbyists" query from lobbyieng that surfaces
+# # hidden connections — e.g. two TDs on different committees both being
+# # targeted by the same lobby group.
+# td_lobbyist_pairs = (
+#     td_lobbying
+#     .select("join_key", "dpo_name_cleaned", "lobbyist_name")
+#     .unique()
+# )
+# shared = (
+#     td_lobbyist_pairs.join(
+#         td_lobbyist_pairs,
+#         on="lobbyist_name",
+#         suffix="_b"
+#     )
+#     .filter(pl.col("join_key") < pl.col("join_key_b"))  # avoid self-pairs and duplicates
+#     .group_by(["dpo_name_cleaned", "dpo_name_cleaned_b"])
+#     .agg(
+#         pl.col("lobbyist_name").n_unique().alias("shared_lobbyist_count"),
+#         pl.col("lobbyist_name").unique().alias("shared_lobbyist_names"),
+#     )
+#     .sort("shared_lobbyist_count", descending=True)
+# )
+# print("TD pairs with most shared lobbyists:")
+# print(shared.head(10))
+# # shared.write_csv("lobbyist/shared_lobbyists_between_tds.csv")
+
+# # --- Step 11: Degree centrality (how connected is each TD in the lobby network) ---
+# # How many distinct lobbyists target each TD? High centrality = high influence target.
+# centrality = (
+#     td_lobbying
+#     .group_by("join_key")
+#     .agg(
+#         pl.col("dpo_name_cleaned").first().alias("td_name"),
+#         pl.col("lobbyist_name").n_unique().alias("degree_centrality"),
+#     )
+#     .sort("degree_centrality", descending=True)
+# )
+# print("TD degree centrality (unique lobbyists per TD):")
+# print(centrality.head(15))
+# # centrality.write_csv("lobbyist/td_degree_centrality.csv")
