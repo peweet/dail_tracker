@@ -4,7 +4,7 @@ import polars as pl
 import concurrent.futures
 import urllib.request       
 import logging
-
+from config import API_BASE
 # The below code is directly copied  from the Python docs for concurrent.futures, 
 # with some adjustments to fit our use case of loading multiple URLs in parallel. 
 # The `construct_urls_for_api` function builds the list of URLs to fetch based on the unique_member_code values *
@@ -34,7 +34,7 @@ def member_api_request():
     # Load member data for all TDs from the Oireachtas API and save to JSON
     # concurrency not needed here as the payload is only one API call for all members, not one call per member. We can parallelize the next step of fetching legislation/questions for each TD, which is where we have one API call per TD and the payload is larger.
     chamber_id = "%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34"
-    URL = f"https://api.oireachtas.ie/v1/members?chamber_id={chamber_id}&date_start=2024-01-01&date_end=2099-01-01&limit=200"
+    URL = f"{API_BASE}/members?chamber_id={chamber_id}&date_start=2024-01-01&date_end=2099-01-01&limit=200"
     all_members = []  # Accumulates one API response dict per party
     response = requests.get(URL)
     data = response.json()    # Parse the JSON response
@@ -61,9 +61,9 @@ def construct_urls_for_api(api_scenario: str = None) -> list:
     df = df.unique()
     for uri in df.rows():
         if uri[0] is not None and api_scenario == "legislation":
-            URLS.append(f"https://api.oireachtas.ie/v1/legislation?date_start=1900-01-01&date_end=2099-01-01&limit=1000&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2F{uri[0]}&chamber_id=&lang=en")  # Construct the URL for this TD and add it to the list
+            URLS.append(f"{API_BASE}/legislation?date_start=1900-01-01&date_end=2099-01-01&limit=1000&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2F{uri[0]}&chamber_id=&lang=en")  # Construct the URL for this TD and add it to the list
         elif uri[0] is not None and api_scenario == "questions":
-            URLS.append(f"https://api.oireachtas.ie/v1/questions?skip=0&limit=1000&qtype=oral,written&member_id=%2Fie%2Foireachtas%2Fmember%2Fid%2F{uri[0]}")  # Construct the URL for this TD and add it to the list
+            URLS.append(f"{API_BASE}/questions?skip=0&limit=1000&qtype=oral,written&member_id=%2Fie%2Foireachtas%2Fmember%2Fid%2F{uri[0]}")  # Construct the URL for this TD and add it to the list
         else:
             logger.warning(f"Skipping URI {uri[0]} due to null value or unrecognized API scenario.")
             return 
