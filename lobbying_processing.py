@@ -124,7 +124,7 @@ if not os.path.exists('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/lo
     split_df.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/lobby_break_down_by_politician.csv')
 else: 
     print("total lobbying activities count by politician already exists, skipping creation of lobby_break_down_by_politician.csv to avoid overwriting existing file. If you want to update the file, please delete the existing file and run the code again.")
-    most_prolific_lobbyist = split_df.select(
+    most_prolific_lobbyist = lobbying_df.select(
             pl.col('primary_key'),
             pl.col("lobby_enterprise_uri"),
             pl.col("lobbyist_name"),
