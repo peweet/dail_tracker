@@ -223,18 +223,17 @@ for scenario in ["legislation", "questions"]:
 #     logger.info(f"Saved {len(results)} results to {file_name}")
 
 
-# # ── Main pipeline ────────────────────────────────────────────────────────────
-# if __name__ == "__main__":
-#     # 1. Fetch member data (single API call)
-#     logger.info("Loading member data from API...")
-#     member_api_request()
-#     logger.info("Finished loading members JSON.")
-
-#     # 2. For each scenario, build URLs → fetch concurrently → save
-#     for scenario in ["legislation", "questions"]:
-#         logger.info(f"Starting {scenario} pipeline")
-#         urls = construct_urls_for_api(scenario)
-#         logger.info(f"Built {len(urls)} URLs for {scenario}")
-#         results = fetch_all(urls)
-#         save_results(results, scenario)
-#         logger.info(f"Finished {scenario} pipeline")
+# ── Main pipeline ────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    # 1. Fetch member data (single API call)
+    logger.info("Loading member data from API...")
+    member_api_request()
+    logger.info("Finished loading members JSON.")
+    # 2. For each scenario, build URLs → fetch concurrently → save
+    for scenario in ["legislation", "questions"]:
+        logger.info(f"Starting {scenario} pipeline")
+        urls = construct_urls_for_api(scenario)
+        logger.info(f"Built {len(urls)} URLs for {scenario}")
+        results = fetch_all(urls)
+        save_results(results, scenario)
+        logger.info(f"Finished {scenario} pipeline")
