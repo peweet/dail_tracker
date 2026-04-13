@@ -3,6 +3,10 @@ from flatten_json import flatten
 import pandas as pd
 import os
 from utility.select_drop_rename_cols_mappings import members_drop_cols,members_rename
+# from config_dummy import MEMBERS_DIR
+
+#TODO the entire block of code below might be able to rolled into member_interest.py, as part of a more general "enrich" module that takes care of all the data processing and enrichment steps for the TD metadata and attendance data. This would help to keep the codebase organized and make it easier to manage the different stages of the data processing pipeline in one place. For example, we could have a structure like this:
+# - enrich/
 docstring="""
 This script processes the members.json file, which contains metadata about TDs (members of the Irish
 parliament). It performs the following steps:

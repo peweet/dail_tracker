@@ -5,11 +5,12 @@ import pandas as pd
 from numpy import nan
 import os                                                                   
 import glob    
+from config_dummy import MEMBERS_DIR
 # --- Dail Eireann 2023, 2024, 2025 attendance PDF ---
 dataframes = []
 IRISH_NAME_REGEX = re.compile(r"^[A-ZÁÉÍÓÚ][a-zA-ZáéíóúÁÉÍÓÚ'\s\-]+$")
 EXCLUDE_CASES = re.compile(r"^(Member|Sitting|Totals|Total)")
-os.chdir('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\pdf_storage')         
+os.chdir(MEMBERS_DIR / "pdf_storage")         
 for pdf in list(glob.glob('*.pdf')): 
     print(f"Processing {pdf}...")                                      
     doc = fitz.open(pdf)  # Open the PDF document using PyMuPDF
@@ -52,5 +53,7 @@ df = pd.merge(df, result, on='identifier', how='left') # Join the counts back to
 df = df.drop('identifier', axis=1) # Drop the identifier column as it's no longer needed
 print('Final DataFrame with attendance counts:')
 df['sitting_total_days'] = df['sitting_days_count'] + df['other_days_count']
-df.to_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\aggregated_td_tables.csv', index=False) 
+df.to_csv(MEMBERS_DIR / "aggregated_td_tables.csv", index=False) 
 print("TD attendance CSV created successfully.")
+if __name__ == "__main__":    
+    print("TD attendance CSV created successfully and saved to aggregated_td_tables.csv.")

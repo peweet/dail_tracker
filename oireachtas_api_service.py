@@ -110,6 +110,9 @@ for scenario in ["legislation", "questions"]:
     results = fetch_all(urls)
     save_results(results, scenario)
     logger.info(f"Finished {scenario} pipeline")
+
+if __name__ == "__main__":
+    logger.info("Oireachtas API fetching complete. Results saved to bills/legislation_results.json and bills/questions_results.json.")
 # keep for future testing in Polars
 # # write_dict_to_json = pl.from_dict({"TD": combined}, strict=False)
 # # write_dict_to_json.write_json('bills/all_bills_by_td.json')
