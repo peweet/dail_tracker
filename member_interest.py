@@ -5,11 +5,11 @@ import re
 import os
 import polars as pl
 import normalise_join_key 
+from config_dummy import MEMBERS_DIR
 """
 member_interest.py
 ------------------
 Extracts, cleans, and structures the Register of Members' Interests from a PDF file.
-
 This script processes the messy, unstructured PDF text, groups lines into member entries and their interests,
 and outputs a normalized CSV and JSON. The main challenge is that the PDF contains a lot of superfluous data
 (headers, footers, disclaimers, and line breaks in awkward places), so the approach is to aggressively cut away
@@ -25,9 +25,7 @@ Cleaning steps:
 - Normalize and split out names and interests for further analysis
 The result is a structured dataset of members and their declared interests, suitable for downstream analysis.
 """
-
-
-member_interest = pathlib.Path(r"C:\Users\pglyn\PycharmProjects\dail_extractor\pdf_member_interest\2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf")
+member_interest = MEMBERS_DIR / "pdf_member_interest" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
 categories = re.compile(r"^\d+\.\s")       # "1. ", "2. " etc.
 member_name = re.compile(r"^[A-Z]{2,},\s")  # "ARDAGH, Catherine"
 
@@ -110,7 +108,7 @@ for line in grouped:
 if current_member:
     members.append(current_member)
 # Save output
-output_path = r"C:\Users\pglyn\PycharmProjects\dail_extractor\members\member_interests_grouped.json"
+output_path = MEMBERS_DIR / "member_interests_grouped.json"
 with open(output_path, "w", encoding="utf-8") as f:
     json.dump(members, f, indent=4, ensure_ascii=False)
 
@@ -189,12 +187,12 @@ df = normalise_join_key.normalise_df_td_name(df, 'join_key')
 enrich_data = pl.read_csv('members/enriched_td_attendance.csv')
 enrich_data = enrich_data.select(['join_key', 'unique_member_code', 'party', 'year_elected']).unique()
 df = df.join(enrich_data, on='join_key', how='left').drop("name", "join_key", "interests").drop('interest_description_raw')
-df.write_csv(r"C:\Users\pglyn\PycharmProjects\dail_extractor\members\member_interests_grouped.csv")
+df.write_csv(MEMBERS_DIR / "member_interests_grouped.csv")
 print(f"Processed {len(members)} members")
 print(f"Output saved to {output_path}")
 
-if os.path.exists('members/member_interests_grouped.json' ):
-    os.remove('members/member_interests_grouped.json')
+if os.path.exists(MEMBERS_DIR / "member_interests_grouped.json"):
+    os.remove(MEMBERS_DIR / "member_interests_grouped.json")
     print('JSON files deleted successfully.')
     
 if __name__ == "__main__":
