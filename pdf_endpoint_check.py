@@ -1,5 +1,5 @@
 import requests
-
+# This script checks the accessibility of a list of PDF URLs related to TD attendance and payments data. It makes HTTP requests to each URL and verifies that the response status code is 200 (OK). If any URL is not accessible or returns an error, it prints an appropriate message. If all URLs are accessible and working correctly, it confirms that the endpoint check is complete.
 #TODO make api calls to persist this into dedicated folders and files in the data directory, and then read from those files in the relevant services (e.g. payments.py, attendance.py, etc.) instead of hardcoding the URLs in those services. This way we can easily update the data by just updating the files in the data directory without having to change the code in multiple places.
 payment_url  = "https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa"
 pdf_2023     = f"{payment_url}/2024/2024-02-01_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2023-to-31-december-2023_en.pdf"
@@ -60,3 +60,8 @@ def endpoint_checker(urls : list) -> bool:
         return False
 is_complete = endpoint_checker(urls)
 print("Endpoint check complete. All URLs are accessible and working correctly." if is_complete else "Endpoint check complete. Some URLs are not accessible or not working correctly. Please review the error messages above for details.")
+
+
+if __name__ == "__main__":
+    is_complete = endpoint_checker(urls)
+    print("Endpoint check complete. All URLs are accessible and working correctly." if is_complete else "Endpoint check complete. Some URLs are not accessible or not working correctly. Please review the error messages above for details.")
