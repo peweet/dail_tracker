@@ -52,3 +52,12 @@ if __name__ == "__main__":
     logging.info(f"Sample data:\n{sample_data}")
     normalized_df = normalise_df_td_name(sample_data, 'Full_Name')
     logging.info(f"Normalized DataFrame:\n{normalized_df}")
+
+if __name__ == "__main__":
+    logging.info("Testing normalise_df_td_name function with sample data...")
+    sample_data = pl.DataFrame({
+        'Full_Name': ['Ó Súilleabháin', "O'Sullivan", 'Sullivan', 'Smith']
+    })
+    logging.info(f"Sample data:\n{sample_data}")
+    normalized_df = normalise_df_td_name(sample_data, 'Full_Name')
+    logging.info(f"Normalized DataFrame:\n{normalized_df}")
