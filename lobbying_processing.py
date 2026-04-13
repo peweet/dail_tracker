@@ -1,6 +1,7 @@
 import csv
 import polars as pl
 from utility.select_drop_rename_cols_mappings import lobbying_rename
+import os
 #HOW TO EXTRACT THE LOBBYING DATA:
 # eg: https://www.lobbying.ie/app/home/search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&publicBodys=&jobTitles=11&returnDateFrom=01-02-2026&returnDateTo=08-04-2026&period=&dpo=&client=&responsible=&lobbyist=&lobbyistId=
 #TODO make read csv more agnostic and read any pdf from the lobbying folder, and then persist the cleaned and filtered data to a dedicated folder in the processed data directory, instead of hardcoding the file paths in the code. This way we can easily update the data by just updating the files in the data directory without having to change the code in multiple places.
@@ -38,38 +39,60 @@ split_df = split_df.with_columns(
         pl.col("parts").list.get(1).alias("position"),
         pl.col("parts").list.get(2).alias("chamber"),
     ).drop("lobbyists", "parts", "dpo_lobbied", "lobby_enterprise_uri")
+
+split_df = split_df.with_columns(
+        pl.col("lobbying_activities"
+        ).str.split("::").alias("activities_list")
+        ).explode("activities_list").with_columns(
+        pl.col("activities_list").str.split("|").alias("activities_parts")
+    )
+split_df = split_df.with_columns(
+        pl.col("activities_parts").list.get(0).alias("action"),
+        pl.col("activities_parts").list.get(1).alias("delivery"),
+        pl.col("activities_parts").list.get(2).alias("members_targeted"),
+    ).drop("activities_list", "activities_parts", "lobbying_activities")
 most_lobbied_politician = split_df.select("full_name","position", "chamber")
-most_lobbied_politician = most_lobbied_politician.with_columns(pl.col("full_name")).group_by("full_name").agg(pl.len().alias("lobbying_activities_count"))
+most_lobbied_politician = most_lobbied_politician.with_columns(
+    pl.col("full_name")).group_by(
+        "full_name"
+        ).agg(pl.len().alias("total_lobbying_activities_count"))
 most_lobbied_politician = most_lobbied_politician.join(
     split_df.select("full_name", "position", "chamber").unique(),
     on="full_name", how="left"
 )
-most_lobbied_politician = most_lobbied_politician.sort("lobbying_activities_count", descending=True)
+#todo do breakdown by chamber and position as well, to see if there are any patterns in terms of which politicians are being lobbied the most (e.g. ministers vs backbenchers, government vs opposition, etc.)
+#as well as ID the most prolific lobbyists and the organisations they represent, to see if there are any patterns in terms of which lobbyists and organisations are the most active in lobbying the politicians, 
+# and which politicians they are targeting the most. 
+# This can help to identify any potential conflicts of interest
+#  or undue influence in the lobbying activities, and also provide insights into the lobbying 
+# landscape in terms of which issues and sectors are being targeted the most by the lobbyists.
+most_lobbied_politician = most_lobbied_politician.sort("total_lobbying_activities_count", descending=True)
 most_lobbied_politician.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/most_lobbied_politicians.csv')
-# split_df = split_df.join(most_lobbied_politician, on="full_name", how="left")
-split_df.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/lobby_break_down_by_politician.csv')
-most_prolific_lobbyist = df.select(
-        pl.col('primary_key'),
-        pl.col("lobby_enterprise_uri"),
-        pl.col("lobbyist_name"),
-        pl.col("dpo_lobbied").str.split("::").list.len().alias("politicians_involved_count")
-    )
-counts = most_prolific_lobbyist.group_by(
-                    pl.col("lobbyist_name")
-                    ).agg(pl.len().alias("lobby_requests_count"
-        )).join(
-            lobby_org.select(
-                pl.col("main_activities_of_organisation"),
-                pl.col("company_registration_number"),
-                pl.col("company_registered_name"),
-                pl.col("website"),
-                pl.col("name"), 
-                pl.col("lobby_org_link")), left_on="lobbyist_name", right_on="name", how="inner")
+if not os.path.exists('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/lobby_break_down_by_politician.csv'):
+    split_df.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/lobby_break_down_by_politician.csv')
+else: 
+    print("total lobbying activities count by politician already exists, skipping creation of lobby_break_down_by_politician.csv to avoid overwriting existing file. If you want to update the file, please delete the existing file and run the code again.")
+    most_prolific_lobbyist = df.select(
+            pl.col('primary_key'),
+            pl.col("lobby_enterprise_uri"),
+            pl.col("lobbyist_name"),
+            pl.col("dpo_lobbied").str.split("::").list.len().alias("politicians_involved_count")
+        )
+    counts = most_prolific_lobbyist.group_by(
+                        pl.col("lobbyist_name")
+                        ).agg(pl.len().alias("lobby_requests_count"
+            )).join(
+                lobby_org.select(
+                    pl.col("main_activities_of_organisation"),
+                    pl.col("company_registration_number"),
+                    pl.col("company_registered_name"),
+                    pl.col("website"),
+                    pl.col("name"), 
+                    pl.col("lobby_org_link")), left_on="lobbyist_name", right_on="name", how="inner")
 most_prolific_lobbyist = most_prolific_lobbyist.join(
                 counts, on="lobbyist_name"
                 ).sort(["politicians_involved_count", "lobby_requests_count"],  descending=True)
 most_prolific_lobbyist.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/lobby_count_details.csv')
-
 
 # Function to parse a single line from the input CSV, the lobbyist data is very messy and 
 #the csv dialect changes which necessistates manual intervention. Pandas will not work effectively with this data even with different dialect settings, so we have to do it manually and then read the cleaned data with polars for further processing. The main issues with the raw data are inconsistent use of quotes, embedded commas in fields, and inconsistent line breaks, which makes it difficult to parse with standard CSV parsers without manual cleaning.
