@@ -61,6 +61,25 @@ def endpoint_checker(urls : list) -> bool:
 is_complete = endpoint_checker(urls)
 print("Endpoint check complete. All URLs are accessible and working correctly." if is_complete else "Endpoint check complete. Some URLs are not accessible or not working correctly. Please review the error messages above for details.")
 
+def endpoint_downloader(urls : list) -> None:
+    for url in urls:
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:  
+                print("Success - API is accessible.")
+                print(f"{response.url} has content")
+                with open(f"data/{response.url.split('/')[-1]}", 'wb') as f:
+                    f.write(response.content)
+                print(f"PDF downloaded successfully from {response.url} and saved to data/{response.url.split('/')[-1]}")
+            else:
+                print(f"Failure - API is accessible but PDF url is no longer working: {response.status_code}")
+                print(f"Response content: {response.content}")
+                print(f"The PDF URL {response.url} is no longer working. Please check the URL and try again.")
+        except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError) as e:
+            print(f"Failure - Unable to establish connection: {e}.")
+        except Exception as e:
+            print(f"Failure - Unknown error occurred: {e}. Unfortunately, this data is only available via manual PDF extraction.")
+            [print(f"Manual endpoints are here: {endpoint}") for endpoint in manual_endpoints]
 
 if __name__ == "__main__":
     is_complete = endpoint_checker(urls)
