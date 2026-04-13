@@ -2,7 +2,7 @@ import json
 from flatten_json import flatten
 import pandas as pd
 import os
-from utility.select_cols_drop_cols import bill_cols_to_drop, bill_rename
+from utility.select_drop_rename_cols_mappings import bill_cols_to_drop, bill_rename
 
 with open("bills/all_bills_by_td.json", "r") as f:
     data = json.load(f)
