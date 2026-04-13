@@ -2,6 +2,36 @@ import csv
 import polars as pl
 from utility.select_drop_rename_cols_mappings import lobbying_rename
 import os
+# Parse each non-empty line using the parse_line function
+# Read the raw input file line by line
+# Function to parse a single line from the input CSV, the lobbyist data is very messy and 
+#the csv dialect changes which necessistates manual intervention. Pandas will not work effectively with this data even with different dialect settings, so we have to do it manually and then read the cleaned data with polars for further processing. The main issues with the raw data are inconsistent use of quotes, embedded commas in fields, and inconsistent line breaks, which makes it difficult to parse with standard CSV parsers without manual cleaning.
+def parse_line(line):
+    # print(f"Parsing line: {line.strip()}")
+     # Replace triple double-quotes with double double-quotes
+    line =line.replace('\"\'', '\'')  # Replace triple double-quotes with double double-quotes
+    stripped = line.strip().split('","') # Split the line on '","' to separate fields, which handles quoted fields with embedded commas
+    stripped[0] = stripped[0].lstrip('"')  # Remove the leading quote from the first field
+    stripped[-1] = stripped[-1].rstrip('"')  # Remove the trailing quote
+    # print(f"Test: {stripped}")  # Remove the first two quotes from the first field
+    return stripped
+with open('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/Lobbying_ie_organisation_results.csv', 'r', encoding='utf-8') as f:
+    raw_lines = f.readlines()
+def lobby_org_csv_sanitizer():
+    rows = []
+    for line in raw_lines:
+        rows.append(parse_line(line))
+    with open('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/cleaned.csv', 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+        writer.writerows(rows)
+    #manually assign col names as the csv has no header row, and then persist the cleaned data to a new csv file for further processing with polars
+    #additioanlly the rows are ragged and uneven which can cause further issues down the line, so we need to make sure all rows have the same number of columns before writing to the cleaned csv file, and if not, we can log the issue and skip those rows to avoid errors in the downstream processing. This is a common issue with messy CSV data where some rows may have missing or extra fields, which can cause parsing errors if not handled properly.
+    column_names = ["lobby_issue_uri","name","address","county","country","phone_number","website","main_activities_of_organisation","person_responsible_name","person_responsible_email","person_responsible_telephone","email","company_registration_number","company_registered_name","company_registered_address","charity_regulation_number","chy_number"]
+    df = pl.read_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/cleaned.csv',  has_header=False,infer_schema=True, skip_lines=1)
+    df.columns = column_names
+    df.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/cleaned_output.csv')
+lobby_org_csv_sanitizer()
+
 #HOW TO EXTRACT THE LOBBYING DATA:
 # eg: https://www.lobbying.ie/app/home/search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&publicBodys=&jobTitles=11&returnDateFrom=01-02-2026&returnDateTo=08-04-2026&period=&dpo=&client=&responsible=&lobbyist=&lobbyistId=
 #TODO make read csv more agnostic and read any pdf from the lobbying folder, and then persist the cleaned and filtered data to a dedicated folder in the processed data directory, instead of hardcoding the file paths in the code. This way we can easily update the data by just updating the files in the data directory without having to change the code in multiple places.
@@ -94,33 +124,6 @@ most_prolific_lobbyist = most_prolific_lobbyist.join(
                 ).sort(["politicians_involved_count", "lobby_requests_count"],  descending=True)
 most_prolific_lobbyist.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/lobby_count_details.csv')
 
-# Function to parse a single line from the input CSV, the lobbyist data is very messy and 
-#the csv dialect changes which necessistates manual intervention. Pandas will not work effectively with this data even with different dialect settings, so we have to do it manually and then read the cleaned data with polars for further processing. The main issues with the raw data are inconsistent use of quotes, embedded commas in fields, and inconsistent line breaks, which makes it difficult to parse with standard CSV parsers without manual cleaning.
-def parse_line(line):
-    # print(f"Parsing line: {line.strip()}")
-     # Replace triple double-quotes with double double-quotes
-    line =line.replace('\"\'', '\'')  # Replace triple double-quotes with double double-quotes
-    stripped = line.strip().split('","') # Split the line on '","' to separate fields, which handles quoted fields with embedded commas
-    stripped[0] = stripped[0].lstrip('"')  # Remove the leading quote from the first field
-    stripped[-1] = stripped[-1].rstrip('"')  # Remove the trailing quote
-    # print(f"Test: {stripped}")  # Remove the first two quotes from the first field
-    return stripped
-# Read the raw input file line by line
-with open('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/Lobbying_ie_organisation_results.csv', 'r', encoding='utf-8') as f:
-    raw_lines = f.readlines()
 
-# Parse each non-empty line using the parse_line function
-def lobby_org_csv_sanitizer():
-    rows = []
-    for line in raw_lines:
-        rows.append(parse_line(line))
-    with open('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/cleaned.csv', 'w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f, quoting=csv.QUOTE_ALL)
-        writer.writerows(rows)
-    #manually assign col names as the csv has no header row, and then persist the cleaned data to a new csv file for further processing with polars
-    #additioanlly the rows are ragged and uneven which can cause further issues down the line, so we need to make sure all rows have the same number of columns before writing to the cleaned csv file, and if not, we can log the issue and skip those rows to avoid errors in the downstream processing. This is a common issue with messy CSV data where some rows may have missing or extra fields, which can cause parsing errors if not handled properly.
-    column_names = ["lobby_issue_uri","name","address","county","country","phone_number","website","main_activities_of_organisation","person_responsible_name","person_responsible_email","person_responsible_telephone","email","company_registration_number","company_registered_name","company_registered_address","charity_regulation_number","chy_number"]
-    df = pl.read_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/cleaned.csv',  has_header=False,infer_schema=True, skip_lines=1)
-    df.columns = column_names
-    df.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/cleaned_output.csv')
-lobby_org_csv_sanitizer()
+
+
