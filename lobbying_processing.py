@@ -17,8 +17,9 @@ def parse_line(line):
     stripped[-1] = stripped[-1].rstrip('"')  # Remove the trailing quote
     # print(f"Test: {stripped}")  # Remove the first two quotes from the first field
     return stripped
-with open('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/Lobbying_ie_organisation_results.csv', 'r', encoding='utf-8') as f:
+with open('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/raw/Lobbying_ie_organisation_results.csv', 'r', encoding='utf-8') as f:
     raw_lines = f.readlines()
+
 def lobby_org_csv_sanitizer():
     rows = []
     for line in raw_lines:
@@ -32,6 +33,8 @@ def lobby_org_csv_sanitizer():
     df = pl.read_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/cleaned.csv',  has_header=False,infer_schema=True, skip_lines=1)
     df.columns = column_names
     df.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/cleaned_output.csv')
+    os.remove('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/cleaned.csv')
+    print("Lobbying organization CSV sanitized and cleaned successfully. Cleaned data saved to cleaned_output.csv")
 lobby_org_csv_sanitizer()
 
 #HOW TO EXTRACT THE LOBBYING DATA:
@@ -40,14 +43,17 @@ lobby_org_csv_sanitizer()
 #drop it in the raw folder in the lobbying directory, and then run the csv sanitizer to clean the data and persist it to a new csv file for further processing with polars. The csv sanitizer will handle the messy and inconsistent formatting of the raw data, and ensure that we have a clean and consistent dataset to work with for our analysis of the lobbying activities and their impact on the politicians. This is a crucial step in the data processing pipeline, as it allows us to extract meaningful insights from the lobbying data, and identify any potential patterns or trends in the lobbying activities that may be relevant for our analysis of the political landscape and potential conflicts of interest.
 csvs_to_stack = []
 for file in os.listdir("C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/raw"):
-    if file.endswith(".csv"):
+    if file.endswith(".csv") and not file.startswith("Lobbying_ie_organisation_results"):  # Ensure we only process the raw CSV files and not the cleaned output
         print(f"Processing file: {file}")
         df = pl.read_csv(f"C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/raw/{file}")
+        df= df.rename(lobbying_rename)
         print(f"Number of rows in {file}: {df.height}")
         csvs_to_stack.append(df)
-lobbying_df = pl.concat(csvs_to_stack)
+        
+lobbying_df = pl.concat(csvs_to_stack, how="diagonal")
+lobbying_df.write_csv('c:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/combined_lobbying_data.csv')  # Save the combined data to a new CSV file for further processing
 print(f"Total number of rows in combined lobbying data: {lobbying_df.height}")
-lobby_org = pl.read_csv("C:/Users/pglyn/PycharmProjects/dail_extractor/utility/cleaned_output.csv", infer_schema=4000)
+lobby_org = pl.read_csv("C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/cleaned_output.csv", infer_schema=4000)
 lobby_org = lobby_org.select("lobby_issue_uri",
                              "name",
                              "website",
@@ -65,10 +71,18 @@ lobby_org = lobby_org.with_columns(
     pl.format("https://www.lobbying.ie/organisation/{}/{}", 
     pl.col("lobby_issue_uri"), pl.col('name_for_link')).alias("lobby_org_link")
     )
-lobby_org = lobby_org.drop("name_for_link")
-lobby_org = lobby_org.select("lobby_issue_uri", "name", "main_activities_of_organisation", "website", "company_registration_number", "company_registered_name", "lobby_org_link")
+lobby_org = lobby_org.drop("name_for_link"
+                           ).select(
+                               "lobby_issue_uri", 
+                               "name", 
+                               "main_activities_of_organisation", 
+                               "website", 
+                               "company_registration_number", 
+                               "company_registered_name", 
+                               "lobby_org_link"
+                            )
 
-df = df.rename(lobbying_rename)
+
 split_df = df.with_columns(pl.col("dpo_lobbied").str.split("::").alias("lobbyists")
         ).explode("lobbyists").with_columns(
         pl.col("lobbyists").str.split("|").alias("parts")
@@ -90,28 +104,27 @@ split_df = split_df.with_columns(
         pl.col("activities_parts").list.get(1).alias("delivery"),
         pl.col("activities_parts").list.get(2).alias("members_targeted"),
     ).drop("activities_list", "activities_parts", "lobbying_activities")
-most_lobbied_politician = split_df.select("full_name","position", "chamber")
-most_lobbied_politician = most_lobbied_politician.with_columns(
-    pl.col("full_name")).group_by(
-        "full_name"
-        ).agg(pl.len().alias("total_lobbying_activities_count"))
-most_lobbied_politician = most_lobbied_politician.join(
-    split_df.select("full_name", "position", "chamber").unique(),
-    on="full_name", how="left"
-)
-#todo do breakdown by chamber and position as well, to see if there are any patterns in terms of which politicians are being lobbied the most (e.g. ministers vs backbenchers, government vs opposition, etc.)
-#as well as ID the most prolific lobbyists and the organisations they represent, to see if there are any patterns in terms of which lobbyists and organisations are the most active in lobbying the politicians, 
-# and which politicians they are targeting the most. 
-# This can help to identify any potential conflicts of interest
-#  or undue influence in the lobbying activities, and also provide insights into the lobbying 
-# landscape in terms of which issues and sectors are being targeted the most by the lobbyists.
-most_lobbied_politician = most_lobbied_politician.sort("total_lobbying_activities_count", descending=True)
+df = split_df.select("full_name","position", "chamber")
+
+segmented = df.group_by(["full_name", "chamber"]
+    ).agg(pl.count().alias("segmented_count"))
+
+# Total count by full_name
+total = df.group_by("full_name"
+        ).agg(pl.count().alias("total_count"))
+
+combined = segmented.join(total, on="full_name")
+
+# Join total count onto segmented count
+most_lobbied_politician = combined.join(total, on="full_name")
+
+#big bug on counts (look at test.py)
 most_lobbied_politician.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/most_lobbied_politicians.csv')
 if not os.path.exists('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/lobby_break_down_by_politician.csv'):
     split_df.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/lobby_break_down_by_politician.csv')
 else: 
     print("total lobbying activities count by politician already exists, skipping creation of lobby_break_down_by_politician.csv to avoid overwriting existing file. If you want to update the file, please delete the existing file and run the code again.")
-    most_prolific_lobbyist = df.select(
+    most_prolific_lobbyist = split_df.select(
             pl.col('primary_key'),
             pl.col("lobby_enterprise_uri"),
             pl.col("lobbyist_name"),
@@ -132,6 +145,7 @@ most_prolific_lobbyist = most_prolific_lobbyist.join(
                 counts, on="lobbyist_name"
                 ).sort(["politicians_involved_count", "lobby_requests_count"],  descending=True)
 most_prolific_lobbyist.write_csv('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/lobby_count_details.csv')
+os.remove('C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/cleaned_output.csv')
 
 
 
