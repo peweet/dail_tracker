@@ -5,7 +5,9 @@ import os
 # Parse each non-empty line using the parse_line function
 # Read the raw input file line by line
 # Function to parse a single line from the input CSV, the lobbyist data is very messy and 
-#the csv dialect changes which necessistates manual intervention. Pandas will not work effectively with this data even with different dialect settings, so we have to do it manually and then read the cleaned data with polars for further processing. The main issues with the raw data are inconsistent use of quotes, embedded commas in fields, and inconsistent line breaks, which makes it difficult to parse with standard CSV parsers without manual cleaning.
+# the csv dialect changes which necessistates manual intervention. Pandas will not work effectively with this data even with different dialect settings, so we have to do it manually and then read the cleaned data with polars for further processing. The main issues with the raw data are inconsistent use of quotes, embedded commas in fields, and inconsistent line breaks, which makes it difficult to parse with standard CSV parsers without manual cleaning.
+# To extract the faw data go to https://www.lobbying.ie/app/Organisation/Search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&lobbyingActivities=&returnDateFrom=&returnDateTo=&period=&dpo=&client=&includeClients=false
+# and click the CSV export option to export all the registered lobby organizations in the Republic of Ireland
 def parse_line(line):
     # print(f"Parsing line: {line.strip()}")
      # Replace triple double-quotes with double double-quotes
@@ -34,11 +36,17 @@ lobby_org_csv_sanitizer()
 
 #HOW TO EXTRACT THE LOBBYING DATA:
 # eg: https://www.lobbying.ie/app/home/search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&publicBodys=&jobTitles=11&returnDateFrom=01-02-2026&returnDateTo=08-04-2026&period=&dpo=&client=&responsible=&lobbyist=&lobbyistId=
-#TODO make read csv more agnostic and read any pdf from the lobbying folder, and then persist the cleaned and filtered data to a dedicated folder in the processed data directory, instead of hardcoding the file paths in the code. This way we can easily update the data by just updating the files in the data directory without having to change the code in multiple places.
-#TODO the join logic is very confusing and some columns are being dropped and not added to the final output, so need to review the join logic and make sure all the relevant columns are included in the final output, and also make sure the column names are consistent across the different dataframes before joining, to avoid any confusion and errors in the join process. Also need to review the filtering logic and make sure it's correctly filtering the data based on the relevant criteria (e.g. date range, job titles, etc.) before joining, to ensure we're only including relevant lobbying activities in the final output.
-df = pl.read_csv("C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/raw/Lobbying_ie_returns_results_1.csv")
-df1=pl.read_csv("C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/raw/Lobbying_ie_returns_results_01_02_2024_to_01_02_2025.csv")
-df2=pl.read_csv("C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/raw/Lobbying_ie_returns_results_01_02_2025_to_1_02_2026.csv")
+#Do it in batches of 1000 and download it manually, the max date range is 12 months ie 2025-01 to 2026-01, and then stack the csvs together and do the cleaning and processing with polars. The lobbying data is not available via an API, so we have to download it manually in batches of 1000 records, which is the maximum allowed by the website for a single download. We can filter the data by job titles (e.g. TDs, Senators, Ministers, etc.) and date range to get more relevant data for our analysis. Once we have downloaded the raw CSV files, we can use the csv sanitizer to clean the data and persist it to a new CSV file for further processing with polars. This will allow us to extract meaningful insights from the lobbying data and analyze the lobbying activities and their impact on the politicians in Ireland.
+#drop it in the raw folder in the lobbying directory, and then run the csv sanitizer to clean the data and persist it to a new csv file for further processing with polars. The csv sanitizer will handle the messy and inconsistent formatting of the raw data, and ensure that we have a clean and consistent dataset to work with for our analysis of the lobbying activities and their impact on the politicians. This is a crucial step in the data processing pipeline, as it allows us to extract meaningful insights from the lobbying data, and identify any potential patterns or trends in the lobbying activities that may be relevant for our analysis of the political landscape and potential conflicts of interest.
+csvs_to_stack = []
+for file in os.listdir("C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/raw"):
+    if file.endswith(".csv"):
+        print(f"Processing file: {file}")
+        df = pl.read_csv(f"C:/Users/pglyn/PycharmProjects/dail_extractor/lobbyist/raw/{file}")
+        print(f"Number of rows in {file}: {df.height}")
+        csvs_to_stack.append(df)
+lobbying_df = pl.concat(csvs_to_stack)
+print(f"Total number of rows in combined lobbying data: {lobbying_df.height}")
 lobby_org = pl.read_csv("C:/Users/pglyn/PycharmProjects/dail_extractor/utility/cleaned_output.csv", infer_schema=4000)
 lobby_org = lobby_org.select("lobby_issue_uri",
                              "name",
@@ -52,13 +60,14 @@ lobby_org = lobby_org.with_columns(pl.col('name'
                                           ).str.to_lowercase(
                                           ).str.replace(" ", "-").str.replace(" ", "-").alias("name_for_link"))
 lobby_org = lobby_org.with_columns(
+    #create hyper link
     #https://www.lobbying.ie/organisation
     pl.format("https://www.lobbying.ie/organisation/{}/{}", 
     pl.col("lobby_issue_uri"), pl.col('name_for_link')).alias("lobby_org_link")
     )
 lobby_org = lobby_org.drop("name_for_link")
 lobby_org = lobby_org.select("lobby_issue_uri", "name", "main_activities_of_organisation", "website", "company_registration_number", "company_registered_name", "lobby_org_link")
-df = df.vstack(df1).vstack(df2)
+
 df = df.rename(lobbying_rename)
 split_df = df.with_columns(pl.col("dpo_lobbied").str.split("::").alias("lobbyists")
         ).explode("lobbyists").with_columns(
