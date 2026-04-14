@@ -4,6 +4,8 @@ EXCLUDE_PLACEHOLDER = re.compile(r"^(Parliamentary Standard)")
 CATEGORIES = re.compile(r"^\d+\.\s")      
 MEMBER_NAME = re.compile(r"^[A-Z]{2,},\s")
 
+IRISH_NAME_REGEX = re.compile(r"^[A-ZÁÉÍÓÚ][a-zA-ZáéíóúÁÉÍÓÚ'\s\-]+$")
+
 REPLACE_APOSTROPHES = re.compile(r"[\x27\u2019]", "") 
 REMOVE_DIACRITICS = re.compile(r"[\u0300-\u036f]", "") 
 REMOVE_NON_ALPHABETIC = re.compile(r"[^a-z\s]", "")
