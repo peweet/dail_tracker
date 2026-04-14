@@ -1,7 +1,7 @@
 import json
 from flatten_json import flatten
 import pandas as pd
-from config_dummy import BILLS_DIR
+from config import BILLS_DIR
 from utility.select_drop_rename_cols_mappings import bill_cols_to_drop, bill_rename
 
 with open(BILLS_DIR / "all_bills_by_td.json", "r") as f:
