@@ -1,4 +1,5 @@
 # import os
+from ast import pattern
 import re                
 import fitz  # PyMuPDF
 import pandas as pd
@@ -13,14 +14,26 @@ from config import MEMBERS_DIR
 # def process_attendance_pdfs():
 # """Process scanned PDFs of TD attendance data, extract relevant information, and create structured CSV files for analysis."""
 
-
 dataframes = []
 IRISH_NAME_REGEX = re.compile(r"^[A-ZÁÉÍÓÚ][a-zA-ZáéíóúÁÉÍÓÚ'\s\-]+$")
 EXCLUDE_CASES = re.compile(r"^(Member|Sitting|Totals|Total)")
+DATE_RANGE = re.compile(r"(\d{1,2}-[a-zA-Z]+-\d{4})-to-(\d{1,2}-[a-zA-Z]+-\d{4})")
+date_range = ''
 os.chdir(MEMBERS_DIR / "pdf_storage") 
 if not Path(MEMBERS_DIR / "aggregated_td_tables.csv").is_file():   
     print("Aggregated payment tables CSV not found. Starting PDF processing to create it...")    
     for pdf in list(glob.glob('*.pdf')): 
+        #for now below snippet is experimental to test dange ranges extracted from PDF titles, but it can be rolled into a more robust function that extracts date ranges from PDF titles and tags the resulting CSVs with the date range for easier tracking and analysis of attendance patterns over time. This will allow us to analyze attendance data in relation to specific time periods, and identify any trends or patterns in attendance that may be relevant for our analysis of TD behavior and potential correlations with other factors such as payments, lobbying activities, and member metadata.
+        ############################################################
+        pdf_path = Path(pdf)
+        print(pdf_path.stem.title())
+        match = re.search(DATE_RANGE, pdf_path.stem.lower())
+        if match:
+              date_range = f"{match.group(1)}_to_{match.group(2)}"
+        else:
+            date_range = "unknown"
+        #############################################################
+        
         print(f"Processing {pdf}...")                                      
         doc = fitz.open(pdf)  # Open the PDF document using PyMuPDF
         print(f"Number of pages in {pdf}: {doc.page_count}")  # Debug: print the number of pages
@@ -48,51 +61,35 @@ if not Path(MEMBERS_DIR / "aggregated_td_tables.csv").is_file():
     df = df.iloc[:, :5].fillna(nan) 
     df = df.replace('', nan).rename(columns={'Sitting days attendance recorded on system': 'sitting_days_attendance', 'Other days attendance recorded on system *' : 'other_days_attendance'}) 
     df = df.dropna(subset=['sitting_days_attendance', 'other_days_attendance'], how='all')
+    year_from_sitting = df['sitting_days_attendance'].str.split('/', n=3).str[-1] 
+    year_from_other = df['other_days_attendance'].str.split('/', n=3).str[-1]
+    df['year'] = year_from_sitting.fillna(year_from_other).fillna('Missing')
+    df['iso_sitting_days_attendance'] = pd.to_datetime(
+        df['sitting_days_attendance'],
+        format='%d/%m/%Y',
+        errors='coerce')
+    df['iso_other_days_attendance'] = pd.to_datetime(
+        df['other_days_attendance'],
+        format='%d/%m/%Y',
+        errors='coerce')
     df.to_csv(MEMBERS_DIR / "aggregated_td_tables.csv", index=False) 
+
 else:
     print("Aggregated payment tables CSV already exists. Skipping PDF processing.")
     print('Final DataFrame with attendance counts:')
 df = pd.read_csv(MEMBERS_DIR / "aggregated_td_tables.csv")
 
-# Extract year from both columns using slicing and splitting, then fill missing year values prioritizing sitting_days_attendance, then fallback to other_days_attendance, and add 'Missing' if both are missing
-year_from_sitting = df['sitting_days_attendance'].str.split('/', n=3).str[-1]
-year_from_other = df['other_days_attendance'].str.split('/', n=3).str[-1]
+df['sitting_flag'] = df['iso_sitting_days_attendance'].notna().astype(int)
+df['other_flag'] = df['iso_other_days_attendance'].notna().astype(int)
 
-# Fill year prioritizing sitting_days_attendance, then fallback, add missing if both are missing
-df['year'] = year_from_sitting.fillna(year_from_other).fillna('Missing')
-
-#TODO: much better counts but it is still counting null occurences as 0, 
-# which is not ideal. Need to add a check to only count non-empty 
-# attendance entries, and add a separate column counting empty entries 
-# so we can filter them out in future steps of the pipeline if needed. 
-# This is because some TDs have no attendance records for certain years, 
-# and we want to be able to distinguish between 0 attendance and missing data.
-result = (
-    df.groupby(['identifier', 'year'])[['sitting_days_attendance', 'other_days_attendance']]
-    .count()
-    .reset_index()
-    .rename(columns={
-        'sitting_days_attendance': 'sitting_days_count',
-        'other_days_attendance': 'other_days_count'
-    })
-)   # Add a column counting non-empty attendance entries
-df = pd.merge(df, result, on=['identifier', 'year'], how='left') # Join the counts back to the original DataFrame
-df = df.drop('identifier', axis=1) # Drop the identifier column as it's no longer needed
+df['sitting_days_count'] = df.groupby(['identifier', 'year'])['sitting_flag'].transform('sum')
+df['other_days_count'] = df.groupby(['identifier', 'year'])['other_flag'].transform('sum')
 
 df['sitting_total_days'] = df['sitting_days_count'] + df['other_days_count']
 
-#ISO format the date columns to make them easier to work with in future steps of the pipeline
-#TODO: create ISO datetime formatter for all dates for the pipeline along with a check
-df['iso_sitting_days_attendance'] = pd.to_datetime(
-    df['sitting_days_attendance'],
-    format='%d/%m/%Y',
-    errors='coerce')
-df['iso_other_days_attendance'] = pd.to_datetime(
-    df['other_days_attendance'],
-    format='%d/%m/%Y',
-    errors='coerce')
-# df = df.drop(['sitting_days_attendance', 'other_days_attendance', 'identifier'], axis=1)
+df = df.drop(['sitting_flag', 'other_flag'], axis=1)
 df.to_csv(MEMBERS_DIR / "aggregated_td_tables.csv", index=False) 
+print("date range extracted from title:", date_range)
 print("TD attendance CSV created successfully.")
 if __name__ == "__main__":    
     print("TD attendance CSV created successfully and saved to aggregated_td_tables.csv.")
