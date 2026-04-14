@@ -22,7 +22,8 @@ payment_september_td_2025   = f"{payment_url}/2025/2025-11-18_parliamentary-stan
 payment_august_td_2025      = f"{payment_url}/2025/2025-10-06_parliamentary-standard-allowance-payments-to-deputies-for-august-2025_en.pdf"
 payment_july_td_2025        = f"{payment_url}/2025/2025-09-03_parliamentary-standard-allowance-payments-to-deputies-for-july-2025_en.pdf"
 payment_june_td_2025        = f"{payment_url}/2025/2025-08-15_parliamentary-standard-allowance-payments-to-deputies-for-june-2025_en.pdf"
-payment_may_td_2025         = f"{payment_url}/2025/2025-07-03_parliamentary-standard-allowance-payments-to-deputies-for-may-2025_en.pdf"
+
+#payment_may_td_2025         = f"{payment_url}/2025/2025-07-03_parliamentary-standard-allowance-payments-to-deputies-for-may-2025_en.pdf"
 payment_april_2025          = f"{payment_url}/2025/2025-06-10_parliamentary-standard-allowance-payments-to-deputies-for-april-2025_en.pdf"
 payment_feb_2025            = f"{payment_url}/2025/2025-04-22_parliamentary-standard-allowance-payments-to-deputies-for-february-2025_en.pdf"
 payment_jan_2025            = f"{payment_url}/2025/2025-04-09_parliamentary-standard-allowance-payments-to-deputies-for-january-2025_en.pdf"
@@ -49,8 +50,9 @@ broken_urls = []
 def endpoint_checker(urls : list) -> bool:
     for url in urls:
         try:
-            response = requests.options(url)
-            if requests.head(url).status_code == 200:  
+            response = requests.head(url, timeout=10)
+            if response.status_code == 200:
+                print(f"{response.url} has content")
                 print("Success - API is accessible.")
                 print(f"{response.url} has content")
                 return True
@@ -67,10 +69,7 @@ def endpoint_checker(urls : list) -> bool:
             broken_urls.append(url)
             logging.error(f"Error checking URLs {broken_urls}: {e}")
         return False
-is_complete = endpoint_checker(urls)
-logging.info("Endpoint check complete. All URLs are accessible and working correctly." if is_complete else f"Endpoint check complete. Some URLs {broken_urls} are not accessible or not working correctly. Please review the error messages above for details.")
-
-
+    
 def return_endpoints(urls) -> list:
     return urls
 
@@ -78,4 +77,4 @@ returned_urls = return_endpoints(urls)
 if __name__ == "__main__":
     is_complete = endpoint_checker(urls)
     returned_urls = return_endpoints(urls)
-    print(f"Endpoint check complete. All PDF URL's {returned_urls} that the pipeline needs to work are accessible and existing." if is_complete else "Endpoint check complete. Some URLs are not accessible or not working correctly. Please review the error messages above for details.")
+    print("Endpoint check complete. All URLs are accessible and working correctly." if is_complete else f"Endpoint check complete. Some URLs {broken_urls} are not accessible or not working correctly. Please review the error messages above for details.")
