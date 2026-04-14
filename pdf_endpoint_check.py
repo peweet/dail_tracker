@@ -65,7 +65,7 @@ def endpoint_checker(urls : list) -> bool:
             print(f"Failure - Unknown error occurred: {e}. Unfortunately, this data is only available via manual PDF extraction.")
             [print(f"Manual endpoints are here: {endpoint}") for endpoint in manual_endpoints]
             broken_urls.append(url)
-        logging.errror(f"Error checking URLs {broken_urls}: {e}")
+            logging.error(f"Error checking URLs {broken_urls}: {e}")
         return False
 is_complete = endpoint_checker(urls)
 logging.info("Endpoint check complete. All URLs are accessible and working correctly." if is_complete else f"Endpoint check complete. Some URLs {broken_urls} are not accessible or not working correctly. Please review the error messages above for details.")
