@@ -28,23 +28,23 @@ logger = logging.getLogger(__name__)
 # Add the file handler to the logger
 logger.addHandler(file_handler)
 
+session = requests.Session()
 def member_api_request():
     # Load member data for all TDs from the Oireachtas API and save to JSON
     # concurrency not needed here as the payload is only one API call for all members, not one call per member. We can parallelize the next step of fetching legislation/questions for each TD, which is where we have one API call per TD and the payload is larger.
     chamber_id = "%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34"
     URL = f"{API_BASE}/members?chamber_id={chamber_id}&date_start=2024-01-01&date_end=2099-01-01&limit=200"
     all_members = []  # Accumulates one API response dict per party
-    response = requests.get(URL)
-    data = response.json()    # Parse the JSON response
+    response = session.get(URL, timeout=60)
+    response.raise_for_status()  # Raise on 4xx/5xx
+    data = response.json()
+    
     all_members.append(data)  # Add this party's member data to the list
     # Flatten the list of API responses into a single list of member records
     strip_head = [member for group in all_members for member in group.get("results", [])]
     logger.info(f"Loaded member data for {len(strip_head)} members from the API.")
     with open("members/members.json", "w") as f:
         json.dump(all_members, f, indent=2)
-logger.info("Member data starting to load from API...")    
-member_api_request()
-logger.info("Finished loading members JSON data from the API. This will serve as the basis for fetching legislation and questions for each TD and master reference for all current members.")
 # # --- Loop over every TD URI and fetch their associated legislation ---
 bills = {}
 def construct_urls_for_api(api_scenario: str = None) -> list:
@@ -70,11 +70,14 @@ def construct_urls_for_api(api_scenario: str = None) -> list:
     return URLS
 construct_urls_for_api(api_scenario="legislation")
 def load_url(url, timeout):
-    # Load a single URL with a timeout and return the response data
-    with urllib.request.urlopen(url, timeout=timeout) as conn:
-        return conn.read()
-    
-def fetch_all(urls):
+    response = requests.get(url, timeout=timeout)
+    response.raise_for_status()
+    return response.content
+# def load_url(url, timeout):
+#     encoded_url = quote(url, safe=':/?=&%')
+#     with urllib.request.urlopen(encoded_url, timeout=timeout) as conn:
+#         return conn.read()    
+def fetch_all(urls) -> list:
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         # Start the load operations and mark each future with its URL
@@ -89,18 +92,17 @@ def fetch_all(urls):
             else:
                 logging.info('%r page is %d bytes' % (url, len(data)))
     return results
-logging.info("loading json...")
 
+#TODO move into main
 construct_urls_for_api(api_scenario="questions")
 
-def save_results(results, scenario):
+def save_results(results, scenario) -> None:
     # Save the results to a JSON file named after the scenario (e.g. legislation_results.json, questions_results.json)
     file_name = f"bills/{scenario}_results.json"
     with open(file_name, 'w', encoding='utf-8') as f:
         logger.info(f"loading {scenario} json...")
         json.dump(results, f, indent=2)
     logger.info(f"Saved {len(results)} results to {file_name}")
-member_api_request()
 
 for scenario in ["legislation", "questions"]:
     logger.info(f"Starting {scenario} pipeline")
@@ -111,6 +113,7 @@ for scenario in ["legislation", "questions"]:
     logger.info(f"Finished {scenario} pipeline")
 
 if __name__ == "__main__":
+    member_api_request()
     logger.info("Oireachtas API fetching complete. Results saved to bills/legislation_results.json and bills/questions_results.json.")
 # keep for future testing in Polars
 # # write_dict_to_json = pl.from_dict({"TD": combined}, strict=False)
@@ -226,16 +229,16 @@ if __name__ == "__main__":
 
 
 # ── Main pipeline ────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    # 1. Fetch member data (single API call)
-    logger.info("Loading member data from API...")
-    member_api_request()
-    logger.info("Finished loading members JSON.")
-    # 2. For each scenario, build URLs → fetch concurrently → save
-    for scenario in ["legislation", "questions"]:
-        logger.info(f"Starting {scenario} pipeline")
-        urls = construct_urls_for_api(scenario)
-        logger.info(f"Built {len(urls)} URLs for {scenario}")
-        results = fetch_all(urls)
-        save_results(results, scenario)
-        logger.info(f"Finished {scenario} pipeline")
+# if __name__ == "__main__":
+#     # 1. Fetch member data (single API call)
+#     logger.info("Loading member data from API...")
+#     member_api_request()
+#     logger.info("Finished loading members JSON.")
+#     # 2. For each scenario, build URLs → fetch concurrently → save
+#     for scenario in ["legislation", "questions"]:
+#         logger.info(f"Starting {scenario} pipeline")
+#         urls = construct_urls_for_api(scenario)
+#         logger.info(f"Built {len(urls)} URLs for {scenario}")
+#         results = fetch_all(urls)
+#         save_results(results, scenario)
+#         logger.info(f"Finished {scenario} pipeline")

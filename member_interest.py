@@ -5,7 +5,7 @@ import re
 import os
 import polars as pl
 import normalise_join_key 
-from config import MEMBERS_DIR
+from config import DATA_DIR
 """
 member_interest.py
 ------------------
@@ -25,7 +25,7 @@ Cleaning steps:
 - Normalize and split out names and interests for further analysis
 The result is a structured dataset of members and their declared interests, suitable for downstream analysis.
 """
-member_interest = MEMBERS_DIR / "pdf_member_interest" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
+member_interest = DATA_DIR / "interests" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
 categories = re.compile(r"^\d+\.\s")       # "1. ", "2. " etc.
 member_name = re.compile(r"^[A-Z]{2,},\s")  # "ARDAGH, Catherine"
 
