@@ -38,9 +38,13 @@ payments_march_2024         = f"{payment_url}/2024/2024-05-02_parliamentary-stan
 payments_feb_2024           = f"{payment_url}/2024/2024-04-02_parliamentary-standard-allowance-payments-to-deputies-for-february-2024_en.pdf"
 payments_jan_2024           = f"{payment_url}/2024/2024-03-01_parliamentary-standard-allowance-payments-to-deputies-for-january-2024_en.pdf"
 
-urls = [pdf_2023, pdf_2024, pdf_2024_gap, pdf_2025_gap, pdf_2025, pdf_2026, payment_feb_td_2026, payment_jan_td_2026, payment_dec_td_2025, payment_nov_td_2025, payment_september_td_2025, payment_august_td_2025, payment_july_td_2025, payment_june_td_2025, payment_may_td_2025, payment_april_2025, payment_feb_2025, payment_jan_2025, payment_dec_2024, payment_29_30_nov_2024, payments_1_8_nov_2024, payments_oct_2024, payments_sep_2024, payments_aug_2024, payments_july_2024, payments_june_2024, payments_may_2024, payments_april_2024, payments_march_2024, payments_feb_2024, payments_jan_2024]
+
+
+member_interests = "https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2026/2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
+
+urls = [member_interests,pdf_2023, pdf_2024, pdf_2024_gap, pdf_2025_gap, pdf_2025, pdf_2026, payment_feb_td_2026, payment_jan_td_2026, payment_dec_td_2025, payment_nov_td_2025, payment_september_td_2025, payment_august_td_2025, payment_july_td_2025, payment_june_td_2025, payment_may_td_2025, payment_april_2025, payment_feb_2025, payment_jan_2025, payment_dec_2024, payment_29_30_nov_2024, payments_1_8_nov_2024, payments_oct_2024, payments_sep_2024, payments_aug_2024, payments_july_2024, payments_june_2024, payments_may_2024, payments_april_2024, payments_march_2024, payments_feb_2024, payments_jan_2024]
 manual_endpoints=['https://www.oireachtas.ie/en/foi/frequently-requested-information/', 'https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=record-of-attendance', 'https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=parliamentary-allowances']
-def endpoint_checker(urls : list, scenario ='None') -> bool:
+def endpoint_checker(urls : list) -> bool:
     for url in urls:
         try:
             response = requests.options(url)
@@ -58,29 +62,15 @@ def endpoint_checker(urls : list, scenario ='None') -> bool:
             print(f"Failure - Unknown error occurred: {e}. Unfortunately, this data is only available via manual PDF extraction.")
             [print(f"Manual endpoints are here: {endpoint}") for endpoint in manual_endpoints]
         return False
-is_complete = endpoint_checker(urls)
+# is_complete = endpoint_checker(urls)
 print("Endpoint check complete. All URLs are accessible and working correctly." if is_complete else "Endpoint check complete. Some URLs are not accessible or not working correctly. Please review the error messages above for details.")
 
-def endpoint_downloader(urls : list) -> None:
-    for url in urls:
-        try:
-            response = requests.get(url)
-            if response.status_code == 200:  
-                print("Success - API is accessible.")
-                print(f"{response.url} has content")
-                with open(f"data/{response.url.split('/')[-1]}", 'wb') as f:
-                    f.write(response.content)
-                print(f"PDF downloaded successfully from {response.url} and saved to data/{response.url.split('/')[-1]}")
-            else:
-                print(f"Failure - API is accessible but PDF url is no longer working: {response.status_code}")
-                print(f"Response content: {response.content}")
-                print(f"The PDF URL {response.url} is no longer working. Please check the URL and try again.")
-        except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError) as e:
-            print(f"Failure - Unable to establish connection: {e}.")
-        except Exception as e:
-            print(f"Failure - Unknown error occurred: {e}. Unfortunately, this data is only available via manual PDF extraction.")
-            [print(f"Manual endpoints are here: {endpoint}") for endpoint in manual_endpoints]
 
+def return_endpoints(urls) -> list:
+    return urls
+
+# returned_urls = return_endpoints(urls)
 if __name__ == "__main__":
     is_complete = endpoint_checker(urls)
+    returned_urls = return_endpoints(urls)
     print("Endpoint check complete. All URLs are accessible and working correctly." if is_complete else "Endpoint check complete. Some URLs are not accessible or not working correctly. Please review the error messages above for details.")
