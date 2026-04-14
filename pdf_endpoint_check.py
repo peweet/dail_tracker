@@ -62,14 +62,14 @@ def endpoint_checker(urls : list) -> bool:
             print(f"Failure - Unknown error occurred: {e}. Unfortunately, this data is only available via manual PDF extraction.")
             [print(f"Manual endpoints are here: {endpoint}") for endpoint in manual_endpoints]
         return False
-# is_complete = endpoint_checker(urls)
+is_complete = endpoint_checker(urls)
 print("Endpoint check complete. All URLs are accessible and working correctly." if is_complete else "Endpoint check complete. Some URLs are not accessible or not working correctly. Please review the error messages above for details.")
 
 
 def return_endpoints(urls) -> list:
     return urls
 
-# returned_urls = return_endpoints(urls)
+returned_urls = return_endpoints(urls)
 if __name__ == "__main__":
     is_complete = endpoint_checker(urls)
     returned_urls = return_endpoints(urls)
