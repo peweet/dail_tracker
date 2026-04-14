@@ -2,7 +2,7 @@ import csv
 import polars as pl
 from utility.select_drop_rename_cols_mappings import lobbying_rename
 import os
-from config_dummy import LOBBY_DIR
+from config import LOBBY_DIR
 # Parse each non-empty line using the parse_line function
 # Read the raw input file line by line
 # Function to parse a single line from the input CSV, the lobbyist data is very messy and 
@@ -58,6 +58,8 @@ lobby_org_csv_sanitizer()
 # eg: https://www.lobbying.ie/app/home/search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&publicBodys=&jobTitles=11&returnDateFrom=01-02-2026&returnDateTo=08-04-2026&period=&dpo=&client=&responsible=&lobbyist=&lobbyistId=
 #Do it in batches of 1000 and download it manually, the max date range is 12 months ie 2025-01 to 2026-01, and then stack the csvs together and do the cleaning and processing with polars. The lobbying data is not available via an API, so we have to download it manually in batches of 1000 records, which is the maximum allowed by the website for a single download. We can filter the data by job titles (e.g. TDs, Senators, Ministers, etc.) and date range to get more relevant data for our analysis. Once we have downloaded the raw CSV files, we can use the csv sanitizer to clean the data and persist it to a new CSV file for further processing with polars. This will allow us to extract meaningful insights from the lobbying data and analyze the lobbying activities and their impact on the politicians in Ireland.
 #drop it in the raw folder in the lobbying directory, and then run the csv sanitizer to clean the data and persist it to a new csv file for further processing with polars. The csv sanitizer will handle the messy and inconsistent formatting of the raw data, and ensure that we have a clean and consistent dataset to work with for our analysis of the lobbying activities and their impact on the politicians. This is a crucial step in the data processing pipeline, as it allows us to extract meaningful insights from the lobbying data, and identify any potential patterns or trends in the lobbying activities that may be relevant for our analysis of the political landscape and potential conflicts of interest.
+
+#TODO: def csv_stacker()
 csvs_to_stack = []
 for file in os.listdir(LOBBY_DIR / 'raw'):
     if file.endswith(".csv") and not file.startswith("Lobbying_ie_organisation_results") and not file.startswith("cleaned_output") and not file.startswith("cleaned"):  # Ensure we only process the raw CSV files and not the cleaned output
@@ -80,6 +82,10 @@ lobby_org = pl.read_csv(LOBBY_DIR / 'raw' / 'cleaned_output.csv', infer_schema=4
 # components of the transformation process. This will also allow us to reuse some of the transformation logic if 
 # needed, and make it easier to modify or extend the transformation process in the future if we need to add additional 
 # steps or handle new edge cases in the data.
+
+
+#TODO: def lobby_org_transformations(lobby_org: pl.DataFrame) -> pl.DataFrame:
+    # Select only the relevant columns for the lobby organizations, which are the columns that contain the key information about the lobbying organizations such as their name, website, main activities, and registration details. This will allow us to focus on the most important information about the lobbying organizations for our analysis, and avoid unnecessary clutter from irrelevant columns that may not be useful for our analysis of the lobbying activities and their impact on the politicians in Ireland.
 lobby_org = lobby_org.select("lobby_issue_uri",
                              "name",
                              "website",
@@ -111,6 +117,8 @@ lobby_org = lobby_org.drop("name_for_link"
                                "company_registered_name", 
                                "lobby_org_link"
                             )
+#TODO: def lobby_activity_transformations(lobbying_df: pl.DataFrame) -> pl.DataFrame:
+
 split_df = df.with_columns(
         pl.col("dpo_lobbied").str.split("::").alias("lobbyists")
         ).explode("lobbyists").with_columns(
@@ -136,6 +144,7 @@ split_df = split_df.with_columns(
     ).drop("activities_list", "activities_parts", "lobbying_activities")
 df = split_df.select("full_name","position", "chamber")
 
+#TODO: def most_lobbied_politicians(df: pl.DataFrame) -> pl.DataFrame:
 segmented = df.group_by(["full_name", "chamber"]
     ).agg(pl.count().alias("segmented_count"))
 
@@ -147,6 +156,8 @@ combined = segmented.join(total, on="full_name")
 
 # Join total count onto segmented count
 most_lobbied_politician = combined.join(total, on="full_name")
+
+#TODO: find a way to export the lobby requests url associated to each politician
 
 #big bug on counts (look at test.py)
 most_lobbied_politician.write_csv(LOBBY_DIR / 'output' / 'most_lobbied_politicians.csv')
@@ -175,6 +186,8 @@ else:
                     counts, on="lobbyist_name"
                     ).sort(["politicians_involved_count", "lobby_requests_count"],  descending=True)
     most_prolific_lobbyist.write_csv(LOBBY_DIR / 'output' / 'lobby_count_details.csv')
+   
+    #TODO: this can be considered in the tear_down.py
     os.remove(LOBBY_DIR / 'raw' / 'cleaned_output.csv')
 
 

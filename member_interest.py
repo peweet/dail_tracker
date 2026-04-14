@@ -5,7 +5,7 @@ import re
 import os
 import polars as pl
 import normalise_join_key 
-from config_dummy import MEMBERS_DIR
+from config import MEMBERS_DIR
 """
 member_interest.py
 ------------------
@@ -144,8 +144,8 @@ df = df.with_columns(
     .str.replace_all(r"\s+", " ")
     .str.replace_all(r"[.…]+", "")
     .str.replace_all(r"^\s+", "")
-    .str.replace_all(r"\b[1-9]\b", "")              # digits FIRST
-    .str.replace_all(r"\s*\(\)\s*", " ")             # THEN clean empty ()
+    .str.replace_all(r"\b[1-9]\b", "")             
+    .str.replace_all(r"\s*\(\)\s*", " ")             
     .str.replace_all(r" {2,}", " ")
     .str.replace_all(r'["""]', "")
     .str.replace_all(r'or lent or a Service supplied ', '')

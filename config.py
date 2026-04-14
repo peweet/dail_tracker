@@ -12,8 +12,6 @@ LOGGING_CONFIG = logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-
-
 #LOGGING SETUP
 FILE_HANDLER= file_handler = logging.FileHandler("pipeline.log")
 file_handler.setLevel(logging.INFO)

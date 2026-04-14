@@ -11,8 +11,8 @@ CSV files that can be used for analysis. The code uses the PyMuPDF library to re
 The resulting CSV files will contain structured information about TD payments, which can be used to analyze payment patterns, identify top recipients of payments, and explore potential correlations with other factors such as attendance records, lobbying activities, and member metadata.
 """
 
-def process_payment_pdfs():
-    """Process scanned PDFs of TD payments data, extract relevant information, and create structured CSV files for analysis."""
+# def process_payment_pdfs():
+    # """Process scanned PDFs of TD payments data, extract relevant information, and create structured CSV files for analysis."""
 
 pdf_dir = MEMBERS_DIR / "pdf_payments"
 pdf_files = glob(str(pdf_dir / "*.pdf"))  # if using glob
