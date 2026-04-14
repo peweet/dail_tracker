@@ -6,11 +6,9 @@ import logging
 download_path = Path("data/bronze/pdfs/")
 silver_path = Path("data/silver/")
 gold_path = Path("data/gold/")
-lobby_csv_path = download_path / "lobbying_csv_data/"
 
 silver_path.mkdir(parents=True, exist_ok=True)
-gold_path.mkdir(parents=True, exist_ok=True)  
-lobby_csv_path.mkdir(parents=True, exist_ok=True)  
+gold_path.mkdir(parents=True, exist_ok=True)    
 logging.info(f"Download path set to: {download_path}")
 logging.info(f"Silver path set to: {silver_path}")
 logging.info(f"Gold path set to: {gold_path}")
@@ -37,7 +35,6 @@ def endpoint_downloader(urls: list) -> None:
             logging.info(f"Skipping (already downloaded): {destination}")
             continue
         try:
-            print(f"Downloading {url} to {destination}...")
             response = requests.get(url, stream=True, timeout=30)
             response.raise_for_status()  # Check for HTTP errors
             if response.status_code == 200:
@@ -45,7 +42,6 @@ def endpoint_downloader(urls: list) -> None:
                     for chunk in response.iter_content(chunk_size=8192):
                         f.write(chunk)
                 logging.info(f"Downloaded: {destination}")
-                print(f"Downloaded {url} to {destination}")
             else:
                 logging.warning(f"Unexpected status {response.status_code} for {url}")
         except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError) as e:
