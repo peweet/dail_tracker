@@ -2,11 +2,16 @@
 import subprocess, sys
 
 STEPS = [
+    #endpoint checker and downloader
+    # ("PDF Endpoint Check", "pdf_endpoint_check.py"),
+    # ("PDF Downloader", "pdf_downloader.py"),
     ("Members API", "oireachtas_api_service.py"),
     ("Flatten members", "flatten_members_json_to_csv.py"),
-    ("Attendance PDF", "attendance_2024.py"),
+    ("Attendance PDF", "attendance.py"),
     ("Enrich", "enrich.py"),
     ("Flatten bills", "flatten_service.py"),
+    ("Bring in lobby information", "lobbying_processing.py"),
+    ("Payments PDF", "payments.py"),
 ]
 
 for name, script in STEPS:
