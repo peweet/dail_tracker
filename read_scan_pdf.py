@@ -17,7 +17,6 @@ if __name__ == '__main__':  # To ensure correct behavior on Windows and macOS
         languages=['eng'],
         progress_bar=True,
         force_ocr=True,  # Force OCR even if the PDF already has text (useful for scanned PDFs)
-        
     )
     try:
         logging.info(f"Starting OCR process for {ge_ff_2024}...")

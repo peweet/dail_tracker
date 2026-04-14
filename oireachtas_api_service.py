@@ -4,7 +4,7 @@ import polars as pl
 import concurrent.futures
 import urllib.request       
 import logging
-from config import API_BASE
+from config import API_BASE, LOGGING_CONFIG
 # The below code is directly copied  from the Python docs for concurrent.futures, 
 # with some adjustments to fit our use case of loading multiple URLs in parallel. 
 # The `construct_urls_for_api` function builds the list of URLs to fetch based on the unique_member_code values *
@@ -15,13 +15,11 @@ from config import API_BASE
 
 # Reference URL used during development (single TD: Noel Grealish)
 #https://api.oireachtas.ie/v1/legislation?&bill_source=Government,Private%20Member&date_start=1900-01-01&date_end=2099-01-01&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-#TODO adapt Claude code to improve the api call  logic (commented out below) and error handling, and to add logging at each step of the process (e.g. when loading members JSON, when constructing URLs, when starting and finishing API calls, when saving results, etc.)
 
 #LOGGING SETUP
+#TODO: put this logic in the config.py file and import it into this module, and into other modules that need logging, 
+# to avoid duplication and ensure consistent logging configuration across the codebase. 
+# We can define a function in config.py that sets up the logging configuration and returns a logger instance that can be imported and used in other modules. This will help to keep the code organized and make it easier to maintain the logging setup as the project evolves over time.
 file_handler = logging.FileHandler("pipeline.log")
 file_handler.setLevel(logging.INFO)
 # Set a formatter for the file handler to include timestamps and log levels
@@ -51,6 +49,7 @@ logger.info("Finished loading members JSON data from the API. This will serve as
 bills = {}
 def construct_urls_for_api(api_scenario: str = None) -> list:
     URLS = []
+    #TODO: add the constant to read csv to make it more agnostic to file paths and easier to maintain
     df = pl.read_csv('C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\enriched_td_attendance.csv')
     df = df.select(
         pl.col('unique_member_code')
