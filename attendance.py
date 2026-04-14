@@ -8,6 +8,12 @@ from pathlib import Path
 import glob    
 from config import MEMBERS_DIR
 # --- Dail Eireann 2023, 2024, 2025, 2026 attendance PDF ---
+
+#TODO: this code is currently in the attendance.py file, but it should be refactored into a separate module (e.g. pdf_processing.py) that can be imported and used in the main pipeline script (e.g. main.py) to process the scanned PDFs of TD attendance data, extract the relevant information, and create structured CSV files for analysis. This will help to keep the code organized and modular, and make it easier to maintain and extend in the future as we add more functionality to the pipeline. The pdf_processing module can contain functions for processing different types of PDFs (e.g. attendance, payments, etc.) and can be called from the main pipeline script to perform the necessary processing steps for each type of PDF data.
+# def process_attendance_pdfs():
+# """Process scanned PDFs of TD attendance data, extract relevant information, and create structured CSV files for analysis."""
+
+
 dataframes = []
 IRISH_NAME_REGEX = re.compile(r"^[A-ZÁÉÍÓÚ][a-zA-ZáéíóúÁÉÍÓÚ'\s\-]+$")
 EXCLUDE_CASES = re.compile(r"^(Member|Sitting|Totals|Total)")
@@ -47,11 +53,20 @@ else:
     print("Aggregated payment tables CSV already exists. Skipping PDF processing.")
     print('Final DataFrame with attendance counts:')
 df = pd.read_csv(MEMBERS_DIR / "aggregated_td_tables.csv")
+
 # Extract year from both columns using slicing and splitting, then fill missing year values prioritizing sitting_days_attendance, then fallback to other_days_attendance, and add 'Missing' if both are missing
 year_from_sitting = df['sitting_days_attendance'].str.split('/', n=3).str[-1]
 year_from_other = df['other_days_attendance'].str.split('/', n=3).str[-1]
+
 # Fill year prioritizing sitting_days_attendance, then fallback, add missing if both are missing
 df['year'] = year_from_sitting.fillna(year_from_other).fillna('Missing')
+
+#TODO: much better counts but it is still counting null occurences as 0, 
+# which is not ideal. Need to add a check to only count non-empty 
+# attendance entries, and add a separate column counting empty entries 
+# so we can filter them out in future steps of the pipeline if needed. 
+# This is because some TDs have no attendance records for certain years, 
+# and we want to be able to distinguish between 0 attendance and missing data.
 result = (
     df.groupby(['identifier', 'year'])[['sitting_days_attendance', 'other_days_attendance']]
     .count()
@@ -66,9 +81,8 @@ df = df.drop('identifier', axis=1) # Drop the identifier column as it's no longe
 
 df['sitting_total_days'] = df['sitting_days_count'] + df['other_days_count']
 
-
-
 #ISO format the date columns to make them easier to work with in future steps of the pipeline
+#TODO: create ISO datetime formatter for all dates for the pipeline along with a check
 df['iso_sitting_days_attendance'] = pd.to_datetime(
     df['sitting_days_attendance'],
     format='%d/%m/%Y',
@@ -77,7 +91,7 @@ df['iso_other_days_attendance'] = pd.to_datetime(
     df['other_days_attendance'],
     format='%d/%m/%Y',
     errors='coerce')
-# df = df.drop(['sitting_days_attendance', 'other_days_attendance'], axis=1)
+# df = df.drop(['sitting_days_attendance', 'other_days_attendance', 'identifier'], axis=1)
 df.to_csv(MEMBERS_DIR / "aggregated_td_tables.csv", index=False) 
 print("TD attendance CSV created successfully.")
 if __name__ == "__main__":    
