@@ -24,7 +24,6 @@ all_rows = []
 print('Starting to process payment PDFs...')
 for pdf in pdf_files:
     print(f"Processing payment file: {pdf}...")
-    # print(f"Processing payment file: {pdf}...")
     doc = fitz.open(pdf)  # Open the PDF document using PyMuPDF
     print(f"Processing payment file: {pdf} with {doc.page_count} pages...")
     for page in doc:
@@ -54,12 +53,19 @@ top_tds_by_payment = df.with_columns(
         ).cast(pl.Float64) #remove euro sign
     )
 top_tds_by_payment = top_tds_by_payment.with_columns(
-    pl.sum('Amount').over('join_key').alias('total_amount_paid_since_31_01_2025')
+    pl.sum('Amount').over('join_key').alias('total_amount_paid_since_31_01_2025').round(2)
 ).sort(
     'total_amount_paid_since_31_01_2025', 
     descending=True)
 top_tds_by_payment= top_tds_by_payment.unique(subset=['join_key'])
-#TODO filter logic for Ceann Comhairle 
+#TODO: fix below logic to bring in enriched data into payment dataset, and then filter for top paid TDs who were elected in 2024 or earlier (i.e. exclude TDs who were elected in 2025 or later, as they would not have been in office at the time the payments were made, and therefore should not be included in the analysis of payment patterns among sitting TDs)
+# td_consituency= pl.read_csv(MEMBERS_DIR / "enriched_td_attendance.csv")
+# td_consituency = td_consituency.select(['join_key', 'member_constituency']).unique(subset=['join_key'])
+# td_consituency = td_consituency.join(top_tds_by_payment, on='join_key', how='left').select(['join_key', 'year_elected','first_name', 'last_name', 'total_amount_paid_since_31_01_2025', 'member_constituency'])
+# df = top_tds_by_payment.join(
+#     td_consituency, on='join_key', how='left')
+# top_tds_by_payment.sort('total_amount_paid_since_31_01_2025', descending=True
+#                         )
 #TODO filter logic for TDs who were elected after the payment date (e.g. payments made in 2024 should only be matched to TDs elected in 2024 or earlier)
 top_tds_by_payment.write_csv(MEMBERS_DIR / "top_tds_by_payment_since_2024.csv")
 

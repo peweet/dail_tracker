@@ -171,6 +171,13 @@ df = df.with_columns(
     .when(pl.col('interest_code')   == "9").then(pl.lit("Contracts")).otherwise(pl.col('interest_code')
     ).alias('interest_category')
 )
+df = df.with_columns(#filter on Occupations  Land (including property)
+    pl.when(
+        pl.col('interest_description_cleaned')
+        .str.contains('let|rented|Léasóir|letting|renting|rental|lessor|lord:')
+        ).then(pl.lit('true')).otherwise(pl.lit('false')).alias('landlord')
+)
+
 df = df.with_columns(
     pl.col('full_name').list.get(0).alias('last_name'),
     pl.col('full_name').list.get(1).alias('first_name')
