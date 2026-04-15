@@ -96,8 +96,9 @@ df['other_days_count'] = df.groupby(['identifier', 'year'])['other_flag'].transf
 
 df['sitting_total_days'] = df['sitting_days_count'] + df['other_days_count']
 
-df = df.drop(['sitting_flag', 'other_flag'], axis=1)
-df.to_csv(DATA_DIR / "silver"/ "aggregated_td_tables.csv", index=False) 
+df = df.drop(['sitting_flag', 'other_flag', 'sitting_days_attendance', 'other_days_attendance'], axis=1)
+df.to_csv("C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\aggregated_payment_tables.csv", index=False)
+# df.to_csv(DATA_DIR / "silver"/ "aggregated_td_tables.csv", index=False) 
 print("date range extracted from title:", date_range)
 print("TD attendance CSV created successfully.")
 if __name__ == "__main__":    
