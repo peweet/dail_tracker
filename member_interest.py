@@ -2,6 +2,7 @@ import fitz  # PyMuPDF
 import pathlib
 import json
 import re
+import regex
 import os
 import polars as pl
 import normalise_join_key 
@@ -30,8 +31,7 @@ member_interest_2024 = MEMBERS_DIR / "pdf_member_interest" / "2025-02-27_registe
 # member_interest_2025 = MEMBERS_DIR / "pdf_member_interest" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
 
 categories = re.compile(r"^\d+\.\s")       # "1. ", "2. " etc.
-member_name = re.compile(r"^[A-Z][A-Z\-]+,\s")  # "ARDAGH, Catherine"
-
+member_name = regex.compile(r"^\p{Lu}[\p{Lu}'\-]*(?:\s\p{Lu}[\p{Lu}'\-]*)*,\s")
 print("Starting to process member interest PDF...")
 doc = fitz.open(member_interest_2024)
 print(f"Processing file: {member_interest_2024} with {doc.page_count} pages...")
@@ -117,7 +117,6 @@ with open(output_path, "w", encoding="utf-8") as f:
 
 df = pl.read_json(output_path)
 df = df.explode("interests")
-
 df = df.with_columns(
     pl.col('name').str.split(by=r"\s{2,}", literal=False).alias('name_and_constituency'))
 
@@ -159,6 +158,7 @@ df = df.with_columns(
     .str.replace(r'^"', "")
     .str.replace(r'^"', "")
     .str.replace(r'"$', "")
+    .str.replace_all(r"^(│Dr.|dr|dr.|prof|mr|mrs|ms|miss|bl)\s+", "")
     .str.replace(r"Nil", "No interests declared")
     .str.strip_chars()
     .alias('interest_description_cleaned')
@@ -222,13 +222,20 @@ df = df.with_columns(
     ).alias('join_key')
 )
 df = normalise_join_key.normalise_df_td_name(df, 'join_key')
-
+df.select("join_key", "first_name", "last_name").unique().write_csv(MEMBERS_DIR / "unique_td_list_from_interests.csv")
 master_td_list = pl.read_csv("C://Users//pglyn//PycharmProjects//dail_extractor//members//flattened_members.csv")
+
 master_td_list = master_td_list.select(
     ['unique_member_code', 'first_name', 'last_name', 'member_constituency', 'full_name']
 ).unique()
+master_td_list = master_td_list.with_columns(
+    pl.concat_str(pl.col(['first_name', 'last_name'])).alias('join_key')
+)
 
-master_td_list = normalise_join_key.normalise_df_td_name(master_td_list, 'full_name')
+master_td_list = normalise_join_key.normalise_df_td_name(master_td_list, 'join_key')
+
+master_td_list.select("join_key", "first_name", "last_name").unique().write_csv(MEMBERS_DIR / "unique_td_list_from_interests_1.csv")
+
 print(master_td_list.count())
 
 # Fix 2: join FROM master list INTO interests (left join), 
@@ -243,7 +250,7 @@ registered_unregistered = master_td_list.join(
       .otherwise(pl.lit('registered'))
       .alias('registration_status')
 ).with_columns(pl.col('unique_member_code')
-                                       .str.extract(r"\b\d{4}\b", 0)
+                                       .str.extract(r"\b\d{4}\b", 0) #TODO: package this into a utility function since it is used elsewhere
                                        .alias('year_elected')
                                        ).drop('join_key')
 
@@ -257,9 +264,9 @@ registered_unregistered.write_csv(MEMBERS_DIR / "member_interests_grouped_2026.c
 print(f"Processed {len(members)} members")
 print(f"Output saved to {output_path}")
 
-if os.path.exists(MEMBERS_DIR / "member_interests_grouped_2026.json"):
-    os.remove(MEMBERS_DIR / "member_interests_grouped_2026.json")
-    print('JSON files deleted successfully.')
+# if os.path.exists(MEMBERS_DIR / "member_interests_grouped_2026.json"):
+#     os.remove(MEMBERS_DIR / "member_interests_grouped_2026.json")
+#     print('JSON files deleted successfully.')
     
 if __name__ == "__main__":
     print("Member interest extraction complete. CSV and JSON files created successfully.")
