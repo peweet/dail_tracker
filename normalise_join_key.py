@@ -34,12 +34,12 @@ def normalise_df_td_name(df: pl.DataFrame, col_name: str) -> pl.Series:
         # NFD converts accented chars into base letter + combining accent mark to make it easier to join
         pl.col(col_name)
         .str.to_lowercase()
-        .str.replace_all(r"[\x27\u2019]", "") #remove apostrophes as they cause too many issues with joining names across datasets (e.g. O'Sullivan becomes OSullivan, which is easier to match with the same name in another dataset that doesn't include the apostrophe)
-        .str.replace_all(r"[\u0300-\u036f]", "") # remove accents and fadas as it becomes too difficult to join names with special characters otherwise (e.g. O'Sullivan, Ó Súilleabháin)
-        .str.replace_all(r"[^a-z\s]", "") # remove any remaining non-alphabetic characters (e.g. spaces, hyphens, etc.) as they cause issues with joining names across datasets
         .str.normalize("NFD") # Normalize Unicode characters to their closest ASCII equivalent (e.g. "Ó Súilleabháin" → "O Suilleabhain")
+        .str.replace_all(r"[\u0300-\u036f]", "")
+        .str.replace_all(r"[\x27\u2018\u2019\u02BC\u02B9\u0060\u00B4\uFF07]", "")
+        .str.replace_all(r"[^a-z\s]", "") # remove any remaining non-alphabetic characters (e.g. spaces, hyphens, etc.) as they cause issues with joining names across datasets
         .str.replace_all(r"\s+", "")# Remove all whitespace
-        .str.replace_all(r"^(dr|prof|mr|mrs|ms|miss|bl)\s+", "") # remove honorifics as they cause issues with joining names across datasets (e.g. Dr. John Smith becomes John Smith, which is easier to match with the same name in another dataset that doesn't include the honorific)
+        .str.replace_all(r"^(│Dr.|dr|dr.|prof|mr|mrs|ms|miss|bl)\s+", "") # remove honorifics as they cause issues with joining names across datasets (e.g. Dr. John Smith becomes John Smith, which is easier to match with the same name in another dataset that doesn't include the honorific)
         .str.extract_all(r".")    # Extract individual characters into a list       
         .list.sort() # Sort the list of characters alphabetically (e.g. "OSuilleabhain" → "Oabhiillnsuu")
         .list.join("").alias('join_key') # Join the sorted characters back into a string
@@ -50,16 +50,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logging.info("Testing normalise_df_td_name function with sample data...")
     sample_data = pl.DataFrame({
-        'Full_Name': ['Ó Súilleabháin', "O'Sullivan", 'Sullivan', 'Smith']
-    })
-    logging.info(f"Sample data:\n{sample_data}")
-    normalized_df = normalise_df_td_name(sample_data, 'Full_Name')
-    logging.info(f"Normalized DataFrame:\n{normalized_df}")
-
-if __name__ == "__main__":
-    logging.info("Testing normalise_df_td_name function with sample data...")
-    sample_data = pl.DataFrame({
-        'Full_Name': ['Ó Súilleabháin', "O'Sullivan", 'Sullivan', 'Smith']
+        'Full_Name': ['Ó Súilleabháin', "O'Sullivan", 'Sullivan', 'Smith', 'Richard Boyd Barrett', 'Barrett Richard Boyd', 'Dr. John Smith', 'John Smith', 'Richard,Boyd Barrett']
     })
     logging.info(f"Sample data:\n{sample_data}")
     normalized_df = normalise_df_td_name(sample_data, 'Full_Name')
