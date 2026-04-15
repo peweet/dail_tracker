@@ -5,7 +5,7 @@ import re
 import os
 import polars as pl
 import normalise_join_key 
-from config import DATA_DIR
+from config import MEMBERS_DIR
 """
 member_interest.py
 ------------------
@@ -25,13 +25,14 @@ Cleaning steps:
 - Normalize and split out names and interests for further analysis
 The result is a structured dataset of members and their declared interests, suitable for downstream analysis.
 """
-member_interest = DATA_DIR / "interests" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
+member_interest_2024 = MEMBERS_DIR / "pdf_member_interest" / "2025-02-27_register-of-member-s-interests-dail-eireann-2024_en.pdf"
+# member_interest = MEMBERS_DIR / "interests" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
 categories = re.compile(r"^\d+\.\s")       # "1. ", "2. " etc.
-member_name = re.compile(r"^[A-Z]{2,},\s")  # "ARDAGH, Catherine"
+member_name = re.compile(r"^[A-Z][A-Z\-]+,\s")  # "ARDAGH, Catherine"
 
 print("Starting to process member interest PDF...")
-doc = fitz.open(member_interest)
-print(f"Processing file: {member_interest} with {doc.page_count} pages...")
+doc = fitz.open(member_interest_2024)
+print(f"Processing file: {member_interest_2024} with {doc.page_count} pages...")
 
 # Extract and flatten all text lines
 text_boxes = []
@@ -108,7 +109,7 @@ for line in grouped:
 if current_member:
     members.append(current_member)
 # Save output
-output_path = MEMBERS_DIR / "member_interests_grouped.json"
+output_path = MEMBERS_DIR / "member_interests_grouped_2025.json"
 with open(output_path, "w", encoding="utf-8") as f:
     json.dump(members, f, indent=4, ensure_ascii=False)
 
@@ -136,7 +137,8 @@ df = df.with_columns(
     .str.replace_all(
         r"(Etc|including property|Property supplied |or lent  or a Service supplied  )",
         ""
-    ).str.replace_all(
+    )
+    .str.replace_all(
         r"(Occupations|Shares|Directorships|Land|Gifts|Property supplied or lent or a Service supplied|Travel Facilities|Remunerated Position|Contracts)",
         ""
     ).str.replace_all(r'"Etc\b', ""
@@ -171,12 +173,6 @@ df = df.with_columns(
     .when(pl.col('interest_code')   == "9").then(pl.lit("Contracts")).otherwise(pl.col('interest_code')
     ).alias('interest_category')
 )
-df = df.with_columns(#filter on Occupations  Land (including property)
-    pl.when(
-        pl.col('interest_description_cleaned')
-        .str.contains('let|rented|Léasóir|letting|renting|rental|lessor|lord:')
-        ).then(pl.lit('true')).otherwise(pl.lit('false')).alias('landlord')
-)
 
 df = df.with_columns(
     pl.col('full_name').list.get(0).alias('last_name'),
@@ -190,16 +186,54 @@ df = df.with_columns(
              pl.col('interest_description_cleaned') !="2025", 
              pl.col('interest_category') !="2025")
 
+
+df = df.with_columns(
+    pl.when(pl.col("interest_code") == "1"
+    ).then(pl.col("interest_description_cleaned").str.split(";")
+    ).when(pl.col("interest_code") == "2"
+    ).then(pl.col("interest_description_cleaned").str.split(";"))
+    .when(pl.col("interest_code") == "3"   
+    ).then(pl.col("interest_description_cleaned").str.split(";"))
+    .when(pl.col("interest_code") == "4"
+    ).then(pl.col("interest_description_cleaned").str.split(";"))
+    .when(pl.col("interest_code") == "9"
+    ).then(pl.col("interest_description_cleaned").str.split(";"))
+    .otherwise(pl.concat_list("interest_description_cleaned"))
+    .alias("split_interests")
+)
+df = df.explode("split_interests")
+df = df.with_columns(
+    pl.col("split_interests")
+    .str.strip_chars()
+    .alias("interest_description_cleaned")
+).drop("split_interests")
+df = df.with_columns(#filter on Occupations  Land (including property)
+    pl.when(
+        pl.col('interest_description_cleaned')
+        .str.contains('let|rented|Léasóir|letting|renting|rental|lessor|lord:')
+        ).then(pl.lit('true')).otherwise(pl.lit('false')).alias('landlord')
+)
+df = df.with_columns(pl.col('interest_description_cleaned').str.replace('or lent No interests declared or a Service supplied', 'No interests declared'))
+
 df = normalise_join_key.normalise_df_td_name(df, 'join_key')
+
 enrich_data = pl.read_csv('members/enriched_td_attendance.csv')
 enrich_data = enrich_data.select(['join_key', 'unique_member_code', 'party', 'year_elected']).unique()
 df = df.join(enrich_data, on='join_key', how='left').drop("name", "join_key", "interests").drop('interest_description_raw')
-df.write_csv(MEMBERS_DIR / "member_interests_grouped.csv")
+df = df.with_columns(
+    pl.concat_str([
+        "unique_member_code",
+        "interest_code",
+        "year_elected"
+    ]).alias("interest_id")
+)
+
+df.write_csv(MEMBERS_DIR / "member_interests_grouped_2025.csv")
 print(f"Processed {len(members)} members")
 print(f"Output saved to {output_path}")
 
-if os.path.exists(MEMBERS_DIR / "member_interests_grouped.json"):
-    os.remove(MEMBERS_DIR / "member_interests_grouped.json")
+if os.path.exists(MEMBERS_DIR / "member_interests_grouped_2025.json"):
+    os.remove(MEMBERS_DIR / "member_interests_grouped_2025.json")
     print('JSON files deleted successfully.')
     
 if __name__ == "__main__":

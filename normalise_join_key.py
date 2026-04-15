@@ -1,7 +1,9 @@
 import polars as pl
 import logging
 import pandas as pd
+import re
 # # https://docs.python.org/3/library/unicodedata.html#unicodedata.normalize
+
 def normalise_df_td_name(df: pl.DataFrame, col_name: str) -> pl.Series:
     docstring = """
     Normalises TD names in the given DataFrame by:
@@ -27,11 +29,12 @@ def normalise_df_td_name(df: pl.DataFrame, col_name: str) -> pl.Series:
         logging.info('Polars Series detected, converting to DataFrame for normalization.')
         df = df.to_frame()
     else:
-        logging.info('Polars DataFrame detected, proceeding with normalization.')
+        logging.info('Polars DataFrame detected, proceeding with normalization.')   
     full_name = df.with_columns(
         # NFD converts accented chars into base letter + combining accent mark to make it easier to join
         pl.col(col_name)
         .str.to_lowercase()
+        .str.replace_all(r"^(dr|prof|rev|mr|mrs|ms|miss)\s+", "") # remove honorifics as they cause issues with joining names across datasets (e.g. Dr. John Smith becomes John Smith, which is easier to match with the same name in another dataset that doesn't include the honorific)
         .str.replace_all(r"[\x27\u2019]", "") #remove apostrophes as they cause too many issues with joining names across datasets (e.g. O'Sullivan becomes OSullivan, which is easier to match with the same name in another dataset that doesn't include the apostrophe)
         .str.replace_all(r"[\u0300-\u036f]", "") # remove accents and fadas as it becomes too difficult to join names with special characters otherwise (e.g. O'Sullivan, Ó Súilleabháin)
         .str.replace_all(r"[^a-z\s]", "") # remove any remaining non-alphabetic characters (e.g. spaces, hyphens, etc.) as they cause issues with joining names across datasets
