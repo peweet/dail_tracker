@@ -34,12 +34,12 @@ def normalise_df_td_name(df: pl.DataFrame, col_name: str) -> pl.Series:
         # NFD converts accented chars into base letter + combining accent mark to make it easier to join
         pl.col(col_name)
         .str.to_lowercase()
-        .str.replace_all(r"^(dr|prof|rev|mr|mrs|ms|miss)\s+", "") # remove honorifics as they cause issues with joining names across datasets (e.g. Dr. John Smith becomes John Smith, which is easier to match with the same name in another dataset that doesn't include the honorific)
         .str.replace_all(r"[\x27\u2019]", "") #remove apostrophes as they cause too many issues with joining names across datasets (e.g. O'Sullivan becomes OSullivan, which is easier to match with the same name in another dataset that doesn't include the apostrophe)
         .str.replace_all(r"[\u0300-\u036f]", "") # remove accents and fadas as it becomes too difficult to join names with special characters otherwise (e.g. O'Sullivan, Ó Súilleabháin)
         .str.replace_all(r"[^a-z\s]", "") # remove any remaining non-alphabetic characters (e.g. spaces, hyphens, etc.) as they cause issues with joining names across datasets
         .str.normalize("NFD") # Normalize Unicode characters to their closest ASCII equivalent (e.g. "Ó Súilleabháin" → "O Suilleabhain")
         .str.replace_all(r"\s+", "")# Remove all whitespace
+        .str.replace_all(r"^(dr|prof|mr|mrs|ms|miss|bl)\s+", "") # remove honorifics as they cause issues with joining names across datasets (e.g. Dr. John Smith becomes John Smith, which is easier to match with the same name in another dataset that doesn't include the honorific)
         .str.extract_all(r".")    # Extract individual characters into a list       
         .list.sort() # Sort the list of characters alphabetically (e.g. "OSuilleabhain" → "Oabhiillnsuu")
         .list.join("").alias('join_key') # Join the sorted characters back into a string
