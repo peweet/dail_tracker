@@ -26,15 +26,15 @@ Cleaning steps:
 - Normalize and split out names and interests for further analysis
 The result is a structured dataset of members and their declared interests, suitable for downstream analysis.
 """
-member_interest_2024 = MEMBERS_DIR / "pdf_member_interest" / "2025-02-27_register-of-member-s-interests-dail-eireann-2024_en.pdf"
+# member_interest_2024 = MEMBERS_DIR / "pdf_member_interest" / "2025-02-27_register-of-member-s-interests-dail-eireann-2024_en.pdf"
 # member_interest_2025 = MEMBERS_DIR / "pdf_member_interest" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
-# member_interest_2025 = MEMBERS_DIR / "pdf_member_interest" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
+member_interest_2025 = MEMBERS_DIR / "pdf_member_interest" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
 
 categories = re.compile(r"^\d+\.\s")       # "1. ", "2. " etc.
 member_name = regex.compile(r"^\p{Lu}[\p{Lu}'\-]*(?:\s\p{Lu}[\p{Lu}'\-]*)*,\s")
 print("Starting to process member interest PDF...")
-doc = fitz.open(member_interest_2024)
-print(f"Processing file: {member_interest_2024} with {doc.page_count} pages...")
+doc = fitz.open(member_interest_2025)
+print(f"Processing file: {member_interest_2025} with {doc.page_count} pages...")
 
 # Extract and flatten all text lines
 text_boxes = []
@@ -111,7 +111,7 @@ for line in grouped:
 if current_member:
     members.append(current_member)
 # Save output
-output_path = MEMBERS_DIR / "member_interests_grouped_2026.json"
+output_path = MEMBERS_DIR / "member_interests_grouped_2025.json"
 with open(output_path, "w", encoding="utf-8") as f:
     json.dump(members, f, indent=4, ensure_ascii=False)
 
@@ -209,7 +209,7 @@ df = df.with_columns(
     .str.strip_chars()
     .alias("interest_description_cleaned")
 ).drop("split_interests")
-df = df.with_columns(#filter on Occupations  Land (including property)
+df = df.with_columns(
     pl.when(
         pl.col('interest_description_cleaned')
         .str.contains('let|rented|Léasóir|letting|renting|rental|HAP|RAS Scheme|lessor|Lessor|lord:')
@@ -222,7 +222,6 @@ df = df.with_columns(
     ).alias('join_key')
 )
 df = normalise_join_key.normalise_df_td_name(df, 'join_key')
-df.select("join_key", "first_name", "last_name").unique().write_csv(MEMBERS_DIR / "unique_td_list_from_interests.csv")
 master_td_list = pl.read_csv("C://Users//pglyn//PycharmProjects//dail_extractor//members//flattened_members.csv")
 
 master_td_list = master_td_list.select(
@@ -231,15 +230,7 @@ master_td_list = master_td_list.select(
 master_td_list = master_td_list.with_columns(
     pl.concat_str(pl.col(['first_name', 'last_name'])).alias('join_key')
 )
-
 master_td_list = normalise_join_key.normalise_df_td_name(master_td_list, 'join_key')
-
-master_td_list.select("join_key", "first_name", "last_name").unique().write_csv(MEMBERS_DIR / "unique_td_list_from_interests_1.csv")
-
-print(master_td_list.count())
-
-# Fix 2: join FROM master list INTO interests (left join), 
-# so unregistered TDs appear as nulls on the right side
 registered_unregistered = master_td_list.join(
     df,
     on='join_key',
@@ -253,20 +244,23 @@ registered_unregistered = master_td_list.join(
                                        .str.extract(r"\b\d{4}\b", 0) #TODO: package this into a utility function since it is used elsewhere
                                        .alias('year_elected')
                                        ).drop('join_key')
-
-#TODO: there are still bugs on the join ie Richard Boyd Barrett is showing as unregistered but he is actually registered, so need to investigate 
-# the root cause of the join issues and fix 
-# them (e.g. by improving the name normalization logic)
 is_minister_or_not = pl.read_csv("C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\enriched_td_attendance.csv")
 is_minister_or_not =is_minister_or_not.select(['unique_member_code', 'ministerial_office_filled']).unique(subset=['unique_member_code'])
-registered_unregistered = registered_unregistered.join(is_minister_or_not, on='unique_member_code', how='left').drop('first_name_right') #', 'last_name_right'
-registered_unregistered.write_csv(MEMBERS_DIR / "member_interests_grouped_2026.csv")
+registered_unregistered = registered_unregistered.join(is_minister_or_not, on='unique_member_code', how='left'
+                        ).drop(
+                            'first_name_right', 
+                            'interests', 
+                            'name', 
+                            'interest_description_raw', 
+                            'last_name_right'
+                            )
+registered_unregistered.write_csv(MEMBERS_DIR / "member_interests_grouped_2025.csv")
 print(f"Processed {len(members)} members")
 print(f"Output saved to {output_path}")
 
-# if os.path.exists(MEMBERS_DIR / "member_interests_grouped_2026.json"):
-#     os.remove(MEMBERS_DIR / "member_interests_grouped_2026.json")
-#     print('JSON files deleted successfully.')
+if os.path.exists(MEMBERS_DIR / "member_interests_grouped_2025.json"):
+    os.remove(MEMBERS_DIR / "member_interests_grouped_2025.json")
+    print('JSON files deleted successfully.')
     
 if __name__ == "__main__":
     print("Member interest extraction complete. CSV and JSON files created successfully.")
