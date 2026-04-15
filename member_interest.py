@@ -25,14 +25,16 @@ Cleaning steps:
 - Normalize and split out names and interests for further analysis
 The result is a structured dataset of members and their declared interests, suitable for downstream analysis.
 """
-member_interest_2024 = MEMBERS_DIR / "pdf_member_interest" / "2025-02-27_register-of-member-s-interests-dail-eireann-2024_en.pdf"
-# member_interest = MEMBERS_DIR / "interests" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
+# member_interest_2024 = MEMBERS_DIR / "pdf_member_interest" / "2025-02-27_register-of-member-s-interests-dail-eireann-2024_en.pdf"
+# member_interest_2025 = MEMBERS_DIR / "pdf_member_interest" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
+member_interest_2025 = MEMBERS_DIR / "pdf_member_interest" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
+
 categories = re.compile(r"^\d+\.\s")       # "1. ", "2. " etc.
 member_name = re.compile(r"^[A-Z][A-Z\-]+,\s")  # "ARDAGH, Catherine"
 
 print("Starting to process member interest PDF...")
-doc = fitz.open(member_interest_2024)
-print(f"Processing file: {member_interest_2024} with {doc.page_count} pages...")
+doc = fitz.open(member_interest_2025)
+print(f"Processing file: {member_interest_2025} with {doc.page_count} pages...")
 
 # Extract and flatten all text lines
 text_boxes = []
@@ -210,7 +212,7 @@ df = df.with_columns(
 df = df.with_columns(#filter on Occupations  Land (including property)
     pl.when(
         pl.col('interest_description_cleaned')
-        .str.contains('let|rented|Léasóir|letting|renting|rental|lessor|lord:')
+        .str.contains('let|rented|Léasóir|letting|renting|rental|HAP|RAS Scheme|lessor|Lessor|lord:')
         ).then(pl.lit('true')).otherwise(pl.lit('false')).alias('landlord')
 )
 df = df.with_columns(pl.col('interest_description_cleaned').str.replace('or lent No interests declared or a Service supplied', 'No interests declared'))
@@ -227,13 +229,12 @@ df = df.with_columns(
         "year_elected"
     ]).alias("interest_id")
 )
-
-df.write_csv(MEMBERS_DIR / "member_interests_grouped_2025.csv")
+df.write_csv(MEMBERS_DIR / "member_interests_grouped_2026.csv")
 print(f"Processed {len(members)} members")
 print(f"Output saved to {output_path}")
 
-if os.path.exists(MEMBERS_DIR / "member_interests_grouped_2025.json"):
-    os.remove(MEMBERS_DIR / "member_interests_grouped_2025.json")
+if os.path.exists(MEMBERS_DIR / "member_interests_grouped_2026.json"):
+    os.remove(MEMBERS_DIR / "member_interests_grouped_2026.json")
     print('JSON files deleted successfully.')
     
 if __name__ == "__main__":
