@@ -1,103 +1,160 @@
-This is a civic project to ingest open source data published by the Oireachtas and to collate it 
-into a dataset for civic purposes. 
+# Dáil Tracker
 
-Unfortunately parts of the data pipeline for this project are inherently brittle. 
-Many of the crucial Irish information are in PDF's and it makes extraction quite tricky and complicated. To over come this there is a lot of manual download and loading of PDFs to allow the project to work. Also some direct extract of CSVs from lobbying.ie is required. There is a plan to automate this via Playwright but it is quite a lot of work for a process than can take 5 mins manually.
+A civic-data pipeline that ingests, joins, and analyses open data published by the Oireachtas (Irish parliament) and related public bodies. Built to make parliamentary activity — attendance, legislation, questions, payments, declared interests, and lobbying contacts — searchable and cross-referenceable in one place.
 
-There is included a endpoint checker to try alert if a particular endpoint goes down but that is no guarnatee it will remain in the future until a dedicated API is created.
+**Status:** in active development. Ingestion, flattening, and enrichment are working end-to-end for the 34th Dáil. DuckDB gold layer and Streamlit dashboard in progress.
 
-There will be a list of steps to follow if you want to recreate this project from scratch and deploy it locally. If there are any glaring errors it is a genuine mistake on my part. 
+---
 
-If you are journalist and simply want the Data as is please download it directly from the csv folder on Github.
+## What's in the dataset
 
-There is some convertion using OCR libraries of scanned SIPO General Election Expense PDFs and a basic attempt of loading into a table but for now this is just an expermimental feature!
+| Source | Format | Coverage | Script |
+|---|---|---|---|
+| TD members | Oireachtas API `/v1/members` | 34th Dáil (current) | `oireachtas_api_service.py` |
+| Legislation | Oireachtas API `/v1/legislation` | Per TD, career-wide | `oireachtas_api_service.py` |
+| Parliamentary questions | Oireachtas API `/v1/questions` | Per TD | `oireachtas_api_service.py` |
+| Attendance | PDF scrape | Jan 2023 → Feb 2026 | `attendance.py` |
+| Parliamentary Standard Allowance | PDF scrape | Jan 2024 → Feb 2026 | `payments.py` |
+| Register of Members' Interests | PDF scrape | Latest annual declaration | `member_interest.py` |
+| Lobbying register | CSV export from lobbying.ie | Multi-period | `lobbying_processing.py` |
 
-API link: https://api.oireachtas.ie/
-SIPO publications: https://www.sipo.ie/en/collection/9f7db-publications/
-Register of Lobbying: https://www.lobbying.ie/
+**Scope note:** the dataset covers *sitting* TDs of the 34th Dáil only. Former TDs and private citizens who have since left politics are deliberately excluded — see `DATA_LIMITATIONS.md` for the rationale.
 
-Data sourcing:
-Parliamentary data (members, legislation, questions, debates) is sourced from
-the Houses of the Oireachtas Open Data API (https://api.oireachtas.ie/) and is used under
-the Oireachtas (Open Data) PSI Licence (CC BY 4.0).
-© Houses of the Oireachtas.
+---
 
-## ⚠️ Data Disclaimer
+## Why this project exists
 
-This project aggregates publicly available data from official sources related to Dáil Éireann. It uses the Dail API as well as various 
-PDF documents published by governmental bodies such as SIPO (Standards In Public Office Commission) or the Dail Eireann themselves. 
+The data is public but fragmented. The Oireachtas API, lobbying.ie, and the Standards in Public Office Commission each publish high-quality data in isolation. A TD's parliamentary activity, their declared financial interests, and who lobbies them all live in different systems with different identifiers and different update cadences.
 
-- This project is not affiliated with any government body
-- There is no political party or any bias intended in this project. If you spot any it is purely accidental
-- Data accuracy is not guaranteed
-- Users should verify critical information with official sources
+This project joins them. Once joined, questions that are currently hard to answer become tractable:
 
-Use at your own risk.
+- Which TDs are lobbied most, and by whom?
+- Do lobbied TDs ask parliamentary questions on the lobbied topic?
+- Do declared financial interests overlap with the sectors lobbying the same TD?
+- How does attendance correlate with committee load, ministerial office, or constituency?
 
-## 🛡️ Liability
+---
 
-This software is provided "as is", without warranty of any kind.
+## Pipeline overview
 
-The authors are not responsible for:
-- inaccuracies in data
-- misuse of the software
-- any damages arising from its use
+```
+INGESTION (Bronze)
+  oireachtas_api_service.py  → members.json, legislation_results.json, questions_results.json
+  pdf_enpoint_check.py       → health-checks all PDF + API URLs
 
-Some notes on the data pipeline. Data extracted from the PDF files is inherently brittle 
-and may contain data gaps. The data is extracted from 2024-2025 periods and some TD's are simply missing from the PDFs for reasons I can not surmise. It can occur in the future the links may dissapear or become inactive or be deactivated. I will provide an archived folder of all the PDFs used.
- 
-I will provide screenshots of the sources and how to create it.
+TRANSFORMATION (Silver)
+  flatten_members_json_to_csv.py  → flattened_members.csv
+  attendance.py                   → aggregated_td_tables.csv
+  payments.py                     → aggregated_payment_tables.csv
+  member_interest.py              → member_interests_grouped.csv
+  lobbying_processing.py          → combined_lobbying_data.csv
+                                  → lobby_break_down_by_politician.csv
+                                  → most_lobbied_politicians.csv
+  flatten_service.py              → drop_cols_flattened_bills.csv
 
-You must do some of your own investigation prior to blindly trust in the data. I have made 
-my very best effort to create a high quality data piece of work however some gaps may be present.
+ENRICHMENT (Silver → Gold)
+  enrich.py                       → enriched_td_attendance.csv
+                                     (attendance + members, joined on normalised key)
+```
 
-Feel free to fork it and see if I missed anything.
+The join key is a sorted-character fuzzy key — NFD-normalise, lowercase, strip accents and apostrophes, then sort characters alphabetically. This matches "Ó Súilleabháin" to "O'Sullivan" across datasets that use different formatting conventions. The logic lives in `normalise_join_key.py`.
 
-Data Glossary:
-For interst mapping
-interest_mapping = 
-    "1": "Occupations",
-    "2": "Shares",
-    "3": "Directorships",
-    "4": "Land (including property)",
-    "5": "Gifts",
-    "6": "Property supplied or lent or a Service supplied",
-    "7": "Travel Facilities",
-    "8": "Remunerated Position",
-    "9": "Contracts"
+---
 
-MIT License
+## Installation
 
-Copyright (c) 2026 Peweet
+Requires Python 3.12 and `uv` or `pip`.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, subject to the following conditions:
+```bash
+git clone https://github.com/peweet/dail_tracker.git
+cd dail_tracker
+pip install -e .
+```
 
-1. The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Optional dependency groups defined in `pyproject.toml`:
 
-2. Attribution is required. Users must provide appropriate credit to the original author.
+```bash
+pip install -e ".[duckdb]"   # DuckDB for the gold analytical layer
+pip install -e ".[ocr]"      # ocrmypdf for scanned PDF fallback
+pip install -e ".[dev]"      # pytest, ruff
+```
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+---
 
-IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
+## Running the pipeline
 
-Additional Terms for Data Usage:
+There is no single orchestrator script yet (see `REQUIREMENTS.md` for the `pipeline.py` roadmap). Scripts must be run in the order below:
 
-This project may include or process publicly available data from third-party
-sources (e.g., government or public registers such as lobbying.ie).
+```bash
+python oireachtas_api_service.py       # fetch members, bills, questions
+python flatten_members_json_to_csv.py  # flatten member JSON
+python attendance.py                    # extract attendance PDFs
+python payments.py                      # extract payment PDFs
+python member_interest.py               # extract member interests PDF
+python lobbying_processing.py           # process lobbying CSV exports
+python enrich.py                        # join everything
+python flatten_service.py               # flatten bills JSON
+```
 
-- This project is not affiliated with, endorsed by, or officially connected to any government body.
-- All data remains the responsibility of the original source.
-- No guarantees are made regarding the accuracy, completeness, or timeliness of data.
-- Users must verify data with official sources before relying on it.
+Outputs land in `members/`, `bills/`, and `lobbyist/`. These directories are gitignored — the pipeline regenerates them.
 
-Use of third-party data may be subject to additional terms imposed by the original provider.
+---
+
+## Repository layout
+
+```
+dail_tracker/
+├── pyproject.toml                         Dependencies, entry points
+├── README.MD                              This file
+├── REQUIREMENTS.md                        Roadmap, architecture, action items
+├── DATA_LIMITATIONS.md                    Known gaps, scope decisions, silent-failure risks
+├── ENGINEERING_REVIEW.md                  Senior-engineer critique + experimental ideas
+│
+├── oireachtas_api_service.py              API ingestion (members, bills, questions)
+├── attendance.py                          Attendance PDF → CSV
+├── payments.py                            Payment PDF → CSV
+├── member_interest.py                     Member interests PDF → CSV
+├── lobbying_processing.py                 Lobbying CSV → cleaned + exploded CSVs
+├── flatten_members_json_to_csv.py         Member JSON flattening
+├── flatten_service.py                     Bill JSON flattening
+├── enrich.py                              Cross-dataset joins
+├── normalise_join_key.py                  Fuzzy name normalisation
+├── pdf_enpoint_check.py                   URL health checker
+├── tear_down.py                           Cleanup intermediary files
+├── read_scan_pdf.py                       OCR for scanned PDFs
+│
+├── utility/
+│   ├── constants.py                       PDF + API URLs
+│   └── select_drop_rename_cols_mappings.py Column configuration
+│
+├── doc/config.py                          Centralised paths (not yet wired in — see REQUIREMENTS.md)
+│
+├── test/                                  pytest (skeletal — see REQUIREMENTS.md)
+└── lobbyist/raw/                          Manual CSV downloads from lobbying.ie
+```
+
+---
+
+## Data sources
+
+- **Oireachtas Open Data API** — `https://api.oireachtas.ie/` — members, legislation, questions, divisions, debates.
+- **data.oireachtas.ie** — PDFs for attendance, parliamentary standard allowance, and the Register of Members' Interests.
+- **lobbying.ie** — manual CSV exports from the Register of Lobbying.
+
+All upstream data is published under open licences by the respective bodies. See each source's terms for specifics.
+
+---
+
+## Contributing
+
+Fork and open a PR. The project is a work in progress — both pipeline correctness and analytical questions are open for collaboration. Issues for known bugs and desired features are tracked in `REQUIREMENTS.md`.
+
+If you spot data you believe is wrong, please open an issue with the source, the expected value, and the observed value. PDF-extracted data is inherently brittle and every confirmed miss helps.
+
+---
+
+## A note on the data
+
+Every best effort has been made to produce a high-quality dataset, but the pipeline is only as good as its sources. PDFs are scraped with heuristics that can fail on unusual formatting. APIs are called with filters that can silently drop edge cases. Name-based joins rely on a fuzzy key that can collide on anagrams or fail on minor spelling variants.
+
+`DATA_LIMITATIONS.md` documents the known gaps honestly. Please treat numbers as starting points for investigation, not final answers.
