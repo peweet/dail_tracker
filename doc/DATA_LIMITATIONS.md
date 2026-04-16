@@ -3,30 +3,6 @@
 Known data quality issues, gaps, and silent-failure risks in the dail_extractor pipeline.
 Inspired by theyworkforyou's DATA_LIMITATIONS.md pattern (§17.3b) and lobbyieng's data-limitations page (§17.5c).
 
----
-
-## 1. API Encoding Failures (Fada Characters)
-
-- **4 TDs** whose `member_id` URIs contain fada characters (Ó, é, á, etc.) fail when interpolated into `urllib.request` URLs in `oireachtas_api_service.py`.
-- Failures are logged to `pipeline.log` but silently dropped from the `results` list — no legislation or questions data collected for these TDs.
-- **Root cause:** URL is constructed via f-string (line ~63) without `urllib.parse.quote()`; `urllib.request.urlopen()` rejects the unencoded characters.
-- **TD names not yet confirmed** — run the pipeline and check `pipeline.log` for `API call failed` entries to identify the 4 names.
-- **Impact:** These TDs appear in the enriched CSV with NULL bill/question columns.
-
-## 2. PDF Attendance Extraction Gaps
-
-### 2a. Missing TD (127 of 128)
-- One TD is not captured from any PDF. Identity unknown — compare `aggregated_td_tables.csv` against the API member list to find who.
-- Likely cause: the name-detection regex (`^[A-ZÁÉÍÓÚ][a-zA-ZáéíóúÁÉÍÓÚ'\s\-]+$`) fails on that TD's line format.
-
-### 2b. Swapped First / Last Name
-- `attendance_2024.py` lines 31–32 assign `first_name = names[-1]` and `last_name = " ".join(names[:-1])`.
-- For "John Smith" this produces `first_name = "Smith"`, `last_name = "John"`.
-- Every attendance record in `aggregated_td_tables.csv` has names reversed.
-
-### 2c. DataFrame Accumulation Bug
-- The `dataframes.append(df)` / `pd.concat(dataframes)` pattern runs inside the PDF loop but the final write happens after the loop — earlier PDFs' data may overwrite or accumulate incorrectly depending on execution path.
-
 ### 2d. Hard-Coded Column Slice
 - `df.iloc[:, :5]` assumes the first 5 columns are always date + 4 attendance types. If a PDF's table layout varies, real data is silently dropped or formatting artefacts kept.
 
