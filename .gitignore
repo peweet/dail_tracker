@@ -10,6 +10,7 @@
 *.csv
 *.json
 *.pdf
+*.duckdb
 /pdf_storage/
 /payments_pdf/
 members/flattened_members.csv
