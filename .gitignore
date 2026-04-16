@@ -237,3 +237,5 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+*.duckdb
+data/gold/
