@@ -1,6 +1,6 @@
 import polars as pl 
 import normalise_join_key
-from utility.select_drop_rename_cols_mappings import enrich_cols_to_select
+from utility.select_drop_rename_cols_mappings import enrichment_cols_to_select, committees_cols_to_select, members_rename
 import logging
 from config import DATA_DIR
 
@@ -8,6 +8,9 @@ from config import DATA_DIR
 
 small_df = pl.read_csv(DATA_DIR /"silver" / 'aggregated_td_tables.csv')
 large_df = pl.read_csv(DATA_DIR /"silver" / 'flattened_members.csv')
+
+committee_df = large_df.select(committees_cols_to_select)
+print(committee_df.schema)
 small_df = small_df.with_columns(
     pl.concat_str(
     pl.col(['first_name', 'last_name'])
@@ -26,19 +29,27 @@ logging.info('normalised large_df (API members) TD names')
 
 # https://regex101.com/r/OOLuZU/1
 # API master list is the driving table; PDF attendance is left-joined onto it
-large_df = large_df.select(enrich_cols_to_select)
+# large_df = large_df.select(enrichment_cols_to_select)
 enriched_df = large_df.join(small_df, on=['join_key'], how='left')
 enriched_df = enriched_df.with_columns(pl.col('unique_member_code')
                                        .str.extract(r"\b\d{4}\b", 0)
                                        .alias('year_elected')
                                        )
-enriched_df= enriched_df.with_columns(
-    pl.when(pl.col('ministerial_office') != 'Null')
-    .then(pl.lit('true'))
-    .otherwise(pl.lit('false'))
-    .alias('ministerial_office_filled')
-    )
+# enriched_df= enriched_df.with_columns(
+#     pl.when(pl.col('ministerial_office') != 'Null')
+#     .then(pl.lit('true'))
+#     .otherwise(pl.lit('false'))
+#     .alias('ministerial_office_filled')
+#     )
+
+
 enriched_df.write_csv(DATA_DIR / "gold" / 'enriched_td_attendance.csv')
 logging.info("Enriched TD attendance CSV created successfully.")
+
+
+committee_df.write_csv(DATA_DIR / "gold" / 'committee_assignments.csv')
+logging.info("Committee assignments CSV created successfully.")
+
+
 if __name__ == "__main__":
     print("Enriched TD attendance CSV created successfully and saved to enriched_td_attendance.csv.")
