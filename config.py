@@ -21,9 +21,10 @@ logger = logging.getLogger(__name__)
 # Add the file handler to the logger
 logger.addHandler(file_handler)
 
-PROJECT_ROOT = Path(__file__)
+PROJECT_ROOT = Path(__file__).parent.resolve()
+
 print(f"Project root directory: {PROJECT_ROOT}")
-DATA_DIR = PROJECT_ROOT / "dail_extractor"
+DATA_DIR = PROJECT_ROOT / "data"
 print(f"Data directory: {DATA_DIR}")
 API_BASE = "https://api.oireachtas.ie/v1"
 # PARTY_CODES = ["Social_Democrats", "Sinn_Féin", ...]
