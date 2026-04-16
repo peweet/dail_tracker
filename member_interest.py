@@ -285,7 +285,7 @@ for member_interest_pdf in member_interest:
         .str.replace_all(r"^(│Dr.|dr|dr.|prof|mr|mrs|ms|miss|bl)\s+", "")
         .str.replace(r"Nil|Neamh-fheidhme|Neamh-infheidhme", "No interests declared")
         .str.replace(r"No interests declared\s+\d{2}$", "No interests declared")
-        .str.replace(r"(lord:|lord)", "Landlord:") # fix common OCR error where "lord" is split across lines and the ":" is left dangling
+        .str.replace(r"(lord:|lord)", "Landlord:")
         .str.strip_chars()
         .alias('interest_description_cleaned')
     )
@@ -360,9 +360,6 @@ for member_interest_pdf in member_interest:
                 pl.lit('TRUE')
                 ).otherwise(pl.lit("FALSE")
                 ).alias('is_property_owner'))
-    # #solicitor|farmer|Assistant lecturer
-    # df = df.with_columns(pl.col('interest_description_cleaned'
-    #                             ).str.extract(r"/\b[A-Z][a-z]+\s+(?:[A-Z][a-z]+\s+){1,2}?[A-Z][a-z]+\b/", 0).alias('job_title'))
     df = normalise_join_key.normalise_df_td_name(df, 'join_key')
     # Join against master TD list to attach unique_member_code, party, constituency.
     # TODO: move hardcoded paths to config.py so pipeline.py has a single source of truth.
