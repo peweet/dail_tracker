@@ -62,8 +62,19 @@ paymenents_feb_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliament
 payments_jan_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-03-01_parliamentary-standard-allowance-payments-to-deputies-for-january-2024_en.pdf"
 
 WIKI_url = "https://www.wikidata.org/wiki/Wikidata:WikiProject_every_politician/Ireland/data/Dail/Current_Members"
+#https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2015/2015-03-11_register-of-members-interests-dail-eireann_en.pdf
+# https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2016/2016-03-01_register-of-members-interests-dail-eireann_en.pdf
+# https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2019/2019-02-13_register-of-members-interests-dail-eireann_en.pdf
+# https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2018/2018-02-14_register-of-members-interests-dail-eireann_en.pdf
+# https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2017/2017-03-10_register-of-members-interests-dail-eireann_en.pdf
+# https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2016/2016-03-01_register-of-members-interests-dail-eireann_en.pdf
+# https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2020/2020-03-03_register-of-members-interests-dail-eireann_en.pdf
+member_interests_2022="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2023/2023-02-22_register-of-member-s-interests-dail-eireann-2022_en.pdf"
+member_interests_2023="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2024/2024-02-21_register-of-member-s-interests-dail-eireann-2023_en.pdf"
+member_interests_2025 = "https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2026/2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
 
-
+members_interests_2024="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2025/2025-02-27_register-of-member-s-interests-dail-eireann-2024_en.pdf"
+members_interests_rules="https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/committee_on_members_interests_of_dail_eireann/termsOfReference/2025/2025-12-18_guidelines-for-members-of-dail-eireann-who-are-not-office-holders-concerning-the-steps-to-be-taken-by-them-to-ensure-compliance-with-the-provisions-of-the-ethics-in-public-office-acts-1995-and-2001_en.pdf"
 lobbying_source_github = "https://github.com/robmcelhinney/lobbyieng/blob/main/parser.py"
 
 lobbying_url = "https://www.lobbying.ie/app/home/search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&publicBodys=&jobTitles=&returnDateFrom=&returnDateTo=&period=&dpo=&client=&responsible=&lobbyist=&lobbyistId="
