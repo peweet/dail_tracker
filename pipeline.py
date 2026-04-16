@@ -16,6 +16,7 @@ STEPS = [
 
 for name, script in STEPS:
     print(f"=== {name} ===")
+    
     result = subprocess.run([sys.executable, script], check=True)
 
 if __name__ == "__main__":
