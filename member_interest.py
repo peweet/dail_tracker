@@ -219,7 +219,6 @@ for member_interest_pdf in member_interest:
         # Non-matching lines are interests belonging to the current member.
         elif current_member is not None:
             current_member["interests"].append(line)
-
     # After the loop, add the last member being built (no subsequent entry to trigger append).
     if current_member:
         members.append(current_member)
@@ -285,6 +284,7 @@ for member_interest_pdf in member_interest:
         .str.replace_all(r"^(│Dr.|dr|dr.|prof|mr|mrs|ms|miss|bl)\s+", "")
         .str.replace(r"Nil|Neamh-fheidhme|Neamh-infheidhme", "No interests declared")
         .str.replace(r"No interests declared\s+\d{2}$", "No interests declared")
+        .str.replace(r"No interests declared\s+\d{3}$", "No interests declared")
         .str.replace(r"(lord:|lord)", "Landlord:")
         .str.strip_chars()
         .alias('interest_description_cleaned')
