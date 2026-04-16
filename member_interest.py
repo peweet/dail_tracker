@@ -6,7 +6,7 @@ import regex
 import os
 import polars as pl
 import normalise_join_key
-from config import MEMBERS_DIR
+from config import DATA_DIR, MEMBERS_DIR
 
 """
 member_interest.py
@@ -137,14 +137,32 @@ See stub definitions below — implement and test one at a time.
 # ---------------------------------------------------------------------------
 # CURRENT SCRIPT (to be replaced by main() once refactor is complete)
 # ---------------------------------------------------------------------------
+#double check years and file paths below before running — it's easy to accidentally mix up 2024 and 2025 PDFs, which will silently produce wrong outputs (e.g. 2024 CSV with 2025 data, which will then be filtered out in the combine step, resulting in an empty combined file).
+# member_interest_2014= MEMBERS_DIR / "pdf_member_interest" / "2015-03-11_register-of-members-interests-dail-eireann_en.pdf"
+# member_interest_2015= MEMBERS_DIR / "pdf_member_interest" / "2016-03-01_register-of-members-interests-dail-eireann_en.pdf"
+# member_interest_2016 = MEMBERS_DIR / "pdf_member_interest" / "2017-03-10_register-of-members-interests-dail-eireann_en.pdf"
+# member_interest_2017=MEMBERS_DIR / "pdf_member_interest" / "2018-02-14_register-of-members-interests-dail-eireann_en.pdf"
+# member_interest_2018= MEMBERS_DIR / "pdf_member_interest" / "2019-02-13_register-of-members-interests-dail-eireann_en.pdf"
 
+# member_interest_2019= MEMBERS_DIR / "pdf_member_interest" / "2020-03-03_register-of-members-interests-dail-eireann_en.pdf"
+# member_interest_2020 = MEMBERS_DIR / "pdf_member_interest" / "2021-02-25_register-of-members-interests-dail-eireann_en.pdf"
+member_interest_2020 = MEMBERS_DIR / "pdf_member_interest" / "2021-02-25_register-of-members-interests-dail-eireann_en.pdf"
+member_interest_2021 = MEMBERS_DIR / "pdf_member_interest" / "2022-02-16_register-of-members-interests-dail-eireann_en.pdf"
+member_interest_2022 = MEMBERS_DIR / "pdf_member_interest" / "2023-02-22_register-of-member-s-interests-dail-eireann-2022_en.pdf"
+member_interest_2023 = MEMBERS_DIR / "pdf_member_interest" / "2024-02-21_register-of-member-s-interests-dail-eireann-2023_en.pdf"
 member_interest_2024 = MEMBERS_DIR / "pdf_member_interest" / "2025-02-27_register-of-member-s-interests-dail-eireann-2024_en.pdf"
 member_interest_2025 = MEMBERS_DIR / "pdf_member_interest" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
-member_interest = [member_interest_2024, member_interest_2025]
+member_interest = [
+# member_interest_2014,
+# member_interest_2015,
+# member_interest_2016,
+# member_interest_2017,
+# member_interest_2018,
+# member_interest_2019, 
+member_interest_2020, member_interest_2021, member_interest_2022, member_interest_2023, member_interest_2024, member_interest_2025]
 
 for member_interest_pdf in member_interest:
-    # Direct comparison — no fragile string matching on filename
-    year = 2024 if member_interest_pdf == member_interest_2024 else 2025
+    year = 2020 if member_interest_pdf == member_interest_2020 else 2021 if member_interest_pdf == member_interest_2021 else 2022 if member_interest_pdf == member_interest_2022 else 2023 if member_interest_pdf == member_interest_2023 else 2024 if member_interest_pdf == member_interest_2024 else 2025
 
     categories = re.compile(r"^\d+\.\s")       # "1. ", "2. " etc.
     member_name = regex.compile(r"^\p{Lu}[\p{Lu}'\-]*(?:\s\p{Lu}[\p{Lu}'\-]*)*,\s") # 
@@ -363,12 +381,12 @@ for member_interest_pdf in member_interest:
     df = normalise_join_key.normalise_df_td_name(df, 'join_key')
     # Join against master TD list to attach unique_member_code, party, constituency.
     # TODO: move hardcoded paths to config.py so pipeline.py has a single source of truth.
-    master_td_list = pl.read_csv(f"{MEMBERS_DIR}/flattened_members.csv")
+    master_td_list = pl.read_csv(DATA_DIR / 'silver' / 'flattened_members.csv')
     master_td_list = master_td_list.select(
         ['unique_member_code', 
         'first_name', 
         'last_name', 
-        'member_constituency', 
+        'constituency_name', 
         'full_name', 
         'party']
     ).unique()
@@ -411,14 +429,27 @@ for member_interest_pdf in member_interest:
 # Combine both year CSVs after the loop.
 # year_declared is added here rather than during processing so the individual CSVs
 # stay clean and year-agnostic (easier to re-run one year without touching the other).
+
+# df14 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2014.csv").with_columns(year_declared=pl.lit(2014))
+# df15 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2015.csv").with_columns(year_declared=pl.lit(2015))
+# df16 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2016.csv").with_columns(year_declared=pl.lit(2016))
+# df17 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2017.csv").with_columns(year_declared=pl.lit(2017))
+# df18 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2018.csv").with_columns(year_declared=pl.lit(2018))
+# df19 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2019.csv").with_columns(year_declared=pl.lit(2019))
+df20 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2020.csv").with_columns(year_declared=pl.lit(2020))
+df21 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2021.csv").with_columns(year_declared=pl.lit(2021))
+df22 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2022.csv").with_columns(year_declared=pl.lit(2022))
+df23 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2023.csv").with_columns(year_declared=pl.lit(2023))
 df24 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2024.csv").with_columns(year_declared=pl.lit(2024))
 df25 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2025.csv").with_columns(year_declared=pl.lit(2025))
-
-combined = (
-    pl.concat([df24, df25])
+df21 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2021.csv").with_columns(year_declared=pl.lit(2021))
+df_20 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2020.csv").with_columns(year_declared=pl.lit(2020))
+combined = ( 
+    # df16, df14, df15,df17,df18,df19,df19,
+    pl.concat([df20, df21, df22, df23, df24, df25])
     # interest_code is a string column throughout — must compare to strings, not integers.
     # "2026" guards against badly parsed rowns ie 2026 taken by accident that may appear in the 2025 PDF.
-    .filter(~pl.col("interest_code").is_in([2024, 2025, 2026]))
+    .filter(~pl.col("interest_code").is_in([2019,2020, 2021, 2022, 2023, 2024, 2025, 2026]))
     .sort(["unique_member_code", "year_declared", "interest_code"])
 )
 #4	No interests declared	Land (including property)
