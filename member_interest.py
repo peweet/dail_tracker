@@ -147,7 +147,7 @@ for member_interest_pdf in member_interest:
     year = 2024 if member_interest_pdf == member_interest_2024 else 2025
 
     categories = re.compile(r"^\d+\.\s")       # "1. ", "2. " etc.
-    member_name = regex.compile(r"^\p{Lu}[\p{Lu}'\-]*(?:\s\p{Lu}[\p{Lu}'\-]*)*,\s")
+    member_name = regex.compile(r"^\p{Lu}[\p{Lu}'\-]*(?:\s\p{Lu}[\p{Lu}'\-]*)*,\s") # 
 
     print("Starting to process member interest PDF...")
     doc = fitz.open(member_interest_pdf)
@@ -208,7 +208,6 @@ for member_interest_pdf in member_interest:
     #       grouping fragmented lines — could reuse logic and make this more maintainable.
     members = []
     current_member = None
-
     for line in grouped:
         # A line matching the member name pattern signals the start of a new entry.
         if member_name.match(line):
@@ -234,7 +233,10 @@ for member_interest_pdf in member_interest:
     df = pl.read_json(output_path)
     df = df.explode("interests")
     df = df.with_columns(
-        pl.col('name').str.split(by=r"\s{2,}", literal=False).alias('name_and_constituency'))
+        pl.col('name').str.split(
+            by=r"\s{2,}", 
+            literal=False
+            ).alias('name_and_constituency'))
 
     df = df.with_columns(
         pl.col('name_and_constituency').list.get(0).alias('name'),
@@ -242,11 +244,16 @@ for member_interest_pdf in member_interest:
     ).drop('name_and_constituency')
     df = df.with_columns(
         pl.col('constituency').str.strip_chars("()"),
-        pl.col('name').str.split(by=r",", literal=True).alias('full_name'),
-        pl.col('interests').str.splitn(by=r".", n=2).alias('interests_code')
+        pl.col('name').str.split(
+            by=r",", 
+            literal=True
+            ).alias('full_name'),
+        pl.col('interests').str.splitn(
+            by=r".", 
+            n=2).alias('interests_code')
     ).unnest("interests_code")
-    df = df.rename({'field_0': 'interest_code', 'field_1': 'interest_description_raw'})
-
+    df = df.rename({'field_0': 'interest_code', 
+                    'field_1': 'interest_description_raw'})
     df = df.with_columns(
         pl.col('interests')
         .str.strip_chars_start('" ')
@@ -307,7 +314,6 @@ for member_interest_pdf in member_interest:
         pl.col('interest_description_cleaned') != str(year),
         pl.col('interest_category') != str(year)
     )
-
     # Split multi-interest rows on ";" for categories that commonly contain several entries.
     # Categories 1, 2, 3, 4, 9 are split; others are wrapped in a list as-is.
     df = df.with_columns(
@@ -323,12 +329,10 @@ for member_interest_pdf in member_interest:
         ).then(pl.col("interest_description_cleaned").str.split(";"))
         .otherwise(pl.concat_list("interest_description_cleaned"))
         .alias("split_interests")
-    )
-    df = df.explode("split_interests")
+    ).explode("split_interests")
     df = df.with_columns(
         pl.col("split_interests").str.strip_chars().alias("interest_description_cleaned")
     ).drop("split_interests")
-
     # Tag rows as landlord where the description mentions letting/rental activity,
     # excluding rows that simply say "ceased" or similar non-letting phrases.
     df = df.with_columns(
@@ -350,20 +354,26 @@ for member_interest_pdf in member_interest:
     pl.when((pl.col("interest_code") == "4") &
             (pl.col('is_landlord') == True) |
             ((pl.col("interest_code") == "4") & (pl.col('interest_description_cleaned')!='No interests declared'))
-            ).then(pl.lit('TRUE')).otherwise(pl.lit("FALSE")).alias('is_property_owner'))
+            ).then(
+                pl.lit('TRUE')
+                ).otherwise(pl.lit("FALSE")
+                ).alias('is_property_owner'))
     df = normalise_join_key.normalise_df_td_name(df, 'join_key')
-
     # Join against master TD list to attach unique_member_code, party, constituency.
     # TODO: move hardcoded paths to config.py so pipeline.py has a single source of truth.
-    master_td_list = pl.read_csv("C://Users//pglyn//PycharmProjects//dail_extractor//members//flattened_members.csv")
+    master_td_list = pl.read_csv(f"{MEMBERS_DIR}/flattened_members.csv")
     master_td_list = master_td_list.select(
-        ['unique_member_code', 'first_name', 'last_name', 'member_constituency', 'full_name', 'party']
+        ['unique_member_code', 
+        'first_name', 
+        'last_name', 
+        'member_constituency', 
+        'full_name', 
+        'party']
     ).unique()
     master_td_list = master_td_list.with_columns(
         pl.concat_str(pl.col(['first_name', 'last_name'])).alias('join_key')
     )
     master_td_list = normalise_join_key.normalise_df_td_name(master_td_list, 'join_key')
-
     # Left join from master list so all TDs appear even if they filed no interests.
     # registration_status distinguishes those with no matched rows (unregistered).
     # year_elected is extracted from the unique_member_code string (contains a 4-digit year).
@@ -377,7 +387,7 @@ for member_interest_pdf in member_interest:
         pl.col('unique_member_code').str.extract(r"\b\d{4}\b", 0).alias('year_elected')
     ).drop('join_key')
 
-    is_minister_or_not = pl.read_csv("C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\enriched_td_attendance.csv")
+    is_minister_or_not = pl.read_csv(f"{MEMBERS_DIR}/enriched_td_attendance.csv")
     is_minister_or_not = is_minister_or_not.select(
         ['unique_member_code', 'ministerial_office_filled']
     ).unique(subset=['unique_member_code'])
@@ -405,7 +415,7 @@ df25 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2025.csv").with_colum
 combined = (
     pl.concat([df24, df25])
     # interest_code is a string column throughout — must compare to strings, not integers.
-    # "2026" guards against publication-year artifacts that may appear in the 2025 PDF.
+    # "2026" guards against badly parsed rowns ie 2026 taken by accident that may appear in the 2025 PDF.
     .filter(~pl.col("interest_code").is_in([2024, 2025, 2026]))
     .sort(["unique_member_code", "year_declared", "interest_code"])
 )
