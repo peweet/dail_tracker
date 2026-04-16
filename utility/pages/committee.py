@@ -1,143 +1,147 @@
-
 import streamlit as st
 import pandas as pd
 import re
-#CHATGPT WRITTEN - NOT TESTED - MAY CONTAIN BUGS
-#DOES NOT WORK YET - NEEDS ADJUSTING TO FIT THE STRUCTURE OF THE COMMITTEE DATA
-#check flattened_members.csv to see how the committee data is structured, and adjust the code below to dynamically detect the committee columns and extract the relevant information (e.g. committee name, role, start date, end date) for each committee a member has served on. The current code assumes a fixed structure which may not match the actual data.
+import altair as alt
+
 st.set_page_config(layout="wide")
 
 # =========================
-# LOAD + TRANSFORM + CLEAN
+# LOAD + TRANSFORM
 # =========================
 @st.cache_data
 def load_and_transform(path):
-    df = pd.read_csv(path)
+    df = pd.read_csv(r"C:\Users\pglyn\PycharmProjects\dail_extractor\data\silver\flattened_members.csv")
+
+    def is_empty(val):
+        return (
+            pd.isna(val)
+            or str(val).strip() in ["", "[]", "null", "None"]
+        )
+
+    # -------------------------
+    # GROUP COMMITTEE COLUMNS
+    # -------------------------
+    committee_groups = {}
+
+    for col in df.columns:
+        match = re.match(r'(committee_\d+)_', col)
+        if match:
+            prefix = match.group(1)
+            committee_groups.setdefault(prefix, []).append(col)
 
     records = []
 
-    # detect committee indices dynamically
-    committee_cols = [col for col in df.columns if "committee_" in col]
-    indices = sorted(set(re.findall(r'committee_(\d+)_', " ".join(committee_cols))))
-
     for _, row in df.iterrows():
         base = {
-            "name": (
-                str(row.get("first_name", "")) + " " +
-                str(row.get("last_name", ""))
-            ).strip(),
+            "name": f"{row.get('first_name','')} {row.get('last_name','')}".strip(),
             "party": row.get("party"),
         }
 
-        for i in indices:
-            name = row.get(f"committee_{i}_name_english")
-            role = row.get(f"committee_{i}_role_title_copilot")
-            start = row.get(f"committee_{i}_role_start_date_copilot")
-            end = row.get(f"committee_{i}_role_end_date_copilot")
+        for prefix in committee_groups.keys():
 
-            # Only keep real committee entries
-            if pd.notna(name):
-                records.append({
-                    **base,
-                    "committee": name,
-                    "role": role,
-                    "start": pd.to_datetime(start, errors="coerce"),
-                    "end": pd.to_datetime(end, errors="coerce"),
-                })
+            # ✅ EXPLICIT COLUMN TARGETING (FIXES YOUR ISSUE)
+            name = row.get(f"{prefix}_name_en")
+            role = row.get(f"{prefix}_role_title")
+
+            # prefer role dates (more accurate)
+            start = row.get(f"{prefix}_role_start_date")
+            end = row.get(f"{prefix}_role_end_date")
+
+            # fallback if missing
+            if is_empty(start):
+                start = row.get(f"{prefix}_member_start_date")
+
+            if is_empty(end):
+                end = row.get(f"{prefix}_member_end_date")
+
+            # 🚨 KEY FILTER
+            if is_empty(name):
+                continue
+
+            records.append({
+                **base,
+                "committee": name,
+                "role": role if not is_empty(role) else "Member",
+                "start": pd.to_datetime(start, errors="coerce"),
+                "end": pd.to_datetime(end, errors="coerce"),
+            })
+
+    if not records:
+        st.error("❌ No committee data extracted — check CSV path")
+        st.stop()
 
     df_long = pd.DataFrame(records)
 
-    # =========================
+    # -------------------------
     # CLEANING
-    # =========================
-    df_long = df_long.dropna(subset=["name", "committee"])
-
-    df_long["role"] = df_long["role"].fillna("Member")
+    # -------------------------
     df_long["party"] = df_long["party"].fillna("Unknown")
 
-    # Derived status column
     df_long["status"] = df_long["end"].isna().map({
         True: "Active",
         False: "Ended"
     })
 
+    df_long["end_filled"] = df_long["end"].fillna(pd.Timestamp.today())
+
     return df_long
 
 
-df = load_and_transform("C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\flattened_members.csv")
-
+df = load_and_transform("flattened_members.csv")
 
 # =========================
-# SIDEBAR NAVIGATION
+# SIDEBAR
 # =========================
 st.sidebar.title("Navigation")
 page = st.sidebar.radio(
     "Go to",
-    ["Overview", "Committee Explorer", "Politician Profile"]
+    ["Overview", "Explorer", "Profile"]
 )
 
 # =========================
 # OVERVIEW
 # =========================
 if page == "Overview":
-    st.title("📊 Committee Activity Overview")
+    st.title("📊 Committee Overview")
 
     col1, col2, col3 = st.columns(3)
-
     col1.metric("Politicians", df["name"].nunique())
     col2.metric("Committees", df["committee"].nunique())
     col3.metric("Active Roles", (df["status"] == "Active").sum())
 
     st.divider()
 
-    st.subheader("Committee Distribution")
-    st.bar_chart(df["committee"].value_counts())
+    st.subheader("Top Committees")
+    st.bar_chart(df["committee"].value_counts().head(15))
 
-    st.subheader("Party Distribution")
+    st.subheader("Party Breakdown")
     st.bar_chart(df["party"].value_counts())
 
-    st.subheader("Status Breakdown")
+    st.subheader("Status")
     st.bar_chart(df["status"].value_counts())
 
 
 # =========================
-# COMMITTEE EXPLORER
+# EXPLORER
 # =========================
-elif page == "Committee Explorer":
+elif page == "Explorer":
     st.title("🔍 Committee Explorer")
 
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        party_filter = st.multiselect(
-            "Party",
-            sorted(df["party"].unique())
-        )
-
-    with col2:
-        committee_filter = st.multiselect(
-            "Committee",
-            sorted(df["committee"].unique())
-        )
-
-    with col3:
-        status_filter = st.selectbox(
-            "Status",
-            ["All", "Active", "Ended"]
-        )
-
+    party = st.multiselect("Party", sorted(df["party"].unique()))
+    committee = st.multiselect("Committee", sorted(df["committee"].unique()))
+    status = st.selectbox("Status", ["All", "Active", "Ended"])
     search = st.text_input("Search politician")
 
     filtered = df.copy()
 
-    if party_filter:
-        filtered = filtered[filtered["party"].isin(party_filter)]
+    if party:
+        filtered = filtered[filtered["party"].isin(party)]
 
-    if committee_filter:
-        filtered = filtered[filtered["committee"].isin(committee_filter)]
+    if committee:
+        filtered = filtered[filtered["committee"].isin(committee)]
 
-    if status_filter != "All":
-        filtered = filtered[filtered["status"] == status_filter]
+    if status != "All":
+        filtered = filtered[filtered["status"] == status]
 
     if search:
         filtered = filtered[
@@ -147,64 +151,45 @@ elif page == "Committee Explorer":
     st.dataframe(
         filtered.sort_values("start", ascending=False),
         use_container_width=True,
+        hide_index=True,
         column_config={
-            "name": st.column_config.TextColumn("Politician", width="medium"),
-            "party": st.column_config.TextColumn("Party"),
+            "name": st.column_config.TextColumn("Politician"),
             "committee": st.column_config.TextColumn("Committee", width="large"),
             "role": st.column_config.TextColumn("Role"),
-            "status": st.column_config.TextColumn("Status"),
-            "start": st.column_config.DateColumn("Start Date"),
-            "end": st.column_config.DateColumn("End Date"),
-        },
-        hide_index=True,
+            "start": st.column_config.DateColumn("Start"),
+            "end": st.column_config.DateColumn("End"),
+        }
     )
 
 
 # =========================
-# POLITICIAN PROFILE
+# PROFILE + GANTT
 # =========================
-elif page == "Politician Profile":
+elif page == "Profile":
     st.title("👤 Politician Profile")
 
-    names = sorted(df["name"].unique())
-    selected = st.selectbox("Select Politician", names)
-
+    selected = st.selectbox("Select Politician", sorted(df["name"].unique()))
     person = df[df["name"] == selected]
 
     st.subheader(selected)
 
     col1, col2 = st.columns(2)
-    col1.metric("Committees Served", person["committee"].nunique())
+    col1.metric("Committees", person["committee"].nunique())
     col2.metric("Active Roles", (person["status"] == "Active").sum())
 
     st.divider()
 
-    # Tabs for better UX
-    tab1, tab2 = st.tabs(["Active Roles", "Past Roles"])
+    # ✅ GANTT (works great in Streamlit)
+    st.subheader("📅 Timeline")
 
-    with tab1:
-        active = person[person["status"] == "Active"]
-        st.dataframe(
-            active.sort_values("start", ascending=False),
-            use_container_width=True,
-            column_config={
-                "committee": st.column_config.TextColumn("Committee", width="large"),
-                "role": st.column_config.TextColumn("Role"),
-                "start": st.column_config.DateColumn("Start"),
-            },
-            hide_index=True,
-        )
+    chart = alt.Chart(person).mark_bar().encode(
+        x="start:T",
+        x2="end_filled:T",
+        y=alt.Y("committee:N", sort="-x"),
+        color="status:N",
+        tooltip=["committee", "role", "start", "end"]
+    ).properties(height=400)
 
-    with tab2:
-        past = person[person["status"] == "Ended"]
-        st.dataframe(
-            past.sort_values("start", ascending=False),
-            use_container_width=True,
-            column_config={
-                "committee": st.column_config.TextColumn("Committee", width="large"),
-                "role": st.column_config.TextColumn("Role"),
-                "start": st.column_config.DateColumn("Start"),
-                "end": st.column_config.DateColumn("End"),
-            },
-            hide_index=True,
-        )
+    st.altair_chart(chart, use_container_width=True)
+
+    st.dataframe(person, use_container_width=True, hide_index=True)
