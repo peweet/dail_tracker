@@ -58,9 +58,9 @@ info = member_df.iloc[0]
 # ── Member header ─────────────────────────────────────────────────────────────
 st.subheader(selected_name)
 
-# # Compute landlord/property across ALL rows — true if any row is true
-# is_landlord   = member_df["is_landlord"].any()
-# is_prop_owner = member_df["is_property_owner"].any()
+# Compute landlord/property across ALL rows — true if any row is true
+is_landlord   = member_df["is_landlord"].any()
+is_prop_owner = member_df["is_property_owner"].any()
 
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Party",          info.get("party", "—"))
