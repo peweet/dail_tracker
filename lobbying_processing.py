@@ -137,6 +137,17 @@ split_df = lobbying_df.with_columns(
         pl.col("lobbyists")
         .str.split("|").alias("parts")
     )
+split_df = split_df.with_columns(pl.col('lobbying_period').str.split(" to ").alias('lobbying_period_dates'))
+split_df = split_df.with_columns(
+        pl.col('lobbying_period_dates').list.to_struct(
+            fields=["lobbying_period_start_date", "lobbying_period_end_date"]
+            ).alias('lobbying_period_struct')
+    ).unnest('lobbying_period_struct'
+    ).with_columns(
+        pl.col('lobbying_period_start_date').str.to_date("%e %b, %Y").cast(pl.Datetime),
+        pl.col('lobbying_period_end_date').str.to_date("%e %b, %Y").cast(pl.Datetime)
+    ).drop('lobbying_period', 'lobbying_period_dates')  
+
 split_df = split_df.with_columns(
         pl.col("parts").list.get(0).alias("full_name"),
         pl.col("parts").list.get(1).alias("position"),
