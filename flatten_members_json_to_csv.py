@@ -3,7 +3,6 @@ from flatten_json import flatten
 import pandas as pd
 import os
 from pathlib import Path
-# from utility.select_drop_rename_cols_mappings import members_drop_cols, members_rename
 from utility.select_drop_rename_cols_mappings import members_rename, members_drop_cols
 from config import DATA_DIR, MEMBERS_DIR
 from members_api_service import fetch_members, save_members_json
@@ -52,12 +51,12 @@ def flatten_members_to_csv():
         csv_path = DATA_DIR /'silver' / 'flattened_members.csv'
         df.to_csv(csv_path, index=False, encoding='utf-8')
         print(f"Flattened members saved to {csv_path}")
-    
+        # Coalesce and save consolidated version
+
     # Clean up intermediate files
     # if filtered_path.exists():
     #     filtered_path.unlink()
     #     print("Cleaned up intermediate files")
-
 
 if __name__ == "__main__":
     print("Starting member flattening service...")

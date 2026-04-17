@@ -280,6 +280,7 @@ for member_interest_pdf in member_interest:
             r"(Etc|including property|Property supplied |or lent  or a Service supplied  )",
             ""
         )
+        #TODO: handle characters at the start of a string ': ', '- ', ' 84'
         .str.replace_all(
             r"(Occupations|Shares|Directorships|Land|Gifts|Property supplied or lent or a Service supplied|Travel Facilities|Remunerated Position|Contracts)",
             ""
@@ -300,7 +301,7 @@ for member_interest_pdf in member_interest:
         .str.replace(r'^"', "")
         .str.replace(r'"$', "")
         .str.replace_all(r"^(│Dr.|dr|dr.|prof|mr|mrs|ms|miss|bl)\s+", "")
-        .str.replace(r"Nil|Neamh-fheidhme|Neamh-infheidhme", "No interests declared")
+        .str.replace(r"Nil|Neamh-fheidhme|Neamh-infheidhme|Neamh infheidhme|Infheidhme", "No interests declared")
         .str.replace(r"No interests declared\s+\d{2}$", "No interests declared")
         .str.replace(r"No interests declared\s+\d{3}$", "No interests declared")
         .str.replace(r"(lord:|lord)", "Landlord:")
@@ -367,6 +368,12 @@ for member_interest_pdf in member_interest:
         .str.replace('or lent No interests declared or a Service supplied', 'No interests declared')
     )
     df = df.with_columns(
+        pl.when(pl.col('interest_description_cleaned') != 'No interests declared')
+          .then(1)
+          .otherwise(0)
+          .alias('interest_flag')
+    )
+    df = df.with_columns(
         pl.concat_str(pl.col(['first_name', 'last_name'])).alias('join_key')
     )
 
@@ -381,6 +388,7 @@ for member_interest_pdf in member_interest:
     df = normalise_join_key.normalise_df_td_name(df, 'join_key')
     # Join against master TD list to attach unique_member_code, party, constituency.
     # TODO: move hardcoded paths to config.py so pipeline.py has a single source of truth.
+
     master_td_list = pl.read_csv(DATA_DIR / 'silver' / 'flattened_members.csv')
     master_td_list = master_td_list.select(
         ['unique_member_code', 
@@ -406,7 +414,7 @@ for member_interest_pdf in member_interest:
     ).with_columns(
         pl.col('unique_member_code').str.extract(r"\b\d{4}\b", 0).alias('year_elected')
     ).drop('join_key')
-
+    
     is_minister_or_not = pl.read_csv(f"{MEMBERS_DIR}/enriched_td_attendance.csv")
     is_minister_or_not = is_minister_or_not.select(
         ['unique_member_code', 'ministerial_office_filled']
@@ -415,7 +423,12 @@ for member_interest_pdf in member_interest:
     registered_unregistered = registered_unregistered.join(
         is_minister_or_not, on='unique_member_code', how='left'
     ).drop('first_name_right', 'interests', 'name', 'interest_description_raw', 'last_name_right')
-
+    
+    # Add interest count per member (excluding "No interests declared")
+    registered_unregistered = registered_unregistered.with_columns(
+        pl.col('interest_flag').sum().over('unique_member_code').alias('interest_count')
+    ).drop('interest_flag')
+    
     registered_unregistered.write_csv(MEMBERS_DIR / f"member_interests_grouped_{year}.csv")
 
     print(f"Processed {len(members)} members")
