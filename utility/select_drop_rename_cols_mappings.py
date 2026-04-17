@@ -229,6 +229,7 @@ members_rename = {
     'member_firstName':  'first_name',
     'member_lastName':   'last_name',
     'member_memberCode': 'unique_member_code',
+    'member_gender':     'gender',
     'member_dateOfDeath':'date_of_death',
 
     # -------------------------------------------------------------------------
@@ -325,6 +326,7 @@ members_rename = {
     # -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_0_committeeCode':              'committee_1_code',
     'member_memberships_0_membership_committees_0_serviceUnit':                'committee_1_service_unit',
+    'member_memberships_0_membership_committees_0_role':                       'committee_1_role',
     'member_memberships_0_membership_committees_0_memberDateRange_start':      'committee_1_member_start_date',
     'member_memberships_0_membership_committees_0_memberDateRange_end':        'committee_1_member_end_date',
     'member_memberships_0_membership_committees_0_mainStatus':                 'committee_1_main_status',
@@ -351,6 +353,7 @@ members_rename = {
     # -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_1_committeeCode':              'committee_2_code',
     'member_memberships_0_membership_committees_1_serviceUnit':                'committee_2_service_unit',
+    'member_memberships_0_membership_committees_1_role':                       'committee_2_role',
     'member_memberships_0_membership_committees_1_memberDateRange_start':      'committee_2_member_start_date',
     'member_memberships_0_membership_committees_1_memberDateRange_end':        'committee_2_member_end_date',
     'member_memberships_0_membership_committees_1_mainStatus':                 'committee_2_main_status',
@@ -377,6 +380,7 @@ members_rename = {
     # -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_2_committeeCode':              'committee_3_code',
     'member_memberships_0_membership_committees_2_serviceUnit':                'committee_3_service_unit',
+    'member_memberships_0_membership_committees_2_role':                       'committee_3_role',
     'member_memberships_0_membership_committees_2_memberDateRange_start':      'committee_3_member_start_date',
     'member_memberships_0_membership_committees_2_memberDateRange_end':        'committee_3_member_end_date',
     'member_memberships_0_membership_committees_2_mainStatus':                 'committee_3_main_status',
@@ -403,6 +407,7 @@ members_rename = {
     # -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_3_committeeCode':              'committee_4_code',
     'member_memberships_0_membership_committees_3_serviceUnit':                'committee_4_service_unit',
+    'member_memberships_0_membership_committees_3_role':                       'committee_4_role',
     'member_memberships_0_membership_committees_3_memberDateRange_start':      'committee_4_member_start_date',
     'member_memberships_0_membership_committees_3_memberDateRange_end':        'committee_4_member_end_date',
     'member_memberships_0_membership_committees_3_mainStatus':                 'committee_4_main_status',
@@ -429,6 +434,7 @@ members_rename = {
     # -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_4_committeeCode':              'committee_5_code',
     'member_memberships_0_membership_committees_4_serviceUnit':                'committee_5_service_unit',
+    'member_memberships_0_membership_committees_4_role':                       'committee_5_role',
     'member_memberships_0_membership_committees_4_memberDateRange_start':      'committee_5_member_start_date',
     'member_memberships_0_membership_committees_4_memberDateRange_end':        'committee_5_member_end_date',
     'member_memberships_0_membership_committees_4_mainStatus':                 'committee_5_main_status',
@@ -451,6 +457,7 @@ members_rename = {
     # -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_5_committeeCode':              'committee_6_code',
     'member_memberships_0_membership_committees_5_serviceUnit':                'committee_6_service_unit',
+    'member_memberships_0_membership_committees_5_role':                       'committee_6_role',
     'member_memberships_0_membership_committees_5_memberDateRange_start':      'committee_6_member_start_date',
     'member_memberships_0_membership_committees_5_memberDateRange_end':        'committee_6_member_end_date',
     'member_memberships_0_membership_committees_5_mainStatus':                 'committee_6_main_status',
@@ -477,6 +484,7 @@ members_rename = {
     # -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_6_committeeCode':              'committee_7_code',
     'member_memberships_0_membership_committees_6_serviceUnit':                'committee_7_service_unit',
+    'member_memberships_0_membership_committees_6_role':                       'committee_7_role',
     'member_memberships_0_membership_committees_6_memberDateRange_start':      'committee_7_member_start_date',
     'member_memberships_0_membership_committees_6_memberDateRange_end':        'committee_7_member_end_date',
     'member_memberships_0_membership_committees_6_mainStatus':                 'committee_7_main_status',
@@ -499,6 +507,7 @@ members_rename = {
     # -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_7_committeeCode':              'committee_8_code',
     'member_memberships_0_membership_committees_7_serviceUnit':                'committee_8_service_unit',
+    'member_memberships_0_membership_committees_7_role':                       'committee_8_role',
     'member_memberships_0_membership_committees_7_memberDateRange_start':      'committee_8_member_start_date',
     'member_memberships_0_membership_committees_7_memberDateRange_end':        'committee_8_member_end_date',
     'member_memberships_0_membership_committees_7_mainStatus':                 'committee_8_main_status',
@@ -525,6 +534,7 @@ members_rename = {
     # -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_8_committeeCode':              'committee_9_code',
     'member_memberships_0_membership_committees_8_serviceUnit':                'committee_9_service_unit',
+    'member_memberships_0_membership_committees_8_role':                       'committee_9_role',
     'member_memberships_0_membership_committees_8_memberDateRange_start':      'committee_9_member_start_date',
     'member_memberships_0_membership_committees_8_memberDateRange_end':        'committee_9_member_end_date',
     'member_memberships_0_membership_committees_8_mainStatus':                 'committee_9_main_status',
@@ -544,6 +554,7 @@ members_rename = {
     # -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_9_committeeCode':              'committee_10_code',
     'member_memberships_0_membership_committees_9_serviceUnit':                'committee_10_service_unit',
+    'member_memberships_0_membership_committees_9_role':                       'committee_10_role_title',
     'member_memberships_0_membership_committees_9_memberDateRange_start':      'committee_10_member_start_date',
     'member_memberships_0_membership_committees_9_memberDateRange_end':        'committee_10_member_end_date',
     'member_memberships_0_membership_committees_9_mainStatus':                 'committee_10_main_status',
@@ -563,6 +574,7 @@ members_rename = {
     # -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_10_committeeCode':              'committee_11_code',
     'member_memberships_0_membership_committees_10_serviceUnit':                'committee_11_service_unit',
+    'member_memberships_0_membership_committees_10_role':                       'committee_11_role_title',
     'member_memberships_0_membership_committees_10_memberDateRange_start':      'committee_11_member_start_date',
     'member_memberships_0_membership_committees_10_memberDateRange_end':        'committee_11_member_end_date',
     'member_memberships_0_membership_committees_10_mainStatus':                 'committee_11_main_status',
@@ -582,6 +594,7 @@ members_rename = {
     # -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_11_committeeCode':              'committee_12_code',
     'member_memberships_0_membership_committees_11_serviceUnit':                'committee_12_service_unit',
+    'member_memberships_0_membership_committees_11_role':                       'committee_12_role',
     'member_memberships_0_membership_committees_11_memberDateRange_start':      'committee_12_member_start_date',
     'member_memberships_0_membership_committees_11_memberDateRange_end':        'committee_12_member_end_date',
     'member_memberships_0_membership_committees_11_mainStatus':                 'committee_12_main_status',
@@ -611,7 +624,7 @@ members_rename = {
 # =============================================================================
 
 members_drop_cols = [
-
+    'gender',
     # -------------------------------------------------------------------------
     # MEMBER DISPLAY / PLATFORM METADATA
     # -------------------------------------------------------------------------
@@ -678,7 +691,7 @@ members_drop_cols = [
     # COMMITTEE HOUSE CODE / HOUSE NO (redundant per committee row)
     # These repeat the member-level dail_code / dail_number for every committee.
     # No additional information vs the top-level house fields.
-    # -------------------------------------------------------------------------
+    #  -------------------------------------------------------------------------
     'member_memberships_0_membership_committees_0_houseCode',
     'member_memberships_0_membership_committees_0_houseNo',
     'member_memberships_0_membership_committees_1_houseCode',
@@ -689,24 +702,101 @@ members_drop_cols = [
     'member_memberships_0_membership_committees_3_houseNo',
     'member_memberships_0_membership_committees_4_houseCode',
     'member_memberships_0_membership_committees_4_houseNo',
+    # -------------------------------------------------------------------------
+    # COMMITTEE SERVICE UNIT (redundant per committee row)
+    # These repeat the committee-level service_unit /  for every committee.
+    # No additional information vs the top-level house fields.
+    # data sample: 'Committees' Secretariat', 'Journal Office' 
+    # the above values are the two main values identified for the Dail
+    # Committees’ Secretariat:
+    # Organises committee meetings
+    # Prepares briefing materials
+    # Coordinates witnesses and reports
 
+    # Core role: keeps committees functioning (where detailed scrutiny happens)
+    # Journal Office
+    # Prepares the daily agenda (Order Paper)
+    # Records official decisions of the Dáil
+    # Advises on parliamentary procedure
+    # Core role: rules + official record of what happens in the chamber
     # -------------------------------------------------------------------------
-    # ENTIRELY EMPTY COLUMNS (all Null/[] across all 174 rows in this snapshot)
-    # Dates are preserved regardless - only non-date empty cols are dropped here.
+    'committee_1_service_unit',
+    'committee_2_service_unit',
+    'committee_3_service_unit',
+    'committee_4_service_unit',
+    'committee_5_service_unit',
+    'committee_6_service_unit',
+    'committee_7_service_unit',
+    'committee_8_service_unit',
+    'committee_9_service_unit',
+    'committee_10_service_unit',
+    'committee_11_service_unit',
+    'committee_12_service_unit'
     # -------------------------------------------------------------------------
-    'member_gender',                                                           # no gender data populated in API response
-    'member_memberships_0_membership_committees_0_role',                       # committee role string empty for all members
-    'member_memberships_0_membership_committees_1_role',                       # same - role field unpopulated
-    'member_memberships_0_membership_committees_2_role',                       # same
-    'member_memberships_0_membership_committees_3_role',                       # same
-    'member_memberships_0_membership_committees_4_role',                       # same
-    'member_memberships_0_membership_committees_5_role',                       # same
-    'member_memberships_0_membership_committees_6_role',                       # same
-    'member_memberships_0_membership_committees_7_role',                       # same
-    'member_memberships_0_membership_committees_8_role',                       # same
-    'member_memberships_0_membership_committees_9_role',                       # same
-    'member_memberships_0_membership_committees_10_role',                      # same
-    'member_memberships_0_membership_committees_11_role',                      # same
+    #Committee role is totally null in the dataset so dropping all 12 columns
+    'committee_1_role',
+    'committee_2_role',
+    'committee_1_role',
+    'committee_2_role',
+    'committee_3_role',
+    'committee_4_role',
+    'committee_5_role',
+    'committee_6_role',
+    'committee_7_role',
+    'committee_8_role',
+    'committee_9_role',
+    'committee_10_rol',
+    'committee_11_rol',
+    'committee_12_rol',
+    #temporarily drop Irish named committes to simply the dataset, add back later
+    #TODO create button to switch to Irish named committees in the dashboard
+    'committee_1_name_ga',
+    'committee_2_name_ga',
+    'committee_3_name_ga',
+    'committee_4_name_ga',
+    'committee_5_name_ga',
+    'committee_6_name_ga',
+    'committee_7_name_ga',
+    'committee_8_name_ga',
+    'committee_9_name_ga',
+    'committee_10_name_ga',
+    'committee_11_name_ga',
+    'committee_12_name_ga',
+    
+    'committee_1_alt_name_ga',
+    'committee_2_alt_name_ga',
+    'committee_3_alt_name_ga',
+    'committee_4_alt_name_ga',
+    'committee_6_alt_name_ga',
+    'committee_8_alt_name_ga',
+    'committee_6_alt_name_ga',
+    #temporarily drop alternate committee ids, there are enough unique ones to simply the dataset, add back later
+    'committee_1_id',
+    'committee_2_id',
+    'committee_3_id',
+    'committee_4_id',
+    'committee_5_id',
+    'committee_6_id',
+    'committee_7_id',
+    'committee_8_id',
+    'committee_9_id',
+    'committee_10_id',
+    'committee_11_id',
+    'committee_12_id',
+    # ditto for committee codes
+    'committee_1_code',
+    'committee_2_code',
+    'committee_3_code',
+    'committee_4_code',
+    'committee_5_code',
+    'committee_6_code',
+    'committee_7_code',
+    'committee_8_code',
+    'committee_9_code',
+    'committee_10_code',
+    'committee_11_code',
+    'committee_12_code'
+
 ]
 
 
@@ -722,6 +812,7 @@ enrichment_cols_to_select = [
     'full_name',
     'first_name',
     'last_name',
+    'gender',
     'date_of_death',
 
     # Dail / membership
@@ -787,6 +878,7 @@ committees_cols_to_select = [
     # Committee 1
     'committee_1_code',
     'committee_1_service_unit',
+    'committee_1_role',
     'committee_1_member_start_date',
     'committee_1_member_end_date',
     'committee_1_main_status',
@@ -811,6 +903,7 @@ committees_cols_to_select = [
     # Committee 2
     'committee_2_code',
     'committee_2_service_unit',
+    'committee_2_role',
     'committee_2_member_start_date',
     'committee_2_member_end_date',
     'committee_2_main_status',
@@ -835,6 +928,7 @@ committees_cols_to_select = [
     # Committee 3
     'committee_3_code',
     'committee_3_service_unit',
+    'committee_3_role',
     'committee_3_member_start_date',
     'committee_3_member_end_date',
     'committee_3_main_status',
@@ -859,6 +953,7 @@ committees_cols_to_select = [
     # Committee 4
     'committee_4_code',
     'committee_4_service_unit',
+    'committee_4_role',
     'committee_4_member_start_date',
     'committee_4_member_end_date',
     'committee_4_main_status',
@@ -883,6 +978,7 @@ committees_cols_to_select = [
     # Committee 5
     'committee_5_code',
     'committee_5_service_unit',
+    'committee_5_role',
     'committee_5_member_start_date',
     'committee_5_member_end_date',
     'committee_5_main_status',
@@ -903,6 +999,7 @@ committees_cols_to_select = [
     # Committee 6
     'committee_6_code',
     'committee_6_service_unit',
+    'committee_6_role',
     'committee_6_member_start_date',
     'committee_6_member_end_date',
     'committee_6_main_status',
@@ -927,6 +1024,7 @@ committees_cols_to_select = [
     # Committee 7
     'committee_7_code',
     'committee_7_service_unit',
+    'committee_7_role',
     'committee_7_member_start_date',
     'committee_7_member_end_date',
     'committee_7_main_status',
@@ -947,6 +1045,7 @@ committees_cols_to_select = [
     # Committee 8
     'committee_8_code',
     'committee_8_service_unit',
+    'committee_8_role',
     'committee_8_member_start_date',
     'committee_8_member_end_date',
     'committee_8_main_status',
@@ -971,6 +1070,7 @@ committees_cols_to_select = [
     # Committee 9
     'committee_9_code',
     'committee_9_service_unit',
+    'committee_9_role',
     'committee_9_member_start_date',
     'committee_9_member_end_date',
     'committee_9_main_status',
@@ -988,6 +1088,7 @@ committees_cols_to_select = [
     # Committee 10
     'committee_10_code',
     'committee_10_service_unit',
+    'committee_10_role',
     'committee_10_member_start_date',
     'committee_10_member_end_date',
     'committee_10_main_status',
@@ -1005,6 +1106,7 @@ committees_cols_to_select = [
     # Committee 11
     'committee_11_code',
     'committee_11_service_unit',
+    'committee_11_role',
     'committee_11_member_start_date',
     'committee_11_member_end_date',
     'committee_11_main_status',
@@ -1022,6 +1124,7 @@ committees_cols_to_select = [
     # Committee 12
     'committee_12_code',
     'committee_12_service_unit',
+    'committee_12_role',
     'committee_12_member_start_date',
     'committee_12_member_end_date',
     'committee_12_main_status',
