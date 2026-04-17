@@ -1,7 +1,6 @@
 import csv
 import os
 import polars as pl
-
 from config import LOBBY_DIR
 from utility.select_drop_rename_cols_mappings import lobbying_rename
 
