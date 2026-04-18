@@ -41,13 +41,21 @@ from config import DATA_DIR, MEMBERS_DIR
 
 SILVER_DIR = DATA_DIR / "silver"
 
-PDF_PATHS: dict[int, pathlib.Path] = {
-    2020: MEMBERS_DIR / "pdf_member_interest" / "2021-02-25_register-of-members-interests-dail-eireann_en.pdf",
-    2021: MEMBERS_DIR / "pdf_member_interest" / "2022-02-16_register-of-members-interests-dail-eireann_en.pdf",
-    2022: MEMBERS_DIR / "pdf_member_interest" / "2023-02-22_register-of-member-s-interests-dail-eireann-2022_en.pdf",
-    2023: MEMBERS_DIR / "pdf_member_interest" / "2024-02-21_register-of-member-s-interests-dail-eireann-2023_en.pdf",
-    2024: MEMBERS_DIR / "pdf_member_interest" / "2025-02-27_register-of-member-s-interests-dail-eireann-2024_en.pdf",
-    2025: MEMBERS_DIR / "pdf_member_interest" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf",
+PDF_PATHS: dict[str, pathlib.Path] = {
+    #Seanad
+    "2020_seanad": MEMBERS_DIR / "pdf_member_interest" / "2021-03-16_register-of-members-interests-seanad-eireann_en.pdf",
+    "2021_seanad": MEMBERS_DIR / "pdf_member_interest" / "2022-02-25_register-of-members-interests-seanad-eireann_en.pdf",
+    "2022_seanad": MEMBERS_DIR / "pdf_member_interest" / "2023-02-24_register-of-members-interests-seanad-eireann_en.pdf",
+    "2023_seanad": MEMBERS_DIR / "pdf_member_interest" / "2024-02-27_register-of-members-interests-seanad-eireann-2023_en.pdf",
+    "2024_seanad": MEMBERS_DIR / "pdf_member_interest" / "2025-02-27_register-of-member-s-interests-seanad-eireann-2024_en.pdf",
+    "2025_seanad": MEMBERS_DIR / "pdf_member_interest" / "2026-03-10_register-of-member-s-interests-seanad-eireann-2025_en.pdf",
+    #DAIL
+    "2020_dail": MEMBERS_DIR / "pdf_member_interest" / "2021-02-25_register-of-members-interests-dail-eireann_en.pdf",
+    "2021_dail": MEMBERS_DIR / "pdf_member_interest" / "2022-02-16_register-of-members-interests-dail-eireann_en.pdf",
+    "2022_dail": MEMBERS_DIR / "pdf_member_interest" / "2023-02-22_register-of-member-s-interests-dail-eireann-2022_en.pdf",
+    "2023_dail": MEMBERS_DIR / "pdf_member_interest" / "2024-02-21_register-of-member-s-interests-dail-eireann-2023_en.pdf",
+    "2024_dail": MEMBERS_DIR / "pdf_member_interest" / "2025-02-27_register-of-member-s-interests-dail-eireann-2024_en.pdf",
+    "2025_dail": MEMBERS_DIR / "pdf_member_interest" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf",
 }
 
 CATEGORIES_PATTERN = re.compile(r"^\d+\.\s")
@@ -68,6 +76,7 @@ INTEREST_CODE_MAP = {
 SPLIT_INTEREST_CODES = {"1", "2", "3", "4", "9"}
 
 MASTER_TD_PATH = DATA_DIR / "silver" / "flattened_members.csv"
+MASTER_SEANAD_PATH = DATA_DIR / "silver" / "flattened_seanad_members.csv"
 MINISTER_PATH = MEMBERS_DIR / "enriched_td_attendance.csv"
 
 
@@ -147,7 +156,7 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
     )
     df = df.with_columns(
         pl.col("name_and_constituency").list.get(0).alias("name"),
-        pl.col("name_and_constituency").list.get(1).alias("constituency"),
+        pl.col("name_and_constituency").list.get(1, null_on_oob=True).alias("constituency"),
     ).drop("name_and_constituency")
     df = df.with_columns(
         pl.col("constituency").str.strip_chars("()"),
@@ -183,6 +192,7 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
         .str.replace(r"^\(\)\s*", "")
         .str.replace(r'^"', "")
         .str.replace(r'^"', "")
+        .str.strip_chars_start(":;,. ")
         .str.replace(r'"$', "")
         .str.replace_all(r"^(│Dr.|dr|dr.|prof|mr|mrs|ms|miss|bl)\s+", "")
         .str.replace(r"Nil|Neamh-fheidhme|Neamh-infheidhme|Neamh infheidhme|Infheidhme", "No interests declared")
@@ -272,9 +282,9 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
 def join_master_list(
     df: pl.DataFrame,
     master_path: pathlib.Path,
-    minister_path: pathlib.Path,
+    minister_path: pathlib.Path | None = None,
 ) -> pl.DataFrame:
-    """Join cleaned interests against the master TD list and ministerial office lookup."""
+    """Join cleaned interests against the master member list and optional ministerial office lookup."""
     df = normalise_join_key.normalise_df_td_name(df, "join_key")
 
     master = pl.read_csv(master_path).select(
@@ -298,12 +308,13 @@ def join_master_list(
         )
         .drop("join_key")
     )
-    ministers = pl.read_csv(minister_path).select(
-        ["unique_member_code", "ministerial_office_filled"]
-    ).unique(subset=["unique_member_code"])
-    result = result.join(ministers, on="unique_member_code", how="left").drop(
-        "first_name_right", "interests", "name", "interest_description_raw", "last_name_right"
-    )
+    drop_cols = ["first_name_right", "interests", "name", "interest_description_raw", "last_name_right"]
+    if minister_path is not None:
+        ministers = pl.read_csv(minister_path).select(
+            ["unique_member_code", "ministerial_office_filled"]
+        ).unique(subset=["unique_member_code"])
+        result = result.join(ministers, on="unique_member_code", how="left")
+    result = result.drop([c for c in drop_cols if c in result.columns])
     result = result.with_columns(
         pl.col("interest_flag").sum().over("unique_member_code").alias("interest_count")
     ).drop("interest_flag")
@@ -314,22 +325,23 @@ def join_master_list(
 # Combine
 # ---------------------------------------------------------------------------
 
-def combine_years(silver_dir: pathlib.Path, years: list[int]) -> pl.DataFrame:
+def combine_years(silver_dir: pathlib.Path, years: list[str], case: str) -> pl.DataFrame:
     """Read per-year CSVs, tag with year_declared, concatenate, filter, sort, and write combined."""
     frames = []
-    for year in years:
-        path = silver_dir / f"member_interests_grouped_{year}.csv"
+    for year_key in years:
+        numeric_year = int(year_key.split("_")[0])
+        path = silver_dir / f"{case}_member_interests_grouped_{year_key}.csv"
         frames.append(
-            pl.read_csv(path).with_columns(year_declared=pl.lit(year))
+            pl.read_csv(path).with_columns(year_declared=pl.lit(numeric_year))
         )
     combined = (
         pl.concat(frames)
         .filter(
-            ~pl.col("interest_code").is_in([2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026])
+            ~pl.col("interest_code").cast(pl.String).is_in(["2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"])
         )
         .sort(["unique_member_code", "year_declared", "interest_code"])
     )
-    out_path = silver_dir / "member_interests_combined.csv"
+    out_path = silver_dir / f"{case}_member_interests_combined.csv"
     combined.write_csv(out_path)
     print(f"Saved combined: {out_path}")
     return combined
@@ -355,10 +367,13 @@ def main() -> None:
     print("=== Member interest pipeline starting ===")
 
     SILVER_DIR.mkdir(parents=True, exist_ok=True)
-    years = list(PDF_PATHS.keys())
+    dail_years = []
+    seanad_years = []
 
-    for year, pdf_path in PDF_PATHS.items():
-        print(f"\n--- Processing year {year} ---")
+    for year_key, pdf_path in PDF_PATHS.items():
+        print(f"\n--- Processing year {year_key} ---")
+        numeric_year = int(year_key.split("_")[0])
+        case = "DAIL" if "dail" in year_key else "SEANAD"
 
         # 1. Extract
         lines = extract_raw_lines(pdf_path)
@@ -371,28 +386,36 @@ def main() -> None:
         print(f"  Parsed {len(members)} members")
 
         # 4. Write intermediate JSON, load into Polars
-        json_path = MEMBERS_DIR / f"{pdf_path.stem}.json"
+        json_path = MEMBERS_DIR / f"{pdf_path.stem}_{case.lower()}.json"
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(members, f, indent=4, ensure_ascii=False)
         df = pl.read_json(json_path)
 
-        # 5. Clean
-        df = clean_interests(df, year)
+        # 5. Clean — pass numeric year so the rogue-row filter works correctly
+        df = clean_interests(df, numeric_year)
 
         # 6. Join
-        df = join_master_list(df, MASTER_TD_PATH, MINISTER_PATH)
+        if case == "DAIL":
+            df = join_master_list(df, MASTER_TD_PATH, MINISTER_PATH)
+            dail_years.append(year_key)
+        else:
+            df = join_master_list(df, MASTER_SEANAD_PATH)
+            seanad_years.append(year_key)
 
-        # 7. Save year CSV to silver
-        save_output(df, f"member_interests_grouped_{year}.csv")
+        # 7. Save per-year CSV — consistent name used by combine_years
+        save_output(df, f"{case.lower()}_member_interests_grouped_{year_key}.csv")
 
         # Clean up intermediate JSON
         if os.path.exists(json_path):
             os.remove(json_path)
             print(f"  Removed intermediate JSON: {json_path.name}")
 
-    # 8. Combine all years
+    # 8. Combine dail and seanad years separately (different schemas)
     print("\n--- Combining years ---")
-    combine_years(SILVER_DIR, years)
+    if dail_years:
+        combine_years(SILVER_DIR, dail_years, "dail")
+    if seanad_years:
+        combine_years(SILVER_DIR, seanad_years, "seanad")
 
     print("\n=== Member interest pipeline complete ===")
 

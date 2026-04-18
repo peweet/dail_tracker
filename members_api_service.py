@@ -36,13 +36,21 @@ logger.addHandler(file_handler)
 session = requests.Session()
 
 
-def fetch_members() -> dict:
+def fetch_members(house: str) -> dict:
     """Load member data for all TDs from the Oireachtas API.
+    
+    Args:
+        house: The house identifier (e.g., "dail" or "seanad")
     
     Returns:
         dict: API response containing all TD member data
     """
-    chamber_id = "%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34"
+    if house.lower() == "dail":
+        chamber_id = "%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34"
+    elif house.lower() == "seanad":
+        chamber_id = "%2Fie%2Foireachtas%2Fhouse%2Fseanad%2F27"
+    else:
+        raise ValueError("Invalid house specified. Use 'dail' or 'seanad'.")    
     url = (
         f"{API_BASE}/members"
         f"?chamber_id={chamber_id}"
@@ -76,7 +84,7 @@ if __name__ == "__main__":
     logger.info("Starting Members API fetch...")
     
     # Fetch and save member data
-    members_data = fetch_members()
+    members_data = fetch_members("dail")
     members_output = Path(__file__).parent / "members" / "members.json"
     save_members_json(members_data, members_output)
     
