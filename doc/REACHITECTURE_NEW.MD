@@ -21,6 +21,7 @@
 15. [Experimental — Senior-Level Improvements](#experimental--senior-level-improvements)
 16. [API Parameter Reference](#api-parameter-reference)
 17. [Patterns From Comparable Civic-Tech Projects](#patterns-from-comparable-civic-tech-projects)
+18. [Next Major Data Expansion: Votes, Debates, or Bills?](#next-major-data-expansion-votes-debates-or-bills)
 
 ---
 
