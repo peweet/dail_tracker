@@ -84,18 +84,33 @@ MINISTER_PATH = MEMBERS_DIR / "enriched_td_attendance.csv"
 # Extract
 # ---------------------------------------------------------------------------
 
+_PAGE_FOOTER_RE = re.compile(
+    r"^\s*\d+\s*$"                  # bare page numbers
+    r"|IRIS OIFIGIÚIL"              # Irish Official Journal footer (both languages)
+    r"|IRIS OIFIGI"                 # truncated variant
+    r"|DÁIL DEBATES"
+)
+
+
 def extract_raw_lines(pdf_path: pathlib.Path, header_skip: int = 8, footer_skip: int = 5) -> list[str]:
-    """Open PDF, flatten all pages into a single list of non-blank lines, trim headers/footers."""
+    """Open PDF, flatten all pages into a single list of non-blank lines, trim headers/footers.
+
+    Per-page footers (page numbers, 'IRIS OIFIGIÚIL' publication lines) are stripped
+    before grouping. Without this, the footer text can match MEMBER_NAME_PATTERN
+    (all-caps words followed by a comma) and incorrectly split a member's entry mid-way,
+    causing categories that span a page break to be lost.
+    """
     doc = fitz.open(pdf_path)
     print(f"Processing: {pdf_path.name} ({doc.page_count} pages)")
     text_boxes = []
     for page in doc:
-        text = page.get_text(option="text").strip()
-        text_boxes.append(text.splitlines(False))
+        lines = page.get_text(option="text").splitlines(False)
+        # Remove per-page footers: bare page numbers and IRIS OIFIGIÚIL lines
+        lines = [l for l in lines if l.strip() and not _PAGE_FOOTER_RE.search(l)]
+        text_boxes.append(lines)
 
     flat = [item for sublist in text_boxes for item in sublist]
-    result = list(filter(str.strip, flat))
-    return result[header_skip: len(result) - footer_skip]
+    return flat[header_skip: len(flat) - footer_skip]
 
 
 # ---------------------------------------------------------------------------
@@ -146,8 +161,143 @@ def parse_members(grouped: list[str], member_name: regex.Pattern) -> list[dict]:
 # Clean
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Original clean_interests — preserved for comparison/rollback
+# ---------------------------------------------------------------------------
+# def clean_interests_original(df: pl.DataFrame, year: int) -> pl.DataFrame:
+#     """Apply all Polars cleaning steps and return a cleaned DataFrame."""
+#     df = df.explode("interests")
+#     df = df.with_columns(
+#         pl.col("name")
+#         .str.split(by=r"\s{2,}", literal=False)
+#         .alias("name_and_constituency")
+#     )
+#     df = df.with_columns(
+#         pl.col("name_and_constituency").list.get(0).alias("name"),
+#         pl.col("name_and_constituency").list.get(1, null_on_oob=True).alias("constituency"),
+#     ).drop("name_and_constituency")
+#     df = df.with_columns(
+#         pl.col("constituency").str.strip_chars("()"),
+#         pl.col("name").str.split(by=",", literal=True).alias("full_name"),
+#         pl.col("interests").str.splitn(by=".", n=2).alias("interests_code"),
+#     ).unnest("interests_code")
+#     df = df.rename({"field_0": "interest_code", "field_1": "interest_description_raw"})
+#     df = df.with_columns(
+#         pl.col("interests")
+#         .str.strip_chars_start('" ')
+#         .str.strip_chars_end('"')
+#         .str.replace_all(r"\xa0", " ")
+#         .str.replace_all(
+#             r"(Etc|including property|Property supplied |or lent  or a Service supplied  )", ""
+#         )
+#         .str.replace_all(
+#             r"(Occupations|Shares|Directorships|Land|Gifts|Property supplied or lent or a Service supplied|Travel Facilities|Remunerated Position|Contracts)",
+#             "",
+#         )
+#         .str.replace_all(r'"Etc\b', "")
+#         .str.strip_chars_start()
+#         .str.replace_all(r"\s+", " ")
+#         .str.replace_all(r"[.…]+", "")
+#         .str.replace_all(r"^\s+", "")
+#         .str.replace_all(r"\b[1-9]\b", "")
+#         .str.replace_all(r"\s*\(\)\s*", " ")
+#         .str.replace_all(r" {2,}", " ")
+#         .str.replace_all(r'["""]', "")
+#         .str.replace(r"(or lent or a Service supplied |or lent or a service supplied No interests declared|or lent or a service supplied No interests declared)", "No interests declared")
+#         .str.replace_all(r"or lent\s*Nil?\s*or a Service supplied\s*Nil?", "Nil")
+#         .str.replace_all(r" {2,}", " ")
+#         .str.replace(r"^\(\)\s*", "")
+#         .str.replace(r'^"', "")
+#         .str.replace(r'^"', "")
+#         .str.strip_chars_start("-:;,. ")
+#         .str.strip_chars_start("etc")
+#         .str.replace(r'"$', "")
+#         .str.replace_all(r"^(│Dr.|dr|dr.|prof|mr|mrs|ms|miss|bl)\s+", "")
+#         .str.replace(r"Nil|Níl|Níl aon rud|etc Níl aon rud|Neamh-fheidhme|Neamh-infheidhme|Neamh infheidhme|Infheidhme", "No interests declared")
+#         .str.replace(r"No interests declared\s+\d{2}$", "No interests declared")
+#         .str.replace(r"No interests declared\s+\d{3}$", "No interests declared")
+#         .str.replace(r"(lord:|lord)", "Landlord:")
+#         .str.strip_chars()
+#         .alias("interest_description_cleaned")
+#     )
+#     df = df.with_columns(
+#         pl.col("interest_code")
+#         .replace(INTEREST_CODE_MAP, default=pl.col("interest_code"))
+#         .alias("interest_category")
+#     )
+#     df = df.with_columns(
+#         pl.col("full_name").list.get(0).alias("last_name"),
+#         pl.col("full_name").list.get(1).alias("first_name"),
+#     ).drop("full_name")
+#     df = df.with_columns(
+#         pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key")
+#     ).filter(
+#         pl.col("interest_description_raw") != str(year),
+#         pl.col("interest_description_cleaned") != str(year),
+#         pl.col("interest_category") != str(year),
+#     )
+#     df = df.with_columns(
+#         pl.when(pl.col("interest_code").is_in(SPLIT_INTEREST_CODES))
+#         .then(pl.col("interest_description_cleaned").str.split(";"))
+#         .otherwise(pl.concat_list("interest_description_cleaned"))
+#         .alias("split_interests")
+#     ).explode("split_interests")
+#     df = df.with_columns(
+#         pl.col("split_interests").str.strip_chars().alias("interest_description_cleaned")
+#     ).drop("split_interests")
+#     df = df.with_columns(
+#         pl.when(
+#             (~pl.col("interest_description_cleaned").is_in(
+#                 ["ceased", "no rental income", "I own no land or residences"]
+#             ))
+#             & (
+#                 pl.col("interest_description_cleaned")
+#                 .str.contains("let|rented|ARP|Léasóir|etc Lessor|Rental|rent received|Leasóir|Léasóir|lord|letting|renting|rental|HAP|RAS Scheme|lessor|Lessor|lord:")
+#             )
+#         )
+#         .then(pl.lit("true"))
+#         .otherwise(pl.lit("false"))
+#         .alias("is_landlord")
+#     )
+#     df = df.with_columns(
+#         pl.col("interest_description_cleaned").str.replace(
+#             "or lent No interests declared or a Service supplied", "No interests declared"
+#         )
+#     )
+#     df = df.with_columns(
+#         pl.when(pl.col("interest_description_cleaned") != "No interests declared")
+#         .then(1)
+#         .otherwise(0)
+#         .alias("interest_flag")
+#     )
+#     df = df.with_columns(
+#         pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key")
+#     )
+#     df = df.with_columns(
+#         pl.when(
+#             (pl.col("interest_code") == "4") & (pl.col("is_landlord") == True)
+#             | (
+#                 (pl.col("interest_code") == "4")
+#                 & (pl.col("interest_description_cleaned") != "No interests declared")
+#             )
+#         )
+#         .then(pl.lit("TRUE"))
+#         .otherwise(pl.lit("FALSE"))
+#         .alias("is_property_owner")
+#     )
+#     return df
+# To retest: rename this to clean_interests_original, uncomment, and swap the call in main().
+# ---------------------------------------------------------------------------
+
+
 def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
-    """Apply all Polars cleaning steps and return a cleaned DataFrame."""
+    """Apply all Polars cleaning steps and return a cleaned DataFrame.
+
+    After splitting on ';' and exploding for SPLIT_INTEREST_CODES, a fragment filter
+    drops supplementary notes (ownership %, status lines) that lack ':' and would
+    otherwise appear as standalone rows. Non-split categories and 'No interests
+    declared' rows are never dropped.
+    """
     df = df.explode("interests")
     df = df.with_columns(
         pl.col("name")
@@ -232,6 +382,24 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
     df = df.with_columns(
         pl.col("split_interests").str.strip_chars().alias("interest_description_cleaned")
     ).drop("split_interests")
+
+    # --- Fragment filter (TEST) ---
+    # In split categories (1,2,3,4,9), real entries follow 'Name, Address: description'.
+    # Rows without ':' are supplementary notes (ownership %, status lines) that belong
+    # to the preceding entry but ended up as their own row after the ';' split.
+    # Non-split categories and 'No interests declared' rows are never dropped.
+    # Fragment filter — only applied to Shares (2), Directorships (3), and Contracts (9).
+    # These categories reliably follow 'Entity, Address: description' so entries without
+    # ':' are supplementary notes (ownership %, status lines) rather than standalone entries.
+    # Occupations (1) and Land (4) are excluded: occupations are plain text (no colon),
+    # and land entries can be free-form descriptions without a clear entity:detail split.
+    _COLON_CODES = {"2", "3", "9"}
+    is_colon_cat = pl.col("interest_code").is_in(_COLON_CODES)
+    has_colon = pl.col("interest_description_cleaned").str.contains(":")
+    is_declared = pl.col("interest_description_cleaned").str.contains(
+        r"(?i)no interests declared|nil"
+    )
+    df = df.filter(~is_colon_cat | has_colon | is_declared)
 
     df = df.with_columns(
         pl.when(

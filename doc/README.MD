@@ -157,4 +157,23 @@ If you spot data you believe is wrong, please open an issue with the source, the
 
 Every best effort has been made to produce a high-quality dataset, but the pipeline is only as good as its sources. PDFs are scraped with heuristics that can fail on unusual formatting. APIs are called with filters that can silently drop edge cases. Name-based joins rely on a fuzzy key that can collide on anagrams or fail on minor spelling variants.
 
-`DATA_LIMITATIONS.md` documents the known gaps honestly. Please treat numbers as starting points for investigation, not final answers.
+
+---
+
+## Streamlit Dashboard & Data Interpretation
+
+The project includes a multi-page Streamlit dashboard (see `utility/pages_code/`) for exploring the joined datasets:
+
+- **Interests Register:** Search and browse all TDs' annual declarations of financial interests. The landing page provides clear guidance on how to interpret the data, including:
+  - Who is required to declare (and who is not)
+  - Limitations around office holders, household interests, and data completeness
+  - A direct link to the official Dáil rules for transparency ([see here, PDF, pg. 5](https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/committee_on_members_interests_of_dail_eireann/termsOfReference/2025/2025-12-18_guidelines-for-members-of-dail-eireann-who-are-not-office-holders-concerning-the-steps-to-be-taken-by-them-to-ensure-compliance-with-the-provisions-of-the-ethics-in-public-office-acts-1995-and-2001_en.pdf))
+  - Context to help users avoid misinterpretation (e.g., more declared interests often means more transparency, not wrongdoing)
+- **Committees:** Explore committee assignments and cross-reference with other datasets.
+- **Lobbying:** Drill into lobbying returns, see which TDs are most lobbied, and view details by client/company.
+
+**Performance profiling** is built in for dashboard pages, allowing you to diagnose slow loads and optimize the user experience.
+
+**Trust and transparency:** The dashboard surfaces data limitations and interpretation guidance directly to users, helping journalists and citizens understand what the data does (and does not) show.
+
+---
