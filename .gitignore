@@ -242,3 +242,22 @@ __marimo__/
 .streamlit/secrets.toml
 *.duckdb
 data/gold/
+
+# Claude Code & AI tooling
+.claude/
+.agents/
+
+# Generated logs
+pipeline.log
+*.log
+
+# Screenshots / temp images
+*.png
+*.jpg
+*.jpeg
+
+# Pipeline output directories (all contents are regenerable)
+members/
+scan_pdf/output/
+scan_pdf/target/
+lobbyist/raw/
