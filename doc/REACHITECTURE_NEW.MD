@@ -360,6 +360,59 @@ dail_tracker/
 
 ---
 
+## Plan of Action: Parquet Conversion & Scalability
+
+### Why Parquet?
+- Parquet is a columnar, compressed, binary format that is much faster to read/write than CSV for analytics workloads.
+- It supports efficient column selection, predicate pushdown, and is natively supported by DuckDB, Polars, and Pandas.
+- File sizes are typically 5–10× smaller than CSV, and load times are dramatically reduced for large tables.
+
+### Step-by-Step Parquet Integration
+1. **Add Parquet export to each pipeline stage:**
+    - After each CSV is written (bronze/silver/gold), also write a `.parquet` version using `df.to_parquet()` (Pandas/Polars).
+    - Example:
+      ```python
+      df.to_csv("data/silver/flattened_members.csv", index=False)
+      df.to_parquet("data/silver/flattened_members.parquet")
+      ```
+2. **Update downstream scripts:**
+    - Where possible, switch `pd.read_csv()`/`pl.read_csv()` to `read_parquet()` for faster loading.
+    - DuckDB can query Parquet directly: `SELECT * FROM 'data/silver/flattened_members.parquet'`.
+3. **Test for correctness:**
+    - Validate that Parquet and CSV outputs are identical for a few pipeline runs.
+4. **Document Parquet as the preferred format:**
+    - Update README and pipeline docs to recommend Parquet for all analytics and dashboarding.
+
+**Estimate:** ~2 hours to add Parquet export to all scripts and update consumers.
+
+### Scalability & Streamlit Hosting
+
+- **Streamlit is single-process, per-session:** Each user session runs in its own Python process/thread. For public hosting (Streamlit Cloud, Streamlit Community Cloud), there are limits on concurrent sessions (typically 1–5 for free/community tiers, higher for paid/enterprise).
+- **Concurrency:** Streamlit can handle a handful of concurrent users, but is not designed for high-traffic, multi-user analytics. Each session loads its own copy of the data, so memory usage scales with user count.
+- **Biggest bottlenecks:**
+  - **Data loading:** Reading large CSVs on every session start is slow and memory-intensive. Parquet mitigates this by being much faster and smaller.
+  - **PDF extraction:** If any PDF parsing is triggered on-demand, it will be slow and block the UI. All extraction should be precomputed.
+  - **Complex joins/groupbys:** Large groupby/aggregation operations in Pandas/Polars can be slow for 100k+ rows. Use DuckDB for heavy analytics.
+  - **Session state:** Streamlit's session state is per-user and not shared. Caching (`@st.cache_data`) helps, but cache size is limited on hosted platforms.
+- **Mitigations:**
+  - Use Parquet for all dashboard data loads.
+  - Precompute all analytics in the pipeline; serve only ready-to-query tables/views.
+  - Use DuckDB for any on-demand queries that can't be precomputed.
+  - For higher concurrency, consider deploying on a scalable backend (e.g., Streamlit on Kubernetes, or migrate to a FastAPI backend with a React frontend for true multi-user scale).
+
+### Summary Table
+| Bottleneck         | Impact                | Mitigation                |
+|--------------------|-----------------------|---------------------------|
+| CSV data loading   | Slow, high memory     | Use Parquet, cache loads  |
+| PDF extraction     | Very slow, blocks UI  | Precompute, never on-demand |
+| Groupby/joins      | Slow for large data   | Use DuckDB, pre-aggregate |
+| Streamlit session  | Per-user, not shared  | Use @st.cache_data, limit session data |
+| Hosting limits     | Few concurrent users  | Paid Streamlit, or migrate backend |
+
+**Bottom line:** For civic-scale usage (dozens of users), Streamlit + Parquet + DuckDB is sufficient. For media-scale (hundreds+), migrate to a backend API and static frontend.
+
+---
+
 ## Data Quality Testing (pytest)
 
 ### Recommended structure

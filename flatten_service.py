@@ -25,5 +25,6 @@ df1 = df1.drop(
         columns=bill_rename
     ).to_csv(DATA_DIR / "silver"/ "drop_cols_flattened_bills.csv")
 
+
 if __name__ == "__main__":
     print("Bills JSON flattening complete. Output saved to new_flattened_bills.csv and drop_cols_flattened_bills.csv.")
