@@ -354,7 +354,14 @@ def parse_current_or_former_dpos(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 def get_clients(df: pl.DataFrame) -> pl.DataFrame:
-    # Only attempt to parse clients if the column is present and has non-null values
+    # BROKEN — df.col() is not a valid Polars method (AttributeError at runtime).
+    # This function is also a half-finished coordinator: it tries to decide whether
+    # to call parse_current_or_former_dpos and parse_clients based on column values,
+    # but the column guards are wrong and inconsistent with how the rest of the pipeline
+    # calls those functions unconditionally in main().
+    # REFACTOR TARGET: either delete this function and keep the explicit calls in main(),
+    # or fix it as a proper coordinator using _require_col() guards.
+    # See: doc/lobby_processing_refactor.md
     if df.col('dpos_or_former_dpos_who_carried_out_lobbying_name').is_not_null().any():
         df = parse_current_or_former_dpos(df)
     if df.col('was_this_lobbying_done_on_behalf_of_a_client') == "Yes":
@@ -879,7 +886,9 @@ def build_revolving_door_returns_detail(activities_df: pl.DataFrame) -> pl.DataF
     df = activities_df.filter(
         pl.col(name_col).is_not_null() & (pl.col(name_col) != "")
     )
-    # Add display_client_name and display_client_address: use client fields if filled, else fallback to lobbyist_name/address
+    # REFACTOR NOTE: this is the only build_* function that guards on column presence.
+    # The others assume their columns exist. A _require_col() guard applied consistently
+    # across all build_* functions would make the contracts visible and failures explicit.
     has_clients = "client_name" in df.columns and df.select(pl.col("client_name")).drop_nulls().height > 0
     if has_clients:
         df = df.with_columns([

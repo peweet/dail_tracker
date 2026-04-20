@@ -81,10 +81,10 @@ MINISTER_PATH = MEMBERS_DIR / "enriched_td_attendance.csv"
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Extract
 # ---------------------------------------------------------------------------
-
-_PAGE_FOOTER_RE = re.compile(
+PAGE_FOOTER_RE = re.compile(
     r"^\s*\d+\s*$"                  # bare page numbers
     r"|IRIS OIFIGIÚIL"              # Irish Official Journal footer (both languages)
     r"|IRIS OIFIGI"                 # truncated variant
@@ -106,11 +106,38 @@ def extract_raw_lines(pdf_path: pathlib.Path, header_skip: int = 8, footer_skip:
     for page in doc:
         lines = page.get_text(option="text").splitlines(False)
         # Remove per-page footers: bare page numbers and IRIS OIFIGIÚIL lines
-        lines = [l for l in lines if l.strip() and not _PAGE_FOOTER_RE.search(l)]
+        lines = [l for l in lines if l.strip() and not PAGE_FOOTER_RE.search(l)]
         text_boxes.append(lines)
 
     flat = [item for sublist in text_boxes for item in sublist]
     return flat[header_skip: len(flat) - footer_skip]
+
+
+# ---------------------------------------------------------------------------
+# Split embedded names
+# ---------------------------------------------------------------------------
+
+# Matches 2+ spaces preceding an all-caps name pattern mid-line, e.g.:
+# "9. Contracts … Nil  O'DONOVAN, Denis"
+#                    ^^^^^^^^^^^^^^^^^^^ — should become its own line
+_EMBEDDED_NAME_RE = regex.compile(
+    r"(?<=\S)\s{2,}(?=\p{Lu}[\p{Lu}'\-]*(?:\s\p{Lu}[\p{Lu}'\-]*)*,\s)"
+)
+
+
+def split_embedded_names(lines: list[str]) -> list[str]:
+    """Split lines where a member name is embedded mid-line after content.
+
+    PyMuPDF sometimes reads 'Nil  SMITH, John' as a single line because the
+    name starts on the same text row as the previous category's trailing text.
+    Splitting here means group_lines sees each name at the start of its own
+    line, so the ^ anchor on MEMBER_NAME_PATTERN fires correctly.
+    """
+    result = []
+    for line in lines:
+        parts = _EMBEDDED_NAME_RE.split(line)
+        result.extend(p.strip() for p in parts if p.strip())
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -327,29 +354,33 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
             r"(Occupations|Shares|Directorships|Land|Gifts|Property supplied or lent or a Service supplied|Travel Facilities|Remunerated Position|Contracts)",
             "",
         )
-        .str.replace_all(r'"Etc\b', "")
-        .str.strip_chars_start()
-        .str.replace_all(r"\s+", " ")
-        .str.replace_all(r"[.…]+", "")
-        .str.replace_all(r"^\s+", "")
-        .str.replace_all(r"\b[1-9]\b", "")
-        .str.replace_all(r"\s*\(\)\s*", " ")
-        .str.replace_all(r" {2,}", " ")
-        .str.replace_all(r'["""]', "")
-        .str.replace(r"(or lent or a Service supplied |or lent or a service supplied No interests declared|or lent or a service supplied No interests declared)", "No interests declared")
-        .str.replace_all(r"or lent\s*Nil?\s*or a Service supplied\s*Nil?", "Nil")
-        .str.replace_all(r" {2,}", " ")
-        .str.replace(r"^\(\)\s*", "")
-        .str.replace(r'^"', "")
-        .str.replace(r'^"', "")
-        .str.strip_chars_start("-:;,. ")
-        .str.strip_chars_start("etc")
-        .str.replace(r'"$', "")
-        .str.replace_all(r"^(│Dr.|dr|dr.|prof|mr|mrs|ms|miss|bl)\s+", "")
-        .str.replace(r"Nil|Níl|Níl aon rud|etc Níl aon rud|Neamh-fheidhme|Neamh-infheidhme|Neamh infheidhme|Infheidhme", "No interests declared")
+        .str.replace_all(r'"Etc\b', "") # Remove 'Etc' when it appears at the start of the description, as it's a common trailing word that adds no meaning and can interfere with parsing (e.g. "Rental income from Smith Ltd etc" → "Rental income from Smith Ltd")
+        .str.strip_chars_start() # Remove leading spaces and quotation marks that can interfere with parsing and cause false positives in filters (e.g. ' "No interests declared' would not match 'No interests declared' without the leading quote)
+        .str.replace_all(r"\s+", " ") # Collapse multiple spaces into one, including those introduced by previous substitutions
+        .str.replace_all(r"[.…]+", "") # Remove trailing ellipses that indicate continuation lines (now merged into the main line)
+        .str.replace_all(r"^\s+", "") # Remove any remaining leading whitespace that could interfere with parsing and cause false positives in filters (e.g. ' No interests declared' would not match 'No interests declared' without the leading space)
+        .str.replace_all(r"\b[1-9]\b", "") # Remove standalone numbers that are likely to be category codes or list numbers, as they add no meaning to the description and can interfere with parsing (e.g. "No interests declared 4" would not match "No interests declared" without the trailing number)
+        .str.replace_all(r"\s*\(\)\s*", " ") # Remove empty parentheses that are likely to be artifacts of formatting and add no meaning, while leaving any meaningful content within parentheses intact (e.g. "Rental income from Smith Ltd (my company) ()" would become "Rental income from Smith Ltd (my company)", preserving the meaningful parenthetical while removing the empty one)
+        .str.replace_all(r" {2,}", " ") # Collapse multiple spaces again in case previous substitutions introduced new ones
+        .str.replace_all(r'["""]', "") # Remove any remaining quotation marks that could interfere with parsing and cause false positives in filters (e.g. 'No interests declared "etc"' would not match 'No interests declared etc' without the quotes)
+         .str.replace_all(r"or lent\s*Nil?\s*or a Service supplied\s*Nil?", "Nil") # Standardize the common "Property supplied or lent or a Service supplied" category when it includes "Nil", as this phrase appears in various forms and can interfere with parsing and categorization (e.g. "Property supplied or lent or a Service supplied Nil" would become "Nil", while "Property supplied or lent or a Service supplied Rental income from Smith Ltd" would remain unchanged)
+        .str.replace(r"(or lent or a Service supplied |or lent or a service supplied|or lent or a service supplied No interests declared|or lent or a service supplied No interests declared)", "No interests declared")
+        .str.replace_all(r" {2,}", " ") # Collapse multiple spaces again in case previous substitutions introduced new ones
+        .str.replace(r"^\(\)\s*", "") # Remove empty parentheses at the start of the description that are likely to be artifacts of formatting and add no meaning, while leaving any meaningful content within parentheses intact (e.g. " () Rental income from Smith Ltd" would become "Rental income from Smith Ltd", preserving the meaningful description while removing the empty parentheses)
+        .str.replace(r'^"', "") # Remove a leading quote that can interfere with parsing and cause false positives in filters (e.g. '"No interests declared' would not match 'No interests declared' without the leading quote)
+        .str.replace(r'^"', "") # Remove a second leading quote if present, as some entries have multiple leading quotes due to formatting issues (e.g. '""No interests declared' would not match 'No interests declared' without the leading quotes)
+        .str.strip_chars_start("-:;,. ") # Remove leading punctuation and spaces that can interfere with parsing and cause false positives in filters (e.g. '- No interests declared' would not match 'No interests declared' without the leading dash and space)
+        .str.strip_chars_start("etc") # Remove 'etc' when it appears at the start of the description, as it's a common trailing word that adds no meaning and can interfere with parsing (e.g. "Etc No interests declared" would become "No interests declared")
+        .str.replace(r'"$', "") # Remove a trailing quote that can interfere with parsing and cause false positives in filters (e.g. 'No interests declared"' would not match 'No interests declared' without the trailing quote)
+        .str.replace_all(r"^(│Dr.|dr|dr.|prof|mr|mrs|ms|miss|bl)\s+", "") # Remove common honorifics and titles that can appear at the start of descriptions due to formatting issues and add no meaningful information about the interest itself, while leaving any meaningful content intact (e.g. "Dr. Rental income from Smith Ltd" would become "Rental income from Smith Ltd", while "Rental income from Dr. Smith Ltd" would remain unchanged)
+        # Longer alternatives must come before shorter ones — "Níl aon rud" before "Níl",
+        # otherwise "Níl" matches first and leaves "aon rud" as a suffix.
+        .str.replace_all(r"No interests declared aon rud|etc Níl aon rud|Níl aon rud|Nil aon rud|Níl|Nil|Tada|Neamh-fheidhme|Neamh-infheidhme|Neamh infheidhme|Infheidhme", "No interests declared")
         .str.replace(r"No interests declared\s+\d{2}$", "No interests declared")
         .str.replace(r"No interests declared\s+\d{3}$", "No interests declared")
-        .str.replace(r"(lord:|lord)", "Landlord:")
+        # Collapse accidental double-substitutions (e.g. "No interests declared No interests declared")
+        .str.replace_all(r"(?:No interests declared\s*){2,}", "No interests declared")
+        .str.replace(r"(lord:|lord)", "Landlord:") # Standardize 'lord' to 'Landlord' when it appears in the description, as this is a common shorthand for landlord status that can interfere with parsing and categorization (e.g. "Rental income from Smith Ltd lord" would become "Rental income from Smith Ltd Landlord", while "Rental income from Lord of the Manor" would remain unchanged)
         .str.strip_chars()
         .alias("interest_description_cleaned")
     )
@@ -547,6 +578,9 @@ def main() -> None:
         # 1. Extract
         lines = extract_raw_lines(pdf_path)
 
+        # 1b. Split any lines where a member name is embedded mid-line
+        lines = split_embedded_names(lines)
+
         # 2. Group
         grouped = group_lines(lines, CATEGORIES_PATTERN, MEMBER_NAME_PATTERN)
 
@@ -574,10 +608,15 @@ def main() -> None:
         # 7. Save per-year CSV — consistent name used by combine_years
         save_output(df, f"{case.lower()}_member_interests_grouped_{year_key}.csv")
 
-        # Clean up intermediate JSON
-        if os.path.exists(json_path):
-            os.remove(json_path)
-            print(f"  Removed intermediate JSON: {json_path.name}")
+        # Keep Seanad intermediate JSONs for manual mismatch inspection; delete Dáil ones.
+        if case == "DAIL" and os.path.exists(json_path):
+            # os.remove(json_path)
+            print(f"  Kept intermediate JSON for inspection: {json_path.name}")
+
+            # print(f"  Removed intermediate JSON: {json_path.name}")
+        elif case == "SEANAD":
+            # os.remove(json_path)
+            print(f"  Kept intermediate JSON for inspection: {json_path.name}")
 
     # 8. Combine dail and seanad years separately (different schemas)
     print("\n--- Combining years ---")
