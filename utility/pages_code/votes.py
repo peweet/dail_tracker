@@ -184,6 +184,15 @@ def votes_page() -> None:
     csv_mtime = _get_csv_mtime()
     df = _load(csv_mtime)
 
+    # ── Oireachtas Explorer banner ───────────────────────────────────
+    st.markdown(
+        """
+        <div style="background:#1d3557;padding:0.7rem 0 0.5rem 0;margin-bottom:1.2rem;border-radius:6px 6px 0 0;">
+            <h1 style="color:#fff;font-family:Epilogue,sans-serif;font-size:2.1rem;font-weight:700;margin:0 0 0 1.2rem;letter-spacing:-0.03em;">Oireachtas Explorer</h1>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     # ── Page blurb and explainer ─────────────────────────────────────
     st.markdown('<h1 class="page-title">Dáil Divisions</h1>', unsafe_allow_html=True)
     st.markdown(

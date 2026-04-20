@@ -204,6 +204,39 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
     minister_count = offices["name"].nunique() if not offices.empty else 0
 
     st.markdown(
+        """
+        <div style="background:#1d3557;padding:0.7rem 0 0.5rem 0;margin-bottom:1.2rem;border-radius:6px 6px 0 0;">
+            <h1 style="color:#fff;font-family:Epilogue,sans-serif;font-size:2.1rem;font-weight:700;margin:0 0 0 1.2rem;letter-spacing:-0.03em;">Oireachtas Explorer</h1>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown('<h1 class="page-title">Oireachtas Committees</h1>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style="font-size:1.1rem;line-height:1.6;margin-bottom:0.7em">
+        <strong>Who does the real work?</strong> Committees are where much of the Oireachtas' scrutiny, investigation, and lawmaking happens. This dashboard shows every committee, its members, and their roles across the Dáil and Seanad.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.expander("What is this data? (Click for details)", expanded=False):
+        st.markdown(
+            """
+            **About Oireachtas Committees**  
+            Committees are small groups of TDs and Senators who examine legislation, hold hearings, and scrutinise government work. Membership and roles are published by the Oireachtas and updated after each Dáil/Seanad election.
+            
+            **Data sources:**
+            - Official Oireachtas committee membership records (flattened_members.csv, flattened_seanad_members.csv)
+            - Aggregated and cleaned in the 'silver' layer for analysis
+            
+            **Caveats:**
+            - Some committee assignments may be missing or out of date
+            - Role titles and committee names are as published by the Oireachtas
+            - "Active" means currently serving; "Chairs" includes all chairing roles
+            """
+        )
+    st.markdown(
         f'<div class="stat-strip">'
         + _stat(total_tds, member_label)
         + _stat(df["committee"].nunique(), "Committees")
@@ -239,8 +272,20 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
 
     with col_r:
         st.markdown('<p class="section-heading">Fewest committee memberships</p>', unsafe_allow_html=True)
-        st.caption("Zero means no committee seat at all.")
-        bottom = activity.sort_values(["committees", "active", "chairs"]).head(15).reset_index(drop=True)
+        st.caption("Zero means no committee seat at all. Ministers currently serving are excluded.")
+
+        # Identify currently serving ministers (no end date, or end date in the future)
+        today = pd.Timestamp.today().normalize()
+        if not offices.empty:
+            current_ministers = set(
+                offices[(offices["end"].isna()) | (pd.to_datetime(offices["end"], errors="coerce") >= today)]["name"]
+            )
+        else:
+            current_ministers = set()
+
+        # Exclude current ministers from the 'fewest' table
+        non_minister_activity = activity[~activity["name"].isin(current_ministers)]
+        bottom = non_minister_activity.sort_values(["committees", "active", "chairs"]).head(15).reset_index(drop=True)
         max_c2 = int(activity["committees"].max()) or 1
         st.dataframe(
             bottom,
@@ -279,47 +324,6 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
         },
     )
 
-    # ── Party dominance ───────────────────────────────────────────
-    st.markdown('<p class="section-heading">Committees dominated by one party (active members)</p>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    min_members = c1.slider("Min members on committee", 2, 15, 3, key="ov_dom_min")
-    threshold = c2.slider("Dominance threshold %", 40, 100, 60, 5, key="ov_dom_thresh") / 100
-
-    dominated = []
-    for committee, grp in active_df.groupby("committee"):
-        if len(grp) < min_members:
-            continue
-        top_party = grp["party"].value_counts()
-        share = top_party.iloc[0] / len(grp)
-        if share >= threshold:
-            url = grp["committee_url"].dropna().iloc[0] if grp["committee_url"].notna().any() else None
-            dominated.append({
-                "Committee": committee,
-                "Dominant party": top_party.index[0],
-                "Share": share,
-                "Party members": int(top_party.iloc[0]),
-                "Total": len(grp),
-                "URL": url,
-            })
-
-    if dominated:
-        dom_df = pd.DataFrame(dominated).sort_values("Share", ascending=False).reset_index(drop=True)
-        st.dataframe(
-            dom_df,
-            hide_index=True,
-            use_container_width=True,
-            column_config={
-                "Committee": st.column_config.TextColumn("Committee", width="large"),
-                "Dominant party": st.column_config.TextColumn("Party"),
-                "Share": st.column_config.ProgressColumn("Share", format="%.0f%%", min_value=0, max_value=1),
-                "Party members": st.column_config.NumberColumn("Party seats"),
-                "Total": st.column_config.NumberColumn("Total"),
-                "URL": _link_col(),
-            },
-        )
-        _export(dom_df, "party_dominated_committees.csv", "ov_dom_export")
-    else:
-        st.info("No committees meet these thresholds.")
 
     # ── Office holders ────────────────────────────────────────────
     if not offices.empty:
