@@ -13,24 +13,36 @@ _CSV = {
     "Seanad": _ROOT / "data" / "silver" / "seanad_member_interests_combined.csv",
 }
 
-_NOTABLE = {
-    "Dáil": [
-        "Michael Healy-Rae",
-        "Michael Lowry",
-        "Robert Troy",
-        "Mary Lou McDonald",
-        "Micheál Martin",
-        "Simon Harris",
-    ],
-    "Seanad": [
-        "Michael McDowell",
-        "Lynn Ruane",
-        "Rónán Mullen",
-        "Alice-Mary Higgins",
-        "Malcolm Byrne",
-        "Niall Ó Donnghaile",
-    ],
-}
+_NOTABLE_DAIL = [
+    "Michael Healy-Rae",
+    "Michael Lowry",
+    "Robert Troy",
+    "Mary Lou McDonald",
+    "Micheál Martin",
+    "Simon Harris",
+]
+
+
+def _notable_senators(df: pd.DataFrame, n: int = 6) -> list[str]:
+    """Return senators with the most declared interests or property/landlord flags."""
+    latest = df["year_declared"].max()
+    latest_df = df[df["year_declared"] == latest]
+    scored = (
+        latest_df.groupby("full_name")
+        .agg(
+            interest_count=("interest_count", "max"),
+            is_landlord=("is_landlord", "any"),
+            is_property_owner=("is_property_owner", "any"),
+        )
+        .reset_index()
+    )
+    scored = scored[
+        (scored["interest_count"] > 0)
+        | scored["is_landlord"]
+        | scored["is_property_owner"]
+    ]
+    scored = scored.sort_values("interest_count", ascending=False)
+    return scored["full_name"].head(n).tolist()
 
 CATEGORY_ORDER = [
     "Occupations",
@@ -227,9 +239,9 @@ def _css() -> None:
             transition: all 90ms ease !important;
         }
         div[data-testid="stRadio"] > div > label:has(input:checked) {
-            background: var(--text-primary) !important;
+            background: var(--accent) !important;
             color: var(--bg) !important;
-            border-color: var(--text-primary) !important;
+            border-color: var(--accent) !important;
         }
 
         /* ── Expander ────────────────────────────── */
@@ -749,8 +761,9 @@ def interests_page() -> None:
         )
 
         st.markdown(f'<p class="sidebar-label">Notable {member_label}s</p>', unsafe_allow_html=True)
+        notable = _NOTABLE_DAIL if chamber == "Dáil" else _notable_senators(df)
         btn_cols = st.columns(2)
-        for i, name in enumerate(_NOTABLE[chamber]):
+        for i, name in enumerate(notable):
             short = name.split()[-1]
             if btn_cols[i % 2].button(short, key=f"qs_{chamber}_{i}", use_container_width=True, help=name):
                 st.session_state["selected_td"] = name
