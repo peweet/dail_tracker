@@ -4,7 +4,8 @@ from utility.select_drop_rename_cols_mappings import enrichment_cols_to_select, 
 import logging
 from config import DATA_DIR
 
-
+#TODO: use impeccable to try create a better UI 
+#https://chatgpt.com/c/69e2b380-004c-83eb-b3b6-feaed861c6df
 
 small_df = pl.read_csv(DATA_DIR /"silver" / 'aggregated_td_tables.csv')
 large_df = pl.read_csv(DATA_DIR /"silver" / 'flattened_members.csv')
