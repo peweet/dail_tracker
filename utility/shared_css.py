@@ -143,9 +143,9 @@ def inject_css() -> None:
             transition: all 90ms ease !important;
         }
         div[data-testid="stRadio"] > div > label:has(input:checked) {
-            background: var(--text-primary) !important;
+            background: var(--accent) !important;
             color: var(--bg) !important;
-            border-color: var(--text-primary) !important;
+            border-color: var(--accent) !important;
         }
 
         /* ── Expander ────────────────────────────── */

@@ -165,6 +165,12 @@ def _distinct_years(df: pd.DataFrame, col: str) -> list[int]:
 
 
 # ── helpers ───────────────────────────────────────────────────────────
+# REFACTOR OPPORTUNITY: the helpers below are render-level utilities (buttons, HTML).
+# The missing piece is a *data-level* guard — a function that checks required columns
+# are present and returns None + a user-visible message if not. Every view function
+# currently inlines this check with `if {...}.issubset(df.columns)`, coupling the
+# "does the data have what I need?" question to the render logic.
+# See: docs/lobbying_refactor.md
 
 def _export(df: pd.DataFrame, filename: str, key: str, label: str = "Export CSV") -> None:
     st.download_button(
@@ -476,6 +482,9 @@ def _politician_profile() -> None:
     with col_a:
         _section("By policy area")
         if {"public_policy_area", "primary_key"}.issubset(filtered.columns):
+            # REFACTOR TARGET: this groupby-count-rename-sort block appears ~4 times.
+            # A generic _group_count(df, group_col, count_col) would remove the duplication
+            # and make each call site declare its intent rather than its mechanics.
             pa = (
                 filtered.groupby("public_policy_area", dropna=True)["primary_key"]
                 .nunique()
