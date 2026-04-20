@@ -1,22 +1,63 @@
-#https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34&chamber=dail&date_start=2026-04-12&skip=0&limit=50&outcome=Carried
+import json
+import pandas as pd
+import glob
+from config import DATA_DIR
 
-#adding  scafalding for votes API endpoint, which will be used to extract voting data for TDs and Senators. This will include information on how each member voted on different bills and motions, as well as the overall outcome of each vote. This data will be critical for analyzing voting patterns and understanding the legislative behavior of members of the Oireachtas. The code will also include functions for saving the extracted data in a structured format (e.g., JSON or CSV) for further analysis and visualization in the utility app.
-#working url 
+votes = glob.glob(str(DATA_DIR / "vote_*.json"))
+results = []
+for json_file in votes:
+    with open(json_file, 'r') as f:
+        results.extend(json.load(f)["results"])
 
-#key fields, debate, debateSection, pdf (optional)
-#chamber
-#members['member']['showAs'] - name of member
-#members['member']['memberCode'] - name of member
-#Ta votes
-#taVotes['taVotes]['showAs'] - vote yes  
+print(f"Total votes loaded: {len(results)}")
 
-#tallies 
-#nilVotes['nilVotes]['showAs'] - vote no  
-#['outcome'] - overall outcome of vote, e.g. carried, lost, etc.
-#divsion['isBill] = True/False - whether the vote is on a bill or not
-#tally
-#debateSection	"dbsect_18"
+#query1= https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=&chamber=dail&date_start=2020-01-01&limit=10000&outcome=
+#query2 = https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=&chamber=dail&date_start=2020-01-01
+#query3=https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=&chamber=dail&date_end=2019-12-31&limit=10000&outcome=
 
-#voteId	"vote_80"
+def normalize_vote_data(result: dict) -> pd.DataFrame:
+    division = result["division"]
+    date = division.get("date")
+    outcome = division.get("outcome")
+    vote_id = division.get("voteId")
+    debate_title = division.get("debate", {}).get("showAs")
+    subject = division.get("subject", {}).get("showAs")
+    different_vote_types = []
+    for tally_key in ["taVotes", "nilVotes", "staonVotes"]:
+        tallies = division.get("tallies")
+        if tallies is None:
+            continue
 
-#Staon (abstain?)
+        tally = tallies.get(tally_key)
+        if tally is None:
+            continue
+
+        members = tally.get("members", [])
+        if not members:
+            continue
+        df = pd.json_normalize(members)
+        df["vote_date"] = date
+        df["vote_outcome"] = outcome
+        df["vote_id"] = vote_id
+        df["debate_title"] = debate_title
+        df["vote_type"] = tally_key
+        df["subject"] = subject
+        different_vote_types.append(df)
+    return different_vote_types
+
+dfs =[]
+for result in results:
+    normalized_df = normalize_vote_data(result)
+    dfs.extend(normalized_df)
+df = pd.concat(dfs, ignore_index=True)
+df = df.rename(columns={
+    "member.showAs": "member_name",
+    "member.memberCode": "unique_member_code",
+    "member.uri": "member_uri",
+}).drop_duplicates().drop('member_uri', axis=1)
+#ISO date format is already in YYYY-MM-DD, so we can directly convert it to datetime and then extract the date part
+df['date'] = pd.to_datetime(df['vote_date'], errors='coerce').dt.date
+df = df.drop('member_name', axis=1).drop('vote_date', axis=1)
+df = df.replace({"nilVotes": "Voted No", "taVotes": "Voted Yes", "staonVotes": "Abstained"})
+df.to_csv(DATA_DIR / "silver" / f"pretty_votes.csv", index=False)
+print("Votes data normalized and saved to pretty_votes.csv")

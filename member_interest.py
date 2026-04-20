@@ -15,14 +15,7 @@ Cleaning steps:
 - Remove empty lines, headers, and footers
 - Group lines by member and interest category
 - Normalize and split out names and interests for further analysis
-The result is a structured dataset of members and their declared interests, suitable for downstream analysis.
-
-Planned refactor: break into self-contained functions and run through main().
-See stub definitions below — implement and test one at a time.
-# RISK: each function boundary is a good place to add an assertion or a small unit test
-#       before wiring them together in main(). Recommended order: extract → group → parse → clean → join → combine.
-# OPPORTUNITY: once refactored, pipeline.py can import and call main() directly,
-#              or call individual steps for partial re-runs (e.g. re-clean without re-extracting).
+The result is a structured dataset of members and their declared interests, suitable for downstream analysis..
 """
 
 import fitz  # PyMuPDF
@@ -95,6 +88,9 @@ PAGE_FOOTER_RE = re.compile(
 def extract_raw_lines(pdf_path: pathlib.Path, header_skip: int = 8, footer_skip: int = 5) -> list[str]:
     """Open PDF, flatten all pages into a single list of non-blank lines, trim headers/footers.
 
+    Requires: a valid PDF path; header_skip/footer_skip tuned per PDF layout (default 8/5).
+    Produces: flat list[str] of raw text lines, footers and blank lines removed.
+
     Per-page footers (page numbers, 'IRIS OIFIGIÚIL' publication lines) are stripped
     before grouping. Without this, the footer text can match MEMBER_NAME_PATTERN
     (all-caps words followed by a comma) and incorrectly split a member's entry mid-way,
@@ -120,13 +116,16 @@ def extract_raw_lines(pdf_path: pathlib.Path, header_skip: int = 8, footer_skip:
 # Matches 2+ spaces preceding an all-caps name pattern mid-line, e.g.:
 # "9. Contracts … Nil  O'DONOVAN, Denis"
 #                    ^^^^^^^^^^^^^^^^^^^ — should become its own line
-_EMBEDDED_NAME_RE = regex.compile(
-    r"(?<=\S)\s{2,}(?=\p{Lu}[\p{Lu}'\-]*(?:\s\p{Lu}[\p{Lu}'\-]*)*,\s)"
+EMBEDDED_NAME_RE = regex.compile(
+    r"(?<=\S)\s{2,}(?=\p{Lu}[\p{Lu}'\-]*(?:\s\p{Lu}[\p{Lu}'\-]*)*,\s)" 
 )
 
 
 def split_embedded_names(lines: list[str]) -> list[str]:
     """Split lines where a member name is embedded mid-line after content.
+
+    Requires: output of extract_raw_lines — flat list[str].
+    Produces: same list[str] with any embedded name occurrences split onto their own line.
 
     PyMuPDF sometimes reads 'Nil  SMITH, John' as a single line because the
     name starts on the same text row as the previous category's trailing text.
@@ -135,7 +134,7 @@ def split_embedded_names(lines: list[str]) -> list[str]:
     """
     result = []
     for line in lines:
-        parts = _EMBEDDED_NAME_RE.split(line)
+        parts = EMBEDDED_NAME_RE.split(line)
         result.extend(p.strip() for p in parts if p.strip())
     return result
 
@@ -149,7 +148,11 @@ def group_lines(
     categories: re.Pattern,
     member_name: regex.Pattern,
 ) -> list[str]:
-    """Concatenate continuation lines onto their parent block; return one string per block."""
+    """Concatenate continuation lines onto their parent block; return one string per block.
+
+    Requires: output of split_embedded_names — flat list[str] with names on their own lines.
+    Produces: list[str] where each element is one complete member-name or category block.
+    """
     grouped = []
     current = ""
     for line in lines:
@@ -169,7 +172,11 @@ def group_lines(
 # ---------------------------------------------------------------------------
 
 def parse_members(grouped: list[str], member_name: regex.Pattern) -> list[dict]:
-    """Walk grouped blocks and build [{name, interests}] — one dict per TD."""
+    """Walk grouped blocks and build [{name, interests}] — one dict per TD.
+
+    Requires: output of group_lines — one string per block, names at block boundaries.
+    Produces: list[dict] with keys 'name' (raw "LAST, First" string) and 'interests' (list[str] of category blocks).
+    """
     members = []
     current_member = None
     for line in grouped:
@@ -320,6 +327,12 @@ def parse_members(grouped: list[str], member_name: regex.Pattern) -> list[dict]:
 def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
     """Apply all Polars cleaning steps and return a cleaned DataFrame.
 
+    Requires: DataFrame from pl.read_json — columns 'name' (str) and 'interests' (list[str]).
+    Produces: one row per member per interest category with columns:
+        name, constituency, last_name, first_name, interest_code, interest_category,
+        interest_description_raw, interest_description_cleaned,
+        join_key, is_landlord, is_property_owner, interest_flag.
+
     After splitting on ';' and exploding for SPLIT_INTEREST_CODES, a fragment filter
     drops supplementary notes (ownership %, status lines) that lack ':' and would
     otherwise appear as standalone rows. Non-split categories and 'No interests
@@ -424,8 +437,8 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
     # ':' are supplementary notes (ownership %, status lines) rather than standalone entries.
     # Occupations (1) and Land (4) are excluded: occupations are plain text (no colon),
     # and land entries can be free-form descriptions without a clear entity:detail split.
-    _COLON_CODES = {"2", "3", "9"}
-    is_colon_cat = pl.col("interest_code").is_in(_COLON_CODES)
+    INTEREST_CODES = {"2", "3", "9"}
+    is_colon_cat = pl.col("interest_code").is_in(INTEREST_CODES)
     has_colon = pl.col("interest_description_cleaned").str.contains(":")
     is_declared = pl.col("interest_description_cleaned").str.contains(
         r"(?i)no interests declared|nil"
