@@ -52,5 +52,14 @@ committee_df.write_csv(DATA_DIR / "gold" / 'committee_assignments.csv')
 logging.info("Committee assignments CSV created successfully.")
 
 
+
+votes_df = pl.read_csv(DATA_DIR / "silver" / 'pretty_votes.csv')
+enrich_vote = pl.read_csv(DATA_DIR / "gold" / 'enriched_td_attendance.csv')
+key_data = enrich_vote.select(['join_key', 'unique_member_code', 'year_elected', 'last_name','dail_term','dail_number', 'full_name', 'first_name'])
+key_data = key_data.unique(subset=['unique_member_code'])
+current_dail_vote_history_df = votes_df.join(key_data, on='unique_member_code', how='left')
+current_dail_vote_history_df = current_dail_vote_history_df.unique(subset=['unique_member_code', 'vote_id']).drop('join_key')
+current_dail_vote_history_df.write_csv(DATA_DIR / "gold" / 'current_dail_vote_history.csv')
+logging.info("Enriched TD votes CSV created successfully.")
 if __name__ == "__main__":
-    print("Enriched TD attendance CSV created successfully and saved to enriched_td_attendance.csv.")
+    print("Enriched TD datasets created successfully and saved to enriched_td_attendance.csv.")

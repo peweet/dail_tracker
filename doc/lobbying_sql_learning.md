@@ -523,7 +523,141 @@ Port these in order. Each one introduces a new concept:
 
 ---
 
-## 20. Resources
+## 20. Vote history queries
+
+The vote history table (`current_dail_vote_history.csv`) is a good DuckDB playground because
+it has a clear grain (one row = one member × one division) and several interesting derived metrics.
+
+### Load it
+
+```sql
+CREATE OR REPLACE TABLE votes AS
+SELECT * FROM read_csv_auto('data/gold/current_dail_vote_history.csv');
+```
+
+### Participation rate per member
+
+How many divisions did each TD actually vote in, out of all divisions held?
+
+```sql
+WITH division_count AS (
+    SELECT COUNT(DISTINCT vote_id) AS total_divisions FROM votes
+),
+member_votes AS (
+    SELECT full_name, COUNT(DISTINCT vote_id) AS divisions_voted
+    FROM votes
+    GROUP BY full_name
+)
+SELECT
+    m.full_name,
+    m.divisions_voted,
+    d.total_divisions,
+    ROUND(m.divisions_voted * 100.0 / d.total_divisions, 1) AS participation_pct
+FROM member_votes m
+CROSS JOIN division_count d
+ORDER BY participation_pct DESC;
+```
+
+`CROSS JOIN` with a single-row CTE is the idiomatic way to attach a scalar total to every row.
+
+---
+
+### Rebellion rate per member
+
+A "rebellion" is voting against the outcome — Voted Yes on a Lost division, or Voted No on a Carried one.
+
+```sql
+SELECT
+    full_name,
+    COUNT(*) FILTER (WHERE vote_type IN ('Voted Yes', 'Voted No')) AS eligible_votes,
+    COUNT(*) FILTER (WHERE
+        (vote_type = 'Voted Yes' AND vote_outcome = 'Lost') OR
+        (vote_type = 'Voted No'  AND vote_outcome = 'Carried')
+    ) AS rebellions,
+    ROUND(
+        100.0 * COUNT(*) FILTER (WHERE
+            (vote_type = 'Voted Yes' AND vote_outcome = 'Lost') OR
+            (vote_type = 'Voted No'  AND vote_outcome = 'Carried')
+        ) / NULLIF(COUNT(*) FILTER (WHERE vote_type IN ('Voted Yes', 'Voted No')), 0),
+    1) AS rebellion_pct
+FROM votes
+GROUP BY full_name
+HAVING eligible_votes >= 10
+ORDER BY rebellion_pct DESC;
+```
+
+`FILTER (WHERE ...)` is DuckDB's way of doing conditional aggregation — cleaner than `SUM(CASE WHEN ...)`.
+`NULLIF(x, 0)` prevents division-by-zero; it returns NULL instead of crashing when x = 0.
+
+---
+
+### Most contested divisions
+
+Smallest margin between Yes and No counts.
+
+```sql
+SELECT
+    vote_id,
+    debate_title,
+    date,
+    vote_outcome,
+    COUNT(*) FILTER (WHERE vote_type = 'Voted Yes') AS yes_votes,
+    COUNT(*) FILTER (WHERE vote_type = 'Voted No')  AS no_votes,
+    ABS(
+        COUNT(*) FILTER (WHERE vote_type = 'Voted Yes') -
+        COUNT(*) FILTER (WHERE vote_type = 'Voted No')
+    ) AS margin
+FROM votes
+GROUP BY vote_id, debate_title, date, vote_outcome
+ORDER BY margin ASC
+LIMIT 20;
+```
+
+---
+
+### Vote type breakdown over time
+
+How has Yes/No/Abstain split changed year by year?
+
+```sql
+SELECT
+    EXTRACT(YEAR FROM date::DATE) AS year,
+    vote_type,
+    COUNT(*) AS n,
+    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY EXTRACT(YEAR FROM date::DATE)), 1) AS pct
+FROM votes
+GROUP BY year, vote_type
+ORDER BY year, vote_type;
+```
+
+This uses a **window function alongside GROUP BY**: `SUM(COUNT(*)) OVER (PARTITION BY year)` gives
+the per-year total without a second CTE. The outer `COUNT(*)` is the per-group count; the window
+aggregates those counts back up by year.
+
+---
+
+### Future: join votes → members for party whip analysis
+
+Once you have a `members` table with a party column, a join lets you compute
+party cohesion — what fraction of a party's TDs voted the same way on each division:
+
+```sql
+-- Sketch — fill in once members table exists
+SELECT
+    v.vote_id,
+    m.party,
+    v.vote_type,
+    COUNT(*) AS n_members,
+    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY v.vote_id, m.party), 1) AS cohesion_pct
+FROM votes v
+JOIN members m ON v.unique_member_code = m.member_code
+GROUP BY v.vote_id, m.party, v.vote_type
+ORDER BY cohesion_pct ASC;
+```
+
+---
+
+## 21. Resources
 
 - [DuckDB SQL docs](https://duckdb.org/docs/sql/introduction) — definitive reference
 - [DuckDB string functions](https://duckdb.org/docs/sql/functions/char)
