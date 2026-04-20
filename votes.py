@@ -55,9 +55,18 @@ df = df.rename(columns={
     "member.memberCode": "unique_member_code",
     "member.uri": "member_uri",
 }).drop_duplicates().drop('member_uri', axis=1)
+
 #ISO date format is already in YYYY-MM-DD, so we can directly convert it to datetime and then extract the date part
 df['date'] = pd.to_datetime(df['vote_date'], errors='coerce').dt.date
 df = df.drop('member_name', axis=1).drop('vote_date', axis=1)
+#https://www.oireachtas.ie/en/debates/vote/dail/34/2025-03-26/34/
+# format_vote_url = "https://www.oireachtas.ie/en/debates/vote/dail/"
+# for index, row in df.iterrows():
+#     dail_number = '34'
+#     date = row['date']
+#     vote_id = row['vote_id']
+#     # df['vote_url'] = f"https://www.oireachtas.ie/en/debates/vote/dail/{dail_number}/{date}/{vote_id}/"
+#     df.at[index, 'vote_url'] = format_vote_url.format(dail_number=dail_number, date=date, vote_id=vote_id)
 df = df.replace({"nilVotes": "Voted No", "taVotes": "Voted Yes", "staonVotes": "Abstained"})
 df.to_csv(DATA_DIR / "silver" / f"pretty_votes.csv", index=False)
 print("Votes data normalized and saved to pretty_votes.csv")

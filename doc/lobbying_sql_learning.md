@@ -1,3 +1,35 @@
+# Analytical SQL view ideas for gold layer (votes and lobbying)
+
+## Accurate Dáil division vote counts
+- Always group by (debate_title, vote_id, date) to avoid cross-division contamination (vote_id is not globally unique)
+- Example query for a specific division:
+
+```sql
+SELECT vote_type, COUNT(*) AS n
+FROM votes
+WHERE debate_title = 'Triple Lock Mechanism and Irish Neutrality: Motion (Resumed) [Private Members]'
+    AND vote_id = 'vote_33'
+    AND date = '2025-03-26'
+GROUP BY vote_type;
+```
+
+
+## Analytical views to consider
+- Closest vote margins (smallest |Yes-No| per division)
+- Most frequent rebels (TDs voting against party/outcome)
+- Party cohesion by topic/theme
+- Yearly trends in division frequency and turnout
+- Notable debates: filter by keywords (carbon, housing, confidence, etc.)
+- Participation rates by member, party, and year
+- Multi-division debates: aggregate all divisions for a debate_title in a year
+- Votes on confidence, carbon, property, taxation, abortion, etc. (curated themes)
+- SQL window functions for running totals, party breakdowns, and member streaks
+- Cross-reference lobbying and voting (e.g., did lobbied TDs vote differently?)
+
+### Fewest committee memberships excluding current ministers
+-- Analytical query idea: Exclude TDs who are currently serving as ministers (office end date is null or in the future) from the 'fewest committee memberships' ranking. This can be implemented in SQL by joining the committee activity table with the office holders table and filtering out current ministers.
+
+See also: DuckDB SQL patterns for deduplication, aggregation, and windowing above.
 # Lobbying Pipeline — SQL Learning Guide
 
 Port the Polars pipeline to DuckDB SQL yourself. This guide gives you hints, patterns,
@@ -636,24 +668,76 @@ aggregates those counts back up by year.
 
 ---
 
-### Future: join votes → members for party whip analysis
+### TDs who voted against their own party
 
-Once you have a `members` table with a party column, a join lets you compute
-party cohesion — what fraction of a party's TDs voted the same way on each division:
+Party is now in the gold layer (`current_dail_vote_history.csv`), so this query
+is ready to run. The logic: for each division, find the majority vote direction
+within each party, then flag any member who voted differently.
 
 ```sql
--- Sketch — fill in once members table exists
+CREATE OR REPLACE TABLE votes AS
+SELECT * FROM read_csv_auto('data/gold/current_dail_vote_history.csv');
+
+-- Step 1: find the majority vote direction per party per division
+WITH party_majority AS (
+    SELECT
+        vote_id,
+        party,
+        vote_type,
+        COUNT(*) AS n,
+        ROW_NUMBER() OVER (
+            PARTITION BY vote_id, party
+            ORDER BY COUNT(*) DESC
+        ) AS rn
+    FROM votes
+    WHERE vote_type IN ('Voted Yes', 'Voted No')
+      AND party IS NOT NULL
+    GROUP BY vote_id, party, vote_type
+),
+-- the top-ranked vote_type per (division, party) is the party line
+party_line AS (
+    SELECT vote_id, party, vote_type AS party_direction
+    FROM party_majority
+    WHERE rn = 1
+),
+-- Step 2: join back to individual votes and flag deviations
+flagged AS (
+    SELECT
+        v.full_name,
+        v.party,
+        v.constituency_name,
+        v.vote_id,
+        v.debate_title,
+        v.date,
+        v.vote_type,
+        pl.party_direction,
+        v.vote_type != pl.party_direction AS crossed_party_line
+    FROM votes v
+    JOIN party_line pl
+        ON v.vote_id = pl.vote_id
+       AND v.party   = pl.party
+    WHERE v.vote_type IN ('Voted Yes', 'Voted No')
+)
+-- Step 3: summarise by member
 SELECT
-    v.vote_id,
-    m.party,
-    v.vote_type,
-    COUNT(*) AS n_members,
-    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY v.vote_id, m.party), 1) AS cohesion_pct
-FROM votes v
-JOIN members m ON v.unique_member_code = m.member_code
-GROUP BY v.vote_id, m.party, v.vote_type
-ORDER BY cohesion_pct ASC;
+    full_name,
+    party,
+    constituency_name,
+    COUNT(*)                                        AS eligible_votes,
+    SUM(crossed_party_line::INT)                    AS party_line_breaks,
+    ROUND(100.0 * SUM(crossed_party_line::INT)
+          / COUNT(*), 1)                            AS break_rate_pct
+FROM flagged
+GROUP BY full_name, party, constituency_name
+HAVING eligible_votes >= 10
+ORDER BY break_rate_pct DESC;
 ```
+
+**Concepts used here:**
+- `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY COUNT(*) DESC)` — rank within a group to pick the majority row
+- Two-CTE pipeline: `party_majority` → `party_line` → join back to detail
+- Boolean cast `::INT` to sum a true/false flag as 0/1
+- `HAVING` to exclude members with too few votes for a meaningful rate
 
 ---
 

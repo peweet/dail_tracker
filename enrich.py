@@ -4,8 +4,10 @@ from utility.select_drop_rename_cols_mappings import enrichment_cols_to_select, 
 import logging
 from config import DATA_DIR
 
-#TODO: use impeccable to try create a better UI 
-#https://chatgpt.com/c/69e2b380-004c-83eb-b3b6-feaed861c6df
+
+#This module enriches the extracted datasets by joining them together and creating new features that can be used for analysis. It takes the cleaned and normalized datasets from the previous steps (e.g. attendance records, member metadata, committee assignments) and performs joins to create enriched datasets that combine information from multiple sources. The enriched datasets are then saved to CSV files for further analysis. This module also includes logging to track the progress of the enrichment process and any issues that may arise during the joining and feature creation steps. The resulting enriched datasets will provide a more comprehensive view of the TDs' activities and characteristics, allowing for deeper analysis of patterns and correlations across different dimensions of their work in the Dáil.
+
+ 
 
 small_df = pl.read_csv(DATA_DIR /"silver" / 'aggregated_td_tables.csv')
 large_df = pl.read_csv(DATA_DIR /"silver" / 'flattened_members.csv')
@@ -55,7 +57,7 @@ logging.info("Committee assignments CSV created successfully.")
 
 votes_df = pl.read_csv(DATA_DIR / "silver" / 'pretty_votes.csv')
 enrich_vote = pl.read_csv(DATA_DIR / "gold" / 'enriched_td_attendance.csv')
-key_data = enrich_vote.select(['join_key', 'unique_member_code', 'year_elected', 'last_name','dail_term','dail_number', 'full_name', 'first_name'])
+key_data = enrich_vote.select(['join_key', 'unique_member_code', 'year_elected', 'last_name', 'dail_term', 'dail_number', 'full_name', 'first_name', 'party', 'constituency_name'])
 key_data = key_data.unique(subset=['unique_member_code'])
 current_dail_vote_history_df = votes_df.join(key_data, on='unique_member_code', how='left')
 current_dail_vote_history_df = current_dail_vote_history_df.unique(subset=['unique_member_code', 'vote_id']).drop('join_key')
