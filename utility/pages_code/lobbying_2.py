@@ -1,3 +1,18 @@
+# Accurate division vote count utility
+def get_division_vote_counts(df, debate_title, vote_id, date):
+    """
+    Return counts of Yes, No, Abstained for a specific division (debate_title, vote_id, date).
+    Avoids cross-debate contamination when vote_id is reused.
+    """
+    filtered = df[(df['debate_title'] == debate_title) &
+                  (df['vote_id'] == vote_id) &
+                  (df['date'] == date)]
+    return {
+        'yes': (filtered['vote_type'] == 'Voted Yes').sum(),
+        'no': (filtered['vote_type'] == 'Voted No').sum(),
+        'abstained': (filtered['vote_type'] == 'Abstained').sum(),
+        'total': len(filtered)
+    }
 import sys
 from pathlib import Path
 
@@ -19,9 +34,12 @@ _VIEWS = [
     "Politician Profile",
     "Lobbyist Profile",
     "Browse Returns",
+    "Organisations",
     "Revolving Door",
     "Transparency",
 ]
+
+_ORG_CSV = Path(__file__).parent.parent.parent / "lobbyist" / "lobby_orgs.csv"
 
 MAX_ROWS_DISPLAY = 2000
 
@@ -922,6 +940,247 @@ def _transparency() -> None:
         _export(scorecard, "transparency_scorecard.csv", "tr_score_exp")
 
 
+# ── organisations view ────────────────────────────────────────────────
+
+@st.cache_data(show_spinner=False)
+def _load_orgs() -> pd.DataFrame:
+    """
+    Merge lobby_orgs.csv (sector) with lobby_count_details.csv (returns, website,
+    politicians targeted) on lobbyist_name. Deduplicates to one row per org.
+    """
+    if not _ORG_CSV.exists():
+        return pd.DataFrame()
+
+    orgs = pd.read_csv(_ORG_CSV, dtype=str)
+
+    counts = _load("lobby_count_details.csv")
+    if counts.empty:
+        return orgs
+
+    counts_deduped = (
+        counts.sort_values("lobby_requests_count", ascending=False)
+        .drop_duplicates(subset=["lobbyist_name"])
+        [["lobbyist_name", "lobby_requests_count", "politicians_involved_count",
+          "main_activities_of_organisation", "website",
+          "company_registration_number", "company_registered_name", "lobby_org_link"]]
+    )
+    counts_deduped["lobby_requests_count"] = pd.to_numeric(
+        counts_deduped["lobby_requests_count"], errors="coerce"
+    )
+    counts_deduped["politicians_involved_count"] = pd.to_numeric(
+        counts_deduped["politicians_involved_count"], errors="coerce"
+    )
+
+    merged = orgs.merge(counts_deduped, on="lobbyist_name", how="left", suffixes=("_orgs", ""))
+
+    # prefer counts table values; fall back to orgs columns
+    merged["sector"] = merged["main_activities_of_organisation"].fillna(merged["lobby_activities"])
+    merged["crn"] = merged["company_registration_number"].fillna(merged["company_registration_number_orgs"])
+    merged["registered_name"] = merged["company_registered_name"].fillna(merged["company_registered_name_orgs"])
+    merged["profile_url"] = merged["lobby_org_link"].fillna(merged["lobby_org_link_orgs"])
+    merged["website"] = merged["website"].fillna("")
+
+    keep = ["lobbyist_name", "sector", "registered_name", "crn", "website",
+            "profile_url", "lobby_requests_count", "politicians_involved_count"]
+    return merged[keep].drop_duplicates(subset=["lobbyist_name"]).reset_index(drop=True)
+
+
+def _organisations() -> None:
+    df = _load_orgs()
+
+    if df.empty:
+        st.info("Organisation data not found.")
+        return
+
+    with_counts = df[df["lobby_requests_count"].notna()]
+    total_orgs    = len(df)
+    total_active  = len(with_counts)
+    total_sectors = df["sector"].nunique()
+    top_returns   = int(with_counts["lobby_requests_count"].max()) if not with_counts.empty else 0
+
+    st.markdown(
+        '<div class="stat-strip">'
+        + _stat(f"{total_orgs:,}",    "Registered orgs")
+        + _stat(f"{total_active:,}",  "With filed returns")
+        + _stat(total_sectors,        "Sectors")
+        + _stat(f"{top_returns:,}",   "Most returns by one org")
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── filters ───────────────────────────────────────────────────────
+    col_s, col_n = st.columns([1, 2])
+    with col_s:
+        st.markdown('<p class="sidebar-label">Sector</p>', unsafe_allow_html=True)
+        sectors = ["All sectors"] + sorted(df["sector"].dropna().unique().tolist())
+        sector_filter = st.selectbox("Sector", sectors, key="org_sector", label_visibility="collapsed")
+    with col_n:
+        st.markdown('<p class="sidebar-label">Search organisation</p>', unsafe_allow_html=True)
+        name_filter = st.text_input("Organisation name", placeholder="e.g. Ibec, IFA, Google",
+                                    key="org_name", label_visibility="collapsed")
+
+    view = df.copy()
+    if sector_filter != "All sectors":
+        view = view[view["sector"] == sector_filter]
+    if name_filter.strip():
+        view = view[view["lobbyist_name"].str.contains(name_filter.strip(), case=False, na=False)]
+
+    # ── org profile card when one org matches ─────────────────────────
+    if name_filter.strip() and len(view) == 1:
+        row = view.iloc[0]
+        _org_card(row)
+        _org_returns(row["lobbyist_name"])
+        return
+
+    # ── power index table ─────────────────────────────────────────────
+    _section("Lobbying power index")
+    st.caption("Ranked by total returns filed. Sector · website · lobbying.ie profile included.")
+
+    ranked = (
+        view[view["lobby_requests_count"].notna()]
+        .sort_values("lobby_requests_count", ascending=False)
+        .reset_index(drop=True)
+    )
+
+    if ranked.empty:
+        st.info("No organisations with return data match the current filter.")
+    else:
+        max_r = int(ranked["lobby_requests_count"].max()) if not ranked.empty else 1
+
+        display = ranked[[
+            "lobbyist_name", "sector", "lobby_requests_count",
+            "politicians_involved_count", "website", "profile_url",
+        ]].copy()
+        display["website"] = display["website"].apply(
+            lambda w: f"https://{w}" if w and not str(w).startswith("http") else w
+        )
+
+        st.dataframe(
+            display,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "lobbyist_name":            st.column_config.TextColumn("Organisation", width="large"),
+                "sector":                   st.column_config.TextColumn("Sector"),
+                "lobby_requests_count":     st.column_config.ProgressColumn(
+                                                "Returns", format="%d",
+                                                min_value=0, max_value=max_r),
+                "politicians_involved_count": st.column_config.NumberColumn("Politicians targeted"),
+                "website":                  st.column_config.LinkColumn("Website", display_text="Visit ↗"),
+                "profile_url":              st.column_config.LinkColumn("Lobbying.ie", display_text="Profile ↗"),
+            },
+        )
+        _export(display, "lobbying_organisations.csv", "org_exp")
+
+    # ── sector breakdown ──────────────────────────────────────────────
+    _section("Returns by sector")
+    sector_summary = (
+        view[view["lobby_requests_count"].notna()]
+        .groupby("sector", dropna=True)
+        .agg(orgs=("lobbyist_name", "count"),
+             total_returns=("lobby_requests_count", "sum"))
+        .reset_index()
+        .sort_values("total_returns", ascending=False)
+        .reset_index(drop=True)
+    )
+    if not sector_summary.empty:
+        max_sec = int(sector_summary["total_returns"].max())
+        st.dataframe(
+            sector_summary,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "sector":        st.column_config.TextColumn("Sector"),
+                "orgs":          st.column_config.NumberColumn("Orgs"),
+                "total_returns": st.column_config.ProgressColumn(
+                                     "Total returns", format="%d",
+                                     min_value=0, max_value=max_sec),
+            },
+        )
+
+
+def _org_card(row: pd.Series) -> None:
+    """Full profile card for a single organisation."""
+    name     = row["lobbyist_name"]
+    sector   = row["sector"] or "—"
+    reg_name = row["registered_name"] or ""
+    crn      = row["crn"] or ""
+    website  = row["website"] or ""
+    url      = row["profile_url"] or ""
+    returns  = int(row["lobby_requests_count"]) if pd.notna(row["lobby_requests_count"]) else "—"
+    pols     = int(row["politicians_involved_count"]) if pd.notna(row["politicians_involved_count"]) else "—"
+
+    if website and not str(website).startswith("http"):
+        website = f"https://{website}"
+
+    st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
+    st.markdown(f'<h2 class="td-name">{name}</h2>', unsafe_allow_html=True)
+
+    badges = f'<span class="signal signal-neutral">{sector}</span>'
+    if reg_name and reg_name != name:
+        badges += f'&nbsp;<span class="signal signal-neutral" style="font-weight:400;text-transform:none">{reg_name}</span>'
+    st.markdown(badges, unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="stat-strip">'
+        + _stat(returns, "Returns filed")
+        + _stat(pols,    "Politicians targeted")
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+
+    link_cols = st.columns(3)
+    if website:
+        link_cols[0].link_button("Website ↗", website)
+    if url:
+        link_cols[1].link_button("Lobbying.ie profile ↗", url)
+    if crn:
+        cro_url = f"https://core.cro.ie/company/{crn}/details"
+        link_cols[2].link_button(f"CRO · {crn} ↗", cro_url)
+
+
+def _org_returns(org_name: str) -> None:
+    """Recent returns for the selected organisation."""
+    returns = _load_returns_master()
+    if returns.empty:
+        return
+
+    org_returns = returns[returns["lobbyist_name"].str.fullmatch(org_name, case=False, na=False)]
+    if org_returns.empty:
+        # fallback to contains match
+        org_returns = returns[returns["lobbyist_name"].str.contains(org_name, case=False, na=False)]
+
+    if org_returns.empty:
+        st.info("No returns found for this organisation in the master dataset.")
+        return
+
+    _section(f"Returns ({len(org_returns):,} total)")
+
+    display_cols = [c for c in [
+        "lobby_url", "relevant_matter", "public_policy_area",
+        "lobbying_period_start_date", "specific_details",
+    ] if c in org_returns.columns]
+
+    display = (
+        org_returns[display_cols]
+        .sort_values("lobbying_period_start_date", ascending=False)
+        .reset_index(drop=True)
+    )
+    st.dataframe(
+        display,
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "lobby_url":                    _link(),
+            "relevant_matter":              st.column_config.TextColumn("Matter", width="medium"),
+            "public_policy_area":           st.column_config.TextColumn("Policy area"),
+            "lobbying_period_start_date":   st.column_config.DateColumn("Period", format="YYYY-MM-DD"),
+            "specific_details":             st.column_config.TextColumn("Details", width="large"),
+        },
+    )
+    _export(display, f"{org_name[:40].replace(' ','_')}_returns.csv", "org_ret_exp")
+
+
 # ── entry point ───────────────────────────────────────────────────────
 
 def lobbying_page() -> None:
@@ -956,6 +1215,8 @@ def lobbying_page() -> None:
         _lobbyist_profile()
     elif view == "Browse Returns":
         _browse_returns()
+    elif view == "Organisations":
+        _organisations()
     elif view == "Revolving Door":
         _revolving_door()
     elif view == "Transparency":
