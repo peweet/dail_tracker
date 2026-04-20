@@ -35,7 +35,7 @@ def _load(filename: str) -> pd.DataFrame:
 
 def _export(df: pd.DataFrame, filename: str, key: str, labefl: str = "Export CSV") -> None:
     st.download_button(
-        label, df.to_csv(index=False).encode("utf-8"), filename, "text/csv", key=key,
+        labefl, df.to_csv(index=False).encode("utf-8"), filename, "text/csv", key=key,
     )
 
 
@@ -91,6 +91,40 @@ def _overview() -> None:
     total_pols    = most_lobbied["full_name"].nunique() if not most_lobbied.empty else 0
     total_areas   = policy["public_policy_area"].nunique() if not policy.empty else 0
 
+    st.markdown(
+        """
+        <div style="background:#1d3557;padding:0.7rem 0 0.5rem 0;margin-bottom:1.2rem;border-radius:6px 6px 0 0;">
+            <h1 style="color:#fff;font-family:Epilogue,sans-serif;font-size:2.1rem;font-weight:700;margin:0 0 0 1.2rem;letter-spacing:-0.03em;">Oireachtas Explorer</h1>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<h1 class="page-title">Lobbying in Ireland</h1>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style="font-size:1.1rem;line-height:1.6;margin-bottom:0.7em">
+        <strong>Who is lobbying whom?</strong> This dashboard brings together all registered lobbying returns in Ireland since 2015. Explore which organisations are lobbying, which politicians are targeted, and what policy areas are most active.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.expander("What is this data? (Click for details)", expanded=False):
+        st.markdown(
+            """
+            **About the lobbying register**  
+            This data is sourced from the official [Register of Lobbying](https://www.lobbying.ie/) maintained by the Standards in Public Office Commission (SIPO). Organisations and individuals who lobby designated public officials must file returns describing their lobbying activities, targets, and policy areas.
+            
+            **Data sources:**
+            - Official lobbying returns (lobbyist/output/returns_master.csv and related files)
+            - Aggregated and cleaned in the 'gold' layer for analysis
+            
+            **Caveats:**
+            - Not all lobbying is captured (e.g., informal or unregistered activity)
+            - Some returns may be missing or misclassified
+            - Policy area and target names are as reported by filers
+            """
+        )
     st.markdown(
         '<div class="stat-strip">'
         + _stat(f"{total_returns:,}", "Returns")
