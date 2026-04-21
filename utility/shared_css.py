@@ -8,6 +8,88 @@ def inject_css() -> None:
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=Epilogue:ital,wght@0,400;0,500;0,600;1,400&display=swap');
 
+        /* ── Site banner ─────────────────────────── */
+        .site-banner {
+            position: relative;
+            left: 50%;
+            margin-left: -50vw;
+            width: 100vw;
+            margin-top: -1.5rem;
+            margin-bottom: 1.75rem;
+            background: #111827;
+            border-bottom: 3px solid oklch(51% 0.130 62);
+        }
+        .site-banner-inner {
+            max-width: 1340px;
+            margin: 0 auto;
+            padding: 1.1rem 2rem;
+            display: flex;
+            align-items: baseline;
+            gap: 1.25rem;
+        }
+        .site-banner-title {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.02em;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .site-banner-sep {
+            width: 1px;
+            height: 1rem;
+            background: rgba(255,255,255,0.2);
+            flex-shrink: 0;
+            align-self: center;
+        }
+        .site-banner-sub {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 400;
+            color: rgba(255,255,255,0.45);
+            letter-spacing: 0.01em;
+            line-height: 1;
+        }
+
+        /* ── Hide Streamlit toolbar to eliminate gap above banner ─── */
+        header[data-testid="stHeader"] {
+            display: none !important;
+        }
+        .main .block-container {
+            padding-top: 0 !important;
+        }
+        .site-banner {
+            margin-top: 0 !important;
+        }
+
+        /* ── Sidebar nav links ───────────────────────────────────── */
+        [data-testid="stSidebarNav"] a {
+            font-family: 'Epilogue', sans-serif !important;
+            font-size: 0.82rem !important;
+            font-weight: 600 !important;
+            color: var(--text-secondary) !important;
+            padding: 0.38rem 0.75rem !important;
+            border-radius: 2px !important;
+            display: block !important;
+            letter-spacing: 0.01em !important;
+            text-decoration: none !important;
+            transition: background 80ms ease, color 80ms ease !important;
+        }
+        [data-testid="stSidebarNav"] a:hover {
+            background: var(--surface-deep) !important;
+            color: var(--text-primary) !important;
+        }
+        [data-testid="stSidebarNav"] a[aria-current="page"] {
+            background: var(--accent-subtle) !important;
+            color: var(--accent) !important;
+            border-left: 2px solid var(--accent) !important;
+            padding-left: calc(0.75rem - 2px) !important;
+        }
+        [data-testid="stSidebarNav"] {
+            padding: 0.5rem 0 !important;
+        }
+
         :root {
             --bg:             oklch(97.5% 0.004 75);
             --surface:        oklch(94%   0.007 75);
@@ -32,7 +114,6 @@ def inject_css() -> None:
         .stApp { color: var(--text-primary); background-color: var(--bg) !important; }
 
         .main .block-container {
-            padding-top: 1.5rem;
             padding-bottom: 4rem;
             max-width: 1300px;
         }
@@ -295,6 +376,18 @@ def inject_css() -> None:
             border-bottom: 1px solid var(--border);
         }
         </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        """
+        <div class="site-banner">
+          <div class="site-banner-inner">
+            <span class="site-banner-title">Oireachtas Explorer</span>
+            <span class="site-banner-sep"></span>
+            <span class="site-banner-sub">Irish parliamentary data, made searchable</span>
+          </div>
+        </div>
         """,
         unsafe_allow_html=True,
     )

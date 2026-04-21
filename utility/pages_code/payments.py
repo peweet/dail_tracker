@@ -80,24 +80,24 @@ def payments_page() -> None:
 
     df = _load()
 
-    min_date = df["Date_Paid"].min().date()
-    max_date = df["Date_Paid"].max().date()
+    all_years = sorted(df["Date_Paid"].dt.year.dropna().unique().astype(int), reverse=True)
     all_names = sorted(df["full_name"].dropna().unique())
 
     # ── Sidebar ──────────────────────────────────────────────────────────────
     st.sidebar.header("Controls")
 
-    date_range = st.sidebar.date_input(
-        "Date range",
-        value=(min_date, max_date),
-        min_value=min_date,
-        max_value=max_date,
+    selected_year = st.sidebar.selectbox(
+        "Year",
+        options=["All"] + all_years,
+        index=0,
     )
-    if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
-        start_date = max(min_date, min(date_range[0], max_date))
-        end_date   = max(min_date, min(date_range[1], max_date))
+
+    if selected_year == "All":
+        start_date = df["Date_Paid"].min().date()
+        end_date   = df["Date_Paid"].max().date()
     else:
-        start_date, end_date = min_date, max_date
+        start_date = pd.Timestamp(f"{selected_year}-01-01").date()
+        end_date   = pd.Timestamp(f"{selected_year}-12-31").date()
 
     selected_tds = st.sidebar.multiselect(
         "Filter to specific TDs (leave blank for all)",
@@ -127,6 +127,14 @@ def payments_page() -> None:
     if selected_tds:
         filtered = filtered[filtered["full_name"].isin(selected_tds)]
 
+    # ── All-time totals (unaffected by year/TD filter) ───────────────────────
+    alltime = (
+        df.groupby("full_name")["Amount_num"]
+        .sum()
+        .rename("alltime_paid")
+        .reset_index()
+    )
+
     # ── Per-TD totals ─────────────────────────────────────────────────────────
     totals = (
         filtered.groupby(["full_name", "taa_label", "Position"])
@@ -137,7 +145,13 @@ def payments_page() -> None:
         .reset_index()
         .sort_values("total_paid", ascending=False)
         .reset_index(drop=True)
+        .merge(alltime, on="full_name", how="left")
     )
+
+    # ── Date-range label ──────────────────────────────────────────────────────
+    data_start = df["Date_Paid"].min().strftime("%d %b %Y").lstrip("0") if pd.notna(df["Date_Paid"].min()) else "?"
+    data_end   = df["Date_Paid"].max().strftime("%d %b %Y").lstrip("0") if pd.notna(df["Date_Paid"].max()) else "?"
+    st.caption(f"Full dataset covers **{data_start} – {data_end}**. Use the Year filter to narrow the view; 'All-time total' always reflects the complete record.")
 
     # ── Top-level metrics ─────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns(4)
@@ -156,15 +170,16 @@ def payments_page() -> None:
 
         with col_l:
             st.dataframe(
-                totals[["full_name", "Position", "taa_label", "total_paid", "payment_count"]],
+                totals[["full_name", "Position", "taa_label", "total_paid", "payment_count", "alltime_paid"]],
                 hide_index=True,
                 use_container_width=True,
                 column_config={
                     "full_name":     st.column_config.TextColumn("TD"),
                     "Position":      st.column_config.TextColumn("Position"),
                     "taa_label":     st.column_config.TextColumn("TAA Band"),
-                    "total_paid":    st.column_config.NumberColumn("Total paid (€)", format="€%.2f"),
+                    "total_paid":    st.column_config.NumberColumn("Total paid (selected period, €)", format="€%.2f"),
                     "payment_count": st.column_config.NumberColumn("Payments", format="%d"),
+                    "alltime_paid":  st.column_config.NumberColumn("All-time total (€)", format="€%.2f"),
                 },
             )
 

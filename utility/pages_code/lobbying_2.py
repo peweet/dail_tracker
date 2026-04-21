@@ -39,7 +39,7 @@ _VIEWS = [
     "Transparency",
 ]
 
-_ORG_CSV = Path(__file__).parent.parent.parent / "lobbyist" / "lobby_orgs.csv"
+_ORG_CSV = Path(__file__).parent.parent.parent / "data" / "bronze" / "lobbying_csv_data" / "Lobbying_ie_organisation_results.csv"
 
 MAX_ROWS_DISPLAY = 2000
 
@@ -394,6 +394,8 @@ def _politician_profile() -> None:
         st.info("No politician returns data found. Run the pipeline first.")
         return
 
+    st.caption("Search for a TD or Senator to see every lobbying return that named them as a target — which organisations contacted them, on what policy areas, and how often.")
+
     all_names = _sorted_unique_values(pol_returns, "full_name")
 
     search = st.text_input(
@@ -554,6 +556,8 @@ def _lobbyist_profile() -> None:
         st.info("No lobbyist returns data found. Run the pipeline first.")
         return
 
+    st.caption("Search for a lobbying organisation to see their full filing history — which politicians they targeted, what policy areas they focused on, and how their activity has changed over time.")
+
     all_orgs = _sorted_unique_values(lob_returns, "lobbyist_name")
 
     search = st.text_input(
@@ -685,6 +689,8 @@ def _browse_returns() -> None:
         st.info("No returns data found. Run the pipeline first.")
         return
 
+    st.caption("Every individual lobbying return in the dataset. Filter by organisation, policy area, year, or grassroots campaign status. Use the CSV export for further analysis.")
+
     col1, col2, col3 = st.columns(3)
     with col1:
         org_search = st.text_input("Organisation", placeholder="Filter by org name…", key="br_org")
@@ -775,16 +781,40 @@ def _revolving_door() -> None:
     total_ind = summary[name_col].nunique() if name_col in summary.columns else 0
     total_ret = int(summary["returns_involved_in"].sum()) if "returns_involved_in" in summary.columns else 0
 
+    with st.expander("How to read this view", expanded=False):
+        st.markdown(
+            """
+            **What is the revolving door?**
+
+            The "revolving door" refers to people who move between public office and the lobbying
+            industry. Under Irish law, Designated Public Officials (DPOs) — TDs, Senators, senior
+            civil servants, and ministerial advisers — are restricted from lobbying their former
+            colleagues for a cooling-off period after leaving office.
+
+            **What this data shows:**
+            This view surfaces people who appear in lobbying returns as the individual *carrying
+            out* the lobbying on behalf of an organisation, and who are also listed as a current
+            or former DPO in the register.
+
+            **How to use it:**
+            1. The ranked table shows everyone identified, ordered by the number of returns they
+               appeared on. "Firms" is how many different lobbying organisations they worked for.
+            2. Select an individual from the dropdown below the table to drill into their specific
+               returns — which organisations they lobbied for, which politicians they targeted,
+               and what policy areas they worked on.
+            3. The "Link" column opens the original return on lobbying.ie for verification.
+
+            **Caveat:** This is based on name-matching between the DPO register and return filers.
+            Some individuals may be missed if names are recorded inconsistently.
+            """
+        )
+
     st.markdown(
         '<div class="stat-strip">'
         + _stat(total_ind, "Former officials now lobbying")
         + _stat(f"{total_ret:,}", "Returns they appeared on")
         + "</div>",
         unsafe_allow_html=True,
-    )
-    st.caption(
-        "Current or former Designated Public Officials who personally carried out lobbying "
-        "on behalf of a lobbying organisation — the classic revolving door signal."
     )
 
     _section("Ranked by lobbying activity")
@@ -869,6 +899,34 @@ def _transparency() -> None:
     late_filers = _load("experimental_time_to_publish.csv")
     desc_lengths = _load("experimental_return_description_lengths.csv")
 
+    with st.expander("How the transparency metrics are calculated", expanded=False):
+        st.markdown(
+            """
+            **Late filers — filing latency**
+
+            Each lobbying return covers a fixed period (e.g. Jan–Apr). Filers are required to
+            submit within a set deadline after the period closes. Filing latency is the number of
+            days between the lobbying period end date and the date the return was actually
+            submitted. The table shows the *median* latency across all of an organisation's
+            returns, plus the worst single filing. Higher = later.
+
+            **Shortest return descriptions — minimal compliance**
+
+            The `specific_details` and `intended_results` fields are free-text boxes where filers
+            describe what they lobbied about and what outcome they were seeking. The character
+            count of these two fields combined is used as a proxy for how informative the return
+            is. A return with 20 characters in both fields is effectively uninformative. The table
+            shows the 30 returns with the lowest combined character count.
+
+            **Transparency scorecard — per organisation**
+
+            The scorecard combines both signals into a single view per organisation: how late they
+            tend to file (median days) and how much they write on average (average description
+            length across all their returns). An organisation that files late *and* writes very
+            little is the least transparent in the register. Sort by either column to explore.
+            """
+        )
+
     col_l, col_r = st.columns(2)
 
     with col_l:
@@ -896,8 +954,11 @@ def _transparency() -> None:
         if not desc_lengths.empty and "total_desc_len" in desc_lengths.columns:
             shortest = desc_lengths.sort_values("total_desc_len").head(30).reset_index(drop=True)
             median_len = int(desc_lengths["total_desc_len"].median()) if not desc_lengths.empty else 1
+            display_cols = [c for c in ["lobbyist_name", "lobby_url", "total_desc_len",
+                "specific_details_len", "intended_results_len", "lobbying_period_start_date"]
+                if c in shortest.columns]
             st.dataframe(
-                shortest,
+                shortest[display_cols],
                 hide_index=True,
                 use_container_width=True,
                 column_config={
@@ -951,11 +1012,27 @@ def _load_orgs() -> pd.DataFrame:
     if not _ORG_CSV.exists():
         return pd.DataFrame()
 
-    orgs = pd.read_csv(_ORG_CSV, dtype=str)
+    orgs_raw = pd.read_csv(_ORG_CSV, dtype=str, on_bad_lines="skip")
+    orgs = orgs_raw.rename(columns={
+        "Name":                                "lobbyist_name",
+        "Main activities of the organisation": "lobby_activities",
+        "CompanyRegistrationNumber":           "company_registration_number_orgs",
+        "CompanyRegisteredName":               "company_registered_name_orgs",
+        "Website":                             "website_orgs",
+    })
 
     counts = _load("lobby_count_details.csv")
     if counts.empty:
-        return orgs
+        orgs["sector"]           = orgs["lobby_activities"]
+        orgs["crn"]              = orgs["company_registration_number_orgs"]
+        orgs["registered_name"]  = orgs["company_registered_name_orgs"]
+        orgs["website"]          = orgs["website_orgs"].fillna("")
+        orgs["profile_url"]      = ""
+        orgs["lobby_requests_count"]      = pd.NA
+        orgs["politicians_involved_count"] = pd.NA
+        keep = ["lobbyist_name", "sector", "registered_name", "crn", "website",
+                "profile_url", "lobby_requests_count", "politicians_involved_count"]
+        return orgs[keep].drop_duplicates(subset=["lobbyist_name"]).reset_index(drop=True)
 
     counts_deduped = (
         counts.sort_values("lobby_requests_count", ascending=False)
@@ -973,12 +1050,11 @@ def _load_orgs() -> pd.DataFrame:
 
     merged = orgs.merge(counts_deduped, on="lobbyist_name", how="left", suffixes=("_orgs", ""))
 
-    # prefer counts table values; fall back to orgs columns
-    merged["sector"] = merged["main_activities_of_organisation"].fillna(merged["lobby_activities"])
-    merged["crn"] = merged["company_registration_number"].fillna(merged["company_registration_number_orgs"])
+    merged["sector"]          = merged["main_activities_of_organisation"].fillna(merged["lobby_activities"])
+    merged["crn"]             = merged["company_registration_number"].fillna(merged["company_registration_number_orgs"])
     merged["registered_name"] = merged["company_registered_name"].fillna(merged["company_registered_name_orgs"])
-    merged["profile_url"] = merged["lobby_org_link"].fillna(merged["lobby_org_link_orgs"])
-    merged["website"] = merged["website"].fillna("")
+    merged["profile_url"]     = merged.get("lobby_org_link", pd.Series(dtype=str)).fillna("")
+    merged["website"]         = merged["website"].fillna(merged["website_orgs"]).fillna("")
 
     keep = ["lobbyist_name", "sector", "registered_name", "crn", "website",
             "profile_url", "lobby_requests_count", "politicians_involved_count"]
@@ -1206,6 +1282,34 @@ def lobbying_page() -> None:
         )
 
     st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
+
+    with st.expander("What is this data? (Click for details)", expanded=False):
+        st.markdown(
+            """
+            **About the lobbying register**
+
+            Since 2015, organisations and individuals who lobby Designated Public Officials (DPOs)
+            in Ireland must register and file returns with the Standards in Public Office Commission
+            (SIPO). A return describes who was lobbied, on what subject, and what outcome was sought.
+
+            **Data source:** Returns are downloaded from [lobbying.ie](https://www.lobbying.ie) and
+            cleaned for analysis. The data covers all filed returns from 2015 to present.
+
+            **Views on this page:**
+            - **Overview** — headline stats, most lobbied politicians, most active organisations
+            - **Politician Profile** — all returns targeting a specific TD or Senator
+            - **Lobbyist Profile** — all returns filed by a specific organisation
+            - **Browse Returns** — full filterable table of every return
+            - **Organisations** — registry of registered lobbying organisations
+            - **Revolving Door** — former public officials now carrying out lobbying
+            - **Transparency** — who files late and who writes the least informative returns
+
+            **Caveats:**
+            - Only registered lobbying is captured; informal contacts are not required to be filed
+            - Some returns may be incomplete or use vague descriptions — that is itself a signal
+            - Policy area and politician names are as reported by the filer
+            """
+        )
 
     if view == "Overview":
         _overview()
