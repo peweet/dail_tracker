@@ -246,6 +246,7 @@ data/gold/
 # Claude Code & AI tooling
 .claude/
 .agents/
+CLAUDE.md
 
 # Generated logs
 pipeline.log
