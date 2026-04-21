@@ -44,7 +44,7 @@ ATTENDANCE_PDF_DIR = BRONZE_DIR / "attendance"
 PAYMENTS_PDF_DIR   = BRONZE_DIR / "payments"
 INTERESTS_PDF_DIR  = BRONZE_DIR / "interests"
 LOBBYING_RAW_DIR   = BRONZE_DIR / "lobbying_csv_data"
-
+VOTES_RAW_DIR      = BRONZE_DIR / "votes"
 # Bronze: API JSON and member data storage
 MEMBERS_DIR     = BRONZE_DIR / "members"
 LEGISLATION_DIR = BRONZE_DIR / "legislation"

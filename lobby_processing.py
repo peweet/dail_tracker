@@ -203,7 +203,7 @@ def parse_lobbying_period(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-_COLLECTIVE_DPO_NAMES = {
+COLLECTIVE_DPO_NAMES = {
     "Dáil Éireann (all TDs)",
     "Seanad Éireann (all Senators)",
     "All Oireachtas members",
@@ -212,7 +212,7 @@ _COLLECTIVE_DPO_NAMES = {
     "Members of Government",
 }
 
-_TITLE_PREFIXES = (
+TITLE_PREFIXES = (
     "Minister ",
     "An Taoiseach ",
     "Tánaiste ",
@@ -232,30 +232,30 @@ _TITLE_PREFIXES = (
     "Dep ",
 )
 
-_TITLE_SUFFIXES = (
+TITLE_SUFFIXES = (
     ", TD",
     " TD",
     ", Senator",
 )
 
 # Known spelling/encoding variants that appear in source data mapped to canonical form
-_NAME_CANONICAL = {
+NAME_CANONICAL = {
     "michael martin": "Micheál Martin",
 }
 
 
-def _clean_dpo_name(name: str) -> str:
+def clean_dpo_name(name: str) -> str:
     """Strip title prefixes/suffixes, whitespace/punctuation dirt, and canonicalise known variants."""
     name = name.strip().rstrip(",").strip()
-    for prefix in _TITLE_PREFIXES:
+    for prefix in TITLE_PREFIXES:
         if name.startswith(prefix):
             name = name[len(prefix):].strip()
             break
-    for suffix in _TITLE_SUFFIXES:
+    for suffix in TITLE_SUFFIXES:
         if name.endswith(suffix):
             name = name[: -len(suffix)].strip()
             break
-    canonical = _NAME_CANONICAL.get(name.lower())
+    canonical = NAME_CANONICAL.get(name.lower())
     if canonical:
         return canonical
     return name
@@ -284,11 +284,11 @@ def explode_politicians(df: pl.DataFrame) -> pl.DataFrame:
 
     # Clean names
     df = df.with_columns(
-        pl.col("full_name").map_elements(_clean_dpo_name, return_dtype=pl.String)
+        pl.col("full_name").map_elements(clean_dpo_name, return_dtype=pl.String)
     )
 
     # Drop collective/non-person entries
-    df = df.filter(~pl.col("full_name").is_in(list(_COLLECTIVE_DPO_NAMES)))
+    df = df.filter(~pl.col("full_name").is_in(list(COLLECTIVE_DPO_NAMES)))
     df = df.filter(pl.col("full_name").str.len_chars() > 0)
 
     return df
