@@ -3,11 +3,6 @@ import logging
 docstring="""
 This module contains configuration settings for the project, including paths to various directories, API endpoints, date ranges, and other constants used throughout the codebase.
 """
-#TODO: adapt config to reflect bronze, silver, gold medallion architecture, and to include more specific paths for different types of data (e.g. attendance, payments, lobbying, etc.) and for different stages of the pipeline (e.g. raw, processed, etc.). This will help to keep the project organized and make it easier to manage the data and the codebase as the project grows and evolves over time. For example, we could have a directory structure like this:
-# data/
-
-
-#TODO add logging configuration to this file and import it into the other modules that need logging, to avoid duplication and ensure consistent logging configuration across the codebase. We can define a function in config.py that sets up the logging configuration and returns a logger instance that can be imported and used in other modules. This will help to keep the code organized and make it easier to maintain the logging setup as the project evolves over time.
 LOGGING_CONFIG = logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -38,21 +33,22 @@ Y_M_D_format = "%Y-%m-%d"
 BASE_DIR = Path(__file__).resolve().parent
 
 # Medallion architecture layers
+MEDALLION_DIR  = DATA_DIR / "data"
 BRONZE_DIR = DATA_DIR / "bronze"
 SILVER_DIR = DATA_DIR / "silver"
 GOLD_DIR   = DATA_DIR / "gold"
 
 # Bronze: PDF and CSV source file locations (aligned with existing directory structure)
 BRONZE_PDF_DIR     = BRONZE_DIR / "pdfs"
-ATTENDANCE_PDF_DIR = BRONZE_PDF_DIR / "attendance"
-PAYMENTS_PDF_DIR   = BRONZE_PDF_DIR / "payments"
-INTERESTS_PDF_DIR  = BRONZE_PDF_DIR / "interests"
-LOBBYING_RAW_DIR   = BRONZE_PDF_DIR / "lobbying_csv_data"
+ATTENDANCE_PDF_DIR = BRONZE_DIR / "attendance"
+PAYMENTS_PDF_DIR   = BRONZE_DIR / "payments"
+INTERESTS_PDF_DIR  = BRONZE_DIR / "interests"
+LOBBYING_RAW_DIR   = BRONZE_DIR / "lobbying_csv_data"
 
 # Bronze: API JSON and member data storage
 MEMBERS_DIR     = BRONZE_DIR / "members"
 LEGISLATION_DIR = BRONZE_DIR / "legislation"
-
+VOTES_DIR       = BRONZE_DIR / "votes"
 # Silver: lobbying processed output
 LOBBY_OUTPUT_DIR = SILVER_DIR / "lobbying"
 
