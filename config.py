@@ -41,7 +41,8 @@ GOLD_DIR   = DATA_DIR / "gold"
 # Bronze: PDF and CSV source file locations (aligned with existing directory structure)
 BRONZE_PDF_DIR     = BRONZE_DIR / "pdfs"
 ATTENDANCE_PDF_DIR = BRONZE_DIR / "attendance"
-PAYMENTS_PDF_DIR   = BRONZE_DIR / "payments"
+#C:\Users\pglyn\PycharmProjects\dail_extractor\data\bronze\pdfs\payments
+PAYMENTS_PDF_DIR   = BRONZE_PDF_DIR / "payments"
 INTERESTS_PDF_DIR  = BRONZE_DIR / "interests"
 LOBBYING_RAW_DIR   = BRONZE_DIR / "lobbying_csv_data"
 VOTES_RAW_DIR      = BRONZE_DIR / "votes"

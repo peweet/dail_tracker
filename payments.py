@@ -15,7 +15,7 @@ The resulting CSV files will contain structured information about TD payments, w
     # """Process scanned PDFs of TD payments data, extract relevant information, and create structured CSV files for analysis."""
 
 pdf_dir = PAYMENTS_PDF_DIR
-pdf_files = glob(str(pdf_dir / "*.pdf"))  # if using glob
+pdf_files = glob(str(pdf_dir / "*.pdf"))
 #https://www.oireachtas.ie/en/publications/?q=standard%20allowance&date=&term=%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34&fromDate=03%2F04%2F2026&toDate=03%2F04%2F2026
 print("PDF files found:", pdf_files)
 # TODO to file checks to see if end .csv are created successfully and contain expected number of rows, and if not, log errors and reasons why (e.g. API call failure, PDF parsing failure, etc.)
@@ -44,20 +44,25 @@ df = df.with_columns(pl.col('Name_Split'
                     ).unnest("Name_Split").drop('Name')
 
 df = normalise_df_td_name(df, 'Full_Name').with_columns(
-    pl.col('Date_Paid').str.to_date(format="%d/%m/%Y"),
+#     - setting `strict=False` to set values that cannot be converted to `null`
+# - using `str.strptime`, `str.to_date`, or `str.to_datetime` and providing a format string
+    pl.col('Date_Paid').str.to_date(format="%d/%m/%Y", strict=False),
 )
 df.write_csv(SILVER_DIR / "aggregated_payment_tables.csv")
 top_tds_by_payment = df.with_columns(
-    pl.col('Amount').str.replace_all(
+    pl.col('Amount').str
+    #remove euro sign, null values and commas, and convert to float where possible
+    .replace_all(
         r"[^.0-9\-]", ""
-        ).cast(pl.Float64) #remove euro sign
+        ).is_not_null().cast(pl.Float64) 
     )
 top_tds_by_payment = top_tds_by_payment.with_columns(
-    pl.sum('Amount').over('join_key').alias('total_amount_paid_since_31_01_2025').round(2)
+    pl.sum('Amount').over('join_key'
+    ).alias('total_amount_paid_since_2020').round(2)
 ).sort(
-    'total_amount_paid_since_31_01_2025', 
+    ['Date_Paid', 'total_amount_paid_since_2020'], 
     descending=True)
-top_tds_by_payment= top_tds_by_payment.unique(subset=['join_key'])
+top_tds_by_payment= top_tds_by_payment.unique()
 #TODO: fix below logic to bring in enriched data into payment dataset, and then filter for top paid TDs who were elected in 2024 or earlier (i.e. exclude TDs who were elected in 2025 or later, as they would not have been in office at the time the payments were made, and therefore should not be included in the analysis of payment patterns among sitting TDs)
 # td_consituency= pl.read_csv(MEMBERS_DIR / "enriched_td_attendance.csv")
 # td_consituency = td_consituency.select(['join_key', 'member_constituency']).unique(subset=['join_key'])
@@ -67,7 +72,7 @@ top_tds_by_payment= top_tds_by_payment.unique(subset=['join_key'])
 # top_tds_by_payment.sort('total_amount_paid_since_31_01_2025', descending=True
 #                         )
 #TODO filter logic for TDs who were elected after the payment date (e.g. payments made in 2024 should only be matched to TDs elected in 2024 or earlier)
-top_tds_by_payment.write_csv(SILVER_DIR / "top_tds_by_payment_since_2024.csv")
+top_tds_by_payment.write_csv(SILVER_DIR / "top_tds_by_payment_since_2020.csv")
 
 if __name__ == "__main__":
     print("Payment PDF processing complete. Output saved to aggregated_payment_tables.csv and top_tds_by_payment_2024.csv.")
