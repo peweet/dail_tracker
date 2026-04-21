@@ -1,10 +1,10 @@
 import json
 from flatten_json import flatten
 import pandas as pd
-from config import DATA_DIR, BRONZE_DIR
+from config import DATA_DIR, LEGISLATION_DIR
 from utility.select_drop_rename_cols_mappings import bill_cols_to_drop, bill_rename
 
-with open(BRONZE_DIR / "all_bills_by_td.json", "r") as f:
+with open(LEGISLATION_DIR / "all_bills_by_td.json", "r") as f:
     data = json.load(f)
 # Extract individual bill records from each TD's response
 bills = []

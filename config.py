@@ -50,7 +50,8 @@ INTERESTS_PDF_DIR  = BRONZE_PDF_DIR / "interests"
 LOBBYING_RAW_DIR   = BRONZE_PDF_DIR / "lobbying_csv_data"
 
 # Bronze: API JSON and member data storage
-MEMBERS_DIR = BRONZE_DIR / "members"
+MEMBERS_DIR     = BRONZE_DIR / "members"
+LEGISLATION_DIR = BRONZE_DIR / "legislation"
 
 # Silver: lobbying processed output
 LOBBY_OUTPUT_DIR = SILVER_DIR / "lobbying"
