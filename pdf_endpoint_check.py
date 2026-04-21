@@ -44,6 +44,16 @@ payments_jan_2024           = f"{payment_url}/2024/2024-03-01_parliamentary-stan
 member_interests_2025 = "https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2026/2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
 #  payment_may_td_2025,
 
+# https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2016/2016-03-01_register-of-members-interests-dail-eireann_en.pdf
+# https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2019/2019-02-13_register-of-members-interests-dail-eireann_en.pdf
+# https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2018/2018-02-14_register-of-members-interests-dail-eireann_en.pdf
+# https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2017/2017-03-10_register-of-members-interests-dail-eireann_en.pdf
+# https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2016/2016-03-01_register-of-members-interests-dail-eireann_en.pdf
+# https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2020/2020-03-03_register-of-members-interests-dail-eireann_en.pdf
+member_interests_2022="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2023/2023-02-22_register-of-member-s-interests-dail-eireann-2022_en.pdf"
+member_interests_2023="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2024/2024-02-21_register-of-member-s-interests-dail-eireann-2023_en.pdf"
+member_interests_2025 = "https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2026/2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
+
 urls = [member_interests_2025,pdf_2023, pdf_2024, pdf_2024_gap, pdf_2025_gap, pdf_2025, pdf_2026, payment_feb_td_2026, payment_jan_td_2026, payment_dec_td_2025, payment_nov_td_2025, payment_september_td_2025, payment_august_td_2025, payment_july_td_2025, payment_june_td_2025, payment_april_2025, payment_feb_2025, payment_jan_2025, payment_dec_2024, payment_29_30_nov_2024, payments_1_8_nov_2024, payments_oct_2024, payments_sep_2024, payments_aug_2024, payments_july_2024, payments_june_2024, payments_may_2024, payments_april_2024, payments_march_2024, payments_feb_2024, payments_jan_2024]
 manual_endpoints=['https://www.oireachtas.ie/en/foi/frequently-requested-information/', 'https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=record-of-attendance', 'https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=parliamentary-allowances']
 

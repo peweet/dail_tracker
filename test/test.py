@@ -10,4 +10,9 @@
 #     payments/ 
 #     lobbying/
 #     utility/  
-        
+
+
+def test_td_count(): ...          # >= 127 unique TDs in attendance CSV
+def test_no_null_names(): ...     # no empty identifiers
+def test_max_attendance(): ...    # no TD exceeds 103 sitting days
+def test_enriched_has_party(): ...# all rows have a non-null party after join
