@@ -3,7 +3,7 @@ import os
 import polars as pl
 from config import LOBBYING_RAW_DIR, LOBBY_OUTPUT_DIR
 from utility.select_drop_rename_cols_mappings import lobbying_rename
-
+import glob
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -57,6 +57,7 @@ def parse_line(line: str) -> list:
 
 def sanitize_lobby_org_csv() -> None:
     """Read the raw lobby-org CSV, manually parse each line, write a cleaned CSV."""
+    # pdf_files = glob(str(LOBBYING_RAW_DIR / "*.pdf"))
     raw_path = LOBBYING_RAW_DIR / 'Lobbying_ie_organisation_results.csv'
     cleaned_path = LOBBYING_RAW_DIR / 'cleaned.csv'
 
