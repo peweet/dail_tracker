@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
-from config import BRONZE_DIR, SILVER_DIR
+from config import LEGISLATION_DIR, SILVER_DIR
 
 # legislation_urls = construct_urls_for_api(api_scenario="legislation")
 # fetch_data = fetch_all(urls=legislation_urls)
@@ -10,7 +10,7 @@ from config import BRONZE_DIR, SILVER_DIR
 
 # flatten the top-level results array — one item per bill
 bills = []
-for page in pd.read_json(BRONZE_DIR / "legislation_results.json")['results']:
+for page in pd.read_json(LEGISLATION_DIR / "legislation_results.json")['results']:
     bills.extend(page)
 
 # shared bill-level meta carried into every fact table

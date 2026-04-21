@@ -4,7 +4,7 @@ import polars as pl
 import concurrent.futures
 import logging
 from pathlib import Path
-from config import API_BASE, DATA_DIR, MEMBERS_DIR
+from config import API_BASE, DATA_DIR, MEMBERS_DIR, LEGISLATION_DIR
 
 # Logging setup
 logging.basicConfig(
@@ -138,8 +138,7 @@ def fetch_all(urls: list[str], max_workers: int = 5) -> list[dict]:
 
 def save_results(results: list[dict], scenario: str, path_override : Path = None) -> None:
     """Save results to a JSON file named after the scenario."""
-    result_counter = [result for result in results]
-    output_file = DATA_DIR / "bronze" / f"{result_counter}_{scenario}_results.json"
+    output_file = LEGISLATION_DIR / f"{scenario}_results.json"
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with open(output_file, "w", encoding="utf-8") as f:
@@ -178,7 +177,7 @@ if __name__ == "__main__":
     logger.info("=" * 70)
     logger.info("✓ Oireachtas API pipeline complete.")
     logger.info("Raw data saved to:")
-    logger.info(f"  - members/members.json")
-    logger.info(f"  - data/bronze/legislation_results.json")
-    logger.info(f"  - data/bronze/questions_results.json")
+    logger.info(f"  - data/bronze/members/members.json")
+    logger.info(f"  - data/bronze/legislation/legislation_results.json")
+    logger.info(f"  - data/bronze/legislation/questions_results.json")
     logger.info("=" * 70)
