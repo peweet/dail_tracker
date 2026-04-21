@@ -17,7 +17,7 @@ import requests
 import json
 import logging
 from pathlib import Path
-from config import API_BASE
+from config import API_BASE, MEMBERS_DIR
 
 # Logging setup
 logging.basicConfig(
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     
     # Fetch and save member data
     members_data = fetch_members("dail")
-    members_output = Path(__file__).parent / "members" / "members.json"
+    members_output = MEMBERS_DIR / "members.json"
     save_members_json(members_data, members_output)
     
     logger.info("Members API fetch complete.")

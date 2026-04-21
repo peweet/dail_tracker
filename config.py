@@ -34,13 +34,30 @@ CHAMBER_SEANAD = "chamber=seanad"
 Y_M_D_format = "%Y-%m-%d"
 
 
-# BASE patjhs for different types of data
+# Base project directory
 BASE_DIR = Path(__file__).resolve().parent
-LOBBY_DIR = BASE_DIR / "lobbyist"
-BILLS_DIR = BASE_DIR / "bills"
-MEMBERS_DIR = BASE_DIR / "members"
-BILLS_DIR = BASE_DIR / "bills"
-SCAN_PDF_DIR = BASE_DIR / "scan_pdf"
+
+# Medallion architecture layers
+BRONZE_DIR = DATA_DIR / "bronze"
+SILVER_DIR = DATA_DIR / "silver"
+GOLD_DIR   = DATA_DIR / "gold"
+
+# Bronze: PDF and CSV source file locations (aligned with existing directory structure)
+BRONZE_PDF_DIR     = BRONZE_DIR / "pdfs"
+ATTENDANCE_PDF_DIR = BRONZE_PDF_DIR / "attendance"
+PAYMENTS_PDF_DIR   = BRONZE_PDF_DIR / "payments"
+INTERESTS_PDF_DIR  = BRONZE_PDF_DIR / "interests"
+LOBBYING_RAW_DIR   = BRONZE_PDF_DIR / "lobbying_csv_data"
+
+# Bronze: API JSON and member data storage
+MEMBERS_DIR = BRONZE_DIR / "members"
+
+# Silver: lobbying processed output
+LOBBY_OUTPUT_DIR = SILVER_DIR / "lobbying"
+
+# Other bronze source directories
+BILLS_DIR    = BRONZE_DIR / "bills"
+SCAN_PDF_DIR = BRONZE_DIR / "scan_pdf"
 
 
 # RAW_DIR = str(BASE_DIR / "raw")

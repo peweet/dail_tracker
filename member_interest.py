@@ -26,7 +26,7 @@ import regex
 import os
 import polars as pl
 import normalise_join_key
-from config import DATA_DIR, MEMBERS_DIR
+from config import DATA_DIR, MEMBERS_DIR, INTERESTS_PDF_DIR, GOLD_DIR
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -36,19 +36,19 @@ SILVER_DIR = DATA_DIR / "silver"
 
 PDF_PATHS: dict[str, pathlib.Path] = {
     #Seanad
-    "2020_seanad": MEMBERS_DIR / "pdf_member_interest" / "2021-03-16_register-of-members-interests-seanad-eireann_en.pdf",
-    "2021_seanad": MEMBERS_DIR / "pdf_member_interest" / "2022-02-25_register-of-members-interests-seanad-eireann_en.pdf",
-    "2022_seanad": MEMBERS_DIR / "pdf_member_interest" / "2023-02-24_register-of-members-interests-seanad-eireann_en.pdf",
-    "2023_seanad": MEMBERS_DIR / "pdf_member_interest" / "2024-02-27_register-of-members-interests-seanad-eireann-2023_en.pdf",
-    "2024_seanad": MEMBERS_DIR / "pdf_member_interest" / "2025-02-27_register-of-member-s-interests-seanad-eireann-2024_en.pdf",
-    "2025_seanad": MEMBERS_DIR / "pdf_member_interest" / "2026-03-10_register-of-member-s-interests-seanad-eireann-2025_en.pdf",
+    "2020_seanad": INTERESTS_PDF_DIR / "2021-03-16_register-of-members-interests-seanad-eireann_en.pdf",
+    "2021_seanad": INTERESTS_PDF_DIR / "2022-02-25_register-of-members-interests-seanad-eireann_en.pdf",
+    "2022_seanad": INTERESTS_PDF_DIR / "2023-02-24_register-of-members-interests-seanad-eireann_en.pdf",
+    "2023_seanad": INTERESTS_PDF_DIR / "2024-02-27_register-of-members-interests-seanad-eireann-2023_en.pdf",
+    "2024_seanad": INTERESTS_PDF_DIR / "2025-02-27_register-of-member-s-interests-seanad-eireann-2024_en.pdf",
+    "2025_seanad": INTERESTS_PDF_DIR / "2026-03-10_register-of-member-s-interests-seanad-eireann-2025_en.pdf",
     #DAIL
-    "2020_dail": MEMBERS_DIR / "pdf_member_interest" / "2021-02-25_register-of-members-interests-dail-eireann_en.pdf",
-    "2021_dail": MEMBERS_DIR / "pdf_member_interest" / "2022-02-16_register-of-members-interests-dail-eireann_en.pdf",
-    "2022_dail": MEMBERS_DIR / "pdf_member_interest" / "2023-02-22_register-of-member-s-interests-dail-eireann-2022_en.pdf",
-    "2023_dail": MEMBERS_DIR / "pdf_member_interest" / "2024-02-21_register-of-member-s-interests-dail-eireann-2023_en.pdf",
-    "2024_dail": MEMBERS_DIR / "pdf_member_interest" / "2025-02-27_register-of-member-s-interests-dail-eireann-2024_en.pdf",
-    "2025_dail": MEMBERS_DIR / "pdf_member_interest" / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf",
+    "2020_dail": INTERESTS_PDF_DIR / "2021-02-25_register-of-members-interests-dail-eireann_en.pdf",
+    "2021_dail": INTERESTS_PDF_DIR / "2022-02-16_register-of-members-interests-dail-eireann_en.pdf",
+    "2022_dail": INTERESTS_PDF_DIR / "2023-02-22_register-of-member-s-interests-dail-eireann-2022_en.pdf",
+    "2023_dail": INTERESTS_PDF_DIR / "2024-02-21_register-of-member-s-interests-dail-eireann-2023_en.pdf",
+    "2024_dail": INTERESTS_PDF_DIR / "2025-02-27_register-of-member-s-interests-dail-eireann-2024_en.pdf",
+    "2025_dail": INTERESTS_PDF_DIR / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf",
 }
 
 CATEGORIES_PATTERN = re.compile(r"^\d+\.\s")
@@ -70,7 +70,7 @@ SPLIT_INTEREST_CODES = {"1", "2", "3", "4", "9"}
 
 MASTER_TD_PATH = DATA_DIR / "silver" / "flattened_members.csv"
 MASTER_SEANAD_PATH = DATA_DIR / "silver" / "flattened_seanad_members.csv"
-MINISTER_PATH = MEMBERS_DIR / "enriched_td_attendance.csv"
+MINISTER_PATH = GOLD_DIR / "enriched_td_attendance.csv"
 
 
 # ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import csv
 import os
 import polars as pl
-from config import LOBBY_DIR
+from config import LOBBYING_RAW_DIR, LOBBY_OUTPUT_DIR
 from utility.select_drop_rename_cols_mappings import lobbying_rename
 
 
@@ -29,7 +29,7 @@ ACTIVITY_CSV_EXCLUDES = (
 # If you have a CSV with columns (primary_key, lobby_url), drop it here and
 # it will be joined onto every return. If the file is absent, the template
 # below is used instead.
-URL_LOOKUP_PATH = LOBBY_DIR / 'raw' / 'lobby_urls.csv'
+URL_LOOKUP_PATH = LOBBYING_RAW_DIR / 'lobby_urls.csv'
 
 # Fallback URL template — used for any primary_key not found in the lookup,
 # or for every row when the lookup CSV is absent. Adjust to whatever
@@ -57,8 +57,8 @@ def parse_line(line: str) -> list:
 
 def sanitize_lobby_org_csv() -> None:
     """Read the raw lobby-org CSV, manually parse each line, write a cleaned CSV."""
-    raw_path = LOBBY_DIR / 'raw' / 'Lobbying_ie_organisation_results.csv'
-    cleaned_path = LOBBY_DIR / 'raw' / 'cleaned.csv'
+    raw_path = LOBBYING_RAW_DIR / 'Lobbying_ie_organisation_results.csv'
+    cleaned_path = LOBBYING_RAW_DIR / 'cleaned.csv'
 
     with open(raw_path, 'r', encoding='utf-8') as f:
         raw_lines = f.readlines()
@@ -75,13 +75,13 @@ def load_lobby_orgs() -> pl.DataFrame:
     """Sanitize then load the lobby organisations reference table."""
     sanitize_lobby_org_csv()
     lobby_org = pl.read_csv(
-        LOBBY_DIR / 'raw' / 'cleaned.csv',
+        LOBBYING_RAW_DIR / 'cleaned.csv',
         has_header=False,
         infer_schema=True,
         skip_lines=1,
     )
     lobby_org.columns = LOBBY_ORG_COLUMNS
-    lobby_org.write_csv(LOBBY_DIR / 'raw' / 'cleaned_output.csv')
+    lobby_org.write_csv(LOBBYING_RAW_DIR / 'cleaned_output.csv')
     print("Lobby org reference table loaded.")
     return lobby_org
 
@@ -89,19 +89,19 @@ def load_lobby_orgs() -> pl.DataFrame:
 def stack_lobbying_csvs() -> pl.DataFrame:
     """Stack every raw lobbying-activity CSV in LOBBY_DIR/raw into one DataFrame."""
     frames = []
-    for file in os.listdir(LOBBY_DIR / 'raw'):
+    for file in os.listdir(LOBBYING_RAW_DIR):
         if not file.endswith('.csv'):
             continue
         if any(file.startswith(prefix) for prefix in ACTIVITY_CSV_EXCLUDES):
             continue
         print(f"Processing file: {file}")
-        df = pl.read_csv(LOBBY_DIR / 'raw' / file)
+        df = pl.read_csv(LOBBYING_RAW_DIR / file)
         df = df.rename(lobbying_rename)
         print(f"  rows: {df.height}")
         frames.append(df)
 
     if not frames:
-        raise FileNotFoundError(f"No raw lobbying CSVs found in {LOBBY_DIR / 'raw'}")
+        raise FileNotFoundError(f"No raw lobbying CSVs found in {LOBBYING_RAW_DIR}")
 
     lobbying_df = pl.concat(frames, how='diagonal')
     print(f"Total rows after stacking: {lobbying_df.height}")
@@ -323,7 +323,12 @@ def parse_clients(df: pl.DataFrame) -> pl.DataFrame:
     """Split the pipe-delimited clients field into named columns."""
     # If the clients column is entirely null, skip parsing to avoid creating a huge exploded table of nulls.
     if df.select(pl.col("clients").is_null().all()).item():
-        return df
+        return df.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias("client_name"),
+            pl.lit(None).cast(pl.Utf8).alias("client_address"),
+            pl.lit(None).cast(pl.Utf8).alias("email"),
+            pl.lit(None).cast(pl.Utf8).alias("telephone"),
+        )
     df = df.with_columns(
         pl.col("clients").str.split("|").alias("clients_list")
     )
@@ -931,7 +936,7 @@ def build_revolving_door_returns_detail(activities_df: pl.DataFrame) -> pl.DataF
 
 def save_output(df: pl.DataFrame, filename: str, overwrite: bool = True) -> None:
     """Write a DataFrame to LOBBY_DIR/output/. If overwrite=False, skip when the file already exists."""
-    out_dir = LOBBY_DIR / 'output'
+    out_dir = LOBBY_OUTPUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / filename
     if not overwrite and path.exists():

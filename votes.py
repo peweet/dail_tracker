@@ -1,19 +1,15 @@
 import json
 import pandas as pd
 import glob
-from config import DATA_DIR
+from config import DATA_DIR, BRONZE_DIR
 
-votes = glob.glob(str(DATA_DIR / "vote_*.json"))
+votes = glob.glob(str(BRONZE_DIR / "vote_*.json"))
 results = []
 for json_file in votes:
     with open(json_file, 'r') as f:
         results.extend(json.load(f)["results"])
 
 print(f"Total votes loaded: {len(results)}")
-
-#query1= https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=&chamber=dail&date_start=2020-01-01&limit=10000&outcome=
-#query2 = https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=&chamber=dail&date_start=2020-01-01
-#query3=https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=&chamber=dail&date_end=2019-12-31&limit=10000&outcome=
 
 def normalize_vote_data(result: dict) -> pd.DataFrame:
     division = result["division"]

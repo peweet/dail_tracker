@@ -7,7 +7,7 @@ import streamlit as st
 from shared_css import inject_css
 
 _ROOT = Path(__file__).parent.parent.parent
-_CSV  = _ROOT / "members" / "aggregated_payment_tables.csv"
+_CSV  = _ROOT / "data" / "silver" / "aggregated_payment_tables.csv"
 
 _TAA_LABELS = {
     "Dublin": "Dublin / under 25 km",
