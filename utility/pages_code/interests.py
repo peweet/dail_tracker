@@ -528,6 +528,33 @@ def _render_landing(df: pd.DataFrame) -> None:
     years = sorted(df["year_declared"].unique())
 
     st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
+
+    with st.expander("What is this data? (Click for details)", expanded=False):
+        st.markdown(
+            """
+            **About the Register of Members' Interests**
+
+            Every member of the Dáil and Seanad is legally required to declare their financial
+            interests each year under the Ethics in Public Office Acts 1995 and 2001. Declarations
+            cover property, company directorships, shareholdings, outside income, gifts, travel,
+            and other interests that could influence how they vote or act in their public role.
+
+            **Data source:** Declarations are published annually by the Committee on Members'
+            Interests and scraped from the official Oireachtas PDFs.
+
+            **How to use this page:**
+            - Use the sidebar to search by name or pick a notable TD
+            - The landing view shows aggregate stats and a leaderboard of declared interests
+            - Selecting a TD shows their full year-by-year record, with landlord and directorship flags highlighted
+
+            **Caveats:**
+            - Office holders (Ministers, Ministers of State, Ceann Comhairle) are exempt from
+              filing, so their records may be incomplete
+            - TDs are not required to declare spouse or dependent interests
+            - A high number of declarations reflects transparency, not wrongdoing
+            """
+        )
+
     st.markdown(
         f'''
 <p class="landing-intro">

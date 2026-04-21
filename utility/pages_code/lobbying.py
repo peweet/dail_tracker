@@ -92,14 +92,6 @@ def _overview() -> None:
     total_areas   = policy["public_policy_area"].nunique() if not policy.empty else 0
 
     st.markdown(
-        """
-        <div style="background:#1d3557;padding:0.7rem 0 0.5rem 0;margin-bottom:1.2rem;border-radius:6px 6px 0 0;">
-            <h1 style="color:#fff;font-family:Epilogue,sans-serif;font-size:2.1rem;font-weight:700;margin:0 0 0 1.2rem;letter-spacing:-0.03em;">Oireachtas Explorer</h1>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown(
         '<h1 class="page-title">Lobbying in Ireland</h1>', unsafe_allow_html=True)
     st.markdown(
         """
@@ -591,8 +583,8 @@ def _revolving_door() -> None:
         unsafe_allow_html=True,
     )
     st.caption(
-        "Current or former Designated Public Officials who personally carried out lobbying "
-        "on behalf of a lobbying organisation — the classic revolving door signal."
+        "To try unearth the 'revolving door'. Current or former Designated Public Officials who personally carried out lobbying "
+        "on behalf of a lobbying organisation."
     )
 
     _section("Ranked by lobbying activity")
