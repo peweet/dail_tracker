@@ -52,15 +52,30 @@ def inject_css() -> None:
             line-height: 1;
         }
 
-        /* ── Hide Streamlit toolbar to eliminate gap above banner ─── */
+        /* ── Streamlit toolbar: hide chrome, keep sidebar toggle ── */
+        /* Strategy: leave the header's height intact so the sidebar
+           collapse/expand button keeps working. Hide only the visual
+           contents (deploy btn, status widget, decoration). Then pull
+           the banner up with a negative margin-top so it covers the
+           now-transparent header area.                               */
         header[data-testid="stHeader"] {
-            display: none !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        [data-testid="stToolbarActions"],
+        [data-testid="stDecoration"],
+        [data-testid="stStatusWidget"] {
+            visibility: hidden !important;
         }
         .main .block-container {
             padding-top: 0 !important;
         }
+        /* Pull banner up into the transparent header zone */
         .site-banner {
-            margin-top: 0 !important;
+            margin-top: -4rem !important;
+            position: relative !important;
+            z-index: 1000 !important;
         }
 
         /* ── Sidebar nav links ───────────────────────────────────── */
