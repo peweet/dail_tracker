@@ -555,21 +555,21 @@ def _render_landing(df: pd.DataFrame) -> None:
             """
         )
 
-    st.markdown(
-        f'''
-<p class="landing-intro">
-Every TD in Dáil Éireann must publicly declare their financial interests each year—including property, company directorships, shareholdings, outside income, gifts, and more. This register covers declarations from {years[0]} to {years[-1]}. Select a TD in the sidebar to view their full record.
-</p>
-<div style="margin-top:1.2em;margin-bottom:0.5em;"><strong>Important context for interpreting this data:</strong></div>
-<ul style="font-size:0.97em;line-height:1.7;max-width:60ch;">
-  <li><strong>Office holders</strong> (Ministers, Ministers of State, and the Ceann Comhairle) are not required to declare their interests, so their records may be incomplete.</li>
-  <li>The official definition of an office holder is set out in the Dáil’s standing orders. See the full rulebook <a href="https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/committee_on_members_interests_of_dail_eireann/termsOfReference/2025/2025-12-18_guidelines-for-members-of-dail-eireann-who-are-not-office-holders-concerning-the-steps-to-be-taken-by-them-to-ensure-compliance-with-the-provisions-of-the-ethics-in-public-office-acts-1995-and-2001_en.pdf" target="_blank">here (PDF, pg. 5)</a>.</li>
-  <li>TDs are not required to declare the interests of their spouse or dependents, so household financial interests may not be fully reflected.</li>
-  <li>A higher number of declared interests does not imply wrongdoing—often, it reflects greater transparency.</li>
-</ul>
-        ''',
-        unsafe_allow_html=True,
-    )
+#     st.markdown(
+#         f'''
+# <p class="landing-intro">
+# Every TD in Dáil Éireann must publicly declare their financial interests each year—including property, company directorships, shareholdings, outside income, gifts, and more. This register covers declarations from {years[0]} to {years[-1]}. Select a TD in the sidebar to view their full record.
+# </p>
+# <div style="margin-top:1.2em;margin-bottom:0.5em;"><strong>Important context for interpreting this data:</strong></div>
+# <ul style="font-size:0.97em;line-height:1.7;max-width:60ch;">
+#   <li><strong>Office holders</strong> (Ministers, Ministers of State, and the Ceann Comhairle) are not required to declare their interests, so their records may be incomplete.</li>
+#   <li>The official definition of an office holder is set out in the Dáil’s standing orders. See the full rulebook <a href="https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/committee_on_members_interests_of_dail_eireann/termsOfReference/2025/2025-12-18_guidelines-for-members-of-dail-eireann-who-are-not-office-holders-concerning-the-steps-to-be-taken-by-them-to-ensure-compliance-with-the-provisions-of-the-ethics-in-public-office-acts-1995-and-2001_en.pdf" target="_blank">here (PDF, pg. 5)</a>.</li>
+#   <li>TDs are not required to declare the interests of their spouse or dependents, so household financial interests may not be fully reflected.</li>
+#   <li>A higher number of declared interests does not imply wrongdoing—often, it reflects greater transparency.</li>
+# </ul>
+#         ''',
+#         unsafe_allow_html=True,
+#     )
 
     st.markdown(
         f'<div class="stat-strip">'

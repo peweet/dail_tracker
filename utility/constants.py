@@ -31,10 +31,6 @@ pdf_2026="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTa
 # Reference URL for the parties endpoint (used during development)
 link="https://api.oireachtas.ie/v1/parties?chamber_id=&chamber=dail&house_no=33&limit=60"
 
-#votes bulk queries 2026-2015
-votes_query1= "https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=&chamber=dail&date_start=2020-01-01&limit=10000&outcome="
-votes_query2 = "https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=&chamber=dail&date_start=2020-01-01"
-votes_query3="https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=&chamber=dail&date_end=2019-12-31&limit=10000&outcome="
 
 
 #Payment pdf reference URL
@@ -66,6 +62,57 @@ payments_march_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliament
 paymenents_feb_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-04-02_parliamentary-standard-allowance-payments-to-deputies-for-february-2024_en.pdf"
 payments_jan_2024="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-03-01_parliamentary-standard-allowance-payments-to-deputies-for-january-2024_en.pdf"
 
+payments_dec_2023="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-02-01_parliamentary-standard-allowance-payments-to-deputies-for-december-2023_en.pdf"
+payments_nov_2023="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2024/2024-02-01_parliamentary-standard-allowance-payments-to-deputies-for-november-2023_en.pdf"
+payments_october_2023="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2023/2023-12-01_parliamentary-standard-allowance-payments-to-deputies-for-october-2023_en.pdf"
+payments_septeber_2023="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2023/2023-10-27_parliamentary-standard-allowance-payments-to-deputies-for-september-2023_en.pdf"
+payments_august_2023="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2023/2023-10-01_parliamentary-standard-allowance-payments-to-deputies-for-august-2023_en.pdf"
+payments_july_2023="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2023/2023-09-01_parliamentary-standard-allowance-payments-to-deputies-for-july-2023_en.pdf"
+payments_june_2023="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2023/2023-08-01_parliamentary-standard-allowance-payments-to-deputies-for-june-2023_en.pdf"
+payments_may_2023="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2023/2023-07-01_parliamentary-standard-allowance-payments-to-deputies-for-may-2023_en.pdf"
+payments_april_2023="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/other/2023/2023-06-01_parliamentary-standard-allowance-payments-to-deputies-for-april-2023_en.pdf"
+payments_march_2023="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/other/2023/2023-05-01_parliamentary-standard-allowance-payments-to-deputies-for-march-2023_en.pdf"
+payments_feb_2023="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/other/2023/2023-04-01_parliamentary-standard-allowance-payments-to-deputies-for-february-2023_en.pdf"
+payments_jan_2023="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/other/2023/2023-04-01_parliamentary-standard-allowance-payments-to-deputies-for-january-2023_en.pdf"
+payments_dec_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/other/2023/2023-03-13_parliamentary-standard-allowance-payments-to-deputies-for-december-2022_en.pdf"
+
+payments_nov_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/other/2023/2023-01-03_parliamentary-standard-allowance-payments-to-deputies-for-november-2022_en.pdf"
+payments_oct_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-12-06_parliamentary-standard-allowance-payments-to-deputies-for-october-2022_en.pdf"
+payments_sep_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-11-14_parliamentary-standard-allowance-payments-to-deputies-for-september-2022_en.pdf"
+payments_aug_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-10-01_parliamentary-standard-allowance-payments-to-deputies-for-august-2022_en.pdf"
+payments_aug_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-09-20_parliamentary-standard-allowance-payments-to-deputies-for-july-2022_en.pdf"
+payments_july_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-09-20_parliamentary-standard-allowance-payments-to-deputies-for-july-2022_en.pdf"
+payments_june_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-08-02_parliamentary-standard-allowance-payments-to-deputies-for-june-2022_en.pdf"
+payments_may_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-07-11_parliamentary-standard-allowance-payments-to-deputies-for-may-2022_en.pdf"
+payments_april_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-06-07_parliamentary-standard-allowance-payments-to-deputies-for-april-2022_en.pdf"
+payments_march_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-05-25_parliamentary-standard-allowance-payments-to-deputies-for-march-2022_en.pdf"
+payments_feb_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-04-19_parliamentary-standard-allowance-payments-to-deputies-for-february-2022_en.pdf"
+payments_jan_2022="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-03-16_parliamentary-standard-allowance-payments-to-deputies-for-january-2022_en.pdf"
+payments_dec_2021="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-03-10_parliamentary-standard-allowance-payments-to-deputies-for-december-2021_en.pdf"
+payments_nov_2021="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2022/2022-01-13_parliamentary-standard-allowance-payments-to-deputies-for-november-2021_en.pdf"
+payments_oct_2021="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2021/2021-12-22_parliamentary-standard-allowance-payments-to-deputies-for-october-2021_en.pdf"
+payments_sep_2021="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2021/2021-12-10_parliamentary-standard-allowance-payments-to-deputies-for-september-2021_en.pdf"
+payments_aug_2021="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2021/2021-10-12_parliamentary-standard-allowance-payments-to-deputies-for-august-2021_en.pdf"
+payments_july_2021="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2021/2021-09-09_parliamentary-standard-allowance-payments-to-deputies-for-july-2021_en.pdf"
+payments_june_2021="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2021/2021-09-09_parliamentary-standard-allowance-payments-to-deputies-for-june-2021_en.pdf"
+payments_may_2021="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2021/2021-07-12_parliamentary-standard-allowance-payments-to-deputies-for-may-2021_en.pdf"
+payments_april_2021="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2021/2021-06-30_parliamentary-standard-allowance-payments-to-deputies-for-april-2021_en.pdf"
+payments_march_2021="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2021/2021-05-27_parliamentary-standard-allowance-payments-to-deputies-for-march-2021_en.pdf"
+payments_feb_2021="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2021/2021-05-27_parliamentary-standard-allowance-payments-to-deputies-for-february-2021_en.pdf"
+payments_jan_2021="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2021/2021-05-27_parliamentary-standard-allowance-payments-to-deputies-for-january-2021_en.pdf"
+payments_dec_2020="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2021/2021-05-27_parliamentary-standard-allowance-payments-to-deputies-for-december-2020_en.pdf"
+payments_nov_2020="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2021/2021-02-12_parliamentary-standard-allowance-payments-to-deputies-for-november-2020_en.pdf"
+payments_oct_2020="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2020/2020-12-03_parliamentary-standard-allowance-payments-to-deputies-for-october-2020_en.pdf"
+payments_sep_2020="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2020/2020-12-03_parliamentary-standard-allowance-payments-to-deputies-for-september-2020_en.pdf"
+payments_aug_2020="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2020/2020-10-21_parliamentary-standard-allowance-payments-to-deputies-for-august-2020_en.pdf"
+payments_july_2020="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2020/2020-10-21_parliamentary-standard-allowance-payments-to-deputies-for-july-2020_en.pdf"
+payments_june_2020="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2020/2020-08-06_parliamentary-standard-allowance-payments-to-deputies-for-june-2020_en.pdf"
+payments_may_2020="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2020/2020-08-05_parliamentary-standard-allowance-payments-to-deputies-for-may-2020_en.pdf"
+payments_april_2020="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2020/2020-08-05_parliamentary-standard-allowance-payments-to-deputies-for-april-2020_en.pdf"
+payment_march_2020="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2020/2020-08-05_parliamentary-standard-allowance-payments-to-deputies-for-march-2020_en.pdf"
+payments_feb_2020="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2020/2020-04-01_parliamentary-standard-allowance-payments-to-deputies-for-february-2020_en.pdf"
+payments_jan_2020="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa/2020/2020-03-01_parliamentary-standard-allowance-payments-to-deputies-for-january-2020_en.pdf"
+
 WIKI_url = "https://www.wikidata.org/wiki/Wikidata:WikiProject_every_politician/Ireland/data/Dail/Current_Members"
 #https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2015/2015-03-11_register-of-members-interests-dail-eireann_en.pdf
 # https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2016/2016-03-01_register-of-members-interests-dail-eireann_en.pdf
@@ -85,7 +132,7 @@ dail_member_interests_2025 = "https://data.oireachtas.ie/ie/oireachtas/members/r
 #meta data rules
 members_interests_rules="https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/committee_on_members_interests_of_dail_eireann/termsOfReference/2025/2025-12-18_guidelines-for-members-of-dail-eireann-who-are-not-office-holders-concerning-the-steps-to-be-taken-by-them-to-ensure-compliance-with-the-provisions-of-the-ethics-in-public-office-acts-1995-and-2001_en.pdf"
 
-
+rules_payments="https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/other/2023/2023-04-25_information-on-the-parliamentary-standard-allowance-and-end-of-year-statements-2022_en.pdf"
 
 #Lobby manual sources
 lobbying_url = "https://www.lobbying.ie/app/home/search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&publicBodys=&jobTitles=&returnDateFrom=&returnDateTo=&period=&dpo=&client=&responsible=&lobbyist=&lobbyistId="
