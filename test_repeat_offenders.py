@@ -1,11 +1,15 @@
 import polars as pl
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+from config import LOBBY_OUTPUT_DIR
 
-df =pl.read_csv("C://Users//pglyn//PycharmProjects//dail_extractor//lobbyist//output//lobby_break_down_by_politician.csv")
+df = pl.read_csv(LOBBY_OUTPUT_DIR / "lobby_break_down_by_politician.csv")
 
 most_represnted_politicians = df.select('primary_key', 'full_name').unique().drop('primary_key')
 
 most_represnted_politicians = most_represnted_politicians.select(pl.col('full_name').value_counts()).unnest('full_name').sort('full_name', descending=True)
-most_represnted_politicians.write_csv("C://Users//pglyn//PycharmProjects//dail_extractor//lobbyist//output//with_lobbyist_most_represented_politicians.csv")
+most_represnted_politicians.write_csv(LOBBY_OUTPUT_DIR / "with_lobbyist_most_represented_politicians.csv")
 df = df.select(
                 'primary_key',	
                 'lobbyist_name', 
@@ -24,15 +28,15 @@ df = df.select(
 # ).filter(pl.col('current_or_former_dpos_position').is_not_null()
 ).unique()
 
-df.write_csv("C://Users//pglyn//PycharmProjects//dail_extractor//lobbyist//output//repeat_offenders.csv")
+df.write_csv(LOBBY_OUTPUT_DIR / "repeat_offenders.csv")
 # full_name	position, delivery
 
 most_represented_dpos = df.select(pl.col('dpos_or_former_dpos_who_carried_out_lobbying_name').value_counts()).unnest('dpos_or_former_dpos_who_carried_out_lobbying_name').sort('dpos_or_former_dpos_who_carried_out_lobbying_name', descending=True)
 print(most_represented_dpos) 
-most_represented_dpos.write_csv("C://Users//pglyn//PycharmProjects//dail_extractor//lobbyist//output//most_represented_dpos.csv")
+most_represented_dpos.write_csv(LOBBY_OUTPUT_DIR / "most_represented_dpos.csv")
 
 most_represented_companies = df.select(pl.col('client_name').value_counts()).unnest('client_name').sort('client_name', descending=True)
-most_represented_companies.write_csv("C://Users//pglyn//PycharmProjects//dail_extractor//lobbyist//output//most_represented_companies.csv")
+most_represented_companies.write_csv(LOBBY_OUTPUT_DIR / "most_represented_companies.csv")
 
 #data investigation
 # select_cols = ['last_name','first_name','unique_member_code']

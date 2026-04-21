@@ -7,12 +7,8 @@ from numpy import nan
 import os
 from pathlib import Path                                                                 
 import glob    
-from config import DATA_DIR
-# --- Dail Eireann 2023, 2024, 2025, 2026 attendance PDF ---
-
-#TODO: this code is currently in the attendance.py file, but it should be refactored into a separate module (e.g. pdf_processing.py) that can be imported and used in the main pipeline script (e.g. main.py) to process the scanned PDFs of TD attendance data, extract the relevant information, and create structured CSV files for analysis. This will help to keep the code organized and modular, and make it easier to maintain and extend in the future as we add more functionality to the pipeline. The pdf_processing module can contain functions for processing different types of PDFs (e.g. attendance, payments, etc.) and can be called from the main pipeline script to perform the necessary processing steps for each type of PDF data.
-# def process_attendance_pdfs():
-# """Process scanned PDFs of TD attendance data, extract relevant information, and create structured CSV files for analysis."""
+from config import DATA_DIR, ATTENDANCE_PDF_DIR
+# --- Dail Eireann 2023, 2024, 2025, 2026 attendance PDFs ---
 
 dataframes = []
 IRISH_NAME_REGEX = re.compile(r"^[A-ZÁÉÍÓÚ][a-zA-ZáéíóúÁÉÍÓÚ'\s\-]+$")
@@ -22,19 +18,10 @@ date_range = ''
 
 # PDF_DIR = Path("bronze/pdf/attendance")
 
-os.chdir(DATA_DIR /"attendance"/ "pdf_storage") 
+os.chdir(ATTENDANCE_PDF_DIR)
 if not Path(DATA_DIR / "silver"/ "aggregated_td_tables.csv").is_file():   
     print("Aggregated payment tables CSV not found. Starting PDF processing to create it...")    
     for pdf in list(glob.glob('*.pdf')): 
-        #for now below snippet is experimental to test dange ranges extracted from PDF titles, but it can be rolled into a more robust 
-        # function that extracts date ranges from PDF titles and 
-        # tags the resulting CSVs with the date range for easier tracking and 
-        # analysis of attendance patterns over time. 
-        # This will allow us to analyze attendance data in relation to specific time periods, 
-        # and identify any trends or patterns in attendance that may be relevant for our 
-        # analysis of TD behavior and potential correlations with other factors such as 
-        # payments, lobbying activities, and member metadata.
-        ############################################################
         pdf_path = Path(pdf)
         print(pdf_path.stem.title())
         match = re.search(DATE_RANGE, pdf_path.stem.lower())
@@ -97,7 +84,7 @@ df['other_days_count'] = df.groupby(['identifier', 'year'])['other_flag'].transf
 df['sitting_total_days'] = df['sitting_days_count'] + df['other_days_count']
 
 df = df.drop(['sitting_flag', 'other_flag', 'sitting_days_attendance', 'other_days_attendance'], axis=1)
-df.to_csv("C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\members\\aggregated_payment_tables.csv", index=False)
+df.to_csv(DATA_DIR / "silver" / "aggregated_td_tables.csv", index=False)
 # df.to_csv(DATA_DIR / "silver"/ "aggregated_td_tables.csv", index=False) 
 print("date range extracted from title:", date_range)
 print("TD attendance CSV created successfully.")

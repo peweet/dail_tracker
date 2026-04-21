@@ -4,7 +4,7 @@ import polars as pl
 import concurrent.futures
 import logging
 from pathlib import Path
-from config import API_BASE, DATA_DIR
+from config import API_BASE, DATA_DIR, MEMBERS_DIR
 
 # Logging setup
 logging.basicConfig(
@@ -61,9 +61,9 @@ def save_members_json(data: dict, path_override : Path =None, scenario : str = N
     Returns:
         Path: Location where JSON file was saved
     """
-    members_dir = Path(__file__).parent / "datat"
+    members_dir = MEMBERS_DIR
     members_dir.mkdir(parents=True, exist_ok=True)
-    
+
     output_path = members_dir / f"{scenario}_members.json"
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump([data], f, indent=2, ensure_ascii=False)  # Wrap in list for consistency

@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from shared_css import inject_css
 
 _ROOT = Path(__file__).parent.parent.parent
-_OUT = _ROOT / "lobbyist" / "output"
+_OUT = _ROOT / "data" / "silver" / "lobbying"
 
 _VIEWS = [
     "Overview",
