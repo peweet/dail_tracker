@@ -63,5 +63,49 @@ current_dail_vote_history_df = votes_df.join(key_data, on='unique_member_code', 
 current_dail_vote_history_df = current_dail_vote_history_df.unique(subset=['unique_member_code', 'vote_id']).drop('join_key')
 current_dail_vote_history_df.write_csv(DATA_DIR / "gold" / 'current_dail_vote_history.csv')
 logging.info("Enriched TD votes CSV created successfully.")
+
+# ── Bill URL enrichment (exercise — uncomment and complete when ready) ────────
+#
+# Join vote history with stages.csv to attach a bill_no and Oireachtas URL to
+# each vote row where the debate maps to a known bill.
+#
+# URL format: https://www.oireachtas.ie/en/bills/bill/{bill_year}/{bill_no}/
+# Example:    Bill 75 of 2025 → https://www.oireachtas.ie/en/bills/bill/2025/75/
+#
+# stages = pl.read_csv(DATA_DIR / "silver" / "stages.csv")
+#
+# bills = (
+#     stages
+#     .select([
+#         pl.col("bill.billNo").alias("bill_no"),
+#         pl.col("bill.billYear").cast(pl.Int32).alias("bill_year"),
+#         pl.col("bill.shortTitleEn").alias("short_title"),
+#     ])
+#     .unique(subset=["bill_no", "bill_year"])
+#     .with_columns(
+#         pl.format(
+#             "https://www.oireachtas.ie/en/bills/bill/{}/{}",
+#             pl.col("bill_year"),
+#             pl.col("bill_no"),
+#         ).alias("oireachtas_url")
+#     )
+# )
+#
+# # debate_title in votes often includes stage text ("… Second Stage [Resumed]")
+# # so an exact join on short_title will miss many rows.
+# # Hint: use pl.col("debate_title").str.contains(pl.col("short_title")) in a
+# # cross-join + filter, or convert to pandas for a str.contains merge.
+# # A year-guard (extract 4-digit year from debate_title == bill_year) will
+# # reduce false positives from bills with similar titles across years.
+#
+# current_dail_vote_history_df = current_dail_vote_history_df.join(
+#     bills,
+#     left_on="debate_title",
+#     right_on="short_title",
+#     how="left",
+# )
+#
+# current_dail_vote_history_df.write_csv(DATA_DIR / "gold" / "current_dail_vote_history.csv")
+
 if __name__ == "__main__":
     print("Enriched TD datasets created successfully and saved to enriched_td_attendance.csv.")

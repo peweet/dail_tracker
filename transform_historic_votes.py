@@ -1,17 +1,19 @@
 import json
 import pandas as pd
 import glob
-from config import DATA_DIR, BRONZE_DIR
+from config import DATA_DIR, VOTES_RAW_DIR
 
-votes = glob.glob(str(BRONZE_DIR / "vote_*.json"))
+votes = glob.glob(str(VOTES_RAW_DIR/ "*.json"))
 results = []
 for json_file in votes:
-    with open(json_file, 'r') as f:
-        results.extend(json.load(f)["results"])
+    with open(json_file, 'r', encoding="utf8") as f:
+        data = json.load(f)[0]['results']
+        results.extend(data)
 
 print(f"Total votes loaded: {len(results)}")
 
 def normalize_vote_data(result: dict) -> pd.DataFrame:
+    # print(f"test: {result}")
     division = result["division"]
     date = division.get("date")
     outcome = division.get("outcome")
