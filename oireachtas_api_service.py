@@ -52,7 +52,7 @@ def fetch_members() -> dict:
     return data
 
 
-def save_members_json(data: dict) -> Path:
+def save_members_json(data: dict, path_override : Path =None, scenario : str = None) -> Path:
     """Save members API response to JSON file.
     
     Args:
@@ -61,10 +61,10 @@ def save_members_json(data: dict) -> Path:
     Returns:
         Path: Location where JSON file was saved
     """
-    members_dir = Path(__file__).parent / "members"
+    members_dir = Path(__file__).parent / "datat"
     members_dir.mkdir(parents=True, exist_ok=True)
     
-    output_path = members_dir / "members.json"
+    output_path = members_dir / f"{scenario}_members.json"
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump([data], f, indent=2, ensure_ascii=False)  # Wrap in list for consistency
     logger.info(f"Members JSON saved to: {output_path}")
@@ -89,7 +89,7 @@ def construct_urls_for_api(api_scenario: str) -> list[str]:
         if api_scenario == "legislation":
             urls.append(
                 f"{API_BASE}/legislation"
-                f"?date_start=1900-01-01&date_end=2099-01-01&limit=1000"
+                f"?date_start=2014-01&date_end=2099-01-01&limit=1000"
                 f"&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2F{code}"
                 f"&chamber_id=&lang=en"
             )
@@ -136,9 +136,11 @@ def fetch_all(urls: list[str], max_workers: int = 5) -> list[dict]:
     return results
 
 
-def save_results(results: list[dict], scenario: str) -> None:
+def save_results(results: list[dict], scenario: str, path_override : Path = None) -> None:
     """Save results to a JSON file named after the scenario."""
-    output_file = DATA_DIR / "bronze" / f"{scenario}_results.json"
+    result_counter = [result for result in results]
+    output_file = DATA_DIR / "bronze" / f"{result_counter}_{scenario}_results.json"
+
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
@@ -154,7 +156,7 @@ if __name__ == "__main__":
     logger.info("=" * 70)
     try:
         members_data = fetch_members()
-        members_path = save_members_json(members_data)
+        members_path = save_members_json(members_data, scenario=scenario)
         logger.info(f"✓ Members data successfully saved to {members_path}")
     except Exception as exc:
         logger.error(f"✗ Failed to fetch members data: {exc}")
