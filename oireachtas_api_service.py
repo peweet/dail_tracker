@@ -4,7 +4,7 @@ import polars as pl
 import concurrent.futures
 import logging
 from pathlib import Path
-from config import API_BASE, DATA_DIR, MEMBERS_DIR, LEGISLATION_DIR
+from config import API_BASE, DATA_DIR, MEMBERS_DIR, LEGISLATION_DIR, VOTES_DIR, BRONZE_DIR
 
 # Logging setup
 logging.basicConfig(
@@ -82,7 +82,8 @@ def construct_urls_for_api(api_scenario: str) -> list[str]:
     ).unique()
 
     urls = []
-    for (code,) in df.rows():
+    for row in df.rows():
+        code = row[0]
         if code is None:
             continue  # Skip null codes
 
@@ -117,7 +118,20 @@ def load_url(url: str, timeout: int = 60) -> dict:
     response.raise_for_status()
     return response.json()  # already decoded — no unicode issues
 
-
+def fetch_votes():
+    #votes bulk queries 2026-2015, 1000 entries each, unpaginated
+    votes_query1 = f"{API_BASE}/votes?chamber_type=house&chamber_id=&chamber=dail&date_start=2020-01-01&limit=10000&outcome="
+    votes_query2 = f"{API_BASE}/votes?chamber_type=house&chamber_id=&chamber=dail&date_start=2020-01-01"
+    votes_query3 =f"{API_BASE}/votes?chamber_type=house&chamber_id=&chamber=dail&date_end=2019-12-31&limit=10000&outcome="
+    votes_url = [votes_query1, votes_query2, votes_query3]
+    votes = []
+    for url in votes_url:
+        response = session.get(url, timeout=60)
+        response.raise_for_status()  # Raise on 4xx/5xx
+        vote_json = response.json()
+        votes.append(vote_json)
+    return votes
+   
 def fetch_all(urls: list[str], max_workers: int = 5) -> list[dict]:
     """Fetch all URLs concurrently using a thread pool."""
     results = []
@@ -136,10 +150,16 @@ def fetch_all(urls: list[str], max_workers: int = 5) -> list[dict]:
     return results
 
 
-def save_results(results: list[dict], scenario: str, path_override : Path = None) -> None:
+def save_results(results: list[dict], scenario: str = None, path_override : Path = None) -> None:
     """Save results to a JSON file named after the scenario."""
-    output_file = LEGISLATION_DIR / f"{scenario}_results.json"
-
+    if scenario == "legislation":
+        output_file = LEGISLATION_DIR / f"{scenario}_results.json"
+    elif scenario == "votes":
+        output_file = VOTES_DIR / f"{scenario}_results.json"
+    elif scenario == "questions":
+        output_file = LEGISLATION_DIR / f"{scenario}_results.json"
+    else:
+        output_file = BRONZE_DIR / f"{scenario}_results.json"
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
@@ -155,7 +175,7 @@ if __name__ == "__main__":
     logger.info("=" * 70)
     try:
         members_data = fetch_members()
-        members_path = save_members_json(members_data, scenario=scenario)
+        members_path = save_members_json(members_data)
         logger.info(f"✓ Members data successfully saved to {members_path}")
     except Exception as exc:
         logger.error(f"✗ Failed to fetch members data: {exc}")
@@ -173,7 +193,11 @@ if __name__ == "__main__":
         results = fetch_all(urls)
         save_results(results, scenario)
         logger.info(f"Finished {scenario} pipeline")
-    
+    logger.info("=" * 70)
+    logger.info("STEP 3: Fetching voting history per TD")
+    votes = fetch_votes()
+    save_results(votes, scenario="votes")
+    logger.info(f"Loaded member data for {votes} members from the API.")
     logger.info("=" * 70)
     logger.info("✓ Oireachtas API pipeline complete.")
     logger.info("Raw data saved to:")
@@ -181,3 +205,7 @@ if __name__ == "__main__":
     logger.info(f"  - data/bronze/legislation/legislation_results.json")
     logger.info(f"  - data/bronze/legislation/questions_results.json")
     logger.info("=" * 70)
+    logger.info("=" * 70)
+  
+  
+  
