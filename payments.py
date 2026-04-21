@@ -3,7 +3,7 @@ import fitz  # PyMuPDF
 from normalise_join_key import normalise_df_td_name
 import polars as pl
 import re 
-from config import MEMBERS_DIR
+from config import PAYMENTS_PDF_DIR, SILVER_DIR
 
 docstring="""
 This module processes the scanned PDFs of TD payments data, extracts the relevant information, and creates structured
@@ -14,7 +14,7 @@ The resulting CSV files will contain structured information about TD payments, w
 # def process_payment_pdfs():
     # """Process scanned PDFs of TD payments data, extract relevant information, and create structured CSV files for analysis."""
 
-pdf_dir = MEMBERS_DIR / "pdf_payments"
+pdf_dir = PAYMENTS_PDF_DIR
 pdf_files = glob(str(pdf_dir / "*.pdf"))  # if using glob
 #https://www.oireachtas.ie/en/publications/?q=standard%20allowance&date=&term=%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34&fromDate=03%2F04%2F2026&toDate=03%2F04%2F2026
 print("PDF files found:", pdf_files)
@@ -46,7 +46,7 @@ df = df.with_columns(pl.col('Name_Split'
 df = normalise_df_td_name(df, 'Full_Name').with_columns(
     pl.col('Date_Paid').str.to_date(format="%d/%m/%Y"),
 )
-df.write_csv(MEMBERS_DIR / "aggregated_payment_tables.csv")
+df.write_csv(SILVER_DIR / "aggregated_payment_tables.csv")
 top_tds_by_payment = df.with_columns(
     pl.col('Amount').str.replace_all(
         r"[^.0-9\-]", ""
@@ -67,7 +67,7 @@ top_tds_by_payment= top_tds_by_payment.unique(subset=['join_key'])
 # top_tds_by_payment.sort('total_amount_paid_since_31_01_2025', descending=True
 #                         )
 #TODO filter logic for TDs who were elected after the payment date (e.g. payments made in 2024 should only be matched to TDs elected in 2024 or earlier)
-top_tds_by_payment.write_csv(MEMBERS_DIR / "top_tds_by_payment_since_2024.csv")
+top_tds_by_payment.write_csv(SILVER_DIR / "top_tds_by_payment_since_2024.csv")
 
 if __name__ == "__main__":
     print("Payment PDF processing complete. Output saved to aggregated_payment_tables.csv and top_tds_by_payment_2024.csv.")

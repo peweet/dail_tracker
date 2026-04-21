@@ -8,9 +8,9 @@
 #SOURCE https://www.oireachtas.ie/en/publications/?q=&author%5B%5D=dail-eireann&date=&term=%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34&fromDate=03%2F04%2F2026&toDate=03%2F04%2F2026&topic%5B%5D=record-of-attendance
 working_api_question_request="https://api.oireachtas.ie/v1/questions?skip=0&limit=50&qtype=oral,written&member_id=%2Fie%2Foireachtas%2Fmember%2Fid%2FBrendan-Howlin.S.1983-02-23"
 
-test_working_legislation_single_td = "https://api.oireachtas.ie/v1/legislation?date_start=1900-01-01&date_end=&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en"
+test_working_legislation_single_td = "https://api.oireachtas.ie/v1/legislation?date_start=2014-01-01&date_end=&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en"
 # Another working test URL for a single TD
-legislation_working = "https://api.oireachtas.ie/v1/legislation?date_start=1900-01-01&date_end=&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en"
+legislation_working = "https://api.oireachtas.ie/v1/legislation?date_start2014-01-01&date_end=&limit=50&member_id=https%3A%2F%2Fdata.oireachtas.ie%2Fie%2Foireachtas%2Fmember%2Fid%2FNoel-Grealish.D.2002-06-06&chamber_id=&lang=en"
 
 
 interesting_github="https://github.com/robmcelhinney/OireachtasVote"
@@ -30,6 +30,11 @@ pdf_2026="https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTa
 
 # Reference URL for the parties endpoint (used during development)
 link="https://api.oireachtas.ie/v1/parties?chamber_id=&chamber=dail&house_no=33&limit=60"
+
+#votes bulk queries 2026-2015
+votes_query1= "https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=&chamber=dail&date_start=2020-01-01&limit=10000&outcome="
+votes_query2 = "https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=&chamber=dail&date_start=2020-01-01"
+votes_query3="https://api.oireachtas.ie/v1/votes?chamber_type=house&chamber_id=&chamber=dail&date_end=2019-12-31&limit=10000&outcome="
 
 
 #Payment pdf reference URL
@@ -77,19 +82,23 @@ dail_memeber_interests_2024="https://data.oireachtas.ie/ie/oireachtas/members/re
 dail_member_interests_2025 = "https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2026/2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
 
 
-
+#meta data rules
 members_interests_rules="https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/committee_on_members_interests_of_dail_eireann/termsOfReference/2025/2025-12-18_guidelines-for-members-of-dail-eireann-who-are-not-office-holders-concerning-the-steps-to-be-taken-by-them-to-ensure-compliance-with-the-provisions-of-the-ethics-in-public-office-acts-1995-and-2001_en.pdf"
-lobbying_source_github = "https://github.com/robmcelhinney/lobbyieng/blob/main/parser.py"
 
+
+
+#Lobby manual sources
 lobbying_url = "https://www.lobbying.ie/app/home/search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&publicBodys=&jobTitles=&returnDateFrom=&returnDateTo=&period=&dpo=&client=&responsible=&lobbyist=&lobbyistId="
 lobbying_url_2 = "https://www.lobbying.ie/"
 lobbying_org ="https://www.lobbying.ie/app/Organisation/Search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&lobbyingActivities=&returnDateFrom=&returnDateTo=&period=&dpo=&client=&includeClients=false"
 member_interests_2025="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2026/2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
-
+#Inspiration
 parrse="https://github.com/mysociety/parlparse"
 they_work_for_you="github.com/mysociety/theyworkforyou"
-
+lobbying_source_github = "https://github.com/robmcelhinney/lobbyieng/blob/main/parser.py"
 kildare_street_code="https://github.com/shoveyourgaggingorderupyourarse/oireachtasdata/blob/master/bin/search"
 
+
+#Potential enrichments
 cro_api = "https://services.cro.ie/overview.aspx"
 cro_data_dict="https://services.cro.ie/datadict.aspx"
