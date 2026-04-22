@@ -56,8 +56,36 @@ rename_bill_fields = {
     "bill.mostRecentStage.event.house.showAs": "most_recent_stage_event_house_show_as",
 }
 
-sponsors_df = sponsors_df.dropna(axis=0, subset=["sponsor.by.showAs"], how="all")
+sponsor_rename = {
+    "sponsor.as.showAs": "sponsor_as_show_as",
+    "sponsor.as.uri": "sponsor_as_uri",
+    "sponsor.by.showAs": "sponsor_by_show_as",
+    "sponsor.by.uri": "sponsor_by_uri",
+    "sponsor.isPrimary": "sponsor_is_primary",
+    "billSort.billShortTitleEnSort": "bill_sort_short_title_en_sort",
+    "billSort.billYearSort": "bill_sort_year_sort",
+    "bill.billNo": "bill_no",
+    "bill.billYear": "bill_year",
+    "bill.billType": "bill_type",
+    "bill.shortTitleEn": "short_title_en",
+    "bill.longTitleEn": "long_title_en",
+    "bill.lastUpdated": "last_updated",
+    "bill.status": "status",
+    "bill.source": "source",
+    "bill.method": "method",
+    "bill.mostRecentStage.event.showAs": "most_recent_stage_event_show_as",
+    "bill.mostRecentStage.event.progressStage": "most_recent_stage_event_progress_stage",
+    "bill.mostRecentStage.event.stageCompleted": "most_recent_stage_event_stage_completed",
+    "bill.mostRecentStage.event.house.showAs": "most_recent_stage_event_house_show_as",
+    "contextDate": "context_date"
+}
+
+sponsors_df = sponsors_df.dropna(axis=0, subset=["sponsor.by.showAs"], how="all").rename(columns=sponsor_rename)
+# print(sponsors_df.columns)
 sponsors_df = sponsors_df.dropna(axis=1, how="all")
+sponsors_df['sponsor_by_uri'] = sponsors_df['sponsor_by_uri'].str.split('/', n=7).str[-1]
+sponsors_df.rename(columns={"sponsor_by_uri": "unique_member_code"}, inplace=True)
+
 sponsors_df = sponsors_df.replace(r"[\r\n]+", " ", regex=True).replace(r"\s{2,}", " ", regex=True)
 sponsors_df = sponsors_df.rename(columns=rename_bill_fields)
 stages_df = stages_df.rename(columns=rename_bill_fields)
