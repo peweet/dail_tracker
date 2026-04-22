@@ -4,14 +4,14 @@ import polars as pl
 import concurrent.futures
 import logging
 from pathlib import Path
-from config import API_BASE, DATA_DIR, MEMBERS_DIR, LEGISLATION_DIR, VOTES_DIR, BRONZE_DIR
+from config import API_BASE, LOG_DIR, DATA_DIR, MEMBERS_DIR, LEGISLATION_DIR, VOTES_DIR, BRONZE_DIR
 
 # Logging setup
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-file_handler = logging.FileHandler("pipeline.log")
+file_handler = logging.FileHandler(LOG_DIR / "pipeline.log")
 file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(
     logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -168,7 +168,6 @@ def save_results(results: list[dict], scenario: str = None, path_override : Path
 
 if __name__ == "__main__":
     logger.info("Starting Oireachtas API pipeline...")
-    
     # Step 1: Fetch and save members data (critical raw source)
     logger.info("=" * 70)
     logger.info("STEP 1: Fetching members data (critical raw source)")

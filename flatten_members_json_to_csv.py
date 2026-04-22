@@ -1,8 +1,6 @@
 import json
 from flatten_json import flatten
 import pandas as pd
-import os
-from pathlib import Path
 from utility.select_drop_rename_cols_mappings import members_rename, members_drop_cols
 from config import DATA_DIR, MEMBERS_DIR
 from members_api_service import fetch_members, save_members_json
