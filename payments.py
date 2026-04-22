@@ -36,33 +36,50 @@ for row in all_rows:
 all_rows = cleaned_rows
 
 print(f"Total rows extracted: {len(all_rows)}")
-df = pl.DataFrame(all_rows, schema=['Name', 'TAA_Band', 'Narrative', 'Date_Paid', 'Amount'], orient='row')
-df = df.with_columns(pl.col('Name').str.splitn(by=' ', n=2
+df = pl.DataFrame(all_rows, schema=[
+    'Name', 
+    'TAA_Band', 
+    'Narrative', 
+    'Date_Paid', 
+    'Amount'], 
+    orient='row')
+df = df.with_columns(pl.col('Name').str
+                    .splitn(
+                    by=' ',
+                    n=2
                     ).alias('Name_Split'))
 df = df.with_columns(pl.col('Name_Split'
                     ).struct.rename_fields(["Position", "Full_Name"])
                     ).unnest("Name_Split").drop('Name')
-
+df = df.with_columns(pl.when(
+    pl.col('Date_Paid').str.contains('/')
+    ).then(pl.col('Date_Paid')
+           ).otherwise(None).alias('Date_Paid'))
 df = normalise_df_td_name(df, 'Full_Name').with_columns(
-#     - setting `strict=False` to set values that cannot be converted to `null`
-# - using `str.strptime`, `str.to_date`, or `str.to_datetime` and providing a format string
-    pl.col('Date_Paid').str.to_date(format="%d/%m/%Y", strict=False),
+    #iso date format conversion
+    pl.col('Date_Paid').str.to_date(format="%d/%m/%Y"),
 )
+
 df.write_csv(SILVER_DIR / "aggregated_payment_tables.csv")
 top_tds_by_payment = df.with_columns(
     pl.col('Amount').str
-    #remove euro sign, null values and commas, and convert to float where possible
-    .replace_all(
-        r"[^.0-9\-]", ""
-        ).is_not_null().cast(pl.Float64) 
-    )
+    # filter out the euro symbol and any commas, and then convert to float
+    .replace_all(r"[^.0-9\-]", "")
+    .cast(pl.Float64, strict=False)
+).unique(subset=['join_key', 'Date_Paid', 'Amount'])  # dedup before summing
+
+# Filter out rows where Amount looks like a misread date (>10000) or is null
+top_tds_by_payment = top_tds_by_payment.filter(
+    pl.col('Amount').is_not_null() & (pl.col('Amount') < 10_000)
+)
+
 top_tds_by_payment = top_tds_by_payment.with_columns(
     pl.sum('Amount').over('join_key'
     ).alias('total_amount_paid_since_2020').round(2)
 ).sort(
-    ['Date_Paid', 'total_amount_paid_since_2020'], 
+    ['Date_Paid', 'total_amount_paid_since_2020'],
     descending=True)
-top_tds_by_payment= top_tds_by_payment.unique()
+top_tds_by_payment = top_tds_by_payment.unique()
 #TODO: fix below logic to bring in enriched data into payment dataset, and then filter for top paid TDs who were elected in 2024 or earlier (i.e. exclude TDs who were elected in 2025 or later, as they would not have been in office at the time the payments were made, and therefore should not be included in the analysis of payment patterns among sitting TDs)
 # td_consituency= pl.read_csv(MEMBERS_DIR / "enriched_td_attendance.csv")
 # td_consituency = td_consituency.select(['join_key', 'member_constituency']).unique(subset=['join_key'])
@@ -75,4 +92,4 @@ top_tds_by_payment= top_tds_by_payment.unique()
 top_tds_by_payment.write_csv(SILVER_DIR / "top_tds_by_payment_since_2020.csv")
 
 if __name__ == "__main__":
-    print("Payment PDF processing complete. Output saved to aggregated_payment_tables.csv and top_tds_by_payment_2024.csv.")
+    print("Payment PDF processing complete. Output saved to aggregated_payment_tables.csv and top_tds_by_payment_2020.csv.")
