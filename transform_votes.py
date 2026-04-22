@@ -8,10 +8,10 @@ from config import DATA_DIR, VOTES_RAW_DIR
 
 """
 This module transforms the raw vote data extracted from the Oireachtas API into a clean, 
-structured format suitable for analysis. 
-It reads the raw JSON files containing vote records, 
-normalizes the nested structures to create a flat DataFrame, 
-and enriches the data by creating new features such as vote URLs. 
+structured format suitable for analysis.
+It reads the raw JSON files containing vote records,
+normalizes the nested structures to create a flat DataFrame,
+and enriches the data by creating new features such as vote URLs.
 """
 votes = glob.glob(str(VOTES_RAW_DIR / "*.json"))
 results = []
