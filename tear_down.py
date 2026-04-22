@@ -91,10 +91,6 @@ def clean_bronze() -> None:
     ]:
         _delete_file(bronze / name)
 
-    # Future: when all raw API responses land here, wipe the whole directory
-    # _delete_dir(bronze)
-
-
 def clean_vote_jsons() -> None:
     """Raw vote API responses under data/ — converted to pretty_votes.csv."""
     _delete_glob(_ROOT / "data", "vote_*.json")
