@@ -139,6 +139,122 @@ lobbying_url = "https://www.lobbying.ie/app/home/search?currentPage=0&pageSize=2
 lobbying_url_2 = "https://www.lobbying.ie/"
 lobbying_org ="https://www.lobbying.ie/app/Organisation/Search?currentPage=0&pageSize=20&queryText=&subjectMatters=&subjectMatterAreas=&lobbyingActivities=&returnDateFrom=&returnDateTo=&period=&dpo=&client=&includeClients=false"
 member_interests_2025="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/dail/2026/2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf"
+
+# Seanad member interests PDFs (source URLs matching the filenames used in member_interest.py)
+seanad_member_interests_2020="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/seanad/2021/2021-03-16_register-of-members-interests-seanad-eireann_en.pdf"
+seanad_member_interests_2021="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/seanad/2022/2022-02-25_register-of-members-interests-seanad-eireann_en.pdf"
+seanad_member_interests_2022="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/seanad/2023/2023-02-24_register-of-members-interests-seanad-eireann_en.pdf"
+seanad_member_interests_2023="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/seanad/2024/2024-02-27_register-of-members-interests-seanad-eireann-2023_en.pdf"
+seanad_member_interests_2024="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/seanad/2025/2025-02-27_register-of-member-s-interests-seanad-eireann-2024_en.pdf"
+seanad_member_interests_2025="https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests/seanad/2026/2026-03-10_register-of-member-s-interests-seanad-eireann-2025_en.pdf"
+
+# ── Grouped URL lists (imported by pdf_endpoint_check.py and pdf_downloader.py) ──
+
+ATTENDANCE_PDFS = [
+    pdf_2023,
+    pdf_2024,
+    pdf_2024_gap,
+    pdf_2025_gap,
+    pdf_2025,
+    pdf_2026,
+]
+
+PAYMENT_PDFS = [
+    payment_feb_td_2026,
+    payment_jan_td_2026,
+    payment_dec_td_2025,
+    payment_nov_td_2025,
+    payment_september_td_2025,
+    payment_august_td_2025,
+    payment_july_td_2025,
+    payment_june_td_2025,
+    payment_may_td_2025,
+    payment_april_2025,
+    payment_feb_2025,
+    payment_jan_2025,
+    payment_dec_2024,
+    payment_29_30_nov_2024,
+    payments_1_8_nov_2024,
+    payments_oct_2024,
+    payments_sep_2024,
+    payments_aug_2024,
+    payments_july_2024,
+    payments_june_2024,
+    payments_may_2024,
+    payments_april_2024,
+    payments_march_2024,
+    paymenents_feb_2024,
+    payments_jan_2024,
+    payments_dec_2023,
+    payments_nov_2023,
+    payments_october_2023,
+    payments_septeber_2023,
+    payments_august_2023,
+    payments_july_2023,
+    payments_june_2023,
+    payments_may_2023,
+    payments_april_2023,
+    payments_march_2023,
+    payments_feb_2023,
+    payments_jan_2023,
+    payments_dec_2022,
+    payments_nov_2022,
+    payments_oct_2022,
+    payments_sep_2022,
+    payments_aug_2022,
+    payments_july_2022,
+    payments_june_2022,
+    payments_may_2022,
+    payments_april_2022,
+    payments_march_2022,
+    payments_feb_2022,
+    payments_jan_2022,
+    payments_dec_2021,
+    payments_nov_2021,
+    payments_oct_2021,
+    payments_sep_2021,
+    payments_aug_2021,
+    payments_july_2021,
+    payments_june_2021,
+    payments_may_2021,
+    payments_april_2021,
+    payments_march_2021,
+    payments_feb_2021,
+    payments_jan_2021,
+    payments_dec_2020,
+    payments_nov_2020,
+    payments_oct_2020,
+    payments_sep_2020,
+    payments_aug_2020,
+    payments_july_2020,
+    payments_june_2020,
+    payments_may_2020,
+    payments_april_2020,
+    payment_march_2020,
+    payments_feb_2020,
+    payments_jan_2020,
+]
+
+DAIL_INTERESTS_PDFS = [
+    dail_member_interests_2020,
+    dail_member_interests_2021,
+    dail_member_interests_2022,
+    dail_member_interests_2023,
+    dail_memeber_interests_2024,
+    dail_member_interests_2025,
+]
+
+SEANAD_INTERESTS_PDFS = [
+    seanad_member_interests_2020,
+    seanad_member_interests_2021,
+    seanad_member_interests_2022,
+    seanad_member_interests_2023,
+    seanad_member_interests_2024,
+    seanad_member_interests_2025,
+]
+
+ALL_PDFS = ATTENDANCE_PDFS + PAYMENT_PDFS + DAIL_INTERESTS_PDFS + SEANAD_INTERESTS_PDFS
+
 #Inspiration
 parrse="https://github.com/mysociety/parlparse"
 they_work_for_you="github.com/mysociety/theyworkforyou"

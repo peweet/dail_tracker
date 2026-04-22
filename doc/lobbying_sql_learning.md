@@ -1,8 +1,15 @@
-# Analytical SQL view ideas for gold layer (votes and lobbying)
+# Analytical SQL — Gold Layer & Streamlit Views
+
+A learning guide for moving analytical business logic out of Python/Streamlit and into
+pre-computed SQL views on the DuckDB gold layer. Interview-prep oriented: each section
+links to the relevant documentation and asks you to work it out rather than handing
+you the answer.
+
+---
 
 ## Accurate Dáil division vote counts
-- Always group by (debate_title, vote_id, date) to avoid cross-division contamination (vote_id is not globally unique)
-- Example query for a specific division:
+
+Always group by `(debate_title, vote_id, date)` — `vote_id` is not globally unique across debates.
 
 ```sql
 SELECT vote_type, COUNT(*) AS n
@@ -13,28 +20,6 @@ WHERE debate_title = 'Triple Lock Mechanism and Irish Neutrality: Motion (Resume
 GROUP BY vote_type;
 ```
 
-
-## Analytical views to consider
-- Closest vote margins (smallest |Yes-No| per division)
-- Most frequent rebels (TDs voting against party/outcome)
-- Party cohesion by topic/theme
-- Yearly trends in division frequency and turnout
-- Notable debates: filter by keywords (carbon, housing, confidence, etc.)
-- Participation rates by member, party, and year
-- Multi-division debates: aggregate all divisions for a debate_title in a year
-- Votes on confidence, carbon, property, taxation, abortion, etc. (curated themes)
-- SQL window functions for running totals, party breakdowns, and member streaks
-- Cross-reference lobbying and voting (e.g., did lobbied TDs vote differently?)
-
-### Fewest committee memberships excluding current ministers
--- Analytical query idea: Exclude TDs who are currently serving as ministers (office end date is null or in the future) from the 'fewest committee memberships' ranking. This can be implemented in SQL by joining the committee activity table with the office holders table and filtering out current ministers.
-
-See also: DuckDB SQL patterns for deduplication, aggregation, and windowing above.
-# Lobbying Pipeline — SQL Learning Guide
-
-Port the Polars pipeline to DuckDB SQL yourself. This guide gives you hints, patterns,
-and reference material for each operation — not the answers.
-
 ---
 
 ## Environment setup
@@ -44,16 +29,13 @@ and reference material for each operation — not the answers.
 Install the [DuckDB extension for VSCode](https://marketplace.visualstudio.com/items?itemName=Evidence.duckdb-power-user)
 (publisher: Evidence). It gives you an inline query runner, schema explorer, and result pane.
 
-Alternatively, open a terminal and run the DuckDB CLI:
+Or use the CLI:
 
 ```bash
-pip install duckdb
-python -c "import duckdb; duckdb.sql('SELECT 42').show()"
-# or the standalone CLI if you have it:
 duckdb data/gold/lobbyist.duckdb
 ```
 
-Inside the DuckDB CLI, useful meta-commands:
+Inside the CLI:
 ```
 .tables               -- list all tables
 .schema <table>       -- show CREATE TABLE for a table
@@ -61,84 +43,36 @@ Inside the DuckDB CLI, useful meta-commands:
 .timer on             -- show query execution time
 ```
 
-### Loading your silver CSVs into DuckDB
-
-DuckDB can query CSVs directly without importing them, which is great for exploration:
-
-```sql
--- Query a CSV directly (no import needed)
-SELECT * FROM read_csv_auto('lobbyist/output/returns_master.csv') LIMIT 10;
-```
-
-When you're ready to build permanent tables:
-
-```sql
-CREATE OR REPLACE TABLE returns_master AS
-SELECT * FROM read_csv_auto('lobbyist/output/returns_master.csv');
-```
-
-DuckDB infers types automatically. Check what it guessed with `.schema returns_master`.
-
 ---
 
-## Concept index
+## Concept reference
 
 | Polars operation | SQL concept | Section |
 |---|---|---|
-| `pl.concat(frames, how='diagonal')` | `UNION ALL` | [Stacking CSVs](#1-stacking-csvs--union-all) |
-| `.unique(subset=[...])` | `SELECT DISTINCT` / dedup CTE | [Deduplication](#2-deduplication) |
-| `.group_by().agg()` | `GROUP BY` + aggregate functions | [Aggregation](#3-aggregation) |
-| `.filter()` | `WHERE` / `HAVING` | [Filtering](#4-filtering) |
-| `.sort()` | `ORDER BY` | [Sorting](#5-sorting) |
-| `.join()` | `JOIN` | [Joins](#6-joins) |
-| `.with_columns()` | `SELECT ..., expr AS alias` | [Derived columns](#7-derived-columns) |
-| `pl.format(template, ...)` | `FORMAT()` / `||` / `CONCAT()` | [String building](#8-string-building) |
-| `str.split("::").list.len()` | `LEN(str) - LEN(REPLACE(str,'::',''))` / `array_length` | [String splitting & counting](#9-string-splitting) |
-| `.explode()` | `UNNEST()` / `STRING_SPLIT()` | [Exploding arrays](#10-exploding-rows) |
-| `dt.year()`, `dt.quarter()` | `EXTRACT(YEAR FROM ...)`, `EXTRACT(QUARTER FROM ...)` | [Date arithmetic](#11-date-arithmetic) |
-| `dt.total_days()` between dates | `DATEDIFF('day', start, end)` | [Date arithmetic](#11-date-arithmetic) |
-| `str.to_datetime(format=...)` | `STRPTIME(col, format)` | [Date parsing](#12-date-parsing) |
-| `fill_null("")` | `COALESCE(col, '')` | [Null handling](#13-null-handling) |
-| `str.len_chars()` | `LENGTH(col)` | [String metrics](#14-string-metrics) |
-| `pl.struct(...).n_unique()` | `COUNT(DISTINCT ...)` on a composite | [Counting composite keys](#15-counting-composite-keys) |
-| Chained `.with_columns()` | CTE chain (`WITH a AS ..., b AS ...`) | [CTEs as pipeline stages](#16-ctes-as-pipeline-stages) |
-| `.select(cols)` after join | `SELECT col1, col2` after `JOIN` | — |
-| Window / rank | `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)` | [Window functions](#17-window-functions) |
+| `.unique(subset=[...])` | `ROW_NUMBER()` dedup CTE | [§1 Deduplication](#1-deduplication) |
+| `.group_by().agg()` | `GROUP BY` + aggregate functions | [§2 Aggregation](#2-aggregation) |
+| `.filter()` | `WHERE` / `HAVING` | [§3 Filtering](#3-filtering) |
+| `.sort()` | `ORDER BY` | [§4 Sorting](#4-sorting) |
+| `.join()` | `JOIN` | [§5 Joins](#5-joins) |
+| `.with_columns()` | `SELECT ..., expr AS alias` | [§6 Derived columns](#6-derived-columns) |
+| `fill_null(x)` | `COALESCE(col, x)` | [§7 Null handling](#7-null-handling) |
+| `dt.year()`, `dt.quarter()` | `EXTRACT(YEAR FROM ...)` | [§8 Date arithmetic](#8-date-arithmetic) |
+| `str.len_chars()` | `LENGTH(col)` | [§9 String metrics](#9-string-metrics) |
+| `pl.struct(...).n_unique()` | `COUNT(DISTINCT ...)` on composite | [§10 Counting composite keys](#10-counting-composite-keys) |
+| Chained `.with_columns()` | CTE chain (`WITH a AS ..., b AS ...`) | [§11 CTEs as pipeline stages](#11-ctes-as-pipeline-stages) |
+| Window / rank | `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)` | [§12 Window functions](#12-window-functions) |
 
 ---
 
-## 1. Stacking CSVs — UNION ALL
+## 1. Deduplication
 
-**Polars:** `pl.concat(frames, how='diagonal')` stacks frames with potentially different schemas;
-missing columns are filled with `null`.
+**Polars:** `df.unique(subset=["primary_key"], keep="first")`
 
-**SQL hint:** SQL's equivalent is `UNION ALL`. If schemas differ between files, you need to
-explicitly `SELECT NULL AS missing_col` in branches that lack it, or use DuckDB's
-`read_csv_auto` glob pattern which handles schema merging for you.
+**SQL:** There is no `DISTINCT ON (key)` in DuckDB (that's PostgreSQL-only). The standard pattern
+is a window function to rank rows within a partition, then filter to rank = 1.
 
 ```sql
--- DuckDB can glob multiple CSVs in one shot — try this:
-SELECT * FROM read_csv_auto('lobbyist/raw/Lobbying*.csv', union_by_name=true);
-```
-
-`union_by_name=true` is the DuckDB equivalent of `how='diagonal'` — it matches columns
-by name rather than position, filling nulls for absent columns.
-
-**Good practice:** Always add a `source_file` column when you union so you can trace
-which file a row came from.
-
----
-
-## 2. Deduplication
-
-**Polars:** `lobbying_df.unique(subset=["primary_key"], keep="first")`
-
-**SQL hint:** There is no direct `DISTINCT ON (primary_key)` in standard SQL for "keep first".
-The pattern is a window function: assign `ROW_NUMBER()` over a partition on the key,
-then filter to `rn = 1`. The `ORDER BY` inside the window determines what "first" means.
-
-```sql
--- Skeleton — fill in the ORDER BY to decide which row to keep:
+-- Skeleton — fill in the ORDER BY to control which row survives:
 WITH ranked AS (
     SELECT *, ROW_NUMBER() OVER (PARTITION BY primary_key ORDER BY ???) AS rn
     FROM returns_raw
@@ -146,16 +80,28 @@ WITH ranked AS (
 SELECT * EXCLUDE rn FROM ranked WHERE rn = 1;
 ```
 
-`EXCLUDE` is DuckDB-specific syntax for "all columns except these" — handy for dropping
-the helper `rn` column without listing everything.
+`EXCLUDE` is DuckDB-specific: "all columns except these" — handy for dropping helper columns.
+`QUALIFY rn = 1` is an alternative (DuckDB-only) that filters on a window function result
+without a wrapping CTE — useful to know for interviews.
 
-**Variant:** If you truly don't care which row survives, `SELECT DISTINCT *` works but only
-when all columns are identical. For the dedup-on-subset case, the `ROW_NUMBER` CTE is
-always correct.
+```sql
+-- QUALIFY form (DuckDB only):
+SELECT *
+FROM returns_raw
+QUALIFY ROW_NUMBER() OVER (PARTITION BY primary_key ORDER BY ???) = 1;
+```
+
+**Doc:** [DuckDB QUALIFY clause](https://duckdb.org/docs/sql/query_syntax/qualify)
+— This is a DuckDB/Snowflake extension that standard SQL doesn't have. Interviewers
+sometimes test whether you know it exists.
+
+**Interview trap:** If all columns of two rows are identical, `SELECT DISTINCT *` works.
+But if you only want distinctness *on a subset of columns*, you need the `ROW_NUMBER` approach.
+Know when each applies.
 
 ---
 
-## 3. Aggregation
+## 2. Aggregation
 
 **Polars:**
 ```python
@@ -175,173 +121,166 @@ df.group_by(["full_name", "chamber"]).agg(
 | `pl.col("x").sum()` | `SUM(x)` |
 | `pl.col("x").mean()` | `AVG(x)` |
 | `pl.col("x").median()` | `PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY x)` |
-| `pl.col("x").min()` | `MIN(x)` |
-| `pl.col("x").max()` | `MAX(x)` |
-| `pl.col("x").first()` | `FIRST(x)` or `ANY_VALUE(x)` (DuckDB supports both) |
+| `pl.col("x").min()` / `.max()` | `MIN(x)` / `MAX(x)` |
+| `pl.col("x").first()` | `ANY_VALUE(x)` (DuckDB — picks a deterministic value from the group) |
+| `.any()` on a boolean | `BOOL_OR(x)` (DuckDB) |
+| `.all()` on a boolean | `BOOL_AND(x)` (DuckDB) |
 
-**Good practice:** When you have both a grouped aggregate and a total that you join back
-(like `compute_most_lobbied_politicians` does with `segmented` + `total`), the SQL equivalent
-is either two CTEs joined together, or a single query with window functions alongside GROUP BY.
-Both are idiomatic — try both and see which reads cleaner.
+**Conditional aggregation (critical interview pattern):**
 
----
+`FILTER (WHERE ...)` is the modern SQL way to aggregate conditionally in one pass.
+It replaces the classic `SUM(CASE WHEN x THEN 1 ELSE 0 END)` pattern and is cleaner:
 
-## 4. Filtering
+```sql
+-- Count of Yes votes and No votes in a single GROUP BY:
+SELECT
+    full_name,
+    COUNT(*) FILTER (WHERE vote_type = 'Voted Yes') AS yes_votes,
+    COUNT(*) FILTER (WHERE vote_type = 'Voted No')  AS no_votes
+FROM votes
+GROUP BY full_name;
+```
 
-**Polars:** `.filter(pl.col("x") == "Yes")` / `.filter(pl.col("x").is_not_null())`
+**Doc:** [DuckDB aggregate functions](https://duckdb.org/docs/sql/functions/aggregates)
+— covers `PERCENTILE_CONT`, `ANY_VALUE`, `BOOL_OR`, `FILTER`, and more.
 
-**SQL equivalents:**
-
-| Polars | SQL |
-|---|---|
-| `.filter(condition)` | `WHERE condition` |
-| `.is_null()` | `IS NULL` |
-| `.is_not_null()` | `IS NOT NULL` |
-| `.is_in(list)` | `IN (...)` |
-| `~condition` (not) | `NOT condition` |
-| Combined with `&` | `AND` |
-| Combined with `\|` | `OR` |
-
-Post-aggregation filters use `HAVING` not `WHERE`. `WHERE` runs before GROUP BY;
-`HAVING` runs after. `filter(pl.col("count") > 1)` on an aggregated frame becomes
-`HAVING COUNT(...) > 1`.
+**Interview note:** Know the difference between `COUNT(*)` (counts all rows including nulls)
+and `COUNT(col)` (excludes nulls). Interviewers test this.
 
 ---
 
-## 5. Sorting
+## 3. Filtering — WHERE vs HAVING
+
+**Polars:** `.filter()` before aggregation / `.filter()` after `.group_by().agg()`
+
+**SQL — the critical distinction:**
+
+`WHERE` runs *before* `GROUP BY`. It filters individual rows.
+`HAVING` runs *after* `GROUP BY`. It filters aggregated results.
+
+```sql
+-- Wrong — can't reference COUNT(*) in WHERE:
+SELECT full_name, COUNT(*) AS n
+FROM votes
+WHERE COUNT(*) > 10    -- syntax error
+GROUP BY full_name;
+
+-- Correct:
+SELECT full_name, COUNT(*) AS n
+FROM votes
+GROUP BY full_name
+HAVING COUNT(*) > 10;
+```
+
+**FILTER (WHERE ...)** is different again — it's inside an aggregate function, not a clause:
+```sql
+-- These are not the same:
+COUNT(*) FILTER (WHERE x = 'Yes')   -- conditional aggregate: count only Yes rows
+HAVING COUNT(*) > 10                -- post-aggregation filter: only groups with >10 total rows
+```
+
+**Doc:** [DuckDB SELECT syntax](https://duckdb.org/docs/sql/query_syntax/select)
+
+**Interview pattern:** Any question about "top N per group where the group has at least X" combines
+both: `WHERE` to pre-filter rows, `GROUP BY` to aggregate, `HAVING` to filter groups,
+and `ORDER BY + LIMIT` to rank. Write all four.
+
+---
+
+## 4. Sorting
 
 **Polars:** `.sort(["col_a", "col_b"], descending=[True, False])`
 
 **SQL:** `ORDER BY col_a DESC, col_b ASC`
 
-Null handling: in DuckDB, nulls sort last by default in `ASC`, first in `DESC`.
-You can override with `NULLS FIRST` / `NULLS LAST`:
+Null handling — in DuckDB, nulls sort last in `ASC` and first in `DESC` by default.
+Override with `NULLS FIRST` / `NULLS LAST`:
+
 ```sql
 ORDER BY total_returns DESC NULLS LAST
 ```
 
+**Interview note:** Know the default null sort direction for the DB you're using —
+it differs between PostgreSQL, DuckDB, and BigQuery. DuckDB matches PostgreSQL.
+
 ---
 
-## 6. Joins
+## 5. Joins
 
 **Polars join types → SQL:**
 
 | Polars `how=` | SQL |
 |---|---|
-| `"inner"` | `INNER JOIN` (default) |
+| `"inner"` | `INNER JOIN` (or just `JOIN`) |
 | `"left"` | `LEFT JOIN` |
 | `"outer"` | `FULL OUTER JOIN` |
 | `"cross"` | `CROSS JOIN` |
-| `"semi"` | `WHERE EXISTS (subquery)` or `JOIN ... SELECT DISTINCT` |
+| `"semi"` | `WHERE EXISTS (subquery)` |
 | `"anti"` | `WHERE NOT EXISTS (subquery)` |
 
-**Good practice:** Always be explicit about what can go null after a LEFT JOIN.
-Any column from the right side can be null if there's no match — apply `COALESCE`
-where you need a fallback value.
+**Key engineering practice:** After a `LEFT JOIN`, any column from the right side can be NULL
+if there's no match. Always think about which columns need `COALESCE` fallbacks.
+
+**CROSS JOIN with a scalar CTE** is the idiomatic way to attach a single aggregate value
+to every row without a subquery per row:
+
+```sql
+WITH total AS (SELECT COUNT(DISTINCT vote_id) AS n FROM votes)
+SELECT v.full_name, COUNT(DISTINCT v.vote_id) AS voted_in, t.n AS total_divisions
+FROM votes v
+CROSS JOIN total t
+GROUP BY v.full_name, t.n;
+```
+
+**Doc:** [DuckDB joins](https://duckdb.org/docs/sql/query_syntax/from#joins)
+
+**Interview trap:** `INNER JOIN` vs `LEFT JOIN` in aggregations. If you `INNER JOIN` and
+a TD has no lobbying returns, they disappear from the result entirely. Usually you want
+`LEFT JOIN` and `COALESCE(count, 0)`.
 
 ---
 
-## 7. Derived columns
+## 6. Derived columns
 
 **Polars:** `.with_columns(pl.col("x").dt.year().alias("year"))`
 
 **SQL:** `SELECT *, EXTRACT(YEAR FROM x) AS year FROM ...`
 
-In DuckDB, `SELECT * REPLACE (expr AS col)` lets you swap out a column's value
-without listing all other columns:
+DuckDB's `SELECT * REPLACE (expr AS col)` swaps out one column without listing the rest:
 
 ```sql
-SELECT * REPLACE (COALESCE(lobby_url, 'https://...') AS lobby_url)
-FROM returns_master;
+-- Replace amount string with a cleaned numeric version:
+SELECT * REPLACE (
+    TRY_CAST(REPLACE(REPLACE(amount, '€', ''), ',', '') AS DOUBLE) AS amount_num
+) FROM payments;
 ```
+
+**Doc:** [DuckDB SELECT * REPLACE](https://duckdb.org/docs/sql/expressions/star#replace-clause)
 
 ---
 
-## 8. String building
+## 7. Null handling
 
-**Polars:** `pl.format("https://www.lobbying.ie/return/{}", pl.col("primary_key"))`
+| Polars | SQL |
+|---|---|
+| `.fill_null("")` | `COALESCE(col, '')` |
+| `.fill_null(0)` | `COALESCE(col, 0)` |
+| `.drop_nulls(subset=["x"])` | `WHERE x IS NOT NULL` |
+| `x / y` (crashes on 0) | `x / NULLIF(y, 0)` — returns NULL instead of error |
 
-**SQL options:**
+`COALESCE` takes multiple arguments and returns the first non-null:
 ```sql
--- ANSI standard (works everywhere):
-'https://www.lobbying.ie/return/' || primary_key
-
--- DuckDB FORMAT (like Python f-strings):
-FORMAT('https://www.lobbying.ie/return/{}', primary_key)
-
--- CONCAT (null-propagating — use CONCAT_WS to ignore nulls):
-CONCAT('https://www.lobbying.ie/return/', primary_key)
+COALESCE(lobby_url, FORMAT('https://www.lobbying.ie/return/{}', primary_key))
 ```
 
-`CONCAT_WS(separator, col1, col2, ...)` skips nulls, which is useful when building
-` · ` delimited policy area lists.
+`NULLIF(x, y)` returns NULL when `x = y`, otherwise returns `x`. The safe-division
+pattern `SUM(x) / NULLIF(COUNT(*), 0)` is a canonical interview answer.
+
+**Doc:** [DuckDB COALESCE](https://duckdb.org/docs/sql/functions/utility#coalesceexpr-)
 
 ---
 
-## 9. String splitting
-
-**Polars:** `pl.col("dpo_lobbied").str.split("::").list.len()`
-
-**SQL hint:** SQL doesn't have a built-in "count occurrences of substring" function.
-The classic trick is:
-
-```sql
--- Count occurrences of '::' in a string:
-(LENGTH(dpo_lobbied) - LENGTH(REPLACE(dpo_lobbied, '::', ''))) / LENGTH('::') + 1
--- That gives the number of elements when split by '::'
-```
-
-DuckDB also has `STRING_SPLIT(str, delim)` which returns a `VARCHAR[]` array,
-and `LEN(STRING_SPLIT(...))` gives the count directly.
-
----
-
-## 10. Exploding rows
-
-This is the heart of the pipeline — turning `::` delimited DPO strings into one row
-per politician.
-
-**Polars chain:**
-1. `str.split("::")` → list column
-2. `.explode()` → one row per element
-3. `str.split("|")` → sub-split each element
-4. `list.get(0/1/2)` → extract named fields
-
-**SQL equivalent in DuckDB:**
-DuckDB has `UNNEST()` which is the direct equivalent of `.explode()`:
-
-```sql
--- Skeleton for the politicians explode:
-SELECT
-    primary_key,
-    lobbyist_name,
-    -- split on '::' first, then unnest:
-    UNNEST(STRING_SPLIT(dpo_lobbied, '::')) AS dpo_raw
-FROM returns_raw;
-```
-
-To then split each `dpo_raw` on `|` and extract fields, nest another `STRING_SPLIT`:
-
-```sql
-WITH exploded AS (
-    SELECT primary_key, UNNEST(STRING_SPLIT(dpo_lobbied, '::')) AS dpo_raw
-    FROM returns_raw
-)
-SELECT
-    primary_key,
-    STRING_SPLIT(dpo_raw, '|')[1] AS full_name,   -- DuckDB arrays are 1-indexed
-    STRING_SPLIT(dpo_raw, '|')[2] AS position,
-    STRING_SPLIT(dpo_raw, '|')[3] AS chamber
-FROM exploded;
-```
-
-**Watch out:** DuckDB array indexing is 1-based (not 0-based like Polars `list.get(0)`).
-
----
-
-## 11. Date arithmetic
-
-**Polars → SQL:**
+## 8. Date arithmetic
 
 | Polars | DuckDB SQL |
 |---|---|
@@ -350,66 +289,33 @@ FROM exploded;
 | `.dt.month()` | `EXTRACT(MONTH FROM col)` |
 | `(date_a - date_b).dt.total_days()` | `DATEDIFF('day', date_b, date_a)` |
 
-DuckDB also supports interval arithmetic directly:
-```sql
--- Days between two dates:
-(published_date - period_end_date)  -- returns an INTERVAL in DuckDB
-
--- Cast to integer days:
-DATEDIFF('day', period_end_date, published_date)
-```
-
-**Year-quarter label** (equivalent to `pl.format("{}-Q{}", year, quarter)`):
+**Year-quarter label:**
 ```sql
 CONCAT(EXTRACT(YEAR FROM lobbying_period_start_date), '-Q',
        EXTRACT(QUARTER FROM lobbying_period_start_date)) AS year_quarter
 ```
 
----
+**Doc:** [DuckDB date/time functions](https://duckdb.org/docs/sql/functions/timestamp)
 
-## 12. Date parsing
-
-**Polars:** `pl.col("date_published_timestamp").str.to_datetime(format="%d/%m/%Y %H:%M")`
-
-**DuckDB:** `STRPTIME(col, '%d/%m/%Y %H:%M')` — same `strftime` format codes.
-
-For the `lobbying_period` string (`"01 Jan, 2023 to 30 Jun, 2023"`):
-- Polars first splits on `" to "`, then parses each half with `"%e %b, %Y"`
-- In SQL: `SPLIT_PART(lobbying_period, ' to ', 1)` gives the start string,
-  then `STRPTIME(that_string, '%-d %b, %Y')` parses it.
-
-`%e` in strftime is "space-padded day"; use `%-d` for the DuckDB-compatible version.
+**Interview note:** `DATEDIFF` argument order varies by database (`start, end` vs `end, start`).
+In DuckDB it is `DATEDIFF('day', start, end)`. Always verify for the DB in the question.
 
 ---
 
-## 13. Null handling
+## 9. String metrics
 
-| Polars | SQL |
-|---|---|
-| `.fill_null("")` | `COALESCE(col, '')` |
-| `.fill_null(0)` | `COALESCE(col, 0)` |
-| `.drop_nulls(subset=["x"])` | `WHERE x IS NOT NULL` |
-| `.is_null()` | `col IS NULL` |
+**Polars:** `pl.col("x").fill_null("").str.len_chars()`
 
-`COALESCE` takes multiple arguments and returns the first non-null:
-```sql
-COALESCE(lobby_url, 'https://www.lobbying.ie/return/' || primary_key)
-```
+**SQL:** `LENGTH(COALESCE(x, ''))`
+
+DuckDB also has `LEN()` as an alias. Both return character count, which matters for
+Irish text with accented characters (byte count would overcount).
+
+**Doc:** [DuckDB string functions](https://duckdb.org/docs/sql/functions/char)
 
 ---
 
-## 14. String metrics
-
-**Polars:** `pl.col("specific_details").fill_null("").str.len_chars()`
-
-**SQL:** `LENGTH(COALESCE(specific_details, ''))`
-
-DuckDB also has `LEN()` as an alias. Both return character count (not byte count),
-which matters for Irish text with accented characters.
-
----
-
-## 15. Counting composite keys
+## 10. Counting composite keys
 
 **Polars:**
 ```python
@@ -419,104 +325,144 @@ pl.struct(
 ).n_unique().alias("distinct_periods_filed")
 ```
 
-This counts distinct (year, quarter) combinations.
+**`COUNT(DISTINCT col)` only works on a single column.** For composite distinctness:
 
-**SQL hint:** `COUNT(DISTINCT col)` only works on a single column. For composite
-distinctness you have two options:
-
-Option A — concatenate into a string key (simple, readable):
+Option A — concatenate into a string key (simple, readable, fine for this use case):
 ```sql
 COUNT(DISTINCT CONCAT(EXTRACT(YEAR FROM lobbying_period_start_date), '-',
                       EXTRACT(QUARTER FROM lobbying_period_start_date)))
 ```
 
-Option B — use a subquery to count distinct row combinations (more principled):
+Option B — subquery count of distinct rows (more principled, shows up in interviews):
 ```sql
 (SELECT COUNT(*) FROM (
     SELECT DISTINCT EXTRACT(YEAR FROM lobbying_period_start_date),
                     EXTRACT(QUARTER FROM lobbying_period_start_date)
-    FROM t WHERE t.lobbyist_name = outer.lobbyist_name
+    FROM t WHERE t.lobbyist_name = outer_query.lobbyist_name
 ))
 ```
 
-Option A is fine for this use case. Option B shows up in interview questions.
+**Doc:** [DuckDB COUNT DISTINCT](https://duckdb.org/docs/sql/functions/aggregates#count)
 
 ---
 
-## 16. CTEs as pipeline stages
+## 11. CTEs as pipeline stages
 
-Every Polars chain of `.with_columns()` calls is naturally expressed as a CTE chain in SQL.
-Think of each CTE as one transformation stage:
+Every Polars chain of `.with_columns()` calls maps naturally to a CTE chain.
+Think of each CTE as one transformation stage — one concern, one name.
 
 ```sql
 WITH
--- Stage 1: parse dates
-parsed AS (
+-- Stage 1: clean the amount column
+cleaned AS (
     SELECT *,
-        STRPTIME(lobbying_period_start_date_raw, '%d %b, %Y') AS lobbying_period_start_date,
-        STRPTIME(lobbying_period_end_date_raw, '%d %b, %Y') AS lobbying_period_end_date
-    FROM returns_raw
+        TRY_CAST(REPLACE(REPLACE(amount, '€', ''), ',', '') AS DOUBLE) AS amount_num
+    FROM payments_raw
 ),
-
--- Stage 2: attach URLs
-with_urls AS (
-    SELECT p.*, COALESCE(u.lobby_url, FORMAT('https://www.lobbying.ie/return/{}', p.primary_key)) AS lobby_url
-    FROM parsed p
-    LEFT JOIN url_lookup u ON p.primary_key = u.primary_key
+-- Stage 2: attach the year
+with_year AS (
+    SELECT *, EXTRACT(YEAR FROM date_paid) AS year
+    FROM cleaned
 ),
-
--- Stage 3: compute a derived metric
-enriched AS (
-    SELECT *,
-        DATEDIFF('day', lobbying_period_end_date, published_at) AS days_to_publish
-    FROM with_urls
+-- Stage 3: compute per-TD totals
+td_totals AS (
+    SELECT full_name, year, SUM(amount_num) AS total_paid, COUNT(*) AS payment_count
+    FROM with_year
+    GROUP BY full_name, year
 )
-
-SELECT * FROM enriched WHERE days_to_publish >= 0;
+SELECT * FROM td_totals ORDER BY total_paid DESC;
 ```
 
 **Good practice:**
 - Name CTEs after what they *are*, not what they *do* (`deduplicated`, not `after_dedup`).
-- Keep each CTE to one transformation concern.
-- Prefer CTEs over subqueries for anything you reference more than once.
+- Each CTE should have one transformation concern.
+- Prefer CTEs over subqueries for anything referenced more than once — the query planner
+  materialises a CTE only once.
+
+**Doc:** [DuckDB CTE documentation](https://duckdb.org/docs/sql/query_syntax/with)
+
+**Interview note:** Recursive CTEs are a separate concept (`WITH RECURSIVE`). Know they
+exist and what they're for (hierarchical data, graph traversal). DuckDB supports them.
+[DuckDB recursive CTEs](https://duckdb.org/docs/sql/query_syntax/with#recursive-ctes)
 
 ---
 
-## 17. Window functions
+## 12. Window functions
 
-Window functions let you compute aggregates alongside individual rows without collapsing
-the result — useful wherever Polars does a group_by + join back.
+Window functions compute an aggregate alongside individual rows without collapsing the result.
+They are one of the highest-frequency interview topics for data engineering and analytics roles.
 
-**Pattern: rank within a group**
+**Core syntax:**
 ```sql
-ROW_NUMBER() OVER (PARTITION BY lobbyist_name ORDER BY lobbying_period_start_date DESC) AS rn
+function() OVER (
+    PARTITION BY ...   -- defines the group (like GROUP BY but rows are kept)
+    ORDER BY ...       -- required for ranking and running totals
+    ROWS BETWEEN ...   -- optional: define a frame within the window
+)
 ```
 
-**Pattern: running total**
+**Ranking functions:**
 ```sql
-SUM(return_count) OVER (PARTITION BY lobbyist_name ORDER BY year_quarter) AS running_total
+ROW_NUMBER() OVER (PARTITION BY lobbyist_name ORDER BY return_date DESC) -- unique rank
+RANK()        OVER (...)                                                  -- ties get same rank, gaps after
+DENSE_RANK()  OVER (...)                                                  -- ties get same rank, no gaps
+NTILE(4)      OVER (ORDER BY total_returns DESC)                          -- quartile bucket
 ```
 
-**Pattern: total per group alongside detail**
+**Aggregate functions as windows (no frame collapse):**
 ```sql
+-- Group total alongside each row — replaces group_by + join back:
 COUNT(*) OVER (PARTITION BY lobbyist_name) AS total_returns_for_lobbyist
+SUM(amount) OVER (PARTITION BY full_name ORDER BY date_paid) AS running_total
 ```
 
-This last pattern replaces the Polars `group_by total → join back` pattern in
-`compute_most_lobbied_politicians`.
+**LAG and LEAD (access neighbouring rows):**
+```sql
+-- Compare a TD's attendance to the previous year:
+LAG(sitting_days, 1) OVER (PARTITION BY full_name ORDER BY year) AS prev_year_days
+```
+
+**Running totals and cumulative distributions:**
+```sql
+SUM(return_count) OVER (PARTITION BY lobbyist_name ORDER BY year_quarter
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+```
+
+**The key interview pattern — window aggregate + GROUP BY in one query:**
+```sql
+-- Vote type breakdown as % of annual total in one pass:
+SELECT
+    EXTRACT(YEAR FROM date) AS year,
+    vote_type,
+    COUNT(*) AS n,
+    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY EXTRACT(YEAR FROM date)), 1) AS pct
+FROM votes
+GROUP BY year, vote_type
+ORDER BY year, vote_type;
+```
+Here `SUM(COUNT(*)) OVER (...)` sums the per-group `COUNT(*)` values back up by year.
+The outer `COUNT(*)` is evaluated by `GROUP BY`; the window sees the grouped result.
+This is one of the trickier patterns — understand exactly what the OVER clause is partitioning.
+
+**Doc:** [DuckDB window functions](https://duckdb.org/docs/sql/window_functions)
+— one of the best reference pages; covers all functions and frame clauses.
+
+Also see: [SQL Window Functions explained visually (antonz.org)](https://antonz.org/window-functions/)
+— the clearest visual explanation of PARTITION BY / ORDER BY that exists.
 
 ---
 
-## 18. Useful DuckDB-specific syntax
-
-Things DuckDB supports that standard SQL doesn't:
+## 13. DuckDB-specific syntax worth knowing
 
 ```sql
 -- Exclude columns without listing everything:
 SELECT * EXCLUDE (rn, internal_id) FROM t;
 
--- Replace a column's value:
+-- Replace a column's value inline:
 SELECT * REPLACE (UPPER(full_name) AS full_name) FROM t;
+
+-- QUALIFY: filter on a window function result without a CTE:
+SELECT * FROM t QUALIFY ROW_NUMBER() OVER (PARTITION BY key ORDER BY date DESC) = 1;
 
 -- Pivot (cross-tab):
 PIVOT t ON year USING SUM(return_count) GROUP BY lobbyist_name;
@@ -524,41 +470,23 @@ PIVOT t ON year USING SUM(return_count) GROUP BY lobbyist_name;
 -- Sampling for quick exploration:
 SELECT * FROM t USING SAMPLE 1000;
 
--- Show query plan (understand performance):
+-- Show query plan:
 EXPLAIN SELECT * FROM t WHERE ...;
 
--- Regex matching:
-WHERE lobbyist_name SIMILAR TO 'Google.*|Meta.*'
--- or:
-WHERE REGEXP_MATCHES(lobbyist_name, 'Google|Meta')
+-- BOOL_OR: boolean OR across a group (any row is true → true):
+SELECT full_name, BOOL_OR(is_landlord) AS ever_landlord FROM interests GROUP BY full_name;
+
+-- FILTER on an aggregate:
+COUNT(*) FILTER (WHERE vote_type = 'Voted Yes') AS yes_votes
 ```
 
----
-
-## 19. Porting each Polars function — suggested order
-
-Port these in order. Each one introduces a new concept:
-
-1. **`compute_quarterly_trend`** — GROUP BY + date extraction + FORMAT. Simplest aggregate.
-2. **`compute_policy_area_breakdown`** — GROUP BY with COUNT DISTINCT. One-table aggregate.
-3. **`compute_grassroots_campaigns`** — adds a WHERE filter before GROUP BY.
-4. **`compute_lobbyist_persistence`** — introduces composite distinct count and DATEDIFF.
-5. **`compute_most_prolific_lobbyists`** — adds a JOIN against the org reference table.
-6. **`compute_most_lobbied_politicians`** — two aggregations joined together; try as two CTEs.
-7. **`compute_politician_policy_exposure`** — GROUP BY on three columns with dedup.
-8. **`compute_bilateral_relationships`** — FILTER after GROUP BY (HAVING) + composite dedup.
-9. **`compute_top_client_companies`** — many n_unique columns, good COUNT DISTINCT practice.
-10. **`compute_revolving_door_dpos`** — three-column GROUP BY, introduces the revolving door concept.
-11. **`build_returns_master`** — SELECT with DISTINCT, ORDER BY. Row-level, no aggregation.
-12. **`build_bilateral_returns_detail`** — a CTE to compute pair counts, then join back to detail.
-13. **`explode_politicians`** + **`explode_activities`** — the hard one. STRING_SPLIT + UNNEST.
+**Doc:** [DuckDB SQL introduction](https://duckdb.org/docs/sql/introduction)
 
 ---
 
-## 20. Vote history queries
+## 14. Vote history queries
 
-The vote history table (`current_dail_vote_history.csv`) is a good DuckDB playground because
-it has a clear grain (one row = one member × one division) and several interesting derived metrics.
+Good DuckDB playground: clear grain (one row = one member × one division), several derived metrics.
 
 ### Load it
 
@@ -569,7 +497,7 @@ SELECT * FROM read_csv_auto('data/gold/current_dail_vote_history.csv');
 
 ### Participation rate per member
 
-How many divisions did each TD actually vote in, out of all divisions held?
+How many divisions did each TD vote in, out of all divisions held?
 
 ```sql
 WITH division_count AS (
@@ -618,14 +546,12 @@ HAVING eligible_votes >= 10
 ORDER BY rebellion_pct DESC;
 ```
 
-`FILTER (WHERE ...)` is DuckDB's way of doing conditional aggregation — cleaner than `SUM(CASE WHEN ...)`.
-`NULLIF(x, 0)` prevents division-by-zero; it returns NULL instead of crashing when x = 0.
+`FILTER (WHERE ...)` is cleaner than `SUM(CASE WHEN ...)`.
+`NULLIF(x, 0)` prevents division-by-zero.
 
 ---
 
 ### Most contested divisions
-
-Smallest margin between Yes and No counts.
 
 ```sql
 SELECT
@@ -647,110 +573,207 @@ LIMIT 20;
 
 ---
 
-### Vote type breakdown over time
-
-How has Yes/No/Abstain split changed year by year?
-
-```sql
-SELECT
-    EXTRACT(YEAR FROM date::DATE) AS year,
-    vote_type,
-    COUNT(*) AS n,
-    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY EXTRACT(YEAR FROM date::DATE)), 1) AS pct
-FROM votes
-GROUP BY year, vote_type
-ORDER BY year, vote_type;
-```
-
-This uses a **window function alongside GROUP BY**: `SUM(COUNT(*)) OVER (PARTITION BY year)` gives
-the per-year total without a second CTE. The outer `COUNT(*)` is the per-group count; the window
-aggregates those counts back up by year.
-
----
-
 ### TDs who voted against their own party
 
-Party is now in the gold layer (`current_dail_vote_history.csv`), so this query
-is ready to run. The logic: for each division, find the majority vote direction
-within each party, then flag any member who voted differently.
+Party is in the gold layer. Logic: for each division, find the majority vote direction
+within each party, then flag members who voted differently.
 
 ```sql
-CREATE OR REPLACE TABLE votes AS
-SELECT * FROM read_csv_auto('data/gold/current_dail_vote_history.csv');
-
--- Step 1: find the majority vote direction per party per division
 WITH party_majority AS (
     SELECT
-        vote_id,
-        party,
-        vote_type,
+        vote_id, party, vote_type,
         COUNT(*) AS n,
         ROW_NUMBER() OVER (
             PARTITION BY vote_id, party
             ORDER BY COUNT(*) DESC
         ) AS rn
     FROM votes
-    WHERE vote_type IN ('Voted Yes', 'Voted No')
-      AND party IS NOT NULL
+    WHERE vote_type IN ('Voted Yes', 'Voted No') AND party IS NOT NULL
     GROUP BY vote_id, party, vote_type
 ),
--- the top-ranked vote_type per (division, party) is the party line
 party_line AS (
     SELECT vote_id, party, vote_type AS party_direction
-    FROM party_majority
-    WHERE rn = 1
+    FROM party_majority WHERE rn = 1
 ),
--- Step 2: join back to individual votes and flag deviations
 flagged AS (
     SELECT
-        v.full_name,
-        v.party,
-        v.constituency_name,
-        v.vote_id,
-        v.debate_title,
-        v.date,
-        v.vote_type,
-        pl.party_direction,
+        v.full_name, v.party, v.constituency_name,
+        v.vote_id, v.debate_title, v.date,
+        v.vote_type, pl.party_direction,
         v.vote_type != pl.party_direction AS crossed_party_line
     FROM votes v
-    JOIN party_line pl
-        ON v.vote_id = pl.vote_id
-       AND v.party   = pl.party
+    JOIN party_line pl ON v.vote_id = pl.vote_id AND v.party = pl.party
     WHERE v.vote_type IN ('Voted Yes', 'Voted No')
 )
--- Step 3: summarise by member
 SELECT
-    full_name,
-    party,
-    constituency_name,
-    COUNT(*)                                        AS eligible_votes,
-    SUM(crossed_party_line::INT)                    AS party_line_breaks,
-    ROUND(100.0 * SUM(crossed_party_line::INT)
-          / COUNT(*), 1)                            AS break_rate_pct
+    full_name, party, constituency_name,
+    COUNT(*)                             AS eligible_votes,
+    SUM(crossed_party_line::INT)         AS party_line_breaks,
+    ROUND(100.0 * SUM(crossed_party_line::INT) / COUNT(*), 1) AS break_rate_pct
 FROM flagged
 GROUP BY full_name, party, constituency_name
 HAVING eligible_votes >= 10
 ORDER BY break_rate_pct DESC;
 ```
 
-**Concepts used here:**
-- `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY COUNT(*) DESC)` — rank within a group to pick the majority row
-- Two-CTE pipeline: `party_majority` → `party_line` → join back to detail
-- Boolean cast `::INT` to sum a true/false flag as 0/1
-- `HAVING` to exclude members with too few votes for a meaningful rate
+Concepts: `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY COUNT(*) DESC)` — rank within
+a group to pick the majority. Boolean cast `::INT` to sum a true/false flag. `HAVING`
+to exclude small samples.
 
 ---
 
+## 15. Streamlit app logic — candidate SQL views
+
+Every view below is business logic that currently runs in Python on every page render.
+The goal is to move it into a pre-computed `CREATE VIEW` or `CREATE TABLE AS SELECT` so
+the Streamlit page just loads a small result set.
+
+**Pattern:** Write the skeleton, figure out the `???` placeholders, run it in DuckDB,
+verify it matches what the Python currently produces.
+
+**When to use a view vs a materialised table:**
+
+| Situation | Prefer |
+|---|---|
+| Result is always the same, fast to compute | `CREATE OR REPLACE VIEW` |
+| Result is expensive and rarely changes | `CREATE TABLE AS SELECT` — materialised once |
+| Result is filtered by user input (name, year) | DuckDB macro or parameterised query |
+| >100k rows, read repeatedly by the app | Parquet (`COPY ... TO 'file.parquet'`) |
+
 ---
 
-## 22. Streamlit app logic — candidate SQL views
+### Attendance page
 
-This section maps the business logic currently running inside the Streamlit pages to the SQL
-views that should eventually replace it. The goal at maturity is that each page loads a
-pre-aggregated CSV or Parquet file rather than doing heavy computation at render time.
+**What the Python does:**
 
-Each view listed here is a learning exercise. The pattern column points to the relevant
-section earlier in this guide. Skeletons are intentionally incomplete — fill them in yourself.
+`_yearly_summary()` groups attendance by `(full_name, year)` and takes the first value of
+`sitting_days_count` and `other_days_count`. The `.first()` agg (not `.sum()`) is the key
+signal — these counts are denormalised across rows, so you want `ANY_VALUE`, not `SUM`.
+
+`_totals()` then sums across years to get career totals and adds `total_days`.
+
+The stat strip computes five more aggregates over the totals frame — average, best, worst,
+and a conditional percentage.
+
+**`v_attendance_summary`** — per-TD per-year counts
+
+```sql
+-- Skeleton:
+CREATE OR REPLACE VIEW v_attendance_summary AS
+SELECT
+    ???  AS full_name,
+    year,
+    ANY_VALUE(???) AS sitting_days,
+    ANY_VALUE(???) AS other_days
+FROM attendance
+GROUP BY ???, year;
+```
+
+Hint: `ANY_VALUE` is the DuckDB equivalent of Polars `.first()` on a non-grouped column.
+Why is `.first()` correct here instead of `SUM`? Look at what `sitting_days_count` represents.
+[DuckDB ANY_VALUE](https://duckdb.org/docs/sql/functions/aggregates#any_valuearg)
+
+---
+
+**`v_attendance_totals`** — career totals per TD (sum across years)
+
+```sql
+-- Skeleton:
+CREATE OR REPLACE VIEW v_attendance_totals AS
+SELECT
+    full_name,
+    SUM(???) AS sitting_days,
+    SUM(???) AS other_days,
+    ??? + ???  AS total_days
+FROM v_attendance_summary
+GROUP BY full_name;
+```
+
+Can you write this as a single query (no intermediate view)? Which is more readable?
+The intermediate view is better engineering — each view has one responsibility.
+
+---
+
+**Stat strip query** — all five header metrics in one pass
+
+The Python computes `avg_sit`, `avg_other`, `pct_low`, `best_row`, `worst_row` as five
+separate pandas calls. In SQL you can do all five in a single query.
+
+```sql
+-- Skeleton — fill in the conditional aggregate for pct_low:
+SELECT
+    COUNT(*)                                                      AS n_tds,
+    ROUND(AVG(sitting_days), 0)                                   AS avg_sitting,
+    ROUND(AVG(other_days), 0)                                     AS avg_other,
+    ROUND(??? * 100.0 / COUNT(*), 0)                              AS pct_under_50,
+    MAX(sitting_days)                                             AS max_sitting,
+    MIN(sitting_days)                                             AS min_sitting
+FROM v_attendance_totals;
+```
+
+Hint: for `pct_low` (TDs with < 50 plenary days), use `COUNT(*) FILTER (WHERE ...)`.
+Pattern: §3 Filtering / §2 Aggregation.
+[DuckDB FILTER](https://duckdb.org/docs/sql/functions/aggregates#filter-clause)
+
+For `best_row` and `worst_row` (the TD name alongside the max value), you need a different
+approach — a scalar aggregate can't return the associated name. Think about using
+`arg_max(full_name, sitting_days)` or a window function `RANK()` in a separate CTE.
+[DuckDB arg_max](https://duckdb.org/docs/sql/functions/aggregates#arg_maxarg-val)
+
+---
+
+### Interests page
+
+**What the Python does in `_render_landing()`:**
+
+Three separate `.groupby().agg()` calls compute `td_count`, `landlord_count`, and
+`minister_count`. Then a fourth groupby builds the leaderboard for the latest year only.
+All four run on every page render.
+
+**`v_interests_landing_stats`** — four metrics in one GROUP BY
+
+```sql
+CREATE OR REPLACE VIEW v_interests_landing_stats AS
+SELECT
+    ???                                                                    AS td_count,
+    COUNT(DISTINCT CASE WHEN ??? THEN full_name END)                      AS landlord_count,
+    COUNT(DISTINCT CASE WHEN ??? THEN full_name END)                      AS minister_count,
+    MIN(year_declared)                                                     AS year_from,
+    MAX(year_declared)                                                     AS year_to
+FROM member_interests;
+```
+
+`COUNT(DISTINCT CASE WHEN condition THEN full_name END)` is the SQL equivalent of Polars
+`groupby("full_name")["is_landlord"].any()`. Null-safe: when `condition` is false,
+`CASE WHEN` returns NULL, and `COUNT(DISTINCT ...)` ignores NULLs.
+
+Pattern: §2 Aggregation — conditional aggregation.
+[COUNT with CASE WHEN pattern](https://modern-sql.com/feature/filter)
+
+---
+
+**`v_interests_leaderboard`** — top 10 TDs by declared interests, latest year
+
+```sql
+CREATE OR REPLACE VIEW v_interests_leaderboard AS
+SELECT
+    full_name,
+    MAX(interest_count)   AS interest_count,
+    ANY_VALUE(party)      AS party,
+    BOOL_OR(is_landlord)  AS is_landlord
+FROM member_interests
+WHERE year_declared = (SELECT MAX(year_declared) FROM member_interests)
+GROUP BY full_name
+ORDER BY interest_count DESC
+LIMIT 10;
+```
+
+Note the correlated scalar subquery `(SELECT MAX(year_declared) ...)` in the `WHERE`.
+This is fine for a view because DuckDB evaluates it once. In a hot query path you'd
+compute it in a CTE first.
+
+What does `BOOL_OR` do here? Why is it more accurate than `ANY_VALUE` for the landlord flag?
+[DuckDB BOOL_OR](https://duckdb.org/docs/sql/functions/aggregates#bool_orarg)
 
 ---
 
@@ -758,84 +781,122 @@ section earlier in this guide. Skeletons are intentionally incomplete — fill t
 
 **`v_td_payment_totals`** — all-time total paid and payment count per TD
 
-The page currently computes this at render time from the full unfiltered dataframe.
-It should be a permanent view so any page can reference it without re-reading the CSV.
-
-Pattern: §3 Aggregation — simple `GROUP BY td_name` with `SUM` and `COUNT`.
+The page currently computes this at render time over the full unfiltered CSV.
 
 ```sql
--- Skeleton:
 CREATE OR REPLACE VIEW v_td_payment_totals AS
 SELECT
-    ???            AS td_name,
+    ???            AS full_name,
     SUM(???)       AS total_paid_alltime,
     COUNT(*)       AS payment_count
 FROM payments
 GROUP BY ???;
 ```
 
-Hint: the `Amount` column arrives as a string like `€2,445.83` — you need to clean it before
-summing. Look at DuckDB's `REPLACE()` and `TRY_CAST()` functions.
+The `Amount` column arrives as `'€2,445.83'` — clean it before summing.
+Look at `REPLACE()` to strip the `€` and `,`, then `TRY_CAST(... AS DOUBLE)`.
+`TRY_CAST` returns NULL on parse failure instead of crashing — prefer it over `CAST`.
+[DuckDB TRY_CAST](https://duckdb.org/docs/sql/expressions/cast#try_cast)
 
 ---
 
-**`v_td_payment_annual`** — per-TD per-year totals (the "selected period" column)
+**`v_td_payment_annual`** — per-TD per-year totals
 
-Pattern: §3 Aggregation + §11 Date arithmetic — add `EXTRACT(YEAR FROM date_paid)` to the
-GROUP BY.
+Pattern: §2 Aggregation + §8 Date arithmetic — add `EXTRACT(YEAR FROM date_paid)` to the GROUP BY.
 
 ---
 
-### Lobbying pages
+### Votes page
 
-**`v_most_lobbied_politicians`** — per-politician: total returns filed against them, distinct
-lobbying organisations, distinct policy areas
+**What the Python does:**
 
-The `_overview()` function computes this by grouping `politician_returns_detail.csv` every
-render. It involves two `COUNT(DISTINCT ...)` operations alongside `COUNT(*)`.
+`_td_landing()` builds the full member summary (yes count, no count, distinct divisions,
+and `yes_pct`) on every page render by grouping the entire vote history file.
 
-Pattern: §3 Aggregation — see the `COUNT DISTINCT` row in the table.
+`_build_debates()` runs a two-stage aggregation on every year switch — first grouping by
+`(debate_title, vote_id, date, vote_outcome)` to count yes/no/abstained per division,
+then grouping by `debate_title` to collapse to one row per debate.
+
+**`v_td_vote_summary`** — per-TD summary: votes, divisions, yes%
 
 ```sql
--- Skeleton:
-CREATE OR REPLACE VIEW v_most_lobbied_politicians AS
+CREATE OR REPLACE VIEW v_td_vote_summary AS
 SELECT
     full_name,
-    COUNT(DISTINCT ???)            AS total_returns,
-    COUNT(DISTINCT lobbyist_name)  AS distinct_orgs,
-    COUNT(DISTINCT ???)            AS distinct_policy_areas
-FROM politician_returns_detail
-GROUP BY full_name
-ORDER BY total_returns DESC;
+    ANY_VALUE(party)             AS party,
+    ANY_VALUE(constituency_name) AS constituency_name,
+    COUNT(*) FILTER (WHERE vote_type = 'Voted Yes') AS yes_votes,
+    COUNT(*) FILTER (WHERE vote_type = 'Voted No')  AS no_votes,
+    COUNT(DISTINCT vote_id)                          AS divisions,
+    ROUND(
+        100.0 * COUNT(*) FILTER (WHERE vote_type = 'Voted Yes')
+        / NULLIF(COUNT(*) FILTER (WHERE vote_type IN ('Voted Yes', 'Voted No')), 0)
+    , 0) AS yes_pct
+FROM votes
+GROUP BY full_name;
 ```
 
----
-
-**`v_lobbyist_summary`** — per-organisation: return count, distinct politicians targeted,
-distinct policy areas, first filing date, last filing date
-
-The `_lobbyist_profile()` and `_overview()` functions both derive parts of this separately.
-A single view would serve both.
-
-Pattern: §3 Aggregation + §11 Date arithmetic (`MIN`, `MAX` on the date column).
-
-Bonus: add `DATEDIFF('day', MIN(...), MAX(...)) AS active_days` to measure how long the org
-has been filing. That's a derived column from two aggregates — you can't do it in a plain
-`GROUP BY` without a CTE.
+This is a complete example — study the `NULLIF` safe-division pattern and the
+`ANY_VALUE` for non-grouped columns. Can you explain why `ANY_VALUE(party)` is correct
+here whereas `MAX(party)` or `MIN(party)` would also work but be misleading?
 
 ---
 
-**`v_transparency_scorecard`** — per-organisation: median days to publish, max days,
-returns filed, average description length
+**`v_debate_divisions`** — per-debate summary: divisions, yes/no totals, carried/lost
 
-Currently built in `_transparency()` by loading two CSVs (`experimental_time_to_publish.csv`
-and `experimental_return_description_lengths.csv`) and joining them with pandas. This is a
-classic two-CTE join.
-
-Pattern: §16 CTEs as pipeline stages + §6 Joins + §14 String metrics.
+This replaces `_build_debates()`. The Python does it in two pandas groupbys chained together.
+In SQL the natural translation is a CTE (one stage → one CTE):
 
 ```sql
--- Skeleton:
+CREATE OR REPLACE VIEW v_debate_divisions AS
+WITH per_division AS (
+    SELECT
+        debate_title,
+        vote_id,
+        date,
+        vote_outcome,
+        COUNT(*) FILTER (WHERE vote_type = 'Voted Yes')  AS yes,
+        COUNT(*) FILTER (WHERE vote_type = 'Voted No')   AS no,
+        COUNT(*) FILTER (WHERE vote_type = 'Abstained')  AS abstained
+    FROM votes
+    GROUP BY ???
+),
+per_debate AS (
+    SELECT
+        debate_title,
+        COUNT(DISTINCT vote_id)                            AS divisions,
+        MIN(date)                                          AS first_date,
+        MAX(date)                                          AS last_date,
+        COUNT(*) FILTER (WHERE vote_outcome = 'Carried')  AS carried,
+        COUNT(*) FILTER (WHERE vote_outcome = 'Lost')     AS lost,
+        SUM(yes)                                           AS total_yes,
+        SUM(no)                                            AS total_no
+    FROM per_division
+    GROUP BY ???
+)
+SELECT * FROM per_debate ORDER BY last_date DESC;
+```
+
+What goes in the two `GROUP BY ???` clauses? Think about the grain of each stage.
+The first CTE must group on enough columns to get one row per division — what is the
+minimum set? And what does `COUNT(DISTINCT vote_id)` at the debate level measure?
+
+Pattern: §11 CTEs as pipeline stages + §2 Aggregation.
+
+---
+
+### Lobbying — Transparency page
+
+**What the Python does:**
+
+`_transparency()` loads two separate CSVs (`experimental_time_to_publish.csv` and
+`experimental_return_description_lengths.csv`), computes `avg_desc_len` per lobbyist
+from the second, then merges both into a scorecard. This is a classic two-CTE join.
+
+**`v_transparency_scorecard`** — per-organisation: filing latency + description quality
+
+```sql
+CREATE OR REPLACE VIEW v_transparency_scorecard AS
 WITH filing_latency AS (
     SELECT
         lobbyist_name,
@@ -848,11 +909,11 @@ WITH filing_latency AS (
 desc_quality AS (
     SELECT
         lobbyist_name,
-        AVG(LENGTH(COALESCE(specific_details, '')) + LENGTH(COALESCE(intended_results, ''))) AS avg_desc_len
+        AVG(LENGTH(COALESCE(specific_details, '')) + LENGTH(COALESCE(intended_results, '')))
+            AS avg_desc_len
     FROM returns_master
     GROUP BY lobbyist_name
 )
-CREATE OR REPLACE VIEW v_transparency_scorecard AS
 SELECT
     l.lobbyist_name,
     l.median_days,
@@ -864,93 +925,53 @@ FROM filing_latency l
 ORDER BY l.median_days DESC NULLS LAST;
 ```
 
-What JOIN type is correct here, and why? Think about what happens to organisations that have
-returns but no description data, or vice versa.
+What JOIN type is correct, and why? Think about what happens to an organisation that
+has returns but no description data in `returns_master` — should it appear in the
+scorecard? What about an org with descriptions but no `experimental_time_to_publish`
+entry? This is a JOIN type question with a real engineering consequence.
+
+`PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY x)` is SQL's median function — the
+`WITHIN GROUP` syntax is standard SQL for ordered-set aggregates. DuckDB also has
+`MEDIAN(x)` as a shorthand.
+[DuckDB PERCENTILE_CONT](https://duckdb.org/docs/sql/functions/aggregates#percentile_contfraction-order-by-column)
 
 ---
 
-**`v_revolving_door_summary`** — per-DPO name: returns involved in, distinct lobbying firms,
-distinct policy areas, distinct politicians targeted
+### Lobbying — politician and lobbyist profiles
 
-The `_revolving_door()` function loads `experimental_revolving_door_dpos.csv` which is already
-pre-aggregated by the pipeline. When you port this, skip the pre-aggregated file and build
-the view directly from `revolving_door_returns_detail.csv`.
+**What the Python does:**
 
-Pattern: §3 Aggregation — four `COUNT(DISTINCT ...)` columns grouped by the person's name.
+Both `_politician_profile()` and `_lobbyist_profile()` run two separate `groupby + nunique`
+calls at render time to produce a policy-area breakdown and an org breakdown.
 
----
-
-**`v_bilateral_relationships`** — (organisation, politician) pairs that appear across multiple
-distinct filing periods — the "persistent lobbying" signal
-
-Currently computed in the pipeline as `experimental_bilateral_relationships.csv`. At maturity
-this becomes a view: group by `(lobbyist_name, full_name)`, count distinct periods, filter
-with `HAVING` to pairs that appear more than once.
-
-Pattern: §4 Filtering — specifically the `HAVING` vs `WHERE` distinction. This is the canonical
-example of why `HAVING` exists: you can only apply the `> 1` filter *after* the aggregation.
-
----
-
-### Interests page
-
-**`v_interests_landing_stats`** — per-chamber summary: TD count, landlord count, minister count,
-years covered
-
-The `_render_landing()` function computes four separate aggregations on the interests dataframe
-every render. All four can be a single GROUP BY with conditional aggregation.
-
-Pattern: §3 Aggregation — use `COUNT(DISTINCT CASE WHEN is_landlord THEN full_name END)` for
-the conditional counts. This is the SQL equivalent of `groupby().any()`.
+**`v_politician_lobby_breakdown`** — per-politician, per-policy-area: distinct return count
 
 ```sql
 -- Skeleton:
-CREATE OR REPLACE VIEW v_interests_landing_stats AS
+CREATE OR REPLACE VIEW v_politician_lobby_breakdown AS
 SELECT
-    chamber,
-    COUNT(DISTINCT full_name)                                                   AS td_count,
-    COUNT(DISTINCT CASE WHEN is_landlord = true THEN full_name END)             AS landlord_count,
-    COUNT(DISTINCT CASE WHEN ministerial_office_filled = true THEN full_name END) AS minister_count,
-    MIN(year_declared)                                                          AS year_from,
-    MAX(year_declared)                                                          AS year_to
-FROM member_interests
-GROUP BY chamber;
+    full_name,
+    public_policy_area,
+    COUNT(DISTINCT ???) AS returns
+FROM politician_returns_detail
+GROUP BY full_name, public_policy_area
+ORDER BY full_name, returns DESC;
 ```
 
----
-
-**`v_td_interest_profile`** — all declared interests for one TD, ordered by year
-
-This is a straightforward parameterised filter. In DuckDB you can't parameterise a view,
-but you can write the query as a macro:
-
-```sql
--- DuckDB macro (callable like a function):
-CREATE OR REPLACE MACRO td_interests(td) AS TABLE
-    SELECT year_declared, category, description, is_landlord, ministerial_office_filled
-    FROM member_interests
-    WHERE full_name = td
-    ORDER BY year_declared DESC;
-
--- Call it:
-FROM td_interests('Mary Lou McDonald');
-```
-
-This is a useful DuckDB pattern to know — it replaces the Streamlit `df[df["full_name"] == selected]` filter.
+This is a simple GROUP BY but the `COUNT(DISTINCT primary_key)` vs `COUNT(*)` choice
+matters — why? Check whether `politician_returns_detail` can have duplicate rows for the
+same `(full_name, primary_key, public_policy_area)` combination.
 
 ---
 
 ### Legislation page
 
-**`v_bill_progress`** — per-bill: max stage reached (1–7), current status, source, sponsor count
+**`v_bill_progress`** — per-bill: max stage reached, status, source
 
-The `_stages_view()` function computes `stages_reached` via `groupby().agg(max)`. In SQL
-this is a `MAX(stage_no)` per `(bill_no, bill_year)` group, joined back to the bill metadata.
-
-Pattern: §3 Aggregation + §6 Joins — aggregate the stage table, then join to get title/status.
+The `_stages_view()` bill_summary computes this on every render:
+`groupby([bill_no, bill_year, title, bill_status, source]).agg(stages_reached=max)`.
 
 ```sql
--- Skeleton:
 CREATE OR REPLACE VIEW v_bill_progress AS
 SELECT
     s.bill_no,
@@ -964,133 +985,151 @@ FROM stages s
 GROUP BY s.bill_no, s.bill_year;
 ```
 
-`ANY_VALUE` is the right choice here — title and status are the same for all rows of a given bill,
-so you're just picking one. Using `MAX` on a string would also work but is misleading.
+`ANY_VALUE` is correct for `title`, `bill_status`, `source` because they are the same
+for all rows of a given bill (attribute of the bill, not the stage).
+Using `MAX` on a string would also work but is semantically wrong.
 
 ---
 
-**`v_td_legislative_agenda`** — per-TD: bills sponsored (total), bills as primary sponsor,
-bills that passed, bills that lapsed
+**`v_most_debated_bills`** — per-bill: debate count, date range, status
 
-Join `sponsors` to `v_bill_progress` on `(bill_no, bill_year)`, then group by `td_name`.
-Uses conditional aggregation (`COUNT(CASE WHEN ...)`).
-
-Pattern: §3 Aggregation + §6 Joins. This is the first view that requires joining two of
-your own views together — a good indicator it belongs in the gold layer.
-
----
-
-**`v_most_debated_bills`** — per-bill: count of debate sections, first debate date, last
-debate date, current bill status
-
-The `_debates_view()` computes this on every page render via `groupby().size()`. Simple
-`COUNT(*) GROUP BY (bill_no, bill_year)` with `MIN`/`MAX` dates.
-
----
-
-### Cross-dataset view (the one to build last)
-
-**`v_td_full_profile`** — one row per TD joining: attendance rate, total PSA received,
-declared interest count, times lobbied, bills sponsored
-
-This is the gold layer join key: everything about a TD in one place. The normalised join key
-(`normalise_join_key.py`) exists precisely to make this possible across datasets that share
-no common identifier.
-
-It will be a multi-table LEFT JOIN — attendance as the spine, everything else joined in.
-Every join is a LEFT JOIN because a TD may appear in some datasets but not others.
-
-Pattern: §6 Joins — review the note about nulls after LEFT JOIN. Every metric column in this
-view should be wrapped in `COALESCE(metric, 0)` or `COALESCE(metric, '—')` so missing data
-doesn't silently drop rows.
+`_debates_view()` computes `groupby([title, bill_year, bill_status]).size()` on every render.
 
 ```sql
--- Skeleton structure only — fill in the actual column names:
+CREATE OR REPLACE VIEW v_most_debated_bills AS
+SELECT
+    title,
+    bill_year,
+    ANY_VALUE(bill_status)  AS bill_status,
+    COUNT(*)                AS debate_count,
+    MIN(date)               AS first_debate,
+    MAX(date)               AS last_debate
+FROM debates
+GROUP BY title, bill_year
+ORDER BY debate_count DESC;
+```
+
+---
+
+**`v_td_legislative_agenda`** — per-TD: bills sponsored, primary vs co-sponsor, bills that passed
+
+Join `sponsors` to `v_bill_progress` on `(bill_no, bill_year)`, then group by `td_name`.
+Uses conditional aggregation (`COUNT(CASE WHEN ...)`) for the status breakdown.
+
+This is the first view that joins two of your own views — build `v_bill_progress` first.
+
+```sql
+-- Skeleton:
+CREATE OR REPLACE VIEW v_td_legislative_agenda AS
+SELECT
+    s.td_name,
+    COUNT(*)                                              AS total_sponsorships,
+    COUNT(*) FILTER (WHERE s.is_primary)                  AS primary_sponsorships,
+    COUNT(*) FILTER (WHERE b.bill_status = 'Enacted')     AS bills_enacted,
+    COUNT(*) FILTER (WHERE b.bill_status = 'Lapsed')      AS bills_lapsed
+FROM sponsors s
+JOIN v_bill_progress b ON s.bill_no = b.bill_no AND s.bill_year = b.bill_year
+GROUP BY s.td_name
+ORDER BY primary_sponsorships DESC;
+```
+
+What bill statuses actually exist in your data? Run `SELECT DISTINCT bill_status FROM stages`
+to find out before writing the FILTER conditions.
+
+---
+
+### Cross-dataset view (build last)
+
+**`v_td_full_profile`** — one row per TD: attendance, payments, interests, lobbying, bills
+
+This is the gold layer goal — everything about a TD in one place. The join key
+(`normalise_join_key.py`) exists precisely to make this cross-dataset join possible.
+
+Every join here must be a `LEFT JOIN` — a TD may appear in some datasets but not others,
+and an `INNER JOIN` would silently drop TDs missing from any one source.
+
+```sql
 CREATE OR REPLACE VIEW v_td_full_profile AS
 SELECT
     a.full_name,
     a.join_key,
-    a.attendance_rate,
+    COALESCE(t.sitting_days, 0)          AS sitting_days,
     COALESCE(p.total_paid_alltime, 0)    AS total_psa_received,
     COALESCE(i.interest_count, 0)        AS declared_interests,
     COALESCE(l.times_lobbied, 0)         AS times_lobbied,
     COALESCE(s.bills_sponsored, 0)       AS bills_sponsored
-FROM v_attendance_summary a
-LEFT JOIN v_td_payment_totals p   ON a.join_key = p.join_key
-LEFT JOIN v_interests_summary i   ON a.join_key = i.join_key
+FROM v_attendance_totals a
+LEFT JOIN v_td_payment_totals p    ON a.join_key = p.join_key
+LEFT JOIN v_interests_summary i    ON a.join_key = i.join_key
 LEFT JOIN v_most_lobbied_politicians l ON a.join_key = l.join_key
 LEFT JOIN v_td_legislative_agenda s ON a.join_key = s.join_key;
 ```
 
-Note that this view depends on four other views — this is why the simpler views need to be
-built first. The order in section §19 applies here too: simple aggregations before joins,
-joins before multi-view joins.
+Every metric column must be wrapped in `COALESCE(metric, 0)` — a LEFT JOIN returns NULL
+for non-matching rows, and NULLs silently propagate through arithmetic.
 
 ---
 
-### General notes on when to use a view vs a CSV
-
-| Situation | Prefer |
-|---|---|
-| Result is always the same (no user filter) | `CREATE VIEW` — computed on demand |
-| Result is expensive and rarely changes | `CREATE TABLE AS SELECT` — materialised |
-| Result is filtered by user input (TD name, year) | DuckDB macro or parameterised query |
-| >100k rows, read repeatedly by the app | Parquet (`COPY ... TO 'file.parquet'`) |
-| Shared between Python and SQL tooling | Parquet — both pandas and DuckDB read it natively |
-
-The silver CSVs that are already small and fast (< 50k rows) are fine to keep as CSVs.
-The large ones (`returns_master`, `stages`) are candidates for Parquet once the pipeline matures.
-
----
-
-## 21. Resources
+## 16. Resources
 
 ### DuckDB — reference
 
-- [DuckDB SQL introduction](https://duckdb.org/docs/sql/introduction) — start here, covers the basics fast
-- [DuckDB string functions](https://duckdb.org/docs/sql/functions/char) — `LENGTH`, `REPLACE`, `STRING_SPLIT`, `REGEXP_MATCHES`, etc.
-- [DuckDB date/time functions](https://duckdb.org/docs/sql/functions/timestamp) — `EXTRACT`, `DATEDIFF`, `STRPTIME`, intervals
-- [DuckDB window functions](https://duckdb.org/docs/sql/window_functions) — `ROW_NUMBER`, `RANK`, `LAG`, `LEAD`, running totals
-- [DuckDB aggregate functions](https://duckdb.org/docs/sql/functions/aggregates) — `PERCENTILE_CONT`, `ANY_VALUE`, `FIRST`, `FILTER`
-- [DuckDB `UNNEST` and list functions](https://duckdb.org/docs/sql/query_syntax/unnest) — for the explode patterns in §10
-- [DuckDB macros](https://duckdb.org/docs/sql/statements/create_macro) — parameterised queries, the `AS TABLE` form used in §22
-- [DuckDB `COPY … TO` (Parquet export)](https://duckdb.org/docs/sql/statements/copy) — for writing silver/gold outputs
-- [DuckDB Python API](https://duckdb.org/docs/api/python/overview) — how to use DuckDB from inside the pipeline scripts
+- [DuckDB SQL introduction](https://duckdb.org/docs/sql/introduction) — start here
+- [DuckDB aggregate functions](https://duckdb.org/docs/sql/functions/aggregates) — `PERCENTILE_CONT`, `ANY_VALUE`, `BOOL_OR`, `FILTER`, `arg_max`
+- [DuckDB window functions](https://duckdb.org/docs/sql/window_functions) — `ROW_NUMBER`, `RANK`, `LAG`, `LEAD`, frame clauses
+- [DuckDB string functions](https://duckdb.org/docs/sql/functions/char) — `LENGTH`, `REPLACE`, `REGEXP_MATCHES`
+- [DuckDB date/time functions](https://duckdb.org/docs/sql/functions/timestamp) — `EXTRACT`, `DATEDIFF`, intervals
+- [DuckDB CTE documentation](https://duckdb.org/docs/sql/query_syntax/with) — including recursive CTEs
+- [DuckDB QUALIFY clause](https://duckdb.org/docs/sql/query_syntax/qualify) — filter on window function results
+- [DuckDB macros](https://duckdb.org/docs/sql/statements/create_macro) — parameterised queries (the `AS TABLE` form replaces Streamlit filter logic)
+- [DuckDB Python API](https://duckdb.org/docs/api/python/overview) — reading views into pandas from inside Python
 
-### SQL learning — structured courses
+### SQL learning — structured
 
-- [Select Star SQL](https://selectstarsql.com/) — free, interactive, uses real civic data; best first resource if you want to feel the concepts rather than just read them
-- [Mode Analytics SQL tutorial](https://mode.com/sql-tutorial/) — covers basic → advanced in a clear sequence, good for interview prep
-- [SQLZoo](https://sqlzoo.net/) — short focused exercises on GROUP BY, JOIN, subqueries; good for drilling individual concepts
-- [Advanced SQL for Data Scientists (LinkedIn Learning)](https://www.linkedin.com/learning/advanced-sql-for-data-scientists) — window functions, CTEs, performance; requires subscription
-- [The Art of PostgreSQL](https://theartofpostgresql.com/) — book, PostgreSQL-focused but 90% transfers; excellent on CTEs, window functions, and thinking relationally
+- [Select Star SQL](https://selectstarsql.com/) — free, interactive, real civic data; best first resource
+- [Mode Analytics SQL tutorial](https://mode.com/sql-tutorial/) — basic → advanced, well-structured for interview prep
+- [SQLZoo](https://sqlzoo.net/) — short focused exercises on GROUP BY, JOIN, subqueries
+- [The Art of PostgreSQL](https://theartofpostgresql.com/) — book, PostgreSQL-focused but 90% transfers; strong on CTEs and window functions
 
-### SQL concepts — specific topics
+### SQL concepts — deep dives
 
-- [Use The Index, Luke](https://use-the-index-luke.com/) — free book on SQL performance and indexing; worth reading before you add indexes to DuckDB tables
-- [Modern SQL](https://modern-sql.com/) — concise reference for window functions, `FILTER`, `LATERAL`, and other features that most SQL tutorials skip
-- [SQL Window Functions explained visually](https://antonz.org/window-functions/) — the clearest visual explanation of PARTITION BY / ORDER BY that exists; bookmark this for when window functions click and un-click
-- [Conditional aggregation (COUNT CASE WHEN)](https://www.postgresql.org/docs/current/sql-expressions.html#SYNTAX-AGGREGATES) — PostgreSQL docs, but the `FILTER (WHERE ...)` syntax is identical in DuckDB
-
-### Data engineering — broader context
-
-- [The Medallion Architecture (Databricks)](https://www.databricks.com/glossary/medallion-architecture) — this project already uses bronze/silver/gold; this is the reference for what that means at scale
-- [dbt (data build tool) docs](https://docs.getdbt.com/docs/introduction) — the industry standard for managing SQL views and models in a pipeline; worth knowing even if you don't use it here
-- [Pandas vs Polars vs DuckDB (benchmark)](https://duckdblabs.github.io/db-benchmark/) — the official benchmark showing where DuckDB wins; useful context for why the gold layer is in DuckDB
-
-### Irish / civic data context
-
-- [Lobbying.ie developer docs](https://www.lobbying.ie/app/contact-us/api-documentation) — the API behind the data this pipeline processes
-- [Oireachtas Open Data portal](https://data.oireachtas.ie/) — all the APIs used in `oireachtas_api_service.py`; the schema docs explain what every field means
+- [SQL Window Functions explained visually (antonz.org)](https://antonz.org/window-functions/) — best visual explanation of PARTITION BY / ORDER BY
+- [Modern SQL](https://modern-sql.com/) — concise reference for `FILTER`, window functions, `LATERAL`, features most tutorials skip
+- [Use The Index, Luke](https://use-the-index-luke.com/) — SQL performance and indexing; worth reading before adding indexes to DuckDB tables
+- [The Medallion Architecture (Databricks)](https://www.databricks.com/glossary/medallion-architecture) — the reference for bronze/silver/gold at scale
 
 ---
 
-**Interview-prep focus areas** (most common in data engineering rounds):
-- `ROW_NUMBER()` for deduplication and ranking
-- `COUNT(DISTINCT ...)` — know when you need it vs `COUNT(*)`
-- CTEs vs subqueries — when each is cleaner
-- `HAVING` vs `WHERE` — post- vs pre-aggregation filtering
-- Self-joins for relationship analysis (bilateral pairs pattern)
-- Exploding strings into rows (UNNEST / STRING_SPLIT)
+## Interview prep focus
+
+The patterns that appear most frequently in data engineering and analytics SQL rounds:
+
+**Core patterns — know these cold:**
+- `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)` for deduplication and ranking
+- `COUNT(DISTINCT col)` — know when you need it vs `COUNT(*)`
+- `HAVING` vs `WHERE` — post- vs pre-aggregation filtering (interviewers test this every time)
+- `LEFT JOIN` + `COALESCE` — the standard null-safety pattern for optional data
 - `FILTER (WHERE ...)` as a cleaner alternative to `SUM(CASE WHEN ...)`
-- `COALESCE` and null propagation in LEFT JOINs
+- CTEs vs subqueries — when each is cleaner (rule of thumb: CTE if referenced more than once)
+- `NULLIF(x, 0)` for safe division
+
+**Intermediate patterns — know how to construct them:**
+- Window aggregate alongside GROUP BY — `SUM(COUNT(*)) OVER (PARTITION BY ...)` inside a query that already has `GROUP BY`
+- `CROSS JOIN` with a single-row CTE to attach a scalar total to every row
+- `QUALIFY` for filtering on window function results without a wrapping CTE
+- `arg_max(label, value)` — return the label associated with the max value (replaces a groupby + join)
+- `BOOL_OR` / `BOOL_AND` for boolean aggregation across a group
+- Multi-step CTE pipeline — three or more CTEs, each with one concern
+
+**Advanced patterns — know they exist, understand when to reach for them:**
+- `PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY x)` — ordered-set aggregate for median
+- `PIVOT` — cross-tab transformation (DuckDB-specific syntax; standard SQL uses CASE WHEN)
+- Recursive CTEs — hierarchical data and graph traversal (know the structure even if rare here)
+- Self-joins — comparing rows within the same table (e.g., rebellion rate requires knowing the majority direction)
+- `LATERAL` joins — correlated subquery in the FROM clause; use when you need per-row subqueries
+
+**The interview mindset:**
+A good answer names the *constraint* it's solving, not just the syntax. "I use LEFT JOIN
+here because a TD may not have any lobbying returns, and INNER JOIN would silently drop
+them from the profile" is a better answer than just writing a LEFT JOIN. Examiners want
+to see that you know *why*, not just *what*.
