@@ -1,7 +1,6 @@
-import os
-import sys
 from pathlib import Path
-
+import sys
+import os
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -9,33 +8,27 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from shared_css import inject_css
 
-_ROOT = Path(__file__).parent.parent.parent
-_CSV = _ROOT / "data" / "gold" / "current_dail_vote_history.csv"
+_ROOT         = Path(__file__).parent.parent.parent
+_CSV          = _ROOT / "data" / "gold" / "current_dail_vote_history.csv"
 _SPONSORS_CSV = _ROOT / "data" / "silver" / "sponsors.csv"
 
 _VOTE_COLOURS = {
     "Voted Yes": "#2d6a4f",
-    "Voted No": "#c1121f",
+    "Voted No":  "#c1121f",
     "Abstained": "#adb5bd",
 }
 
 _THEMES = {
-    "Housing & Rent": [
-        r"housing",
-        r"rent(?!al\s+sector\s+aid)",
-        r"landlord",
-        r"affordable housing",
-        r"residential tenancies",
-    ],
-    "Carbon & Climate": [r"carbon tax", r"climate action", r"low carbon", r"natural gas carbon"],
-    "Confidence Votes": [r"confidence in"],
-    "Taxation": [r"finance bill", r"financial resolution", r"local property tax", r"budget"],
-    "Health & Abortion": [r"termination of pregnancy", r"abortion", r"health \(waiting", r"health \(regulation"],
+    "Housing & Rent":     [r"housing", r"rent(?!al\s+sector\s+aid)", r"landlord", r"affordable housing", r"residential tenancies"],
+    "Carbon & Climate":   [r"carbon tax", r"climate action", r"low carbon", r"natural gas carbon"],
+    "Confidence Votes":   [r"confidence in"],
+    "Taxation":           [r"finance bill", r"financial resolution", r"local property tax", r"budget"],
+    "Health & Abortion":  [r"termination of pregnancy", r"abortion", r"health \(waiting", r"health \(regulation"],
     "Asylum & Migration": [r"international protection"],
-    "Energy Costs": [r"energy costs", r"fuel costs", r"soaring energy"],
-    "Defective Blocks": [r"defective concrete", r"mica"],
-    "Irish Neutrality": [r"neutrality"],
-    "Water Charges": [r"water charge", r"water services.*repeal"],
+    "Energy Costs":       [r"energy costs", r"fuel costs", r"soaring energy"],
+    "Defective Blocks":   [r"defective concrete", r"mica"],
+    "Irish Neutrality":   [r"neutrality"],
+    "Water Charges":      [r"water charge", r"water services.*repeal"],
 }
 
 # ── Bill URL note ─────────────────────────────────────────────────────────────
@@ -44,7 +37,6 @@ _THEMES = {
 # number requires a join to data/silver/stages.csv — see the commented-out enrichment
 # block at the bottom of this file and in enrich.py.
 # _extract_bill_year is defined there as part of the exercise.
-
 
 def _get_csv_mtime():
     try:
@@ -60,31 +52,23 @@ def _load_sponsors() -> pd.DataFrame:
     sp = pd.read_csv(_SPONSORS_CSV, low_memory=False)
     sp["unique_member_code"] = sp["sponsor.by.uri"].str.split("/id/").str[-1]
     sp["bill_year"] = pd.to_numeric(sp["bill.billYear"], errors="coerce").astype("Int64")
-    sp["bill_no"] = pd.to_numeric(sp["bill.billNo"], errors="coerce").astype("Int64")
+    sp["bill_no"]   = pd.to_numeric(sp["bill.billNo"],   errors="coerce").astype("Int64")
     sp["url"] = (
-        "https://www.oireachtas.ie/en/bills/bill/" + sp["bill_year"].astype(str) + "/" + sp["bill_no"].astype(str) + "/"
+        "https://www.oireachtas.ie/en/bills/bill/"
+        + sp["bill_year"].astype(str) + "/"
+        + sp["bill_no"].astype(str) + "/"
     )
-    return sp[
-        [
-            "unique_member_code",
-            "bill_no",
-            "bill_year",
-            "bill.shortTitleEn",
-            "bill.status",
-            "bill.source",
-            "sponsor.isPrimary",
-            "bill.mostRecentStage.event.showAs",
-            "url",
-        ]
-    ].rename(
-        columns={
-            "bill.shortTitleEn": "title",
-            "bill.status": "status",
-            "bill.source": "source",
-            "sponsor.isPrimary": "is_primary",
-            "bill.mostRecentStage.event.showAs": "current_stage",
-        }
-    )
+    return sp[[
+        "unique_member_code", "bill_no", "bill_year",
+        "bill.shortTitleEn", "bill.status", "bill.source",
+        "sponsor.isPrimary", "bill.mostRecentStage.event.showAs", "url",
+    ]].rename(columns={
+        "bill.shortTitleEn":                  "title",
+        "bill.status":                        "status",
+        "bill.source":                        "source",
+        "sponsor.isPrimary":                  "is_primary",
+        "bill.mostRecentStage.event.showAs":  "current_stage",
+    })
 
 
 @st.cache_data(show_spinner=False)
@@ -97,8 +81,8 @@ def _load(_csv_mtime=None) -> pd.DataFrame:
 
 
 def _tag_themes(df: pd.DataFrame) -> pd.DataFrame:
-    titles = df["debate_title"].fillna("")
-    theme_arr = pd.Series("Other", index=df.index)
+    titles     = df["debate_title"].fillna("")
+    theme_arr  = pd.Series("Other", index=df.index)
     for theme, patterns in _THEMES.items():
         mask = titles.str.contains("|".join(patterns), case=False, regex=True, na=False)
         theme_arr[mask] = theme
@@ -113,8 +97,8 @@ def _build_debates(df: pd.DataFrame) -> pd.DataFrame:
     divisions = (
         df.groupby(["debate_title", "vote_id", "date", "vote_outcome"], dropna=False)
         .agg(
-            yes=("vote_type", lambda x: (x == "Voted Yes").sum()),
-            no=("vote_type", lambda x: (x == "Voted No").sum()),
+            yes      =("vote_type", lambda x: (x == "Voted Yes").sum()),
+            no       =("vote_type", lambda x: (x == "Voted No").sum()),
             abstained=("vote_type", lambda x: (x == "Abstained").sum()),
         )
         .reset_index()
@@ -122,13 +106,13 @@ def _build_debates(df: pd.DataFrame) -> pd.DataFrame:
     debates = (
         divisions.groupby("debate_title", dropna=False)
         .agg(
-            divisions=("vote_id", "nunique"),
-            first_date=("date", "min"),
-            last_date=("date", "max"),
-            carried=("vote_outcome", lambda x: (x == "Carried").sum()),
-            lost=("vote_outcome", lambda x: (x == "Lost").sum()),
-            total_yes=("yes", "sum"),
-            total_no=("no", "sum"),
+            divisions =("vote_id",      "nunique"),
+            first_date=("date",         "min"),
+            last_date =("date",         "max"),
+            carried   =("vote_outcome", lambda x: (x == "Carried").sum()),
+            lost      =("vote_outcome", lambda x: (x == "Lost").sum()),
+            total_yes =("yes",          "sum"),
+            total_no  =("no",           "sum"),
         )
         .reset_index()
         .sort_values("last_date", ascending=False)
@@ -138,10 +122,13 @@ def _build_debates(df: pd.DataFrame) -> pd.DataFrame:
 
 # ── Charts ────────────────────────────────────────────────────────────────────
 
-
 def _party_chart(df: pd.DataFrame) -> go.Figure:
     order = ["Voted Yes", "Voted No", "Abstained"]
-    pivot = df.groupby(["party", "vote_type"]).size().unstack(fill_value=0).reindex(columns=order, fill_value=0)
+    pivot = (
+        df.groupby(["party", "vote_type"])
+        .size().unstack(fill_value=0)
+        .reindex(columns=order, fill_value=0)
+    )
     pivot["total"] = pivot.sum(axis=1)
     for col in order:
         pivot[f"{col}_pct"] = (pivot[col] / pivot["total"] * 100).round(1)
@@ -149,25 +136,17 @@ def _party_chart(df: pd.DataFrame) -> go.Figure:
 
     fig = go.Figure()
     for vtype in order:
-        fig.add_trace(
-            go.Bar(
-                name=vtype,
-                y=pivot.index,
-                x=pivot[vtype],
-                orientation="h",
-                marker_color=_VOTE_COLOURS[vtype],
-                text=[f"{p:.0f}%" for p in pivot[f"{vtype}_pct"]],
-                textposition="inside",
-                insidetextanchor="middle",
-                hovertemplate=f"<b>%{{y}}</b><br>{vtype}: %{{x}} (%{{text}})<extra></extra>",
-            )
-        )
+        fig.add_trace(go.Bar(
+            name=vtype, y=pivot.index, x=pivot[vtype], orientation="h",
+            marker_color=_VOTE_COLOURS[vtype],
+            text=[f"{p:.0f}%" for p in pivot[f"{vtype}_pct"]],
+            textposition="inside", insidetextanchor="middle",
+            hovertemplate=f"<b>%{{y}}</b><br>{vtype}: %{{x}} (%{{text}})<extra></extra>",
+        ))
     fig.update_layout(
-        barmode="stack",
-        height=max(260, len(pivot) * 36),
+        barmode="stack", height=max(260, len(pivot) * 36),
         margin=dict(l=0, r=20, t=10, b=10),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family="Epilogue, sans-serif", size=12),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
@@ -178,23 +157,21 @@ def _party_chart(df: pd.DataFrame) -> go.Figure:
 
 def _td_year_chart(df: pd.DataFrame) -> go.Figure:
     order = ["Voted Yes", "Voted No", "Abstained"]
-    pivot = df.groupby(["year", "vote_type"]).size().unstack(fill_value=0).reindex(columns=order, fill_value=0)
+    pivot = (
+        df.groupby(["year", "vote_type"]).size()
+        .unstack(fill_value=0)
+        .reindex(columns=order, fill_value=0)
+    )
     fig = go.Figure()
     for vtype in order:
-        fig.add_trace(
-            go.Bar(
-                name=vtype,
-                x=pivot.index.astype(int),
-                y=pivot[vtype],
-                marker_color=_VOTE_COLOURS[vtype],
-            )
-        )
+        fig.add_trace(go.Bar(
+            name=vtype, x=pivot.index.astype(int), y=pivot[vtype],
+            marker_color=_VOTE_COLOURS[vtype],
+        ))
     fig.update_layout(
-        barmode="stack",
-        height=220,
+        barmode="stack", height=220,
         margin=dict(l=0, r=0, t=10, b=10),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family="Epilogue, sans-serif", size=12),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         xaxis=dict(showgrid=False, tickmode="linear", dtick=1),
@@ -228,7 +205,6 @@ _VOTE_CSS = """
 </style>
 """
 
-
 def _vote_badge(vote_type: str) -> str:
     if vote_type == "Voted Yes":
         return '<span class="v-yes">✓</span>'
@@ -241,14 +217,14 @@ def _td_vote_html(df: pd.DataFrame) -> str:
     df = _tag_themes(df.sort_values("date", ascending=False))
     rows = []
     for _, r in df.iterrows():
-        date_s = pd.to_datetime(r["date"]).strftime("%d %b %Y") if pd.notna(r["date"]) else "—"
-        title = str(r["debate_title"])
-        short = (title[:140] + "…") if len(title) > 140 else title
-        theme = r.get("theme", "Other")
-        badge = _vote_badge(r["vote_type"])
+        date_s  = pd.to_datetime(r["date"]).strftime("%d %b %Y") if pd.notna(r["date"]) else "—"
+        title   = str(r["debate_title"])
+        short   = (title[:140] + "…") if len(title) > 140 else title
+        theme   = r.get("theme", "Other")
+        badge   = _vote_badge(r["vote_type"])
         outcome = str(r.get("vote_outcome", ""))
         out_cls = "out-c" if outcome == "Carried" else ("out-l" if outcome == "Lost" else "")
-        tag = f'<span class="vr-theme">{theme}</span>' if theme != "Other" else ""
+        tag     = f'<span class="vr-theme">{theme}</span>' if theme != "Other" else ""
         rows.append(
             f"<tr>"
             f'<td class="vr-date">{date_s}</td>'
@@ -257,11 +233,7 @@ def _td_vote_html(df: pd.DataFrame) -> str:
             f'<td class="vr-out {out_cls}">{outcome}</td>'
             f"</tr>"
         )
-    body = (
-        "".join(rows)
-        if rows
-        else "<tr><td colspan='4' style='color:#888;padding:1rem'>No votes in this period.</td></tr>"
-    )
+    body = "".join(rows) if rows else "<tr><td colspan='4' style='color:#888;padding:1rem'>No votes in this period.</td></tr>"
     return (
         _VOTE_CSS
         + "<table class='vr-table'>"
@@ -274,21 +246,21 @@ def _td_vote_html(df: pd.DataFrame) -> str:
 
 # ── TD Record view ────────────────────────────────────────────────────────────
 
-
 def _td_record(df: pd.DataFrame, td_name: str, years: list[int]) -> None:
     td_df = df[df["full_name"] == td_name]
     if td_df.empty:
         st.info("No vote records found for this TD.")
         return
 
-    party = td_df["party"].dropna().mode().iloc[0] if not td_df["party"].dropna().empty else "—"
-    const = td_df["constituency_name"].dropna().iloc[0] if not td_df["constituency_name"].dropna().empty else "—"
-    total_yes = (td_df["vote_type"] == "Voted Yes").sum()
-    total_no = (td_df["vote_type"] == "Voted No").sum()
+    party      = td_df["party"].dropna().mode().iloc[0] if not td_df["party"].dropna().empty else "—"
+    const      = td_df["constituency_name"].dropna().iloc[0] if not td_df["constituency_name"].dropna().empty else "—"
+    total_yes  = (td_df["vote_type"] == "Voted Yes").sum()
+    total_no   = (td_df["vote_type"] == "Voted No").sum()
     total_divs = td_df["vote_id"].nunique()
 
     st.markdown(
-        f'<div class="td-name">{td_name}</div><div class="td-meta">{party} · {const}</div>',
+        f'<div class="td-name">{td_name}</div>'
+        f'<div class="td-meta">{party} · {const}</div>',
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -304,13 +276,12 @@ def _td_record(df: pd.DataFrame, td_name: str, years: list[int]) -> None:
         st.plotly_chart(_td_year_chart(td_df), use_container_width=True)
 
     st.markdown('<p class="section-heading">Select year</p>', unsafe_allow_html=True)
-    sel_year = st.radio(
-        "Year", years, index=0, horizontal=True, label_visibility="collapsed", key="v_year", format_func=str
-    )
+    sel_year = st.radio("Year", years, index=0, horizontal=True,
+                        label_visibility="collapsed", key="v_year", format_func=str)
 
     year_df = td_df[td_df["year"] == sel_year]
-    yes_yr = (year_df["vote_type"] == "Voted Yes").sum()
-    no_yr = (year_df["vote_type"] == "Voted No").sum()
+    yes_yr  = (year_df["vote_type"] == "Voted Yes").sum()
+    no_yr   = (year_df["vote_type"] == "Voted No").sum()
 
     st.markdown(
         f"""<div style="display:flex;gap:2rem;margin:0.5rem 0 1rem 0;align-items:center">
@@ -318,7 +289,7 @@ def _td_record(df: pd.DataFrame, td_name: str, years: list[int]) -> None:
                   text-transform:uppercase;color:#888">{sel_year}</span>
             <span style="color:#2d6a4f;font-weight:700">{yes_yr} ✓ Yes</span>
             <span style="color:#c1121f;font-weight:700">{no_yr} ✗ No</span>
-            <span style="color:#888;font-size:0.85rem">{len(year_df)} votes · {year_df["vote_id"].nunique()} divisions</span>
+            <span style="color:#888;font-size:0.85rem">{len(year_df)} votes · {year_df['vote_id'].nunique()} divisions</span>
         </div>""",
         unsafe_allow_html=True,
     )
@@ -329,15 +300,13 @@ def _td_record(df: pd.DataFrame, td_name: str, years: list[int]) -> None:
     st.download_button(
         "Export votes CSV",
         year_df[["date", "debate_title", "vote_type", "vote_outcome", "subject"]].to_csv(index=False).encode(),
-        file_name=f"{td_name.replace(' ', '_')}_{sel_year}_votes.csv",
+        file_name=f"{td_name.replace(' ','_')}_{sel_year}_votes.csv",
         mime="text/csv",
         key="td_dl",
     )
 
     # ── Sponsored bills ───────────────────────────────────────────────
-    member_code = (
-        td_df["unique_member_code"].dropna().iloc[0] if not td_df["unique_member_code"].dropna().empty else None
-    )
+    member_code = td_df["unique_member_code"].dropna().iloc[0] if not td_df["unique_member_code"].dropna().empty else None
     if member_code:
         sponsors = _load_sponsors()
         td_bills = sponsors[sponsors["unique_member_code"] == member_code].copy()
@@ -350,42 +319,31 @@ def _td_record(df: pd.DataFrame, td_name: str, years: list[int]) -> None:
                 "links open on oireachtas.ie"
             )
             st.dataframe(
-                td_bills[["title", "bill_year", "status", "current_stage", "is_primary", "url"]].sort_values(
-                    "bill_year", ascending=False
-                ),
+                td_bills[["title", "bill_year", "status", "current_stage", "is_primary", "url"]]
+                    .sort_values("bill_year", ascending=False),
                 hide_index=True,
                 use_container_width=True,
                 column_config={
-                    "title": st.column_config.TextColumn("Bill", width="large"),
-                    "bill_year": st.column_config.NumberColumn("Year", format="%d", width="small"),
-                    "status": st.column_config.TextColumn("Status"),
+                    "title":         st.column_config.TextColumn("Bill", width="large"),
+                    "bill_year":     st.column_config.NumberColumn("Year", format="%d", width="small"),
+                    "status":        st.column_config.TextColumn("Status"),
                     "current_stage": st.column_config.TextColumn("Current stage"),
-                    "is_primary": st.column_config.CheckboxColumn("Primary sponsor", width="small"),
-                    "url": st.column_config.LinkColumn("Oireachtas link", display_text="Open ↗", width="small"),
+                    "is_primary":    st.column_config.CheckboxColumn("Primary sponsor", width="small"),
+                    "url":           st.column_config.LinkColumn("Oireachtas link", display_text="Open ↗", width="small"),
                 },
             )
 
 
 # ── Divisions view ────────────────────────────────────────────────────────────
 
-
 def _debates_table(debates: pd.DataFrame, year_view: pd.DataFrame, key_prefix: str) -> None:
     if debates.empty:
         st.info("No debates found.")
         return
 
-    display = debates[
-        [
-            "debate_title",
-            "theme",
-            "divisions",
-            "total_yes",
-            "total_no",
-            "carried",
-            "lost",
-            "last_date",
-        ]
-    ].copy()
+    display = debates[[
+        "debate_title", "theme", "divisions", "total_yes", "total_no", "carried", "lost", "last_date",
+    ]].copy()
     display["last_date"] = pd.to_datetime(display["last_date"]).dt.strftime("%d %b %Y")
     st.dataframe(
         display,
@@ -393,13 +351,13 @@ def _debates_table(debates: pd.DataFrame, year_view: pd.DataFrame, key_prefix: s
         hide_index=True,
         column_config={
             "debate_title": st.column_config.TextColumn("Debate", width="large"),
-            "theme": st.column_config.TextColumn("Theme"),
-            "divisions": st.column_config.NumberColumn("Divs", format="%d"),
-            "total_yes": st.column_config.NumberColumn("Yes ✓", format="%d"),
-            "total_no": st.column_config.NumberColumn("No ✗", format="%d"),
-            "carried": st.column_config.NumberColumn("Carried", format="%d"),
-            "lost": st.column_config.NumberColumn("Lost", format="%d"),
-            "last_date": st.column_config.TextColumn("Date"),
+            "theme":        st.column_config.TextColumn("Theme"),
+            "divisions":    st.column_config.NumberColumn("Divs", format="%d"),
+            "total_yes":    st.column_config.NumberColumn("Yes ✓", format="%d"),
+            "total_no":     st.column_config.NumberColumn("No ✗", format="%d"),
+            "carried":      st.column_config.NumberColumn("Carried", format="%d"),
+            "lost":         st.column_config.NumberColumn("Lost", format="%d"),
+            "last_date":    st.column_config.TextColumn("Date"),
         },
     )
 
@@ -420,34 +378,36 @@ def _debate_panel(debate_title: str, year_view: pd.DataFrame, key_prefix: str) -
         return
 
     divisions_in_debate = (
-        debate_df.groupby(["vote_id", "date", "vote_outcome", "subject"]).size().reset_index().sort_values("date")
+        debate_df.groupby(["vote_id", "date", "vote_outcome", "subject"])
+        .size().reset_index().sort_values("date")
     )
 
     if len(divisions_in_debate) > 1:
         opts = {}
         for _, row in divisions_in_debate.iterrows():
             date_str = pd.to_datetime(row["date"]).strftime("%d %b %Y") if pd.notna(row["date"]) else "—"
-            subj = str(row["subject"])[:70] if row["subject"] else row["vote_id"]
+            subj     = str(row["subject"])[:70] if row["subject"] else row["vote_id"]
             opts[f"{date_str} · {subj}"] = row["vote_id"]
-        chosen = st.selectbox("Division", list(opts.keys()), key=f"{key_prefix}_div", label_visibility="visible")
+        chosen = st.selectbox("Division", list(opts.keys()),
+                              key=f"{key_prefix}_div", label_visibility="visible")
         div_df = debate_df[debate_df["vote_id"] == opts[chosen]]
     else:
         div_df = debate_df
 
-    outcome = div_df["vote_outcome"].mode().iloc[0] if not div_df.empty else "—"
+    outcome  = div_df["vote_outcome"].mode().iloc[0] if not div_df.empty else "—"
     date_val = div_df["date"].dropna().iloc[0] if not div_df["date"].dropna().empty else None
-    subject = div_df["subject"].dropna().iloc[0][:100] if not div_df["subject"].dropna().empty else ""
-    yes_n = (div_df["vote_type"] == "Voted Yes").sum()
-    no_n = (div_df["vote_type"] == "Voted No").sum()
-    abs_n = (div_df["vote_type"] == "Abstained").sum()
-    margin = abs(yes_n - no_n)
+    subject  = div_df["subject"].dropna().iloc[0][:100] if not div_df["subject"].dropna().empty else ""
+    yes_n    = (div_df["vote_type"] == "Voted Yes").sum()
+    no_n     = (div_df["vote_type"] == "Voted No").sum()
+    abs_n    = (div_df["vote_type"] == "Abstained").sum()
+    margin   = abs(yes_n - no_n)
     date_str = date_val.strftime("%d %b %Y") if date_val else "—"
 
-    out_col = "#2d6a4f" if outcome == "Carried" else "#c1121f" if outcome == "Lost" else "#6c757d"
+    out_col  = "#2d6a4f" if outcome == "Carried" else "#c1121f" if outcome == "Lost" else "#6c757d"
     st.markdown(
         f'<p style="font-size:0.75rem;font-weight:700;letter-spacing:0.07em;'
         f'text-transform:uppercase;color:{out_col};margin:1rem 0 0.2rem">'
-        f"{outcome} · {date_str}</p>"
+        f'{outcome} · {date_str}</p>'
         f'<p style="font-size:0.85rem;color:var(--text-meta);margin-bottom:0.8rem">{subject}</p>',
         unsafe_allow_html=True,
     )
@@ -465,17 +425,16 @@ def _debate_panel(debate_title: str, year_view: pd.DataFrame, key_prefix: str) -
     st.plotly_chart(_party_chart(div_df), use_container_width=True)
 
     st.markdown('<p class="section-heading">Individual votes</p>', unsafe_allow_html=True)
-    st.markdown(
-        _td_vote_html(
-            div_df[["date", "debate_title", "vote_type", "vote_outcome"]].assign(debate_title=subject or debate_title)
-        ),
-        unsafe_allow_html=True,
-    )
+    st.markdown(_td_vote_html(
+        div_df[["date", "debate_title", "vote_type", "vote_outcome"]].assign(
+            debate_title=subject or debate_title
+        )
+    ), unsafe_allow_html=True)
 
     st.download_button(
         "Download CSV",
         data=div_df[["full_name", "party", "constituency_name", "vote_type"]].to_csv(index=False).encode(),
-        file_name=f"{debate_title[:40].replace(' ', '_')}.csv",
+        file_name=f"{debate_title[:40].replace(' ','_')}.csv",
         mime="text/csv",
         key=f"{key_prefix}_dl",
     )
@@ -483,17 +442,16 @@ def _debate_panel(debate_title: str, year_view: pd.DataFrame, key_prefix: str) -
 
 def _divisions_view(df: pd.DataFrame, years: list[int]) -> None:
     st.markdown('<p class="section-heading">Select year</p>', unsafe_allow_html=True)
-    sel_year = st.radio(
-        "Year", years, index=0, horizontal=True, label_visibility="collapsed", key="v_year_d", format_func=str
-    )
+    sel_year = st.radio("Year", years, index=0, horizontal=True,
+                        label_visibility="collapsed", key="v_year_d", format_func=str)
 
     year_view = df[df["year"] == sel_year]
-    debates = _build_debates(year_view)
+    debates   = _build_debates(year_view)
 
     col1, col2 = st.columns(2)
     with col1:
         theme_opts = ["All themes"] + list(_THEMES.keys()) + ["Other"]
-        sel_theme = st.selectbox("Theme", theme_opts, key="v_theme_d", label_visibility="visible")
+        sel_theme  = st.selectbox("Theme", theme_opts, key="v_theme_d", label_visibility="visible")
     with col2:
         st.metric("Debates", len(debates))
 
@@ -514,7 +472,6 @@ def _divisions_view(df: pd.DataFrame, years: list[int]) -> None:
 
 # ── TD landing (no search yet) ───────────────────────────────────────────────
 
-
 def _td_landing(df: pd.DataFrame, years: list[int]) -> None:
     """Browse all TDs by party with summary stats — shown before a TD is searched."""
 
@@ -522,9 +479,9 @@ def _td_landing(df: pd.DataFrame, years: list[int]) -> None:
     summary = (
         df.groupby(["full_name", "party", "constituency_name"])
         .agg(
-            yes=("vote_type", lambda x: (x == "Voted Yes").sum()),
-            no=("vote_type", lambda x: (x == "Voted No").sum()),
-            divisions=("vote_id", "nunique"),
+            yes      =("vote_type", lambda x: (x == "Voted Yes").sum()),
+            no       =("vote_type", lambda x: (x == "Voted No").sum()),
+            divisions=("vote_id",   "nunique"),
         )
         .reset_index()
     )
@@ -537,9 +494,7 @@ def _td_landing(df: pd.DataFrame, years: list[int]) -> None:
         party_opts = ["All parties"] + sorted(summary["party"].dropna().unique())
         party_pick = st.selectbox("Filter by party", party_opts, key="landing_party", label_visibility="visible")
     with col2:
-        name_search = st.text_input(
-            "Search by name", placeholder="e.g. McDonald, Harris…", key="landing_search", label_visibility="visible"
-        )
+        name_search = st.text_input("Search by name", placeholder="e.g. McDonald, Harris…", key="landing_search", label_visibility="visible")
 
     filtered = summary.copy()
     if party_pick != "All parties":
@@ -556,13 +511,13 @@ def _td_landing(df: pd.DataFrame, years: list[int]) -> None:
         hide_index=True,
         use_container_width=True,
         column_config={
-            "full_name": st.column_config.TextColumn("TD"),
-            "party": st.column_config.TextColumn("Party"),
-            "constituency_name": st.column_config.TextColumn("Constituency"),
-            "divisions": st.column_config.NumberColumn("Divisions", format="%d"),
-            "yes": st.column_config.NumberColumn("Yes ✓", format="%d"),
-            "no": st.column_config.NumberColumn("No ✗", format="%d"),
-            "yes_pct": st.column_config.ProgressColumn("% Yes", format="%d%%", min_value=0, max_value=100),
+            "full_name":        st.column_config.TextColumn("TD"),
+            "party":            st.column_config.TextColumn("Party"),
+            "constituency_name":st.column_config.TextColumn("Constituency"),
+            "divisions":        st.column_config.NumberColumn("Divisions", format="%d"),
+            "yes":              st.column_config.NumberColumn("Yes ✓", format="%d"),
+            "no":               st.column_config.NumberColumn("No ✗", format="%d"),
+            "yes_pct":          st.column_config.ProgressColumn("% Yes", format="%d%%", min_value=0, max_value=100),
         },
     )
 
@@ -575,11 +530,10 @@ def _td_landing(df: pd.DataFrame, years: list[int]) -> None:
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
-
 def votes_page() -> None:
     inject_css()
     csv_mtime = _get_csv_mtime()
-    df = _load(csv_mtime)
+    df        = _load(csv_mtime)
 
     years = sorted(df["year"].dropna().astype(int).unique(), reverse=True)
 
@@ -587,21 +541,24 @@ def votes_page() -> None:
         st.markdown('<div class="page-kicker">Dáil Tracker</div>', unsafe_allow_html=True)
         st.markdown('<div class="page-title">Dáil<br>Divisions</div>', unsafe_allow_html=True)
         st.markdown(
-            f'<div class="page-subtitle">{df["vote_id"].nunique():,} divisions · {df["full_name"].nunique()} TDs</div>',
+            f'<div class="page-subtitle">{df["vote_id"].nunique():,} divisions · '
+            f'{df["full_name"].nunique()} TDs</div>',
             unsafe_allow_html=True,
         )
 
         st.markdown('<p class="sidebar-label">View</p>', unsafe_allow_html=True)
-        view = st.radio("View", ["TD Record", "Divisions"], label_visibility="collapsed", key="v_mode")
+        view = st.radio("View", ["TD Record", "Divisions"],
+                        label_visibility="collapsed", key="v_mode")
 
         if view == "TD Record":
             st.markdown('<p class="sidebar-label">Search TD</p>', unsafe_allow_html=True)
-            td_search = st.text_input("TD name", placeholder="e.g. McDonald", label_visibility="collapsed", key="v_td")
+            td_search = st.text_input("TD name", placeholder="e.g. McDonald",
+                                      label_visibility="collapsed", key="v_td")
         else:
             td_search = ""
             st.markdown('<p class="sidebar-label">Filter by party</p>', unsafe_allow_html=True)
-            parties = ["All"] + sorted(df["party"].dropna().unique())
-            sel_party = st.selectbox("Party", parties, label_visibility="collapsed", key="v_party")
+            parties    = ["All"] + sorted(df["party"].dropna().unique())
+            sel_party  = st.selectbox("Party", parties, label_visibility="collapsed", key="v_party")
             if sel_party != "All":
                 df = df[df["party"] == sel_party]
 
@@ -631,9 +588,7 @@ def votes_page() -> None:
             _td_landing(df, years)
             return
 
-        matches = sorted(
-            df[df["full_name"].str.contains(td_search.strip(), case=False, na=False)]["full_name"].unique()
-        )
+        matches = sorted(df[df["full_name"].str.contains(td_search.strip(), case=False, na=False)]["full_name"].unique())
         if not matches:
             st.info("No TD found matching that name.")
             return
