@@ -51,11 +51,9 @@ a reduction in TAA does not necessarily indicate non-attendance.
 def _load() -> pd.DataFrame:
     df = pd.read_csv(_CSV, low_memory=False)
     df["Date_Paid"] = pd.to_datetime(df["Date_Paid"], errors="coerce")
-    df["Amount_num"] = (
-        df["Amount"]
-        .str.replace("€", "", regex=False)
-        .str.replace(",", "", regex=False)
-        .astype(float, errors="ignore")
+    df["Amount_num"] = pd.to_numeric(
+        df["Amount"].str.replace("€", "", regex=False).str.replace(",", "", regex=False),
+        errors="coerce",
     )
     # Normalise name: "Last, First" → "First Last"
     def _flip(name: str) -> str:
@@ -127,7 +125,8 @@ def payments_page() -> None:
     if selected_tds:
         filtered = filtered[filtered["full_name"].isin(selected_tds)]
 
-    # ── All-time totals (unaffected by year/TD filter) ───────────────────────
+    # ── Totals across full date range (unaffected by year/TD filter) ─────────
+    data_min_year = int(df["Date_Paid"].dt.year.min()) if df["Date_Paid"].notna().any() else 2020
     alltime = (
         df.groupby("full_name")["Amount_num"]
         .sum()
@@ -179,7 +178,7 @@ def payments_page() -> None:
                     "taa_label":     st.column_config.TextColumn("TAA Band"),
                     "total_paid":    st.column_config.NumberColumn("Total paid (selected period, €)", format="€%.2f"),
                     "payment_count": st.column_config.NumberColumn("Payments", format="%d"),
-                    "alltime_paid":  st.column_config.NumberColumn("All-time total (€)", format="€%.2f"),
+                    "alltime_paid":  st.column_config.NumberColumn(f"Total since {data_min_year} (€)", format="€%.2f"),
                 },
             )
 
