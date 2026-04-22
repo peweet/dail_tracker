@@ -92,6 +92,12 @@ sponsor_data = pl.read_csv(DATA_DIR / "silver" / "sponsors.csv", encoding="utf-8
 #ISSUE: the join is creating a cartesian product and blowing up the dataset size, which is likely due to duplicate join keys in one or both datasets. Need to investigate the join keys and ensure 
 # they are unique or handle duplicates appropriately before joining.
 #print("starting to enrich votes with TD metadata and committee assignments...")
+
+#https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/grain/
+#https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/
+#https://learn.microsoft.com/en-us/power-bi/guidance/star-schema
+#https://docs.getdbt.com/blog/kimball-dimensional-model?version=1.12
+#https://pandas.pydata.org/docs/user_guide/merging.html?utm_source
 current_dail_vote_history_df = vote_data_df.join(enrich_vote, on=["unique_member_code"], how="left", validate="m:m").drop(
   "vote_id", "join_key"
 ).unique()
