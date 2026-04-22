@@ -43,10 +43,6 @@ committee_df.write_csv(DATA_DIR / "gold" / "committee_assignments.csv")
 logging.info("Committee assignments CSV created successfully.")
 
 votes_df = pl.read_csv(DATA_DIR / "silver" / "pretty_votes.csv", encoding="utf-8")
-votes_df = votes_df.with_columns(pl.col("vote_id").str.split(by="_").list.slice(-1, 1).alias("vote_id")).explode(
-    "vote_id"
-)
-print(f"votes_df.schema: {votes_df.schema}")
 
 enrich_vote = pl.read_csv(DATA_DIR / "gold" / "enriched_td_attendance.csv")
 key_data = enrich_vote.select(
@@ -64,18 +60,8 @@ key_data = enrich_vote.select(
     ]
 )
 bill_date_data = (
-    pl.read_csv(DATA_DIR / "silver" / "stages.csv", encoding="utf-8")
-    .select(["event.house.houseNo", "bill.billNo", "bill.billYear", "bill.shortTitleEn", "contextDate"])
-    .rename(
-        {
-            "bill.billNo": "bill_no",
-            "bill.billYear": "bill_year",
-            "event.house.houseNo": "dail_number",
-            "bill.shortTitleEn": "short_title",
-            "contextDate": "context_date",
-        }
-    )
-)
+    pl.read_csv(DATA_DIR / "silver" / "stages.csv", encoding="utf-8"))
+
 key_data = key_data.unique(subset=["unique_member_code"])
 current_dail_vote_history_df = votes_df.join(key_data, on="unique_member_code", how="left").join(
     bill_date_data, left_on=["debate_title"], suffix="_test", right_on=["short_title"], how="left"
@@ -83,20 +69,21 @@ current_dail_vote_history_df = votes_df.join(key_data, on="unique_member_code", 
 current_dail_vote_history_df = current_dail_vote_history_df.unique(subset=["unique_member_code", "vote_id"]).drop(
     "join_key"
 )
-
+#https://www.oireachtas.ie/en/debates/vote/dail/34/2026-04-21/90/
 current_dail_vote_history_df = current_dail_vote_history_df.with_columns(
     pl.format(
-        "https://www.oireachtas.ie/en/debates/vote/dail/{}/{}/{}/",
+        "https://www.oireachtas.ie/en/debates/vote/dail/{}/{}/{}",
         pl.col("dail_number").cast(pl.Utf8),
         pl.col("context_date").cast(pl.Utf8),
         pl.col("vote_id").cast(pl.Utf8),
     ).alias("vote_url")
-).with_columns(
-    pl.format(
-        "https://www.oireachtas.ie/en/bills/bill/{}/{}",
-        pl.col("bill_year"),
-        pl.col("bill_no"),
-    ).alias("bill_url")
 )
+# .with_columns(
+#     pl.format(
+#         "https://www.oireachtas.ie/en/bills/bill/{}/{}",
+#         pl.col("bill_year"),
+#         pl.col("bill_no"),
+#     ).alias("bill_url")
+# )
 current_dail_vote_history_df.write_csv(DATA_DIR / "gold" / "current_dail_vote_history.csv")
 logging.info("Enriched TD votes CSV created successfully.")
