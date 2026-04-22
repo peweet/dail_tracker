@@ -1,5 +1,6 @@
-from pathlib import Path
 import sys
+from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pandas as pd
@@ -7,7 +8,7 @@ import streamlit as st
 from shared_css import inject_css
 
 _ROOT = Path(__file__).parent.parent.parent
-_CSV  = _ROOT / "data" / "silver" / "aggregated_payment_tables.csv"
+_CSV = _ROOT / "data" / "silver" / "aggregated_payment_tables.csv"
 
 _TAA_LABELS = {
     "Dublin": "Dublin / under 25 km",
@@ -55,6 +56,7 @@ def _load() -> pd.DataFrame:
         df["Amount"].str.replace("€", "", regex=False).str.replace(",", "", regex=False),
         errors="coerce",
     )
+
     # Normalise name: "Last, First" → "First Last"
     def _flip(name: str) -> str:
         if "," in str(name):
@@ -63,7 +65,7 @@ def _load() -> pd.DataFrame:
         return name
 
     df["full_name"] = df["Full_Name"].apply(_flip)
-    df["TAA_Band"]  = df["TAA_Band"].astype(str).str.strip()
+    df["TAA_Band"] = df["TAA_Band"].astype(str).str.strip()
     df["taa_label"] = df["TAA_Band"].map(_TAA_LABELS).fillna(df["TAA_Band"])
     return df
 
@@ -92,10 +94,10 @@ def payments_page() -> None:
 
     if selected_year == "All":
         start_date = df["Date_Paid"].min().date()
-        end_date   = df["Date_Paid"].max().date()
+        end_date = df["Date_Paid"].max().date()
     else:
         start_date = pd.Timestamp(f"{selected_year}-01-01").date()
-        end_date   = pd.Timestamp(f"{selected_year}-12-31").date()
+        end_date = pd.Timestamp(f"{selected_year}-12-31").date()
 
     selected_tds = st.sidebar.multiselect(
         "Filter to specific TDs (leave blank for all)",
@@ -117,9 +119,9 @@ def payments_page() -> None:
 
     # ── Filter ────────────────────────────────────────────────────────────────
     mask = (
-        (df["Date_Paid"].dt.date >= start_date) &
-        (df["Date_Paid"].dt.date <= end_date) &
-        (df["Position"].isin(selected_positions))
+        (df["Date_Paid"].dt.date >= start_date)
+        & (df["Date_Paid"].dt.date <= end_date)
+        & (df["Position"].isin(selected_positions))
     )
     filtered = df[mask]
     if selected_tds:
@@ -127,18 +129,13 @@ def payments_page() -> None:
 
     # ── Totals across full date range (unaffected by year/TD filter) ─────────
     data_min_year = int(df["Date_Paid"].dt.year.min()) if df["Date_Paid"].notna().any() else 2020
-    alltime = (
-        df.groupby("full_name")["Amount_num"]
-        .sum()
-        .rename("alltime_paid")
-        .reset_index()
-    )
+    alltime = df.groupby("full_name")["Amount_num"].sum().rename("alltime_paid").reset_index()
 
     # ── Per-TD totals ─────────────────────────────────────────────────────────
     totals = (
         filtered.groupby(["full_name", "taa_label", "Position"])
         .agg(
-            total_paid  =("Amount_num", "sum"),
+            total_paid=("Amount_num", "sum"),
             payment_count=("Amount_num", "count"),
         )
         .reset_index()
@@ -149,15 +146,17 @@ def payments_page() -> None:
 
     # ── Date-range label ──────────────────────────────────────────────────────
     data_start = df["Date_Paid"].min().strftime("%d %b %Y").lstrip("0") if pd.notna(df["Date_Paid"].min()) else "?"
-    data_end   = df["Date_Paid"].max().strftime("%d %b %Y").lstrip("0") if pd.notna(df["Date_Paid"].max()) else "?"
-    st.caption(f"Full dataset covers **{data_start} – {data_end}**. Use the Year filter to narrow the view; 'All-time total' always reflects the complete record.")
+    data_end = df["Date_Paid"].max().strftime("%d %b %Y").lstrip("0") if pd.notna(df["Date_Paid"].max()) else "?"
+    st.caption(
+        f"Full dataset covers **{data_start} – {data_end}**. Use the Year filter to narrow the view; 'All-time total' always reflects the complete record."
+    )
 
     # ── Top-level metrics ─────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("TDs in view",      totals["full_name"].nunique())
-    c2.metric("Total paid out",   f"€{filtered['Amount_num'].sum():,.0f}")
-    c3.metric("Avg per TD",       f"€{totals['total_paid'].mean():,.0f}" if len(totals) else "—")
-    c4.metric("Highest earner",   totals.iloc[0]["full_name"] if len(totals) else "—")
+    c1.metric("TDs in view", totals["full_name"].nunique())
+    c2.metric("Total paid out", f"€{filtered['Amount_num'].sum():,.0f}")
+    c3.metric("Avg per TD", f"€{totals['total_paid'].mean():,.0f}" if len(totals) else "—")
+    c4.metric("Highest earner", totals.iloc[0]["full_name"] if len(totals) else "—")
 
     st.divider()
 
@@ -173,22 +172,18 @@ def payments_page() -> None:
                 hide_index=True,
                 use_container_width=True,
                 column_config={
-                    "full_name":     st.column_config.TextColumn("TD"),
-                    "Position":      st.column_config.TextColumn("Position"),
-                    "taa_label":     st.column_config.TextColumn("TAA Band"),
-                    "total_paid":    st.column_config.NumberColumn("Total paid (selected period, €)", format="€%.2f"),
+                    "full_name": st.column_config.TextColumn("TD"),
+                    "Position": st.column_config.TextColumn("Position"),
+                    "taa_label": st.column_config.TextColumn("TAA Band"),
+                    "total_paid": st.column_config.NumberColumn("Total paid (selected period, €)", format="€%.2f"),
                     "payment_count": st.column_config.NumberColumn("Payments", format="%d"),
-                    "alltime_paid":  st.column_config.NumberColumn(f"Total since {data_min_year} (€)", format="€%.2f"),
+                    "alltime_paid": st.column_config.NumberColumn(f"Total since {data_min_year} (€)", format="€%.2f"),
                 },
             )
 
         with col_r:
             st.subheader("Payments by TAA Band")
-            band_totals = (
-                filtered.groupby("taa_label")["Amount_num"]
-                .sum()
-                .sort_values(ascending=False)
-            )
+            band_totals = filtered.groupby("taa_label")["Amount_num"].sum().sort_values(ascending=False)
             st.bar_chart(band_totals)
 
         st.download_button(
@@ -229,29 +224,31 @@ def payments_page() -> None:
     elif view_mode == "Individual TD":
         st.subheader("Individual TD payment history")
         td_name = st.selectbox("Select TD", all_names)
-        td_df   = filtered[filtered["full_name"] == td_name].copy().sort_values("Date_Paid")
+        td_df = filtered[filtered["full_name"] == td_name].copy().sort_values("Date_Paid")
 
         if td_df.empty:
             st.warning("No payment data for this TD in the selected date range.")
         else:
             row = totals[totals["full_name"] == td_name]
-            total   = row["total_paid"].values[0]  if len(row) else 0
-            n_pays  = row["payment_count"].values[0] if len(row) else 0
-            band    = row["taa_label"].values[0] if len(row) else "—"
+            total = row["total_paid"].values[0] if len(row) else 0
+            n_pays = row["payment_count"].values[0] if len(row) else 0
+            band = row["taa_label"].values[0] if len(row) else "—"
 
             m1, m2, m3 = st.columns(3)
-            m1.metric("Total received",  f"€{total:,.2f}")
+            m1.metric("Total received", f"€{total:,.2f}")
             m2.metric("No. of payments", int(n_pays))
-            m3.metric("TAA Band",        band)
+            m3.metric("TAA Band", band)
 
             st.subheader("Payment history")
             st.dataframe(
-                td_df[["Date_Paid", "Narrative", "Amount", "taa_label"]].rename(columns={
-                    "Date_Paid": "Date",
-                    "Narrative": "Description",
-                    "Amount":    "Amount",
-                    "taa_label": "TAA Band",
-                }),
+                td_df[["Date_Paid", "Narrative", "Amount", "taa_label"]].rename(
+                    columns={
+                        "Date_Paid": "Date",
+                        "Narrative": "Description",
+                        "Amount": "Amount",
+                        "taa_label": "TAA Band",
+                    }
+                ),
                 hide_index=True,
                 use_container_width=True,
             )

@@ -4,25 +4,23 @@ def get_division_vote_counts(df, debate_title, vote_id, date):
     Return counts of Yes, No, Abstained for a specific division (debate_title, vote_id, date).
     Avoids cross-debate contamination when vote_id is reused.
     """
-    filtered = df[(df['debate_title'] == debate_title) &
-                  (df['vote_id'] == vote_id) &
-                  (df['date'] == date)]
+    filtered = df[(df["debate_title"] == debate_title) & (df["vote_id"] == vote_id) & (df["date"] == date)]
     return {
-        'yes': (filtered['vote_type'] == 'Voted Yes').sum(),
-        'no': (filtered['vote_type'] == 'Voted No').sum(),
-        'abstained': (filtered['vote_type'] == 'Abstained').sum(),
-        'total': len(filtered)
+        "yes": (filtered["vote_type"] == "Voted Yes").sum(),
+        "no": (filtered["vote_type"] == "Voted No").sum(),
+        "abstained": (filtered["vote_type"] == "Abstained").sum(),
+        "total": len(filtered),
     }
+
+
 import sys
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from shared_css import inject_css
-
 
 # ── paths / config ────────────────────────────────────────────────────
 
@@ -39,7 +37,13 @@ _VIEWS = [
     "Transparency",
 ]
 
-_ORG_CSV = Path(__file__).parent.parent.parent / "data" / "bronze" / "lobbying_csv_data" / "Lobbying_ie_organisation_results.csv"
+_ORG_CSV = (
+    Path(__file__).parent.parent.parent
+    / "data"
+    / "bronze"
+    / "lobbying_csv_data"
+    / "Lobbying_ie_organisation_results.csv"
+)
 
 MAX_ROWS_DISPLAY = 2000
 
@@ -126,6 +130,7 @@ DTYPES = {
 
 # ── data loading / caching ────────────────────────────────────────────
 
+
 @st.cache_data(show_spinner=False)
 def _load(filename: str) -> pd.DataFrame:
     p = _OUT / filename
@@ -190,6 +195,7 @@ def _distinct_years(df: pd.DataFrame, col: str) -> list[int]:
 # "does the data have what I need?" question to the render logic.
 # See: docs/lobbying_refactor.md
 
+
 def _export(df: pd.DataFrame, filename: str, key: str, label: str = "Export CSV") -> None:
     st.download_button(
         label=label,
@@ -205,12 +211,7 @@ def _link() -> st.column_config.LinkColumn:
 
 
 def _stat(num, label: str) -> str:
-    return (
-        f"<div>"
-        f'<div class="stat-num">{num}</div>'
-        f'<div class="stat-lbl">{label}</div>'
-        f"</div>"
-    )
+    return f'<div><div class="stat-num">{num}</div><div class="stat-lbl">{label}</div></div>'
 
 
 def _section(text: str) -> None:
@@ -244,6 +245,7 @@ def _safe_selectbox(label: str, options: list[str], key: str, current_value=None
 
 # ── views ─────────────────────────────────────────────────────────────
 
+
 def _overview() -> None:
     returns = _load_returns_master()
     most_lobbied = _load("most_lobbied_politicians.csv")
@@ -261,9 +263,17 @@ def _overview() -> None:
         date_range = "—"
 
     total_returns = len(returns)
-    total_orgs = lobby_count["lobbyist_name"].nunique() if not lobby_count.empty and "lobbyist_name" in lobby_count.columns else 0
-    total_pols = most_lobbied["full_name"].nunique() if not most_lobbied.empty and "full_name" in most_lobbied.columns else 0
-    total_areas = policy["public_policy_area"].nunique() if not policy.empty and "public_policy_area" in policy.columns else 0
+    total_orgs = (
+        lobby_count["lobbyist_name"].nunique()
+        if not lobby_count.empty and "lobbyist_name" in lobby_count.columns
+        else 0
+    )
+    total_pols = (
+        most_lobbied["full_name"].nunique() if not most_lobbied.empty and "full_name" in most_lobbied.columns else 0
+    )
+    total_areas = (
+        policy["public_policy_area"].nunique() if not policy.empty and "public_policy_area" in policy.columns else 0
+    )
 
     st.markdown(
         '<div class="stat-strip">'
@@ -295,7 +305,9 @@ def _overview() -> None:
                 use_container_width=True,
                 column_config={
                     "full_name": st.column_config.TextColumn("Politician"),
-                    "total_returns": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_r or 1),
+                    "total_returns": st.column_config.ProgressColumn(
+                        "Returns", format="%d", min_value=0, max_value=max_r or 1
+                    ),
                     "distinct_orgs": st.column_config.NumberColumn("Orgs"),
                 },
             )
@@ -318,7 +330,9 @@ def _overview() -> None:
                 use_container_width=True,
                 column_config={
                     "lobbyist_name": st.column_config.TextColumn("Organisation", width="large"),
-                    "returns": st.column_config.ProgressColumn("Returns filed", format="%d", min_value=0, max_value=max_lc or 1),
+                    "returns": st.column_config.ProgressColumn(
+                        "Returns filed", format="%d", min_value=0, max_value=max_lc or 1
+                    ),
                 },
             )
             _export(top_lc, "most_prolific_lobbyists.csv", "ov_lc_exp")
@@ -339,7 +353,9 @@ def _overview() -> None:
             use_container_width=True,
             column_config={
                 "public_policy_area": st.column_config.TextColumn("Policy area", width="large"),
-                "return_count": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_pa or 1),
+                "return_count": st.column_config.ProgressColumn(
+                    "Returns", format="%d", min_value=0, max_value=max_pa or 1
+                ),
                 "distinct_lobbyists": st.column_config.NumberColumn("Distinct orgs"),
             },
         )
@@ -356,7 +372,9 @@ def _overview() -> None:
             use_container_width=True,
             column_config={
                 "client_name": st.column_config.TextColumn("Client company", width="large"),
-                "return_count": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_cl or 1),
+                "return_count": st.column_config.ProgressColumn(
+                    "Returns", format="%d", min_value=0, max_value=max_cl or 1
+                ),
                 "distinct_lobbyist_firms": st.column_config.NumberColumn("Firms hired"),
                 "distinct_politicians_targeted": st.column_config.NumberColumn("Politicians targeted"),
                 "distinct_policy_areas": st.column_config.NumberColumn("Policy areas"),
@@ -378,7 +396,9 @@ def _overview() -> None:
                 "lobbyist_name": st.column_config.TextColumn("Organisation", width="large"),
                 "full_name": st.column_config.TextColumn("Politician"),
                 "chamber": st.column_config.TextColumn("Chamber", width="small"),
-                "returns_in_relationship": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_bl or 1),
+                "returns_in_relationship": st.column_config.ProgressColumn(
+                    "Returns", format="%d", min_value=0, max_value=max_bl or 1
+                ),
                 "distinct_periods": st.column_config.NumberColumn("Periods active"),
                 "distinct_policy_areas": st.column_config.NumberColumn("Policy areas"),
             },
@@ -394,7 +414,9 @@ def _politician_profile() -> None:
         st.info("No politician returns data found. Run the pipeline first.")
         return
 
-    st.caption("Search for a TD or Senator to see every lobbying return that named them as a target — which organisations contacted them, on what policy areas, and how often.")
+    st.caption(
+        "Search for a TD or Senator to see every lobbying return that named them as a target — which organisations contacted them, on what policy areas, and how often."
+    )
 
     all_names = _sorted_unique_values(pol_returns, "full_name")
 
@@ -428,8 +450,16 @@ def _politician_profile() -> None:
         st.warning(f"No data for {td}.")
         return
 
-    chamber = person["chamber"].dropna().iloc[0] if "chamber" in person.columns and not person["chamber"].dropna().empty else "—"
-    position = person["position"].dropna().iloc[0] if "position" in person.columns and not person["position"].dropna().empty else "—"
+    chamber = (
+        person["chamber"].dropna().iloc[0]
+        if "chamber" in person.columns and not person["chamber"].dropna().empty
+        else "—"
+    )
+    position = (
+        person["position"].dropna().iloc[0]
+        if "position" in person.columns and not person["position"].dropna().empty
+        else "—"
+    )
     total_r = person["primary_key"].nunique() if "primary_key" in person.columns else len(person)
     total_o = person["lobbyist_name"].nunique() if "lobbyist_name" in person.columns else 0
     total_a = person["public_policy_area"].nunique() if "public_policy_area" in person.columns else 0
@@ -473,12 +503,14 @@ def _politician_profile() -> None:
     filtered = person.loc[mask]
 
     _section(f"Returns targeting {td} ({len(filtered)})")
-    view_cols = [c for c in ["lobbyist_name", "lobby_url", "public_policy_area", "lobbying_period_start_date"] if c in filtered.columns]
+    view_cols = [
+        c
+        for c in ["lobbyist_name", "lobby_url", "public_policy_area", "lobbying_period_start_date"]
+        if c in filtered.columns
+    ]
 
     display_df = (
-        filtered.loc[:, view_cols]
-        .sort_values("lobbying_period_start_date", ascending=False)
-        .reset_index(drop=True)
+        filtered.loc[:, view_cols].sort_values("lobbying_period_start_date", ascending=False).reset_index(drop=True)
     )
     if len(display_df) > MAX_ROWS_DISPLAY:
         st.caption(f"Showing first {MAX_ROWS_DISPLAY:,} of {len(display_df):,} rows.")
@@ -519,7 +551,9 @@ def _politician_profile() -> None:
                 use_container_width=True,
                 column_config={
                     "public_policy_area": st.column_config.TextColumn("Policy area"),
-                    "returns": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_pa or 1),
+                    "returns": st.column_config.ProgressColumn(
+                        "Returns", format="%d", min_value=0, max_value=max_pa or 1
+                    ),
                 },
             )
             _export(pa, f"{td.replace(' ', '_')}_policy_areas.csv", "pol_pa_exp")
@@ -541,7 +575,9 @@ def _politician_profile() -> None:
                 use_container_width=True,
                 column_config={
                     "lobbyist_name": st.column_config.TextColumn("Organisation"),
-                    "returns": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_ob or 1),
+                    "returns": st.column_config.ProgressColumn(
+                        "Returns", format="%d", min_value=0, max_value=max_ob or 1
+                    ),
                 },
             )
             _export(ob, f"{td.replace(' ', '_')}_orgs.csv", "pol_org_exp")
@@ -556,7 +592,9 @@ def _lobbyist_profile() -> None:
         st.info("No lobbyist returns data found. Run the pipeline first.")
         return
 
-    st.caption("Search for a lobbying organisation to see their full filing history — which politicians they targeted, what policy areas they focused on, and how their activity has changed over time.")
+    st.caption(
+        "Search for a lobbying organisation to see their full filing history — which politicians they targeted, what policy areas they focused on, and how their activity has changed over time."
+    )
 
     all_orgs = _sorted_unique_values(lob_returns, "lobbyist_name")
 
@@ -604,15 +642,24 @@ def _lobbyist_profile() -> None:
 
     total_r = org_returns["primary_key"].nunique() if "primary_key" in org_returns.columns else len(org_returns)
     total_a = org_returns["public_policy_area"].nunique() if "public_policy_area" in org_returns.columns else 0
-    active_span = f"{pers_row['active_span_days'] / 365.25:.0f}y" if pers_row is not None and pd.notna(pers_row.get("active_span_days")) else "—"
-    periods = int(pers_row["distinct_periods_filed"]) if pers_row is not None and pd.notna(pers_row.get("distinct_periods_filed")) else "—"
-    est_reach = f"{int(reach_row['total_reach_estimate']):,}" if reach_row is not None and pd.notna(reach_row.get("total_reach_estimate")) else "—"
+    active_span = (
+        f"{pers_row['active_span_days'] / 365.25:.0f}y"
+        if pers_row is not None and pd.notna(pers_row.get("active_span_days"))
+        else "—"
+    )
+    periods = (
+        int(pers_row["distinct_periods_filed"])
+        if pers_row is not None and pd.notna(pers_row.get("distinct_periods_filed"))
+        else "—"
+    )
+    est_reach = (
+        f"{int(reach_row['total_reach_estimate']):,}"
+        if reach_row is not None and pd.notna(reach_row.get("total_reach_estimate"))
+        else "—"
+    )
 
     st.markdown(
-        '<hr class="section-rule">'
-        f'<div style="padding:0 0 1rem 0;">'
-        f'<div class="td-name">{org}</div>'
-        f"</div>",
+        f'<hr class="section-rule"><div style="padding:0 0 1rem 0;"><div class="td-name">{org}</div></div>',
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -630,17 +677,18 @@ def _lobbyist_profile() -> None:
     area_filter = st.selectbox("Filter by policy area", area_opts, key="lob_area")
 
     filtered = (
-        org_returns if area_filter == "All areas"
-        else org_returns.loc[org_returns["public_policy_area"] == area_filter]
+        org_returns if area_filter == "All areas" else org_returns.loc[org_returns["public_policy_area"] == area_filter]
     )
 
     _section(f"Returns filed by {org} ({len(filtered)})")
-    view_cols = [c for c in ["primary_key", "lobby_url", "public_policy_area", "relevant_matter", "lobbying_period_start_date"] if c in filtered.columns]
+    view_cols = [
+        c
+        for c in ["primary_key", "lobby_url", "public_policy_area", "relevant_matter", "lobbying_period_start_date"]
+        if c in filtered.columns
+    ]
 
     display_df = (
-        filtered.loc[:, view_cols]
-        .sort_values("lobbying_period_start_date", ascending=False)
-        .reset_index(drop=True)
+        filtered.loc[:, view_cols].sort_values("lobbying_period_start_date", ascending=False).reset_index(drop=True)
     )
     if len(display_df) > MAX_ROWS_DISPLAY:
         st.caption(f"Showing first {MAX_ROWS_DISPLAY:,} of {len(display_df):,} rows.")
@@ -689,7 +737,9 @@ def _browse_returns() -> None:
         st.info("No returns data found. Run the pipeline first.")
         return
 
-    st.caption("Every individual lobbying return in the dataset. Filter by organisation, policy area, year, or grassroots campaign status. Use the CSV export for further analysis.")
+    st.caption(
+        "Every individual lobbying return in the dataset. Filter by organisation, policy area, year, or grassroots campaign status. Use the CSV export for further analysis."
+    )
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -728,22 +778,24 @@ def _browse_returns() -> None:
 
     _section(f"{len(filtered):,} returns")
 
-    view_cols = [c for c in [
-        "lobbyist_name",
-        "lobby_url",
-        "public_policy_area",
-        "relevant_matter",
-        "person_primarily_responsible",
-        "was_this_a_grassroots_campaign",
-        "was_this_lobbying_done_on_behalf_of_a_client",
-        "lobbying_period_start_date",
-        "lobbying_period_end_date",
-    ] if c in filtered.columns]
+    view_cols = [
+        c
+        for c in [
+            "lobbyist_name",
+            "lobby_url",
+            "public_policy_area",
+            "relevant_matter",
+            "person_primarily_responsible",
+            "was_this_a_grassroots_campaign",
+            "was_this_lobbying_done_on_behalf_of_a_client",
+            "lobbying_period_start_date",
+            "lobbying_period_end_date",
+        ]
+        if c in filtered.columns
+    ]
 
     display_df = (
-        filtered.loc[:, view_cols]
-        .sort_values("lobbying_period_start_date", ascending=False)
-        .reset_index(drop=True)
+        filtered.loc[:, view_cols].sort_values("lobbying_period_start_date", ascending=False).reset_index(drop=True)
     )
     if len(display_df) > MAX_ROWS_DISPLAY:
         st.caption(f"Showing first {MAX_ROWS_DISPLAY:,} of {len(display_df):,} rows.")
@@ -818,7 +870,11 @@ def _revolving_door() -> None:
     )
 
     _section("Ranked by lobbying activity")
-    max_r = int(summary["returns_involved_in"].max()) if not summary.empty and "returns_involved_in" in summary.columns else 1
+    max_r = (
+        int(summary["returns_involved_in"].max())
+        if not summary.empty and "returns_involved_in" in summary.columns
+        else 1
+    )
     st.dataframe(
         summary.sort_values("returns_involved_in", ascending=False).reset_index(drop=True),
         hide_index=True,
@@ -827,7 +883,9 @@ def _revolving_door() -> None:
             name_col: st.column_config.TextColumn("Name", width="large"),
             "current_or_former_dpos_position": st.column_config.TextColumn("Former position"),
             "current_or_former_dpos_chamber": st.column_config.TextColumn("Chamber", width="small"),
-            "returns_involved_in": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_r or 1),
+            "returns_involved_in": st.column_config.ProgressColumn(
+                "Returns", format="%d", min_value=0, max_value=max_r or 1
+            ),
             "distinct_lobbyist_firms": st.column_config.NumberColumn("Firms"),
             "distinct_policy_areas": st.column_config.NumberColumn("Policy areas"),
             "distinct_politicians_targeted": st.column_config.NumberColumn("Politicians targeted"),
@@ -859,20 +917,22 @@ def _revolving_door() -> None:
             else:
                 merged = person_detail
 
-            dcols = [c for c in [
-                name_col,
-                "lobby_url",
-                "lobbyist_name",
-                "public_policy_area",
-                "lobbying_period_start_date",
-                "specific_details",
-                "intended_results",
-            ] if c in merged.columns]
+            dcols = [
+                c
+                for c in [
+                    name_col,
+                    "lobby_url",
+                    "lobbyist_name",
+                    "public_policy_area",
+                    "lobbying_period_start_date",
+                    "specific_details",
+                    "intended_results",
+                ]
+                if c in merged.columns
+            ]
 
             display_df = (
-                merged.loc[:, dcols]
-                .sort_values("lobbying_period_start_date", ascending=False)
-                .reset_index(drop=True)
+                merged.loc[:, dcols].sort_values("lobbying_period_start_date", ascending=False).reset_index(drop=True)
             )
             if len(display_df) > MAX_ROWS_DISPLAY:
                 st.caption(f"Showing first {MAX_ROWS_DISPLAY:,} of {len(display_df):,} rows.")
@@ -941,7 +1001,9 @@ def _transparency() -> None:
                 use_container_width=True,
                 column_config={
                     "lobbyist_name": st.column_config.TextColumn("Organisation", width="large"),
-                    "median_days_to_publish": st.column_config.ProgressColumn("Median days", format="%d", min_value=0, max_value=max_days or 1),
+                    "median_days_to_publish": st.column_config.ProgressColumn(
+                        "Median days", format="%d", min_value=0, max_value=max_days or 1
+                    ),
                     "max_days_to_publish": st.column_config.NumberColumn("Max days"),
                     "returns_filed": st.column_config.NumberColumn("Returns"),
                 },
@@ -954,9 +1016,18 @@ def _transparency() -> None:
         if not desc_lengths.empty and "total_desc_len" in desc_lengths.columns:
             shortest = desc_lengths.sort_values("total_desc_len").head(30).reset_index(drop=True)
             median_len = int(desc_lengths["total_desc_len"].median()) if not desc_lengths.empty else 1
-            display_cols = [c for c in ["lobbyist_name", "lobby_url", "total_desc_len",
-                "specific_details_len", "intended_results_len", "lobbying_period_start_date"]
-                if c in shortest.columns]
+            display_cols = [
+                c
+                for c in [
+                    "lobbyist_name",
+                    "lobby_url",
+                    "total_desc_len",
+                    "specific_details_len",
+                    "intended_results_len",
+                    "lobbying_period_start_date",
+                ]
+                if c in shortest.columns
+            ]
             st.dataframe(
                 shortest[display_cols],
                 hide_index=True,
@@ -964,7 +1035,9 @@ def _transparency() -> None:
                 column_config={
                     "lobbyist_name": st.column_config.TextColumn("Organisation"),
                     "lobby_url": _link(),
-                    "total_desc_len": st.column_config.ProgressColumn("Total chars", format="%d", min_value=0, max_value=median_len or 1),
+                    "total_desc_len": st.column_config.ProgressColumn(
+                        "Total chars", format="%d", min_value=0, max_value=median_len or 1
+                    ),
                     "specific_details_len": st.column_config.NumberColumn("Specific details"),
                     "intended_results_len": st.column_config.NumberColumn("Intended results"),
                     "lobbying_period_start_date": st.column_config.TextColumn("Period"),
@@ -972,7 +1045,12 @@ def _transparency() -> None:
             )
             _export(shortest, "shortest_descriptions.csv", "tr_desc_exp")
 
-    if not late_filers.empty and not desc_lengths.empty and "lobbyist_name" in late_filers.columns and "lobbyist_name" in desc_lengths.columns:
+    if (
+        not late_filers.empty
+        and not desc_lengths.empty
+        and "lobbyist_name" in late_filers.columns
+        and "lobbyist_name" in desc_lengths.columns
+    ):
         _section("Transparency scorecard — per organisation")
         st.caption("Filing latency combined with average description length per organisation.")
         avg_desc = (
@@ -986,14 +1064,20 @@ def _transparency() -> None:
             .sort_values("median_days_to_publish", ascending=False, na_position="last")
             .reset_index(drop=True)
         )
-        max_sc = int(scorecard["median_days_to_publish"].max()) if "median_days_to_publish" in scorecard.columns and scorecard["median_days_to_publish"].notna().any() else 1
+        max_sc = (
+            int(scorecard["median_days_to_publish"].max())
+            if "median_days_to_publish" in scorecard.columns and scorecard["median_days_to_publish"].notna().any()
+            else 1
+        )
         st.dataframe(
             scorecard,
             hide_index=True,
             use_container_width=True,
             column_config={
                 "lobbyist_name": st.column_config.TextColumn("Organisation", width="large"),
-                "median_days_to_publish": st.column_config.ProgressColumn("Median days late", format="%d", min_value=0, max_value=max_sc or 1),
+                "median_days_to_publish": st.column_config.ProgressColumn(
+                    "Median days late", format="%d", min_value=0, max_value=max_sc or 1
+                ),
                 "returns_filed": st.column_config.NumberColumn("Returns"),
                 "avg_desc_len": st.column_config.NumberColumn("Avg description length"),
             },
@@ -1002,6 +1086,7 @@ def _transparency() -> None:
 
 
 # ── organisations view ────────────────────────────────────────────────
+
 
 @st.cache_data(show_spinner=False)
 def _load_orgs() -> pd.DataFrame:
@@ -1013,51 +1098,74 @@ def _load_orgs() -> pd.DataFrame:
         return pd.DataFrame()
 
     orgs_raw = pd.read_csv(_ORG_CSV, dtype=str, on_bad_lines="skip")
-    orgs = orgs_raw.rename(columns={
-        "Name":                                "lobbyist_name",
-        "Main activities of the organisation": "lobby_activities",
-        "CompanyRegistrationNumber":           "company_registration_number_orgs",
-        "CompanyRegisteredName":               "company_registered_name_orgs",
-        "Website":                             "website_orgs",
-    })
+    orgs = orgs_raw.rename(
+        columns={
+            "Name": "lobbyist_name",
+            "Main activities of the organisation": "lobby_activities",
+            "CompanyRegistrationNumber": "company_registration_number_orgs",
+            "CompanyRegisteredName": "company_registered_name_orgs",
+            "Website": "website_orgs",
+        }
+    )
 
     counts = _load("lobby_count_details.csv")
     if counts.empty:
-        orgs["sector"]           = orgs["lobby_activities"]
-        orgs["crn"]              = orgs["company_registration_number_orgs"]
-        orgs["registered_name"]  = orgs["company_registered_name_orgs"]
-        orgs["website"]          = orgs["website_orgs"].fillna("")
-        orgs["profile_url"]      = ""
-        orgs["lobby_requests_count"]      = pd.NA
+        orgs["sector"] = orgs["lobby_activities"]
+        orgs["crn"] = orgs["company_registration_number_orgs"]
+        orgs["registered_name"] = orgs["company_registered_name_orgs"]
+        orgs["website"] = orgs["website_orgs"].fillna("")
+        orgs["profile_url"] = ""
+        orgs["lobby_requests_count"] = pd.NA
         orgs["politicians_involved_count"] = pd.NA
-        keep = ["lobbyist_name", "sector", "registered_name", "crn", "website",
-                "profile_url", "lobby_requests_count", "politicians_involved_count"]
+        keep = [
+            "lobbyist_name",
+            "sector",
+            "registered_name",
+            "crn",
+            "website",
+            "profile_url",
+            "lobby_requests_count",
+            "politicians_involved_count",
+        ]
         return orgs[keep].drop_duplicates(subset=["lobbyist_name"]).reset_index(drop=True)
 
-    counts_deduped = (
-        counts.sort_values("lobby_requests_count", ascending=False)
-        .drop_duplicates(subset=["lobbyist_name"])
-        [["lobbyist_name", "lobby_requests_count", "politicians_involved_count",
-          "main_activities_of_organisation", "website",
-          "company_registration_number", "company_registered_name", "lobby_org_link"]]
-    )
-    counts_deduped["lobby_requests_count"] = pd.to_numeric(
-        counts_deduped["lobby_requests_count"], errors="coerce"
-    )
+    counts_deduped = counts.sort_values("lobby_requests_count", ascending=False).drop_duplicates(
+        subset=["lobbyist_name"]
+    )[
+        [
+            "lobbyist_name",
+            "lobby_requests_count",
+            "politicians_involved_count",
+            "main_activities_of_organisation",
+            "website",
+            "company_registration_number",
+            "company_registered_name",
+            "lobby_org_link",
+        ]
+    ]
+    counts_deduped["lobby_requests_count"] = pd.to_numeric(counts_deduped["lobby_requests_count"], errors="coerce")
     counts_deduped["politicians_involved_count"] = pd.to_numeric(
         counts_deduped["politicians_involved_count"], errors="coerce"
     )
 
     merged = orgs.merge(counts_deduped, on="lobbyist_name", how="left", suffixes=("_orgs", ""))
 
-    merged["sector"]          = merged["main_activities_of_organisation"].fillna(merged["lobby_activities"])
-    merged["crn"]             = merged["company_registration_number"].fillna(merged["company_registration_number_orgs"])
+    merged["sector"] = merged["main_activities_of_organisation"].fillna(merged["lobby_activities"])
+    merged["crn"] = merged["company_registration_number"].fillna(merged["company_registration_number_orgs"])
     merged["registered_name"] = merged["company_registered_name"].fillna(merged["company_registered_name_orgs"])
-    merged["profile_url"]     = merged.get("lobby_org_link", pd.Series(dtype=str)).fillna("")
-    merged["website"]         = merged["website"].fillna(merged["website_orgs"]).fillna("")
+    merged["profile_url"] = merged.get("lobby_org_link", pd.Series(dtype=str)).fillna("")
+    merged["website"] = merged["website"].fillna(merged["website_orgs"]).fillna("")
 
-    keep = ["lobbyist_name", "sector", "registered_name", "crn", "website",
-            "profile_url", "lobby_requests_count", "politicians_involved_count"]
+    keep = [
+        "lobbyist_name",
+        "sector",
+        "registered_name",
+        "crn",
+        "website",
+        "profile_url",
+        "lobby_requests_count",
+        "politicians_involved_count",
+    ]
     return merged[keep].drop_duplicates(subset=["lobbyist_name"]).reset_index(drop=True)
 
 
@@ -1069,17 +1177,17 @@ def _organisations() -> None:
         return
 
     with_counts = df[df["lobby_requests_count"].notna()]
-    total_orgs    = len(df)
-    total_active  = len(with_counts)
+    total_orgs = len(df)
+    total_active = len(with_counts)
     total_sectors = df["sector"].nunique()
-    top_returns   = int(with_counts["lobby_requests_count"].max()) if not with_counts.empty else 0
+    top_returns = int(with_counts["lobby_requests_count"].max()) if not with_counts.empty else 0
 
     st.markdown(
         '<div class="stat-strip">'
-        + _stat(f"{total_orgs:,}",    "Registered orgs")
-        + _stat(f"{total_active:,}",  "With filed returns")
-        + _stat(total_sectors,        "Sectors")
-        + _stat(f"{top_returns:,}",   "Most returns by one org")
+        + _stat(f"{total_orgs:,}", "Registered orgs")
+        + _stat(f"{total_active:,}", "With filed returns")
+        + _stat(total_sectors, "Sectors")
+        + _stat(f"{top_returns:,}", "Most returns by one org")
         + "</div>",
         unsafe_allow_html=True,
     )
@@ -1092,8 +1200,9 @@ def _organisations() -> None:
         sector_filter = st.selectbox("Sector", sectors, key="org_sector", label_visibility="collapsed")
     with col_n:
         st.markdown('<p class="sidebar-label">Search organisation</p>', unsafe_allow_html=True)
-        name_filter = st.text_input("Organisation name", placeholder="e.g. Ibec, IFA, Google",
-                                    key="org_name", label_visibility="collapsed")
+        name_filter = st.text_input(
+            "Organisation name", placeholder="e.g. Ibec, IFA, Google", key="org_name", label_visibility="collapsed"
+        )
 
     view = df.copy()
     if sector_filter != "All sectors":
@@ -1123,10 +1232,16 @@ def _organisations() -> None:
     else:
         max_r = int(ranked["lobby_requests_count"].max()) if not ranked.empty else 1
 
-        display = ranked[[
-            "lobbyist_name", "sector", "lobby_requests_count",
-            "politicians_involved_count", "website", "profile_url",
-        ]].copy()
+        display = ranked[
+            [
+                "lobbyist_name",
+                "sector",
+                "lobby_requests_count",
+                "politicians_involved_count",
+                "website",
+                "profile_url",
+            ]
+        ].copy()
         display["website"] = display["website"].apply(
             lambda w: f"https://{w}" if w and not str(w).startswith("http") else w
         )
@@ -1136,14 +1251,14 @@ def _organisations() -> None:
             hide_index=True,
             use_container_width=True,
             column_config={
-                "lobbyist_name":            st.column_config.TextColumn("Organisation", width="large"),
-                "sector":                   st.column_config.TextColumn("Sector"),
-                "lobby_requests_count":     st.column_config.ProgressColumn(
-                                                "Returns", format="%d",
-                                                min_value=0, max_value=max_r),
+                "lobbyist_name": st.column_config.TextColumn("Organisation", width="large"),
+                "sector": st.column_config.TextColumn("Sector"),
+                "lobby_requests_count": st.column_config.ProgressColumn(
+                    "Returns", format="%d", min_value=0, max_value=max_r
+                ),
                 "politicians_involved_count": st.column_config.NumberColumn("Politicians targeted"),
-                "website":                  st.column_config.LinkColumn("Website", display_text="Visit ↗"),
-                "profile_url":              st.column_config.LinkColumn("Lobbying.ie", display_text="Profile ↗"),
+                "website": st.column_config.LinkColumn("Website", display_text="Visit ↗"),
+                "profile_url": st.column_config.LinkColumn("Lobbying.ie", display_text="Profile ↗"),
             },
         )
         _export(display, "lobbying_organisations.csv", "org_exp")
@@ -1153,8 +1268,7 @@ def _organisations() -> None:
     sector_summary = (
         view[view["lobby_requests_count"].notna()]
         .groupby("sector", dropna=True)
-        .agg(orgs=("lobbyist_name", "count"),
-             total_returns=("lobby_requests_count", "sum"))
+        .agg(orgs=("lobbyist_name", "count"), total_returns=("lobby_requests_count", "sum"))
         .reset_index()
         .sort_values("total_returns", ascending=False)
         .reset_index(drop=True)
@@ -1166,25 +1280,25 @@ def _organisations() -> None:
             hide_index=True,
             use_container_width=True,
             column_config={
-                "sector":        st.column_config.TextColumn("Sector"),
-                "orgs":          st.column_config.NumberColumn("Orgs"),
+                "sector": st.column_config.TextColumn("Sector"),
+                "orgs": st.column_config.NumberColumn("Orgs"),
                 "total_returns": st.column_config.ProgressColumn(
-                                     "Total returns", format="%d",
-                                     min_value=0, max_value=max_sec),
+                    "Total returns", format="%d", min_value=0, max_value=max_sec
+                ),
             },
         )
 
 
 def _org_card(row: pd.Series) -> None:
     """Full profile card for a single organisation."""
-    name     = row["lobbyist_name"]
-    sector   = row["sector"] or "—"
+    name = row["lobbyist_name"]
+    sector = row["sector"] or "—"
     reg_name = row["registered_name"] or ""
-    crn      = row["crn"] or ""
-    website  = row["website"] or ""
-    url      = row["profile_url"] or ""
-    returns  = int(row["lobby_requests_count"]) if pd.notna(row["lobby_requests_count"]) else "—"
-    pols     = int(row["politicians_involved_count"]) if pd.notna(row["politicians_involved_count"]) else "—"
+    crn = row["crn"] or ""
+    website = row["website"] or ""
+    url = row["profile_url"] or ""
+    returns = int(row["lobby_requests_count"]) if pd.notna(row["lobby_requests_count"]) else "—"
+    pols = int(row["politicians_involved_count"]) if pd.notna(row["politicians_involved_count"]) else "—"
 
     if website and not str(website).startswith("http"):
         website = f"https://{website}"
@@ -1194,14 +1308,13 @@ def _org_card(row: pd.Series) -> None:
 
     badges = f'<span class="signal signal-neutral">{sector}</span>'
     if reg_name and reg_name != name:
-        badges += f'&nbsp;<span class="signal signal-neutral" style="font-weight:400;text-transform:none">{reg_name}</span>'
+        badges += (
+            f'&nbsp;<span class="signal signal-neutral" style="font-weight:400;text-transform:none">{reg_name}</span>'
+        )
     st.markdown(badges, unsafe_allow_html=True)
 
     st.markdown(
-        '<div class="stat-strip">'
-        + _stat(returns, "Returns filed")
-        + _stat(pols,    "Politicians targeted")
-        + "</div>",
+        '<div class="stat-strip">' + _stat(returns, "Returns filed") + _stat(pols, "Politicians targeted") + "</div>",
         unsafe_allow_html=True,
     )
 
@@ -1232,32 +1345,38 @@ def _org_returns(org_name: str) -> None:
 
     _section(f"Returns ({len(org_returns):,} total)")
 
-    display_cols = [c for c in [
-        "lobby_url", "relevant_matter", "public_policy_area",
-        "lobbying_period_start_date", "specific_details",
-    ] if c in org_returns.columns]
+    display_cols = [
+        c
+        for c in [
+            "lobby_url",
+            "relevant_matter",
+            "public_policy_area",
+            "lobbying_period_start_date",
+            "specific_details",
+        ]
+        if c in org_returns.columns
+    ]
 
     display = (
-        org_returns[display_cols]
-        .sort_values("lobbying_period_start_date", ascending=False)
-        .reset_index(drop=True)
+        org_returns[display_cols].sort_values("lobbying_period_start_date", ascending=False).reset_index(drop=True)
     )
     st.dataframe(
         display,
         hide_index=True,
         use_container_width=True,
         column_config={
-            "lobby_url":                    _link(),
-            "relevant_matter":              st.column_config.TextColumn("Matter", width="medium"),
-            "public_policy_area":           st.column_config.TextColumn("Policy area"),
-            "lobbying_period_start_date":   st.column_config.DateColumn("Period", format="YYYY-MM-DD"),
-            "specific_details":             st.column_config.TextColumn("Details", width="large"),
+            "lobby_url": _link(),
+            "relevant_matter": st.column_config.TextColumn("Matter", width="medium"),
+            "public_policy_area": st.column_config.TextColumn("Policy area"),
+            "lobbying_period_start_date": st.column_config.DateColumn("Period", format="YYYY-MM-DD"),
+            "specific_details": st.column_config.TextColumn("Details", width="large"),
         },
     )
-    _export(display, f"{org_name[:40].replace(' ','_')}_returns.csv", "org_ret_exp")
+    _export(display, f"{org_name[:40].replace(' ', '_')}_returns.csv", "org_ret_exp")
 
 
 # ── entry point ───────────────────────────────────────────────────────
+
 
 def lobbying_page() -> None:
     inject_css()

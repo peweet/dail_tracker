@@ -18,15 +18,17 @@ Cleaning steps:
 The result is a structured dataset of members and their declared interests, suitable for downstream analysis..
 """
 
-import fitz  # PyMuPDF
-import pathlib
 import json
-import re
-import regex
 import os
+import pathlib
+import re
+
+import fitz  # PyMuPDF
 import polars as pl
+import regex
+
 import normalise_join_key
-from config import DATA_DIR, MEMBERS_DIR, INTERESTS_PDF_DIR, GOLD_DIR
+from config import DATA_DIR, GOLD_DIR, INTERESTS_PDF_DIR, MEMBERS_DIR
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -35,14 +37,14 @@ from config import DATA_DIR, MEMBERS_DIR, INTERESTS_PDF_DIR, GOLD_DIR
 SILVER_DIR = DATA_DIR / "silver"
 
 PDF_PATHS: dict[str, pathlib.Path] = {
-    #Seanad
+    # Seanad
     "2020_seanad": INTERESTS_PDF_DIR / "2021-03-16_register-of-members-interests-seanad-eireann_en.pdf",
     "2021_seanad": INTERESTS_PDF_DIR / "2022-02-25_register-of-members-interests-seanad-eireann_en.pdf",
     "2022_seanad": INTERESTS_PDF_DIR / "2023-02-24_register-of-members-interests-seanad-eireann_en.pdf",
     "2023_seanad": INTERESTS_PDF_DIR / "2024-02-27_register-of-members-interests-seanad-eireann-2023_en.pdf",
     "2024_seanad": INTERESTS_PDF_DIR / "2025-02-27_register-of-member-s-interests-seanad-eireann-2024_en.pdf",
     "2025_seanad": INTERESTS_PDF_DIR / "2026-03-10_register-of-member-s-interests-seanad-eireann-2025_en.pdf",
-    #DAIL
+    # DAIL
     "2020_dail": INTERESTS_PDF_DIR / "2021-02-25_register-of-members-interests-dail-eireann_en.pdf",
     "2021_dail": INTERESTS_PDF_DIR / "2022-02-16_register-of-members-interests-dail-eireann_en.pdf",
     "2022_dail": INTERESTS_PDF_DIR / "2023-02-22_register-of-member-s-interests-dail-eireann-2022_en.pdf",
@@ -78,9 +80,9 @@ MINISTER_PATH = GOLD_DIR / "enriched_td_attendance.csv"
 # Extract
 # ---------------------------------------------------------------------------
 PAGE_FOOTER_RE = re.compile(
-    r"^\s*\d+\s*$"                  # bare page numbers
-    r"|IRIS OIFIGIÚIL"              # Irish Official Journal footer (both languages)
-    r"|IRIS OIFIGI"                 # truncated variant
+    r"^\s*\d+\s*$"  # bare page numbers
+    r"|IRIS OIFIGIÚIL"  # Irish Official Journal footer (both languages)
+    r"|IRIS OIFIGI"  # truncated variant
     r"|DÁIL DEBATES"
 )
 
@@ -106,7 +108,7 @@ def extract_raw_lines(pdf_path: pathlib.Path, header_skip: int = 8, footer_skip:
         text_boxes.append(lines)
 
     flat = [item for sublist in text_boxes for item in sublist]
-    return flat[header_skip: len(flat) - footer_skip]
+    return flat[header_skip : len(flat) - footer_skip]
 
 
 # ---------------------------------------------------------------------------
@@ -116,9 +118,7 @@ def extract_raw_lines(pdf_path: pathlib.Path, header_skip: int = 8, footer_skip:
 # Matches 2+ spaces preceding an all-caps name pattern mid-line, e.g.:
 # "9. Contracts … Nil  O'DONOVAN, Denis"
 #                    ^^^^^^^^^^^^^^^^^^^ — should become its own line
-EMBEDDED_NAME_RE = regex.compile(
-    r"(?<=\S)\s{2,}(?=\p{Lu}[\p{Lu}'\-]*(?:\s\p{Lu}[\p{Lu}'\-]*)*,\s)" 
-)
+EMBEDDED_NAME_RE = regex.compile(r"(?<=\S)\s{2,}(?=\p{Lu}[\p{Lu}'\-]*(?:\s\p{Lu}[\p{Lu}'\-]*)*,\s)")
 
 
 def split_embedded_names(lines: list[str]) -> list[str]:
@@ -142,6 +142,7 @@ def split_embedded_names(lines: list[str]) -> list[str]:
 # ---------------------------------------------------------------------------
 # Group
 # ---------------------------------------------------------------------------
+
 
 def group_lines(
     lines: list[str],
@@ -170,6 +171,7 @@ def group_lines(
 # ---------------------------------------------------------------------------
 # Parse
 # ---------------------------------------------------------------------------
+
 
 def parse_members(grouped: list[str], member_name: regex.Pattern) -> list[dict]:
     """Walk grouped blocks and build [{name, interests}] — one dict per TD.
@@ -339,11 +341,7 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
     declared' rows are never dropped.
     """
     df = df.explode("interests")
-    df = df.with_columns(
-        pl.col("name")
-        .str.split(by=r"\s{2,}", literal=False)
-        .alias("name_and_constituency")
-    )
+    df = df.with_columns(pl.col("name").str.split(by=r"\s{2,}", literal=False).alias("name_and_constituency"))
     df = df.with_columns(
         pl.col("name_and_constituency").list.get(0).alias("name"),
         pl.col("name_and_constituency").list.get(1, null_on_oob=True).alias("constituency"),
@@ -360,48 +358,86 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
         .str.strip_chars_start('" ')
         .str.strip_chars_end('"')
         .str.replace_all(r"\xa0", " ")
-        .str.replace_all(
-            r"(Etc|including property|Property supplied |or lent  or a Service supplied  )", ""
-        )
+        .str.replace_all(r"(Etc|including property|Property supplied |or lent  or a Service supplied  )", "")
         .str.replace_all(
             r"(Occupations|Shares|Directorships|Land|Gifts|Property supplied or lent or a Service supplied|Travel Facilities|Remunerated Position|Contracts)",
             "",
         )
-        .str.replace_all(r'"Etc\b', "") # Remove 'Etc' when it appears at the start of the description, as it's a common trailing word that adds no meaning and can interfere with parsing (e.g. "Rental income from Smith Ltd etc" → "Rental income from Smith Ltd")
-        .str.strip_chars_start() # Remove leading spaces and quotation marks that can interfere with parsing and cause false positives in filters (e.g. ' "No interests declared' would not match 'No interests declared' without the leading quote)
-        .str.replace_all(r"\s+", " ") # Collapse multiple spaces into one, including those introduced by previous substitutions
-        .str.replace_all(r"[.…]+", "") # Remove trailing ellipses that indicate continuation lines (now merged into the main line)
-        .str.replace_all(r"^\s+", "") # Remove any remaining leading whitespace that could interfere with parsing and cause false positives in filters (e.g. ' No interests declared' would not match 'No interests declared' without the leading space)
-        .str.replace_all(r"\b[1-9]\b", "") # Remove standalone numbers that are likely to be category codes or list numbers, as they add no meaning to the description and can interfere with parsing (e.g. "No interests declared 4" would not match "No interests declared" without the trailing number)
-        .str.replace_all(r"\s*\(\)\s*", " ") # Remove empty parentheses that are likely to be artifacts of formatting and add no meaning, while leaving any meaningful content within parentheses intact (e.g. "Rental income from Smith Ltd (my company) ()" would become "Rental income from Smith Ltd (my company)", preserving the meaningful parenthetical while removing the empty one)
-        .str.replace_all(r" {2,}", " ") # Collapse multiple spaces again in case previous substitutions introduced new ones
-        .str.replace_all(r'["""]', "") # Remove any remaining quotation marks that could interfere with parsing and cause false positives in filters (e.g. 'No interests declared "etc"' would not match 'No interests declared etc' without the quotes)
-         .str.replace_all(r"or lent\s*Nil?\s*or a Service supplied\s*Nil?", "Nil") # Standardize the common "Property supplied or lent or a Service supplied" category when it includes "Nil", as this phrase appears in various forms and can interfere with parsing and categorization (e.g. "Property supplied or lent or a Service supplied Nil" would become "Nil", while "Property supplied or lent or a Service supplied Rental income from Smith Ltd" would remain unchanged)
-        .str.replace(r"(or lent or a Service supplied |or lent or a service supplied|or lent or a service supplied No interests declared|or lent or a service supplied No interests declared)", "No interests declared")
-        .str.replace_all(r" {2,}", " ") # Collapse multiple spaces again in case previous substitutions introduced new ones
-        .str.replace(r"^\(\)\s*", "") # Remove empty parentheses at the start of the description that are likely to be artifacts of formatting and add no meaning, while leaving any meaningful content within parentheses intact (e.g. " () Rental income from Smith Ltd" would become "Rental income from Smith Ltd", preserving the meaningful description while removing the empty parentheses)
-        .str.replace(r'^"', "") # Remove a leading quote that can interfere with parsing and cause false positives in filters (e.g. '"No interests declared' would not match 'No interests declared' without the leading quote)
-        .str.replace(r'^"', "") # Remove a second leading quote if present, as some entries have multiple leading quotes due to formatting issues (e.g. '""No interests declared' would not match 'No interests declared' without the leading quotes)
-        .str.strip_chars_start("-:;,. ") # Remove leading punctuation and spaces that can interfere with parsing and cause false positives in filters (e.g. '- No interests declared' would not match 'No interests declared' without the leading dash and space)
-        .str.strip_chars_start("etc") # Remove 'etc' when it appears at the start of the description, as it's a common trailing word that adds no meaning and can interfere with parsing (e.g. "Etc No interests declared" would become "No interests declared")
-        .str.replace(r'"$', "") # Remove a trailing quote that can interfere with parsing and cause false positives in filters (e.g. 'No interests declared"' would not match 'No interests declared' without the trailing quote)
-        .str.replace_all(r"^(│Dr.|dr|dr.|prof|mr|mrs|ms|miss|bl)\s+", "") # Remove common honorifics and titles that can appear at the start of descriptions due to formatting issues and add no meaningful information about the interest itself, while leaving any meaningful content intact (e.g. "Dr. Rental income from Smith Ltd" would become "Rental income from Smith Ltd", while "Rental income from Dr. Smith Ltd" would remain unchanged)
+        .str.replace_all(
+            r'"Etc\b', ""
+        )  # Remove 'Etc' when it appears at the start of the description, as it's a common trailing word that adds no meaning and can interfere with parsing (e.g. "Rental income from Smith Ltd etc" → "Rental income from Smith Ltd")
+        .str.strip_chars_start()  # Remove leading spaces and quotation marks that can interfere with parsing and cause false positives in filters (e.g. ' "No interests declared' would not match 'No interests declared' without the leading quote)
+        .str.replace_all(
+            r"\s+", " "
+        )  # Collapse multiple spaces into one, including those introduced by previous substitutions
+        .str.replace_all(
+            r"[.…]+", ""
+        )  # Remove trailing ellipses that indicate continuation lines (now merged into the main line)
+        .str.replace_all(
+            r"^\s+", ""
+        )  # Remove any remaining leading whitespace that could interfere with parsing and cause false positives in filters (e.g. ' No interests declared' would not match 'No interests declared' without the leading space)
+        .str.replace_all(
+            r"\b[1-9]\b", ""
+        )  # Remove standalone numbers that are likely to be category codes or list numbers, as they add no meaning to the description and can interfere with parsing (e.g. "No interests declared 4" would not match "No interests declared" without the trailing number)
+        .str.replace_all(
+            r"\s*\(\)\s*", " "
+        )  # Remove empty parentheses that are likely to be artifacts of formatting and add no meaning, while leaving any meaningful content within parentheses intact (e.g. "Rental income from Smith Ltd (my company) ()" would become "Rental income from Smith Ltd (my company)", preserving the meaningful parenthetical while removing the empty one)
+        .str.replace_all(
+            r" {2,}", " "
+        )  # Collapse multiple spaces again in case previous substitutions introduced new ones
+        .str.replace_all(
+            r'["""]', ""
+        )  # Remove any remaining quotation marks that could interfere with parsing and cause false positives in filters (e.g. 'No interests declared "etc"' would not match 'No interests declared etc' without the quotes)
+        .str.replace_all(
+            r"or lent\s*Nil?\s*or a Service supplied\s*Nil?", "Nil"
+        )  # Standardize the common "Property supplied or lent or a Service supplied" category when it includes "Nil", as this phrase appears in various forms and can interfere with parsing and categorization (e.g. "Property supplied or lent or a Service supplied Nil" would become "Nil", while "Property supplied or lent or a Service supplied Rental income from Smith Ltd" would remain unchanged)
+        .str.replace(
+            r"(or lent or a Service supplied |or lent or a service supplied|or lent or a service supplied No interests declared|or lent or a service supplied No interests declared)",
+            "No interests declared",
+        )
+        .str.replace_all(
+            r" {2,}", " "
+        )  # Collapse multiple spaces again in case previous substitutions introduced new ones
+        .str.replace(
+            r"^\(\)\s*", ""
+        )  # Remove empty parentheses at the start of the description that are likely to be artifacts of formatting and add no meaning, while leaving any meaningful content within parentheses intact (e.g. " () Rental income from Smith Ltd" would become "Rental income from Smith Ltd", preserving the meaningful description while removing the empty parentheses)
+        .str.replace(
+            r'^"', ""
+        )  # Remove a leading quote that can interfere with parsing and cause false positives in filters (e.g. '"No interests declared' would not match 'No interests declared' without the leading quote)
+        .str.replace(
+            r'^"', ""
+        )  # Remove a second leading quote if present, as some entries have multiple leading quotes due to formatting issues (e.g. '""No interests declared' would not match 'No interests declared' without the leading quotes)
+        .str.strip_chars_start(
+            "-:;,. "
+        )  # Remove leading punctuation and spaces that can interfere with parsing and cause false positives in filters (e.g. '- No interests declared' would not match 'No interests declared' without the leading dash and space)
+        .str.strip_chars_start(
+            "etc"
+        )  # Remove 'etc' when it appears at the start of the description, as it's a common trailing word that adds no meaning and can interfere with parsing (e.g. "Etc No interests declared" would become "No interests declared")
+        .str.replace(
+            r'"$', ""
+        )  # Remove a trailing quote that can interfere with parsing and cause false positives in filters (e.g. 'No interests declared"' would not match 'No interests declared' without the trailing quote)
+        .str.replace_all(
+            r"^(│Dr.|dr|dr.|prof|mr|mrs|ms|miss|bl)\s+", ""
+        )  # Remove common honorifics and titles that can appear at the start of descriptions due to formatting issues and add no meaningful information about the interest itself, while leaving any meaningful content intact (e.g. "Dr. Rental income from Smith Ltd" would become "Rental income from Smith Ltd", while "Rental income from Dr. Smith Ltd" would remain unchanged)
         # Longer alternatives must come before shorter ones — "Níl aon rud" before "Níl",
         # otherwise "Níl" matches first and leaves "aon rud" as a suffix.
-        .str.replace_all(r"No interests declared aon rud|etc Níl aon rud|Níl aon rud|Nil aon rud|Níl|Nil|Tada|Neamh-fheidhme|Neamh-infheidhme|Neamh infheidhme|Infheidhme", "No interests declared")
+        .str.replace_all(
+            r"No interests declared aon rud|etc Níl aon rud|Níl aon rud|Nil aon rud|Níl|Nil|Tada|Neamh-fheidhme|Neamh-infheidhme|Neamh infheidhme|Infheidhme",
+            "No interests declared",
+        )
         .str.replace(r"No interests declared\s+\d{2}$", "No interests declared")
         .str.replace(r"No interests declared\s+\d{3}$", "No interests declared")
         # Collapse accidental double-substitutions (e.g. "No interests declared No interests declared")
         .str.replace_all(r"(?:No interests declared\s*){2,}", "No interests declared")
-        .str.replace(r"(lord:|lord)", "Landlord:") # Standardize 'lord' to 'Landlord' when it appears in the description, as this is a common shorthand for landlord status that can interfere with parsing and categorization (e.g. "Rental income from Smith Ltd lord" would become "Rental income from Smith Ltd Landlord", while "Rental income from Lord of the Manor" would remain unchanged)
+        .str.replace(
+            r"(lord:|lord)", "Landlord:"
+        )  # Standardize 'lord' to 'Landlord' when it appears in the description, as this is a common shorthand for landlord status that can interfere with parsing and categorization (e.g. "Rental income from Smith Ltd lord" would become "Rental income from Smith Ltd Landlord", while "Rental income from Lord of the Manor" would remain unchanged)
         .str.strip_chars()
         .alias("interest_description_cleaned")
     )
 
     df = df.with_columns(
-        pl.col("interest_code")
-        .replace(INTEREST_CODE_MAP, default=pl.col("interest_code"))
-        .alias("interest_category")
+        pl.col("interest_code").replace(INTEREST_CODE_MAP, default=pl.col("interest_code")).alias("interest_category")
     )
 
     df = df.with_columns(
@@ -409,9 +445,7 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
         pl.col("full_name").list.get(1).alias("first_name"),
     ).drop("full_name")
 
-    df = df.with_columns(
-        pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key")
-    ).filter(
+    df = df.with_columns(pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key")).filter(
         pl.col("interest_description_raw") != str(year),
         pl.col("interest_description_cleaned") != str(year),
         pl.col("interest_category") != str(year),
@@ -423,9 +457,9 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
         .alias("split_interests")
     ).explode("split_interests")
 
-    df = df.with_columns(
-        pl.col("split_interests").str.strip_chars().alias("interest_description_cleaned")
-    ).drop("split_interests")
+    df = df.with_columns(pl.col("split_interests").str.strip_chars().alias("interest_description_cleaned")).drop(
+        "split_interests"
+    )
 
     # --- Fragment filter (TEST) ---
     # In split categories (1,2,3,4,9), real entries follow 'Name, Address: description'.
@@ -440,19 +474,20 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
     INTEREST_CODES = {"2", "3", "9"}
     is_colon_cat = pl.col("interest_code").is_in(INTEREST_CODES)
     has_colon = pl.col("interest_description_cleaned").str.contains(":")
-    is_declared = pl.col("interest_description_cleaned").str.contains(
-        r"(?i)no interests declared|nil"
-    )
+    is_declared = pl.col("interest_description_cleaned").str.contains(r"(?i)no interests declared|nil")
     df = df.filter(~is_colon_cat | has_colon | is_declared)
 
     df = df.with_columns(
         pl.when(
-            (~pl.col("interest_description_cleaned").is_in(
-                ["ceased", "no rental income", "I own no land or residences"]
-            ))
+            (
+                ~pl.col("interest_description_cleaned").is_in(
+                    ["ceased", "no rental income", "I own no land or residences"]
+                )
+            )
             & (
-                pl.col("interest_description_cleaned")
-                .str.contains("let|rented|ARP|Léasóir|etc Lessor|Rental|rent received|Leasóir|Léasóir|lord|letting|renting|rental|HAP|RAS Scheme|lessor|Lessor|lord:")
+                pl.col("interest_description_cleaned").str.contains(
+                    "let|rented|ARP|Léasóir|etc Lessor|Rental|rent received|Leasóir|Léasóir|lord|letting|renting|rental|HAP|RAS Scheme|lessor|Lessor|lord:"
+                )
             )
         )
         .then(pl.lit("true"))
@@ -470,16 +505,11 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
         .otherwise(0)
         .alias("interest_flag")
     )
-    df = df.with_columns(
-        pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key")
-    )
+    df = df.with_columns(pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key"))
     df = df.with_columns(
         pl.when(
             (pl.col("interest_code") == "4") & (pl.col("is_landlord") == True)
-            | (
-                (pl.col("interest_code") == "4")
-                & (pl.col("interest_description_cleaned") != "No interests declared")
-            )
+            | ((pl.col("interest_code") == "4") & (pl.col("interest_description_cleaned") != "No interests declared"))
         )
         .then(pl.lit("TRUE"))
         .otherwise(pl.lit("FALSE"))
@@ -492,6 +522,7 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
 # Join
 # ---------------------------------------------------------------------------
 
+
 def join_master_list(
     df: pl.DataFrame,
     master_path: pathlib.Path,
@@ -500,12 +531,12 @@ def join_master_list(
     """Join cleaned interests against the master member list and optional ministerial office lookup."""
     df = normalise_join_key.normalise_df_td_name(df, "join_key")
 
-    master = pl.read_csv(master_path).select(
-        ["unique_member_code", "first_name", "last_name", "constituency_name", "full_name", "party"]
-    ).unique()
-    master = master.with_columns(
-        pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key")
+    master = (
+        pl.read_csv(master_path)
+        .select(["unique_member_code", "first_name", "last_name", "constituency_name", "full_name", "party"])
+        .unique()
     )
+    master = master.with_columns(pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key"))
     master = normalise_join_key.normalise_df_td_name(master, "join_key")
 
     result = (
@@ -516,21 +547,21 @@ def join_master_list(
             .otherwise(pl.lit("registered"))
             .alias("registration_status")
         )
-        .with_columns(
-            pl.col("unique_member_code").str.extract(r"\b\d{4}\b", 0).alias("year_elected")
-        )
+        .with_columns(pl.col("unique_member_code").str.extract(r"\b\d{4}\b", 0).alias("year_elected"))
         .drop("join_key")
     )
     drop_cols = ["first_name_right", "interests", "name", "interest_description_raw", "last_name_right"]
     if minister_path is not None:
-        ministers = pl.read_csv(minister_path).select(
-            ["unique_member_code", "ministerial_office_filled"]
-        ).unique(subset=["unique_member_code"])
+        ministers = (
+            pl.read_csv(minister_path)
+            .select(["unique_member_code", "ministerial_office_filled"])
+            .unique(subset=["unique_member_code"])
+        )
         result = result.join(ministers, on="unique_member_code", how="left")
     result = result.drop([c for c in drop_cols if c in result.columns])
-    result = result.with_columns(
-        pl.col("interest_flag").sum().over("unique_member_code").alias("interest_count")
-    ).drop("interest_flag")
+    result = result.with_columns(pl.col("interest_flag").sum().over("unique_member_code").alias("interest_count")).drop(
+        "interest_flag"
+    )
     return result
 
 
@@ -538,19 +569,20 @@ def join_master_list(
 # Combine
 # ---------------------------------------------------------------------------
 
+
 def combine_years(silver_dir: pathlib.Path, years: list[str], case: str) -> pl.DataFrame:
     """Read per-year CSVs, tag with year_declared, concatenate, filter, sort, and write combined."""
     frames = []
     for year_key in years:
         numeric_year = int(year_key.split("_")[0])
         path = silver_dir / f"{case}_member_interests_grouped_{year_key}.csv"
-        frames.append(
-            pl.read_csv(path).with_columns(year_declared=pl.lit(numeric_year))
-        )
+        frames.append(pl.read_csv(path).with_columns(year_declared=pl.lit(numeric_year)))
     combined = (
         pl.concat(frames)
         .filter(
-            ~pl.col("interest_code").cast(pl.String).is_in(["2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"])
+            ~pl.col("interest_code")
+            .cast(pl.String)
+            .is_in(["2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"])
         )
         .sort(["unique_member_code", "year_declared", "interest_code"])
     )
@@ -564,6 +596,7 @@ def combine_years(silver_dir: pathlib.Path, years: list[str], case: str) -> pl.D
 # Save
 # ---------------------------------------------------------------------------
 
+
 def save_output(df: pl.DataFrame, filename: str, silver_dir: pathlib.Path = SILVER_DIR) -> None:
     """Write a DataFrame to the silver directory."""
     silver_dir.mkdir(parents=True, exist_ok=True)
@@ -575,6 +608,7 @@ def save_output(df: pl.DataFrame, filename: str, silver_dir: pathlib.Path = SILV
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     print("=== Member interest pipeline starting ===")
@@ -622,12 +656,7 @@ def main() -> None:
         save_output(df, f"{case.lower()}_member_interests_grouped_{year_key}.csv")
 
         # Keep Seanad intermediate JSONs for manual mismatch inspection; delete Dáil ones.
-        if case == "DAIL" and os.path.exists(json_path):
-            # os.remove(json_path)
-            print(f"  Kept intermediate JSON for inspection: {json_path.name}")
-
-            # print(f"  Removed intermediate JSON: {json_path.name}")
-        elif case == "SEANAD":
+        if case == "DAIL" and os.path.exists(json_path) or case == "SEANAD":
             # os.remove(json_path)
             print(f"  Kept intermediate JSON for inspection: {json_path.name}")
 
@@ -645,7 +674,6 @@ if __name__ == "__main__":
     main()
 
 
-
 # import fitz  # PyMuPDF
 # import pathlib
 # import json
@@ -660,7 +688,7 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 # CURRENT SCRIPT (to be replaced by main() once refactor is complete)
 # ---------------------------------------------------------------------------
-#double check years and file paths below before running — it's easy to accidentally mix up 2024 and 2025 PDFs, which will silently produce wrong outputs (e.g. 2024 CSV with 2025 data, which will then be filtered out in the combine step, resulting in an empty combined file).
+# double check years and file paths below before running — it's easy to accidentally mix up 2024 and 2025 PDFs, which will silently produce wrong outputs (e.g. 2024 CSV with 2025 data, which will then be filtered out in the combine step, resulting in an empty combined file).
 # member_interest_2014= MEMBERS_DIR / "pdf_member_interest" / "2015-03-11_register-of-members-interests-dail-eireann_en.pdf"
 # member_interest_2015= MEMBERS_DIR / "pdf_member_interest" / "2016-03-01_register-of-members-interests-dail-eireann_en.pdf"
 # member_interest_2016 = MEMBERS_DIR / "pdf_member_interest" / "2017-03-10_register-of-members-interests-dail-eireann_en.pdf"
@@ -683,14 +711,14 @@ if __name__ == "__main__":
 # # member_interest_2016,
 # # member_interest_2017,
 # # member_interest_2018,
-# # member_interest_2019, 
+# # member_interest_2019,
 # member_interest_2020, member_interest_2021, member_interest_2022, member_interest_2023, member_interest_2024, member_interest_2025]
 
 # for member_interest_pdf in member_interest:
 #     year = 2020 if member_interest_pdf == member_interest_2020 else 2021 if member_interest_pdf == member_interest_2021 else 2022 if member_interest_pdf == member_interest_2022 else 2023 if member_interest_pdf == member_interest_2023 else 2024 if member_interest_pdf == member_interest_2024 else 2025
 
 #     categories = re.compile(r"^\d+\.\s")       # "1. ", "2. " etc.
-#     member_name = regex.compile(r"^\p{Lu}[\p{Lu}'\-]*(?:\s\p{Lu}[\p{Lu}'\-]*)*,\s") # 
+#     member_name = regex.compile(r"^\p{Lu}[\p{Lu}'\-]*(?:\s\p{Lu}[\p{Lu}'\-]*)*,\s") #
 
 #     print("Starting to process member interest PDF...")
 #     doc = fitz.open(member_interest_pdf)
@@ -776,7 +804,7 @@ if __name__ == "__main__":
 #     df = df.explode("interests")
 #     df = df.with_columns(
 #         pl.col('name').str.split(
-#             by=r"\s{2,}", 
+#             by=r"\s{2,}",
 #             literal=False
 #             ).alias('name_and_constituency'))
 
@@ -787,14 +815,14 @@ if __name__ == "__main__":
 #     df = df.with_columns(
 #         pl.col('constituency').str.strip_chars("()"),
 #         pl.col('name').str.split(
-#             by=r",", 
+#             by=r",",
 #             literal=True
 #             ).alias('full_name'),
 #         pl.col('interests').str.splitn(
-#             by=r".", 
+#             by=r".",
 #             n=2).alias('interests_code')
 #     ).unnest("interests_code")
-#     df = df.rename({'field_0': 'interest_code', 
+#     df = df.rename({'field_0': 'interest_code',
 #                     'field_1': 'interest_description_raw'})
 #     df = df.with_columns(
 #         pl.col('interests')
@@ -820,7 +848,7 @@ if __name__ == "__main__":
 #         .str.replace_all(r'["""]', "")
 #         .str.replace_all(r'or lent or a Service supplied ', '')
 #         .str.replace_all(r"or lent\s*Nil?\s*or a Service supplied\s*Nil?", "Nil")
-#         .str.replace_all(r" {2,}", " ") # 
+#         .str.replace_all(r" {2,}", " ") #
 #         .str.replace(r"^\(\)\s*", "")
 #         .str.replace(r'^"', "")
 #         .str.replace(r'^"', "")
@@ -916,11 +944,11 @@ if __name__ == "__main__":
 
 #     master_td_list = pl.read_csv(DATA_DIR / 'silver' / 'flattened_members.csv')
 #     master_td_list = master_td_list.select(
-#         ['unique_member_code', 
-#         'first_name', 
-#         'last_name', 
-#         'constituency_name', 
-#         'full_name', 
+#         ['unique_member_code',
+#         'first_name',
+#         'last_name',
+#         'constituency_name',
+#         'full_name',
 #         'party']
 #     ).unique()
 #     master_td_list = master_td_list.with_columns(
@@ -939,7 +967,7 @@ if __name__ == "__main__":
 #     ).with_columns(
 #         pl.col('unique_member_code').str.extract(r"\b\d{4}\b", 0).alias('year_elected')
 #     ).drop('join_key')
-    
+
 #     is_minister_or_not = pl.read_csv(f"{MEMBERS_DIR}/enriched_td_attendance.csv")
 #     is_minister_or_not = is_minister_or_not.select(
 #         ['unique_member_code', 'ministerial_office_filled']
@@ -948,12 +976,12 @@ if __name__ == "__main__":
 #     registered_unregistered = registered_unregistered.join(
 #         is_minister_or_not, on='unique_member_code', how='left'
 #     ).drop('first_name_right', 'interests', 'name', 'interest_description_raw', 'last_name_right')
-    
+
 #     # Add interest count per member (excluding "No interests declared")
 #     registered_unregistered = registered_unregistered.with_columns(
 #         pl.col('interest_flag').sum().over('unique_member_code').alias('interest_count')
 #     ).drop('interest_flag')
-    
+
 #     registered_unregistered.write_csv(MEMBERS_DIR / f"member_interests_grouped_{year}.csv")
 
 #     print(f"Processed {len(members)} members")
@@ -982,7 +1010,7 @@ if __name__ == "__main__":
 # df25 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2025.csv").with_columns(year_declared=pl.lit(2025))
 # df21 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2021.csv").with_columns(year_declared=pl.lit(2021))
 # df_20 = pl.read_csv(MEMBERS_DIR / "member_interests_grouped_2020.csv").with_columns(year_declared=pl.lit(2020))
-# combined = ( 
+# combined = (
 #     # df16, df14, df15,df17,df18,df19,df19,
 #     pl.concat([df20, df21, df22, df23, df24, df25])
 #     # interest_code is a string column throughout — must compare to strings, not integers.
