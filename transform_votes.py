@@ -1,21 +1,29 @@
 import json
+import logging
 import pandas as pd
 import glob
 from config import DATA_DIR, VOTES_RAW_DIR
-
+"""
+This module transforms the raw vote data extracted from the Oireachtas API into a clean, 
+structured format suitable for analysis. 
+It reads the raw JSON files containing vote records, 
+normalizes the nested structures to create a flat DataFrame, 
+and enriches the data by creating new features such as vote URLs. 
+"""
 votes = glob.glob(str(VOTES_RAW_DIR/ "*.json"))
 results = []
 for json_file in votes:
+    print(f"Loading votes from {json_file}...")
     with open(json_file, 'r', encoding="utf8") as f:
         data = json.load(f)[0]['results']
         results.extend(data)
 
-print(f"Total votes loaded: {len(results)}")
+logging.info(f"Total votes loaded: {len(results)}")
 
 def normalize_vote_data(result: dict) -> pd.DataFrame:
-    # print(f"test: {result}")
     division = result["division"]
     date = division.get("date")
+    house_number = division.get("house", {}).get("houseNo")
     outcome = division.get("outcome")
     vote_id = division.get("voteId")
     debate_title = division.get("debate", {}).get("showAs")
@@ -40,6 +48,7 @@ def normalize_vote_data(result: dict) -> pd.DataFrame:
         df["debate_title"] = debate_title
         df["vote_type"] = tally_key
         df["subject"] = subject
+        df["house_number"] = house_number
         different_vote_types.append(df)
     return different_vote_types
 
@@ -54,17 +63,13 @@ df = df.rename(columns={
     "member.uri": "member_uri",
 }).drop_duplicates().drop('member_uri', axis=1)
 
-#ISO date format is already in YYYY-MM-DD, so we can directly convert it to datetime and then extract the date part
+# Votes URL enrichment 
+# URL format: https://www.oireachtas.ie/en/bills/bill/{house_number}/{vote_date}/{vote_id}/
+# Example:    nternational Protection Bill 2026: From the Seanad = https://www.oireachtas.ie/en/debates/vote/dail/34/2026-04-15/80/
+df['vote_id'] = df['vote_id'].str.split('_').str[-1]
+df['vote_url'] = df.apply(lambda row: f"https://www.oireachtas.ie/en/debates/vote/dail/{row['house_number']}/{row['vote_date']}/{row['vote_id']}/", axis=1)
 df['date'] = pd.to_datetime(df['vote_date'], errors='coerce').dt.date
 df = df.drop('member_name', axis=1).drop('vote_date', axis=1)
-#https://www.oireachtas.ie/en/debates/vote/dail/34/2025-03-26/34/
-# format_vote_url = "https://www.oireachtas.ie/en/debates/vote/dail/"
-# for index, row in df.iterrows():
-#     dail_number = '34'
-#     date = row['date']
-#     vote_id = row['vote_id']
-#     # df['vote_url'] = f"https://www.oireachtas.ie/en/debates/vote/dail/{dail_number}/{date}/{vote_id}/"
-#     df.at[index, 'vote_url'] = format_vote_url.format(dail_number=dail_number, date=date, vote_id=vote_id)
 df = df.replace({"nilVotes": "Voted No", "taVotes": "Voted Yes", "staonVotes": "Abstained"})
 df.to_csv(DATA_DIR / "silver" / f"pretty_votes.csv", index=False)
 print("Votes data normalized and saved to pretty_votes.csv")

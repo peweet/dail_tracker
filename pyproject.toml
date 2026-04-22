@@ -87,7 +87,9 @@ all = [
 #           save_results(results, scenario)
 #
 # Until then, you can still run scripts directly: python oireachtas_api_service.py
+
 [project.scripts]
+dail-pipeline = "pipeline:main"
 # dail-members    = "oireachtas_api_service:main"
 # dail-attendance = "attendance:main"
 # dail-payments   = "payments:main"

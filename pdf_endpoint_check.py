@@ -86,7 +86,7 @@ payments_sep_2020           = f"{payment_url}/2020/2020-12-03_parliamentary-stan
 payments_aug_2020           = f"{payment_url}/2020/2020-10-21_parliamentary-standard-allowance-payments-to-deputies-for-august-2020_en.pdf"
 payments_july_2020          = f"{payment_url}/2020/2020-10-21_parliamentary-standard-allowance-payments-to-deputies-for-july-2020_en.pdf"
 payments_june_2020          = f"{payment_url}/2020/2020-08-06_parliamentary-standard-allowance-payments-to-deputies-for-june-2020_en.pdf"
-payments_may_2020           = f"{payment_url}/2020/2020-08-05_parliamentary-standard-allowance-payments-to-deputies-for-may-2020_en.pdf"
+payments_may_2020           = f"{payment_url}/0/2020-08-05_parliamentary-standard-allowance-payments-to-deputies-for-may-2020_en.pdf"
 payments_april_2020         = f"{payment_url}/2020/2020-08-05_parliamentary-standard-allowance-payments-to-deputies-for-april-2020_en.pdf"
 payments_march_2020         = f"{payment_url}/2020/2020-08-05_parliamentary-standard-allowance-payments-to-deputies-for-march-2020_en.pdf"
 payments_feb_2020           = f"{payment_url}/2020/2020-04-01_parliamentary-standard-allowance-payments-to-deputies-for-february-2020_en.pdf"
@@ -149,34 +149,94 @@ urls = [
 
 manual_endpoints = ['https://www.oireachtas.ie/en/foi/frequently-requested-information/', 'https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=record-of-attendance', 'https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=parliamentary-allowances']
 
-broken_urls = []
-def endpoint_checker(urls, session=session):
+import logging
+import requests
+
+logging.basicConfig(
+    filename="endpoint_check.log",
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+)
+
+def endpoint_checker(urls, session=session, timeout=10):
+    broken = []
+    
     for url in urls:
         try:
-            response =  session.head(url, timeout=10)
-            if response.status_code == 200:
-                print(f"{response.url} has content")
-                print("Success - API is accessible.")
-                print(f"{response.url} has content")
-            else:
-                print(f"Failure - API is accessible but PDF url is no longer working: {response.status_code}")
-                print(f"Response content: {response.content}")
-                print(f"The PDF URL {response.url} is no longer working. Please check the URL and try again.")
-                broken_urls.append(url)
-        except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError) as e:
-            print(f"Failure - Unable to establish connection: {e}.")
-            broken_urls.append(url)
-        except Exception as e:
-            print(f"Failure - Unknown error occurred: {e}. Unfortunately, this data is only available via manual PDF extraction.")
-            [print(f"Manual endpoints are here: {endpoint}") for endpoint in manual_endpoints]
-            broken_urls.append(url)
-            logging.error(f"Error checking URLs {broken_urls}: {e}")
-    return len(broken_urls) == 0
+            head = session.head(url, timeout=timeout, allow_redirects=True)
+            head.raise_for_status()
 
-def return_endpoints(urls):
-    return urls
+            content_type = (head.headers.get("Content-Type") or "").lower()
+            content_length = head.headers.get("Content-Length", "unknown")
+            last_modified = head.headers.get("Last-Modified", "unknown")
+            final_url = head.url
+
+            print(f"[OK] {url}")
+            print(f"     Final URL: {final_url}")
+            print(f"     Status: {head.status_code}")
+            print(f"     Content-Type: {content_type or 'unknown'}")
+            print(f"     Content-Length: {content_length}")
+            print(f"     Last-Modified: {last_modified}")
+
+            logging.info(
+                "OK | requested=%s | final=%s | status=%s | content_type=%s | content_length=%s | last_modified=%s",
+                url,
+                final_url,
+                head.status_code,
+                content_type or "unknown",
+                content_length,
+                last_modified,
+            )
+
+        except requests.exceptions.HTTPError as e:
+            status = getattr(e.response, "status_code", "unknown")
+            print(f"[BROKEN] {url}")
+            print(f"         HTTP error: {status}")
+            print("         Action: go to the source portal, find the new PDF URL, and update constants.py")
+            broken.append(url)
+            logging.error("HTTPError | url=%s | status=%s | error=%s", url, status, e)
+
+        except requests.exceptions.ConnectionError as e:
+            print(f"[BROKEN] {url}")
+            print(f"         Connection error: {e}")
+            print("         Action: check connectivity first, then verify the portal manually")
+            broken.append(url)
+            logging.error("ConnectionError | url=%s | error=%s", url, e)
+
+        except requests.exceptions.Timeout as e:
+            print(f"[BROKEN] {url}")
+            print(f"         Timeout: {e}")
+            print("         Action: retry later; if repeated, verify the source portal manually")
+            broken.append(url)
+            logging.error("Timeout | url=%s | error=%s", url, e)
+
+        except requests.exceptions.RequestException as e:
+            print(f"[BROKEN] {url}")
+            print(f"         Request failed: {e}")
+            print("         Action: verify the source portal and update constants.py if the PDF moved")
+            broken.append(url)
+            logging.error("RequestException | url=%s | error=%s", url, e)
+
+        except Exception as e:
+            print(f"[BROKEN] {url}")
+            print(f"         Unknown error: {e}")
+            print("         Action: manual check required")
+            broken.append(url)
+            logging.exception("Unknown error while checking url=%s", url)
+
+    return broken
+
 
 if __name__ == "__main__":
-    is_complete = endpoint_checker(urls, session=session)
-    returned_urls = return_endpoints(urls)
-    print(f"Endpoint check complete. All URLs are accessible and working correctly." if is_complete else f"Endpoint check complete. {len(broken_urls)} broken URL(s): {broken_urls}")
+    session = requests.Session()
+    
+    broken = endpoint_checker(urls, session=session)
+
+    if not broken:
+        print("Endpoint check complete. All URLs are accessible and working correctly.")
+    else:
+        print("\nEndpoint check complete.")
+        print(f"Broken URLs found: {len(broken)}")
+        for url in broken:
+            print(f" - {url}")
+        print("See endpoint_check.log for full details.")
