@@ -1,9 +1,11 @@
 import json
-from flatten_json import flatten
+
 import pandas as pd
-from utility.select_drop_rename_cols_mappings import members_rename, members_drop_cols
+from flatten_json import flatten
+
 from config import DATA_DIR, MEMBERS_DIR
 from members_api_service import fetch_members, save_members_json
+from utility.select_drop_rename_cols_mappings import members_drop_cols, members_rename
 
 
 def flatten_members_to_csv(house: str = "dail"):
@@ -16,7 +18,7 @@ def flatten_members_to_csv(house: str = "dail"):
     csv_name = "flattened_members.csv" if house == "dail" else "flattened_seanad_members.csv"
 
     members_data = fetch_members(house)
-    save_members_json(members_data, MEMBERS_DIR / f'members_{house}.json')
+    save_members_json(members_data, MEMBERS_DIR / f"members_{house}.json")
 
     all_members = [result for result in members_data.get("results", [])]
 
@@ -31,12 +33,12 @@ def flatten_members_to_csv(house: str = "dail"):
         data = json.load(f)
         flattened_data = [flatten(member) for member in data]
 
-    df = pd.DataFrame(flattened_data).fillna('Null')
+    df = pd.DataFrame(flattened_data).fillna("Null")
     df = df.rename(members_rename, axis=1)
-    df = df.drop(columns=members_drop_cols, errors='ignore')
+    df = df.drop(columns=members_drop_cols, errors="ignore")
 
-    csv_path = DATA_DIR / 'silver' / csv_name
-    df.to_csv(csv_path, index=False, encoding='utf-8')
+    csv_path = DATA_DIR / "silver" / csv_name
+    df.to_csv(csv_path, index=False, encoding="utf-8")
     print(f"Flattened {house} members saved to {csv_path}")
 
 
@@ -45,4 +47,3 @@ if __name__ == "__main__":
     flatten_members_to_csv("dail")
     flatten_members_to_csv("seanad")
     print("Member flattening complete.")
-

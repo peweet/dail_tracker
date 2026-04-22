@@ -1,4 +1,3 @@
-
 import sys
 from pathlib import Path
 
@@ -23,6 +22,7 @@ _VIEWS = [
 
 # ── data ─────────────────────────────────────────────────────────────
 
+
 @st.cache_data(show_spinner=False)
 def _load(filename: str) -> pd.DataFrame:
     p = _OUT / filename
@@ -33,9 +33,14 @@ def _load(filename: str) -> pd.DataFrame:
 
 # ── helpers ───────────────────────────────────────────────────────────
 
+
 def _export(df: pd.DataFrame, filename: str, key: str, labefl: str = "Export CSV") -> None:
     st.download_button(
-        labefl, df.to_csv(index=False).encode("utf-8"), filename, "text/csv", key=key,
+        labefl,
+        df.to_csv(index=False).encode("utf-8"),
+        filename,
+        "text/csv",
+        key=key,
     )
 
 
@@ -44,12 +49,7 @@ def _link() -> st.column_config.LinkColumn:
 
 
 def _stat(num, label: str) -> str:
-    return (
-        f"<div>"
-        f'<div class="stat-num">{num}</div>'
-        f'<div class="stat-lbl">{label}</div>'
-        f"</div>"
-    )
+    return f'<div><div class="stat-num">{num}</div><div class="stat-lbl">{label}</div></div>'
 
 
 def _section(text: str) -> None:
@@ -65,34 +65,31 @@ def _parse_dates(df: pd.DataFrame, col: str) -> pd.DataFrame:
 
 # ── views ─────────────────────────────────────────────────────────────
 
+
 def _overview() -> None:
-    returns      = _load("returns_master.csv")
+    returns = _load("returns_master.csv")
     most_lobbied = _load("most_lobbied_politicians.csv")
-    lobby_count  = _load("lobby_count_details.csv")
-    policy       = _load("experimental_policy_area_breakdown.csv")
-    quarterly    = _load("experimental_quarterly_trend.csv")
-    clients      = _load("experimental_top_client_companies.csv")
-    bilateral    = _load("experimental_bilateral_relationships.csv")
+    lobby_count = _load("lobby_count_details.csv")
+    policy = _load("experimental_policy_area_breakdown.csv")
+    quarterly = _load("experimental_quarterly_trend.csv")
+    clients = _load("experimental_top_client_companies.csv")
+    bilateral = _load("experimental_bilateral_relationships.csv")
 
     # ── stat strip ────────────────────────────────────────────────────
     if not returns.empty:
         returns = _parse_dates(returns, "lobbying_period_start_date")
         min_y = returns["lobbying_period_start_date"].min()
         max_y = returns["lobbying_period_start_date"].max()
-        date_range = (
-            f"{int(min_y.year)}–{int(max_y.year)}"
-            if pd.notna(min_y) and pd.notna(max_y) else "—"
-        )
+        date_range = f"{int(min_y.year)}–{int(max_y.year)}" if pd.notna(min_y) and pd.notna(max_y) else "—"
     else:
         date_range = "—"
 
     total_returns = len(returns)
-    total_orgs    = lobby_count["lobbyist_name"].nunique() if not lobby_count.empty else 0
-    total_pols    = most_lobbied["full_name"].nunique() if not most_lobbied.empty else 0
-    total_areas   = policy["public_policy_area"].nunique() if not policy.empty else 0
+    total_orgs = lobby_count["lobbyist_name"].nunique() if not lobby_count.empty else 0
+    total_pols = most_lobbied["full_name"].nunique() if not most_lobbied.empty else 0
+    total_areas = policy["public_policy_area"].nunique() if not policy.empty else 0
 
-    st.markdown(
-        '<h1 class="page-title">Lobbying in Ireland</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="page-title">Lobbying in Ireland</h1>', unsafe_allow_html=True)
     st.markdown(
         """
         <div style="font-size:1.1rem;line-height:1.6;margin-bottom:0.7em">
@@ -135,8 +132,7 @@ def _overview() -> None:
         _section("Most lobbied politicians")
         if not most_lobbied.empty:
             top_ml = (
-                most_lobbied
-                .groupby("full_name", as_index=False)
+                most_lobbied.groupby("full_name", as_index=False)
                 .agg(total_returns=("total_returns", "max"), distinct_orgs=("distinct_orgs", "max"))
                 .sort_values("total_returns", ascending=False)
                 .head(20)
@@ -148,9 +144,11 @@ def _overview() -> None:
                 hide_index=True,
                 use_container_width=True,
                 column_config={
-                    "full_name":       st.column_config.TextColumn("Politician"),
-                    "total_returns":   st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_r),
-                    "distinct_orgs":   st.column_config.NumberColumn("Orgs"),
+                    "full_name": st.column_config.TextColumn("Politician"),
+                    "total_returns": st.column_config.ProgressColumn(
+                        "Returns", format="%d", min_value=0, max_value=max_r
+                    ),
+                    "distinct_orgs": st.column_config.NumberColumn("Orgs"),
                 },
             )
             _export(top_ml, "most_lobbied_politicians.csv", "ov_ml_exp")
@@ -159,8 +157,7 @@ def _overview() -> None:
         _section("Most prolific lobbying organisations")
         if not lobby_count.empty:
             top_lc = (
-                lobby_count
-                .groupby("lobbyist_name", as_index=False)
+                lobby_count.groupby("lobbyist_name", as_index=False)
                 .agg(returns=("lobby_requests_count", "first"))
                 .sort_values("returns", ascending=False)
                 .head(20)
@@ -173,7 +170,9 @@ def _overview() -> None:
                 use_container_width=True,
                 column_config={
                     "lobbyist_name": st.column_config.TextColumn("Organisation", width="large"),
-                    "returns":       st.column_config.ProgressColumn("Returns filed", format="%d", min_value=0, max_value=max_lc),
+                    "returns": st.column_config.ProgressColumn(
+                        "Returns filed", format="%d", min_value=0, max_value=max_lc
+                    ),
                 },
             )
             _export(top_lc, "most_prolific_lobbyists.csv", "ov_lc_exp")
@@ -196,7 +195,7 @@ def _overview() -> None:
             use_container_width=True,
             column_config={
                 "public_policy_area": st.column_config.TextColumn("Policy area", width="large"),
-                "return_count":       st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_pa),
+                "return_count": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_pa),
                 "distinct_lobbyists": st.column_config.NumberColumn("Distinct orgs"),
             },
         )
@@ -213,12 +212,12 @@ def _overview() -> None:
             hide_index=True,
             use_container_width=True,
             column_config={
-                "client_name":                   st.column_config.TextColumn("Client company", width="large"),
-                "return_count":                  st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_cl),
-                "distinct_lobbyist_firms":        st.column_config.NumberColumn("Firms hired"),
-                "distinct_politicians_targeted":  st.column_config.NumberColumn("Politicians targeted"),
-                "distinct_policy_areas":          st.column_config.NumberColumn("Policy areas"),
-                "distinct_chambers":              st.column_config.NumberColumn("Chambers"),
+                "client_name": st.column_config.TextColumn("Client company", width="large"),
+                "return_count": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_cl),
+                "distinct_lobbyist_firms": st.column_config.NumberColumn("Firms hired"),
+                "distinct_politicians_targeted": st.column_config.NumberColumn("Politicians targeted"),
+                "distinct_policy_areas": st.column_config.NumberColumn("Policy areas"),
+                "distinct_chambers": st.column_config.NumberColumn("Chambers"),
             },
         )
         _export(clients, "top_client_companies.csv", "ov_cc_exp")
@@ -234,19 +233,21 @@ def _overview() -> None:
             hide_index=True,
             use_container_width=True,
             column_config={
-                "lobbyist_name":          st.column_config.TextColumn("Organisation", width="large"),
-                "full_name":              st.column_config.TextColumn("Politician"),
-                "chamber":                st.column_config.TextColumn("Chamber", width="small"),
-                "returns_in_relationship":st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_bl),
-                "distinct_periods":       st.column_config.NumberColumn("Periods active"),
-                "distinct_policy_areas":  st.column_config.NumberColumn("Policy areas"),
+                "lobbyist_name": st.column_config.TextColumn("Organisation", width="large"),
+                "full_name": st.column_config.TextColumn("Politician"),
+                "chamber": st.column_config.TextColumn("Chamber", width="small"),
+                "returns_in_relationship": st.column_config.ProgressColumn(
+                    "Returns", format="%d", min_value=0, max_value=max_bl
+                ),
+                "distinct_periods": st.column_config.NumberColumn("Periods active"),
+                "distinct_policy_areas": st.column_config.NumberColumn("Policy areas"),
             },
         )
         _export(bilateral, "bilateral_relationships.csv", "ov_bl_exp")
 
 
 def _politician_profile() -> None:
-    pol_returns  = _load("politician_returns_detail.csv")
+    pol_returns = _load("politician_returns_detail.csv")
     distinct_orgs = _load("experimental_distinct_orgs_per_politician.csv")
 
     if pol_returns.empty:
@@ -254,22 +255,27 @@ def _politician_profile() -> None:
         return
 
     pol_returns = _parse_dates(pol_returns, "lobbying_period_start_date")
-    all_names   = sorted(pol_returns["full_name"].dropna().unique())
+    all_names = sorted(pol_returns["full_name"].dropna().unique())
 
     # ── search + select ───────────────────────────────────────────────
     search = st.text_input(
-        "Search politician", placeholder="Type a name…",
-        key="pol_search", label_visibility="collapsed",
+        "Search politician",
+        placeholder="Type a name…",
+        key="pol_search",
+        label_visibility="collapsed",
     )
-    query          = search.strip().lower()
+    query = search.strip().lower()
     filtered_names = [n for n in all_names if query in n.lower()] if query else all_names
-    current        = st.session_state.get("pol_selected")
-    default_idx    = filtered_names.index(current) if current in filtered_names else None
+    current = st.session_state.get("pol_selected")
+    default_idx = filtered_names.index(current) if current in filtered_names else None
 
     chosen = st.selectbox(
-        "Select politician", filtered_names,
-        index=default_idx, placeholder="Select a politician…",
-        label_visibility="collapsed", key="pol_selectbox",
+        "Select politician",
+        filtered_names,
+        index=default_idx,
+        placeholder="Select a politician…",
+        label_visibility="collapsed",
+        key="pol_selectbox",
     )
     if chosen and chosen != current:
         st.session_state["pol_selected"] = chosen
@@ -283,14 +289,22 @@ def _politician_profile() -> None:
         st.warning(f"No data for {td}.")
         return
 
-    chamber  = person["chamber"].dropna().iloc[0] if "chamber" in person.columns and not person["chamber"].dropna().empty else "—"
-    position = person["position"].dropna().iloc[0] if "position" in person.columns and not person["position"].dropna().empty else "—"
-    total_r  = person["primary_key"].nunique()
-    total_o  = person["lobbyist_name"].nunique() if "lobbyist_name" in person.columns else 0
-    total_a  = person["public_policy_area"].nunique() if "public_policy_area" in person.columns else 0
-    first_d  = person["lobbying_period_start_date"].min()
-    last_d   = person["lobbying_period_start_date"].max()
-    span     = f"{int(first_d.year)}–{int(last_d.year)}" if pd.notna(first_d) and pd.notna(last_d) else "—"
+    chamber = (
+        person["chamber"].dropna().iloc[0]
+        if "chamber" in person.columns and not person["chamber"].dropna().empty
+        else "—"
+    )
+    position = (
+        person["position"].dropna().iloc[0]
+        if "position" in person.columns and not person["position"].dropna().empty
+        else "—"
+    )
+    total_r = person["primary_key"].nunique()
+    total_o = person["lobbyist_name"].nunique() if "lobbyist_name" in person.columns else 0
+    total_a = person["public_policy_area"].nunique() if "public_policy_area" in person.columns else 0
+    first_d = person["lobbying_period_start_date"].min()
+    last_d = person["lobbying_period_start_date"].max()
+    span = f"{int(first_d.year)}–{int(last_d.year)}" if pd.notna(first_d) and pd.notna(last_d) else "—"
 
     st.markdown(
         '<hr class="section-rule">'
@@ -313,10 +327,14 @@ def _politician_profile() -> None:
     # ── filters ───────────────────────────────────────────────────────
     col_f1, col_f2 = st.columns(2)
     with col_f1:
-        area_opts   = ["All areas"] + sorted(person["public_policy_area"].dropna().unique().tolist()) if "public_policy_area" in person.columns else ["All areas"]
+        area_opts = (
+            ["All areas"] + sorted(person["public_policy_area"].dropna().unique().tolist())
+            if "public_policy_area" in person.columns
+            else ["All areas"]
+        )
         area_filter = st.selectbox("Policy area", area_opts, key="pol_area")
     with col_f2:
-        years       = sorted(person["lobbying_period_start_date"].dropna().dt.year.unique().astype(int).tolist())
+        years = sorted(person["lobbying_period_start_date"].dropna().dt.year.unique().astype(int).tolist())
         year_filter = st.selectbox("Year", ["All years"] + [str(y) for y in years], key="pol_year")
 
     filtered = person.copy()
@@ -327,15 +345,19 @@ def _politician_profile() -> None:
 
     # ── returns table ─────────────────────────────────────────────────
     _section(f"Returns targeting {td} ({len(filtered)})")
-    view_cols = [c for c in ["lobbyist_name", "lobby_url", "public_policy_area", "lobbying_period_start_date"] if c in filtered.columns]
+    view_cols = [
+        c
+        for c in ["lobbyist_name", "lobby_url", "public_policy_area", "lobbying_period_start_date"]
+        if c in filtered.columns
+    ]
     st.dataframe(
         filtered[view_cols].sort_values("lobbying_period_start_date", ascending=False).reset_index(drop=True),
         hide_index=True,
         use_container_width=True,
         column_config={
-            "lobbyist_name":              st.column_config.TextColumn("Organisation", width="large"),
-            "lobby_url":                  _link(),
-            "public_policy_area":         st.column_config.TextColumn("Policy area"),
+            "lobbyist_name": st.column_config.TextColumn("Organisation", width="large"),
+            "lobby_url": _link(),
+            "public_policy_area": st.column_config.TextColumn("Policy area"),
             "lobbying_period_start_date": st.column_config.DateColumn("Period start", format="YYYY-MM-DD"),
         },
     )
@@ -348,13 +370,16 @@ def _politician_profile() -> None:
         if "public_policy_area" in filtered.columns:
             pa = (
                 filtered.groupby("public_policy_area")["primary_key"]
-                .nunique().reset_index()
+                .nunique()
+                .reset_index()
                 .rename(columns={"primary_key": "returns"})
                 .sort_values("returns", ascending=False)
             )
             max_pa = int(pa["returns"].max()) or 1
             st.dataframe(
-                pa, hide_index=True, use_container_width=True,
+                pa,
+                hide_index=True,
+                use_container_width=True,
                 column_config={
                     "public_policy_area": st.column_config.TextColumn("Policy area"),
                     "returns": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_pa),
@@ -367,13 +392,16 @@ def _politician_profile() -> None:
         if "lobbyist_name" in filtered.columns:
             ob = (
                 filtered.groupby("lobbyist_name")["primary_key"]
-                .nunique().reset_index()
+                .nunique()
+                .reset_index()
                 .rename(columns={"primary_key": "returns"})
                 .sort_values("returns", ascending=False)
             )
             max_ob = int(ob["returns"].max()) or 1
             st.dataframe(
-                ob, hide_index=True, use_container_width=True,
+                ob,
+                hide_index=True,
+                use_container_width=True,
                 column_config={
                     "lobbyist_name": st.column_config.TextColumn("Organisation"),
                     "returns": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_ob),
@@ -385,29 +413,34 @@ def _politician_profile() -> None:
 def _lobbyist_profile() -> None:
     lob_returns = _load("lobbyist_returns_detail.csv")
     persistence = _load("experimental_lobbyist_persistence.csv")
-    reach       = _load("experimental_reach_by_lobbyist.csv")
+    reach = _load("experimental_reach_by_lobbyist.csv")
 
     if lob_returns.empty:
         st.info("No lobbyist returns data found. Run the pipeline first.")
         return
 
     lob_returns = _parse_dates(lob_returns, "lobbying_period_start_date")
-    all_orgs    = sorted(lob_returns["lobbyist_name"].dropna().unique())
+    all_orgs = sorted(lob_returns["lobbyist_name"].dropna().unique())
 
     # ── search + select ───────────────────────────────────────────────
     search = st.text_input(
-        "Search organisation", placeholder="Type a name…",
-        key="lob_search", label_visibility="collapsed",
+        "Search organisation",
+        placeholder="Type a name…",
+        key="lob_search",
+        label_visibility="collapsed",
     )
-    query        = search.strip().lower()
+    query = search.strip().lower()
     filtered_orgs = [o for o in all_orgs if query in o.lower()] if query else all_orgs
-    current      = st.session_state.get("lob_selected")
-    default_idx  = filtered_orgs.index(current) if current in filtered_orgs else None
+    current = st.session_state.get("lob_selected")
+    default_idx = filtered_orgs.index(current) if current in filtered_orgs else None
 
     chosen = st.selectbox(
-        "Select organisation", filtered_orgs,
-        index=default_idx, placeholder="Select an organisation…",
-        label_visibility="collapsed", key="lob_selectbox",
+        "Select organisation",
+        filtered_orgs,
+        index=default_idx,
+        placeholder="Select an organisation…",
+        label_visibility="collapsed",
+        key="lob_selectbox",
     )
     if chosen and chosen != current:
         st.session_state["lob_selected"] = chosen
@@ -421,20 +454,37 @@ def _lobbyist_profile() -> None:
         st.warning(f"No data for {org}.")
         return
 
-    pers_row  = persistence[persistence["lobbyist_name"] == org].iloc[0] if not persistence.empty and (persistence["lobbyist_name"] == org).any() else None
-    reach_row = reach[reach["lobbyist_name"] == org].iloc[0] if not reach.empty and (reach["lobbyist_name"] == org).any() else None
+    pers_row = (
+        persistence[persistence["lobbyist_name"] == org].iloc[0]
+        if not persistence.empty and (persistence["lobbyist_name"] == org).any()
+        else None
+    )
+    reach_row = (
+        reach[reach["lobbyist_name"] == org].iloc[0]
+        if not reach.empty and (reach["lobbyist_name"] == org).any()
+        else None
+    )
 
-    total_r    = org_returns["primary_key"].nunique()
-    total_a    = org_returns["public_policy_area"].nunique() if "public_policy_area" in org_returns.columns else 0
-    active_span = f"{pers_row['active_span_days'] / 365.25:.0f}y" if pers_row is not None and pd.notna(pers_row.get("active_span_days")) else "—"
-    periods    = int(pers_row["distinct_periods_filed"]) if pers_row is not None and pd.notna(pers_row.get("distinct_periods_filed")) else "—"
-    est_reach  = f"{int(reach_row['total_reach_estimate']):,}" if reach_row is not None and pd.notna(reach_row.get("total_reach_estimate")) else "—"
+    total_r = org_returns["primary_key"].nunique()
+    total_a = org_returns["public_policy_area"].nunique() if "public_policy_area" in org_returns.columns else 0
+    active_span = (
+        f"{pers_row['active_span_days'] / 365.25:.0f}y"
+        if pers_row is not None and pd.notna(pers_row.get("active_span_days"))
+        else "—"
+    )
+    periods = (
+        int(pers_row["distinct_periods_filed"])
+        if pers_row is not None and pd.notna(pers_row.get("distinct_periods_filed"))
+        else "—"
+    )
+    est_reach = (
+        f"{int(reach_row['total_reach_estimate']):,}"
+        if reach_row is not None and pd.notna(reach_row.get("total_reach_estimate"))
+        else "—"
+    )
 
     st.markdown(
-        '<hr class="section-rule">'
-        f'<div style="padding:0 0 1rem 0;">'
-        f'<div class="td-name">{org}</div>'
-        f"</div>",
+        f'<hr class="section-rule"><div style="padding:0 0 1rem 0;"><div class="td-name">{org}</div></div>',
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -449,7 +499,11 @@ def _lobbyist_profile() -> None:
     )
 
     # ── filters ───────────────────────────────────────────────────────
-    area_opts   = ["All areas"] + sorted(org_returns["public_policy_area"].dropna().unique().tolist()) if "public_policy_area" in org_returns.columns else ["All areas"]
+    area_opts = (
+        ["All areas"] + sorted(org_returns["public_policy_area"].dropna().unique().tolist())
+        if "public_policy_area" in org_returns.columns
+        else ["All areas"]
+    )
     area_filter = st.selectbox("Filter by policy area", area_opts, key="lob_area")
 
     filtered = org_returns.copy()
@@ -458,16 +512,20 @@ def _lobbyist_profile() -> None:
 
     # ── returns table ─────────────────────────────────────────────────
     _section(f"Returns filed by {org} ({len(filtered)})")
-    view_cols = [c for c in ["primary_key", "lobby_url", "public_policy_area", "relevant_matter", "lobbying_period_start_date"] if c in filtered.columns]
+    view_cols = [
+        c
+        for c in ["primary_key", "lobby_url", "public_policy_area", "relevant_matter", "lobbying_period_start_date"]
+        if c in filtered.columns
+    ]
     st.dataframe(
         filtered[view_cols].sort_values("lobbying_period_start_date", ascending=False).reset_index(drop=True),
         hide_index=True,
         use_container_width=True,
         column_config={
-            "primary_key":                st.column_config.NumberColumn("ID", width="small"),
-            "lobby_url":                  _link(),
-            "public_policy_area":         st.column_config.TextColumn("Policy area"),
-            "relevant_matter":            st.column_config.TextColumn("Matter"),
+            "primary_key": st.column_config.NumberColumn("ID", width="small"),
+            "lobby_url": _link(),
+            "public_policy_area": st.column_config.TextColumn("Policy area"),
+            "relevant_matter": st.column_config.TextColumn("Matter"),
             "lobbying_period_start_date": st.column_config.DateColumn("Period start", format="YYYY-MM-DD"),
         },
     )
@@ -478,13 +536,16 @@ def _lobbyist_profile() -> None:
         _section("Policy area breakdown")
         pa = (
             filtered.groupby("public_policy_area")["primary_key"]
-            .nunique().reset_index()
+            .nunique()
+            .reset_index()
             .rename(columns={"primary_key": "returns"})
             .sort_values("returns", ascending=False)
         )
         max_pa = int(pa["returns"].max()) or 1
         st.dataframe(
-            pa, hide_index=True, use_container_width=True,
+            pa,
+            hide_index=True,
+            use_container_width=True,
             column_config={
                 "public_policy_area": st.column_config.TextColumn("Policy area"),
                 "returns": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_pa),
@@ -508,15 +569,19 @@ def _browse_returns() -> None:
     with col1:
         org_search = st.text_input("Organisation", placeholder="Filter by org name…", key="br_org")
     with col2:
-        area_opts   = ["All areas"] + sorted(returns["public_policy_area"].dropna().unique().tolist()) if "public_policy_area" in returns.columns else ["All areas"]
+        area_opts = (
+            ["All areas"] + sorted(returns["public_policy_area"].dropna().unique().tolist())
+            if "public_policy_area" in returns.columns
+            else ["All areas"]
+        )
         area_filter = st.selectbox("Policy area", area_opts, key="br_area")
     with col3:
-        years       = sorted(returns["lobbying_period_start_date"].dropna().dt.year.unique().astype(int).tolist())
+        years = sorted(returns["lobbying_period_start_date"].dropna().dt.year.unique().astype(int).tolist())
         year_filter = st.selectbox("Year", ["All years"] + [str(y) for y in years], key="br_year")
 
     col4, col5 = st.columns(2)
     with col4:
-        grass_filter  = st.selectbox("Grassroots campaign", ["All", "Yes", "No"], key="br_grass")
+        grass_filter = st.selectbox("Grassroots campaign", ["All", "Yes", "No"], key="br_grass")
     with col5:
         client_filter = st.selectbox("On behalf of client", ["All", "Yes", "No"], key="br_client")
 
@@ -531,40 +596,51 @@ def _browse_returns() -> None:
     if grass_filter != "All" and "was_this_a_grassroots_campaign" in filtered.columns:
         filtered = filtered[filtered["was_this_a_grassroots_campaign"].astype(str).str.lower() == grass_filter.lower()]
     if client_filter != "All" and "was_this_lobbying_done_on_behalf_of_a_client" in filtered.columns:
-        filtered = filtered[filtered["was_this_lobbying_done_on_behalf_of_a_client"].astype(str).str.lower() == client_filter.lower()]
+        filtered = filtered[
+            filtered["was_this_lobbying_done_on_behalf_of_a_client"].astype(str).str.lower() == client_filter.lower()
+        ]
 
     _section(f"{len(filtered):,} returns")
 
-    view_cols = [c for c in [
-        "lobbyist_name", "lobby_url", "public_policy_area", "relevant_matter",
-        "person_primarily_responsible", "was_this_a_grassroots_campaign",
-        "was_this_lobbying_done_on_behalf_of_a_client",
-        "lobbying_period_start_date", "lobbying_period_end_date",
-    ] if c in filtered.columns]
+    view_cols = [
+        c
+        for c in [
+            "lobbyist_name",
+            "lobby_url",
+            "public_policy_area",
+            "relevant_matter",
+            "person_primarily_responsible",
+            "was_this_a_grassroots_campaign",
+            "was_this_lobbying_done_on_behalf_of_a_client",
+            "lobbying_period_start_date",
+            "lobbying_period_end_date",
+        ]
+        if c in filtered.columns
+    ]
 
     st.dataframe(
         filtered[view_cols].sort_values("lobbying_period_start_date", ascending=False).reset_index(drop=True),
         hide_index=True,
         use_container_width=True,
         column_config={
-            "lobbyist_name":                             st.column_config.TextColumn("Organisation", width="large"),
-            "lobby_url":                                 _link(),
-            "public_policy_area":                        st.column_config.TextColumn("Policy area"),
-            "relevant_matter":                           st.column_config.TextColumn("Matter"),
-            "person_primarily_responsible":              st.column_config.TextColumn("Responsible"),
-            "was_this_a_grassroots_campaign":            st.column_config.TextColumn("Grassroots", width="small"),
+            "lobbyist_name": st.column_config.TextColumn("Organisation", width="large"),
+            "lobby_url": _link(),
+            "public_policy_area": st.column_config.TextColumn("Policy area"),
+            "relevant_matter": st.column_config.TextColumn("Matter"),
+            "person_primarily_responsible": st.column_config.TextColumn("Responsible"),
+            "was_this_a_grassroots_campaign": st.column_config.TextColumn("Grassroots", width="small"),
             "was_this_lobbying_done_on_behalf_of_a_client": st.column_config.TextColumn("For client", width="small"),
-            "lobbying_period_start_date":                st.column_config.DateColumn("Start", format="YYYY-MM-DD"),
-            "lobbying_period_end_date":                  st.column_config.DateColumn("End", format="YYYY-MM-DD"),
+            "lobbying_period_start_date": st.column_config.DateColumn("Start", format="YYYY-MM-DD"),
+            "lobbying_period_end_date": st.column_config.DateColumn("End", format="YYYY-MM-DD"),
         },
     )
     _export(filtered[view_cols], "lobbying_returns_filtered.csv", "br_exp")
 
 
 def _revolving_door() -> None:
-    summary   = _load("experimental_revolving_door_dpos.csv")
-    detail    = _load("revolving_door_returns_detail.csv")
-    name_col  = "dpos_or_former_dpos_who_carried_out_lobbying_name"
+    summary = _load("experimental_revolving_door_dpos.csv")
+    detail = _load("revolving_door_returns_detail.csv")
+    name_col = "dpos_or_former_dpos_who_carried_out_lobbying_name"
     # Load returns_master for Client(s) field
     returns_master = _load("returns_master.csv")
 
@@ -594,13 +670,15 @@ def _revolving_door() -> None:
         hide_index=True,
         use_container_width=True,
         column_config={
-            name_col:                            st.column_config.TextColumn("Name", width="large"),
-            "current_or_former_dpos_position":   st.column_config.TextColumn("Former position"),
-            "current_or_former_dpos_chamber":    st.column_config.TextColumn("Chamber", width="small"),
-            "returns_involved_in":               st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_r),
-            "distinct_lobbyist_firms":           st.column_config.NumberColumn("Firms"),
-            "distinct_policy_areas":             st.column_config.NumberColumn("Policy areas"),
-            "distinct_politicians_targeted":     st.column_config.NumberColumn("Politicians targeted"),
+            name_col: st.column_config.TextColumn("Name", width="large"),
+            "current_or_former_dpos_position": st.column_config.TextColumn("Former position"),
+            "current_or_former_dpos_chamber": st.column_config.TextColumn("Chamber", width="small"),
+            "returns_involved_in": st.column_config.ProgressColumn(
+                "Returns", format="%d", min_value=0, max_value=max_r
+            ),
+            "distinct_lobbyist_firms": st.column_config.NumberColumn("Firms"),
+            "distinct_policy_areas": st.column_config.NumberColumn("Policy areas"),
+            "distinct_politicians_targeted": st.column_config.NumberColumn("Politicians targeted"),
         },
     )
     _export(summary, "revolving_door_summary.csv", "rd_sum_exp")
@@ -608,7 +686,7 @@ def _revolving_door() -> None:
     if not detail.empty and name_col in summary.columns:
         st.markdown("---")
         _section("Drill into an individual")
-        names  = sorted(summary[name_col].dropna().unique())
+        names = sorted(summary[name_col].dropna().unique())
         chosen = st.selectbox("Select individual", names, label_visibility="collapsed", key="rd_chosen")
         if chosen:
             person_detail = _parse_dates(detail[detail[name_col] == chosen].copy(), "lobbying_period_start_date")
@@ -617,48 +695,48 @@ def _revolving_door() -> None:
                 person_detail["primary_key"] = person_detail["primary_key"].astype(str)
                 returns_master["primary_key"] = returns_master["primary_key"].astype(str)
                 merged = person_detail.merge(
-                    returns_master[[
-                        "primary_key",
-                        "lobbyist_name",
-                        "specific_details",
-                        "intended_results"
-                    ]],
-                    on="primary_key", how="left"
+                    returns_master[["primary_key", "lobbyist_name", "specific_details", "intended_results"]],
+                    on="primary_key",
+                    how="left",
                 )
             else:
                 merged = person_detail.copy()
             # Prepare columns for display and export
-            dcols = [c for c in [
-                name_col,
-                "lobby_url",
-                "lobbyist_name",
-                "public_policy_area",
-                "lobbying_period_start_date",
-                "specific_details",
-                "intended_results"
-            ] if c in merged.columns]
+            dcols = [
+                c
+                for c in [
+                    name_col,
+                    "lobby_url",
+                    "lobbyist_name",
+                    "public_policy_area",
+                    "lobbying_period_start_date",
+                    "specific_details",
+                    "intended_results",
+                ]
+                if c in merged.columns
+            ]
             st.dataframe(
                 merged[dcols].sort_values("lobbying_period_start_date", ascending=False).reset_index(drop=True),
                 hide_index=True,
                 use_container_width=True,
                 column_config={
-                    name_col:                     st.column_config.TextColumn("Name"),
-                    "lobby_url":                  _link(),
-                    "lobbyist_name":              st.column_config.TextColumn("Client/Company", width="large"),
-                    "public_policy_area":         st.column_config.TextColumn("Policy area"),
+                    name_col: st.column_config.TextColumn("Name"),
+                    "lobby_url": _link(),
+                    "lobbyist_name": st.column_config.TextColumn("Client/Company", width="large"),
+                    "public_policy_area": st.column_config.TextColumn("Policy area"),
                     "lobbying_period_start_date": st.column_config.DateColumn("Period start", format="YYYY-MM-DD"),
-                    "specific_details":           st.column_config.TextColumn("Specific Details", width="large"),
-                    "intended_results":           st.column_config.TextColumn("Intended Results", width="large"),
-                    "display_client_name":        st.column_config.TextColumn("Client/Company", width="large"),
-                    "display_client_address":     st.column_config.TextColumn("Client Address", width="large"),
-                    "display_specific_details":   st.column_config.TextColumn("Specific Details", width="large"),
+                    "specific_details": st.column_config.TextColumn("Specific Details", width="large"),
+                    "intended_results": st.column_config.TextColumn("Intended Results", width="large"),
+                    "display_client_name": st.column_config.TextColumn("Client/Company", width="large"),
+                    "display_client_address": st.column_config.TextColumn("Client Address", width="large"),
+                    "display_specific_details": st.column_config.TextColumn("Specific Details", width="large"),
                 },
             )
             _export(merged[dcols], f"{chosen.replace(' ', '_')}_revolving_door.csv", "rd_det_exp")
 
 
 def _transparency() -> None:
-    late_filers  = _load("experimental_time_to_publish.csv")
+    late_filers = _load("experimental_time_to_publish.csv")
     desc_lengths = _load("experimental_return_description_lengths.csv")
 
     col_l, col_r = st.columns(2)
@@ -670,12 +748,16 @@ def _transparency() -> None:
             lf = late_filers.sort_values("median_days_to_publish", ascending=False).head(30).reset_index(drop=True)
             max_days = int(lf["median_days_to_publish"].max()) or 1
             st.dataframe(
-                lf, hide_index=True, use_container_width=True,
+                lf,
+                hide_index=True,
+                use_container_width=True,
                 column_config={
-                    "lobbyist_name":          st.column_config.TextColumn("Organisation", width="large"),
-                    "median_days_to_publish": st.column_config.ProgressColumn("Median days", format="%d", min_value=0, max_value=max_days),
-                    "max_days_to_publish":    st.column_config.NumberColumn("Max days"),
-                    "returns_filed":          st.column_config.NumberColumn("Returns"),
+                    "lobbyist_name": st.column_config.TextColumn("Organisation", width="large"),
+                    "median_days_to_publish": st.column_config.ProgressColumn(
+                        "Median days", format="%d", min_value=0, max_value=max_days
+                    ),
+                    "max_days_to_publish": st.column_config.NumberColumn("Max days"),
+                    "returns_filed": st.column_config.NumberColumn("Returns"),
                 },
             )
             _export(late_filers, "late_filers.csv", "tr_late_exp")
@@ -687,13 +769,17 @@ def _transparency() -> None:
             shortest = desc_lengths.sort_values("total_desc_len").head(30).reset_index(drop=True)
             median_len = int(desc_lengths["total_desc_len"].median()) or 1
             st.dataframe(
-                shortest, hide_index=True, use_container_width=True,
+                shortest,
+                hide_index=True,
+                use_container_width=True,
                 column_config={
-                    "lobbyist_name":          st.column_config.TextColumn("Organisation"),
-                    "lobby_url":              _link(),
-                    "total_desc_len":         st.column_config.ProgressColumn("Total chars", format="%d", min_value=0, max_value=median_len),
-                    "specific_details_len":   st.column_config.NumberColumn("Specific details"),
-                    "intended_results_len":   st.column_config.NumberColumn("Intended results"),
+                    "lobbyist_name": st.column_config.TextColumn("Organisation"),
+                    "lobby_url": _link(),
+                    "total_desc_len": st.column_config.ProgressColumn(
+                        "Total chars", format="%d", min_value=0, max_value=median_len
+                    ),
+                    "specific_details_len": st.column_config.NumberColumn("Specific details"),
+                    "intended_results_len": st.column_config.NumberColumn("Intended results"),
                     "lobbying_period_start_date": st.column_config.TextColumn("Period"),
                 },
             )
@@ -705,23 +791,27 @@ def _transparency() -> None:
         st.caption("Filing latency combined with average description length per organisation.")
         avg_desc = (
             desc_lengths.groupby("lobbyist_name")["total_desc_len"]
-            .mean().reset_index()
+            .mean()
+            .reset_index()
             .rename(columns={"total_desc_len": "avg_desc_len"})
         )
         scorecard = (
-            late_filers
-            .merge(avg_desc, on="lobbyist_name", how="outer")
+            late_filers.merge(avg_desc, on="lobbyist_name", how="outer")
             .sort_values("median_days_to_publish", ascending=False)
             .reset_index(drop=True)
         )
         max_sc = int(scorecard["median_days_to_publish"].max()) or 1
         st.dataframe(
-            scorecard, hide_index=True, use_container_width=True,
+            scorecard,
+            hide_index=True,
+            use_container_width=True,
             column_config={
-                "lobbyist_name":          st.column_config.TextColumn("Organisation", width="large"),
-                "median_days_to_publish": st.column_config.ProgressColumn("Median days late", format="%d", min_value=0, max_value=max_sc),
-                "returns_filed":          st.column_config.NumberColumn("Returns"),
-                "avg_desc_len":           st.column_config.NumberColumn("Avg description length"),
+                "lobbyist_name": st.column_config.TextColumn("Organisation", width="large"),
+                "median_days_to_publish": st.column_config.ProgressColumn(
+                    "Median days late", format="%d", min_value=0, max_value=max_sc
+                ),
+                "returns_filed": st.column_config.NumberColumn("Returns"),
+                "avg_desc_len": st.column_config.NumberColumn("Avg description length"),
             },
         )
         _export(scorecard, "transparency_scorecard.csv", "tr_score_exp")
@@ -731,21 +821,21 @@ def _transparency() -> None:
 def lobbying_page() -> None:
     inject_css()
 
-    returns      = _load("returns_master.csv")
+    returns = _load("returns_master.csv")
     total_returns = len(returns)
 
     with st.sidebar:
         st.markdown('<div class="page-kicker">Dáil Tracker</div>', unsafe_allow_html=True)
         st.markdown('<div class="page-title">Lobbying<br>Register</div>', unsafe_allow_html=True)
         st.markdown(
-            f'<div class="page-subtitle">{total_returns:,} returns · '
-            f'Source: lobbying.ie</div>',
+            f'<div class="page-subtitle">{total_returns:,} returns · Source: lobbying.ie</div>',
             unsafe_allow_html=True,
         )
 
         st.markdown('<p class="sidebar-label">View</p>', unsafe_allow_html=True)
         view = st.radio(
-            "View", _VIEWS,
+            "View",
+            _VIEWS,
             label_visibility="collapsed",
             key="lobby_view",
         )

@@ -1,5 +1,6 @@
-from pathlib import Path
 import sys
+from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import numpy as np
@@ -9,7 +10,7 @@ import streamlit as st
 from shared_css import inject_css
 
 _ROOT = Path(__file__).parent.parent.parent
-_CSV  = _ROOT / "data" / "silver" / "aggregated_td_tables.csv"
+_CSV = _ROOT / "data" / "silver" / "aggregated_td_tables.csv"
 
 _DISCLAIMER = """
 **Note on attendance figures**
@@ -31,21 +32,21 @@ measure of a member's parliamentary engagement.
 def _load() -> pd.DataFrame:
     df = pd.read_csv(_CSV, low_memory=False)
     df["sitting_date"] = pd.to_datetime(df["iso_sitting_days_attendance"], errors="coerce")
-    df["full_name"]    = df["first_name"] + " " + df["last_name"]
+    df["full_name"] = df["first_name"] + " " + df["last_name"]
     return df
 
 
 def _calendar_heatmap(dates: pd.Series, year: int) -> go.Figure:
     """GitHub-style calendar heatmap for a single TD's plenary sitting days in one year."""
-    start    = pd.Timestamp(f"{year}-01-01")
+    start = pd.Timestamp(f"{year}-01-01")
     year_end = pd.Timestamp(f"{year}-12-31")
-    today    = pd.Timestamp.today().normalize()
+    today = pd.Timestamp.today().normalize()
 
     attended_set = set(pd.to_datetime(dates).dt.normalize())
 
     records = []
     for d in pd.date_range(start, year_end, freq="D"):
-        week    = (d.dayofyear - 1) // 7
+        week = (d.dayofyear - 1) // 7
         weekday = d.weekday()
         if d > today:
             val = np.nan
@@ -53,28 +54,31 @@ def _calendar_heatmap(dates: pd.Series, year: int) -> go.Figure:
             val = 1
         else:
             val = 0
-        records.append({"date": d, "week": week, "weekday": weekday, "val": val,
-                         "label": d.strftime("%d %b %Y")})
+        records.append({"date": d, "week": week, "weekday": weekday, "val": val, "label": d.strftime("%d %b %Y")})
 
-    df_cal     = pd.DataFrame(records)
-    pivot_z    = df_cal.pivot_table(index="weekday", columns="week", values="val",   aggfunc="first")
+    df_cal = pd.DataFrame(records)
+    pivot_z = df_cal.pivot_table(index="weekday", columns="week", values="val", aggfunc="first")
     pivot_text = df_cal.pivot_table(index="weekday", columns="week", values="label", aggfunc="first")
 
     day_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    month_df   = df_cal.groupby(df_cal["date"].dt.month)["week"].min()
+    month_df = df_cal.groupby(df_cal["date"].dt.month)["week"].min()
     month_text = [pd.Timestamp(f"{year}-{m:02d}-01").strftime("%b") for m in month_df.index]
 
-    fig = go.Figure(go.Heatmap(
-        z=pivot_z.values,
-        x=pivot_z.columns.tolist(),
-        y=[day_labels[i] for i in pivot_z.index],
-        text=pivot_text.values,
-        colorscale=[[0, "#e5e7eb"], [1, "oklch(51% 0.130 62)"]],
-        zmin=0, zmax=1,
-        showscale=False,
-        hovertemplate="%{text}<extra></extra>",
-        xgap=3, ygap=3,
-    ))
+    fig = go.Figure(
+        go.Heatmap(
+            z=pivot_z.values,
+            x=pivot_z.columns.tolist(),
+            y=[day_labels[i] for i in pivot_z.index],
+            text=pivot_text.values,
+            colorscale=[[0, "#e5e7eb"], [1, "oklch(51% 0.130 62)"]],
+            zmin=0,
+            zmax=1,
+            showscale=False,
+            hovertemplate="%{text}<extra></extra>",
+            xgap=3,
+            ygap=3,
+        )
+    )
     fig.update_layout(
         title=dict(text=str(year), font=dict(size=13, family="Zilla Slab, Georgia, serif")),
         height=165,
@@ -92,7 +96,7 @@ def _yearly_summary(df: pd.DataFrame) -> pd.DataFrame:
         df.groupby(["full_name", "year"], sort=True)
         .agg(
             sitting_days=("sitting_days_count", "first"),
-            other_days  =("other_days_count",   "first"),
+            other_days=("other_days_count", "first"),
         )
         .reset_index()
         .sort_values(["full_name", "year"])
@@ -100,11 +104,7 @@ def _yearly_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _totals(yearly: pd.DataFrame) -> pd.DataFrame:
-    t = (
-        yearly.groupby("full_name")[["sitting_days", "other_days"]]
-        .sum()
-        .reset_index()
-    )
+    t = yearly.groupby("full_name")[["sitting_days", "other_days"]].sum().reset_index()
     t["total_days"] = t["sitting_days"] + t["other_days"]
     return t
 
@@ -120,12 +120,12 @@ def _rank_table(subset: pd.DataFrame, max_days: int, ascending: bool) -> None:
         display,
         use_container_width=True,
         column_config={
-            "full_name":    st.column_config.TextColumn("TD"),
+            "full_name": st.column_config.TextColumn("TD"),
             "sitting_days": st.column_config.ProgressColumn(
                 "Plenary days", min_value=0, max_value=max_days, format="%d"
             ),
-            "other_days":   st.column_config.NumberColumn("Other days", format="%d"),
-            "total_days":   st.column_config.NumberColumn("Total", format="%d"),
+            "other_days": st.column_config.NumberColumn("Other days", format="%d"),
+            "total_days": st.column_config.NumberColumn("Total", format="%d"),
         },
     )
 
@@ -152,7 +152,7 @@ def attendance_page() -> None:
     with st.expander("About these figures", expanded=False):
         st.markdown(_DISCLAIMER)
 
-    df        = _load()
+    df = _load()
     all_names = sorted(df["full_name"].unique())
     all_years = sorted(df["year"].dropna().unique().astype(int))
 
@@ -160,32 +160,28 @@ def attendance_page() -> None:
     st.sidebar.markdown('<div class="sidebar-label">Filters</div>', unsafe_allow_html=True)
 
     selected_years = st.sidebar.multiselect("Year", all_years, default=all_years)
-    selected_tds   = st.sidebar.multiselect(
-        "Filter to specific TDs (leave blank for all)", all_names
-    )
-    view_mode = st.sidebar.radio(
-        "View", ["Rankings", "Table", "Timeline", "Individual TD"], index=0
-    )
+    selected_tds = st.sidebar.multiselect("Filter to specific TDs (leave blank for all)", all_names)
+    view_mode = st.sidebar.radio("View", ["Rankings", "Table", "Timeline", "Individual TD"], index=0)
 
     # ── Filter ────────────────────────────────────────────────────────────────
     filtered = df[df["year"].isin(selected_years)]
     if selected_tds:
         filtered = filtered[filtered["full_name"].isin(selected_tds)]
 
-    yearly  = _yearly_summary(filtered)
-    totals  = _totals(yearly)
+    yearly = _yearly_summary(filtered)
+    totals = _totals(yearly)
 
     if totals.empty:
         st.warning("No data for the current selection.")
         return
 
-    max_sit   = int(totals["sitting_days"].max())
-    best_row  = totals.loc[totals["sitting_days"].idxmax()]
+    max_sit = int(totals["sitting_days"].max())
+    best_row = totals.loc[totals["sitting_days"].idxmax()]
     worst_row = totals.loc[totals["sitting_days"].idxmin()]
-    avg_sit   = totals["sitting_days"].mean()
+    avg_sit = totals["sitting_days"].mean()
     avg_other = totals["other_days"].mean()
-    n_tds     = totals["full_name"].nunique()
-    pct_low   = (totals["sitting_days"] < 50).mean() * 100
+    n_tds = totals["full_name"].nunique()
+    pct_low = (totals["sitting_days"] < 50).mean() * 100
 
     # ── Stat strip ────────────────────────────────────────────────────────────
     st.markdown(
@@ -204,12 +200,12 @@ def attendance_page() -> None:
             <div class="stat-lbl">Avg other days</div>
           </div>
           <div>
-            <div class="stat-num">{int(best_row['sitting_days'])}</div>
-            <div class="stat-lbl">Most present &mdash; {best_row['full_name']}</div>
+            <div class="stat-num">{int(best_row["sitting_days"])}</div>
+            <div class="stat-lbl">Most present &mdash; {best_row["full_name"]}</div>
           </div>
           <div>
-            <div class="stat-num">{int(worst_row['sitting_days'])}</div>
-            <div class="stat-lbl">Least present &mdash; {worst_row['full_name']}</div>
+            <div class="stat-num">{int(worst_row["sitting_days"])}</div>
+            <div class="stat-lbl">Least present &mdash; {worst_row["full_name"]}</div>
           </div>
           <div>
             <div class="stat-num">{pct_low:.0f}%</div>
@@ -246,19 +242,17 @@ def attendance_page() -> None:
         )
 
         if len(selected_years) == 1:
-            display = yearly[["full_name", "sitting_days", "other_days"]].sort_values(
-                "sitting_days", ascending=False
-            )
+            display = yearly[["full_name", "sitting_days", "other_days"]].sort_values("sitting_days", ascending=False)
             st.dataframe(
                 display,
                 hide_index=True,
                 use_container_width=True,
                 column_config={
-                    "full_name":    st.column_config.TextColumn("TD"),
+                    "full_name": st.column_config.TextColumn("TD"),
                     "sitting_days": st.column_config.ProgressColumn(
                         "Plenary sitting days", min_value=0, max_value=max_sit, format="%d"
                     ),
-                    "other_days":   st.column_config.NumberColumn("Other days", format="%d"),
+                    "other_days": st.column_config.NumberColumn("Other days", format="%d"),
                 },
             )
         else:
@@ -291,29 +285,25 @@ def attendance_page() -> None:
             agg = yearly.groupby("year")[["sitting_days", "other_days"]].sum()
             st.bar_chart(agg)
         else:
-            pivot = yearly.pivot_table(
-                index="year", columns="full_name", values="sitting_days", fill_value=0
-            )
+            pivot = yearly.pivot_table(index="year", columns="full_name", values="sitting_days", fill_value=0)
             st.caption("Plenary sitting days")
             st.bar_chart(pivot)
 
-            pivot_other = yearly.pivot_table(
-                index="year", columns="full_name", values="other_days", fill_value=0
-            )
+            pivot_other = yearly.pivot_table(index="year", columns="full_name", values="other_days", fill_value=0)
             st.caption("Other days")
             st.bar_chart(pivot_other)
 
     # ── Individual TD view ────────────────────────────────────────────────────
     elif view_mode == "Individual TD":
         st.markdown('<div class="section-heading">Individual TD</div>', unsafe_allow_html=True)
-        td_name   = st.selectbox("Select TD", all_names)
+        td_name = st.selectbox("Select TD", all_names)
         td_yearly = yearly[yearly["full_name"] == td_name]
-        td_raw    = filtered[filtered["full_name"] == td_name].copy()
+        td_raw = filtered[filtered["full_name"] == td_name].copy()
         if td_yearly.empty:
             st.warning("No data for this TD in the selected years.")
             return
 
-        total_sit   = int(td_yearly["sitting_days"].sum())
+        total_sit = int(td_yearly["sitting_days"].sum())
         total_other = int(td_yearly["other_days"].sum())
         overall_rank = totals["sitting_days"].rank(ascending=False, method="min")
         rank_val = int(overall_rank[totals["full_name"] == td_name].values[0])
@@ -332,11 +322,13 @@ def attendance_page() -> None:
 
         st.markdown('<div class="section-heading">Year-by-year breakdown</div>', unsafe_allow_html=True)
         st.dataframe(
-            td_yearly[["year", "sitting_days", "other_days"]].rename(columns={
-                "year":         "Year",
-                "sitting_days": "Plenary sitting days",
-                "other_days":   "Other days",
-            }),
+            td_yearly[["year", "sitting_days", "other_days"]].rename(
+                columns={
+                    "year": "Year",
+                    "sitting_days": "Plenary sitting days",
+                    "other_days": "Other days",
+                }
+            ),
             hide_index=True,
             use_container_width=True,
         )

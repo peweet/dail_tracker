@@ -1,21 +1,27 @@
-from pathlib import Path
 import sys
+from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pandas as pd
 import streamlit as st
 from shared_css import inject_css
 
-_ROOT   = Path(__file__).parent.parent.parent
+_ROOT = Path(__file__).parent.parent.parent
 _SILVER = _ROOT / "data" / "silver"
 
 _SPONSORS_CSV = _SILVER / "sponsors.csv"
-_STAGES_CSV   = _SILVER / "stages.csv"
-_DEBATES_CSV  = _SILVER / "debates.csv"
+_STAGES_CSV = _SILVER / "stages.csv"
+_DEBATES_CSV = _SILVER / "debates.csv"
 
 _STAGE_ORDER = [
-    "First Stage", "Second Stage", "Committee Stage",
-    "Report Stage", "Fifth Stage", "Passed", "Signed",
+    "First Stage",
+    "Second Stage",
+    "Committee Stage",
+    "Report Stage",
+    "Fifth Stage",
+    "Passed",
+    "Signed",
 ]
 
 
@@ -24,19 +30,21 @@ def _load_sponsors() -> pd.DataFrame:
     if not _SPONSORS_CSV.exists():
         return pd.DataFrame()
     df = pd.read_csv(_SPONSORS_CSV, low_memory=False)
-    df = df.rename(columns={
-        "sponsor.by.showAs":                         "td_name",
-        "sponsor.isPrimary":                         "is_primary",
-        "bill.billNo":                               "bill_no",
-        "bill.billYear":                             "bill_year",
-        "bill.shortTitleEn":                         "title",
-        "bill.status":                               "status",
-        "bill.source":                               "source",
-        "bill.method":                               "method",
-        "bill.mostRecentStage.event.showAs":         "current_stage",
-        "bill.mostRecentStage.event.house.showAs":   "house",
-        "bill.lastUpdated":                          "last_updated",
-    })
+    df = df.rename(
+        columns={
+            "sponsor.by.showAs": "td_name",
+            "sponsor.isPrimary": "is_primary",
+            "bill.billNo": "bill_no",
+            "bill.billYear": "bill_year",
+            "bill.shortTitleEn": "title",
+            "bill.status": "status",
+            "bill.source": "source",
+            "bill.method": "method",
+            "bill.mostRecentStage.event.showAs": "current_stage",
+            "bill.mostRecentStage.event.house.showAs": "house",
+            "bill.lastUpdated": "last_updated",
+        }
+    )
     df["bill_year"] = pd.to_numeric(df["bill_year"], errors="coerce")
     df["is_primary"] = df["is_primary"].astype(str).str.lower().isin(["true", "1", "yes"])
     return df
@@ -47,21 +55,23 @@ def _load_stages() -> pd.DataFrame:
     if not _STAGES_CSV.exists():
         return pd.DataFrame()
     df = pd.read_csv(_STAGES_CSV, low_memory=False)
-    df = df.rename(columns={
-        "event.showAs":              "stage",
-        "event.progressStage":       "stage_no",
-        "event.stageCompleted":      "completed",
-        "event.stageOutcome":        "outcome",
-        "event.house.showAs":        "house",
-        "bill.billNo":               "bill_no",
-        "bill.billYear":             "bill_year",
-        "bill.shortTitleEn":         "title",
-        "bill.status":               "bill_status",
-        "bill.source":               "source",
-        "bill.lastUpdated":          "last_updated",
-    })
+    df = df.rename(
+        columns={
+            "event.showAs": "stage",
+            "event.progressStage": "stage_no",
+            "event.stageCompleted": "completed",
+            "event.stageOutcome": "outcome",
+            "event.house.showAs": "house",
+            "bill.billNo": "bill_no",
+            "bill.billYear": "bill_year",
+            "bill.shortTitleEn": "title",
+            "bill.status": "bill_status",
+            "bill.source": "source",
+            "bill.lastUpdated": "last_updated",
+        }
+    )
     df["bill_year"] = pd.to_numeric(df["bill_year"], errors="coerce")
-    df["stage_no"]  = pd.to_numeric(df["stage_no"], errors="coerce")
+    df["stage_no"] = pd.to_numeric(df["stage_no"], errors="coerce")
     return df
 
 
@@ -70,19 +80,21 @@ def _load_debates() -> pd.DataFrame:
     if not _DEBATES_CSV.exists():
         return pd.DataFrame()
     df = pd.read_csv(_DEBATES_CSV, low_memory=False)
-    df = df.rename(columns={
-        "date":                      "date",
-        "showAs":                    "debate_title",
-        "chamber.showAs":            "chamber",
-        "bill.billNo":               "bill_no",
-        "bill.billYear":             "bill_year",
-        "bill.shortTitleEn":         "title",
-        "bill.status":               "bill_status",
-        "bill.source":               "source",
-        "bill.lastUpdated":          "last_updated",
-        "bill.mostRecentStage.event.showAs": "current_stage",
-    })
-    df["date"]      = pd.to_datetime(df["date"], errors="coerce")
+    df = df.rename(
+        columns={
+            "date": "date",
+            "showAs": "debate_title",
+            "chamber.showAs": "chamber",
+            "bill.billNo": "bill_no",
+            "bill.billYear": "bill_year",
+            "bill.shortTitleEn": "title",
+            "bill.status": "bill_status",
+            "bill.source": "source",
+            "bill.lastUpdated": "last_updated",
+            "bill.mostRecentStage.event.showAs": "current_stage",
+        }
+    )
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["bill_year"] = pd.to_numeric(df["bill_year"], errors="coerce")
     return df
 
@@ -92,11 +104,11 @@ def _section(text: str) -> None:
 
 
 def _export(df: pd.DataFrame, filename: str, key: str) -> None:
-    st.download_button("Export CSV", df.to_csv(index=False).encode("utf-8"),
-                       filename, "text/csv", key=key)
+    st.download_button("Export CSV", df.to_csv(index=False).encode("utf-8"), filename, "text/csv", key=key)
 
 
 # ── Sponsors view ─────────────────────────────────────────────────────
+
 
 def _sponsors_view() -> None:
     df = _load_sponsors()
@@ -137,13 +149,13 @@ def _sponsors_view() -> None:
         hide_index=True,
         use_container_width=True,
         column_config={
-            "td_name":       st.column_config.TextColumn("TD"),
-            "title":         st.column_config.TextColumn("Bill", width="large"),
-            "bill_year":     st.column_config.NumberColumn("Year", format="%d"),
-            "status":        st.column_config.TextColumn("Status"),
+            "td_name": st.column_config.TextColumn("TD"),
+            "title": st.column_config.TextColumn("Bill", width="large"),
+            "bill_year": st.column_config.NumberColumn("Year", format="%d"),
+            "status": st.column_config.TextColumn("Status"),
             "current_stage": st.column_config.TextColumn("Current stage"),
-            "house":         st.column_config.TextColumn("House"),
-            "is_primary":    st.column_config.CheckboxColumn("Primary"),
+            "house": st.column_config.TextColumn("House"),
+            "is_primary": st.column_config.CheckboxColumn("Primary"),
         },
     )
     _export(filtered, "sponsors.csv", "sp_exp")
@@ -158,6 +170,7 @@ def _sponsors_view() -> None:
 
 
 # ── Stages / timeline view ────────────────────────────────────────────
+
 
 def _stages_view() -> None:
     df = _load_stages()
@@ -207,11 +220,11 @@ def _stages_view() -> None:
             hide_index=True,
             use_container_width=True,
             column_config={
-                "bill_no":       st.column_config.NumberColumn("No.", format="%d", width="small"),
-                "bill_year":     st.column_config.NumberColumn("Year", format="%d", width="small"),
-                "title":         st.column_config.TextColumn("Title", width="large"),
-                "bill_status":   st.column_config.TextColumn("Status"),
-                "source":        st.column_config.TextColumn("Source"),
+                "bill_no": st.column_config.NumberColumn("No.", format="%d", width="small"),
+                "bill_year": st.column_config.NumberColumn("Year", format="%d", width="small"),
+                "title": st.column_config.TextColumn("Title", width="large"),
+                "bill_status": st.column_config.TextColumn("Status"),
+                "source": st.column_config.TextColumn("Source"),
                 "stages_reached": st.column_config.ProgressColumn(
                     "Stages reached", format="%d", min_value=0, max_value=7
                 ),
@@ -220,18 +233,22 @@ def _stages_view() -> None:
         _export(bill_summary, "bill_summary.csv", "st_sum_exp")
 
     with st.expander("Full stage-by-stage detail", expanded=False):
-        display_cols = [c for c in ["title", "bill_year", "stage", "completed", "outcome", "house", "bill_status"] if c in filtered.columns]
+        display_cols = [
+            c
+            for c in ["title", "bill_year", "stage", "completed", "outcome", "house", "bill_status"]
+            if c in filtered.columns
+        ]
         st.dataframe(
             filtered[display_cols].sort_values(["bill_year", "bill_no", "stage_no"], ascending=[False, True, True]),
             hide_index=True,
             use_container_width=True,
             column_config={
-                "title":      st.column_config.TextColumn("Bill", width="large"),
-                "bill_year":  st.column_config.NumberColumn("Year", format="%d", width="small"),
-                "stage":      st.column_config.TextColumn("Stage"),
-                "completed":  st.column_config.CheckboxColumn("Done"),
-                "outcome":    st.column_config.TextColumn("Outcome"),
-                "house":      st.column_config.TextColumn("House"),
+                "title": st.column_config.TextColumn("Bill", width="large"),
+                "bill_year": st.column_config.NumberColumn("Year", format="%d", width="small"),
+                "stage": st.column_config.TextColumn("Stage"),
+                "completed": st.column_config.CheckboxColumn("Done"),
+                "outcome": st.column_config.TextColumn("Outcome"),
+                "house": st.column_config.TextColumn("House"),
                 "bill_status": st.column_config.TextColumn("Bill status"),
             },
         )
@@ -243,6 +260,7 @@ def _stages_view() -> None:
 
 
 # ── Debates view ──────────────────────────────────────────────────────
+
 
 def _debates_view() -> None:
     df = _load_debates()
@@ -280,10 +298,7 @@ def _debates_view() -> None:
     if chamber_filter != "All chambers":
         filtered = filtered[filtered["chamber"] == chamber_filter]
     if len(date_range) == 2:
-        filtered = filtered[
-            (filtered["date"].dt.date >= date_range[0]) &
-            (filtered["date"].dt.date <= date_range[1])
-        ]
+        filtered = filtered[(filtered["date"].dt.date >= date_range[0]) & (filtered["date"].dt.date <= date_range[1])]
 
     _section(f"{len(filtered):,} debate sections")
 
@@ -305,9 +320,9 @@ def _debates_view() -> None:
             hide_index=True,
             use_container_width=True,
             column_config={
-                "title":        st.column_config.TextColumn("Bill", width="large"),
-                "bill_year":    st.column_config.NumberColumn("Year", format="%d", width="small"),
-                "bill_status":  st.column_config.TextColumn("Status"),
+                "title": st.column_config.TextColumn("Bill", width="large"),
+                "bill_year": st.column_config.NumberColumn("Year", format="%d", width="small"),
+                "bill_status": st.column_config.TextColumn("Status"),
                 "debate_count": st.column_config.ProgressColumn("Debates", format="%d", min_value=0, max_value=max_d),
             },
         )
@@ -317,18 +332,20 @@ def _debates_view() -> None:
         st.bar_chart(filtered["chamber"].value_counts().rename("Debates"))
 
     _section("All debate records")
-    display_cols = [c for c in ["date", "debate_title", "chamber", "title", "bill_year", "bill_status"] if c in filtered.columns]
+    display_cols = [
+        c for c in ["date", "debate_title", "chamber", "title", "bill_year", "bill_status"] if c in filtered.columns
+    ]
     st.dataframe(
         filtered[display_cols].sort_values("date", ascending=False),
         hide_index=True,
         use_container_width=True,
         column_config={
-            "date":          st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
-            "debate_title":  st.column_config.TextColumn("Debate section", width="large"),
-            "chamber":       st.column_config.TextColumn("Chamber"),
-            "title":         st.column_config.TextColumn("Bill", width="large"),
-            "bill_year":     st.column_config.NumberColumn("Year", format="%d", width="small"),
-            "bill_status":   st.column_config.TextColumn("Status"),
+            "date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
+            "debate_title": st.column_config.TextColumn("Debate section", width="large"),
+            "chamber": st.column_config.TextColumn("Chamber"),
+            "title": st.column_config.TextColumn("Bill", width="large"),
+            "bill_year": st.column_config.NumberColumn("Year", format="%d", width="small"),
+            "bill_status": st.column_config.TextColumn("Status"),
         },
     )
     _export(filtered[display_cols], "debates.csv", "db_exp")
@@ -336,16 +353,17 @@ def _debates_view() -> None:
 
 # ── Entry point ───────────────────────────────────────────────────────
 
+
 def legislation_page() -> None:
     inject_css()
 
     sponsors = _load_sponsors()
-    stages   = _load_stages()
-    debates  = _load_debates()
+    stages = _load_stages()
+    debates = _load_debates()
 
-    total_bills   = stages["title"].nunique() if not stages.empty else 0
+    total_bills = stages["title"].nunique() if not stages.empty else 0
     total_sponsors = sponsors["td_name"].nunique() if not sponsors.empty else 0
-    total_debates  = len(debates)
+    total_debates = len(debates)
 
     with st.sidebar:
         st.markdown('<div class="page-kicker">Dáil Tracker</div>', unsafe_allow_html=True)

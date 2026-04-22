@@ -119,13 +119,14 @@ def clean_members_duplicates() -> None:
     """CSV copies in members/ that duplicate gold/ outputs."""
     members_dir = _ROOT / "members"
     for name in [
-        "enriched_td_attendance.csv",   # canonical copy lives in data/gold/
-        "member_interests_combined.csv", # canonical copy lives in data/silver/
+        "enriched_td_attendance.csv",  # canonical copy lives in data/gold/
+        "member_interests_combined.csv",  # canonical copy lives in data/silver/
     ]:
         _delete_file(members_dir / name)
 
 
 # ── Future medallion directories ─────────────────────────────────────────────
+
 
 def clean_raw_intermediate() -> None:
     """
@@ -141,11 +142,13 @@ def clean_raw_intermediate() -> None:
 
 # ── Pipeline log ──────────────────────────────────────────────────────────────
 
+
 def clean_pipeline_log() -> None:
     _delete_file(_ROOT / "pipeline.log")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
+
 
 def run() -> None:
     log.info("=== tear_down: starting cleanup ===")

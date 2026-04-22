@@ -28,6 +28,7 @@ COMMITTEE_TYPES = {
 
 # ── helpers ──────────────────────────────────────────────────────────
 
+
 def _coalesce(*values):
     for v in values:
         if not pd.isna(v):
@@ -48,7 +49,7 @@ def _committee_slug(name: str) -> str | None:
     for prefixes, suf in chamber_patterns:
         for prefix in prefixes:
             if s.startswith(prefix):
-                s = s[len(prefix):]
+                s = s[len(prefix) :]
                 suffix = suf
                 matched_chamber = True
                 break
@@ -57,7 +58,7 @@ def _committee_slug(name: str) -> str | None:
     if not matched_chamber:
         for prefix in ("Joint Committee on ", "Select Committee on ", "Committee on "):
             if s.startswith(prefix):
-                s = s[len(prefix):]
+                s = s[len(prefix) :]
                 break
     s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
     s = s.lower()
@@ -83,6 +84,7 @@ def _export(df: pd.DataFrame, filename: str, key: str, label: str = "Export CSV"
 
 # ── data loading ─────────────────────────────────────────────────────
 
+
 @st.cache_data(show_spinner=False)
 def _load(chamber: str):
     df = pd.read_csv(_CSV[chamber], na_values=["Null"])
@@ -105,13 +107,15 @@ def _load(chamber: str):
             office_name = row.get(f"{op}_name")
             if pd.isna(office_name):
                 continue
-            office_records.append({
-                "name": name,
-                "party": party,
-                "office": str(office_name).strip(),
-                "start": _coalesce(row.get(f"{op}_start_date")),
-                "end": _coalesce(row.get(f"{op}_end_date")),
-            })
+            office_records.append(
+                {
+                    "name": name,
+                    "party": party,
+                    "office": str(office_name).strip(),
+                    "start": _coalesce(row.get(f"{op}_start_date")),
+                    "end": _coalesce(row.get(f"{op}_end_date")),
+                }
+            )
     offices = pd.DataFrame(office_records)
 
     # Committee memberships
@@ -129,23 +133,25 @@ def _load(chamber: str):
             if pd.isna(c_name):
                 continue
             role = _coalesce(row.get(f"{prefix}_role_title")) or "Member"
-            records.append({
-                **base,
-                "committee": str(c_name).strip(),
-                "committee_url": _committee_url(c_name, base["dail_number"]),
-                "type": _coalesce(row.get(f"{prefix}_type")) or "Unknown",
-                "status": status_map.get(row.get(f"{prefix}_main_status"), "Unknown"),
-                "role": role,
-                "is_chair": "cathaoirleach" in str(role).lower(),
-                "start": _coalesce(
-                    row.get(f"{prefix}_role_start_date"),
-                    row.get(f"{prefix}_member_start_date"),
-                ),
-                "end": _coalesce(
-                    row.get(f"{prefix}_role_end_date"),
-                    row.get(f"{prefix}_member_end_date"),
-                ),
-            })
+            records.append(
+                {
+                    **base,
+                    "committee": str(c_name).strip(),
+                    "committee_url": _committee_url(c_name, base["dail_number"]),
+                    "type": _coalesce(row.get(f"{prefix}_type")) or "Unknown",
+                    "status": status_map.get(row.get(f"{prefix}_main_status"), "Unknown"),
+                    "role": role,
+                    "is_chair": "cathaoirleach" in str(role).lower(),
+                    "start": _coalesce(
+                        row.get(f"{prefix}_role_start_date"),
+                        row.get(f"{prefix}_member_start_date"),
+                    ),
+                    "end": _coalesce(
+                        row.get(f"{prefix}_role_end_date"),
+                        row.get(f"{prefix}_member_end_date"),
+                    ),
+                }
+            )
 
     df_long = pd.DataFrame(records)
 
@@ -188,13 +194,9 @@ def _load(chamber: str):
 
 # ── page sections ─────────────────────────────────────────────────────
 
+
 def _stat(num, label):
-    return (
-        f'<div>'
-        f'<div class="stat-num">{num}</div>'
-        f'<div class="stat-lbl">{label}</div>'
-        f'</div>'
-    )
+    return f'<div><div class="stat-num">{num}</div><div class="stat-lbl">{label}</div></div>'
 
 
 def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TDs") -> None:
@@ -229,7 +231,7 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
             """
         )
     st.markdown(
-        f'<div class="stat-strip">'
+        '<div class="stat-strip">'
         + _stat(total_tds, member_label)
         + _stat(df["committee"].nunique(), "Committees")
         + _stat(active_committees, "Active committees")
@@ -316,11 +318,12 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
         },
     )
 
-
     # ── Office holders ────────────────────────────────────────────
     if not offices.empty:
         st.markdown('<p class="section-heading">Government office holders</p>', unsafe_allow_html=True)
-        st.caption("TDs who hold or have held ministerial or state office. Cross-reference with their committee memberships in the TD Profile view.")
+        st.caption(
+            "TDs who hold or have held ministerial or state office. Cross-reference with their committee memberships in the TD Profile view."
+        )
         office_summary = (
             offices.groupby("name")
             .agg(party=("party", "first"), offices_held=("office", "nunique"))
@@ -355,7 +358,9 @@ def _browse_committees(df: pd.DataFrame, member_label: str = "TDs") -> None:
         type_options = ["All types"] + sorted(df["type"].dropna().unique())
         type_filter = st.selectbox("Committee type", type_options, key="br_type")
 
-        search = st.text_input("Search committee name", placeholder="e.g. Finance…", label_visibility="collapsed", key="br_search")
+        search = st.text_input(
+            "Search committee name", placeholder="e.g. Finance…", label_visibility="collapsed", key="br_search"
+        )
 
     filtered = df.copy()
     if status_filter != "All":
@@ -425,7 +430,9 @@ def _browse_committees(df: pd.DataFrame, member_label: str = "TDs") -> None:
         c_status = members["status"].iloc[0]
 
         signals = f'<span class="signal signal-neutral">{c_type}</span>'
-        signals += f'<span class="signal {"signal-accent" if c_status == "Active" else "signal-dark"}">{c_status}</span>'
+        signals += (
+            f'<span class="signal {"signal-accent" if c_status == "Active" else "signal-dark"}">{c_status}</span>'
+        )
         if url:
             signals += f'&nbsp;<a href="{url}" target="_blank" style="font-family:\'Epilogue\',sans-serif;font-size:0.8rem;color:var(--accent);">Open on Oireachtas.ie ↗</a>'
 
@@ -433,7 +440,7 @@ def _browse_committees(df: pd.DataFrame, member_label: str = "TDs") -> None:
             f'<div style="margin:0.75rem 0 1rem 0;">'
             f'<div class="td-name">{chosen}</div>'
             f'<div style="margin-top:0.4rem;">{signals}</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
 
@@ -456,7 +463,7 @@ def _browse_committees(df: pd.DataFrame, member_label: str = "TDs") -> None:
                     "end": st.column_config.DateColumn("End", format="YYYY-MM-DD"),
                 },
             )
-            _export(view, f"{chosen[:40].replace(' ','_')}_members.csv", "br_members_export")
+            _export(view, f"{chosen[:40].replace(' ', '_')}_members.csv", "br_members_export")
         with c2:
             st.markdown('<p class="section-heading">Party composition</p>', unsafe_allow_html=True)
             max_s = int(party_split["Seats"].max()) or 1
@@ -473,7 +480,9 @@ def _browse_committees(df: pd.DataFrame, member_label: str = "TDs") -> None:
 def _td_profile(df: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TDs") -> None:
     all_names = sorted(df["name"].unique())
 
-    search = st.text_input(f"Search {member_label[:-1]}", placeholder="Type a name…", label_visibility="collapsed", key="pr_search")
+    search = st.text_input(
+        f"Search {member_label[:-1]}", placeholder="Type a name…", label_visibility="collapsed", key="pr_search"
+    )
     query = search.strip().lower()
     filtered_names = [n for n in all_names if query in n.lower()] if query else all_names
 
@@ -517,12 +526,12 @@ def _td_profile(df: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TD
         f'<div style="padding:0 0 1rem 0;">'
         f'<div class="td-name">{td}</div>'
         f'<div class="td-meta">{meta}</div>'
-        f'</div>',
+        f"</div>",
         unsafe_allow_html=True,
     )
 
     st.markdown(
-        f'<div class="stat-strip">'
+        '<div class="stat-strip">'
         + _stat(total, "Committees")
         + _stat(active, "Active")
         + _stat(ended, "Ended")
@@ -570,10 +579,11 @@ def _td_profile(df: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TD
             ),
         },
     )
-    _export(view, f"{td.replace(' ','_')}_committees.csv", "pr_export")
+    _export(view, f"{td.replace(' ', '_')}_committees.csv", "pr_export")
 
 
 # ── page entry ────────────────────────────────────────────────────────
+
 
 def committees_page() -> None:
     inject_css()
@@ -583,7 +593,9 @@ def committees_page() -> None:
         st.markdown('<div class="page-title">Committee<br>Register</div>', unsafe_allow_html=True)
 
         st.markdown('<p class="sidebar-label">Chamber</p>', unsafe_allow_html=True)
-        chamber = st.radio("Chamber", ["Dáil", "Seanad"], horizontal=True, key="comm_chamber", label_visibility="collapsed")
+        chamber = st.radio(
+            "Chamber", ["Dáil", "Seanad"], horizontal=True, key="comm_chamber", label_visibility="collapsed"
+        )
         if st.session_state.get("_comm_last_chamber") != chamber:
             st.session_state["pr_selected"] = None
             st.session_state["_comm_last_chamber"] = chamber
@@ -597,8 +609,8 @@ def committees_page() -> None:
 
         st.markdown(
             f'<div class="page-subtitle">{df["committee"].nunique()} committees · '
-            f'{activity["name"].nunique()} {member_label} · '
-            f'{int((df["status"] == "Active").sum())} active memberships</div>',
+            f"{activity['name'].nunique()} {member_label} · "
+            f"{int((df['status'] == 'Active').sum())} active memberships</div>",
             unsafe_allow_html=True,
         )
 

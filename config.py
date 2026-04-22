@@ -1,7 +1,8 @@
+import logging
 import os
 from pathlib import Path
-import logging
-docstring="""
+
+docstring = """
 This module contains configuration settings for the project, including paths to various directories, API endpoints, date ranges, and other constants used throughout the codebase.
 """
 LOGGING_CONFIG = logging.basicConfig(
@@ -15,31 +16,31 @@ DATA_DIR = BASE_DIR / "data"
 # Medallion architecture layers
 BRONZE_DIR = DATA_DIR / "bronze"
 SILVER_DIR = DATA_DIR / "silver"
-GOLD_DIR   = DATA_DIR / "gold"
+GOLD_DIR = DATA_DIR / "gold"
 
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Bronze: PDF and CSV source file locations (aligned with existing directory structure)
-BRONZE_PDF_DIR     = BRONZE_DIR / "pdfs"
+BRONZE_PDF_DIR = BRONZE_DIR / "pdfs"
 ATTENDANCE_PDF_DIR = BRONZE_PDF_DIR / "attendance"
 
-PAYMENTS_PDF_DIR   = BRONZE_PDF_DIR / "payments"
-INTERESTS_PDF_DIR  = BRONZE_DIR / "interests"
-LOBBYING_RAW_DIR   = BRONZE_DIR / "lobbying_csv_data"
-VOTES_RAW_DIR      = BRONZE_DIR / "votes"
+PAYMENTS_PDF_DIR = BRONZE_PDF_DIR / "payments"
+INTERESTS_PDF_DIR = BRONZE_DIR / "interests"
+LOBBYING_RAW_DIR = BRONZE_DIR / "lobbying_csv_data"
+VOTES_RAW_DIR = BRONZE_DIR / "votes"
 # Bronze: API JSON and member data storage
-MEMBERS_DIR     = BRONZE_DIR / "members"
+MEMBERS_DIR = BRONZE_DIR / "members"
 LEGISLATION_DIR = BRONZE_DIR / "legislation"
-VOTES_DIR       = BRONZE_DIR / "votes"
+VOTES_DIR = BRONZE_DIR / "votes"
 # Silver: lobbying processed output
 LOBBY_OUTPUT_DIR = SILVER_DIR / "lobbying"
 
 # Other bronze source directories
-BILLS_DIR    = BRONZE_DIR / "bills"
+BILLS_DIR = BRONZE_DIR / "bills"
 
 
-#LOGGING SETUP
+# LOGGING SETUP
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_FILE_PATH = os.path.join(LOG_DIR, "pipeline.log")
 FILE_HANDLER = file_handler = logging.FileHandler(LOG_FILE_PATH, encoding="utf-8")
@@ -63,28 +64,30 @@ CHAMBER_SEANAD = "chamber=seanad"
 Y_M_D_format = "%Y-%m-%d"
 
 
-
 DIRS = [
-    DATA_DIR, 
-    SILVER_DIR, 
-    GOLD_DIR, 
-    BRONZE_DIR, 
+    DATA_DIR,
+    SILVER_DIR,
+    GOLD_DIR,
+    BRONZE_DIR,
     BRONZE_PDF_DIR,
-    ATTENDANCE_PDF_DIR, 
-    PAYMENTS_PDF_DIR, 
-    INTERESTS_PDF_DIR, 
-    LOBBYING_RAW_DIR, 
-    VOTES_RAW_DIR, 
-    MEMBERS_DIR, 
-    LEGISLATION_DIR, 
-    VOTES_DIR, 
-    LOBBY_OUTPUT_DIR, 
-    BILLS_DIR
+    ATTENDANCE_PDF_DIR,
+    PAYMENTS_PDF_DIR,
+    INTERESTS_PDF_DIR,
+    LOBBYING_RAW_DIR,
+    VOTES_RAW_DIR,
+    MEMBERS_DIR,
+    LEGISLATION_DIR,
+    VOTES_DIR,
+    LOBBY_OUTPUT_DIR,
+    BILLS_DIR,
 ]
+
 
 def init_dirs() -> None:
     """Create all project directories if they don't exist."""
     for d in DIRS:
         d.mkdir(parents=True, exist_ok=True)
+
+
 # Auto-create on import
 init_dirs()

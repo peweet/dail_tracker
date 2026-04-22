@@ -1,8 +1,10 @@
 # pipeline.py
-import subprocess, sys
 import logging
+import subprocess
+import sys
+
 STEPS = [
-    #endpoint checker and downloader
+    # endpoint checker and downloader
     ("PDF Endpoint Check", "pdf_endpoint_check.py"),
     ("PDF Downloader", "pdf_downloader.py"),
     ("Members API", "oireachtas_api_service.py"),
@@ -29,7 +31,9 @@ for name, script in STEPS:
     try:
         result = subprocess.run([sys.executable, script], check=True)
     except Exception as e:
-        print(f"Pipeline step {name} failed: error {e}", )
+        print(
+            f"Pipeline step {name} failed: error {e}",
+        )
         logging.error(f"Pipeline step {name} failed: error {e}")
         pipeline_finished_without_errors = False
         broken_steps.append((name, e))
@@ -44,6 +48,6 @@ if __name__ == "__main__":
         for step, error in broken_steps:
             print(f"- {step}: {error}")
 # enter python pipeline.py to run
-# This script serves as the main entry point for the data processing pipeline. 
-# It sequentially executes a series of scripts that perform various tasks such as fetching data from the Oireachtas API, flattening JSON data into CSV format, processing attendance PDFs, enriching the data by joining different datasets, and flattening bills data. Each step is clearly labeled in the output for easy tracking of the pipeline's progress. 
+# This script serves as the main entry point for the data processing pipeline.
+# It sequentially executes a series of scripts that perform various tasks such as fetching data from the Oireachtas API, flattening JSON data into CSV format, processing attendance PDFs, enriching the data by joining different datasets, and flattening bills data. Each step is clearly labeled in the output for easy tracking of the pipeline's progress.
 # By running this script, you can automate the entire data processing workflow with a single command.

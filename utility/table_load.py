@@ -1,7 +1,9 @@
-import duckdb
 import os
-#Simple DuckDB script to load the cleaned lobbyist CSV into a DuckDB database, and to run some simple queries to check that the data has been loaded correctly. This is a key step in the pipeline, as it allows us to efficiently query and analyze the lobbyist data using SQL, and to join it with other tables (e.g. attendance, payments, etc.) in the future as we build out the enriched dataset for analysis. By loading the data into DuckDB at this stage, we can also take advantage of DuckDB's performance optimizations for analytical queries, which will be important as we start to work with larger datasets and more complex queries in later stages of the pipeline.
-#start of the gold layer!
+
+import duckdb
+
+# Simple DuckDB script to load the cleaned lobbyist CSV into a DuckDB database, and to run some simple queries to check that the data has been loaded correctly. This is a key step in the pipeline, as it allows us to efficiently query and analyze the lobbyist data using SQL, and to join it with other tables (e.g. attendance, payments, etc.) in the future as we build out the enriched dataset for analysis. By loading the data into DuckDB at this stage, we can also take advantage of DuckDB's performance optimizations for analytical queries, which will be important as we start to work with larger datasets and more complex queries in later stages of the pipeline.
+# start of the gold layer!
 path = "C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\lobbyist\\output\\lobby_break_down_by_politician.csv"
 gold_dir = "C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\data\\gold"
 
