@@ -18,8 +18,6 @@ EXCLUDE_CASES = re.compile(r"^(Member|Sitting|Totals|Total)")
 DATE_RANGE = re.compile(r"(\d{1,2}-[a-zA-Z]+-\d{4})-to-(\d{1,2}-[a-zA-Z]+-\d{4})")
 date_range = ""
 
-# PDF_DIR = Path("bronze/pdf/attendance")
-
 os.chdir(ATTENDANCE_PDF_DIR)
 csv_path = DATA_DIR / "silver" / "aggregated_td_tables.csv"
 if not Path(csv_path).is_file():
@@ -28,10 +26,7 @@ if not Path(csv_path).is_file():
         pdf_path = Path(pdf)
         print(pdf_path.stem.title())
         match = re.search(DATE_RANGE, pdf_path.stem.lower())
-        if match:
-            date_range = f"{match.group(1)}_to_{match.group(2)}"
-        else:
-            date_range = "unknown"
+        date_range = f"{match.group(1)}_to_{match.group(2)}" if match else "unknown"
         print(f"Processing {pdf}...")
         doc = fitz.open(pdf)
         print(f"Number of pages in {pdf}: {doc.page_count}")
@@ -54,12 +49,6 @@ if not Path(csv_path).is_file():
                 df.insert(1, "first_name", first_name)
                 df.insert(2, "last_name", last_name)
                 dataframes.append(df)
-    # --- ORIGINAL BLOCK (for easy reversion) ---
-    # df = pd.concat(dataframes).drop(['Col1', 'Col2','Col3', 'Col4', 'Col5'], axis=1)
-    # df = df.iloc[:, :5].fillna(nan)
-    # df = df.replace('', nan).rename(columns={'Sitting days attendance recorded on system': 'sitting_days_attendance', 'Other days attendance recorded on system *' : 'other_days_attendance'})
-    # df = df.dropna(subset=['sitting_days_attendance', 'other_days_attendance'], how='all')
-    # --- FIXED BLOCK: robust to missing columns ---
     df = pd.concat(dataframes).drop(["Col1", "Col2", "Col3", "Col4", "Col5"], axis=1, errors="ignore")
     df = df.iloc[:, :5].fillna(nan)
     df = df.replace("", nan).rename(
@@ -73,8 +62,8 @@ if not Path(csv_path).is_file():
     drop_cols = [c for c in ["sitting_days_attendance", "other_days_attendance"] if c in df.columns]
     if drop_cols:
         df = df.dropna(subset=drop_cols, how="all")
-    year_from_sitting = df["sitting_days_attendance"].str.split("/", n=3).str[-1]
-    year_from_other = df["other_days_attendance"].str.split("/", n=3).str[-1]
+    year_from_sitting = df["sitting_days_attendance"].str.split("/", n=3).str[-1] if "sitting_days_attendance" in df.columns else None
+    year_from_other = df["other_days_attendance"].str.split("/", n=3).str[-1] if "other_days_attendance" in df.columns else None
     df["year"] = year_from_sitting.fillna(year_from_other).fillna("Missing")
     df["iso_sitting_days_attendance"] = pd.to_datetime(
         df["sitting_days_attendance"], format="%d/%m/%Y", errors="coerce"
