@@ -10,13 +10,13 @@ def normalise_df_td_name(df: pl.DataFrame, col_name: str) -> pl.Series:
     """
     Normalises TD names in the given DataFrame by:
     1. Concatenating first and last names into a single 'join_key' column.
-    2. Converting all characters to lowercase. 
+    2. Converting all characters to lowercase.
     3. Removing all non-alphabetic characters (e.g. spaces, apostrophes).
     4. Normalizing Unicode characters to their closest ASCII equivalent (e.g. "Ó
          Súilleabháin" → "O Suilleabhain").
     5. Sorting the characters in the name alphabetically (e.g. "OSuilleabhain" →
          "Oabhiillnsuu").
-    This process creates a 'join_key' that can be used to match 
+    This process creates a 'join_key' that can be used to match
     TD names across different datasets, even if there are variations in spelling, formatting, or special characters.
     It is an intermediate step in the data enrichment pipeline, used to join attendance records with member metadata.
     """
@@ -53,6 +53,7 @@ def normalise_df_td_name(df: pl.DataFrame, col_name: str) -> pl.Series:
         .list.join("")
         .alias("join_key")  # Join the sorted characters back into a string
     )
+    full_name = full_name.filter(pl.col("join_key").is_not_null())
     return full_name
 
 

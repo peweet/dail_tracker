@@ -773,11 +773,12 @@ members_drop_cols = [
 
 enrichment_cols_to_select = [
     # Core identity
+    "join_key",
     "unique_member_code",
     "full_name",
     "first_name",
     "last_name",
-    "gender",
+    # "gender",
     "date_of_death",
     # Dail / membership
     "membership_start_date",

@@ -374,7 +374,7 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
     df = df.with_columns(pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key"))
     df = df.with_columns(
         pl.when(
-            (pl.col("interest_code") == "4") & (pl.col("is_landlord") == True)
+            (pl.col("interest_code") == "4") & (pl.col("is_landlord") == True)  # noqa: E712
             | ((pl.col("interest_code") == "4") & (pl.col("interest_description_cleaned") != "No interests declared"))
         )
         .then(pl.lit("TRUE"))
@@ -387,8 +387,6 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 # Join
 # ---------------------------------------------------------------------------
-
-
 def join_master_list(
     df: pl.DataFrame,
     master_path: pathlib.Path,
@@ -399,7 +397,7 @@ def join_master_list(
 
     master = (
         pl.read_csv(master_path)
-        .select(["unique_member_code", "first_name", "last_name", "constituency_name", "full_name", "party"])
+        .select(["unique_member_code", "first_name", "last_name", "constituency_name", "full_name", "party", "ministerial_office", 'year_elected'])
         .unique()
     )
     master = master.with_columns(pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key"))
@@ -417,13 +415,6 @@ def join_master_list(
         .drop("join_key")
     )
     drop_cols = ["first_name_right", "interests", "name", "interest_description_raw", "last_name_right"]
-    if minister_path is not None:
-        ministers = (
-            pl.read_csv(minister_path)
-            .select(["unique_member_code", "ministerial_office_filled"])
-            .unique(subset=["unique_member_code"])
-        )
-        result = result.join(ministers, on="unique_member_code", how="left")
     result = result.drop([c for c in drop_cols if c in result.columns])
     result = result.with_columns(pl.col("interest_flag").sum().over("unique_member_code").alias("interest_count")).drop(
         "interest_flag"
