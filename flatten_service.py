@@ -20,7 +20,7 @@ df = pd.DataFrame(flattened_data)
 # Save the DataFrame to a CSV file
 output_path = DATA_DIR / "silver" / "new_flattened_bills.csv"
 df.to_csv(output_path)
-df1 = pd.read_csv(DATA_DIR / "silver" / "flattened_bills.csv")
+df1 = pd.read_csv(DATA_DIR / "silver" / "new_flattened_bills.csv")
 df1 = (
     df1.drop(bill_cols_to_drop, axis=1, errors="ignore")
     .rename(columns=bill_rename)
