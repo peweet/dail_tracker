@@ -1,0 +1,29 @@
+[theme]
+base = "light"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+headingFont = "Source Serif 4:https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@600;700&display=swap, serif"
+codeFont = "JetBrains Mono:https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap, monospace"
+baseFontSize = 16
+baseFontWeight = 400
+headingFontSizes = ["2.35rem", "1.7rem", "1.3rem"]
+headingFontWeights = [700, 700, 600]
+primaryColor = "#0F3D5E"
+backgroundColor = "#F7F5F2"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#111827"
+linkColor = "#0F3D5E"
+baseRadius = "0.6rem"
+buttonRadius = "full"
+borderColor = "#D6D3D1"
+dataframeBorderColor = "#D6D3D1"
+dataframeHeaderBackgroundColor = "#F2EFE9"
+showWidgetBorder = true
+showSidebarBorder = true
+chartCategoricalColors = ["#0F3D5E", "#9A3412", "#2563EB", "#166534", "#7C3AED", "#6B7280"]
+chartSequentialColors = ["#EFF6FF", "#DBEAFE", "#BFDBFE", "#93C5FD", "#60A5FA", "#3B82F6", "#2563EB", "#1D4ED8", "#1E40AF", "#172554"]
+
+[client]
+showErrorDetails = true
+
+[server]
+headless = true
