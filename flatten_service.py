@@ -27,6 +27,7 @@ df1 = (
     .to_csv(DATA_DIR / "silver" / "drop_cols_flattened_bills.csv")
 )
 
+df1.to_parquet(DATA_DIR / "silver" / "parquet" / "drop_cols_flattened_bills.parquet", index=False)
 
 if __name__ == "__main__":
     print("Bills JSON flattening complete. Output saved to new_flattened_bills.csv and drop_cols_flattened_bills.csv.")

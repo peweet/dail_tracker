@@ -64,6 +64,7 @@ def process_payment_pdfs():
     )
 
     df.write_csv(SILVER_DIR / "aggregated_payment_tables.csv")
+    df.write_parquet(SILVER_DIR / "parquet" / "aggregated_payment_tables.parquet")
     top_tds_by_payment = df.with_columns(
         pl.col('Amount').str
         # filter out the euro symbol and any commas, and then convert to float
@@ -84,7 +85,7 @@ def process_payment_pdfs():
         descending=True)
     top_tds_by_payment = top_tds_by_payment.unique()
     top_tds_by_payment.write_csv(SILVER_DIR / "top_tds_by_payment_since_2020.csv")
-
+    top_tds_by_payment.write_parquet(SILVER_DIR / "parquet" / "top_tds_by_payment_since_2020.parquet")
 if __name__ == "__main__":
     process_payment_pdfs()
     print("Payment PDF processing complete. Output saved to aggregated_payment_tables.csv and top_tds_by_payment_2020.csv.")

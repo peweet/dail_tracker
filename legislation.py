@@ -101,11 +101,15 @@ sponsors_df["bill_url"] = sponsors_df.apply(
 )
 
 sponsors_df.to_csv(SILVER_DIR / "sponsors.csv")
+sponsors_df.to_parquet(SILVER_DIR / "parquet" / "sponsors.parquet", index=False)
 print("Sponsors dataset created successfully.")
 
 stages_df.dropna(axis=0, how="all").to_csv(SILVER_DIR / "stages.csv")
+stages_df.to_parquet(SILVER_DIR / "parquet" / "stages.parquet", index=False)
 print("Stages dataset created successfully.")
 
 debates_df = debates_df.sort_values(by="date", axis=0, ascending=True)
 debates_df.dropna(axis=0, how="all").to_csv(SILVER_DIR / "debates.csv")
+
+debates_df.to_parquet(SILVER_DIR / "parquet" / "debates.parquet", index=False)
 print("Debates dataset created successfully.")
