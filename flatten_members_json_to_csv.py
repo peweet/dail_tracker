@@ -1,5 +1,6 @@
 import json
 
+from duckdb import df
 import pandas as pd
 from flatten_json import flatten
 
@@ -32,16 +33,16 @@ def flatten_members_to_csv(house: str = "dail"):
     with open(filtered_path, encoding="utf-8") as f:
         data = json.load(f)
         flattened_data = [flatten(member) for member in data]
-
-    df = pd.DataFrame(flattened_data).fillna("Null")
+        df = pd.DataFrame(flattened_data)
     df = df.rename(members_rename, axis=1)
     df = df.drop(columns=members_drop_cols, errors="ignore")
-
+    minister_bool_mask = df['office_1_name'].notna() & df['office_1_name'].str.contains("Minister", case=False, na=False)
+    df['ministerial_office'] = minister_bool_mask.astype(str).replace({"True": "true", "False": "false"})
+    df['year_elected'] = df["unique_member_code"].str.extract(r"(\b\d{4}\b)", expand=False)
+    # df['year_elected'] = df['unique_member_code'].str.extract(r"(\b\d{4}\b)", expand=False)  # Extract year from unique_member_code
     csv_path = DATA_DIR / "silver" / csv_name
     df.to_csv(csv_path, index=False, encoding="utf-8")
     print(f"Flattened {house} members saved to {csv_path}")
-
-
 if __name__ == "__main__":
     print("Starting member flattening service...")
     flatten_members_to_csv("dail")
