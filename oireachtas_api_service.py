@@ -70,17 +70,18 @@ def save_members_json(data: dict, path_override: Path = None, scenario: str = No
 
 def construct_urls_for_api(api_scenario: str) -> list[str]:
     """Build one URL per TD for the given API scenario (legislation or questions)."""
-    enriched_csv_path = DATA_DIR / "gold" / "enriched_td_attendance.csv"
-    df = (
-        pl.read_csv(enriched_csv_path)
-        .select(pl.col("unique_member_code"))
-        .filter(pl.col("unique_member_code").is_not_null())
-        .unique()
-    )
+    # enriched_csv_path = DATA_DIR / "gold" / "enriched_td_attendance.csv"
+    unique_member_codes = fetch_members(house="dail")["results"]
+    # df = (
+    #     pl.read_csv(enriched_csv_path)
+    #     .select(pl.col("unique_member_code"))
+    #     .filter(pl.col("unique_member_code").is_not_null())
+    #     .unique()
+    # )
 
     urls = []
-    for row in df.rows():
-        code = row[0]
+    for member in unique_member_codes:
+        code = member.get("member_id")
         if code is None:
             continue  # Skip null codes
 
