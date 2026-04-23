@@ -933,6 +933,7 @@ def save_output(df: pl.DataFrame, filename: str, overwrite: bool = True) -> None
         print(f"{filename} already exists, skipping.")
         return
     df.write_csv(path)
+    df.write_parquet(path.with_suffix(".parquet"))
     print(f"Saved {filename}")
 
 
