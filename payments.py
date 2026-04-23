@@ -4,7 +4,7 @@ from glob import glob
 import fitz  # PyMuPDF
 import polars as pl
 
-from config import PAYMENTS_PDF_DIR, SILVER_DIR
+from config import PAYMENTS_PDF_DIR, SILVER_DIR, GOLD_DIR
 from normalise_join_key import normalise_df_td_name
 
 
@@ -62,7 +62,7 @@ def process_payment_pdfs():
         pl.col('Date_Paid'
             ).str.to_date(format="%d/%m/%Y"),
     )
-
+    df = df.unique(subset=['join_key', 'Date_Paid', 'Amount'], keep='first')
     df.write_csv(SILVER_DIR / "aggregated_payment_tables.csv")
     df.write_parquet(SILVER_DIR / "parquet" / "aggregated_payment_tables.parquet")
     top_tds_by_payment = df.with_columns(
@@ -74,7 +74,7 @@ def process_payment_pdfs():
 
     # Filter out rows where Amount looks like a misread date (>10000) or is null
     top_tds_by_payment = top_tds_by_payment.filter(
-        pl.col('Amount').is_not_null() & 
+        pl.col('Amount').is_not_null() &
         (pl.col('Amount') < 10_000)
     )
     top_tds_by_payment = top_tds_by_payment.with_columns(
@@ -84,8 +84,9 @@ def process_payment_pdfs():
         ['Date_Paid', 'total_amount_paid_since_2020'],
         descending=True)
     top_tds_by_payment = top_tds_by_payment.unique()
-    top_tds_by_payment.write_csv(SILVER_DIR / "top_tds_by_payment_since_2020.csv")
-    top_tds_by_payment.write_parquet(SILVER_DIR / "parquet" / "top_tds_by_payment_since_2020.parquet")
+
+    top_tds_by_payment.write_csv(GOLD_DIR / "top_tds_by_payment_since_2020.csv")
+    top_tds_by_payment.write_parquet(GOLD_DIR / "parquet" / "top_tds_by_payment_since_2020.parquet")
 if __name__ == "__main__":
     process_payment_pdfs()
     print("Payment PDF processing complete. Output saved to aggregated_payment_tables.csv and top_tds_by_payment_2020.csv.")
