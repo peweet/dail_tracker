@@ -42,6 +42,7 @@ def flatten_members_to_csv(house: str = "dail"):
     # df['year_elected'] = df['unique_member_code'].str.extract(r"(\b\d{4}\b)", expand=False)  # Extract year from unique_member_code
     csv_path = DATA_DIR / "silver" / csv_name
     df.to_csv(csv_path, index=False, encoding="utf-8")
+    df.to_parquet(DATA_DIR / "silver" / "parquet" / csv_name.replace(".csv", ".parquet"), index=False)
     print(f"Flattened {house} members saved to {csv_path}")
 if __name__ == "__main__":
     print("Starting member flattening service...")

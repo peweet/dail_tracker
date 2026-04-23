@@ -78,6 +78,7 @@ df = (
 # URL format: https://www.oireachtas.ie/en/bills/bill/{house_number}/{vote_date}/{vote_id}/
 # Example:    nternational Protection Bill 2026: From the Seanad = https://www.oireachtas.ie/en/debates/vote/dail/34/2026-04-15/80/
 df["vote_id"] = df["vote_id"].str.split("_").str[-1]
+#https://www.oireachtas.ie/en/debates/vote/dail/34/2026-04-21/90/
 df["vote_url"] = df.apply(
     lambda row: (
         f"https://www.oireachtas.ie/en/debates/vote/dail/{row['house_number']}/{row['vote_date']}/{row['vote_id']}/"
