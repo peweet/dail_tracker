@@ -1,0 +1,33 @@
+wd:Q654291      # Teachta Dála / TD
+wd:Q131309742   # 34th Dáil, TDs 2024–
+wdt:P18         # image
+p:P39           # position held statement
+ps:P39          # value of position held
+pq:P2937        # parliamentary term qualifier
+pq:P768         # electoral district / constituency qualifier
+pq:P4100        # parliamentary group qualifier
+
+
+
+
+SELECT DISTINCT
+  ?person
+  ?personLabel
+  ?image
+  ?constituencyLabel
+  ?groupLabel
+WHERE {
+  ?person p:P39 ?tdStatement;
+          wdt:P18 ?image.
+
+  ?tdStatement ps:P39 wd:Q654291;
+               pq:P2937 wd:Q131309742.
+
+  OPTIONAL { ?tdStatement pq:P768 ?constituency. }
+  OPTIONAL { ?tdStatement pq:P4100 ?group. }
+
+  SERVICE wikibase:label {
+    bd:serviceParam wikibase:language "en,ga".
+  }
+}
+ORDER BY ?constituencyLabel ?personLabel

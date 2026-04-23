@@ -1,3 +1,5 @@
+# Ignore all parquet files
+*.parquet
 # Default ignored files
 /shelf/
 /workspace.xml
@@ -5,7 +7,7 @@
 .idea/
 
 .venv/
-
+.parquet
 # === Pipeline data outputs (regenerable, don't track) ===
 *.csv
 *.json
