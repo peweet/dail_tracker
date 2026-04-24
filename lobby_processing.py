@@ -836,10 +836,8 @@ def build_client_company_returns_detail(activities_df: pl.DataFrame) -> pl.DataF
     )
     return per_return
 
-
 def build_bilateral_returns_detail(activities_df: pl.DataFrame) -> pl.DataFrame:
     """Drill-down for bilateral_relationships: every return underlying each persistent org-politician pair.
-
     Only includes (lobbyist, politician) pairs that appear across more than one return.
     """
     pair_counts = (
@@ -869,7 +867,6 @@ def build_bilateral_returns_detail(activities_df: pl.DataFrame) -> pl.DataFrame:
         descending=[True, False, True],
     )
     return df
-
 
 def build_revolving_door_returns_detail(activities_df: pl.DataFrame) -> pl.DataFrame:
     """Drill-down for revolving_door_dpos: each return a named ex-DPO carried out lobbying on."""
