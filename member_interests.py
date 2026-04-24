@@ -28,13 +28,11 @@ import polars as pl
 import regex
 
 import normalise_join_key
-from config import DATA_DIR, GOLD_DIR, INTERESTS_PDF_DIR, MEMBERS_DIR
+from config import GOLD_DIR, INTERESTS_PDF_DIR, MEMBERS_DIR, SILVER_DIR
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-
-SILVER_DIR = DATA_DIR / "silver"
 
 PDF_PATHS: dict[str, pathlib.Path] = {
     # Seanad
@@ -70,8 +68,8 @@ INTEREST_CODE_MAP = {
 
 SPLIT_INTEREST_CODES = {"1", "2", "3", "4", "9"}
 
-MASTER_TD_PATH = DATA_DIR / "silver" / "flattened_members.csv"
-MASTER_SEANAD_PATH = DATA_DIR / "silver" / "flattened_seanad_members.csv"
+MASTER_TD_PATH = SILVER_DIR / "flattened_members.csv"
+MASTER_SEANAD_PATH = SILVER_DIR / "flattened_seanad_members.csv"
 MINISTER_PATH = GOLD_DIR / "enriched_td_attendance.csv"
 
 

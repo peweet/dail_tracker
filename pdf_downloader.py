@@ -1,25 +1,18 @@
 import logging
-from pathlib import Path
 
 import requests
 
+from config import BRONZE_PDF_DIR, GOLD_DIR, SILVER_DIR
 from pdf_endpoint_check import endpoint_checker, manual_endpoints, urls
 
-download_path = Path("data/bronze/pdfs/")
-silver_path = Path("data/silver/")
-gold_path = Path("data/gold/")
-
-silver_path.mkdir(parents=True, exist_ok=True)
-gold_path.mkdir(parents=True, exist_ok=True)
+download_path = BRONZE_PDF_DIR
 logging.info(f"Download path set to: {download_path}")
-logging.info(f"Silver path set to: {silver_path}")
-logging.info(f"Gold path set to: {gold_path}")
+logging.info(f"Silver path set to: {SILVER_DIR}")
+logging.info(f"Gold path set to: {GOLD_DIR}")
 # https://stackoverflow.com/questions/16694907/download-a-large-file-in-python-with-requests
 # https://claude.ai/chat/93d4f9f6-4be3-4056-aa8d-f22358dd1938
 # implement steps suggested by Claude in the above conversation to create a robust PDF endpoint checker and downloader that can handle various edge cases and errors gracefully, and provide clear logging messages for any issues that arise during the process. This will help to ensure that we can reliably download the necessary PDF data for our analysis, and easily identify and troubleshoot any problems that may occur with the endpoints or the downloading process. By implementing these improvements, we can enhance the overall robustness and reliability of our data processing pipeline, and ensure that we have access to the necessary data for our analysis of TD behavior and potential correlations with other factors such as payments, lobbying activities, and member metadata.
 session = requests.Session()
-
-
 def endpoint_downloader(urls: list, session=session) -> None:
     download_path.mkdir(parents=True, exist_ok=True)
     for url in urls:

@@ -8,7 +8,7 @@ import fitz  # PyMuPDF
 import pandas as pd
 from numpy import nan
 
-from config import ATTENDANCE_PDF_DIR, DATA_DIR
+from config import ATTENDANCE_PDF_DIR, SILVER_DIR
 
 # --- Dail Eireann 2023, 2024, 2025, 2026 attendance PDFs ---
 
@@ -19,7 +19,7 @@ DATE_RANGE = re.compile(r"(\d{1,2}-[a-zA-Z]+-\d{4})-to-(\d{1,2}-[a-zA-Z]+-\d{4})
 date_range = ""
 
 os.chdir(ATTENDANCE_PDF_DIR)
-csv_path = DATA_DIR / "silver" / "aggregated_td_tables.csv"
+csv_path = SILVER_DIR / "aggregated_td_tables.csv"
 if not Path(csv_path).is_file():
     print("Aggregated payment tables CSV not found. Starting PDF processing to create it...")
     for pdf in list(glob.glob("*.pdf")):
@@ -72,7 +72,7 @@ if not Path(csv_path).is_file():
     df.to_csv(csv_path, index=False)
 else:
     print(f"Aggregated payment tables CSV already exists at {csv_path}. Skipping PDF processing.")
-df = pd.read_csv(DATA_DIR / "silver" / "aggregated_td_tables.csv")
+df = pd.read_csv(SILVER_DIR / "aggregated_td_tables.csv")
 
 df["sitting_flag"] = df["iso_sitting_days_attendance"].notna().astype(int)
 df["other_flag"] = df["iso_other_days_attendance"].notna().astype(int)
@@ -87,8 +87,9 @@ drop_cols = [
 ]
 if drop_cols:
     df = df.drop(drop_cols, axis=1)
-df.to_csv(DATA_DIR / "silver" / "aggregated_td_tables.csv", index=False)
-df.to_parquet(DATA_DIR / "silver" / "parquet" / "aggregated_td_tables.parquet", index=False)
+df.to_csv(SILVER_DIR / "aggregated_td_tables.csv", index=False)
+
+df.to_parquet(SILVER_DIR / "parquet" / "aggregated_td_tables.parquet", index=False)
 print(f"date range extracted from title: {date_range}")
 print("TD attendance CSV created successfully.")
 if __name__ == "__main__":

@@ -2,15 +2,15 @@ import polars as pl
 import normalise_join_key
 from utility.select_drop_rename_cols_mappings import enrichment_cols_to_select, committees_cols_to_select, members_rename
 import logging
-from config import DATA_DIR
+from config import SILVER_DIR, GOLD_DIR
 
 
 #This module enriches the extracted datasets by joining them together and creating new features that can be used for analysis. It takes the cleaned and normalized datasets from the previous steps (e.g. attendance records, member metadata, committee assignments) and performs joins to create enriched datasets that combine information from multiple sources. The enriched datasets are then saved to CSV files for further analysis. This module also includes logging to track the progress of the enrichment process and any issues that may arise during the joining and feature creation steps. The resulting enriched datasets will provide a more comprehensive view of the TDs' activities and characteristics, allowing for deeper analysis of patterns and correlations across different dimensions of their work in the Dáil.
 
  
 
-small_df = pl.read_csv(DATA_DIR /"silver" / 'aggregated_td_tables.csv')
-large_df = pl.read_csv(DATA_DIR /"silver" / 'flattened_members.csv')
+small_df = pl.read_csv(SILVER_DIR / 'aggregated_td_tables.csv')
+large_df = pl.read_csv(SILVER_DIR / 'flattened_members.csv')
 
 committee_df = large_df.select(committees_cols_to_select)
 print(committee_df.schema)
@@ -38,6 +38,30 @@ enriched_df = enriched_df.with_columns(pl.col('unique_member_code')
                                        .str.extract(r"\b\d{4}\b", 0)
                                        .alias('year_elected')
                                        )
+
+
+# --- Create master TD list for gold layer ---
+master_cols = [
+    "unique_member_code",  # identifier
+    "first_name",
+    "last_name",
+    "full_name",
+    "year_elected",
+    "ministerial_office",  # position
+    "join_key",
+    "constituency_name",   # constituency
+    "party",
+    "constituency_code"
+]
+
+master_td_list = large_df.select(master_cols).unique(subset=["unique_member_code"], keep="first")
+master_td_list = master_td_list.rename({"unique_member_code": "identifier", "constituency_name": "constituency", "ministerial_office": "position"})
+
+master_td_list.write_csv(GOLD_DIR / "master_td_list.csv")
+# master_td_list.write_parquet(GOLD_DIR / "master_td_list.parquet")  # Uncomment to write Parquet
+
+print(f"Master TD list written to {GOLD_DIR / 'master_td_list.csv'} with {master_td_list.height} rows.")
+
 # enriched_df= enriched_df.with_columns(
 #     pl.when(pl.col('ministerial_office') != 'Null')
 #     .then(pl.lit('true'))
@@ -46,22 +70,22 @@ enriched_df = enriched_df.with_columns(pl.col('unique_member_code')
 #     )
 
 
-enriched_df.write_csv(DATA_DIR / "gold" / 'enriched_td_attendance.csv')
+enriched_df.write_csv(GOLD_DIR / 'enriched_td_attendance.csv')
 logging.info("Enriched TD attendance CSV created successfully.")
 
 
-committee_df.write_csv(DATA_DIR / "gold" / 'committee_assignments.csv')
+committee_df.write_csv(GOLD_DIR / 'committee_assignments.csv')
 logging.info("Committee assignments CSV created successfully.")
 
 
 
-votes_df = pl.read_csv(DATA_DIR / "silver" / 'pretty_votes.csv')
-enrich_vote = pl.read_csv(DATA_DIR / "gold" / 'enriched_td_attendance.csv')
+votes_df = pl.read_csv(SILVER_DIR / 'pretty_votes.csv')
+enrich_vote = pl.read_csv(GOLD_DIR / 'enriched_td_attendance.csv')
 key_data = enrich_vote.select(['join_key', 'unique_member_code', 'year_elected', 'last_name', 'dail_term', 'dail_number', 'full_name', 'first_name', 'party', 'constituency_name'])
 key_data = key_data.unique(subset=['unique_member_code'])
 current_dail_vote_history_df = votes_df.join(key_data, on='unique_member_code', how='left')
 current_dail_vote_history_df = current_dail_vote_history_df.unique(subset=['unique_member_code', 'vote_id']).drop('join_key')
-current_dail_vote_history_df.write_csv(DATA_DIR / "gold" / 'current_dail_vote_history.csv')
+current_dail_vote_history_df.write_csv(GOLD_DIR / 'current_dail_vote_history.csv')
 logging.info("Enriched TD votes CSV created successfully.")
 
 # #JOIN is too massive
@@ -84,22 +108,22 @@ logging.info("Enriched TD votes CSV created successfully.")
 # # current_dail_vote_history_df = current_dail_vote_history_df.join(sponsor_data, on=["unique_member_code"], how="left").unique()
 # print("enriched votes with sponsor and bill data successfully.")
 # print("writing enriched votes and legislation CSV...")
-# current_dail_vote_history_df.write_csv(DATA_DIR / "gold" / "current_dail_vote_history.csv")
+# current_dail_vote_history_df.write_csv(DATA_DIR_PLACEHOLDER / "gold" / "current_dail_vote_history.csv")
 # logging.info("Enriched TD votes and legislationCSV created successfully.")
 
 if __name__ == "__main__":
     print("Enriched TD datasets created successfully and saved to enriched_td_attendance.csv.")
 # logging.info("normalised large_df (API members) TD names")
 
-# enriched_df.write_csv(DATA_DIR / "gold" / "enriched_td_attendance.csv")
+# enriched_df.write_csv(DATA_DIR_PLACEHOLDER / "gold" / "enriched_td_attendance.csv")
 # logging.info("Enriched TD attendance CSV created successfully.")
 
-# # committee_df.write_csv(DATA_DIR / "gold" / "committee_assignments.csv")
+# # committee_df.write_csv(DATA_DIR_PLACEHOLDER / "gold" / "committee_assignments.csv")
 # # logging.info("Committee assignments CSV created successfully.")
 
-# votes_df = pl.read_csv(DATA_DIR / "silver" / "pretty_votes.csv", encoding="utf-8")
+# votes_df = pl.read_csv(DATA_DIR_PLACEHOLDER / "silver" / "pretty_votes.csv", encoding="utf-8")
 
-# enrich_vote = pl.read_csv(DATA_DIR / "gold" / "enriched_td_attendance.csv")
+# enrich_vote = pl.read_csv(DATA_DIR_PLACEHOLDER / "gold" / "enriched_td_attendance.csv")
 # key_data = enrich_vote.select(
 #     [
 #         "join_key",
@@ -117,7 +141,7 @@ if __name__ == "__main__":
 # vote_data_df = votes_df.select(
 #     "unique_member_code", "debate_title", "vote_id", "date", "vote_outcome", "vote_url"
 # ).rename({"date": "vote_date"})
-# sponsor_data = pl.read_csv(DATA_DIR / "silver" / "sponsors.csv", encoding="utf-8").select(
+# sponsor_data = pl.read_csv(DATA_DIR_PLACEHOLDER / "silver" / "sponsors.csv", encoding="utf-8").select(
 #     [
 #         "unique_member_code",
 #         "sponsor_is_primary",
