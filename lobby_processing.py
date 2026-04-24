@@ -1002,26 +1002,26 @@ def main() -> None:
     activities_df = parse_current_or_former_dpos(activities_df)
 
     # 6. Core metrics
-    most_lobbied = compute_most_lobbied_politicians(activities_df)
-    most_prolific = compute_most_prolific_lobbyists(lobbying_df, lobby_org)
+    most_lobbied = experimental_compute_most_lobbied_politicians(activities_df)
+    most_prolific = experimental_compute_most_prolific_lobbyists(lobbying_df, lobby_org)
 
     # 7. Experimental metrics — please review before trusting
-    policy_breakdown = compute_policy_area_breakdown(lobbying_df)  # experimental
-    delivery_mix = compute_delivery_method_mix(activities_df)  # experimental
-    policy_exposure = compute_politician_policy_exposure(activities_df)  # experimental
-    grassroots = compute_grassroots_campaigns(lobbying_df)  # experimental
-    quarterly_trend = compute_quarterly_trend(lobbying_df)  # experimental
-    top_clients = compute_top_client_companies(activities_df)  # experimental
-    revolving_door = compute_revolving_door_dpos(activities_df)  # experimental
+    policy_breakdown = experimental_compute_policy_area_breakdown(lobbying_df)  # experimental
+    delivery_mix = experimental_compute_delivery_method_mix(activities_df)  # experimental
+    policy_exposure = experimental_compute_politician_policy_exposure(activities_df)  # experimental
+    # grassroots = experimental_compute_grassroots_campaigns(lobbying_df)  # experimental
+    quarterly_trend = experimental_compute_quarterly_trend(lobbying_df)  # experimental
+    top_clients = experimental_compute_top_client_companies(activities_df)  # experimental
+    revolving_door = experimental_compute_revolving_door_dpos(activities_df)  # experimental
 
     # 7b. Experimental metrics — new
-    distinct_orgs_per_politician = compute_distinct_orgs_per_politician(activities_df)  # experimental
-    reach_by_lobbyist = compute_members_targeted_reach(activities_df)  # experimental
-    time_to_publish = compute_time_to_publish(lobbying_df)  # experimental
-    description_lengths = compute_return_description_length(lobbying_df)  # experimental
-    lobbyist_persistence = compute_lobbyist_persistence(lobbying_df)  # experimental
-    bilateral_relationships = compute_bilateral_relationships(activities_df)  # experimental
-    policy_area_quarterly_trend = compute_policy_area_quarterly_trend(lobbying_df)  # experimental
+    distinct_orgs_per_politician = experimental_compute_distinct_orgs_per_politician(activities_df)  # experimental
+    reach_by_lobbyist = experimental_compute_members_targeted_reach(activities_df)  # experimental
+    time_to_publish = experimental_compute_time_to_publish(lobbying_df)  # experimental
+    description_lengths = experimental_compute_return_description_length(lobbying_df)  # experimental
+    lobbyist_persistence = experimental_compute_lobbyist_persistence(lobbying_df)  # experimental
+    bilateral_relationships = experimental_compute_bilateral_relationships(activities_df)  # experimental
+    # policy_area_quarterly_trend = experimental_compute_policy_area_quarterly_trend(lobbying_df)  # experimental
 
     # 8. Drill-down / URL export tables (streamlit-friendly)
     returns_master = build_returns_master_fact_table(lobbying_df)
@@ -1040,7 +1040,7 @@ def main() -> None:
     save_output(policy_breakdown, "experimental_policy_area_breakdown.csv")
     save_output(delivery_mix, "experimental_delivery_method_mix.csv")
     save_output(policy_exposure, "experimental_politician_policy_exposure.csv")
-    save_output(grassroots, "experimental_grassroots_campaigns.csv")
+    # save_output(grassroots, "experimental_grassroots_campaigns.csv")
     save_output(quarterly_trend, "experimental_quarterly_trend.csv")
     save_output(top_clients, "experimental_top_client_companies.csv")
     save_output(revolving_door, "experimental_revolving_door_dpos.csv")
@@ -1050,7 +1050,7 @@ def main() -> None:
     save_output(description_lengths, "experimental_return_description_lengths.csv")
     save_output(lobbyist_persistence, "experimental_lobbyist_persistence.csv")
     save_output(bilateral_relationships, "experimental_bilateral_relationships.csv")
-    save_output(policy_area_quarterly_trend, "experimental_policy_area_quarterly_trend.csv")
+    # save_output(policy_area_quarterly_trend, "experimental_policy_area_quarterly_trend.csv")
 
     # 9c. Save — drill-down tables
     save_output(returns_master, "returns_master.csv")
