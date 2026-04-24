@@ -1,89 +1,162 @@
 # Dáil Tracker
 
-A civic-data pipeline that ingests, joins, and analyses open data published by the Oireachtas (Irish parliament) and related public bodies. Built to make parliamentary activity — attendance, legislation, questions, payments, declared interests, and lobbying contacts — searchable and cross-referenceable in one place.
+[![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/peweet/dail_tracker/blob/main/pyproject.toml)
+[![Status](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/peweet/dail_tracker)
+[![DuckDB](https://img.shields.io/badge/DuckDB-analytical%20layer-yellow.svg)](https://duckdb.org/)
+[![Polars](https://img.shields.io/badge/Polars-dataframes-lightgrey.svg)](https://pola.rs/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-dashboard-red.svg)](https://streamlit.io/)
 
-Only current Dail and Seanad are considered see `DATA_LIMITATIONS.md` for the rationale
+A civic-data pipeline for Irish parliamentary transparency.
 
-**Status:** in active development. Ingestion, flattening, and enrichment are working end-to-end for the 34th Dáil. DuckDB gold layer and Streamlit dashboard in progress.
+This project is heavily inspired by They Work For You 
+
+- https://github.com/mysociety/theyworkforyou
+
+and
+
+- https://howtheyvote.eu/
+
+Dáil Tracker ingests, joins, and analyses public data from the Oireachtas and related public bodies. The goal is to make parliamentary activity — attendance, legislation, questions, votes, payments, declared interests, and lobbying contacts — easier to search and cross-reference.
+
+Only the current Dáil and Seanad are in scope. See `doc/DATA_LIMITATIONS.md` for the rationale.
+
+**Status:** active development. Ingestion, flattening, enrichment, and dashboard work are progressing for the current parliamentary term.
+
+---
 
 ## Why this project exists
 
-The data is public but fragmented. The Oireachtas API, lobbying.ie, and the Standards in Public Office Commission each publish high-quality data in isolation. A TD's parliamentary activity, their declared financial interests, and who lobbies them all live in different systems with different identifiers and different update cadences.
+The data is public, but fragmented.
 
-This project joins them. Once joined, questions that are currently hard to answer become tractable:
+A TD's parliamentary activity, declared financial interests, attendance records, payments, votes, and lobbying contacts are published across different systems, formats, and update schedules.
+
+This project joins those sources into one analytical pipeline so questions like these become easier to answer:
 
 - Which TDs are lobbied most, and by whom?
-- Do lobbied TDs ask parliamentary questions on the lobbied topic?
-- What and how much are declared financial interests for politicians?
+- Do lobbying topics appear alongside parliamentary questions or votes?
+- What financial interests are declared by elected representatives?
+- How do attendance, payments, votes, and committee activity relate to other public records?
+
+---
 
 ## Data sources
 
-- **Oireachtas Open Data API** — `https://api.oireachtas.ie/` — members, legislation, questions, divisions, debates.
-- **data.oireachtas.ie** — PDFs for attendance, parliamentary standard allowance, and the Register of Members' Interests.
-- **lobbying.ie** — manual CSV exports from the Register of Lobbying.
+| Source | Used for | Format |
+|---|---|---|
+| Oireachtas Open Data API | Members, legislation, questions, votes, parliamentary metadata | API / JSON |
+| data.oireachtas.ie | Attendance, parliamentary standard allowance, register of interests | PDF |
+| lobbying.ie | Lobbying returns | CSV export |
 
-All upstream data is published under open licences by the respective bodies. See each source's terms for specifics.
-The pipeline uses three prinicpal sources.
+Source links:
 
-1.  Official Dail Oireachtas API (no API key needed)
-https://data.oireachtas.ie/
+- Oireachtas API: `https://api.oireachtas.ie/`
+- Oireachtas data portal: `https://data.oireachtas.ie/`
+- Register of Members' Interests: `https://www.oireachtas.ie/en/members/register-of-members-interests/`
+- Record of Attendance: `https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=record-of-attendance`
+- Register of Lobbying: `https://www.lobbying.ie/app/home/search`
 
-2. PDF official declarations. Many Oireachtas functions are published via PDF and not by API. PyMudf was employed to pull figures and text from the PDF's and transform it into tables
-Member Interets: https://www.oireachtas.ie/en/members/register-of-members-interests/
+All upstream data remains subject to the terms and licences of the publishing bodies.
 
-Record of Attendance: https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=record-of-attendance
-Example for a single TD:
-https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2026/2026-01-16_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2025-to-30-november-2025_en.pdf
+---
 
-3. Lobbying.ie Returns register
-https://www.lobbying.ie/app/home/search
+## Dataset coverage
 
-
-
-## What's in the dataset
-
-| Source | Format | Coverage | Script |
+| Dataset | Source | Coverage | Main script |
 |---|---|---|---|
-| TD members | Oireachtas API `/v1/members` | 34th Dáil (current) | `oireachtas_api_service.py` |
-This serves as the authoritative list of TDs.
-To maintain simplitiy for the pipeline for now only the 34th Dail members are considered. They are typicall 173 TD's (minus the Ceann Comhairle)
+| Members | Oireachtas API | Current Dáil / Seanad scope | `members_api_service.py` |
+| Legislation | Oireachtas API | Per member / bill metadata | `legislation.py` |
+| Parliamentary questions | Oireachtas API | Per member | `members_api_service.py` |
+| Votes / divisions | Oireachtas API | Division and vote records | `transform_votes.py` |
+| Attendance | Oireachtas PDFs | Published attendance records | `attendance.py` |
+| Parliamentary Standard Allowance | Oireachtas PDFs | Published payment records | `payments.py` |
+| Register of Members' Interests | Oireachtas PDFs | Published declarations | `member_interests.py` |
+| Lobbying returns | lobbying.ie CSV exports | Downloaded register returns | `lobby_processing.py` |
 
-| Legislation | Oireachtas API `/v1/legislation` | Per TD, career-wide | `oireachtas_api_service.py` |
-| Parliamentary questions | Oireachtas API `/v1/questions` | Per TD | `oireachtas_api_service.py` |
-| Attendance | PDF scrape | Jan 2023 → Feb 2026 | `attendance.py` |
-| Parliamentary Standard Allowance | PDF scrape | Jan 2024 → Feb 2026 | `payments.py` |
-| Register of Members' Interests | PDF scrape | Latest annual declaration | `member_interest.py` |
-| Lobbying register | CSV export from lobbying.ie | Multi-period | `lobbying_processing.py` |
+---
 
 ## Pipeline overview
 
-```
-INGESTION (Bronze)
-  oireachtas_api_service.py  → members.json, legislation_results.json, questions_results.json
-  pdf_enpoint_check.py       → health-checks all PDF + API URLs
+The project follows a medallion-style layout:
 
-TRANSFORMATION (Silver)
-  flatten_members_json_to_csv.py  → flattened_members.csv
-  attendance.py                   → aggregated_td_tables.csv
-  payments.py                     → aggregated_payment_tables.csv
-  member_interest.py              → member_interests_grouped.csv
-  lobbying_processing.py          → combined_lobbying_data.csv
-                                  → lobby_break_down_by_politician.csv
-                                  → most_lobbied_politicians.csv
-  flatten_service.py              → drop_cols_flattened_bills.csv
-
-ENRICHMENT (Silver → Gold)
-  enrich.py                       → enriched_td_attendance.csv
-                                     (attendance + members, joined on normalised key)
+```text
+data/
+├── bronze/   raw API, PDF, and CSV inputs
+├── silver/   cleaned and flattened intermediate outputs
+└── gold/     joined analytical outputs
 ```
 
-The join key is a sorted-character fuzzy key — NFD-normalise, lowercase, strip accents and apostrophes, then sort characters alphabetically. This matches "Ó Súilleabháin" to "O'Sullivan" across datasets that use different formatting conventions. The logic lives in `normalise_join_key.py`.
-There is a lot of inconsistencies in how names are recorded and this was an attempt to give join logic only in the early raw layer to join the most basic tables and get the unique members code. 
+Pipeline stages:
+
+```text
+1. Check source endpoints
+2. Download source PDFs and API data
+3. Flatten member, legislation, vote, and lobbying records
+4. Extract structured tables from PDFs
+5. Normalise names and join keys
+6. Enrich silver outputs into analytical datasets
+7. Build gold outputs for SQL and dashboard use
+```
+
+Run the pipeline:
+
+```bash
+python pipeline.py
+```
+
+`pipeline.py` is the orchestration entrypoint and should be treated as the current source of truth for execution order.
+
+---
+
+## Join strategy
+
+The source datasets do not share a reliable universal person identifier.
+
+The pipeline therefore creates an intermediate fuzzy join key for names:
+
+1. Unicode-normalise names
+2. Lowercase
+3. Strip accents, apostrophes, punctuation, and honorifics
+4. Remove whitespace
+5. Sort characters alphabetically
+
+This is implemented in:
+
+```text
+normalise_join_key.py
+```
+
+This approach is useful for early-stage joins where name formatting differs between sources, but it is intentionally treated as a pipeline aid rather than a permanent identifier. Collisions and missed matches remain possible and are documented as data limitations.
+
+---
+
+## Technology rationale
+
+### DuckDB
+
+DuckDB is used for the analytical layer because it gives the project local SQL analytics without requiring a database server. It works well for reproducible joins, aggregations, and gold-layer queries over local files.
+
+### Polars
+
+Polars is used where fast, memory-efficient DataFrame transformations are useful. It is a good fit for repeated cleaning, reshaping, and validation of larger intermediate datasets.
+
+### Pandas
+
+Pandas remains useful for compatibility with the wider Python data ecosystem, especially where existing libraries or extraction workflows return pandas-friendly structures.
+
+### SQL
+
+SQL is used for analytical transformations that benefit from being explicit, reviewable, and easy to reason about. Joins, aggregations, and gold-layer marts are easier to audit when expressed declaratively.
+
+### Streamlit
+
+Streamlit is kept as a thin presentation layer. The dashboard should read prepared outputs and handle display concerns only: filtering, sorting, formatting, navigation, and export. Transformation logic belongs in the pipeline, SQL, or gold layer.
+
 ---
 
 ## Installation
 
-Requires Python 3.12 and `uv` or `pip`.
+Requires Python 3.11+.
 
 ```bash
 git clone https://github.com/peweet/dail_tracker.git
@@ -91,189 +164,137 @@ cd dail_tracker
 pip install -e .
 ```
 
-Optional dependency groups defined in `pyproject.toml`:
+Optional development and analytical dependencies:
 
 ```bash
-pip install -e ".[duckdb]"   # DuckDB for the gold analytical layer
-pip install -e ".[ocr]"      # ocrmypdf for scanned PDF fallback
-pip install -e ".[dev]"      # pytest, ruff
+pip install -e ".[db]"
+pip install -e ".[dev]"
 ```
 
 ---
 
-## Running the pipeline
+## Dashboard
 
-There is a single `pipeline.py` orchestration scriot. The script will order the following functions in strict order.
+Run the Streamlit dashboard:
 
-```function order
-"pdf_endpoint_check.py"        
-"pdf_downloader.py"            
-"dummy_value"                  
-"flatten_members_json_to_csv.py
-"payments.py"                  
-"attendance.py"                
-"lobby_processing.py"          
-"legislation.py"               
-"member_interests.py"          
-"flatten_service.py"           
-"enrich.py"                    
-"transform_votes.py"           s
-"pdf_endpoint_check.py"        
-"pdf_downloader.py"            
-"dummy_value"                  
-"flatten_members_json_to_csv.py
-"payments.py"                  
-"attendance.py"                
-"lobby_processing.py"          
-"legislation.py"               
-"member_interests.py"          
-"flatten_service.py"           
-"enrich.py"                    
-"transform_votes.py"           
-"pdf_endpoint_check.py"        
-"pdf_downloader.py"            
-"dummy_value"                  
-"flatten_members_json_to_csv.py
-"payments.py"                  
-"attendance.py"                
-"lobby_processing.py"          
-"legislation.py"               
-"member_interests.py"          
-"flatten_service.py"           
-"enrich.py"                    
-"transform_votes.py"           
-"pdf_endpoint_check.py"        
-"pdf_downloader.py"            
-"dummy_value"                  
-"flatten_members_json_to_csv.py
-"payments.py"                  
-"attendance.py"                
-"lobby_processing.py"          
-"legislation.py"               
-"member_interests.py"          
-"flatten_service.py"           
-"enrich.py"                    
-"transform_votes.py"           
-"pdf_endpoint_check.py"        
-"pdf_downloader.py"            
-"dummy_value"                  
-"flatten_members_json_to_csv.py
-"payments.py"                  
-"attendance.py"                
-"lobby_processing.py"          
-"legislation.py"               
-"member_interests.py"          
-"flatten_service.py"           
-"enrich.py"                    
-"transform_votes.py"           
-"pdf_endpoint_check.py"        
-"pdf_downloader.py"            
-"dummy_value"                  
-"flatten_members_json_to_csv.py
-"payments.py"                  
-"attendance.py"                
-"lobby_processing.py"          
-"legislation.py"               
-"member_interests.py"          
-"flatten_service.py"           
-"enrich.py"                    
-"transform_votes.py"           
-"pdf_endpoint_check.py"        
-"pdf_downloader.py"            
-"dummy_value"                  
-"flatten_members_json_to_csv.py
-"payments.py"                  
-"attendance.py"                
-"lobby_processing.py"          
-"legislation.py"               
-"member_interests.py"          
-"flatten_service.py"           
-"enrich.py"                    
-"transform_votes.py"           
-"pdf_endpoint_check.py"        
-"pdf_downloader.py"            
-"dummy_value"                  
-"flatten_members_json_to_csv.py
-"payments.py"                  
-"attendance.py"                
-"lobby_processing.py"          
-"legislation.py"               
-"member_interests.py"          
-"flatten_service.py"           
-"enrich.py"                    
-"transform_votes.py"           
+```bash
+streamlit run utility/app.py
 ```
 
-Outputs land in `bronze/`, `silver/`, and `gold/` directories respectively. These directories are gitkept — the pipeline regenerates them. There are intermediate datasets that are discarded at cetain points as they dont serve any purpose.
+Dashboard pages currently include:
+
+- Interests
+- Committees
+- Attendance
+- Payments
+- Lobbying
+- Votes
+
+The dashboard is designed for exploration and interpretation of prepared datasets, not for core data transformation.
 
 ---
 
-## Repository layout
-TO BE UPDATED
+## Testing
+
+Testing is work in progress.
+
+Current tests focus on:
+
+- join-key normalisation
+- silver/gold output shape checks
+- basic data-quality checks where generated outputs exist
+- lightweight Streamlit smoke tests
+
+Run tests:
+
+```bash
+pip install -e ".[dev]"
+pytest test/ -v
 ```
+
+Run linting:
+
+```bash
+ruff check .
+```
+
+Some integration-style tests require generated `data/silver/` or `data/gold/` outputs. Where those files are missing, tests may skip rather than fail.
+
+---
+
+## Repository structure
+
+```text
 dail_tracker/
-├── pyproject.toml                         Dependencies, entry points
-├── README.MD                              This file
-├── REQUIREMENTS.md                        Roadmap, architecture, action items
-├── DATA_LIMITATIONS.md                    Known gaps, scope decisions, silent-failure risks
-├── ENGINEERING_REVIEW.md                  Senior-engineer critique + experimental ideas
+├── .streamlit/                         Streamlit configuration
+├── avatar/                             Static dashboard assets
+├── data/
+│   ├── bronze/                         Raw downloaded inputs
+│   ├── silver/                         Cleaned and flattened outputs
+│   └── gold/                           Analytical outputs
 │
-├── oireachtas_api_service.py              API ingestion (members, bills, questions)
-├── attendance.py                          Attendance PDF → CSV
-├── payments.py                            Payment PDF → CSV
-├── member_interest.py                     Member interests PDF → CSV
-├── lobbying_processing.py                 Lobbying CSV → cleaned + exploded CSVs
-├── flatten_members_json_to_csv.py         Member JSON flattening
-├── flatten_service.py                     Bill JSON flattening
-├── enrich.py                              Cross-dataset joins
-├── normalise_join_key.py                  Fuzzy name normalisation
-├── pdf_enpoint_check.py                   URL health checker
-├── tear_down.py                           Cleanup intermediary files
-├── read_scan_pdf.py                       OCR for scanned PDFs
-│
+├── doc/                                Project notes, limitations, reviews, refactor plans
+├── experimental/                       Scratch work not required for normal pipeline use
+├── services/                           Service-layer modules for API and storage work
+├── sql_queries/                        SQL used for analytical transformations
+├── test/                               pytest tests and test notes
 ├── utility/
-│   ├── constants.py                       PDF + API URLs
-│   └── select_drop_rename_cols_mappings.py Column configuration
+│   ├── app.py                          Streamlit app entrypoint
+│   ├── constants.py                    Source URLs and constants
+│   ├── pages_code/                     Dashboard page implementations
+│   ├── page_contracts/                 Page-level UI/data contracts
+│   ├── styles/                         Dashboard styling
+│   └── select_drop_rename_cols_mappings.py
 │
-├── doc/config.py                          Centralised paths (not yet wired in — see REQUIREMENTS.md)
-│
-├── test/                                  pytest (skeletal — see REQUIREMENTS.md)
-└── lobbyist/raw/                          Manual CSV downloads from lobbying.ie
+├── attendance.py                       Attendance PDF extraction
+├── payments.py                         Payment PDF extraction
+├── member_interests.py                 Register of Members' Interests extraction
+├── lobby_processing.py                 Lobbying CSV processing
+├── legislation.py                      Legislation processing
+├── transform_votes.py                  Vote transformation
+├── flatten_members_json_to_csv.py      Member JSON flattening
+├── flatten_service.py                  Bill/service flattening
+├── enrich.py                           Cross-dataset enrichment
+├── normalise_join_key.py               Name normalisation and fuzzy join key logic
+├── pdf_endpoint_check.py               Source endpoint checks
+├── pdf_downloader.py                   PDF downloader
+├── config.py                           Paths, directories, logging, and constants
+├── pipeline.py                         Pipeline orchestration
+├── tear_down.py                        Cleanup utilities
+├── pyproject.toml                      Build metadata and dependency groups
+└── README.MD
 ```
 
 ---
+
+## Data limitations
+
+This project depends on public sources that change format, structure, and publication cadence.
+
+Known limitations include:
+
+- PDF tables can change layout between publications.
+- API fields can change or silently omit edge cases.
+- Name-based joins can collide or miss matches.
+- Manual CSV exports depend on the export date and selected filters.
+- Current scope is limited to the current Dáil and Seanad.
+
+See:
+
+```text
+doc/DATA_LIMITATIONS.md
+```
 
 ---
 
 ## Contributing
 
-Fork and open a PR. The project is a work in progress — both pipeline correctness and analytical questions are open for collaboration. Issues for known bugs and desired features are tracked in `REQUIREMENTS.md`.
+Open an issue or pull request.
 
-If you spot data you believe is wrong, please open an issue with the source, the expected value, and the observed value. PDF-extracted data is inherently brittle and every confirmed miss helps.
+For data issues, include:
 
----
+- source link
+- expected value
+- observed value
+- affected dataset or script
 
-## A note on the data
-
-Every best effort has been made to produce a high-quality dataset, but the pipeline is only as good as its sources. PDFs are scraped with heuristics that can fail on unusual formatting. APIs are called with filters that can silently drop edge cases. Name-based joins rely on a fuzzy key that can collide on anagrams or fail on minor spelling variants.
-
-
----
-
-## Streamlit Dashboard & Data Interpretation
-
-The project includes a multi-page Streamlit dashboard (see `utility/pages_code/`) for exploring the joined datasets:
-
-- **Interests Register:** Search and browse all TDs' annual declarations of financial interests. The landing page provides clear guidance on how to interpret the data, including:
-  - Who is required to declare (and who is not)
-  - Limitations around office holders, household interests, and data completeness
-  - A direct link to the official Dáil rules for transparency ([see here, PDF, pg. 5](https://data.oireachtas.ie/ie/oireachtas/committee/dail/34/committee_on_members_interests_of_dail_eireann/termsOfReference/2025/2025-12-18_guidelines-for-members-of-dail-eireann-who-are-not-office-holders-concerning-the-steps-to-be-taken-by-them-to-ensure-compliance-with-the-provisions-of-the-ethics-in-public-office-acts-1995-and-2001_en.pdf))
-  - Context to help users avoid misinterpretation (e.g., more declared interests often means more transparency, not wrongdoing)
-- **Committees:** Explore committee assignments and cross-reference with other datasets.
-- **Lobbying:** Drill into lobbying returns, see which TDs are most lobbied, and view details by client/company.
-
-**Performance profiling** is built in for dashboard pages, allowing you to diagnose slow loads and optimize the user experience.
-
-**Trust and transparency:** The dashboard surfaces data limitations and interpretation guidance directly to users, helping journalists and citizens understand what the data does (and does not) show.
-
----
