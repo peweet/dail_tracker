@@ -37,9 +37,7 @@ LEGISLATION_DIR = BRONZE_DIR / "legislation"
 VOTES_DIR = BRONZE_DIR / "votes"
 # Silver: lobbying processed output
 LOBBY_OUTPUT_DIR = SILVER_DIR / "lobbying"
-
-# Other bronze source directories
-BILLS_DIR = BRONZE_DIR / "bills"
+LOBBY_PARQUET_DIR = LOBBY_OUTPUT_DIR / "parquet"
 
 
 # LOGGING SETUP
@@ -79,7 +77,7 @@ DIRS = [
     LEGISLATION_DIR,
     VOTES_DIR,
     LOBBY_OUTPUT_DIR,
-    BILLS_DIR,
+    LOBBY_PARQUET_DIR,
 ]
 
 

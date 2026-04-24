@@ -26,7 +26,7 @@ df1 = (
     .rename(columns=bill_rename)
 )
 df1.to_csv(SILVER_DIR / "drop_cols_flattened_bills.csv")
-df1.to_parquet(SILVER_DIR / "parquet" / "drop_cols_flattened_bills.parquet", index=False)
+# df1.to_parquet(SILVER_DIR / "parquet" / "drop_cols_flattened_bills.parquet", index=False)
 
 if __name__ == "__main__":
     print("Bills JSON flattening complete. Output saved to new_flattened_bills.csv and drop_cols_flattened_bills.csv.")

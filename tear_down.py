@@ -46,7 +46,7 @@ def _delete_glob(directory: Path, pattern: str) -> None:
 
 def clean_members_json() -> None:
     """Raw API member responses and intermediate filtered copies."""
-    members_dir = _ROOT / "members"
+    members_dir = _ROOT / "data" / "bronze" / "members"
     for name in [
         "members.json",
         "members_dail.json",
@@ -70,16 +70,10 @@ def clean_member_interest_year_csvs() -> None:
 
 
 def clean_bills() -> None:
-    """Flattened bills CSVs and intermediate JSON — not used by the Streamlit app."""
-    bills_dir = _ROOT / "bills"
-    for name in [
-        "all_bills_by_td.json",
-        "legislation_results.json",
-        "flattened_bills.csv",
-        "new_flattened_bills.csv",
-        "drop_cols_flattened_bills.csv",
-    ]:
-        _delete_file(bills_dir / name)
+    """Intermediate flattened bills files in silver — regenerated each pipeline run."""
+    silver = _ROOT / "data" / "silver"
+    for name in ["flattened_bills.csv", "new_flattened_bills.csv"]:
+        _delete_file(silver / name)
 
 
 def clean_bronze() -> None:
@@ -97,8 +91,8 @@ def clean_vote_jsons() -> None:
 
 
 def clean_lobbying_raw() -> None:
-    """Intermediate stacking files in lobbyist/raw/ — rolled up into lobbyist/output/."""
-    raw = _ROOT / "lobbyist" / "raw"
+    """Intermediate files generated during lobbying CSV sanitization — source exports are kept."""
+    raw = _ROOT / "data" / "bronze" / "lobbying_csv_data"
     for name in [
         "cleaned.csv",
         "cleaned_output.csv",
