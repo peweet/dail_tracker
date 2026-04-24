@@ -3,7 +3,7 @@ from pathlib import Path
 from requests.help import main
 
 # Project root = folder containing config.py
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 DATA_DIR = PROJECT_ROOT / "data"
 BRONZE_DIR = DATA_DIR / "bronze"

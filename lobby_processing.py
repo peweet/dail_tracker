@@ -3,7 +3,7 @@ import os
 
 import polars as pl
 
-from config import LOBBY_OUTPUT_DIR, LOBBYING_RAW_DIR
+from config import LOBBY_OUTPUT_DIR, LOBBY_PARQUET_DIR, LOBBYING_RAW_DIR
 from utility.select_drop_rename_cols_mappings import lobbying_rename
 
 # ---------------------------------------------------------------------------
@@ -375,7 +375,7 @@ def get_clients(df: pl.DataFrame) -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def compute_most_lobbied_politicians(activities_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_most_lobbied_politicians(activities_df: pl.DataFrame) -> pl.DataFrame:
     """Rank politicians by distinct returns targeting them, broken down by chamber.
 
     Deduplicates on (primary_key, full_name) first so multiple activities within
@@ -391,7 +391,7 @@ def compute_most_lobbied_politicians(activities_df: pl.DataFrame) -> pl.DataFram
     return most_lobbied
 
 
-def compute_most_prolific_lobbyists(
+def experimental_compute_most_prolific_lobbyists(
     lobbying_df: pl.DataFrame,
     lobby_org: pl.DataFrame,
 ) -> pl.DataFrame:
@@ -429,7 +429,7 @@ def compute_most_prolific_lobbyists(
 # ---------------------------------------------------------------------------
 
 
-def compute_policy_area_breakdown(lobbying_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_policy_area_breakdown(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: lobby-return volume per public_policy_area with lobbyist diversity."""
     df = lobbying_df.group_by("public_policy_area").agg(
         pl.len().alias("return_count"),
@@ -439,14 +439,14 @@ def compute_policy_area_breakdown(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def compute_delivery_method_mix(activities_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_delivery_method_mix(activities_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: breakdown of delivery channels (Meeting / Email / Phone call) per lobbyist."""
     df = activities_df.group_by(["lobbyist_name", "delivery"]).agg(pl.len().alias("delivery_count"))
     df = df.sort(["lobbyist_name", "delivery_count"], descending=[False, True])
     return df
 
 
-def compute_politician_policy_exposure(activities_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_politician_policy_exposure(activities_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: per politician × policy_area — distinct returns targeting them and distinct lobbyists involved.
 
     Deduplicates on primary_key first so the activity-explosion does not inflate counts.
@@ -468,7 +468,7 @@ def compute_grassroots_campaigns(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def compute_quarterly_trend(lobbying_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_quarterly_trend(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: return volume per calendar quarter (based on lobbying_period_start_date)."""
     df = lobbying_df.with_columns(
         pl.col("lobbying_period_start_date").dt.year().alias("year"),
@@ -483,7 +483,7 @@ def compute_quarterly_trend(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def compute_top_client_companies(activities_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_top_client_companies(activities_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: companies most often appearing as the ultimate client behind
     lobbying (i.e. the ones paying third-party lobbying firms).
 
@@ -509,7 +509,7 @@ def compute_top_client_companies(activities_df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def compute_revolving_door_dpos(activities_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_revolving_door_dpos(activities_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: current or former Designated Public Officials who personally
     carried out lobbying (classic revolving-door signal — ex-government people
     now working on behalf of a lobbying org).
@@ -537,7 +537,7 @@ def compute_revolving_door_dpos(activities_df: pl.DataFrame) -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def compute_distinct_orgs_per_politician(activities_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_distinct_orgs_per_politician(activities_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: per-politician count of distinct lobbying organisations, not just return volume.
 
     A TD targeted 40 times by 3 orgs is a different signal from 40 times by 30 orgs.
@@ -553,7 +553,7 @@ def compute_distinct_orgs_per_politician(activities_df: pl.DataFrame) -> pl.Data
     return df
 
 
-def compute_members_targeted_reach(activities_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_members_targeted_reach(activities_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: parse the 'members_targeted' band strings into a numeric reach midpoint.
 
     The field contains strings like '1-5', '11-20', '51-100', '100+'.  This converts
@@ -589,7 +589,7 @@ def compute_members_targeted_reach(activities_df: pl.DataFrame) -> pl.DataFrame:
     return per_lobbyist
 
 
-def compute_time_to_publish(lobbying_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_time_to_publish(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: days between lobbying_period_end_date and date_published_timestamp_dt.
 
     Late filers (large gap) may signal minimal-compliance behaviour. Only rows where
@@ -622,7 +622,7 @@ def compute_time_to_publish(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     return summary
 
 
-def compute_return_description_length(lobbying_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_return_description_length(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: character length of specific_details and intended_results as a transparency proxy.
 
     Very short entries (< ~30 chars) signal low-effort or evasive returns.
@@ -657,7 +657,7 @@ def compute_return_description_length(lobbying_df: pl.DataFrame) -> pl.DataFrame
     return per_return
 
 
-def compute_lobbyist_persistence(lobbying_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_lobbyist_persistence(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: filing history per lobbyist — active span, distinct periods filed, cadence.
 
     Orgs that file every single period vs one-off appearances carry different weight.
@@ -680,7 +680,7 @@ def compute_lobbyist_persistence(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def compute_bilateral_relationships(activities_df: pl.DataFrame) -> pl.DataFrame:
+def experimental_compute_bilateral_relationships(activities_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: persistent lobbying relationships — same org targeting same TD across multiple periods.
 
     A single contact is noise; repeated targeting across periods is an ongoing relationship.
@@ -722,7 +722,7 @@ def compute_policy_area_quarterly_trend(lobbying_df: pl.DataFrame) -> pl.DataFra
 
 
 # ---------------------------------------------------------------------------
-# Drill-down tables (URL exports, Streamlit-friendly)
+# Fact tables
 #
 # Each summary in the section above tells you who ranks where; the tables here
 # tell you *which specific lobby returns* are behind those numbers, with URLs
@@ -731,7 +731,7 @@ def compute_policy_area_quarterly_trend(lobbying_df: pl.DataFrame) -> pl.DataFra
 # ---------------------------------------------------------------------------
 
 
-def build_returns_master(lobbying_df: pl.DataFrame) -> pl.DataFrame:
+def build_returns_master_fact_table(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     """One row per lobby return with its URL and headline fields. Acts as the
     lookup anyone can join back to by primary_key.
     """
@@ -754,7 +754,7 @@ def build_returns_master(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def build_politician_returns_detail(activities_df: pl.DataFrame) -> pl.DataFrame:
+def build_politician_returns_fact_table(activities_df: pl.DataFrame) -> pl.DataFrame:
     """Drill-down for most_lobbied_politicians: one row per (politician, return)."""
     df = activities_df.select(
         "full_name",
@@ -774,7 +774,7 @@ def build_politician_returns_detail(activities_df: pl.DataFrame) -> pl.DataFrame
     return df
 
 
-def build_lobbyist_returns_detail(lobbying_df: pl.DataFrame) -> pl.DataFrame:
+def build_lobbyist_returns_fact_table(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     """Drill-down for most_prolific_lobbyists: every return each lobbyist filed."""
     df = lobbying_df.select(
         "lobbyist_name",
@@ -792,7 +792,7 @@ def build_lobbyist_returns_detail(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def build_client_company_returns_detail(activities_df: pl.DataFrame) -> pl.DataFrame:
+def build_client_company_returns_fact_table(activities_df: pl.DataFrame) -> pl.DataFrame:
     """Drill-down for top_client_companies: which returns were filed on their behalf.
 
     Includes the lobbying firm that represented them (lobbyist_name), the policy
@@ -836,7 +836,7 @@ def build_client_company_returns_detail(activities_df: pl.DataFrame) -> pl.DataF
     )
     return per_return
 
-def build_bilateral_returns_detail(activities_df: pl.DataFrame) -> pl.DataFrame:
+def build_bilateral_returns_fact_table(activities_df: pl.DataFrame) -> pl.DataFrame:
     """Drill-down for bilateral_relationships: every return underlying each persistent org-politician pair.
     Only includes (lobbyist, politician) pairs that appear across more than one return.
     """
@@ -868,7 +868,7 @@ def build_bilateral_returns_detail(activities_df: pl.DataFrame) -> pl.DataFrame:
     )
     return df
 
-def build_revolving_door_returns_detail(activities_df: pl.DataFrame) -> pl.DataFrame:
+def build_revolving_door_returns_fact_table(activities_df: pl.DataFrame) -> pl.DataFrame:
     """Drill-down for revolving_door_dpos: each return a named ex-DPO carried out lobbying on."""
     name_col = "dpos_or_former_dpos_who_carried_out_lobbying_name"
     df = activities_df.filter(pl.col(name_col).is_not_null() & (pl.col(name_col) != ""))
@@ -922,15 +922,15 @@ def build_revolving_door_returns_detail(activities_df: pl.DataFrame) -> pl.DataF
 
 
 def save_output(df: pl.DataFrame, filename: str, overwrite: bool = True) -> None:
-    """Write a DataFrame to LOBBY_DIR/output/. If overwrite=False, skip when the file already exists."""
-    out_dir = LOBBY_OUTPUT_DIR
-    out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / filename
+    """Write a DataFrame to silver/lobbying/ (CSV) and silver/lobbying/parquet/ (parquet)."""
+    LOBBY_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    LOBBY_PARQUET_DIR.mkdir(parents=True, exist_ok=True)
+    path = LOBBY_OUTPUT_DIR / filename
     if not overwrite and path.exists():
         print(f"{filename} already exists, skipping.")
         return
     df.write_csv(path)
-    df.write_parquet(path.with_suffix(".parquet"))
+    df.write_parquet(LOBBY_PARQUET_DIR / path.with_suffix(".parquet").name)
     print(f"Saved {filename}")
 
 
@@ -1024,12 +1024,12 @@ def main() -> None:
     policy_area_quarterly_trend = compute_policy_area_quarterly_trend(lobbying_df)  # experimental
 
     # 8. Drill-down / URL export tables (streamlit-friendly)
-    returns_master = build_returns_master(lobbying_df)
-    politician_returns = build_politician_returns_detail(activities_df)
-    lobbyist_returns = build_lobbyist_returns_detail(lobbying_df)
-    client_returns = build_client_company_returns_detail(activities_df)
-    revolving_door_returns = build_revolving_door_returns_detail(activities_df)
-    bilateral_returns = build_bilateral_returns_detail(activities_df)
+    returns_master = build_returns_master_fact_table(lobbying_df)
+    politician_returns = build_politician_returns_fact_table(activities_df)
+    lobbyist_returns = build_lobbyist_returns_fact_table(lobbying_df)
+    client_returns = build_client_company_returns_fact_table(activities_df)
+    revolving_door_returns = build_revolving_door_returns_fact_table(activities_df)
+    bilateral_returns = build_bilateral_returns_fact_table(activities_df)
 
     # 9. Save — core outputs
     save_output(most_lobbied, "most_lobbied_politicians.csv")
