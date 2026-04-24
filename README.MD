@@ -2,25 +2,9 @@
 
 A civic-data pipeline that ingests, joins, and analyses open data published by the Oireachtas (Irish parliament) and related public bodies. Built to make parliamentary activity — attendance, legislation, questions, payments, declared interests, and lobbying contacts — searchable and cross-referenceable in one place.
 
+Only current Dail and Seanad are considered see `DATA_LIMITATIONS.md` for the rationale
+
 **Status:** in active development. Ingestion, flattening, and enrichment are working end-to-end for the 34th Dáil. DuckDB gold layer and Streamlit dashboard in progress.
-
----
-
-## What's in the dataset
-
-| Source | Format | Coverage | Script |
-|---|---|---|---|
-| TD members | Oireachtas API `/v1/members` | 34th Dáil (current) | `oireachtas_api_service.py` |
-| Legislation | Oireachtas API `/v1/legislation` | Per TD, career-wide | `oireachtas_api_service.py` |
-| Parliamentary questions | Oireachtas API `/v1/questions` | Per TD | `oireachtas_api_service.py` |
-| Attendance | PDF scrape | Jan 2023 → Feb 2026 | `attendance.py` |
-| Parliamentary Standard Allowance | PDF scrape | Jan 2024 → Feb 2026 | `payments.py` |
-| Register of Members' Interests | PDF scrape | Latest annual declaration | `member_interest.py` |
-| Lobbying register | CSV export from lobbying.ie | Multi-period | `lobbying_processing.py` |
-
-**Scope note:** the dataset covers *sitting* TDs of the 34th Dáil only. Former TDs and private citizens who have since left politics are deliberately excluded — see `DATA_LIMITATIONS.md` for the rationale.
-
----
 
 ## Why this project exists
 
@@ -30,10 +14,46 @@ This project joins them. Once joined, questions that are currently hard to answe
 
 - Which TDs are lobbied most, and by whom?
 - Do lobbied TDs ask parliamentary questions on the lobbied topic?
-- Do declared financial interests overlap with the sectors lobbying the same TD?
-- How does attendance correlate with committee load, ministerial office, or constituency?
+- What and how much are declared financial interests for politicians?
 
----
+## Data sources
+
+- **Oireachtas Open Data API** — `https://api.oireachtas.ie/` — members, legislation, questions, divisions, debates.
+- **data.oireachtas.ie** — PDFs for attendance, parliamentary standard allowance, and the Register of Members' Interests.
+- **lobbying.ie** — manual CSV exports from the Register of Lobbying.
+
+All upstream data is published under open licences by the respective bodies. See each source's terms for specifics.
+The pipeline uses three prinicpal sources.
+
+1.  Official Dail Oireachtas API (no API key needed)
+https://data.oireachtas.ie/
+
+2. PDF official declarations. Many Oireachtas functions are published via PDF and not by API. PyMudf was employed to pull figures and text from the PDF's and transform it into tables
+Member Interets: https://www.oireachtas.ie/en/members/register-of-members-interests/
+
+Record of Attendance: https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=record-of-attendance
+Example for a single TD:
+https://data.oireachtas.ie/ie/oireachtas/members/recordAttendanceForTaa/2026/2026-01-16_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2025-to-30-november-2025_en.pdf
+
+3. Lobbying.ie Returns register
+https://www.lobbying.ie/app/home/search
+
+
+
+## What's in the dataset
+
+| Source | Format | Coverage | Script |
+|---|---|---|---|
+| TD members | Oireachtas API `/v1/members` | 34th Dáil (current) | `oireachtas_api_service.py` |
+This serves as the authoritative list of TDs.
+To maintain simplitiy for the pipeline for now only the 34th Dail members are considered. They are typicall 173 TD's (minus the Ceann Comhairle)
+
+| Legislation | Oireachtas API `/v1/legislation` | Per TD, career-wide | `oireachtas_api_service.py` |
+| Parliamentary questions | Oireachtas API `/v1/questions` | Per TD | `oireachtas_api_service.py` |
+| Attendance | PDF scrape | Jan 2023 → Feb 2026 | `attendance.py` |
+| Parliamentary Standard Allowance | PDF scrape | Jan 2024 → Feb 2026 | `payments.py` |
+| Register of Members' Interests | PDF scrape | Latest annual declaration | `member_interest.py` |
+| Lobbying register | CSV export from lobbying.ie | Multi-period | `lobbying_processing.py` |
 
 ## Pipeline overview
 
@@ -58,7 +78,7 @@ ENRICHMENT (Silver → Gold)
 ```
 
 The join key is a sorted-character fuzzy key — NFD-normalise, lowercase, strip accents and apostrophes, then sort characters alphabetically. This matches "Ó Súilleabháin" to "O'Sullivan" across datasets that use different formatting conventions. The logic lives in `normalise_join_key.py`.
-
+There is a lot of inconsistencies in how names are recorded and this was an attempt to give join logic only in the early raw layer to join the most basic tables and get the unique members code. 
 ---
 
 ## Installation
@@ -83,25 +103,113 @@ pip install -e ".[dev]"      # pytest, ruff
 
 ## Running the pipeline
 
-There is no single orchestrator script yet (see `REQUIREMENTS.md` for the `pipeline.py` roadmap). Scripts must be run in the order below:
+There is a single `pipeline.py` orchestration scriot. The script will order the following functions in strict order.
 
-```bash
-python oireachtas_api_service.py       # fetch members, bills, questions
-python flatten_members_json_to_csv.py  # flatten member JSON
-python attendance.py                    # extract attendance PDFs
-python payments.py                      # extract payment PDFs
-python member_interest.py               # extract member interests PDF
-python lobbying_processing.py           # process lobbying CSV exports
-python enrich.py                        # join everything
-python flatten_service.py               # flatten bills JSON
+```function order
+"pdf_endpoint_check.py"        
+"pdf_downloader.py"            
+"dummy_value"                  
+"flatten_members_json_to_csv.py
+"payments.py"                  
+"attendance.py"                
+"lobby_processing.py"          
+"legislation.py"               
+"member_interests.py"          
+"flatten_service.py"           
+"enrich.py"                    
+"transform_votes.py"           s
+"pdf_endpoint_check.py"        
+"pdf_downloader.py"            
+"dummy_value"                  
+"flatten_members_json_to_csv.py
+"payments.py"                  
+"attendance.py"                
+"lobby_processing.py"          
+"legislation.py"               
+"member_interests.py"          
+"flatten_service.py"           
+"enrich.py"                    
+"transform_votes.py"           
+"pdf_endpoint_check.py"        
+"pdf_downloader.py"            
+"dummy_value"                  
+"flatten_members_json_to_csv.py
+"payments.py"                  
+"attendance.py"                
+"lobby_processing.py"          
+"legislation.py"               
+"member_interests.py"          
+"flatten_service.py"           
+"enrich.py"                    
+"transform_votes.py"           
+"pdf_endpoint_check.py"        
+"pdf_downloader.py"            
+"dummy_value"                  
+"flatten_members_json_to_csv.py
+"payments.py"                  
+"attendance.py"                
+"lobby_processing.py"          
+"legislation.py"               
+"member_interests.py"          
+"flatten_service.py"           
+"enrich.py"                    
+"transform_votes.py"           
+"pdf_endpoint_check.py"        
+"pdf_downloader.py"            
+"dummy_value"                  
+"flatten_members_json_to_csv.py
+"payments.py"                  
+"attendance.py"                
+"lobby_processing.py"          
+"legislation.py"               
+"member_interests.py"          
+"flatten_service.py"           
+"enrich.py"                    
+"transform_votes.py"           
+"pdf_endpoint_check.py"        
+"pdf_downloader.py"            
+"dummy_value"                  
+"flatten_members_json_to_csv.py
+"payments.py"                  
+"attendance.py"                
+"lobby_processing.py"          
+"legislation.py"               
+"member_interests.py"          
+"flatten_service.py"           
+"enrich.py"                    
+"transform_votes.py"           
+"pdf_endpoint_check.py"        
+"pdf_downloader.py"            
+"dummy_value"                  
+"flatten_members_json_to_csv.py
+"payments.py"                  
+"attendance.py"                
+"lobby_processing.py"          
+"legislation.py"               
+"member_interests.py"          
+"flatten_service.py"           
+"enrich.py"                    
+"transform_votes.py"           
+"pdf_endpoint_check.py"        
+"pdf_downloader.py"            
+"dummy_value"                  
+"flatten_members_json_to_csv.py
+"payments.py"                  
+"attendance.py"                
+"lobby_processing.py"          
+"legislation.py"               
+"member_interests.py"          
+"flatten_service.py"           
+"enrich.py"                    
+"transform_votes.py"           
 ```
 
-Outputs land in `members/`, `bills/`, and `lobbyist/`. These directories are gitignored — the pipeline regenerates them.
+Outputs land in `bronze/`, `silver/`, and `gold/` directories respectively. These directories are gitkept — the pipeline regenerates them. There are intermediate datasets that are discarded at cetain points as they dont serve any purpose.
 
 ---
 
 ## Repository layout
-
+TO BE UPDATED
 ```
 dail_tracker/
 ├── pyproject.toml                         Dependencies, entry points
@@ -134,14 +242,6 @@ dail_tracker/
 ```
 
 ---
-
-## Data sources
-
-- **Oireachtas Open Data API** — `https://api.oireachtas.ie/` — members, legislation, questions, divisions, debates.
-- **data.oireachtas.ie** — PDFs for attendance, parliamentary standard allowance, and the Register of Members' Interests.
-- **lobbying.ie** — manual CSV exports from the Register of Lobbying.
-
-All upstream data is published under open licences by the respective bodies. See each source's terms for specifics.
 
 ---
 
