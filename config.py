@@ -16,7 +16,9 @@ DATA_DIR = BASE_DIR / "data"
 # Medallion architecture layers
 BRONZE_DIR = DATA_DIR / "bronze"
 SILVER_DIR = DATA_DIR / "silver"
+SILVER_PARQUET_DIR = SILVER_DIR / "parquet"
 GOLD_DIR = DATA_DIR / "gold"
+GOLD_PARQUET_DIR = GOLD_DIR / "parquet"
 
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -52,10 +54,6 @@ logger = logging.getLogger(__name__)
 logger.addHandler(file_handler)
 
 PROJECT_ROOT = Path(__file__).parent.resolve()
-
-print(f"Project root directory: {PROJECT_ROOT}")
-DATA_DIR = PROJECT_ROOT / "data"
-print(f"Data directory: {DATA_DIR}")
 API_BASE = "https://api.oireachtas.ie/v1"
 # PARTY_CODES = ["Social_Democrats", "Sinn_Féin", ...]
 DATE_RANGE = ("2024-01-01", "2099-01-01")
@@ -67,7 +65,9 @@ Y_M_D_format = "%Y-%m-%d"
 DIRS = [
     DATA_DIR,
     SILVER_DIR,
+    SILVER_PARQUET_DIR,
     GOLD_DIR,
+    GOLD_PARQUET_DIR,
     BRONZE_DIR,
     BRONZE_PDF_DIR,
     ATTENDANCE_PDF_DIR,

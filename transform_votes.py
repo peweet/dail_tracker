@@ -4,7 +4,7 @@ import logging
 
 import pandas as pd
 
-from config import DATA_DIR, VOTES_RAW_DIR
+from config import SILVER_DIR, VOTES_RAW_DIR
 
 """
 This module transforms the raw vote data extracted from the Oireachtas API into a clean, 
@@ -88,5 +88,5 @@ df["vote_url"] = df.apply(
 df["date"] = pd.to_datetime(df["vote_date"], errors="coerce").dt.date
 df = df.drop("member_name", axis=1).drop("vote_date", axis=1)
 df = df.replace({"nilVotes": "Voted No", "taVotes": "Voted Yes", "staonVotes": "Abstained"})
-df.to_csv(DATA_DIR / "silver" / "pretty_votes.csv", index=False)
+df.to_csv(SILVER_DIR / "pretty_votes.csv", index=False)
 print("Votes data normalized and saved to pretty_votes.csv")
