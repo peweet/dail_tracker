@@ -15,13 +15,13 @@
 SELECT
     -- TODO: which column holds the TD name? (name? full_name?)
     ???                                                                               AS full_name,
-    COUNT(DISTINCT ???)                                                               AS total_committees,
+    COUNT(DISTINCT full_name)                                                               AS total_committees,
     -- TODO: count only committees where status is 'Active' (or equivalent)
-    SUM(CASE WHEN ??? = '???' THEN 1 ELSE 0 END)                                     AS active_committees,
+    SUM(CASE WHEN status= 'Active'THEN 1 ELSE 0 END)                                     AS active_committees,
     -- TODO: count rows where is_chair is true
-    SUM(CASE WHEN ??? THEN 1 ELSE 0 END)                                             AS chairs_held,
+    SUM(CASE WHEN is_chair == true THEN 1 ELSE 0 END)                                             AS chairs_held,
     -- TODO: which party column? (party? political_party?)
-    MAX(???)                                                                          AS party
+    MAX(party)                                                                          AS party
 FROM   committee_assignments
-GROUP  BY ???
+GROUP  BY full_name
 ORDER  BY total_committees DESC
