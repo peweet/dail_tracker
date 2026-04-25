@@ -2,13 +2,13 @@
 import logging
 import subprocess
 import sys
-
+from manifest import create_run_manifest, run_finished_at
+from services.logging_setup import setup_logging
 from services.oireachtas_api_main import main as run_oireachtas_api
 STEPS = [
-    # endpoint checker and downloader
-    ("PDF Endpoint Check", "pdf_endpoint_check.py"),
+    # ("PDF Endpoint Check", "pdf_endpoint_check.py"),
     ("PDF Downloader", "pdf_downloader.py"),
-    ("Members API", "dummy_value"), # dummy value to indicate that this step is handled by a function call rather than a separate script
+    ("Members API", "dummy_value"),
     ("Flatten members", "flatten_members_json_to_csv.py"),
     ("Process payments", "payments.py"),
     ("Attendance PDF", "attendance.py"),
@@ -23,6 +23,7 @@ STEPS = [
 ]
 pipeline_finished_without_errors = True
 broken_steps = []
+manifest = create_run_manifest()  # Record manifest at pipeline start
 for name, script in STEPS:
     print(f"=== {name} ===")
     logging.info(f"Pipeline step started: {name}")
@@ -50,3 +51,4 @@ if __name__ == "__main__":
         print("Errors occured on step:")
         for step, error in broken_steps:
             print(f"- {step}: {error}")
+    run_finished_at(manifest["run_id"])  # Record finished time in manifest
