@@ -26,6 +26,8 @@ _NOTABLE_DAIL = [
 
 def _notable_senators(df: pd.DataFrame, n: int = 6) -> list[str]:
     """Return senators with the most declared interests or property/landlord flags."""
+    # REMOVE: gold/member_interest_leaderboard.parquet replaces this groupby+sort
+    # Replace with: read gold parquet, filter to latest_year, return full_name.head(n).tolist()
     latest = df["year_declared"].max()
     latest_df = df[df["year_declared"] == latest]
     scored = (
@@ -578,6 +580,8 @@ def _render_landing(df: pd.DataFrame) -> None:
     )
 
     # ── Leaderboard ───────────────────────────────────────────────
+    # REMOVE: gold/member_interest_leaderboard.parquet replaces this groupby+sort
+    # Replace with: leaderboard = gold_leaderboard.head(10).reset_index(drop=True)
     latest_year = df["year_declared"].max()
     latest = df[df["year_declared"] == latest_year]
 

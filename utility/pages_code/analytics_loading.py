@@ -1,24 +1,14 @@
 import duckdb
 
-conn = duckdb.connect("data/gold/lobbyist.duckdb")
+from config import GOLD_PARQUET_DIR
 
-# Register silver parquets as views — one per file
-agg_td = conn.execute("""
 
-    CREATE OR REPLACE VIEW silver_attendance AS
-
-    SELECT * FROM read_parquet('data/silver/parquet/aggregated_td_tables.parquet')
-    LIMIT 100
-
-""")
-#C:\Users\pglyn\PycharmProjects\dail_extractor\data\silver\parquet\flattened_members.parquet
-agg_members = conn.execute("""
-    SELECT * FROM read_parquet('data/silver/parquet/flattened_members.parquet')
-    LIMIT 100
-""")
-
-print(agg_members.fetchone())
-# In Streamlit: query returns a pandas DataFrame directly
-
-# df = conn.execute("SELECT * FROM fact_attendance WHERE year = 2024").df()
-
+def get_gold_connection() -> duckdb.DuckDBPyConnection:
+    """Return an in-memory DuckDB connection with gold Parquet files registered as views."""
+    con = duckdb.connect()
+    for parquet_file in sorted(GOLD_PARQUET_DIR.glob("*.parquet")):
+        view_name = parquet_file.stem
+        con.execute(
+            f"CREATE VIEW {view_name} AS SELECT * FROM read_parquet('{parquet_file.as_posix()}')"
+        )
+    return con

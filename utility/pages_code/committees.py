@@ -170,6 +170,8 @@ def _load(chamber: str):
     )
     all_members["party"] = all_members["party"].fillna("Unknown")
 
+    # REMOVE: gold/committee_activity_summary.parquet replaces this groupby + merge
+    # Replace with: activity = load gold parquet, filter by chamber if needed
     if df_long.empty:
         stats = pd.DataFrame(columns=["name", "committees", "active", "chairs"])
     else:
@@ -247,6 +249,7 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
 
     with col_l:
         st.markdown('<p class="section-heading">Most committee memberships</p>', unsafe_allow_html=True)
+        # REMOVE: gold/committee_activity_summary.parquet already ORDER BY total_committees DESC — drop sort
         top = activity.sort_values(["committees", "chairs"], ascending=False).head(15).reset_index(drop=True)
         max_c = int(top["committees"].max()) or 1
         st.dataframe(
@@ -298,6 +301,7 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
 
     # ── Party breakdown ───────────────────────────────────────────
     st.markdown('<p class="section-heading">Committee seats by party</p>', unsafe_allow_html=True)
+    # REMOVE: gold/committee_party_breakdown.parquet replaces this groupby — already ORDER BY seats DESC
     active_df = df[df["status"] == "Active"]
     party_seats = (
         active_df.groupby("party")
