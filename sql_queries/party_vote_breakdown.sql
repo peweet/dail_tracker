@@ -7,17 +7,16 @@
 --   NULLIF to avoid divide-by-zero          → https://duckdb.org/docs/sql/functions/numeric
 --
 -- Available columns: party, vote_type, vote_id, full_name, debate_title, date
+-- Distinct vote_type values: 'Voted Yes', 'Voted No', 'Abstained'
 
 SELECT
     party,
     vote_type,
-    COUNT(*)                                                                          AS vote_count,
-    -- TODO: what percentage of this party's total votes does each vote_type represent?
-    -- Hint: window function → SUM(COUNT(*)) OVER (PARTITION BY party)
+    COUNT(*)                                                                            AS vote_count,
     ROUND(
-        100.0 * COUNT(*) / NULLIF(/* TODO: window total here */, 0),
+        100.0 * COUNT(*) / NULLIF(SUM(COUNT(*)) OVER (PARTITION BY party), 0),
         1
-    )                                                                                 AS pct_of_party_votes
+    )                                                                                   AS pct_of_party_votes
 FROM   current_dail_vote_history
 WHERE  party IS NOT NULL
   AND  party <> ''
