@@ -15,7 +15,7 @@ st.set_page_config(
 
 pg = st.navigation(
     [
-        st.Page(interests_page, title="Interests", icon="💼", default=True),
+        st.Page(interests_page, title="Interests", icon="📄", default=True),
         st.Page(committees_page, title="Committees", icon="🏛️"),
         st.Page(attendance_page, title="Attendance", icon="📅"),
         st.Page(payments_page, title="Payments", icon="💶"),

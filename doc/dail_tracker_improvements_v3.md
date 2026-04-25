@@ -1,5 +1,13 @@
 # dail_tracker — improvements and optimizations
 
+
+## Further reading
+
+- [Method Chaining in Pandas — Tom Augspurger](https://tomaugspurger.net/posts/method-chaining/)
+  (the Polars `pipe()` equivalent is identical in concept)
+- [Refactoring Guru — Template Method pattern](https://refactoring.guru/design-patterns/template-method)
+  (the `build_*` skeleton is a textbook Template Method)
+
 ## Immediate fixes (highest priority)
 
 1. **Make the pipeline actually runnable end-to-end**
