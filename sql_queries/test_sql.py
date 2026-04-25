@@ -1,18 +1,57 @@
+"""
+TODO: Map logical table/view names to their required Parquet/CSV sources for SQL queries in this directory.
+
+policy_area_breakdown.sql
+    -- Needs: returns (likely from a gold-layer or processed lobbying Parquet/CSV)
+    -- TODO: Register 'returns' view from the correct Parquet/CSV (e.g., lobbying returns)
+
+payment_totals_by_td.sql
+    -- Needs: aggregated_payment_tables (data/silver/parquet/aggregated_payment_tables.parquet)
+    -- TODO: Register 'aggregated_payment_tables' view from silver Parquet
+
+debate_summary.sql
+    -- Needs: current_dail_vote_history (likely a gold-layer or processed votes Parquet/CSV)
+    -- TODO: Register 'current_dail_vote_history' view from the correct Parquet/CSV (e.g., pretty_votes or gold-layer)
+
+committee_activity_summary.sql
+    -- Needs: committee_assignments (likely a gold-layer or processed committee Parquet/CSV)
+    -- TODO: Register 'committee_assignments' view from the correct Parquet/CSV (e.g., gold-layer committee assignments)
+"""
 import duckdb
 import polars as pl
+import os
 
-con = duckdb.connect()
-con.execute("CREATE VIEW activities AS SELECT * FROM read_parquet('data/silver/lobbying/parquet/lobby_break_down_by_politician.parquet')")
-con.execute("CREATE VIEW returns   AS SELECT * FROM read_parquet('data/silver/lobbying/parquet/returns.parquet')")
-# for other tables:
-con.execute("CREATE VIEW current_dail_vote_history AS SELECT * FROM read_csv_auto('data/gold/current_dail_vote_history.csv')")
+# con = duckdb.connect()
+# con.execute("CREATE VIEW activities AS SELECT * FROM read_parquet('data/silver/lobbying/parquet/lobby_break_down_by_politician.parquet')")
+# con.execute("CREATE VIEW returns   AS SELECT * FROM read_parquet('data/silver/lobbying/parquet/returns.parquet')")
+# # for other tables:
+# con.execute("CREATE VIEW current_dail_vote_history AS SELECT * FROM read_csv_auto('data/gold/current_dail_vote_history.csv')")
 
-# test your SQL
-sql = open("sql_queries/debate_summary.sql").read()
-print(con.execute(sql).pl())
+# # test your SQL
+# sql = open("sql_queries/debate_summary.sql").read()
+# print(con.execute(sql).pl())
 
 
 
+# Path to your SQL queries directory
+SQL_DIR = r"C:\Users\pglyn\PycharmProjects\dail_extractor\sql_queries"
+
+# Connect to DuckDB (in-memory or specify a .duckdb file)
+con = duckdb.connect(database=':memory:')
+
+# List all .sql files in the directory
+sql_files = [f for f in os.listdir(SQL_DIR) if f.endswith('.sql')]
+
+for sql_file in sql_files:
+    sql_path = os.path.join(SQL_DIR, sql_file)
+    print(f"\n--- Running: {sql_file} ---")
+    with open(sql_path, 'r', encoding='utf-8') as f:
+        sql = f.read()
+    try:
+        result = con.execute(sql).df()
+        print(result)
+    except Exception as e:
+        print(f"Error running {sql_file}: {e}")
 
 
 
