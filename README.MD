@@ -77,6 +77,9 @@ All upstream data remains subject to the terms and licences of the publishing bo
 
 ## Pipeline overview
 
+
+
+
 The project follows a medallion-style layout:
 
 ```text
@@ -86,6 +89,34 @@ data/
 └── gold/     joined analytical outputs
 ```
 
+
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        BRONZE (Raw)                             │
+│  Untouched data exactly as received from source                 │
+│  • Raw PDF files                                                │
+│  • Raw API JSON responses                                       │
+│  • PyMuPDF extracted tables (no transformations)                │
+├─────────────────────────────────────────────────────────────────┤
+│                        SILVER (Cleaned)                         │
+│  Validated, deduplicated, schema-enforced data                  │
+│  • Names parsed into first_name / last_name                     │
+│  • Description split into role / dáil / dates / limit           │
+│  • Columns renamed with meaningful names                        │
+│  • Data types enforced (dates as DATE, counts as INT)           │
+│  • Members flattened to a clean narrow schema                   │
+├─────────────────────────────────────────────────────────────────┤
+│                        GOLD (Analytical)                        │
+│  Business-ready tables, joined and aggregated                   │
+│  • td_attendance: one row per TD with attendance counts         │
+│  • td_bills: one row per bill with sponsoring TD                │
+│  • td_questions: one row per question with TD and topic         │
+│  • td_profile: joined TD info (party, constituency, etc.)       │
+│  • td_enriched: attendance + member metadata + bills joined     │
+│  SQL views / materialized tables for dashboards                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 Pipeline stages:
 
 ```text
