@@ -370,30 +370,6 @@ def get_clients(df: pl.DataFrame) -> pl.DataFrame:
         if get_clients.height > 0:
             df = parse_clients(df)
     return df
-
-
-# ---------------------------------------------------------------------------
-# Analyse: core metrics
-# ---------------------------------------------------------------------------
-
-
-# REMOVE: replaced by sql_queries/most_lobbied_politicians.sql
-# def experimental_compute_most_lobbied_politicians(activities_df: pl.DataFrame) -> pl.DataFrame:
-    # """Rank politicians by distinct returns targeting them, broken down by chamber.
-# 
-    # Deduplicates on (primary_key, full_name) first so multiple activities within
-    # the same return count as one contact, not N.
-    # """
-    # df = activities_df.unique(subset=["primary_key", "full_name"])
-    # segmented = df.group_by(["full_name", "chamber"]).agg(
-        # pl.col("primary_key").n_unique().alias("lobby_returns_targeting"),
-        # pl.col("lobbyist_name").n_unique().alias("distinct_orgs"),
-    # )
-    # total = df.group_by("full_name").agg(pl.col("primary_key").n_unique().alias("total_returns"))
-    # most_lobbied = segmented.join(total, on="full_name").sort("total_returns", descending=True)
-    # return most_lobbied
-
-
 def split_lobbyists(
     lobbying_df: pl.DataFrame,
     lobby_org: pl.DataFrame,
@@ -423,144 +399,6 @@ def split_lobbyists(
     # REMOVE: .sort() here is redundant — gold/top_lobbyist_organisations.parquet handles ranking
     # Keep: org metadata join produces lobby_count_details needed by _load_orgs() for sector/website/CRN
     return request_counts
-
-
-# ---------------------------------------------------------------------------
-# Analyse: experimental metrics — verify before relying on them
-# ---------------------------------------------------------------------------
-
-
-# # REMOVE: replaced by sql_queries/policy_area_breakdown.sql
-# def experimental_compute_policy_area_breakdown(lobbying_df: pl.DataFrame) -> pl.DataFrame:
-#     """experimental: lobby-return volume per public_policy_area with lobbyist diversity."""
-#     df = lobbying_df.group_by("public_policy_area").agg(
-#         pl.len().alias("return_count"),
-#         pl.col("lobbyist_name").n_unique().alias("distinct_lobbyists"),
-#     )
-#     df = df.sort("return_count", descending=True)
-#     return df
-
-
-# # REMOVE: replaced by sql_queries/delivery_method_mix.sql
-# def experimental_compute_delivery_method_mix(activities_df: pl.DataFrame) -> pl.DataFrame:
-#     """experimental: breakdown of delivery channels (Meeting / Email / Phone call) per lobbyist."""
-#     df = activities_df.group_by(["lobbyist_name", "delivery"]).agg(pl.len().alias("delivery_count"))
-#     df = df.sort(["lobbyist_name", "delivery_count"], descending=[False, True])
-#     return df
-
-
-# # REMOVE: replaced by sql_queries/politician_policy_exposure.sql
-# def experimental_compute_politician_policy_exposure(activities_df: pl.DataFrame) -> pl.DataFrame:
-#     """experimental: per politician × policy_area — distinct returns targeting them and distinct lobbyists involved.
-
-#     Deduplicates on primary_key first so the activity-explosion does not inflate counts.
-#     """
-#     df = activities_df.unique(subset=["primary_key", "full_name", "chamber", "public_policy_area"])
-#     df = df.group_by(["full_name", "chamber", "public_policy_area"]).agg(
-#         pl.len().alias("returns_targeting"),
-#         pl.col("lobbyist_name").n_unique().alias("distinct_lobbyists"),
-#     )
-#     df = df.sort(["full_name", "returns_targeting"], descending=[False, True])
-#     return df
-
-
-# # REMOVE: replaced by sql_queries/grassroots_campaigns.sql
-# def compute_grassroots_campaigns(lobbying_df: pl.DataFrame) -> pl.DataFrame:
-#     """experimental: lobbyists ranked by count of returns flagged as grassroots campaigns."""
-#     df = lobbying_df.filter(pl.col("was_this_a_grassroots_campaign") == "Yes")
-#     df = df.group_by("lobbyist_name").agg(pl.len().alias("grassroots_returns_count"))
-#     df = df.sort("grassroots_returns_count", descending=True)
-#     return df
-
-
-# REMOVE: replaced by sql_queries/quarterly_trend.sql
-# def experimental_compute_quarterly_trend(lobbying_df: pl.DataFrame) -> pl.DataFrame:
-#     """experimental: return volume per calendar quarter (based on lobbying_period_start_date)."""
-#     df = lobbying_df.with_columns(
-#         pl.col("lobbying_period_start_date").dt.year().alias("year"),
-#         pl.col("lobbying_period_start_date").dt.quarter().alias("quarter"),
-#     )
-#     df = df.with_columns(pl.format("{}-Q{}", pl.col("year"), pl.col("quarter")).alias("year_quarter"))
-#     df = df.group_by("year_quarter").agg(
-#         pl.len().alias("return_count"),
-#         pl.col("lobbyist_name").n_unique().alias("distinct_lobbyists"),
-#     )
-#     df = df.sort("year_quarter")
-#     return df
-
-
-# # REMOVE: replaced by sql_queries/top_client_companies.sql
-# def experimental_compute_top_client_companies(activities_df: pl.DataFrame) -> pl.DataFrame:
-#     """experimental: companies most often appearing as the ultimate client behind
-#     lobbying (i.e. the ones paying third-party lobbying firms).
-
-#     Influence signals captured:
-#       - return_count:               how many distinct lobby returns name them as client
-#       - distinct_lobbyist_firms:    how many different lobbying firms they hire
-#       - distinct_politicians_targeted: reach across named DPOs
-#       - distinct_policy_areas:      breadth of policy exposure they're pushing on
-#       - distinct_chambers:          Dáil vs Seanad vs councils etc.
-#     """
-#     df = activities_df.filter(pl.col("client_name").is_not_null() & (pl.col("client_name") != ""))
-#     df = df.group_by("client_name").agg(
-#         pl.col("primary_key").n_unique().alias("return_count"),
-#         pl.col("lobbyist_name").n_unique().alias("distinct_lobbyist_firms"),
-#         pl.col("full_name").n_unique().alias("distinct_politicians_targeted"),
-#         pl.col("public_policy_area").n_unique().alias("distinct_policy_areas"),
-#         pl.col("chamber").n_unique().alias("distinct_chambers"),
-#     )
-#     df = df.sort(
-#         ["return_count", "distinct_politicians_targeted"],
-#         descending=True,
-#     )
-#     return df
-
-
-# REMOVE: replaced by sql_queries/revolving_door_dpos.sql
-# def experimental_compute_revolving_door_dpos(activities_df: pl.DataFrame) -> pl.DataFrame:
-#     """experimental: current or former Designated Public Officials who personally
-#     carried out lobbying (classic revolving-door signal — ex-government people
-#     now working on behalf of a lobbying org).
-
-#     Grouped by the individual and their prior position/chamber, with reach signals:
-#       - returns_involved_in:        distinct lobby returns they appear on
-#       - distinct_lobbyist_firms:    how many orgs they've lobbied for
-#       - distinct_policy_areas:      breadth of topics
-#       - distinct_politicians_targeted: reach across named DPOs
-#     """
-#     name_col = "dpos_or_former_dpos_who_carried_out_lobbying_name"
-#     df = activities_df.filter(pl.col(name_col).is_not_null() & (pl.col(name_col) != ""))
-#     df = df.group_by([name_col, "current_or_former_dpos_position", "current_or_former_dpos_chamber"]).agg(
-#         pl.col("primary_key").n_unique().alias("returns_involved_in"),
-#         pl.col("lobbyist_name").n_unique().alias("distinct_lobbyist_firms"),
-#         pl.col("public_policy_area").n_unique().alias("distinct_policy_areas"),
-#         pl.col("full_name").n_unique().alias("distinct_politicians_targeted"),
-#     )
-#     df = df.sort("returns_involved_in", descending=True)
-#     return df
-
-
-# ---------------------------------------------------------------------------
-# Analyse: experimental metrics — new additions
-# ---------------------------------------------------------------------------
-
-
-# REMOVE: replaced by sql_queries/distinct_orgs_per_politician.sql
-# def experimental_compute_distinct_orgs_per_politician(activities_df: pl.DataFrame) -> pl.DataFrame:
-#     """experimental: per-politician count of distinct lobbying organisations, not just return volume.
-
-#     A TD targeted 40 times by 3 orgs is a different signal from 40 times by 30 orgs.
-#     Deduplicates on primary_key first so activity-explosion does not inflate org counts.
-#     """
-#     df = activities_df.unique(subset=["primary_key", "full_name", "lobbyist_name"])
-#     df = df.group_by(["full_name", "chamber", "position"]).agg(
-#         pl.col("lobbyist_name").n_unique().alias("distinct_orgs"),
-#         pl.col("primary_key").n_unique().alias("distinct_returns"),
-#         pl.col("public_policy_area").n_unique().alias("distinct_policy_areas"),
-#     )
-#     df = df.sort(["distinct_orgs", "distinct_returns"], descending=True)
-#     return df
-
 
 def experimental_compute_members_targeted_reach(activities_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: parse the 'members_targeted' band strings into a numeric reach midpoint.
@@ -664,55 +502,6 @@ def experimental_compute_return_description_length(lobbying_df: pl.DataFrame) ->
     ).sort("total_desc_len")
 
     return per_return
-
-
-# REMOVE: replaced by sql_queries/lobbyist_persistence.sql
-# def experimental_compute_lobbyist_persistence(lobbying_df: pl.DataFrame) -> pl.DataFrame:
-#     """experimental: filing history per lobbyist — active span, distinct periods filed, cadence.
-
-#     Orgs that file every single period vs one-off appearances carry different weight.
-#     """
-#     df = lobbying_df.group_by("lobbyist_name").agg(
-#         pl.col("lobbying_period_start_date").min().alias("first_return_date"),
-#         pl.col("lobbying_period_start_date").max().alias("last_return_date"),
-#         pl.col("primary_key").n_unique().alias("total_returns"),
-#         pl.struct(
-#             pl.col("lobbying_period_start_date").dt.year().alias("year"),
-#             pl.col("lobbying_period_start_date").dt.quarter().alias("quarter"),
-#         )
-#         .n_unique()
-#         .alias("distinct_periods_filed"),
-#     )
-#     df = df.with_columns(
-#         (pl.col("last_return_date") - pl.col("first_return_date")).dt.total_days().alias("active_span_days")
-#     )
-#     df = df.sort(["total_returns", "distinct_periods_filed"], descending=True)
-#     return df
-
-
-# REMOVE: replaced by sql_queries/bilateral_relationships.sql
-# def experimental_compute_bilateral_relationships(activities_df: pl.DataFrame) -> pl.DataFrame:
-#     """experimental: persistent lobbying relationships — same org targeting same TD across multiple periods.
-
-#     A single contact is noise; repeated targeting across periods is an ongoing relationship.
-#     """
-#     df = activities_df.unique(subset=["primary_key", "lobbyist_name", "full_name"])
-#     df = df.group_by(["lobbyist_name", "full_name", "chamber"]).agg(
-#         pl.col("primary_key").n_unique().alias("returns_in_relationship"),
-#         pl.col("public_policy_area").n_unique().alias("distinct_policy_areas"),
-#         pl.struct(
-#             pl.col("lobbying_period_start_date").dt.year().alias("year"),
-#             pl.col("lobbying_period_start_date").dt.quarter().alias("quarter"),
-#         )
-#         .n_unique()
-#         .alias("distinct_periods"),
-#         pl.col("lobbying_period_start_date").min().alias("relationship_start"),
-#         pl.col("lobbying_period_start_date").max().alias("relationship_last_seen"),
-#     )
-#     df = df.filter(pl.col("returns_in_relationship") > 1)
-#     df = df.sort(["returns_in_relationship", "distinct_periods"], descending=True)
-#     return df
-
 
 def compute_policy_area_quarterly_trend(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: quarterly return volume broken down by public_policy_area.
@@ -1073,9 +862,6 @@ def main() -> None:
 
     # 7. Polars metrics — string parsing / transformation that belongs in Python, not SQL
     split_lobbyists_df = split_lobbyists(lobbying_df, lobby_org)
-    # time_to_publish = experimental_compute_time_to_publish(lobbying_df)
-    # description_lengths = experimental_compute_return_description_length(lobbying_df)
-
     # 8. Drill-down fact tables (Streamlit-friendly; grain is return-level, not summary)
     returns_master = build_returns_master_fact_table(lobbying_df)
     politician_returns = build_politician_returns_fact_table(activities_df)
@@ -1085,11 +871,7 @@ def main() -> None:
     bilateral_returns = build_bilateral_returns_fact_table(activities_df)
 
     # 9. Save — Polars outputs (silver Parquet for SQL; CSV for human inspection/export only)
-    # save_output(most_prolific, "lobby_count_details.csv")
     save_output(split_lobbyists_df, "split_lobbyists.csv")
-    # save_output(time_to_publish, "experimental_time_to_publish.csv")
-    # save_output(description_lengths, "experimental_return_description_lengths.csv")
-
     # 9b. Save — drill-down fact tables (silver Parquet for SQL; CSV for human inspection/export only)
     save_output(returns_master, "returns_master.csv")
     save_output(politician_returns, "politician_returns_detail.csv")
