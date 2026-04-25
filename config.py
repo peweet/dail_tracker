@@ -19,6 +19,7 @@ SILVER_DIR = DATA_DIR / "silver"
 SILVER_PARQUET_DIR = SILVER_DIR / "parquet"
 GOLD_DIR = DATA_DIR / "gold"
 GOLD_PARQUET_DIR = GOLD_DIR / "parquet"
+GOLD_CSV_DIR = GOLD_DIR / "csv"
 
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -66,6 +67,7 @@ DIRS = [
     SILVER_PARQUET_DIR,
     GOLD_DIR,
     GOLD_PARQUET_DIR,
+    GOLD_CSV_DIR,
     BRONZE_DIR,
     BRONZE_PDF_DIR,
     ATTENDANCE_PDF_DIR,
