@@ -9,19 +9,39 @@
 
 A civic-data pipeline for Irish parliamentary transparency.
 
-This project is heavily inspired by They Work For You 
-
-- https://github.com/mysociety/theyworkforyou
-
-and
-
-- https://howtheyvote.eu/
-
 Dáil Tracker ingests, joins, and analyses public data from the Oireachtas and related public bodies. The goal is to make parliamentary activity — attendance, legislation, questions, votes, payments, declared interests, and lobbying contacts — easier to search and cross-reference.
 
-Only the current Dáil and Seanad are in scope. See `doc/DATA_LIMITATIONS.md` for the rationale.
+Only the current Dáil and Seanad are in scope. See [`doc/DATA_LIMITATIONS.md`](doc/DATA_LIMITATIONS.md) for the rationale.
 
-**Status:** active development. Ingestion, flattening, enrichment, and dashboard work are progressing for the current parliamentary term.
+> **Status:** Active development. Ingestion, flattening, enrichment, and dashboard work are progressing for the current parliamentary term.
+
+---
+
+## Table of contents
+
+- [Project inspiration](#project-inspiration)
+- [Why this project exists](#why-this-project-exists)
+- [Data sources](#data-sources)
+- [Dataset coverage](#dataset-coverage)
+- [Pipeline overview](#pipeline-overview)
+- [Join strategy](#join-strategy)
+- [Technology rationale](#technology-rationale)
+- [Installation](#installation)
+- [Dashboard](#dashboard)
+- [Testing](#testing)
+- [Repository structure](#repository-structure)
+- [Data limitations](#data-limitations)
+- [Contributing](#contributing)
+
+---
+
+## Project inspiration
+
+This project is heavily inspired by the following civic transparency and parliamentary data projects:
+
+- [TheyWorkForYou](https://github.com/mysociety/theyworkforyou)
+- [How They Vote EU](https://howtheyvote.eu/)
+- [OpenKamer — Dutch Parliamentary Scraper](https://github.com/openkamer/openkamer)
 
 ---
 
@@ -44,17 +64,15 @@ This project joins those sources into one analytical pipeline so questions like 
 
 | Source | Used for | Format |
 |---|---|---|
-| Oireachtas Open Data API | Members, legislation, questions, votes, parliamentary metadata | API / JSON |
-| data.oireachtas.ie | Attendance, parliamentary standard allowance, register of interests | PDF |
-| lobbying.ie | Lobbying returns | CSV export |
+| [Oireachtas Open Data API](https://api.oireachtas.ie/) | Members, legislation, questions, votes, parliamentary metadata | API / JSON |
+| [data.oireachtas.ie](https://data.oireachtas.ie/) | Attendance, Parliamentary Standard Allowance, Register of Members' Interests | PDF |
+| [lobbying.ie](https://www.lobbying.ie/app/home/search) | Lobbying returns | CSV export |
 
-Source links:
+### Additional source links
 
-- Oireachtas API: `https://api.oireachtas.ie/`
-- Oireachtas data portal: `https://data.oireachtas.ie/`
-- Register of Members' Interests: `https://www.oireachtas.ie/en/members/register-of-members-interests/`
-- Record of Attendance: `https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=record-of-attendance`
-- Register of Lobbying: `https://www.lobbying.ie/app/home/search`
+- [Register of Members' Interests](https://www.oireachtas.ie/en/members/register-of-members-interests/)
+- [Record of Attendance](https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=record-of-attendance)
+- [Register of Lobbying](https://www.lobbying.ie/app/home/search)
 
 All upstream data remains subject to the terms and licences of the publishing bodies.
 
@@ -77,9 +95,6 @@ All upstream data remains subject to the terms and licences of the publishing bo
 
 ## Pipeline overview
 
-
-
-
 The project follows a medallion-style layout:
 
 ```text
@@ -89,22 +104,22 @@ data/
 └── gold/     joined analytical outputs
 ```
 
+### Medallion architecture
 
-
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                        BRONZE (Raw)                             │
 │  Untouched data exactly as received from source                 │
 │  • Raw PDF files                                                │
 │  • Raw API JSON responses                                       │
-│  • PyMuPDF extracted tables (no transformations)                │
+│  • PyMuPDF extracted tables, with no transformations            │
 ├─────────────────────────────────────────────────────────────────┤
 │                        SILVER (Cleaned)                         │
 │  Validated, deduplicated, schema-enforced data                  │
 │  • Names parsed into first_name / last_name                     │
 │  • Description split into role / dáil / dates / limit           │
 │  • Columns renamed with meaningful names                        │
-│  • Data types enforced (dates as DATE, counts as INT)           │
+│  • Data types enforced, such as DATE and INT                    │
 │  • Members flattened to a clean narrow schema                   │
 ├─────────────────────────────────────────────────────────────────┤
 │                        GOLD (Analytical)                        │
@@ -112,12 +127,13 @@ data/
 │  • td_attendance: one row per TD with attendance counts         │
 │  • td_bills: one row per bill with sponsoring TD                │
 │  • td_questions: one row per question with TD and topic         │
-│  • td_profile: joined TD info (party, constituency, etc.)       │
+│  • td_profile: joined TD info, party, constituency, etc.        │
 │  • td_enriched: attendance + member metadata + bills joined     │
 │  SQL views / materialized tables for dashboards                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
-Pipeline stages:
+
+### Pipeline stages
 
 ```text
 1. Check source endpoints
@@ -129,7 +145,7 @@ Pipeline stages:
 7. Build gold outputs for SQL and dashboard use
 ```
 
-Run the pipeline:
+### Run the pipeline
 
 ```bash
 python pipeline.py
@@ -145,11 +161,11 @@ The source datasets do not share a reliable universal person identifier.
 
 The pipeline therefore creates an intermediate fuzzy join key for names:
 
-1. Unicode-normalise names
-2. Lowercase
-3. Strip accents, apostrophes, punctuation, and honorifics
-4. Remove whitespace
-5. Sort characters alphabetically
+1. Unicode-normalise names.
+2. Lowercase.
+3. Strip accents, apostrophes, punctuation, and honorifics.
+4. Remove whitespace.
+5. Sort characters alphabetically.
 
 This is implemented in:
 
@@ -157,7 +173,9 @@ This is implemented in:
 normalise_join_key.py
 ```
 
-This approach is useful for early-stage joins where name formatting differs between sources, but it is intentionally treated as a pipeline aid rather than a permanent identifier. Collisions and missed matches remain possible and are documented as data limitations.
+This approach is useful for early-stage joins where name formatting differs between sources, but it is intentionally treated as a pipeline aid rather than a permanent identifier.
+
+Collisions and missed matches remain possible and are documented as data limitations.
 
 ---
 
@@ -165,23 +183,39 @@ This approach is useful for early-stage joins where name formatting differs betw
 
 ### DuckDB
 
-DuckDB is used for the analytical layer because it gives the project local SQL analytics without requiring a database server. It works well for reproducible joins, aggregations, and gold-layer queries over local files.
+[DuckDB](https://duckdb.org/) is used for the analytical layer because it gives the project local SQL analytics without requiring a database server.
+
+It works well for reproducible joins, aggregations, and gold-layer queries over local files.
 
 ### Polars
 
-Polars is used where fast, memory-efficient DataFrame transformations are useful. It is a good fit for repeated cleaning, reshaping, and validation of larger intermediate datasets.
+[Polars](https://pola.rs/) is used where fast, memory-efficient DataFrame transformations are useful.
+
+It is a good fit for repeated cleaning, reshaping, and validation of larger intermediate datasets.
 
 ### Pandas
 
-Pandas remains useful for compatibility with the wider Python data ecosystem, especially where existing libraries or extraction workflows return pandas-friendly structures.
+[Pandas](https://pandas.pydata.org/) remains useful for compatibility with the wider Python data ecosystem, especially where existing libraries or extraction workflows return pandas-friendly structures.
 
 ### SQL
 
-SQL is used for analytical transformations that benefit from being explicit, reviewable, and easy to reason about. Joins, aggregations, and gold-layer marts are easier to audit when expressed declaratively.
+SQL is used for analytical transformations that benefit from being explicit, reviewable, and easy to reason about.
+
+Joins, aggregations, and gold-layer marts are easier to audit when expressed declaratively.
 
 ### Streamlit
 
-Streamlit is kept as a thin presentation layer. The dashboard should read prepared outputs and handle display concerns only: filtering, sorting, formatting, navigation, and export. Transformation logic belongs in the pipeline, SQL, or gold layer.
+[Streamlit](https://streamlit.io/) is kept as a thin presentation layer.
+
+The dashboard should read prepared outputs and handle display concerns only:
+
+- filtering
+- sorting
+- formatting
+- navigation
+- export
+
+Transformation logic belongs in the pipeline, SQL, or gold layer.
 
 ---
 
@@ -195,7 +229,7 @@ cd dail_tracker
 pip install -e .
 ```
 
-Optional development and analytical dependencies:
+### Optional development and analytical dependencies
 
 ```bash
 pip install -e ".[db]"
@@ -236,14 +270,14 @@ Current tests focus on:
 - basic data-quality checks where generated outputs exist
 - lightweight Streamlit smoke tests
 
-Run tests:
+### Run tests
 
 ```bash
 pip install -e ".[dev]"
 pytest test/ -v
 ```
 
-Run linting:
+### Run linting
 
 ```bash
 ruff check .
@@ -293,7 +327,7 @@ dail_tracker/
 ├── pipeline.py                         Pipeline orchestration
 ├── tear_down.py                        Cleanup utilities
 ├── pyproject.toml                      Build metadata and dependency groups
-└── README.MD
+└── README.md
 ```
 
 ---
@@ -328,4 +362,3 @@ For data issues, include:
 - expected value
 - observed value
 - affected dataset or script
-
