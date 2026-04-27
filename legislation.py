@@ -27,8 +27,6 @@ BILL_META = [
     ["bill", "mostRecentStage", "event", "house", "showAs"],
     "contextDate",
 ]
-
-
 # --- FULL bill mapping normalizations ---
 # Debates
 debates_df = pd.json_normalize(
@@ -79,14 +77,6 @@ versions_df = pd.json_normalize(
     meta=BILL_META,
     errors="ignore"
 )
-
-# --- Original code below (commented out for toggling) ---
-# # one row per sponsor-bill — primary join to members data via by.uri
-# sponsors_df = pd.json_normalize(bills, record_path=["bill", "sponsors"], meta=BILL_META, errors="ignore")
-# # one row per stage-bill — legislative progress timeline
-# stages_df = pd.json_normalize(bills, record_path=["bill", "stages"], meta=BILL_META, errors="ignore")
-# # one row per debate-bill — debate history per bill
-# debates_df = pd.json_normalize(bills, record_path=["bill", "debates"], meta=BILL_META, errors="ignore")
 
 rename_bill_fields = {
     "billSort": "bill_sort",
