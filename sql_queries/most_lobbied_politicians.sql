@@ -1,8 +1,3 @@
--- Replaces: experimental_compute_most_lobbied_politicians
--- Grain: one row per (politician, chamber)
--- Dedup on (primary_key, full_name) first so multiple activities within
--- the same return count as one contact, not N.
-
 WITH deduped AS (
     SELECT DISTINCT
         primary_key,

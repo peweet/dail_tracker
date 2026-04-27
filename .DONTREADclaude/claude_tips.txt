@@ -1,0 +1,49 @@
+Here are the highest-leverage tactics, roughly in order of impact:
+
+1. CLAUDE.md as a standing contract
+Your CLAUDE.md is already solid. The key is to keep it stable truth, not session notes. Only put things that are true forever. Don't let it bloat with task history — that eats tokens every turn.
+
+Prune it periodically: if a section hasn't informed a real decision in the last few sessions, cut it.
+
+2. YAML contracts for complex tasks
+Before a big implementation, write the spec as a tight YAML block instead of prose:
+
+
+task: add lobbying timeline to interests.py
+input: data/gold/lobbyist.duckdb
+output: st.line_chart below the existing table
+filter: bound to the existing name_select widget
+schema:
+  x: lobbying_date (monthly)
+  y: count(distinct lobbyist_id)
+out_of_scope: [styling, CSV export, pagination]
+This is ~5x denser than the equivalent prose and leaves no ambiguity. I can act on it directly without clarifying questions.
+
+3. Start narrow, not broad
+"Refactor the pipeline" costs 3x more context than "in flatten_service.py, remove the compute_* functions and replace with the SQL query in lobby_processing.py." The more you pre-scope, the less I explore.
+
+4. Reference files instead of pasting them
+Instead of pasting code into your message, name the file and line range: "see lobby_processing.py:45-90". I'll read it. Pasting it yourself means it enters context twice.
+
+5. Use subagents for exploration
+If you need me to find something across the codebase before doing real work, prefix with "use an Explore agent to find...". Exploration burns a lot of tokens in the main context; delegating it keeps that cost out of the primary thread.
+
+6. Kill trailing summaries
+Tell me upfront: "no summary at the end." My default end-of-turn summaries are token-cheap for me but they fill your visible context. (I already have a memory note to keep things terse — you can reinforce this per-session.)
+
+7. Batch related changes into one prompt
+"Fix the join in enrich.py, then update the Streamlit attendance page to show the new column" is one task, not two separate turns. Each new turn re-loads the full CLAUDE.md and memory index.
+
+8. Use /compact aggressively
+In long sessions, run /compact before switching to a new subtask. It summarises prior context into a dense snapshot, freeing window space for the next phase of work.
+
+Quick-reference summary
+Habit	Impact
+YAML spec instead of prose brief	High
+Name files + line ranges, don't paste	High
+/compact between subtasks	High
+Narrow scope in the prompt	Medium
+Subagents for exploration	Medium
+No trailing summaries	Low
+Stable CLAUDE.md, pruned regularly	Ongoing
+The biggest single win for your project specifically: write a tight YAML spec before any pipeline or Streamlit task. Your data schema is well-defined and that makes YAML contracts especially effective here.

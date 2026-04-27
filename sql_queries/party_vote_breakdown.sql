@@ -1,13 +1,3 @@
--- Grain: one row per (party, vote_type)
--- Source: current_dail_vote_history
--- Used by: votes.py party chart — bar chart of yes/no/abstain split per party
---
--- Key concepts:
---   Window functions / percentage of total  → https://duckdb.org/docs/sql/window_functions
---   NULLIF to avoid divide-by-zero          → https://duckdb.org/docs/sql/functions/numeric
---
--- Available columns: party, vote_type, vote_id, full_name, debate_title, date
--- Distinct vote_type values: 'Voted Yes', 'Voted No', 'Abstained'
 
 SELECT
     party,

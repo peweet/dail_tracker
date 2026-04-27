@@ -1,6 +1,4 @@
--- Replaces: experimental_compute_delivery_method_mix
--- Grain: one row per (lobbyist, delivery channel)
--- Source: activities (one row per return x politician)
+
 SELECT
     lobbyist_name,
     delivery,

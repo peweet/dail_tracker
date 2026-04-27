@@ -1,8 +1,4 @@
--- Grain: one row per (lobbyist × politician × chamber) pair with more than one return
--- Signal: repeated targeting across multiple returns signals an ongoing relationship,
---         not a one-off contact.
--- Dedup on (primary_key, lobbyist_name, full_name) so activity-explosion does not
--- inflate return counts within a single return.
+
 WITH deduped AS (
     SELECT DISTINCT
         primary_key,
