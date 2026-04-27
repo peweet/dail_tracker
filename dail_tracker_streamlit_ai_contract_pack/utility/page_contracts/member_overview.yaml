@@ -1,0 +1,357 @@
+contract_version: 1
+page:
+  id: member_overview
+  title: Dáil Member Overview
+  route: utility/pages_code/member_overview.py
+  nav_label: Members
+  nav_icon: 👤
+  status: planned
+  priority: primary
+intent:
+  user_promise: Compare members across attendance, interests, payments, questions, bills, lobbying interactions, and role
+    metadata from one already-modelled view.
+  primary_users:
+  - public
+  - journalists
+  - researchers
+  top_questions:
+  - Who is this member?
+  - Which signals are worth investigating further?
+  - Which records include interests, payments, lobbying, or attendance concerns?
+design:
+  aesthetic: newsroom_light
+  tone: direct_civic_accountable
+  css_source: utility/styles/base.css
+  reuse_classes:
+  - dt-hero
+  - dt-kicker
+  - dt-dek
+  - dt-badge
+  - dt-callout
+  - dt-provenance-box
+  layout:
+    hero: editorial
+    filters: sidebar
+    density: compact
+    mobile_strategy: stack_filters_then_table
+  avoid:
+  - generic_streamlit_defaults
+  - purple_gradients
+  - glassmorphism
+  - custom_js
+  - page_local_global_css
+data_access:
+  mode: duckdb_sql_over_pipeline_views
+  database: data/gold/dail.duckdb
+  view_owner: pipeline
+  raw_parquet_access_in_streamlit: false
+  approved_relations:
+  - name: v_member_overview
+    role: primary
+    grain: one row per member
+    primary_key: member_id
+    required_columns:
+    - member_id
+    - member_name
+    - party_name
+    - constituency
+    - government_status
+    - attendance_rate
+    - questions_asked_count
+    - bills_sponsored_count
+    - declared_interests_count
+    - payment_total_eur
+    - lobbying_interactions_count
+    - revolving_door_flag
+    - provenance_summary
+    optional_columns: []
+    provenance_columns:
+    - latest_run_id
+    - latest_fetch_timestamp_utc
+    - source_summary
+    - mart_version
+    - code_version
+  - name: v_member_overview_summary
+    role: summary
+    grain: one row for latest summary
+    primary_key: latest_run_id
+    required_columns:
+    - latest_run_id
+    - members_count
+    - avg_attendance_rate
+    - total_questions
+    - total_bills_sponsored
+    optional_columns: []
+    provenance_columns:
+    - latest_run_id
+    - latest_fetch_timestamp_utc
+    - source_summary
+    - mart_version
+    - code_version
+sql_policy:
+  claude_may_generate_sql: true
+  sql_kind_allowed: retrieval_only
+  parameterized_queries_required: true
+  explicit_column_projection_required: true
+  allowed_statements:
+  - SELECT
+  forbidden_sql:
+  - JOIN
+  - GROUP_BY
+  - HAVING
+  - WINDOW
+  - CTE_FOR_MODELLING
+  - CREATE
+  - INSERT
+  - UPDATE
+  - DELETE
+  - read_parquet
+  - parquet_scan
+  allowed_filter_columns:
+    member_name:
+      operators:
+      - ILIKE
+      parameterized: true
+    party_name:
+      operators:
+      - IN
+      parameterized: true
+    constituency:
+      operators:
+      - IN
+      parameterized: true
+    government_status:
+      operators:
+      - IN
+      parameterized: true
+    attendance_rate:
+      operators:
+      - '>='
+      parameterized: true
+  allowed_sort_columns:
+  - member_name
+  - party_name
+  - constituency
+  - government_status
+  - attendance_rate
+  - questions_asked_count
+  - bills_sponsored_count
+  - declared_interests_count
+  - payment_total_eur
+  - lobbying_interactions_count
+  - revolving_door_flag
+  - provenance_summary
+  max_rows_default: 1000
+  max_rows_hard_limit: 1000
+  missing_capability_action: TODO_PIPELINE_VIEW_REQUIRED
+filters:
+- name: member_search
+  label: Search member
+  type: text_search
+  column: member_name
+  operator: ILIKE
+  source: typed_input
+  essential: true
+  default: ''
+  help: ''
+- name: party_name
+  label: Party
+  type: multiselect
+  column: party_name
+  operator: IN
+  source: distinct_values_query
+  essential: true
+  default: []
+  help: ''
+- name: constituency
+  label: Constituency
+  type: multiselect
+  column: constituency
+  operator: IN
+  source: distinct_values_query
+  essential: true
+  default: []
+  help: ''
+- name: government_status
+  label: Government / Opposition
+  type: multiselect
+  column: government_status
+  operator: IN
+  source: distinct_values_query
+  essential: false
+  default: []
+  help: ''
+- name: minimum_attendance_rate
+  label: Minimum attendance rate
+  type: slider
+  column: attendance_rate
+  operator: '>='
+  source: typed_input
+  essential: false
+  default: 0
+  help: ''
+metrics:
+- name: visible_members
+  label: Visible members
+  source: ui_result_count
+  relation: v_member_overview
+  column: null
+  format: integer
+  filtered: true
+  ui_aggregation_allowed: true
+- name: members_count
+  label: Members
+  source: pipeline_summary_view
+  relation: v_member_overview_summary
+  column: members_count
+  format: integer
+  filtered: false
+  ui_aggregation_allowed: false
+- name: avg_attendance_rate
+  label: Avg attendance
+  source: pipeline_summary_view
+  relation: v_member_overview_summary
+  column: avg_attendance_rate
+  format: percent
+  filtered: false
+  ui_aggregation_allowed: false
+visuals: []
+tables:
+- name: member_overview_table
+  relation: v_member_overview
+  role: evidence
+  default_sort_by: declared_interests_count
+  default_sort_direction: desc
+  columns:
+  - name: member_name
+    label: Member
+    type: text
+    visible: true
+    width: medium
+    help: null
+  - name: party_name
+    label: Party
+    type: text
+    visible: true
+    width: small
+    help: null
+  - name: constituency
+    label: Constituency
+    type: text
+    visible: true
+    width: medium
+    help: null
+  - name: government_status
+    label: Gov/Opp
+    type: text
+    visible: true
+    width: small
+    help: null
+  - name: attendance_rate
+    label: Attendance
+    type: percent
+    visible: true
+    width: small
+    help: null
+  - name: questions_asked_count
+    label: Questions
+    type: integer
+    visible: true
+    width: small
+    help: null
+  - name: bills_sponsored_count
+    label: Bills
+    type: integer
+    visible: true
+    width: small
+    help: null
+  - name: declared_interests_count
+    label: Interests
+    type: integer
+    visible: true
+    width: small
+    help: null
+  - name: payment_total_eur
+    label: Payments €
+    type: currency_eur
+    visible: true
+    width: small
+    help: null
+  - name: lobbying_interactions_count
+    label: Lobbying
+    type: integer
+    visible: true
+    width: small
+    help: null
+  - name: revolving_door_flag
+    label: Revolving door
+    type: boolean
+    visible: true
+    width: small
+    help: null
+  - name: provenance_summary
+    label: Data source
+    type: text
+    visible: false
+    width: large
+    help: null
+exports:
+  enabled: true
+  formats:
+  - csv
+  filename_pattern: dail_tracker_member_overview_{date}.csv
+  export_scope: displayed_rows_only
+provenance:
+  show_panel: true
+  required_fields:
+  - latest_run_id
+  - latest_fetch_timestamp_utc
+  - source_summary
+  - mart_version
+  - code_version
+  caveat_text: Built from precomputed member-level analytical views. The UI retrieves and formats; it does not calculate political/business
+    metrics.
+empty_states:
+- condition: no_rows
+  title: No members records match these filters
+  body: Try clearing one or more filters.
+  recovery_hint: Clear filters or refresh the pipeline outputs.
+- condition: missing_relation
+  title: Dáil Member Overview view is missing
+  body: The approved relation `v_member_overview` is not available in DuckDB.
+  recovery_hint: Run the pipeline or implement the required view.
+- condition: missing_columns
+  title: View shape changed
+  body: Required columns are missing from the approved relation.
+  recovery_hint: Align the pipeline view and YAML contract.
+out_of_scope:
+- Do not compute attendance, payments, lobbying counts, or revolving-door flags in Streamlit.
+- Do not infer government status in Streamlit.
+logic_firewall:
+  forbidden_python:
+  - pandas_merge
+  - pandas_join
+  - pandas_groupby
+  - pandas_pivot
+  - polars_join
+  - polars_group_by
+  - fuzzy_match
+  - raw_file_scan
+  - api_call
+  - pdf_parse
+  - hardcoded_abs_path
+  allowed_python:
+  - render
+  - format
+  - parameter_binding
+  - dataframe_column_selection
+  - csv_export
+  - empty_state
+  missing_data_action: TODO_PIPELINE_VIEW_REQUIRED
+acceptance_tests:
+- Page file contains no merge, join, groupby, pivot, fuzzy matching, API calls, PDF parsing, raw Parquet scans, or hardcoded
+  absolute local paths.
+- SQL uses only approved relations, columns, filters, sort columns, and limits from this contract.
+- Required columns are validated before rendering the table.
+- CSV export contains only currently displayed rows.
+- Provenance panel renders when required fields are available.

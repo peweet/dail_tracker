@@ -1,0 +1,425 @@
+contract_version: 1
+page:
+  id: interests
+  title: Register of Members’ Interests
+  route: utility/pages_code/interests.py
+  nav_label: Interests
+  nav_icon: 📄
+  status: active
+  priority: primary
+intent:
+  user_promise: Inspect declared interests by member, year, category, party, constituency, and high-signal flags without hiding
+    source caveats.
+  primary_users:
+  - public
+  - journalists
+  - researchers
+  top_questions:
+  - What interests has this member declared?
+  - Which members have property/directorship/shareholding/landlord flags?
+  - What source/year does each declaration come from?
+design:
+  aesthetic: newsroom_light
+  tone: direct_civic_accountable
+  css_source: utility/styles/base.css
+  reuse_classes:
+  - dt-hero
+  - dt-kicker
+  - dt-dek
+  - dt-badge
+  - dt-callout
+  - dt-provenance-box
+  layout:
+    hero: editorial
+    filters: sidebar
+    density: compact
+    mobile_strategy: stack_filters_then_table
+  avoid:
+  - generic_streamlit_defaults
+  - purple_gradients
+  - glassmorphism
+  - custom_js
+  - page_local_global_css
+data_access:
+  mode: duckdb_sql_over_pipeline_views
+  database: data/gold/dail.duckdb
+  view_owner: pipeline
+  raw_parquet_access_in_streamlit: false
+  approved_relations:
+  - name: v_member_interests
+    role: primary
+    grain: one row per declared interest line/category/member/year
+    primary_key: interest_record_id
+    required_columns:
+    - interest_record_id
+    - member_id
+    - member_name
+    - party_name
+    - constituency
+    - house
+    - dail_term
+    - declaration_year
+    - interest_category
+    - interest_text
+    - landlord_flag
+    - property_flag
+    - directorship_flag
+    - shareholding_flag
+    - source_document_name
+    - source_pdf_url
+    - source_page_number
+    - latest_fetch_timestamp_utc
+    optional_columns: []
+    provenance_columns:
+    - latest_run_id
+    - latest_fetch_timestamp_utc
+    - source_summary
+    - mart_version
+    - code_version
+  - name: v_member_interests_summary
+    role: summary
+    grain: one row for latest interests summary
+    primary_key: latest_run_id
+    required_columns:
+    - latest_run_id
+    - members_with_interests_count
+    - declarations_count
+    - latest_declaration_year
+    - source_documents_count
+    optional_columns: []
+    provenance_columns:
+    - latest_run_id
+    - latest_fetch_timestamp_utc
+    - source_summary
+    - mart_version
+    - code_version
+  - name: v_member_interests_category_summary
+    role: chart
+    grain: one row per category
+    primary_key: interest_category
+    required_columns:
+    - interest_category
+    - declarations_count
+    optional_columns: []
+    provenance_columns:
+    - latest_run_id
+    - latest_fetch_timestamp_utc
+    - source_summary
+    - mart_version
+    - code_version
+sql_policy:
+  claude_may_generate_sql: true
+  sql_kind_allowed: retrieval_only
+  parameterized_queries_required: true
+  explicit_column_projection_required: true
+  allowed_statements:
+  - SELECT
+  forbidden_sql:
+  - JOIN
+  - GROUP_BY
+  - HAVING
+  - WINDOW
+  - CTE_FOR_MODELLING
+  - CREATE
+  - INSERT
+  - UPDATE
+  - DELETE
+  - read_parquet
+  - parquet_scan
+  allowed_filter_columns:
+    member_name:
+      operators:
+      - ILIKE
+      parameterized: true
+    interest_text:
+      operators:
+      - ILIKE
+      parameterized: true
+    declaration_year:
+      operators:
+      - IN
+      parameterized: true
+    interest_category:
+      operators:
+      - IN
+      parameterized: true
+    party_name:
+      operators:
+      - IN
+      parameterized: true
+    constituency:
+      operators:
+      - IN
+      parameterized: true
+    landlord_flag:
+      operators:
+      - '='
+      parameterized: true
+    property_flag:
+      operators:
+      - '='
+      parameterized: true
+  allowed_sort_columns:
+  - member_name
+  - party_name
+  - constituency
+  - declaration_year
+  - interest_category
+  - interest_text
+  - landlord_flag
+  - property_flag
+  - directorship_flag
+  - shareholding_flag
+  - source_pdf_url
+  - source_page_number
+  max_rows_default: 1000
+  max_rows_hard_limit: 10000
+  missing_capability_action: TODO_PIPELINE_VIEW_REQUIRED
+filters:
+- name: member_search
+  label: Search member
+  type: text_search
+  column: member_name
+  operator: ILIKE
+  source: typed_input
+  essential: true
+  default: ''
+  help: ''
+- name: interest_text_search
+  label: Search declaration text
+  type: text_search
+  column: interest_text
+  operator: ILIKE
+  source: typed_input
+  essential: true
+  default: ''
+  help: ''
+- name: declaration_year
+  label: Year
+  type: multiselect
+  column: declaration_year
+  operator: IN
+  source: distinct_values_query
+  essential: true
+  default: []
+  help: ''
+- name: interest_category
+  label: Category
+  type: multiselect
+  column: interest_category
+  operator: IN
+  source: distinct_values_query
+  essential: true
+  default: []
+  help: ''
+- name: party_name
+  label: Party
+  type: multiselect
+  column: party_name
+  operator: IN
+  source: distinct_values_query
+  essential: false
+  default: []
+  help: ''
+- name: constituency
+  label: Constituency
+  type: multiselect
+  column: constituency
+  operator: IN
+  source: distinct_values_query
+  essential: false
+  default: []
+  help: ''
+- name: landlord_flag
+  label: Landlord flag
+  type: toggle
+  column: landlord_flag
+  operator: '='
+  source: typed_input
+  essential: false
+  default: false
+  help: ''
+- name: property_flag
+  label: Property flag
+  type: toggle
+  column: property_flag
+  operator: '='
+  source: typed_input
+  essential: false
+  default: false
+  help: ''
+metrics:
+- name: visible_declarations
+  label: Visible declarations
+  source: ui_result_count
+  relation: v_member_interests
+  column: null
+  format: integer
+  filtered: true
+  ui_aggregation_allowed: true
+- name: declarations_count
+  label: Declarations
+  source: pipeline_summary_view
+  relation: v_member_interests_summary
+  column: declarations_count
+  format: integer
+  filtered: false
+  ui_aggregation_allowed: false
+- name: members_with_interests_count
+  label: Members with interests
+  source: pipeline_summary_view
+  relation: v_member_interests_summary
+  column: members_with_interests_count
+  format: integer
+  filtered: false
+  ui_aggregation_allowed: false
+visuals:
+- name: declarations_by_category
+  type: bar
+  relation: v_member_interests_category_summary
+  x: interest_category
+  y: declarations_count
+  color: null
+  purpose: Show which register categories dominate.
+  required: true
+tables:
+- name: interests_table
+  relation: v_member_interests
+  role: evidence
+  default_sort_by: declaration_year
+  default_sort_direction: desc
+  columns:
+  - name: member_name
+    label: Member
+    type: text
+    visible: true
+    width: medium
+    help: null
+  - name: party_name
+    label: Party
+    type: text
+    visible: true
+    width: small
+    help: null
+  - name: constituency
+    label: Constituency
+    type: text
+    visible: true
+    width: medium
+    help: null
+  - name: declaration_year
+    label: Year
+    type: integer
+    visible: true
+    width: small
+    help: null
+  - name: interest_category
+    label: Category
+    type: text
+    visible: true
+    width: medium
+    help: null
+  - name: interest_text
+    label: Declaration
+    type: long_text
+    visible: true
+    width: large
+    help: null
+  - name: landlord_flag
+    label: Landlord
+    type: boolean
+    visible: true
+    width: small
+    help: null
+  - name: property_flag
+    label: Property
+    type: boolean
+    visible: true
+    width: small
+    help: null
+  - name: directorship_flag
+    label: Director
+    type: boolean
+    visible: true
+    width: small
+    help: null
+  - name: shareholding_flag
+    label: Shares
+    type: boolean
+    visible: true
+    width: small
+    help: null
+  - name: source_pdf_url
+    label: Source PDF
+    type: url
+    visible: true
+    width: medium
+    help: null
+  - name: source_page_number
+    label: Page
+    type: integer
+    visible: false
+    width: small
+    help: null
+exports:
+  enabled: true
+  formats:
+  - csv
+  filename_pattern: dail_tracker_interests_{date}.csv
+  export_scope: displayed_rows_only
+provenance:
+  show_panel: true
+  required_fields:
+  - latest_run_id
+  - latest_fetch_timestamp_utc
+  - source_summary
+  - mart_version
+  - code_version
+  caveat_text: Declarations are extracted from published register documents. Flags are navigation aids owned by the pipeline,
+    not legal conclusions.
+empty_states:
+- condition: no_rows
+  title: No interests records match these filters
+  body: Try clearing one or more filters.
+  recovery_hint: Clear filters or refresh the pipeline outputs.
+- condition: missing_relation
+  title: Register of Members’ Interests view is missing
+  body: The approved relation `v_member_interests` is not available in DuckDB.
+  recovery_hint: Run the pipeline or implement the required view.
+- condition: missing_columns
+  title: View shape changed
+  body: Required columns are missing from the approved relation.
+  recovery_hint: Align the pipeline view and YAML contract.
+out_of_scope:
+- Do not infer conflicts of interest.
+- Do not compute flags from text in Streamlit.
+- Do not parse PDFs in Streamlit.
+- Do not add AI summaries.
+logic_firewall:
+  forbidden_python:
+  - pandas_merge
+  - pandas_join
+  - pandas_groupby
+  - pandas_pivot
+  - polars_join
+  - polars_group_by
+  - fuzzy_match
+  - raw_file_scan
+  - api_call
+  - pdf_parse
+  - hardcoded_abs_path
+  allowed_python:
+  - render
+  - format
+  - parameter_binding
+  - dataframe_column_selection
+  - csv_export
+  - empty_state
+  missing_data_action: TODO_PIPELINE_VIEW_REQUIRED
+acceptance_tests:
+- Page file contains no merge, join, groupby, pivot, fuzzy matching, API calls, PDF parsing, raw Parquet scans, or hardcoded
+  absolute local paths.
+- SQL uses only approved relations, columns, filters, sort columns, and limits from this contract.
+- Required columns are validated before rendering the table.
+- CSV export contains only currently displayed rows.
+- Provenance panel renders when required fields are available.

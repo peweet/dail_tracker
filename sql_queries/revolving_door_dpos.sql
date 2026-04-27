@@ -1,8 +1,3 @@
--- Replaces: experimental_compute_revolving_door_dpos
--- Grain: one row per (ex-DPO name, prior position, prior chamber)
--- Signal: former public officials now personally carrying out lobbying activity.
--- Source: activities (one row per return x politician)
-
 SELECT
     dpos_or_former_dpos_who_carried_out_lobbying_name,
     current_or_former_dpos_position,

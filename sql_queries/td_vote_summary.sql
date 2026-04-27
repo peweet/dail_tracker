@@ -1,6 +1,3 @@
--- Grain: one row per TD
--- Source: current_dail_vote_history (one row per TD x vote division)
--- Used by: votes.py landing page — Streamlit reads this directly, no groupby in-page
 SELECT
     full_name,
     party,

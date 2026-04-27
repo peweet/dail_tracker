@@ -1,0 +1,27 @@
+contract_version: 1
+shared_ui_policy:
+  design_identity:
+    tone: direct_civic_accountable
+    aesthetic: editorial_accountability_journalism
+    theme: newsroom_light
+    data_priority: tables_and_numbers_are_evidence
+  css:
+    shared_stylesheet: utility/styles/base.css
+    reuse_classes: [dt-hero, dt-kicker, dt-dek, dt-badge, dt-callout, dt-provenance-box]
+    css_change_policy: Prefer shared CSS changes. Do not create page-local global CSS.
+  data_access:
+    mode: duckdb_sql_over_pipeline_views
+    raw_parquet_access_in_ui: false
+    query_style: parameterized_retrieval_sql
+  forbidden_in_page_files:
+    - join
+    - merge
+    - groupby
+    - pivot
+    - fuzzy_match
+    - scrape
+    - pdf_parse
+    - api_call
+    - read_parquet
+    - parquet_scan
+    - hardcoded_absolute_paths
