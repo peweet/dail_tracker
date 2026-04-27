@@ -1,3 +1,5 @@
+# --- Write new DataFrames to CSV files ---
+
 import pandas as pd
 
 from config import LEGISLATION_DIR, SILVER_DIR
@@ -26,14 +28,65 @@ BILL_META = [
     "contextDate",
 ]
 
-# one row per sponsor-bill — primary join to members data via by.uri
-sponsors_df = pd.json_normalize(bills, record_path=["bill", "sponsors"], meta=BILL_META, errors="ignore")
 
-# one row per stage-bill — legislative progress timeline
-stages_df = pd.json_normalize(bills, record_path=["bill", "stages"], meta=BILL_META, errors="ignore")
+# --- FULL bill mapping normalizations ---
+# Debates
+debates_df = pd.json_normalize(
+    bills,
+    record_path=["bill", "debates"],
+    meta=BILL_META,
+    errors="ignore"
+)
+# Events
+events_df = pd.json_normalize(
+    bills,
+    record_path=["bill", "events"],
+    meta=BILL_META,
+    errors="ignore"
+)
+# Most recent stage event dates
+most_recent_stage_event_dates_df = pd.json_normalize(
+    bills,
+    record_path=["bill", "mostRecentStage", "event", "dates"],
+    meta=BILL_META,
+    errors="ignore"
+)
+# Related docs
+related_docs_df = pd.json_normalize(
+    bills,
+    record_path=["bill", "relatedDocs"],
+    meta=BILL_META,
+    errors="ignore"
+)
+# Sponsors
+sponsors_df = pd.json_normalize(
+    bills,
+    record_path=["bill", "sponsors"],
+    meta=BILL_META,
+    errors="ignore"
+)
+# Stages
+stages_df = pd.json_normalize(
+    bills,
+    record_path=["bill", "stages"],
+    meta=BILL_META,
+    errors="ignore"
+)
+# Versions
+versions_df = pd.json_normalize(
+    bills,
+    record_path=["bill", "versions"],
+    meta=BILL_META,
+    errors="ignore"
+)
 
-# one row per debate-bill — debate history per bill
-debates_df = pd.json_normalize(bills, record_path=["bill", "debates"], meta=BILL_META, errors="ignore")
+# --- Original code below (commented out for toggling) ---
+# # one row per sponsor-bill — primary join to members data via by.uri
+# sponsors_df = pd.json_normalize(bills, record_path=["bill", "sponsors"], meta=BILL_META, errors="ignore")
+# # one row per stage-bill — legislative progress timeline
+# stages_df = pd.json_normalize(bills, record_path=["bill", "stages"], meta=BILL_META, errors="ignore")
+# # one row per debate-bill — debate history per bill
+# debates_df = pd.json_normalize(bills, record_path=["bill", "debates"], meta=BILL_META, errors="ignore")
 
 rename_bill_fields = {
     "billSort": "bill_sort",
@@ -113,3 +166,17 @@ debates_df.dropna(axis=0, how="all").to_csv(SILVER_DIR / "debates.csv")
 
 debates_df.to_parquet(SILVER_DIR / "parquet" / "debates.parquet", index=False)
 print("Debates dataset created successfully.")
+
+events_df.to_csv(SILVER_DIR / "events.csv", index=False)
+print("Events dataset created successfully.")
+
+most_recent_stage_event_dates_df.to_csv(SILVER_DIR / "most_recent_stage_event_dates.csv", index=False)
+print("Most recent stage event dates dataset created successfully.")
+
+related_docs_df.to_csv(SILVER_DIR / "related_docs.csv", index=False)
+print("Related documents dataset created successfully.")
+
+versions_df.to_csv(SILVER_DIR / "versions.csv", index=False)
+print("Versions dataset created successfully.")
+
+
