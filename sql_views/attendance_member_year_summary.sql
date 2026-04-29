@@ -7,7 +7,7 @@ SELECT
     full_name                           AS member_name,
     member_id,
     CAST(year AS INTEGER)               AS year,
-    sitting_days                        AS attended_count,
+    total_days                          AS attended_count,
     COALESCE(party_name,    '')         AS party_name,
     COALESCE(constituency,  '')         AS constituency,
     COALESCE(is_minister, 'false')      AS is_minister

@@ -10,4 +10,5 @@ SELECT
     debate_title,
     vote_outcome,
     vote_url                    AS oireachtas_url
-FROM read_parquet('{PARQUET_PATH}');
+FROM read_parquet('{PARQUET_PATH}')
+WHERE full_name IS NOT NULL;

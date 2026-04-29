@@ -40,10 +40,10 @@ from ui.components import (
     empty_state,
     evidence_heading,
     interest_declaration_item,
-    rank_card_row,
     todo_callout,
 )
 from ui.export_controls import export_button
+from ui.source_pdfs import interests_pdf_url, render_pdf_source_links
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 _ROOT = Path(__file__).resolve().parents[2]
@@ -265,8 +265,48 @@ def _load_ranking(house: str, year: int) -> pd.DataFrame:
     return df[(df["house"] == house) & (df["declaration_year"] == year)].copy()
 
 
+def _int_member_card_html(row) -> str:
+    rank    = int(row["rank"])
+    name    = str(row["member_name"])
+    party   = str(row.get("party_name") or "")
+    constit = str(row.get("constituency") or "")
+    total   = int(row.get("total_declarations") or 0)
+    d_count = int(row.get("directorship_count") or 0)
+    p_count = int(row.get("property_count") or 0)
+    s_count = int(row.get("share_count") or 0)
+    landlord = bool(row.get("is_landlord", False))
+    is_prop  = bool(row.get("is_property_owner", False))
+
+    meta = " · ".join(p for p in [party, constit] if p and p.lower() not in ("nan", ""))
+    rank_cls = "int-rank-num int-rank-num-top" if rank <= 3 else "int-rank-num"
+
+    pills = f'<span class="int-stat-pill">{total} declarations</span>'
+    if d_count:
+        pills += f'<span class="int-stat-pill">🏢 {d_count} compan{"ies" if d_count != 1 else "y"}</span>'
+    if p_count:
+        pills += f'<span class="int-stat-pill">🏠 {p_count} propert{"ies" if p_count != 1 else "y"}</span>'
+    if s_count:
+        pills += f'<span class="int-stat-pill">📈 {s_count} share{"s" if s_count != 1 else ""}</span>'
+    if landlord:
+        pills += '<span class="int-stat-pill int-stat-pill-accent">🔑 Landlord</span>'
+    elif is_prop:
+        pills += '<span class="int-stat-pill">🏗️ Property owner</span>'
+
+    return (
+        f'<div class="int-member-card">'
+        f'<div style="display:flex;align-items:flex-start;gap:0.75rem">'
+        f'<span class="{rank_cls}" style="font-size:1.1rem;min-width:2rem;padding-top:0.1rem;text-align:right">#{rank}</span>'
+        f'<div style="flex:1;min-width:0">'
+        f'<p style="margin:0 0 0.1rem;font-family:\'Zilla Slab\',Georgia,serif;'
+        f'font-size:1rem;font-weight:700;color:var(--text-primary)">{name}</p>'
+        f'<p style="margin:0 0 0.3rem;font-size:0.8rem;color:var(--text-meta)">{meta}</p>'
+        f'<div style="display:flex;flex-wrap:wrap;gap:0.3rem">{pills}</div>'
+        f'</div></div></div>'
+    )
+
+
 def _render_leaderboard(ranking_df: pd.DataFrame) -> str | None:
-    """Render top-5 ranked member cards. Returns member_name if clicked."""
+    """Render ranked member cards (all members, paginated). Returns member_name if clicked."""
     if ranking_df.empty:
         empty_state(
             "No members found",
@@ -274,39 +314,21 @@ def _render_leaderboard(ranking_df: pd.DataFrame) -> str | None:
         )
         return None
 
-    for pos, (_, row) in enumerate(ranking_df.head(5).iterrows()):
-        rank      = int(row["rank"])
-        name      = str(row["member_name"])
-        party     = str(row["party_name"])
-        constit   = str(row["constituency"])
-        total     = int(row["total_declarations"])
-        d_count   = int(row["directorship_count"])
-        p_count   = int(row["property_count"])
-        s_count   = int(row["share_count"])
-        landlord  = bool(row["is_landlord"])
-        is_prop   = bool(row.get("is_property_owner", False))
+    total    = len(ranking_df)
+    show_all = st.session_state.get("int_show_all", False)
+    visible  = ranking_df if show_all else ranking_df.head(25)
 
-        pills: list[str] = [f"📋 {total} total"]
-        if d_count:
-            pills.append(f"🏢 {d_count} compan{'ies' if d_count != 1 else 'y'}")
-        if p_count:
-            pills.append(f"🏠 {p_count} propert{'ies' if p_count != 1 else 'y'}")
-        if s_count:
-            pills.append(f"📈 {s_count} share{'s' if s_count != 1 else ''}")
-        if landlord:
-            pills.append("🔑 Landlord")
-        elif is_prop:
-            pills.append("🏗️ Property owner")
+    for i, (_, row) in enumerate(visible.iterrows()):
+        card_col, btn_col = st.columns([14, 1])
+        with card_col:
+            st.markdown(_int_member_card_html(row), unsafe_allow_html=True)
+        btn_col.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
+        if btn_col.button("→", key=f"int_mem_{i}", help=f"View {row['member_name']}'s declarations"):
+            return str(row["member_name"])
 
-        meta = " · ".join(p for p in [party, constit] if p and p.lower() not in ("nan", ""))
-
-        if rank_card_row(
-            name, meta, pills,
-            btn_key=f"int_lb_{pos}",
-            rank=rank,
-            btn_help=f"View {name}'s full declaration record",
-        ):
-            return name
+    if not show_all and total > 25 and st.button(f"Show all {total:,} members", key="int_show_all_btn"):
+        st.session_state["int_show_all"] = True
+        st.rerun()
 
     return None
 
@@ -423,6 +445,19 @@ def _render_profile(house: str, td_name: str) -> None:
         st.caption(f"No {prior_year} declarations on record — year-on-year comparison unavailable.")
 
     st.divider()
+
+    pdf_url = interests_pdf_url(house, selected_year)
+    if pdf_url:
+        st.markdown(
+            f'<div class="dt-provenance-box" style="margin-bottom:0.75rem">'
+            f'<span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;'
+            f'text-transform:uppercase;color:var(--text-meta)">Source document</span><br>'
+            f'<a class="leg-source-link" href="{pdf_url}" target="_blank" rel="noopener">'
+            f'↗ Register of Members\' Interests · {house} · {selected_year} (Oireachtas.ie PDF)</a>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
     evidence_heading(f"Declarations · {selected_year}")
 
     # ── Category sections — non-empty only ────────────────────────────────────
@@ -704,13 +739,24 @@ def interests_page() -> None:
     n_properties     = int(ranking_df["property_count"].sum())
     n_companies      = int(ranking_df["directorship_count"].sum())
 
+    pdf_url = interests_pdf_url(house, selected_year)
+    if pdf_url:
+        st.markdown(
+            f'<div class="dt-provenance-box" style="margin-bottom:0.75rem">'
+            f'<span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;'
+            f'text-transform:uppercase;color:var(--text-meta)">Source document</span><br>'
+            f'<a class="leg-source-link" href="{pdf_url}" target="_blank" rel="noopener">'
+            f'↗ Register of Members\' Interests · {house} · {selected_year} (Oireachtas.ie PDF)</a>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
     evidence_heading(f"Interest Register · {selected_year}")
     st.caption(
         f"{n_members} members · {n_landlords} landlords declared · "
         f"{n_prop_owners} property owners · "
         f"{n_properties} properties · {n_companies} company directorships"
         + (" · filtered" if name_q.strip() or landlord_only else "")
-        + " · showing top 5 · click → to view a member's full declaration record"
     )
     st.markdown(
         '<div class="dt-callout" style="margin:0.5rem 0 0.9rem;">'

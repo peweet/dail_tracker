@@ -9,4 +9,6 @@ SELECT
     COUNT(CASE WHEN vote_type = 'Abstained' THEN 1 END)             AS abstained_count,
     COUNT(DISTINCT vote_id)                                         AS division_count
 FROM read_parquet('{PARQUET_PATH}')
+WHERE full_name IS NOT NULL
+  AND unique_member_code IS NOT NULL
 GROUP BY unique_member_code, full_name, party;

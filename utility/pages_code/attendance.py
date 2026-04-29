@@ -25,6 +25,7 @@ import streamlit as st
 from shared_css import inject_css
 from ui.components import empty_state, evidence_heading, member_profile_header, todo_callout
 from ui.export_controls import export_button
+from ui.source_pdfs import ATTENDANCE, render_pdf_source_links
 
 _SQL_VIEWS = Path(__file__).resolve().parents[2] / "sql_views"
 
@@ -40,10 +41,6 @@ _YEAR_SITTING_DAYS: dict[int, int] = {
     2024: 83,
     2025: 82,   # partial period per Houses of the Oireachtas 2025 report
 }
-
-# Dáil Standing Orders require a minimum of 120 plenary sitting days per year.
-# Used as context for in-progress years where the final count is not yet known.
-_DAIL_MIN_SITTING_DAYS = 120
 
 _NOTABLE_TDS: list[str] = [
     "Michael Healy-Rae",
@@ -172,8 +169,7 @@ def _hall_card(row: pd.Series, medal: str, side: str, year: int | None = None, r
     const = str(row.get("constituency", "") or "")
     meta  = " · ".join(p for p in [party, const] if p and p.lower() not in ("nan", ""))
     days  = int(row["attended_count"])
-    total = _YEAR_SITTING_DAYS.get(year) if year else None
-    of_label = f"of {total}" if total else "days"
+    of_label = "days"
     return (
         f'<div class="att-hall-card-{side}">'
         f'<span class="att-hall-rank">#{rank}</span>'
@@ -210,8 +206,7 @@ def _list_row(row: pd.Series, rank: int) -> str:
 def _days_badge(row: pd.Series, year: int | None = None) -> str:
     """Days-attended badge using the dt-success-* calm-blue theme."""
     days     = int(row["attended_count"])
-    total    = _YEAR_SITTING_DAYS.get(year) if year else None
-    of_label = f"of {total}" if total else "days"
+    of_label = "days"
     return (
         f'<div class="dt-success-badge">'
         f'<span class="dt-success-num">{days}</span>'
@@ -404,22 +399,13 @@ def _render_profile(td_name: str) -> None:
         first_d    = "—"
         last_d     = "—"
 
-    total_days = _YEAR_SITTING_DAYS.get(selected_year)
     c1, c2, c3 = st.columns(3)
-    if total_days:
-        c1.metric(
-            f"Days attended · {selected_year}",
-            n_attended,
-            delta=f"of {total_days} official sitting days",
-            delta_color="off",
-        )
-    else:
-        c1.metric(
-            f"Days attended · {selected_year}",
-            n_attended,
-            delta=f"min. {_DAIL_MIN_SITTING_DAYS} days required per year",
-            delta_color="off",
-        )
+    c1.metric(
+        f"Days attended · {selected_year}",
+        n_attended,
+        delta="plenary + committee days",
+        delta_color="off",
+    )
     c2.metric("First sitting",  first_d)
     c3.metric("Most recent",    last_d)
 
@@ -436,19 +422,11 @@ def _render_profile(td_name: str) -> None:
             "v_attendance_timeline returned no rows for this member and year.",
         )
     else:
-        if total_days:
-            st.caption(
-                f"{n_attended} of {total_days} official sitting days attended in {selected_year}. "
-                "Each mark below is a day the member was recorded present in the Dáil chamber. "
-                "Gaps between marks are Dáil recess periods."
-            )
-        else:
-            st.caption(
-                f"{n_attended} sitting days attended so far in {selected_year} "
-                f"(year in progress — Dáil required to sit a minimum of {_DAIL_MIN_SITTING_DAYS} days per year). "
-                "Each mark below is a day the member was recorded present in the Dáil chamber. "
-                "Gaps between marks are Dáil recess periods."
-            )
+        st.caption(
+            f"{n_attended} days attended in {selected_year} (plenary + committee). "
+            "Each mark below is a day the member was recorded present. "
+            "Gaps between marks are Dáil recess periods."
+        )
         todo_callout(
             "TODO_PIPELINE_VIEW_REQUIRED: session_type column on v_attendance_timeline. "
             "The source CSV (aggregated_td_tables.csv) contains both plenary sitting-day rows "
@@ -503,6 +481,10 @@ def _render_provenance(summary: pd.Series, year: int | None = None) -> None:
         else:
             st.caption(_YEAR_SOURCE_NOTE)
         st.caption(f"Source: {source}  ·  Fetched: {fetch_ts}  ·  Mart: {mart_v}  ·  Code: {code_v}")
+
+        st.divider()
+        st.markdown(f"**Source PDFs** — {len(ATTENDANCE)} official attendance documents")
+        render_pdf_source_links(ATTENDANCE)
 
 
 # ── Page entry point ───────────────────────────────────────────────────────────
