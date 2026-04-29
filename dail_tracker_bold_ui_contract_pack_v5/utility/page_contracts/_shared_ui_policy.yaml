@@ -18,7 +18,8 @@ strict_data_rules:
     - CREATE_VIEW
     - CREATE_TABLE
     - JOIN_FOR_MODELLING
-    - GROUP_BY_FOR_METRICS
+    - GROUP_BY_MULTI_DIM_FOR_METRICS   # multi-column GROUP BY — belongs in pipeline
+    - HAVING
     - WINDOW_FUNCTIONS_FOR_METRICS
     - fuzzy_matching
     - api_calls
@@ -58,6 +59,11 @@ retrieval_sql_allowed:
     - WHERE
     - ORDER_BY
     - LIMIT
+  aggregate_functions:
+    # Scalar aggregates for hero stats / date bounds are presentation-layer concerns.
+    # Multi-dimensional GROUP BY that defines a business metric belongs in the pipeline.
+    allowed: ["COUNT(*)", "COUNT(DISTINCT col)", "MAX(col)", "MIN(col)"]
+    forbidden: [GROUP_BY_MULTI_DIM, HAVING, WINDOW]
   relation_scope: approved_registered_views_only
   parameter_binding_required: true
 

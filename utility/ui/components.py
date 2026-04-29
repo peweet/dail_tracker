@@ -1,6 +1,47 @@
 """Shared UI components for Dáil Tracker Streamlit pages (v5)."""
 from __future__ import annotations
+import datetime
+import re
 import streamlit as st
+
+_CARD_ONCLICK = (
+    "(function(el){"
+    "var c=el.closest('[data-testid=stVerticalBlock]');"
+    "if(c){var b=c.querySelector('button');if(b)b.click();}"
+    "})(this)"
+)
+
+
+def scroll_to_top() -> None:
+    """Scroll the app viewport to the top. Call at the start of any detail-view render."""
+    st.markdown(
+        '<script>window.parent.document.querySelector('
+        '"[data-testid=stAppViewContainer]").scrollTo(0,0);</script>',
+        unsafe_allow_html=True,
+    )
+
+
+def clickable_card(html: str, key: str, help: str = "") -> bool:
+    """Render an HTML card where the entire surface is clickable.
+
+    Usage pattern (copy for any new page):
+        1. Build card HTML with class="dt-clickable-card" on the outer div.
+        2. Call clickable_card(html, unique_key) inside a loop.
+        3. Handle the True return: set session state + st.rerun().
+
+    The card onclick JS triggers the adjacent hidden Streamlit button.
+    CSS hover/hide rules live in shared_css.py (.dt-clickable-card family).
+    No per-page CSS or JS needed — just the class on the outer div.
+    """
+    clickable_html = re.sub(
+        r'(<div\b[^>]*\bdt-clickable-card\b[^>]*)(>)',
+        rf'\1 onclick="{_CARD_ONCLICK}"\2',
+        html,
+        count=1,
+    )
+    with st.container():
+        st.markdown(clickable_html, unsafe_allow_html=True)
+        return st.button(" ", key=key, help=help)
 
 
 def hero_banner(kicker: str, title: str, dek: str, badges: list[str] | None = None) -> None:
@@ -118,6 +159,52 @@ def member_profile_header(name: str, meta: str, badges_html: str = "") -> None:
         f'{badges}',
         unsafe_allow_html=True,
     )
+
+
+def sidebar_date_range(
+    label: str,
+    key: str,
+    default_start: datetime.date | None = None,
+) -> tuple[str | None, str | None]:
+    """Date range picker for the sidebar. Returns (start_str, end_str) or (None, None)."""
+    start = default_start or datetime.date(2020, 1, 1)
+    today = datetime.date.today()
+    st.markdown(f'<p class="sidebar-label">{label}</p>', unsafe_allow_html=True)
+    date_val = st.date_input(
+        label,
+        value=(start, today),
+        label_visibility="collapsed",
+        key=key,
+    )
+    if isinstance(date_val, (list, tuple)) and len(date_val) == 2:
+        return str(date_val[0]), str(date_val[1])
+    return None, None
+
+
+def sidebar_member_filter(
+    label: str,
+    members: list[str],
+    key_search: str,
+    key_select: str,
+    placeholder: str = "Search a member…",
+) -> str | None:
+    """Search input + selectbox for choosing a member. Returns selected name or None."""
+    st.markdown(f'<p class="sidebar-label">{label}</p>', unsafe_allow_html=True)
+    search = st.text_input(
+        label,
+        placeholder=placeholder,
+        key=key_search,
+        label_visibility="collapsed",
+    )
+    sq = search.strip().lower()
+    filtered = [m for m in members if sq in m.lower()] if sq else members
+    chosen = st.selectbox(
+        label,
+        ["— select —"] + filtered,
+        key=key_select,
+        label_visibility="collapsed",
+    )
+    return chosen if chosen and chosen != "— select —" else None
 
 
 def interest_declaration_item(text: str, status: str = "unchanged") -> None:

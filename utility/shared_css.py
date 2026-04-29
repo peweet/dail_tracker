@@ -585,6 +585,39 @@ def inject_css() -> None:
             color:        var(--accent)        !important;
         }
 
+        /* ── Clickable card pattern ──────────────────────────────────
+           The card HTML has an onclick that calls .click() on the
+           adjacent hidden Streamlit button. No CSS overlay needed.
+           Usage: components.clickable_card(html, key)
+           Card HTML must include class="dt-clickable-card".
+           ─────────────────────────────────────────────────────────── */
+
+        /* Card itself: pointer cursor + hover border */
+        .dt-clickable-card {
+            cursor: pointer !important;
+        }
+        .dt-clickable-card:hover {
+            border-left-color: var(--accent)     !important;
+            border-color:      var(--accent-dim) !important;
+        }
+
+        /* Hide the Streamlit button that acts as the click target.
+           Scoped precisely: only stButton that is a direct child of a
+           stVerticalBlock whose direct child stMarkdownContainer contains
+           a dt-clickable-card. Outer-page buttons are unaffected. */
+        [data-testid="stVerticalBlock"]:has(
+            > [data-testid="stMarkdownContainer"] .dt-clickable-card
+        ) > [data-testid="stButton"] {
+            position:       absolute !important;
+            width:          1px      !important;
+            height:         1px      !important;
+            top:            0        !important;
+            left:           0        !important;
+            opacity:        0        !important;
+            pointer-events: none     !important;
+            overflow:       hidden   !important;
+        }
+
         /* ── Success / calm-blue theme ───────────────────────────────
            Use for positive, affirming data: attendance streaks,
            high counts, achievements. Calming rather than celebratory.
@@ -1032,6 +1065,42 @@ def inject_css() -> None:
         .leg-bill-ref {
             font-size: 0.8rem; color: var(--text-meta); margin-bottom: 0.5rem;
         }
+        .leg-bill-identity {
+            padding: 0.75rem 0 0.5rem 0;
+        }
+        .leg-bill-badges {
+            display: flex; gap: 0.4rem; align-items: center;
+            flex-wrap: wrap; margin-bottom: 0.5rem;
+        }
+        .leg-hero-h2 {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.85rem; font-weight: 700; margin: 0.2rem 0 0.4rem;
+            letter-spacing: -0.02em;
+        }
+        .leg-stage-chamber {
+            font-weight: 400; color: var(--text-meta); font-size: 0.78rem;
+        }
+        .leg-long-title {
+            font-size: 0.88rem; line-height: 1.6; color: var(--text-secondary);
+        }
+        .leg-stage-group {
+            font-size: 0.65rem; font-weight: 800; letter-spacing: 0.09em;
+            text-transform: uppercase; color: var(--accent);
+            padding: 0.7rem 0 0.25rem; margin-top: 0.2rem;
+            border-top: 1px solid var(--border);
+        }
+        .leg-stage-group:first-child { border-top: none; padding-top: 0.1rem; }
+
+        /* Oireachtas link in bill identity strip */
+        .leg-bill-oireachtas-link {
+            display: inline-block;
+            margin-top: 0.55rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .leg-bill-oireachtas-link:hover { text-decoration: underline; }
 
         /* Source link card */
         .leg-source-card {
@@ -1042,6 +1111,181 @@ def inject_css() -> None:
         .leg-source-label {
             font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em;
             text-transform: uppercase; color: var(--text-meta); margin-bottom: 0.25rem;
+        }
+        .leg-source-link {
+            font-size: 0.85rem; font-weight: 600;
+            color: var(--accent); text-decoration: none;
+        }
+        .leg-source-link:hover { text-decoration: underline; }
+
+        /* ── Legislation: bill card list ─────────────────────────────── */
+        .leg-bill-card {
+            padding: 0.7rem 0.9rem;
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--border-strong);
+            border-radius: 2px;
+            background: #ffffff;
+            width: 100%;
+            transition: border-left-color 0.12s, border-color 0.12s;
+        }
+        .leg-bill-card:hover {
+            border-left-color: var(--accent);
+            border-color: var(--accent-dim);
+        }
+        .leg-bill-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.28rem;
+        }
+        .leg-bill-card-date {
+            font-size: 0.73rem;
+            color: var(--text-meta);
+            white-space: nowrap;
+        }
+        .leg-bill-card-title {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 0.97rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.35;
+            margin-bottom: 0.25rem;
+        }
+        .leg-bill-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 1rem;
+        }
+        .leg-bill-card-meta {
+            font-size: 0.75rem;
+            color: var(--text-meta);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .leg-bill-card-link {
+            font-size: 0.73rem;
+            font-weight: 600;
+            color: var(--accent);
+            text-decoration: none;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .leg-bill-card-link:hover { text-decoration: underline; }
+
+        /* Full-width card row — button floats right, card fills remaining space */
+        [data-testid="stHorizontalBlock"]:has(.leg-bill-card) {
+            gap: 0.35rem !important;
+            margin-bottom: 0.3rem !important;
+            align-items: stretch !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.leg-bill-card)
+            [data-testid="stColumn"]:first-child {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.leg-bill-card)
+            [data-testid="stColumn"]:last-child {
+            flex: 0 0 auto !important;
+            width: auto !important;
+        }
+
+        /* ── Legislation: pipeline phase strip ──────────────────────── */
+        .leg-pipeline-strip {
+            display: flex;
+            align-items: stretch;
+            margin: 1.25rem 0 1rem;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .leg-pipeline-card {
+            flex: 1;
+            padding: 1.1rem 1.4rem;
+            background: #ffffff;
+        }
+        .leg-pipeline-sep {
+            display: flex;
+            align-items: center;
+            padding: 0 0.85rem;
+            background: var(--surface);
+            color: var(--border-strong);
+            font-size: 1.1rem;
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .leg-pipeline-num {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 2.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1;
+            letter-spacing: -0.03em;
+        }
+        .leg-pipeline-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0.3rem 0 0.1rem;
+        }
+        .leg-pipeline-sub {
+            font-size: 0.71rem;
+            color: var(--text-meta);
+            letter-spacing: 0.01em;
+        }
+
+        /* ── Legislation: debate list in detail view ────────────────── */
+        .leg-debate-list { display: flex; flex-direction: column; }
+        .leg-debate-row {
+            display: flex; gap: 0.75rem; padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border); align-items: baseline;
+        }
+        .leg-debate-row:last-child { border-bottom: none; }
+        .leg-debate-date {
+            font-size: 0.75rem; color: var(--text-meta); white-space: nowrap;
+            min-width: 5.5rem; flex-shrink: 0;
+        }
+        .leg-debate-title {
+            font-size: 0.83rem; font-weight: 600; color: var(--accent);
+            text-decoration: none; flex: 1; line-height: 1.4;
+        }
+        .leg-debate-title:hover { text-decoration: underline; }
+        .leg-debate-title-plain {
+            font-size: 0.83rem; font-weight: 600; color: var(--text-primary); flex: 1;
+        }
+        .leg-debate-chamber {
+            font-size: 0.70rem; color: var(--text-meta); white-space: nowrap; flex-shrink: 0;
+        }
+
+        /* ── Legislation: pipeline TODO callout ─────────────────────── */
+        .leg-todo-callout {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 2px;
+            padding: 0.55rem 0.85rem;
+            font-size: 0.80rem;
+            color: #78350f;
+            line-height: 1.5;
+            margin: 0.6rem 0;
+        }
+        .leg-todo-callout code {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            border-radius: 2px;
+            padding: 0.05rem 0.3rem;
+            font-size: 0.75rem;
+            color: #92400e;
+        }
+        .leg-todo-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #b45309;
+            margin-right: 0.35rem;
         }
 
         /* ── Mobile layout ───────────────────────────────────────────── */
@@ -1089,6 +1333,125 @@ def inject_css() -> None:
 
             /* Sidebar hidden on mobile by default (Streamlit behaviour);
                notable members are accessible via the sidebar toggle. */
+        }
+
+        /* ── Votes: division index cards (Mode A) ─────────────────────── */
+        .vt-card {
+            padding: 0.65rem 0.9rem;
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--border-strong);
+            border-radius: 2px;
+            background: #ffffff;
+            width: 100%;
+            transition: border-left-color 0.12s, border-color 0.12s;
+        }
+        .vt-card:hover {
+            border-left-color: var(--accent);
+            border-color: var(--accent-dim);
+        }
+        .vt-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.28rem;
+        }
+        .vt-card-date {
+            font-size: 0.73rem;
+            color: var(--text-meta);
+            white-space: nowrap;
+        }
+        .vt-card-title {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 0.97rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.35;
+            margin-bottom: 0.25rem;
+        }
+        .vt-card-footer {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 0.15rem;
+        }
+        .vt-count-yes {
+            background: #f0fdf4;
+            color: #166534;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.12rem 0.55rem;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .vt-count-no {
+            background: #fef2f2;
+            color: #991b1b;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.12rem 0.55rem;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .vt-count-abs {
+            background: #f4f4f4;
+            color: var(--text-meta);
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.12rem 0.55rem;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .vt-outcome-carried {
+            background: #f0fdf4;
+            color: #166534;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.12rem 0.55rem;
+            border-radius: 2px;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .vt-outcome-lost {
+            background: #fef2f2;
+            color: #991b1b;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.12rem 0.55rem;
+            border-radius: 2px;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .vt-margin-pill {
+            background: #f4f4f4;
+            color: var(--text-meta);
+            font-size: 0.75rem;
+            padding: 0.12rem 0.55rem;
+            border-radius: 999px;
+            white-space: nowrap;
+            margin-left: auto;
+        }
+        .vt-index-caption {
+            font-size: 0.80rem;
+            color: var(--text-meta);
+            margin: 0.25rem 0 0.6rem;
+        }
+        [data-testid="stHorizontalBlock"]:has(.vt-card) {
+            gap: 0.35rem !important;
+            margin-bottom: 0.3rem !important;
+            align-items: stretch !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.vt-card)
+            [data-testid="stColumn"]:first-child {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.vt-card)
+            [data-testid="stColumn"]:last-child {
+            flex: 0 0 auto !important;
+            width: auto !important;
         }
         </style>
         """,

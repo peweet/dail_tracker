@@ -8,13 +8,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.legislation_data import (
     fetch_all_statuses,
+    fetch_bill_debates,
     fetch_bill_detail,
     fetch_bill_sources,
     fetch_bill_timeline,
     fetch_legislation_index_filtered,
 )
 from shared_css import inject_css
-from ui.components import render_stat_strip, stat_item
+from ui.components import render_stat_strip, sidebar_date_range, stat_item
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -39,7 +40,8 @@ def _fmt_date(val) -> str:
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return "—"
     try:
-        return pd.Timestamp(val).strftime("%-d %b %Y")
+        ts = pd.Timestamp(val)
+        return f"{ts.day} {ts.strftime('%b %Y')}"
     except Exception:
         return str(val)
 
@@ -48,84 +50,55 @@ def _to_csv_bytes(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode("utf-8")
 
 
+def _bill_phase(row) -> str:
+    status = (row.get("bill_status") or "").lower()
+    if "enact" in status or "sign" in status:
+        return "enacted"
+    try:
+        n = int(row.get("stage_number") or 0)
+        if n >= 11:
+            return "enacted"
+        if n >= 6:
+            return "seanad"
+    except (TypeError, ValueError):
+        pass
+    return "dail"
+
+
 # ── Stage 1 — legislation index ────────────────────────────────────────────────
 
-def _render_legislation_index() -> None:
+def _render_legislation_index(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    status: str | None = None,
+    title_search: str | None = None,
+) -> None:
     # ── Hero ──────────────────────────────────────────────────────────────────
     st.markdown(
         """
         <div class="dt-hero">
             <div class="dt-kicker">Bills · Oireachtas · Dáil Tracker</div>
-            <h2 style="font-family:'Zilla Slab',Georgia,serif;font-size:1.85rem;
-                       font-weight:700;margin:0.2rem 0 0.4rem;letter-spacing:-0.02em;">
-                Bills Before the Oireachtas
-            </h2>
+            <h2 class="leg-hero-h2">Bills Before the Oireachtas</h2>
             <p class="dt-dek">
-                Browse Private Members' Bills introduced to the Dáil.
-                Filter by date, status, or title — click any row to open the full bill record,
-                stage history, and official sources.
+                Track where each Private Members' Bill stands in the legislative journey —
+                from First Reading in the Dáil through the Seanad to Presidential signature.
+                Select a phase below, then click any bill to open the full record.
             </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # ── Filter bar ────────────────────────────────────────────────────────────
-    col_date, col_status, col_search = st.columns([3, 2, 3])
-
-    with col_date:
-        st.markdown('<p class="sidebar-label">Introduced between</p>', unsafe_allow_html=True)
-        date_val = st.date_input(
-            "Introduced between",
-            value=(pd.Timestamp("2020-01-01").date(), pd.Timestamp.today().date()),
-            label_visibility="collapsed",
-            key="leg_date_range",
-        )
-
-    with col_status:
-        st.markdown('<p class="sidebar-label">Status</p>', unsafe_allow_html=True)
-        statuses = fetch_all_statuses()
-        status_opts = ["All"] + statuses
-        status_sel = st.selectbox(
-            "Status",
-            status_opts,
-            label_visibility="collapsed",
-            key="leg_status_filter",
-        )
-
-    with col_search:
-        st.markdown('<p class="sidebar-label">Search title</p>', unsafe_allow_html=True)
-        title_search = st.text_input(
-            "Search title",
-            placeholder="e.g. Housing, Health, Education…",
-            label_visibility="collapsed",
-            key="leg_title_search",
-        )
-
-    # ── Resolve filter values ─────────────────────────────────────────────────
-    start_date: str | None = None
-    end_date: str | None = None
-    if isinstance(date_val, (list, tuple)) and len(date_val) == 2:
-        start_date = str(date_val[0])
-        end_date = str(date_val[1])
-
-    status_param = status_sel if status_sel != "All" else None
-    search_param = title_search.strip() if title_search.strip() else None
-
     # ── Fetch ─────────────────────────────────────────────────────────────────
     df = fetch_legislation_index_filtered(
         start_date=start_date,
         end_date=end_date,
-        status=status_param,
-        title_search=search_param,
+        status=status,
+        title_search=title_search,
     )
 
-    # ── Count heading ─────────────────────────────────────────────────────────
     if df.empty:
-        st.markdown(
-            '<p class="section-heading">0 bills</p>',
-            unsafe_allow_html=True,
-        )
+        st.markdown('<p class="section-heading">0 bills</p>', unsafe_allow_html=True)
         st.markdown(
             '<div class="dt-callout">No bills match the current filters. '
             "Try widening the date range or clearing the status filter.</div>",
@@ -133,50 +106,130 @@ def _render_legislation_index() -> None:
         )
         return
 
+    # ── Phase grouping ────────────────────────────────────────────────────────
+    df = df.copy()
+    df["_phase"] = df.apply(_bill_phase, axis=1)
+    dail_df    = df[df["_phase"] == "dail"]
+    seanad_df  = df[df["_phase"] == "seanad"]
+    enacted_df = df[df["_phase"] == "enacted"]
+
+    # ── Pipeline strip ────────────────────────────────────────────────────────
     st.markdown(
-        f'<p class="section-heading">{len(df):,} bills</p>',
+        f"""
+        <div class="leg-pipeline-strip">
+            <div class="leg-pipeline-card">
+                <div class="leg-pipeline-num">{len(dail_df)}</div>
+                <div class="leg-pipeline-label">Dáil Stages</div>
+                <div class="leg-pipeline-sub">stages 1–5 · before the Dáil</div>
+            </div>
+            <div class="leg-pipeline-sep">→</div>
+            <div class="leg-pipeline-card">
+                <div class="leg-pipeline-num">{len(seanad_df)}</div>
+                <div class="leg-pipeline-label">Seanad Stages</div>
+                <div class="leg-pipeline-sub">stages 6–10 · before the Seanad</div>
+            </div>
+            <div class="leg-pipeline-sep">→</div>
+            <div class="leg-pipeline-card">
+                <div class="leg-pipeline-num">{len(enacted_df)}</div>
+                <div class="leg-pipeline-label">Enacted</div>
+                <div class="leg-pipeline-sub">stage 11 · signed into law</div>
+            </div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
-    # ── Index table ───────────────────────────────────────────────────────────
-    display_cols = [
-        c for c in
-        ["bill_title", "sponsor", "bill_type", "bill_status", "introduced_date", "current_stage"]
-        if c in df.columns
-    ]
-    display_df = df[display_cols].copy()
-
-    col_cfg: dict = {
-        "bill_title": st.column_config.TextColumn("Bill", width="large"),
-        "sponsor": st.column_config.TextColumn("Sponsor"),
-        "bill_type": st.column_config.TextColumn("Type", width="small"),
-        "bill_status": st.column_config.TextColumn("Status", width="small"),
-        "introduced_date": st.column_config.DateColumn("Introduced", format="DD MMM YYYY", width="small"),
-        "current_stage": st.column_config.TextColumn("Stage"),
-    }
-
-    event = st.dataframe(
-        display_df,
-        hide_index=True,
-        use_container_width=True,
-        column_config=col_cfg,
-        selection_mode="single-row",
-        on_select="rerun",
-        key="leg_index_table",
+    # ── Government Bills notice ───────────────────────────────────────────────
+    st.markdown(
+        '<div class="leg-todo-callout">'
+        '<span class="leg-todo-label">Pipeline todo</span> '
+        'Government Bills are not yet indexed — the pipeline is currently scoped to '
+        'Private Members\' Bills only. Government Bills will appear here once the '
+        'pipeline scope is extended.'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
-    # ── Handle row selection ───────────────────────────────────────────────────
-    if event.selection and event.selection.rows:
-        idx = event.selection.rows[0]
-        bill_id = df.iloc[idx]["bill_id"]
-        st.session_state["leg_selected_bill_id"] = bill_id
+    # ── Phase selector ────────────────────────────────────────────────────────
+    phase_opts = {
+        f"All ({len(df)})": df,
+        f"Dáil Stages ({len(dail_df)})": dail_df,
+        f"Seanad Stages ({len(seanad_df)})": seanad_df,
+        f"Enacted ({len(enacted_df)})": enacted_df,
+    }
+    phase_sel = st.radio(
+        "Filter by phase",
+        list(phase_opts.keys()),
+        horizontal=True,
+        label_visibility="collapsed",
+        key="leg_phase_radio",
+    )
+    view_df = phase_opts[phase_sel]
+
+    if view_df.empty:
+        st.markdown(
+            '<div class="dt-callout">No bills in this phase match the current filters.</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    total = len(view_df)
+    show_all = st.session_state.get("leg_show_all", False)
+    visible_df = view_df if show_all else view_df.head(30)
+
+    suffix = " · showing 30" if (not show_all and total > 30) else ""
+    st.markdown(
+        f'<p class="section-heading">{total:,} bill{"s" if total != 1 else ""}{suffix}</p>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Bill card list ────────────────────────────────────────────────────────
+    for i, (_, row) in enumerate(visible_df.iterrows()):
+        status      = row.get("bill_status", "—") or "—"
+        status_cls  = _status_badge_class(status)
+        date_str    = _fmt_date(row.get("introduced_date"))
+        title       = row.get("bill_title", "—") or "—"
+        sponsor     = row.get("sponsor", "—") or "—"
+        stage       = row.get("current_stage", "—") or "—"
+        url         = row.get("oireachtas_url") or ""
+        link_html   = (
+            f'<a class="leg-bill-card-link" href="{url}" target="_blank">Oireachtas ↗</a>'
+            if url else ""
+        )
+
+        card_col, btn_col = st.columns([14, 1])
+        card_col.markdown(
+            f'<div class="leg-bill-card">'
+            f'<div class="leg-bill-card-header">'
+            f'<span class="{status_cls}">{status}</span>'
+            f'<span class="leg-bill-card-date">{date_str}</span>'
+            f'</div>'
+            f'<div class="leg-bill-card-title">{title}</div>'
+            f'<div class="leg-bill-card-footer">'
+            f'<span class="leg-bill-card-meta">{sponsor} · {stage}</span>'
+            f'{link_html}'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        btn_col.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
+        if btn_col.button("→", key=f"leg_bill_{i}", help=f"Open {title}"):
+            st.session_state["leg_selected_bill_id"] = row["bill_id"]
+            st.session_state["leg_show_all"] = False
+            st.rerun()
+
+    # ── Show more / export ────────────────────────────────────────────────────
+    ctrl_l, ctrl_r = st.columns([2, 3])
+    if not show_all and total > 30 and ctrl_l.button(f"Show all {total:,} bills", key="leg_show_all_btn"):
+        st.session_state["leg_show_all"] = True
         st.rerun()
 
-    # ── CSV export ────────────────────────────────────────────────────────────
-    export_df = df[display_cols].copy()
-    st.download_button(
+    export_cols = [c for c in ["bill_title", "sponsor", "bill_type", "bill_status",
+                               "introduced_date", "current_stage", "oireachtas_url"]
+                   if c in view_df.columns]
+    ctrl_r.download_button(
         label="Export current view as CSV",
-        data=_to_csv_bytes(export_df),
+        data=_to_csv_bytes(view_df[export_cols]),
         file_name="legislation_filtered.csv",
         mime="text/csv",
         key="leg_csv_export",
@@ -188,16 +241,17 @@ def _render_legislation_index() -> None:
             """
             **Source:** [Houses of the Oireachtas Open Data API](https://api.oireachtas.ie)
 
-            **Dataset:** Private Members' Bills introduced to the Dáil.
+            **Dataset:** Private Members' Bills introduced to the Dáil. Government Bills not yet included.
 
-            **Note:** Government Bills are not yet included in this dataset.
-            TODO_PIPELINE_VIEW_REQUIRED: Government Bills — pipeline query scoped to Private Members only.
+            **Pipeline note:** Government Bills absent — pipeline scoped to Private Members only.
 
-            **Bill status values:** Current · Enacted · Lapsed · Withdrawn · Defeated.
+            **Bill phases:** Dáil stages (1–5) → Seanad stages (6–10) → Enacted (stage 11).
+            Source: [How a Bill Becomes Law](https://www.oireachtas.ie/en/how-parliament-works/legislation/how-a-bill-becomes-law/)
 
             **Stage information** reflects the most recent stage recorded in the API at time of extract.
 
-            **Last updated:** data/silver/parquet/sponsors.parquet (check file timestamp).
+            **Pending pipeline items:** official_pdf_url (versions.parquet) ·
+            source_document_url (related_docs.parquet) · Government Bills scope.
             """
         )
 
@@ -208,25 +262,41 @@ def _render_stage_timeline(timeline_df: pd.DataFrame) -> None:
     if timeline_df.empty:
         st.markdown(
             '<div class="dt-callout">'
-            "Stage timeline data is not available for this bill.<br>"
-            "<em>TODO_PIPELINE_VIEW_REQUIRED: stage_date — "
-            "event.dates STRUCT array may need flattening in stages.parquet</em>"
+            "Stage timeline data is not available for this bill."
             "</div>",
             unsafe_allow_html=True,
         )
         return
 
+    # Stage group thresholds — immutable Oireachtas legislative procedure.
+    # Source: Houses of the Oireachtas, "How a Bill becomes Law"
+    # https://www.oireachtas.ie/en/how-parliament-works/legislation/how-a-bill-becomes-law/
+    _STAGE_GROUPS = {
+        2:  "Dáil stages",            # stages 2–5: Second Stage through Report/Final Stage
+        6:  "Seanad stages",          # stages 6–10: same progression in the Seanad
+        11: "Presidential signature",
+    }
+    _seen_groups: set[int] = set()
+
     rows_html = ""
     for _, r in timeline_df.iterrows():
+        num = r.get("stage_number")
+        num_val = int(num) if pd.notna(num) else None
+
+        if num_val is not None:
+            for threshold, group_label in sorted(_STAGE_GROUPS.items()):
+                if num_val >= threshold and threshold not in _seen_groups:
+                    rows_html += f'<div class="leg-stage-group">{group_label}</div>'
+                    _seen_groups.add(threshold)
+
         current_cls = "leg-stage-current" if r.get("is_current_stage") else ""
-        stage_date = r.get("stage_date")
-        date_str = _fmt_date(stage_date)
-        num = r.get("stage_number", "")
-        num_str = str(int(num)) if pd.notna(num) else "·"
-        chamber = r.get("chamber") or ""
-        label = r.get("stage_name", "—")
+        date_str = _fmt_date(r.get("stage_date"))
+        num_str  = str(num_val) if num_val is not None else "·"
+        chamber  = r.get("chamber") or ""
+        label    = r.get("stage_name", "—")
         if chamber:
-            label = f"{label} <span style='font-weight:400;color:var(--text-meta);font-size:0.78rem;'>· {chamber}</span>"
+            label = f"{label} <span class='leg-stage-chamber'>· {chamber}</span>"
+
         rows_html += (
             f'<div class="leg-stage-row {current_cls}">'
             f'<span class="leg-stage-num">{num_str}</span>'
@@ -235,10 +305,38 @@ def _render_stage_timeline(timeline_df: pd.DataFrame) -> None:
             f"</div>"
         )
 
-    st.markdown(
-        f'<div class="leg-stage-list">{rows_html}</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown(f'<div class="leg-stage-list">{rows_html}</div>', unsafe_allow_html=True)
+
+
+def _render_debates(debates_df: pd.DataFrame) -> None:
+    if debates_df.empty:
+        st.markdown(
+            '<div class="dt-callout">No debate records found for this bill.</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    rows_html = ""
+    for _, r in debates_df.iterrows():
+        date_str = _fmt_date(r.get("debate_date"))
+        title    = r.get("debate_title", "—") or "—"
+        url      = r.get("debate_url") or ""
+        chamber  = r.get("chamber") or ""
+
+        title_html = (
+            f'<a class="leg-debate-title" href="{url}" target="_blank">{title}</a>'
+            if url else
+            f'<span class="leg-debate-title-plain">{title}</span>'
+        )
+        rows_html += (
+            f'<div class="leg-debate-row">'
+            f'<span class="leg-debate-date">{date_str}</span>'
+            f'{title_html}'
+            f'<span class="leg-debate-chamber">{chamber}</span>'
+            f'</div>'
+        )
+
+    st.markdown(f'<div class="leg-debate-list">{rows_html}</div>', unsafe_allow_html=True)
 
 
 def _render_sources(row: pd.Series, sources_df: pd.DataFrame) -> None:
@@ -248,21 +346,27 @@ def _render_sources(row: pd.Series, sources_df: pd.DataFrame) -> None:
 
     if oireachtas_url:
         st.markdown(
-            '<div class="leg-source-card">'
-            '<div class="leg-source-label">Official record</div>',
+            f'<div class="leg-source-card">'
+            f'<div class="leg-source-label">Oireachtas official record</div>'
+            f'<a class="leg-source-link" href="{oireachtas_url}" target="_blank">'
+            f'View Bill on Oireachtas.ie ↗</a>'
+            f'</div>',
             unsafe_allow_html=True,
         )
-        st.link_button("View on Oireachtas.ie ↗", oireachtas_url)
-        st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.markdown(
             '<div class="dt-callout">Official URL not available for this bill.</div>',
             unsafe_allow_html=True,
         )
 
-    st.caption(
-        "TODO_PIPELINE_VIEW_REQUIRED: official_pdf_url — bill text PDF (from versions.parquet)\n\n"
-        "TODO_PIPELINE_VIEW_REQUIRED: source_document_url — Explanatory Memo (from related_docs.parquet)"
+    st.markdown(
+        '<div class="leg-todo-callout">'
+        '<span class="leg-todo-label">Pipeline todo</span> '
+        'Bill text PDF not yet available — '
+        '<code>versions.parquet</code> has not been generated from '
+        '<code>versions.csv</code>. Once built, the initiated PDF will appear here.'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
 
@@ -273,9 +377,10 @@ def _render_bill_detail(bill_id: str) -> None:
         st.rerun()
 
     # ── Load data ─────────────────────────────────────────────────────────────
-    detail_df = fetch_bill_detail(bill_id)
+    detail_df  = fetch_bill_detail(bill_id)
     timeline_df = fetch_bill_timeline(bill_id)
-    sources_df = fetch_bill_sources(bill_id)
+    sources_df  = fetch_bill_sources(bill_id)
+    debates_df  = fetch_bill_debates(bill_id)
 
     if detail_df.empty:
         st.warning(f"Bill '{bill_id}' not found. It may have been removed or filtered out.")
@@ -284,10 +389,10 @@ def _render_bill_detail(bill_id: str) -> None:
     row = detail_df.iloc[0]
 
     # ── Bill identity strip ───────────────────────────────────────────────────
-    status = row.get("bill_status", "—") or "—"
-    bill_type = row.get("bill_type", "—") or "—"
+    status       = row.get("bill_status", "—") or "—"
+    bill_type    = row.get("bill_type", "—") or "—"
     current_house = row.get("current_house") or ""
-    status_cls = _status_badge_class(status)
+    status_cls   = _status_badge_class(status)
 
     badges_html = f'<span class="{status_cls}">{status}</span>'
     if bill_type and bill_type != "—":
@@ -295,35 +400,41 @@ def _render_bill_detail(bill_id: str) -> None:
     if current_house:
         badges_html += f' <span class="signal signal-dark">{current_house}</span>'
 
-    bill_title = row.get("bill_title", "—") or "—"
-    bill_no = row.get("bill_no", "")
-    bill_year = row.get("bill_year", "")
+    bill_title     = row.get("bill_title", "—") or "—"
+    bill_no        = row.get("bill_no", "")
+    bill_year      = row.get("bill_year", "")
+    oireachtas_url = row.get("oireachtas_url") or ""
     ref = f"Bill {bill_no} of {bill_year}" if bill_no and bill_year else ""
+
+    link_html = (
+        f'<a class="leg-bill-oireachtas-link" href="{oireachtas_url}" target="_blank">'
+        f'View Bill on Oireachtas.ie ↗</a>'
+        if oireachtas_url else ""
+    )
 
     st.markdown(
         f"""
-        <div style="padding:0.75rem 0 0.5rem 0;">
-            <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;margin-bottom:0.5rem;">
-                {badges_html}
-            </div>
+        <div class="leg-bill-identity">
+            <div class="leg-bill-badges">{badges_html}</div>
             <div class="leg-bill-title">{bill_title}</div>
             {f'<div class="leg-bill-ref">{ref}</div>' if ref else ''}
+            {link_html}
         </div>
         """,
         unsafe_allow_html=True,
     )
 
     # ── Stat strip ────────────────────────────────────────────────────────────
-    introduced = _fmt_date(row.get("introduced_date"))
-    sponsor = row.get("sponsor", "—") or "—"
+    introduced    = _fmt_date(row.get("introduced_date"))
+    sponsor       = row.get("sponsor", "—") or "—"
     current_stage = row.get("current_stage") or "—"
-    method = row.get("method") or "—"
+    method        = row.get("method") or "—"
 
     render_stat_strip(
-        stat_item(introduced, "Introduced"),
-        stat_item(sponsor, "Sponsor"),
+        stat_item(introduced,    "Introduced"),
+        stat_item(sponsor,       "Sponsor"),
         stat_item(current_stage, "Current stage"),
-        stat_item(method, "Method"),
+        stat_item(method,        "Method"),
     )
 
     st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
@@ -339,12 +450,18 @@ def _render_bill_detail(bill_id: str) -> None:
         st.markdown('<p class="section-heading">Official Sources</p>', unsafe_allow_html=True)
         _render_sources(row, sources_df)
 
+        debate_label = (
+            f"Debates ({len(debates_df)})"
+            if not debates_df.empty else "Debates"
+        )
+        st.markdown(f'<p class="section-heading">{debate_label}</p>', unsafe_allow_html=True)
+        _render_debates(debates_df)
+
         long_title = row.get("long_title") or ""
         if long_title.strip():
             st.markdown('<p class="section-heading">Full Title</p>', unsafe_allow_html=True)
             st.markdown(
-                f'<p style="font-size:0.88rem;line-height:1.6;color:var(--text-secondary);">'
-                f"{long_title}</p>",
+                f'<p class="leg-long-title">{long_title}</p>',
                 unsafe_allow_html=True,
             )
 
@@ -361,7 +478,7 @@ def _render_bill_detail(bill_id: str) -> None:
     # ── Provenance ────────────────────────────────────────────────────────────
     with st.expander("About & data provenance", expanded=False):
         last_updated = row.get("last_updated") or "—"
-        source = row.get("source") or "—"
+        source       = row.get("source") or "—"
         st.markdown(
             f"""
             **Bill ID:** {bill_id}
@@ -369,11 +486,14 @@ def _render_bill_detail(bill_id: str) -> None:
             **Source:** {source}  |  **Last updated (API):** {last_updated}
 
             **Data origin:** Houses of the Oireachtas Open Data API →
-            pipeline → data/silver/parquet/sponsors.parquet, stages.parquet
+            pipeline → data/silver/parquet/sponsors.parquet, stages.parquet, debates.parquet
 
             **Stage timeline** sourced from data/silver/parquet/stages.parquet.
 
-            TODO_PIPELINE_VIEW_REQUIRED: Government Bills absent — pipeline scoped to Private Members only.
+            **Debate records** sourced from data/silver/parquet/debates.parquet.
+
+            **Pending pipeline items:** official_pdf_url (versions.parquet) ·
+            source_document_url (related_docs.parquet) · Government Bills scope.
             """
         )
 
@@ -385,21 +505,56 @@ def legislation_page() -> None:
 
     selected_bill_id: str | None = st.session_state.get("leg_selected_bill_id")
 
+    # ── Sidebar ───────────────────────────────────────────────────────────────
+    start_date: str | None = None
+    end_date: str | None   = None
+    status_param: str | None     = None
+    search_param: str | None     = None
+
     with st.sidebar:
         st.markdown('<div class="page-kicker">Dáil Tracker</div>', unsafe_allow_html=True)
         st.markdown('<div class="page-title">Legislation</div>', unsafe_allow_html=True)
+
         if selected_bill_id:
-            st.markdown(
-                '<div class="page-subtitle">Bill detail</div>',
-                unsafe_allow_html=True,
-            )
+            st.markdown('<div class="page-subtitle">Bill detail</div>', unsafe_allow_html=True)
         else:
             st.markdown(
                 '<div class="page-subtitle">Source: Oireachtas Open Data API</div>',
                 unsafe_allow_html=True,
             )
+            st.divider()
 
+            start_date, end_date = sidebar_date_range(
+                "Introduced between",
+                key="leg_date_range",
+            )
+
+            st.markdown('<p class="sidebar-label">Status</p>', unsafe_allow_html=True)
+            statuses = fetch_all_statuses()
+            status_sel = st.selectbox(
+                "Status",
+                ["All"] + statuses,
+                label_visibility="collapsed",
+                key="leg_status_filter",
+            )
+            status_param = status_sel if status_sel != "All" else None
+
+            st.markdown('<p class="sidebar-label">Search title</p>', unsafe_allow_html=True)
+            title_search = st.text_input(
+                "Search title",
+                placeholder="e.g. Housing, Health, Education…",
+                label_visibility="collapsed",
+                key="leg_title_search",
+            )
+            search_param = title_search.strip() or None
+
+    # ── Main content ──────────────────────────────────────────────────────────
     if selected_bill_id:
         _render_bill_detail(selected_bill_id)
     else:
-        _render_legislation_index()
+        _render_legislation_index(
+            start_date=start_date,
+            end_date=end_date,
+            status=status_param,
+            title_search=search_param,
+        )
