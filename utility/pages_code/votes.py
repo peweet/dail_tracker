@@ -103,7 +103,7 @@ def _fetch_td_row_by_name(_conn, name: str) -> pd.DataFrame:
     return _safe_query(
         _conn,
         "SELECT member_id, member_name, party_name, constituency,"
-        " yes_count, no_count, division_count"
+        " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
         " FROM td_vote_summary WHERE member_name = ? LIMIT 1",
         (name,),
     )
@@ -114,7 +114,7 @@ def _fetch_td_row_by_id(_conn, member_id: str) -> pd.DataFrame:
     return _safe_query(
         _conn,
         "SELECT member_id, member_name, party_name, constituency,"
-        " yes_count, no_count, division_count"
+        " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
         " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
         (member_id,),
     )

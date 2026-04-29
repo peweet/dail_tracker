@@ -64,7 +64,8 @@ def fetch_filter_options() -> dict[str, list]:
 @st.cache_data(ttl=300)
 def fetch_year_ranking(year: int) -> pd.DataFrame:
     return get_payments_conn().execute(
-        "SELECT member_name, position, taa_band_label, total_paid, payment_count, rank_high"
+        "SELECT member_name, position, party_name, constituency,"
+        " taa_band_label, total_paid, payment_count, rank_high"
         " FROM v_payments_yearly_evolution"
         " WHERE payment_year = ?"
         " ORDER BY rank_high ASC",
@@ -76,7 +77,8 @@ def fetch_year_ranking(year: int) -> pd.DataFrame:
 def fetch_member_all_years(member_name: str) -> pd.DataFrame:
     """All years for a member — used for the all-years summary table and all-time total."""
     return get_payments_conn().execute(
-        "SELECT payment_year, total_paid, payment_count, rank_high, taa_band_label, position"
+        "SELECT payment_year, total_paid, payment_count, rank_high,"
+        " taa_band_label, position, party_name, constituency"
         " FROM v_payments_yearly_evolution"
         " WHERE member_name = ?"
         " ORDER BY payment_year DESC",
@@ -88,7 +90,8 @@ def fetch_member_all_years(member_name: str) -> pd.DataFrame:
 def fetch_member_year_summary(member_name: str, year: int) -> pd.DataFrame:
     """Single row for a member+year — summary metrics."""
     return get_payments_conn().execute(
-        "SELECT member_name, position, taa_band_label, total_paid, payment_count, rank_high"
+        "SELECT member_name, position, party_name, constituency,"
+        " taa_band_label, total_paid, payment_count, rank_high"
         " FROM v_payments_yearly_evolution"
         " WHERE member_name = ? AND payment_year = ? LIMIT 1",
         [member_name, year],
