@@ -13,6 +13,7 @@ Forbidden here (same rules as Streamlit page files):
 """
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 import duckdb
@@ -26,7 +27,8 @@ _SQL_VIEWS = Path(__file__).resolve().parents[2] / "sql_views"
 def get_legislation_conn() -> duckdb.DuckDBPyConnection:
     conn = duckdb.connect()
     for sql_file in sorted(_SQL_VIEWS.glob("legislation_*.sql")):
-        conn.execute(sql_file.read_text(encoding="utf-8"))
+        with contextlib.suppress(Exception):  # partial load if one view fails
+            conn.execute(sql_file.read_text(encoding="utf-8"))
     return conn
 
 
@@ -63,7 +65,7 @@ def fetch_legislation_index_filtered(
     where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
     return _safe(
         f"SELECT bill_id, bill_title, bill_status, bill_type, sponsor,"
-        f" introduced_date, current_stage, oireachtas_url, bill_no, bill_year"
+        f" introduced_date, current_stage, stage_number, oireachtas_url, bill_no, bill_year"
         f" FROM v_legislation_index{where}"
         f" ORDER BY introduced_date DESC NULLS LAST",
         params or None,
@@ -108,5 +110,17 @@ def fetch_bill_timeline(bill_id: str) -> pd.DataFrame:
 def fetch_bill_sources(bill_id: str) -> pd.DataFrame:
     return _safe(
         "SELECT * FROM v_legislation_sources WHERE bill_id = ? LIMIT 1",
+        [bill_id],
+    )
+
+
+# ── Debates ────────────────────────────────────────────────────────────────────
+
+@st.cache_data(ttl=300)
+def fetch_bill_debates(bill_id: str) -> pd.DataFrame:
+    return _safe(
+        "SELECT debate_date, debate_title, debate_url, chamber"
+        " FROM v_legislation_debates WHERE bill_id = ?"
+        " ORDER BY debate_date ASC NULLS LAST",
         [bill_id],
     )

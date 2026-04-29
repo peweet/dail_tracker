@@ -5,6 +5,9 @@ Produces parquet files that the main legislation.py pipeline run has not yet wri
   - data/silver/parquet/related_docs.parquet   (Explanatory Memoranda + related docs)
   - data/silver/parquet/versions.parquet       (bill text versions)
 
+Also enriches existing parquet files with derived columns:
+  - debates.parquet  → adds debate_url_web (human-readable oireachtas.ie URL)
+
 Uses the same json_normalize(record_path, meta) approach as legislation.py.
 These files are picked up automatically by analytics_loading.py on next Streamlit start.
 
@@ -19,6 +22,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import polars as pl
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
@@ -48,7 +52,7 @@ BILL_META = [
 
 
 def _load_bills() -> list:
-    data = pd.read_json(_JSON, encoding="utf-8", errors="replace")
+    data = pd.read_json(_JSON, encoding="utf-8")
     bills = []
     for page in data["results"]:
         bills.extend(page)
@@ -82,7 +86,38 @@ def run() -> None:
     versions_df.to_parquet(out, index=False)
     print(f"  → {out}")
 
+    # ── Enrich debates with human-readable URL ─────────────────────────────────
+    _enrich_debates(SILVER_PARQUET_DIR / "debates.parquet")
+
     print("Done.")
+
+
+def _enrich_debates(path: Path) -> None:
+    """Add debate_url_web to debates.parquet.
+
+    URL pattern: https://www.oireachtas.ie/en/debates/debate/{chamber}/{date}/{section}/
+    - chamber : last path segment of chamber.uri  (e.g. 'dail' or 'seanad')
+    - date    : debate date as YYYY-MM-DD string
+    - section : debateSectionId with 'dbsect_' stripped  (e.g. '23')
+    """
+    if not path.exists():
+        print(f"  [skip] {path.name} not found")
+        return
+
+    df = pl.read_parquet(path)
+    df = df.with_columns(
+        (
+            pl.lit("https://www.oireachtas.ie/en/debates/debate/")
+            + pl.col("chamber.uri").str.split("/").list.last()
+            + pl.lit("/")
+            + pl.col("date").cast(pl.String)
+            + pl.lit("/")
+            + pl.col("debateSectionId").str.replace("dbsect_", "", literal=True)
+            + pl.lit("/")
+        ).alias("debate_url_web")
+    )
+    df.write_parquet(path)
+    print(f"  enriched debates.parquet → debate_url_web added ({len(df)} rows)")
 
 
 if __name__ == "__main__":

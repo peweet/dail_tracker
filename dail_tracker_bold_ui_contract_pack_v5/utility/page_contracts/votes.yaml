@@ -181,7 +181,8 @@ approved_registered_views:
 retrieval_sql_policy:
   allowed_statements: [SELECT]
   allowed_clauses: [WHERE, ORDER_BY, LIMIT]
-  forbidden_clauses: [JOIN, GROUP_BY, HAVING, WINDOW, CREATE_VIEW, CREATE_TABLE, INSERT, UPDATE, DELETE]
+  forbidden_clauses: [JOIN, GROUP_BY_MULTI_DIM, HAVING, WINDOW, CREATE_VIEW, CREATE_TABLE, INSERT, UPDATE, DELETE]
+  allowed_aggregate_functions: ["COUNT(*)", "COUNT(DISTINCT col)", "MAX(col)", "MIN(col)"]
   forbidden_functions: [read_parquet, parquet_scan]
   forbidden_pandas: [merge, groupby, pivot, join]
   parameter_binding_required: true
@@ -192,14 +193,25 @@ retrieval_sql_policy:
 temporal:
   mode: event_date
   primary_column: vote_date
+  year_pills:
+    enabled: true
+    control: st.pills
+    placement: main_content_area
+    order: descending
+    default: most_recent_year
+    note: >
+      Year pills are the primary navigation on the divisions index (Mode A).
+      Sidebar date_range remains available for precise sub-year filtering.
   date_format_policy:
     iso_date_values: "use calendar/date-range controls (st.date_input)"
     reporting_year_values: "use year selector or year range controls"
     timelines: "left-to-right chronological"
 
 uses_patterns:
+  - year_pills
   - date_range_filter
   - vote_explorer
+  - two_stage_member_flow
   - member_drilldown
   - csv_export
   - government_source_links
@@ -210,7 +222,7 @@ ui_creativity_budget:
   existing_page_may_be_used_for_functionality_only: true
   must_be_materially_different_from_existing_page: true
   must_change_at_least:
-    count: 6
+    count: 8
     dimensions:
       - editorial_hero
       - information_hierarchy
@@ -248,27 +260,63 @@ interaction_model:
   specific_guidance: >
     Use HowTheyVote-style flow as interaction inspiration only: browse index →
     select division → evidence panel → member votes → sources. Do not copy its visual design.
+  primary_index_display:
+    type: division_cards_not_dataframe
+    note: >
+      The divisions index must use styled HTML cards (one per division), not st.dataframe.
+      st.dataframe is a secondary-view-only control. Each card shows: date, title,
+      outcome badge (Carried/Lost), yes/no/abstained counts, margin. A → button
+      triggers Mode C. Default 25 cards shown; "Show N more" toggle reveals the rest.
+    card_columns_ratio: [14, 1]
+    card_css_family: vt-card
   required_flow:
-    - editorial_hero
-    - command_bar
-    - evidence_summary
-    - main_table_or_index
-    - detail_or_drilldown
+    - kicker_and_title_only           # no dek paragraph, no hero badges on primary view
+    - year_pills                      # st.pills, descending, most recent default
+    - sidebar_filters                 # date_range, outcome, party, member_search
+    - division_cards_index            # Mode A default
+    - td_profile_panel                # Mode B: entered via sidebar member selection
+    - division_evidence_panel         # Mode C: entered via → on card or row in history
     - official_sources
     - csv_export
     - provenance
-  command_bar:
-    enabled: true
-    position: below_hero
+  sidebar_filters:
+    position: sidebar
     controls:
-      - view_toggle: [divisions, td_record]
-      - date_range: vote_date
-      - party_filter: party_name
+      - date_range: vote_date           # sidebar_date_range() from components.py
       - outcome_filter: vote_outcome
+      - party_filter: party_name
+      - member_name_search: member_name # sidebar_member_filter() from components.py
+    note: >
+      No command bar in main content. All filter controls live in the sidebar,
+      matching the legislation and lobbying page patterns.
+  navigation_modes:
+    mode_a_divisions_index:
+      trigger: default load or "← Back" from Mode C (v_from="index")
+      session_state_cleared: [v_sel_vote_id]
+      primary_control: year_pills
+    mode_b_td_profile:
+      trigger: member selected via sidebar_member_filter()
+      session_state_key: v_sel_member_id
+      back_button: "← Back to divisions"
+      back_button_placement: main_content_area_top
+      back_clears: v_sel_member_id
+    mode_c_division_evidence:
+      trigger: "→ button on division card (Mode A) or row in TD history table (Mode B)"
+      session_state_key: v_sel_vote_id
+      session_state_from: v_from  # "index" or "td"
+      back_button: "← Back"
+      back_button_placement: main_content_area_top
+      back_clears: v_sel_vote_id
+    back_navigation_rule: >
+      Always use st.session_state.pop("key", None) to clear selection —
+      never direct assignment after widget instantiation.
   row_selection:
-    mechanism: "st.dataframe on_select='rerun'"
-    mode: single_row
-    triggers: division_evidence_panel or td_evidence_panel
+    primary_mechanism: button_click_on_division_card
+    secondary_mechanism: "row click in TD history HTML table triggers Mode C"
+    dataframe_on_select: forbidden_as_primary_index_mechanism
+    note: >
+      st.dataframe on_select="rerun" may still be used inside secondary evidence panels
+      (e.g. member list filtering) but must not be the primary index interaction.
 
 exports:
   csv:
@@ -294,16 +342,20 @@ source_links:
 
 acceptance_tests:
   - page_visibly_differs_from_old_layout
+  - no_dataframe_as_primary_index_view
   - no_backend_files_modified
   - no_read_parquet_or_parquet_scan_in_page
   - no_direct_csv_read_in_page
   - no_create_view_or_table_in_page
   - no_modelling_joins_or_groupby_in_streamlit
   - no_page_local_css_block
+  - all_filters_in_sidebar_not_main_content_command_bar
+  - back_button_in_main_content_area_not_sidebar_only
   - required_columns_validated_before_rendering
   - csv_export_exports_current_displayed_view
   - csv_export_placed_directly_below_its_table
   - csv_export_disabled_when_table_is_empty
   - source_links_use_approved_url_columns
   - temporal_controls_match_semantic_type
+  - year_pills_default_to_most_recent_year
   - TODO_PIPELINE_VIEW_REQUIRED_used_for_missing_views_and_columns

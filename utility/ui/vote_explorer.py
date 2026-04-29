@@ -272,6 +272,57 @@ def render_division_panel(
         render_source_links(sources_df)
 
 
+def vt_division_card_html(row) -> str:
+    """HTML for one division card in the Mode A index.
+
+    Uses existing _fmt_date and _outcome_chip helpers defined in this module.
+    CSS classes: .vt-card family in shared_css.py.
+    """
+    date_str = _fmt_date(row.get("vote_date"))
+    title    = str(row.get("debate_title") or "—")
+    outcome  = str(row.get("vote_outcome") or "").strip()
+    yes_n    = int(row.get("yes_count") or 0)
+    no_n     = int(row.get("no_count") or 0)
+    abs_n    = int(row.get("abstained_count") or 0)
+    margin   = row.get("margin")
+
+    margin_str = ""
+    if margin is not None:
+        try:
+            m = int(margin)
+            margin_str = f"+{m}" if m >= 0 else str(m)
+        except (TypeError, ValueError):
+            pass
+
+    lo = outcome.lower()
+    if "carried" in lo:
+        outcome_html = f'<span class="vt-outcome-carried">Carried ✓</span>'
+    elif "lost" in lo:
+        outcome_html = f'<span class="vt-outcome-lost">Lost ✗</span>'
+    elif outcome:
+        outcome_html = f'<span class="vt-count-abs">{outcome}</span>'
+    else:
+        outcome_html = ""
+
+    margin_html = f'<span class="vt-margin-pill">{margin_str}</span>' if margin_str else ""
+
+    return (
+        f'<div class="vt-card dt-clickable-card">'
+        f'<div class="vt-card-header">'
+        f'<span class="vt-card-date">{date_str}</span>'
+        f'{outcome_html}'
+        f'</div>'
+        f'<div class="vt-card-title">{title}</div>'
+        f'<div class="vt-card-footer">'
+        f'<span class="vt-count-yes">✓ {yes_n}</span>'
+        f'<span class="vt-count-no">✗ {no_n}</span>'
+        f'<span class="vt-count-abs">— {abs_n}</span>'
+        f'{margin_html}'
+        f'</div>'
+        f'</div>'
+    )
+
+
 def render_td_panel(
     td_row: pd.Series,
     history_df: pd.DataFrame,

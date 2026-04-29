@@ -8,10 +8,17 @@ import pandas as pd
 import streamlit as st
 
 from shared_css import inject_css
-from ui.components import hero_banner, todo_callout, empty_state
-from ui.table_config import vote_index_column_config, td_summary_column_config
+from ui.components import (
+    clickable_card,
+    scroll_to_top,
+    sidebar_date_range,
+    sidebar_member_filter,
+    todo_callout,
+    empty_state,
+    evidence_heading,
+)
 from ui.export_controls import export_button
-from ui.vote_explorer import render_division_panel, render_td_panel
+from ui.vote_explorer import render_division_panel, render_td_panel, vt_division_card_html
 
 try:
     import duckdb as _duckdb
@@ -25,9 +32,6 @@ _PARQUET = (
 
 _REQUIRED_INDEX_COLS: frozenset[str] = frozenset(
     {"vote_id", "vote_date", "debate_title", "vote_outcome", "yes_count", "no_count"}
-)
-_REQUIRED_TD_COLS: frozenset[str] = frozenset(
-    {"member_id", "member_name", "party_name", "yes_count", "no_count", "division_count"}
 )
 
 
@@ -62,6 +66,8 @@ def _and_clauses(clauses: list[str]) -> str:
     return sql
 
 
+# ── Data fetch ─────────────────────────────────────────────────────────────────
+
 @st.cache_data(ttl=300)
 def _fetch_hero_stats(_conn) -> pd.DataFrame:
     return _safe_query(
@@ -72,16 +78,47 @@ def _fetch_hero_stats(_conn) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def _fetch_parties(_conn) -> list[str]:
+def _fetch_vote_years(_conn) -> list[int]:
     df = _safe_query(
         _conn,
-        "SELECT DISTINCT party_name FROM td_vote_summary ORDER BY party_name LIMIT 100",
+        "SELECT DISTINCT CAST(EXTRACT(YEAR FROM vote_date) AS INTEGER) AS year"
+        " FROM v_vote_index WHERE vote_date IS NOT NULL ORDER BY year DESC LIMIT 20",
     )
-    result = ["All parties"]
-    if not df.empty and "party_name" in df.columns:
-        for p in df["party_name"].dropna().tolist():
-            result.append(str(p))
-    return result
+    if not df.empty and "year" in df.columns:
+        return [int(y) for y in df["year"].dropna().tolist()]
+    return []
+
+
+@st.cache_data(ttl=300)
+def _fetch_member_names(_conn) -> list[str]:
+    df = _safe_query(
+        _conn,
+        "SELECT DISTINCT member_name FROM td_vote_summary"
+        " WHERE member_name IS NOT NULL ORDER BY member_name ASC LIMIT 1000",
+    )
+    return df["member_name"].tolist() if not df.empty and "member_name" in df.columns else []
+
+
+@st.cache_data(ttl=300)
+def _fetch_td_row_by_name(_conn, name: str) -> pd.DataFrame:
+    return _safe_query(
+        _conn,
+        "SELECT member_id, member_name, party_name, constituency,"
+        " yes_count, no_count, division_count"
+        " FROM td_vote_summary WHERE member_name = ? LIMIT 1",
+        (name,),
+    )
+
+
+@st.cache_data(ttl=300)
+def _fetch_td_row_by_id(_conn, member_id: str) -> pd.DataFrame:
+    return _safe_query(
+        _conn,
+        "SELECT member_id, member_name, party_name, constituency,"
+        " yes_count, no_count, division_count"
+        " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
+        (member_id,),
+    )
 
 
 @st.cache_data(ttl=300)
@@ -108,6 +145,17 @@ def _fetch_vote_index(_conn, date_from, date_to, outcome, limit: int = 500) -> p
     )
     params.append(limit)
     return _safe_query(_conn, sql, params)
+
+
+@st.cache_data(ttl=300)
+def _fetch_vote_by_id(_conn, vote_id: str) -> pd.DataFrame:
+    return _safe_query(
+        _conn,
+        "SELECT vote_id, vote_date, debate_title, vote_outcome,"
+        " yes_count, no_count, abstained_count, margin"
+        " FROM v_vote_index WHERE vote_id = ? LIMIT 1",
+        (vote_id,),
+    )
 
 
 @st.cache_data(ttl=300)
@@ -142,29 +190,6 @@ def _fetch_sources(_conn, vote_id) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def _fetch_td_summary(_conn, name_q: str, party, limit: int = 500) -> pd.DataFrame:
-    clauses: list[str] = []
-    params: list = []
-    if name_q and name_q.strip():
-        clauses.append("member_name LIKE ?")
-        params.append(f"%{name_q.strip()}%")
-    if party:
-        clauses.append("party_name = ?")
-        params.append(party)
-    where = ""
-    body = _and_clauses(clauses)
-    if body:
-        where = " WHERE " + body
-    sql = (
-        "SELECT member_id, member_name, party_name, constituency,"
-        " yes_count, no_count, division_count"
-        f" FROM td_vote_summary{where} ORDER BY member_name ASC LIMIT ?"
-    )
-    params.append(limit)
-    return _safe_query(_conn, sql, params)
-
-
-@st.cache_data(ttl=300)
 def _fetch_td_history(_conn, member_id, date_from, date_to, limit: int = 500) -> pd.DataFrame:
     clauses: list[str] = ["member_id = ?"]
     params: list = [member_id]
@@ -193,244 +218,275 @@ def _fetch_td_year_summary(_conn, member_id) -> pd.DataFrame:
     )
 
 
-def _render_division_evidence(conn, vote_row: pd.Series) -> None:
-    vote_id = vote_row.get("vote_id")
-    members_df   = _fetch_division_members(conn, vote_id)
-    sources_df   = _fetch_sources(conn, vote_id)
-    breakdown_df = _fetch_party_breakdown(conn, vote_id)
-    render_division_panel(vote_row, members_df, sources_df, breakdown_df)
+# ── Mode A: Divisions index ────────────────────────────────────────────────────
 
+@st.fragment
+def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
+    """Fragment: year pills + card list. Reruns only this block when year changes."""
+    years = _fetch_vote_years(conn)
+    eff_from = date_from
+    eff_to   = date_to
 
-def _render_divisions_view(conn, date_from, date_to, outcome) -> None:
-    vote_df = _fetch_vote_index(conn, date_from, date_to, outcome)
+    if years:
+        year_strs = [str(y) for y in years]
+        sel_year = st.pills(
+            "Year",
+            year_strs,
+            default=year_strs[0] if year_strs else None,
+            key="v_year",
+        )
+        if sel_year and not eff_from:
+            eff_from = f"{sel_year}-01-01"
+            eff_to   = f"{sel_year}-12-31"
+
+    vote_df = _fetch_vote_index(conn, eff_from, eff_to, outcome_filter)
 
     missing = sorted(c for c in _REQUIRED_INDEX_COLS if c not in vote_df.columns)
     if missing:
-        mc_str = missing[0]
-        for c in missing[1:]:
-            mc_str += ", " + c
-        todo_callout(f"v_vote_index — required columns not available: {mc_str}")
+        todo_callout(f"v_vote_index — required columns not available: {', '.join(missing)}")
         return
 
     if vote_df.empty:
         empty_state(
             "No divisions found",
             "No published divisions match the current filters. "
-            "Try widening the date range or clearing the outcome filter.",
+            "Try selecting a different year or clearing the outcome filter.",
         )
         return
 
-    n = len(vote_df)
-    st.caption(
-        f"{n:,} division{'s' if n != 1 else ''} shown"
-        f"{' · filtered' if (date_from or date_to or outcome) else ''}"
-        " · click a row to inspect the full evidence"
+    total    = len(vote_df)
+    show_all = st.session_state.get("v_show_all", False)
+    visible  = vote_df if show_all else vote_df.head(25)
+    suffix   = " · showing first 25" if not show_all and total > 25 else ""
+    st.markdown(
+        f'<p class="vt-index-caption">'
+        f'{total:,} division{"s" if total != 1 else ""}{suffix}'
+        f'</p>',
+        unsafe_allow_html=True,
     )
+
+    for i, (_, row) in enumerate(visible.iterrows()):
+        if clickable_card(
+            vt_division_card_html(row),
+            key=f"vt_div_{i}",
+            help=str(row.get("debate_title") or "View division"),
+        ):
+            vote_id = str(row["vote_id"])
+            st.session_state["v_sel_vote_id"] = vote_id
+            st.session_state["v_from"]        = "index"
+            st.session_state["v_show_all"]    = False
+            st.query_params["vote"] = vote_id
+            st.query_params.pop("member", None)
+            st.rerun(scope="app")
+
+    if not show_all and total > 25 and st.button(
+        f"Show all {total:,} divisions", key="v_show_all_btn"
+    ):
+        st.session_state["v_show_all"] = True
+        st.rerun()
 
     display_cols = [
         c for c in [
-            "vote_date", "debate_title", "vote_outcome",
+            "vote_date", "vote_id", "debate_title", "vote_outcome",
             "yes_count", "no_count", "abstained_count", "margin",
         ]
         if c in vote_df.columns
     ]
-
-    event = st.dataframe(
-        vote_df[display_cols],
-        use_container_width=True,
-        hide_index=True,
-        column_config=vote_index_column_config(),
-        on_select="rerun",
-        selection_mode="single-row",
-        key="vote_idx_sel",
-    )
-
     export_button(
         vote_df[display_cols],
-        label="Export division list CSV",
+        label="↓ Export division list CSV",
         filename="dail_divisions.csv",
         key="exp_vote_idx",
     )
 
-    rows = event.selection.rows
-    if rows and rows[0] < len(vote_df):
-        st.divider()
-        _render_division_evidence(conn, vote_df.iloc[rows[0]])
-    else:
+
+def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
+    _card_list_fragment(conn, date_from, date_to, outcome_filter)
+
+    with st.expander("About & data provenance"):
+        hero = _fetch_hero_stats(conn)
+        if not hero.empty:
+            r = hero.iloc[0]
+            dc = r.get("division_count")
+            mc = r.get("member_count")
+            if dc:
+                st.caption(
+                    f"{int(dc):,} total divisions on record · "
+                    f"{int(mc or 0):,} TDs recorded."
+                )
         st.caption(
-            "Select a row above to inspect the result, member votes, party breakdown, "
-            "and official sources."
+            "Divisions data sourced from the Oireachtas Open Data API. "
+            "Votes are as published in the official record."
+        )
+        st.caption(
+            "TODO_PIPELINE_VIEW_REQUIRED: source_url column on v_vote_sources — "
+            "confirm real oireachtas.ie URL is present, not a local file path."
         )
 
 
-def _render_td_evidence(conn, td_row: pd.Series, date_from, date_to) -> None:
-    member_id = td_row.get("member_id")
-    history_df   = _fetch_td_history(conn, member_id, date_from, date_to)
-    year_df      = _fetch_td_year_summary(conn, member_id)
-    render_td_panel(td_row, history_df, year_df)
+# ── Mode B: TD profile ─────────────────────────────────────────────────────────
 
+def _render_mode_b(conn, member_id: str, date_from, date_to) -> None:
+    scroll_to_top()
+    if st.button("← Back to divisions", key="v_back_b"):
+        st.session_state["_v_clear_member"] = True
+        st.query_params.clear()
+        st.rerun()
 
-def _render_td_record_view(conn, date_from, date_to, name_q: str, party) -> None:
-    td_df = _fetch_td_summary(conn, name_q, party)
-
-    missing = sorted(c for c in _REQUIRED_TD_COLS if c not in td_df.columns)
-    if missing:
-        mc_str = missing[0]
-        for c in missing[1:]:
-            mc_str += ", " + c
-        todo_callout(f"td_vote_summary — required columns not available: {mc_str}")
-        return
-
+    td_df = _fetch_td_row_by_id(conn, member_id)
     if td_df.empty:
         empty_state(
-            "No TDs found",
-            "No TDs match the current search. Try a different name or clear the party filter.",
+            "TD not found",
+            "No record found for this member in td_vote_summary.",
         )
         return
 
-    n = len(td_df)
-    st.caption(f"{n:,} TD{'s' if n != 1 else ''} · click a row to see their voting record")
+    td_row     = td_df.iloc[0]
+    history_df = _fetch_td_history(conn, member_id, date_from, date_to)
+    year_df    = _fetch_td_year_summary(conn, member_id)
 
-    display_cols = [
-        c for c in [
-            "member_name", "party_name", "constituency",
-            "division_count", "yes_count", "no_count",
-        ]
-        if c in td_df.columns
-    ]
+    render_td_panel(td_row, history_df, year_df)
 
-    td_event = st.dataframe(
-        td_df[display_cols],
-        use_container_width=True,
-        hide_index=True,
-        column_config=td_summary_column_config(),
-        on_select="rerun",
-        selection_mode="single-row",
-        key="td_idx_sel",
+    evidence_heading("Sponsored bills")
+    todo_callout(
+        "TODO_PIPELINE_VIEW_REQUIRED: td_sponsored_bills — "
+        "member's sponsored bills (bill_title, bill_year, bill_status, oireachtas_url); "
+        "pipeline view required before this section can render."
     )
 
-    export_button(
-        td_df[display_cols],
-        label="Export TD list CSV",
-        filename="dail_td_voting_summary.csv",
-        key="exp_td_idx",
-    )
+    with st.expander("About & data provenance"):
+        st.caption(
+            "Voting record sourced from the Oireachtas Open Data API divisions data."
+        )
 
-    td_rows = td_event.selection.rows
-    if td_rows and td_rows[0] < len(td_df):
-        st.divider()
-        _render_td_evidence(conn, td_df.iloc[td_rows[0]], date_from, date_to)
-    else:
-        st.caption("Select a TD above to see their full voting record and year breakdown.")
 
+# ── Mode C: Division evidence ──────────────────────────────────────────────────
+
+def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
+    scroll_to_top()
+    back_label = "← Back to TD record" if v_from == "td" else "← Back to divisions"
+    if st.button(back_label, key="v_back_c"):
+        st.session_state["_v_clear_vote"] = True
+        if v_from == "td":
+            mid = st.session_state.get("v_sel_member_id", "")
+            if mid:
+                st.query_params["member"] = mid
+            st.query_params.pop("vote", None)
+        else:
+            st.query_params.clear()
+        st.rerun()
+
+    vote_df = _fetch_vote_by_id(conn, vote_id)
+    if vote_df.empty:
+        empty_state(
+            "Division not found",
+            f"No division on record for ID: {vote_id}.",
+        )
+        return
+
+    vote_row     = vote_df.iloc[0]
+    members_df   = _fetch_division_members(conn, vote_id)
+    sources_df   = _fetch_sources(conn, vote_id)
+    breakdown_df = _fetch_party_breakdown(conn, vote_id)
+
+    render_division_panel(vote_row, members_df, sources_df, breakdown_df)
+
+    with st.expander("About & data provenance"):
+        st.caption("Division record sourced from the Oireachtas Open Data API.")
+
+
+# ── Page entry point ───────────────────────────────────────────────────────────
 
 def votes_page() -> None:
     inject_css()
     conn = _get_conn()
 
+    # Resolve pending back-navigation flags before any widgets are instantiated
+    if st.session_state.get("_v_clear_member"):
+        st.session_state.pop("_v_clear_member", None)
+        st.session_state.pop("v_sel_member_id", None)
+        for _k in ("v_member_search", "v_member_select"):
+            st.session_state.pop(_k, None)
+
+    if st.session_state.get("_v_clear_vote"):
+        st.session_state.pop("_v_clear_vote", None)
+        st.session_state.pop("v_sel_vote_id", None)
+
+    # Seed session state from URL query params on first load
+    if "v_sel_vote_id" not in st.session_state and "vote" in st.query_params:
+        st.session_state["v_sel_vote_id"] = st.query_params["vote"]
+        st.session_state["v_from"] = st.query_params.get("from", "index")
+
+    if "v_sel_member_id" not in st.session_state and "member" in st.query_params:
+        st.session_state["v_sel_member_id"] = st.query_params["member"]
+
+    sel_vote_id   = st.session_state.get("v_sel_vote_id")
+    sel_member_id = st.session_state.get("v_sel_member_id")
+    v_from        = st.session_state.get("v_from", "index")
+
     # ── Sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
         st.markdown('<p class="page-kicker">Dáil Tracker</p>', unsafe_allow_html=True)
         st.markdown('<p class="page-title">Dáil<br>Divisions</p>', unsafe_allow_html=True)
-        hero = _fetch_hero_stats(conn)
-        if not hero.empty:
-            r = hero.iloc[0]
-            fd = r.get("first_vote_date")
-            ld = r.get("last_vote_date")
+
+        hero_df = _fetch_hero_stats(conn)
+        if not hero_df.empty:
+            r   = hero_df.iloc[0]
+            fd  = r.get("first_vote_date")
+            ld  = r.get("last_vote_date")
             if fd and ld:
                 st.caption(f"Data covers {str(fd)[:7]} to {str(ld)[:7]}")
 
-    # ── Hero ──────────────────────────────────────────────────────────────────
-    hero = _fetch_hero_stats(conn)
-    div_count = "—"
-    mem_count = "—"
-    date_span = "—"
-    if not hero.empty:
-        r = hero.iloc[0]
-        dc = r.get("division_count")
-        mc = r.get("member_count")
-        fd = r.get("first_vote_date")
-        ld = r.get("last_vote_date")
-        if dc:
-            div_count = f"{int(dc):,}"
-        if mc:
-            mem_count = f"{int(mc):,}"
-        if fd and ld:
-            date_span = f"{str(fd)[:4]}–{str(ld)[:4]}"
+        st.divider()
 
-    hero_banner(
-        kicker="Dáil Divisions",
-        title="How did TDs vote?",
-        dek=(
-            "Browse every published division. Select a vote to inspect the result, "
-            "the full member breakdown, and the official Oireachtas evidence."
-        ),
-        badges=[f"{div_count} divisions", f"{mem_count} TDs recorded", date_span],
-    )
+        # Date range shown in Mode B only — filters TD vote history
+        date_from = date_to = None
+        if sel_member_id:
+            date_from, date_to = sidebar_date_range("Date range", key="v_date_range")
 
-    # ── Command bar ───────────────────────────────────────────────────────────
-    outcome_sel   = "All"
-    party_sel_raw = "All parties"
-
-    with st.container(border=True):
-        cb_left, cb_right = st.columns([2, 5])
-        with cb_left:
-            view = st.radio(
-                "View",
-                ["Divisions", "TD Record"],
-                key="v_view",
-                label_visibility="visible",
+        # Outcome filter shown in Mode A only
+        outcome_filter = None
+        if not sel_member_id and not sel_vote_id:
+            st.markdown('<p class="sidebar-label">Outcome</p>', unsafe_allow_html=True)
+            outcome_sel = st.selectbox(
+                "Outcome",
+                ["All", "Carried", "Lost"],
+                key="v_outcome",
+                label_visibility="collapsed",
             )
-        with cb_right:
-            f1, f2, f3 = st.columns(3)
-            with f1:
-                date_from_input = st.date_input(
-                    "From", value=None, key="v_date_from", label_visibility="visible"
-                )
-            with f2:
-                date_to_input = st.date_input(
-                    "To", value=None, key="v_date_to", label_visibility="visible"
-                )
-            with f3:
-                if view == "Divisions":
-                    outcome_sel = st.selectbox(
-                        "Outcome",
-                        ["All", "Carried", "Lost"],
-                        key="v_outcome",
-                        label_visibility="visible",
-                    )
-                else:
-                    parties = _fetch_parties(conn)
-                    party_sel_raw = st.selectbox(
-                        "Party",
-                        parties,
-                        key="v_party",
-                        label_visibility="visible",
-                    )
+            outcome_filter = None if outcome_sel == "All" else outcome_sel
 
-    # Name search below command bar (TD Record only — full width for readability)
-    name_q = ""
-    if view == "TD Record":
-        name_q = st.text_input(
-            "Search by TD name",
-            placeholder="e.g. McDonald, Harris, Doherty…",
-            key="v_name",
-            label_visibility="visible",
+        st.divider()
+
+        # Member search — always visible
+        member_names = _fetch_member_names(conn)
+        sel_name = sidebar_member_filter(
+            "Find a TD",
+            member_names,
+            key_search="v_member_search",
+            key_select="v_member_select",
         )
 
-    date_from = str(date_from_input) if date_from_input else None
-    date_to   = str(date_to_input)   if date_to_input   else None
+        # Handle selection / deselection
+        if sel_name:
+            td_lkp = _fetch_td_row_by_name(conn, sel_name)
+            if not td_lkp.empty:
+                new_mid = str(td_lkp.iloc[0]["member_id"])
+                if new_mid != sel_member_id:
+                    st.session_state["v_sel_member_id"] = new_mid
+                    st.session_state.pop("v_sel_vote_id", None)
+                    st.query_params["member"] = new_mid
+                    st.query_params.pop("vote", None)
+                    st.rerun()
+        elif sel_member_id:
+            st.session_state["_v_clear_member"] = True
+            st.query_params.clear()
+            st.rerun()
 
-    if view == "Divisions":
-        outcome_filter = None if outcome_sel == "All" else outcome_sel
-        party_filter   = None
+    # ── Mode routing ──────────────────────────────────────────────────────────
+    if sel_vote_id:
+        _render_mode_c(conn, sel_vote_id, v_from)
+    elif sel_member_id:
+        _render_mode_b(conn, sel_member_id, date_from, date_to)
     else:
-        outcome_filter = None
-        party_filter   = None if (not party_sel_raw or party_sel_raw == "All parties") else party_sel_raw
-
-    st.divider()
-
-    if view == "Divisions":
-        _render_divisions_view(conn, date_from, date_to, outcome_filter)
-    else:
-        _render_td_record_view(conn, date_from, date_to, name_q, party_filter)
+        _render_mode_a(conn, date_from, date_to, outcome_filter)

@@ -25,7 +25,8 @@ approved_registered_views:
 retrieval_sql_policy:
   allowed_statements: [SELECT]
   allowed_clauses: [WHERE, ORDER_BY, LIMIT]
-  forbidden_clauses: [JOIN, GROUP_BY, HAVING, WINDOW, CREATE_VIEW, CREATE_TABLE, INSERT, UPDATE, DELETE]
+  forbidden_clauses: [JOIN, GROUP_BY_MULTI_DIM, HAVING, WINDOW, CREATE_VIEW, CREATE_TABLE, INSERT, UPDATE, DELETE]
+  allowed_aggregate_functions: ["COUNT(*)", "COUNT(DISTINCT col)", "MAX(col)", "MIN(col)"]
   forbidden_functions: [read_parquet, parquet_scan]
   parameter_binding_required: true
   missing_data_action: TODO_PIPELINE_VIEW_REQUIRED

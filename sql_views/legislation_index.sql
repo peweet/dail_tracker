@@ -12,6 +12,7 @@ WITH ranked AS (
         COALESCE(sponsor_by_show_as, '—')                AS sponsor,
         TRY_CAST(context_date AS DATE)                   AS introduced_date,
         most_recent_stage_event_show_as                  AS current_stage,
+        TRY_CAST(most_recent_stage_event_progress_stage AS INTEGER) AS stage_number,
         bill_url                                         AS oireachtas_url,
         bill_no,
         bill_year,
@@ -30,6 +31,7 @@ SELECT
     sponsor,
     introduced_date,
     current_stage,
+    stage_number,
     oireachtas_url,
     bill_no,
     bill_year
