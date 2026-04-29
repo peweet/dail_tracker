@@ -333,9 +333,12 @@ def render_td_panel(
     name      = str(td_row.get("member_name") or "—")
     party     = str(td_row.get("party_name") or "—")
     const     = str(td_row.get("constituency") or "—")
-    yes_n     = int(td_row.get("yes_count") or 0)
-    no_n      = int(td_row.get("no_count") or 0)
-    div_count = int(td_row.get("division_count") or 0)
+    yes_n      = int(td_row.get("yes_count") or 0)
+    no_n       = int(td_row.get("no_count") or 0)
+    abs_n      = int(td_row.get("abstained_count") or 0)
+    div_count  = int(td_row.get("division_count") or 0)
+    yes_rate   = td_row.get("yes_rate_pct")
+    rate_str   = f"{float(yes_rate):.1f}%" if yes_rate is not None else "—"
 
     safe_mid = ""
     for ch in member_id:
@@ -352,8 +355,10 @@ def render_td_panel(
         )
 
         stat_strip([
-            (str(yes_n),    "Yes ✓",     "oklch(38% 0.130 145)"),
-            (str(no_n),     "No ✗",      "oklch(45% 0.180 30)"),
+            (str(yes_n),    "Yes ✓",      "oklch(38% 0.130 145)"),
+            (str(no_n),     "No ✗",       "oklch(45% 0.180 30)"),
+            (str(abs_n),    "Abstained",  "var(--text-meta)"),
+            (rate_str,      "Yes rate",   "oklch(38% 0.130 145)"),
             (str(div_count), "Divisions", "var(--text-primary)"),
         ])
 
