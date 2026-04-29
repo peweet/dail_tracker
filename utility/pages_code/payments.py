@@ -107,15 +107,23 @@ def _pay_name_pill_html(row: pd.Series, rank: int) -> str:
     """Compact rank card with amount badge embedded — mirrors interests page layout."""
     name      = str(row.get("member_name",    "—"))
     pos       = str(row.get("position",       "Deputy"))
+    party     = str(row.get("party_name",     "") or "")
+    constit   = str(row.get("constituency",   "") or "")
     taa       = str(row.get("taa_band_label", "—"))
     count     = int(row.get("payment_count",  0) or 0)
     total_str = f"€{float(row.get('total_paid', 0) or 0):,.0f}"
+    meta_parts = [p for p in [party, constit] if p and p.lower() not in ("nan", "")]
+    meta_html  = (
+        f'<div class="pay-name-body-meta">{" · ".join(meta_parts)}</div>'
+        if meta_parts else ""
+    )
     return (
         f'<div class="pay-name-row">'
         f'<span class="pay-name-rank">#{rank}</span>'
         f'<div class="pay-name-body">'
         f'<div class="pay-name-body-name">{name}</div>'
         f'<div class="pay-name-body-pos">{pos}</div>'
+        f'{meta_html}'
         f'<span class="pay-taa-pill">{taa}</span>'
         f'<span class="pay-count-pill">{count} payments</span>'
         f'</div>'
@@ -260,13 +268,17 @@ def _render_profile(
     latest    = all_years.iloc[0]
     taa_label = str(latest.get("taa_band_label", "—"))
     position  = str(latest.get("position",       "Deputy"))
+    party     = str(latest.get("party_name",     "") or "")
+    constit   = str(latest.get("constituency",   "") or "")
+    meta_parts = [p for p in [party, constit] if p and p.lower() not in ("nan", "")]
+    meta_str   = " · ".join(meta_parts) if meta_parts else position
 
     # Identity strip
     st.markdown(
         f'<div class="pay-identity-card">'
         f'<div class="pay-identity-card-name">{td_name}</div>'
         f'<div class="pay-identity-card-meta">'
-        f'{position} &nbsp;·&nbsp; '
+        f'{meta_str} &nbsp;·&nbsp; '
         f'<span class="pay-taa-pill">{taa_label}</span>'
         f'</div></div>',
         unsafe_allow_html=True,
