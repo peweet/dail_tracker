@@ -1,0 +1,258 @@
+contract_version: 5
+
+# ── Project spirit ─────────────────────────────────────────────────────────────
+# Dáil Tracker is informed by theyworkforyou.com (UK) and theyvoteforyou.eu.
+# Their UX decisions are proven and user-tested. Execution stays close to their template.
+# This is not IP infringement. No code is copied. The spirit is: simple, factual, trustworthy.
+# Rule of thumb: "would theyworkforyou ship this?" If not, reconsider.
+
+architecture:
+  data_access_mode: duckdb_in_process_registered_analytical_views
+  persistent_duckdb_file: false
+  streamlit_queries_registered_views_only: true
+
+strict_data_rules:
+  forbidden_in_streamlit:
+    - read_parquet
+    - parquet_scan
+    - CREATE_VIEW
+    - CREATE_TABLE
+    - JOIN_FOR_MODELLING
+    - GROUP_BY_FOR_METRICS
+    - WINDOW_FUNCTIONS_FOR_METRICS
+    - fuzzy_matching
+    - api_calls
+    - pdf_parsing
+    - hardcoded_absolute_paths
+    - pandas_merge
+    - pandas_join
+    - pandas_groupby
+    - pandas_pivot
+    - polars_join
+    - polars_group_by
+
+  # Narrow exception to the hardcoding prohibition.
+  # See PIPELINE_VIEW_BOUNDARY.md § "Permitted hardcoding for fixed historical values"
+  permitted_hardcoding:
+    allowed: true
+    qualifying_criteria:
+      - value_is_immutable_historical_fact: true      # e.g. days Dáil sat in a past year
+      - source_is_official_published_document: true   # e.g. Oireachtas Commission Annual Report
+      - pipeline_alternative_is_disproportionate: true  # e.g. requires re-parsing PDFs / major schema change
+      - code_annotation_with_source_required: true    # comment must name the document or URL
+    not_permitted_for:
+      - values_that_change_over_time
+      - approximate_or_estimated_values
+      - model_logic_thresholds_or_weights
+      - mutable_config_that_belongs_in_settings
+      - values_the_pipeline_can_expose_without_major_rework
+    canonical_example: >
+      _YEAR_SITTING_DAYS in attendance.py — official plenary sitting day counts per year
+      from Houses of the Oireachtas Commission annual reports. Pipeline would require
+      PDF re-parsing to expose these; values are immutable once the year is closed.
+
+retrieval_sql_allowed:
+  statements:
+    - SELECT
+  clauses:
+    - WHERE
+    - ORDER_BY
+    - LIMIT
+  relation_scope: approved_registered_views_only
+  parameter_binding_required: true
+
+todo_policy:
+  missing_data_action: TODO_PIPELINE_VIEW_REQUIRED
+  required_format: "TODO_PIPELINE_VIEW_REQUIRED: <specific missing view/column/filter/metric/source_url>"
+
+view_complexity_budget:
+  principle: "Primary views must be free from noise. Secondary (detail/profile) views may be more complex."
+  primary_view:
+    rule: >
+      The leading table is the primary content. Do not bury it under charts, stat strips, or stacked
+      expanders. The user has not narrowed scope yet — show them the index immediately after the filter bar.
+    allowed:
+      - kicker_and_title_only       # no dek paragraph, no hero badges
+      - year_pills_or_compact_filter
+      - single_name_filter
+      - single_leading_table
+      - export_button_below_table
+      - provenance_collapsed_at_bottom
+    forbidden:
+      - dek_paragraph_in_hero
+      - stat_strip_duplicating_hero_badge_data
+      - charts_above_or_between_filters_and_table
+      - multiple_expanders_above_the_fold
+      - stacked_charts_and_tables_in_same_view
+      - party_and_constituency_dropdowns_when_name_search_is_sufficient
+  secondary_view:
+    rule: >
+      A detail, profile, or drilldown view may include charts, breakdowns, and timelines.
+      The user narrowed scope by selecting a record — complexity is acceptable here.
+    back_navigation:
+      rule: "The back/return button must be in the main content area at the top of the secondary view."
+      forbidden: "Do not place the back button only in the sidebar — it will be missed."
+    allowed:
+      - member_identity_strip
+      - metric_columns
+      - timeline_or_calendar_chart
+      - year_breakdown_table
+      - export_button
+      - provenance_collapsed_at_bottom
+    caution: "Two content sections (e.g. chart + table) is the default. A third requires justification."
+
+year_selector_policy:
+  order: descending           # most recent year first: 2026, 2025, 2024, 2023 ...
+  default: most_recent        # never default to "All years"
+  control: st.pills           # horizontal pill buttons, not a dropdown
+  placement: main_content     # not sidebar
+  rationale: >
+    Users care most about current-year data. Older years are available for more curious users
+    but should not be the default or the first thing presented.
+
+per_year_source_policy:
+  note: >
+    Where data is sourced from annual documents (e.g. Oireachtas attendance PDFs), the pipeline
+    must expose a per-year source URL. The provenance footer must show the year label and a note
+    that the source is the official annual PDF. Use:
+    TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL
+  display: >
+    In the "About & data provenance" expander, show: year label + source note + fetched timestamp.
+    Do not show a raw file path as the source.
+
+ui_creativity_policy:
+  principle: "Thin data semantics, rich user experience."
+  existing_page_status: "functional_reference_not_design_reference"
+  redesign_required_to_be_materially_different: true
+  creative_scope:
+    - layout
+    - visual_hierarchy
+    - filter_placement
+    - interaction_model
+    - chart_choice
+    - table_usability
+    - drilldown_flows
+    - source_link_presentation
+    - empty_states
+    - mobile_flow
+    - reusable_css
+    - reusable_ui_helpers
+  preserve:
+    - backend_logic
+    - approved_registered_views
+    - approved_columns
+    - approved_filters
+    - metric_semantics
+    - export_requirements
+    - provenance_requirements
+
+pipeline_data_quality_rules:
+  pre_build_inspection:
+    rule: >
+      Before writing any UI classification, grouping, or filtering logic against a view column,
+      read the corresponding sql_views/*.sql file and confirm the column is computed from real
+      data — not hardcoded (e.g. 'Present' AS attendance_status, TRUE AS present_flag,
+      NULL::VARCHAR AS mart_version).
+    if_hardcoded:
+      - do_not_work_around_it_in_streamlit
+      - replace_ui_logic_with_todo_callout
+      - format: "TODO_PIPELINE_VIEW_REQUIRED: <column> on <view> — currently hardcoded '<value>'"
+  duplicate_rows:
+    rule: >
+      If a view produces duplicate rows for the same key (same member + same date appearing
+      twice), this is a pipeline deduplication problem. Do not deduplicate in Streamlit.
+    required_actions:
+      - flag_with_todo_pipeline_view_required
+      - add_row_number_column_as_stopgap  # tl_table["#"] = range(1, len(tl_table) + 1)
+
+ranking_leaderboard_components:
+  # Validated on: Attendance (Hall of Fame/Shame), Interests (leaderboard)
+  # Reference implementation: utility/pages_code/attendance.py, interests.py
+  # CSS: utility/styles/base.css — att-hall-* and int-rank-* families
+  when_to_use_cards_instead_of_table:
+    - primary_question_is_extremes: "who is top / who is bottom?"
+    - rendered_set_is_small: "≤ 15 cards per side"
+    - record_has_strong_identity: "name + medal + hero statistic"
+  when_to_use_table:
+    - full_browse_list: "> 15 rows"
+    - find_a_specific_member: "not a ranking question"
+    - partial_year_fallback: "all members at same count — cards add no value"
+  hall_of_fame_shame_pattern:
+    sides: [good, bad]
+    medals:
+      good: ["🥇", "🥈", "🥉"]
+      bad:  ["💀", "👻", "😴"]
+    rendering_rule: >
+      Render all N cards as a single st.markdown(html_block, unsafe_allow_html=True) call.
+      Never one call per card — Streamlit inter-element padding breaks visual grouping.
+    tie_breaking_sort: >
+      sort_values(["rank_high", "attended_count"], ascending=[True, False]) for good side.
+      sort_values(["rank_low",  "attended_count"], ascending=[True, True])  for bad side.
+    partial_year_rule: >
+      If year >= datetime.date.today().year, show st.info() + flat st.dataframe instead.
+    back_button_rule: >
+      Use st.session_state.pop("key", None) to clear selection — never direct assignment
+      after widget instantiation (raises StreamlitAPIException).
+  leaderboard_card_pattern:
+    structure: "rank # | name | party · constituency | stat pills | amount/highlight | → button"
+    amount_badges_rule: >
+      Amount badges, stats, and secondary metadata go INSIDE the card HTML — not in a third column.
+      The card is the full unit; the only element outside it is the → button.
+    nav_trigger: >
+      st.columns([5, 1]) — card in c1, dt-nav-anchor div + → button in c2.
+      Card outer div must use display:inline-flex; width:fit-content.
+      A :has(.card-class) rule on stHorizontalBlock must collapse the row to fit-content
+      so the → button sits adjacent to the card, not at the far right of the page.
+      See CSS_REUSE_GUIDE.md for the exact :has() block to add to shared_css.py.
+      Do NOT use st.columns([11, 1]) or three-column layouts for card+button rows.
+    card_background_rule: "background: #ffffff — never var(--surface), which is warm beige"
+    css_classes:
+      - int-rank-card        # interests leaderboard — inline-flex, fit-content, #ffffff bg
+      - int-rank-num         # top-10 use int-rank-num-top for primary-blue color
+      - int-rank-body
+      - int-rank-name
+      - int-rank-meta
+      - int-rank-stats
+      - int-stat-pill        # neutral chip
+      - int-stat-pill-accent # one accent chip for the key figure
+      - int-highlight-quote
+      - pay-name-row         # payments leaderboard — same inline-flex pattern
+      - pay-name-rank
+      - pay-name-body        # background: #ffffff
+      - pay-name-body-name
+      - pay-name-body-pos
+      - pay-taa-pill
+      - pay-count-pill
+      - pay-amount-badge
+      - pay-amount-badge-num
+      - pay-amount-badge-label
+      - dt-nav-anchor        # margin-top shim for → button vertical alignment
+  hero_stat_typography:
+    rule: >
+      Single key number inside a card: font-size 1.25rem, font-weight 800, letter-spacing -0.02em.
+      Use <strong> inside the label paragraph — the CSS rule targets att-hall-days > strong.
+      Surrounding label text stays at 0.82rem for contrast.
+
+library_policy:
+  native_streamlit_first:
+    - st.dataframe
+    - st.column_config
+    - st.tabs
+    - st.container
+    - st.popover
+    - st.dialog
+    - st.fragment
+    - st.download_button
+    - st.date_input
+  approved_charts:
+    - plotly
+    - altair
+  optional_with_justification:
+    - streamlit_echarts
+    - streamlit_aggrid
+    - streamlit_extras
+    - streamlit_community_navigation_bar
+  avoid:
+    - custom_javascript
+    - custom_react_components
+    - one_off_css_frameworks

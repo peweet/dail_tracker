@@ -840,8 +840,7 @@ def main() -> None:
     # 1c. Drop Nil Return declarations (no lobbying took place — administrative filings only)
     lobbying_df = filter_nil_returns(lobbying_df)
 
-    # 2. Parse return-level dates once, up front (both the activity chain and
-    #    the experimental return-level metrics need them)
+    # 2. Parse return-level dates once, up front (both the activity chain and)
     lobbying_df = parse_lobbying_period(lobbying_df)
 
     # 3. Attach lobby_url to every return (propagates through every explode)

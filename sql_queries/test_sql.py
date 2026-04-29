@@ -17,41 +17,54 @@ committee_activity_summary.sql
     -- Needs: committee_assignments (likely a gold-layer or processed committee Parquet/CSV)
     -- TODO: Register 'committee_assignments' view from the correct Parquet/CSV (e.g., gold-layer committee assignments)
 """
+
 import duckdb
 import polars as pl
 import os
 
-# con = duckdb.connect()
-# con.execute("CREATE VIEW activities AS SELECT * FROM read_parquet('data/silver/lobbying/parquet/lobby_break_down_by_politician.parquet')")
-# con.execute("CREATE VIEW returns   AS SELECT * FROM read_parquet('data/silver/lobbying/parquet/returns.parquet')")
-# # for other tables:
-# con.execute("CREATE VIEW current_dail_vote_history AS SELECT * FROM read_csv_auto('data/gold/current_dail_vote_history.csv')")
-
-# # test your SQL
-# sql = open("sql_queries/debate_summary.sql").read()
-# print(con.execute(sql).pl())
-
-
+# Register all required views for the SQL queries
+con = duckdb.connect(database=':memory:')
 
 # Path to your SQL queries directory
 SQL_DIR = r"C:\Users\pglyn\PycharmProjects\dail_extractor\sql_queries"
+# TODO: Update these paths if your data moves or you add new datasets
+# con.execute("CREATE VIEW returns AS SELECT * FROM read_parquet('data/silver/lobbying/parquet/returns.parquet')")
+# con.execute("CREATE VIEW aggregated_payment_tables AS SELECT * FROM read_parquet('data/silver/parquet/aggregated_payment_tables.parquet')")
+# con.execute("CREATE VIEW aggregated_td_tables AS SELECT * FROM read_parquet('data/silver/parquet/aggregated_td_tables.parquet')")
+# con.execute("CREATE VIEW debates AS SELECT * FROM read_parquet('data/silver/parquet/debates.parquet')")
+# con.execute("CREATE VIEW drop_cols_flattened_bills AS SELECT * FROM read_parquet('data/silver/parquet/drop_cols_flattened_bills.parquet')")
+# con.execute("CREATE VIEW flattened_members AS SELECT * FROM read_parquet('data/silver/parquet/flattened_members.parquet')")
+# con.execute("CREATE VIEW flattened_seanad_members AS SELECT * FROM read_parquet('data/silver/parquet/flattened_seanad_members.parquet')")
+# con.execute("CREATE VIEW sponsors AS SELECT * FROM read_parquet('data/silver/parquet/sponsors.parquet')")
+# con.execute("CREATE VIEW stages AS SELECT * FROM read_parquet('data/silver/parquet/stages.parquet')")
+# con.execute("CREATE VIEW top_tds_by_payment_since_2020 AS SELECT * FROM read_parquet('data/silver/parquet/top_tds_by_payment_since_2020.parquet')")
+# con.execute("CREATE VIEW current_dail_vote_history AS SELECT * FROM read_csv_auto('data/gold/current_dail_vote_history.csv')")
+# con.execute("CREATE VIEW committee_assignments AS SELECT * FROM read_csv_auto('data/gold/committee_assignments.csv')")
+# con.execute("CREATE VIEW dail_member_interests_combined AS SELECT * FROM read_csv_auto('data/silver/dail_member_interests_combined.csv')")
+
+
+
+
 
 # Connect to DuckDB (in-memory or specify a .duckdb file)
 con = duckdb.connect(database=':memory:')
+con.execute("CREATE VIEW activities AS SELECT * FROM read_parquet('data/silver/lobbying/parquet/most_lobbied_politicians.parquet')")
 
 # List all .sql files in the directory
-sql_files = [f for f in os.listdir(SQL_DIR) if f.endswith('.sql')]
 
-for sql_file in sql_files:
-    sql_path = os.path.join(SQL_DIR, sql_file)
-    print(f"\n--- Running: {sql_file} ---")
-    with open(sql_path, 'r', encoding='utf-8') as f:
-        sql = f.read()
-    try:
-        result = con.execute(sql).df()
-        print(result)
-    except Exception as e:
-        print(f"Error running {sql_file}: {e}")
+sql_files = [f for f in os.listdir(SQL_DIR) if f.endswith('.sql')]
+print(f"Found {len(sql_files)} SQL files: {sql_files}")
+# 
+# for sql_file in sql_files:
+    # sql_path = os.path.join(SQL_DIR, sql_file)
+    # print(f"\n--- Running: {sql_file} ---")
+    # with open(sql_path, 'r', encoding='utf-8') as f:
+        # sql = f.read()
+    # try:
+        # result = con.execute(sql).df()
+        # print(result)
+    # except Exception as e:
+        # print(f"Error running {sql_file}: {e}")
 
 
 

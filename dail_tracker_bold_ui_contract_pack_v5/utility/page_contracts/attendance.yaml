@@ -1,0 +1,217 @@
+contract_version: 5
+
+page:
+  id: attendance
+  title: "Attendance"
+  route: "utility/pages_code/attendance.py"
+  user_question: "How often did a TD attend plenary sittings during a selected period, and what does the evidence show?"
+  existing_page_is: functional_reference_not_design_reference
+
+data_access:
+  mode: duckdb_in_process_registered_analytical_views
+  persistent_duckdb_file: null
+  streamlit_may_register_views: false
+  streamlit_may_read_parquet: false
+  connection_owner: application_or_pipeline_exposition_layer
+
+approved_registered_views:
+  - v_attendance_summary
+  - v_attendance_member_detail
+  - v_attendance_timeline
+  - v_attendance_member_summary
+  - v_attendance_member_year_summary
+  - v_attendance_year_rank          # RANK() OVER (PARTITION BY year) — one row per (member, year)
+
+retrieval_sql_policy:
+  allowed_statements: [SELECT]
+  allowed_clauses: [WHERE, ORDER_BY, LIMIT]
+  forbidden_clauses: [JOIN, GROUP_BY, HAVING, WINDOW, CREATE_VIEW, CREATE_TABLE, INSERT, UPDATE, DELETE]
+  forbidden_functions: [read_parquet, parquet_scan]
+  parameter_binding_required: true
+  missing_data_action: TODO_PIPELINE_VIEW_REQUIRED
+
+temporal:
+  mode: reporting_year
+  primary_column: year
+  year_order: descending          # most recent year first — e.g. 2026, 2025, 2024, 2023
+  default_selection: most_recent  # do not default to "All years"
+  date_format_policy:
+    reporting_year_values: "use st.pills horizontal year selector, newest year first"
+    timelines: "left-to-right chronological (profile calendar heatmap only)"
+  date_range_filter: removed      # date range filter removed from this page
+
+per_year_source:
+  note: >
+    Each calendar year's attendance will eventually be sourced from the official Oireachtas
+    attendance PDF for that year (e.g. attendance_2025.pdf, attendance_2024.pdf).
+    The pipeline must expose a per-year source URL column. Until then:
+    TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL on v_attendance_summary
+  provenance_display: show_year_label_and_source_note_in_about_expander
+
+permitted_hardcoded_values:
+  # Qualifies under _shared_ui_policy.yaml § permitted_hardcoding:
+  # immutable historical facts from official published documents; pipeline alternative
+  # (re-parsing source PDFs for the denominator) is disproportionate.
+  year_sitting_days:
+    description: >
+      Official Dáil Éireann plenary sitting-day counts per calendar year.
+      Used as the denominator for per-member attendance rate on the browse view.
+    source: Houses of the Oireachtas Commission Annual Reports
+    source_url_pattern: >
+      https://www.oireachtas.ie/en/press-centre/press-releases/
+      <year>-houses-of-the-oireachtas-commission-publishes-annual-report/
+    values:
+      2020: 82
+      2021: 94
+      2022: 106
+      2023: 100
+      2024: 83
+      2025: 82   # partial period; from 2025 report
+    pipeline_todo: >
+      TODO_PIPELINE_VIEW_REQUIRED: sitting_total_days — the source PDF field for total
+      plenary sitting days was not correctly extracted during initial pipeline build.
+      When fixed, remove _YEAR_SITTING_DAYS from attendance.py and use the view column.
+  dail_min_sitting_days:
+    description: >
+      Statutory minimum plenary sitting days per Dáil year (Standing Orders).
+      Used as context on in-progress years where the final sitting-day count is unknown.
+    value: 120
+    applies_to: current_and_future_years_only
+
+known_data_quality_issues:
+  minister_attendance_absent_from_source_pdf:
+    description: >
+      The official Oireachtas plenary attendance PDFs do not record attendance for members
+      holding ministerial office (Taoiseach, cabinet ministers, Ministers of State). These
+      members appear as zero or near-zero in the extracted data — not because they were absent,
+      but because the source document does not capture their attendance at all. This is a
+      source-document limitation, not an editorial decision.
+    effect: >
+      Ministers must be excluded from Hall of Shame ranking on the attendance page. Showing
+      them as low attenders would be factually misleading. The exclusion is a data quality
+      correction, not a policy choice about ministerial duties.
+    implementation: >
+      is_minister flag flows from ministerial_office in enriched_df → gold CSV
+      (attendance_by_td_year.csv) → v_attendance_member_year_summary → v_attendance_year_rank.
+      Filter: ranking_df[ranking_df["is_minister"].astype(str).str.lower() != "true"]
+    scope: attendance_page_only — do NOT apply to other pages without verifying the source
+      document for that page has the same gap.
+    user_facing_note: >
+      Explanation belongs in the About & data provenance expander, not inline on the leaderboard.
+
+uses_patterns:
+  - timeline          # profile view calendar heatmap only
+  - member_drilldown
+  - csv_export
+  - government_source_links
+
+ui_creativity_budget:
+  level: very_high
+  mandatory_bold_redesign: true
+  existing_page_may_be_used_for_functionality_only: true
+  must_be_materially_different_from_existing_page: true
+  must_change_at_least:
+    count: 6
+    dimensions:
+      - editorial_hero
+      - information_hierarchy
+      - filter_placement
+      - section_order
+      - table_configuration
+      - chart_or_timeline_presentation
+      - member_or_record_drilldown
+      - csv_export_placement
+      - source_link_presentation
+      - empty_states
+      - mobile_flow
+      - shared_css_polish
+  may_rethink:
+    - layout
+    - interaction_model
+    - visual_hierarchy
+    - chart_choice
+    - table_usability
+    - detail_panels
+    - filter_controls
+    - source_link_display
+    - responsive_order
+  must_preserve:
+    - backend_logic
+    - data_semantics
+    - approved_registered_views
+    - approved_columns
+    - approved_filters
+    - metric_meaning
+    - export_requirements
+    - provenance_requirements
+
+interaction_model:
+  two_stage: true
+  specific_guidance: >
+    Stage 1 (primary): attention-grabbing good-cop/bad-cop split — top attenders left,
+    lowest attenders right. Year pills control the year. Name search switches to a ranked
+    lookup for a specific member. All complexity lives in Stage 2 (profile drilldown).
+    Do not put the back button in the sidebar — it will be missed.
+  primary_view_flow:
+    - kicker_and_title_only        # no dek, no hero badges
+    - year_pills                   # st.pills, newest first, defaults to most recent year
+    - name_filter                  # single text input — triggers ranked search mode
+    - good_bad_cop_split           # default when no name filter:
+                                   #   left col: top-15 attenders (green, ranked by attended_count DESC)
+                                   #   right col: bottom-15 attenders (red, ranked by attended_count ASC)
+                                   #   each card: rank · name · party · days · attendance % if year known
+                                   #   → button navigates to profile
+    - name_search_mode             # when name filter active: ranked cards for matching members
+    - export_button                # exports full year ranking (member, party, days, rank)
+    - about_provenance_footer      # collapsed, at bottom; shows year label + per-year source note
+  secondary_view_flow:
+    - back_button_at_top           # "← Back to all members" in main content area, NOT sidebar
+    - member_identity_strip        # name, party, constituency
+    - summary_stats                # days attended, first recorded, most recent (st.columns metrics)
+    - sitting_calendar             # calendar heatmap + export
+    - year_breakdown               # year DESC table with progress bars + export
+    - about_provenance_footer      # collapsed, at bottom
+  navigation:
+    primary_to_secondary:
+      - row_click_on_member_table
+      - sidebar_selectbox
+      - sidebar_notable_member_chips
+    secondary_to_primary:
+      - back_button_in_main_content_area  # prominent; sidebar button alone is not enough
+  sidebar:
+    both_views:
+      - notable_member_chips
+      - member_name_search_input
+      - member_selectbox
+    removed:
+      - date_range_filter  # removed; not useful for this page
+
+exports:
+  csv:
+    enabled: true
+    behaviour: current_displayed_view_only
+    respects_filters: true
+    respects_temporal_scope: true
+    does_not_recompute_dataset: true
+
+source_links:
+  enabled: true
+  approved_url_columns:
+    - source_url
+    - source_document_url
+    - official_pdf_url
+    - oireachtas_url
+    - legislation_url
+  display: labelled_links_not_raw_urls
+  missing_url_action: "TODO_PIPELINE_VIEW_REQUIRED: source URL column"
+
+acceptance_tests:
+  - page_visibly_differs_from_old_layout
+  - no_backend_files_modified
+  - no_read_parquet_or_parquet_scan_in_page
+  - no_create_view_or_table_in_page
+  - no_modelling_joins_or_groupby_in_streamlit
+  - csv_export_exports_current_displayed_view
+  - source_links_use_approved_url_columns
+  - temporal_controls_match_semantic_type
+  - TODO_PIPELINE_VIEW_REQUIRED_used_for_missing_data

@@ -1,0 +1,108 @@
+/* Optional additions for utility/styles/base.css */
+
+.dt-page-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.dt-hero {
+  border-bottom: 1px solid #d9d9d9;
+  padding: 1.25rem 0 1.5rem 0;
+  margin-bottom: 1.25rem;
+}
+
+.dt-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #555;
+}
+
+.dt-hero h1 {
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 1.05;
+  margin: 0.2rem 0;
+}
+
+.dt-dek {
+  max-width: 760px;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: #333;
+}
+
+.dt-command-bar {
+  border: 1px solid #d9d9d9;
+  background: #fafafa;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.dt-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.dt-evidence-card {
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  padding: 0.9rem;
+}
+
+.dt-evidence-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #666;
+  font-weight: 700;
+}
+
+.dt-evidence-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-top: 0.25rem;
+}
+
+.dt-evidence-help {
+  font-size: 0.85rem;
+  color: #555;
+  margin-top: 0.35rem;
+}
+
+.dt-section-header {
+  border-top: 2px solid #111;
+  padding-top: 0.75rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.dt-section-header h2 {
+  margin: 0;
+}
+
+.dt-section-header p {
+  color: #555;
+  margin: 0.25rem 0 0 0;
+}
+
+.dt-member-strip,
+.dt-provenance-box,
+.dt-source-list,
+.dt-empty-state {
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.dt-empty-state {
+  background: #fafafa;
+}
+
+.dt-source-list ul {
+  margin-bottom: 0;
+}

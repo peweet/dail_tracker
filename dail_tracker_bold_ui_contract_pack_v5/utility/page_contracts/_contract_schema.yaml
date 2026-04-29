@@ -1,0 +1,16 @@
+contract_version: 5
+
+required_top_level_keys:
+  - page
+  - data_access
+  - approved_registered_views
+  - retrieval_sql_policy
+  - ui_creativity_budget
+  - interaction_model
+  - exports
+  - acceptance_tests
+
+notes:
+  - "Contracts describe registered analytical views, not persistent DuckDB files."
+  - "Streamlit may query approved views only."
+  - "Use TODO_PIPELINE_VIEW_REQUIRED for missing data shapes."

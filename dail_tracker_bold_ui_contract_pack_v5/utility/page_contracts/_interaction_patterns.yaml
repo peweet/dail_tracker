@@ -1,0 +1,178 @@
+contract_version: 5
+
+# ── Design reference ──────────────────────────────────────────────────────────
+# Dáil Tracker execution is informed by theyworkforyou.com (UK) and theyvoteforyou.eu.
+# Not IP infringement — we do not copy their code. We follow their proven UX decisions:
+# simple primary views, direct year navigation, member profiles as the rich view.
+
+patterns:
+  year_pills:
+    purpose: "Navigate between reporting years without leaving the page."
+    control: st.pills
+    placement: main_content_area      # not sidebar
+    order: descending                 # newest first: 2026, 2025, 2024 ...
+    default: most_recent_year         # never "All years"
+    use_when:
+      semantic_type: reporting_year
+    applies_to:
+      - primary_view
+      - secondary_profile_view        # use a different key in each view
+    handle_deselection: fallback_to_first_option
+    rationale: >
+      Users care most about current-year data. Past years are available for more curious users
+      but should not be the default. Validated on the Attendance page.
+    example_key_pattern: "<page>_year"          # primary view
+    example_profile_key: "<page>_profile_year"  # secondary view
+
+  two_stage_member_flow:
+    purpose: "Browse a list of members (Stage 1) then drill into one member's record (Stage 2)."
+    stage_1_primary:
+      content:
+        - year_pills_if_applicable
+        - name_filter_text_input
+        - member_table_with_row_selection
+        - export_button
+        - provenance_footer_collapsed
+      forbidden:
+        - charts_between_filter_and_table
+        - stat_strips
+        - multiple_expanders_above_table
+    stage_2_profile:
+      content:
+        - back_button_in_main_content_area   # NOT sidebar only
+        - member_identity_strip
+        - year_pills_if_applicable           # allows year switching without returning to Stage 1
+        - summary_stats
+        - detail_sections                    # calendar, timeline, year breakdown etc.
+        - export_button
+        - provenance_footer_collapsed
+      back_button_rule: >
+        The back/return button must be prominent in the main content area at the top of Stage 2.
+        A sidebar-only back button is not sufficient — it will be missed.
+    navigation_triggers_to_stage_2:
+      - row_click_on_member_table
+      - sidebar_selectbox
+      - sidebar_notable_member_chips
+
+  data_provenance_footer:
+    purpose: "Expose data source, freshness, and caveat on every page."
+    placement: bottom_of_page_or_view   # never between hero and content
+    display: single_collapsed_expander
+    expanded_by_default: false
+    label: "About & data provenance"    # combined — never two separate expanders
+    required_content:
+      - plain_language_caveat
+      - year_label_when_year_scoped
+      - per_year_source_note_when_applicable
+      - source_field
+      - fetched_timestamp
+      - mart_version
+      - code_version
+    per_year_source:
+      note: >
+        When data is sourced from annual documents (e.g. Oireachtas PDFs), the provenance
+        expander must include a note that the source will eventually link to the per-year PDF.
+        Use: TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL
+      do_not_show_raw_file_paths: true
+
+  date_range_filter:
+    purpose: "Filter event-level ISO date records."
+    use_when:
+      semantic_type: event_date
+      example_values: ["2015-01-01", "2024-11-29"]
+    preferred_control: st.date_input
+    avoid:
+      - radio_buttons_for_dates
+      - long_date_dropdowns
+    sql_shape: "date_column BETWEEN :start_date AND :end_date"
+
+  year_selector:
+    purpose: "Filter reporting-year data."
+    use_when:
+      semantic_type: reporting_year
+      example_values: [2020, 2021, 2022, 2023, 2024]
+    controls:
+      small_set: radio_or_segmented
+      medium_set: select_slider
+      large_set: range_slider
+    timeline_order: ascending_left_to_right
+
+  yearly_evolution:
+    purpose: "Show change over time."
+    chart_rules:
+      counts_by_year: bar
+      rates_by_year: line
+      sparse_events: dot_plot
+      categories_under_6: stacked_bar_allowed
+    missing_periods:
+      show_if_available: true
+      do_not_invent_missing_rows: true
+
+  csv_export:
+    purpose: "Export current visible evidence."
+    behaviour:
+      exports_displayed_rows_only: true
+      respects_filters: true
+      respects_date_or_year_scope: true
+      does_not_recompute_dataset: true
+
+  member_drilldown:
+    purpose: "Focus on one member using approved identity/detail fields."
+    triggers:
+      - row_selection
+      - member_search
+    forbidden:
+      - cross_page_join_in_streamlit
+      - ad_hoc_member_profile_creation
+    missing_profile_action: "TODO_PIPELINE_VIEW_REQUIRED: member_profile_view"
+
+  timeline_attendance_strip:
+    purpose: "Show individual dated records (sitting days, events) for one member across a year."
+    use_when:
+      semantic_type: event_date
+      granularity: daily
+      scope: single_member_single_year
+    chart_type: altair_mark_tick_layered
+    layers:
+      - background_rect:
+          color: "#e5e7eb"
+          spans: full_domain         # jan-01 to domain_end
+      - ticks:
+          color: "#16a34a"
+          size: 72
+          thickness: 6
+    domain_clipping:
+      current_or_future_year: clip_to_today    # avoids empty rightward space
+      past_year: full_year_dec_31              # recess gaps are informative
+    x_axis:
+      format: "%b"
+      tickCount: month
+      grid: false
+      domain: false
+    height: 100
+    configure_view_stroke_width: 0
+    companion_table:
+      collapsed_expander: true
+      label_pattern: "Sitting dates · {n} records"
+      columns:
+        - "#"          # row number — always include as first col (guards against duplicate-date rows)
+        - Date         # formatted dd MMM YYYY
+        - Weekday
+      row_number_note: >
+        Always add "#" column. If source data has duplicate dates (pipeline deduplication gap),
+        the "#" column is the only way the user can distinguish rows. Accompany with
+        TODO_PIPELINE_VIEW_REQUIRED callout if duplicates are confirmed.
+    pipeline_gap_handling:
+      if_status_column_hardcoded: use_todo_callout_not_classification_logic
+      if_duplicate_rows: flag_pipeline_deduplication_required
+
+  government_source_links:
+    purpose: "Expose official evidence links."
+    preferred_display:
+      - labelled_link
+      - source_panel
+      - link_column
+    forbidden:
+      - raw_long_urls_as_primary_ui
+      - url_construction_without_contract_template
+    missing_url_action: "TODO_PIPELINE_VIEW_REQUIRED: source_url column"

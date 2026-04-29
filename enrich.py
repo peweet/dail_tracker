@@ -2,7 +2,7 @@ import polars as pl
 import normalise_join_key
 from utility.select_drop_rename_cols_mappings import enrichment_cols_to_select, committees_cols_to_select, members_rename
 import logging
-from config import SILVER_DIR, GOLD_DIR
+from config import SILVER_DIR, GOLD_DIR, GOLD_CSV_DIR
 
 
 #This module enriches the extracted datasets by joining them together and creating new features that can be used for analysis. It takes the cleaned and normalized datasets from the previous steps (e.g. attendance records, member metadata, committee assignments) and performs joins to create enriched datasets that combine information from multiple sources. The enriched datasets are then saved to CSV files for further analysis. This module also includes logging to track the progress of the enrichment process and any issues that may arise during the joining and feature creation steps. The resulting enriched datasets will provide a more comprehensive view of the TDs' activities and characteristics, allowing for deeper analysis of patterns and correlations across different dimensions of their work in the Dáil.
@@ -12,8 +12,9 @@ from config import SILVER_DIR, GOLD_DIR
 small_df = pl.read_csv(SILVER_DIR / 'aggregated_td_tables.csv')
 large_df = pl.read_csv(SILVER_DIR / 'flattened_members.csv')
 
-committee_df = large_df.select(committees_cols_to_select)
-print(committee_df.schema)
+
+# committee_df = large_df.select(committees_cols_to_select)
+# print(committee_df.schema)
 small_df = small_df.with_columns(
     pl.concat_str(
     pl.col(['first_name', 'last_name'])
@@ -73,9 +74,30 @@ print(f"Master TD list written to {GOLD_DIR / 'master_td_list.csv'} with {master
 enriched_df.write_csv(GOLD_DIR / 'enriched_td_attendance.csv')
 logging.info("Enriched TD attendance CSV created successfully.")
 
+# Gold attendance summary — one row per (member, year) with party and constituency
+# already resolved from the join above. sitting_days_count is a year-total
+# broadcast on every row; MAX extracts it without summing across duplicates.
+(
+    enriched_df
+    .filter(pl.col("year").is_not_null())
+    .group_by(["full_name", "year"])
+    .agg(
+        pl.col("identifier").first().alias("member_id"),
+        pl.col("party").first().alias("party_name"),
+        pl.col("constituency_name").first().alias("constituency"),
+        pl.col("ministerial_office").first().alias("is_minister"),
+        pl.col("sitting_days_count").max().alias("sitting_days"),
+        pl.col("other_days_count").max().alias("other_days"),
+    )
+    .with_columns((pl.col("sitting_days") + pl.col("other_days")).alias("total_days"))
+    .sort(["full_name", "year"])
+    .write_csv(GOLD_CSV_DIR / "attendance_by_td_year.csv")
+)
+logging.info("Gold attendance_by_td_year.csv written.")
 
-committee_df.write_csv(GOLD_DIR / 'committee_assignments.csv')
-logging.info("Committee assignments CSV created successfully.")
+
+# committee_df.write_csv(GOLD_DIR / 'committee_assignments.csv')
+# logging.info("Committee assignments CSV created successfully.")
 
 
 
@@ -85,8 +107,13 @@ key_data = enrich_vote.select(['join_key', 'unique_member_code', 'year_elected',
 key_data = key_data.unique(subset=['unique_member_code'])
 current_dail_vote_history_df = votes_df.join(key_data, on='unique_member_code', how='left')
 current_dail_vote_history_df = current_dail_vote_history_df.unique(subset=['unique_member_code', 'vote_id']).drop('join_key')
+
 current_dail_vote_history_df.write_csv(GOLD_DIR / 'current_dail_vote_history.csv')
 logging.info("Enriched TD votes CSV created successfully.")
+
+# TODO: Review this to_parquet step for pipeline compatibility
+current_dail_vote_history_df.write_parquet(GOLD_DIR / 'parquet' / 'current_dail_vote_history.parquet')
+logging.info("Enriched TD votes Parquet created (check pipeline)")
 
 # #JOIN is too massive
 # #ISSUE: the join is creating a cartesian product and blowing up the dataset size, which is likely due to duplicate join keys in one or both datasets. Need to investigate the join keys and ensure 
@@ -105,7 +132,7 @@ logging.info("Enriched TD votes CSV created successfully.")
 # #   "vote_id", "join_key"
 # # ).unique()
 # print("starting to enrich votes with sponsor and bill data...")
-# # current_dail_vote_history_df = current_dail_vote_history_df.join(sponsor_data, on=["unique_member_code"], how="left").unique()
+# current_dail_vote_history_df = current_dail_vote_history_df.join(sponsor_data, on=["unique_member_code"], how="left").unique()
 # print("enriched votes with sponsor and bill data successfully.")
 # print("writing enriched votes and legislation CSV...")
 # current_dail_vote_history_df.write_csv(DATA_DIR_PLACEHOLDER / "gold" / "current_dail_vote_history.csv")
@@ -165,4 +192,3 @@ if __name__ == "__main__":
 # # .drop_nulls(subset=["unique_member_code"])
 
 # # print(vote_data_df.estimated_size(unit="gb"))
-# # print(sponsor_data.estimated_size(unit="gb"))

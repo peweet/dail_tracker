@@ -1,4 +1,12 @@
 -- TODO: Switch read_csv_auto to parquet once available
+
+-- ENRICH_MIGRATION_REQUIRED: the LEFT JOIN on flattened_members.csv below violates the
+-- no-join-in-views rule. The party + constituency columns should be resolved upstream in
+-- enrich.py (or equivalent enrichment step) and written into a single denormalised CSV/
+-- parquet before this view is created. Once that enriched file exists, remove the `mem`
+-- CTE and the LEFT JOIN and read party/constituency directly from the enriched source.
+-- Do not modify this view until the enriched source file is available and tested.
+
 CREATE OR REPLACE VIEW v_attendance_member_summary AS
 WITH att AS (
     SELECT DISTINCT identifier, first_name, last_name, sitting_days_count, iso_sitting_days_attendance
