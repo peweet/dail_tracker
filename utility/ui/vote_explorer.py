@@ -251,6 +251,7 @@ def render_division_panel(
                     mc_str += ", " + c
                 todo_callout(f"v_vote_member_detail missing columns: {mc_str}")
             else:
+                clean_df = members_df.dropna(subset=["member_name"])
                 pos = st.radio(
                     "Position",
                     ["All", "Voted Yes", "Voted No", "Abstained"],
@@ -258,7 +259,7 @@ def render_division_panel(
                     key=f"pos_{safe_key}",
                     label_visibility="collapsed",
                 )
-                display = members_df if pos == "All" else members_df[members_df["vote_type"] == pos]
+                display = clean_df if pos == "All" else clean_df[clean_df["vote_type"] == pos]
                 st.markdown(_render_member_list_html(display), unsafe_allow_html=True)
                 show_cols = [c for c in ["member_name", "party_name", "constituency", "vote_type"] if c in display.columns]
                 export_button(
@@ -307,7 +308,7 @@ def vt_division_card_html(row) -> str:
     margin_html = f'<span class="vt-margin-pill">{margin_str}</span>' if margin_str else ""
 
     return (
-        f'<div class="vt-card dt-clickable-card">'
+        f'<div class="vt-card">'
         f'<div class="vt-card-header">'
         f'<span class="vt-card-date">{date_str}</span>'
         f'{outcome_html}'

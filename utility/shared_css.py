@@ -585,39 +585,6 @@ def inject_css() -> None:
             color:        var(--accent)        !important;
         }
 
-        /* ── Clickable card pattern ──────────────────────────────────
-           The card HTML has an onclick that calls .click() on the
-           adjacent hidden Streamlit button. No CSS overlay needed.
-           Usage: components.clickable_card(html, key)
-           Card HTML must include class="dt-clickable-card".
-           ─────────────────────────────────────────────────────────── */
-
-        /* Card itself: pointer cursor + hover border */
-        .dt-clickable-card {
-            cursor: pointer !important;
-        }
-        .dt-clickable-card:hover {
-            border-left-color: var(--accent)     !important;
-            border-color:      var(--accent-dim) !important;
-        }
-
-        /* Hide the Streamlit button that acts as the click target.
-           Scoped precisely: only stButton that is a direct child of a
-           stVerticalBlock whose direct child stMarkdownContainer contains
-           a dt-clickable-card. Outer-page buttons are unaffected. */
-        [data-testid="stVerticalBlock"]:has(
-            > [data-testid="stMarkdownContainer"] .dt-clickable-card
-        ) > [data-testid="stButton"] {
-            position:       absolute !important;
-            width:          1px      !important;
-            height:         1px      !important;
-            top:            0        !important;
-            left:           0        !important;
-            opacity:        0        !important;
-            pointer-events: none     !important;
-            overflow:       hidden   !important;
-        }
-
         /* ── Success / calm-blue theme ───────────────────────────────
            Use for positive, affirming data: attendance streaks,
            high counts, achievements. Calming rather than celebratory.
@@ -1335,19 +1302,53 @@ def inject_css() -> None:
                notable members are accessible via the sidebar toggle. */
         }
 
+        /* ── Interests: member index cards ──────────────────────────────── */
+        .int-member-card {
+            padding: 0.65rem 0.9rem;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-left: 3px solid rgba(0,0,0,0.14);
+            border-radius: 8px;
+            background: #ffffff;
+            width: 100%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            transition: border-left-color 0.12s, border-color 0.12s, box-shadow 0.12s;
+        }
+        .int-member-card:hover {
+            border-left-color: var(--accent);
+            border-color: var(--accent-dim);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+        }
+        [data-testid="stHorizontalBlock"]:has(.int-member-card) {
+            gap: 0.35rem !important;
+            margin-bottom: 0.3rem !important;
+            align-items: stretch !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.int-member-card)
+            [data-testid="stColumn"]:first-child {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.int-member-card)
+            [data-testid="stColumn"]:last-child {
+            flex: 0 0 auto !important;
+            width: auto !important;
+        }
+
         /* ── Votes: division index cards (Mode A) ─────────────────────── */
         .vt-card {
             padding: 0.65rem 0.9rem;
-            border: 1px solid var(--border);
-            border-left: 3px solid var(--border-strong);
-            border-radius: 2px;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-left: 3px solid rgba(0,0,0,0.14);
+            border-radius: 8px;
             background: #ffffff;
             width: 100%;
-            transition: border-left-color 0.12s, border-color 0.12s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            transition: border-left-color 0.12s, border-color 0.12s, box-shadow 0.12s;
         }
         .vt-card:hover {
             border-left-color: var(--accent);
             border-color: var(--accent-dim);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.09);
         }
         .vt-card-header {
             display: flex;

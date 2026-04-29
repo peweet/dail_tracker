@@ -36,6 +36,7 @@ from data_access.payments_data import (
 from shared_css import inject_css
 from ui.components import empty_state, hero_banner
 from ui.export_controls import export_button
+from ui.source_pdfs import PAYMENTS, render_pdf_source_links
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -152,6 +153,15 @@ def _render_provenance(summary: pd.Series, year: int | None = None) -> None:
         st.caption(
             f"Source: {source}  ·  Dataset covers: {first_year}–{last_year}"
         )
+
+        st.divider()
+        year_str = str(year) if year else None
+        links = [(lbl, url) for lbl, url in PAYMENTS if not year_str or year_str in lbl]
+        st.markdown(
+            f"**Source PDFs** — {len(links)} document{'s' if len(links) != 1 else ''} "
+            f"({'filtered to ' + str(year) if year_str else 'all years'})"
+        )
+        render_pdf_source_links(links)
         # TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL, fetch timestamp, mart version, code version
 
 

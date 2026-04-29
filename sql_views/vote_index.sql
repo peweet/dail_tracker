@@ -13,4 +13,5 @@ SELECT
     )                                                                                AS margin,
     MAX(subject)                                                                     AS subject
 FROM read_parquet('{PARQUET_PATH}')
+WHERE full_name IS NOT NULL
 GROUP BY vote_id;
