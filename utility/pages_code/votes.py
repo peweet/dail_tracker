@@ -9,7 +9,6 @@ import streamlit as st
 
 from shared_css import inject_css
 from ui.components import (
-    clickable_card,
     scroll_to_top,
     sidebar_date_range,
     sidebar_member_filter,
@@ -174,6 +173,7 @@ def _fetch_division_members(_conn, vote_id, limit: int = 5000) -> pd.DataFrame:
         _conn,
         "SELECT member_name, party_name, constituency, vote_type"
         " FROM v_vote_member_detail WHERE vote_id = ?"
+        " AND member_name IS NOT NULL"
         " ORDER BY party_name ASC, member_name ASC LIMIT ?",
         (vote_id, limit),
     )
@@ -266,8 +266,12 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
     )
 
     for i, (_, row) in enumerate(visible.iterrows()):
-        if clickable_card(
-            vt_division_card_html(row),
+        card_col, btn_col = st.columns([14, 1])
+        with card_col:
+            st.markdown(vt_division_card_html(row), unsafe_allow_html=True)
+        btn_col.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
+        if btn_col.button(
+            "→",
             key=f"vt_div_{i}",
             help=str(row.get("debate_title") or "View division"),
         ):

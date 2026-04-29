@@ -1,15 +1,7 @@
 """Shared UI components for Dáil Tracker Streamlit pages (v5)."""
 from __future__ import annotations
 import datetime
-import re
 import streamlit as st
-
-_CARD_ONCLICK = (
-    "(function(el){"
-    "var c=el.closest('[data-testid=stVerticalBlock]');"
-    "if(c){var b=c.querySelector('button');if(b)b.click();}"
-    "})(this)"
-)
 
 
 def scroll_to_top() -> None:
@@ -29,18 +21,15 @@ def clickable_card(html: str, key: str, help: str = "") -> bool:
         2. Call clickable_card(html, unique_key) inside a loop.
         3. Handle the True return: set session state + st.rerun().
 
-    The card onclick JS triggers the adjacent hidden Streamlit button.
-    CSS hover/hide rules live in shared_css.py (.dt-clickable-card family).
-    No per-page CSS or JS needed — just the class on the outer div.
+    Mechanism: a transparent full-coverage Streamlit button is overlaid on the
+    card via CSS (shared_css.py). Clicking anywhere on the card surface is a
+    genuine button click — no JS needed. The CSS selector that makes this work:
+    [data-testid="stVerticalBlock"]:has(.dt-clickable-card):not(:has([data-testid="stVerticalBlock"]))
+    targets the innermost stVerticalBlock (the st.container() wrapper) without
+    depending on Streamlit's internal intermediate div class names.
     """
-    clickable_html = re.sub(
-        r'(<div\b[^>]*\bdt-clickable-card\b[^>]*)(>)',
-        rf'\1 onclick="{_CARD_ONCLICK}"\2',
-        html,
-        count=1,
-    )
     with st.container():
-        st.markdown(clickable_html, unsafe_allow_html=True)
+        st.markdown(html, unsafe_allow_html=True)
         return st.button(" ", key=key, help=help)
 
 

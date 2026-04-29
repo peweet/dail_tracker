@@ -10,4 +10,6 @@ SELECT
         1
     )                           AS vote_pct
 FROM read_parquet('{PARQUET_PATH}')
+WHERE full_name IS NOT NULL
+  AND party IS NOT NULL
 GROUP BY vote_id, party, vote_type;

@@ -6,6 +6,12 @@ import uuid
 import logging
 import pdf_endpoint_check
 MANIFEST_PATH = Path("C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\data\\manifests\\manifest.json")
+# Write stage manifests with:
+# input dependencies
+# output files
+# row counts
+# run timestamps
+# source version / fetch date
 
 def create_run_manifest() -> dict:
     global endpoints_ok

@@ -10,7 +10,6 @@ from data_access.legislation_data import (
     fetch_all_statuses,
     fetch_bill_debates,
     fetch_bill_detail,
-    fetch_bill_sources,
     fetch_bill_timeline,
     fetch_legislation_index_filtered,
 )
@@ -339,36 +338,6 @@ def _render_debates(debates_df: pd.DataFrame) -> None:
     st.markdown(f'<div class="leg-debate-list">{rows_html}</div>', unsafe_allow_html=True)
 
 
-def _render_sources(row: pd.Series, sources_df: pd.DataFrame) -> None:
-    oireachtas_url = row.get("oireachtas_url") or (
-        sources_df.iloc[0].get("oireachtas_url") if not sources_df.empty else None
-    )
-
-    if oireachtas_url:
-        st.markdown(
-            f'<div class="leg-source-card">'
-            f'<div class="leg-source-label">Oireachtas official record</div>'
-            f'<a class="leg-source-link" href="{oireachtas_url}" target="_blank">'
-            f'View Bill on Oireachtas.ie ↗</a>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            '<div class="dt-callout">Official URL not available for this bill.</div>',
-            unsafe_allow_html=True,
-        )
-
-    st.markdown(
-        '<div class="leg-todo-callout">'
-        '<span class="leg-todo-label">Pipeline todo</span> '
-        'Bill text PDF not yet available — '
-        '<code>versions.parquet</code> has not been generated from '
-        '<code>versions.csv</code>. Once built, the initiated PDF will appear here.'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
 
 def _render_bill_detail(bill_id: str) -> None:
     # ── Back navigation ───────────────────────────────────────────────────────
@@ -377,9 +346,8 @@ def _render_bill_detail(bill_id: str) -> None:
         st.rerun()
 
     # ── Load data ─────────────────────────────────────────────────────────────
-    detail_df  = fetch_bill_detail(bill_id)
+    detail_df   = fetch_bill_detail(bill_id)
     timeline_df = fetch_bill_timeline(bill_id)
-    sources_df  = fetch_bill_sources(bill_id)
     debates_df  = fetch_bill_debates(bill_id)
 
     if detail_df.empty:
@@ -412,12 +380,19 @@ def _render_bill_detail(bill_id: str) -> None:
         if oireachtas_url else ""
     )
 
+    long_title = row.get("long_title") or ""
+    long_title_html = (
+        f'<p class="leg-long-title" style="margin:0.45rem 0 0.35rem">{long_title}</p>'
+        if long_title.strip() else ""
+    )
+
     st.markdown(
         f"""
         <div class="leg-bill-identity">
             <div class="leg-bill-badges">{badges_html}</div>
             <div class="leg-bill-title">{bill_title}</div>
             {f'<div class="leg-bill-ref">{ref}</div>' if ref else ''}
+            {long_title_html}
             {link_html}
         </div>
         """,
@@ -447,23 +422,12 @@ def _render_bill_detail(bill_id: str) -> None:
         _render_stage_timeline(timeline_df)
 
     with col_right:
-        st.markdown('<p class="section-heading">Official Sources</p>', unsafe_allow_html=True)
-        _render_sources(row, sources_df)
-
         debate_label = (
             f"Debates ({len(debates_df)})"
             if not debates_df.empty else "Debates"
         )
         st.markdown(f'<p class="section-heading">{debate_label}</p>', unsafe_allow_html=True)
         _render_debates(debates_df)
-
-        long_title = row.get("long_title") or ""
-        if long_title.strip():
-            st.markdown('<p class="section-heading">Full Title</p>', unsafe_allow_html=True)
-            st.markdown(
-                f'<p class="leg-long-title">{long_title}</p>',
-                unsafe_allow_html=True,
-            )
 
     # ── CSV export of this bill's timeline ────────────────────────────────────
     if not timeline_df.empty:
@@ -492,7 +456,7 @@ def _render_bill_detail(bill_id: str) -> None:
 
             **Debate records** sourced from data/silver/parquet/debates.parquet.
 
-            **Pending pipeline items:** official_pdf_url (versions.parquet) ·
+            **Pending pipeline items:** official_pdf_url (versions.parquet — bill text PDF not yet generated) ·
             source_document_url (related_docs.parquet) · Government Bills scope.
             """
         )
