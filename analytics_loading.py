@@ -20,7 +20,6 @@ def get_gold_connection() -> duckdb.DuckDBPyConnection:
             print(f"Registered view '{view_name}' for {parquet_file.name}")
     return con
 
-
 if __name__ == "__main__":
     conn = get_gold_connection()
     print("DuckDB connection created with gold Parquet files registered as views.")

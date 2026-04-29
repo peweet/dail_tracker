@@ -1,0 +1,197 @@
+contract_version: 5
+
+page:
+  id: interests
+  title: "Register of Members' Interests"
+  route: "utility/pages_code/interests.py"
+  user_question: "What interests has this member declared, and how have those declarations changed over time?"
+  existing_page_is: functional_reference_not_design_reference
+
+data_access:
+  mode: duckdb_in_process_registered_analytical_views
+  persistent_duckdb_file: null
+  streamlit_may_register_views: false
+  streamlit_may_read_parquet: false
+  connection_owner: application_or_pipeline_exposition_layer
+
+approved_registered_views:
+  - v_member_interests_index
+  - v_member_interests_detail
+  - v_member_interests_yearly_summary
+  - v_member_interests_sources
+
+retrieval_sql_policy:
+  allowed_statements: [SELECT]
+  allowed_clauses: [WHERE, ORDER_BY, LIMIT]
+  forbidden_clauses: [JOIN, GROUP_BY, HAVING, WINDOW, CREATE_VIEW, CREATE_TABLE, INSERT, UPDATE, DELETE]
+  forbidden_functions: [read_parquet, parquet_scan]
+  parameter_binding_required: true
+  missing_data_action: TODO_PIPELINE_VIEW_REQUIRED
+
+temporal:
+  mode: reporting_year
+  primary_column: interest_year
+  date_format_policy:
+    iso_date_values: "use calendar/date-range controls"
+    reporting_year_values: "use year selector or year range controls"
+    timelines: "left-to-right chronological"
+
+uses_patterns:
+  - year_pills                 # replaces year_selector — st.pills, newest first, main content
+  - two_stage_member_flow      # browse → profile, back button in main content
+  - yearly_evolution
+  - member_drilldown
+  - csv_export
+  - government_source_links
+
+ui_creativity_budget:
+  level: very_high
+  mandatory_bold_redesign: true
+  existing_page_may_be_used_for_functionality_only: true
+  must_be_materially_different_from_existing_page: true
+  must_change_at_least:
+    count: 6
+    dimensions:
+      - editorial_hero
+      - information_hierarchy
+      - filter_placement
+      - section_order
+      - table_configuration
+      - chart_or_timeline_presentation
+      - member_or_record_drilldown
+      - csv_export_placement
+      - source_link_presentation
+      - empty_states
+      - mobile_flow
+      - shared_css_polish
+  may_rethink:
+    - layout
+    - interaction_model
+    - visual_hierarchy
+    - chart_choice
+    - table_usability
+    - detail_panels
+    - filter_controls
+    - source_link_display
+    - responsive_order
+  must_preserve:
+    - backend_logic
+    - data_semantics
+    - approved_registered_views
+    - approved_columns
+    - approved_filters
+    - metric_meaning
+    - export_requirements
+    - provenance_requirements
+
+interaction_model:
+  specific_guidance: >
+    Member interests are politically potent — surface them prominently and treat source PDFs
+    as evidence. This is the standout page of the app. Civic journalism tone throughout.
+    Year-on-year diff is the headline feature: what did this member add or drop?
+
+  two_stage: true
+
+  primary_view_flow:           # browse / index
+    - kicker_and_title_only    # no dek, no hero badges
+    - year_pills               # main content, newest first, default most recent
+    - inline_command_bar       # name filter + category filter + landlord/property flags
+    - member_index_table       # one row per member: name | party | declarations | landlord | property
+    - export_button
+    - category_chart_collapsed # Altair horizontal bar, year-responsive, inside expander
+    - provenance_collapsed_at_bottom
+  primary_view_forbidden:
+    - sidebar_year_radio
+    - sidebar_filter_controls  # all filters must be inline in main content
+    - flat_declaration_dump    # 1000-row all-declarations table is not the primary view
+    - all_time_hero_metrics    # hero metrics must respond to year selection or be removed
+
+  secondary_view_flow:         # profile / member record
+    - back_button_in_main_content_area   # NOT sidebar only — will be missed
+    - member_identity_strip              # name (td-name), party · constituency (td-meta), badges
+    - year_pills                         # profile-scoped key, newest first, default most recent
+    - editorial_callout                  # "In 2025 X declared N interests across Y categories. Z added."
+    - diff_toggle_prominent              # default ON when prior year exists; above category sections
+    - category_sections_non_empty_only  # render only categories with declarations; collapse empties
+    - export_button
+    - provenance_collapsed_at_bottom
+  secondary_view_forbidden:
+    - nine_expanders_all_always_rendered
+    - diff_toggle_buried_in_controls_row
+    - year_controls_above_identity_strip
+
+  sidebar_contains:
+    - chamber_radio            # Dáil / Seanad
+    - notable_member_chips
+    - member_search_text_input
+    - member_selectbox
+    # No filter controls in sidebar — all filters are inline in main content
+
+  diff_feature:
+    purpose: "Year-on-year comparison of declarations — the headline feature."
+    default: on_when_prior_year_exists
+    new_declaration_style:     green_left_border_NEW_badge
+    removed_declaration_style: red_left_border_REMOVED_badge_strikethrough
+    no_prior_year_action:      hide_toggle_show_caption
+
+  pipeline_simulation_policy:
+    current_state: >
+      Views v_member_interests_index, v_member_interests_detail,
+      v_member_interests_yearly_summary, v_member_interests_sources
+      do not yet exist. Page simulates them from silver CSV.
+    forbidden_even_in_simulation:
+      - GROUP_BY_in_streamlit       # _simulate_summary and _simulate_category_chart violate this
+      - COUNT_aggregation_in_streamlit
+      - fuzzy_matching_in_python    # _count_property_interests regex
+    required_action_for_violations: >
+      Replace forbidden simulation logic with todo_callout.
+      Do not silently execute forbidden operations even as a workaround.
+    view_fallback_policy: >
+      If v_member_interests_index unavailable: show flat declaration table with todo_callout.
+      Never aggregate in Streamlit as a substitute for a missing view.
+
+  required_flow:               # kept for contract schema compliance
+    - editorial_hero
+    - primary_controls
+    - member_index_or_declaration_table
+    - detail_or_drilldown
+    - official_sources
+    - csv_export
+    - provenance
+
+exports:
+  csv:
+    enabled: true
+    behaviour: current_displayed_view_only
+    respects_filters: true
+    respects_temporal_scope: true
+    does_not_recompute_dataset: true
+
+source_links:
+  enabled: true
+  approved_url_columns:
+    - source_url
+    - source_document_url
+    - official_pdf_url
+    - oireachtas_url
+    - legislation_url
+  display: labelled_links_not_raw_urls
+  missing_url_action: "TODO_PIPELINE_VIEW_REQUIRED: source URL column"
+
+acceptance_tests:
+  - page_visibly_differs_from_old_layout
+  - no_backend_files_modified
+  - no_read_parquet_or_parquet_scan_in_page
+  - no_create_view_or_table_in_page
+  - no_modelling_joins_or_groupby_in_streamlit
+  - no_count_or_max_aggregation_in_streamlit          # _simulate_summary violation
+  - no_regex_fuzzy_matching_in_streamlit              # _count_property_interests violation
+  - csv_export_exports_current_displayed_view
+  - source_links_use_approved_url_columns
+  - temporal_controls_match_semantic_type
+  - TODO_PIPELINE_VIEW_REQUIRED_used_for_missing_data
+  - year_pills_in_main_content_not_sidebar
+  - back_button_present_at_top_of_profile_main_content
+  - no_filters_in_sidebar_except_member_search
+  - diff_feature_visible_and_prominent_in_profile
+  - empty_categories_not_rendered_as_open_expanders

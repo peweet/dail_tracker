@@ -1,0 +1,309 @@
+contract_version: 5
+
+page:
+  id: votes
+  title: "Votes"
+  route: "utility/pages_code/votes.py"
+  user_question: "How did members vote in published divisions, and what official evidence supports the result?"
+  existing_page_is: functional_reference_not_design_reference
+
+data_access:
+  mode: duckdb_in_process_registered_analytical_views
+  persistent_duckdb_file: null
+  streamlit_may_register_views: false
+  streamlit_may_read_parquet: false
+  connection_owner: application_or_pipeline_exposition_layer
+
+approved_registered_views:
+
+  - name: v_vote_index
+    grain: one row per division (vote_id)
+    required_columns:
+      - vote_id
+      - vote_date
+      - debate_title
+      - vote_outcome
+      - yes_count
+      - no_count
+    optional_columns:
+      - abstained_count
+      - margin
+      - subject
+      - theme
+    approved_filters:
+      - column: vote_date
+        operators: [BETWEEN, ">=", "<="]
+      - column: vote_outcome
+        operators: ["=", IN]
+      - column: party_name
+        operators: ["=", IN]
+    if_missing: TODO_PIPELINE_VIEW_REQUIRED
+    notes: >
+      TODO_PIPELINE_VIEW_REQUIRED: theme column — theme classification is currently
+      done via regex in Streamlit; must become a pipeline-owned column on v_vote_index.
+
+  - name: v_vote_result_summary
+    grain: single aggregate row for hero metrics
+    required_columns:
+      - division_count
+      - member_count
+      - first_vote_date
+      - last_vote_date
+    optional_columns:
+      - latest_fetch_timestamp_utc
+      - source_summary
+    if_missing: TODO_PIPELINE_VIEW_REQUIRED
+
+  - name: v_vote_member_detail
+    grain: one row per member per division
+    required_columns:
+      - vote_id
+      - member_id
+      - member_name
+      - vote_type
+      - party_name
+    optional_columns:
+      - constituency
+      - vote_date
+      - debate_title
+      - vote_outcome
+    approved_filters:
+      - column: vote_id
+        operators: ["="]
+      - column: member_id
+        operators: ["="]
+      - column: member_name
+        operators: ["=", LIKE]
+      - column: vote_type
+        operators: ["=", IN]
+      - column: vote_date
+        operators: [BETWEEN, ">=", "<="]
+    if_missing: TODO_PIPELINE_VIEW_REQUIRED
+
+  - name: v_vote_sources
+    grain: one row per source document per division
+    required_columns:
+      - vote_id
+    optional_columns:
+      - source_url
+      - source_document_url
+      - official_pdf_url
+      - oireachtas_url
+      - source_label
+    approved_filters:
+      - column: vote_id
+        operators: ["="]
+    if_missing: TODO_PIPELINE_VIEW_REQUIRED
+    notes: >
+      TODO_PIPELINE_VIEW_REQUIRED: confirm source_url column exists and contains a real
+      URL (not a local file path). The government_source_links pattern is enabled and
+      depends on at least one approved URL column being present in this view.
+
+  - name: party_vote_breakdown
+    grain: one row per party per vote_type per division
+    required_columns:
+      - vote_id
+      - party_name
+      - vote_type
+      - member_count
+    optional_columns:
+      - vote_pct
+    approved_filters:
+      - column: vote_id
+        operators: ["="]
+    if_missing: TODO_PIPELINE_VIEW_REQUIRED
+
+  - name: td_vote_summary
+    grain: one row per member, all-time totals
+    required_columns:
+      - member_id
+      - member_name
+      - party_name
+      - constituency
+      - yes_count
+      - no_count
+      - division_count
+    optional_columns:
+      - abstained_count
+      - yes_pct
+    approved_filters:
+      - column: member_name
+        operators: [LIKE]
+      - column: party_name
+        operators: ["=", IN]
+    if_missing: TODO_PIPELINE_VIEW_REQUIRED
+    notes: >
+      TODO_PIPELINE_VIEW_REQUIRED: yes_pct column — precomputed yes rate needed for
+      ProgressColumn display; arithmetic on retrieved columns belongs in the pipeline.
+
+  - name: td_vote_year_summary
+    grain: one row per member per year
+    required_columns:
+      - member_id
+      - member_name
+      - year
+      - yes_count
+      - no_count
+    optional_columns:
+      - abstained_count
+      - party_name
+    approved_filters:
+      - column: member_id
+        operators: ["="]
+      - column: member_name
+        operators: ["="]
+    if_missing: TODO_PIPELINE_VIEW_REQUIRED
+    notes: >
+      TODO_PIPELINE_VIEW_REQUIRED: this view does not yet exist. Required for the TD
+      year breakdown chart. When missing, replace the chart section with a dt-callout;
+      the rest of the TD panel must still render.
+
+  - name: td_sponsored_bills
+    grain: one row per bill per member sponsorship
+    required_columns:
+      - member_id
+      - bill_title
+      - bill_year
+      - bill_status
+    optional_columns:
+      - is_primary_sponsor
+      - current_stage
+      - oireachtas_url
+    approved_filters:
+      - column: member_id
+        operators: ["="]
+    if_missing: TODO_PIPELINE_VIEW_REQUIRED
+    notes: >
+      TODO_PIPELINE_VIEW_REQUIRED: currently read from sponsors.csv with a join in
+      Streamlit. Must become a pipeline-owned view. Omit the sponsored bills section
+      until this view is available; do not fall back to direct CSV reads.
+
+retrieval_sql_policy:
+  allowed_statements: [SELECT]
+  allowed_clauses: [WHERE, ORDER_BY, LIMIT]
+  forbidden_clauses: [JOIN, GROUP_BY, HAVING, WINDOW, CREATE_VIEW, CREATE_TABLE, INSERT, UPDATE, DELETE]
+  forbidden_functions: [read_parquet, parquet_scan]
+  forbidden_pandas: [merge, groupby, pivot, join]
+  parameter_binding_required: true
+  missing_data_action: TODO_PIPELINE_VIEW_REQUIRED
+  default_limit: 500
+  hard_limit: 5000
+
+temporal:
+  mode: event_date
+  primary_column: vote_date
+  date_format_policy:
+    iso_date_values: "use calendar/date-range controls (st.date_input)"
+    reporting_year_values: "use year selector or year range controls"
+    timelines: "left-to-right chronological"
+
+uses_patterns:
+  - date_range_filter
+  - vote_explorer
+  - member_drilldown
+  - csv_export
+  - government_source_links
+
+ui_creativity_budget:
+  level: very_high
+  mandatory_bold_redesign: true
+  existing_page_may_be_used_for_functionality_only: true
+  must_be_materially_different_from_existing_page: true
+  must_change_at_least:
+    count: 6
+    dimensions:
+      - editorial_hero
+      - information_hierarchy
+      - filter_placement
+      - section_order
+      - table_configuration
+      - chart_or_timeline_presentation
+      - member_or_record_drilldown
+      - csv_export_placement
+      - source_link_presentation
+      - empty_states
+      - mobile_flow
+      - shared_css_polish
+  may_rethink:
+    - layout
+    - interaction_model
+    - visual_hierarchy
+    - chart_choice
+    - table_usability
+    - detail_panels
+    - filter_controls
+    - source_link_display
+    - responsive_order
+  must_preserve:
+    - backend_logic
+    - data_semantics
+    - approved_registered_views
+    - approved_columns
+    - approved_filters
+    - metric_meaning
+    - export_requirements
+    - provenance_requirements
+
+interaction_model:
+  specific_guidance: >
+    Use HowTheyVote-style flow as interaction inspiration only: browse index →
+    select division → evidence panel → member votes → sources. Do not copy its visual design.
+  required_flow:
+    - editorial_hero
+    - command_bar
+    - evidence_summary
+    - main_table_or_index
+    - detail_or_drilldown
+    - official_sources
+    - csv_export
+    - provenance
+  command_bar:
+    enabled: true
+    position: below_hero
+    controls:
+      - view_toggle: [divisions, td_record]
+      - date_range: vote_date
+      - party_filter: party_name
+      - outcome_filter: vote_outcome
+  row_selection:
+    mechanism: "st.dataframe on_select='rerun'"
+    mode: single_row
+    triggers: division_evidence_panel or td_evidence_panel
+
+exports:
+  csv:
+    enabled: true
+    behaviour: current_displayed_view_only
+    respects_filters: true
+    respects_temporal_scope: true
+    does_not_recompute_dataset: true
+    placement: directly_below_table_being_exported
+    disabled_when_empty: true
+
+source_links:
+  enabled: true
+  view: v_vote_sources
+  approved_url_columns:
+    - source_url
+    - source_document_url
+    - official_pdf_url
+    - oireachtas_url
+    - legislation_url
+  display: labelled_links_not_raw_urls
+  missing_url_action: "TODO_PIPELINE_VIEW_REQUIRED: source URL column on v_vote_sources"
+
+acceptance_tests:
+  - page_visibly_differs_from_old_layout
+  - no_backend_files_modified
+  - no_read_parquet_or_parquet_scan_in_page
+  - no_direct_csv_read_in_page
+  - no_create_view_or_table_in_page
+  - no_modelling_joins_or_groupby_in_streamlit
+  - no_page_local_css_block
+  - required_columns_validated_before_rendering
+  - csv_export_exports_current_displayed_view
+  - csv_export_placed_directly_below_its_table
+  - csv_export_disabled_when_table_is_empty
+  - source_links_use_approved_url_columns
+  - temporal_controls_match_semantic_type
+  - TODO_PIPELINE_VIEW_REQUIRED_used_for_missing_views_and_columns

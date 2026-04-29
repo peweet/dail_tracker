@@ -1,0 +1,255 @@
+contract_version: 5
+
+page:
+  id: payments
+  title: "Payments"
+  route: "utility/pages_code/payments.py"
+  user_question: "What parliamentary payments were published for members, and how do they change by year?"
+  existing_page_is: functional_reference_not_design_reference
+
+data_access:
+  mode: duckdb_in_process_registered_analytical_views
+  persistent_duckdb_file: null
+  streamlit_may_register_views: false
+  streamlit_may_read_parquet: false
+  connection_owner: application_or_pipeline_exposition_layer
+
+approved_registered_views:
+  - v_payments_summary
+  - v_payments_member_detail
+  - v_payments_yearly_evolution
+  - v_payments_sources
+
+retrieval_sql_policy:
+  allowed_statements: [SELECT]
+  allowed_clauses: [WHERE, ORDER_BY, LIMIT]
+  forbidden_clauses: [JOIN, GROUP_BY, HAVING, WINDOW, CREATE_VIEW, CREATE_TABLE, INSERT, UPDATE, DELETE]
+  forbidden_functions: [read_parquet, parquet_scan]
+  parameter_binding_required: true
+  missing_data_action: TODO_PIPELINE_VIEW_REQUIRED
+
+temporal:
+  mode: reporting_year
+  primary_column: payment_year
+  year_order: descending          # most recent year first — e.g. 2025, 2024, 2023
+  default_selection: most_recent  # do not default to "All years"
+  date_format_policy:
+    iso_date_values: "use calendar/date-range controls"
+    reporting_year_values: "use st.pills horizontal year selector, newest year first"
+    timelines: "left-to-right chronological"
+
+per_year_source:
+  note: >
+    Each year's PSA data is sourced from official Oireachtas payment records published
+    annually. The pipeline must expose a per-year source URL column on v_payments_sources.
+    Until then:
+    TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL on v_payments_sources
+  provenance_display: show_year_label_and_source_note_in_about_expander
+
+permitted_hardcoded_values:
+  # Qualifies under _shared_ui_policy.yaml § permitted_hardcoding:
+  # fixed official lookup from Oireachtas Standing Orders and published allowance schedules;
+  # values are immutable for past years and well-documented in official sources.
+  taa_band_labels:
+    description: >
+      Official TAA distance band labels mapping the raw TAA_Band code in the payment records
+      to the human-readable distance range. Defined in Oireachtas Standing Orders and the
+      published PSA guide. Used to contextualise payment amounts for the end user.
+    source: "Oireachtas guide to salaries and allowances — Parliamentary Standard Allowances"
+    source_url: "https://www.oireachtas.ie/en/members/salaries-and-allowances/parliamentary-standard-allowances/"
+    values:
+      "Dublin":  "Dublin / under 25 km"
+      "1":       "Band 1 — 25–60 km"
+      "2":       "Band 2 — 60–80 km"
+      "3":       "Band 3 — 80–100 km"
+      "4":       "Band 4 — 100–130 km"
+      "5":       "Band 5 — 130–160 km"
+      "6":       "Band 6 — 160–190 km"
+      "7":       "Band 7 — 190–210 km"
+      "8":       "Band 8 — over 210 km"
+    unknown_values_action: >
+      If TAA_Band is not in the above map (e.g. "10", "Vouched"), show the raw value
+      and flag with TODO_PIPELINE_VIEW_REQUIRED rather than silently dropping the row.
+    pipeline_todo: >
+      TODO_PIPELINE_VIEW_REQUIRED: TAA_Band normalisation — values "10" and "Vouched"
+      appear in aggregated_payment_tables.csv and are not in the official band range.
+      Pipeline must clarify and normalise these before the label mapping is reliable.
+
+known_data_quality_issues:
+  malformed_rows_in_silver_csv:
+    description: >
+      Some rows in data/silver/aggregated_payment_tables.csv have columns shifted —
+      a date appears in the Amount column, the Narrative column contains "Dublin",
+      and Date_Paid is empty. These rows produce NULL date_paid after TRY_CAST and
+      are silently excluded from all views.
+    effect: >
+      Affected members may show a slightly lower payment total than the official record.
+      The scale of the problem is unknown until the pipeline fixes the upstream parser.
+    implementation: >
+      v_payments_base filters WHERE date_paid IS NOT NULL. A row-count discrepancy
+      between the raw CSV and the view is the signal that rows were dropped.
+    scope: payments_page_only
+    pipeline_todo: >
+      TODO_PIPELINE_VIEW_REQUIRED: fix upstream parser in aggregated_payment_tables.csv
+      — shifted column rows must be corrected at source, not patched in Streamlit.
+  taa_band_unknown_values:
+    description: >
+      TAA_Band values "10" and "Vouched" appear in the silver CSV but are not in the
+      official Oireachtas TAA band range (Dublin, 1–8). Their correct interpretation
+      is unknown without reference to the source document.
+    effect: >
+      These members show an unmapped TAA band label in the UI (raw value displayed).
+      Payment totals are not affected — only the band label contextualisation.
+    pipeline_todo: >
+      TODO_PIPELINE_VIEW_REQUIRED: TAA_Band normalisation — clarify and normalise
+      "10" and "Vouched" values in the pipeline before label mapping is reliable.
+  member_id_not_standardised:
+    description: >
+      The silver CSV contains a join_key column (sorted character hash of the name)
+      rather than a standardised member_id. Cross-page linking (e.g. to attendance
+      or interests profiles) is not possible without a canonical member identifier.
+    effect: >
+      The payments profile view cannot link out to the attendance page or interests
+      page for the same member. Each page is isolated.
+    pipeline_todo: >
+      TODO_PIPELINE_VIEW_REQUIRED: member_id join on v_payments_member_detail —
+      pipeline must expose a canonical member_id consistent with other gold views.
+
+uses_patterns:
+  - year_selector
+  - yearly_evolution
+  - member_drilldown
+  - csv_export
+  - government_source_links
+
+ui_creativity_budget:
+  level: very_high
+  mandatory_bold_redesign: true
+  existing_page_may_be_used_for_functionality_only: true
+  must_be_materially_different_from_existing_page: true
+  must_change_at_least:
+    count: 6
+    dimensions:
+      - editorial_hero
+      - information_hierarchy
+      - filter_placement
+      - section_order
+      - table_configuration
+      - chart_or_timeline_presentation
+      - member_or_record_drilldown
+      - csv_export_placement
+      - source_link_presentation
+      - empty_states
+      - mobile_flow
+      - shared_css_polish
+  may_rethink:
+    - layout
+    - interaction_model
+    - visual_hierarchy
+    - chart_choice
+    - table_usability
+    - detail_panels
+    - filter_controls
+    - source_link_display
+    - responsive_order
+  must_preserve:
+    - backend_logic
+    - data_semantics
+    - approved_registered_views
+    - approved_columns
+    - approved_filters
+    - metric_meaning
+    - export_requirements
+    - provenance_requirements
+
+ui_philosophy:
+  framing: neutral_public_record
+  rationale: >
+    PSA payment amounts are primarily determined by a member's TAA distance band — the
+    measured road distance from their normal place of residence to Leinster House. A TD
+    from Donegal legitimately receives more TAA than a Dublin TD because the distance band
+    rules require it. This is the system working as designed, not a signal of wrongdoing.
+    Presenting payments as a "who got the most?" story without the TAA band context would
+    be misleading and unfair. The page must always show TAA band alongside the amount.
+  forbidden_patterns:
+    - hall_of_fame_shame        # no moral polarity exists in this data
+    - medal_emojis              # implies ranking is a judgment
+    - red_green_card_colors     # implies good/bad
+    - editorial_framing         # no "top earners" or "most expensive" language
+  required_patterns:
+    - neutral_ranked_list       # ranked by total received — factual public record
+    - taa_band_always_visible   # context that explains amount differences
+    - provenance_audit_trail    # user can verify any total by inspecting individual rows
+    - robust_provenance_expander  # explains PSA structure, TAA bands, deductions, source
+
+interaction_model:
+  two_stage: true
+  specific_guidance: >
+    Stage 1 (primary): neutral ranked leaderboard — TDs ordered by total PSA received for
+    the selected year. TAA band always visible on each card — it contextualises the amount.
+    No Hall of Fame/Shame framing. Name search switches to ranked search mode for a specific
+    member. All complexity lives in Stage 2 (profile drilldown), which is the audit trail.
+    Back button must be at the top of the main content area in Stage 2.
+  primary_view_flow:
+    - kicker_and_title          # "PUBLIC SPENDING · PARLIAMENTARY ALLOWANCES" / "TD Payments"
+    - year_pills                # st.pills, newest first, defaults to most recent year
+    - name_filter               # single text input — triggers ranked search mode
+    - neutral_ranked_cards      # ranked by total_paid DESC; card shows rank · name ·
+                                #   party · constituency · TAA band pill · amount badge · → button
+    - export_button             # exports full year ranking (member, party, band, total, rank)
+    - about_provenance_footer   # collapsed, at bottom; shows year label + PSA explanation +
+                                #   TAA band lookup table + deductions rule + source note
+  secondary_view_flow:
+    - back_button_at_top        # "← Back to all members" in main content area, NOT sidebar
+    - member_identity_strip     # name, party, constituency, TAA band label
+    - summary_metrics           # total received, payment count, TAA band, all-time total
+    - yearly_evolution_chart    # Altair bar chart — left-to-right, one bar per year
+    - payment_record_table      # st.dataframe — date · narrative · amount (audit trail)
+    - export_button             # exports selected member + year payment records
+    - about_provenance_footer   # collapsed, at bottom
+  navigation:
+    primary_to_secondary:
+      - arrow_button_on_card    # → button in leaderboard card row
+      - sidebar_selectbox
+      - sidebar_notable_member_chips
+    secondary_to_primary:
+      - back_button_in_main_content_area
+  sidebar:
+    both_views:
+      - notable_member_chips    # 4–6 members illustrating range of bands, not just extremes
+      - member_name_selectbox   # alphabetical browse; no duplicate text input
+    removed:
+      - year_selectbox          # replaced by year pills in main content
+      - td_multiselect          # removed; name search in main content is sufficient
+      - position_multiselect    # removed; position shown as data, not as primary filter
+      - view_mode_radio         # removed; replaced by two-stage flow
+
+exports:
+  csv:
+    enabled: true
+    behaviour: current_displayed_view_only
+    respects_filters: true
+    respects_temporal_scope: true
+    does_not_recompute_dataset: true
+
+source_links:
+  enabled: true
+  approved_url_columns:
+    - source_url
+    - source_document_url
+    - official_pdf_url
+    - oireachtas_url
+    - legislation_url
+  display: labelled_links_not_raw_urls
+  missing_url_action: "TODO_PIPELINE_VIEW_REQUIRED: source URL column"
+
+acceptance_tests:
+  - page_visibly_differs_from_old_layout
+  - no_backend_files_modified
+  - no_read_parquet_or_parquet_scan_in_page
+  - no_create_view_or_table_in_page
+  - no_modelling_joins_or_groupby_in_streamlit
+  - csv_export_exports_current_displayed_view
+  - source_links_use_approved_url_columns
+  - temporal_controls_match_semantic_type
+  - TODO_PIPELINE_VIEW_REQUIRED_used_for_missing_data

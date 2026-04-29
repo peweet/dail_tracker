@@ -1,0 +1,345 @@
+contract_version: 5
+
+page:
+  id: lobbying
+  title: "Lobbying"
+  route: "utility/pages_code/lobbying_2.py"
+  user_question: "Who is lobbying Irish politicians, about what, and how can the user inspect the evidence?"
+  existing_page_is: functional_reference_not_design_reference
+
+data_access:
+  mode: duckdb_in_process_registered_analytical_views
+  persistent_duckdb_file: null
+  streamlit_may_register_views: false
+  streamlit_may_read_parquet: false
+  streamlit_may_read_csv: false
+  connection_owner: application_or_pipeline_exposition_layer
+
+# ── Approved registered views ────────────────────────────────────────────────
+# Views marked status: required must exist before the redesign can be fully built.
+# Views marked status: TODO_PIPELINE_VIEW_REQUIRED must be flagged with todo_callout()
+# in Streamlit until the pipeline exposes them.
+
+approved_registered_views:
+
+  - name: v_lobbying_index
+    status: required
+    purpose: >
+      Ranked list of most-lobbied politicians/senators for the primary leaderboard
+      and sidebar selectbox. Ordered by return_count DESC.
+    required_columns:
+      - member_name
+      - chamber
+      - position
+      - return_count
+      - distinct_orgs
+      - distinct_policy_areas
+      - first_period
+      - last_period
+    approved_filters:
+      - {column: period_start_date, operators: [BETWEEN]}
+    approved_order: "ORDER BY return_count DESC"
+
+  - name: v_lobbying_contact_detail
+    status: required
+    purpose: >
+      Per-politician returns detail for Stage 2 politician profile view.
+      Filtered by member_name and optional date range.
+    required_columns:
+      - return_id
+      - member_name
+      - lobbyist_name
+      - public_policy_area
+      - period_start_date
+      - period_end_date
+      - source_url
+    approved_filters:
+      - {column: member_name, operators: [=]}
+      - {column: period_start_date, operators: [BETWEEN]}
+    approved_order: "ORDER BY period_start_date DESC"
+
+  - name: v_lobbying_policy_area_summary
+    status: required
+    purpose: >
+      Policy area pills on the landing gateway and Stage 2 policy area
+      filtered returns table. Ordered by return_count DESC.
+    required_columns:
+      - public_policy_area
+      - return_count
+      - distinct_orgs
+      - distinct_politicians
+    approved_filters:
+      - {column: period_start_date, operators: [BETWEEN]}
+    approved_order: "ORDER BY return_count DESC"
+
+  - name: v_lobbying_sources
+    status: required
+    purpose: >
+      Official source links for Stage 2 profile views.
+      Used exclusively via render_source_links() from utility/ui/source_links.py.
+    required_columns:
+      - return_id
+      - source_url
+      - official_pdf_url
+      - oireachtas_url
+    approved_filters:
+      - {column: member_name, operators: [=]}
+      - {column: lobbyist_name, operators: [=]}
+
+  - name: v_lobbying_org_index
+    status: TODO_PIPELINE_VIEW_REQUIRED
+    purpose: >
+      Ranked list of most active lobbying organisations for the org leaderboard
+      and sidebar selectbox. Mirrors v_lobbying_index but keyed on lobbyist_name.
+    required_columns:
+      - lobbyist_name
+      - sector
+      - return_count
+      - politicians_targeted
+      - distinct_policy_areas
+      - website
+      - profile_url
+      - first_period
+      - last_period
+    approved_filters:
+      - {column: period_start_date, operators: [BETWEEN]}
+    approved_order: "ORDER BY return_count DESC"
+
+  - name: v_lobbying_recent_returns
+    status: TODO_PIPELINE_VIEW_REQUIRED
+    purpose: >
+      Latest activity feed on the landing page — 20 most recently filed returns.
+      No filter required; always returns the most recent rows.
+    required_columns:
+      - period_start_date
+      - lobbyist_name
+      - member_name
+      - public_policy_area
+      - source_url
+    approved_order: "ORDER BY period_start_date DESC"
+    approved_limit: 20
+
+  - name: v_lobbying_revolving_door
+    status: TODO_PIPELINE_VIEW_REQUIRED
+    purpose: >
+      Former Designated Public Officials who appear on lobbying returns as the
+      individual carrying out the lobbying. Replaces experimental CSV dependency.
+    required_columns:
+      - individual_name
+      - former_position
+      - former_chamber
+      - return_count
+      - distinct_firms
+      - source_url
+    approved_order: "ORDER BY return_count DESC"
+    note: >
+      Data is based on name-matching between the DPO register and return filers.
+      Caveats must be surfaced in the UI via todo_callout() until view is built.
+
+  - name: v_lobbying_transparency
+    status: TODO_PIPELINE_VIEW_REQUIRED
+    purpose: >
+      Late filers and minimal-description returns for the Transparency
+      secondary section. Replaces experimental CSV dependencies.
+    required_columns:
+      - lobbyist_name
+      - median_days_to_publish
+      - avg_desc_len
+      - return_count
+    approved_order: "ORDER BY median_days_to_publish DESC"
+
+retrieval_sql_policy:
+  allowed_statements: [SELECT]
+  allowed_clauses: [WHERE, ORDER_BY, LIMIT]
+  forbidden_clauses: [JOIN, GROUP_BY, HAVING, WINDOW, CREATE_VIEW, CREATE_TABLE, INSERT, UPDATE, DELETE]
+  forbidden_functions: [read_parquet, parquet_scan, read_csv]
+  parameter_binding_required: true
+  missing_data_action: TODO_PIPELINE_VIEW_REQUIRED
+  forbidden_in_streamlit:
+    - pandas_merge
+    - pandas_groupby
+    - pandas_pivot
+    - polars_join
+    - polars_group_by
+    - read_csv_direct
+    - read_parquet_direct
+
+temporal:
+  mode: event_date
+  primary_column: period_start_date
+  date_format_policy:
+    iso_date_values: "use st.date_input date range — start and end"
+    timelines: "left-to-right chronological"
+  filter_pattern: "period_start_date BETWEEN :start_date AND :end_date"
+  default_range: "all available data — no pre-filtered default on page load"
+  note: >
+    Lobbying data is quarterly-period-level, not daily. Do not render a daily
+    timeline strip (altair mark_tick). Use a date-sorted st.dataframe instead.
+
+uses_patterns:
+  - date_range_filter
+  - two_stage_member_flow
+  - ranked_leaderboard
+  - sidebar_search
+  - member_drilldown
+  - csv_export
+  - government_source_links
+  - data_provenance_footer
+
+interaction_model:
+  specific_guidance: >
+    Make it feel like an investigative lookup tool with three clear entry points:
+    follow a politician, follow an organisation, or browse by policy area.
+    The landing page is the gateway — not a dashboard. It must be scannable
+    before the user has formed a question. Do not infer relationships beyond
+    approved views. Revolving Door and Transparency are secondary callouts on
+    the landing page, not primary views or separate tabs.
+  required_flow:
+    - editorial_hero              # hero_banner() in main content — not sidebar
+    - date_range_filter           # st.date_input range — global temporal control
+    - path_gateway                # three path cards: politicians / orgs / policy areas
+    - ranked_leaderboard          # int-rank-card lists — top politicians + top orgs
+    - revolving_door_callout      # amber callout with expand (not a separate tab)
+    - latest_activity_feed        # 20 most recent returns from v_lobbying_recent_returns
+    - detail_or_drilldown         # Stage 2 profile view — politician or org
+    - official_sources            # render_source_links() in every Stage 2 view
+    - csv_export                  # export_button() below each table
+    - provenance                  # About & data provenance — collapsed expander at bottom
+
+sidebar:
+  pattern: search_plus_selectbox_plus_notable_chips
+  replaces: st.radio_view_selector
+  order:
+    - text_input:
+        placeholder: "e.g. Ibec, Mary Lou McDonald"
+        key: lob_sidebar_search
+        label_visibility: collapsed
+    - selectbox:
+        label: "Browse all members"
+        key: lob_member_sel
+        label_visibility: collapsed
+    - divider
+    - notable_chips:
+        label: "Notable targets"
+        columns: 2
+  notable_targets:
+    - "An Taoiseach"
+    - "Minister for Finance"
+    - "Tánaiste"
+    - "Minister for Health"
+  note: >
+    Sidebar search resolves to a politician name (v_lobbying_index) or org name
+    (v_lobbying_org_index). The selectbox must be filtered by the search text.
+    Notable chips navigate directly to Stage 2 politician profile.
+
+session_state_keys:
+  lob_selected_politician: "str | None — politician name; triggers Stage 2 politician profile"
+  lob_selected_org: "str | None — org name; triggers Stage 2 org profile"
+  lob_selected_area: "str | None — policy area; triggers Stage 2 area filtered table"
+  lob_date_start: "date — global date range start (from st.date_input)"
+  lob_date_end: "date — global date range end (from st.date_input)"
+  lob_sidebar_search: "str — sidebar search text input"
+
+empty_states:
+  no_pipeline_data:
+    helper: "empty_state() from utility/ui/components.py"
+    heading: "No data available"
+    body: "Run the pipeline to populate this view."
+  no_selection_made:
+    helper: "st.info()"
+    message: "Select a politician or organisation from the leaderboard or sidebar to begin."
+  pipeline_view_missing:
+    helper: "todo_callout() from utility/ui/components.py"
+    note: "Use for every view backed by a TODO_PIPELINE_VIEW_REQUIRED view."
+  empty_filter_result:
+    helper: "st.info()"
+    message: "No returns match the current date range."
+
+exports:
+  csv:
+    enabled: true
+    behaviour: current_displayed_view_only
+    respects_filters: true
+    respects_temporal_scope: true
+    does_not_recompute_dataset: true
+    helper: "export_button() from utility/ui/export_controls.py"
+    placement: "directly below the table it exports — not grouped at page bottom"
+
+source_links:
+  enabled: true
+  approved_url_columns:
+    - source_url
+    - official_pdf_url
+    - oireachtas_url
+  display: labelled_links_not_raw_urls
+  helper: "render_source_links() from utility/ui/source_links.py"
+  missing_url_action: "TODO_PIPELINE_VIEW_REQUIRED: source URL column on v_lobbying_sources"
+  note: >
+    source_document_url and legislation_url removed — not present in lobbying data.
+    Do not construct lobbying.ie URLs in Streamlit. Use pipeline-provided source_url.
+
+ui_creativity_budget:
+  level: very_high
+  mandatory_bold_redesign: true
+  existing_page_may_be_used_for_functionality_only: true
+  must_be_materially_different_from_existing_page: true
+  must_change_at_least:
+    count: 12
+    dimensions:
+      - editorial_hero_in_main_content
+      - three_path_gateway_replaces_radio_tabs
+      - sidebar_search_replaces_radio_selector
+      - date_range_filter_as_primary_temporal_control
+      - ranked_leaderboard_cards_for_politicians
+      - ranked_leaderboard_cards_for_orgs
+      - two_stage_profile_flow_with_back_button
+      - revolving_door_as_landing_callout
+      - latest_activity_feed_on_landing
+      - single_provenance_footer_collapsed_at_bottom
+      - source_links_in_every_stage2_profile
+      - experimental_csv_dependencies_replaced_with_todo_callouts
+  may_rethink:
+    - layout
+    - interaction_model
+    - visual_hierarchy
+    - filter_controls
+    - table_usability
+    - detail_panels
+    - source_link_display
+    - responsive_order
+    - empty_states
+  must_preserve:
+    - backend_logic
+    - data_semantics
+    - approved_registered_views
+    - approved_columns
+    - approved_filters
+    - metric_meaning
+    - export_requirements
+    - provenance_requirements
+
+acceptance_tests:
+  # Architecture
+  - page_visibly_differs_from_old_layout
+  - no_backend_files_modified
+  - no_read_parquet_or_parquet_scan_in_page
+  - no_read_csv_in_page
+  - no_create_view_or_table_in_page
+  - no_modelling_joins_or_groupby_in_streamlit
+  - no_pandas_merge_or_polars_join_in_page
+  - no_experimental_csv_files_loaded
+  - no_hardcoded_absolute_data_paths
+  - TODO_PIPELINE_VIEW_REQUIRED_used_for_missing_views
+  # UI
+  - hero_banner_in_main_content_not_sidebar
+  - three_path_gateway_present_on_landing
+  - sidebar_has_search_selectbox_notable_chips
+  - date_range_filter_uses_st_date_input
+  - ranked_leaderboard_cards_use_int_rank_card_css
+  - back_button_in_main_content_area_for_stage2
+  - provenance_footer_collapsed_at_bottom_of_every_view
+  - csv_export_uses_export_button_helper
+  - source_links_use_render_source_links_helper
+  - source_links_use_approved_url_columns_only
+  - revolving_door_is_callout_not_tab
+  - empty_states_use_approved_helpers

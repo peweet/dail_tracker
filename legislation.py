@@ -160,13 +160,30 @@ print("Debates dataset created successfully.")
 events_df.to_csv(SILVER_DIR / "events.csv", index=False)
 print("Events dataset created successfully.")
 
+# TODO: Review this to_parquet step for pipeline compatibility
+events_df.to_parquet(SILVER_DIR / "parquet" / "events.parquet", index=False)
+print("Events Parquet dataset created (check pipeline)")
+
 most_recent_stage_event_dates_df.to_csv(SILVER_DIR / "most_recent_stage_event_dates.csv", index=False)
 print("Most recent stage event dates dataset created successfully.")
+
+# TODO: Review this to_parquet step for pipeline compatibility
+most_recent_stage_event_dates_df.to_parquet(SILVER_DIR / "parquet" / "most_recent_stage_event_dates.parquet", index=False)
+print("Most recent stage event dates Parquet dataset created (check pipeline)")
 
 related_docs_df.to_csv(SILVER_DIR / "related_docs.csv", index=False)
 print("Related documents dataset created successfully.")
 
+# TODO: Review this to_parquet step for pipeline compatibility
+related_docs_df.to_parquet(SILVER_DIR / "parquet" / "related_docs.parquet", index=False)
+print("Related documents Parquet dataset created (check pipeline)")
+
+
 versions_df.to_csv(SILVER_DIR / "versions.csv", index=False)
 print("Versions dataset created successfully.")
+
+# TODO: Review this to_parquet step for pipeline compatibility
+versions_df.to_parquet(SILVER_DIR / "parquet" / "versions.parquet", index=False)
+print("Versions Parquet dataset created (check pipeline)")
 
 

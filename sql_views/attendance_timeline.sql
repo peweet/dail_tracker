@@ -1,4 +1,21 @@
 -- TODO: Switch read_csv_auto to parquet once available
+
+-- ENRICH_MIGRATION_REQUIRED: the LEFT JOIN on flattened_members.csv below violates the
+-- no-join-in-views rule. The party + constituency columns should be resolved upstream in
+-- enrich.py (or equivalent enrichment step) and written into a single denormalised CSV/
+-- parquet before this view is created. Once that enriched file exists, remove the `mem`
+-- CTE and the LEFT JOIN and read party/constituency directly from the enriched source.
+-- Do not modify this view until the enriched source file is available and tested.
+
+-- TODO_PIPELINE_VIEW_REQUIRED: deduplicate sitting dates — aggregated_td_tables.csv
+-- contains multiple rows for the same (member, date) because the source PDF records
+-- both plenary "sitting day" rows and "other day" rows per date. This view emits one
+-- row per source CSV row, so a member attending a day with two session types appears
+-- twice on the same date. The UI adds a row-number column as a stopgap.
+-- Fix: expose a session_type column and deduplicate on DISTINCT (member_name, sitting_date)
+-- keeping only the canonical plenary sitting-day row, OR expose the session_type so the
+-- UI can filter. See also the sitting_days_count grain bug in attendance_member_year_summary.sql.
+
 CREATE OR REPLACE VIEW v_attendance_timeline AS
 WITH att AS (
     SELECT * FROM read_csv_auto('data/silver/aggregated_td_tables.csv')
