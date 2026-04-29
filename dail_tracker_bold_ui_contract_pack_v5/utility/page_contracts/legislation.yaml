@@ -1,0 +1,217 @@
+contract_version: 5
+
+page:
+  id: legislation
+  title: "Legislation"
+  route: "utility/pages_code/legislation.py"
+  user_question: "What legislation is visible in the dataset, and how can users inspect its official records?"
+  existing_page_is: functional_reference_not_design_reference
+
+data_access:
+  mode: duckdb_in_process_registered_analytical_views
+  persistent_duckdb_file: null
+  streamlit_may_register_views: false
+  streamlit_may_read_parquet: false
+  connection_owner: application_or_pipeline_exposition_layer
+
+approved_registered_views:
+  - v_legislation_index
+  - v_legislation_detail
+  - v_legislation_timeline
+  - v_legislation_sources
+
+retrieval_sql_policy:
+  allowed_statements: [SELECT]
+  allowed_clauses: [WHERE, ORDER_BY, LIMIT]
+  forbidden_clauses: [JOIN, GROUP_BY, HAVING, WINDOW, CREATE_VIEW, CREATE_TABLE, INSERT, UPDATE, DELETE]
+  forbidden_functions: [read_parquet, parquet_scan]
+  parameter_binding_required: true
+  missing_data_action: TODO_PIPELINE_VIEW_REQUIRED
+
+approved_filters:
+  # Primary index — Stage 1 filters
+  - view: v_legislation_index
+    column: introduced_date
+    operator: BETWEEN
+    parameters: [start_date, end_date]
+    control: st.date_input
+    semantic_type: event_date
+  - view: v_legislation_index
+    column: bill_status
+    operator: "="
+    parameters: [status]
+    control: st.selectbox
+    note: "Pass NULL or omit WHERE clause when 'All' selected"
+  - view: v_legislation_index
+    column: bill_title
+    operator: ILIKE
+    parameters: [title_search]
+    control: st.text_input
+    note: "Pass '%' + value + '%'; omit clause when search is empty"
+  # Detail / drilldown — Stage 2 parameter
+  - view: v_legislation_detail
+    column: bill_id
+    operator: "="
+    parameters: [bill_id]
+    note: "Navigation key — set from Stage 1 row selection"
+  - view: v_legislation_timeline
+    column: bill_id
+    operator: "="
+    parameters: [bill_id]
+  - view: v_legislation_sources
+    column: bill_id
+    operator: "="
+    parameters: [bill_id]
+
+approved_columns:
+  # Column names are assumed from pipeline conventions.
+  # Confirm against the actual SQL view definitions before implementing.
+  # Flag any missing column with TODO_PIPELINE_VIEW_REQUIRED.
+  v_legislation_index:
+    required:
+      - bill_id          # unique key used for Stage 2 navigation
+      - bill_title       # display name in index table
+      - bill_status      # "Enacted" | "Ongoing" | "Lapsed" | "Withdrawn"
+      - bill_type        # "Government Bill" | "Private Members Bill" etc.
+      - sponsor          # member name who introduced the bill
+      - introduced_date  # primary temporal column (ISO date)
+    optional:
+      - current_stage    # latest stage name — TODO_PIPELINE_VIEW_REQUIRED if absent
+      - dail_term        # Dáil term number
+  v_legislation_detail:
+    required:
+      - bill_id
+      - bill_title
+      - bill_status
+      - bill_type
+      - sponsor
+      - introduced_date
+    optional:
+      - bill_number      # TODO_PIPELINE_VIEW_REQUIRED if absent
+      - long_title       # TODO_PIPELINE_VIEW_REQUIRED if absent
+      - enacted_date     # TODO_PIPELINE_VIEW_REQUIRED if absent
+      - dail_term
+  v_legislation_timeline:
+    required:
+      - bill_id
+      - stage_name       # human-readable stage label
+      - stage_date       # ISO date of this stage
+    optional:
+      - stage_number     # integer sort order — TODO_PIPELINE_VIEW_REQUIRED if absent
+      - is_current_stage # boolean flag for current stage highlight — TODO if absent
+  v_legislation_sources:
+    required:
+      - bill_id
+    # At least one URL column must be present; all are optional individually:
+    optional:
+      - oireachtas_url
+      - legislation_url
+      - official_pdf_url
+      - source_url
+      - source_document_url
+
+navigation:
+  pattern: two_stage_member_flow
+  stage_1: primary_index
+  stage_2: bill_detail
+  session_key: leg_selected_bill_id
+  navigation_trigger: st.dataframe_row_selection
+  back_button_placement: top_of_main_content  # never sidebar-only
+  back_button_clears: leg_selected_bill_id
+  sidebar_policy: kicker_and_title_only       # no member nav — bills are not people
+
+temporal:
+  mode: event_date
+  primary_column: introduced_date
+  date_format_policy:
+    iso_date_values: "use calendar/date-range controls"
+    reporting_year_values: "use year selector or year range controls"
+    timelines: "left-to-right chronological"
+
+uses_patterns:
+  - date_range_filter
+  - timeline
+  - csv_export
+  - government_source_links
+
+ui_creativity_budget:
+  level: very_high
+  mandatory_bold_redesign: true
+  existing_page_may_be_used_for_functionality_only: true
+  must_be_materially_different_from_existing_page: true
+  must_change_at_least:
+    count: 6
+    dimensions:
+      - editorial_hero
+      - information_hierarchy
+      - filter_placement
+      - section_order
+      - table_configuration
+      - chart_or_timeline_presentation
+      - member_or_record_drilldown
+      - csv_export_placement
+      - source_link_presentation
+      - empty_states
+      - mobile_flow
+      - shared_css_polish
+  may_rethink:
+    - layout
+    - interaction_model
+    - visual_hierarchy
+    - chart_choice
+    - table_usability
+    - detail_panels
+    - filter_controls
+    - source_link_display
+    - responsive_order
+  must_preserve:
+    - backend_logic
+    - data_semantics
+    - approved_registered_views
+    - approved_columns
+    - approved_filters
+    - metric_meaning
+    - export_requirements
+    - provenance_requirements
+
+interaction_model:
+  specific_guidance: "Official links/PDFs are central. Do not construct URLs unless the contract provides approved URL fields/templates."
+  required_flow:
+    - editorial_hero
+    - primary_controls
+    - evidence_summary
+    - main_table_or_index
+    - detail_or_drilldown
+    - official_sources
+    - csv_export
+    - provenance
+
+exports:
+  csv:
+    enabled: true
+    behaviour: current_displayed_view_only
+    respects_filters: true
+    respects_temporal_scope: true
+    does_not_recompute_dataset: true
+
+source_links:
+  enabled: true
+  approved_url_columns:
+    - source_url
+    - source_document_url
+    - official_pdf_url
+    - oireachtas_url
+    - legislation_url
+  display: labelled_links_not_raw_urls
+  missing_url_action: "TODO_PIPELINE_VIEW_REQUIRED: source URL column"
+
+acceptance_tests:
+  - page_visibly_differs_from_old_layout
+  - no_backend_files_modified
+  - no_read_parquet_or_parquet_scan_in_page
+  - no_create_view_or_table_in_page
+  - no_modelling_joins_or_groupby_in_streamlit
+  - csv_export_exports_current_displayed_view
+  - source_links_use_approved_url_columns
+  - temporal_controls_match_semantic_type
+  - TODO_PIPELINE_VIEW_REQUIRED_used_for_missing_data

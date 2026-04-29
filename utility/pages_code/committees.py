@@ -8,6 +8,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from shared_css import inject_css
+from ui.components import member_profile_header, render_stat_strip, stat_item
 
 _ROOT = Path(__file__).parent.parent.parent
 _CSV = {
@@ -197,10 +198,6 @@ def _load(chamber: str):
 # ── page sections ─────────────────────────────────────────────────────
 
 
-def _stat(num, label):
-    return f'<div><div class="stat-num">{num}</div><div class="stat-lbl">{label}</div></div>'
-
-
 def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TDs") -> None:
     active_committees = df[df["status"] == "Active"]["committee"].nunique()
     total_tds = activity["name"].nunique()
@@ -232,16 +229,13 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
             - "Active" means currently serving; "Chairs" includes all chairing roles
             """
         )
-    st.markdown(
-        '<div class="stat-strip">'
-        + _stat(total_tds, member_label)
-        + _stat(df["committee"].nunique(), "Committees")
-        + _stat(active_committees, "Active committees")
-        + _stat(int((df["status"] == "Active").sum()), "Active memberships")
-        + _stat(chairs, "Chairs held")
-        + _stat(minister_count, "Office holders")
-        + "</div>",
-        unsafe_allow_html=True,
+    render_stat_strip(
+        stat_item(total_tds, member_label),
+        stat_item(df["committee"].nunique(), "Committees"),
+        stat_item(active_committees, "Active committees"),
+        stat_item(int((df["status"] == "Active").sum()), "Active memberships"),
+        stat_item(chairs, "Chairs held"),
+        stat_item(minister_count, "Office holders"),
     )
 
     # ── Most & least active ───────────────────────────────────────
@@ -525,24 +519,15 @@ def _td_profile(df: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TD
     # Office roles
     td_offices = offices[offices["name"] == td] if not offices.empty else pd.DataFrame()
 
-    st.markdown(
-        f'<hr class="section-rule">'
-        f'<div style="padding:0 0 1rem 0;">'
-        f'<div class="td-name">{td}</div>'
-        f'<div class="td-meta">{meta}</div>'
-        f"</div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
+    member_profile_header(td, meta)
 
-    st.markdown(
-        '<div class="stat-strip">'
-        + _stat(total, "Committees")
-        + _stat(active, "Active")
-        + _stat(ended, "Ended")
-        + _stat(chairs, "Chairs held")
-        + _stat(len(td_offices), "Govt offices")
-        + "</div>",
-        unsafe_allow_html=True,
+    render_stat_strip(
+        stat_item(total, "Committees"),
+        stat_item(active, "Active"),
+        stat_item(ended, "Ended"),
+        stat_item(chairs, "Chairs held"),
+        stat_item(len(td_offices), "Govt offices"),
     )
 
     if not td_offices.empty:

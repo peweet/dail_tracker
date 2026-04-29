@@ -379,7 +379,9 @@ def inject_css() -> None:
         .signal-accent { background: var(--accent-subtle); color: var(--accent); border: 1px solid var(--accent-dim); }
         .signal-neutral { background: var(--surface); color: var(--text-meta); border: 1px solid var(--border); }
         .signal-dark { background: var(--surface-deep); color: var(--text-secondary); border: 1px solid var(--border-strong); }
-        .section-heading {
+        /* .lob-section-heading is an alias — both render identically */
+        .section-heading,
+        .lob-section-heading {
             font-family: 'Epilogue', sans-serif;
             font-size: 0.72rem;
             font-weight: 700;
@@ -387,8 +389,706 @@ def inject_css() -> None:
             text-transform: uppercase;
             color: var(--text-meta);
             margin: 1.5rem 0 0.6rem 0;
-            padding-bottom: 0.4rem;
+            padding-bottom: 0.35rem;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        /* ── Editorial hero band (main content area) ── */
+        .dt-hero {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: 2px;
+            padding: 1.25rem 1.5rem 1rem;
+            margin-bottom: 1rem;
+        }
+        .dt-kicker {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.10em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin: 0 0 0.3rem 0;
+        }
+        .dt-dek {
+            color: var(--text-secondary);
+            font-size: 0.90rem;
+            line-height: 1.5;
+            margin: 0.3rem 0 0;
+        }
+        .dt-badge {
+            display: inline-flex;
+            align-items: center;
+            background: var(--surface-deep);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            border-radius: 2px;
+            padding: 0.15rem 0.55rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            font-family: 'Epilogue', sans-serif;
+        }
+
+        /* ── Callout / empty state / TODO ─────────── */
+        .dt-callout {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            padding: 0.9rem 1rem;
+            color: var(--text-secondary);
+            font-size: 0.90rem;
+            line-height: 1.5;
+            margin: 0.5rem 0;
+        }
+
+        /* ── Vote outcome labels ──────────────────── */
+        .dt-outcome-carried { color: oklch(38% 0.130 145); font-weight: 700; }
+        .dt-outcome-lost    { color: oklch(45% 0.180 30);  font-weight: 700; }
+        .dt-outcome-unknown { color: var(--text-meta);     font-weight: 600; }
+
+        /* ── Vote-type table (TD history / division member list) ── */
+        .dt-vt-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.88rem;
+            margin: 0.5rem 0 1rem;
+        }
+        .dt-vt-table th {
+            font-size: 0.70rem;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+            padding: 0.4rem 0.75rem;
+            text-align: left;
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+        .dt-vt-table td {
+            padding: 0.45rem 0.75rem;
             border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        .dt-vt-table tr:last-child td { border-bottom: none; }
+        .dt-vt-table tr:hover td { background: var(--surface); }
+        .dt-vt-yes  { color: oklch(38% 0.130 145); font-weight: 700; white-space: nowrap; }
+        .dt-vt-no   { color: oklch(45% 0.180 30);  font-weight: 700; white-space: nowrap; }
+        .dt-vt-abs  { color: var(--text-meta);      font-weight: 500; white-space: nowrap; }
+        .dt-vt-date { color: var(--text-meta);      white-space: nowrap; font-size: 0.82rem; }
+        .dt-vt-meta { color: var(--text-meta);      font-size: 0.84rem; }
+        .dt-vt-outcome-carried { color: oklch(38% 0.130 145); font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+        .dt-vt-outcome-lost    { color: oklch(45% 0.180 30);  font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+        .dt-vt-outcome-other   { color: var(--text-meta);     font-size: 0.78rem; }
+        .dt-vt-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 0.80rem;
+        }
+        .dt-vt-link:hover { text-decoration: underline; }
+
+        /* ── Dataframe (app-wide) ────────────────────────────────────
+           Streamlit 1.28+ uses Glide Data Grid, which draws cells on
+           <canvas> using --gdg-* CSS custom properties. AG Grid classes
+           no longer apply. Primary colours are also set in
+           .streamlit/config.toml (dataframeHeaderBackgroundColor,
+           dataframeBorderColor) — change them there first.
+
+           CSS variables below let you override per-page if needed,
+           and also style the outer wrapper which IS DOM-targetable.
+
+           Colour tokens (match config.toml):
+             header bg   → #eff6ff   (dataframeHeaderBackgroundColor)
+             border      → #bfdbfe   (dataframeBorderColor)
+             header text → #1e40af
+             cell bg     → #ffffff   (secondaryBackgroundColor)
+        ──────────────────────────────────────────────────────────── */
+
+        /* Outer wrapper — DOM-targetable, always works */
+        [data-testid="stDataFrame"] {
+            border:        1px solid #bfdbfe !important;
+            border-radius: 4px              !important;
+            overflow:      hidden           !important;
+            box-shadow:    0 1px 6px rgba(0, 0, 0, 0.07) !important;
+
+            /* Override Glide Data Grid CSS variables at container scope.
+               GDG reads these via getComputedStyle() for canvas drawing. */
+            --gdg-bg-header:           #eff6ff !important;
+            --gdg-bg-header-has-focus: #dbeafe !important;
+            --gdg-text-header:         #1e40af !important;
+            --gdg-border-color:        #bfdbfe !important;
+            --gdg-bg-cell:             #ffffff !important;
+            --gdg-bg-cell-medium:      #f8fbff !important;
+            --gdg-accent-color:        #2563eb !important;
+            --gdg-accent-light:        #eff6ff !important;
+        }
+
+        /* Header cell DOM wrapper (non-canvas part of GDG header) */
+        [data-testid="stDataFrame"] .gdg-c1tqibwd {
+            background-color: #eff6ff !important;
+        }
+
+        /* ── Navigation arrow button ─────────────────────────────────
+           Single source of truth for every → button produced by
+           rank_card_row() in ui/components.py.
+
+           SHAPE — change border-radius on one line:
+             round rectangle  →  10px   (default)
+             pill             →  999px
+             circle           →  50%    (also set equal width & height)
+             sharp rectangle  →  2px
+
+           PALETTE — four colour tokens below:
+             bg              background at rest
+             border          border at rest
+             color           arrow glyph colour
+             hover-*         same three on hover
+
+           The .dt-nav-anchor div is injected by rank_card_row()
+           immediately before the button so :has() can scope the rule
+           to just those columns without touching any other button.
+        ─────────────────────────────────────────────────────────── */
+
+        /* Spacer: pushes button to vertical centre of the card */
+        .dt-nav-anchor { margin-top: 1.1rem; }
+
+        /* Scoped to any stColumn that owns a .dt-nav-anchor */
+        [data-testid="stColumn"]:has(.dt-nav-anchor) .stButton > button,
+        [data-testid="stColumn"]:has(.dt-nav-anchor) button {
+            /* ── Shape ───────────────────────── */
+            width:         2.1rem    !important;
+            height:        2.1rem    !important;
+            padding:       0         !important;
+            border-radius: 10px      !important;   /* ← change shape here */
+
+            /* ── Palette ─────────────────────── */
+            background:    var(--surface)       !important;
+            border:        1.5px solid var(--border-strong) !important;
+            color:         var(--text-secondary) !important;
+
+            /* ── Layout ──────────────────────── */
+            display:         flex            !important;
+            align-items:     center          !important;
+            justify-content: center          !important;
+            font-size:       1rem            !important;
+            font-weight:     500             !important;
+            line-height:     1               !important;
+            transition:      background 100ms ease, border-color 100ms ease,
+                             color 100ms ease !important;
+        }
+
+        [data-testid="stColumn"]:has(.dt-nav-anchor) .stButton > button:hover,
+        [data-testid="stColumn"]:has(.dt-nav-anchor) button:hover {
+            background:   var(--accent-subtle) !important;
+            border-color: var(--accent)        !important;
+            color:        var(--accent)        !important;
+        }
+
+        /* ── Success / calm-blue theme ───────────────────────────────
+           Use for positive, affirming data: attendance streaks,
+           high counts, achievements. Calming rather than celebratory.
+           ─────────────────────────────────────────────────────────── */
+
+        /* Standalone metric badge (e.g. "29 days attended") */
+        .dt-success-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 5px 10px;
+            border-radius: 8px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            text-align: center;
+        }
+        .dt-success-num {
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            color: #1d4ed8;
+        }
+        .dt-success-lbl {
+            font-size: 0.58rem;
+            font-weight: 600;
+            color: #3b82f6;
+            line-height: 1.4;
+        }
+
+        /* Card / panel container (e.g. Hall of Fame card) */
+        .dt-success-card {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-left: 5px solid #2563eb;
+            border-radius: 8px;
+        }
+
+        /* Inline pill / tag (e.g. inside a rank card) */
+        .dt-success-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 999px;
+            padding: 0.1rem 0.55rem;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: #1d4ed8;
+        }
+
+        /* Stat number inside a stat-strip or summary block */
+        .dt-success-stat-num {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1d4ed8;
+            line-height: 1;
+        }
+
+        /* ── Rank card component (ui/components.py: rank_card_row) ──── */
+        .int-rank-card {
+            display: inline-flex;
+            align-items: flex-start;
+            gap: 0.9rem;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            background: var(--surface);
+            margin-bottom: 0.35rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            transition: border-color 0.15s;
+            width: fit-content;
+            max-width: 100%;
+        }
+
+        /* Collapse the entire row so the → button sits right next to the card */
+        [data-testid="stHorizontalBlock"]:has(.int-rank-card) {
+            width: fit-content !important;
+            max-width: 100% !important;
+            gap: 0.4rem !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.int-rank-card) [data-testid="stColumn"] {
+            width: auto !important;
+            flex: 0 0 auto !important;
+            min-width: 0 !important;
+        }
+        .int-rank-card:hover { border-color: var(--accent); }
+        .int-rank-num {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--border-strong);
+            min-width: 2.4rem;
+            text-align: right;
+            line-height: 1.2;
+            padding-top: 0.1rem;
+            letter-spacing: -0.03em;
+        }
+        .int-rank-num-top { color: var(--accent); }
+        .int-rank-body { flex: 1; min-width: 0; }
+        .int-rank-name {
+            margin: 0 0 0.15rem;
+            font-size: 1.02rem;
+            font-weight: 700;
+            font-family: 'Zilla Slab', Georgia, serif;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .int-rank-meta {
+            margin: 0 0 0.2rem;
+            font-size: 0.8rem;
+            color: var(--text-meta);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .int-rank-stats {
+            margin: 0 0 0.35rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .int-stat-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            background: var(--surface-deep);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.1rem 0.5rem;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: var(--text-meta);
+        }
+        .int-stat-pill-accent { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
+        .int-highlight-quote {
+            margin: 0.1rem 0 0;
+            font-size: 0.8rem;
+            color: var(--text-meta);
+            font-style: italic;
+            line-height: 1.5;
+            border-left: 2px solid var(--border);
+            padding-left: 0.5rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* ── Interests: category headings & diff badges ──────────── */
+        .int-category-section {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 0.25rem;
+            margin: 1.5rem 0 0.5rem;
+        }
+        .int-diff-badge-new {
+            display: inline-block;
+            font-size: 0.6rem;
+            font-weight: 800;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: #15803d;
+            background: #dcfce7;
+            border-radius: 3px;
+            padding: 0.05rem 0.3rem;
+            margin-right: 0.55rem;
+            vertical-align: middle;
+        }
+        .int-diff-badge-removed {
+            display: inline-block;
+            font-size: 0.6rem;
+            font-weight: 800;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: #b91c1c;
+            background: #fee2e2;
+            border-radius: 3px;
+            padding: 0.05rem 0.3rem;
+            margin-right: 0.55rem;
+            vertical-align: middle;
+        }
+        .int-empty-cats {
+            color: var(--text-meta);
+            font-style: italic;
+            font-size: 0.85rem;
+            margin: 0.25rem 0;
+            line-height: 1.9;
+        }
+
+        /* ── Checkbox — rounded rectangle ───────────────────────────────
+           Single source of truth for checkbox shape and colour.
+           SHAPE: change border-radius on one line.
+             4px  = rounded rectangle (default)
+             50%  = circle
+             0    = sharp square
+           COLOUR: uses --accent (navy) for checked state.            */
+
+        [data-testid="stCheckbox"] input[type="checkbox"],
+        .stCheckbox input[type="checkbox"] {
+            -webkit-appearance: none;
+            appearance:         none;
+            width:              1.1rem;
+            height:             1.1rem;
+            min-width:          1.1rem;
+            border:             1.5px solid var(--border-strong);
+            border-radius:      4px;          /* ← shape: 4px = rounded rect */
+            background:         #ffffff;
+            cursor:             pointer;
+            flex-shrink:        0;
+            vertical-align:     middle;
+            position:           relative;
+            transition:         border-color 100ms ease, background 100ms ease;
+        }
+        [data-testid="stCheckbox"] input[type="checkbox"]:checked,
+        .stCheckbox input[type="checkbox"]:checked {
+            background:   var(--accent);
+            border-color: var(--accent);
+        }
+        [data-testid="stCheckbox"] input[type="checkbox"]:checked::after,
+        .stCheckbox input[type="checkbox"]:checked::after {
+            content:      '';
+            position:     absolute;
+            left:         0.21rem;
+            top:          0.05rem;
+            width:        0.5rem;
+            height:       0.3rem;
+            border:       2px solid #ffffff;
+            border-top:   none;
+            border-right: none;
+            transform:    rotate(-45deg);
+        }
+        [data-testid="stCheckbox"] input[type="checkbox"]:focus-visible,
+        .stCheckbox input[type="checkbox"]:focus-visible {
+            outline:        2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        /* ── Attendance Hall cards ───────────────────────────────────── */
+        .att-hall-heading-good {
+            font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em;
+            color: #15803d; border-bottom: 3px solid #16a34a;
+            padding-bottom: 0.5rem; margin: 0 0 0.9rem;
+        }
+        .att-hall-heading-bad {
+            font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em;
+            color: #b91c1c; border-bottom: 3px solid #dc2626;
+            padding-bottom: 0.5rem; margin: 0 0 0.3rem;
+        }
+        .att-hall-card-good,
+        .att-hall-card-bad {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.85rem 1rem; border-radius: 0.6rem;
+            margin-bottom: 0.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        .att-hall-card-good {
+            background: #f0fdf4; border: 1px solid #86efac; border-left: 5px solid #16a34a;
+        }
+        .att-hall-card-bad {
+            background: #fff5f5; border: 1px solid #fca5a5; border-left: 5px solid #dc2626;
+        }
+        .att-hall-rank {
+            font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em;
+            color: var(--text-meta); width: 1.6rem; text-align: center; flex-shrink: 0;
+        }
+        .att-hall-medal {
+            font-size: 1.6rem; line-height: 1; flex-shrink: 0; width: 1.8rem; text-align: center;
+        }
+        .att-hall-body { flex: 1; min-width: 0; }
+        .att-hall-name {
+            margin: 0 0 0.1rem; font-size: 1.05rem; font-weight: 700;
+            color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .att-hall-meta {
+            margin: 0; font-size: 0.73rem; color: var(--text-meta);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .att-hall-badge-good,
+        .att-hall-badge-bad {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            flex-shrink: 0; min-width: 3.4rem; padding: 0.35rem 0.6rem;
+            border-radius: 8px; text-align: center; line-height: 1.1;
+        }
+        .att-hall-badge-good { background: #dcfce7; border: 1px solid #86efac; }
+        .att-hall-badge-bad  { background: #fee2e2; border: 1px solid #fca5a5; }
+        .att-hall-badge-num {
+            font-size: 1.4rem; font-weight: 800; letter-spacing: -0.03em;
+            color: var(--text-primary); display: block;
+        }
+        .att-hall-badge-label { font-size: 0.62rem; font-weight: 600; color: var(--text-meta); display: block; }
+
+        /* Ranked list row (partial-year view) */
+        .att-list-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; height: 100%; }
+        .att-list-rank {
+            font-size: 0.78rem; font-weight: 800; color: var(--text-meta);
+            width: 1.4rem; text-align: right; flex-shrink: 0;
+        }
+        .att-list-pill { background: #ffffff; border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; min-width: 0; flex: 1; }
+        .att-list-pill-name { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .att-list-pill-meta { font-size: 0.70rem; color: var(--text-meta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* ── Payments page ───────────────────────────────────────────── */
+        .pay-amount-badge {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-width: 62px; padding: 6px 10px; border-radius: 8px;
+            background: #eff6ff; border: 1px solid #93c5fd; text-align: center; flex-shrink: 0;
+        }
+        .pay-amount-badge-num  { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.03em; color: #1e40af; line-height: 1; display: block; }
+        .pay-amount-badge-label { font-size: 0.58rem; font-weight: 600; color: #3b82f6; line-height: 1.4; display: block; }
+        .pay-taa-pill {
+            display: inline-flex; align-items: center; background: #eff6ff; border: 1px solid #93c5fd;
+            border-radius: 999px; padding: 2px 8px; font-size: 0.68rem; font-weight: 600; color: #1e40af;
+        }
+        .pay-name-row { display: inline-flex; align-items: center; gap: 8px; padding: 2px 0; height: 100%; width: fit-content; max-width: 100%; }
+
+        /* Collapse row so → button sits right next to the card */
+        [data-testid="stHorizontalBlock"]:has(.pay-name-row) {
+            width: fit-content !important;
+            max-width: 100% !important;
+            gap: 0.4rem !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.pay-name-row) [data-testid="stColumn"] {
+            width: auto !important;
+            flex: 0 0 auto !important;
+            min-width: 0 !important;
+        }
+        .pay-name-rank { font-size: 0.75rem; font-weight: 800; color: var(--text-meta); width: 1.8rem; text-align: right; flex-shrink: 0; }
+        .pay-name-body { background: #ffffff; border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; flex: 1; min-width: 0; }
+        .pay-name-body-name { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pay-name-body-pos  { font-size: 0.72rem; color: var(--text-meta); margin-bottom: 3px; }
+        .pay-count-pill {
+            display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--border);
+            border-radius: 999px; padding: 2px 7px; font-size: 0.68rem; font-weight: 600; color: var(--text-meta); margin-left: 4px;
+        }
+        .pay-identity-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 0.75rem; }
+        .pay-identity-card-name { font-size: 1.3rem; font-weight: 800; color: var(--text-primary); }
+        .pay-identity-card-meta { font-size: 0.8rem; color: var(--text-meta); margin-top: 3px; }
+
+        /* ── Data provenance box ────────────────────────────────────────
+           Used when a callout needs a left accent border (source notes,
+           per-year PDF links). Not the same as .dt-callout.           */
+        .dt-provenance-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: 2px;
+            padding: 0.9rem 1rem;
+        }
+
+        /* ── Attendance: extra heading variants ──────────────────────── */
+        .att-hall-subheading { font-size: 0.75rem; color: #6b7280; margin: 0 0 0.75rem; }
+        .att-cop-head-good { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #15803d; border-bottom: 3px solid #16a34a; padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
+        .att-cop-head-bad  { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #b91c1c; border-bottom: 3px solid #dc2626; padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
+
+        /* ── Lobbying page ───────────────────────────────────────────────
+           Navy (#0f3d5e) is deliberate — the lobbying page has a navy/rust
+           palette distinct from the amber accent used on other pages.   */
+        .lob-section-heading { border-bottom-color: #0f3d5e; }
+
+        .lob-path-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-top: 4px solid #0f3d5e;
+            border-radius: 10px;
+            padding: 1.1rem 1rem 1rem;
+            box-shadow: 0 1px 2px rgba(17,24,39,0.06), 0 8px 24px rgba(17,24,39,0.04);
+            min-height: 175px;
+            transition: border-top-color 0.15s, box-shadow 0.15s;
+        }
+        .lob-path-card:hover { border-top-color: #9a3412; box-shadow: 0 4px 16px rgba(17,24,39,0.1); }
+        .lob-path-icon { font-size: 1.6rem; line-height: 1; margin-bottom: 0.55rem; }
+        .lob-path-heading { margin: 0 0 0.3rem; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
+        .lob-path-body { margin: 0 0 0.65rem; font-size: 0.82rem; color: var(--text-meta); line-height: 1.5; }
+        .lob-path-stat { display: flex; align-items: baseline; gap: 0.3rem; }
+        .lob-path-stat-num { font-size: 1.3rem; font-weight: 800; color: #0f3d5e; letter-spacing: -0.03em; }
+        .lob-path-stat-lbl { font-size: 0.73rem; font-weight: 600; color: var(--text-meta); text-transform: uppercase; letter-spacing: 0.04em; }
+
+        .lob-revolving-callout {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-left: 5px solid #d97706;
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
+            margin: 0.75rem 0;
+        }
+        .lob-revolving-heading { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #92400e; margin-bottom: 0.3rem; }
+
+        .lob-activity-row { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.65rem 0; border-bottom: 1px solid var(--border); }
+        .lob-activity-period { font-size: 0.73rem; font-weight: 700; color: #0f3d5e; white-space: nowrap; min-width: 5rem; padding-top: 0.1rem; }
+        .lob-activity-body { flex: 1; min-width: 0; }
+        .lob-activity-org { font-size: 0.88rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .lob-activity-area { font-size: 0.75rem; color: var(--text-meta); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .lob-sidebar-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-meta); margin: 0 0 0.4rem; }
+
+        .lob-policy-pill {
+            display: inline-flex; align-items: center; gap: 0.3rem;
+            background: #ffffff; border: 1px solid var(--border);
+            border-radius: 999px; padding: 0.2rem 0.7rem;
+            font-size: 0.78rem; font-weight: 600; color: var(--text-meta);
+            cursor: pointer; transition: border-color 0.12s, color 0.12s;
+        }
+        .lob-policy-pill:hover { border-color: #0f3d5e; color: #0f3d5e; }
+
+        /* ── Legislation page ────────────────────────────────────────── */
+        /* Status badge variants — extend the .signal base class */
+        .leg-status-enacted  { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+        .leg-status-active   { background:var(--accent-subtle); color:var(--accent); border:1px solid var(--accent-dim); }
+        .leg-status-lapsed   { background:var(--surface); color:var(--text-meta); border:1px solid var(--border); }
+        .leg-status-withdrawn { background:#fff1f2; color:#9f1239; border:1px solid #fda4af; }
+
+        /* Stage timeline list */
+        .leg-stage-list { display:flex; flex-direction:column; }
+        .leg-stage-row {
+            display: flex; gap: 1rem; padding: 0.55rem 0;
+            border-bottom: 1px solid var(--border); align-items: baseline;
+        }
+        .leg-stage-row:last-child { border-bottom: none; }
+        .leg-stage-num {
+            font-size: 0.68rem; font-weight: 800; color: var(--text-meta);
+            min-width: 1.6rem; text-align: right; flex-shrink: 0;
+        }
+        .leg-stage-label {
+            font-size: 0.88rem; font-weight: 600; color: var(--text-primary); flex: 1;
+        }
+        .leg-stage-date { font-size: 0.78rem; color: var(--text-meta); white-space: nowrap; }
+        .leg-stage-current .leg-stage-label { color: var(--accent); }
+        .leg-stage-current .leg-stage-num   { color: var(--accent); }
+
+        /* Bill identity strip in drilldown view */
+        .leg-bill-title {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.7rem; font-weight: 700; color: var(--text-primary);
+            line-height: 1.2; margin: 0.5rem 0 0.2rem;
+        }
+        .leg-bill-ref {
+            font-size: 0.8rem; color: var(--text-meta); margin-bottom: 0.5rem;
+        }
+
+        /* Source link card */
+        .leg-source-card {
+            background: #ffffff; border: 1px solid var(--border);
+            border-left: 4px solid var(--accent); border-radius: 2px;
+            padding: 0.8rem 1rem; margin-bottom: 0.6rem;
+        }
+        .leg-source-label {
+            font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em;
+            text-transform: uppercase; color: var(--text-meta); margin-bottom: 0.25rem;
+        }
+
+        /* ── Mobile layout ───────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            /* Stack st.columns vertically */
+            [data-testid="stHorizontalBlock"] {
+                flex-direction: column !important;
+                gap: 0.25rem !important;
+            }
+            [data-testid="stColumn"] {
+                width: 100% !important;
+                min-width: 100% !important;
+                flex: 1 1 100% !important;
+            }
+
+            /* Tighten main content padding */
+            .main .block-container {
+                padding-left: 0.75rem !important;
+                padding-right: 0.75rem !important;
+                max-width: 100% !important;
+            }
+
+            /* Member name: smaller on mobile */
+            .td-name {
+                font-size: 1.45rem !important;
+            }
+
+            /* Pills wrap on narrow screens */
+            [data-testid="stPills"] > div {
+                flex-wrap: wrap !important;
+            }
+
+            /* Metric values: reduce size */
+            [data-testid="stMetric"] label {
+                font-size: 0.68rem !important;
+            }
+            [data-testid="stMetricValue"] {
+                font-size: 1.3rem !important;
+            }
+
+            /* Download button: full width */
+            .stDownloadButton > button {
+                width: 100% !important;
+            }
+
+            /* Sidebar hidden on mobile by default (Streamlit behaviour);
+               notable members are accessible via the sidebar toggle. */
         }
         </style>
         """,
