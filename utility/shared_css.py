@@ -585,6 +585,48 @@ def inject_css() -> None:
             color:        var(--accent)        !important;
         }
 
+        /* ── Info card (ui/components.py: info_card / card_row) ────────────
+           Styling anchor only — all dimensions and colours are set as
+           inline styles from Python so callers can override per-instance
+           without touching CSS.  card_row() pairs one with a nav button.
+           ─────────────────────────────────────────────────────────────── */
+
+        .dt-info-card {
+            display:    block;
+            transition: border-left-color 0.12s, box-shadow 0.12s;
+        }
+        .dt-info-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.09) !important;
+        }
+
+        /* When a dt-name-card is nested inside an info card, strip its own
+           border/shadow so the outer card frame is the sole visual container. */
+        .dt-info-card .dt-name-card {
+            border:        none !important;
+            box-shadow:    none !important;
+            border-radius: 0    !important;
+            background:    transparent !important;
+            padding:       0    !important;
+        }
+
+        /* Card-row layout — card column fills available space, button column
+           shrinks to content (the → button).  Mirrors the leg-bill-card rules. */
+        [data-testid="stHorizontalBlock"]:has(.dt-info-card) {
+            gap:            0.35rem !important;
+            margin-bottom:  0.3rem  !important;
+            align-items:    stretch !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.dt-info-card)
+            [data-testid="stColumn"]:first-child {
+            flex:      1 1 auto !important;
+            min-width: 0        !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.dt-info-card)
+            [data-testid="stColumn"]:last-child {
+            flex:  0 0 auto !important;
+            width: auto     !important;
+        }
+
         /* ── Success / calm-blue theme ───────────────────────────────
            Use for positive, affirming data: attendance streaks,
            high counts, achievements. Calming rather than celebratory.
@@ -655,7 +697,7 @@ def inject_css() -> None:
             padding: 0.35rem 0.75rem;
             border: 1px solid var(--border);
             border-radius: 12px;
-            background: var(--surface);
+            background: #ffffff;
             margin-bottom: 0.35rem;
             box-shadow: 0 1px 2px rgba(0,0,0,0.04);
             transition: border-color 0.15s;
@@ -725,6 +767,10 @@ def inject_css() -> None:
             color: var(--text-meta);
         }
         .int-stat-pill-accent { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
+        .int-pill-decl    { background:#eff6ff; border-color:#93c5fd; color:#1e3a8a; }
+        .int-pill-company { background:#f0fdfa; border-color:#5eead4; color:#0e6655; }
+        .int-pill-prop    { background:#fffbeb; border-color:#fbbf24; color:#78350f; }
+        .int-pill-shares  { background:#f5f3ff; border-color:#c4b5fd; color:#4c1d95; }
         .int-highlight-quote {
             margin: 0.1rem 0 0;
             font-size: 0.8rem;
@@ -846,10 +892,12 @@ def inject_css() -> None:
             gap: 0.35rem !important;
             margin-bottom: 0.25rem !important;
             align-items: stretch !important;
+            justify-content: flex-start !important;
         }
         [data-testid="stHorizontalBlock"]:has(.dt-name-card)
             [data-testid="stColumn"]:first-child {
             flex: 1 1 auto !important;
+            max-width: 520px !important;
             min-width: 0 !important;
         }
         [data-testid="stHorizontalBlock"]:has(.dt-name-card)
@@ -1229,8 +1277,8 @@ def inject_css() -> None:
         }
         .leg-bill-card-header {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 0.55rem;
             margin-bottom: 0.28rem;
         }
         .leg-bill-card-date {
@@ -1248,9 +1296,8 @@ def inject_css() -> None:
         }
         .leg-bill-card-footer {
             display: flex;
-            justify-content: space-between;
             align-items: baseline;
-            gap: 1rem;
+            gap: 1.2rem;
         }
         .leg-bill-card-meta {
             font-size: 0.75rem;
@@ -1269,15 +1316,17 @@ def inject_css() -> None:
         }
         .leg-bill-card-link:hover { text-decoration: underline; }
 
-        /* Full-width card row — button floats right, card fills remaining space */
+        /* Card row — card capped at readable width, button sits immediately after */
         [data-testid="stHorizontalBlock"]:has(.leg-bill-card) {
             gap: 0.35rem !important;
             margin-bottom: 0.3rem !important;
             align-items: stretch !important;
+            justify-content: flex-start !important;
         }
         [data-testid="stHorizontalBlock"]:has(.leg-bill-card)
             [data-testid="stColumn"]:first-child {
             flex: 1 1 auto !important;
+            max-width: 860px !important;
             min-width: 0 !important;
         }
         [data-testid="stHorizontalBlock"]:has(.leg-bill-card)
@@ -1480,8 +1529,8 @@ def inject_css() -> None:
         }
         .vt-card-header {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 0.55rem;
             margin-bottom: 0.28rem;
         }
         .vt-card-date {
@@ -1571,10 +1620,12 @@ def inject_css() -> None:
             gap: 0.35rem !important;
             margin-bottom: 0.3rem !important;
             align-items: stretch !important;
+            justify-content: flex-start !important;
         }
         [data-testid="stHorizontalBlock"]:has(.vt-card)
             [data-testid="stColumn"]:first-child {
             flex: 1 1 auto !important;
+            max-width: 860px !important;
             min-width: 0 !important;
         }
         [data-testid="stHorizontalBlock"]:has(.vt-card)

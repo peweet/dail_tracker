@@ -2,6 +2,7 @@
 from __future__ import annotations
 import pandas as pd
 import streamlit as st
+from ui.components import todo_callout
 
 _APPROVED: frozenset[str] = frozenset({
     "source_url", "source_document_url", "official_pdf_url",
@@ -49,7 +50,4 @@ def render_source_links(df: pd.DataFrame) -> None:
             unsafe_allow_html=True,
         )
     else:
-        st.caption("Source URLs not yet available for this division.")
-        st.caption(
-            "TODO_PIPELINE_VIEW_REQUIRED: source_url column on v_vote_sources"
-        )
+        todo_callout("source_url column on v_vote_sources")

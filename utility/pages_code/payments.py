@@ -34,26 +34,13 @@ from data_access.payments_data import (
     fetch_year_ranking,
 )
 from shared_css import inject_css
-from ui.components import empty_state, hero_banner, member_card_html, render_notable_chips, sidebar_member_filter
+from ui.components import clean_meta, empty_state, hero_banner, member_card_html, render_notable_chips, sidebar_member_filter, year_selector
 from ui.export_controls import export_button
 from ui.source_pdfs import PAYMENTS, provenance_expander
 
-# ── Constants ──────────────────────────────────────────────────────────────────
+from config import NOTABLE_TDS, TAA_BAND_TABLE, TAA_DEDUCTIONS_NOTE
 
-_NOTABLE_TDS: list[str] = [
-    "Mary Lou McDonald",
-    "Micheál Martin",
-    "Simon Harris",
-    "Leo Varadkar",
-    "Pearse Doherty",
-    "Eamon Ryan",
-    "Michael Healy-Rae",
-    "Danny Healy-Rae",
-    "Michael Collins",
-    "Michael Lowry",
-    "Marian Harkin",
-    "Holly Cairns",
-]
+# ── Constants ──────────────────────────────────────────────────────────────────
 
 _CAVEAT = (
     "Parliamentary Standard Allowance (PSA) payments cover the cost of carrying out "
@@ -62,28 +49,6 @@ _CAVEAT = (
     "to Leinster House. A higher total does not imply wrongdoing; it reflects living "
     "farther from Dublin. The Public Representation Allowance (PRA) component is the same "
     "for all members. Data sourced from official Oireachtas payment records."
-)
-
-_TAA_TABLE = """\
-| Band | Distance from Leinster House |
-|---|---|
-| Dublin | Under 25 km — no Travel & Accommodation Allowance |
-| Band 1 | 25–60 km |
-| Band 2 | 60–80 km |
-| Band 3 | 80–100 km |
-| Band 4 | 100–130 km |
-| Band 5 | 130–160 km |
-| Band 6 | 160–190 km |
-| Band 7 | 190–210 km |
-| Band 8 | Over 210 km — highest TAA rate |
-"""
-
-_DEDUCTIONS_NOTE = (
-    "PSA payments are linked to attendance. Under Oireachtas rules, members must attend "
-    "a minimum of **120 sitting days per year** to receive the full TAA. For each day "
-    "below that threshold, **1% of the annual TAA is deducted**. Certain absences are "
-    "excused — committee work, official duties abroad, certified ill-health — so a lower "
-    "TAA does not necessarily mean a member was absent."
 )
 
 _QUARANTINE_NOTE = (
@@ -103,14 +68,13 @@ def _pay_card_html(row: pd.Series) -> str:
     taa       = str(row.get("taa_band_label", "—"))
     count     = int(row.get("payment_count",  0) or 0)
     total_str = f"€{float(row.get('total_paid', 0) or 0):,.0f}"
-    meta_parts = [p for p in [party, constit] if p and p.lower() not in ("nan", "")]
-    meta  = " · ".join(meta_parts) if meta_parts else pos
+    meta  = clean_meta(party, constit) or pos
     pills = (
         f'<span class="pay-taa-pill">{taa}</span>'
         f'<span class="int-stat-pill">{count} payments</span>'
     )
     badge = (
-        f'<div class="dt-name-card-badge dt-name-card-badge-metric">'
+        f'<div class="dt-name-card-badge-metric">'
         f'<span class="dt-name-card-badge-num">{total_str}</span>'
         f'<span class="dt-name-card-badge-lbl">total</span>'
         f'</div>'
@@ -131,8 +95,8 @@ def _render_provenance(summary: pd.Series, year: int | None = None) -> None:
     provenance_expander(
         sections=[
             _CAVEAT,
-            "**TAA distance bands**\n\n" + _TAA_TABLE,
-            _DEDUCTIONS_NOTE,
+            "**TAA distance bands**\n\n" + TAA_BAND_TABLE,
+            TAA_DEDUCTIONS_NOTE,
             _QUARANTINE_NOTE,
         ],
         source_caption=(
@@ -152,14 +116,7 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
         dek="Parliamentary Standard Allowance (PSA) — the official record of payments to Dáil members.",
     )
 
-    selected_year_str = st.pills(
-        "Year",
-        options=year_options,
-        default=year_options[0],
-        key="pay_year",
-        label_visibility="collapsed",
-    )
-    selected_year = int(selected_year_str) if selected_year_str else int(year_options[0])
+    selected_year = year_selector(year_options, key="pay_year")
 
     ranking    = fetch_year_ranking(selected_year)
     since_2020 = fetch_since_2020_summary()
@@ -190,7 +147,6 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
             st.session_state["selected_td_pay"] = str(row["member_name"])
             st.rerun()
 
-    st.markdown("")
     export_df = ranking[
         ["rank_high", "member_name", "position", "taa_band_label", "total_paid", "payment_count"]
     ].copy()
@@ -216,14 +172,7 @@ def _render_profile(
         st.session_state.pop("selected_td_pay", None)
         st.rerun()
 
-    selected_year_str = st.pills(
-        "Year",
-        options=year_options,
-        default=year_options[0],
-        key="pay_profile_year",
-        label_visibility="collapsed",
-    )
-    selected_year = int(selected_year_str) if selected_year_str else int(year_options[0])
+    selected_year = year_selector(year_options, key="pay_profile_year", skip_current=False)
 
     all_years = fetch_member_all_years(td_name)
 
@@ -237,8 +186,7 @@ def _render_profile(
     position  = str(latest.get("position",       "Deputy"))
     party     = str(latest.get("party_name",     "") or "")
     constit   = str(latest.get("constituency",   "") or "")
-    meta_parts = [p for p in [party, constit] if p and p.lower() not in ("nan", "")]
-    meta_str   = " · ".join(meta_parts) if meta_parts else position
+    meta_str = clean_meta(party, constit) or position
 
     # Identity strip
     st.markdown(
@@ -263,7 +211,7 @@ def _render_profile(
         col3.metric("Year rank",      f"#{int(yr['rank_high'])}")
         col4.metric("All-time total", f"€{alltime_total:,.0f}")
     else:
-        st.info(f"No payment records for {td_name} in {selected_year}.")
+        empty_state("No payment records", f"No payment records for {td_name} in {selected_year}.")
         col1, col2 = st.columns(2)
         col1.metric("TAA band",       taa_label)
         col2.metric("All-time total", f"€{alltime_total:,.0f}")
@@ -373,7 +321,7 @@ def payments_page() -> None:
             st.rerun()
 
         st.divider()
-        if render_notable_chips(_NOTABLE_TDS, opts["members"], "pay_notable", "selected_td_pay"):
+        if render_notable_chips(NOTABLE_TDS, opts["members"], "pay_notable", "selected_td_pay"):
             st.rerun()
 
     # ── Route to Stage 1 or Stage 2 ──────────────────────────────────────────

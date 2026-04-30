@@ -14,22 +14,17 @@ from data_access.legislation_data import (
     fetch_legislation_index_filtered,
 )
 from shared_css import inject_css
-from ui.components import render_stat_strip, sidebar_date_range, stat_item
+from ui.components import evidence_heading, hero_banner, render_stat_strip, sidebar_date_range, sidebar_page_header, stat_item
+from ui.export_controls import export_button
+from ui.source_pdfs import provenance_expander
+
+from config import BILL_STAGE_ENACTED_MIN, BILL_STAGE_SEANAD_MIN, BILL_STATUS_CSS
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-_STATUS_CLASS = {
-    "enacted": "leg-status-enacted",
-    "signed": "leg-status-enacted",
-    "lapsed": "leg-status-lapsed",
-    "withdrawn": "leg-status-withdrawn",
-    "defeated": "leg-status-lapsed",
-}
-
-
 def _status_badge_class(status: str) -> str:
     key = status.lower() if status else ""
-    for k, cls in _STATUS_CLASS.items():
+    for k, cls in BILL_STATUS_CSS.items():
         if k in key:
             return f"signal {cls}"
     return "signal leg-status-active"
@@ -45,19 +40,15 @@ def _fmt_date(val) -> str:
         return str(val)
 
 
-def _to_csv_bytes(df: pd.DataFrame) -> bytes:
-    return df.to_csv(index=False).encode("utf-8")
-
-
 def _bill_phase(row) -> str:
     status = (row.get("bill_status") or "").lower()
     if "enact" in status or "sign" in status:
         return "enacted"
     try:
         n = int(row.get("stage_number") or 0)
-        if n >= 11:
+        if n >= BILL_STAGE_ENACTED_MIN:
             return "enacted"
-        if n >= 6:
+        if n >= BILL_STAGE_SEANAD_MIN:
             return "seanad"
     except (TypeError, ValueError):
         pass
@@ -73,19 +64,14 @@ def _render_legislation_index(
     title_search: str | None = None,
 ) -> None:
     # ── Hero ──────────────────────────────────────────────────────────────────
-    st.markdown(
-        """
-        <div class="dt-hero">
-            <div class="dt-kicker">Bills · Oireachtas · Dáil Tracker</div>
-            <h2 class="leg-hero-h2">Bills Before the Oireachtas</h2>
-            <p class="dt-dek">
-                Track where each Private Members' Bill stands in the legislative journey —
-                from First Reading in the Dáil through the Seanad to Presidential signature.
-                Select a phase below, then click any bill to open the full record.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    hero_banner(
+        kicker="Bills · Oireachtas · Dáil Tracker",
+        title="Bills Before the Oireachtas",
+        dek=(
+            "Track where each Private Members' Bill stands in the legislative journey — "
+            "from First Reading in the Dáil through the Seanad to Presidential signature. "
+            "Select a phase below, then click any bill to open the full record."
+        ),
     )
 
     # ── Fetch ─────────────────────────────────────────────────────────────────
@@ -156,13 +142,14 @@ def _render_legislation_index(
         f"Seanad Stages ({len(seanad_df)})": seanad_df,
         f"Enacted ({len(enacted_df)})": enacted_df,
     }
-    phase_sel = st.radio(
+    _phase_keys = list(phase_opts.keys())
+    phase_sel = st.segmented_control(
         "Filter by phase",
-        list(phase_opts.keys()),
-        horizontal=True,
+        _phase_keys,
+        default=_phase_keys[0],
         label_visibility="collapsed",
         key="leg_phase_radio",
-    )
+    ) or _phase_keys[0]
     view_df = phase_opts[phase_sel]
 
     if view_df.empty:
@@ -226,33 +213,20 @@ def _render_legislation_index(
     export_cols = [c for c in ["bill_title", "sponsor", "bill_type", "bill_status",
                                "introduced_date", "current_stage", "oireachtas_url"]
                    if c in view_df.columns]
-    ctrl_r.download_button(
-        label="Export current view as CSV",
-        data=_to_csv_bytes(view_df[export_cols]),
-        file_name="legislation_filtered.csv",
-        mime="text/csv",
-        key="leg_csv_export",
-    )
+    with ctrl_r:
+        export_button(view_df[export_cols], "Export current view as CSV", "legislation_filtered.csv", "leg_csv_export")
 
     # ── Provenance ────────────────────────────────────────────────────────────
-    with st.expander("About & data provenance", expanded=False):
-        st.markdown(
-            """
-            **Source:** [Houses of the Oireachtas Open Data API](https://api.oireachtas.ie)
-
-            **Dataset:** Private Members' Bills introduced to the Dáil. Government Bills not yet included.
-
-            **Pipeline note:** Government Bills absent — pipeline scoped to Private Members only.
-
-            **Bill phases:** Dáil stages (1–5) → Seanad stages (6–10) → Enacted (stage 11).
-            Source: [How a Bill Becomes Law](https://www.oireachtas.ie/en/how-parliament-works/legislation/how-a-bill-becomes-law/)
-
-            **Stage information** reflects the most recent stage recorded in the API at time of extract.
-
-            **Pending pipeline items:** official_pdf_url (versions.parquet) ·
-            source_document_url (related_docs.parquet) · Government Bills scope.
-            """
-        )
+    provenance_expander(
+        sections=[
+            "**Source:** [Houses of the Oireachtas Open Data API](https://api.oireachtas.ie)\n\n"
+            "**Dataset:** Private Members' Bills introduced to the Dáil. Government Bills not yet included.\n\n"
+            "**Bill phases:** Dáil stages (1–5) → Seanad stages (6–10) → Enacted (stage 11). "
+            "[How a Bill Becomes Law](https://www.oireachtas.ie/en/how-parliament-works/legislation/how-a-bill-becomes-law/)\n\n"
+            "**Stage information** reflects the most recent stage recorded in the API at time of extract.",
+        ],
+        source_caption="Data: Houses of the Oireachtas Open Data API",
+    )
 
 
 # ── Stage 2 — bill detail ──────────────────────────────────────────────────────
@@ -412,13 +386,11 @@ def _render_bill_detail(bill_id: str) -> None:
         stat_item(method,        "Method"),
     )
 
-    st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
-
     # ── Two-column detail ─────────────────────────────────────────────────────
     col_left, col_right = st.columns([3, 2])
 
     with col_left:
-        st.markdown('<p class="section-heading">Stage Timeline</p>', unsafe_allow_html=True)
+        evidence_heading("Stage Timeline")
         _render_stage_timeline(timeline_df)
 
     with col_right:
@@ -426,40 +398,23 @@ def _render_bill_detail(bill_id: str) -> None:
             f"Debates ({len(debates_df)})"
             if not debates_df.empty else "Debates"
         )
-        st.markdown(f'<p class="section-heading">{debate_label}</p>', unsafe_allow_html=True)
+        evidence_heading(debate_label)
         _render_debates(debates_df)
 
     # ── CSV export of this bill's timeline ────────────────────────────────────
     if not timeline_df.empty:
-        st.download_button(
-            label="Export stage timeline as CSV",
-            data=_to_csv_bytes(timeline_df),
-            file_name=f"bill_{bill_no}_{bill_year}_timeline.csv",
-            mime="text/csv",
-            key="leg_timeline_csv",
-        )
+        export_button(timeline_df, "Export stage timeline as CSV", f"bill_{bill_no}_{bill_year}_timeline.csv", "leg_timeline_csv")
 
     # ── Provenance ────────────────────────────────────────────────────────────
-    with st.expander("About & data provenance", expanded=False):
-        last_updated = row.get("last_updated") or "—"
-        source       = row.get("source") or "—"
-        st.markdown(
-            f"""
-            **Bill ID:** {bill_id}
-
-            **Source:** {source}  |  **Last updated (API):** {last_updated}
-
-            **Data origin:** Houses of the Oireachtas Open Data API →
-            pipeline → data/silver/parquet/sponsors.parquet, stages.parquet, debates.parquet
-
-            **Stage timeline** sourced from data/silver/parquet/stages.parquet.
-
-            **Debate records** sourced from data/silver/parquet/debates.parquet.
-
-            **Pending pipeline items:** official_pdf_url (versions.parquet — bill text PDF not yet generated) ·
-            source_document_url (related_docs.parquet) · Government Bills scope.
-            """
-        )
+    last_updated = row.get("last_updated") or "—"
+    source       = row.get("source") or "—"
+    provenance_expander(
+        sections=[
+            f"**Bill ID:** {bill_id}",
+            f"**Source:** {source}  ·  **Last updated (API):** {last_updated}",
+            "**Data origin:** Houses of the Oireachtas Open Data API.",
+        ]
+    )
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
@@ -476,8 +431,7 @@ def legislation_page() -> None:
     search_param: str | None     = None
 
     with st.sidebar:
-        st.markdown('<div class="page-kicker">Dáil Tracker</div>', unsafe_allow_html=True)
-        st.markdown('<div class="page-title">Legislation</div>', unsafe_allow_html=True)
+        sidebar_page_header("Legislation")
 
         if selected_bill_id:
             st.markdown('<div class="page-subtitle">Bill detail</div>', unsafe_allow_html=True)
