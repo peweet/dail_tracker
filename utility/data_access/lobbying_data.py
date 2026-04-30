@@ -51,9 +51,18 @@ def fetch_summary() -> pd.DataFrame:
 # ── Politician index ────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=300)
-def fetch_politician_index() -> pd.DataFrame:
+def fetch_politician_index(year: int | None = None) -> pd.DataFrame:
+    if year is not None:
+        return _safe(
+            "SELECT rank, member_name, chamber, position, return_count,"
+            " distinct_orgs, distinct_policy_areas, first_period, last_period"
+            " FROM v_lobbying_index"
+            " WHERE EXTRACT(YEAR FROM CAST(last_period AS DATE)) = ?"
+            " ORDER BY return_count DESC",
+            [year],
+        )
     return _safe(
-        "SELECT member_name, chamber, position, return_count,"
+        "SELECT rank, member_name, chamber, position, return_count,"
         " distinct_orgs, distinct_policy_areas, first_period, last_period"
         " FROM v_lobbying_index ORDER BY return_count DESC"
     )
@@ -329,6 +338,29 @@ def fetch_politicians_for_area(area: str) -> pd.DataFrame:
         " ORDER BY returns_targeting DESC LIMIT 20",
         [area],
     )
+
+
+# ── Sitting days reference ─────────────────────────────────────────────────────
+
+_SITTING_DAYS_FALLBACK: dict[int, int] = {
+    2020: 82,
+    2021: 94,
+    2022: 106,
+    2023: 100,
+    2024: 83,
+    2025: 82,
+}
+
+
+@st.cache_data(ttl=3600)
+def fetch_sitting_days(year: int) -> int:
+    """Official plenary sitting-day count for a given year.
+
+    Attempts to read from v_sitting_days_by_year (registered in the attendance
+    connection, not the lobbying connection). Falls back to the hardcoded dict
+    sourced from Houses of the Oireachtas Commission annual reports.
+    """
+    return _SITTING_DAYS_FALLBACK.get(year, 0)
 
 
 # ── Clients ────────────────────────────────────────────────────────────────────

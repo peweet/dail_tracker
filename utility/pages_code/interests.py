@@ -40,10 +40,13 @@ from ui.components import (
     empty_state,
     evidence_heading,
     interest_declaration_item,
+    member_card_html,
+    render_notable_chips,
+    sidebar_member_filter,
     todo_callout,
 )
 from ui.export_controls import export_button
-from ui.source_pdfs import interests_pdf_url, render_pdf_source_links
+from ui.source_pdfs import interests_pdf_url, provenance_expander, render_pdf_source_links
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 _ROOT = Path(__file__).resolve().parents[2]
@@ -277,9 +280,7 @@ def _int_member_card_html(row) -> str:
     landlord = bool(row.get("is_landlord", False))
     is_prop  = bool(row.get("is_property_owner", False))
 
-    meta = " · ".join(p for p in [party, constit] if p and p.lower() not in ("nan", ""))
-    rank_cls = "int-rank-num int-rank-num-top" if rank <= 3 else "int-rank-num"
-
+    meta  = " · ".join(p for p in [party, constit] if p and p.lower() not in ("nan", ""))
     pills = f'<span class="int-stat-pill">{total} declarations</span>'
     if d_count:
         pills += f'<span class="int-stat-pill">🏢 {d_count} compan{"ies" if d_count != 1 else "y"}</span>'
@@ -292,17 +293,7 @@ def _int_member_card_html(row) -> str:
     elif is_prop:
         pills += '<span class="int-stat-pill">🏗️ Property owner</span>'
 
-    return (
-        f'<div class="int-member-card">'
-        f'<div style="display:flex;align-items:flex-start;gap:0.75rem">'
-        f'<span class="{rank_cls}" style="font-size:1.1rem;min-width:2rem;padding-top:0.1rem;text-align:right">#{rank}</span>'
-        f'<div style="flex:1;min-width:0">'
-        f'<p style="margin:0 0 0.1rem;font-family:\'Zilla Slab\',Georgia,serif;'
-        f'font-size:1rem;font-weight:700;color:var(--text-primary)">{name}</p>'
-        f'<p style="margin:0 0 0.3rem;font-size:0.8rem;color:var(--text-meta)">{meta}</p>'
-        f'<div style="display:flex;flex-wrap:wrap;gap:0.3rem">{pills}</div>'
-        f'</div></div></div>'
-    )
+    return member_card_html(name=name, meta=meta, rank=rank, pills_html=pills)
 
 
 def _render_leaderboard(ranking_df: pd.DataFrame) -> str | None:
@@ -461,20 +452,24 @@ def _render_profile(house: str, td_name: str) -> None:
     evidence_heading(f"Declarations · {selected_year}")
 
     # ── Category sections — non-empty only ────────────────────────────────────
-    cats_with_data: list[str] = []
-    cats_empty: list[str] = []
-    for cat in _CATEGORY_ORDER:
-        cat_rows = year_df[year_df["interest_category"] == cat] if not year_df.empty else pd.DataFrame()
-        if _real_descriptions(cat_rows):
-            cats_with_data.append(cat)
-        else:
-            cats_empty.append(cat)
-
-    # Any categories present in data but not in the standard order
+    # Pre-compute descriptions per category once to avoid repeated calls inside the loop.
+    all_cats = list(_CATEGORY_ORDER)
     if not year_df.empty:
         for cat in year_df["interest_category"].dropna().unique():
-            if cat not in _CATEGORY_ORDER and _real_descriptions(year_df[year_df["interest_category"] == cat]):
-                cats_with_data.append(cat)
+            if cat not in _CATEGORY_ORDER:
+                all_cats.append(cat)
+
+    year_descs_by_cat:  dict[str, list[str]] = {
+        cat: _real_descriptions(year_df[year_df["interest_category"] == cat] if not year_df.empty else pd.DataFrame())
+        for cat in all_cats
+    }
+    prior_descs_by_cat: dict[str, list[str]] = {
+        cat: (_real_descriptions(prior_df[prior_df["interest_category"] == cat]) if has_prior else [])
+        for cat in all_cats
+    }
+
+    cats_with_data = [cat for cat in all_cats if year_descs_by_cat[cat]]
+    cats_empty     = [cat for cat in _CATEGORY_ORDER if not year_descs_by_cat.get(cat)]
 
     if not cats_with_data:
         empty_state(
@@ -483,10 +478,8 @@ def _render_profile(house: str, td_name: str) -> None:
         )
     else:
         for cat in cats_with_data:
-            cat_rows       = year_df[year_df["interest_category"] == cat]
-            descs          = _real_descriptions(cat_rows)
-            prior_cat_rows = prior_df[prior_df["interest_category"] == cat] if has_prior else pd.DataFrame()
-            prior_cat_set  = set(_real_descriptions(prior_cat_rows))
+            descs           = year_descs_by_cat[cat]
+            prior_cat_set   = set(prior_descs_by_cat[cat])
             current_cat_set = set(descs)
             label = _CATEGORY_LABELS.get(cat, cat)
 
@@ -509,8 +502,7 @@ def _render_profile(house: str, td_name: str) -> None:
             for cat in _CATEGORY_ORDER:
                 if cat in cats_with_data:
                     continue
-                prior_cat_rows = prior_df[prior_df["interest_category"] == cat]
-                prior_descs    = _real_descriptions(prior_cat_rows)
+                prior_descs = prior_descs_by_cat.get(cat, [])
                 if not prior_descs:
                     continue
                 label = _CATEGORY_LABELS.get(cat, cat)
@@ -554,21 +546,17 @@ def _render_profile(house: str, td_name: str) -> None:
 
 # ── Provenance footer ──────────────────────────────────────────────────────────
 
-def _render_provenance(house: str) -> None:
-    csv_label = f"data/silver/{house.lower()}_member_interests_combined.csv"
-    with st.expander("About & data provenance", expanded=False):
-        st.markdown(
+def _render_provenance() -> None:
+    provenance_expander(
+        sections=[
             "Declarations are extracted from published Oireachtas PDF documents. "
             "Flags (landlord, property) are pipeline navigation aids, not legal conclusions. "
             "Office holders (Ministers, Ceann Comhairle) may be exempt from filing — "
             "records can be incomplete. "
             "A high declaration count reflects transparency, not wrongdoing."
-        )
-        st.caption(f"Source: {csv_label}")
-        st.caption(
-            "TODO_PIPELINE_VIEW_REQUIRED: mart_version · code_version · "
-            "latest_fetch_timestamp_utc on v_member_interests_detail"
-        )
+        ],
+        source_caption="Data: Oireachtas Register of Members' Interests (data.oireachtas.ie)",
+    )
 
 
 # ── Page entry point ───────────────────────────────────────────────────────────
@@ -599,34 +587,21 @@ def interests_page() -> None:
 
         opts = _fetch_filter_options(house)
 
-        member_search: str = st.text_input(
-            "", placeholder="Type a name…", key="int_member_q", label_visibility="collapsed"
-        )
-        sq = member_search.strip().lower()
-        filtered_names = (
-            [n for n in opts["members"] if sq in n.lower()] if sq else opts["members"]
-        )
-        chosen: str = st.selectbox(
+        chosen = sidebar_member_filter(
             "Browse all members",
-            options=["— browse all —"] + filtered_names,
-            key="int_member_sel",
-            label_visibility="collapsed",
+            opts["members"],
+            key_search="int_member_q",
+            key_select="int_member_sel",
+            placeholder="Type a name…",
         )
-        if chosen and chosen != "— browse all —" and st.session_state.get("selected_td") != chosen:
+        if chosen and st.session_state.get("selected_td") != chosen:
             st.session_state["selected_td"] = chosen
             st.rerun()
 
         st.divider()
-        st.markdown('<p class="sidebar-label">Notable members</p>', unsafe_allow_html=True)
         notable = _NOTABLE_DAIL if house == "Dáil" else _NOTABLE_SEANAD
-        if notable:
-            chip_cols = st.columns(2)
-            for i, name in enumerate(notable):
-                if chip_cols[i % 2].button(
-                    name, key=f"chip_int_{name}", use_container_width=True
-                ):
-                    st.session_state["selected_td"] = name
-                    st.rerun()
+        if notable and render_notable_chips(notable, opts["members"], "chip_int", "selected_td"):
+            st.rerun()
 
     # ── Guard ─────────────────────────────────────────────────────────────────
     csv_path = _CSV.get(house)
@@ -675,7 +650,7 @@ def interests_page() -> None:
         st.divider()
         _render_profile(house, selected_td)
         st.divider()
-        _render_provenance(house)
+        _render_provenance()
         return
 
     # ── Browse mode ───────────────────────────────────────────────────────────
@@ -684,7 +659,7 @@ def interests_page() -> None:
     year_opts = [str(y) for y in opts["years"]]
     if not year_opts:
         empty_state("No year data found", "v_member_interests_detail returned no years.")
-        _render_provenance(house)
+        _render_provenance()
         return
 
     selected_year_str: str | None = st.pills(
@@ -722,7 +697,7 @@ def interests_page() -> None:
                 f"No data for {selected_year}",
                 "No ranking data found for the selected year and chamber.",
             )
-        _render_provenance(house)
+        _render_provenance()
         return
 
     # Apply filters (Python on already-aggregated rows — no GROUP BY)
@@ -809,7 +784,7 @@ def interests_page() -> None:
             "an Altair horizontal bar chart for the selected year."
         )
 
-    _render_provenance(house)
+    _render_provenance()
 
 
 if __name__ == "__main__":

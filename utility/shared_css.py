@@ -592,13 +592,12 @@ def inject_css() -> None:
 
         /* Standalone metric badge (e.g. "29 days attended") */
         .dt-success-badge {
-            display: flex;
+            display: inline-flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100%;
-            padding: 5px 10px;
-            border-radius: 8px;
+            padding: 4px 10px;
+            border-radius: 12px;
             background: #eff6ff;
             border: 1px solid #bfdbfe;
             text-align: center;
@@ -653,9 +652,9 @@ def inject_css() -> None:
             display: inline-flex;
             align-items: flex-start;
             gap: 0.9rem;
-            padding: 0.5rem 0.75rem;
+            padding: 0.35rem 0.75rem;
             border: 1px solid var(--border);
-            border-radius: 2px;
+            border-radius: 12px;
             background: var(--surface);
             margin-bottom: 0.35rem;
             box-shadow: 0 1px 2px rgba(0,0,0,0.04);
@@ -737,6 +736,126 @@ def inject_css() -> None:
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        /* ══ Canonical member name card ══════════════════════════════
+           Single reusable pattern for every ranked-list page.
+           Avatar slot is ALWAYS rendered at fixed width (2.25 rem) so
+           wiring in Wikidata photos later is a one-line change — no
+           layout rework across pages.
+           ══════════════════════════════════════════════════════════ */
+        .dt-name-card {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.38rem 0.9rem 0.38rem 0.6rem;
+            background: #ffffff;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-left: 3px solid rgba(0,0,0,0.14);
+            border-radius: 12px;
+            width: 100%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            transition: border-left-color 0.12s, border-color 0.12s;
+        }
+        .dt-name-card:hover {
+            border-left-color: var(--accent);
+            border-color: var(--accent-dim);
+        }
+        /* Left slot: avatar OR rank number — always reserves the space */
+        .dt-name-card-left {
+            flex-shrink: 0;
+            width: 2.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+        .dt-name-card-avatar {
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .dt-name-card-rank {
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: var(--text-meta);
+            line-height: 1;
+            text-align: right;
+            width: 100%;
+        }
+        .dt-name-card-rank-top { color: var(--accent); }
+        /* Body */
+        .dt-name-card-body { flex: 1; min-width: 0; }
+        .dt-name-card-name {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 0.97rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0 0 0.08rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .dt-name-card-meta {
+            font-size: 0.76rem;
+            color: var(--text-meta);
+            margin: 0 0 0.12rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .dt-name-card-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin-top: 0.08rem;
+        }
+        /* Right badge — optional metric (days, amount, count) */
+        .dt-name-card-badge {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 0.22rem 0.55rem;
+            border-radius: 10px;
+            min-width: 2.5rem;
+        }
+        .dt-name-card-badge-metric {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+        }
+        .dt-name-card-badge-num {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #1d4ed8;
+            line-height: 1;
+            display: block;
+        }
+        .dt-name-card-badge-lbl {
+            font-size: 0.56rem;
+            font-weight: 600;
+            color: #3b82f6;
+            display: block;
+        }
+        /* Streamlit column override — one rule for every page */
+        [data-testid="stHorizontalBlock"]:has(.dt-name-card) {
+            gap: 0.35rem !important;
+            margin-bottom: 0.25rem !important;
+            align-items: stretch !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.dt-name-card)
+            [data-testid="stColumn"]:first-child {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.dt-name-card)
+            [data-testid="stColumn"]:last-child {
+            flex: 0 0 auto !important;
+            width: auto !important;
         }
 
         /* ── Interests: category headings & diff badges ──────────── */
@@ -833,6 +952,10 @@ def inject_css() -> None:
         }
 
         /* ── Attendance Hall cards ───────────────────────────────────── */
+        /* Anchor both good/bad columns to the top so first cards align */
+        [data-testid="stHorizontalBlock"]:has(.att-hall-heading-good) {
+            align-items: flex-start !important;
+        }
         .att-hall-heading-good {
             font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em;
             color: #15803d; border-bottom: 3px solid #16a34a;
@@ -840,20 +963,20 @@ def inject_css() -> None:
         }
         .att-hall-heading-bad {
             font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em;
-            color: #b91c1c; border-bottom: 3px solid #dc2626;
+            color: #374151; border-bottom: 3px solid #9ca3af;
             padding-bottom: 0.5rem; margin: 0 0 0.3rem;
         }
         .att-hall-card-good,
         .att-hall-card-bad {
             display: flex; align-items: center; gap: 0.75rem;
-            padding: 0.85rem 1rem; border-radius: 0.6rem;
-            margin-bottom: 0.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            padding: 0.55rem 0.9rem; border-radius: 12px;
+            margin-bottom: 0.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
         }
         .att-hall-card-good {
             background: #f0fdf4; border: 1px solid #86efac; border-left: 5px solid #16a34a;
         }
         .att-hall-card-bad {
-            background: #fff5f5; border: 1px solid #fca5a5; border-left: 5px solid #dc2626;
+            background: #f9fafb; border: 1px solid #d1d5db; border-left: 5px solid #9ca3af;
         }
         .att-hall-rank {
             font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em;
@@ -874,11 +997,11 @@ def inject_css() -> None:
         .att-hall-badge-good,
         .att-hall-badge-bad {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            flex-shrink: 0; min-width: 3.4rem; padding: 0.35rem 0.6rem;
-            border-radius: 8px; text-align: center; line-height: 1.1;
+            flex-shrink: 0; min-width: 3.4rem; padding: 0.3rem 0.6rem;
+            border-radius: 12px; text-align: center; line-height: 1.1;
         }
         .att-hall-badge-good { background: #dcfce7; border: 1px solid #86efac; }
-        .att-hall-badge-bad  { background: #fee2e2; border: 1px solid #fca5a5; }
+        .att-hall-badge-bad  { background: #f3f4f6; border: 1px solid #d1d5db; }
         .att-hall-badge-num {
             font-size: 1.4rem; font-weight: 800; letter-spacing: -0.03em;
             color: var(--text-primary); display: block;
@@ -886,19 +1009,24 @@ def inject_css() -> None:
         .att-hall-badge-label { font-size: 0.62rem; font-weight: 600; color: var(--text-meta); display: block; }
 
         /* Ranked list row (partial-year view) */
-        .att-list-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; height: 100%; }
+        .att-list-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+        [data-testid="stHorizontalBlock"]:has(.att-list-row) {
+            align-items: center !important;
+            gap: 0.3rem !important;
+            margin-bottom: 0.15rem !important;
+        }
         .att-list-rank {
             font-size: 0.78rem; font-weight: 800; color: var(--text-meta);
             width: 1.4rem; text-align: right; flex-shrink: 0;
         }
-        .att-list-pill { background: #ffffff; border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; min-width: 0; flex: 1; }
+        .att-list-pill { background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 5px 12px; min-width: 0; flex: 1; }
         .att-list-pill-name { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .att-list-pill-meta { font-size: 0.70rem; color: var(--text-meta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* ── Payments page ───────────────────────────────────────────── */
         .pay-amount-badge {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            min-width: 62px; padding: 6px 10px; border-radius: 8px;
+            min-width: 62px; padding: 5px 10px; border-radius: 12px;
             background: #eff6ff; border: 1px solid #93c5fd; text-align: center; flex-shrink: 0;
         }
         .pay-amount-badge-num  { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.03em; color: #1e40af; line-height: 1; display: block; }
@@ -921,14 +1049,14 @@ def inject_css() -> None:
             min-width: 0 !important;
         }
         .pay-name-rank { font-size: 0.75rem; font-weight: 800; color: var(--text-meta); width: 1.8rem; text-align: right; flex-shrink: 0; }
-        .pay-name-body { background: #ffffff; border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; flex: 1; min-width: 0; }
+        .pay-name-body { background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 5px 12px; flex: 1; min-width: 0; }
         .pay-name-body-name { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pay-name-body-pos  { font-size: 0.72rem; color: var(--text-meta); margin-bottom: 3px; }
         .pay-count-pill {
             display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--border);
             border-radius: 999px; padding: 2px 7px; font-size: 0.68rem; font-weight: 600; color: var(--text-meta); margin-left: 4px;
         }
-        .pay-identity-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 0.75rem; }
+        .pay-identity-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 0.75rem; }
         .pay-identity-card-name { font-size: 1.3rem; font-weight: 800; color: var(--text-primary); }
         .pay-identity-card-meta { font-size: 0.8rem; color: var(--text-meta); margin-top: 3px; }
 
@@ -957,8 +1085,8 @@ def inject_css() -> None:
             background: #ffffff;
             border: 1px solid var(--border);
             border-top: 4px solid #0f3d5e;
-            border-radius: 10px;
-            padding: 1.1rem 1rem 1rem;
+            border-radius: 12px;
+            padding: 0.75rem 1rem 0.75rem;
             box-shadow: 0 1px 2px rgba(17,24,39,0.06), 0 8px 24px rgba(17,24,39,0.04);
             min-height: 175px;
             transition: border-top-color 0.15s, box-shadow 0.15s;
@@ -975,8 +1103,8 @@ def inject_css() -> None:
             background: #fffbeb;
             border: 1px solid #fcd34d;
             border-left: 5px solid #d97706;
-            border-radius: 10px;
-            padding: 0.9rem 1rem;
+            border-radius: 12px;
+            padding: 0.65rem 1rem;
             margin: 0.75rem 0;
         }
         .lob-revolving-heading { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #92400e; margin-bottom: 0.3rem; }
@@ -1087,10 +1215,10 @@ def inject_css() -> None:
 
         /* ── Legislation: bill card list ─────────────────────────────── */
         .leg-bill-card {
-            padding: 0.7rem 0.9rem;
+            padding: 0.45rem 0.9rem;
             border: 1px solid var(--border);
             border-left: 3px solid var(--border-strong);
-            border-radius: 2px;
+            border-radius: 12px;
             background: #ffffff;
             width: 100%;
             transition: border-left-color 0.12s, border-color 0.12s;
@@ -1304,10 +1432,10 @@ def inject_css() -> None:
 
         /* ── Interests: member index cards ──────────────────────────────── */
         .int-member-card {
-            padding: 0.65rem 0.9rem;
+            padding: 0.4rem 0.9rem;
             border: 1px solid rgba(0,0,0,0.08);
             border-left: 3px solid rgba(0,0,0,0.14);
-            border-radius: 8px;
+            border-radius: 12px;
             background: #ffffff;
             width: 100%;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
@@ -1336,10 +1464,10 @@ def inject_css() -> None:
 
         /* ── Votes: division index cards (Mode A) ─────────────────────── */
         .vt-card {
-            padding: 0.65rem 0.9rem;
+            padding: 0.4rem 0.9rem;
             border: 1px solid rgba(0,0,0,0.08);
             border-left: 3px solid rgba(0,0,0,0.14);
-            border-radius: 8px;
+            border-radius: 12px;
             background: #ffffff;
             width: 100%;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);

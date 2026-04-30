@@ -7,6 +7,7 @@
 CREATE OR REPLACE VIEW v_lobbying_recent_returns AS
 SELECT
     lobbying_period_start_date      AS period_start_date,
+    strftime(lobbying_period_start_date, '%Y-%m') AS period_month,
     lobbyist_name,
     NULL::VARCHAR                   AS member_name,
     public_policy_area,

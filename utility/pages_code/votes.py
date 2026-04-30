@@ -1,11 +1,14 @@
-from pathlib import Path
+import logging
 import sys
+from pathlib import Path
 
 _UTIL = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_UTIL))
 
 import pandas as pd
 import streamlit as st
+
+_log = logging.getLogger(__name__)
 
 from shared_css import inject_css
 from ui.components import (
@@ -54,7 +57,8 @@ def _safe_query(conn, sql: str, params=()) -> pd.DataFrame:
         return pd.DataFrame()
     try:
         return conn.execute(sql, list(params)).df()
-    except Exception:
+    except Exception as exc:
+        _log.warning("votes query failed: %s | params=%s | error=%s", sql[:120], params, exc)
         return pd.DataFrame()
 
 
@@ -99,24 +103,14 @@ def _fetch_member_names(_conn) -> list[str]:
 
 
 @st.cache_data(ttl=300)
-def _fetch_td_row_by_name(_conn, name: str) -> pd.DataFrame:
+def _fetch_td_row(_conn, col: str, val: str) -> pd.DataFrame:
+    """Fetch a single TD summary row by member_name or member_id."""
     return _safe_query(
         _conn,
-        "SELECT member_id, member_name, party_name, constituency,"
-        " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
-        " FROM td_vote_summary WHERE member_name = ? LIMIT 1",
-        (name,),
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_td_row_by_id(_conn, member_id: str) -> pd.DataFrame:
-    return _safe_query(
-        _conn,
-        "SELECT member_id, member_name, party_name, constituency,"
-        " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
-        " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
-        (member_id,),
+        f"SELECT member_id, member_name, party_name, constituency,"
+        f" yes_count, no_count, abstained_count, division_count, yes_rate_pct"
+        f" FROM td_vote_summary WHERE {col} = ? LIMIT 1",
+        (val,),
     )
 
 
@@ -337,7 +331,7 @@ def _render_mode_b(conn, member_id: str, date_from, date_to) -> None:
         st.query_params.clear()
         st.rerun()
 
-    td_df = _fetch_td_row_by_id(conn, member_id)
+    td_df = _fetch_td_row(conn, "member_id", member_id)
     if td_df.empty:
         empty_state(
             "TD not found",
@@ -473,7 +467,7 @@ def votes_page() -> None:
 
         # Handle selection / deselection
         if sel_name:
-            td_lkp = _fetch_td_row_by_name(conn, sel_name)
+            td_lkp = _fetch_td_row(conn, "member_name", sel_name)
             if not td_lkp.empty:
                 new_mid = str(td_lkp.iloc[0]["member_id"])
                 if new_mid != sel_member_id:

@@ -69,24 +69,17 @@ def _clear_profile() -> None:
     st.session_state.lob_selected_dpo        = None
 
 
-def _nav_pol(name: str) -> None:
+_NAV_KEYS: dict[str, str] = {
+    "pol":     "lob_selected_politician",
+    "org":     "lob_selected_org",
+    "area":    "lob_selected_area",
+    "revdoor": "lob_selected_revdoor",
+}
+
+
+def _nav(kind: str, value=True) -> None:
     _clear_profile()
-    st.session_state.lob_selected_politician = name
-
-
-def _nav_org(name: str) -> None:
-    _clear_profile()
-    st.session_state.lob_selected_org = name
-
-
-def _nav_area(area: str) -> None:
-    _clear_profile()
-    st.session_state.lob_selected_area = area
-
-
-def _nav_revdoor() -> None:
-    _clear_profile()
-    st.session_state.lob_selected_revdoor = True
+    setattr(st.session_state, _NAV_KEYS[kind], value)
 
 
 def _nav_dpo(name: str) -> None:
@@ -208,9 +201,9 @@ def _render_sidebar() -> None:
         )
         if sel:
             if sel.startswith("[Org] "):
-                _nav_org(sel[6:])
+                _nav("org",sel[6:])
             else:
-                _nav_pol(sel)
+                _nav("pol",sel)
             st.rerun()
 
         st.divider()
@@ -224,7 +217,7 @@ def _render_sidebar() -> None:
                 if not idx.empty and "position" in idx.columns:
                     m = idx[idx["position"].str.contains(chip, case=False, na=False)]
                     if not m.empty:
-                        _nav_pol(m.iloc[0]["member_name"])
+                        _nav("pol",m.iloc[0]["member_name"])
                         st.rerun()
                     else:
                         st.caption(f"No politician found with position matching '{chip}'.")
@@ -237,7 +230,7 @@ def _render_sidebar() -> None:
             for area in top_areas:
                 safe_key = f"lob_area_{area[:25].replace(' ', '_')}"
                 if st.button(area, key=safe_key, use_container_width=True):
-                    _nav_area(area)
+                    _nav("area",area)
                     st.rerun()
 
 
@@ -318,7 +311,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
         if st.button("Browse politicians →", key="lob_gw_pol", use_container_width=True):
             idx = fetch_politician_index()
             if not idx.empty:
-                _nav_pol(idx.iloc[0]["member_name"])
+                _nav("pol",idx.iloc[0]["member_name"])
                 st.rerun()
 
     with g2:
@@ -335,7 +328,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
         if st.button("Browse organisations →", key="lob_gw_org", use_container_width=True):
             orgs = fetch_org_index()
             if not orgs.empty:
-                _nav_org(orgs.iloc[0]["lobbyist_name"])
+                _nav("org",orgs.iloc[0]["lobbyist_name"])
                 st.rerun()
 
     g3, g4 = st.columns(2)
@@ -354,7 +347,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
         if st.button("Browse policy areas →", key="lob_gw_area", use_container_width=True):
             areas = fetch_policy_area_summary()
             if not areas.empty:
-                _nav_area(areas.iloc[0]["public_policy_area"])
+                _nav("area",areas.iloc[0]["public_policy_area"])
                 st.rerun()
 
     with g4:
@@ -371,7 +364,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
             unsafe_allow_html=True,
         )
         if st.button("Browse revolving door →", key="lob_gw_revdoor", use_container_width=True):
-            _nav_revdoor()
+            _nav("revdoor")
             st.rerun()
 
     st.write("")
@@ -400,7 +393,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
                     f"{int(row.get('distinct_orgs', 0) or 0):,} orgs",
                 ]
                 if rank_card_row(name, meta, pills, btn_key=f"lob_pol_{rank}", rank=rank):
-                    _nav_pol(name)
+                    _nav("pol",name)
                     st.rerun()
 
     with lb2:
@@ -421,7 +414,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
                     f"{int(row.get('politicians_targeted', 0) or 0):,} politicians",
                 ]
                 if rank_card_row(name, meta, pills, btn_key=f"lob_org_{rank}", rank=rank):
-                    _nav_org(name)
+                    _nav("org",name)
                     st.rerun()
 
     # ── Latest activity feed ──────────────────────────────────────────────────
@@ -559,7 +552,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
             key="lob_org_switcher",
         )
         if picked != org_name:
-            _nav_org(picked)
+            _nav("org",picked)
             st.rerun()
 
     org_idx = fetch_org_index()

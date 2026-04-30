@@ -110,6 +110,31 @@ def fetch_member_payments(member_name: str, year: int) -> pd.DataFrame:
     ).df()
 
 
+@st.cache_data(ttl=300)
+def fetch_year_totals(year: int) -> dict[str, float | int]:
+    """Year-level totals: total_paid sum and member count for the ranked view."""
+    row = get_payments_conn().execute(
+        "SELECT COUNT(*) AS member_count, SUM(total_paid) AS total_paid"
+        " FROM v_payments_yearly_evolution WHERE payment_year = ?",
+        [year],
+    ).df()
+    if row.empty:
+        return {"member_count": 0, "total_paid": 0.0}
+    return {"member_count": int(row.iloc[0]["member_count"]), "total_paid": float(row.iloc[0]["total_paid"])}
+
+
+@st.cache_data(ttl=300)
+def fetch_member_alltime_total(member_name: str) -> float:
+    """All-time total paid to a member across all years."""
+    row = get_payments_conn().execute(
+        "SELECT SUM(total_paid) AS total FROM v_payments_yearly_evolution WHERE member_name = ?",
+        [member_name],
+    ).df()
+    if row.empty or row.iloc[0]["total"] is None:
+        return 0.0
+    return float(row.iloc[0]["total"])
+
+
 @st.cache_data(ttl=3600)
 def fetch_since_2020_summary() -> dict[str, float | int]:
     """

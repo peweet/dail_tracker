@@ -23,9 +23,18 @@ import pandas as pd
 import streamlit as st
 
 from shared_css import inject_css
-from ui.components import empty_state, evidence_heading, member_profile_header, todo_callout
+from ui.components import (
+    empty_state,
+    evidence_heading,
+    member_card_html,
+    member_profile_header,
+    render_notable_chips,
+    sidebar_member_filter,
+    todo_callout,
+    year_selector,
+)
 from ui.export_controls import export_button
-from ui.source_pdfs import ATTENDANCE, render_pdf_source_links
+from ui.source_pdfs import ATTENDANCE, provenance_expander
 
 _SQL_VIEWS = Path(__file__).resolve().parents[2] / "sql_views"
 
@@ -52,25 +61,21 @@ _NOTABLE_TDS: list[str] = [
 ]
 
 _CAVEAT = (
-    "Plenary attendance records days a member was present in the full chamber on "
-    "scheduled sitting days. It does not capture committee hearings, ministerial duties, "
-    "or constituency casework. Lower figures should not be read as a complete measure of "
-    "a member's parliamentary engagement."
-)
-
-_YEAR_SOURCE_NOTE = (
-    "Each year's data will link to the official Oireachtas attendance PDF for that year "
-    "(e.g. 2025, 2024, 2023) once the pipeline exposes per-year source URLs."
+    "Attendance figures reflect days a member was recorded present in the Dáil chamber "
+    "on scheduled sitting days. The record does not capture committee hearings, ministerial "
+    "duties, illness, bereavement, parental leave, or constituency work. "
+    "Low attendance figures have many legitimate explanations that are not visible in this data. "
+    "This page presents the official record — it does not make a judgement about the reasons behind it."
 )
 
 _MINISTER_NOTE = (
-    "**Why are cabinet ministers excluded from the Hall of Shame?** "
+    "**Why are cabinet ministers shown separately?** "
     "Members holding ministerial office — including the Taoiseach, cabinet ministers, and Ministers of State — "
-    "are constitutionally and operationally required to attend cabinet meetings, conduct bilateral engagements, "
-    "represent the State at EU Council and international forums, and discharge executive duties that frequently "
-    "conflict with scheduled plenary sitting days. As a result, their plenary attendance figures, as recorded in "
-    "the official Oireachtas PDFs, are not a reliable indicator of parliamentary or public service engagement "
-    "and would mislead any comparative ranking of members' attendance."
+    "are constitutionally required to attend cabinet meetings, conduct bilateral engagements, "
+    "represent the State at EU Council, and discharge executive duties that frequently "
+    "conflict with scheduled plenary sitting days. Their plenary attendance figures are not "
+    "a reliable indicator of their parliamentary or public service engagement and are excluded "
+    "from the lowest-attendance ranking to avoid a misleading comparison."
 )
 
 
@@ -138,8 +143,8 @@ def _fetch_member_years(td_name: str) -> pd.DataFrame:
 def _fetch_year_ranking(year: int) -> pd.DataFrame:
     """Top and bottom attenders for a given year from v_attendance_year_rank."""
     return _get_conn().execute(
-        "SELECT member_name, party_name, constituency, attended_count, is_minister,"
-        " rank_high, rank_low"
+        "SELECT unique_member_code, member_name, party_name, constituency,"
+        " attended_count, is_minister, rank_high, rank_low"
         " FROM v_attendance_year_rank WHERE year = ?"
         " ORDER BY rank_high ASC LIMIT 500",
         [year],
@@ -160,10 +165,10 @@ def _fetch_timeline_for_year(td_name: str, year: int) -> pd.DataFrame:
 # ── Good cop / bad cop browse view ────────────────────────────────────────────
 
 _GOOD_MEDALS = ["🥇", "🥈", "🥉"]
-_BAD_MEDALS  = ["💀", "👻", "😴"]
+_BAD_MEDALS  = ["", "", ""]
 
 
-def _hall_card(row: pd.Series, medal: str, side: str, year: int | None = None, rank: int = 1) -> str:
+def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
     name  = str(row["member_name"])
     party = str(row.get("party_name", "") or "")
     const = str(row.get("constituency", "") or "")
@@ -186,31 +191,11 @@ def _hall_card(row: pd.Series, medal: str, side: str, year: int | None = None, r
     )
 
 
-def _list_row(row: pd.Series, rank: int) -> str:
-    """Rank number + name/meta pill. Days badge is rendered separately in its own column."""
-    name  = str(row["member_name"])
-    party = str(row.get("party_name", "") or "")
-    const = str(row.get("constituency", "") or "")
-    meta  = " · ".join(p for p in [party, const] if p and p.lower() not in ("nan", ""))
+def _days_badge_html(days: int) -> str:
     return (
-        f'<div class="att-list-row">'
-        f'<span class="att-list-rank">{rank}</span>'
-        f'<div class="att-list-pill">'
-        f'<div class="att-list-pill-name">{name}</div>'
-        f'<div class="att-list-pill-meta">{meta}</div>'
-        f'</div>'
-        f'</div>'
-    )
-
-
-def _days_badge(row: pd.Series, year: int | None = None) -> str:
-    """Days-attended badge using the dt-success-* calm-blue theme."""
-    days     = int(row["attended_count"])
-    of_label = "days"
-    return (
-        f'<div class="dt-success-badge">'
-        f'<span class="dt-success-num">{days}</span>'
-        f'<span class="dt-success-lbl">{of_label}</span>'
+        f'<div class="dt-name-card-badge dt-name-card-badge-metric">'
+        f'<span class="dt-name-card-badge-num">{days}</span>'
+        f'<span class="dt-name-card-badge-lbl">days</span>'
         f'</div>'
     )
 
@@ -237,11 +222,21 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int, n: int = 3) -> str | N
         )
         clicked: str | None = None
         for i, (_, row) in enumerate(partial.iterrows()):
-            c1, c2, c3 = st.columns([7, 1, 2])
-            c1.markdown(_list_row(row, rank=i + 1), unsafe_allow_html=True)
-            if c2.button("→", key=f"att_partial_{i}", use_container_width=True):
-                clicked = str(row["member_name"])
-            c3.markdown(_days_badge(row, year), unsafe_allow_html=True)
+            name  = str(row["member_name"])
+            party = str(row.get("party_name", "") or "")
+            const = str(row.get("constituency", "") or "")
+            meta  = " · ".join(p for p in [party, const] if p and p.lower() not in ("nan", ""))
+            card_col, btn_col = st.columns([14, 1])
+            card_col.markdown(
+                member_card_html(
+                    name=name, meta=meta, rank=i + 1,
+                    badge_html=_days_badge_html(int(row["attended_count"])),
+                ),
+                unsafe_allow_html=True,
+            )
+            btn_col.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
+            if btn_col.button("→", key=f"att_partial_{i}", help=f"View {name}"):
+                clicked = name
         return clicked
 
     # ── Full year ──────────────────────────────────────────────────────────────
@@ -266,16 +261,16 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int, n: int = 3) -> str | N
 
     with col_good:
         st.markdown(
-            '<p class="att-hall-heading-good">🏆 Hall of Fame</p>'
-            + "".join(_hall_card(row, _GOOD_MEDALS[i], "good", year, rank=i + 1)
+            '<p class="att-hall-heading-good">Highest recorded attendance</p>'
+            + "".join(_hall_card(row, _GOOD_MEDALS[i], "good", rank=i + 1)
                       for i, (_, row) in enumerate(top.iterrows())),
             unsafe_allow_html=True,
         )
 
     with col_bad:
         st.markdown(
-            '<p class="att-hall-heading-bad">🚨 Hall of Shame</p>'
-            + "".join(_hall_card(row, _BAD_MEDALS[i], "bad", year, rank=i + 1)
+            '<p class="att-hall-heading-bad">Lowest recorded attendance</p>'
+            + "".join(_hall_card(row, _BAD_MEDALS[i], "bad", rank=i + 1)
                       for i, (_, row) in enumerate(bottom.iterrows())),
             unsafe_allow_html=True,
         )
@@ -468,23 +463,15 @@ def _render_profile(td_name: str) -> None:
 
 # ── Provenance footer ──────────────────────────────────────────────────────────
 
-def _render_provenance(summary: pd.Series, year: int | None = None) -> None:
-    source   = str(summary.get("source_summary") or "—")
-    fetch_ts = str(summary.get("latest_fetch_timestamp_utc") or "—")[:19]
-    mart_v   = str(summary.get("mart_version") or "—")
-    code_v   = str(summary.get("code_version") or "—")
-    with st.expander("About & data provenance", expanded=False):
-        st.markdown(_CAVEAT)
-        st.markdown(_MINISTER_NOTE)
-        if year:
-            st.caption(f"Showing data for: {year}. {_YEAR_SOURCE_NOTE}")
-        else:
-            st.caption(_YEAR_SOURCE_NOTE)
-        st.caption(f"Source: {source}  ·  Fetched: {fetch_ts}  ·  Mart: {mart_v}  ·  Code: {code_v}")
-
-        st.divider()
-        st.markdown(f"**Source PDFs** — {len(ATTENDANCE)} official attendance documents")
-        render_pdf_source_links(ATTENDANCE)
+def _render_provenance(year: int | None = None) -> None:
+    provenance_expander(
+        sections=[_CAVEAT, _MINISTER_NOTE],
+        source_caption=(
+            "Data: Oireachtas TAA verification records (data.oireachtas.ie)"
+            + (f" · {year}" if year else "")
+        ),
+        pdf_links=list(ATTENDANCE),
+    )
 
 
 # ── Page entry point ───────────────────────────────────────────────────────────
@@ -514,7 +501,6 @@ def attendance_page() -> None:
         empty_state("No year data found", "v_attendance_member_year_summary returned no rows.")
         return
 
-    summary     = summary_df.iloc[0]
     selected_td = st.session_state.get("selected_td_att")
 
     # ── Sidebar ────────────────────────────────────────────────────────────────
@@ -522,33 +508,20 @@ def attendance_page() -> None:
         st.markdown('<p class="page-kicker">Dáil Tracker</p>', unsafe_allow_html=True)
         st.markdown('<p class="page-title">Plenary<br>Attendance</p>', unsafe_allow_html=True)
 
-        att_search: str = st.text_input(
-            "",
-            placeholder="Search a member…",
-            key="att_sidebar_search",
-            label_visibility="collapsed",
-        )
-        sq = att_search.strip().lower()
-        att_filtered = [n for n in opts["members"] if sq in n.lower()] if sq else opts["members"]
-        chosen = st.selectbox(
+        chosen = sidebar_member_filter(
             "Browse all members",
-            ["— select a member —"] + att_filtered,
-            key="att_member_sel",
-            label_visibility="collapsed",
+            opts["members"],
+            key_search="att_sidebar_search",
+            key_select="att_member_sel",
         )
-        if chosen and chosen != "— select a member —" and st.session_state.get("selected_td_att") != chosen:
+        if chosen and st.session_state.get("selected_td_att") != chosen:
             st.session_state["selected_td_att"] = chosen
             st.rerun()
 
         st.divider()
 
-        st.markdown('<p class="sidebar-label">Notable members</p>', unsafe_allow_html=True)
-        available_notable = [n for n in _NOTABLE_TDS if n in opts["members"]]
-        chip_cols = st.columns(2)
-        for i, name in enumerate(available_notable):
-            if chip_cols[i % 2].button(name, key=f"chip_att_{name}", use_container_width=True):
-                st.session_state["selected_td_att"] = name
-                st.rerun()
+        if render_notable_chips(_NOTABLE_TDS, opts["members"], "chip_att", "selected_td_att"):
+            st.rerun()
 
     # ── Page header ────────────────────────────────────────────────────────────
     st.markdown(
@@ -557,7 +530,7 @@ def attendance_page() -> None:
     )
     st.markdown(
         '<h1 style="margin:0.1rem 0 0.6rem;font-size:1.65rem;font-weight:700">'
-        "Who shows up to the chamber?</h1>",
+        "The attendance record</h1>",
         unsafe_allow_html=True,
     )
 
@@ -571,19 +544,12 @@ def attendance_page() -> None:
         st.divider()
         _render_profile(selected_td)
         st.divider()
-        _render_provenance(summary)
+        _render_provenance()
         return
 
     # ── Primary view: year selector ────────────────────────────────────────────
     year_options = [str(y) for y in opts["years"]]  # DESC from query
-    selected_year_str: str | None = st.pills(
-        "Year",
-        options=year_options,
-        default=year_options[0],
-        key="att_year",
-        label_visibility="collapsed",
-    )
-    selected_year = int(selected_year_str) if selected_year_str else int(year_options[0])
+    selected_year = year_selector(year_options, key="att_year")
 
     # ── Good cop / bad cop ────────────────────────────────────────────────────
     ranking_df = _fetch_year_ranking(selected_year)
@@ -593,14 +559,21 @@ def attendance_page() -> None:
             "No records found",
             "Try a different year — v_attendance_year_rank returned no rows.",
         )
-        _render_provenance(summary, selected_year)
+        _render_provenance(selected_year)
         return
 
     total_days = _YEAR_SITTING_DAYS.get(selected_year)
     n_members  = len(ranking_df)
-    rate_note  = f" · {total_days} official sitting days" if total_days else ""
+    rate_note  = f" · {total_days} scheduled sitting days" if total_days else ""
 
     st.caption(f"{n_members} members on record{rate_note}")
+
+    st.info(
+        "Plenary attendance only — does not include committee hearings, ministerial duties, "
+        "illness, or other absences with legitimate reasons. "
+        "Low figures are not evidence of poor engagement.",
+        icon="ℹ️",
+    )
 
     clicked = _render_good_bad(ranking_df, selected_year)
     if clicked:
@@ -618,4 +591,4 @@ def attendance_page() -> None:
         key="att_export",
     )
 
-    _render_provenance(summary, selected_year)
+    _render_provenance(selected_year)
