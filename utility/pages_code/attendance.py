@@ -24,41 +24,24 @@ import streamlit as st
 
 from shared_css import inject_css
 from ui.components import (
+    clean_meta,
     empty_state,
     evidence_heading,
+    hero_banner,
     member_card_html,
     member_profile_header,
     render_notable_chips,
     sidebar_member_filter,
+    sidebar_page_header,
     todo_callout,
     year_selector,
 )
 from ui.export_controls import export_button
 from ui.source_pdfs import ATTENDANCE, provenance_expander
 
+from config import NOTABLE_TDS, SITTING_DAYS_BY_YEAR
+
 _SQL_VIEWS = Path(__file__).resolve().parents[2] / "sql_views"
-
-# Official plenary sitting-day counts from Houses of the Oireachtas Commission
-# annual reports — hardcoded because they are fixed historical facts and routing
-# the denominator through the full pipeline is disproportionate to the gain.
-# Sources: oireachtas.ie/en/press-centre/press-releases/
-_YEAR_SITTING_DAYS: dict[int, int] = {
-    2020: 82,
-    2021: 94,
-    2022: 106,
-    2023: 100,
-    2024: 83,
-    2025: 82,   # partial period per Houses of the Oireachtas 2025 report
-}
-
-_NOTABLE_TDS: list[str] = [
-    "Michael Healy-Rae",
-    "Michael Lowry",
-    "Mary Lou McDonald",
-    "Micheál Martin",
-    "Simon Harris",
-    "Pauline Tully",
-]
 
 _CAVEAT = (
     "Attendance figures reflect days a member was recorded present in the Dáil chamber "
@@ -94,12 +77,8 @@ def _get_conn() -> duckdb.DuckDBPyConnection:
 # ── Retrieval (SELECT / WHERE / ORDER BY / LIMIT only) ────────────────────────
 
 @st.cache_data(ttl=300)
-def _fetch_summary() -> pd.DataFrame:
-    return _get_conn().execute(
-        "SELECT members_count, sitting_count, first_sitting_date, last_sitting_date,"
-        " latest_fetch_timestamp_utc, source_summary, mart_version, code_version"
-        " FROM v_attendance_summary LIMIT 1"
-    ).df()
+def _views_ready() -> bool:
+    return not _get_conn().execute("SELECT 1 FROM v_attendance_summary LIMIT 1").df().empty
 
 
 @st.cache_data(ttl=300)
@@ -143,7 +122,7 @@ def _fetch_member_years(td_name: str) -> pd.DataFrame:
 def _fetch_year_ranking(year: int) -> pd.DataFrame:
     """Top and bottom attenders for a given year from v_attendance_year_rank."""
     return _get_conn().execute(
-        "SELECT unique_member_code, member_name, party_name, constituency,"
+        "SELECT member_name, party_name, constituency,"
         " attended_count, is_minister, rank_high, rank_low"
         " FROM v_attendance_year_rank WHERE year = ?"
         " ORDER BY rank_high ASC LIMIT 500",
@@ -166,15 +145,15 @@ def _fetch_timeline_for_year(td_name: str, year: int) -> pd.DataFrame:
 
 _GOOD_MEDALS = ["🥇", "🥈", "🥉"]
 _BAD_MEDALS  = ["", "", ""]
+_HALL_SIZE   = 3
 
 
 def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
     name  = str(row["member_name"])
     party = str(row.get("party_name", "") or "")
     const = str(row.get("constituency", "") or "")
-    meta  = " · ".join(p for p in [party, const] if p and p.lower() not in ("nan", ""))
+    meta  = clean_meta(party, const)
     days  = int(row["attended_count"])
-    of_label = "days"
     return (
         f'<div class="att-hall-card-{side}">'
         f'<span class="att-hall-rank">#{rank}</span>'
@@ -185,7 +164,7 @@ def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
         f'</div>'
         f'<div class="att-hall-badge-{side}">'
         f'<span class="att-hall-badge-num">{days}</span>'
-        f'<span class="att-hall-badge-label">{of_label}</span>'
+        f'<span class="att-hall-badge-label">days</span>'
         f'</div>'
         f'</div>'
     )
@@ -193,16 +172,16 @@ def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
 
 def _days_badge_html(days: int) -> str:
     return (
-        f'<div class="dt-name-card-badge dt-name-card-badge-metric">'
+        f'<div class="dt-name-card-badge-metric">'
         f'<span class="dt-name-card-badge-num">{days}</span>'
         f'<span class="dt-name-card-badge-lbl">days</span>'
         f'</div>'
     )
 
 
-def _render_good_bad(ranking_df: pd.DataFrame, year: int, n: int = 3) -> str | None:
+def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> str | None:
     """
-    Full-year: Hall of Fame (top-N) and Hall of Shame (bottom-N) side by side.
+    Full-year: Hall of Fame and Hall of Shame (_HALL_SIZE each) side by side.
     Partial/current year: flat ranked list with an in-progress notice.
     Returns member_name on navigation, otherwise None.
     """
@@ -225,7 +204,7 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int, n: int = 3) -> str | N
             name  = str(row["member_name"])
             party = str(row.get("party_name", "") or "")
             const = str(row.get("constituency", "") or "")
-            meta  = " · ".join(p for p in [party, const] if p and p.lower() not in ("nan", ""))
+            meta  = clean_meta(party, const)
             card_col, btn_col = st.columns([14, 1])
             card_col.markdown(
                 member_card_html(
@@ -244,7 +223,7 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int, n: int = 3) -> str | N
     # and top/bottom lists don't overlap when many members share the same count.
     top = (
         ranking_df.sort_values(["rank_high", "attended_count"], ascending=[True, False])
-        .head(n)
+        .head(_HALL_SIZE)
         .reset_index(drop=True)
     )
     # Ministers are excluded from the Hall of Shame — lower plenary attendance
@@ -252,7 +231,7 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int, n: int = 3) -> str | N
     non_ministers = ranking_df[ranking_df["is_minister"].astype(str).str.lower() != "true"]
     bottom = (
         non_ministers.sort_values(["rank_low", "attended_count"], ascending=[True, True])
-        .head(n)
+        .head(_HALL_SIZE)
         .reset_index(drop=True)
     )
 
@@ -277,8 +256,8 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int, n: int = 3) -> str | N
 
     # Navigation buttons in a single aligned row below both columns
     all_rows = list(top.iterrows()) + list(bottom.iterrows())
-    keys     = [f"att_good_{i}" for i in range(n)] + [f"att_bad_{i}" for i in range(n)]
-    btn_cols = st.columns(n * 2)
+    keys     = [f"att_good_{i}" for i in range(_HALL_SIZE)] + [f"att_bad_{i}" for i in range(_HALL_SIZE)]
+    btn_cols = st.columns(_HALL_SIZE * 2)
     for col, (_, row), key in zip(btn_cols, all_rows, keys, strict=False):
         label = str(row["member_name"]).split()[-1]
         if col.button(label, key=key, use_container_width=True):
@@ -367,14 +346,7 @@ def _render_profile(td_name: str) -> None:
 
     year_options = [str(int(y)) for y in member_years_df["year"].tolist()]
 
-    selected_year_str: str | None = st.pills(
-        "Year",
-        options=year_options,
-        default=year_options[0],
-        key="att_profile_year",
-        label_visibility="collapsed",
-    )
-    selected_year = int(selected_year_str) if selected_year_str else int(year_options[0])
+    selected_year = year_selector(year_options, key="att_profile_year", skip_current=False)
 
     # ── Stats for selected year ────────────────────────────────────────────────
     timeline = _fetch_timeline_for_year(td_name, selected_year)
@@ -477,14 +449,11 @@ def _render_provenance(year: int | None = None) -> None:
 # ── Page entry point ───────────────────────────────────────────────────────────
 
 def attendance_page() -> None:
-    if "selected_td_att" not in st.session_state:
-        st.session_state["selected_td_att"] = None
-
     inject_css()
 
     try:
-        summary_df = _fetch_summary()
-        opts       = _fetch_filter_options()
+        ready = _views_ready()
+        opts  = _fetch_filter_options()
     except Exception as exc:
         empty_state(
             "Attendance views not available",
@@ -493,7 +462,7 @@ def attendance_page() -> None:
         st.caption(str(exc))
         return
 
-    if summary_df.empty:
+    if not ready:
         empty_state("No attendance data found", "v_attendance_summary returned no rows.")
         return
 
@@ -505,8 +474,7 @@ def attendance_page() -> None:
 
     # ── Sidebar ────────────────────────────────────────────────────────────────
     with st.sidebar:
-        st.markdown('<p class="page-kicker">Dáil Tracker</p>', unsafe_allow_html=True)
-        st.markdown('<p class="page-title">Plenary<br>Attendance</p>', unsafe_allow_html=True)
+        sidebar_page_header("Plenary<br>Attendance")
 
         chosen = sidebar_member_filter(
             "Browse all members",
@@ -520,19 +488,16 @@ def attendance_page() -> None:
 
         st.divider()
 
-        if render_notable_chips(_NOTABLE_TDS, opts["members"], "chip_att", "selected_td_att"):
+        if render_notable_chips(NOTABLE_TDS, opts["members"], "chip_att", "selected_td_att"):
             st.rerun()
 
     # ── Page header ────────────────────────────────────────────────────────────
-    st.markdown(
-        '<p class="dt-kicker">Dáil Plenary Attendance</p>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<h1 style="margin:0.1rem 0 0.6rem;font-size:1.65rem;font-weight:700">'
-        "The attendance record</h1>",
-        unsafe_allow_html=True,
-    )
+    if not selected_td:
+        hero_banner(
+            kicker="DÁIL PLENARY ATTENDANCE",
+            title="The attendance record",
+            dek="Official plenary attendance figures for all Dáil members.",
+        )
 
     # ── Profile view ───────────────────────────────────────────────────────────
     if selected_td:
@@ -562,7 +527,7 @@ def attendance_page() -> None:
         _render_provenance(selected_year)
         return
 
-    total_days = _YEAR_SITTING_DAYS.get(selected_year)
+    total_days = SITTING_DAYS_BY_YEAR.get(selected_year)
     n_members  = len(ranking_df)
     rate_note  = f" · {total_days} scheduled sitting days" if total_days else ""
 

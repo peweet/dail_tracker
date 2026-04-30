@@ -21,8 +21,9 @@ import pandas as pd
 import polars as pl
 import streamlit as st
 
-_SQL_VIEWS      = Path(__file__).resolve().parents[2] / "sql_views"
-_SILVER_PARQUET = Path(__file__).resolve().parents[2] / "data" / "silver" / "parquet"
+from config import SILVER_PARQUET_DIR
+
+_SQL_VIEWS = Path(__file__).resolve().parents[2] / "sql_views"
 
 
 @st.cache_resource
@@ -142,7 +143,7 @@ def fetch_since_2020_summary() -> dict[str, float | int]:
     Independent of DuckDB views — reads the pipeline output directly.
     Source: data/silver/parquet/top_tds_by_payment_since_2020.parquet
     """
-    path = _SILVER_PARQUET / "top_tds_by_payment_since_2020.parquet"
+    path = SILVER_PARQUET_DIR / "top_tds_by_payment_since_2020.parquet"
     if not path.exists():
         return {"total": 0.0, "members": 0, "avg_per_td": 0.0}
     df = pl.read_parquet(path)

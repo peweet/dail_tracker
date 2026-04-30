@@ -29,70 +29,40 @@ TODO_PIPELINE_VIEW_REQUIRED: mart_version, code_version, latest_fetch_timestamp_
 from __future__ import annotations
 
 import datetime
-from pathlib import Path
-
 import duckdb
 import pandas as pd
 import streamlit as st
 
 from shared_css import inject_css
 from ui.components import (
+    clean_meta,
     empty_state,
     evidence_heading,
+    hero_banner,
     interest_declaration_item,
     member_card_html,
+    member_profile_header,
     render_notable_chips,
     sidebar_member_filter,
+    sidebar_page_header,
     todo_callout,
+    year_selector,
 )
 from ui.export_controls import export_button
-from ui.source_pdfs import interests_pdf_url, provenance_expander, render_pdf_source_links
+from ui.source_pdfs import interests_pdf_url, provenance_expander
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
-_ROOT = Path(__file__).resolve().parents[2]
-_CSV: dict[str, Path] = {
-    "Dáil":   _ROOT / "data" / "silver" / "dail_member_interests_combined.csv",
-    "Seanad": _ROOT / "data" / "silver" / "seanad_member_interests_combined.csv",
-}
-_RANKING_PARQUET = _ROOT / "data" / "gold" / "parquet" / "interests_member_ranking.parquet"
+from config import (
+    GOLD_INTERESTS_RANKING_PARQUET,
+    INTEREST_CATEGORY_LABELS,
+    INTEREST_CATEGORY_ORDER,
+    NOTABLE_SENATORS,
+    NOTABLE_TDS,
+    SILVER_INTERESTS_CSV,
+)
 
 _REQUIRED_COLS: set[str] = {
     "member_name", "party_name", "constituency", "declaration_year",
     "interest_category", "interest_text", "landlord_flag", "property_flag",
-}
-
-_NOTABLE_DAIL: list[str] = [
-    "Michael Healy-Rae",
-    "Michael Lowry",
-    "Robert Troy",
-    "Mary Lou McDonald",
-    "Micheál Martin",
-    "Simon Harris",
-]
-_NOTABLE_SEANAD: list[str] = []
-
-_CATEGORY_ORDER: list[str] = [
-    "Occupations",
-    "Directorships",
-    "Remunerated Position",
-    "Shares",
-    "Land (including property)",
-    "Contracts",
-    "Gifts",
-    "Travel Facilities",
-    "Property supplied or lent or a Service supplied",
-]
-
-_CATEGORY_LABELS: dict[str, str] = {
-    "Occupations":                                        "Occupations & Employment",
-    "Directorships":                                      "Directorships & Company Roles",
-    "Remunerated Position":                               "Remunerated Positions",
-    "Shares":                                             "Shareholdings",
-    "Land (including property)":                          "Land & Property",
-    "Contracts":                                          "Contracts",
-    "Gifts":                                              "Gifts Received",
-    "Travel Facilities":                                  "Travel Facilities",
-    "Property supplied or lent or a Service supplied":    "Property or Services Supplied",
 }
 
 
@@ -104,7 +74,7 @@ def _load_interests(house: str) -> pd.DataFrame:
     Load silver CSV and normalise to v_member_interests contract column shape.
     TODO_PIPELINE_VIEW_REQUIRED: Replace with SELECT FROM v_member_interests_detail.
     """
-    csv_path = _CSV.get(house)
+    csv_path = SILVER_INTERESTS_CSV.get(house)
     if csv_path is None or not csv_path.exists():
         return pd.DataFrame()
     df = pd.read_csv(csv_path, low_memory=False)
@@ -142,7 +112,7 @@ def _fetch_filter_options(house: str) -> dict[str, list]:
     """Retrieval SQL: SELECT DISTINCT <col> FROM v_member_interests ORDER BY <col>."""
     base = _load_interests(house)
     if base.empty:
-        return {"years": [], "categories": [], "members": []}
+        return {"years": [], "members": []}
     con = duckdb.connect(":memory:")
     con.register("v_member_interests", base)
     years = (
@@ -155,14 +125,6 @@ def _fetch_filter_options(house: str) -> dict[str, list]:
         .astype(int)
         .tolist()
     )
-    categories = (
-        con.execute(
-            "SELECT DISTINCT interest_category FROM v_member_interests "
-            "WHERE interest_category IS NOT NULL ORDER BY interest_category"
-        )
-        .fetchdf()["interest_category"]
-        .tolist()
-    )
     members = (
         con.execute(
             "SELECT DISTINCT member_name FROM v_member_interests "
@@ -171,18 +133,15 @@ def _fetch_filter_options(house: str) -> dict[str, list]:
         .fetchdf()["member_name"]
         .tolist()
     )
-    return {"years": years, "categories": categories, "members": members}
+    return {"years": years, "members": members}
 
 
 @st.cache_data(ttl=300)
 def _fetch_interests(
     house: str,
     name_q: str,
-    text_q: str,
     years: tuple[int, ...],
-    categories: tuple[str, ...],
     landlord_only: bool,
-    property_only: bool,
 ) -> pd.DataFrame:
     """
     Retrieval SQL: SELECT <cols> FROM v_member_interests
@@ -198,22 +157,12 @@ def _fetch_interests(
     if name_q:
         where.append("member_name ILIKE ?")
         params.append(f"%{name_q}%")
-    if text_q:
-        where.append("interest_text ILIKE ?")
-        params.append(f"%{text_q}%")
     if years:
         ph = ", ".join("?" for _ in years)
         where.append(f"TRY_CAST(declaration_year AS INTEGER) IN ({ph})")
         params.extend(int(y) for y in years)
-    if categories:
-        ph = ", ".join("?" for _ in categories)
-        where.append(f"interest_category IN ({ph})")
-        params.extend(categories)
     if landlord_only:
         where.append("landlord_flag = ?")
-        params.append(True)
-    if property_only:
-        where.append("property_flag = ?")
         params.append(True)
     where_clause = "WHERE " + " AND ".join(where) if where else ""
     return con.execute(
@@ -262,9 +211,9 @@ def _load_ranking(house: str, year: int) -> pd.DataFrame:
     Read pre-aggregated member ranking from gold parquet.
     One row per member for the given house + year — no aggregation in Streamlit.
     """
-    if not _RANKING_PARQUET.exists():
+    if not GOLD_INTERESTS_RANKING_PARQUET.exists():
         return pd.DataFrame()
-    df = pd.read_parquet(_RANKING_PARQUET)
+    df = pd.read_parquet(GOLD_INTERESTS_RANKING_PARQUET)
     return df[(df["house"] == house) & (df["declaration_year"] == year)].copy()
 
 
@@ -280,14 +229,14 @@ def _int_member_card_html(row) -> str:
     landlord = bool(row.get("is_landlord", False))
     is_prop  = bool(row.get("is_property_owner", False))
 
-    meta  = " · ".join(p for p in [party, constit] if p and p.lower() not in ("nan", ""))
-    pills = f'<span class="int-stat-pill">{total} declarations</span>'
+    meta  = clean_meta(party, constit)
+    pills = f'<span class="int-stat-pill int-pill-decl">{total} declarations</span>'
     if d_count:
-        pills += f'<span class="int-stat-pill">🏢 {d_count} compan{"ies" if d_count != 1 else "y"}</span>'
+        pills += f'<span class="int-stat-pill int-pill-company">🏢 {d_count} compan{"ies" if d_count != 1 else "y"}</span>'
     if p_count:
-        pills += f'<span class="int-stat-pill">🏠 {p_count} propert{"ies" if p_count != 1 else "y"}</span>'
+        pills += f'<span class="int-stat-pill int-pill-prop">🏠 {p_count} propert{"ies" if p_count != 1 else "y"}</span>'
     if s_count:
-        pills += f'<span class="int-stat-pill">📈 {s_count} share{"s" if s_count != 1 else ""}</span>'
+        pills += f'<span class="int-stat-pill int-pill-shares">📈 {s_count} share{"s" if s_count != 1 else ""}</span>'
     if landlord:
         pills += '<span class="int-stat-pill int-stat-pill-accent">🔑 Landlord</span>'
     elif is_prop:
@@ -352,7 +301,7 @@ def _render_profile(house: str, td_name: str) -> None:
     info    = td_df.iloc[0]
     party   = str(info.get("party_name",   "") or "")
     constit = str(info.get("constituency", "") or "")
-    meta    = " · ".join(p for p in [party, constit] if p and p.lower() not in ("nan", ""))
+    meta    = clean_meta(party, constit)
 
     td_years = sorted(td_df["declaration_year"].dropna().astype(int).unique(), reverse=True)
 
@@ -369,23 +318,11 @@ def _render_profile(house: str, td_name: str) -> None:
     if is_property and not is_landlord:
         badges_html += '<span class="dt-badge">Property interest</span> '
 
-    st.markdown(
-        f'<p class="td-name">{td_name}</p>'
-        f'<p class="td-meta">{meta}</p>'
-        + (f'<p style="margin:0.3rem 0 0.6rem;">{badges_html}</p>' if badges_html else ""),
-        unsafe_allow_html=True,
-    )
+    member_profile_header(td_name, meta, badges_html)
 
     # ── Year pills (profile-scoped key) ───────────────────────────────────────
     year_opts = [str(y) for y in td_years]
-    selected_year_str: str | None = st.pills(
-        "Year",
-        options=year_opts,
-        default=year_opts[0],
-        key="int_profile_year",
-        label_visibility="collapsed",
-    )
-    selected_year = int(selected_year_str) if selected_year_str else int(year_opts[0])
+    selected_year = year_selector(year_opts, key="int_profile_year", skip_current=False)
 
     year_df  = td_df[td_df["declaration_year"] == selected_year].copy()
     prior_year = selected_year - 1
@@ -453,10 +390,10 @@ def _render_profile(house: str, td_name: str) -> None:
 
     # ── Category sections — non-empty only ────────────────────────────────────
     # Pre-compute descriptions per category once to avoid repeated calls inside the loop.
-    all_cats = list(_CATEGORY_ORDER)
+    all_cats = list(INTEREST_CATEGORY_ORDER)
     if not year_df.empty:
         for cat in year_df["interest_category"].dropna().unique():
-            if cat not in _CATEGORY_ORDER:
+            if cat not in INTEREST_CATEGORY_ORDER:
                 all_cats.append(cat)
 
     year_descs_by_cat:  dict[str, list[str]] = {
@@ -469,7 +406,7 @@ def _render_profile(house: str, td_name: str) -> None:
     }
 
     cats_with_data = [cat for cat in all_cats if year_descs_by_cat[cat]]
-    cats_empty     = [cat for cat in _CATEGORY_ORDER if not year_descs_by_cat.get(cat)]
+    cats_empty     = [cat for cat in INTEREST_CATEGORY_ORDER if not year_descs_by_cat.get(cat)]
 
     if not cats_with_data:
         empty_state(
@@ -481,7 +418,7 @@ def _render_profile(house: str, td_name: str) -> None:
             descs           = year_descs_by_cat[cat]
             prior_cat_set   = set(prior_descs_by_cat[cat])
             current_cat_set = set(descs)
-            label = _CATEGORY_LABELS.get(cat, cat)
+            label = INTEREST_CATEGORY_LABELS.get(cat, cat)
 
             st.markdown(
                 f'<p class="int-category-section">{label}&nbsp;&nbsp;·&nbsp;&nbsp;{len(descs)}</p>',
@@ -499,13 +436,13 @@ def _render_profile(house: str, td_name: str) -> None:
 
         # Categories that existed in prior year but have nothing in current year
         if show_diff and has_prior:
-            for cat in _CATEGORY_ORDER:
+            for cat in INTEREST_CATEGORY_ORDER:
                 if cat in cats_with_data:
                     continue
                 prior_descs = prior_descs_by_cat.get(cat, [])
                 if not prior_descs:
                     continue
-                label = _CATEGORY_LABELS.get(cat, cat)
+                label = INTEREST_CATEGORY_LABELS.get(cat, cat)
                 st.markdown(
                     f'<p class="int-category-section">{label}&nbsp;&nbsp;·&nbsp;&nbsp;'
                     f'0 <span style="font-weight:400;text-transform:none;font-size:0.75rem;">'
@@ -517,7 +454,7 @@ def _render_profile(house: str, td_name: str) -> None:
 
     # ── Empty categories — single collapsed summary ────────────────────────────
     if cats_empty:
-        empty_labels = [_CATEGORY_LABELS.get(c, c) for c in cats_empty]
+        empty_labels = [INTEREST_CATEGORY_LABELS.get(c, c) for c in cats_empty]
         with st.expander(
             f"Nothing declared · {len(cats_empty)} categories", expanded=False
         ):
@@ -562,22 +499,15 @@ def _render_provenance() -> None:
 # ── Page entry point ───────────────────────────────────────────────────────────
 
 def interests_page() -> None:
-    if "selected_td" not in st.session_state:
-        st.session_state["selected_td"] = None
-
     inject_css()
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
-        st.markdown('<p class="page-kicker">Dáil Tracker</p>', unsafe_allow_html=True)
-        st.markdown(
-            '<p class="page-title">Register of<br>Members&rsquo; Interests</p>',
-            unsafe_allow_html=True,
-        )
+        sidebar_page_header("Register of<br>Members&rsquo; Interests")
 
-        house: str = st.radio(
-            "Chamber", ["Dáil", "Seanad"], horizontal=True, key="interests_house"
-        )
+        house: str = st.segmented_control(
+            "Chamber", ["Dáil", "Seanad"], default="Dáil", key="interests_house",
+        ) or "Dáil"
 
         # Clear year pill and member selection on chamber switch
         if st.session_state.get("_interests_last_house") != house:
@@ -599,12 +529,12 @@ def interests_page() -> None:
             st.rerun()
 
         st.divider()
-        notable = _NOTABLE_DAIL if house == "Dáil" else _NOTABLE_SEANAD
+        notable = NOTABLE_TDS if house == "Dáil" else NOTABLE_SENATORS
         if notable and render_notable_chips(notable, opts["members"], "chip_int", "selected_td"):
             st.rerun()
 
     # ── Guard ─────────────────────────────────────────────────────────────────
-    csv_path = _CSV.get(house)
+    csv_path = SILVER_INTERESTS_CSV.get(house)
     if csv_path is None or not csv_path.exists():
         empty_state(
             "Register data not available",
@@ -628,19 +558,15 @@ def interests_page() -> None:
         )
         return
 
-    # ── Page header ───────────────────────────────────────────────────────────
-    st.markdown(
-        '<p class="dt-kicker">Dáil Tracker &middot; Register of Interests</p>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<h1 style="margin:0.1rem 0 0.6rem;font-size:1.65rem;font-weight:700;">'
-        "What has your TD declared?</h1>",
-        unsafe_allow_html=True,
-    )
-
-    # ── Profile mode ──────────────────────────────────────────────────────────
     selected_td = st.session_state.get("selected_td")
+
+    # ── Page header ───────────────────────────────────────────────────────────
+    if not selected_td:
+        hero_banner(
+            kicker="REGISTER OF MEMBERS' INTERESTS",
+            title="What has your TD declared?",
+            dek="Official declarations of interests, directorships, property and shareholdings filed by Dáil and Seanad members.",
+        )
 
     if selected_td:
         if st.button("← Back to register", key="int_back"):
@@ -662,14 +588,7 @@ def interests_page() -> None:
         _render_provenance()
         return
 
-    selected_year_str: str | None = st.pills(
-        "Year",
-        options=year_opts,
-        default=year_opts[0],
-        key="int_year",
-        label_visibility="collapsed",
-    )
-    selected_year = int(selected_year_str) if selected_year_str else int(year_opts[0])
+    selected_year = year_selector(year_opts, key="int_year")
 
     # Inline command bar: name filter | flags
     cb1, cb2 = st.columns([5, 2])
@@ -687,7 +606,7 @@ def interests_page() -> None:
     ranking_df = _load_ranking(house, selected_year)
 
     if ranking_df.empty:
-        if not _RANKING_PARQUET.exists():
+        if not GOLD_INTERESTS_RANKING_PARQUET.exists():
             todo_callout(
                 "interests_member_ranking.parquet not found. "
                 "Run: python generate_interests_ranking.py"
@@ -754,11 +673,8 @@ def interests_page() -> None:
     result_df = _fetch_interests(
         house=house,
         name_q=name_q.strip(),
-        text_q="",
         years=(selected_year,),
-        categories=(),
         landlord_only=landlord_only,
-        property_only=False,
     )
     if not result_df.empty:
         today = datetime.date.today().isoformat()
@@ -787,6 +703,3 @@ def interests_page() -> None:
     _render_provenance()
 
 
-if __name__ == "__main__":
-    st.set_page_config(page_title="Interests · Dáil Tracker", layout="wide")
-    interests_page()

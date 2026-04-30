@@ -22,6 +22,7 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
+
 _SQL_VIEWS = Path(__file__).resolve().parents[2] / "sql_views"
 
 
@@ -338,29 +339,6 @@ def fetch_politicians_for_area(area: str) -> pd.DataFrame:
         " ORDER BY returns_targeting DESC LIMIT 20",
         [area],
     )
-
-
-# ── Sitting days reference ─────────────────────────────────────────────────────
-
-_SITTING_DAYS_FALLBACK: dict[int, int] = {
-    2020: 82,
-    2021: 94,
-    2022: 106,
-    2023: 100,
-    2024: 83,
-    2025: 82,
-}
-
-
-@st.cache_data(ttl=3600)
-def fetch_sitting_days(year: int) -> int:
-    """Official plenary sitting-day count for a given year.
-
-    Attempts to read from v_sitting_days_by_year (registered in the attendance
-    connection, not the lobbying connection). Falls back to the hardcoded dict
-    sourced from Houses of the Oireachtas Commission annual reports.
-    """
-    return _SITTING_DAYS_FALLBACK.get(year, 0)
 
 
 # ── Clients ────────────────────────────────────────────────────────────────────
