@@ -21,7 +21,7 @@ import pandas as pd
 import polars as pl
 import streamlit as st
 
-from config import SILVER_PARQUET_DIR
+from config import GOLD_PARQUET_DIR
 
 _SQL_VIEWS = Path(__file__).resolve().parents[2] / "sql_views"
 
@@ -137,17 +137,25 @@ def fetch_member_alltime_total(member_name: str) -> float:
 
 
 @st.cache_data(ttl=3600)
+def fetch_alltime_ranking() -> pd.DataFrame:
+    """Current 34th Dáil TDs ranked by total PSA received since 2020, deduplicated."""
+    path = GOLD_PARQUET_DIR / "current_td_payment_rankings.parquet"
+    if not path.exists():
+        return pd.DataFrame()
+    df = pl.read_parquet(path).to_pandas()
+    if "total_amount_paid_since_2020" not in df.columns:
+        return pd.DataFrame()
+    return df
+
+
+@st.cache_data(ttl=3600)
 def fetch_since_2020_summary() -> dict[str, float | int]:
-    """
-    Dataset-level summary stats from the pipeline silver parquet.
-    Independent of DuckDB views — reads the pipeline output directly.
-    Source: data/silver/parquet/top_tds_by_payment_since_2020.parquet
-    """
-    path = SILVER_PARQUET_DIR / "top_tds_by_payment_since_2020.parquet"
+    """Summary stats from the current TD payment rankings (34th Dáil only)."""
+    path = GOLD_PARQUET_DIR / "current_td_payment_rankings.parquet"
     if not path.exists():
         return {"total": 0.0, "members": 0, "avg_per_td": 0.0}
     df = pl.read_parquet(path)
-    total   = float(df["Amount"].sum())
+    total   = float(df["total_amount_paid_since_2020"].sum())
     members = int(df["join_key"].n_unique())
     avg     = total / members if members else 0.0
     return {"total": total, "members": members, "avg_per_td": avg}

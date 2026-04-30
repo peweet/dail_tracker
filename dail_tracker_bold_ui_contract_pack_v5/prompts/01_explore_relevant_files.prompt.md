@@ -7,7 +7,7 @@ Read only:
 2. `page_runbooks/<PAGE_ID>.md`
 3. `utility/page_contracts/<PAGE_ID>.yaml`
 4. matching page file in `utility/pages_code/`
-5. `utility/styles/base.css`
+5. `utility/shared_css.py`              ← primary CSS file (base.css is legacy — do not add to it)
 6. relevant `utility/ui/` helpers
 
 Do not scan generated data folders.

@@ -7,7 +7,6 @@ import polars as pl
 from config import PAYMENTS_PDF_DIR, SILVER_DIR, GOLD_DIR
 from normalise_join_key import normalise_df_td_name
 
-
 def process_payment_pdfs():
     """
     This module processes the scanned PDFs of TD payments data, extracts the relevant information, and creates structured

@@ -2,7 +2,7 @@ import polars as pl
 import normalise_join_key
 from utility.select_drop_rename_cols_mappings import enrichment_cols_to_select, committees_cols_to_select, members_rename
 import logging
-from config import SILVER_DIR, GOLD_DIR, GOLD_CSV_DIR
+from config import SILVER_DIR, GOLD_DIR, GOLD_CSV_DIR, GOLD_PARQUET_DIR
 
 
 #This module enriches the extracted datasets by joining them together and creating new features that can be used for analysis. It takes the cleaned and normalized datasets from the previous steps (e.g. attendance records, member metadata, committee assignments) and performs joins to create enriched datasets that combine information from multiple sources. The enriched datasets are then saved to CSV files for further analysis. This module also includes logging to track the progress of the enrichment process and any issues that may arise during the joining and feature creation steps. The resulting enriched datasets will provide a more comprehensive view of the TDs' activities and characteristics, allowing for deeper analysis of patterns and correlations across different dimensions of their work in the Dáil.
@@ -137,6 +137,40 @@ logging.info("Enriched TD votes Parquet created (check pipeline)")
 # print("writing enriched votes and legislation CSV...")
 # current_dail_vote_history_df.write_csv(DATA_DIR_PLACEHOLDER / "gold" / "current_dail_vote_history.csv")
 # logging.info("Enriched TD votes and legislationCSV created successfully.")
+
+# ── Current TD payment rankings — 34th Dáil TDs only ──────────────────────────
+_pay_src = GOLD_DIR / "top_tds_by_payment_since_2020.csv"
+if _pay_src.exists():
+    _pay_raw = pl.read_csv(
+        _pay_src,
+        schema_overrides={"total_amount_paid_since_2020": pl.Float64},
+        ignore_errors=True,
+    )
+    _pay_dedup = (
+        _pay_raw
+        .filter(pl.col("total_amount_paid_since_2020").is_not_null())
+        .sort("total_amount_paid_since_2020", descending=True)
+        .unique(subset=["join_key"], keep="first")
+        .with_columns(
+            pl.col("Full_Name")
+              .str.strip_chars()
+              .str.replace(r"^([^,]+),\s*(.+)$", "$2 $1")
+              .alias("member_name")
+        )
+    )
+    _current_rankings = (
+        _pay_dedup
+        .join(master_td_list.select(["join_key"]), on="join_key", how="inner")
+        .select(["member_name", "join_key", "total_amount_paid_since_2020"])
+        .sort("total_amount_paid_since_2020", descending=True)
+        .with_row_index(name="rank", offset=1)
+    )
+    _current_rankings.write_csv(GOLD_CSV_DIR / "current_td_payment_rankings.csv")
+    _current_rankings.write_parquet(GOLD_PARQUET_DIR / "current_td_payment_rankings.parquet")
+    print(f"Current TD payment rankings written: {len(_current_rankings)} TDs (34th Dáil only)")
+else:
+    print("WARN: top_tds_by_payment_since_2020.csv not found — skipping current TD payment rankings")
+
 
 if __name__ == "__main__":
     print("Enriched TD datasets created successfully and saved to enriched_td_attendance.csv.")

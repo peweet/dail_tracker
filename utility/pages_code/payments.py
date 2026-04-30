@@ -25,6 +25,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data_access.payments_data import (
+    fetch_alltime_ranking,
     fetch_filter_options,
     fetch_member_all_years,
     fetch_member_payments,
@@ -107,6 +108,69 @@ def _render_provenance(summary: pd.Series, year: int | None = None) -> None:
     )
 
 
+# ── Card row helper ────────────────────────────────────────────────────────────
+
+def _card_row(row: pd.Series, key: str) -> bool:
+    c1, c2 = st.columns([14, 1])
+    c1.markdown(_pay_card_html(row), unsafe_allow_html=True)
+    c2.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
+    return c2.button("→", key=key)
+
+
+# ── Rankings view (all-time since 2020) ───────────────────────────────────────
+
+def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
+    total   = since_2020["total"]
+    members = since_2020["members"]
+    avg     = since_2020["avg_per_td"]
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total since 2020",      f"€{total:,.0f}")
+    c2.metric("TDs with payments",     members)
+    c3.metric("Avg per TD since 2020", f"€{avg:,.0f}")
+
+    alltime = fetch_alltime_ranking()
+    if alltime.empty:
+        empty_state(
+            "All-time rankings not yet available",
+            "top_tds_by_payment_since_2020.parquet not found — run the pipeline to generate it.",
+        )
+        _render_provenance(summary)
+        return
+
+    st.caption(f"All-time rankings · since 2020 · {len(alltime)} members")
+
+    name_col = "member_name" if "member_name" in alltime.columns else None
+    amt_col  = "total_amount_paid_since_2020"
+
+    top_10  = alltime.head(10)
+    next_10 = alltime.iloc[10:20]
+
+    col_l, col_r = st.columns(2)
+    for col, chunk, offset in ((col_l, top_10, 0), (col_r, next_10, 10)):
+        with col:
+            for i, (_, row) in enumerate(chunk.iterrows()):
+                rank     = offset + i + 1
+                name     = str(row.get(name_col, "—")) if name_col else "—"
+                amt      = float(row.get(amt_col, 0) or 0)
+                rank_cls = "dt-name-card-rank-top" if rank <= 3 else "dt-name-card-rank"
+                card_html = (
+                    f'<div class="dt-name-card">'
+                    f'<div class="dt-name-card-left"><span class="{rank_cls}">#{rank}</span></div>'
+                    f'<div class="dt-name-card-body">'
+                    f'<div class="dt-name-card-name">{name}</div>'
+                    f'</div>'
+                    f'<div class="dt-name-card-badge dt-name-card-badge-metric">'
+                    f'<span class="dt-name-card-badge-num">€{amt:,.0f}</span>'
+                    f'<span class="dt-name-card-badge-lbl">total</span>'
+                    f'</div>'
+                    f'</div>'
+                )
+                st.markdown(card_html, unsafe_allow_html=True)
+
+    _render_provenance(summary)
+
+
 # ── Stage 1 — Primary ranked view ─────────────────────────────────────────────
 
 def _render_primary(year_options: list[str], summary: pd.Series) -> None:
@@ -116,18 +180,29 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
         dek="Parliamentary Standard Allowance (PSA) — the official record of payments to Dáil members.",
     )
 
-    selected_year = year_selector(year_options, key="pay_year")
+    all_views     = ["Rankings"] + year_options
+    selected_view = st.segmented_control(
+        "View", all_views,
+        default=year_options[0],
+        key="pay_view",
+        label_visibility="collapsed",
+    ) or year_options[0]
 
-    ranking    = fetch_year_ranking(selected_year)
     since_2020 = fetch_since_2020_summary()
-    total_yr   = float(ranking["total_paid"].sum()) if not ranking.empty else 0.0
-    yr_count   = len(ranking)
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total since 2020",      f"€{since_2020['total']:,.0f}")
-    c2.metric("TDs with payments",     since_2020["members"])
-    c3.metric("Avg per TD since 2020", f"€{since_2020['avg_per_td']:,.0f}")
-    c4.metric(f"Total — {selected_year}", f"€{total_yr:,.0f}")
+    if selected_view == "Rankings":
+        _render_rankings(since_2020, summary)
+        return
+
+    selected_year = int(selected_view)
+    ranking  = fetch_year_ranking(selected_year)
+    total_yr = float(ranking["total_paid"].sum()) if not ranking.empty else 0.0
+    yr_count = len(ranking)
+    avg_yr   = total_yr / yr_count if yr_count else 0.0
+
+    c1, c2 = st.columns(2)
+    c1.metric(f"Total — {selected_year}",      f"€{total_yr:,.0f}")
+    c2.metric(f"Avg per TD — {selected_year}", f"€{avg_yr:,.0f}")
 
     if ranking.empty:
         empty_state(
@@ -139,13 +214,21 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
 
     st.caption(f"Ranked by total PSA received · {selected_year} · {yr_count} members")
 
-    for i, (_, row) in enumerate(ranking.iterrows()):
-        c1, c2 = st.columns([14, 1])
-        c1.markdown(_pay_card_html(row), unsafe_allow_html=True)
-        c2.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
-        if c2.button("→", key=f"pay_row_{i}"):
-            st.session_state["selected_td_pay"] = str(row["member_name"])
-            st.rerun()
+    top_10  = ranking.head(10)
+    next_10 = ranking.iloc[10:20]
+
+    col_l, col_r = st.columns(2)
+    with col_l:
+        for i, (_, row) in enumerate(top_10.iterrows()):
+            if _card_row(row, key=f"pay_row_{i}"):
+                st.session_state["selected_td_pay"] = str(row["member_name"])
+                st.rerun()
+
+    with col_r:
+        for i, (_, row) in enumerate(next_10.iterrows()):
+            if _card_row(row, key=f"pay_row_{10 + i}"):
+                st.session_state["selected_td_pay"] = str(row["member_name"])
+                st.rerun()
 
     export_df = ranking[
         ["rank_high", "member_name", "position", "taa_band_label", "total_paid", "payment_count"]

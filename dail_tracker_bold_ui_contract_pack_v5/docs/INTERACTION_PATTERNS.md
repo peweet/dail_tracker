@@ -71,7 +71,7 @@ st.divider()
 st.markdown("**Notable members**")
 chip_cols = st.columns(2)
 for i, name in enumerate(_NOTABLE_TDS):
-    if chip_cols[i % 2].button(name, key=f"chip_<page>_{name}", use_container_width=True):
+    if chip_cols[i % 2].button(name, key=f"chip_<page>_{name}", width="stretch"):
         st.session_state["<key>"] = name
         st.rerun()
 ```
@@ -144,8 +144,12 @@ Rules:
 
 ## Data provenance footer
 
-Every page must expose its data source and freshness. Use a single collapsed expander at the
+Most pages must expose their data source and freshness. Use a single collapsed expander at the
 **bottom** of the page — not between the hero and the content.
+
+**Exception:** Pages that merge many disparate sources (e.g. a cross-domain member profile)
+may omit the footer where a combined provenance section would be too complex or misleading.
+Check the page contract's `source_links` section — if it explicitly omits the footer, do not add one.
 
 ```python
 def _render_provenance(summary: pd.Series, year: int | None = None) -> None:
@@ -261,7 +265,7 @@ year pills (newest first)
 name search → ranked card list for matching member(s)
 ────────────────────────────
 export button
-about & provenance expander (collapsed)
+about & provenance expander (collapsed, if contract requires it)
 ```
 
 **Medal convention:**
@@ -273,10 +277,10 @@ _BAD_MEDALS  = ["💀", "👻", "😴"]   # lowest performers
 **Rendering — single HTML block per side:**
 ```python
 html = "".join(_hall_card(row, medal, "good") for row, medal in zip(top_rows, _GOOD_MEDALS))
-st.markdown(html, unsafe_allow_html=True)
+st.html(html)   # st.html — never st.markdown(..., unsafe_allow_html=True)
 ```
 
-Never call `st.markdown` once per card — Streamlit's inter-element padding breaks the visual grouping.
+Never call `st.html` once per card — Streamlit's inter-element padding breaks the visual grouping.
 
 **Tie-breaking sort** (prevents the same person appearing on both sides when many members share the same count):
 ```python
@@ -342,8 +346,8 @@ Amount badges and secondary stats go **inside the card HTML**, not in a separate
 ```python
 for i, (_, row) in enumerate(df.iterrows()):
     c1, c2 = st.columns([5, 1])
-    c1.markdown(card_html(row), unsafe_allow_html=True)
-    c2.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
+    c1.html(card_html(row))
+    c2.html('<div class="dt-nav-anchor"></div>')
     if c2.button("→", key=f"row_{i}"):
         st.session_state["selected_td"] = str(row["member_name"])
         st.rerun()

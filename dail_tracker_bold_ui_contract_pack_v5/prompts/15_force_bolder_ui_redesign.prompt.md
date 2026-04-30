@@ -12,7 +12,7 @@ Required:
 4. improve table configuration
 5. add or improve detail/focus section
 6. connect CSV export visually to the table
-7. add better empty/provenance/source areas
+7. add better empty states and source areas (provenance footer only if contract requires it)
 8. add shared CSS classes if needed
 
 Still forbidden:
