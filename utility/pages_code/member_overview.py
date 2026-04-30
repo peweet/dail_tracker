@@ -197,100 +197,28 @@ def _legislation(_conn, member_name: str) -> pd.DataFrame:
     )
 
 
-# ── Domain tab renderers ───────────────────────────────────────────────────────
+# ── Profile section renderers ──────────────────────────────────────────────────
 
-def _tab_attendance(conn, join_key: str) -> None:
-    df = _att_all_years(conn, join_key)
-    if df.empty:
-        empty_state(
-            "No attendance records",
-            "No rows in v_attendance_member_year_summary for this member.",
-        )
-        return
+def _section_votes(conn, join_key: str) -> None:
+    st.html('<p class="section-heading">Voting record by issue</p>')
 
-    # Bold headline: most recent year
-    row0      = df.iloc[0]
-    latest_yr = int(row0["year"])
-    attended  = int(row0["attended_count"])
-    is_min    = str(row0.get("is_minister", "false")).lower() == "true"
-
-    st.html(
-        f'<p style="font-family:\'Epilogue\',sans-serif;font-size:1.05rem;'
-        f'font-weight:400;color:var(--text-secondary);margin:0 0 1rem;">'
-        f'Recorded <span style="font-family:\'Zilla Slab\',Georgia,serif;'
-        f'font-size:1.75rem;font-weight:700;color:var(--text-primary);">'
-        f'{attended}</span> sitting days in {latest_yr}.'
-        + (" Ministerial duties are not captured in plenary attendance records." if is_min else "")
-        + "</p>"
-    )
-
-    if is_min:
-        st.info(
-            "This member held ministerial office. Plenary PDFs do not record ministerial "
-            "attendance — figures show Dáil chamber presence only.",
-            icon=":material/info:",
-        )
-
-    display = df.copy()
-    display["year"] = display["year"].astype(str)
-    display["is_minister"] = display["is_minister"].apply(
-        lambda v: "Yes" if str(v).lower() == "true" else ""
-    )
-    st.dataframe(
-        display.rename(columns={
-            "year":          "Year",
-            "attended_count":"Days Recorded",
-            "is_minister":   "Minister",
-        }),
-        use_container_width=True,
-        hide_index=True,
-    )
-    st.caption(
-        "Plenary sittings only — does not include committee hearings, ministerial duties, "
-        "illness, or other legitimate absences."
-    )
-    st.download_button(
-        label="Export attendance (CSV)",
-        data=display.to_csv(index=False).encode("utf-8"),
-        file_name=f"attendance_{join_key}.csv",
-        mime="text/csv",
-        key="mo_att_export",
-        width="stretch",
-    )
-
-
-def _tab_votes(conn, join_key: str) -> None:
     summary = _votes_summary(conn, join_key)
-
     if not summary.empty:
         r         = summary.iloc[0]
-        yes       = int(r.get("yes_count",       0) or 0)
-        no        = int(r.get("no_count",        0) or 0)
-        ab        = int(r.get("abstained_count", 0) or 0)
-        div       = int(r.get("division_count",  0) or 0)
-        rate_pct  = float(r.get("yes_rate_pct",  0) or 0)
+        yes       = int(r.get("yes_count",      0) or 0)
+        no        = int(r.get("no_count",       0) or 0)
+        ab        = int(r.get("abstained_count",0) or 0)
+        div       = int(r.get("division_count", 0) or 0)
+        rate_pct  = float(r.get("yes_rate_pct", 0) or 0)
         cast      = yes + no + ab
         voted_pct = round(100.0 * cast / div, 1) if div else 0.0
-
         st.html(
-            f'<p style="font-family:\'Epilogue\',sans-serif;font-size:1.05rem;'
-            f'color:var(--text-secondary);margin:0 0 0.5rem;">'
-            f'Voted in <strong>{voted_pct}%</strong> of divisions recorded. '
-            f'<strong>{rate_pct}%</strong> of votes cast were Aye.</p>'
+            f'<p style="font-family:\'Epilogue\',sans-serif;font-size:0.95rem;'
+            f'color:var(--text-secondary);margin:0 0 0.75rem;">'
+            f'Voted in <strong>{voted_pct}%</strong> of divisions — '
+            f'<strong>{rate_pct}%</strong> Aye&nbsp;·&nbsp;'
+            f'<strong>{round(100-rate_pct,1)}%</strong> Níl when cast.</p>'
         )
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Aye",       yes)
-        c2.metric("Níl",       no)
-        c3.metric("Abstained", ab)
-    else:
-        empty_state(
-            "No aggregate vote data",
-            "No row in td_vote_summary for this member.",
-        )
-
-    st.divider()
-
-    st.html('<p class="section-heading">Voting record by policy area</p>')
 
     selected_area = st.pills(
         "Policy area",
@@ -328,9 +256,9 @@ def _tab_votes(conn, join_key: str) -> None:
                 vote_colour, vote_bg = "#6b7280", "#f3f4f6"
 
             url_html = (
-                f' <a href="{_h(url)}" target="_blank" '
-                f'style="font-size:0.78rem;color:var(--accent);text-decoration:none;">'
-                f'Oireachtas →</a>'
+                f'<a href="{_h(url)}" target="_blank" '
+                f'style="font-size:0.78rem;color:var(--accent);text-decoration:none;'
+                f'margin-left:auto;flex-shrink:0;">Oireachtas →</a>'
                 if url and url not in ("nan", "None", "")
                 else ""
             )
@@ -352,94 +280,8 @@ def _tab_votes(conn, join_key: str) -> None:
             )
 
 
-def _tab_payments(conn, join_key: str) -> None:
-    grand_total = _pay_grand_total(conn, join_key)
-    df          = _pay_overview(conn, join_key)
-
-    if df.empty:
-        empty_state(
-            "No payment records",
-            "No rows in v_payments_yearly_evolution for this member's join_key.",
-        )
-        return
-
-    st.html(
-        f'<p style="font-family:\'Epilogue\',sans-serif;font-size:1.05rem;'
-        f'color:var(--text-secondary);margin:0 0 1rem;">'
-        f'<span style="font-family:\'Zilla Slab\',Georgia,serif;'
-        f'font-size:1.75rem;font-weight:700;color:var(--text-primary);">'
-        f'€{grand_total:,.0f}</span> received in parliamentary allowances across all recorded years.</p>'
-    )
-
-    display = df.copy()
-    display["payment_year"] = display["payment_year"].astype(str)
-    if "total_paid" in display.columns:
-        display["total_paid"] = display["total_paid"].round(2)
-
-    st.dataframe(
-        display.rename(columns={
-            "payment_year":   "Year",
-            "total_paid":     "Total (€)",
-            "taa_band_label": "TAA Band",
-            "payment_count":  "Payments",
-        }),
-        column_config={
-            "Total (€)": st.column_config.NumberColumn(format="€{:,.0f}"),
-        },
-        use_container_width=True,
-        hide_index=True,
-    )
-    st.caption(
-        "Parliamentary Standard Allowance (PSA) payments from the Houses of the Oireachtas. "
-        "TAA band reflects distance from Leinster House."
-    )
-    st.download_button(
-        label="Export payments (CSV)",
-        data=display.to_csv(index=False).encode("utf-8"),
-        file_name=f"payments_{join_key}.csv",
-        mime="text/csv",
-        key="mo_pay_export",
-        width="stretch",
-    )
-
-
-def _tab_lobbying(conn, join_key: str, member_name: str) -> None:
-    rd_df = _lobbying_rd(conn, member_name)
-
-    if not rd_df.empty:
-        row   = rd_df.iloc[0]
-        rc    = int(row.get("return_count",   0) or 0)
-        firms = int(row.get("distinct_firms", 0) or 0)
-        pos   = str(row.get("former_position", "")).strip()
-        pos_line = f"Former position: <strong>{_h(pos)}</strong>. " if pos else ""
-
-        st.badge("Revolving door", icon=":material/warning:", color="orange")
-        st.html(
-            f'<div class="lob-revolving-callout">'
-            f'<div class="lob-revolving-heading">Revolving door flag</div>'
-            f'<p style="margin:0;font-size:0.88rem;color:var(--text-secondary);">'
-            f'{pos_line}'
-            f'Appears on <strong>{rc}</strong> lobbying return{"s" if rc != 1 else ""} '
-            f'across <strong>{firms}</strong> distinct firm{"s" if firms != 1 else ""}. '
-            f'Matched by display name — approximate.</p>'
-            f'</div>'
-        )
-    else:
-        st.html(
-            '<div class="dt-callout">No revolving door flag found for this member '
-            '(name-based lookup — approximate).</div>'
-        )
-
-    st.html(
-        '<div class="leg-todo-callout" style="margin-top:1rem;">'
-        '<span class="leg-todo-label">TODO PIPELINE VIEW REQUIRED</span>'
-        ' Per-member lobbying contact table requires a view with'
-        ' <code>unique_member_code</code> filter.'
-        '</div>'
-    )
-
-
-def _tab_legislation(conn, member_name: str) -> None:
+def _section_legislation(conn, member_name: str) -> None:
+    st.html('<p class="section-heading">Legislation sponsored</p>')
     st.html(
         '<div class="leg-todo-callout">'
         '<span class="leg-todo-label">TODO PIPELINE VIEW REQUIRED</span>'
@@ -456,11 +298,7 @@ def _tab_legislation(conn, member_name: str) -> None:
         return
 
     n = len(df)
-    st.html(
-        f'<p style="font-family:\'Epilogue\',sans-serif;font-size:1.0rem;'
-        f'color:var(--text-secondary);margin:0 0 0.85rem;">'
-        f'<strong>{n}</strong> bill{"s" if n != 1 else ""} matched by name.</p>'
-    )
+    st.caption(f"{n} bill{'s' if n != 1 else ''} matched by name")
 
     for _, row in df.iterrows():
         title  = str(row.get("bill_title",  "—"))
@@ -502,13 +340,93 @@ def _tab_legislation(conn, member_name: str) -> None:
     )
 
 
-def _party_pill_options(df: pd.DataFrame) -> list[str]:
+def _section_debates() -> None:
+    st.html('<p class="section-heading">Debate contributions</p>')
+    st.html(
+        '<div class="leg-todo-callout">'
+        '<span class="leg-todo-label">TODO PIPELINE VIEW REQUIRED</span>'
+        ' <code>v_member_debate_speeches</code> — what a TD said in each debate.'
+        ' The existing <code>v_legislation_debates</code> links debates to bills but'
+        ' does not record speakers or utterances. Required columns:'
+        ' <b>unique_member_code</b>, <b>debate_date</b>, <b>debate_title</b>,'
+        ' <b>snippet</b>, <b>oireachtas_url</b>.'
+        '</div>'
+    )
+
+
+def _section_committees() -> None:
+    st.html('<p class="section-heading">Committees</p>')
+    st.html(
+        '<div class="leg-todo-callout">'
+        '<span class="leg-todo-label">TODO PIPELINE VIEW REQUIRED</span>'
+        ' Per-member committee membership is pending the committees-page refactor.'
+        ' Required view: <code>v_committee_membership</code> with columns'
+        ' <b>unique_member_code</b>, <b>committee_name</b>, <b>role</b> (Chair / Member),'
+        ' <b>start_date</b>, <b>end_date</b>.'
+        '</div>'
+    )
+
+
+def _section_lobbying(conn, member_name: str) -> None:
+    st.html('<p class="section-heading">Lobbying &amp; revolving door</p>')
+    rd_df = _lobbying_rd(conn, member_name)
+
+    if not rd_df.empty:
+        row      = rd_df.iloc[0]
+        rc       = int(row.get("return_count",   0) or 0)
+        firms    = int(row.get("distinct_firms", 0) or 0)
+        pos      = str(row.get("former_position", "")).strip()
+        pos_line = f"Former position: <strong>{_h(pos)}</strong>. " if pos else ""
+
+        st.badge("Revolving door", icon=":material/warning:", color="orange")
+        st.html(
+            f'<div class="lob-revolving-callout">'
+            f'<div class="lob-revolving-heading">Revolving door flag</div>'
+            f'<p style="margin:0;font-size:0.88rem;color:var(--text-secondary);">'
+            f'{pos_line}'
+            f'Appears on <strong>{rc}</strong> lobbying return{"s" if rc != 1 else ""} '
+            f'across <strong>{firms}</strong> distinct firm{"s" if firms != 1 else ""}. '
+            f'Matched by display name — approximate.</p>'
+            f'</div>'
+        )
+    else:
+        st.html(
+            '<div class="dt-callout">No revolving door flag found for this member '
+            '(name-based lookup — approximate).</div>'
+        )
+
+    st.html(
+        '<div class="leg-todo-callout" style="margin-top:0.75rem;">'
+        '<span class="leg-todo-label">TODO PIPELINE VIEW REQUIRED</span>'
+        ' Per-member lobbying contact table requires'
+        ' <code>unique_member_code</code> on the lobbying contact view.'
+        '</div>'
+    )
+
+
+_OTHER_PILL = "Other / Independent"
+_OTHER_MIN  = 3  # parties with fewer TDs are grouped into Other
+
+
+def _named_parties(df: pd.DataFrame) -> list[str]:
+    """Parties with >= _OTHER_MIN members, sorted by size desc then name."""
     if df.empty or "party_name" not in df.columns:
         return []
-    parties = df["party_name"].dropna().astype(str).unique().tolist()
-    parties = [p for p in parties if p and p.lower() != "nan"]
     counts  = df["party_name"].value_counts()
-    return sorted(parties, key=lambda p: (-int(counts.get(p, 0)), p))
+    parties = df["party_name"].dropna().astype(str).unique().tolist()
+    parties = [p for p in parties if p and p.lower() not in ("nan", "")]
+    named   = [p for p in parties if int(counts.get(p, 0)) >= _OTHER_MIN]
+    return sorted(named, key=lambda p: (-int(counts.get(p, 0)), p))
+
+
+def _party_pill_options(df: pd.DataFrame) -> list[str]:
+    named = _named_parties(df)
+    if not named:
+        return []
+    counts     = df["party_name"].value_counts()
+    in_named   = sum(int(counts.get(p, 0)) for p in named)
+    has_other  = (len(df) - in_named) > 0
+    return named + ([_OTHER_PILL] if has_other else [])
 
 
 def _render_browse(conn) -> None:
@@ -548,7 +466,13 @@ def _render_browse(conn) -> None:
 
     sq = (search or "").strip().lower()
     filtered = df.copy()
-    if selected_party and selected_party != "All parties":
+    if selected_party == _OTHER_PILL:
+        named_set = set(_named_parties(df))
+        filtered  = filtered[
+            filtered["party_name"].isna()
+            | ~filtered["party_name"].isin(named_set)
+        ]
+    elif selected_party and selected_party != "All parties":
         filtered = filtered[filtered["party_name"] == selected_party]
     if sq:
         mask = (
@@ -599,7 +523,7 @@ def _render_browse(conn) -> None:
             st.rerun()
 
 
-# ── Stage 2 — Profile ──────────────────────────────────────────────────────────
+# ── Profile ─────────────────────────────────────────────────────────────────────
 
 def _render_stage2(conn, join_key: str) -> None:
 
@@ -649,33 +573,73 @@ def _render_stage2(conn, join_key: str) -> None:
         f'</div>'
     )
 
-    # Quick stats
+    # ── Headline stats — single source of truth, no duplication ──────────────
     att_df    = _att_all_years(conn, join_key)
-    att_stat  = f"{int(att_df.iloc[0]['attended_count'])} days ({int(att_df.iloc[0]['year'])})" if not att_df.empty else "—"
     pay_total = _pay_grand_total(conn, join_key)
-    pay_stat  = f"€{pay_total:,.0f}" if pay_total else "—"
     vote_df   = _votes_summary(conn, join_key)
-    vote_stat = str(int(vote_df.iloc[0]["division_count"])) if not vote_df.empty else "—"
+
+    if not att_df.empty:
+        att_yr   = int(att_df.iloc[0]["year"])
+        att_days = int(att_df.iloc[0]["attended_count"])
+        is_min   = str(att_df.iloc[0].get("is_minister", "false")).lower() == "true"
+        att_lbl  = f"Days in chamber ({att_yr})"
+        att_val  = str(att_days)
+        att_help = "Ministerial duties not captured in plenary records." if is_min else None
+    else:
+        att_lbl, att_val, att_help = "Days in chamber", "—", None
+
+    if not vote_df.empty:
+        vr        = vote_df.iloc[0]
+        votes_cast = (
+            int(vr.get("yes_count",       0) or 0)
+            + int(vr.get("no_count",      0) or 0)
+            + int(vr.get("abstained_count",0) or 0)
+        )
+        cast_val = f"{votes_cast:,}"
+    else:
+        cast_val = "—"
+
+    pay_val = f"€{pay_total:,.0f}" if pay_total else "—"
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Attendance (latest)", att_stat)
-    c2.metric("Payments (total)",    pay_stat)
-    c3.metric("Divisions Voted",     vote_stat)
+    c1.metric(att_lbl, att_val, help=att_help)
+    c2.metric("Votes cast (total)", cast_val)
+    c3.metric("Payments received", pay_val)
 
     st.divider()
 
-    tabs = st.tabs([
-        ":material/calendar_today: Attendance",
-        ":material/how_to_vote: Votes",
-        ":material/payments: Payments",
-        ":material/groups: Lobbying",
-        ":material/gavel: Legislation",
-    ])
-    with tabs[0]: _tab_attendance(conn, join_key)
-    with tabs[1]: _tab_votes(conn, join_key)
-    with tabs[2]: _tab_payments(conn, join_key)
-    with tabs[3]: _tab_lobbying(conn, join_key, member_name)
-    with tabs[4]: _tab_legislation(conn, member_name)
+    # ── 1. Voting record by issue ─────────────────────────────────────────────
+    _section_votes(conn, join_key)
+
+    st.html(
+        f'<a href="/Votes?member={_h(join_key)}" target="_self"'
+        f' style="display:inline-flex;align-items:center;gap:0.4rem;margin-top:0.5rem;'
+        f'padding:0.5rem 1.1rem;background:var(--text-primary);color:#ffffff;'
+        f'border-radius:2px;text-decoration:none;font-weight:700;'
+        f'font-family:\'Epilogue\',sans-serif;font-size:0.82rem;letter-spacing:0.04em;'
+        f'text-transform:uppercase;">'
+        f'Full voting history →</a>'
+    )
+
+    st.divider()
+
+    # ── 2. Legislation ────────────────────────────────────────────────────────
+    _section_legislation(conn, member_name)
+
+    st.divider()
+
+    # ── 3. Debate contributions ───────────────────────────────────────────────
+    _section_debates()
+
+    st.divider()
+
+    # ── 4. Committees ─────────────────────────────────────────────────────────
+    _section_committees()
+
+    st.divider()
+
+    # ── 5. Lobbying & revolving door ──────────────────────────────────────────
+    _section_lobbying(conn, member_name)
 
 
 # ── Main entry point ───────────────────────────────────────────────────────────
