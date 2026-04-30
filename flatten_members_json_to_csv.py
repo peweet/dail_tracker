@@ -39,7 +39,6 @@ def flatten_members_to_csv(house: str = "dail"):
     minister_bool_mask = df['office_1_name'].notna() & df['office_1_name'].str.contains("Minister", case=False, na=False)
     df['ministerial_office'] = minister_bool_mask.astype(str).replace({"True": "true", "False": "false"})
     df['year_elected'] = df["unique_member_code"].str.extract(r"(\b\d{4}\b)", expand=False)
-    # df['year_elected'] = df['unique_member_code'].str.extract(r"(\b\d{4}\b)", expand=False)  # Extract year from unique_member_code
     csv_path = SILVER_DIR / csv_name
     df.to_csv(csv_path, index=False, encoding="utf-8")
     df.to_parquet(SILVER_DIR / "parquet" / csv_name.replace(".csv", ".parquet"), index=False)
