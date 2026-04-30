@@ -34,6 +34,8 @@ joined AS (
 SELECT
     row_number() OVER ()                            AS attendance_timeline_id,
     iso_sitting_days_attendance                     AS sitting_date,
+    strftime(iso_sitting_days_attendance, '%d %b %Y') AS date_str,
+    strftime(iso_sitting_days_attendance, '%A')       AS weekday,
     identifier                                      AS member_id,
     CONCAT(first_name, ' ', last_name)              AS member_name,
     TRUE                                            AS present_flag,

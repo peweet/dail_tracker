@@ -45,6 +45,7 @@ periods AS (
     GROUP BY full_name
 )
 SELECT
+    ROW_NUMBER() OVER (ORDER BY d.total_returns DESC)                   AS rank,
     d.full_name                                                         AS member_name,
     d.unique_member_code,
     COALESCE(d.chamber, '')                                             AS chamber,

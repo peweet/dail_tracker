@@ -34,9 +34,9 @@ from data_access.payments_data import (
     fetch_year_ranking,
 )
 from shared_css import inject_css
-from ui.components import empty_state, hero_banner
+from ui.components import empty_state, hero_banner, member_card_html, render_notable_chips, sidebar_member_filter
 from ui.export_controls import export_button
-from ui.source_pdfs import PAYMENTS, render_pdf_source_links
+from ui.source_pdfs import PAYMENTS, provenance_expander
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -94,17 +94,8 @@ _QUARANTINE_NOTE = (
     "for some members. This is a known pipeline issue and will be resolved."
 )
 
-_YEAR_SOURCE_NOTE = (
-    "Payment records will link to the official Oireachtas source document for each year "
-    "once the pipeline exposes per-year source URLs."
-)
-
-
-# ── Card / badge HTML helpers ──────────────────────────────────────────────────
-
-
-def _pay_name_pill_html(row: pd.Series, rank: int) -> str:
-    """Compact rank card with amount badge embedded — mirrors interests page layout."""
+def _pay_card_html(row: pd.Series) -> str:
+    """Member name card for the payments ranked list, built on the canonical dt-name-card pattern."""
     name      = str(row.get("member_name",    "—"))
     pos       = str(row.get("position",       "Deputy"))
     party     = str(row.get("party_name",     "") or "")
@@ -113,64 +104,43 @@ def _pay_name_pill_html(row: pd.Series, rank: int) -> str:
     count     = int(row.get("payment_count",  0) or 0)
     total_str = f"€{float(row.get('total_paid', 0) or 0):,.0f}"
     meta_parts = [p for p in [party, constit] if p and p.lower() not in ("nan", "")]
-    meta_html  = (
-        f'<div class="pay-name-body-meta">{" · ".join(meta_parts)}</div>'
-        if meta_parts else ""
-    )
-    return (
-        f'<div class="pay-name-row">'
-        f'<span class="pay-name-rank">#{rank}</span>'
-        f'<div class="pay-name-body">'
-        f'<div class="pay-name-body-name">{name}</div>'
-        f'<div class="pay-name-body-pos">{pos}</div>'
-        f'{meta_html}'
+    meta  = " · ".join(meta_parts) if meta_parts else pos
+    pills = (
         f'<span class="pay-taa-pill">{taa}</span>'
-        f'<span class="pay-count-pill">{count} payments</span>'
+        f'<span class="int-stat-pill">{count} payments</span>'
+    )
+    badge = (
+        f'<div class="dt-name-card-badge dt-name-card-badge-metric">'
+        f'<span class="dt-name-card-badge-num">{total_str}</span>'
+        f'<span class="dt-name-card-badge-lbl">total</span>'
         f'</div>'
-        f'<div class="pay-amount-badge">'
-        f'<span class="pay-amount-badge-num">{total_str}</span>'
-        f'<span class="pay-amount-badge-label">total</span>'
-        f'</div>'
-        f'</div>'
+    )
+    return member_card_html(
+        name=name, meta=meta, rank=int(row.get("rank_high", 0)),
+        pills_html=pills, badge_html=badge,
     )
 
 
 # ── Provenance footer ──────────────────────────────────────────────────────────
 
 def _render_provenance(summary: pd.Series, year: int | None = None) -> None:
-    source     = str(summary.get("source_summary")             or "Oireachtas Payment Records")
-    first_year = summary.get("first_year", "—")
+    first_year = summary.get("first_year", "2020")
     last_year  = summary.get("last_year",  "—")
-
-    with st.expander("About & data provenance", expanded=False):
-        st.markdown(_CAVEAT)
-
-        st.divider()
-        st.markdown("**TAA distance bands**")
-        st.markdown(_TAA_TABLE)
-
-        st.divider()
-        st.markdown(_DEDUCTIONS_NOTE)
-
-        st.divider()
-        st.markdown(_QUARANTINE_NOTE)
-
-        if year:
-            st.caption(f"Showing data for: {year}. {_YEAR_SOURCE_NOTE}")
-
-        st.caption(
-            f"Source: {source}  ·  Dataset covers: {first_year}–{last_year}"
-        )
-
-        st.divider()
-        year_str = str(year) if year else None
-        links = [(lbl, url) for lbl, url in PAYMENTS if not year_str or year_str in lbl]
-        st.markdown(
-            f"**Source PDFs** — {len(links)} document{'s' if len(links) != 1 else ''} "
-            f"({'filtered to ' + str(year) if year_str else 'all years'})"
-        )
-        render_pdf_source_links(links)
-        # TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL, fetch timestamp, mart version, code version
+    year_str   = str(year) if year else None
+    links      = [(lbl, url) for lbl, url in PAYMENTS if not year_str or year_str in lbl]
+    provenance_expander(
+        sections=[
+            _CAVEAT,
+            "**TAA distance bands**\n\n" + _TAA_TABLE,
+            _DEDUCTIONS_NOTE,
+            _QUARANTINE_NOTE,
+        ],
+        source_caption=(
+            f"Data: Oireachtas Parliamentary Standard Allowance records · {first_year}–{last_year}"
+            + (f" · Showing {year}" if year else "")
+        ),
+        pdf_links=links,
+    )
 
 
 # ── Stage 1 — Primary ranked view ─────────────────────────────────────────────
@@ -213,11 +183,8 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
     st.caption(f"Ranked by total PSA received · {selected_year} · {yr_count} members")
 
     for i, (_, row) in enumerate(ranking.iterrows()):
-        c1, c2 = st.columns([5, 1])
-        c1.markdown(
-            _pay_name_pill_html(row, int(row["rank_high"])),
-            unsafe_allow_html=True,
-        )
+        c1, c2 = st.columns([14, 1])
+        c1.markdown(_pay_card_html(row), unsafe_allow_html=True)
         c2.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
         if c2.button("→", key=f"pay_row_{i}"):
             st.session_state["selected_td_pay"] = str(row["member_name"])
@@ -394,35 +361,20 @@ def payments_page() -> None:
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
-        pay_search: str = st.text_input(
-            "",
-            placeholder="e.g. Mary Lou McDonald",
-            key="pay_sidebar_search",
-            label_visibility="collapsed",
-        )
-        sq = pay_search.strip().lower()
-        filtered_members = [m for m in opts["members"] if sq in m.lower()] if sq else opts["members"]
-        chosen = st.selectbox(
+        chosen = sidebar_member_filter(
             "Browse all members",
-            ["— select a member —"] + filtered_members,
-            key="pay_member_sel",
-            label_visibility="collapsed",
+            opts["members"],
+            key_search="pay_sidebar_search",
+            key_select="pay_member_sel",
+            placeholder="e.g. Mary Lou McDonald",
         )
-        if chosen != "— select a member —" and st.session_state.get("selected_td_pay") != chosen:
+        if chosen and st.session_state.get("selected_td_pay") != chosen:
             st.session_state["selected_td_pay"] = chosen
             st.rerun()
 
         st.divider()
-        st.markdown("**Notable members**")
-        nb_cols = st.columns(2)
-        for i, name in enumerate(_NOTABLE_TDS):
-            if name in opts["members"] and nb_cols[i % 2].button(
-                name.split()[-1],
-                key=f"pay_notable_{i}",
-                use_container_width=True,
-            ):
-                st.session_state["selected_td_pay"] = name
-                st.rerun()
+        if render_notable_chips(_NOTABLE_TDS, opts["members"], "pay_notable", "selected_td_pay"):
+            st.rerun()
 
     # ── Route to Stage 1 or Stage 2 ──────────────────────────────────────────
     selected_td = st.session_state.get("selected_td_pay")
