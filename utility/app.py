@@ -15,13 +15,13 @@ st.set_page_config(
 
 pg = st.navigation(
     [
-        st.Page(interests_page, title="Interests", icon=":material/interests:", default=True),
-        st.Page(committees_page, title="Committees", icon=":material/account_balance:"),
-        st.Page(attendance_page, title="Attendance", icon=":material/calendar_today:"),
-        st.Page(payments_page, title="Payments", icon=":material/payments:"),
-        st.Page(lobbying_page, title="Lobbying", icon=":material/how_to_vote:"),
-        st.Page(legislation_page, title="Legislation", icon=":material/gavel:"),
+        st.Page(attendance_page, title="Attendance", icon=":material/calendar_today:", default=True),
         st.Page(votes_page, title="Votes", icon=":material/how_to_vote:"),
+        st.Page(interests_page, title="Interests", icon=":material/interests:"),
+        st.Page(payments_page, title="Payments", icon=":material/payments:"),
+        st.Page(lobbying_page, title="Lobbying", icon=":material/groups:"),
+        st.Page(legislation_page, title="Legislation", icon=":material/gavel:"),
+        st.Page(committees_page, title="Committees", icon=":material/account_balance:"),
     ]
 )
 pg.run()

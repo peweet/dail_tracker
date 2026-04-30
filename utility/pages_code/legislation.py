@@ -1,3 +1,4 @@
+import html
 import sys
 from pathlib import Path
 
@@ -6,6 +7,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from config import BILL_STATUS_CSS
 from data_access.legislation_data import (
     fetch_all_statuses,
     fetch_bill_debates,
@@ -14,11 +16,9 @@ from data_access.legislation_data import (
     fetch_legislation_index_filtered,
 )
 from shared_css import inject_css
-from ui.components import evidence_heading, hero_banner, render_stat_strip, sidebar_date_range, sidebar_page_header, stat_item
+from ui.components import empty_state, evidence_heading, hero_banner, render_stat_strip, sidebar_date_range, sidebar_page_header, stat_item
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
-
-from config import BILL_STAGE_ENACTED_MIN, BILL_STAGE_SEANAD_MIN, BILL_STATUS_CSS
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -38,21 +38,6 @@ def _fmt_date(val) -> str:
         return f"{ts.day} {ts.strftime('%b %Y')}"
     except Exception:
         return str(val)
-
-
-def _bill_phase(row) -> str:
-    status = (row.get("bill_status") or "").lower()
-    if "enact" in status or "sign" in status:
-        return "enacted"
-    try:
-        n = int(row.get("stage_number") or 0)
-        if n >= BILL_STAGE_ENACTED_MIN:
-            return "enacted"
-        if n >= BILL_STAGE_SEANAD_MIN:
-            return "seanad"
-    except (TypeError, ValueError):
-        pass
-    return "dail"
 
 
 # ── Stage 1 — legislation index ────────────────────────────────────────────────
@@ -83,23 +68,20 @@ def _render_legislation_index(
     )
 
     if df.empty:
-        st.markdown('<p class="section-heading">0 bills</p>', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="dt-callout">No bills match the current filters. '
-            "Try widening the date range or clearing the status filter.</div>",
-            unsafe_allow_html=True,
+        st.html('<p class="section-heading">0 bills</p>')
+        empty_state(
+            "No bills found",
+            "No bills match the current filters. Try widening the date range or clearing the status filter.",
         )
         return
 
     # ── Phase grouping ────────────────────────────────────────────────────────
-    df = df.copy()
-    df["_phase"] = df.apply(_bill_phase, axis=1)
-    dail_df    = df[df["_phase"] == "dail"]
-    seanad_df  = df[df["_phase"] == "seanad"]
-    enacted_df = df[df["_phase"] == "enacted"]
+    dail_df    = df[df["bill_phase"] == "dail"]
+    seanad_df  = df[df["bill_phase"] == "seanad"]
+    enacted_df = df[df["bill_phase"] == "enacted"]
 
     # ── Pipeline strip ────────────────────────────────────────────────────────
-    st.markdown(
+    st.html(
         f"""
         <div class="leg-pipeline-strip">
             <div class="leg-pipeline-card">
@@ -120,19 +102,17 @@ def _render_legislation_index(
                 <div class="leg-pipeline-sub">stage 11 · signed into law</div>
             </div>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     # ── Government Bills notice ───────────────────────────────────────────────
-    st.markdown(
+    st.html(
         '<div class="leg-todo-callout">'
         '<span class="leg-todo-label">Pipeline todo</span> '
         'Government Bills are not yet indexed — the pipeline is currently scoped to '
-        'Private Members\' Bills only. Government Bills will appear here once the '
+        "Private Members' Bills only. Government Bills will appear here once the "
         'pipeline scope is extended.'
-        '</div>',
-        unsafe_allow_html=True,
+        '</div>'
     )
 
     # ── Phase selector ────────────────────────────────────────────────────────
@@ -153,10 +133,7 @@ def _render_legislation_index(
     view_df = phase_opts[phase_sel]
 
     if view_df.empty:
-        st.markdown(
-            '<div class="dt-callout">No bills in this phase match the current filters.</div>',
-            unsafe_allow_html=True,
-        )
+        empty_state("No bills in this phase", "No bills in this phase match the current filters.")
         return
 
     total = len(view_df)
@@ -164,10 +141,7 @@ def _render_legislation_index(
     visible_df = view_df if show_all else view_df.head(30)
 
     suffix = " · showing 30" if (not show_all and total > 30) else ""
-    st.markdown(
-        f'<p class="section-heading">{total:,} bill{"s" if total != 1 else ""}{suffix}</p>',
-        unsafe_allow_html=True,
-    )
+    st.html(f'<p class="section-heading">{total:,} bill{"s" if total != 1 else ""}{suffix}</p>')
 
     # ── Bill card list ────────────────────────────────────────────────────────
     for i, (_, row) in enumerate(visible_df.iterrows()):
@@ -179,26 +153,25 @@ def _render_legislation_index(
         stage       = row.get("current_stage", "—") or "—"
         url         = row.get("oireachtas_url") or ""
         link_html   = (
-            f'<a class="leg-bill-card-link" href="{url}" target="_blank">Oireachtas ↗</a>'
+            f'<a class="leg-bill-card-link" href="{html.escape(url, quote=True)}" target="_blank">Oireachtas ↗</a>'
             if url else ""
         )
 
         card_col, btn_col = st.columns([14, 1])
-        card_col.markdown(
+        card_col.html(
             f'<div class="leg-bill-card">'
             f'<div class="leg-bill-card-header">'
-            f'<span class="{status_cls}">{status}</span>'
-            f'<span class="leg-bill-card-date">{date_str}</span>'
+            f'<span class="{status_cls}">{html.escape(status)}</span>'
+            f'<span class="leg-bill-card-date">{html.escape(date_str)}</span>'
             f'</div>'
-            f'<div class="leg-bill-card-title">{title}</div>'
+            f'<div class="leg-bill-card-title">{html.escape(title)}</div>'
             f'<div class="leg-bill-card-footer">'
-            f'<span class="leg-bill-card-meta">{sponsor} · {stage}</span>'
+            f'<span class="leg-bill-card-meta">{html.escape(sponsor)} · {html.escape(stage)}</span>'
             f'{link_html}'
             f'</div>'
-            f'</div>',
-            unsafe_allow_html=True,
+            f'</div>'
         )
-        btn_col.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
+        btn_col.html('<div class="dt-nav-anchor"></div>')
         if btn_col.button("→", key=f"leg_bill_{i}", help=f"Open {title}"):
             st.session_state["leg_selected_bill_id"] = row["bill_id"]
             st.session_state["leg_show_all"] = False
@@ -233,12 +206,7 @@ def _render_legislation_index(
 
 def _render_stage_timeline(timeline_df: pd.DataFrame) -> None:
     if timeline_df.empty:
-        st.markdown(
-            '<div class="dt-callout">'
-            "Stage timeline data is not available for this bill."
-            "</div>",
-            unsafe_allow_html=True,
-        )
+        empty_state("Timeline not available", "Stage timeline data is not available for this bill.")
         return
 
     # Stage group thresholds — immutable Oireachtas legislative procedure.
@@ -259,34 +227,31 @@ def _render_stage_timeline(timeline_df: pd.DataFrame) -> None:
         if num_val is not None:
             for threshold, group_label in sorted(_STAGE_GROUPS.items()):
                 if num_val >= threshold and threshold not in _seen_groups:
-                    rows_html += f'<div class="leg-stage-group">{group_label}</div>'
+                    rows_html += f'<div class="leg-stage-group">{html.escape(group_label)}</div>'
                     _seen_groups.add(threshold)
 
         current_cls = "leg-stage-current" if r.get("is_current_stage") else ""
         date_str = _fmt_date(r.get("stage_date"))
         num_str  = str(num_val) if num_val is not None else "·"
         chamber  = r.get("chamber") or ""
-        label    = r.get("stage_name", "—")
+        label    = html.escape(r.get("stage_name", "—") or "—")
         if chamber:
-            label = f"{label} <span class='leg-stage-chamber'>· {chamber}</span>"
+            label = f"{label} <span class='leg-stage-chamber'>· {html.escape(chamber)}</span>"
 
         rows_html += (
             f'<div class="leg-stage-row {current_cls}">'
-            f'<span class="leg-stage-num">{num_str}</span>'
+            f'<span class="leg-stage-num">{html.escape(num_str)}</span>'
             f'<span class="leg-stage-label">{label}</span>'
-            f'<span class="leg-stage-date">{date_str}</span>'
+            f'<span class="leg-stage-date">{html.escape(date_str)}</span>'
             f"</div>"
         )
 
-    st.markdown(f'<div class="leg-stage-list">{rows_html}</div>', unsafe_allow_html=True)
+    st.html(f'<div class="leg-stage-list">{rows_html}</div>')
 
 
 def _render_debates(debates_df: pd.DataFrame) -> None:
     if debates_df.empty:
-        st.markdown(
-            '<div class="dt-callout">No debate records found for this bill.</div>',
-            unsafe_allow_html=True,
-        )
+        empty_state("No debates found", "No debate records found for this bill.")
         return
 
     rows_html = ""
@@ -297,20 +262,19 @@ def _render_debates(debates_df: pd.DataFrame) -> None:
         chamber  = r.get("chamber") or ""
 
         title_html = (
-            f'<a class="leg-debate-title" href="{url}" target="_blank">{title}</a>'
+            f'<a class="leg-debate-title" href="{html.escape(url, quote=True)}" target="_blank">{html.escape(title)}</a>'
             if url else
-            f'<span class="leg-debate-title-plain">{title}</span>'
+            f'<span class="leg-debate-title-plain">{html.escape(title)}</span>'
         )
         rows_html += (
             f'<div class="leg-debate-row">'
-            f'<span class="leg-debate-date">{date_str}</span>'
+            f'<span class="leg-debate-date">{html.escape(date_str)}</span>'
             f'{title_html}'
-            f'<span class="leg-debate-chamber">{chamber}</span>'
+            f'<span class="leg-debate-chamber">{html.escape(chamber)}</span>'
             f'</div>'
         )
 
-    st.markdown(f'<div class="leg-debate-list">{rows_html}</div>', unsafe_allow_html=True)
-
+    st.html(f'<div class="leg-debate-list">{rows_html}</div>')
 
 
 def _render_bill_detail(bill_id: str) -> None:
@@ -331,46 +295,48 @@ def _render_bill_detail(bill_id: str) -> None:
     row = detail_df.iloc[0]
 
     # ── Bill identity strip ───────────────────────────────────────────────────
-    status       = row.get("bill_status", "—") or "—"
-    bill_type    = row.get("bill_type", "—") or "—"
+    status        = row.get("bill_status", "—") or "—"
+    bill_type     = row.get("bill_type", "—") or "—"
     current_house = row.get("current_house") or ""
-    status_cls   = _status_badge_class(status)
+    status_cls    = _status_badge_class(status)
 
-    badges_html = f'<span class="{status_cls}">{status}</span>'
+    badges_html = f'<span class="{status_cls}">{html.escape(status)}</span>'
     if bill_type and bill_type != "—":
-        badges_html += f' <span class="signal signal-neutral">{bill_type}</span>'
+        badges_html += f' <span class="signal signal-neutral">{html.escape(bill_type)}</span>'
     if current_house:
-        badges_html += f' <span class="signal signal-dark">{current_house}</span>'
+        badges_html += f' <span class="signal signal-dark">{html.escape(current_house)}</span>'
 
     bill_title     = row.get("bill_title", "—") or "—"
     bill_no        = row.get("bill_no", "")
     bill_year      = row.get("bill_year", "")
     oireachtas_url = row.get("oireachtas_url") or ""
-    ref = f"Bill {bill_no} of {bill_year}" if bill_no and bill_year else ""
+    ref = (
+        f"Bill {html.escape(str(bill_no))} of {html.escape(str(bill_year))}"
+        if bill_no and bill_year else ""
+    )
 
     link_html = (
-        f'<a class="leg-bill-oireachtas-link" href="{oireachtas_url}" target="_blank">'
+        f'<a class="leg-bill-oireachtas-link" href="{html.escape(oireachtas_url, quote=True)}" target="_blank">'
         f'View Bill on Oireachtas.ie ↗</a>'
         if oireachtas_url else ""
     )
 
     long_title = row.get("long_title") or ""
     long_title_html = (
-        f'<p class="leg-long-title" style="margin:0.45rem 0 0.35rem">{long_title}</p>'
+        f'<p class="leg-long-title" style="margin:0.45rem 0 0.35rem">{html.escape(long_title)}</p>'
         if long_title.strip() else ""
     )
 
-    st.markdown(
+    st.html(
         f"""
         <div class="leg-bill-identity">
             <div class="leg-bill-badges">{badges_html}</div>
-            <div class="leg-bill-title">{bill_title}</div>
+            <div class="leg-bill-title">{html.escape(bill_title)}</div>
             {f'<div class="leg-bill-ref">{ref}</div>' if ref else ''}
             {long_title_html}
             {link_html}
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     # ── Stat strip ────────────────────────────────────────────────────────────
@@ -425,21 +391,18 @@ def legislation_page() -> None:
     selected_bill_id: str | None = st.session_state.get("leg_selected_bill_id")
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
-    start_date: str | None = None
-    end_date: str | None   = None
-    status_param: str | None     = None
-    search_param: str | None     = None
+    start_date: str | None   = None
+    end_date: str | None     = None
+    status_param: str | None = None
+    search_param: str | None = None
 
     with st.sidebar:
         sidebar_page_header("Legislation")
 
         if selected_bill_id:
-            st.markdown('<div class="page-subtitle">Bill detail</div>', unsafe_allow_html=True)
+            st.html('<div class="page-subtitle">Bill detail</div>')
         else:
-            st.markdown(
-                '<div class="page-subtitle">Source: Oireachtas Open Data API</div>',
-                unsafe_allow_html=True,
-            )
+            st.html('<div class="page-subtitle">Source: Oireachtas Open Data API</div>')
             st.divider()
 
             start_date, end_date = sidebar_date_range(
@@ -447,7 +410,7 @@ def legislation_page() -> None:
                 key="leg_date_range",
             )
 
-            st.markdown('<p class="sidebar-label">Status</p>', unsafe_allow_html=True)
+            st.html('<p class="sidebar-label">Status</p>')
             statuses = fetch_all_statuses()
             status_sel = st.selectbox(
                 "Status",
@@ -457,7 +420,7 @@ def legislation_page() -> None:
             )
             status_param = status_sel if status_sel != "All" else None
 
-            st.markdown('<p class="sidebar-label">Search title</p>', unsafe_allow_html=True)
+            st.html('<p class="sidebar-label">Search title</p>')
             title_search = st.text_input(
                 "Search title",
                 placeholder="e.g. Housing, Health, Education…",
