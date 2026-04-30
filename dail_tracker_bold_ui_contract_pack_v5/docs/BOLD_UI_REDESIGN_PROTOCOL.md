@@ -40,7 +40,7 @@ A redesigned page must differ from the old page in at least six of these ways:
 9. Single-member or single-record focus section
 10. Better CSV export placement
 11. Better government/source-link presentation
-12. Better provenance/caveat display
+12. Better provenance/caveat display (if contract requires it — some pages deliberately omit it)
 13. Better empty/loading/error states
 14. Better mobile section ordering
 15. More polished shared CSS and reusable components
@@ -53,7 +53,8 @@ The primary view (browse / index / list) must be **free from noise**:
 - **No charts above the table** — a chart between the filter bar and the member table buries the content the user came to see
 - **No stat strip duplicating hero badges** — if `members_count` and `sitting_count` are already in hero badges, do not repeat them in a stat strip below the hero
 - **No stacked expanders above the fold** — "About" and "Data provenance" belong at the bottom, collapsed, in a single combined expander
-- **Provenance at the bottom** — collapsed by default; one expander is enough
+- **Provenance at the bottom** — collapsed by default; one expander is enough. Pages that merge
+  many disparate sources may omit it entirely — check the page contract.
 
 The secondary view (profile / detail / drilldown) may be more complex, because the user narrowed scope intentionally by selecting a record:
 

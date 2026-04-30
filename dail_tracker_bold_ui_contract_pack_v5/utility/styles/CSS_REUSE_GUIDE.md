@@ -30,8 +30,8 @@ The standard pattern for any ranked list with a navigation button. Used on inter
 ```python
 for i, (_, row) in enumerate(df.iterrows()):
     c1, c2 = st.columns([5, 1])
-    c1.markdown(card_html(row), unsafe_allow_html=True)
-    c2.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
+    c1.html(card_html(row))                          # st.html — never unsafe_allow_html
+    c2.html('<div class="dt-nav-anchor"></div>')
     if c2.button("→", key=f"row_{i}"):
         st.session_state["selected_td"] = str(row["member_name"])
         st.rerun()
