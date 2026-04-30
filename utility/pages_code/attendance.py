@@ -27,7 +27,6 @@ from ui.components import (
     empty_state,
     evidence_heading,
     hero_banner,
-    member_card_html,
     member_profile_header,
     render_notable_chips,
     sidebar_member_filter,
@@ -171,14 +170,6 @@ def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
     )
 
 
-def _days_badge_html(days: int) -> str:
-    return (
-        f'<div class="dt-name-card-badge-metric">'
-        f'<span class="dt-name-card-badge-num">{days}</span>'
-        f'<span class="dt-name-card-badge-lbl">days</span>'
-        f'</div>'
-    )
-
 
 def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> str | None:
     """
@@ -202,19 +193,11 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> str | None:
         )
         clicked: str | None = None
         for i, (_, row) in enumerate(partial.iterrows()):
-            name  = str(row["member_name"])
-            party = str(row.get("party_name", "") or "")
-            const = str(row.get("constituency", "") or "")
-            meta  = clean_meta(party, const)
-            card_col, btn_col = st.columns([14, 1])
-            card_col.html(
-                member_card_html(
-                    name=name, meta=meta, rank=i + 1,
-                    badge_html=_days_badge_html(int(row["attended_count"])),
-                ),
-            )
-            btn_col.html('<div class="dt-nav-anchor"></div>')
-            if btn_col.button("→", key=f"att_partial_{i}", help=f"View {name}"):
+            name = str(row["member_name"])
+            cc, bc = st.columns([14, 1])
+            cc.html(_hall_card(row, "", "good", rank=i + 1))
+            bc.html('<div class="dt-nav-anchor"></div>')
+            if bc.button("→", key=f"att_partial_{i}", help=f"View {name}"):
                 clicked = name
         return clicked
 

@@ -85,8 +85,8 @@ def _q(conn, sql: str, params: list | None = None) -> pd.DataFrame:
 def _member_list(_conn) -> pd.DataFrame:
     return _q(
         _conn,
-        "SELECT DISTINCT member_name, unique_member_code, party_name, constituency"
-        " FROM v_attendance_member_year_summary ORDER BY member_name LIMIT 2000",
+        "SELECT unique_member_code, member_name, party_name, constituency"
+        " FROM v_member_registry ORDER BY member_name",
     )
 
 
@@ -94,7 +94,7 @@ def _member_list(_conn) -> pd.DataFrame:
 def _join_key_by_name(_conn, name: str) -> str | None:
     df = _q(
         _conn,
-        "SELECT DISTINCT unique_member_code FROM v_attendance_member_year_summary"
+        "SELECT unique_member_code FROM v_member_registry"
         " WHERE member_name = ? LIMIT 1",
         [name],
     )
@@ -103,11 +103,20 @@ def _join_key_by_name(_conn, name: str) -> str | None:
 
 @st.cache_data(ttl=300)
 def _identity(_conn, join_key: str) -> dict:
+    # Attendance first — has year; fall back to canonical registry if no record
     df = _q(
         _conn,
         "SELECT member_name, party_name, constituency, is_minister, year"
         " FROM v_attendance_member_year_summary"
         " WHERE unique_member_code = ? ORDER BY year DESC LIMIT 1",
+        [join_key],
+    )
+    if not df.empty:
+        return df.iloc[0].to_dict()
+    df = _q(
+        _conn,
+        "SELECT member_name, party_name, constituency, is_minister"
+        " FROM v_member_registry WHERE unique_member_code = ? LIMIT 1",
         [join_key],
     )
     return df.iloc[0].to_dict() if not df.empty else {}

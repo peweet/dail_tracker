@@ -1006,26 +1006,26 @@ def inject_css() -> None:
         }
         .att-hall-heading-good {
             font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em;
-            color: #15803d; border-bottom: 3px solid #16a34a;
+            color: #1d4ed8; border-bottom: 3px solid #3b82f6;
             padding-bottom: 0.5rem; margin: 0 0 0.9rem;
         }
         .att-hall-heading-bad {
             font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em;
-            color: #991b1b; border-bottom: 3px solid #dc2626;
+            color: #c2410c; border-bottom: 3px solid #f97316;
             padding-bottom: 0.5rem; margin: 0 0 0.9rem;
         }
         .att-hall-card-good,
         .att-hall-card-bad {
-            display: flex; align-items: center; gap: 0.75rem;
-            padding: 0.55rem 0.9rem; border-radius: 12px;
-            margin-bottom: 0.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            display: flex; align-items: center; gap: 0.6rem;
+            padding: 0.38rem 0.75rem; border-radius: 12px;
+            margin-bottom: 0.3rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
             width: 100%;
         }
         .att-hall-card-good {
-            background: #f0fdf4; border: 1px solid #86efac; border-left: 5px solid #16a34a;
+            background: #eff6ff; border: 1px solid #bfdbfe; border-left: 5px solid #3b82f6;
         }
         .att-hall-card-bad {
-            background: #fff5f5; border: 1px solid #fca5a5; border-left: 5px solid #dc2626;
+            background: #fff7ed; border: 1px solid #fed7aa; border-left: 5px solid #f97316;
         }
         /* Inner card rows: card fills column, button shrinks to fit */
         [data-testid="stHorizontalBlock"]:has(.att-hall-card-good),
@@ -1049,11 +1049,11 @@ def inject_css() -> None:
             color: var(--text-meta); width: 1.6rem; text-align: center; flex-shrink: 0;
         }
         .att-hall-medal {
-            font-size: 1.6rem; line-height: 1; flex-shrink: 0; width: 1.8rem; text-align: center;
+            font-size: 1.2rem; line-height: 1; flex-shrink: 0; width: 1.4rem; text-align: center;
         }
         .att-hall-body { flex: 1; min-width: 0; }
         .att-hall-name {
-            margin: 0 0 0.1rem; font-size: 1.05rem; font-weight: 700;
+            margin: 0 0 0.05rem; font-size: 0.95rem; font-weight: 700;
             color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .att-hall-meta {
@@ -1066,14 +1066,14 @@ def inject_css() -> None:
             flex-shrink: 0; min-width: 3.4rem; padding: 0.3rem 0.6rem;
             border-radius: 12px; text-align: center; line-height: 1.1;
         }
-        .att-hall-badge-good { background: #dcfce7; border: 1px solid #86efac; }
-        .att-hall-badge-bad  { background: #fee2e2; border: 1px solid #fca5a5; }
+        .att-hall-badge-good { background: #dbeafe; border: 1px solid #93c5fd; }
+        .att-hall-badge-bad  { background: #ffedd5; border: 1px solid #fdba74; }
         .att-hall-badge-num {
-            font-size: 1.4rem; font-weight: 800; letter-spacing: -0.03em;
+            font-size: 1.25rem; font-weight: 800; letter-spacing: -0.03em;
             color: var(--text-primary); display: block;
         }
-        .att-hall-badge-good .att-hall-badge-num { color: #15803d; }
-        .att-hall-badge-bad  .att-hall-badge-num { color: #991b1b; }
+        .att-hall-badge-good .att-hall-badge-num { color: #1d4ed8; }
+        .att-hall-badge-bad  .att-hall-badge-num { color: #c2410c; }
         .att-hall-badge-label { font-size: 0.62rem; font-weight: 600; color: var(--text-meta); display: block; }
 
         /* Ranked list row (partial-year view) */
@@ -1141,8 +1141,8 @@ def inject_css() -> None:
 
         /* ── Attendance: extra heading variants ──────────────────────── */
         .att-hall-subheading { font-size: 0.75rem; color: #6b7280; margin: 0 0 0.75rem; }
-        .att-cop-head-good { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #15803d; border-bottom: 3px solid #16a34a; padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
-        .att-cop-head-bad  { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #b91c1c; border-bottom: 3px solid #dc2626; padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
+        .att-cop-head-good { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #1d4ed8; border-bottom: 3px solid #3b82f6; padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
+        .att-cop-head-bad  { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #c2410c; border-bottom: 3px solid #f97316; padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
 
         /* ── Attendance overview: year summary strip ─────────────────── */
         .att-ov-year-strip {
