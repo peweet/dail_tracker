@@ -7,6 +7,7 @@ SELECT
     dpos_or_former_dpos_who_carried_out_lobbying_name   AS individual_name,
     COALESCE(current_or_former_dpos_position, '')       AS former_position,
     COALESCE(current_or_former_dpos_chamber,  '')       AS former_chamber,
+    SPLIT_PART(COALESCE(current_or_former_dpos_chamber, ''), '::', 1) AS chamber_display,
     COALESCE(returns_involved_in, 0)::INT               AS return_count,
     COALESCE(distinct_lobbyist_firms, 0)::INT           AS distinct_firms,
     COALESCE(distinct_policy_areas, 0)::INT             AS distinct_policy_areas,

@@ -133,6 +133,32 @@ def render_pdf_source_links(links: list[tuple[str, str]]) -> None:
     )
 
 
+def provenance_expander(
+    sections: list[str],
+    source_caption: str = "",
+    pdf_links: list[tuple[str, str]] | None = None,
+) -> None:
+    """Standard 'About & data provenance' expander used on all pages.
+
+    sections       — markdown strings; a divider is inserted between each
+    source_caption — public-facing data credit line (no internal paths)
+    pdf_links      — optional list of (label, url) passed to render_pdf_source_links
+    """
+    with st.expander("About & data provenance", expanded=False):
+        for i, section in enumerate(sections):
+            st.markdown(section)
+            if i < len(sections) - 1:
+                st.divider()
+        if source_caption or pdf_links:
+            st.divider()
+        if source_caption:
+            st.caption(source_caption)
+        if pdf_links:
+            n = len(pdf_links)
+            st.markdown(f"**Source documents** — {n} document{'s' if n != 1 else ''}")
+            render_pdf_source_links(pdf_links)
+
+
 def interests_pdf_url(house: str, year: int) -> str | None:
     """Return the canonical PDF URL for a given house + declaration year, or None."""
     return INTERESTS.get((house.lower(), year))

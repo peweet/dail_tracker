@@ -4,6 +4,53 @@ import datetime
 import streamlit as st
 
 
+def year_selector(
+    options: list[str],
+    key: str,
+    default: str | None = None,
+    skip_current: bool = True,
+) -> int:
+    """Year pill selector. Defaults to most recent completed year when skip_current=True.
+
+    Returns the selected year as int.
+    """
+    if skip_current and default is None:
+        today_year = datetime.date.today().year
+        default = next((y for y in options if int(y) < today_year), options[0])
+    selected = st.pills(
+        "Year",
+        options=options,
+        default=default or options[0],
+        key=key,
+        label_visibility="collapsed",
+    )
+    return int(selected) if selected else int(options[0])
+
+
+def render_notable_chips(
+    names: list[str],
+    available: list[str],
+    key_prefix: str,
+    session_key: str,
+    cols: int = 2,
+) -> bool:
+    """Render quick-select chips for notable members. Returns True if any chip was clicked.
+
+    names       — ordered list of notable member names to show
+    available   — members actually in the dataset (filters names to this set)
+    key_prefix  — unique prefix for button keys
+    session_key — st.session_state key to write the selected name into
+    """
+    st.markdown('<p class="sidebar-label">Notable members</p>', unsafe_allow_html=True)
+    visible = [n for n in names if n in available]
+    chip_cols = st.columns(cols)
+    for i, name in enumerate(visible):
+        if chip_cols[i % cols].button(name.split()[-1], key=f"{key_prefix}_{name}", use_container_width=True, help=name):
+            st.session_state[session_key] = name
+            return True
+    return False
+
+
 def scroll_to_top() -> None:
     """Scroll the app viewport to the top. Call at the start of any detail-view render."""
     st.markdown(
@@ -90,6 +137,46 @@ def empty_state(heading: str, body: str) -> None:
     )
 
 
+def member_card_html(
+    name: str,
+    meta: str = "",
+    rank: int | None = None,
+    pills_html: str = "",
+    badge_html: str = "",
+    avatar_url: str | None = None,
+) -> str:
+    """Canonical member name card HTML string.
+
+    Avatar slot is always rendered at fixed width (2.25 rem).  When avatar_url
+    is None the slot shows the rank number.  Wiring in Wikidata photos later
+    is a one-line change — zero layout rework across pages.
+
+    pills_html  — raw HTML for pill <span> elements (use int-stat-pill class)
+    badge_html  — optional right-side metric; use dt-name-card-badge-metric
+                  sub-class for the standard blue days/amount style
+    """
+    if avatar_url:
+        left_inner = f'<img class="dt-name-card-avatar" src="{avatar_url}" alt="">'
+    elif rank is not None:
+        rank_cls   = "dt-name-card-rank dt-name-card-rank-top" if rank <= 3 else "dt-name-card-rank"
+        left_inner = f'<span class="{rank_cls}">#{rank}</span>'
+    else:
+        left_inner = ""
+    meta_html    = f'<div class="dt-name-card-meta">{meta}</div>' if meta else ""
+    pills_sec    = f'<div class="dt-name-card-pills">{pills_html}</div>' if pills_html else ""
+    badge_sec    = f'<div class="dt-name-card-badge">{badge_html}</div>' if badge_html else ""
+    return (
+        f'<div class="dt-name-card">'
+        f'<div class="dt-name-card-left">{left_inner}</div>'
+        f'<div class="dt-name-card-body">'
+        f'<div class="dt-name-card-name">{name}</div>'
+        f'{meta_html}{pills_sec}'
+        f'</div>'
+        f'{badge_sec}'
+        f'</div>'
+    )
+
+
 def rank_card_row(
     name: str,
     meta: str,
@@ -98,7 +185,7 @@ def rank_card_row(
     rank: int | None = None,
     quote: str = "",
     btn_help: str = "",
-    col_ratio: tuple[int, int] = (5, 1),
+    col_ratio: tuple[int, int] = (14, 1),
 ) -> bool:
     """Name card + navigation arrow. Returns True when the arrow is clicked.
 
@@ -108,21 +195,10 @@ def rank_card_row(
     """
     card_col, btn_col = st.columns(col_ratio)
     pills_html = "".join(f'<span class="int-stat-pill">{p}</span>' for p in pills)
-    if rank is not None:
-        rank_cls  = "int-rank-num int-rank-num-top" if rank <= 3 else "int-rank-num"
-        rank_html = f'<div class="{rank_cls}">#{rank}</div>'
-    else:
-        rank_html = ""
-    quote_html = f'<p class="int-highlight-quote">{quote}</p>' if quote else ""
+    if quote:
+        pills_html += f'<p class="int-highlight-quote">{quote}</p>'
     card_col.markdown(
-        f'<div class="int-rank-card">'
-        f'{rank_html}'
-        f'<div class="int-rank-body">'
-        f'<p class="int-rank-name">{name}</p>'
-        f'<p class="int-rank-meta">{meta}</p>'
-        f'<div class="int-rank-stats">{pills_html}</div>'
-        f'{quote_html}'
-        f'</div></div>',
+        member_card_html(name=name, meta=meta, rank=rank, pills_html=pills_html),
         unsafe_allow_html=True,
     )
     btn_col.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
