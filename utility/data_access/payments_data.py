@@ -66,7 +66,8 @@ def fetch_filter_options() -> dict[str, list]:
 def fetch_year_ranking(year: int) -> pd.DataFrame:
     return get_payments_conn().execute(
         "SELECT member_name, position, party_name, constituency,"
-        " taa_band_label, total_paid, payment_count, rank_high"
+        " taa_band_label, total_paid, payment_count, rank_high,"
+        " year_total_paid, year_member_count, year_avg_per_td"
         " FROM v_payments_yearly_evolution"
         " WHERE payment_year = ?"
         " ORDER BY rank_high ASC",
@@ -76,10 +77,10 @@ def fetch_year_ranking(year: int) -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def fetch_member_all_years(member_name: str) -> pd.DataFrame:
-    """All years for a member — used for the all-years summary table and all-time total."""
+    """All years for a member — used for the all-years summary table, chart, and all-time total."""
     return get_payments_conn().execute(
         "SELECT payment_year, total_paid, payment_count, rank_high,"
-        " taa_band_label, position, party_name, constituency"
+        " taa_band_label, position, party_name, constituency, member_alltime_total"
         " FROM v_payments_yearly_evolution"
         " WHERE member_name = ?"
         " ORDER BY payment_year DESC",
@@ -109,31 +110,6 @@ def fetch_member_payments(member_name: str, year: int) -> pd.DataFrame:
         " ORDER BY date_paid ASC, narrative ASC",
         [member_name, year],
     ).df()
-
-
-@st.cache_data(ttl=300)
-def fetch_year_totals(year: int) -> dict[str, float | int]:
-    """Year-level totals: total_paid sum and member count for the ranked view."""
-    row = get_payments_conn().execute(
-        "SELECT COUNT(*) AS member_count, SUM(total_paid) AS total_paid"
-        " FROM v_payments_yearly_evolution WHERE payment_year = ?",
-        [year],
-    ).df()
-    if row.empty:
-        return {"member_count": 0, "total_paid": 0.0}
-    return {"member_count": int(row.iloc[0]["member_count"]), "total_paid": float(row.iloc[0]["total_paid"])}
-
-
-@st.cache_data(ttl=300)
-def fetch_member_alltime_total(member_name: str) -> float:
-    """All-time total paid to a member across all years."""
-    row = get_payments_conn().execute(
-        "SELECT SUM(total_paid) AS total FROM v_payments_yearly_evolution WHERE member_name = ?",
-        [member_name],
-    ).df()
-    if row.empty or row.iloc[0]["total"] is None:
-        return 0.0
-    return float(row.iloc[0]["total"])
 
 
 @st.cache_data(ttl=3600)

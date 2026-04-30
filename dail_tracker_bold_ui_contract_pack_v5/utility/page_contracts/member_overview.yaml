@@ -30,9 +30,13 @@ approved_registered_views:
   # Stage 2 profile — query existing per-domain views filtered by join_key
   stage_2_profile:
     - v_attendance_member_year_summary  # attendance per year for this TD; filter: unique_member_code = ?
-    - v_payments_member_detail          # individual payment records; filter: unique_member_code = ?
+    - v_payments_member_detail          # individual payment records; filter: unique_member_code = ? (grand total scalar)
+    - v_payments_yearly_evolution       # pre-aggregated year summary; filter: unique_member_code = ?
+                                        # columns: payment_year, total_paid, taa_band_label, payment_count
     - td_vote_summary                   # voting record summary; filter: member_id = ?
                                         # NOTE: actual view name is td_vote_summary (no v_ prefix)
+    - v_vote_member_detail              # per-division vote rows; filter: member_id = ? AND debate_title ILIKE ?
+                                        # used for topic keyword search in the Votes tab
     - v_member_interests                # declared interests; filter: member_name = ? (member_id is NULL)
                                         # TODO_PIPELINE_VIEW_REQUIRED: unique_member_code on v_member_interests
     - v_lobbying_summary                # dataset-level aggregate only — no per-member rows

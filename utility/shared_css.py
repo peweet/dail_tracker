@@ -1011,20 +1011,38 @@ def inject_css() -> None:
         }
         .att-hall-heading-bad {
             font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em;
-            color: #374151; border-bottom: 3px solid #9ca3af;
-            padding-bottom: 0.5rem; margin: 0 0 0.3rem;
+            color: #991b1b; border-bottom: 3px solid #dc2626;
+            padding-bottom: 0.5rem; margin: 0 0 0.9rem;
         }
         .att-hall-card-good,
         .att-hall-card-bad {
             display: flex; align-items: center; gap: 0.75rem;
             padding: 0.55rem 0.9rem; border-radius: 12px;
             margin-bottom: 0.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            width: 100%;
         }
         .att-hall-card-good {
             background: #f0fdf4; border: 1px solid #86efac; border-left: 5px solid #16a34a;
         }
         .att-hall-card-bad {
-            background: #f9fafb; border: 1px solid #d1d5db; border-left: 5px solid #9ca3af;
+            background: #fff5f5; border: 1px solid #fca5a5; border-left: 5px solid #dc2626;
+        }
+        /* Inner card rows: card fills column, button shrinks to fit */
+        [data-testid="stHorizontalBlock"]:has(.att-hall-card-good),
+        [data-testid="stHorizontalBlock"]:has(.att-hall-card-bad) {
+            gap: 0.35rem !important;
+            margin-bottom: 0.25rem !important;
+            align-items: stretch !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.att-hall-card-good) [data-testid="stColumn"]:first-child,
+        [data-testid="stHorizontalBlock"]:has(.att-hall-card-bad) [data-testid="stColumn"]:first-child {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.att-hall-card-good) [data-testid="stColumn"]:last-child,
+        [data-testid="stHorizontalBlock"]:has(.att-hall-card-bad) [data-testid="stColumn"]:last-child {
+            flex: 0 0 auto !important;
+            width: auto !important;
         }
         .att-hall-rank {
             font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em;
@@ -1049,11 +1067,13 @@ def inject_css() -> None:
             border-radius: 12px; text-align: center; line-height: 1.1;
         }
         .att-hall-badge-good { background: #dcfce7; border: 1px solid #86efac; }
-        .att-hall-badge-bad  { background: #f3f4f6; border: 1px solid #d1d5db; }
+        .att-hall-badge-bad  { background: #fee2e2; border: 1px solid #fca5a5; }
         .att-hall-badge-num {
             font-size: 1.4rem; font-weight: 800; letter-spacing: -0.03em;
             color: var(--text-primary); display: block;
         }
+        .att-hall-badge-good .att-hall-badge-num { color: #15803d; }
+        .att-hall-badge-bad  .att-hall-badge-num { color: #991b1b; }
         .att-hall-badge-label { font-size: 0.62rem; font-weight: 600; color: var(--text-meta); display: block; }
 
         /* Ranked list row (partial-year view) */
@@ -1101,10 +1121,10 @@ def inject_css() -> None:
         .pay-name-body-name { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pay-name-body-pos  { font-size: 0.72rem; color: var(--text-meta); margin-bottom: 3px; }
         .pay-count-pill {
-            display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--border);
+            display: inline-flex; align-items: center; background: #ffffff; border: 1px solid var(--border);
             border-radius: 999px; padding: 2px 7px; font-size: 0.68rem; font-weight: 600; color: var(--text-meta); margin-left: 4px;
         }
-        .pay-identity-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 0.75rem; }
+        .pay-identity-card { background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 0.75rem; }
         .pay-identity-card-name { font-size: 1.3rem; font-weight: 800; color: var(--text-primary); }
         .pay-identity-card-meta { font-size: 0.8rem; color: var(--text-meta); margin-top: 3px; }
 
@@ -1123,6 +1143,36 @@ def inject_css() -> None:
         .att-hall-subheading { font-size: 0.75rem; color: #6b7280; margin: 0 0 0.75rem; }
         .att-cop-head-good { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #15803d; border-bottom: 3px solid #16a34a; padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
         .att-cop-head-bad  { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #b91c1c; border-bottom: 3px solid #dc2626; padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
+
+        /* ── Attendance overview: year summary strip ─────────────────── */
+        .att-ov-year-strip {
+            display: flex; flex-wrap: nowrap; overflow-x: auto;
+            gap: 0.5rem; padding: 0.6rem 0 0.9rem;
+        }
+        .att-ov-year-card {
+            flex-shrink: 0;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 0.5rem 0.9rem; border-radius: 10px;
+            background: #ffffff; border: 1px solid var(--border);
+            min-width: 6.5rem; text-align: center;
+            transition: border-color 0.12s;
+        }
+        .att-ov-year-card-active {
+            background: #f0fdf4; border: 1.5px solid #16a34a;
+        }
+        .att-ov-year-num {
+            font-size: 1.05rem; font-weight: 800; color: var(--text-primary);
+            letter-spacing: -0.02em; line-height: 1.2;
+        }
+        .att-ov-year-card-active .att-ov-year-num { color: #15803d; }
+        .att-ov-year-members {
+            font-size: 0.68rem; font-weight: 600; color: var(--text-meta);
+            margin-top: 0.15rem; white-space: nowrap;
+        }
+        .att-ov-year-days {
+            font-size: 0.63rem; color: var(--text-meta);
+            margin-top: 0.05rem; white-space: nowrap;
+        }
 
         /* ── Material Symbols Outlined (used by lobbying path cards) ────── */
         .material-symbols-outlined {
