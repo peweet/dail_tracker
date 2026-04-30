@@ -1,5 +1,24 @@
 # Dáil Tracker UI Design System
 
+## Mandatory API rules
+
+These apply to every page. Do not use the deprecated alternatives.
+
+| Task | Correct | Forbidden |
+|---|---|---|
+| Insert HTML/CSS | `st.html(...)` | `st.markdown(..., unsafe_allow_html=True)` |
+| Button fill width | `width="stretch"` | `use_container_width=True` |
+| 2–5 option toggle | `st.segmented_control(...)` | `st.radio(..., horizontal=True)` |
+| Multi-select pills | `st.pills(...)` | dropdown for year navigation |
+| Vertical spacing | `st.space(n)` | `st.write("")` spacer |
+| Status chips | `st.badge(label, color=...)` | verbose markdown badge syntax |
+| Icons | `:material/icon_name:` | emoji strings in headers/page config |
+| Card background | `background: #ffffff` | `var(--surface)` (resolves to warm beige) |
+| Dynamic text in HTML | `html.escape(value)` | bare f-string into HTML strings |
+| Card + right button | CSS grid unit or `st.columns([6,1], vertical_alignment="center")` | ghost HTML, JS, `position:absolute` |
+
+---
+
 ## Style
 
 Editorial civic data reference.
@@ -97,10 +116,10 @@ def _hall_card(row, medal: str, side: str) -> str:
 **Rendering all cards as one block:**
 ```python
 html_block = "".join(_hall_card(r, medal, "good") for r, medal in zip(top_rows, _GOOD_MEDALS))
-st.markdown(html_block, unsafe_allow_html=True)
+st.html(html_block)   # st.html — never st.markdown(..., unsafe_allow_html=True)
 ```
 
-**CSS classes (in `base.css`):**
+**CSS classes (in `shared_css.py`):**
 - `.att-hall-card-good` — green gradient background, left green border
 - `.att-hall-card-bad` — red gradient background, left red border
 - `.att-hall-heading-good` / `.att-hall-heading-bad` — colored heading above each side
@@ -134,9 +153,9 @@ Used for ranked member leaderboards (e.g. interests page "most declarations").
 - Rank number uses `.int-rank-num` (large, muted); top-10 use `.int-rank-num-top` (primary blue)
 - Stat pills use `.int-stat-pill` (neutral) or `.int-stat-pill-accent` (burnt-orange accent) for highlighted figures
 - Highlight quote uses `.int-highlight-quote` (italic, left border, ellipsis overflow)
-- Use `→` navigation triggers in an `st.columns([11, 1])` split to link to the member's profile
+- Use `→` navigation triggers in an `st.columns([5, 1])` split (never `[11, 1]`) to link to the member's profile
 
-**CSS classes (in `base.css`):**
+**CSS classes (in `shared_css.py`):**
 - `.int-rank-card` — flex row card with border, shadow
 - `.int-rank-num` — 1.5rem, weight 800, muted color
 - `.int-rank-num-top` — overrides color to `--dt-primary`
@@ -180,7 +199,7 @@ command bar (filters)
 member / record table         ← primary content
 export button
 ────────────────────────────
-about & provenance expander   ← collapsed, at bottom
+about & provenance expander   ← collapsed, at bottom (if contract requires it)
 ```
 
 ### Secondary view (detail / profile / drilldown)
@@ -193,8 +212,12 @@ summary stats (3 columns max)
 section 1: timeline or calendar chart + export
 section 2: year breakdown table + export
 ────────────────────────────
-about & provenance expander   ← collapsed, at bottom
+about & provenance expander   ← collapsed, at bottom (if contract requires it)
 ```
+
+**Provenance rule:** A provenance footer is standard on most pages. Pages that merge
+many disparate sources (e.g. a cross-domain member profile) may omit it where a combined
+footer would be misleading. Check the page contract's `source_links` section.
 
 A third content section requires explicit justification.
 
@@ -203,10 +226,14 @@ A third content section requires explicit justification.
 Shared CSS belongs in:
 
 ```text
-utility/styles/base.css
+utility/shared_css.py   ← inject_css() — loaded by every page at startup
 ```
 
-Do not create page-local CSS systems. Add reusable classes such as:
+Do not add new styles to `utility/styles/base.css` — it is a legacy file loaded only by `lobbying_2.py`.
+Do not create page-local CSS systems.
+Read `utility/shared_css.py` before adding any class — it may already exist.
+
+Add reusable classes such as:
 
 ```text
 dt-page-shell

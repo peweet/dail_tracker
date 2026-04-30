@@ -550,7 +550,6 @@ def inject_css() -> None:
            to just those columns without touching any other button.
         ─────────────────────────────────────────────────────────── */
 
-        /* Spacer: pushes button to vertical centre of the card */
         .dt-nav-anchor { margin-top: 1.1rem; }
 
         /* Scoped to any stColumn that owns a .dt-nav-anchor */
@@ -825,7 +824,7 @@ def inject_css() -> None:
         .dt-name-card-rank {
             font-size: 0.78rem;
             font-weight: 800;
-            color: var(--text-meta);
+            color: #78350f;
             line-height: 1;
             text-align: right;
             width: 100%;
@@ -1059,7 +1058,7 @@ def inject_css() -> None:
         /* Ranked list row (partial-year view) */
         .att-list-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
         [data-testid="stHorizontalBlock"]:has(.att-list-row) {
-            align-items: center !important;
+            align-items: stretch !important;
             gap: 0.3rem !important;
             margin-bottom: 0.15rem !important;
         }

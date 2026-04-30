@@ -7,7 +7,7 @@ Score 1-5:
 - filter ergonomics
 - temporal controls
 - chart usefulness
-- source/provenance display
+- source/provenance display (check contract — some pages deliberately omit the footer)
 - CSV export clarity
 - mobile flow
 - civic/editorial feel
