@@ -1,6 +1,7 @@
 """Vote evidence panel rendering for Dáil Tracker."""
 from __future__ import annotations
 import sys
+from html import escape as _h
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -49,12 +50,12 @@ def _render_td_history_html(df: pd.DataFrame) -> str:
     rows_html = ""
     for _, row in df.iterrows():
         date_str = _fmt_date(row.get("vote_date"))
-        title = str(row.get("debate_title") or "—")
+        title = _h(str(row.get("debate_title") or "—"))
         vt_html = _vote_icon(row.get("vote_type"))
         outcome_html = _outcome_chip(row.get("vote_outcome"))
         url = str(row.get("oireachtas_url") or "") if has_url else ""
         link_cell = (
-            f'<a href="{url}" target="_blank" rel="noopener" class="dt-vt-link">↗ source</a>'
+            f'<a href="{_h(url)}" target="_blank" rel="noopener" class="dt-vt-link">↗ source</a>'
             if url.startswith("http") else ""
         )
         rows_html += (
@@ -280,7 +281,7 @@ def vt_division_card_html(row) -> str:
     CSS classes: .vt-card family in shared_css.py.
     """
     date_str = _fmt_date(row.get("vote_date"))
-    title    = str(row.get("debate_title") or "—")
+    title    = _h(str(row.get("debate_title") or "—"))
     outcome  = str(row.get("vote_outcome") or "").strip()
     yes_n    = int(row.get("yes_count") or 0)
     no_n     = int(row.get("no_count") or 0)

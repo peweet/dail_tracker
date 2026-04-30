@@ -92,9 +92,11 @@ patterns:
       semantic_type: reporting_year
       example_values: [2020, 2021, 2022, 2023, 2024]
     controls:
-      small_set: radio_or_segmented
+      small_set: segmented_control    # st.radio(horizontal=True) is an anti-pattern — use st.segmented_control
       medium_set: select_slider
       large_set: range_slider
+    anti_patterns:
+      - "st.radio(horizontal=True)  # replaced by st.segmented_control for 2-5 visible options"
     timeline_order: ascending_left_to_right
 
   yearly_evolution:

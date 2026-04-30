@@ -250,6 +250,10 @@ library_policy:
     - st.fragment
     - st.download_button
     - st.date_input
+    - st.segmented_control   # replaces st.radio(horizontal=True) for 2–5 visible options
+    - st.pills               # multi-select with all options visible; also used for year navigation
+    - st.badge               # status badges — prefer over verbose markdown badge syntax
+    - st.space               # vertical spacing — prefer over st.write("") spacer hack
   approved_charts:
     - plotly
     - altair
@@ -259,6 +263,6 @@ library_policy:
     - streamlit_extras
     - streamlit_community_navigation_bar
   avoid:
-    - custom_javascript
+    - custom_javascript_via_script_tag_injection  # bare <script> in st.markdown — still forbidden; use CCv2 instead
     - custom_react_components
     - one_off_css_frameworks

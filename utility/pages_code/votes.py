@@ -12,15 +12,19 @@ _log = logging.getLogger(__name__)
 
 from shared_css import inject_css
 from ui.components import (
-    scroll_to_top,
-    sidebar_date_range,
-    sidebar_member_filter,
-    todo_callout,
     empty_state,
     evidence_heading,
+    sidebar_date_range,
+    sidebar_member_filter,
+    sidebar_page_header,
+    todo_callout,
+    year_selector,
 )
 from ui.export_controls import export_button
+from ui.source_pdfs import provenance_expander
 from ui.vote_explorer import render_division_panel, render_td_panel, vt_division_card_html
+
+from config import GOLD_VOTE_HISTORY_PARQUET
 
 try:
     import duckdb as _duckdb
@@ -28,13 +32,15 @@ except ImportError:
     _duckdb = None
 
 _SQL_VIEWS = _UTIL.parent / "sql_views"
-_PARQUET = (
-    _UTIL.parent / "data" / "gold" / "parquet" / "current_dail_vote_history.parquet"
-).as_posix()
+_PARQUET   = GOLD_VOTE_HISTORY_PARQUET.as_posix()
 
 _REQUIRED_INDEX_COLS: frozenset[str] = frozenset(
     {"vote_id", "vote_date", "debate_title", "vote_outcome", "yes_count", "no_count"}
 )
+
+_VOTE_INDEX_LIMIT      = 500
+_DIVISION_MEMBERS_LIMIT = 5000
+_TD_HISTORY_LIMIT      = 500
 
 
 @st.cache_resource
@@ -103,19 +109,29 @@ def _fetch_member_names(_conn) -> list[str]:
 
 
 @st.cache_data(ttl=300)
-def _fetch_td_row(_conn, col: str, val: str) -> pd.DataFrame:
-    """Fetch a single TD summary row by member_name or member_id."""
+def _fetch_td_row_by_id(_conn, member_id: str) -> pd.DataFrame:
     return _safe_query(
         _conn,
-        f"SELECT member_id, member_name, party_name, constituency,"
-        f" yes_count, no_count, abstained_count, division_count, yes_rate_pct"
-        f" FROM td_vote_summary WHERE {col} = ? LIMIT 1",
-        (val,),
+        "SELECT member_id, member_name, party_name, constituency,"
+        " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
+        " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
+        (member_id,),
     )
 
 
 @st.cache_data(ttl=300)
-def _fetch_vote_index(_conn, date_from, date_to, outcome, limit: int = 500) -> pd.DataFrame:
+def _fetch_td_row_by_name(_conn, member_name: str) -> pd.DataFrame:
+    return _safe_query(
+        _conn,
+        "SELECT member_id, member_name, party_name, constituency,"
+        " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
+        " FROM td_vote_summary WHERE member_name = ? LIMIT 1",
+        (member_name,),
+    )
+
+
+@st.cache_data(ttl=300)
+def _fetch_vote_index(_conn, date_from, date_to, outcome) -> pd.DataFrame:
     clauses: list[str] = []
     params: list = []
     if date_from:
@@ -136,7 +152,7 @@ def _fetch_vote_index(_conn, date_from, date_to, outcome, limit: int = 500) -> p
         " yes_count, no_count, abstained_count, margin"
         f" FROM v_vote_index{where} ORDER BY vote_date DESC LIMIT ?"
     )
-    params.append(limit)
+    params.append(_VOTE_INDEX_LIMIT)
     return _safe_query(_conn, sql, params)
 
 
@@ -162,14 +178,14 @@ def _fetch_party_breakdown(_conn, vote_id) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def _fetch_division_members(_conn, vote_id, limit: int = 5000) -> pd.DataFrame:
+def _fetch_division_members(_conn, vote_id) -> pd.DataFrame:
     return _safe_query(
         _conn,
         "SELECT member_name, party_name, constituency, vote_type"
         " FROM v_vote_member_detail WHERE vote_id = ?"
         " AND member_name IS NOT NULL"
         " ORDER BY party_name ASC, member_name ASC LIMIT ?",
-        (vote_id, limit),
+        (vote_id, _DIVISION_MEMBERS_LIMIT),
     )
 
 
@@ -184,7 +200,7 @@ def _fetch_sources(_conn, vote_id) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def _fetch_td_history(_conn, member_id, date_from, date_to, limit: int = 500) -> pd.DataFrame:
+def _fetch_td_history(_conn, member_id, date_from, date_to) -> pd.DataFrame:
     clauses: list[str] = ["member_id = ?"]
     params: list = [member_id]
     if date_from:
@@ -198,7 +214,7 @@ def _fetch_td_history(_conn, member_id, date_from, date_to, limit: int = 500) ->
         "SELECT vote_id, vote_date, debate_title, vote_type, vote_outcome, oireachtas_url"
         f" FROM v_vote_member_detail WHERE {body} ORDER BY vote_date DESC LIMIT ?"
     )
-    params.append(limit)
+    params.append(_TD_HISTORY_LIMIT)
     return _safe_query(_conn, sql, params)
 
 
@@ -223,13 +239,8 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
 
     if years:
         year_strs = [str(y) for y in years]
-        sel_year = st.pills(
-            "Year",
-            year_strs,
-            default=year_strs[0] if year_strs else None,
-            key="v_year",
-        )
-        if sel_year and not eff_from:
+        sel_year = year_selector(year_strs, key="v_year")
+        if not eff_from:
             eff_from = f"{sel_year}-01-01"
             eff_to   = f"{sel_year}-12-31"
 
@@ -301,37 +312,33 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
 def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
     _card_list_fragment(conn, date_from, date_to, outcome_filter)
 
-    with st.expander("About & data provenance"):
-        hero = _fetch_hero_stats(conn)
-        if not hero.empty:
-            r = hero.iloc[0]
-            dc = r.get("division_count")
-            mc = r.get("member_count")
-            if dc:
-                st.caption(
-                    f"{int(dc):,} total divisions on record · "
-                    f"{int(mc or 0):,} TDs recorded."
-                )
-        st.caption(
-            "Divisions data sourced from the Oireachtas Open Data API. "
-            "Votes are as published in the official record."
-        )
-        st.caption(
-            "TODO_PIPELINE_VIEW_REQUIRED: source_url column on v_vote_sources — "
-            "confirm real oireachtas.ie URL is present, not a local file path."
-        )
+    hero = _fetch_hero_stats(conn)
+    sections: list[str] = [
+        "Divisions data sourced from the Oireachtas Open Data API. "
+        "Votes are as published in the official record."
+    ]
+    if not hero.empty:
+        r = hero.iloc[0]
+        dc = r.get("division_count")
+        mc = r.get("member_count")
+        if dc:
+            sections.insert(0, f"{int(dc):,} total divisions on record · {int(mc or 0):,} TDs recorded.")
+    provenance_expander(sections=sections)
+    todo_callout(
+        "source_url column on v_vote_sources — "
+        "confirm real oireachtas.ie URL is present, not a local file path."
+    )
 
 
 # ── Mode B: TD profile ─────────────────────────────────────────────────────────
 
 def _render_mode_b(conn, member_id: str, date_from, date_to) -> None:
-    scroll_to_top()
     if st.button("← Back to divisions", key="v_back_b"):
         st.session_state["_v_clear_member"] = True
         st.query_params.clear()
         st.rerun()
 
-    td_df = _fetch_td_row(conn, "member_id", member_id)
+    td_df = _fetch_td_row_by_id(conn, member_id)
     if td_df.empty:
         empty_state(
             "TD not found",
@@ -352,16 +359,12 @@ def _render_mode_b(conn, member_id: str, date_from, date_to) -> None:
         "pipeline view required before this section can render."
     )
 
-    with st.expander("About & data provenance"):
-        st.caption(
-            "Voting record sourced from the Oireachtas Open Data API divisions data."
-        )
+    provenance_expander(sections=["Voting record sourced from the Oireachtas Open Data API divisions data."])
 
 
 # ── Mode C: Division evidence ──────────────────────────────────────────────────
 
 def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
-    scroll_to_top()
     back_label = "← Back to TD record" if v_from == "td" else "← Back to divisions"
     if st.button(back_label, key="v_back_c"):
         st.session_state["_v_clear_vote"] = True
@@ -389,8 +392,7 @@ def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
 
     render_division_panel(vote_row, members_df, sources_df, breakdown_df)
 
-    with st.expander("About & data provenance"):
-        st.caption("Division record sourced from the Oireachtas Open Data API.")
+    provenance_expander(sections=["Division record sourced from the Oireachtas Open Data API."])
 
 
 # ── Page entry point ───────────────────────────────────────────────────────────
@@ -424,8 +426,7 @@ def votes_page() -> None:
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
-        st.markdown('<p class="page-kicker">Dáil Tracker</p>', unsafe_allow_html=True)
-        st.markdown('<p class="page-title">Dáil<br>Divisions</p>', unsafe_allow_html=True)
+        sidebar_page_header("Dáil<br>Divisions")
 
         hero_df = _fetch_hero_stats(conn)
         if not hero_df.empty:
@@ -467,7 +468,7 @@ def votes_page() -> None:
 
         # Handle selection / deselection
         if sel_name:
-            td_lkp = _fetch_td_row(conn, "member_name", sel_name)
+            td_lkp = _fetch_td_row_by_name(conn, sel_name)
             if not td_lkp.empty:
                 new_mid = str(td_lkp.iloc[0]["member_id"])
                 if new_mid != sel_member_id:

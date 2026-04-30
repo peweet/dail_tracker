@@ -1,7 +1,19 @@
 """Shared UI components for Dáil Tracker Streamlit pages (v5)."""
 from __future__ import annotations
 import datetime
+from html import escape as _h
 import streamlit as st
+
+
+def clean_meta(*parts: str) -> str:
+    """Join non-empty, non-NaN string parts with ' · '."""
+    return " · ".join(p for p in parts if p and p.lower() not in ("nan", ""))
+
+
+def sidebar_page_header(title: str, kicker: str = "Dáil Tracker") -> None:
+    """Standardised sidebar kicker + page title block. title may contain <br>."""
+    st.markdown(f'<p class="page-kicker">{kicker}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="page-title">{title}</p>', unsafe_allow_html=True)
 
 
 def year_selector(
@@ -51,33 +63,78 @@ def render_notable_chips(
     return False
 
 
-def scroll_to_top() -> None:
-    """Scroll the app viewport to the top. Call at the start of any detail-view render."""
+
+def info_card(
+    html: str,
+    *,
+    min_height: str = "auto",
+    padding: str = "0.55rem 0.9rem",
+    border_radius: str = "6px",
+    border_left_color: str = "rgba(0,0,0,0.14)",
+    bg: str = "#ffffff",
+) -> None:
+    """Render a styled content card. No click behaviour.
+
+    All visual properties are Python-level overrides — no CSS editing needed:
+        border_radius      e.g. "12px" for rounder, "2px" for tight
+        border_left_color  accent colour of the left border stripe
+        padding            inner spacing, e.g. "0.3rem 0.7rem" for compact
+        min_height         e.g. "4rem" to force a taller card
+        bg                 background colour; default is pure white
+
+    Use card_row() to add an adjacent → navigation button.
+    """
+    style = (
+        f"min-height:{min_height};"
+        f"padding:{padding};"
+        f"border-radius:{border_radius};"
+        f"border:1px solid rgba(0,0,0,0.08);"
+        f"border-left:3px solid {border_left_color};"
+        f"background:{bg};"
+        f"box-shadow:0 1px 3px rgba(0,0,0,0.05);"
+        f"box-sizing:border-box;width:100%;"
+    )
     st.markdown(
-        '<script>window.parent.document.querySelector('
-        '"[data-testid=stAppViewContainer]").scrollTo(0,0);</script>',
+        f'<div class="dt-info-card" style="{style}">{html}</div>',
         unsafe_allow_html=True,
     )
 
 
-def clickable_card(html: str, key: str, help: str = "") -> bool:
-    """Render an HTML card where the entire surface is clickable.
+def card_row(
+    html: str,
+    *,
+    btn_key: str,
+    btn_label: str = "→",
+    btn_help: str = "",
+    col_ratio: tuple[int, int] = (14, 1),
+    min_height: str = "auto",
+    padding: str = "0.55rem 0.9rem",
+    border_radius: str = "6px",
+    border_left_color: str = "rgba(0,0,0,0.14)",
+    bg: str = "#ffffff",
+) -> bool:
+    """Card + adjacent navigation button in a row. Returns True when button clicked.
 
-    Usage pattern (copy for any new page):
-        1. Build card HTML with class="dt-clickable-card" on the outer div.
-        2. Call clickable_card(html, unique_key) inside a loop.
-        3. Handle the True return: set session state + st.rerun().
+    All info_card style params are forwarded. col_ratio controls the
+    card-column vs button-column width split (default 14:1).
 
-    Mechanism: a transparent full-coverage Streamlit button is overlaid on the
-    card via CSS (shared_css.py). Clicking anywhere on the card surface is a
-    genuine button click — no JS needed. The CSS selector that makes this work:
-    [data-testid="stVerticalBlock"]:has(.dt-clickable-card):not(:has([data-testid="stVerticalBlock"]))
-    targets the innermost stVerticalBlock (the st.container() wrapper) without
-    depending on Streamlit's internal intermediate div class names.
+    Usage:
+        if card_row(build_html(row), btn_key=f"row_{i}", btn_help=row["name"]):
+            st.session_state["selected"] = row["name"]
+            st.rerun()
     """
-    with st.container():
-        st.markdown(html, unsafe_allow_html=True)
-        return st.button(" ", key=key, help=help)
+    card_col, btn_col = st.columns(col_ratio)
+    with card_col:
+        info_card(
+            html,
+            min_height=min_height,
+            padding=padding,
+            border_radius=border_radius,
+            border_left_color=border_left_color,
+            bg=bg,
+        )
+    btn_col.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
+    return btn_col.button(btn_label, key=btn_key, help=btn_help)
 
 
 def hero_banner(kicker: str, title: str, dek: str, badges: list[str] | None = None) -> None:
@@ -110,11 +167,12 @@ def stat_strip(stats: list[tuple[str, str, str]]) -> None:
 
 
 def outcome_badge(outcome: str) -> str:
+    s = _h(outcome)
     if outcome == "Carried":
-        return f'<span class="dt-outcome-carried">{outcome}</span>'
+        return f'<span class="dt-outcome-carried">{s}</span>'
     if outcome == "Lost":
-        return f'<span class="dt-outcome-lost">{outcome}</span>'
-    return f'<span class="dt-outcome-unknown">{outcome or "—"}</span>'
+        return f'<span class="dt-outcome-lost">{s}</span>'
+    return f'<span class="dt-outcome-unknown">{s or "—"}</span>'
 
 
 def evidence_heading(text: str) -> None:
@@ -156,7 +214,7 @@ def member_card_html(
                   sub-class for the standard blue days/amount style
     """
     if avatar_url:
-        left_inner = f'<img class="dt-name-card-avatar" src="{avatar_url}" alt="">'
+        left_inner = f'<img class="dt-name-card-avatar" src="{_h(avatar_url)}" alt="">'
     elif rank is not None:
         rank_cls   = "dt-name-card-rank dt-name-card-rank-top" if rank <= 3 else "dt-name-card-rank"
         left_inner = f'<span class="{rank_cls}">#{rank}</span>'

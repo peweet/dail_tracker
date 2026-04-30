@@ -122,7 +122,7 @@ interaction_model:
     - year_controls_above_identity_strip
 
   sidebar_contains:
-    - chamber_radio            # Dáil / Seanad
+    - chamber_segmented_control   # Dáil / Seanad — 2 options; st.segmented_control replaces radio(horizontal=True)
     - notable_member_chips
     - member_search_text_input
     - member_selectbox

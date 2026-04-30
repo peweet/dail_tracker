@@ -33,8 +33,18 @@ Use only when native Streamlit cannot provide the interaction:
 ## Avoid unless explicitly approved
 
 - custom React components
-- arbitrary custom JavaScript
 - one-off CSS frameworks
 - large UI frameworks
 - unmaintained Streamlit components
 - libraries that duplicate native Streamlit features without clear benefit
+
+## Custom JavaScript policy
+
+Bare `<script>` injection via `st.markdown(..., unsafe_allow_html=True)` is **forbidden**.
+
+Custom JavaScript is permitted when:
+1. Delivered via CCv2 (`st.components.v2.component()`) — follow the `building-streamlit-custom-components-v2` skill exactly
+2. The interaction cannot be achieved with a native Streamlit widget
+3. The purpose is functional, not decorative
+
+Feature-bloat JavaScript remains forbidden regardless of delivery mechanism. The original prohibition was a feature-scope guardrail, not a blanket ban on all JS.

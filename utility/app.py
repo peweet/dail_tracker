@@ -9,19 +9,19 @@ from pages_code.votes import votes_page
 
 st.set_page_config(
     page_title="Oireachtas Explorer",
-    page_icon="🏛️",
+    page_icon=":material/account_balance:",
     layout="wide",
 )
 
 pg = st.navigation(
     [
-        st.Page(interests_page, title="Interests", icon="📄", default=True),
-        st.Page(committees_page, title="Committees", icon="🏛️"),
-        st.Page(attendance_page, title="Attendance", icon="📅"),
-        st.Page(payments_page, title="Payments", icon="💶"),
-        st.Page(lobbying_page, title="Lobbying", icon="📋"),
-        st.Page(legislation_page, title="Legislation", icon="📜"),
-        st.Page(votes_page, title="Votes", icon="🗳️"),
+        st.Page(interests_page, title="Interests", icon=":material/interests:", default=True),
+        st.Page(committees_page, title="Committees", icon=":material/account_balance:"),
+        st.Page(attendance_page, title="Attendance", icon=":material/calendar_today:"),
+        st.Page(payments_page, title="Payments", icon=":material/payments:"),
+        st.Page(lobbying_page, title="Lobbying", icon=":material/how_to_vote:"),
+        st.Page(legislation_page, title="Legislation", icon=":material/gavel:"),
+        st.Page(votes_page, title="Votes", icon=":material/how_to_vote:"),
     ]
 )
 pg.run()

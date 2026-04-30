@@ -8,23 +8,10 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from shared_css import inject_css
-from ui.components import member_profile_header, render_stat_strip, stat_item
+from ui.components import clean_meta, empty_state, evidence_heading, member_profile_header, render_stat_strip, sidebar_page_header, stat_item
+from ui.export_controls import export_button
 
-_ROOT = Path(__file__).parent.parent.parent
-_CSV = {
-    "Dáil": _ROOT / "data" / "silver" / "flattened_members.csv",
-    "Seanad": _ROOT / "data" / "silver" / "flattened_seanad_members.csv",
-}
-
-COMMITTEE_TYPES = {
-    "Policy": "Policy",
-    "Oversight": "Oversight",
-    "Statutory": "Statutory",
-    "Shadow Department": "Shadow Department",
-    "Parliamentary Regulation and Reform": "Parl. Regulation & Reform",
-    "The Committee System and Parliamentary Administration": "Parl. Administration",
-    "Parliamentary Business and Committee Membership": "Parl. Business",
-}
+from config import SILVER_MEMBERS_CSV
 
 
 # ── helpers ──────────────────────────────────────────────────────────
@@ -79,8 +66,6 @@ def _link_col():
     return st.column_config.LinkColumn("Link", display_text="Open ↗", width="small")
 
 
-def _export(df: pd.DataFrame, filename: str, key: str, label: str = "Export CSV") -> None:
-    st.download_button(label, df.to_csv(index=False).encode("utf-8"), filename, "text/csv", key=key)
 
 
 # ── data loading ─────────────────────────────────────────────────────
@@ -88,7 +73,7 @@ def _export(df: pd.DataFrame, filename: str, key: str, label: str = "Export CSV"
 
 @st.cache_data(show_spinner=False)
 def _load(chamber: str):
-    df = pd.read_csv(_CSV[chamber], na_values=["Null"])
+    df = pd.read_csv(SILVER_MEMBERS_CSV[chamber], na_values=["Null"])
 
     prefixes = sorted(
         {m.group(1) for c in df.columns if (m := re.match(r"(committee_\d+)_", c))},
@@ -171,8 +156,6 @@ def _load(chamber: str):
     )
     all_members["party"] = all_members["party"].fillna("Unknown")
 
-    # REMOVE: gold/committee_activity_summary.parquet replaces this groupby + merge
-    # Replace with: activity = load gold parquet, filter by chamber if needed
     if df_long.empty:
         stats = pd.DataFrame(columns=["name", "committees", "active", "chairs"])
     else:
@@ -198,7 +181,7 @@ def _load(chamber: str):
 # ── page sections ─────────────────────────────────────────────────────
 
 
-def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TDs") -> None:
+def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, member_label: str) -> None:
     active_committees = df[df["status"] == "Active"]["committee"].nunique()
     total_tds = activity["name"].nunique()
     chairs = int(df["is_chair"].sum())
@@ -216,13 +199,9 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
     with st.expander("What is this data? (Click for details)", expanded=False):
         st.markdown(
             """
-            **About Oireachtas Committees**  
+            **About Oireachtas Committees**
             Committees are small groups of TDs and Senators who examine legislation, hold hearings, and scrutinise government work. Membership and roles are published by the Oireachtas and updated after each Dáil/Seanad election.
-            
-            **Data sources:**
-            - Official Oireachtas committee membership records (flattened_members.csv, flattened_seanad_members.csv)
-            - Aggregated and cleaned in the 'silver' layer for analysis
-            
+
             **Caveats:**
             - Some committee assignments may be missing or out of date
             - Role titles and committee names are as published by the Oireachtas
@@ -242,8 +221,7 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
     col_l, col_r = st.columns(2)
 
     with col_l:
-        st.markdown('<p class="section-heading">Most committee memberships</p>', unsafe_allow_html=True)
-        # REMOVE: gold/committee_activity_summary.parquet already ORDER BY total_committees DESC — drop sort
+        evidence_heading("Most committee memberships")
         top = activity.sort_values(["committees", "chairs"], ascending=False).head(15).reset_index(drop=True)
         max_c = int(top["committees"].max()) or 1
         st.dataframe(
@@ -259,10 +237,10 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
                 "chairs": st.column_config.NumberColumn("Chairs"),
             },
         )
-        _export(top, "most_active_committees.csv", "ov_top_export")
+        export_button(top, "Export CSV", "most_active_committees.csv", "ov_top_export")
 
     with col_r:
-        st.markdown('<p class="section-heading">Fewest committee memberships</p>', unsafe_allow_html=True)
+        evidence_heading("Fewest committee memberships")
         st.caption("Zero means no committee seat at all. Ministers currently serving are excluded.")
 
         # Identify currently serving ministers (no end date, or end date in the future)
@@ -291,11 +269,10 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
                 "chairs": st.column_config.NumberColumn("Chairs"),
             },
         )
-        _export(bottom, "least_active_committees.csv", "ov_bottom_export")
+        export_button(bottom, "Export CSV", "least_active_committees.csv", "ov_bottom_export")
 
     # ── Party breakdown ───────────────────────────────────────────
-    st.markdown('<p class="section-heading">Committee seats by party</p>', unsafe_allow_html=True)
-    # REMOVE: gold/committee_party_breakdown.parquet replaces this groupby — already ORDER BY seats DESC
+    evidence_heading("Committee seats by party")
     active_df = df[df["status"] == "Active"]
     party_seats = (
         active_df.groupby("party")
@@ -318,7 +295,7 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
 
     # ── Office holders ────────────────────────────────────────────
     if not offices.empty:
-        st.markdown('<p class="section-heading">Government office holders</p>', unsafe_allow_html=True)
+        evidence_heading("Government office holders")
         st.caption(
             "TDs who hold or have held ministerial or state office. Cross-reference with their committee memberships in the TD Profile view."
         )
@@ -342,17 +319,17 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
                 "chairs_committee": st.column_config.CheckboxColumn("Also chairs committee"),
             },
         )
-        _export(offices, "office_holders.csv", "ov_offices_export")
+        export_button(offices, "Export CSV", "office_holders.csv", "ov_offices_export")
 
 
-def _browse_committees(df: pd.DataFrame, member_label: str = "TDs") -> None:
+def _browse_committees(df: pd.DataFrame, member_label: str) -> None:
     """Browse all committees; click one to see its full member list."""
     col_l, col_r = st.columns([1, 2])
 
     with col_l:
-        st.markdown('<p class="section-heading">Filter</p>', unsafe_allow_html=True)
+        evidence_heading("Filter")
 
-        status_filter = st.radio("Status", ["All", "Active", "Ended"], horizontal=True, key="br_status")
+        status_filter = st.segmented_control("Status", ["All", "Active", "Ended"], default="All", key="br_status") or "All"
         type_options = ["All types"] + sorted(df["type"].dropna().unique())
         type_filter = st.selectbox("Committee type", type_options, key="br_type")
 
@@ -392,7 +369,7 @@ def _browse_committees(df: pd.DataFrame, member_label: str = "TDs") -> None:
         )
 
     if summary.empty:
-        st.info("No committees match these filters.")
+        empty_state("No committees match", "No committees match these filters.")
         return
 
     max_m = int(summary["members"].max()) or 1
@@ -410,10 +387,9 @@ def _browse_committees(df: pd.DataFrame, member_label: str = "TDs") -> None:
             "url": _link_col(),
         },
     )
-    _export(summary, "committees_filtered.csv", "br_summary_export")
+    export_button(summary, "Export CSV", "committees_filtered.csv", "br_summary_export")
 
-    st.markdown("---")
-    st.markdown('<p class="section-heading">Drill into a committee</p>', unsafe_allow_html=True)
+    evidence_heading("Drill into a committee")
 
     chosen = st.selectbox(
         "Select committee",
@@ -461,9 +437,9 @@ def _browse_committees(df: pd.DataFrame, member_label: str = "TDs") -> None:
                     "end": st.column_config.DateColumn("End", format="YYYY-MM-DD"),
                 },
             )
-            _export(view, f"{chosen[:40].replace(' ', '_')}_members.csv", "br_members_export")
+            export_button(view, "Export CSV", f"{chosen[:40].replace(' ', '_')}_members.csv", "br_members_export")
         with c2:
-            st.markdown('<p class="section-heading">Party composition</p>', unsafe_allow_html=True)
+            evidence_heading("Party composition")
             max_s = int(party_split["Seats"].max()) or 1
             st.dataframe(
                 party_split,
@@ -475,7 +451,7 @@ def _browse_committees(df: pd.DataFrame, member_label: str = "TDs") -> None:
             )
 
 
-def _td_profile(df: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TDs") -> None:
+def _td_profile(df: pd.DataFrame, offices: pd.DataFrame, member_label: str) -> None:
     all_names = sorted(df["name"].unique())
 
     search = st.text_input(
@@ -509,7 +485,7 @@ def _td_profile(df: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TD
 
     party = person["party"].iloc[0]
     constituency = person["constituency"].iloc[0]
-    meta = " · ".join(x for x in [party, str(constituency)] if x and str(x) != "nan")
+    meta = clean_meta(party, str(constituency))
 
     total = person["committee"].nunique()
     active = int((person["status"] == "Active").sum())
@@ -519,7 +495,6 @@ def _td_profile(df: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TD
     # Office roles
     td_offices = offices[offices["name"] == td] if not offices.empty else pd.DataFrame()
 
-    st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
     member_profile_header(td, meta)
 
     render_stat_strip(
@@ -531,7 +506,7 @@ def _td_profile(df: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TD
     )
 
     if not td_offices.empty:
-        st.markdown('<p class="section-heading">Government offices</p>', unsafe_allow_html=True)
+        evidence_heading("Government offices")
         st.dataframe(
             td_offices[["office", "start", "end"]],
             hide_index=True,
@@ -543,9 +518,9 @@ def _td_profile(df: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TD
             },
         )
 
-    st.markdown('<p class="section-heading">Committee memberships</p>', unsafe_allow_html=True)
+    evidence_heading("Committee memberships")
 
-    status_tab = st.radio("Show", ["All", "Active", "Ended"], horizontal=True, key="pr_status")
+    status_tab = st.segmented_control("Show", ["All", "Active", "Ended"], default="All", key="pr_status") or "All"
     view = person if status_tab == "All" else person[person["status"] == status_tab]
     view = view.sort_values(["status", "start"], ascending=[True, False], na_position="last")
 
@@ -568,7 +543,7 @@ def _td_profile(df: pd.DataFrame, offices: pd.DataFrame, member_label: str = "TD
             ),
         },
     )
-    _export(view, f"{td.replace(' ', '_')}_committees.csv", "pr_export")
+    export_button(view, "Export CSV", f"{td.replace(' ', '_')}_committees.csv", "pr_export")
 
 
 # ── page entry ────────────────────────────────────────────────────────
@@ -578,13 +553,12 @@ def committees_page() -> None:
     inject_css()
 
     with st.sidebar:
-        st.markdown('<div class="page-kicker">Dáil Tracker</div>', unsafe_allow_html=True)
-        st.markdown('<div class="page-title">Committee<br>Register</div>', unsafe_allow_html=True)
+        sidebar_page_header("Committee<br>Register")
 
         st.markdown('<p class="sidebar-label">Chamber</p>', unsafe_allow_html=True)
-        chamber = st.radio(
-            "Chamber", ["Dáil", "Seanad"], horizontal=True, key="comm_chamber", label_visibility="collapsed"
-        )
+        chamber = st.segmented_control(
+            "Chamber", ["Dáil", "Seanad"], default="Dáil", key="comm_chamber", label_visibility="collapsed"
+        ) or "Dáil"
         if st.session_state.get("_comm_last_chamber") != chamber:
             st.session_state["pr_selected"] = None
             st.session_state["_comm_last_chamber"] = chamber
@@ -610,8 +584,6 @@ def committees_page() -> None:
             label_visibility="collapsed",
             key="comm_view",
         )
-
-    st.markdown('<hr class="section-rule">', unsafe_allow_html=True)
 
     if view == "Overview":
         _overview(df, activity, offices, member_label)
