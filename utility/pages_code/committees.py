@@ -3,12 +3,13 @@ import sys
 import unicodedata
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from shared_css import inject_css
-from ui.components import clean_meta, empty_state, evidence_heading, member_profile_header, render_stat_strip, sidebar_page_header, stat_item
+from ui.components import clean_meta, empty_state, evidence_heading, member_card_html, member_profile_header, render_stat_strip, sidebar_page_header, stat_item
 from ui.export_controls import export_button
 
 from config import SILVER_MEMBERS_CSV
@@ -223,20 +224,19 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
     with col_l:
         evidence_heading("Most committee memberships")
         top = activity.sort_values(["committees", "chairs"], ascending=False).head(15).reset_index(drop=True)
-        max_c = int(top["committees"].max()) or 1
-        st.dataframe(
-            top,
-            hide_index=True,
-            use_container_width=True,
-            column_config={
-                "name": st.column_config.TextColumn(member_label[:-1]),
-                "party": st.column_config.TextColumn("Party"),
-                "constituency": st.column_config.TextColumn("Constituency"),
-                "committees": st.column_config.ProgressColumn("Committees", format="%d", min_value=0, max_value=max_c),
-                "active": st.column_config.NumberColumn("Active"),
-                "chairs": st.column_config.NumberColumn("Chairs"),
-            },
-        )
+        for i, (_, row) in enumerate(top.iterrows()):
+            name = str(row["name"])
+            meta = clean_meta(str(row.get("party", "")), str(row.get("constituency", "")))
+            count, active_n, chairs_n = int(row["committees"]), int(row["active"]), int(row["chairs"])
+            pills = f'<span class="int-stat-pill">{count} committees</span>'
+            if active_n:
+                pills += f'<span class="int-stat-pill">{active_n} active</span>'
+            if chairs_n:
+                pills += f'<span class="int-stat-pill">{chairs_n} chair{"s" if chairs_n != 1 else ""}</span>'
+            st.markdown(
+                member_card_html(name=name, meta=meta, rank=i + 1, pills_html=pills),
+                unsafe_allow_html=True,
+            )
         export_button(top, "Export CSV", "most_active_committees.csv", "ov_top_export")
 
     with col_r:
@@ -255,20 +255,15 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
         # Exclude current ministers from the 'fewest' table
         non_minister_activity = activity[~activity["name"].isin(current_ministers)]
         bottom = non_minister_activity.sort_values(["committees", "active", "chairs"]).head(15).reset_index(drop=True)
-        max_c2 = int(activity["committees"].max()) or 1
-        st.dataframe(
-            bottom,
-            hide_index=True,
-            use_container_width=True,
-            column_config={
-                "name": st.column_config.TextColumn(member_label[:-1]),
-                "party": st.column_config.TextColumn("Party"),
-                "constituency": st.column_config.TextColumn("Constituency"),
-                "committees": st.column_config.ProgressColumn("Committees", format="%d", min_value=0, max_value=max_c2),
-                "active": st.column_config.NumberColumn("Active"),
-                "chairs": st.column_config.NumberColumn("Chairs"),
-            },
-        )
+        for _, row in bottom.iterrows():
+            name = str(row["name"])
+            meta = clean_meta(str(row.get("party", "")), str(row.get("constituency", "")))
+            count = int(row["committees"])
+            pills = f'<span class="int-stat-pill">{count} committee{"s" if count != 1 else ""}</span>'
+            st.markdown(
+                member_card_html(name=name, meta=meta, pills_html=pills),
+                unsafe_allow_html=True,
+            )
         export_button(bottom, "Export CSV", "least_active_committees.csv", "ov_bottom_export")
 
     # ── Party breakdown ───────────────────────────────────────────
@@ -280,18 +275,23 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
         .sort_values("seats", ascending=False)
         .reset_index()
     )
-    max_seats = int(party_seats["seats"].max()) or 1
-    st.dataframe(
-        party_seats,
-        hide_index=True,
-        use_container_width=True,
-        column_config={
-            "party": st.column_config.TextColumn("Party"),
-            "seats": st.column_config.ProgressColumn("Active seats", format="%d", min_value=0, max_value=max_seats),
-            "tds": st.column_config.NumberColumn("TDs"),
-            "chairs": st.column_config.NumberColumn("Chairs held"),
-        },
-    )
+    if not party_seats.empty:
+        chart = (
+            alt.Chart(party_seats)
+            .mark_bar(color="#1a56db", cornerRadiusTopRight=3, cornerRadiusBottomRight=3)
+            .encode(
+                x=alt.X("seats:Q", title="Active seats", axis=alt.Axis(tickMinStep=1)),
+                y=alt.Y("party:N", sort="-x", title=None),
+                tooltip=[
+                    alt.Tooltip("party:N", title="Party"),
+                    alt.Tooltip("seats:Q", title="Active seats"),
+                    alt.Tooltip("tds:Q", title="TDs"),
+                    alt.Tooltip("chairs:Q", title="Chairs"),
+                ],
+            )
+            .properties(height=max(200, len(party_seats) * 28))
+        )
+        st.altair_chart(chart, use_container_width=True)
 
     # ── Office holders ────────────────────────────────────────────
     if not offices.empty:
@@ -305,20 +305,22 @@ def _overview(df: pd.DataFrame, activity: pd.DataFrame, offices: pd.DataFrame, m
             .sort_values("offices_held", ascending=False)
             .reset_index()
         )
-        # Mark which office holders also chair committees
         chair_names = set(df[df["is_chair"]]["name"].unique())
         office_summary["chairs_committee"] = office_summary["name"].isin(chair_names)
-        st.dataframe(
-            office_summary,
-            hide_index=True,
-            use_container_width=True,
-            column_config={
-                "name": st.column_config.TextColumn("TD"),
-                "party": st.column_config.TextColumn("Party"),
-                "offices_held": st.column_config.NumberColumn("Offices held"),
-                "chairs_committee": st.column_config.CheckboxColumn("Also chairs committee"),
-            },
-        )
+        col_l2, col_r2 = st.columns(2)
+        cols2 = [col_l2, col_r2]
+        for i, (_, row) in enumerate(office_summary.iterrows()):
+            name = str(row["name"])
+            meta = str(row.get("party", ""))
+            offices_n = int(row["offices_held"])
+            pills = f'<span class="int-stat-pill">{offices_n} office{"s" if offices_n != 1 else ""}</span>'
+            if row["chairs_committee"]:
+                pills += '<span class="int-stat-pill">Chairs a committee</span>'
+            with cols2[i % 2]:
+                st.markdown(
+                    member_card_html(name=name, meta=meta, pills_html=pills),
+                    unsafe_allow_html=True,
+                )
         export_button(offices, "Export CSV", "office_holders.csv", "ov_offices_export")
 
 

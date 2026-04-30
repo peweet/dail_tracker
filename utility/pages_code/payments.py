@@ -17,8 +17,10 @@ TODO_PIPELINE_VIEW_REQUIRED: party_name and constituency — not present in paym
 from __future__ import annotations
 
 import sys
+from html import escape as _h
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -62,11 +64,11 @@ _QUARANTINE_NOTE = (
 
 def _pay_card_html(row: pd.Series) -> str:
     """Member name card for the payments ranked list, built on the canonical dt-name-card pattern."""
-    name      = str(row.get("member_name",    "—"))
-    pos       = str(row.get("position",       "Deputy"))
-    party     = str(row.get("party_name",     "") or "")
-    constit   = str(row.get("constituency",   "") or "")
-    taa       = str(row.get("taa_band_label", "—"))
+    name      = _h(str(row.get("member_name",    "—")))
+    pos       = _h(str(row.get("position",       "Deputy")))
+    party     = _h(str(row.get("party_name",     "") or ""))
+    constit   = _h(str(row.get("constituency",   "") or ""))
+    taa       = _h(str(row.get("taa_band_label", "—")))
     count     = int(row.get("payment_count",  0) or 0)
     total_str = f"€{float(row.get('total_paid', 0) or 0):,.0f}"
     meta  = clean_meta(party, constit) or pos
@@ -143,6 +145,10 @@ def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
     name_col = "member_name" if "member_name" in alltime.columns else None
     amt_col  = "total_amount_paid_since_2020"
 
+    # TODO_PIPELINE_VIEW_REQUIRED: taa_band_label in current_td_payment_rankings.parquet
+    # — parquet currently has ['rank','member_name','join_key','total_amount_paid_since_2020'] only
+    has_taa = "taa_band_label" in alltime.columns
+
     top_10  = alltime.head(10)
     next_10 = alltime.iloc[10:20]
 
@@ -151,14 +157,19 @@ def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
         with col:
             for i, (_, row) in enumerate(chunk.iterrows()):
                 rank     = offset + i + 1
-                name     = str(row.get(name_col, "—")) if name_col else "—"
+                name     = _h(str(row.get(name_col, "—")) if name_col else "—")
                 amt      = float(row.get(amt_col, 0) or 0)
                 rank_cls = "dt-name-card-rank-top" if rank <= 3 else "dt-name-card-rank"
+                taa_pill = (
+                    f'<span class="pay-taa-pill">{_h(str(row["taa_band_label"]))}</span>'
+                    if has_taa else ""
+                )
                 card_html = (
                     f'<div class="dt-name-card">'
                     f'<div class="dt-name-card-left"><span class="{rank_cls}">#{rank}</span></div>'
                     f'<div class="dt-name-card-body">'
                     f'<div class="dt-name-card-name">{name}</div>'
+                    f'<div class="dt-name-card-meta">{taa_pill}</div>'
                     f'</div>'
                     f'<div class="dt-name-card-badge dt-name-card-badge-metric">'
                     f'<span class="dt-name-card-badge-num">€{amt:,.0f}</span>'
@@ -195,14 +206,7 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
         return
 
     selected_year = int(selected_view)
-    ranking  = fetch_year_ranking(selected_year)
-    total_yr = float(ranking["total_paid"].sum()) if not ranking.empty else 0.0
-    yr_count = len(ranking)
-    avg_yr   = total_yr / yr_count if yr_count else 0.0
-
-    c1, c2 = st.columns(2)
-    c1.metric(f"Total — {selected_year}",      f"€{total_yr:,.0f}")
-    c2.metric(f"Avg per TD — {selected_year}", f"€{avg_yr:,.0f}")
+    ranking = fetch_year_ranking(selected_year)
 
     if ranking.empty:
         empty_state(
@@ -211,6 +215,14 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
         )
         _render_provenance(summary, selected_year)
         return
+
+    total_yr = float(ranking.iloc[0]["year_total_paid"])
+    yr_count = int(ranking.iloc[0]["year_member_count"])
+    avg_yr   = float(ranking.iloc[0]["year_avg_per_td"])
+
+    c1, c2 = st.columns(2)
+    c1.metric(f"Total — {selected_year}",      f"€{total_yr:,.0f}")
+    c2.metric(f"Avg per TD — {selected_year}", f"€{avg_yr:,.0f}")
 
     st.caption(f"Ranked by total PSA received · {selected_year} · {yr_count} members")
 
@@ -274,16 +286,16 @@ def _render_profile(
     # Identity strip
     st.markdown(
         f'<div class="pay-identity-card">'
-        f'<div class="pay-identity-card-name">{td_name}</div>'
+        f'<div class="pay-identity-card-name">{_h(td_name)}</div>'
         f'<div class="pay-identity-card-meta">'
-        f'{meta_str} &nbsp;·&nbsp; '
-        f'<span class="pay-taa-pill">{taa_label}</span>'
+        f'{_h(meta_str)} &nbsp;·&nbsp; '
+        f'<span class="pay-taa-pill">{_h(taa_label)}</span>'
         f'</div></div>',
         unsafe_allow_html=True,
     )
 
     # Summary metrics
-    alltime_total = float(all_years["total_paid"].sum())
+    alltime_total = float(all_years.iloc[0]["member_alltime_total"])
     yr_df = fetch_member_year_summary(td_name, selected_year)
 
     if not yr_df.empty:
@@ -298,6 +310,23 @@ def _render_profile(
         col1, col2 = st.columns(2)
         col1.metric("TAA band",       taa_label)
         col2.metric("All-time total", f"€{alltime_total:,.0f}")
+
+    # Yearly evolution chart — chronological, left-to-right
+    chart_df = all_years[["payment_year", "total_paid"]].sort_values("payment_year")
+    bars = (
+        alt.Chart(chart_df)
+        .mark_bar(color="#1e40af", cornerRadiusTopLeft=3, cornerRadiusTopRight=3)
+        .encode(
+            x=alt.X("payment_year:O", title=None, axis=alt.Axis(labelAngle=0)),
+            y=alt.Y("total_paid:Q", title="Total received (€)", axis=alt.Axis(format=",.0f")),
+            tooltip=[
+                alt.Tooltip("payment_year:O", title="Year"),
+                alt.Tooltip("total_paid:Q",   title="Total received (€)", format=",.0f"),
+            ],
+        )
+        .properties(height=180)
+    )
+    st.altair_chart(bars, use_container_width=True)
 
     # All-years summary table
     st.markdown("**All years**")
@@ -330,11 +359,10 @@ def _render_profile(
             f"No individual records for {td_name} in {selected_year}.",
         )
     else:
-        st.markdown(
-            f"**Payment records — {selected_year}** "
+        st.html(
+            f"<p style='margin:0 0 0.4rem;'><strong>Payment records — {selected_year}</strong> "
             f"<span style='font-size:0.8rem;color:#6b7280;font-weight:400;'>"
-            f"({len(payments)} transactions — add them up to verify the total above)</span>",
-            unsafe_allow_html=True,
+            f"({len(payments)} transactions — add them up to verify the total above)</span></p>"
         )
         st.dataframe(
             payments.rename(
