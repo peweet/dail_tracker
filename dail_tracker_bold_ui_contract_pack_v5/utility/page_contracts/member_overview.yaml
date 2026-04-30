@@ -26,18 +26,21 @@ approved_registered_views:
                                  #   government_status, attendance_rate, payment_total_eur,
                                  #   declared_interests_count, lobbying_interactions_count,
                                  #   revolving_door_flag, bills_sponsored_count
-    - v_member_overview_browse:  "TODO_PIPELINE_VIEW_REQUIRED — see known_data_quality_issues below"
 
   # Stage 2 profile — query existing per-domain views filtered by join_key
   stage_2_profile:
-    - v_attendance_member_year_summary  # attendance per year for this TD; filter: join_key = ?
-    - v_payments_member_detail          # individual payment records; filter: join_key = ?
-    - v_vote_td_summary                 # voting record summary; filter: join_key = ?
-    - v_member_interests                # declared interests; filter: join_key = ?
-    - v_lobbying_summary                # lobbying contacts where TD was contacted; filter: join_key = ?
-    - v_lobbying_revolving_door         # revolving door flag; filter: join_key = ?
-    - v_legislation_index               # bills sponsored/co-sponsored; filter: join_key = ?
-                                        # TODO_PIPELINE_VIEW_REQUIRED: sponsor join_key column
+    - v_attendance_member_year_summary  # attendance per year for this TD; filter: unique_member_code = ?
+    - v_payments_member_detail          # individual payment records; filter: unique_member_code = ?
+    - td_vote_summary                   # voting record summary; filter: member_id = ?
+                                        # NOTE: actual view name is td_vote_summary (no v_ prefix)
+    - v_member_interests                # declared interests; filter: member_name = ? (member_id is NULL)
+                                        # TODO_PIPELINE_VIEW_REQUIRED: unique_member_code on v_member_interests
+    - v_lobbying_summary                # dataset-level aggregate only — no per-member rows
+                                        # TODO_PIPELINE_VIEW_REQUIRED: per-member lobbying view filtered by join_key
+    - v_lobbying_revolving_door         # per-name only — individual_name column, no unique_member_code
+                                        # TODO_PIPELINE_VIEW_REQUIRED: unique_member_code on v_lobbying_revolving_door
+    - v_legislation_index               # bills sponsored/co-sponsored; filter: sponsor name only
+                                        # TODO_PIPELINE_VIEW_REQUIRED: sponsor_join_key column
 
 retrieval_sql_policy:
   allowed_statements: [SELECT]
@@ -125,18 +128,38 @@ known_data_quality_issues:
       the attendance section with a brief inline note about the source limitation.
     scope: attendance_section_only
 
-  vote_td_detail_may_be_summary_only:
+  vote_view_name_and_aggregate_only:
     description: >
-      v_vote_td_summary may expose only aggregate voting stats (total votes, aye rate)
-      rather than a per-vote breakdown for a specific member.
+      The votes view is named td_vote_summary (not v_vote_td_summary).
+      It is aggregate only: one row per TD with yes_count, no_count, abstained_count,
+      division_count, yes_rate_pct. There is no per-division row for this member.
     effect: >
-      The Votes tab may not be able to show a per-vote record for this TD.
+      The Votes tab can show aggregate stats (aye rate, total divisions) but not
+      a per-vote breakdown table.
     implementation: >
-      If per-vote detail is not available, show the aggregate stats and a
-      TODO_PIPELINE_VIEW_REQUIRED callout for the per-vote breakdown table.
+      Use td_vote_summary with WHERE member_id = ?. Show aggregate stats as headline.
+      Show a TODO_PIPELINE_VIEW_REQUIRED callout for the per-vote breakdown table.
     pipeline_todo: >
       TODO_PIPELINE_VIEW_REQUIRED: per-vote detail view filtered by join_key —
       columns needed: vote_date, bill_or_motion, td_vote (Aye/Níl/Absent), result
+
+  lobbying_no_per_member_filter:
+    description: >
+      v_lobbying_summary is a dataset-level aggregate (total returns, total orgs,
+      total politicians) — it has no per-member rows and cannot be filtered by join_key.
+      v_lobbying_revolving_door has individual_name only; no unique_member_code.
+    effect: >
+      The Lobbying tab cannot show lobbying contacts for a specific TD.
+      The revolving door check can only be done by approximate name match.
+    implementation: >
+      Show a TODO_PIPELINE_VIEW_REQUIRED callout for the lobbying activity table.
+      Attempt revolving door lookup by WHERE individual_name = member_name; label
+      it as approximate. Both gaps must be visible in the UI and in code comments.
+    pipeline_todo: >
+      TODO_PIPELINE_VIEW_REQUIRED: per-member lobbying view — one row per lobbying
+      return where the TD was the designated public official (DPO) or was lobbied.
+      Must include unique_member_code for cross-page join_key filtering.
+      Also: add unique_member_code to v_lobbying_revolving_door.
 
 uses_patterns:
   - member_drilldown
@@ -213,12 +236,10 @@ interaction_model:
     the full public record for a single TD. Entry can be direct (query param) or via
     browsing (Stage 1 row click).
   primary_view_flow:
+    # Main content area: hero → TODO callout → table → export
+    # Search and filters live in the sidebar (see sidebar section below)
     - kicker_and_title            # "MEMBER OVERVIEW" kicker, "TD Accountability Profile" title
-    - name_search                 # st.text_input, placeholder "Search by name..."
-    - filter_bar:                 # compact, inline or sidebar
-        - party_multiselect
-        - constituency_multiselect
-        - government_opposition_segmented_control   # All / Government / Opposition
+    - todo_callout                # visible callout: cross-dataset columns pending pipeline
     - member_table:               # st.dataframe, selection_mode="single-row"
         identity_columns:
           - member_name
@@ -243,12 +264,17 @@ interaction_model:
         - party_constituency_meta # "Fine Gael · Dublin Bay North"
         - government_opposition_badge  # st.badge, blue for gov / amber for opp
         - revolving_door_badge    # st.badge("Revolving door", icon=":material/warning:", color="orange") if flagged
-    - headline_metrics_row:       # st.columns(4), st.metric for each domain
-        - attendance_rate         # from v_attendance_member_year_summary
-        - total_payments_eur      # from v_payments_member_detail COUNT/SUM
-        - declared_interests_count  # from v_member_interests COUNT
-        - lobbying_contacts_count   # from v_lobbying_summary COUNT
-        - todo_note: "TODO_PIPELINE_VIEW_REQUIRED for any not queryable from existing views"
+    - headline_metrics_row:       # st.columns(4), one st.metric per domain
+        metrics:
+          - attendance_rate         # from v_attendance_member_year_summary
+          - total_payments_eur      # from v_payments_member_detail (COUNT/SUM scalar)
+          - declared_interests_count  # from v_member_interests (COUNT scalar)
+          - lobbying_contacts_count   # from v_lobbying_summary (COUNT scalar)
+        note: >
+          Each metric is a scalar aggregate (COUNT or SUM) from the existing per-domain view.
+          These are presentation-layer scalars — COUNT(*) / SUM(col) with a single WHERE join_key = ?
+          are permitted retrieval aggregates. No GROUP BY required.
+          Use TODO_PIPELINE_VIEW_REQUIRED for any metric whose view does not yet expose the column.
     - domain_tabs:                # st.tabs — one tab per dataset
         labels:
           - ":material/calendar_today: Attendance"
@@ -279,10 +305,11 @@ interaction_model:
       votes:
         headline: "Voted in {pct}% of divisions — {aye_pct}% Aye, {nil_pct}% Níl"
         year_selector: false      # summary stats are cross-year; per-vote needs pipeline TODO
-        table_columns: [vote_date, bill_or_motion, td_vote, result]
-        source_view: v_vote_td_summary
-        filter: "WHERE join_key = ?"
-        todo: "TODO_PIPELINE_VIEW_REQUIRED: per-vote detail view filtered by join_key"
+        table_columns: [yes_count, no_count, abstained_count, division_count, yes_rate_pct]
+        source_view: td_vote_summary    # actual view name — no v_ prefix
+        filter: "WHERE member_id = ?"   # member_id = unique_member_code alias in this view
+        note: "Aggregate only — one row per TD. No per-division breakdown available."
+        todo: "TODO_PIPELINE_VIEW_REQUIRED: per-vote detail view filtered by join_key — columns: vote_date, bill_or_motion, td_vote (Aye/Níl/Absent), result"
 
       interests:
         headline: "{count} declared interests across {category_count} categories"
@@ -304,16 +331,21 @@ interaction_model:
         ui_note: "Always show TAA band alongside amount — it contextualises the figure"
 
       lobbying:
-        headline: "{count} lobbying contacts recorded"
+        headline: "TODO_PIPELINE_VIEW_REQUIRED — lobbying contacts count not yet filterable by member"
         year_selector: false
-        table_columns: [org_name, purpose_category, date_of_contact]
-        source_view: v_lobbying_summary
-        filter: "WHERE join_key = ?"
+        source_view: null   # v_lobbying_summary is aggregate only; no per-member rows
+        filter: null        # TODO_PIPELINE_VIEW_REQUIRED: per-member lobbying view
         revolving_door:
           source_view: v_lobbying_revolving_door
-          filter: "WHERE join_key = ?"
+          filter: "WHERE individual_name = ?"   # name-based only — no join_key column
+          filter_note: "fragile name match; unique_member_code not present in this view"
           display: "prominent badge if flagged — st.badge('Revolving door', icon=':material/warning:', color='orange')"
-        sort: date_of_contact DESC
+        implementation_note: >
+          Show a TODO_PIPELINE_VIEW_REQUIRED callout for the lobbying activity table.
+          Revolving door can be checked by name match (individual_name = member_name) as a
+          best-effort lookup, clearly labelled as approximate. Both gaps must be visible in code
+          and in the UI. Do not fabricate or impute data.
+        todo: "TODO_PIPELINE_VIEW_REQUIRED: per-member lobbying view with unique_member_code filter"
 
       legislation:
         headline: "{count} bills sponsored or co-sponsored"
@@ -337,9 +369,9 @@ interaction_model:
       - td_name_search               # text input, filters selectbox list
       - td_selectbox                 # alphabetical browse; loads Stage 2 directly
     stage_1_only:
-      - party_filter                 # multiselect
-      - constituency_filter          # multiselect
-      - government_opposition_filter # st.segmented_control: All / Government / Opposition
+      - party_multiselect            # multiselect; filters the member_table
+      - constituency_multiselect     # multiselect; filters the member_table
+      - government_opposition_control  # st.segmented_control: All / Government / Opposition
 
 exports:
   csv:

@@ -23,16 +23,7 @@ from ui.components import (
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
 from ui.vote_explorer import render_division_panel, render_td_panel, vt_division_card_html
-
-from config import GOLD_VOTE_HISTORY_PARQUET
-
-try:
-    import duckdb as _duckdb
-except ImportError:
-    _duckdb = None
-
-_SQL_VIEWS = _UTIL.parent / "sql_views"
-_PARQUET   = GOLD_VOTE_HISTORY_PARQUET.as_posix()
+from data_access.votes_data import get_votes_conn
 
 _REQUIRED_INDEX_COLS: frozenset[str] = frozenset(
     {"vote_id", "vote_date", "debate_title", "vote_outcome", "yes_count", "no_count"}
@@ -41,21 +32,6 @@ _REQUIRED_INDEX_COLS: frozenset[str] = frozenset(
 _VOTE_INDEX_LIMIT      = 500
 _DIVISION_MEMBERS_LIMIT = 5000
 _TD_HISTORY_LIMIT      = 500
-
-
-@st.cache_resource
-def _get_conn():
-    if _duckdb is None:
-        return None
-    conn = _duckdb.connect()
-    if _SQL_VIEWS.exists():
-        for f in sorted(_SQL_VIEWS.glob("vote*.sql")):
-            try:
-                sql = f.read_text(encoding="utf-8").replace("{PARQUET_PATH}", _PARQUET)
-                conn.execute(sql)
-            except Exception:
-                pass
-    return conn
 
 
 def _safe_query(conn, sql: str, params=()) -> pd.DataFrame:
@@ -99,13 +75,32 @@ def _fetch_vote_years(_conn) -> list[int]:
 
 
 @st.cache_data(ttl=300)
-def _fetch_member_names(_conn) -> list[str]:
+def _fetch_member_names(_conn, party: str = "") -> list[str]:
+    if party:
+        df = _safe_query(
+            _conn,
+            "SELECT DISTINCT member_name FROM td_vote_summary"
+            " WHERE member_name IS NOT NULL AND party_name = ?"
+            " ORDER BY member_name ASC LIMIT 1000",
+            (party,),
+        )
+    else:
+        df = _safe_query(
+            _conn,
+            "SELECT DISTINCT member_name FROM td_vote_summary"
+            " WHERE member_name IS NOT NULL ORDER BY member_name ASC LIMIT 1000",
+        )
+    return df["member_name"].tolist() if not df.empty and "member_name" in df.columns else []
+
+
+@st.cache_data(ttl=300)
+def _fetch_party_names(_conn) -> list[str]:
     df = _safe_query(
         _conn,
-        "SELECT DISTINCT member_name FROM td_vote_summary"
-        " WHERE member_name IS NOT NULL ORDER BY member_name ASC LIMIT 1000",
+        "SELECT DISTINCT party_name FROM td_vote_summary"
+        " WHERE party_name IS NOT NULL ORDER BY party_name ASC LIMIT 100",
     )
-    return df["member_name"].tolist() if not df.empty and "member_name" in df.columns else []
+    return df["party_name"].tolist() if not df.empty and "party_name" in df.columns else []
 
 
 @st.cache_data(ttl=300)
@@ -263,18 +258,17 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
     show_all = st.session_state.get("v_show_all", False)
     visible  = vote_df if show_all else vote_df.head(25)
     suffix   = " · showing first 25" if not show_all and total > 25 else ""
-    st.markdown(
+    st.html(
         f'<p class="vt-index-caption">'
         f'{total:,} division{"s" if total != 1 else ""}{suffix}'
-        f'</p>',
-        unsafe_allow_html=True,
+        f'</p>'
     )
 
     for i, (_, row) in enumerate(visible.iterrows()):
         card_col, btn_col = st.columns([14, 1])
         with card_col:
-            st.markdown(vt_division_card_html(row), unsafe_allow_html=True)
-        btn_col.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
+            st.html(vt_division_card_html(row))
+        btn_col.html('<div class="dt-nav-anchor"></div>')
         if btn_col.button(
             "→",
             key=f"vt_div_{i}",
@@ -310,6 +304,10 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
 
 
 def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
+    st.html(
+        '<p class="dt-kicker">Dáil Tracker · Voting Record</p>'
+        '<h1 class="dt-hero">Dáil Divisions</h1>'
+    )
     _card_list_fragment(conn, date_from, date_to, outcome_filter)
 
     hero = _fetch_hero_stats(conn)
@@ -399,7 +397,7 @@ def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
 
 def votes_page() -> None:
     inject_css()
-    conn = _get_conn()
+    conn = get_votes_conn()
 
     # Resolve pending back-navigation flags before any widgets are instantiated
     if st.session_state.get("_v_clear_member"):
@@ -443,10 +441,11 @@ def votes_page() -> None:
         if sel_member_id:
             date_from, date_to = sidebar_date_range("Date range", key="v_date_range")
 
-        # Outcome filter shown in Mode A only
+        # Outcome and party filters shown in Mode A only
         outcome_filter = None
+        sel_party = ""
         if not sel_member_id and not sel_vote_id:
-            st.markdown('<p class="sidebar-label">Outcome</p>', unsafe_allow_html=True)
+            st.html('<p class="sidebar-label">Outcome</p>')
             outcome_sel = st.selectbox(
                 "Outcome",
                 ["All", "Carried", "Lost"],
@@ -455,10 +454,21 @@ def votes_page() -> None:
             )
             outcome_filter = None if outcome_sel == "All" else outcome_sel
 
+            party_names = _fetch_party_names(conn)
+            if party_names:
+                st.html('<p class="sidebar-label">Party</p>')
+                party_sel = st.selectbox(
+                    "Party",
+                    ["All parties"] + party_names,
+                    key="v_party",
+                    label_visibility="collapsed",
+                )
+                sel_party = "" if party_sel == "All parties" else party_sel
+
         st.divider()
 
-        # Member search — always visible
-        member_names = _fetch_member_names(conn)
+        # Member search — filtered by party when one is selected
+        member_names = _fetch_member_names(conn, sel_party)
         sel_name = sidebar_member_filter(
             "Find a TD",
             member_names,

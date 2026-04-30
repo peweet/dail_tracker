@@ -37,11 +37,11 @@ def _outcome_chip(outcome) -> str:
     o = str(outcome or "").strip()
     lo = o.lower()
     if "carried" in lo:
-        return f'<span class="dt-vt-outcome-carried">{o}</span>'
+        return f'<span class="dt-vt-outcome-carried">{_h(o)}</span>'
     if "lost" in lo:
-        return f'<span class="dt-vt-outcome-lost">{o}</span>'
+        return f'<span class="dt-vt-outcome-lost">{_h(o)}</span>'
     if o:
-        return f'<span class="dt-vt-outcome-other">{o}</span>'
+        return f'<span class="dt-vt-outcome-other">{_h(o)}</span>'
     return ""
 
 
@@ -78,9 +78,9 @@ def _render_td_history_html(df: pd.DataFrame) -> str:
 def _render_member_list_html(df: pd.DataFrame) -> str:
     rows_html = ""
     for _, row in df.iterrows():
-        name = str(row.get("member_name") or "—")
-        party = str(row.get("party_name") or "")
-        const = str(row.get("constituency") or "")
+        name = _h(str(row.get("member_name") or "—"))
+        party = _h(str(row.get("party_name") or ""))
+        const = _h(str(row.get("constituency") or ""))
         vt_html = _vote_icon(row.get("vote_type"))
         rows_html += (
             f"<tr>"
@@ -108,16 +108,9 @@ def _party_chart(df: pd.DataFrame) -> go.Figure | None:
     if df.empty or "party_name" not in df.columns or "vote_type" not in df.columns:
         return None
 
-    totals: dict[str, int] = {}
-    for _, row in df.iterrows():
-        pname = str(row.get("party_name") or "")
-        if pname:
-            totals[pname] = totals.get(pname, 0) + int(row.get("member_count") or 0)
-
-    if not totals:
+    parties = sorted(df.loc[df["party_name"].notna(), "party_name"].unique().tolist())
+    if not parties:
         return None
-
-    parties = sorted(totals.keys(), key=lambda p: totals[p])
     order = ["Voted Yes", "Voted No", "Abstained"]
     fig = go.Figure()
 
@@ -194,14 +187,15 @@ def render_division_panel(
     sources_df: pd.DataFrame,
     breakdown_df: pd.DataFrame,
 ) -> None:
-    vote_id  = str(vote_row.get("vote_id") or "")
-    outcome  = str(vote_row.get("vote_outcome") or "—")
-    date_str = _fmt_date(vote_row.get("vote_date"))
-    title    = str(vote_row.get("debate_title") or "")
-    yes_n    = int(vote_row.get("yes_count") or 0)
-    no_n     = int(vote_row.get("no_count") or 0)
-    abs_n    = int(vote_row.get("abstained_count") or 0)
-    margin   = int(vote_row.get("margin") or abs(yes_n - no_n))
+    vote_id    = str(vote_row.get("vote_id") or "")
+    outcome    = str(vote_row.get("vote_outcome") or "—")
+    date_str   = _fmt_date(vote_row.get("vote_date"))
+    title      = str(vote_row.get("debate_title") or "")
+    yes_n      = int(vote_row.get("yes_count") or 0)
+    no_n       = int(vote_row.get("no_count") or 0)
+    abs_n      = int(vote_row.get("abstained_count") or 0)
+    _margin    = vote_row.get("margin")
+    margin_str = str(int(_margin)) if _margin is not None else "—"
 
     safe_key = ""
     for ch in vote_id:
@@ -211,20 +205,19 @@ def render_division_panel(
         safe_key = "div"
 
     with st.container(border=True):
-        st.markdown(
-            f'<div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.3rem">'
+        st.html(
+            f'<div class="vt-division-header">'
             f'{outcome_badge(outcome)}'
-            f'<span style="color:var(--text-meta);font-size:0.82rem">{date_str}</span>'
+            f'<span class="dt-vt-date">{_h(date_str)}</span>'
             f'</div>'
-            f'<p style="font-size:0.95rem;font-weight:600;line-height:1.45;margin:0 0 0.5rem">{title}</p>',
-            unsafe_allow_html=True,
+            f'<p class="vt-division-title">{_h(title)}</p>'
         )
 
         stat_strip([
-            (str(yes_n),  "Yes ✓",     "oklch(38% 0.130 145)"),
-            (str(no_n),   "No ✗",      "oklch(45% 0.180 30)"),
-            (str(abs_n),  "Abstained", "var(--text-meta)"),
-            (str(margin), "Margin",    "var(--text-primary)"),
+            (str(yes_n),  "Yes",      "oklch(38% 0.130 145)"),
+            (str(no_n),   "No",       "oklch(45% 0.180 30)"),
+            (str(abs_n),  "Abstained","var(--text-meta)"),
+            (margin_str,  "Margin",   "var(--text-primary)"),
         ])
 
         evidence_heading("Party breakdown")
@@ -253,15 +246,15 @@ def render_division_panel(
                 todo_callout(f"v_vote_member_detail missing columns: {mc_str}")
             else:
                 clean_df = members_df.dropna(subset=["member_name"])
-                pos = st.radio(
+                pos = st.segmented_control(
                     "Position",
                     ["All", "Voted Yes", "Voted No", "Abstained"],
-                    horizontal=True,
                     key=f"pos_{safe_key}",
                     label_visibility="collapsed",
                 )
+                pos = pos or "All"
                 display = clean_df if pos == "All" else clean_df[clean_df["vote_type"] == pos]
-                st.markdown(_render_member_list_html(display), unsafe_allow_html=True)
+                st.html(_render_member_list_html(display))
                 show_cols = [c for c in ["member_name", "party_name", "constituency", "vote_type"] if c in display.columns]
                 export_button(
                     display[show_cols],
@@ -298,11 +291,11 @@ def vt_division_card_html(row) -> str:
 
     lo = outcome.lower()
     if "carried" in lo:
-        outcome_html = f'<span class="vt-outcome-carried">Carried ✓</span>'
+        outcome_html = '<span class="vt-outcome-carried">Carried ✓</span>'
     elif "lost" in lo:
-        outcome_html = f'<span class="vt-outcome-lost">Lost ✗</span>'
+        outcome_html = '<span class="vt-outcome-lost">Lost ✗</span>'
     elif outcome:
-        outcome_html = f'<span class="vt-count-abs">{outcome}</span>'
+        outcome_html = f'<span class="vt-count-abs">{_h(outcome)}</span>'
     else:
         outcome_html = ""
 
@@ -349,10 +342,9 @@ def render_td_panel(
         safe_mid = "td"
 
     with st.container(border=True):
-        st.markdown(
-            f'<p class="td-name">{name}</p>'
-            f'<p class="td-meta">{party} · {const}</p>',
-            unsafe_allow_html=True,
+        st.html(
+            f'<p class="td-name">{_h(name)}</p>'
+            f'<p class="td-meta">{_h(party)} · {_h(const)}</p>'
         )
 
         stat_strip([
@@ -386,7 +378,7 @@ def render_td_panel(
                 "No records in v_vote_member_detail for this member and date range.",
             )
         else:
-            st.markdown(_render_td_history_html(history_df), unsafe_allow_html=True)
+            st.html(_render_td_history_html(history_df))
             hist_cols = [c for c in ["vote_date", "debate_title", "vote_type", "vote_outcome"] if c in history_df.columns]
             export_button(
                 history_df[hist_cols],

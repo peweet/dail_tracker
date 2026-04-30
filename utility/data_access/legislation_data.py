@@ -65,7 +65,8 @@ def fetch_legislation_index_filtered(
     where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
     return _safe(
         f"SELECT bill_id, bill_title, bill_status, bill_type, sponsor,"
-        f" introduced_date, current_stage, stage_number, oireachtas_url, bill_no, bill_year"
+        f" introduced_date, current_stage, stage_number, oireachtas_url, bill_no, bill_year,"
+        f" bill_phase"
         f" FROM v_legislation_index{where}"
         f" ORDER BY introduced_date DESC NULLS LAST",
         params or None,
