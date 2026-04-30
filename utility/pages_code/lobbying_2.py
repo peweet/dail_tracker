@@ -513,7 +513,17 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
             "returns_targeting":  "Returns",
             "distinct_lobbyists": "Organisations",
         })
-        st.dataframe(disp2, use_container_width=True, hide_index=True)
+        max_ret = int(disp2["Returns"].max()) if not disp2.empty else 1
+        st.dataframe(
+            disp2,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Policy area":   st.column_config.TextColumn("Policy area"),
+                "Returns":       st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_ret),
+                "Organisations": st.column_config.NumberColumn("Organisations"),
+            },
+        )
 
     # ── Lobbying returns ──────────────────────────────────────────────────
     detail_all = fetch_contact_detail(name)
@@ -648,7 +658,21 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
             "politicians_count": "Politicians",
             "source_url":        "Return URL",
         })
-        st.dataframe(disp_c, use_container_width=True, hide_index=True)
+        st.dataframe(
+            disp_c,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Client":       st.column_config.TextColumn("Client"),
+                "Period":       st.column_config.TextColumn("Period"),
+                "Policy areas": st.column_config.TextColumn("Policy areas"),
+                "Politicians":  st.column_config.NumberColumn("Politicians"),
+                "Return URL":   st.column_config.LinkColumn(
+                    "Return URL",
+                    display_text=r"https://www\.lobbying\.ie/return/(\d+)",
+                ),
+            },
+        )
 
     # ── All lobbying returns ──────────────────────────────────────────────
     detail_all = fetch_org_contact_detail(org_name)
