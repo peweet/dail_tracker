@@ -29,6 +29,7 @@ TODO_PIPELINE_VIEW_REQUIRED: mart_version, code_version, latest_fetch_timestamp_
 from __future__ import annotations
 
 import datetime
+from html import escape as _h
 import duckdb
 import pandas as pd
 import streamlit as st
@@ -52,7 +53,6 @@ from ui.export_controls import export_button
 from ui.source_pdfs import interests_pdf_url, provenance_expander
 
 from config import (
-    GOLD_INTERESTS_RANKING_PARQUET,
     INTEREST_CATEGORY_LABELS,
     INTEREST_CATEGORY_ORDER,
     NOTABLE_SENATORS,
@@ -208,13 +208,50 @@ def _fetch_td_data(house: str, td_name: str) -> pd.DataFrame:
 @st.cache_data(ttl=3600, show_spinner=False)
 def _load_ranking(house: str, year: int) -> pd.DataFrame:
     """
-    Read pre-aggregated member ranking from gold parquet.
-    One row per member for the given house + year — no aggregation in Streamlit.
+    TODO_PIPELINE_VIEW_REQUIRED: v_member_interests_index
+    Replace with: SELECT ... FROM v_member_interests_index WHERE house=? AND declaration_year=?
+    read_parquet is forbidden in Streamlit (streamlit_may_read_parquet: false).
     """
-    if not GOLD_INTERESTS_RANKING_PARQUET.exists():
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=300)
+def _fetch_member_index_fallback(house: str, year: int) -> pd.DataFrame:
+    """
+    Fallback until v_member_interests_index is registered.
+    One row per member: declaration count, landlord/property flags, rank.
+    """
+    base = _load_interests(house)
+    if base.empty:
         return pd.DataFrame()
-    df = pd.read_parquet(GOLD_INTERESTS_RANKING_PARQUET)
-    return df[(df["house"] == house) & (df["declaration_year"] == year)].copy()
+    con = duckdb.connect(":memory:")
+    con.register("v_member_interests", base)
+    return con.execute(
+        """
+        WITH agg AS (
+            SELECT
+                member_name,
+                MAX(party_name)    AS party_name,
+                MAX(constituency)  AS constituency,
+                COUNT(*)           AS total_declarations,
+                0                  AS directorship_count,
+                0                  AS property_count,
+                0                  AS share_count,
+                BOOL_OR(landlord_flag)    AS is_landlord,
+                BOOL_OR(property_flag)    AS is_property_owner
+            FROM v_member_interests
+            WHERE TRY_CAST(declaration_year AS INTEGER) = ?
+              AND member_name IS NOT NULL
+            GROUP BY member_name
+        )
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY total_declarations DESC, member_name) AS rank,
+            *
+        FROM agg
+        ORDER BY rank
+        """,
+        [year],
+    ).fetchdf()
 
 
 def _int_member_card_html(row) -> str:
@@ -261,8 +298,8 @@ def _render_leaderboard(ranking_df: pd.DataFrame) -> str | None:
     for i, (_, row) in enumerate(visible.iterrows()):
         card_col, btn_col = st.columns([14, 1])
         with card_col:
-            st.markdown(_int_member_card_html(row), unsafe_allow_html=True)
-        btn_col.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
+            st.html(_int_member_card_html(row))
+        btn_col.html('<div class="dt-nav-anchor"></div>')
         if btn_col.button("→", key=f"int_mem_{i}", help=f"View {row['member_name']}'s declarations"):
             return str(row["member_name"])
 
@@ -311,10 +348,7 @@ def _render_profile(house: str, td_name: str) -> None:
 
     badges_html = ""
     if is_landlord:
-        badges_html += (
-            '<span class="dt-badge" style="border-color:#dc2626;color:#dc2626;">'
-            "Landlord declared</span> "
-        )
+        badges_html += '<span class="dt-badge dt-badge-landlord">Landlord declared</span> '
     if is_property and not is_landlord:
         badges_html += '<span class="dt-badge">Property interest</span> '
 
@@ -330,7 +364,7 @@ def _render_profile(house: str, td_name: str) -> None:
     has_prior  = not prior_df.empty
 
     # ── Editorial callout ──────────────────────────────────────────────────────
-    name_short = td_name.split()[-1]
+    name_short = _h(td_name.split()[-1])
     if year_df.empty:
         glance = f"No declarations recorded for {selected_year}."
     else:
@@ -354,11 +388,10 @@ def _render_profile(house: str, td_name: str) -> None:
                 parts.append(f"<strong>{n_removed} removed</strong> since {prior_year}.")
         glance = " ".join(parts)
 
-    st.markdown(
+    st.html(
         f'<div class="dt-callout" style="margin:0.5rem 0 0.9rem;">'
         f'<p style="margin:0;font-size:0.95rem;line-height:1.65;">{glance}</p>'
-        f"</div>",
-        unsafe_allow_html=True,
+        f"</div>"
     )
 
     # ── Diff toggle — prominent, above category sections ──────────────────────
@@ -376,14 +409,13 @@ def _render_profile(house: str, td_name: str) -> None:
 
     pdf_url = interests_pdf_url(house, selected_year)
     if pdf_url:
-        st.markdown(
+        st.html(
             f'<div class="dt-provenance-box" style="margin-bottom:0.75rem">'
             f'<span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;'
             f'text-transform:uppercase;color:var(--text-meta)">Source document</span><br>'
-            f'<a class="leg-source-link" href="{pdf_url}" target="_blank" rel="noopener">'
-            f'↗ Register of Members\' Interests · {house} · {selected_year} (Oireachtas.ie PDF)</a>'
-            f'</div>',
-            unsafe_allow_html=True,
+            f'<a class="leg-source-link" href="{_h(pdf_url)}" target="_blank" rel="noopener">'
+            f'↗ Register of Members\' Interests · {_h(house)} · {selected_year} (Oireachtas.ie PDF)</a>'
+            f'</div>'
         )
 
     evidence_heading(f"Declarations · {selected_year}")
@@ -420,9 +452,8 @@ def _render_profile(house: str, td_name: str) -> None:
             current_cat_set = set(descs)
             label = INTEREST_CATEGORY_LABELS.get(cat, cat)
 
-            st.markdown(
-                f'<p class="int-category-section">{label}&nbsp;&nbsp;·&nbsp;&nbsp;{len(descs)}</p>',
-                unsafe_allow_html=True,
+            st.html(
+                f'<p class="int-category-section">{_h(label)}&nbsp;&nbsp;·&nbsp;&nbsp;{len(descs)}</p>'
             )
 
             if show_diff and has_prior:
@@ -443,11 +474,10 @@ def _render_profile(house: str, td_name: str) -> None:
                 if not prior_descs:
                     continue
                 label = INTEREST_CATEGORY_LABELS.get(cat, cat)
-                st.markdown(
-                    f'<p class="int-category-section">{label}&nbsp;&nbsp;·&nbsp;&nbsp;'
+                st.html(
+                    f'<p class="int-category-section">{_h(label)}&nbsp;&nbsp;·&nbsp;&nbsp;'
                     f'0 <span style="font-weight:400;text-transform:none;font-size:0.75rem;">'
-                    f'(all removed)</span></p>',
-                    unsafe_allow_html=True,
+                    f'(all removed)</span></p>'
                 )
                 for d in sorted(prior_descs):
                     interest_declaration_item(d, "removed")
@@ -458,10 +488,7 @@ def _render_profile(house: str, td_name: str) -> None:
         with st.expander(
             f"Nothing declared · {len(cats_empty)} categories", expanded=False
         ):
-            st.markdown(
-                '<p class="int-empty-cats">' + " · ".join(empty_labels) + "</p>",
-                unsafe_allow_html=True,
-            )
+            st.html('<p class="int-empty-cats">' + " · ".join(_h(lbl) for lbl in empty_labels) + "</p>")
 
     st.divider()
 
@@ -565,7 +592,6 @@ def interests_page() -> None:
         hero_banner(
             kicker="REGISTER OF MEMBERS' INTERESTS",
             title="What has your TD declared?",
-            dek="Official declarations of interests, directorships, property and shareholdings filed by Dáil and Seanad members.",
         )
 
     if selected_td:
@@ -590,116 +616,36 @@ def interests_page() -> None:
 
     selected_year = year_selector(year_opts, key="int_year")
 
-    # Inline command bar: name filter | flags
-    cb1, cb2 = st.columns([5, 2])
-    with cb1:
-        name_q: str = st.text_input(
-            "Filter by name",
-            placeholder="Filter by name…",
-            key="int_name_q",
-            label_visibility="collapsed",
-        )
-    with cb2:
-        landlord_only: bool = st.toggle("Landlords only", key="int_landlord")
-
     # ── Leaderboard — one card per member, ranked by declarations ─────────────
+    # TODO_PIPELINE_VIEW_REQUIRED: v_member_interests_index
+    # Command bar (name filter + landlord toggle) reinstated once the view is registered.
     ranking_df = _load_ranking(house, selected_year)
 
     if ranking_df.empty:
-        if not GOLD_INTERESTS_RANKING_PARQUET.exists():
-            todo_callout(
-                "interests_member_ranking.parquet not found. "
-                "Run: python generate_interests_ranking.py"
-            )
-        else:
+        todo_callout(
+            "v_member_interests_index not yet registered. "
+            "Register this view to enable the ranked member leaderboard."
+        )
+
+        members_df = _fetch_member_index_fallback(house, selected_year)
+        if members_df.empty:
             empty_state(
-                f"No data for {selected_year}",
-                "No ranking data found for the selected year and chamber.",
+                f"No declarations for {selected_year}",
+                "No interest declarations on record for this year and chamber.",
             )
+            _render_provenance()
+            return
+
+        evidence_heading(f"Members · {selected_year} · {len(members_df)}")
+        for i, (_, row) in enumerate(members_df.iterrows()):
+            card_col, btn_col = st.columns([14, 1])
+            card_col.html(_int_member_card_html(row))
+            btn_col.html('<div class="dt-nav-anchor"></div>')
+            if btn_col.button("→", key=f"int_fb_{i}", help=f"View {row['member_name']}'s declarations"):
+                st.session_state["selected_td"] = str(row["member_name"])
+                st.rerun()
+
         _render_provenance()
         return
-
-    # Apply filters (Python on already-aggregated rows — no GROUP BY)
-    if name_q.strip():
-        q = name_q.strip().lower()
-        ranking_df = ranking_df[ranking_df["member_name"].str.lower().str.contains(q, na=False)]
-    if landlord_only:
-        ranking_df = ranking_df[ranking_df["is_landlord"]]
-    ranking_df = ranking_df.sort_values("rank").reset_index(drop=True)
-
-    n_members        = len(ranking_df)
-    n_landlords      = int(ranking_df["is_landlord"].sum())
-    n_prop_owners    = int(ranking_df["is_property_owner"].sum()) if "is_property_owner" in ranking_df.columns else 0
-    n_properties     = int(ranking_df["property_count"].sum())
-    n_companies      = int(ranking_df["directorship_count"].sum())
-
-    pdf_url = interests_pdf_url(house, selected_year)
-    if pdf_url:
-        st.markdown(
-            f'<div class="dt-provenance-box" style="margin-bottom:0.75rem">'
-            f'<span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;'
-            f'text-transform:uppercase;color:var(--text-meta)">Source document</span><br>'
-            f'<a class="leg-source-link" href="{pdf_url}" target="_blank" rel="noopener">'
-            f'↗ Register of Members\' Interests · {house} · {selected_year} (Oireachtas.ie PDF)</a>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-    evidence_heading(f"Interest Register · {selected_year}")
-    st.caption(
-        f"{n_members} members · {n_landlords} landlords declared · "
-        f"{n_prop_owners} property owners · "
-        f"{n_properties} properties · {n_companies} company directorships"
-        + (" · filtered" if name_q.strip() or landlord_only else "")
-    )
-    st.markdown(
-        '<div class="dt-callout" style="margin:0.5rem 0 0.9rem;">'
-        "<strong>How to read this list</strong><br>"
-        '<span style="color:var(--text-meta);font-size:0.88rem;line-height:1.6;">'
-        "Ranked by total declarations filed in the register. "
-        "Some Ministers and office-holders are legally exempt from certain disclosure requirements "
-        "under the Ethics in Public Office Acts — gaps in the register do not mean no interests exist. "
-        "A long list of declarations reflects a member's transparency, not wrongdoing."
-        "</span></div>",
-        unsafe_allow_html=True,
-    )
-
-    clicked_name = _render_leaderboard(ranking_df)
-    if clicked_name:
-        st.session_state["selected_td"] = clicked_name
-        st.rerun()
-
-    # Export uses the flat declaration table for the selected year (current displayed view)
-    result_df = _fetch_interests(
-        house=house,
-        name_q=name_q.strip(),
-        years=(selected_year,),
-        landlord_only=landlord_only,
-    )
-    if not result_df.empty:
-        today = datetime.date.today().isoformat()
-        show_cols = [
-            c for c in [
-                "member_name", "declaration_year", "party_name", "constituency",
-                "interest_category", "interest_text", "landlord_flag", "property_flag",
-            ]
-            if c in result_df.columns
-        ]
-        export_button(
-            result_df[show_cols],
-            label=f"Export all declarations · {selected_year} · {len(result_df):,} rows",
-            filename=f"dail_tracker_interests_{house.lower()}_{selected_year}_{today}.csv",
-            key="int_browse_export",
-        )
-
-    # Category breakdown — pipeline gap (collapsed)
-    with st.expander("Declarations by category", expanded=False):
-        todo_callout(
-            "v_member_interests_yearly_summary — year-responsive category breakdown "
-            "(interest_category, declarations_count, year). When available this will render "
-            "an Altair horizontal bar chart for the selected year."
-        )
-
-    _render_provenance()
 
 

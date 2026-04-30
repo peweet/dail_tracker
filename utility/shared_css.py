@@ -6,7 +6,7 @@ def inject_css() -> None:
     st.markdown(
         """
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=Epilogue:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=Epilogue:ital,wght@0,400;0,500;0,600;1,400&family=Material+Symbols+Outlined&display=swap');
 
         /* ── Site banner ─────────────────────────── */
         .site-banner {
@@ -429,6 +429,7 @@ def inject_css() -> None:
             font-weight: 600;
             font-family: 'Epilogue', sans-serif;
         }
+        .dt-badge-landlord { border-color:#dc2626; color:#dc2626; }
 
         /* ── Callout / empty state / TODO ─────────── */
         .dt-callout {
@@ -1123,6 +1124,16 @@ def inject_css() -> None:
         .att-cop-head-good { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #15803d; border-bottom: 3px solid #16a34a; padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
         .att-cop-head-bad  { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #b91c1c; border-bottom: 3px solid #dc2626; padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
 
+        /* ── Material Symbols Outlined (used by lobbying path cards) ────── */
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            display: inline-block;
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            user-select: none;
+        }
+
         /* ── Lobbying page ───────────────────────────────────────────────
            Navy (#0f3d5e) is deliberate — the lobbying page has a navy/rust
            palette distinct from the amber accent used on other pages.   */
@@ -1614,6 +1625,19 @@ def inject_css() -> None:
             font-size: 0.80rem;
             color: var(--text-meta);
             margin: 0.25rem 0 0.6rem;
+        }
+        .vt-division-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.3rem;
+        }
+        .vt-division-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            line-height: 1.45;
+            margin: 0 0 0.5rem;
+            color: var(--text-primary);
         }
         [data-testid="stHorizontalBlock"]:has(.vt-card) {
             gap: 0.35rem !important;

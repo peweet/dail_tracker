@@ -137,21 +137,21 @@ def card_row(
     return btn_col.button(btn_label, key=btn_key, help=btn_help)
 
 
-def hero_banner(kicker: str, title: str, dek: str, badges: list[str] | None = None) -> None:
+def hero_banner(kicker: str, title: str, dek: str = "", badges: list[str] | None = None) -> None:
+    dek_html = f'<p class="dt-dek">{_h(dek)}</p>' if dek else ""
     badge_html = ""
     if badges:
         badge_html = '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.65rem">'
         for b in badges:
-            badge_html += f'<span class="dt-badge">{b}</span>'
+            badge_html += f'<span class="dt-badge">{_h(b)}</span>'
         badge_html += "</div>"
-    st.markdown(
+    st.html(
         f'<div class="dt-hero">'
-        f'<p class="dt-kicker">{kicker}</p>'
-        f'<h1 style="margin:0.1rem 0 0.25rem;font-size:1.65rem;font-weight:700">{title}</h1>'
-        f'<p class="dt-dek">{dek}</p>'
+        f'<p class="dt-kicker">{_h(kicker)}</p>'
+        f'<h1 style="margin:0.1rem 0 0.25rem;font-size:1.65rem;font-weight:700">{_h(title)}</h1>'
+        f"{dek_html}"
         f"{badge_html}"
-        f"</div>",
-        unsafe_allow_html=True,
+        f"</div>"
     )
 
 
@@ -163,7 +163,7 @@ def stat_strip(stats: list[tuple[str, str, str]]) -> None:
             f'<div><div class="stat-num" style="color:{colour}">{value}</div>'
             f'<div class="stat-lbl">{label}</div></div>'
         )
-    st.markdown(f'<div class="stat-strip">{items}</div>', unsafe_allow_html=True)
+    st.html(f'<div class="stat-strip">{items}</div>')
 
 
 def outcome_badge(outcome: str) -> str:
@@ -188,10 +188,9 @@ def todo_callout(message: str) -> None:
 
 
 def empty_state(heading: str, body: str) -> None:
-    st.markdown(
-        f'<div class="dt-callout"><strong>{heading}</strong><br>'
-        f'<span style="color:var(--text-meta)">{body}</span></div>',
-        unsafe_allow_html=True,
+    st.html(
+        f'<div class="dt-callout"><strong>{_h(heading)}</strong><br>'
+        f'<span style="color:var(--text-meta)">{_h(body)}</span></div>'
     )
 
 
@@ -220,14 +219,14 @@ def member_card_html(
         left_inner = f'<span class="{rank_cls}">#{rank}</span>'
     else:
         left_inner = ""
-    meta_html    = f'<div class="dt-name-card-meta">{meta}</div>' if meta else ""
+    meta_html    = f'<div class="dt-name-card-meta">{_h(meta)}</div>' if meta else ""
     pills_sec    = f'<div class="dt-name-card-pills">{pills_html}</div>' if pills_html else ""
     badge_sec    = f'<div class="dt-name-card-badge">{badge_html}</div>' if badge_html else ""
     return (
         f'<div class="dt-name-card">'
         f'<div class="dt-name-card-left">{left_inner}</div>'
         f'<div class="dt-name-card-body">'
-        f'<div class="dt-name-card-name">{name}</div>'
+        f'<div class="dt-name-card-name">{_h(name)}</div>'
         f'{meta_html}{pills_sec}'
         f'</div>'
         f'{badge_sec}'
@@ -338,18 +337,17 @@ def interest_declaration_item(text: str, status: str = "unchanged") -> None:
     if status == "new":
         wrap  = "background:#f0fdf4;border-left:3px solid #16a34a;"
         badge = '<span class="int-diff-badge-new">NEW</span> '
-        body  = text
+        body  = _h(text)
     elif status == "removed":
         wrap  = "background:#fef2f2;border-left:3px solid #dc2626;opacity:0.82;"
         badge = '<span class="int-diff-badge-removed">REMOVED</span> '
-        body  = f"<s>{text}</s>"
+        body  = f"<s>{_h(text)}</s>"
     else:
         wrap  = "border-bottom:1px solid var(--dt-border);"
         badge = ""
-        body  = text
-    st.markdown(
+        body  = _h(text)
+    st.html(
         f'<div style="{wrap}padding:0.4rem 0.65rem;margin:0.1rem 0;'
         f'border-radius:0 4px 4px 0;font-size:0.9rem;line-height:1.55;">'
-        f"{badge}{body}</div>",
-        unsafe_allow_html=True,
+        f"{badge}{body}</div>"
     )

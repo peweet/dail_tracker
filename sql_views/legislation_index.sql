@@ -34,7 +34,15 @@ SELECT
     stage_number,
     oireachtas_url,
     bill_no,
-    bill_year
+    bill_year,
+    CASE
+        WHEN LOWER(bill_status) LIKE '%enact%'
+          OR LOWER(bill_status) LIKE '%sign%'
+          OR COALESCE(stage_number, 0) >= 11
+        THEN 'enacted'
+        WHEN COALESCE(stage_number, 0) >= 6 THEN 'seanad'
+        ELSE 'dail'
+    END AS bill_phase
 FROM ranked
 WHERE rn = 1
 ORDER BY introduced_date DESC NULLS LAST;
