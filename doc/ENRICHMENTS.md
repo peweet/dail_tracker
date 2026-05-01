@@ -1111,6 +1111,202 @@ Rating   Value: M · Cost: M · Risk: M
 
 ---
 
+## Section K — Iris Oifigiúil (State Gazette)
+
+The gazette is a meta-source: it is the legal paper of record that publishes statutory instruments,
+government appointments, presidential bill signings, commissions of investigation, and quarterly treasury
+data. It is published Tuesday and Friday. The archive is open, machine-generated (not scanned), and
+parseable with pdfplumber back to at least 2002.
+
+Note: D.1 (judicial appointments) already names Iris Oifigiúil as its primary source. The cards below
+cover the other gazette content that D.1 doesn't touch.
+
+See `pipeline_sandbox/iris_oifigiuil_discovery.md` for format scan, URL patterns, and proposed schema.
+
+### K.1 Statutory Instruments register
+
+```text
+What     Every SI signed by a Minister is published in the gazette before
+         it takes effect. Fields: SI number, year, title (ALL CAPS),
+         Minister name, parent Act, brief description, gazette date.
+         Covers ~500–1500 SIs per year going back to 2002.
+Why      This is secondary legislation — the implementation layer of every
+         primary Act the Dáil passes. Currently invisible in the pipeline.
+         Joins to the existing legislation tracker (Act → SIs made under it)
+         and to dim_member (Minister who signed). Lets you ask:
+         - Which Minister has issued the most SIs? On what topics?
+         - Which Acts have generated the most secondary legislation?
+         - Which SI was lobbied for? (Join to lobbying.ie returns by dept/date.)
+         Entirely new analytical surface with no competitor in Irish civic data.
+URL(s)   https://www.irisoifigiuil.ie/currentissues/IR{DDMMYY}.pdf
+         https://www.irisoifigiuil.ie/archive/{year}/{month}/
+Format   PDF (machine-generated, not scanned). pdfplumber extracts cleanly.
+         Archive index is HTML per month — scrape for exact filenames.
+Cadence  Twice weekly (Tuesday + Friday).
+Auth     None.
+Licence  Open public record.
+Joins to legislation (existing) via parent Act name/number.
+         dim_member via minister name resolution (fuzzy match — three name
+         patterns observed: title-only, name+title, name-first).
+Gotchas  Minister name extraction needs three regex patterns; junior ministers
+         sometimes unnamed.
+         Filenames are inconsistent (mixed case, occasional suffixes like -1,
+         -2, spaces). Must scrape archive index rather than construct URLs.
+         SIs from 2016 and earlier mix in more Central Bank / investment fund
+         content which needs filtering (same boilerplate as company notices).
+Rating   Value: H · Cost: M · Risk: L
+```
+
+### K.2 Government appointments via gazette
+
+```text
+What     When a Minister or state body makes a formal statutory appointment
+         (to a public body, commission, regulatory role), it is published
+         in the gazette under a headed notice (e.g. APPOINTMENT AS A
+         SEA-FISHERIES PROTECTION OFFICER). Includes appointing authority,
+         role, and appointee name.
+Why      Tracks the patronage/appointment axis: which Ministers are appointing
+         to which bodies, and at what rate. Revolving-door signal when
+         appointees are former TDs or political advisers.
+         Complements the judicial appointments track (D.1) for the non-judicial
+         public sector.
+URL(s)   Same gazette as K.1.
+Format   Same PDF.
+Cadence  Irregular within each issue; present in most.
+Auth     None.
+Licence  Open public record.
+Joins to dim_member (appointing Minister), new dim_public_body.
+Gotchas  Section header varies ("APPOINTMENT AS", "NOTICE OF APPOINTMENT",
+         etc.). Appointee name resolution to existing persons data is manual.
+         Volume is low — perhaps 2–5 per issue.
+Rating   Value: M · Cost: M · Risk: L
+```
+
+### K.3 Presidential bill signings
+
+```text
+What     Bilingual notice published when the President signs a Bill into law.
+         Includes Act title, Act number, and signing date.
+Why      Fills the precision gap in the existing legislation tracker: the
+         Oireachtas API records Bill stages but the exact Act-signing date
+         and Act number assignment sometimes lag. The gazette is authoritative.
+         Lets you close the loop: Bill introduced → passed → signed → SIs made.
+URL(s)   Same gazette as K.1. Appears sporadically (not every issue).
+Format   Same PDF. Bilingual block; Act number is in English half.
+Cadence  Per Bill signing (irregular).
+Auth     None.
+Licence  Open public record.
+Joins to legislation (existing) via Bill/Act title.
+Gotchas  Only appears in issues shortly after a signing; scan needed
+         retrospectively to backfill.
+Rating   Value: L · Cost: L · Risk: L
+```
+
+### K.4 Exchequer Statement (quarterly)
+
+```text
+What     Quarterly statement of Exchequer surplus/deficit, published in the
+         Friday gazette nearest the quarter-end (April, July, October,
+         January). Contains tax revenue, non-tax revenue, voted departmental
+         expenditure, non-voted expenditure, and capital figures — with
+         year-on-year comparison.
+Why      The only freely structured source for quarterly government fiscal
+         data broken out by voted vs non-voted and current vs capital. Lets
+         you ask: which departments are over/under their voted allocation?
+         How does spending track against lobbying activity in the same dept?
+         Pairs powerfully with B.3 (grant registers) and B.4 (HSE Section 39).
+URL(s)   Same gazette as K.1. Present in Friday issues near quarter-end.
+Format   Table within PDF — pdfplumber extracts as text; light parsing needed.
+Cadence  Quarterly.
+Auth     None.
+Licence  Open public record.
+Joins to New fact_exchequer_quarter. Loose join to lobbying by department name.
+Gotchas  Table layout has been consistent since at least 2018 but not verified
+         pre-2016.
+         "Voted" vs "Non-Voted" distinction matters for interpretation.
+         Published figures are preliminary; final outturn differs slightly.
+Rating   Value: M · Cost: L · Risk: L
+```
+
+### K.5 Commissions of Investigation terms of reference
+
+```text
+What     When a Commission of Investigation is established, its full Terms
+         of Reference are published in the gazette (sometimes spanning
+         several pages). Includes scope, methodology, timeline, and chair.
+Why      Formal state inquiries are rare and high-signal. Indexing them
+         against the timeline of related legislation, lobbying, and TD
+         activity gives a "what happened before the inquiry" surface.
+URL(s)   Same gazette as K.1. Very infrequent.
+Format   Same PDF.
+Cadence  Irregular (roughly 1–2 new commissions per year).
+Auth     None.
+Licence  Open public record.
+Joins to Loose joins to dim_member (Ministers who established them),
+         legislation (Acts under which they were set up).
+Gotchas  Very low volume — only worthwhile if curated manually alongside the
+         automated SI extraction. Not worth a dedicated scraper.
+Rating   Value: M · Cost: L · Risk: L (curate manually from SI scraper output)
+```
+
+---
+
+### K — Cross-source combinations unlocked
+
+These are new story combinations only possible once gazette data is in the pipeline:
+
+6. **SI velocity × lobbying by department.** `si_register` (K.1) × `lobbying.ie returns` (existing) joined
+   on department and date window. Shows whether lobbying activity precedes or follows a burst of
+   secondary legislation in the same policy area.
+7. **Minister's full legislative footprint.** SIs signed (K.1) + primary Bills sponsored (existing) +
+   votes cast (existing) per Minister. The first genuinely complete picture of a Minister's output.
+8. **Act → SI completion rate.** Which Acts passed by the Dáil have never had their enabling SIs
+   made? Which are still waiting years later? A direct accountability question.
+9. **Quarterly spend → lobbying lag.** Exchequer Statement (K.4) × lobbying.ie. Does lobbying activity
+   in a department predict spend increases in subsequent quarters?
+
+---
+
+### K — UI: "Government day to day" page
+
+> ⚠️ **High-value feature.** This page would be the first surface in the app dedicated to the
+> Executive branch rather than the Oireachtas. Nothing like it exists in Irish civic data.
+> Do not build until K.1 (SIs) and K.2 (appointments) are both in the pipeline — with only
+> one source it would be too thin to justify a page.
+
+**Rationale.** The current 8 pages are all parliament-centric: votes, attendance, lobbying, interests.
+They answer "what did TDs do?" Iris Oifigiúil data answers the complementary question:
+"what did the Government do?" — the continuous drip of executive activity between parliamentary
+sessions. That distinction maps cleanly onto a dedicated page rather than a bolt-on tab.
+
+**Proposed page: "Government day to day"** (or "Government Record" / "Executive Activity").
+
+| Section | Source | Status |
+|---|---|---|
+| Statutory Instruments timeline | K.1 `si_register` | Needed before launch |
+| Minister SI output (ranked) | K.1 + dim_member | Needed before launch |
+| Public appointments | K.2 | Needed before launch |
+| Act → SIs made (or missing) | K.1 × legislation | Nice-to-have at launch |
+| Exchequer quarterly spend | K.4 | Post-launch addition |
+| Commissions of Investigation | K.5 | Post-launch, curated |
+
+**Why it is high value.**
+- No equivalent page exists on any other Irish public-data site.
+- The SI register alone covers ~500–1500 government actions per year that the existing pipeline
+  cannot see at all. Combined with lobbying data, it makes the lobbying → outcome connection
+  traceable for the first time.
+- Combination #7 (Minister's full legislative footprint) is the single most complete picture of
+  a sitting Minister's output achievable from open data.
+- Combination #8 (Act → SI completion rate) is a direct accountability question that journalists
+  and civil society orgs would use regularly.
+
+**Prerequisites before building the page contract.**
+1. K.1 SI scraper in pipeline_sandbox producing clean `si_register` parquet.
+2. Minister name resolver with >80% match rate against dim_member.
+3. K.2 appointment extractor producing at least 6 months of data.
+
+---
+
 ## Section J — Deferred, niche, or out of scope
 
 Sources that have been considered and parked, with the reason.
@@ -1140,6 +1336,8 @@ These are the cross-source views that would make the project genuinely novel in 
 5. **Section 39 funding × lobbying.** HSE Section 39 funding (B.4) × lobbying.ie organisations. "Funded then lobbying" patterns.
 
 Any one of these, done well, becomes a publishable story. All of them present makes the project a tool serious journalists return to.
+
+See Section K for four additional combinations unlocked by Iris Oifigiúil gazette data.
 
 ---
 

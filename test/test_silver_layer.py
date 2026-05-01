@@ -81,10 +81,6 @@ class AttendanceSilverSchema(pa.DataFrameModel):
         return _all_iso_dates(_s(data))
 
     @pa.dataframe_check
-    def at_least_127_unique_tds(cls, data) -> bool:
-        return _df(data)["identifier"].n_unique() >= 127
-
-    @pa.dataframe_check
     def no_null_identifiers(cls, data) -> bool:
         return _df(data)["identifier"].null_count() == 0
 
@@ -111,10 +107,6 @@ class FlattenedMembersSchema(pa.DataFrameModel):
     def unique_member_codes(cls, data) -> bool:
         df = _df(data)
         return df["unique_member_code"].n_unique() == len(df)
-
-    @pa.dataframe_check
-    def td_count_plausible(cls, data) -> bool:
-        return 127 <= len(_df(data)) <= 250
 
 
 class MemberInterestsSchema(pa.DataFrameModel):
