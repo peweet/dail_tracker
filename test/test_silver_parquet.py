@@ -23,6 +23,7 @@ import pytest
 from pandera.typing.polars import Series
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
 from config import SILVER_PARQUET_DIR
 from test_silver_layer import AttendanceSilverSchema, FlattenedMembersSchema
 
@@ -85,7 +86,7 @@ class PaymentTableSchema(pa.DataFrameModel):
         non_null = _s(data).drop_nulls()
         if len(non_null) == 0:
             return True
-        return non_null.str.contains(r"^[\€\$]?[\d,]+\.\d{2}$").all()
+        return non_null.str.contains(r"^[€$]?[\d,]+\.\d{2}$").all()
 
     @pa.check("Full_Name")
     def no_empty_full_name(cls, data) -> bool:

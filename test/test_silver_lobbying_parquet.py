@@ -230,11 +230,12 @@ class LobbyistPersistenceSchema(pa.DataFrameModel):
         name = "lobbyist_persistence"
 
     @pa.check("lobbyist_name")
-    def no_empty_name(cls, series: pl.Series) -> bool:
-        return (series.drop_nulls() != "").all()
+    def no_empty_name(cls, data) -> bool:
+        return (_s(data).drop_nulls() != "").all()
 
     @pa.dataframe_check
-    def first_before_last(cls, df: pl.DataFrame) -> bool:
+    def first_before_last(cls, data) -> bool:
+        df = _df(data)
         return (df["first_return_date"] <= df["last_return_date"]).all()
 
 
@@ -249,8 +250,8 @@ class QuarterlyTrendSchema(pa.DataFrameModel):
         name = "quarterly_trend"
 
     @pa.check("year_quarter")
-    def year_quarter_format(cls, series: pl.Series) -> bool:
-        return series.drop_nulls().str.contains(r"^20\d{2}-Q[1-4]$").all()
+    def year_quarter_format(cls, data) -> bool:
+        return _s(data).drop_nulls().str.contains(r"^20\d{2}-Q[1-4]$").all()
 
 
 class PolicyAreaBreakdownSchema(pa.DataFrameModel):
@@ -264,8 +265,8 @@ class PolicyAreaBreakdownSchema(pa.DataFrameModel):
         name = "policy_area_breakdown"
 
     @pa.check("public_policy_area")
-    def no_empty_policy_area(cls, series: pl.Series) -> bool:
-        return (series.drop_nulls() != "").all()
+    def no_empty_policy_area(cls, data) -> bool:
+        return (_s(data).drop_nulls() != "").all()
 
 
 class DistinctOrgsPerPoliticianSchema(pa.DataFrameModel):
@@ -280,8 +281,8 @@ class DistinctOrgsPerPoliticianSchema(pa.DataFrameModel):
         name = "distinct_orgs_per_politician"
 
     @pa.check("full_name")
-    def no_empty_name(cls, series: pl.Series) -> bool:
-        return (series.drop_nulls() != "").all()
+    def no_empty_name(cls, data) -> bool:
+        return (_s(data).drop_nulls() != "").all()
 
 
 # ---------------------------------------------------------------------------

@@ -574,7 +574,7 @@ In implementation order. None of these is research-grade work; the value is in a
 
 The pipeline runs but is unprotected. These items make it resilient to upstream change.
 
-### 4.1 Schema validation at silver writes
+### 5.1 Schema validation at silver writes
 
 Use pandera (or pydantic for less-tabular cases) at every silver-write step. Fail loudly when a column type drifts or a non-null column starts allowing nulls. Currently a drift would propagate silently into gold.
 
@@ -594,7 +594,7 @@ ATTENDANCE_SILVER_SCHEMA.validate(df)
 
 Schemas live next to the pipeline module that writes them, not in a central registry — that way drift causes a noisy local failure, not a global breakage.
 
-### 4.2 Golden-file PDF regression tests
+### 5.2 Golden-file PDF regression tests
 
 Pick one representative PDF per parser (attendance, payments, interests, sponsors). Commit it to `test/fixtures/`. Commit the expected silver output beside it. Run on every PR.
 
@@ -607,7 +607,9 @@ def test_attendance_parser_2024_q1():
 
 This is the single most valuable test in the project. It will catch parser regressions that no schema check can.
 
-### 4.3 Row-count drift assertions
+The full fixture-creation plan, per-source coverage strategy, and integration with CI cadences is in [`test/HANDS_OFF_TEST_PLAN.md`](../test/HANDS_OFF_TEST_PLAN.md) §4 (Phase B of the build-out checklist).
+
+### 5.3 Row-count drift assertions
 
 When a refresh produces ≥10% fewer rows than the prior run for any silver table, fail the run unless explicitly allowed. The threshold is tunable per source.
 
@@ -623,11 +625,11 @@ Stored beside each manifest:
 
 That third row should hard-fail.
 
-### 4.4 Source endpoint health checks
+### 5.4 Source endpoint health checks
 
 `pdf_endpoint_check.py` already exists. Extend it to check every endpoint the pipeline touches and run it as the first step of every refresh. A 404 on a known-good URL should not silently propagate to "0 rows extracted".
 
-### 4.5 Quarantine flow for bad rows
+### 5.5 Quarantine flow for bad rows
 
 Already partially exists for payments (`payments_quarantined.parquet`). Generalise:
 
@@ -636,7 +638,7 @@ Already partially exists for payments (`payments_quarantined.parquet`). Generali
 - A nightly summary opens an issue if any source has more than N quarantined rows in a run.
 - Quarantined rows never silently disappear.
 
-### 4.6 Parser idempotency
+### 5.6 Parser idempotency
 
 Every parser should produce identical output for identical input. This is true today for most modules but is not asserted. A simple test:
 
@@ -649,7 +651,7 @@ def test_payments_parser_idempotent():
 
 Idempotency is the precondition for safely re-running refreshes.
 
-### 4.7 Manifest discipline
+### 5.7 Manifest discipline
 
 Every gold mart writes a manifest at build time. A page that loads a mart without a manifest should warn loudly, not silently render with stale provenance. This is enforceable via a small helper that the page contract loader calls.
 
@@ -659,7 +661,7 @@ Every gold mart writes a manifest at build time. A page that loads a mart withou
 
 These are small individually and large in aggregate.
 
-### 5.1 Minimum viable CI
+### 6.1 Minimum viable CI
 
 `.github/workflows/ci.yml`:
 
@@ -671,7 +673,7 @@ These are small individually and large in aggregate.
 
 Half a day to set up. Pays back forever.
 
-### 5.2 Test layering
+### 6.2 Test layering
 
 Three layers, each with a clear role:
 
@@ -681,13 +683,13 @@ Three layers, each with a clear role:
 
 Don't have integration tests pulling live data — those belong in the scheduled refresh, not on every PR.
 
-### 5.3 Pin and lock dependencies
+### 6.3 Pin and lock dependencies
 
 `pyproject.toml` should have version specifiers. A lockfile (`uv.lock` or `requirements.txt` from `pip-compile`) should be committed. Run `pip-audit` weekly.
 
 This is also the prerequisite for reproducible Streamlit Community Cloud deploys.
 
-### 5.4 Pre-commit hooks
+### 6.4 Pre-commit hooks
 
 Minimum:
 
@@ -698,13 +700,29 @@ Minimum:
 
 `pre-commit run --all-files` in CI catches what local hooks miss.
 
-### 5.5 Type hints + pydantic
+### 6.5 Type hints + pydantic
 
 Add type hints to every public function. Use pydantic for config schemas, page contracts, and source manifests. This pays off in editor support and in catching contract drift at load time, not at use time.
 
-### 5.6 Page-import smoke test
+### 6.6 Page-import smoke test
 
 Every page in `utility/pages_code/` should import cleanly without any data being present. The contract loader, the page function definition, and the helpers should all stand up. This catches the most common Streamlit failure mode: a missing import or typo that only surfaces when the page is opened.
+
+### 6.7 The hands-off test plan
+
+The above are minimum CI requirements. The extended test plan for unattended operation — including discovery probe tests, golden-file fixtures per parser, source-side schema validation, row-count drift detection, freshness SLO checks, end-to-end smoke tests, and the Tier 1/2/3 notification scheme from §4.7 — is documented in [`test/HANDS_OFF_TEST_PLAN.md`](../test/HANDS_OFF_TEST_PLAN.md).
+
+That doc has its own 8-phase build-out checklist (Phase A through Phase H) covering every test class needed for the pipeline to run untouched for 12+ months. It complements `test/TEST_SUITE.md` (which covers existing Pandera schema validation) rather than replacing it.
+
+The high-level sequence:
+- **Phase A** — discovery probe tests (offline construction, fixture-based index parsing, mocked-HTTP orchestration, weekly live canary)
+- **Phase B** — golden-file parser tests for payments, attendance, interests
+- **Phase C** — source-side JSON schema validation for the Oireachtas API
+- **Phase D** — row-count drift assertions in silver writers
+- **Phase E** — freshness SLOs with per-source thresholds
+- **Phase F** — end-to-end smoke against committed fixture pipeline
+- **Phase G** — notification wiring (GitHub Issues + Healthchecks.io + ntfy.sh per §4.7)
+- **Phase H** — silence and tuning after 4 weeks of operation
 
 ---
 
@@ -712,7 +730,7 @@ Every page in `utility/pages_code/` should import cleanly without any data being
 
 The current model is medallion + ad-hoc gold marts. There is room for it to become more deliberate without becoming a dbt project.
 
-### 6.1 Move toward dim/fact/bridge
+### 7.1 Move toward dim/fact/bridge
 
 Today there is a mix of "wide gold marts" (e.g. `enriched_td_attendance`) and "fact-shaped views" (e.g. `vote_member_detail`). The wide marts are convenient for one-off pages but become liabilities when a column needs to change.
 
@@ -725,11 +743,11 @@ Target shape:
 
 The migration is incremental — pick one wide mart per quarter and split it.
 
-### 6.2 Replace fuzzy joins where canonical IDs exist
+### 7.2 Replace fuzzy joins where canonical IDs exist
 
 The Oireachtas API exposes a stable `pId` for each member. Use it as the primary key in `dim_member`. The sorted-character fuzzy key from `normalise_join_key.py` becomes a *fallback* match method, not the primary key, with confidence flag.
 
-### 6.3 Match confidence as first-class
+### 7.3 Match confidence as first-class
 
 Every join that depends on name resolution should carry:
 
@@ -739,15 +757,15 @@ Every join that depends on name resolution should carry:
 
 Pages that count rows can filter by confidence. `low` matches go in a "review queue" view, not the main page.
 
-### 6.4 Quarantine tables per source
+### 7.4 Quarantine tables per source
 
 §5.5 covers this in pipeline terms. The data-modelling consequence: every source has a paired `_quarantine` table that the page can expose under "data quality issues".
 
-### 6.5 Slowly changing dimensions for member metadata
+### 7.5 Slowly changing dimensions for member metadata
 
 Members change parties, constituencies, and roles mid-Dáil. The current model implicitly snapshots latest state. For longitudinal analysis (especially once SIPO donations and historical voting are added), `dim_member_history` with valid-from / valid-to is the right shape. Add it before adding cross-cycle datasets, not after.
 
-### 6.6 Surrogate keys vs natural keys
+### 7.6 Surrogate keys vs natural keys
 
 Use natural keys where they're stable (Oireachtas `pId`, lobbying.ie `primary_key`). Use surrogates only where natural keys are absent or unstable (judges, donors, charities). Document the choice per dimension in `meta_dataset_registry`.
 
@@ -757,17 +775,17 @@ Use natural keys where they're stable (Oireachtas `pId`, lobbying.ie `primary_ke
 
 Streamlit Community Cloud has constrained resources. This matters more than it should.
 
-### 7.1 Push joins into DuckDB
+### 8.1 Push joins into DuckDB
 
 Already mostly done. The remaining wide-mart pages (member overview, attendance overview) still do some joins in Python — finish moving them into views.
 
-### 7.2 Pre-aggregate where it pays
+### 8.2 Pre-aggregate where it pays
 
 If a chart is the same chart for every visitor, build it as a pre-aggregated view. The page filters columns; it does not recompute aggregations.
 
 `payments_yearly_evolution.sql` is the right shape. `current_dail_vote_history.parquet` is too wide and gets re-aggregated by the votes page — that's a candidate for pre-aggregation.
 
-### 7.3 Streamlit caching discipline
+### 8.3 Streamlit caching discipline
 
 Two rules:
 
@@ -776,11 +794,11 @@ Two rules:
 
 Cached return values must be picklable. Returning a polars DataFrame is fine; returning a closure is not.
 
-### 7.4 Parquet typing
+### 8.4 Parquet typing
 
 Specify dtypes at write time. `int64` for counts, `int32` for years, `categorical` for low-cardinality columns (party, court, chamber). Compressed with zstd by default. This makes Streamlit page loads visibly faster and saves a meaningful chunk of repo size.
 
-### 7.5 Limit page-time work
+### 8.5 Limit page-time work
 
 Rule of thumb: a page should do less than 500 ms of work between cached query and render. Anything more belongs in the SQL view.
 
@@ -790,15 +808,15 @@ Rule of thumb: a page should do less than 500 ms of work between cached query an
 
 The contract pack and bold-redesign skill have done the architectural work; the remaining items are concrete user-facing fixes.
 
-### 8.1 Provenance footer on every page (auto)
+### 9.1 Provenance footer on every page (auto)
 
 Helper: `render_provenance(manifest_path)`. Reads the manifest, renders an expander with: source mart, grain, last refresh, run ID, git commit, source versions, caveats. Wired into every page's last 3 lines.
 
-### 8.2 Freshness badge per page
+### 9.2 Freshness badge per page
 
 Top of every page: a small pill showing "Refreshed N days ago" with colour coding (green < 7d, amber 7–30d, red > 30d for sources expected to refresh more often than that).
 
-### 8.3 Mobile responsiveness within Streamlit limits
+### 9.3 Mobile responsiveness within Streamlit limits
 
 Streamlit's mobile story is acceptable for narrow tables and metrics, painful for wide tables and side-by-side columns. Decisions:
 
@@ -808,30 +826,30 @@ Streamlit's mobile story is acceptable for narrow tables and metrics, painful fo
 
 This is a 2–3 day pass over all pages, not a structural change.
 
-### 8.4 Accessibility audit
+### 9.4 Accessibility audit
 
 Run `axe-core` against the deployed app. The Streamlit baseline is decent but card patterns and custom CSS can break contrast and keyboard navigation. Track findings in an issue, fix highest-impact items first.
 
-### 8.5 Page-mart-per-page rule
+### 9.5 Page-mart-per-page rule
 
 Every page reads from one named mart, ideally. Where a page reads two, that's a candidate for a unifying view. Where it reads three or more, the page is doing modelling work that belongs in SQL.
 
-### 8.6 Cross-page navigation
+### 9.6 Cross-page navigation
 
 A TD's name on the lobbying page should link to that TD on the member overview page. Today it doesn't. Cross-page navigation is the difference between "a dashboard" and "an explorer". Implementation: query-param-driven page state; helper for "this entity's profile URL".
 
-### 8.7 Search across entities
+### 9.7 Search across entities
 
 A single global search box: TD names, lobbying organisations, bills, committees. Implemented as a small in-memory index built at app startup; click result → deep link to relevant page filtered to that entity.
 
-### 8.8 Onboarding for first-time visitors
+### 9.8 Onboarding for first-time visitors
 
 The first visit currently lands on the attendance page. That's not the strongest entry point. Either:
 
 - A landing page that explains what the project is and links to two or three "good places to start" queries; or
 - The member overview page as default with a short explainer banner.
 
-### 8.9 Empty states and zero-result handling
+### 9.9 Empty states and zero-result handling
 
 Already partly done via `empty_state` helpers. Audit every page for: zero filter results, all-data-quarantined, source-currently-refreshing. Each should explain what happened and suggest what to do.
 
@@ -841,7 +859,7 @@ Already partly done via `empty_state` helpers. Audit every page for: zero filter
 
 Once the refresh is automated, the question becomes "is it healthy?" rather than "did I run it?".
 
-### 9.1 Run summaries
+### 10.1 Run summaries
 
 Every refresh emits a single JSON document:
 
@@ -863,15 +881,17 @@ Every refresh emits a single JSON document:
 
 Committed under `data/_run_summaries/run_*.json`. The UI surfaces the latest one on a "Pipeline status" page.
 
-### 9.2 Structured logs with run_id
+### 10.2 Structured logs with run_id
 
 Every log line carries the `run_id`. Logs go to stdout (so GitHub Actions captures them) and to `data/_logs/run_*.jsonl`.
 
-### 9.3 Error issue auto-creation
+### 10.3 Error issue auto-creation
 
 When a refresh has any error, the workflow opens a GitHub issue with the run summary attached. Triage from the issue.
 
-### 9.4 Data freshness SLOs
+This is **Tier 1** of the notification stack defined in §4.7. The full pattern (GitHub Issues + Healthchecks.io for dead-man's-switch + optional ntfy.sh for push) is described there. This subsection is the operational implementation detail; §4.7 is the policy.
+
+### 10.4 Data freshness SLOs
 
 Per source, a target cadence and a stale-warning threshold:
 
@@ -885,7 +905,7 @@ Per source, a target cadence and a stale-warning threshold:
 
 The freshness badge (§9.2) and the latest run summary use these thresholds.
 
-### 9.5 A simple "Pipeline status" page
+### 10.5 A simple "Pipeline status" page
 
 A dedicated Streamlit page showing: last run, per-source freshness, any open issues from the auto-creator, the last 30 days of runs as a sparkline. Targeted at the maintainer, but useful for journalists too — "is the data current as of when I'm writing my piece?".
 
@@ -895,19 +915,19 @@ A dedicated Streamlit page showing: last run, per-source freshness, any open iss
 
 A civic-data project lives or dies on whether its handling of public data is defensible. None of these are heavy items; missing them is the risk.
 
-### 10.1 Env vars and secrets
+### 11.1 Env vars and secrets
 
 Move all environment-specific config to environment variables. Commit a `.env.example`. No secrets in the repo, no API keys in code.
 
-### 10.2 Dependency scanning
+### 11.2 Dependency scanning
 
 `pip-audit` + Dependabot. Both run weekly.
 
-### 10.3 Source licensing per dataset
+### 11.3 Source licensing per dataset
 
 `doc/source_licensing.md`: one row per source, with: licence type, attribution required, redistribution allowed, link to source's terms. The provenance footer (§9.1) reads from this.
 
-### 10.4 GDPR-light considerations
+### 11.4 GDPR-light considerations
 
 The project handles public-record data about identified individuals (TDs). That is not a GDPR safe-harbour automatically; it relies on the public-interest journalism / democratic-accountability lawful bases. Document the position in `doc/data_protection_position.md`. Include:
 
@@ -919,11 +939,11 @@ The project handles public-record data about identified individuals (TDs). That 
 
 This is one document, not a project. A version of it should exist before the alpha is shared with a single user.
 
-### 10.5 Robots.txt and ToS compliance
+### 11.5 Robots.txt and ToS compliance
 
 Each scrape job (lobbying.ie, Iris Oifigiúil, courts.ie) needs a documented check against the source's robots.txt and terms of service. The check goes into the source's manifest. If a source's terms exclude automated retrieval, that source does not get scraped — full stop.
 
-### 10.6 Rate-limit and identify the bot
+### 11.6 Rate-limit and identify the bot
 
 Every outbound request from the refresh sends a `User-Agent: dail-tracker-bot (https://github.com/...)` header and respects per-source rate limits. Don't be the project that gets a public records site to add a captcha.
 
@@ -933,7 +953,7 @@ Every outbound request from the refresh sends a `User-Agent: dail-tracker-bot (h
 
 Right now the project is a private dashboard. Distribution is what makes it useful to someone who isn't the maintainer.
 
-### 11.1 Versioned data releases
+### 12.1 Versioned data releases
 
 Every Monday's refresh tags a release: `data-v2026.04.30`. The release contains:
 
@@ -944,11 +964,11 @@ Every Monday's refresh tags a release: `data-v2026.04.30`. The release contains:
 
 This is what makes citations possible: "data as of release v2026.04.30" is a stable claim.
 
-### 11.2 Permalinks per page state
+### 12.2 Permalinks per page state
 
 Page state (filter values, sort order) lives in URL query params. A user can bookmark, share, and cite a specific view. Streamlit's `st.query_params` API handles this. Page contracts should declare which filters are URL-bindable.
 
-### 11.3 Open data exposure
+### 12.3 Open data exposure
 
 Three increasing levels:
 
@@ -958,7 +978,7 @@ Three increasing levels:
 
 Levels 1 and 2 are cheap and high-leverage. Level 3 is not until someone needs it.
 
-### 11.4 RSS / Atom for new events
+### 12.4 RSS / Atom for new events
 
 A feed per dataset:
 
@@ -969,7 +989,7 @@ A feed per dataset:
 
 Journalists who follow Irish politics can subscribe and skim. This is one of the highest leverage-to-effort ratios available.
 
-### 11.5 Citation guidance
+### 12.5 Citation guidance
 
 `doc/citation.md`: how to cite the project, including release version and access date. Crucial for academic and journalistic use; nobody cites what doesn't tell them how.
 
@@ -979,7 +999,7 @@ Journalists who follow Irish politics can subscribe and skim. This is one of the
 
 `DATA_LIMITATIONS.md` is engineer-quality. The trust gap is everything *between* that doc and the page.
 
-### 12.1 Journalist-readable methodology
+### 13.1 Journalist-readable methodology
 
 `doc/methodology.md`: one page per dataset. For each:
 
@@ -990,23 +1010,23 @@ Journalists who follow Irish politics can subscribe and skim. This is one of the
 
 Aimed at a journalist who has 10 minutes before filing.
 
-### 12.2 Per-page source citations
+### 13.2 Per-page source citations
 
 Every chart and every table caption ends with a one-line source citation, drawn from the manifest. Currently most pages have an expander; that's good but not enough. The citation should be visible without expanding.
 
-### 12.3 Caveat banners where data is partial
+### 13.3 Caveat banners where data is partial
 
 Where `DATA_LIMITATIONS.md` flags a known issue (e.g. office-holders' interests in §2.1, lobbying collective targets in §7.7), the relevant page shows a small inline banner. Not an expander. Not a footnote. A visible banner.
 
-### 12.4 Update history per dataset
+### 13.4 Update history per dataset
 
 Each gold mart's page shows a small "data updates" log: "2026-04-30: refreshed; 2026-04-23: refreshed; 2026-04-16: parser fix for new attendance PDF layout". Built from `meta_pipeline_runs`. Three entries shown, link to a full history.
 
-### 12.5 Public changelog
+### 13.5 Public changelog
 
 `CHANGELOG.md` at the repo root, kept in keepachangelog.com style. Every release entry. Every parser fix. Every new dataset. The bar for entry: "would a user notice?".
 
-### 12.6 Methodology review by an external reader
+### 13.6 Methodology review by an external reader
 
 Before the alpha goes to a journalist, hand `methodology.md` and the DATA_LIMITATIONS doc to one independent reader who hasn't worked on the project. Their first 10 questions are gold.
 
@@ -1016,7 +1036,7 @@ Before the alpha goes to a journalist, hand `methodology.md` and the DATA_LIMITA
 
 The fastest way to make progress sustainable is to lower the cost of every change.
 
-### 13.1 One-command bootstrap
+### 14.1 One-command bootstrap
 
 `make bootstrap` (or `just bootstrap`):
 
@@ -1027,23 +1047,23 @@ The fastest way to make progress sustainable is to lower the cost of every chang
 
 A new contributor (or future-you after a break) is productive in five minutes, not five hours.
 
-### 13.2 Contribution guide
+### 14.2 Contribution guide
 
 `CONTRIBUTING.md`: how to set up, where to put new code (sandbox vs core), how to run tests, how to run the dashboard locally, how to add a page contract. Short.
 
-### 13.3 Module size discipline
+### 14.3 Module size discipline
 
 The largest current modules (`pipeline.py`, `enrich.py`) are doing a lot. Target: no module over 600 lines. Split by responsibility, not by size. The contract pack already imposes some of this; carry it through the rest of the codebase.
 
-### 13.4 Tests as documentation
+### 14.4 Tests as documentation
 
 A new contributor reading `test/` should be able to learn what each parser is supposed to do. This is a writing-style thing: test names describe behaviour, fixtures are realistic, assertions are specific.
 
-### 13.5 Smaller, scoped PRs
+### 14.5 Smaller, scoped PRs
 
 Even as a solo project, PRs are better than direct-to-main commits because they create a review surface for tomorrow-you. CI runs on PRs. A revert is a one-click action.
 
-### 13.6 Reduce constants/mapping file sprawl
+### 14.6 Reduce constants/mapping file sprawl
 
 `select_drop_rename_cols_mappings.py` and friends are convenient but have grown. Split by domain (`mappings/attendance.py`, `mappings/payments.py`, ...). Smaller modules are AI-friendly: smaller context, fewer accidental edits.
 
@@ -1053,15 +1073,15 @@ Even as a solo project, PRs are better than direct-to-main commits because they 
 
 Solo civic-data projects rot when the maintainer steps back. These items stretch the half-life.
 
-### 14.1 Tribal knowledge capture
+### 15.1 Tribal knowledge capture
 
 The PDF parsers in particular embed knowledge about layout quirks ("payments PDFs since 2022 wrap the description column at 67 chars"). That knowledge currently lives in commit messages and the maintainer's head. Capture it in module docstrings and the methodology doc.
 
-### 14.2 Refresh calendar doc
+### 15.2 Refresh calendar doc
 
 `doc/refresh_calendar.md`: when each source refreshes, what the typical lag is, who at the source to contact if it breaks. One row per source, one paragraph each.
 
-### 14.3 First-contributor experience
+### 15.3 First-contributor experience
 
 Someone clones the repo cold. Can they:
 
@@ -1072,7 +1092,7 @@ Someone clones the repo cold. Can they:
 
 If any answer is "no", that's the next sustainability item.
 
-### 14.4 Handover note
+### 15.4 Handover note
 
 `doc/handover.md`: the document a new maintainer reads if you stopped tomorrow. Includes:
 
@@ -1084,11 +1104,11 @@ If any answer is "no", that's the next sustainability item.
 
 You will never read this; it exists for someone else.
 
-### 14.5 Monthly rebuild from clean state
+### 15.5 Monthly rebuild from clean state
 
 Once a month, blow away local data, clone fresh, run `make bootstrap` and `make refresh`. Anything that breaks is a sustainability bug. This is the early-warning system for "the project still works".
 
-### 14.6 Funding / grants
+### 15.6 Funding / grants
 
 A small civic-data project in Ireland has access to: Enterprise Ireland innovation vouchers, Open Knowledge Ireland community, certain academic micro-grants (TCD/UCD/DCU politics depts), and Journalism Funds (small). Not life-changing money, but enough to fund hosting + occasional contract help. Not urgent; flag for when the project is public.
 
@@ -1098,13 +1118,13 @@ A small civic-data project in Ireland has access to: Enterprise Ireland innovati
 
 Mostly unchanged from earlier revisions; included for completeness.
 
-### 15.1 Recommended stack
+### 16.1 Recommended stack
 
 1. **Streamlit Community Cloud** for the app. Free, GitHub-connected, auto-rebuild on push.
 2. **GitHub Actions cron** for the refresh (§3).
 3. **Hugging Face Datasets** as an optional secondary publication target if parquet sizes outgrow Community Cloud's comfort.
 
-### 15.2 What not to do yet
+### 16.2 What not to do yet
 
 - No custom React frontend.
 - No backend API service unless a real user asks.
@@ -1112,7 +1132,7 @@ Mostly unchanged from earlier revisions; included for completeness.
 - No continuous AI regeneration of metric logic.
 - No heavyweight orchestrator (Dagster, Prefect) — GitHub Actions is plenty for this scale.
 
-### 15.3 Cost model
+### 16.3 Cost model
 
 At current scale, total monthly cost is plausibly £0–10. Mostly free tiers. The cost trap is "one paid dependency at a time" — keep the bar high.
 
@@ -1122,15 +1142,15 @@ At current scale, total monthly cost is plausibly £0–10. Mostly free tiers. T
 
 The contract pack and skills make AI-assisted development viable for this project. The discipline is what keeps it that way.
 
-### 16.1 Skills as enforcement
+### 17.1 Skills as enforcement
 
 The skills (`bold-redesign-page`, `civic-ui-review`, `pipeline-view`) are not optional — they're the contract enforcement layer. New pages should always go through them. Drift creeps in when shortcuts are taken under deadline; the skills are designed for "use even when in a hurry".
 
-### 16.2 Contract pack as token discipline
+### 17.2 Contract pack as token discipline
 
 An AI generating a page should read the page contract and the column dictionary, not the full repo. If a generation prompt includes more than ~30k tokens of context, the prompt is wrong, not the AI. The contract pack v5 is sized to keep prompts small.
 
-### 16.3 What AI must not own
+### 17.3 What AI must not own
 
 - Source joins.
 - Fuzzy matching logic.
@@ -1141,11 +1161,11 @@ An AI generating a page should read the page contract and the column dictionary,
 
 These are change-controlled. AI can suggest, the maintainer commits.
 
-### 16.4 Diff review discipline
+### 17.4 Diff review discipline
 
 Every AI-generated change is reviewed as a diff before merge. Even when the AI seems confident. Especially when the AI seems confident.
 
-### 16.5 Memory hygiene
+### 17.5 Memory hygiene
 
 Save user/feedback memories that capture *why* a decision was made (not just *what*). When a memory becomes stale (pattern changed, file moved), update or remove it — don't just ignore it.
 
@@ -1153,48 +1173,68 @@ Save user/feedback memories that capture *why* a decision was made (not just *wh
 
 ## 18. Recommended 90-day sequence
 
-Concrete, in priority order. Each item is small enough to ship in a sitting.
+Concrete, in priority order. Each item is small enough to ship in a sitting. Updated to reflect the consolidated work in `pipeline_sandbox/` and `test/HANDS_OFF_TEST_PLAN.md`.
 
-### Weeks 1–2 — operational baseline
+### Weeks 1–2 — operational baseline + discovery probe
 
 1. Add `pipeline.py --refresh` flag and the GitHub Actions workflow in §3.3.
 2. Stand up the `data` branch and a Streamlit Community Cloud deploy from `main` + `data`.
 3. Add the first per-mart manifest writer (`utility/tools/write_run_manifest.py`).
 4. Add `render_provenance(manifest_path)` and wire it on three pages.
 5. Add the freshness badge helper (§9.2) and wire it on the same three pages.
+6. **Build out [`pipeline_sandbox/payment_pdf_url_probe.py`](../pipeline_sandbox/payment_pdf_url_probe.py)** to a working state. Validation: probe returns the March 2026 payment PDF URL. Reference: [`pipeline_sandbox/payment_pdf_discovery_notes.md`](../pipeline_sandbox/payment_pdf_discovery_notes.md).
 
-### Weeks 3–4 — protect what exists
+### Weeks 3–4 — protect what exists (HANDS_OFF_TEST_PLAN Phases A–B)
 
-6. Add CI: ruff + ruff-format + pytest + page-import smoke + schema diff.
-7. Add one golden-file PDF test per parser (attendance, payments, interests).
-8. Add row-count drift assertions in silver writers.
-9. Add the lobbying.ie auto-export job — Playwright if DevTools XHR isn't workable. Best-effort, not blocking.
-10. Pin dependencies and commit a lockfile.
+7. Add CI: ruff + ruff-format + pytest + page-import smoke + schema diff (§6.1).
+8. **HANDS_OFF Phase A**: discovery probe tests — offline construction tests, fixture-based index parsing, mocked-HTTP orchestration, `@pytest.mark.live` weekly canary.
+9. **HANDS_OFF Phase B**: golden-file PDF tests for payments, attendance, interests parsers (§5.2).
+10. Add row-count drift assertions in silver writers (§5.3, HANDS_OFF Phase D).
+11. Pin dependencies and commit a lockfile (§6.3).
+12. Vote pagination fix per [`pipeline_sandbox/votes_pagination_plan.md`](../pipeline_sandbox/votes_pagination_plan.md). Phase 0 confirmed truncation; proceed through Phases 1–3.
 
-### Weeks 5–6 — distribution and trust
+### Weeks 5–6 — distribution, trust, and remaining test phases
 
-11. Versioned data releases (§12.1).
-12. `methodology.md` first draft (§13.1).
-13. Per-page caveat banners where DATA_LIMITATIONS flags a gap (§13.3).
-14. `CHANGELOG.md` started (§13.5).
-15. RSS feed for new events (§12.4) — at least one feed.
+13. Versioned data releases (§12.1).
+14. `methodology.md` first draft (§13.1).
+15. Per-page caveat banners where DATA_LIMITATIONS flags a gap (§13.3).
+16. `CHANGELOG.md` started (§13.5).
+17. RSS feed for new events (§12.4) — at least one feed.
+18. **HANDS_OFF Phase C**: source-side JSON schema validation for the Oireachtas API.
+19. **HANDS_OFF Phase E**: freshness SLOs with per-source thresholds.
 
-### Weeks 7–8 — UI and ops polish
+### Weeks 7–8 — UI, ops, and notification stack
 
-16. Cross-page navigation (§9.6).
-17. Global search (§9.7).
-18. Pipeline status page (§10.5).
-19. Run summaries committed per refresh (§10.1).
-20. Issue auto-creation on refresh failure (§10.3).
+20. Cross-page navigation (§9.6).
+21. Global search (§9.7).
+22. Pipeline status page (§10.5).
+23. Run summaries committed per refresh (§10.1).
+24. **§4.7 Tier 1 notifications**: GitHub Issues auto-creation on refresh failure (§10.3, HANDS_OFF Phase G Tier 1).
+25. **§4.7 Tier 2 notifications**: Healthchecks.io ping per source (HANDS_OFF Phase G Tier 2).
+26. **§4.7 Tier 3 (optional)**: ntfy.sh weekly canary push (HANDS_OFF Phase G Tier 3).
 
-### Weeks 9–12 — first real user
+### Weeks 9–12 — first real user, and the remaining backstops
 
-21. Hand the alpha to one named journalist or researcher.
-22. Whatever they ask for first becomes the next priority (likely SIPO donations from `ENRICHMENTS.md` §A.1, or judicial appointments from §D.1).
-23. Iterate on whatever broke under their use.
-24. Refresh calendar doc and handover note (§15.2, §15.4).
+27. Hand the alpha to one named journalist or researcher.
+28. Whatever they ask for first becomes the next priority (likely SIPO donations from `ENRICHMENTS.md` §A.1, or judicial appointments from §D.1).
+29. Iterate on whatever broke under their use.
+30. **HANDS_OFF Phase F**: end-to-end smoke test against committed bronze fixture pipeline.
+31. Refresh calendar doc and handover note (§15.2, §15.4).
+32. **HANDS_OFF Phase H**: silence and tuning — review email frequency after 4 weeks of operation, adjust thresholds.
 
-This sequence assumes evening-and-weekend pacing. None of it is research-grade work; it's all operationalising what's already designed.
+### Phase 2 (months 4–6, if Phase 1 lands cleanly)
+
+33. Extend the discovery probe to attendance and interests sources (per [`pipeline_sandbox/payment_pdf_discovery_notes.md`](../pipeline_sandbox/payment_pdf_discovery_notes.md) Phase 2). This is also when the v4 §4.6 pluggable scraper interface is worth introducing — three implementations is enough to validate the abstraction.
+34. Add one new dataset from `ENRICHMENTS.md` (most likely SIPO donations §A.1 or judicial appointments §D.1).
+
+This sequence assumes evening-and-weekend pacing. None of it is research-grade work; it's all operationalising what's already designed in v4 + sandbox + test plan.
+
+### Why this order
+
+- **Discovery probe (week 1–2)** ships before tests because the test fixtures need real probe output to validate against.
+- **Golden-file tests (week 3–4)** ship before any further pipeline changes because they're the regression net for everything that follows.
+- **Notifications (week 7–8)** ship after observability (manifest + freshness badge + status page) because notifications without context are unhelpful — you need the run summaries to populate issue bodies.
+- **First user (weeks 9–12)** comes after the system is genuinely hands-off, not before. A journalist using a fragile system creates support load, not feedback.
 
 ---
 
@@ -1234,6 +1274,13 @@ Hosting / distribution:
 - Hugging Face Datasets — https://huggingface.co/docs/hub/datasets-overview
 - Keep a Changelog — https://keepachangelog.com/
 
+Notifications and monitoring (per §4.7):
+
+- Healthchecks.io — https://healthchecks.io/
+- ntfy.sh — https://ntfy.sh/
+- IIPC web archiving best practices — https://netpreserve.org/web-archiving/
+- `dawidd6/action-send-mail` (only if §4.7 Tier 1 outgrown) — https://github.com/dawidd6/action-send-mail
+
 Civic-data inspiration:
 
 - TheyWorkForYou — https://github.com/mysociety/theyworkforyou
@@ -1246,11 +1293,31 @@ For dataset enrichment ideas, see `ENRICHMENTS.md`.
 
 ## 20. What changed in this rev
 
-vs v3:
+### Updates 2026-05-01 (consolidating sandbox + test plan work)
+
+- **§4.7 added** — *Notification pattern (privacy-aware, low-maintenance)*. Three-tier stack: GitHub Issues + GitHub-native email (Tier 1) + Healthchecks.io anonymous tier (Tier 2) + ntfy.sh with random topic (Tier 3). Explicitly rejects the SaaS-email pattern (SendGrid/Mailgun) for solo civic-data projects on privacy-and-maintenance grounds. Includes a coverage matrix mapping each failure mode to which tier catches it.
+- **§4.8 TODO list expanded** with notification-tier setup checklists (Tier 1, Tier 2, Tier 3) and an "upstream-facing contact" subsection clarifying the User-Agent contact email is a separate concern from internal alerting.
+- **§5.2 links** [`test/HANDS_OFF_TEST_PLAN.md`](../test/HANDS_OFF_TEST_PLAN.md) §4 / Phase B for the full fixture-creation strategy.
+- **§6.7 added** — pointer to `test/HANDS_OFF_TEST_PLAN.md`'s 8-phase build-out (A discovery probe tests → H silence/tuning) as the extended test plan for hands-off operation.
+- **§10.3 cross-references** §4.7 (notification policy lives there; §10.3 is operational implementation detail).
+- **§18 90-day sequence rewritten** to integrate (a) the discovery probe build from `pipeline_sandbox/payment_pdf_url_probe.py`, (b) the votes pagination fix from `pipeline_sandbox/votes_pagination_plan.md` (Phase 0 truncation confirmed), (c) the §4.7 three-tier notification stack, and (d) the HANDS_OFF Phase A–H test plan. Added "Phase 2 (months 4–6)" for extending the discovery probe to attendance + interests, and a "Why this order" rationale block.
+- **§19 reading list** gained a "Notifications and monitoring" section: Healthchecks.io, ntfy.sh, IIPC web archiving best practices, `dawidd6/action-send-mail` (only if Tier 1 is outgrown).
+- **§3.4 cadence table** updated: payments PDF cadence corrected from "Quarterly" to "Monthly" (the original entry was just wrong; PDFs publish per-data-month with a 31–46 day lag). Links to `pipeline_sandbox/payment_pdf_discovery_notes.md`.
+- **All subsection numbering 5.1–17.5 fixed** — many headers retained the pre-renumbering numbers from earlier in the rev. Now consistent throughout.
+
+Companion files written/updated this rev (live outside v4 but referenced from it):
+
+- [`pipeline_sandbox/payment_pdf_url_probe.py`](../pipeline_sandbox/payment_pdf_url_probe.py) — parlparse-style URL discovery probe, construction + index-fallback + diagnostic-failure tiers.
+- [`pipeline_sandbox/payment_pdf_discovery_notes.md`](../pipeline_sandbox/payment_pdf_discovery_notes.md) — per-source discovery patterns (payments, attendance, interests), backfill viability, cadence.
+- [`pipeline_sandbox/votes_pagination_plan.md`](../pipeline_sandbox/votes_pagination_plan.md) — phased rollout, Phase 0 (truncation diagnostic) confirmed.
+- [`pipeline_sandbox/learnings_from_civic_data_projects.md`](../pipeline_sandbox/learnings_from_civic_data_projects.md) — case studies from parlparse, ProPublica, Open Civic Data, IIPC, EveryPolitician.
+- [`test/HANDS_OFF_TEST_PLAN.md`](../test/HANDS_OFF_TEST_PLAN.md) — extended test plan complementing `test/TEST_SUITE.md`. 8-phase build-out, severity-based notification scheme, CI integration cadences, anti-patterns.
+
+### vs v3 (original v4 rewrite)
 
 - Renamed and rewritten from scratch as v4.
 - Removed the dataset-enrichment catalogue entirely; that now lives in `ENRICHMENTS.md`. v4 stays focused on the existing surface.
-- Reorganised into 18 discrete sections covering the full project surface — robustness, modelling, performance, UI, ops, security, distribution, trust, DX, sustainability — not just the original "operating model + page contracts" axis.
+- Reorganised into 20 discrete sections covering the full project surface — robustness, modelling, performance, UI, ops, security, distribution, trust, DX, sustainability — not just the original "operating model + page contracts" axis.
 - Status snapshot updated to April 2026: contract pack v5, ~30 SQL views, 8 pages, skills system, sandbox pattern.
 - §3 auto-refresh kept and refined with concrete YAML.
 - §4 pipeline rearchitecture is new in this rev — public-safe ingestion: publish-don't-crawl, web-citizenship, upstream coordination, hash-based change detection, pluggable scraper interface.
