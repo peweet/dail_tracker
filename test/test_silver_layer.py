@@ -29,6 +29,16 @@ from config import SILVER_DIR
 # but break any downstream date arithmetic.
 # ---------------------------------------------------------------------------
 
+def _s(data) -> pl.Series:
+    """Extract pl.Series from a Pandera Polars @pa.check callback argument."""
+    return data.lazyframe.select(pl.col(data.key)).collect()[data.key]
+
+
+def _df(data) -> pl.DataFrame:
+    """Extract pl.DataFrame from a Pandera Polars @pa.dataframe_check callback argument."""
+    return data.lazyframe.collect()
+
+
 def _all_iso_dates(series: pl.Series) -> bool:
     """All non-null values must match YYYY-MM-DD."""
     non_null = series.drop_nulls()
@@ -63,21 +73,20 @@ class AttendanceSilverSchema(pa.DataFrameModel):
         name = "aggregated_td_tables"
 
     @pa.check("iso_sitting_days_attendance")
-    def sitting_date_is_iso(cls, series: pl.Series) -> bool:
-        return _all_iso_dates(series)
+    def sitting_date_is_iso(cls, data) -> bool:
+        return _all_iso_dates(_s(data))
 
     @pa.check("iso_other_days_attendance")
-    def other_date_is_iso(cls, series: pl.Series) -> bool:
-        return _all_iso_dates(series)
+    def other_date_is_iso(cls, data) -> bool:
+        return _all_iso_dates(_s(data))
 
     @pa.dataframe_check
-    def at_least_127_unique_tds(cls, df: pl.DataFrame) -> bool:
-        # 127 is the lower bound from test.py placeholder — 160 seats expected
-        return df["identifier"].n_unique() >= 127
+    def at_least_127_unique_tds(cls, data) -> bool:
+        return _df(data)["identifier"].n_unique() >= 127
 
     @pa.dataframe_check
-    def no_null_identifiers(cls, df: pl.DataFrame) -> bool:
-        return df["identifier"].null_count() == 0
+    def no_null_identifiers(cls, data) -> bool:
+        return _df(data)["identifier"].null_count() == 0
 
 
 class FlattenedMembersSchema(pa.DataFrameModel):
@@ -99,12 +108,13 @@ class FlattenedMembersSchema(pa.DataFrameModel):
         name = "flattened_members"
 
     @pa.dataframe_check
-    def unique_member_codes(cls, df: pl.DataFrame) -> bool:
+    def unique_member_codes(cls, data) -> bool:
+        df = _df(data)
         return df["unique_member_code"].n_unique() == len(df)
 
     @pa.dataframe_check
-    def td_count_plausible(cls, df: pl.DataFrame) -> bool:
-        return 127 <= len(df) <= 250
+    def td_count_plausible(cls, data) -> bool:
+        return 127 <= len(_df(data)) <= 250
 
 
 class MemberInterestsSchema(pa.DataFrameModel):
@@ -122,12 +132,12 @@ class MemberInterestsSchema(pa.DataFrameModel):
         name = "dail_member_interests"
 
     @pa.dataframe_check
-    def has_rows(cls, df: pl.DataFrame) -> bool:
-        return len(df) > 0
+    def has_rows(cls, data) -> bool:
+        return len(_df(data)) > 0
 
     @pa.dataframe_check
-    def no_null_member_names(cls, df: pl.DataFrame) -> bool:
-        return df["member_name"].null_count() == 0
+    def no_null_member_names(cls, data) -> bool:
+        return _df(data)["member_name"].null_count() == 0
 
 
 # ---------------------------------------------------------------------------
