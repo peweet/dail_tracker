@@ -16,22 +16,23 @@ This is the live improvement roadmap. It is opinionated, dated, and reconciled w
 1. [Architectural principles still load-bearing](#1-architectural-principles-still-load-bearing)
 2. [Honest readiness picture](#2-honest-readiness-picture)
 3. [Auto-refresh — the biggest single unlock](#3-auto-refresh--the-biggest-single-unlock)
-4. [Pipeline robustness](#4-pipeline-robustness)
-5. [Tests, CI, dependency hygiene](#5-tests-ci-dependency-hygiene)
-6. [Data modelling](#6-data-modelling)
-7. [Performance](#7-performance)
-8. [UI / UX maturity](#8-ui--ux-maturity)
-9. [Observability and ops](#9-observability-and-ops)
-10. [Security and licensing](#10-security-and-licensing)
-11. [Distribution and citation](#11-distribution-and-citation)
-12. [Trust and methodology](#12-trust-and-methodology)
-13. [Developer experience](#13-developer-experience)
-14. [Sustainability and bus factor](#14-sustainability-and-bus-factor)
-15. [Hosting and cost](#15-hosting-and-cost)
-16. [AI-assisted development discipline](#16-ai-assisted-development-discipline)
-17. [Recommended 90-day sequence](#17-recommended-90-day-sequence)
-18. [Reading list](#18-reading-list)
-19. [What changed in this rev](#19-what-changed-in-this-rev)
+4. [Pipeline rearchitecture — public-safe ingestion](#4-pipeline-rearchitecture--public-safe-ingestion)
+5. [Pipeline robustness](#5-pipeline-robustness)
+6. [Tests, CI, dependency hygiene](#6-tests-ci-dependency-hygiene)
+7. [Data modelling](#7-data-modelling)
+8. [Performance](#8-performance)
+9. [UI / UX maturity](#9-ui--ux-maturity)
+10. [Observability and ops](#10-observability-and-ops)
+11. [Security and licensing](#11-security-and-licensing)
+12. [Distribution and citation](#12-distribution-and-citation)
+13. [Trust and methodology](#13-trust-and-methodology)
+14. [Developer experience](#14-developer-experience)
+15. [Sustainability and bus factor](#15-sustainability-and-bus-factor)
+16. [Hosting and cost](#16-hosting-and-cost)
+17. [AI-assisted development discipline](#17-ai-assisted-development-discipline)
+18. [Recommended 90-day sequence](#18-recommended-90-day-sequence)
+19. [Reading list](#19-reading-list)
+20. [What changed in this rev](#20-what-changed-in-this-rev)
 
 ---
 
@@ -224,7 +225,7 @@ jobs:
           fi
 ```
 
-The two referenced things — `pipeline.py --refresh` and `utility/tools/write_run_manifest.py` — don't exist yet and are the first concrete tasks (§17).
+The two referenced things — `pipeline.py --refresh` and `utility/tools/write_run_manifest.py` — don't exist yet and are the first concrete tasks (§18).
 
 ### 3.4 Per-source cadence and risk
 
@@ -232,7 +233,7 @@ The two referenced things — `pipeline.py --refresh` and `utility/tools/write_r
 |---|---|---|---|
 | Oireachtas API (members, legislation, questions, votes, debates) | Daily | Low | Add proper pagination loops where `limit=…` is still used. |
 | Attendance PDFs | Weekly | Medium | New PDFs publish ~weekly while Dáil sits. Schedule after publication day. |
-| Payments PDFs (PSA) | Quarterly | Medium | Refresh just after each PSA publication; soft-fail if not yet up. |
+| Payments PDFs (PSA) | **Monthly** | Medium | Each PDF covers one data month with a 31–46 day publication lag (median 32). Run discovery ~35 days after end of data month, retry weekly on miss until 60 days. See [`pipeline_sandbox/payment_pdf_discovery_notes.md`](../pipeline_sandbox/payment_pdf_discovery_notes.md). |
 | Interests PDFs | Annual | High | Layout drift between years; needs golden-file test before each annual run. |
 | Lobbying.ie | Tri-annual + ad-hoc | High | Currently manual. Build a Playwright job that mimics the export form; commit CSVs to bronze. Treat as best-effort, not blocking. |
 
@@ -274,11 +275,302 @@ A scheduled refresh that fails silently is worse than no refresh. The workflow m
 
 ### 3.7 What auto-refresh does NOT solve
 
-Schema drift. A new column appearing in the Oireachtas members API will not break the workflow but will silently fail to populate downstream tables. That is what schema validation (§5.5), row-count drift assertions (§4.3), and the quarantine flow (§4.5) are for. Add those at the silver write step before adding more sources.
+Schema drift. A new column appearing in the Oireachtas members API will not break the workflow but will silently fail to populate downstream tables. That is what schema validation (§6.5), row-count drift assertions (§5.3), and the quarantine flow (§5.5) are for. Add those at the silver write step before adding more sources.
 
 ---
 
-## 4. Pipeline robustness
+## 4. Pipeline rearchitecture — public-safe ingestion
+
+The pipeline today is an artisanal craft: the maintainer triggers refreshes, manually places PDFs in folders, and the deployed app (eventually) reads the resulting parquet. That works for one developer. It fails the moment the project is public, forked, or runs unattended for a week. This section is the shape-change required to operate publicly without becoming a problem for upstream services.
+
+This section sits between §3 (auto-refresh, the *when*) and §5 (pipeline robustness, the *how-not-to-break*). It covers the *where* and *who*: where the scraping code runs, who/what identifies as the requester, and what guarantees the architecture provides upstream and downstream.
+
+### 4.1 Why this needs to change before going public
+
+Three risks compound:
+
+1. **Fork amplification.** If ten people fork the repo and run the cron against `data.oireachtas.ie`, that's 10× the upstream load you cause, with no coordination or backoff. Government services notice patterns; a project that gets named in an upstream incident report does not recover its reputation. Mitigation has to be structural — the README warning is necessary but insufficient.
+2. **Operator-as-critical-path.** Manual PDF drag-into-folder makes the maintainer a single point of failure. The DORA / Accelerate research is unambiguous: manual handoffs in delivery pipelines reduce reliability and increase recovery time. A civic-data project that requires the maintainer's attention to ingest is a project that will silently rot.
+3. **No identifiable bot.** Anonymous scraping looks indistinguishable from abuse. Government services correctly block what they can't identify or contact.
+
+These three things are not solved by §3 auto-refresh alone. Auto-refresh is *when*; this section is the *what runs where, and how it announces itself*.
+
+### 4.2 Layer A — Publish, don't crawl (separate ingest from app)
+
+The largest amplifier is downstream consumers re-doing upstream work. The fix is structural separation:
+
+```text
+canonical refresher          published artefact            consumers
+(GitHub Actions)             (versioned parquet on         (Streamlit app, forks,
+       │                      Releases / HF Datasets)       researchers, journalists)
+       │                              ▲                            │
+       ▼                              │                            ▼
+upstream sources                      └────── pull artefact, never upstream
+(data.oireachtas.ie,
+lobbying.ie, etc.)
+```
+
+**Implications for the codebase:**
+
+- **All upstream-fetching code lives in one place.** Currently the scraping logic is spread across `pdf_endpoint_check.py`, `members_api_service.py`, `attendance.py`, `payments.py`, etc. Consolidate into `pipeline/sources/<source_name>.py` with a uniform interface. The deployed Streamlit app imports zero modules from `pipeline/sources/`.
+- **The Streamlit app reads only published artefacts.** Right now `utility/data_access/*` is the right pattern; enforce it as a rule. No code path in the app should hit upstream.
+- **The README explicitly tells forkers to consume the artefact.** "If you want a fresh copy of the data, pull our published parquet release. Do not run the refresher against `data.oireachtas.ie` from your fork. If you have a use case the published artefacts don't support, open an issue."
+- **One canonical refresh location.** The cron lives in this repo's GitHub Actions, not in any fork. Forks that enable Actions and don't disable the workflow are the highest-risk fork-amplification path; the README addresses this and the workflow itself can detect "running in non-canonical repo" and refuse to scrape upstream (only allow local fixture data).
+
+This is mySociety's EveryPolitician model in practice: one canonical scrape, many downstream consumers, the artefact is the public surface.
+
+### 4.3 Layer B — Web-citizenship hygiene
+
+Every outbound request from the canonical refresher must:
+
+- **Identify.** `User-Agent: dail-tracker-bot/<version> (+https://github.com/<you>/dail-extractor; mailto:<you>)`. RFC 9110 convention. Anonymous scrapers get blocked; identified, contactable bots get tolerated and often whitelisted.
+- **Use conditional GET.** `If-Modified-Since` from the last seen `Last-Modified`, `If-None-Match` from the last seen `ETag`. Most government CDNs honour these. A 304 response means we transferred zero bytes of payload. This is the single biggest reduction in upstream load you can make without changing what you fetch.
+- **Throttle with jitter.** Max 1 req/sec per host, 0–500ms random jitter, exponential backoff on 429/503. Use `tenacity` or equivalent. Document the throttle policy as data, not code, so upstream operators can read it.
+- **Respect `robots.txt`.** `urllib.robotparser` once per session per host. If a path is excluded, do not fetch it — full stop, regardless of whether the data would be useful.
+- **Time out aggressively.** A 30-second connect timeout and a 60-second read timeout. Hanging connections compound across a refresh and look like abuse.
+
+This is the [IIPC web archiving best practices](https://netpreserve.org/web-archiving/) checklist. None of it is novel; the value is in not skipping any item.
+
+### 4.4 Layer C — Upstream coordination
+
+Before the project is publicly named:
+
+- **Email Oireachtas Information Service.** "We're building a public-interest dataset that consumes data.oireachtas.ie. Here's the load profile: HEAD checks of N URLs daily, full PDF fetches of M URLs weekly with conditional GET. Here's our User-Agent. Here's the contact. Please tell us if our load profile becomes a problem."
+- **Same for lobbying.ie.** Their team has dealt with academic/journalism projects before and has process for this.
+- **Consider applying to be on the Oireachtas Open Data partner page** if such a thing exists. Being named upstream is the strongest possible legitimisation.
+
+The cost is one email per source. The benefit is that when a refresh accidentally goes wrong (and it will), you have a contact who knows the project and won't reach for the IP block first.
+
+### 4.5 Hash-based change detection for static assets
+
+A second-order architecture choice. PDFs are large; re-parsing every refresh is wasteful and noisy. Instead:
+
+```text
+weekly refresh:
+    for each known PDF URL:
+        HEAD with If-Modified-Since
+        if 304:                  # unchanged since last fetch
+            log "unchanged"; continue
+        if 200:
+            GET; sha256(body)
+            if hash matches stored hash:
+                log "byte-identical"; continue
+            else:
+                store new hash and timestamp
+                trigger re-parse
+                emit "republished" event for downstream visibility
+```
+
+This pattern handles two cases at once:
+- **Routine non-change.** Most PDFs don't change between refreshes. We don't pay parsing cost for them.
+- **Silent re-publication.** Upstream republishes a corrected PDF with the same URL. Our hash differs from the stored hash, so we detect the correction and re-parse.
+
+Treating PDFs as "fetch always, parse on hash-change" is the right operational shape. It's cheaper than re-parse-everything and stricter than parse-once-and-forget.
+
+### 4.6 Pluggable scraper interface
+
+Right now each source has its own ingestion code with no shared shape. As sources multiply (auto-refresh in §3, Iris Oifigiúil for judicial appointments in `ENRICHMENTS.md`, eventually SIPO and others), the lack of a shared interface becomes a maintenance problem.
+
+The Open Civic Data project's `pupa` framework solved the same problem for ~50 US state legislatures. The pattern, in shape:
+
+```text
+class SourceScraper:
+    name: str
+    cadence: Cadence            # daily | weekly | quarterly | annual
+    robots_check_url: str
+
+    def discover(self) -> Iterator[AssetRef]:
+        """Return URLs/identifiers of assets this source has, since last run."""
+
+    def fetch(self, ref: AssetRef) -> RawAsset:
+        """Conditional GET + hash check + timestamping."""
+
+    def parse(self, asset: RawAsset) -> Iterator[Record]:
+        """Parser-specific logic; output validates against pandera schema."""
+```
+
+This is *not* an immediate priority. It's where the architecture should converge as new sources are added. Adopting it for the existing sources first is overkill. Adopting it for the *next* new source is the right time.
+
+### 4.7 Notification pattern (privacy-aware, low-maintenance)
+
+The pipeline needs to tell the maintainer when something's wrong. The obvious answer — a transactional email service like SendGrid or Mailgun — is the wrong answer for a solo, indefinitely-maintained civic-data project. Three real costs:
+
+1. **Account paper trail.** Signing up for any SaaS email provider ties a personal email to a third-party data broker. Free tier doesn't reduce the exposure. For a privacy-conscious project this is a meaningful cost with no offsetting benefit.
+2. **Ongoing tuning.** Email noise leads to email apnea. Threshold tuning is real maintenance work; hobby projects that need maintenance to make notifications useful end up with neither working.
+3. **Failure mode of the failure mode.** SaaS free tiers change, get rate-limited, or disappear entirely. The alerting infrastructure now has its own ops burden.
+
+The right pattern for this project — and for almost every solo civic-data project I've seen converge — is a three-tier stack of free, low-config, no-account services.
+
+#### Tier 1 — GitHub Issues as the primary alarm
+
+The pipeline opens an issue when something fails. GitHub's existing per-user notification system handles delivery. No new SaaS, no API keys, no email templates.
+
+```yaml
+# Inside the refresh workflow, after a failed step
+- name: Open issue on failure
+  if: failure()
+  uses: actions/github-script@v7
+  with:
+    script: |
+      github.rest.issues.create({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        title: `[refresh-failed] run ${context.runId}`,
+        body: `Logs: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+        labels: ['refresh-failed', 'autogen']
+      })
+```
+
+Why this works for this project:
+
+- Notifications flow through the maintainer's existing GitHub profile email (which can be set to `username@users.noreply.github.com` — zero net exposure).
+- Issues self-document and can be labelled, batched, closed.
+- Per-repo notification settings let you mute the firehose if a parser is repeatedly failing while you fix it.
+- Same pattern used by `mysociety/parlparse`, the per-state `opencivicdata` scrapers, and most small-team civic-data projects.
+
+This handles: refresh failed, parser regression detected, schema drift caught, row-count drift exceeded threshold, freshness SLO past fail threshold.
+
+#### Tier 2 — Healthchecks.io as the dead-man's-switch
+
+Tier 1 only fires if a run actually starts. If the cron itself stops firing (workflow disabled, repo dormant, GitHub Actions account issue), no failures get reported because no run happens. Healthchecks.io solves this.
+
+- Free tier, **anonymous** (no signup required for the basic free tier — UUID-keyed ping URL is the auth).
+- Pipeline does `curl -fsS -o /dev/null https://hc-ping.com/<uuid>` at the start and end of each run.
+- If Healthchecks doesn't see a ping within the configured interval, *they* notify you (email, webhook, Discord, ntfy).
+- "Expected interval" is set on Healthchecks's side, not in the repo, so adjusting cadence doesn't require a code change.
+
+Privacy: use a throwaway email purely for delivery, or chain webhook → ntfy.sh for zero-account usage.
+
+This handles the one failure mode Tier 1 can't catch: **the pipeline silently stopped running entirely.**
+
+#### Tier 3 — ntfy.sh for optional push
+
+For the "I want to know within minutes, not whenever I next check email" cases. Cost: zero, no account.
+
+```bash
+curl -d "Pipeline broke on run $RUN_ID" \
+     -H "Tags: warning" \
+     ntfy.sh/<random-uuid-only-you-know>
+```
+
+Install the ntfy app on your phone, subscribe to the topic, done. No email ever involved.
+
+Privacy mode: the topic name is the only auth, so pick a UUID-grade random string and treat it as a soft secret. Self-hosting ntfy is also one Docker container if you want stronger guarantees, but the public ntfy.sh free tier with a random topic is fine for this scale.
+
+Use ntfy for: weekly live-canary "system alive" beat (one push per week confirming the upstream-facing parts still work), critical-path errors you want to see immediately.
+
+#### What each tier covers
+
+| Failure mode | Tier 1 (GH Issues) | Tier 2 (Healthchecks) | Tier 3 (ntfy) |
+|---|---|---|---|
+| Pipeline run failed mid-run | ✓ | — | optional |
+| Schema drift detected | ✓ | — | — |
+| Parser regression (golden-file mismatch) | ✓ | — | — |
+| Row-count drift > threshold | ✓ | — | — |
+| Freshness SLO exceeded | ✓ | — | — |
+| Cron stopped firing entirely | — | ✓ | — |
+| Weekly canary "system alive" | — | — | ✓ |
+
+Three components, all free, all anonymous-or-low-signup, no SaaS holding anyone's details.
+
+#### Upstream-facing contact (different concern)
+
+The User-Agent string in §4.3 advertises a contact email so upstream operators can reach the maintainer if our scraper misbehaves. That email is **public-facing by design** — it's the abuse-contact. Practical options:
+
+- A `+` alias on a personal address: `you+dail-tracker@gmail.com`.
+- A throwaway address used only for this purpose.
+- A project-domain address if you ever buy a domain (overkill now).
+
+Don't put a primary personal email there. The User-Agent contact is for upstream operators; the GitHub-Issues notifications are for you.
+
+#### When (if ever) to upgrade
+
+The SendGrid/Mailgun pattern is right when:
+- You have teammates without GitHub access.
+- You need rich HTML email digests.
+- You're running at a scale where Healthchecks's free tier doesn't cover your monitoring needs.
+
+None of those apply to a solo civic-data project. The three-tier stack above can run untouched for years. **Don't reach for SaaS email until you've outgrown the free stack — which for this project is unlikely.**
+
+### 4.8 The TODO list
+
+In implementation order. None of these is research-grade work; the value is in actually doing them, not in the cleverness.
+
+#### Pre-flight (do before any of the below)
+- [ ] Decide on the published artefact location: GitHub Releases vs HF Datasets vs Cloudflare R2. Default: GitHub Releases for now (simplest). HF Datasets if size becomes a problem.
+- [ ] Decide on the bot identity string. Format: `dail-tracker-bot/0.1 (+https://github.com/<you>/dail-extractor; mailto:<you>)`. Commit it to a constant.
+- [ ] Email Oireachtas Information Service and lobbying.ie. One-paragraph notice. Wait at least one cycle for replies before going public.
+
+#### Layer A (publish-don't-crawl)
+- [ ] Audit all imports in `utility/`. Confirm zero references to scraping/fetching code. Refactor any violators.
+- [ ] Move all upstream-fetching code into `pipeline/sources/<source>.py`. One file per source. Common HTTP helper above.
+- [ ] Add a `data` branch (or equivalent) and the GitHub Actions workflow from §3.3.
+- [ ] Tag the first parquet release: `data-v2026.05.07` (or similar). Confirm the Streamlit Cloud deploy reads it.
+- [ ] Update README with the explicit "do not run scrapers from forks" notice. Link to the published artefact.
+
+#### Layer B (web citizenship)
+- [ ] Single HTTP helper (`pipeline/sources/_http.py`) that all source modules use. It owns: User-Agent, conditional GET, throttle, jitter, robots.txt check, retry/backoff, timeouts.
+- [ ] Replace direct `requests.get` calls in source modules with the helper. One PR per source.
+- [ ] Log every request with: URL, method, status, content-length, last-modified, etag, run_id. Structured JSON.
+- [ ] Add a "respected robots.txt" assertion to each source's logs — no source's first request goes out without a successful robots.txt parse.
+
+#### Layer C (upstream coordination)
+- [ ] Send the introductory emails (see Pre-flight).
+- [ ] Document responses, contacts, and any agreed rate-limit allowances in `doc/source_licensing.md` (referenced in §11.3).
+- [ ] Add upstream contact info to each source manifest. The provenance footer (§9.1) surfaces it.
+
+#### Hash-based change detection
+- [ ] Add `assets_hash_index.parquet` to bronze: one row per source-asset URL with last fetched timestamp, last hash, last status code.
+- [ ] Update each source's fetch step to: HEAD with conditional GET → if 304, skip; if 200, GET, hash, compare, update.
+- [ ] Emit "republished" events to the run log when a hash changes despite an unchanged URL.
+
+#### Notifications (Tier 1 — GitHub Issues)
+- [ ] Add the `if: failure()` step to each refresh workflow that opens an Issue with the run ID and logs URL.
+- [ ] Add a `refresh-failed` label to the repo's label set.
+- [ ] Confirm GitHub notification settings: per-user email is set to `<username>@users.noreply.github.com` if zero exposure is desired.
+- [ ] Decide on per-failure-type labels (`schema-drift`, `parser-regression`, `freshness-slo`, `row-count-drift`) so issues self-classify.
+- [ ] Auto-close issue when the next successful run for the same source completes (optional; can also be manual).
+
+#### Notifications (Tier 2 — Healthchecks.io)
+- [ ] Sign up for Healthchecks.io free tier (or use anonymous UUID-only mode).
+- [ ] Generate one ping URL per source (payments, attendance, interests-dail, interests-seanad). One per source means each source has its own dead-man's-switch.
+- [ ] Add `curl -fsS -o /dev/null https://hc-ping.com/<uuid>` to the start and end of each refresh workflow.
+- [ ] Configure each ping URL's expected interval to match the source's cadence (monthly, weekly, annual).
+- [ ] Configure Healthchecks notification destination (email, Discord webhook, ntfy, whatever the maintainer prefers).
+- [ ] Store ping UUIDs as GitHub repo secrets (`HEALTHCHECK_PAYMENTS_UUID`, etc.).
+
+#### Notifications (Tier 3 — ntfy.sh, optional)
+- [ ] Pick a UUID-grade random topic name; treat it as a soft secret.
+- [ ] Install ntfy app on phone, subscribe to topic.
+- [ ] Add a `curl -d "<message>" ntfy.sh/<topic>` step to the live-canary workflow for the weekly "system alive" beat.
+- [ ] Optionally route Tier 1 ERROR events through ntfy as well, for push-to-phone on critical failures.
+- [ ] Store topic name as a GitHub repo secret (`NTFY_TOPIC`).
+
+#### Upstream-facing contact (different from notifications)
+- [ ] Decide on the public abuse-contact email used in the User-Agent (see §4.3). Use a `+` alias or throwaway, not a primary personal address.
+- [ ] Confirm the chosen address is monitored — upstream operators occasionally use it.
+
+#### Pluggable interface (deferred)
+- [ ] Not now. Adopt when adding the next new source — apply it there first as a proof.
+
+### 4.9 What this section deliberately does NOT do
+
+- It does not pick a specific HTTP library. `requests` works. The shape matters; the library doesn't.
+- It does not specify retry counts or throttle constants. Those are configuration, not architecture.
+- It does not address authentication. None of our current sources require it.
+- It does not address private data handling. There is none.
+- It does not solve lobbying.ie's manual export problem. That requires a Playwright job (or eventual API access from the regulator); it sits in the auto-refresh per-source table in §3.4.
+
+### Cross-references
+
+- §3 covers *when* the refresher runs. §4 covers *how* it behaves while running.
+- §11 (Security and licensing) overlaps on robots.txt and ToS. Treat §4.3 as the operational shape; §11 as the policy-level documentation. Don't duplicate; cross-reference.
+- §12 (Distribution and citation) extends Layer A — versioned artefact releases are the citation surface.
+- The §18 90-day sequence should fold these TODO items in.
+
+---
+
+## 5. Pipeline robustness
 
 The pipeline runs but is unprotected. These items make it resilient to upstream change.
 
@@ -363,7 +655,7 @@ Every gold mart writes a manifest at build time. A page that loads a mart withou
 
 ---
 
-## 5. Tests, CI, dependency hygiene
+## 6. Tests, CI, dependency hygiene
 
 These are small individually and large in aggregate.
 
@@ -384,7 +676,7 @@ Half a day to set up. Pays back forever.
 Three layers, each with a clear role:
 
 - **Unit.** Pure functions: name normalisation, fuzzy-key generation, date parsing. Fast, no I/O.
-- **Fixture.** Parser tests against committed PDF/CSV fixtures (§4.2).
+- **Fixture.** Parser tests against committed PDF/CSV fixtures (§5.2).
 - **Smoke.** Import every page; load every gold mart; run every SQL view against the committed parquet.
 
 Don't have integration tests pulling live data — those belong in the scheduled refresh, not on every PR.
@@ -416,7 +708,7 @@ Every page in `utility/pages_code/` should import cleanly without any data being
 
 ---
 
-## 6. Data modelling
+## 7. Data modelling
 
 The current model is medallion + ad-hoc gold marts. There is room for it to become more deliberate without becoming a dbt project.
 
@@ -449,7 +741,7 @@ Pages that count rows can filter by confidence. `low` matches go in a "review qu
 
 ### 6.4 Quarantine tables per source
 
-§4.5 covers this in pipeline terms. The data-modelling consequence: every source has a paired `_quarantine` table that the page can expose under "data quality issues".
+§5.5 covers this in pipeline terms. The data-modelling consequence: every source has a paired `_quarantine` table that the page can expose under "data quality issues".
 
 ### 6.5 Slowly changing dimensions for member metadata
 
@@ -461,7 +753,7 @@ Use natural keys where they're stable (Oireachtas `pId`, lobbying.ie `primary_ke
 
 ---
 
-## 7. Performance
+## 8. Performance
 
 Streamlit Community Cloud has constrained resources. This matters more than it should.
 
@@ -494,7 +786,7 @@ Rule of thumb: a page should do less than 500 ms of work between cached query an
 
 ---
 
-## 8. UI / UX maturity
+## 9. UI / UX maturity
 
 The contract pack and bold-redesign skill have done the architectural work; the remaining items are concrete user-facing fixes.
 
@@ -545,7 +837,7 @@ Already partly done via `empty_state` helpers. Audit every page for: zero filter
 
 ---
 
-## 9. Observability and ops
+## 10. Observability and ops
 
 Once the refresh is automated, the question becomes "is it healthy?" rather than "did I run it?".
 
@@ -591,7 +883,7 @@ Per source, a target cadence and a stale-warning threshold:
 | Interests PDFs | Annual | 365 days | 540 days |
 | Lobbying.ie | Tri-annual | 130 days | 200 days |
 
-The freshness badge (§8.2) and the latest run summary use these thresholds.
+The freshness badge (§9.2) and the latest run summary use these thresholds.
 
 ### 9.5 A simple "Pipeline status" page
 
@@ -599,7 +891,7 @@ A dedicated Streamlit page showing: last run, per-source freshness, any open iss
 
 ---
 
-## 10. Security and licensing
+## 11. Security and licensing
 
 A civic-data project lives or dies on whether its handling of public data is defensible. None of these are heavy items; missing them is the risk.
 
@@ -613,7 +905,7 @@ Move all environment-specific config to environment variables. Commit a `.env.ex
 
 ### 10.3 Source licensing per dataset
 
-`doc/source_licensing.md`: one row per source, with: licence type, attribution required, redistribution allowed, link to source's terms. The provenance footer (§8.1) reads from this.
+`doc/source_licensing.md`: one row per source, with: licence type, attribution required, redistribution allowed, link to source's terms. The provenance footer (§9.1) reads from this.
 
 ### 10.4 GDPR-light considerations
 
@@ -637,7 +929,7 @@ Every outbound request from the refresh sends a `User-Agent: dail-tracker-bot (h
 
 ---
 
-## 11. Distribution and citation
+## 12. Distribution and citation
 
 Right now the project is a private dashboard. Distribution is what makes it useful to someone who isn't the maintainer.
 
@@ -683,7 +975,7 @@ Journalists who follow Irish politics can subscribe and skim. This is one of the
 
 ---
 
-## 12. Trust and methodology
+## 13. Trust and methodology
 
 `DATA_LIMITATIONS.md` is engineer-quality. The trust gap is everything *between* that doc and the page.
 
@@ -720,7 +1012,7 @@ Before the alpha goes to a journalist, hand `methodology.md` and the DATA_LIMITA
 
 ---
 
-## 13. Developer experience
+## 14. Developer experience
 
 The fastest way to make progress sustainable is to lower the cost of every change.
 
@@ -757,7 +1049,7 @@ Even as a solo project, PRs are better than direct-to-main commits because they 
 
 ---
 
-## 14. Sustainability and bus factor
+## 15. Sustainability and bus factor
 
 Solo civic-data projects rot when the maintainer steps back. These items stretch the half-life.
 
@@ -773,10 +1065,10 @@ The PDF parsers in particular embed knowledge about layout quirks ("payments PDF
 
 Someone clones the repo cold. Can they:
 
-- Run the test suite? (yes after §13.1)
+- Run the test suite? (yes after §14.1)
 - Run the dashboard? (yes if `data` branch is fetchable)
-- Add a small feature? (yes if §13.2 exists and contracts are explained)
-- Refresh data locally? (yes after §17 lands `--refresh`)
+- Add a small feature? (yes if §14.2 exists and contracts are explained)
+- Refresh data locally? (yes after §18 lands `--refresh`)
 
 If any answer is "no", that's the next sustainability item.
 
@@ -802,7 +1094,7 @@ A small civic-data project in Ireland has access to: Enterprise Ireland innovati
 
 ---
 
-## 15. Hosting and cost
+## 16. Hosting and cost
 
 Mostly unchanged from earlier revisions; included for completeness.
 
@@ -826,7 +1118,7 @@ At current scale, total monthly cost is plausibly £0–10. Mostly free tiers. T
 
 ---
 
-## 16. AI-assisted development discipline
+## 17. AI-assisted development discipline
 
 The contract pack and skills make AI-assisted development viable for this project. The discipline is what keeps it that way.
 
@@ -859,7 +1151,7 @@ Save user/feedback memories that capture *why* a decision was made (not just *wh
 
 ---
 
-## 17. Recommended 90-day sequence
+## 18. Recommended 90-day sequence
 
 Concrete, in priority order. Each item is small enough to ship in a sitting.
 
@@ -869,7 +1161,7 @@ Concrete, in priority order. Each item is small enough to ship in a sitting.
 2. Stand up the `data` branch and a Streamlit Community Cloud deploy from `main` + `data`.
 3. Add the first per-mart manifest writer (`utility/tools/write_run_manifest.py`).
 4. Add `render_provenance(manifest_path)` and wire it on three pages.
-5. Add the freshness badge helper (§8.2) and wire it on the same three pages.
+5. Add the freshness badge helper (§9.2) and wire it on the same three pages.
 
 ### Weeks 3–4 — protect what exists
 
@@ -881,32 +1173,32 @@ Concrete, in priority order. Each item is small enough to ship in a sitting.
 
 ### Weeks 5–6 — distribution and trust
 
-11. Versioned data releases (§11.1).
-12. `methodology.md` first draft (§12.1).
-13. Per-page caveat banners where DATA_LIMITATIONS flags a gap (§12.3).
-14. `CHANGELOG.md` started (§12.5).
-15. RSS feed for new events (§11.4) — at least one feed.
+11. Versioned data releases (§12.1).
+12. `methodology.md` first draft (§13.1).
+13. Per-page caveat banners where DATA_LIMITATIONS flags a gap (§13.3).
+14. `CHANGELOG.md` started (§13.5).
+15. RSS feed for new events (§12.4) — at least one feed.
 
 ### Weeks 7–8 — UI and ops polish
 
-16. Cross-page navigation (§8.6).
-17. Global search (§8.7).
-18. Pipeline status page (§9.5).
-19. Run summaries committed per refresh (§9.1).
-20. Issue auto-creation on refresh failure (§9.3).
+16. Cross-page navigation (§9.6).
+17. Global search (§9.7).
+18. Pipeline status page (§10.5).
+19. Run summaries committed per refresh (§10.1).
+20. Issue auto-creation on refresh failure (§10.3).
 
 ### Weeks 9–12 — first real user
 
 21. Hand the alpha to one named journalist or researcher.
 22. Whatever they ask for first becomes the next priority (likely SIPO donations from `ENRICHMENTS.md` §A.1, or judicial appointments from §D.1).
 23. Iterate on whatever broke under their use.
-24. Refresh calendar doc and handover note (§14.2, §14.4).
+24. Refresh calendar doc and handover note (§15.2, §15.4).
 
 This sequence assumes evening-and-weekend pacing. None of it is research-grade work; it's all operationalising what's already designed.
 
 ---
 
-## 18. Reading list
+## 19. Reading list
 
 Streamlit:
 
@@ -952,7 +1244,7 @@ For dataset enrichment ideas, see `ENRICHMENTS.md`.
 
 ---
 
-## 19. What changed in this rev
+## 20. What changed in this rev
 
 vs v3:
 
@@ -961,16 +1253,17 @@ vs v3:
 - Reorganised into 18 discrete sections covering the full project surface — robustness, modelling, performance, UI, ops, security, distribution, trust, DX, sustainability — not just the original "operating model + page contracts" axis.
 - Status snapshot updated to April 2026: contract pack v5, ~30 SQL views, 8 pages, skills system, sandbox pattern.
 - §3 auto-refresh kept and refined with concrete YAML.
-- §4–5 pipeline robustness expanded with schema validation, golden files, drift assertions, quarantine flow.
-- §6 data modelling adds explicit dim/fact/bridge target, match-confidence as first-class, SCDs.
-- §8 UI maturity is new — covers cross-page nav, search, mobile, accessibility, onboarding.
-- §9 observability is new — run summaries, freshness SLOs, status page.
-- §10 security and licensing is new — explicit ToS, GDPR-light, robots.txt.
-- §11 distribution is new — versioned releases, permalinks, RSS, DuckDB-WASM.
-- §12 trust expanded — methodology doc, caveat banners, public changelog.
-- §13–14 DX and sustainability are new — bootstrap, contributor experience, handover, monthly clean-rebuild.
-- §16 AI discipline made explicit — skills as enforcement, contract pack as token discipline, what AI must not own.
-- §17 90-day sequence rewritten to be evening-pace realistic, not multi-quarter.
+- §4 pipeline rearchitecture is new in this rev — public-safe ingestion: publish-don't-crawl, web-citizenship, upstream coordination, hash-based change detection, pluggable scraper interface.
+- §5–6 pipeline robustness expanded with schema validation, golden files, drift assertions, quarantine flow.
+- §7 data modelling adds explicit dim/fact/bridge target, match-confidence as first-class, SCDs.
+- §9 UI maturity is new — covers cross-page nav, search, mobile, accessibility, onboarding.
+- §10 observability is new — run summaries, freshness SLOs, status page.
+- §11 security and licensing is new — explicit ToS, GDPR-light, robots.txt.
+- §12 distribution is new — versioned releases, permalinks, RSS, DuckDB-WASM.
+- §13 trust expanded — methodology doc, caveat banners, public changelog.
+- §14–15 DX and sustainability are new — bootstrap, contributor experience, handover, monthly clean-rebuild.
+- §17 AI discipline made explicit — skills as enforcement, contract pack as token discipline, what AI must not own.
+- §18 90-day sequence rewritten to be evening-pace realistic, not multi-quarter.
 
 vs prior attempts at this kind of doc:
 

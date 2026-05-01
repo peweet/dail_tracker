@@ -40,9 +40,93 @@ A `Value: H · Cost: H` source is not automatically attractive — it has to cle
 
 ---
 
+## ⚠ URL verification status (TBD — parked 2026-04-30)
+
+A partial URL audit was run against this doc. Results below. **Treat any URL in this doc as unverified until this list is closed out.** Don't paste these into the app or methodology docs without re-checking.
+
+### Confirmed broken (need replacement)
+
+| Card | URL in doc | Status | Suggested replacement |
+|---|---|---|---|
+| A.1 | `sipo.ie/funding-of-political-parties/` | 500 | `sipo.ie/en/collection/9f7db-publications` (parent collection) |
+| A.2 | `sipo.ie/acts-and-codes/ethics-acts/` | 404 | `sipo.ie/en/collection/0f22f-legislation/` |
+| A.4 | `sipo.ie/election-expenses/` | 500 | Same parent collection as A.1 |
+| A.5 | `sipo.ie/referendums/` | 500 | Same parent collection as A.1 |
+| B.3 | `gov.ie/en/publication/9c6d5-capital-tracker/` | 404 | `gov.ie/en/policy-information/96bb35-investment-projects-and-programmes-tracker/` |
+| B.4 | `hse.ie/eng/services/publications/corporate/` | 404 | `hse.ie/eng/services/publications/non-statutory-sector/` |
+| E.4 | `cea.gov.ie/` | TLS cert error | `cea.gov.ie/en-ie/` |
+| E.3 | `labourcourt.ie/en/cases/` | 404 | `labourcourt.ie/en/useful-information/guide-to-decisions-recommendations-search-facility/` |
+| E.7 | `revenue.ie/en/corporate/press-office/tax-defaulters/` | 404 | `revenue.ie/en/corporate/press-office/` (root); per-quarter URLs vary |
+| F.3 | `consilium.europa.eu/en/general-secretariat/corporate-policies/transparency/open-data/` | 403 | re-search needed |
+| F.4 | `agriculture.ec.europa.eu/cap-my-country/cap-around-eu/cap-ireland_en` | 404 | re-search needed |
+| B.5 | `sportireland.ie/funding` | 404 | re-search needed |
+
+### 403 — likely bot-blocking, need browser confirmation
+
+These returned 403 to automated fetches. The URLs may still be correct for human users; verify in a browser before trusting.
+
+- `core.cro.ie/` (C.1)
+- `rbo.gov.ie/` (C.2)
+- `lawlibrary.ie/` (I.3)
+- `artscouncil.ie/funding-decisions/` (B.5)
+- `charitiesregulator.ie/en/charity-search` (C.5)
+- `propertypriceregister.ie/` (also TLS issue) (H.3)
+
+### Confirmed working (no change needed)
+
+`sipo.ie/`, `sipo.ie/en/collection/9f7db-publications`, `cnam.ie/`, `audit.gov.ie/`, `cea.gov.ie/en-ie/`, `electoralcommission.ie/`, `centralbank.ie/regulation/how-we-regulate/enforcement`, `dataprotection.ie/en/dpc-guidance/decisions`, `transparency-register.europa.eu/`, `judicialcouncil.ie/`, `tailte.ie/`, `pensionsauthority.ie/`, `workplacerelations.ie/en/cases/`, `pleanala.ie/` (note: body renamed to An Coimisiún Pleanála under Planning and Development Act 2024 — update D.5 / H.5 wording if used).
+
+### Not yet checked
+
+`hea.ie/statistics/` · `duckdb.org/docs/api/wasm/overview` · `gov.ie/en/news/` · `howtheyvote.eu/` · `lawsociety.ie/find-a-solicitor/` · `opencorporates.com/` · `api.opencorporates.com/documentation/API-Reference` · `gov.uk/government/organisations/companies-house` · `developer.company-information.service.gov.uk/` · `query.wikidata.org/` · `ted.europa.eu/en/` · `data.europa.eu/data/datasets?query=ted` · `curia.europa.eu/` · `cohesiondata.ec.europa.eu/` · `etenders.gov.ie/` · `cso.ie/` · `data.cso.ie/` · `electionsireland.org/` · `mhc.ie/latest/insights/the-judicial-appointments-commission` · `data.gov.ie` · all Streamlit / DuckDB / pytest / pandera / GitHub / HuggingFace docs URLs.
+
+### Resume note
+
+When picking this up: re-search the "broken — re-search needed" rows, browser-verify the 403s, batch-WebFetch the unchecked list, then apply edits to the cards. Should be ~30 minutes once rate limits reset.
+
+---
+
 ## Section A — Political accountability
 
 The cluster closest to the project's existing surface. These pair directly with members, votes, lobbying, and interests.
+
+### A.0 Oireachtas publications index — the meta-source
+
+```text
+What     The Oireachtas publications index lists every document published
+         by the Oireachtas (committee reports, FOI outputs, attendance
+         records, payments, member interests, miscellaneous research
+         papers) with a topic-filter facet. It is the master discovery
+         surface for everything Oireachtas-published that isn't on the
+         API.
+Why      (a) Operational: it's the right endpoint for "new asset since
+         last run" detection across attendance + payments + interests
+         (already used as a fallback in pdf_endpoint_check.py).
+         (b) Analytical: the topics not currently ingested — committee
+         reports, FOI outputs, written-question answers, oversight
+         reports — are a cross-reference layer for the existing surface.
+URL(s)   https://www.oireachtas.ie/en/publications/
+         Topic-filtered: ?topic[]=<slug>&resultsPerPage=50
+         Slugs in active use include: record-of-attendance,
+         parliamentary-allowances. Other slugs visible in the facet UI.
+Format   HTML listing pages (pagination). Each entry links to a PDF or
+         a structured Oireachtas page.
+Cadence  Continuous. New publications appear daily on sitting weeks.
+Auth     None.
+Licence  Open Oireachtas content.
+Joins to dim_member, debates (existing), committees (existing). New
+         dim_publication for the meta-layer.
+Gotchas  Hard cap of 200 pages × 50/page = 10,000 results, even with
+         filters. This rules out enumerating all historical publications
+         from this surface — okay for new-asset detection, not for
+         backfill. Use the API where structured data exists; accept the
+         gap where it doesn't.
+         Topic taxonomy can change; treat slugs as observed-not-promised.
+Rating   Value: M (operational) + L–M (enrichment) · Cost: L · Risk: L
+```
+**Note:** This is the source the project's PDF auto-discovery should
+build on (see v4 §3.4). The enrichment angle is secondary — the
+operational angle is primary.
 
 ### A.1 SIPO political donations register
 
