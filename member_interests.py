@@ -379,6 +379,13 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
         .otherwise(pl.lit("FALSE"))
         .alias("is_property_owner")
     )
+
+    df = df.with_columns(
+        pl.when((pl.col('interest_code') == "1") & (pl.col('interest_description_cleaned') != "No interests declared")).then(pl.lit(True)).otherwise(pl.lit(False)).alias("is_occupation")
+    ).with_columns(
+        pl.when((pl.col('interest_code') == "1") & (pl.col('interest_description_cleaned') != "No interests declared")).then(pl.col('interest_description_cleaned')).otherwise(pl.lit("N/A")).alias("occupation_description")
+    )
+
     return df
 
 
