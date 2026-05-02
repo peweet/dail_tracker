@@ -35,6 +35,7 @@ if not Path(csv_path).is_file():
             text = page.get_text("text")
             lines = text.split("\n")
             for line in lines:
+                print(f"Processing line: {line}")
                 if IRISH_NAME_REGEX.search(line) and not EXCLUDE_CASES.search(line):
                     names = line.split(maxsplit=1)
                     first_name = names[-1]
