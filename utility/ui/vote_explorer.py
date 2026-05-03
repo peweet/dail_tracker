@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from ui.components import stat_strip, outcome_badge, evidence_heading, todo_callout, empty_state, pagination_controls
+from ui.entity_links import entity_cta_html, member_link_html, member_profile_url
 from ui.table_config import member_detail_column_config, td_history_column_config
 from ui.export_controls import export_button
 from ui.source_links import render_source_links
@@ -76,15 +77,19 @@ def _render_td_history_html(df: pd.DataFrame) -> str:
 
 
 def _render_member_list_html(df: pd.DataFrame) -> str:
+    has_id = "member_id" in df.columns
     rows_html = ""
     for _, row in df.iterrows():
-        name = _h(str(row.get("member_name") or "—"))
+        raw_name = str(row.get("member_name") or "—")
+        mid = str(row.get("member_id") or "") if has_id else ""
+        # member_link_html escapes both name and href; falls back to plain text when mid is empty.
+        name_cell = member_link_html(mid, raw_name) if mid else _h(raw_name)
         party = _h(str(row.get("party_name") or ""))
         const = _h(str(row.get("constituency") or ""))
         vt_html = _vote_icon(row.get("vote_type"))
         rows_html += (
             f"<tr>"
-            f"<td>{name}</td>"
+            f"<td>{name_cell}</td>"
             f'<td class="dt-vt-meta">{party}</td>'
             f'<td class="dt-vt-meta">{const}</td>'
             f"<td>{vt_html}</td>"
@@ -354,6 +359,14 @@ def render_td_panel(
             (rate_str,      "Yes rate",   "oklch(38% 0.130 145)"),
             (str(div_count), "Divisions", "var(--text-primary)"),
         ])
+
+        if member_id:
+            st.html(
+                entity_cta_html(
+                    member_profile_url(member_id),
+                    "View full accountability profile →",
+                )
+            )
 
         evidence_heading("Votes by year")
         if year_df.empty:
