@@ -2226,6 +2226,178 @@ def inject_css() -> None:
             opacity: 0.35;
             cursor: not-allowed;
         }
+
+        /* ── Committee Register (cmt-*) ──────────────────────────────────── */
+        .cmt-row {
+            display: inline-flex;
+            align-items: stretch;
+            gap: 0;
+            width: fit-content;
+            max-width: 100%;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent-dim);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            padding: 0;
+            overflow: hidden;
+        }
+        .cmt-row-rank {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2.6rem;
+            padding: 0.55rem 0.4rem;
+            background: oklch(97% 0.008 75);
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: var(--text-meta);
+            border-right: 1px solid var(--border);
+        }
+        .cmt-row-body {
+            flex: 1;
+            min-width: 0;
+            padding: 0.6rem 0.95rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.32rem;
+        }
+        .cmt-row-head {
+            display: flex;
+            align-items: baseline;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .cmt-row-name {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.25;
+        }
+        .cmt-row-status {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 0.12rem 0.5rem;
+            border-radius: 999px;
+            border: 1px solid;
+        }
+        .cmt-row-status-active { color: oklch(38% 0.130 145); background: oklch(96% 0.045 145); border-color: oklch(82% 0.080 145); }
+        .cmt-row-status-ended  { color: var(--text-meta);     background: var(--surface);     border-color: var(--border-strong); }
+        .cmt-row-meta {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.78rem;
+            color: var(--text-meta);
+            line-height: 1.4;
+        }
+        .cmt-row-meta strong { color: var(--text-secondary); font-weight: 700; }
+        .cmt-row-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            margin-top: 0.1rem;
+        }
+        .cmt-row-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-decoration: none;
+            border: 1px solid var(--accent-dim);
+            border-radius: 999px;
+            padding: 0.12rem 0.55rem;
+            background: var(--accent-subtle);
+        }
+        .cmt-row-link:hover { text-decoration: underline; }
+
+        /* Inline party stripe for the primary register card */
+        .cmt-stripe {
+            display: flex;
+            width: 100%;
+            height: 7px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: oklch(96% 0.005 75);
+            margin-top: 0.15rem;
+        }
+        .cmt-stripe-seg { height: 100%; }
+        .cmt-stripe-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem 0.7rem;
+            margin-top: 0.25rem;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.7rem;
+            color: var(--text-meta);
+        }
+        .cmt-stripe-legend-dot {
+            display: inline-block;
+            width: 0.55rem;
+            height: 0.55rem;
+            border-radius: 2px;
+            margin-right: 0.3rem;
+            vertical-align: middle;
+        }
+        .cmt-stripe-legend strong { color: var(--text-secondary); font-weight: 700; }
+
+        /* Collapse the Streamlit columns row that holds <card> + <→> so the
+           button sits adjacent to the fit-content card, not at the far right. */
+        [data-testid="stHorizontalBlock"]:has(.cmt-row) {
+            width: fit-content !important;
+            max-width: 100%;
+            gap: 0.4rem !important;
+            align-items: center;
+        }
+        [data-testid="stHorizontalBlock"]:has(.cmt-row) > [data-testid="stColumn"] {
+            flex: 0 0 auto !important;
+            width: auto !important;
+            min-width: 0 !important;
+        }
+
+        /* Stage-2 committee identity strip */
+        .cmt-identity {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: 10px;
+            padding: 0.85rem 1.1rem;
+            margin: 0.3rem 0 0.9rem;
+        }
+        .cmt-identity-name {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1.2;
+            margin: 0;
+        }
+        .cmt-identity-meta {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.86rem;
+            color: var(--text-meta);
+            margin: 0.25rem 0 0.5rem;
+        }
+        .cmt-identity-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.4rem;
+        }
+
+        /* Mobile flow: stack stripe legend, drop arrow below card */
+        @media (max-width: 720px) {
+            .cmt-row { width: 100%; flex-direction: column; }
+            .cmt-row-rank { min-width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+            [data-testid="stHorizontalBlock"]:has(.cmt-row) { width: 100% !important; }
+            .cmt-identity-name { font-size: 1.15rem; }
+        }
         </style>
         """,
         unsafe_allow_html=True,

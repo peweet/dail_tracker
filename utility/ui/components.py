@@ -361,6 +361,190 @@ def rank_card_row(
     return btn_col.button("→", key=btn_key, help=btn_help or f"View {name}")
 
 
+PARTY_COLOURS: dict[str, str] = {
+    "Fianna Fáil":           "#66bb6a",
+    "Fine Gael":             "#1e88e5",
+    "Sinn Féin":             "#2e7d32",
+    "Labour":                "#e53935",
+    "Social Democrats":      "#8e24aa",
+    "Green Party":           "#43a047",
+    "People Before Profit":  "#d81b60",
+    "Solidarity":            "#c2185b",
+    "Aontú":                 "#3949ab",
+    "Independent":           "#9e9e9e",
+    "Independent Ireland":   "#ff7043",
+    "Right To Change":       "#7b1fa2",
+    "Unknown":               "#bdbdbd",
+}
+
+
+def party_colour(party: str) -> str:
+    if not party:
+        return PARTY_COLOURS["Unknown"]
+    return PARTY_COLOURS.get(party.strip(), PARTY_COLOURS["Unknown"])
+
+
+def party_stripe_html(parties: list[tuple[str, int]], *, show_legend: bool = True) -> str:
+    """Inline horizontal stacked stripe of party seat shares.
+
+    parties — ordered list of (party_name, seat_count). Caller controls order
+              (e.g. descending by seats). Zero-count entries are skipped.
+    show_legend — render the dot-and-count legend below the stripe.
+    """
+    cleaned = [(p, int(c)) for p, c in parties if c and int(c) > 0]
+    if not cleaned:
+        return ""
+    total = sum(c for _, c in cleaned) or 1
+    segs = "".join(
+        f'<div class="cmt-stripe-seg" style="width:{(c / total) * 100:.2f}%;'
+        f'background:{party_colour(p)}" title="{_h(p)}: {c}"></div>'
+        for p, c in cleaned
+    )
+    legend = ""
+    if show_legend:
+        chips = "".join(
+            f'<span><span class="cmt-stripe-legend-dot" style="background:{party_colour(p)}"></span>'
+            f'<strong>{_h(p)}</strong> {c}</span>'
+            for p, c in cleaned
+        )
+        legend = f'<div class="cmt-stripe-legend">{chips}</div>'
+    return f'<div class="cmt-stripe">{segs}</div>{legend}'
+
+
+def committee_row_html(
+    name: str,
+    *,
+    rank: int | None = None,
+    chair: str | None = None,
+    chair_party: str | None = None,
+    members: int = 0,
+    type_: str = "",
+    status: str = "",
+    party_seats: list[tuple[str, int]] | None = None,
+    oireachtas_url: str | None = None,
+) -> str:
+    """Single committee register row — card with chair, type, status, party stripe, link.
+
+    Use the adjacent `→` button column (st.columns) for navigation; the CSS
+    rule on stHorizontalBlock:has(.cmt-row) collapses the row so the button
+    sits next to the fit-content card.
+    """
+    rank_html = f'<div class="cmt-row-rank">#{int(rank)}</div>' if rank is not None else ""
+    status_cls = "cmt-row-status-active" if status == "Active" else "cmt-row-status-ended"
+    status_html = f'<span class="cmt-row-status {status_cls}">{_h(status)}</span>' if status else ""
+    meta_parts: list[str] = []
+    if chair:
+        chair_meta = f"Chair: <strong>{_h(chair)}</strong>"
+        if chair_party:
+            chair_meta += f" ({_h(chair_party)})"
+        meta_parts.append(chair_meta)
+    if type_:
+        meta_parts.append(f"Type: <strong>{_h(type_)}</strong>")
+    if members:
+        meta_parts.append(f"<strong>{int(members)}</strong> member{'s' if members != 1 else ''}")
+    meta_html = (
+        f'<div class="cmt-row-meta">{" · ".join(meta_parts)}</div>' if meta_parts else ""
+    )
+    stripe_html = party_stripe_html(party_seats, show_legend=True) if party_seats else ""
+    link_html = ""
+    if oireachtas_url:
+        link_html = (
+            f'<div class="cmt-row-pills">'
+            f'<a class="cmt-row-link" href="{_h(oireachtas_url)}" target="_blank" '
+            f'rel="noopener noreferrer">Oireachtas.ie ↗</a>'
+            f"</div>"
+        )
+    return (
+        f'<div class="cmt-row">'
+        f'{rank_html}'
+        f'<div class="cmt-row-body">'
+        f'<div class="cmt-row-head"><span class="cmt-row-name">{_h(name)}</span>{status_html}</div>'
+        f'{meta_html}'
+        f'{stripe_html}'
+        f'{link_html}'
+        f'</div>'
+        f'</div>'
+    )
+
+
+def committee_identity_strip(
+    name: str,
+    *,
+    type_: str = "",
+    status: str = "",
+    chair: str | None = None,
+    chair_party: str | None = None,
+    member_count: int = 0,
+    oireachtas_url: str | None = None,
+    source_document_url: str | None = None,
+) -> None:
+    """Stage-2 identity strip for a single committee."""
+    meta_parts: list[str] = []
+    if status:
+        meta_parts.append(status)
+    if type_:
+        meta_parts.append(type_)
+    if member_count:
+        meta_parts.append(f"{member_count} members")
+    if chair:
+        chair_text = chair if not chair_party else f"{chair} ({chair_party})"
+        meta_parts.append(f"Chair: {chair_text}")
+    meta_html = " · ".join(_h(p) for p in meta_parts)
+    links: list[str] = []
+    if oireachtas_url:
+        links.append(
+            f'<a class="cmt-row-link" href="{_h(oireachtas_url)}" target="_blank" '
+            f'rel="noopener noreferrer">Oireachtas.ie ↗</a>'
+        )
+    if source_document_url:
+        links.append(
+            f'<a class="cmt-row-link" href="{_h(source_document_url)}" target="_blank" '
+            f'rel="noopener noreferrer">Source document ↗</a>'
+        )
+    links_html = (
+        f'<div class="cmt-identity-links">{"".join(links)}</div>' if links else ""
+    )
+    st.markdown(
+        f'<div class="cmt-identity">'
+        f'<p class="cmt-identity-name">{_h(name)}</p>'
+        f'<p class="cmt-identity-meta">{meta_html}</p>'
+        f'{links_html}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def find_a_td_search(
+    members: list[str],
+    *,
+    key_prefix: str,
+    placeholder: str = "Type a TD name…",
+) -> str | None:
+    """Inline search-and-select for a TD. Returns the selected name or None.
+
+    Designed for the command bar in the committee register's primary view.
+    Same shape as `main_member_jump` but no kicker label — fits the bar layout.
+    """
+    cols = st.columns([3, 2])
+    with cols[0]:
+        search = st.text_input(
+            "Find a TD",
+            placeholder=placeholder,
+            key=f"{key_prefix}_td_search",
+            label_visibility="collapsed",
+        )
+    sq = search.strip().lower()
+    filtered = [m for m in members if sq in m.lower()] if sq else members
+    with cols[1]:
+        chosen = st.selectbox(
+            "Find a TD",
+            ["— pick a TD —"] + filtered,
+            key=f"{key_prefix}_td_select",
+            label_visibility="collapsed",
+        )
+    return chosen if chosen and chosen != "— pick a TD —" else None
+
+
 def stat_item(num, label: str) -> str:
     """Single stat HTML fragment — combine several inside render_stat_strip()."""
     return f'<div><div class="stat-num">{num}</div><div class="stat-lbl">{label}</div></div>'

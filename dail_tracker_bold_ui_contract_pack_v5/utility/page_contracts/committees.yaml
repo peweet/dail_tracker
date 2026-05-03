@@ -18,6 +18,7 @@ approved_registered_views:
   - v_committee_assignments
   - v_committee_member_detail
   - v_committee_sources
+  - v_committee_party_seats         # new: per-committee party breakdown (count only)
 
 retrieval_sql_policy:
   allowed_statements: [SELECT]
@@ -82,16 +83,63 @@ ui_creativity_budget:
     - provenance_requirements
 
 interaction_model:
-  specific_guidance: "Make assignments browsable by member, committee, party, and constituency using approved views."
+  specific_guidance: >
+    The committee is the primary entity. The default landing is a register of every
+    committee in the selected chamber. Members surface inside a committee's record
+    (Stage 2a) and inside a TD profile reached from a search in the command bar
+    (Stage 2b). No member leaderboard appears on the primary view.
+  primary_entity: committee
+  secondary_entities:
+    - member
   required_flow:
-    - editorial_hero
-    - primary_controls
-    - evidence_summary
-    - main_table_or_index
-    - detail_or_drilldown
-    - official_sources
-    - csv_export
-    - provenance
+    - editorial_hero_with_chamber_pills
+    - command_bar_with_committee_search_and_td_search
+    - register_count_strip
+    - committee_register_card_list
+    - reveal_inline_drilldown
+    - csv_export_attached_to_each_surface
+    - provenance_collapsed_at_bottom
+  forbidden_in_primary_view:
+    - dek_paragraph_in_hero
+    - member_leaderboard_or_hall_of_fame
+    - sidebar_view_radio
+    - sidebar_chamber_picker_as_only_chamber_control
+    - flat_st_dataframe_as_register
+    - bar_chart_above_or_between_register_and_filters
+  two_stage_flow:
+    stage_1_register:
+      content:
+        - editorial_hero_with_chamber_pills
+        - command_bar
+        - register_count_strip
+        - committee_row_cards
+        - register_csv_export_below_cards
+        - provenance_footer_collapsed
+      navigation_triggers_to_stage_2:
+        - arrow_button_on_committee_row    # opens stage_2a_committee_record
+        - find_a_td_search_in_command_bar  # opens stage_2b_td_profile
+    stage_2a_committee_record:
+      content:
+        - back_button_in_main_content_area
+        - committee_identity_strip
+        - composition_party_chart
+        - roster_table
+        - roster_csv_export
+        - official_source_links_inline
+      back_button_rule: "Back button is in the main content area at the top of the panel — never sidebar-only."
+    stage_2b_td_profile:
+      content:
+        - back_button_in_main_content_area
+        - member_identity_strip
+        - membership_summary_chips
+        - committee_memberships_table
+        - government_offices_table_if_any
+        - tenure_timeline_chart
+        - profile_csv_export
+      back_button_rule: "Back button is in the main content area at the top of the panel — never sidebar-only."
+  composition_visualisation:
+    primary_view_per_row: inline_party_stripe_html_no_chart_library
+    secondary_view: altair_horizontal_bar_party_seats
 
 exports:
   csv:
@@ -110,15 +158,106 @@ source_links:
     - oireachtas_url
     - legislation_url
   display: labelled_links_not_raw_urls
-  missing_url_action: "TODO_PIPELINE_VIEW_REQUIRED: source URL column"
+  placement:
+    primary_view: inline_in_committee_row_card        # not in a dataframe link column
+    secondary_view: identity_strip_under_committee_name
+  missing_url_action: "TODO_PIPELINE_VIEW_REQUIRED: source URL column on v_committee_sources"
 
 acceptance_tests:
   - page_visibly_differs_from_old_layout
   - no_backend_files_modified
   - no_read_parquet_or_parquet_scan_in_page
   - no_create_view_or_table_in_page
-  - no_modelling_joins_or_groupby_in_streamlit
+  - no_modelling_joins_or_groupby_in_streamlit       # gated by transition_state below
   - csv_export_exports_current_displayed_view
   - source_links_use_approved_url_columns
   - temporal_controls_match_semantic_type
   - TODO_PIPELINE_VIEW_REQUIRED_used_for_missing_data
+  # ── committee-specific bold-redesign checks ───────────────────────────────
+  - committee_is_primary_entity
+  - committee_register_is_default_landing
+  - no_member_leaderboard_in_primary_view
+  - no_dek_paragraph_in_hero
+  - chamber_pills_in_main_content_area               # not sidebar-only
+  - view_radio_not_in_sidebar                        # no Overview/Browse/Profile sidebar toggle
+  - committee_record_back_button_in_main_content_area
+  - td_profile_back_button_in_main_content_area
+  - source_links_inline_in_committee_row_on_primary_view
+  - committee_register_renders_as_card_list_not_st_dataframe
+
+# ── transition state ────────────────────────────────────────────────────────
+# Authorised on 2026-05-03 by the project owner: the redesigned page may continue
+# to read SILVER_MEMBERS_CSV as a temporary backing store while the v_committee_*
+# analytical views are being built. The CSV read and any in-page modelling derived
+# from it are technical debt, not permitted patterns. They MUST be removed once
+# the analytical views land.
+transition_state:
+  authorised_temporary_backing: silver_members_csv
+  authorised_on: "2026-05-03"
+  visibility_requirement: >
+    Every section that uses the temporary backing must also render a
+    todo_callout naming the missing view/column, so the gap is visible to
+    users and reviewers.
+  must_remove_when:
+    - v_committee_assignments_view_is_registered
+    - v_committee_member_detail_view_is_registered
+    - v_committee_sources_view_is_registered
+  acceptance_test_overrides_during_transition:
+    no_modelling_joins_or_groupby_in_streamlit: deferred  # will fail until views land
+  scope:
+    permitted_temporarily:
+      - read_csv_of_silver_members_csv_only
+      - row_iteration_to_unpivot_committee_columns
+      - groupby_on_member_or_committee_for_count_only
+      - status_string_normalisation
+      - chair_role_string_detection
+    still_forbidden:
+      - read_parquet
+      - parquet_scan
+      - CREATE_VIEW_in_page
+      - CREATE_TABLE_in_page
+      - hardcoded_absolute_paths
+      - api_calls
+      - pdf_parsing
+      - polars_join
+      - pandas_merge_for_cross_dataset_modelling
+
+# ── desired view shape (informs pipeline work) ──────────────────────────────
+required_view_columns:
+  v_committee_assignments:
+    - member_id
+    - full_name
+    - party
+    - constituency
+    - chamber
+    - dail_number
+    - committee_id
+    - committee_name
+    - committee_type
+    - committee_status              # normalised to {Active, Ended} — no Streamlit mapping
+    - role_title
+    - is_chair                      # boolean — no Streamlit string-matching
+    - member_start_date
+    - member_end_date
+    - role_start_date
+    - role_end_date
+  v_committee_member_detail:
+    - member_id
+    - full_name
+    - party
+    - constituency
+    - committees_count
+    - active_count
+    - chairs_count
+    - currently_in_government_office  # boolean — replaces Streamlit date-comparison
+  v_committee_sources:
+    - committee_id
+    - oireachtas_url
+    - source_document_url
+    - source_label
+    - fetched_at
+  v_committee_party_seats:           # new aggregate view to support inline party stripe
+    - committee_id
+    - party
+    - seats
+    - is_chair_party
