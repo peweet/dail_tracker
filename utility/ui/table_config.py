@@ -43,3 +43,28 @@ def td_history_column_config() -> dict:
         "vote_type":    st.column_config.TextColumn("Vote", width="small"),
         "vote_outcome": st.column_config.TextColumn("Outcome", width="small"),
     }
+
+
+def committee_roster_column_config(member_label: str = "TD") -> dict:
+    return {
+        "name":         st.column_config.TextColumn(member_label, width="medium"),
+        "party":        st.column_config.TextColumn("Party",        width="small"),
+        "constituency": st.column_config.TextColumn("Constituency", width="medium"),
+        "role":         st.column_config.TextColumn("Role",         width="medium"),
+        "is_chair":     st.column_config.CheckboxColumn("Chair",    width="small"),
+        "start":        st.column_config.DateColumn("Start", format="YYYY-MM-DD", width="small"),
+        "end":          st.column_config.DateColumn("End",   format="YYYY-MM-DD", width="small"),
+    }
+
+
+def committee_membership_column_config() -> dict:
+    return {
+        "committee":     st.column_config.TextColumn("Committee", width="large"),
+        "committee_url": st.column_config.LinkColumn("Link", display_text="Open ↗", width="small"),
+        "type":          st.column_config.TextColumn("Type",   width="small"),
+        "role":          st.column_config.TextColumn("Role",   width="medium"),
+        "is_chair":      st.column_config.CheckboxColumn("Chair", width="small"),
+        "status":        st.column_config.TextColumn("Status", width="small"),
+        "start":         st.column_config.DateColumn("Start",  format="YYYY-MM-DD", width="small"),
+        "end":           st.column_config.DateColumn("End",    format="YYYY-MM-DD", width="small"),
+    }
