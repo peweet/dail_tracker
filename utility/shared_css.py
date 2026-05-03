@@ -170,7 +170,10 @@ def inject_css() -> None:
         .stTextInput input:focus {
             border-color: var(--accent) !important;
             box-shadow: 0 0 0 2px var(--accent-dim) !important;
-            outline: none !important;
+        }
+        .stTextInput input:focus-visible {
+            outline: 2px solid var(--accent) !important;
+            outline-offset: 2px !important;
         }
 
         /* ── Selectbox ───────────────────────────── */
@@ -507,6 +510,20 @@ def inject_css() -> None:
             font-size: 0.90rem;
             line-height: 1.5;
             margin: 0.3rem 0 0;
+        }
+        /* ── Main-panel search kicker ───────────────────────────────────
+           Uppercase mini-label sitting above components.main_member_jump
+           (and member_overview's inline search row). Same typographic
+           weight as .dt-kicker but with extra top margin so it visually
+           separates from the hero block above it. */
+        .dt-main-search-kicker {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.10em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin: 1.1rem 0 0.45rem;
         }
         .dt-badge {
             display: inline-flex;
@@ -1047,16 +1064,27 @@ def inject_css() -> None:
             color: var(--accent);
             transform: translateY(-50%) translateX(3px);
         }
-        [data-testid="stMain"]
-            [data-testid="stTextInput"]:has(input[aria-label="Search TDs"]) input {
-            font-size: 1rem !important;
-            padding: 0.7rem 0.95rem !important;
+        /* Reusable: all main-area filter inputs + selectboxes get the
+           prominent white treatment. Sidebar widgets are excluded by the
+           [data-testid="stMain"] root, so they keep the muted style. */
+        [data-testid="stMain"] [data-testid="stTextInput"] input {
+            font-size: 0.95rem !important;
+            padding: 0.6rem 0.9rem !important;
             background: #ffffff !important;
             border: 1.5px solid var(--border-strong) !important;
             border-radius: 8px !important;
         }
-        [data-testid="stMain"]
-            [data-testid="stTextInput"]:has(input[aria-label="Search TDs"]) input:focus {
+        [data-testid="stMain"] [data-testid="stTextInput"] input:focus {
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 3px var(--accent-subtle) !important;
+        }
+        [data-testid="stMain"] [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+            background: #ffffff !important;
+            border: 1.5px solid var(--border-strong) !important;
+            border-radius: 8px !important;
+            min-height: 2.6rem !important;
+        }
+        [data-testid="stMain"] [data-testid="stSelectbox"] [data-baseweb="select"] > div:focus-within {
             border-color: var(--accent) !important;
             box-shadow: 0 0 0 3px var(--accent-subtle) !important;
         }
