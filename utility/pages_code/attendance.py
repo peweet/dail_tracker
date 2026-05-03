@@ -23,6 +23,7 @@ import streamlit as st
 
 from shared_css import inject_css
 from ui.components import (
+    back_button,
     clean_meta,
     empty_state,
     evidence_heading,
@@ -521,7 +522,7 @@ def attendance_page() -> None:
 
     # ── Profile view ───────────────────────────────────────────────────────────
     if selected_td:
-        if st.button("← Back to all members", key="att_back"):
+        if back_button("← Back to all members", key="att"):
             st.session_state["selected_td_att"] = None
             st.session_state.pop("att_member_sel", None)
             st.rerun()

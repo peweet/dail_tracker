@@ -27,27 +27,38 @@ from data_access.lobbying_data import (
     fetch_area_contact_detail,
     fetch_clients_for_org,
     fetch_contact_detail,
+    fetch_dpo_client_breakdown,
+    fetch_dpo_firms,
+    fetch_dpo_one,
+    fetch_dpo_politicians_targeted,
+    fetch_dpo_return_map,
+    fetch_dpo_returns_detail,
     fetch_org_contact_detail,
     fetch_org_index,
     fetch_org_persistence,
     fetch_orgs_for_politician,
     fetch_policy_area_summary,
     fetch_policy_exposure_for_politician,
+    fetch_politician_area_returns,
     fetch_politician_index,
     fetch_politicians_for_area,
     fetch_politicians_for_org,
     fetch_recent_returns,
     fetch_revolving_door,
+    fetch_revolving_door_summary,
     fetch_sources_for_org,
     fetch_sources_for_politician,
     fetch_summary,
 )
 from shared_css import inject_css
 from ui.components import (
+    back_button,
+    breadcrumb,
     clean_meta,
     empty_state,
     evidence_heading,
     hero_banner,
+    pagination_controls,
     rank_card_row,
     sidebar_page_header,
     todo_callout,
@@ -60,12 +71,15 @@ from ui.source_pdfs import provenance_expander
 
 def _init() -> None:
     for k, v in {
-        "lob_selected_politician": None,
-        "lob_selected_org":        None,
-        "lob_selected_area":       None,
-        "lob_sidebar_search":      "",
-        "lob_date_start":          None,
-        "lob_date_end":            None,
+        "lob_selected_politician":   None,
+        "lob_selected_org":          None,
+        "lob_selected_area":         None,
+        "lob_selected_dpo":          None,
+        "lob_view_revolving_door":   False,
+        "lob_results_pol":           None,
+        "lob_sidebar_search":        "",
+        "lob_date_start":            None,
+        "lob_date_end":              None,
     }.items():
         st.session_state.setdefault(k, v)
 
@@ -74,18 +88,35 @@ def _clear_profile() -> None:
     st.session_state.lob_selected_politician = None
     st.session_state.lob_selected_org        = None
     st.session_state.lob_selected_area       = None
+    st.session_state.lob_selected_dpo        = None
+    st.session_state.lob_view_revolving_door = False
+    st.session_state.lob_results_pol         = None
 
 
 _NAV_KEYS: dict[str, str] = {
     "pol":  "lob_selected_politician",
     "org":  "lob_selected_org",
     "area": "lob_selected_area",
+    "dpo":  "lob_selected_dpo",
 }
 
 
 def _nav(kind: str, value: object = True) -> None:
     _clear_profile()
     setattr(st.session_state, _NAV_KEYS[kind], value)
+
+
+def _open_rd_index() -> None:
+    """Navigate to the Stage 2a revolving-door index."""
+    _clear_profile()
+    st.session_state.lob_view_revolving_door = True
+
+
+def _nav_results(area: str, politician: str) -> None:
+    """Drill into a politician × policy-area results page (preserves area context)."""
+    _clear_profile()
+    st.session_state.lob_selected_area = area
+    st.session_state.lob_results_pol   = politician
 
 
 # ── HTML helpers ───────────────────────────────────────────────────────────────
@@ -117,7 +148,7 @@ def _activity_row_html(period: str, org: str, area: str) -> str:
 
 
 def _back_button() -> None:
-    if st.button("← Back to Lobbying", key="lob_back"):
+    if back_button("← Back to Lobbying", key="lob"):
         _clear_profile()
         st.rerun()
 
@@ -389,39 +420,57 @@ def _render_landing(summary: pd.DataFrame) -> None:
                     _nav("org", name)
                     st.rerun()
 
-    # ── Revolving door amber callout ──────────────────────────────────────
-    dpos = fetch_revolving_door()
-    dpo_n = len(dpos) if not dpos.empty else 0
-    st.html(
-        f'<div class="lob-revolving-callout">'
-        f'<p class="lob-revolving-heading" style="margin:0 0 0.3rem">Revolving Door</p>'
-        f'<p style="font-size:0.85rem;color:#78350f;margin:0">'
-        f'Former Designated Public Officials (DPOs) — politicians, ministers, and senior officials '
-        f'— are subject to a one-year cooling-off period before they may lobby former colleagues. '
-        f'{dpo_n:,} individuals identified on lobbying.ie returns by name-matching. '
-        f'Treat as indicative — no legal findings are implied.'
-        f'</p></div>'
-    )
-    with st.expander("Show revolving door individuals", expanded=False):
-        if dpos.empty:
-            todo_callout("v_lobbying_revolving_door — re-run lobby_processing.py to regenerate data/gold/parquet/revolving_door_dpos.parquet")
-        else:
-            rows_html = ""
-            for _, row in dpos.head(15).iterrows():
-                name_     = _h(str(row.get("individual_name", "—")))
-                position  = _h(str(row.get("former_position", "") or ""))
-                ret_cnt_  = int(row.get("return_count",    0) or 0)
-                firm_cnt_ = int(row.get("distinct_firms",  0) or 0)
-                former    = f"Former {position}" if position else "Former DPO"
-                rows_html += (
-                    f'<div class="lob-activity-row">'
-                    f'<div class="lob-activity-body">'
-                    f'<div class="lob-activity-org">{name_}</div>'
-                    f'<div class="lob-activity-area">'
-                    f'{_h(former)} · {ret_cnt_:,} returns · {firm_cnt_:,} firms'
-                    f'</div></div></div>'
-                )
-            st.html(rows_html)
+    # ── Revolving door promoted callout ───────────────────────────────────
+    rd_summary = fetch_revolving_door_summary()
+    dpos       = fetch_revolving_door(limit=5)
+    if rd_summary.empty or dpos.empty:
+        st.html(
+            '<div class="lob-revolving-callout">'
+            '<p class="lob-revolving-heading">Revolving door</p>'
+            '<p class="lob-revolving-explain">No DPO data available yet.</p>'
+            '</div>'
+        )
+        todo_callout("v_lobbying_revolving_door — re-run lobby_processing.py to regenerate data/gold/parquet/revolving_door_dpos.parquet")
+    else:
+        rd_row     = rd_summary.iloc[0]
+        rd_n       = int(rd_row.get("individuals",         0) or 0)
+        rd_returns = int(rd_row.get("total_returns",       0) or 0)
+        rows_html = ""
+        for rank, (_, row) in enumerate(dpos.iterrows(), start=1):
+            name_     = _h(str(row.get("individual_name", "—")))
+            position  = _h(str(row.get("former_position", "") or ""))
+            ret_cnt_  = int(row.get("return_count",                  0) or 0)
+            pol_cnt_  = int(row.get("distinct_politicians_targeted", 0) or 0)
+            former    = f"Former {position}" if position else "Former DPO"
+            rows_html += (
+                f'<div class="lob-revolving-row">'
+                f'<span class="lob-revolving-row-rank">#{rank}</span>'
+                f'<span class="lob-revolving-row-name">{name_}</span>'
+                f'<span class="lob-revolving-row-meta">{_h(former)} · {ret_cnt_:,} returns · {pol_cnt_:,} politicians</span>'
+                f'</div>'
+            )
+        st.html(
+            '<div class="lob-revolving-callout">'
+            '<p class="lob-revolving-heading">Revolving door</p>'
+            f'<p class="lob-revolving-headline">{rd_n:,} former DPOs filed {rd_returns:,} returns lobbying current officials.</p>'
+            '<p class="lob-revolving-explain">'
+            'Former Designated Public Officials — politicians, ministers, and senior civil servants — are subject '
+            'to a one-year cooling-off period before they may lobby former colleagues. Identification is by '
+            'name-matching against the DPO register; treat as indicative, not a legal finding.'
+            '</p>'
+            f'<div class="lob-revolving-list">{rows_html}</div>'
+            '</div>'
+        )
+        cta_col, _spacer = st.columns([1, 2])
+        with cta_col:
+            if st.button(
+                f"Explore all {rd_n:,} revolving door cases →",
+                key="dt_cta_rd_explore",
+                width="stretch",
+                help="Open the full revolving door index",
+            ):
+                _open_rd_index()
+                st.rerun()
 
     # ── Latest activity feed ──────────────────────────────────────────────
     evidence_heading("Latest returns")
@@ -443,6 +492,276 @@ def _render_landing(summary: pd.DataFrame) -> None:
             "member_name on v_lobbying_recent_returns — returns_master.csv is "
             "return-level, not politician-level; wire in once pipeline enrichment joins them"
         )
+
+    _provenance_footer(summary)
+
+
+# ── Revolving Door Stage 2a — index ────────────────────────────────────────────
+
+def _render_dpo_index(summary: pd.DataFrame) -> None:
+    crumb = breadcrumb(["Lobbying", "Revolving Door"], key_prefix="rd_idx")
+    if crumb == 0:
+        _clear_profile()
+        st.rerun()
+
+    rd_summary = fetch_revolving_door_summary()
+    rd_n       = int(rd_summary.iloc[0].get("individuals",   0) or 0) if not rd_summary.empty else 0
+    rd_returns = int(rd_summary.iloc[0].get("total_returns", 0) or 0) if not rd_summary.empty else 0
+
+    hero_banner(
+        kicker="TRANSPARENCY · REVOLVING DOOR",
+        title="Former Designated Public Officials on lobbying returns",
+        dek=(
+            "Politicians, ministers, and senior civil servants are subject to a one-year "
+            "cooling-off period before they may lobby former colleagues. Identification is "
+            "by name-matching against the DPO register; treat as indicative, not a legal finding."
+        ),
+        badges=[f"{rd_n:,} individuals", f"{rd_returns:,} returns"] if rd_n else None,
+    )
+
+    all_dpos = fetch_revolving_door(limit=None)
+    if all_dpos.empty:
+        empty_state("No revolving door data", "Pipeline has not produced revolving_door_dpos.parquet yet.")
+        _provenance_footer(summary)
+        return
+
+    # ── Prominent cases sub-callout — top 3 by return count ───────────────
+    prominent = all_dpos.head(3)
+    pills_html = ""
+    for _, row in prominent.iterrows():
+        pname = _h(str(row.get("individual_name", "—")))
+        pcnt  = int(row.get("return_count", 0) or 0)
+        pills_html += (
+            f'<span class="lob-rd-prominent-pill">'
+            f'<strong>{pname}</strong> · {pcnt:,} returns'
+            f'</span>'
+        )
+    st.html(
+        '<div class="lob-rd-prominent">'
+        '<p class="lob-rd-prominent-heading">Most-active filers</p>'
+        f'<div class="lob-rd-prominent-grid">{pills_html}</div>'
+        '</div>'
+    )
+
+    # ── Chamber filter pills ──────────────────────────────────────────────
+    chambers_present = (
+        all_dpos["chamber_display"].dropna().astype(str).replace({"": pd.NA}).dropna().unique().tolist()
+        if "chamber_display" in all_dpos.columns else []
+    )
+    chamber_options = ["All"] + sorted(chambers_present)
+    chosen = st.segmented_control(
+        "Filter by former chamber",
+        options=chamber_options,
+        default="All",
+        key="rd_chamber_filter",
+    ) or "All"
+
+    if chosen != "All":
+        filtered = all_dpos[all_dpos["chamber_display"].astype(str) == chosen]
+    else:
+        filtered = all_dpos
+
+    st.caption(f"Showing {len(filtered):,} of {len(all_dpos):,} individuals.")
+
+    # ── Ranked card list ──────────────────────────────────────────────────
+    evidence_heading("All revolving door individuals")
+    if filtered.empty:
+        empty_state("No matches", f"No DPOs in chamber '{chosen}'.")
+    else:
+        for rank, (_, row) in enumerate(filtered.iterrows(), start=1):
+            name     = str(row.get("individual_name", "—"))
+            position = str(row.get("former_position",  "") or "")
+            chamber  = str(row.get("chamber_display",  "") or "")
+            former   = f"Former {position}" if position else "Former DPO"
+            meta     = clean_meta(former, chamber)
+            pills    = [
+                f"{int(row.get('return_count',                  0) or 0):,} returns",
+                f"{int(row.get('distinct_firms',                0) or 0):,} firms",
+                f"{int(row.get('distinct_politicians_targeted', 0) or 0):,} politicians",
+            ]
+            if rank_card_row(name, meta, pills, btn_key=f"rd_idx_card_{rank}", rank=rank):
+                _nav("dpo", name)
+                st.rerun()
+
+    _provenance_footer(summary)
+
+
+# ── Revolving Door Stage 2b — individual profile ──────────────────────────────
+
+def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
+    crumb = breadcrumb(
+        ["Lobbying", "Revolving Door", individual_name],
+        key_prefix="rd_indiv",
+    )
+    if crumb == 0:
+        _clear_profile()
+        st.rerun()
+    elif crumb == 1:
+        _open_rd_index()
+        st.rerun()
+
+    dpo_df = fetch_dpo_one(individual_name)
+    if dpo_df.empty:
+        empty_state(
+            "Individual not found",
+            f"No revolving door entry on record for '{individual_name}'.",
+        )
+        _provenance_footer(summary)
+        return
+
+    dpo_row  = dpo_df.iloc[0]
+    position = str(dpo_row.get("former_position",  "") or "")
+    chamber  = str(dpo_row.get("chamber_display",  "") or "")
+    ret_cnt  = int(dpo_row.get("return_count",                  0) or 0)
+    firm_cnt = int(dpo_row.get("distinct_firms",                0) or 0)
+    pol_cnt  = int(dpo_row.get("distinct_politicians_targeted", 0) or 0)
+    area_cnt = int(dpo_row.get("distinct_policy_areas",         0) or 0)
+    former   = f"Former {position}" if position else "Former DPO"
+
+    badges = [b for b in [former, chamber] if b]
+    hero_banner(
+        kicker="REVOLVING DOOR PROFILE",
+        title=individual_name,
+        dek=(
+            f"{ret_cnt:,} returns filed across {firm_cnt:,} firm(s), targeting "
+            f"{pol_cnt:,} politicians on {area_cnt:,} policy area(s)."
+        ) if ret_cnt else "No lobbying returns on record for this individual.",
+        badges=badges or None,
+    )
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Returns",            f"{ret_cnt:,}")
+    m2.metric("Firms",              f"{firm_cnt:,}")
+    m3.metric("Politicians",        f"{pol_cnt:,}")
+    m4.metric("Policy areas",       f"{area_cnt:,}")
+
+    # ── Firms represented ─────────────────────────────────────────────────
+    evidence_heading("Firms represented")
+    firms_df = fetch_dpo_firms(individual_name)
+    if firms_df.empty:
+        empty_state("No firms", "No firm associations recorded for this individual.")
+    else:
+        firms_display = firms_df.rename(columns={
+            "lobbyist_name": "Firm",
+            "return_count":  "Returns",
+            "first_period":  "First filing",
+            "last_period":   "Last filing",
+        })
+        max_firm = int(firms_display["Returns"].max()) if not firms_display.empty else 1
+        st.dataframe(
+            firms_display,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Firm":         st.column_config.TextColumn("Firm"),
+                "Returns":      st.column_config.ProgressColumn(
+                    "Returns", format="%d", min_value=0, max_value=max_firm,
+                ),
+                "First filing": st.column_config.DateColumn("First filing", format="MMM YYYY"),
+                "Last filing":  st.column_config.DateColumn("Last filing",  format="MMM YYYY"),
+            },
+        )
+
+    # ── Clients represented ───────────────────────────────────────────────
+    evidence_heading("Clients represented")
+    clients_df = fetch_dpo_client_breakdown(individual_name)
+    if clients_df.empty:
+        empty_state("No clients", "No client companies recorded for this individual.")
+    else:
+        clients_display = clients_df.rename(columns={
+            "client_name":   "Client",
+            "return_count":  "Returns",
+            "first_period":  "First filing",
+            "last_period":   "Last filing",
+        })
+        max_client = int(clients_display["Returns"].max()) if not clients_display.empty else 1
+        st.dataframe(
+            clients_display,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Client":       st.column_config.TextColumn("Client"),
+                "Returns":      st.column_config.ProgressColumn(
+                    "Returns", format="%d", min_value=0, max_value=max_client,
+                ),
+                "First filing": st.column_config.DateColumn("First filing", format="MMM YYYY"),
+                "Last filing":  st.column_config.DateColumn("Last filing",  format="MMM YYYY"),
+            },
+        )
+
+    # ── Politicians targeted (with cross-link to politician Stage 2) ──────
+    evidence_heading("Politicians targeted")
+    pols_df = fetch_dpo_politicians_targeted(individual_name)
+    if pols_df.empty:
+        empty_state("No politicians", "No politicians matched on the joined returns.")
+    else:
+        pol_known = set(fetch_all_politician_names())
+        for rank, (_, prow) in enumerate(pols_df.head(20).iterrows(), start=1):
+            pname = str(prow.get("member_name", "—"))
+            pchm  = str(prow.get("chamber",     "") or "")
+            pcnt  = int(prow.get("return_count", 0) or 0)
+            pills = [f"{pcnt:,} returns"]
+            btn_key = f"rd_indiv_pol_{rank}"
+            if pname in pol_known:
+                if rank_card_row(pname, pchm, pills, btn_key=btn_key, rank=rank,
+                                 btn_help=f"Open politician profile for {pname}"):
+                    _nav("pol", pname)
+                    st.rerun()
+            else:
+                # Politician not in the politician_index — render as non-clickable card.
+                rank_card_row(pname, pchm, pills, btn_key=btn_key, rank=rank,
+                              btn_help="Politician not in the lobbying politician index")
+        if len(pols_df) > 20:
+            st.caption(f"Showing top 20 of {len(pols_df):,} politicians.")
+
+    # ── Lobbying returns + CSV export ─────────────────────────────────────
+    evidence_heading("Lobbying returns")
+    returns_df = fetch_dpo_returns_detail(individual_name)
+    if returns_df.empty:
+        empty_state("No returns", "No individual returns recorded for this person.")
+    else:
+        display = returns_df[
+            [c for c in ["period_start_date", "lobbyist_name", "client_name",
+                         "public_policy_area", "source_url"]
+             if c in returns_df.columns]
+        ].rename(columns={
+            "period_start_date":  "Period",
+            "lobbyist_name":      "Firm",
+            "client_name":        "Client",
+            "public_policy_area": "Policy area",
+            "source_url":         "Return URL",
+        })
+        st.dataframe(
+            display,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Return URL": st.column_config.LinkColumn(
+                    "Return URL",
+                    display_text=r"https://www\.lobbying\.ie/return/(\d+)",
+                ),
+            },
+        )
+        first_p = str(returns_df["period_start_date"].min())[:7] if "period_start_date" in returns_df.columns else ""
+        last_p  = str(returns_df["period_start_date"].max())[:7] if "period_start_date" in returns_df.columns else ""
+        period_span = f"{first_p}_{last_p}" if first_p and last_p else "all"
+        safe_name = "".join(c if c.isalnum() else "_" for c in individual_name)[:60]
+        st.caption(
+            f"Showing {len(returns_df):,} returns · {first_p} – {last_p}. "
+            "Click any row's link to view that filing on lobbying.ie."
+        )
+        export_button(
+            display,
+            "Export returns CSV",
+            f"{safe_name}_revolving_door_returns_{period_span}.csv",
+            "rd_export_returns",
+        )
+
+    # ── Official source links ─────────────────────────────────────────────
+    # Sources are keyed by member_name or lobbyist_name; for an individual
+    # there is no canonical sources view, so this slot is intentionally
+    # empty here. The per-row Return URL above already exposes the
+    # lobbying.ie source for every filing.
 
     _provenance_footer(summary)
 
@@ -568,12 +887,21 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
 
     all_org_names = fetch_all_org_names()
     if all_org_names:
-        picked = st.selectbox(
-            "Switch organisation",
-            all_org_names,
-            index=all_org_names.index(org_name) if org_name in all_org_names else 0,
-            key="lob_org_switcher",
+        st.html(
+            "<style>"
+            ".st-key-lob_org_switcher .stSelectbox > div > div,"
+            ".st-key-lob_org_switcher [data-baseweb=\"select\"] > div"
+            "{background:#ffffff !important;}"
+            "</style>"
         )
+        switch_col, _ = st.columns([1, 2])
+        with switch_col:
+            picked = st.selectbox(
+                "Switch organisation",
+                all_org_names,
+                index=all_org_names.index(org_name) if org_name in all_org_names else 0,
+                key="lob_org_switcher",
+            )
         if picked != org_name:
             _nav("org", picked)
             st.rerun()
@@ -718,6 +1046,31 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
     _back_button()
 
     areas_df = fetch_policy_area_summary()
+    all_area_names = (
+        areas_df["public_policy_area"].dropna().tolist()
+        if not areas_df.empty and "public_policy_area" in areas_df.columns
+        else []
+    )
+    if all_area_names:
+        st.html(
+            "<style>"
+            ".st-key-lob_area_switcher .stSelectbox > div > div,"
+            ".st-key-lob_area_switcher [data-baseweb=\"select\"] > div"
+            "{background:#ffffff !important;}"
+            "</style>"
+        )
+        switch_col, _ = st.columns([1, 2])
+        with switch_col:
+            picked = st.selectbox(
+                "Switch policy area",
+                all_area_names,
+                index=all_area_names.index(area) if area in all_area_names else 0,
+                key="lob_area_switcher",
+            )
+        if picked != area:
+            _nav("area", picked)
+            st.rerun()
+
     area_row = pd.Series()
     if not areas_df.empty:
         m = areas_df[areas_df["public_policy_area"] == area]
@@ -745,6 +1098,7 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
 
     # ── Most-exposed politicians — ranked cards (primary view) ─────────────
     evidence_heading("Most-targeted politicians")
+    st.caption("Click → on a politician to see every return filed against them under this policy area.")
     area_pols = fetch_politicians_for_area(area)
     if area_pols.empty:
         empty_state("No data", "No politicians found for this policy area.")
@@ -756,8 +1110,12 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
                 f"{int(row.get('returns_targeting',  0) or 0):,} returns",
                 f"{int(row.get('distinct_lobbyists', 0) or 0):,} orgs",
             ]
-            if rank_card_row(pol_name, chamber, pills, btn_key=f"lob_area_pol_{rank}", rank=rank):
-                _nav("pol", pol_name)
+            if rank_card_row(
+                pol_name, chamber, pills,
+                btn_key=f"lob_area_pol_{rank}", rank=rank,
+                btn_help=f"View every return targeting {pol_name} under {area}",
+            ):
+                _nav_results(area, pol_name)
                 st.rerun()
 
     # ── Lobbying returns ──────────────────────────────────────────────────
@@ -800,6 +1158,130 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
     _provenance_footer(summary)
 
 
+# ── Results Stage 3 (politician × area) ────────────────────────────────────────
+
+def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
+    # Custom back button — return to the area page, not the landing page
+    if back_button(f"← Back to {area}", key="lob_results"):
+        st.session_state.lob_results_pol = None
+        st.rerun()
+
+    st.html(
+        f'<p class="lob-sidebar-label" style="margin:0.5rem 0 0.5rem;">'
+        f'Lobbying › {_h(area)} › <strong>{_h(politician)}</strong></p>'
+    )
+
+    detail_all = fetch_politician_area_returns(politician, area)
+
+    hero_banner(
+        kicker="LOBBYING RESULTS · POLITICIAN × POLICY AREA",
+        title=f"{politician} on {area}",
+        dek=(
+            f"{len(detail_all):,} return(s) filed against {politician} "
+            f"under the public policy area '{area}'. Each card below links to "
+            f"the original lobbying.ie return — open it to read exactly what was lobbied for."
+        ) if not detail_all.empty else
+        f"No returns on record for {politician} under '{area}'.",
+    )
+
+    if detail_all.empty:
+        empty_state("No returns", f"No lobbying returns found for {politician} under {area}.")
+        _provenance_footer(summary)
+        return
+
+    # ── Filters + export row ──────────────────────────────────────────────
+    start, end = _year_selector(detail_all, "lob_year_results")
+    detail = (
+        fetch_politician_area_returns(politician, area, start, end)
+        if start else detail_all
+    )
+
+    # Build org-detail lookup (sector, website) without a pandas merge
+    org_idx = fetch_org_index()
+    org_lookup: dict[str, dict[str, str]] = {}
+    if not org_idx.empty and "lobbyist_name" in org_idx.columns:
+        for _, r in org_idx.iterrows():
+            org_lookup[str(r["lobbyist_name"])] = {
+                "sector":  str(r.get("sector",  "") or ""),
+                "website": str(r.get("website", "") or ""),
+            }
+
+    # Build DPO map: return_id -> sorted list of individual names
+    dpo_df = fetch_dpo_return_map()
+    dpo_by_return: dict[str, list[str]] = {}
+    if not dpo_df.empty and {"return_id", "individual_name"}.issubset(dpo_df.columns):
+        for _, r in dpo_df.iterrows():
+            rid = str(r["return_id"])
+            dpo_by_return.setdefault(rid, []).append(str(r["individual_name"]))
+
+    dpo_count = sum(1 for _, r in detail.iterrows() if str(r.get("return_id", "")) in dpo_by_return)
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Returns shown",      f"{len(detail):,}")
+    c2.metric("Distinct organisations",
+              f"{detail['lobbyist_name'].nunique():,}" if "lobbyist_name" in detail.columns else "—")
+    c3.metric("DPO involvement",    f"{dpo_count:,}",
+              help="Returns where a former Designated Public Officer carried out the lobbying.")
+
+    csv_export = detail.copy()
+    csv_export["dpo_individuals"] = csv_export["return_id"].astype(str).map(
+        lambda rid: "; ".join(dpo_by_return.get(rid, []))
+    )
+    export_button(
+        csv_export, "Export every return as CSV",
+        f"{politician.replace(' ', '_')}_{area[:30].replace(' ', '_')}_returns.csv",
+        "lob_export_results",
+    )
+
+    # ── Return cards ──────────────────────────────────────────────────────
+    evidence_heading("Every return")
+    page_size, page_idx = pagination_controls(
+        total=len(detail),
+        key_prefix=f"lob_results_{politician}_{area}",
+        label="returns",
+    )
+    page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+    rank_offset = page_idx * page_size
+    for i, (_, row) in enumerate(page_slice.iterrows(), start=1):
+        rank = rank_offset + i
+        org_name  = str(row.get("lobbyist_name", "—"))
+        return_id = str(row.get("return_id", "—"))
+        period    = str(row.get("period_start_date", "") or "")[:10]
+        url       = str(row.get("source_url", "") or "")
+        org_meta  = org_lookup.get(org_name, {})
+        sector    = org_meta.get("sector",  "")
+        website   = org_meta.get("website", "")
+
+        dpo_names = dpo_by_return.get(return_id, [])
+        meta_bits: list[str] = []
+        if sector:
+            meta_bits.append(sector)
+        if website and website.startswith("http"):
+            meta_bits.append(website)
+        meta = " · ".join(meta_bits) if meta_bits else "Sector not on file"
+        if dpo_names:
+            meta += f"  ⚠ Former DPO involved: {', '.join(dpo_names)}"
+
+        pills = [
+            f"Period {period}" if period else "Period —",
+            f"Return #{return_id}",
+        ]
+        if url and url.startswith("http"):
+            pills.append(f'<a href="{_h(url)}" target="_blank" rel="noopener noreferrer" '
+                         f'style="color:var(--accent);text-decoration:underline">'
+                         f'View on lobbying.ie ↗</a>')
+
+        if rank_card_row(
+            org_name, meta, pills,
+            btn_key=f"lob_res_card_{rank}", rank=rank,
+            btn_help=f"Open {org_name} profile",
+        ):
+            _nav("org", org_name)
+            st.rerun()
+
+    _provenance_footer(summary)
+
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 def lobbying_page() -> None:
@@ -808,15 +1290,24 @@ def lobbying_page() -> None:
 
     _render_sidebar()
 
-    summary  = fetch_summary()
-    sel_pol  = st.session_state.lob_selected_politician
-    sel_org  = st.session_state.lob_selected_org
-    sel_area = st.session_state.lob_selected_area
+    summary        = fetch_summary()
+    sel_pol        = st.session_state.lob_selected_politician
+    sel_org        = st.session_state.lob_selected_org
+    sel_area       = st.session_state.lob_selected_area
+    sel_dpo        = st.session_state.lob_selected_dpo
+    view_rd        = st.session_state.lob_view_revolving_door
+    sel_result_pol = st.session_state.lob_results_pol
 
-    if sel_pol:
+    if sel_dpo:
+        _render_dpo_individual(sel_dpo, summary)
+    elif view_rd:
+        _render_dpo_index(summary)
+    elif sel_pol:
         _render_politician(sel_pol, summary)
     elif sel_org:
         _render_org(sel_org, summary)
+    elif sel_area and sel_result_pol:
+        _render_results(sel_area, sel_result_pol, summary)
     elif sel_area:
         _render_area(sel_area, summary)
     else:

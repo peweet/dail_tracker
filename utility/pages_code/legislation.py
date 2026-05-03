@@ -16,7 +16,7 @@ from data_access.legislation_data import (
     fetch_legislation_index_filtered,
 )
 from shared_css import inject_css
-from ui.components import empty_state, evidence_heading, hero_banner, render_stat_strip, sidebar_date_range, sidebar_page_header, stat_item
+from ui.components import back_button, empty_state, evidence_heading, hero_banner, render_stat_strip, sidebar_date_range, sidebar_page_header, stat_item
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
 
@@ -279,7 +279,7 @@ def _render_debates(debates_df: pd.DataFrame) -> None:
 
 def _render_bill_detail(bill_id: str) -> None:
     # ── Back navigation ───────────────────────────────────────────────────────
-    if st.button("← Back to Legislation Index", key="leg_back"):
+    if back_button("← Back to Legislation Index", key="leg"):
         st.session_state.pop("leg_selected_bill_id", None)
         st.rerun()
 

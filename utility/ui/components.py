@@ -194,6 +194,62 @@ def empty_state(heading: str, body: str) -> None:
     )
 
 
+def back_button(label: str, key: str, *, help: str | None = None) -> bool:
+    """Pill-shaped, dark-navy back button that stands out against the beige page bg.
+
+    Pass any unique key — it is auto-prefixed with `dt_back_` so the single CSS
+    rule in shared_css.py styles every back button consistently.
+    """
+    return st.button(label, key=f"dt_back_{key}", help=help)
+
+
+def breadcrumb(labels: list[str], *, key_prefix: str) -> int | None:
+    """Horizontal breadcrumb trail with ``›`` separators.
+
+    ``labels`` — ordered path from root to the current page. The LAST label is
+    rendered as plain bold text (the current page); every preceding label is
+    rendered as a clickable link-style button.
+
+    Returns the index of the clicked segment (in ``labels``), or ``None`` when
+    nothing was clicked this run. Caller is responsible for navigation +
+    ``st.rerun()`` based on the returned index.
+
+    Button keys are auto-prefixed with ``dt_crumb_`` so a single CSS rule in
+    shared_css.py styles every breadcrumb consistently across pages.
+
+    Usage::
+
+        clicked = breadcrumb(
+            ["Lobbying", "Revolving Door", "Mary Smith"],
+            key_prefix="rd_indiv",
+        )
+        if clicked == 0:
+            _clear_all(); st.rerun()
+        elif clicked == 1:
+            _open_rd_index(); st.rerun()
+    """
+    if not labels:
+        return None
+    n = len(labels)
+    weights: list[int] = []
+    for i, lbl in enumerate(labels):
+        weights.append(max(2, min(8, len(lbl) // 2)))
+        if i < n - 1:
+            weights.append(1)
+    cols = st.columns(weights, gap="small")
+    clicked: int | None = None
+    st.html('<div class="dt-crumb-row-marker"></div>')
+    for i, lbl in enumerate(labels):
+        col = cols[i * 2]
+        if i == n - 1:
+            col.html(f'<div class="dt-crumb-current">{_h(lbl)}</div>')
+        else:
+            if col.button(lbl, key=f"dt_crumb_{key_prefix}_{i}"):
+                clicked = i
+            cols[i * 2 + 1].html('<span class="dt-crumb-sep">›</span>')
+    return clicked
+
+
 def member_card_html(
     name: str,
     meta: str = "",
@@ -327,6 +383,133 @@ def sidebar_member_filter(
         label_visibility="collapsed",
     )
     return chosen if chosen and chosen != "— select —" else None
+
+
+def _page_window(current: int, total: int) -> list[int | str]:
+    """Compact page set with leading/trailing ellipses for a 1-indexed pager.
+
+    Always shows page 1 and the last page. Shows current ±1.
+    Inserts "…" when there is a gap.
+    """
+    if total <= 7:
+        return list(range(1, total + 1))
+    pages: list[int | str] = [1]
+    left  = max(2, current - 1)
+    right = min(total - 1, current + 1)
+    if left > 2:
+        pages.append("…")
+    for p in range(left, right + 1):
+        pages.append(p)
+    if right < total - 1:
+        pages.append("…")
+    pages.append(total)
+    return pages
+
+
+def pagination_controls(
+    total: int,
+    *,
+    key_prefix: str,
+    page_sizes: tuple[int, ...] = (25, 50, 100),
+    default_page_size: int = 25,
+    label: str = "results",
+    show_caption: bool = True,
+) -> tuple[int, int]:
+    """Reusable pagination row: page chips + "Showing X–Y of Z" caption + size selector.
+
+    Args:
+        total: total number of items across all pages.
+        key_prefix: namespace for session-state keys; pass a stable, unique
+            string (often including a record id, e.g. ``f"td_hist_{member_id}"``).
+        page_sizes: options for the per-page selector.
+        default_page_size: initial selection.
+        label: noun used in the "Showing X–Y of Z {label}" caption,
+            e.g. ``"votes"``, ``"members"``, ``"declarations"``. Pass the plural.
+        show_caption: set False to suppress the "Showing X–Y of Z {label}" line
+            (useful when the caller already shows a count above).
+
+    Returns:
+        ``(page_size, page_idx)`` where ``page_idx`` is **0-indexed**.
+        Slice the dataframe with ``df.iloc[page_idx*size : (page_idx+1)*size]``.
+    """
+    size_key = f"{key_prefix}_size"
+    page_key = f"{key_prefix}_page"
+
+    if size_key not in st.session_state:
+        st.session_state[size_key] = default_page_size
+
+    page_size   = int(st.session_state[size_key])
+    total_pages = max(1, (total + page_size - 1) // page_size)
+
+    cur = int(st.session_state.get(page_key, 1))
+    if cur > total_pages:
+        cur = 1
+        st.session_state[page_key] = 1
+
+    start = (cur - 1) * page_size + 1 if total else 0
+    end   = min(cur * page_size, total)
+
+    nav_col, size_col = st.columns([3, 1])
+
+    with nav_col:
+        # Marker element so .dt-pager CSS can target buttons in this column via :has().
+        st.html('<div class="dt-pager"></div>')
+        if total_pages > 1:
+            window = _page_window(cur, total_pages)
+            btn_cols = st.columns(len(window) + 2, gap="small")
+            if btn_cols[0].button(
+                "‹",
+                key=f"{key_prefix}_prev",
+                disabled=(cur <= 1),
+                help="Previous page",
+            ):
+                st.session_state[page_key] = cur - 1
+                st.rerun()
+            for i, p in enumerate(window, start=1):
+                if p == "…":
+                    with btn_cols[i]:
+                        st.html('<div class="dt-pager-ellipsis">…</div>')
+                    continue
+                is_cur = (p == cur)
+                if is_cur:
+                    with btn_cols[i]:
+                        st.html(f'<div class="dt-pager-current">{p}</div>')
+                else:
+                    if btn_cols[i].button(str(p), key=f"{key_prefix}_p_{p}"):
+                        st.session_state[page_key] = int(p)
+                        st.rerun()
+            if btn_cols[-1].button(
+                "›",
+                key=f"{key_prefix}_next",
+                disabled=(cur >= total_pages),
+                help="Next page",
+            ):
+                st.session_state[page_key] = cur + 1
+                st.rerun()
+
+        if total > 0 and show_caption:
+            st.html(
+                f'<div class="dt-pager-caption">'
+                f'Showing <strong>{start:,}–{end:,}</strong> of '
+                f'<strong>{total:,}</strong> {_h(label)}'
+                f'</div>'
+            )
+
+    with size_col:
+        st.html('<div class="dt-pager-size-label">Per page</div>')
+        new_size = st.segmented_control(
+            "Per page",
+            options=list(page_sizes),
+            default=page_size,
+            key=f"{key_prefix}_size_widget",
+            label_visibility="collapsed",
+        )
+        if new_size and int(new_size) != page_size:
+            st.session_state[size_key] = int(new_size)
+            st.session_state[page_key] = 1
+            st.rerun()
+
+    return page_size, max(0, cur - 1)
 
 
 def interest_declaration_item(text: str, status: str = "unchanged") -> None:
