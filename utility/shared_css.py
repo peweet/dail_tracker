@@ -104,6 +104,16 @@ def inject_css() -> None:
         [data-testid="stSidebarNav"] {
             padding: 0.5rem 0 !important;
         }
+        [data-testid="stSidebarNav"] a span[class*="material-symbols"],
+        [data-testid="stSidebarNav"] a [data-testid="stIconMaterial"] {
+            color: var(--accent) !important;
+            font-size: 1.25rem !important;
+            font-variation-settings: 'FILL' 1, 'wght' 500 !important;
+        }
+        [data-testid="stSidebarNav"] a[aria-current="page"] span[class*="material-symbols"],
+        [data-testid="stSidebarNav"] a[aria-current="page"] [data-testid="stIconMaterial"] {
+            color: var(--text-primary) !important;
+        }
 
         :root {
             --bg:             oklch(97.5% 0.004 75);
@@ -194,6 +204,87 @@ def inject_css() -> None:
         .stButton > button:hover {
             background: var(--accent-subtle) !important;
             border-color: var(--accent) !important;
+        }
+
+        /* ── Back buttons (rendered via components.back_button) ────────
+           Stands out against the beige page bg via dark-navy fill +
+           pill radius. Scoped by the `dt_back_` key prefix that
+           components.back_button enforces, so one rule covers every
+           back-to-X button across the app. */
+        [class*="st-key-dt_back_"] .stButton > button {
+            background: var(--text-primary) !important;
+            color: #ffffff !important;
+            border: 1px solid var(--text-primary) !important;
+            border-radius: 999px !important;
+            padding: 0.4rem 1rem !important;
+        }
+        [class*="st-key-dt_back_"] .stButton > button:hover {
+            background: var(--accent) !important;
+            border-color: var(--accent) !important;
+            color: #ffffff !important;
+        }
+
+        /* ── Breadcrumb (components.breadcrumb) ────────────────────────
+           Each breadcrumb segment is a tight link-style button scoped
+           by the `dt_crumb_` key prefix. Separators (›) and the trailing
+           current-page label are inline HTML inside the same row. */
+        [class*="st-key-dt_crumb_"] .stButton > button {
+            background: transparent !important;
+            border: none !important;
+            color: var(--accent) !important;
+            padding: 0.1rem 0 !important;
+            font-family: 'Epilogue', sans-serif !important;
+            font-size: 0.85rem !important;
+            font-weight: 600 !important;
+            text-decoration: none !important;
+            min-height: 1.6rem !important;
+            line-height: 1.6rem !important;
+        }
+        [class*="st-key-dt_crumb_"] .stButton > button:hover {
+            background: transparent !important;
+            color: var(--text-primary) !important;
+            text-decoration: underline !important;
+        }
+        .dt-crumb-current {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.6rem;
+        }
+        .dt-crumb-sep {
+            font-size: 0.95rem;
+            color: var(--text-meta);
+            line-height: 1.6rem;
+            user-select: none;
+            display: inline-block;
+            text-align: center;
+        }
+        /* Tighten the row that holds a breadcrumb so it reads as one line. */
+        div[data-testid="stHorizontalBlock"]:has(> div .dt-crumb-row-marker) {
+            margin-bottom: 0.6rem;
+            align-items: center;
+        }
+
+        /* ── Promoted CTA button (st-key-dt_cta_*) ─────────────────────
+           Used for primary actions like "Explore all revolving door
+           cases →". Bolder than .stButton default so it reads as a
+           call-to-action against the amber callout background. */
+        [class*="st-key-dt_cta_"] .stButton > button {
+            background: var(--text-primary) !important;
+            color: #ffffff !important;
+            border: 1px solid var(--text-primary) !important;
+            border-radius: 999px !important;
+            padding: 0.45rem 1.1rem !important;
+            font-family: 'Epilogue', sans-serif !important;
+            font-size: 0.85rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.02em !important;
+        }
+        [class*="st-key-dt_cta_"] .stButton > button:hover {
+            background: var(--accent) !important;
+            border-color: var(--accent) !important;
+            color: #ffffff !important;
         }
 
         /* ── Download button ─────────────────────── */
@@ -904,6 +995,70 @@ def inject_css() -> None:
             [data-testid="stColumn"]:last-child {
             flex: 0 0 auto !important;
             width: auto !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        /* Inside dt-name-card rows the column itself centers vertically,
+           so the legacy margin-top shim becomes a layout offset — null it.
+           (Element stays in DOM so :has(.dt-nav-anchor) still matches.) */
+        [data-testid="stHorizontalBlock"]:has(.dt-name-card) .dt-nav-anchor {
+            margin-top: 0 !important;
+            height: 0 !important;
+        }
+
+        /* ── Member Overview: card grid + prominent search ──────── */
+        .mo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 0.55rem;
+            margin-top: 0.5rem;
+        }
+        .mo-grid-link {
+            text-decoration: none !important;
+            color: inherit !important;
+            position: relative;
+            display: block;
+            transition: transform 80ms ease;
+        }
+        .mo-grid-link:hover {
+            transform: translateY(-1px);
+        }
+        .mo-grid-link .dt-name-card {
+            padding-right: 2.25rem;
+        }
+        .mo-grid-link:hover .dt-name-card {
+            border-left-color: var(--accent) !important;
+            border-color: var(--accent) !important;
+            background: var(--accent-subtle) !important;
+        }
+        .mo-grid-arrow {
+            position: absolute;
+            right: 0.85rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-meta);
+            font-size: 1rem;
+            font-weight: 700;
+            transition: transform 120ms ease, color 120ms ease;
+        }
+        .mo-grid-link:hover .mo-grid-arrow {
+            color: var(--accent);
+            transform: translateY(-50%) translateX(3px);
+        }
+        [data-testid="stMain"]
+            [data-testid="stTextInput"]:has(input[aria-label="Search TDs"]) input {
+            font-size: 1rem !important;
+            padding: 0.7rem 0.95rem !important;
+            background: #ffffff !important;
+            border: 1.5px solid var(--border-strong) !important;
+            border-radius: 8px !important;
+        }
+        [data-testid="stMain"]
+            [data-testid="stTextInput"]:has(input[aria-label="Search TDs"]) input:focus {
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 3px var(--accent-subtle) !important;
         }
 
         /* ── Interests: category headings & diff badges ──────────── */
@@ -1212,10 +1367,56 @@ def inject_css() -> None:
             border: 1px solid #fcd34d;
             border-left: 5px solid #d97706;
             border-radius: 12px;
-            padding: 0.65rem 1rem;
-            margin: 0.75rem 0;
+            padding: 0.85rem 1.1rem;
+            margin: 0.85rem 0;
         }
         .lob-revolving-heading { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #92400e; margin-bottom: 0.3rem; }
+        .lob-revolving-headline {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #78350f;
+            line-height: 1.35;
+            margin: 0.1rem 0 0.35rem;
+        }
+        .lob-revolving-explain {
+            font-size: 0.83rem;
+            color: #78350f;
+            line-height: 1.5;
+            margin: 0 0 0.65rem;
+        }
+        .lob-revolving-list { margin: 0.55rem 0 0.45rem; border-top: 1px solid rgba(217,119,6,0.25); }
+        .lob-revolving-row {
+            display: flex; align-items: baseline; gap: 0.6rem;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid rgba(217,119,6,0.18);
+            font-size: 0.86rem;
+        }
+        .lob-revolving-row-rank {
+            font-size: 0.7rem; font-weight: 800; color: #92400e;
+            letter-spacing: 0.05em; min-width: 1.5rem;
+        }
+        .lob-revolving-row-name { flex: 1; font-weight: 700; color: #1f2937; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lob-revolving-row-meta { color: #78350f; font-size: 0.78rem; white-space: nowrap; }
+
+        /* Stage 2a prominent-cases sub-callout — sits inside the RD index
+           hero zone to flag the highest-impact individuals. */
+        .lob-rd-prominent {
+            background: #fff7ed;
+            border: 1px solid #fdba74;
+            border-left: 5px solid #c2410c;
+            border-radius: 10px;
+            padding: 0.7rem 1rem;
+            margin: 0.5rem 0 1.1rem;
+        }
+        .lob-rd-prominent-heading { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: #9a3412; margin-bottom: 0.4rem; }
+        .lob-rd-prominent-grid { display: flex; flex-wrap: wrap; gap: 0.55rem; }
+        .lob-rd-prominent-pill {
+            background: #ffffff; border: 1px solid #fdba74; border-radius: 999px;
+            padding: 0.3rem 0.75rem; font-size: 0.82rem; color: #1f2937;
+            display: inline-flex; align-items: baseline; gap: 0.4rem;
+        }
+        .lob-rd-prominent-pill strong { color: #9a3412; font-weight: 700; }
 
         .lob-activity-row { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.65rem 0; border-bottom: 1px solid var(--border); }
         .lob-activity-period { font-size: 0.73rem; font-weight: 700; color: #0f3d5e; white-space: nowrap; min-width: 5rem; padding-top: 0.1rem; }
@@ -1705,6 +1906,220 @@ def inject_css() -> None:
             [data-testid="stColumn"]:last-child {
             flex: 0 0 auto !important;
             width: auto !important;
+        }
+
+        /* ── TD picker landing cards ──────────────────────────────────── */
+        .td-pick-dek {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.95rem;
+            color: var(--text-meta, #5a5a5a);
+            line-height: 1.55;
+            margin: 0.1rem 0 1.25rem;
+            max-width: 56ch;
+        }
+        .td-pick-card {
+            border: 1px solid rgba(0,0,0,0.08);
+            border-left: 4px solid rgba(0,0,0,0.14);
+            border-radius: 12px;
+            background: #ffffff;
+            padding: 1.05rem 1.15rem 0.9rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            min-height: 13rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.32rem;
+            flex: 1 1 auto;
+            transition: box-shadow 0.15s, border-left-color 0.15s;
+        }
+        .td-pick-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.09);
+        }
+        .td-pick-vote {
+            display: inline-flex;
+            align-items: center;
+            align-self: flex-start;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            padding: 0.3rem 0.7rem;
+            border-radius: 999px;
+            white-space: nowrap;
+            margin-bottom: 0.2rem;
+        }
+        .td-pick-vote-yes {
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        .td-pick-vote-no {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        .td-pick-vote-abs {
+            background: #f4f4f5;
+            color: #52525b;
+            border: 1px solid #e4e4e7;
+        }
+        .td-pick-prompt {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.72rem;
+            color: var(--text-meta, #5a5a5a);
+            text-transform: lowercase;
+            letter-spacing: 0.02em;
+            margin: 0;
+        }
+        .td-pick-title {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-primary, #111827);
+            line-height: 1.3;
+            margin: 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: calc(1.05rem * 1.3 * 2);
+        }
+        .td-pick-name {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.98rem;
+            font-weight: 700;
+            color: var(--text-primary, #111827);
+            margin-top: auto;
+            padding-top: 0.45rem;
+        }
+        .td-pick-meta {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.78rem;
+            color: var(--text-meta, #5a5a5a);
+            margin: 0;
+        }
+        /* Tighten the gap between the picker card and its action button,
+           and stretch all columns in the row to equal height. */
+        [data-testid="stHorizontalBlock"]:has(.td-pick-card) {
+            align-items: stretch !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.td-pick-card)
+            [data-testid="stColumn"] {
+            display: flex;
+            flex-direction: column;
+        }
+        [data-testid="stHorizontalBlock"]:has(.td-pick-card)
+            [data-testid="stButton"] > button {
+            margin-top: 0.4rem;
+            border: 1px solid rgba(0,0,0,0.12);
+            background: #ffffff;
+            color: var(--text-primary);
+            font-family: 'Epilogue', sans-serif;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        [data-testid="stHorizontalBlock"]:has(.td-pick-card)
+            [data-testid="stButton"] > button:hover {
+            border-color: var(--accent, #b04a1a);
+            color: var(--accent, #b04a1a);
+        }
+        .td-pick-foot {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.78rem;
+            color: var(--text-meta, #5a5a5a);
+            margin-top: 1.25rem;
+            font-style: italic;
+        }
+
+        /* ── Pager (reusable page numbers + page-size selector) ────────── */
+        .dt-pager {
+            display: block;
+            margin: 0.2rem 0 0;
+        }
+        .dt-pager-current {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2.1rem;
+            height: 2.1rem;
+            padding: 0 0.55rem;
+            border-radius: 6px;
+            background: var(--text-primary, #111827);
+            color: #ffffff;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+        .dt-pager-ellipsis {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.2rem;
+            height: 2.1rem;
+            color: var(--text-meta);
+            font-size: 0.95rem;
+            font-weight: 600;
+            user-select: none;
+        }
+        .dt-pager-caption {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.78rem;
+            color: var(--text-meta);
+            margin: 0.5rem 0 0;
+            letter-spacing: 0.01em;
+        }
+        .dt-pager-caption strong {
+            color: var(--text-primary, #111827);
+            font-weight: 700;
+        }
+        .dt-pager-size-label {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+            margin: 0 0 0.25rem;
+            text-align: right;
+        }
+        /* Tight chip row: collapse the equal-width column layout that
+           Streamlit applies to st.columns() so chips sit next to each other. */
+        [data-testid="stColumn"]:has(> div .dt-pager) [data-testid="stHorizontalBlock"] {
+            gap: 0.18rem !important;
+            justify-content: flex-start !important;
+            flex-wrap: wrap;
+            align-items: center !important;
+        }
+        [data-testid="stColumn"]:has(> div .dt-pager) [data-testid="stHorizontalBlock"]
+            > [data-testid="stColumn"] {
+            flex: 0 0 auto !important;
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+        }
+        /* Style Streamlit buttons inside the pager column to look like page chips */
+        [data-testid="stColumn"]:has(> div .dt-pager) [data-testid="stButton"] > button {
+            min-width: 2.1rem;
+            height: 2.1rem;
+            padding: 0 0.55rem;
+            border-radius: 6px;
+            border: 1px solid rgba(0,0,0,0.12);
+            background: #ffffff;
+            color: var(--text-primary);
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 600;
+            line-height: 1;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        [data-testid="stColumn"]:has(> div .dt-pager) [data-testid="stButton"] > button:hover {
+            border-color: var(--accent, #b04a1a);
+            color: var(--accent, #b04a1a);
+        }
+        [data-testid="stColumn"]:has(> div .dt-pager) [data-testid="stButton"] > button:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
         }
         </style>
         """,

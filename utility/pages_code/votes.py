@@ -10,8 +10,11 @@ import streamlit as st
 
 _log = logging.getLogger(__name__)
 
+from html import escape as _h
+
 from shared_css import inject_css
 from ui.components import (
+    back_button,
     empty_state,
     evidence_heading,
     sidebar_date_range,
@@ -32,6 +35,21 @@ _REQUIRED_INDEX_COLS: frozenset[str] = frozenset(
 _VOTE_INDEX_LIMIT      = 500
 _DIVISION_MEMBERS_LIMIT = 5000
 _TD_HISTORY_LIMIT      = 500
+
+# Topical seed terms used for the "Find a TD" landing page. Each one matches a
+# debate_title substring; presentation-only filter, not modelling.
+_TD_PICKER_TOPICS: tuple[tuple[str, str], ...] = (
+    ("Housing",     "%housing%"),
+    ("Health",      "%health%"),
+    ("Disability",  "%disab%"),
+    ("Climate",     "%climate%"),
+    ("Energy",      "%energy%"),
+    ("Palestine",   "%palestin%"),
+    ("Neutrality",  "%neutral%"),
+    ("Education",   "%education%"),
+    ("Childcare",   "%child%"),
+)
+_TD_PICKER_CARD_COUNT = 4
 
 
 def _safe_query(conn, sql: str, params=()) -> pd.DataFrame:
@@ -214,12 +232,175 @@ def _fetch_td_history(_conn, member_id, date_from, date_to) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
+def _fetch_topical_votes(_conn) -> pd.DataFrame:
+    """Recent member votes on hot-topic debates. Used to seed the TD picker cards.
+
+    Retrieval-only: SELECT with WHERE/ORDER BY/LIMIT against the approved view.
+    """
+    likes = " OR ".join(["debate_title ILIKE ?" for _ in _TD_PICKER_TOPICS])
+    sql = (
+        "SELECT vote_date, member_id, member_name, party_name, constituency,"
+        " vote_type, debate_title, vote_outcome"
+        " FROM v_vote_member_detail"
+        " WHERE vote_type IN ('Voted Yes', 'Voted No')"
+        " AND member_name IS NOT NULL"
+        f" AND ({likes})"
+        " ORDER BY vote_date DESC LIMIT 2000"
+    )
+    params = [pat for _label, pat in _TD_PICKER_TOPICS]
+    return _safe_query(_conn, sql, params)
+
+
+@st.cache_data(ttl=300)
 def _fetch_td_year_summary(_conn, member_id) -> pd.DataFrame:
     return _safe_query(
         _conn,
         "SELECT year, yes_count, no_count, abstained_count"
         " FROM td_vote_year_summary WHERE member_id = ? ORDER BY year ASC LIMIT 50",
         (member_id,),
+    )
+
+
+# ── TD picker (landing for the TDs view) ───────────────────────────────────────
+
+def _pick_diverse_cards(df: pd.DataFrame, n: int) -> list[dict]:
+    """Pick up to ``n`` rows with distinct members, balanced Yes/No.
+
+    Presentation-layer selection only — no aggregation, no joins. Walks the
+    already-fetched, already-sorted result and trims it for display.
+
+    Pass 1: distinct member + distinct debate title, balance Yes/No.
+    Pass 2: relax title-uniqueness to fill remaining slots when the recent
+    set is dominated by a single debate.
+    """
+    if df.empty:
+        return []
+    rows = df.to_dict("records")
+
+    def _candidates(distinct_titles: bool) -> list[dict]:
+        seen_m: set[str] = set()
+        seen_t: set[str] = set()
+        picks: list[dict] = []
+        for r in rows:
+            m = str(r.get("member_name") or "").strip()
+            t = str(r.get("debate_title") or "").strip()
+            if not m or not t or m in seen_m:
+                continue
+            if distinct_titles and t in seen_t:
+                continue
+            seen_m.add(m)
+            seen_t.add(t)
+            picks.append(r)
+        return picks
+
+    candidates = _candidates(distinct_titles=True)
+    yes_pool = [r for r in candidates if r.get("vote_type") == "Voted Yes"]
+    no_pool  = [r for r in candidates if r.get("vote_type") == "Voted No"]
+
+    half = n // 2
+    out: list[dict] = no_pool[:half] + yes_pool[:half]
+
+    if len(out) < n:
+        leftover = no_pool[half:] + yes_pool[half:]
+        out += leftover[: n - len(out)]
+
+    if len(out) < n:
+        seen_keys = {(r.get("member_name"), r.get("debate_title")) for r in out}
+        for r in _candidates(distinct_titles=False):
+            key = (r.get("member_name"), r.get("debate_title"))
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            out.append(r)
+            if len(out) >= n:
+                break
+
+    return out[:n]
+
+
+def _td_pick_card_html(row: dict) -> str:
+    name      = str(row.get("member_name") or "")
+    party     = str(row.get("party_name") or "")
+    const     = str(row.get("constituency") or "")
+    vote_type = str(row.get("vote_type") or "")
+    title     = str(row.get("debate_title") or "")
+    vote_date = row.get("vote_date")
+    date_str  = ""
+    if vote_date is not None:
+        try:
+            date_str = vote_date.strftime("%d %b %Y")
+        except AttributeError:
+            date_str = str(vote_date)[:10]
+
+    if vote_type == "Voted Yes":
+        chip_cls  = "td-pick-vote td-pick-vote-yes"
+        chip_text = "✓ Voted Yes"
+    elif vote_type == "Voted No":
+        chip_cls  = "td-pick-vote td-pick-vote-no"
+        chip_text = "✗ Voted No"
+    else:
+        chip_cls  = "td-pick-vote td-pick-vote-abs"
+        chip_text = "— Abstained"
+
+    meta_parts = [p for p in (party, const, date_str) if p]
+    meta_html  = " · ".join(_h(p) for p in meta_parts)
+
+    return (
+        f'<div class="td-pick-card">'
+        f'<div class="{chip_cls}">{chip_text}</div>'
+        f'<div class="td-pick-prompt">on</div>'
+        f'<div class="td-pick-title">{_h(title)}</div>'
+        f'<div class="td-pick-name">{_h(name)}</div>'
+        f'<div class="td-pick-meta">{meta_html}</div>'
+        f'</div>'
+    )
+
+
+def _render_td_picker(conn) -> None:
+    """Editorial 'Find a TD' landing page with curated suggestion cards."""
+    st.html(
+        '<p class="dt-kicker">Dáil Tracker · Voting Record</p>'
+        '<h1 class="dt-hero">Find a TD</h1>'
+        '<p class="td-pick-dek">'
+        'Search for a TD on the left, or jump straight in: here are recent '
+        'votes on housing, health and other crucial legislation.'
+        '</p>'
+    )
+
+    topical = _fetch_topical_votes(conn)
+    picks   = _pick_diverse_cards(topical, _TD_PICKER_CARD_COUNT)
+
+    if not picks:
+        empty_state(
+            "Pick a TD from the sidebar",
+            "Use the search box on the left to find an individual TD and view "
+            "their full voting record across every published division.",
+        )
+        return
+
+    # Two-column grid of suggestion cards.
+    for row_pair_start in range(0, len(picks), 2):
+        pair = picks[row_pair_start:row_pair_start + 2]
+        cols = st.columns(2, gap="small")
+        for j, pick in enumerate(pair):
+            with cols[j]:
+                st.html(_td_pick_card_html(pick))
+                if st.button(
+                    f"View {pick['member_name']}'s record →",
+                    key=f"td_pick_{row_pair_start + j}_{pick.get('member_id')}",
+                    width="stretch",
+                ):
+                    new_mid = str(pick["member_id"])
+                    st.session_state["v_sel_member_id"] = new_mid
+                    st.session_state.pop("v_sel_vote_id", None)
+                    st.query_params["member"] = new_mid
+                    st.query_params.pop("vote", None)
+                    st.rerun()
+
+    st.html(
+        '<p class="td-pick-foot">'
+        'Showing recent topical votes — selection updates as new divisions are published.'
+        '</p>'
     )
 
 
@@ -331,7 +512,7 @@ def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
 # ── Mode B: TD profile ─────────────────────────────────────────────────────────
 
 def _render_mode_b(conn, member_id: str, date_from, date_to) -> None:
-    if st.button("← Back to divisions", key="v_back_b"):
+    if back_button("← Back to divisions", key="v_b"):
         st.session_state["_v_clear_member"] = True
         st.query_params.clear()
         st.rerun()
@@ -364,7 +545,7 @@ def _render_mode_b(conn, member_id: str, date_from, date_to) -> None:
 
 def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
     back_label = "← Back to TD record" if v_from == "td" else "← Back to divisions"
-    if st.button(back_label, key="v_back_c"):
+    if back_button(back_label, key="v_c"):
         st.session_state["_v_clear_vote"] = True
         if v_from == "td":
             mid = st.session_state.get("v_sel_member_id", "")
@@ -403,6 +584,7 @@ def votes_page() -> None:
     if st.session_state.get("_v_clear_member"):
         st.session_state.pop("_v_clear_member", None)
         st.session_state.pop("v_sel_member_id", None)
+        st.session_state.pop("_v_last_sel_name", None)
         for _k in ("v_member_search", "v_member_select"):
             st.session_state.pop(_k, None)
 
@@ -422,6 +604,17 @@ def votes_page() -> None:
     sel_member_id = st.session_state.get("v_sel_member_id")
     v_from        = st.session_state.get("v_from", "index")
 
+    # Default view: Dáil (Mode A — divisions index). If a TD is already
+    # selected via URL or prior interaction, surface the TDs view so the
+    # sidebar member search is visible.
+    if "v_view" not in st.session_state:
+        st.session_state["v_view"] = "TDs" if sel_member_id else "Dáil"
+    # Migrate legacy session state from the previous "Divisions" label so users
+    # who toggled before this rename don't get stuck on a value that no longer
+    # matches an option.
+    if st.session_state["v_view"] == "Divisions":
+        st.session_state["v_view"] = "Dáil"
+
     # ── Sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
         sidebar_page_header("Dáil<br>Divisions")
@@ -436,15 +629,34 @@ def votes_page() -> None:
 
         st.divider()
 
-        # Date range shown in Mode B only — filters TD vote history
-        date_from = date_to = None
-        if sel_member_id:
-            date_from, date_to = sidebar_date_range("Date range", key="v_date_range")
+        # ── View toggle ────────────────────────────────────────────────────
+        st.html('<p class="sidebar-label">View</p>')
+        prev_view = st.session_state["v_view"]
+        view_sel = st.segmented_control(
+            "View",
+            options=["Dáil", "TDs"],
+            default=prev_view,
+            key="v_view_widget",
+            label_visibility="collapsed",
+        )
+        view = view_sel or prev_view
+        if view != prev_view:
+            st.session_state["v_view"] = view
+            # Switching to Dáil clears any selected TD so the index reappears.
+            if view == "Dáil" and sel_member_id:
+                st.session_state["_v_clear_member"] = True
+                st.query_params.pop("member", None)
+            st.rerun()
 
-        # Outcome and party filters shown in Mode A only
+        st.divider()
+
         outcome_filter = None
         sel_party = ""
-        if not sel_member_id and not sel_vote_id:
+        sel_name = None
+        date_from = date_to = None
+
+        if view == "Dáil":
+            # Outcome + party filters live with the divisions index.
             st.html('<p class="sidebar-label">Outcome</p>')
             outcome_sel = st.selectbox(
                 "Outcome",
@@ -464,38 +676,45 @@ def votes_page() -> None:
                     label_visibility="collapsed",
                 )
                 sel_party = "" if party_sel == "All parties" else party_sel
+        else:  # TDs view — search a single TD
+            if sel_member_id:
+                date_from, date_to = sidebar_date_range("Date range", key="v_date_range")
 
-        st.divider()
+            member_names = _fetch_member_names(conn, sel_party)
+            sel_name = sidebar_member_filter(
+                "Find a TD",
+                member_names,
+                key_search="v_member_search",
+                key_select="v_member_select",
+            )
 
-        # Member search — filtered by party when one is selected
-        member_names = _fetch_member_names(conn, sel_party)
-        sel_name = sidebar_member_filter(
-            "Find a TD",
-            member_names,
-            key_search="v_member_search",
-            key_select="v_member_select",
-        )
-
-        # Handle selection / deselection
-        if sel_name:
-            td_lkp = _fetch_td_row_by_name(conn, sel_name)
-            if not td_lkp.empty:
-                new_mid = str(td_lkp.iloc[0]["member_id"])
-                if new_mid != sel_member_id:
-                    st.session_state["v_sel_member_id"] = new_mid
-                    st.session_state.pop("v_sel_vote_id", None)
-                    st.query_params["member"] = new_mid
-                    st.query_params.pop("vote", None)
-                    st.rerun()
-        elif sel_member_id:
-            st.session_state["_v_clear_member"] = True
-            st.query_params.clear()
-            st.rerun()
+            # Track the dropdown's last-applied name so the auto-clear branch
+            # only fires when the user explicitly clears the dropdown — not
+            # when the picker (or a URL param) sets sel_member_id directly.
+            last_applied = st.session_state.get("_v_last_sel_name", "")
+            if sel_name:
+                if sel_name != last_applied:
+                    td_lkp = _fetch_td_row_by_name(conn, sel_name)
+                    if not td_lkp.empty:
+                        new_mid = str(td_lkp.iloc[0]["member_id"])
+                        st.session_state["v_sel_member_id"] = new_mid
+                        st.session_state["_v_last_sel_name"] = sel_name
+                        st.session_state.pop("v_sel_vote_id", None)
+                        st.query_params["member"] = new_mid
+                        st.query_params.pop("vote", None)
+                        st.rerun()
+            elif last_applied and sel_member_id:
+                st.session_state["_v_clear_member"] = True
+                st.query_params.clear()
+                st.rerun()
 
     # ── Mode routing ──────────────────────────────────────────────────────────
     if sel_vote_id:
         _render_mode_c(conn, sel_vote_id, v_from)
-    elif sel_member_id:
-        _render_mode_b(conn, sel_member_id, date_from, date_to)
+    elif view == "TDs":
+        if sel_member_id:
+            _render_mode_b(conn, sel_member_id, date_from, date_to)
+        else:
+            _render_td_picker(conn)
     else:
         _render_mode_a(conn, date_from, date_to, outcome_filter)
