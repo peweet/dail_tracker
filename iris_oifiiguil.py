@@ -15,6 +15,7 @@ IRIS_OIFIGUIL_BASE_URL = "https://irisoifigiuil.ie/archive/"
 # range_end = "2025/december/"
 
 
+# TODO: replace hardcoded path with `BRONZE_DIR / "iris_oifigiuil"` from config when promoting out of experimental
 dest = Path("C:/Users/pglyn/PycharmProjects/dail_extractor/data/bronze/iris_oifigiuil")
 #IR030625.pdf
 session = requests.Session()
@@ -36,7 +37,7 @@ def all_weekdays_in_year(year: int, weekday: int) -> list[date]:
 def to_numeric(d: date) -> str:
     return d.strftime("%d%m%y")
 collected_dates = []
-for year in range(2025, 2026+1):
+for year in range(2022, 2024 + 1):
     print(f"Calculating Tuesdays and Fridays for {year}...")
     tue_fri = sorted(
         all_weekdays_in_year(year, calendar.TUESDAY) +

@@ -1,0 +1,89 @@
+<akomaNtoso xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13" xsi:schemaLocation="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13 ./akomantoso30.xsd">
+  <debate name="Official Report">
+    <meta>
+      <identification source="#debates">
+        <FRBRWork>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-01-28/writtens/dbsect_94"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-01-28/writtens"/>
+          <FRBRdate date="2026-01-28" name="#generation"/>
+          <FRBRauthor as="#author" href="/ie/oireachtas/house/dail/34"/>
+          <FRBRcountry value="ie"/>
+          <FRBRname value="writtens"/>
+        </FRBRWork>
+        <FRBRExpression>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-01-28/writtens/mul@/dbsect_94"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-01-28/writtens/mul@"/>
+          <FRBRdate date="2026-01-28" name="#reported"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+          <FRBRlanguage language="eng"/>
+        </FRBRExpression>
+        <FRBRManifestation>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-01-28/writtens/mul@/dbsect_94.xml"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-01-28/writtens/mul@.akn"/>
+          <FRBRdate date="2026-04-11" name="#publication"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+        </FRBRManifestation>
+      </identification>
+      <references source="#debates">
+        <TLCPerson eId="EmerCurrie" href="/ie/oireachtas/member/id/Emer-Currie.S.2020-06-29" showAs="Emer Currie"/>
+        <TLCPerson eId="HildegardeNaughton" href="/ie/oireachtas/member/id/Hildegarde-Naughton.S.2013-07-19" showAs="Hildegarde Naughton"/>
+        <TLCRole eId="Education" href="/ie/oireachtas/role/office/education" showAs="Education"/>
+        <TLCRole eId="Minister_for_Education_and_Youth" href="/ie/oireachtas/role/minister/education__youth" showAs="Minister for Education and Youth"/>
+        </references>
+    </meta>
+    <preface>
+      <block name="title_ga">
+        <docTitle>DÍOSPÓIREACHTAÍ PARLAIMINTE</docTitle>
+      </block>
+      <block name="title_en">
+        <docTitle>PARLIAMENTARY DEBATES</docTitle>
+      </block>
+      <block name="proponent_ga">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="proponent_en">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="status_ga">
+        <docStatus>TUAIRISC OIFIGIÚIL</docStatus>
+      </block>
+      <block name="status_en">
+        <docStatus>(OFFICIAL REPORT)</docStatus>
+      </block>
+      <block name="date_ga">
+        <docDate date="2026-01-28">Dé Céadaoin, 28 Eanáir 2026</docDate>
+      </block>
+      <block name="date_en">
+        <docDate date="2026-01-28">Wednesday, 28 January 2026</docDate>
+      </block>
+      <block name="volume">
+        <docNumber refersTo="#vol_1079">Vol. 1079</docNumber>
+      </block>
+      <block name="number">
+        <docNumber refersTo="#no_5">No. 5</docNumber>
+      </block>
+      <block refersTo="#unrevised" name="version_en">
+        <docStatus/>
+      </block>
+      <block refersTo="#unrevised" name="version_ga">
+        <docStatus/>
+      </block>
+    </preface>
+    <debateBody><debateSection name="writtenAnswer" eId="dbsect_94">
+          <heading>School Funding<recordedTime time="2026-01-28T23:03:00+00:00"/></heading>
+          <question by="#EmerCurrie" to="#Education" eId="pq_65">
+            <p eId="para_2327">65. <b>Deputy Emer Currie</b> asked the <b>Minister for Education and Youth</b> whether any funding streams exist to address a matter at a school (details supplied); and if she will make a statement on the matter. [6796/26]</p>
+          </question>
+          <speech by="#HildegardeNaughton" as="#Minister_for_Education_and_Youth" eId="spk_469">
+            <from>Minister for Education and Youth<recordedTime time="2026-01-28T23:03:00+00:00"/></from>
+            <p eId="para_2328">I should explain that applications relating to the provision of funding for issues relating to an existing school building can fall under a number of different delivery mechanisms including, most frequently, the Summer Works Scheme and the Emergency Works Scheme.</p>
+            <p eId="para_2329"> The purpose of the Emergency Works Scheme (EWS) is to provide funding specifically for unforeseen emergencies. It does so by ensuring the availability of funding for urgent works to those schools that are in need of resources as a result of an emergency situation.</p>
+            <p eId="para_2330"> An emergency is deemed to be a situation which poses an immediate risk to health, life, property, or the environment, which is sudden, unforeseen and requires immediate action, and in the case of a school, if not corrected would prevent the school or part thereof from opening.</p>
+            <p eId="para_2331"> The EWS operates on the basis of the minimal scope of works required to remedy an emergency situation. The EWS usually provides an interim solution until such time as a comprehensive solution can be provided under the Summer Works Scheme (SWS).</p>
+            <p eId="para_2332"> The purpose of the SWS is to enable individual school authorities to undertake small-scale building works on a devolved basis and, ideally, can be carried out during the summer months or at other times that avoid disrupting the operation of the school.</p>
+            <p eId="para_2333"> The Climate Action Summer Works Scheme (which was previously named the Summer Works Scheme) places a strong emphasis on sustainability. Schools can now undertake additional measures such as insulation upgrades, LED lighting installation, EV charger provision, bike rack facilities to support active travel and other climate-focused works alongside traditional maintenance.</p>
+            <p eId="para_2334"> The school in question has already made an application to the Climate Action Summer Works Scheme and this scheme is now closed to new applications. Whilst the EWS is open for applications year round.</p>
+          </speech>
+        </debateSection>
+        </debateBody></debate>
+</akomaNtoso>

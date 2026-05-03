@@ -1,0 +1,117 @@
+<akomaNtoso xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13" xsi:schemaLocation="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13 ./akomantoso30.xsd">
+  <debate name="Official Report">
+    <meta>
+      <identification source="#debates">
+        <FRBRWork>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-03-26/debate/dbsect_30"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-03-26/debate"/>
+          <FRBRdate date="2026-03-26" name="#generation"/>
+          <FRBRauthor as="#author" href="/ie/oireachtas/house/dail/34"/>
+          <FRBRcountry value="ie"/>
+          <FRBRname value="debate"/>
+        </FRBRWork>
+        <FRBRExpression>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-03-26/debate/mul@/dbsect_30"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-03-26/debate/mul@"/>
+          <FRBRdate date="2026-03-26" name="#reported"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+          <FRBRlanguage language="eng"/>
+        </FRBRExpression>
+        <FRBRManifestation>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-03-26/debate/mul@/dbsect_30.xml"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-03-26/debate/mul@.akn"/>
+          <FRBRdate date="2026-04-15" name="#publication"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+        </FRBRManifestation>
+      </identification>
+      <references source="#debates">
+        <TLCPerson eId="ErinMcGreehan" href="/ie/oireachtas/member/id/Erin-McGreehan.S.2020-06-29" showAs="Erin McGreehan"/>
+        <TLCPerson eId="HelenMcEntee" href="/ie/oireachtas/member/id/Helen-McEntee.D.2013-03-27" showAs="Helen McEntee"/>
+        <TLCPerson eId="TonyMcCormack" href="/ie/oireachtas/member/id/Tony-McCormack.D.2024-11-29" showAs="Tony McCormack"/>
+        <TLCRole eId="Foreign" href="/ie/oireachtas/role/office/foreign" showAs="Foreign"/>
+        <TLCRole eId="Minister_for_Foreign_Affairs_and_Trade" href="/ie/oireachtas/role/minister/foreign_affairs__trade" showAs="Minister for Foreign Affairs and Trade"/>
+        </references>
+    </meta>
+    <preface>
+      <block name="title_ga">
+        <docTitle>DÍOSPÓIREACHTAÍ PARLAIMINTE</docTitle>
+      </block>
+      <block name="title_en">
+        <docTitle>PARLIAMENTARY DEBATES</docTitle>
+      </block>
+      <block name="proponent_ga">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="proponent_en">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="status_ga">
+        <docStatus>TUAIRISC OIFIGIÚIL</docStatus>
+      </block>
+      <block name="status_en">
+        <docStatus>(OFFICIAL REPORT)</docStatus>
+      </block>
+      <block name="date_ga">
+        <docDate date="2026-03-26">Déardaoin, 26 Márta 2026</docDate>
+      </block>
+      <block name="date_en">
+        <docDate date="2026-03-26">Thursday, 26 March 2026</docDate>
+      </block>
+      <block name="volume">
+        <docNumber refersTo="#vol_1083">Vol. 1083</docNumber>
+      </block>
+      <block name="number">
+        <docNumber refersTo="#no_3">No. 3</docNumber>
+      </block>
+      <block refersTo="#unrevised" name="version_en">
+        <docStatus/>
+      </block>
+      <block refersTo="#unrevised" name="version_ga">
+        <docStatus/>
+      </block>
+    </preface>
+    <debateBody><debateSection name="question" eId="dbsect_30">
+          <heading>Trade Relations<recordedTime time="2026-03-26T11:50:00+00:00"/></heading>
+          <question by="#ErinMcGreehan" to="#Foreign" eId="pq_81">
+            <p eId="para_313">81. <b>Deputy Erin McGreehan</b> asked the <b>Minister for Foreign Affairs and Trade</b> the way in which Ireland is working with EU partners and international organisations to ensure that trade flows, market access and regulatory stability are maintained during global economic uncertainty; and if she will make a statement on the matter. [22537/26]</p>
+          </question>
+          <question by="#TonyMcCormack" to="#Foreign" eId="pq_139">
+            <p eId="para_314">139. <b>Deputy Tony McCormack</b> asked the <b>Minister for Foreign Affairs and Trade</b> the way in which Ireland is responding to evolving international trade policy developments that may impact Irish economic interests; and if she will make a statement on the matter. [22513/26]</p>
+          </question>
+          <speech by="#ErinMcGreehan" eId="spk_165">
+            <from>Deputy Erin McGreehan<recordedTime time="2026-03-26T11:50:00+00:00"/></from>
+            <p eId="para_315">In what ways is Ireland working with EU partners and international organisations to ensure trade flows, market access, and regulatory stability are maintained during the global economic uncertainty? Will the Minister make a statement on the matter?</p>
+          </speech>
+          <speech by="#HelenMcEntee" eId="spk_166" as="#Minister_for_Foreign_Affairs_and_Trade">
+            <from>Deputy Helen McEntee<recordedTime time="2026-03-26T11:50:00+00:00"/></from>
+            <p eId="para_316">We can agree that in an increasingly volatile environment it is really important that we focus on what we can predict and what we can work on, not just within the EU market but with our international partners such as the US, the UK and beyond. There are a number of things I am doing, working closely with colleagues in government. At home we are meeting with companies to understand what the impacts are of a lot of the changes, be they tariffs or the regulatory environment more broadly. We are meeting with our companies. I also host the trade forum where we bring together representative organisations on a regular basis to understand the impacts of what is happening and to get feedback from them as to what more we can do. At an EU level we are diversifying and strengthening our economic resilience by reducing our overdependence on some of these particular markets.</p>
+            <p eId="para_317"> We have a number of new free trade agreements. Just this week we agreed the Australia agreement, which I very much welcome. It is an open and very much welcome agreement. We are also looking at negotiations with the Philippines, Malaysia, Thailand and the United Arab Emirates. There are lots of new markets we want to work on.</p>
+            <p eId="para_318"> In relation to EU-US trade relations, the most important thing is that we have clarity and the stability we thought we had last year with the Turnberry agreement and the US-EU joint statement. We are advocating to get back to that point. We also want to make progress on some of the further exemptions we need specifically for some of the key Irish sectors.</p>
+            <p eId="para_319"> The simplification agenda will be a priority for me and the Government during the Presidency. This is about some of the barriers we have perhaps imposed on ourselves and making sure that we make it easier for businesses to do business within the EU. I am really pleased to see the EU's 28th regime, which is going to be led by our own European Commissioner Michael McGrath, and which was brought to the Commission and to some of our Council meetings today. Hopefully, we will make progress on this. It is about making sure that if a company does business in Ireland, it is easy then for it to do business in France, Germany, Poland and in every other member state. At the moment such companies have to go through individual processes for each country. It is about looking out beyond the EU and what more we can do within the EU to support and enhance business at a time of huge uncertainty.</p>
+          </speech>
+          <speech by="#ErinMcGreehan" eId="spk_167">
+            <from>Deputy Erin McGreehan<recordedTime time="2026-03-26T11:50:00+00:00"/></from>
+            <p eId="para_320">I thank the Minister. It is really good to hear about all the work that is going on in Ireland and the EU. We know the Minister is in agreement that our economic future and our social cohesion really depends on how we maintain those strong trade relationships and how we respond to real pressures that people are facing on the ground with energy costs and food security. I am very glad to hear that the EU Presidency has a clear focus on this. We need a strong focus on diversification to cushion our economy from shocks.</p>
+            <p eId="para_321">The latest energy crisis is only the latest, and there will inevitably be another one ahead. Before the next crisis, Ireland and Europe really need to stand up to make sure we protect our economy and citizens from the whims of global leaders.</p>
+          </speech>
+          <speech by="#HelenMcEntee" eId="spk_168" as="#Minister_for_Foreign_Affairs_and_Trade">
+            <from>Deputy Helen McEntee<recordedTime time="2026-03-26T12:00:00+00:00"/></from>
+            <p eId="para_322">Everything we do is interconnected. Any of us who travelled in the past week or so, or indeed anyone who has been on any of the visits we make as parliamentarians, will have seen that our economic interests are supported by our cultural ties and what is happening in other regions and other parts of the world. All of this can have a significant impact on the quality of life citizens have here. While there is huge instability in the world, knowing the impacts it can have on our economy and people's quality of life, we need to make sure we can control the controllables and take away some of that uncertainty businesses and communities are feeling. That is what the trade forum is about and it is why I chair it every six or eight weeks. It is why our focus and one of key priorities during the EU Presidency will be competitiveness. It is about that simplification agenda and looking to see how we can further strengthen the Single Market and break down barriers within the EU and seek more trade deals. I have mentioned that at least four are in the pipeline and that will hugely benefit our economies. Beyond that, whether it is China, India or other sectors we have not explored in the way we should, there are huge opportunities for business and citizens and communities because of that.</p>
+          </speech>
+          <speech by="#ErinMcGreehan" eId="spk_169">
+            <from>Deputy Erin McGreehan<recordedTime time="2026-03-26T12:00:00+00:00"/></from>
+            <p eId="para_323">It is important that we do. With the EU Presidency, Ireland has a real opportunity to be a leader. Ireland is an economic success story, but with Ireland's Presidency of the EU let us make sure that we are cushioning ourselves and that we have a strong Europe, a strong Ireland and a strong economy.</p>
+          </speech>
+          <speech by="#HelenMcEntee" eId="spk_170" as="#Minister_for_Foreign_Affairs_and_Trade">
+            <from>Deputy Helen McEntee<recordedTime time="2026-03-26T12:00:00+00:00"/></from>
+            <p eId="para_324">I believe the EU Presidency is an opportunity to make sure we can make further progress on our relationship with the UK. It is still one of our most important trading partners and closest neighbours. The relationship with the UK now, with Keir Starmer as Prime Minister, has changed and transformed. We can see that happening with the EU as well and we all benefit when that relationship gets stronger. There are a lot of opportunities, and we obviously want the Presidency to be a successful one. That is exactly what we will be working towards.</p>
+          </speech>
+          <summary eId="sum_6">
+            <i>Is féidir teacht ar Cheisteanna Scríofa ar www.oireachtas.ie.</i>
+          </summary>
+          <summary eId="sum_7">
+            <i> Written Answers are published on the Oireachtas website.</i>
+          </summary>
+        </debateSection>
+      </debateBody></debate>
+</akomaNtoso>

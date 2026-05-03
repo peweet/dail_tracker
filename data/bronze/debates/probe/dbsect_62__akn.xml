@@ -1,0 +1,87 @@
+<akomaNtoso xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13" xsi:schemaLocation="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13 ./akomantoso30.xsd">
+  <debate name="Official Report">
+    <meta>
+      <identification source="#debates">
+        <FRBRWork>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-02-12/writtens/dbsect_62"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-02-12/writtens"/>
+          <FRBRdate date="2026-02-12" name="#generation"/>
+          <FRBRauthor as="#author" href="/ie/oireachtas/house/dail/34"/>
+          <FRBRcountry value="ie"/>
+          <FRBRname value="writtens"/>
+        </FRBRWork>
+        <FRBRExpression>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-02-12/writtens/mul@/dbsect_62"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-02-12/writtens/mul@"/>
+          <FRBRdate date="2026-02-12" name="#reported"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+          <FRBRlanguage language="eng"/>
+        </FRBRExpression>
+        <FRBRManifestation>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-02-12/writtens/mul@/dbsect_62.xml"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-02-12/writtens/mul@.akn"/>
+          <FRBRdate date="2026-04-24" name="#publication"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+        </FRBRManifestation>
+      </identification>
+      <references source="#debates">
+        <TLCPerson eId="JamesGeogheganFG" href="/ie/oireachtas/member/id/James-Geoghegan.D.2024-11-29" showAs="James Geoghegan"/>
+        <TLCPerson eId="KevinBoxerMoran" href="/ie/oireachtas/member/id/Kevin-Boxer-Moran.D.2016-10-03" showAs="Kevin Boxer Moran"/>
+        <TLCRole eId="Minister_of_State_at_the_Department_of_Public_Expenditure,_National_Development_Plan_Delivery_and_Reform" href="/ie/oireachtas/role/minister_state/public_expenditure__national_development_plan_delivery__reform" showAs="Minister of State at the Department of Public Expenditure, National Development Plan Delivery and Reform"/>
+        <TLCRole eId="Public_Expenditure" href="/ie/oireachtas/role/office/public_expenditure" showAs="Public Expenditure"/>
+        </references>
+    </meta>
+    <preface>
+      <block name="title_ga">
+        <docTitle>DÍOSPÓIREACHTAÍ PARLAIMINTE</docTitle>
+      </block>
+      <block name="title_en">
+        <docTitle>PARLIAMENTARY DEBATES</docTitle>
+      </block>
+      <block name="proponent_ga">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="proponent_en">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="status_ga">
+        <docStatus>TUAIRISC OIFIGIÚIL</docStatus>
+      </block>
+      <block name="status_en">
+        <docStatus>(OFFICIAL REPORT)</docStatus>
+      </block>
+      <block name="date_ga">
+        <docDate date="2026-02-12">Déardaoin, 12 Feabhra 2026</docDate>
+      </block>
+      <block name="date_en">
+        <docDate date="2026-02-12">Thursday, 12 February 2026</docDate>
+      </block>
+      <block name="volume">
+        <docNumber refersTo="#vol_1081">Vol. 1081</docNumber>
+      </block>
+      <block name="number">
+        <docNumber refersTo="#no_1">No. 1</docNumber>
+      </block>
+      <block refersTo="#unrevised" name="version_en">
+        <docStatus/>
+      </block>
+      <block refersTo="#unrevised" name="version_ga">
+        <docStatus/>
+      </block>
+    </preface>
+    <debateBody><debateSection name="writtenAnswer" eId="dbsect_62">
+          <heading>State Properties<recordedTime time="2026-02-12T18:01:00+00:00"/></heading>
+          <question by="#JamesGeogheganFG" to="#Public_Expenditure" eId="pq_31">
+            <p eId="para_1040">31. <b>Deputy James Geoghegan</b> asked the <b>Minister for Public Expenditure, Infrastructure, Public Service Reform and Digitalisation</b> if he will provide an update on the refurbishment of the GPO; and if he will make a statement on the matter. [11105/26]</p>
+          </question>
+          <speech by="#KevinBoxerMoran" as="#Minister_of_State_at_the_Department_of_Public_Expenditure,_National_Development_Plan_Delivery_and_Reform" eId="spk_337">
+            <from>Minister of State at the Department of Public Expenditure, National Development Plan Delivery and Reform<recordedTime time="2026-02-12T18:01:00+00:00"/></from>
+            <p eId="para_1041">The Office of Public Works is leading on the redevelopment of the GPO Complex, as outlined in the Department of Taoiseach's Interdepartmental Group 'Report' and 'Roadmap for Delivery', and previous Government commitments. </p>
+            <p eId="para_1042"> It is anticipated that the future GPO Complex will incorporate at least some, or all of the following, the retention of a public Post Office function, high-quality offices on the upper floors to provide critical accommodation to meet ongoing/ additional Government requirements, a significant cultural use/ uses, retail components within the existing retail footprint and significant public realm enhancements at street level to encourage public use of the GPO complex.</p>
+            <p eId="para_1043"> A GPO Steering Group is in place since November 2024.</p>
+            <p eId="para_1044"> This Steering Group is chaired by the Office of Public Works and its membership includes representation from the Department of Culture, Communications, and Sport, Dublin City Council and others.</p>
+            <p eId="para_1045"> There are several GPO Steering Group work streams operational at present. These include progressing property related matters, the development of a non-statutory public consultation engagement process and the development of potential temporary meanwhile uses while the permanent redevelopment plans are being progressed. </p>
+          </speech>
+        </debateSection>
+        </debateBody></debate>
+</akomaNtoso>

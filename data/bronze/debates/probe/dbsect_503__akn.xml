@@ -1,0 +1,83 @@
+<akomaNtoso xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13" xsi:schemaLocation="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13 ./akomantoso30.xsd">
+  <debate name="Official Report">
+    <meta>
+      <identification source="#debates">
+        <FRBRWork>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-04-21/writtens/dbsect_503"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-04-21/writtens"/>
+          <FRBRdate date="2026-04-21" name="#generation"/>
+          <FRBRauthor as="#author" href="/ie/oireachtas/house/dail/34"/>
+          <FRBRcountry value="ie"/>
+          <FRBRname value="writtens"/>
+        </FRBRWork>
+        <FRBRExpression>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-04-21/writtens/mul@/dbsect_503"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-04-21/writtens/mul@"/>
+          <FRBRdate date="2026-04-21" name="#reported"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+          <FRBRlanguage language="eng"/>
+        </FRBRExpression>
+        <FRBRManifestation>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-04-21/writtens/mul@/dbsect_503.xml"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-04-21/writtens/mul@.akn"/>
+          <FRBRdate date="2026-04-28" name="#publication"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+        </FRBRManifestation>
+      </identification>
+      <references source="#debates">
+        <TLCPerson eId="MartinHeydon" href="/ie/oireachtas/member/id/Martin-Heydon.D.2011-03-09" showAs="Martin Heydon"/>
+        <TLCPerson eId="PatTheCopeGallagher" href="/ie/oireachtas/member/id/Pat-the-Cope-Gallagher.D.1981-06-30" showAs="Pat the Cope Gallagher"/>
+        <TLCRole eId="Agriculture" href="/ie/oireachtas/role/office/agriculture" showAs="Agriculture"/>
+        <TLCRole eId="Minister_for_Agriculture,_Food_and_the_Marine" href="/ie/oireachtas/role/minister/agriculture__food__marine" showAs="Minister for Agriculture, Food and the Marine"/>
+        </references>
+    </meta>
+    <preface>
+      <block name="title_ga">
+        <docTitle>DÍOSPÓIREACHTAÍ PARLAIMINTE</docTitle>
+      </block>
+      <block name="title_en">
+        <docTitle>PARLIAMENTARY DEBATES</docTitle>
+      </block>
+      <block name="proponent_ga">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="proponent_en">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="status_ga">
+        <docStatus>TUAIRISC OIFIGIÚIL</docStatus>
+      </block>
+      <block name="status_en">
+        <docStatus>(OFFICIAL REPORT)</docStatus>
+      </block>
+      <block name="date_ga">
+        <docDate date="2026-04-21">Dé Máirt, 21 Aibreán 2026</docDate>
+      </block>
+      <block name="date_en">
+        <docDate date="2026-04-21">Tuesday, 21 April 2026</docDate>
+      </block>
+      <block name="volume">
+        <docNumber refersTo="#vol_1084">Vol. 1084</docNumber>
+      </block>
+      <block name="number">
+        <docNumber refersTo="#no_2">No. 2</docNumber>
+      </block>
+      <block refersTo="#unrevised" name="version_en">
+        <docStatus/>
+      </block>
+      <block refersTo="#unrevised" name="version_ga">
+        <docStatus/>
+      </block>
+    </preface>
+    <debateBody><debateSection name="writtenAnswer" eId="dbsect_503">
+          <heading>EU Bodies<recordedTime time="2026-04-21T00:32:00+01:00"/></heading>
+          <question by="#PatTheCopeGallagher" to="#Agriculture" eId="pq_647">
+            <p eId="para_5611">647. <b>Deputy Pat the Cope Gallagher</b> asked the <b>Minister for Agriculture, Food and the Marine</b> if his attention has been drawn to a matter (details supplied); and if he has had discussions with this office regarding same. [28300/26]</p>
+          </question>
+          <speech by="#MartinHeydon" as="#Minister_for_Agriculture,_Food_and_the_Marine" eId="spk_886">
+            <from>Minister for Agriculture, Food and the Marine<recordedTime time="2026-04-21T00:32:00+01:00"/></from>
+            <p eId="para_5612">I can advise the Deputy that there has been no contact with my Department regarding this matter. I would expect that my Department would be formally consulted if such a matter were to be under active consideration. </p>
+          </speech>
+        </debateSection>
+        </debateBody></debate>
+</akomaNtoso>

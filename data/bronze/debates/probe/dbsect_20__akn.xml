@@ -1,0 +1,117 @@
+<akomaNtoso xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13" xsi:schemaLocation="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13 ./akomantoso30.xsd">
+  <debate name="Official Report">
+    <meta>
+      <identification source="#debates">
+        <FRBRWork>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-03-19/debate/dbsect_20"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-03-19/debate"/>
+          <FRBRdate date="2026-03-19" name="#generation"/>
+          <FRBRauthor as="#author" href="/ie/oireachtas/house/dail/34"/>
+          <FRBRcountry value="ie"/>
+          <FRBRname value="debate"/>
+        </FRBRWork>
+        <FRBRExpression>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-03-19/debate/mul@/dbsect_20"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-03-19/debate/mul@"/>
+          <FRBRdate date="2026-03-19" name="#reported"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+          <FRBRlanguage language="eng"/>
+        </FRBRExpression>
+        <FRBRManifestation>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-03-19/debate/mul@/dbsect_20.xml"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-03-19/debate/mul@.akn"/>
+          <FRBRdate date="2026-04-12" name="#publication"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+        </FRBRManifestation>
+      </identification>
+      <references source="#debates">
+        <TLCPerson eId="JohnMcGuinness" href="/ie/oireachtas/member/id/John-McGuinness.D.1997-06-26" showAs="John McGuinness"/>
+        <TLCPerson eId="MichaelHealyRae" href="/ie/oireachtas/member/id/Michael-Healy-Rae.D.2011-03-09" showAs="Michael Healy-Rae"/>
+        <TLCPerson eId="RobertODonoghue" href="/ie/oireachtas/member/id/Robert-O'Donoghue.D.2024-11-29" showAs="Robert O'Donoghue"/>
+        <TLCRole eId="Agriculture" href="/ie/oireachtas/role/office/agriculture" showAs="Agriculture"/>
+        <TLCRole eId="Minister_of_State_at_the_Department_of_Agriculture,_Food_and_the_Marine" href="/ie/oireachtas/role/minister_state/agriculture__food__marine" showAs="Minister of State at the Department of Agriculture, Food and the Marine"/>
+        </references>
+    </meta>
+    <preface>
+      <block name="title_ga">
+        <docTitle>DÍOSPÓIREACHTAÍ PARLAIMINTE</docTitle>
+      </block>
+      <block name="title_en">
+        <docTitle>PARLIAMENTARY DEBATES</docTitle>
+      </block>
+      <block name="proponent_ga">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="proponent_en">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="status_ga">
+        <docStatus>TUAIRISC OIFIGIÚIL</docStatus>
+      </block>
+      <block name="status_en">
+        <docStatus>(OFFICIAL REPORT)</docStatus>
+      </block>
+      <block name="date_ga">
+        <docDate date="2026-03-19">Déardaoin, 19 Márta 2026</docDate>
+      </block>
+      <block name="date_en">
+        <docDate date="2026-03-19">Thursday, 19 March 2026</docDate>
+      </block>
+      <block name="volume">
+        <docNumber refersTo="#vol_1082">Vol. 1082</docNumber>
+      </block>
+      <block name="number">
+        <docNumber refersTo="#no_6">No. 6</docNumber>
+      </block>
+      <block refersTo="#unrevised" name="version_en">
+        <docStatus/>
+      </block>
+      <block refersTo="#unrevised" name="version_ga">
+        <docStatus/>
+      </block>
+    </preface>
+    <debateBody><debateSection name="question" eId="dbsect_20">
+          <heading>Horticulture Sector<recordedTime time="2026-03-19T10:30:00+00:00"/></heading>
+          <question by="#RobertODonoghue" to="#Agriculture" eId="pq_78">
+            <p eId="para_416">78. <b>Deputy Robert O'Donoghue</b> asked the <b>Minister for Agriculture, Food and the Marine</b> in light of warnings from EU farm organisations that the price of EU-produced fertilisers has increased by approximately 25% in the past month compared with the 2024 average, and given that fertilisers account for between 15% and 30% of horticulture farmers’ input costs on average, the steps he is taking to support growers and the horticulture sector who are already facing severe pressure from rising input costs and negative margins across the arable sector for the third consecutive year; and the measures being considered to mitigate the impact of escalating fertiliser prices on the viability of growers and horticultural producers. [20735/26]</p>
+          </question>
+          <speech by="#RobertODonoghue" eId="spk_92">
+            <from>Deputy Robert O'Donoghue<recordedTime time="2026-03-19T10:30:00+00:00"/></from>
+            <p eId="para_417">We have had warnings from European farm organisations that nitrogen fertiliser imports into the EU have fallen by 80% since the carbon border adjustment mechanism, CBAM. What assessments has the Minister made on the likely consequences it will have for fertiliser prices and the availability for the Irish horticulture industry in 2026? Has he raised the concerns with the European Commission given that growers of fruit, vegetables and protected crops are already under severe cost pressures and further increases to the price of fertiliser due to the conflict in the Middle East could undermine domestic food production?</p>
+          </speech>
+          <speech by="#MichaelHealyRae" as="#Minister_of_State_at_the_Department_of_Agriculture,_Food_and_the_Marine" eId="spk_93">
+            <from>Minister of State at the Department of Agriculture, Food and the Marine (Deputy Michael Healy-Rae)<recordedTime time="2026-03-19T10:30:00+00:00"/></from>
+            <p eId="para_418">I thank Deputy O'Donoghue for the question. The Government fully recognises the importance of the horticultural sector to the economy and its contribution to food security in Ireland. My Department is closely monitoring developments regarding input costs. The current conflict in the Middle East is putting upward pressure on energy and fertiliser prices. The Strait of Hormuz is currently closed, leading to delays in the transportation of fertilisers. It has been estimated that 25% to 30% of global nitrogen fertiliser exports pass through the Strait of Hormuz.</p>
+            <p eId="para_419"> Agriculture in the EU as a whole is vulnerable to shocks in the availability and price of fertiliser due to limited internal production capacity and a reliance on imports. Ireland does not produce fertilisers and therefore is exposed to market shifts. It is too early to assess the full impact of current input price pressures on horticultural production systems and, in turn, on farmer margins. The impact will depend on how long the disruption lasts, whether physical energy production infrastructure is damaged, and how secondary markets respond. My Department is meeting with the fertiliser importers this week and will continue to monitor the situation closely.</p>
+            <p eId="para_420"> My Department provides a range of supports to growers in the horticulture sector through a number of schemes, including the scheme of investment aid for the development of the commercial horticulture sector, the EU producer organisation scheme for the fruit and vegetable sector and the schemes of investment aid for innovation and diversification in horticulture.</p>
+            <p eId="para_421"> The Government is fully committed to the Irish horticulture sector. The National Strategy for Horticulture 2023-2027 sets out a clear vision to grow a more profitable, value-added sector, driven by innovation and sustainability and provides a roadmap for the sector to achieve this potential. My Department is working collaboratively with stakeholders to progress all key strategic actions in the national strategy for horticulture.</p>
+          </speech>
+          <speech by="#RobertODonoghue" eId="spk_94">
+            <from>Deputy Robert O'Donoghue<recordedTime time="2026-03-19T10:30:00+00:00"/></from>
+            <p eId="para_422">I accept that we do not know when the war in the Middle East is going to come to a conclusion but does the Minister of State accept or acknowledge that if fertiliser prices rise again - compounded by high gas and fuel inputs - that may make many Irish fruit and vegetable producers unviable? We currently import 83% of our vegetables. This is a food security issue. There were 600 growers 20 years ago and there are 73 now. I am calling for a firm commitment to targeted supports - like the Minister, Deputy Jim O'Callaghan, spoke about in the Dáil yesterday - for the horticultural sector, and a dedicated horticultural crisis fund like we brought in during the spike in prices at the start of the war in Ukraine. The agriculture sector is worth €19 billion, yet the focus in here is always on the beef and dairy sectors - fair play to them, they are well represented. My constituency is where the growers are - the market garden of Ireland in Dublin Fingal West. If we got half the attention the beef sector gets, we would be doing really well. It is time to give the horticulture sector its due to develop the potential it deserves because that is where our real food security lies.</p>
+          </speech>
+          <speech by="#MichaelHealyRae" eId="spk_95" as="#Minister_of_State_at_the_Department_of_Agriculture,_Food_and_the_Marine">
+            <from>Deputy Michael Healy-Rae<recordedTime time="2026-03-19T10:30:00+00:00"/></from>
+            <p eId="para_423">Deputy O'Donoghue is so correct in everything he says. If we take the events of last week, one of our highly respected carrot producers went into liquidation. That is a situation I, the Department, and the Government find very concerning. It drives home now more than ever before that the customers - the people who go into shops - should be looking to try to buy Irish produce. We are better at producing our goods than anyone else. Our growers are better than anyone else but it is up to us. It is like the local post office: if you do not use it, you lose it. It is the same with our vegetables. Of course the geopolitical uncertainty in the Middle East is going to put unreal pressure on energy and fertiliser prices. The price of natural gas and oil are key components in fertiliser production. The national fertiliser database import figures show fertiliser stocks increased during quarter 4 of 2025, in advance of the introduction of CBAM, which stands to the sector in terms of supply in the early months of this year.</p>
+          </speech>
+          <speech by="#JohnMcGuinness" eId="spk_96">
+            <from> An Leas-Cheann Comhairle<recordedTime time="2026-03-19T10:30:00+00:00"/></from>
+            <p eId="para_424">I thank the Minister of State.</p>
+          </speech>
+          <speech by="#MichaelHealyRae" eId="spk_97" as="#Minister_of_State_at_the_Department_of_Agriculture,_Food_and_the_Marine">
+            <from>Deputy Michael Healy-Rae<recordedTime time="2026-03-19T10:30:00+00:00"/></from>
+            <p eId="para_425">What we are hoping for is that the situation will not be a repeat of 2022.</p>
+          </speech>
+          <speech by="#RobertODonoghue" eId="spk_98">
+            <from>Deputy Robert O'Donoghue<recordedTime time="2026-03-19T10:30:00+00:00"/></from>
+            <p eId="para_426">I could not agree more with the Minister of State. We should buy Irish. We should all be looking at that. The horticulture sector is under immense pressure due to conflict and climate change, and costs have rapidly increased over the past 20 years. I have worked in the sector. I know the amount of toil that goes into it. I have picked and packed every fruit and vegetable under the sun at some point in the past 30 years. When we had 54 days of rain in the north county, that did not make it easier to plough or to plant. Welgro produce cucumbers in glasshouses in Rush. It uses gas to heat the glasshouses to grow the vegetables. Its energy costs will go from €200,000 to €400,000 a year if prices remain the same.</p>
+            <p eId="para_427">That is with fertiliser prices on top. This snowballing of costs is not viable. Our growers need support and they need it urgently. I implore the Minister of State to look at introducing a crisis horticulture fund, like we did during the price spike arising from the war in Ukraine.</p>
+          </speech>
+          <speech by="#MichaelHealyRae" eId="spk_99" as="#Minister_of_State_at_the_Department_of_Agriculture,_Food_and_the_Marine">
+            <from>Deputy Michael Healy-Rae<recordedTime time="2026-03-19T10:40:00+00:00"/></from>
+            <p eId="para_428">The Government will, of course, continuously assess the situation and try to respond in the most proactive and helpful way we can. It is too early to assess the full impact of increased energy and fertiliser costs but any spike in those prices obviously will have an impact on farmers' margins. The impact on fertiliser price will depend on how long the disruption lasts, whether physical energy production infrastructure is damaged and how secondary markets respond. Ironically, the concerns relating to the price-raising effect of the CBAM regulation caused the Irish farming industry to purchase significant volumes of product in advance of its coming into full effect on 1 January. As a result, it is understood there may be sufficient for fertiliser stocks to last until mid-April.</p>
+            <p eId="para_429"> The national fertiliser database import figures show fertiliser stocks increased significantly during quarter 4 of 2025. That means there are reserves of fertiliser in the country. Many farmers thought ahead and have bought fertiliser already, meaning any fertiliser price shock may not be as acute as in the spring of 2022. The Deputy will recall that at that time, a pallet of fertiliser was like a pallet of gold because of the massive increase in price. We hope to be able to avoid a situation like that. If we look at the events overnight, the uncertainty that is there is something the Government can only follow and monitor. We will do our best to support the sector.</p>
+          </speech>
+        </debateSection>
+        </debateBody></debate>
+</akomaNtoso>
