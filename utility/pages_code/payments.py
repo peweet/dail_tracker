@@ -11,7 +11,9 @@ No groupby, merge, pivot, or metric definitions here.
 TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL on v_payments_sources
 TODO_PIPELINE_VIEW_REQUIRED: fix malformed/shifted-column rows in aggregated_payment_tables.csv
 TODO_PIPELINE_VIEW_REQUIRED: normalise all TAA_Band values (Vouched, MIN, NoTAA, combined codes)
-TODO_PIPELINE_VIEW_REQUIRED: canonical member_id for cross-page linking
+TODO_PIPELINE_VIEW_REQUIRED: canonical unique_member_code on payments views — required
+    for cross-page member-name links via utility/ui/entity_links.member_link_html.
+    Until then this page cannot link member names out to /member-overview.
 TODO_PIPELINE_VIEW_REQUIRED: party_name and constituency — not present in payments source CSV
 """
 from __future__ import annotations

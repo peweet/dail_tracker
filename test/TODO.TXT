@@ -1,0 +1,77 @@
+### 5.1 Schema validation at silver writes
+
+Use pandera (or pydantic for less-tabular cases) at every silver-write step. Fail loudly when a column type drifts or a non-null column starts allowing nulls. Currently a drift would propagate silently into gold.
+
+```python
+from pandera.polars import DataFrameSchema, Column
+
+ATTENDANCE_SILVER_SCHEMA = DataFrameSchema({
+    "member_id": Column(str, nullable=False, unique=False),
+    "sitting_date": Column("date", nullable=False),
+    "present": Column(bool, nullable=False),
+    "source_pdf": Column(str, nullable=False),
+    "source_page": Column(int, nullable=False),
+    "parser_version": Column(str, nullable=False),
+})
+ATTENDANCE_SILVER_SCHEMA.validate(df)
+
+
+
+### 5.2 Golden-file PDF regression tests
+
+Pick one representative PDF per parser (attendance, payments, interests, sponsors). Commit it to `test/fixtures/`. Commit the expected silver output beside it. Run on every PR.
+
+```python
+def test_attendance_parser_2024_q1():
+    out = parse_attendance(Path("test/fixtures/attendance_2024_q1.pdf"))
+    expected = pl.read_parquet("test/fixtures/attendance_2024_q1.expected.parquet")
+    pl.testing.assert_frame_equal(out, expected)
+
+
+### 5.3 Row-count drift assertions
+
+When a refresh produces ≥10% fewer rows than the prior run for any silver table, fail the run unless explicitly allowed. The threshold is tunable per source.
+
+Stored beside each manifest:
+
+```json
+"row_count_history": [
+  {"run_id": "...", "rows": 4221, "delta_pct": null},
+  {"run_id": "...", "rows": 4334, "delta_pct": 2.7},
+  {"run_id": "...", "rows": 3812, "delta_pct": -12.0}
+]
+```
+
+That third row should hard-fail.
+
+### 5.4 Source endpoint health checks
+
+`pdf_endpoint_check.py` already exists. Extend it to check every endpoint the pipeline touches and run it as the first step of every refresh. A 404 on a known-good URL should not silently propagate to "0 rows extracted".
+
+### 5.5 Quarantine flow for bad rows
+
+Already partially exists for payments (`payments_quarantined.parquet`). Generalise:
+
+- Every silver writer accepts a `quarantine` callback.
+- Rows that fail validation go to `data/silver/_quarantine/<source>_<run_id>.parquet` with the failed-rule annotation.
+- A nightly summary opens an issue if any source has more than N quarantined rows in a run.
+- Quarantined rows never silently disappear.
+
+### 5.6 Parser idempotency
+
+Every parser should produce identical output for identical input. This is true today for most modules but is not asserted. A simple test:
+
+```python
+def test_payments_parser_idempotent():
+    out_a = parse_payments(FIXTURE_PDF)
+    out_b = parse_payments(FIXTURE_PDF)
+    pl.testing.assert_frame_equal(out_a, out_b)
+```
+
+Idempotency is the precondition for safely re-running refreshes.
+
+### 5.7 Manifest discipline
+
+Every gold mart writes a manifest at build time. A page that loads a mart without a manifest should warn loudly, not silently render with stale provenance. This is enforceable via a small helper that the page contract loader calls.
+
+---

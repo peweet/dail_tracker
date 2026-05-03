@@ -875,6 +875,23 @@ def inject_css() -> None:
             color: var(--text-meta);
         }
         .int-stat-pill-accent { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
+        /* Cross-page profile link rendered alongside int-stat-pill items. */
+        .int-stat-pill-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.1rem 0.5rem;
+            font-size: 0.76rem;
+            font-weight: 600;
+            text-decoration: none;
+            margin-left: 0.25rem;
+        }
+        .int-stat-pill-link:hover {
+            border-color: var(--accent, #b04a1a);
+            color: var(--accent, #b04a1a) !important;
+        }
         .int-pill-decl    { background:#eff6ff; border-color:#93c5fd; color:#1e3a8a; }
         .int-pill-company { background:#f0fdfa; border-color:#5eead4; color:#0e6655; }
         .int-pill-prop    { background:#fffbeb; border-color:#fbbf24; color:#78350f; }
@@ -1721,6 +1738,55 @@ def inject_css() -> None:
             margin-right: 0.35rem;
         }
 
+        /* ── Cross-page entity links ─────────────────────────────────── */
+        /* Inline anchor used wherever a TD name links to their profile.
+           See utility/ui/entity_links.py — never hand-roll these styles. */
+        .dt-member-link {
+            color: var(--text-primary, #111827);
+            text-decoration: underline;
+            text-decoration-color: rgba(0,0,0,0.22);
+            text-underline-offset: 2px;
+            text-decoration-thickness: 1px;
+            font-weight: inherit;
+            transition: color 0.12s, text-decoration-color 0.12s;
+        }
+        .dt-member-link:hover {
+            color: var(--accent, #b04a1a);
+            text-decoration-color: var(--accent, #b04a1a);
+        }
+        .dt-member-link:focus-visible {
+            outline: 2px solid var(--accent, #b04a1a);
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
+
+        /* Bold pill anchor for prominent profile-jump links. */
+        .dt-entity-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+            padding: 0.5rem 1.1rem;
+            background: var(--text-primary, #111827);
+            color: #ffffff;
+            border-radius: 2px;
+            text-decoration: none;
+            font-weight: 700;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.82rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            transition: background 0.12s;
+        }
+        .dt-entity-cta:hover {
+            background: var(--accent, #b04a1a);
+            color: #ffffff;
+        }
+        .dt-entity-cta:focus-visible {
+            outline: 2px solid var(--accent, #b04a1a);
+            outline-offset: 2px;
+        }
+
         /* ── Mobile layout ───────────────────────────────────────────── */
         @media (max-width: 640px) {
             /* Stack st.columns vertically */
@@ -2017,8 +2083,19 @@ def inject_css() -> None:
             font-size: 0.98rem;
             font-weight: 700;
             color: var(--text-primary, #111827);
+        }
+        .td-pick-name-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.6rem;
             margin-top: auto;
             padding-top: 0.45rem;
+        }
+        .td-pick-profile {
+            font-size: 0.78rem;
+            white-space: nowrap;
+            font-weight: 600;
         }
         .td-pick-meta {
             font-family: 'Epilogue', sans-serif;

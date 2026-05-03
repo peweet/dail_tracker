@@ -14,16 +14,18 @@ st.set_page_config(
     layout="wide",
 )
 
+# url_path is pinned explicitly so cross-page <a href> links don't break if a
+# title is renamed. Slugs must match utility/ui/entity_links.PAGES.
 pg = st.navigation(
     [
-        st.Page(attendance_page, title="Attendance", icon=":material/calendar_today:", default=True),
-        st.Page(member_overview_page, title="Member Overview", icon=":material/person:"),
-        st.Page(votes_page, title="Votes", icon=":material/how_to_vote:"),
-        st.Page(interests_page, title="Interests", icon=":material/interests:"),
-        st.Page(payments_page, title="Payments", icon=":material/payments:"),
-        st.Page(lobbying_page, title="Lobbying", icon=":material/groups:"),
-        st.Page(legislation_page, title="Legislation", icon=":material/gavel:"),
-        st.Page(committees_page, title="Committees", icon=":material/account_balance:"),
+        st.Page(attendance_page,       title="Attendance",      icon=":material/calendar_today:", url_path="attendance",      default=True),
+        st.Page(member_overview_page,  title="Member Overview", icon=":material/person:",         url_path="member-overview"),
+        st.Page(votes_page,            title="Votes",           icon=":material/how_to_vote:",    url_path="votes"),
+        st.Page(interests_page,        title="Interests",       icon=":material/interests:",      url_path="interests"),
+        st.Page(payments_page,         title="Payments",        icon=":material/payments:",       url_path="payments"),
+        st.Page(lobbying_page,         title="Lobbying",        icon=":material/groups:",         url_path="lobbying"),
+        st.Page(legislation_page,      title="Legislation",     icon=":material/gavel:",          url_path="legislation"),
+        st.Page(committees_page,       title="Committees",      icon=":material/account_balance:",url_path="committees"),
     ]
 )
 pg.run()

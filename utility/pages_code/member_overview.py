@@ -39,6 +39,12 @@ from ui.components import (
     pagination_controls,
     sidebar_page_header,
 )
+from ui.entity_links import (
+    PAGES,
+    entity_cta_html,
+    member_profile_url,
+    member_votes_url,
+)
 from data_access.member_overview_data import get_member_overview_conn
 
 _log = logging.getLogger(__name__)
@@ -529,7 +535,7 @@ def _render_browse(conn) -> None:
         code    = str(row["unique_member_code"])
         meta    = clean_meta(party, constit)
         cards.append(
-            f'<a class="mo-grid-link" href="?member={_h(code)}" target="_self" '
+            f'<a class="mo-grid-link" href="{_h(member_profile_url(code))}" target="_self" '
             f'aria-label="View {_h(name)}">'
             f'{member_card_html(name=name, meta=meta)}'
             f'<span class="mo-grid-arrow" aria-hidden="true">→</span>'
@@ -550,7 +556,17 @@ def _render_stage2(conn, join_key: str) -> None:
 
     identity = _identity(conn, join_key)
     if not identity:
-        st.error("Member not found — join_key has no match in v_attendance_member_year_summary.")
+        browse_href = f"/{PAGES['member_overview']}"
+        st.html(
+            f'<div class="dt-callout">'
+            f'<strong>This TD is not in the dataset</strong><br>'
+            f'<span style="color:var(--text-meta)">No record matched <code>{_h(join_key)}</code> '
+            f'in <code>v_attendance_member_year_summary</code>. The link you followed may be '
+            f'out of date, or the pipeline has not yet ingested this member.</span><br>'
+            f'<a class="dt-member-link" href="{_h(browse_href)}" target="_self" '
+            f'style="margin-top:0.6rem;display:inline-block;">← Browse all TDs</a>'
+            f'</div>'
+        )
         return
 
     member_name  = str(identity.get("member_name",  ""))
@@ -626,15 +642,7 @@ def _render_stage2(conn, join_key: str) -> None:
     # ── 1. Voting record by issue ─────────────────────────────────────────────
     _section_votes(conn, join_key)
 
-    st.html(
-        f'<a href="/Votes?member={_h(join_key)}" target="_self"'
-        f' style="display:inline-flex;align-items:center;gap:0.4rem;margin-top:0.5rem;'
-        f'padding:0.5rem 1.1rem;background:var(--text-primary);color:#ffffff;'
-        f'border-radius:2px;text-decoration:none;font-weight:700;'
-        f'font-family:\'Epilogue\',sans-serif;font-size:0.82rem;letter-spacing:0.04em;'
-        f'text-transform:uppercase;">'
-        f'Full voting history →</a>'
-    )
+    st.html(entity_cta_html(member_votes_url(join_key), "Full voting history →"))
 
     st.divider()
 

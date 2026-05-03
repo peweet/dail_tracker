@@ -334,15 +334,23 @@ def rank_card_row(
     quote: str = "",
     btn_help: str = "",
     col_ratio: tuple[int, int] = (14, 1),
+    profile_href: str = "",
 ) -> bool:
     """Name card + navigation arrow. Returns True when the arrow is clicked.
 
-    rank  — pass an int to show the #N badge (gold for top 3); omit for unranked lists.
-    quote — optional italic snippet shown below the pills (e.g. top declaration text).
+    rank          — pass an int to show the #N badge (gold for top 3); omit for unranked lists.
+    quote         — optional italic snippet shown below the pills (e.g. top declaration text).
+    profile_href  — optional cross-page profile URL. When provided, appends a small
+                    "Profile ↗" anchor pill. Build with utility/ui/entity_links.member_profile_url.
     Caller is responsible for navigation + st.rerun() on True.
     """
     card_col, btn_col = st.columns(col_ratio)
     pills_html = "".join(f'<span class="int-stat-pill">{p}</span>' for p in pills)
+    if profile_href:
+        pills_html += (
+            f'<a class="dt-member-link int-stat-pill-link" href="{_h(profile_href)}" '
+            f'target="_self" aria-label="View profile of {_h(name)}">Profile ↗</a>'
+        )
     if quote:
         pills_html += f'<p class="int-highlight-quote">{quote}</p>'
     card_col.markdown(
