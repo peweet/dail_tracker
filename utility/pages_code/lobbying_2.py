@@ -351,8 +351,8 @@ def _render_landing(summary: pd.DataFrame) -> None:
         idx = fetch_politician_index()
         if idx.empty:
             todo_callout(
-                "v_lobbying_index — run lobbying_enrichment.py to generate "
-                "lobbying_politician_index.parquet"
+                "v_lobbying_index — re-run lobby_processing.py to regenerate "
+                "data/gold/parquet/most_lobbied_politicians.parquet"
             )
         else:
             for rank, (_, row) in enumerate(idx.head(10).iterrows(), start=1):
@@ -374,8 +374,8 @@ def _render_landing(summary: pd.DataFrame) -> None:
         orgs = fetch_org_index()
         if orgs.empty:
             todo_callout(
-                "v_lobbying_org_index — run lobbying_enrichment.py to generate "
-                "lobbying_org_index.parquet"
+                "v_lobbying_org_index — re-run lobby_processing.py to regenerate "
+                "data/gold/parquet/top_lobbyist_organisations.parquet"
             )
         else:
             for rank, (_, row) in enumerate(orgs.head(10).iterrows(), start=1):
@@ -404,7 +404,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
     )
     with st.expander("Show revolving door individuals", expanded=False):
         if dpos.empty:
-            todo_callout("v_lobbying_revolving_door — run lobbying_enrichment.py")
+            todo_callout("v_lobbying_revolving_door — re-run lobby_processing.py to regenerate data/gold/parquet/revolving_door_dpos.parquet")
         else:
             rows_html = ""
             for _, row in dpos.head(15).iterrows():
@@ -428,8 +428,8 @@ def _render_landing(summary: pd.DataFrame) -> None:
     recent = fetch_recent_returns()
     if recent.empty:
         todo_callout(
-            "v_lobbying_recent_returns — run lobbying_enrichment.py to generate "
-            "lobbying_recent_returns.parquet"
+            "v_lobbying_recent_returns — re-run lobby_processing.py to regenerate "
+            "data/silver/lobbying/parquet/returns_master.parquet"
         )
     else:
         activity_html = ""

@@ -58,6 +58,7 @@ from config import (
     NOTABLE_SENATORS,
     NOTABLE_TDS,
     SILVER_INTERESTS_CSV,
+    SILVER_INTERESTS_PARQUET,
 )
 
 _REQUIRED_COLS: set[str] = {
@@ -71,13 +72,18 @@ _REQUIRED_COLS: set[str] = {
 @st.cache_data(ttl=3600, show_spinner="Loading interests data…")
 def _load_interests(house: str) -> pd.DataFrame:
     """
-    Load silver CSV and normalise to v_member_interests contract column shape.
+    Load silver parquet and normalise to v_member_interests contract column shape.
+    Falls back to silver CSV if parquet not yet built.
     TODO_PIPELINE_VIEW_REQUIRED: Replace with SELECT FROM v_member_interests_detail.
     """
-    csv_path = SILVER_INTERESTS_CSV.get(house)
-    if csv_path is None or not csv_path.exists():
-        return pd.DataFrame()
-    df = pd.read_csv(csv_path, low_memory=False)
+    parquet_path = SILVER_INTERESTS_PARQUET.get(house)
+    if parquet_path is not None and parquet_path.exists():
+        df = pd.read_parquet(parquet_path)
+    else:
+        csv_path = SILVER_INTERESTS_CSV.get(house)
+        if csv_path is None or not csv_path.exists():
+            return pd.DataFrame()
+        df = pd.read_csv(csv_path, low_memory=False)
     df.columns = df.columns.str.strip()
     if "interest_category" in df.columns:
         df = df[df["interest_category"] != "15"].copy()
@@ -561,8 +567,9 @@ def interests_page() -> None:
             st.rerun()
 
     # ── Guard ─────────────────────────────────────────────────────────────────
-    csv_path = SILVER_INTERESTS_CSV.get(house)
-    if csv_path is None or not csv_path.exists():
+    parquet_path = SILVER_INTERESTS_PARQUET.get(house)
+    csv_path     = SILVER_INTERESTS_CSV.get(house)
+    if not ((parquet_path and parquet_path.exists()) or (csv_path and csv_path.exists())):
         empty_state(
             "Register data not available",
             f"Source data for {house} not found. Run the pipeline to populate data/silver/.",

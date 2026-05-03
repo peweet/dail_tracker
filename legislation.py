@@ -152,6 +152,15 @@ stages_df.to_parquet(SILVER_DIR / "parquet" / "stages.parquet", index=False)
 print("Stages dataset created successfully.")
 
 debates_df = debates_df.sort_values(by="date", axis=0, ascending=True)
+debates_df["debate_url_web"] = (
+    "https://www.oireachtas.ie/en/debates/debate/"
+    + debates_df["chamber.uri"].str.split("/").str[-1]
+    + "/"
+    + debates_df["date"].astype(str)
+    + "/"
+    + debates_df["debateSectionId"].str.replace("dbsect_", "", regex=False)
+    + "/"
+)
 debates_df.dropna(axis=0, how="all").to_csv(SILVER_DIR / "debates.csv")
 
 debates_df.to_parquet(SILVER_DIR / "parquet" / "debates.parquet", index=False)

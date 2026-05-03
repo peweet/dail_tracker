@@ -18,8 +18,8 @@ results = []
 for json_file in votes:
     print(f"Loading votes from {json_file}...")
     with open(json_file, encoding="utf8") as f:
-        data = json.load(f)[0]["results"]
-        results.extend(data)
+        for payload in json.load(f):
+            results.extend(payload["results"])
 
 logging.info(f"Total votes loaded: {len(results)}")
 
@@ -85,6 +85,11 @@ df["vote_url"] = df.apply(
     ),
     axis=1,
 )
+# vote_id from the API is a per-day counter (1, 2, ... 90) and collides across
+# dates. Make it globally unique by prefixing the date so every join, GROUP BY,
+# and DISTINCT downstream is correct without per-view fixes. URL above already
+# uses the bare counter and is unaffected.
+df["vote_id"] = df["vote_date"].astype(str) + "_" + df["vote_id"].astype(str)
 df["date"] = pd.to_datetime(df["vote_date"], errors="coerce").dt.date
 df = df.drop("member_name", axis=1).drop("vote_date", axis=1)
 df = df.replace({"nilVotes": "Voted No", "taVotes": "Voted Yes", "staonVotes": "Abstained"})

@@ -15,7 +15,7 @@ STEPS = [
     ("Lobbying PDF", "lobby_processing.py"),
     ("Process legislation", "legislation.py"),
     ("Member interests PDF conversion to Dataframe", "member_interests.py"),
-    ("Flatten bills", "flatten_service.py"),
+    # ("Flatten bills", "flatten_service.py"),
     ("Enrich", "enrich.py"),
     ("Transform vote data", "transform_votes.py"),
     # ("Unit tests", "tests.py"),

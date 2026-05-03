@@ -7,6 +7,37 @@ import polars as pl
 from config import PAYMENTS_PDF_DIR, SILVER_DIR, GOLD_DIR
 from normalise_join_key import normalise_df_td_name
 
+TAA_LABELS = {
+    "Dublin": "Dublin / under 25 km",
+    "1":      "Band 1 — 25–60 km",
+    "2":      "Band 2 — 60–80 km",
+    "3":      "Band 3 — 80–100 km",
+    "4":      "Band 4 — 100–130 km",
+    "5":      "Band 5 — 130–160 km",
+    "6":      "Band 6 — 160–190 km",
+    "7":      "Band 7 — 190–210 km",
+    "8":      "Band 8 — over 210 km",
+    # Extended numeric bands — present in data, meaning unclear, retained without label
+    "9":      "Band 9 (unmapped)",
+    "10":     "Band 10 (unmapped)",
+    "11":     "Band 11 (unmapped)",
+    "12":     "Band 12 (unmapped)",
+}
+
+def _is_clean_band(band: str) -> bool:
+    """
+    A band is clean if it is 'Dublin' or a pure integer string (any number).
+    Everything else — 'Vouched', 'MIN', 'NoTAA', combined codes like '2/MIN',
+    garbled values like 'Kenny', encoding artifacts — is quarantined.
+    """
+    if band == "Dublin":
+        return True
+    try:
+        int(band)
+        return True
+    except (ValueError, TypeError):
+        return False
+
 def process_payment_pdfs():
     """
     This module processes the scanned PDFs of TD payments data, extracts the relevant information, and creates structured
@@ -61,11 +92,84 @@ def process_payment_pdfs():
         pl.col('Date_Paid'
             ).str.to_date(format="%d/%m/%Y"),
     )
+
+    df = df.with_columns(
+        pl.col("TAA_Band")
+          .str.strip_chars()
+          .replace("nan", None)
+          .alias("TAA_Band")
+    )
     df = df.unique(subset=['join_key', 'Date_Paid', 'Amount'], keep='first')
-    df.write_csv(SILVER_DIR / "aggregated_payment_tables.csv")
-    df.write_parquet(SILVER_DIR / "parquet" / "aggregated_payment_tables.parquet")
-    top_tds_by_payment = df.with_columns(
-        pl.col('Amount').str
+    is_clean = (
+        pl.col("TAA_Band").eq("Dublin")
+        | pl.col("TAA_Band").str.contains(r"^\d+$")
+    ).fill_null(False)
+
+    clean       = df.filter(is_clean)
+    quarantined = df.filter(~is_clean)
+
+    print(f"Clean rows:      {len(clean)}")
+    print(f"Quarantined rows:{len(quarantined)}")
+    print(f"Quarantined TAA_Band values: {sorted(quarantined['TAA_Band'].drop_nulls().unique().to_list())}") 
+    clean = clean.with_columns(
+        pl.col("Full_Name")
+          .str.strip_chars()
+          .alias("Full_Name")
+    ).with_columns(
+        pl.when(pl.col("Full_Name").str.contains(","))
+          .then(
+              pl.col("Full_Name").str.split(",").list.get(1).str.strip_chars()
+              + pl.lit(" ")
+              + pl.col("Full_Name").str.split(",").list.get(0).str.strip_chars()
+          )
+          .otherwise(pl.col("Full_Name"))
+          .alias("member_name")
+    )
+    clean = clean.with_columns(
+        pl.col("Amount")
+          .str.replace_all(r"[^0-9.]", "")
+          .cast(pl.Float64, strict=False)
+          .alias("Amount")
+    )
+    clean = clean.with_columns(
+        pl.col("TAA_Band")
+          .replace(TAA_LABELS)
+          .alias("taa_band_label")
+    )
+    clean = clean.with_columns(
+        pl.col("Position").fill_null("Deputy").str.strip_chars().alias("position")
+    )
+    before_gate = len(clean)
+    clean = clean.filter(
+        pl.col("Date_Paid").is_not_null()
+        & pl.col("Amount").is_not_null()
+        & (pl.col("Amount") > 0)
+        & pl.col("member_name").is_not_null()
+    )
+    print(f"Dropped by date/amount gate: {before_gate - len(clean)}")
+    print(f"Final clean rows: {len(clean)}")
+    print(f"Final clean rows: {len(clean)}")
+
+    # ── Select and order output columns ───────────────────────────────────────
+    fact = clean.select([
+        "join_key",
+        "Full_Name",
+        "Position",
+        pl.col("TAA_Band").alias("taa_band_raw"),
+        "taa_band_label",
+        "Date_Paid",
+        pl.col("Narrative").str.strip_chars().alias("narrative"),
+        "Amount",
+        # "payment_year",
+    ])
+    fact.write_csv(SILVER_DIR / "aggregated_payment_tables.csv")
+    fact.write_parquet(SILVER_DIR / "parquet" / "aggregated_payment_tables.parquet")
+
+    quarantined.write_csv(SILVER_DIR / "quarantined_payment_tables.csv")
+    quarantined.write_parquet(SILVER_DIR / "parquet" / "quarantined_payment_tables.parquet")
+
+    top_tds_by_payment = fact.with_columns(
+        pl.col('Amount').cast(pl.Utf8).str
         # filter out the euro symbol and any commas, and then convert to float
         .replace_all(r"[^.0-9\-]", "")
         .cast(pl.Float64, strict=False)
@@ -86,6 +190,7 @@ def process_payment_pdfs():
 
     top_tds_by_payment.write_csv(GOLD_DIR / "top_tds_by_payment_since_2020.csv")
     top_tds_by_payment.write_parquet(GOLD_DIR / "parquet" / "top_tds_by_payment_since_2020.parquet")
+
 if __name__ == "__main__":
     process_payment_pdfs()
     print("Payment PDF processing complete. Output saved to aggregated_payment_tables.csv and top_tds_by_payment_2020.csv.")
