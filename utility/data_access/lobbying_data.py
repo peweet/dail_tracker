@@ -151,6 +151,42 @@ def fetch_org_contact_detail(
 
 
 @st.cache_data(ttl=300)
+def fetch_politician_area_returns(
+    member_name: str,
+    area: str,
+    start: str | None = None,
+    end: str | None = None,
+) -> pd.DataFrame:
+    """Returns filed targeting one politician within one policy area."""
+    if start and end:
+        return _safe(
+            "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
+            " period_start_date, source_url"
+            " FROM v_lobbying_contact_detail"
+            " WHERE member_name = ? AND public_policy_area = ?"
+            " AND period_start_date BETWEEN ? AND ?"
+            " ORDER BY period_start_date DESC",
+            [member_name, area, start, end],
+        )
+    return _safe(
+        "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
+        " period_start_date, source_url"
+        " FROM v_lobbying_contact_detail"
+        " WHERE member_name = ? AND public_policy_area = ?"
+        " ORDER BY period_start_date DESC",
+        [member_name, area],
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_dpo_return_map() -> pd.DataFrame:
+    """Map of return_id -> DPO individual_name (one row per match)."""
+    return _safe(
+        "SELECT return_id, individual_name FROM v_lobbying_dpo_returns"
+    )
+
+
+@st.cache_data(ttl=300)
 def fetch_area_contact_detail(
     area: str,
     start: str | None = None,
@@ -200,12 +236,79 @@ def fetch_recent_returns() -> pd.DataFrame:
 # ── Revolving door ─────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=300)
-def fetch_revolving_door() -> pd.DataFrame:
+def fetch_revolving_door(limit: int | None = 50) -> pd.DataFrame:
+    """Ranked DPO list for the landing callout (limit=5..7) and Stage 2a index (limit=None)."""
+    if limit is None:
+        return _safe(
+            "SELECT individual_name, former_position, former_chamber, chamber_display,"
+            " return_count, distinct_firms, distinct_policy_areas,"
+            " distinct_politicians_targeted"
+            " FROM v_lobbying_revolving_door ORDER BY return_count DESC"
+        )
     return _safe(
-        "SELECT individual_name, former_position, former_chamber,"
+        "SELECT individual_name, former_position, former_chamber, chamber_display,"
         " return_count, distinct_firms, distinct_policy_areas,"
         " distinct_politicians_targeted"
-        " FROM v_lobbying_revolving_door ORDER BY return_count DESC LIMIT 50"
+        " FROM v_lobbying_revolving_door ORDER BY return_count DESC LIMIT ?",
+        [int(limit)],
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_revolving_door_summary() -> pd.DataFrame:
+    """Single-row aggregate for the landing callout headline number."""
+    return _safe(
+        "SELECT COUNT(*) AS individuals, SUM(return_count) AS total_returns,"
+        " SUM(distinct_politicians_targeted) AS politicians_targeted_sum"
+        " FROM v_lobbying_revolving_door"
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_dpo_one(individual_name: str) -> pd.DataFrame:
+    """Single DPO row for the Stage 2b individual hero."""
+    return _safe(
+        "SELECT individual_name, former_position, former_chamber, chamber_display,"
+        " return_count, distinct_firms, distinct_policy_areas,"
+        " distinct_politicians_targeted"
+        " FROM v_lobbying_revolving_door WHERE individual_name = ? LIMIT 1",
+        [individual_name],
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_dpo_firms(individual_name: str) -> pd.DataFrame:
+    """Firms a given DPO has filed returns under (Stage 2b: Firms represented)."""
+    return _safe(
+        "SELECT lobbyist_name, return_count, first_period, last_period"
+        " FROM v_lobbying_dpo_firms"
+        " WHERE individual_name = ?"
+        " ORDER BY return_count DESC",
+        [individual_name],
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_dpo_client_breakdown(individual_name: str) -> pd.DataFrame:
+    """Client companies a given DPO has lobbied on behalf of (Stage 2b: Clients represented)."""
+    return _safe(
+        "SELECT client_name, return_count, first_period, last_period"
+        " FROM v_lobbying_dpo_clients"
+        " WHERE individual_name = ?"
+        " ORDER BY return_count DESC",
+        [individual_name],
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_dpo_politicians_targeted(individual_name: str) -> pd.DataFrame:
+    """Politicians targeted by returns this DPO filed (Stage 2b: Politicians targeted)."""
+    return _safe(
+        "SELECT member_name, chamber, return_count"
+        " FROM v_lobbying_dpo_politicians"
+        " WHERE individual_name = ?"
+        " ORDER BY return_count DESC",
+        [individual_name],
     )
 
 

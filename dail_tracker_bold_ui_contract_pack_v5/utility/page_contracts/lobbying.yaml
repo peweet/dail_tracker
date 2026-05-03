@@ -120,21 +120,91 @@ approved_registered_views:
     approved_limit: 20
 
   - name: v_lobbying_revolving_door
-    status: TODO_PIPELINE_VIEW_REQUIRED
+    status: required
     purpose: >
       Former Designated Public Officials who appear on lobbying returns as the
-      individual carrying out the lobbying. Replaces experimental CSV dependency.
+      individual carrying out the lobbying. Drives the promoted landing callout
+      and the Stage 2 revolving-door index.
     required_columns:
       - individual_name
       - former_position
       - former_chamber
+      - chamber_display
       - return_count
       - distinct_firms
+      - distinct_policy_areas
+      - distinct_politicians_targeted
       - source_url
+    approved_filters:
+      - {column: chamber_display, operators: [=]}
     approved_order: "ORDER BY return_count DESC"
     note: >
       Data is based on name-matching between the DPO register and return filers.
-      Caveats must be surfaced in the UI via todo_callout() until view is built.
+      Caveats must be surfaced in the UI via a one-line caveat above the list
+      (no longer behind a hidden expander).
+
+  - name: v_lobbying_dpo_returns
+    status: required
+    purpose: >
+      One row per (DPO, return). Powers the Stage 2 individual profile's
+      Lobbying returns table and the Returns CSV export.
+    required_columns:
+      - individual_name
+      - return_id
+      - source_url
+      - lobbyist_name
+      - client_name
+      - public_policy_area
+      - period_start_date
+    approved_filters:
+      - {column: individual_name, operators: [=]}
+      - {column: period_start_date, operators: [BETWEEN]}
+    approved_order: "ORDER BY period_start_date DESC"
+
+  - name: v_lobbying_dpo_firms
+    status: required
+    purpose: >
+      Firms that a given former DPO has filed returns under. Drives the
+      "Firms represented" section on the Stage 2 individual profile.
+    required_columns:
+      - individual_name
+      - lobbyist_name
+      - return_count
+      - first_period
+      - last_period
+    approved_filters:
+      - {column: individual_name, operators: [=]}
+    approved_order: "ORDER BY return_count DESC"
+
+  - name: v_lobbying_dpo_clients
+    status: required
+    purpose: >
+      Client companies a given former DPO has lobbied on behalf of. Drives the
+      "Clients represented" section on the Stage 2 individual profile.
+    required_columns:
+      - individual_name
+      - client_name
+      - return_count
+      - first_period
+      - last_period
+    approved_filters:
+      - {column: individual_name, operators: [=]}
+    approved_order: "ORDER BY return_count DESC"
+
+  - name: v_lobbying_dpo_politicians
+    status: required
+    purpose: >
+      Politicians targeted by a given former DPO via the returns they filed.
+      Drives the "Politicians targeted" section and enables cross-link into the
+      politician Stage 2 profile.
+    required_columns:
+      - individual_name
+      - member_name
+      - chamber
+      - return_count
+    approved_filters:
+      - {column: individual_name, operators: [=]}
+    approved_order: "ORDER BY return_count DESC"
 
   - name: v_lobbying_transparency
     status: TODO_PIPELINE_VIEW_REQUIRED
@@ -189,23 +259,25 @@ uses_patterns:
 
 interaction_model:
   specific_guidance: >
-    Make it feel like an investigative lookup tool with three clear entry points:
-    follow a politician, follow an organisation, or browse by policy area.
-    The landing page is the gateway — not a dashboard. It must be scannable
-    before the user has formed a question. Do not infer relationships beyond
-    approved views. Revolving Door and Transparency are secondary callouts on
-    the landing page, not primary views or separate tabs.
+    Make it feel like an investigative lookup tool with three primary entry points
+    in the gateway — follow a politician, follow an organisation, or browse by
+    policy area — plus a promoted Revolving Door callout that drills into its own
+    Stage 2 view. Transparency remains a secondary callout. The landing page is
+    the gateway — not a dashboard. It must be scannable before the user has
+    formed a question. Do not infer relationships beyond approved views.
   required_flow:
-    - editorial_hero              # hero_banner() in main content — not sidebar
-    - date_range_filter           # st.date_input range — global temporal control
-    - path_gateway                # three path cards: politicians / orgs / policy areas
-    - ranked_leaderboard          # int-rank-card lists — top politicians + top orgs
-    - revolving_door_callout      # amber callout with expand (not a separate tab)
-    - latest_activity_feed        # 20 most recent returns from v_lobbying_recent_returns
-    - detail_or_drilldown         # Stage 2 profile view — politician or org
-    - official_sources            # render_source_links() in every Stage 2 view
-    - csv_export                  # export_button() below each table
-    - provenance                  # About & data provenance — collapsed expander at bottom
+    - editorial_hero                       # hero_banner() in main content — not sidebar
+    - date_range_filter                    # st.date_input range — global temporal control
+    - path_gateway                         # three path cards: politicians / orgs / policy areas
+    - ranked_leaderboard                   # int-rank-card lists — top politicians + top orgs
+    - revolving_door_callout               # promoted callout — strong headline + top 5 inline + primary CTA → Stage 2 index
+    - latest_activity_feed                 # 20 most recent returns from v_lobbying_recent_returns
+    - detail_or_drilldown                  # Stage 2 profile view — politician or org
+    - revolving_door_stage2_index          # ranked list of all DPOs with chamber filter pills + breadcrumb
+    - revolving_door_stage2_individual     # per-DPO profile: firms, clients, politicians, returns + CSV + breadcrumb
+    - official_sources                     # render_source_links() in every Stage 2 view
+    - csv_export                           # export_button() below each table
+    - provenance                           # About & data provenance — collapsed expander at bottom
 
 sidebar:
   pattern: search_plus_selectbox_plus_notable_chips
@@ -237,6 +309,8 @@ session_state_keys:
   lob_selected_politician: "str | None — politician name; triggers Stage 2 politician profile"
   lob_selected_org: "str | None — org name; triggers Stage 2 org profile"
   lob_selected_area: "str | None — policy area; triggers Stage 2 area filtered table"
+  lob_selected_dpo: "str | None — former-DPO individual name; triggers Stage 2b individual revolving-door profile"
+  lob_view_revolving_door: "bool — when True (and no individual selected), renders Stage 2a revolving-door index"
   lob_date_start: "date — global date range start (from st.date_input)"
   lob_date_end: "date — global date range end (from st.date_input)"
   lob_sidebar_search: "str — sidebar search text input"
@@ -285,7 +359,7 @@ ui_creativity_budget:
   existing_page_may_be_used_for_functionality_only: true
   must_be_materially_different_from_existing_page: true
   must_change_at_least:
-    count: 12
+    count: 14
     dimensions:
       - editorial_hero_in_main_content
       - three_path_gateway_replaces_radio_tabs
@@ -294,7 +368,9 @@ ui_creativity_budget:
       - ranked_leaderboard_cards_for_politicians
       - ranked_leaderboard_cards_for_orgs
       - two_stage_profile_flow_with_back_button
-      - revolving_door_as_landing_callout
+      - revolving_door_promoted_callout_with_top_n_inline_and_primary_cta
+      - revolving_door_stage2_index_with_breadcrumb_and_chamber_filter
+      - revolving_door_stage2_individual_with_firms_clients_politicians_returns_csv
       - latest_activity_feed_on_landing
       - single_provenance_footer_collapsed_at_bottom
       - source_links_in_every_stage2_profile
@@ -342,5 +418,10 @@ acceptance_tests:
   - csv_export_uses_export_button_helper
   - source_links_use_render_source_links_helper
   - source_links_use_approved_url_columns_only
-  - revolving_door_is_callout_not_tab
+  - revolving_door_landing_callout_renders_top_n_inline_not_behind_expander
+  - revolving_door_stage2_index_uses_breadcrumb_helper
+  - revolving_door_stage2_individual_uses_breadcrumb_helper
+  - revolving_door_stage2_individual_has_firms_clients_politicians_and_returns_sections
+  - revolving_door_stage2_individual_returns_table_has_csv_export
+  - breadcrumb_helper_is_general_in_components_not_page_local
   - empty_states_use_approved_helpers

@@ -16,6 +16,7 @@ import streamlit as st
 
 from shared_css import inject_css
 from ui.components import (
+    back_button,
     clean_meta,
     empty_state,
     evidence_heading,
@@ -317,7 +318,7 @@ def _render_alltime(df: pd.DataFrame, year_counts_df: pd.DataFrame) -> str | Non
 # ── Render: compact inline profile ────────────────────────────────────────────
 
 def _render_profile(td_name: str) -> None:
-    if st.button("← Back to overview", key="ov_back"):
+    if back_button("← Back to overview", key="ov"):
         st.session_state.pop("_ov_td", None)
         st.rerun()
 

@@ -37,7 +37,7 @@ from data_access.payments_data import (
     fetch_year_ranking,
 )
 from shared_css import inject_css
-from ui.components import clean_meta, empty_state, hero_banner, member_card_html, render_notable_chips, sidebar_member_filter, year_selector
+from ui.components import back_button, clean_meta, empty_state, hero_banner, member_card_html, render_notable_chips, sidebar_member_filter, year_selector
 from ui.export_controls import export_button
 from ui.source_pdfs import PAYMENTS, provenance_expander
 
@@ -263,7 +263,7 @@ def _render_profile(
     year_options: list[str],
     summary: pd.Series,
 ) -> None:
-    if st.button("← Back to all members", key="pay_back"):
+    if back_button("← Back to all members", key="pay"):
         st.session_state.pop("selected_td_pay", None)
         st.rerun()
 

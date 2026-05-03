@@ -36,6 +36,7 @@ import streamlit as st
 
 from shared_css import inject_css
 from ui.components import (
+    back_button,
     clean_meta,
     empty_state,
     evidence_heading,
@@ -241,8 +242,18 @@ def _fetch_member_index_fallback(house: str, year: int) -> pd.DataFrame:
                 MAX(constituency)  AS constituency,
                 COUNT(*)           AS total_declarations,
                 0                  AS directorship_count,
-                0                  AS property_count,
-                0                  AS share_count,
+                COUNT(DISTINCT CASE
+                    WHEN interest_category = 'Land (including property)'
+                     AND interest_text IS NOT NULL
+                     AND TRIM(interest_text) <> ''
+                     AND LOWER(TRIM(interest_text)) <> 'no interests declared'
+                    THEN interest_text END)            AS property_count,
+                COUNT(DISTINCT CASE
+                    WHEN interest_category = 'Shares'
+                     AND interest_text IS NOT NULL
+                     AND TRIM(interest_text) <> ''
+                     AND LOWER(TRIM(interest_text)) <> 'no interests declared'
+                    THEN interest_text END)            AS share_count,
                 BOOL_OR(landlord_flag)    AS is_landlord,
                 BOOL_OR(property_flag)    AS is_property_owner
             FROM v_member_interests
@@ -274,16 +285,25 @@ def _int_member_card_html(row) -> str:
 
     meta  = clean_meta(party, constit)
     pills = f'<span class="int-stat-pill int-pill-decl">{total} declarations</span>'
-    if d_count:
-        pills += f'<span class="int-stat-pill int-pill-company">🏢 {d_count} compan{"ies" if d_count != 1 else "y"}</span>'
-    if p_count:
-        pills += f'<span class="int-stat-pill int-pill-prop">🏠 {p_count} propert{"ies" if p_count != 1 else "y"}</span>'
-    if s_count:
-        pills += f'<span class="int-stat-pill int-pill-shares">📈 {s_count} share{"s" if s_count != 1 else ""}</span>'
     if landlord:
         pills += '<span class="int-stat-pill int-stat-pill-accent">🔑 Landlord</span>'
     elif is_prop:
         pills += '<span class="int-stat-pill">🏗️ Property owner</span>'
+    if p_count:
+        pills += (
+            f'<span class="int-stat-pill int-pill-prop">'
+            f'🏠 {p_count} propert{"ies" if p_count != 1 else "y"}</span>'
+        )
+    if s_count:
+        pills += (
+            f'<span class="int-stat-pill int-pill-shares">'
+            f'📈 Shareholder · {s_count}</span>'
+        )
+    if d_count:
+        pills += (
+            f'<span class="int-stat-pill int-pill-company">'
+            f'🏢 {d_count} compan{"ies" if d_count != 1 else "y"}</span>'
+        )
 
     return member_card_html(name=name, meta=meta, rank=rank, pills_html=pills)
 
@@ -602,7 +622,7 @@ def interests_page() -> None:
         )
 
     if selected_td:
-        if st.button("← Back to register", key="int_back"):
+        if back_button("← Back to register", key="int"):
             st.session_state["selected_td"] = None
             st.session_state.pop("int_member_sel", None)
             st.rerun()

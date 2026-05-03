@@ -31,7 +31,14 @@ if str(_UTIL) not in sys.path:
     sys.path.insert(0, str(_UTIL))
 
 from shared_css import inject_css
-from ui.components import clean_meta, empty_state, member_card_html, sidebar_page_header
+from ui.components import (
+    back_button,
+    clean_meta,
+    empty_state,
+    member_card_html,
+    pagination_controls,
+    sidebar_page_header,
+)
 from data_access.member_overview_data import get_member_overview_conn
 
 _log = logging.getLogger(__name__)
@@ -504,41 +511,39 @@ def _render_browse(conn) -> None:
         )
         return
 
-    PAGE_SIZE = 60
-    show_all  = bool(st.session_state.get("mo_browse_show_all", False))
-    visible   = filtered if show_all else filtered.head(PAGE_SIZE)
+    page_size, page_idx = pagination_controls(
+        total=showing,
+        key_prefix="mo_browse",
+        page_sizes=(25, 50, 100),
+        default_page_size=25,
+        show_caption=False,
+    )
+    visible = filtered.iloc[page_idx * page_size : (page_idx + 1) * page_size]
 
-    left_col, right_col = st.columns(2, gap="small")
-    columns = [left_col, right_col]
-
-    for i, (_, row) in enumerate(visible.iterrows()):
-        target = columns[i % 2]
-        with target:
-            card_col, btn_col = st.columns([14, 1])
-            name    = str(row.get("member_name", ""))
-            party   = str(row.get("party_name", "") or "")
-            constit = str(row.get("constituency", "") or "")
-            meta    = clean_meta(party, constit)
-            card_col.html(member_card_html(name=name, meta=meta))
-            btn_col.html('<div class="dt-nav-anchor"></div>')
-            if btn_col.button("→", key=f"mo_browse_{i}", help=f"View {name}"):
-                st.session_state[_STAGE_KEY] = str(row["unique_member_code"])
-                st.query_params["member"]    = str(row["unique_member_code"])
-                st.rerun()
-
-    if not show_all and showing > PAGE_SIZE:
-        if st.button(f"Show all {showing} TDs", key="mo_browse_show_more", width="stretch"):
-            st.session_state["mo_browse_show_all"] = True
-            st.rerun()
+    cards = ['<div class="mo-grid">']
+    for _, row in visible.iterrows():
+        name    = str(row.get("member_name", ""))
+        party   = str(row.get("party_name", "") or "")
+        constit = str(row.get("constituency", "") or "")
+        code    = str(row["unique_member_code"])
+        meta    = clean_meta(party, constit)
+        cards.append(
+            f'<a class="mo-grid-link" href="?member={_h(code)}" target="_self" '
+            f'aria-label="View {_h(name)}">'
+            f'{member_card_html(name=name, meta=meta)}'
+            f'<span class="mo-grid-arrow" aria-hidden="true">→</span>'
+            f'</a>'
+        )
+    cards.append('</div>')
+    st.html("\n".join(cards))
 
 
 # ── Profile ─────────────────────────────────────────────────────────────────────
 
 def _render_stage2(conn, join_key: str) -> None:
 
-    if st.button("← All TDs", key="mo_back_all", help="Return to the full TD list"):
+    if back_button("← All TDs", key="mo_all", help="Return to the full TD list"):
         st.session_state.pop(_STAGE_KEY, None)
-        st.session_state.pop("mo_browse_show_all", None)
         st.query_params.clear()
         st.rerun()
 

@@ -10,7 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from ui.components import stat_strip, outcome_badge, evidence_heading, todo_callout, empty_state
+from ui.components import stat_strip, outcome_badge, evidence_heading, todo_callout, empty_state, pagination_controls
 from ui.table_config import member_detail_column_config, td_history_column_config
 from ui.export_controls import export_button
 from ui.source_links import render_source_links
@@ -378,7 +378,25 @@ def render_td_panel(
                 "No records in v_vote_member_detail for this member and date range.",
             )
         else:
-            st.html(_render_td_history_html(history_df))
+            total = len(history_df)
+            pager_key = f"td_hist_{safe_mid}"
+
+            # Resolve current page slice from session state (set by the helper
+            # below; we read first so the table reflects the active page).
+            page_size = int(st.session_state.get(f"{pager_key}_size", 25))
+            cur_page  = int(st.session_state.get(f"{pager_key}_page", 1))
+            total_pages = max(1, (total + page_size - 1) // page_size)
+            if cur_page > total_pages:
+                cur_page = 1
+                st.session_state[f"{pager_key}_page"] = 1
+            start = (cur_page - 1) * page_size
+            page_df = history_df.iloc[start : start + page_size]
+
+            st.html(_render_td_history_html(page_df))
+
+            # Reusable pager — chips, "Showing X–Y of Z votes" caption, page-size selector.
+            pagination_controls(total, key_prefix=pager_key, label="votes")
+
             hist_cols = [c for c in ["vote_date", "debate_title", "vote_type", "vote_outcome"] if c in history_df.columns]
             export_button(
                 history_df[hist_cols],
