@@ -40,7 +40,7 @@ USAGE
 
 PROVENANCE
 ----------
-URL pattern lifted from existing pdf_endpoint_check.py.
+URL pattern lifted from existing pdf_endpoint_checky.
 Lag analysis from same file's URL history.
 Fallback strategy adapted from mysociety/parlparse pyscraper architecture.
 """
@@ -215,53 +215,53 @@ def try_construction(
 # template, fall back to scraping the listing when the template misses.
 # -----------------------------------------------------------------------------
 
-def discover_via_index(
-    data_year: int,
-    data_month: int,
-    session: requests.Session,
-) -> str | None:
-    """Second strategy: scrape the topic-filtered publications listing for an
-    entry matching `<month>-<year>` and return its PDF link.
+# def discover_via_index(
+#     data_year: int,
+#     data_month: int,
+#     session: requests.Session,
+# ) -> str | None:
+#     """Second strategy: scrape the topic-filtered publications listing for an
+#     entry matching `<month>-<year>` and return its PDF link.
 
-    This is intentionally simple. Production version should:
-      - paginate beyond the first page (recent items only matter for new-asset
-        detection — usually pages 1–3 cover everything published this month)
-      - cache the listing's last-fetched ETag/Last-Modified
-      - tolerate minor HTML structure changes via more permissive selectors
-      - distinguish payment publications from interest/attendance publications
-        if the topic filter ever blends them (it currently does not)
-    """
-    month_name = MONTH_NAMES[data_month]
-    target_phrase = f"{month_name} {data_year}"  # e.g. "april 2026"
+#     This is intentionally simple. Production version should:
+#       - paginate beyond the first page (recent items only matter for new-asset
+#         detection — usually pages 1–3 cover everything published this month)
+#       - cache the listing's last-fetched ETag/Last-Modified
+#       - tolerate minor HTML structure changes via more permissive selectors
+#       - distinguish payment publications from interest/attendance publications
+#         if the topic filter ever blends them (it currently does not)
+#     """
+#     month_name = MONTH_NAMES[data_month]
+#     target_phrase = f"{month_name} {data_year}"  # e.g. "april 2026"
 
-    print(f"\nFalling back to index scrape: looking for '{target_phrase}'...")
-    resp = session.get(PUBLICATIONS_INDEX, timeout=DEFAULT_TIMEOUT)
-    if resp.status_code != 200:
-        print(f"  index returned {resp.status_code}; giving up")
-        return None
+#     print(f"\nFalling back to index scrape: looking for '{target_phrase}'...")
+#     resp = session.get(PUBLICATIONS_INDEX, timeout=DEFAULT_TIMEOUT)
+#     if resp.status_code != 200:
+#         print(f"  index returned {resp.status_code}; giving up")
+#         return None
 
-    soup = BeautifulSoup(resp.text, "html.parser")
+#     soup = BeautifulSoup(resp.text, "html.parser")
 
-    # The publications listing renders results as cards/list items. The exact
-    # selector will need adjustment after inspecting the live HTML; treat the
-    # selector below as illustrative of the pattern, not as a final answer.
-    for entry in soup.select(".c-publication-card, article.publication"):
-        title = entry.get_text(" ", strip=True).lower()
-        if target_phrase not in title:
-            continue
-        link = entry.find("a", href=True)
-        if not link:
-            continue
-        href = link["href"]
-        # Resolve relative links
-        if href.startswith("/"):
-            href = "https://www.oireachtas.ie" + href
-        # The card link often points to a landing page; the actual PDF may be
-        # one click deeper. Production version should follow once.
-        return href
+#     # The publications listing renders results as cards/list items. The exact
+#     # selector will need adjustment after inspecting the live HTML; treat the
+#     # selector below as illustrative of the pattern, not as a final answer.
+#     for entry in soup.select(".c-publication-card, article.publication"):
+#         title = entry.get_text(" ", strip=True).lower()
+#         if target_phrase not in title:
+#             continue
+#         link = entry.find("a", href=True)
+#         if not link:
+#             continue
+#         href = link["href"]
+#         # Resolve relative links
+#         if href.startswith("/"):
+#             href = "https://www.oireachtas.ie" + href
+#         # The card link often points to a landing page; the actual PDF may be
+#         # one click deeper. Production version should follow once.
+#         return href
 
-    print(f"  no match for '{target_phrase}' on the first page of the index")
-    return None
+#     print(f"  no match for '{target_phrase}' on the first page of the index")
+#     return None
 
 
 # -----------------------------------------------------------------------------
@@ -284,10 +284,10 @@ def find_payment_pdf(data_year: int, data_month: int) -> str | None:
         return found
 
     print("\nStrategy 1 missed.")
-    found = discover_via_index(data_year, data_month, session)
-    if found:
-        print(f"\n✓ found via index: {found}")
-        return found
+    # found = discover_via_index(data_year, data_month, session)
+    # if found:
+    #     print(f"\n✓ found via index: {found}")
+    #     return found
 
     print(f"\n✗ neither strategy found a PDF for "
           f"{MONTH_NAMES[data_month]} {data_year}")
@@ -304,7 +304,9 @@ if __name__ == "__main__":
         print("Example: python payment_pdf_url_probe.py 2026 4")
         sys.exit(2)
 
-    year = int(sys.argv[1])
-    month = int(sys.argv[2])
+    year = 2026
+    month = 4
+    # year = int(sys.argv[1])
+    # month = int(sys.argv[2])
     url = find_payment_pdf(year, month)
     sys.exit(0 if url else 1)
