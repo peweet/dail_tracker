@@ -1,0 +1,87 @@
+<akomaNtoso xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13" xsi:schemaLocation="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13 ./akomantoso30.xsd">
+  <debate name="Official Report">
+    <meta>
+      <identification source="#debates">
+        <FRBRWork>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2025-12-04/writtens/dbsect_76"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2025-12-04/writtens"/>
+          <FRBRdate date="2025-12-04" name="#generation"/>
+          <FRBRauthor as="#author" href="/ie/oireachtas/house/dail/34"/>
+          <FRBRcountry value="ie"/>
+          <FRBRname value="writtens"/>
+        </FRBRWork>
+        <FRBRExpression>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2025-12-04/writtens/mul@/dbsect_76"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2025-12-04/writtens/mul@"/>
+          <FRBRdate date="2025-12-04" name="#reported"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+          <FRBRlanguage language="eng"/>
+        </FRBRExpression>
+        <FRBRManifestation>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2025-12-04/writtens/mul@/dbsect_76.xml"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2025-12-04/writtens/mul@.akn"/>
+          <FRBRdate date="2026-04-14" name="#publication"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+        </FRBRManifestation>
+      </identification>
+      <references source="#debates">
+        <TLCPerson eId="DaraCalleary" href="/ie/oireachtas/member/id/Dara-Calleary.D.2007-06-14" showAs="Dara Calleary"/>
+        <TLCPerson eId="ShonaghNiRaghallaigh" href="/ie/oireachtas/member/id/Shónagh-Ní-Raghallaigh.D.2024-11-29" showAs="Shónagh Ní Raghallaigh"/>
+        <TLCRole eId="Minister_for_Rural_and_Community_Development_and_the_Gaeltacht" href="/ie/oireachtas/role/minister/rural__community_development__gaeltacht" showAs="Minister for Rural and Community Development and the Gaeltacht"/>
+        <TLCRole eId="Rural" href="/ie/oireachtas/role/office/rural" showAs="Rural"/>
+        </references>
+    </meta>
+    <preface>
+      <block name="title_ga">
+        <docTitle>DÍOSPÓIREACHTAÍ PARLAIMINTE</docTitle>
+      </block>
+      <block name="title_en">
+        <docTitle>PARLIAMENTARY DEBATES</docTitle>
+      </block>
+      <block name="proponent_ga">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="proponent_en">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="status_ga">
+        <docStatus>TUAIRISC OIFIGIÚIL</docStatus>
+      </block>
+      <block name="status_en">
+        <docStatus>(OFFICIAL REPORT)</docStatus>
+      </block>
+      <block name="date_ga">
+        <docDate date="2025-12-04">Déardaoin, 04 Nollaig 2025</docDate>
+      </block>
+      <block name="date_en">
+        <docDate date="2025-12-04">Thursday, 04 December 2025</docDate>
+      </block>
+      <block name="volume">
+        <docNumber refersTo="#vol_1077">Vol. 1077</docNumber>
+      </block>
+      <block name="number">
+        <docNumber refersTo="#no_2">No. 2</docNumber>
+      </block>
+      <block refersTo="#unrevised" name="version_en">
+        <docStatus/>
+      </block>
+      <block refersTo="#unrevised" name="version_ga">
+        <docStatus/>
+      </block>
+    </preface>
+    <debateBody><debateSection name="writtenAnswer" eId="dbsect_76">
+          <heading>Gaeltacht Policy<recordedTime time="2025-12-04T23:01:00+00:00"/></heading>
+          <question by="#ShonaghNiRaghallaigh" to="#Rural" eId="pq_38">
+            <p eId="para_1025">38. <b>Deputy Shónagh Ní Raghallaigh</b> asked the <b>Minister for Rural and Community Development and the Gaeltacht</b> the measures he is taking to support youth work in Gaeltachta areas; and if he will make a statement on the matter. [68490/25]</p>
+          </question>
+          <speech by="#DaraCalleary" as="#Minister_for_Rural_and_Community_Development_and_the_Gaeltacht" eId="spk_417">
+            <from>Minister for Rural and Community Development and the Gaeltacht<recordedTime time="2025-12-04T23:01:00+00:00"/></from>
+            <p eId="para_1026">Údarás na Gaeltachta supports the provision of Irish language youth work in Gaeltacht communities through its subsidiary company Muintearas Teo. </p>
+            <p eId="para_1027"> With responsibility for youth development in the Gaeltacht, Muintearas Teo currently supports 42 volunteer-led youth clubs and, in conjunction with local language planning organisations, funds the provision of part-time youth workers across a small number of Gaeltacht Language Planning Areas.</p>
+            <p eId="para_1028"> In October 2025, I approved additional funding of up to €493,509 was approved for Muintearas Teo to develop an expanded youth services programme in the Gaeltacht starting in 2026. This allocation will help the organisation to prioritise staff and key services to continue building towards the improvement of youth services in Gaeltacht areas. It will be used to employ a Youth Manager, a Training Coordinator and additional part-time youth workers and to develop QQI accredited modules and courses. </p>
+            <p eId="para_1029"> Muintearas Teo also administers Tionscnamh Óige Mhuintearais under the UBU Your Place Your Space scheme funded through the Department of Education and Youth. This service provides targeted support to young people aged 10–24 across South Connemara, addressing issues such as social marginalisation, mental health and drug and alcohol misuse. It also delivers workshops for young people who are unemployed or not in education, employment or training (NEETs).<i>
+							</i></p>
+          </speech>
+        </debateSection>
+        </debateBody></debate>
+</akomaNtoso>

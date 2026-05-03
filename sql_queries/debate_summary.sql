@@ -1,14 +1,3 @@
--- Grain: one row per debate_title
--- Source: current_dail_vote_history (one row per TD × division)
--- Used by: votes.py debate explorer — Streamlit filters this, no groupby in-page
---
--- Key concepts:
---   CASE WHEN aggregation  → https://duckdb.org/docs/sql/expressions/case
---   COUNT DISTINCT         → https://duckdb.org/docs/sql/aggregates#general-aggregate-functions
---   HAVING                 → https://duckdb.org/docs/sql/query_syntax/having
---
--- Available columns (run: SELECT * FROM current_dail_vote_history LIMIT 1):
---   debate_title, vote_id, date, vote_outcome, vote_type, subject, full_name, party
 
 SELECT
     debate_title,

@@ -1,0 +1,145 @@
+<akomaNtoso xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13" xsi:schemaLocation="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13 ./akomantoso30.xsd">
+  <debate name="Official Report">
+    <meta>
+      <identification source="#debates">
+        <FRBRWork>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-01-27/writtens/dbsect_89"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-01-27/writtens"/>
+          <FRBRdate date="2026-01-27" name="#generation"/>
+          <FRBRauthor as="#author" href="/ie/oireachtas/house/dail/34"/>
+          <FRBRcountry value="ie"/>
+          <FRBRname value="writtens"/>
+        </FRBRWork>
+        <FRBRExpression>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-01-27/writtens/mul@/dbsect_89"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-01-27/writtens/mul@"/>
+          <FRBRdate date="2026-01-27" name="#reported"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+          <FRBRlanguage language="eng"/>
+        </FRBRExpression>
+        <FRBRManifestation>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-01-27/writtens/mul@/dbsect_89.xml"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-01-27/writtens/mul@.akn"/>
+          <FRBRdate date="2026-04-11" name="#publication"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+        </FRBRManifestation>
+      </identification>
+      <references source="#debates">
+        <TLCPerson eId="NiallCollins" href="/ie/oireachtas/member/id/Niall-Collins.D.2007-06-14" showAs="Niall Collins"/>
+        <TLCPerson eId="PaulaButterly" href="/ie/oireachtas/member/id/Paula-Butterly.D.2024-11-29" showAs="Paula Butterly"/>
+        <TLCRole eId="Justice" href="/ie/oireachtas/role/office/justice" showAs="Justice"/>
+        <TLCRole eId="Minister_of_State_at_the_Department_of_Justice" href="/ie/oireachtas/role/minister_state/justice" showAs="Minister of State at the Department of Justice"/>
+        </references>
+    </meta>
+    <preface>
+      <block name="title_ga">
+        <docTitle>DÍOSPÓIREACHTAÍ PARLAIMINTE</docTitle>
+      </block>
+      <block name="title_en">
+        <docTitle>PARLIAMENTARY DEBATES</docTitle>
+      </block>
+      <block name="proponent_ga">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="proponent_en">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="status_ga">
+        <docStatus>TUAIRISC OIFIGIÚIL</docStatus>
+      </block>
+      <block name="status_en">
+        <docStatus>(OFFICIAL REPORT)</docStatus>
+      </block>
+      <block name="date_ga">
+        <docDate date="2026-01-27">Dé Máirt, 27 Eanáir 2026</docDate>
+      </block>
+      <block name="date_en">
+        <docDate date="2026-01-27">Tuesday, 27 January 2026</docDate>
+      </block>
+      <block name="volume">
+        <docNumber refersTo="#vol_1079">Vol. 1079</docNumber>
+      </block>
+      <block name="number">
+        <docNumber refersTo="#no_4">No. 4</docNumber>
+      </block>
+      <block refersTo="#unrevised" name="version_en">
+        <docStatus/>
+      </block>
+      <block refersTo="#unrevised" name="version_ga">
+        <docStatus/>
+      </block>
+    </preface>
+    <debateBody><debateSection name="writtenAnswer" eId="dbsect_89">
+          <heading>Crime Prevention<recordedTime time="2026-01-27T00:32:00+00:00"/></heading>
+          <question by="#PaulaButterly" to="#Justice" eId="pq_181">
+            <p eId="para_2382">181. <b>Deputy Paula Butterly</b> asked the <b>Minister for Justice, Home Affairs and Migration</b> the way in which the Rural Safety Plan 2025–2027 is being implemented to address the rise in burglaries and theft of farm equipment; and if he will make a statement on the matter. [5962/26]</p>
+          </question>
+          <speech by="#NiallCollins" as="#Minister_of_State_at_the_Department_of_Justice" eId="spk_389">
+            <from>Minister of State at the Department of Justice<recordedTime time="2026-01-27T00:32:00+00:00"/></from>
+            <p eId="para_2383">This Government is committed to building stronger, safer communities across the country. Rural crime covers a range of issues that cause concern for people living in rural communities, ranging from burglary and theft, to animal crime and road traffic offences. An Garda Síochána are committed to tackling all crime, including crime that occurs in our rural communities. </p>
+            <p eId="para_2384"> Rural safety and community safety is not about policing alone of course – it requires a multi-agency, multi-sectoral and a whole-of-Government response.</p>
+            <p eId="para_2385"> The Rural Safety Plan 2025-2027 brings together and strengthens all of the various strands of work being carried out in relation to rural safety. It has been developed by my Department, in conjunction with the National Rural Safety Forum.</p>
+            <p eId="para_2386"> The Plan’s vision is to ensure people and communities in rural Ireland feel safe and are safe in their homes, places of work, and their local environments. It does this by identifying four key priority areas that we will focus on to achieve the overall goal. These areas are: Community Safety &amp; Engagement, Property Crime, Roads Policing, and Animal &amp; Wildlife Crime.</p>
+            <p eId="para_2387"> A number of Garda operations are already supporting the plan, such as Operations Thor and Táirige, which tackle burglaries and thefts from homes, and retail crime respectively.</p>
+            <p eId="para_2388"> Operation Thor was launched in 2015 and actively targets organised crime groups through coordinated crime prevention and enforcement activity based on intelligence and the latest burglary trends. ‘Lock Up Light Up’ is An Garda Síochána's anti-burglary awareness campaign which encourages homeowners to protect their property from would-be criminals. In the 10 years since Operation Thor was introduced, burglary and related offences have significantly declined.</p>
+            <p eId="para_2389"> I am advised by An Garda Síochána that the table below provides statistics in relation to the number of reported incidents of ‘Theft of Farm Equipment’. Similar to Burglary related data, the below figures demonstrate a significant decline in these incidents.</p>
+            <table>
+              <tr>
+                <td>
+                  <p eId="para_2390">
+                    <b>Year</b>
+                  </p>
+                </td>
+                <td>
+                  <p eId="para_2391">
+                    <b>Theft of Farming Equipment Incidents</b>
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <p eId="para_2392">2025</p>
+                </td>
+                <td>
+                  <p eId="para_2393">132</p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <p eId="para_2394">2024</p>
+                </td>
+                <td>
+                  <p eId="para_2395">214</p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <p eId="para_2396">2023</p>
+                </td>
+                <td>
+                  <p eId="para_2397">228</p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <p eId="para_2398">
+                    <b>Total</b>
+                  </p>
+                </td>
+                <td>
+                  <p eId="para_2399">
+                    <b>574</b>
+                  </p>
+                </td>
+              </tr>
+            </table>
+            <p eId="para_2400">
+						</p>
+            <p eId="para_2401"> I am further advised by the Garda authorities that crime prevention advices are shared with members of the farming community by Crime Prevention Officers, local Gardaí and through Garda Social Media Platforms. These advices relate to the securing of farms and the property located on site.</p>
+          </speech>
+          <summary eId="sum_59">
+            <i> Question No. 182 answered with Question No. 180.</i>
+          </summary>
+        </debateSection>
+        </debateBody></debate>
+</akomaNtoso>
