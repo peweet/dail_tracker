@@ -1,6 +1,6 @@
 -- v_lobbying_sources — official source links for Stage 2 profile views
--- Source: data/silver/lobbying/enriched/lobbying_contact_detail.parquet
--- source_url is a real lobbying.ie return URL (https://www.lobbying.ie/return/...)
+-- Source: data/silver/lobbying/parquet/politician_returns_detail.parquet
+-- lobby_url is a real lobbying.ie return URL (https://www.lobbying.ie/return/...)
 -- Used via render_source_links() from utility/ui/source_links.py.
 
 CREATE OR REPLACE VIEW v_lobbying_sources AS
@@ -9,8 +9,8 @@ SELECT
     full_name           AS member_name,
     lobbyist_name,
     public_policy_area,
-    source_url,
+    lobby_url           AS source_url,
     NULL::VARCHAR       AS official_pdf_url,
     NULL::VARCHAR       AS oireachtas_url
-FROM read_parquet('data/silver/lobbying/enriched/lobbying_contact_detail.parquet')
-WHERE source_url IS NOT NULL;
+FROM read_parquet('data/silver/lobbying/parquet/politician_returns_detail.parquet')
+WHERE lobby_url IS NOT NULL;
