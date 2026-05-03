@@ -464,6 +464,7 @@ def _render_browse(conn) -> None:
 
     df = df.drop_duplicates(subset=["unique_member_code"], keep="first").reset_index(drop=True)
 
+    st.html('<p class="dt-main-search-kicker">Find a TD</p>')
     search = st.text_input(
         "Search TDs",
         placeholder="Search by name, party or constituency…",
@@ -670,27 +671,6 @@ def member_overview_page() -> None:
 
     with st.sidebar:
         sidebar_page_header("Member<br>Overview", "OIREACHTAS EXPLORER")
-
-        df_all       = _member_list(conn)
-        member_names = df_all["member_name"].tolist() if not df_all.empty else []
-
-        st.html('<p class="sidebar-label">Find a member</p>')
-        search = st.text_input(
-            "Search", placeholder="Type a name…",
-            key="mo_sidebar_search", label_visibility="collapsed",
-        )
-        sq             = search.strip().lower()
-        filtered_names = [n for n in member_names if sq in n.lower()] if sq else member_names
-        chosen         = st.selectbox(
-            "Select member", ["— select —"] + filtered_names,
-            key="mo_sidebar_select", label_visibility="collapsed",
-        )
-        if chosen and chosen != "— select —":
-            jk = _join_key_by_name(conn, chosen)
-            if jk and jk != join_key:
-                st.session_state[_STAGE_KEY] = jk
-                st.query_params["member"]    = jk
-                st.rerun()
 
     if join_key:
         _render_stage2(conn, join_key)
