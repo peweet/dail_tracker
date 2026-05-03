@@ -1,0 +1,101 @@
+<akomaNtoso xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13" xsi:schemaLocation="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13 ./akomantoso30.xsd">
+  <debate name="Official Report">
+    <meta>
+      <identification source="#debates">
+        <FRBRWork>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-04-21/writtens/dbsect_423"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-04-21/writtens"/>
+          <FRBRdate date="2026-04-21" name="#generation"/>
+          <FRBRauthor as="#author" href="/ie/oireachtas/house/dail/34"/>
+          <FRBRcountry value="ie"/>
+          <FRBRname value="writtens"/>
+        </FRBRWork>
+        <FRBRExpression>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-04-21/writtens/mul@/dbsect_423"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-04-21/writtens/mul@"/>
+          <FRBRdate date="2026-04-21" name="#reported"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+          <FRBRlanguage language="eng"/>
+        </FRBRExpression>
+        <FRBRManifestation>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-04-21/writtens/mul@/dbsect_423.xml"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-04-21/writtens/mul@.akn"/>
+          <FRBRdate date="2026-04-28" name="#publication"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+        </FRBRManifestation>
+      </identification>
+      <references source="#debates">
+        <TLCPerson eId="PatrickODonovan" href="/ie/oireachtas/member/id/Patrick-O'Donovan.D.2011-03-09" showAs="Patrick O'Donovan"/>
+        <TLCPerson eId="RyanOMeara" href="/ie/oireachtas/member/id/Ryan-O'Meara.D.2024-11-29" showAs="Ryan O'Meara"/>
+        <TLCRole eId="Culture" href="/ie/oireachtas/role/office/culture" showAs="Culture"/>
+        <TLCRole eId="Minister_for_Culture,_Communications_and_Sport" href="/ie/oireachtas/role/minister/culture__communications__sport" showAs="Minister for Culture, Communications and Sport"/>
+        </references>
+    </meta>
+    <preface>
+      <block name="title_ga">
+        <docTitle>DÍOSPÓIREACHTAÍ PARLAIMINTE</docTitle>
+      </block>
+      <block name="title_en">
+        <docTitle>PARLIAMENTARY DEBATES</docTitle>
+      </block>
+      <block name="proponent_ga">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="proponent_en">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="status_ga">
+        <docStatus>TUAIRISC OIFIGIÚIL</docStatus>
+      </block>
+      <block name="status_en">
+        <docStatus>(OFFICIAL REPORT)</docStatus>
+      </block>
+      <block name="date_ga">
+        <docDate date="2026-04-21">Dé Máirt, 21 Aibreán 2026</docDate>
+      </block>
+      <block name="date_en">
+        <docDate date="2026-04-21">Tuesday, 21 April 2026</docDate>
+      </block>
+      <block name="volume">
+        <docNumber refersTo="#vol_1084">Vol. 1084</docNumber>
+      </block>
+      <block name="number">
+        <docNumber refersTo="#no_2">No. 2</docNumber>
+      </block>
+      <block refersTo="#unrevised" name="version_en">
+        <docStatus/>
+      </block>
+      <block refersTo="#unrevised" name="version_ga">
+        <docStatus/>
+      </block>
+    </preface>
+    <debateBody><debateSection name="writtenAnswer" eId="dbsect_423">
+          <heading>Departmental Schemes<recordedTime time="2026-04-21T00:28:00+01:00"/></heading>
+          <question by="#RyanOMeara" to="#Culture" eId="pq_546">
+            <p eId="para_4972">546. <b>Deputy Ryan O'Meara</b> asked the <b>Minister for Culture, Communications and Sport</b> if an artist who is in receipt of a disability support payment is also eligible for the basic income for the arts scheme; and if he will make a statement on the matter. [27958/26]</p>
+          </question>
+          <question by="#RyanOMeara" to="#Culture" eId="pq_547">
+            <p eId="para_4973">547. <b>Deputy Ryan O'Meara</b> asked the <b>Minister for Culture, Communications and Sport</b> if an artist who is in receipt of a disability support payment is also eligible for the basic income for the arts scheme [27959/26]</p>
+          </question>
+          <question by="#RyanOMeara" to="#Culture" eId="pq_548">
+            <p eId="para_4974">548. <b>Deputy Ryan O'Meara</b> asked the <b>Minister for Culture, Communications and Sport</b> if a person who has a full-time job outside of the arts and practices as an artist on a part-time basis is eligible for the same support under the basic income for the arts scheme as a full time artist; if so, to consider differentiating these applicants; and if he will make a statement on the matter. [27960/26]</p>
+          </question>
+          <speech by="#PatrickODonovan" as="#Minister_for_Culture,_Communications_and_Sport" eId="spk_811">
+            <from>Minister for Culture, Communications and Sport<recordedTime time="2026-04-21T00:28:00+01:00"/></from>
+            <p eId="para_4975">I propose to take Questions Nos. 546, 547 and 548 together.</p>
+            <p eId="para_4976"> I was delighted to open the successor scheme to the Basic Income for the Arts pilot last week. Guidelines for the new scheme were published on 1st April and application will be open for the scheme until Tuesday 12th May, with 2,000 places available for artists to receive a weekly payment of €325.</p>
+            <p eId="para_4977"> This is a major milestone for the arts in Ireland and I am particularly pleased that the research my Department conducted provided Government with a clear evidence base upon which to make that decision.</p>
+            <p eId="para_4978"> The research clearly demonstrated both how precarious and difficult it is to be an artist and also the positive benefits for society as a whole if we invest in our artists. Many artists have to work significant hours in PAYE employment e.g. in the hospitality or education sectors as well as running a full time creative practice in order to survive, the research clearly demonstrated this. This is why those in full-time employment will be eligible, however the eligibility criteria are sufficiently high that only those with an active professional arts practice will be eligible for BIA.</p>
+            <p eId="para_4979"> The focus of the successor scheme is to support professional artists whose creative practice is based in Ireland. With an allocation of €18.27 million for 2026, the Department is in a position to fund 2,000 artists. The 2026-2029 BIA scheme is focused on artists with an active professional practice.</p>
+            <p eId="para_4980"> Applicants for the BIA 2026 - 2029 will not be tested for means and BIA payments are reckonable for the purposes of income tax. Being on a Social Welfare support has no impact on eligibility for BIA. All successful participants will need to register with Revenue as self-employed and pay Schedule D income tax, where appropriate, on the Basic Income for the Arts grant payment. Income from the pilot will be liable for Class S PRSI. Applicants are advised to investigate in advance what their own particular tax and social welfare situation may be should they receive payment.</p>
+            <p eId="para_4981"> This is a ground-breaking support for the arts in Ireland and recognising the importance of supporting artistic practice and makes Ireland a world-leader in how we support our artists and culture and will help to sustain the careers of those artists who will receive it and retain their talent in the arts sector.</p>
+          </speech>
+          <summary eId="sum_106">
+            <i> Question No. 547 answered with Question No. 546.</i>
+          </summary>
+          <summary eId="sum_107">
+            <i> Question No. 548 answered with Question No. 546.</i>
+          </summary>
+        </debateSection>
+        </debateBody></debate>
+</akomaNtoso>

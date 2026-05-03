@@ -1,0 +1,121 @@
+<akomaNtoso xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13" xsi:schemaLocation="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13 ./akomantoso30.xsd">
+  <debate name="Official Report">
+    <meta>
+      <identification source="#debates">
+        <FRBRWork>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-03-26/debate/dbsect_6"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-03-26/debate"/>
+          <FRBRdate date="2026-03-26" name="#generation"/>
+          <FRBRauthor as="#author" href="/ie/oireachtas/house/dail/34"/>
+          <FRBRcountry value="ie"/>
+          <FRBRname value="debate"/>
+        </FRBRWork>
+        <FRBRExpression>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-03-26/debate/mul@/dbsect_6"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-03-26/debate/mul@"/>
+          <FRBRdate date="2026-03-26" name="#reported"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+          <FRBRlanguage language="eng"/>
+        </FRBRExpression>
+        <FRBRManifestation>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-03-26/debate/mul@/dbsect_6.xml"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-03-26/debate/mul@.akn"/>
+          <FRBRdate date="2026-04-15" name="#publication"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+        </FRBRManifestation>
+      </identification>
+      <references source="#debates">
+        <TLCPerson eId="BarryWard" href="/ie/oireachtas/member/id/Barry-Ward.S.2020-03-30" showAs="Barry Ward"/>
+        <TLCPerson eId="EmerCurrie" href="/ie/oireachtas/member/id/Emer-Currie.S.2020-06-29" showAs="Emer Currie"/>
+        <TLCPerson eId="JerryButtimer" href="/ie/oireachtas/member/id/Jerry-Buttimer.S.2007-07-23" showAs="Jerry Buttimer"/>
+        <TLCPerson eId="JohnPaulOShea" href="/ie/oireachtas/member/id/John-Paul-O'Shea.D.2024-11-29" showAs="John Paul O'Shea"/>
+        <TLCRole eId="An_Cathaoirleach_Gníomhach" href="/ie/oireachtas/role/office/an_cathaoirleach_gníomhach" showAs="An Cathaoirleach Gníomhach"/>
+        <TLCRole eId="Minister_of_State_at_the_Department_of_Rural_and_Community_Development_and_the_Gaeltacht" href="/ie/oireachtas/role/minister_state/rural__community_development__gaeltacht" showAs="Minister of State at the Department of Rural and Community Development and the Gaeltacht"/>
+        <TLCRole eId="Rural" href="/ie/oireachtas/role/office/rural" showAs="Rural"/>
+        </references>
+    </meta>
+    <preface>
+      <block name="title_ga">
+        <docTitle>DÍOSPÓIREACHTAÍ PARLAIMINTE</docTitle>
+      </block>
+      <block name="title_en">
+        <docTitle>PARLIAMENTARY DEBATES</docTitle>
+      </block>
+      <block name="proponent_ga">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="proponent_en">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="status_ga">
+        <docStatus>TUAIRISC OIFIGIÚIL</docStatus>
+      </block>
+      <block name="status_en">
+        <docStatus>(OFFICIAL REPORT)</docStatus>
+      </block>
+      <block name="date_ga">
+        <docDate date="2026-03-26">Déardaoin, 26 Márta 2026</docDate>
+      </block>
+      <block name="date_en">
+        <docDate date="2026-03-26">Thursday, 26 March 2026</docDate>
+      </block>
+      <block name="volume">
+        <docNumber refersTo="#vol_1083">Vol. 1083</docNumber>
+      </block>
+      <block name="number">
+        <docNumber refersTo="#no_3">No. 3</docNumber>
+      </block>
+      <block refersTo="#unrevised" name="version_en">
+        <docStatus/>
+      </block>
+      <block refersTo="#unrevised" name="version_ga">
+        <docStatus/>
+      </block>
+    </preface>
+    <debateBody><debateSection name="question" eId="dbsect_6">
+          <heading>Departmental Funding<recordedTime time="2026-03-26T09:10:00+00:00"/></heading>
+          <question by="#EmerCurrie" to="#Rural" eId="pq_4">
+            <p eId="para_46">4. <b>Deputy Emer Currie</b> asked the <b>Minister for Rural and Community Development and the Gaeltacht</b> whether consideration has been given to introducing dedicated community support officers at local level to assist community groups with accessing funding streams, including grant applications and associated administrative requirements, particularly in areas where groups may have limited capacity; and if he will make a statement on the matter. [23210/26]</p>
+          </question>
+          <speech by="#BarryWard" eId="spk_27">
+            <from>Deputy Barry Ward<recordedTime time="2026-03-26T09:10:00+00:00"/></from>
+            <p eId="para_47">I am taking this question on behalf of Deputy Peter Roche, who unfortunately cannot be here. His brother, Vincent Roche, passed away yesterday evening.</p>
+          </speech>
+          <speech by="#JohnPaulOShea" as="#An_Cathaoirleach_Gníomhach" eId="spk_28">
+            <from>An Cathaoirleach Gníomhach (Deputy John Paul O'Shea)<recordedTime time="2026-03-26T09:10:00+00:00"/></from>
+            <p eId="para_48">This is Question No. 4.</p>
+          </speech>
+          <speech by="#BarryWard" eId="spk_29">
+            <from>Deputy Barry Ward<recordedTime time="2026-03-26T09:10:00+00:00"/></from>
+            <p eId="para_49">Yes, I am taking it. It was originally a question put down by Deputy Roche. He cannot be here today because his brother passed away last night. I extend my sympathies to the family at this sad time. This question relates to the idea that we would have community assistance officers in local authorities to help community groups to apply for funding and short-circuit the administration and bureaucracy involved in making those applications and help them to get what they need for the local communities.</p>
+          </speech>
+          <speech by="#JerryButtimer" eId="spk_30" as="#Minister_of_State_at_the_Department_of_Rural_and_Community_Development_and_the_Gaeltacht">
+            <from>Deputy Jerry Buttimer<recordedTime time="2026-03-26T09:10:00+00:00"/></from>
+            <p eId="para_50">I join with Deputy Ward in sending our condolences to Deputy Roche. I thank the Deputy for taking the question.</p>
+            <p eId="para_51"> Our Department's mission is to promote rural and community development and support vibrant, inclusive and sustainable communities throughout Ireland. A number of programmes provide funding for staff resources to engage with and support communities, including building their capacity to access Government funding schemes. The social inclusion and community activation programme, SICAP, is the State’s primary social inclusion programme. It provides supports to disadvantaged communities and individuals to improve their life chances.</p>
+            <p eId="para_52"> The SICAP initiative supports collective community engagement, providing direct supports to local community groups, LCGs, and networks. This includes developing their capacity to better engage with other groups, improve outcomes in their communities, and address social exclusion issues. In 2025, SICAP supported over 2,500 LCGs and networks in this way. Additionally, the empowering communities programme, ECP, enhances access to key services and supports communities to respond to area-based poverty and social exclusion. Community workers act as a local resource, as Members will know, including supporting groups with activities such as funding applications and administrative requirements.</p>
+            <p eId="para_53"> Separately, our Department’s LEADER programme is a community-led approach to local development delivered in rural areas across the country by a network of local action groups, LAGs. The funding provided by our Department supports eligible projects relating to community groups and rural businesses, and also contributes to LAG administration costs, in terms of the budgets there, as the Minister said, to support work such as engaging with prospective applicants regarding their application.</p>
+            <p eId="para_54"> I assure the Deputy that work remains ongoing in our Department to look at the best ways to ensure that disadvantaged communities are provided with the support they need to underpin their sustainable development.</p>
+          </speech>
+          <speech by="#BarryWard" eId="spk_31">
+            <from>Deputy Barry Ward<recordedTime time="2026-03-26T09:10:00+00:00"/></from>
+            <p eId="para_55">I acknowledge what the Minister of State said about the amount of funding and supports there. The Minister of State and I know that Deputy Peter Roche, in particular, has done a huge amount of work in this area. He has worked particularly in the context of helping to support community organisations in his area. The difficulty he has identified, and other colleagues tell me they see it all over the country, is not a lack of funding, because there is a huge amount of funding there for the very communities the Minister of State mentioned, but a difficulty accessing it. Sometimes very bureaucratic and onerous processes have to be gone through. The idea behind this question is that there would be a community support officer in the local authority in the local area with the institutional knowledge and memory of how these forms need to be done, what systems need to be put in place and which boxes need to be ticked to ensure local community organisations get the most they can out of the SICAP funding the Minister of State mentioned and any of the other streams of funding available. The money is there. This is about ensuring that local organisations, which may not have a very strong organisational basis themselves, get every opportunity they can to access the funding and do good things in local communities.</p>
+          </speech>
+          <speech by="#JerryButtimer" eId="spk_32" as="#Minister_of_State_at_the_Department_of_Rural_and_Community_Development_and_the_Gaeltacht">
+            <from>Deputy Jerry Buttimer<recordedTime time="2026-03-26T09:10:00+00:00"/></from>
+            <p eId="para_56">The Deputy is right. The Minister and I are very much committed to making it easier for people and groups to apply, whether that is the local development group or the LEADER programme. I will be answering another question from Deputy Currie in a minute with probably the same replies. It is about working, in our case, with Pobal, as an example, to make it easier for people to apply and get that online guidance and support in the context of an application.</p>
+            <p eId="para_57"> If I can use the phrase, there should be no wrong door in an application process. Having been involved in my own community association and GAA club and going through a myriad of funding applications, I fully concur with the Deputy that it should not be a complex process. If a process is started, it should not be necessary to go back to the beginning and start again. In many cases, applications should not have to be declared invalid. We should be able to work with and assist, as the Deputy rightly said, community and voluntary groups in respect of building their capacity to empower and enhance their own local areas. I look forward to working with the Deputy and Deputy Roche in putting in place an administrative pathway to make applying for grants easier.</p>
+          </speech>
+          <speech by="#BarryWard" eId="spk_33">
+            <from>Deputy Barry Ward<recordedTime time="2026-03-26T09:10:00+00:00"/></from>
+            <p eId="para_58">I welcome what the Minister of State said about there not being a wrong door. He is absolutely right. Applications should not be cancelled because of an administrative error or something like that. At the same time, we both recognise that this is public money, and there needs to be transparency and things need to be done right. That is important too.</p>
+            <p eId="para_59"> Even in relation to what the Minister of State said about online applications, very often we are dealing with small community groups. There might be one person or a small committee involved in making the application, and it can sometimes be very onerous on them. The idea here is that there would be somebody in the local authority who knows exactly how the applications work, and who might be able to look at a group's application before it is submitted online or in paper format and advise the group where there might be a problem or where something might need to be changed, such as opening a bank account or whatever it might be. For example, many local authorities have officers who deal with European funding because of the same administrative and bureaucratic burdens on organisations in getting funding in this context. Is there a role for a community support officer to do the same thing in relation to national funding for community groups?</p>
+          </speech>
+          <speech by="#JerryButtimer" eId="spk_34" as="#Minister_of_State_at_the_Department_of_Rural_and_Community_Development_and_the_Gaeltacht">
+            <from>Deputy Jerry Buttimer<recordedTime time="2026-03-26T09:10:00+00:00"/></from>
+            <p eId="para_60">I would make the point to Deputy Ward that we already have a range of programmes on the ground that provide support and offer dedicated staff access and a pathway for applications, whether this is for SICAP, ECP or LEADER. They are assisting communities and working to engage with funding and services. For me, and I know the Deputy is the same, a core feature of what we do is not just about providing support and capital investment but about ensuring we can strengthen local areas. The Deputy is right that there is the Government’s piece and a transparency piece. For me, however, it must be about how we can help and assist community groups, as an example, to navigate and be aware of the different programmes. I think the local community development groups and the LAGs provide that kind of signposting and a roadmap. We will discuss further the question the Deputy asked, and the question Deputy Currie will ask in a second.</p>
+            <p eId="para_61">It is about ensuring we work with all groups to provide clarity but also that navigability should not be too complex.</p>
+          </speech>
+        </debateSection>
+      </debateBody></debate>
+</akomaNtoso>

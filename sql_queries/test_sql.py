@@ -21,7 +21,7 @@ committee_activity_summary.sql
 import duckdb
 import polars as pl
 import os
-
+from pathlib import Path 
 # Register all required views for the SQL queries
 con = duckdb.connect(database=':memory:')
 
@@ -54,6 +54,8 @@ con.execute("CREATE VIEW activities AS SELECT * FROM read_parquet('data/silver/l
 
 sql_files = [f for f in os.listdir(SQL_DIR) if f.endswith('.sql')]
 print(f"Found {len(sql_files)} SQL files: {sql_files}")
+
+top_lobby_orgs = Path(r'C:\Users\pglyn\PycharmProjects\dail_extractor\sql_queries\top_lobbyist_organisations.sql')
 # 
 # for sql_file in sql_files:
     # sql_path = os.path.join(SQL_DIR, sql_file)

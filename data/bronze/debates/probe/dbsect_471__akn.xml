@@ -1,0 +1,111 @@
+<akomaNtoso xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13" xsi:schemaLocation="http://docs.oasis-open.org/legaldocml/ns/akn/3.0/CSD13 ./akomantoso30.xsd">
+  <debate name="Official Report">
+    <meta>
+      <identification source="#debates">
+        <FRBRWork>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-04-21/writtens/dbsect_471"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-04-21/writtens"/>
+          <FRBRdate date="2026-04-21" name="#generation"/>
+          <FRBRauthor as="#author" href="/ie/oireachtas/house/dail/34"/>
+          <FRBRcountry value="ie"/>
+          <FRBRname value="writtens"/>
+        </FRBRWork>
+        <FRBRExpression>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-04-21/writtens/mul@/dbsect_471"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-04-21/writtens/mul@"/>
+          <FRBRdate date="2026-04-21" name="#reported"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+          <FRBRlanguage language="eng"/>
+        </FRBRExpression>
+        <FRBRManifestation>
+          <FRBRthis value="/akn/ie/debateRecord/dail/2026-04-21/writtens/mul@/dbsect_471.xml"/>
+          <FRBRuri value="/akn/ie/debateRecord/dail/2026-04-21/writtens/mul@.akn"/>
+          <FRBRdate date="2026-04-28" name="#publication"/>
+          <FRBRauthor as="#editor" href="#debates"/>
+        </FRBRManifestation>
+      </identification>
+      <references source="#debates">
+        <TLCPerson eId="DaraCalleary" href="/ie/oireachtas/member/id/Dara-Calleary.D.2007-06-14" showAs="Dara Calleary"/>
+        <TLCPerson eId="JohnPaulOShea" href="/ie/oireachtas/member/id/John-Paul-O'Shea.D.2024-11-29" showAs="John Paul O'Shea"/>
+        <TLCRole eId="Minister_for_Social_Protection" href="/ie/oireachtas/role/minister/social_protection" showAs="Minister for Social Protection"/>
+        <TLCRole eId="Social" href="/ie/oireachtas/role/office/social" showAs="Social"/>
+        </references>
+    </meta>
+    <preface>
+      <block name="title_ga">
+        <docTitle>DÍOSPÓIREACHTAÍ PARLAIMINTE</docTitle>
+      </block>
+      <block name="title_en">
+        <docTitle>PARLIAMENTARY DEBATES</docTitle>
+      </block>
+      <block name="proponent_ga">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="proponent_en">
+        <docProponent>DÁIL ÉIREANN</docProponent>
+      </block>
+      <block name="status_ga">
+        <docStatus>TUAIRISC OIFIGIÚIL</docStatus>
+      </block>
+      <block name="status_en">
+        <docStatus>(OFFICIAL REPORT)</docStatus>
+      </block>
+      <block name="date_ga">
+        <docDate date="2026-04-21">Dé Máirt, 21 Aibreán 2026</docDate>
+      </block>
+      <block name="date_en">
+        <docDate date="2026-04-21">Tuesday, 21 April 2026</docDate>
+      </block>
+      <block name="volume">
+        <docNumber refersTo="#vol_1084">Vol. 1084</docNumber>
+      </block>
+      <block name="number">
+        <docNumber refersTo="#no_2">No. 2</docNumber>
+      </block>
+      <block refersTo="#unrevised" name="version_en">
+        <docStatus/>
+      </block>
+      <block refersTo="#unrevised" name="version_ga">
+        <docStatus/>
+      </block>
+    </preface>
+    <debateBody><debateSection name="writtenAnswer" eId="dbsect_471">
+          <heading>Social Insurance<recordedTime time="2026-04-21T00:30:00+01:00"/></heading>
+          <question by="#JohnPaulOShea" to="#Social" eId="pq_609">
+            <p eId="para_5271">609. <b>Deputy John Paul O'Shea</b> asked the <b>Minister for Social Protection</b> the number of workers subject to the lower rate of Employer PRSI of 9%; the number of workers subject to the higher rate of Employer PRSI of 11.25%, in tabular form; and if he will make a statement on the matter. [28303/26]</p>
+          </question>
+          <speech by="#DaraCalleary" as="#Minister_for_Social_Protection" eId="spk_856">
+            <from>Minister for Social Protection<recordedTime time="2026-04-21T00:30:00+01:00"/></from>
+            <p eId="para_5272">The information requested by the Deputy is contained in the table below.</p>
+            <table>
+              <tr>
+                <td>
+                  <p eId="para_5273">PRSI Rate</p>
+                </td>
+                <td>
+                  <p eId="para_5274">Estimated Number of Employees (2026)</p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <p eId="para_5275">11.25%</p>
+                </td>
+                <td>
+                  <p eId="para_5276">1,972,000</p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <p eId="para_5277">9%</p>
+                </td>
+                <td>
+                  <p eId="para_5278">889,000</p>
+                </td>
+              </tr>
+            </table>
+            <p eId="para_5279">
+						</p>
+          </speech>
+        </debateSection>
+        </debateBody></debate>
+</akomaNtoso>
