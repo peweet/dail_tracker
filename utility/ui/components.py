@@ -203,6 +203,41 @@ def back_button(label: str, key: str, *, help: str | None = None) -> bool:
     return st.button(label, key=f"dt_back_{key}", help=help)
 
 
+def main_member_jump(
+    members: list[str],
+    *,
+    key_prefix: str,
+    label: str = "Find a TD",
+    placeholder: str = "Type a name…",
+) -> str | None:
+    """Prominent main-panel search — type a name, pick from the dropdown.
+
+    Returns the selected member name when chosen (caller is responsible for
+    setting the relevant ``selected_td`` session-state key + ``st.rerun()``).
+    Mirrors ``sidebar_member_filter`` but is sized and labelled for the
+    main column as a primary call-to-action under the hero.
+    """
+    st.html(f'<p class="dt-main-search-kicker">{_h(label)}</p>')
+    cols = st.columns([3, 2])
+    with cols[0]:
+        search = st.text_input(
+            label,
+            placeholder=placeholder,
+            key=f"{key_prefix}_main_search",
+            label_visibility="collapsed",
+        )
+    sq = search.strip().lower()
+    filtered = [m for m in members if sq in m.lower()] if sq else members
+    with cols[1]:
+        chosen = st.selectbox(
+            label,
+            ["— select —"] + filtered,
+            key=f"{key_prefix}_main_select",
+            label_visibility="collapsed",
+        )
+    return chosen if chosen and chosen != "— select —" else None
+
+
 def breadcrumb(labels: list[str], *, key_prefix: str) -> int | None:
     """Horizontal breadcrumb trail with ``›`` separators.
 
@@ -449,7 +484,12 @@ def pagination_controls(
     start = (cur - 1) * page_size + 1 if total else 0
     end   = min(cur * page_size, total)
 
-    nav_col, size_col = st.columns([3, 1])
+    show_size_picker = len(page_sizes) > 1
+    if show_size_picker:
+        nav_col, size_col = st.columns([3, 1])
+    else:
+        nav_col = st.container()
+        size_col = None
 
     with nav_col:
         # Marker element so .dt-pager CSS can target buttons in this column via :has().
@@ -495,19 +535,20 @@ def pagination_controls(
                 f'</div>'
             )
 
-    with size_col:
-        st.html('<div class="dt-pager-size-label">Per page</div>')
-        new_size = st.segmented_control(
-            "Per page",
-            options=list(page_sizes),
-            default=page_size,
-            key=f"{key_prefix}_size_widget",
-            label_visibility="collapsed",
-        )
-        if new_size and int(new_size) != page_size:
-            st.session_state[size_key] = int(new_size)
-            st.session_state[page_key] = 1
-            st.rerun()
+    if size_col is not None:
+        with size_col:
+            st.html('<div class="dt-pager-size-label">Per page</div>')
+            new_size = st.segmented_control(
+                "Per page",
+                options=list(page_sizes),
+                default=page_size,
+                key=f"{key_prefix}_size_widget",
+                label_visibility="collapsed",
+            )
+            if new_size and int(new_size) != page_size:
+                st.session_state[size_key] = int(new_size)
+                st.session_state[page_key] = 1
+                st.rerun()
 
     return page_size, max(0, cur - 1)
 

@@ -42,10 +42,11 @@ from ui.components import (
     evidence_heading,
     hero_banner,
     interest_declaration_item,
+    main_member_jump,
     member_card_html,
     member_profile_header,
+    pagination_controls,
     render_notable_chips,
-    sidebar_member_filter,
     sidebar_page_header,
     todo_callout,
     year_selector,
@@ -317,21 +318,24 @@ def _render_leaderboard(ranking_df: pd.DataFrame) -> str | None:
         )
         return None
 
-    total    = len(ranking_df)
-    show_all = st.session_state.get("int_show_all", False)
-    visible  = ranking_df if show_all else ranking_df.head(25)
+    total = len(ranking_df)
+    page_size, page_idx = pagination_controls(
+        total=total,
+        key_prefix="int_ranking",
+        page_sizes=(10,),
+        default_page_size=10,
+        label="members",
+        show_caption=False,
+    )
+    visible = ranking_df.iloc[page_idx * page_size : (page_idx + 1) * page_size]
 
     for i, (_, row) in enumerate(visible.iterrows()):
         card_col, btn_col = st.columns([14, 1])
         with card_col:
             st.html(_int_member_card_html(row))
         btn_col.html('<div class="dt-nav-anchor"></div>')
-        if btn_col.button("→", key=f"int_mem_{i}", help=f"View {row['member_name']}'s declarations"):
+        if btn_col.button("→", key=f"int_mem_p{page_idx}_{i}", help=f"View {row['member_name']}'s declarations"):
             return str(row["member_name"])
-
-    if not show_all and total > 25 and st.button(f"Show all {total:,} members", key="int_show_all_btn"):
-        st.session_state["int_show_all"] = True
-        st.rerun()
 
     return None
 
@@ -570,18 +574,6 @@ def interests_page() -> None:
 
         opts = _fetch_filter_options(house)
 
-        chosen = sidebar_member_filter(
-            "Browse all members",
-            opts["members"],
-            key_search="int_member_q",
-            key_select="int_member_sel",
-            placeholder="Type a name…",
-        )
-        if chosen and st.session_state.get("selected_td") != chosen:
-            st.session_state["selected_td"] = chosen
-            st.rerun()
-
-        st.divider()
         notable = NOTABLE_TDS if house == "Dáil" else NOTABLE_SENATORS
         if notable and render_notable_chips(notable, opts["members"], "chip_int", "selected_td"):
             st.rerun()
@@ -634,6 +626,17 @@ def interests_page() -> None:
 
     # ── Browse mode ───────────────────────────────────────────────────────────
 
+    # Main-panel member search — primary call-to-action under the hero.
+    chosen = main_member_jump(
+        opts["members"],
+        key_prefix="int",
+        label="Find a TD",
+        placeholder="Type a name…",
+    )
+    if chosen and st.session_state.get("selected_td") != chosen:
+        st.session_state["selected_td"] = chosen
+        st.rerun()
+
     # Year pills — main content, newest first
     year_opts = [str(y) for y in opts["years"]]
     if not year_opts:
@@ -664,13 +667,34 @@ def interests_page() -> None:
             return
 
         evidence_heading(f"Members · {selected_year} · {len(members_df)}")
-        for i, (_, row) in enumerate(members_df.iterrows()):
+
+        # Pagination state (read-only here; nav widgets render below the cards).
+        page_size = 12
+        page_key  = "int_fb_page"
+        cur       = int(st.session_state.get(page_key, 1))
+        total_pages = max(1, (len(members_df) + page_size - 1) // page_size)
+        if cur > total_pages:
+            cur = 1
+            st.session_state[page_key] = 1
+        page_idx = cur - 1
+        visible  = members_df.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+
+        for i, (_, row) in enumerate(visible.iterrows()):
             card_col, btn_col = st.columns([14, 1])
             card_col.html(_int_member_card_html(row))
             btn_col.html('<div class="dt-nav-anchor"></div>')
-            if btn_col.button("→", key=f"int_fb_{i}", help=f"View {row['member_name']}'s declarations"):
+            if btn_col.button("→", key=f"int_fb_p{page_idx}_{i}", help=f"View {row['member_name']}'s declarations"):
                 st.session_state["selected_td"] = str(row["member_name"])
                 st.rerun()
+
+        pagination_controls(
+            total=len(members_df),
+            key_prefix="int_fb",
+            page_sizes=(page_size,),
+            default_page_size=page_size,
+            label="members",
+            show_caption=False,
+        )
 
         _render_provenance()
         return
