@@ -33,6 +33,7 @@ from ui.components import (
     evidence_heading,
     find_a_td_search,
     member_profile_header,
+    pagination_controls,
     party_colour,
     render_stat_strip,
     sidebar_page_header,
@@ -272,6 +273,7 @@ def _stage_register(
         st.session_state["comm_chamber"] = chosen_chamber
         st.session_state["comm_td"] = None
         st.session_state["comm_committee"] = None
+        st.session_state.pop("reg_page", None)  # reset paginator to page 1
         st.rerun()
 
     _transition_notice()
@@ -354,11 +356,19 @@ def _stage_register(
         return
 
     # ── Committee row cards (NOT a dataframe) ─────────────────────────
-    evidence_heading(f"{len(summary)} committee{'s' if len(summary) != 1 else ''}")
-    for i, row in summary.iterrows():
+    evidence_heading("Committees")
+    page_size, page_idx = pagination_controls(
+        len(summary),
+        key_prefix="reg",
+        page_sizes=(5,),
+        default_page_size=5,
+        label="committees",
+    )
+    page_summary = summary.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+    for i, row in page_summary.iterrows():
         card_html = committee_row_html(
             name=str(row["committee"]),
-            rank=i + 1,
+            rank=int(i) + 1,
             chair=row["chair_name"] or None,
             chair_party=row["chair_party"] or None,
             members=int(row["members"]),
