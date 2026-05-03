@@ -20,13 +20,17 @@ SILVER_INTERESTS_CSV: dict[str, Path] = {
     "Seanad": SILVER_DIR / "seanad_member_interests_combined.csv",
 }
 
+SILVER_INTERESTS_PARQUET: dict[str, Path] = {
+    "Dáil":   SILVER_PARQUET_DIR / "dail_member_interests_combined.parquet",
+    "Seanad": SILVER_PARQUET_DIR / "seanad_member_interests_combined.parquet",
+}
+
 SILVER_MEMBERS_CSV: dict[str, Path] = {
     "Dáil":   SILVER_DIR / "flattened_members.csv",
     "Seanad": SILVER_DIR / "flattened_seanad_members.csv",
 }
 
 GOLD_VOTE_HISTORY_PARQUET      = GOLD_PARQUET_DIR / "current_dail_vote_history.parquet"
-GOLD_INTERESTS_RANKING_PARQUET = GOLD_PARQUET_DIR / "interests_member_ranking.parquet"
 
 # ── Notable members ─────────────────────────────────────────────────────────────
 # Quick-select sidebar chips on member-level pages.

@@ -16,6 +16,7 @@ MEMBERS_DIR = BRONZE_DIR / "members"
 LOG_DIR = PROJECT_ROOT / "logs"
 
 API_BASE = "https://api.oireachtas.ie/v1"
+VOTES_DATE_START = "2016-01-01"  # cutoff for paginated vote fetch
 
 # Ensure directories exist
 for path in [
