@@ -55,7 +55,7 @@ def fetch_summary() -> pd.DataFrame:
 def fetch_politician_index(year: int | None = None) -> pd.DataFrame:
     if year is not None:
         return _safe(
-            "SELECT rank, member_name, chamber, position, return_count,"
+            "SELECT rank, member_name, unique_member_code, chamber, position, return_count,"
             " distinct_orgs, distinct_policy_areas, first_period, last_period"
             " FROM v_lobbying_index"
             " WHERE EXTRACT(YEAR FROM CAST(last_period AS DATE)) = ?"
@@ -63,7 +63,7 @@ def fetch_politician_index(year: int | None = None) -> pd.DataFrame:
             [year],
         )
     return _safe(
-        "SELECT rank, member_name, chamber, position, return_count,"
+        "SELECT rank, member_name, unique_member_code, chamber, position, return_count,"
         " distinct_orgs, distinct_policy_areas, first_period, last_period"
         " FROM v_lobbying_index ORDER BY return_count DESC"
     )
@@ -397,7 +397,7 @@ def fetch_orgs_for_politician(member_name: str) -> pd.DataFrame:
 def fetch_politicians_for_org(org_name: str) -> pd.DataFrame:
     """Politicians targeted by an org, ranked by intensity."""
     return _safe(
-        "SELECT member_name, chamber, returns_in_relationship,"
+        "SELECT member_name, unique_member_code, chamber, returns_in_relationship,"
         " distinct_policy_areas, distinct_periods, first_contact, last_contact"
         " FROM v_lobbying_org_intensity"
         " WHERE lobbyist_name = ?"
@@ -436,7 +436,7 @@ def fetch_policy_exposure_for_politician(member_name: str) -> pd.DataFrame:
 def fetch_politicians_for_area(area: str) -> pd.DataFrame:
     """Politicians most exposed to a given policy area."""
     return _safe(
-        "SELECT member_name, chamber, returns_targeting, distinct_lobbyists"
+        "SELECT member_name, unique_member_code, chamber, returns_targeting, distinct_lobbyists"
         " FROM v_lobbying_policy_exposure"
         " WHERE public_policy_area = ?"
         " ORDER BY returns_targeting DESC LIMIT 20",

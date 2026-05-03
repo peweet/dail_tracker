@@ -9,6 +9,17 @@ Architecture:
 - No raw CSV/Parquet reads in this file
 - No joins, groupby, or pivot in this file
 - Two-stage flow: landing gateway → Stage 2 profile
+
+TODO_PIPELINE_VIEW_REQUIRED: unique_member_code on the following lobbying views
+so politician names rendered from them can link to /member-overview?member=…:
+  - v_lobbying_org_intensity      (politicians targeted by an org)
+  - v_lobbying_policy_exposure    (politicians for a policy area)
+  - v_lobbying_recent_returns     (recent returns ticker)
+  - v_lobbying_contact_detail     (per-return rows)
+  - v_lobbying_revolving_door     (DPO ↔ politician overlap)
+Until these carry the ID, only the Stage 2 politician profile (sourced from
+v_lobbying_index) gets a cross-page CTA. Name-based fallback URLs are not
+acceptable — they break silently on name normalisation.
 """
 from __future__ import annotations
 
@@ -63,6 +74,7 @@ from ui.components import (
     sidebar_page_header,
     todo_callout,
 )
+from ui.entity_links import entity_cta_html, member_profile_url
 from ui.export_controls import export_button
 from ui.source_links import render_source_links
 from ui.source_pdfs import provenance_expander
@@ -387,8 +399,9 @@ def _render_landing(summary: pd.DataFrame) -> None:
             )
         else:
             for rank, (_, row) in enumerate(idx.head(10).iterrows(), start=1):
-                name  = str(row.get("member_name", "—"))
-                meta  = clean_meta(
+                name      = str(row.get("member_name", "—"))
+                member_id = str(row.get("unique_member_code", "") or "")
+                meta      = clean_meta(
                     str(row.get("chamber",  "") or ""),
                     str(row.get("position", "") or ""),
                 )
@@ -396,7 +409,11 @@ def _render_landing(summary: pd.DataFrame) -> None:
                     f"{int(row.get('return_count', 0) or 0):,} returns",
                     f"{int(row.get('distinct_orgs', 0) or 0):,} orgs",
                 ]
-                if rank_card_row(name, meta, pills, btn_key=f"lob_pol_{rank}", rank=rank):
+                if rank_card_row(
+                    name, meta, pills,
+                    btn_key=f"lob_pol_{rank}", rank=rank,
+                    profile_href=member_profile_url(member_id) if member_id else "",
+                ):
                     _nav("pol", name)
                     st.rerun()
 
@@ -778,13 +795,14 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
         if not m.empty:
             pol_row = m.iloc[0]
 
-    chamber  = str(pol_row.get("chamber",  "") or "")
-    position = str(pol_row.get("position", "") or "")
-    ret_cnt  = int(pol_row.get("return_count",          0) or 0)
-    org_cnt  = int(pol_row.get("distinct_orgs",         0) or 0)
-    area_cnt = int(pol_row.get("distinct_policy_areas", 0) or 0)
-    first_p  = str(pol_row.get("first_period", "") or "")
-    last_p   = str(pol_row.get("last_period",  "") or "")
+    chamber   = str(pol_row.get("chamber",  "") or "")
+    position  = str(pol_row.get("position", "") or "")
+    member_id = str(pol_row.get("unique_member_code", "") or "")
+    ret_cnt   = int(pol_row.get("return_count",          0) or 0)
+    org_cnt   = int(pol_row.get("distinct_orgs",         0) or 0)
+    area_cnt  = int(pol_row.get("distinct_policy_areas", 0) or 0)
+    first_p   = str(pol_row.get("first_period", "") or "")
+    last_p    = str(pol_row.get("last_period",  "") or "")
 
     meta_badges = [b for b in [chamber, position] if b]
     hero_banner(
@@ -802,6 +820,16 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
     c1.metric("Returns targeting them", f"{ret_cnt:,}")
     c2.metric("Distinct organisations", f"{org_cnt:,}")
     c3.metric("Policy areas",           f"{area_cnt:,}")
+
+    # Cross-page jump to the full accountability profile. unique_member_code
+    # comes from v_lobbying_index — see fetch_politician_index().
+    if member_id:
+        st.html(
+            entity_cta_html(
+                member_profile_url(member_id),
+                "View full accountability profile →",
+            )
+        )
 
     # ── Orgs by intensity — ranked cards (primary view) ───────────────────
     evidence_heading("Organisations lobbying this politician")
@@ -962,16 +990,21 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
         empty_state("No intensity data", "No politicians found targeted by this organisation.")
     else:
         for rank, (_, row) in enumerate(pol_intensity.iterrows(), start=1):
-            pol_name = str(row.get("member_name", "—"))
-            chamber  = str(row.get("chamber", "") or "")
-            first_c  = str(row.get("first_contact", "") or "")[:7]
-            last_c   = str(row.get("last_contact",  "") or "")[:7]
-            meta     = clean_meta(chamber, first_c, last_c)
-            pills    = [
+            pol_name  = str(row.get("member_name", "—"))
+            member_id = str(row.get("unique_member_code", "") or "")
+            chamber   = str(row.get("chamber", "") or "")
+            first_c   = str(row.get("first_contact", "") or "")[:7]
+            last_c    = str(row.get("last_contact",  "") or "")[:7]
+            meta      = clean_meta(chamber, first_c, last_c)
+            pills     = [
                 f"{int(row.get('returns_in_relationship', 0) or 0):,} returns",
                 f"{int(row.get('distinct_policy_areas',   0) or 0):,} policy areas",
             ]
-            if rank_card_row(pol_name, meta, pills, btn_key=f"lob_org_pol_{rank}", rank=rank):
+            if rank_card_row(
+                pol_name, meta, pills,
+                btn_key=f"lob_org_pol_{rank}", rank=rank,
+                profile_href=member_profile_url(member_id) if member_id else "",
+            ):
                 _nav("pol", pol_name)
                 st.rerun()
 
@@ -1104,9 +1137,10 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
         empty_state("No data", "No politicians found for this policy area.")
     else:
         for rank, (_, row) in enumerate(area_pols.iterrows(), start=1):
-            pol_name = str(row.get("member_name", "—"))
-            chamber  = str(row.get("chamber", "") or "")
-            pills    = [
+            pol_name  = str(row.get("member_name", "—"))
+            member_id = str(row.get("unique_member_code", "") or "")
+            chamber   = str(row.get("chamber", "") or "")
+            pills     = [
                 f"{int(row.get('returns_targeting',  0) or 0):,} returns",
                 f"{int(row.get('distinct_lobbyists', 0) or 0):,} orgs",
             ]
@@ -1114,6 +1148,7 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
                 pol_name, chamber, pills,
                 btn_key=f"lob_area_pol_{rank}", rank=rank,
                 btn_help=f"View every return targeting {pol_name} under {area}",
+                profile_href=member_profile_url(member_id) if member_id else "",
             ):
                 _nav_results(area, pol_name)
                 st.rerun()

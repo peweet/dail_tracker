@@ -22,7 +22,10 @@ TODO_PIPELINE_VIEW_REQUIRED: v_member_interests_sources
 TODO_PIPELINE_VIEW_REQUIRED: directorship_flag — derive from interest_category in pipeline
 TODO_PIPELINE_VIEW_REQUIRED: shareholding_flag — derive from interest_category in pipeline
 TODO_PIPELINE_VIEW_REQUIRED: source_pdf_url — add PDF URL to silver output
-TODO_PIPELINE_VIEW_REQUIRED: member_id — stable Oireachtas API member URI
+TODO_PIPELINE_VIEW_REQUIRED: unique_member_code — stable join key on v_member_interests_*
+    views. Required for cross-page member-name links via
+    utility/ui/entity_links.member_link_html. Until then this page cannot link member
+    names out to /member-overview without an in-Streamlit name lookup (forbidden).
 TODO_PIPELINE_VIEW_REQUIRED: mart_version, code_version, latest_fetch_timestamp_utc
     on v_member_interests_detail
 """

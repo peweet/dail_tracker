@@ -23,6 +23,7 @@ from ui.components import (
     todo_callout,
     year_selector,
 )
+from ui.entity_links import member_profile_url
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
 from ui.vote_explorer import render_division_panel, render_td_panel, vt_division_card_html
@@ -194,7 +195,7 @@ def _fetch_party_breakdown(_conn, vote_id) -> pd.DataFrame:
 def _fetch_division_members(_conn, vote_id) -> pd.DataFrame:
     return _safe_query(
         _conn,
-        "SELECT member_name, party_name, constituency, vote_type"
+        "SELECT member_id, member_name, party_name, constituency, vote_type"
         " FROM v_vote_member_detail WHERE vote_id = ?"
         " AND member_name IS NOT NULL"
         " ORDER BY party_name ASC, member_name ASC LIMIT ?",
@@ -320,6 +321,7 @@ def _pick_diverse_cards(df: pd.DataFrame, n: int) -> list[dict]:
 
 def _td_pick_card_html(row: dict) -> str:
     name      = str(row.get("member_name") or "")
+    member_id = str(row.get("member_id") or "")
     party     = str(row.get("party_name") or "")
     const     = str(row.get("constituency") or "")
     vote_type = str(row.get("vote_type") or "")
@@ -345,12 +347,23 @@ def _td_pick_card_html(row: dict) -> str:
     meta_parts = [p for p in (party, const, date_str) if p]
     meta_html  = " · ".join(_h(p) for p in meta_parts)
 
+    # Cross-page link to the full Member Overview profile, when ID is known.
+    profile_link_html = (
+        f'<a class="dt-member-link td-pick-profile" '
+        f'href="{_h(member_profile_url(member_id))}" target="_self" '
+        f'aria-label="View full profile of {_h(name)}">Profile ↗</a>'
+        if member_id else ""
+    )
+
     return (
         f'<div class="td-pick-card">'
         f'<div class="{chip_cls}">{chip_text}</div>'
         f'<div class="td-pick-prompt">on</div>'
         f'<div class="td-pick-title">{_h(title)}</div>'
+        f'<div class="td-pick-name-row">'
         f'<div class="td-pick-name">{_h(name)}</div>'
+        f'{profile_link_html}'
+        f'</div>'
         f'<div class="td-pick-meta">{meta_html}</div>'
         f'</div>'
     )
