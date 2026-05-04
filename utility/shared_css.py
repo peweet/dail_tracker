@@ -987,6 +987,7 @@ def inject_css() -> None:
         .int-pill-company { background:#f0fdfa; border-color:#5eead4; color:#0e6655; }
         .int-pill-prop    { background:#fffbeb; border-color:#fbbf24; color:#78350f; }
         .int-pill-shares  { background:#f5f3ff; border-color:#c4b5fd; color:#4c1d95; }
+        .int-pill-owner   { background:#ecfdf5; border-color:#6ee7b7; color:#065f46; }
         .int-highlight-quote {
             margin: 0.1rem 0 0;
             font-size: 0.8rem;
@@ -1177,8 +1178,10 @@ def inject_css() -> None:
         }
         /* Reserve space for the arrow on whatever card sits inside.
            Overrides per-card padding-right so generic + page-specific
-           cards (dt-name-card, leg-bill-card, cmt-row, etc.) all work. */
-        .dt-card-link-wrap > *:not(.dt-card-link):not(.dt-card-arrow) {
+           cards (dt-name-card, leg-bill-card, cmt-row, etc.) all work.
+           Scoped via :has() so wrappers rendered with show_arrow=False
+           don't leave dead space on the right. */
+        .dt-card-link-wrap:has(> .dt-card-arrow) > *:not(.dt-card-link):not(.dt-card-arrow) {
             padding-right: 2.25rem !important;
         }
         /* Generic accent on the inner card when hovered. Card classes
@@ -1461,6 +1464,91 @@ def inject_css() -> None:
         .pay-identity-card { background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 0.75rem; }
         .pay-identity-card-name { font-size: 1.3rem; font-weight: 800; color: var(--text-primary); }
         .pay-identity-card-meta { font-size: 0.8rem; color: var(--text-meta); margin-top: 3px; }
+
+        /* Total amount badge on payments ranked-list cards. Softer green
+           replaces the prior bright-blue dt-name-card-badge-metric, with
+           extra horizontal padding so €X,XXX figures don't feel pinched. */
+        .pay-total-badge {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center;
+            padding: 0.32rem 0.85rem;
+            border-radius: 10px;
+            min-width: 3.1rem;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+        }
+        .pay-total-badge-num {
+            font-size: 1.05rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #15803d;
+            line-height: 1;
+            display: block;
+        }
+        .pay-total-badge-lbl {
+            font-size: 0.56rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            color: #16a34a;
+            display: block;
+            margin-top: 0.18rem;
+        }
+
+        /* Coloured payments-count pill — slate-blue, distinct from the
+           green total badge so the two metrics don't blur together. */
+        .pay-count-pill-accent {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            padding: 0.1rem 0.5rem;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        /* Tight Total / Avg-per-TD strip on the payments year view —
+           replaces two big st.metric blocks with one compact band. */
+        .pay-totals-strip {
+            display: inline-flex;
+            align-items: center;
+            gap: 1.4rem;
+            padding: 0.5rem 1rem;
+            margin: 0.4rem 0 0.6rem;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .pay-totals-item {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .pay-totals-num {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+        .pay-totals-lbl {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.66rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+            margin-top: 0.25rem;
+        }
+        .pay-totals-divider {
+            width: 1px;
+            height: 1.7rem;
+            background: var(--border);
+        }
 
         /* ── Data provenance box ────────────────────────────────────────
            Used when a callout needs a left accent border (source notes,

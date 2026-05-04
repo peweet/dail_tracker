@@ -555,7 +555,7 @@ def attendance_page() -> None:
 
     # ── Primary view: year selector ────────────────────────────────────────────
     year_options = [str(y) for y in opts["years"]]  # DESC from query
-    selected_year = year_selector(year_options, key="att_year")
+    selected_year = year_selector(year_options, key="att_year", skip_current=False)
 
     # ── Good cop / bad cop ────────────────────────────────────────────────────
     ranking_df = _fetch_year_ranking(selected_year)
