@@ -286,7 +286,7 @@ def _stage_register(
     with cmd_l:
         st.markdown('<p class="sidebar-label" style="margin-bottom:0.2rem">Filter committees</p>',
                     unsafe_allow_html=True)
-        f_search, f_status, f_type = st.columns([3, 2, 2])
+        f_search, f_type, f_status = st.columns([3, 2, 2])
         with f_search:
             search = st.text_input(
                 "Committee name",
@@ -294,14 +294,6 @@ def _stage_register(
                 label_visibility="collapsed",
                 key="reg_search",
             )
-        with f_status:
-            status_filter = st.segmented_control(
-                "Status",
-                ["All", "Active", "Ended"],
-                default="All",
-                key="reg_status",
-                label_visibility="collapsed",
-            ) or "All"
         with f_type:
             type_options = ["All types"] + sorted(
                 {t for t in df_long["type"].dropna().unique() if t}
@@ -312,6 +304,14 @@ def _stage_register(
                 key="reg_type",
                 label_visibility="collapsed",
             )
+        with f_status:
+            status_filter = st.segmented_control(
+                "Status",
+                ["All", "Active", "Ended"],
+                default="All",
+                key="reg_status",
+                label_visibility="collapsed",
+            ) or "All"
     with cmd_r:
         st.markdown('<p class="sidebar-label" style="margin-bottom:0.2rem">Or look up a member</p>',
                     unsafe_allow_html=True)
@@ -382,6 +382,7 @@ def _stage_register(
                 href=f"?committee={quote(committee_name)}",
                 inner_html=card_html,
                 aria_label=f"Open {committee_name}",
+                show_arrow=False,
             )
         )
     st.html("\n".join(cards_html))

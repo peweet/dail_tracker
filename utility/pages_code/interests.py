@@ -295,7 +295,7 @@ def _int_member_card_html(row) -> str:
     if landlord:
         pills += '<span class="int-stat-pill int-stat-pill-accent">🔑 Landlord</span>'
     elif is_prop:
-        pills += '<span class="int-stat-pill">🏗️ Property owner</span>'
+        pills += '<span class="int-stat-pill int-pill-owner">🏗️ Property owner</span>'
     if p_count:
         pills += (
             f'<span class="int-stat-pill int-pill-prop">'

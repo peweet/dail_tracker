@@ -36,6 +36,7 @@ from ui.components import (
     clean_meta,
     clickable_card_link,
     empty_state,
+    find_a_td_filter,
     member_card_html,
     paginate,
     pagination_controls,
@@ -552,13 +553,19 @@ def _render_browse(conn) -> None:
 
     df = df.drop_duplicates(subset=["unique_member_code"], keep="first").reset_index(drop=True)
 
-    st.html('<p class="dt-main-search-kicker">Find a TD</p>')
-    search = st.text_input(
-        "Search TDs",
+    member_names = df["member_name"].dropna().astype(str).tolist()
+    search, picked = find_a_td_filter(
+        member_names,
+        key_prefix="mo_browse",
+        label="Find a TD",
         placeholder="Search by name, party or constituency…",
-        key="mo_browse_search",
-        label_visibility="collapsed",
     )
+    if picked:
+        picked_jk = _join_key_by_name(conn, picked)
+        if picked_jk:
+            st.session_state[_STAGE_KEY] = picked_jk
+            st.query_params["member"] = picked_jk
+            st.rerun()
 
     party_options = _party_pill_options(df)
     selected_party = st.pills(
