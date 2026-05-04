@@ -16,7 +16,8 @@ from data_access.legislation_data import (
     fetch_legislation_index_filtered,
 )
 from shared_css import inject_css
-from ui.components import back_button, empty_state, evidence_heading, hero_banner, render_stat_strip, sidebar_date_range, sidebar_page_header, stat_item
+from ui.components import back_button, clickable_card_link, empty_state, evidence_heading, hero_banner, paginate, pagination_controls, render_stat_strip, sidebar_date_range, sidebar_page_header, stat_item
+from ui.entity_links import bill_detail_url, source_link_html
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
 
@@ -137,14 +138,19 @@ def _render_legislation_index(
         return
 
     total = len(view_df)
-    show_all = st.session_state.get("leg_show_all", False)
-    visible_df = view_df if show_all else view_df.head(30)
+    st.html(f'<p class="section-heading">{total:,} bill{"s" if total != 1 else ""}</p>')
 
-    suffix = " · showing 30" if (not show_all and total > 30) else ""
-    st.html(f'<p class="section-heading">{total:,} bill{"s" if total != 1 else ""}{suffix}</p>')
+    # ── Pagination state (controls rendered below the cards) ──────────────────
+    LEG_PAGE_SIZE = 10
+    page_idx = paginate(total, key_prefix="leg_index", page_size=LEG_PAGE_SIZE)
+    visible_df = view_df.iloc[page_idx * LEG_PAGE_SIZE : (page_idx + 1) * LEG_PAGE_SIZE]
 
-    # ── Bill card list ────────────────────────────────────────────────────────
-    for i, (_, row) in enumerate(visible_df.iterrows()):
+    # ── Bill card list — entire card is the click target via
+    # clickable_card_link (URL-based navigation: ?bill=<bill_id>). The
+    # inner Oireachtas ↗ link remains independently clickable thanks to
+    # the stretched-link CSS pattern in shared_css.py. ──────────────────
+    cards: list[str] = []
+    for _, row in visible_df.iterrows():
         status      = row.get("bill_status", "—") or "—"
         status_cls  = _status_badge_class(status)
         date_str    = _fmt_date(row.get("introduced_date"))
@@ -152,13 +158,12 @@ def _render_legislation_index(
         sponsor     = row.get("sponsor", "—") or "—"
         stage       = row.get("current_stage", "—") or "—"
         url         = row.get("oireachtas_url") or ""
-        link_html   = (
-            f'<a class="leg-bill-card-link" href="{html.escape(url, quote=True)}" target="_blank">Oireachtas ↗</a>'
-            if url else ""
+        link_html   = source_link_html(
+            url, "Oireachtas",
+            aria_label="Open this bill on oireachtas.ie",
         )
 
-        card_col, btn_col = st.columns([14, 1])
-        card_col.html(
+        card_html = (
             f'<div class="leg-bill-card">'
             f'<div class="leg-bill-card-header">'
             f'<span class="{status_cls}">{html.escape(status)}</span>'
@@ -171,23 +176,29 @@ def _render_legislation_index(
             f'</div>'
             f'</div>'
         )
-        btn_col.html('<div class="dt-nav-anchor"></div>')
-        if btn_col.button("→", key=f"leg_bill_{i}", help=f"Open {title}"):
-            st.session_state["leg_selected_bill_id"] = row["bill_id"]
-            st.session_state["leg_show_all"] = False
-            st.rerun()
+        cards.append(
+            clickable_card_link(
+                href=bill_detail_url(str(row["bill_id"])),
+                inner_html=card_html,
+                aria_label=f"Open {title}",
+            )
+        )
+    st.html("\n".join(cards))
 
-    # ── Show more / export ────────────────────────────────────────────────────
-    ctrl_l, ctrl_r = st.columns([2, 3])
-    if not show_all and total > 30 and ctrl_l.button(f"Show all {total:,} bills", key="leg_show_all_btn"):
-        st.session_state["leg_show_all"] = True
-        st.rerun()
+    # ── Pagination controls (below the cards) ─────────────────────────────────
+    pagination_controls(
+        total,
+        key_prefix="leg_index",
+        page_sizes=(LEG_PAGE_SIZE,),
+        default_page_size=LEG_PAGE_SIZE,
+        label="bills",
+    )
 
+    # ── Export ────────────────────────────────────────────────────────────────
     export_cols = [c for c in ["bill_title", "sponsor", "bill_type", "bill_status",
                                "introduced_date", "current_stage", "oireachtas_url"]
                    if c in view_df.columns]
-    with ctrl_r:
-        export_button(view_df[export_cols], "Export current view as CSV", "legislation_filtered.csv", "leg_csv_export")
+    export_button(view_df[export_cols], "Export current view as CSV", "legislation_filtered.csv", "leg_csv_export")
 
     # ── Provenance ────────────────────────────────────────────────────────────
     provenance_expander(
@@ -281,6 +292,7 @@ def _render_bill_detail(bill_id: str) -> None:
     # ── Back navigation ───────────────────────────────────────────────────────
     if back_button("← Back to Legislation Index", key="leg"):
         st.session_state.pop("leg_selected_bill_id", None)
+        st.query_params.clear()
         st.rerun()
 
     # ── Load data ─────────────────────────────────────────────────────────────
@@ -315,10 +327,9 @@ def _render_bill_detail(bill_id: str) -> None:
         if bill_no and bill_year else ""
     )
 
-    link_html = (
-        f'<a class="leg-bill-oireachtas-link" href="{html.escape(oireachtas_url, quote=True)}" target="_blank">'
-        f'View Bill on Oireachtas.ie ↗</a>'
-        if oireachtas_url else ""
+    link_html = source_link_html(
+        oireachtas_url, "View Bill on Oireachtas.ie",
+        aria_label="Open this bill on oireachtas.ie",
     )
 
     long_title = row.get("long_title") or ""
@@ -388,6 +399,13 @@ def _render_bill_detail(bill_id: str) -> None:
 def legislation_page() -> None:
     inject_css()
 
+    # URL-driven entry: ?bill=<bill_id> opens the detail view (mirrors the
+    # member_overview ?member=… pattern). Session state is the source of
+    # truth thereafter so back-button + reruns stay consistent.
+    url_bill = st.query_params.get("bill")
+    if url_bill:
+        st.session_state["leg_selected_bill_id"] = url_bill
+
     selected_bill_id: str | None = st.session_state.get("leg_selected_bill_id")
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
@@ -408,6 +426,7 @@ def legislation_page() -> None:
             start_date, end_date = sidebar_date_range(
                 "Introduced between",
                 key="leg_date_range",
+                empty_default=True,
             )
 
             st.html('<p class="sidebar-label">Status</p>')

@@ -21,6 +21,7 @@ from __future__ import annotations
 import sys
 from html import escape as _h
 from pathlib import Path
+from urllib.parse import quote
 
 import altair as alt
 import pandas as pd
@@ -39,7 +40,7 @@ from data_access.payments_data import (
     fetch_year_ranking,
 )
 from shared_css import inject_css
-from ui.components import back_button, clean_meta, empty_state, hero_banner, member_card_html, render_notable_chips, sidebar_member_filter, year_selector
+from ui.components import back_button, clean_meta, clickable_card_link, empty_state, hero_banner, member_card_html, render_notable_chips, sidebar_member_filter, year_selector
 from ui.export_controls import export_button
 from ui.source_pdfs import PAYMENTS, provenance_expander
 
@@ -110,15 +111,6 @@ def _render_provenance(summary: pd.Series, year: int | None = None) -> None:
         ),
         pdf_links=links,
     )
-
-
-# ── Card row helper ────────────────────────────────────────────────────────────
-
-def _card_row(row: pd.Series, key: str) -> bool:
-    c1, c2 = st.columns([14, 1])
-    c1.markdown(_pay_card_html(row), unsafe_allow_html=True)
-    c2.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
-    return c2.button("→", key=key)
 
 
 # ── Rankings view (all-time since 2020) ───────────────────────────────────────
@@ -232,17 +224,19 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
     next_10 = ranking.iloc[10:20]
 
     col_l, col_r = st.columns(2)
-    with col_l:
-        for i, (_, row) in enumerate(top_10.iterrows()):
-            if _card_row(row, key=f"pay_row_{i}"):
-                st.session_state["selected_td_pay"] = str(row["member_name"])
-                st.rerun()
-
-    with col_r:
-        for i, (_, row) in enumerate(next_10.iterrows()):
-            if _card_row(row, key=f"pay_row_{10 + i}"):
-                st.session_state["selected_td_pay"] = str(row["member_name"])
-                st.rerun()
+    for col, chunk in ((col_l, top_10), (col_r, next_10)):
+        with col:
+            cards: list[str] = []
+            for _, row in chunk.iterrows():
+                name = str(row["member_name"])
+                cards.append(
+                    clickable_card_link(
+                        href=f"?member={quote(name)}",
+                        inner_html=_pay_card_html(row),
+                        aria_label=f"View {name}'s payments profile",
+                    )
+                )
+            st.html("\n".join(cards))
 
     export_df = ranking[
         ["rank_high", "member_name", "position", "taa_band_label", "total_paid", "payment_count"]
@@ -267,6 +261,7 @@ def _render_profile(
 ) -> None:
     if back_button("← Back to all members", key="pay"):
         st.session_state.pop("selected_td_pay", None)
+        st.query_params.pop("member", None)
         st.rerun()
 
     selected_year = year_selector(year_options, key="pay_profile_year", skip_current=False)
@@ -438,6 +433,12 @@ def payments_page() -> None:
             st.rerun()
 
     # ── Route to Stage 1 or Stage 2 ──────────────────────────────────────────
+    # Seed selected_td_pay from URL query param so card links land directly in
+    # the profile view on first load.
+    qp_member = st.query_params.get("member")
+    if qp_member and st.session_state.get("selected_td_pay") != qp_member:
+        st.session_state["selected_td_pay"] = qp_member
+
     selected_td = st.session_state.get("selected_td_pay")
 
     if selected_td:

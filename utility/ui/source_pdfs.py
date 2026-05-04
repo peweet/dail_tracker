@@ -5,7 +5,14 @@ These are the canonical source documents that feed the pipeline.
 Use render_pdf_source_links() to surface them in any provenance section.
 """
 from __future__ import annotations
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import streamlit as st
+
+from ui.entity_links import source_link_html
 
 _INTERESTS = "https://data.oireachtas.ie/ie/oireachtas/members/registerOfMembersInterests"
 _PSA       = "https://data.oireachtas.ie/ie/oireachtas/members/parliamentaryAllowances/psa"
@@ -123,8 +130,7 @@ def render_pdf_source_links(links: list[tuple[str, str]]) -> None:
     """Render a compact list of labelled PDF source links."""
     rows = "".join(
         f'<div style="padding:0.28rem 0;border-bottom:1px solid var(--border)">'
-        f'<a class="leg-source-link" href="{url}" target="_blank" rel="noopener">'
-        f'↗ {label}</a></div>'
+        f'{source_link_html(url, label)}</div>'
         for label, url in links
     )
     st.markdown(

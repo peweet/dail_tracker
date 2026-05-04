@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import datetime
 from html import escape as _h
+from urllib.parse import quote
 import duckdb
 import pandas as pd
 import streamlit as st
@@ -41,6 +42,7 @@ from shared_css import inject_css
 from ui.components import (
     back_button,
     clean_meta,
+    clickable_card_link,
     empty_state,
     evidence_heading,
     hero_banner,
@@ -54,6 +56,7 @@ from ui.components import (
     todo_callout,
     year_selector,
 )
+from ui.entity_links import source_link_html
 from ui.export_controls import export_button
 from ui.source_pdfs import interests_pdf_url, provenance_expander
 
@@ -312,14 +315,14 @@ def _int_member_card_html(row) -> str:
     return member_card_html(name=name, meta=meta, rank=rank, pills_html=pills)
 
 
-def _render_leaderboard(ranking_df: pd.DataFrame) -> str | None:
-    """Render ranked member cards (all members, paginated). Returns member_name if clicked."""
+def _render_leaderboard(ranking_df: pd.DataFrame) -> None:
+    """Render ranked member cards (all members, paginated). Cards are full-card links."""
     if ranking_df.empty:
         empty_state(
             "No members found",
             "Adjust the name filter or choose a different year.",
         )
-        return None
+        return
 
     total = len(ranking_df)
     page_size, page_idx = pagination_controls(
@@ -332,15 +335,17 @@ def _render_leaderboard(ranking_df: pd.DataFrame) -> str | None:
     )
     visible = ranking_df.iloc[page_idx * page_size : (page_idx + 1) * page_size]
 
-    for i, (_, row) in enumerate(visible.iterrows()):
-        card_col, btn_col = st.columns([14, 1])
-        with card_col:
-            st.html(_int_member_card_html(row))
-        btn_col.html('<div class="dt-nav-anchor"></div>')
-        if btn_col.button("→", key=f"int_mem_p{page_idx}_{i}", help=f"View {row['member_name']}'s declarations"):
-            return str(row["member_name"])
-
-    return None
+    cards: list[str] = []
+    for _, row in visible.iterrows():
+        name = str(row["member_name"])
+        cards.append(
+            clickable_card_link(
+                href=f"?member={quote(name)}",
+                inner_html=_int_member_card_html(row),
+                aria_label=f"View {name}'s declarations",
+            )
+        )
+    st.html("\n".join(cards))
 
 
 # ── Pure helpers ───────────────────────────────────────────────────────────────
@@ -442,12 +447,16 @@ def _render_profile(house: str, td_name: str) -> None:
 
     pdf_url = interests_pdf_url(house, selected_year)
     if pdf_url:
+        link = source_link_html(
+            pdf_url,
+            f"Register of Members' Interests · {house} · {selected_year} (Oireachtas.ie PDF)",
+            aria_label=f"Open the {house} {selected_year} register of interests PDF",
+        )
         st.html(
             f'<div class="dt-provenance-box" style="margin-bottom:0.75rem">'
             f'<span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;'
             f'text-transform:uppercase;color:var(--text-meta)">Source document</span><br>'
-            f'<a class="leg-source-link" href="{_h(pdf_url)}" target="_blank" rel="noopener">'
-            f'↗ Register of Members\' Interests · {_h(house)} · {selected_year} (Oireachtas.ie PDF)</a>'
+            f'{link}'
             f'</div>'
         )
 
@@ -607,6 +616,12 @@ def interests_page() -> None:
         )
         return
 
+    # Seed selected_td from URL query param so card links land directly in the
+    # profile view on first load.
+    qp_member = st.query_params.get("member")
+    if qp_member and st.session_state.get("selected_td") != qp_member:
+        st.session_state["selected_td"] = qp_member
+
     selected_td = st.session_state.get("selected_td")
 
     # ── Page header ───────────────────────────────────────────────────────────
@@ -620,6 +635,7 @@ def interests_page() -> None:
         if back_button("← Back to register", key="int"):
             st.session_state["selected_td"] = None
             st.session_state.pop("int_member_sel", None)
+            st.query_params.pop("member", None)
             st.rerun()
         st.divider()
         _render_profile(house, selected_td)
@@ -682,13 +698,17 @@ def interests_page() -> None:
         page_idx = cur - 1
         visible  = members_df.iloc[page_idx * page_size : (page_idx + 1) * page_size]
 
-        for i, (_, row) in enumerate(visible.iterrows()):
-            card_col, btn_col = st.columns([14, 1])
-            card_col.html(_int_member_card_html(row))
-            btn_col.html('<div class="dt-nav-anchor"></div>')
-            if btn_col.button("→", key=f"int_fb_p{page_idx}_{i}", help=f"View {row['member_name']}'s declarations"):
-                st.session_state["selected_td"] = str(row["member_name"])
-                st.rerun()
+        cards: list[str] = []
+        for _, row in visible.iterrows():
+            name = str(row["member_name"])
+            cards.append(
+                clickable_card_link(
+                    href=f"?member={quote(name)}",
+                    inner_html=_int_member_card_html(row),
+                    aria_label=f"View {name}'s declarations",
+                )
+            )
+        st.html("\n".join(cards))
 
         pagination_controls(
             total=len(members_df),
