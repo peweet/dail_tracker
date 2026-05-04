@@ -6,14 +6,13 @@ from pipeline_sandbox.payment_pdf_url_probe import construct_candidates
 
 
 #TODO add real user agent and contact info when deploying application
+#TODO finish this feature as it makes the project more robust to upstream changes and reduces unnecessary requests to the server when PDFs are missing. Also consider adding retry logic with backoff for transient errors.
 USER_AGENT = (
     "dail-tracker-bot/0.1 (+https://github.com/<owner>/dail-extractor; "
     "mailto:<contact>)"
 )
 
-
 DEFAULT_TIMEOUT = (10, 30)  # connect, read
-
 
 MONTH_NAMES = {
     1: "january", 2: "february", 3: "march", 4: "april", 5: "may", 6: "june",
@@ -46,8 +45,6 @@ def head_check(session: requests.Session, url: str) -> int:
         return resp.status_code
     except requests.RequestException:
         return False
-
-
 
 def try_construction(
     data_year: int,
