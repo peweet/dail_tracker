@@ -48,6 +48,11 @@ def division_url(vote_id: str) -> str:
     return f"/{PAGES['votes']}?vote={_q(vote_id)}"
 
 
+def bill_detail_url(bill_id: str) -> str:
+    """Canonical bill detail URL: /legislation?bill=<bill_id>."""
+    return f"/{PAGES['legislation']}?bill={_q(bill_id)}"
+
+
 def member_link_html(
     member_id: str | None,
     name: str,
@@ -83,4 +88,36 @@ def entity_cta_html(
     return (
         f'<a class="{_h(css_class)}" href="{_h(href)}" target="_self">'
         f'{_h(label)}</a>'
+    )
+
+
+def source_link_html(
+    url: str | None,
+    label: str = "Oireachtas",
+    *,
+    aria_label: str | None = None,
+) -> str:
+    """Canonical anchor for an external/official-source link.
+
+    Renders with the ``.dt-source-link`` class — accent colour, no underline
+    by default, underline on hover, focus ring, and an automatic ``↗`` glyph
+    appended via CSS. Pass a clean label string; do **not** include "↗" — it
+    is added by the stylesheet so visual treatment stays consistent app-wide.
+
+    Returns an empty string when the URL is missing or not http(s) — callers
+    can splice the result into HTML unconditionally.
+
+    Examples
+    --------
+    >>> source_link_html("https://www.oireachtas.ie/en/debates/vote/2025-06-25/3/")
+    '<a class="dt-source-link" href="..." target="_blank" rel="noopener" ...>Oireachtas</a>'
+    >>> source_link_html("https://www.lobbying.ie/return/12345", "lobbying.ie")
+    """
+    s = str(url or "").strip()
+    if not s.startswith(("http://", "https://")):
+        return ""
+    aria = aria_label or f"Open {label} in a new tab"
+    return (
+        f'<a class="dt-source-link" href="{_h(s)}" target="_blank" '
+        f'rel="noopener" aria-label="{_h(aria)}">{_h(label)}</a>'
     )

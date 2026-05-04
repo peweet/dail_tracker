@@ -590,12 +590,51 @@ def inject_css() -> None:
         .dt-vt-outcome-carried { color: oklch(38% 0.130 145); font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
         .dt-vt-outcome-lost    { color: oklch(45% 0.180 30);  font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
         .dt-vt-outcome-other   { color: var(--text-meta);     font-size: 0.78rem; }
-        .dt-vt-link {
-            color: var(--accent);
+        /* ── Canonical external-source link ─────────────────────────────
+           One rule for every "open the official record on oireachtas.ie /
+           lobbying.ie / etc" anchor across the app. The ↗ glyph is appended
+           by CSS so callers pass a clean label string.
+           Pair with utility/ui/entity_links.source_link_html(). */
+        .dt-source-link {
+            color: var(--accent, #b04a1a);
             text-decoration: none;
+            font-family: 'Epilogue', sans-serif;
             font-size: 0.80rem;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: color 0.12s, text-decoration-color 0.12s;
         }
-        .dt-vt-link:hover { text-decoration: underline; }
+        .dt-source-link::after {
+            content: " ↗";
+            display: inline-block;
+            margin-left: 0.15rem;
+            font-weight: 400;
+            transition: transform 0.12s;
+        }
+        .dt-source-link:hover {
+            text-decoration: underline;
+            text-decoration-color: var(--accent, #b04a1a);
+            text-underline-offset: 2px;
+        }
+        .dt-source-link:hover::after {
+            transform: translate(1px, -1px);
+        }
+        .dt-source-link:focus-visible {
+            outline: 2px solid var(--accent, #b04a1a);
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
+        /* Legacy aliases — keep until callers migrate. The ::after rule above
+           gives all three the same auto-arrow + hover treatment. */
+        .dt-vt-link, .vt-source-link {
+            color: var(--accent, #b04a1a);
+            text-decoration: none;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.80rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .dt-vt-link:hover, .vt-source-link:hover { text-decoration: underline; }
 
         /* ── Dataframe (app-wide) ────────────────────────────────────
            Streamlit 1.28+ uses Glide Data Grid, which draws cells on
@@ -691,6 +730,58 @@ def inject_css() -> None:
             background:   var(--accent-subtle) !important;
             border-color: var(--accent)        !important;
             color:        var(--accent)        !important;
+        }
+
+        /* ── Reusable nav button (ui/components.py: nav_button) ───────────
+           Canonical square arrow button used beside list cards. Marker div
+           ``.dt-nav-btn`` is height:0 — exists only so :has() can scope
+           uniform sizing and true vertical centering. Use this instead of
+           the legacy dt-nav-anchor for new code.
+           ─────────────────────────────────────────────────────────────── */
+        .dt-nav-btn { height: 0; margin: 0; }
+
+        /* Force uniform square shape for every nav-button instance, with
+           min/max locked so Streamlit's button rendering can't drift. */
+        [data-testid="stColumn"]:has(> div .dt-nav-btn) [data-testid="stButton"] > button,
+        [data-testid="stColumn"]:has(> div .dt-nav-btn) button {
+            width:         2.1rem !important;
+            height:        2.1rem !important;
+            min-width:     2.1rem !important;
+            max-width:     2.1rem !important;
+            min-height:    2.1rem !important;
+            max-height:    2.1rem !important;
+            padding:       0      !important;
+            border-radius: 10px   !important;
+            background:    var(--surface)            !important;
+            border:        1.5px solid var(--border-strong) !important;
+            color:         var(--text-secondary)     !important;
+            display:         inline-flex !important;
+            align-items:     center      !important;
+            justify-content: center      !important;
+            font-size:       1rem        !important;
+            font-weight:     500         !important;
+            line-height:     1           !important;
+            transition: background 100ms ease, border-color 100ms ease,
+                        color 100ms ease !important;
+        }
+        [data-testid="stColumn"]:has(> div .dt-nav-btn) [data-testid="stButton"] > button:hover,
+        [data-testid="stColumn"]:has(> div .dt-nav-btn) button:hover {
+            background:   var(--accent-subtle) !important;
+            border-color: var(--accent)        !important;
+            color:        var(--accent)        !important;
+        }
+        /* Center the button vertically inside its column so it lines up
+           against multi-line cards (legislation bills, committees, etc).
+           This works because the column flexes to the height of the sibling
+           card column inside the parent stHorizontalBlock. */
+        [data-testid="stColumn"]:has(> div .dt-nav-btn) {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.dt-nav-btn) {
+            align-items: stretch !important;
         }
 
         /* ── Info card (ui/components.py: info_card / card_row) ────────────
@@ -1049,25 +1140,56 @@ def inject_css() -> None:
             gap: 0.55rem;
             margin-top: 0.5rem;
         }
-        .mo-grid-link {
-            text-decoration: none !important;
-            color: inherit !important;
+        /* Breathing room between the card grid and the pager rendered below it. */
+        .mo-browse-pager-spacer {
+            height: 1.5rem;
+        }
+        /* ── Reusable: full-card-clickable link (ui/components.py:
+           clickable_card_link). Stretched-link pattern: an absolute <a>
+           covers the wrapper, so the whole card is the click target while
+           inner interactive elements (Oireachtas ↗ etc.) remain clickable
+           via z-index layering. Hover lifts + recolours the accent and
+           slides the arrow. Works with any inner card class. */
+        .dt-card-link-wrap {
             position: relative;
             display: block;
             transition: transform 80ms ease;
         }
-        .mo-grid-link:hover {
+        .dt-card-link-wrap:hover {
             transform: translateY(-1px);
         }
-        .mo-grid-link .dt-name-card {
-            padding-right: 2.25rem;
+        /* The stretched <a> overlay — covers the wrap, no visible content. */
+        .dt-card-link {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            text-decoration: none !important;
+            color: transparent !important;
+            background: transparent;
         }
-        .mo-grid-link:hover .dt-name-card {
+        /* Inner interactive elements (any <a> that isn't the stretched
+           link, plus buttons) sit above the overlay so they remain
+           independently clickable. */
+        .dt-card-link-wrap a:not(.dt-card-link),
+        .dt-card-link-wrap button {
+            position: relative;
+            z-index: 2;
+        }
+        /* Reserve space for the arrow on whatever card sits inside.
+           Overrides per-card padding-right so generic + page-specific
+           cards (dt-name-card, leg-bill-card, cmt-row, etc.) all work. */
+        .dt-card-link-wrap > *:not(.dt-card-link):not(.dt-card-arrow) {
+            padding-right: 2.25rem !important;
+        }
+        /* Generic accent on the inner card when hovered. Card classes
+           that opt in by exposing border-left-color / border-color /
+           background pick up the visual lift automatically. */
+        .dt-card-link-wrap:hover > *:not(.dt-card-link):not(.dt-card-arrow) {
             border-left-color: var(--accent) !important;
             border-color: var(--accent) !important;
             background: var(--accent-subtle) !important;
         }
-        .mo-grid-arrow {
+        .dt-card-arrow {
             position: absolute;
             right: 0.85rem;
             top: 50%;
@@ -1075,9 +1197,10 @@ def inject_css() -> None:
             color: var(--text-meta);
             font-size: 1rem;
             font-weight: 700;
+            pointer-events: none;
             transition: transform 120ms ease, color 120ms ease;
         }
-        .mo-grid-link:hover .mo-grid-arrow {
+        .dt-card-link-wrap:hover .dt-card-arrow {
             color: var(--accent);
             transform: translateY(-50%) translateX(3px);
         }
@@ -1227,23 +1350,6 @@ def inject_css() -> None:
         .att-hall-card-bad {
             background: #fff7ed; border: 1px solid #fed7aa; border-left: 5px solid #f97316;
         }
-        /* Inner card rows: card fills column, button shrinks to fit */
-        [data-testid="stHorizontalBlock"]:has(.att-hall-card-good),
-        [data-testid="stHorizontalBlock"]:has(.att-hall-card-bad) {
-            gap: 0.35rem !important;
-            margin-bottom: 0.25rem !important;
-            align-items: stretch !important;
-        }
-        [data-testid="stHorizontalBlock"]:has(.att-hall-card-good) [data-testid="stColumn"]:first-child,
-        [data-testid="stHorizontalBlock"]:has(.att-hall-card-bad) [data-testid="stColumn"]:first-child {
-            flex: 1 1 auto !important;
-            min-width: 0 !important;
-        }
-        [data-testid="stHorizontalBlock"]:has(.att-hall-card-good) [data-testid="stColumn"]:last-child,
-        [data-testid="stHorizontalBlock"]:has(.att-hall-card-bad) [data-testid="stColumn"]:last-child {
-            flex: 0 0 auto !important;
-            width: auto !important;
-        }
         .att-hall-rank {
             font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em;
             color: var(--text-meta); width: 1.6rem; text-align: center; flex-shrink: 0;
@@ -1275,6 +1381,34 @@ def inject_css() -> None:
         .att-hall-badge-good .att-hall-badge-num { color: #1d4ed8; }
         .att-hall-badge-bad  .att-hall-badge-num { color: #c2410c; }
         .att-hall-badge-label { font-size: 0.62rem; font-weight: 600; color: var(--text-meta); display: block; }
+
+        /* ── Hall cards as full-card-clickable links (clickable_card_link) ─── */
+        /* No arrow shown, so don't reserve right-padding for one. */
+        .dt-card-link-wrap > .att-hall-card-good,
+        .dt-card-link-wrap > .att-hall-card-bad {
+            padding-right: 0.75rem !important;
+        }
+        /* Stack wraps with the same vertical rhythm the bare cards used.
+           max-width 80% trims both columns so the cards aren't full-bleed. */
+        .dt-card-link-wrap:has(> .att-hall-card-good),
+        .dt-card-link-wrap:has(> .att-hall-card-bad) {
+            margin-bottom: 0.3rem;
+            max-width: 80%;
+        }
+        /* Preserve blue (good) and orange (bad) identity on hover —
+           override the generic accent recolour. Lift + tinted shadow only. */
+        .dt-card-link-wrap:hover > .att-hall-card-good {
+            border-left-color: #3b82f6 !important;
+            border-color: #93c5fd !important;
+            background: #eff6ff !important;
+            box-shadow: 0 3px 10px rgba(59,130,246,0.22) !important;
+        }
+        .dt-card-link-wrap:hover > .att-hall-card-bad {
+            border-left-color: #f97316 !important;
+            border-color: #fdba74 !important;
+            background: #fff7ed !important;
+            box-shadow: 0 3px 10px rgba(249,115,22,0.22) !important;
+        }
 
         /* Ranked list row (partial-year view) */
         .att-list-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
@@ -1569,12 +1703,18 @@ def inject_css() -> None:
 
         /* ── Legislation: bill card list ─────────────────────────────── */
         .leg-bill-card {
+            display: inline-flex;
+            flex-direction: column;
             padding: 0.45rem 0.9rem;
             border: 1px solid var(--border);
             border-left: 3px solid var(--border-strong);
             border-radius: 12px;
             background: #ffffff;
-            width: 100%;
+            /* Uniform card width — sized to roughly match the phase
+               segmented control row (All / Dáil / Seanad / Enacted),
+               extending only modestly past it. */
+            width: 600px;
+            max-width: 100%;
             transition: border-left-color 0.12s, border-color 0.12s;
         }
         .leg-bill-card:hover {
@@ -1622,23 +1762,21 @@ def inject_css() -> None:
         }
         .leg-bill-card-link:hover { text-decoration: underline; }
 
-        /* Card row — card capped at readable width, button sits immediately after */
+        /* Card row — card shrinks to fit its title, button sits immediately
+           after. Vertical centering of the nav_button is handled by the
+           reusable .dt-nav-btn rules above (no per-card override needed). */
         [data-testid="stHorizontalBlock"]:has(.leg-bill-card) {
-            gap: 0.35rem !important;
+            width: fit-content !important;
+            max-width: 100%;
+            gap: 0.4rem !important;
             margin-bottom: 0.3rem !important;
-            align-items: stretch !important;
             justify-content: flex-start !important;
         }
         [data-testid="stHorizontalBlock"]:has(.leg-bill-card)
-            [data-testid="stColumn"]:first-child {
-            flex: 1 1 auto !important;
-            max-width: 860px !important;
-            min-width: 0 !important;
-        }
-        [data-testid="stHorizontalBlock"]:has(.leg-bill-card)
-            [data-testid="stColumn"]:last-child {
+            > [data-testid="stColumn"] {
             flex: 0 0 auto !important;
             width: auto !important;
+            min-width: 0 !important;
         }
 
         /* ── Legislation: pipeline phase strip ──────────────────────── */
@@ -1877,6 +2015,14 @@ def inject_css() -> None:
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             transition: border-left-color 0.12s, border-color 0.12s, box-shadow 0.12s;
         }
+        /* Cap the clickable wrap (and therefore the card + arrow strip)
+           to a comfortable reading width. The card keeps width:100% and
+           adapts to the wrap, so click area + arrow + visible card edge
+           all stay aligned. Look, colours and behaviour are unchanged —
+           the right-hand whitespace is just reclaimed. */
+        .dt-card-link-wrap:has(.vt-card) {
+            max-width: 760px;
+        }
         .vt-card:hover {
             border-left-color: var(--accent);
             border-color: var(--accent-dim);
@@ -1958,14 +2104,90 @@ def inject_css() -> None:
             letter-spacing: 0.04em;
         }
         .vt-margin-pill {
-            background: #f4f4f4;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.32rem;
+            background: linear-gradient(180deg, #ffffff 0%, #f5f5f1 100%);
+            border: 1px solid rgba(0,0,0,0.10);
+            box-shadow: inset 0 -1px 0 rgba(0,0,0,0.04), 0 1px 1px rgba(0,0,0,0.03);
             color: var(--text-meta);
             font-size: 0.75rem;
-            padding: 0.12rem 0.55rem;
+            padding: 0.12rem 0.55rem 0.12rem 0.45rem;
             border-radius: 999px;
             white-space: nowrap;
             margin-left: auto;
+            font-variant-numeric: tabular-nums;
         }
+        .vt-margin-label {
+            color: var(--text-meta);
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            opacity: 0.7;
+        }
+        .vt-margin-value {
+            color: var(--text-primary, #111827);
+            font-weight: 700;
+        }
+        /* Position-only rules for the source link inside vote cards.
+           Visual styling lives in the canonical .dt-source-link block above. */
+        .vt-card-header .dt-source-link,
+        .vt-card-header .vt-source-link { margin-left: auto; }
+        .vt-card-footer .dt-source-link + .vt-margin-pill,
+        .vt-card-footer .vt-source-link + .vt-margin-pill { margin-left: 0; }
+
+        /* ── Reusable member-vote card (vt_explorer.member_vote_card_html) ─
+           One TD's vote on a single division. Used on Member Overview's
+           "Voting record by issue" and anywhere a TD's per-division vote
+           needs to be shown with green ✓ / red ✗. */
+        .vt-rec-card {
+            padding: 0.55rem 0.9rem;
+            margin-bottom: 0.35rem;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-left: 3px solid rgba(0,0,0,0.14);
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .vt-rec-card-yes  { border-left-color: oklch(50% 0.140 145); }
+        .vt-rec-card-no   { border-left-color: oklch(55% 0.180 30);  }
+        .vt-rec-card-abs  { border-left-color: rgba(0,0,0,0.18); }
+        .vt-rec-header {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            margin-bottom: 0.25rem;
+            flex-wrap: wrap;
+        }
+        .vt-rec-vote {
+            display: inline-flex;
+            align-items: center;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            padding: 0.18rem 0.55rem;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .vt-rec-vote-yes {
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        .vt-rec-vote-no {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        .vt-rec-vote-abs {
+            background: #f4f4f5;
+            color: #52525b;
+            border: 1px solid #e4e4e7;
+        }
+        .vt-rec-header .dt-source-link,
+        .vt-rec-header .vt-source-link { margin-left: auto; }
         .vt-index-caption {
             font-size: 0.80rem;
             color: var(--text-meta);
@@ -2160,7 +2382,10 @@ def inject_css() -> None:
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 1.2rem;
+            /* Match the number chips' min-width (.dt-pager-current and the
+               .stButton chips below) so swapping a number for "…" between
+               pages doesn't change the row's total width — chips stay put. */
+            min-width: 2.1rem;
             height: 2.1rem;
             color: var(--text-meta);
             font-size: 0.95rem;

@@ -448,11 +448,11 @@ def committee_row_html(
     stripe_html = party_stripe_html(party_seats, show_legend=True) if party_seats else ""
     link_html = ""
     if oireachtas_url:
+        from ui.entity_links import source_link_html  # local import — avoids any future circular risk
         link_html = (
             f'<div class="cmt-row-pills">'
-            f'<a class="cmt-row-link" href="{_h(oireachtas_url)}" target="_blank" '
-            f'rel="noopener noreferrer">Oireachtas.ie ↗</a>'
-            f"</div>"
+            f'{source_link_html(oireachtas_url, "Oireachtas.ie", aria_label=f"Open {name} on oireachtas.ie")}'
+            f'</div>'
         )
     return (
         f'<div class="cmt-row">'
@@ -491,16 +491,18 @@ def committee_identity_strip(
         meta_parts.append(f"Chair: {chair_text}")
     meta_html = " · ".join(_h(p) for p in meta_parts)
     links: list[str] = []
+    if oireachtas_url or source_document_url:
+        from ui.entity_links import source_link_html  # local — avoids any future circular risk
     if oireachtas_url:
-        links.append(
-            f'<a class="cmt-row-link" href="{_h(oireachtas_url)}" target="_blank" '
-            f'rel="noopener noreferrer">Oireachtas.ie ↗</a>'
-        )
+        links.append(source_link_html(
+            oireachtas_url, "Oireachtas.ie",
+            aria_label=f"Open {name} on oireachtas.ie",
+        ))
     if source_document_url:
-        links.append(
-            f'<a class="cmt-row-link" href="{_h(source_document_url)}" target="_blank" '
-            f'rel="noopener noreferrer">Source document ↗</a>'
-        )
+        links.append(source_link_html(
+            source_document_url, "Source document",
+            aria_label=f"Open the source document for {name}",
+        ))
     links_html = (
         f'<div class="cmt-identity-links">{"".join(links)}</div>' if links else ""
     )
@@ -570,14 +572,24 @@ def sidebar_date_range(
     label: str,
     key: str,
     default_start: datetime.date | None = None,
+    *,
+    empty_default: bool = False,
 ) -> tuple[str | None, str | None]:
-    """Date range picker for the sidebar. Returns (start_str, end_str) or (None, None)."""
-    start = default_start or datetime.date(2020, 1, 1)
-    today = datetime.date.today()
+    """Date range picker for the sidebar. Returns (start_str, end_str) or (None, None).
+
+    empty_default=True renders an empty input on first load (no pre-filled
+    range) so the user is not committed to a date filter until they pick one.
+    """
+    if empty_default:
+        value: tuple = ()
+    else:
+        start = default_start or datetime.date(2020, 1, 1)
+        today = datetime.date.today()
+        value = (start, today)
     st.markdown(f'<p class="sidebar-label">{label}</p>', unsafe_allow_html=True)
     date_val = st.date_input(
         label,
-        value=(start, today),
+        value=value,
         label_visibility="collapsed",
         key=key,
     )
@@ -612,25 +624,124 @@ def sidebar_member_filter(
     return chosen if chosen and chosen != "— select —" else None
 
 
-def _page_window(current: int, total: int) -> list[int | str]:
-    """Compact page set with leading/trailing ellipses for a 1-indexed pager.
+def clickable_card_link(
+    *,
+    href: str,
+    inner_html: str,
+    aria_label: str,
+    target: str = "_self",
+    show_arrow: bool = True,
+) -> str:
+    """Wrap a card in a full-card-clickable link with an optional arrow.
 
-    Always shows page 1 and the last page. Shows current ±1.
-    Inserts "…" when there is a gap.
+    Uses the **stretched-link** pattern: the inner HTML is *not* nested
+    inside the ``<a>``. Instead an empty ``<a>`` is absolute-positioned to
+    cover the wrapper, so the whole card becomes the click target while
+    inner interactive elements (e.g. an "Oireachtas ↗" link inside the
+    card) remain independently clickable. The CSS in ``shared_css.py``
+    (``.dt-card-link-wrap`` / ``.dt-card-link`` / ``.dt-card-arrow``)
+    handles layering, hover lift + accent, and the arrow slide.
+
+    Use when the page navigates via URL (e.g. ``?member=…`` query params)
+    rather than session state + rerun. Returns an HTML string — collect
+    several into a list and emit with ``st.html("\\n".join(...))``.
+
+    Args:
+        href:        URL the card navigates to.
+        inner_html:  Card HTML (e.g. from ``member_card_html()`` /
+                     ``committee_row_html()`` / a custom builder). Inner
+                     ``<a>`` / ``<button>`` elements automatically sit
+                     above the stretched link via the shared CSS.
+        aria_label:  Spoken description of the link target.
+        target:      ``"_self"`` (same tab, default) or ``"_blank"``.
+        show_arrow:  Render the decorative right-edge arrow. Default True.
+    """
+    arrow = '<span class="dt-card-arrow" aria-hidden="true">→</span>' if show_arrow else ''
+    return (
+        f'<div class="dt-card-link-wrap">'
+        f'<a class="dt-card-link" href="{_h(href)}" target="{_h(target)}" '
+        f'aria-label="{_h(aria_label)}"></a>'
+        f'{inner_html}'
+        f'{arrow}'
+        f'</div>'
+    )
+
+
+def nav_button(
+    *,
+    key: str,
+    help: str | None = None,
+    label: str = "→",
+) -> bool:
+    """Standard square arrow button used beside list cards.
+
+    Renders a marker div + button. The CSS in ``shared_css.py`` (``.dt-nav-btn``
+    rules) forces a uniform 2.1rem × 2.1rem square and centers the button
+    vertically inside its column, so it lines up against multi-line cards
+    regardless of card height.
+
+    Place inside the second column of a ``[N, 1]`` columns row whose first
+    column holds the card. Returns ``True`` when clicked.
+    """
+    st.html('<div class="dt-nav-btn"></div>')
+    return st.button(label, key=key, help=help)
+
+
+def _page_window(current: int, total: int) -> list[int | str]:
+    """Stable page set with leading/trailing ellipses for a 1-indexed pager.
+
+    For ``total > 7`` always returns **exactly 7 elements** (page 1, an
+    optional "…", three inner pages around current, an optional "…", and
+    the last page) so the pager's column count is constant — chips don't
+    shift left/right when the user clicks between pages.
+
+    Always shows page 1 and the last page. For ``total <= 7`` returns
+    every page (no truncation needed).
     """
     if total <= 7:
         return list(range(1, total + 1))
-    pages: list[int | str] = [1]
-    left  = max(2, current - 1)
-    right = min(total - 1, current + 1)
-    if left > 2:
-        pages.append("…")
-    for p in range(left, right + 1):
-        pages.append(p)
-    if right < total - 1:
-        pages.append("…")
-    pages.append(total)
-    return pages
+    if current <= 4:
+        # Near the start: [1, 2, 3, 4, 5, …, total]
+        return [1, 2, 3, 4, 5, "…", total]
+    if current >= total - 3:
+        # Near the end: [1, …, total-4, total-3, total-2, total-1, total]
+        return [1, "…", total - 4, total - 3, total - 2, total - 1, total]
+    # Middle: [1, …, current-1, current, current+1, …, total]
+    return [1, "…", current - 1, current, current + 1, "…", total]
+
+
+def paginate(
+    total: int,
+    *,
+    key_prefix: str,
+    page_size: int,
+) -> int:
+    """Resolve the current 0-indexed page from session state, without rendering.
+
+    Use this when you want pagination controls rendered *below* the content:
+    call ``paginate()`` to get the page index, slice and render your data,
+    then call :func:`pagination_controls` with the same ``key_prefix`` and a
+    matching ``page_sizes``/``default_page_size`` to draw the controls.
+
+    The ``page_size`` passed here must match the size used by the eventual
+    :func:`pagination_controls` call so the two agree on ``total_pages``.
+
+    Returns the 0-indexed page; slice with
+    ``df.iloc[page_idx*page_size : (page_idx+1)*page_size]``.
+    """
+    size_key = f"{key_prefix}_size"
+    page_key = f"{key_prefix}_page"
+
+    # Seed size so pagination_controls (called later) sees the same value.
+    if size_key not in st.session_state:
+        st.session_state[size_key] = int(page_size)
+
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    cur = int(st.session_state.get(page_key, 1))
+    if cur > total_pages:
+        cur = 1
+        st.session_state[page_key] = 1
+    return cur - 1
 
 
 def pagination_controls(
@@ -658,6 +769,10 @@ def pagination_controls(
     Returns:
         ``(page_size, page_idx)`` where ``page_idx`` is **0-indexed**.
         Slice the dataframe with ``df.iloc[page_idx*size : (page_idx+1)*size]``.
+
+    To render the controls *below* the content, pair this with :func:`paginate`:
+    call ``paginate()`` first to get the page index, render your rows, then
+    call ``pagination_controls()`` with matching ``key_prefix`` / sizes.
     """
     size_key = f"{key_prefix}_size"
     page_key = f"{key_prefix}_page"
@@ -680,7 +795,10 @@ def pagination_controls(
     if show_size_picker:
         nav_col, size_col = st.columns([3, 1])
     else:
-        nav_col = st.container()
+        # Always wrap in a column so the .dt-pager CSS selector
+        # ([data-testid="stColumn"]:has(> div .dt-pager)) matches and the
+        # page chips collapse to tight spacing instead of equal-width columns.
+        (nav_col,) = st.columns([1])
         size_col = None
 
     with nav_col:

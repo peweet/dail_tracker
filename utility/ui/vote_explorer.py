@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from ui.components import stat_strip, outcome_badge, evidence_heading, todo_callout, empty_state, pagination_controls
-from ui.entity_links import entity_cta_html, member_link_html, member_profile_url
+from ui.entity_links import entity_cta_html, member_link_html, member_profile_url, source_link_html
 from ui.table_config import member_detail_column_config, td_history_column_config
 from ui.export_controls import export_button
 from ui.source_links import render_source_links
@@ -55,10 +55,8 @@ def _render_td_history_html(df: pd.DataFrame) -> str:
         vt_html = _vote_icon(row.get("vote_type"))
         outcome_html = _outcome_chip(row.get("vote_outcome"))
         url = str(row.get("oireachtas_url") or "") if has_url else ""
-        link_cell = (
-            f'<a href="{_h(url)}" target="_blank" rel="noopener" class="dt-vt-link">↗ source</a>'
-            if url.startswith("http") else ""
-        )
+        link_cell = source_link_html(url, "Oireachtas",
+                                     aria_label="Open this division on oireachtas.ie")
         rows_html += (
             f"<tr>"
             f'<td class="dt-vt-date">{date_str}</td>'
@@ -285,6 +283,7 @@ def vt_division_card_html(row) -> str:
     no_n     = int(row.get("no_count") or 0)
     abs_n    = int(row.get("abstained_count") or 0)
     margin   = row.get("margin")
+    url      = str(row.get("oireachtas_url") or "")
 
     margin_str = ""
     if margin is not None:
@@ -304,13 +303,23 @@ def vt_division_card_html(row) -> str:
     else:
         outcome_html = ""
 
-    margin_html = f'<span class="vt-margin-pill">{margin_str}</span>' if margin_str else ""
+    margin_html = (
+        f'<span class="vt-margin-pill" title="Vote margin (Yes − No)">'
+        f'<span class="vt-margin-label">Δ</span>'
+        f'<span class="vt-margin-value">{margin_str}</span>'
+        f'</span>'
+        if margin_str else ""
+    )
+
+    source_html = source_link_html(url, "Oireachtas",
+                                   aria_label="Open this division on oireachtas.ie")
 
     return (
         f'<div class="vt-card">'
         f'<div class="vt-card-header">'
         f'<span class="vt-card-date">{date_str}</span>'
         f'{outcome_html}'
+        f'{source_html}'
         f'</div>'
         f'<div class="vt-card-title">{title}</div>'
         f'<div class="vt-card-footer">'
@@ -319,6 +328,57 @@ def vt_division_card_html(row) -> str:
         f'<span class="vt-count-abs">— {abs_n}</span>'
         f'{margin_html}'
         f'</div>'
+        f'</div>'
+    )
+
+
+def member_vote_card_html(
+    *,
+    vote_date,
+    debate_title: str,
+    vote_type: str,
+    vote_outcome: str,
+    oireachtas_url: str = "",
+) -> str:
+    """Reusable card for **a single member's vote on one division**.
+
+    Used by Member Overview's "Voting record by issue" and any other place we
+    show how a TD voted on a single division. Uses green ✓ / red ✗ explicitly
+    (matches the styling on the Votes page).
+
+    All inputs are escaped — pass plain values, not HTML.
+    """
+    date_str = _fmt_date(vote_date)
+    title    = _h(str(debate_title or "—"))
+
+    vt = str(vote_type or "")
+    if vt == "Voted Yes":
+        vote_chip_html = '<span class="vt-rec-vote vt-rec-vote-yes">✓ Voted Yes</span>'
+        accent_cls = "vt-rec-card-yes"
+    elif vt == "Voted No":
+        vote_chip_html = '<span class="vt-rec-vote vt-rec-vote-no">✗ Voted No</span>'
+        accent_cls = "vt-rec-card-no"
+    elif vt == "Abstained":
+        vote_chip_html = '<span class="vt-rec-vote vt-rec-vote-abs">— Abstained</span>'
+        accent_cls = "vt-rec-card-abs"
+    else:
+        vote_chip_html = f'<span class="vt-rec-vote vt-rec-vote-abs">{_h(vt) or "—"}</span>'
+        accent_cls = "vt-rec-card-abs"
+
+    outcome_html = _outcome_chip(vote_outcome)
+
+    source_html = source_link_html(oireachtas_url, "Oireachtas",
+                                   aria_label="Open this division on oireachtas.ie")
+
+    return (
+        f'<div class="vt-rec-card {accent_cls}">'
+        f'<div class="vt-rec-header">'
+        f'<span class="vt-card-date">{date_str}</span>'
+        f'{vote_chip_html}'
+        f'{outcome_html}'
+        f'{source_html}'
+        f'</div>'
+        f'<div class="vt-card-title">{title}</div>'
         f'</div>'
     )
 
