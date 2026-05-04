@@ -77,12 +77,12 @@ def _pay_card_html(row: pd.Series) -> str:
     meta  = clean_meta(party, constit) or pos
     pills = (
         f'<span class="pay-taa-pill">{taa}</span>'
-        f'<span class="int-stat-pill">{count} payments</span>'
+        f'<span class="pay-count-pill-accent">{count} payments</span>'
     )
     badge = (
-        f'<div class="dt-name-card-badge-metric">'
-        f'<span class="dt-name-card-badge-num">{total_str}</span>'
-        f'<span class="dt-name-card-badge-lbl">total</span>'
+        f'<div class="pay-total-badge">'
+        f'<span class="pay-total-badge-num">{total_str}</span>'
+        f'<span class="pay-total-badge-lbl">total</span>'
         f'</div>'
     )
     return member_card_html(
@@ -214,9 +214,19 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
     yr_count = int(ranking.iloc[0]["year_member_count"])
     avg_yr   = float(ranking.iloc[0]["year_avg_per_td"])
 
-    c1, c2 = st.columns(2)
-    c1.metric(f"Total — {selected_year}",      f"€{total_yr:,.0f}")
-    c2.metric(f"Avg per TD — {selected_year}", f"€{avg_yr:,.0f}")
+    st.html(
+        f'<div class="pay-totals-strip">'
+        f'<div class="pay-totals-item">'
+        f'<span class="pay-totals-num">€{total_yr:,.0f}</span>'
+        f'<span class="pay-totals-lbl">Total · {selected_year}</span>'
+        f'</div>'
+        f'<div class="pay-totals-divider"></div>'
+        f'<div class="pay-totals-item">'
+        f'<span class="pay-totals-num">€{avg_yr:,.0f}</span>'
+        f'<span class="pay-totals-lbl">Avg per TD · {selected_year}</span>'
+        f'</div>'
+        f'</div>'
+    )
 
     st.caption(f"Ranked by total PSA received · {selected_year} · {yr_count} members")
 

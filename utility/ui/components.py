@@ -547,6 +547,53 @@ def find_a_td_search(
     return chosen if chosen and chosen != "— pick a TD —" else None
 
 
+def find_a_td_filter(
+    members: list[str],
+    *,
+    key_prefix: str,
+    label: str = "Find a TD",
+    placeholder: str = "Search by name, party or constituency…",
+    select_placeholder: str = "— select —",
+    show_label: bool = True,
+    width_ratio: tuple[int, int, int] = (3, 2, 4),
+) -> tuple[str, str | None]:
+    """Compact Find-a-TD filter: search input + helper dropdown side-by-side.
+
+    Use this anywhere in the app where the user needs to find a TD by name,
+    party, or constituency. The component is deliberately narrower than the
+    full content column (last ratio slot is an empty spacer) so the filter
+    doesn't dominate the page.
+
+    Returns ``(query, picked)``:
+        query   raw search text — caller filters the list/grid below by this
+                across whatever fields are relevant (name, party, constituency).
+        picked  name selected from the helper dropdown, or None. Caller should
+                treat ``picked is not None`` as a navigation event (set the
+                relevant session-state key + ``st.rerun()``).
+    """
+    if show_label:
+        st.html(f'<p class="dt-main-search-kicker">{_h(label)}</p>')
+    cols = st.columns(width_ratio)
+    with cols[0]:
+        query = st.text_input(
+            label,
+            placeholder=placeholder,
+            key=f"{key_prefix}_filter_query",
+            label_visibility="collapsed",
+        ) or ""
+    sq = query.strip().lower()
+    filtered = [m for m in members if sq in m.lower()] if sq else members
+    with cols[1]:
+        chosen = st.selectbox(
+            label,
+            [select_placeholder] + filtered,
+            key=f"{key_prefix}_filter_pick",
+            label_visibility="collapsed",
+        )
+    picked = chosen if chosen and chosen != select_placeholder else None
+    return query, picked
+
+
 def stat_item(num, label: str) -> str:
     """Single stat HTML fragment — combine several inside render_stat_strip()."""
     return f'<div><div class="stat-num">{num}</div><div class="stat-lbl">{label}</div></div>'
