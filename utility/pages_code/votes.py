@@ -15,6 +15,7 @@ from html import escape as _h
 from shared_css import inject_css
 from ui.components import (
     back_button,
+    clickable_card_link,
     empty_state,
     evidence_heading,
     sidebar_date_range,
@@ -23,7 +24,7 @@ from ui.components import (
     todo_callout,
     year_selector,
 )
-from ui.entity_links import member_profile_url
+from ui.entity_links import division_url, member_profile_url
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
 from ui.vote_explorer import render_division_panel, render_td_panel, vt_division_card_html
@@ -163,7 +164,7 @@ def _fetch_vote_index(_conn, date_from, date_to, outcome) -> pd.DataFrame:
         where = " WHERE " + body
     sql = (
         "SELECT vote_id, vote_date, debate_title, vote_outcome,"
-        " yes_count, no_count, abstained_count, margin"
+        " yes_count, no_count, abstained_count, margin, oireachtas_url"
         f" FROM v_vote_index{where} ORDER BY vote_date DESC LIMIT ?"
     )
     params.append(_VOTE_INDEX_LIMIT)
@@ -458,23 +459,18 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
         f'</p>'
     )
 
-    for i, (_, row) in enumerate(visible.iterrows()):
-        card_col, btn_col = st.columns([14, 1])
-        with card_col:
-            st.html(vt_division_card_html(row))
-        btn_col.html('<div class="dt-nav-anchor"></div>')
-        if btn_col.button(
-            "→",
-            key=f"vt_div_{i}",
-            help=str(row.get("debate_title") or "View division"),
-        ):
-            vote_id = str(row["vote_id"])
-            st.session_state["v_sel_vote_id"] = vote_id
-            st.session_state["v_from"]        = "index"
-            st.session_state["v_show_all"]    = False
-            st.query_params["vote"] = vote_id
-            st.query_params.pop("member", None)
-            st.rerun(scope="app")
+    cards_html: list[str] = []
+    for _, row in visible.iterrows():
+        vote_id = str(row.get("vote_id") or "")
+        title   = str(row.get("debate_title") or "View division")
+        cards_html.append(
+            clickable_card_link(
+                href=division_url(vote_id),
+                inner_html=vt_division_card_html(row),
+                aria_label=f"View division: {title}",
+            )
+        )
+    st.html("\n".join(cards_html))
 
     if not show_all and total > 25 and st.button(
         f"Show all {total:,} divisions", key="v_show_all_btn"

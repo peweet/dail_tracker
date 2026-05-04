@@ -34,9 +34,12 @@ from shared_css import inject_css
 from ui.components import (
     back_button,
     clean_meta,
+    clickable_card_link,
     empty_state,
     member_card_html,
+    paginate,
     pagination_controls,
+    sidebar_date_range,
     sidebar_page_header,
 )
 from ui.entity_links import (
@@ -44,7 +47,9 @@ from ui.entity_links import (
     entity_cta_html,
     member_profile_url,
     member_votes_url,
+    source_link_html,
 )
+from ui.vote_explorer import member_vote_card_html
 from data_access.member_overview_data import get_member_overview_conn
 
 _log = logging.getLogger(__name__)
@@ -157,16 +162,53 @@ def _votes_summary(_conn, join_key: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def _votes_by_topic(_conn, join_key: str, keyword: str) -> pd.DataFrame:
-    pattern = f"%{keyword}%"
+def _votes_by_topic(
+    _conn,
+    join_key: str,
+    keyword: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> pd.DataFrame:
+    """Per-member divisions, optionally filtered by debate-title keyword and date.
+
+    Retrieval-only: SELECT with WHERE/ORDER BY/LIMIT against v_vote_member_detail.
+    keyword=None disables the topic LIKE filter (used for the "All topics" pill).
+    """
+    clauses: list[str] = ["member_id = ?"]
+    params: list = [join_key]
+    if keyword:
+        clauses.append("LOWER(debate_title) LIKE LOWER(?)")
+        params.append(f"%{keyword}%")
+    if date_from:
+        clauses.append("vote_date >= ?")
+        params.append(date_from)
+    if date_to:
+        clauses.append("vote_date <= ?")
+        params.append(date_to)
+    where = " AND ".join(clauses)
     return _q(
         _conn,
         "SELECT vote_date, debate_title, vote_type, vote_outcome, oireachtas_url"
         " FROM v_vote_member_detail"
-        " WHERE member_id = ? AND LOWER(debate_title) LIKE LOWER(?)"
-        " ORDER BY vote_date DESC LIMIT 200",
-        [join_key, pattern],
+        f" WHERE {where}"
+        " ORDER BY vote_date DESC LIMIT 1000",
+        params,
     )
+
+
+@st.cache_data(ttl=300)
+def _member_vote_years(_conn, join_key: str) -> list[int]:
+    df = _q(
+        _conn,
+        "SELECT DISTINCT CAST(EXTRACT(YEAR FROM vote_date) AS INTEGER) AS year"
+        " FROM v_vote_member_detail"
+        " WHERE member_id = ? AND vote_date IS NOT NULL"
+        " ORDER BY year DESC LIMIT 30",
+        [join_key],
+    )
+    if df.empty or "year" not in df.columns:
+        return []
+    return [int(y) for y in df["year"].dropna().tolist()]
 
 
 @st.cache_data(ttl=300)
@@ -221,7 +263,12 @@ def _legislation(_conn, member_name: str) -> pd.DataFrame:
 
 # ── Profile section renderers ──────────────────────────────────────────────────
 
-def _section_votes(conn, join_key: str) -> None:
+def _section_votes(
+    conn,
+    join_key: str,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> None:
     st.html('<p class="section-heading">Voting record by issue</p>')
 
     summary = _votes_summary(conn, join_key)
@@ -242,64 +289,99 @@ def _section_votes(conn, join_key: str) -> None:
             f'<strong>{round(100-rate_pct,1)}%</strong> Níl when cast.</p>'
         )
 
+    # ── Filter row 1: policy area (with "All topics") ────────────────────
+    area_options  = ["All topics"] + _AREA_LABELS
     selected_area = st.pills(
         "Policy area",
-        options=_AREA_LABELS,
-        default="Housing",
+        options=area_options,
+        default="All topics",
         key="mo_vote_area",
         label_visibility="collapsed",
+    ) or "All topics"
+
+    # ── Filter row 2: year ──────────────────────────────────────────────
+    available_years = _member_vote_years(conn, join_key)
+    if available_years:
+        year_opts     = ["All years"] + [str(y) for y in available_years]
+        selected_year = st.radio(
+            "Year",
+            options=year_opts,
+            index=0,
+            horizontal=True,
+            key="mo_vote_year",
+            label_visibility="collapsed",
+        ) or "All years"
+    else:
+        selected_year = "All years"
+
+    # ── Resolve filters ─────────────────────────────────────────────────
+    keyword = (
+        None if selected_area == "All topics"
+        else _AREA_LABEL_TO_KW.get(selected_area)
     )
 
-    keyword  = _AREA_LABEL_TO_KW.get(selected_area or "Housing", "housing")
-    topic_df = _votes_by_topic(conn, join_key, keyword)
+    # Year pill takes precedence over the sidebar date range when set.
+    eff_from = date_from
+    eff_to   = date_to
+    if selected_year != "All years":
+        eff_from = f"{selected_year}-01-01"
+        eff_to   = f"{selected_year}-12-31"
+
+    topic_df = _votes_by_topic(conn, join_key, keyword, eff_from, eff_to)
 
     if topic_df.empty:
+        scope = selected_area if selected_area != "All topics" else "any topic"
+        year_note = (
+            f" in {selected_year}" if selected_year != "All years"
+            else " in this date range" if (eff_from or eff_to) else ""
+        )
         empty_state(
-            f"No votes on {selected_area}",
-            "No divisions with this topic found in the debate title.",
+            f"No votes on {scope}{year_note}",
+            "Try widening the year, picking 'All topics', "
+            "or clearing the date filter in the sidebar.",
         )
-    else:
-        st.caption(
-            f"{len(topic_df)} division{'s' if len(topic_df) != 1 else ''} on {selected_area}"
+        return
+
+    total      = len(topic_df)
+    PAGE_SIZE  = 10
+    # Pager key includes the active filter signature so changing any filter
+    # resets to page 1 instead of leaving the user stranded past the new end.
+    filter_sig = f"{keyword or 'all'}_{selected_year}_{eff_from or '_'}_{eff_to or '_'}"
+    pager_key  = f"mo_vote_topic_{join_key}_{filter_sig}"
+    page_idx   = paginate(total, key_prefix=pager_key, page_size=PAGE_SIZE)
+    visible    = topic_df.iloc[page_idx * PAGE_SIZE : (page_idx + 1) * PAGE_SIZE]
+
+    start = page_idx * PAGE_SIZE + 1
+    end   = min((page_idx + 1) * PAGE_SIZE, total)
+    scope_label = selected_area if selected_area != "All topics" else "all topics"
+    year_label  = selected_year if selected_year != "All years" else "all years"
+    st.caption(
+        f"Showing {start:,}–{end:,} of {total:,} "
+        f"division{'s' if total != 1 else ''} on {scope_label} · {year_label}"
+    )
+
+    for _, row in visible.iterrows():
+        url = str(row.get("oireachtas_url", "") or "")
+        if url in ("nan", "None"):
+            url = ""
+        st.html(
+            member_vote_card_html(
+                vote_date=row.get("vote_date"),
+                debate_title=str(row.get("debate_title", "—")),
+                vote_type=str(row.get("vote_type", "—")),
+                vote_outcome=str(row.get("vote_outcome", "—")),
+                oireachtas_url=url,
+            )
         )
-        for _, row in topic_df.iterrows():
-            date    = str(row.get("vote_date",    ""))[:10]
-            title   = str(row.get("debate_title", "—"))
-            vtype   = str(row.get("vote_type",    "—"))
-            outcome = str(row.get("vote_outcome", "—"))
-            url     = str(row.get("oireachtas_url", "") or "")
 
-            vl = vtype.lower()
-            if "yes" in vl:
-                vote_colour, vote_bg = "#1d4ed8", "#dbeafe"
-            elif "no" in vl:
-                vote_colour, vote_bg = "#92400e", "#fef3c7"
-            else:
-                vote_colour, vote_bg = "#6b7280", "#f3f4f6"
-
-            url_html = (
-                f'<a href="{_h(url)}" target="_blank" '
-                f'style="font-size:0.78rem;color:var(--accent);text-decoration:none;'
-                f'margin-left:auto;flex-shrink:0;">Oireachtas →</a>'
-                if url and url not in ("nan", "None", "")
-                else ""
-            )
-            st.html(
-                f'<div style="padding:0.55rem 0.9rem;margin-bottom:0.25rem;'
-                f'border:1px solid var(--border);border-left:3px solid {vote_colour};'
-                f'border-radius:8px;background:#ffffff;">'
-                f'<div style="display:flex;align-items:center;gap:0.55rem;margin-bottom:0.2rem;">'
-                f'<span style="font-size:0.73rem;color:var(--text-meta);">{_h(date)}</span>'
-                f'<span style="padding:0.1rem 0.5rem;background:{vote_bg};color:{vote_colour};'
-                f'border-radius:4px;font-size:0.73rem;font-weight:700;">{_h(vtype)}</span>'
-                f'<span style="font-size:0.73rem;color:var(--text-meta);">{_h(outcome)}</span>'
-                f'{url_html}'
-                f'</div>'
-                f'<div style="font-family:\'Zilla Slab\',Georgia,serif;font-size:0.94rem;'
-                f'font-weight:600;color:var(--text-primary);line-height:1.35;">'
-                f'{_h(title)}</div>'
-                f'</div>'
-            )
+    pagination_controls(
+        total=total,
+        key_prefix=pager_key,
+        page_sizes=(PAGE_SIZE,),
+        default_page_size=PAGE_SIZE,
+        label="divisions",
+        show_caption=False,
+    )
 
 
 def _section_legislation(conn, member_name: str) -> None:
@@ -334,11 +416,11 @@ def _section_legislation(conn, member_name: str) -> None:
             else "leg-status-lapsed" if sl in ("lapsed", "withdrawn", "defeated")
             else "leg-status-active"
         )
-        url_html = (
-            f'<a class="leg-bill-oireachtas-link" href="{_h(url)}" target="_blank">'
-            f'Oireachtas.ie →</a>'
-            if url and url not in ("nan", "None", "")
-            else ""
+        if url in ("nan", "None"):
+            url = ""
+        url_html = source_link_html(
+            url, "Oireachtas.ie",
+            aria_label="Open this bill on oireachtas.ie",
         )
         st.html(
             f'<div class="leg-bill-card" style="margin-bottom:0.3rem;">'
@@ -507,9 +589,12 @@ def _render_browse(conn) -> None:
 
     filtered = filtered.sort_values("member_name", kind="stable").reset_index(drop=True)
 
-    total   = len(df)
     showing = len(filtered)
-    st.caption(f"{showing} of {total} TDs")
+
+    # Results pill — shows the current filtered count above the grid.
+    st.html(
+        f'<p class="section-heading">{showing:,} TD{"s" if showing != 1 else ""}</p>'
+    )
 
     if filtered.empty:
         empty_state(
@@ -518,14 +603,13 @@ def _render_browse(conn) -> None:
         )
         return
 
-    page_size, page_idx = pagination_controls(
-        total=showing,
-        key_prefix="mo_browse",
-        page_sizes=(25, 50, 100),
-        default_page_size=25,
-        show_caption=False,
-    )
-    visible = filtered.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+    # Resolve the current page slice via the reusable paginate() helper.
+    # The pagination_controls() call below renders the chip row + caption
+    # underneath the grid using the same key_prefix / page_size.
+    MO_PAGE_SIZE = 12
+    pager_key = "mo_browse"
+    page_idx = paginate(showing, key_prefix=pager_key, page_size=MO_PAGE_SIZE)
+    visible = filtered.iloc[page_idx * MO_PAGE_SIZE : (page_idx + 1) * MO_PAGE_SIZE]
 
     cards = ['<div class="mo-grid">']
     for _, row in visible.iterrows():
@@ -535,19 +619,34 @@ def _render_browse(conn) -> None:
         code    = str(row["unique_member_code"])
         meta    = clean_meta(party, constit)
         cards.append(
-            f'<a class="mo-grid-link" href="{_h(member_profile_url(code))}" target="_self" '
-            f'aria-label="View {_h(name)}">'
-            f'{member_card_html(name=name, meta=meta)}'
-            f'<span class="mo-grid-arrow" aria-hidden="true">→</span>'
-            f'</a>'
+            clickable_card_link(
+                href=member_profile_url(code),
+                inner_html=member_card_html(name=name, meta=meta),
+                aria_label=f"View {name}",
+            )
         )
     cards.append('</div>')
     st.html("\n".join(cards))
 
+    # Pager sits BELOW the grid for less visual noise above.
+    st.html('<div class="mo-browse-pager-spacer"></div>')
+    pagination_controls(
+        total=showing,
+        key_prefix=pager_key,
+        page_sizes=(MO_PAGE_SIZE,),
+        default_page_size=MO_PAGE_SIZE,
+        label="TDs",
+    )
+
 
 # ── Profile ─────────────────────────────────────────────────────────────────────
 
-def _render_stage2(conn, join_key: str) -> None:
+def _render_stage2(
+    conn,
+    join_key: str,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> None:
 
     if back_button("← All TDs", key="mo_all", help="Return to the full TD list"):
         st.session_state.pop(_STAGE_KEY, None)
@@ -640,7 +739,7 @@ def _render_stage2(conn, join_key: str) -> None:
     st.divider()
 
     # ── 1. Voting record by issue ─────────────────────────────────────────────
-    _section_votes(conn, join_key)
+    _section_votes(conn, join_key, date_from, date_to)
 
     st.html(entity_cta_html(member_votes_url(join_key), "Full voting history →"))
 
@@ -677,10 +776,19 @@ def member_overview_page() -> None:
 
     join_key = st.session_state.get(_STAGE_KEY)
 
+    date_from: str | None = None
+    date_to:   str | None = None
     with st.sidebar:
         sidebar_page_header("Member<br>Overview", "OIREACHTAS EXPLORER")
+        # Date filter only on the profile view — applies to the votes section.
+        if join_key:
+            date_from, date_to = sidebar_date_range(
+                "Vote date range",
+                key="mo_vote_date",
+                empty_default=True,
+            )
 
     if join_key:
-        _render_stage2(conn, join_key)
+        _render_stage2(conn, join_key, date_from, date_to)
     else:
         _render_browse(conn)

@@ -11,7 +11,8 @@ SELECT
         COUNT(CASE WHEN vote_type = 'Voted Yes' THEN 1 END) -
         COUNT(CASE WHEN vote_type = 'Voted No'  THEN 1 END)
     )                                                                                AS margin,
-    MAX(subject)                                                                     AS subject
+    MAX(subject)                                                                     AS subject,
+    MAX(vote_url)                                                                    AS oireachtas_url
 FROM read_parquet('{PARQUET_PATH}')
 WHERE full_name IS NOT NULL
 GROUP BY vote_id;

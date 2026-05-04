@@ -11,16 +11,14 @@ iris_oifigiuil_evidence.py — answer four targeted questions with corpus eviden
       notices, and is what they declare *also* in the annual register?
       Surface concrete diffs between Iris and member_interests.py output.
 """
-
-from __future__ import annotations
-
 import re
-from collections import Counter, defaultdict
-from datetime import datetime
-from pathlib import Path
-
 import fitz
 import pandas as pd
+from pathlib import Path
+from datetime import datetime
+from __future__ import annotations
+from collections import Counter, defaultdict
+
 
 # TODO: replace hardcoded paths with `BRONZE_DIR / "iris_oifigiuil"` and `SILVER_DIR / "dail_member_interests_combined.csv"` from config when promoting out of experimental
 PDF_DIR  = Path("C:/Users/pglyn/PycharmProjects/dail_extractor/data/bronze/iris_oifigiuil")

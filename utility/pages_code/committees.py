@@ -17,6 +17,7 @@ import re
 import sys
 import unicodedata
 from pathlib import Path
+from urllib.parse import quote
 
 import altair as alt
 import pandas as pd
@@ -27,12 +28,14 @@ from shared_css import inject_css
 from ui.components import (
     back_button,
     clean_meta,
+    clickable_card_link,
     committee_identity_strip,
     committee_row_html,
     empty_state,
     evidence_heading,
     find_a_td_search,
     member_profile_header,
+    paginate,
     pagination_controls,
     party_colour,
     render_stat_strip,
@@ -357,17 +360,14 @@ def _stage_register(
 
     # ── Committee row cards (NOT a dataframe) ─────────────────────────
     evidence_heading("Committees")
-    page_size, page_idx = pagination_controls(
-        len(summary),
-        key_prefix="reg",
-        page_sizes=(5,),
-        default_page_size=5,
-        label="committees",
-    )
-    page_summary = summary.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+    REG_PAGE_SIZE = 25
+    page_idx = paginate(len(summary), key_prefix="reg", page_size=REG_PAGE_SIZE)
+    page_summary = summary.iloc[page_idx * REG_PAGE_SIZE : (page_idx + 1) * REG_PAGE_SIZE]
+    cards_html: list[str] = []
     for i, row in page_summary.iterrows():
+        committee_name = str(row["committee"])
         card_html = committee_row_html(
-            name=str(row["committee"]),
+            name=committee_name,
             rank=int(i) + 1,
             chair=row["chair_name"] or None,
             chair_party=row["chair_party"] or None,
@@ -377,14 +377,23 @@ def _stage_register(
             party_seats=row["party_seats"],
             oireachtas_url=row["url"] if isinstance(row["url"], str) else None,
         )
-        card_col, btn_col = st.columns([14, 1])
-        with card_col:
-            st.markdown(card_html, unsafe_allow_html=True)
-        btn_col.markdown('<div class="dt-nav-anchor"></div>', unsafe_allow_html=True)
-        if btn_col.button("→", key=f"reg_open_{i}", help=f"Open {row['committee']}"):
-            st.session_state["comm_committee"] = str(row["committee"])
-            st.session_state["comm_stage"] = _STAGE_COMMITTEE
-            st.rerun()
+        cards_html.append(
+            clickable_card_link(
+                href=f"?committee={quote(committee_name)}",
+                inner_html=card_html,
+                aria_label=f"Open {committee_name}",
+            )
+        )
+    st.html("\n".join(cards_html))
+
+    # ── Pagination controls (below the cards) ─────────────────────────
+    pagination_controls(
+        len(summary),
+        key_prefix="reg",
+        page_sizes=(REG_PAGE_SIZE,),
+        default_page_size=REG_PAGE_SIZE,
+        label="committees",
+    )
 
     # ── CSV export of current displayed register ──────────────────────
     export_df = summary.drop(columns=["party_seats"], errors="ignore")
@@ -408,6 +417,7 @@ def _stage_committee(
         empty_state("No committee selected", "Return to the register and pick a committee.")
         if back_button("← Back to register", key="cmt_back_empty"):
             st.session_state["comm_stage"] = _STAGE_REGISTER
+            st.query_params.pop("committee", None)
             st.rerun()
         return
 
@@ -415,6 +425,7 @@ def _stage_committee(
     if back_button("← Back to register", key="cmt_back"):
         st.session_state["comm_stage"] = _STAGE_REGISTER
         st.session_state["comm_committee"] = None
+        st.query_params.pop("committee", None)
         st.rerun()
 
     # ── Identity strip ────────────────────────────────────────────────
@@ -646,6 +657,13 @@ def committees_page() -> None:
         st.session_state["comm_stage"] = _STAGE_REGISTER
     st.session_state.setdefault("comm_committee", None)
     st.session_state.setdefault("comm_td", None)
+
+    # Seed session state from URL query param so cards (full-page links) drill
+    # straight into the committee record stage on first load.
+    qp_committee = st.query_params.get("committee")
+    if qp_committee and st.session_state.get("comm_committee") != qp_committee:
+        st.session_state["comm_committee"] = qp_committee
+        st.session_state["comm_stage"] = _STAGE_COMMITTEE
 
     chamber = st.session_state["comm_chamber"]
     member_label = "Senators" if chamber == "Seanad" else "TDs"

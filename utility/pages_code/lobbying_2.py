@@ -26,6 +26,7 @@ from __future__ import annotations
 import sys
 from html import escape as _h
 from pathlib import Path
+from urllib.parse import quote
 
 import pandas as pd
 import streamlit as st
@@ -66,15 +67,16 @@ from ui.components import (
     back_button,
     breadcrumb,
     clean_meta,
+    clickable_card_link,
     empty_state,
     evidence_heading,
     hero_banner,
+    member_card_html,
     pagination_controls,
-    rank_card_row,
     sidebar_page_header,
     todo_callout,
 )
-from ui.entity_links import entity_cta_html, member_profile_url
+from ui.entity_links import entity_cta_html, member_profile_url, source_link_html
 from ui.export_controls import export_button
 from ui.source_links import render_source_links
 from ui.source_pdfs import provenance_expander
@@ -112,23 +114,39 @@ _NAV_KEYS: dict[str, str] = {
     "dpo":  "lob_selected_dpo",
 }
 
+# Query param key for each _NAV_KEYS kind. Card links write these directly;
+# session-state-only triggers (sidebar, gateway buttons, breadcrumbs) call
+# _nav()/_open_rd_index() and rely on the param sync below to keep the URL
+# in step.
+_NAV_QP: dict[str, str] = {
+    "pol":  "lob_pol",
+    "org":  "lob_org",
+    "area": "lob_area",
+    "dpo":  "lob_dpo",
+}
+
+_LOB_QP_ALL = ("lob_pol", "lob_org", "lob_area", "lob_dpo", "lob_rd", "lob_result_pol")
+
+
+def _clear_lob_qp() -> None:
+    for k in _LOB_QP_ALL:
+        st.query_params.pop(k, None)
+
 
 def _nav(kind: str, value: object = True) -> None:
     _clear_profile()
     setattr(st.session_state, _NAV_KEYS[kind], value)
+    _clear_lob_qp()
+    if isinstance(value, str):
+        st.query_params[_NAV_QP[kind]] = value
 
 
 def _open_rd_index() -> None:
     """Navigate to the Stage 2a revolving-door index."""
     _clear_profile()
     st.session_state.lob_view_revolving_door = True
-
-
-def _nav_results(area: str, politician: str) -> None:
-    """Drill into a politician × policy-area results page (preserves area context)."""
-    _clear_profile()
-    st.session_state.lob_selected_area = area
-    st.session_state.lob_results_pol   = politician
+    _clear_lob_qp()
+    st.query_params["lob_rd"] = "1"
 
 
 # ── HTML helpers ───────────────────────────────────────────────────────────────
@@ -148,6 +166,29 @@ def _path_card_html(symbol: str, heading: str, body: str, stat: str, stat_lbl: s
     )
 
 
+def _lob_card_html(
+    name: str,
+    meta: str,
+    pills: list[str],
+    *,
+    rank: int | None = None,
+    profile_href: str = "",
+) -> str:
+    """Lobbying ranked-list card body (no link wrap, no arrow).
+
+    Mirrors the layout that ``rank_card_row`` produced before the migration:
+    a ``member_card_html`` with pill row and an optional cross-page
+    "Profile ↗" link to the canonical /member-overview profile.
+    """
+    pills_html = "".join(f'<span class="int-stat-pill">{p}</span>' for p in pills)
+    if profile_href:
+        pills_html += (
+            f'<a class="dt-member-link int-stat-pill-link" href="{_h(profile_href)}" '
+            f'target="_self" aria-label="View profile of {_h(name)}">Profile ↗</a>'
+        )
+    return member_card_html(name=name, meta=meta, rank=rank, pills_html=pills_html)
+
+
 def _activity_row_html(period: str, org: str, area: str) -> str:
     return (
         f'<div class="lob-activity-row">'
@@ -162,6 +203,7 @@ def _activity_row_html(period: str, org: str, area: str) -> str:
 def _back_button() -> None:
     if back_button("← Back to Lobbying", key="lob"):
         _clear_profile()
+        _clear_lob_qp()
         st.rerun()
 
 
@@ -398,6 +440,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
                 "data/gold/parquet/most_lobbied_politicians.parquet"
             )
         else:
+            cards: list[str] = []
             for rank, (_, row) in enumerate(idx.head(10).iterrows(), start=1):
                 name      = str(row.get("member_name", "—"))
                 member_id = str(row.get("unique_member_code", "") or "")
@@ -409,13 +452,18 @@ def _render_landing(summary: pd.DataFrame) -> None:
                     f"{int(row.get('return_count', 0) or 0):,} returns",
                     f"{int(row.get('distinct_orgs', 0) or 0):,} orgs",
                 ]
-                if rank_card_row(
-                    name, meta, pills,
-                    btn_key=f"lob_pol_{rank}", rank=rank,
-                    profile_href=member_profile_url(member_id) if member_id else "",
-                ):
-                    _nav("pol", name)
-                    st.rerun()
+                cards.append(
+                    clickable_card_link(
+                        href=f"?lob_pol={quote(name)}",
+                        inner_html=_lob_card_html(
+                            name, meta, pills,
+                            rank=rank,
+                            profile_href=member_profile_url(member_id) if member_id else "",
+                        ),
+                        aria_label=f"View lobbying profile for {name}",
+                    )
+                )
+            st.html("\n".join(cards))
 
     with lb2:
         evidence_heading("Most active organisations")
@@ -426,6 +474,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
                 "data/gold/parquet/top_lobbyist_organisations.parquet"
             )
         else:
+            cards: list[str] = []
             for rank, (_, row) in enumerate(orgs.head(10).iterrows(), start=1):
                 name  = str(row.get("lobbyist_name", "—"))
                 meta  = str(row.get("sector", "") or "")
@@ -433,9 +482,14 @@ def _render_landing(summary: pd.DataFrame) -> None:
                     f"{int(row.get('return_count', 0) or 0):,} returns",
                     f"{int(row.get('politicians_targeted', 0) or 0):,} politicians",
                 ]
-                if rank_card_row(name, meta, pills, btn_key=f"lob_org_{rank}", rank=rank):
-                    _nav("org", name)
-                    st.rerun()
+                cards.append(
+                    clickable_card_link(
+                        href=f"?lob_org={quote(name)}",
+                        inner_html=_lob_card_html(name, meta, pills, rank=rank),
+                        aria_label=f"View lobbying profile for {name}",
+                    )
+                )
+            st.html("\n".join(cards))
 
     # ── Revolving door promoted callout ───────────────────────────────────
     rd_summary = fetch_revolving_door_summary()
@@ -519,6 +573,7 @@ def _render_dpo_index(summary: pd.DataFrame) -> None:
     crumb = breadcrumb(["Lobbying", "Revolving Door"], key_prefix="rd_idx")
     if crumb == 0:
         _clear_profile()
+        _clear_lob_qp()
         st.rerun()
 
     rd_summary = fetch_revolving_door_summary()
@@ -585,6 +640,7 @@ def _render_dpo_index(summary: pd.DataFrame) -> None:
     if filtered.empty:
         empty_state("No matches", f"No DPOs in chamber '{chosen}'.")
     else:
+        cards: list[str] = []
         for rank, (_, row) in enumerate(filtered.iterrows(), start=1):
             name     = str(row.get("individual_name", "—"))
             position = str(row.get("former_position",  "") or "")
@@ -596,9 +652,14 @@ def _render_dpo_index(summary: pd.DataFrame) -> None:
                 f"{int(row.get('distinct_firms',                0) or 0):,} firms",
                 f"{int(row.get('distinct_politicians_targeted', 0) or 0):,} politicians",
             ]
-            if rank_card_row(name, meta, pills, btn_key=f"rd_idx_card_{rank}", rank=rank):
-                _nav("dpo", name)
-                st.rerun()
+            cards.append(
+                clickable_card_link(
+                    href=f"?lob_dpo={quote(name)}",
+                    inner_html=_lob_card_html(name, meta, pills, rank=rank),
+                    aria_label=f"View revolving door profile for {name}",
+                )
+            )
+        st.html("\n".join(cards))
 
     _provenance_footer(summary)
 
@@ -612,6 +673,7 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
     )
     if crumb == 0:
         _clear_profile()
+        _clear_lob_qp()
         st.rerun()
     elif crumb == 1:
         _open_rd_index()
@@ -713,21 +775,25 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
         empty_state("No politicians", "No politicians matched on the joined returns.")
     else:
         pol_known = set(fetch_all_politician_names())
+        cards: list[str] = []
         for rank, (_, prow) in enumerate(pols_df.head(20).iterrows(), start=1):
             pname = str(prow.get("member_name", "—"))
             pchm  = str(prow.get("chamber",     "") or "")
             pcnt  = int(prow.get("return_count", 0) or 0)
             pills = [f"{pcnt:,} returns"]
-            btn_key = f"rd_indiv_pol_{rank}"
+            inner = _lob_card_html(pname, pchm, pills, rank=rank)
             if pname in pol_known:
-                if rank_card_row(pname, pchm, pills, btn_key=btn_key, rank=rank,
-                                 btn_help=f"Open politician profile for {pname}"):
-                    _nav("pol", pname)
-                    st.rerun()
+                cards.append(
+                    clickable_card_link(
+                        href=f"?lob_pol={quote(pname)}",
+                        inner_html=inner,
+                        aria_label=f"Open politician profile for {pname}",
+                    )
+                )
             else:
                 # Politician not in the politician_index — render as non-clickable card.
-                rank_card_row(pname, pchm, pills, btn_key=btn_key, rank=rank,
-                              btn_help="Politician not in the lobbying politician index")
+                cards.append(inner)
+        st.html("\n".join(cards))
         if len(pols_df) > 20:
             st.caption(f"Showing top 20 of {len(pols_df):,} politicians.")
 
@@ -837,6 +903,7 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
     if intensity.empty:
         empty_state("No intensity data", "No organisations found lobbying this politician.")
     else:
+        cards: list[str] = []
         for rank, (_, row) in enumerate(intensity.iterrows(), start=1):
             org_name = str(row.get("lobbyist_name", "—"))
             first_c  = str(row.get("first_contact", "") or "")[:7]
@@ -847,9 +914,14 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
                 f"{int(row.get('distinct_policy_areas',   0) or 0):,} policy areas",
                 f"{int(row.get('distinct_periods',        0) or 0):,} periods",
             ]
-            if rank_card_row(org_name, meta, pills, btn_key=f"lob_pol_org_{rank}", rank=rank):
-                _nav("org", org_name)
-                st.rerun()
+            cards.append(
+                clickable_card_link(
+                    href=f"?lob_org={quote(org_name)}",
+                    inner_html=_lob_card_html(org_name, meta, pills, rank=rank),
+                    aria_label=f"View lobbying profile for {org_name}",
+                )
+            )
+        st.html("\n".join(cards))
 
     # ── Policy exposure ───────────────────────────────────────────────────
     evidence_heading("Policy areas lobbied on")
@@ -951,11 +1023,8 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
 
     badges = [b for b in [sector] if b]
     if website and website.startswith("http"):
-        h_web = _h(website)
-        badges.append(
-            f'<a href="{h_web}" target="_blank" rel="noopener noreferrer" '
-            f'style="color:var(--accent)">{h_web}</a>'
-        )
+        badges.append(source_link_html(website, website,
+                                       aria_label=f"Open {org_name} website"))
 
     hero_banner(
         kicker="LOBBYING PROFILE · ORGANISATION",
@@ -989,6 +1058,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
     if pol_intensity.empty:
         empty_state("No intensity data", "No politicians found targeted by this organisation.")
     else:
+        cards: list[str] = []
         for rank, (_, row) in enumerate(pol_intensity.iterrows(), start=1):
             pol_name  = str(row.get("member_name", "—"))
             member_id = str(row.get("unique_member_code", "") or "")
@@ -1000,13 +1070,18 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
                 f"{int(row.get('returns_in_relationship', 0) or 0):,} returns",
                 f"{int(row.get('distinct_policy_areas',   0) or 0):,} policy areas",
             ]
-            if rank_card_row(
-                pol_name, meta, pills,
-                btn_key=f"lob_org_pol_{rank}", rank=rank,
-                profile_href=member_profile_url(member_id) if member_id else "",
-            ):
-                _nav("pol", pol_name)
-                st.rerun()
+            cards.append(
+                clickable_card_link(
+                    href=f"?lob_pol={quote(pol_name)}",
+                    inner_html=_lob_card_html(
+                        pol_name, meta, pills,
+                        rank=rank,
+                        profile_href=member_profile_url(member_id) if member_id else "",
+                    ),
+                    aria_label=f"View lobbying profile for {pol_name}",
+                )
+            )
+        st.html("\n".join(cards))
 
     # ── Clients ───────────────────────────────────────────────────────────
     clients = fetch_clients_for_org(org_name)
@@ -1136,6 +1211,7 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
     if area_pols.empty:
         empty_state("No data", "No politicians found for this policy area.")
     else:
+        cards: list[str] = []
         for rank, (_, row) in enumerate(area_pols.iterrows(), start=1):
             pol_name  = str(row.get("member_name", "—"))
             member_id = str(row.get("unique_member_code", "") or "")
@@ -1144,14 +1220,18 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
                 f"{int(row.get('returns_targeting',  0) or 0):,} returns",
                 f"{int(row.get('distinct_lobbyists', 0) or 0):,} orgs",
             ]
-            if rank_card_row(
-                pol_name, chamber, pills,
-                btn_key=f"lob_area_pol_{rank}", rank=rank,
-                btn_help=f"View every return targeting {pol_name} under {area}",
-                profile_href=member_profile_url(member_id) if member_id else "",
-            ):
-                _nav_results(area, pol_name)
-                st.rerun()
+            cards.append(
+                clickable_card_link(
+                    href=f"?lob_area={quote(area)}&lob_result_pol={quote(pol_name)}",
+                    inner_html=_lob_card_html(
+                        pol_name, chamber, pills,
+                        rank=rank,
+                        profile_href=member_profile_url(member_id) if member_id else "",
+                    ),
+                    aria_label=f"View every return targeting {pol_name} under {area}",
+                )
+            )
+        st.html("\n".join(cards))
 
     # ── Lobbying returns ──────────────────────────────────────────────────
     detail_all = fetch_area_contact_detail(area)
@@ -1199,6 +1279,7 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
     # Custom back button — return to the area page, not the landing page
     if back_button(f"← Back to {area}", key="lob_results"):
         st.session_state.lob_results_pol = None
+        st.query_params.pop("lob_result_pol", None)
         st.rerun()
 
     st.html(
@@ -1277,6 +1358,7 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
     )
     page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
     rank_offset = page_idx * page_size
+    cards: list[str] = []
     for i, (_, row) in enumerate(page_slice.iterrows(), start=1):
         rank = rank_offset + i
         org_name  = str(row.get("lobbyist_name", "—"))
@@ -1302,17 +1384,17 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
             f"Return #{return_id}",
         ]
         if url and url.startswith("http"):
-            pills.append(f'<a href="{_h(url)}" target="_blank" rel="noopener noreferrer" '
-                         f'style="color:var(--accent);text-decoration:underline">'
-                         f'View on lobbying.ie ↗</a>')
+            pills.append(source_link_html(url, "View on lobbying.ie",
+                                          aria_label="Open this return on lobbying.ie"))
 
-        if rank_card_row(
-            org_name, meta, pills,
-            btn_key=f"lob_res_card_{rank}", rank=rank,
-            btn_help=f"Open {org_name} profile",
-        ):
-            _nav("org", org_name)
-            st.rerun()
+        cards.append(
+            clickable_card_link(
+                href=f"?lob_org={quote(org_name)}",
+                inner_html=_lob_card_html(org_name, meta, pills, rank=rank),
+                aria_label=f"Open lobbying profile for {org_name}",
+            )
+        )
+    st.html("\n".join(cards))
 
     _provenance_footer(summary)
 
@@ -1322,6 +1404,28 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
 def lobbying_page() -> None:
     _init()
     inject_css()
+
+    # Seed session state from URL query params so cards (full-page links) drill
+    # straight into the correct stage on first load. Each card writes the URL
+    # via clickable_card_link; this read closes the loop.
+    qp = st.query_params
+    if "lob_dpo" in qp:
+        _clear_profile()
+        st.session_state.lob_selected_dpo = qp["lob_dpo"]
+    elif "lob_rd" in qp:
+        _clear_profile()
+        st.session_state.lob_view_revolving_door = True
+    elif "lob_pol" in qp:
+        _clear_profile()
+        st.session_state.lob_selected_politician = qp["lob_pol"]
+    elif "lob_org" in qp:
+        _clear_profile()
+        st.session_state.lob_selected_org = qp["lob_org"]
+    elif "lob_area" in qp:
+        _clear_profile()
+        st.session_state.lob_selected_area = qp["lob_area"]
+        if "lob_result_pol" in qp:
+            st.session_state.lob_results_pol = qp["lob_result_pol"]
 
     _render_sidebar()
 

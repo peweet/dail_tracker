@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import datetime
 from html import escape as _h
+from urllib.parse import quote
 
 import altair as alt
 import pandas as pd
@@ -30,6 +31,7 @@ from shared_css import inject_css
 from ui.components import (
     back_button,
     clean_meta,
+    clickable_card_link,
     empty_state,
     evidence_heading,
     hero_banner,
@@ -177,11 +179,25 @@ def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
 
 
 
-def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> str | None:
+def _att_card_link(row: pd.Series, *, side: str, rank: int, medal: str = "") -> str:
+    """Return a full-card-clickable hall card linking to ?att_td=<member>."""
+    name = str(row["member_name"])
+    return clickable_card_link(
+        href=f"?att_td={quote(name)}",
+        inner_html=_hall_card(row, medal, side, rank=rank),
+        aria_label=f"View {name}",
+        show_arrow=False,
+    )
+
+
+def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> None:
     """
-    Full-year: top/bottom _HALL_SIZE attenders side by side with per-card nav.
+    Full-year: top/bottom _HALL_SIZE attenders side by side, full-card click.
     Partial/current year: flat ranked list with an in-progress notice.
-    Returns member_name on navigation, otherwise None.
+
+    Each card is wrapped in clickable_card_link — the entire card is the click
+    target (no separate arrow button). Navigation is by ?att_td=<name> query
+    param, which attendance_page() copies into selected_td_att on load.
     """
     today = datetime.date.today()
 
@@ -197,15 +213,12 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> str | None:
             .sort_values("attended_count", ascending=False)
             .reset_index(drop=True)
         )
-        clicked: str | None = None
-        for i, (_, row) in enumerate(partial.iterrows()):
-            name = str(row["member_name"])
-            cc, bc = st.columns([14, 1])
-            cc.html(_hall_card(row, "", "good", rank=i + 1))
-            bc.html('<div class="dt-nav-anchor"></div>')
-            if bc.button("→", key=f"att_partial_{i}", help=f"View {name}"):
-                clicked = name
-        return clicked
+        cards = [
+            _att_card_link(row, side="good", rank=i + 1)
+            for i, (_, row) in enumerate(partial.iterrows())
+        ]
+        st.html("\n".join(cards))
+        return
 
     # ── Full year ──────────────────────────────────────────────────────────────
     top = (
@@ -222,31 +235,27 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> str | None:
         .reset_index(drop=True)
     )
 
-    col_good, col_bad = st.columns(2)
-    clicked: str | None = None
-
+    col_good, col_bad = st.columns(2, gap="medium")
     with col_good:
         st.html('<p class="att-hall-heading-good">Highest recorded attendance</p>')
-        for i, (_, row) in enumerate(top.iterrows()):
-            name  = str(row["member_name"])
-            medal = _GOOD_MEDALS[i] if i < len(_GOOD_MEDALS) else ""
-            cc, bc = st.columns([14, 1])
-            cc.html(_hall_card(row, medal, "good", rank=i + 1))
-            bc.html('<div class="dt-nav-anchor"></div>')
-            if bc.button("→", key=f"att_good_{i}", help=name):
-                clicked = name
+        good_cards = [
+            _att_card_link(
+                row,
+                side="good",
+                rank=i + 1,
+                medal=_GOOD_MEDALS[i] if i < len(_GOOD_MEDALS) else "",
+            )
+            for i, (_, row) in enumerate(top.iterrows())
+        ]
+        st.html("\n".join(good_cards))
 
     with col_bad:
         st.html('<p class="att-hall-heading-bad">Lowest recorded attendance</p>')
-        for i, (_, row) in enumerate(bottom.iterrows()):
-            name = str(row["member_name"])
-            cc, bc = st.columns([14, 1])
-            cc.html(_hall_card(row, "", "bad", rank=i + 1))
-            bc.html('<div class="dt-nav-anchor"></div>')
-            if bc.button("→", key=f"att_bad_{i}", help=name):
-                clicked = name
-
-    return clicked
+        bad_cards = [
+            _att_card_link(row, side="bad", rank=i + 1)
+            for i, (_, row) in enumerate(bottom.iterrows())
+        ]
+        st.html("\n".join(bad_cards))
 
 
 # ── Attendance timeline strip (profile — one year at a time) ──────────────────
@@ -497,6 +506,11 @@ def attendance_page() -> None:
         empty_state("No year data found", "v_attendance_member_year_summary returned no rows.")
         return
 
+    # ── Read ?att_td query param (set by clickable_card_link on the rankings) ──
+    qp_td = st.query_params.get("att_td")
+    if qp_td and st.session_state.get("selected_td_att") != qp_td:
+        st.session_state["selected_td_att"] = qp_td
+
     selected_td = st.session_state.get("selected_td_att")
 
     # ── Sidebar ────────────────────────────────────────────────────────────────
@@ -530,6 +544,7 @@ def attendance_page() -> None:
         if back_button("← Back to all members", key="att"):
             st.session_state["selected_td_att"] = None
             st.session_state.pop("att_member_sel", None)
+            st.query_params.pop("att_td", None)
             st.rerun()
 
         st.divider()
@@ -566,10 +581,7 @@ def attendance_page() -> None:
         icon=":material/info:",
     )
 
-    clicked = _render_good_bad(ranking_df, selected_year)
-    if clicked:
-        st.session_state["selected_td_att"] = clicked
-        st.rerun()
+    _render_good_bad(ranking_df, selected_year)
 
     # Export full list for the year
     today_str = datetime.date.today().isoformat()
