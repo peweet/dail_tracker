@@ -2812,6 +2812,209 @@ def inject_css() -> None:
             [data-testid="stHorizontalBlock"]:has(.cmt-row) { width: 100% !important; }
             .cmt-identity-name { font-size: 1.15rem; }
         }
+
+        /* ══════════════════════════════════════════════════════════════
+           Lobbyist enrichment POC — pills used by lobbyist_poc.py.
+           Funding/status colour bands follow CRO/INTEGRATION_PLAN.md §8.4.
+           Colour is a SIGNAL, not a verdict — copy stays neutral.
+           ══════════════════════════════════════════════════════════════ */
+        .lpoc-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.1rem 0.55rem;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: var(--text-meta);
+            line-height: 1.4;
+        }
+        /* Status — collapsed enum from charity + company registers */
+        .lpoc-status-active       { background:#ecfdf5; border-color:#6ee7b7; color:#065f46; }
+        .lpoc-status-in_distress  { background:#fff7ed; border-color:#fdba74; color:#9a3412; }
+        .lpoc-status-dead         { background:#fef2f2; border-color:#fca5a5; color:#7f1d1d; }
+        .lpoc-status-registered   { background:#eff6ff; border-color:#93c5fd; color:#1e3a8a; }
+        .lpoc-status-deregistered { background:#fef2f2; border-color:#fca5a5; color:#7f1d1d; }
+        .lpoc-status-unknown      { background:#ffffff; border-color:var(--border); color:var(--text-meta); }
+        /* Funding profile — gov_funded_share band per §8.4 */
+        .lpoc-funding-state_funded     { background:#fee2e2; border-color:#fca5a5; color:#7f1d1d; }
+        .lpoc-funding-mostly_donations { background:#ecfdf5; border-color:#6ee7b7; color:#065f46; }
+        .lpoc-funding-mostly_trading   { background:#f5f3ff; border-color:#c4b5fd; color:#4c1d95; }
+        .lpoc-funding-mixed            { background:#fffbeb; border-color:#fbbf24; color:#78350f; }
+        .lpoc-funding-undisclosed      { background:#ffffff; border-color:var(--border); color:var(--text-meta); }
+        /* State-adjacent badge — HSE-class entities flagged by plan §11 */
+        .lpoc-state-adjacent {
+            background:#fef2f2; border-color:#7f1d1d; color:#7f1d1d;
+        }
+        /* Newly-incorporated callout pill */
+        .lpoc-newly-incorporated {
+            background:#fffbeb; border-color:#fbbf24; color:#78350f;
+        }
+        /* Match-method evidence — surfaces fuzzy-risk transparently */
+        .lpoc-match-evidence {
+            background:#f8fafc; border-color:#cbd5e1; color:#475569;
+            font-weight: 500; font-style: italic;
+        }
+        /* Numeric metric chip (gov_share, gross_income) */
+        .lpoc-metric {
+            background:#f8fafc; border-color:#cbd5e1; color:#0f172a;
+            font-variant-numeric: tabular-nums;
+        }
+        /* Warning-flag pills — three severity tiers, dot prefix for scan-ability.
+           Tier IDs come from utility/pages_code/lobbyist_poc.py:_FLAG_LABELS. */
+        .lpoc-flag {
+            font-weight: 600;
+            border-width: 1px;
+        }
+        .lpoc-flag-dot {
+            display: inline-block;
+            width: 0.45rem;
+            height: 0.45rem;
+            border-radius: 50%;
+            margin-right: 0.1rem;
+            background: currentColor;
+            flex-shrink: 0;
+        }
+        .lpoc-flag-red {
+            background:#fef2f2; border-color:#dc2626; color:#7f1d1d;
+        }
+        .lpoc-flag-amber {
+            background:#fffbeb; border-color:#d97706; color:#78350f;
+        }
+        .lpoc-flag-info {
+            background:#eff6ff; border-color:#93c5fd; color:#1e40af;
+        }
+        /* Flag row sits below the main pill row — slight visual separation. */
+        .lpoc-flags-row {
+            margin-top: 0.1rem;
+            padding-top: 0.35rem;
+            border-top: 1px dashed var(--border);
+        }
+        /* Cards carrying any red flag get a left rail in alarm red so a red
+           flag is visible from a long scroll, not just up close. */
+        .lpoc-card-flagged {
+            border-left: 4px solid #dc2626;
+        }
+        /* Stage 1 cards make the whole row a click-target. The button
+           inside a stretched-link wrapper wraps the actual <a>. */
+        .lpoc-card.lpoc-card-clickable { cursor: pointer; transition: border-color 0.15s, transform 0.05s; }
+        .lpoc-card.lpoc-card-clickable:hover { border-color: var(--accent); transform: translateY(-1px); }
+        /* Stage 2 — identity strip + KPI grid + finance table */
+        .lpoc-id-strip {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0.6rem;
+            padding: 0.85rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #ffffff;
+            margin: 0.4rem 0 0.6rem;
+        }
+        .lpoc-id-strip-name {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-weight: 700;
+            font-size: 1.55rem;
+            color: var(--text);
+        }
+        .lpoc-id-strip-meta {
+            font-size: 0.85rem;
+            color: var(--text-meta);
+        }
+        .lpoc-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 0.6rem;
+            margin: 0.4rem 0 0.8rem;
+        }
+        .lpoc-kpi {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #ffffff;
+            padding: 0.7rem 0.85rem;
+        }
+        .lpoc-kpi-num {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.1;
+            font-variant-numeric: tabular-nums;
+        }
+        .lpoc-kpi-num.lpoc-kpi-num-negative { color: #b91c1c; }
+        .lpoc-kpi-lbl {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-meta);
+            margin-top: 0.15rem;
+        }
+        .lpoc-section-h {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0.6rem 0 0.3rem;
+        }
+        .lpoc-section-sub {
+            font-size: 0.8rem;
+            color: var(--text-meta);
+            margin: 0 0 0.4rem;
+        }
+        /* Stage 2 returns table — lobbying.ie source link styling */
+        .lpoc-source-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--accent, #b04a1a);
+            text-decoration: none;
+            border: 1px solid var(--accent, #b04a1a);
+            border-radius: 999px;
+            padding: 0.05rem 0.5rem;
+        }
+        .lpoc-source-link:hover { background: var(--accent-subtle, #fff7ed); }
+        /* Card wrapper — single ranked-list row */
+        .lpoc-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            padding: 0.6rem 0.85rem;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #ffffff;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .lpoc-card-low-confidence {
+            border-style: dashed;
+            border-color: #cbd5e1;
+        }
+        .lpoc-card-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .lpoc-rank {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: var(--text-meta);
+            min-width: 2.25rem;
+        }
+        .lpoc-name {
+            font-weight: 700;
+            font-size: 1.02rem;
+            color: var(--text);
+        }
+        .lpoc-meta {
+            font-size: 0.78rem;
+            color: var(--text-meta);
+        }
         </style>
         """,
         unsafe_allow_html=True,

@@ -1,0 +1,269 @@
+contract_version: 5
+
+page:
+  id: lobbyist_poc
+  title: "Lobbyist (POC)"
+  route: "utility/pages_code/lobbyist_poc.py"
+  user_question: >
+    Of the organisations lobbying Irish politicians, which are
+    state-funded, which are dissolved, which are newly formed, and what
+    register evidence backs each card?
+  existing_page_is: greenfield_no_existing_page
+  status: experimental
+  status_note: >
+    All registered views consumed by this page are prefixed with `experimental_`
+    to signal that they are the proving ground for CRO/INTEGRATION_PLAN.md
+    §9.2 enrichment. Promote only after Tier B/C name-match coverage clears
+    50% (manual overrides applied).
+
+# ── Data access ──────────────────────────────────────────────────────────────
+
+data_access:
+  mode: duckdb_in_process_registered_analytical_views
+  persistent_duckdb_file: null
+  streamlit_may_register_views: false
+  streamlit_may_read_parquet: false
+  streamlit_may_read_csv: false
+  connection_owner: utility/data_access/lobbying_data.py
+
+# ── Approved registered views ────────────────────────────────────────────────
+
+approved_registered_views:
+
+  - name: v_experimental_lobbying_org_index_enriched
+    status: required
+    purpose: >
+      Lobbying-org leaderboard enriched with CRO + Charity register attributes.
+      Backs Stage 1 (ranked enriched cards) and the Stage 2 hero / KPI grid.
+    required_columns:
+      - lobbyist_name
+      - return_count
+      - politicians_targeted
+      - distinct_policy_areas
+      - first_period
+      - last_period
+      - rcn                        # nullable — null when no charity match
+      - company_num                # nullable — null when no CRO match
+      - sector_label               # charity classification or company type
+      - status                     # active|in_distress|dead|registered|deregistered|unknown
+      - funding_profile            # state_funded|mostly_donations|mostly_trading|mixed|undisclosed
+      - gov_funded_share_latest    # 0..1
+      - gross_income_latest_eur
+      - employees_band_latest      # ordinal text band — never a number
+      - entity_age_years
+      - newly_incorporated_flag    # boolean
+      - state_adjacent_flag        # boolean
+      - country_established        # nullable — passed through from charity register; surfaced inside the foreign_domicile pill label
+      - match_method               # both_name_exact | charity_name_exact | company_name_exact | unmatched
+      - flags                      # VARCHAR[] — stable IDs; UI labels in lobbyist_poc.py:_FLAG_LABELS
+    approved_filters:
+      - {column: status,           operators: [=]}
+      - {column: funding_profile,  operators: [=]}
+      - {column: state_adjacent_flag, operators: [IS_DISTINCT_FROM]}
+      - {column: lobbyist_name,    operators: [=]}     # Stage 2 single-row hero
+      - {column: flags,            operators: [LEN_GT_0]}  # flagged_only filter
+    approved_order: "ORDER BY return_count DESC"
+    flag_ids_emitted:
+      red:
+        - lobbied_while_in_distress     # last_return_date > company_status_date AND status_pill = in_distress
+        - lobbied_while_extinct         # last_return_date > comp_dissolved_date
+        - annual_return_overdue         # nard < today AND company_status = Normal
+        - charity_insolvent_latest      # total_liabilities_latest > total_assets_latest
+      amber:
+        - recent_distress               # status_pill in (in_distress, dead) within last 12m
+        - accounts_overdue              # last_accounts_date < today − 18m AND company_status = Normal
+        - no_registered_address         # company_address_1 null after placeholder cleanse
+        - charity_filing_overdue        # period_end_latest < today − 18m
+        - charity_deficit_latest        # surplus_deficit_latest < 0
+      info:
+        - recent_rename                 # company_name_eff_date within last 24m
+        - invalid_reg_date              # company_reg_date < 1900-01-01
+        - foreign_domicile              # country_established outside Ireland (Ireland | Republic of Ireland | Poblacht na hÉireann are all domestic; Northern Ireland is foreign UK jurisdiction). Pill label appends the actual country.
+        - cro_undisclosed               # charity governing form is incorporated but no CRO number disclosed
+
+  - name: v_experimental_charity_finance_timeseries
+    status: required
+    purpose: >
+      Per-(RCN, year) annual-report financial detail. Drives the Stage 2
+      financial-history section: gross income bar chart + full income / asset
+      table. Read only when the org has a charity (RCN) match.
+    required_columns:
+      - rcn
+      - period_year
+      - period_end_date
+      - gross_income
+      - gross_expenditure
+      - surplus_deficit
+      - gov_share                       # 0..1
+      - gov_eur                         # numerator detail
+      - other_public_bodies_eur
+      - donations_eur
+      - trading_eur
+      - philanthropic_eur
+      - other_income_eur
+      - bequests_eur
+      - cash_at_hand
+      - total_assets
+      - total_liabilities
+      - net_assets
+      - employees_band                  # ordinal text band — never numeric
+      - volunteers_band                 # ordinal text band — never numeric
+    approved_filters:
+      - {column: rcn,         operators: [=]}
+      - {column: period_year, operators: [=, BETWEEN]}
+    approved_order: "ORDER BY period_year DESC"
+
+  - name: v_lobbying_contact_detail
+    status: required                    # already exists in lobbying.yaml
+    purpose: >
+      Stage 2 returns table — one row per filed return for the selected org,
+      with the lobbying.ie source URL. Streamlit only reads the existing
+      columns; no new columns required.
+    required_columns:
+      - return_id
+      - period_start_date
+      - member_name
+      - public_policy_area
+      - source_url
+    approved_filters:
+      - {column: lobbyist_name,     operators: [=]}
+      - {column: period_start_date, operators: [BETWEEN]}
+    approved_order: "ORDER BY period_start_date DESC"
+
+# ── Retrieval rules ──────────────────────────────────────────────────────────
+
+retrieval_sql_policy:
+  allowed_statements: [SELECT]
+  allowed_clauses: [WHERE, ORDER_BY, LIMIT]
+  allowed_aggregate_functions:
+    - "COUNT(*)"
+    - "COUNT(DISTINCT col)"
+    - "COUNT(*) FILTER (WHERE ...)"
+  forbidden_clauses: [JOIN, GROUP_BY_MULTI_DIM, HAVING, WINDOW, CREATE_VIEW, CREATE_TABLE, INSERT, UPDATE, DELETE]
+  forbidden_functions: [read_parquet, parquet_scan, read_csv]
+  parameter_binding_required: true
+  missing_data_action: TODO_PIPELINE_VIEW_REQUIRED
+  forbidden_in_streamlit:
+    - pandas_merge
+    - pandas_groupby
+    - pandas_pivot
+    - polars_join
+    - polars_group_by
+    - read_csv_direct
+    - read_parquet_direct
+
+# ── UI policy ────────────────────────────────────────────────────────────────
+
+uses_patterns:
+  - editorial_hero
+  - stat_strip
+  - faceted_filter_strip
+  - ranked_org_cards
+  - csv_export
+  - data_provenance_footer
+
+interaction_model:
+  stage1_required_flow:
+    - editorial_hero                       # hero_banner() with experimental badge
+    - stat_strip                           # render_stat_strip(): total / matched% / matched-both% / state-funded / state-adjacent / newly-incorporated
+    - faceted_filter_strip                 # status · funding_profile · hide-state-adjacent toggle
+    - ranked_clickable_org_cards           # full-card stretched-link → ?lpoc_org=<name>
+    - pagination                           # st.button prev/next, PAGE_SIZE = 25
+    - csv_export                           # export_button() below the cards
+    - provenance                           # provenance_expander() with caveats + sources
+  stage2_required_flow:
+    - back_button                          # ← back to enriched index, clears query param
+    - identity_strip                       # name + RCN/CRO id chips + status pill + match-method + flag pills (red/amber/info tier)
+    - kpi_grid                             # returns / politicians / policy areas / income / gov share / funding profile / employees band / age
+    - financial_history                    # gross-income bar chart + full per-year financial table (when RCN matched), with CSV export
+    - returns_table                        # all lobbying returns for the org with lobbying.ie source link, with CSV export
+    - provenance                           # shared provenance_expander
+  match_method_must_be_visible: true
+  warning_flags_must_be_visible: true
+  stage_dispatch:
+    selector: "st.query_params.get('lpoc_org')"
+    on_present: stage_2
+    on_absent: stage_1
+  click_pattern:
+    helper: "stretched-link wrapper around lpoc-card (utility/shared_css.py)"
+    href: "?lpoc_org=<urlencode(lobbyist_name)>"
+    target: "_self"
+  source_url_display:
+    column: source_url
+    helper: "st.column_config.LinkColumn(display_text='lobbying.ie ↗')"
+
+ui_creativity_budget:
+  level: high
+  greenfield_page: true
+  must_preserve:
+    - approved_registered_views
+    - approved_columns
+    - approved_filters
+    - data_semantics
+    - export_requirements
+    - provenance_requirements
+
+acceptance_tests:
+  - page_uses_only_approved_registered_views
+  - no_read_parquet_or_parquet_scan_in_page
+  - no_read_csv_in_page
+  - no_create_view_or_table_in_page
+  - no_modelling_joins_or_groupby_in_streamlit
+  - status_pill_rendered_for_every_stage1_card
+  - funding_pill_rendered_when_funding_profile_present
+  - match_method_pill_rendered_for_every_card_and_in_stage2_identity_strip
+  - low_confidence_card_uses_dashed_border
+  - state_adjacent_pill_rendered_when_flag_true
+  - newly_incorporated_pill_rendered_when_flag_true
+  - employees_band_displayed_as_ordinal_pill_never_numeric
+  - filter_strip_uses_st_selectbox_and_st_toggle
+  - stage1_card_is_full_card_clickable_via_stretched_link
+  - stage2_back_button_clears_lpoc_org_query_param
+  - stage2_kpi_grid_shows_finance_kpis_only_when_present
+  - stage2_finance_section_renders_only_when_rcn_matched
+  - stage2_finance_table_uses_st_dataframe_with_formatted_currency_strings
+  - stage2_returns_table_renders_source_url_via_link_column
+  - stage2_returns_csv_export_uses_export_button_helper
+  - stage2_finance_csv_export_uses_export_button_helper
+  - csv_export_uses_export_button_helper
+  - provenance_footer_collapsed_at_bottom_on_both_stages
+  # ── Warning-flag pills ─────────────────────────────────────────────
+  - warning_flag_pills_render_on_stage1_card_when_flags_non_empty
+  - warning_flag_pills_render_on_stage2_identity_strip_when_flags_non_empty
+  - flag_ids_emitted_by_view_must_have_a_label_in_lobbyist_poc_FLAG_LABELS
+  - flag_pill_tier_red_renders_first_then_amber_then_info
+  - flag_pill_tooltip_explains_the_rule
+
+empty_states:
+  no_pipeline_data:
+    helper: "empty_state() from utility/ui/components.py"
+    heading: "No data available"
+    body: >
+      Run pipeline_sandbox/cro_normalise.py, charity_normalise.py, and
+      charity_resolved.py to produce the silver parquets the experimental
+      view depends on.
+  empty_filter_result:
+    helper: "empty_state()"
+    heading: "No organisations match the current filters"
+    body: "Reset the status / funding filters or include state-adjacent bodies."
+  low_match_coverage_callout:
+    helper: "todo_callout() from utility/ui/components.py"
+    note: >
+      When matched_pct < 50%, surface a todo_callout pointing to
+      data/_meta/lobbyist_name_overrides.csv (manual override layer per
+      CRO/INTEGRATION_PLAN.md §11).
+
+session_state_keys:
+  lpoc_status:        "str | None — selected status filter (=)"
+  lpoc_funding:       "str | None — selected funding_profile filter (=)"
+  lpoc_exclude_state: "bool — when True, hide state_adjacent_flag rows"
+  lpoc_page:          "int — 0-indexed page in the paginated card list"
+
+query_params:
+  lpoc_org: "str — when set, page renders Stage 2 detail for the named lobbyist"
+
+# ── Updates the lobbying.yaml contract is ALSO mirroring ──────────────────────
+# v_experimental_lobbying_org_index_enriched and v_experimental_charity_finance_timeseries
+# are also listed in lobbying.yaml so the Lobbying page contract acknowledges the
+# experimental layer. lobbyist_poc.yaml remains the source of truth for the page's
+# UI behaviour.

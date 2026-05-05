@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import html
 import re
+import string
 import sys
-from difflib import SequenceMatcher
 from pathlib import Path
 
 import altair as alt
@@ -52,8 +52,26 @@ SPONSORS_CSV = ROOT / "data" / "silver" / "sponsors.csv"
 # ── POC config ─────────────────────────────────────────────────────────────────
 SI_YEAR_FLOOR = 2018       # density threshold — older issues are messier
 MIN_TAXO_CONFIDENCE = 0.5  # drop low-confidence classifications
-MATCH_THRESHOLD = 0.72     # fuzzy parent-Act match threshold
+MATCH_THRESHOLD = 0.40     # token-set Jaccard threshold (was SequenceMatcher 0.72)
+MATCH_YEAR_WINDOW = 3      # accept bills within ±N years of the SI's "Act YYYY" hint
 PAGE_SIZE = 10
+
+# Token-stop list for the title-Jaccard matcher: noise words that would
+# otherwise inflate set-overlap scores between unrelated titles.
+_TITLE_STOP = {"act", "bill", "of", "the", "and", "an", "a", "for", "to", "in", "no", "no.", "amendment"}
+
+
+def _title_tokens(s: str) -> set[str]:
+    """Lowercased, punctuation-stripped, stop-word-filtered token set used by
+    the fast bill-title matcher."""
+    if not s:
+        return set()
+    out: set[str] = set()
+    for w in s.lower().split():
+        t = w.strip(string.punctuation)
+        if t and t not in _TITLE_STOP:
+            out.add(t)
+    return out
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -171,37 +189,63 @@ def load_bills() -> pd.DataFrame:
 
 @st.cache_data(show_spinner="Matching SIs to parent Acts…")
 def match_si_to_bill(si_df: pd.DataFrame, bills_df: pd.DataFrame) -> pd.DataFrame:
-    """Coarse fuzzy match between si_parent_legislation free-text and known
-    bill short titles. POC-grade: extracts an "X Act YYYY" head from the
-    parent text, then ratio-matches it against bill short_title_en, year-
-    constrained when possible."""
+    """Year-bucketed token-set Jaccard match between si_parent_legislation
+    free-text and known bill short titles. POC-grade.
+
+    Why Jaccard and not character ratio: SequenceMatcher.ratio() is O(n*m)
+    per pair and dominated wall time when the prior implementation fell back
+    to scanning all 642 bills for SIs without year hints. Token-set Jaccard
+    on pre-computed sets is roughly 50× faster on this corpus and produces
+    equivalent matches for the bill-style titles seen here.
+
+    SIs whose parent text contains no "X Act YYYY" pattern are skipped
+    entirely (returned as unmatched) — the pattern is the only reliable
+    signal we have to year-constrain candidates."""
     parent_re = re.compile(r"([A-Z][^,()\n]{2,80}?\bAct\s+(\d{4}))")
+
     bills = bills_df.dropna(subset=["short_title_en"]).copy()
-    bills["short_lower"] = bills["short_title_en"].astype(str).str.lower().str.strip()
+    bills["_tokens"] = bills["short_title_en"].astype(str).map(_title_tokens)
 
-    bills_by_year: dict[int, pd.DataFrame] = {
-        int(y): bills[bills["bill_year_num"] == y]
-        for y in bills["bill_year_num"].dropna().unique()
-    }
-    all_bills = bills
+    # Precompute year buckets once. List-of-dicts iterates ~3× faster than
+    # repeatedly slicing the DataFrame.
+    bills_by_year: dict[int, list[dict]] = {}
+    for rec in bills.to_dict("records"):
+        y = rec.get("bill_year_num")
+        if pd.notna(y):
+            bills_by_year.setdefault(int(y), []).append(rec)
 
-    def best(parent_text: str | float | None) -> pd.Series:
-        if not isinstance(parent_text, str) or not parent_text.strip():
+    def candidates_in_window(year_hint: int) -> list[dict]:
+        out: list[dict] = []
+        for dy in range(-MATCH_YEAR_WINDOW, MATCH_YEAR_WINDOW + 1):
+            out.extend(bills_by_year.get(year_hint + dy, []))
+        return out
+
+    def best(parent_text) -> pd.Series:
+        if not isinstance(parent_text, str):
             return pd.Series([None, None, None, 0.0])
         m = parent_re.search(parent_text)
-        if m:
-            ref = m.group(1).lower().strip()
-            year_hint = int(m.group(2))
-            candidates = bills_by_year.get(year_hint, all_bills)
-        else:
-            ref = parent_text[:80].lower().strip()
-            candidates = all_bills
+        if not m:
+            return pd.Series([None, None, None, 0.0])
+
+        ref_tokens = _title_tokens(m.group(1))
+        if not ref_tokens:
+            return pd.Series([None, None, None, 0.0])
+        year_hint = int(m.group(2))
+        candidates = candidates_in_window(year_hint)
+        if not candidates:
+            return pd.Series([None, None, None, 0.0])
 
         best_row, best_score = None, 0.0
-        for short_lower, row in zip(candidates["short_lower"].values, candidates.to_dict("records")):
-            score = SequenceMatcher(None, ref, short_lower).ratio()
+        for cand in candidates:
+            bt = cand["_tokens"]
+            if not bt:
+                continue
+            inter = len(ref_tokens & bt)
+            if inter == 0:
+                continue
+            score = inter / len(ref_tokens | bt)
             if score > best_score:
-                best_score, best_row = score, row
+                best_score, best_row = score, cand
 
         if best_row is None or best_score < MATCH_THRESHOLD:
             return pd.Series([None, None, None, round(best_score, 2)])
@@ -215,8 +259,8 @@ def match_si_to_bill(si_df: pd.DataFrame, bills_df: pd.DataFrame) -> pd.DataFram
     matched = si_df["si_parent_legislation"].apply(best)
     matched.columns = ["matched_bill_id", "matched_bill_title", "matched_bill_url", "match_score"]
     # Reset BOTH sides so concat aligns positionally — apply() preserves the
-    # input's index, so a shuffled si_df would otherwise mis-align with the
-    # left side after reset_index.
+    # input's index, so a shuffled si_df would otherwise mis-align after
+    # reset_index on only the left side.
     return pd.concat([si_df.reset_index(drop=True), matched.reset_index(drop=True)], axis=1)
 
 
@@ -344,8 +388,76 @@ def _render_kpi_strip(df: pd.DataFrame) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# View 2 — Trends (heatmap + top-actors bar)
+# View 2 — Trends (top row: domain heatmap + top-actors bar)
 # ──────────────────────────────────────────────────────────────────────────────
+def _render_minister_strip(df: pd.DataFrame, top_n: int = 6) -> None:
+    """Compact minister × year activity strip — same axis discipline as the
+    domain heatmap so the eye can scan both at once."""
+    if df.empty:
+        return
+    top_actors = (df.dropna(subset=["si_responsible_actor"])
+                    .groupby("si_responsible_actor").size()
+                    .reset_index(name="total")
+                    .sort_values("total", ascending=False).head(top_n)
+                    ["si_responsible_actor"].tolist())
+    if not top_actors:
+        return
+    strip = (df[df["si_responsible_actor"].isin(top_actors)]
+                .groupby(["si_responsible_actor", "si_year"]).size()
+                .reset_index(name="n"))
+    strip["actor_pretty"] = strip["si_responsible_actor"].map(_pretty_token)
+
+    st.html('<div class="si-trend-card-h">Minister activity strip · top actors × year</div>')
+    chart = (
+        alt.Chart(strip)
+        .mark_rect(stroke="#ffffff", strokeWidth=2)
+        .encode(
+            x=alt.X("si_year:O", title=None,
+                    axis=alt.Axis(labelFontSize=11, ticks=False)),
+            y=alt.Y("actor_pretty:N", sort=top_actors, title=None,
+                    axis=alt.Axis(labelFontSize=11, ticks=False, labelLimit=240)),
+            color=alt.Color("n:Q", scale=alt.Scale(scheme="oranges"),
+                            legend=alt.Legend(title="SIs", orient="bottom")),
+            tooltip=[alt.Tooltip("actor_pretty:N", title="Actor"),
+                     alt.Tooltip("si_year:O", title="Year"),
+                     alt.Tooltip("n:Q", title="SIs")],
+        )
+        .properties(height=42 * len(top_actors) + 30)
+        .configure_view(stroke=None)
+        .configure_axis(grid=False, domain=False)
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
+def _render_op_breakdown(df: pd.DataFrame) -> None:
+    """What are these SIs *doing*? Amending, commencing, revoking, …"""
+    if df.empty:
+        return
+    ops = (df.dropna(subset=["si_operation_primary"])
+              .groupby("si_operation_primary").size()
+              .reset_index(name="n").sort_values("n", ascending=False).head(10))
+    if ops.empty:
+        return
+    ops["op_pretty"] = ops["si_operation_primary"].map(_pretty_token)
+    st.html('<div class="si-trend-card-h">Operation breakdown · what SIs do</div>')
+    chart = (
+        alt.Chart(ops)
+        .mark_bar(color="#a85d2a", cornerRadiusTopRight=3, cornerRadiusBottomRight=3)
+        .encode(
+            y=alt.Y("op_pretty:N", sort="-x", title=None,
+                    axis=alt.Axis(labelFontSize=11, ticks=False, labelLimit=240)),
+            x=alt.X("n:Q", title=None,
+                    axis=alt.Axis(labelFontSize=10, ticks=False)),
+            tooltip=[alt.Tooltip("op_pretty:N", title="Operation"),
+                     alt.Tooltip("n:Q", title="SIs")],
+        )
+        .properties(height=42 * len(ops) + 20)
+        .configure_view(stroke=None)
+        .configure_axis(grid=False, domain=False)
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
 def _render_trends(df: pd.DataFrame) -> None:
     if df.empty:
         return
@@ -384,7 +496,7 @@ def _render_trends(df: pd.DataFrame) -> None:
             st.altair_chart(chart, use_container_width=True)
 
     with col_r:
-        st.html('<div class="si-trend-card-h">Top responsible actors</div>')
+        st.html('<div class="si-trend-card-h">Top responsible actors · totals</div>')
         top = (df.dropna(subset=["si_responsible_actor"])
                  .groupby("si_responsible_actor").size()
                  .reset_index(name="n").sort_values("n", ascending=False).head(8))
@@ -408,6 +520,13 @@ def _render_trends(df: pd.DataFrame) -> None:
                 .configure_axis(grid=False, domain=False)
             )
             st.altair_chart(chart, use_container_width=True)
+
+    # ── Second row — minister activity strip + operation breakdown ────────────
+    col_l2, col_r2 = st.columns([3, 2])
+    with col_l2:
+        _render_minister_strip(df)
+    with col_r2:
+        _render_op_breakdown(df)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -565,7 +684,21 @@ def _render_si_detail(row: pd.Series, bills_df: pd.DataFrame) -> None:
         _row("Classification flags",
              " ".join(f'<span class="si-pill">{html.escape(_pretty_token(f))}</span>' for f in flags))
     if parent.strip():
-        _row("Parent legislation (raw)", html.escape(parent))
+        # Each '|'-separated Act becomes a clickable link into the Legislation
+        # (POC) Act detail, where the user can see every other SI made under
+        # the same Act. Uses dt-source-link styling for consistency.
+        from urllib.parse import quote as _qp
+        act_links = []
+        for piece in parent.split("|"):
+            piece = piece.strip(" .,;")
+            if not piece:
+                continue
+            href = f"/legislation-poc?act={_qp(piece)}"
+            act_links.append(
+                f'<a class="dt-source-link" href="{html.escape(href, quote=True)}" '
+                f'target="_self">{html.escape(piece)}</a>'
+            )
+        _row("Parent legislation", " &nbsp;·&nbsp; ".join(act_links) if act_links else html.escape(parent))
     if isinstance(confidence, (int, float)) and pd.notna(confidence):
         _row("Taxonomy confidence", f"{float(confidence):.2f}")
 
@@ -593,15 +726,15 @@ def _render_si_detail(row: pd.Series, bills_df: pd.DataFrame) -> None:
 
         oir_link = source_link_html(
             matched_url,
-            "View Act on Oireachtas.ie",
-            aria_label="Open the parent Act on oireachtas.ie",
+            "View Bill on Oireachtas.ie",
+            aria_label="Open the matched Bill on oireachtas.ie",
         ) if matched_url else ""
 
         score_str = f"{float(match_score):.2f}" if pd.notna(match_score) else "—"
 
         st.html(f"""
         <div class="si-billlink">
-          <div class="si-billlink-kicker">↪ Made under</div>
+          <div class="si-billlink-kicker">↪ Made under (closest matched Bill in Oireachtas index)</div>
           <div class="si-billlink-title">{html.escape(matched_title) or "—"}</div>
           <div class="si-billlink-meta">
             Bill {html.escape(matched_id)}

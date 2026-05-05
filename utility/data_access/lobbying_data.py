@@ -457,3 +457,144 @@ def fetch_clients_for_org(org_name: str) -> pd.DataFrame:
         " ORDER BY period_start_date DESC LIMIT 50",
         [org_name],
     )
+
+
+# ── EXPERIMENTAL: lobbyist enrichment POC ─────────────────────────────────────
+#
+# Backed by v_experimental_lobbying_org_index_enriched (sql_views/
+# lobbying_experimental_org_index_enriched.sql). Joins the lobbying gold
+# leaderboard against pipeline_sandbox CRO + Charity silver outputs.
+# Used exclusively by utility/pages_code/lobbyist_poc.py.
+
+_EXPERIMENTAL_ORG_INDEX_COLS = (
+    "lobbyist_name, return_count, politicians_targeted, distinct_policy_areas,"
+    " first_period, last_period, rcn, company_num, sector_label, status,"
+    " funding_profile, gov_funded_share_latest, gross_income_latest_eur,"
+    " employees_band_latest, entity_age_years, newly_incorporated_flag,"
+    " state_adjacent_flag, country_established, match_method, flags"
+)
+
+
+@st.cache_data(ttl=300)
+def fetch_experimental_org_index_enriched(
+    status: str | None = None,
+    funding_profile: str | None = None,
+    exclude_state_adjacent: bool = False,
+    flagged_only: bool = False,
+) -> pd.DataFrame:
+    """Enriched lobbying-org leaderboard for the EXPERIMENTAL POC page.
+
+    Only retrieval clauses are used here (WHERE / ORDER BY) — joins, modelling,
+    and metric computation live in the SQL view.
+    """
+    where: list[str] = []
+    params: list = []
+    if status:
+        where.append("status = ?")
+        params.append(status)
+    if funding_profile:
+        where.append("funding_profile = ?")
+        params.append(funding_profile)
+    if exclude_state_adjacent:
+        where.append("(state_adjacent_flag IS DISTINCT FROM TRUE)")
+    if flagged_only:
+        where.append("(flags IS NOT NULL AND len(flags) > 0)")
+    where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+    return _safe(
+        f"SELECT {_EXPERIMENTAL_ORG_INDEX_COLS}"
+        f" FROM v_experimental_lobbying_org_index_enriched"
+        f"{where_sql}"
+        f" ORDER BY return_count DESC",
+        params,
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_experimental_org_index_summary() -> pd.DataFrame:
+    """Single-row aggregate for the POC stat strip."""
+    return _safe(
+        "SELECT"
+        " COUNT(*) AS total_orgs,"
+        " COUNT(*) FILTER (WHERE match_method <> 'unmatched')      AS matched_orgs,"
+        " COUNT(*) FILTER (WHERE match_method = 'both_name_exact') AS matched_both,"
+        " COUNT(*) FILTER (WHERE state_adjacent_flag IS TRUE)      AS state_adjacent_orgs,"
+        " COUNT(*) FILTER (WHERE newly_incorporated_flag IS TRUE)  AS newly_incorporated_orgs,"
+        " COUNT(*) FILTER (WHERE funding_profile = 'state_funded') AS state_funded_orgs,"
+        " COUNT(*) FILTER (WHERE flags IS NOT NULL AND len(flags) > 0) AS flagged_orgs"
+        " FROM v_experimental_lobbying_org_index_enriched"
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_experimental_org_one(org_name: str) -> pd.DataFrame:
+    """Single enriched-index row for the Stage 2 detail hero."""
+    return _safe(
+        f"SELECT {_EXPERIMENTAL_ORG_INDEX_COLS}"
+        f" FROM v_experimental_lobbying_org_index_enriched"
+        f" WHERE lobbyist_name = ? LIMIT 1",
+        [org_name],
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_experimental_finance_timeseries(rcn: int) -> pd.DataFrame:
+    """Annual-report finance time series for one charity (Stage 2 detail)."""
+    return _safe(
+        "SELECT period_year, period_end_date, gross_income, gross_expenditure,"
+        " surplus_deficit, gov_share, gov_eur, other_public_bodies_eur,"
+        " donations_eur, trading_eur, philanthropic_eur, other_income_eur,"
+        " bequests_eur, cash_at_hand, total_assets, total_liabilities,"
+        " net_assets, employees_band, volunteers_band"
+        " FROM v_experimental_charity_finance_timeseries"
+        " WHERE rcn = ? ORDER BY period_year DESC",
+        [int(rcn)],
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_experimental_returns_for_org(
+    org_name: str,
+    start: str | None = None,
+    end: str | None = None,
+) -> pd.DataFrame:
+    """Returns filed by one organisation, with the lobbying.ie source URL.
+
+    Reads v_lobbying_contact_detail directly — it is the canonical per-return
+    view and already exposes source_url. Stage 2 needs no separate experimental
+    view here.
+    """
+    if start and end:
+        return _safe(
+            "SELECT return_id, period_start_date, member_name,"
+            " public_policy_area, source_url"
+            " FROM v_lobbying_contact_detail"
+            " WHERE lobbyist_name = ?"
+            " AND period_start_date BETWEEN ? AND ?"
+            " ORDER BY period_start_date DESC",
+            [org_name, start, end],
+        )
+    return _safe(
+        "SELECT return_id, period_start_date, member_name,"
+        " public_policy_area, source_url"
+        " FROM v_lobbying_contact_detail"
+        " WHERE lobbyist_name = ?"
+        " ORDER BY period_start_date DESC",
+        [org_name],
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_experimental_distinct_filters() -> dict[str, list[str]]:
+    """Distinct values for the POC filter strip — status + funding_profile."""
+    statuses = _safe(
+        "SELECT DISTINCT status FROM v_experimental_lobbying_org_index_enriched"
+        " WHERE status IS NOT NULL ORDER BY status"
+    )
+    profiles = _safe(
+        "SELECT DISTINCT funding_profile FROM v_experimental_lobbying_org_index_enriched"
+        " WHERE funding_profile IS NOT NULL ORDER BY funding_profile"
+    )
+    return {
+        "status":          statuses["status"].tolist() if not statuses.empty else [],
+        "funding_profile": profiles["funding_profile"].tolist() if not profiles.empty else [],
+    }

@@ -52,6 +52,7 @@ from ui.components import (
     member_card_html,
     member_profile_header,
     pagination_controls,
+    pill,
     render_notable_chips,
     sidebar_page_header,
     todo_callout,
@@ -292,32 +293,29 @@ def _int_member_card_html(row) -> str:
     is_prop  = bool(row.get("is_property_owner", False))
 
     meta  = clean_meta(party, constit)
-    pills = f'<span class="int-stat-pill int-pill-decl">{total} declarations</span>'
+    parts = [pill(f"{total} declarations", "decl")]
     if landlord:
-        pills += '<span class="int-stat-pill int-stat-pill-accent">🔑 Landlord</span>'
+        parts.append(pill("Landlord", "accent", icon="🔑"))
     elif is_prop:
-        pills += '<span class="int-stat-pill int-pill-owner">🏗️ Property owner</span>'
+        parts.append(pill("Property owner", "owner", icon="🏗️"))
     if p_count:
-        pills += (
-            f'<span class="int-stat-pill int-pill-prop">'
-            f'🏠 {p_count} propert{"ies" if p_count != 1 else "y"}</span>'
-        )
+        parts.append(pill(
+            f'{p_count} propert{"ies" if p_count != 1 else "y"}',
+            "prop", icon="🏠",
+        ))
     if s_count:
-        pills += (
-            f'<span class="int-stat-pill int-pill-shares">'
-            f'📈 Shareholder · {s_count}</span>'
-        )
+        parts.append(pill(f"Shareholder · {s_count}", "shares", icon="📈"))
     if d_count:
-        pills += (
-            f'<span class="int-stat-pill int-pill-company">'
-            f'🏢 {d_count} compan{"ies" if d_count != 1 else "y"}</span>'
-        )
+        parts.append(pill(
+            f'{d_count} compan{"ies" if d_count != 1 else "y"}',
+            "company", icon="🏢",
+        ))
 
     return member_card_html(
         name=name,
         meta=meta,
         rank=rank,
-        pills_html=pills,
+        pills_html="".join(parts),
         avatar_url=avatar_data_url(name),
         avatar_initials=_initials(name),
     )
@@ -388,24 +386,9 @@ def _render_profile(house: str, td_name: str) -> None:
 
     td_years = sorted(td_df["declaration_year"].dropna().astype(int).unique(), reverse=True)
 
-    # ── Identity strip ─────────────────────────────────────────────────────────
-    is_landlord = bool(td_df["landlord_flag"].any())
-    is_property = bool(td_df["property_flag"].any())
-
-    badges_html = ""
-    if is_landlord:
-        badges_html += '<span class="dt-badge dt-badge-landlord">Landlord declared</span> '
-    if is_property and not is_landlord:
-        badges_html += '<span class="dt-badge">Property interest</span> '
-
-    member_profile_header(
-        td_name,
-        meta,
-        badges_html,
-        avatar_url=avatar_data_url(td_name),
-        avatar_initials=_initials(td_name),
-        avatar_credit_html=avatar_credit_html(td_name),
-    )
+    # ── Identity strip — header reserved here, filled below once we know the
+    #    selected year so badges reflect that year's declarations.
+    header_slot = st.empty()
 
     # ── Year pills (profile-scoped key) ───────────────────────────────────────
     year_opts = [str(y) for y in td_years]
@@ -415,6 +398,42 @@ def _render_profile(house: str, td_name: str) -> None:
     prior_year = selected_year - 1
     prior_df   = td_df[td_df["declaration_year"] == prior_year].copy()
     has_prior  = not prior_df.empty
+
+    # ── Year-responsive identity badges ───────────────────────────────────────
+    is_landlord_year = bool(year_df["landlord_flag"].any()) if not year_df.empty else False
+    is_property_year = bool(year_df["property_flag"].any()) if not year_df.empty else False
+    prop_count = (
+        len(_real_descriptions(year_df[year_df["interest_category"] == "Land (including property)"]))
+        if not year_df.empty else 0
+    )
+    share_count = (
+        len(_real_descriptions(year_df[year_df["interest_category"] == "Shares"]))
+        if not year_df.empty else 0
+    )
+
+    parts: list[str] = []
+    if is_landlord_year:
+        parts.append(pill("Landlord declared", "accent", icon="🔑"))
+    elif is_property_year:
+        parts.append(pill("Property owner", "owner", icon="🏗️"))
+    if prop_count:
+        parts.append(pill(
+            f'{prop_count} propert{"ies" if prop_count != 1 else "y"}',
+            "prop", icon="🏠",
+        ))
+    if share_count:
+        parts.append(pill(f"Shareholder · {share_count}", "shares", icon="📈"))
+    badges_html = " ".join(parts)
+
+    with header_slot.container():
+        member_profile_header(
+            td_name,
+            meta,
+            badges_html,
+            avatar_url=avatar_data_url(td_name),
+            avatar_initials=_initials(td_name),
+            avatar_credit_html=avatar_credit_html(td_name),
+        )
 
     # ── Editorial callout ──────────────────────────────────────────────────────
     name_short = _h(td_name.split()[-1])
