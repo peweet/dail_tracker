@@ -61,6 +61,8 @@ from data_access.lobbying_data import (
     fetch_sources_for_org,
     fetch_sources_for_politician,
     fetch_summary,
+    fetch_topic_returns,
+    fetch_topic_summary,
 )
 from shared_css import inject_css
 from ui.avatars import avatar_data_url, initials as _initials
@@ -91,6 +93,7 @@ def _init() -> None:
         "lob_selected_org":          None,
         "lob_selected_area":         None,
         "lob_selected_dpo":          None,
+        "lob_selected_topic":        None,
         "lob_view_revolving_door":   False,
         "lob_results_pol":           None,
         "lob_sidebar_search":        "",
@@ -105,15 +108,17 @@ def _clear_profile() -> None:
     st.session_state.lob_selected_org        = None
     st.session_state.lob_selected_area       = None
     st.session_state.lob_selected_dpo        = None
+    st.session_state.lob_selected_topic      = None
     st.session_state.lob_view_revolving_door = False
     st.session_state.lob_results_pol         = None
 
 
 _NAV_KEYS: dict[str, str] = {
-    "pol":  "lob_selected_politician",
-    "org":  "lob_selected_org",
-    "area": "lob_selected_area",
-    "dpo":  "lob_selected_dpo",
+    "pol":   "lob_selected_politician",
+    "org":   "lob_selected_org",
+    "area":  "lob_selected_area",
+    "dpo":   "lob_selected_dpo",
+    "topic": "lob_selected_topic",
 }
 
 # Query param key for each _NAV_KEYS kind. Card links write these directly;
@@ -121,13 +126,70 @@ _NAV_KEYS: dict[str, str] = {
 # _nav()/_open_rd_index() and rely on the param sync below to keep the URL
 # in step.
 _NAV_QP: dict[str, str] = {
-    "pol":  "lob_pol",
-    "org":  "lob_org",
-    "area": "lob_area",
-    "dpo":  "lob_dpo",
+    "pol":   "lob_pol",
+    "org":   "lob_org",
+    "area":  "lob_area",
+    "dpo":   "lob_dpo",
+    "topic": "lob_topic",
 }
 
-_LOB_QP_ALL = ("lob_pol", "lob_org", "lob_area", "lob_dpo", "lob_rd", "lob_result_pol")
+_LOB_QP_ALL = (
+    "lob_pol", "lob_org", "lob_area", "lob_dpo", "lob_topic", "lob_topic_ctx",
+    "lob_rd", "lob_result_pol",
+)
+
+
+def _topic_keywords_for(topic_name: str | None) -> tuple[str, ...] | None:
+    """Return the keyword tuple for a curated topic name, or None if unknown."""
+    if not topic_name:
+        return None
+    spec = _CURATED_TOPICS.get(topic_name)
+    if not spec:
+        return None
+    kws = spec.get("keywords")
+    if isinstance(kws, tuple):
+        return kws
+    return None
+
+
+# ── Curated topics ────────────────────────────────────────────────────────────
+#
+# Each topic is a free-text scan over `relevant_matter`, `specific_details`
+# and `intended_results`. These are NOT lobbying.ie policy areas — the
+# register's official taxonomy is fixed at 32 categories and does not include
+# any of these. Topics surface returns wherever their description happens to
+# mention the keywords, regardless of the area the filer chose.
+#
+# Adding a topic: pick a label, list lowercase keyword substrings (a return
+# matches if ANY keyword appears in the combined text). Keep keyword sets
+# narrow — false positives erode trust in the rail.
+
+_CURATED_TOPICS: dict[str, dict[str, object]] = {
+    "Immigration & asylum": {
+        "icon":    "diversity_3",
+        "blurb":   "Returns mentioning immigration, asylum, refugees, or direct provision.",
+        "keywords": (
+            "immigration", "immigrant", "asylum", "refugee",
+            "direct provision", "international protection", "migrant",
+        ),
+    },
+    "Housing crisis": {
+        "icon":    "apartment",
+        "blurb":   "Returns mentioning homelessness, evictions, the rental crisis, or affordable housing.",
+        "keywords": (
+            "homeless", "homelessness", "eviction", "tenant",
+            "rent freeze", "rental crisis", "affordable housing",
+        ),
+    },
+    "Climate": {
+        "icon":    "eco",
+        "blurb":   "Returns mentioning climate, emissions, decarbonisation, or net zero.",
+        "keywords": (
+            "climate", "emissions", "decarbonis", "net zero",
+            "carbon", "renewable energy",
+        ),
+    },
+}
 
 
 def _clear_lob_qp() -> None:
@@ -165,6 +227,20 @@ def _path_card_html(symbol: str, heading: str, body: str, stat: str, stat_lbl: s
         f'<span class="lob-path-stat-num">{_h(stat)}</span>'
         f'<span class="lob-path-stat-lbl">&nbsp;{_h(stat_lbl)}</span>'
         f'</div></div>'
+    )
+
+
+def _topic_card_html(symbol: str, heading: str, body: str) -> str:
+    """Compact card body for the Topics rail (no stat — count comes from a
+    keyword scan and we do not pre-compute it on the landing page)."""
+    return (
+        f'<div class="lob-topic-card">'
+        f'<div class="lob-topic-icon">'
+        f'<span class="material-symbols-outlined">{_h(symbol)}</span>'
+        f'</div>'
+        f'<p class="lob-topic-heading">{_h(heading)}</p>'
+        f'<p class="lob-topic-body">{_h(body)}</p>'
+        f'</div>'
     )
 
 
@@ -432,6 +508,32 @@ def _render_landing(summary: pd.DataFrame) -> None:
             areas = fetch_policy_area_summary()
             if not areas.empty:
                 _nav("area", areas.iloc[0]["public_policy_area"])
+                st.rerun()
+
+    # ── Topics rail (free-text keyword scan — NOT a register taxonomy) ────
+    evidence_heading("Topics")
+    st.html(
+        '<p class="lob-topic-caveat">'
+        'Free-text scan of return descriptions. lobbying.ie&apos;s official policy-area '
+        'taxonomy is fixed and does not include these topics — returns matching them are '
+        'usually filed under <em>Justice and Equality</em>, <em>Housing</em>, <em>Environment</em>, '
+        'or other adjacent areas. Treat results as indicative.'
+        '</p>'
+    )
+    topic_cols = st.columns(len(_CURATED_TOPICS))
+    for col, (topic_name, spec) in zip(topic_cols, _CURATED_TOPICS.items(), strict=True):
+        with col:
+            st.html(_topic_card_html(
+                str(spec["icon"]),
+                topic_name,
+                str(spec["blurb"]),
+            ))
+            if st.button(
+                f"Open {topic_name} →",
+                key=f"lob_topic_{topic_name[:30].replace(' ', '_').replace('&', 'and')}",
+                width="stretch",
+            ):
+                _nav("topic", topic_name)
                 st.rerun()
 
     # ── Dual leaderboards ─────────────────────────────────────────────────
@@ -855,6 +957,157 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
     _provenance_footer(summary)
 
 
+# ── Topic Stage 2 (free-text keyword scan — not a register taxonomy) ──────────
+
+def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
+    _back_button()
+
+    spec = _CURATED_TOPICS.get(topic_name)
+    if not spec:
+        empty_state("Unknown topic", f"No curated keyword set defined for '{topic_name}'.")
+        _provenance_footer(summary)
+        return
+
+    keywords: tuple[str, ...] = tuple(spec["keywords"])
+    blurb = str(spec["blurb"])
+
+    # ── Hero banner — explicitly labelled as a keyword scan ───────────────
+    topic_summary = fetch_topic_summary(keywords)
+    if topic_summary.empty:
+        total = orgs = areas = 0
+        first_p = last_p = "—"
+    else:
+        s_row   = topic_summary.iloc[0]
+        total   = int(s_row.get("total_returns",  0) or 0)
+        orgs    = int(s_row.get("distinct_orgs",  0) or 0)
+        areas   = int(s_row.get("distinct_areas", 0) or 0)
+        first_p = str(s_row.get("first_period", "") or "—")[:10] or "—"
+        last_p  = str(s_row.get("last_period",  "") or "—")[:10] or "—"
+
+    hero_banner(
+        kicker="TOPIC SEARCH · NOT A REGISTERED POLICY AREA",
+        title=topic_name,
+        dek=(
+            f"{blurb} {total:,} return(s) match across {orgs:,} organisation(s) "
+            f"and {areas:,} official policy area(s)."
+            if total else
+            f"{blurb} No matches found in the current dataset."
+        ),
+        badges=[f"{total:,} returns", f"{orgs:,} organisations"] if total else None,
+    )
+
+    # ── Caveat banner explaining what this is ─────────────────────────────
+    keywords_html = "".join(
+        f'<span class="lob-topic-keyword-pill">{_h(k)}</span>' for k in keywords
+    )
+    st.html(
+        '<div class="lob-topic-banner">'
+        '<p class="lob-topic-banner-heading">How this works</p>'
+        '<p class="lob-topic-banner-body">'
+        'We scan the <strong>relevant matter</strong>, <strong>specific details</strong> '
+        'and <strong>intended results</strong> fields of every lobbying return for any of the keywords below. '
+        'lobbying.ie does not have an official policy area for this topic, so its returns are normally filed under '
+        'one of the 32 register categories (most often <em>Justice and Equality</em>, <em>Housing</em>, '
+        'or <em>Environment</em>). False positives are possible — open a return\'s source link to verify.'
+        '</p>'
+        '<p class="lob-topic-banner-heading" style="margin-top:0.6rem;">Keywords scanned</p>'
+        f'<div class="lob-topic-keyword-row">{keywords_html}</div>'
+        '</div>'
+    )
+
+    if total == 0:
+        empty_state("No matching returns", "Try a different topic from the landing page.")
+        _provenance_footer(summary)
+        return
+
+    # ── Stat strip ────────────────────────────────────────────────────────
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Returns matching",       f"{total:,}")
+    c2.metric("Distinct organisations", f"{orgs:,}")
+    c3.metric("Policy areas spanned",   f"{areas:,}")
+    c4.metric("Period",                 f"{first_p[:7]} – {last_p[:7]}" if first_p != "—" else "—")
+
+    # ── Year filter + fetch ───────────────────────────────────────────────
+    detail_all = fetch_topic_returns(keywords)
+    start, end = _year_selector(detail_all, "lob_year_topic")
+    detail = fetch_topic_returns(keywords, start, end) if start else detail_all
+
+    # ── Where filed (display-side breakdown via pandas value_counts — UI
+    #    aggregation only, no business logic). ─────────────────────────────
+    if "public_policy_area" in detail.columns and not detail.empty:
+        evidence_heading("Where these returns are officially filed")
+        st.caption("Distribution across lobbying.ie's 32 official policy areas — handy context for understanding which area a topic gets buried under.")
+        area_counts = (
+            detail["public_policy_area"]
+            .fillna("(unspecified)")
+            .value_counts()
+            .head(10)
+            .rename_axis("Policy area")
+            .reset_index(name="Returns")
+        )
+        max_a = int(area_counts["Returns"].max()) if not area_counts.empty else 1
+        st.dataframe(
+            area_counts,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Policy area": st.column_config.TextColumn("Official policy area"),
+                "Returns":     st.column_config.ProgressColumn(
+                    "Returns matching topic", format="%d", min_value=0, max_value=max_a,
+                ),
+            },
+        )
+
+    # ── Returns list (cards — primary view) ──────────────────────────────
+    evidence_heading("Matching returns")
+    page_size, page_idx = pagination_controls(
+        total=len(detail),
+        key_prefix=f"lob_topic_{topic_name}",
+        label="returns",
+    )
+    page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+    rank_offset = page_idx * page_size
+    cards: list[str] = []
+    for i, (_, row) in enumerate(page_slice.iterrows(), start=1):
+        rank      = rank_offset + i
+        org_name  = str(row.get("lobbyist_name", "—"))
+        return_id = str(row.get("return_id", "—"))
+        period    = str(row.get("period_start_date", "") or "")[:10]
+        area_name = str(row.get("public_policy_area", "") or "")
+        url       = str(row.get("source_url", "") or "")
+        details   = str(row.get("specific_details", "") or "")
+        snippet   = (details[:220] + "…") if len(details) > 220 else details
+        meta      = clean_meta(period, f"Filed under {area_name}" if area_name else "")
+        if snippet:
+            meta = (meta + " · " if meta else "") + snippet
+        pills = [
+            f"Period {period}" if period else "Period —",
+            f"Return #{return_id}",
+        ]
+        if url and url.startswith("http"):
+            pills.append(source_link_html(url, "View on lobbying.ie",
+                                          aria_label="Open this return on lobbying.ie"))
+        cards.append(
+            clickable_card_link(
+                href=f"?lob_org={quote(org_name)}&lob_topic_ctx={quote(topic_name)}",
+                inner_html=_lob_card_html(org_name, meta, pills, rank=rank),
+                aria_label=f"Open lobbying profile for {org_name}, filtered to {topic_name}",
+            )
+        )
+    st.html("\n".join(cards))
+
+    # ── CSV export ────────────────────────────────────────────────────────
+    safe_topic = "".join(c if c.isalnum() else "_" for c in topic_name)[:60]
+    period_span = f"{first_p[:7]}_{last_p[:7]}" if first_p != "—" else "all"
+    export_button(
+        detail, "Export every matching return as CSV",
+        f"topic_{safe_topic}_{period_span}.csv",
+        "lob_export_topic",
+    )
+
+    _provenance_footer(summary)
+
+
 # ── Politician Stage 2 ─────────────────────────────────────────────────────────
 
 def _render_politician(name: str, summary: pd.DataFrame) -> None:
@@ -1118,12 +1371,60 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
 
     # ── All lobbying returns ──────────────────────────────────────────────
     detail_all = fetch_org_contact_detail(org_name)
-    evidence_heading("All lobbying returns")
+
+    # If the user arrived via a topic card, narrow the returns to that topic.
+    # Topic = curated keyword set; intersect by return_id with v_lobbying_topic_search.
+    topic_ctx = st.query_params.get("lob_topic_ctx") or ""
+    topic_kws = _topic_keywords_for(topic_ctx)
+    if topic_kws and not detail_all.empty and "return_id" in detail_all.columns:
+        topic_hits = fetch_topic_returns(topic_kws)
+        topic_ids = (
+            set(topic_hits["return_id"].astype(str).tolist())
+            if not topic_hits.empty and "return_id" in topic_hits.columns
+            else set()
+        )
+        detail_all = detail_all[detail_all["return_id"].astype(str).isin(topic_ids)]
+
+    if topic_kws:
+        clear_href = f"?lob_org={quote(org_name)}"
+        st.html(
+            f'<div class="lob-topic-filter-banner">'
+            f'<span class="lob-topic-filter-label">Filtered to topic:</span> '
+            f'<strong>{_h(topic_ctx)}</strong>'
+            f'<a class="lob-topic-filter-clear" href="{_h(clear_href)}" '
+            f'target="_self" aria-label="Clear topic filter and show all returns">'
+            f'Show all returns</a>'
+            f'</div>'
+        )
+
+    evidence_heading(
+        "Returns matching this topic" if topic_kws else "All lobbying returns"
+    )
     if detail_all.empty:
-        empty_state("No lobbying returns", "No contact detail on record for this organisation.")
+        empty_state(
+            "No lobbying returns",
+            (
+                f"No returns from {org_name} match this topic."
+                if topic_kws
+                else "No contact detail on record for this organisation."
+            ),
+        )
     else:
         start, end = _year_selector(detail_all, "lob_year_org")
-        detail = fetch_org_contact_detail(org_name, start, end) if start else detail_all
+        if start:
+            detail_full = fetch_org_contact_detail(org_name, start, end)
+            if topic_kws and not detail_full.empty and "return_id" in detail_full.columns:
+                topic_year = fetch_topic_returns(topic_kws, start, end)
+                topic_ids_year = (
+                    set(topic_year["return_id"].astype(str).tolist())
+                    if not topic_year.empty and "return_id" in topic_year.columns
+                    else set()
+                )
+                detail = detail_full[detail_full["return_id"].astype(str).isin(topic_ids_year)]
+            else:
+                detail = detail_full
+        else:
+            detail = detail_all
         display = detail[
             [c for c in ["period_start_date", "lobbyist_name", "member_name",
                          "public_policy_area", "source_url"]
@@ -1143,8 +1444,12 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
             use_container_width=True,
             hide_index=True,
         )
+        export_filename_suffix = (
+            f"_{''.join(c if c.isalnum() else '_' for c in topic_ctx)[:40]}"
+            if topic_kws else ""
+        )
         export_button(detail, "Export CSV",
-                      f"{org_name[:40].replace(' ', '_')}_lobbying.csv",
+                      f"{org_name[:40].replace(' ', '_')}_lobbying{export_filename_suffix}.csv",
                       "lob_export_org_detail")
 
     # ── Official source links ─────────────────────────────────────────────
@@ -1421,6 +1726,9 @@ def lobbying_page() -> None:
     elif "lob_rd" in qp:
         _clear_profile()
         st.session_state.lob_view_revolving_door = True
+    elif "lob_topic" in qp:
+        _clear_profile()
+        st.session_state.lob_selected_topic = qp["lob_topic"]
     elif "lob_pol" in qp:
         _clear_profile()
         st.session_state.lob_selected_politician = qp["lob_pol"]
@@ -1440,6 +1748,7 @@ def lobbying_page() -> None:
     sel_org        = st.session_state.lob_selected_org
     sel_area       = st.session_state.lob_selected_area
     sel_dpo        = st.session_state.lob_selected_dpo
+    sel_topic      = st.session_state.lob_selected_topic
     view_rd        = st.session_state.lob_view_revolving_door
     sel_result_pol = st.session_state.lob_results_pol
 
@@ -1447,6 +1756,8 @@ def lobbying_page() -> None:
         _render_dpo_individual(sel_dpo, summary)
     elif view_rd:
         _render_dpo_index(summary)
+    elif sel_topic:
+        _render_topic(sel_topic, summary)
     elif sel_pol:
         _render_politician(sel_pol, summary)
     elif sel_org:

@@ -1730,6 +1730,107 @@ def inject_css() -> None:
         .lob-path-stat-num { font-size: 1.3rem; font-weight: 800; color: #0f3d5e; letter-spacing: -0.03em; }
         .lob-path-stat-lbl { font-size: 0.73rem; font-weight: 600; color: var(--text-meta); text-transform: uppercase; letter-spacing: 0.04em; }
 
+        /* Topics rail — visually distinct from path cards (rust accent + dashed
+           border) to signal "this is a free-text scan, not a register taxonomy". */
+        .lob-topic-caveat {
+            font-size: 0.83rem;
+            color: var(--text-meta);
+            line-height: 1.55;
+            margin: 0 0 0.65rem;
+            padding: 0.55rem 0.75rem;
+            background: #fff7ed;
+            border-left: 3px solid #c2410c;
+            border-radius: 0 8px 8px 0;
+        }
+        .lob-topic-caveat em { color: #0f3d5e; font-style: normal; font-weight: 600; }
+        .lob-topic-card {
+            background: #ffffff;
+            border: 1px dashed #c2410c;
+            border-top: 4px solid #c2410c;
+            border-radius: 12px;
+            padding: 0.75rem 1rem 0.75rem;
+            box-shadow: 0 1px 2px rgba(17,24,39,0.06);
+            min-height: 145px;
+        }
+        .lob-topic-icon { font-size: 1.6rem; line-height: 1; margin-bottom: 0.55rem; color: #9a3412; }
+        .lob-topic-heading { margin: 0 0 0.3rem; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
+        .lob-topic-body { margin: 0; font-size: 0.82rem; color: var(--text-meta); line-height: 1.5; }
+
+        .lob-topic-banner {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-left: 5px solid #c2410c;
+            border-radius: 12px;
+            padding: 0.85rem 1.1rem;
+            margin: 0.85rem 0;
+        }
+        .lob-topic-banner-heading {
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #9a3412;
+            margin: 0 0 0.35rem;
+        }
+        .lob-topic-banner-body {
+            font-size: 0.85rem;
+            color: #7c2d12;
+            line-height: 1.55;
+            margin: 0;
+        }
+        .lob-topic-banner-body em { color: #0f3d5e; font-style: normal; font-weight: 600; }
+        .lob-topic-keyword-row {
+            display: flex; flex-wrap: wrap; gap: 0.35rem;
+            margin: 0.2rem 0 0;
+        }
+        .lob-topic-keyword-pill {
+            background: #ffffff;
+            border: 1px solid #fed7aa;
+            color: #7c2d12;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.15rem 0.55rem;
+            border-radius: 999px;
+            font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+        }
+
+        .lob-topic-filter-banner {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-left: 5px solid #c2410c;
+            border-radius: 10px;
+            padding: 0.65rem 0.95rem;
+            margin: 0.85rem 0 0.55rem;
+            color: #7c2d12;
+            font-size: 0.88rem;
+        }
+        .lob-topic-filter-label {
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #9a3412;
+        }
+        .lob-topic-filter-clear {
+            margin-left: auto;
+            background: #ffffff;
+            border: 1px solid #c2410c;
+            color: #9a3412 !important;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-decoration: none;
+            padding: 0.3rem 0.75rem;
+            border-radius: 999px;
+        }
+        .lob-topic-filter-clear:hover {
+            background: #c2410c;
+            color: #ffffff !important;
+        }
+
         .lob-revolving-callout {
             background: #fffbeb;
             border: 1px solid #fcd34d;
