@@ -105,12 +105,12 @@ STRONG_START_RE = "(?i)" + "|".join(f"(?:{p})" for p in STRONG_START_PATTERNS)
 DELIMITER_RE = r"^_{4,}$"
 
 # Parses the date band on page 1, e.g.:
-#   "Tuesday, 12th April, 2024" → groups: ("Tuesday", "12", "April", "2024")
+#   "Tuesday, 12th April, 2024" = groups: ("Tuesday", "12", "April", "2024")
 # parse_issue_date() then formats this as ISO "2024-04-12".
 ISSUE_DATE_RE = re.compile(
     r"(Tuesday|Friday),?\s+(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+),?\s+(\d{4})", re.I
 )
-# Parses "Number 30" on page 1 → 30.
+# Parses "Number 30" on page 1 = 30.
 ISSUE_NUMBER_RE = re.compile(r"\bNumber\s+(\d+)\b", re.I)
 
 
@@ -416,7 +416,7 @@ def norm_space_expr(c: pl.Expr) -> pl.Expr:
     # Normalises NBSPs, smart quotes, en/em dashes, and runs of whitespace.
     # Example:
     #   "  S.I. No. 142  of 2024 — “Amendment”  "
-    #   → "S.I. No. 142 of 2024 - \"Amendment\""
+    #   = "S.I. No. 142 of 2024 - \"Amendment\""
     return (
         c.str.replace_all(" ", " ", literal=True)
          .str.replace_all(r"[–—]", "-")
@@ -430,12 +430,12 @@ def norm_space_expr(c: pl.Expr) -> pl.Expr:
 def si_form_expr(c: pl.Expr) -> pl.Expr:
     # Maps an uppercase SI title/body to its instrument form.
     # Order matters — earlier rules win:
-    #   "DISTRICT COURT (CIVIL PROCEDURE) RULES 2024"          → "rules"
-    #   "DUBLIN CITY COUNCIL (PARKING) BYE-LAWS 2024"          → "bye_law"
-    #   "JUDICIAL APPOINTMENTS COMMISSION (FEES) SCHEME 2024"  → "scheme"
-    #   "CODE OF PRACTICE FOR THE GOVERNANCE OF ..."           → "code_of_practice"
-    #   "EUROPEAN UNION (FOOD ADDITIVES) (AMENDMENT) REGULATIONS 2024" → "regulations"
-    #   "SOCIAL WELFARE ACT 2024 (COMMENCEMENT) ORDER 2024"    → "order"
+    #   "DISTRICT COURT (CIVIL PROCEDURE) RULES 2024"          = "rules"
+    #   "DUBLIN CITY COUNCIL (PARKING) BYE-LAWS 2024"          = "bye_law"
+    #   "JUDICIAL APPOINTMENTS COMMISSION (FEES) SCHEME 2024"  = "scheme"
+    #   "CODE OF PRACTICE FOR THE GOVERNANCE OF ..."           = "code_of_practice"
+    #   "EUROPEAN UNION (FOOD ADDITIVES) (AMENDMENT) REGULATIONS 2024" = "regulations"
+    #   "SOCIAL WELFARE ACT 2024 (COMMENCEMENT) ORDER 2024"    = "order"
     return (
         pl.when(c.str.contains("RULES")).then(pl.lit("rules"))
           .when(c.str.contains_any(["BYE-LAW", "BYELAW", "BYE LAW"])).then(pl.lit("bye_law"))
@@ -451,7 +451,7 @@ def tag_or_none(condition: pl.Expr, tag: str) -> pl.Expr:
     # Used with concat_list + drop_nulls + unique to build multi-tag string columns
     # without per-row Python loops. Pattern:
     #   pl.concat_list([
-    #       tag_or_none(cond_a, "tag_a"),     # → "tag_a" or null per row
+    #       tag_or_none(cond_a, "tag_a"),     # = "tag_a" or null per row
     #       tag_or_none(cond_b, "tag_b"),
     #   ]).list.drop_nulls().list.unique(maintain_order=True).list.join("|")
     # produces e.g. "tag_a|tag_b" when both fire, "tag_a" when only one, "" when none.
@@ -636,7 +636,7 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     if records.is_empty():
         return pl.DataFrame()
 
-    # Extract SI number/year: "S.I. No. 142 of 2024" → si_number=142, si_year=2024.
+    # Extract SI number/year: "S.I. No. 142 of 2024" = si_number=142, si_year=2024.
     # Non-SI rows get nulls (cast strict=False).
     df = records.with_columns(
         text_upper=pl.col("raw_text").str.to_uppercase(),
@@ -652,10 +652,10 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     # notice_ref — Iris notices end with their bracketed reference, so take the
     # last match (earlier brackets are usually quotes or cross-references).
     # Examples:
-    #   "...This Order applies. [FIN-1234]"     → notice_ref="FIN-1234"
-    #                                            → notice_section="FIN", notice_number="1234"
-    #   "...as defined in [12345A]"             → notice_ref="12345A"
-    #                                            → notice_section=null, notice_number="12345A"
+    #   "...This Order applies. [FIN-1234]"     = notice_ref="FIN-1234"
+    #                                            = notice_section="FIN", notice_number="1234"
+    #   "...as defined in [12345A]"             = notice_ref="12345A"
+    #                                            = notice_section=null, notice_number="12345A"
     df = df.with_columns(
         notice_ref=(
             pl.col("raw_text")
@@ -681,14 +681,14 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     #   raw_text = "S.I. No. 142 of 2024.\nSOCIAL WELFARE (CONSOLIDATED CLAIMS,\n
     #               PAYMENTS AND CONTROL) (AMENDMENT) (NO. 5)\nREGULATIONS 2024\n
     #               The Minister for Social Protection..."
-    #   → title_si grabs lines between "S.I. No. ..." and "The Minister",
-    #     joins+trims → "SOCIAL WELFARE (CONSOLIDATED CLAIMS, PAYMENTS AND
+    #   = title_si grabs lines between "S.I. No. ..." and "The Minister",
+    #     joins+trims = "SOCIAL WELFARE (CONSOLIDATED CLAIMS, PAYMENTS AND
     #                    CONTROL) (AMENDMENT) (NO. 5) REGULATIONS 2024"
     # Non-SI example:
     #   raw_text = "[ABC-99]\nIN THE HIGH COURT\nCompanies Act 2014\nIn the matter of XYZ Limited"
-    #   → title_non_si drops the "[ABC-99]" line and joins the next 4
+    #   = title_non_si drops the "[ABC-99]" line and joins the next 4
     #     non-empty non-bracket lines with " | "
-    #     → "IN THE HIGH COURT | Companies Act 2014 | In the matter of XYZ Limited"
+    #     = "IN THE HIGH COURT | Companies Act 2014 | In the matter of XYZ Limited"
     title_si = (
         pl.col("raw_text").str.extract(
             r"(?si)^S\.I\.\s*No\.[^\n]*\n([^\[]+?)(?:\n(?:The Minister|These Regulations|This Order|Copies of|Under the|The purpose|EXPLANATORY NOTE|\(This note)|\n\n|\z)",
@@ -723,13 +723,13 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     #
     # Worked classification examples (final values after the whole chain):
     #   "S.I. No. 142 of 2024 ... AMENDMENT ..."
-    #     → category="statutory_instrument", subtype="statutory_instrument_multi_axis"
+    #     = category="statutory_instrument", subtype="statutory_instrument_multi_axis"
     #   "FISHERIES MANAGEMENT NOTICE NO. 5 ... QUOTA ..."
-    #     → category="fisheries_notice", subtype="quota_management"
+    #     = category="fisheries_notice", subtype="quota_management"
     #   "IN THE HIGH COURT ... COMPANIES ACT 2014 ... LIQUIDATOR ... CREDITORS' VOLUNTARY..."
-    #     → category="corporate_insolvency", subtype="creditors_voluntary_liquidation"
+    #     = category="corporate_insolvency", subtype="creditors_voluntary_liquidation"
     #   "404 NOT FOUND"
-    #     → category="invalid_source", subtype="404_or_non_issue" (early-return wins)
+    #     = category="invalid_source", subtype="404_or_non_issue" (early-return wins)
     t = pl.col("text_upper")
 
     df = df.with_columns(
@@ -770,9 +770,9 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
 
     # MVL/CVL detection — corporate insolvency disambiguation.
     # Iris notices use formulaic phrases that distinguish:
-    #   "members' voluntary liquidation"   → solvent wind-up      (MVL)
-    #   "creditors' voluntary liquidation" → insolvent wind-up    (CVL)
-    #   "by reason of its liabilities" / "cannot continue in business" → CVL
+    #   "members' voluntary liquidation"   = solvent wind-up      (MVL)
+    #   "creditors' voluntary liquidation" = insolvent wind-up    (CVL)
+    #   "by reason of its liabilities" / "cannot continue in business" = CVL
     # has_companies_act gates the precise subtype; without that anchor we still
     # tag liquidator-only notices but with subtype "liquidation_unspecified".
     explicit_mvl = (
@@ -923,13 +923,13 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
 
     # entity_name — extract the company name from corporate notices.
     # entity_pat matches a whole line containing a company-form keyword:
-    #   "ACME WIDGETS LIMITED"                              → match
-    #   "BRIGHT IDEAS DAC"                                  → match
-    #   "GREEN ENERGY ICAV"                                 → match
+    #   "ACME WIDGETS LIMITED"                              = match
+    #   "BRIGHT IDEAS DAC"                                  = match
+    #   "GREEN ENERGY ICAV"                                 = match
     # bad_pat then drops false positives (statute references, addresses, etc.):
-    #   "COMPANIES ACT 2014"                                → rejected (statute)
-    #   "DUBLIN, IRELAND"                                   → rejected (address)
-    #   "VOLUNTARY LIQUIDATION OF ACME LIMITED"             → rejected (descriptor)
+    #   "COMPANIES ACT 2014"                                = rejected (statute)
+    #   "DUBLIN, IRELAND"                                   = rejected (address)
+    #   "VOLUNTARY LIQUIDATION OF ACME LIMITED"             = rejected (descriptor)
     # For SI rows, entity_name=title (the regulation IS the entity).
     # For others, prefer the extracted company name, fall back to title.
     entity_pat = (
@@ -958,9 +958,9 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     # person_title_detected — full extracted titles, deduplicated, "; "-joined.
     # Examples:
     #   "...signed by Mr Joseph O'Brien T.D., Minister..."
-    #     → "Mr Joseph O'Brien T.D.; Minister Joseph O'Brien"
+    #     = "Mr Joseph O'Brien T.D.; Minister Joseph O'Brien"
     #   "...the Honourable Ms Justice Mary Smith..."
-    #     → "Ms Justice Mary Smith"
+    #     = "Ms Justice Mary Smith"
     # Empty strings are coerced to null so downstream `is_not_null()` checks work.
     df = df.with_columns(
         person_title_detected=(
@@ -980,9 +980,9 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
 
     # extraction_confidence — additive score capped at 0.99.
     # Examples:
-    #   classified row + has notice_ref + SI with si_number  → 0.95 + 0.02 + 0.02 = 0.99
-    #   classified row only                                  → 0.95
-    #   "other" + nothing else                               → 0.40 (will be quarantined)
+    #   classified row + has notice_ref + SI with si_number  = 0.95 + 0.02 + 0.02 = 0.99
+    #   classified row only                                  = 0.95
+    #   "other" + nothing else                               = 0.40 (will be quarantined)
     df = df.with_columns(
         extraction_confidence=(
             pl.when(pl.col("notice_category") != "other").then(pl.lit(0.95)).otherwise(pl.lit(0.40))
@@ -1122,7 +1122,7 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     # Example body:
     #   "...made under section 3 of the Social Welfare Consolidation Act 2005
     #    and the European Communities Act, 1972..."
-    #   → si_parent_legislation = "Social Welfare Consolidation Act 2005|European Communities Act, 1972"
+    #   = si_parent_legislation = "Social Welfare Consolidation Act 2005|European Communities Act, 1972"
     df = df.with_columns(
         si_parent_legislation=(
             pl.col("_si_text_core").str.extract_all(r"\b[A-Z][A-Za-z& ,()\-'/]+? Act \d{4}\b")

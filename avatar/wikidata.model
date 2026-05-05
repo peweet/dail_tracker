@@ -31,3 +31,6 @@ WHERE {
   }
 }
 ORDER BY ?constituencyLabel ?personLabel
+
+
+https://query.wikidata.org/?utm_source=chatgpt.com#SELECT%20DISTINCT%0A%20%20%3Fperson%0A%20%20%3FpersonLabel%0A%20%20%3Fimage%0A%20%20%3FconstituencyLabel%0A%20%20%3FgroupLabel%0AWHERE%20%7B%0A%20%20%3Fperson%20p%3AP39%20%3FtdStatement%3B%0A%20%20%20%20%20%20%20%20%20%20wdt%3AP18%20%3Fimage.%0A%0A%20%20%3FtdStatement%20ps%3AP39%20wd%3AQ654291%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20pq%3AP2937%20wd%3AQ131309742.%0A%0A%20%20OPTIONAL%20%7B%20%3FtdStatement%20pq%3AP768%20%3Fconstituency.%20%7D%0A%20%20OPTIONAL%20%7B%20%3FtdStatement%20pq%3AP4100%20%3Fgroup.%20%7D%0A%0A%20%20SERVICE%20wikibase%3Alabel%20%7B%0A%20%20%20%20bd%3AserviceParam%20wikibase%3Alanguage%20%22en%2Cga%22.%0A%20%20%7D%0A%7D%0AORDER%20BY%20%3FconstituencyLabel%20%3FpersonLabel

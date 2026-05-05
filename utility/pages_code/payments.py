@@ -40,6 +40,7 @@ from data_access.payments_data import (
     fetch_year_ranking,
 )
 from shared_css import inject_css
+from ui.avatars import avatar_data_url, initials as _initials
 from ui.components import back_button, clean_meta, clickable_card_link, empty_state, hero_banner, member_card_html, render_notable_chips, sidebar_member_filter, year_selector
 from ui.export_controls import export_button
 from ui.source_pdfs import PAYMENTS, provenance_expander
@@ -88,6 +89,8 @@ def _pay_card_html(row: pd.Series) -> str:
     return member_card_html(
         name=name, meta=meta, rank=int(row.get("rank_high", 0)),
         pills_html=pills, badge_html=badge,
+        avatar_url=avatar_data_url(name),
+        avatar_initials=_initials(name),
     )
 
 

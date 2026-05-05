@@ -2587,6 +2587,142 @@ Don't expand scope. Don't promise the journalist anything beyond the next 4 week
 
 ---
 
+# Cron-readiness audit (2026-05-05)
+
+Surfaced during the pipeline data-freshness audit on 2026-05-05. These tickets close the gap between "interactive pipeline that produces a good gold layer when run by hand" and "scheduled job whose green run actually means new data landed." Cross-referenced from `doc/DATA_LIMITATIONS.md` §12.1.
+
+Order is roughly highest blast-radius first. `DAIL-163` and `DAIL-164` block the rest from being meaningful — until the pipeline reports failures honestly, every other ticket is hidden behind silent green runs.
+
+---
+
+### DAIL-160 — Replace `output_exists` skip in Oireachtas API steps with windowed refetch
+
+- **Estimate:** 4h · **Priority:** P0 · **Dependencies:** none · **Labels:** cron-readiness, refresh
+- **Affected files:** `services/oireachtas_api_main.py`, `services/storage.py`, `services/votes.py`
+
+#### Description
+`services/oireachtas_api_main.run_member_scenario` and `run_votes` short-circuit when the output JSON already exists. On a recurring schedule this means members, legislation, questions, and votes never refresh. Replace the all-or-nothing skip with an explicit "always refetch the last N days, merge by primary key" mode.
+
+#### Acceptance criteria
+- [ ] Each scenario accepts a refresh window (default 30 days) instead of an `overwrite` boolean only.
+- [ ] Existing per-output JSON merge keys identified per dataset (`voteId` for votes, `billNo+billYear` for legislation, `memberCode` for members, `questionId` for questions).
+- [ ] Re-running the pipeline twice in succession against unchanged upstream produces a row-identical gold layer (idempotent).
+- [ ] Re-running with an upstream change inside the window updates the affected rows; rows outside the window are preserved.
+- [ ] CLI flag `--full-refresh` retained for clean-room rebuilds.
+
+#### References
+- `doc/DATA_LIMITATIONS.md` §12.1 (cron-staleness traps)
+- existing `services/oireachtas_api_main.py:21,40` for the skip pattern
+
+---
+
+### DAIL-161 — Auto-discover new PSA payment / attendance / interests PDFs
+
+- **Estimate:** 6h · **Priority:** P1 · **Dependencies:** DAIL-160 · **Labels:** cron-readiness, refresh
+- **Affected files:** `pdf_endpoint_check.py`, `pdf_backfill_scraper.py`, `pipeline_sandbox/payment_pdf_url_probe.py`
+
+#### Description
+`pdf_endpoint_check.py` is a hand-maintained URL list. `pipeline_sandbox/payment_pdf_url_probe.py` already implements the construct-then-index-fallback discovery pattern. Promote it out of sandbox and use it to extend the URL list automatically each run; do the same for attendance (annual + ad-hoc) and member interests (annual). The new Iris poller (`pipeline_sandbox/iris_oifigiuil_poller.py`) is the template.
+
+#### Acceptance criteria
+- [ ] Monthly run discovers a newly-published PSA payment PDF without code edit.
+- [ ] Member-interests register PDF (Dáil + Seanad) discovered automatically when published in late February.
+- [ ] Discovery failure (every candidate URL 4xx) emits a structured warning and a non-zero step exit code.
+- [ ] No regression in `pdf_downloader.py` idempotency.
+- [ ] `member_interests.PDF_PATHS` rebuilt from the discovered file list, not hand-maintained.
+
+---
+
+### DAIL-162 — Detect and ingest re-issued PDFs at the same URL
+
+- **Estimate:** 3h · **Priority:** P1 · **Dependencies:** none · **Labels:** cron-readiness, integrity
+- **Affected files:** `pdf_downloader.py`, new `data/bronze/pdfs/_checksums.json`
+
+#### Description
+`pdf_downloader.py` skips when the destination filename exists. The Oireachtas occasionally re-publishes a corrected PDF at the same URL. Today the corrected version is never ingested.
+
+#### Acceptance criteria
+- [ ] On every download attempt, HEAD the URL and compare `Content-Length` and `Last-Modified` (and/or `ETag`) against the stored checksum manifest.
+- [ ] On change, re-download and replace; archive the previous bytes to `data/bronze/pdfs/_archive/<original-stem>__<old-fingerprint>.pdf`.
+- [ ] Log a structured `PDF_REISSUE_DETECTED` line so the cron output surfaces it.
+- [ ] Manifest write is atomic (`.part` rename), as in the Iris shard pattern.
+
+---
+
+### DAIL-163 — `pipeline.py` continues past per-step failures with summary exit code
+
+- **Estimate:** 2h · **Priority:** P0 · **Dependencies:** none · **Labels:** cron-readiness, ops
+- **Affected files:** `pipeline.py`
+
+#### Description
+The orchestrator currently `break`s on the first failure (`pipeline.py:44`), which means one flaky step poisons every downstream step for that run. On a cron, this turns a transient single-source error into a full-pipeline outage.
+
+#### Acceptance criteria
+- [ ] Replace the `break` with `continue`; collect failures into the existing `broken_steps` list.
+- [ ] Wrap the loop in a `main()` function and only run on `if __name__ == "__main__":` so importing the module no longer triggers the pipeline.
+- [ ] Exit code: `0` if all steps succeeded, non-zero if any failed.
+- [ ] Final stdout summary lists succeeded vs failed steps.
+- [ ] Manifest is closed exactly once per run regardless of failures.
+
+---
+
+### DAIL-164 — Gate `pipeline.py` on the endpoint checker's broken-URL signal
+
+- **Estimate:** 2h · **Priority:** P1 · **Dependencies:** DAIL-163 · **Labels:** cron-readiness, ops
+- **Affected files:** `pdf_endpoint_check.py`, `pdf_downloader.py`, `pipeline.py`
+
+#### Description
+`endpoint_checker` returns a list of broken URLs but `pdf_downloader.py` does not surface that list to `pipeline.py`. A run where every PDF URL 404s currently still produces a green pipeline.
+
+#### Acceptance criteria
+- [ ] `pdf_downloader.py` exits non-zero when more than X% of URLs are broken (X configurable; default 10%).
+- [ ] Broken URL list serialised to `logs/endpoint_check_<run_id>.json` for the manifest to reference.
+- [ ] `pipeline.py` summary surfaces the count of broken URLs as a top-level line item alongside step status.
+
+---
+
+### DAIL-165 — Promote Iris incremental shards out of sandbox
+
+- **Estimate:** 4h · **Priority:** P1 · **Dependencies:** none · **Labels:** cron-readiness, performance
+- **Affected files:** `iris_oifiguil_etl.py`, `pipeline_sandbox/iris_incremental_shards.py`, `pipeline.py`
+
+#### Description
+The active Iris ETL re-extracts every PDF on every run. `pipeline_sandbox/iris_incremental_shards.py` demonstrates per-PDF parquet shards keyed on `(mtime_ns, size, EXTRACTOR_VERSION)`. Wire it into `iris_oifiguil_etl.py` as documented in that file's INTEGRATION SKETCH section.
+
+#### Acceptance criteria
+- [ ] Cold cache run is byte-identical to the current run output (modulo deterministic sort order).
+- [ ] Warm cache run skips PyMuPDF extraction for unchanged PDFs (verified via stdout step counter).
+- [ ] Bumping `EXTRACTOR_VERSION` triggers a full re-stage on the next run.
+- [ ] Atomic `.part` writes preserve the cache through interrupted runs.
+- [ ] Wire-up adds an `iris_oifigiuil_poller` step to `pipeline.py STEPS` so the cron picks up new issues before extraction.
+
+---
+
+### DAIL-166 — Per-source freshness manifest at gold
+
+- **Estimate:** 3h · **Priority:** P1 · **Dependencies:** DAIL-160, DAIL-161 · **Labels:** cron-readiness, ui, ops
+- **Affected files:** `manifest.py`, `enrich.py`, `data/gold/_freshness.json`
+
+#### Description
+`manifest.py` records run start/end only. There is no per-dataset "last fetched from upstream" timestamp, so neither the UI provenance footer nor a monitoring job can distinguish "data is fresh" from "this run did nothing because every source short-circuited."
+
+#### Acceptance criteria
+- [ ] Each source step writes a freshness entry: `{ "source": "...", "fetched_at": "...", "rows_in": N, "rows_out": M, "fingerprint": "..." }`.
+- [ ] Aggregated into `data/gold/_freshness.json` at end of run.
+- [ ] Streamlit provenance footers read from this file rather than file mtimes.
+- [ ] Stale sources (>30d for monthly cadence, >2d for Iris) flagged in the UI.
+
+---
+
+### DAIL-167 — Lobbying acquisition automation
+
+- **Estimate:** see existing track DAIL-116..DAIL-119 · **Priority:** P1 · **Labels:** cron-readiness, refresh
+
+#### Description
+Cross-reference only — the existing `DAIL-116` (XHR investigation) and `DAIL-117`–`DAIL-119` (export job + workflow + validation) cover this work. Listed here so the cron-readiness audit is complete in one place.
+
+---
+
 # Plateau 2 — Mature single-purpose tool (epics, not full tickets)
 
 These are at "epic-level detail" — expand into full tickets when you reach them. Each maps to a v4 section.
