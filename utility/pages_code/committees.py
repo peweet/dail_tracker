@@ -25,6 +25,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from shared_css import inject_css
+from ui.avatars import avatar_credit_html, avatar_data_url, initials as _initials
 from ui.components import (
     back_button,
     clean_meta,
@@ -524,7 +525,12 @@ def _stage_td(
     # ── Identity ──────────────────────────────────────────────────────
     party = str(person["party"].iloc[0])
     constituency = str(person["constituency"].iloc[0]) if pd.notna(person["constituency"].iloc[0]) else ""
-    member_profile_header(td, clean_meta(party, constituency))
+    member_profile_header(
+        td, clean_meta(party, constituency),
+        avatar_url=avatar_data_url(td),
+        avatar_initials=_initials(td),
+        avatar_credit_html=avatar_credit_html(td),
+    )
 
     # ── Summary chips ─────────────────────────────────────────────────
     total = int(person["committee"].nunique())

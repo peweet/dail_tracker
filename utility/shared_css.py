@@ -459,6 +459,88 @@ def inject_css() -> None:
             font-weight: 500;
             margin-bottom: 0.75rem;
         }
+        /* ── Profile header with avatar ─────────────────────────────────── */
+        .dt-profile-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.1rem;
+            margin: 0.25rem 0 0.5rem 0;
+        }
+        .dt-profile-avatar-col {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 96px;
+        }
+        .dt-profile-avatar {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            object-fit: cover;
+            object-position: center top;
+            border: 2px solid #ffffff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06);
+            background: #f3f4f6;
+            display: block;
+        }
+        .dt-profile-initials {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            color: #4b5563;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #ffffff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06);
+        }
+        .dt-profile-avatar-credit {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.66rem;
+            color: var(--text-meta);
+            text-align: center;
+            margin: 0.4rem 0 0 0;
+            line-height: 1.35;
+            max-width: 110px;
+            word-wrap: break-word;
+        }
+        .dt-profile-avatar-credit a {
+            color: var(--text-meta);
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 2px;
+        }
+        .dt-profile-avatar-credit a:hover { color: var(--accent); }
+        .dt-profile-avatar-empty {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.66rem;
+            color: var(--text-meta);
+            text-align: center;
+            margin: 0.4rem 0 0 0;
+            font-style: italic;
+        }
+        .dt-profile-meta-col {
+            flex: 1;
+            min-width: 0;
+            padding-top: 0.1rem;
+        }
+        .dt-profile-meta-col .td-name { margin-bottom: 0.25rem; }
+        .dt-profile-meta-col .td-meta { margin-bottom: 0.55rem; }
+        @media (max-width: 640px) {
+            .dt-profile-header { gap: 0.85rem; }
+            .dt-profile-avatar-col { width: 72px; }
+            .dt-profile-avatar,
+            .dt-profile-initials { width: 72px; height: 72px; }
+            .dt-profile-initials { font-size: 1.5rem; }
+            .dt-profile-avatar-credit,
+            .dt-profile-avatar-empty { max-width: 90px; font-size: 0.6rem; }
+        }
         .signal {
             display: inline-block;
             padding: 0.18rem 0.55rem;
@@ -1027,17 +1109,36 @@ def inject_css() -> None:
         /* Left slot: avatar OR rank number — always reserves the space */
         .dt-name-card-left {
             flex-shrink: 0;
-            width: 2.25rem;
+            width: 2.75rem;
             display: flex;
             align-items: center;
-            justify-content: flex-end;
+            justify-content: center;
         }
         .dt-name-card-avatar {
-            width: 2.25rem;
-            height: 2.25rem;
+            width: 2.75rem;
+            height: 2.75rem;
             border-radius: 50%;
             object-fit: cover;
-            border: 1px solid rgba(0,0,0,0.1);
+            object-position: center top;
+            border: 1px solid rgba(0,0,0,0.08);
+            background: #f3f4f6;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+        }
+        /* Initials chip used when no photo is available */
+        .dt-name-card-initials {
+            width: 2.75rem;
+            height: 2.75rem;
+            border-radius: 50%;
+            background: #e5e7eb;
+            color: #4b5563;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(0,0,0,0.08);
         }
         .dt-name-card-rank {
             font-size: 0.78rem;

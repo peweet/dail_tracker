@@ -3,6 +3,7 @@ from pages_code.attendance import attendance_page
 from pages_code.committees import committees_page
 from pages_code.interests import interests_page
 from pages_code.legislation import legislation_page
+from pages_code.legislation_si_poc import statutory_instruments_page
 from pages_code.lobbying_2 import lobbying_page
 from pages_code.member_overview import member_overview_page
 from pages_code.payments import payments_page
@@ -25,6 +26,7 @@ pg = st.navigation(
         st.Page(payments_page,         title="Payments",        icon=":material/payments:",       url_path="payments"),
         st.Page(lobbying_page,         title="Lobbying",        icon=":material/groups:",         url_path="lobbying"),
         st.Page(legislation_page,      title="Legislation",     icon=":material/gavel:",          url_path="legislation"),
+        st.Page(statutory_instruments_page, title="SI (POC)",    icon=":material/article:",        url_path="si-poc"),
         st.Page(committees_page,       title="Committees",      icon=":material/account_balance:",url_path="committees"),
     ]
 )
