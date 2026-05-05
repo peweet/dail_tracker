@@ -222,6 +222,68 @@ def fetch_policy_area_summary() -> pd.DataFrame:
     )
 
 
+# ── Topic keyword search ──────────────────────────────────────────────────────
+#
+# Free-text scan over relevant_matter + specific_details + intended_results.
+# Backed by v_lobbying_topic_search (sql_views/lobbying_topic_search.sql).
+# This is *not* a register taxonomy — see the view header for context.
+
+def _topic_where(keywords: list[str]) -> tuple[str, list[str]]:
+    """Build an OR-of-LIKE WHERE fragment for a list of keyword phrases."""
+    cleaned = [k.strip().lower() for k in keywords if k and k.strip()]
+    if not cleaned:
+        return "", []
+    clauses = " OR ".join(["searchable_text LIKE ?"] * len(cleaned))
+    params  = [f"%{k}%" for k in cleaned]
+    return f"({clauses})", params
+
+
+@st.cache_data(ttl=300)
+def fetch_topic_returns(
+    keywords: tuple[str, ...],
+    start: str | None = None,
+    end:   str | None = None,
+) -> pd.DataFrame:
+    """Returns whose free-text description matches any of the keywords.
+
+    Keywords are matched case-insensitively as substrings (no tokenisation).
+    `keywords` is a tuple so the result can be cached.
+    """
+    where_kw, params = _topic_where(list(keywords))
+    if not where_kw:
+        return pd.DataFrame()
+    sql = (
+        "SELECT return_id, lobbyist_name, public_policy_area,"
+        " relevant_matter, specific_details, intended_results,"
+        " period_start_date, source_url"
+        " FROM v_lobbying_topic_search"
+        f" WHERE {where_kw}"
+    )
+    if start and end:
+        sql += " AND period_start_date BETWEEN ? AND ?"
+        params += [start, end]
+    sql += " ORDER BY period_start_date DESC"
+    return _safe(sql, params)
+
+
+@st.cache_data(ttl=300)
+def fetch_topic_summary(keywords: tuple[str, ...]) -> pd.DataFrame:
+    """One-row aggregate for the Topic stage hero (counts, period span)."""
+    where_kw, params = _topic_where(list(keywords))
+    if not where_kw:
+        return pd.DataFrame()
+    return _safe(
+        "SELECT COUNT(*) AS total_returns,"
+        " COUNT(DISTINCT lobbyist_name) AS distinct_orgs,"
+        " COUNT(DISTINCT public_policy_area) AS distinct_areas,"
+        " MIN(period_start_date) AS first_period,"
+        " MAX(period_start_date) AS last_period"
+        " FROM v_lobbying_topic_search"
+        f" WHERE {where_kw}",
+        params,
+    )
+
+
 # ── Recent returns ─────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=300)
