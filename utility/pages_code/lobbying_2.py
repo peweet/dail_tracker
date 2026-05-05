@@ -74,6 +74,7 @@ from ui.components import (
     hero_banner,
     member_card_html,
     pagination_controls,
+    pill,
     sidebar_page_header,
     todo_callout,
 )
@@ -181,7 +182,7 @@ def _lob_card_html(
     a ``member_card_html`` with pill row and an optional cross-page
     "Profile ↗" link to the canonical /member-overview profile.
     """
-    pills_html = "".join(f'<span class="int-stat-pill">{p}</span>' for p in pills)
+    pills_html = "".join(pill(p) for p in pills)
     if profile_href:
         pills_html += (
             f'<a class="dt-member-link int-stat-pill-link" href="{_h(profile_href)}" '

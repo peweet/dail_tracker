@@ -285,6 +285,28 @@ def breadcrumb(labels: list[str], *, key_prefix: str) -> int | None:
     return clicked
 
 
+PILL_VARIANTS: dict[str, str] = {
+    "default": "int-stat-pill",
+    "accent":  "int-stat-pill int-stat-pill-accent",
+    "decl":    "int-stat-pill int-pill-decl",
+    "company": "int-stat-pill int-pill-company",
+    "prop":    "int-stat-pill int-pill-prop",
+    "shares":  "int-stat-pill int-pill-shares",
+    "owner":   "int-stat-pill int-pill-owner",
+}
+
+
+def pill(text: str, variant: str = "default", *, icon: str = "") -> str:
+    """Single stat-pill <span>, the canonical chip used on cards and profile headers.
+
+    variant — key in PILL_VARIANTS; unknown values fall back to the neutral chip.
+    icon    — optional emoji prefix (passed through unescaped).
+    """
+    classes = PILL_VARIANTS.get(variant, PILL_VARIANTS["default"])
+    body = f"{icon} {_h(text)}" if icon else _h(text)
+    return f'<span class="{classes}">{body}</span>'
+
+
 def member_card_html(
     name: str,
     meta: str = "",
@@ -352,7 +374,7 @@ def rank_card_row(
     Caller is responsible for navigation + st.rerun() on True.
     """
     card_col, btn_col = st.columns(col_ratio)
-    pills_html = "".join(f'<span class="int-stat-pill">{p}</span>' for p in pills)
+    pills_html = "".join(pill(p) for p in pills)
     if profile_href:
         pills_html += (
             f'<a class="dt-member-link int-stat-pill-link" href="{_h(profile_href)}" '

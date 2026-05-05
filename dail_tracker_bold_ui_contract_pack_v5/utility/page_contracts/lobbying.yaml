@@ -104,6 +104,35 @@ approved_registered_views:
     approved_filters:
       - {column: period_start_date, operators: [BETWEEN]}
     approved_order: "ORDER BY return_count DESC"
+    enrichment_plan_v_next:
+      reference: "CRO/INTEGRATION_PLAN.md §9.2"
+      promotion_target_status: required
+      add_columns:
+        - rcn                            # NEW (nullable) — Charity Registered Charity Number
+        - company_num                    # NEW (nullable) — CRO company number
+        - sector_label                   # NEW (renamed from sector)
+        - status                         # NEW — active|in_distress|dead|registered|deregistered|unknown
+        - funding_profile                # NEW — state_funded|mostly_donations|mostly_trading|mixed|undisclosed
+        - gov_funded_share_latest        # NEW — 0..1, latest filed period
+        - gross_income_latest_eur        # NEW
+        - employees_band_latest          # NEW — ordinal text band, never a number
+        - entity_age_years               # NEW — today − company_reg_date
+        - newly_incorporated_flag        # NEW — first_return within 24 months of reg
+        - state_adjacent_flag            # NEW — HSE / hospitals / Pobal / Tusla
+        - match_method                   # NEW — both_name_exact|charity_name_exact|company_name_exact|unmatched
+      add_filters:
+        - {column: status,           operators: [=]}
+        - {column: funding_profile,  operators: [=]}
+        - {column: sector_label,     operators: [=]}
+      proving_ground:
+        view: v_experimental_lobbying_org_index_enriched
+        page: lobbyist_poc.py
+        contract: lobbyist_poc.yaml
+        status: experimental
+        promotion_gate: >
+          Tier B/C name-match coverage must clear 50% of organisations
+          (manual overrides applied via data/_meta/lobbyist_name_overrides.csv)
+          before the experimental view is folded into v_lobbying_org_index.
 
   - name: v_lobbying_recent_returns
     status: TODO_PIPELINE_VIEW_REQUIRED
@@ -217,6 +246,37 @@ approved_registered_views:
       - avg_desc_len
       - return_count
     approved_order: "ORDER BY median_days_to_publish DESC"
+
+  # ── Experimental views — see lobbyist_poc.yaml ─────────────────────────────
+  # Prefixed `experimental_` so they can be filtered out of any production
+  # registry sweep with one grep. Do not consume from the production lobbying
+  # page (lobbying_2.py) — they are owned by lobbyist_poc.py.
+
+  - name: v_experimental_lobbying_org_index_enriched
+    status: experimental
+    purpose: >
+      Proving-ground view for CRO/INTEGRATION_PLAN.md §9.2. Joins the gold
+      lobbying leaderboard against pipeline_sandbox CRO + Charity silver
+      outputs and exposes the funding / status / age / state-adjacent
+      enrichments that will eventually fold into v_lobbying_org_index.
+    consumed_by: utility/pages_code/lobbyist_poc.py
+    contract: lobbyist_poc.yaml
+    sources:
+      - data/gold/parquet/top_lobbyist_organisations.parquet
+      - data/gold/parquet/lobbyist_persistence.parquet
+      - data/silver/cro/companies.parquet
+      - data/silver/charities/charity_resolved.parquet
+
+  - name: v_experimental_charity_finance_timeseries
+    status: experimental
+    purpose: >
+      Per-(RCN, year) annual-report financial detail. Drives the Stage 2
+      financial-history section on lobbyist_poc.py — gross income bar chart
+      plus full income / expenditure / asset breakdown.
+    consumed_by: utility/pages_code/lobbyist_poc.py
+    contract: lobbyist_poc.yaml
+    sources:
+      - data/silver/charities/annual_reports.parquet
 
 retrieval_sql_policy:
   allowed_statements: [SELECT]
