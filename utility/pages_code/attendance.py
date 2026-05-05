@@ -28,6 +28,7 @@ import pandas as pd
 import streamlit as st
 
 from shared_css import inject_css
+from ui.avatars import avatar_credit_html, avatar_data_url, initials as _initials
 from ui.components import (
     back_button,
     clean_meta,
@@ -328,7 +329,12 @@ def _render_profile(td_name: str) -> None:
     party = str(row.get("party_name")   or "—")
     const = str(row.get("constituency") or "—")
 
-    member_profile_header(td_name, f"{party} · {const}")
+    member_profile_header(
+        td_name, f"{party} · {const}",
+        avatar_url=avatar_data_url(td_name),
+        avatar_initials=_initials(td_name),
+        avatar_credit_html=avatar_credit_html(td_name),
+    )
 
     # ── Year pills (profile-level, newest first) ───────────────────────────────
     member_years_df = _fetch_member_years(td_name)

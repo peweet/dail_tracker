@@ -39,6 +39,7 @@ import pandas as pd
 import streamlit as st
 
 from shared_css import inject_css
+from ui.avatars import avatar_credit_html, avatar_data_url, initials as _initials
 from ui.components import (
     back_button,
     clean_meta,
@@ -312,7 +313,14 @@ def _int_member_card_html(row) -> str:
             f'🏢 {d_count} compan{"ies" if d_count != 1 else "y"}</span>'
         )
 
-    return member_card_html(name=name, meta=meta, rank=rank, pills_html=pills)
+    return member_card_html(
+        name=name,
+        meta=meta,
+        rank=rank,
+        pills_html=pills,
+        avatar_url=avatar_data_url(name),
+        avatar_initials=_initials(name),
+    )
 
 
 def _render_leaderboard(ranking_df: pd.DataFrame) -> None:
@@ -390,7 +398,14 @@ def _render_profile(house: str, td_name: str) -> None:
     if is_property and not is_landlord:
         badges_html += '<span class="dt-badge">Property interest</span> '
 
-    member_profile_header(td_name, meta, badges_html)
+    member_profile_header(
+        td_name,
+        meta,
+        badges_html,
+        avatar_url=avatar_data_url(td_name),
+        avatar_initials=_initials(td_name),
+        avatar_credit_html=avatar_credit_html(td_name),
+    )
 
     # ── Year pills (profile-scoped key) ───────────────────────────────────────
     year_opts = [str(y) for y in td_years]

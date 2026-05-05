@@ -63,6 +63,7 @@ from data_access.lobbying_data import (
     fetch_summary,
 )
 from shared_css import inject_css
+from ui.avatars import avatar_data_url, initials as _initials
 from ui.components import (
     back_button,
     breadcrumb,
@@ -186,7 +187,11 @@ def _lob_card_html(
             f'<a class="dt-member-link int-stat-pill-link" href="{_h(profile_href)}" '
             f'target="_self" aria-label="View profile of {_h(name)}">Profile ↗</a>'
         )
-    return member_card_html(name=name, meta=meta, rank=rank, pills_html=pills_html)
+    return member_card_html(
+        name=name, meta=meta, rank=rank, pills_html=pills_html,
+        avatar_url=avatar_data_url(name),
+        avatar_initials=_initials(name),
+    )
 
 
 def _activity_row_html(period: str, org: str, area: str) -> str:

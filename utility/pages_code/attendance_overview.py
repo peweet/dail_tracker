@@ -15,6 +15,7 @@ import pandas as pd
 import streamlit as st
 
 from shared_css import inject_css
+from ui.avatars import avatar_credit_html, avatar_data_url, initials as _initials
 from ui.components import (
     back_button,
     clean_meta,
@@ -330,7 +331,12 @@ def _render_profile(td_name: str) -> None:
     row    = profile.iloc[0]
     party  = str(row.get("party_name",   "") or "")
     const  = str(row.get("constituency", "") or "")
-    member_profile_header(td_name, clean_meta(party, const))
+    member_profile_header(
+        td_name, clean_meta(party, const),
+        avatar_url=avatar_data_url(td_name),
+        avatar_initials=_initials(td_name),
+        avatar_credit_html=avatar_credit_html(td_name),
+    )
 
     years_df = _fetch_ov_member_years(td_name)
     if years_df.empty:

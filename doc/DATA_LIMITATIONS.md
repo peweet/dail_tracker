@@ -469,6 +469,34 @@ Known risks:
 
 For a clean rebuild, delete generated outputs and rerun the pipeline from the start.
 
+### 12.1 Cron-staleness traps (audit 2026-05-05)
+
+The current pipeline was designed for interactive runs. Several behaviours become silent staleness bugs once it is moved onto a recurring schedule:
+
+- **Oireachtas API steps no-op after first run.** `services/oireachtas_api_main.py` short-circuits members, legislation, questions, and votes with an `output_exists` check (overwrite flags hard-coded `False`). On a daily cron the second and subsequent runs fetch zero new data, but the run itself reports success. New TDs, new bills, new questions, and new votes do not land until the flag is flipped manually. Tracked in `DAIL-160`.
+- **PSA payments / attendance / member-interests URLs are hard-coded.** `pdf_endpoint_check.py` lists every monthly payment PDF and every annual register/attendance PDF as a Python literal. The discovery probe in `pipeline_sandbox/payment_pdf_url_probe.py` is unwired; `pdf_backfill_scraper.py` is a stub. New publications are only ingested after a human edits the URL list. Tracked in `DAIL-161`.
+- **PDF re-issues at the same URL are invisible.** `pdf_downloader.py` skips on `destination.exists()`. If the publisher corrects a PDF in place (same URL, new bytes), the new version is never downloaded. The gold layer can drift permanently from the source. Tracked in `DAIL-162`.
+- **`pipeline.py` halts on first failure.** A `break` after a single failed step skips every downstream source for the remainder of the run. One transient lobbying-CSV parse error nukes attendance, payments, votes, and enrichment. Tracked in `DAIL-163`.
+- **Endpoint-check signal is not gated.** `pdf_endpoint_check.endpoint_checker` returns a list of broken URLs but `pipeline.py` never reads it. A run where every URL 4xx's still exits successfully. Tracked in `DAIL-164`.
+- **Iris ETL re-extracts every PDF on every run.** ~1k PDFs × full PyMuPDF + regex pass on each invocation. Sandbox-staged shard caching exists in `pipeline_sandbox/iris_incremental_shards.py` but is not wired into the active script. Tracked in `DAIL-165`.
+- **No per-source freshness manifest at gold.** `manifest.py` records run start/end only. There is no per-dataset "last upstream fetch" timestamp, so neither the UI nor a monitoring job can answer "is this data fresh?" without reading file mtimes. Tracked in `DAIL-166`.
+- **Lobbying acquisition is fully manual.** The lobbying.ie ingestion path expects a human to log in, export the CSV, and drop it into `LOBBYING_RAW_DIR`. There is no scheduled component. Tracked in `DAIL-167` and the existing `DAIL-116`–`DAIL-119` lobbying-export track.
+
+Until these are addressed, treat any "data as of <date>" claim derived from a cron run with caution. The run-finished timestamp does not imply that any of the upstream sources were re-pulled on that run.
+
+### 12.2 Deltas not currently watched
+
+Some kinds of upstream change have no automated detection at all:
+
+- **TD turnover** (by-elections, resignations, party defection, vacancies) — `unique_member_code` joins go stale silently.
+- **Committee membership rotations** — fetched from the API but only on overwrite (see 12.1).
+- **Ministerial reshuffles** — same path; ministerial-office values cache until a forced refresh.
+- **eISB-side SI amendment or revocation** — `eisb_url` is stamped at ingest and never re-resolved, so an Iris notice can be displayed for an SI that has since been revoked.
+- **SIPO determinations and donations** — adjacent ethics dataset, not ingested.
+- **Wikidata / Wikipedia biographical fields** — `test_wiki_data.py` exists outside the pipeline; not joined.
+
+These are noted here for transparency, not because there is an active plan to ingest them in the next phase.
+
 ---
 
 ## 13. Testing and validation status

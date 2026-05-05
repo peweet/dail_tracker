@@ -31,6 +31,7 @@ if str(_UTIL) not in sys.path:
     sys.path.insert(0, str(_UTIL))
 
 from shared_css import inject_css
+from ui.avatars import avatar_credit_html, avatar_data_url, initials as _initials
 from ui.components import (
     back_button,
     clean_meta,
@@ -628,7 +629,12 @@ def _render_browse(conn) -> None:
         cards.append(
             clickable_card_link(
                 href=member_profile_url(code),
-                inner_html=member_card_html(name=name, meta=meta),
+                inner_html=member_card_html(
+                    name=name,
+                    meta=meta,
+                    avatar_url=avatar_data_url(name),
+                    avatar_initials=_initials(name),
+                ),
                 aria_label=f"View {name}",
             )
         )
@@ -701,12 +707,34 @@ def _render_stage2(
         if not rd_df.empty else ""
     )
 
+    photo_url    = avatar_data_url(member_name)
+    photo_credit = avatar_credit_html(member_name)
+    if photo_url:
+        avatar_block = (
+            f'<img class="dt-profile-avatar" src="{_h(photo_url)}" alt="" loading="lazy">'
+        )
+        caption_block = (
+            f'<p class="dt-profile-avatar-credit">{photo_credit}</p>'
+            if photo_credit else ""
+        )
+    else:
+        avatar_block = (
+            f'<span class="dt-profile-initials" aria-hidden="true">'
+            f'{_h(_initials(member_name))}</span>'
+        )
+        caption_block = '<p class="dt-profile-avatar-empty">No photo available</p>'
+
     st.html(
         f'<div class="dt-hero">'
-        f'<p class="dt-kicker">TD ACCOUNTABILITY RECORD</p>'
-        f'<h1 class="td-name" style="margin:0.15rem 0 0.2rem;">{_h(member_name)}</h1>'
-        f'<p class="td-meta" style="margin:0 0 0.55rem;">{_h(meta)}</p>'
-        f'<div style="display:flex;flex-wrap:wrap;gap:0.3rem;">{role_html}{rd_html}</div>'
+        f'  <p class="dt-kicker">TD ACCOUNTABILITY RECORD</p>'
+        f'  <div class="dt-profile-header">'
+        f'    <div class="dt-profile-avatar-col">{avatar_block}{caption_block}</div>'
+        f'    <div class="dt-profile-meta-col">'
+        f'      <h1 class="td-name" style="margin:0.15rem 0 0.2rem;">{_h(member_name)}</h1>'
+        f'      <p class="td-meta" style="margin:0 0 0.55rem;">{_h(meta)}</p>'
+        f'      <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">{role_html}{rd_html}</div>'
+        f'    </div>'
+        f'  </div>'
         f'</div>'
     )
 

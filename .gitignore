@@ -12,6 +12,7 @@
 *.csv
 *.xml
 *.json
+*.xlsx
 *.pdf
 # DuckDB
 *.duckdb

@@ -23,14 +23,12 @@ Outputs (same names as v2):
 Usage:
     python iris_oifigiuil_etl_polars.py "path/to/pdfs/*.pdf" --out-dir ./out
 """
-
-from __future__ import annotations
-
 import argparse
 import glob
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -472,20 +470,12 @@ BRONZE_OUT_COLS = [
 ]
 
 
-def build_bronze_frame(rows: list[dict[str, Any]]) -> pl.DataFrame:
-    # One row per visible PDF text line. Example output row (after this fn):
-    #   source_file:   "iris_2024_30.pdf"
-    #   page_number:   4    block_id: 2    line_id: 0    line_order: 0
-    #   bbox:          "[56.7, 144.0, 521.3, 156.4]"
-    #   font_size_mean: 10.0
-    #   font_names:    "TimesNewRoman-Bold"
-    #   raw_line:      "S.I. No. 142  of 2024."        ← may have NBSPs etc.
-    #   normalized_line: "S.I. No. 142 of 2024."        ← cleaned
-    #   issue_date: "2024-04-12"   issue_number: 30
-    #   ignore_publication_boilerplate: false
-    if not rows:
-        return pl.DataFrame()
-    df = pl.DataFrame(rows)
+def shape_bronze_frame(df: pl.DataFrame) -> pl.DataFrame:
+    """Apply the bronze-shape transforms to a DataFrame of raw extract rows.
+    Splits out so the shard path (which stores raw extract rows in parquet)
+    can run the same transforms after concat."""
+    if df.is_empty():
+        return df
     df = df.sort(["source_file", "page_number", "block_id", "line_id", "line_order"])
     df = df.with_columns(
         bbox=pl.format(
@@ -507,6 +497,22 @@ def build_bronze_frame(rows: list[dict[str, Any]]) -> pl.DataFrame:
         )
     )
     return df.select(BRONZE_OUT_COLS)
+
+
+def build_bronze_frame(rows: list[dict[str, Any]]) -> pl.DataFrame:
+    # One row per visible PDF text line. Example output row (after this fn):
+    #   source_file:   "iris_2024_30.pdf"
+    #   page_number:   4    block_id: 2    line_id: 0    line_order: 0
+    #   bbox:          "[56.7, 144.0, 521.3, 156.4]"
+    #   font_size_mean: 10.0
+    #   font_names:    "TimesNewRoman-Bold"
+    #   raw_line:      "S.I. No. 142  of 2024."        ← may have NBSPs etc.
+    #   normalized_line: "S.I. No. 142 of 2024."        ← cleaned
+    #   issue_date: "2024-04-12"   issue_number: 30
+    #   ignore_publication_boilerplate: false
+    if not rows:
+        return pl.DataFrame()
+    return shape_bronze_frame(pl.DataFrame(rows))
 
 
 # ---------------------------------------------------------------------------
@@ -955,22 +961,78 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
         )
     ).drop("_entity_candidate")
 
-    # person_title_detected — full extracted titles, deduplicated, "; "-joined.
-    # Examples:
-    #   "...signed by Mr Joseph O'Brien T.D., Minister..."
-    #     → "Mr Joseph O'Brien T.D.; Minister Joseph O'Brien"
-    #   "...the Honourable Ms Justice Mary Smith..."
-    #     → "Ms Justice Mary Smith"
-    # Empty strings are coerced to null so downstream `is_not_null()` checks work.
+    # person_title_detected — three orthogonal extracts unioned and deduped.
+    # Iris signatures appear in mixed forms: Title Case body text, ALL CAPS
+    # signature blocks, and the standalone "Minister for X" office. The single
+    # original regex matched only Title-Case Title+Name and missed the bulk of
+    # real Iris notices. The three patterns below catch:
+    #   (a) Title + Name (+ optional TD), case-insensitive title prefix:
+    #       "Mr John Smith T.D.", "MS MARY HANAFIN", "Minister Joseph O'Brien"
+    #   (b) Name + TD suffix (Title Case OR ALL CAPS):
+    #       "MICHAEL McGRATH, T.D.", "Heather Humphreys TD", "SIMON HARRIS T.D."
+    #   (c) Ministerial office:
+    #       "Minister for Children and Youth Affairs", "MINISTER FOR JUSTICE"
+    # The office pattern is greedy across "Minister for X, Y" and can swallow a
+    # trailing person+TD that sits on the same line; the post-extract replace
+    # clips that tail. Empty strings → null so downstream is_not_null() works.
+    # Name-part trailing class uses `+` (≥1 more char → ≥2-char name parts)
+    # so the iteration won't consume a lone " T" before " T.D." can match.
     df = df.with_columns(
-        person_title_detected=(
+        _pt_titled=pl.col("raw_text").str.extract_all(
+            r"\b(?i:Mr|Ms|Mrs|Dr|Minister|Deputy)\.?\s+"
+            r"[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú'\-]+"
+            r"(?:\s+(?:Mc|Mac|O[''])?[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú'\-]+){0,3}"
+            r"(?:,?\s+T\.?D\.?\b)?"
+        ),
+        _pt_name_td=pl.col("raw_text").str.extract_all(
+            r"\b[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú'\-]+"
+            r"(?:\s+(?:Mc|Mac|O[''])?[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú'\-]+){1,3}"
+            r"\s*,?\s+T\.?D\.?\b"
+        ),
+        _pt_office=(
             pl.col("raw_text").str.extract_all(
-                r"\b(?:Mr|Ms|Mrs|Dr|Minister|Deputy)\.?\s+[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú'\-]+(?:\s+[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú'\-]+){1,4}(?:,?\s*T\.?D\.?|,?\s*TD)?"
+                r"\b(?:Minister|MINISTER)\s+(?:for|FOR)\s+"
+                r"[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú]+"
+                r"(?:[\s,]+(?:and|AND|of|OF|the|THE|&|[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú]+)){0,7}"
             )
-            .list.unique(maintain_order=True)
-            .list.join("; ")
-        )
+            # Office regex is greedy — it can swallow ", Person Name TD" when
+            # the signature sits on the same span. Two simple cleanups:
+            #   1. clip everything from a " TD" / " T.D." onwards
+            #   2. clip a trailing ", Name [Name]..." person tail (≥2 name parts
+            #      so it never trims valid dept endings like "...and Reform")
+            .list.eval(pl.element().str.replace(r"\s*,?\s+T\.?D\.?\b.*$", ""))
+            .list.eval(pl.element().str.replace(
+                r",\s+[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú'\-]+"
+                r"(?:\s+[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú'\-]+){1,3}\s*$",
+                "",
+            ))
+        ),
     ).with_columns(
+        person_title_detected=(
+            pl.concat_list([pl.col("_pt_titled"), pl.col("_pt_name_td"), pl.col("_pt_office")])
+              # Collapse any whitespace run (incl. embedded newlines) to a single
+              # space so the gold-CSV flatten can't produce "Heather // Humphreys"
+              # twins that defeat dedup.
+              .list.eval(pl.element().str.replace_all(r"\s+", " "))
+              # Iris signatures often place a role word ("Liquidator", "Receiver"
+              # etc.) on the line below the name; without a comma the regex
+              # extends across the newline. Strip that role tail. The leading
+              # \s+ keeps a name like "Deputy Smith" intact (no preceding space).
+              .list.eval(pl.element().str.replace(
+                  r"\s+(?:Liquidator|Receiver|Solicitor|Director|Secretary|"
+                  r"Chairperson|Chairman|Chairwoman|Chair|Vice-Chair|"
+                  r"Deputy|Member|Members|Trustee|Trustees|Auditor|Auditors|"
+                  r"Manager|Managers|Officer|Officers|Inspector|Inspectors|"
+                  r"Accountant|Accountants|Examiner|Examiners|"
+                  r"Re-appointment|Appointment)"
+                  r"s?\b.*$",
+                  "",
+              ))
+              .list.eval(pl.element().str.strip_chars(" ,.\t\n"))
+              .list.unique(maintain_order=True)
+              .list.join("; ")
+        )
+    ).drop(["_pt_titled", "_pt_name_td", "_pt_office"]).with_columns(
         person_title_detected=(
             pl.when(pl.col("person_title_detected").str.len_chars() > 0)
               .then(pl.col("person_title_detected"))
@@ -1351,9 +1413,8 @@ def write_dimensions(out_dir: str, dfs: dict[str, pl.DataFrame], member_extracts
     )
 
 
-def run(paths: list[str], out_dir: str, confidence_threshold: float = 0.75) -> None:
-    os.makedirs(out_dir, exist_ok=True)
-
+def _extract_full(paths: list[str]) -> tuple[pl.DataFrame, list[dict[str, Any]], list[dict[str, Any]]]:
+    """Extract every PDF from scratch — no shard cache."""
     all_rows: list[dict[str, Any]] = []
     metas: list[dict[str, Any]] = []
     member_extracts: list[dict[str, Any]] = []
@@ -1374,7 +1435,59 @@ def run(paths: list[str], out_dir: str, confidence_threshold: float = 0.75) -> N
     print(f"[2/5] Building bronze frame from {len(all_rows)} lines...")
     bronze = build_bronze_frame(all_rows)
     print(f"  Bronze: {bronze.height} rows, {bronze.width} cols")
+    return bronze, metas, member_extracts
 
+
+def _extract_via_shards(
+    paths: list[str], shard_root: Path, rebuild: bool
+) -> tuple[pl.DataFrame, list[dict[str, Any]], list[dict[str, Any]]]:
+    """Refresh the per-PDF shard cache, then concat bronze from disk.
+
+    Cached PDFs (matching mtime/size + extractor version) are skipped, so this
+    is dramatically faster on incremental runs. Rebuild forces re-extraction
+    of every shard."""
+    sandbox = Path(__file__).resolve().parent / "pipeline_sandbox"
+    if str(sandbox) not in sys.path:
+        sys.path.insert(0, str(sandbox))
+    from iris_incremental_shards import (  # noqa: E402
+        concat_bronze,
+        incremental_extract,
+        load_audit,
+        load_member_extracts,
+    )
+
+    print(f"[1/5] Refreshing shard cache at {shard_root} (rebuild={rebuild})...")
+    summary = incremental_extract(paths, shard_root, rebuild=rebuild)
+    print(
+        f"  shards: added={summary.added} skipped={summary.skipped} "
+        f"restaged={summary.restaged} failed={summary.failed}"
+    )
+
+    print("[2/5] Loading bronze + audit + member extracts from shards...")
+    # Shards store *raw* extract rows (no normalized_line / bbox / boilerplate
+    # flag). Run the bronze-shape transform once over the concatenated frame
+    # so the downstream silver step sees the same schema as full-extract mode.
+    raw = concat_bronze(shard_root).collect()
+    bronze = shape_bronze_frame(raw) if not raw.is_empty() else raw
+    metas = load_audit(shard_root)
+    member_extracts = load_member_extracts(shard_root)
+    print(
+        f"  Bronze: {bronze.height} rows, {bronze.width} cols "
+        f"({len(metas)} audit entries, {len(member_extracts)} member extracts)"
+    )
+    return bronze, metas, member_extracts
+
+
+def _finalize(
+    bronze: pl.DataFrame,
+    metas: list[dict[str, Any]],
+    member_extracts: list[dict[str, Any]],
+    paths: list[str],
+    out_dir: str,
+    confidence_threshold: float,
+) -> None:
+    """Silver/gold tail: build_records → enrich → quarantine → write outputs.
+    Identical for full and shard modes — only the bronze source differs."""
     print("[3/5] Building silver records (cum_sum group_by)...")
     records = build_records(bronze) if not bronze.is_empty() else pl.DataFrame()
     print(f"  Records: {records.height} rows")
@@ -1440,13 +1553,37 @@ def run(paths: list[str], out_dir: str, confidence_threshold: float = 0.75) -> N
     print(f"Wrote {len(member_extracts)} member-interest raw JSON extracts")
 
 
+def run(
+    paths: list[str],
+    out_dir: str,
+    confidence_threshold: float = 0.75,
+    *,
+    use_shards: bool = False,
+    shard_root: Path | None = None,
+    rebuild_shards: bool = False,
+) -> None:
+    os.makedirs(out_dir, exist_ok=True)
+    if use_shards:
+        bronze, metas, member_extracts = _extract_via_shards(
+            paths, shard_root or DEFAULT_SHARD_ROOT, rebuild_shards
+        )
+    else:
+        bronze, metas, member_extracts = _extract_full(paths)
+    _finalize(bronze, metas, member_extracts, paths, out_dir, confidence_threshold)
+
+
 # Default input — every Iris PDF in bronze. When the script is run with no
 # arguments (e.g. clicked from an IDE) we fall back to this so we always
 # process the full historical corpus rather than erroring out.
 DEFAULT_INPUT_GLOB = str(
-    Path(__file__).resolve().parents[1] / "data" / "bronze" / "iris_oifigiuil" / "*.pdf"
+    Path(__file__).resolve().parent / "data" / "bronze" / "iris_oifigiuil" / "*.pdf"
 )
 DEFAULT_OUT_DIR = str(Path(__file__).resolve().parent / "out")
+# Per-PDF shard cache used by --shards. Mirrors the default in
+# pipeline_sandbox/iris_incremental_shards.py so both entry points share state.
+DEFAULT_SHARD_ROOT = (
+    Path(__file__).resolve().parent / "data" / "silver" / "iris_oifigiuil_shards"
+)
 
 
 def main() -> None:
@@ -1459,7 +1596,29 @@ def main() -> None:
     )
     parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
     parser.add_argument("--confidence-threshold", type=float, default=0.75)
+    parser.add_argument(
+        "--shards",
+        action="store_true",
+        help=(
+            "use the per-PDF shard cache: only re-extract PDFs whose mtime/size "
+            "or extractor version changed, then rebuild silver/gold from cached "
+            "bronze. Default is full extraction every run."
+        ),
+    )
+    parser.add_argument(
+        "--rebuild-shards",
+        action="store_true",
+        help="with --shards, ignore the manifest and re-extract every PDF.",
+    )
+    parser.add_argument(
+        "--shard-root",
+        default=str(DEFAULT_SHARD_ROOT),
+        help=f"shard cache directory (default: {DEFAULT_SHARD_ROOT})",
+    )
     args = parser.parse_args()
+
+    if args.rebuild_shards and not args.shards:
+        parser.error("--rebuild-shards requires --shards")
 
     paths: list[str] = []
     for pat in args.paths:
@@ -1470,8 +1629,16 @@ def main() -> None:
     paths = [p for p in paths if not (os.path.exists(p) and os.path.getsize(p) < 5_000)]
     if not paths:
         parser.error(f"No PDFs matched any of: {args.paths}")
-    print(f"Processing {len(paths)} PDFs -> {args.out_dir}")
-    run(paths, args.out_dir, args.confidence_threshold)
+    mode = "shards" if args.shards else "full"
+    print(f"Processing {len(paths)} PDFs -> {args.out_dir} (mode={mode})")
+    run(
+        paths,
+        args.out_dir,
+        args.confidence_threshold,
+        use_shards=args.shards,
+        shard_root=Path(args.shard_root),
+        rebuild_shards=args.rebuild_shards,
+    )
 
 
 if __name__ == "__main__":

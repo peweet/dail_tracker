@@ -292,22 +292,29 @@ def member_card_html(
     pills_html: str = "",
     badge_html: str = "",
     avatar_url: str | None = None,
+    avatar_initials: str | None = None,
 ) -> str:
     """Canonical member name card HTML string.
 
-    Avatar slot is always rendered at fixed width (2.25 rem).  When avatar_url
-    is None the slot shows the rank number.  Wiring in Wikidata photos later
-    is a one-line change — zero layout rework across pages.
+    Avatar slot priority: photo → rank chip → initials chip → empty. The
+    slot is always 2.25rem wide so layout is stable across all states.
 
-    pills_html  — raw HTML for pill <span> elements (use int-stat-pill class)
-    badge_html  — optional right-side metric; use dt-name-card-badge-metric
-                  sub-class for the standard blue days/amount style
+    pills_html       — raw HTML for pill <span> elements (use int-stat-pill class)
+    badge_html       — optional right-side metric; use dt-name-card-badge-metric
+                       sub-class for the standard blue days/amount style
+    avatar_initials  — 1–2 letter fallback when neither photo nor rank fits
+                       the page (e.g. profile-context cards).
     """
     if avatar_url:
-        left_inner = f'<img class="dt-name-card-avatar" src="{_h(avatar_url)}" alt="">'
+        left_inner = f'<img class="dt-name-card-avatar" src="{_h(avatar_url)}" alt="" loading="lazy">'
     elif rank is not None:
         rank_cls   = "dt-name-card-rank dt-name-card-rank-top" if rank <= 3 else "dt-name-card-rank"
         left_inner = f'<span class="{rank_cls}">#{rank}</span>'
+    elif avatar_initials:
+        left_inner = (
+            f'<span class="dt-name-card-initials" aria-hidden="true">'
+            f'{_h(avatar_initials)}</span>'
+        )
     else:
         left_inner = ""
     meta_html    = f'<div class="dt-name-card-meta">{_h(meta)}</div>' if meta else ""
@@ -604,13 +611,52 @@ def render_stat_strip(*items: str) -> None:
     st.markdown(f'<div class="stat-strip">{"".join(items)}</div>', unsafe_allow_html=True)
 
 
-def member_profile_header(name: str, meta: str, badges_html: str = "") -> None:
-    """Standard member name + meta header used on all profile views."""
-    badges = f'<p style="margin:0.3rem 0 0.6rem;">{badges_html}</p>' if badges_html else ""
+def member_profile_header(
+    name: str,
+    meta: str,
+    badges_html: str = "",
+    *,
+    avatar_url: str | None = None,
+    avatar_initials: str | None = None,
+    avatar_credit_html: str | None = None,
+) -> None:
+    """Standard member name + meta header used on all profile views.
+
+    avatar_url        — data URL or HTTP URL for the portrait. None falls back
+                        to an initials chip.
+    avatar_initials   — 1–2 letter fallback. Required when avatar_url is None.
+    avatar_credit_html — inline attribution caption for CC BY / CC BY-SA.
+                        Shown under the photo. None when no photo.
+    """
+    badges = (
+        f'<p style="margin:0.3rem 0 0.6rem;">{badges_html}</p>'
+        if badges_html else ""
+    )
+
+    if avatar_url:
+        avatar_block = (
+            f'<img class="dt-profile-avatar" src="{_h(avatar_url)}" alt="" loading="lazy">'
+        )
+        caption = (
+            f'<p class="dt-profile-avatar-credit">{avatar_credit_html}</p>'
+            if avatar_credit_html else ""
+        )
+    else:
+        initials = _h(avatar_initials or "?")
+        avatar_block = (
+            f'<span class="dt-profile-initials" aria-hidden="true">{initials}</span>'
+        )
+        caption = '<p class="dt-profile-avatar-empty">No photo available</p>'
+
     st.markdown(
-        f'<p class="td-name">{name}</p>'
-        f'<p class="td-meta">{meta}</p>'
-        f'{badges}',
+        f'<div class="dt-profile-header">'
+        f'  <div class="dt-profile-avatar-col">{avatar_block}{caption}</div>'
+        f'  <div class="dt-profile-meta-col">'
+        f'    <p class="td-name">{name}</p>'
+        f'    <p class="td-meta">{meta}</p>'
+        f'    {badges}'
+        f'  </div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
