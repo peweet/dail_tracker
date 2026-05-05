@@ -1,12 +1,29 @@
 import csv
 import os
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import duckdb
 import polars as pl
 
 from config import GOLD_CSV_DIR, GOLD_DIR, GOLD_PARQUET_DIR, LOBBY_OUTPUT_DIR, LOBBY_PARQUET_DIR, LOBBYING_RAW_DIR, SILVER_PARQUET_DIR
+from pipeline_sandbox.quarantine import quarantine
 from utility.select_drop_rename_cols_mappings import lobbying_rename
+
+
+SOURCE = "lobbying"
+
+RULE_DUPLICATE_PRIMARY_KEY = "lobbying_duplicate_primary_key"
+RULE_NIL_RETURN = "lobbying_nil_return"
+RULE_COLLECTIVE_DPO = "lobbying_collective_dpo_filter"
+RULE_EMPTY_DPO_NAME = "lobbying_empty_dpo_name"
+
+
+def _make_run_id() -> str:
+    """ISO timestamp + short uuid; matches pipeline_sandbox/quarantine.py shape."""
+    ts = datetime.now(UTC).isoformat(timespec="seconds")
+    return f"{ts}-{uuid.uuid4().hex[:8]}"
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -271,12 +288,12 @@ def clean_dpo_name(name: str) -> str:
     return name
 
 
-def explode_politicians(df: pl.DataFrame) -> pl.DataFrame:
+def explode_politicians(df: pl.DataFrame, run_id: str | None = None) -> pl.DataFrame:
     """Explode dpo_lobbied ('::' separated, '|' delimited) into one row per politician.
 
     After explosion, cleans each name: strips whitespace/punctuation dirt, removes
     title prefixes (Minister, Senator, etc.), and drops collective non-person entries
-    like 'Dáil Éireann (all TDs)'.
+    like 'Dáil Éireann (all TDs)'. Dropped rows are quarantined when run_id is given.
     """
     df = df.with_columns(pl.col("dpo_lobbied").str.split("::").alias("lobbyists"))
     df = df.explode("lobbyists")
@@ -291,9 +308,31 @@ def explode_politicians(df: pl.DataFrame) -> pl.DataFrame:
     # Clean names
     df = df.with_columns(pl.col("full_name").map_elements(clean_dpo_name, return_dtype=pl.String))
 
-    # Drop collective/non-person entries
-    df = df.filter(~pl.col("full_name").is_in(list(COLLECTIVE_DPO_NAMES)))
-    df = df.filter(pl.col("full_name").str.len_chars() > 0)
+    # Capture + drop collective/non-person entries
+    collective_mask = pl.col("full_name").is_in(list(COLLECTIVE_DPO_NAMES))
+    if run_id is not None:
+        collective = df.filter(collective_mask)
+        if not collective.is_empty():
+            quarantine(
+                collective, source=SOURCE, rule=RULE_COLLECTIVE_DPO,
+                reason="full_name matched a collective sentinel (e.g. 'Dáil Éireann (all TDs)')",
+                run_id=f"{run_id}_{RULE_COLLECTIVE_DPO}",
+            )
+            print(f"  Quarantined collective DPO rows: {collective.height}")
+    df = df.filter(~collective_mask)
+
+    # Capture + drop empty-name rows
+    empty_mask = pl.col("full_name").str.len_chars() == 0
+    if run_id is not None:
+        empty = df.filter(empty_mask)
+        if not empty.is_empty():
+            quarantine(
+                empty, source=SOURCE, rule=RULE_EMPTY_DPO_NAME,
+                reason="full_name was empty after stripping titles/whitespace",
+                run_id=f"{run_id}_{RULE_EMPTY_DPO_NAME}",
+            )
+            print(f"  Quarantined empty DPO-name rows: {empty.height}")
+    df = df.filter(~empty_mask)
 
     return df
 
@@ -794,7 +833,7 @@ def save_gold_outputs(activities_df: pl.DataFrame, lobbying_df: pl.DataFrame) ->
     con.close()
 
 
-def filter_nil_returns(df: pl.DataFrame) -> pl.DataFrame:
+def filter_nil_returns(df: pl.DataFrame, run_id: str | None = None) -> pl.DataFrame:
     """Drop Nil Return declarations — these record that no lobbying occurred.
 
     Registrants are required to file a Nil Return for each period when they have
@@ -813,8 +852,17 @@ def filter_nil_returns(df: pl.DataFrame) -> pl.DataFrame:
     nil_text_pattern = r"(?i)^nil(\s+return)?$"
     is_system_nil = pl.col("relevant_matter").is_null()
     is_text_nil = pl.col("specific_details").str.strip_chars().str.contains(nil_text_pattern)
+    nil_mask = is_system_nil | is_text_nil
     before = df.height
-    df = df.filter(~(is_system_nil | is_text_nil))
+    if run_id is not None:
+        nil_rows = df.filter(nil_mask)
+        if not nil_rows.is_empty():
+            quarantine(
+                nil_rows, source=SOURCE, rule=RULE_NIL_RETURN,
+                reason="Nil Return declaration (relevant_matter null OR specific_details ~ '^nil( return)?$')",
+                run_id=f"{run_id}_{RULE_NIL_RETURN}",
+            )
+    df = df.filter(~nil_mask)
     dropped = before - df.height
     if dropped:
         print(f"  Nil returns removed: {dropped} ({before}: {df.height})")
@@ -822,7 +870,8 @@ def filter_nil_returns(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def main() -> None:
-    print("=== Lobbying pipeline starting ===")
+    run_id = _make_run_id()
+    print(f"=== Lobbying pipeline starting === (run_id={run_id})")
 
     # 1. Ingest
     lobby_org_raw = load_lobby_orgs()
@@ -831,14 +880,26 @@ def main() -> None:
     # 1b. Deduplicate returns — source CSVs from lobbying.ie often have overlapping
     #     date ranges, so the same primary_key can appear in multiple raw files.
     #     Drop duplicates on primary_key before any explosion so counts are not inflated.
-    before = lobbying_df.height
-    lobbying_df = lobbying_df.unique(subset=["primary_key"], keep="first")
-    dropped = before - lobbying_df.height
-    if dropped:
-        print(f"  Deduplication: removed {dropped} duplicate returns ({before} -> {lobbying_df.height})")
+    #     The non-first occurrences are quarantined so the overlap is visible.
+    indexed = lobbying_df.with_row_index("__rn")
+    keep_rn = indexed.group_by("primary_key").agg(pl.col("__rn").min().alias("__keep_rn"))
+    indexed = indexed.join(keep_rn, on="primary_key", how="left")
+    duplicates = indexed.filter(pl.col("__rn") != pl.col("__keep_rn")).drop(["__rn", "__keep_rn"])
+    deduped = indexed.filter(pl.col("__rn") == pl.col("__keep_rn")).drop(["__rn", "__keep_rn"])
+    if not duplicates.is_empty():
+        quarantine(
+            duplicates, source=SOURCE, rule=RULE_DUPLICATE_PRIMARY_KEY,
+            reason="primary_key duplicated across stacked CSVs (overlapping export windows)",
+            run_id=f"{run_id}_{RULE_DUPLICATE_PRIMARY_KEY}",
+        )
+        print(
+            f"  Deduplication: removed {duplicates.height} duplicate returns "
+            f"({lobbying_df.height} -> {deduped.height})"
+        )
+    lobbying_df = deduped
 
     # 1c. Drop Nil Return declarations (no lobbying took place — administrative filings only)
-    lobbying_df = filter_nil_returns(lobbying_df)
+    lobbying_df = filter_nil_returns(lobbying_df, run_id=run_id)
 
     # 2. Parse return-level dates once, up front (both the activity chain and)
     lobbying_df = parse_lobbying_period(lobbying_df)
@@ -850,7 +911,7 @@ def main() -> None:
     lobby_org = transform_lobby_orgs(lobby_org_raw)
 
     # 5. Explode the activity chain: return → politician → activity → client → former-DPO
-    activities_df = explode_politicians(lobbying_df)
+    activities_df = explode_politicians(lobbying_df, run_id=run_id)
     activities_df = explode_activities(activities_df)
     activities_df = parse_clients(activities_df)
     activities_df = parse_current_or_former_dpos(activities_df)

@@ -6,20 +6,26 @@
 --   org profile         → WHERE lobbyist_name = ?
 --   area profile        → WHERE public_policy_area = ?
 --
--- unique_member_code is brought in via LEFT JOIN against most_lobbied_politicians.parquet
--- (the only source carrying the ID today). Deduped to one (full_name, code) pair so the
--- join preserves the original row count.
+-- unique_member_code is brought in via LEFT JOIN against the silver member registry
+-- (flattened_members.parquet — the canonical Dáil/Seanad list). Names are normalised
+-- with LOWER(strip_accents(TRIM())) on both sides since lobbying.ie spelling drifts
+-- (titles, accents, hyphens). Only Dáil/Seanad members will match; councillors, civil
+-- servants and other DPOs surface with empty unique_member_code so the UI degrades
+-- to a non-clickable name.
 
 CREATE OR REPLACE VIEW v_lobbying_contact_detail AS
 WITH member_codes AS (
-    SELECT full_name, unique_member_code
+    SELECT norm_name, unique_member_code
     FROM (
         SELECT
-            full_name,
+            LOWER(strip_accents(TRIM(full_name))) AS norm_name,
             unique_member_code,
-            ROW_NUMBER() OVER (PARTITION BY full_name ORDER BY unique_member_code DESC) AS rn
-        FROM read_parquet('data/gold/parquet/most_lobbied_politicians.parquet')
-        WHERE unique_member_code IS NOT NULL AND unique_member_code <> ''
+            ROW_NUMBER() OVER (
+                PARTITION BY LOWER(strip_accents(TRIM(full_name)))
+                ORDER BY unique_member_code DESC
+            ) AS rn
+        FROM read_parquet('data/silver/parquet/flattened_members.parquet')
+        WHERE full_name IS NOT NULL AND unique_member_code IS NOT NULL
     )
     WHERE rn = 1
 )
@@ -34,5 +40,6 @@ SELECT
     src.lobbying_period_start_date::DATE AS period_start_date,
     src.lobby_url                       AS source_url
 FROM read_parquet('data/silver/lobbying/parquet/politician_returns_detail.parquet') src
-LEFT JOIN member_codes mc ON src.full_name = mc.full_name
+LEFT JOIN member_codes mc
+    ON LOWER(strip_accents(TRIM(src.full_name))) = mc.norm_name
 ORDER BY period_start_date DESC NULLS LAST;
