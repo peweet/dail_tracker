@@ -14,12 +14,19 @@
 # Sandbox impl (already verified end-to-end): pipeline_sandbox/legislation_unscoped_silver_views.py
 
 import pandas as pd
-
 from config import LEGISLATION_DIR, SILVER_DIR
+import json
+import logging
+from collections import Counter
+from services.dail_config import API_BASE
+from services.http_engine import fetch_json
+
+logger = logging.getLogger(__name__)
+
 
 # flatten the top-level results
 bills = []
-for page in pd.read_json(LEGISLATION_DIR / "legislation_results.json")["results"]:
+for page in pd.read_json(LEGISLATION_DIR / "legislation_results_unscoped.json")["results"]:
     bills.extend(page)
 # bill metadata fields to carry through to the sponsors, stages, and debates datasets for joining back to members and votes data later on
 BILL_META = [
@@ -136,7 +143,56 @@ sponsor_rename = {
     "contextDate": "context_date"
 }
 
-sponsors_df = sponsors_df.dropna(axis=0, subset=["sponsor.by.showAs"], how="all").rename(columns=sponsor_rename)
+
+PAGE_SIZE = 1000  # API server cap — same as votes
+DATE_START = "2014-01-01"  # matches build_legislation_urls
+DATE_END = "2099-01-01"
+OUTPUT_PATH = LEGISLATION_DIR / "legislation_results_unscoped.json"
+
+def build_url(skip: int) -> str:
+    return (
+        f"{API_BASE}/legislation"
+        f"?date_start={DATE_START}"
+        f"&date_end={DATE_END}"
+        f"&limit={PAGE_SIZE}"
+        f"&skip={skip}"
+        f"&chamber_id="
+        f"&lang=en"
+    )
+
+def fetch_all_bills() -> tuple[list[dict], int, int]:
+    """Sequential skip/limit pagination. Returns (bills, expected_count, bytes)."""
+    all_bills: list[dict] = []
+    total_bytes = 0
+    expected: int | None = None
+    skip = 0
+
+    while True:
+        page, raw_bytes = fetch_json(build_url(skip))
+        total_bytes += raw_bytes
+
+        if expected is None:
+            expected = page["head"]["counts"]["resultCount"]
+            logger.info(f"Bill pagination | expected={expected} | page_size={PAGE_SIZE}")
+
+        page_results = page.get("results", [])
+        all_bills.extend(page_results)
+        logger.info(
+            f"Bill page | skip={skip} | got={len(page_results)} | "
+            f"running_total={len(all_bills)} | bytes={raw_bytes:,}"
+        )
+
+        if len(page_results) < PAGE_SIZE or len(all_bills) >= expected:
+            break
+        skip += PAGE_SIZE
+
+    assert len(all_bills) >= expected, (
+        f"Bill pagination drift: got {len(all_bills)} of {expected} expected"
+    )
+    return all_bills, expected, total_bytes
+
+
+sponsors_df = sponsors_df.dropna(subset=["sponsor.by.showAs", "sponsor.as.showAs"], how="all").rename(columns=sponsor_rename)
 # print(sponsors_df.columns)
 sponsors_df = sponsors_df.dropna(axis=1, how="all")
 sponsors_df['sponsor_by_uri'] = sponsors_df['sponsor_by_uri'].str.split('/', n=7).str[-1]

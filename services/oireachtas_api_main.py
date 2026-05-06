@@ -138,6 +138,13 @@ def main() -> None:
         max_workers=5,
     )
 
+    run_member_scenario(
+        scenario_name="legislation_unscoped",
+        urls=legislation_urls,
+        overwrite=overwrite_legislation,
+        max_workers=5,
+    )
+
     logger.info("=" * 70)
     logger.info("STEP 4: Fetching votes")
     logger.info("=" * 70)
