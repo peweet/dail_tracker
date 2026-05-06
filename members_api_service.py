@@ -13,7 +13,7 @@ Documentation:
 - https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor-example
 """
 
-import json
+import orjson
 import logging
 from pathlib import Path
 
@@ -72,7 +72,7 @@ def save_members_json(data: dict, output_path: Path) -> None:
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write(orjson.dumps(data, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS, default=str).decode("utf-8"))
     logger.info(f"Members JSON saved to: {output_path}")
 
 
