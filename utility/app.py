@@ -1,6 +1,8 @@
 import streamlit as st
 from pages_code.attendance import attendance_page
 from pages_code.committees import committees_page
+# EXPERIMENTAL — DELETE ON INTEGRATION
+from pages_code.experimental_preview import experimental_preview_page
 from pages_code.interests import interests_page
 from pages_code.legislation import legislation_page
 from pages_code.legislation_poc import legislation_poc_page
@@ -32,6 +34,8 @@ pg = st.navigation(
         st.Page(legislation_poc_page,  title="Legislation (POC)", icon=":material/integration_instructions:", url_path="legislation-poc"),
         st.Page(statutory_instruments_page, title="SI (POC)",    icon=":material/article:",        url_path="si-poc"),
         st.Page(committees_page,       title="Committees",      icon=":material/account_balance:",url_path="committees"),
+        # EXPERIMENTAL — DELETE ON INTEGRATION
+        st.Page(experimental_preview_page, title="Experimental Preview", icon=":material/science:", url_path="experimental-preview"),
     ]
 )
 pg.run()
