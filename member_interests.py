@@ -18,7 +18,7 @@ Cleaning steps:
 The result is a structured dataset of members and their declared interests, suitable for downstream analysis..
 """
 
-import json
+import orjson
 import os
 import pathlib
 import re
@@ -504,7 +504,7 @@ def main() -> None:
         # 4. Write intermediate JSON, load into Polars
         json_path = MEMBERS_DIR / f"{pdf_path.stem}_{case.lower()}.json"
         with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(members, f, indent=4, ensure_ascii=False)
+            f.write(orjson.dumps(members, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS, default=str).decode("utf-8"))
         df = pl.read_json(json_path)
 
         # 5. Clean — pass numeric year so the rogue-row filter works correctly
