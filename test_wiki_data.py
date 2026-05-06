@@ -25,7 +25,7 @@ the avatar/wikidata/ directory.
 Run: python test_wiki_data.py
 """
 import html as _html
-import json
+import orjson
 import re
 import urllib.error
 import urllib.parse
@@ -91,7 +91,7 @@ def fetch_sparql(query: str) -> list[dict]:
     url = f"{SPARQL_URL}?{params}"
     req = urllib.request.Request(url, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=30) as resp:
-        data = json.loads(resp.read())
+        data = orjson.loads(resp.read())
     return data["results"]["bindings"]
 
 
@@ -183,7 +183,7 @@ def fetch_commons_metadata(filename: str) -> dict:
     try:
         req = urllib.request.Request(api_url, headers={"User-Agent": HEADERS["User-Agent"]})
         with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read())
+            data = orjson.loads(resp.read())
     except Exception as e:
         return {"_error": str(e)}
 
@@ -219,8 +219,8 @@ def load_existing_manifest() -> dict[str, dict]:
     if not MANIFEST_PATH.exists():
         return {}
     try:
-        prev = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+        prev = orjson.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    except orjson.JSONDecodeError:
         return {}
     if not isinstance(prev, list):
         return {}
@@ -331,7 +331,7 @@ def main() -> None:
         out.append(record)
 
     MANIFEST_PATH.write_text(
-        json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8",
+        orjson.dumps(out, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS, default=str).decode("utf-8"), encoding="utf-8",
     )
 
     # ── Summary ────────────────────────────────────────────────────────────
