@@ -1,6 +1,20 @@
 -- v_legislation_index — one row per bill, primary sponsor only
 -- Source: data/silver/parquet/sponsors.parquet
 -- Deduplicates to one row per (bill_year, bill_no), preferring the primary sponsor.
+--
+-- TODO_GOVT_BILLS: Three changes needed when the unscoped legislation feed lands.
+--   (a) WHERE sponsor_by_show_as IS NOT NULL drops every Government bill (those
+--       carry sponsor in sponsor_as_show_as). Change to:
+--         WHERE COALESCE(sponsor_by_show_as, sponsor_as_show_as) IS NOT NULL
+--       and update the `sponsor` derivation to coalesce the same two columns.
+--   (b) Add `source` and `origin_house` to the projection — currently neither
+--       reaches the page, so no Govt-vs-PM filter is possible at the index level.
+--   (c) The bill_phase CASE assumes Dáil-origin. Make origin-aware: a Seanad-
+--       origin bill at stage 2 should land in 'seanad', not 'dail'. Use
+--       `origin_house ILIKE '%Seanad%'` (values are 'Seanad Éireann' / 'Dáil Éireann').
+-- Full plan + verified sandbox impl:
+--   pipeline_sandbox/legislation_unscoped_integration_plan.md §2a
+--   pipeline_sandbox/legislation_unscoped_silver_views.py
 
 CREATE OR REPLACE VIEW v_legislation_index AS
 WITH ranked AS (

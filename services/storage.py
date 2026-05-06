@@ -2,7 +2,14 @@ import json
 import logging
 from pathlib import Path
 
-from services.dail_config import BRONZE_DIR, LEGISLATION_DIR, MEMBERS_DIR, QUESTIONS_DIR, VOTES_DIR
+from services.dail_config import (
+    BRONZE_DIR,
+    DEBATES_LISTINGS_DIR,
+    LEGISLATION_DIR,
+    MEMBERS_DIR,
+    QUESTIONS_DIR,
+    VOTES_DIR,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +25,8 @@ def result_file_path(scenario: str) -> Path:
         return QUESTIONS_DIR / "questions_results.json"
     if scenario == "votes":
         return VOTES_DIR / "votes_results.json"
+    if scenario == "debates_listings":
+        return DEBATES_LISTINGS_DIR / "debates_listings_results.json"
     return BRONZE_DIR / f"{scenario}_results.json"
 
 
