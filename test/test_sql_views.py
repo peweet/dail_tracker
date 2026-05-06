@@ -227,6 +227,18 @@ def test_v_legislation_debates_executes():
     assert len(result) > 0
 
 
+@pytest.mark.sql
+def test_v_debate_listings_executes():
+    _skip_missing(SILVER_PARQUET_DIR / "debate_listings.parquet")
+    con = _con()
+    con.execute(_load("v_debate_listings.sql"))
+    result = _result(con, "v_debate_listings")
+    for col in ("debate_section_id", "debate_date", "chamber", "debate_type",
+                "speaker_count", "speech_count", "debate_url_web"):
+        assert col in result.columns, f"Expected column '{col}' in v_debate_listings"
+    assert len(result) > 0
+
+
 # ---------------------------------------------------------------------------
 # PAYMENTS VIEWS
 # ---------------------------------------------------------------------------

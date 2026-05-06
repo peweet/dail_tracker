@@ -35,6 +35,7 @@ _DOMAIN_FILES = [
     "payments_yearly_evolution.sql",
     "lobbying_revolving_door.sql",
     "legislation_index.sql",
+    "v_debate_listings.sql",
 ]
 
 # {MEMBER_PARQUET_PATH} substituted with absolute path from config

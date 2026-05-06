@@ -5,6 +5,8 @@ import polars as pl
 
 from services.dail_config import API_BASE
 
+DEBATES_CHAMBERS = ("dail", "seanad")
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,6 +62,44 @@ def build_questions_urls(member_df: pl.DataFrame) -> list[str]:
 
     logger.info(f"Built {len(urls)} questions URLs")
     return urls
+
+
+def build_debates_day_urls(
+    date_chamber_pairs: list[tuple[str, str]],
+) -> list[str]:
+    """Build one /v1/debates day-window URL per (date, chamber) pair.
+
+    Identity is composite — the same dbsect_* recurs every sitting day, so
+    the worklist must be deduped on (date, chamber) by the caller. The API
+    returns every dbsect that sat in that chamber on that date in a single
+    response (~35 KB), so total worklist size is ~700 today, not 3,008.
+    """
+    if not date_chamber_pairs:
+        return []
+
+    seen: set[tuple[str, str]] = set()
+    urls: list[str] = []
+    for date, chamber in date_chamber_pairs:
+        if not date or not chamber:
+            continue
+        if chamber not in DEBATES_CHAMBERS:
+            continue
+        key = (str(date), str(chamber))
+        if key in seen:
+            continue
+        seen.add(key)
+        urls.append(
+            f"{API_BASE}/debates"
+            f"?date_start={date}"
+            f"&date_end={date}"
+            f"&chamber={quote(chamber)}"
+            f"&limit=200"
+            f"&lang=en"
+        )
+
+    logger.info(f"Built {len(urls)} debates day-window URLs")
+    return urls
+
 
 if __name__ == "__main__":
     # Example usage

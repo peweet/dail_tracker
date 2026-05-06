@@ -12,6 +12,10 @@ LEGISLATION_DIR = BRONZE_DIR / "legislation"
 QUESTIONS_DIR = BRONZE_DIR / "questions"
 VOTES_DIR = BRONZE_DIR / "votes"
 MEMBERS_DIR = BRONZE_DIR / "members"
+DEBATES_DIR = BRONZE_DIR / "debates"
+DEBATES_LISTINGS_DIR = DEBATES_DIR / "listings"
+# Reserved for Stage 2 (AKN XML pool). Declared now so Stage 2 doesn't reshuffle config.
+AKN_DIR = DEBATES_DIR / "akn"
 
 LOG_DIR = PROJECT_ROOT / "logs"
 
@@ -26,6 +30,9 @@ for path in [
     QUESTIONS_DIR,
     VOTES_DIR,
     MEMBERS_DIR,
+    DEBATES_DIR,
+    DEBATES_LISTINGS_DIR,
+    AKN_DIR,
     LOG_DIR,
 ]:
     path.mkdir(parents=True, exist_ok=True)

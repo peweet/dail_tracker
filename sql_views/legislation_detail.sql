@@ -1,6 +1,15 @@
 -- v_legislation_detail — full bill record for the Stage 2 drilldown panel
 -- Source: data/silver/parquet/sponsors.parquet
 -- One row per bill_id; all available metadata columns included.
+--
+-- TODO_GOVT_BILLS: Mirror the index-view fix — replace
+--     WHERE sponsor_by_show_as IS NOT NULL
+-- with
+--     WHERE COALESCE(sponsor_by_show_as, sponsor_as_show_as) IS NOT NULL
+-- and coalesce both columns in the `sponsor` derivation. Without this, the
+-- index ↔ detail drift filter in legislation_data.fetch_bill_detail returns
+-- empty for every Government bill the user clicks.
+-- See pipeline_sandbox/legislation_unscoped_integration_plan.md §2a.
 
 CREATE OR REPLACE VIEW v_legislation_detail AS
 WITH ranked AS (
