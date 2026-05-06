@@ -41,6 +41,11 @@ def build_legislation_urls(member_df: pl.DataFrame) -> list[str]:
     return urls
 
 
+def build_legislation_unscoped_url(skip: int = 0) -> str:
+       return (f"{API_BASE}/legislation?date_start=2014-01-01"
+               f"&date_end=2099-01-01&limit=1000&skip={skip}"
+               f"&chamber_id=&lang=en")
+
 def build_questions_urls(member_df: pl.DataFrame) -> list[str]:
     """Build one questions URL per member."""
     if member_df.is_empty():
