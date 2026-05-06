@@ -107,6 +107,15 @@ def _render_legislation_index(
     )
 
     # ── Government Bills notice ───────────────────────────────────────────────
+    # TODO_GOVT_BILLS: When the unscoped legislation feed lands and the SQL
+    # views are fixed (see pipeline_sandbox/legislation_unscoped_integration_plan.md §2a):
+    #   1. Remove this entire callout block.
+    #   2. Generalise hero copy at lines ~56-60 ("Private Members'" → "Bills").
+    #   3. Update the provenance text at lines ~207-212 to drop the
+    #      "Government Bills not yet included" caveat.
+    #   4. Add a Government / Private Member / All segmented control next to
+    #      the existing phase selector at lines ~127-134, and surface `source`
+    #      on the bill card meta strip at line ~174.
     st.html(
         '<div class="leg-todo-callout">'
         '<span class="leg-todo-label">Pipeline todo</span> '

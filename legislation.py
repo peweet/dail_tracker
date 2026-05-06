@@ -1,5 +1,18 @@
 # --- Write new DataFrames to CSV files ---
 
+# TODO_GOVT_BILLS: This file is the silver flattener for bills. It reads the
+# per-TD-scoped bronze JSON, which excludes Government bills entirely (the
+# /v1/legislation `member_id` filter only returns bills sponsored by an
+# individual TD). To include Government bills:
+#   1. Switch the input below to `legislation_results_unscoped.json`.
+#   2. Add `["bill", "originHouse", "showAs"]` to BILL_META and
+#      `"bill.originHouse.showAs": "origin_house"` to rename_bill_fields.
+#   3. Change the dropna at line ~126 to keep rows where either
+#      sponsor.by.showAs OR sponsor.as.showAs is populated (Government bills
+#      carry sponsor identity in `as.showAs`, not `by.showAs`).
+# Full proof + checklist: pipeline_sandbox/legislation_unscoped_integration_plan.md §2a
+# Sandbox impl (already verified end-to-end): pipeline_sandbox/legislation_unscoped_silver_views.py
+
 import pandas as pd
 
 from config import LEGISLATION_DIR, SILVER_DIR
