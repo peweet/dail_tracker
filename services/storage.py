@@ -27,6 +27,8 @@ def result_file_path(scenario: str) -> Path:
         return VOTES_DIR / "votes_results.json"
     if scenario == "debates_listings":
         return DEBATES_LISTINGS_DIR / "debates_listings_results.json"
+    if scenario == "legislation_unscoped":
+       return LEGISLATION_DIR / "legislation_results_unscoped.json"
     return BRONZE_DIR / f"{scenario}_results.json"
 
 

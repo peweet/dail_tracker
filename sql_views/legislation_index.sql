@@ -35,7 +35,7 @@ WITH ranked AS (
             ORDER BY CASE WHEN sponsor_is_primary = true THEN 0 ELSE 1 END
         ) AS rn
     FROM read_parquet('data/silver/parquet/sponsors.parquet')
-    WHERE sponsor_by_show_as IS NOT NULL
+    WHERE COALESCE(sponsor_by_show_as, sponsor_as_show_as) IS NOT NULL
 )
 SELECT
     bill_id,
@@ -43,6 +43,8 @@ SELECT
     bill_status,
     bill_type,
     sponsor,
+    source,
+    origin_house,
     introduced_date,
     current_stage,
     stage_number,
@@ -55,6 +57,8 @@ SELECT
           OR COALESCE(stage_number, 0) >= 11
         THEN 'enacted'
         WHEN COALESCE(stage_number, 0) >= 6 THEN 'seanad'
+        WHEN origin_house ILIKE '%Seanad%' AND stage_number < 6 THEN 'seanad'
+        WHEN origin_house ILIKE '%Seanad%' AND stage_number >= 6 THEN 'dail'
         ELSE 'dail'
     END AS bill_phase
 FROM ranked
