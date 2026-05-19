@@ -10,6 +10,7 @@ from services.urls import (
     build_legislation_urls,
     build_questions_urls,
 )
+from services.dbsect_harvest import harvest_dbsect_index
 from services.votes import fetch_votes
 
 logger = logging.getLogger(__name__)
@@ -150,6 +151,21 @@ def main() -> None:
     logger.info("=" * 70)
 
     run_votes(overwrite=overwrite_votes)
+
+    logger.info("=" * 70)
+    logger.info("STEP 4.5: Harvesting dbsect index from bronze")
+    logger.info("=" * 70)
+    # Contain a harvester failure: a malformed bronze JSON must not abort
+    # the whole Members API step (and with it STEP 5). Degrade to "no
+    # debate listings this run" - matches the DAIL-163 continue-past-
+    # failure philosophy in pipeline.py.
+    try:
+        n_dbsect = harvest_dbsect_index()
+        logger.info(f"dbsect index harvested: {n_dbsect} rows")
+    except Exception as e:
+        logger.error(
+            f"dbsect harvest failed (debate listings will be skipped): {e}"
+        )
 
     logger.info("=" * 70)
     logger.info("STEP 5: Fetching debates day-window listings")

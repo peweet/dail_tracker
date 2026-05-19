@@ -38,7 +38,7 @@ in production for a refresh cycle or two — see plan §10.
 """
 from __future__ import annotations
 
-import json
+import orjson
 import re
 import sys
 from pathlib import Path
@@ -62,7 +62,7 @@ def _load_bronze() -> list[dict]:
         return []
     # API responses can carry non-ASCII (Irish-language titles) — explicit utf-8.
     with open(_BRONZE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        return orjson.loads(f.read())
 
 
 def _bill_ref(bill: dict | None) -> str | None:

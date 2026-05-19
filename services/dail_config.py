@@ -17,6 +17,9 @@ DEBATES_LISTINGS_DIR = DEBATES_DIR / "listings"
 # Reserved for Stage 2 (AKN XML pool). Declared now so Stage 2 doesn't reshuffle config.
 AKN_DIR = DEBATES_DIR / "akn"
 
+SILVER_DIR = DATA_DIR / "silver"
+SILVER_PARQUET_DIR = SILVER_DIR / "parquet"
+
 LOG_DIR = PROJECT_ROOT / "logs"
 
 API_BASE = "https://api.oireachtas.ie/v1"
@@ -33,6 +36,8 @@ for path in [
     DEBATES_DIR,
     DEBATES_LISTINGS_DIR,
     AKN_DIR,
+    SILVER_DIR,
+    SILVER_PARQUET_DIR,
     LOG_DIR,
 ]:
     path.mkdir(parents=True, exist_ok=True)

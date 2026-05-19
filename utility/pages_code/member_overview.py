@@ -263,6 +263,66 @@ def _legislation(_conn, member_name: str) -> pd.DataFrame:
     )
 
 
+@st.cache_data(ttl=300)
+def _debate_years(_conn, join_key: str) -> list[int]:
+    df = _q(
+        _conn,
+        "SELECT DISTINCT debate_year FROM v_member_debate_sections"
+        " WHERE unique_member_code = ? AND debate_year IS NOT NULL"
+        " ORDER BY debate_year DESC LIMIT 30",
+        [join_key],
+    )
+    if df.empty or "debate_year" not in df.columns:
+        return []
+    return [int(y) for y in df["debate_year"].dropna().tolist()]
+
+
+@st.cache_data(ttl=300)
+def _debate_topics(_conn, join_key: str, year: int | None = None) -> list[str]:
+    clauses = ["unique_member_code = ?", "topic IS NOT NULL"]
+    params: list = [join_key]
+    if year is not None:
+        clauses.append("debate_year = ?")
+        params.append(year)
+    df = _q(
+        _conn,
+        "SELECT DISTINCT topic FROM v_member_debate_sections"
+        f" WHERE {' AND '.join(clauses)} ORDER BY topic LIMIT 100",
+        params,
+    )
+    if df.empty or "topic" not in df.columns:
+        return []
+    return [str(t) for t in df["topic"].dropna().tolist()]
+
+
+@st.cache_data(ttl=300)
+def _debate_sections(
+    _conn,
+    join_key: str,
+    year: int | None = None,
+    topic: str | None = None,
+) -> pd.DataFrame:
+    """Debate sections a TD raised a question in — retrieval-only filter on
+    v_member_debate_sections (SELECT / WHERE / ORDER BY / LIMIT)."""
+    clauses = ["unique_member_code = ?"]
+    params: list = [join_key]
+    if year is not None:
+        clauses.append("debate_year = ?")
+        params.append(year)
+    if topic:
+        clauses.append("topic = ?")
+        params.append(topic)
+    return _q(
+        _conn,
+        "SELECT debate_date, debate_section_id, chamber, topic,"
+        " question_count, oireachtas_url"
+        " FROM v_member_debate_sections"
+        f" WHERE {' AND '.join(clauses)}"
+        " ORDER BY debate_date DESC LIMIT 1000",
+        params,
+    )
+
+
 # ── Profile section renderers ──────────────────────────────────────────────────
 
 def _section_votes(
@@ -446,17 +506,106 @@ def _section_legislation(conn, member_name: str) -> None:
     )
 
 
-def _section_debates() -> None:
-    st.html('<p class="section-heading">Debate contributions</p>')
-    st.html(
-        '<div class="leg-todo-callout">'
-        '<span class="leg-todo-label">TODO PIPELINE VIEW REQUIRED</span>'
-        ' <code>v_member_debate_speeches</code> — what a TD said in each debate.'
-        ' The existing <code>v_legislation_debates</code> links debates to bills but'
-        ' does not record speakers or utterances. Required columns:'
-        ' <b>unique_member_code</b>, <b>debate_date</b>, <b>debate_title</b>,'
-        ' <b>snippet</b>, <b>oireachtas_url</b>.'
-        '</div>'
+def _section_debates(conn, join_key: str, member_name: str) -> None:
+    st.html('<p class="section-heading">Debate participation</p>')
+    st.caption(
+        "Debate sections where this TD raised a parliamentary question, "
+        "linked to the record on oireachtas.ie. Floor-speech attribution "
+        "(who said what) is pending the debates Stage 2 AKN-XML layer."
+    )
+
+    years = _debate_years(conn, join_key)
+    if not years:
+        empty_state(
+            "No debate references found",
+            f"No parliamentary questions by {member_name} map to a debate "
+            "section in v_member_debate_sections.",
+        )
+        return
+
+    # ── Year filter (pills) ──────────────────────────────────────────────
+    year_opts = ["All years"] + [str(y) for y in years]
+    selected_year = st.pills(
+        "Debate year",
+        options=year_opts,
+        default="All years",
+        key="mo_debate_year",
+        label_visibility="collapsed",
+    ) or "All years"
+    year_val = None if selected_year == "All years" else int(selected_year)
+
+    # ── Topic filter (selectbox — topics are free-form and numerous) ─────
+    # Key is year-scoped: changing year refreshes the topic list cleanly
+    # instead of stranding a now-absent selection in session state.
+    topics = _debate_topics(conn, join_key, year_val)
+    selected_topic = st.selectbox(
+        "Topic",
+        options=["All topics"] + topics,
+        index=0,
+        key=f"mo_debate_topic_{year_val or 'all'}",
+        label_visibility="collapsed",
+    ) or "All topics"
+    topic_val = None if selected_topic == "All topics" else selected_topic
+
+    df = _debate_sections(conn, join_key, year_val, topic_val)
+    if df.empty:
+        empty_state(
+            "No debate references match these filters",
+            "Try a different year or topic.",
+        )
+        return
+
+    total     = len(df)
+    PAGE_SIZE = 10
+    filter_sig = f"{year_val or 'all'}_{topic_val or 'all'}"
+    pager_key  = f"mo_debate_{join_key}_{filter_sig}"
+    page_idx   = paginate(total, key_prefix=pager_key, page_size=PAGE_SIZE)
+    visible    = df.iloc[page_idx * PAGE_SIZE : (page_idx + 1) * PAGE_SIZE]
+
+    start = page_idx * PAGE_SIZE + 1
+    end   = min((page_idx + 1) * PAGE_SIZE, total)
+    st.caption(
+        f"Showing {start:,}–{end:,} of {total:,} debate "
+        f"section{'s' if total != 1 else ''}"
+    )
+
+    for _, row in visible.iterrows():
+        date_raw = str(row.get("debate_date", "") or "")
+        try:
+            date_disp = pd.to_datetime(date_raw).strftime("%d %b %Y")
+        except Exception:
+            date_disp = date_raw
+        chamber = str(row.get("chamber", "") or "").title() or "—"
+        topic   = (str(row.get("topic", "") or "").strip() or "—")
+        qcount  = int(row.get("question_count", 0) or 0)
+        url     = str(row.get("oireachtas_url", "") or "")
+        if url in ("nan", "None"):
+            url = ""
+        url_html = source_link_html(
+            url, "Oireachtas.ie",
+            aria_label="Open this debate section on oireachtas.ie",
+        )
+        st.html(
+            f'<div class="leg-bill-card" style="margin-bottom:0.3rem;">'
+            f'<div class="leg-bill-card-header">'
+            f'<span class="leg-bill-card-date">{_h(date_disp)}</span>'
+            f'<span class="signal leg-status-active">{_h(chamber)}</span>'
+            f'</div>'
+            f'<div class="leg-bill-card-title">{_h(topic)}</div>'
+            f'<div style="margin-top:0.2rem;font-size:0.85rem;'
+            f'color:var(--text-secondary);">'
+            f'{qcount} question{"s" if qcount != 1 else ""} raised'
+            f'&nbsp;·&nbsp;{url_html}</div>'
+            f'</div>'
+        )
+
+    pagination_controls(
+        total=total,
+        key_prefix=pager_key,
+        page_sizes=(PAGE_SIZE,),
+        default_page_size=PAGE_SIZE,
+        label="debate sections",
+        show_caption=False,
     )
 
 
@@ -785,8 +934,8 @@ def _render_stage2(
 
     st.divider()
 
-    # ── 3. Debate contributions ───────────────────────────────────────────────
-    _section_debates()
+    # ── 3. Debate participation ───────────────────────────────────────────────
+    _section_debates(conn, join_key, member_name)
 
     st.divider()
 

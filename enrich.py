@@ -115,45 +115,37 @@ logging.info("Enriched TD votes Parquet created (check pipeline)")
 # #https://docs.getdbt.com/blog/kimball-dimensional-model?version=1.12
 # #https://pandas.pydata.org/docs/user_guide/merging.html?utm_source
 
-pay_src = GOLD_DIR / "top_tds_by_payment_since_2020.csv"
-if pay_src.exists():
-    pay_raw = pl.read_csv(
-        pay_src,
-        schema_overrides={"total_amount_paid_since_2020": pl.Float64},
-        ignore_errors=True,
+_pay_psa = GOLD_PARQUET_DIR / "payments_full_psa.parquet"
+if _pay_psa.exists():
+    pay_raw = pl.read_parquet(_pay_psa)
+    pay_keyed = normalise_join_key.normalise_df_td_name(
+        pay_raw.filter(pl.col("date_paid") >= pl.lit("2020-01-01").str.to_date())
+               .filter(pl.col("amount").is_not_null()),
+        "member_name",
     )
-    pay_dedup = (
-        pay_raw
-        .filter(pl.col("total_amount_paid_since_2020").is_not_null())
-        .sort("total_amount_paid_since_2020", descending=True)
+    pay_agg = (
+        pay_keyed
+        .group_by("join_key")
+        .agg(pl.col("amount").sum().alias("total_amount_paid_since_2020"))
+    )
+    member_lookup = (
+        master_td_list
+        .select(["join_key", "identifier", "party", "constituency"])
         .unique(subset=["join_key"], keep="first")
-        .with_columns(
-            pl.col("Full_Name")
-              .str.strip_chars()
-              .str.replace(r"^([^,]+),\s*(.+)$", "$2 $1")
-              .alias("member_name")
-        )
     )
     current_rankings = (
-        pay_dedup
-        .join(
-            master_td_list.select(["join_key", "identifier", "party", "constituency"]),
-            on="join_key",
-            how="inner",
-        )
-        .select([
-            "member_name", "join_key",
-            "identifier", "party", "constituency",
-            "total_amount_paid_since_2020",
-        ])
+        pay_agg
+        .join(member_lookup, on="join_key", how="inner")
+        .select(["join_key", "identifier", "party", "constituency",
+                 "total_amount_paid_since_2020"])
         .sort("total_amount_paid_since_2020", descending=True)
         .with_row_index(name="rank", offset=1)
     )
     current_rankings.write_csv(GOLD_CSV_DIR / "current_td_payment_rankings.csv")
     current_rankings.write_parquet(GOLD_PARQUET_DIR / "current_td_payment_rankings.parquet")
-    print(f"Current TD payment rankings written: {len(current_rankings)} TDs (34th Dáil only)")
+    print(f"Current TD payment rankings written: {len(current_rankings)} TDs")
 else:
-    print("WARN: top_tds_by_payment_since_2020.csv not found — skipping current TD payment rankings")
+    print("WARN: payments_full_psa.parquet not found — skipping current TD payment rankings")
 
 # ── Lobbying gold enrichment — add unique_member_code by normalised-name join ──
 # most_lobbied_politicians.sql doesn't carry unique_member_code, so we add it here

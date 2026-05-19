@@ -31,6 +31,7 @@ import glob
 import json
 import os
 import re
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -68,7 +69,7 @@ BOILERPLATE_PATTERN = r"All notices and advertisements are published in Iris Oif
 HEADER_PATTERNS = [
     r"^IRIS OIFIGI[ÚU]IL,?\s+",
     r"^Number\s+\d+\b",
-    r"^\d{2,5}$",
+    r"^\d{1,5}$",
     r"^Published by Authority$",
     r"^(Tuesday|Friday),?\s+\d",
     r"^This publication is registered for transmission",
@@ -301,7 +302,10 @@ def extract_lines_raw(pdf_path: str) -> tuple[list[dict[str, Any]], dict[str, An
         "min_page_chars": min(char_counts),
         "max_page_chars": max(char_counts),
         "mean_page_chars": round(sum(char_counts) / len(char_counts), 1),
-        "valid_iris_issue": bool(issue_date and issue_number and "IRIS" in first_text.upper()),
+        "valid_iris_issue": bool(
+            issue_date and issue_number
+            and ("IRIS" in first_text.upper() or "PUBLISHED BY AUTHORITY" in first_text.upper())
+        ),
     }
     doc.close()
     return rows, meta
@@ -1443,10 +1447,9 @@ def run(paths: list[str], out_dir: str, confidence_threshold: float = 0.75) -> N
 # Default input — every Iris PDF in bronze. When the script is run with no
 # arguments (e.g. clicked from an IDE) we fall back to this so we always
 # process the full historical corpus rather than erroring out.
-DEFAULT_INPUT_GLOB = str(
-    Path(__file__).resolve().parents[1] / "data" / "bronze" / "iris_oifigiuil" / "*.pdf"
-)
-DEFAULT_OUT_DIR = str(Path(__file__).resolve().parent / "out")
+_ROOT = Path(__file__).resolve().parent
+DEFAULT_INPUT_GLOB = str(_ROOT / "data" / "bronze" / "iris_oifigiuil" / "*.pdf")
+DEFAULT_OUT_DIR    = str(_ROOT / "data" / "silver" / "iris_oifigiuil")
 
 
 def main() -> None:
@@ -1468,6 +1471,17 @@ def main() -> None:
     paths = list(dict.fromkeys(paths))
     # Drop the 146-byte 404 stubs — they're not real PDFs and crash fitz.
     paths = [p for p in paths if not (os.path.exists(p) and os.path.getsize(p) < 5_000)]
+    # Drop placeholder stubs for future-dated issues (filename IRDDMMYY.pdf, date > today).
+    _today = date.today()
+    def _is_future_stub(p: str) -> bool:
+        m = re.match(r"IR(\d{2})(\d{2})(\d{2})\.pdf$", Path(p).name, re.IGNORECASE)
+        if not m:
+            return False
+        try:
+            return date(2000 + int(m.group(3)), int(m.group(2)), int(m.group(1))) > _today
+        except ValueError:
+            return False
+    paths = [p for p in paths if not _is_future_stub(p)]
     if not paths:
         parser.error(f"No PDFs matched any of: {args.paths}")
     print(f"Processing {len(paths)} PDFs -> {args.out_dir}")
