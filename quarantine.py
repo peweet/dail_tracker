@@ -32,8 +32,6 @@ Run as a smoke test:
   python pipeline_sandbox/quarantine.py
 """
 
-from __future__ import annotations
-
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -96,7 +94,7 @@ def quarantine(
     not silently overwrite.
     """
     if df_failed.is_empty():
-        return out_dir / f"{source}_{_safe(run_id)}.parquet"  # not written
+        return out_dir / f"{source}_{safe(run_id)}.parquet"  # not written
 
     overlap = set(df_failed.columns) & set(_META_COLS)
     if overlap:
@@ -114,12 +112,12 @@ def quarantine(
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{source}_{_safe(run_id)}.parquet"
+    out_path = out_dir / f"{source}_{safe(run_id)}.parquet"
     annotated.write_parquet(out_path)
     return out_path
 
 
-def _safe(run_id: str) -> str:
+def safe(run_id: str) -> str:
     # run_id contains ':' from the ISO timestamp, which is illegal in
     # Windows filenames. Mirror the substitution the manifest layer would
     # use if it ever wrote run-named files itself.
