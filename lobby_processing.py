@@ -8,7 +8,7 @@ import duckdb
 import polars as pl
 
 from config import GOLD_CSV_DIR, GOLD_DIR, GOLD_PARQUET_DIR, LOBBY_OUTPUT_DIR, LOBBY_PARQUET_DIR, LOBBYING_RAW_DIR, SILVER_PARQUET_DIR
-from pipeline_sandbox.quarantine import quarantine
+from quarantine import quarantine
 from utility.select_drop_rename_cols_mappings import lobbying_rename
 
 
