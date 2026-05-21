@@ -43,10 +43,10 @@ def run_member_scenario(
 def _load_debates_worklist() -> list[tuple[str, str]]:
     """Read deduplicated (date, chamber) pairs from dbsect_index.parquet.
 
-    The harvester (pipeline_sandbox/dbsect_harvest.py for now, graduates
-    later) writes silver/parquet/dbsect_index.parquet which already carries
-    date + chamber per dbsect. Returns an empty list when the index is
-    absent so the pipeline can run end-to-end before the harvester graduates.
+    The harvester (services/dbsect_harvest.py, run in STEP 4.5) writes
+    silver/parquet/dbsect_index.parquet which already carries date + chamber
+    per dbsect. Returns an empty list when the index is absent so the
+    pipeline can run end-to-end even if STEP 4.5 was skipped.
     """
     try:
         import polars as pl  # local import — keeps services/__init__.py light
@@ -59,8 +59,8 @@ def _load_debates_worklist() -> list[tuple[str, str]]:
     index_path = Path(SILVER_PARQUET_DIR) / "dbsect_index.parquet"
     if not index_path.exists():
         logger.warning(
-            "dbsect_index.parquet not found at %s — run "
-            "pipeline_sandbox/dbsect_harvest.py before this scenario "
+            "dbsect_index.parquet not found at %s — STEP 4.5 "
+            "(services/dbsect_harvest.py) must run before this scenario "
             "to populate the worklist.",
             index_path,
         )

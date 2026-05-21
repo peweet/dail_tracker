@@ -3,12 +3,10 @@
 -- Gold file has one row per (politician, role/chamber); deduplicate to one row
 -- per politician keeping the primary role (highest lobby_returns_targeting).
 --
--- Enrichments computed here from other gold/silver parquet files:
---   unique_member_code     ← flattened_members.parquet (LOWER(strip_accents()) join)
---                            Only ~5% of lobbying DPOs are Dáil/Seanad members; the
---                            rest are councillors, civil servants, ministerial staff,
---                            MEPs, etc. These get an empty unique_member_code and
---                            the page renders them as non-clickable cards.
+-- unique_member_code is now produced upstream by sql_queries/most_lobbied_politicians.sql
+-- (only ~5% of lobbying DPOs are Dáil/Seanad members — rest get '').
+--
+-- Enrichments computed here from other gold parquet files:
 --   distinct_policy_areas  ← politician_policy_exposure.parquet (COUNT DISTINCT per name)
 --   first_period/last_period ← bilateral_relationships.parquet (MIN/MAX relationship dates)
 --   position               ← derived from chamber string (Dáil → "TD", Seanad → "Senator")
@@ -22,25 +20,15 @@ WITH deduped AS (
     SELECT
         full_name,
         chamber,
+        unique_member_code,
         lobby_returns_targeting,
         distinct_orgs,
         total_returns,
         ROW_NUMBER() OVER (
             PARTITION BY full_name
-            ORDER BY lobby_returns_targeting DESC
+            ORDER BY lobby_returns_targeting DESC, COALESCE(chamber, ''), COALESCE(unique_member_code, '')
         ) AS rn
     FROM read_parquet('data/gold/parquet/most_lobbied_politicians.parquet')
-),
-member_lookup AS (
-    SELECT
-        full_name AS member_full_name,
-        unique_member_code,
-        ROW_NUMBER() OVER (
-            PARTITION BY LOWER(strip_accents(TRIM(full_name)))
-            ORDER BY unique_member_code DESC
-        ) AS rn
-    FROM read_parquet('data/silver/parquet/flattened_members.parquet')
-    WHERE full_name IS NOT NULL AND unique_member_code IS NOT NULL
 ),
 policy_areas AS (
     SELECT
@@ -60,9 +48,9 @@ periods AS (
     GROUP BY full_name
 )
 SELECT
-    ROW_NUMBER() OVER (ORDER BY d.total_returns DESC)                   AS rank,
+    ROW_NUMBER() OVER (ORDER BY d.total_returns DESC, d.full_name ASC)  AS rank,
     d.full_name                                                         AS member_name,
-    COALESCE(m.unique_member_code, '')                                  AS unique_member_code,
+    COALESCE(d.unique_member_code, '')                                  AS unique_member_code,
     COALESCE(d.chamber, '')                                             AS chamber,
     CASE
         WHEN d.chamber ILIKE '%dáil%' OR d.chamber ILIKE '%dail%' THEN 'TD'
@@ -76,9 +64,6 @@ SELECT
     CAST(p.first_contact_date AS VARCHAR)                               AS first_period,
     CAST(p.last_contact_date  AS VARCHAR)                               AS last_period
 FROM deduped d
-LEFT JOIN member_lookup m
-    ON LOWER(strip_accents(TRIM(d.full_name))) = LOWER(strip_accents(TRIM(m.member_full_name)))
-    AND m.rn = 1
 LEFT JOIN policy_areas pa ON d.full_name = pa.full_name
 LEFT JOIN periods      p  ON d.full_name = p.full_name
 WHERE d.rn = 1

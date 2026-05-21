@@ -244,6 +244,41 @@ def _topic_card_html(symbol: str, heading: str, body: str) -> str:
     )
 
 
+_STATUS_PILL_LABELS = {
+    "active":       "Active",
+    "in_distress":  "In distress",
+    "dead":         "Dissolved",
+    "registered":   "Registered charity",
+    "deregistered": "Deregistered charity",
+}
+
+_FUNDING_PILL_LABELS = {
+    "state_funded":     "State-funded",
+    "mostly_donations": "Mostly donations",
+    "mostly_trading":   "Mostly trading",
+    "mixed":            "Mixed funding",
+}
+
+
+def _register_pills(row: pd.Series) -> list[str]:
+    """CRO × Charity register pills for an org card (skips empty/unknown)."""
+    out: list[str] = []
+    status = row.get("status")
+    if status and pd.notna(status):
+        label = _STATUS_PILL_LABELS.get(str(status))
+        if label:
+            out.append(label)
+    profile = row.get("funding_profile")
+    if profile and pd.notna(profile):
+        label = _FUNDING_PILL_LABELS.get(str(profile))
+        if label:
+            gov_share = row.get("gov_funded_share_latest")
+            if profile == "state_funded" and gov_share is not None and pd.notna(gov_share):
+                label = f"{label} {int(round(float(gov_share) * 100))}%"
+            out.append(label)
+    return out
+
+
 def _lob_card_html(
     name: str,
     meta: str,
@@ -589,6 +624,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
                 pills = [
                     f"{int(row.get('return_count', 0) or 0):,} returns",
                     f"{int(row.get('politicians_targeted', 0) or 0):,} politicians",
+                    *_register_pills(row),
                 ]
                 cards.append(
                     clickable_card_link(
@@ -1281,6 +1317,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
     last_p   = str(org_row.get("last_period",  "") or "")
 
     badges = [b for b in [sector] if b]
+    badges.extend(_register_pills(org_row))
     if website and website.startswith("http"):
         badges.append(source_link_html(website, website,
                                        aria_label=f"Open {org_name} website"))

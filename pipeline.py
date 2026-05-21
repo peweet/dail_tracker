@@ -19,11 +19,10 @@ STEPS = [
     ("Process legislation", "legislation.py"),
     ("Member interests PDF conversion to Dataframe", "member_interests.py"),
     ("Iris Oifigiuil ETL", "iris_oifigiuil_etl_polars.py"),
-    # ("Flatten bills", "flatten_service.py"),
-    ("Enrich", "enrich.py"),
+    ("Iris SI <-> bill enrichment", "pipeline_sandbox/iris_si_bill_enrichment.py"),
+    # transform_votes must precede enrich — enrich.py reads silver/pretty_votes.csv
     ("Transform vote data", "transform_votes.py"),
-    # ("Unit tests", "tests.py"),
-    # ("Scrub unneeded files and intemediate data", "tear_down.py"),
+    ("Enrich", "enrich.py"),
 ]
 
 

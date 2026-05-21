@@ -20,7 +20,10 @@ WITH ranked AS (
         origin_house,
         ROW_NUMBER() OVER (
             PARTITION BY bill_year, bill_no
-            ORDER BY CASE WHEN sponsor_is_primary = true THEN 0 ELSE 1 END
+            ORDER BY
+                CASE WHEN sponsor_is_primary = true THEN 0 ELSE 1 END,
+                COALESCE(sponsor_by_show_as, ''),
+                COALESCE(unique_member_code, '')
         ) AS rn
     FROM read_parquet('data/silver/parquet/sponsors.parquet')
     WHERE COALESCE(sponsor_by_show_as, sponsor_as_show_as) IS NOT NULL
@@ -45,8 +48,8 @@ SELECT
           OR COALESCE(stage_number, 0) >= 11
         THEN 'enacted'
         WHEN COALESCE(stage_number, 0) >= 6 THEN 'seanad'
-        WHEN origin_house ILIKE '%Seanad%' AND stage_number < 6 THEN 'seanad'
-        WHEN origin_house ILIKE '%Seanad%' AND stage_number >= 6 THEN 'dail'
+        WHEN origin_house ILIKE '%Seanad%' AND COALESCE(stage_number, 0) < 6 THEN 'seanad'
+        WHEN origin_house ILIKE '%Seanad%' AND COALESCE(stage_number, 0) >= 6 THEN 'dail'
         ELSE 'dail'
     END AS bill_phase
 FROM ranked

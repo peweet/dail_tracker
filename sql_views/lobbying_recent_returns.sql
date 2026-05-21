@@ -14,5 +14,5 @@ SELECT
     COALESCE(relevant_matter, '')   AS relevant_matter,
     lobby_url                       AS source_url
 FROM read_parquet('data/silver/lobbying/parquet/returns_master.parquet')
-ORDER BY period_start_date DESC NULLS LAST
+ORDER BY period_start_date DESC NULLS LAST, lobbyist_name ASC, lobby_url ASC
 LIMIT 20;
