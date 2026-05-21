@@ -13,7 +13,7 @@ Forbidden here (same rules as Streamlit page files):
 """
 from __future__ import annotations
 
-import contextlib
+import logging
 from pathlib import Path
 
 import duckdb
@@ -21,14 +21,18 @@ import pandas as pd
 import streamlit as st
 
 _SQL_VIEWS = Path(__file__).resolve().parents[2] / "sql_views"
+_log = logging.getLogger(__name__)
 
 
 @st.cache_resource
 def get_legislation_conn() -> duckdb.DuckDBPyConnection:
     conn = duckdb.connect()
     for sql_file in sorted(_SQL_VIEWS.glob("legislation_*.sql")):
-        with contextlib.suppress(Exception):  # partial load if one view fails
+        try:
             conn.execute(sql_file.read_text(encoding="utf-8"))
+        except Exception as e:
+            _log.warning("legislation view failed to load: %s | %s",
+                         sql_file.name, e)
     return conn
 
 
@@ -124,4 +128,103 @@ def fetch_bill_debates(bill_id: str) -> pd.DataFrame:
         " FROM v_legislation_debates WHERE bill_id = ?"
         " ORDER BY debate_date ASC NULLS LAST",
         [bill_id],
+    )
+
+
+# ── Pre-2014 primary Acts (curated table) ─────────────────────────────────────
+
+_PRE2014_CSV = Path(__file__).resolve().parents[2] / "data" / "_meta" / "pre2014_acts.csv"
+
+
+@st.cache_data(ttl=3600)
+def fetch_pre2014_act_detail(bill_id: str) -> dict:
+    """Return hero info for a synthetic 'act_<year>_<slug>' bill_id by
+    reading the curated pre-2014 Acts table. Returns {} on miss."""
+    if not (isinstance(bill_id, str) and bill_id.startswith("act_")):
+        return {}
+    if not _PRE2014_CSV.exists():
+        return {}
+    df = pd.read_csv(_PRE2014_CSV)
+    rows = df[df["canonical_bill_id"] == bill_id]
+    if rows.empty:
+        return {}
+    r = rows.iloc[0]
+    return {
+        "act_short_title": str(r.get("act_short_title") or ""),
+        "act_year":        int(r.get("act_year") or 0),
+        "policy_domain":   str(r.get("policy_domain") or ""),
+    }
+
+
+# ── Statutory Instruments under a bill ────────────────────────────────────────
+
+@st.cache_data(ttl=300)
+def fetch_si_composition(bill_id: str) -> pd.DataFrame:
+    """Operation-mix summary for the 'composition sentence' above the SI list."""
+    return _safe(
+        "SELECT si_operation, COUNT(*) AS n"
+        " FROM v_bill_statutory_instruments"
+        " WHERE bill_id = ? AND si_operation IS NOT NULL"
+        " GROUP BY si_operation ORDER BY n DESC",
+        [bill_id],
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_si_freshness(bill_id: str) -> dict:
+    """Total + first/last SI date + EU share for the freshness line."""
+    df = _safe(
+        "SELECT MIN(si_signed_date) AS first_si,"
+        " MAX(si_signed_date) AS last_si,"
+        " COUNT(*) AS total,"
+        " SUM(CASE WHEN si_is_eu THEN 1 ELSE 0 END) AS eu_count"
+        " FROM v_bill_statutory_instruments WHERE bill_id = ?",
+        [bill_id],
+    )
+    if df.empty or int(df.iloc[0]["total"] or 0) == 0:
+        return {}
+    r = df.iloc[0]
+    return {
+        "first_si": r["first_si"],
+        "last_si":  r["last_si"],
+        "total":    int(r["total"] or 0),
+        "eu_count": int(r["eu_count"] or 0),
+    }
+
+
+@st.cache_data(ttl=300)
+def fetch_si_years_for_bill(bill_id: str) -> list[int]:
+    df = _safe(
+        "SELECT DISTINCT si_year FROM v_bill_statutory_instruments"
+        " WHERE bill_id = ? ORDER BY si_year DESC",
+        [bill_id],
+    )
+    return [int(y) for y in df["si_year"].dropna().tolist()] if not df.empty else []
+
+
+@st.cache_data(ttl=300)
+def fetch_si_by_bill(
+    bill_id: str,
+    year: int | None = None,
+    operation: str | None = None,
+    eu_only: bool = False,
+) -> pd.DataFrame:
+    clauses = ["bill_id = ?"]
+    params: list = [bill_id]
+    if year is not None:
+        clauses.append("si_year = ?")
+        params.append(year)
+    if operation:
+        clauses.append("si_operation = ?")
+        params.append(operation)
+    if eu_only:
+        clauses.append("si_is_eu = TRUE")
+    return _safe(
+        "SELECT si_year, si_number, si_id, si_title, si_signed_date,"
+        " si_minister, si_minister_named, si_policy_domain, si_operation,"
+        " si_form, si_is_eu, eisb_url"
+        " FROM v_bill_statutory_instruments"
+        f" WHERE {' AND '.join(clauses)}"
+        " ORDER BY si_signed_date DESC NULLS LAST",
+        params,
     )

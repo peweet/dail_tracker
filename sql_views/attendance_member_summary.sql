@@ -35,7 +35,7 @@ SELECT
     sitting_days_count                              AS attended_count,
     total_sitting_count - sitting_days_count         AS absent_count,
     total_sitting_count                             AS sitting_count,
-    sitting_days_count::DOUBLE / total_sitting_count AS attendance_rate,
+    sitting_days_count::DOUBLE / NULLIF(total_sitting_count, 0) AS attendance_rate,
     MIN(iso_sitting_days_attendance)                AS first_sitting_date,
     MAX(iso_sitting_days_attendance)                AS last_sitting_date,
     'pipeline'                                      AS latest_run_id,

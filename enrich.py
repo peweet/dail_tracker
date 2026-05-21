@@ -1,8 +1,9 @@
-import polars as pl 
-import normalise_join_key
-from utility.select_drop_rename_cols_mappings import enrichment_cols_to_select, committees_cols_to_select, members_rename
 import logging
-from config import SILVER_DIR, GOLD_DIR, GOLD_CSV_DIR, GOLD_PARQUET_DIR
+
+import polars as pl
+
+import normalise_join_key
+from config import GOLD_CSV_DIR, GOLD_DIR, GOLD_PARQUET_DIR, SILVER_DIR
 
 
 #This module enriches the extracted datasets by joining them together and creating new features that can be used for analysis. It takes the cleaned and normalized datasets from the previous steps (e.g. attendance records, member metadata, committee assignments) and performs joins to create enriched datasets that combine information from multiple sources. The enriched datasets are then saved to CSV files for further analysis. This module also includes logging to track the progress of the enrichment process and any issues that may arise during the joining and feature creation steps. The resulting enriched datasets will provide a more comprehensive view of the TDs' activities and characteristics, allowing for deeper analysis of patterns and correlations across different dimensions of their work in the Dáil.
@@ -147,36 +148,8 @@ if _pay_psa.exists():
 else:
     print("WARN: payments_full_psa.parquet not found — skipping current TD payment rankings")
 
-# ── Lobbying gold enrichment — add unique_member_code by normalised-name join ──
-# most_lobbied_politicians.sql doesn't carry unique_member_code, so we add it here
-# after the SQL regenerates the parquet. Pre-34th Dáil names will have empty code.
-lob_src = GOLD_PARQUET_DIR / "most_lobbied_politicians.parquet"
-if lob_src.exists():
-    lob_raw = pl.read_parquet(lob_src)
-    if "unique_member_code" in lob_raw.columns:
-        lob_raw = lob_raw.drop("unique_member_code")
-
-    lob_keyed = normalise_join_key.normalise_df_td_name(lob_raw, "full_name")
-    member_lookup = (
-        master_td_list
-        .select(["join_key", "identifier"])
-        .rename({"identifier": "unique_member_code"})
-        .unique(subset=["join_key"], keep="first")
-    )
-    lob_enriched = (
-        lob_keyed
-        .join(member_lookup, on="join_key", how="left")
-        .drop("join_key")
-        .with_columns(pl.col("unique_member_code").fill_null(""))
-    )
-    col_order = ["unique_member_code"] + [c for c in lob_raw.columns if c != "unique_member_code"]
-    lob_enriched = lob_enriched.select([c for c in col_order if c in lob_enriched.columns])
-
-    matched = lob_enriched.filter(pl.col("unique_member_code") != "").height
-    lob_enriched.write_parquet(lob_src)
-    print(f"Lobbying enriched: {matched}/{lob_enriched.height} rows matched to unique_member_code")
-else:
-    print("WARN: most_lobbied_politicians.parquet not found — skipping lobbying enrichment")
+# Lobbying gold no longer needs post-hoc enrichment here — unique_member_code is
+# now joined upstream in sql_queries/most_lobbied_politicians.sql.
 
 
 if __name__ == "__main__":

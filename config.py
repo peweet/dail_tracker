@@ -1,18 +1,17 @@
-import logging
-import os
+"""
+Configuration constants: paths, API endpoints, date ranges.
+
+Pure config — no logging setup, no HTTP, no side effects beyond `init_dirs()`
+which runs at import to keep existing scripts working. Use `services.logging_setup`
+for logger configuration.
+"""
 from pathlib import Path
 
-docstring = """
-This module contains configuration settings for the project, including paths to various directories, API endpoints, date ranges, and other constants used throughout the codebase.
-"""
-LOGGING_CONFIG = logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-
-# Base project directory
 BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = BASE_DIR
 DATA_DIR = BASE_DIR / "data"
+LOG_DIR = BASE_DIR / "logs"
+
 # Medallion architecture layers
 BRONZE_DIR = DATA_DIR / "bronze"
 SILVER_DIR = DATA_DIR / "silver"
@@ -21,48 +20,33 @@ GOLD_DIR = DATA_DIR / "gold"
 GOLD_PARQUET_DIR = GOLD_DIR / "parquet"
 GOLD_CSV_DIR = GOLD_DIR / "csv"
 
-LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-# Bronze: PDF and CSV source file locations (aligned with existing directory structure)
+# Bronze: PDF and CSV source file locations
 BRONZE_PDF_DIR = BRONZE_DIR / "pdfs"
 ATTENDANCE_PDF_DIR = BRONZE_PDF_DIR / "attendance"
-
 PAYMENTS_PDF_DIR = BRONZE_PDF_DIR / "payments"
 INTERESTS_PDF_DIR = BRONZE_DIR / "interests"
 LOBBYING_RAW_DIR = BRONZE_DIR / "lobbying_csv_data"
-VOTES_RAW_DIR = BRONZE_DIR / "votes"
 # Bronze: API JSON and member data storage
 MEMBERS_DIR = BRONZE_DIR / "members"
 LEGISLATION_DIR = BRONZE_DIR / "legislation"
 VOTES_DIR = BRONZE_DIR / "votes"
+VOTES_RAW_DIR = VOTES_DIR  # back-compat alias — both names point to the same dir
 # Silver: lobbying processed output
 LOBBY_OUTPUT_DIR = SILVER_DIR / "lobbying"
 LOBBY_PARQUET_DIR = LOBBY_OUTPUT_DIR / "parquet"
 
+# Gold parquet consumed by votes_data and member_overview_data
+GOLD_VOTE_HISTORY_PARQUET = GOLD_PARQUET_DIR / "current_dail_vote_history.parquet"
 
-# LOGGING SETUP
-os.makedirs(LOG_DIR, exist_ok=True)
-LOG_FILE_PATH = os.path.join(LOG_DIR, "pipeline.log")
-FILE_HANDLER = file_handler = logging.FileHandler(LOG_FILE_PATH, encoding="utf-8")
-file_handler.setLevel(logging.INFO)
-# Set a formatter for the file handler to include timestamps and log levels
-file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
-logger = logging.getLogger(__name__)
-# Add the file handler to the logger
-logger.addHandler(file_handler)
-
-PROJECT_ROOT = Path(__file__).parent.resolve()
 API_BASE = "https://api.oireachtas.ie/v1"
-# PARTY_CODES = ["Social_Democrats", "Sinn_Féin", ...]
 DATE_RANGE = ("2024-01-01", "2099-01-01")
 CHAMBER_DAIL = "chamber=dail"
 CHAMBER_SEANAD = "chamber=seanad"
 Y_M_D_format = "%Y-%m-%d"
 
-
 DIRS = [
     DATA_DIR,
+    LOG_DIR,
     SILVER_DIR,
     SILVER_PARQUET_DIR,
     GOLD_DIR,
@@ -74,7 +58,6 @@ DIRS = [
     PAYMENTS_PDF_DIR,
     INTERESTS_PDF_DIR,
     LOBBYING_RAW_DIR,
-    VOTES_RAW_DIR,
     MEMBERS_DIR,
     LEGISLATION_DIR,
     VOTES_DIR,
@@ -89,5 +72,5 @@ def init_dirs() -> None:
         d.mkdir(parents=True, exist_ok=True)
 
 
-# Auto-create on import
+# Auto-create on import so scripts that write before any explicit setup don't crash.
 init_dirs()

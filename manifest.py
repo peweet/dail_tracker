@@ -1,73 +1,89 @@
-from dataclasses import dataclass, asdict, field
-from datetime import UTC, datetime
-from pathlib import Path
-import orjson
-import uuid
 import logging
-import pdf_endpoint_check
-MANIFEST_PATH = Path("C:\\Users\\pglyn\\PycharmProjects\\dail_extractor\\data\\manifests\\manifest.json")
-# Write stage manifests with:
-# input dependencies
-# output files
-# row counts
-# run timestamps
-# source version / fetch date
+import os
+import uuid
+from datetime import UTC, datetime
 
-def create_run_manifest() -> dict:
-    global endpoints_ok
-    endpoints_ok = False
-    endpoints_validation = pdf_endpoint_check.endpoint_checker()
+import orjson
 
-    if endpoints_validation[1]:
+from config import DATA_DIR
+
+MANIFEST_PATH = DATA_DIR / "manifests" / "manifest.json"
+
+
+def _read_manifest_list() -> list:
+    if not MANIFEST_PATH.exists():
+        return []
+    try:
+        return orjson.loads(MANIFEST_PATH.read_bytes())
+    except Exception:
+        return []
+
+
+def _write_manifest_list(manifest_list: list) -> None:
+    MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    MANIFEST_PATH.write_bytes(orjson.dumps(manifest_list, option=orjson.OPT_INDENT_2))
+
+
+def _check_endpoints() -> bool | None:
+    """HEAD-check every known PDF URL. ~90 requests, ~10-30s.
+
+    Opt-in via env var DAIL_CHECK_ENDPOINTS=1 — otherwise returns None so the
+    pipeline isn't blocked on flaky network at every run.
+    """
+    if os.environ.get("DAIL_CHECK_ENDPOINTS") != "1":
+        return None
+    # Imported lazily so the manifest module doesn't pull `requests` etc. on import.
+    import pdf_endpoint_check
+    broken, ok = pdf_endpoint_check.endpoint_checker()
+    if ok:
         logging.info("PDF endpoint validation successful. All endpoints are valid.")
-        endpoints_ok = True
     else:
         logging.warning("PDF endpoint validation found issues. Please review the broken endpoints.")
-        for url in endpoints_validation[0]:
+        for url in broken:
             logging.warning(f"Broken endpoint: {url}")
-    ts = datetime.now(UTC).isoformat(timespec='seconds')
-    time_stamp_record = {
-        "run_id": f"{ts}-{uuid.uuid4().hex[:8]}",
-        "started_at": ts
-    }
-    MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
-    # Read existing array or start new
-    if MANIFEST_PATH.exists():
-        with MANIFEST_PATH.open("rb") as f:
-            try:
-                manifest_list = orjson.loads(f.read())
-            except Exception:
-                manifest_list = []
-    else:
-        manifest_list = []
-    manifest_list.append(time_stamp_record)
-    MANIFEST_PATH.write_bytes(orjson.dumps(manifest_list, option=orjson.OPT_INDENT_2))
-    return time_stamp_record
+    return bool(ok)
 
-def run_finished_at():
-    ts = datetime.now(UTC).isoformat(timespec='seconds')
-    time_taken = None
-    if MANIFEST_PATH.exists():
-        with MANIFEST_PATH.open("rb") as f:
-            try:
-                manifest_list = orjson.loads(f.read())
-            except Exception:
-                manifest_list = []
+
+def create_run_manifest() -> dict:
+    ts = datetime.now(UTC).isoformat(timespec="seconds")
+    record = {
+        "run_id": f"{ts}-{uuid.uuid4().hex[:8]}",
+        "started_at": ts,
+        "endpoints_ok": _check_endpoints(),
+    }
+    manifest_list = _read_manifest_list()
+    manifest_list.append(record)
+    _write_manifest_list(manifest_list)
+    return record
+
+
+def run_finished_at(run_id: str | None = None) -> None:
+    ts = datetime.now(UTC).isoformat(timespec="seconds")
+    manifest_list = _read_manifest_list()
+    if not manifest_list:
+        return
+
+    if run_id is not None:
+        target = next((r for r in reversed(manifest_list) if r.get("run_id") == run_id), None)
+        if target is None:
+            return
     else:
-        manifest_list = []
-    if manifest_list:
-        manifest_list[-1]["finished_at"] = ts
-        # MANIFEST_PATH.write_bytes(orjson.dumps(manifest_list, option=orjson.OPT_INDENT_2))
-        time_taken = datetime.fromisoformat(ts) - datetime.fromisoformat(manifest_list[-1]["started_at"])
+        target = manifest_list[-1]
+
+    target["finished_at"] = ts
+    try:
+        time_taken = datetime.fromisoformat(ts) - datetime.fromisoformat(target["started_at"])
+        target["time_to_run"] = str(time_taken)
         print(f"Pipeline run finished. Time taken: {time_taken}")
-        manifest_list[-1]["time_to_run"] = str(time_taken)
-        manifest_list[-1]["endpoints_ok"] = str(endpoints_ok)
-        MANIFEST_PATH.write_bytes(orjson.dumps(manifest_list, option=orjson.OPT_INDENT_2))
+    except (KeyError, ValueError):
+        pass
+    _write_manifest_list(manifest_list)
+
+
 if __name__ == "__main__":
-    create_run_manifest()
-    # Simulate some processing time
     import time
+    record = create_run_manifest()
     time.sleep(2)
-    run_finished_at()
+    run_finished_at(record["run_id"])
 
 

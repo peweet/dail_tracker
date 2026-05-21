@@ -14,6 +14,11 @@ from data_access.legislation_data import (
     fetch_bill_detail,
     fetch_bill_timeline,
     fetch_legislation_index_filtered,
+    fetch_pre2014_act_detail,
+    fetch_si_by_bill,
+    fetch_si_composition,
+    fetch_si_freshness,
+    fetch_si_years_for_bill,
 )
 from shared_css import inject_css
 from ui.components import back_button, clickable_card_link, empty_state, evidence_heading, hero_banner, paginate, pagination_controls, render_stat_strip, sidebar_date_range, sidebar_page_header, stat_item
@@ -253,8 +258,12 @@ def _render_stage_timeline(timeline_df: pd.DataFrame) -> None:
         current_cls = "leg-stage-current" if r.get("is_current_stage") else ""
         date_str = _fmt_date(r.get("stage_date"))
         num_str  = str(num_val) if num_val is not None else "·"
-        chamber  = r.get("chamber") or ""
-        label    = html.escape(r.get("stage_name", "—") or "—")
+        # NaN (float) is truthy in Python, so `r.get("x") or ""` doesn't
+        # guard against missing CSV cells — must check for str explicitly.
+        _ch = r.get("chamber")
+        chamber = _ch if isinstance(_ch, str) and _ch else ""
+        _sn = r.get("stage_name")
+        label   = html.escape(_sn if isinstance(_sn, str) and _sn else "—")
         if chamber:
             label = f"{label} <span class='leg-stage-chamber'>· {html.escape(chamber)}</span>"
 
@@ -297,12 +306,163 @@ def _render_debates(debates_df: pd.DataFrame) -> None:
     st.html(f'<div class="leg-debate-list">{rows_html}</div>')
 
 
+def _section_statutory_instruments(bill_id: str) -> None:
+    """Statutory Instruments issued under this Act. Sourced from
+    v_bill_statutory_instruments (Iris SI taxonomy joined to enabling
+    bills via the lifted POC matcher)."""
+    st.html('<p class="section-heading">Statutory Instruments under this Act</p>')
+
+    fresh = fetch_si_freshness(bill_id)
+    comp  = fetch_si_composition(bill_id)
+    if not fresh or comp.empty:
+        empty_state(
+            "No SIs under this Act",
+            "Either none have been issued yet, this Bill predates the SI "
+            "data window (2018), or it never became an Act.",
+        )
+        return
+
+    # Composition sentence
+    total = fresh["total"]
+    parts = [f"{int(r.n)} {str(r.si_operation).replace('_', ' ')}"
+             for r in comp.head(3).itertuples()]
+    tail  = f" · {len(comp) - 3} other types" if len(comp) > 3 else ""
+    st.caption(
+        f"**{total} SI{'s' if total != 1 else ''}** under this Act: "
+        + " · ".join(parts) + tail
+    )
+    if fresh.get("first_si") is not None and fresh.get("last_si") is not None:
+        eu_pct = (100 * fresh["eu_count"] / total) if total else 0
+        st.caption(
+            f"First SI: {pd.Timestamp(fresh['first_si']):%d %b %Y} · "
+            f"last activity: {pd.Timestamp(fresh['last_si']):%d %b %Y} · "
+            f"EU-driven share: {eu_pct:.0f}%"
+        )
+
+    # Year pills
+    years = fetch_si_years_for_bill(bill_id)
+    selected_year = st.pills(
+        "SI year",
+        options=["All years"] + [str(y) for y in years],
+        default="All years",
+        key=f"si_year_{bill_id}",
+        label_visibility="collapsed",
+    ) or "All years"
+    year_val = None if selected_year == "All years" else int(selected_year)
+
+    # Operation pills (driven by the composition above)
+    selected_op = st.pills(
+        "Operation",
+        options=["All operations"] + comp["si_operation"].dropna().tolist(),
+        default="All operations",
+        key=f"si_op_{bill_id}",
+        label_visibility="collapsed",
+        format_func=lambda x: str(x).replace("_", " "),
+    ) or "All operations"
+    op_val = None if selected_op == "All operations" else selected_op
+
+    df = fetch_si_by_bill(bill_id, year=year_val, operation=op_val)
+    if df.empty:
+        empty_state("No SIs match these filters",
+                    "Try a different year or operation type.")
+        return
+
+    n = len(df)
+    st.caption(f"Showing {n} SI{'s' if n != 1 else ''}")
+
+    for _, row in df.iterrows():
+        date_disp = (pd.to_datetime(row["si_signed_date"]).strftime("%d %b %Y")
+                     if pd.notna(row["si_signed_date"]) else "—")
+        domain    = str(row["si_policy_domain"] or "").replace("_", " ")
+        operation = str(row["si_operation"]      or "").replace("_", " ")
+        form      = str(row["si_form"]           or "").replace("_", " ")
+        named     = row.get("si_minister_named")
+        role      = row.get("si_minister")
+        if isinstance(named, str) and named.strip():
+            minister = named.strip()
+        elif isinstance(role, str) and role.strip():
+            minister = role.strip()
+        else:
+            minister = "—"
+        eu_badge  = (
+            '<span class="signal" style="background:#fef3c7;border-color:#fcd34d;'
+            'color:#92400e;margin-left:0.25rem;">EU</span>'
+            if bool(row.get("si_is_eu")) else ""
+        )
+        url = row.get("eisb_url") or ""
+        url_html = source_link_html(
+            url, "irishstatutebook.ie",
+            aria_label="Open SI on irishstatutebook.ie",
+        ) if isinstance(url, str) and url.startswith("http") else ""
+
+        st.html(
+            f'<div class="leg-bill-card" style="margin-bottom:0.3rem;">'
+            f'<div class="leg-bill-card-header">'
+            f'<span class="leg-bill-card-date">'
+            f'SI {int(row["si_number"])}/{int(row["si_year"])} · {html.escape(date_disp)}'
+            f'</span>'
+            f'<span class="signal leg-status-active">{html.escape(form)}</span>'
+            f'{eu_badge}'
+            f'</div>'
+            f'<div class="leg-bill-card-title">{html.escape(str(row["si_title"]))}</div>'
+            f'<div style="margin-top:0.2rem;font-size:0.85rem;'
+            f'color:var(--text-secondary);">'
+            f'{html.escape(operation)} · {html.escape(domain)} · '
+            f'{html.escape(minister)} · {url_html}'
+            f'</div>'
+            f'</div>'
+        )
+
+
+def _render_pre2014_act_detail(bill_id: str) -> None:
+    """Minimal detail view for synthetic 'act_<year>_<slug>' IDs — pre-2014
+    Acts that aren't in sponsors.parquet. Renders a small hero + the SI
+    section only (no timeline/debates/sponsor — those don't exist)."""
+    info = fetch_pre2014_act_detail(bill_id)
+    if not info:
+        st.warning(f"Act '{bill_id}' not found in the pre-2014 Acts table.")
+        return
+
+    title  = info["act_short_title"]
+    year   = info["act_year"]
+    domain = (info["policy_domain"] or "").replace("_", " ")
+
+    badges = '<span class="signal signal-neutral">Pre-2014 Act</span>'
+    if domain:
+        badges += f' <span class="signal signal-dark">{html.escape(domain)}</span>'
+
+    st.html(
+        f"""
+        <div class="leg-bill-identity">
+            <div class="leg-bill-badges">{badges}</div>
+            <div class="leg-bill-title">{html.escape(title)}</div>
+            <div class="leg-bill-ref">Enacted {year}</div>
+            <p class="leg-long-title" style="margin:0.45rem 0 0.35rem">
+                Primary Act predates the Oireachtas bills database (2014).
+                Statutory Instruments made under it are listed below;
+                stage timeline and Oireachtas debates are not available
+                via this surface.
+            </p>
+        </div>
+        """
+    )
+    st.divider()
+    _section_statutory_instruments(bill_id)
+
+
 def _render_bill_detail(bill_id: str) -> None:
     # ── Back navigation ───────────────────────────────────────────────────────
     if back_button("← Back to Legislation Index", key="leg"):
         st.session_state.pop("leg_selected_bill_id", None)
         st.query_params.clear()
         st.rerun()
+
+    # Synthetic pre-2014 Act IDs ('act_YYYY_slug') don't live in
+    # v_legislation_index — render the minimal "Act page" instead of the
+    # full bill flow.
+    if isinstance(bill_id, str) and bill_id.startswith("act_"):
+        _render_pre2014_act_detail(bill_id)
+        return
 
     # ── Load data ─────────────────────────────────────────────────────────────
     detail_df   = fetch_bill_detail(bill_id)
@@ -390,6 +550,10 @@ def _render_bill_detail(bill_id: str) -> None:
     # ── CSV export of this bill's timeline ────────────────────────────────────
     if not timeline_df.empty:
         export_button(timeline_df, "Export stage timeline as CSV", f"bill_{bill_no}_{bill_year}_timeline.csv", "leg_timeline_csv")
+
+    # ── Statutory Instruments under this Act ──────────────────────────────────
+    st.divider()
+    _section_statutory_instruments(bill_id)
 
     # ── Provenance ────────────────────────────────────────────────────────────
     last_updated = row.get("last_updated") or "—"

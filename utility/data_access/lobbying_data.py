@@ -81,10 +81,16 @@ def fetch_all_politician_names() -> list[str]:
 
 @st.cache_data(ttl=300)
 def fetch_org_index() -> pd.DataFrame:
+    # Reads the CRO×Charity-enriched view so org cards can render status + funding
+    # pills. Row count is identical to v_lobbying_org_index (same gold base);
+    # enrichment columns are null for unmatched orgs and the UI hides their pills.
     return _safe(
-        "SELECT lobbyist_name, sector, return_count, politicians_targeted,"
-        " distinct_policy_areas, website, profile_url, first_period, last_period"
-        " FROM v_lobbying_org_index ORDER BY return_count DESC"
+        "SELECT lobbyist_name, sector_label AS sector, return_count,"
+        " politicians_targeted, distinct_policy_areas, first_period, last_period,"
+        " status, funding_profile, gov_funded_share_latest, entity_age_years,"
+        " match_method"
+        " FROM v_experimental_lobbying_org_index_enriched"
+        " ORDER BY return_count DESC"
     )
 
 

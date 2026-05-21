@@ -14,5 +14,5 @@ SELECT
     "chamber.showAs"                         AS chamber,
     "bill.billNo"                            AS bill_no,
     "bill.billYear"                          AS bill_year
-FROM read_parquet('pipeline_sandbox/out/silver/debates.parquet')
+FROM read_parquet('data/silver/parquet/debates.parquet')
 WHERE "bill.billNo" IS NOT NULL AND "bill.billYear" IS NOT NULL;

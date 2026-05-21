@@ -1,20 +1,19 @@
 """
-Statutory Instruments — POC integration page.
+Statutory Instruments — standalone browser page.
 
-POC sibling of legislation.py. Self-contained: reads CSVs directly, does its
-own filtering, fuzzy matching, and classification in-page. **Not a production
-pattern** — the firewall rules (no business logic in Streamlit) are
-intentionally suspended here so the user can see what the feature could feel
-like before any pipeline/contract work.
+Sources from data/gold/parquet/bill_statutory_instruments.parquet, which
+is produced by pipeline_sandbox/iris_si_bill_enrichment.py — the matcher
+that used to live in this file has been graduated into the pipeline.
+This page now consumes the pre-joined gold parquet (firewall-compliant).
 
-Five POC features:
+Five features:
   1. Editorial hero + KPI strip (totals, top domain, top actor, EU share)
   2. Trends — domain × year heatmap and minister-activity bars
   3. Filterable SI index — year pills + facet selectboxes + paginated cards
   4. SI detail panel — full taxonomy, irishstatutebook.ie link, Iris source
-  5. Cross-link to legislation — when si_parent_legislation fuzzy-matches a
-     known bill, an inline "Made under …" panel surfaces the bill detail
-     without leaving the page.
+  5. Cross-link to legislation — every SI joined to its enabling bill at
+     enrichment time; an inline "Made under …" panel surfaces the bill
+     detail without leaving the page.
 """
 from __future__ import annotations
 
@@ -46,32 +45,10 @@ from ui.entity_links import source_link_html
 
 # ── Data paths ─────────────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parents[2]
-SI_GOLD = ROOT / "out" / "iris_si_taxonomy.csv"
-SPONSORS_CSV = ROOT / "data" / "silver" / "sponsors.csv"
+SI_GOLD = ROOT / "data" / "gold" / "parquet" / "bill_statutory_instruments.parquet"
 
-# ── POC config ─────────────────────────────────────────────────────────────────
-SI_YEAR_FLOOR = 2018       # density threshold — older issues are messier
-MIN_TAXO_CONFIDENCE = 0.5  # drop low-confidence classifications
-MATCH_THRESHOLD = 0.40     # token-set Jaccard threshold (was SequenceMatcher 0.72)
-MATCH_YEAR_WINDOW = 3      # accept bills within ±N years of the SI's "Act YYYY" hint
+# ── Page config (display-only; matching tuning lives in the enrichment) ────────
 PAGE_SIZE = 10
-
-# Token-stop list for the title-Jaccard matcher: noise words that would
-# otherwise inflate set-overlap scores between unrelated titles.
-_TITLE_STOP = {"act", "bill", "of", "the", "and", "an", "a", "for", "to", "in", "no", "no.", "amendment"}
-
-
-def _title_tokens(s: str) -> set[str]:
-    """Lowercased, punctuation-stripped, stop-word-filtered token set used by
-    the fast bill-title matcher."""
-    if not s:
-        return set()
-    out: set[str] = set()
-    for w in s.lower().split():
-        t = w.strip(string.punctuation)
-        if t and t not in _TITLE_STOP:
-            out.add(t)
-    return out
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -155,113 +132,37 @@ def _inject_poc_css() -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner="Loading Statutory Instruments…")
 def load_si() -> pd.DataFrame:
-    df = pd.read_csv(SI_GOLD, low_memory=False)
-    df = df[df["notice_category"] == "statutory_instrument"]
-    if "is_quarantined" in df.columns:
-        df = df[~df["is_quarantined"].fillna(False).astype(bool)]
-    df = df[df["si_number"].notna() & df["si_year"].notna() & df["title"].notna()]
+    """Read the pre-joined gold parquet and shape it to the column names
+    the page renderers were originally written against. Filters (year
+    floor, taxonomy confidence, notice category, quarantine) are already
+    applied upstream by pipeline_sandbox/iris_si_bill_enrichment.py."""
+    df = pd.read_parquet(SI_GOLD)
+    # Adapter: rename to the names this page's renderers expect.
+    df = df.rename(columns={
+        "bill_id":          "matched_bill_id",
+        "bill_short_title": "matched_bill_title",
+        "si_title":         "title",
+        "si_minister":      "si_responsible_actor",
+        "si_policy_domain": "si_policy_domain_primary",
+        "si_operation":     "si_operation_primary",
+        "iris_source_pdf":  "source_file",
+    })
+    # Renderers expect issue_date as a pandas Timestamp.
+    df["issue_date"] = pd.to_datetime(df["si_signed_date"], errors="coerce")
+    # Gold doesn't carry the bill_url (it was per-bill metadata, optional).
+    if "matched_bill_url" not in df.columns:
+        df["matched_bill_url"] = None
+    # Strip mojibake-bearing titles defensively (same hygiene as the old loader).
     df = df[~df["title"].astype(str).str.contains("�", na=False)]
-    df["si_year"] = pd.to_numeric(df["si_year"], errors="coerce").fillna(0).astype(int)
-    df["si_number"] = pd.to_numeric(df["si_number"], errors="coerce").fillna(0).astype(int)
-    df = df[df["si_year"] >= SI_YEAR_FLOOR]
-    if "si_taxonomy_confidence" in df.columns:
-        df = df[df["si_taxonomy_confidence"].fillna(0) >= MIN_TAXO_CONFIDENCE]
-    df["si_id"] = df["si_year"].astype(str) + "-" + df["si_number"].astype(str).str.zfill(3)
-    df["issue_date"] = pd.to_datetime(df["issue_date"], errors="coerce")
-    df = df.drop_duplicates(subset=["si_id"]).reset_index(drop=True)
-    return df
+    return df.reset_index(drop=True)
 
 
 @st.cache_data(show_spinner=False)
 def load_bills() -> pd.DataFrame:
-    df = pd.read_csv(SPONSORS_CSV, low_memory=False)
-    keep = ["bill_no", "bill_year", "bill_type", "short_title_en", "long_title_en",
-            "status", "bill_url", "most_recent_stage_event_show_as", "sponsor_by_show_as"]
-    keep = [c for c in keep if c in df.columns]
-    df = df[keep].copy()
-    df["bill_year_num"] = pd.to_numeric(df["bill_year"], errors="coerce")
-    df["bill_no_num"]   = pd.to_numeric(df["bill_no"],   errors="coerce")
-    df = df.dropna(subset=["bill_no_num", "bill_year_num", "short_title_en"])
-    df = df.drop_duplicates(subset=["bill_no_num", "bill_year_num", "short_title_en"])
-    df["bill_id"] = df["bill_year_num"].astype(int).astype(str) + "/" + df["bill_no_num"].astype(int).astype(str)
-    return df.reset_index(drop=True)
-
-
-@st.cache_data(show_spinner="Matching SIs to parent Acts…")
-def match_si_to_bill(si_df: pd.DataFrame, bills_df: pd.DataFrame) -> pd.DataFrame:
-    """Year-bucketed token-set Jaccard match between si_parent_legislation
-    free-text and known bill short titles. POC-grade.
-
-    Why Jaccard and not character ratio: SequenceMatcher.ratio() is O(n*m)
-    per pair and dominated wall time when the prior implementation fell back
-    to scanning all 642 bills for SIs without year hints. Token-set Jaccard
-    on pre-computed sets is roughly 50× faster on this corpus and produces
-    equivalent matches for the bill-style titles seen here.
-
-    SIs whose parent text contains no "X Act YYYY" pattern are skipped
-    entirely (returned as unmatched) — the pattern is the only reliable
-    signal we have to year-constrain candidates."""
-    parent_re = re.compile(r"([A-Z][^,()\n]{2,80}?\bAct\s+(\d{4}))")
-
-    bills = bills_df.dropna(subset=["short_title_en"]).copy()
-    bills["_tokens"] = bills["short_title_en"].astype(str).map(_title_tokens)
-
-    # Precompute year buckets once. List-of-dicts iterates ~3× faster than
-    # repeatedly slicing the DataFrame.
-    bills_by_year: dict[int, list[dict]] = {}
-    for rec in bills.to_dict("records"):
-        y = rec.get("bill_year_num")
-        if pd.notna(y):
-            bills_by_year.setdefault(int(y), []).append(rec)
-
-    def candidates_in_window(year_hint: int) -> list[dict]:
-        out: list[dict] = []
-        for dy in range(-MATCH_YEAR_WINDOW, MATCH_YEAR_WINDOW + 1):
-            out.extend(bills_by_year.get(year_hint + dy, []))
-        return out
-
-    def best(parent_text) -> pd.Series:
-        if not isinstance(parent_text, str):
-            return pd.Series([None, None, None, 0.0])
-        m = parent_re.search(parent_text)
-        if not m:
-            return pd.Series([None, None, None, 0.0])
-
-        ref_tokens = _title_tokens(m.group(1))
-        if not ref_tokens:
-            return pd.Series([None, None, None, 0.0])
-        year_hint = int(m.group(2))
-        candidates = candidates_in_window(year_hint)
-        if not candidates:
-            return pd.Series([None, None, None, 0.0])
-
-        best_row, best_score = None, 0.0
-        for cand in candidates:
-            bt = cand["_tokens"]
-            if not bt:
-                continue
-            inter = len(ref_tokens & bt)
-            if inter == 0:
-                continue
-            score = inter / len(ref_tokens | bt)
-            if score > best_score:
-                best_score, best_row = score, cand
-
-        if best_row is None or best_score < MATCH_THRESHOLD:
-            return pd.Series([None, None, None, round(best_score, 2)])
-        return pd.Series([
-            best_row["bill_id"],
-            best_row["short_title_en"],
-            best_row.get("bill_url"),
-            round(best_score, 2),
-        ])
-
-    matched = si_df["si_parent_legislation"].apply(best)
-    matched.columns = ["matched_bill_id", "matched_bill_title", "matched_bill_url", "match_score"]
-    # Reset BOTH sides so concat aligns positionally — apply() preserves the
-    # input's index, so a shuffled si_df would otherwise mis-align after
-    # reset_index on only the left side.
-    return pd.concat([si_df.reset_index(drop=True), matched.reset_index(drop=True)], axis=1)
+    """Kept as a stub for callers that still import it (legislation_poc.py).
+    The match is now in the gold parquet — this empty frame is enough to
+    satisfy the old API surface."""
+    return pd.DataFrame()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -719,11 +620,13 @@ def _render_si_detail(row: pd.Series, bills_df: pd.DataFrame) -> None:
 
     # ── Cross-link panel (View 5) ─────────────────────────────────────────────
     if matched_id:
-        bill_row = bills_df[bills_df["bill_id"] == matched_id]
-        sponsor     = _safe(bill_row.iloc[0].get("sponsor_by_show_as")) if not bill_row.empty else ""
-        bill_status = _safe(bill_row.iloc[0].get("status"))            if not bill_row.empty else ""
-        bill_stage  = _safe(bill_row.iloc[0].get("most_recent_stage_event_show_as")) if not bill_row.empty else ""
-
+        is_pre2014 = matched_id.startswith("act_")
+        # Local link into the legislation page — works for both real
+        # bill_ids ("YYYY_NN") and pre-2014 synthetic act_* IDs.
+        local_link_html = (
+            f'<a class="dt-source-link" href="/legislation?bill={html.escape(matched_id)}" '
+            f'target="_self">View {"Act" if is_pre2014 else "Bill"} detail →</a>'
+        )
         oir_link = source_link_html(
             matched_url,
             "View Bill on Oireachtas.ie",
@@ -731,18 +634,22 @@ def _render_si_detail(row: pd.Series, bills_df: pd.DataFrame) -> None:
         ) if matched_url else ""
 
         score_str = f"{float(match_score):.2f}" if pd.notna(match_score) else "—"
+        kicker = (
+            "↪ Made under (pre-2014 primary Act, curated)"
+            if is_pre2014
+            else "↪ Made under (matched Bill in the Oireachtas index)"
+        )
+        ref_label = "Act" if is_pre2014 else "Bill"
 
         st.html(f"""
         <div class="si-billlink">
-          <div class="si-billlink-kicker">↪ Made under (closest matched Bill in Oireachtas index)</div>
+          <div class="si-billlink-kicker">{kicker}</div>
           <div class="si-billlink-title">{html.escape(matched_title) or "—"}</div>
           <div class="si-billlink-meta">
-            Bill {html.escape(matched_id)}
-            {('&nbsp;·&nbsp; ' + html.escape(bill_status)) if bill_status else ''}
-            {('&nbsp;·&nbsp; ' + html.escape(bill_stage)) if bill_stage else ''}
-            {('&nbsp;·&nbsp; sponsor: ' + html.escape(sponsor)) if sponsor else ''}
+            {ref_label} {html.escape(matched_id)}
           </div>
-          {oir_link}
+          {local_link_html}
+          {('&nbsp;·&nbsp; ' + oir_link) if oir_link else ''}
           <div class="si-billlink-conf">match confidence: {score_str}</div>
         </div>
         """)
@@ -752,9 +659,9 @@ def _render_si_detail(row: pd.Series, bills_df: pd.DataFrame) -> None:
           <div class="si-billlink-kicker" style="color:#7a5a00;">Parent legislation (unmatched)</div>
           <div class="si-billlink-title">{html.escape(parent)}</div>
           <div class="si-billlink-meta">
-            No confident match against the bills index. Many SIs cite older
-            statutes that pre-date the Open Data API window — POC threshold
-            is {MATCH_THRESHOLD:.2f}.
+            No confident match against the bills index or the curated
+            pre-2014 Acts table. Some SIs cite Acts not yet curated, or
+            their parent reference is parser-noisy.
           </div>
         </div>
         """)
@@ -767,9 +674,8 @@ def statutory_instruments_page() -> None:
     inject_css()        # base app styling (dt-source-link etc.)
     _inject_poc_css()   # POC-only classes
 
-    si_df    = load_si()
-    bills_df = load_bills()
-    si_df    = match_si_to_bill(si_df, bills_df)
+    si_df    = load_si()           # already joined to bills in gold
+    bills_df = load_bills()        # empty stub — kept for API compatibility
 
     # URL-driven entry: ?si=<si_id> opens the detail view.
     url_si = st.query_params.get("si")
@@ -831,10 +737,10 @@ def statutory_instruments_page() -> None:
     )
 
     st.html(
-        '<div class="si-poc-note">POC notice — figures, classifications, and Act '
-        'matches are derived in-page from the gold extract; not yet pipeline-blessed. '
-        f"Window: SI year ≥ {SI_YEAR_FLOOR}, taxonomy confidence ≥ {MIN_TAXO_CONFIDENCE:.1f}, "
-        f"parent-Act match threshold {MATCH_THRESHOLD:.2f}.</div>"
+        '<div class="si-poc-note">Sourced from the pipeline gold layer '
+        '(<code>bill_statutory_instruments.parquet</code>) — joined to enabling Acts '
+        'by token-set Jaccard match; SIs without a confident bill match are not '
+        'shown here.</div>'
     )
 
     filtered = _apply_filters(
