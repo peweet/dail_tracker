@@ -15,4 +15,4 @@ SELECT
     COALESCE("event.stageCompleted", false)      AS is_current_stage,
     "event.house.showAs"                         AS chamber,
     bill_no, bill_year
-FROM read_parquet('pipeline_sandbox/out/silver/stages.parquet');
+FROM read_parquet('data/silver/parquet/stages.parquet');

@@ -6,7 +6,13 @@
 CREATE OR REPLACE VIEW v_member_interests AS
 WITH base AS (
     SELECT *,
-        row_number() OVER () AS interest_record_id
+        row_number() OVER (
+            ORDER BY
+                COALESCE(unique_member_code, ''),
+                COALESCE(CAST(year_declared AS VARCHAR), ''),
+                COALESCE(CAST(interest_category AS VARCHAR), ''),
+                COALESCE(interest_description_cleaned, '')
+        ) AS interest_record_id
     FROM read_parquet('data/silver/parquet/dail_member_interests_combined.parquet')
     WHERE interest_category IS DISTINCT FROM '15'
 )

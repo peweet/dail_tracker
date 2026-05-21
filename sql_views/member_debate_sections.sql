@@ -16,13 +16,14 @@
 -- /debates/debate/<chamber>/<date>/<n>/ form only worked for floor debate
 -- sections — written-answer sections (the bulk of questions) returned an
 -- empty shell page. The per-question route is correct for every row.
--- The card is one (member, section, topic, date) group; any_value() picks
--- a representative question for the link.
+-- The card is one (member, section, topic, date) group; MIN(question_number)
+-- deterministically picks the lowest-numbered question for the link, so URLs
+-- are stable across pipeline runs.
 
 CREATE OR REPLACE VIEW v_member_debate_sections AS
 SELECT
     unique_member_code,
-    any_value(td_name)                                   AS td_name,
+    MIN(td_name)                                         AS td_name,
     CAST(SUBSTR(context_date, 1, 4) AS INTEGER)          AS debate_year,
     debate_section_id,
     context_date                                         AS debate_date,
@@ -31,12 +32,13 @@ SELECT
     COUNT(*)                                             AS question_count,
     'https://www.oireachtas.ie/en/debates/question/'
         || context_date || '/'
-        || CAST(any_value(question_number) AS VARCHAR) || '/'  AS oireachtas_url
+        || CAST(MIN(question_number) AS VARCHAR) || '/'  AS oireachtas_url
 FROM read_parquet('data/silver/parquet/questions.parquet')
 WHERE debate_section_id IS NOT NULL
   AND context_date IS NOT NULL
   AND question_number IS NOT NULL
   AND "question.house.houseCode" IS NOT NULL
+  AND unique_member_code IS NOT NULL
 GROUP BY
     unique_member_code,
     CAST(SUBSTR(context_date, 1, 4) AS INTEGER),

@@ -24,7 +24,10 @@ WITH ranked AS (
         bill_year,
         ROW_NUMBER() OVER (
             PARTITION BY bill_year, bill_no
-            ORDER BY CASE WHEN sponsor_is_primary = true THEN 0 ELSE 1 END
+            ORDER BY
+                CASE WHEN sponsor_is_primary = true THEN 0 ELSE 1 END,
+                COALESCE(sponsor_by_show_as, sponsor_as_show_as, ''),
+                COALESCE(unique_member_code, '')
         ) AS rn
     FROM read_parquet('data/silver/parquet/sponsors.parquet')
     WHERE COALESCE(sponsor_by_show_as, sponsor_as_show_as) IS NOT NULL
