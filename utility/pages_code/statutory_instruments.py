@@ -124,19 +124,6 @@ def _inject_si_css() -> None:
             border-radius:999px; padding:0.18rem 0.7rem; font-size:0.78rem;
             color:#14232b; line-height:1.4; white-space:nowrap; }
 
-        /* EU scrutiny gap callout — accountability headline. */
-        .si-eu-callout { background:#fff5e6; border:1px solid #fcd34d;
-            border-radius:8px; padding:1.1rem 1.3rem; margin:0.6rem 0 1.1rem; }
-        .si-eu-callout-kicker { font-size:0.72rem; text-transform:uppercase;
-            letter-spacing:0.07em; color:#92400e; font-weight:600; }
-        .si-eu-callout-h { font-family: ui-serif, Georgia, serif; font-size:1.2rem;
-            line-height:1.35; color:#14232b; margin:0.35rem 0 0.55rem; }
-        .si-eu-callout-body { font-size:0.88rem; color:#3b4148; line-height:1.55;
-            margin: 0.3rem 0 0.4rem; }
-        .si-eu-callout-body a { color:#92400e; }
-        .si-eu-callout-depts { font-size:0.83rem; color:#5b4500;
-            margin-top:0.5rem; padding-top:0.55rem;
-            border-top:1px dashed #f0d99b; }
         </style>
         """
     )
@@ -337,47 +324,6 @@ _ARTICLE_URL = (
     "https://www.irishtimes.com/politics/2026/02/18/"
     "eu-directives-not-being-passed-to-special-committee-before-being-signed-into-law/"
 )
-
-
-def _render_eu_scrutiny_callout(full_df: pd.DataFrame) -> None:
-    """Top-of-page accountability callout. Renders nothing when no EU SIs
-    have been signed since the committee was formed (empty-state safe)."""
-    s = _eu_scrutiny_stats(full_df)
-    n = s["count"]
-    if n == 0:
-        return
-    depts_html = " &nbsp;·&nbsp; ".join(
-        f"{html.escape(d)} <strong>{c:,}</strong>" for d, c in s["top_depts"].items()
-    ) or "—"
-    st.html(f"""
-    <div class="si-eu-callout">
-      <div class="si-eu-callout-kicker">⚠ EU scrutiny gap</div>
-      <div class="si-eu-callout-h">{n:,} EU directives signed into Irish law since the Seanad scrutiny committee was established</div>
-      <div class="si-eu-callout-body">
-        The <strong>Seanad Committee on EU Scrutiny &amp; Transparency</strong> was
-        set up in December 2025 to examine draft statutory instruments that turn
-        EU directives into Irish law, after a Taoiseach commitment that all such
-        instruments would be sent six months before transposition. In February
-        2026 the committee chair reported that <strong>zero</strong> had been
-        received. The State separately paid a <strong>€1.54&nbsp;m</strong> fine
-        for failing to transpose the EU work-life balance directive on time.
-      </div>
-      <div class="si-eu-callout-depts">
-        Most active departments transposing since: {depts_html}
-      </div>
-    </div>
-    """)
-    c1, c2, _ = st.columns([2, 2, 5])
-    with c1:
-        # on_click runs BEFORE widget instantiation on the next rerun, so the
-        # filter-state mutation is safe regardless of where the button sits in
-        # the script.
-        st.button(f"Show these {n} SIs →",
-                  key="si_eu_scrutiny_show",
-                  type="primary",
-                  on_click=_set_eu_scrutiny_scope)
-    with c2:
-        st.markdown(f"[Read the Irish Times article ↗]({_ARTICLE_URL})")
 
 
 def _render_eu_scrutiny_tab(full_df: pd.DataFrame) -> None:
@@ -850,17 +796,6 @@ def statutory_instruments_page() -> None:
             "domain, responsible department, operation type, or EU origin; every "
             "instrument links to its authoritative text on irishstatutebook.ie."
         ),
-    )
-
-    # EU scrutiny gap — accountability callout. Hidden when nothing has been
-    # signed since the committee was formed, so it never shouts about zero.
-    _render_eu_scrutiny_callout(si_df)
-
-    st.html(
-        '<div class="si-note">Sourced from Iris Oifigiúil (the State gazette), '
-        'classified by policy domain and operation type. The responsible department '
-        'is identified on ~40% of instruments; the enabling Act is linked where a '
-        'confident match exists.</div>'
     )
 
     # Facet pills first — they are the interaction surface that replaces the
