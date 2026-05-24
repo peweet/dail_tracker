@@ -256,10 +256,52 @@ def evidence_heading(text: str) -> None:
 
 
 def todo_callout(message: str) -> None:
-    st.markdown(
-        f'<div class="dt-callout"><strong>Not yet available.</strong><br>'
-        f"<code>TODO_PIPELINE_VIEW_REQUIRED</code>: {message}</div>",
-        unsafe_allow_html=True,
+    """Citizen-facing "Coming soon" callout.
+
+    Round-3 audit fix (P1-A): previously rendered the project-internal
+    `TODO_PIPELINE_VIEW_REQUIRED` token and the full developer message
+    verbatim — leaked SQL view names and yaml refs to end users. Now
+    strips the internal scaffolding and shows a clean "Coming soon"
+    headline; the rest of the message is rendered but with the
+    `TODO_PIPELINE_VIEW_REQUIRED:` prefix stripped if callers included it
+    for grep-ability.
+
+    For richer pipeline diagnostics in dev, set DT_SHOW_TODO_DETAIL=1 in
+    the environment — the original developer-facing detail is then shown
+    in a small monospace block under the headline.
+    """
+    import os
+    import re
+
+    # Strip the internal tag from the message if present so the citizen
+    # sees only the human-readable trailer. Source strings can still
+    # include the tag for grep-ability ("TODO_PIPELINE_VIEW_REQUIRED:
+    # v_member_interests_index — Coming soon, ranked leaderboard").
+    cleaned = re.sub(
+        r"^\s*TODO_PIPELINE_VIEW_REQUIRED\s*:\s*",
+        "",
+        message,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    # Pull out the citizen sentence: take everything AFTER the first em-dash
+    # or the first sentence ending. If neither, just show "Coming soon".
+    parts = re.split(r"\s+[—–-]\s+|\.\s+", cleaned, maxsplit=1)
+    citizen_msg = parts[1].strip() if len(parts) > 1 else ""
+    if not citizen_msg:
+        citizen_msg = "More data coming soon."
+
+    show_detail = os.getenv("DT_SHOW_TODO_DETAIL") == "1"
+    detail_html = (
+        f'<div style="margin-top:0.4rem;font-family:monospace;font-size:0.72rem;'
+        f'color:var(--text-meta);">{_h(cleaned)}</div>'
+        if show_detail and cleaned
+        else ""
+    )
+    st.html(
+        f'<div class="dt-callout"><strong>Coming soon.</strong><br>'
+        f'<span style="color:var(--text-meta)">{_h(citizen_msg)}</span>'
+        f"{detail_html}</div>"
     )
 
 
@@ -268,6 +310,77 @@ def empty_state(heading: str, body: str) -> None:
         f'<div class="dt-callout"><strong>{_h(heading)}</strong><br>'
         f'<span style="color:var(--text-meta)">{_h(body)}</span></div>'
     )
+
+
+def member_moved_callout(
+    name: str,
+    section: str,
+    *,
+    section_label: str = "this section",
+    legacy_param: str | None = None,
+    state_keys: tuple[str, ...] = (),
+) -> None:
+    """Render a "Member profiles have moved" callout and stop the page.
+
+    Round-3 audit fix for two issues that were duplicated across 5 pages:
+    (1) every dimension page's redirect callout was producing a broken
+    target href because it used the deprecated ``name_join_key()``; this
+    helper looks up the actual ``unique_member_code`` via
+    :func:`data_access.identity_resolver.resolve_member_code`. (2) every
+    redirect callout fell through to render the full page body underneath;
+    this helper calls ``st.stop()`` so the user only sees the moved
+    notice + a working link.
+
+    Args:
+        name: the TD name from the legacy URL / sidebar selection.
+        section: the section-anchor id (``"interests"``, ``"payments"``,
+            ``"attendance"``, ``"committees"``, etc.) — appended as
+            ``#<section>`` on the target URL.
+        section_label: human label for the callout copy
+            (``"the Interests section"`` / ``"per-TD attendance"``).
+        legacy_param: query-param key to scrub from the URL (``"member"``,
+            ``"att_td"``, ``"lob_pol"``) so a refresh doesn't re-stick the
+            callout.
+        state_keys: session-state keys to clear (e.g. ``("selected_td_pay",)``)
+            so sidebar selectboxes don't immediately re-trigger the callout.
+
+    The page stops after rendering. Callers should put this BEFORE any
+    other rendering they don't want shown when the redirect fires.
+    """
+    from data_access.identity_resolver import resolve_member_code
+    from ui.entity_links import member_profile_url
+
+    code = resolve_member_code(name)
+    if code:
+        target = member_profile_url(code, section=section)
+        link_html = (
+            f'<a class="dt-member-link" href="{_h(target)}" target="_self" '
+            f'style="margin-top:0.6rem;display:inline-block;">'
+            f"Open {_h(name)}'s profile →</a>"
+        )
+    else:
+        link_html = (
+            f'<span style="color:var(--text-meta);font-style:italic;">'
+            f"Couldn't find {_h(name)} in the member registry. Try the "
+            f'<a class="dt-member-link" href="/member-overview">'
+            f"All TDs browse</a>.</span>"
+        )
+
+    st.html(
+        f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
+        f"<strong>Member profiles have moved.</strong><br>"
+        f'<span style="color:var(--text-meta)">{_h(section_label.capitalize())} '
+        f"now lives on the canonical member-overview page.</span><br>"
+        f"{link_html}"
+        f"</div>"
+    )
+
+    if legacy_param:
+        st.query_params.pop(legacy_param, None)
+    for k in state_keys:
+        st.session_state.pop(k, None)
+
+    st.stop()
 
 
 def back_button(label: str, key: str, *, help: str | None = None) -> bool:

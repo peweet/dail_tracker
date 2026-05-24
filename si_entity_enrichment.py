@@ -58,6 +58,200 @@ MIN_TAXO_CONFIDENCE = 0.5
 # si_eu_relationship values that carry no EU dimension.
 _EU_NEGATIVE = {"none_detected", "", "nan"}
 
+# ── Title casing ──────────────────────────────────────────────────────────────
+# Many Iris PDFs render SI titles in ALL CAPS. Carried into the UI that
+# becomes a wall of shouting type — the civic-newspaper register relies on
+# readable case. We normalise titles that are ≥80% uppercase letters; titles
+# that already mix case (rarer in the corpus but they exist) pass through.
+
+_TITLE_LOWER = {
+    "a", "an", "and", "as", "at", "but", "by", "for", "from",
+    "in", "of", "on", "or", "the", "to", "with", "nor",
+}
+# Tokens we want to keep upper-case regardless of position. Drives most of
+# the EU/UK/US/state-body acronym handling.
+_TITLE_KEEP_UPPER = {
+    # Jurisdictions / EU bodies
+    "EU", "EC", "EEA", "EFTA", "US", "UK", "UN", "EEC", "ECB", "OECD",
+    "WHO", "WTO", "NATO",
+    # Irish taxes / state bodies / agencies
+    "VAT", "PAYE", "PRSI", "USC", "ESB", "RTÉ", "RTE", "DPP", "HSE",
+    "IBRC", "NAMA", "NTMA", "AGS", "BAI", "CAO", "IDA", "EI", "PSO",
+    "TII", "DIT",
+    # Education
+    "DCU", "UCD", "TCD", "UCC", "UL", "GAA",
+    # Tech / measurement / standards
+    "GDPR", "ISO", "NUTS", "ETS", "SI", "IR", "IT", "AI",
+    # Science / medicine / health
+    "DNA", "RNA", "HIV", "AIDS", "COVID",
+}
+
+
+# Preamble bleed cleanup. The Iris parser tries to stop the title at known
+# preamble lead-ins but the long tail of patterns is large:
+#   "ORDER 2016. The Taoiseach Enda Kenny T.D., in exercise..."
+#   "REGULATIONS 2018 Ms Heather Humphreys, Minister for Business..."
+#   "RULES 2023 Jack Chambers, Minister of State..."
+#   "ORDER In exercise of the powers conferred..."
+# Rather than chase every pattern in the regex, we cut the title at the
+# first occurrence of a strong preamble marker here as a safety net. Order
+# matters: earliest match wins.
+_PREAMBLE_CUTS = re.compile(
+    # Allow comma-then-space as a valid break point too — "Name, in exercise of"
+    # is a common formulation that wraps the cut marker after a comma.
+    r"(?:\s+|\.\s+|,\s+)"
+    r"(?:"
+    # Universal preamble verb — appears as both "In exercise" (preamble
+    # start) and "in exercise" (after a name+role). Case-insensitive
+    # sub-pattern with (?i:...) so we don't disturb the case-sensitive
+    # name alternative below.
+    r"(?i:in exercise of)\b|"
+    r"(?i:in these regulations)\b|"
+    r"(?i:in these rules)\b|"
+    r"WHEREAS\b|"
+    r"Whereas\b|"
+    r"The Minister\b|"
+    r"The Taoiseach\b|"
+    r"The Government\b|"
+    r"The T[áa]naiste\b|"
+    r"The Commissioners?\b|"
+    r"The Authority\b|"
+    r"The President\b|"
+    r"The Director\b|"
+    r"The Board\b|"
+    r"The Council\b|"
+    r"The Members\b|"
+    r"Minister of State\b|"   # Bare role, no preceding "The"
+    r"These Regulations\b|"
+    r"This Order\b|"
+    r"Copies of\b|"
+    r"Under the\b|"
+    r"EXPLANATORY NOTE\b|"
+    r"\(This note\b|"
+    r"Mr\.?\s+[A-Z]|"
+    r"Ms\.?\s+[A-Z]|"
+    r"Mrs\.?\s+[A-Z]|"
+    r"Dr\.?\s+[A-Z]|"
+    r"I,\s+[A-Z]|"
+    # Bare "Firstname Surname, Minister" — captures Jack Chambers etc.
+    r"[A-Z][a-z]+\s+[A-Z][A-Za-z'\-]+,\s+(?:Minister|Taoiseach|T\.D)"
+    r")"
+)
+
+
+# SI titles overwhelmingly end with "<Kind> <Year>" — Regulations 2024,
+# Order 2019, Rules 2023 etc. The body often cites other SIs by their own
+# kind+year (so the LAST occurrence is usually a body citation, not the
+# title's tail). We want the FIRST occurrence whose tail looks like
+# preamble body — that's the actual title end.
+_TITLE_TAIL = re.compile(
+    r"\b(Regulations?|Order|Rules?|Scheme|Notice|"
+    r"Bye[\-\s]?Laws?|Bylaws?)\s+\d{4}\b",
+    flags=re.IGNORECASE,
+)
+# A year-suffix followed by a sentence-starter capital-word is the
+# unambiguous signature of the title ending and the body beginning.
+_YEAR_THEN_SENTENCE = re.compile(
+    r"\b\d{4}\.?\s+"
+    r"(?:The|These|This|For|In|It|Section|Whereas|I,|Pursuant|Under|"
+    r"Mr|Ms|Mrs|Dr|[A-Z][a-z]+\s+[A-Z])"
+    r"\b"
+)
+
+
+def _strip_preamble(title: str) -> str:
+    """Trim everything after the SI title proper. Three ordered passes;
+    earliest successful cut wins.
+    1. Kind+Year tail (Regulations 2024, Order 2019, Rules 2023, ...) —
+       FIRST occurrence whose remainder is non-trivial preamble. Many
+       bodies cite older SIs by kind+year, so left-to-right with a
+       'rest is preamble' check is what we want, not rightmost.
+    2. Year + sentence-starter — catches titles like 'RULES (ORDER 4) 2019.
+       The Circuit Court Rules Committee...' where the kind word isn't
+       at the end.
+    3. First preamble lead-in keyword (`In exercise of`, `The Minister`,
+       `Mr.`, etc.) as the catch-all fallback."""
+    # Pass 1: first kind+year tail whose remainder looks like preamble.
+    for m in _TITLE_TAIL.finditer(title):
+        end = m.end()
+        rest = title[end:].strip(" .,;:")
+        if not rest or rest.startswith(")"):
+            continue   # trailing punctuation only — this match is the actual end
+        # If the remainder contains any of the strong preamble cues, cut here.
+        if _PREAMBLE_CUTS.search(" " + rest) or rest[:1].isupper():
+            return title[:end]
+    # Pass 2: year + capitalised sentence-starter.
+    m = _YEAR_THEN_SENTENCE.search(title)
+    if m is not None:
+        # Cut at the year+period boundary, not the start of the next sentence.
+        end = m.start() + len(re.match(r"\d{4}\.?", title[m.start():]).group())
+        return title[:end].rstrip(" .,;:")
+    # Pass 3: first preamble lead-in keyword.
+    m = _PREAMBLE_CUTS.search(title)
+    if m is None:
+        return title
+    return title[: m.start()].rstrip(" .,;:")
+
+
+def _normalise_si_title(title: object) -> object:
+    """Clean and case-normalise an SI title. Two steps:
+    1. Strip any preamble that bled through the parser stop-markers.
+    2. If the result is ≥80% uppercase letters, apply title case. Otherwise
+       pass through (the title is already in human casing).
+    Hyphenated words split-and-recombine so 'WORK-LIFE' → 'Work-Life'.
+    Known acronyms (EU, DNA, COVID, VAT, etc.) stay upper. NaN / empty
+    pass through unchanged."""
+    if not isinstance(title, str) or not title:
+        return title
+    title = _strip_preamble(title.strip())
+    if not title:
+        return title
+    letters = [c for c in title if c.isalpha()]
+    if not letters:
+        return title
+    upper_ratio = sum(1 for c in letters if c.isupper()) / len(letters)
+    if upper_ratio < 0.8:
+        return title
+
+    def case_one(word: str, is_first: bool) -> str:
+        # Split leading/trailing non-alnum punctuation; case the core only.
+        i = 0
+        while i < len(word) and not word[i].isalnum():
+            i += 1
+        j = len(word)
+        while j > i and not word[j - 1].isalnum():
+            j -= 1
+        prefix, core, suffix = word[:i], word[i:j], word[j:]
+        if not core:
+            return word
+        # Keep upper for known acronyms.
+        if core.upper() in _TITLE_KEEP_UPPER:
+            return prefix + core.upper() + suffix
+        # Numeric token e.g. "2024" — leave alone.
+        if core.isdigit():
+            return word
+        # No. / NO. → "No."
+        if core.upper() == "NO":
+            return prefix + "No" + suffix
+        lowered = core.lower()
+        if (not is_first) and lowered in _TITLE_LOWER:
+            return prefix + lowered + suffix
+        # Hyphen-aware capitalisation: WORK-LIFE → Work-Life,
+        # COVID-19 → COVID-19 (per-part keep-upper check).
+        def _case_part(p: str) -> str:
+            if not p:
+                return p
+            if p.isdigit():
+                return p
+            if p.upper() in _TITLE_KEEP_UPPER:
+                return p.upper()
+            return p[:1].upper() + p[1:]
+        parts = lowered.split("-")
+        return prefix + "-".join(_case_part(p) for p in parts) + suffix
+
+    tokens = title.split()
+    return " ".join(case_one(tok, i == 0) for i, tok in enumerate(tokens))
+
 
 def load_si() -> pd.DataFrame:
     """Clean SI universe from the taxonomy — same filters as the bill matcher
@@ -216,7 +410,7 @@ def run() -> dict:
             "si_id": si["si_id"],
             "si_year": si["si_year"],
             "si_number": si["si_number"],
-            "si_title": si["title"],
+            "si_title": si["title"].map(_normalise_si_title),
             "si_signed_date": si["issue_date"].dt.date,
             "si_operation": si["si_operation_primary"],
             "si_operation_flags": si["si_operation_flags"],

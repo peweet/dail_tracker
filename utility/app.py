@@ -5,6 +5,7 @@ from pages_code.glossary import glossary_page
 from pages_code.interests import interests_page
 from pages_code.legislation import legislation_page
 from pages_code.lobbying_2 import lobbying_page
+from pages_code.lobbying_3 import lobbying_poc_page
 from pages_code.member_overview import member_overview_page
 from pages_code.payments import payments_page
 from pages_code.statutory_instruments import statutory_instruments_page
@@ -25,18 +26,34 @@ st.set_page_config(
 # st.Page rejects nested url_path values.
 pg = st.navigation(
     [
-        st.Page(member_overview_page, title="Member Overview", icon=":material/person:", url_path="member-overview"),
+        # default=True moved here from attendance_page (round-3 audit P0
+        # remaining-item fix). The canonical TD page is the semantic
+        # landing; also, having default=True on attendance was causing
+        # Streamlit to render the "Page not found" modal whenever a
+        # URL/query-param combination didn't match exactly.
+        st.Page(
+            member_overview_page,
+            title="Member Overview",
+            icon=":material/person:",
+            url_path="member-overview",
+            default=True,
+        ),
         st.Page(
             attendance_page,
             title="Attendance",
             icon=":material/calendar_today:",
             url_path="rankings-attendance",
-            default=True,
         ),
         st.Page(votes_page, title="Votes", icon=":material/how_to_vote:", url_path="rankings-votes"),
         st.Page(interests_page, title="Interests", icon=":material/interests:", url_path="rankings-interests"),
         st.Page(payments_page, title="Payments", icon=":material/payments:", url_path="rankings-payments"),
         st.Page(lobbying_page, title="Lobbying", icon=":material/groups:", url_path="rankings-lobbying"),
+        st.Page(
+            lobbying_poc_page,
+            title="Lobbying (PoC)",
+            icon=":material/science:",
+            url_path="rankings-lobbying-poc",
+        ),
         st.Page(
             legislation_page,
             title="Legislation",
