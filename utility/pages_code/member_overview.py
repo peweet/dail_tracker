@@ -44,14 +44,12 @@ from ui.components import (
 )
 from ui.entity_links import (
     PAGES,
-    entity_cta_html,
     member_profile_url,
-    member_votes_url,
     oireachtas_profile_url,
     social_icon_chip_html,
     source_link_html,
 )
-from ui.vote_explorer import member_vote_card_html
+from ui.vote_explorer import render_member_votes
 from data_access.member_overview_data import get_member_overview_conn
 from pages_code.attendance import render_member_attendance
 from pages_code.interests import render_member_interests
@@ -62,23 +60,6 @@ from data_access.payments_data import fetch_payments_summary as _pay_summary
 
 _log = logging.getLogger(__name__)
 _STAGE_KEY = "mo_join_key"
-
-_POLICY_AREAS: list[tuple[str, str]] = [
-    ("Housing", "housing"),
-    ("Health", "health"),
-    ("Education", "education"),
-    ("Defence", "defence"),
-    ("Europe", "europe"),
-    ("Crime", "crime"),
-    ("Environment", "environment"),
-    ("Social Welfare", "social welfare"),
-    ("Finance", "finance"),
-    ("Agriculture", "agriculture"),
-    ("Transport", "transport"),
-    ("Immigration", "immigration"),
-]
-_AREA_LABELS: list[str] = [lbl for lbl, _ in _POLICY_AREAS]
-_AREA_LABEL_TO_KW: dict[str, str] = {lbl: kw for lbl, kw in _POLICY_AREAS}
 
 # ── Profile section IA (Phase 2 chrome) ────────────────────────────────────────
 # Section order is "most politically potent first" per project_design_principles.
@@ -215,56 +196,6 @@ def _votes_summary(_conn, join_key: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def _votes_by_topic(
-    _conn,
-    join_key: str,
-    keyword: str | None = None,
-    date_from: str | None = None,
-    date_to: str | None = None,
-) -> pd.DataFrame:
-    """Per-member divisions, optionally filtered by debate-title keyword and date.
-
-    Retrieval-only: SELECT with WHERE/ORDER BY/LIMIT against v_vote_member_detail.
-    keyword=None disables the topic LIKE filter (used for the "All topics" pill).
-    """
-    clauses: list[str] = ["member_id = ?"]
-    params: list = [join_key]
-    if keyword:
-        clauses.append("LOWER(debate_title) LIKE LOWER(?)")
-        params.append(f"%{keyword}%")
-    if date_from:
-        clauses.append("vote_date >= ?")
-        params.append(date_from)
-    if date_to:
-        clauses.append("vote_date <= ?")
-        params.append(date_to)
-    where = " AND ".join(clauses)
-    return _q(
-        _conn,
-        "SELECT vote_date, debate_title, vote_type, vote_outcome, oireachtas_url"
-        " FROM v_vote_member_detail"
-        f" WHERE {where}"
-        " ORDER BY vote_date DESC LIMIT 1000",
-        params,
-    )
-
-
-@st.cache_data(ttl=300)
-def _member_vote_years(_conn, join_key: str) -> list[int]:
-    df = _q(
-        _conn,
-        "SELECT DISTINCT CAST(EXTRACT(YEAR FROM vote_date) AS INTEGER) AS year"
-        " FROM v_vote_member_detail"
-        " WHERE member_id = ? AND vote_date IS NOT NULL"
-        " ORDER BY year DESC LIMIT 30",
-        [join_key],
-    )
-    if df.empty or "year" not in df.columns:
-        return []
-    return [int(y) for y in df["year"].dropna().tolist()]
-
-
-@st.cache_data(ttl=300)
 def _pay_overview(_conn, join_key: str) -> pd.DataFrame:
     return _q(
         _conn,
@@ -385,131 +316,6 @@ def _debate_sections(
 
 
 # ── Profile section renderers ──────────────────────────────────────────────────
-
-
-def _section_votes(
-    conn,
-    join_key: str,
-    date_from: str | None = None,
-    date_to: str | None = None,
-) -> None:
-    st.html('<p class="section-heading">Voting record by issue</p>')
-
-    summary = _votes_summary(conn, join_key)
-    if not summary.empty:
-        r = summary.iloc[0]
-        yes = int(r.get("yes_count", 0) or 0)
-        no = int(r.get("no_count", 0) or 0)
-        ab = int(r.get("abstained_count", 0) or 0)
-        div = int(r.get("division_count", 0) or 0)
-        rate_pct = float(r.get("yes_rate_pct", 0) or 0)
-        cast = yes + no + ab
-        voted_pct = round(100.0 * cast / div, 1) if div else 0.0
-        st.html(
-            f"<p style=\"font-family:'Epilogue',sans-serif;font-size:0.95rem;"
-            f'color:var(--text-secondary);margin:0 0 0.75rem;">'
-            f"Voted in <strong>{voted_pct}%</strong> of divisions — "
-            f"<strong>{rate_pct}%</strong> Aye&nbsp;·&nbsp;"
-            f"<strong>{round(100 - rate_pct, 1)}%</strong> Níl when cast.</p>"
-        )
-
-    # ── Filter row 1: policy area (with "All topics") ────────────────────
-    area_options = ["All topics"] + _AREA_LABELS
-    selected_area = (
-        st.pills(
-            "Policy area",
-            options=area_options,
-            default="All topics",
-            key="mo_vote_area",
-            label_visibility="collapsed",
-        )
-        or "All topics"
-    )
-
-    # ── Filter row 2: year ──────────────────────────────────────────────
-    available_years = _member_vote_years(conn, join_key)
-    if available_years:
-        year_opts = ["All years"] + [str(y) for y in available_years]
-        selected_year = (
-            st.radio(
-                "Year",
-                options=year_opts,
-                index=0,
-                horizontal=True,
-                key="mo_vote_year",
-                label_visibility="collapsed",
-            )
-            or "All years"
-        )
-    else:
-        selected_year = "All years"
-
-    # ── Resolve filters ─────────────────────────────────────────────────
-    keyword = None if selected_area == "All topics" else _AREA_LABEL_TO_KW.get(selected_area)
-
-    # Year pill takes precedence over the sidebar date range when set.
-    eff_from = date_from
-    eff_to = date_to
-    if selected_year != "All years":
-        eff_from = f"{selected_year}-01-01"
-        eff_to = f"{selected_year}-12-31"
-
-    topic_df = _votes_by_topic(conn, join_key, keyword, eff_from, eff_to)
-
-    if topic_df.empty:
-        scope = selected_area if selected_area != "All topics" else "any topic"
-        year_note = (
-            f" in {selected_year}"
-            if selected_year != "All years"
-            else " in this date range"
-            if (eff_from or eff_to)
-            else ""
-        )
-        empty_state(
-            f"No votes on {scope}{year_note}",
-            "Try widening the year, picking 'All topics', or clearing the date filter in the sidebar.",
-        )
-        return
-
-    total = len(topic_df)
-    PAGE_SIZE = 10
-    # Pager key includes the active filter signature so changing any filter
-    # resets to page 1 instead of leaving the user stranded past the new end.
-    filter_sig = f"{keyword or 'all'}_{selected_year}_{eff_from or '_'}_{eff_to or '_'}"
-    pager_key = f"mo_vote_topic_{join_key}_{filter_sig}"
-    page_idx = paginate(total, key_prefix=pager_key, page_size=PAGE_SIZE)
-    visible = topic_df.iloc[page_idx * PAGE_SIZE : (page_idx + 1) * PAGE_SIZE]
-
-    start = page_idx * PAGE_SIZE + 1
-    end = min((page_idx + 1) * PAGE_SIZE, total)
-    scope_label = selected_area if selected_area != "All topics" else "all topics"
-    year_label = selected_year if selected_year != "All years" else "all years"
-    st.caption(
-        f"Showing {start:,}–{end:,} of {total:,} division{'s' if total != 1 else ''} on {scope_label} · {year_label}"
-    )
-
-    for _, row in visible.iterrows():
-        url = str(row.get("oireachtas_url", "") or "")
-        if url in ("nan", "None"):
-            url = ""
-        st.html(
-            member_vote_card_html(
-                vote_date=row.get("vote_date"),
-                debate_title=str(row.get("debate_title", "—")),
-                vote_type=str(row.get("vote_type", "—")),
-                vote_outcome=str(row.get("vote_outcome", "—")),
-                oireachtas_url=url,
-            )
-        )
-
-    pagination_controls(
-        total=total,
-        key_prefix=pager_key,
-        page_sizes=(PAGE_SIZE,),
-        default_page_size=PAGE_SIZE,
-        label="divisions",
-        show_caption=False,
-    )
 
 
 def _section_legislation(conn, join_key: str, member_name: str) -> None:
@@ -1213,8 +1019,21 @@ def _render_stage2(
                     export_key_suffix="_mo",
                 )
             elif sid == "votes":
-                _section_votes(conn, join_key, date_from, date_to)
-                st.html(entity_cta_html(member_votes_url(join_key), "Full voting history →"))
+                # Phase 7 lift: shared `render_member_votes` wrapper fetches
+                # td_vote_summary + history + year summary and calls
+                # `render_td_panel(show_header=False)`. Same render path the
+                # stand-alone /rankings-votes page used to take in Mode B —
+                # vote_explorer was already shared, so this is the lightest
+                # cross-page lift. Debates stay as a sub-section (their data
+                # comes from member_debate_sections, unrelated to votes).
+                render_member_votes(
+                    conn,
+                    join_key,
+                    show_header=False,
+                    date_from=date_from,
+                    date_to=date_to,
+                    key_suffix=f"_mo_{join_key}",
+                )
                 _section_debates(conn, join_key, member_name)
             elif sid == "legislation":
                 _section_legislation(conn, join_key, member_name)
