@@ -617,10 +617,16 @@ def _render_bill_detail(bill_id: str) -> None:
         aria_label="Open this bill on oireachtas.ie",
     )
 
-    long_title = row.get("long_title") or ""
+    # Round-3 audit P1-B fix: Oireachtas API ships `long_title` with raw
+    # <p>...</p> wrappers (and occasionally <i>, <em>, etc). Previously the
+    # whole string was html.escape()d and the tags rendered as literal
+    # "<p>...</p>" text on screen. Strip tags first, then escape the result.
+    import re as _re
+    long_title_raw = (row.get("long_title") or "").strip()
+    long_title_clean = _re.sub(r"<[^>]+>", "", long_title_raw).strip()
     long_title_html = (
-        f'<p class="leg-long-title" style="margin:0.45rem 0 0.35rem">{html.escape(long_title)}</p>'
-        if long_title.strip()
+        f'<p class="leg-long-title" style="margin:0.45rem 0 0.35rem">{html.escape(long_title_clean)}</p>'
+        if long_title_clean
         else ""
     )
 

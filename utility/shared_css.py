@@ -20,12 +20,25 @@ def inject_css() -> None:
             border-bottom: 3px solid oklch(51% 0.130 62);
         }
         .site-banner-inner {
+            /* Round-3 audit P0-4 fix: previously max-width + margin auto
+               left the title centred in viewport coordinates, which on a
+               1440-wide screen with the open sidebar (~336px) hid the
+               first word "Oireachtas" behind the sidebar rail. Left-anchor
+               with padding-left wide enough to clear the sidebar so the
+               title is always visible. The band itself still goes
+               viewport-to-viewport via the parent's full-bleed trick. */
             max-width: 1340px;
-            margin: 0 auto;
-            padding: 1.1rem 2rem;
+            padding: 1.1rem 2rem 1.1rem 22rem;
             display: flex;
             align-items: baseline;
             gap: 1.25rem;
+        }
+        @media (max-width: 768px) {
+            /* Mobile: sidebar collapses behind a toggle so the heavy
+               padding becomes wasted space. Revert to a slim gutter. */
+            .site-banner-inner {
+                padding: 1.1rem 1rem;
+            }
         }
         .site-banner-title {
             font-family: 'Zilla Slab', Georgia, serif;
@@ -145,6 +158,31 @@ def inject_css() -> None:
             --signal-bad-border:   oklch(80%   0.110  60);  /* light orange ≈ #fdba74 */
             --signal-bad-subtle:   oklch(96%   0.030  60);  /* tint         ≈ #fff7ed */
             --signal-bad-deep:     oklch(45%   0.160  35);  /* deep rust    ≈ #9a3412 */
+
+            /* Round-3 audit P3 fix: amber "warn" tokens for EU-derived
+               legislation badges + similar callouts that need a neutral
+               warning shade distinct from the alarming signal-bad red. */
+            --signal-warn-subtle:  oklch(94%   0.060  90);  /* amber tint   ≈ #fef3c7 */
+            --signal-warn-border:  oklch(82%   0.130  85);  /* amber border ≈ #fcd34d */
+            --signal-warn-deep:    oklch(40%   0.120  60);  /* amber deep   ≈ #92400e */
+        }
+
+        /* Reusable EU-derived badge — use on any chip / signal that
+           should read as "regulated by an EU instrument". Replaces the
+           inline-style amber blocks scattered across SI-related code. */
+        .signal-eu {
+            display: inline-flex;
+            align-items: center;
+            background: var(--signal-warn-subtle);
+            border: 1px solid var(--signal-warn-border);
+            color: var(--signal-warn-deep);
+            border-radius: 2px;
+            padding: 0.1rem 0.45rem;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            margin-left: 0.25rem;
         }
 
         /* Visually-hidden text for screen-readers (captions, hidden col headers). */
@@ -3461,6 +3499,241 @@ def inject_css() -> None:
             .cmt-row-rank { min-width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
             [data-testid="stHorizontalBlock"]:has(.cmt-row) { width: 100% !important; }
             .cmt-identity-name { font-size: 1.15rem; }
+        }
+
+        /* ── Lobbying PoC (lobbying_3.py) ─────────────────────────────────
+           lp3-* prefix prevents collision with lobby_2's lob-* classes.
+           All rules use existing tokens (--text-primary, --text-meta, --border,
+           --accent, --surface) — no raw hex. Goal is calm: TWFY-style prose
+           heroes, Datasette-tone tables, ranked cards only where they earn
+           their place. */
+
+        .lp3-hero {
+            margin: 0 0 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .lp3-h1 {
+            margin: 0 0 0.4rem;
+            font-family: var(--font-heading, "Source Serif 4", serif);
+            font-size: 2.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.025em;
+            line-height: 1.15;
+        }
+        .lp3-dek {
+            margin: 0;
+            max-width: 65ch;
+            font-size: 1rem;
+            line-height: 1.55;
+            color: var(--text-meta);
+        }
+        /* Numbers inside the dek prose are bolded AND tinted navy — the eye
+           skims them out of the grey body text without breaking the prose
+           rhythm. Same treatment in any .lp3-prose paragraph. */
+        .lp3-dek strong,
+        .lp3-prose strong {
+            color: var(--signal-good-deep);
+            font-weight: 700;
+        }
+        .lp3-prose {
+            margin: 0 0 1rem;
+            max-width: 70ch;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
+        .lp3-section-head {
+            margin: 1.75rem 0 0.75rem;
+            padding-bottom: 0.45rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .lp3-h2 {
+            margin: 0;
+            font-family: var(--font-heading, "Source Serif 4", serif);
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+        }
+        .lp3-section-dek {
+            margin: 0.2rem 0 0;
+            max-width: 65ch;
+            font-size: 0.85rem;
+            color: var(--text-meta);
+            line-height: 1.5;
+        }
+
+        /* Gateway tile — navy border-top (lobby_2's signature accent) gives
+           the trio a quiet brand colour without re-introducing icons or
+           large stat numbers. Hover shifts the stripe to the warmer accent. */
+        .lp3-tile {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-top: 3px solid var(--signal-good-deep);
+            border-radius: 8px;
+            padding: 1rem 1.1rem 0.9rem;
+            min-height: 110px;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .lp3-tile:hover {
+            border-color: var(--text-meta);
+            border-top-color: var(--accent);
+            box-shadow: 0 1px 3px rgba(17,24,39,0.05);
+        }
+        .lp3-tile-heading {
+            margin: 0 0 0.4rem;
+            font-family: var(--font-heading, "Source Serif 4", serif);
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.005em;
+        }
+        .lp3-tile-body {
+            margin: 0;
+            font-size: 0.85rem;
+            line-height: 1.55;
+            color: var(--text-meta);
+        }
+
+        /* Topic tile — same shape as the gateway tile but the brand's warm
+           accent (rust) carries the left stripe to signal "free-text scan,
+           not a register category". Stronger than the dim stripe it had
+           before; matches lobby_2's rust topic treatment without dashed borders. */
+        .lp3-topic-tile {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: 8px;
+            padding: 1rem 1.1rem 0.9rem;
+            min-height: 110px;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .lp3-topic-tile:hover {
+            border-color: var(--accent);
+            box-shadow: 0 1px 3px rgba(17,24,39,0.05);
+        }
+        .lp3-topic-tile .lp3-tile-heading {
+            color: var(--signal-bad-deep);
+        }
+
+        /* Latest-returns prose list — replaces lobby_2's custom row HTML
+           with a clean <ul> of dated entries. Reads as a record, not a UI. */
+        .lp3-recent-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .lp3-recent-item {
+            display: flex;
+            gap: 0.85rem;
+            padding: 0.55rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .lp3-recent-item:last-child { border-bottom: none; }
+        .lp3-recent-period {
+            flex-shrink: 0;
+            min-width: 5rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--signal-good-deep);
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        .lp3-recent-body { color: var(--text-primary); }
+        .lp3-recent-body strong { font-weight: 700; }
+        .lp3-recent-body em {
+            font-style: italic;
+            color: var(--text-meta);
+        }
+
+        /* Topic Stage 2 return card — narrative entry with prominent styled
+           .dt-source-link footer. Per-return, not row-in-table. */
+        .lp3-return-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.85rem 1rem 0.75rem;
+            margin: 0.5rem 0;
+            transition: border-color 0.15s;
+        }
+        .lp3-return-card:hover { border-color: var(--text-meta); }
+        .lp3-return-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.35rem;
+        }
+        /* Period chip — navy like lobby_2's .lob-activity-period. Lets the
+           date read as the temporal anchor of the card at a glance. */
+        .lp3-return-period {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--signal-good-deep);
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        /* Area pill — subtle rust tint signals "policy area / topic" without
+           competing with the period chip. Matches the .lp3-topic-tile family. */
+        .lp3-return-area {
+            font-size: 0.74rem;
+            font-weight: 600;
+            color: var(--signal-bad-deep);
+            background: var(--signal-bad-subtle);
+            border: 1px solid var(--signal-bad-border);
+            padding: 0.1rem 0.5rem;
+            border-radius: 999px;
+        }
+        .lp3-return-id {
+            font-size: 0.74rem;
+            color: var(--text-meta);
+            margin-left: auto;
+        }
+        .lp3-return-org {
+            margin: 0 0 0.2rem;
+            font-family: var(--font-heading, "Source Serif 4", serif);
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .lp3-return-sub {
+            margin: 0 0 0.4rem;
+            font-size: 0.85rem;
+            font-weight: 400;
+            color: var(--text-meta);
+        }
+        .lp3-return-snippet {
+            margin: 0 0 0.55rem;
+            font-size: 0.88rem;
+            line-height: 1.55;
+            color: var(--text-meta);
+        }
+        .lp3-return-actions {
+            display: flex;
+            gap: 0.6rem;
+            font-size: 0.85rem;
+        }
+
+        .lp3-sidebar-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-meta);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin: 1rem 0 0.35rem;
+        }
+
+        /* Mobile: tighter section spacing, single-col gateway. */
+        @media (max-width: 720px) {
+            .lp3-h1 { font-size: 1.55rem; }
+            .lp3-section-head { margin: 1.25rem 0 0.55rem; }
+            .lp3-recent-item { flex-direction: column; gap: 0.2rem; }
+            .lp3-recent-period { min-width: 0; }
         }
 
 

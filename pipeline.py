@@ -33,6 +33,11 @@ STEPS = [
     ("CRO normalise", "cro_normalise.py"),
     ("Charity normalise", "charity_normalise.py"),
     ("Charity resolved (Tier A join)", "charity_resolved.py"),
+    # Gold-layer enrichment of the Tier-A charity table: adds NACE sector
+    # labels, CRO filing dates, and compliance flags. Purely additive —
+    # reads silver, writes gold parquet only, does not modify any upstream
+    # output. Dedups defensively on RCN.
+    ("Charity enriched (gold)", "charity_enriched.py"),
     ("Process legislation", "legislation.py"),
     ("Flatten bill amendments", "bill_amendments_flatten.py"),
     ("Member interests PDF conversion to Dataframe", "member_interests.py"),
