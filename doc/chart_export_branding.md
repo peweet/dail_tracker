@@ -74,7 +74,7 @@ Phased rollout, ordered by share-worthiness:
 
 **Phase 2:**
 - `committees.py`
-- `legislation_poc.py` / `legislation_si_poc.py`
+- `legislation_poc.py` / `statutory_instruments.py`
 - `attendance_overview.py`
 - `vote_explorer.py`
 

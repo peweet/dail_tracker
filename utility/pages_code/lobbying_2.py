@@ -84,7 +84,7 @@ from ui.components import (
     sidebar_page_header,
     todo_callout,
 )
-from ui.entity_links import entity_cta_html, member_profile_url, source_link_html
+from ui.entity_links import entity_cta_html, member_profile_url, name_join_key, source_link_html
 from ui.export_controls import export_button
 from ui.source_links import render_source_links
 from ui.source_pdfs import provenance_expander
@@ -666,17 +666,19 @@ def _render_landing(summary: pd.DataFrame) -> None:
                     f"{int(row.get('return_count', 0) or 0):,} returns",
                     f"{int(row.get('distinct_orgs', 0) or 0):,} orgs",
                 ]
+                # Cross-page: whole card jumps to the canonical profile's
+                # Lobbying expander. `member_id` (= unique_member_code) comes
+                # straight off v_lobbying_index; fall back to a name-derived
+                # join key for rows that haven't been ID-enriched.
+                jump_href = member_profile_url(
+                    member_id or name_join_key(name),
+                    section="lobbying",
+                )
                 cards.append(
                     clickable_card_link(
-                        href=f"?lob_pol={quote(name)}",
-                        inner_html=_lob_card_html(
-                            name,
-                            meta,
-                            pills,
-                            rank=rank,
-                            profile_href=member_profile_url(member_id) if member_id else "",
-                        ),
-                        aria_label=f"View lobbying profile for {name}",
+                        href=jump_href,
+                        inner_html=_lob_card_html(name, meta, pills, rank=rank),
+                        aria_label=f"View {name}'s full profile",
                     )
                 )
             st.html("\n".join(cards))
@@ -1127,11 +1129,14 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
             pills = [f"{pcnt:,} returns"]
             inner = _lob_card_html(pname, pchm, pills, rank=rank)
             if pname in pol_known:
+                # Cross-page: no `unique_member_code` on this view (it joins
+                # against the contact-detail rollup, not v_lobbying_index),
+                # so derive the join key from the name.
                 cards.append(
                     clickable_card_link(
-                        href=f"?lob_pol={quote(pname)}",
+                        href=member_profile_url(name_join_key(pname), section="lobbying"),
                         inner_html=inner,
-                        aria_label=f"Open politician profile for {pname}",
+                        aria_label=f"Open profile for {pname}",
                     )
                 )
             else:
@@ -1351,11 +1356,31 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
     _provenance_footer(summary)
 
 
-# ── Politician Stage 2 ─────────────────────────────────────────────────────────
+# ── Politician profile body (lifted into member-overview Lobbying expander) ───
 
 
-def _render_politician(name: str, summary: pd.DataFrame) -> None:
-    _back_button()
+def render_member_lobbying(
+    name: str,
+    summary: pd.DataFrame | None = None,
+    *,
+    show_header: bool = True,
+    year_pill_key: str = "lob_year_pol",
+) -> None:
+    """Render the per-politician lobbying body.
+
+    Public so :mod:`pages_code.member_overview` can embed it inside the
+    Lobbying expander. When ``show_header=False``, the back button, lobbying-
+    specific hero, "View full accountability profile" CTA and provenance
+    footer are all skipped (the embedding page provides those).
+
+    ``year_pill_key`` is overridable so the embedded copy can use a key that
+    doesn't collide with the stand-alone lobbying-page state.
+    """
+    if show_header:
+        _back_button()
+
+    if summary is None:
+        summary = fetch_summary()
 
     idx = fetch_politician_index()
     pol_row = pd.Series()
@@ -1373,26 +1398,28 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
     first_p = str(pol_row.get("first_period", "") or "")
     last_p = str(pol_row.get("last_period", "") or "")
 
-    meta_badges = [b for b in [chamber, position] if b]
-    hero_banner(
-        kicker="LOBBYING PROFILE · POLITICIAN",
-        title=name,
-        dek=(
-            f"Lobbied across {area_cnt} policy area(s) by {org_cnt} organisation(s). Returns span {first_p} → {last_p}."
-            if ret_cnt
-            else "No lobbying returns on record for this politician."
-        ),
-        badges=meta_badges or None,
-    )
+    if show_header:
+        meta_badges = [b for b in [chamber, position] if b]
+        hero_banner(
+            kicker="LOBBYING PROFILE · POLITICIAN",
+            title=name,
+            dek=(
+                f"Lobbied across {area_cnt} policy area(s) by {org_cnt} organisation(s). "
+                f"Returns span {first_p} → {last_p}."
+                if ret_cnt
+                else "No lobbying returns on record for this politician."
+            ),
+            badges=meta_badges or None,
+        )
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Returns targeting them", f"{ret_cnt:,}")
     c2.metric("Distinct organisations", f"{org_cnt:,}")
     c3.metric("Policy areas", f"{area_cnt:,}")
 
-    # Cross-page jump to the full accountability profile. unique_member_code
-    # comes from v_lobbying_index — see fetch_politician_index().
-    if member_id:
+    # Cross-page CTA only in stand-alone mode — embedded copy already lives
+    # on the canonical profile page, so the link would point at itself.
+    if show_header and member_id:
         st.html(
             entity_cta_html(
                 member_profile_url(member_id),
@@ -1455,7 +1482,7 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
     if detail_all.empty:
         empty_state("No lobbying returns", "No contact detail on record for this politician.")
     else:
-        start, end = _year_selector(detail_all, "lob_year_pol")
+        start, end = _year_selector(detail_all, year_pill_key)
         detail = fetch_contact_detail(name, start, end) if start else detail_all
         display = detail[
             [
@@ -1487,7 +1514,8 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
     evidence_heading("Official source links")
     render_source_links(fetch_sources_for_politician(name))
 
-    _provenance_footer(summary)
+    if show_header:
+        _provenance_footer(summary)
 
 
 # ── Org Stage 2 ────────────────────────────────────────────────────────────────
@@ -1582,17 +1610,15 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
                 f"{int(row.get('returns_in_relationship', 0) or 0):,} returns",
                 f"{int(row.get('distinct_policy_areas', 0) or 0):,} policy areas",
             ]
+            jump_href = member_profile_url(
+                member_id or name_join_key(pol_name),
+                section="lobbying",
+            )
             cards.append(
                 clickable_card_link(
-                    href=f"?lob_pol={quote(pol_name)}",
-                    inner_html=_lob_card_html(
-                        pol_name,
-                        meta,
-                        pills,
-                        rank=rank,
-                        profile_href=member_profile_url(member_id) if member_id else "",
-                    ),
-                    aria_label=f"View lobbying profile for {pol_name}",
+                    href=jump_href,
+                    inner_html=_lob_card_html(pol_name, meta, pills, rank=rank),
+                    aria_label=f"View {pol_name}'s full profile",
                 )
             )
         st.html("\n".join(cards))
@@ -2114,7 +2140,24 @@ def lobbying_page() -> None:
     elif sel_topic:
         _render_topic(sel_topic, summary)
     elif sel_pol:
-        _render_politician(sel_pol, summary)
+        # Legacy ?lob_pol=<name> URLs (from before Phase 4) now redirect to
+        # the canonical /member-overview?member=<code>#lobbying profile.
+        # Card hrefs already point there, so this is for bookmarks / external
+        # links only.
+        target = member_profile_url(name_join_key(sel_pol), section="lobbying")
+        st.html(
+            f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
+            f"<strong>Politician profiles have moved.</strong><br>"
+            f'<span style="color:var(--text-meta)">Per-TD lobbying now lives on the '
+            f"canonical member-overview page. Bookmarks to <code>?lob_pol={_h(sel_pol)}</code> "
+            f"redirect here.</span><br>"
+            f'<a class="dt-member-link" href="{_h(target)}" target="_self" '
+            f'style="margin-top:0.6rem;display:inline-block;">'
+            f"Open {_h(sel_pol)}'s profile →</a>"
+            f"</div>"
+        )
+        _clear_profile()
+        _clear_lob_qp()
     elif sel_org:
         _render_org(sel_org, summary)
     elif sel_area and sel_result_pol:

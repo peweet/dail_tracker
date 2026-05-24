@@ -21,6 +21,7 @@ approved_registered_views:
   - v_attendance_member_summary
   - v_attendance_member_year_summary
   - v_attendance_year_rank          # RANK() OVER (PARTITION BY year) — one row per (member, year)
+  - v_attendance_missing_members    # roster TDs with no row in the attendance parquet (ministers + anomalies)
 
 retrieval_sql_policy:
   allowed_statements: [SELECT]

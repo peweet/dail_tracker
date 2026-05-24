@@ -33,9 +33,12 @@ EXIT CODE:
 USAGE:
     python iris_oifigiuil_poller.py
     python iris_oifigiuil_poller.py --dry-run
-    python iris_oifigiuil_poller.py --lookback-days 365      # explicit backfill
+    python iris_oifigiuil_poller.py --year 2020              # backfill a calendar year
+    python iris_oifigiuil_poller.py --year 2018 2019 2020    # several years at once
+    python iris_oifigiuil_poller.py --lookback-days 365      # last N days ending today
     python iris_oifigiuil_poller.py --dest /tmp/iris_test --lookback-days 30
 """
+
 from __future__ import annotations
 
 import argparse
@@ -50,10 +53,7 @@ import requests
 
 from config import BRONZE_DIR
 
-USER_AGENT = (
-    "dail-tracker-bot/0.1 "
-    "(+https://github.com/peweet/dail_tracker; mailto:p.glynn18@gmail.com)"
-)
+USER_AGENT = "dail-tracker-bot/0.1 (+https://github.com/peweet/dail_tracker; mailto:p.glynn18@gmail.com)"
 DEFAULT_TIMEOUT = (10, 30)
 CURRENT_BASE = "https://www.irisoifigiuil.ie/currentissues"
 ARCHIVE_BASE = "https://irisoifigiuil.ie/archive"
@@ -121,6 +121,23 @@ def expected_dates_since(start_after: date, today: date) -> list[date]:
     return out
 
 
+def expected_dates_for_years(years: list[int], today: date) -> list[date]:
+    """Tue/Fri dates within each calendar year, capped at today.
+
+    Years are deduped and processed in order. A future year produces no dates.
+    A partially-complete current year is correctly truncated at today.
+    """
+    out: list[date] = []
+    for year in sorted(set(years)):
+        d = date(year, 1, 1)
+        end = min(date(year, 12, 31), today)
+        while d <= end:
+            if d.weekday() in (calendar.TUESDAY, calendar.FRIDAY):
+                out.append(d)
+            d += timedelta(days=1)
+    return out
+
+
 def candidates_for(d: date) -> list[Candidate]:
     ddmmyy = d.strftime("%d%m%y")
     month_name = calendar.month_name[d.month].lower()
@@ -182,18 +199,25 @@ def poll(
     dest_dir: Path,
     today: date,
     lookback_days: int | None,
+    years: list[int] | None,
     fallback_days: int,
     dry_run: bool,
 ) -> dict:
     """Returns summary dict with new_count, slug_miss_count, download_fail_count.
 
-    When `lookback_days` is None, the window starts from the most-recent
-    past-dated file on disk. Empty bronze falls back to `fallback_days`.
+    Date-selection precedence (highest first):
+        1. years     — fetch Tue/Fri in each named calendar year (truncated to today)
+        2. lookback  — fetch Tue/Fri in a fixed N-day window ending today
+        3. default   — fetch from latest past-dated file on disk up to today
+        4. empty bronze fallback — fixed `fallback_days`
     """
     dest_dir.mkdir(parents=True, exist_ok=True)
     session = _session()
 
-    if lookback_days is not None:
+    if years:
+        dates = expected_dates_for_years(years, today)
+        window_descr = "year(s) " + ", ".join(str(y) for y in sorted(set(years)))
+    elif lookback_days is not None:
         dates = expected_dates(today, lookback_days)
         window_descr = f"fixed lookback={lookback_days}d"
     else:
@@ -253,10 +277,7 @@ def poll(
                 download_fail_count += 1
                 print(f"  download FAILED  {d.isoformat()}  {found_url}  {exc}")
 
-    print(
-        f"[iris] poll done — new={new_count} slug_misses={slug_miss_count} "
-        f"download_failures={download_fail_count}"
-    )
+    print(f"[iris] poll done — new={new_count} slug_misses={slug_miss_count} download_failures={download_fail_count}")
     return {
         "new": new_count,
         "slug_misses": slug_miss_count,
@@ -273,31 +294,56 @@ def _exit_code(summary: dict) -> int:
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
-    parser.add_argument("--dest", type=Path, default=DEFAULT_DEST,
-                        help="destination directory (default: data/bronze/iris_oifigiuil)")
-    parser.add_argument("--lookback-days", type=int, default=None,
-                        help="explicit lookback window in days (forces a fixed "
-                             "window; default is to walk from the most-recent "
-                             "on-disk issue)")
-    parser.add_argument("--fallback-days", type=int, default=DEFAULT_FALLBACK_DAYS,
-                        help=f"lookback used only when bronze is empty "
-                             f"(default: {DEFAULT_FALLBACK_DAYS})")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="list what would be downloaded without fetching")
+    parser = argparse.ArgumentParser(
+        description=__doc__.splitlines()[1],
+        epilog=(
+            "Examples:\n"
+            "  python iris_oifigiuil_poller.py                  # fill the gap since last on-disk\n"
+            "  python iris_oifigiuil_poller.py --dry-run\n"
+            "  python iris_oifigiuil_poller.py --year 2020      # backfill all of 2020\n"
+            "  python iris_oifigiuil_poller.py --year 2018 2019 2020   # multiple years\n"
+            "  python iris_oifigiuil_poller.py --lookback-days 365     # last year ending today\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--dest", type=Path, default=DEFAULT_DEST, help="destination directory (default: data/bronze/iris_oifigiuil)"
+    )
+    window = parser.add_mutually_exclusive_group()
+    window.add_argument(
+        "--lookback-days",
+        type=int,
+        default=None,
+        help="explicit lookback window in days, ending today (forces a fixed window)",
+    )
+    window.add_argument(
+        "--year",
+        type=int,
+        nargs="+",
+        metavar="YYYY",
+        default=None,
+        help="backfill one or more calendar years (Tue/Fri only; current year truncated at today)",
+    )
+    parser.add_argument(
+        "--fallback-days",
+        type=int,
+        default=DEFAULT_FALLBACK_DAYS,
+        help=f"lookback used only when bronze is empty (default: {DEFAULT_FALLBACK_DAYS})",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="list what would be downloaded without fetching")
     args = parser.parse_args(argv)
 
     summary = poll(
         dest_dir=args.dest,
         today=date.today(),
         lookback_days=args.lookback_days,
+        years=args.year,
         fallback_days=args.fallback_days,
         dry_run=args.dry_run,
     )
     if summary["slug_misses"] > 0:
         print(
-            "WARNING: past Tue/Fri dates 404'd on every URL variant — "
-            "slug pattern may have changed.",
+            "WARNING: past Tue/Fri dates 404'd on every URL variant — slug pattern may have changed.",
             file=sys.stderr,
         )
     return _exit_code(summary)

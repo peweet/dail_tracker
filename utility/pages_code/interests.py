@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import datetime
 from html import escape as _h
-from urllib.parse import quote
 import duckdb
 import pandas as pd
 import streamlit as st
@@ -42,7 +41,6 @@ import streamlit as st
 from shared_css import inject_css
 from ui.avatars import avatar_credit_html, avatar_data_url, initials as _initials
 from ui.components import (
-    back_button,
     clean_meta,
     clickable_card_link,
     empty_state,
@@ -60,7 +58,7 @@ from ui.components import (
     todo_callout,
     year_selector,
 )
-from ui.entity_links import source_link_html
+from ui.entity_links import member_profile_url, name_join_key, source_link_html
 from ui.export_controls import export_button
 from ui.source_pdfs import interests_pdf_url, provenance_expander
 
@@ -363,7 +361,7 @@ def _render_leaderboard(ranking_df: pd.DataFrame) -> None:
         name = str(row["member_name"])
         cards.append(
             clickable_card_link(
-                href=f"?member={quote(name)}",
+                href=member_profile_url(name_join_key(name), section="interests"),
                 inner_html=_int_member_card_html(row),
                 aria_label=f"View {name}'s declarations",
             )
@@ -389,7 +387,24 @@ def _real_descriptions(rows: pd.DataFrame) -> list[str]:
 # ── Profile view ───────────────────────────────────────────────────────────────
 
 
-def _render_profile(house: str, td_name: str) -> None:
+def render_member_interests(
+    house: str,
+    td_name: str,
+    *,
+    show_member_header: bool = True,
+    year_pill_key: str = "int_profile_year",
+) -> None:
+    """Render the per-TD interests profile body.
+
+    Public so :mod:`pages_code.member_overview` can embed it inside the
+    Interests expander. When ``show_member_header=False``, the avatar/name/
+    meta header is omitted (the embedding page already shows it via the
+    member-overview hero) and the year-responsive Landlord / Property /
+    Shareholder badges render as a compact strip above the year pills.
+
+    ``year_pill_key`` is overridable so the embedded copy can use a key that
+    doesn't collide with the stand-alone interests-page state.
+    """
     td_df = _fetch_td_data(house, td_name)
     if td_df.empty:
         empty_state(
@@ -405,13 +420,13 @@ def _render_profile(house: str, td_name: str) -> None:
 
     td_years = sorted(td_df["declaration_year"].dropna().astype(int).unique(), reverse=True)
 
-    # ── Identity strip — header reserved here, filled below once we know the
-    #    selected year so badges reflect that year's declarations.
-    header_slot = st.empty()
+    # ── Identity strip — header reserved here (when shown), filled below
+    #    once we know the selected year so badges reflect that year.
+    header_slot = st.empty() if show_member_header else None
 
     # ── Year pills (profile-scoped key) ───────────────────────────────────────
     year_opts = [str(y) for y in td_years]
-    selected_year = year_selector(year_opts, key="int_profile_year", skip_current=False)
+    selected_year = year_selector(year_opts, key=year_pill_key, skip_current=False)
 
     year_df = td_df[td_df["declaration_year"] == selected_year].copy()
     prior_year = selected_year - 1
@@ -445,15 +460,20 @@ def _render_profile(house: str, td_name: str) -> None:
         parts.append(pill(f"Shareholder · {share_count}", "shares", icon="📈"))
     badges_html = " ".join(parts)
 
-    with header_slot.container():
-        member_profile_header(
-            td_name,
-            meta,
-            badges_html,
-            avatar_url=avatar_data_url(td_name),
-            avatar_initials=_initials(td_name),
-            avatar_credit_html=avatar_credit_html(td_name),
-        )
+    if header_slot is not None:
+        with header_slot.container():
+            member_profile_header(
+                td_name,
+                meta,
+                badges_html,
+                avatar_url=avatar_data_url(td_name),
+                avatar_initials=_initials(td_name),
+                avatar_credit_html=avatar_credit_html(td_name),
+            )
+    elif badges_html:
+        # Embedded mode: hero is shown by the parent page, so render the
+        # year-aware badges on their own as a compact strip.
+        st.html(f'<div class="int-embedded-badge-strip">{badges_html}</div>')
 
     # ── Editorial callout ──────────────────────────────────────────────────────
     name_short = _h(td_name.split()[-1])
@@ -675,32 +695,31 @@ def interests_page() -> None:
         )
         return
 
-    # Seed selected_td from URL query param so card links land directly in the
-    # profile view on first load.
+    # Legacy ?member=<name> URLs (from before Phase 3) now redirect to the
+    # canonical /member-overview?member=<code>#interests profile. Card hrefs
+    # already point there, so this is purely for bookmarks / external links.
     qp_member = st.query_params.get("member")
-    if qp_member and st.session_state.get("selected_td") != qp_member:
-        st.session_state["selected_td"] = qp_member
-
-    selected_td = st.session_state.get("selected_td")
+    if qp_member:
+        target = member_profile_url(name_join_key(qp_member), section="interests")
+        st.html(
+            f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
+            f"<strong>Member profiles have moved.</strong><br>"
+            f'<span style="color:var(--text-meta)">The Interests section now lives on the '
+            f"canonical member-overview page. Bookmarks to <code>?member={_h(qp_member)}</code> "
+            f"redirect here.</span><br>"
+            f'<a class="dt-member-link" href="{_h(target)}" target="_self" '
+            f'style="margin-top:0.6rem;display:inline-block;">Open {_h(qp_member)}\'s profile →</a>'
+            f"</div>"
+        )
+        # Clear the legacy param so refreshes don't re-show the callout once
+        # the user has clicked through (or bookmarked the new URL).
+        st.query_params.pop("member", None)
 
     # ── Page header ───────────────────────────────────────────────────────────
-    if not selected_td:
-        hero_banner(
-            kicker="REGISTER OF MEMBERS' INTERESTS",
-            title="What has your TD declared?",
-        )
-
-    if selected_td:
-        if back_button("← Back to register", key="int"):
-            st.session_state["selected_td"] = None
-            st.session_state.pop("int_member_sel", None)
-            st.query_params.pop("member", None)
-            st.rerun()
-        st.divider()
-        _render_profile(house, selected_td)
-        st.divider()
-        _render_provenance()
-        return
+    hero_banner(
+        kicker="REGISTER OF MEMBERS' INTERESTS",
+        title="What has your TD declared?",
+    )
 
     # ── Browse mode ───────────────────────────────────────────────────────────
 
@@ -761,7 +780,7 @@ def interests_page() -> None:
             name = str(row["member_name"])
             cards.append(
                 clickable_card_link(
-                    href=f"?member={quote(name)}",
+                    href=member_profile_url(name_join_key(name), section="interests"),
                     inner_html=_int_member_card_html(row),
                     aria_label=f"View {name}'s declarations",
                 )

@@ -26,6 +26,7 @@ deleted, even if its filename date is in the future.
 Usage:
     python repair_future_iris_placeholders.py
 """
+
 from __future__ import annotations
 
 import re

@@ -32,6 +32,7 @@ def _absolutize_data_paths(sql: str) -> str:
     # breaks queries. Rewrite to absolute project paths at registration time.
     return sql.replace("'data/", f"'{_PROJECT_ROOT.as_posix()}/data/")
 
+
 try:
     import duckdb as _duckdb
 except ImportError:
@@ -53,6 +54,14 @@ _DOMAIN_FILES = [
 # {MEMBER_PARQUET_PATH} substituted with absolute path from config
 _REGISTRY_FILES = [
     "member_registry.sql",
+]
+
+# {EXTERNAL_LINKS_PARQUET_PATH} substituted with absolute path from config.
+# Output of wikidata_socials_etl.py — optional: if the file is missing (first
+# pipeline run, or Wikidata fetch failed), _load_sql swallows the error and
+# the hero block falls back to "no chips" gracefully.
+_EXTERNAL_LINKS_FILES = [
+    "member_external_links.sql",
 ]
 
 # {PARQUET_PATH} substituted with absolute path from config
@@ -94,6 +103,18 @@ def get_member_overview_conn():
             _load_sql(conn, _SQL_VIEWS / fname, {"{MEMBER_PARQUET_PATH}": member_parquet})
     except Exception as exc:
         _log.warning("member_overview: could not load member registry: %s", exc)
+
+    # External links — Wikidata-sourced socials + Wikipedia. Parquet may be
+    # absent if wikidata_socials_etl.py hasn't run yet; _load_sql logs the
+    # failure and the hero falls back to no chips.
+    try:
+        from config import SILVER_PARQUET_DIR
+
+        ext_links_parquet = (SILVER_PARQUET_DIR / "member_external_links.parquet").as_posix()
+        for fname in _EXTERNAL_LINKS_FILES:
+            _load_sql(conn, _SQL_VIEWS / fname, {"{EXTERNAL_LINKS_PARQUET_PATH}": ext_links_parquet})
+    except Exception as exc:
+        _log.warning("member_overview: could not load external-links view: %s", exc)
 
     # Vote views — absolute path injected
     try:

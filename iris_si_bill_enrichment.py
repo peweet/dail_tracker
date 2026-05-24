@@ -6,7 +6,7 @@ bills. Writes one row per matched (bill, SI) to
 data/gold/parquet/bill_statutory_instruments.parquet.
 
 Matching tuning (Jaccard >= 0.40, +/-3yr window, SI year >= 2018, taxonomy
-confidence >= 0.5) — lifted verbatim from the legislation_si_poc page that
+confidence >= 0.5) — lifted verbatim from the statutory_instruments page that
 this enrichment graduated.
 
 Outputs:
@@ -46,7 +46,7 @@ _OUT_UNM = SILVER_DIR / "_meta" / "bill_statutory_instruments_unmatched.parquet"
 # real "<year>_<bill_no>" ids and don't collide with v_legislation_index.
 _PRE2014_ACTS = _ROOT / "data" / "_meta" / "pre2014_acts.csv"
 
-# Constants lifted verbatim from legislation_si_poc.py
+# Constants lifted verbatim from statutory_instruments.py
 SI_YEAR_FLOOR = 2018
 MIN_TAXO_CONFIDENCE = 0.5
 MATCH_THRESHOLD = 0.40
@@ -184,7 +184,7 @@ def load_pre2014_acts() -> dict[tuple[str, int], dict]:
 
 def match_si_to_bill(si_df: pd.DataFrame, bills_df: pd.DataFrame) -> pd.DataFrame:
     """Year-bucketed token-set Jaccard match. Lifted verbatim from
-    legislation_si_poc.match_si_to_bill - same regex, same threshold,
+    statutory_instruments.match_si_to_bill - same regex, same threshold,
     same year window. Returns si_df + four match columns plus the
     sponsor_unique_member_code carry-through (new).
 

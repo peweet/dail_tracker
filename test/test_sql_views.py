@@ -15,6 +15,7 @@ Run with:
     pytest test/test_sql_views.py -v -m sql
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -30,8 +31,22 @@ from config import (
 )
 
 SQL_VIEWS_DIR = Path(__file__).parent.parent / "sql_views"
-MEMBER_PARQUET = SILVER_PARQUET_DIR / "flattened_members.parquet"
-VOTE_PARQUET = GOLD_PARQUET_DIR / "pretty_votes.parquet"
+
+# Fixture parquets (committed under test/fixtures/sql_views/) let the view-template
+# tests run in CI without needing real pipeline output. Set DAIL_INTEGRATION_TESTS=1
+# to point at production paths instead — needed for the tests that don't yet have
+# fixtures (lobbying, payments, attendance) and for end-to-end runs locally.
+_USE_REAL_PATHS = os.environ.get("DAIL_INTEGRATION_TESTS") == "1"
+_FIXTURES_DIR = Path(__file__).parent / "fixtures" / "sql_views"
+
+if _USE_REAL_PATHS:
+    MEMBER_PARQUET = SILVER_PARQUET_DIR / "flattened_members.parquet"
+    VOTE_PARQUET = GOLD_PARQUET_DIR / "pretty_votes.parquet"
+    EXTERNAL_LINKS_PARQUET = SILVER_PARQUET_DIR / "member_external_links.parquet"
+else:
+    MEMBER_PARQUET = _FIXTURES_DIR / "silver" / "parquet" / "flattened_members.parquet"
+    VOTE_PARQUET = _FIXTURES_DIR / "gold" / "parquet" / "pretty_votes.parquet"
+    EXTERNAL_LINKS_PARQUET = _FIXTURES_DIR / "silver" / "parquet" / "member_external_links.parquet"
 
 
 # ---------------------------------------------------------------------------
@@ -49,6 +64,7 @@ def _load(filename: str, con=None) -> str:
     sql = (SQL_VIEWS_DIR / filename).read_text(encoding="utf-8")
     sql = sql.replace("{MEMBER_PARQUET_PATH}", str(MEMBER_PARQUET).replace("\\", "/"))
     sql = sql.replace("{PARQUET_PATH}", str(VOTE_PARQUET).replace("\\", "/"))
+    sql = sql.replace("{EXTERNAL_LINKS_PARQUET_PATH}", str(EXTERNAL_LINKS_PARQUET).replace("\\", "/"))
     return sql
 
 
@@ -125,14 +141,43 @@ def test_v_attendance_year_rank_executes():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.sql
 def test_v_member_registry_executes():
+    """Runs against test/fixtures/sql_views/silver/parquet/flattened_members.parquet
+    by default; set DAIL_INTEGRATION_TESTS=1 to run against real pipeline output.
+    """
     _skip_missing(MEMBER_PARQUET)
     con = _con()
     con.execute(_load("member_registry.sql"))
     result = _result(con, "v_member_registry")
     assert "unique_member_code" in result.columns
     assert "member_name" in result.columns
+    assert len(result) > 0
+
+
+def test_v_member_external_links_executes():
+    """Runs against the Wikidata-sourced external-links fixture by default.
+    The view's columns are the contract the member-overview hero relies on
+    when building chips — a rename here is a UI break, surface it loudly.
+    """
+    _skip_missing(EXTERNAL_LINKS_PARQUET)
+    con = _con()
+    con.execute(_load("member_external_links.sql"))
+    result = _result(con, "v_member_external_links")
+    expected = {
+        "unique_member_code",
+        "wikidata_qid",
+        "wikipedia_url",
+        "twitter_handle",
+        "twitter_url",
+        "bluesky_handle",
+        "bluesky_url",
+        "facebook_id",
+        "facebook_url",
+        "instagram_handle",
+        "instagram_url",
+        "website_url",
+    }
+    assert expected.issubset(set(result.columns))
     assert len(result) > 0
 
 
@@ -267,20 +312,27 @@ def test_v_payments_base_executes():
 # VOTE VIEWS  ({PARQUET_PATH} substituted)
 # ---------------------------------------------------------------------------
 
+# NOTE: View names and column assertions match what each SQL file actually
+# CREATEs. Some views use the `v_` prefix and some don't — this is an
+# inconsistency in production SQL (td_vote_*, party_vote_breakdown vs the
+# `v_vote_*` convention) that the old test parametrize didn't account for.
+# Aliases (full_name → member_name, party → party_name) are reflected here.
 VOTE_VIEWS = [
     ("vote_index.sql", "v_vote_index", ["vote_id", "vote_date", "vote_outcome"]),
-    ("vote_member_detail.sql", "v_vote_member_detail", ["full_name", "vote_type"]),
-    ("vote_party_breakdown.sql", "v_vote_party_breakdown", ["party", "yes_count"]),
-    ("vote_result_summary.sql", "v_vote_result_summary", ["vote_id", "vote_outcome"]),
-    ("vote_sources.sql", "v_vote_sources", ["vote_id"]),
-    ("vote_td_summary.sql", "v_vote_td_summary", ["full_name", "yes_count"]),
-    ("vote_td_year_summary.sql", "v_vote_td_year_summary", ["full_name", "year"]),
+    ("vote_member_detail.sql", "v_vote_member_detail", ["member_name", "vote_type"]),
+    ("vote_party_breakdown.sql", "party_vote_breakdown", ["party_name", "vote_type", "member_count"]),
+    ("vote_result_summary.sql", "v_vote_result_summary", ["division_count", "member_count"]),
+    ("vote_sources.sql", "v_vote_sources", ["vote_id", "source_url"]),
+    ("vote_td_summary.sql", "td_vote_summary", ["member_name", "yes_count"]),
+    ("vote_td_year_summary.sql", "td_vote_year_summary", ["member_name", "year"]),
 ]
 
 
-@pytest.mark.sql
 @pytest.mark.parametrize("filename,view_name,key_cols", VOTE_VIEWS)
 def test_vote_view_executes(filename, view_name, key_cols):
+    """Runs against test/fixtures/sql_views/gold/parquet/pretty_votes.parquet
+    by default; set DAIL_INTEGRATION_TESTS=1 to run against real pipeline output.
+    """
     _skip_missing(VOTE_PARQUET)
     con = _con()
     con.execute(_load(filename))

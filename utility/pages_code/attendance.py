@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import datetime
 from html import escape as _h
-from urllib.parse import quote
 
 import altair as alt
 import pandas as pd
@@ -31,7 +30,6 @@ import streamlit as st
 from shared_css import inject_css
 from ui.avatars import avatar_credit_html, avatar_data_url, initials as _initials
 from ui.components import (
-    back_button,
     clean_meta,
     clickable_card_link,
     empty_state,
@@ -47,6 +45,7 @@ from ui.components import (
     todo_callout,
     year_selector,
 )
+from ui.entity_links import member_profile_url, name_join_key
 from ui.export_controls import export_button
 from ui.source_pdfs import ATTENDANCE, provenance_expander
 
@@ -119,6 +118,26 @@ def _fetch_member_years(td_name: str) -> pd.DataFrame:
             "SELECT year, attended_count FROM v_attendance_member_year_summary"
             " WHERE member_name = ? ORDER BY year DESC LIMIT 100",
             [td_name],
+        )
+        .df()
+    )
+
+
+@st.cache_data(ttl=300)
+def _fetch_missing_members() -> pd.DataFrame:
+    """Roster TDs with no row in the attendance parquet.
+
+    Two groups via the `missing_reason` column:
+      • office_holder      — ministers/ministers-of-state; documented TAA gap
+      • no_record_on_file  — everyone else (Taoiseach + genuine roster gaps)
+    """
+    return (
+        get_attendance_conn()
+        .execute(
+            "SELECT member_name, party_name, constituency,"
+            " ministerial_office, departments_held, missing_reason"
+            " FROM v_attendance_missing_members"
+            " ORDER BY missing_reason, member_name LIMIT 500"
         )
         .df()
     )
@@ -200,12 +219,17 @@ def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
 
 
 def _att_card_link(row: pd.Series, *, side: str, rank: int, medal: str = "") -> str:
-    """Return a full-card-clickable hall card linking to ?att_td=<member>."""
+    """Full-card-clickable hall card linking to the canonical profile.
+
+    Cross-page jump: every card on /rankings-attendance now lands on
+    /member-overview?member=<code>#attendance. The in-page ?att_td= contract
+    is gone (Phase 6); legacy URLs are caught by attendance_page().
+    """
     name = str(row["member_name"])
     return clickable_card_link(
-        href=f"?att_td={quote(name)}",
+        href=member_profile_url(name_join_key(name), section="attendance"),
         inner_html=_hall_card(row, medal, side, rank=rank),
-        aria_label=f"View {name}",
+        aria_label=f"View {name}'s profile",
         show_arrow=False,
     )
 
@@ -324,10 +348,28 @@ def _render_attendance_strip(timeline: pd.DataFrame, year: int) -> None:
     st.altair_chart(chart, use_container_width=True)
 
 
-# ── Profile view ───────────────────────────────────────────────────────────────
+# ── Member profile body (lifted into member-overview Attendance expander) ─────
 
 
-def _render_profile(td_name: str) -> None:
+def render_member_attendance(
+    td_name: str,
+    *,
+    show_member_header: bool = True,
+    year_pill_key: str = "att_profile_year",
+    export_key_suffix: str = "",
+) -> None:
+    """Render the per-TD attendance body.
+
+    Public so :mod:`pages_code.member_overview` can embed it inside the
+    Attendance expander. When ``show_member_header=False``: skip the
+    avatar/name/meta header (the embedding page provides it), skip the inner
+    "Sitting dates · N records" `st.expander` (Streamlit forbids nested
+    expanders), and render the year breakdown as a card list instead of a
+    `st.dataframe` (member_overview is dataframe-free).
+
+    ``export_key_suffix`` namespaces export-button widget keys so the
+    embedded copy doesn't collide with the stand-alone page state.
+    """
     profile = _fetch_td_profile(td_name)
     if profile.empty:
         empty_state(
@@ -340,13 +382,14 @@ def _render_profile(td_name: str) -> None:
     party = str(row.get("party_name") or "—")
     const = str(row.get("constituency") or "—")
 
-    member_profile_header(
-        td_name,
-        f"{party} · {const}",
-        avatar_url=avatar_data_url(td_name),
-        avatar_initials=_initials(td_name),
-        avatar_credit_html=avatar_credit_html(td_name),
-    )
+    if show_member_header:
+        member_profile_header(
+            td_name,
+            f"{party} · {const}",
+            avatar_url=avatar_data_url(td_name),
+            avatar_initials=_initials(td_name),
+            avatar_credit_html=avatar_credit_html(td_name),
+        )
 
     # ── Year pills (profile-level, newest first) ───────────────────────────────
     member_years_df = _fetch_member_years(td_name)
@@ -356,7 +399,7 @@ def _render_profile(td_name: str) -> None:
 
     year_options = [str(int(y)) for y in member_years_df["year"].tolist()]
 
-    selected_year = year_selector(year_options, key="att_profile_year", skip_current=False)
+    selected_year = year_selector(year_options, key=year_pill_key, skip_current=False)
 
     # ── Stats for selected year (from pipeline — no pandas aggregation) ──────────
     yr_row = member_years_df[member_years_df["year"] == selected_year]
@@ -416,37 +459,62 @@ def _render_profile(td_name: str) -> None:
 
         _render_attendance_strip(timeline, selected_year)
 
-        with st.expander(f"Sitting dates · {n_attended} records", expanded=False):
-            tl_table = tl_all.copy()
-            tl_table["#"] = range(1, len(tl_table) + 1)
-            tl_table["Date"] = tl_table["sitting_date"].dt.strftime("%d %b %Y")
-            tl_table["Weekday"] = tl_table["sitting_date"].dt.strftime("%A")
-            st.dataframe(
-                tl_table[["#", "Date", "Weekday"]],
-                hide_index=True,
-                use_container_width=True,
-                column_config={
-                    "#": st.column_config.NumberColumn("#", width="small"),
-                    "Date": st.column_config.TextColumn("Date", width="medium"),
-                    "Weekday": st.column_config.TextColumn("Day", width="medium"),
-                },
-            )
+        # Inner expander is forbidden inside the member-overview Attendance
+        # expander (Streamlit nests fail). Stand-alone page keeps the
+        # collapsed sitting-dates table; embedded mode drops it (the
+        # calendar above already plots every date — tooltips show specifics).
+        if show_member_header:
+            with st.expander(f"Sitting dates · {n_attended} records", expanded=False):
+                tl_table = tl_all.copy()
+                tl_table["#"] = range(1, len(tl_table) + 1)
+                tl_table["Date"] = tl_table["sitting_date"].dt.strftime("%d %b %Y")
+                tl_table["Weekday"] = tl_table["sitting_date"].dt.strftime("%A")
+                st.dataframe(
+                    tl_table[["#", "Date", "Weekday"]],
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "#": st.column_config.NumberColumn("#", width="small"),
+                        "Date": st.column_config.TextColumn("Date", width="medium"),
+                        "Weekday": st.column_config.TextColumn("Day", width="medium"),
+                    },
+                )
 
         export_button(
             timeline,
             label=f"Export {td_name} · {selected_year} · {n_attended} rows",
             filename=f"dail_tracker_attendance_{td_name.replace(' ', '_')}_{selected_year}.csv",
-            key="att_td_export",
+            key=f"att_td_export{export_key_suffix}",
         )
 
     st.divider()
-    _render_year_breakdown(td_name, member_years_df)
+    _render_year_breakdown(
+        td_name,
+        member_years_df,
+        as_dataframe=show_member_header,
+        export_key_suffix=export_key_suffix,
+    )
 
 
 # ── Year breakdown table (profile secondary view) ─────────────────────────────
 
 
-def _render_year_breakdown(td_name: str, years_df: pd.DataFrame) -> None:
+def _render_year_breakdown(
+    td_name: str,
+    years_df: pd.DataFrame,
+    *,
+    as_dataframe: bool = True,
+    export_key_suffix: str = "",
+) -> None:
+    """Per-year attendance summary.
+
+    Stand-alone page (``as_dataframe=True``): sortable `st.dataframe` with a
+    ProgressColumn — drill-down + export-adjacent so allowed per
+    feedback_dataframes_secondary_only. Embedded in member-overview
+    (``as_dataframe=False``): card list of `.att-year-row`s with a CSS-width
+    bar in lieu of ProgressColumn — required by
+    feedback_member_overview_no_dataframes.
+    """
     evidence_heading("Attendance by year")
     if years_df.empty:
         empty_state("No year data available", "v_attendance_member_year_summary returned no rows.")
@@ -462,30 +530,114 @@ def _render_year_breakdown(td_name: str, years_df: pd.DataFrame) -> None:
         pct = days / total if total else None
         rows.append({"Year": y, "Days": days, "Total": str(total) if total else "—", "Rate": pct})
 
-    table_df = pd.DataFrame(rows)
-    st.dataframe(
-        table_df,
-        hide_index=True,
-        use_container_width=True,
-        column_config={
-            "Year": st.column_config.NumberColumn("Year", format="%d", width="small"),
-            "Days": st.column_config.NumberColumn("Days attended", width="small"),
-            "Total": st.column_config.TextColumn("Sitting days", width="small"),
-            "Rate": st.column_config.ProgressColumn(
-                "Attendance",
-                min_value=0.0,
-                max_value=1.0,
-                format="%.0%",
-            ),
-        },
-    )
+    if as_dataframe:
+        table_df = pd.DataFrame(rows)
+        st.dataframe(
+            table_df,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "Year": st.column_config.NumberColumn("Year", format="%d", width="small"),
+                "Days": st.column_config.NumberColumn("Days attended", width="small"),
+                "Total": st.column_config.TextColumn("Sitting days", width="small"),
+                "Rate": st.column_config.ProgressColumn(
+                    "Attendance",
+                    min_value=0.0,
+                    max_value=1.0,
+                    format="%.0%",
+                ),
+            },
+        )
+    else:
+        # Card list — one row per year with a CSS-width bar replacing the
+        # ProgressColumn. Keeps the same information density without st.dataframe.
+        cards_html: list[str] = []
+        for row_d in rows:
+            y = row_d["Year"]
+            days = row_d["Days"]
+            total = row_d["Total"]
+            pct = row_d["Rate"]
+            pct_pad = max(0.0, min(1.0, float(pct))) * 100 if pct is not None else 0.0
+            pct_label = f"{pct * 100:.0f}%" if pct is not None else "—"
+            total_label = f"{days} / {total}" if total != "—" else f"{days}"
+            cards_html.append(
+                f'<div class="att-year-row">'
+                f'<span class="att-year-yr">{y}</span>'
+                f'<div class="att-year-bar-track">'
+                f'<div class="att-year-bar-fill" style="width:{pct_pad:.1f}%"></div>'
+                f"</div>"
+                f'<span class="att-year-days">{_h(total_label)}</span>'
+                f'<span class="att-year-pct">{_h(pct_label)}</span>'
+                f"</div>"
+            )
+        st.html(f'<div class="att-year-list">{"".join(cards_html)}</div>')
+
     safe = td_name.replace(" ", "_")
+    table_df = pd.DataFrame(rows)
     export_button(
         table_df[["Year", "Days", "Total"]].rename(columns={"Total": "Sitting days"}),
         label=f"Export year breakdown · {td_name}",
         filename=f"dail_tracker_attendance_years_{safe}.csv",
-        key="att_years_export",
+        key=f"att_years_export{export_key_suffix}",
     )
+
+
+# ── Missing-members section (TDs not in the attendance parquet) ───────────────
+
+
+def _name_pill(row: pd.Series, *, with_office: bool) -> str:
+    name = _h(str(row["member_name"]))
+    party = str(row.get("party_name", "") or "")
+    const = str(row.get("constituency", "") or "")
+    meta = _h(clean_meta(party, const))
+    office = str(row.get("departments_held", "") or "") if with_office else ""
+    office_html = (
+        f'<span class="att-miss-office">{_h(office)}</span>' if office else ""
+    )
+    return (
+        '<div class="att-miss-row">'
+        f'<span class="att-miss-name">{name}</span>'
+        f'<span class="att-miss-meta">{meta}</span>'
+        f"{office_html}"
+        "</div>"
+    )
+
+
+def _render_missing_members() -> None:
+    df = _fetch_missing_members()
+    if df.empty:
+        return
+
+    office = df[df["missing_reason"] == "office_holder"]
+    no_record = df[df["missing_reason"] == "no_record_on_file"]
+    total = len(df)
+
+    with st.expander(
+        f"⚠ {total} TDs do not appear in the attendance record · why?",
+        expanded=False,
+    ):
+        st.markdown(
+            "The official Oireachtas Travel & Accommodation Allowance (TAA) PDFs — "
+            "the source for this page — do not capture attendance for members holding "
+            "ministerial office. A small number of other TDs are also absent from the "
+            "source data. **Their non-appearance here is not evidence of non-attendance.**"
+        )
+
+        if not office.empty:
+            evidence_heading(f"Ministers and ministers of state · {len(office)}")
+            st.caption(
+                "TAA records exclude office-holders by design — they are not absent, "
+                "they are not recorded."
+            )
+            st.html("\n".join(_name_pill(r, with_office=True) for _, r in office.iterrows()))
+
+        if not no_record.empty:
+            evidence_heading(f"Other TDs with no record on file · {len(no_record)}")
+            st.caption(
+                "Includes the Taoiseach (whose office is not classified as a department "
+                "in the source data) and any roster / name-match gaps in the upstream ETL."
+            )
+            st.html("\n".join(_name_pill(r, with_office=False) for _, r in no_record.iterrows()))
 
 
 # ── Provenance footer ──────────────────────────────────────────────────────────
@@ -527,12 +679,26 @@ def attendance_page() -> None:
         empty_state("No year data found", "v_attendance_member_year_summary returned no rows.")
         return
 
-    # ── Read ?att_td query param (set by clickable_card_link on the rankings) ──
-    qp_td = st.query_params.get("att_td")
-    if qp_td and st.session_state.get("selected_td_att") != qp_td:
-        st.session_state["selected_td_att"] = qp_td
-
-    selected_td = st.session_state.get("selected_td_att")
+    # Legacy ?att_td=<name> URLs (from before Phase 6) and the legacy in-page
+    # ?member=<name> bookmark both now redirect to /member-overview. Card
+    # hrefs already route cross-page; this catches bookmarks / external links.
+    qp_legacy = st.query_params.get("att_td") or st.query_params.get("member")
+    if qp_legacy:
+        target = member_profile_url(name_join_key(qp_legacy), section="attendance")
+        st.html(
+            f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
+            f"<strong>Member profiles have moved.</strong><br>"
+            f'<span style="color:var(--text-meta)">Per-TD attendance now lives on the '
+            f'canonical member-overview page. Bookmarks to <code>?att_td={_h(qp_legacy)}</code> '
+            f"redirect here.</span><br>"
+            f'<a class="dt-member-link" href="{_h(target)}" target="_self" '
+            f'style="margin-top:0.6rem;display:inline-block;">'
+            f"Open {_h(qp_legacy)}'s profile →</a>"
+            f"</div>"
+        )
+        for k in ("att_td", "member"):
+            st.query_params.pop(k, None)
+        st.session_state.pop("selected_td_att", None)
 
     # ── Sidebar ────────────────────────────────────────────────────────────────
     with st.sidebar:
@@ -554,32 +720,31 @@ def attendance_page() -> None:
             st.rerun()
 
     # ── Page header ────────────────────────────────────────────────────────────
-    if not selected_td:
-        hero_banner(
-            kicker="DÁIL PLENARY ATTENDANCE",
-            title="The attendance record",
-        )
-        glossary_strip(
-            [
-                ("TD", "Teachta Dála, a member of the Dáil"),
-                ("Plenary", "the full chamber sitting (does not include committees or ministerial duties)"),
-                ("TAA", "Travel & Accommodation Allowance, the official attendance record"),
-            ]
-        )
+    hero_banner(
+        kicker="DÁIL PLENARY ATTENDANCE",
+        title="The attendance record",
+    )
+    glossary_strip(
+        [
+            ("TD", "Teachta Dála, a member of the Dáil"),
+            ("Plenary", "the full chamber sitting (does not include committees or ministerial duties)"),
+            ("TAA", "Travel & Accommodation Allowance, the official attendance record"),
+        ]
+    )
 
-    # ── Profile view ───────────────────────────────────────────────────────────
+    # Sidebar-driven member selection also routes cross-page now — the
+    # in-page profile branch is gone (lifted into /member-overview).
+    selected_td = st.session_state.get("selected_td_att")
     if selected_td:
-        if back_button("← Back to all members", key="att"):
-            st.session_state["selected_td_att"] = None
-            st.session_state.pop("att_member_sel", None)
-            st.query_params.pop("att_td", None)
-            st.rerun()
-
-        st.divider()
-        _render_profile(selected_td)
-        st.divider()
-        _render_provenance()
-        return
+        target = member_profile_url(name_join_key(selected_td), section="attendance")
+        st.html(
+            f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
+            f"<strong>{_h(selected_td)}</strong> &nbsp;·&nbsp; "
+            f'<a class="dt-member-link" href="{_h(target)}" target="_self">'
+            f"Open this member's attendance profile →</a>"
+            f"</div>"
+        )
+        st.session_state.pop("selected_td_att", None)
 
     # ── Primary view: year selector ────────────────────────────────────────────
     year_options = [str(y) for y in opts["years"]]  # DESC from query
@@ -621,5 +786,7 @@ def attendance_page() -> None:
         filename=f"dail_tracker_attendance_{selected_year}_{today_str}.csv",
         key="att_export",
     )
+
+    _render_missing_members()
 
     _render_provenance(selected_year)

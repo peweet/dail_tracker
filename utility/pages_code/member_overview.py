@@ -14,8 +14,6 @@ TODO_PIPELINE_VIEW_REQUIRED: v_member_overview_browse
 from __future__ import annotations
 
 import logging
-import re
-import unicodedata
 from html import escape as _h
 from pathlib import Path
 import sys
@@ -49,10 +47,18 @@ from ui.entity_links import (
     entity_cta_html,
     member_profile_url,
     member_votes_url,
+    oireachtas_profile_url,
+    social_icon_chip_html,
     source_link_html,
 )
 from ui.vote_explorer import member_vote_card_html
 from data_access.member_overview_data import get_member_overview_conn
+from pages_code.attendance import render_member_attendance
+from pages_code.interests import render_member_interests
+from pages_code.lobbying_2 import render_member_lobbying
+from pages_code.payments import render_member_payments
+from data_access.payments_data import fetch_filter_options as _pay_filter_options
+from data_access.payments_data import fetch_payments_summary as _pay_summary
 
 _log = logging.getLogger(__name__)
 _STAGE_KEY = "mo_join_key"
@@ -74,20 +80,21 @@ _POLICY_AREAS: list[tuple[str, str]] = [
 _AREA_LABELS: list[str] = [lbl for lbl, _ in _POLICY_AREAS]
 _AREA_LABEL_TO_KW: dict[str, str] = {lbl: kw for lbl, kw in _POLICY_AREAS}
 
-
-# ── Name normalisation (mirrors normalise_join_key.py pipeline logic) ──────────
-
-
-def _norm_name(name: str) -> str:
-    """Sorted-character key identical to the pipeline's normalise_df_td_name()."""
-    name = name.lower()
-    name = unicodedata.normalize("NFD", name)
-    name = re.sub(r"[̀-ͯ]", "", name)
-    name = re.sub(r"[\x27‘’ʼʹ`´＇]", "", name)
-    name = re.sub(r"[^a-z\s]", "", name)
-    name = re.sub(r"^\s*(dr|prof|rev|fr|sr|mr|mrs|ms|miss|br)\s+", "", name)
-    name = re.sub(r"\s+", "", name)
-    return "".join(sorted(name))
+# ── Profile section IA (Phase 2 chrome) ────────────────────────────────────────
+# Section order is "most politically potent first" per project_design_principles.
+# (id, expander label, ranking-page key in entity_links.PAGES). The id is the
+# URL-fragment anchor (`/member-overview?member=<code>#<id>`) and the
+# session-state suffix (`mo_open_<id>`). The rankings page key is used to
+# render "see league table" deep links from each section's empty/lifted body.
+_PROFILE_SECTIONS: list[tuple[str, str, str]] = [
+    ("interests", "Interests", "interests"),
+    ("lobbying", "Lobbying", "lobbying"),
+    ("payments", "Payments", "payments"),
+    ("attendance", "Attendance", "attendance"),
+    ("votes", "Votes", "votes"),
+    ("legislation", "Legislation", "legislation"),
+    ("committees", "Committees", "committees"),
+]
 
 
 # ── Data retrieval ─────────────────────────────────────────────────────────────
@@ -172,6 +179,29 @@ def _att_rank_for_year(_conn, join_key: str, year: int) -> tuple[int | None, int
     rank = int(df.iloc[0]["rank_high"]) if pd.notna(df.iloc[0]["rank_high"]) else None
     total = int(total_df.iloc[0]["n"]) if not total_df.empty else None
     return rank, total
+
+
+@st.cache_data(ttl=300)
+def _external_links(_conn, join_key: str) -> dict:
+    """Wikidata-sourced socials + Wikipedia URL for the hero chips row.
+
+    Returns an empty dict when the view is missing (Wikidata ETL not yet run)
+    or the member has no entry — both are normal, the UI just renders fewer
+    chips. Every value is the pre-derived URL; the raw handles aren't needed
+    here (kept in the parquet for replay/debug only).
+    """
+    df = _q(
+        _conn,
+        "SELECT wikipedia_url, twitter_url, bluesky_url, facebook_url,"
+        " instagram_url, website_url"
+        " FROM v_member_external_links WHERE unique_member_code = ? LIMIT 1",
+        [join_key],
+    )
+    if df.empty:
+        return {}
+    row = df.iloc[0].to_dict()
+    # Drop nulls so the hero block only iterates over populated platforms.
+    return {k: v for k, v in row.items() if isinstance(v, str) and v.strip()}
 
 
 @st.cache_data(ttl=300)
@@ -264,18 +294,6 @@ def _lobbying_rd(_conn, join_key: str) -> pd.DataFrame:
         _conn,
         "SELECT individual_name, former_position, return_count, distinct_firms"
         " FROM v_lobbying_revolving_door WHERE unique_member_code = ? LIMIT 5",
-        [join_key],
-    )
-
-
-@st.cache_data(ttl=300)
-def _lobbying_contacts(_conn, join_key: str) -> pd.DataFrame:
-    return _q(
-        _conn,
-        "SELECT period_start_date, lobbyist_name, public_policy_area, source_url"
-        " FROM v_lobbying_contact_detail"
-        " WHERE unique_member_code = ?"
-        " ORDER BY period_start_date DESC NULLS LAST LIMIT 200",
         [join_key],
     )
 
@@ -732,69 +750,6 @@ def _section_committees() -> None:
     )
 
 
-def _section_lobbying(conn, join_key: str) -> None:
-    st.html('<p class="section-heading">Lobbying &amp; revolving door</p>')
-    rd_df = _lobbying_rd(conn, join_key)
-
-    if not rd_df.empty:
-        row = rd_df.iloc[0]
-        rc = int(row.get("return_count", 0) or 0)
-        firms = int(row.get("distinct_firms", 0) or 0)
-        pos = str(row.get("former_position", "")).strip()
-        pos_line = f"Former position: <strong>{_h(pos)}</strong>. " if pos else ""
-
-        st.badge("Revolving door", icon=":material/warning:", color="orange")
-        st.html(
-            f'<div class="lob-revolving-callout">'
-            f'<div class="lob-revolving-heading">Revolving door flag</div>'
-            f'<p style="margin:0;font-size:0.88rem;color:var(--text-secondary);">'
-            f"{pos_line}"
-            f"Appears on <strong>{rc}</strong> lobbying return{'s' if rc != 1 else ''} "
-            f"across <strong>{firms}</strong> distinct firm{'s' if firms != 1 else ''}.</p>"
-            f"</div>"
-        )
-    else:
-        st.html('<div class="dt-callout">No revolving door flag found for this member.</div>')
-
-    contacts = _lobbying_contacts(conn, join_key)
-    if contacts.empty:
-        return
-
-    n = len(contacts)
-    st.caption(
-        f"{n} lobbying contact{'s' if n != 1 else ''} recorded on lobbying.ie (showing most recent {min(n, 200)})."
-    )
-
-    for _, row in contacts.head(50).iterrows():
-        date_raw = str(row.get("period_start_date", "") or "")
-        try:
-            date_disp = pd.to_datetime(date_raw).strftime("%b %Y")
-        except Exception:
-            date_disp = date_raw
-        lobbyist = _h(str(row.get("lobbyist_name", "") or "—"))
-        area = _h(str(row.get("public_policy_area", "") or "—"))
-        url = str(row.get("source_url", "") or "")
-        url_html = (
-            source_link_html(
-                url,
-                "lobbying.ie",
-                aria_label="Open this return on lobbying.ie",
-            )
-            if url.startswith("http")
-            else ""
-        )
-        st.html(
-            f'<div class="leg-bill-card" style="margin-bottom:0.3rem;">'
-            f'<div class="leg-bill-card-header">'
-            f'<span class="leg-bill-card-date">{_h(date_disp)}</span>'
-            f'<span class="signal leg-status-active">{area}</span>'
-            f"</div>"
-            f'<div class="leg-bill-card-title">{lobbyist}</div>'
-            f'<div style="margin-top:0.2rem;">{url_html}</div>'
-            f"</div>"
-        )
-
-
 _OTHER_PILL = "Other / Independent"
 _OTHER_MIN = 3  # parties with fewer TDs are grouped into Other
 
@@ -1047,6 +1002,57 @@ def _render_stage2(
         avatar_block = f'<span class="dt-profile-initials" aria-hidden="true">{_h(_initials(member_name))}</span>'
         caption_block = '<p class="dt-profile-avatar-empty">No photo available</p>'
 
+    # Hero meta strip — TD/Minister/Revolving badges share one flex row with
+    # the external-link chips. Two visual "zones" inside that row:
+    #   1. role/status (existing dt-badge pills)
+    #   2. find-online (label chips for Profile + Wikipedia, icon chips for
+    #      Twitter / Bluesky / Facebook / Instagram / Website)
+    # A thin .dt-hero-sep separates the two zones without adding a heavier
+    # divider; the whole row flex-wraps gracefully on narrow viewports.
+    ext = _external_links(conn, join_key)
+    badge_parts: list[str] = [role_html]
+    if rd_html:
+        badge_parts.append(rd_html)
+
+    link_parts: list[str] = []
+    profile_href = oireachtas_profile_url(join_key)
+    if profile_href:
+        chip = source_link_html(
+            profile_href,
+            "Official profile",
+            aria_label=f"Open {member_name}'s official Oireachtas profile in a new tab",
+        )
+        if chip:
+            link_parts.append(chip)
+    wiki_href = ext.get("wikipedia_url")
+    if wiki_href:
+        chip = source_link_html(
+            wiki_href,
+            "Wikipedia",
+            aria_label=f"Open {member_name}'s Wikipedia article in a new tab",
+        )
+        if chip:
+            link_parts.append(chip)
+    for platform, key in (
+        ("twitter", "twitter_url"),
+        ("bluesky", "bluesky_url"),
+        ("facebook", "facebook_url"),
+        ("instagram", "instagram_url"),
+        ("website", "website_url"),
+    ):
+        chip = social_icon_chip_html(platform, ext.get(key), person_name=member_name)
+        if chip:
+            link_parts.append(chip)
+
+    sep_html = '<span class="dt-hero-sep" aria-hidden="true"></span>' if link_parts else ""
+    meta_row = (
+        '<div class="dt-hero-meta-row">'
+        + "".join(badge_parts)
+        + sep_html
+        + "".join(link_parts)
+        + "</div>"
+    )
+
     st.html(
         f'<div class="dt-hero">'
         f'  <p class="dt-kicker">TD ACCOUNTABILITY RECORD</p>'
@@ -1055,7 +1061,7 @@ def _render_stage2(
         f'    <div class="dt-profile-meta-col">'
         f'      <h1 class="td-name" style="margin:0.15rem 0 0.2rem;">{_h(member_name)}</h1>'
         f'      <p class="td-meta" style="margin:0 0 0.55rem;">{_h(meta)}</p>'
-        f'      <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">{role_html}{rd_html}</div>'
+        f"      {meta_row}"
         f"    </div>"
         f"  </div>"
         f"</div>"
@@ -1102,36 +1108,119 @@ def _render_stage2(
         ]
     )
 
-    st.divider()
+    # ── Section nav strip (anchor links into the expanders below) ────────────
+    nav_links = "".join(
+        f'<a class="mo-section-chip" href="#mo-section-{sid}">{_h(label)}</a>' for sid, label, _ in _PROFILE_SECTIONS
+    )
+    st.html(f'<nav class="mo-section-nav" aria-label="Profile section quick links">{nav_links}</nav>')
 
-    # ── 1. Voting record by issue ─────────────────────────────────────────────
-    _section_votes(conn, join_key, date_from, date_to)
+    # ── "Open all sections" toggle (journalist mode) ─────────────────────────
+    # Flips every mo_open_<sid> key. Streamlit's st.expander reads expanded=
+    # on render, so a rerun after toggling propagates the new state. The
+    # button label flips so the same control closes them all again.
+    all_open = all(st.session_state.get(f"mo_open_{sid}", False) for sid, _, _ in _PROFILE_SECTIONS)
+    btn_label = "Close all sections" if all_open else "Open all sections"
+    if st.button(btn_label, key="mo_open_all_btn", help="Expand every section at once — useful for journalists"):
+        new_state = not all_open
+        for sid, _, _ in _PROFILE_SECTIONS:
+            st.session_state[f"mo_open_{sid}"] = new_state
+        st.rerun()
 
-    st.html(entity_cta_html(member_votes_url(join_key), "Full voting history →"))
+    # ── 7 dimension expanders ────────────────────────────────────────────────
+    # Phase 2 scaffolding: chrome + lazy-load session keys are in place. Each
+    # body either calls its existing inline render fn (kept verbatim) or
+    # shows an empty_state placeholder pointing to the matching ranking page.
+    # Phases 3–8 replace the inline calls with content lifted from the
+    # /rankings/* profile branches.
+    for sid, label, page_key in _PROFILE_SECTIONS:
+        state_key = f"mo_open_{sid}"
+        expanded = st.session_state.get(state_key, False)
+        with st.expander(label, expanded=expanded):
+            # Cross-page deep-link anchor: /member-overview?member=<code>#<sid>
+            st.html(f'<div id="mo-section-{sid}" class="mo-section-anchor"></div>')
 
-    st.divider()
-
-    # ── 2. Legislation ────────────────────────────────────────────────────────
-    _section_legislation(conn, join_key, member_name)
-
-    # ── 2b. Statutory Instruments signed (ministers only — emits its own
-    #         leading divider when it has content) ──────────────────────────────
-    _section_statutory_instruments(conn, join_key)
-
-    st.divider()
-
-    # ── 3. Debate participation ───────────────────────────────────────────────
-    _section_debates(conn, join_key, member_name)
-
-    st.divider()
-
-    # ── 4. Committees ─────────────────────────────────────────────────────────
-    _section_committees()
-
-    st.divider()
-
-    # ── 5. Lobbying & revolving door ──────────────────────────────────────────
-    _section_lobbying(conn, join_key)
+            if sid == "interests":
+                # Phase 3 lift: full body rendered here without the per-page
+                # member header (the hero above already shows it). Dáil-only —
+                # member-overview never lists Senators.
+                render_member_interests(
+                    "Dáil",
+                    member_name,
+                    show_member_header=False,
+                    year_pill_key=f"mo_int_year_{join_key}",
+                )
+            elif sid == "lobbying":
+                # Revolving-door callout (member-overview-local — built from
+                # v_lobbying_revolving_door_member, which lobbying_2.py does
+                # not query directly). Renders above the lifted body so the
+                # most politically potent flag is the first thing visible.
+                rd_df = _lobbying_rd(conn, join_key)
+                if not rd_df.empty:
+                    rd_row = rd_df.iloc[0]
+                    rc = int(rd_row.get("return_count", 0) or 0)
+                    firms = int(rd_row.get("distinct_firms", 0) or 0)
+                    pos = str(rd_row.get("former_position", "")).strip()
+                    pos_line = f"Former position: <strong>{_h(pos)}</strong>. " if pos else ""
+                    st.badge("Revolving door", icon=":material/warning:", color="orange")
+                    st.html(
+                        f'<div class="lob-revolving-callout">'
+                        f'<div class="lob-revolving-heading">Revolving door flag</div>'
+                        f'<p style="margin:0;font-size:0.88rem;color:var(--text-secondary);">'
+                        f"{pos_line}"
+                        f"Appears on <strong>{rc}</strong> lobbying return{'s' if rc != 1 else ''} "
+                        f"across <strong>{firms}</strong> distinct firm{'s' if firms != 1 else ''}.</p>"
+                        f"</div>"
+                    )
+                # Phase 4 lift: full lobbying body (metrics + ranked orgs +
+                # policy exposure + returns + source links) rendered without
+                # the per-page lobbying hero (member-overview hero is shown).
+                render_member_lobbying(
+                    member_name,
+                    show_header=False,
+                    year_pill_key=f"mo_lob_year_{join_key}",
+                )
+            elif sid == "payments":
+                # Phase 5 lift: full payments body (year metrics + Altair
+                # evolution chart + card-based all-years summary + card-based
+                # payment records) without the per-page identity strip,
+                # back button, or provenance footer. Two `st.dataframe`
+                # views in the stand-alone page are replaced by card lists
+                # here per feedback_member_overview_no_dataframes.
+                _pay_year_options = _pay_filter_options().get("years", [])
+                if _pay_year_options:
+                    render_member_payments(
+                        member_name,
+                        _pay_year_options,
+                        _pay_summary(),
+                        show_member_header=False,
+                        year_pill_key=f"mo_pay_year_{join_key}",
+                    )
+                else:
+                    empty_state(
+                        "Payments data unavailable",
+                        "v_payments_summary returned no years. Run the payments pipeline.",
+                    )
+            elif sid == "attendance":
+                # Phase 6 lift: year metrics + sitting-calendar Altair strip +
+                # card-based year breakdown. No inner `st.expander` (nested
+                # expanders fail in Streamlit) and no `st.dataframe` (per
+                # feedback_member_overview_no_dataframes — the year breakdown
+                # renders as `.att-year-row`s with a CSS-width bar).
+                render_member_attendance(
+                    member_name,
+                    show_member_header=False,
+                    year_pill_key=f"mo_att_year_{join_key}",
+                    export_key_suffix="_mo",
+                )
+            elif sid == "votes":
+                _section_votes(conn, join_key, date_from, date_to)
+                st.html(entity_cta_html(member_votes_url(join_key), "Full voting history →"))
+                _section_debates(conn, join_key, member_name)
+            elif sid == "legislation":
+                _section_legislation(conn, join_key, member_name)
+                _section_statutory_instruments(conn, join_key)
+            elif sid == "committees":
+                _section_committees()
 
 
 # ── Main entry point ───────────────────────────────────────────────────────────
