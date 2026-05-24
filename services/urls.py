@@ -42,9 +42,9 @@ def build_legislation_urls(member_df: pl.DataFrame) -> list[str]:
 
 
 def build_legislation_unscoped_url(skip: int = 0) -> str:
-       return (f"{API_BASE}/legislation?date_start=2014-01-01"
-               f"&date_end=2099-01-01&limit=1000&skip={skip}"
-               f"&chamber_id=&lang=en")
+    return (
+        f"{API_BASE}/legislation?date_start=2014-01-01&date_end=2099-01-01&limit=1000&skip={skip}&chamber_id=&lang=en"
+    )
 
 
 def debate_section_url(context_date: str, debate_section_id: str) -> str:
@@ -54,10 +54,8 @@ def debate_section_url(context_date: str, debate_section_id: str) -> str:
     documented in pipeline_sandbox/zstd_typing_notes.md §8.2. Useful for UI
     code that needs a deep-link to the akoma-ntoso XML payload.
     """
-    return (
-        f"https://data.oireachtas.ie/akn/ie/debateRecord/dail/"
-        f"{context_date}/debate/{debate_section_id}"
-    )
+    return f"https://data.oireachtas.ie/akn/ie/debateRecord/dail/{context_date}/debate/{debate_section_id}"
+
 
 def build_questions_urls(member_df: pl.DataFrame) -> list[str]:
     """Build one questions URL per member."""
@@ -106,14 +104,7 @@ def build_debates_day_urls(
         if key in seen:
             continue
         seen.add(key)
-        urls.append(
-            f"{API_BASE}/debates"
-            f"?date_start={date}"
-            f"&date_end={date}"
-            f"&chamber={quote(chamber)}"
-            f"&limit=200"
-            f"&lang=en"
-        )
+        urls.append(f"{API_BASE}/debates?date_start={date}&date_end={date}&chamber={quote(chamber)}&limit=200&lang=en")
 
     logger.info(f"Built {len(urls)} debates day-window URLs")
     return urls

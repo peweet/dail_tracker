@@ -14,12 +14,13 @@ committee_activity_summary.sql
     -- TODO: Register 'committee_assignments' view from the correct Parquet/CSV (e.g., gold-layer committee assignments)
 """
 
-import duckdb
-import polars as pl
 import os
-from pathlib import Path 
+from pathlib import Path
+
+import duckdb
+
 # Register all required views for the SQL queries
-con = duckdb.connect(database=':memory:')
+con = duckdb.connect(database=":memory:")
 
 # Path to your SQL queries directory
 SQL_DIR = r"C:\Users\pglyn\PycharmProjects\dail_extractor\sql_queries"
@@ -37,31 +38,29 @@ SQL_DIR = r"C:\Users\pglyn\PycharmProjects\dail_extractor\sql_queries"
 # con.execute("CREATE VIEW dail_member_interests_combined AS SELECT * FROM read_csv_auto('data/silver/dail_member_interests_combined.csv')")
 
 
-
-
-
 # Connect to DuckDB (in-memory or specify a .duckdb file)
-con = duckdb.connect(database=':memory:')
-con.execute("CREATE VIEW activities AS SELECT * FROM read_parquet('data/silver/lobbying/parquet/most_lobbied_politicians.parquet')")
+con = duckdb.connect(database=":memory:")
+con.execute(
+    "CREATE VIEW activities AS SELECT * FROM read_parquet('data/silver/lobbying/parquet/most_lobbied_politicians.parquet')"
+)
 
 # List all .sql files in the directory
 
-sql_files = [f for f in os.listdir(SQL_DIR) if f.endswith('.sql')]
+sql_files = [f for f in os.listdir(SQL_DIR) if f.endswith(".sql")]
 print(f"Found {len(sql_files)} SQL files: {sql_files}")
 
-top_lobby_orgs = Path(r'C:\Users\pglyn\PycharmProjects\dail_extractor\sql_queries\top_lobbyist_organisations.sql')
-# 
+top_lobby_orgs = Path(r"C:\Users\pglyn\PycharmProjects\dail_extractor\sql_queries\top_lobbyist_organisations.sql")
+#
 # for sql_file in sql_files:
-    # sql_path = os.path.join(SQL_DIR, sql_file)
-    # print(f"\n--- Running: {sql_file} ---")
-    # with open(sql_path, 'r', encoding='utf-8') as f:
-        # sql = f.read()
-    # try:
-        # result = con.execute(sql).df()
-        # print(result)
-    # except Exception as e:
-        # print(f"Error running {sql_file}: {e}")
-
+# sql_path = os.path.join(SQL_DIR, sql_file)
+# print(f"\n--- Running: {sql_file} ---")
+# with open(sql_path, 'r', encoding='utf-8') as f:
+# sql = f.read()
+# try:
+# result = con.execute(sql).df()
+# print(result)
+# except Exception as e:
+# print(f"Error running {sql_file}: {e}")
 
 
 # #### Interview-style queries you can practise on your own data
@@ -138,7 +137,7 @@ top_lobby_orgs = Path(r'C:\Users\pglyn\PycharmProjects\dail_extractor\sql_querie
 
 # # ```sql
 # # SELECT party, first_name, last_name, sitting_days_count,
-# #        SUM(sitting_days_count) OVER (PARTITION BY party ORDER BY sitting_days_count DESC) 
+# #        SUM(sitting_days_count) OVER (PARTITION BY party ORDER BY sitting_days_count DESC)
 # #            AS running_total,
 # #        ROUND(100.0 * sitting_days_count / SUM(sitting_days_count) OVER (PARTITION BY party), 1)
 # #            AS pct_of_party_total
@@ -215,8 +214,6 @@ top_lobby_orgs = Path(r'C:\Users\pglyn\PycharmProjects\dail_extractor\sql_querie
 # # ```
 
 # # `GROUPING SETS` produces subtotals and grand totals in one query — the SQL equivalent of a pivot table. Interviewers love this because most candidates only know `GROUP BY`.
-
-
 
 
 # ### 13. Data modelling — star schema for DuckDB

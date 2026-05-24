@@ -32,6 +32,7 @@ DERIVES:
 
 COVERAGE FLOOR: si_year >= 2016 (the taxonomy thins sharply below this).
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,13 +46,13 @@ from config import GOLD_PARQUET_DIR, SILVER_DIR
 logger = logging.getLogger(__name__)
 
 _ROOT = Path(__file__).resolve().parent
-_SI_CSV   = SILVER_DIR / "iris_oifigiuil" / "iris_si_taxonomy.csv"
-_BILL_SI  = GOLD_PARQUET_DIR / "bill_statutory_instruments.parquet"
-_ALIASES  = _ROOT / "data" / "_meta" / "si_department_aliases.csv"
-_TENURE   = SILVER_DIR / "ministerial_tenure.parquet"
-_OUT      = GOLD_PARQUET_DIR / "statutory_instruments.parquet"
+_SI_CSV = SILVER_DIR / "iris_oifigiuil" / "iris_si_taxonomy.csv"
+_BILL_SI = GOLD_PARQUET_DIR / "bill_statutory_instruments.parquet"
+_ALIASES = _ROOT / "data" / "_meta" / "si_department_aliases.csv"
+_TENURE = SILVER_DIR / "ministerial_tenure.parquet"
+_OUT = GOLD_PARQUET_DIR / "statutory_instruments.parquet"
 
-SI_YEAR_FLOOR       = 2016
+SI_YEAR_FLOOR = 2016
 MIN_TAXO_CONFIDENCE = 0.5
 
 # si_eu_relationship values that carry no EU dimension.
@@ -65,12 +66,11 @@ def load_si() -> pd.DataFrame:
     df = df[df["notice_category"] == "statutory_instrument"]
     df = df[~df["is_quarantined"].fillna(False).astype(bool)]
     df = df[df["si_number"].notna() & df["si_year"].notna() & df["title"].notna()]
-    df["si_year"]   = df["si_year"].astype(int)
+    df["si_year"] = df["si_year"].astype(int)
     df["si_number"] = df["si_number"].astype(int)
     df = df[df["si_year"] >= SI_YEAR_FLOOR]
     df = df[df["si_taxonomy_confidence"].fillna(0) >= MIN_TAXO_CONFIDENCE]
-    df["si_id"] = (df["si_year"].astype(str) + "-"
-                   + df["si_number"].astype(str).str.zfill(3))
+    df["si_id"] = df["si_year"].astype(str) + "-" + df["si_number"].astype(str).str.zfill(3)
     df["issue_date"] = pd.to_datetime(df["issue_date"], errors="coerce")
     return df.drop_duplicates(subset=["si_id"]).reset_index(drop=True)
 
@@ -81,9 +81,7 @@ def load_department_aliases() -> list[tuple[str, str, str]]:
     ('education') in the substring scan."""
     df = pd.read_csv(_ALIASES)
     rows = [
-        (str(r["alias"]).strip().lower(),
-         str(r["department_key"]).strip(),
-         str(r["department_label"]).strip())
+        (str(r["alias"]).strip().lower(), str(r["department_key"]).strip(), str(r["department_label"]).strip())
         for r in df.to_dict("records")
         if str(r.get("alias", "")).strip()
     ]
@@ -124,13 +122,12 @@ def load_bill_links() -> pd.DataFrame:
     bill-matching enrichment. Missing file → empty frame (bill link stays
     null everywhere)."""
     if not _BILL_SI.exists():
-        logger.warning("bill_statutory_instruments.parquet not found — bill "
-                        "link will be null for every SI: %s", _BILL_SI)
+        logger.warning(
+            "bill_statutory_instruments.parquet not found — bill link will be null for every SI: %s", _BILL_SI
+        )
         return pd.DataFrame(columns=["si_id", "bill_id", "bill_short_title"])
     df = pd.read_parquet(_BILL_SI)
-    return (df[["si_id", "bill_id", "bill_short_title"]]
-            .drop_duplicates(subset=["si_id"])
-            .reset_index(drop=True))
+    return df[["si_id", "bill_id", "bill_short_title"]].drop_duplicates(subset=["si_id"]).reset_index(drop=True)
 
 
 def load_ministerial_offices() -> list[tuple[str, str | None, str, pd.Timestamp, pd.Timestamp]]:
@@ -144,9 +141,12 @@ def load_ministerial_offices() -> list[tuple[str, str | None, str, pd.Timestamp,
     null for ministers no longer in the Oireachtas (their SIs resolve to a
     name, not a clickable profile)."""
     if not _TENURE.exists():
-        logger.warning("ministerial_tenure.parquet not found — minister person "
-                        "will be null for every SI; run "
-                        "ministerial_tenure_build.py first: %s", _TENURE)
+        logger.warning(
+            "ministerial_tenure.parquet not found — minister person "
+            "will be null for every SI; run "
+            "ministerial_tenure_build.py first: %s",
+            _TENURE,
+        )
         return []
     df = pd.read_parquet(_TENURE)
     far_future = pd.Timestamp("2099-12-31")
@@ -155,11 +155,12 @@ def load_ministerial_offices() -> list[tuple[str, str | None, str, pd.Timestamp,
         start = pd.to_datetime(r.get("start_date"), errors="coerce")
         if pd.isna(start):
             continue
-        end  = pd.to_datetime(r.get("end_date"), errors="coerce")
+        end = pd.to_datetime(r.get("end_date"), errors="coerce")
         code = r.get("member_code")
         code = None if (code is None or (isinstance(code, float) and pd.isna(code))) else str(code)
-        out.append((str(r["department_key"]), code, str(r["minister_name"]),
-                    start, far_future if pd.isna(end) else end))
+        out.append(
+            (str(r["department_key"]), code, str(r["minister_name"]), start, far_future if pd.isna(end) else end)
+        )
     return out
 
 
@@ -186,14 +187,13 @@ def run() -> dict:
     if not _ALIASES.exists():
         raise SystemExit(f"department alias table not found: {_ALIASES}")
 
-    si      = load_si()
+    si = load_si()
     aliases = load_department_aliases()
-    links   = load_bill_links()
+    links = load_bill_links()
     offices = load_ministerial_offices()
 
     dept = si["si_responsible_actor"].apply(
-        lambda a: pd.Series(canonicalise_department(a, aliases),
-                            index=["si_department", "si_department_label"])
+        lambda a: pd.Series(canonicalise_department(a, aliases), index=["si_department", "si_department_label"])
     )
     si = pd.concat([si, dept], axis=1)
 
@@ -203,88 +203,95 @@ def run() -> dict:
     minister = si.apply(
         lambda r: pd.Series(
             resolve_minister(r["si_department"], r["issue_date"], offices),
-            index=["si_minister_member_code", "si_minister_name"]),
+            index=["si_minister_member_code", "si_minister_name"],
+        ),
         axis=1,
     )
     si = pd.concat([si, minister], axis=1)
 
     si = si.merge(links, on="si_id", how="left")
 
-    out = pd.DataFrame({
-        "si_id":                  si["si_id"],
-        "si_year":                si["si_year"],
-        "si_number":              si["si_number"],
-        "si_title":               si["title"],
-        "si_signed_date":         si["issue_date"].dt.date,
-        "si_operation":           si["si_operation_primary"],
-        "si_operation_flags":     si["si_operation_flags"],
-        "si_form":                si["si_form"],
-        "si_eu_relationship":     si["si_eu_relationship"],
-        "si_is_eu":               ~si["si_eu_relationship"].astype(str)
-                                    .str.lower().isin(_EU_NEGATIVE),
-        "si_policy_domain":       si["si_policy_domain_primary"],
-        "si_policy_domains_all":  si["si_policy_domains"],
-        "si_responsible_actor":   si["si_responsible_actor"],
-        "si_department":          si["si_department"],
-        "si_department_label":    si["si_department_label"],
-        "si_minister_member_code": si["si_minister_member_code"],
-        "si_minister_name":       si["si_minister_name"],
-        "si_parent_legislation":  si["si_parent_legislation"],
-        "bill_id":                si["bill_id"],
-        "bill_short_title":       si["bill_short_title"],
-        "eisb_url":               si["eisb_url"],
-        "iris_source_pdf":        si["source_file"],
-        "si_taxonomy_confidence": si["si_taxonomy_confidence"],
-    })
+    out = pd.DataFrame(
+        {
+            "si_id": si["si_id"],
+            "si_year": si["si_year"],
+            "si_number": si["si_number"],
+            "si_title": si["title"],
+            "si_signed_date": si["issue_date"].dt.date,
+            "si_operation": si["si_operation_primary"],
+            "si_operation_flags": si["si_operation_flags"],
+            "si_form": si["si_form"],
+            "si_eu_relationship": si["si_eu_relationship"],
+            "si_is_eu": ~si["si_eu_relationship"].astype(str).str.lower().isin(_EU_NEGATIVE),
+            "si_policy_domain": si["si_policy_domain_primary"],
+            "si_policy_domains_all": si["si_policy_domains"],
+            "si_responsible_actor": si["si_responsible_actor"],
+            "si_department": si["si_department"],
+            "si_department_label": si["si_department_label"],
+            "si_minister_member_code": si["si_minister_member_code"],
+            "si_minister_name": si["si_minister_name"],
+            "si_parent_legislation": si["si_parent_legislation"],
+            "bill_id": si["bill_id"],
+            "bill_short_title": si["bill_short_title"],
+            "eisb_url": si["eisb_url"],
+            "iris_source_pdf": si["source_file"],
+            "si_taxonomy_confidence": si["si_taxonomy_confidence"],
+        }
+    )
 
     _OUT.parent.mkdir(parents=True, exist_ok=True)
     out.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
 
-    total          = len(out)
-    actor_known    = int(si["si_responsible_actor"].notna().sum())
-    dept_known     = int(out["si_department"].notna().sum())
+    total = len(out)
+    actor_known = int(si["si_responsible_actor"].notna().sum())
+    dept_known = int(out["si_department"].notna().sum())
     minister_named = int(out["si_minister_name"].notna().sum())
     minister_coded = int(out["si_minister_member_code"].notna().sum())
-    bill_linked    = int(out["bill_id"].notna().sum())
-    eu_count       = int(out["si_is_eu"].sum())
-    domain_known   = int(out["si_policy_domain"].notna().sum())
+    bill_linked = int(out["bill_id"].notna().sum())
+    eu_count = int(out["si_is_eu"].sum())
+    domain_known = int(out["si_policy_domain"].notna().sum())
 
     summary = {
-        "total_sis":        total,
-        "year_range":       f"{int(out['si_year'].min())}-{int(out['si_year'].max())}",
-        "actor_present":    actor_known,
+        "total_sis": total,
+        "year_range": f"{int(out['si_year'].min())}-{int(out['si_year'].max())}",
+        "actor_present": actor_known,
         "department_known": dept_known,
-        "minister_named":   minister_named,
-        "minister_coded":   minister_coded,
-        "bill_linked":      bill_linked,
-        "domain_known":     domain_known,
-        "eu_driven":        eu_count,
+        "minister_named": minister_named,
+        "minister_coded": minister_coded,
+        "bill_linked": bill_linked,
+        "domain_known": domain_known,
+        "eu_driven": eu_count,
     }
     logger.info("statutory_instruments: %d SIs (%s)", total, summary["year_range"])
-    logger.info("  responsible_actor present : %d (%.0f%%)",
-                actor_known, 100 * actor_known / total)
-    logger.info("  department canonicalised  : %d (%.0f%%)  — of actor-present: %.0f%%",
-                dept_known, 100 * dept_known / total,
-                100 * dept_known / actor_known if actor_known else 0)
-    logger.info("  minister resolved (name)  : %d (%.0f%%)  — of department-known: %.0f%%",
-                minister_named, 100 * minister_named / total,
-                100 * minister_named / dept_known if dept_known else 0)
-    logger.info("  minister linked (profile) : %d (%.0f%%)  — sitting members only",
-                minister_coded, 100 * minister_coded / total)
-    logger.info("  enabling bill linked      : %d (%.0f%%)",
-                bill_linked, 100 * bill_linked / total)
-    logger.info("  policy domain known       : %d (%.0f%%)",
-                domain_known, 100 * domain_known / total)
-    logger.info("  EU-driven                 : %d (%.0f%%)",
-                eu_count, 100 * eu_count / total)
+    logger.info("  responsible_actor present : %d (%.0f%%)", actor_known, 100 * actor_known / total)
+    logger.info(
+        "  department canonicalised  : %d (%.0f%%)  — of actor-present: %.0f%%",
+        dept_known,
+        100 * dept_known / total,
+        100 * dept_known / actor_known if actor_known else 0,
+    )
+    logger.info(
+        "  minister resolved (name)  : %d (%.0f%%)  — of department-known: %.0f%%",
+        minister_named,
+        100 * minister_named / total,
+        100 * minister_named / dept_known if dept_known else 0,
+    )
+    logger.info(
+        "  minister linked (profile) : %d (%.0f%%)  — sitting members only",
+        minister_coded,
+        100 * minister_coded / total,
+    )
+    logger.info("  enabling bill linked      : %d (%.0f%%)", bill_linked, 100 * bill_linked / total)
+    logger.info("  policy domain known       : %d (%.0f%%)", domain_known, 100 * domain_known / total)
+    logger.info("  EU-driven                 : %d (%.0f%%)", eu_count, 100 * eu_count / total)
     return summary
 
 
 if __name__ == "__main__":
     try:
         from services.logging_setup import setup_logging
+
         setup_logging()
     except Exception:
-        logging.basicConfig(level=logging.INFO,
-                            format="%(asctime)s %(levelname)s %(message)s")
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     run()

@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "dail-tracker"
 version = "0.1.0"
 description = "Civic data pipeline for Irish parliamentary transparency — attendance, payments, lobbying, legislation, and member interests from the Oireachtas"
-readme = "doc/README.MD"
+readme = "README.MD"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
@@ -32,6 +32,7 @@ dependencies = [
     "numpy>=2.0",
     "PyMuPDF>=1.25",
     "requests>=2.31",
+    "beautifulsoup4>=4.12",
     "flatten-json>=0.1.14",
 ]
 

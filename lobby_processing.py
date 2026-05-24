@@ -7,10 +7,17 @@ from pathlib import Path
 import duckdb
 import polars as pl
 
-from config import GOLD_CSV_DIR, GOLD_DIR, GOLD_PARQUET_DIR, LOBBY_OUTPUT_DIR, LOBBY_PARQUET_DIR, LOBBYING_RAW_DIR, SILVER_PARQUET_DIR
+from config import (
+    GOLD_CSV_DIR,
+    GOLD_DIR,
+    GOLD_PARQUET_DIR,
+    LOBBY_OUTPUT_DIR,
+    LOBBY_PARQUET_DIR,
+    LOBBYING_RAW_DIR,
+    SILVER_PARQUET_DIR,
+)
 from quarantine import quarantine
 from utility.select_drop_rename_cols_mappings import lobbying_rename
-
 
 SOURCE = "lobbying"
 
@@ -24,6 +31,7 @@ def _make_run_id() -> str:
     """ISO timestamp + short uuid; matches pipeline_sandbox/quarantine.py shape."""
     ts = datetime.now(UTC).isoformat(timespec="seconds")
     return f"{ts}-{uuid.uuid4().hex[:8]}"
+
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -314,7 +322,9 @@ def explode_politicians(df: pl.DataFrame, run_id: str | None = None) -> pl.DataF
         collective = df.filter(collective_mask)
         if not collective.is_empty():
             quarantine(
-                collective, source=SOURCE, rule=RULE_COLLECTIVE_DPO,
+                collective,
+                source=SOURCE,
+                rule=RULE_COLLECTIVE_DPO,
                 reason="full_name matched a collective sentinel (e.g. 'Dáil Éireann (all TDs)')",
                 run_id=f"{run_id}_{RULE_COLLECTIVE_DPO}",
             )
@@ -327,7 +337,9 @@ def explode_politicians(df: pl.DataFrame, run_id: str | None = None) -> pl.DataF
         empty = df.filter(empty_mask)
         if not empty.is_empty():
             quarantine(
-                empty, source=SOURCE, rule=RULE_EMPTY_DPO_NAME,
+                empty,
+                source=SOURCE,
+                rule=RULE_EMPTY_DPO_NAME,
                 reason="full_name was empty after stripping titles/whitespace",
                 run_id=f"{run_id}_{RULE_EMPTY_DPO_NAME}",
             )
@@ -409,6 +421,8 @@ def get_clients(df: pl.DataFrame) -> pl.DataFrame:
         if get_clients.height > 0:
             df = parse_clients(df)
     return df
+
+
 def split_lobbyists(
     lobbying_df: pl.DataFrame,
     lobby_org: pl.DataFrame,
@@ -438,6 +452,7 @@ def split_lobbyists(
     # REMOVE: .sort() here is redundant — gold/top_lobbyist_organisations.parquet handles ranking
     # Keep: org metadata join produces lobby_count_details needed by _load_orgs() for sector/website/CRN
     return request_counts
+
 
 def experimental_compute_members_targeted_reach(activities_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: parse the 'members_targeted' band strings into a numeric reach midpoint.
@@ -541,6 +556,7 @@ def experimental_compute_return_description_length(lobbying_df: pl.DataFrame) ->
     ).sort("total_desc_len")
 
     return per_return
+
 
 def compute_policy_area_quarterly_trend(lobbying_df: pl.DataFrame) -> pl.DataFrame:
     """experimental: quarterly return volume broken down by public_policy_area.
@@ -675,6 +691,7 @@ def build_client_company_returns_fact_table(activities_df: pl.DataFrame) -> pl.D
     )
     return per_return
 
+
 def build_bilateral_returns_fact_table(activities_df: pl.DataFrame) -> pl.DataFrame:
     """Drill-down for bilateral_relationships: every return underlying each persistent org-politician pair.
     Only includes (lobbyist, politician) pairs that appear across more than one return.
@@ -706,6 +723,7 @@ def build_bilateral_returns_fact_table(activities_df: pl.DataFrame) -> pl.DataFr
         descending=[True, False, True],
     )
     return df
+
 
 def build_revolving_door_returns_fact_table(activities_df: pl.DataFrame) -> pl.DataFrame:
     """Drill-down for revolving_door_dpos: each return a named ex-DPO carried out lobbying on."""
@@ -868,7 +886,9 @@ def filter_nil_returns(df: pl.DataFrame, run_id: str | None = None) -> pl.DataFr
         nil_rows = df.filter(nil_mask)
         if not nil_rows.is_empty():
             quarantine(
-                nil_rows, source=SOURCE, rule=RULE_NIL_RETURN,
+                nil_rows,
+                source=SOURCE,
+                rule=RULE_NIL_RETURN,
                 reason="Nil Return declaration (relevant_matter null OR specific_details ~ '^nil( return)?$')",
                 run_id=f"{run_id}_{RULE_NIL_RETURN}",
             )
@@ -898,13 +918,14 @@ def main() -> None:
     deduped = indexed.filter(pl.col("__rn") == pl.col("__keep_rn")).drop(["__rn", "__keep_rn"])
     if not duplicates.is_empty():
         quarantine(
-            duplicates, source=SOURCE, rule=RULE_DUPLICATE_PRIMARY_KEY,
+            duplicates,
+            source=SOURCE,
+            rule=RULE_DUPLICATE_PRIMARY_KEY,
             reason="primary_key duplicated across stacked CSVs (overlapping export windows)",
             run_id=f"{run_id}_{RULE_DUPLICATE_PRIMARY_KEY}",
         )
         print(
-            f"  Deduplication: removed {duplicates.height} duplicate returns "
-            f"({lobbying_df.height} -> {deduped.height})"
+            f"  Deduplication: removed {duplicates.height} duplicate returns ({lobbying_df.height} -> {deduped.height})"
         )
     lobbying_df = deduped
 

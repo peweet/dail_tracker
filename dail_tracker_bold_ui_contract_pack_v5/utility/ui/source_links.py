@@ -6,7 +6,6 @@ from urllib.parse import urlparse
 import pandas as pd
 import streamlit as st
 
-
 APPROVED_URL_COLUMNS = {
     "source_url",
     "source_document_url",

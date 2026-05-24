@@ -38,7 +38,6 @@ from pathlib import Path
 
 import polars as pl
 
-
 QUARANTINE_DIR = Path("data/silver/_quarantine")
 
 _META_COLS = ("_quarantine_rule", "_quarantine_reason", "_run_id", "_quarantined_at")
@@ -157,6 +156,7 @@ def safe(run_id: str) -> str:
 
 
 # --- smoke test ------------------------------------------------------------
+
 
 def _smoke() -> None:
     """Round-trip a fake quarantine through a tmp dir."""

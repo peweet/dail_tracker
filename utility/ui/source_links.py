@@ -1,20 +1,27 @@
 """Official source link rendering for Dáil Tracker pages."""
+
 from __future__ import annotations
+
 import pandas as pd
 import streamlit as st
 from ui.components import todo_callout
 
-_APPROVED: frozenset[str] = frozenset({
-    "source_url", "source_document_url", "official_pdf_url",
-    "oireachtas_url", "legislation_url",
-})
+_APPROVED: frozenset[str] = frozenset(
+    {
+        "source_url",
+        "source_document_url",
+        "official_pdf_url",
+        "oireachtas_url",
+        "legislation_url",
+    }
+)
 
 _LABELS: dict[str, str] = {
-    "source_url":          "Source",
+    "source_url": "Source",
     "source_document_url": "Source document",
-    "official_pdf_url":    "Official PDF",
-    "oireachtas_url":      "Oireachtas.ie",
-    "legislation_url":     "Legislation.gov.ie",
+    "official_pdf_url": "Official PDF",
+    "oireachtas_url": "Oireachtas.ie",
+    "legislation_url": "Legislation.gov.ie",
 }
 
 
@@ -45,8 +52,7 @@ def render_source_links(df: pd.DataFrame) -> None:
 
     if links_html:
         st.markdown(
-            f'<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:0.25rem 0">'
-            f"{links_html}</div>",
+            f'<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:0.25rem 0">{links_html}</div>',
             unsafe_allow_html=True,
         )
     else:

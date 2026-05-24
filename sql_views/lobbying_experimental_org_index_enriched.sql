@@ -15,8 +15,8 @@
 -- INPUTS:
 --   data/gold/parquet/top_lobbyist_organisations.parquet  (existing pipeline gold)
 --   data/gold/parquet/lobbyist_persistence.parquet        (existing pipeline gold)
---   data/silver/cro/companies.parquet                     (pipeline_sandbox/cro_normalise.py)
---   data/silver/charities/charity_resolved.parquet        (pipeline_sandbox/charity_resolved.py)
+--   data/silver/cro/companies.parquet                     (cro_normalise.py)
+--   data/silver/charities/charity_resolved.parquet        (charity_resolved.py)
 --
 -- JOINS:
 --   Tier B/C name match — the gold lobbyist_name is free text, so we compute
@@ -77,8 +77,7 @@ persistence AS (
     FROM read_parquet('data/gold/parquet/lobbyist_persistence.parquet')
 ),
 -- Inline name_norm — must stay in lock-step with the rule in
--- pipeline_sandbox/cro_normalise.py and pipeline_sandbox/charity_normalise.py.
--- If you change one, change all three.
+-- cro_normalise.py and charity_normalise.py. If you change one, change all three.
 org_norm AS (
     SELECT
         o.lobbyist_name,

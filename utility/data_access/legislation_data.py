@@ -11,6 +11,7 @@ Forbidden here (same rules as Streamlit page files):
 - pandas groupby, merge, pivot
 - Business metric definitions
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,8 +21,16 @@ import duckdb
 import pandas as pd
 import streamlit as st
 
-_SQL_VIEWS = Path(__file__).resolve().parents[2] / "sql_views"
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_SQL_VIEWS = _PROJECT_ROOT / "sql_views"
 _log = logging.getLogger(__name__)
+
+
+def _absolutize_data_paths(sql: str) -> str:
+    # SQL views use literals like read_parquet('data/silver/...').
+    # DuckDB resolves those against CWD, so a Streamlit launch from utility/
+    # breaks queries. Rewrite to absolute project paths at registration time.
+    return sql.replace("'data/", f"'{_PROJECT_ROOT.as_posix()}/data/")
 
 
 @st.cache_resource
@@ -29,10 +38,9 @@ def get_legislation_conn() -> duckdb.DuckDBPyConnection:
     conn = duckdb.connect()
     for sql_file in sorted(_SQL_VIEWS.glob("legislation_*.sql")):
         try:
-            conn.execute(sql_file.read_text(encoding="utf-8"))
+            conn.execute(_absolutize_data_paths(sql_file.read_text(encoding="utf-8")))
         except Exception as e:
-            _log.warning("legislation view failed to load: %s | %s",
-                         sql_file.name, e)
+            _log.warning("legislation view failed to load: %s | %s", sql_file.name, e)
     return conn
 
 
@@ -45,6 +53,7 @@ def _safe(sql: str, params: list | None = None) -> pd.DataFrame:
 
 
 # ── Index ──────────────────────────────────────────────────────────────────────
+
 
 @st.cache_data(ttl=300)
 def fetch_legislation_index_filtered(
@@ -89,6 +98,7 @@ def fetch_all_statuses() -> list[str]:
 
 # ── Detail ─────────────────────────────────────────────────────────────────────
 
+
 @st.cache_data(ttl=300)
 def fetch_bill_detail(bill_id: str) -> pd.DataFrame:
     return _safe(
@@ -98,6 +108,7 @@ def fetch_bill_detail(bill_id: str) -> pd.DataFrame:
 
 
 # ── Timeline ───────────────────────────────────────────────────────────────────
+
 
 @st.cache_data(ttl=300)
 def fetch_bill_timeline(bill_id: str) -> pd.DataFrame:
@@ -111,6 +122,7 @@ def fetch_bill_timeline(bill_id: str) -> pd.DataFrame:
 
 # ── Sources ────────────────────────────────────────────────────────────────────
 
+
 @st.cache_data(ttl=300)
 def fetch_bill_sources(bill_id: str) -> pd.DataFrame:
     return _safe(
@@ -120,6 +132,7 @@ def fetch_bill_sources(bill_id: str) -> pd.DataFrame:
 
 
 # ── PDF documents ──────────────────────────────────────────────────────────────
+
 
 @st.cache_data(ttl=300)
 def fetch_bill_pdfs(bill_id: str) -> pd.DataFrame:
@@ -138,6 +151,7 @@ def fetch_bill_pdfs(bill_id: str) -> pd.DataFrame:
 
 
 # ── Debates ────────────────────────────────────────────────────────────────────
+
 
 @st.cache_data(ttl=300)
 def fetch_bill_debates(bill_id: str) -> pd.DataFrame:
@@ -169,12 +183,13 @@ def fetch_pre2014_act_detail(bill_id: str) -> dict:
     r = rows.iloc[0]
     return {
         "act_short_title": str(r.get("act_short_title") or ""),
-        "act_year":        int(r.get("act_year") or 0),
-        "policy_domain":   str(r.get("policy_domain") or ""),
+        "act_year": int(r.get("act_year") or 0),
+        "policy_domain": str(r.get("policy_domain") or ""),
     }
 
 
 # ── Statutory Instruments under a bill ────────────────────────────────────────
+
 
 @st.cache_data(ttl=300)
 def fetch_si_composition(bill_id: str) -> pd.DataFrame:
@@ -204,8 +219,8 @@ def fetch_si_freshness(bill_id: str) -> dict:
     r = df.iloc[0]
     return {
         "first_si": r["first_si"],
-        "last_si":  r["last_si"],
-        "total":    int(r["total"] or 0),
+        "last_si": r["last_si"],
+        "total": int(r["total"] or 0),
         "eu_count": int(r["eu_count"] or 0),
     }
 
@@ -213,8 +228,7 @@ def fetch_si_freshness(bill_id: str) -> dict:
 @st.cache_data(ttl=300)
 def fetch_si_years_for_bill(bill_id: str) -> list[int]:
     df = _safe(
-        "SELECT DISTINCT si_year FROM v_bill_statutory_instruments"
-        " WHERE bill_id = ? ORDER BY si_year DESC",
+        "SELECT DISTINCT si_year FROM v_bill_statutory_instruments WHERE bill_id = ? ORDER BY si_year DESC",
         [bill_id],
     )
     return [int(y) for y in df["si_year"].dropna().tolist()] if not df.empty else []
@@ -254,6 +268,7 @@ def fetch_si_by_bill(
 # fetch_si_*_bill functions above: those are bill-gated (SIs under one Act);
 # this browses the full SI universe (~5,900 SIs, 2016+), bill link optional.
 # The page filters / facets / KPIs in pandas off this single frame.
+
 
 @st.cache_data(ttl=300)
 def fetch_si_entity_index() -> pd.DataFrame:

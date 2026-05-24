@@ -21,13 +21,13 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import SILVER_DIR
 
-
 # ---------------------------------------------------------------------------
 # REUSABLE ISO DATE CHECK
 # Attendance dates come from PDFs as strings. A mis-parsed footer row can
 # produce values like "47" or "Andrews" that pass a plain string type check
 # but break any downstream date arithmetic.
 # ---------------------------------------------------------------------------
+
 
 def _s(data) -> pl.Series:
     """Extract pl.Series from a Pandera Polars @pa.check callback argument."""
@@ -51,12 +51,14 @@ def _all_iso_dates(series: pl.Series) -> bool:
 # SCHEMAS
 # ---------------------------------------------------------------------------
 
+
 class AttendanceSilverSchema(pa.DataFrameModel):
     """
     data/silver/aggregated_td_tables.csv
     One row per TD per year. The PDF scraper in attendance.py emits one row
     per sitting/other-day pair, aggregated by year after extraction.
     """
+
     identifier: str = pa.Field(nullable=False)
     first_name: str = pa.Field(nullable=False)
     last_name: str = pa.Field(nullable=False)
@@ -91,6 +93,7 @@ class FlattenedMembersSchema(pa.DataFrameModel):
     Only the identity columns are declared — the full file has 230+ columns.
     These are the ones used as join keys and display values downstream.
     """
+
     unique_member_code: str = pa.Field(nullable=False)
     full_name: str = pa.Field(nullable=False)
     first_name: str = pa.Field(nullable=False)
@@ -115,6 +118,7 @@ class MemberInterestsSchema(pa.DataFrameModel):
     Combined across all years (2020–2025). One row per member/year/category entry.
     The PDF extraction for this file is the most fragile in the pipeline.
     """
+
     member_name: str = pa.Field(nullable=False)
     year: int = pa.Field(ge=2018, le=2030, nullable=False)
     category_code: int = pa.Field(ge=1, le=9, nullable=True)
@@ -136,63 +140,74 @@ class MemberInterestsSchema(pa.DataFrameModel):
 # SAMPLE DATA
 # ---------------------------------------------------------------------------
 
-SAMPLE_ATTENDANCE = pl.DataFrame({
-    "identifier": ["Murphy_Mary", "OBrien_Sean"],
-    "first_name": ["Mary", "Sean"],
-    "last_name": ["Murphy", "O Brien"],
-    "year": [2024, 2024],
-    "iso_sitting_days_attendance": ["2024-01-17", "2024-01-17"],
-    "iso_other_days_attendance": ["2024-01-03", "2024-01-03"],
-    "sitting_days_count": [87, 94],
-    "other_days_count": [12, 8],
-})
+SAMPLE_ATTENDANCE = pl.DataFrame(
+    {
+        "identifier": ["Murphy_Mary", "OBrien_Sean"],
+        "first_name": ["Mary", "Sean"],
+        "last_name": ["Murphy", "O Brien"],
+        "year": [2024, 2024],
+        "iso_sitting_days_attendance": ["2024-01-17", "2024-01-17"],
+        "iso_other_days_attendance": ["2024-01-03", "2024-01-03"],
+        "sitting_days_count": [87, 94],
+        "other_days_count": [12, 8],
+    }
+)
 
-SAMPLE_ATTENDANCE_BAD_DATE = pl.DataFrame({
-    "identifier": ["Murphy_Mary"],
-    "first_name": ["Mary"],
-    "last_name": ["Murphy"],
-    "year": [2024],
-    "iso_sitting_days_attendance": ["47"],   # footer row leaked in — must fail
-    "iso_other_days_attendance": ["2024-01-03"],
-    "sitting_days_count": [87],
-    "other_days_count": [12],
-})
+SAMPLE_ATTENDANCE_BAD_DATE = pl.DataFrame(
+    {
+        "identifier": ["Murphy_Mary"],
+        "first_name": ["Mary"],
+        "last_name": ["Murphy"],
+        "year": [2024],
+        "iso_sitting_days_attendance": ["47"],  # footer row leaked in — must fail
+        "iso_other_days_attendance": ["2024-01-03"],
+        "sitting_days_count": [87],
+        "other_days_count": [12],
+    }
+)
 
-SAMPLE_ATTENDANCE_OVERFLOW = pl.DataFrame({
-    "identifier": ["Murphy_Mary"],
-    "first_name": ["Mary"],
-    "last_name": ["Murphy"],
-    "year": [2024],
-    "iso_sitting_days_attendance": ["2024-01-17"],
-    "iso_other_days_attendance": ["2024-01-03"],
-    "sitting_days_count": [999],   # impossible — must fail
-    "other_days_count": [0],
-})
+SAMPLE_ATTENDANCE_OVERFLOW = pl.DataFrame(
+    {
+        "identifier": ["Murphy_Mary"],
+        "first_name": ["Mary"],
+        "last_name": ["Murphy"],
+        "year": [2024],
+        "iso_sitting_days_attendance": ["2024-01-17"],
+        "iso_other_days_attendance": ["2024-01-03"],
+        "sitting_days_count": [999],  # impossible — must fail
+        "other_days_count": [0],
+    }
+)
 
-SAMPLE_MEMBERS = pl.DataFrame({
-    "unique_member_code": ["MC2020A", "MC2016B"],
-    "full_name": ["Mary Murphy", "Sean O Brien"],
-    "first_name": ["Mary", "Sean"],
-    "last_name": ["Murphy", "O Brien"],
-    "party": ["Fianna Fáil", "Sinn Féin"],
-    "constituency_name": ["Dublin South", "Cork North-West"],
-    "year_elected": [2020, 2016],
-})
+SAMPLE_MEMBERS = pl.DataFrame(
+    {
+        "unique_member_code": ["MC2020A", "MC2016B"],
+        "full_name": ["Mary Murphy", "Sean O Brien"],
+        "first_name": ["Mary", "Sean"],
+        "last_name": ["Murphy", "O Brien"],
+        "party": ["Fianna Fáil", "Sinn Féin"],
+        "constituency_name": ["Dublin South", "Cork North-West"],
+        "year_elected": [2020, 2016],
+    }
+)
 
-SAMPLE_MEMBERS_DUPLICATE = pl.DataFrame({
-    "unique_member_code": ["MC2020A", "MC2020A"],  # duplicate — must fail
-    "full_name": ["Mary Murphy", "Mary Murphy"],
-    "first_name": ["Mary", "Mary"],
-    "last_name": ["Murphy", "Murphy"],
-    "party": ["Fianna Fáil", None],
-    "constituency_name": ["Dublin South", "Dublin South"],
-    "year_elected": [2020, 2020],
-})
+SAMPLE_MEMBERS_DUPLICATE = pl.DataFrame(
+    {
+        "unique_member_code": ["MC2020A", "MC2020A"],  # duplicate — must fail
+        "full_name": ["Mary Murphy", "Mary Murphy"],
+        "first_name": ["Mary", "Mary"],
+        "last_name": ["Murphy", "Murphy"],
+        "party": ["Fianna Fáil", None],
+        "constituency_name": ["Dublin South", "Dublin South"],
+        "year_elected": [2020, 2020],
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # UNIT TESTS
 # ---------------------------------------------------------------------------
+
 
 def test_attendance_schema_accepts_valid_data():
     AttendanceSilverSchema.validate(SAMPLE_ATTENDANCE)
@@ -221,6 +236,7 @@ def test_members_schema_rejects_duplicate_codes():
 # INTEGRATION TESTS
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def attendance_df():
     path = SILVER_DIR / "aggregated_td_tables.csv"
@@ -234,10 +250,18 @@ def members_df():
     path = SILVER_DIR / "flattened_members.csv"
     if not path.exists():
         pytest.skip(f"Silver file not found: {path} — run pipeline.py first")
-    return pl.read_csv(path, columns=[
-        "unique_member_code", "full_name", "first_name", "last_name",
-        "party", "constituency_name", "year_elected",
-    ])
+    return pl.read_csv(
+        path,
+        columns=[
+            "unique_member_code",
+            "full_name",
+            "first_name",
+            "last_name",
+            "party",
+            "constituency_name",
+            "year_elected",
+        ],
+    )
 
 
 @pytest.fixture(scope="module")

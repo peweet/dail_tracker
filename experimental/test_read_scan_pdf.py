@@ -44,10 +44,8 @@ for page in doc:
         df = tab.to_pandas()
         df_to_write.append(df)
 # np_array_of_objects = np.asarray(df_to_write, dtype="object")
-counter = 0
-for df in df_to_write:
+for counter, df in enumerate(df_to_write, start=1):
     print(df.head())
-    counter += 1
     pd.DataFrame(df).to_csv(SCAN_PDF_DIR / "output" / f"{ge_ff_2024.stem}-tables{counter}.csv", index=False)
     # Extract the first table found on the page and add it to the list of rows to write to CSV
 # pd.DataFrame(df_to_write).to_csv(SCAN_PDF_DIR / "output" / f"{ge_ff_2024.stem}-tables.csv", index=False)

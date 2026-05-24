@@ -75,11 +75,11 @@ from __future__ import annotations
 import argparse
 import glob
 import json
-import os
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import polars as pl
 
@@ -92,18 +92,13 @@ from iris_oifiguil_etl import (  # noqa: E402
     find_member_interest_page_ranges,
 )
 
-
 # Bump on any change to extract_lines_raw / find_member_interest_page_ranges
 # that affects column shape, values, or parsing rules. Cached shards built
 # under an older version are rebuilt automatically on the next run.
 EXTRACTOR_VERSION = "iris-extract/2026-05-05"
 
-DEFAULT_SHARD_ROOT = (
-    Path(__file__).resolve().parents[1] / "data" / "silver" / "iris_oifigiuil_shards"
-)
-DEFAULT_INPUT_GLOB = str(
-    Path(__file__).resolve().parents[1] / "data" / "bronze" / "iris_oifigiuil" / "*.pdf"
-)
+DEFAULT_SHARD_ROOT = Path(__file__).resolve().parents[1] / "data" / "silver" / "iris_oifigiuil_shards"
+DEFAULT_INPUT_GLOB = str(Path(__file__).resolve().parents[1] / "data" / "bronze" / "iris_oifigiuil" / "*.pdf")
 
 MANIFEST_NAME = "_manifest.json"
 BRONZE_SUBDIR = "bronze"
@@ -119,6 +114,7 @@ MIN_REAL_PDF_BYTES = 5_000
 # ---------------------------------------------------------------------------
 # Manifest
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ShardSummary:
@@ -195,6 +191,7 @@ def is_fresh(
 # Extraction → shard write
 # ---------------------------------------------------------------------------
 
+
 def process_pdf_to_shard(pdf_path: Path, shard_root: Path) -> dict[str, Any]:
     """Extract one PDF and write its three shard files. Returns the audit meta."""
     rows, meta = extract_lines_raw(str(pdf_path))
@@ -202,10 +199,7 @@ def process_pdf_to_shard(pdf_path: Path, shard_root: Path) -> dict[str, Any]:
 
     paths = _shard_paths(shard_root, pdf_path.name)
 
-    if rows:
-        df = pl.from_dicts(rows)
-    else:
-        df = pl.DataFrame()
+    df = pl.from_dicts(rows) if rows else pl.DataFrame()
     _atomic_write_parquet(df, paths["bronze"])
     _atomic_write_json(meta, paths["audit"])
     _atomic_write_json(member_extracts, paths["member"])
@@ -239,6 +233,7 @@ def _atomic_write_json(payload: Any, dest: Path) -> None:
 # ---------------------------------------------------------------------------
 # Driver
 # ---------------------------------------------------------------------------
+
 
 def incremental_extract(
     pdf_paths: Iterable[str | Path],
@@ -286,6 +281,7 @@ def incremental_extract(
 # Concat — what the gold step would call
 # ---------------------------------------------------------------------------
 
+
 def concat_bronze(shard_root: Path) -> pl.LazyFrame:
     """Lazy-scan every bronze shard. Caller materializes once before passing
     into build_records. Empty-sentinel shards are filtered out so the
@@ -325,12 +321,12 @@ def load_member_extracts(shard_root: Path) -> list[dict[str, Any]]:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     parser.add_argument("paths", nargs="*", default=[DEFAULT_INPUT_GLOB])
     parser.add_argument("--shard-root", type=Path, default=DEFAULT_SHARD_ROOT)
-    parser.add_argument("--rebuild", action="store_true",
-                        help="ignore manifest; re-extract every PDF")
+    parser.add_argument("--rebuild", action="store_true", help="ignore manifest; re-extract every PDF")
     args = parser.parse_args(argv)
 
     matched: list[str] = []

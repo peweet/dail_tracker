@@ -26,6 +26,7 @@ downstream joins must respect that.
 Graduated from pipeline_sandbox/dbsect_harvest.py. Called by
 services/oireachtas_api_main.main() (STEP 4.5).
 """
+
 from __future__ import annotations
 
 import json
@@ -49,8 +50,13 @@ _VOT_JSON = VOTES_DIR / "votes_results.json"
 _OUT = SILVER_PARQUET_DIR / "dbsect_index.parquet"
 
 _SCHEMA = [
-    "debate_section_id", "source", "source_key",
-    "date", "chamber", "debate_uri", "debate_title",
+    "debate_section_id",
+    "source",
+    "source_key",
+    "date",
+    "chamber",
+    "debate_uri",
+    "debate_title",
 ]
 
 
@@ -61,7 +67,7 @@ def _records(path: Path) -> list[dict]:
     if not path.exists():
         logger.warning("dbsect_harvest: %s not found - skipping", path)
         return []
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         raw = json.load(f)
     return [r for page in raw for r in (page.get("results") or [])]
 
@@ -72,11 +78,7 @@ def _chamber_from_uri(uri: pd.Series) -> pd.Series:
     Both observed URI shapes - `.../house/dail` and `.../house/dail/34`
     - carry the chamber as the segment right after `house/`. Committee
     URIs have no `house/<chamber>` segment and resolve to ''."""
-    return (
-        uri.astype("string")
-        .str.extract(r"house/(dail|seanad)(?:/|$)", expand=False)
-        .fillna("")
-    )
+    return uri.astype("string").str.extract(r"house/(dail|seanad)(?:/|$)", expand=False).fillna("")
 
 
 def _norm_dbsect(col: pd.Series) -> pd.Series:
@@ -99,16 +101,21 @@ def harvest_bills(records: list[dict]) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=_SCHEMA)
     df = df.dropna(subset=["bill.billYear", "bill.billNo"])
-    return pd.DataFrame({
-        "debate_section_id": _norm_dbsect(df["debateSectionId"]),
-        "source": "bill",
-        "source_key": (df["bill.billYear"].astype("Int64").astype("string")
-                       + "_" + df["bill.billNo"].astype("Int64").astype("string")),
-        "date": df["date"].astype("string"),
-        "chamber": _chamber_from_uri(df["chamber.uri"]),
-        "debate_uri": df["uri"].astype("string"),
-        "debate_title": df["showAs"].astype("string"),
-    })
+    return pd.DataFrame(
+        {
+            "debate_section_id": _norm_dbsect(df["debateSectionId"]),
+            "source": "bill",
+            "source_key": (
+                df["bill.billYear"].astype("Int64").astype("string")
+                + "_"
+                + df["bill.billNo"].astype("Int64").astype("string")
+            ),
+            "date": df["date"].astype("string"),
+            "chamber": _chamber_from_uri(df["chamber.uri"]),
+            "debate_uri": df["uri"].astype("string"),
+            "debate_title": df["showAs"].astype("string"),
+        }
+    )
 
 
 def harvest_questions(records: list[dict]) -> pd.DataFrame:
@@ -119,15 +126,17 @@ def harvest_questions(records: list[dict]) -> pd.DataFrame:
     df = pd.json_normalize(records, errors="ignore")
     if df.empty:
         return pd.DataFrame(columns=_SCHEMA)
-    return pd.DataFrame({
-        "debate_section_id": _norm_dbsect(df["question.debateSection.debateSectionId"]),
-        "source": "question",
-        "source_key": df["question.uri"].astype("string"),
-        "date": df["question.date"].astype("string"),
-        "chamber": _chamber_from_uri(df["question.house.uri"]),
-        "debate_uri": df["question.debateSection.uri"].astype("string"),
-        "debate_title": df["question.debateSection.showAs"].astype("string"),
-    })
+    return pd.DataFrame(
+        {
+            "debate_section_id": _norm_dbsect(df["question.debateSection.debateSectionId"]),
+            "source": "question",
+            "source_key": df["question.uri"].astype("string"),
+            "date": df["question.date"].astype("string"),
+            "chamber": _chamber_from_uri(df["question.house.uri"]),
+            "debate_uri": df["question.debateSection.uri"].astype("string"),
+            "debate_title": df["question.debateSection.showAs"].astype("string"),
+        }
+    )
 
 
 def harvest_votes(records: list[dict]) -> pd.DataFrame:
@@ -138,15 +147,17 @@ def harvest_votes(records: list[dict]) -> pd.DataFrame:
     df = pd.json_normalize(records, errors="ignore")
     if df.empty:
         return pd.DataFrame(columns=_SCHEMA)
-    return pd.DataFrame({
-        "debate_section_id": _norm_dbsect(df["division.debate.debateSection"]),
-        "source": "vote",
-        "source_key": df["division.voteId"].astype("string"),
-        "date": df["division.date"].astype("string"),
-        "chamber": _chamber_from_uri(df["division.chamber.uri"]),
-        "debate_uri": df["division.debate.uri"].astype("string"),
-        "debate_title": df["division.debate.showAs"].astype("string"),
-    })
+    return pd.DataFrame(
+        {
+            "debate_section_id": _norm_dbsect(df["division.debate.debateSection"]),
+            "source": "vote",
+            "source_key": df["division.voteId"].astype("string"),
+            "date": df["division.date"].astype("string"),
+            "chamber": _chamber_from_uri(df["division.chamber.uri"]),
+            "debate_uri": df["division.debate.uri"].astype("string"),
+            "debate_title": df["division.debate.showAs"].astype("string"),
+        }
+    )
 
 
 def harvest_dbsect_index() -> int:
@@ -170,17 +181,12 @@ def harvest_dbsect_index() -> int:
     df = df.drop_duplicates(subset=["debate_section_id", "source", "source_key"])
 
     if df.empty:
-        logger.warning(
-            "dbsect_harvest: no rows harvested - bronze fetches may not have run"
-        )
+        logger.warning("dbsect_harvest: no rows harvested - bronze fetches may not have run")
         return 0
 
-    counts = df.groupby("source")["debate_section_id"].agg(
-        rows="size", distinct_dbsect="nunique"
-    )
+    counts = df.groupby("source")["debate_section_id"].agg(rows="size", distinct_dbsect="nunique")
     logger.info("dbsect_harvest: counts by source\n%s", counts)
-    logger.info("dbsect_harvest: distinct dbsect total=%d",
-                df["debate_section_id"].nunique())
+    logger.info("dbsect_harvest: distinct dbsect total=%d", df["debate_section_id"].nunique())
 
     _OUT.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
@@ -190,5 +196,6 @@ def harvest_dbsect_index() -> int:
 
 if __name__ == "__main__":
     from services.logging_setup import setup_logging
+
     setup_logging()
     harvest_dbsect_index()

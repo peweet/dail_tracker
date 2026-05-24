@@ -10,22 +10,26 @@ Why ``<a href>`` and not ``st.button`` + ``st.switch_page``:
 - shareable via the address bar
 - screen readers announce them as links, not buttons
 """
+
 from __future__ import annotations
 
 from html import escape as _h
 from urllib.parse import quote
 
-
 # Canonical url_path slugs. MUST match utility/app.py st.Page(url_path=...).
+#
+# /member-overview is the canonical TD page (TheyWorkForYou pattern). All other
+# pages live under /rankings/* — their role is discovery / league tables that
+# funnel users into the canonical profile.
 PAGES: dict[str, str] = {
-    "attendance":      "attendance",
     "member_overview": "member-overview",
-    "votes":           "votes",
-    "interests":       "interests",
-    "payments":        "payments",
-    "lobbying":        "lobbying",
-    "legislation":     "legislation",
-    "committees":      "committees",
+    "attendance": "rankings/attendance",
+    "votes": "rankings/votes",
+    "interests": "rankings/interests",
+    "payments": "rankings/payments",
+    "lobbying": "rankings/lobbying",
+    "legislation": "rankings/legislation",
+    "committees": "rankings/committees",
 }
 
 
@@ -33,23 +37,32 @@ def _q(value: object) -> str:
     return quote(str(value), safe="")
 
 
-def member_profile_url(member_id: str) -> str:
-    """Canonical TD profile URL: /member-overview?member=<unique_member_code>."""
-    return f"/{PAGES['member_overview']}?member={_q(member_id)}"
+def member_profile_url(member_id: str, *, section: str | None = None) -> str:
+    """Canonical TD profile URL: /member-overview?member=<unique_member_code>.
+
+    Pass ``section`` to append a section-anchor fragment, e.g.
+    ``member_profile_url(code, section="payments")`` →
+    ``/member-overview?member=<code>#payments``. The anchor maps to the
+    expander section IDs rendered on the member-overview page.
+    """
+    url = f"/{PAGES['member_overview']}?member={_q(member_id)}"
+    if section:
+        url = f"{url}#{_q(section)}"
+    return url
 
 
 def member_votes_url(member_id: str) -> str:
-    """Voting-record URL on the votes page (Mode B)."""
+    """Voting-record URL on the votes ranking page (Mode B)."""
     return f"/{PAGES['votes']}?member={_q(member_id)}"
 
 
 def division_url(vote_id: str) -> str:
-    """Division-evidence URL on the votes page (Mode C)."""
+    """Division-evidence URL on the votes ranking page (Mode C)."""
     return f"/{PAGES['votes']}?vote={_q(vote_id)}"
 
 
 def bill_detail_url(bill_id: str) -> str:
-    """Canonical bill detail URL: /legislation?bill=<bill_id>."""
+    """Canonical bill detail URL: /rankings/legislation?bill=<bill_id>."""
     return f"/{PAGES['legislation']}?bill={_q(bill_id)}"
 
 
@@ -85,10 +98,7 @@ def entity_cta_html(
     Pair with the helpers above:
         entity_cta_html(member_votes_url(jk), "Full voting history →")
     """
-    return (
-        f'<a class="{_h(css_class)}" href="{_h(href)}" target="_self">'
-        f'{_h(label)}</a>'
-    )
+    return f'<a class="{_h(css_class)}" href="{_h(href)}" target="_self">{_h(label)}</a>'
 
 
 def source_link_html(

@@ -30,8 +30,6 @@ EXIT CODE:
     1 = at least one window failed to fetch.
 """
 
-from __future__ import annotations
-
 import argparse
 import sys
 import time
@@ -146,14 +144,20 @@ def fmt_bytes(n: int) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
-    p.add_argument("--start", type=date.fromisoformat, default=DEFAULT_START,
-                   help="ISO start date (inclusive). Default 2016-02-01.")
-    p.add_argument("--end", type=date.fromisoformat, default=DEFAULT_END,
-                   help="ISO end date (exclusive upper bound). Default 2019-02-01.")
-    p.add_argument("--force", action="store_true",
-                   help="refetch even if destination file already exists")
-    p.add_argument("--dry-run", action="store_true",
-                   help="print URLs only, do not download")
+    p.add_argument(
+        "--start",
+        type=date.fromisoformat,
+        default=DEFAULT_START,
+        help="ISO start date (inclusive). Default 2016-02-01.",
+    )
+    p.add_argument(
+        "--end",
+        type=date.fromisoformat,
+        default=DEFAULT_END,
+        help="ISO end date (exclusive upper bound). Default 2019-02-01.",
+    )
+    p.add_argument("--force", action="store_true", help="refetch even if destination file already exists")
+    p.add_argument("--dry-run", action="store_true", help="print URLs only, do not download")
     args = p.parse_args(argv)
 
     if args.end <= args.start:

@@ -129,6 +129,31 @@ def inject_css() -> None:
             --accent-dim:     oklch(86%   0.040 72);
             --new-bg:         oklch(94%   0.045 145);
             --removed-bg:     oklch(94%   0.030  22);
+
+            /* ── Signal tokens (good/bad semantic pairs) ──────────────────
+               Replace ad-hoc Tailwind hexes (#1d4ed8/#3b82f6/#c2410c/...).
+               Tinted slightly toward the warm neutral hue for cohesion.
+               PRODUCT.md documents these as the canonical good/bad palette. */
+            --signal-good:         oklch(45%   0.150 250);  /* deep blue   ≈ #1d4ed8 */
+            --signal-good-mid:     oklch(60%   0.180 250);  /* mid blue    ≈ #3b82f6 */
+            --signal-good-border:  oklch(78%   0.110 250);  /* light blue  ≈ #93c5fd */
+            --signal-good-subtle:  oklch(96%   0.025 250);  /* tint        ≈ #eff6ff */
+            --signal-good-deep:    oklch(35%   0.150 255);  /* navy        ≈ #1e40af */
+
+            --signal-bad:          oklch(50%   0.160  40);  /* burnt orange ≈ #c2410c */
+            --signal-bad-mid:      oklch(67%   0.180  45);  /* mid orange   ≈ #f97316 */
+            --signal-bad-border:   oklch(80%   0.110  60);  /* light orange ≈ #fdba74 */
+            --signal-bad-subtle:   oklch(96%   0.030  60);  /* tint         ≈ #fff7ed */
+            --signal-bad-deep:     oklch(45%   0.160  35);  /* deep rust    ≈ #9a3412 */
+        }
+
+        /* Visually-hidden text for screen-readers (captions, hidden col headers). */
+        .sr-only {
+            position: absolute !important;
+            width: 1px !important; height: 1px !important;
+            padding: 0 !important; margin: -1px !important;
+            overflow: hidden !important; clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important; border: 0 !important;
         }
 
         html, body, .stApp,
@@ -393,7 +418,7 @@ def inject_css() -> None:
         }
         .page-title {
             font-family: 'Zilla Slab', Georgia, serif;
-            font-size: 1.55rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: var(--text-primary);
             line-height: 1.15;
@@ -430,7 +455,7 @@ def inject_css() -> None:
         }
         .stat-num {
             font-family: 'Zilla Slab', Georgia, serif;
-            font-size: 1.75rem;
+            font-size: 1.65rem;
             font-weight: 700;
             color: var(--text-primary);
             line-height: 1;
@@ -443,6 +468,77 @@ def inject_css() -> None:
             text-transform: uppercase;
             color: var(--text-meta);
             margin-top: 0.2rem;
+        }
+        /* Acronym glossary strip — small, secondary, sits under the hero so
+           first-time citizens can read TD/DPO/TAA without Googling.
+           Journalists ignore it; it's not loud enough to compete with data. */
+        .dt-glossary-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem 1.25rem;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            padding: 0.5rem 0 0.85rem;
+            border-bottom: 1px solid var(--border);
+            margin: 0 0 1rem;
+        }
+        .dt-glossary-term b {
+            color: var(--text-primary);
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin-right: 0.3rem;
+        }
+
+        /* Full glossary page — definition-list with two-column row layout.
+           Term left, definition right. Lots of breathing room, journalistic. */
+        .dt-glossary-list {
+            margin: 0.5rem 0 2rem;
+            padding: 0;
+        }
+        .dt-glossary-row {
+            display: grid;
+            grid-template-columns: minmax(150px, 220px) 1fr;
+            gap: 1.5rem;
+            padding: 0.8rem 0;
+            border-top: 1px solid var(--border);
+            align-items: baseline;
+        }
+        .dt-glossary-row:last-child {
+            border-bottom: 1px solid var(--border);
+        }
+        .dt-glossary-row-term {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+            line-height: 1.2;
+        }
+        .dt-glossary-row-def {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.92rem;
+            line-height: 1.55;
+            color: var(--text-secondary);
+            margin: 0;
+            max-width: 70ch;
+        }
+        @media (max-width: 640px) {
+            .dt-glossary-row {
+                grid-template-columns: 1fr;
+                gap: 0.3rem;
+            }
+        }
+
+        /* Optional secondary label below the metric, used for comparative
+           context: "rank 87 of 174", "12 below median", etc. Tame size,
+           same colour as meta but normal-case. */
+        .stat-sub {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-top: 0.15rem;
         }
         .td-name {
             font-family: 'Zilla Slab', Georgia, serif;
@@ -491,7 +587,7 @@ def inject_css() -> None:
             background: #e5e7eb;
             color: #4b5563;
             font-family: 'Epilogue', sans-serif;
-            font-size: 2rem;
+            font-size: 2.1rem;
             font-weight: 700;
             letter-spacing: 0.04em;
             display: flex;
@@ -620,6 +716,30 @@ def inject_css() -> None:
             font-family: 'Epilogue', sans-serif;
         }
         .dt-badge-landlord { border-color:#dc2626; color:#dc2626; }
+
+        /* Role badges — Minister / TD / Revolving door. Use --signal-* tokens
+           so theme tweaks propagate. Override .dt-badge defaults for background,
+           border, and text colour while keeping shape/typography. */
+        .dt-badge-minister {
+            background: var(--signal-good-subtle);
+            border-color: var(--signal-good-border);
+            color: var(--signal-good-deep);
+        }
+        .dt-badge-td {
+            background: oklch(96% 0.045 80);
+            border-color: oklch(82% 0.110 80);
+            color: oklch(38% 0.110 60);
+        }
+        .dt-badge-revolving {
+            background: var(--signal-bad-subtle);
+            border-color: var(--signal-bad-border);
+            color: var(--signal-bad-deep);
+            margin-left: 0.35rem;
+        }
+        .dt-badge-revolving::before {
+            content: "⚠";
+            margin-right: 0.25rem;
+        }
 
         /* ── Callout / empty state / TODO ─────────── */
         .dt-callout {
@@ -964,9 +1084,9 @@ def inject_css() -> None:
         /* Stat number inside a stat-strip or summary block */
         .dt-success-stat-num {
             font-family: 'Zilla Slab', Georgia, serif;
-            font-size: 1.75rem;
+            font-size: 1.65rem;
             font-weight: 700;
-            color: #1d4ed8;
+            color: var(--signal-good);
             line-height: 1;
         }
 
@@ -1712,6 +1832,48 @@ def inject_css() -> None:
            palette distinct from the amber accent used on other pages.   */
         .lob-section-heading { border-bottom-color: #0f3d5e; }
 
+        /* Attached references — lobbyist-supplied external PDFs (chambers.ie,
+           amcham.ie, etc.). Rust accent + EXTERNAL tag signals these are not
+           Oireachtas-issued and may rot. */
+        .lob-attach-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 0.6rem; margin-top: 0.45rem;
+        }
+        .lob-attach-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-left: 3px solid #9a3412;   /* rust to distinguish from navy/amber */
+            border-radius: 8px;
+            padding: 0.65rem 0.85rem 0.7rem;
+        }
+        .lob-attach-head {
+            display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem;
+        }
+        .lob-attach-host {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.84rem; font-weight: 700; color: var(--text);
+            letter-spacing: -0.005em;
+        }
+        .lob-attach-tag {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em;
+            color: #9a3412; background: #fff7ed;
+            border: 1px solid #fed7aa; border-radius: 3px;
+            padding: 0.05rem 0.35rem;
+        }
+        .lob-attach-meta {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.72rem; color: var(--text-meta);
+            line-height: 1.4; margin-bottom: 0.45rem;
+        }
+        .lob-attach-actions {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.82rem; font-weight: 600;
+            display: flex; align-items: center; gap: 0.35rem;
+        }
+        .lob-attach-sep { color: var(--text-meta); }
+
         .lob-path-card {
             background: #ffffff;
             border: 1px solid var(--border);
@@ -1932,7 +2094,7 @@ def inject_css() -> None:
         /* Bill identity strip in drilldown view */
         .leg-bill-title {
             font-family: 'Zilla Slab', Georgia, serif;
-            font-size: 1.7rem; font-weight: 700; color: var(--text-primary);
+            font-size: 1.65rem; font-weight: 700; color: var(--text-primary);
             line-height: 1.2; margin: 0.5rem 0 0.2rem;
         }
         .leg-bill-ref {
@@ -2273,6 +2435,42 @@ def inject_css() -> None:
 
             /* Download button: full width */
             .stDownloadButton > button {
+                width: 100% !important;
+            }
+
+            /* Hero / kicker / large headings scale down so they don't blow
+               out the viewport on narrow phones. Targets the 1.5rem+ tier. */
+            .dt-hero { padding: 0.9rem 1rem 0.8rem !important; }
+            .dt-hero h1 { font-size: 1.35rem !important; }
+            .dt-dek    { font-size: 0.85rem !important; }
+
+            /* Cards: tighter padding so 100vw cards still breathe. */
+            .dt-info-card,
+            .int-member-card,
+            .vt-card,
+            .att-list-pill,
+            .att-hall-card-good,
+            .att-hall-card-bad {
+                padding: 0.45rem 0.7rem !important;
+            }
+
+            /* Section dividers/sticky headings: smaller on mobile. */
+            .section-heading,
+            .lob-section-heading { font-size: 0.65rem !important; }
+
+            /* Custom vote tables: allow horizontal scroll instead of
+               crushing 5 columns into 360px. */
+            .dt-vt-table {
+                display: block !important;
+                overflow-x: auto !important;
+                white-space: nowrap !important;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* The right-hand "→" button column in card_row pairs: stretched
+               to full-width feels wrong; make it a visible secondary action. */
+            [data-testid="stColumn"] .stButton > button[kind="secondary"],
+            [data-testid="stColumn"] .stButton > button {
                 width: 100% !important;
             }
 
