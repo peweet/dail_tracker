@@ -79,18 +79,45 @@ def fetch_all_politician_names() -> list[str]:
 
 # ── Org index ──────────────────────────────────────────────────────────────────
 
+# Full enrichment column set for the lobbying page (leaderboard + org profile).
+# Drawn from v_experimental_lobbying_org_index_enriched — every charity-side
+# column is null for orgs with no register match.
+_ORG_INDEX_COLS = (
+    "lobbyist_name, sector_label AS sector, return_count, politicians_targeted,"
+    " distinct_policy_areas, first_period, last_period,"
+    " rcn, company_num, status, match_method, entity_age_years,"
+    " newly_incorporated_flag, state_adjacent_flag, country_established,"
+    " trustee_count,"
+    " funding_profile, gov_funded_share_latest, dominant_income_source,"
+    " share_government, share_other_public, share_philanthropic,"
+    " share_donations, share_trading, share_other, share_bequests,"
+    " gross_income_latest_eur, gross_expenditure_latest_eur,"
+    " employees_band_latest, employees_ft_latest, employees_pt_latest,"
+    " volunteers_band_latest,"
+    " surplus_deficit_latest, net_assets_latest_eur, cash_at_hand_latest_eur,"
+    " total_assets_latest_eur, total_liabilities_latest_eur,"
+    " reserves_months, reserves_band,"
+    " income_trend, income_change_pct, years_filed,"
+    " first_period_year, last_period_year, deficit_years_count,"
+    " beneficiary_tags, report_activity_latest, flags"
+)
+
+
 @st.cache_data(ttl=300)
-def fetch_org_index() -> pd.DataFrame:
-    # Reads the CRO×Charity-enriched view so org cards can render status + funding
-    # pills. Row count is identical to v_lobbying_org_index (same gold base);
-    # enrichment columns are null for unmatched orgs and the UI hides their pills.
+def fetch_org_index(exclude_state_adjacent: bool = False) -> pd.DataFrame:
+    # Reads the CRO×Charity-enriched view so org cards/profiles can render the
+    # full register enrichment. Row count is identical to v_lobbying_org_index
+    # (same gold base); enrichment columns are null for unmatched orgs.
+    #
+    # exclude_state_adjacent drops HSE/hospital-type bodies — the leaderboard
+    # passes it; the org switcher and Stage-2 lookup leave it False so any org
+    # stays reachable.
+    where = " WHERE (state_adjacent_flag IS DISTINCT FROM TRUE)" if exclude_state_adjacent else ""
     return _safe(
-        "SELECT lobbyist_name, sector_label AS sector, return_count,"
-        " politicians_targeted, distinct_policy_areas, first_period, last_period,"
-        " status, funding_profile, gov_funded_share_latest, entity_age_years,"
-        " match_method"
-        " FROM v_experimental_lobbying_org_index_enriched"
-        " ORDER BY return_count DESC"
+        f"SELECT {_ORG_INDEX_COLS}"
+        f" FROM v_experimental_lobbying_org_index_enriched"
+        f"{where}"
+        f" ORDER BY return_count DESC"
     )
 
 

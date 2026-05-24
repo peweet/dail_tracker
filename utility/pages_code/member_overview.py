@@ -264,6 +264,21 @@ def _legislation(_conn, member_name: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
+def _si_signed(_conn, join_key: str) -> pd.DataFrame:
+    """SIs the member signed as a departmental minister. Joined on
+    si_minister_member_code (= unique_member_code)."""
+    return _q(
+        _conn,
+        "SELECT si_id, si_year, si_title, si_signed_date, si_operation,"
+        " si_department_label, si_is_eu, eisb_url"
+        " FROM v_statutory_instruments"
+        " WHERE si_minister_member_code = ?"
+        " ORDER BY si_signed_date DESC NULLS LAST",
+        [join_key],
+    )
+
+
+@st.cache_data(ttl=300)
 def _debate_years(_conn, join_key: str) -> list[int]:
     df = _q(
         _conn,
@@ -502,6 +517,62 @@ def _section_legislation(conn, member_name: str) -> None:
         mime="text/csv",
         disabled=df.empty,
         key="mo_leg_export",
+        width="stretch",
+    )
+
+
+def _section_statutory_instruments(conn, join_key: str) -> None:
+    """SIs the member signed as a minister — secondary legislation made by
+    ministerial order. Conditional: rendered only when at least one SI
+    resolves to this member, so non-ministers see nothing. Resolution covers
+    the current government only (the limit of the ministerial-tenure data)."""
+    df = _si_signed(conn, join_key)
+    if df.empty:
+        return
+
+    st.divider()
+    st.html('<p class="section-heading">Statutory Instruments signed</p>')
+
+    n        = len(df)
+    depts    = [d for d in df["si_department_label"].dropna().unique().tolist()]
+    dept_str = ", ".join(depts) if depts else "—"
+    eu_n     = int(df["si_is_eu"].fillna(False).astype(bool).sum())
+    st.caption(
+        f"{n} statutory instrument{'s' if n != 1 else ''} signed as a minister "
+        f"({dept_str}) — secondary legislation made by ministerial order, "
+        f"{eu_n} of it EU-derived. Covers the current government only."
+    )
+
+    for _, row in df.head(50).iterrows():
+        op  = _h(str(row.get("si_operation", "") or "").replace("_", " ")) or "—"
+        url = str(row.get("eisb_url", "") or "")
+        eu_badge = (
+            '<span class="signal" style="background:#fef3c7;border-color:#fcd34d;'
+            'color:#92400e;margin-left:0.25rem;">EU</span>'
+            if bool(row.get("si_is_eu")) else ""
+        )
+        url_html = source_link_html(
+            url, "irishstatutebook.ie",
+            aria_label="Open this SI on irishstatutebook.ie",
+        ) if url.startswith("http") else ""
+        st.html(
+            f'<div class="leg-bill-card" style="margin-bottom:0.3rem;">'
+            f'<div class="leg-bill-card-header">'
+            f'<span class="leg-bill-card-date">SI {_h(str(row.get("si_id", "—")))}</span>'
+            f'<span class="signal leg-status-active">{op}</span>'
+            f'{eu_badge}'
+            f'</div>'
+            f'<div class="leg-bill-card-title">{_h(str(row.get("si_title", "—")))}</div>'
+            f'<div style="margin-top:0.2rem;">{url_html}</div>'
+            f'</div>'
+        )
+
+    st.download_button(
+        label="Export statutory instruments (CSV)",
+        data=df.to_csv(index=False).encode("utf-8"),
+        file_name=f"si_signed_{join_key}.csv",
+        mime="text/csv",
+        key="mo_si_export",
         width="stretch",
     )
 
@@ -931,6 +1002,10 @@ def _render_stage2(
 
     # ── 2. Legislation ────────────────────────────────────────────────────────
     _section_legislation(conn, member_name)
+
+    # ── 2b. Statutory Instruments signed (ministers only — emits its own
+    #         leading divider when it has content) ──────────────────────────────
+    _section_statutory_instruments(conn, join_key)
 
     st.divider()
 

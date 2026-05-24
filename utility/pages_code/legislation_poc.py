@@ -42,15 +42,41 @@ from ui.entity_links import source_link_html
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
 
-# POC: reach across to the SI POC for its loader + helpers. Both pages
-# share the @st.cache_data extract so it's only paid once per session.
+# POC: reuse the SI page's generic display helpers.
 from pages_code.legislation_si_poc import (
     _eisb_url,
     _fmt_date,
     _pretty_token,
     _safe,
-    load_si,
 )
+
+# This POC's unit of analysis is the parent Act — it needs the bill-MATCHED
+# SI set (one row per matched (bill, SI)), not the full SI corpus. It reads
+# the bill-gated gold parquet directly with its own loader, decoupled from
+# the standalone SI page (which now browses the whole 5,900-SI universe).
+_SI_GOLD = (Path(__file__).resolve().parents[2]
+            / "data" / "gold" / "parquet" / "bill_statutory_instruments.parquet")
+
+
+@st.cache_data(show_spinner="Loading Statutory Instruments…")
+def load_si() -> pd.DataFrame:
+    """Bill-matched SIs from the pipeline gold parquet, shaped to the column
+    names this page's renderers expect."""
+    df = pd.read_parquet(_SI_GOLD)
+    df = df.rename(columns={
+        "bill_id":          "matched_bill_id",
+        "bill_short_title": "matched_bill_title",
+        "si_title":         "title",
+        "si_minister":      "si_responsible_actor",
+        "si_policy_domain": "si_policy_domain_primary",
+        "si_operation":     "si_operation_primary",
+        "iris_source_pdf":  "source_file",
+    })
+    df["issue_date"] = pd.to_datetime(df["si_signed_date"], errors="coerce")
+    if "matched_bill_url" not in df.columns:
+        df["matched_bill_url"] = None
+    df = df[~df["title"].astype(str).str.contains("�", na=False)]
+    return df.reset_index(drop=True)
 
 
 # ── Page-local CSS ────────────────────────────────────────────────────────────
