@@ -627,10 +627,10 @@ def main() -> int:
     out_annual = args.silver_dir / "annual_reports.parquet"
     out_latest = args.silver_dir / "charity_latest.parquet"
     out_trustees = args.silver_dir / "trustees_long.parquet"
-    register.write_parquet(out_register, compression="zstd")
-    annual.write_parquet(out_annual, compression="zstd")
-    latest.write_parquet(out_latest, compression="zstd")
-    trustees.write_parquet(out_trustees, compression="zstd")
+    register.write_parquet(out_register, compression="zstd", compression_level=3, statistics=True)
+    annual.write_parquet(out_annual, compression="zstd", compression_level=3, statistics=True)
+    latest.write_parquet(out_latest, compression="zstd", compression_level=3, statistics=True)
+    trustees.write_parquet(out_trustees, compression="zstd", compression_level=3, statistics=True)
 
     print(f"[charity_normalise] wrote {out_register}        rows={register.height}  cols={register.width}")
     print(f"[charity_normalise] wrote {out_annual}   rows={annual.height}  cols={annual.width}")

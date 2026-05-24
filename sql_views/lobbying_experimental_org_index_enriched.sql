@@ -54,7 +54,7 @@
 --                first_period_year, last_period_year, deficit_years_count
 --   DESCRIPTIVE: beneficiary_tags, report_activity_latest
 --   flags        -- VARCHAR[] of warning-flag IDs; rendered as red/amber/info
---                -- pills. Stable IDs — labels live in lobbyist_poc.py:_FLAG_LABELS.
+--                -- pills. Stable IDs — labels can be rendered in any UI consumer.
 --
 -- ════════════════════════════════════════════════════════════════════════════
 
@@ -282,7 +282,7 @@ SELECT
     END                                                            AS match_method,
 
     -- Warning flags — stable string IDs; UI labels and severity tier live in
-    -- utility/pages_code/lobbyist_poc.py:_FLAG_LABELS. NULLs are stripped so an
+    -- a UI consumer's label map. NULLs are stripped so an
     -- entity with no flags returns []. Each rule is one CASE → one flag string.
     list_filter([
         -- ── Composite (cross-dataset) ──────────────────────────────────────

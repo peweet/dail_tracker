@@ -119,6 +119,24 @@ def fetch_bill_sources(bill_id: str) -> pd.DataFrame:
     )
 
 
+# ── PDF documents ──────────────────────────────────────────────────────────────
+
+@st.cache_data(ttl=300)
+def fetch_bill_pdfs(bill_id: str) -> pd.DataFrame:
+    """All Oireachtas-issued PDFs for a bill: versions, related docs, amendments.
+
+    One row per PDF, ordered by category (versions → related_docs → amendments)
+    then by pdf_date descending. Returns columns:
+        pdf_category, pdf_subtype, pdf_label, pdf_url, pdf_date, pdf_lang
+    """
+    return _safe(
+        "SELECT pdf_category, pdf_subtype, pdf_label, pdf_url, pdf_date, pdf_lang"
+        " FROM v_legislation_pdfs WHERE bill_id = ?"
+        " ORDER BY category_order, pdf_date DESC NULLS LAST, pdf_label",
+        [bill_id],
+    )
+
+
 # ── Debates ────────────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=300)

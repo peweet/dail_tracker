@@ -46,6 +46,19 @@ def build_legislation_unscoped_url(skip: int = 0) -> str:
                f"&date_end=2099-01-01&limit=1000&skip={skip}"
                f"&chamber_id=&lang=en")
 
+
+def debate_section_url(context_date: str, debate_section_id: str) -> str:
+    """Reconstruct the internal AKN debate-section URI dropped from questions.parquet.
+
+    Reproduces what was stored as `debate_section_uri` before the URI cleanup
+    documented in pipeline_sandbox/zstd_typing_notes.md §8.2. Useful for UI
+    code that needs a deep-link to the akoma-ntoso XML payload.
+    """
+    return (
+        f"https://data.oireachtas.ie/akn/ie/debateRecord/dail/"
+        f"{context_date}/debate/{debate_section_id}"
+    )
+
 def build_questions_urls(member_df: pl.DataFrame) -> list[str]:
     """Build one questions URL per member."""
     if member_df.is_empty():

@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from services.http_engine import fetch_all
+from services.legislation_unscoped import fetch_all_bills
 from services.logging_setup import setup_logging
 from services.members import get_or_create_member_df
 from services.storage import output_exists, result_file_path, save_json
@@ -95,6 +96,31 @@ def run_votes(overwrite: bool = False) -> None:
     logger.info(f"Finished votes | batches={len(votes)} | bytes={vote_bytes:,}")
 
 
+def run_legislation_unscoped(overwrite: bool = False) -> None:
+    """Fetch every Bill (Government + Private Member) — unscoped pagination.
+
+    Consumed by legislation.py, which reads legislation_results_unscoped.json
+    instead of the per-TD legislation_results.json so Government bills are
+    not silently dropped.
+    """
+    output_path = result_file_path("legislation_unscoped")
+
+    if output_exists(output_path, overwrite=overwrite):
+        return
+
+    logger.info("=" * 70)
+    logger.info("Starting legislation_unscoped scenario")
+    logger.info("=" * 70)
+
+    payload, total_bytes = fetch_all_bills()
+    save_json(payload, output_path)
+
+    bills = payload[0]["results"] if payload else []
+    logger.info(
+        f"Finished legislation_unscoped | bills={len(bills)} | bytes={total_bytes:,}"
+    )
+
+
 def main() -> None:
     setup_logging()
 
@@ -139,12 +165,7 @@ def main() -> None:
         max_workers=5,
     )
 
-    run_member_scenario(
-        scenario_name="legislation_unscoped",
-        urls=legislation_urls,
-        overwrite=overwrite_legislation,
-        max_workers=5,
-    )
+    run_legislation_unscoped(overwrite=overwrite_legislation)
 
     logger.info("=" * 70)
     logger.info("STEP 4: Fetching votes")
