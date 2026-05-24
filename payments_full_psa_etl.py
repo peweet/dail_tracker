@@ -1,26 +1,10 @@
 """
 payments_full_psa_etl.py — full PSA (TAA + PRA) re-parser, schema-aware
 
-STATUS: SANDBOX. Not wired into pipeline.py. Run directly:
-    python pipeline_sandbox/payments_full_psa_etl.py
-
-WHY THIS EXISTS
----------------
-The current production parser (`payments.py`) assumes a single 5-column PDF
-schema (Name, TAA_Band, Narrative, Date, Amount) and quarantines anything that
-doesn't fit. That schema only matches PDFs from Jul 2020 onwards.
-
-Jan-Jun 2020 PDFs use a different layout, and the Jul 2020+ PDFs themselves
-contain PRA-side rows the production parser also throws into quarantine
-because the band column reads "Vouched" / "MIN" / blank instead of an integer.
-
-Net effect today:
-- Jan-Apr 2020 column-shifted into the quarantine table (recoverable)
-- May-Jun 2020 dropped entirely (6-col schema, parser expects 5)
-- 2020-2026 PRA-side rows quarantined (Vouched / MIN / Dub / blank band)
-
-Combined we lose ~€4-5M from the published PSA totals, which is exactly the
-gap users see when comparing our totals to gript's published figures.
+The active payments parser. Replaces the legacy single-schema parser in
+payments.py: that one assumed Name/TAA_Band/Narrative/Date/Amount and silently
+quarantined every PDF that didn't fit, dropping Jan-Jun 2020 entirely and every
+PRA-side row at every period.
 
 PDF SCHEMA HISTORY (verified by reading bronze PDFs)
 ----------------------------------------------------
@@ -50,11 +34,6 @@ with columns:
     PRA           — vouched representation allowance (ordinary TD)
     PRA_MIN       — vouched representation allowance at minister rate
     PRA_FLAG_ONLY — Jan-Jun 2020 only: PRA was claimed but amount not in PDF
-
-This file is intentionally separate from `payments_fact.parquet` so the
-production page keeps working unchanged. To wire this in, replace the
-parser stage in payments.py with the schema-aware logic here and update
-sql_views/payments_base.sql to read this parquet.
 """
 from __future__ import annotations
 
@@ -67,12 +46,10 @@ from typing import Iterable
 import fitz  # PyMuPDF
 import polars as pl
 
-# Reach into project root from pipeline_sandbox/
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-BRONZE_PDF_DIR = PROJECT_ROOT / "data" / "bronze" / "pdfs" / "payments"
-GOLD_PARQUET_DIR = PROJECT_ROOT / "data" / "gold" / "parquet"
+from config import GOLD_CSV_DIR, GOLD_PARQUET_DIR, PAYMENTS_PDF_DIR
+
 OUTPUT_PARQUET = GOLD_PARQUET_DIR / "payments_full_psa.parquet"
-OUTPUT_CSV = PROJECT_ROOT / "data" / "gold" / "csv" / "payments_full_psa.csv"
+OUTPUT_CSV = GOLD_CSV_DIR / "payments_full_psa.csv"
 QUARANTINE_PARQUET = GOLD_PARQUET_DIR / "payments_full_psa_quarantine.parquet"
 
 TAA_LABELS = {
@@ -421,8 +398,8 @@ def _iter_rows_from_pdf(pdf_path: Path) -> Iterable[ExtractedRow]:
 # ---------------------------------------------------------------------------
 
 def build_full_psa() -> dict[str, int]:
-    pdfs = sorted(BRONZE_PDF_DIR.glob("*.pdf"))
-    print(f"Found {len(pdfs)} PSA PDFs in {BRONZE_PDF_DIR}")
+    pdfs = sorted(PAYMENTS_PDF_DIR.glob("*.pdf"))
+    print(f"Found {len(pdfs)} PSA PDFs in {PAYMENTS_PDF_DIR}")
 
     rows: list[ExtractedRow] = []
     for pdf in pdfs:
@@ -463,9 +440,9 @@ def build_full_psa() -> dict[str, int]:
 
     OUTPUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
-    clean.write_parquet(OUTPUT_PARQUET)
+    clean.write_parquet(OUTPUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
     clean.write_csv(OUTPUT_CSV)
-    quarantine.write_parquet(QUARANTINE_PARQUET)
+    quarantine.write_parquet(QUARANTINE_PARQUET, compression="zstd", compression_level=3, statistics=True)
 
     return {"clean_rows": clean.height, "quarantine_rows": quarantine.height}
 

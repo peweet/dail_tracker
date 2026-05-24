@@ -769,7 +769,12 @@ def save_output(df: pl.DataFrame, filename: str, overwrite: bool = True) -> None
         print(f"{filename} already exists, skipping.")
         return
     df.write_csv(path)
-    df.write_parquet(LOBBY_PARQUET_DIR / path.with_suffix(".parquet").name)
+    df.write_parquet(
+        LOBBY_PARQUET_DIR / path.with_suffix(".parquet").name,
+        compression="zstd",
+        compression_level=3,
+        statistics=True,
+    )
     print(f"Saved {filename}")
 
 
@@ -824,7 +829,12 @@ def save_gold_outputs(activities_df: pl.DataFrame, lobbying_df: pl.DataFrame) ->
         query = sql_file.read_text(encoding="utf-8")
         try:
             result = pl.from_arrow(con.execute(query).arrow())
-            result.write_parquet(GOLD_PARQUET_DIR / f"{name}.parquet")
+            result.write_parquet(
+                GOLD_PARQUET_DIR / f"{name}.parquet",
+                compression="zstd",
+                compression_level=3,
+                statistics=True,
+            )
             result.write_csv(GOLD_CSV_DIR / f"{name}.csv")
             print(f"  Gold: {name} ({result.height} rows)")
         except Exception as e:

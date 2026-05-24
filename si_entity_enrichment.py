@@ -1,8 +1,8 @@
 """
-pipeline_sandbox/si_entity_enrichment.py
+si_entity_enrichment.py
 
 Builds the Statutory Instrument as a first-class entity: one row per SI,
-sourced from the Iris Oifigiuil SI taxonomy directly — NOT gated on a bill
+sourced from the Iris Oifigiúil SI taxonomy directly — NOT gated on a bill
 match. Writes data/gold/parquet/statutory_instruments.parquet.
 
 Companion to iris_si_bill_enrichment.py. That script answers "which SIs hang
@@ -31,28 +31,20 @@ DERIVES:
                           Oireachtas.
 
 COVERAGE FLOOR: si_year >= 2016 (the taxonomy thins sharply below this).
-
-USAGE:
-    python pipeline_sandbox/si_entity_enrichment.py
 """
 from __future__ import annotations
 
 import logging
 import re
-import sys
 from pathlib import Path
 
 import pandas as pd
-
-# Make root config importable when run via subprocess from project root.
-_ROOT = Path(__file__).resolve().parents[1]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
 
 from config import GOLD_PARQUET_DIR, SILVER_DIR
 
 logger = logging.getLogger(__name__)
 
+_ROOT = Path(__file__).resolve().parent
 _SI_CSV   = SILVER_DIR / "iris_oifigiuil" / "iris_si_taxonomy.csv"
 _BILL_SI  = GOLD_PARQUET_DIR / "bill_statutory_instruments.parquet"
 _ALIASES  = _ROOT / "data" / "_meta" / "si_department_aliases.csv"
@@ -146,9 +138,9 @@ def load_ministerial_offices() -> list[tuple[str, str | None, str, pd.Timestamp,
     (department_key, member_code, minister_name, start, end).
 
     Sourced from data/silver/ministerial_tenure.parquet — built by
-    pipeline_sandbox/ministerial_tenure_build.py from Wikidata, covering every
-    Irish government since 2016. An open (null) end date — a serving minister
-    — is treated as far-future so the date-window join works. member_code is
+    ministerial_tenure_build.py from Wikidata, covering every Irish
+    government since 2016. An open (null) end date — a serving minister —
+    is treated as far-future so the date-window join works. member_code is
     null for ministers no longer in the Oireachtas (their SIs resolve to a
     name, not a clickable profile)."""
     if not _TENURE.exists():
@@ -246,7 +238,7 @@ def run() -> dict:
     })
 
     _OUT.parent.mkdir(parents=True, exist_ok=True)
-    out.to_parquet(_OUT, index=False)
+    out.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
 
     total          = len(out)
     actor_known    = int(si["si_responsible_actor"].notna().sum())

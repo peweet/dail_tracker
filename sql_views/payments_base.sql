@@ -1,7 +1,8 @@
 -- v_payments_base — reads the full PSA gold Parquet produced by payments_full_psa_etl.py
 --
 -- Grain: one row per payment transaction (member_name, date_paid, narrative).
--- Covers all payment kinds: TAA, PSA_DUBLIN, PRA, PRA_MIN, PRA_FLAG_ONLY.
+-- Covers all payment kinds: TAA, PSA_DUBLIN, PRA, PRA_MIN, PRA_FLAG_ONLY — both the
+-- TAA-banded travel allowance and the previously-quarantined PRA-side rows.
 --
 -- Column aliases preserve the names expected by downstream views:
 --   amount      → amount_num   (matches payments_summary, payments_member_detail, etc.)

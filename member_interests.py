@@ -453,7 +453,12 @@ def combine_years(silver_dir: pathlib.Path, years: list[str], case: str) -> pl.D
     parquet_dir = silver_dir / "parquet"
     parquet_dir.mkdir(parents=True, exist_ok=True)
     parquet_path = parquet_dir / f"{case}_member_interests_combined.parquet"
-    combined.write_parquet(parquet_path)
+    combined.write_parquet(
+        parquet_path,
+        compression="zstd",
+        compression_level=3,
+        statistics=True,
+    )
     print(f"Saved combined: {out_path} + {parquet_path.name}")
     return combined
 

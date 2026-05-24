@@ -12,6 +12,7 @@ from data_access.legislation_data import (
     fetch_all_statuses,
     fetch_bill_debates,
     fetch_bill_detail,
+    fetch_bill_pdfs,
     fetch_bill_timeline,
     fetch_legislation_index_filtered,
     fetch_pre2014_act_detail,
@@ -112,8 +113,9 @@ def _render_legislation_index(
     )
 
     # ── Government Bills notice ───────────────────────────────────────────────
-    # TODO_GOVT_BILLS: When the unscoped legislation feed lands and the SQL
-    # views are fixed (see pipeline_sandbox/legislation_unscoped_integration_plan.md §2a):
+    # TODO_GOVT_BILLS: The unscoped fetcher now lands Government bills in
+    # silver via services/legislation_unscoped.py + legislation.py. Remaining
+    # UI follow-up:
     #   1. Remove this entire callout block.
     #   2. Generalise hero copy at lines ~56-60 ("Private Members'" → "Bills").
     #   3. Update the provenance text at lines ~207-212 to drop the
@@ -304,6 +306,89 @@ def _render_debates(debates_df: pd.DataFrame) -> None:
         )
 
     st.html(f'<div class="leg-debate-list">{rows_html}</div>')
+
+
+_PDF_GROUP_LABELS: dict[str, str] = {
+    "version":     "Bill text",
+    "related_doc": "Explanatory documents",
+    "amendment":   "Amendment lists",
+}
+
+_PDF_SUBTYPE_LABELS: dict[str, str] = {
+    # related_doc subtypes
+    "memo":         "Explanatory Memorandum",
+    "digest":       "Bills Digest",
+    "gluais":       "Gluais",
+    "errata":       "Erratum",
+    # amendment subtypes
+    "numberedList": "Numbered List",
+    "creamList":    "Cream List",
+}
+
+
+def _section_bill_pdfs(bill_id: str) -> None:
+    """Oireachtas-issued PDFs for this bill: text versions, explanatory
+    documents, and amendment lists. Sourced from v_legislation_pdfs
+    (union of versions / related_docs / bill_amendments)."""
+    st.html('<p class="section-heading">Documents</p>')
+
+    pdfs_df = fetch_bill_pdfs(bill_id)
+    if pdfs_df.empty:
+        empty_state(
+            "No documents published",
+            "No Oireachtas PDFs are available for this bill. Pre-2014 Acts "
+            "and bills withdrawn at very early stages often have none.",
+        )
+        return
+
+    rendered_groups: list[str] = []
+    for category, label in _PDF_GROUP_LABELS.items():
+        grp = pdfs_df[pdfs_df["pdf_category"] == category]
+        if grp.empty:
+            continue
+        rendered_groups.append(_pdf_group_html(label, grp))
+
+    st.html('<div class="leg-doc-section">' + "".join(rendered_groups) + "</div>")
+
+
+def _pdf_group_html(group_label: str, grp_df: pd.DataFrame) -> str:
+    """Render one PDF subsection (e.g. 'Bill text') as a stack of source-cards."""
+    cards = ""
+    for _, r in grp_df.iterrows():
+        label_text = (
+            r.get("pdf_label")
+            or _PDF_SUBTYPE_LABELS.get(r.get("pdf_subtype") or "", "")
+            or "Document"
+        )
+        date_str = _fmt_date(r.get("pdf_date"))
+        lang = r.get("pdf_lang") or ""
+        meta_bits: list[str] = []
+        if date_str and date_str != "—":
+            meta_bits.append(date_str)
+        if lang and lang != "eng":
+            meta_bits.append(lang.upper())
+        meta_str = " · ".join(meta_bits)
+
+        link_html = source_link_html(
+            r.get("pdf_url") or "",
+            "Open PDF",
+            aria_label=f"Open {label_text} PDF in a new tab",
+        )
+
+        cards += (
+            '<div class="leg-source-card">'
+            f'<div class="leg-source-label">{html.escape(label_text)}'
+            + (f' <span class="leg-source-meta">· {html.escape(meta_str)}</span>'
+               if meta_str else '')
+            + '</div>'
+            f'{link_html}'
+            '</div>'
+        )
+    return (
+        f'<div class="leg-doc-group-label">{html.escape(group_label)} '
+        f'<span class="leg-doc-group-count">({len(grp_df)})</span></div>'
+        f'{cards}'
+    )
 
 
 def _section_statutory_instruments(bill_id: str) -> None:
@@ -550,6 +635,10 @@ def _render_bill_detail(bill_id: str) -> None:
     # ── CSV export of this bill's timeline ────────────────────────────────────
     if not timeline_df.empty:
         export_button(timeline_df, "Export stage timeline as CSV", f"bill_{bill_no}_{bill_year}_timeline.csv", "leg_timeline_csv")
+
+    # ── Documents (Oireachtas PDFs: versions, memos, amendments) ──────────────
+    st.divider()
+    _section_bill_pdfs(bill_id)
 
     # ── Statutory Instruments under this Act ──────────────────────────────────
     st.divider()

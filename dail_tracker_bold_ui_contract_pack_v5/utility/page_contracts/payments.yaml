@@ -69,41 +69,23 @@ permitted_hardcoded_values:
       "7":       "Band 7 — 190–210 km"
       "8":       "Band 8 — over 210 km"
     unknown_values_action: >
-      If TAA_Band is not in the above map (e.g. "10", "Vouched"), show the raw value
+      If TAA_Band is not in the above map (e.g. "10"), show the raw value
       and flag with TODO_PIPELINE_VIEW_REQUIRED rather than silently dropping the row.
-    pipeline_todo: >
-      TODO_PIPELINE_VIEW_REQUIRED: TAA_Band normalisation — values "10" and "Vouched"
-      appear in aggregated_payment_tables.csv and are not in the official band range.
-      Pipeline must clarify and normalise these before the label mapping is reliable.
+      "Vouched", "MIN", "NoTAA" no longer appear as raw band values — the full-PSA
+      parser classifies them into payment_kind (PRA / PRA_MIN) instead.
 
 known_data_quality_issues:
-  malformed_rows_in_silver_csv:
+  taa_band_extended_codes:
     description: >
-      Some rows in data/silver/aggregated_payment_tables.csv have columns shifted —
-      a date appears in the Amount column, the Narrative column contains "Dublin",
-      and Date_Paid is empty. These rows produce NULL date_paid after TRY_CAST and
-      are silently excluded from all views.
-    effect: >
-      Affected members may show a slightly lower payment total than the official record.
-      The scale of the problem is unknown until the pipeline fixes the upstream parser.
-    implementation: >
-      v_payments_base filters WHERE date_paid IS NOT NULL. A row-count discrepancy
-      between the raw CSV and the view is the signal that rows were dropped.
-    scope: payments_page_only
-    pipeline_todo: >
-      TODO_PIPELINE_VIEW_REQUIRED: fix upstream parser in aggregated_payment_tables.csv
-      — shifted column rows must be corrected at source, not patched in Streamlit.
-  taa_band_unknown_values:
-    description: >
-      TAA_Band values "10" and "Vouched" appear in the silver CSV but are not in the
-      official Oireachtas TAA band range (Dublin, 1–8). Their correct interpretation
-      is unknown without reference to the source document.
+      TAA_Band values "9"–"12" appear in payments_full_psa.parquet but are not in the
+      official Oireachtas TAA distance band range (Dublin, 1–8). Their correct
+      interpretation is unknown without reference to the source document.
     effect: >
       These members show an unmapped TAA band label in the UI (raw value displayed).
       Payment totals are not affected — only the band label contextualisation.
     pipeline_todo: >
-      TODO_PIPELINE_VIEW_REQUIRED: TAA_Band normalisation — clarify and normalise
-      "10" and "Vouched" values in the pipeline before label mapping is reliable.
+      TODO_PIPELINE_VIEW_REQUIRED: TAA_Band normalisation — clarify what extended
+      bands 9–12 represent before label mapping is reliable.
   member_id_not_standardised:
     description: >
       The silver CSV contains a join_key column (sorted character hash of the name)

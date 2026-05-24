@@ -1,17 +1,10 @@
 # --- Write new DataFrames to CSV files ---
 
-# TODO_GOVT_BILLS: This file is the silver flattener for bills. It reads the
-# per-TD-scoped bronze JSON, which excludes Government bills entirely (the
-# /v1/legislation `member_id` filter only returns bills sponsored by an
-# individual TD). To include Government bills:
-#   1. Switch the input below to `legislation_results_unscoped.json`.
-#   2. Add `["bill", "originHouse", "showAs"]` to BILL_META and
-#      `"bill.originHouse.showAs": "origin_house"` to rename_bill_fields.
-#   3. Change the dropna at line ~126 to keep rows where either
-#      sponsor.by.showAs OR sponsor.as.showAs is populated (Government bills
-#      carry sponsor identity in `as.showAs`, not `by.showAs`).
-# Full proof + checklist: pipeline_sandbox/legislation_unscoped_integration_plan.md §2a
-# Sandbox impl (already verified end-to-end): pipeline_sandbox/legislation_unscoped_silver_views.py
+# Silver flattener for bills. Reads `legislation_results_unscoped.json`, the
+# unscoped /v1/legislation feed produced by services/legislation_unscoped.py.
+# That fetcher hits the endpoint without a `member_id` filter so Government
+# bills (sponsored "in capacity as Minister" rather than as an individual TD)
+# are included alongside Private Member bills.
 
 import pandas as pd
 from config import LEGISLATION_DIR, SILVER_DIR
@@ -215,11 +208,21 @@ sponsors_df["bill_url"] = sponsors_df.apply(
 )
 
 sponsors_df.to_csv(SILVER_DIR / "sponsors.csv")
-sponsors_df.to_parquet(SILVER_DIR / "parquet" / "sponsors.parquet", index=False)
+sponsors_df.to_parquet(
+    SILVER_DIR / "parquet" / "sponsors.parquet",
+    index=False,
+    compression="zstd",
+    compression_level=3,
+)
 print("Sponsors dataset created successfully.")
 
 stages_df.dropna(axis=0, how="all").to_csv(SILVER_DIR / "stages.csv")
-stages_df.to_parquet(SILVER_DIR / "parquet" / "stages.parquet", index=False)
+stages_df.to_parquet(
+    SILVER_DIR / "parquet" / "stages.parquet",
+    index=False,
+    compression="zstd",
+    compression_level=3,
+)
 print("Stages dataset created successfully.")
 
 debates_df = debates_df.sort_values(by="date", axis=0, ascending=True)
@@ -234,28 +237,60 @@ debates_df["debate_url_web"] = (
 )
 debates_df.dropna(axis=0, how="all").to_csv(SILVER_DIR / "debates.csv")
 
-debates_df.to_parquet(SILVER_DIR / "parquet" / "debates.parquet", index=False)
+# Drop internal API URIs (debate_url_web is the public link, kept above) and
+# verified all-null sort columns. chamber.uri consumed at line 228 before drop.
+DEBATES_DROP_COLS = [
+    "uri",
+    "chamber.uri",
+    "billSort.billShortTitleEnSort",
+    "billSort.billYearSort",
+]
+debates_df = debates_df.drop(
+    columns=[c for c in DEBATES_DROP_COLS if c in debates_df.columns]
+)
+
+debates_df.to_parquet(
+    SILVER_DIR / "parquet" / "debates.parquet",
+    index=False,
+    compression="zstd",
+    compression_level=3,
+)
 print("Debates dataset created successfully.")
 
 events_df.to_csv(SILVER_DIR / "events.csv", index=False)
 print("Events dataset created successfully.")
 
 # TODO: Review this to_parquet step for pipeline compatibility
-events_df.to_parquet(SILVER_DIR / "parquet" / "events.parquet", index=False)
+events_df.to_parquet(
+    SILVER_DIR / "parquet" / "events.parquet",
+    index=False,
+    compression="zstd",
+    compression_level=3,
+)
 print("Events Parquet dataset created (check pipeline)")
 
 most_recent_stage_event_dates_df.to_csv(SILVER_DIR / "most_recent_stage_event_dates.csv", index=False)
 print("Most recent stage event dates dataset created successfully.")
 
 # TODO: Review this to_parquet step for pipeline compatibility
-most_recent_stage_event_dates_df.to_parquet(SILVER_DIR / "parquet" / "most_recent_stage_event_dates.parquet", index=False)
+most_recent_stage_event_dates_df.to_parquet(
+    SILVER_DIR / "parquet" / "most_recent_stage_event_dates.parquet",
+    index=False,
+    compression="zstd",
+    compression_level=3,
+)
 print("Most recent stage event dates Parquet dataset created (check pipeline)")
 
 related_docs_df.to_csv(SILVER_DIR / "related_docs.csv", index=False)
 print("Related documents dataset created successfully.")
 
 # TODO: Review this to_parquet step for pipeline compatibility
-related_docs_df.to_parquet(SILVER_DIR / "parquet" / "related_docs.parquet", index=False)
+related_docs_df.to_parquet(
+    SILVER_DIR / "parquet" / "related_docs.parquet",
+    index=False,
+    compression="zstd",
+    compression_level=3,
+)
 print("Related documents Parquet dataset created (check pipeline)")
 
 
@@ -263,7 +298,12 @@ versions_df.to_csv(SILVER_DIR / "versions.csv", index=False)
 print("Versions dataset created successfully.")
 
 # TODO: Review this to_parquet step for pipeline compatibility
-versions_df.to_parquet(SILVER_DIR / "parquet" / "versions.parquet", index=False)
+versions_df.to_parquet(
+    SILVER_DIR / "parquet" / "versions.parquet",
+    index=False,
+    compression="zstd",
+    compression_level=3,
+)
 print("Versions Parquet dataset created (check pipeline)")
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-pipeline_sandbox/ministerial_tenure_build.py
+ministerial_tenure_build.py
 
 Builds the historical ministerial-tenure table that lets Statutory
 Instruments resolve to the minister who signed them — back to 2016, not
@@ -29,16 +29,12 @@ NOTE: this query covers 'Minister for …' senior departments only. The
 Taoiseach and 'The Government' (collective) are not 'Minister for …'
 positions, so SIs signed under those keys keep their department but no
 person — a small, documented gap.
-
-USAGE:
-    python pipeline_sandbox/ministerial_tenure_build.py
 """
 from __future__ import annotations
 
 import io
 import logging
 import re
-import sys
 import time
 import unicodedata
 from pathlib import Path
@@ -46,15 +42,10 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-_ROOT = Path(__file__).resolve().parents[1]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
-_SANDBOX = Path(__file__).resolve().parent
-if str(_SANDBOX) not in sys.path:
-    sys.path.insert(0, str(_SANDBOX))
-
 from config import SILVER_DIR
 from si_entity_enrichment import canonicalise_department, load_department_aliases
+
+_ROOT = Path(__file__).resolve().parent
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +205,7 @@ def run() -> dict:
              .reset_index(drop=True))
 
     _OUT.parent.mkdir(parents=True, exist_ok=True)
-    out.to_parquet(_OUT, index=False)
+    out.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
 
     n     = len(out)
     coded = int(out["member_code"].notna().sum())

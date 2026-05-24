@@ -9,8 +9,6 @@ This file: layout, controls, HTML card rendering, and navigation only.
 No groupby, merge, pivot, or metric definitions here.
 
 TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL on v_payments_sources
-TODO_PIPELINE_VIEW_REQUIRED: fix malformed/shifted-column rows in aggregated_payment_tables.csv
-TODO_PIPELINE_VIEW_REQUIRED: normalise all TAA_Band values (Vouched, MIN, NoTAA, combined codes)
 TODO_PIPELINE_VIEW_REQUIRED: canonical unique_member_code on payments views — required
     for cross-page member-name links via utility/ui/entity_links.member_link_html.
     Until then this page cannot link member names out to /member-overview.
@@ -54,16 +52,16 @@ _CAVEAT = (
     "parliamentary duties. The amount a TD receives is primarily determined by their "
     "TAA distance band — the measured road distance from their normal place of residence "
     "to Leinster House. A higher total does not imply wrongdoing; it reflects living "
-    "farther from Dublin. The Public Representation Allowance (PRA) component is the same "
-    "for all members. Data sourced from official Oireachtas payment records."
+    "farther from Dublin. Totals shown here cover both the TAA-banded travel allowance "
+    "and the vouched Public Representation Allowance (PRA), including the ministerial "
+    "PRA rate where applicable. Data sourced from official Oireachtas payment records."
 )
 
 _QUARANTINE_NOTE = (
-    "**Data quality notice:** A portion of payment records in the source data contain "
-    "unrecognised or legacy TAA band codes (for example, combined codes from older PDF "
-    "parsing runs). These rows have been quarantined and excluded from this view pending "
-    "pipeline correction. Totals shown may be slightly lower than the full official record "
-    "for some members. This is a known pipeline issue and will be resolved."
+    "**Data quality notice:** A small number of payment rows fall outside the expected "
+    "schema (malformed cells, illegible amounts) and are excluded from this view. The "
+    "excluded count is published in `payments_full_psa_quarantine.parquet` and is "
+    "typically under 1% of all rows."
 )
 
 def _pay_card_html(row: pd.Series) -> str:
@@ -132,7 +130,7 @@ def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
     if alltime.empty:
         empty_state(
             "All-time rankings not yet available",
-            "top_tds_by_payment_since_2020.parquet not found — run the pipeline to generate it.",
+            "current_td_payment_rankings.parquet not found — run the pipeline to generate it.",
         )
         _render_provenance(summary)
         return

@@ -113,7 +113,12 @@ def quarantine(
 
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{source}_{safe(run_id)}.parquet"
-    annotated.write_parquet(out_path)
+    annotated.write_parquet(
+        out_path,
+        compression="zstd",
+        compression_level=3,
+        statistics=True,
+    )
     return out_path
 
 

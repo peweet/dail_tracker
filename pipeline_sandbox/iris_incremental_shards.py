@@ -219,9 +219,11 @@ def _atomic_write_parquet(df: pl.DataFrame, dest: Path) -> None:
         # Polars refuses to round-trip a truly schemaless empty frame; write a
         # zero-row frame with a single sentinel column so scan_parquet still
         # works. Downstream code filters on row count, not columns.
-        pl.DataFrame({"_empty": pl.Series([], dtype=pl.Int64)}).write_parquet(tmp)
+        pl.DataFrame({"_empty": pl.Series([], dtype=pl.Int64)}).write_parquet(
+            tmp, compression="zstd", compression_level=3, statistics=True
+        )
     else:
-        df.write_parquet(tmp)
+        df.write_parquet(tmp, compression="zstd", compression_level=3, statistics=True)
     tmp.replace(dest)
 
 

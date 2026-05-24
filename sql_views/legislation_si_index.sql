@@ -1,6 +1,6 @@
 -- v_statutory_instruments — the Statutory Instrument as a first-class entity,
 -- one row per SI. Source: data/gold/parquet/statutory_instruments.parquet
--- (pipeline_sandbox/si_entity_enrichment.py).
+-- (si_entity_enrichment.py).
 --
 -- Sourced from the Iris Oifigiúil SI taxonomy directly — NOT gated on a bill
 -- match. The enabling-bill link (bill_id / bill_short_title) is one optional

@@ -1,13 +1,15 @@
 """
-pipeline_sandbox/iris_si_bill_enrichment.py
+iris_si_bill_enrichment.py
 
-Graduates legislation_si_poc.match_si_to_bill into the pipeline. Writes
-one row per matched (bill, SI) to
-data/gold/parquet/bill_statutory_instruments.parquet. Identical matching
-logic + tuning (Jaccard >= 0.40, +/-3yr window, SI year >= 2018,
-taxonomy confidence >= 0.5) - same constants as the POC, just relocated.
+Matches Statutory Instruments (from the Iris Oifigiúil ETL) to their enabling
+bills. Writes one row per matched (bill, SI) to
+data/gold/parquet/bill_statutory_instruments.parquet.
 
-Adds two new outputs vs the POC:
+Matching tuning (Jaccard >= 0.40, +/-3yr window, SI year >= 2018, taxonomy
+confidence >= 0.5) — lifted verbatim from the legislation_si_poc page that
+this enrichment graduated.
+
+Outputs:
   - si_minister_named   - first/last name extracted from SI raw_text
                           where the standard 'The Minister for X,
                           Firstname Lastname, in exercise...' formula
@@ -22,20 +24,15 @@ from __future__ import annotations
 import logging
 import re
 import string
-import sys
 from pathlib import Path
 
 import pandas as pd
-
-# Make root config importable when run via subprocess from project root.
-_ROOT = Path(__file__).resolve().parents[1]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
 
 from config import GOLD_PARQUET_DIR, SILVER_DIR, SILVER_PARQUET_DIR
 
 logger = logging.getLogger(__name__)
 
+_ROOT = Path(__file__).resolve().parent
 _SI_CSV    = SILVER_DIR / "iris_oifigiuil" / "iris_si_taxonomy.csv"
 _SPONSORS  = SILVER_PARQUET_DIR / "sponsors.parquet"
 _OUT       = GOLD_PARQUET_DIR / "bill_statutory_instruments.parquet"
@@ -312,7 +309,7 @@ def run() -> tuple[int, int]:
         "match_score":                matched["match_score"],
     })
     _OUT.parent.mkdir(parents=True, exist_ok=True)
-    out.to_parquet(_OUT, index=False)
+    out.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
 
     unm = pd.DataFrame({
         "si_id":          unmatched["si_id"],
@@ -320,7 +317,7 @@ def run() -> tuple[int, int]:
         "best_score":     unmatched["match_score"],
     })
     _OUT_UNM.parent.mkdir(parents=True, exist_ok=True)
-    unm.to_parquet(_OUT_UNM, index=False)
+    unm.to_parquet(_OUT_UNM, index=False, compression="zstd", compression_level=3)
 
     matched_count = len(out)
     total = len(si)

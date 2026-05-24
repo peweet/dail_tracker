@@ -113,7 +113,7 @@ def main() -> int:
     )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    resolved.write_parquet(args.out, compression="zstd")
+    resolved.write_parquet(args.out, compression="zstd", compression_level=3, statistics=True)
 
     print(f"[charity_resolved] wrote {args.out}  rows={resolved.height}  cols={resolved.width}")
     print(f"  charities_with_cro_number: {charities_with_cro:,}")

@@ -1,7 +1,7 @@
 -- v_bill_statutory_instruments - SIs joined to their enabling bill.
 -- Source: data/gold/parquet/bill_statutory_instruments.parquet (produced by
--- pipeline_sandbox/iris_si_bill_enrichment.py - lifts the matcher from
--- the legislation_si_poc page into the pipeline).
+-- iris_si_bill_enrichment.py - lifts the matcher from the legislation_si_poc
+-- page into the pipeline).
 --
 -- Grain: one row per matched (bill, SI). SIs without a bill match are
 -- written to data/silver/_meta/ for the coverage gate and not exposed here.
@@ -32,7 +32,7 @@ SELECT
     iris_source_pdf,
     match_score
 FROM read_parquet('data/gold/parquet/bill_statutory_instruments.parquet')
--- Pipeline (pipeline_sandbox/iris_si_bill_enrichment.py) already drops rows
--- with NULL matched_bill_id before writing the parquet, so no defensive
--- WHERE filter is needed here. Keep gold guarantees enforced upstream.
+-- Pipeline (iris_si_bill_enrichment.py) already drops rows with NULL
+-- matched_bill_id before writing the parquet, so no defensive WHERE filter
+-- is needed here. Keep gold guarantees enforced upstream.
 ORDER BY si_signed_date DESC NULLS LAST, si_number;

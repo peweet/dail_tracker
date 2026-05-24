@@ -13,13 +13,18 @@ STEPS = [
     ("Members API", "dummy_value"),
     ("Flatten debate listings", "dbsect_listings_flatten.py"),
     ("Flatten members", "flatten_members_json_to_csv.py"),
-    ("Process payments (full PSA)", "pipeline_sandbox/payments_full_psa_etl.py"),
+    ("Process payments (full PSA)", "payments_full_psa_etl.py"),
     ("Attendance PDF", "attendance.py"),
     ("Lobbying PDF", "lobby_processing.py"),
     ("Process legislation", "legislation.py"),
     ("Member interests PDF conversion to Dataframe", "member_interests.py"),
     ("Iris Oifigiuil ETL", "iris_oifigiuil_etl_polars.py"),
-    ("Iris SI <-> bill enrichment", "pipeline_sandbox/iris_si_bill_enrichment.py"),
+    ("Iris SI <-> bill enrichment", "iris_si_bill_enrichment.py"),
+    # ministerial_tenure_build refreshes the Wikidata-sourced minister table
+    # consumed by si_entity_enrichment. Network call; pipeline.py wraps each
+    # step in try/except so a transient Wikidata failure can't poison the run.
+    ("Ministerial tenure (Wikidata)", "ministerial_tenure_build.py"),
+    ("SI entity enrichment", "si_entity_enrichment.py"),
     # transform_votes must precede enrich — enrich.py reads silver/pretty_votes.csv
     ("Transform vote data", "transform_votes.py"),
     ("Enrich", "enrich.py"),

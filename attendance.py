@@ -90,7 +90,12 @@ if drop_cols:
     df = df.drop(drop_cols, axis=1)
 df.to_csv(SILVER_DIR / "td_attendance_fact_table.csv", index=False)
 
-df.to_parquet(SILVER_DIR / "parquet" / "td_attendance_fact_table.parquet", index=False)
+df.to_parquet(
+    SILVER_DIR / "parquet" / "td_attendance_fact_table.parquet",
+    index=False,
+    compression="zstd",
+    compression_level=3,
+)
 print(f"date range extracted from title: {date_range}")
 print("TD attendance CSV created successfully.")
 if __name__ == "__main__":
