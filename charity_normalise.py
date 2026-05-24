@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Charities Public Register normaliser (sandbox).
+Charities Public Register normaliser.
 
-STATUS: SANDBOX. Self-contained — does not import from pipeline.py / enrich.py /
-normalise_join_key.py. Reads bronze xlsx, writes four silver parquets.
+Reads the most recent public_register_*.xlsx in data/bronze/charities/ and
+writes four silver parquets at data/silver/charities/.
 
 Implements the charity half of CRO/INTEGRATION_PLAN.md §10 (NORMALISE per source).
 
@@ -36,7 +36,8 @@ CLEANS:
   preserved with parse_quality='raw'
 
 DERIVES:
-- name_norm / aka_norm: same rule as cro_normalise.py (sandbox-isolated copy)
+- name_norm / aka_norm: same rule as cro_normalise.py (intentionally duplicated;
+  the project's shared normalise_join_key.py is for TD names, not corporate)
 - period_year: from Period End Date
 - gov_share: (gov_or_la_income + other_public_bodies_income) / gross_income,
   null when gross_income is null/0
@@ -68,10 +69,6 @@ DERIVES:
     charity_filing_overdue_flag    period_end_latest < today − 18m
     charity_deficit_latest_flag    surplus_deficit_latest < 0
     charity_insolvent_latest_flag  total_liabilities_latest > total_assets_latest
-
-USAGE:
-    python pipeline_sandbox/charity_normalise.py
-    python pipeline_sandbox/charity_normalise.py --bronze data/bronze/charities/public_register_20260426.xlsx
 """
 
 from __future__ import annotations
@@ -86,8 +83,23 @@ from typing import Any
 import polars as pl
 from openpyxl import load_workbook
 
-DEFAULT_BRONZE = Path("data/bronze/charities/public_register_20260426.xlsx")
-DEFAULT_SILVER_DIR = Path("data/silver/charities")
+from config import BRONZE_DIR, SILVER_DIR
+
+BRONZE_CHARITY_DIR = BRONZE_DIR / "charities"
+DEFAULT_SILVER_DIR = SILVER_DIR / "charities"
+
+
+def latest_bronze_xlsx() -> Path:
+    """Pick the most recent public_register_*.xlsx in the bronze charity dir.
+
+    Files are filename-dated (public_register_YYYYMMDD.xlsx) so lexical sort is
+    chronological. Raises SystemExit if nothing matches.
+    """
+    candidates = sorted(BRONZE_CHARITY_DIR.glob("public_register_*.xlsx"))
+    if not candidates:
+        raise SystemExit(f"no public_register_*.xlsx files in {BRONZE_CHARITY_DIR}")
+    return candidates[-1]
+
 
 LEGAL_SUFFIX_PATTERN = (
     r"\b(?:THE|LIMITED|LTD|DAC|PLC|CLG|UC|COMPANY|"
@@ -144,8 +156,15 @@ ANNUAL_RENAME = {
 }
 
 EMPLOYEES_BAND_ORDER = [
-    "NONE", "1-9", "10-19", "20-49", "50-249",
-    "250-499", "500-999", "1000-4999", "5000+",
+    "NONE",
+    "1-9",
+    "10-19",
+    "20-49",
+    "50-249",
+    "250-499",
+    "500-999",
+    "1000-4999",
+    "5000+",
 ]
 
 # Valid employee / volunteer bands seen in the source, including the legacy
@@ -181,6 +200,7 @@ TRUSTEE_PATTERN = re.compile(
 # ---------------------------------------------------------------------------
 # IO
 # ---------------------------------------------------------------------------
+
 
 def read_sheet(path: Path, sheet: str) -> dict[str, list[Any]]:
     """Read one sheet via openpyxl, returning a columnar dict ready for pl.DataFrame.
@@ -221,6 +241,7 @@ def read_sheet(path: Path, sheet: str) -> dict[str, list[Any]]:
 # Expression helpers
 # ---------------------------------------------------------------------------
 
+
 def name_norm_expr(col: str) -> pl.Expr:
     return (
         pl.col(col)
@@ -243,11 +264,7 @@ def classification_split(col: str) -> list[pl.Expr]:
 
 
 def county_from_address_expr(col: str) -> pl.Expr:
-    parts = (
-        pl.col(col)
-        .str.split(",")
-        .list.eval(pl.element().str.strip_chars())
-    )
+    parts = pl.col(col).str.split(",").list.eval(pl.element().str.strip_chars())
     second_last = parts.list.get(-2, null_on_oob=True)
     return (
         pl.when(second_last.is_not_null() & (second_last != ""))
@@ -260,6 +277,7 @@ def county_from_address_expr(col: str) -> pl.Expr:
 # ---------------------------------------------------------------------------
 # Public register
 # ---------------------------------------------------------------------------
+
 
 def normalise_register(path: Path) -> pl.DataFrame:
     cols = read_sheet(path, "Public Register")
@@ -300,6 +318,7 @@ def normalise_register(path: Path) -> pl.DataFrame:
 # Annual reports
 # ---------------------------------------------------------------------------
 
+
 def _money(col: str) -> pl.Expr:
     return pl.col(col).cast(pl.Float64, strict=False)
 
@@ -312,11 +331,23 @@ def normalise_annual_reports(path: Path) -> pl.DataFrame:
     df = pl.DataFrame({ANNUAL_RENAME[k]: cols[k] for k in ANNUAL_RENAME}, strict=False)
 
     money_cols = [
-        "income_govt_or_la", "income_other_public_bodies", "income_philanthropic_orgs",
-        "income_donations", "income_trading", "income_other", "income_bequests",
-        "gross_income", "gross_expenditure", "surplus_deficit", "cash_at_hand",
-        "other_assets", "total_assets", "total_liabilities", "net_assets",
-        "gross_income_schools", "gross_expenditure_schools",
+        "income_govt_or_la",
+        "income_other_public_bodies",
+        "income_philanthropic_orgs",
+        "income_donations",
+        "income_trading",
+        "income_other",
+        "income_bequests",
+        "gross_income",
+        "gross_expenditure",
+        "surplus_deficit",
+        "cash_at_hand",
+        "other_assets",
+        "total_assets",
+        "total_liabilities",
+        "net_assets",
+        "gross_income_schools",
+        "gross_expenditure_schools",
     ]
     df = df.with_columns(
         pl.col("rcn").cast(pl.Int64, strict=False),
@@ -356,14 +387,10 @@ def normalise_annual_reports(path: Path) -> pl.DataFrame:
 # Charity latest snapshot
 # ---------------------------------------------------------------------------
 
+
 def _band_clean(col: str, alias: str) -> pl.Expr:
     """Pass a band column through only if it is a recognised band, else null."""
-    return (
-        pl.when(pl.col(col).is_in(list(VALID_BANDS)))
-        .then(pl.col(col))
-        .otherwise(None)
-        .alias(alias)
-    )
+    return pl.when(pl.col(col).is_in(list(VALID_BANDS))).then(pl.col(col)).otherwise(None).alias(alias)
 
 
 def build_charity_latest(annual: pl.DataFrame) -> pl.DataFrame:
@@ -420,10 +447,7 @@ def build_charity_latest(annual: pl.DataFrame) -> pl.DataFrame:
 
     # 7-way income composition — each stream as a share of gross income.
     share_exprs = [
-        pl.when(gi.is_null() | (gi <= 0))
-        .then(None)
-        .otherwise(pl.col(stream).fill_null(0) / gi)
-        .alias(f"share_{label}")
+        pl.when(gi.is_null() | (gi <= 0)).then(None).otherwise(pl.col(stream).fill_null(0) / gi).alias(f"share_{label}")
         for stream, label in INCOME_STREAMS.items()
     ]
 
@@ -444,9 +468,12 @@ def build_charity_latest(annual: pl.DataFrame) -> pl.DataFrame:
         .otherwise(pl.col("net_assets") / pl.col("gross_expenditure") * 12.0)
     )
     reserves_band = (
-        pl.when(reserves_raw.is_null()).then(pl.lit("unknown"))
-        .when(reserves_raw < 3).then(pl.lit("thin"))
-        .when(reserves_raw <= 12).then(pl.lit("adequate"))
+        pl.when(reserves_raw.is_null())
+        .then(pl.lit("unknown"))
+        .when(reserves_raw < 3)
+        .then(pl.lit("thin"))
+        .when(reserves_raw <= 12)
+        .then(pl.lit("adequate"))
         .otherwise(pl.lit("strong"))
         .alias("reserves_band")
     )
@@ -454,28 +481,29 @@ def build_charity_latest(annual: pl.DataFrame) -> pl.DataFrame:
     donation_share = pl.col("income_donations").fill_null(0) / gi
     trading_share = pl.col("income_trading").fill_null(0) / gi
     funding_profile = (
-        pl.when(gi.is_null() | (gi <= 0)).then(pl.lit("undisclosed"))
-        .when(pl.col("gov_share").is_null()).then(pl.lit("undisclosed"))
-        .when(pl.col("gov_share") >= 0.5).then(pl.lit("state_funded"))
-        .when(donation_share >= 0.5).then(pl.lit("mostly_donations"))
-        .when(trading_share >= 0.5).then(pl.lit("mostly_trading"))
+        pl.when(gi.is_null() | (gi <= 0))
+        .then(pl.lit("undisclosed"))
+        .when(pl.col("gov_share").is_null())
+        .then(pl.lit("undisclosed"))
+        .when(pl.col("gov_share") >= 0.5)
+        .then(pl.lit("state_funded"))
+        .when(donation_share >= 0.5)
+        .then(pl.lit("mostly_donations"))
+        .when(trading_share >= 0.5)
+        .then(pl.lit("mostly_trading"))
         .otherwise(pl.lit("mixed"))
         .alias("funding_profile")
     )
 
-    state_adjacent = (
-        (pl.col("gov_share").fill_null(0) >= 0.80) & (gi.fill_null(0) >= 100_000_000)
-    ).alias("state_adjacent_flag")
+    state_adjacent = ((pl.col("gov_share").fill_null(0) >= 0.80) & (gi.fill_null(0) >= 100_000_000)).alias(
+        "state_adjacent_flag"
+    )
 
     cutoff_18m = today - dt.timedelta(days=int(365 * 1.5))
     filing_overdue = (
-        (pl.col("period_end_date") < pl.lit(cutoff_18m)).fill_null(False)
-        .alias("charity_filing_overdue_flag")
+        (pl.col("period_end_date") < pl.lit(cutoff_18m)).fill_null(False).alias("charity_filing_overdue_flag")
     )
-    deficit = (
-        (pl.col("surplus_deficit") < 0).fill_null(False)
-        .alias("charity_deficit_latest_flag")
-    )
+    deficit = (pl.col("surplus_deficit") < 0).fill_null(False).alias("charity_deficit_latest_flag")
     insolvent = (
         pl.col("total_liabilities").is_not_null()
         & pl.col("total_assets").is_not_null()
@@ -504,49 +532,74 @@ def build_charity_latest(annual: pl.DataFrame) -> pl.DataFrame:
         beneficiary_tags,
         _band_clean("employees_band", "employees_band_latest"),
         _band_clean("volunteers_band", "volunteers_band_latest"),
-    ).rename({
-        "gov_share": "gov_funded_share_latest",
-        "gross_income": "gross_income_latest_eur",
-        "gross_expenditure": "gross_expenditure_latest_eur",
-        "period_end_date": "period_end_latest",
-        "period_year": "period_year_latest",
-        "surplus_deficit": "surplus_deficit_latest",
-        "total_assets": "total_assets_latest_eur",
-        "total_liabilities": "total_liabilities_latest_eur",
-        "net_assets": "net_assets_latest_eur",
-        "cash_at_hand": "cash_at_hand_latest_eur",
-        "employees_full_time": "employees_ft_latest",
-        "employees_part_time": "employees_pt_latest",
-        "report_activity": "report_activity_latest",
-    })
+    ).rename(
+        {
+            "gov_share": "gov_funded_share_latest",
+            "gross_income": "gross_income_latest_eur",
+            "gross_expenditure": "gross_expenditure_latest_eur",
+            "period_end_date": "period_end_latest",
+            "period_year": "period_year_latest",
+            "surplus_deficit": "surplus_deficit_latest",
+            "total_assets": "total_assets_latest_eur",
+            "total_liabilities": "total_liabilities_latest_eur",
+            "net_assets": "net_assets_latest_eur",
+            "cash_at_hand": "cash_at_hand_latest_eur",
+            "employees_full_time": "employees_ft_latest",
+            "employees_part_time": "employees_pt_latest",
+            "report_activity": "report_activity_latest",
+        }
+    )
 
     latest = latest.join(traj, on="rcn", how="left").join(inc_traj, on="rcn", how="left")
 
-    return latest.select([
-        "rcn",
-        "period_end_latest", "period_year_latest",
-        "gross_income_latest_eur", "gross_expenditure_latest_eur",
-        "gov_funded_share_latest", "surplus_deficit_latest",
-        "total_assets_latest_eur", "total_liabilities_latest_eur",
-        "net_assets_latest_eur", "cash_at_hand_latest_eur",
-        "reserves_months", "reserves_band",
-        "share_government", "share_other_public", "share_philanthropic",
-        "share_donations", "share_trading", "share_other", "share_bequests",
-        "dominant_income_source", "funding_profile",
-        "employees_band_latest", "volunteers_band_latest",
-        "employees_ft_latest", "employees_pt_latest",
-        "beneficiary_tags", "report_activity_latest",
-        "years_filed", "first_period_year", "last_period_year",
-        "deficit_years_count", "income_change_pct", "income_trend",
-        "state_adjacent_flag",
-        "charity_filing_overdue_flag", "charity_deficit_latest_flag",
-        "charity_insolvent_latest_flag",
-    ])
+    return latest.select(
+        [
+            "rcn",
+            "period_end_latest",
+            "period_year_latest",
+            "gross_income_latest_eur",
+            "gross_expenditure_latest_eur",
+            "gov_funded_share_latest",
+            "surplus_deficit_latest",
+            "total_assets_latest_eur",
+            "total_liabilities_latest_eur",
+            "net_assets_latest_eur",
+            "cash_at_hand_latest_eur",
+            "reserves_months",
+            "reserves_band",
+            "share_government",
+            "share_other_public",
+            "share_philanthropic",
+            "share_donations",
+            "share_trading",
+            "share_other",
+            "share_bequests",
+            "dominant_income_source",
+            "funding_profile",
+            "employees_band_latest",
+            "volunteers_band_latest",
+            "employees_ft_latest",
+            "employees_pt_latest",
+            "beneficiary_tags",
+            "report_activity_latest",
+            "years_filed",
+            "first_period_year",
+            "last_period_year",
+            "deficit_years_count",
+            "income_change_pct",
+            "income_trend",
+            "state_adjacent_flag",
+            "charity_filing_overdue_flag",
+            "charity_deficit_latest_flag",
+            "charity_insolvent_latest_flag",
+        ]
+    )
 
 
 # ---------------------------------------------------------------------------
 # Trustees long
 # ---------------------------------------------------------------------------
+
 
 def parse_trustees(raw: str | None, rcn: int | None) -> list[dict[str, Any]]:
     if not raw or rcn is None:
@@ -558,23 +611,27 @@ def parse_trustees(raw: str | None, rcn: int | None) -> list[dict[str, Any]]:
             continue
         m = TRUSTEE_PATTERN.match(t)
         if m:
-            out.append({
-                "rcn": rcn,
-                "trustee_name": m["name"].strip(),
-                "role": (m["role"] or "").strip() or None,
-                "start_date_raw": m["dt"],
-                "parse_quality": "strict",
-                "raw_token": t,
-            })
+            out.append(
+                {
+                    "rcn": rcn,
+                    "trustee_name": m["name"].strip(),
+                    "role": (m["role"] or "").strip() or None,
+                    "start_date_raw": m["dt"],
+                    "parse_quality": "strict",
+                    "raw_token": t,
+                }
+            )
         else:
-            out.append({
-                "rcn": rcn,
-                "trustee_name": None,
-                "role": None,
-                "start_date_raw": None,
-                "parse_quality": "raw",
-                "raw_token": t,
-            })
+            out.append(
+                {
+                    "rcn": rcn,
+                    "trustee_name": None,
+                    "role": None,
+                    "start_date_raw": None,
+                    "parse_quality": "raw",
+                    "raw_token": t,
+                }
+            )
     return out
 
 
@@ -583,11 +640,18 @@ def build_trustees_long(register: pl.DataFrame) -> pl.DataFrame:
     for r in register.select(["rcn", "trustees_raw"]).iter_rows(named=True):
         rows.extend(parse_trustees(r["trustees_raw"], r["rcn"]))
     if not rows:
-        return pl.DataFrame(schema={
-            "rcn": pl.Int64, "trustee_name": pl.Utf8, "role": pl.Utf8,
-            "start_date_raw": pl.Utf8, "parse_quality": pl.Utf8, "raw_token": pl.Utf8,
-            "trustee_name_norm": pl.Utf8, "start_date": pl.Date,
-        })
+        return pl.DataFrame(
+            schema={
+                "rcn": pl.Int64,
+                "trustee_name": pl.Utf8,
+                "role": pl.Utf8,
+                "start_date_raw": pl.Utf8,
+                "parse_quality": pl.Utf8,
+                "raw_token": pl.Utf8,
+                "trustee_name_norm": pl.Utf8,
+                "start_date": pl.Date,
+            }
+        )
     df = pl.from_dicts(rows)
     return df.with_columns(
         pl.col("start_date_raw").str.to_date("%d/%m/%Y", strict=False).alias("start_date"),
@@ -599,19 +663,23 @@ def build_trustees_long(register: pl.DataFrame) -> pl.DataFrame:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> int:
-    p = argparse.ArgumentParser(description="Charities Public Register normaliser (sandbox)")
-    p.add_argument("--bronze", type=Path, default=DEFAULT_BRONZE)
+    p = argparse.ArgumentParser(description="Charities Public Register normaliser")
+    p.add_argument(
+        "--bronze", type=Path, default=None, help="bronze xlsx path; defaults to the most recent public_register_*.xlsx"
+    )
     p.add_argument("--silver-dir", type=Path, default=DEFAULT_SILVER_DIR)
     args = p.parse_args()
 
-    if not args.bronze.exists():
-        raise SystemExit(f"bronze input not found: {args.bronze}")
+    bronze_path = args.bronze or latest_bronze_xlsx()
+    if not bronze_path.exists():
+        raise SystemExit(f"bronze input not found: {bronze_path}")
     args.silver_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"[charity_normalise] reading {args.bronze}")
-    register = normalise_register(args.bronze)
-    annual = normalise_annual_reports(args.bronze)
+    print(f"[charity_normalise] reading {bronze_path}")
+    register = normalise_register(bronze_path)
+    annual = normalise_annual_reports(bronze_path)
     trustees = build_trustees_long(register)
 
     # trustee_count is a register-level governance signal; fold it onto the

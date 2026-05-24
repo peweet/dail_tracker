@@ -19,6 +19,7 @@ recurs every sitting day, so never join on debate_section_id alone.
 Run standalone (after the debates_listings scenario has produced bronze):
   python dbsect_listings_flatten.py
 """
+
 from __future__ import annotations
 
 import json
@@ -44,7 +45,7 @@ def _debate_records(path: Path) -> list[dict]:
     if not path.exists():
         logger.warning("dbsect_listings_flatten: %s not found", path)
         return []
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         raw = json.load(f)
     return [
         r["debateRecord"]
@@ -70,8 +71,7 @@ def flatten_listings(records: list[dict]) -> pd.DataFrame:
     df = pd.json_normalize(
         records,
         record_path=["debateSections"],
-        meta=["date", ["house", "houseCode"], ["house", "chamberType"],
-              ["chamber", "uri"]],
+        meta=["date", ["house", "houseCode"], ["house", "chamberType"], ["chamber", "uri"]],
         errors="ignore",
     )
     if df.empty:
@@ -84,8 +84,7 @@ def flatten_listings(records: list[dict]) -> pd.DataFrame:
     # chamber: prefer house.houseCode, fall back to the last chamber.uri
     # segment; committee records resolve to '' and are dropped below.
     house_code = _col(df, "house.houseCode")
-    uri_tail = (_col(df, "chamber.uri")
-                .str.rstrip("/").str.rsplit("/", n=1).str[-1])
+    uri_tail = _col(df, "chamber.uri").str.rstrip("/").str.rsplit("/", n=1).str[-1]
     chamber = house_code.where(house_code.isin(["dail", "seanad"]), uri_tail)
     chamber = chamber.where(chamber.isin(["dail", "seanad"]), "")
     chamber = chamber.mask(_col(df, "house.chamberType") == "committee", "")
@@ -96,33 +95,38 @@ def flatten_listings(records: list[dict]) -> pd.DataFrame:
     # bill_ref '<year>_<no>' from bill.uri, falling back to bill.event.uri.
     m_uri = _col(df, "bill.uri").str.extract(r"/bill/(\d+)/(\d+)")
     m_evt = _col(df, "bill.event.uri").str.extract(r"/bill/(\d+)/(\d+)")
-    bill_ref = (m_uri[0].fillna(m_evt[0]) + "_" + m_uri[1].fillna(m_evt[1]))
+    bill_ref = m_uri[0].fillna(m_evt[0]) + "_" + m_uri[1].fillna(m_evt[1])
 
-    constructed_akn = (_AKN_BASE + "/" + chamber + "/" + date
-                       + "/debate/mul@/" + dbsect + ".xml")
+    constructed_akn = _AKN_BASE + "/" + chamber + "/" + date + "/debate/mul@/" + dbsect + ".xml"
     akn = _col(df, "formats.xml.uri").fillna(constructed_akn)
 
-    out = pd.DataFrame({
-        "debate_section_id": dbsect,
-        "date": date,
-        "chamber": chamber,
-        "parent_section_id": _col(df, "parentDebateSection.debateSectionId"),
-        "parent_section_title": _col(df, "parentDebateSection.showAs"),
-        "bill_ref": bill_ref,
-        "debate_type": _col(df, "debateType"),
-        "speaker_count": pd.to_numeric(
-            _col(df, "counts.speakerCount"), errors="coerce").fillna(0).astype(int),
-        "speech_count": pd.to_numeric(
-            _col(df, "counts.speechCount"), errors="coerce").fillna(0).astype(int),
-        "akn_xml_url": akn,
-        # The public website path segment is the bare section number
-        # (.../2026-04-23/63/), not the API's 'dbsect_63' id — strip the
-        # prefix. Mirrors legislation.py's debate_url_web. (akn_xml_url
-        # above keeps the full dbsect_ id — the AKN format does use it.)
-        "debate_url_web": _WEB_BASE + "/" + chamber + "/" + date + "/"
-                          + dbsect.str.replace("dbsect_", "", regex=False) + "/",
-        "show_as": _col(df, "showAs"),
-    })
+    out = pd.DataFrame(
+        {
+            "debate_section_id": dbsect,
+            "date": date,
+            "chamber": chamber,
+            "parent_section_id": _col(df, "parentDebateSection.debateSectionId"),
+            "parent_section_title": _col(df, "parentDebateSection.showAs"),
+            "bill_ref": bill_ref,
+            "debate_type": _col(df, "debateType"),
+            "speaker_count": pd.to_numeric(_col(df, "counts.speakerCount"), errors="coerce").fillna(0).astype(int),
+            "speech_count": pd.to_numeric(_col(df, "counts.speechCount"), errors="coerce").fillna(0).astype(int),
+            "akn_xml_url": akn,
+            # The public website path segment is the bare section number
+            # (.../2026-04-23/63/), not the API's 'dbsect_63' id — strip the
+            # prefix. Mirrors legislation.py's debate_url_web. (akn_xml_url
+            # above keeps the full dbsect_ id — the AKN format does use it.)
+            "debate_url_web": _WEB_BASE
+            + "/"
+            + chamber
+            + "/"
+            + date
+            + "/"
+            + dbsect.str.replace("dbsect_", "", regex=False)
+            + "/",
+            "show_as": _col(df, "showAs"),
+        }
+    )
     out = out[(out["chamber"] != "") & out["debate_section_id"].notna()]
     return out.drop_duplicates(subset=["date", "chamber", "debate_section_id"])
 
@@ -130,11 +134,14 @@ def flatten_listings(records: list[dict]) -> pd.DataFrame:
 def run() -> int:
     df = flatten_listings(_debate_records(_BRONZE))
     if df.empty:
-        logger.warning("dbsect_listings_flatten: no rows - run the "
-                        "debates_listings scenario first")
+        logger.warning("dbsect_listings_flatten: no rows - run the debates_listings scenario first")
         return 0
-    logger.info("dbsect_listings_flatten: rows=%d distinct_dbsect=%d distinct_dates=%d",
-                len(df), df["debate_section_id"].nunique(), df["date"].nunique())
+    logger.info(
+        "dbsect_listings_flatten: rows=%d distinct_dbsect=%d distinct_dates=%d",
+        len(df),
+        df["debate_section_id"].nunique(),
+        df["date"].nunique(),
+    )
     _OUT.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
     logger.info("dbsect_listings_flatten: wrote %s", _OUT)

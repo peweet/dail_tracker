@@ -47,9 +47,7 @@ def fetch_votes() -> tuple[list[dict], int]:
 
         if expected is None:
             expected = page["head"]["counts"]["resultCount"]
-            logger.info(
-                f"Vote pagination | expected={expected} | page_size={PAGE_SIZE}"
-            )
+            logger.info(f"Vote pagination | expected={expected} | page_size={PAGE_SIZE}")
 
         page_results = page.get("results", [])
         all_results.extend(page_results)
@@ -62,13 +60,8 @@ def fetch_votes() -> tuple[list[dict], int]:
             break
         skip += PAGE_SIZE
 
-    assert len(all_results) >= expected, (
-        f"Vote pagination drift: got {len(all_results)} of {expected} expected"
-    )
-    logger.info(
-        f"Finished votes fetch | divisions={len(all_results)} | "
-        f"bytes={total_bytes:,}"
-    )
+    assert len(all_results) >= expected, f"Vote pagination drift: got {len(all_results)} of {expected} expected"
+    logger.info(f"Finished votes fetch | divisions={len(all_results)} | bytes={total_bytes:,}")
 
     payload = {
         "head": {"counts": {"resultCount": expected}},
@@ -79,6 +72,4 @@ def fetch_votes() -> tuple[list[dict], int]:
 
 if __name__ == "__main__":
     votes, total_bytes = fetch_votes()
-    logger.info(
-        f"Fetched {len(votes)} vote payload(s) | total size {total_bytes:,} bytes"
-    )
+    logger.info(f"Fetched {len(votes)} vote payload(s) | total size {total_bytes:,} bytes")

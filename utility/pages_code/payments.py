@@ -14,6 +14,7 @@ TODO_PIPELINE_VIEW_REQUIRED: canonical unique_member_code on payments views — 
     Until then this page cannot link member names out to /member-overview.
 TODO_PIPELINE_VIEW_REQUIRED: party_name and constituency — not present in payments source CSV
 """
+
 from __future__ import annotations
 
 import sys
@@ -39,7 +40,19 @@ from data_access.payments_data import (
 )
 from shared_css import inject_css
 from ui.avatars import avatar_data_url, initials as _initials
-from ui.components import back_button, clean_meta, clickable_card_link, empty_state, hero_banner, member_card_html, render_notable_chips, sidebar_member_filter, year_selector
+from ui.components import (
+    back_button,
+    clean_meta,
+    clickable_card_link,
+    empty_state,
+    glossary_strip,
+    hero_banner,
+    member_card_html,
+    page_error_boundary,
+    render_notable_chips,
+    sidebar_member_filter,
+    year_selector,
+)
 from ui.export_controls import export_button
 from ui.source_pdfs import PAYMENTS, provenance_expander
 
@@ -64,29 +77,30 @@ _QUARANTINE_NOTE = (
     "typically under 1% of all rows."
 )
 
+
 def _pay_card_html(row: pd.Series) -> str:
     """Member name card for the payments ranked list, built on the canonical dt-name-card pattern."""
-    name      = _h(str(row.get("member_name",    "—")))
-    pos       = _h(str(row.get("position",       "Deputy")))
-    party     = _h(str(row.get("party_name",     "") or ""))
-    constit   = _h(str(row.get("constituency",   "") or ""))
-    taa       = _h(str(row.get("taa_band_label", "—")))
-    count     = int(row.get("payment_count",  0) or 0)
+    name = _h(str(row.get("member_name", "—")))
+    pos = _h(str(row.get("position", "Deputy")))
+    party = _h(str(row.get("party_name", "") or ""))
+    constit = _h(str(row.get("constituency", "") or ""))
+    taa = _h(str(row.get("taa_band_label", "—")))
+    count = int(row.get("payment_count", 0) or 0)
     total_str = f"€{float(row.get('total_paid', 0) or 0):,.0f}"
-    meta  = clean_meta(party, constit) or pos
-    pills = (
-        f'<span class="pay-taa-pill">{taa}</span>'
-        f'<span class="pay-count-pill-accent">{count} payments</span>'
-    )
+    meta = clean_meta(party, constit) or pos
+    pills = f'<span class="pay-taa-pill">{taa}</span><span class="pay-count-pill-accent">{count} payments</span>'
     badge = (
         f'<div class="pay-total-badge">'
         f'<span class="pay-total-badge-num">{total_str}</span>'
         f'<span class="pay-total-badge-lbl">total</span>'
-        f'</div>'
+        f"</div>"
     )
     return member_card_html(
-        name=name, meta=meta, rank=int(row.get("rank_high", 0)),
-        pills_html=pills, badge_html=badge,
+        name=name,
+        meta=meta,
+        rank=int(row.get("rank_high", 0)),
+        pills_html=pills,
+        badge_html=badge,
         avatar_url=avatar_data_url(name),
         avatar_initials=_initials(name),
     )
@@ -94,11 +108,12 @@ def _pay_card_html(row: pd.Series) -> str:
 
 # ── Provenance footer ──────────────────────────────────────────────────────────
 
+
 def _render_provenance(summary: pd.Series, year: int | None = None) -> None:
     first_year = summary.get("first_year", "2020")
-    last_year  = summary.get("last_year",  "—")
-    year_str   = str(year) if year else None
-    links      = [(lbl, url) for lbl, url in PAYMENTS if not year_str or year_str in lbl]
+    last_year = summary.get("last_year", "—")
+    year_str = str(year) if year else None
+    links = [(lbl, url) for lbl, url in PAYMENTS if not year_str or year_str in lbl]
     provenance_expander(
         sections=[
             _CAVEAT,
@@ -116,14 +131,15 @@ def _render_provenance(summary: pd.Series, year: int | None = None) -> None:
 
 # ── Rankings view (all-time since 2020) ───────────────────────────────────────
 
+
 def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
-    total   = since_2020["total"]
+    total = since_2020["total"]
     members = since_2020["members"]
-    avg     = since_2020["avg_per_td"]
+    avg = since_2020["avg_per_td"]
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Total since 2020",      f"€{total:,.0f}")
-    c2.metric("TDs with payments",     members)
+    c1.metric("Total since 2020", f"€{total:,.0f}")
+    c2.metric("TDs with payments", members)
     c3.metric("Avg per TD since 2020", f"€{avg:,.0f}")
 
     alltime = fetch_alltime_ranking()
@@ -138,39 +154,36 @@ def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
     st.caption(f"All-time rankings · since 2020 · {len(alltime)} members")
 
     name_col = "member_name" if "member_name" in alltime.columns else None
-    amt_col  = "total_amount_paid_since_2020"
+    amt_col = "total_amount_paid_since_2020"
 
     # TODO_PIPELINE_VIEW_REQUIRED: taa_band_label in current_td_payment_rankings.parquet
     # — parquet currently has ['rank','member_name','join_key','total_amount_paid_since_2020'] only
     has_taa = "taa_band_label" in alltime.columns
 
-    top_10  = alltime.head(10)
+    top_10 = alltime.head(10)
     next_10 = alltime.iloc[10:20]
 
     col_l, col_r = st.columns(2)
     for col, chunk, offset in ((col_l, top_10, 0), (col_r, next_10, 10)):
         with col:
             for i, (_, row) in enumerate(chunk.iterrows()):
-                rank     = offset + i + 1
-                name     = _h(str(row.get(name_col, "—")) if name_col else "—")
-                amt      = float(row.get(amt_col, 0) or 0)
+                rank = offset + i + 1
+                name = _h(str(row.get(name_col, "—")) if name_col else "—")
+                amt = float(row.get(amt_col, 0) or 0)
                 rank_cls = "dt-name-card-rank-top" if rank <= 3 else "dt-name-card-rank"
-                taa_pill = (
-                    f'<span class="pay-taa-pill">{_h(str(row["taa_band_label"]))}</span>'
-                    if has_taa else ""
-                )
+                taa_pill = f'<span class="pay-taa-pill">{_h(str(row["taa_band_label"]))}</span>' if has_taa else ""
                 card_html = (
                     f'<div class="dt-name-card">'
                     f'<div class="dt-name-card-left"><span class="{rank_cls}">#{rank}</span></div>'
                     f'<div class="dt-name-card-body">'
                     f'<div class="dt-name-card-name">{name}</div>'
                     f'<div class="dt-name-card-meta">{taa_pill}</div>'
-                    f'</div>'
+                    f"</div>"
                     f'<div class="dt-name-card-badge dt-name-card-badge-metric">'
                     f'<span class="dt-name-card-badge-num">€{amt:,.0f}</span>'
                     f'<span class="dt-name-card-badge-lbl">total</span>'
-                    f'</div>'
-                    f'</div>'
+                    f"</div>"
+                    f"</div>"
                 )
                 st.markdown(card_html, unsafe_allow_html=True)
 
@@ -179,20 +192,33 @@ def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
 
 # ── Stage 1 — Primary ranked view ─────────────────────────────────────────────
 
+
 def _render_primary(year_options: list[str], summary: pd.Series) -> None:
     hero_banner(
         kicker="PUBLIC SPENDING · PARLIAMENTARY ALLOWANCES",
         title="TD Payments",
-        dek="Parliamentary Standard Allowance (PSA) — the official record of payments to Dáil members.",
+        dek="Parliamentary Standard Allowance (PSA): the official record of payments to Dáil members.",
+    )
+    glossary_strip(
+        [
+            ("TD", "Teachta Dála, a member of the Dáil"),
+            ("TAA", "Travel & Accommodation Allowance, reimbursed mileage and overnight stays"),
+            ("PRA", "Public Representation Allowance, an unvouched flat allowance for constituency work"),
+            ("PSA", "Parliamentary Standard Allowance, the umbrella term for TAA plus PRA"),
+        ]
     )
 
-    all_views     = ["Rankings"] + year_options
-    selected_view = st.segmented_control(
-        "View", all_views,
-        default=year_options[0],
-        key="pay_view",
-        label_visibility="collapsed",
-    ) or year_options[0]
+    all_views = ["Rankings"] + year_options
+    selected_view = (
+        st.segmented_control(
+            "View",
+            all_views,
+            default=year_options[0],
+            key="pay_view",
+            label_visibility="collapsed",
+        )
+        or year_options[0]
+    )
 
     since_2020 = fetch_since_2020_summary()
 
@@ -213,25 +239,25 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
 
     total_yr = float(ranking.iloc[0]["year_total_paid"])
     yr_count = int(ranking.iloc[0]["year_member_count"])
-    avg_yr   = float(ranking.iloc[0]["year_avg_per_td"])
+    avg_yr = float(ranking.iloc[0]["year_avg_per_td"])
 
     st.html(
         f'<div class="pay-totals-strip">'
         f'<div class="pay-totals-item">'
         f'<span class="pay-totals-num">€{total_yr:,.0f}</span>'
         f'<span class="pay-totals-lbl">Total · {selected_year}</span>'
-        f'</div>'
+        f"</div>"
         f'<div class="pay-totals-divider"></div>'
         f'<div class="pay-totals-item">'
         f'<span class="pay-totals-num">€{avg_yr:,.0f}</span>'
         f'<span class="pay-totals-lbl">Avg per TD · {selected_year}</span>'
-        f'</div>'
-        f'</div>'
+        f"</div>"
+        f"</div>"
     )
 
     st.caption(f"Ranked by total PSA received · {selected_year} · {yr_count} members")
 
-    top_10  = ranking.head(10)
+    top_10 = ranking.head(10)
     next_10 = ranking.iloc[10:20]
 
     col_l, col_r = st.columns(2)
@@ -265,6 +291,7 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
 
 # ── Stage 2 — Member profile ───────────────────────────────────────────────────
 
+
 def _render_profile(
     td_name: str,
     year_options: list[str],
@@ -284,11 +311,11 @@ def _render_profile(
         _render_provenance(summary)
         return
 
-    latest    = all_years.iloc[0]
+    latest = all_years.iloc[0]
     taa_label = str(latest.get("taa_band_label", "—"))
-    position  = str(latest.get("position",       "Deputy"))
-    party     = str(latest.get("party_name",     "") or "")
-    constit   = str(latest.get("constituency",   "") or "")
+    position = str(latest.get("position", "Deputy"))
+    party = str(latest.get("party_name", "") or "")
+    constit = str(latest.get("constituency", "") or "")
     meta_str = clean_meta(party, constit) or position
 
     # Identity strip
@@ -296,9 +323,9 @@ def _render_profile(
         f'<div class="pay-identity-card">'
         f'<div class="pay-identity-card-name">{_h(td_name)}</div>'
         f'<div class="pay-identity-card-meta">'
-        f'{_h(meta_str)} &nbsp;·&nbsp; '
+        f"{_h(meta_str)} &nbsp;·&nbsp; "
         f'<span class="pay-taa-pill">{_h(taa_label)}</span>'
-        f'</div></div>',
+        f"</div></div>",
         unsafe_allow_html=True,
     )
 
@@ -310,13 +337,13 @@ def _render_profile(
         yr = yr_df.iloc[0]
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Total received", f"€{float(yr['total_paid']):,.0f}")
-        col2.metric("Payments",       int(yr["payment_count"]))
-        col3.metric("Year rank",      f"#{int(yr['rank_high'])}")
+        col2.metric("Payments", int(yr["payment_count"]))
+        col3.metric("Year rank", f"#{int(yr['rank_high'])}")
         col4.metric("All-time total", f"€{alltime_total:,.0f}")
     else:
         empty_state("No payment records", f"No payment records for {td_name} in {selected_year}.")
         col1, col2 = st.columns(2)
-        col1.metric("TAA band",       taa_label)
+        col1.metric("TAA band", taa_label)
         col2.metric("All-time total", f"€{alltime_total:,.0f}")
 
     # Yearly evolution chart — chronological, left-to-right
@@ -329,7 +356,7 @@ def _render_profile(
             y=alt.Y("total_paid:Q", title="Total received (€)", axis=alt.Axis(format=",.0f")),
             tooltip=[
                 alt.Tooltip("payment_year:O", title="Year"),
-                alt.Tooltip("total_paid:Q",   title="Total received (€)", format=",.0f"),
+                alt.Tooltip("total_paid:Q", title="Total received (€)", format=",.0f"),
             ],
         )
         .properties(height=180)
@@ -338,23 +365,25 @@ def _render_profile(
 
     # All-years summary table
     st.markdown("**All years**")
-    years_display = all_years.rename(columns={
-        "payment_year":  "Year",
-        "total_paid":    "Total received (€)",
-        "payment_count": "Payments",
-        "rank_high":     "Rank that year",
-        "taa_band_label":"TAA Band",
-    })[["Year", "Total received (€)", "Payments", "Rank that year", "TAA Band"]]
+    years_display = all_years.rename(
+        columns={
+            "payment_year": "Year",
+            "total_paid": "Total received (€)",
+            "payment_count": "Payments",
+            "rank_high": "Rank that year",
+            "taa_band_label": "TAA Band",
+        }
+    )[["Year", "Total received (€)", "Payments", "Rank that year", "TAA Band"]]
     st.dataframe(
         years_display,
         hide_index=True,
         use_container_width=True,
         column_config={
-            "Year":             st.column_config.NumberColumn("Year",             format="%d"),
-            "Total received (€)":st.column_config.NumberColumn("Total received (€)", format="€%.2f"),
-            "Payments":         st.column_config.NumberColumn("Payments"),
-            "Rank that year":   st.column_config.NumberColumn("Rank that year",   format="#%d"),
-            "TAA Band":         st.column_config.TextColumn(  "TAA Band"),
+            "Year": st.column_config.NumberColumn("Year", format="%d"),
+            "Total received (€)": st.column_config.NumberColumn("Total received (€)", format="€%.2f"),
+            "Payments": st.column_config.NumberColumn("Payments"),
+            "Rank that year": st.column_config.NumberColumn("Rank that year", format="#%d"),
+            "TAA Band": st.column_config.TextColumn("TAA Band"),
         },
     )
 
@@ -375,27 +404,27 @@ def _render_profile(
         st.dataframe(
             payments.rename(
                 columns={
-                    "date_paid":     "Date",
-                    "narrative":     "Description",
-                    "amount_num":    "Amount (€)",
-                    "taa_band_label":"TAA Band",
+                    "date_paid": "Date",
+                    "narrative": "Description",
+                    "amount_num": "Amount (€)",
+                    "taa_band_label": "TAA Band",
                 }
             ),
             hide_index=True,
             use_container_width=True,
             column_config={
-                "Date":       st.column_config.DateColumn(   "Date",        format="D MMM YYYY"),
-                "Amount (€)": st.column_config.NumberColumn( "Amount (€)",  format="€%.2f"),
-                "Description":st.column_config.TextColumn(   "Description"),
-                "TAA Band":   st.column_config.TextColumn(   "TAA Band"),
+                "Date": st.column_config.DateColumn("Date", format="D MMM YYYY"),
+                "Amount (€)": st.column_config.NumberColumn("Amount (€)", format="€%.2f"),
+                "Description": st.column_config.TextColumn("Description"),
+                "TAA Band": st.column_config.TextColumn("TAA Band"),
             },
         )
         export_df = payments.rename(
             columns={
-                "date_paid":     "Date",
-                "narrative":     "Description",
-                "amount_num":    "Amount (€)",
-                "taa_band_label":"TAA Band",
+                "date_paid": "Date",
+                "narrative": "Description",
+                "amount_num": "Amount (€)",
+                "taa_band_label": "TAA Band",
             }
         )
         export_button(
@@ -412,11 +441,13 @@ def _render_profile(
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
+
+@page_error_boundary
 def payments_page() -> None:
     inject_css()
 
     summary = fetch_payments_summary()
-    opts    = fetch_filter_options()
+    opts = fetch_filter_options()
 
     year_options = opts.get("years", [])
     if not year_options:

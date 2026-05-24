@@ -18,7 +18,6 @@ def test_max_attendance(): ...  # no TD exceeds 103 sitting days
 def test_enriched_has_party(): ...  # all rows have a non-null party after join
 
 
-
 #### `test_bronze.py` — Raw data integrity
 
 # ```python

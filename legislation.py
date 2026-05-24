@@ -6,11 +6,11 @@
 # bills (sponsored "in capacity as Minister" rather than as an individual TD)
 # are included alongside Private Member bills.
 
-import pandas as pd
-from config import LEGISLATION_DIR, SILVER_DIR
-import json
 import logging
-from collections import Counter
+
+import pandas as pd
+
+from config import LEGISLATION_DIR, SILVER_DIR
 from services.dail_config import API_BASE
 from services.http_engine import fetch_json
 
@@ -43,54 +43,21 @@ BILL_META = [
 ]
 # --- FULL bill mapping normalizations ---
 # Debates
-debates_df = pd.json_normalize(
-    bills,
-    record_path=["bill", "debates"],
-    meta=BILL_META,
-    errors="ignore"
-)
+debates_df = pd.json_normalize(bills, record_path=["bill", "debates"], meta=BILL_META, errors="ignore")
 # Events
-events_df = pd.json_normalize(
-    bills,
-    record_path=["bill", "events"],
-    meta=BILL_META,
-    errors="ignore"
-)
+events_df = pd.json_normalize(bills, record_path=["bill", "events"], meta=BILL_META, errors="ignore")
 # Most recent stage event dates
 most_recent_stage_event_dates_df = pd.json_normalize(
-    bills,
-    record_path=["bill", "mostRecentStage", "event", "dates"],
-    meta=BILL_META,
-    errors="ignore"
+    bills, record_path=["bill", "mostRecentStage", "event", "dates"], meta=BILL_META, errors="ignore"
 )
 # Related docs
-related_docs_df = pd.json_normalize(
-    bills,
-    record_path=["bill", "relatedDocs"],
-    meta=BILL_META,
-    errors="ignore"
-)
+related_docs_df = pd.json_normalize(bills, record_path=["bill", "relatedDocs"], meta=BILL_META, errors="ignore")
 # Sponsors
-sponsors_df = pd.json_normalize(
-    bills,
-    record_path=["bill", "sponsors"],
-    meta=BILL_META,
-    errors="ignore"
-)
+sponsors_df = pd.json_normalize(bills, record_path=["bill", "sponsors"], meta=BILL_META, errors="ignore")
 # Stages
-stages_df = pd.json_normalize(
-    bills,
-    record_path=["bill", "stages"],
-    meta=BILL_META,
-    errors="ignore"
-)
+stages_df = pd.json_normalize(bills, record_path=["bill", "stages"], meta=BILL_META, errors="ignore")
 # Versions
-versions_df = pd.json_normalize(
-    bills,
-    record_path=["bill", "versions"],
-    meta=BILL_META,
-    errors="ignore"
-)
+versions_df = pd.json_normalize(bills, record_path=["bill", "versions"], meta=BILL_META, errors="ignore")
 
 rename_bill_fields = {
     "billSort": "bill_sort",
@@ -135,7 +102,7 @@ sponsor_rename = {
     "bill.mostRecentStage.event.progressStage": "most_recent_stage_event_progress_stage",
     "bill.mostRecentStage.event.stageCompleted": "most_recent_stage_event_stage_completed",
     "bill.mostRecentStage.event.house.showAs": "most_recent_stage_event_house_show_as",
-    "contextDate": "context_date"
+    "contextDate": "context_date",
 }
 
 
@@ -143,6 +110,7 @@ PAGE_SIZE = 1000  # API server cap — same as votes
 DATE_START = "2014-01-01"  # matches build_legislation_urls
 DATE_END = "2099-01-01"
 OUTPUT_PATH = LEGISLATION_DIR / "legislation_results_unscoped.json"
+
 
 def build_url(skip: int) -> str:
     return (
@@ -154,6 +122,7 @@ def build_url(skip: int) -> str:
         f"&chamber_id="
         f"&lang=en"
     )
+
 
 def fetch_all_bills() -> tuple[list[dict], int, int]:
     """Sequential skip/limit pagination. Returns (bills, expected_count, bytes)."""
@@ -173,24 +142,23 @@ def fetch_all_bills() -> tuple[list[dict], int, int]:
         page_results = page.get("results", [])
         all_bills.extend(page_results)
         logger.info(
-            f"Bill page | skip={skip} | got={len(page_results)} | "
-            f"running_total={len(all_bills)} | bytes={raw_bytes:,}"
+            f"Bill page | skip={skip} | got={len(page_results)} | running_total={len(all_bills)} | bytes={raw_bytes:,}"
         )
 
         if len(page_results) < PAGE_SIZE or len(all_bills) >= expected:
             break
         skip += PAGE_SIZE
 
-    assert len(all_bills) >= expected, (
-        f"Bill pagination drift: got {len(all_bills)} of {expected} expected"
-    )
+    assert len(all_bills) >= expected, f"Bill pagination drift: got {len(all_bills)} of {expected} expected"
     return all_bills, expected, total_bytes
 
 
-sponsors_df = sponsors_df.dropna(subset=["sponsor.by.showAs", "sponsor.as.showAs"], how="all").rename(columns=sponsor_rename)
+sponsors_df = sponsors_df.dropna(subset=["sponsor.by.showAs", "sponsor.as.showAs"], how="all").rename(
+    columns=sponsor_rename
+)
 # print(sponsors_df.columns)
 sponsors_df = sponsors_df.dropna(axis=1, how="all")
-sponsors_df['sponsor_by_uri'] = sponsors_df['sponsor_by_uri'].str.split('/', n=7).str[-1]
+sponsors_df["sponsor_by_uri"] = sponsors_df["sponsor_by_uri"].str.split("/", n=7).str[-1]
 sponsors_df.rename(columns={"sponsor_by_uri": "unique_member_code"}, inplace=True)
 
 sponsors_df = sponsors_df.replace(r"[\r\n]+", " ", regex=True).replace(r"\s{2,}", " ", regex=True)
@@ -245,9 +213,7 @@ DEBATES_DROP_COLS = [
     "billSort.billShortTitleEnSort",
     "billSort.billYearSort",
 ]
-debates_df = debates_df.drop(
-    columns=[c for c in DEBATES_DROP_COLS if c in debates_df.columns]
-)
+debates_df = debates_df.drop(columns=[c for c in DEBATES_DROP_COLS if c in debates_df.columns])
 
 debates_df.to_parquet(
     SILVER_DIR / "parquet" / "debates.parquet",
@@ -305,5 +271,3 @@ versions_df.to_parquet(
     compression_level=3,
 )
 print("Versions Parquet dataset created (check pipeline)")
-
-

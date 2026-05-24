@@ -21,6 +21,7 @@ Until these carry the ID, only the Stage 2 politician profile (sourced from
 v_lobbying_index) gets a cross-page CTA. Name-based fallback URLs are not
 acceptable — they break silently on name normalisation.
 """
+
 from __future__ import annotations
 
 import sys
@@ -56,6 +57,7 @@ from data_access.lobbying_data import (
     fetch_politicians_for_area,
     fetch_politicians_for_org,
     fetch_recent_returns,
+    fetch_return_documents_for_org,
     fetch_revolving_door,
     fetch_revolving_door_summary,
     fetch_sources_for_org,
@@ -73,8 +75,10 @@ from ui.components import (
     clickable_card_link,
     empty_state,
     evidence_heading,
+    glossary_strip,
     hero_banner,
     member_card_html,
+    page_error_boundary,
     pagination_controls,
     pill,
     sidebar_page_header,
@@ -87,39 +91,40 @@ from ui.source_pdfs import provenance_expander
 
 # ── State helpers ──────────────────────────────────────────────────────────────
 
+
 def _init() -> None:
     for k, v in {
-        "lob_selected_politician":   None,
-        "lob_selected_org":          None,
-        "lob_selected_area":         None,
-        "lob_selected_dpo":          None,
-        "lob_selected_topic":        None,
-        "lob_view_revolving_door":   False,
-        "lob_view_org_index":        False,
-        "lob_results_pol":           None,
-        "lob_sidebar_search":        "",
-        "lob_date_start":            None,
-        "lob_date_end":              None,
+        "lob_selected_politician": None,
+        "lob_selected_org": None,
+        "lob_selected_area": None,
+        "lob_selected_dpo": None,
+        "lob_selected_topic": None,
+        "lob_view_revolving_door": False,
+        "lob_view_org_index": False,
+        "lob_results_pol": None,
+        "lob_sidebar_search": "",
+        "lob_date_start": None,
+        "lob_date_end": None,
     }.items():
         st.session_state.setdefault(k, v)
 
 
 def _clear_profile() -> None:
     st.session_state.lob_selected_politician = None
-    st.session_state.lob_selected_org        = None
-    st.session_state.lob_selected_area       = None
-    st.session_state.lob_selected_dpo        = None
-    st.session_state.lob_selected_topic      = None
+    st.session_state.lob_selected_org = None
+    st.session_state.lob_selected_area = None
+    st.session_state.lob_selected_dpo = None
+    st.session_state.lob_selected_topic = None
     st.session_state.lob_view_revolving_door = False
-    st.session_state.lob_view_org_index      = False
-    st.session_state.lob_results_pol         = None
+    st.session_state.lob_view_org_index = False
+    st.session_state.lob_results_pol = None
 
 
 _NAV_KEYS: dict[str, str] = {
-    "pol":   "lob_selected_politician",
-    "org":   "lob_selected_org",
-    "area":  "lob_selected_area",
-    "dpo":   "lob_selected_dpo",
+    "pol": "lob_selected_politician",
+    "org": "lob_selected_org",
+    "area": "lob_selected_area",
+    "dpo": "lob_selected_dpo",
     "topic": "lob_selected_topic",
 }
 
@@ -128,16 +133,23 @@ _NAV_KEYS: dict[str, str] = {
 # _nav()/_open_rd_index() and rely on the param sync below to keep the URL
 # in step.
 _NAV_QP: dict[str, str] = {
-    "pol":   "lob_pol",
-    "org":   "lob_org",
-    "area":  "lob_area",
-    "dpo":   "lob_dpo",
+    "pol": "lob_pol",
+    "org": "lob_org",
+    "area": "lob_area",
+    "dpo": "lob_dpo",
     "topic": "lob_topic",
 }
 
 _LOB_QP_ALL = (
-    "lob_pol", "lob_org", "lob_area", "lob_dpo", "lob_topic", "lob_topic_ctx",
-    "lob_rd", "lob_orgindex", "lob_result_pol",
+    "lob_pol",
+    "lob_org",
+    "lob_area",
+    "lob_dpo",
+    "lob_topic",
+    "lob_topic_ctx",
+    "lob_rd",
+    "lob_orgindex",
+    "lob_result_pol",
 )
 
 
@@ -168,27 +180,41 @@ def _topic_keywords_for(topic_name: str | None) -> tuple[str, ...] | None:
 
 _CURATED_TOPICS: dict[str, dict[str, object]] = {
     "Immigration & asylum": {
-        "icon":    "diversity_3",
-        "blurb":   "Returns mentioning immigration, asylum, refugees, or direct provision.",
+        "icon": "diversity_3",
+        "blurb": "Returns mentioning immigration, asylum, refugees, or direct provision.",
         "keywords": (
-            "immigration", "immigrant", "asylum", "refugee",
-            "direct provision", "international protection", "migrant",
+            "immigration",
+            "immigrant",
+            "asylum",
+            "refugee",
+            "direct provision",
+            "international protection",
+            "migrant",
         ),
     },
     "Housing crisis": {
-        "icon":    "apartment",
-        "blurb":   "Returns mentioning homelessness, evictions, the rental crisis, or affordable housing.",
+        "icon": "apartment",
+        "blurb": "Returns mentioning homelessness, evictions, the rental crisis, or affordable housing.",
         "keywords": (
-            "homeless", "homelessness", "eviction", "tenant",
-            "rent freeze", "rental crisis", "affordable housing",
+            "homeless",
+            "homelessness",
+            "eviction",
+            "tenant",
+            "rent freeze",
+            "rental crisis",
+            "affordable housing",
         ),
     },
     "Climate": {
-        "icon":    "eco",
-        "blurb":   "Returns mentioning climate, emissions, decarbonisation, or net zero.",
+        "icon": "eco",
+        "blurb": "Returns mentioning climate, emissions, decarbonisation, or net zero.",
         "keywords": (
-            "climate", "emissions", "decarbonis", "net zero",
-            "carbon", "renewable energy",
+            "climate",
+            "emissions",
+            "decarbonis",
+            "net zero",
+            "carbon",
+            "renewable energy",
         ),
     },
 }
@@ -225,18 +251,19 @@ def _open_org_index() -> None:
 
 # ── HTML helpers ───────────────────────────────────────────────────────────────
 
+
 def _path_card_html(symbol: str, heading: str, body: str, stat: str, stat_lbl: str) -> str:
     return (
         f'<div class="lob-path-card">'
         f'<div class="lob-path-icon">'
         f'<span class="material-symbols-outlined">{_h(symbol)}</span>'
-        f'</div>'
+        f"</div>"
         f'<p class="lob-path-heading">{_h(heading)}</p>'
         f'<p class="lob-path-body">{_h(body)}</p>'
         f'<div class="lob-path-stat">'
         f'<span class="lob-path-stat-num">{_h(stat)}</span>'
         f'<span class="lob-path-stat-lbl">&nbsp;{_h(stat_lbl)}</span>'
-        f'</div></div>'
+        f"</div></div>"
     )
 
 
@@ -247,26 +274,26 @@ def _topic_card_html(symbol: str, heading: str, body: str) -> str:
         f'<div class="lob-topic-card">'
         f'<div class="lob-topic-icon">'
         f'<span class="material-symbols-outlined">{_h(symbol)}</span>'
-        f'</div>'
+        f"</div>"
         f'<p class="lob-topic-heading">{_h(heading)}</p>'
         f'<p class="lob-topic-body">{_h(body)}</p>'
-        f'</div>'
+        f"</div>"
     )
 
 
 _STATUS_PILL_LABELS = {
-    "active":       "Active",
-    "in_distress":  "In distress",
-    "dead":         "Dissolved",
-    "registered":   "Registered charity",
+    "active": "Active",
+    "in_distress": "In distress",
+    "dead": "Dissolved",
+    "registered": "Registered charity",
     "deregistered": "Deregistered charity",
 }
 
 _FUNDING_PILL_LABELS = {
-    "state_funded":     "State-funded",
+    "state_funded": "State-funded",
     "mostly_donations": "Mostly donations",
-    "mostly_trading":   "Mostly trading",
-    "mixed":            "Mixed funding",
+    "mostly_trading": "Mostly trading",
+    "mixed": "Mixed funding",
 }
 
 _TREND_ARROW = {"growing": " ↑", "shrinking": " ↓"}
@@ -335,7 +362,10 @@ def _lob_card_html(
             f'target="_self" aria-label="View profile of {_h(name)}">Profile ↗</a>'
         )
     return member_card_html(
-        name=name, meta=meta, rank=rank, pills_html=pills_html,
+        name=name,
+        meta=meta,
+        rank=rank,
+        pills_html=pills_html,
         avatar_url=avatar_data_url(name),
         avatar_initials=_initials(name),
     )
@@ -348,7 +378,7 @@ def _activity_row_html(period: str, org: str, area: str) -> str:
         f'<div class="lob-activity-body">'
         f'<div class="lob-activity-org">{_h(org) or "—"}</div>'
         f'<div class="lob-activity-area">{_h(area)}</div>'
-        f'</div></div>'
+        f"</div></div>"
     )
 
 
@@ -369,8 +399,7 @@ def _year_selector(df: pd.DataFrame, key: str) -> tuple[str | None, str | None]:
         return None, None
     try:
         years = sorted(
-            pd.to_datetime(df["period_start_date"], errors="coerce")
-            .dropna().dt.year.unique().tolist(),
+            pd.to_datetime(df["period_start_date"], errors="coerce").dropna().dt.year.unique().tolist(),
             reverse=True,
         )
     except Exception:
@@ -379,8 +408,7 @@ def _year_selector(df: pd.DataFrame, key: str) -> tuple[str | None, str | None]:
         return None, None
     options = ["All"] + [str(y) for y in years]
     chosen = (
-        st.segmented_control("Year", options, default=options[0], key=key, label_visibility="collapsed")
-        or options[0]
+        st.segmented_control("Year", options, default=options[0], key=key, label_visibility="collapsed") or options[0]
     )
     if chosen == "All":
         return None, None
@@ -388,11 +416,11 @@ def _year_selector(df: pd.DataFrame, key: str) -> tuple[str | None, str | None]:
 
 
 def _provenance_footer(summary: pd.DataFrame) -> None:
-    s   = summary.iloc[0] if not summary.empty else pd.Series()
+    s = summary.iloc[0] if not summary.empty else pd.Series()
     src = s.get("source_summary", "lobbying.ie via lobby_processing.py")
-    ts  = s.get("latest_fetch_timestamp_utc", "—")
-    fp  = s.get("first_period", "—")
-    lp  = s.get("last_period",  "—")
+    ts = s.get("latest_fetch_timestamp_utc", "—")
+    fp = s.get("first_period", "—")
+    lp = s.get("last_period", "—")
     provenance_expander(
         sections=[
             "**Data source:** lobbying.ie — the Irish Register of Lobbying. "
@@ -406,9 +434,12 @@ def _provenance_footer(summary: pd.DataFrame) -> None:
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 
+
 def _render_sidebar() -> None:
     with st.sidebar:
         sidebar_page_header("Lobbying<br>Register")
+
+        # ── Primary: search across politicians and organisations ─────────
         st.html('<p class="lob-sidebar-label">Search</p>')
         search = st.text_input(
             "Search",
@@ -428,11 +459,7 @@ def _render_sidebar() -> None:
             pol_filtered = pol_names[:200]
             org_filtered = []
 
-        combined_labels = (
-            [""] +
-            pol_filtered +
-            [f"[Org] {n}" for n in org_filtered[:50]]
-        )
+        combined_labels = [""] + pol_filtered + [f"[Org] {n}" for n in org_filtered[:50]]
 
         sel = st.selectbox(
             "Browse all members",
@@ -446,45 +473,45 @@ def _render_sidebar() -> None:
                 _nav("pol", sel)
             st.rerun()
 
-        st.divider()
+        # ── Secondary: notable targets, behind a closed expander ─────────
+        with st.expander("Notable targets", expanded=False):
+            notable = ["An Taoiseach", "Minister for Finance", "Tánaiste", "Minister for Health"]
+            chip_cols = st.columns(2)
+            for i, chip in enumerate(notable):
+                if chip_cols[i % 2].button(chip, key=f"lob_chip_{i}", width="stretch"):
+                    idx = fetch_politician_index()
+                    if not idx.empty and "position" in idx.columns:
+                        m = idx[idx["position"].str.contains(chip, case=False, na=False)]
+                        if not m.empty:
+                            _nav("pol", m.iloc[0]["member_name"])
+                            st.rerun()
+                        else:
+                            st.caption(f"No politician found with position matching '{chip}'.")
 
-        st.html('<p class="lob-sidebar-label">Notable targets</p>')
-        notable = ["An Taoiseach", "Minister for Finance", "Tánaiste", "Minister for Health"]
-        chip_cols = st.columns(2)
-        for i, chip in enumerate(notable):
-            if chip_cols[i % 2].button(chip, key=f"lob_chip_{i}", width="stretch"):
-                idx = fetch_politician_index()
-                if not idx.empty and "position" in idx.columns:
-                    m = idx[idx["position"].str.contains(chip, case=False, na=False)]
-                    if not m.empty:
-                        _nav("pol", m.iloc[0]["member_name"])
-                        st.rerun()
-                    else:
-                        st.caption(f"No politician found with position matching '{chip}'.")
-
+        # ── Tertiary: browse by policy area, behind a closed expander ────
         areas = fetch_policy_area_summary()
         if not areas.empty and "public_policy_area" in areas.columns:
-            st.divider()
-            st.html('<p class="lob-sidebar-label">Browse by policy area</p>')
-            top_areas = areas["public_policy_area"].dropna().head(10).tolist()
-            for area in top_areas:
-                safe_key = f"lob_area_{area[:25].replace(' ', '_')}"
-                if st.button(area, key=safe_key, width="stretch"):
-                    _nav("area", area)
-                    st.rerun()
+            with st.expander("Browse by policy area", expanded=False):
+                top_areas = areas["public_policy_area"].dropna().head(10).tolist()
+                for area in top_areas:
+                    safe_key = f"lob_area_{area[:25].replace(' ', '_')}"
+                    if st.button(area, key=safe_key, width="stretch"):
+                        _nav("area", area)
+                        st.rerun()
 
 
 # ── Landing page ───────────────────────────────────────────────────────────────
 
+
 def _render_landing(summary: pd.DataFrame) -> None:
     s = summary.iloc[0] if not summary.empty else pd.Series()
 
-    total_returns  = int(s.get("total_returns",      0) or 0)
-    total_orgs     = int(s.get("total_orgs",         0) or 0)
-    total_pols     = int(s.get("total_politicians",  0) or 0)
-    total_areas    = int(s.get("total_policy_areas", 0) or 0)
-    first_p        = s.get("first_period", "—")
-    last_p         = s.get("last_period",  "—")
+    total_returns = int(s.get("total_returns", 0) or 0)
+    total_orgs = int(s.get("total_orgs", 0) or 0)
+    total_pols = int(s.get("total_politicians", 0) or 0)
+    total_areas = int(s.get("total_policy_areas", 0) or 0)
+    first_p = s.get("first_period", "—")
+    last_p = s.get("last_period", "—")
 
     hero_banner(
         kicker="LOBBYING REGISTER · IRELAND",
@@ -500,7 +527,16 @@ def _render_landing(summary: pd.DataFrame) -> None:
             f"{total_orgs:,} organisations",
             f"{total_pols:,} politicians",
             f"Data: {first_p} → {last_p}",
-        ] if total_returns else [],
+        ]
+        if total_returns
+        else [],
+    )
+    glossary_strip(
+        [
+            ("DPO", "Designated Public Official (politicians, ministers, senior civil servants)"),
+            ("Return", "a quarterly filing by an organisation declaring its lobbying activity"),
+            ("Revolving door", "former DPOs now working in lobbying"),
+        ]
     )
 
     # Date range filter (global temporal control)
@@ -518,11 +554,11 @@ def _render_landing(summary: pd.DataFrame) -> None:
         )
         if date_cols[0].button("Apply", key="lob_apply_date"):
             st.session_state.lob_date_start = lob_start
-            st.session_state.lob_date_end   = lob_end
+            st.session_state.lob_date_end = lob_end
             st.rerun()
         if date_cols[1].button("Clear", key="lob_clear_date"):
             st.session_state.lob_date_start = None
-            st.session_state.lob_date_end   = None
+            st.session_state.lob_date_end = None
             st.rerun()
 
     if summary.empty:
@@ -582,20 +618,22 @@ def _render_landing(summary: pd.DataFrame) -> None:
     evidence_heading("Topics")
     st.html(
         '<p class="lob-topic-caveat">'
-        'Free-text scan of return descriptions. lobbying.ie&apos;s official policy-area '
-        'taxonomy is fixed and does not include these topics — returns matching them are '
-        'usually filed under <em>Justice and Equality</em>, <em>Housing</em>, <em>Environment</em>, '
-        'or other adjacent areas. Treat results as indicative.'
-        '</p>'
+        "Free-text scan of return descriptions. lobbying.ie&apos;s official policy-area "
+        "taxonomy is fixed and does not include these topics — returns matching them are "
+        "usually filed under <em>Justice and Equality</em>, <em>Housing</em>, <em>Environment</em>, "
+        "or other adjacent areas. Treat results as indicative."
+        "</p>"
     )
     topic_cols = st.columns(len(_CURATED_TOPICS))
     for col, (topic_name, spec) in zip(topic_cols, _CURATED_TOPICS.items(), strict=True):
         with col:
-            st.html(_topic_card_html(
-                str(spec["icon"]),
-                topic_name,
-                str(spec["blurb"]),
-            ))
+            st.html(
+                _topic_card_html(
+                    str(spec["icon"]),
+                    topic_name,
+                    str(spec["blurb"]),
+                )
+            )
             if st.button(
                 f"Open {topic_name} →",
                 key=f"lob_topic_{topic_name[:30].replace(' ', '_').replace('&', 'and')}",
@@ -618,10 +656,10 @@ def _render_landing(summary: pd.DataFrame) -> None:
         else:
             cards: list[str] = []
             for rank, (_, row) in enumerate(idx.head(10).iterrows(), start=1):
-                name      = str(row.get("member_name", "—"))
+                name = str(row.get("member_name", "—"))
                 member_id = str(row.get("unique_member_code", "") or "")
-                meta      = clean_meta(
-                    str(row.get("chamber",  "") or ""),
+                meta = clean_meta(
+                    str(row.get("chamber", "") or ""),
                     str(row.get("position", "") or ""),
                 )
                 pills = [
@@ -632,7 +670,9 @@ def _render_landing(summary: pd.DataFrame) -> None:
                     clickable_card_link(
                         href=f"?lob_pol={quote(name)}",
                         inner_html=_lob_card_html(
-                            name, meta, pills,
+                            name,
+                            meta,
+                            pills,
                             rank=rank,
                             profile_href=member_profile_url(member_id) if member_id else "",
                         ),
@@ -652,8 +692,8 @@ def _render_landing(summary: pd.DataFrame) -> None:
         else:
             cards: list[str] = []
             for rank, (_, row) in enumerate(orgs.head(10).iterrows(), start=1):
-                name  = str(row.get("lobbyist_name", "—"))
-                meta  = str(row.get("sector", "") or "")
+                name = str(row.get("lobbyist_name", "—"))
+                meta = str(row.get("sector", "") or "")
                 pills = [
                     f"{int(row.get('return_count', 0) or 0):,} returns",
                     f"{int(row.get('politicians_targeted', 0) or 0):,} politicians",
@@ -674,44 +714,46 @@ def _render_landing(summary: pd.DataFrame) -> None:
 
     # ── Revolving door promoted callout ───────────────────────────────────
     rd_summary = fetch_revolving_door_summary()
-    dpos       = fetch_revolving_door(limit=5)
+    dpos = fetch_revolving_door(limit=5)
     if rd_summary.empty or dpos.empty:
         st.html(
             '<div class="lob-revolving-callout">'
             '<p class="lob-revolving-heading">Revolving door</p>'
             '<p class="lob-revolving-explain">No DPO data available yet.</p>'
-            '</div>'
+            "</div>"
         )
-        todo_callout("v_lobbying_revolving_door — re-run lobby_processing.py to regenerate data/gold/parquet/revolving_door_dpos.parquet")
+        todo_callout(
+            "v_lobbying_revolving_door — re-run lobby_processing.py to regenerate data/gold/parquet/revolving_door_dpos.parquet"
+        )
     else:
-        rd_row     = rd_summary.iloc[0]
-        rd_n       = int(rd_row.get("individuals",         0) or 0)
-        rd_returns = int(rd_row.get("total_returns",       0) or 0)
+        rd_row = rd_summary.iloc[0]
+        rd_n = int(rd_row.get("individuals", 0) or 0)
+        rd_returns = int(rd_row.get("total_returns", 0) or 0)
         rows_html = ""
         for rank, (_, row) in enumerate(dpos.iterrows(), start=1):
-            name_     = _h(str(row.get("individual_name", "—")))
-            position  = _h(str(row.get("former_position", "") or ""))
-            ret_cnt_  = int(row.get("return_count",                  0) or 0)
-            pol_cnt_  = int(row.get("distinct_politicians_targeted", 0) or 0)
-            former    = f"Former {position}" if position else "Former DPO"
+            name_ = _h(str(row.get("individual_name", "—")))
+            position = _h(str(row.get("former_position", "") or ""))
+            ret_cnt_ = int(row.get("return_count", 0) or 0)
+            pol_cnt_ = int(row.get("distinct_politicians_targeted", 0) or 0)
+            former = f"Former {position}" if position else "Former DPO"
             rows_html += (
                 f'<div class="lob-revolving-row">'
                 f'<span class="lob-revolving-row-rank">#{rank}</span>'
                 f'<span class="lob-revolving-row-name">{name_}</span>'
                 f'<span class="lob-revolving-row-meta">{_h(former)} · {ret_cnt_:,} returns · {pol_cnt_:,} politicians</span>'
-                f'</div>'
+                f"</div>"
             )
         st.html(
             '<div class="lob-revolving-callout">'
             '<p class="lob-revolving-heading">Revolving door</p>'
             f'<p class="lob-revolving-headline">{rd_n:,} former DPOs filed {rd_returns:,} returns lobbying current officials.</p>'
             '<p class="lob-revolving-explain">'
-            'Former Designated Public Officials — politicians, ministers, and senior civil servants — are subject '
-            'to a one-year cooling-off period before they may lobby former colleagues. Identification is by '
-            'name-matching against the DPO register; treat as indicative, not a legal finding.'
-            '</p>'
+            "Former Designated Public Officials — politicians, ministers, and senior civil servants — are subject "
+            "to a one-year cooling-off period before they may lobby former colleagues. Identification is by "
+            "name-matching against the DPO register; treat as indicative, not a legal finding."
+            "</p>"
             f'<div class="lob-revolving-list">{rows_html}</div>'
-            '</div>'
+            "</div>"
         )
         cta_col, _spacer = st.columns([1, 2])
         with cta_col:
@@ -736,8 +778,8 @@ def _render_landing(summary: pd.DataFrame) -> None:
         activity_html = ""
         for _, row in recent.iterrows():
             period = str(row.get("period_start_date", "") or "")[:7]
-            org    = str(row.get("lobbyist_name",     "") or "")
-            area   = str(row.get("public_policy_area", "") or "")
+            org = str(row.get("lobbyist_name", "") or "")
+            area = str(row.get("public_policy_area", "") or "")
             activity_html += _activity_row_html(period, org, area)
         st.html(activity_html)
         todo_callout(
@@ -750,6 +792,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
 
 # ── Revolving Door Stage 2a — index ────────────────────────────────────────────
 
+
 def _render_dpo_index(summary: pd.DataFrame) -> None:
     crumb = breadcrumb(["Lobbying", "Revolving Door"], key_prefix="rd_idx")
     if crumb == 0:
@@ -758,7 +801,7 @@ def _render_dpo_index(summary: pd.DataFrame) -> None:
         st.rerun()
 
     rd_summary = fetch_revolving_door_summary()
-    rd_n       = int(rd_summary.iloc[0].get("individuals",   0) or 0) if not rd_summary.empty else 0
+    rd_n = int(rd_summary.iloc[0].get("individuals", 0) or 0) if not rd_summary.empty else 0
     rd_returns = int(rd_summary.iloc[0].get("total_returns", 0) or 0) if not rd_summary.empty else 0
 
     hero_banner(
@@ -783,36 +826,33 @@ def _render_dpo_index(summary: pd.DataFrame) -> None:
     pills_html = ""
     for _, row in prominent.iterrows():
         pname = _h(str(row.get("individual_name", "—")))
-        pcnt  = int(row.get("return_count", 0) or 0)
-        pills_html += (
-            f'<span class="lob-rd-prominent-pill">'
-            f'<strong>{pname}</strong> · {pcnt:,} returns'
-            f'</span>'
-        )
+        pcnt = int(row.get("return_count", 0) or 0)
+        pills_html += f'<span class="lob-rd-prominent-pill"><strong>{pname}</strong> · {pcnt:,} returns</span>'
     st.html(
         '<div class="lob-rd-prominent">'
         '<p class="lob-rd-prominent-heading">Most-active filers</p>'
         f'<div class="lob-rd-prominent-grid">{pills_html}</div>'
-        '</div>'
+        "</div>"
     )
 
     # ── Chamber filter pills ──────────────────────────────────────────────
     chambers_present = (
         all_dpos["chamber_display"].dropna().astype(str).replace({"": pd.NA}).dropna().unique().tolist()
-        if "chamber_display" in all_dpos.columns else []
+        if "chamber_display" in all_dpos.columns
+        else []
     )
     chamber_options = ["All"] + sorted(chambers_present)
-    chosen = st.segmented_control(
-        "Filter by former chamber",
-        options=chamber_options,
-        default="All",
-        key="rd_chamber_filter",
-    ) or "All"
+    chosen = (
+        st.segmented_control(
+            "Filter by former chamber",
+            options=chamber_options,
+            default="All",
+            key="rd_chamber_filter",
+        )
+        or "All"
+    )
 
-    if chosen != "All":
-        filtered = all_dpos[all_dpos["chamber_display"].astype(str) == chosen]
-    else:
-        filtered = all_dpos
+    filtered = all_dpos[all_dpos["chamber_display"].astype(str) == chosen] if chosen != "All" else all_dpos
 
     st.caption(f"Showing {len(filtered):,} of {len(all_dpos):,} individuals.")
 
@@ -823,14 +863,14 @@ def _render_dpo_index(summary: pd.DataFrame) -> None:
     else:
         cards: list[str] = []
         for rank, (_, row) in enumerate(filtered.iterrows(), start=1):
-            name     = str(row.get("individual_name", "—"))
-            position = str(row.get("former_position",  "") or "")
-            chamber  = str(row.get("chamber_display",  "") or "")
-            former   = f"Former {position}" if position else "Former DPO"
-            meta     = clean_meta(former, chamber)
-            pills    = [
-                f"{int(row.get('return_count',                  0) or 0):,} returns",
-                f"{int(row.get('distinct_firms',                0) or 0):,} firms",
+            name = str(row.get("individual_name", "—"))
+            position = str(row.get("former_position", "") or "")
+            chamber = str(row.get("chamber_display", "") or "")
+            former = f"Former {position}" if position else "Former DPO"
+            meta = clean_meta(former, chamber)
+            pills = [
+                f"{int(row.get('return_count', 0) or 0):,} returns",
+                f"{int(row.get('distinct_firms', 0) or 0):,} firms",
                 f"{int(row.get('distinct_politicians_targeted', 0) or 0):,} politicians",
             ]
             cards.append(
@@ -889,25 +929,29 @@ def _render_org_index(summary: pd.DataFrame) -> None:
         placeholder="Search by organisation name…",
         label_visibility="collapsed",
     )
-    funding_choice = st.segmented_control(
-        "Funding profile",
-        options=["All", *_FUNDING_PILL_LABELS.values()],
-        default="All",
-        key="org_idx_funding",
-    ) or "All"
-    trend_choice = st.segmented_control(
-        "Income trend",
-        options=["All", "Growing", "Flat", "Shrinking"],
-        default="All",
-        key="org_idx_trend",
-    ) or "All"
+    funding_choice = (
+        st.segmented_control(
+            "Funding profile",
+            options=["All", *_FUNDING_PILL_LABELS.values()],
+            default="All",
+            key="org_idx_funding",
+        )
+        or "All"
+    )
+    trend_choice = (
+        st.segmented_control(
+            "Income trend",
+            options=["All", "Growing", "Flat", "Shrinking"],
+            default="All",
+            key="org_idx_trend",
+        )
+        or "All"
+    )
 
     filtered = orgs
     if search and search.strip():
         filtered = filtered[
-            filtered["lobbyist_name"].astype(str).str.contains(
-                search.strip(), case=False, na=False, regex=False
-            )
+            filtered["lobbyist_name"].astype(str).str.contains(search.strip(), case=False, na=False, regex=False)
         ]
     if funding_choice != "All":
         filtered = filtered[filtered["funding_profile"] == _FUNDING_FILTER[funding_choice]]
@@ -932,8 +976,8 @@ def _render_org_index(summary: pd.DataFrame) -> None:
     rank_offset = page_idx * page_size
     cards: list[str] = []
     for i, (_, row) in enumerate(page_slice.iterrows(), start=1):
-        name  = str(row.get("lobbyist_name", "—"))
-        meta  = str(row.get("sector", "") or "")
+        name = str(row.get("lobbyist_name", "—"))
+        meta = str(row.get("sector", "") or "")
         pills = [
             f"{int(row.get('return_count', 0) or 0):,} returns",
             f"{int(row.get('politicians_targeted', 0) or 0):,} politicians",
@@ -952,6 +996,7 @@ def _render_org_index(summary: pd.DataFrame) -> None:
 
 
 # ── Revolving Door Stage 2b — individual profile ──────────────────────────────
+
 
 def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
     crumb = breadcrumb(
@@ -975,14 +1020,14 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
         _provenance_footer(summary)
         return
 
-    dpo_row  = dpo_df.iloc[0]
-    position = str(dpo_row.get("former_position",  "") or "")
-    chamber  = str(dpo_row.get("chamber_display",  "") or "")
-    ret_cnt  = int(dpo_row.get("return_count",                  0) or 0)
-    firm_cnt = int(dpo_row.get("distinct_firms",                0) or 0)
-    pol_cnt  = int(dpo_row.get("distinct_politicians_targeted", 0) or 0)
-    area_cnt = int(dpo_row.get("distinct_policy_areas",         0) or 0)
-    former   = f"Former {position}" if position else "Former DPO"
+    dpo_row = dpo_df.iloc[0]
+    position = str(dpo_row.get("former_position", "") or "")
+    chamber = str(dpo_row.get("chamber_display", "") or "")
+    ret_cnt = int(dpo_row.get("return_count", 0) or 0)
+    firm_cnt = int(dpo_row.get("distinct_firms", 0) or 0)
+    pol_cnt = int(dpo_row.get("distinct_politicians_targeted", 0) or 0)
+    area_cnt = int(dpo_row.get("distinct_policy_areas", 0) or 0)
+    former = f"Former {position}" if position else "Former DPO"
 
     badges = [b for b in [former, chamber] if b]
     hero_banner(
@@ -991,15 +1036,17 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
         dek=(
             f"{ret_cnt:,} returns filed across {firm_cnt:,} firm(s), targeting "
             f"{pol_cnt:,} politicians on {area_cnt:,} policy area(s)."
-        ) if ret_cnt else "No lobbying returns on record for this individual.",
+        )
+        if ret_cnt
+        else "No lobbying returns on record for this individual.",
         badges=badges or None,
     )
 
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Returns",            f"{ret_cnt:,}")
-    m2.metric("Firms",              f"{firm_cnt:,}")
-    m3.metric("Politicians",        f"{pol_cnt:,}")
-    m4.metric("Policy areas",       f"{area_cnt:,}")
+    m1.metric("Returns", f"{ret_cnt:,}")
+    m2.metric("Firms", f"{firm_cnt:,}")
+    m3.metric("Politicians", f"{pol_cnt:,}")
+    m4.metric("Policy areas", f"{area_cnt:,}")
 
     # ── Firms represented ─────────────────────────────────────────────────
     evidence_heading("Firms represented")
@@ -1007,24 +1054,29 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
     if firms_df.empty:
         empty_state("No firms", "No firm associations recorded for this individual.")
     else:
-        firms_display = firms_df.rename(columns={
-            "lobbyist_name": "Firm",
-            "return_count":  "Returns",
-            "first_period":  "First filing",
-            "last_period":   "Last filing",
-        })
+        firms_display = firms_df.rename(
+            columns={
+                "lobbyist_name": "Firm",
+                "return_count": "Returns",
+                "first_period": "First filing",
+                "last_period": "Last filing",
+            }
+        )
         max_firm = int(firms_display["Returns"].max()) if not firms_display.empty else 1
         st.dataframe(
             firms_display,
             width="stretch",
             hide_index=True,
             column_config={
-                "Firm":         st.column_config.TextColumn("Firm"),
-                "Returns":      st.column_config.ProgressColumn(
-                    "Returns", format="%d", min_value=0, max_value=max_firm,
+                "Firm": st.column_config.TextColumn("Firm"),
+                "Returns": st.column_config.ProgressColumn(
+                    "Returns",
+                    format="%d",
+                    min_value=0,
+                    max_value=max_firm,
                 ),
                 "First filing": st.column_config.DateColumn("First filing", format="MMM YYYY"),
-                "Last filing":  st.column_config.DateColumn("Last filing",  format="MMM YYYY"),
+                "Last filing": st.column_config.DateColumn("Last filing", format="MMM YYYY"),
             },
         )
 
@@ -1034,24 +1086,29 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
     if clients_df.empty:
         empty_state("No clients", "No client companies recorded for this individual.")
     else:
-        clients_display = clients_df.rename(columns={
-            "client_name":   "Client",
-            "return_count":  "Returns",
-            "first_period":  "First filing",
-            "last_period":   "Last filing",
-        })
+        clients_display = clients_df.rename(
+            columns={
+                "client_name": "Client",
+                "return_count": "Returns",
+                "first_period": "First filing",
+                "last_period": "Last filing",
+            }
+        )
         max_client = int(clients_display["Returns"].max()) if not clients_display.empty else 1
         st.dataframe(
             clients_display,
             width="stretch",
             hide_index=True,
             column_config={
-                "Client":       st.column_config.TextColumn("Client"),
-                "Returns":      st.column_config.ProgressColumn(
-                    "Returns", format="%d", min_value=0, max_value=max_client,
+                "Client": st.column_config.TextColumn("Client"),
+                "Returns": st.column_config.ProgressColumn(
+                    "Returns",
+                    format="%d",
+                    min_value=0,
+                    max_value=max_client,
                 ),
                 "First filing": st.column_config.DateColumn("First filing", format="MMM YYYY"),
-                "Last filing":  st.column_config.DateColumn("Last filing",  format="MMM YYYY"),
+                "Last filing": st.column_config.DateColumn("Last filing", format="MMM YYYY"),
             },
         )
 
@@ -1065,8 +1122,8 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
         cards: list[str] = []
         for rank, (_, prow) in enumerate(pols_df.head(20).iterrows(), start=1):
             pname = str(prow.get("member_name", "—"))
-            pchm  = str(prow.get("chamber",     "") or "")
-            pcnt  = int(prow.get("return_count", 0) or 0)
+            pchm = str(prow.get("chamber", "") or "")
+            pcnt = int(prow.get("return_count", 0) or 0)
             pills = [f"{pcnt:,} returns"]
             inner = _lob_card_html(pname, pchm, pills, rank=rank)
             if pname in pol_known:
@@ -1091,16 +1148,20 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
         empty_state("No returns", "No individual returns recorded for this person.")
     else:
         display = returns_df[
-            [c for c in ["period_start_date", "lobbyist_name", "client_name",
-                         "public_policy_area", "source_url"]
-             if c in returns_df.columns]
-        ].rename(columns={
-            "period_start_date":  "Period",
-            "lobbyist_name":      "Firm",
-            "client_name":        "Client",
-            "public_policy_area": "Policy area",
-            "source_url":         "Return URL",
-        })
+            [
+                c
+                for c in ["period_start_date", "lobbyist_name", "client_name", "public_policy_area", "source_url"]
+                if c in returns_df.columns
+            ]
+        ].rename(
+            columns={
+                "period_start_date": "Period",
+                "lobbyist_name": "Firm",
+                "client_name": "Client",
+                "public_policy_area": "Policy area",
+                "source_url": "Return URL",
+            }
+        )
         st.dataframe(
             display,
             width="stretch",
@@ -1113,7 +1174,7 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
             },
         )
         first_p = str(returns_df["period_start_date"].min())[:7] if "period_start_date" in returns_df.columns else ""
-        last_p  = str(returns_df["period_start_date"].max())[:7] if "period_start_date" in returns_df.columns else ""
+        last_p = str(returns_df["period_start_date"].max())[:7] if "period_start_date" in returns_df.columns else ""
         period_span = f"{first_p}_{last_p}" if first_p and last_p else "all"
         safe_name = "".join(c if c.isalnum() else "_" for c in individual_name)[:60]
         st.caption(
@@ -1138,6 +1199,7 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
 
 # ── Topic Stage 2 (free-text keyword scan — not a register taxonomy) ──────────
 
+
 def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
     _back_button()
 
@@ -1156,42 +1218,39 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
         total = orgs = areas = 0
         first_p = last_p = "—"
     else:
-        s_row   = topic_summary.iloc[0]
-        total   = int(s_row.get("total_returns",  0) or 0)
-        orgs    = int(s_row.get("distinct_orgs",  0) or 0)
-        areas   = int(s_row.get("distinct_areas", 0) or 0)
+        s_row = topic_summary.iloc[0]
+        total = int(s_row.get("total_returns", 0) or 0)
+        orgs = int(s_row.get("distinct_orgs", 0) or 0)
+        areas = int(s_row.get("distinct_areas", 0) or 0)
         first_p = str(s_row.get("first_period", "") or "—")[:10] or "—"
-        last_p  = str(s_row.get("last_period",  "") or "—")[:10] or "—"
+        last_p = str(s_row.get("last_period", "") or "—")[:10] or "—"
 
     hero_banner(
         kicker="TOPIC SEARCH · NOT A REGISTERED POLICY AREA",
         title=topic_name,
         dek=(
-            f"{blurb} {total:,} return(s) match across {orgs:,} organisation(s) "
-            f"and {areas:,} official policy area(s)."
-            if total else
-            f"{blurb} No matches found in the current dataset."
+            f"{blurb} {total:,} return(s) match across {orgs:,} organisation(s) and {areas:,} official policy area(s)."
+            if total
+            else f"{blurb} No matches found in the current dataset."
         ),
         badges=[f"{total:,} returns", f"{orgs:,} organisations"] if total else None,
     )
 
     # ── Caveat banner explaining what this is ─────────────────────────────
-    keywords_html = "".join(
-        f'<span class="lob-topic-keyword-pill">{_h(k)}</span>' for k in keywords
-    )
+    keywords_html = "".join(f'<span class="lob-topic-keyword-pill">{_h(k)}</span>' for k in keywords)
     st.html(
         '<div class="lob-topic-banner">'
         '<p class="lob-topic-banner-heading">How this works</p>'
         '<p class="lob-topic-banner-body">'
-        'We scan the <strong>relevant matter</strong>, <strong>specific details</strong> '
-        'and <strong>intended results</strong> fields of every lobbying return for any of the keywords below. '
-        'lobbying.ie does not have an official policy area for this topic, so its returns are normally filed under '
-        'one of the 32 register categories (most often <em>Justice and Equality</em>, <em>Housing</em>, '
-        'or <em>Environment</em>). False positives are possible — open a return\'s source link to verify.'
-        '</p>'
+        "We scan the <strong>relevant matter</strong>, <strong>specific details</strong> "
+        "and <strong>intended results</strong> fields of every lobbying return for any of the keywords below. "
+        "lobbying.ie does not have an official policy area for this topic, so its returns are normally filed under "
+        "one of the 32 register categories (most often <em>Justice and Equality</em>, <em>Housing</em>, "
+        "or <em>Environment</em>). False positives are possible — open a return's source link to verify."
+        "</p>"
         '<p class="lob-topic-banner-heading" style="margin-top:0.6rem;">Keywords scanned</p>'
         f'<div class="lob-topic-keyword-row">{keywords_html}</div>'
-        '</div>'
+        "</div>"
     )
 
     if total == 0:
@@ -1201,10 +1260,10 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
 
     # ── Stat strip ────────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Returns matching",       f"{total:,}")
+    c1.metric("Returns matching", f"{total:,}")
     c2.metric("Distinct organisations", f"{orgs:,}")
-    c3.metric("Policy areas spanned",   f"{areas:,}")
-    c4.metric("Period",                 f"{first_p[:7]} – {last_p[:7]}" if first_p != "—" else "—")
+    c3.metric("Policy areas spanned", f"{areas:,}")
+    c4.metric("Period", f"{first_p[:7]} – {last_p[:7]}" if first_p != "—" else "—")
 
     # ── Year filter + fetch ───────────────────────────────────────────────
     detail_all = fetch_topic_returns(keywords)
@@ -1215,7 +1274,9 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
     #    aggregation only, no business logic). ─────────────────────────────
     if "public_policy_area" in detail.columns and not detail.empty:
         evidence_heading("Where these returns are officially filed")
-        st.caption("Distribution across lobbying.ie's 32 official policy areas — handy context for understanding which area a topic gets buried under.")
+        st.caption(
+            "Distribution across lobbying.ie's 32 official policy areas. Handy context for understanding which area a topic gets buried under."
+        )
         area_counts = (
             detail["public_policy_area"]
             .fillna("(unspecified)")
@@ -1231,8 +1292,11 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
             hide_index=True,
             column_config={
                 "Policy area": st.column_config.TextColumn("Official policy area"),
-                "Returns":     st.column_config.ProgressColumn(
-                    "Returns matching topic", format="%d", min_value=0, max_value=max_a,
+                "Returns": st.column_config.ProgressColumn(
+                    "Returns matching topic",
+                    format="%d",
+                    min_value=0,
+                    max_value=max_a,
                 ),
             },
         )
@@ -1248,15 +1312,15 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
     rank_offset = page_idx * page_size
     cards: list[str] = []
     for i, (_, row) in enumerate(page_slice.iterrows(), start=1):
-        rank      = rank_offset + i
-        org_name  = str(row.get("lobbyist_name", "—"))
+        rank = rank_offset + i
+        org_name = str(row.get("lobbyist_name", "—"))
         return_id = str(row.get("return_id", "—"))
-        period    = str(row.get("period_start_date", "") or "")[:10]
+        period = str(row.get("period_start_date", "") or "")[:10]
         area_name = str(row.get("public_policy_area", "") or "")
-        url       = str(row.get("source_url", "") or "")
-        details   = str(row.get("specific_details", "") or "")
-        snippet   = (details[:220] + "…") if len(details) > 220 else details
-        meta      = clean_meta(period, f"Filed under {area_name}" if area_name else "")
+        url = str(row.get("source_url", "") or "")
+        details = str(row.get("specific_details", "") or "")
+        snippet = (details[:220] + "…") if len(details) > 220 else details
+        meta = clean_meta(period, f"Filed under {area_name}" if area_name else "")
         if snippet:
             meta = (meta + " · " if meta else "") + snippet
         pills = [
@@ -1264,8 +1328,7 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
             f"Return #{return_id}",
         ]
         if url and url.startswith("http"):
-            pills.append(source_link_html(url, "View on lobbying.ie",
-                                          aria_label="Open this return on lobbying.ie"))
+            pills.append(source_link_html(url, "View on lobbying.ie", aria_label="Open this return on lobbying.ie"))
         cards.append(
             clickable_card_link(
                 href=f"?lob_org={quote(org_name)}&lob_topic_ctx={quote(topic_name)}",
@@ -1279,7 +1342,8 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
     safe_topic = "".join(c if c.isalnum() else "_" for c in topic_name)[:60]
     period_span = f"{first_p[:7]}_{last_p[:7]}" if first_p != "—" else "all"
     export_button(
-        detail, "Export every matching return as CSV",
+        detail,
+        "Export every matching return as CSV",
         f"topic_{safe_topic}_{period_span}.csv",
         "lob_export_topic",
     )
@@ -1288,6 +1352,7 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
 
 
 # ── Politician Stage 2 ─────────────────────────────────────────────────────────
+
 
 def _render_politician(name: str, summary: pd.DataFrame) -> None:
     _back_button()
@@ -1299,23 +1364,23 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
         if not m.empty:
             pol_row = m.iloc[0]
 
-    chamber   = str(pol_row.get("chamber",  "") or "")
-    position  = str(pol_row.get("position", "") or "")
+    chamber = str(pol_row.get("chamber", "") or "")
+    position = str(pol_row.get("position", "") or "")
     member_id = str(pol_row.get("unique_member_code", "") or "")
-    ret_cnt   = int(pol_row.get("return_count",          0) or 0)
-    org_cnt   = int(pol_row.get("distinct_orgs",         0) or 0)
-    area_cnt  = int(pol_row.get("distinct_policy_areas", 0) or 0)
-    first_p   = str(pol_row.get("first_period", "") or "")
-    last_p    = str(pol_row.get("last_period",  "") or "")
+    ret_cnt = int(pol_row.get("return_count", 0) or 0)
+    org_cnt = int(pol_row.get("distinct_orgs", 0) or 0)
+    area_cnt = int(pol_row.get("distinct_policy_areas", 0) or 0)
+    first_p = str(pol_row.get("first_period", "") or "")
+    last_p = str(pol_row.get("last_period", "") or "")
 
     meta_badges = [b for b in [chamber, position] if b]
     hero_banner(
         kicker="LOBBYING PROFILE · POLITICIAN",
         title=name,
         dek=(
-            f"Lobbied across {area_cnt} policy area(s) by {org_cnt} organisation(s). "
-            f"Returns span {first_p} → {last_p}." if ret_cnt else
-            "No lobbying returns on record for this politician."
+            f"Lobbied across {area_cnt} policy area(s) by {org_cnt} organisation(s). Returns span {first_p} → {last_p}."
+            if ret_cnt
+            else "No lobbying returns on record for this politician."
         ),
         badges=meta_badges or None,
     )
@@ -1323,7 +1388,7 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
     c1, c2, c3 = st.columns(3)
     c1.metric("Returns targeting them", f"{ret_cnt:,}")
     c2.metric("Distinct organisations", f"{org_cnt:,}")
-    c3.metric("Policy areas",           f"{area_cnt:,}")
+    c3.metric("Policy areas", f"{area_cnt:,}")
 
     # Cross-page jump to the full accountability profile. unique_member_code
     # comes from v_lobbying_index — see fetch_politician_index().
@@ -1344,13 +1409,13 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
         cards: list[str] = []
         for rank, (_, row) in enumerate(intensity.iterrows(), start=1):
             org_name = str(row.get("lobbyist_name", "—"))
-            first_c  = str(row.get("first_contact", "") or "")[:7]
-            last_c   = str(row.get("last_contact",  "") or "")[:7]
-            meta     = clean_meta(first_c, last_c)
-            pills    = [
+            first_c = str(row.get("first_contact", "") or "")[:7]
+            last_c = str(row.get("last_contact", "") or "")[:7]
+            meta = clean_meta(first_c, last_c)
+            pills = [
                 f"{int(row.get('returns_in_relationship', 0) or 0):,} returns",
-                f"{int(row.get('distinct_policy_areas',   0) or 0):,} policy areas",
-                f"{int(row.get('distinct_periods',        0) or 0):,} periods",
+                f"{int(row.get('distinct_policy_areas', 0) or 0):,} policy areas",
+                f"{int(row.get('distinct_periods', 0) or 0):,} periods",
             ]
             cards.append(
                 clickable_card_link(
@@ -1365,19 +1430,21 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
     evidence_heading("Policy areas lobbied on")
     exposure = fetch_policy_exposure_for_politician(name)
     if not exposure.empty:
-        disp2 = exposure.rename(columns={
-            "public_policy_area": "Policy area",
-            "returns_targeting":  "Returns",
-            "distinct_lobbyists": "Organisations",
-        })
+        disp2 = exposure.rename(
+            columns={
+                "public_policy_area": "Policy area",
+                "returns_targeting": "Returns",
+                "distinct_lobbyists": "Organisations",
+            }
+        )
         max_ret = int(disp2["Returns"].max()) if not disp2.empty else 1
         st.dataframe(
             disp2,
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Policy area":   st.column_config.TextColumn("Policy area"),
-                "Returns":       st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_ret),
+                "Policy area": st.column_config.TextColumn("Policy area"),
+                "Returns": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_ret),
                 "Organisations": st.column_config.NumberColumn("Organisations"),
             },
         )
@@ -1391,25 +1458,30 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
         start, end = _year_selector(detail_all, "lob_year_pol")
         detail = fetch_contact_detail(name, start, end) if start else detail_all
         display = detail[
-            [c for c in ["period_start_date", "lobbyist_name",
-                         "public_policy_area", "source_url"]
-             if c in detail.columns]
-        ].rename(columns={
-            "period_start_date":  "Period",
-            "lobbyist_name":      "Organisation",
-            "public_policy_area": "Policy area",
-            "source_url":         "Return URL",
-        })
+            [
+                c
+                for c in ["period_start_date", "lobbyist_name", "public_policy_area", "source_url"]
+                if c in detail.columns
+            ]
+        ].rename(
+            columns={
+                "period_start_date": "Period",
+                "lobbyist_name": "Organisation",
+                "public_policy_area": "Policy area",
+                "source_url": "Return URL",
+            }
+        )
         st.dataframe(
             display,
-            column_config={"Return URL": st.column_config.LinkColumn(
-                "Return URL",
-                display_text=r"https://www\.lobbying\.ie/return/(\d+)")},
+            column_config={
+                "Return URL": st.column_config.LinkColumn(
+                    "Return URL", display_text=r"https://www\.lobbying\.ie/return/(\d+)"
+                )
+            },
             use_container_width=True,
             hide_index=True,
         )
-        export_button(detail, "Export CSV", f"{name.replace(' ', '_')}_lobbying.csv",
-                      "lob_export_pol_detail")
+        export_button(detail, "Export CSV", f"{name.replace(' ', '_')}_lobbying.csv", "lob_export_pol_detail")
 
     # ── Official source links ─────────────────────────────────────────────
     evidence_heading("Official source links")
@@ -1420,6 +1492,7 @@ def _render_politician(name: str, summary: pd.DataFrame) -> None:
 
 # ── Org Stage 2 ────────────────────────────────────────────────────────────────
 
+
 def _render_org(org_name: str, summary: pd.DataFrame) -> None:
     _back_button()
 
@@ -1428,7 +1501,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
         st.html(
             "<style>"
             ".st-key-lob_org_switcher .stSelectbox > div > div,"
-            ".st-key-lob_org_switcher [data-baseweb=\"select\"] > div"
+            '.st-key-lob_org_switcher [data-baseweb="select"] > div'
             "{background:#ffffff !important;}"
             "</style>"
         )
@@ -1451,27 +1524,27 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
         if not m.empty:
             org_row = m.iloc[0]
 
-    sector   = str(org_row.get("sector",               "") or "")
-    website  = str(org_row.get("website",              "") or "")
-    ret_cnt  = int(org_row.get("return_count",          0) or 0)
-    pol_cnt  = int(org_row.get("politicians_targeted",  0) or 0)
+    sector = str(org_row.get("sector", "") or "")
+    website = str(org_row.get("website", "") or "")
+    ret_cnt = int(org_row.get("return_count", 0) or 0)
+    pol_cnt = int(org_row.get("politicians_targeted", 0) or 0)
     area_cnt = int(org_row.get("distinct_policy_areas", 0) or 0)
-    first_p  = str(org_row.get("first_period", "") or "")
-    last_p   = str(org_row.get("last_period",  "") or "")
+    first_p = str(org_row.get("first_period", "") or "")
+    last_p = str(org_row.get("last_period", "") or "")
 
     badges = [b for b in [sector] if b]
     badges.extend(_register_pills(org_row))
     if website and website.startswith("http"):
-        badges.append(source_link_html(website, website,
-                                       aria_label=f"Open {org_name} website"))
+        badges.append(source_link_html(website, website, aria_label=f"Open {org_name} website"))
 
     hero_banner(
         kicker="LOBBYING PROFILE · ORGANISATION",
         title=org_name,
         dek=(
             f"Filed {ret_cnt:,} lobbying return(s) targeting {pol_cnt} politician(s) "
-            f"across {area_cnt} policy area(s). Active {first_p} → {last_p}." if ret_cnt else
-            "No lobbying returns on record for this organisation."
+            f"across {area_cnt} policy area(s). Active {first_p} → {last_p}."
+            if ret_cnt
+            else "No lobbying returns on record for this organisation."
         ),
         badges=badges or None,
     )
@@ -1481,15 +1554,15 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
     if not persist.empty:
         pr = persist.iloc[0]
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Returns filed",        f"{ret_cnt:,}")
-        c2.metric("Politicians targeted",  f"{pol_cnt:,}")
-        c3.metric("Periods filed",         str(pr.get("distinct_periods_filed", "—") or "—"))
-        c4.metric("Active span (days)",    str(pr.get("active_span_days", "—") or "—"))
+        c1.metric("Returns filed", f"{ret_cnt:,}")
+        c2.metric("Politicians targeted", f"{pol_cnt:,}")
+        c3.metric("Periods filed", str(pr.get("distinct_periods_filed", "—") or "—"))
+        c4.metric("Active span (days)", str(pr.get("active_span_days", "—") or "—"))
     else:
         c1, c2, c3 = st.columns(3)
-        c1.metric("Returns filed",        f"{ret_cnt:,}")
+        c1.metric("Returns filed", f"{ret_cnt:,}")
         c2.metric("Politicians targeted", f"{pol_cnt:,}")
-        c3.metric("Policy areas",         f"{area_cnt:,}")
+        c3.metric("Policy areas", f"{area_cnt:,}")
 
     # ── Politicians targeted — ranked cards (primary view) ────────────────
     evidence_heading("Politicians targeted")
@@ -1499,21 +1572,23 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
     else:
         cards: list[str] = []
         for rank, (_, row) in enumerate(pol_intensity.iterrows(), start=1):
-            pol_name  = str(row.get("member_name", "—"))
+            pol_name = str(row.get("member_name", "—"))
             member_id = str(row.get("unique_member_code", "") or "")
-            chamber   = str(row.get("chamber", "") or "")
-            first_c   = str(row.get("first_contact", "") or "")[:7]
-            last_c    = str(row.get("last_contact",  "") or "")[:7]
-            meta      = clean_meta(chamber, first_c, last_c)
-            pills     = [
+            chamber = str(row.get("chamber", "") or "")
+            first_c = str(row.get("first_contact", "") or "")[:7]
+            last_c = str(row.get("last_contact", "") or "")[:7]
+            meta = clean_meta(chamber, first_c, last_c)
+            pills = [
                 f"{int(row.get('returns_in_relationship', 0) or 0):,} returns",
-                f"{int(row.get('distinct_policy_areas',   0) or 0):,} policy areas",
+                f"{int(row.get('distinct_policy_areas', 0) or 0):,} policy areas",
             ]
             cards.append(
                 clickable_card_link(
                     href=f"?lob_pol={quote(pol_name)}",
                     inner_html=_lob_card_html(
-                        pol_name, meta, pills,
+                        pol_name,
+                        meta,
+                        pills,
                         rank=rank,
                         profile_href=member_profile_url(member_id) if member_id else "",
                     ),
@@ -1526,23 +1601,25 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
     clients = fetch_clients_for_org(org_name)
     if not clients.empty:
         evidence_heading("Clients represented")
-        disp_c = clients.rename(columns={
-            "client_name":       "Client",
-            "period_start_date": "Period",
-            "policy_areas":      "Policy areas",
-            "politicians_count": "Politicians",
-            "source_url":        "Return URL",
-        })
+        disp_c = clients.rename(
+            columns={
+                "client_name": "Client",
+                "period_start_date": "Period",
+                "policy_areas": "Policy areas",
+                "politicians_count": "Politicians",
+                "source_url": "Return URL",
+            }
+        )
         st.dataframe(
             disp_c,
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Client":       st.column_config.TextColumn("Client"),
-                "Period":       st.column_config.TextColumn("Period"),
+                "Client": st.column_config.TextColumn("Client"),
+                "Period": st.column_config.TextColumn("Period"),
                 "Policy areas": st.column_config.TextColumn("Policy areas"),
-                "Politicians":  st.column_config.NumberColumn("Politicians"),
-                "Return URL":   st.column_config.LinkColumn(
+                "Politicians": st.column_config.NumberColumn("Politicians"),
+                "Return URL": st.column_config.LinkColumn(
                     "Return URL",
                     display_text=r"https://www\.lobbying\.ie/return/(\d+)",
                 ),
@@ -1570,16 +1647,14 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
         st.html(
             f'<div class="lob-topic-filter-banner">'
             f'<span class="lob-topic-filter-label">Filtered to topic:</span> '
-            f'<strong>{_h(topic_ctx)}</strong>'
+            f"<strong>{_h(topic_ctx)}</strong>"
             f'<a class="lob-topic-filter-clear" href="{_h(clear_href)}" '
             f'target="_self" aria-label="Clear topic filter and show all returns">'
-            f'Show all returns</a>'
-            f'</div>'
+            f"Show all returns</a>"
+            f"</div>"
         )
 
-    evidence_heading(
-        "Returns matching this topic" if topic_kws else "All lobbying returns"
-    )
+    evidence_heading("Returns matching this topic" if topic_kws else "All lobbying returns")
     if detail_all.empty:
         empty_state(
             "No lobbying returns",
@@ -1606,31 +1681,40 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
         else:
             detail = detail_all
         display = detail[
-            [c for c in ["period_start_date", "lobbyist_name", "member_name",
-                         "public_policy_area", "source_url"]
-             if c in detail.columns]
-        ].rename(columns={
-            "period_start_date":  "Period",
-            "lobbyist_name":      "Organisation",
-            "member_name":        "Politician",
-            "public_policy_area": "Policy area",
-            "source_url":         "Return URL",
-        })
+            [
+                c
+                for c in ["period_start_date", "lobbyist_name", "member_name", "public_policy_area", "source_url"]
+                if c in detail.columns
+            ]
+        ].rename(
+            columns={
+                "period_start_date": "Period",
+                "lobbyist_name": "Organisation",
+                "member_name": "Politician",
+                "public_policy_area": "Policy area",
+                "source_url": "Return URL",
+            }
+        )
         st.dataframe(
             display,
-            column_config={"Return URL": st.column_config.LinkColumn(
-                "Return URL",
-                display_text=r"https://www\.lobbying\.ie/return/(\d+)")},
+            column_config={
+                "Return URL": st.column_config.LinkColumn(
+                    "Return URL", display_text=r"https://www\.lobbying\.ie/return/(\d+)"
+                )
+            },
             use_container_width=True,
             hide_index=True,
         )
-        export_filename_suffix = (
-            f"_{''.join(c if c.isalnum() else '_' for c in topic_ctx)[:40]}"
-            if topic_kws else ""
+        export_filename_suffix = f"_{''.join(c if c.isalnum() else '_' for c in topic_ctx)[:40]}" if topic_kws else ""
+        export_button(
+            detail,
+            "Export CSV",
+            f"{org_name[:40].replace(' ', '_')}_lobbying{export_filename_suffix}.csv",
+            "lob_export_org_detail",
         )
-        export_button(detail, "Export CSV",
-                      f"{org_name[:40].replace(' ', '_')}_lobbying{export_filename_suffix}.csv",
-                      "lob_export_org_detail")
+
+    # ── Attached references (third-party PDFs in return free-text) ────────
+    _render_org_attached_references(org_name)
 
     # ── Official source links ─────────────────────────────────────────────
     evidence_heading("Official source links")
@@ -1639,7 +1723,79 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
     _provenance_footer(summary)
 
 
+_SOURCE_FIELD_LABELS: dict[str, str] = {
+    "lobbying_activities": "Lobbying activities",
+    "intended_results": "Intended results",
+    "specific_details": "Specific details",
+    "grassroots_directive": "Grassroots directive",
+}
+
+
+def _render_org_attached_references(org_name: str) -> None:
+    """Card list of external PDFs that this org has cited in return free-text.
+
+    Sourced from v_lobbying_return_documents. Visually distinct from
+    Oireachtas source-cards: lighter weight, host badge prominent, and the
+    return-context shown so users understand these are lobbyist-supplied
+    references (not Oireachtas-issued documents)."""
+    docs = fetch_return_documents_for_org(org_name)
+    if docs.empty:
+        return
+
+    evidence_heading(f"Attached references ({len(docs)})")
+
+    st.caption(
+        "PDFs cited by this organisation inside its own lobbying return text. "
+        "These are external sources hosted by the lobbyist or third parties — "
+        "they may move or be removed without notice."
+    )
+
+    cards: list[str] = []
+    for _, r in docs.iterrows():
+        url = str(r.get("pdf_url") or "")
+        host = str(r.get("host") or "external")
+        ret_id = str(r.get("return_id") or "—")
+        lobby_url = str(r.get("lobby_url") or "")
+        field = str(r.get("source_field") or "")
+        field_lbl = _SOURCE_FIELD_LABELS.get(field, field or "—")
+        area = str(r.get("public_policy_area") or "")
+
+        meta_bits: list[str] = [f"Return #{ret_id}", f"Cited in: {field_lbl}"]
+        if area:
+            meta_bits.append(area)
+        meta_html = " · ".join(_h(b) for b in meta_bits)
+
+        return_link = (
+            f'<a class="dt-source-link" href="{_h(lobby_url)}" '
+            f'target="_blank" rel="noopener" '
+            f'aria-label="Open lobbying.ie return {ret_id} in a new tab">View return</a>'
+            if lobby_url.startswith("http")
+            else ""
+        )
+        pdf_link = source_link_html(
+            url,
+            "Open PDF",
+            aria_label=f"Open attached PDF from {host} in a new tab",
+        )
+
+        cards.append(
+            '<div class="lob-attach-card">'
+            f'<div class="lob-attach-head">'
+            f'<span class="lob-attach-host">{_h(host)}</span>'
+            f'<span class="lob-attach-tag">EXTERNAL</span>'
+            f"</div>"
+            f'<div class="lob-attach-meta">{meta_html}</div>'
+            f'<div class="lob-attach-actions">{pdf_link}'
+            + (f' <span class="lob-attach-sep">·</span> {return_link}' if return_link else "")
+            + "</div>"
+            "</div>"
+        )
+
+    st.html('<div class="lob-attach-list">' + "".join(cards) + "</div>")
+
+
 # ── Area Stage 2 ────────────────────────────────────────────────────────────────
+
 
 def _render_area(area: str, summary: pd.DataFrame) -> None:
     _back_button()
@@ -1654,7 +1810,7 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
         st.html(
             "<style>"
             ".st-key-lob_area_switcher .stSelectbox > div > div,"
-            ".st-key-lob_area_switcher [data-baseweb=\"select\"] > div"
+            '.st-key-lob_area_switcher [data-baseweb="select"] > div'
             "{background:#ffffff !important;}"
             "</style>"
         )
@@ -1676,24 +1832,24 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
         if not m.empty:
             area_row = m.iloc[0]
 
-    ret_cnt = int(area_row.get("return_count",        0) or 0)
-    org_cnt = int(area_row.get("distinct_orgs",       0) or 0)
+    ret_cnt = int(area_row.get("return_count", 0) or 0)
+    org_cnt = int(area_row.get("distinct_orgs", 0) or 0)
     pol_cnt = int(area_row.get("distinct_politicians", 0) or 0)
 
     hero_banner(
         kicker="LOBBYING PROFILE · POLICY AREA",
         title=area,
         dek=(
-            f"{ret_cnt:,} returns filed by {org_cnt} organisation(s) "
-            f"targeting {pol_cnt} politician(s) on this topic." if ret_cnt else
-            "No lobbying returns on record for this policy area."
+            f"{ret_cnt:,} returns filed by {org_cnt} organisation(s) targeting {pol_cnt} politician(s) on this topic."
+            if ret_cnt
+            else "No lobbying returns on record for this policy area."
         ),
     )
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Returns",       f"{ret_cnt:,}")
+    c1.metric("Returns", f"{ret_cnt:,}")
     c2.metric("Organisations", f"{org_cnt:,}")
-    c3.metric("Politicians",   f"{pol_cnt:,}")
+    c3.metric("Politicians", f"{pol_cnt:,}")
 
     # ── Most-exposed politicians — ranked cards (primary view) ─────────────
     evidence_heading("Most-targeted politicians")
@@ -1704,18 +1860,20 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
     else:
         cards: list[str] = []
         for rank, (_, row) in enumerate(area_pols.iterrows(), start=1):
-            pol_name  = str(row.get("member_name", "—"))
+            pol_name = str(row.get("member_name", "—"))
             member_id = str(row.get("unique_member_code", "") or "")
-            chamber   = str(row.get("chamber", "") or "")
-            pills     = [
-                f"{int(row.get('returns_targeting',  0) or 0):,} returns",
+            chamber = str(row.get("chamber", "") or "")
+            pills = [
+                f"{int(row.get('returns_targeting', 0) or 0):,} returns",
                 f"{int(row.get('distinct_lobbyists', 0) or 0):,} orgs",
             ]
             cards.append(
                 clickable_card_link(
                     href=f"?lob_area={quote(area)}&lob_result_pol={quote(pol_name)}",
                     inner_html=_lob_card_html(
-                        pol_name, chamber, pills,
+                        pol_name,
+                        chamber,
+                        pills,
                         rank=rank,
                         profile_href=member_profile_url(member_id) if member_id else "",
                     ),
@@ -1733,25 +1891,26 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
         start, end = _year_selector(detail_all, "lob_year_area")
         detail = fetch_area_contact_detail(area, start, end) if start else detail_all
         display = detail[
-            [c for c in ["period_start_date", "lobbyist_name", "member_name", "source_url"]
-             if c in detail.columns]
-        ].rename(columns={
-            "period_start_date": "Period",
-            "lobbyist_name":     "Organisation",
-            "member_name":       "Politician",
-            "source_url":        "Return URL",
-        })
+            [c for c in ["period_start_date", "lobbyist_name", "member_name", "source_url"] if c in detail.columns]
+        ].rename(
+            columns={
+                "period_start_date": "Period",
+                "lobbyist_name": "Organisation",
+                "member_name": "Politician",
+                "source_url": "Return URL",
+            }
+        )
         st.dataframe(
             display,
-            column_config={"Return URL": st.column_config.LinkColumn(
-                "Return URL",
-                display_text=r"https://www\.lobbying\.ie/return/(\d+)")},
+            column_config={
+                "Return URL": st.column_config.LinkColumn(
+                    "Return URL", display_text=r"https://www\.lobbying\.ie/return/(\d+)"
+                )
+            },
             use_container_width=True,
             hide_index=True,
         )
-        export_button(detail, "Export CSV",
-                      f"{area[:40].replace(' ', '_')}_lobbying.csv",
-                      "lob_export_area_detail")
+        export_button(detail, "Export CSV", f"{area[:40].replace(' ', '_')}_lobbying.csv", "lob_export_area_detail")
 
     # ── Source links note ─────────────────────────────────────────────────
     evidence_heading("Official source links")
@@ -1766,6 +1925,7 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
 
 # ── Results Stage 3 (politician × area) ────────────────────────────────────────
 
+
 def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
     # Custom back button — return to the area page, not the landing page
     if back_button(f"← Back to {area}", key="lob_results"):
@@ -1775,7 +1935,7 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
 
     st.html(
         f'<p class="lob-sidebar-label" style="margin:0.5rem 0 0.5rem;">'
-        f'Lobbying › {_h(area)} › <strong>{_h(politician)}</strong></p>'
+        f"Lobbying › {_h(area)} › <strong>{_h(politician)}</strong></p>"
     )
 
     detail_all = fetch_politician_area_returns(politician, area)
@@ -1787,8 +1947,9 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
             f"{len(detail_all):,} return(s) filed against {politician} "
             f"under the public policy area '{area}'. Each card below links to "
             f"the original lobbying.ie return — open it to read exactly what was lobbied for."
-        ) if not detail_all.empty else
-        f"No returns on record for {politician} under '{area}'.",
+        )
+        if not detail_all.empty
+        else f"No returns on record for {politician} under '{area}'.",
     )
 
     if detail_all.empty:
@@ -1798,10 +1959,7 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
 
     # ── Filters + export row ──────────────────────────────────────────────
     start, end = _year_selector(detail_all, "lob_year_results")
-    detail = (
-        fetch_politician_area_returns(politician, area, start, end)
-        if start else detail_all
-    )
+    detail = fetch_politician_area_returns(politician, area, start, end) if start else detail_all
 
     # Build org-detail lookup (sector, website) without a pandas merge
     org_idx = fetch_org_index()
@@ -1809,7 +1967,7 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
     if not org_idx.empty and "lobbyist_name" in org_idx.columns:
         for _, r in org_idx.iterrows():
             org_lookup[str(r["lobbyist_name"])] = {
-                "sector":  str(r.get("sector",  "") or ""),
+                "sector": str(r.get("sector", "") or ""),
                 "website": str(r.get("website", "") or ""),
             }
 
@@ -1824,18 +1982,23 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
     dpo_count = sum(1 for _, r in detail.iterrows() if str(r.get("return_id", "")) in dpo_by_return)
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Returns shown",      f"{len(detail):,}")
-    c2.metric("Distinct organisations",
-              f"{detail['lobbyist_name'].nunique():,}" if "lobbyist_name" in detail.columns else "—")
-    c3.metric("DPO involvement",    f"{dpo_count:,}",
-              help="Returns where a former Designated Public Officer carried out the lobbying.")
+    c1.metric("Returns shown", f"{len(detail):,}")
+    c2.metric(
+        "Distinct organisations", f"{detail['lobbyist_name'].nunique():,}" if "lobbyist_name" in detail.columns else "—"
+    )
+    c3.metric(
+        "DPO involvement",
+        f"{dpo_count:,}",
+        help="Returns where a former Designated Public Officer carried out the lobbying.",
+    )
 
     csv_export = detail.copy()
-    csv_export["dpo_individuals"] = csv_export["return_id"].astype(str).map(
-        lambda rid: "; ".join(dpo_by_return.get(rid, []))
+    csv_export["dpo_individuals"] = (
+        csv_export["return_id"].astype(str).map(lambda rid: "; ".join(dpo_by_return.get(rid, [])))
     )
     export_button(
-        csv_export, "Export every return as CSV",
+        csv_export,
+        "Export every return as CSV",
         f"{politician.replace(' ', '_')}_{area[:30].replace(' ', '_')}_returns.csv",
         "lob_export_results",
     )
@@ -1852,13 +2015,13 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
     cards: list[str] = []
     for i, (_, row) in enumerate(page_slice.iterrows(), start=1):
         rank = rank_offset + i
-        org_name  = str(row.get("lobbyist_name", "—"))
+        org_name = str(row.get("lobbyist_name", "—"))
         return_id = str(row.get("return_id", "—"))
-        period    = str(row.get("period_start_date", "") or "")[:10]
-        url       = str(row.get("source_url", "") or "")
-        org_meta  = org_lookup.get(org_name, {})
-        sector    = org_meta.get("sector",  "")
-        website   = org_meta.get("website", "")
+        period = str(row.get("period_start_date", "") or "")[:10]
+        url = str(row.get("source_url", "") or "")
+        org_meta = org_lookup.get(org_name, {})
+        sector = org_meta.get("sector", "")
+        website = org_meta.get("website", "")
 
         dpo_names = dpo_by_return.get(return_id, [])
         meta_bits: list[str] = []
@@ -1875,8 +2038,7 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
             f"Return #{return_id}",
         ]
         if url and url.startswith("http"):
-            pills.append(source_link_html(url, "View on lobbying.ie",
-                                          aria_label="Open this return on lobbying.ie"))
+            pills.append(source_link_html(url, "View on lobbying.ie", aria_label="Open this return on lobbying.ie"))
 
         cards.append(
             clickable_card_link(
@@ -1892,6 +2054,8 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
+
+@page_error_boundary
 def lobbying_page() -> None:
     _init()
     inject_css()
@@ -1931,13 +2095,13 @@ def lobbying_page() -> None:
 
     _render_sidebar()
 
-    summary        = fetch_summary()
-    sel_pol        = st.session_state.lob_selected_politician
-    sel_org        = st.session_state.lob_selected_org
-    sel_area       = st.session_state.lob_selected_area
-    sel_dpo        = st.session_state.lob_selected_dpo
-    sel_topic      = st.session_state.lob_selected_topic
-    view_rd        = st.session_state.lob_view_revolving_door
+    summary = fetch_summary()
+    sel_pol = st.session_state.lob_selected_politician
+    sel_org = st.session_state.lob_selected_org
+    sel_area = st.session_state.lob_selected_area
+    sel_dpo = st.session_state.lob_selected_dpo
+    sel_topic = st.session_state.lob_selected_topic
+    view_rd = st.session_state.lob_view_revolving_door
     view_org_index = st.session_state.lob_view_org_index
     sel_result_pol = st.session_state.lob_results_pol
 

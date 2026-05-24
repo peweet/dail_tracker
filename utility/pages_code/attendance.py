@@ -17,6 +17,7 @@ TODO_PIPELINE_VIEW_REQUIRED: unique_member_code on v_attendance_member_summary,
     cannot link member names out to /member-overview without an in-Streamlit name lookup,
     which is forbidden by the data-access rule.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -35,11 +36,14 @@ from ui.components import (
     clickable_card_link,
     empty_state,
     evidence_heading,
+    glossary_strip,
     hero_banner,
     member_profile_header,
+    page_error_boundary,
     render_notable_chips,
     sidebar_member_filter,
     sidebar_page_header,
+    stat_strip,
     todo_callout,
     year_selector,
 )
@@ -68,11 +72,10 @@ _MINISTER_NOTE = (
 )
 
 
-
-
 # ── Bootstrap ──────────────────────────────────────────────────────────────────
 
 # ── Retrieval (SELECT / WHERE / ORDER BY / LIMIT only) ────────────────────────
+
 
 @st.cache_data(ttl=300)
 def _views_ready() -> bool:
@@ -83,86 +86,103 @@ def _views_ready() -> bool:
 def _fetch_filter_options() -> dict[str, list]:
     conn = get_attendance_conn()
     members = conn.execute(
-        "SELECT DISTINCT member_name FROM v_attendance_member_summary"
-        " ORDER BY member_name LIMIT 2000"
+        "SELECT DISTINCT member_name FROM v_attendance_member_summary ORDER BY member_name LIMIT 2000"
     ).fetchall()
     years = conn.execute(
-        "SELECT DISTINCT year FROM v_attendance_member_year_summary"
-        " ORDER BY year DESC LIMIT 100"
+        "SELECT DISTINCT year FROM v_attendance_member_year_summary ORDER BY year DESC LIMIT 100"
     ).fetchall()
     return {
         "members": [r[0] for r in members],
-        "years":   [r[0] for r in years],
+        "years": [r[0] for r in years],
     }
-
 
 
 @st.cache_data(ttl=300)
 def _fetch_td_profile(td_name: str) -> pd.DataFrame:
-    return get_attendance_conn().execute(
-        "SELECT member_name, party_name, constituency"
-        " FROM v_attendance_member_summary WHERE member_name = ? LIMIT 1",
-        [td_name],
-    ).df()
+    return (
+        get_attendance_conn()
+        .execute(
+            "SELECT member_name, party_name, constituency"
+            " FROM v_attendance_member_summary WHERE member_name = ? LIMIT 1",
+            [td_name],
+        )
+        .df()
+    )
 
 
 @st.cache_data(ttl=300)
 def _fetch_member_years(td_name: str) -> pd.DataFrame:
     """Returns years DESC — used to populate the profile year pills."""
-    return get_attendance_conn().execute(
-        "SELECT year, attended_count FROM v_attendance_member_year_summary"
-        " WHERE member_name = ? ORDER BY year DESC LIMIT 100",
-        [td_name],
-    ).df()
+    return (
+        get_attendance_conn()
+        .execute(
+            "SELECT year, attended_count FROM v_attendance_member_year_summary"
+            " WHERE member_name = ? ORDER BY year DESC LIMIT 100",
+            [td_name],
+        )
+        .df()
+    )
 
 
 @st.cache_data(ttl=300)
 def _fetch_year_ranking(year: int) -> pd.DataFrame:
     """Top and bottom attenders for a given year from v_attendance_year_rank."""
-    return get_attendance_conn().execute(
-        "SELECT member_name, party_name, constituency,"
-        " attended_count, is_minister, rank_high, rank_low"
-        " FROM v_attendance_year_rank WHERE year = ?"
-        " ORDER BY rank_high ASC LIMIT 500",
-        [year],
-    ).df()
+    return (
+        get_attendance_conn()
+        .execute(
+            "SELECT member_name, party_name, constituency,"
+            " attended_count, is_minister, rank_high, rank_low"
+            " FROM v_attendance_year_rank WHERE year = ?"
+            " ORDER BY rank_high ASC LIMIT 500",
+            [year],
+        )
+        .df()
+    )
 
 
 @st.cache_data(ttl=300)
 def _fetch_timeline_for_year(td_name: str, year: int) -> pd.DataFrame:
-    return get_attendance_conn().execute(
-        "SELECT sitting_date, attendance_status"
-        " FROM v_attendance_timeline"
-        " WHERE member_name = ? AND year(sitting_date) = ?"
-        " ORDER BY sitting_date ASC LIMIT 400",
-        [td_name, year],
-    ).df()
+    return (
+        get_attendance_conn()
+        .execute(
+            "SELECT sitting_date, attendance_status"
+            " FROM v_attendance_timeline"
+            " WHERE member_name = ? AND year(sitting_date) = ?"
+            " ORDER BY sitting_date ASC LIMIT 400",
+            [td_name, year],
+        )
+        .df()
+    )
 
 
 @st.cache_data(ttl=300)
 def _fetch_timeline_stats(td_name: str, year: int) -> pd.DataFrame:
     """MIN/MAX sitting dates for a member-year — avoids pandas aggregation in the profile."""
-    return get_attendance_conn().execute(
-        "SELECT MIN(sitting_date) AS first_date, MAX(sitting_date) AS last_date"
-        " FROM v_attendance_timeline"
-        " WHERE member_name = ? AND year(sitting_date) = ?"
-        " LIMIT 1",
-        [td_name, year],
-    ).df()
+    return (
+        get_attendance_conn()
+        .execute(
+            "SELECT MIN(sitting_date) AS first_date, MAX(sitting_date) AS last_date"
+            " FROM v_attendance_timeline"
+            " WHERE member_name = ? AND year(sitting_date) = ?"
+            " LIMIT 1",
+            [td_name, year],
+        )
+        .df()
+    )
 
 
 # ── Good cop / bad cop browse view ────────────────────────────────────────────
 
 _GOOD_MEDALS = ["🥇", "🥈", "🥉"]
-_HALL_SIZE   = 15
+_HALL_SIZE = 15
 
 
 def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
-    name  = _h(str(row["member_name"]))
+    name = _h(str(row["member_name"]))
     party = str(row.get("party_name", "") or "")
     const = str(row.get("constituency", "") or "")
-    meta  = _h(clean_meta(party, const))
-    days  = int(row["attended_count"])
+    meta = _h(clean_meta(party, const))
+    days = int(row["attended_count"])
     return (
         f'<div class="att-hall-card-{side}">'
         f'<span class="att-hall-rank">#{rank}</span>'
@@ -170,14 +190,13 @@ def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
         f'<div class="att-hall-body">'
         f'<p class="att-hall-name">{name}</p>'
         f'<p class="att-hall-meta">{meta}</p>'
-        f'</div>'
+        f"</div>"
         f'<div class="att-hall-badge-{side}">'
         f'<span class="att-hall-badge-num">{days}</span>'
         f'<span class="att-hall-badge-label">days</span>'
-        f'</div>'
-        f'</div>'
+        f"</div>"
+        f"</div>"
     )
-
 
 
 def _att_card_link(row: pd.Series, *, side: str, rank: int, medal: str = "") -> str:
@@ -209,15 +228,8 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> None:
             f"full attendance ranking would be misleading. Showing all members by "
             f"days attended so far."
         )
-        partial = (
-            ranking_df.copy()
-            .sort_values("attended_count", ascending=False)
-            .reset_index(drop=True)
-        )
-        cards = [
-            _att_card_link(row, side="good", rank=i + 1)
-            for i, (_, row) in enumerate(partial.iterrows())
-        ]
+        partial = ranking_df.copy().sort_values("attended_count", ascending=False).reset_index(drop=True)
+        cards = [_att_card_link(row, side="good", rank=i + 1) for i, (_, row) in enumerate(partial.iterrows())]
         st.html("\n".join(cards))
         return
 
@@ -252,14 +264,12 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> None:
 
     with col_bad:
         st.html('<p class="att-hall-heading-bad">Lowest recorded attendance</p>')
-        bad_cards = [
-            _att_card_link(row, side="bad", rank=i + 1)
-            for i, (_, row) in enumerate(bottom.iterrows())
-        ]
+        bad_cards = [_att_card_link(row, side="bad", rank=i + 1) for i, (_, row) in enumerate(bottom.iterrows())]
         st.html("\n".join(bad_cards))
 
 
 # ── Attendance timeline strip (profile — one year at a time) ──────────────────
+
 
 def _render_attendance_strip(timeline: pd.DataFrame, year: int) -> None:
     """Timeline strip: one tick per sitting day attended, month labels on x-axis.
@@ -276,7 +286,7 @@ def _render_attendance_strip(timeline: pd.DataFrame, year: int) -> None:
     df["date_str"] = df["sitting_date"].dt.strftime("%d %b %Y")
 
     today = datetime.date.today()
-    domain_end   = today.isoformat() if year >= today.year else f"{year}-12-31"
+    domain_end = today.isoformat() if year >= today.year else f"{year}-12-31"
     domain_start = f"{year}-01-01"
 
     chart = (
@@ -316,6 +326,7 @@ def _render_attendance_strip(timeline: pd.DataFrame, year: int) -> None:
 
 # ── Profile view ───────────────────────────────────────────────────────────────
 
+
 def _render_profile(td_name: str) -> None:
     profile = _fetch_td_profile(td_name)
     if profile.empty:
@@ -325,12 +336,13 @@ def _render_profile(td_name: str) -> None:
         )
         return
 
-    row   = profile.iloc[0]
-    party = str(row.get("party_name")   or "—")
+    row = profile.iloc[0]
+    party = str(row.get("party_name") or "—")
     const = str(row.get("constituency") or "—")
 
     member_profile_header(
-        td_name, f"{party} · {const}",
+        td_name,
+        f"{party} · {const}",
         avatar_url=avatar_data_url(td_name),
         avatar_initials=_initials(td_name),
         avatar_credit_html=avatar_credit_html(td_name),
@@ -347,34 +359,32 @@ def _render_profile(td_name: str) -> None:
     selected_year = year_selector(year_options, key="att_profile_year", skip_current=False)
 
     # ── Stats for selected year (from pipeline — no pandas aggregation) ──────────
-    yr_row     = member_years_df[member_years_df["year"] == selected_year]
+    yr_row = member_years_df[member_years_df["year"] == selected_year]
     n_attended = int(yr_row["attended_count"].iloc[0]) if not yr_row.empty else 0
 
-    ts_df  = _fetch_timeline_stats(td_name, selected_year)
+    ts_df = _fetch_timeline_stats(td_name, selected_year)
     ts_row = ts_df.iloc[0] if not ts_df.empty else None
     if ts_row is not None and pd.notna(ts_row.get("first_date")):
         first_d = pd.Timestamp(ts_row["first_date"]).strftime("%d %b %Y")
-        last_d  = pd.Timestamp(ts_row["last_date"]).strftime("%d %b %Y")
+        last_d = pd.Timestamp(ts_row["last_date"]).strftime("%d %b %Y")
     else:
         first_d = "—"
-        last_d  = "—"
+        last_d = "—"
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric(
-        f"Days attended · {selected_year}",
-        n_attended,
-        delta="plenary + committee days",
-        delta_color="off",
+    stat_strip(
+        [
+            (str(n_attended), f"Days attended · {selected_year}", "var(--text-primary)", "plenary + committee days"),
+            (first_d, "First sitting", "var(--text-secondary)"),
+            (last_d, "Most recent", "var(--text-secondary)"),
+        ]
     )
-    c2.metric("First sitting",  first_d)
-    c3.metric("Most recent",    last_d)
 
     st.divider()
 
     # ── Sitting calendar ───────────────────────────────────────────────────────
-    timeline       = _fetch_timeline_for_year(td_name, selected_year)
+    timeline = _fetch_timeline_for_year(td_name, selected_year)
     _required_cols = {"sitting_date", "attendance_status"}
-    missing_cols   = _required_cols - set(timeline.columns)
+    missing_cols = _required_cols - set(timeline.columns)
 
     evidence_heading(f"Sitting calendar · {selected_year}")
 
@@ -408,17 +418,17 @@ def _render_profile(td_name: str) -> None:
 
         with st.expander(f"Sitting dates · {n_attended} records", expanded=False):
             tl_table = tl_all.copy()
-            tl_table["#"]       = range(1, len(tl_table) + 1)
-            tl_table["Date"]    = tl_table["sitting_date"].dt.strftime("%d %b %Y")
+            tl_table["#"] = range(1, len(tl_table) + 1)
+            tl_table["Date"] = tl_table["sitting_date"].dt.strftime("%d %b %Y")
             tl_table["Weekday"] = tl_table["sitting_date"].dt.strftime("%A")
             st.dataframe(
                 tl_table[["#", "Date", "Weekday"]],
                 hide_index=True,
                 use_container_width=True,
                 column_config={
-                    "#":       st.column_config.NumberColumn("#",    width="small"),
-                    "Date":    st.column_config.TextColumn("Date",   width="medium"),
-                    "Weekday": st.column_config.TextColumn("Day",    width="medium"),
+                    "#": st.column_config.NumberColumn("#", width="small"),
+                    "Date": st.column_config.TextColumn("Date", width="medium"),
+                    "Weekday": st.column_config.TextColumn("Day", width="medium"),
                 },
             )
 
@@ -435,6 +445,7 @@ def _render_profile(td_name: str) -> None:
 
 # ── Year breakdown table (profile secondary view) ─────────────────────────────
 
+
 def _render_year_breakdown(td_name: str, years_df: pd.DataFrame) -> None:
     evidence_heading("Attendance by year")
     if years_df.empty:
@@ -443,12 +454,12 @@ def _render_year_breakdown(td_name: str, years_df: pd.DataFrame) -> None:
 
     rows = []
     for _, r in years_df.iterrows():
-        y     = int(r["year"])
-        days  = int(r["attended_count"])
+        y = int(r["year"])
+        days = int(r["attended_count"])
         total = SITTING_DAYS_BY_YEAR.get(y)
         # Rate computation uses the contract-permitted hardcoded sitting-day totals
         # (permitted_hardcoded_values.year_sitting_days in attendance.yaml).
-        pct   = days / total if total else None
+        pct = days / total if total else None
         rows.append({"Year": y, "Days": days, "Total": str(total) if total else "—", "Rate": pct})
 
     table_df = pd.DataFrame(rows)
@@ -457,13 +468,15 @@ def _render_year_breakdown(td_name: str, years_df: pd.DataFrame) -> None:
         hide_index=True,
         use_container_width=True,
         column_config={
-            "Year":  st.column_config.NumberColumn("Year",          format="%d",  width="small"),
-            "Days":  st.column_config.NumberColumn("Days attended",               width="small"),
-            "Total": st.column_config.TextColumn("Sitting days",                  width="small"),
-            "Rate":  st.column_config.ProgressColumn(
-                         "Attendance",
-                         min_value=0.0, max_value=1.0, format="%.0%",
-                     ),
+            "Year": st.column_config.NumberColumn("Year", format="%d", width="small"),
+            "Days": st.column_config.NumberColumn("Days attended", width="small"),
+            "Total": st.column_config.TextColumn("Sitting days", width="small"),
+            "Rate": st.column_config.ProgressColumn(
+                "Attendance",
+                min_value=0.0,
+                max_value=1.0,
+                format="%.0%",
+            ),
         },
     )
     safe = td_name.replace(" ", "_")
@@ -477,12 +490,12 @@ def _render_year_breakdown(td_name: str, years_df: pd.DataFrame) -> None:
 
 # ── Provenance footer ──────────────────────────────────────────────────────────
 
+
 def _render_provenance(year: int | None = None) -> None:
     provenance_expander(
         sections=[_CAVEAT, _MINISTER_NOTE],
         source_caption=(
-            "Data: Oireachtas TAA verification records (data.oireachtas.ie)"
-            + (f" · {year}" if year else "")
+            "Data: Oireachtas TAA verification records (data.oireachtas.ie)" + (f" · {year}" if year else "")
         ),
         pdf_links=list(ATTENDANCE),
     )
@@ -490,12 +503,14 @@ def _render_provenance(year: int | None = None) -> None:
 
 # ── Page entry point ───────────────────────────────────────────────────────────
 
+
+@page_error_boundary
 def attendance_page() -> None:
     inject_css()
 
     try:
         ready = _views_ready()
-        opts  = _fetch_filter_options()
+        opts = _fetch_filter_options()
     except Exception as exc:
         empty_state(
             "Attendance views not available",
@@ -544,6 +559,13 @@ def attendance_page() -> None:
             kicker="DÁIL PLENARY ATTENDANCE",
             title="The attendance record",
         )
+        glossary_strip(
+            [
+                ("TD", "Teachta Dála, a member of the Dáil"),
+                ("Plenary", "the full chamber sitting (does not include committees or ministerial duties)"),
+                ("TAA", "Travel & Accommodation Allowance, the official attendance record"),
+            ]
+        )
 
     # ── Profile view ───────────────────────────────────────────────────────────
     if selected_td:
@@ -575,8 +597,8 @@ def attendance_page() -> None:
         return
 
     total_days = SITTING_DAYS_BY_YEAR.get(selected_year)
-    n_members  = len(ranking_df)
-    rate_note  = f" · {total_days} scheduled sitting days" if total_days else ""
+    n_members = len(ranking_df)
+    rate_note = f" · {total_days} scheduled sitting days" if total_days else ""
 
     st.caption(f"{n_members} members on record{rate_note}")
 

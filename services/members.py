@@ -12,18 +12,10 @@ logger = logging.getLogger(__name__)
 def fetch_members_payload() -> dict:
     """Fetch full members payload from API."""
     chamber_id = "%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34"
-    url = (
-        f"{API_BASE}/members"
-        f"?chamber_id={chamber_id}"
-        f"&date_start=2024-01-01"
-        f"&date_end=2099-01-01"
-        f"&limit=200"
-    )
+    url = f"{API_BASE}/members?chamber_id={chamber_id}&date_start=2024-01-01&date_end=2099-01-01&limit=200"
 
     payload, raw_bytes = fetch_json(url)
-    logger.info(
-        f"Fetched members payload | rows={len(payload.get('results', []))} | bytes={raw_bytes:,}"
-    )
+    logger.info(f"Fetched members payload | rows={len(payload.get('results', []))} | bytes={raw_bytes:,}")
     return payload
 
 
@@ -33,12 +25,7 @@ def load_members_payload() -> dict:
     data = load_json(path)
 
     # Backward compatibility with old saved format: [payload_dict]
-    if (
-        isinstance(data, list)
-        and len(data) == 1
-        and isinstance(data[0], dict)
-        and "results" in data[0]
-    ):
+    if isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict) and "results" in data[0]:
         data = data[0]
 
     return data
@@ -61,12 +48,7 @@ def _extract_member_uri(row: dict) -> str | None:
     """Extract one usable member URI from a row."""
     member = row.get("member", row)
 
-    member_uri = (
-        member.get("uri")
-        or member.get("member_id")
-        or row.get("uri")
-        or row.get("member_id")
-    )
+    member_uri = member.get("uri") or member.get("member_id") or row.get("uri") or row.get("member_id")
 
     if not member_uri:
         return None
@@ -94,12 +76,7 @@ def members_payload_to_df(payload: dict) -> pl.DataFrame:
         logger.warning("No usable member URIs were found in members payload.")
         return pl.DataFrame({"member_uri": []}, schema={"member_uri": pl.Utf8})
 
-    df = (
-        pl.DataFrame(cleaned_rows)
-        .filter(pl.col("member_uri").is_not_null())
-        .unique()
-        .sort("member_uri")
-    )
+    df = pl.DataFrame(cleaned_rows).filter(pl.col("member_uri").is_not_null()).unique().sort("member_uri")
 
     logger.info(f"Prepared member dataframe with {df.height} unique member URIs")
     return df

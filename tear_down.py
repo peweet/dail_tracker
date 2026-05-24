@@ -85,6 +85,7 @@ def clean_bronze() -> None:
     ]:
         _delete_file(bronze / name)
 
+
 def clean_vote_jsons() -> None:
     """Raw vote API responses under data/ — converted to pretty_votes.csv."""
     _delete_glob(_ROOT / "data", "vote_*.json")

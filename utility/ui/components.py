@@ -1,13 +1,60 @@
 """Shared UI components for Dáil Tracker Streamlit pages (v5)."""
+
 from __future__ import annotations
+
 import datetime
+import functools
+import logging
+import traceback
 from html import escape as _h
+
 import streamlit as st
+
+_log = logging.getLogger(__name__)
 
 
 def clean_meta(*parts: str) -> str:
     """Join non-empty, non-NaN string parts with ' · '."""
     return " · ".join(p for p in parts if p and p.lower() not in ("nan", ""))
+
+
+def page_error_boundary(page_fn):
+    """Decorator: catch any unhandled exception in a page entry point and
+    show a calm civic-voice empty_state instead of Streamlit's red traceback.
+
+    Logs full traceback for debugging; exposes a brief technical summary in
+    a collapsed expander so journalists/devs can paste it into a GitHub issue.
+    Only catches Exception (not BaseException), so st.stop() and Ctrl+C work.
+    """
+
+    @functools.wraps(page_fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return page_fn(*args, **kwargs)
+        except Exception as exc:
+            tb = traceback.format_exc()
+            _log.exception("page entry crashed: %s", page_fn.__name__)
+            try:
+                from shared_css import inject_css
+
+                inject_css()
+            except Exception:
+                pass
+            st.html(
+                '<div class="dt-callout">'
+                "<strong>Something went wrong rendering this page.</strong><br>"
+                '<span style="color:var(--text-meta)">'
+                "Try refreshing. If it persists, the underlying view may be "
+                "missing or the data file may be stale. "
+                f"({_h(type(exc).__name__)})"
+                "</span>"
+                "</div>"
+            )
+            with st.expander("Technical details", expanded=False):
+                st.code(tb, language="text")
+            return None
+
+    return wrapper
 
 
 def sidebar_page_header(title: str, kicker: str = "Dáil Tracker") -> None:
@@ -57,11 +104,12 @@ def render_notable_chips(
     visible = [n for n in names if n in available]
     chip_cols = st.columns(cols)
     for i, name in enumerate(visible):
-        if chip_cols[i % cols].button(name.split()[-1], key=f"{key_prefix}_{name}", use_container_width=True, help=name):
+        if chip_cols[i % cols].button(
+            name.split()[-1], key=f"{key_prefix}_{name}", use_container_width=True, help=name
+        ):
             st.session_state[session_key] = name
             return True
     return False
-
 
 
 def info_card(
@@ -155,13 +203,41 @@ def hero_banner(kicker: str, title: str, dek: str = "", badges: list[str] | None
     )
 
 
-def stat_strip(stats: list[tuple[str, str, str]]) -> None:
-    """Render evidence stats. Each stat is (value, label, colour). Reuses .stat-strip CSS."""
+def glossary_strip(terms: list[tuple[str, str]]) -> None:
+    """Render a one-line glossary of acronyms under the hero.
+
+    Each entry is (acronym, expansion). The strip is small, secondary,
+    designed for first-time citizen readers who don't know "TD" or "DPO".
+    Journalists ignore it; citizens don't have to Google.
+
+    Usage:
+        glossary_strip([
+            ("TD", "Teachta Dála (member of the Dáil)"),
+            ("DPO", "Designated Public Official"),
+        ])
+    """
+    if not terms:
+        return
+    items = "".join(f'<span class="dt-glossary-term"><b>{_h(a)}</b> {_h(d)}</span>' for a, d in terms)
+    st.html(f'<div class="dt-glossary-strip">{items}</div>')
+
+
+def stat_strip(stats: list[tuple[str, str, str]] | list[tuple[str, str, str, str]]) -> None:
+    """Render evidence stats. Each stat is (value, label, colour) or
+    (value, label, colour, sub_label) where sub_label adds comparative
+    context like "rank 87 of 174" below the label. Reuses .stat-strip CSS."""
     items = ""
-    for value, label, colour in stats:
+    for stat in stats:
+        if len(stat) == 4:
+            value, label, colour, sub = stat
+        else:
+            value, label, colour = stat  # type: ignore[misc]
+            sub = ""
+        sub_html = f'<div class="stat-sub">{_h(sub)}</div>' if sub else ""
         items += (
-            f'<div><div class="stat-num" style="color:{colour}">{value}</div>'
-            f'<div class="stat-lbl">{label}</div></div>'
+            f'<div><div class="stat-num" style="color:{colour}">{_h(value)}</div>'
+            f'<div class="stat-lbl">{_h(label)}</div>'
+            f"{sub_html}</div>"
         )
     st.html(f'<div class="stat-strip">{items}</div>')
 
@@ -182,7 +258,7 @@ def evidence_heading(text: str) -> None:
 def todo_callout(message: str) -> None:
     st.markdown(
         f'<div class="dt-callout"><strong>Not yet available.</strong><br>'
-        f'<code>TODO_PIPELINE_VIEW_REQUIRED</code>: {message}</div>',
+        f"<code>TODO_PIPELINE_VIEW_REQUIRED</code>: {message}</div>",
         unsafe_allow_html=True,
     )
 
@@ -287,12 +363,12 @@ def breadcrumb(labels: list[str], *, key_prefix: str) -> int | None:
 
 PILL_VARIANTS: dict[str, str] = {
     "default": "int-stat-pill",
-    "accent":  "int-stat-pill int-stat-pill-accent",
-    "decl":    "int-stat-pill int-pill-decl",
+    "accent": "int-stat-pill int-stat-pill-accent",
+    "decl": "int-stat-pill int-pill-decl",
     "company": "int-stat-pill int-pill-company",
-    "prop":    "int-stat-pill int-pill-prop",
-    "shares":  "int-stat-pill int-pill-shares",
-    "owner":   "int-stat-pill int-pill-owner",
+    "prop": "int-stat-pill int-pill-prop",
+    "shares": "int-stat-pill int-pill-shares",
+    "owner": "int-stat-pill int-pill-owner",
 }
 
 
@@ -330,27 +406,24 @@ def member_card_html(
     if avatar_url:
         left_inner = f'<img class="dt-name-card-avatar" src="{_h(avatar_url)}" alt="" loading="lazy">'
     elif rank is not None:
-        rank_cls   = "dt-name-card-rank dt-name-card-rank-top" if rank <= 3 else "dt-name-card-rank"
+        rank_cls = "dt-name-card-rank dt-name-card-rank-top" if rank <= 3 else "dt-name-card-rank"
         left_inner = f'<span class="{rank_cls}">#{rank}</span>'
     elif avatar_initials:
-        left_inner = (
-            f'<span class="dt-name-card-initials" aria-hidden="true">'
-            f'{_h(avatar_initials)}</span>'
-        )
+        left_inner = f'<span class="dt-name-card-initials" aria-hidden="true">{_h(avatar_initials)}</span>'
     else:
         left_inner = ""
-    meta_html    = f'<div class="dt-name-card-meta">{_h(meta)}</div>' if meta else ""
-    pills_sec    = f'<div class="dt-name-card-pills">{pills_html}</div>' if pills_html else ""
-    badge_sec    = f'<div class="dt-name-card-badge">{badge_html}</div>' if badge_html else ""
+    meta_html = f'<div class="dt-name-card-meta">{_h(meta)}</div>' if meta else ""
+    pills_sec = f'<div class="dt-name-card-pills">{pills_html}</div>' if pills_html else ""
+    badge_sec = f'<div class="dt-name-card-badge">{badge_html}</div>' if badge_html else ""
     return (
         f'<div class="dt-name-card">'
         f'<div class="dt-name-card-left">{left_inner}</div>'
         f'<div class="dt-name-card-body">'
         f'<div class="dt-name-card-name">{_h(name)}</div>'
-        f'{meta_html}{pills_sec}'
-        f'</div>'
-        f'{badge_sec}'
-        f'</div>'
+        f"{meta_html}{pills_sec}"
+        f"</div>"
+        f"{badge_sec}"
+        f"</div>"
     )
 
 
@@ -391,19 +464,19 @@ def rank_card_row(
 
 
 PARTY_COLOURS: dict[str, str] = {
-    "Fianna Fáil":           "#66bb6a",
-    "Fine Gael":             "#1e88e5",
-    "Sinn Féin":             "#2e7d32",
-    "Labour":                "#e53935",
-    "Social Democrats":      "#8e24aa",
-    "Green Party":           "#43a047",
-    "People Before Profit":  "#d81b60",
-    "Solidarity":            "#c2185b",
-    "Aontú":                 "#3949ab",
-    "Independent":           "#9e9e9e",
-    "Independent Ireland":   "#ff7043",
-    "Right To Change":       "#7b1fa2",
-    "Unknown":               "#bdbdbd",
+    "Fianna Fáil": "#66bb6a",
+    "Fine Gael": "#1e88e5",
+    "Sinn Féin": "#2e7d32",
+    "Labour": "#e53935",
+    "Social Democrats": "#8e24aa",
+    "Green Party": "#43a047",
+    "People Before Profit": "#d81b60",
+    "Solidarity": "#c2185b",
+    "Aontú": "#3949ab",
+    "Independent": "#9e9e9e",
+    "Independent Ireland": "#ff7043",
+    "Right To Change": "#7b1fa2",
+    "Unknown": "#bdbdbd",
 }
 
 
@@ -433,7 +506,7 @@ def party_stripe_html(parties: list[tuple[str, int]], *, show_legend: bool = Tru
     if show_legend:
         chips = "".join(
             f'<span><span class="cmt-stripe-legend-dot" style="background:{party_colour(p)}"></span>'
-            f'<strong>{_h(p)}</strong> {c}</span>'
+            f"<strong>{_h(p)}</strong> {c}</span>"
             for p, c in cleaned
         )
         legend = f'<div class="cmt-stripe-legend">{chips}</div>'
@@ -471,28 +544,27 @@ def committee_row_html(
         meta_parts.append(f"Type: <strong>{_h(type_)}</strong>")
     if members:
         meta_parts.append(f"<strong>{int(members)}</strong> member{'s' if members != 1 else ''}")
-    meta_html = (
-        f'<div class="cmt-row-meta">{" · ".join(meta_parts)}</div>' if meta_parts else ""
-    )
+    meta_html = f'<div class="cmt-row-meta">{" · ".join(meta_parts)}</div>' if meta_parts else ""
     stripe_html = party_stripe_html(party_seats, show_legend=True) if party_seats else ""
     link_html = ""
     if oireachtas_url:
         from ui.entity_links import source_link_html  # local import — avoids any future circular risk
+
         link_html = (
             f'<div class="cmt-row-pills">'
-            f'{source_link_html(oireachtas_url, "Oireachtas.ie", aria_label=f"Open {name} on oireachtas.ie")}'
-            f'</div>'
+            f"{source_link_html(oireachtas_url, 'Oireachtas.ie', aria_label=f'Open {name} on oireachtas.ie')}"
+            f"</div>"
         )
     return (
         f'<div class="cmt-row">'
-        f'{rank_html}'
+        f"{rank_html}"
         f'<div class="cmt-row-body">'
         f'<div class="cmt-row-head"><span class="cmt-row-name">{_h(name)}</span>{status_html}</div>'
-        f'{meta_html}'
-        f'{stripe_html}'
-        f'{link_html}'
-        f'</div>'
-        f'</div>'
+        f"{meta_html}"
+        f"{stripe_html}"
+        f"{link_html}"
+        f"</div>"
+        f"</div>"
     )
 
 
@@ -523,24 +595,28 @@ def committee_identity_strip(
     if oireachtas_url or source_document_url:
         from ui.entity_links import source_link_html  # local — avoids any future circular risk
     if oireachtas_url:
-        links.append(source_link_html(
-            oireachtas_url, "Oireachtas.ie",
-            aria_label=f"Open {name} on oireachtas.ie",
-        ))
+        links.append(
+            source_link_html(
+                oireachtas_url,
+                "Oireachtas.ie",
+                aria_label=f"Open {name} on oireachtas.ie",
+            )
+        )
     if source_document_url:
-        links.append(source_link_html(
-            source_document_url, "Source document",
-            aria_label=f"Open the source document for {name}",
-        ))
-    links_html = (
-        f'<div class="cmt-identity-links">{"".join(links)}</div>' if links else ""
-    )
+        links.append(
+            source_link_html(
+                source_document_url,
+                "Source document",
+                aria_label=f"Open the source document for {name}",
+            )
+        )
+    links_html = f'<div class="cmt-identity-links">{"".join(links)}</div>' if links else ""
     st.markdown(
         f'<div class="cmt-identity">'
         f'<p class="cmt-identity-name">{_h(name)}</p>'
         f'<p class="cmt-identity-meta">{meta_html}</p>'
-        f'{links_html}'
-        f'</div>',
+        f"{links_html}"
+        f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -604,12 +680,15 @@ def find_a_td_filter(
         st.html(f'<p class="dt-main-search-kicker">{_h(label)}</p>')
     cols = st.columns(width_ratio)
     with cols[0]:
-        query = st.text_input(
-            label,
-            placeholder=placeholder,
-            key=f"{key_prefix}_filter_query",
-            label_visibility="collapsed",
-        ) or ""
+        query = (
+            st.text_input(
+                label,
+                placeholder=placeholder,
+                key=f"{key_prefix}_filter_query",
+                label_visibility="collapsed",
+            )
+            or ""
+        )
     sq = query.strip().lower()
     filtered = [m for m in members if sq in m.lower()] if sq else members
     with cols[1]:
@@ -650,24 +729,14 @@ def member_profile_header(
     avatar_credit_html — inline attribution caption for CC BY / CC BY-SA.
                         Shown under the photo. None when no photo.
     """
-    badges = (
-        f'<p style="margin:0.3rem 0 0.6rem;">{badges_html}</p>'
-        if badges_html else ""
-    )
+    badges = f'<p style="margin:0.3rem 0 0.6rem;">{badges_html}</p>' if badges_html else ""
 
     if avatar_url:
-        avatar_block = (
-            f'<img class="dt-profile-avatar" src="{_h(avatar_url)}" alt="" loading="lazy">'
-        )
-        caption = (
-            f'<p class="dt-profile-avatar-credit">{avatar_credit_html}</p>'
-            if avatar_credit_html else ""
-        )
+        avatar_block = f'<img class="dt-profile-avatar" src="{_h(avatar_url)}" alt="" loading="lazy">'
+        caption = f'<p class="dt-profile-avatar-credit">{avatar_credit_html}</p>' if avatar_credit_html else ""
     else:
         initials = _h(avatar_initials or "?")
-        avatar_block = (
-            f'<span class="dt-profile-initials" aria-hidden="true">{initials}</span>'
-        )
+        avatar_block = f'<span class="dt-profile-initials" aria-hidden="true">{initials}</span>'
         caption = '<p class="dt-profile-avatar-empty">No photo available</p>'
 
     st.markdown(
@@ -676,9 +745,9 @@ def member_profile_header(
         f'  <div class="dt-profile-meta-col">'
         f'    <p class="td-name">{name}</p>'
         f'    <p class="td-meta">{meta}</p>'
-        f'    {badges}'
-        f'  </div>'
-        f'</div>',
+        f"    {badges}"
+        f"  </div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -771,14 +840,14 @@ def clickable_card_link(
         target:      ``"_self"`` (same tab, default) or ``"_blank"``.
         show_arrow:  Render the decorative right-edge arrow. Default True.
     """
-    arrow = '<span class="dt-card-arrow" aria-hidden="true">→</span>' if show_arrow else ''
+    arrow = '<span class="dt-card-arrow" aria-hidden="true">→</span>' if show_arrow else ""
     return (
         f'<div class="dt-card-link-wrap">'
         f'<a class="dt-card-link" href="{_h(href)}" target="{_h(target)}" '
         f'aria-label="{_h(aria_label)}"></a>'
-        f'{inner_html}'
-        f'{arrow}'
-        f'</div>'
+        f"{inner_html}"
+        f"{arrow}"
+        f"</div>"
     )
 
 
@@ -895,7 +964,7 @@ def pagination_controls(
     if size_key not in st.session_state:
         st.session_state[size_key] = default_page_size
 
-    page_size   = int(st.session_state[size_key])
+    page_size = int(st.session_state[size_key])
     total_pages = max(1, (total + page_size - 1) // page_size)
 
     cur = int(st.session_state.get(page_key, 1))
@@ -904,7 +973,7 @@ def pagination_controls(
         st.session_state[page_key] = 1
 
     start = (cur - 1) * page_size + 1 if total else 0
-    end   = min(cur * page_size, total)
+    end = min(cur * page_size, total)
 
     show_size_picker = len(page_sizes) > 1
     if show_size_picker:
@@ -935,7 +1004,7 @@ def pagination_controls(
                     with btn_cols[i]:
                         st.html('<div class="dt-pager-ellipsis">…</div>')
                     continue
-                is_cur = (p == cur)
+                is_cur = p == cur
                 if is_cur:
                     with btn_cols[i]:
                         st.html(f'<div class="dt-pager-current">{p}</div>')
@@ -955,9 +1024,9 @@ def pagination_controls(
         if total > 0 and show_caption:
             st.html(
                 f'<div class="dt-pager-caption">'
-                f'Showing <strong>{start:,}–{end:,}</strong> of '
-                f'<strong>{total:,}</strong> {_h(label)}'
-                f'</div>'
+                f"Showing <strong>{start:,}–{end:,}</strong> of "
+                f"<strong>{total:,}</strong> {_h(label)}"
+                f"</div>"
             )
 
     if size_col is not None:
@@ -984,17 +1053,17 @@ def interest_declaration_item(text: str, status: str = "unchanged") -> None:
     status: 'new' | 'removed' | 'unchanged'
     """
     if status == "new":
-        wrap  = "background:#f0fdf4;border-left:3px solid #16a34a;"
+        wrap = "background:#f0fdf4;border-left:3px solid #16a34a;"
         badge = '<span class="int-diff-badge-new">NEW</span> '
-        body  = _h(text)
+        body = _h(text)
     elif status == "removed":
-        wrap  = "background:#fef2f2;border-left:3px solid #dc2626;opacity:0.82;"
+        wrap = "background:#fef2f2;border-left:3px solid #dc2626;opacity:0.82;"
         badge = '<span class="int-diff-badge-removed">REMOVED</span> '
-        body  = f"<s>{_h(text)}</s>"
+        body = f"<s>{_h(text)}</s>"
     else:
-        wrap  = "border-bottom:1px solid var(--dt-border);"
+        wrap = "border-bottom:1px solid var(--dt-border);"
         badge = ""
-        body  = _h(text)
+        body = _h(text)
     st.html(
         f'<div style="{wrap}padding:0.4rem 0.65rem;margin:0.1rem 0;'
         f'border-radius:0 4px 4px 0;font-size:0.9rem;line-height:1.55;">'

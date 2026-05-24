@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from html import escape
-from typing import Iterable, Mapping, Any
+from typing import Any
 
 import streamlit as st
 
@@ -9,9 +10,11 @@ import streamlit as st
 def civic_page_header(kicker: str, title: str, dek: str, *, badges: Iterable[str] | None = None) -> None:
     badge_html = ""
     if badges:
-        badge_html = "<div class='dt-badge-row'>" + "".join(
-            f"<span class='dt-badge'>{escape(str(b))}</span>" for b in badges
-        ) + "</div>"
+        badge_html = (
+            "<div class='dt-badge-row'>"
+            + "".join(f"<span class='dt-badge'>{escape(str(b))}</span>" for b in badges)
+            + "</div>"
+        )
     st.html(
         f"""
         <section class="dt-hero">

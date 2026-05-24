@@ -11,6 +11,7 @@ authorised in committees.yaml § transition_state on 2026-05-03 and MUST be
 removed once the views land. Every section that uses the scaffold renders a
 todo_callout (see _transition_notice).
 """
+
 from __future__ import annotations
 
 import re
@@ -36,6 +37,7 @@ from ui.components import (
     evidence_heading,
     find_a_td_search,
     member_profile_header,
+    page_error_boundary,
     paginate,
     pagination_controls,
     party_colour,
@@ -79,7 +81,7 @@ def _committee_slug(name: str) -> str | None:
     for prefixes, suf in chamber_patterns:
         for prefix in prefixes:
             if s.startswith(prefix):
-                s = s[len(prefix):]
+                s = s[len(prefix) :]
                 suffix = suf
                 matched_chamber = True
                 break
@@ -88,7 +90,7 @@ def _committee_slug(name: str) -> str | None:
     if not matched_chamber:
         for prefix in ("Joint Committee on ", "Select Committee on ", "Committee on "):
             if s.startswith(prefix):
-                s = s[len(prefix):]
+                s = s[len(prefix) :]
                 break
     s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii").lower()
     s = re.sub(r"[^\w\s-]", "", s)
@@ -134,46 +136,50 @@ def _load(chamber: str):
             office_name = row.get(f"{op}_name")
             if pd.isna(office_name):
                 continue
-            office_records.append({
-                "name":  name,
-                "party": party,
-                "office": str(office_name).strip(),
-                "start": _coalesce(row.get(f"{op}_start_date")),
-                "end":   _coalesce(row.get(f"{op}_end_date")),
-            })
+            office_records.append(
+                {
+                    "name": name,
+                    "party": party,
+                    "office": str(office_name).strip(),
+                    "start": _coalesce(row.get(f"{op}_start_date")),
+                    "end": _coalesce(row.get(f"{op}_end_date")),
+                }
+            )
     offices = pd.DataFrame(office_records)
 
     status_map = {"Live": "Active", "Dissolved": "Ended"}
     records: list[dict] = []
     for _, row in df.iterrows():
         base = {
-            "name":         _coalesce(row.get("full_name")) or "Unknown",
-            "party":        _coalesce(row.get("party")) or "Unknown",
+            "name": _coalesce(row.get("full_name")) or "Unknown",
+            "party": _coalesce(row.get("party")) or "Unknown",
             "constituency": _coalesce(row.get("constituency_name")),
-            "dail_number":  _coalesce(row.get("dail_number")),
+            "dail_number": _coalesce(row.get("dail_number")),
         }
         for prefix in prefixes:
             c_name = row.get(f"{prefix}_name_en")
             if pd.isna(c_name):
                 continue
             role = _coalesce(row.get(f"{prefix}_role_title")) or "Member"
-            records.append({
-                **base,
-                "committee":     str(c_name).strip(),
-                "committee_url": _committee_url(c_name, base["dail_number"]),
-                "type":          _coalesce(row.get(f"{prefix}_type")) or "Unknown",
-                "status":        status_map.get(row.get(f"{prefix}_main_status"), "Unknown"),
-                "role":          role,
-                "is_chair":      "cathaoirleach" in str(role).lower(),
-                "start":         _coalesce(
-                    row.get(f"{prefix}_role_start_date"),
-                    row.get(f"{prefix}_member_start_date"),
-                ),
-                "end":           _coalesce(
-                    row.get(f"{prefix}_role_end_date"),
-                    row.get(f"{prefix}_member_end_date"),
-                ),
-            })
+            records.append(
+                {
+                    **base,
+                    "committee": str(c_name).strip(),
+                    "committee_url": _committee_url(c_name, base["dail_number"]),
+                    "type": _coalesce(row.get(f"{prefix}_type")) or "Unknown",
+                    "status": status_map.get(row.get(f"{prefix}_main_status"), "Unknown"),
+                    "role": role,
+                    "is_chair": "cathaoirleach" in str(role).lower(),
+                    "start": _coalesce(
+                        row.get(f"{prefix}_role_start_date"),
+                        row.get(f"{prefix}_member_start_date"),
+                    ),
+                    "end": _coalesce(
+                        row.get(f"{prefix}_role_end_date"),
+                        row.get(f"{prefix}_member_end_date"),
+                    ),
+                }
+            )
 
     df_long = pd.DataFrame(records)
     if not df_long.empty:
@@ -188,8 +194,18 @@ def _committee_summary(df_long: pd.DataFrame) -> pd.DataFrame:
     """Per-committee rollup. TRANSITIONAL — replace with v_committee_member_detail."""
     if df_long.empty:
         return pd.DataFrame(
-            columns=["committee", "members", "parties", "chairs", "status", "type", "url",
-                     "chair_name", "chair_party", "party_seats"]
+            columns=[
+                "committee",
+                "members",
+                "parties",
+                "chairs",
+                "status",
+                "type",
+                "url",
+                "chair_name",
+                "chair_party",
+                "party_seats",
+            ]
         )
 
     # Single-column groupbys for count only — permitted by transition_state.
@@ -216,7 +232,7 @@ def _committee_summary(df_long: pd.DataFrame) -> pd.DataFrame:
         counts = sub["party"].value_counts()
         party_seats_lookup[cname] = [(str(p), int(c)) for p, c in counts.items()]
 
-    summary["chair_name"]  = summary["committee"].map(lambda c: chair_lookup.get(c, ("", ""))[0])
+    summary["chair_name"] = summary["committee"].map(lambda c: chair_lookup.get(c, ("", ""))[0])
     summary["chair_party"] = summary["committee"].map(lambda c: chair_lookup.get(c, ("", ""))[1])
     summary["party_seats"] = summary["committee"].map(party_seats_lookup)
 
@@ -230,20 +246,20 @@ def _transition_notice() -> None:
     """Single visible callout naming every pipeline gap this page papers over."""
     st.markdown(
         '<div class="dt-callout">'
-        '<strong>Transitional data backing.</strong><br>'
+        "<strong>Transitional data backing.</strong><br>"
         '<span style="color:var(--text-meta);font-size:0.85rem;line-height:1.55">'
-        'This page currently reads <code>SILVER_MEMBERS_CSV</code> and unpivots '
-        'committee/office columns in-page while the analytical views are being built. '
-        'Required views: '
-        '<code>v_committee_assignments</code>, '
-        '<code>v_committee_member_detail</code>, '
-        '<code>v_committee_sources</code>, '
-        '<code>v_committee_party_seats</code>. '
-        'Required derived columns: <code>is_chair</code> (boolean — replaces in-page string match), '
-        '<code>committee_status</code> normalised to {Active, Ended}, '
-        '<code>currently_in_government_office</code> boolean. '
-        'See <code>committees.yaml § transition_state</code>.'
-        '</span></div>',
+        "This page currently reads <code>SILVER_MEMBERS_CSV</code> and unpivots "
+        "committee/office columns in-page while the analytical views are being built. "
+        "Required views: "
+        "<code>v_committee_assignments</code>, "
+        "<code>v_committee_member_detail</code>, "
+        "<code>v_committee_sources</code>, "
+        "<code>v_committee_party_seats</code>. "
+        "Required derived columns: <code>is_chair</code> (boolean — replaces in-page string match), "
+        "<code>committee_status</code> normalised to {Active, Ended}, "
+        "<code>currently_in_government_office</code> boolean. "
+        "See <code>committees.yaml § transition_state</code>."
+        "</span></div>",
         unsafe_allow_html=True,
     )
 
@@ -261,18 +277,21 @@ def _stage_register(
     st.markdown(
         '<p class="dt-kicker">Dáil Tracker · Committee Register</p>'
         '<h1 style="margin:0.05rem 0 0.4rem;font-size:1.7rem;font-weight:800;letter-spacing:-0.01em">'
-        'Who sits on which committee'
-        '</h1>',
+        "Who sits on which committee"
+        "</h1>",
         unsafe_allow_html=True,
     )
 
-    chosen_chamber = st.pills(
-        "Chamber",
-        options=["Dáil", "Seanad"],
-        default=chamber,
-        key="comm_chamber_pills",
-        label_visibility="collapsed",
-    ) or chamber
+    chosen_chamber = (
+        st.pills(
+            "Chamber",
+            options=["Dáil", "Seanad"],
+            default=chamber,
+            key="comm_chamber_pills",
+            label_visibility="collapsed",
+        )
+        or chamber
+    )
     if chosen_chamber != chamber:
         st.session_state["comm_chamber"] = chosen_chamber
         st.session_state["comm_td"] = None
@@ -285,8 +304,9 @@ def _stage_register(
     # ── Command bar ───────────────────────────────────────────────────
     cmd_l, cmd_r = st.columns([3, 2], gap="large")
     with cmd_l:
-        st.markdown('<p class="sidebar-label" style="margin-bottom:0.2rem">Filter committees</p>',
-                    unsafe_allow_html=True)
+        st.markdown(
+            '<p class="sidebar-label" style="margin-bottom:0.2rem">Filter committees</p>', unsafe_allow_html=True
+        )
         f_search, f_type, f_status = st.columns([3, 2, 2])
         with f_search:
             search = st.text_input(
@@ -296,9 +316,7 @@ def _stage_register(
                 key="reg_search",
             )
         with f_type:
-            type_options = ["All types"] + sorted(
-                {t for t in df_long["type"].dropna().unique() if t}
-            )
+            type_options = ["All types"] + sorted({t for t in df_long["type"].dropna().unique() if t})
             type_filter = st.selectbox(
                 "Committee type",
                 type_options,
@@ -306,16 +324,20 @@ def _stage_register(
                 label_visibility="collapsed",
             )
         with f_status:
-            status_filter = st.segmented_control(
-                "Status",
-                ["All", "Active", "Ended"],
-                default="All",
-                key="reg_status",
-                label_visibility="collapsed",
-            ) or "All"
+            status_filter = (
+                st.segmented_control(
+                    "Status",
+                    ["All", "Active", "Ended"],
+                    default="All",
+                    key="reg_status",
+                    label_visibility="collapsed",
+                )
+                or "All"
+            )
     with cmd_r:
-        st.markdown('<p class="sidebar-label" style="margin-bottom:0.2rem">Or look up a member</p>',
-                    unsafe_allow_html=True)
+        st.markdown(
+            '<p class="sidebar-label" style="margin-bottom:0.2rem">Or look up a member</p>', unsafe_allow_html=True
+        )
         all_names = sorted(df_long["name"].dropna().unique().tolist())
         chosen_td = find_a_td_search(
             all_names,
@@ -509,8 +531,7 @@ def _stage_td(
     td = st.session_state.get("comm_td")
     person = df_long[df_long["name"] == td].copy() if td else pd.DataFrame()
     if not td or person.empty:
-        empty_state(f"No {member_label[:-1].lower()} selected",
-                    "Return to the register and use the Find a TD search.")
+        empty_state(f"No {member_label[:-1].lower()} selected", "Return to the register and use the Find a TD search.")
         if back_button("← Back to register", key="td_back_empty"):
             st.session_state["comm_stage"] = _STAGE_REGISTER
             st.rerun()
@@ -526,7 +547,8 @@ def _stage_td(
     party = str(person["party"].iloc[0])
     constituency = str(person["constituency"].iloc[0]) if pd.notna(person["constituency"].iloc[0]) else ""
     member_profile_header(
-        td, clean_meta(party, constituency),
+        td,
+        clean_meta(party, constituency),
         avatar_url=avatar_data_url(td),
         avatar_initials=_initials(td),
         avatar_credit_html=avatar_credit_html(td),
@@ -555,8 +577,8 @@ def _stage_td(
             width="stretch",
             column_config={
                 "office": st.column_config.TextColumn("Office", width="large"),
-                "start":  st.column_config.DateColumn("Start", format="YYYY-MM-DD"),
-                "end":    st.column_config.DateColumn("End",   format="YYYY-MM-DD"),
+                "start": st.column_config.DateColumn("Start", format="YYYY-MM-DD"),
+                "end": st.column_config.DateColumn("End", format="YYYY-MM-DD"),
             },
         )
 
@@ -576,19 +598,20 @@ def _stage_td(
             .encode(
                 x=alt.X("start:T", title=None),
                 x2="end_filled:T",
-                y=alt.Y("committee:N", sort=domain, title=None,
-                        axis=alt.Axis(labelLimit=320)),
-                color=alt.Color("status:N",
-                                scale=alt.Scale(
-                                    domain=["Active", "Ended", "Unknown"],
-                                    range=["#1e88e5", "#9e9e9e", "#bdbdbd"],
-                                ),
-                                legend=alt.Legend(orient="top", title=None)),
+                y=alt.Y("committee:N", sort=domain, title=None, axis=alt.Axis(labelLimit=320)),
+                color=alt.Color(
+                    "status:N",
+                    scale=alt.Scale(
+                        domain=["Active", "Ended", "Unknown"],
+                        range=["#1e88e5", "#9e9e9e", "#bdbdbd"],
+                    ),
+                    legend=alt.Legend(orient="top", title=None),
+                ),
                 tooltip=[
                     alt.Tooltip("committee:N", title="Committee"),
-                    alt.Tooltip("role:N",      title="Role"),
-                    alt.Tooltip("start:T",     title="Start", format="%d %b %Y"),
-                    alt.Tooltip("end:T",       title="End",   format="%d %b %Y"),
+                    alt.Tooltip("role:N", title="Role"),
+                    alt.Tooltip("start:T", title="Start", format="%d %b %Y"),
+                    alt.Tooltip("end:T", title="End", format="%d %b %Y"),
                 ],
             )
             .properties(height=max(120, len(domain) * 26))
@@ -597,8 +620,7 @@ def _stage_td(
 
     # ── Memberships table + export ────────────────────────────────────
     evidence_heading("Committee memberships")
-    status_tab = st.segmented_control("Show", ["All", "Active", "Ended"],
-                                      default="All", key="td_status") or "All"
+    status_tab = st.segmented_control("Show", ["All", "Active", "Ended"], default="All", key="td_status") or "All"
     view = person if status_tab == "All" else person[person["status"] == status_tab]
     view = (
         view[["committee", "committee_url", "type", "role", "is_chair", "status", "start", "end"]]
@@ -606,8 +628,7 @@ def _stage_td(
         .reset_index(drop=True)
     )
     if view.empty:
-        empty_state("No memberships in this filter",
-                    "Switch the Show filter to All to see every committee.")
+        empty_state("No memberships in this filter", "Switch the Show filter to All to see every committee.")
     else:
         st.dataframe(
             view,
@@ -655,6 +676,7 @@ def _provenance(chamber: str) -> None:
 # ── page entry ────────────────────────────────────────────────────────
 
 
+@page_error_boundary
 def committees_page() -> None:
     inject_css()
 
@@ -684,8 +706,8 @@ def committees_page() -> None:
         else:
             st.markdown(
                 f'<p class="page-subtitle">{df_long["committee"].nunique()} committees · '
-                f'{df_long["name"].nunique()} {member_label} · '
-                f'{int((df_long["status"] == "Active").sum())} active memberships</p>',
+                f"{df_long['name'].nunique()} {member_label} · "
+                f"{int((df_long['status'] == 'Active').sum())} active memberships</p>",
                 unsafe_allow_html=True,
             )
 

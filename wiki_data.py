@@ -24,13 +24,15 @@ the avatar/wikidata/ directory.
 
 Run: python test_wiki_data.py
 """
+
 import html as _html
-import orjson
 import re
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
+
+import orjson
 
 SPARQL_URL = "https://query.wikidata.org/sparql"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
@@ -53,9 +55,15 @@ THUMB_WIDTH = 300
 # treated as free-to-reuse-with-attribution. Anything else is recorded but
 # flagged usable=False so the UI can fall back to the placeholder.
 FREE_LICENSE_PATTERNS = (
-    "cc0", "public domain", "pd-",
-    "cc by 4", "cc by 3", "cc by 2",
-    "cc by-sa 4", "cc by-sa 3", "cc by-sa 2",
+    "cc0",
+    "public domain",
+    "pd-",
+    "cc by 4",
+    "cc by 3",
+    "cc by 2",
+    "cc by-sa 4",
+    "cc by-sa 3",
+    "cc by-sa 2",
     "ogl",
 )
 
@@ -114,7 +122,7 @@ def commons_filename_from_url(url: str) -> str:
     idx = url.find(marker)
     if idx < 0:
         return ""
-    return urllib.parse.unquote(url[idx + len(marker):])
+    return urllib.parse.unquote(url[idx + len(marker) :])
 
 
 def strip_html(s: str) -> str:
@@ -169,16 +177,15 @@ def fetch_commons_metadata(filename: str) -> dict:
     """
     if not filename:
         return {"_error": "empty filename"}
-    api_url = (
-        f"{COMMONS_API}?"
-        + urllib.parse.urlencode({
+    api_url = f"{COMMONS_API}?" + urllib.parse.urlencode(
+        {
             "action": "query",
             "prop": "imageinfo",
             "iiprop": "extmetadata",
             "titles": f"File:{filename}",
             "format": "json",
             "formatversion": "2",
-        })
+        }
     )
     try:
         req = urllib.request.Request(api_url, headers={"User-Agent": HEADERS["User-Agent"]})
@@ -196,21 +203,21 @@ def fetch_commons_metadata(filename: str) -> dict:
         return {"_error": "no imageinfo block"}
 
     em = imageinfo[0].get("extmetadata", {})
-    artist_html  = em.get("Artist",           {}).get("value", "") or ""
+    artist_html = em.get("Artist", {}).get("value", "") or ""
     license_name = em.get("LicenseShortName", {}).get("value", "") or ""
-    license_url  = em.get("LicenseUrl",       {}).get("value", "") or ""
-    credit_html  = em.get("Credit",           {}).get("value", "") or ""
-    usage_terms  = em.get("UsageTerms",       {}).get("value", "") or ""
+    license_url = em.get("LicenseUrl", {}).get("value", "") or ""
+    credit_html = em.get("Credit", {}).get("value", "") or ""
+    usage_terms = em.get("UsageTerms", {}).get("value", "") or ""
 
     return {
-        "artist":        strip_html(artist_html),
-        "artist_html":   artist_html,
-        "license_name":  strip_html(license_name),
-        "license_url":   license_url,
-        "credit":        strip_html(credit_html),
-        "usage_terms":   strip_html(usage_terms),
+        "artist": strip_html(artist_html),
+        "artist_html": artist_html,
+        "license_name": strip_html(license_name),
+        "license_url": license_url,
+        "credit": strip_html(credit_html),
+        "usage_terms": strip_html(usage_terms),
         "file_page_url": f"https://commons.wikimedia.org/wiki/File:{urllib.parse.quote(filename)}",
-        "usable":        is_license_free(license_name),
+        "usable": is_license_free(license_name),
     }
 
 
@@ -252,12 +259,12 @@ def main() -> None:
     out: list[dict] = []
 
     for r in rows:
-        person_uri = r.get("person",            {}).get("value", "")
-        name       = r.get("personLabel",       {}).get("value", "")
-        oid        = r.get("oireachtasId",      {}).get("value")
-        image      = r.get("image",             {}).get("value")
-        constit    = r.get("constituencyLabel", {}).get("value", "")
-        group      = r.get("groupLabel",        {}).get("value", "")
+        person_uri = r.get("person", {}).get("value", "")
+        name = r.get("personLabel", {}).get("value", "")
+        oid = r.get("oireachtasId", {}).get("value")
+        image = r.get("image", {}).get("value")
+        constit = r.get("constituencyLabel", {}).get("value", "")
+        group = r.get("groupLabel", {}).get("value", "")
 
         if person_uri in seen_persons:
             continue
@@ -270,13 +277,13 @@ def main() -> None:
         # cached download + licence metadata if present.
         record: dict = {
             **cached,
-            "wikidata_qid":      qid,
-            "oireachtas_id":     oid,
-            "name":              name,
-            "constituency":      constit,
-            "group":             group,
+            "wikidata_qid": qid,
+            "oireachtas_id": oid,
+            "name": name,
+            "constituency": constit,
+            "group": group,
             "image_commons_url": image,
-            "thumb_url":         image_url_to_thumb(image, THUMB_WIDTH) if image else None,
+            "thumb_url": image_url_to_thumb(image, THUMB_WIDTH) if image else None,
         }
         record.setdefault("local_file", None)
 
@@ -284,7 +291,7 @@ def main() -> None:
 
         if not image:
             n_no_image += 1
-            record["local_file"]  = None
+            record["local_file"] = None
             record["license_name"] = record.get("license_name") or ""
             out.append(record)
             print(f"NONE {qid:<10} {safe_name:<30} (no P18 on Wikidata)")
@@ -301,7 +308,9 @@ def main() -> None:
             n_dl_skip += 1
         else:
             local_path, info = download_image(
-                image_url_to_thumb(image, THUMB_WIDTH), PHOTO_DIR, base,
+                image_url_to_thumb(image, THUMB_WIDTH),
+                PHOTO_DIR,
+                base,
             )
             if local_path is None:
                 n_dl_fail += 1
@@ -331,25 +340,22 @@ def main() -> None:
         out.append(record)
 
     MANIFEST_PATH.write_text(
-        orjson.dumps(out, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS, default=str).decode("utf-8"), encoding="utf-8",
+        orjson.dumps(out, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS, default=str).decode("utf-8"),
+        encoding="utf-8",
     )
 
     # ── Summary ────────────────────────────────────────────────────────────
     print()
     print("DOWNLOADS")
     print("-" * 40)
-    print(
-        f"  new: {n_dl}    cached: {n_dl_skip}    failed: {n_dl_fail}    no P18: {n_no_image}"
-    )
+    print(f"  new: {n_dl}    cached: {n_dl_skip}    failed: {n_dl_fail}    no P18: {n_no_image}")
     print()
     print("LICENSE METADATA")
     print("-" * 40)
-    print(
-        f"  new: {n_meta_fetch}    cached: {n_meta_skip}    failed: {n_meta_fail}"
-    )
-    usable_count   = sum(1 for e in out if e.get("usable"))
-    blocked_count  = sum(1 for e in out if e.get("license_name") and not e.get("usable"))
-    unknown_count  = sum(1 for e in out if e.get("local_file") and not e.get("license_name"))
+    print(f"  new: {n_meta_fetch}    cached: {n_meta_skip}    failed: {n_meta_fail}")
+    usable_count = sum(1 for e in out if e.get("usable"))
+    blocked_count = sum(1 for e in out if e.get("license_name") and not e.get("usable"))
+    unknown_count = sum(1 for e in out if e.get("local_file") and not e.get("license_name"))
     print(f"  usable (free license): {usable_count}")
     print(f"  blocked (non-free)   : {blocked_count}")
     print(f"  unknown (no metadata): {unknown_count}")
@@ -371,7 +377,7 @@ def main() -> None:
     print("-" * 40)
     with_oid = sum(1 for e in out if e.get("oireachtas_id"))
     print(f"  with P2336 (Oireachtas ID): {with_oid} / {len(out)}")
-    print(f"  unique_member_code looks like : Simon-Harris.D.2011-03-09")
+    print("  unique_member_code looks like : Simon-Harris.D.2011-03-09")
     sample = next((e["oireachtas_id"] for e in out if e.get("oireachtas_id")), "(none)")
     print(f"  Wikidata P2336 sample         : {sample}")
 
