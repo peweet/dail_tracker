@@ -14,7 +14,8 @@ from __future__ import annotations
 from pathlib import Path
 import pandas as pd
 
-PARQUET = Path("C:/Users/pglyn/PycharmProjects/dail_extractor/data/gold/parquet/statutory_instruments.parquet")
+_ROOT = Path(__file__).resolve().parents[1]
+PARQUET = _ROOT / "data" / "gold" / "parquet" / "statutory_instruments.parquet"
 
 PREAMBLE_KEYWORDS = [
     " The Minister ",
