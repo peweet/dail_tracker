@@ -4,33 +4,34 @@ Dáil Tracker — central configuration.
 Domain reference data, shared member lists, and project-level data paths.
 Import from here; do not define these constants in page or data-access files.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 
 # ── Paths ───────────────────────────────────────────────────────────────────────
 
-PROJECT_ROOT       = Path(__file__).resolve().parent.parent
-SILVER_DIR         = PROJECT_ROOT / "data" / "silver"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SILVER_DIR = PROJECT_ROOT / "data" / "silver"
 SILVER_PARQUET_DIR = PROJECT_ROOT / "data" / "silver" / "parquet"
-GOLD_PARQUET_DIR   = PROJECT_ROOT / "data" / "gold"   / "parquet"
+GOLD_PARQUET_DIR = PROJECT_ROOT / "data" / "gold" / "parquet"
 
 SILVER_INTERESTS_CSV: dict[str, Path] = {
-    "Dáil":   SILVER_DIR / "dail_member_interests_combined.csv",
+    "Dáil": SILVER_DIR / "dail_member_interests_combined.csv",
     "Seanad": SILVER_DIR / "seanad_member_interests_combined.csv",
 }
 
 SILVER_INTERESTS_PARQUET: dict[str, Path] = {
-    "Dáil":   SILVER_PARQUET_DIR / "dail_member_interests_combined.parquet",
+    "Dáil": SILVER_PARQUET_DIR / "dail_member_interests_combined.parquet",
     "Seanad": SILVER_PARQUET_DIR / "seanad_member_interests_combined.parquet",
 }
 
 SILVER_MEMBERS_CSV: dict[str, Path] = {
-    "Dáil":   SILVER_DIR / "flattened_members.csv",
+    "Dáil": SILVER_DIR / "flattened_members.csv",
     "Seanad": SILVER_DIR / "flattened_seanad_members.csv",
 }
 
-GOLD_VOTE_HISTORY_PARQUET      = GOLD_PARQUET_DIR / "current_dail_vote_history.parquet"
+GOLD_VOTE_HISTORY_PARQUET = GOLD_PARQUET_DIR / "current_dail_vote_history.parquet"
 
 # ── Notable members ─────────────────────────────────────────────────────────────
 # Quick-select sidebar chips on member-level pages.
@@ -101,15 +102,15 @@ TAA_DEDUCTIONS_NOTE = (
 # Stage numbers are defined by the Oireachtas legislative process.
 # Dáil: stages 1–5.  Seanad: stages 6–10.  Enacted: stage 11+.
 
-BILL_STAGE_SEANAD_MIN  = 6
+BILL_STAGE_SEANAD_MIN = 6
 BILL_STAGE_ENACTED_MIN = 11
 
 BILL_STATUS_CSS: dict[str, str] = {
-    "enacted":   "leg-status-enacted",
-    "signed":    "leg-status-enacted",
-    "lapsed":    "leg-status-lapsed",
+    "enacted": "leg-status-enacted",
+    "signed": "leg-status-enacted",
+    "lapsed": "leg-status-lapsed",
     "withdrawn": "leg-status-withdrawn",
-    "defeated":  "leg-status-lapsed",
+    "defeated": "leg-status-lapsed",
 }
 
 # ── Register of Members' Interests ──────────────────────────────────────────────
@@ -128,26 +129,26 @@ INTEREST_CATEGORY_ORDER: list[str] = [
 ]
 
 INTEREST_CATEGORY_LABELS: dict[str, str] = {
-    "Occupations":                                       "Occupations & Employment",
-    "Directorships":                                     "Directorships & Company Roles",
-    "Remunerated Position":                              "Remunerated Positions",
-    "Shares":                                            "Shareholdings",
-    "Land (including property)":                         "Land & Property",
-    "Contracts":                                         "Contracts",
-    "Gifts":                                             "Gifts Received",
-    "Travel Facilities":                                 "Travel Facilities",
-    "Property supplied or lent or a Service supplied":   "Property or Services Supplied",
+    "Occupations": "Occupations & Employment",
+    "Directorships": "Directorships & Company Roles",
+    "Remunerated Position": "Remunerated Positions",
+    "Shares": "Shareholdings",
+    "Land (including property)": "Land & Property",
+    "Contracts": "Contracts",
+    "Gifts": "Gifts Received",
+    "Travel Facilities": "Travel Facilities",
+    "Property supplied or lent or a Service supplied": "Property or Services Supplied",
 }
 
 # ── Committees ──────────────────────────────────────────────────────────────────
 # Canonical committee type taxonomy used for filtering and display.
 
 COMMITTEE_TYPES: dict[str, str] = {
-    "Policy":                                                    "Policy",
-    "Oversight":                                                 "Oversight",
-    "Statutory":                                                 "Statutory",
-    "Shadow Department":                                         "Shadow Department",
-    "Parliamentary Regulation and Reform":                       "Parl. Regulation & Reform",
-    "The Committee System and Parliamentary Administration":     "Parl. Administration",
-    "Parliamentary Business and Committee Membership":           "Parl. Business",
+    "Policy": "Policy",
+    "Oversight": "Oversight",
+    "Statutory": "Statutory",
+    "Shadow Department": "Shadow Department",
+    "Parliamentary Regulation and Reform": "Parl. Regulation & Reform",
+    "The Committee System and Parliamentary Administration": "Parl. Administration",
+    "Parliamentary Business and Committee Membership": "Parl. Business",
 }

@@ -29,6 +29,7 @@ TODO_PIPELINE_VIEW_REQUIRED: unique_member_code — stable join key on v_member_
 TODO_PIPELINE_VIEW_REQUIRED: mart_version, code_version, latest_fetch_timestamp_utc
     on v_member_interests_detail
 """
+
 from __future__ import annotations
 
 import datetime
@@ -51,6 +52,7 @@ from ui.components import (
     main_member_jump,
     member_card_html,
     member_profile_header,
+    page_error_boundary,
     pagination_controls,
     pill,
     render_notable_chips,
@@ -72,12 +74,19 @@ from config import (
 )
 
 _REQUIRED_COLS: set[str] = {
-    "member_name", "party_name", "constituency", "declaration_year",
-    "interest_category", "interest_text", "landlord_flag", "property_flag",
+    "member_name",
+    "party_name",
+    "constituency",
+    "declaration_year",
+    "interest_category",
+    "interest_text",
+    "landlord_flag",
+    "property_flag",
 }
 
 
 # ── Data access — retrieval only (SELECT / WHERE / ORDER BY / LIMIT) ──────────
+
 
 @st.cache_data(ttl=3600, show_spinner="Loading interests data…")
 def _load_interests(house: str) -> pd.DataFrame:
@@ -98,23 +107,25 @@ def _load_interests(house: str) -> pd.DataFrame:
     if "interest_category" in df.columns:
         df = df[df["interest_category"] != "15"].copy()
     for csv_col, contract_col in [
-        ("is_landlord",     "landlord_flag"),
+        ("is_landlord", "landlord_flag"),
         ("is_property_owner", "property_flag"),
     ]:
         if csv_col in df.columns:
             df[contract_col] = df[csv_col].astype(str).str.lower() == "true"
-    df = df.rename(columns={
-        "full_name":                    "member_name",
-        "party":                        "party_name",
-        "constituency_name":            "constituency",
-        "year_declared":                "declaration_year",
-        "interest_description_cleaned": "interest_text",
-    })
+    df = df.rename(
+        columns={
+            "full_name": "member_name",
+            "party": "party_name",
+            "constituency_name": "constituency",
+            "year_declared": "declaration_year",
+            "interest_description_cleaned": "interest_text",
+        }
+    )
     for col, default in [
-        ("directorship_flag",  False),   # TODO_PIPELINE_VIEW_REQUIRED
-        ("shareholding_flag",  False),   # TODO_PIPELINE_VIEW_REQUIRED
-        ("source_pdf_url",     None),    # TODO_PIPELINE_VIEW_REQUIRED
-        ("source_page_number", None),    # TODO_PIPELINE_VIEW_REQUIRED
+        ("directorship_flag", False),  # TODO_PIPELINE_VIEW_REQUIRED
+        ("shareholding_flag", False),  # TODO_PIPELINE_VIEW_REQUIRED
+        ("source_pdf_url", None),  # TODO_PIPELINE_VIEW_REQUIRED
+        ("source_page_number", None),  # TODO_PIPELINE_VIEW_REQUIRED
     ]:
         if col not in df.columns:
             df[col] = default
@@ -143,8 +154,7 @@ def _fetch_filter_options(house: str) -> dict[str, list]:
     )
     members = (
         con.execute(
-            "SELECT DISTINCT member_name FROM v_member_interests "
-            "WHERE member_name IS NOT NULL ORDER BY member_name"
+            "SELECT DISTINCT member_name FROM v_member_interests WHERE member_name IS NOT NULL ORDER BY member_name"
         )
         .fetchdf()["member_name"]
         .tolist()
@@ -221,6 +231,7 @@ def _fetch_td_data(house: str, td_name: str) -> pd.DataFrame:
 
 # ── Gold ranking (pre-aggregated pipeline output) ─────────────────────────────
 
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def _load_ranking(house: str, year: int) -> pd.DataFrame:
     """
@@ -281,35 +292,41 @@ def _fetch_member_index_fallback(house: str, year: int) -> pd.DataFrame:
 
 
 def _int_member_card_html(row) -> str:
-    rank    = int(row["rank"])
-    name    = str(row["member_name"])
-    party   = str(row.get("party_name") or "")
+    rank = int(row["rank"])
+    name = str(row["member_name"])
+    party = str(row.get("party_name") or "")
     constit = str(row.get("constituency") or "")
-    total   = int(row.get("total_declarations") or 0)
+    total = int(row.get("total_declarations") or 0)
     d_count = int(row.get("directorship_count") or 0)
     p_count = int(row.get("property_count") or 0)
     s_count = int(row.get("share_count") or 0)
     landlord = bool(row.get("is_landlord", False))
-    is_prop  = bool(row.get("is_property_owner", False))
+    is_prop = bool(row.get("is_property_owner", False))
 
-    meta  = clean_meta(party, constit)
+    meta = clean_meta(party, constit)
     parts = [pill(f"{total} declarations", "decl")]
     if landlord:
         parts.append(pill("Landlord", "accent", icon="🔑"))
     elif is_prop:
         parts.append(pill("Property owner", "owner", icon="🏗️"))
     if p_count:
-        parts.append(pill(
-            f'{p_count} propert{"ies" if p_count != 1 else "y"}',
-            "prop", icon="🏠",
-        ))
+        parts.append(
+            pill(
+                f"{p_count} propert{'ies' if p_count != 1 else 'y'}",
+                "prop",
+                icon="🏠",
+            )
+        )
     if s_count:
         parts.append(pill(f"Shareholder · {s_count}", "shares", icon="📈"))
     if d_count:
-        parts.append(pill(
-            f'{d_count} compan{"ies" if d_count != 1 else "y"}',
-            "company", icon="🏢",
-        ))
+        parts.append(
+            pill(
+                f"{d_count} compan{'ies' if d_count != 1 else 'y'}",
+                "company",
+                icon="🏢",
+            )
+        )
 
     return member_card_html(
         name=name,
@@ -356,6 +373,7 @@ def _render_leaderboard(ranking_df: pd.DataFrame) -> None:
 
 # ── Pure helpers ───────────────────────────────────────────────────────────────
 
+
 def _real_descriptions(rows: pd.DataFrame) -> list[str]:
     """Return non-empty, non-boilerplate interest_text entries, deduplicated."""
     if rows.empty or "interest_text" not in rows.columns:
@@ -370,6 +388,7 @@ def _real_descriptions(rows: pd.DataFrame) -> list[str]:
 
 # ── Profile view ───────────────────────────────────────────────────────────────
 
+
 def _render_profile(house: str, td_name: str) -> None:
     td_df = _fetch_td_data(house, td_name)
     if td_df.empty:
@@ -379,10 +398,10 @@ def _render_profile(house: str, td_name: str) -> None:
         )
         return
 
-    info    = td_df.iloc[0]
-    party   = str(info.get("party_name",   "") or "")
+    info = td_df.iloc[0]
+    party = str(info.get("party_name", "") or "")
     constit = str(info.get("constituency", "") or "")
-    meta    = clean_meta(party, constit)
+    meta = clean_meta(party, constit)
 
     td_years = sorted(td_df["declaration_year"].dropna().astype(int).unique(), reverse=True)
 
@@ -394,22 +413,20 @@ def _render_profile(house: str, td_name: str) -> None:
     year_opts = [str(y) for y in td_years]
     selected_year = year_selector(year_opts, key="int_profile_year", skip_current=False)
 
-    year_df  = td_df[td_df["declaration_year"] == selected_year].copy()
+    year_df = td_df[td_df["declaration_year"] == selected_year].copy()
     prior_year = selected_year - 1
-    prior_df   = td_df[td_df["declaration_year"] == prior_year].copy()
-    has_prior  = not prior_df.empty
+    prior_df = td_df[td_df["declaration_year"] == prior_year].copy()
+    has_prior = not prior_df.empty
 
     # ── Year-responsive identity badges ───────────────────────────────────────
     is_landlord_year = bool(year_df["landlord_flag"].any()) if not year_df.empty else False
     is_property_year = bool(year_df["property_flag"].any()) if not year_df.empty else False
     prop_count = (
         len(_real_descriptions(year_df[year_df["interest_category"] == "Land (including property)"]))
-        if not year_df.empty else 0
+        if not year_df.empty
+        else 0
     )
-    share_count = (
-        len(_real_descriptions(year_df[year_df["interest_category"] == "Shares"]))
-        if not year_df.empty else 0
-    )
+    share_count = len(_real_descriptions(year_df[year_df["interest_category"] == "Shares"])) if not year_df.empty else 0
 
     parts: list[str] = []
     if is_landlord_year:
@@ -417,10 +434,13 @@ def _render_profile(house: str, td_name: str) -> None:
     elif is_property_year:
         parts.append(pill("Property owner", "owner", icon="🏗️"))
     if prop_count:
-        parts.append(pill(
-            f'{prop_count} propert{"ies" if prop_count != 1 else "y"}',
-            "prop", icon="🏠",
-        ))
+        parts.append(
+            pill(
+                f"{prop_count} propert{'ies' if prop_count != 1 else 'y'}",
+                "prop",
+                icon="🏠",
+            )
+        )
     if share_count:
         parts.append(pill(f"Shareholder · {share_count}", "shares", icon="📈"))
     badges_html = " ".join(parts)
@@ -440,9 +460,9 @@ def _render_profile(house: str, td_name: str) -> None:
     if year_df.empty:
         glance = f"No declarations recorded for {selected_year}."
     else:
-        descs_all  = _real_descriptions(year_df)
-        n_entries  = len(descs_all)
-        n_cats     = len(year_df["interest_category"].dropna().unique())
+        descs_all = _real_descriptions(year_df)
+        n_entries = len(descs_all)
+        n_cats = len(year_df["interest_category"].dropna().unique())
         parts: list[str] = [
             f"In {selected_year}, {name_short} filed "
             f"<strong>{n_entries}</strong> declaration{'s' if n_entries != 1 else ''} "
@@ -450,9 +470,9 @@ def _render_profile(house: str, td_name: str) -> None:
             f"categor{'ies' if n_cats != 1 else 'y'}."
         ]
         if has_prior:
-            prior_all   = set(_real_descriptions(prior_df))
+            prior_all = set(_real_descriptions(prior_df))
             current_all = set(descs_all)
-            n_new     = len(current_all - prior_all)
+            n_new = len(current_all - prior_all)
             n_removed = len(prior_all - current_all)
             if n_new:
                 parts.append(f"<strong>{n_new} new</strong> since {prior_year}.")
@@ -475,7 +495,7 @@ def _render_profile(house: str, td_name: str) -> None:
             key=f"int_diff_{td_name}_{selected_year}",
         )
     else:
-        st.caption(f"No {prior_year} declarations on record — year-on-year comparison unavailable.")
+        st.caption(f"No {prior_year} declarations on record. Year-on-year comparison unavailable.")
 
     st.divider()
 
@@ -490,8 +510,8 @@ def _render_profile(house: str, td_name: str) -> None:
             f'<div class="dt-provenance-box" style="margin-bottom:0.75rem">'
             f'<span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;'
             f'text-transform:uppercase;color:var(--text-meta)">Source document</span><br>'
-            f'{link}'
-            f'</div>'
+            f"{link}"
+            f"</div>"
         )
 
     evidence_heading(f"Declarations · {selected_year}")
@@ -504,7 +524,7 @@ def _render_profile(house: str, td_name: str) -> None:
             if cat not in INTEREST_CATEGORY_ORDER:
                 all_cats.append(cat)
 
-    year_descs_by_cat:  dict[str, list[str]] = {
+    year_descs_by_cat: dict[str, list[str]] = {
         cat: _real_descriptions(year_df[year_df["interest_category"] == cat] if not year_df.empty else pd.DataFrame())
         for cat in all_cats
     }
@@ -514,7 +534,7 @@ def _render_profile(house: str, td_name: str) -> None:
     }
 
     cats_with_data = [cat for cat in all_cats if year_descs_by_cat[cat]]
-    cats_empty     = [cat for cat in INTEREST_CATEGORY_ORDER if not year_descs_by_cat.get(cat)]
+    cats_empty = [cat for cat in INTEREST_CATEGORY_ORDER if not year_descs_by_cat.get(cat)]
 
     if not cats_with_data:
         empty_state(
@@ -523,14 +543,12 @@ def _render_profile(house: str, td_name: str) -> None:
         )
     else:
         for cat in cats_with_data:
-            descs           = year_descs_by_cat[cat]
-            prior_cat_set   = set(prior_descs_by_cat[cat])
+            descs = year_descs_by_cat[cat]
+            prior_cat_set = set(prior_descs_by_cat[cat])
             current_cat_set = set(descs)
             label = INTEREST_CATEGORY_LABELS.get(cat, cat)
 
-            st.html(
-                f'<p class="int-category-section">{_h(label)}&nbsp;&nbsp;·&nbsp;&nbsp;{len(descs)}</p>'
-            )
+            st.html(f'<p class="int-category-section">{_h(label)}&nbsp;&nbsp;·&nbsp;&nbsp;{len(descs)}</p>')
 
             if show_diff and has_prior:
                 for d in descs:
@@ -553,7 +571,7 @@ def _render_profile(house: str, td_name: str) -> None:
                 st.html(
                     f'<p class="int-category-section">{_h(label)}&nbsp;&nbsp;·&nbsp;&nbsp;'
                     f'0 <span style="font-weight:400;text-transform:none;font-size:0.75rem;">'
-                    f'(all removed)</span></p>'
+                    f"(all removed)</span></p>"
                 )
                 for d in sorted(prior_descs):
                     interest_declaration_item(d, "removed")
@@ -561,9 +579,7 @@ def _render_profile(house: str, td_name: str) -> None:
     # ── Empty categories — single collapsed summary ────────────────────────────
     if cats_empty:
         empty_labels = [INTEREST_CATEGORY_LABELS.get(c, c) for c in cats_empty]
-        with st.expander(
-            f"Nothing declared · {len(cats_empty)} categories", expanded=False
-        ):
+        with st.expander(f"Nothing declared · {len(cats_empty)} categories", expanded=False):
             st.html('<p class="int-empty-cats">' + " · ".join(_h(lbl) for lbl in empty_labels) + "</p>")
 
     st.divider()
@@ -586,6 +602,7 @@ def _render_profile(house: str, td_name: str) -> None:
 
 # ── Provenance footer ──────────────────────────────────────────────────────────
 
+
 def _render_provenance() -> None:
     provenance_expander(
         sections=[
@@ -601,6 +618,8 @@ def _render_provenance() -> None:
 
 # ── Page entry point ───────────────────────────────────────────────────────────
 
+
+@page_error_boundary
 def interests_page() -> None:
     inject_css()
 
@@ -608,9 +627,15 @@ def interests_page() -> None:
     with st.sidebar:
         sidebar_page_header("Register of<br>Members&rsquo; Interests")
 
-        house: str = st.segmented_control(
-            "Chamber", ["Dáil", "Seanad"], default="Dáil", key="interests_house",
-        ) or "Dáil"
+        house: str = (
+            st.segmented_control(
+                "Chamber",
+                ["Dáil", "Seanad"],
+                default="Dáil",
+                key="interests_house",
+            )
+            or "Dáil"
+        )
 
         # Clear year pill and member selection on chamber switch
         if st.session_state.get("_interests_last_house") != house:
@@ -626,7 +651,7 @@ def interests_page() -> None:
 
     # ── Guard ─────────────────────────────────────────────────────────────────
     parquet_path = SILVER_INTERESTS_PARQUET.get(house)
-    csv_path     = SILVER_INTERESTS_CSV.get(house)
+    csv_path = SILVER_INTERESTS_CSV.get(house)
     if not ((parquet_path and parquet_path.exists()) or (csv_path and csv_path.exists())):
         empty_state(
             "Register data not available",
@@ -706,8 +731,7 @@ def interests_page() -> None:
 
     if ranking_df.empty:
         todo_callout(
-            "v_member_interests_index not yet registered. "
-            "Register this view to enable the ranked member leaderboard."
+            "v_member_interests_index not yet registered. Register this view to enable the ranked member leaderboard."
         )
 
         members_df = _fetch_member_index_fallback(house, selected_year)
@@ -723,14 +747,14 @@ def interests_page() -> None:
 
         # Pagination state (read-only here; nav widgets render below the cards).
         page_size = 12
-        page_key  = "int_fb_page"
-        cur       = int(st.session_state.get(page_key, 1))
+        page_key = "int_fb_page"
+        cur = int(st.session_state.get(page_key, 1))
         total_pages = max(1, (len(members_df) + page_size - 1) // page_size)
         if cur > total_pages:
             cur = 1
             st.session_state[page_key] = 1
         page_idx = cur - 1
-        visible  = members_df.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+        visible = members_df.iloc[page_idx * page_size : (page_idx + 1) * page_size]
 
         cards: list[str] = []
         for _, row in visible.iterrows():
@@ -755,5 +779,3 @@ def interests_page() -> None:
 
         _render_provenance()
         return
-
-

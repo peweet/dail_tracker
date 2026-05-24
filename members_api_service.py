@@ -13,10 +13,10 @@ Documentation:
 - https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor-example
 """
 
-import orjson
 import logging
 from pathlib import Path
 
+import orjson
 import requests
 
 from config import API_BASE, MEMBERS_DIR

@@ -28,7 +28,7 @@ def result_file_path(scenario: str) -> Path:
     if scenario == "debates_listings":
         return DEBATES_LISTINGS_DIR / "debates_listings_results.json"
     if scenario == "legislation_unscoped":
-       return LEGISLATION_DIR / "legislation_results_unscoped.json"
+        return LEGISLATION_DIR / "legislation_results_unscoped.json"
     return BRONZE_DIR / f"{scenario}_results.json"
 
 
@@ -50,8 +50,10 @@ def save_json(data, path: Path) -> Path:
 
 
 def load_json(path: Path):
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
 if __name__ == "__main__":
     # Test saving and loading JSON
     test_data = {"test": "This is a test."}

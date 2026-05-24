@@ -30,12 +30,13 @@ from normalise_join_key import normalise_df_td_name
 def _key(name: str) -> str:
     """Helper: wrap a single name string into a DataFrame and return its key."""
     df = pl.DataFrame({"name": [name]})
-    return normalise_df_td_name(df, "name")[0]
+    return normalise_df_td_name(df, "name")["join_key"][0]
 
 
 # ---------------------------------------------------------------------------
 # Core invariant: same person, different name encodings → same key
 # ---------------------------------------------------------------------------
+
 
 def test_accents_stripped():
     assert _key("Ó Súilleabháin") == _key("O Suilleabhain")
@@ -77,14 +78,13 @@ def test_key_is_sorted_characters():
 
 def test_key_is_lowercase_alpha_only():
     key = _key("Ó Briain")
-    assert key.isalpha() and key == key.lower(), (
-        f"Key '{key}' contains non-alpha or uppercase characters"
-    )
+    assert key.isalpha() and key == key.lower(), f"Key '{key}' contains non-alpha or uppercase characters"
 
 
 # ---------------------------------------------------------------------------
 # DataFrame input (the actual function signature)
 # ---------------------------------------------------------------------------
+
 
 def test_returns_series_same_length():
     df = pl.DataFrame({"td": ["Mary Murphy", "Seán Ó Briain", "Dr John Smith"]})
@@ -92,10 +92,11 @@ def test_returns_series_same_length():
     assert len(result) == 3
 
 
-def test_returns_polars_series():
+def test_returns_polars_dataframe():
     df = pl.DataFrame({"td": ["Mary Murphy"]})
     result = normalise_df_td_name(df, "td")
-    assert isinstance(result, pl.Series)
+    assert isinstance(result, pl.DataFrame)
+    assert "join_key" in result.columns
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +105,7 @@ def test_returns_polars_series():
 # and the wrong column name (member_id). Corrected below.
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.integration
 def test_flattened_members_unique_member_code_is_unique():
     path = SILVER_DIR / "flattened_members.csv"
@@ -111,9 +113,7 @@ def test_flattened_members_unique_member_code_is_unique():
         pytest.skip(f"Silver file not found: {path} — run pipeline.py first")
     df = pl.read_csv(path, columns=["unique_member_code"])
     n_unique = df["unique_member_code"].n_unique()
-    assert n_unique == len(df), (
-        f"{len(df) - n_unique} duplicate unique_member_codes in flattened_members"
-    )
+    assert n_unique == len(df), f"{len(df) - n_unique} duplicate unique_member_codes in flattened_members"
 
 
 @pytest.mark.integration
@@ -132,6 +132,4 @@ def test_join_keys_are_unique_in_members():
     keys = normalise_df_td_name(df, "combined_name")
     df = df.with_columns(keys.alias("join_key"))
     duplicated = df.filter(pl.col("join_key").is_duplicated())
-    assert len(duplicated) == 0, (
-        f"Anagram collision detected — these TDs share a join key:\n{duplicated}"
-    )
+    assert len(duplicated) == 0, f"Anagram collision detected — these TDs share a join key:\n{duplicated}"

@@ -1,16 +1,11 @@
 import re
-import sys
-from collections import Counter
-from datetime import datetime
-from pathlib import Path
 
 import fitz
-import pandas as pd
-
 
 from config import BRONZE_DIR  # noqa: E402
-#https://www.irisoifigiuil.ie/archive/2025/june/IR130625.pdf
-#https://www.irisoifigiuil.ie/archive/2023/march/Ir030323.pdf
+
+# https://www.irisoifigiuil.ie/archive/2025/june/IR130625.pdf
+# https://www.irisoifigiuil.ie/archive/2023/march/Ir030323.pdf
 # text =
 
 # Name of Member concerned: Christopher O’Sullivan TD
@@ -38,13 +33,13 @@ from config import BRONZE_DIR  # noqa: E402
 # 31st December 2021 in accordance with the provisions of section 29
 # of the above-mentioned Acts as follows:
 
-#https://opendata.cro.ie/dataset/companies/resource/e64eb540-fb97-44c2-b461-766f2babbdf6
+# https://opendata.cro.ie/dataset/companies/resource/e64eb540-fb97-44c2-b461-766f2babbdf6
 # That law defines an SI as being “an order, regulation, rule, scheme or bye-law made in exercise of a power conferred by statute”. It’s that last bit that we’re concerned with here: the ‘conferred by statute’ part.
 
-#https://opendata.cro.ie/dataset/companies
+# https://opendata.cro.ie/dataset/companies
 
-#eg: https://www.irishstatutebook.ie/eli/2026/si/80/made/en/print
-#https://www.irishstatutebook.ie/eli/2025/si
+# eg: https://www.irishstatutebook.ie/eli/2026/si/80/made/en/print
+# https://www.irishstatutebook.ie/eli/2025/si
 PDF_DIR = BRONZE_DIR / "iris_oifigiuil"
 # OUT_CSV = Path(__file__).with_name("iris_member_interests.csv")
 pdfs_that_have_member_interest_info = []

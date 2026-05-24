@@ -1,7 +1,5 @@
 from pathlib import Path
 
-from requests.help import main
-
 # Project root = folder containing config.py
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 

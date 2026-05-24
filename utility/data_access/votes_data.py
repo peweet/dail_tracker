@@ -9,7 +9,9 @@ Forbidden here (same rules as Streamlit page files):
 - JOIN, GROUP_BY_MULTI_DIM, HAVING, WINDOW in ad-hoc retrieval SQL
 - Business metric definitions
 """
+
 from __future__ import annotations
+
 import logging
 from pathlib import Path
 

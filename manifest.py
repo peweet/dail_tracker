@@ -34,6 +34,7 @@ def _check_endpoints() -> bool | None:
         return None
     # Imported lazily so the manifest module doesn't pull `requests` etc. on import.
     import pdf_endpoint_check
+
     broken, ok = pdf_endpoint_check.endpoint_checker()
     if ok:
         logging.info("PDF endpoint validation successful. All endpoints are valid.")
@@ -82,8 +83,7 @@ def run_finished_at(run_id: str | None = None) -> None:
 
 if __name__ == "__main__":
     import time
+
     record = create_run_manifest()
     time.sleep(2)
     run_finished_at(record["run_id"])
-
-

@@ -1,6 +1,5 @@
 import json
 
-from duckdb import df
 import pandas as pd
 from flatten_json import flatten
 
@@ -36,9 +35,11 @@ def flatten_members_to_csv(house: str = "dail"):
         df = pd.DataFrame(flattened_data)
     df = df.rename(members_rename, axis=1)
     df = df.drop(columns=members_drop_cols, errors="ignore")
-    minister_bool_mask = df['office_1_name'].notna() & df['office_1_name'].str.contains("Minister", case=False, na=False)
-    df['ministerial_office'] = minister_bool_mask.astype(str).replace({"True": "true", "False": "false"})
-    df['year_elected'] = df["unique_member_code"].str.extract(r"(\b\d{4}\b)", expand=False)
+    minister_bool_mask = df["office_1_name"].notna() & df["office_1_name"].str.contains(
+        "Minister", case=False, na=False
+    )
+    df["ministerial_office"] = minister_bool_mask.astype(str).replace({"True": "true", "False": "false"})
+    df["year_elected"] = df["unique_member_code"].str.extract(r"(\b\d{4}\b)", expand=False)
     csv_path = SILVER_DIR / csv_name
     df.to_csv(csv_path, index=False, encoding="utf-8")
     df.to_parquet(
@@ -48,6 +49,8 @@ def flatten_members_to_csv(house: str = "dail"):
         compression_level=3,
     )
     print(f"Flattened {house} members saved to {csv_path}")
+
+
 if __name__ == "__main__":
     print("Starting member flattening service...")
     flatten_members_to_csv("dail")

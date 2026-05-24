@@ -239,8 +239,8 @@ empty_states:
     helper: "empty_state() from utility/ui/components.py"
     heading: "No data available"
     body: >
-      Run pipeline_sandbox/cro_normalise.py, charity_normalise.py, and
-      charity_resolved.py to produce the silver parquets the experimental
+      Run the pipeline (pipeline.py) — the CRO normalise, charity normalise,
+      and charity resolved steps produce the silver parquets the experimental
       view depends on.
   empty_filter_result:
     helper: "empty_state()"

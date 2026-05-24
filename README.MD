@@ -45,7 +45,7 @@ Only the current Dáil and Seanad are in scope. See [`doc/DATA_LIMITATIONS.md`](
 |---|---|
 | Medallion pipeline (bronze → silver → gold) | Working |
 | Registered SQL view layer (`sql_views/`) | Working — 40+ views |
-| Streamlit dashboard | Working — 11 pages, 3 explicitly marked POC |
+| Streamlit dashboard | Working — 8 pages |
 | Logic firewall (UI reads only via registered views) | Enforced |
 | Provenance / source-PDF expanders | On every primary page |
 | Oireachtas API ingestion (members, votes, debates, questions) | Working |
@@ -56,7 +56,7 @@ Only the current Dáil and Seanad are in scope. See [`doc/DATA_LIMITATIONS.md`](
 | Iris Oifigiúil parser | Implemented in main + sandbox; not in `pipeline.py` |
 | CRO companies normaliser | Implemented in `pipeline_sandbox/`; not integrated |
 | Charities register normaliser | Implemented in `pipeline_sandbox/`; not integrated |
-| Cross-source unified Member Overview profile | Page exists; `unique_member_code` join key not fully populated across all source views |
+| Cross-source unified Member Overview profile | Working — `unique_member_code` populated on attendance, votes, payments, debates, legislation (sponsor_join_key), and lobbying views |
 | Tests (silver / gold / SQL view shape) | Partial — many tests skip when fixtures are missing |
 | Public deployment | None — local Streamlit only |
 
@@ -124,8 +124,8 @@ All upstream data remains subject to the terms and licences of the publishing bo
 | Register of Members' Interests | Oireachtas PDFs | Published declarations | `member_interests.py`, `iris_memeber_interests.py` | Production |
 | Lobbying returns | lobbying.ie CSV exports | Downloaded register returns | `lobby_processing.py` | Production (manual ingest) |
 | Iris Oifigiúil | irisoifigiuil.ie | Twice-weekly state gazette | `iris_oifiguil_etl.py`, `iris_oifiiguil_downloader.py` | **Sandbox** |
-| CRO companies | CRO bulk export | Director / company / address normalised | `pipeline_sandbox/cro_normalise.py` | **Sandbox** |
-| Charities register | Charities Regulator XLSX | Register, trustees, annual reports | `pipeline_sandbox/charity_normalise.py` | **Sandbox** |
+| CRO companies | CRO bulk export | Director / company / address normalised | `cro_normalise.py` | Production |
+| Charities register | Charities Regulator XLSX | Register, trustees, annual reports + `charity_resolved.py` Tier-A join | `charity_normalise.py`, `charity_resolved.py` | Production |
 
 **Sandbox** datasets are implemented and produce silver outputs but are not yet executed by `pipeline.py`. Their integration plans live in [`CRO/INTEGRATION_PLAN.md`](CRO/INTEGRATION_PLAN.md) and `pipeline_sandbox/*.md` notes files.
 
@@ -214,7 +214,7 @@ This is implemented in:
 normalise_join_key.py
 ```
 
-Downstream, the project uses a stable `unique_member_code` (Oireachtas member code) as the cross-page join key wherever the source carries it. Some views still need this column added — these are flagged in code with `TODO_PIPELINE_VIEW_REQUIRED`.
+Downstream, the project uses a stable `unique_member_code` (Oireachtas member code) as the cross-page join key wherever the source carries it. For sources that arrive without one — lobbying.ie, the revolving-door gold table — the view layer joins against `flattened_members.parquet` on a normalised name (`LOWER(strip_accents(TRIM()))`) to attach the code. Only matches against the current Dáil/Seanad registry survive; non-Oireachtas DPOs surface with NULL and the UI degrades to a non-clickable name.
 
 The fuzzy join key is intentionally treated as a pipeline aid rather than a permanent identifier. Collisions and missed matches remain possible and are documented as data limitations.
 
@@ -297,12 +297,6 @@ Production pages:
 - **Lobbying** — three-path investigative lookup (politician / organisation / policy area)
 - **Legislation** — bills, sponsors, debates, stages, related documents
 - **Committees** — committee assignments
-
-POC / experimental pages (currently visible in the sidebar; pending consolidation):
-
-- **Lobbyist (POC)** — alternative lobbying lookup focused on individual lobbyists
-- **Legislation (POC)** — alternative legislation surface
-- **SI (POC)** — statutory instruments view (placeholder pending Iris integration)
 
 The dashboard is designed for exploration and interpretation of prepared datasets, not for core data transformation.
 

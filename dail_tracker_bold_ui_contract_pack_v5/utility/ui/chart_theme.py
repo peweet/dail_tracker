@@ -22,13 +22,8 @@ def apply_civic_plotly_theme(fig, *, height: int = 360, showlegend: bool = True)
 
 def civic_altair_config(chart):
     """Apply a minimal editorial Altair config."""
-    return chart.configure_view(
-        strokeWidth=0
-    ).configure_axis(
-        labelFont="system-ui",
-        titleFont="system-ui",
-        gridOpacity=0.25
-    ).configure_legend(
-        labelFont="system-ui",
-        titleFont="system-ui"
+    return (
+        chart.configure_view(strokeWidth=0)
+        .configure_axis(labelFont="system-ui", titleFont="system-ui", gridOpacity=0.25)
+        .configure_legend(labelFont="system-ui", titleFont="system-ui")
     )

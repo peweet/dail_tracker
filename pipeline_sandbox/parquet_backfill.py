@@ -101,8 +101,7 @@ def _rewrite_one(path: Path, *, dry_run: bool) -> tuple[int, int, int, str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Report what would happen without rewriting any file")
+    parser.add_argument("--dry-run", action="store_true", help="Report what would happen without rewriting any file")
     args = parser.parse_args()
 
     targets: list[Path] = []
@@ -141,9 +140,11 @@ def main() -> int:
     saved = total_before - total_after
     saved_pct = (saved / total_before * 100) if total_before else 0
     print()
-    print(f"Total: {_kib(total_before)} -> {_kib(total_after)}  "
-          f"({saved_pct:.1f}% reduction, {saved/1024:.1f} KiB saved)  "
-          f"in {elapsed:.1f}s")
+    print(
+        f"Total: {_kib(total_before)} -> {_kib(total_after)}  "
+        f"({saved_pct:.1f}% reduction, {saved / 1024:.1f} KiB saved)  "
+        f"in {elapsed:.1f}s"
+    )
 
     if failures:
         print(f"\nFAILURES ({len(failures)}):")

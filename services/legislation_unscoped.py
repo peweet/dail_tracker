@@ -14,6 +14,7 @@ Shape mirrors services/votes.py — a list of one synthetic page payload:
 The downstream flattener in legislation.py iterates it as
     for page in data["results"]: bills.extend(page)
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,24 +46,19 @@ def fetch_all_bills() -> tuple[list[dict], int]:
 
         if expected is None:
             expected = page["head"]["counts"]["resultCount"]
-            logger.info(
-                f"Bill pagination | expected={expected} | page_size={PAGE_SIZE}"
-            )
+            logger.info(f"Bill pagination | expected={expected} | page_size={PAGE_SIZE}")
 
         page_results = page.get("results", [])
         all_bills.extend(page_results)
         logger.info(
-            f"Bill page | skip={skip} | got={len(page_results)} | "
-            f"running_total={len(all_bills)} | bytes={raw_bytes:,}"
+            f"Bill page | skip={skip} | got={len(page_results)} | running_total={len(all_bills)} | bytes={raw_bytes:,}"
         )
 
         if len(page_results) < PAGE_SIZE or len(all_bills) >= expected:
             break
         skip += PAGE_SIZE
 
-    assert len(all_bills) >= expected, (
-        f"Bill pagination drift: got {len(all_bills)} of {expected} expected"
-    )
+    assert len(all_bills) >= expected, f"Bill pagination drift: got {len(all_bills)} of {expected} expected"
 
     sources = Counter(b["bill"].get("source") for b in all_bills)
     logger.info(
@@ -78,7 +74,6 @@ def fetch_all_bills() -> tuple[list[dict], int]:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO,
-                        format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     bills, total = fetch_all_bills()
     logger.info(f"Fetched {len(bills)} payload(s) | total {total:,} bytes")

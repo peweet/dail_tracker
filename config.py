@@ -5,6 +5,7 @@ Pure config — no logging setup, no HTTP, no side effects beyond `init_dirs()`
 which runs at import to keep existing scripts working. Use `services.logging_setup`
 for logger configuration.
 """
+
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent

@@ -20,6 +20,7 @@ keyed by name because the interests view does not yet expose
 unique_member_code (TODO_PIPELINE_VIEW_REQUIRED on
 v_member_interests_*).
 """
+
 from __future__ import annotations
 
 import base64
@@ -30,18 +31,16 @@ from html import escape as _h
 from pathlib import Path
 
 # project_root / avatar / wikidata / manifest.json
-_MANIFEST_PATH = (
-    Path(__file__).resolve().parents[2] / "avatar" / "wikidata" / "manifest.json"
-)
+_MANIFEST_PATH = Path(__file__).resolve().parents[2] / "avatar" / "wikidata" / "manifest.json"
 
 _lookup: dict[str, dict] | None = None
 _b64_cache: dict[str, str] = {}
 
-_HONORIFIC_RE  = re.compile(r"^\s*(dr|prof|rev|fr|sr|mr|mrs|ms|miss|br)\s+")
+_HONORIFIC_RE = re.compile(r"^\s*(dr|prof|rev|fr|sr|mr|mrs|ms|miss|br)\s+")
 _APOSTROPHE_RE = re.compile(r"['‘’ʼʹ`´＇]")
-_NON_ALPHA_RE  = re.compile(r"[^a-z\s]")
-_WS_RE         = re.compile(r"\s+")
-_SPLIT_RE      = re.compile(r"[\s,]+")
+_NON_ALPHA_RE = re.compile(r"[^a-z\s]")
+_WS_RE = re.compile(r"\s+")
+_SPLIT_RE = re.compile(r"[\s,]+")
 
 
 def _normalise_name(name: str) -> str:
@@ -92,9 +91,9 @@ def _data_url_for(filename: str) -> str | None:
     if not path.exists():
         return None
     mime = {
-        ".jpg":  "image/jpeg",
+        ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
-        ".png":  "image/png",
+        ".png": "image/png",
         ".webp": "image/webp",
     }.get(path.suffix.lower(), "image/jpeg")
     encoded = base64.b64encode(path.read_bytes()).decode("ascii")
@@ -128,31 +127,23 @@ def avatar_credit_html(name: str) -> str | None:
     rec = _record_for(name)
     if not rec or not rec.get("local_file"):
         return None
-    artist        = rec.get("artist") or ""
-    license_name  = rec.get("license_name") or ""
-    license_url   = rec.get("license_url") or ""
+    artist = rec.get("artist") or ""
+    license_name = rec.get("license_name") or ""
+    license_url = rec.get("license_url") or ""
     file_page_url = rec.get("file_page_url") or rec.get("image_commons_url") or ""
 
     parts: list[str] = []
     if artist:
         parts.append(f"Photo: {_h(artist)}")
     if license_name and license_url:
-        parts.append(
-            f'<a href="{_h(license_url)}" target="_blank" rel="noopener">{_h(license_name)}</a>'
-        )
+        parts.append(f'<a href="{_h(license_url)}" target="_blank" rel="noopener">{_h(license_name)}</a>')
     elif license_name:
         parts.append(_h(license_name))
     if file_page_url:
-        parts.append(
-            f'<a href="{_h(file_page_url)}" target="_blank" rel="noopener">Wikimedia Commons</a>'
-        )
+        parts.append(f'<a href="{_h(file_page_url)}" target="_blank" rel="noopener">Wikimedia Commons</a>')
 
     if not parts:
         # Manifest hasn't been backfilled with license metadata yet — generic
         # attribution. Re-run test_wiki_data.py to populate per-photo credits.
-        return (
-            'Photo via '
-            '<a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">'
-            'Wikimedia Commons</a>'
-        )
+        return 'Photo via <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a>'
     return " · ".join(parts)

@@ -25,6 +25,7 @@ def setup_logging() -> None:
     root_logger.addHandler(stream_handler)
     root_logger.addHandler(file_handler)
 
+
 if __name__ == "__main__":
     setup_logging()
     logging.info("Logging setup complete. This is a test log entry.")

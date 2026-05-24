@@ -35,13 +35,14 @@ with columns:
     PRA_MIN       — vouched representation allowance at minister rate
     PRA_FLAG_ONLY — Jan-Jun 2020 only: PRA was claimed but amount not in PDF
 """
+
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Iterable
 
 import fitz  # PyMuPDF
 import polars as pl
@@ -54,15 +55,15 @@ QUARANTINE_PARQUET = GOLD_PARQUET_DIR / "payments_full_psa_quarantine.parquet"
 
 TAA_LABELS = {
     "Dublin": "Dublin / under 25 km",
-    "1":  "Band 1 — 25–60 km",
-    "2":  "Band 2 — 60–80 km",
-    "3":  "Band 3 — 80–100 km",
-    "4":  "Band 4 — 100–130 km",
-    "5":  "Band 5 — 130–160 km",
-    "6":  "Band 6 — 160–190 km",
-    "7":  "Band 7 — 190–210 km",
-    "8":  "Band 8 — over 210 km",
-    "9":  "Band 9 (unmapped)",
+    "1": "Band 1 — 25–60 km",
+    "2": "Band 2 — 60–80 km",
+    "3": "Band 3 — 80–100 km",
+    "4": "Band 4 — 100–130 km",
+    "5": "Band 5 — 130–160 km",
+    "6": "Band 6 — 160–190 km",
+    "7": "Band 7 — 190–210 km",
+    "8": "Band 8 — over 210 km",
+    "9": "Band 9 (unmapped)",
     "10": "Band 10 (unmapped)",
     "11": "Band 11 (unmapped)",
     "12": "Band 12 (unmapped)",
@@ -70,10 +71,26 @@ TAA_LABELS = {
 
 # Filename → period helper, used to synthesize narrative for Jan-Apr 2020 PDFs
 # and to attribute every row to a known publication.
-MONTH_NAMES = {n: i for i, n in enumerate(
-    ["january","february","march","april","may","june",
-     "july","august","september","october","november","december"], start=1
-)}
+MONTH_NAMES = {
+    n: i
+    for i, n in enumerate(
+        [
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
+        ],
+        start=1,
+    )
+}
 
 _FILENAME_PERIOD_RE = re.compile(
     r"for-(?:(\d{1,2})-(\d{1,2})-)?([a-z]+)-(\d{4})_en\.pdf$",
@@ -144,18 +161,30 @@ def _is_header_row(row: list) -> bool:
 SCHEMAS: dict[str, dict[str, int | None]] = {
     # Jan-Apr 2020:  Name | PRA | TAA Band | Date | Amount
     "v2020_h1_early": {
-        "name": 0, "pra_flag": 1, "taa_band": 2, "narrative": None,
-        "date": 3, "amount": 4,
+        "name": 0,
+        "pra_flag": 1,
+        "taa_band": 2,
+        "narrative": None,
+        "date": 3,
+        "amount": 4,
     },
     # May-Jun 2020:  Name | PRA | TAA Band | Narrative | Date | Amount
     "v2020_h1_late": {
-        "name": 0, "pra_flag": 1, "taa_band": 2, "narrative": 3,
-        "date": 4, "amount": 5,
+        "name": 0,
+        "pra_flag": 1,
+        "taa_band": 2,
+        "narrative": 3,
+        "date": 4,
+        "amount": 5,
     },
     # Jul 2020+:     Name | TAA Band | Narrative | Date | Amount
     "v2020_h2_plus": {
-        "name": 0, "pra_flag": None, "taa_band": 1, "narrative": 2,
-        "date": 3, "amount": 4,
+        "name": 0,
+        "pra_flag": None,
+        "taa_band": 1,
+        "narrative": 2,
+        "date": 3,
+        "amount": 4,
     },
 }
 
@@ -257,10 +286,7 @@ def _classify_payment(band_raw: str, schema_key: str, pra_flag_raw: str | None) 
     if "/" in band_upper:
         parts = [p for p in band_upper.split("/") if p]
         non_min = [p for p in parts if p != "MIN"]
-        if non_min:
-            band_upper = non_min[0]
-        else:
-            band_upper = "MIN"
+        band_upper = non_min[0] if non_min else "MIN"
 
     if band_upper in {"DUBLIN", "DUB", "DUBIN", "DULIN"}:
         # Pre-Jul-2020 the row carries the Dublin TD allowance.
@@ -294,6 +320,7 @@ def _classify_payment(band_raw: str, schema_key: str, pra_flag_raw: str | None) 
 # ---------------------------------------------------------------------------
 # Per-PDF extraction
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ExtractedRow:
@@ -348,7 +375,7 @@ def _iter_rows_from_pdf(pdf_path: Path) -> Iterable[ExtractedRow]:
                     header_text = _normalise_header(ext[header_idx])
                     ncols = len(ext[header_idx])
                     schema_key = _detect_schema(header_text, ncols)
-                    data_rows = ext[header_idx + 1:]
+                    data_rows = ext[header_idx + 1 :]
 
                 if schema_key is None:
                     continue
@@ -363,13 +390,20 @@ def _iter_rows_from_pdf(pdf_path: Path) -> Iterable[ExtractedRow]:
                         continue
 
                     position, full_name = _split_position(str(name_cell))
-                    band_raw = _normalise_band(row[schema["taa_band"]] if schema["taa_band"] is not None and schema["taa_band"] < len(row) else "")
+                    band_raw = _normalise_band(
+                        row[schema["taa_band"]]
+                        if schema["taa_band"] is not None and schema["taa_band"] < len(row)
+                        else ""
+                    )
                     pra_flag = (
-                        str(row[schema["pra_flag"]]).strip() if schema["pra_flag"] is not None and schema["pra_flag"] < len(row) else None
+                        str(row[schema["pra_flag"]]).strip()
+                        if schema["pra_flag"] is not None and schema["pra_flag"] < len(row)
+                        else None
                     )
                     narr_idx = schema["narrative"]
                     narrative = (
-                        str(row[narr_idx]).strip() if narr_idx is not None and narr_idx < len(row) and row[narr_idx]
+                        str(row[narr_idx]).strip()
+                        if narr_idx is not None and narr_idx < len(row) and row[narr_idx]
                         else fallback_narrative
                     )
                     date_idx = schema["date"]
@@ -397,6 +431,7 @@ def _iter_rows_from_pdf(pdf_path: Path) -> Iterable[ExtractedRow]:
 # Driver
 # ---------------------------------------------------------------------------
 
+
 def build_full_psa() -> dict[str, int]:
     pdfs = sorted(PAYMENTS_PDF_DIR.glob("*.pdf"))
     print(f"Found {len(pdfs)} PSA PDFs in {PAYMENTS_PDF_DIR}")
@@ -410,16 +445,16 @@ def build_full_psa() -> dict[str, int]:
 
     df = pl.DataFrame(
         {
-            "member_name":  [r.member_name for r in rows],
-            "position":     [r.position for r in rows],
+            "member_name": [r.member_name for r in rows],
+            "position": [r.position for r in rows],
             "payment_kind": [r.payment_kind for r in rows],
             "taa_band_raw": [r.taa_band_raw for r in rows],
             "taa_band_label": [r.taa_band_label for r in rows],
-            "date_paid":    [r.date_paid for r in rows],
-            "narrative":    [r.narrative for r in rows],
-            "amount":       [r.amount for r in rows],
-            "source_pdf":   [r.source_pdf for r in rows],
-            "schema":       [r.schema for r in rows],
+            "date_paid": [r.date_paid for r in rows],
+            "narrative": [r.narrative for r in rows],
+            "amount": [r.amount for r in rows],
+            "source_pdf": [r.source_pdf for r in rows],
+            "schema": [r.schema for r in rows],
         }
     )
 
@@ -448,7 +483,9 @@ def build_full_psa() -> dict[str, int]:
 
 
 if __name__ == "__main__":
-    import io, sys
+    import io
+    import sys
+
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     stats = build_full_psa()
     print()

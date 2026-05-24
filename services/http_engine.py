@@ -55,11 +55,10 @@ def fetch_all(urls: list[str], max_workers: int = 5) -> tuple[list[dict], int, i
                 failures += 1
                 logger.error(f"API call failed for {url}: {exc}")
 
-    logger.info(
-        f"Finished fetch_all | results={len(results)} | failures={failures} | "
-        f"downloaded={total_bytes:,} bytes"
-    )
+    logger.info(f"Finished fetch_all | results={len(results)} | failures={failures} | downloaded={total_bytes:,} bytes")
     return results, total_bytes, failures
+
+
 if __name__ == "__main__":
     # Example usage
     test_urls = [

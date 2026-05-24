@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 """
-Charity-resolved (Tier A) join builder (sandbox).
+Charity-resolved (Tier A) join builder.
 
-STATUS: SANDBOX. Self-contained — does not import from pipeline.py / enrich.py /
-normalise_join_key.py. Reads the silver parquets produced by the two normaliser
-scripts and writes a single joined parquet.
+Reads the silver parquets produced by cro_normalise.py and charity_normalise.py
+and writes a single joined parquet.
 
 Implements CRO/INTEGRATION_PLAN.md §4.5 (Tier A — deterministic, high
 confidence: charity.cro_number → cro.company_num) plus §10 step 6+7 (build
 charity_resolved including the latest financial snapshot per RCN).
 
-PREREQUISITES:
-- pipeline_sandbox/cro_normalise.py     →  data/silver/cro/companies.parquet
-- pipeline_sandbox/charity_normalise.py →  data/silver/charities/register.parquet
-                                           data/silver/charities/charity_latest.parquet
+PREREQUISITES (run earlier in the pipeline):
+- cro_normalise.py     →  data/silver/cro/companies.parquet
+- charity_normalise.py →  data/silver/charities/register.parquet
+                          data/silver/charities/charity_latest.parquet
 
 OUTPUT:
 - data/silver/charities/charity_resolved.parquet  (one row per charity, RCN PK)
@@ -32,24 +31,24 @@ VALIDATION:
 - Also reports: distinct cro_number values seen, duplicate-collision count
   (a single CRO row matched to multiple RCNs is unusual — it would mean two
   charities both claim the same company number).
-
-USAGE:
-    python pipeline_sandbox/charity_resolved.py
 """
+
 import argparse
 import sys
 from pathlib import Path
 
 import polars as pl
 
-DEFAULT_CHARITY_DIR = Path("data/silver/charities")
-DEFAULT_CRO_DIR = Path("data/silver/cro")
+from config import SILVER_DIR
+
+DEFAULT_CHARITY_DIR = SILVER_DIR / "charities"
+DEFAULT_CRO_DIR = SILVER_DIR / "cro"
 
 MIN_TIER_A_MATCH_RATE = 0.97
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Tier A charity↔CRO join builder (sandbox)")
+    p = argparse.ArgumentParser(description="Tier A charity↔CRO join builder")
     p.add_argument("--charity-dir", type=Path, default=DEFAULT_CHARITY_DIR)
     p.add_argument("--cro-dir", type=Path, default=DEFAULT_CRO_DIR)
     p.add_argument(
@@ -66,27 +65,42 @@ def main() -> int:
         if not path.exists():
             raise SystemExit(f"missing prerequisite ({label}): {path}  — run the normalisers first")
 
-    register = pl.read_parquet(register_path).select([
-        "rcn", "registered_charity_name", "also_known_as", "name_norm", "aka_norm",
-        "status", "governing_form", "classification_primary",
-        "classification_secondary", "classification_sub", "country_established",
-        "county", "cro_number", "has_cro_number_flag", "trustee_count",
-    ])
+    register = pl.read_parquet(register_path).select(
+        [
+            "rcn",
+            "registered_charity_name",
+            "also_known_as",
+            "name_norm",
+            "aka_norm",
+            "status",
+            "governing_form",
+            "classification_primary",
+            "classification_secondary",
+            "classification_sub",
+            "country_established",
+            "county",
+            "cro_number",
+            "has_cro_number_flag",
+            "trustee_count",
+        ]
+    )
 
-    cro = pl.read_parquet(cro_path).select([
-        pl.col("company_num"),
-        pl.col("company_name"),
-        pl.col("name_norm").alias("company_name_norm"),
-        pl.col("company_status"),
-        pl.col("status_pill_value").alias("company_status_pill_value"),
-        pl.col("company_type"),
-        pl.col("company_reg_date"),
-        pl.col("comp_dissolved_date"),
-        pl.col("entity_age_years"),
-        pl.col("nace_v2_code"),
-        pl.col("eircode"),
-        pl.col("routing_key"),
-    ])
+    cro = pl.read_parquet(cro_path).select(
+        [
+            pl.col("company_num"),
+            pl.col("company_name"),
+            pl.col("name_norm").alias("company_name_norm"),
+            pl.col("company_status"),
+            pl.col("status_pill_value").alias("company_status_pill_value"),
+            pl.col("company_type"),
+            pl.col("company_reg_date"),
+            pl.col("comp_dissolved_date"),
+            pl.col("entity_age_years"),
+            pl.col("nace_v2_code"),
+            pl.col("eircode"),
+            pl.col("routing_key"),
+        ]
+    )
 
     latest = pl.read_parquet(latest_path)
 
@@ -124,8 +138,7 @@ def main() -> int:
 
     if match_rate < MIN_TIER_A_MATCH_RATE:
         print(
-            f"[charity_resolved] FAIL: Tier A match rate {match_rate:.4f} "
-            f"< required {MIN_TIER_A_MATCH_RATE:.2f}",
+            f"[charity_resolved] FAIL: Tier A match rate {match_rate:.4f} < required {MIN_TIER_A_MATCH_RATE:.2f}",
             file=sys.stderr,
         )
         return 1

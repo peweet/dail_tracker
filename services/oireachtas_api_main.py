@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+from services.dbsect_harvest import harvest_dbsect_index
 from services.http_engine import fetch_all
 from services.legislation_unscoped import fetch_all_bills
 from services.logging_setup import setup_logging
@@ -11,7 +12,6 @@ from services.urls import (
     build_legislation_urls,
     build_questions_urls,
 )
-from services.dbsect_harvest import harvest_dbsect_index
 from services.votes import fetch_votes
 
 logger = logging.getLogger(__name__)
@@ -36,8 +36,7 @@ def run_member_scenario(
     save_json(results, output_path)
 
     logger.info(
-        f"Finished scenario='{scenario_name}' | "
-        f"results={len(results)} | failures={failures} | bytes={total_bytes:,}"
+        f"Finished scenario='{scenario_name}' | results={len(results)} | failures={failures} | bytes={total_bytes:,}"
     )
 
 
@@ -116,9 +115,7 @@ def run_legislation_unscoped(overwrite: bool = False) -> None:
     save_json(payload, output_path)
 
     bills = payload[0]["results"] if payload else []
-    logger.info(
-        f"Finished legislation_unscoped | bills={len(bills)} | bytes={total_bytes:,}"
-    )
+    logger.info(f"Finished legislation_unscoped | bills={len(bills)} | bytes={total_bytes:,}")
 
 
 def main() -> None:
@@ -184,9 +181,7 @@ def main() -> None:
         n_dbsect = harvest_dbsect_index()
         logger.info(f"dbsect index harvested: {n_dbsect} rows")
     except Exception as e:
-        logger.error(
-            f"dbsect harvest failed (debate listings will be skipped): {e}"
-        )
+        logger.error(f"dbsect harvest failed (debate listings will be skipped): {e}")
 
     logger.info("=" * 70)
     logger.info("STEP 5: Fetching debates day-window listings")

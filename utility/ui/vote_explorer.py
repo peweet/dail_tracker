@@ -1,5 +1,7 @@
 """Vote evidence panel rendering for Dáil Tracker."""
+
 from __future__ import annotations
+
 import sys
 from html import escape as _h
 from pathlib import Path
@@ -9,16 +11,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-
-from ui.components import stat_strip, outcome_badge, evidence_heading, todo_callout, empty_state, pagination_controls
+from ui.components import empty_state, evidence_heading, outcome_badge, pagination_controls, stat_strip, todo_callout
 from ui.entity_links import entity_cta_html, member_link_html, member_profile_url, source_link_html
-from ui.table_config import member_detail_column_config, td_history_column_config
 from ui.export_controls import export_button
 from ui.source_links import render_source_links
 
 _VOTE_COLOURS: dict[str, str] = {
     "Voted Yes": "#2d7a52",
-    "Voted No":  "#bf4a1e",
+    "Voted No": "#bf4a1e",
     "Abstained": "#8c8c80",
 }
 
@@ -55,8 +55,7 @@ def _render_td_history_html(df: pd.DataFrame) -> str:
         vt_html = _vote_icon(row.get("vote_type"))
         outcome_html = _outcome_chip(row.get("vote_outcome"))
         url = str(row.get("oireachtas_url") or "") if has_url else ""
-        link_cell = source_link_html(url, "Oireachtas",
-                                     aria_label="Open this division on oireachtas.ie")
+        link_cell = source_link_html(url, "Oireachtas", aria_label="Open this division on oireachtas.ie")
         rows_html += (
             f"<tr>"
             f'<td class="dt-vt-date">{date_str}</td>'
@@ -68,10 +67,17 @@ def _render_td_history_html(df: pd.DataFrame) -> str:
         )
     header = (
         "<tr>"
-        "<th>Date</th><th>Division</th><th>Vote</th><th>Outcome</th><th></th>"
+        '<th scope="col">Date</th><th scope="col">Division</th>'
+        '<th scope="col">Vote</th><th scope="col">Outcome</th>'
+        '<th scope="col"><span class="sr-only">Source link</span></th>'
         "</tr>"
     )
-    return f'<table class="dt-vt-table">{header}{rows_html}</table>'
+    return (
+        '<table class="dt-vt-table" role="table" '
+        'aria-label="Voting history with date, division, vote cast, and outcome">'
+        '<caption class="sr-only">Voting history table</caption>'
+        f"<thead>{header}</thead><tbody>{rows_html}</tbody></table>"
+    )
 
 
 def _render_member_list_html(df: pd.DataFrame) -> str:
@@ -93,8 +99,16 @@ def _render_member_list_html(df: pd.DataFrame) -> str:
             f"<td>{vt_html}</td>"
             f"</tr>"
         )
-    header = "<tr><th>Member</th><th>Party</th><th>Constituency</th><th>Vote</th></tr>"
-    return f'<table class="dt-vt-table">{header}{rows_html}</table>'
+    header = (
+        '<tr><th scope="col">Member</th><th scope="col">Party</th>'
+        '<th scope="col">Constituency</th><th scope="col">Vote</th></tr>'
+    )
+    return (
+        '<table class="dt-vt-table" role="table" '
+        'aria-label="Members and how each voted in this division">'
+        '<caption class="sr-only">Division member list</caption>'
+        f"<thead>{header}</thead><tbody>{rows_html}</tbody></table>"
+    )
 
 
 def _fmt_date(val) -> str:
@@ -125,14 +139,16 @@ def _party_chart(df: pd.DataFrame) -> go.Figure | None:
             if pname:
                 counts[pname] = int(row.get("member_count") or 0)
         x_vals = [counts.get(p, 0) for p in parties]
-        fig.add_trace(go.Bar(
-            name=vt,
-            y=parties,
-            x=x_vals,
-            orientation="h",
-            marker_color=_VOTE_COLOURS.get(vt, "#adb5bd"),
-            hovertemplate=f"<b>%{{y}}</b> · {vt}: %{{x}}<extra></extra>",
-        ))
+        fig.add_trace(
+            go.Bar(
+                name=vt,
+                y=parties,
+                x=x_vals,
+                orientation="h",
+                marker_color=_VOTE_COLOURS.get(vt, "#adb5bd"),
+                hovertemplate=f"<b>%{{y}}</b> · {vt}: %{{x}}<extra></extra>",
+            )
+        )
 
     fig.update_layout(
         barmode="stack",
@@ -163,12 +179,14 @@ def _year_chart(df: pd.DataFrame) -> None:
         for yr in years:
             yr_rows = df[df["year"] == yr]
             y_vals.append(int(yr_rows[col].iloc[0]) if not yr_rows.empty else 0)
-        fig.add_trace(go.Bar(
-            name=labels[col],
-            x=[int(y) for y in years],
-            y=y_vals,
-            marker_color=_VOTE_COLOURS.get(labels[col], "#adb5bd"),
-        ))
+        fig.add_trace(
+            go.Bar(
+                name=labels[col],
+                x=[int(y) for y in years],
+                y=y_vals,
+                marker_color=_VOTE_COLOURS.get(labels[col], "#adb5bd"),
+            )
+        )
 
     fig.update_layout(
         barmode="stack",
@@ -190,14 +208,14 @@ def render_division_panel(
     sources_df: pd.DataFrame,
     breakdown_df: pd.DataFrame,
 ) -> None:
-    vote_id    = str(vote_row.get("vote_id") or "")
-    outcome    = str(vote_row.get("vote_outcome") or "—")
-    date_str   = _fmt_date(vote_row.get("vote_date"))
-    title      = str(vote_row.get("debate_title") or "")
-    yes_n      = int(vote_row.get("yes_count") or 0)
-    no_n       = int(vote_row.get("no_count") or 0)
-    abs_n      = int(vote_row.get("abstained_count") or 0)
-    _margin    = vote_row.get("margin")
+    vote_id = str(vote_row.get("vote_id") or "")
+    outcome = str(vote_row.get("vote_outcome") or "—")
+    date_str = _fmt_date(vote_row.get("vote_date"))
+    title = str(vote_row.get("debate_title") or "")
+    yes_n = int(vote_row.get("yes_count") or 0)
+    no_n = int(vote_row.get("no_count") or 0)
+    abs_n = int(vote_row.get("abstained_count") or 0)
+    _margin = vote_row.get("margin")
     margin_str = str(int(_margin)) if _margin is not None else "—"
 
     safe_key = ""
@@ -210,18 +228,20 @@ def render_division_panel(
     with st.container(border=True):
         st.html(
             f'<div class="vt-division-header">'
-            f'{outcome_badge(outcome)}'
+            f"{outcome_badge(outcome)}"
             f'<span class="dt-vt-date">{_h(date_str)}</span>'
-            f'</div>'
+            f"</div>"
             f'<p class="vt-division-title">{_h(title)}</p>'
         )
 
-        stat_strip([
-            (str(yes_n),  "Yes",      "oklch(38% 0.130 145)"),
-            (str(no_n),   "No",       "oklch(45% 0.180 30)"),
-            (str(abs_n),  "Abstained","var(--text-meta)"),
-            (margin_str,  "Margin",   "var(--text-primary)"),
-        ])
+        stat_strip(
+            [
+                (str(yes_n), "Yes", "oklch(38% 0.130 145)"),
+                (str(no_n), "No", "oklch(45% 0.180 30)"),
+                (str(abs_n), "Abstained", "var(--text-meta)"),
+                (margin_str, "Margin", "var(--text-primary)"),
+            ]
+        )
 
         evidence_heading("Party breakdown")
         if breakdown_df.empty:
@@ -258,7 +278,9 @@ def render_division_panel(
                 pos = pos or "All"
                 display = clean_df if pos == "All" else clean_df[clean_df["vote_type"] == pos]
                 st.html(_render_member_list_html(display))
-                show_cols = [c for c in ["member_name", "party_name", "constituency", "vote_type"] if c in display.columns]
+                show_cols = [
+                    c for c in ["member_name", "party_name", "constituency", "vote_type"] if c in display.columns
+                ]
                 export_button(
                     display[show_cols],
                     label="Export member votes CSV",
@@ -277,13 +299,13 @@ def vt_division_card_html(row) -> str:
     CSS classes: .vt-card family in shared_css.py.
     """
     date_str = _fmt_date(row.get("vote_date"))
-    title    = _h(str(row.get("debate_title") or "—"))
-    outcome  = str(row.get("vote_outcome") or "").strip()
-    yes_n    = int(row.get("yes_count") or 0)
-    no_n     = int(row.get("no_count") or 0)
-    abs_n    = int(row.get("abstained_count") or 0)
-    margin   = row.get("margin")
-    url      = str(row.get("oireachtas_url") or "")
+    title = _h(str(row.get("debate_title") or "—"))
+    outcome = str(row.get("vote_outcome") or "").strip()
+    yes_n = int(row.get("yes_count") or 0)
+    no_n = int(row.get("no_count") or 0)
+    abs_n = int(row.get("abstained_count") or 0)
+    margin = row.get("margin")
+    url = str(row.get("oireachtas_url") or "")
 
     margin_str = ""
     if margin is not None:
@@ -307,28 +329,28 @@ def vt_division_card_html(row) -> str:
         f'<span class="vt-margin-pill" title="Vote margin (Yes − No)">'
         f'<span class="vt-margin-label">Δ</span>'
         f'<span class="vt-margin-value">{margin_str}</span>'
-        f'</span>'
-        if margin_str else ""
+        f"</span>"
+        if margin_str
+        else ""
     )
 
-    source_html = source_link_html(url, "Oireachtas",
-                                   aria_label="Open this division on oireachtas.ie")
+    source_html = source_link_html(url, "Oireachtas", aria_label="Open this division on oireachtas.ie")
 
     return (
         f'<div class="vt-card">'
         f'<div class="vt-card-header">'
         f'<span class="vt-card-date">{date_str}</span>'
-        f'{outcome_html}'
-        f'{source_html}'
-        f'</div>'
+        f"{outcome_html}"
+        f"{source_html}"
+        f"</div>"
         f'<div class="vt-card-title">{title}</div>'
         f'<div class="vt-card-footer">'
         f'<span class="vt-count-yes">✓ {yes_n}</span>'
         f'<span class="vt-count-no">✗ {no_n}</span>'
         f'<span class="vt-count-abs">— {abs_n}</span>'
-        f'{margin_html}'
-        f'</div>'
-        f'</div>'
+        f"{margin_html}"
+        f"</div>"
+        f"</div>"
     )
 
 
@@ -349,7 +371,7 @@ def member_vote_card_html(
     All inputs are escaped — pass plain values, not HTML.
     """
     date_str = _fmt_date(vote_date)
-    title    = _h(str(debate_title or "—"))
+    title = _h(str(debate_title or "—"))
 
     vt = str(vote_type or "")
     if vt == "Voted Yes":
@@ -367,19 +389,18 @@ def member_vote_card_html(
 
     outcome_html = _outcome_chip(vote_outcome)
 
-    source_html = source_link_html(oireachtas_url, "Oireachtas",
-                                   aria_label="Open this division on oireachtas.ie")
+    source_html = source_link_html(oireachtas_url, "Oireachtas", aria_label="Open this division on oireachtas.ie")
 
     return (
         f'<div class="vt-rec-card {accent_cls}">'
         f'<div class="vt-rec-header">'
         f'<span class="vt-card-date">{date_str}</span>'
-        f'{vote_chip_html}'
-        f'{outcome_html}'
-        f'{source_html}'
-        f'</div>'
+        f"{vote_chip_html}"
+        f"{outcome_html}"
+        f"{source_html}"
+        f"</div>"
         f'<div class="vt-card-title">{title}</div>'
-        f'</div>'
+        f"</div>"
     )
 
 
@@ -389,15 +410,15 @@ def render_td_panel(
     year_df: pd.DataFrame,
 ) -> None:
     member_id = str(td_row.get("member_id") or "")
-    name      = str(td_row.get("member_name") or "—")
-    party     = str(td_row.get("party_name") or "—")
-    const     = str(td_row.get("constituency") or "—")
-    yes_n      = int(td_row.get("yes_count") or 0)
-    no_n       = int(td_row.get("no_count") or 0)
-    abs_n      = int(td_row.get("abstained_count") or 0)
-    div_count  = int(td_row.get("division_count") or 0)
-    yes_rate   = td_row.get("yes_rate_pct")
-    rate_str   = f"{float(yes_rate):.1f}%" if yes_rate is not None else "—"
+    name = str(td_row.get("member_name") or "—")
+    party = str(td_row.get("party_name") or "—")
+    const = str(td_row.get("constituency") or "—")
+    yes_n = int(td_row.get("yes_count") or 0)
+    no_n = int(td_row.get("no_count") or 0)
+    abs_n = int(td_row.get("abstained_count") or 0)
+    div_count = int(td_row.get("division_count") or 0)
+    yes_rate = td_row.get("yes_rate_pct")
+    rate_str = f"{float(yes_rate):.1f}%" if yes_rate is not None else "—"
 
     safe_mid = ""
     for ch in member_id:
@@ -407,18 +428,17 @@ def render_td_panel(
         safe_mid = "td"
 
     with st.container(border=True):
-        st.html(
-            f'<p class="td-name">{_h(name)}</p>'
-            f'<p class="td-meta">{_h(party)} · {_h(const)}</p>'
-        )
+        st.html(f'<p class="td-name">{_h(name)}</p><p class="td-meta">{_h(party)} · {_h(const)}</p>')
 
-        stat_strip([
-            (str(yes_n),    "Yes ✓",      "oklch(38% 0.130 145)"),
-            (str(no_n),     "No ✗",       "oklch(45% 0.180 30)"),
-            (str(abs_n),    "Abstained",  "var(--text-meta)"),
-            (rate_str,      "Yes rate",   "oklch(38% 0.130 145)"),
-            (str(div_count), "Divisions", "var(--text-primary)"),
-        ])
+        stat_strip(
+            [
+                (str(yes_n), "Yes ✓", "oklch(38% 0.130 145)"),
+                (str(no_n), "No ✗", "oklch(45% 0.180 30)"),
+                (str(abs_n), "Abstained", "var(--text-meta)"),
+                (rate_str, "Yes rate", "oklch(38% 0.130 145)"),
+                (str(div_count), "Divisions", "var(--text-primary)"),
+            ]
+        )
 
         if member_id:
             st.html(
@@ -430,9 +450,7 @@ def render_td_panel(
 
         evidence_heading("Votes by year")
         if year_df.empty:
-            todo_callout(
-                "td_vote_year_summary — per-TD per-year yes/no/abstained counts (view not yet built)"
-            )
+            todo_callout("td_vote_year_summary — per-TD per-year yes/no/abstained counts (view not yet built)")
         else:
             _yr_req = frozenset({"year", "yes_count", "no_count"})
             missing_y = sorted(c for c in _yr_req if c not in year_df.columns)
@@ -457,7 +475,7 @@ def render_td_panel(
             # Resolve current page slice from session state (set by the helper
             # below; we read first so the table reflects the active page).
             page_size = int(st.session_state.get(f"{pager_key}_size", 25))
-            cur_page  = int(st.session_state.get(f"{pager_key}_page", 1))
+            cur_page = int(st.session_state.get(f"{pager_key}_page", 1))
             total_pages = max(1, (total + page_size - 1) // page_size)
             if cur_page > total_pages:
                 cur_page = 1
@@ -470,7 +488,9 @@ def render_td_panel(
             # Reusable pager — chips, "Showing X–Y of Z votes" caption, page-size selector.
             pagination_controls(total, key_prefix=pager_key, label="votes")
 
-            hist_cols = [c for c in ["vote_date", "debate_title", "vote_type", "vote_outcome"] if c in history_df.columns]
+            hist_cols = [
+                c for c in ["vote_date", "debate_title", "vote_type", "vote_outcome"] if c in history_df.columns
+            ]
             export_button(
                 history_df[hist_cols],
                 label="Export vote history CSV",

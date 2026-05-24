@@ -60,9 +60,8 @@ import re
 import shutil
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BRONZE_DIR = REPO_ROOT / "data" / "bronze" / "lobbying_csv_data"
@@ -83,27 +82,28 @@ RETURNS_PATTERN = re.compile(
 # Files we recognise but deliberately skip, with the reason.
 SKIP_REASONS: dict[str, str] = {
     "Lobbying_ie_organisation_results.csv": "organisation export, not returns",
-    "Lobbying_ie_returns_results.csv":      "no date window in filename",
-    "Lobbying_ie_returns_results_1.csv":    "no date window in filename",
-    "cleaned.csv":                          "derived artefact",
-    "cleaned_output.csv":                   "derived artefact",
-    ".gitkeep":                             "directory placeholder",
+    "Lobbying_ie_returns_results.csv": "no date window in filename",
+    "Lobbying_ie_returns_results_1.csv": "no date window in filename",
+    "cleaned.csv": "derived artefact",
+    "cleaned_output.csv": "derived artefact",
+    ".gitkeep": "directory placeholder",
 }
 
 
 @dataclass
 class FileEntry:
     """One manual export file, fully described."""
+
     filename: str
-    window_start: str          # ISO date
-    window_end:   str          # ISO date
-    primary_year: int          # the calendar year covered by most of the window
+    window_start: str  # ISO date
+    window_end: str  # ISO date
+    primary_year: int  # the calendar year covered by most of the window
     rows: int
     bytes: int
     sha256: str
     header: str
     source: str = "manual"
-    frozen: bool = False       # always False at bootstrap; auto-fetcher decides
+    frozen: bool = False  # always False at bootstrap; auto-fetcher decides
     notes: str = "1-Feb-aligned export window; does not align to calendar year"
 
 
@@ -125,7 +125,7 @@ def parse_window(filename: str) -> tuple[date, date] | None:
         return None
     try:
         start = date(int(m["y1"]), int(m["m1"]), int(m["d1"]))
-        end   = date(int(m["y2"]), int(m["m2"]), int(m["d2"]))
+        end = date(int(m["y2"]), int(m["m2"]), int(m["d2"]))
     except ValueError:
         return None
     if end <= start:
@@ -142,7 +142,7 @@ def primary_year(start: date, end: date) -> int:
         return start.year
     boundary = date(start.year + 1, 1, 1)
     days_in_start_year = (boundary - start).days
-    days_in_end_year   = (end - boundary).days
+    days_in_end_year = (end - boundary).days
     return start.year if days_in_start_year >= days_in_end_year else end.year
 
 
@@ -230,7 +230,7 @@ def inventory(bronze_dir: Path) -> BootstrapResult:
 
 def build_state(result: BootstrapResult) -> dict:
     years: dict[str, dict] = {}
-    bootstrapped_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    bootstrapped_at = datetime.now(UTC).isoformat(timespec="seconds")
 
     for entry in result.matched:
         # Multiple files could in principle map to the same primary_year. The
@@ -262,15 +262,14 @@ def build_state(result: BootstrapResult) -> dict:
 
 def state_differs(existing: dict, new: dict) -> bool:
     """Compare ignoring the timestamp fields that change every run."""
+
     def strip(s: dict) -> dict:
         s = dict(s)
         s.pop("bootstrapped_at", None)
         years = s.get("years", {})
-        s["years"] = {
-            y: {k: v for k, v in d.items() if k != "fetched_at"}
-            for y, d in years.items()
-        }
+        s["years"] = {y: {k: v for k, v in d.items() if k != "fetched_at"} for y, d in years.items()}
         return s
+
     return strip(existing) != strip(new)
 
 

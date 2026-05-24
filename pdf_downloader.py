@@ -13,6 +13,8 @@ logging.info(f"Gold path set to: {GOLD_DIR}")
 # https://claude.ai/chat/93d4f9f6-4be3-4056-aa8d-f22358dd1938
 # implement steps suggested by Claude in the above conversation to create a robust PDF endpoint checker and downloader that can handle various edge cases and errors gracefully, and provide clear logging messages for any issues that arise during the process. This will help to ensure that we can reliably download the necessary PDF data for our analysis, and easily identify and troubleshoot any problems that may occur with the endpoints or the downloading process. By implementing these improvements, we can enhance the overall robustness and reliability of our data processing pipeline, and ensure that we have access to the necessary data for our analysis of TD behavior and potential correlations with other factors such as payments, lobbying activities, and member metadata.
 session = requests.Session()
+
+
 def endpoint_downloader(urls: list, session=session) -> None:
     download_path.mkdir(parents=True, exist_ok=True)
     for url in urls:

@@ -6,7 +6,7 @@ import polars as pl
 # # https://docs.python.org/3/library/unicodedata.html#unicodedata.normalize
 
 
-def normalise_df_td_name(df: pl.DataFrame, col_name: str) -> pl.Series:
+def normalise_df_td_name(df: pl.DataFrame, col_name: str) -> pl.DataFrame:
     """
     Normalises TD names in the given DataFrame by:
     1. Concatenating first and last names into a single 'join_key' column.

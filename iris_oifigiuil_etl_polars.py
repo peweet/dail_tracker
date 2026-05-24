@@ -38,16 +38,25 @@ from typing import Any
 import fitz  # PyMuPDF
 import polars as pl
 
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
 MONTHS = dict(
-    zip(
+    zip(  # noqa: B905 — month lists are static, equal-length, kept as-is to avoid noisy diff
         [
-            "january", "february", "march", "april", "may", "june",
-            "july", "august", "september", "october", "november", "december",
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
         ],
         range(1, 13),
     )
@@ -108,9 +117,7 @@ DELIMITER_RE = r"^_{4,}$"
 # Parses the date band on page 1, e.g.:
 #   "Tuesday, 12th April, 2024" = groups: ("Tuesday", "12", "April", "2024")
 # parse_issue_date() then formats this as ISO "2024-04-12".
-ISSUE_DATE_RE = re.compile(
-    r"(Tuesday|Friday),?\s+(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+),?\s+(\d{4})", re.I
-)
+ISSUE_DATE_RE = re.compile(r"(Tuesday|Friday),?\s+(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+),?\s+(\d{4})", re.I)
 # Parses "Number 30" on page 1 = 30.
 ISSUE_NUMBER_RE = re.compile(r"\bNumber\s+(\d+)\b", re.I)
 
@@ -129,7 +136,10 @@ SI_OPERATION_RULES = [
     ("revocation", ["REVOCATION", "REVOKE", "REVOKES", "REVOKED"]),
     ("designation", ["DESIGNATION", "DESIGNATE", "DESIGNATES"]),
     ("restrictive_measures_or_sanctions", ["RESTRICTIVE MEASURES", "SANCTIONS"]),
-    ("delegation_of_functions", ["DELEGATION OF MINISTERIAL FUNCTIONS", "FUNCTIONS OF THE MINISTER", "AIRE A THARMLIGEAN"]),
+    (
+        "delegation_of_functions",
+        ["DELEGATION OF MINISTERIAL FUNCTIONS", "FUNCTIONS OF THE MINISTER", "AIRE A THARMLIGEAN"],
+    ),
     ("appointment_assignment", ["APPOINTMENT", "ASSIGNMENT", "ASSIGN", "BUANSANNADH", "CHEAPADH"]),
     ("transfer_or_name_change", ["TRANSFER OF DEPARTMENTAL ADMINISTRATION", "ALTERATION OF NAME", "TITLE OF MINISTER"]),
     ("fees_levies_charges", ["FEE", "FEES", "LEVY", "LEVIES", "CHARGE", "CHARGES"]),
@@ -151,20 +161,111 @@ SI_OPERATION_RULES = [
 # si_policy_domains = "agriculture_food_marine|fisheries", primary = "agriculture_food_marine"
 # (primary is just list.first, i.e. dict-insertion order, NOT a strength score).
 POLICY_DOMAIN_RULES = {
-    "finance_banking_tax": ["FINANCE", "CENTRAL BANK", "INSURANCE", "INVESTMENT", "MARKETS IN FINANCIAL", "LEVY", "TAX", "CASH INFRASTRUCTURE"],
-    "justice_security_courts": ["JUSTICE", "CRIMINAL", "TERRORIST", "GARDA", "COURTS", "SUPERIOR COURTS", "DISTRICT COURT", "CIRCUIT COURT", "PRISONS"],
-    "health_medicines_care": ["HEALTH", "MEDICINAL", "COVID", "VACCINE", "DESIGNATED CENTRES", "IONISING RADIATION", "NURS", "MEDICAL", "PHARMACY", "PHARMACEUTICAL"],
-    "housing_planning_local_gov": ["HOUSING", "PLANNING", "RENT PRESSURE", "RESIDENTIAL TENANCIES", "LOCAL GOVERNMENT", "LAND DEVELOPMENT"],
-    "environment_climate_energy": ["ENVIRONMENT", "CLIMATE", "ENERGY", "RENEWABLE", "AIR POLLUTION", "SOLID FUELS", "EMISSIONS", "WILDLIFE", "WILD MAMMALS", "DEER"],
-    "transport_maritime_roads": ["TRANSPORT", "ROAD TRAFFIC", "SPECIAL SPEED LIMIT", "MERCHANT SHIPPING", "MARITIME", "VEHICLE", "MOTOR INSURANCE", "RAILWAY", "AVIATION"],
+    "finance_banking_tax": [
+        "FINANCE",
+        "CENTRAL BANK",
+        "INSURANCE",
+        "INVESTMENT",
+        "MARKETS IN FINANCIAL",
+        "LEVY",
+        "TAX",
+        "CASH INFRASTRUCTURE",
+    ],
+    "justice_security_courts": [
+        "JUSTICE",
+        "CRIMINAL",
+        "TERRORIST",
+        "GARDA",
+        "COURTS",
+        "SUPERIOR COURTS",
+        "DISTRICT COURT",
+        "CIRCUIT COURT",
+        "PRISONS",
+    ],
+    "health_medicines_care": [
+        "HEALTH",
+        "MEDICINAL",
+        "COVID",
+        "VACCINE",
+        "DESIGNATED CENTRES",
+        "IONISING RADIATION",
+        "NURS",
+        "MEDICAL",
+        "PHARMACY",
+        "PHARMACEUTICAL",
+    ],
+    "housing_planning_local_gov": [
+        "HOUSING",
+        "PLANNING",
+        "RENT PRESSURE",
+        "RESIDENTIAL TENANCIES",
+        "LOCAL GOVERNMENT",
+        "LAND DEVELOPMENT",
+    ],
+    "environment_climate_energy": [
+        "ENVIRONMENT",
+        "CLIMATE",
+        "ENERGY",
+        "RENEWABLE",
+        "AIR POLLUTION",
+        "SOLID FUELS",
+        "EMISSIONS",
+        "WILDLIFE",
+        "WILD MAMMALS",
+        "DEER",
+    ],
+    "transport_maritime_roads": [
+        "TRANSPORT",
+        "ROAD TRAFFIC",
+        "SPECIAL SPEED LIMIT",
+        "MERCHANT SHIPPING",
+        "MARITIME",
+        "VEHICLE",
+        "MOTOR INSURANCE",
+        "RAILWAY",
+        "AVIATION",
+    ],
     "agriculture_food_marine": ["AGRICULTURE", "FOOD", "PLANT HEALTH", "FORESTRY", "ANIMAL", "VETERINARY", "MARINE"],
     "fisheries": ["FISH", "FISHERIES", "SALMON", "MACKEREL", "HERRING", "SEA-FISHERIES"],
-    "social_protection_welfare": ["SOCIAL WELFARE", "SUPPLEMENTARY WELFARE", "ALLOWANCE", "BENEFIT", "PAYMENTS AND CONTROL"],
+    "social_protection_welfare": [
+        "SOCIAL WELFARE",
+        "SUPPLEMENTARY WELFARE",
+        "ALLOWANCE",
+        "BENEFIT",
+        "PAYMENTS AND CONTROL",
+    ],
     "education_research_universities": ["EDUCATION", "UNIVERSITY", "UCD", "HIGHER EDUCATION", "RESEARCH"],
-    "children_equality_disability_integration": ["CHILD", "CHILDMINDING", "DISABILITY", "EQUALITY", "INTEGRATION", "TEMPORARY PROTECTION BENEFICIARIES"],
-    "migration_international_protection": ["INTERNATIONAL PROTECTION", "REFUGEE", "ASYLUM", "DISPLACED PERSONS", "UKRAINE TEMPORARY PROTECTION"],
-    "communications_digital_online": ["COMMUNICATIONS", "ELECTRONIC COMMUNICATIONS", "ONLINE", "TELECOMMUNICATIONS", "WIRELESS TELEGRAPHY", "DIGITAL"],
-    "public_service_governance": ["PUBLIC SERVICE", "MINISTERIAL FUNCTIONS", "SPECIAL ADVISER", "OVERSIGHT", "AUDIT COMMISSION", "APPOINTMENT"],
+    "children_equality_disability_integration": [
+        "CHILD",
+        "CHILDMINDING",
+        "DISABILITY",
+        "EQUALITY",
+        "INTEGRATION",
+        "TEMPORARY PROTECTION BENEFICIARIES",
+    ],
+    "migration_international_protection": [
+        "INTERNATIONAL PROTECTION",
+        "REFUGEE",
+        "ASYLUM",
+        "DISPLACED PERSONS",
+        "UKRAINE TEMPORARY PROTECTION",
+    ],
+    "communications_digital_online": [
+        "COMMUNICATIONS",
+        "ELECTRONIC COMMUNICATIONS",
+        "ONLINE",
+        "TELECOMMUNICATIONS",
+        "WIRELESS TELEGRAPHY",
+        "DIGITAL",
+    ],
+    "public_service_governance": [
+        "PUBLIC SERVICE",
+        "MINISTERIAL FUNCTIONS",
+        "SPECIAL ADVISER",
+        "OVERSIGHT",
+        "AUDIT COMMISSION",
+        "APPOINTMENT",
+    ],
     "statistics_data_collection": ["STATISTICS", "INQUIRY"],
     "foreign_affairs_international": ["FOREIGN AFFAIRS", "AGREEMENTS", "TREATY", "LIBYA", "TÜRKIYE", "UKRAINE"],
     "culture_tourism_sport": ["CULTURE", "ARTS", "GAELTACHT"],
@@ -174,6 +275,7 @@ POLICY_DOMAIN_RULES = {
 # ---------------------------------------------------------------------------
 # PDF traversal — Python (PyMuPDF is sequential)
 # ---------------------------------------------------------------------------
+
 
 def parse_issue_date(text: str) -> tuple[str | None, str | None]:
     m = ISSUE_DATE_RE.search(text)
@@ -208,22 +310,26 @@ def extract_page_blocks(page: fitz.Page) -> list[dict[str, Any]]:
                 text = span.get("text", "")
                 if not text.strip():
                     continue
-                spans_payload.append({
-                    "line_id": line_id,
-                    "span_id": span_id,
-                    "text": text,
-                    "bbox": [round(float(v), 2) for v in span.get("bbox", [])],
-                    "font": span.get("font"),
-                    "size": span.get("size"),
-                    "flags": span.get("flags"),
-                })
+                spans_payload.append(
+                    {
+                        "line_id": line_id,
+                        "span_id": span_id,
+                        "text": text,
+                        "bbox": [round(float(v), 2) for v in span.get("bbox", [])],
+                        "font": span.get("font"),
+                        "size": span.get("size"),
+                        "flags": span.get("flags"),
+                    }
+                )
         if block_lines:
-            blocks.append({
-                "block_id": block_id,
-                "bbox": [round(float(v), 2) for v in block.get("bbox", [])],
-                "text": "\n".join(block_lines),
-                "spans": spans_payload,
-            })
+            blocks.append(
+                {
+                    "block_id": block_id,
+                    "bbox": [round(float(v), 2) for v in block.get("bbox", [])],
+                    "text": "\n".join(block_lines),
+                    "spans": spans_payload,
+                }
+            )
     return blocks
 
 
@@ -252,7 +358,9 @@ def extract_lines_raw(pdf_path: str) -> tuple[list[dict[str, Any]], dict[str, An
     image_count = 0
     page_text_char_counts: list[int] = []
     rows: list[dict[str, Any]] = []
-    print(f"  Extracting {source_file} (pages: {doc.page_count}, issue_date: {issue_date}, issue_number: {issue_number})...")
+    print(
+        f"  Extracting {source_file} (pages: {doc.page_count}, issue_date: {issue_date}, issue_number: {issue_number})..."
+    )
     for pno, page in enumerate(doc, start=1):
         page_text = page.get_text("text")
         page_text_char_counts.append(len(page_text))
@@ -270,23 +378,25 @@ def extract_lines_raw(pdf_path: str) -> tuple[list[dict[str, Any]], dict[str, An
                 if not raw_line:
                     continue
                 bbox = tuple(float(v) for v in line["bbox"])
-                rows.append({
-                    "source_file": source_file,
-                    "page_number": pno,
-                    "block_id": block_id,
-                    "line_id": line_id,
-                    "line_order": line_order,
-                    "x0": bbox[0],
-                    "y0": bbox[1],
-                    "x1": bbox[2],
-                    "y1": bbox[3],
-                    "raw_line": raw_line,
-                    "sizes": [s.get("size") for s in spans if s.get("size") is not None],
-                    "fonts": [s.get("font", "") for s in spans if s.get("font")],
-                    "issue_date": issue_date,
-                    "issue_date_text": issue_date_text,
-                    "issue_number": issue_number,
-                })
+                rows.append(
+                    {
+                        "source_file": source_file,
+                        "page_number": pno,
+                        "block_id": block_id,
+                        "line_id": line_id,
+                        "line_order": line_order,
+                        "x0": bbox[0],
+                        "y0": bbox[1],
+                        "x1": bbox[2],
+                        "y1": bbox[3],
+                        "raw_line": raw_line,
+                        "sizes": [s.get("size") for s in spans if s.get("size") is not None],
+                        "fonts": [s.get("font", "") for s in spans if s.get("font")],
+                        "issue_date": issue_date,
+                        "issue_date_text": issue_date_text,
+                        "issue_number": issue_number,
+                    }
+                )
                 line_order += 1
 
     char_counts = page_text_char_counts or [0]
@@ -303,7 +413,8 @@ def extract_lines_raw(pdf_path: str) -> tuple[list[dict[str, Any]], dict[str, An
         "max_page_chars": max(char_counts),
         "mean_page_chars": round(sum(char_counts) / len(char_counts), 1),
         "valid_iris_issue": bool(
-            issue_date and issue_number
+            issue_date
+            and issue_number
             and ("IRIS" in first_text.upper() or "PUBLISHED BY AUTHORITY" in first_text.upper())
         ),
     }
@@ -392,21 +503,25 @@ def find_member_interest_page_ranges(pdf_path: str) -> list[dict[str, Any]]:
                 name = m.group(1).strip()
                 if name:
                     detected_names.append(name)
-            pages_payload.append({
-                "page_number": pidx + 1,
-                "raw_text": raw_text,
-                "blocks": extract_page_blocks(page),
-            })
-        extracts.append({
-            "source_file": source_file,
-            "issue_date": issue_date,
-            "issue_number": issue_number,
-            "extract_type": t,
-            "start_page": s + 1,
-            "end_page": e + 1,
-            "detected_member_names": sorted(set(detected_names)),
-            "pages": pages_payload,
-        })
+            pages_payload.append(
+                {
+                    "page_number": pidx + 1,
+                    "raw_text": raw_text,
+                    "blocks": extract_page_blocks(page),
+                }
+            )
+        extracts.append(
+            {
+                "source_file": source_file,
+                "issue_date": issue_date,
+                "issue_number": issue_number,
+                "extract_type": t,
+                "start_page": s + 1,
+                "end_page": e + 1,
+                "detected_member_names": sorted(set(detected_names)),
+                "pages": pages_payload,
+            }
+        )
 
     doc.close()
     return extracts
@@ -416,6 +531,7 @@ def find_member_interest_page_ranges(pdf_path: str) -> list[dict[str, Any]]:
 # Polars expression helpers (return Expr; not UDFs)
 # ---------------------------------------------------------------------------
 
+
 def norm_space_expr(c: pl.Expr) -> pl.Expr:
     # Normalises NBSPs, smart quotes, en/em dashes, and runs of whitespace.
     # Example:
@@ -423,11 +539,11 @@ def norm_space_expr(c: pl.Expr) -> pl.Expr:
     #   = "S.I. No. 142 of 2024 - \"Amendment\""
     return (
         c.str.replace_all(" ", " ", literal=True)
-         .str.replace_all(r"[–—]", "-")
-         .str.replace_all(r"[‘’]", "'")
-         .str.replace_all(r"[“”]", '"')
-         .str.replace_all(r"[ \t]+", " ")
-         .str.strip_chars()
+        .str.replace_all(r"[–—]", "-")
+        .str.replace_all(r"[‘’]", "'")
+        .str.replace_all(r"[“”]", '"')
+        .str.replace_all(r"[ \t]+", " ")
+        .str.strip_chars()
     )
 
 
@@ -441,13 +557,19 @@ def si_form_expr(c: pl.Expr) -> pl.Expr:
     #   "EUROPEAN UNION (FOOD ADDITIVES) (AMENDMENT) REGULATIONS 2024" = "regulations"
     #   "SOCIAL WELFARE ACT 2024 (COMMENCEMENT) ORDER 2024"    = "order"
     return (
-        pl.when(c.str.contains("RULES")).then(pl.lit("rules"))
-          .when(c.str.contains_any(["BYE-LAW", "BYELAW", "BYE LAW"])).then(pl.lit("bye_law"))
-          .when(c.str.contains("SCHEME")).then(pl.lit("scheme"))
-          .when(c.str.contains("CODE OF PRACTICE")).then(pl.lit("code_of_practice"))
-          .when(c.str.contains("REGULATIONS")).then(pl.lit("regulations"))
-          .when(c.str.contains("ORDER")).then(pl.lit("order"))
-          .otherwise(pl.lit(None, dtype=pl.String))
+        pl.when(c.str.contains("RULES"))
+        .then(pl.lit("rules"))
+        .when(c.str.contains_any(["BYE-LAW", "BYELAW", "BYE LAW"]))
+        .then(pl.lit("bye_law"))
+        .when(c.str.contains("SCHEME"))
+        .then(pl.lit("scheme"))
+        .when(c.str.contains("CODE OF PRACTICE"))
+        .then(pl.lit("code_of_practice"))
+        .when(c.str.contains("REGULATIONS"))
+        .then(pl.lit("regulations"))
+        .when(c.str.contains("ORDER"))
+        .then(pl.lit("order"))
+        .otherwise(pl.lit(None, dtype=pl.String))
     )
 
 
@@ -467,11 +589,23 @@ def tag_or_none(condition: pl.Expr, tag: str) -> pl.Expr:
 # ---------------------------------------------------------------------------
 
 BRONZE_OUT_COLS = [
-    "source_file", "page_number", "block_id", "line_id", "line_order",
-    "bbox", "x0", "y0", "x1", "y1",
-    "font_size_mean", "font_names",
-    "raw_line", "normalized_line",
-    "issue_date", "issue_date_text", "issue_number",
+    "source_file",
+    "page_number",
+    "block_id",
+    "line_id",
+    "line_order",
+    "bbox",
+    "x0",
+    "y0",
+    "x1",
+    "y1",
+    "font_size_mean",
+    "font_names",
+    "raw_line",
+    "normalized_line",
+    "issue_date",
+    "issue_date_text",
+    "issue_number",
     "ignore_publication_boilerplate",
 ]
 
@@ -494,8 +628,10 @@ def build_bronze_frame(rows: list[dict[str, Any]]) -> pl.DataFrame:
     df = df.with_columns(
         bbox=pl.format(
             "[{}, {}, {}, {}]",
-            pl.col("x0").round(2), pl.col("y0").round(2),
-            pl.col("x1").round(2), pl.col("y1").round(2),
+            pl.col("x0").round(2),
+            pl.col("y0").round(2),
+            pl.col("x1").round(2),
+            pl.col("y1").round(2),
         ),
         font_size_mean=pl.col("sizes").list.mean(),
         font_names=pl.col("fonts").list.unique().list.sort().list.join(";"),
@@ -505,9 +641,7 @@ def build_bronze_frame(rows: list[dict[str, Any]]) -> pl.DataFrame:
     # page is ignored. cum_max over (file, page) is the vectorised "stop here".
     df = df.with_columns(
         ignore_publication_boilerplate=(
-            pl.col("normalized_line").str.contains(BOILERPLATE_PATTERN)
-              .cum_max()
-              .over(["source_file", "page_number"])
+            pl.col("normalized_line").str.contains(BOILERPLATE_PATTERN).cum_max().over(["source_file", "page_number"])
         )
     )
     return df.select(BRONZE_OUT_COLS)
@@ -516,6 +650,7 @@ def build_bronze_frame(rows: list[dict[str, Any]]) -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 # Silver record building (cum_sum + group_by replaces state machine)
 # ---------------------------------------------------------------------------
+
 
 def build_records(bronze: pl.DataFrame) -> pl.DataFrame:
     # Aggregates bronze lines into one row per inferred notice. Worked example
@@ -537,35 +672,38 @@ def build_records(bronze: pl.DataFrame) -> pl.DataFrame:
     if bronze.is_empty():
         return pl.DataFrame()
 
-    df = bronze.with_columns(
-        is_header=pl.col("normalized_line").str.contains(HEADER_RE),
-        is_delimiter=pl.col("normalized_line").str.contains(DELIMITER_RE),
-        is_strong_start=pl.col("normalized_line").str.contains(STRONG_START_RE),
-    ).with_columns(
-        record_break=pl.col("is_delimiter") | pl.col("is_strong_start"),
-        break_kind=(
-            pl.when(pl.col("is_delimiter")).then(pl.lit("underscore_delimiter"))
-              .when(pl.col("is_strong_start")).then(pl.lit("strong_start"))
-              .otherwise(pl.lit(None, dtype=pl.String))
-        ),
-    ).sort(["source_file", "page_number", "block_id", "line_id", "line_order"])
+    df = (
+        bronze.with_columns(
+            is_header=pl.col("normalized_line").str.contains(HEADER_RE),
+            is_delimiter=pl.col("normalized_line").str.contains(DELIMITER_RE),
+            is_strong_start=pl.col("normalized_line").str.contains(STRONG_START_RE),
+        )
+        .with_columns(
+            record_break=pl.col("is_delimiter") | pl.col("is_strong_start"),
+            break_kind=(
+                pl.when(pl.col("is_delimiter"))
+                .then(pl.lit("underscore_delimiter"))
+                .when(pl.col("is_strong_start"))
+                .then(pl.lit("strong_start"))
+                .otherwise(pl.lit(None, dtype=pl.String))
+            ),
+        )
+        .sort(["source_file", "page_number", "block_id", "line_id", "line_order"])
+    )
 
     # Each break flips the counter, so all lines of one notice share group_id.
     # Replaces v2's per-line state machine.
-    df = df.with_columns(
-        group_id=pl.col("record_break").cast(pl.Int64).cum_sum().over("source_file")
-    )
+    df = df.with_columns(group_id=pl.col("record_break").cast(pl.Int64).cum_sum().over("source_file"))
 
-    opened_by = (
-        df.group_by(["source_file", "group_id"], maintain_order=True)
-          .agg(opened_by=pl.col("break_kind").first())
+    opened_by = df.group_by(["source_file", "group_id"], maintain_order=True).agg(
+        opened_by=pl.col("break_kind").first()
     )
 
     content = df.filter(
-        ~pl.col("is_delimiter") &
-        ~pl.col("is_header") &
-        ~pl.col("ignore_publication_boilerplate") &
-        (pl.col("normalized_line").str.len_chars() > 0)
+        ~pl.col("is_delimiter")
+        & ~pl.col("is_header")
+        & ~pl.col("ignore_publication_boilerplate")
+        & (pl.col("normalized_line").str.len_chars() > 0)
     )
 
     records = (
@@ -599,19 +737,32 @@ def build_records(bronze: pl.DataFrame) -> pl.DataFrame:
             split_reason=pl.col("_next_opened").fill_null("eof"),
             bbox_union=pl.format(
                 "[{}, {}, {}, {}]",
-                pl.col("bbox_x0").round(2), pl.col("bbox_y0").round(2),
-                pl.col("bbox_x1").round(2), pl.col("bbox_y1").round(2),
+                pl.col("bbox_x0").round(2),
+                pl.col("bbox_y0").round(2),
+                pl.col("bbox_x1").round(2),
+                pl.col("bbox_y1").round(2),
             ),
         )
         .drop(["_next_gid", "_next_opened", "group_id", "bbox_x0", "bbox_y0", "bbox_x1", "bbox_y1"])
     )
 
-    return records.select([
-        "source_file", "issue_date", "issue_number",
-        "start_page", "end_page",
-        "start_block_id", "start_line_id", "end_block_id", "end_line_id",
-        "bbox_union", "raw_text", "split_reason", "line_count",
-    ])
+    return records.select(
+        [
+            "source_file",
+            "issue_date",
+            "issue_number",
+            "start_page",
+            "end_page",
+            "start_block_id",
+            "start_line_id",
+            "end_block_id",
+            "end_line_id",
+            "bbox_union",
+            "raw_text",
+            "split_reason",
+            "line_count",
+        ]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -619,19 +770,44 @@ def build_records(bronze: pl.DataFrame) -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 
 EVENTS_OUT_COLS = [
-    "source_file", "issue_date", "issue_number",
-    "start_page", "end_page",
-    "start_block_id", "start_line_id", "end_block_id", "end_line_id",
-    "bbox_union", "raw_text", "split_reason", "line_count",
-    "notice_ref", "notice_section", "notice_number",
-    "notice_category", "notice_subtype", "classification_flags",
-    "si_number", "si_year",
-    "title", "entity_name", "person_title_detected", "normalized_text",
-    "extraction_confidence", "notes",
-    "si_form", "si_operation_flags", "si_operation_primary",
-    "si_eu_relationship", "si_policy_domains", "si_policy_domain_primary",
-    "si_parent_legislation", "si_responsible_actor", "si_effective_date_text",
-    "si_taxonomy_confidence", "si_taxonomy_notes",
+    "source_file",
+    "issue_date",
+    "issue_number",
+    "start_page",
+    "end_page",
+    "start_block_id",
+    "start_line_id",
+    "end_block_id",
+    "end_line_id",
+    "bbox_union",
+    "raw_text",
+    "split_reason",
+    "line_count",
+    "notice_ref",
+    "notice_section",
+    "notice_number",
+    "notice_category",
+    "notice_subtype",
+    "classification_flags",
+    "si_number",
+    "si_year",
+    "title",
+    "entity_name",
+    "person_title_detected",
+    "normalized_text",
+    "extraction_confidence",
+    "notes",
+    "si_form",
+    "si_operation_flags",
+    "si_operation_primary",
+    "si_eu_relationship",
+    "si_policy_domains",
+    "si_policy_domain_primary",
+    "si_parent_legislation",
+    "si_responsible_actor",
+    "si_effective_date_text",
+    "si_taxonomy_confidence",
+    "si_taxonomy_notes",
     "eisb_url",
 ]
 
@@ -645,12 +821,12 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     df = records.with_columns(
         text_upper=pl.col("raw_text").str.to_uppercase(),
         normalized_text=norm_space_expr(pl.col("raw_text").str.replace_all("\n", " ")),
-        si_number=pl.col("raw_text").str.extract(
-            r"(?i)\bS\.I\.\s*No\.\s*(\d+)\s+of\s+\d{4}", 1
-        ).cast(pl.Int64, strict=False),
-        si_year=pl.col("raw_text").str.extract(
-            r"(?i)\bS\.I\.\s*No\.\s*\d+\s+of\s+(\d{4})", 1
-        ).cast(pl.Int64, strict=False),
+        si_number=pl.col("raw_text")
+        .str.extract(r"(?i)\bS\.I\.\s*No\.\s*(\d+)\s+of\s+\d{4}", 1)
+        .cast(pl.Int64, strict=False),
+        si_year=pl.col("raw_text")
+        .str.extract(r"(?i)\bS\.I\.\s*No\.\s*\d+\s+of\s+(\d{4})", 1)
+        .cast(pl.Int64, strict=False),
     )
 
     # notice_ref — Iris notices end with their bracketed reference, so take the
@@ -662,21 +838,18 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     #                                            = notice_section=null, notice_number="12345A"
     df = df.with_columns(
         notice_ref=(
-            pl.col("raw_text")
-              .str.extract_all(r"\[(?:[A-Z]+-\d+[A-Z]?|\d+[A-Z]?)\]")
-              .list.last()
-              .str.strip_chars("[]")
+            pl.col("raw_text").str.extract_all(r"\[(?:[A-Z]+-\d+[A-Z]?|\d+[A-Z]?)\]").list.last().str.strip_chars("[]")
         )
     ).with_columns(
         notice_section=(
             pl.when(pl.col("notice_ref").str.contains("-", literal=True))
-              .then(pl.col("notice_ref").str.split("-").list.first())
-              .otherwise(pl.lit(None, dtype=pl.String))
+            .then(pl.col("notice_ref").str.split("-").list.first())
+            .otherwise(pl.lit(None, dtype=pl.String))
         ),
         notice_number=(
             pl.when(pl.col("notice_ref").str.contains("-", literal=True))
-              .then(pl.col("notice_ref").str.split("-").list.last())
-              .otherwise(pl.col("notice_ref"))
+            .then(pl.col("notice_ref").str.split("-").list.last())
+            .otherwise(pl.col("notice_ref"))
         ),
     )
 
@@ -694,7 +867,8 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     #     non-empty non-bracket lines with " | "
     #     = "IN THE HIGH COURT | Companies Act 2014 | In the matter of XYZ Limited"
     title_si = (
-        pl.col("raw_text").str.extract(
+        pl.col("raw_text")
+        .str.extract(
             r"(?si)^S\.I\.\s*No\.[^\n]*\n([^\[]+?)(?:\n(?:The Minister|These Regulations|This Order|Copies of|Under the|The purpose|EXPLANATORY NOTE|\(This note)|\n\n|\z)",
             1,
         )
@@ -706,18 +880,23 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
         .str.strip_chars(" .")
     )
     title_non_si = (
-        pl.col("raw_text").str.split("\n")
-          .list.eval(pl.element().str.strip_chars())
-          .list.eval(pl.element().filter((pl.element().str.len_chars() > 0) & ~pl.element().str.starts_with("[")))
-          .list.head(4)
-          .list.join(" | ")
+        pl.col("raw_text")
+        .str.split("\n")
+        .list.eval(pl.element().str.strip_chars())
+        .list.eval(pl.element().filter((pl.element().str.len_chars() > 0) & ~pl.element().str.starts_with("[")))
+        .list.head(4)
+        .list.join(" | ")
     )
-    df = df.with_columns(
-        is_si_record=pl.col("raw_text").str.contains(r"^S\.I\.\s*No\."),
-    ).with_columns(
-        title=pl.when(pl.col("is_si_record")).then(title_si).otherwise(title_non_si)
-    ).with_columns(
-        title=pl.when(pl.col("title").str.len_chars() > 0).then(pl.col("title")).otherwise(pl.lit(None, dtype=pl.String))
+    df = (
+        df.with_columns(
+            is_si_record=pl.col("raw_text").str.contains(r"^S\.I\.\s*No\."),
+        )
+        .with_columns(title=pl.when(pl.col("is_si_record")).then(title_si).otherwise(title_non_si))
+        .with_columns(
+            title=pl.when(pl.col("title").str.len_chars() > 0)
+            .then(pl.col("title"))
+            .otherwise(pl.lit(None, dtype=pl.String))
+        )
     )
 
     # ---- Classification (last-rule-wins overrides; early-return rules applied LAST) ----
@@ -743,33 +922,43 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
 
     # IRISH STANDARDS
     df = df.with_columns(
-        notice_category=pl.when(t.str.contains("IRISH STANDARDS")).then(pl.lit("standards")).otherwise(pl.col("notice_category")),
-        notice_subtype=pl.when(t.str.contains("IRISH STANDARD REVOCATIONS")).then(pl.lit("irish_standards_and_revocations"))
-                       .when(t.str.contains("IRISH STANDARDS")).then(pl.lit("irish_standards"))
-                       .otherwise(pl.col("notice_subtype")),
+        notice_category=pl.when(t.str.contains("IRISH STANDARDS"))
+        .then(pl.lit("standards"))
+        .otherwise(pl.col("notice_category")),
+        notice_subtype=pl.when(t.str.contains("IRISH STANDARD REVOCATIONS"))
+        .then(pl.lit("irish_standards_and_revocations"))
+        .when(t.str.contains("IRISH STANDARDS"))
+        .then(pl.lit("irish_standards"))
+        .otherwise(pl.col("notice_subtype")),
     )
 
     # SI
     has_si = t.str.contains(r"\bS\.I\.\s+NO\.\s*\d+\s+OF\s+\d{4}")
     df = df.with_columns(
         notice_category=pl.when(has_si).then(pl.lit("statutory_instrument")).otherwise(pl.col("notice_category")),
-        notice_subtype=pl.when(has_si).then(pl.lit("statutory_instrument_multi_axis")).otherwise(pl.col("notice_subtype")),
+        notice_subtype=pl.when(has_si)
+        .then(pl.lit("statutory_instrument_multi_axis"))
+        .otherwise(pl.col("notice_subtype")),
     )
 
     # FISHERIES
     has_fisheries = t.str.contains("FISHERIES MANAGEMENT NOTICE")
     df = df.with_columns(
         notice_category=pl.when(has_fisheries).then(pl.lit("fisheries_notice")).otherwise(pl.col("notice_category")),
-        notice_subtype=pl.when(has_fisheries & t.str.contains("QUOTA")).then(pl.lit("quota_management"))
-                       .when(has_fisheries).then(pl.lit("fisheries_management_notice"))
-                       .otherwise(pl.col("notice_subtype")),
+        notice_subtype=pl.when(has_fisheries & t.str.contains("QUOTA"))
+        .then(pl.lit("quota_management"))
+        .when(has_fisheries)
+        .then(pl.lit("fisheries_management_notice"))
+        .otherwise(pl.col("notice_subtype")),
     )
 
     # BANKRUPTCY
     has_bankrupt = t.str.contains_any(["BANKRUPT", "ADJUDICATED BANKRUPT"])
     df = df.with_columns(
         notice_category=pl.when(has_bankrupt).then(pl.lit("bankruptcy")).otherwise(pl.col("notice_category")),
-        notice_subtype=pl.when(has_bankrupt).then(pl.lit("bankruptcy_adjudication")).otherwise(pl.col("notice_subtype")),
+        notice_subtype=pl.when(has_bankrupt)
+        .then(pl.lit("bankruptcy_adjudication"))
+        .otherwise(pl.col("notice_subtype")),
     )
 
     # MVL/CVL detection — corporate insolvency disambiguation.
@@ -779,49 +968,69 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     #   "by reason of its liabilities" / "cannot continue in business" = CVL
     # has_companies_act gates the precise subtype; without that anchor we still
     # tag liquidator-only notices but with subtype "liquidation_unspecified".
-    explicit_mvl = (
-        t.str.contains(r"MEMBERS?['\s]+VOLUNTARY\s+(?:LIQUIDATION|WINDING|WINDING UP)")
-        | t.str.contains(r"\(IN\s+MEMBERS?['\s]+VOLUNTARY LIQUIDATION\)")
+    explicit_mvl = t.str.contains(r"MEMBERS?['\s]+VOLUNTARY\s+(?:LIQUIDATION|WINDING|WINDING UP)") | t.str.contains(
+        r"\(IN\s+MEMBERS?['\s]+VOLUNTARY LIQUIDATION\)"
     )
-    explicit_cvl = (
-        t.str.contains(r"CREDITORS?['\s]+VOLUNTARY\s+(?:LIQUIDATION|WINDING|WINDING UP)")
-        | t.str.contains_any(["BY REASON OF ITS LIABILITIES", "CANNOT CONTINUE IN BUSINESS"])
-    )
+    explicit_cvl = t.str.contains(
+        r"CREDITORS?['\s]+VOLUNTARY\s+(?:LIQUIDATION|WINDING|WINDING UP)"
+    ) | t.str.contains_any(["BY REASON OF ITS LIABILITIES", "CANNOT CONTINUE IN BUSINESS"])
     has_companies_act = t.str.contains_any(["COMPANIES ACT 2014", "COMPANIES ACTS 2014", "THE COMPANIES ACTS"])
     has_liquidator_kw = t.str.contains_any(["LIQUIDATOR", "VOLUNTARY LIQUIDATION", "VOLUNTARY WINDING"])
 
     df = df.with_columns(
         notice_category=(
-            pl.when(has_companies_act & t.str.contains("RECEIVER")).then(pl.lit("corporate_insolvency"))
-              .when(has_companies_act & t.str.contains_any(["PROCESS ADVISER", "RESCUE PROCESS"])).then(pl.lit("corporate_rescue"))
-              .when(has_companies_act & t.str.contains("HIGH COURT") & t.str.contains_any(["WIND", "LIQUIDATOR"])).then(pl.lit("corporate_insolvency"))
-              .when(has_companies_act & explicit_cvl).then(pl.lit("corporate_insolvency"))
-              .when(has_companies_act & explicit_mvl).then(pl.lit("corporate_insolvency"))
-              .when(has_companies_act & t.str.contains_any(["VOLUNTARY LIQUIDATION", "VOLUNTARY WINDING", "LIQUIDATOR"])).then(pl.lit("corporate_insolvency"))
-              .when(has_companies_act).then(pl.lit("corporate_notice"))
-              .when(~has_companies_act & has_liquidator_kw).then(pl.lit("corporate_insolvency"))
-              .otherwise(pl.col("notice_category"))
+            pl.when(has_companies_act & t.str.contains("RECEIVER"))
+            .then(pl.lit("corporate_insolvency"))
+            .when(has_companies_act & t.str.contains_any(["PROCESS ADVISER", "RESCUE PROCESS"]))
+            .then(pl.lit("corporate_rescue"))
+            .when(has_companies_act & t.str.contains("HIGH COURT") & t.str.contains_any(["WIND", "LIQUIDATOR"]))
+            .then(pl.lit("corporate_insolvency"))
+            .when(has_companies_act & explicit_cvl)
+            .then(pl.lit("corporate_insolvency"))
+            .when(has_companies_act & explicit_mvl)
+            .then(pl.lit("corporate_insolvency"))
+            .when(has_companies_act & t.str.contains_any(["VOLUNTARY LIQUIDATION", "VOLUNTARY WINDING", "LIQUIDATOR"]))
+            .then(pl.lit("corporate_insolvency"))
+            .when(has_companies_act)
+            .then(pl.lit("corporate_notice"))
+            .when(~has_companies_act & has_liquidator_kw)
+            .then(pl.lit("corporate_insolvency"))
+            .otherwise(pl.col("notice_category"))
         ),
         notice_subtype=(
-            pl.when(has_companies_act & t.str.contains("RECEIVER")).then(pl.lit("receivership"))
-              .when(has_companies_act & t.str.contains_any(["PROCESS ADVISER", "RESCUE PROCESS"])).then(pl.lit("scarp_process_adviser"))
-              .when(has_companies_act & t.str.contains("HIGH COURT") & t.str.contains_any(["WIND", "LIQUIDATOR"])).then(pl.lit("court_winding_up"))
-              .when(has_companies_act & explicit_cvl).then(pl.lit("creditors_voluntary_liquidation"))
-              .when(has_companies_act & explicit_mvl).then(pl.lit("members_voluntary_liquidation"))
-              .when(has_companies_act & t.str.contains_any(["VOLUNTARY LIQUIDATION", "VOLUNTARY WINDING", "LIQUIDATOR"])).then(pl.lit("voluntary_liquidation_unspecified"))
-              .when(has_companies_act).then(pl.lit("companies_act_notice"))
-              .when(~has_companies_act & has_liquidator_kw & explicit_cvl).then(pl.lit("creditors_voluntary_liquidation"))
-              .when(~has_companies_act & has_liquidator_kw & explicit_mvl).then(pl.lit("members_voluntary_liquidation"))
-              .when(~has_companies_act & has_liquidator_kw).then(pl.lit("liquidation_unspecified"))
-              .otherwise(pl.col("notice_subtype"))
+            pl.when(has_companies_act & t.str.contains("RECEIVER"))
+            .then(pl.lit("receivership"))
+            .when(has_companies_act & t.str.contains_any(["PROCESS ADVISER", "RESCUE PROCESS"]))
+            .then(pl.lit("scarp_process_adviser"))
+            .when(has_companies_act & t.str.contains("HIGH COURT") & t.str.contains_any(["WIND", "LIQUIDATOR"]))
+            .then(pl.lit("court_winding_up"))
+            .when(has_companies_act & explicit_cvl)
+            .then(pl.lit("creditors_voluntary_liquidation"))
+            .when(has_companies_act & explicit_mvl)
+            .then(pl.lit("members_voluntary_liquidation"))
+            .when(has_companies_act & t.str.contains_any(["VOLUNTARY LIQUIDATION", "VOLUNTARY WINDING", "LIQUIDATOR"]))
+            .then(pl.lit("voluntary_liquidation_unspecified"))
+            .when(has_companies_act)
+            .then(pl.lit("companies_act_notice"))
+            .when(~has_companies_act & has_liquidator_kw & explicit_cvl)
+            .then(pl.lit("creditors_voluntary_liquidation"))
+            .when(~has_companies_act & has_liquidator_kw & explicit_mvl)
+            .then(pl.lit("members_voluntary_liquidation"))
+            .when(~has_companies_act & has_liquidator_kw)
+            .then(pl.lit("liquidation_unspecified"))
+            .otherwise(pl.col("notice_subtype"))
         ),
     )
 
     # AGREEMENTS ENTERED INTO FORCE
     has_agree = t.str.contains("AGREEMENTS WHICH ENTERED INTO FORCE")
     df = df.with_columns(
-        notice_category=pl.when(has_agree).then(pl.lit("international_agreement_notice")).otherwise(pl.col("notice_category")),
-        notice_subtype=pl.when(has_agree).then(pl.lit("agreement_entered_into_force")).otherwise(pl.col("notice_subtype")),
+        notice_category=pl.when(has_agree)
+        .then(pl.lit("international_agreement_notice"))
+        .otherwise(pl.col("notice_category")),
+        notice_subtype=pl.when(has_agree)
+        .then(pl.lit("agreement_entered_into_force"))
+        .otherwise(pl.col("notice_subtype")),
     )
 
     # SPECIAL ADVISER / generic appointment fallback.
@@ -832,18 +1041,24 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     # "other", so a "Companies Act ... appointment of receiver" stays as
     # corporate_insolvency.
     has_sa = t.str.contains_any(["APPOINTMENT OF SPECIAL ADVISER", "APPOINTMENT OF SPECIAL ADVISERS", "COMHAIRLEOIR"])
-    has_appt = t.str.contains_any(["APPOINTMENT", "RE-APPOINTMENT", "APPOINTED", "REAPPOINTED", "A CHEAPADH", "A ATHCHEAPADH", "BUANSANNADH"])
+    has_appt = t.str.contains_any(
+        ["APPOINTMENT", "RE-APPOINTMENT", "APPOINTED", "REAPPOINTED", "A CHEAPADH", "A ATHCHEAPADH", "BUANSANNADH"]
+    )
     df = df.with_columns(
         # special-adviser hard override; otherwise generic appointment only when category is still "other"
         notice_category=(
-            pl.when(has_sa).then(pl.lit("public_appointment"))
-              .when(~has_sa & has_appt & (pl.col("notice_category") == "other")).then(pl.lit("public_appointment"))
-              .otherwise(pl.col("notice_category"))
+            pl.when(has_sa)
+            .then(pl.lit("public_appointment"))
+            .when(~has_sa & has_appt & (pl.col("notice_category") == "other"))
+            .then(pl.lit("public_appointment"))
+            .otherwise(pl.col("notice_category"))
         ),
         notice_subtype=(
-            pl.when(has_sa).then(pl.lit("special_adviser_appointment"))
-              .when(~has_sa & has_appt & (pl.col("notice_category") == "other")).then(pl.lit("appointment_or_assignment"))
-              .otherwise(pl.col("notice_subtype"))
+            pl.when(has_sa)
+            .then(pl.lit("special_adviser_appointment"))
+            .when(~has_sa & has_appt & (pl.col("notice_category") == "other"))
+            .then(pl.lit("appointment_or_assignment"))
+            .otherwise(pl.col("notice_subtype"))
         ),
     )
 
@@ -851,13 +1066,17 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     has_mi = t.str.contains_any(["ETHICS IN PUBLIC OFFICE", "REGISTER OF INTERESTS", "NAME OF MEMBER CONCERNED:"])
     df = df.with_columns(
         notice_category=pl.when(has_mi).then(pl.lit("member_interests")).otherwise(pl.col("notice_category")),
-        notice_subtype=pl.when(has_mi).then(pl.lit("raw_member_interest_extract_required")).otherwise(pl.col("notice_subtype")),
+        notice_subtype=pl.when(has_mi)
+        .then(pl.lit("raw_member_interest_extract_required"))
+        .otherwise(pl.col("notice_subtype")),
     )
 
     # ICAV
     has_icav = t.str.contains_any(["ICAV ACT 2015", "VOLUNTARY STRIKE OFF"])
     df = df.with_columns(
-        notice_category=pl.when(has_icav).then(pl.lit("investment_vehicle_register_notice")).otherwise(pl.col("notice_category")),
+        notice_category=pl.when(has_icav)
+        .then(pl.lit("investment_vehicle_register_notice"))
+        .otherwise(pl.col("notice_category")),
         notice_subtype=pl.when(has_icav).then(pl.lit("icav_voluntary_strike_off")).otherwise(pl.col("notice_subtype")),
     )
 
@@ -865,24 +1084,34 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     is_council = t.str.contains_any(["COUNTY COUNCIL", "CITY COUNCIL"])
     is_byelaw = t.str.contains_any(["BYE-LAWS", "BYE LAWS", "SPECIAL SPEED LIMIT"])
     df = df.with_columns(
-        notice_category=pl.when(is_council & is_byelaw).then(pl.lit("local_authority_notice")).otherwise(pl.col("notice_category")),
-        notice_subtype=pl.when(is_council & is_byelaw & t.str.contains("SPEED LIMIT")).then(pl.lit("speed_limit_bye_law"))
-                       .when(is_council & is_byelaw).then(pl.lit("local_bye_law"))
-                       .otherwise(pl.col("notice_subtype")),
+        notice_category=pl.when(is_council & is_byelaw)
+        .then(pl.lit("local_authority_notice"))
+        .otherwise(pl.col("notice_category")),
+        notice_subtype=pl.when(is_council & is_byelaw & t.str.contains("SPEED LIMIT"))
+        .then(pl.lit("speed_limit_bye_law"))
+        .when(is_council & is_byelaw)
+        .then(pl.lit("local_bye_law"))
+        .otherwise(pl.col("notice_subtype")),
     )
 
     # DORMANT ACCOUNTS
     has_dormant = t.str.contains_any(["DORMANT ACCOUNTS", "CUNTAIS DÍOMHAOIN", "GUNTAS DÍOMHAOIN"])
     df = df.with_columns(
-        notice_category=pl.when(has_dormant).then(pl.lit("financial_public_notice")).otherwise(pl.col("notice_category")),
+        notice_category=pl.when(has_dormant)
+        .then(pl.lit("financial_public_notice"))
+        .otherwise(pl.col("notice_category")),
         notice_subtype=pl.when(has_dormant).then(pl.lit("dormant_accounts_notice")).otherwise(pl.col("notice_subtype")),
     )
 
     # RTFO
     has_rtfo = t.str.contains("RENEWABLE TRANSPORT FUEL OBLIGATION") & t.str.contains("DETERMINATION NOTICE")
     df = df.with_columns(
-        notice_category=pl.when(has_rtfo).then(pl.lit("sectoral_regulatory_notice")).otherwise(pl.col("notice_category")),
-        notice_subtype=pl.when(has_rtfo).then(pl.lit("renewable_transport_fuel_obligation")).otherwise(pl.col("notice_subtype")),
+        notice_category=pl.when(has_rtfo)
+        .then(pl.lit("sectoral_regulatory_notice"))
+        .otherwise(pl.col("notice_category")),
+        notice_subtype=pl.when(has_rtfo)
+        .then(pl.lit("renewable_transport_fuel_obligation"))
+        .otherwise(pl.col("notice_subtype")),
     )
 
     # Early-return overrides — applied LAST so they win over everything
@@ -903,22 +1132,23 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     eu_si_markers = (pl.col("notice_category") == "statutory_instrument") & t.str.contains_any(
         ["EUROPEAN UNION", "EUROPEAN COMMUNITIES", "DIRECTIVE (EU)", "REGULATION (EU)"]
     )
-    has_person_title_marker = (
-        pl.col("raw_text").str.contains(r"\b(?:MR|MS|MRS|DR)\.?\s+[A-Z]")
-        | pl.col("raw_text").str.contains(r"\sT\.?D\b")
-    )
+    has_person_title_marker = pl.col("raw_text").str.contains(r"\b(?:MR|MS|MRS|DR)\.?\s+[A-Z]") | pl.col(
+        "raw_text"
+    ).str.contains(r"\sT\.?D\b")
 
     df = df.with_columns(
         classification_flags=(
-            pl.concat_list([
-                tag_or_none(eu_si_markers, "eu_derived_or_eu_related"),
-                tag_or_none(has_companies_act, "companies_act_2014_exclusion_from_si"),
-                tag_or_none(t.str.contains_any(["FÓGRA", "FOGRA"]), "irish_language_notice_or_notice_label"),
-                tag_or_none(has_person_title_marker, "person_title_detected"),
-                tag_or_none(pl.col("notice_category") == "member_interests", "quarantine_raw_json_extract"),
-                tag_or_none(has_admin, "ignore"),
-                tag_or_none(has_404, "exclude_file"),
-            ])
+            pl.concat_list(
+                [
+                    tag_or_none(eu_si_markers, "eu_derived_or_eu_related"),
+                    tag_or_none(has_companies_act, "companies_act_2014_exclusion_from_si"),
+                    tag_or_none(t.str.contains_any(["FÓGRA", "FOGRA"]), "irish_language_notice_or_notice_label"),
+                    tag_or_none(has_person_title_marker, "person_title_detected"),
+                    tag_or_none(pl.col("notice_category") == "member_interests", "quarantine_raw_json_extract"),
+                    tag_or_none(has_admin, "ignore"),
+                    tag_or_none(has_404, "exclude_file"),
+                ]
+            )
             .list.drop_nulls()
             .list.unique(maintain_order=True)
             .list.join(";")
@@ -944,20 +1174,25 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
         r"(?i)COMPANIES ACT|GOVERNMENT PUBLICATIONS|SOLICITOR|LIQUIDATOR|DUBLIN|"
         r"IN THE MATTER|VOLUNTARY LIQUIDATION|WINDING"
     )
-    df = df.with_columns(
-        _entity_candidate=(
-            pl.col("raw_text").str.extract_all(entity_pat)
-              .list.eval(pl.element().filter(~pl.element().str.contains(bad_pat)))
-              .list.eval(pl.element().str.strip_chars())
-              .list.first()
+    df = (
+        df.with_columns(
+            _entity_candidate=(
+                pl.col("raw_text")
+                .str.extract_all(entity_pat)
+                .list.eval(pl.element().filter(~pl.element().str.contains(bad_pat)))
+                .list.eval(pl.element().str.strip_chars())
+                .list.first()
+            )
         )
-    ).with_columns(
-        entity_name=(
-            pl.when(pl.col("notice_category") == "statutory_instrument")
-              .then(pl.col("title"))
-              .otherwise(pl.coalesce([pl.col("_entity_candidate"), pl.col("title")]))
+        .with_columns(
+            entity_name=(
+                pl.when(pl.col("notice_category") == "statutory_instrument")
+                .then(pl.col("title"))
+                .otherwise(pl.coalesce([pl.col("_entity_candidate"), pl.col("title")]))
+            )
         )
-    ).drop("_entity_candidate")
+        .drop("_entity_candidate")
+    )
 
     # person_title_detected — full extracted titles, deduplicated, "; "-joined.
     # Examples:
@@ -968,7 +1203,8 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     # Empty strings are coerced to null so downstream `is_not_null()` checks work.
     df = df.with_columns(
         person_title_detected=(
-            pl.col("raw_text").str.extract_all(
+            pl.col("raw_text")
+            .str.extract_all(
                 r"\b(?:Mr|Ms|Mrs|Dr|Minister|Deputy)\.?\s+[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú'\-]+(?:\s+[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú'\-]+){1,4}(?:,?\s*T\.?D\.?|,?\s*TD)?"
             )
             .list.unique(maintain_order=True)
@@ -977,8 +1213,8 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     ).with_columns(
         person_title_detected=(
             pl.when(pl.col("person_title_detected").str.len_chars() > 0)
-              .then(pl.col("person_title_detected"))
-              .otherwise(pl.lit(None, dtype=pl.String))
+            .then(pl.col("person_title_detected"))
+            .otherwise(pl.lit(None, dtype=pl.String))
         )
     )
 
@@ -991,18 +1227,16 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
         extraction_confidence=(
             pl.when(pl.col("notice_category") != "other").then(pl.lit(0.95)).otherwise(pl.lit(0.40))
             + pl.when(pl.col("notice_ref").is_not_null()).then(pl.lit(0.02)).otherwise(pl.lit(0.0))
-            + pl.when(
-                (pl.col("notice_category") == "statutory_instrument") & pl.col("si_number").is_not_null()
-            ).then(pl.lit(0.02)).otherwise(pl.lit(0.0))
+            + pl.when((pl.col("notice_category") == "statutory_instrument") & pl.col("si_number").is_not_null())
+            .then(pl.lit(0.02))
+            .otherwise(pl.lit(0.0))
         )
-    ).with_columns(
-        extraction_confidence=pl.min_horizontal([pl.col("extraction_confidence"), pl.lit(0.99)]).round(2)
-    )
+    ).with_columns(extraction_confidence=pl.min_horizontal([pl.col("extraction_confidence"), pl.lit(0.99)]).round(2))
 
     df = df.with_columns(
         notes=pl.when(pl.col("notice_category") == "other")
-                .then(pl.lit("Needs taxonomy rule or manual review"))
-                .otherwise(pl.lit(""))
+        .then(pl.lit("Needs taxonomy rule or manual review"))
+        .otherwise(pl.lit(""))
     )
 
     # ---- SI taxonomy ----
@@ -1016,9 +1250,7 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
         r"(?si)(?:Copies of (?:the above|this Statutory Instrument|the Regulations|this Order) may be purchased|"
         r"Copies of this Order may be obtained|Phone:\s*046|Price:?\s*€).*"
     )
-    df = df.with_columns(
-        _si_text_core=pl.col("raw_text").str.replace(boil_split, "")
-    ).with_columns(
+    df = df.with_columns(_si_text_core=pl.col("raw_text").str.replace(boil_split, "")).with_columns(
         _si_core_upper=pl.col("_si_text_core").str.to_uppercase(),
         _title_upper=pl.col("title").fill_null("").str.to_uppercase(),
     )
@@ -1026,10 +1258,12 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     # SI form: title takes priority — body often quotes the parent instrument's
     # form (e.g. "Regulations" inside an Order), which would mis-classify.
     df = df.with_columns(
-        si_form=pl.coalesce([
-            si_form_expr(pl.col("_title_upper")),
-            si_form_expr(pl.col("_si_core_upper")),
-        ])
+        si_form=pl.coalesce(
+            [
+                si_form_expr(pl.col("_title_upper")),
+                si_form_expr(pl.col("_si_core_upper")),
+            ]
+        )
     )
 
     # SI operations — list of detected flags (raw, before default fallback).
@@ -1038,23 +1272,18 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     # (the order from SI_OPERATION_RULES wins via list.first after dedup).
     op_exprs = [
         tag_or_none(
-            pl.col("_title_upper").str.contains_any(toks)
-            | pl.col("_si_core_upper").str.contains_any(toks),
+            pl.col("_title_upper").str.contains_any(toks) | pl.col("_si_core_upper").str.contains_any(toks),
             flag,
         )
         for flag, toks in SI_OPERATION_RULES
     ]
-    df = df.with_columns(
-        _si_ops_raw=pl.concat_list(op_exprs).list.drop_nulls().list.unique(maintain_order=True)
-    )
+    df = df.with_columns(_si_ops_raw=pl.concat_list(op_exprs).list.drop_nulls().list.unique(maintain_order=True))
 
     # Default to ["substantive_or_base_instrument"] if no operation matched —
     # preserves v2 semantics so downstream queries don't see nulls here.
     default_op = pl.concat_list([pl.lit("substantive_or_base_instrument")])
     df = df.with_columns(
-        _si_ops_list=pl.when(pl.col("_si_ops_raw").list.len() == 0)
-                       .then(default_op)
-                       .otherwise(pl.col("_si_ops_raw"))
+        _si_ops_list=pl.when(pl.col("_si_ops_raw").list.len() == 0).then(default_op).otherwise(pl.col("_si_ops_raw"))
     ).with_columns(
         si_operation_flags=pl.col("_si_ops_list").list.join("|"),
         si_operation_primary=pl.col("_si_ops_list").list.first(),
@@ -1063,8 +1292,7 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     # Policy domains
     domain_exprs = [
         tag_or_none(
-            pl.col("_title_upper").str.contains_any(toks)
-            | pl.col("_si_core_upper").str.contains_any(toks),
+            pl.col("_title_upper").str.contains_any(toks) | pl.col("_si_core_upper").str.contains_any(toks),
             domain,
         )
         for domain, toks in POLICY_DOMAIN_RULES.items()
@@ -1088,7 +1316,10 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     eu_exprs = [
         tag_or_none(
             (tu.str.contains("RESTRICTIVE MEASURES") | cu.str.contains("RESTRICTIVE MEASURES"))
-            & (tu.str.contains_any(["EUROPEAN UNION", "COUNCIL REGULATION"]) | cu.str.contains_any(["EUROPEAN UNION", "COUNCIL REGULATION"])),
+            & (
+                tu.str.contains_any(["EUROPEAN UNION", "COUNCIL REGULATION"])
+                | cu.str.contains_any(["EUROPEAN UNION", "COUNCIL REGULATION"])
+            ),
             "eu_restrictive_measures",
         ),
         tag_or_none(
@@ -1116,8 +1347,8 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
         _si_eu=pl.concat_list(eu_exprs).list.drop_nulls().list.unique(maintain_order=True)
     ).with_columns(
         si_eu_relationship=pl.when(pl.col("_si_eu").list.len() > 0)
-                             .then(pl.col("_si_eu").list.join("|"))
-                             .otherwise(pl.lit("none_detected"))
+        .then(pl.col("_si_eu").list.join("|"))
+        .otherwise(pl.lit("none_detected"))
     )
 
     # Parent acts — every "<Title-Case Words> Act <year>" run, plus a special
@@ -1129,12 +1360,13 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     #   = si_parent_legislation = "Social Welfare Consolidation Act 2005|European Communities Act, 1972"
     df = df.with_columns(
         si_parent_legislation=(
-            pl.col("_si_text_core").str.extract_all(r"\b[A-Z][A-Za-z& ,()\-'/]+? Act \d{4}\b")
-              .list.concat(pl.col("_si_text_core").str.extract_all(r"(?i)\bEuropean Communities Act,?\s*1972\b"))
-              .list.eval(pl.element().str.replace_all(r"[ \t]+", " "))
-              .list.eval(pl.element().str.strip_chars(" .,;"))
-              .list.unique(maintain_order=True)
-              .list.join("|")
+            pl.col("_si_text_core")
+            .str.extract_all(r"\b[A-Z][A-Za-z& ,()\-'/]+? Act \d{4}\b")
+            .list.concat(pl.col("_si_text_core").str.extract_all(r"(?i)\bEuropean Communities Act,?\s*1972\b"))
+            .list.eval(pl.element().str.replace_all(r"[ \t]+", " "))
+            .list.eval(pl.element().str.strip_chars(" .,;"))
+            .list.unique(maintain_order=True)
+            .list.join("|")
         )
     )
 
@@ -1147,7 +1379,8 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     #   "for the period commencing on 1 January 2025"
     df = df.with_columns(
         si_effective_date_text=(
-            pl.col("_si_text_core").str.extract_all(
+            pl.col("_si_text_core")
+            .str.extract_all(
                 r"(?i)(?:come(?:s)? into operation on\s+[^\.\n]+|with effect from\s+[^\.\n]+|appoints?\s+the\s+[^\.\n]+?\s+as\s+the\s+day|for the period commencing on\s+[^\.\n]+)"
             )
             .list.eval(pl.element().str.replace_all(r"[ \t]+", " "))
@@ -1166,7 +1399,8 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     #   "The Commission for Communications Regulation"
     df = df.with_columns(
         si_responsible_actor=(
-            pl.col("_si_text_core").str.extract_all(
+            pl.col("_si_text_core")
+            .str.extract_all(
                 r"(?:The Minister for [^,\n]+|[A-Z][A-Za-z& ]+, Minister for [^,\n]+|The Commission for Communications Regulation|University College Dublin, National University of Ireland, Dublin|The Taoiseach|The Government|The Minister of State at the Department of [^,\n]+)"
             )
             .list.eval(pl.element().str.replace_all(r"[ \t]+", " "))
@@ -1192,15 +1426,27 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
             - pl.when(pl.col("si_form").is_null()).then(pl.lit(0.20)).otherwise(pl.lit(0.0))
             - pl.when(pl.col("_si_ops_raw").list.len() == 0).then(pl.lit(0.15)).otherwise(pl.lit(0.0))
             - pl.when(pl.col("_si_domains").list.len() == 0).then(pl.lit(0.15)).otherwise(pl.lit(0.0))
-        ).clip(0.10, 0.99).round(2),
+        )
+        .clip(0.10, 0.99)
+        .round(2),
         si_taxonomy_notes=(
-            pl.concat_list([
-                tag_or_none(pl.col("si_form").is_null(), "SI form not detected from title/text"),
-                tag_or_none(pl.col("_si_ops_raw").list.len() == 0, "No operation flags detected; may be substantive/base regulation"),
-                tag_or_none(pl.col("_si_domains").list.len() == 0, "No policy domain detected"),
-                tag_or_none(pl.col("_si_ops_raw").list.len() > 1, "Multi-operation SI; do not treat subtype as mutually exclusive"),
-                tag_or_none(pl.col("_si_domains").list.len() > 1, "Multi-domain SI; preserve all domain tags"),
-            ]).list.drop_nulls().list.join("; ")
+            pl.concat_list(
+                [
+                    tag_or_none(pl.col("si_form").is_null(), "SI form not detected from title/text"),
+                    tag_or_none(
+                        pl.col("_si_ops_raw").list.len() == 0,
+                        "No operation flags detected; may be substantive/base regulation",
+                    ),
+                    tag_or_none(pl.col("_si_domains").list.len() == 0, "No policy domain detected"),
+                    tag_or_none(
+                        pl.col("_si_ops_raw").list.len() > 1,
+                        "Multi-operation SI; do not treat subtype as mutually exclusive",
+                    ),
+                    tag_or_none(pl.col("_si_domains").list.len() > 1, "Multi-domain SI; preserve all domain tags"),
+                ]
+            )
+            .list.drop_nulls()
+            .list.join("; ")
         ),
     )
 
@@ -1208,18 +1454,27 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     # on non-SI rows — checking notice_category mid-pipeline would require
     # row-wise branching that Polars can't elide.
     si_cols = [
-        "si_form", "si_operation_flags", "si_operation_primary",
-        "si_eu_relationship", "si_policy_domains", "si_policy_domain_primary",
-        "si_parent_legislation", "si_responsible_actor", "si_effective_date_text",
-        "si_taxonomy_confidence", "si_taxonomy_notes",
+        "si_form",
+        "si_operation_flags",
+        "si_operation_primary",
+        "si_eu_relationship",
+        "si_policy_domains",
+        "si_policy_domain_primary",
+        "si_parent_legislation",
+        "si_responsible_actor",
+        "si_effective_date_text",
+        "si_taxonomy_confidence",
+        "si_taxonomy_notes",
     ]
-    df = df.with_columns([
-        pl.when(pl.col("notice_category") == "statutory_instrument")
-          .then(pl.col(c))
-          .otherwise(pl.lit(None))
-          .alias(c)
-        for c in si_cols
-    ])
+    df = df.with_columns(
+        [
+            pl.when(pl.col("notice_category") == "statutory_instrument")
+            .then(pl.col(c))
+            .otherwise(pl.lit(None))
+            .alias(c)
+            for c in si_cols
+        ]
+    )
 
     df = df.with_columns(
         eisb_url=pl.when(
@@ -1227,25 +1482,36 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
             & pl.col("si_year").is_not_null()
             & pl.col("si_number").is_not_null()
         )
-        .then(pl.format(
-            "https://www.irishstatutebook.ie/eli/{}/si/{}/made/en/html",
-            pl.col("si_year"),
-            pl.col("si_number"),
-        ))
+        .then(
+            pl.format(
+                "https://www.irishstatutebook.ie/eli/{}/si/{}/made/en/html",
+                pl.col("si_year"),
+                pl.col("si_number"),
+            )
+        )
         .otherwise(pl.lit(None, dtype=pl.String))
     )
 
     # Drop intermediates and project to canonical schema
-    return df.drop([
-        "text_upper", "is_si_record",
-        "_si_text_core", "_si_core_upper", "_title_upper",
-        "_si_ops_raw", "_si_ops_list", "_si_domains", "_si_eu",
-    ]).select(EVENTS_OUT_COLS)
+    return df.drop(
+        [
+            "text_upper",
+            "is_si_record",
+            "_si_text_core",
+            "_si_core_upper",
+            "_title_upper",
+            "_si_ops_raw",
+            "_si_ops_list",
+            "_si_domains",
+            "_si_eu",
+        ]
+    ).select(EVENTS_OUT_COLS)
 
 
 # ---------------------------------------------------------------------------
 # Quarantine (single vectorised when/then)
 # ---------------------------------------------------------------------------
+
 
 def add_quarantine(events: pl.DataFrame, threshold: float) -> pl.DataFrame:
     if events.is_empty():
@@ -1269,14 +1535,21 @@ def add_quarantine(events: pl.DataFrame, threshold: float) -> pl.DataFrame:
         )
         .with_columns(
             quarantine_reason=(
-                pl.when(pl.col("notice_category") == "other").then(pl.lit("unclassified_other"))
-                  .when(pl.col("notice_category") == "member_interests").then(pl.lit("member_interests_raw_json_only"))
-                  .when(pl.col("notice_category") == "invalid_source").then(pl.lit("invalid_source"))
-                  .when(pl.col("extraction_confidence") < threshold).then(pl.lit("low_confidence"))
-                  .when(pl.col("line_count") > 120).then(pl.lit("very_large_record_possible_split_failure"))
-                  .when((pl.col("end_page") - pl.col("start_page")) >= 3).then(pl.lit("multi_page_record_review"))
-                  .when(pl.col("_ref_count") >= 3).then(pl.lit("multiple_notice_refs_in_record"))
-                  .otherwise(pl.lit(None, dtype=pl.String))
+                pl.when(pl.col("notice_category") == "other")
+                .then(pl.lit("unclassified_other"))
+                .when(pl.col("notice_category") == "member_interests")
+                .then(pl.lit("member_interests_raw_json_only"))
+                .when(pl.col("notice_category") == "invalid_source")
+                .then(pl.lit("invalid_source"))
+                .when(pl.col("extraction_confidence") < threshold)
+                .then(pl.lit("low_confidence"))
+                .when(pl.col("line_count") > 120)
+                .then(pl.lit("very_large_record_possible_split_failure"))
+                .when((pl.col("end_page") - pl.col("start_page")) >= 3)
+                .then(pl.lit("multi_page_record_review"))
+                .when(pl.col("_ref_count") >= 3)
+                .then(pl.lit("multiple_notice_refs_in_record"))
+                .otherwise(pl.lit(None, dtype=pl.String))
             )
         )
         .with_columns(is_quarantined=pl.col("quarantine_reason").is_not_null())
@@ -1295,10 +1568,19 @@ def add_quarantine(events: pl.DataFrame, threshold: float) -> pl.DataFrame:
 # - split_reason:                     internal flag for record-break attribution
 # - end_line_id:                      bronze-line index, redundant in gold
 GOLD_DROP_COLS = [
-    "bbox", "bbox_union",
-    "x0", "y0", "x1", "y1",
-    "bbox_x0", "bbox_y0", "bbox_x1", "bbox_y1",
-    "font_size_mean", "font_name", "font_names",
+    "bbox",
+    "bbox_union",
+    "x0",
+    "y0",
+    "x1",
+    "y1",
+    "bbox_x0",
+    "bbox_y0",
+    "bbox_x1",
+    "bbox_y1",
+    "font_size_mean",
+    "font_name",
+    "font_names",
     "split_reason",
     "end_line_id",
 ]
@@ -1333,7 +1615,9 @@ def shape_for_gold(df: pl.DataFrame) -> pl.DataFrame:
 drop_geom_font_cols = shape_for_gold
 
 
-def write_dimensions(out_dir: str, dfs: dict[str, pl.DataFrame], member_extracts: list[dict[str, Any]], paths: list[str]) -> None:
+def write_dimensions(
+    out_dir: str, dfs: dict[str, pl.DataFrame], member_extracts: list[dict[str, Any]], paths: list[str]
+) -> None:
     dims = {
         "source_pdf_count": len(paths),
         "bronze_grain": "one row per extracted visible text line from PyMuPDF page.get_text('dict'); uniquely identified by source_file, page_number, block_id, line_id, line_order, with bbox and font metadata",
@@ -1373,7 +1657,9 @@ def run(paths: list[str], out_dir: str, confidence_threshold: float = 0.75) -> N
         if mi_extracts:
             print(f"  Found {len(mi_extracts)} member-interest extract range(s)")
         member_extracts.extend(mi_extracts)
-    print(f"  Collected {len(all_rows)} raw lines across {total_pdfs} PDFs ({len(member_extracts)} member-interest extracts)")
+    print(
+        f"  Collected {len(all_rows)} raw lines across {total_pdfs} PDFs ({len(member_extracts)} member-interest extracts)"
+    )
 
     print(f"[2/5] Building bronze frame from {len(all_rows)} lines...")
     bronze = build_bronze_frame(all_rows)
@@ -1449,7 +1735,7 @@ def run(paths: list[str], out_dir: str, confidence_threshold: float = 0.75) -> N
 # process the full historical corpus rather than erroring out.
 _ROOT = Path(__file__).resolve().parent
 DEFAULT_INPUT_GLOB = str(_ROOT / "data" / "bronze" / "iris_oifigiuil" / "*.pdf")
-DEFAULT_OUT_DIR    = str(_ROOT / "data" / "silver" / "iris_oifigiuil")
+DEFAULT_OUT_DIR = str(_ROOT / "data" / "silver" / "iris_oifigiuil")
 
 
 def main() -> None:
@@ -1473,6 +1759,7 @@ def main() -> None:
     paths = [p for p in paths if not (os.path.exists(p) and os.path.getsize(p) < 5_000)]
     # Drop placeholder stubs for future-dated issues (filename IRDDMMYY.pdf, date > today).
     _today = date.today()
+
     def _is_future_stub(p: str) -> bool:
         m = re.match(r"IR(\d{2})(\d{2})(\d{2})\.pdf$", Path(p).name, re.IGNORECASE)
         if not m:
@@ -1481,6 +1768,7 @@ def main() -> None:
             return date(2000 + int(m.group(3)), int(m.group(2)), int(m.group(1))) > _today
         except ValueError:
             return False
+
     paths = [p for p in paths if not _is_future_stub(p)]
     if not paths:
         parser.error(f"No PDFs matched any of: {args.paths}")

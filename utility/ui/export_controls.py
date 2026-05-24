@@ -1,5 +1,7 @@
 """Consistent CSV export button for Dáil Tracker pages."""
+
 from __future__ import annotations
+
 import pandas as pd
 import streamlit as st
 

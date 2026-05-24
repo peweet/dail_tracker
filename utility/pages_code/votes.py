@@ -18,6 +18,7 @@ from ui.components import (
     clickable_card_link,
     empty_state,
     evidence_heading,
+    page_error_boundary,
     sidebar_date_range,
     sidebar_member_filter,
     sidebar_page_header,
@@ -34,22 +35,22 @@ _REQUIRED_INDEX_COLS: frozenset[str] = frozenset(
     {"vote_id", "vote_date", "debate_title", "vote_outcome", "yes_count", "no_count"}
 )
 
-_VOTE_INDEX_LIMIT      = 500
+_VOTE_INDEX_LIMIT = 500
 _DIVISION_MEMBERS_LIMIT = 5000
-_TD_HISTORY_LIMIT      = 500
+_TD_HISTORY_LIMIT = 500
 
 # Topical seed terms used for the "Find a TD" landing page. Each one matches a
 # debate_title substring; presentation-only filter, not modelling.
 _TD_PICKER_TOPICS: tuple[tuple[str, str], ...] = (
-    ("Housing",     "%housing%"),
-    ("Health",      "%health%"),
-    ("Disability",  "%disab%"),
-    ("Climate",     "%climate%"),
-    ("Energy",      "%energy%"),
-    ("Palestine",   "%palestin%"),
-    ("Neutrality",  "%neutral%"),
-    ("Education",   "%education%"),
-    ("Childcare",   "%child%"),
+    ("Housing", "%housing%"),
+    ("Health", "%health%"),
+    ("Disability", "%disab%"),
+    ("Climate", "%climate%"),
+    ("Energy", "%energy%"),
+    ("Palestine", "%palestin%"),
+    ("Neutrality", "%neutral%"),
+    ("Education", "%education%"),
+    ("Childcare", "%child%"),
 )
 _TD_PICKER_CARD_COUNT = 4
 
@@ -73,12 +74,12 @@ def _and_clauses(clauses: list[str]) -> str:
 
 # ── Data fetch ─────────────────────────────────────────────────────────────────
 
+
 @st.cache_data(ttl=300)
 def _fetch_hero_stats(_conn) -> pd.DataFrame:
     return _safe_query(
         _conn,
-        "SELECT division_count, member_count, first_vote_date, last_vote_date"
-        " FROM v_vote_result_summary LIMIT 1",
+        "SELECT division_count, member_count, first_vote_date, last_vote_date FROM v_vote_result_summary LIMIT 1",
     )
 
 
@@ -186,8 +187,7 @@ def _fetch_vote_by_id(_conn, vote_id: str) -> pd.DataFrame:
 def _fetch_party_breakdown(_conn, vote_id) -> pd.DataFrame:
     return _safe_query(
         _conn,
-        "SELECT party_name, vote_type, member_count, vote_pct"
-        " FROM party_vote_breakdown WHERE vote_id = ? LIMIT 500",
+        "SELECT party_name, vote_type, member_count, vote_pct FROM party_vote_breakdown WHERE vote_id = ? LIMIT 500",
         (vote_id,),
     )
 
@@ -265,6 +265,7 @@ def _fetch_td_year_summary(_conn, member_id) -> pd.DataFrame:
 
 # ── TD picker (landing for the TDs view) ───────────────────────────────────────
 
+
 def _pick_diverse_cards(df: pd.DataFrame, n: int) -> list[dict]:
     """Pick up to ``n`` rows with distinct members, balanced Yes/No.
 
@@ -297,7 +298,7 @@ def _pick_diverse_cards(df: pd.DataFrame, n: int) -> list[dict]:
 
     candidates = _candidates(distinct_titles=True)
     yes_pool = [r for r in candidates if r.get("vote_type") == "Voted Yes"]
-    no_pool  = [r for r in candidates if r.get("vote_type") == "Voted No"]
+    no_pool = [r for r in candidates if r.get("vote_type") == "Voted No"]
 
     half = n // 2
     out: list[dict] = no_pool[:half] + yes_pool[:half]
@@ -321,14 +322,14 @@ def _pick_diverse_cards(df: pd.DataFrame, n: int) -> list[dict]:
 
 
 def _td_pick_card_html(row: dict) -> str:
-    name      = str(row.get("member_name") or "")
+    name = str(row.get("member_name") or "")
     member_id = str(row.get("member_id") or "")
-    party     = str(row.get("party_name") or "")
-    const     = str(row.get("constituency") or "")
+    party = str(row.get("party_name") or "")
+    const = str(row.get("constituency") or "")
     vote_type = str(row.get("vote_type") or "")
-    title     = str(row.get("debate_title") or "")
+    title = str(row.get("debate_title") or "")
     vote_date = row.get("vote_date")
-    date_str  = ""
+    date_str = ""
     if vote_date is not None:
         try:
             date_str = vote_date.strftime("%d %b %Y")
@@ -336,24 +337,25 @@ def _td_pick_card_html(row: dict) -> str:
             date_str = str(vote_date)[:10]
 
     if vote_type == "Voted Yes":
-        chip_cls  = "td-pick-vote td-pick-vote-yes"
+        chip_cls = "td-pick-vote td-pick-vote-yes"
         chip_text = "✓ Voted Yes"
     elif vote_type == "Voted No":
-        chip_cls  = "td-pick-vote td-pick-vote-no"
+        chip_cls = "td-pick-vote td-pick-vote-no"
         chip_text = "✗ Voted No"
     else:
-        chip_cls  = "td-pick-vote td-pick-vote-abs"
+        chip_cls = "td-pick-vote td-pick-vote-abs"
         chip_text = "— Abstained"
 
     meta_parts = [p for p in (party, const, date_str) if p]
-    meta_html  = " · ".join(_h(p) for p in meta_parts)
+    meta_html = " · ".join(_h(p) for p in meta_parts)
 
     # Cross-page link to the full Member Overview profile, when ID is known.
     profile_link_html = (
         f'<a class="dt-member-link td-pick-profile" '
         f'href="{_h(member_profile_url(member_id))}" target="_self" '
         f'aria-label="View full profile of {_h(name)}">Profile ↗</a>'
-        if member_id else ""
+        if member_id
+        else ""
     )
 
     return (
@@ -363,10 +365,10 @@ def _td_pick_card_html(row: dict) -> str:
         f'<div class="td-pick-title">{_h(title)}</div>'
         f'<div class="td-pick-name-row">'
         f'<div class="td-pick-name">{_h(name)}</div>'
-        f'{profile_link_html}'
-        f'</div>'
+        f"{profile_link_html}"
+        f"</div>"
         f'<div class="td-pick-meta">{meta_html}</div>'
-        f'</div>'
+        f"</div>"
     )
 
 
@@ -376,13 +378,13 @@ def _render_td_picker(conn) -> None:
         '<p class="dt-kicker">Dáil Tracker · Voting Record</p>'
         '<h1 class="dt-hero">Find a TD</h1>'
         '<p class="td-pick-dek">'
-        'Search for a TD on the left, or jump straight in: here are recent '
-        'votes on housing, health and other crucial legislation.'
-        '</p>'
+        "Search for a TD on the left, or jump straight in: here are recent "
+        "votes on housing, health and other crucial legislation."
+        "</p>"
     )
 
     topical = _fetch_topical_votes(conn)
-    picks   = _pick_diverse_cards(topical, _TD_PICKER_CARD_COUNT)
+    picks = _pick_diverse_cards(topical, _TD_PICKER_CARD_COUNT)
 
     if not picks:
         empty_state(
@@ -394,7 +396,7 @@ def _render_td_picker(conn) -> None:
 
     # Two-column grid of suggestion cards.
     for row_pair_start in range(0, len(picks), 2):
-        pair = picks[row_pair_start:row_pair_start + 2]
+        pair = picks[row_pair_start : row_pair_start + 2]
         cols = st.columns(2, gap="small")
         for j, pick in enumerate(pair):
             with cols[j]:
@@ -412,27 +414,26 @@ def _render_td_picker(conn) -> None:
                     st.rerun()
 
     st.html(
-        '<p class="td-pick-foot">'
-        'Showing recent topical votes — selection updates as new divisions are published.'
-        '</p>'
+        '<p class="td-pick-foot">Showing recent topical votes — selection updates as new divisions are published.</p>'
     )
 
 
 # ── Mode A: Divisions index ────────────────────────────────────────────────────
+
 
 @st.fragment
 def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
     """Fragment: year pills + card list. Reruns only this block when year changes."""
     years = _fetch_vote_years(conn)
     eff_from = date_from
-    eff_to   = date_to
+    eff_to = date_to
 
     if years:
         year_strs = [str(y) for y in years]
         sel_year = year_selector(year_strs, key="v_year")
         if not eff_from:
             eff_from = f"{sel_year}-01-01"
-            eff_to   = f"{sel_year}-12-31"
+            eff_to = f"{sel_year}-12-31"
 
     vote_df = _fetch_vote_index(conn, eff_from, eff_to, outcome_filter)
 
@@ -449,20 +450,16 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
         )
         return
 
-    total    = len(vote_df)
+    total = len(vote_df)
     show_all = st.session_state.get("v_show_all", False)
-    visible  = vote_df if show_all else vote_df.head(25)
-    suffix   = " · showing first 25" if not show_all and total > 25 else ""
-    st.html(
-        f'<p class="vt-index-caption">'
-        f'{total:,} division{"s" if total != 1 else ""}{suffix}'
-        f'</p>'
-    )
+    visible = vote_df if show_all else vote_df.head(25)
+    suffix = " · showing first 25" if not show_all and total > 25 else ""
+    st.html(f'<p class="vt-index-caption">{total:,} division{"s" if total != 1 else ""}{suffix}</p>')
 
     cards_html: list[str] = []
     for _, row in visible.iterrows():
         vote_id = str(row.get("vote_id") or "")
-        title   = str(row.get("debate_title") or "View division")
+        title = str(row.get("debate_title") or "View division")
         cards_html.append(
             clickable_card_link(
                 href=division_url(vote_id),
@@ -472,16 +469,21 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
         )
     st.html("\n".join(cards_html))
 
-    if not show_all and total > 25 and st.button(
-        f"Show all {total:,} divisions", key="v_show_all_btn"
-    ):
+    if not show_all and total > 25 and st.button(f"Show all {total:,} divisions", key="v_show_all_btn"):
         st.session_state["v_show_all"] = True
         st.rerun()
 
     display_cols = [
-        c for c in [
-            "vote_date", "vote_id", "debate_title", "vote_outcome",
-            "yes_count", "no_count", "abstained_count", "margin",
+        c
+        for c in [
+            "vote_date",
+            "vote_id",
+            "debate_title",
+            "vote_outcome",
+            "yes_count",
+            "no_count",
+            "abstained_count",
+            "margin",
         ]
         if c in vote_df.columns
     ]
@@ -494,16 +496,12 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
 
 
 def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
-    st.html(
-        '<p class="dt-kicker">Dáil Tracker · Voting Record</p>'
-        '<h1 class="dt-hero">Dáil Divisions</h1>'
-    )
+    st.html('<p class="dt-kicker">Dáil Tracker · Voting Record</p><h1 class="dt-hero">Dáil Divisions</h1>')
     _card_list_fragment(conn, date_from, date_to, outcome_filter)
 
     hero = _fetch_hero_stats(conn)
     sections: list[str] = [
-        "Divisions data sourced from the Oireachtas Open Data API. "
-        "Votes are as published in the official record."
+        "Divisions data sourced from the Oireachtas Open Data API. Votes are as published in the official record."
     ]
     if not hero.empty:
         r = hero.iloc[0]
@@ -513,12 +511,12 @@ def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
             sections.insert(0, f"{int(dc):,} total divisions on record · {int(mc or 0):,} TDs recorded.")
     provenance_expander(sections=sections)
     todo_callout(
-        "source_url column on v_vote_sources — "
-        "confirm real oireachtas.ie URL is present, not a local file path."
+        "source_url column on v_vote_sources — confirm real oireachtas.ie URL is present, not a local file path."
     )
 
 
 # ── Mode B: TD profile ─────────────────────────────────────────────────────────
+
 
 def _render_mode_b(conn, member_id: str, date_from, date_to) -> None:
     if back_button("← Back to divisions", key="v_b"):
@@ -534,9 +532,9 @@ def _render_mode_b(conn, member_id: str, date_from, date_to) -> None:
         )
         return
 
-    td_row     = td_df.iloc[0]
+    td_row = td_df.iloc[0]
     history_df = _fetch_td_history(conn, member_id, date_from, date_to)
-    year_df    = _fetch_td_year_summary(conn, member_id)
+    year_df = _fetch_td_year_summary(conn, member_id)
 
     render_td_panel(td_row, history_df, year_df)
 
@@ -551,6 +549,7 @@ def _render_mode_b(conn, member_id: str, date_from, date_to) -> None:
 
 
 # ── Mode C: Division evidence ──────────────────────────────────────────────────
+
 
 def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
     back_label = "← Back to TD record" if v_from == "td" else "← Back to divisions"
@@ -573,9 +572,9 @@ def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
         )
         return
 
-    vote_row     = vote_df.iloc[0]
-    members_df   = _fetch_division_members(conn, vote_id)
-    sources_df   = _fetch_sources(conn, vote_id)
+    vote_row = vote_df.iloc[0]
+    members_df = _fetch_division_members(conn, vote_id)
+    sources_df = _fetch_sources(conn, vote_id)
     breakdown_df = _fetch_party_breakdown(conn, vote_id)
 
     render_division_panel(vote_row, members_df, sources_df, breakdown_df)
@@ -585,6 +584,8 @@ def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
 
 # ── Page entry point ───────────────────────────────────────────────────────────
 
+
+@page_error_boundary
 def votes_page() -> None:
     inject_css()
     conn = get_votes_conn()
@@ -609,9 +610,9 @@ def votes_page() -> None:
     if "v_sel_member_id" not in st.session_state and "member" in st.query_params:
         st.session_state["v_sel_member_id"] = st.query_params["member"]
 
-    sel_vote_id   = st.session_state.get("v_sel_vote_id")
+    sel_vote_id = st.session_state.get("v_sel_vote_id")
     sel_member_id = st.session_state.get("v_sel_member_id")
-    v_from        = st.session_state.get("v_from", "index")
+    v_from = st.session_state.get("v_from", "index")
 
     # Default view: Dáil (Mode A — divisions index). If a TD is already
     # selected via URL or prior interaction, surface the TDs view so the
@@ -630,9 +631,9 @@ def votes_page() -> None:
 
         hero_df = _fetch_hero_stats(conn)
         if not hero_df.empty:
-            r   = hero_df.iloc[0]
-            fd  = r.get("first_vote_date")
-            ld  = r.get("last_vote_date")
+            r = hero_df.iloc[0]
+            fd = r.get("first_vote_date")
+            ld = r.get("last_vote_date")
             if fd and ld:
                 st.caption(f"Data covers {str(fd)[:7]} to {str(ld)[:7]}")
 

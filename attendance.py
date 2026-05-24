@@ -63,13 +63,24 @@ if not Path(csv_path).is_file():
     drop_cols = [c for c in ["sitting_days_attendance", "other_days_attendance"] if c in df.columns]
     if drop_cols:
         df = df.dropna(subset=drop_cols, how="all")
-    year_from_sitting = df["sitting_days_attendance"].str.split("/", n=3).str[-1] if "sitting_days_attendance" in df.columns else None
-    year_from_other = df["other_days_attendance"].str.split("/", n=3).str[-1] if "other_days_attendance" in df.columns else None
+    year_from_sitting = (
+        df["sitting_days_attendance"].str.split("/", n=3).str[-1] if "sitting_days_attendance" in df.columns else None
+    )
+    year_from_other = (
+        df["other_days_attendance"].str.split("/", n=3).str[-1] if "other_days_attendance" in df.columns else None
+    )
     df["year"] = year_from_sitting.fillna(year_from_other).fillna("Missing")
     df["iso_sitting_days_attendance"] = pd.to_datetime(
         df["sitting_days_attendance"], format="%d/%m/%Y", errors="coerce"
     )
     df["iso_other_days_attendance"] = pd.to_datetime(df["other_days_attendance"], format="%d/%m/%Y", errors="coerce")
+    # Dedup before writing silver — cumulative attendance PDFs all restate
+    # prior days, so the raw concat above contains 3-9x duplication. Drop
+    # on (TD, sitting_date, other_date) so identical date entries collapse
+    # whichever column carries the date.
+    _before = len(df)
+    df = df.drop_duplicates(subset=["identifier", "iso_sitting_days_attendance", "iso_other_days_attendance"])
+    print(f"Silver dedup: dropped {_before - len(df):,} duplicate rows before silver CSV write (kept {len(df):,})")
     df.to_csv(csv_path, index=False)
 else:
     print(f"Aggregated payment tables CSV already exists at {csv_path}. Skipping PDF processing.")
@@ -78,8 +89,19 @@ df = pd.read_csv(SILVER_DIR / "aggregated_td_tables.csv")
 df["sitting_flag"] = df["iso_sitting_days_attendance"].notna().astype(int)
 df["other_flag"] = df["iso_other_days_attendance"].notna().astype(int)
 
-df["sitting_days_count"] = df.groupby(["identifier", "year"])["sitting_flag"].transform("sum")
-df["other_days_count"] = df.groupby(["identifier", "year"])["other_flag"].transform("sum")
+# Defensive dedup — silver write already deduped, this is an idempotency
+# check. With clean silver, this should drop 0.
+_before_dedup = len(df)
+df = df.drop_duplicates(subset=["identifier", "iso_sitting_days_attendance", "iso_other_days_attendance"])
+print(f"Attendance dedup: dropped {_before_dedup - len(df):,} duplicate rows (kept {len(df):,})")
+
+# Counts must be of UNIQUE dates per (TD, year), not of rows. PDF rows
+# pair two independent date columns (sitting + other) by row index, so
+# the same sitting date can appear in N rows paired with N different
+# other dates — counting flags would inflate. nunique gives the count
+# of distinct sitting / other days, which is the published meaning.
+df["sitting_days_count"] = df.groupby(["identifier", "year"])["iso_sitting_days_attendance"].transform("nunique")
+df["other_days_count"] = df.groupby(["identifier", "year"])["iso_other_days_attendance"].transform("nunique")
 
 df["sitting_total_days"] = df["sitting_days_count"] + df["other_days_count"]
 

@@ -30,6 +30,7 @@ Taoiseach and 'The Government' (collective) are not 'Minister for …'
 positions, so SIs signed under those keys keep their department but no
 person — a small, documented gap.
 """
+
 from __future__ import annotations
 
 import io
@@ -50,8 +51,8 @@ _ROOT = Path(__file__).resolve().parent
 logger = logging.getLogger(__name__)
 
 _MEMBERS_CSV = SILVER_DIR / "flattened_members.csv"
-_OUT         = SILVER_DIR / "ministerial_tenure.parquet"
-_RAW_OUT     = _ROOT / "data" / "bronze" / "wikidata" / "ministerial_tenure_raw.csv"
+_OUT = SILVER_DIR / "ministerial_tenure.parquet"
+_RAW_OUT = _ROOT / "data" / "bronze" / "wikidata" / "ministerial_tenure_raw.csv"
 
 _SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 _USER_AGENT = "dail-tracker/1.0 (civic accountability data project)"
@@ -103,8 +104,7 @@ def fetch_wikidata(attempts: int = 4) -> pd.DataFrame:
             return pd.read_csv(io.StringIO(resp.text))
         except Exception as exc:  # noqa: BLE001 — network flakiness, retry all
             last_err = exc
-            logger.warning("Wikidata fetch attempt %d/%d failed: %s",
-                           attempt, attempts, exc)
+            logger.warning("Wikidata fetch attempt %d/%d failed: %s", attempt, attempts, exc)
             if attempt < attempts:
                 time.sleep(3 * attempt)
     raise SystemExit(f"Wikidata SPARQL fetch failed after {attempts} attempts: {last_err}")
@@ -113,8 +113,9 @@ def fetch_wikidata(attempts: int = 4) -> pd.DataFrame:
 def member_code_map() -> dict[str, str]:
     """{normalised full name -> unique_member_code} for sitting members."""
     if not _MEMBERS_CSV.exists():
-        logger.warning("flattened_members.csv not found — member_code will be "
-                        "null for every minister: %s", _MEMBERS_CSV)
+        logger.warning(
+            "flattened_members.csv not found — member_code will be null for every minister: %s", _MEMBERS_CSV
+        )
         return {}
     df = pd.read_csv(_MEMBERS_CSV, low_memory=False)
     out: dict[str, str] = {}
@@ -136,8 +137,7 @@ def load_current_offices(aliases) -> list[dict]:
     df = pd.read_csv(_MEMBERS_CSV, low_memory=False)
     out: list[dict] = []
     for i in range(1, 7):
-        ncol, scol, ecol = (f"office_{i}_name", f"office_{i}_start_date",
-                            f"office_{i}_end_date")
+        ncol, scol, ecol = (f"office_{i}_name", f"office_{i}_start_date", f"office_{i}_end_date")
         if ncol not in df.columns:
             continue
         for r in df[df[ncol].notna()].to_dict("records"):
@@ -151,23 +151,25 @@ def load_current_offices(aliases) -> list[dict]:
             if pd.isna(start):
                 continue
             end = pd.to_datetime(r.get(ecol), errors="coerce", utc=True)
-            out.append({
-                "department_key":    key,
-                "department_label":  label,
-                "minister_name":     str(r["full_name"]),
-                "member_code":       str(r["unique_member_code"]),
-                "start_date":        start.tz_localize(None),
-                "end_date":          None if pd.isna(end) else end.tz_localize(None),
-                "wikidata_person":   "",
-                "wikidata_position": "flattened_members (current government)",
-            })
+            out.append(
+                {
+                    "department_key": key,
+                    "department_label": label,
+                    "minister_name": str(r["full_name"]),
+                    "member_code": str(r["unique_member_code"]),
+                    "start_date": start.tz_localize(None),
+                    "end_date": None if pd.isna(end) else end.tz_localize(None),
+                    "wikidata_person": "",
+                    "wikidata_position": "flattened_members (current government)",
+                }
+            )
     return out
 
 
 def run() -> dict:
     aliases = load_department_aliases()
-    raw     = fetch_wikidata()
-    codes   = member_code_map()
+    raw = fetch_wikidata()
+    codes = member_code_map()
     logger.info("Wikidata returned %d raw tenure rows", len(raw))
 
     rows: list[dict] = []
@@ -181,46 +183,50 @@ def run() -> dict:
         start = pd.to_datetime(r.get("start"), errors="coerce", utc=True)
         if pd.isna(start):
             continue
-        end  = pd.to_datetime(r.get("end"), errors="coerce", utc=True)
+        end = pd.to_datetime(r.get("end"), errors="coerce", utc=True)
         name = str(r.get("personLabel", "") or "").strip()
-        rows.append({
-            "department_key":    key,
-            "department_label":  label,
-            "minister_name":     name,
-            "member_code":       codes.get(_norm_name(name)),
-            "start_date":        start.tz_localize(None),
-            "end_date":          None if pd.isna(end) else end.tz_localize(None),
-            "wikidata_person":   str(r.get("person", "") or "").rsplit("/", 1)[-1],
-            "wikidata_position": pos,
-        })
+        rows.append(
+            {
+                "department_key": key,
+                "department_label": label,
+                "minister_name": name,
+                "member_code": codes.get(_norm_name(name)),
+                "start_date": start.tz_localize(None),
+                "end_date": None if pd.isna(end) else end.tz_localize(None),
+                "wikidata_person": str(r.get("person", "") or "").rsplit("/", 1)[-1],
+                "wikidata_position": pos,
+            }
+        )
 
     wikidata_n = len(rows)
     rows.extend(load_current_offices(aliases))
-    logger.info("merged %d Wikidata + %d current-government office spans",
-                wikidata_n, len(rows) - wikidata_n)
+    logger.info("merged %d Wikidata + %d current-government office spans", wikidata_n, len(rows) - wikidata_n)
 
-    out = (pd.DataFrame(rows)
-             .drop_duplicates(subset=["department_key", "minister_name", "start_date"])
-             .sort_values(["department_key", "start_date"])
-             .reset_index(drop=True))
+    out = (
+        pd.DataFrame(rows)
+        .drop_duplicates(subset=["department_key", "minister_name", "start_date"])
+        .sort_values(["department_key", "start_date"])
+        .reset_index(drop=True)
+    )
 
     _OUT.parent.mkdir(parents=True, exist_ok=True)
     out.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
 
-    n     = len(out)
+    n = len(out)
     coded = int(out["member_code"].notna().sum())
     logger.info("ministerial_tenure: wrote %s", _OUT)
     logger.info("  %d tenure spans across %d departments", n, out["department_key"].nunique())
-    logger.info("  linked to a sitting member_code: %d (%.0f%%)",
-                coded, 100 * coded / n if n else 0)
+    logger.info("  linked to a sitting member_code: %d (%.0f%%)", coded, 100 * coded / n if n else 0)
     if unmapped:
-        logger.info("  positions not mapped to a department_key: %s",
-                    "; ".join(sorted(unmapped)))
-    return {"tenures": n, "departments": int(out["department_key"].nunique()),
-            "with_member_code": coded, "unmapped": sorted(unmapped)}
+        logger.info("  positions not mapped to a department_key: %s", "; ".join(sorted(unmapped)))
+    return {
+        "tenures": n,
+        "departments": int(out["department_key"].nunique()),
+        "with_member_code": coded,
+        "unmapped": sorted(unmapped),
+    }
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO,
-                        format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     run()

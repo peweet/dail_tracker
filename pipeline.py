@@ -9,6 +9,11 @@ from services.oireachtas_api_main import main as run_oireachtas_api
 
 STEPS = [
     # ("PDF Endpoint Check", "pdf_endpoint_check.py"),
+    # Poll the Oireachtas publications index for new PDFs across payments,
+    # attendance, and interests. Anything new lands in the source's bronze
+    # dir before PDF Downloader runs (which still covers the hard-coded
+    # historical URL list and skips files already on disk).
+    ("Poll new Oireachtas PDFs", "oireachtas_pdf_poller.py"),
     ("PDF Downloader", "pdf_downloader.py"),
     ("Members API", "dummy_value"),
     ("Flatten debate listings", "dbsect_listings_flatten.py"),
@@ -16,8 +21,19 @@ STEPS = [
     ("Process payments (full PSA)", "payments_full_psa_etl.py"),
     ("Attendance PDF", "attendance.py"),
     ("Lobbying PDF", "lobby_processing.py"),
+    ("Extract embedded PDFs from lobbying returns", "lobbying_pdf_extract.py"),
+    # CRO + Charities Tier-A resolution. Order matters: cro_normalise and
+    # charity_normalise each consume an independent bronze file (CSV + xlsx);
+    # charity_resolved joins their silver outputs together.
+    ("CRO normalise", "cro_normalise.py"),
+    ("Charity normalise", "charity_normalise.py"),
+    ("Charity resolved (Tier A join)", "charity_resolved.py"),
     ("Process legislation", "legislation.py"),
+    ("Flatten bill amendments", "bill_amendments_flatten.py"),
     ("Member interests PDF conversion to Dataframe", "member_interests.py"),
+    # Iris publishes Tue/Fri; this picks up new issues since the last run and
+    # lands them in bronze before the Iris ETL globs *.pdf.
+    ("Poll new Iris Oifigiuil PDFs", "iris_oifigiuil_poller.py"),
     ("Iris Oifigiuil ETL", "iris_oifigiuil_etl_polars.py"),
     ("Iris SI <-> bill enrichment", "iris_si_bill_enrichment.py"),
     # ministerial_tenure_build refreshes the Wikidata-sourced minister table

@@ -18,12 +18,12 @@ Cleaning steps:
 The result is a structured dataset of members and their declared interests, suitable for downstream analysis..
 """
 
-import orjson
 import os
 import pathlib
 import re
 
 import fitz  # PyMuPDF
+import orjson
 import polars as pl
 import regex
 
@@ -102,7 +102,7 @@ def extract_raw_lines(pdf_path: pathlib.Path, header_skip: int = 8, footer_skip:
     for page in doc:
         lines = page.get_text(option="text").splitlines(False)
         # Remove per-page footers: bare page numbers and IRIS OIFIGIÚIL lines
-        lines = [l for l in lines if l.strip() and not PAGE_FOOTER_RE.search(l)]
+        lines = [line for line in lines if line.strip() and not PAGE_FOOTER_RE.search(line)]
         text_boxes.append(lines)
 
     flat = [item for sublist in text_boxes for item in sublist]
@@ -189,6 +189,7 @@ def parse_members(grouped: list[str], member_name: regex.Pattern) -> list[dict]:
     if current_member:
         members.append(current_member)
     return members
+
 
 def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
     """Apply all Polars cleaning steps and return a cleaned DataFrame.
@@ -381,9 +382,15 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
     )
 
     df = df.with_columns(
-        pl.when((pl.col('interest_code') == "1") & (pl.col('interest_description_cleaned') != "No interests declared")).then(pl.lit(True)).otherwise(pl.lit(False)).alias("is_occupation")
+        pl.when((pl.col("interest_code") == "1") & (pl.col("interest_description_cleaned") != "No interests declared"))
+        .then(pl.lit(True))
+        .otherwise(pl.lit(False))
+        .alias("is_occupation")
     ).with_columns(
-        pl.when((pl.col('interest_code') == "1") & (pl.col('interest_description_cleaned') != "No interests declared")).then(pl.col('interest_description_cleaned')).otherwise(pl.lit("N/A")).alias("occupation_description")
+        pl.when((pl.col("interest_code") == "1") & (pl.col("interest_description_cleaned") != "No interests declared"))
+        .then(pl.col("interest_description_cleaned"))
+        .otherwise(pl.lit("N/A"))
+        .alias("occupation_description")
     )
 
     return df
@@ -402,7 +409,18 @@ def join_master_list(
 
     master = (
         pl.read_csv(master_path)
-        .select(["unique_member_code", "first_name", "last_name", "constituency_name", "full_name", "party", "ministerial_office", 'year_elected'])
+        .select(
+            [
+                "unique_member_code",
+                "first_name",
+                "last_name",
+                "constituency_name",
+                "full_name",
+                "party",
+                "ministerial_office",
+                "year_elected",
+            ]
+        )
         .unique()
     )
     master = master.with_columns(pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key"))
@@ -509,7 +527,9 @@ def main() -> None:
         # 4. Write intermediate JSON, load into Polars
         json_path = MEMBERS_DIR / f"{pdf_path.stem}_{case.lower()}.json"
         with open(json_path, "w", encoding="utf-8") as f:
-            f.write(orjson.dumps(members, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS, default=str).decode("utf-8"))
+            f.write(
+                orjson.dumps(members, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS, default=str).decode("utf-8")
+            )
         df = pl.read_json(json_path)
 
         # 5. Clean — pass numeric year so the rogue-row filter works correctly
