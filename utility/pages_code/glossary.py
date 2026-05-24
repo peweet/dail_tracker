@@ -32,6 +32,7 @@ GLOSSARY_TERMS: dict[str, str] = {
     "Bill": "A proposed law before the Oireachtas. Progresses through five stages in the Dáil and Seanad before becoming an Act.",
     "Act": "A bill that has been passed by both houses and signed by the President. Becomes law.",
     "SI": "Statutory Instrument — secondary legislation made under powers granted by an Act. Does not require a fresh parliamentary vote.",
+    "Committee": "A smaller group of TDs and senators that scrutinises bills line-by-line, holds inquiries, and questions ministers and officials. Most of the substantive work on legislation happens here, not on the chamber floor.",
     "Minister": "A TD appointed to the Cabinet (Government). Constitutionally required to attend Cabinet meetings and represent Ireland abroad; plenary attendance is therefore lower.",
     "Taoiseach": "The head of Government, equivalent to Prime Minister.",
     "Tánaiste": "The Deputy Prime Minister.",
@@ -54,6 +55,90 @@ def _render_term_block(acronym: str, definition: str) -> str:
         f'<dt class="dt-glossary-row-term">{_h(acronym)}</dt>'
         f'<dd class="dt-glossary-row-def">{_h(definition)}</dd>'
         "</div>"
+    )
+
+
+# Long-form explainers shown under the term list. Body is trusted HTML
+# (handwritten, no user input) so <p>, <ol>, <strong> render as intended.
+EXPLAINERS: list[tuple[str, str]] = [
+    (
+        "Statutory Instruments (SIs)",
+        """
+        <p>An SI is <strong>secondary legislation</strong>. A parent Act delegates
+        powers to a minister (or another body, such as a regulator), and an SI
+        is the document the minister signs to exercise those powers — to set
+        fees, commence parts of an Act, transpose an EU directive, prescribe
+        a form, or make detailed regulations.</p>
+        <p>SIs do not require a fresh vote in the Dáil or Seanad. They are
+        <strong>laid before the Houses</strong>, and either House can annul most
+        SIs within 21 sitting days. A smaller category requires a positive
+        resolution (an explicit approval vote) before it can take effect.</p>
+        <p>Far more SIs are made each year than Acts are passed, so the bulk of
+        live legal change in Ireland sits in this layer. Each SI is published in
+        <em>Iris Oifigiúil</em> and on irishstatutebook.ie.</p>
+        """,
+    ),
+    (
+        "Oireachtas Committees",
+        """
+        <p>Committees are smaller working groups of TDs and senators. They do
+        the detailed work that is impractical in a chamber of 174 members:
+        line-by-line scrutiny of bills, pre-legislative scrutiny of draft
+        proposals (the <em>heads of a bill</em>), inquiries into policy areas,
+        and questioning of ministers, officials, and outside witnesses.</p>
+        <p>The main types are <strong>Select Committees</strong> (Dáil-only),
+        <strong>Joint Committees</strong> (members from both Houses),
+        <strong>Sectoral Committees</strong> that shadow government departments
+        (Health, Finance, Justice, etc.), and the <strong>Public Accounts
+        Committee</strong>, which examines how public money has been spent.</p>
+        <p>Committee membership is allocated in proportion to party strength
+        in the Dáil. Reports and transcripts are public; most are the best
+        single source on the technical content of a bill.</p>
+        """,
+    ),
+    (
+        "How a Bill becomes law — the five stages",
+        """
+        <p>A bill is a proposed law. To become an Act, it must pass
+        <strong>five stages in each House</strong> of the Oireachtas (Dáil and
+        Seanad) and then be signed by the President.</p>
+        <ol>
+            <li><strong>First Stage — Initiation.</strong> The bill is formally
+            introduced and printed. No debate.</li>
+            <li><strong>Second Stage — General principles.</strong> Members
+            debate the purpose and policy of the bill and vote on whether it
+            should proceed. Amendments are not yet considered.</li>
+            <li><strong>Third Stage — Committee.</strong> Detailed, line-by-line
+            examination, usually in the relevant Sectoral Committee. This is
+            where most amendments are tabled and voted on.</li>
+            <li><strong>Fourth Stage — Report.</strong> The bill returns to the
+            full chamber. Further amendments can be moved, typically reflecting
+            what emerged at Committee Stage.</li>
+            <li><strong>Fifth Stage — Final.</strong> A final overall vote on
+            the bill as amended. No further changes.</li>
+        </ol>
+        <p>The bill then passes to the <strong>other House</strong> and goes
+        through the same five stages. If the second House amends it, the bill
+        returns to the originating House to agree those amendments. Once both
+        Houses have agreed an identical text, the bill is sent to the
+        <strong>President</strong> for signature and becomes an Act.</p>
+        <p>Two constitutional wrinkles: <strong>Money Bills</strong> (taxation
+        and most spending) must start in the Dáil, and the Seanad can only
+        recommend changes — it cannot amend them. And under
+        <strong>Article 26</strong>, the President may refer a bill to the
+        Supreme Court to test whether it is consistent with the Constitution
+        before signing it into law.</p>
+        """,
+    ),
+]
+
+
+def _render_explainer_block(title: str, body_html: str) -> str:
+    return (
+        '<section class="dt-explainer">'
+        f'<h2 class="dt-explainer-title">{_h(title)}</h2>'
+        f'<div class="dt-explainer-body">{body_html}</div>'
+        "</section>"
     )
 
 
@@ -80,6 +165,10 @@ def glossary_page() -> None:
 
     body = "".join(_render_term_block(k, v) for k, v in GLOSSARY_TERMS.items())
     st.html(f'<dl class="dt-glossary-list">{body}</dl>')
+
+    st.html('<div class="section-heading">In depth</div>')
+    explainers_html = "".join(_render_explainer_block(title, body_html) for title, body_html in EXPLAINERS)
+    st.html(explainers_html)
 
     st.caption(
         "Source: Houses of the Oireachtas, lobbying.ie, and the Standards "

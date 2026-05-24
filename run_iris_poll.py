@@ -12,6 +12,7 @@ Exit codes:
     1 — at least one download was attempted but failed (network / signature / size)
     2 — past Tue/Fri returned 4xx on every URL variant — slug pattern may have shifted
 """
+
 import sys
 
 from iris_oifigiuil_poller import main

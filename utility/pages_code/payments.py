@@ -20,7 +20,6 @@ from __future__ import annotations
 import sys
 from html import escape as _h
 from pathlib import Path
-from urllib.parse import quote
 
 import altair as alt
 import pandas as pd
@@ -53,6 +52,7 @@ from ui.components import (
     sidebar_member_filter,
     year_selector,
 )
+from ui.entity_links import member_profile_url, name_join_key
 from ui.export_controls import export_button
 from ui.source_pdfs import PAYMENTS, provenance_expander
 
@@ -268,7 +268,7 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
                 name = str(row["member_name"])
                 cards.append(
                     clickable_card_link(
-                        href=f"?member={quote(name)}",
+                        href=member_profile_url(name_join_key(name), section="payments"),
                         inner_html=_pay_card_html(row),
                         aria_label=f"View {name}'s payments profile",
                     )
@@ -289,26 +289,39 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
     _render_provenance(summary, selected_year)
 
 
-# ── Stage 2 — Member profile ───────────────────────────────────────────────────
+# ── Member profile body (lifted into member-overview Payments expander) ───────
 
 
-def _render_profile(
+def render_member_payments(
     td_name: str,
     year_options: list[str],
     summary: pd.Series,
+    *,
+    show_member_header: bool = True,
+    year_pill_key: str = "pay_profile_year",
 ) -> None:
-    if back_button("← Back to all members", key="pay"):
+    """Render the per-TD payments body.
+
+    Public so :mod:`pages_code.member_overview` can embed it inside the
+    Payments expander. When ``show_member_header=False``, the back button,
+    payments-specific identity card and provenance footer are skipped (the
+    embedding page provides those), and the two ``st.dataframe`` views are
+    converted to card lists (``.pay-record-card`` + a compact ``.pay-year-row``)
+    — required by feedback_member_overview_no_dataframes.
+    """
+    if show_member_header and back_button("← Back to all members", key="pay"):
         st.session_state.pop("selected_td_pay", None)
         st.query_params.pop("member", None)
         st.rerun()
 
-    selected_year = year_selector(year_options, key="pay_profile_year", skip_current=False)
+    selected_year = year_selector(year_options, key=year_pill_key, skip_current=False)
 
     all_years = fetch_member_all_years(td_name)
 
     if all_years.empty:
         empty_state("No data found", f"No payment records found for {td_name}.")
-        _render_provenance(summary)
+        if show_member_header:
+            _render_provenance(summary)
         return
 
     latest = all_years.iloc[0]
@@ -318,16 +331,18 @@ def _render_profile(
     constit = str(latest.get("constituency", "") or "")
     meta_str = clean_meta(party, constit) or position
 
-    # Identity strip
-    st.markdown(
-        f'<div class="pay-identity-card">'
-        f'<div class="pay-identity-card-name">{_h(td_name)}</div>'
-        f'<div class="pay-identity-card-meta">'
-        f"{_h(meta_str)} &nbsp;·&nbsp; "
-        f'<span class="pay-taa-pill">{_h(taa_label)}</span>'
-        f"</div></div>",
-        unsafe_allow_html=True,
-    )
+    if show_member_header:
+        # Identity strip — duplicates the member-overview hero when embedded,
+        # so only rendered on the stand-alone /rankings-payments page.
+        st.markdown(
+            f'<div class="pay-identity-card">'
+            f'<div class="pay-identity-card-name">{_h(td_name)}</div>'
+            f'<div class="pay-identity-card-meta">'
+            f"{_h(meta_str)} &nbsp;·&nbsp; "
+            f'<span class="pay-taa-pill">{_h(taa_label)}</span>'
+            f"</div></div>",
+            unsafe_allow_html=True,
+        )
 
     # Summary metrics
     alltime_total = float(all_years.iloc[0]["member_alltime_total"])
@@ -363,31 +378,57 @@ def _render_profile(
     )
     st.altair_chart(bars, use_container_width=True)
 
-    # All-years summary table
+    # ── All-years summary ────────────────────────────────────────────────
     st.markdown("**All years**")
-    years_display = all_years.rename(
-        columns={
-            "payment_year": "Year",
-            "total_paid": "Total received (€)",
-            "payment_count": "Payments",
-            "rank_high": "Rank that year",
-            "taa_band_label": "TAA Band",
-        }
-    )[["Year", "Total received (€)", "Payments", "Rank that year", "TAA Band"]]
-    st.dataframe(
-        years_display,
-        hide_index=True,
-        use_container_width=True,
-        column_config={
-            "Year": st.column_config.NumberColumn("Year", format="%d"),
-            "Total received (€)": st.column_config.NumberColumn("Total received (€)", format="€%.2f"),
-            "Payments": st.column_config.NumberColumn("Payments"),
-            "Rank that year": st.column_config.NumberColumn("Rank that year", format="#%d"),
-            "TAA Band": st.column_config.TextColumn("TAA Band"),
-        },
-    )
+    if show_member_header:
+        # Stand-alone page: full dataframe (drill-down + export adjacency OK
+        # on /rankings-payments per feedback_dataframes_secondary_only).
+        years_display = all_years.rename(
+            columns={
+                "payment_year": "Year",
+                "total_paid": "Total received (€)",
+                "payment_count": "Payments",
+                "rank_high": "Rank that year",
+                "taa_band_label": "TAA Band",
+            }
+        )[["Year", "Total received (€)", "Payments", "Rank that year", "TAA Band"]]
+        st.dataframe(
+            years_display,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "Year": st.column_config.NumberColumn("Year", format="%d"),
+                "Total received (€)": st.column_config.NumberColumn("Total received (€)", format="€%.2f"),
+                "Payments": st.column_config.NumberColumn("Payments"),
+                "Rank that year": st.column_config.NumberColumn("Rank that year", format="#%d"),
+                "TAA Band": st.column_config.TextColumn("TAA Band"),
+            },
+        )
+    else:
+        # Embedded: card-based per feedback_member_overview_no_dataframes —
+        # one compact row per year, total + payments + rank.
+        rows_html: list[str] = []
+        for _, row in all_years.iterrows():
+            yr_num = int(row["payment_year"])
+            tot = float(row["total_paid"])
+            cnt = int(row["payment_count"])
+            rk = row.get("rank_high")
+            rk_html = (
+                f'<span class="pay-year-rank">#{int(rk)}</span>'
+                if pd.notna(rk)
+                else '<span class="pay-year-rank pay-year-rank-missing">—</span>'
+            )
+            rows_html.append(
+                f'<div class="pay-year-row">'
+                f'<span class="pay-year-yr">{yr_num}</span>'
+                f'<span class="pay-year-amount">€{tot:,.0f}</span>'
+                f'<span class="pay-year-payments">{cnt} payment{"s" if cnt != 1 else ""}</span>'
+                f"{rk_html}"
+                f"</div>"
+            )
+        st.html(f'<div class="pay-year-list">{"".join(rows_html)}</div>')
 
-    # Payment record table (audit trail)
+    # ── Payment records (audit trail) ────────────────────────────────────
     payments = fetch_member_payments(td_name, selected_year)
 
     if payments.empty:
@@ -397,28 +438,59 @@ def _render_profile(
         )
     else:
         st.html(
-            f"<p style='margin:0 0 0.4rem;'><strong>Payment records — {selected_year}</strong> "
-            f"<span style='font-size:0.8rem;color:#6b7280;font-weight:400;'>"
+            f"<p style='margin:0.75rem 0 0.4rem;'><strong>Payment records — {selected_year}</strong> "
+            f"<span style='font-size:0.8rem;color:var(--text-meta);font-weight:400;'>"
             f"({len(payments)} transactions — add them up to verify the total above)</span></p>"
         )
-        st.dataframe(
-            payments.rename(
-                columns={
-                    "date_paid": "Date",
-                    "narrative": "Description",
-                    "amount_num": "Amount (€)",
-                    "taa_band_label": "TAA Band",
-                }
-            ),
-            hide_index=True,
-            use_container_width=True,
-            column_config={
-                "Date": st.column_config.DateColumn("Date", format="D MMM YYYY"),
-                "Amount (€)": st.column_config.NumberColumn("Amount (€)", format="€%.2f"),
-                "Description": st.column_config.TextColumn("Description"),
-                "TAA Band": st.column_config.TextColumn("TAA Band"),
-            },
-        )
+
+        if show_member_header:
+            # Stand-alone page keeps the full sortable dataframe.
+            st.dataframe(
+                payments.rename(
+                    columns={
+                        "date_paid": "Date",
+                        "narrative": "Description",
+                        "amount_num": "Amount (€)",
+                        "taa_band_label": "TAA Band",
+                    }
+                ),
+                hide_index=True,
+                use_container_width=True,
+                column_config={
+                    "Date": st.column_config.DateColumn("Date", format="D MMM YYYY"),
+                    "Amount (€)": st.column_config.NumberColumn("Amount (€)", format="€%.2f"),
+                    "Description": st.column_config.TextColumn("Description"),
+                    "TAA Band": st.column_config.TextColumn("TAA Band"),
+                },
+            )
+        else:
+            # Embedded: card list. Truncate to first 50 to keep the expander
+            # body light; CSV export below remains the full set.
+            cards_html: list[str] = []
+            for _, row in payments.head(50).iterrows():
+                date_raw = row.get("date_paid")
+                try:
+                    date_disp = pd.to_datetime(date_raw).strftime("%d %b %Y")
+                except Exception:
+                    date_disp = str(date_raw or "—")
+                desc = _h(str(row.get("narrative", "") or "—"))
+                amount = float(row.get("amount_num", 0) or 0)
+                band = _h(str(row.get("taa_band_label", "") or ""))
+                band_html = f'<span class="signal leg-status-active">{band}</span>' if band else ""
+                cards_html.append(
+                    f'<div class="pay-record-card">'
+                    f'<div class="pay-record-card-header">'
+                    f'<span class="pay-record-card-date">{_h(date_disp)}</span>'
+                    f'<span class="pay-record-card-amount">€{amount:,.2f}</span>'
+                    f"{band_html}"
+                    f"</div>"
+                    f'<div class="pay-record-card-desc">{desc}</div>'
+                    f"</div>"
+                )
+            st.html("".join(cards_html))
+            if len(payments) > 50:
+                st.caption(f"Showing the most recent 50 of {len(payments)} transactions. Full set in the CSV below.")
+
         export_df = payments.rename(
             columns={
                 "date_paid": "Date",
@@ -431,12 +503,13 @@ def _render_profile(
             export_df,
             f"Download {td_name} {selected_year} payments CSV",
             f"{td_name.replace(' ', '_')}_payments_{selected_year}.csv",
-            key="pay_export_profile",
+            key=f"pay_export_profile{'_mo' if not show_member_header else ''}",
         )
 
     st.caption("Source PDF for this year will link directly to the official Oireachtas payment record once available.")
 
-    _render_provenance(summary, selected_year)
+    if show_member_header:
+        _render_provenance(summary, selected_year)
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
@@ -474,16 +547,41 @@ def payments_page() -> None:
         if render_notable_chips(NOTABLE_TDS, opts["members"], "pay_notable", "selected_td_pay"):
             st.rerun()
 
-    # ── Route to Stage 1 or Stage 2 ──────────────────────────────────────────
-    # Seed selected_td_pay from URL query param so card links land directly in
-    # the profile view on first load.
+    # Legacy ?member=<name> URLs (from before Phase 5) now redirect to the
+    # canonical /member-overview?member=<code>#payments profile. Card hrefs
+    # already point there, so this is purely for bookmarks / external links.
     qp_member = st.query_params.get("member")
-    if qp_member and st.session_state.get("selected_td_pay") != qp_member:
-        st.session_state["selected_td_pay"] = qp_member
+    if qp_member:
+        target = member_profile_url(name_join_key(qp_member), section="payments")
+        st.html(
+            f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
+            f"<strong>Member profiles have moved.</strong><br>"
+            f'<span style="color:var(--text-meta)">Per-TD payments now live on the '
+            f'canonical member-overview page. Bookmarks to <code>?member={_h(qp_member)}</code> '
+            f"redirect here.</span><br>"
+            f'<a class="dt-member-link" href="{_h(target)}" target="_self" '
+            f'style="margin-top:0.6rem;display:inline-block;">'
+            f"Open {_h(qp_member)}'s profile →</a>"
+            f"</div>"
+        )
+        st.query_params.pop("member", None)
+        st.session_state.pop("selected_td_pay", None)
 
+    # Sidebar "Browse all members" still pushes into the in-page profile via
+    # session_state on the rankings page. Once the pipeline ships
+    # unique_member_code on payment views, swap to the cross-page jump too.
     selected_td = st.session_state.get("selected_td_pay")
-
     if selected_td:
-        _render_profile(selected_td, year_options, summary)
-    else:
-        _render_primary(year_options, summary)
+        # Re-route sidebar-driven selection to the canonical profile rather
+        # than the (now-removed) in-page Stage 2 view.
+        target = member_profile_url(name_join_key(selected_td), section="payments")
+        st.html(
+            f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
+            f"<strong>{_h(selected_td)}</strong> &nbsp;·&nbsp; "
+            f'<a class="dt-member-link" href="{_h(target)}" target="_self">'
+            f"Open this member's payments profile →</a>"
+            f"</div>"
+        )
+        st.session_state.pop("selected_td_pay", None)
+
+    _render_primary(year_options, summary)

@@ -530,6 +530,53 @@ def inject_css() -> None:
             }
         }
 
+        /* Long-form explainer blocks on the glossary page. Each block has a
+           serif title and a constrained measure of Epilogue prose. Ordered
+           lists keep the legislative-stages numbering aligned. */
+        .dt-explainer {
+            padding: 1.1rem 0 0.4rem;
+            border-top: 1px solid var(--border);
+        }
+        .dt-explainer:first-of-type {
+            border-top: none;
+            padding-top: 0.4rem;
+        }
+        .dt-explainer-title {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0 0 0.5rem 0;
+            line-height: 1.2;
+        }
+        .dt-explainer-body {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.92rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            max-width: 70ch;
+        }
+        .dt-explainer-body p {
+            margin: 0 0 0.7rem 0;
+        }
+        .dt-explainer-body p:last-child {
+            margin-bottom: 0;
+        }
+        .dt-explainer-body strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .dt-explainer-body ol {
+            margin: 0.3rem 0 0.9rem 0;
+            padding-left: 1.4rem;
+        }
+        .dt-explainer-body ol li {
+            margin-bottom: 0.45rem;
+        }
+        .dt-explainer-body ol li:last-child {
+            margin-bottom: 0;
+        }
+
         /* Optional secondary label below the metric, used for comparative
            context: "rank 87 of 174", "12 below median", etc. Tame size,
            same colour as meta but normal-case. */
@@ -739,6 +786,63 @@ def inject_css() -> None:
         .dt-badge-revolving::before {
             content: "⚠";
             margin-right: 0.25rem;
+        }
+
+        /* ── Hero meta row + external-link chips ────────────────────────
+           Single flex row that carries TD/Minister/Revolving badges AND
+           external-link chips (Official profile, Wikipedia, social icons).
+           One line, flex-wraps on narrow viewports. The vertical separator
+           segments "role/status" (left) from "find online" (right) without
+           adding a heavier visual divider. */
+        .dt-hero-meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.35rem 0.5rem;
+        }
+        .dt-hero-sep {
+            display: inline-block;
+            width: 1px;
+            height: 1rem;
+            background: var(--border);
+            margin: 0 0.2rem;
+        }
+
+        /* Icon chip: round, accent-coloured pill carrying a single glyph
+           (or a 2-char tag like "IG"). Sized to match .dt-badge height so
+           the row reads as one consistent strip. Hover lifts by 1px and
+           tints the background — same micro-interaction as .dt-source-link. */
+        .dt-icon-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.65rem;
+            height: 1.65rem;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            color: var(--accent);
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            line-height: 1;
+            text-decoration: none;
+            transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+        }
+        .dt-icon-chip[data-glyph="IG"] {
+            /* Instagram needs a smaller two-char glyph to fit in the same
+               circle as the single-letter chips. */
+            font-size: 0.66rem;
+            letter-spacing: 0.02em;
+        }
+        .dt-icon-chip:hover {
+            background: var(--surface-deep);
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+        .dt-icon-chip:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
         }
 
         /* ── Callout / empty state / TODO ─────────── */
@@ -1366,6 +1470,52 @@ def inject_css() -> None:
         .mo-browse-pager-spacer {
             height: 1.5rem;
         }
+
+        /* ── Member Overview profile: section nav strip + open-all row
+           (Phase 2 chrome — 7 dimension expanders below the hero/stat strip)
+           Mirrors the inline-flex chip pattern used elsewhere but stays
+           visually quieter so the hero remains the focal point. */
+        .mo-section-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin: 0.25rem 0 0.6rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .mo-section-chip {
+            display: inline-flex;
+            align-items: center;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            color: var(--text-secondary);
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.28rem 0.7rem;
+            text-decoration: none !important;
+            transition: background 80ms ease, color 80ms ease, border-color 80ms ease;
+        }
+        .mo-section-chip:hover,
+        .mo-section-chip:focus-visible {
+            color: var(--accent);
+            border-color: var(--accent);
+            outline: none;
+        }
+        .mo-section-chip:focus-visible {
+            box-shadow: 0 0 0 2px var(--accent-soft, rgba(0, 102, 153, 0.25));
+        }
+        /* Invisible offset target so #mo-section-* anchors don't scroll the
+           expander header underneath the page's sticky bits. */
+        .mo-section-anchor {
+            position: relative;
+            top: -1rem;
+            height: 0;
+            visibility: hidden;
+        }
+
         /* ── Reusable: full-card-clickable link (ui/components.py:
            clickable_card_link). Stretched-link pattern: an absolute <a>
            covers the wrapper, so the whole card is the click target while
@@ -1451,6 +1601,16 @@ def inject_css() -> None:
         [data-testid="stMain"] [data-testid="stSelectbox"] [data-baseweb="select"] > div:focus-within {
             border-color: var(--accent) !important;
             box-shadow: 0 0 0 3px var(--accent-subtle) !important;
+        }
+
+        /* Embedded Interests body (inside the Interests expander on
+           member-overview) — year-aware Landlord / Property / Shareholder
+           pills shown as a compact strip in lieu of the full member header. */
+        .int-embedded-badge-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin: 0.1rem 0 0.6rem;
         }
 
         /* ── Interests: category headings & diff badges ──────────── */
@@ -1649,6 +1809,25 @@ def inject_css() -> None:
         .att-list-pill-name { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .att-list-pill-meta { font-size: 0.70rem; color: var(--text-meta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+        /* Missing-members rows (TDs absent from attendance parquet) */
+        .att-miss-row {
+            display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.55rem;
+            background: #ffffff; border: 1px solid var(--border); border-radius: 2px;
+            padding: 0.45rem 0.7rem; margin: 0.25rem 0; line-height: 1.35;
+        }
+        .att-miss-name {
+            font-size: 0.95rem; font-weight: 700; color: var(--text-primary);
+            letter-spacing: -0.005em;
+        }
+        .att-miss-meta {
+            font-size: 0.78rem; color: var(--text-secondary); font-weight: 500;
+        }
+        .att-miss-office {
+            font-size: 0.72rem; color: var(--text-meta);
+            font-style: italic; margin-left: auto;
+            text-align: right; max-width: 60%;
+        }
+
         /* ── Payments page ───────────────────────────────────────────── */
         .pay-amount-badge {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1685,6 +1864,160 @@ def inject_css() -> None:
         .pay-identity-card { background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 0.75rem; }
         .pay-identity-card-name { font-size: 1.3rem; font-weight: 800; color: var(--text-primary); }
         .pay-identity-card-meta { font-size: 0.8rem; color: var(--text-meta); margin-top: 3px; }
+
+        /* Embedded Payments body (inside the Payments expander on
+           member-overview). All-years summary as a compact dl-style list,
+           per-payment audit-trail rendered as cards instead of st.dataframe
+           (member_overview never uses dataframes — see
+           feedback_member_overview_no_dataframes). */
+        .pay-year-list {
+            display: grid;
+            gap: 0.3rem;
+            margin: 0.35rem 0 0.9rem;
+        }
+        .pay-year-row {
+            display: grid;
+            grid-template-columns: 4rem 1fr auto auto;
+            gap: 0.6rem 1rem;
+            align-items: baseline;
+            padding: 0.4rem 0.7rem;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            font-family: 'Epilogue', sans-serif;
+        }
+        .pay-year-yr {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.0rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .pay-year-amount {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.0rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .pay-year-payments {
+            font-size: 0.78rem;
+            color: var(--text-meta);
+        }
+        .pay-year-rank {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            min-width: 2.5rem;
+            text-align: right;
+        }
+        .pay-year-rank-missing { color: var(--text-meta); font-weight: 500; }
+        @media (max-width: 540px) {
+            .pay-year-row {
+                grid-template-columns: 3.5rem 1fr;
+                row-gap: 0.15rem;
+            }
+            .pay-year-payments, .pay-year-rank {
+                grid-column: 2 / -1;
+                text-align: left;
+            }
+        }
+
+        .pay-record-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            padding: 0.55rem 0.8rem;
+            margin-bottom: 0.35rem;
+        }
+        .pay-record-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            margin-bottom: 0.2rem;
+        }
+        .pay-record-card-date {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-meta);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .pay-record-card-amount {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-left: auto;
+        }
+        .pay-record-card-desc {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.87rem;
+            line-height: 1.45;
+            color: var(--text-secondary);
+        }
+
+        /* Embedded Attendance body (inside the Attendance expander on
+           member-overview). Year breakdown replaces st.dataframe's
+           ProgressColumn with a CSS-width bar — same information density,
+           but stays card-based per feedback_member_overview_no_dataframes. */
+        .att-year-list {
+            display: grid;
+            gap: 0.3rem;
+            margin: 0.35rem 0 0.9rem;
+        }
+        .att-year-row {
+            display: grid;
+            grid-template-columns: 3.5rem 1fr auto auto;
+            gap: 0.6rem 1rem;
+            align-items: center;
+            padding: 0.45rem 0.7rem;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            font-family: 'Epilogue', sans-serif;
+        }
+        .att-year-yr {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.0rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .att-year-bar-track {
+            height: 0.45rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+            min-width: 8rem;
+        }
+        .att-year-bar-fill {
+            height: 100%;
+            background: var(--accent);
+        }
+        .att-year-days {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+        .att-year-pct {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            min-width: 2.8rem;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        @media (max-width: 540px) {
+            .att-year-row {
+                grid-template-columns: 3.5rem 1fr auto;
+                row-gap: 0.2rem;
+            }
+            .att-year-bar-track {
+                grid-column: 1 / -1;
+                order: 99;
+            }
+        }
 
         /* Total amount badge on payments ranked-list cards. Softer green
            replaces the prior bright-blue dt-name-card-badge-metric, with

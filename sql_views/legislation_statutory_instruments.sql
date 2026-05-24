@@ -1,6 +1,6 @@
 -- v_bill_statutory_instruments - SIs joined to their enabling bill.
 -- Source: data/gold/parquet/bill_statutory_instruments.parquet (produced by
--- iris_si_bill_enrichment.py - lifts the matcher from the legislation_si_poc
+-- iris_si_bill_enrichment.py - lifts the matcher from the statutory_instruments
 -- page into the pipeline).
 --
 -- Grain: one row per matched (bill, SI). SIs without a bill match are
