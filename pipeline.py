@@ -20,6 +20,11 @@ STEPS = [
     ("Flatten members", "flatten_members_json_to_csv.py"),
     ("Process payments (full PSA)", "payments_full_psa_etl.py"),
     ("Attendance PDF", "attendance.py"),
+    # Fetches YTD lobbying returns from the public CSV endpoint. Slow (~80s)
+    # because the upstream assembles the response per-request. Hash-compare
+    # in the poller skips bronze writes when nothing changed. Auto-switches
+    # to wave mode on NEXT_WAVE_DATE for stricter size validation.
+    ("Poll lobbying returns (YTD)", "lobbying_poller.py"),
     ("Lobbying PDF", "lobby_processing.py"),
     ("Extract embedded PDFs from lobbying returns", "lobbying_pdf_extract.py"),
     # CRO + Charities Tier-A resolution. Order matters: cro_normalise and
@@ -40,6 +45,12 @@ STEPS = [
     # consumed by si_entity_enrichment. Network call; pipeline.py wraps each
     # step in try/except so a transient Wikidata failure can't poison the run.
     ("Ministerial tenure (Wikidata)", "ministerial_tenure_build.py"),
+    # Wikidata socials + Wikipedia links per member — consumed by
+    # member_overview hero chips. Network call to the same WDQS endpoint;
+    # failure here leaves the previous parquet in place (or no parquet on
+    # first ever run — the SQL view registration is wrapped in try/except,
+    # so the hero just falls back to "no chips").
+    ("Wikidata socials (member external links)", "wikidata_socials_etl.py"),
     ("SI entity enrichment", "si_entity_enrichment.py"),
     # transform_votes must precede enrich — enrich.py reads silver/pretty_votes.csv
     ("Transform vote data", "transform_votes.py"),

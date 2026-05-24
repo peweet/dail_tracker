@@ -13,23 +13,56 @@ Why ``<a href>`` and not ``st.button`` + ``st.switch_page``:
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from html import escape as _h
 from urllib.parse import quote
 
+# ── Identity normalisation ─────────────────────────────────────────────────────
+#
+# The pipeline's `normalise_join_key.normalise_df_td_name` produces a sorted-
+# character key from a member's full name. The same value is stored as
+# `unique_member_code` on the silver/gold views, so it's the canonical
+# cross-page member ID. When a view doesn't yet expose `unique_member_code`
+# (see TODO_PIPELINE_VIEW_REQUIRED notes on interests / payments / attendance),
+# this string-level helper bridges the gap. Once the column ships, prefer
+# reading it directly instead of re-deriving from the name.
+
+
+def name_join_key(name: str) -> str:
+    """Sorted-character normalisation matching the pipeline's join_key form.
+
+    Mirrors ``normalise_join_key.normalise_df_td_name`` for a single string.
+    Lowercase → NFD → strip accents/apostrophes → drop non-alpha and honorifics
+    → sort remaining letters. The result equals `unique_member_code` on
+    the registered views — usable as the cross-page member ID.
+    """
+    s = name.lower()
+    s = unicodedata.normalize("NFD", s)
+    s = re.sub(r"[̀-ͯ]", "", s)
+    s = re.sub(r"[\x27‘’ʼʹ`´＇]", "", s)
+    s = re.sub(r"[^a-z\s]", "", s)
+    s = re.sub(r"^\s*(dr|prof|rev|fr|sr|mr|mrs|ms|miss|br)\s+", "", s)
+    s = re.sub(r"\s+", "", s)
+    return "".join(sorted(s))
+
+
 # Canonical url_path slugs. MUST match utility/app.py st.Page(url_path=...).
 #
-# /member-overview is the canonical TD page (TheyWorkForYou pattern). All other
-# pages live under /rankings/* — their role is discovery / league tables that
-# funnel users into the canonical profile.
+# /member-overview is the canonical TD page (TheyWorkForYou pattern). The
+# dimension pages get a `rankings-` prefix (rankings-attendance, etc.) — they
+# are discovery / league tables that funnel into the canonical profile.
+# Hyphens not slashes: st.Page rejects nested url_path values.
 PAGES: dict[str, str] = {
     "member_overview": "member-overview",
-    "attendance": "rankings/attendance",
-    "votes": "rankings/votes",
-    "interests": "rankings/interests",
-    "payments": "rankings/payments",
-    "lobbying": "rankings/lobbying",
-    "legislation": "rankings/legislation",
-    "committees": "rankings/committees",
+    "attendance": "rankings-attendance",
+    "votes": "rankings-votes",
+    "interests": "rankings-interests",
+    "payments": "rankings-payments",
+    "lobbying": "rankings-lobbying",
+    "legislation": "rankings-legislation",
+    "statutory_instruments": "rankings-statutory-instruments",
+    "committees": "rankings-committees",
 }
 
 
@@ -62,8 +95,92 @@ def division_url(vote_id: str) -> str:
 
 
 def bill_detail_url(bill_id: str) -> str:
-    """Canonical bill detail URL: /rankings/legislation?bill=<bill_id>."""
+    """Canonical bill detail URL: /rankings-legislation?bill=<bill_id>."""
     return f"/{PAGES['legislation']}?bill={_q(bill_id)}"
+
+
+# ── External profile builders ─────────────────────────────────────────────────
+#
+# `unique_member_code` is the same slug as the Oireachtas API's `memberCode`
+# (e.g. "Ciarán-Ahern.D.2024-11-29") — and that slug is the path segment on
+# the public-facing profile page at oireachtas.ie/en/members/member/<slug>/.
+# Verified live: status 200, title "<Full Name> – Houses of the Oireachtas".
+
+_OIREACHTAS_PUBLIC_BASE = "https://www.oireachtas.ie/en/members/member"
+
+
+def oireachtas_profile_url(member_code: str | None) -> str | None:
+    """Public-facing oireachtas.ie profile URL for a TD.
+
+    Returns ``None`` when ``member_code`` is missing — callers should guard
+    against that before passing to ``source_link_html`` (which already
+    no-ops on falsy URLs, but ``None`` lets the caller skip rendering
+    the surrounding "Official sources" label entirely).
+    """
+    code = (member_code or "").strip()
+    if not code:
+        return None
+    return f"{_OIREACHTAS_PUBLIC_BASE}/{quote(code, safe='.-')}/"
+
+
+# ── Social-icon chip builders ─────────────────────────────────────────────────
+#
+# Compact round chips for the member-overview hero, rendered alongside the
+# TD/Minister/Revolving badges in a single .dt-hero-meta-row strip. We deliberately
+# use single-character text glyphs instead of brand SVG marks:
+#   1. no trademark/licensing burden (X, Meta, etc.),
+#   2. trivial to keep contrast/colour consistent across the design system,
+#   3. zero binary assets, zero CSP/SVG-sanitiser surprises.
+#
+# The glyph maps below carry just enough recognisability — pair them with a
+# tooltip (title=) and an aria-label so a screen reader announces the full
+# platform name. The mapping is exposed as a public constant so tests can
+# assert it without re-parsing the helper.
+
+# Mathematical Italic Capital X (U+1D54F) — visually unambiguous as "X / Twitter"
+# without using the trademarked logo. Letter glyphs for Facebook (lowercase f),
+# Bluesky (B), and Instagram ("IG") follow the same convention.
+SOCIAL_GLYPHS: dict[str, tuple[str, str]] = {
+    # platform_key: (glyph, accessible name)
+    "twitter": ("𝕏", "Twitter"),
+    "bluesky": ("B", "Bluesky"),
+    "facebook": ("f", "Facebook"),
+    "instagram": ("IG", "Instagram"),
+    "website": ("🌐", "Website"),
+}
+
+
+def social_icon_chip_html(
+    platform: str,
+    href: str | None,
+    *,
+    person_name: str = "",
+) -> str:
+    """Round icon chip for a single social/external link.
+
+    Returns an empty string when ``href`` is missing or not http(s) — same
+    "no-op on missing" contract as ``source_link_html`` so callers can splice
+    the result into a joined HTML string without conditionals.
+
+    ``platform`` must be one of the keys in ``SOCIAL_GLYPHS``; unknown keys
+    yield an empty string (no chip) rather than raising, because the data
+    pipeline determines which keys appear and a typo there shouldn't crash
+    the whole hero render.
+    """
+    spec = SOCIAL_GLYPHS.get(platform)
+    if spec is None:
+        return ""
+    glyph, label = spec
+    url = str(href or "").strip()
+    if not url.startswith(("http://", "https://")):
+        return ""
+    who = f" of {person_name}" if person_name else ""
+    aria = f"Open {label}{who} in a new tab"
+    return (
+        f'<a class="dt-icon-chip" data-glyph="{_h(glyph)}" '
+        f'href="{_h(url)}" target="_blank" rel="noopener" '
+        f'title="{_h(label)}" aria-label="{_h(aria)}">{_h(glyph)}</a>'
+    )
 
 
 def member_link_html(

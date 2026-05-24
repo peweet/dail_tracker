@@ -123,7 +123,7 @@ All upstream data remains subject to the terms and licences of the publishing bo
 | Parliamentary Standard Allowance | Oireachtas PDFs | Published payment records | `payments.py` | Production |
 | Register of Members' Interests | Oireachtas PDFs | Published declarations | `member_interests.py`, `iris_memeber_interests.py` | Production |
 | Lobbying returns | lobbying.ie CSV exports | Downloaded register returns | `lobby_processing.py` | Production (manual ingest) |
-| Iris Oifigiúil | irisoifigiuil.ie | Twice-weekly state gazette | `iris_oifiguil_etl.py`, `iris_oifiiguil_downloader.py` | **Sandbox** |
+| Iris Oifigiúil | irisoifigiuil.ie | Twice-weekly state gazette | `iris_oifigiuil_poller.py`, `iris_oifigiuil_etl_polars.py` | Production |
 | CRO companies | CRO bulk export | Director / company / address normalised | `cro_normalise.py` | Production |
 | Charities register | Charities Regulator XLSX | Register, trustees, annual reports + `charity_resolved.py` Tier-A join | `charity_normalise.py`, `charity_resolved.py` | Production |
 
@@ -192,7 +192,43 @@ python pipeline.py
 
 `pipeline.py` is the orchestration entrypoint and should be treated as the current source of truth for execution order. It runs each step as a subprocess so that a single failing source does not abort the whole run; the exit code reports overall success.
 
-The Iris, CRO, and charities enrichers in `pipeline_sandbox/` are not currently invoked by `pipeline.py`. Each is self-contained and can be run directly.
+### Pollers and click-and-run wrappers
+
+Two pollers are wired into `pipeline.py` to detect new PDFs since the last run:
+
+- `oireachtas_pdf_poller.py` — scrapes the Oireachtas publications index for new payments, attendance, and interests PDFs.
+- `iris_oifigiuil_poller.py` — fetches new Iris Oifigiúil Tue/Fri issues.
+
+Each also has a single-source click-and-run wrapper for ad-hoc local use (no need to run the full pipeline):
+
+```bash
+python run_payments_poll.py        # poll payments only
+python run_attendance_poll.py      # poll attendance only
+python run_interests_poll.py       # poll register of members' interests only
+python run_iris_poll.py            # poll Iris Oifigiúil only
+```
+
+### Backfilling Iris historical PDFs
+
+`iris_oifigiuil_poller.py` defaults to "fill the gap since last on-disk issue". For deliberate backfill, two flags are available:
+
+```bash
+# Backfill a single calendar year (Tue/Fri only; current year truncated at today)
+python iris_oifigiuil_poller.py --year 2020
+
+# Backfill multiple years in one run
+python iris_oifigiuil_poller.py --year 2018 2019 2020
+
+# Fixed-window backfill: last N days ending today
+python iris_oifigiuil_poller.py --lookback-days 365
+
+# Preview without downloading
+python iris_oifigiuil_poller.py --year 2020 --dry-run
+```
+
+`--year` and `--lookback-days` are mutually exclusive. Anything already on disk is skipped (no network request), so wider windows are cheap to point at.
+
+Exit codes: `0` = clean run · `1` = at least one download failed · `2` = a past Tue/Fri returned 4xx on every URL variant (slug pattern may have changed; investigate before trusting future runs).
 
 ---
 
@@ -383,8 +419,13 @@ dail_tracker/
 ├── payments.py                              Payment PDF extraction
 ├── member_interests.py                      Register of Members' Interests extraction
 ├── iris_memeber_interests.py                Member-interest extraction from Iris notices
-├── iris_oifiguil_etl.py                     Iris Oifigiúil PDF parser (production copy)
-├── iris_oifiiguil_downloader.py             Iris Oifigiúil downloader
+├── iris_oifigiuil_etl_polars.py             Iris Oifigiúil PDF parser
+├── iris_oifigiuil_poller.py                 Iris Oifigiúil twice-weekly poller (replaces old downloader)
+├── oireachtas_pdf_poller.py                 Multi-source poller (payments / attendance / interests)
+├── run_payments_poll.py                     Click-and-run wrapper — payments only
+├── run_attendance_poll.py                   Click-and-run wrapper — attendance only
+├── run_interests_poll.py                    Click-and-run wrapper — interests only
+├── run_iris_poll.py                         Click-and-run wrapper — Iris only
 ├── lobby_processing.py                      Lobbying CSV processing
 ├── legislation.py                           Legislation processing
 ├── transform_votes.py                       Vote transformation

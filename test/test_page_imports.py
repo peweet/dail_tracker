@@ -43,8 +43,32 @@ def _discover_pages() -> list[str]:
 PAGE_MODULES = _discover_pages()
 
 
+@pytest.fixture
+def isolated_config_resolution():
+    """Reset sys.modules entries that shadow utility/config.py.
+
+    The repo has two `config.py` files — root and utility/. Once a non-page
+    test imports the root one (e.g. test_payments_golden imports
+    payments_full_psa_etl which loads root config), sys.modules['config']
+    is bound to root, and the subsequent page import sees the wrong module.
+    Restoring sys.modules around each page import keeps the resolution
+    clean regardless of test order.
+
+    See note in module docstring on the two-config-modules collision.
+    """
+    saved_modules = {k: sys.modules[k] for k in list(sys.modules) if k == "config" or k.startswith("utility.")}
+    # Force re-resolution: pages do `from config import …` and must find
+    # utility/config.py via the test-prepared sys.path priority.
+    sys.modules.pop("config", None)
+    yield
+    # Restore so we don't leak into other tests in the file.
+    sys.modules.pop("config", None)
+    for k, v in saved_modules.items():
+        sys.modules[k] = v
+
+
 @pytest.mark.parametrize("page", PAGE_MODULES)
-def test_page_imports_cleanly(page: str) -> None:
+def test_page_imports_cleanly(page: str, isolated_config_resolution) -> None:
     """Importing the page module must not raise.
 
     Streamlit's cache_data warns "No runtime found" outside `streamlit run`;
