@@ -31,22 +31,30 @@
 --   This is the EXACT-name-match slice only. Fuzzy match + manual override CSV
 --   are the next layer (per §4.4 / §10.1 step 6) and live in pipeline_sandbox.
 --
--- OUTPUT COLUMNS — superset of §9.2 amended `v_lobbying_org_index`:
---   lobbyist_name, return_count, politicians_targeted, distinct_policy_areas,
---   first_period, last_period,
---   rcn, company_num,                      -- resolved entity IDs (nullable)
---   sector_label,                          -- governing_form (charity) or company_type (cro)
---   status,                                -- collapsed enum: active|in_distress|dead|registered|deregistered
---   funding_profile,                       -- state_funded|mostly_donations|mostly_trading|mixed|undisclosed
---   gov_funded_share_latest,
---   gross_income_latest_eur,
---   employees_band_latest,
---   entity_age_years,
---   newly_incorporated_flag,               -- TRUE if first_return_date - reg_date <= 24 months
---   state_adjacent_flag,
---   match_method,                          -- charity_name_exact | company_name_exact | both | none
---   flags                                  -- VARCHAR[] of warning-flag IDs; rendered as red/amber/info pills.
---                                          -- Stable IDs — UI labels live in lobbyist_poc.py:_FLAG_LABELS.
+-- OUTPUT COLUMNS — superset of §9.2 amended `v_lobbying_org_index`. All
+-- charity-side columns are null when no charity matched.
+--   IDENTITY:    lobbyist_name, return_count, politicians_targeted,
+--                distinct_policy_areas, first_period, last_period,
+--                rcn, company_num, sector_label, country_established,
+--                trustee_count
+--   STATUS:      status (active|in_distress|dead|registered|deregistered),
+--                match_method, newly_incorporated_flag, entity_age_years,
+--                state_adjacent_flag
+--   FUNDING:     funding_profile, gov_funded_share_latest,
+--                dominant_income_source,
+--                share_government|other_public|philanthropic|donations|
+--                  trading|other|bequests          -- latest-filing 7-way mix
+--   SCALE:       gross_income_latest_eur, gross_expenditure_latest_eur,
+--                employees_band_latest, employees_ft_latest,
+--                employees_pt_latest, volunteers_band_latest
+--   HEALTH:      surplus_deficit_latest, net_assets_latest_eur,
+--                cash_at_hand_latest_eur, total_assets_latest_eur,
+--                total_liabilities_latest_eur, reserves_months, reserves_band
+--   TRAJECTORY:  income_trend, income_change_pct, years_filed,
+--                first_period_year, last_period_year, deficit_years_count
+--   DESCRIPTIVE: beneficiary_tags, report_activity_latest
+--   flags        -- VARCHAR[] of warning-flag IDs; rendered as red/amber/info
+--                -- pills. Stable IDs — labels live in lobbyist_poc.py:_FLAG_LABELS.
 --
 -- ════════════════════════════════════════════════════════════════════════════
 
@@ -104,10 +112,44 @@ charity_pick AS (
         classification_primary,
         country_established,
         has_cro_number_flag,
-        gov_funded_share_latest,
-        gross_income_latest_eur,
-        employees_band_latest,
+        trustee_count,
+        -- composition / funding
         funding_profile,
+        gov_funded_share_latest,
+        dominant_income_source,
+        share_government,
+        share_other_public,
+        share_philanthropic,
+        share_donations,
+        share_trading,
+        share_other,
+        share_bequests,
+        -- scale
+        gross_income_latest_eur,
+        gross_expenditure_latest_eur,
+        employees_band_latest,
+        employees_ft_latest,
+        employees_pt_latest,
+        volunteers_band_latest,
+        -- financial health
+        surplus_deficit_latest,
+        net_assets_latest_eur,
+        cash_at_hand_latest_eur,
+        total_assets_latest_eur,
+        total_liabilities_latest_eur,
+        reserves_months,
+        reserves_band,
+        -- trajectory
+        income_trend,
+        income_change_pct,
+        years_filed,
+        first_period_year,
+        last_period_year,
+        deficit_years_count,
+        -- descriptive
+        beneficiary_tags,
+        report_activity_latest,
+        -- flags / status
         state_adjacent_flag,
         period_end_latest,
         charity_filing_overdue_flag,
@@ -175,13 +217,49 @@ SELECT
         ELSE 'unknown'
     END                                                            AS status,
 
-    -- Charity-side enrichments (null when no charity match)
+    -- Charity-side enrichments (all null when no charity match) ──────────────
+    -- Identity / governance
+    c.country_established,
+    c.trustee_count,
+    -- Funding composition
     c.funding_profile,
     c.gov_funded_share_latest,
+    c.dominant_income_source,
+    c.share_government,
+    c.share_other_public,
+    c.share_philanthropic,
+    c.share_donations,
+    c.share_trading,
+    c.share_other,
+    c.share_bequests,
+    -- Scale
     c.gross_income_latest_eur,
+    c.gross_expenditure_latest_eur,
     c.employees_band_latest,
+    c.employees_ft_latest,
+    c.employees_pt_latest,
+    c.volunteers_band_latest,
+    -- Financial health
+    c.surplus_deficit_latest,
+    c.net_assets_latest_eur,
+    c.cash_at_hand_latest_eur,
+    c.total_assets_latest_eur,
+    c.total_liabilities_latest_eur,
+    c.reserves_months,
+    c.reserves_band,
+    -- Trajectory (multi-year, drawn from the full annual-reports time series)
+    c.income_trend,
+    c.income_change_pct,
+    c.years_filed,
+    c.first_period_year,
+    c.last_period_year,
+    c.deficit_years_count,
+    -- Descriptive
+    c.beneficiary_tags,
+    c.report_activity_latest,
+    -- State-adjacent flag (HSE / hospitals etc. — hidden from the leaderboard
+    -- by default; see utility/data_access/lobbying_data.py)
     c.state_adjacent_flag,
-    c.country_established,
 
     -- Entity age (prefer CRO incorporation date — most reliable origin date)
     co.entity_age_years,
