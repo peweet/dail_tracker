@@ -92,7 +92,12 @@ attendance_year = (
     .sort(["full_name", "year"])
 )
 attendance_year.write_csv(GOLD_CSV_DIR / "attendance_by_td_year.csv")
-attendance_year.write_parquet(GOLD_PARQUET_DIR / "attendance_by_td_year.parquet")
+attendance_year.write_parquet(
+    GOLD_PARQUET_DIR / "attendance_by_td_year.parquet",
+    compression="zstd",
+    compression_level=3,
+    statistics=True,
+)
 logging.info("Gold attendance_by_td_year.csv + parquet written.")
 
 
@@ -107,7 +112,12 @@ current_dail_vote_history_df.write_csv(GOLD_DIR / 'current_dail_vote_history.csv
 logging.info("Enriched TD votes CSV created successfully.")
 
 # TODO: Review this to_parquet step for pipeline compatibility
-current_dail_vote_history_df.write_parquet(GOLD_DIR / 'parquet' / 'current_dail_vote_history.parquet')
+current_dail_vote_history_df.write_parquet(
+    GOLD_DIR / 'parquet' / 'current_dail_vote_history.parquet',
+    compression="zstd",
+    compression_level=3,
+    statistics=True,
+)
 logging.info("Enriched TD votes Parquet created (check pipeline)")
 
 # #https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/grain/
@@ -143,7 +153,12 @@ if _pay_psa.exists():
         .with_row_index(name="rank", offset=1)
     )
     current_rankings.write_csv(GOLD_CSV_DIR / "current_td_payment_rankings.csv")
-    current_rankings.write_parquet(GOLD_PARQUET_DIR / "current_td_payment_rankings.parquet")
+    current_rankings.write_parquet(
+        GOLD_PARQUET_DIR / "current_td_payment_rankings.parquet",
+        compression="zstd",
+        compression_level=3,
+        statistics=True,
+    )
     print(f"Current TD payment rankings written: {len(current_rankings)} TDs")
 else:
     print("WARN: payments_full_psa.parquet not found — skipping current TD payment rankings")

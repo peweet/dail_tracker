@@ -64,101 +64,6 @@ def _no_encoding_artifacts(series: pl.Series) -> bool:
 # SCHEMAS
 # ---------------------------------------------------------------------------
 
-class PaymentTableSchema(pa.DataFrameModel):
-    """
-    data/silver/parquet/aggregated_payment_tables.parquet
-    Amount is a currency-formatted STRING ("€4,422.08") — NOT Float64.
-    Date_Paid is pl.Date — NOT a string. Rows where a date leaked into the
-    Amount column ("26/06/2020") have been observed in real data.
-    """
-    TAA_Band:  str            = pa.Field(nullable=True)
-    Date_Paid: Series[pl.Date]= pa.Field(nullable=False)
-    Amount:    str            = pa.Field(nullable=True)
-    Full_Name: str            = pa.Field(nullable=False)
-    join_key:  str            = pa.Field(nullable=False)
-
-    class Config:
-        strict = False
-        name = "aggregated_payment_tables"
-
-    @pa.check("Amount")
-    def amount_is_currency_or_null(cls, data) -> bool:
-        non_null = _s(data).drop_nulls()
-        if len(non_null) == 0:
-            return True
-        return non_null.str.contains(r"^[€$]?[\d,]+\.\d{2}$").all()
-
-    @pa.check("Full_Name")
-    def no_empty_full_name(cls, data) -> bool:
-        return (_s(data).drop_nulls() != "").all()
-
-    @pa.check("Full_Name")
-    def no_encoding_in_full_name(cls, data) -> bool:
-        return _no_encoding_artifacts(_s(data))
-
-    @pa.check("join_key")
-    def join_key_lowercase_only(cls, data) -> bool:
-        return _s(data).drop_nulls().str.contains(r"^[a-z]+$").all()
-
-    @pa.dataframe_check
-    def date_paid_year_in_range(cls, data) -> bool:
-        return (_df(data)["Date_Paid"].dt.year() >= 2018).all()
-
-    @pa.dataframe_check
-    def no_fully_duplicate_rows(cls, data) -> bool:
-        return _df(data).is_duplicated().sum() == 0
-
-
-class TopTDsByPaymentSchema(pa.DataFrameModel):
-    """
-    data/silver/parquet/top_tds_by_payment_since_2020.parquet
-    Amount IS Float64 here (aggregated/parsed) — unlike aggregated_payment_tables.
-    """
-    Date_Paid:                     Series[pl.Date] = pa.Field(nullable=False)
-    Amount:                        float           = pa.Field(ge=0.0, nullable=True)
-    total_amount_paid_since_2020:  float           = pa.Field(ge=0.0, nullable=True)
-    Full_Name:                     str             = pa.Field(nullable=False)
-    join_key:                      str             = pa.Field(nullable=False)
-
-    class Config:
-        strict = False
-        name = "top_tds_by_payment_since_2020"
-
-    @pa.check("Full_Name")
-    def no_empty_full_name(cls, data) -> bool:
-        return (_s(data).drop_nulls() != "").all()
-
-    @pa.check("join_key")
-    def join_key_lowercase_only(cls, data) -> bool:
-        return _s(data).drop_nulls().str.contains(r"^[a-z]+$").all()
-
-    @pa.dataframe_check
-    def amount_at_most_2dp(cls, data) -> bool:
-        col = _df(data)["Amount"].drop_nulls()
-        if len(col) == 0:
-            return True
-        return (col - col.round(2)).abs().max() < 1e-9
-
-    @pa.dataframe_check
-    def total_amount_at_most_2dp(cls, data) -> bool:
-        col = _df(data)["total_amount_paid_since_2020"].drop_nulls()
-        if len(col) == 0:
-            return True
-        return (col - col.round(2)).abs().max() < 1e-9
-
-    @pa.dataframe_check
-    def no_nan_in_amount(cls, data) -> bool:
-        return _df(data)["Amount"].is_nan().sum() == 0
-
-    @pa.dataframe_check
-    def date_paid_year_in_range(cls, data) -> bool:
-        return (_df(data)["Date_Paid"].dt.year() >= 2018).all()
-
-    @pa.dataframe_check
-    def no_fully_duplicate_rows(cls, data) -> bool:
-        return _df(data).is_duplicated().sum() == 0
-
-
 class SponsorSchema(pa.DataFrameModel):
     """
     data/silver/parquet/sponsors.parquet
@@ -445,8 +350,6 @@ def _parquet(filename):
 
 # Add new silver parquet tables here — no other code changes needed.
 SCHEMA_TESTS = [
-    ("aggregated_payment_tables.parquet",      PaymentTableSchema),
-    ("top_tds_by_payment_since_2020.parquet",  TopTDsByPaymentSchema),
     ("sponsors.parquet",                       SponsorSchema),
     ("stages.parquet",                         StageSchema),
     ("debates.parquet",                        DebateSchema),

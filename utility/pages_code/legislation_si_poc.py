@@ -4,10 +4,10 @@ Statutory Instruments — standalone browser page.
 Sources from the registered DuckDB view v_statutory_instruments
 (sql_views/legislation_si_index.sql), which reads
 data/gold/parquet/statutory_instruments.parquet — produced by
-pipeline_sandbox/si_entity_enrichment.py. The SI is treated as a
-first-class entity: the full ~5,900-SI corpus (2016+), NOT gated on a
-bill match. No raw parquet read here; filtering/facets/KPIs happen in
-pandas off the single registered frame.
+si_entity_enrichment.py. The SI is treated as a first-class entity: the
+full ~5,900-SI corpus (2016+), NOT gated on a bill match. No raw parquet
+read here; filtering/facets/KPIs happen in pandas off the single
+registered frame.
 
 Features:
   1. Editorial hero + KPI strip (totals, top domain, top department, EU share)
@@ -149,7 +149,7 @@ def _inject_si_css() -> None:
 def load_si() -> pd.DataFrame:
     """The full SI entity table via the registered v_statutory_instruments
     view. Year floor, taxonomy-confidence, quarantine and category filters are
-    already applied upstream by pipeline_sandbox/si_entity_enrichment.py."""
+    already applied upstream by si_entity_enrichment.py."""
     df = fetch_si_entity_index()
     if df.empty:
         return df
@@ -157,13 +157,6 @@ def load_si() -> pd.DataFrame:
     # Defensive: drop any mojibake-bearing titles.
     df = df[~df["si_title"].astype(str).str.contains("�", na=False)]
     return df.reset_index(drop=True)
-
-
-@st.cache_data(show_spinner=False)
-def load_bills() -> pd.DataFrame:
-    """Empty stub kept for callers that still import it (legislation_poc.py).
-    The SI→bill match is pre-joined in the gold parquet."""
-    return pd.DataFrame()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -742,19 +735,12 @@ def _render_si_detail(row: pd.Series) -> None:
     if actor:
         _row("Responsible actor (as signed)", html.escape(actor))
     if parent.strip():
-        from urllib.parse import quote as _qp
-        act_links = []
-        for piece in parent.split("|"):
-            piece = piece.strip(" .,;")
-            if not piece:
-                continue
-            href = f"/legislation-poc?act={_qp(piece)}"
-            act_links.append(
-                f'<a class="dt-source-link" href="{html.escape(href, quote=True)}" '
-                f'target="_self">{html.escape(piece)}</a>'
-            )
+        # Pipe-separated Act names — rendered as plain text now that the
+        # /legislation-poc target has been retired.
+        pieces = [p.strip(" .,;") for p in parent.split("|") if p.strip(" .,;")]
         _row("Parent legislation",
-             " &nbsp;·&nbsp; ".join(act_links) if act_links else html.escape(parent))
+             " &nbsp;·&nbsp; ".join(html.escape(p) for p in pieces)
+             if pieces else html.escape(parent))
     if isinstance(confidence, (int, float)) and pd.notna(confidence):
         _row("Taxonomy confidence", f"{float(confidence):.2f}")
 

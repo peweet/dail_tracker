@@ -214,7 +214,7 @@ def main() -> int:
     df, summary = normalise(df_raw)
 
     args.silver.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(args.silver, compression="zstd")
+    df.write_parquet(args.silver, compression="zstd", compression_level=3, statistics=True)
 
     print(f"[cro_normalise] wrote {args.silver}  rows={df.height}  cols={df.width}")
     for k, v in summary.items():

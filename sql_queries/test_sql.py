@@ -5,10 +5,6 @@ policy_area_breakdown.sql
     -- Needs: returns (likely from a gold-layer or processed lobbying Parquet/CSV)
     -- TODO: Register 'returns' view from the correct Parquet/CSV (e.g., lobbying returns)
 
-payment_totals_by_td.sql
-    -- Needs: aggregated_payment_tables (data/silver/parquet/aggregated_payment_tables.parquet)
-    -- TODO: Register 'aggregated_payment_tables' view from silver Parquet
-
 debate_summary.sql
     -- Needs: current_dail_vote_history (likely a gold-layer or processed votes Parquet/CSV)
     -- TODO: Register 'current_dail_vote_history' view from the correct Parquet/CSV (e.g., pretty_votes or gold-layer)
@@ -29,7 +25,6 @@ con = duckdb.connect(database=':memory:')
 SQL_DIR = r"C:\Users\pglyn\PycharmProjects\dail_extractor\sql_queries"
 # TODO: Update these paths if your data moves or you add new datasets
 # con.execute("CREATE VIEW returns AS SELECT * FROM read_parquet('data/silver/lobbying/parquet/returns.parquet')")
-# con.execute("CREATE VIEW aggregated_payment_tables AS SELECT * FROM read_parquet('data/silver/parquet/aggregated_payment_tables.parquet')")
 # con.execute("CREATE VIEW aggregated_td_tables AS SELECT * FROM read_parquet('data/silver/parquet/aggregated_td_tables.parquet')")
 # con.execute("CREATE VIEW debates AS SELECT * FROM read_parquet('data/silver/parquet/debates.parquet')")
 # con.execute("CREATE VIEW drop_cols_flattened_bills AS SELECT * FROM read_parquet('data/silver/parquet/drop_cols_flattened_bills.parquet')")
@@ -37,7 +32,6 @@ SQL_DIR = r"C:\Users\pglyn\PycharmProjects\dail_extractor\sql_queries"
 # con.execute("CREATE VIEW flattened_seanad_members AS SELECT * FROM read_parquet('data/silver/parquet/flattened_seanad_members.parquet')")
 # con.execute("CREATE VIEW sponsors AS SELECT * FROM read_parquet('data/silver/parquet/sponsors.parquet')")
 # con.execute("CREATE VIEW stages AS SELECT * FROM read_parquet('data/silver/parquet/stages.parquet')")
-# con.execute("CREATE VIEW top_tds_by_payment_since_2020 AS SELECT * FROM read_parquet('data/silver/parquet/top_tds_by_payment_since_2020.parquet')")
 # con.execute("CREATE VIEW current_dail_vote_history AS SELECT * FROM read_csv_auto('data/gold/current_dail_vote_history.csv')")
 # con.execute("CREATE VIEW committee_assignments AS SELECT * FROM read_csv_auto('data/gold/committee_assignments.csv')")
 # con.execute("CREATE VIEW dail_member_interests_combined AS SELECT * FROM read_csv_auto('data/silver/dail_member_interests_combined.csv')")

@@ -183,7 +183,7 @@ def harvest_dbsect_index() -> int:
                 df["debate_section_id"].nunique())
 
     _OUT.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(_OUT, index=False)
+    df.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
     logger.info("dbsect_harvest: wrote %s (%d rows)", _OUT, len(df))
     return len(df)
 

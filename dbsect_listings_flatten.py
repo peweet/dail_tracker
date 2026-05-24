@@ -136,7 +136,7 @@ def run() -> int:
     logger.info("dbsect_listings_flatten: rows=%d distinct_dbsect=%d distinct_dates=%d",
                 len(df), df["debate_section_id"].nunique(), df["date"].nunique())
     _OUT.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(_OUT, index=False)
+    df.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
     logger.info("dbsect_listings_flatten: wrote %s", _OUT)
     return len(df)
 

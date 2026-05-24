@@ -56,6 +56,31 @@ questions_df = questions_df.sort_values(
     na_position="last", ascending=[False, False, True]
 )
 
+# Drop reconstructable URIs and verified-empty columns before write.
+# Every URI here is an internal data.oireachtas.ie API endpoint, fully
+# rebuildable from kept IDs (context_date, debate_section_id, question_number,
+# unique_member_code, house). The four nullable columns are 100% empty in
+# current data. Public per-question URLs are built by v_member_debate_sections.
+QUESTIONS_DROP_COLS = [
+    "debate_section_uri",
+    "uri",
+    "member_uri",
+    "question.debateSection.formats.xml.uri",
+    "question.house.uri",
+    "question.debateSection.formats.pdf",
+    "question.to.uri",
+    "question.to.roleType",
+    "ministry_role_code",
+]
+questions_df = questions_df.drop(
+    columns=[c for c in QUESTIONS_DROP_COLS if c in questions_df.columns]
+)
+
 questions_df.to_csv(SILVER_DIR / "questions.csv", index=False)
-questions_df.to_parquet(SILVER_DIR / "parquet" / "questions.parquet", index=False)
+questions_df.to_parquet(
+    SILVER_DIR / "parquet" / "questions.parquet",
+    index=False,
+    compression="zstd",
+    compression_level=3,
+)
 print("Questions dataset created successfully.")
