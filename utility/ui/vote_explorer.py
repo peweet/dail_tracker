@@ -22,6 +22,19 @@ _VOTE_COLOURS: dict[str, str] = {
     "Abstained": "#8c8c80",
 }
 
+_TD_HISTORY_LIMIT = 5000
+
+
+class _NullCtx:
+    """No-op context manager — lets render_td_panel skip the bordered
+    container wrapper when embedded inside another container."""
+
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
 
 def _vote_icon(vote_type) -> str:
     vt = str(vote_type or "")
@@ -408,7 +421,21 @@ def render_td_panel(
     td_row: pd.Series,
     history_df: pd.DataFrame,
     year_df: pd.DataFrame,
+    *,
+    show_header: bool = True,
+    key_suffix: str = "",
 ) -> None:
+    """Per-TD voting profile body.
+
+    When ``show_header=False`` (embedded in member-overview Votes expander):
+    - skip the ``st.container(border=True)`` wrapper (would nest inside the
+      expander chrome)
+    - skip the TD name + party · constituency line (hero shows it)
+    - skip the "View full accountability profile" CTA (we're already there)
+
+    ``key_suffix`` namespaces the pager / export widget keys so the embedded
+    copy doesn't collide with the stand-alone /rankings-votes page state.
+    """
     member_id = str(td_row.get("member_id") or "")
     name = str(td_row.get("member_name") or "—")
     party = str(td_row.get("party_name") or "—")
@@ -426,9 +453,13 @@ def render_td_panel(
             safe_mid += ch
     if not safe_mid:
         safe_mid = "td"
+    safe_mid = f"{safe_mid}{key_suffix}"
 
-    with st.container(border=True):
-        st.html(f'<p class="td-name">{_h(name)}</p><p class="td-meta">{_h(party)} · {_h(const)}</p>')
+    # `dummy_ctx` lets the body run without a bordered container when embedded.
+    body_ctx = st.container(border=True) if show_header else _NullCtx()
+    with body_ctx:
+        if show_header:
+            st.html(f'<p class="td-name">{_h(name)}</p><p class="td-meta">{_h(party)} · {_h(const)}</p>')
 
         stat_strip(
             [
@@ -440,7 +471,7 @@ def render_td_panel(
             ]
         )
 
-        if member_id:
+        if show_header and member_id:
             st.html(
                 entity_cta_html(
                     member_profile_url(member_id),
@@ -497,3 +528,85 @@ def render_td_panel(
                 filename=f"td_{safe_mid}_votes.csv",
                 key=f"exp_td_{safe_mid}",
             )
+
+
+# ── Cross-page wrapper ────────────────────────────────────────────────────────
+
+
+def render_member_votes(
+    conn,
+    member_id: str,
+    *,
+    show_header: bool = True,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    key_suffix: str = "",
+) -> None:
+    """One-call per-TD voting body: fetches td_vote_summary + history +
+    year_summary against the supplied DuckDB connection, then renders via
+    :func:`render_td_panel`.
+
+    Used by both /rankings-votes (Mode B, stand-alone) and member-overview's
+    Votes expander. The two pages register the same vote views — see
+    ``data_access/votes_data.py`` and ``data_access/member_overview_data.py``.
+    """
+    if conn is None:
+        empty_state("Vote data unavailable", "No DuckDB connection.")
+        return
+
+    try:
+        td_df = conn.execute(
+            "SELECT member_id, member_name, party_name, constituency,"
+            " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
+            " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
+            (member_id,),
+        ).df()
+    except Exception:
+        empty_state(
+            "TD not found",
+            "td_vote_summary returned no record for this member id.",
+        )
+        return
+
+    if td_df.empty:
+        empty_state(
+            "No vote data for this member",
+            "td_vote_summary returned no rows — this TD may have no recorded divisions.",
+        )
+        return
+
+    hist_clauses: list[str] = ["member_id = ?"]
+    hist_params: list = [member_id]
+    if date_from:
+        hist_clauses.append("vote_date >= ?")
+        hist_params.append(date_from)
+    if date_to:
+        hist_clauses.append("vote_date <= ?")
+        hist_params.append(date_to)
+    where = " AND ".join(hist_clauses)
+    hist_sql = (
+        "SELECT vote_id, vote_date, debate_title, vote_type, vote_outcome, oireachtas_url"
+        f" FROM v_vote_member_detail WHERE {where} ORDER BY vote_date DESC LIMIT ?"
+    )
+    hist_params.append(_TD_HISTORY_LIMIT)
+    try:
+        history_df = conn.execute(hist_sql, hist_params).df()
+    except Exception:
+        history_df = pd.DataFrame()
+
+    try:
+        year_df = conn.execute(
+            "SELECT year, yes_count, no_count, abstained_count"
+            " FROM td_vote_year_summary WHERE member_id = ? ORDER BY year ASC LIMIT 50",
+            (member_id,),
+        ).df()
+    except Exception:
+        year_df = pd.DataFrame()
+
+    render_td_panel(
+        td_df.iloc[0],
+        history_df,
+        year_df,
+        show_header=show_header,
+        key_suffix=key_suffix,
+    )

@@ -17,7 +17,6 @@ from ui.components import (
     back_button,
     clickable_card_link,
     empty_state,
-    evidence_heading,
     page_error_boundary,
     sidebar_date_range,
     sidebar_member_filter,
@@ -25,10 +24,10 @@ from ui.components import (
     todo_callout,
     year_selector,
 )
-from ui.entity_links import division_url, member_profile_url
+from ui.entity_links import division_url, entity_cta_html, member_profile_url
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
-from ui.vote_explorer import render_division_panel, render_td_panel, vt_division_card_html
+from ui.vote_explorer import render_division_panel, vt_division_card_html
 from data_access.votes_data import get_votes_conn
 
 _REQUIRED_INDEX_COLS: frozenset[str] = frozenset(
@@ -37,7 +36,6 @@ _REQUIRED_INDEX_COLS: frozenset[str] = frozenset(
 
 _VOTE_INDEX_LIMIT = 500
 _DIVISION_MEMBERS_LIMIT = 5000
-_TD_HISTORY_LIMIT = 500
 
 # Topical seed terms used for the "Find a TD" landing page. Each one matches a
 # debate_title substring; presentation-only filter, not modelling.
@@ -125,17 +123,6 @@ def _fetch_party_names(_conn) -> list[str]:
 
 
 @st.cache_data(ttl=300)
-def _fetch_td_row_by_id(_conn, member_id: str) -> pd.DataFrame:
-    return _safe_query(
-        _conn,
-        "SELECT member_id, member_name, party_name, constituency,"
-        " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
-        " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
-        (member_id,),
-    )
-
-
-@st.cache_data(ttl=300)
 def _fetch_td_row_by_name(_conn, member_name: str) -> pd.DataFrame:
     return _safe_query(
         _conn,
@@ -215,25 +202,6 @@ def _fetch_sources(_conn, vote_id) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def _fetch_td_history(_conn, member_id, date_from, date_to) -> pd.DataFrame:
-    clauses: list[str] = ["member_id = ?"]
-    params: list = [member_id]
-    if date_from:
-        clauses.append("vote_date >= ?")
-        params.append(date_from)
-    if date_to:
-        clauses.append("vote_date <= ?")
-        params.append(date_to)
-    body = _and_clauses(clauses)
-    sql = (
-        "SELECT vote_id, vote_date, debate_title, vote_type, vote_outcome, oireachtas_url"
-        f" FROM v_vote_member_detail WHERE {body} ORDER BY vote_date DESC LIMIT ?"
-    )
-    params.append(_TD_HISTORY_LIMIT)
-    return _safe_query(_conn, sql, params)
-
-
-@st.cache_data(ttl=300)
 def _fetch_topical_votes(_conn) -> pd.DataFrame:
     """Recent member votes on hot-topic debates. Used to seed the TD picker cards.
 
@@ -252,15 +220,6 @@ def _fetch_topical_votes(_conn) -> pd.DataFrame:
     params = [pat for _label, pat in _TD_PICKER_TOPICS]
     return _safe_query(_conn, sql, params)
 
-
-@st.cache_data(ttl=300)
-def _fetch_td_year_summary(_conn, member_id) -> pd.DataFrame:
-    return _safe_query(
-        _conn,
-        "SELECT year, yes_count, no_count, abstained_count"
-        " FROM td_vote_year_summary WHERE member_id = ? ORDER BY year ASC LIMIT 50",
-        (member_id,),
-    )
 
 
 # ── TD picker (landing for the TDs view) ───────────────────────────────────────
@@ -394,24 +353,19 @@ def _render_td_picker(conn) -> None:
         )
         return
 
-    # Two-column grid of suggestion cards.
+    # Two-column grid of suggestion cards. Each card body shows the suggested
+    # vote; the CTA below jumps cross-page to the canonical member-overview
+    # Votes expander rather than the (now-removed) in-page Mode B view.
     for row_pair_start in range(0, len(picks), 2):
         pair = picks[row_pair_start : row_pair_start + 2]
         cols = st.columns(2, gap="small")
         for j, pick in enumerate(pair):
             with cols[j]:
                 st.html(_td_pick_card_html(pick))
-                if st.button(
-                    f"View {pick['member_name']}'s record →",
-                    key=f"td_pick_{row_pair_start + j}_{pick.get('member_id')}",
-                    width="stretch",
-                ):
-                    new_mid = str(pick["member_id"])
-                    st.session_state["v_sel_member_id"] = new_mid
-                    st.session_state.pop("v_sel_vote_id", None)
-                    st.query_params["member"] = new_mid
-                    st.query_params.pop("vote", None)
-                    st.rerun()
+                target = member_profile_url(str(pick["member_id"]), section="votes")
+                st.html(
+                    entity_cta_html(target, f"View {pick['member_name']}'s record →")
+                )
 
     st.html(
         '<p class="td-pick-foot">Showing recent topical votes — selection updates as new divisions are published.</p>'
@@ -515,37 +469,28 @@ def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
     )
 
 
-# ── Mode B: TD profile ─────────────────────────────────────────────────────────
+# ── Mode B (legacy) — redirect to canonical /member-overview profile ──────────
 
 
-def _render_mode_b(conn, member_id: str, date_from, date_to) -> None:
-    if back_button("← Back to divisions", key="v_b"):
-        st.session_state["_v_clear_member"] = True
-        st.query_params.clear()
-        st.rerun()
-
-    td_df = _fetch_td_row_by_id(conn, member_id)
-    if td_df.empty:
-        empty_state(
-            "TD not found",
-            "No record found for this member in td_vote_summary.",
-        )
-        return
-
-    td_row = td_df.iloc[0]
-    history_df = _fetch_td_history(conn, member_id, date_from, date_to)
-    year_df = _fetch_td_year_summary(conn, member_id)
-
-    render_td_panel(td_row, history_df, year_df)
-
-    evidence_heading("Sponsored bills")
-    todo_callout(
-        "TODO_PIPELINE_VIEW_REQUIRED: td_sponsored_bills — "
-        "member's sponsored bills (bill_title, bill_year, bill_status, oireachtas_url); "
-        "pipeline view required before this section can render."
+def _render_mode_b_redirect(member_id: str) -> None:
+    """Mode B's in-page TD profile was lifted into the member-overview Votes
+    expander in Phase 7. This renders a one-time callout for legacy
+    ``?member=<id>`` URLs so bookmarks keep working."""
+    target = member_profile_url(member_id, section="votes")
+    st.html(
+        f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
+        f"<strong>TD voting profiles have moved.</strong><br>"
+        f'<span style="color:var(--text-meta)">Per-TD voting now lives on the '
+        f'canonical member-overview page. Bookmarks to <code>?member={_h(member_id)}</code> '
+        f"redirect here.</span><br>"
+        f'<a class="dt-member-link" href="{_h(target)}" target="_self" '
+        f'style="margin-top:0.6rem;display:inline-block;">Open profile →</a>'
+        f"</div>"
     )
-
-    provenance_expander(sections=["Voting record sourced from the Oireachtas Open Data API divisions data."])
+    # Clear nav state so a refresh doesn't re-stick the callout once the
+    # user has clicked through to the new URL.
+    st.session_state.pop("v_sel_member_id", None)
+    st.query_params.pop("member", None)
 
 
 # ── Mode C: Division evidence ──────────────────────────────────────────────────
@@ -723,7 +668,10 @@ def votes_page() -> None:
         _render_mode_c(conn, sel_vote_id, v_from)
     elif view == "TDs":
         if sel_member_id:
-            _render_mode_b(conn, sel_member_id, date_from, date_to)
+            # Phase 7: Mode B's in-page TD profile was lifted into
+            # member-overview's Votes expander. Redirect bookmarks / sidebar
+            # selections to the canonical profile.
+            _render_mode_b_redirect(sel_member_id)
         else:
             _render_td_picker(conn)
     else:
