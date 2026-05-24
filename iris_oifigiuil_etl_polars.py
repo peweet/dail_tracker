@@ -858,9 +858,16 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     #   raw_text = "S.I. No. 142 of 2024.\nSOCIAL WELFARE (CONSOLIDATED CLAIMS,\n
     #               PAYMENTS AND CONTROL) (AMENDMENT) (NO. 5)\nREGULATIONS 2024\n
     #               The Minister for Social Protection..."
-    #   = title_si grabs lines between "S.I. No. ..." and "The Minister",
+    #   = title_si grabs lines between "S.I. No. ..." and a preamble starter,
     #     joins+trims = "SOCIAL WELFARE (CONSOLIDATED CLAIMS, PAYMENTS AND
     #                    CONTROL) (AMENDMENT) (NO. 5) REGULATIONS 2024"
+    # Stop markers cover every common preamble lead-in we've seen across the
+    # corpus — Minister, Taoiseach, Government, Commissioners, Authority,
+    # President, Director, Board, Council, Members — plus the impersonal
+    # openers (I, ; WHEREAS) and the structural starts (These Regulations,
+    # This Order, Copies of, Under the, The purpose, EXPLANATORY NOTE,
+    # (This note. Missing a stop marker causes the title to absorb the
+    # preamble body — see e.g. the Statistics SIs signed by the Taoiseach.
     # Non-SI example:
     #   raw_text = "[ABC-99]\nIN THE HIGH COURT\nCompanies Act 2014\nIn the matter of XYZ Limited"
     #   = title_non_si drops the "[ABC-99]" line and joins the next 4
@@ -869,7 +876,12 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     title_si = (
         pl.col("raw_text")
         .str.extract(
-            r"(?si)^S\.I\.\s*No\.[^\n]*\n([^\[]+?)(?:\n(?:The Minister|These Regulations|This Order|Copies of|Under the|The purpose|EXPLANATORY NOTE|\(This note)|\n\n|\z)",
+            r"(?si)^S\.I\.\s*No\.[^\n]*\n([^\[]+?)(?:\n(?:"
+            r"The Minister|The Taoiseach|The Government|The Commissioners?|"
+            r"The Authority|The President|The Director|The Board|The Council|"
+            r"The Members|These Regulations|This Order|Copies of|Under the|"
+            r"The purpose|EXPLANATORY NOTE|\(This note|I,\s|WHEREAS\b"
+            r")|\n\n|\z)",
             1,
         )
         .str.split("\n")

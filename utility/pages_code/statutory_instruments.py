@@ -726,9 +726,12 @@ def _render_si_detail(row: pd.Series) -> None:
             f'<span class="si-pill si-pill-eu">{html.escape(_pretty_token(e))}</span>'
             for e in _split_multi(eu_rel)))
     if min_name:
+        # Section anchor lands the user in /member-overview's Legislation
+        # expander — that's where SIs signed by ministers live as a
+        # sub-section. Matches the cross-page contract from Phases 3–8.
         person_html = (
             f'<a class="dt-source-link" '
-            f'href="{html.escape(member_profile_url(min_code), quote=True)}" '
+            f'href="{html.escape(member_profile_url(min_code, section="legislation"), quote=True)}" '
             f'target="_self">{html.escape(min_name)}</a>'
         ) if min_code else html.escape(min_name)
         _row("Minister", person_html)

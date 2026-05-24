@@ -30,12 +30,20 @@ from urllib.parse import quote
 
 
 def name_join_key(name: str) -> str:
-    """Sorted-character normalisation matching the pipeline's join_key form.
+    """DEPRECATED — round-3 audit confirmed this DOES NOT match
+    ``unique_member_code`` on the registered views.
 
-    Mirrors ``normalise_join_key.normalise_df_td_name`` for a single string.
-    Lowercase → NFD → strip accents/apostrophes → drop non-alpha and honorifics
-    → sort remaining letters. The result equals `unique_member_code` on
-    the registered views — usable as the cross-page member ID.
+    The registered codes use the Oireachtas-API format
+    ``<Name>.<Chamber>.<DateElected>`` (e.g. ``Mary-Lou-McDonald.D.2011-03-09``).
+    This function returns the sorted-letters internal pipeline join form
+    (e.g. ``aacddllmmnooruy``) which only matches certain internal joins,
+    NOT the public view's ``unique_member_code``.
+
+    Existing callers were producing 404-equivalent URLs for every member.
+    Use :func:`data_access.identity_resolver.resolve_member_code` instead,
+    which queries ``v_member_registry`` for the real code.
+
+    Kept for any caller that genuinely needs the sorted-letters key.
     """
     s = name.lower()
     s = unicodedata.normalize("NFD", s)
@@ -97,6 +105,12 @@ def division_url(vote_id: str) -> str:
 def bill_detail_url(bill_id: str) -> str:
     """Canonical bill detail URL: /rankings-legislation?bill=<bill_id>."""
     return f"/{PAGES['legislation']}?bill={_q(bill_id)}"
+
+
+def si_detail_url(si_id: str) -> str:
+    """Canonical statutory-instrument detail URL:
+    /rankings-statutory-instruments?si=<si_id>."""
+    return f"/{PAGES['statutory_instruments']}?si={_q(si_id)}"
 
 
 # ── External profile builders ─────────────────────────────────────────────────

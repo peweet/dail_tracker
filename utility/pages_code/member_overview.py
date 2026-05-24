@@ -46,12 +46,14 @@ from ui.entity_links import (
     PAGES,
     member_profile_url,
     oireachtas_profile_url,
+    si_detail_url,
     social_icon_chip_html,
     source_link_html,
 )
 from ui.vote_explorer import render_member_votes
 from data_access.member_overview_data import get_member_overview_conn
 from pages_code.attendance import render_member_attendance
+from pages_code.committees import _load as _committees_load, render_member_committees
 from pages_code.interests import render_member_interests
 from pages_code.lobbying_2 import render_member_lobbying
 from pages_code.payments import render_member_payments
@@ -400,13 +402,11 @@ def _section_statutory_instruments(conn, join_key: str) -> None:
     for _, row in df.head(50).iterrows():
         op = _h(str(row.get("si_operation", "") or "").replace("_", " ")) or "—"
         url = str(row.get("eisb_url", "") or "")
-        eu_badge = (
-            '<span class="signal" style="background:#fef3c7;border-color:#fcd34d;'
-            'color:#92400e;margin-left:0.25rem;">EU</span>'
-            if bool(row.get("si_is_eu"))
-            else ""
-        )
-        url_html = (
+        si_id = str(row.get("si_id", "") or "")
+        # Round-3 audit P3-3: was inline-style amber hex; now uses the
+        # tokenised .signal-eu class so the EU palette lives in one place.
+        eu_badge = '<span class="signal-eu">EU</span>' if bool(row.get("si_is_eu")) else ""
+        eisb_html = (
             source_link_html(
                 url,
                 "irishstatutebook.ie",
@@ -415,15 +415,26 @@ def _section_statutory_instruments(conn, join_key: str) -> None:
             if url.startswith("http")
             else ""
         )
+        # Cross-page jump into the SI detail panel — adds the SI page's
+        # taxonomy, parent legislation, and EU-relationship context that
+        # don't fit in this sub-section card.
+        si_page_html = (
+            f'<a class="dt-source-link" href="{_h(si_detail_url(si_id))}" '
+            f'target="_self" aria-label="Open SI {_h(si_id)} on /rankings-statutory-instruments">'
+            f"Full SI detail</a>"
+            if si_id
+            else ""
+        )
+        links_html = " &nbsp;·&nbsp; ".join(p for p in (eisb_html, si_page_html) if p)
         st.html(
             f'<div class="leg-bill-card" style="margin-bottom:0.3rem;">'
             f'<div class="leg-bill-card-header">'
-            f'<span class="leg-bill-card-date">SI {_h(str(row.get("si_id", "—")))}</span>'
+            f'<span class="leg-bill-card-date">SI {_h(si_id or "—")}</span>'
             f'<span class="signal leg-status-active">{op}</span>'
             f"{eu_badge}"
             f"</div>"
             f'<div class="leg-bill-card-title">{_h(str(row.get("si_title", "—")))}</div>'
-            f'<div style="margin-top:0.2rem;">{url_html}</div>'
+            f'<div style="margin-top:0.2rem;">{links_html}</div>'
             f"</div>"
         )
 
@@ -543,16 +554,30 @@ def _section_debates(conn, join_key: str, member_name: str) -> None:
     )
 
 
-def _section_committees() -> None:
-    st.html('<p class="section-heading">Committees</p>')
-    st.html(
-        '<div class="leg-todo-callout">'
-        '<span class="leg-todo-label">TODO PIPELINE VIEW REQUIRED</span>'
-        " Per-member committee membership is pending the committees-page refactor."
-        " Required view: <code>v_committee_membership</code> with columns"
-        " <b>unique_member_code</b>, <b>committee_name</b>, <b>role</b> (Chair / Member),"
-        " <b>start_date</b>, <b>end_date</b>."
-        "</div>"
+def _section_committees(member_name: str, join_key: str) -> None:
+    """Phase 8 lift: per-TD committee profile body.
+
+    Backed by committees.py's transitional CSV-scaffold loader (no
+    v_committee_* views yet — committees.py header explicitly notes this is
+    technical debt to be removed when the views land). Once the views ship,
+    swap `_committees_load("Dáil")` for direct conn queries against
+    v_committee_assignments / v_committee_member_detail.
+    """
+    df_long, offices = _committees_load("Dáil")
+    if df_long.empty:
+        st.html(
+            '<div class="dt-callout">No committee data available — '
+            "the committees pipeline scaffold returned no rows.</div>"
+        )
+        return
+    render_member_committees(
+        member_name,
+        df_long,
+        offices,
+        chamber="Dáil",
+        show_member_header=False,
+        status_filter_key=f"mo_comm_status_{join_key}",
+        export_key_suffix="_mo",
     )
 
 
@@ -724,11 +749,15 @@ def _prev_next_member(conn, join_key: str) -> tuple[dict | None, dict | None]:
 def _render_profile_nav(conn, join_key: str) -> None:
     """Top-of-profile nav: [← All TDs] [← prev TD] [next TD →].
 
-    Reuses the existing back_button styling. Prev/next set the stage join key
-    and clear the query params so the URL reflects the new selection.
+    Round-3 audit P2-1: previously rendered 3 full-width stretched buttons
+    that dominated the area above the hero. Now uses natural-width buttons
+    in a tighter column layout — still keyboard-accessible, much quieter
+    visually so the hero is the focal point as PRODUCT.md prescribes.
     """
     prev_row, next_row = _prev_next_member(conn, join_key)
-    c_back, c_prev, c_next = st.columns([3, 4, 4])
+    # Tight left-anchored columns; the trailing wide column eats the rest
+    # of the width so the buttons cluster together at the left.
+    c_back, c_prev, c_next, _spacer = st.columns([1.4, 2.2, 2.2, 6])
     with c_back:
         if back_button("← All TDs", key="mo_all", help="Return to the full TD list"):
             st.session_state.pop(_STAGE_KEY, None)
@@ -738,26 +767,30 @@ def _render_profile_nav(conn, join_key: str) -> None:
         if prev_row is not None:
             label = f"← {prev_row['member_name']}"
             if st.button(
-                label, key="mo_prev_td", help=f"Previous TD alphabetically: {prev_row['member_name']}", width="stretch"
+                label,
+                key="mo_prev_td",
+                help=f"Previous TD alphabetically: {prev_row['member_name']}",
             ):
                 st.session_state[_STAGE_KEY] = str(prev_row["unique_member_code"])
                 st.query_params.clear()
                 st.query_params["member"] = str(prev_row["unique_member_code"])
                 st.rerun()
         else:
-            st.button("← (start of list)", key="mo_prev_td_disabled", disabled=True, width="stretch")
+            st.button("← (start)", key="mo_prev_td_disabled", disabled=True)
     with c_next:
         if next_row is not None:
             label = f"{next_row['member_name']} →"
             if st.button(
-                label, key="mo_next_td", help=f"Next TD alphabetically: {next_row['member_name']}", width="stretch"
+                label,
+                key="mo_next_td",
+                help=f"Next TD alphabetically: {next_row['member_name']}",
             ):
                 st.session_state[_STAGE_KEY] = str(next_row["unique_member_code"])
                 st.query_params.clear()
                 st.query_params["member"] = str(next_row["unique_member_code"])
                 st.rerun()
         else:
-            st.button("(end of list) →", key="mo_next_td_disabled", disabled=True, width="stretch")
+            st.button("(end) →", key="mo_next_td_disabled", disabled=True)
 
 
 def _render_stage2(
@@ -861,7 +894,6 @@ def _render_stage2(
 
     st.html(
         f'<div class="dt-hero">'
-        f'  <p class="dt-kicker">TD ACCOUNTABILITY RECORD</p>'
         f'  <div class="dt-profile-header">'
         f'    <div class="dt-profile-avatar-col">{avatar_block}{caption_block}</div>'
         f'    <div class="dt-profile-meta-col">'
@@ -878,72 +910,126 @@ def _render_stage2(
     pay_total = _pay_grand_total(conn, join_key)
     vote_df = _votes_summary(conn, join_key)
 
-    if not att_df.empty:
-        att_yr = int(att_df.iloc[0]["year"])
-        att_days = int(att_df.iloc[0]["attended_count"])
-        is_min = str(att_df.iloc[0].get("is_minister", "false")).lower() == "true"
-        att_lbl = f"Days in chamber · {att_yr}"
-        att_val = str(att_days)
-        if is_min:
-            att_sub = "Minister · plenary record only"
-        else:
-            rank, total = _att_rank_for_year(conn, join_key, att_yr)
-            att_sub = f"Rank {rank} of {total} TDs" if rank and total else ""
-    else:
-        att_lbl, att_val, att_sub = "Days in chamber", "—", ""
+    # Round-3 audit P1-F: for ministers (especially the Taoiseach), the
+    # plenary-attendance and TAA-payments data sources legitimately have
+    # NO rows — but the unguarded stat strip rendered two em-dashes, which
+    # looked broken rather than deliberate. When both are empty AND we
+    # know it's a minister, replace the strip with a single explanatory
+    # caption (with the votes summary inlined, since votes are still
+    # tracked for ministers). This is the "every row tells a story"
+    # principle from PRODUCT.md applied to the empty rows.
+    att_empty = att_df.empty
+    pay_empty = not pay_total
 
     if not vote_df.empty:
         vr = vote_df.iloc[0]
         votes_cast = (
-            int(vr.get("yes_count", 0) or 0) + int(vr.get("no_count", 0) or 0) + int(vr.get("abstained_count", 0) or 0)
+            int(vr.get("yes_count", 0) or 0)
+            + int(vr.get("no_count", 0) or 0)
+            + int(vr.get("abstained_count", 0) or 0)
         )
-        cast_val = f"{votes_cast:,}"
-        divs = int(vr.get("division_count", 0) or 0)
-        cast_sub = f"across {divs:,} divisions" if divs else ""
+        votes_div = int(vr.get("division_count", 0) or 0)
     else:
-        cast_val, cast_sub = "—", ""
+        votes_cast = votes_div = 0
 
-    pay_val = f"€{pay_total:,.0f}" if pay_total else "—"
-    pay_sub = "TAA · all years on record" if pay_total else ""
+    if att_empty and pay_empty:
+        # Round-3 audit P1-F: when BOTH attendance and payments are empty,
+        # show a single explanatory line instead of two em-dashes in the
+        # stat strip. The is_minister flag from v_member_registry isn't
+        # reliable for cabinet members (returns False even for the
+        # Taoiseach), so we don't gate on it — empty-on-both is itself
+        # the strongest signal that the regular plenary/TAA framing
+        # doesn't apply.
+        votes_phrase = (
+            f"<strong>{votes_cast:,}</strong> votes cast across "
+            f"<strong>{votes_div:,}</strong> divisions"
+            if votes_cast
+            else "votes record not on file"
+        )
+        headline = "Cabinet member." if is_minister else "Different rules apply."
+        st.html(
+            f'<div class="dt-callout" style="margin:1rem 0 1.75rem;">'
+            f"<strong>{headline}</strong> &nbsp;"
+            f'<span style="color:var(--text-secondary);">'
+            f"Plenary-attendance and Parliamentary Standard Allowance figures "
+            f"aren't on file for this member &nbsp;·&nbsp; "
+            f"{votes_phrase}.</span>"
+            f"</div>"
+        )
+    else:
+        if not att_df.empty:
+            att_yr = int(att_df.iloc[0]["year"])
+            att_days = int(att_df.iloc[0]["attended_count"])
+            att_lbl = f"Days in chamber · {att_yr}"
+            att_val = str(att_days)
+            if is_minister:
+                att_sub = "Minister · plenary record only"
+            else:
+                rank, total = _att_rank_for_year(conn, join_key, att_yr)
+                att_sub = f"Rank {rank} of {total} TDs" if rank and total else ""
+        else:
+            att_lbl, att_val, att_sub = "Days in chamber", "—", ""
 
-    stat_strip(
-        [
-            (att_val, att_lbl, "var(--text-primary)", att_sub),
-            (cast_val, "Votes cast", "var(--signal-good)", cast_sub),
-            (pay_val, "Payments received", "var(--text-primary)", pay_sub),
-        ]
-    )
+        cast_val = f"{votes_cast:,}" if votes_cast else "—"
+        cast_sub = f"across {votes_div:,} divisions" if votes_div else ""
+        pay_val = f"€{pay_total:,.0f}" if pay_total else "—"
+        pay_sub = "TAA · all years on record" if pay_total else ""
 
-    # ── Section nav strip (anchor links into the expanders below) ────────────
-    nav_links = "".join(
-        f'<a class="mo-section-chip" href="#mo-section-{sid}">{_h(label)}</a>' for sid, label, _ in _PROFILE_SECTIONS
-    )
-    st.html(f'<nav class="mo-section-nav" aria-label="Profile section quick links">{nav_links}</nav>')
+        stat_strip(
+            [
+                (att_val, att_lbl, "var(--text-primary)", att_sub),
+                (cast_val, "Votes cast", "var(--signal-good)", cast_sub),
+                (pay_val, "Payments received", "var(--text-primary)", pay_sub),
+            ]
+        )
 
-    # ── "Open all sections" toggle (journalist mode) ─────────────────────────
+    # ── "Open all sections" toggle (journalist mode + lazy-load escape) ──────
     # Flips every mo_open_<sid> key. Streamlit's st.expander reads expanded=
-    # on render, so a rerun after toggling propagates the new state. The
-    # button label flips so the same control closes them all again.
+    # on render, so a rerun after toggling propagates the new state. Also
+    # the workaround for the chevron-click UX wart documented below.
     all_open = all(st.session_state.get(f"mo_open_{sid}", False) for sid, _, _ in _PROFILE_SECTIONS)
     btn_label = "Close all sections" if all_open else "Open all sections"
-    if st.button(btn_label, key="mo_open_all_btn", help="Expand every section at once — useful for journalists"):
+    if st.button(btn_label, key="mo_open_all_btn", help="Expand every section and load all data."):
         new_state = not all_open
         for sid, _, _ in _PROFILE_SECTIONS:
             st.session_state[f"mo_open_{sid}"] = new_state
         st.rerun()
 
     # ── 7 dimension expanders ────────────────────────────────────────────────
-    # Phase 2 scaffolding: chrome + lazy-load session keys are in place. Each
-    # body either calls its existing inline render fn (kept verbatim) or
-    # shows an empty_state placeholder pointing to the matching ranking page.
-    # Phases 3–8 replace the inline calls with content lifted from the
-    # /rankings/* profile branches.
+    # Interests opens by default — landing always renders the highest-signal
+    # section per PRODUCT.md principle #3. Other expanders gate their bodies
+    # on mo_open_<sid> for lazy-load.
+    #
+    # Known Streamlit limitation: st.expander has no on_change callback, so
+    # a user clicking the chevron to expand a still-gated body sees nothing
+    # until they click "Open all sections" or open another via session-state
+    # update. The audit P0 #3 fix accepts this wart in exchange for ~25→~5
+    # queries on cold load. Future work: replace with a custom accordion if
+    # the wart becomes a real friction point.
     for sid, label, page_key in _PROFILE_SECTIONS:
         state_key = f"mo_open_{sid}"
+        # Default-open Interests so the landing has content; everything else
+        # starts closed AND gated so cold load drops the per-body SQL.
+        is_default_open = sid == "interests"
+        if is_default_open:
+            st.session_state.setdefault(state_key, True)
         expanded = st.session_state.get(state_key, False)
+
+        # Anchor lives OUTSIDE the expander so #mo-section-<sid> hash
+        # navigation lands on the expander header (always visible) rather
+        # than the inside of a collapsed body (round-1 audit P2).
+        st.html(f'<div id="mo-section-{sid}" class="mo-section-anchor"></div>')
+
         with st.expander(label, expanded=expanded):
-            # Cross-page deep-link anchor: /member-overview?member=<code>#<sid>
-            st.html(f'<div id="mo-section-{sid}" class="mo-section-anchor"></div>')
+            if not expanded:
+                # Gated: don't run the expensive body. User clicked the
+                # chevron but session-state still says collapsed — see
+                # comment above on the chevron-click UX wart.
+                st.caption(
+                    "Section collapsed. Click *Open all sections* above to load every section,"
+                    " or use the cross-page links from /rankings-* pages to deep-link in."
+                )
+                continue
 
             if sid == "interests":
                 # Phase 3 lift: full body rendered here without the per-page
@@ -1039,7 +1125,7 @@ def _render_stage2(
                 _section_legislation(conn, join_key, member_name)
                 _section_statutory_instruments(conn, join_key)
             elif sid == "committees":
-                _section_committees()
+                _section_committees(member_name, join_key)
 
 
 # ── Main entry point ───────────────────────────────────────────────────────────

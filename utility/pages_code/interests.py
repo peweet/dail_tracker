@@ -49,6 +49,7 @@ from ui.components import (
     interest_declaration_item,
     main_member_jump,
     member_card_html,
+    member_moved_callout,
     member_profile_header,
     page_error_boundary,
     pagination_controls,
@@ -58,7 +59,8 @@ from ui.components import (
     todo_callout,
     year_selector,
 )
-from ui.entity_links import member_profile_url, name_join_key, source_link_html
+from data_access.identity_resolver import resolve_member_code
+from ui.entity_links import member_profile_url, source_link_html
 from ui.export_controls import export_button
 from ui.source_pdfs import interests_pdf_url, provenance_expander
 
@@ -302,29 +304,20 @@ def _int_member_card_html(row) -> str:
     is_prop = bool(row.get("is_property_owner", False))
 
     meta = clean_meta(party, constit)
+    # Round-3 audit P3-2: emoji icons dropped per project convention
+    # (text + colour-by-pill-class carries enough signal in this register
+    # — editorial/civic, not consumer-app).
     parts = [pill(f"{total} declarations", "decl")]
     if landlord:
-        parts.append(pill("Landlord", "accent", icon="🔑"))
+        parts.append(pill("Landlord", "accent"))
     elif is_prop:
-        parts.append(pill("Property owner", "owner", icon="🏗️"))
+        parts.append(pill("Property owner", "owner"))
     if p_count:
-        parts.append(
-            pill(
-                f"{p_count} propert{'ies' if p_count != 1 else 'y'}",
-                "prop",
-                icon="🏠",
-            )
-        )
+        parts.append(pill(f"{p_count} propert{'ies' if p_count != 1 else 'y'}", "prop"))
     if s_count:
-        parts.append(pill(f"Shareholder · {s_count}", "shares", icon="📈"))
+        parts.append(pill(f"Shareholder · {s_count}", "shares"))
     if d_count:
-        parts.append(
-            pill(
-                f"{d_count} compan{'ies' if d_count != 1 else 'y'}",
-                "company",
-                icon="🏢",
-            )
-        )
+        parts.append(pill(f"{d_count} compan{'ies' if d_count != 1 else 'y'}", "company"))
 
     return member_card_html(
         name=name,
@@ -359,13 +352,18 @@ def _render_leaderboard(ranking_df: pd.DataFrame) -> None:
     cards: list[str] = []
     for _, row in visible.iterrows():
         name = str(row["member_name"])
-        cards.append(
-            clickable_card_link(
-                href=member_profile_url(name_join_key(name), section="interests"),
-                inner_html=_int_member_card_html(row),
-                aria_label=f"View {name}'s declarations",
+        code = resolve_member_code(name)
+        if code:
+            cards.append(
+                clickable_card_link(
+                    href=member_profile_url(code, section="interests"),
+                    inner_html=_int_member_card_html(row),
+                    aria_label=f"View {name}'s declarations",
+                )
             )
-        )
+        else:
+            # Member not in v_member_registry — render unwrapped (no link).
+            cards.append(_int_member_card_html(row))
     st.html("\n".join(cards))
 
 
@@ -445,19 +443,13 @@ def render_member_interests(
 
     parts: list[str] = []
     if is_landlord_year:
-        parts.append(pill("Landlord declared", "accent", icon="🔑"))
+        parts.append(pill("Landlord declared", "accent"))
     elif is_property_year:
-        parts.append(pill("Property owner", "owner", icon="🏗️"))
+        parts.append(pill("Property owner", "owner"))
     if prop_count:
-        parts.append(
-            pill(
-                f"{prop_count} propert{'ies' if prop_count != 1 else 'y'}",
-                "prop",
-                icon="🏠",
-            )
-        )
+        parts.append(pill(f"{prop_count} propert{'ies' if prop_count != 1 else 'y'}", "prop"))
     if share_count:
-        parts.append(pill(f"Shareholder · {share_count}", "shares", icon="📈"))
+        parts.append(pill(f"Shareholder · {share_count}", "shares"))
     badges_html = " ".join(parts)
 
     if header_slot is not None:
@@ -605,9 +597,12 @@ def render_member_interests(
     st.divider()
 
     # ── Source links (pipeline gap) ────────────────────────────────────────────
+    # Pipeline detail (dev): per-declaration source_pdf_url + oireachtas_url
+    # needed on v_member_interests_sources before each declaration can link
+    # to its scanned page on oireachtas.ie.
     todo_callout(
-        "v_member_interests_sources — per-declaration source_pdf_url and oireachtas_url. "
-        "Official declaration PDFs will link here once the pipeline exposes source URLs."
+        "Source PDFs — direct links from each declaration to the official "
+        "Oireachtas register PDF page will appear here in a future release."
     )
 
     # ── Export ─────────────────────────────────────────────────────────────────
@@ -695,25 +690,19 @@ def interests_page() -> None:
         )
         return
 
-    # Legacy ?member=<name> URLs (from before Phase 3) now redirect to the
-    # canonical /member-overview?member=<code>#interests profile. Card hrefs
-    # already point there, so this is purely for bookmarks / external links.
+    # Legacy ?member=<name> URLs (from before Phase 3) redirect to the
+    # canonical /member-overview?member=<code>#interests profile. The
+    # shared helper resolves the actual unique_member_code, scrubs the
+    # legacy param, and calls st.stop() so the page body doesn't render
+    # below the callout (round-3 audit P0-3).
     qp_member = st.query_params.get("member")
     if qp_member:
-        target = member_profile_url(name_join_key(qp_member), section="interests")
-        st.html(
-            f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
-            f"<strong>Member profiles have moved.</strong><br>"
-            f'<span style="color:var(--text-meta)">The Interests section now lives on the '
-            f"canonical member-overview page. Bookmarks to <code>?member={_h(qp_member)}</code> "
-            f"redirect here.</span><br>"
-            f'<a class="dt-member-link" href="{_h(target)}" target="_self" '
-            f'style="margin-top:0.6rem;display:inline-block;">Open {_h(qp_member)}\'s profile →</a>'
-            f"</div>"
+        member_moved_callout(
+            qp_member,
+            section="interests",
+            section_label="The Interests section",
+            legacy_param="member",
         )
-        # Clear the legacy param so refreshes don't re-show the callout once
-        # the user has clicked through (or bookmarked the new URL).
-        st.query_params.pop("member", None)
 
     # ── Page header ───────────────────────────────────────────────────────────
     hero_banner(
@@ -749,8 +738,12 @@ def interests_page() -> None:
     ranking_df = _load_ranking(house, selected_year)
 
     if ranking_df.empty:
+        # Pipeline detail (dev): v_member_interests_index not yet registered;
+        # showing the unranked fallback list of members until it lands.
         todo_callout(
-            "v_member_interests_index not yet registered. Register this view to enable the ranked member leaderboard."
+            "Member ranking — a ranked leaderboard (most declarations, "
+            "landlords, shareholders) will appear here once the underlying "
+            "data view is ready. Showing all members in name order for now."
         )
 
         members_df = _fetch_member_index_fallback(house, selected_year)
@@ -778,13 +771,17 @@ def interests_page() -> None:
         cards: list[str] = []
         for _, row in visible.iterrows():
             name = str(row["member_name"])
-            cards.append(
-                clickable_card_link(
-                    href=member_profile_url(name_join_key(name), section="interests"),
-                    inner_html=_int_member_card_html(row),
-                    aria_label=f"View {name}'s declarations",
+            code = resolve_member_code(name)
+            if code:
+                cards.append(
+                    clickable_card_link(
+                        href=member_profile_url(code, section="interests"),
+                        inner_html=_int_member_card_html(row),
+                        aria_label=f"View {name}'s declarations",
+                    )
                 )
-            )
+            else:
+                cards.append(_int_member_card_html(row))
         st.html("\n".join(cards))
 
         pagination_controls(

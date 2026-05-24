@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 import sys
 import unicodedata
+from html import escape as _h
 from pathlib import Path
 from urllib.parse import quote
 
@@ -36,6 +37,7 @@ from ui.components import (
     empty_state,
     evidence_heading,
     find_a_td_search,
+    member_moved_callout,
     member_profile_header,
     page_error_boundary,
     paginate,
@@ -46,6 +48,8 @@ from ui.components import (
     stat_item,
     todo_callout,
 )
+from data_access.identity_resolver import resolve_member_code
+from ui.entity_links import member_profile_url
 from ui.export_controls import export_button
 from ui.table_config import committee_membership_column_config, committee_roster_column_config
 
@@ -243,24 +247,46 @@ def _committee_summary(df_long: pd.DataFrame) -> pd.DataFrame:
 
 
 def _transition_notice() -> None:
-    """Single visible callout naming every pipeline gap this page papers over."""
-    st.markdown(
+    """Citizen-facing notice that this page is in transition.
+
+    Round-3 audit P1-A fix: previously dumped a paragraph naming SILVER_MEMBERS_CSV,
+    six v_committee_* view names, three derived-column names, and a yaml section
+    reference — all developer-facing internals leaked to end users.
+
+    Pipeline-side details retained as a code comment for maintainers:
+
+      Pipeline gaps this page papers over while v_committee_* views are built:
+        - reads SILVER_MEMBERS_CSV, unpivots committee_*/office_* columns in-page
+        - is_chair derived from string match on role title
+        - committee_status normalised in-page to {Active, Ended}
+        - currently_in_government_office derived from office presence
+      Tracked in committees.yaml § transition_state. Remove this notice +
+      switch to direct view queries when v_committee_assignments,
+      v_committee_member_detail, v_committee_sources, v_committee_party_seats
+      land.
+
+    Show the full dev detail in the rendered notice when
+    DT_SHOW_TODO_DETAIL=1 in the environment.
+    """
+    import os
+    detail_html = ""
+    if os.getenv("DT_SHOW_TODO_DETAIL") == "1":
+        detail_html = (
+            '<div style="margin-top:0.4rem;font-family:monospace;font-size:0.72rem;'
+            'color:var(--text-meta);">'
+            "Reads SILVER_MEMBERS_CSV; unpivots committee_*/office_* columns; "
+            "is_chair via role-title string match; awaiting v_committee_assignments / "
+            "_member_detail / _sources / _party_seats."
+            "</div>"
+        )
+    st.html(
         '<div class="dt-callout">'
-        "<strong>Transitional data backing.</strong><br>"
+        "<strong>Data refresh underway.</strong><br>"
         '<span style="color:var(--text-meta);font-size:0.85rem;line-height:1.55">'
-        "This page currently reads <code>SILVER_MEMBERS_CSV</code> and unpivots "
-        "committee/office columns in-page while the analytical views are being built. "
-        "Required views: "
-        "<code>v_committee_assignments</code>, "
-        "<code>v_committee_member_detail</code>, "
-        "<code>v_committee_sources</code>, "
-        "<code>v_committee_party_seats</code>. "
-        "Required derived columns: <code>is_chair</code> (boolean — replaces in-page string match), "
-        "<code>committee_status</code> normalised to {Active, Ended}, "
-        "<code>currently_in_government_office</code> boolean. "
-        "See <code>committees.yaml § transition_state</code>."
-        "</span></div>",
-        unsafe_allow_html=True,
+        "Committee details on this page come from a transitional source while "
+        "the full pipeline is being built. Composition is correct; some "
+        "metadata (chair role, status) may be coarse."
+        f"</span>{detail_html}</div>"
     )
 
 
@@ -339,15 +365,44 @@ def _stage_register(
             '<p class="sidebar-label" style="margin-bottom:0.2rem">Or look up a member</p>', unsafe_allow_html=True
         )
         all_names = sorted(df_long["name"].dropna().unique().tolist())
+        # Round-3 audit P1-E: the underlying typeahead only fires its
+        # callback when the user PICKS from the suggestions dropdown
+        # (typing + Enter doesn't return a value). Make that expectation
+        # explicit so keyboard users aren't left wondering why Enter
+        # does nothing.
+        st.caption(
+            "Type a name then **pick from the suggestions** to open that "
+            "member's committee profile."
+        )
         chosen_td = find_a_td_search(
             all_names,
             key_prefix="reg",
             placeholder=f"Type a {member_label[:-1]} name…",
         )
+        # Phase 8: per-TD committee profile lives on /member-overview. The
+        # typeahead renders an inline confirmation link (not a full-page
+        # redirect — the register stays visible). Round-3 audit fix: resolve
+        # the real unique_member_code; fall back to a clear "not found"
+        # state if the name isn't in v_member_registry.
         if chosen_td:
-            st.session_state["comm_td"] = chosen_td
-            st.session_state["comm_stage"] = _STAGE_TD
-            st.rerun()
+            code = resolve_member_code(chosen_td)
+            if code:
+                target = member_profile_url(code, section="committees")
+                link_html = (
+                    f'<a class="dt-member-link" href="{_h(target)}" target="_self">'
+                    f"Open this member's committee profile →</a>"
+                )
+            else:
+                link_html = (
+                    '<span style="color:var(--text-meta);font-style:italic;">'
+                    "Not in member registry — try the "
+                    '<a class="dt-member-link" href="/member-overview">All TDs browse</a>.</span>'
+                )
+            st.html(
+                f'<div class="dt-callout" style="margin:0.5rem 0 0.75rem;">'
+                f"<strong>{_h(chosen_td)}</strong> &nbsp;·&nbsp; {link_html}"
+                f"</div>"
+            )
 
     # ── Apply filters ─────────────────────────────────────────────────
     filtered = df_long.copy()
@@ -475,46 +530,65 @@ def _stage_committee(
 
     with comp_col:
         evidence_heading("Composition")
-        # value_counts on a single column — presentation-layer aggregate
-        seats = members["party"].value_counts().reset_index()
-        seats.columns = ["party", "seats"]
-        domain = seats["party"].tolist()
-        rng = [party_colour(p) for p in domain]
-        chart = (
-            alt.Chart(seats)
-            .mark_bar(cornerRadiusTopRight=3, cornerRadiusBottomRight=3)
-            .encode(
-                x=alt.X("seats:Q", title="Seats", axis=alt.Axis(tickMinStep=1)),
-                y=alt.Y("party:N", sort="-x", title=None),
-                color=alt.Color("party:N", scale=alt.Scale(domain=domain, range=rng), legend=None),
-                tooltip=[
-                    alt.Tooltip("party:N", title="Party"),
-                    alt.Tooltip("seats:Q", title="Seats"),
-                ],
+        # Round-3 audit P1-D guard: when members is empty (data join
+        # returned no rows even though the identity strip claimed N members),
+        # an unguarded value_counts → Altair chart renders as a blank panel.
+        # Empty_state gives users a real explanation.
+        if members.empty:
+            empty_state(
+                "Composition not available",
+                "Member-level data for this committee hasn't loaded yet.",
             )
-            .properties(height=max(140, len(seats) * 26))
-        )
-        st.altair_chart(chart, use_container_width=True)
+        else:
+            # value_counts on a single column — presentation-layer aggregate
+            seats = members["party"].value_counts().reset_index()
+            seats.columns = ["party", "seats"]
+            domain = seats["party"].tolist()
+            rng = [party_colour(p) for p in domain]
+            chart = (
+                alt.Chart(seats)
+                .mark_bar(cornerRadiusTopRight=3, cornerRadiusBottomRight=3)
+                .encode(
+                    x=alt.X("seats:Q", title="Seats", axis=alt.Axis(tickMinStep=1)),
+                    y=alt.Y("party:N", sort="-x", title=None),
+                    color=alt.Color("party:N", scale=alt.Scale(domain=domain, range=rng), legend=None),
+                    tooltip=[
+                        alt.Tooltip("party:N", title="Party"),
+                        alt.Tooltip("seats:Q", title="Seats"),
+                    ],
+                )
+                .properties(height=max(140, len(seats) * 26))
+            )
+            st.altair_chart(chart, use_container_width=True)
 
     with roster_col:
         evidence_heading("Roster")
-        view = (
-            members[["name", "party", "constituency", "role", "is_chair", "start", "end"]]
-            .sort_values(["is_chair", "name"], ascending=[False, True])
-            .reset_index(drop=True)
-        )
-        st.dataframe(
-            view,
-            hide_index=True,
-            width="stretch",
-            column_config=committee_roster_column_config(member_label[:-1]),
-        )
-        export_button(
-            view,
-            "Export roster (CSV)",
-            f"{selected[:60].replace(' ', '_')}_roster.csv",
-            "cmt_roster_export",
-        )
+        # Same P1-D guard: st.dataframe on an empty df renders as a silent
+        # grey rectangle. Skip the dataframe AND the (useless) export
+        # button when there are no rows to show.
+        if members.empty:
+            empty_state(
+                "Roster not available",
+                "No member rows on file for this committee in the current data.",
+            )
+        else:
+            view = (
+                members[["name", "party", "constituency", "role", "is_chair", "start", "end"]]
+                .sort_values(["is_chair", "name"], ascending=[False, True])
+                .reset_index(drop=True)
+            )
+            st.dataframe(
+                view,
+                hide_index=True,
+                width="stretch",
+                column_config=committee_roster_column_config(member_label[:-1]),
+            )
+            export_button(
+                view,
+                "Export roster (CSV)",
+                f"{selected[:60].replace(' ', '_')}_roster.csv",
+                "cmt_roster_export",
+            )
 
     _provenance(chamber)
 
@@ -522,44 +596,62 @@ def _stage_committee(
 # ── stage 2b: TD profile ──────────────────────────────────────────────
 
 
-def _stage_td(
+def render_member_committees(
+    td_name: str,
     df_long: pd.DataFrame,
     offices: pd.DataFrame,
-    chamber: str,
-    member_label: str,
+    chamber: str = "Dáil",
+    *,
+    show_member_header: bool = True,
+    member_label: str = "TDs",
+    status_filter_key: str = "td_status",
+    export_key_suffix: str = "",
 ) -> None:
-    td = st.session_state.get("comm_td")
-    person = df_long[df_long["name"] == td].copy() if td else pd.DataFrame()
-    if not td or person.empty:
-        empty_state(f"No {member_label[:-1].lower()} selected", "Return to the register and use the Find a TD search.")
-        if back_button("← Back to register", key="td_back_empty"):
-            st.session_state["comm_stage"] = _STAGE_REGISTER
-            st.rerun()
+    """Per-TD committee profile body.
+
+    Public so :mod:`pages_code.member_overview` can embed it inside the
+    Committees expander. When ``show_member_header=False``: skip the back
+    button, ``member_profile_header`` (hero shows identity), provenance
+    footer, and convert the two ``st.dataframe`` views (Government offices,
+    Committee memberships) into card lists — required by
+    feedback_member_overview_no_dataframes.
+
+    ``df_long`` and ``offices`` come from :func:`_load` and are shared with
+    the stand-alone register page; loading is cached so passing them through
+    rather than re-loading avoids duplicate work on cold start.
+    """
+    person = df_long[df_long["name"] == td_name].copy() if td_name else pd.DataFrame()
+    if not td_name or person.empty:
+        empty_state(
+            f"No {member_label[:-1].lower()} record",
+            "No committee memberships on file for this member in the silver scaffold.",
+        )
         return
 
-    # ── Back button (main content area) ───────────────────────────────
-    if back_button("← Back to register", key="td_back"):
+    # ── Back button (stand-alone page only) ───────────────────────────
+    if show_member_header and back_button("← Back to register", key="td_back"):
         st.session_state["comm_stage"] = _STAGE_REGISTER
         st.session_state["comm_td"] = None
         st.rerun()
 
-    # ── Identity ──────────────────────────────────────────────────────
-    party = str(person["party"].iloc[0])
-    constituency = str(person["constituency"].iloc[0]) if pd.notna(person["constituency"].iloc[0]) else ""
-    member_profile_header(
-        td,
-        clean_meta(party, constituency),
-        avatar_url=avatar_data_url(td),
-        avatar_initials=_initials(td),
-        avatar_credit_html=avatar_credit_html(td),
-    )
+    # ── Identity strip (stand-alone only — hero handles it when embedded)
+    if show_member_header:
+        party = str(person["party"].iloc[0])
+        constituency = str(person["constituency"].iloc[0]) if pd.notna(person["constituency"].iloc[0]) else ""
+        member_profile_header(
+            td_name,
+            clean_meta(party, constituency),
+            avatar_url=avatar_data_url(td_name),
+            avatar_initials=_initials(td_name),
+            avatar_credit_html=avatar_credit_html(td_name),
+        )
 
     # ── Summary chips ─────────────────────────────────────────────────
     total = int(person["committee"].nunique())
     active = int((person["status"] == "Active").sum())
     ended = int((person["status"] == "Ended").sum())
     chairs = int(person["is_chair"].sum())
-    td_offices = offices[offices["name"] == td] if not offices.empty else pd.DataFrame()
+    td_offices = offices[offices["name"] == td_name] if not offices.empty else pd.DataFrame()
     render_stat_strip(
         stat_item(total, "Committees"),
         stat_item(active, "Active"),
@@ -571,16 +663,39 @@ def _stage_td(
     # ── Government offices (when present) ─────────────────────────────
     if not td_offices.empty:
         evidence_heading("Government offices")
-        st.dataframe(
-            td_offices[["office", "start", "end"]].reset_index(drop=True),
-            hide_index=True,
-            width="stretch",
-            column_config={
-                "office": st.column_config.TextColumn("Office", width="large"),
-                "start": st.column_config.DateColumn("Start", format="YYYY-MM-DD"),
-                "end": st.column_config.DateColumn("End", format="YYYY-MM-DD"),
-            },
-        )
+        if show_member_header:
+            st.dataframe(
+                td_offices[["office", "start", "end"]].reset_index(drop=True),
+                hide_index=True,
+                width="stretch",
+                column_config={
+                    "office": st.column_config.TextColumn("Office", width="large"),
+                    "start": st.column_config.DateColumn("Start", format="YYYY-MM-DD"),
+                    "end": st.column_config.DateColumn("End", format="YYYY-MM-DD"),
+                },
+            )
+        else:
+            # Embedded: card list (member_overview is dataframe-free).
+            cards: list[str] = []
+            for _, row in td_offices.iterrows():
+                office = str(row.get("office") or "—")
+                start_raw = row.get("start")
+                end_raw = row.get("end")
+                try:
+                    start_disp = pd.to_datetime(start_raw).strftime("%b %Y") if pd.notna(start_raw) else "—"
+                except Exception:
+                    start_disp = str(start_raw or "—")
+                try:
+                    end_disp = pd.to_datetime(end_raw).strftime("%b %Y") if pd.notna(end_raw) else "present"
+                except Exception:
+                    end_disp = str(end_raw or "present")
+                cards.append(
+                    f'<div class="comm-office-card">'
+                    f'<div class="comm-office-card-title">{_h(office)}</div>'
+                    f'<div class="comm-office-card-dates">{_h(start_disp)} → {_h(end_disp)}</div>'
+                    f"</div>"
+                )
+            st.html(f'<div class="comm-office-list">{"".join(cards)}</div>')
 
     # ── Tenure timeline (Altair tick / span chart) ────────────────────
     evidence_heading("Tenure timeline")
@@ -620,7 +735,15 @@ def _stage_td(
 
     # ── Memberships table + export ────────────────────────────────────
     evidence_heading("Committee memberships")
-    status_tab = st.segmented_control("Show", ["All", "Active", "Ended"], default="All", key="td_status") or "All"
+    status_tab = (
+        st.segmented_control(
+            "Show",
+            ["All", "Active", "Ended"],
+            default="All",
+            key=status_filter_key,
+        )
+        or "All"
+    )
     view = person if status_tab == "All" else person[person["status"] == status_tab]
     view = (
         view[["committee", "committee_url", "type", "role", "is_chair", "status", "start", "end"]]
@@ -630,15 +753,89 @@ def _stage_td(
     if view.empty:
         empty_state("No memberships in this filter", "Switch the Show filter to All to see every committee.")
     else:
-        st.dataframe(
+        if show_member_header:
+            st.dataframe(
+                view,
+                hide_index=True,
+                width="stretch",
+                column_config=committee_membership_column_config(),
+            )
+        else:
+            # Embedded: card list per membership.
+            cards: list[str] = []
+            for _, row in view.iterrows():
+                committee = str(row.get("committee") or "—")
+                committee_url = str(row.get("committee_url") or "").strip()
+                ctype = str(row.get("type") or "")
+                role = str(row.get("role") or "Member")
+                is_chair = bool(row.get("is_chair"))
+                status = str(row.get("status") or "Unknown")
+                start_raw = row.get("start")
+                end_raw = row.get("end")
+                try:
+                    start_disp = pd.to_datetime(start_raw).strftime("%b %Y") if pd.notna(start_raw) else "—"
+                except Exception:
+                    start_disp = str(start_raw or "—")
+                try:
+                    end_disp = pd.to_datetime(end_raw).strftime("%b %Y") if pd.notna(end_raw) else "present"
+                except Exception:
+                    end_disp = str(end_raw or "present")
+                title_html = (
+                    f'<a class="dt-source-link" href="{_h(committee_url)}" target="_blank" rel="noopener">'
+                    f"{_h(committee)}</a>"
+                    if committee_url.startswith("http")
+                    else _h(committee)
+                )
+                status_class = {
+                    "Active": "comm-status-active",
+                    "Ended": "comm-status-ended",
+                }.get(status, "comm-status-unknown")
+                chair_pill = (
+                    '<span class="comm-chair-pill">Chair</span>' if is_chair else ""
+                )
+                cards.append(
+                    f'<div class="comm-member-card">'
+                    f'<div class="comm-member-card-header">'
+                    f'<span class="comm-member-card-title">{title_html}</span>'
+                    f'<span class="comm-status {status_class}">{_h(status)}</span>'
+                    f"{chair_pill}"
+                    f"</div>"
+                    f'<div class="comm-member-card-meta">'
+                    f"{_h(role)}"
+                    f' &nbsp;·&nbsp; {_h(ctype)}'
+                    f' &nbsp;·&nbsp; <span class="comm-member-card-dates">{_h(start_disp)} → {_h(end_disp)}</span>'
+                    f"</div>"
+                    f"</div>"
+                )
+            st.html(f'<div class="comm-member-list">{"".join(cards)}</div>')
+        export_button(
             view,
-            hide_index=True,
-            width="stretch",
-            column_config=committee_membership_column_config(),
+            "Export profile (CSV)",
+            f"{td_name.replace(' ', '_')}_committees.csv",
+            f"td_export{export_key_suffix}",
         )
-        export_button(view, "Export profile (CSV)", f"{td.replace(' ', '_')}_committees.csv", "td_export")
 
-    _provenance(chamber)
+    if show_member_header:
+        _provenance(chamber)
+
+
+# Back-compat shim — committees_page() used to dispatch to _stage_td.
+# After Phase 8, the dispatcher redirects cross-page; this wrapper stays so
+# imports inside committees.py and external test harnesses don't break.
+def _stage_td(
+    df_long: pd.DataFrame,
+    offices: pd.DataFrame,
+    chamber: str,
+    member_label: str,
+) -> None:
+    render_member_committees(
+        st.session_state.get("comm_td", ""),
+        df_long,
+        offices,
+        chamber,
+        show_member_header=True,
+        member_label=member_label,
+    )
 
 
 # ── provenance ────────────────────────────────────────────────────────
@@ -694,6 +891,23 @@ def committees_page() -> None:
         st.session_state["comm_committee"] = qp_committee
         st.session_state["comm_stage"] = _STAGE_COMMITTEE
 
+    # Phase 8: legacy ?member=<name> URLs redirect to the canonical
+    # /member-overview Committees expander. Shared helper resolves the
+    # real unique_member_code, scrubs state, and calls st.stop() so the
+    # register doesn't render below the callout (round-3 audit P0-3).
+    qp_member = st.query_params.get("member")
+    if qp_member:
+        # Reset stale stage state BEFORE the helper stops the page.
+        st.session_state.pop("comm_td", None)
+        if st.session_state.get("comm_stage") == _STAGE_TD:
+            st.session_state["comm_stage"] = _STAGE_REGISTER
+        member_moved_callout(
+            qp_member,
+            section="committees",
+            section_label="Per-TD committee membership",
+            legacy_param="member",
+        )
+
     chamber = st.session_state["comm_chamber"]
     member_label = "Senators" if chamber == "Seanad" else "TDs"
 
@@ -714,10 +928,15 @@ def committees_page() -> None:
     if df_long.empty:
         return
 
+    # Phase 8: _STAGE_TD is dead. Any session state still pointing at it
+    # (from a prior browser session) collapses back to the register view —
+    # the Find-a-TD typeahead in the command bar handles cross-page jumps
+    # to /member-overview now.
     stage = st.session_state["comm_stage"]
+    if stage == _STAGE_TD:
+        stage = _STAGE_REGISTER
+        st.session_state["comm_stage"] = _STAGE_REGISTER
     if stage == _STAGE_COMMITTEE:
         _stage_committee(df_long, chamber, member_label)
-    elif stage == _STAGE_TD:
-        _stage_td(df_long, offices, chamber, member_label)
     else:
         _stage_register(df_long, offices, chamber, member_label)

@@ -464,8 +464,12 @@ def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
         if dc:
             sections.insert(0, f"{int(dc):,} total divisions on record · {int(mc or 0):,} TDs recorded.")
     provenance_expander(sections=sections)
+    # Pipeline detail (dev): v_vote_sources may carry local file paths
+    # instead of oireachtas.ie URLs; the link below could open a 404.
     todo_callout(
-        "source_url column on v_vote_sources — confirm real oireachtas.ie URL is present, not a local file path."
+        "Source link quality — these official-source links are being "
+        "verified. If a link doesn't open, the underlying record is "
+        "incomplete and will be fixed in a future pipeline run."
     )
 
 

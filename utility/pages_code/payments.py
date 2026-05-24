@@ -52,7 +52,9 @@ from ui.components import (
     sidebar_member_filter,
     year_selector,
 )
-from ui.entity_links import member_profile_url, name_join_key
+from data_access.identity_resolver import resolve_member_code
+from ui.components import member_moved_callout
+from ui.entity_links import member_profile_url
 from ui.export_controls import export_button
 from ui.source_pdfs import PAYMENTS, provenance_expander
 
@@ -78,13 +80,42 @@ _QUARANTINE_NOTE = (
 )
 
 
+def _flip_name(raw: str) -> str:
+    """'Collins, Michael' → 'Michael Collins'. Pass-through if no comma."""
+    if ", " in raw:
+        last, first = raw.split(", ", 1)
+        return f"{first.strip()} {last.strip()}"
+    return raw
+
+
+def _clean_taa_label(raw: str) -> str:
+    """Strip the internal '(unmapped)' / '(unknown)' parentheticals from
+    TAA band labels so citizens don't see system jargon. Returns "Band X"
+    or the original string if no parenthetical to strip."""
+    import re
+    return re.sub(r"\s*\((?:unmapped|unknown)\)\s*$", "", raw).strip() or raw
+
+
 def _pay_card_html(row: pd.Series) -> str:
-    """Member name card for the payments ranked list, built on the canonical dt-name-card pattern."""
-    name = _h(str(row.get("member_name", "—")))
-    pos = _h(str(row.get("position", "Deputy")))
-    party = _h(str(row.get("party_name", "") or ""))
-    constit = _h(str(row.get("constituency", "") or ""))
-    taa = _h(str(row.get("taa_band_label", "—")))
+    """Member name card for the payments ranked list, built on the canonical
+    dt-name-card pattern.
+
+    Round-3 audit P1-B fix: names / pos / party / constituency are passed
+    as RAW strings to ``member_card_html``, which applies ``_h()`` once.
+    Previously every field was pre-escaped here AND again inside the
+    component → ``O'Sullivan`` rendered as ``O&#x27;Sullivan`` on screen.
+    Only ``taa`` is escaped because it goes into ``pills_html`` (a raw
+    HTML slot) below.
+
+    Round-3 audit P2-3 / P2-4: data ships names "Last, First" (sortable
+    but unidiomatic) and TAA labels with "(unmapped)" parentheticals
+    (internal pipeline metadata). Both are normalised here for display.
+    """
+    name = _flip_name(str(row.get("member_name", "—")))
+    pos = str(row.get("position", "Deputy"))
+    party = str(row.get("party_name", "") or "")
+    constit = str(row.get("constituency", "") or "")
+    taa = _h(_clean_taa_label(str(row.get("taa_band_label", "—"))))
     count = int(row.get("payment_count", 0) or 0)
     total_str = f"€{float(row.get('total_paid', 0) or 0):,.0f}"
     meta = clean_meta(party, constit) or pos
@@ -266,13 +297,18 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
             cards: list[str] = []
             for _, row in chunk.iterrows():
                 name = str(row["member_name"])
-                cards.append(
-                    clickable_card_link(
-                        href=member_profile_url(name_join_key(name), section="payments"),
-                        inner_html=_pay_card_html(row),
-                        aria_label=f"View {name}'s payments profile",
+                code = resolve_member_code(name)
+                if code:
+                    cards.append(
+                        clickable_card_link(
+                            href=member_profile_url(code, section="payments"),
+                            inner_html=_pay_card_html(row),
+                            aria_label=f"View {name}'s payments profile",
+                        )
                     )
-                )
+                else:
+                    # Member not in v_member_registry — render unwrapped.
+                    cards.append(_pay_card_html(row))
             st.html("\n".join(cards))
 
     export_df = ranking[
@@ -547,41 +583,28 @@ def payments_page() -> None:
         if render_notable_chips(NOTABLE_TDS, opts["members"], "pay_notable", "selected_td_pay"):
             st.rerun()
 
-    # Legacy ?member=<name> URLs (from before Phase 5) now redirect to the
-    # canonical /member-overview?member=<code>#payments profile. Card hrefs
-    # already point there, so this is purely for bookmarks / external links.
+    # Legacy ?member=<name> URLs AND sidebar-driven selections both redirect
+    # to the canonical /member-overview?member=<code>#payments profile.
+    # Shared helper resolves the real unique_member_code, scrubs state, and
+    # calls st.stop() so the rankings page body doesn't render under the
+    # callout (round-3 audit P0-3).
     qp_member = st.query_params.get("member")
     if qp_member:
-        target = member_profile_url(name_join_key(qp_member), section="payments")
-        st.html(
-            f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
-            f"<strong>Member profiles have moved.</strong><br>"
-            f'<span style="color:var(--text-meta)">Per-TD payments now live on the '
-            f'canonical member-overview page. Bookmarks to <code>?member={_h(qp_member)}</code> '
-            f"redirect here.</span><br>"
-            f'<a class="dt-member-link" href="{_h(target)}" target="_self" '
-            f'style="margin-top:0.6rem;display:inline-block;">'
-            f"Open {_h(qp_member)}'s profile →</a>"
-            f"</div>"
+        member_moved_callout(
+            qp_member,
+            section="payments",
+            section_label="Per-TD payments",
+            legacy_param="member",
+            state_keys=("selected_td_pay",),
         )
-        st.query_params.pop("member", None)
-        st.session_state.pop("selected_td_pay", None)
 
-    # Sidebar "Browse all members" still pushes into the in-page profile via
-    # session_state on the rankings page. Once the pipeline ships
-    # unique_member_code on payment views, swap to the cross-page jump too.
     selected_td = st.session_state.get("selected_td_pay")
     if selected_td:
-        # Re-route sidebar-driven selection to the canonical profile rather
-        # than the (now-removed) in-page Stage 2 view.
-        target = member_profile_url(name_join_key(selected_td), section="payments")
-        st.html(
-            f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
-            f"<strong>{_h(selected_td)}</strong> &nbsp;·&nbsp; "
-            f'<a class="dt-member-link" href="{_h(target)}" target="_self">'
-            f"Open this member's payments profile →</a>"
-            f"</div>"
+        member_moved_callout(
+            selected_td,
+            section="payments",
+            section_label="Per-TD payments",
+            state_keys=("selected_td_pay",),
         )
-        st.session_state.pop("selected_td_pay", None)
 
     _render_primary(year_options, summary)

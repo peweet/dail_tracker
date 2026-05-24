@@ -45,7 +45,9 @@ from ui.components import (
     todo_callout,
     year_selector,
 )
-from ui.entity_links import member_profile_url, name_join_key
+from data_access.identity_resolver import resolve_member_code
+from ui.components import member_moved_callout
+from ui.entity_links import member_profile_url
 from ui.export_controls import export_button
 from ui.source_pdfs import ATTENDANCE, provenance_expander
 
@@ -221,14 +223,19 @@ def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
 def _att_card_link(row: pd.Series, *, side: str, rank: int, medal: str = "") -> str:
     """Full-card-clickable hall card linking to the canonical profile.
 
-    Cross-page jump: every card on /rankings-attendance now lands on
-    /member-overview?member=<code>#attendance. The in-page ?att_td= contract
-    is gone (Phase 6); legacy URLs are caught by attendance_page().
+    Cross-page jump: every card on /rankings-attendance lands on
+    /member-overview?member=<code>#attendance. Resolves the actual
+    unique_member_code via the registry (round-3 audit fix). Members not
+    in the registry render unwrapped (non-clickable).
     """
     name = str(row["member_name"])
+    code = resolve_member_code(name)
+    inner = _hall_card(row, medal, side, rank=rank)
+    if not code:
+        return inner
     return clickable_card_link(
-        href=member_profile_url(name_join_key(name), section="attendance"),
-        inner_html=_hall_card(row, medal, side, rank=rank),
+        href=member_profile_url(code, section="attendance"),
+        inner_html=inner,
         aria_label=f"View {name}'s profile",
         show_arrow=False,
     )
@@ -444,13 +451,15 @@ def render_member_attendance(
             "Each mark below is a day the member was recorded present. "
             "Gaps between marks are Dáil recess periods."
         )
+        # Pipeline detail (dev): the source CSV mixes plenary sitting-day rows
+        # with committee/other-day rows under the same date. Without a
+        # session_type column on v_attendance_timeline the UI can't dedupe
+        # them, so some days appear twice. attendance_status is hardcoded
+        # to 'Present' until the pipeline exposes the real session label.
         todo_callout(
-            "TODO_PIPELINE_VIEW_REQUIRED: session_type column on v_attendance_timeline. "
-            "The source CSV (aggregated_td_tables.csv) contains both plenary sitting-day rows "
-            "and committee/other-day rows for the same date, producing duplicates. "
-            "attendance_status is hardcoded 'Present' — the pipeline must expose the original "
-            "session-type label (e.g. 'Sitting day' / 'Other day') so the UI can deduplicate "
-            "and correctly classify each record."
+            "Data quality note — some days appear more than once because "
+            "the source mixes plenary sittings with committee days. Counts "
+            "may overstate slightly until the next pipeline refresh."
         )
 
         tl_all = timeline.copy()
@@ -680,25 +689,20 @@ def attendance_page() -> None:
         return
 
     # Legacy ?att_td=<name> URLs (from before Phase 6) and the legacy in-page
-    # ?member=<name> bookmark both now redirect to /member-overview. Card
-    # hrefs already route cross-page; this catches bookmarks / external links.
+    # ?member=<name> bookmark both redirect to /member-overview. The shared
+    # helper resolves the real unique_member_code, scrubs `att_td`, and
+    # calls st.stop() so the rankings page doesn't render under the callout.
+    # Scrub `member` first since the helper only handles one legacy_param.
     qp_legacy = st.query_params.get("att_td") or st.query_params.get("member")
     if qp_legacy:
-        target = member_profile_url(name_join_key(qp_legacy), section="attendance")
-        st.html(
-            f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
-            f"<strong>Member profiles have moved.</strong><br>"
-            f'<span style="color:var(--text-meta)">Per-TD attendance now lives on the '
-            f'canonical member-overview page. Bookmarks to <code>?att_td={_h(qp_legacy)}</code> '
-            f"redirect here.</span><br>"
-            f'<a class="dt-member-link" href="{_h(target)}" target="_self" '
-            f'style="margin-top:0.6rem;display:inline-block;">'
-            f"Open {_h(qp_legacy)}'s profile →</a>"
-            f"</div>"
+        st.query_params.pop("member", None)
+        member_moved_callout(
+            qp_legacy,
+            section="attendance",
+            section_label="Per-TD attendance",
+            legacy_param="att_td",
+            state_keys=("selected_td_att",),
         )
-        for k in ("att_td", "member"):
-            st.query_params.pop(k, None)
-        st.session_state.pop("selected_td_att", None)
 
     # ── Sidebar ────────────────────────────────────────────────────────────────
     with st.sidebar:
@@ -732,19 +736,16 @@ def attendance_page() -> None:
         ]
     )
 
-    # Sidebar-driven member selection also routes cross-page now — the
-    # in-page profile branch is gone (lifted into /member-overview).
+    # Sidebar-driven member selection also routes cross-page — the in-page
+    # profile branch is gone (lifted into /member-overview Phase 6).
     selected_td = st.session_state.get("selected_td_att")
     if selected_td:
-        target = member_profile_url(name_join_key(selected_td), section="attendance")
-        st.html(
-            f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
-            f"<strong>{_h(selected_td)}</strong> &nbsp;·&nbsp; "
-            f'<a class="dt-member-link" href="{_h(target)}" target="_self">'
-            f"Open this member's attendance profile →</a>"
-            f"</div>"
+        member_moved_callout(
+            selected_td,
+            section="attendance",
+            section_label="Per-TD attendance",
+            state_keys=("selected_td_att",),
         )
-        st.session_state.pop("selected_td_att", None)
 
     # ── Primary view: year selector ────────────────────────────────────────────
     year_options = [str(y) for y in opts["years"]]  # DESC from query
