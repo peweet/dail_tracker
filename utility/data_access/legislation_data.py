@@ -228,3 +228,18 @@ def fetch_si_by_bill(
         " ORDER BY si_signed_date DESC NULLS LAST",
         params,
     )
+
+
+# ── Statutory Instruments — first-class entity (v_statutory_instruments) ──────
+#
+# Backs the standalone Statutory Instruments page. Distinct from the
+# fetch_si_*_bill functions above: those are bill-gated (SIs under one Act);
+# this browses the full SI universe (~5,900 SIs, 2016+), bill link optional.
+# The page filters / facets / KPIs in pandas off this single frame.
+
+@st.cache_data(ttl=300)
+def fetch_si_entity_index() -> pd.DataFrame:
+    """Every Statutory Instrument as a row — the full v_statutory_instruments
+    view. One registered analytical surface; the page does its filtering and
+    facet derivation in pandas off this frame."""
+    return _safe("SELECT * FROM v_statutory_instruments")

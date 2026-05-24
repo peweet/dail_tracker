@@ -32,7 +32,7 @@ pg = st.navigation(
         st.Page(lobbyist_poc_page,     title="Lobbyist (POC)",  icon=":material/integration_instructions:", url_path="lobbyist-poc"),
         st.Page(legislation_page,      title="Legislation",     icon=":material/gavel:",          url_path="legislation"),
         st.Page(legislation_poc_page,  title="Legislation (POC)", icon=":material/integration_instructions:", url_path="legislation-poc"),
-        st.Page(statutory_instruments_page, title="SI (POC)",    icon=":material/article:",        url_path="si-poc"),
+        st.Page(statutory_instruments_page, title="Statutory Instruments", icon=":material/article:", url_path="si-poc"),
         st.Page(committees_page,       title="Committees",      icon=":material/account_balance:",url_path="committees"),
         # EXPERIMENTAL — DELETE ON INTEGRATION
         st.Page(experimental_preview_page, title="Experimental Preview", icon=":material/science:", url_path="experimental-preview"),

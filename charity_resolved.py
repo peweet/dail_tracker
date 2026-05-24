@@ -36,9 +36,6 @@ VALIDATION:
 USAGE:
     python pipeline_sandbox/charity_resolved.py
 """
-
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -73,7 +70,7 @@ def main() -> int:
         "rcn", "registered_charity_name", "also_known_as", "name_norm", "aka_norm",
         "status", "governing_form", "classification_primary",
         "classification_secondary", "classification_sub", "country_established",
-        "county", "cro_number", "has_cro_number_flag",
+        "county", "cro_number", "has_cro_number_flag", "trustee_count",
     ])
 
     cro = pl.read_parquet(cro_path).select([

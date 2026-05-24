@@ -40,9 +40,29 @@ DERIVES:
 - period_year: from Period End Date
 - gov_share: (gov_or_la_income + other_public_bodies_income) / gross_income,
   null when gross_income is null/0
-- employees_band: text passthrough — never numeric
-- funding_profile per charity_latest: state_funded | mostly_donations |
-  mostly_trading | mixed | undisclosed
+- trustee_count: count of parsed trustees per RCN, folded onto register.parquet
+- charity_latest is a per-RCN profile: a latest-filing snapshot PLUS a
+  multi-year trajectory drawn from the whole annual-reports time series.
+  TRAJECTORY (all filed years):
+    years_filed, first/last_period_year, deficit_years_count
+    income_change_pct + income_trend (growing|flat|shrinking|insufficient_data;
+      first-vs-last gross income over income-bearing years, ±20% band, ≥3 yrs)
+  COMPOSITION (latest filing):
+    share_<government|other_public|philanthropic|donations|trading|other|
+      bequests>: each income stream as a share of gross income
+    dominant_income_source: argmax label over the seven streams
+    funding_profile: state_funded | mostly_donations | mostly_trading | mixed
+      | undisclosed
+  FINANCIAL HEALTH (latest filing):
+    reserves_months: net_assets / gross_expenditure × 12, capped to [-24, 120]
+    reserves_band: thin (<3m) | adequate (3-12m) | strong (>12m) | unknown
+  SCALE (latest filing):
+    employees_band_latest / volunteers_band_latest: text band, never numeric;
+      nulled if not a recognised band
+    employees_ft_latest / employees_pt_latest: numeric, post-2024 filings only
+  DESCRIPTIVE (latest filing):
+    beneficiary_tags: cleaned list parsed from the Beneficiaries tag string
+    report_activity_latest
 - state_adjacent_flag: gov_share >= 0.80 AND gross_income >= 100_000_000
 - Warning flags surfaced on charity_latest for the lobbyist POC view:
     charity_filing_overdue_flag    period_end_latest < today − 18m
@@ -127,6 +147,23 @@ EMPLOYEES_BAND_ORDER = [
     "NONE", "1-9", "10-19", "20-49", "50-249",
     "250-499", "500-999", "1000-4999", "5000+",
 ]
+
+# Valid employee / volunteer bands seen in the source, including the legacy
+# "250+" band the regulator used in early filing years. Anything else (blank,
+# stray text) is nulled.
+VALID_BANDS = set(EMPLOYEES_BAND_ORDER) | {"250+"}
+
+# Annual-report income streams → short label used for the share_* columns and
+# dominant_income_source. Order is the tie-break priority for the argmax.
+INCOME_STREAMS: dict[str, str] = {
+    "income_govt_or_la": "government",
+    "income_other_public_bodies": "other_public",
+    "income_philanthropic_orgs": "philanthropic",
+    "income_donations": "donations",
+    "income_trading": "trading",
+    "income_other": "other",
+    "income_bequests": "bequests",
+}
 
 CLASSIFICATION_PATTERN = re.compile(
     r"^(?P<primary>[^\[]+?)\s*"
@@ -319,75 +356,190 @@ def normalise_annual_reports(path: Path) -> pl.DataFrame:
 # Charity latest snapshot
 # ---------------------------------------------------------------------------
 
+def _band_clean(col: str, alias: str) -> pl.Expr:
+    """Pass a band column through only if it is a recognised band, else null."""
+    return (
+        pl.when(pl.col(col).is_in(list(VALID_BANDS)))
+        .then(pl.col(col))
+        .otherwise(None)
+        .alias(alias)
+    )
+
+
 def build_charity_latest(annual: pl.DataFrame) -> pl.DataFrame:
+    """Per-RCN charity profile: latest-filing snapshot + multi-year trajectory.
+
+    Trajectory metrics (trend, deficit frequency, filing span) are aggregates
+    over the WHOLE annual-reports time series for each charity — not just the
+    last filing. Composition, financial-health, scale and descriptive columns
+    are taken from the single most-recent filing.
+    """
+    today = dt.date.today()
+
+    # ── Trajectory — aggregates over every filed year ───────────────────────
+    traj = annual.group_by("rcn").agg(
+        pl.col("period_year").drop_nulls().n_unique().alias("years_filed"),
+        pl.col("period_year").min().alias("first_period_year"),
+        pl.col("period_year").max().alias("last_period_year"),
+        (pl.col("surplus_deficit") < 0).sum().cast(pl.Int32).alias("deficit_years_count"),
+    )
+
+    # ── Income trend — first vs last gross income across income-bearing years
+    inc_traj = (
+        annual.filter(pl.col("gross_income").is_not_null() & (pl.col("gross_income") > 0))
+        .group_by("rcn")
+        .agg(
+            pl.col("gross_income").sort_by("period_year").first().alias("gi_first"),
+            pl.col("gross_income").sort_by("period_year").last().alias("gi_last"),
+            pl.col("period_year").drop_nulls().n_unique().alias("income_years"),
+        )
+        .with_columns(
+            (pl.col("gi_last") / pl.col("gi_first") - 1.0).alias("income_change_pct"),
+        )
+        .with_columns(
+            pl.when(pl.col("income_years") < 3)
+            .then(pl.lit("insufficient_data"))
+            .when(pl.col("income_change_pct") > 0.20)
+            .then(pl.lit("growing"))
+            .when(pl.col("income_change_pct") < -0.20)
+            .then(pl.lit("shrinking"))
+            .otherwise(pl.lit("flat"))
+            .alias("income_trend"),
+        )
+        .select(["rcn", "income_change_pct", "income_trend"])
+    )
+
+    # ── Latest filing per RCN ───────────────────────────────────────────────
     latest = (
         annual.drop_nulls(["period_end_date"])
         .sort(["rcn", "period_end_date"], descending=[False, True])
         .unique(subset=["rcn"], keep="first")
-        .rename({
-            "gov_share": "gov_funded_share_latest",
-            "gross_income": "gross_income_latest_eur",
-            "employees_band": "employees_band_latest",
-            "period_end_date": "period_end_latest",
-            "period_year": "period_year_latest",
-            "surplus_deficit": "surplus_deficit_latest",
-            "total_assets": "total_assets_latest_eur",
-            "total_liabilities": "total_liabilities_latest_eur",
-        })
     )
 
-    donation_share = pl.col("income_donations").fill_null(0) / pl.col("gross_income_latest_eur")
-    trading_share = pl.col("income_trading").fill_null(0) / pl.col("gross_income_latest_eur")
+    gi = pl.col("gross_income")
 
+    # 7-way income composition — each stream as a share of gross income.
+    share_exprs = [
+        pl.when(gi.is_null() | (gi <= 0))
+        .then(None)
+        .otherwise(pl.col(stream).fill_null(0) / gi)
+        .alias(f"share_{label}")
+        for stream, label in INCOME_STREAMS.items()
+    ]
+
+    # Dominant income source — argmax label over the seven streams; ties break
+    # by INCOME_STREAMS order. Null when the charity reports no positive income.
+    max_income = pl.max_horizontal([pl.col(c).fill_null(0) for c in INCOME_STREAMS])
+    dominant = pl.when(max_income <= 0).then(None)
+    for stream, label in INCOME_STREAMS.items():
+        dominant = dominant.when(pl.col(stream).fill_null(0) >= max_income).then(pl.lit(label))
+    dominant = dominant.otherwise(None).alias("dominant_income_source")
+
+    # Reserves runway — net assets expressed as months of expenditure. The raw
+    # ratio is wildly noisy (max ~39M months); the stored value is capped, the
+    # band is taken off the uncapped ratio.
+    reserves_raw = (
+        pl.when(pl.col("gross_expenditure").is_null() | (pl.col("gross_expenditure") <= 0))
+        .then(None)
+        .otherwise(pl.col("net_assets") / pl.col("gross_expenditure") * 12.0)
+    )
+    reserves_band = (
+        pl.when(reserves_raw.is_null()).then(pl.lit("unknown"))
+        .when(reserves_raw < 3).then(pl.lit("thin"))
+        .when(reserves_raw <= 12).then(pl.lit("adequate"))
+        .otherwise(pl.lit("strong"))
+        .alias("reserves_band")
+    )
+
+    donation_share = pl.col("income_donations").fill_null(0) / gi
+    trading_share = pl.col("income_trading").fill_null(0) / gi
     funding_profile = (
-        pl.when(pl.col("gross_income_latest_eur").is_null() | (pl.col("gross_income_latest_eur") <= 0))
-        .then(pl.lit("undisclosed"))
-        .when(pl.col("gov_funded_share_latest").is_null())
-        .then(pl.lit("undisclosed"))
-        .when(pl.col("gov_funded_share_latest") >= 0.5)
-        .then(pl.lit("state_funded"))
-        .when(donation_share >= 0.5)
-        .then(pl.lit("mostly_donations"))
-        .when(trading_share >= 0.5)
-        .then(pl.lit("mostly_trading"))
+        pl.when(gi.is_null() | (gi <= 0)).then(pl.lit("undisclosed"))
+        .when(pl.col("gov_share").is_null()).then(pl.lit("undisclosed"))
+        .when(pl.col("gov_share") >= 0.5).then(pl.lit("state_funded"))
+        .when(donation_share >= 0.5).then(pl.lit("mostly_donations"))
+        .when(trading_share >= 0.5).then(pl.lit("mostly_trading"))
         .otherwise(pl.lit("mixed"))
+        .alias("funding_profile")
     )
 
     state_adjacent = (
-        pl.col("gov_funded_share_latest").fill_null(0) >= 0.80
-    ) & (
-        pl.col("gross_income_latest_eur").fill_null(0) >= 100_000_000
-    )
+        (pl.col("gov_share").fill_null(0) >= 0.80) & (gi.fill_null(0) >= 100_000_000)
+    ).alias("state_adjacent_flag")
 
-    cutoff_18m = dt.date.today() - dt.timedelta(days=int(365 * 1.5))
-    filing_overdue = (pl.col("period_end_latest") < pl.lit(cutoff_18m)).fill_null(False)
-    deficit = (pl.col("surplus_deficit_latest") < 0).fill_null(False)
+    cutoff_18m = today - dt.timedelta(days=int(365 * 1.5))
+    filing_overdue = (
+        (pl.col("period_end_date") < pl.lit(cutoff_18m)).fill_null(False)
+        .alias("charity_filing_overdue_flag")
+    )
+    deficit = (
+        (pl.col("surplus_deficit") < 0).fill_null(False)
+        .alias("charity_deficit_latest_flag")
+    )
     insolvent = (
-        pl.col("total_liabilities_latest_eur").is_not_null()
-        & pl.col("total_assets_latest_eur").is_not_null()
-        & (pl.col("total_liabilities_latest_eur") > pl.col("total_assets_latest_eur"))
+        pl.col("total_liabilities").is_not_null()
+        & pl.col("total_assets").is_not_null()
+        & (pl.col("total_liabilities") > pl.col("total_assets"))
+    ).alias("charity_insolvent_latest_flag")
+
+    # Beneficiaries — semicolon-delimited tag string → cleaned list.
+    beneficiary_tags = (
+        pl.col("beneficiaries")
+        .str.split(";")
+        .list.eval(pl.element().str.strip_chars())
+        .list.eval(pl.element().filter(pl.element().str.len_chars() > 0))
+        .alias("beneficiary_tags")
     )
 
-    return latest.with_columns(
-        funding_profile.alias("funding_profile"),
-        state_adjacent.alias("state_adjacent_flag"),
-        filing_overdue.alias("charity_filing_overdue_flag"),
-        deficit.alias("charity_deficit_latest_flag"),
-        insolvent.alias("charity_insolvent_latest_flag"),
-    ).select([
+    latest = latest.with_columns(
+        *share_exprs,
+        dominant,
+        reserves_raw.clip(-24.0, 120.0).alias("reserves_months"),
+        reserves_band,
+        funding_profile,
+        state_adjacent,
+        filing_overdue,
+        deficit,
+        insolvent,
+        beneficiary_tags,
+        _band_clean("employees_band", "employees_band_latest"),
+        _band_clean("volunteers_band", "volunteers_band_latest"),
+    ).rename({
+        "gov_share": "gov_funded_share_latest",
+        "gross_income": "gross_income_latest_eur",
+        "gross_expenditure": "gross_expenditure_latest_eur",
+        "period_end_date": "period_end_latest",
+        "period_year": "period_year_latest",
+        "surplus_deficit": "surplus_deficit_latest",
+        "total_assets": "total_assets_latest_eur",
+        "total_liabilities": "total_liabilities_latest_eur",
+        "net_assets": "net_assets_latest_eur",
+        "cash_at_hand": "cash_at_hand_latest_eur",
+        "employees_full_time": "employees_ft_latest",
+        "employees_part_time": "employees_pt_latest",
+        "report_activity": "report_activity_latest",
+    })
+
+    latest = latest.join(traj, on="rcn", how="left").join(inc_traj, on="rcn", how="left")
+
+    return latest.select([
         "rcn",
-        "period_end_latest",
-        "period_year_latest",
-        "gross_income_latest_eur",
-        "gov_funded_share_latest",
-        "employees_band_latest",
-        "surplus_deficit_latest",
-        "total_assets_latest_eur",
-        "total_liabilities_latest_eur",
-        "funding_profile",
+        "period_end_latest", "period_year_latest",
+        "gross_income_latest_eur", "gross_expenditure_latest_eur",
+        "gov_funded_share_latest", "surplus_deficit_latest",
+        "total_assets_latest_eur", "total_liabilities_latest_eur",
+        "net_assets_latest_eur", "cash_at_hand_latest_eur",
+        "reserves_months", "reserves_band",
+        "share_government", "share_other_public", "share_philanthropic",
+        "share_donations", "share_trading", "share_other", "share_bequests",
+        "dominant_income_source", "funding_profile",
+        "employees_band_latest", "volunteers_band_latest",
+        "employees_ft_latest", "employees_pt_latest",
+        "beneficiary_tags", "report_activity_latest",
+        "years_filed", "first_period_year", "last_period_year",
+        "deficit_years_count", "income_change_pct", "income_trend",
         "state_adjacent_flag",
-        "charity_filing_overdue_flag",
-        "charity_deficit_latest_flag",
+        "charity_filing_overdue_flag", "charity_deficit_latest_flag",
         "charity_insolvent_latest_flag",
     ])
 
@@ -460,8 +612,16 @@ def main() -> int:
     print(f"[charity_normalise] reading {args.bronze}")
     register = normalise_register(args.bronze)
     annual = normalise_annual_reports(args.bronze)
-    latest = build_charity_latest(annual)
     trustees = build_trustees_long(register)
+
+    # trustee_count is a register-level governance signal; fold it onto the
+    # register so non-filing charities keep it too.
+    trustee_count = trustees.group_by("rcn").agg(pl.len().alias("trustee_count"))
+    register = register.join(trustee_count, on="rcn", how="left").with_columns(
+        pl.col("trustee_count").fill_null(0).cast(pl.Int32)
+    )
+
+    latest = build_charity_latest(annual)
 
     out_register = args.silver_dir / "register.parquet"
     out_annual = args.silver_dir / "annual_reports.parquet"

@@ -1,39 +1,39 @@
 """
 Statutory Instruments — standalone browser page.
 
-Sources from data/gold/parquet/bill_statutory_instruments.parquet, which
-is produced by pipeline_sandbox/iris_si_bill_enrichment.py — the matcher
-that used to live in this file has been graduated into the pipeline.
-This page now consumes the pre-joined gold parquet (firewall-compliant).
+Sources from the registered DuckDB view v_statutory_instruments
+(sql_views/legislation_si_index.sql), which reads
+data/gold/parquet/statutory_instruments.parquet — produced by
+pipeline_sandbox/si_entity_enrichment.py. The SI is treated as a
+first-class entity: the full ~5,900-SI corpus (2016+), NOT gated on a
+bill match. No raw parquet read here; filtering/facets/KPIs happen in
+pandas off the single registered frame.
 
-Five features:
-  1. Editorial hero + KPI strip (totals, top domain, top actor, EU share)
-  2. Trends — domain × year heatmap and minister-activity bars
-  3. Filterable SI index — year pills + facet selectboxes + paginated cards
+Features:
+  1. Editorial hero + KPI strip (totals, top domain, top department, EU share)
+  2. Trends — domain × year heatmap, department activity, operation breakdown
+  3. Filterable SI index — year / domain / department / operation / EU-only /
+     title search, paginated cards
   4. SI detail panel — full taxonomy, irishstatutebook.ie link, Iris source
-  5. Cross-link to legislation — every SI joined to its enabling bill at
-     enrichment time; an inline "Made under …" panel surfaces the bill
-     detail without leaving the page.
+  5. Cross-link to legislation — the enabling Act, where a confident match
+     exists (~30% of SIs).
 """
 from __future__ import annotations
 
 import html
-import re
-import string
 import sys
 from pathlib import Path
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from data_access.legislation_data import fetch_si_entity_index
 from shared_css import inject_css
 from ui.components import (
     back_button,
     empty_state,
-    evidence_heading,
     hero_banner,
     paginate,
     pagination_controls,
@@ -41,21 +41,17 @@ from ui.components import (
     sidebar_page_header,
     stat_item,
 )
-from ui.entity_links import source_link_html
+from ui.entity_links import member_profile_url, source_link_html
 
-# ── Data paths ─────────────────────────────────────────────────────────────────
-ROOT = Path(__file__).resolve().parents[2]
-SI_GOLD = ROOT / "data" / "gold" / "parquet" / "bill_statutory_instruments.parquet"
-
-# ── Page config (display-only; matching tuning lives in the enrichment) ────────
+# ── Page config ────────────────────────────────────────────────────────────────
 PAGE_SIZE = 10
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Page-local CSS — POC only. Reuses dt-* tokens but lives in this file rather
-# than shared_css.py so we don't pollute the canonical class set.
+# Page-local CSS. Reuses dt-* tokens but lives here rather than shared_css.py
+# so the canonical class set is not polluted by this page's si-* classes.
 # ──────────────────────────────────────────────────────────────────────────────
-def _inject_poc_css() -> None:
+def _inject_si_css() -> None:
     st.html(
         """
         <style>
@@ -85,7 +81,7 @@ def _inject_poc_css() -> None:
         .si-pill-op     { background:#f6f0e6; border-color:#e6d9c2; }
         .si-pill-eu     { background:#fff7e6; border-color:#f0d99b; color:#7a5a00; }
         .si-pill-act    { background:#e8efe6; border-color:#bcd1b3; color:#2c4a23; }
-        .si-pill-actor  { background:#ffffff; border-color:#dfd9cf; color:#5b6b73; }
+        .si-pill-dept   { background:#ffffff; border-color:#dfd9cf; color:#5b6b73; }
 
         .si-detail { background:#ffffff; border:1px solid #e5e2db; border-radius:10px;
             padding:1.4rem 1.55rem; margin-top:0.5rem; }
@@ -108,65 +104,70 @@ def _inject_poc_css() -> None:
         .si-billlink-title { font-family: ui-serif, Georgia, serif; font-size:1.1rem; margin:0.35rem 0 0.45rem;
             color:#14232b; line-height:1.35; }
         .si-billlink-meta { font-size:0.82rem; color:#5b6b73; margin-bottom:0.55rem; }
-        .si-billlink-conf { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:0.7rem;
-            color:#5b6b73; margin-top:0.35rem; }
 
         .si-section-h { font-family: ui-serif, Georgia, serif; font-size:1.05rem; margin: 1.5rem 0 0.55rem;
             color:#14232b; }
 
-        .si-trend-grid { display:grid; grid-template-columns: 3fr 2fr; gap: 1.2rem; margin: 0.5rem 0 1.4rem; }
-        @media (max-width: 900px) { .si-trend-grid { grid-template-columns: 1fr; } }
-        .si-trend-card { background:#ffffff; border:1px solid #e5e2db; border-radius:8px;
-            padding:1rem 1.15rem; }
         .si-trend-card-h { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.07em;
             color:#5b6b73; margin-bottom:0.35rem; }
 
-        .si-poc-note { font-size:0.78rem; color:#5b6b73; font-style:italic; margin: 0.4rem 0 1rem; }
+        .si-note { font-size:0.78rem; color:#5b6b73; font-style:italic; margin: 0.4rem 0 1rem; }
+
+        /* Active-filter scope bar — read-only chips that show what's
+           currently filtered. Modify filters via the facet tabs below. */
+        .si-active-bar { display:flex; flex-wrap:wrap; gap:0.4rem; align-items:center;
+            padding:0.5rem 0.75rem; background:#f5f1ea; border:1px solid #e5e2db;
+            border-radius:6px; margin:0.4rem 0 0.6rem; }
+        .si-active-label { font-size:0.7rem; text-transform:uppercase;
+            letter-spacing:0.07em; color:#5b6b73; margin-right:0.3rem; }
+        .si-active-chip { background:#ffffff; border:1px solid #cfdde6;
+            border-radius:999px; padding:0.18rem 0.7rem; font-size:0.78rem;
+            color:#14232b; line-height:1.4; white-space:nowrap; }
+
+        /* EU scrutiny gap callout — accountability headline. */
+        .si-eu-callout { background:#fff5e6; border:1px solid #fcd34d;
+            border-radius:8px; padding:1.1rem 1.3rem; margin:0.6rem 0 1.1rem; }
+        .si-eu-callout-kicker { font-size:0.72rem; text-transform:uppercase;
+            letter-spacing:0.07em; color:#92400e; font-weight:600; }
+        .si-eu-callout-h { font-family: ui-serif, Georgia, serif; font-size:1.2rem;
+            line-height:1.35; color:#14232b; margin:0.35rem 0 0.55rem; }
+        .si-eu-callout-body { font-size:0.88rem; color:#3b4148; line-height:1.55;
+            margin: 0.3rem 0 0.4rem; }
+        .si-eu-callout-body a { color:#92400e; }
+        .si-eu-callout-depts { font-size:0.83rem; color:#5b4500;
+            margin-top:0.5rem; padding-top:0.55rem;
+            border-top:1px dashed #f0d99b; }
         </style>
         """
     )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Data loading — POC level cleaning. Keep cleanest rows, drop messy ones.
+# Data loading
 # ──────────────────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner="Loading Statutory Instruments…")
 def load_si() -> pd.DataFrame:
-    """Read the pre-joined gold parquet and shape it to the column names
-    the page renderers were originally written against. Filters (year
-    floor, taxonomy confidence, notice category, quarantine) are already
-    applied upstream by pipeline_sandbox/iris_si_bill_enrichment.py."""
-    df = pd.read_parquet(SI_GOLD)
-    # Adapter: rename to the names this page's renderers expect.
-    df = df.rename(columns={
-        "bill_id":          "matched_bill_id",
-        "bill_short_title": "matched_bill_title",
-        "si_title":         "title",
-        "si_minister":      "si_responsible_actor",
-        "si_policy_domain": "si_policy_domain_primary",
-        "si_operation":     "si_operation_primary",
-        "iris_source_pdf":  "source_file",
-    })
-    # Renderers expect issue_date as a pandas Timestamp.
-    df["issue_date"] = pd.to_datetime(df["si_signed_date"], errors="coerce")
-    # Gold doesn't carry the bill_url (it was per-bill metadata, optional).
-    if "matched_bill_url" not in df.columns:
-        df["matched_bill_url"] = None
-    # Strip mojibake-bearing titles defensively (same hygiene as the old loader).
-    df = df[~df["title"].astype(str).str.contains("�", na=False)]
+    """The full SI entity table via the registered v_statutory_instruments
+    view. Year floor, taxonomy-confidence, quarantine and category filters are
+    already applied upstream by pipeline_sandbox/si_entity_enrichment.py."""
+    df = fetch_si_entity_index()
+    if df.empty:
+        return df
+    df["si_signed_date"] = pd.to_datetime(df["si_signed_date"], errors="coerce")
+    # Defensive: drop any mojibake-bearing titles.
+    df = df[~df["si_title"].astype(str).str.contains("�", na=False)]
     return df.reset_index(drop=True)
 
 
 @st.cache_data(show_spinner=False)
 def load_bills() -> pd.DataFrame:
-    """Kept as a stub for callers that still import it (legislation_poc.py).
-    The match is now in the gold parquet — this empty frame is enough to
-    satisfy the old API surface."""
+    """Empty stub kept for callers that still import it (legislation_poc.py).
+    The SI→bill match is pre-joined in the gold parquet."""
     return pd.DataFrame()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# URL helpers
+# Helpers
 # ──────────────────────────────────────────────────────────────────────────────
 def _eisb_url(row: pd.Series) -> str:
     """Prefer the extracted eisb_url; fall back to the canonical eli pattern."""
@@ -179,18 +180,10 @@ def _eisb_url(row: pd.Series) -> str:
     return ""
 
 
-def _iris_pdf_label(row: pd.Series) -> str:
-    src = row.get("source_file")
-    if not isinstance(src, str):
-        return ""
-    return src
-
-
 def _safe(v) -> str:
-    """Coerce a possibly-NaN/None CSV cell to a string. NaN is truthy in
-    Python so `row.get(x) or ""` does NOT guard against missing values —
-    every CSV cell that's about to hit html.escape or string ops must go
-    through this."""
+    """Coerce a possibly-NaN/None cell to a string. NaN is truthy, so
+    `row.get(x) or ''` does not guard missing values — anything heading for
+    html.escape or string ops goes through this."""
     if v is None:
         return ""
     if isinstance(v, float) and pd.isna(v):
@@ -209,11 +202,12 @@ def _fmt_date(val) -> str:
 
 
 def _pretty_token(s: str) -> str:
-    """snake_case → Title Case, leaves human strings alone."""
+    """snake_case → sentence case; leaves human strings (with spaces/caps)
+    alone. Pill rows read calmer with sentence case than Title Case."""
     if not isinstance(s, str) or not s:
         return ""
     if "_" in s and s.lower() == s:
-        return s.replace("_", " ").title()
+        return s.replace("_", " ").capitalize()
     return s
 
 
@@ -224,21 +218,36 @@ def _split_multi(s, sep="|"):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Filters (sidebar)
+# Filters
 # ──────────────────────────────────────────────────────────────────────────────
-def _apply_filters(df: pd.DataFrame, years, domain, op, actor, search) -> pd.DataFrame:
+# The Seanad Committee on EU Scrutiny & Transparency was formally established
+# in December 2025. Statutory instruments signed on/after this date are the
+# population the committee was meant to scrutinise — and per its chair (Irish
+# Times, Feb 2026), zero have been received for prior review.
+_COMMITTEE_FORMED = pd.Timestamp("2025-12-01")
+
+
+def _apply_filters(df, years, domain, op, department, minister, eu_only, search,
+                   post_committee=False) -> pd.DataFrame:
     out = df
     if years:
         out = out[out["si_year"].isin(years)]
     if domain and domain != "All":
-        out = out[out["si_policy_domain_primary"] == domain]
+        out = out[out["si_policy_domain"] == domain]
     if op and op != "All":
-        out = out[out["si_operation_primary"] == op]
-    if actor and actor != "All":
-        out = out[out["si_responsible_actor"] == actor]
+        out = out[out["si_operation"] == op]
+    if department and department != "All":
+        out = out[out["si_department_label"] == department]
+    if minister and minister != "All":
+        out = out[out["si_minister_name"] == minister]
+    if eu_only:
+        out = out[out["si_is_eu"].fillna(False).astype(bool)]
+    if post_committee:
+        signed = pd.to_datetime(out["si_signed_date"], errors="coerce")
+        out = out[signed >= _COMMITTEE_FORMED]
     if search:
         s = search.strip().lower()
-        out = out[out["title"].astype(str).str.lower().str.contains(s, na=False)]
+        out = out[out["si_title"].astype(str).str.lower().str.contains(s, na=False)]
     return out
 
 
@@ -249,18 +258,17 @@ def _render_kpi_strip(df: pd.DataFrame) -> None:
     total = len(df)
     if total == 0:
         return
-    top_domain = df["si_policy_domain_primary"].dropna().value_counts().head(1)
-    top_actor  = df["si_responsible_actor"].dropna().value_counts().head(1)
-    eu_count   = int((df["si_eu_relationship"].fillna("").astype(str)
-                        .str.contains("eu_", na=False)).sum())
+    top_domain = df["si_policy_domain"].dropna().value_counts().head(1)
+    top_dept   = df["si_department_label"].dropna().value_counts().head(1)
+    eu_count   = int(df["si_is_eu"].fillna(False).astype(bool).sum())
     eu_share   = (eu_count / total * 100) if total else 0
-    yrs        = sorted(df["si_year"].unique())
+    yrs        = sorted(int(y) for y in df["si_year"].dropna().unique())
     yr_span    = f"{yrs[0]}–{yrs[-1]}" if len(yrs) >= 2 else (str(yrs[0]) if yrs else "—")
 
-    td = top_domain.index[0] if not top_domain.empty else "—"
-    tdc = int(top_domain.iloc[0]) if not top_domain.empty else 0
-    ta = top_actor.index[0] if not top_actor.empty else "—"
-    tac = int(top_actor.iloc[0]) if not top_actor.empty else 0
+    td   = top_domain.index[0] if not top_domain.empty else "—"
+    tdc  = int(top_domain.iloc[0]) if not top_domain.empty else 0
+    tdep = top_dept.index[0] if not top_dept.empty else "—"
+    tdepc = int(top_dept.iloc[0]) if not top_dept.empty else 0
 
     st.html(f"""
     <div class="si-stat-grid">
@@ -275,193 +283,354 @@ def _render_kpi_strip(df: pd.DataFrame) -> None:
         <div class="si-stat-sub">{tdc:,} SIs</div>
       </div>
       <div class="si-stat">
-        <div class="si-stat-num">{html.escape(_pretty_token(ta))}</div>
-        <div class="si-stat-label">Most active actor</div>
-        <div class="si-stat-sub">{tac:,} SIs</div>
+        <div class="si-stat-num">{html.escape(_pretty_token(tdep))}</div>
+        <div class="si-stat-label">Most active department</div>
+        <div class="si-stat-sub">{tdepc:,} SIs</div>
       </div>
       <div class="si-stat">
         <div class="si-stat-num">{eu_count:,}</div>
         <div class="si-stat-label">EU-derived</div>
-        <div class="si-stat-sub">{eu_share:.0f}% of window</div>
+        <div class="si-stat-sub">{eu_share:.0f}% of scope</div>
       </div>
     </div>
     """)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# View 2 — Trends (top row: domain heatmap + top-actors bar)
+# View 2 — Facet pills (replaces the old static heatmaps + bar charts)
+#
+# Every chip is the filter for its facet — clicking it sets the corresponding
+# session_state key and the SI list below refreshes. Counts come from the
+# full corpus so chip widths stay stable across interactions; the index's
+# heading reports the post-filter total. ~50 ministers is too many for a
+# pill row, so that one falls back to a native selectbox.
 # ──────────────────────────────────────────────────────────────────────────────
-def _render_minister_strip(df: pd.DataFrame, top_n: int = 6) -> None:
-    """Compact minister × year activity strip — same axis discipline as the
-    domain heatmap so the eye can scan both at once."""
-    if df.empty:
-        return
-    top_actors = (df.dropna(subset=["si_responsible_actor"])
-                    .groupby("si_responsible_actor").size()
-                    .reset_index(name="total")
-                    .sort_values("total", ascending=False).head(top_n)
-                    ["si_responsible_actor"].tolist())
-    if not top_actors:
-        return
-    strip = (df[df["si_responsible_actor"].isin(top_actors)]
-                .groupby(["si_responsible_actor", "si_year"]).size()
-                .reset_index(name="n"))
-    strip["actor_pretty"] = strip["si_responsible_actor"].map(_pretty_token)
+def _clear_all_filters() -> None:
+    """Reset every facet to its 'no filter' state. The chip bar's Clear All
+    button calls this; widgets that own these keys pick the cleared values
+    up on the next rerun."""
+    st.session_state.si_year_filter            = []
+    st.session_state.si_dept_filter            = "All"
+    st.session_state.si_op_filter              = "All"
+    st.session_state.si_domain_filter          = "All"
+    st.session_state.si_minister_filter        = "All"
+    st.session_state.si_eu_filter              = False
+    st.session_state.si_post_committee_filter  = False
+    st.session_state.si_title_search           = ""
 
-    st.html('<div class="si-trend-card-h">Minister activity strip · top actors × year</div>')
-    chart = (
-        alt.Chart(strip)
-        .mark_rect(stroke="#ffffff", strokeWidth=2)
-        .encode(
-            x=alt.X("si_year:O", title=None,
-                    axis=alt.Axis(labelFontSize=11, ticks=False)),
-            y=alt.Y("actor_pretty:N", sort=top_actors, title=None,
-                    axis=alt.Axis(labelFontSize=11, ticks=False, labelLimit=240)),
-            color=alt.Color("n:Q", scale=alt.Scale(scheme="oranges"),
-                            legend=alt.Legend(title="SIs", orient="bottom")),
-            tooltip=[alt.Tooltip("actor_pretty:N", title="Actor"),
-                     alt.Tooltip("si_year:O", title="Year"),
-                     alt.Tooltip("n:Q", title="SIs")],
-        )
-        .properties(height=42 * len(top_actors) + 30)
-        .configure_view(stroke=None)
-        .configure_axis(grid=False, domain=False)
+
+def _set_eu_scrutiny_scope() -> None:
+    """The 'Show these SIs' button on the callout / tab. Clears everything
+    else and sets EU-derived ON + the precise post-Dec-2025 date filter, so
+    the list below matches the scrutiny-gap count exactly."""
+    _clear_all_filters()
+    st.session_state.si_eu_filter             = True
+    st.session_state.si_post_committee_filter = True
+
+
+def _eu_scrutiny_stats(full_df: pd.DataFrame) -> dict:
+    eu_mask = full_df["si_is_eu"].fillna(False).astype(bool) & (
+        pd.to_datetime(full_df["si_signed_date"], errors="coerce") >= _COMMITTEE_FORMED
     )
-    st.altair_chart(chart, use_container_width=True)
+    eu_df = full_df[eu_mask]
+    return {
+        "count":     int(len(eu_df)),
+        "top_depts": eu_df["si_department_label"].dropna().value_counts().head(5).to_dict(),
+        "eu_df":     eu_df,
+    }
 
 
-def _render_op_breakdown(df: pd.DataFrame) -> None:
-    """What are these SIs *doing*? Amending, commencing, revoking, …"""
-    if df.empty:
+_ARTICLE_URL = (
+    "https://www.irishtimes.com/politics/2026/02/18/"
+    "eu-directives-not-being-passed-to-special-committee-before-being-signed-into-law/"
+)
+
+
+def _render_eu_scrutiny_callout(full_df: pd.DataFrame) -> None:
+    """Top-of-page accountability callout. Renders nothing when no EU SIs
+    have been signed since the committee was formed (empty-state safe)."""
+    s = _eu_scrutiny_stats(full_df)
+    n = s["count"]
+    if n == 0:
         return
-    ops = (df.dropna(subset=["si_operation_primary"])
-              .groupby("si_operation_primary").size()
-              .reset_index(name="n").sort_values("n", ascending=False).head(10))
-    if ops.empty:
+    depts_html = " &nbsp;·&nbsp; ".join(
+        f"{html.escape(d)} <strong>{c:,}</strong>" for d, c in s["top_depts"].items()
+    ) or "—"
+    st.html(f"""
+    <div class="si-eu-callout">
+      <div class="si-eu-callout-kicker">⚠ EU scrutiny gap</div>
+      <div class="si-eu-callout-h">{n:,} EU directives signed into Irish law since the Seanad scrutiny committee was established</div>
+      <div class="si-eu-callout-body">
+        The <strong>Seanad Committee on EU Scrutiny &amp; Transparency</strong> was
+        set up in December 2025 to examine draft statutory instruments that turn
+        EU directives into Irish law, after a Taoiseach commitment that all such
+        instruments would be sent six months before transposition. In February
+        2026 the committee chair reported that <strong>zero</strong> had been
+        received. The State separately paid a <strong>€1.54&nbsp;m</strong> fine
+        for failing to transpose the EU work-life balance directive on time.
+      </div>
+      <div class="si-eu-callout-depts">
+        Most active departments transposing since: {depts_html}
+      </div>
+    </div>
+    """)
+    c1, c2, _ = st.columns([2, 2, 5])
+    with c1:
+        # on_click runs BEFORE widget instantiation on the next rerun, so the
+        # filter-state mutation is safe regardless of where the button sits in
+        # the script.
+        st.button(f"Show these {n} SIs →",
+                  key="si_eu_scrutiny_show",
+                  type="primary",
+                  on_click=_set_eu_scrutiny_scope)
+    with c2:
+        st.markdown(f"[Read the Irish Times article ↗]({_ARTICLE_URL})")
+
+
+def _render_eu_scrutiny_tab(full_df: pd.DataFrame) -> None:
+    """Expanded 'EU scrutiny' tab — same data as the callout plus more
+    framing and a fuller department breakdown."""
+    s = _eu_scrutiny_stats(full_df)
+    n = s["count"]
+    if n == 0:
+        st.caption("No EU-derived SIs have been signed since the committee was established (1 December 2025).")
         return
-    ops["op_pretty"] = ops["si_operation_primary"].map(_pretty_token)
-    st.html('<div class="si-trend-card-h">Operation breakdown · what SIs do</div>')
-    chart = (
-        alt.Chart(ops)
-        .mark_bar(color="#a85d2a", cornerRadiusTopRight=3, cornerRadiusBottomRight=3)
-        .encode(
-            y=alt.Y("op_pretty:N", sort="-x", title=None,
-                    axis=alt.Axis(labelFontSize=11, ticks=False, labelLimit=240)),
-            x=alt.X("n:Q", title=None,
-                    axis=alt.Axis(labelFontSize=10, ticks=False)),
-            tooltip=[alt.Tooltip("op_pretty:N", title="Operation"),
-                     alt.Tooltip("n:Q", title="SIs")],
+
+    st.html(f"""
+    <p style="font-size:0.95rem; line-height:1.55; margin: 0.6rem 0 0.7rem;">
+      A new <strong>Seanad Committee on EU Scrutiny &amp; Transparency</strong>,
+      chaired by Cathaoirleach Mark Daly, was established in December 2025 to
+      examine the draft statutory instruments that transpose EU directives
+      <em>before</em> they become Irish law. The Taoiseach committed in writing
+      that all such instruments would be sent to the committee at least six
+      months before their transposition deadlines.
+    </p>
+    <p style="font-size:0.95rem; line-height:1.55; margin: 0 0 0.8rem;">
+      In February 2026, the chair reported that
+      <strong>not one draft EU law had been received.</strong> The State has
+      also paid a <strong>€1.54&nbsp;m</strong> fine for failing to transpose
+      the EU work-life balance directive on time.
+    </p>
+    """)
+
+    c1, c2 = st.columns(2)
+    c1.metric("EU SIs signed since 1 Dec 2025", f"{n:,}")
+    c2.metric("Departments transposing", f"{len(s['top_depts'])}+")
+
+    st.markdown("**By department**")
+    for d, c in s["top_depts"].items():
+        st.html(
+            f'<div style="margin:0.18rem 0; font-size:0.9rem;">'
+            f'<strong>{c:,}</strong> &nbsp; {html.escape(d)}</div>'
         )
-        .properties(height=42 * len(ops) + 20)
-        .configure_view(stroke=None)
-        .configure_axis(grid=False, domain=False)
-    )
-    st.altair_chart(chart, use_container_width=True)
+
+    st.html('<div style="margin:0.9rem 0;"></div>')
+
+    bc1, bc2 = st.columns(2)
+    with bc1:
+        # on_click — the button lives inside the tab (after the year-pill
+        # widget in script order), so this must mutate state pre-render.
+        st.button(f"Show these {n} SIs in the list below →",
+                  key="si_eu_tab_show",
+                  type="primary",
+                  on_click=_set_eu_scrutiny_scope)
+    with bc2:
+        st.markdown(f"[Read the article ↗]({_ARTICLE_URL})")
 
 
-def _render_trends(df: pd.DataFrame) -> None:
-    if df.empty:
+def _active_filter_labels(full_df: pd.DataFrame) -> list[str]:
+    """Human-readable labels for every facet that's currently filtering. Year
+    is collapsed when many are selected so the bar stays readable."""
+    labels: list[str] = []
+    all_yrs = set(int(y) for y in full_df["si_year"].dropna().unique())
+    yrs     = st.session_state.get("si_year_filter") or []
+    if yrs and set(yrs) != all_yrs:
+        if len(yrs) <= 3:
+            for y in sorted(yrs, reverse=True):
+                labels.append(str(int(y)))
+        else:
+            labels.append(f"Years ({len(yrs)})")
+    if (d := st.session_state.get("si_dept_filter")) and d != "All":
+        labels.append(d)
+    if (op := st.session_state.get("si_op_filter")) and op != "All":
+        labels.append(_pretty_token(op))
+    if (dom := st.session_state.get("si_domain_filter")) and dom != "All":
+        labels.append(_pretty_token(dom))
+    if (m := st.session_state.get("si_minister_filter")) and m != "All":
+        labels.append(m)
+    if st.session_state.get("si_eu_filter"):
+        labels.append("EU-derived")
+    if st.session_state.get("si_post_committee_filter"):
+        labels.append("Since Dec 2025")
+    s = (st.session_state.get("si_title_search") or "").strip()
+    if s:
+        labels.append(f'"{s}"')
+    return labels
+
+
+def _tab_label(base: str, active_value: str | None) -> str:
+    """A tab label that carries its currently-selected value (truncated when
+    long). Plain `base` when the facet is unfiltered."""
+    if not active_value:
+        return base
+    val = str(active_value)
+    if len(val) > 22:
+        val = val[:20] + "…"
+    return f"{base}: {val}"
+
+
+def _render_facets(full_df: pd.DataFrame) -> None:
+    if full_df.empty:
         return
 
-    st.html('<div class="si-section-h">Trends in the corpus</div>')
-    col_l, col_r = st.columns([3, 2])
+    # ── Row 1: search + EU toggle ─────────────────────────────────────────
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        st.text_input(
+            "Search title",
+            placeholder="Search SI titles — e.g. fisheries, vehicles, sanctions, COVID…",
+            key="si_title_search",
+            label_visibility="collapsed",
+        )
+    with c2:
+        st.toggle("EU-derived only", key="si_eu_filter")
 
-    with col_l:
-        st.html('<div class="si-trend-card-h">Policy domain × year</div>')
-        heat = (df.dropna(subset=["si_policy_domain_primary"])
-                  .groupby(["si_year", "si_policy_domain_primary"])
-                  .size().reset_index(name="n"))
-        if heat.empty:
-            empty_state("No domain data", "No domain classifications in the current filter.")
-        else:
-            heat["domain_pretty"] = heat["si_policy_domain_primary"].map(_pretty_token)
-            chart = (
-                alt.Chart(heat)
-                .mark_rect(stroke="#ffffff", strokeWidth=2)
-                .encode(
-                    x=alt.X("si_year:O", title=None,
-                            axis=alt.Axis(labelFontSize=11, ticks=False)),
-                    y=alt.Y("domain_pretty:N", title=None, sort="-x",
-                            axis=alt.Axis(labelFontSize=11, ticks=False, labelLimit=220)),
-                    color=alt.Color("n:Q",
-                                    scale=alt.Scale(scheme="blues"),
-                                    legend=alt.Legend(title="SIs", orient="bottom")),
-                    tooltip=[alt.Tooltip("domain_pretty:N", title="Domain"),
-                             alt.Tooltip("si_year:O", title="Year"),
-                             alt.Tooltip("n:Q", title="SIs")],
-                )
-                .properties(height=320, padding={"left": 5, "right": 5, "top": 5, "bottom": 5})
-                .configure_view(stroke=None)
-                .configure_axis(grid=False, domain=False)
+    # ── Row 2: active-filter scope bar (only when something is filtered) ──
+    active = _active_filter_labels(full_df)
+    if active:
+        chips = "".join(
+            f'<span class="si-active-chip">{html.escape(lbl)}</span>'
+            for lbl in active
+        )
+        bar_col, btn_col = st.columns([6, 1])
+        with bar_col:
+            st.html(
+                '<div class="si-active-bar">'
+                '<span class="si-active-label">Filtered by</span>'
+                f' {chips}</div>'
             )
-            st.altair_chart(chart, use_container_width=True)
+        with btn_col:
+            # on_click for the same reason — Clear all mutates every widget
+            # key, so the mutation must happen pre-render.
+            st.button("Clear all", type="tertiary", key="si_clear_all",
+                      on_click=_clear_all_filters)
 
-    with col_r:
-        st.html('<div class="si-trend-card-h">Top responsible actors · totals</div>')
-        top = (df.dropna(subset=["si_responsible_actor"])
-                 .groupby("si_responsible_actor").size()
-                 .reset_index(name="n").sort_values("n", ascending=False).head(8))
-        if top.empty:
-            empty_state("No actor data", "No responsible-actor entries in the current filter.")
-        else:
-            top["actor_pretty"] = top["si_responsible_actor"].map(_pretty_token)
-            chart = (
-                alt.Chart(top)
-                .mark_bar(color="#3b6e8f", cornerRadiusTopRight=3, cornerRadiusBottomRight=3)
-                .encode(
-                    y=alt.Y("actor_pretty:N", sort="-x", title=None,
-                            axis=alt.Axis(labelFontSize=11, ticks=False, labelLimit=220)),
-                    x=alt.X("n:Q", title=None,
-                            axis=alt.Axis(labelFontSize=10, ticks=False)),
-                    tooltip=[alt.Tooltip("actor_pretty:N", title="Actor"),
-                             alt.Tooltip("n:Q", title="SIs")],
-                )
-                .properties(height=320)
-                .configure_view(stroke=None)
-                .configure_axis(grid=False, domain=False)
-            )
-            st.altair_chart(chart, use_container_width=True)
+    # ── Row 3: Year — always visible, single line, multi-select ──────────
+    yrs       = sorted((int(y) for y in full_df["si_year"].dropna().unique()), reverse=True)
+    yr_counts = full_df["si_year"].astype("Int64").value_counts().to_dict()
+    st.pills(
+        "Year",
+        yrs,
+        default=yrs[:3] if len(yrs) >= 3 else yrs,
+        selection_mode="multi",
+        key="si_year_filter",
+        format_func=lambda y: f"{y}  · {yr_counts.get(y, 0):,}",
+    )
 
-    # ── Second row — minister activity strip + operation breakdown ────────────
-    col_l2, col_r2 = st.columns([3, 2])
-    with col_l2:
-        _render_minister_strip(df)
-    with col_r2:
-        _render_op_breakdown(df)
+    # ── Row 4: tabbed primary facets — only one set of pills shows at a
+    # time, so the page stays short. The tab label carries its selected
+    # value once filtered (e.g. "Department: Justice").
+    dept_sel = st.session_state.get("si_dept_filter")
+    op_sel   = st.session_state.get("si_op_filter")
+    dom_sel  = st.session_state.get("si_domain_filter")
+    min_sel  = st.session_state.get("si_minister_filter")
+    tabs = st.tabs([
+        _tab_label("Department",  dept_sel if dept_sel and dept_sel != "All" else None),
+        _tab_label("What it does", _pretty_token(op_sel) if op_sel and op_sel != "All" else None),
+        _tab_label("Policy area", _pretty_token(dom_sel) if dom_sel and dom_sel != "All" else None),
+        _tab_label("Minister",    min_sel if min_sel and min_sel != "All" else None),
+        "⚠ EU scrutiny",
+    ])
+
+    with tabs[0]:
+        dept_counts = full_df["si_department_label"].dropna().value_counts().to_dict()
+        dept_opts   = ["All"] + sorted(dept_counts, key=dept_counts.get, reverse=True)
+        st.pills(
+            "Department",
+            dept_opts,
+            default="All",
+            key="si_dept_filter",
+            label_visibility="collapsed",
+            format_func=lambda x: "All departments"
+                                  if x == "All"
+                                  else f"{x}  · {dept_counts.get(x, 0):,}",
+        )
+
+    with tabs[1]:
+        op_counts = full_df["si_operation"].dropna().value_counts().to_dict()
+        op_opts   = ["All"] + sorted(op_counts, key=op_counts.get, reverse=True)
+        st.pills(
+            "Operation",
+            op_opts,
+            default="All",
+            key="si_op_filter",
+            label_visibility="collapsed",
+            format_func=lambda x: "All operations"
+                                  if x == "All"
+                                  else f"{_pretty_token(x)}  · {op_counts.get(x, 0):,}",
+        )
+
+    with tabs[2]:
+        dom_counts = full_df["si_policy_domain"].dropna().value_counts().to_dict()
+        dom_opts   = ["All"] + sorted(dom_counts, key=dom_counts.get, reverse=True)
+        st.pills(
+            "Policy area",
+            dom_opts,
+            default="All",
+            key="si_domain_filter",
+            label_visibility="collapsed",
+            format_func=lambda x: "All policy areas"
+                                  if x == "All"
+                                  else f"{_pretty_token(x)}  · {dom_counts.get(x, 0):,}",
+        )
+
+    with tabs[3]:
+        min_counts = full_df["si_minister_name"].dropna().value_counts().to_dict()
+        min_opts   = ["All"] + sorted(min_counts, key=min_counts.get, reverse=True)
+        st.selectbox(
+            "Minister",
+            min_opts,
+            index=0,
+            key="si_minister_filter",
+            label_visibility="collapsed",
+            format_func=lambda x: "All ministers"
+                                  if x == "All"
+                                  else f"{x}  · {min_counts.get(x, 0):,}",
+        )
+
+    with tabs[4]:
+        _render_eu_scrutiny_tab(full_df)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# View 3 — SI index (cards + pagination + select button)
+# View 3 — SI index (cards + pagination)
 # ──────────────────────────────────────────────────────────────────────────────
 def _render_si_card(row: pd.Series) -> str:
-    si_id     = html.escape(_safe(row["si_id"]) or "—")
-    title     = html.escape(_safe(row.get("title")) or "—")
-    issue_dt  = html.escape(_fmt_date(row.get("issue_date")))
-    domain    = _pretty_token(_safe(row.get("si_policy_domain_primary")))
-    op        = _pretty_token(_safe(row.get("si_operation_primary")))
-    eu        = _safe(row.get("si_eu_relationship"))
-    actor     = _pretty_token(_safe(row.get("si_responsible_actor")))
-    matched_t = _safe(row.get("matched_bill_title"))
+    si_id    = html.escape(_safe(row.get("si_id")) or "—")
+    title    = html.escape(_safe(row.get("si_title")) or "—")
+    date_str = html.escape(_fmt_date(row.get("si_signed_date")))
+    domain   = _pretty_token(_safe(row.get("si_policy_domain")))
+    op       = _pretty_token(_safe(row.get("si_operation")))
+    dept     = _safe(row.get("si_department_label"))
+    bill     = _safe(row.get("bill_short_title"))
 
     pills = []
     if domain:
         pills.append(f'<span class="si-pill si-pill-domain">{html.escape(domain)}</span>')
     if op:
         pills.append(f'<span class="si-pill si-pill-op">{html.escape(op)}</span>')
-    if eu.startswith("eu_"):
-        pills.append(f'<span class="si-pill si-pill-eu">{html.escape(_pretty_token(eu))}</span>')
-    if matched_t:
-        pills.append(
-            f'<span class="si-pill si-pill-act">↪ Made under {html.escape(matched_t)}</span>'
-        )
-    if actor:
-        pills.append(f'<span class="si-pill si-pill-actor">{html.escape(actor)}</span>')
+    if bool(row.get("si_is_eu")):
+        pills.append('<span class="si-pill si-pill-eu">EU-derived</span>')
+    if bill:
+        pills.append(f'<span class="si-pill si-pill-act">↪ Made under {html.escape(bill)}</span>')
+    if dept:
+        pills.append(f'<span class="si-pill si-pill-dept">{html.escape(dept)}</span>')
 
     return (
         '<div class="si-card">'
         '<div class="si-card-head">'
         f'<span class="si-card-ref">SI No. {si_id}</span>'
-        f'<span class="si-card-date">{issue_dt}</span>'
+        f'<span class="si-card-date">{date_str}</span>'
         '</div>'
         f'<div class="si-card-title">{title}</div>'
         f'<div class="si-card-foot">{"".join(pills)}</div>'
@@ -471,7 +640,8 @@ def _render_si_card(row: pd.Series) -> str:
 
 def _render_si_index(df: pd.DataFrame) -> None:
     if df.empty:
-        empty_state("No SIs in scope", "Adjust filters to widen the year, domain, or actor.")
+        empty_state("No SIs in scope",
+                    "Adjust the filters to widen the year, domain, department or operation.")
         return
 
     total = len(df)
@@ -483,9 +653,6 @@ def _render_si_index(df: pd.DataFrame) -> None:
     page_idx = paginate(total, key_prefix="si_idx", page_size=PAGE_SIZE)
     visible = df.iloc[page_idx * PAGE_SIZE : (page_idx + 1) * PAGE_SIZE]
 
-    # Render cards followed by a thin "View detail" button per row.
-    # Cards rendered as one HTML block, buttons as separate Streamlit widgets
-    # below — keeps the visual scan clean while remaining clickable.
     for _, row in visible.iterrows():
         st.html(_render_si_card(row))
         if st.button("View detail →", key=f"si_open_{row['si_id']}", type="tertiary"):
@@ -503,42 +670,33 @@ def _render_si_index(df: pd.DataFrame) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# View 4 — SI detail
-# View 5 — Cross-link to legislation (rendered inline within detail)
+# View 4 — SI detail (+ View 5 cross-link, inline)
 # ──────────────────────────────────────────────────────────────────────────────
-def _render_si_detail(row: pd.Series, bills_df: pd.DataFrame) -> None:
-    if back_button("← Back to SI Index", key="si_poc"):
+def _render_si_detail(row: pd.Series) -> None:
+    if back_button("← Back to SI Index", key="si_detail"):
         st.session_state.pop("si_selected_id", None)
         st.query_params.clear()
         st.rerun()
 
-    si_id     = html.escape(_safe(row["si_id"]) or "—")
-    title     = html.escape(_safe(row.get("title")) or "—")
-    domain    = _safe(row.get("si_policy_domain_primary"))
-    op        = _safe(row.get("si_operation_primary"))
-    actor     = _safe(row.get("si_responsible_actor"))
-    si_form   = _safe(row.get("si_form"))
-    eu_rel    = _safe(row.get("si_eu_relationship"))
-    parent    = _safe(row.get("si_parent_legislation"))
-    eff_text  = _safe(row.get("si_effective_date_text"))
-    op_flags  = _split_multi(_safe(row.get("si_operation_flags")))
-    domains   = _split_multi(_safe(row.get("si_policy_domains")))
-    flags     = _split_multi(_safe(row.get("classification_flags")), sep=";")
+    si_id    = html.escape(_safe(row.get("si_id")) or "—")
+    title    = html.escape(_safe(row.get("si_title")) or "—")
+    domain   = _safe(row.get("si_policy_domain"))
+    op       = _safe(row.get("si_operation"))
+    dept     = _safe(row.get("si_department_label"))
+    actor    = _safe(row.get("si_responsible_actor"))
+    min_name = _safe(row.get("si_minister_name"))
+    min_code = _safe(row.get("si_minister_member_code"))
+    si_form  = _safe(row.get("si_form"))
+    eu_rel   = _safe(row.get("si_eu_relationship"))
+    parent   = _safe(row.get("si_parent_legislation"))
+    op_flags = _split_multi(_safe(row.get("si_operation_flags")))
+    domains  = _split_multi(_safe(row.get("si_policy_domains_all")))
     confidence = row.get("si_taxonomy_confidence")
 
     eisb = _eisb_url(row)
-    matched_id    = _safe(row.get("matched_bill_id"))
-    matched_title = _safe(row.get("matched_bill_title"))
-    matched_url   = _safe(row.get("matched_bill_url"))
-    match_score   = row.get("match_score")
+    bill_id    = _safe(row.get("bill_id"))
+    bill_title = _safe(row.get("bill_short_title"))
 
-    eisb_html = source_link_html(
-        eisb,
-        f"View on irishstatutebook.ie",
-        aria_label="Open this SI on the Electronic Irish Statute Book",
-    ) if eisb else ""
-
-    # ── Header card ───────────────────────────────────────────────────────────
     st.html(f"""
     <div class="si-detail">
       <div class="si-detail-ref">Statutory Instrument No. {si_id}</div>
@@ -546,15 +704,13 @@ def _render_si_detail(row: pd.Series, bills_df: pd.DataFrame) -> None:
     </div>
     """)
 
-    # ── Quick stat strip — uses shared helper for visual consistency ──────────
     render_stat_strip(
-        stat_item(_fmt_date(row.get("issue_date")), "Issued"),
+        stat_item(_fmt_date(row.get("si_signed_date")), "Issued"),
         stat_item(_pretty_token(op) or "—", "Operation"),
         stat_item(_pretty_token(domain) or "—", "Policy domain"),
-        stat_item(_pretty_token(actor) or "—", "Responsible actor"),
+        stat_item(dept or "—", "Department"),
     )
 
-    # ── Detail rows ───────────────────────────────────────────────────────────
     rows_html: list[str] = []
 
     def _row(label: str, val_html: str) -> None:
@@ -566,28 +722,26 @@ def _render_si_detail(row: pd.Series, bills_df: pd.DataFrame) -> None:
         )
 
     _row("SI form", html.escape(_pretty_token(si_form)) or "—")
-    op_pills = (" ".join(
+    _row("Operation flags", " ".join(
         f'<span class="si-pill si-pill-op">{html.escape(_pretty_token(f))}</span>'
-        for f in op_flags
-    ) if op_flags else "—")
-    _row("Operation flags", op_pills)
-    domain_pills = (" ".join(
+        for f in op_flags) if op_flags else "—")
+    _row("Policy domains", " ".join(
         f'<span class="si-pill si-pill-domain">{html.escape(_pretty_token(d))}</span>'
-        for d in domains
-    ) if domains else "—")
-    _row("Policy domains", domain_pills)
-    if eu_rel:
-        _row("EU relationship",
-             f'<span class="si-pill si-pill-eu">{html.escape(_pretty_token(eu_rel))}</span>')
-    if eff_text:
-        _row("Effective date (raw)", html.escape(eff_text))
-    if flags:
-        _row("Classification flags",
-             " ".join(f'<span class="si-pill">{html.escape(_pretty_token(f))}</span>' for f in flags))
+        for d in domains) if domains else "—")
+    if eu_rel and eu_rel != "none_detected":
+        _row("EU relationship", " ".join(
+            f'<span class="si-pill si-pill-eu">{html.escape(_pretty_token(e))}</span>'
+            for e in _split_multi(eu_rel)))
+    if min_name:
+        person_html = (
+            f'<a class="dt-source-link" '
+            f'href="{html.escape(member_profile_url(min_code), quote=True)}" '
+            f'target="_self">{html.escape(min_name)}</a>'
+        ) if min_code else html.escape(min_name)
+        _row("Minister", person_html)
+    if actor:
+        _row("Responsible actor (as signed)", html.escape(actor))
     if parent.strip():
-        # Each '|'-separated Act becomes a clickable link into the Legislation
-        # (POC) Act detail, where the user can see every other SI made under
-        # the same Act. Uses dt-source-link styling for consistency.
         from urllib.parse import quote as _qp
         act_links = []
         for piece in parent.split("|"):
@@ -599,58 +753,48 @@ def _render_si_detail(row: pd.Series, bills_df: pd.DataFrame) -> None:
                 f'<a class="dt-source-link" href="{html.escape(href, quote=True)}" '
                 f'target="_self">{html.escape(piece)}</a>'
             )
-        _row("Parent legislation", " &nbsp;·&nbsp; ".join(act_links) if act_links else html.escape(parent))
+        _row("Parent legislation",
+             " &nbsp;·&nbsp; ".join(act_links) if act_links else html.escape(parent))
     if isinstance(confidence, (int, float)) and pd.notna(confidence):
         _row("Taxonomy confidence", f"{float(confidence):.2f}")
 
-    # Source links row — uses dt-source-link styling.
-    src_iris = _iris_pdf_label(row)
+    eisb_html = source_link_html(
+        eisb, "View on irishstatutebook.ie",
+        aria_label="Open this SI on the Electronic Irish Statute Book",
+    ) if eisb else ""
+    src_iris = _safe(row.get("iris_source_pdf"))
     src_links = []
     if eisb_html:
         src_links.append(eisb_html)
     if src_iris:
         src_links.append(
-            f'<span class="si-detail-val" style="color:#5b6b73;font-size:0.85rem;">'
-            f'Iris source: {html.escape(src_iris)}</span>'
+            f'<span style="color:#5b6b73;font-size:0.85rem;">'
+            f'Iris Oifigiúil source: {html.escape(src_iris)}</span>'
         )
     if src_links:
         _row("Official sources", " &nbsp; · &nbsp; ".join(src_links))
 
     st.html('<div class="si-detail">' + "".join(rows_html) + "</div>")
 
-    # ── Cross-link panel (View 5) ─────────────────────────────────────────────
-    if matched_id:
-        is_pre2014 = matched_id.startswith("act_")
-        # Local link into the legislation page — works for both real
-        # bill_ids ("YYYY_NN") and pre-2014 synthetic act_* IDs.
-        local_link_html = (
-            f'<a class="dt-source-link" href="/legislation?bill={html.escape(matched_id)}" '
-            f'target="_self">View {"Act" if is_pre2014 else "Bill"} detail →</a>'
-        )
-        oir_link = source_link_html(
-            matched_url,
-            "View Bill on Oireachtas.ie",
-            aria_label="Open the matched Bill on oireachtas.ie",
-        ) if matched_url else ""
-
-        score_str = f"{float(match_score):.2f}" if pd.notna(match_score) else "—"
+    # ── Cross-link panel — the enabling Act ───────────────────────────────────
+    if bill_id:
+        is_pre2014 = bill_id.startswith("act_")
+        ref_label  = "Act" if is_pre2014 else "Bill"
         kicker = (
             "↪ Made under (pre-2014 primary Act, curated)"
             if is_pre2014
-            else "↪ Made under (matched Bill in the Oireachtas index)"
+            else "↪ Made under (matched Act in the Oireachtas index)"
         )
-        ref_label = "Act" if is_pre2014 else "Bill"
-
+        local_link = (
+            f'<a class="dt-source-link" href="/legislation?bill={html.escape(bill_id)}" '
+            f'target="_self">View {ref_label} detail →</a>'
+        )
         st.html(f"""
         <div class="si-billlink">
           <div class="si-billlink-kicker">{kicker}</div>
-          <div class="si-billlink-title">{html.escape(matched_title) or "—"}</div>
-          <div class="si-billlink-meta">
-            {ref_label} {html.escape(matched_id)}
-          </div>
-          {local_link_html}
-          {('&nbsp;·&nbsp; ' + oir_link) if oir_link else ''}
-          <div class="si-billlink-conf">match confidence: {score_str}</div>
+          <div class="si-billlink-title">{html.escape(bill_title) or "—"}</div>
+          <div class="si-billlink-meta">{ref_label} {html.escape(bill_id)}</div>
+          {local_link}
         </div>
         """)
     elif parent.strip():
@@ -659,9 +803,9 @@ def _render_si_detail(row: pd.Series, bills_df: pd.DataFrame) -> None:
           <div class="si-billlink-kicker" style="color:#7a5a00;">Parent legislation (unmatched)</div>
           <div class="si-billlink-title">{html.escape(parent)}</div>
           <div class="si-billlink-meta">
-            No confident match against the bills index or the curated
-            pre-2014 Acts table. Some SIs cite Acts not yet curated, or
-            their parent reference is parser-noisy.
+            No confident match against the Oireachtas bills index or the curated
+            pre-2014 Acts table. Many SIs are made under framework Acts that
+            predate the bills database (2014).
           </div>
         </div>
         """)
@@ -671,89 +815,83 @@ def _render_si_detail(row: pd.Series, bills_df: pd.DataFrame) -> None:
 # Entry point
 # ──────────────────────────────────────────────────────────────────────────────
 def statutory_instruments_page() -> None:
-    inject_css()        # base app styling (dt-source-link etc.)
-    _inject_poc_css()   # POC-only classes
+    inject_css()
+    _inject_si_css()
 
-    si_df    = load_si()           # already joined to bills in gold
-    bills_df = load_bills()        # empty stub — kept for API compatibility
+    si_df = load_si()
 
-    # URL-driven entry: ?si=<si_id> opens the detail view.
     url_si = st.query_params.get("si")
     if url_si:
         st.session_state["si_selected_id"] = url_si
     selected = st.session_state.get("si_selected_id")
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
+    # All filters live in the main panel now (see _render_facets), so the
+    # sidebar is just the page header — the facet pills are more discoverable
+    # in the main flow than tucked into a sidebar selectbox stack.
     with st.sidebar:
         sidebar_page_header("Statutory Instruments")
-        if selected:
-            st.html('<div class="page-subtitle">SI detail</div>')
-        else:
-            st.html('<div class="page-subtitle">POC · Iris Oifigiúil → Acts of the Oireachtas</div>')
-            st.divider()
-
-            yrs = sorted(si_df["si_year"].unique(), reverse=True)
-            year_sel = st.multiselect("Year", yrs, default=yrs[:3] if len(yrs) >= 3 else yrs,
-                                      key="si_year_filter")
-
-            domains = ["All"] + sorted([d for d in si_df["si_policy_domain_primary"].dropna().unique()])
-            domain_sel = st.selectbox("Policy domain", domains,
-                                       format_func=_pretty_token, key="si_domain_filter")
-
-            ops = ["All"] + sorted([o for o in si_df["si_operation_primary"].dropna().unique()])
-            op_sel = st.selectbox("Operation type", ops,
-                                   format_func=_pretty_token, key="si_op_filter")
-
-            actors = ["All"] + sorted([a for a in si_df["si_responsible_actor"].dropna().unique()])
-            actor_sel = st.selectbox("Responsible actor", actors,
-                                      format_func=_pretty_token, key="si_actor_filter")
-
-            search = st.text_input("Search title", placeholder="e.g. fisheries, vehicles, COVID…",
-                                    key="si_title_search").strip()
+        st.html(
+            '<div class="page-subtitle">'
+            + ('SI detail' if selected else 'Secondary legislation · Iris Oifigiúil')
+            + '</div>'
+        )
 
     # ── Detail view ───────────────────────────────────────────────────────────
     if selected:
         match = si_df[si_df["si_id"] == selected]
         if match.empty:
-            st.warning(f"SI '{selected}' not found in the current filtered set.")
-            if back_button("← Back to SI Index", key="si_poc_nf"):
+            st.warning(f"SI '{selected}' not found.")
+            if back_button("← Back to SI Index", key="si_detail_nf"):
                 st.session_state.pop("si_selected_id", None)
                 st.query_params.clear()
                 st.rerun()
             return
-        _render_si_detail(match.iloc[0], bills_df)
+        _render_si_detail(match.iloc[0])
         return
 
     # ── Index view ────────────────────────────────────────────────────────────
     hero_banner(
-        kicker="Iris Oifigiúil · POC integration",
-        title="Statutory Instruments before the Oireachtas",
+        kicker="Iris Oifigiúil · Secondary legislation",
+        title="Statutory Instruments",
         dek=(
-            "Every Act of the Oireachtas spawns regulations — the SIs that fill "
-            "in the detail. This POC indexes the Iris Oifigiúil corpus, classifies "
-            "each instrument by policy domain and operation type, and links it back "
-            "to the parent Act when the join is confident."
+            "The regulations, orders and commencement instruments that put Acts "
+            "into force and fill in their detail — far more of Irish law happens "
+            "here than in primary legislation. Browse the full corpus by policy "
+            "domain, responsible department, operation type, or EU origin; every "
+            "instrument links to its authoritative text on irishstatutebook.ie."
         ),
     )
 
+    # EU scrutiny gap — accountability callout. Hidden when nothing has been
+    # signed since the committee was formed, so it never shouts about zero.
+    _render_eu_scrutiny_callout(si_df)
+
     st.html(
-        '<div class="si-poc-note">Sourced from the pipeline gold layer '
-        '(<code>bill_statutory_instruments.parquet</code>) — joined to enabling Acts '
-        'by token-set Jaccard match; SIs without a confident bill match are not '
-        'shown here.</div>'
+        '<div class="si-note">Sourced from Iris Oifigiúil (the State gazette), '
+        'classified by policy domain and operation type. The responsible department '
+        'is identified on ~40% of instruments; the enabling Act is linked where a '
+        'confident match exists.</div>'
     )
+
+    # Facet pills first — they are the interaction surface that replaces the
+    # old static heatmaps + bar charts. Each chip is its own click-to-filter
+    # control, with the SI count baked into the label.
+    _render_facets(si_df)
 
     filtered = _apply_filters(
         si_df,
         years=st.session_state.get("si_year_filter") or [],
         domain=st.session_state.get("si_domain_filter"),
         op=st.session_state.get("si_op_filter"),
-        actor=st.session_state.get("si_actor_filter"),
+        department=st.session_state.get("si_dept_filter"),
+        minister=st.session_state.get("si_minister_filter"),
+        eu_only=st.session_state.get("si_eu_filter", False),
+        post_committee=st.session_state.get("si_post_committee_filter", False),
         search=st.session_state.get("si_title_search"),
     )
 
     _render_kpi_strip(filtered)
-    _render_trends(filtered)
     _render_si_index(filtered)
 
 

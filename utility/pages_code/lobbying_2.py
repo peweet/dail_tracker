@@ -95,6 +95,7 @@ def _init() -> None:
         "lob_selected_dpo":          None,
         "lob_selected_topic":        None,
         "lob_view_revolving_door":   False,
+        "lob_view_org_index":        False,
         "lob_results_pol":           None,
         "lob_sidebar_search":        "",
         "lob_date_start":            None,
@@ -110,6 +111,7 @@ def _clear_profile() -> None:
     st.session_state.lob_selected_dpo        = None
     st.session_state.lob_selected_topic      = None
     st.session_state.lob_view_revolving_door = False
+    st.session_state.lob_view_org_index      = False
     st.session_state.lob_results_pol         = None
 
 
@@ -135,7 +137,7 @@ _NAV_QP: dict[str, str] = {
 
 _LOB_QP_ALL = (
     "lob_pol", "lob_org", "lob_area", "lob_dpo", "lob_topic", "lob_topic_ctx",
-    "lob_rd", "lob_result_pol",
+    "lob_rd", "lob_orgindex", "lob_result_pol",
 )
 
 
@@ -213,6 +215,14 @@ def _open_rd_index() -> None:
     st.query_params["lob_rd"] = "1"
 
 
+def _open_org_index() -> None:
+    """Navigate to the browsable organisation index."""
+    _clear_profile()
+    st.session_state.lob_view_org_index = True
+    _clear_lob_qp()
+    st.query_params["lob_orgindex"] = "1"
+
+
 # ── HTML helpers ───────────────────────────────────────────────────────────────
 
 def _path_card_html(symbol: str, heading: str, body: str, stat: str, stat_lbl: str) -> str:
@@ -259,15 +269,34 @@ _FUNDING_PILL_LABELS = {
     "mixed":            "Mixed funding",
 }
 
+_TREND_ARROW = {"growing": " ↑", "shrinking": " ↓"}
+
+
+def _fmt_eur_short(amount: float) -> str:
+    """Compact euro display: €30.6m, €820k, €450."""
+    if amount >= 1_000_000_000:
+        return f"€{amount / 1_000_000_000:.1f}bn"
+    if amount >= 1_000_000:
+        return f"€{amount / 1_000_000:.1f}m"
+    if amount >= 1_000:
+        return f"€{amount / 1_000:.0f}k"
+    return f"€{amount:,.0f}"
+
 
 def _register_pills(row: pd.Series) -> list[str]:
-    """CRO × Charity register pills for an org card (skips empty/unknown)."""
+    """CRO × Charity register pills for an org card — status, funding, scale.
+
+    Skips empty/unknown values, so an unmatched org returns []. The scale pill
+    carries an income-trend arrow when the charity is growing or shrinking.
+    """
     out: list[str] = []
+
     status = row.get("status")
     if status and pd.notna(status):
         label = _STATUS_PILL_LABELS.get(str(status))
         if label:
             out.append(label)
+
     profile = row.get("funding_profile")
     if profile and pd.notna(profile):
         label = _FUNDING_PILL_LABELS.get(str(profile))
@@ -276,6 +305,12 @@ def _register_pills(row: pd.Series) -> list[str]:
             if profile == "state_funded" and gov_share is not None and pd.notna(gov_share):
                 label = f"{label} {int(round(float(gov_share) * 100))}%"
             out.append(label)
+
+    income = row.get("gross_income_latest_eur")
+    if income is not None and pd.notna(income) and income > 0:
+        arrow = _TREND_ARROW.get(str(row.get("income_trend")), "")
+        out.append(f"{_fmt_eur_short(float(income))} income{arrow}")
+
     return out
 
 
@@ -524,10 +559,8 @@ def _render_landing(summary: pd.DataFrame) -> None:
             )
         )
         if st.button("Browse organisations →", key="lob_gw_org", width="stretch"):
-            orgs = fetch_org_index()
-            if not orgs.empty:
-                _nav("org", orgs.iloc[0]["lobbyist_name"])
-                st.rerun()
+            _open_org_index()
+            st.rerun()
 
     with g3:
         st.html(
@@ -634,6 +667,10 @@ def _render_landing(summary: pd.DataFrame) -> None:
                     )
                 )
             st.html("\n".join(cards))
+
+        if st.button("Browse all organisations →", key="lob_lb_browse_orgs", width="stretch"):
+            _open_org_index()
+            st.rerun()
 
     # ── Revolving door promoted callout ───────────────────────────────────
     rd_summary = fetch_revolving_door_summary()
@@ -804,6 +841,112 @@ def _render_dpo_index(summary: pd.DataFrame) -> None:
                 )
             )
         st.html("\n".join(cards))
+
+    _provenance_footer(summary)
+
+
+# ── Organisation index — browsable, filterable list of every lobbying org ────
+
+# Filter-option label → funding_profile value.
+_FUNDING_FILTER = {label: key for key, label in _FUNDING_PILL_LABELS.items()}
+
+
+def _render_org_index(summary: pd.DataFrame) -> None:
+    crumb = breadcrumb(["Lobbying", "Organisations"], key_prefix="org_idx")
+    if crumb == 0:
+        _clear_profile()
+        _clear_lob_qp()
+        st.rerun()
+
+    hero_banner(
+        kicker="LOBBYING · ORGANISATIONS",
+        title="Browse lobbying organisations",
+        dek=(
+            "Every organisation on the Register of Lobbying, enriched with its "
+            "Companies Registration Office and Charities Regulator record where a "
+            "name match was found. Filter by funding profile or income trend, or "
+            "search by name."
+        ),
+    )
+
+    # State-adjacent bodies (HSE, hospitals, etc.) dwarf civil-society
+    # organisations on income — hidden by default, opt in with the toggle.
+    show_state = st.toggle(
+        "Include state-funded public bodies (HSE, hospitals…)",
+        value=False,
+        key="org_idx_show_state",
+    )
+    orgs = fetch_org_index(exclude_state_adjacent=not show_state)
+    if orgs.empty:
+        empty_state("No organisations", "The lobbying organisation index is empty.")
+        _provenance_footer(summary)
+        return
+
+    # ── Filter strip ──────────────────────────────────────────────────────
+    search = st.text_input(
+        "Search organisations",
+        key="org_idx_search",
+        placeholder="Search by organisation name…",
+        label_visibility="collapsed",
+    )
+    funding_choice = st.segmented_control(
+        "Funding profile",
+        options=["All", *_FUNDING_PILL_LABELS.values()],
+        default="All",
+        key="org_idx_funding",
+    ) or "All"
+    trend_choice = st.segmented_control(
+        "Income trend",
+        options=["All", "Growing", "Flat", "Shrinking"],
+        default="All",
+        key="org_idx_trend",
+    ) or "All"
+
+    filtered = orgs
+    if search and search.strip():
+        filtered = filtered[
+            filtered["lobbyist_name"].astype(str).str.contains(
+                search.strip(), case=False, na=False, regex=False
+            )
+        ]
+    if funding_choice != "All":
+        filtered = filtered[filtered["funding_profile"] == _FUNDING_FILTER[funding_choice]]
+    if trend_choice != "All":
+        filtered = filtered[filtered["income_trend"] == trend_choice.lower()]
+
+    st.caption(f"Showing {len(filtered):,} of {len(orgs):,} organisations.")
+
+    if filtered.empty:
+        empty_state("No matches", "No organisations match the current filters.")
+        _provenance_footer(summary)
+        return
+
+    # ── Paginated card list ───────────────────────────────────────────────
+    evidence_heading("Organisations")
+    page_size, page_idx = pagination_controls(
+        total=len(filtered),
+        key_prefix="org_idx",
+        label="organisations",
+    )
+    page_slice = filtered.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+    rank_offset = page_idx * page_size
+    cards: list[str] = []
+    for i, (_, row) in enumerate(page_slice.iterrows(), start=1):
+        name  = str(row.get("lobbyist_name", "—"))
+        meta  = str(row.get("sector", "") or "")
+        pills = [
+            f"{int(row.get('return_count', 0) or 0):,} returns",
+            f"{int(row.get('politicians_targeted', 0) or 0):,} politicians",
+            *_register_pills(row),
+        ]
+        cards.append(
+            clickable_card_link(
+                href=f"?lob_org={quote(name)}",
+                inner_html=_lob_card_html(name, meta, pills, rank=rank_offset + i),
+                aria_label=f"View lobbying profile for {name}",
+            )
+        )
+    st.html("\n".join(cards))
 
     _provenance_footer(summary)
 
@@ -1763,6 +1906,9 @@ def lobbying_page() -> None:
     elif "lob_rd" in qp:
         _clear_profile()
         st.session_state.lob_view_revolving_door = True
+    elif "lob_orgindex" in qp:
+        _clear_profile()
+        st.session_state.lob_view_org_index = True
     elif "lob_topic" in qp:
         _clear_profile()
         st.session_state.lob_selected_topic = qp["lob_topic"]
@@ -1777,6 +1923,11 @@ def lobbying_page() -> None:
         st.session_state.lob_selected_area = qp["lob_area"]
         if "lob_result_pol" in qp:
             st.session_state.lob_results_pol = qp["lob_result_pol"]
+    else:
+        # No lob_* query param — every in-app navigation sets one, so a clean
+        # URL means the landing page. Clear any stale nav state left over from
+        # sidebar navigation away and back.
+        _clear_profile()
 
     _render_sidebar()
 
@@ -1787,12 +1938,15 @@ def lobbying_page() -> None:
     sel_dpo        = st.session_state.lob_selected_dpo
     sel_topic      = st.session_state.lob_selected_topic
     view_rd        = st.session_state.lob_view_revolving_door
+    view_org_index = st.session_state.lob_view_org_index
     sel_result_pol = st.session_state.lob_results_pol
 
     if sel_dpo:
         _render_dpo_individual(sel_dpo, summary)
     elif view_rd:
         _render_dpo_index(summary)
+    elif view_org_index:
+        _render_org_index(summary)
     elif sel_topic:
         _render_topic(sel_topic, summary)
     elif sel_pol:
