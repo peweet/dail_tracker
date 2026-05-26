@@ -528,19 +528,35 @@ def _render_sidebar() -> None:
             st.rerun()
 
         # ── Secondary: notable targets, behind a closed expander ─────────
+        # Sidebar audit fix (2026-05-26, P1-5): chip labels were wrapping
+        # mid-word in the 2-column layout ("An Taoiseac h", "Minister for /
+        # Finance"). Switched to single-word labels with full title in
+        # `help=` tooltips, dropped the 2-column split so each chip gets
+        # full sidebar width.
         with st.expander("Notable targets", expanded=False):
-            notable = ["An Taoiseach", "Minister for Finance", "Tánaiste", "Minister for Health"]
-            chip_cols = st.columns(2)
-            for i, chip in enumerate(notable):
-                if chip_cols[i % 2].button(chip, key=f"lob_chip_{i}", width="stretch"):
+            notable = [
+                ("Taoiseach", "An Taoiseach"),
+                ("Finance", "Minister for Finance"),
+                ("Tánaiste", "Tánaiste"),
+                ("Health", "Minister for Health"),
+            ]
+            for i, (short_label, full_position) in enumerate(notable):
+                if st.button(
+                    short_label,
+                    key=f"lob_chip_{i}",
+                    width="stretch",
+                    help=f"Open the {full_position} lobbying profile",
+                ):
                     idx = fetch_politician_index()
                     if not idx.empty and "position" in idx.columns:
-                        m = idx[idx["position"].str.contains(chip, case=False, na=False)]
+                        m = idx[idx["position"].str.contains(full_position, case=False, na=False)]
                         if not m.empty:
                             _nav("pol", m.iloc[0]["member_name"])
                             st.rerun()
                         else:
-                            st.caption(f"No politician found with position matching '{chip}'.")
+                            st.caption(
+                                f"No politician found with position matching '{full_position}'."
+                            )
 
         # ── Tertiary: browse by policy area, behind a closed expander ────
         areas = fetch_policy_area_summary()
