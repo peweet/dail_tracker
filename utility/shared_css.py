@@ -455,12 +455,16 @@ def inject_css() -> None:
             margin-bottom: 0.3rem;
         }
         .page-title {
+            /* Audit fix (2026-05-26, sidebar P0-2): rendered as <h2> so
+               screen readers can navigate by heading. Reset user-agent
+               h2 margins (top + bottom) so the visual rendering stays
+               identical to the previous <p class="page-title"> styling. */
             font-family: 'Zilla Slab', Georgia, serif;
             font-size: 1.5rem;
             font-weight: 700;
             color: var(--text-primary);
             line-height: 1.15;
-            margin-bottom: 0.2rem;
+            margin: 0 0 0.2rem;
         }
         .page-subtitle {
             font-family: 'Epilogue', sans-serif;
@@ -3811,6 +3815,18 @@ def inject_css() -> None:
         }
         .lp3-topic-tile .lp3-tile-heading {
             color: var(--signal-bad-deep);
+        }
+
+        /* Switcher selectboxes (Switch organisation / Switch policy area)
+           on the Lobbying-PoC Stage 2 pages need a pure white background;
+           the default var(--surface) is warm beige and looked off. Replaces
+           the inline <style> blocks previously injected by the page (audit
+           P2-2). */
+        .st-key-lp3_org_switcher .stSelectbox > div > div,
+        .st-key-lp3_org_switcher [data-baseweb="select"] > div,
+        .st-key-lp3_area_switcher .stSelectbox > div > div,
+        .st-key-lp3_area_switcher [data-baseweb="select"] > div {
+            background: #ffffff !important;
         }
 
         /* Latest-returns prose list — replaces lobby_2's custom row HTML

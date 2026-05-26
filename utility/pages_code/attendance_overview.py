@@ -503,7 +503,9 @@ def attendance_overview_page() -> None:
             st.session_state["_ov_td"] = chosen
             st.rerun()
 
-        st.divider()
+        # Sidebar audit fix (2026-05-26, P2-1): the heavy section rule
+        # between picker and chips matched the attendance + payments
+        # cleanup. Removed for cross-page consistency.
         if render_notable_chips(NOTABLE_TDS, all_names, "chip_ov", "_ov_td"):
             st.rerun()
 
