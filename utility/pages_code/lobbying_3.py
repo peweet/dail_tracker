@@ -359,11 +359,11 @@ def _render_landing(summary: pd.DataFrame) -> None:
         pol_gateway_href = member_profile_url(m_id or _resolve_or_join(m_name), section="lobbying")
     else:
         pol_gateway_href = "#"
-    org_gateway_href = f"{ROUTE}?lp3_orgindex=1"
+    org_gateway_href = f"?lp3_orgindex=1"
     area_summary = fetch_policy_area_summary()
     if not area_summary.empty:
         first_area = str(area_summary.iloc[0]["public_policy_area"])
-        area_gateway_href = f"{ROUTE}?lp3_area={quote(first_area)}"
+        area_gateway_href = f"?lp3_area={quote(first_area)}"
     else:
         area_gateway_href = "#"
 
@@ -414,7 +414,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
         with col:
             st.html(
                 clickable_card_link(
-                    href=f"{ROUTE}?lp3_topic={quote(topic_name)}",
+                    href=f"?lp3_topic={quote(topic_name)}",
                     inner_html=_topic_tile_html(topic_name, str(spec["blurb"])),
                     aria_label=f"Open {topic_name} returns",
                 )
@@ -464,8 +464,8 @@ def _render_landing(summary: pd.DataFrame) -> None:
                 name = str(row.get("lobbyist_name", "—"))
                 meta = clean_meta(str(row.get("sector", "") or ""))
                 pills_list = [
-                    f"{int(row.get('return_count', 0) or 0):,} returns",
-                    f"{int(row.get('politicians_targeted', 0) or 0):,} politicians",
+                    _p(int(row.get("return_count", 0) or 0), "return"),
+                    _p(int(row.get("politicians_targeted", 0) or 0), "politician"),
                 ]
                 cards.append(
                     clickable_card_link(
@@ -500,8 +500,8 @@ def _render_landing(summary: pd.DataFrame) -> None:
             former_pos = str(row.get("former_position", "") or "")
             meta = clean_meta(f"Former {former_pos}" if former_pos else "Former DPO")
             pills_list = [
-                f"{int(row.get('return_count', 0) or 0):,} returns",
-                f"{int(row.get('distinct_politicians_targeted', 0) or 0):,} politicians",
+                _p(int(row.get("return_count", 0) or 0), "return"),
+                _p(int(row.get("distinct_politicians_targeted", 0) or 0), "politician"),
             ]
             cards.append(
                 clickable_card_link(
@@ -754,8 +754,8 @@ def _render_org_index(summary: pd.DataFrame) -> None:
         name = str(row.get("lobbyist_name", "—"))
         meta = clean_meta(str(row.get("sector", "") or ""))
         pills_list = [
-            f"{int(row.get('return_count', 0) or 0):,} returns",
-            f"{int(row.get('politicians_targeted', 0) or 0):,} politicians",
+            _p(int(row.get("return_count", 0) or 0), "return"),
+            _p(int(row.get("politicians_targeted", 0) or 0), "politician"),
         ]
         cards.append(
             clickable_card_link(
@@ -814,7 +814,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
             dek_html=(
                 f"Filed <strong>{ret_cnt:,}</strong> lobbying returns targeting "
                 f"<strong>{pol_cnt:,}</strong> politicians across "
-                f"<strong>{area_cnt}</strong> policy areas.{sector_clause_html}{period_clause_html}"
+                f"<strong>{area_cnt:,}</strong> policy areas.{sector_clause_html}{period_clause_html}"
             ),
         )
     else:
@@ -827,13 +827,6 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
 
     # Switch organisation (sits below hero, narrow column)
     if all_orgs:
-        st.html(
-            "<style>"
-            ".st-key-lp3_org_switcher .stSelectbox > div > div,"
-            '.st-key-lp3_org_switcher [data-baseweb="select"] > div'
-            "{background:#ffffff !important;}"
-            "</style>"
-        )
         sw_col, _ = st.columns([1, 2])
         with sw_col:
             picked = st.selectbox(
@@ -863,8 +856,8 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
             last_c = str(row.get("last_contact", "") or "")[:7]
             meta = clean_meta(chamber, first_c, last_c)
             pills_list = [
-                f"{int(row.get('returns_in_relationship', 0) or 0):,} returns",
-                f"{int(row.get('distinct_policy_areas', 0) or 0):,} policy areas",
+                _p(int(row.get("returns_in_relationship", 0) or 0), "return"),
+                _p(int(row.get("distinct_policy_areas", 0) or 0), "policy area"),
             ]
             jump = member_profile_url(member_id or _resolve_or_join(pol_name), section="lobbying")
             cards.append(
@@ -1046,8 +1039,8 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
             title=area,
             dek_html=(
                 f"<strong>{ret_cnt:,}</strong> returns filed by "
-                f"<strong>{org_cnt}</strong> organisations targeting "
-                f"<strong>{pol_cnt}</strong> politicians on this policy area."
+                f"<strong>{org_cnt:,}</strong> organisations targeting "
+                f"<strong>{pol_cnt:,}</strong> politicians on this policy area."
             ),
         )
     else:
@@ -1055,13 +1048,6 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
 
     # Switch policy area
     if all_area_names:
-        st.html(
-            "<style>"
-            ".st-key-lp3_area_switcher .stSelectbox > div > div,"
-            '.st-key-lp3_area_switcher [data-baseweb="select"] > div'
-            "{background:#ffffff !important;}"
-            "</style>"
-        )
         sw_col, _ = st.columns([1, 2])
         with sw_col:
             picked = st.selectbox(
@@ -1089,8 +1075,8 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
             pol_name = str(row.get("member_name", "—"))
             chamber = str(row.get("chamber", "") or "")
             pills_list = [
-                f"{int(row.get('returns_targeting', 0) or 0):,} returns",
-                f"{int(row.get('distinct_lobbyists', 0) or 0):,} orgs",
+                _p(int(row.get("returns_targeting", 0) or 0), "return"),
+                _p(int(row.get("distinct_lobbyists", 0) or 0), "org"),
             ]
             cards.append(
                 clickable_card_link(
@@ -1323,9 +1309,9 @@ def _render_rd_index(summary: pd.DataFrame) -> None:
             former = f"Former {position}" if position else "Former DPO"
             meta = clean_meta(former, chamber)
             pills_list = [
-                f"{int(row.get('return_count', 0) or 0):,} returns",
-                f"{int(row.get('distinct_firms', 0) or 0):,} firms",
-                f"{int(row.get('distinct_politicians_targeted', 0) or 0):,} politicians",
+                _p(int(row.get("return_count", 0) or 0), "return"),
+                _p(int(row.get("distinct_firms", 0) or 0), "firm"),
+                _p(int(row.get("distinct_politicians_targeted", 0) or 0), "politician"),
             ]
             cards.append(
                 clickable_card_link(
@@ -1422,7 +1408,7 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
             pname = str(prow.get("member_name", "—"))
             pchm = str(prow.get("chamber", "") or "")
             pcnt = int(prow.get("return_count", 0) or 0)
-            pills_list = [f"{pcnt:,} returns"]
+            pills_list = [_p(pcnt, "return")]
             inner = _ranked_card_html(
                 pname, pchm, pills_list, rank,
                 avatar_url=avatar_data_url(pname),

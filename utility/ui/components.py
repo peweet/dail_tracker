@@ -58,9 +58,27 @@ def page_error_boundary(page_fn):
 
 
 def sidebar_page_header(title: str, kicker: str = "Dáil Tracker") -> None:
-    """Standardised sidebar kicker + page title block. title may contain <br>."""
-    st.markdown(f'<p class="page-kicker">{kicker}</p>', unsafe_allow_html=True)
-    st.markdown(f'<p class="page-title">{title}</p>', unsafe_allow_html=True)
+    """Standardised sidebar kicker + page title block. ``title`` may contain
+    `<br>` for an intentional line break.
+
+    Audit fix (2026-05-26, sidebar P0-2):
+    - Switched from ``st.markdown(unsafe_allow_html=True)`` to ``st.html``
+      per ``feedback_streamlit_api_patterns``.
+    - Title renders as ``<h2>`` so screen readers can navigate by
+      heading level. Previously it was a styled ``<p>`` which broke the
+      page outline (the hero `<h1>` was followed directly by content).
+    - Kicker + title are both escaped via ``_h()`` — the helper used to
+      pass user input verbatim into HTML.
+    """
+    # Allow the documented `<br>` inside titles by escaping the rest of
+    # the string but reinstating the literal <br>. Preserves the existing
+    # call-site contract without reintroducing an unsafe-html path.
+    _BR_MARKER = "\x00BR\x00"
+    safe_title = _h(title.replace("<br>", _BR_MARKER)).replace(_BR_MARKER, "<br>")
+    st.html(
+        f'<p class="page-kicker">{_h(kicker)}</p>'
+        f'<h2 class="page-title">{safe_title}</h2>'
+    )
 
 
 def year_selector(
@@ -1007,23 +1025,32 @@ def sidebar_member_filter(
     key_select: str,
     placeholder: str = "Search a member…",
 ) -> str | None:
-    """Search input + selectbox for choosing a member. Returns selected name or None."""
-    st.markdown(f'<p class="sidebar-label">{label}</p>', unsafe_allow_html=True)
-    search = st.text_input(
-        label,
-        placeholder=placeholder,
-        key=key_search,
-        label_visibility="collapsed",
-    )
-    sq = search.strip().lower()
-    filtered = [m for m in members if sq in m.lower()] if sq else members
+    """Searchable member-picker for the sidebar. Returns selected name or None.
+
+    Audit fix (2026-05-26, sidebar P1-2): collapsed from a
+    ``st.text_input + st.selectbox`` pair to a single ``st.selectbox``.
+    Streamlit's red-border "Press Enter to apply" hint on the text input
+    led citizens to think Enter would commit a filter; in reality Enter
+    only re-filtered the selectbox below and the user still had to click
+    an option. Same fix as ``main_member_jump`` (interests P1-4).
+    Streamlit's selectbox has built-in type-to-search, so the text input
+    was doubly redundant.
+
+    ``key_search`` is accepted for backwards compatibility but no longer
+    creates a widget — the single ``key_select`` widget handles both
+    typing and selection.
+    """
+    _ = key_search  # accepted for backwards compatibility; no widget
+    st.html(f'<p class="sidebar-label">{_h(label)}</p>')
+    options = [placeholder] + list(members)
     chosen = st.selectbox(
         label,
-        ["— select —"] + filtered,
+        options,
+        index=0,
         key=key_select,
         label_visibility="collapsed",
     )
-    return chosen if chosen and chosen != "— select —" else None
+    return chosen if chosen and chosen != placeholder else None
 
 
 def clickable_card_link(

@@ -947,13 +947,18 @@ def committees_page() -> None:
     with st.sidebar:
         sidebar_page_header("Committee<br>Register")
         if df_long.empty:
-            st.error(f"No committee data found for {chamber}.")
+            # Sidebar audit fix (2026-05-26, P1-4): `st.error` rendered a
+            # red Streamlit box inside the otherwise calm sidebar voice.
+            # `empty_state` matches the design-system register.
+            empty_state(
+                "No committee data",
+                f"No records found for {chamber}. Run the pipeline to populate the register.",
+            )
         else:
-            st.markdown(
+            st.html(
                 f'<p class="page-subtitle">{df_long["committee"].nunique()} committees · '
-                f"{df_long['name'].nunique()} {member_label} · "
-                f"{int((df_long['status'] == 'Active').sum())} active memberships</p>",
-                unsafe_allow_html=True,
+                f"{_h(str(df_long['name'].nunique()))} {_h(member_label)} · "
+                f"{int((df_long['status'] == 'Active').sum())} active memberships</p>"
             )
 
     if df_long.empty:

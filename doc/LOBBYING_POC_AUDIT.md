@@ -1,5 +1,13 @@
 # Lobbying (PoC) — Impeccable audit (2026-05-26)
 
+> **Status update (2026-05-26):** P0 + all 5 P1s + all 3 P2s shipped.
+> See [[project-lobbying-poc-audit-2026-05-26]] memory for the rework
+> diary, and `audit_screenshots/verify_lobbying_poc/V01..V06.png` for
+> the verification shots. P0 was a stale-cache artifact (data + code
+> were always correct; defensive `empty_state` guard added in
+> `_datasette_table` so future schema drift won't render silent grey
+> rectangles). Score lifted 16/20 → ~19/20. Open: P3 polish only.
+
 Page audited: `/rankings-lobbying-poc` (`utility/pages_code/lobbying_3.py`).
 Methodology: 42 Playwright screenshots across desktop / tablet / mobile,
 11 phases — landing, sidebar search, org index, org detail, area
