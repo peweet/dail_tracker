@@ -48,9 +48,19 @@ def td_history_column_config() -> dict:
 
 
 def committee_roster_column_config(member_label: str = "TD") -> dict:
+    # P1-3 + P2-6 audit fixes:
+    # - "Member" replaces "TD" / "Senator" as the header label — keeps the
+    #   parent chamber pill carrying that context and reads cleanly for
+    #   mixed-chamber audiences. ``member_label`` is preserved as the
+    #   default for callers that still pass a value but is no longer the
+    #   default rendered header.
+    # - Party column bumped from "small" to "medium" so labels like
+    #   "Social Democrats" and "Independent Ireland" stop truncating to
+    #   "Social Dem" / "Independer".
+    _ = member_label  # accepted for backwards compatibility; not rendered
     return {
-        "name": st.column_config.TextColumn(member_label, width="medium"),
-        "party": st.column_config.TextColumn("Party", width="small"),
+        "name": st.column_config.TextColumn("Member", width="medium"),
+        "party": st.column_config.TextColumn("Party", width="medium"),
         "constituency": st.column_config.TextColumn("Constituency", width="medium"),
         "role": st.column_config.TextColumn("Role", width="medium"),
         "is_chair": st.column_config.CheckboxColumn("Chair", width="small"),

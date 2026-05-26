@@ -212,7 +212,7 @@ def _year_chart(df: pd.DataFrame) -> None:
         xaxis=dict(showgrid=False, tickmode="linear", dtick=1),
         yaxis=dict(showgrid=True, gridcolor="rgba(0,0,0,0.08)"),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def render_division_panel(
@@ -262,7 +262,7 @@ def render_division_panel(
         else:
             fig = _party_chart(breakdown_df)
             if fig is not None:
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
             else:
                 todo_callout("party_vote_breakdown — party_name or vote_type column missing")
 
@@ -305,6 +305,37 @@ def render_division_panel(
         render_source_links(sources_df)
 
 
+def _split_title_and_stage(raw_title: str) -> tuple[str, str]:
+    """Split a debate title into ``(bill_title, stage_label)``.
+
+    Audit fix (2026-05-26, P1-1): cards for the same bill at different
+    legislative stages (Second Stage, Committee, Report, Final) currently
+    look like duplicates with the same title text and slightly different
+    vote counts. The stage is embedded in the title after the first colon
+    — e.g. ``Arbitration (Amendment) Bill 2025: Report and Final Stages``.
+    Pulling it out lets the card title stay clean and the stage become a
+    visible pill.
+
+    Also strips the trailing ``[Private Members]`` jargon suffix (P2-8) —
+    callers can render it as a separate small chip if desired (not done
+    here yet).
+
+    Returns ``(title, stage)``. ``stage`` is "" when no colon is found.
+    """
+    if ":" not in raw_title:
+        return raw_title.strip(), ""
+    head, _, tail = raw_title.partition(":")
+    stage = tail.strip()
+    # Drop the orphan "[Private Members]" suffix from the stage label —
+    # it's classifier metadata, not a stage name.
+    if stage.endswith("[Private Members]"):
+        stage = stage[: -len("[Private Members]")].strip()
+    # "Motion (Resumed)" → "Motion (Resumed)" is fine. "Second Stage (Resumed)"
+    # is fine. Just trim trailing punctuation.
+    stage = stage.rstrip(":.;,")
+    return head.strip(), stage
+
+
 def vt_division_card_html(row) -> str:
     """HTML for one division card in the Mode A index.
 
@@ -312,7 +343,32 @@ def vt_division_card_html(row) -> str:
     CSS classes: .vt-card family in shared_css.py.
     """
     date_str = _fmt_date(row.get("vote_date"))
-    title = _h(str(row.get("debate_title") or "—"))
+    raw_title = str(row.get("debate_title") or "—")
+    bill_title, stage_label = _split_title_and_stage(raw_title)
+    # P2-8: surface "[Private Members]" upstream tag as a small pill rather
+    # than leaving it inline as jargon in the title. _split_title_and_stage
+    # already strips it from the stage; here we also strip it from
+    # bill_title (titles without a colon kept the tag in the head).
+    is_private = False
+    _pm_tag = "[Private Members]"
+    if bill_title.rstrip().endswith(_pm_tag):
+        bill_title = bill_title[: bill_title.rfind(_pm_tag)].rstrip()
+        is_private = True
+    elif raw_title.rstrip().endswith(_pm_tag):
+        # Tag was in the stage half; helper already removed it from stage.
+        is_private = True
+    title = _h(bill_title)
+    stage_html = (
+        f'<span class="vt-card-stage" title="Legislative stage">{_h(stage_label)}</span>'
+        if stage_label
+        else ""
+    )
+    private_html = (
+        '<span class="vt-card-private" title="Private Members’ motion or bill '
+        '— tabled by a TD/Senator who is not a government minister">Private Members</span>'
+        if is_private
+        else ""
+    )
     outcome = str(row.get("vote_outcome") or "").strip()
     yes_n = int(row.get("yes_count") or 0)
     no_n = int(row.get("no_count") or 0)
@@ -320,13 +376,14 @@ def vt_division_card_html(row) -> str:
     margin = row.get("margin")
     url = str(row.get("oireachtas_url") or "")
 
-    margin_str = ""
-    if margin is not None:
-        try:
-            m = int(margin)
-            margin_str = f"+{m}" if m >= 0 else str(m)
-        except (TypeError, ValueError):
-            pass
+    # P2-1: replace the opaque "Δ +N" pill with plain English ("won by N",
+    # "lost by N"). Falls back to "margin N" when the outcome is neither
+    # carried nor lost (rare edge case).
+    margin_int: int | None
+    try:
+        margin_int = int(margin) if margin is not None else None
+    except (TypeError, ValueError):
+        margin_int = None
 
     lo = outcome.lower()
     if "carried" in lo:
@@ -338,15 +395,25 @@ def vt_division_card_html(row) -> str:
     else:
         outcome_html = ""
 
-    margin_html = (
-        f'<span class="vt-margin-pill" title="Vote margin (Yes − No)">'
-        f'<span class="vt-margin-label">Δ</span>'
-        f'<span class="vt-margin-value">{margin_str}</span>'
-        f"</span>"
-        if margin_str
-        else ""
-    )
+    if margin_int is not None:
+        if "carried" in lo:
+            margin_label = f"won by {abs(margin_int)}"
+        elif "lost" in lo:
+            margin_label = f"lost by {abs(margin_int)}"
+        else:
+            margin_label = f"margin {margin_int:+d}"
+        margin_html = (
+            f'<span class="vt-margin-pill" title="Yes votes minus No votes">'
+            f"{margin_label}</span>"
+        )
+    else:
+        margin_html = ""
 
+    # P1-4 + P2-2: Oireachtas link demoted from header (accent-coloured,
+    # one per card) to footer (quiet grey, right-aligned). The internal
+    # `→` navigation (added by clickable_card_link wrapping the card) is
+    # now the visually-primary affordance; the external link is still
+    # available but doesn't compete on mobile.
     source_html = source_link_html(url, "Oireachtas", aria_label="Open this division on oireachtas.ie")
 
     return (
@@ -354,7 +421,8 @@ def vt_division_card_html(row) -> str:
         f'<div class="vt-card-header">'
         f'<span class="vt-card-date">{date_str}</span>'
         f"{outcome_html}"
-        f"{source_html}"
+        f"{stage_html}"
+        f"{private_html}"
         f"</div>"
         f'<div class="vt-card-title">{title}</div>'
         f'<div class="vt-card-footer">'
@@ -362,6 +430,7 @@ def vt_division_card_html(row) -> str:
         f'<span class="vt-count-no">✗ {no_n}</span>'
         f'<span class="vt-count-abs">— {abs_n}</span>'
         f"{margin_html}"
+        f"{source_html}"
         f"</div>"
         f"</div>"
     )

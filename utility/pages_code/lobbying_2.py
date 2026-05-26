@@ -78,11 +78,13 @@ from ui.components import (
     glossary_strip,
     hero_banner,
     member_card_html,
+    member_moved_callout,
     page_error_boundary,
     pagination_controls,
     pill,
     sidebar_page_header,
     todo_callout,
+    totals_strip,
 )
 from ui.entity_links import entity_cta_html, member_profile_url, name_join_key, source_link_html
 from ui.export_controls import export_button
@@ -101,6 +103,13 @@ def _init() -> None:
         "lob_selected_topic": None,
         "lob_view_revolving_door": False,
         "lob_view_org_index": False,
+        # Audit fix (2026-05-26, P1-3): the gateway "Browse politicians →"
+        # and "Browse policy areas →" buttons previously navigated to
+        # whichever row happened to be rank #1. Dedicated index views
+        # mirror the org-index pattern so the buttons now open a real
+        # browser.
+        "lob_view_pol_index": False,
+        "lob_view_area_index": False,
         "lob_results_pol": None,
         "lob_sidebar_search": "",
         "lob_date_start": None,
@@ -117,6 +126,8 @@ def _clear_profile() -> None:
     st.session_state.lob_selected_topic = None
     st.session_state.lob_view_revolving_door = False
     st.session_state.lob_view_org_index = False
+    st.session_state.lob_view_pol_index = False
+    st.session_state.lob_view_area_index = False
     st.session_state.lob_results_pol = None
 
 
@@ -149,6 +160,8 @@ _LOB_QP_ALL = (
     "lob_topic_ctx",
     "lob_rd",
     "lob_orgindex",
+    "lob_polindex",
+    "lob_areaindex",
     "lob_result_pol",
 )
 
@@ -249,6 +262,32 @@ def _open_org_index() -> None:
     st.query_params["lob_orgindex"] = "1"
 
 
+def _open_pol_index() -> None:
+    """Navigate to the browsable politician index. Audit fix P1-3.
+
+    Replaces the old "Browse politicians →" dead-state behaviour
+    (`_nav("pol", rank_1_name)`) which jumped to the top politician's
+    moved-callout instead of opening a real browser.
+    """
+    _clear_profile()
+    st.session_state.lob_view_pol_index = True
+    _clear_lob_qp()
+    st.query_params["lob_polindex"] = "1"
+
+
+def _open_area_index() -> None:
+    """Navigate to the browsable policy-area index. Audit fix P1-3.
+
+    Replaces the old "Browse policy areas →" dead-state behaviour
+    (`_nav("area", top_area_name)`) which jumped to the top area's
+    Stage 2 instead of opening a real browser.
+    """
+    _clear_profile()
+    st.session_state.lob_view_area_index = True
+    _clear_lob_qp()
+    st.query_params["lob_areaindex"] = "1"
+
+
 # ── HTML helpers ───────────────────────────────────────────────────────────────
 
 
@@ -297,6 +336,21 @@ _FUNDING_PILL_LABELS = {
 }
 
 _TREND_ARROW = {"growing": " ↑", "shrinking": " ↓"}
+
+
+def _safe_str(val: object) -> str:
+    """Stringify a value from a pandas row, returning "" for NaN / None / NaT.
+
+    Pandas hands back ``np.nan`` (a float) for missing string columns;
+    ``str(np.nan)`` is the literal "nan", which then passes any truthy
+    check and leaks into rendered HTML. ``pd.notna`` catches NaN / NaT /
+    None uniformly. Use this for every DB-sourced string that flows into
+    a card / badge / pill.
+    """
+    if val is None or not pd.notna(val):
+        return ""
+    s = str(val).strip()
+    return "" if s.lower() in {"nan", "none", "nat"} else s
 
 
 def _fmt_eur_short(amount: float) -> str:
@@ -562,7 +616,9 @@ def _render_landing(summary: pd.DataFrame) -> None:
             st.rerun()
 
     if summary.empty:
-        todo_callout("Enrichment pipeline not yet run — populate lobbying data to enable this page.")
+        todo_callout(
+            "v_lobbying_summary — Lobbying returns are still loading. The page will populate once the next data refresh completes."
+        )
 
     # ── Three-path gateway ────────────────────────────────────────────────
     evidence_heading("Where do you want to investigate?")
@@ -578,11 +634,13 @@ def _render_landing(summary: pd.DataFrame) -> None:
                 "politicians on record",
             )
         )
+        # Audit fix (2026-05-26, P1-3): previously navigated to the top
+        # politician via `_nav("pol", rank_1_name)` — the button promised a
+        # browser but delivered a single profile (which then redirected to
+        # /member-overview). Now opens the real politician index.
         if st.button("Browse politicians →", key="lob_gw_pol", width="stretch"):
-            idx = fetch_politician_index()
-            if not idx.empty:
-                _nav("pol", idx.iloc[0]["member_name"])
-                st.rerun()
+            _open_pol_index()
+            st.rerun()
 
     with g2:
         st.html(
@@ -608,11 +666,12 @@ def _render_landing(summary: pd.DataFrame) -> None:
                 "policy areas",
             )
         )
+        # Audit fix (2026-05-26, P1-3): previously jumped to the top area's
+        # Stage 2 via `_nav("area", top_area_name)`. Now opens the real
+        # policy-area index.
         if st.button("Browse policy areas →", key="lob_gw_area", width="stretch"):
-            areas = fetch_policy_area_summary()
-            if not areas.empty:
-                _nav("area", areas.iloc[0]["public_policy_area"])
-                st.rerun()
+            _open_area_index()
+            st.rerun()
 
     # ── Topics rail (free-text keyword scan — NOT a register taxonomy) ────
     evidence_heading("Topics")
@@ -650,8 +709,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
         idx = fetch_politician_index()
         if idx.empty:
             todo_callout(
-                "v_lobbying_index — re-run lobby_processing.py to regenerate "
-                "data/gold/parquet/most_lobbied_politicians.parquet"
+                "v_lobbying_index — The most-lobbied politicians ranking will appear here once the next data refresh completes."
             )
         else:
             cards: list[str] = []
@@ -688,14 +746,13 @@ def _render_landing(summary: pd.DataFrame) -> None:
         orgs = fetch_org_index()
         if orgs.empty:
             todo_callout(
-                "v_lobbying_org_index — re-run lobby_processing.py to regenerate "
-                "data/gold/parquet/top_lobbyist_organisations.parquet"
+                "v_lobbying_org_index — The top lobbying organisations ranking will appear here once the next data refresh completes."
             )
         else:
             cards: list[str] = []
             for rank, (_, row) in enumerate(orgs.head(10).iterrows(), start=1):
-                name = str(row.get("lobbyist_name", "—"))
-                meta = str(row.get("sector", "") or "")
+                name = _safe_str(row.get("lobbyist_name")) or "—"
+                meta = _safe_str(row.get("sector"))
                 pills = [
                     f"{int(row.get('return_count', 0) or 0):,} returns",
                     f"{int(row.get('politicians_targeted', 0) or 0):,} politicians",
@@ -725,7 +782,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
             "</div>"
         )
         todo_callout(
-            "v_lobbying_revolving_door — re-run lobby_processing.py to regenerate data/gold/parquet/revolving_door_dpos.parquet"
+            "v_lobbying_revolving_door — The revolving-door DPO ranking will appear here once the next data refresh completes."
         )
     else:
         rd_row = rd_summary.iloc[0]
@@ -773,8 +830,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
     recent = fetch_recent_returns()
     if recent.empty:
         todo_callout(
-            "v_lobbying_recent_returns — re-run lobby_processing.py to regenerate "
-            "data/silver/lobbying/parquet/returns_master.parquet"
+            "v_lobbying_recent_returns — The recent returns feed will appear here once the next data refresh completes."
         )
     else:
         activity_html = ""
@@ -785,8 +841,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
             activity_html += _activity_row_html(period, org, area)
         st.html(activity_html)
         todo_callout(
-            "member_name on v_lobbying_recent_returns — returns_master.csv is "
-            "return-level, not politician-level; wire in once pipeline enrichment joins them"
+            "member_name on v_lobbying_recent_returns — The per-politician feed will appear here once the underlying records are joined to the politician registry."
         )
 
     _provenance_footer(summary)
@@ -887,6 +942,194 @@ def _render_dpo_index(summary: pd.DataFrame) -> None:
     _provenance_footer(summary)
 
 
+# ── Politician index — browsable, filterable list of every politician ────────
+# Audit fix (2026-05-26, P1-3): the gateway "Browse politicians →" button
+# used to navigate to whichever politician happened to occupy rank #1 (which
+# in turn redirected to /member-overview). The button promised a browser but
+# delivered a single profile. This view delivers the actual browser: ranked
+# card list of all 4,286 politicians/senators with chamber + name filter and
+# pagination. Each card jumps directly to the canonical member-overview
+# profile via clickable_card_link — same contract as the landing leaderboard.
+
+
+def _render_pol_index(summary: pd.DataFrame) -> None:
+    crumb = breadcrumb(["Lobbying", "Politicians"], key_prefix="pol_idx")
+    if crumb == 0:
+        _clear_profile()
+        _clear_lob_qp()
+        st.rerun()
+
+    hero_banner(
+        kicker="LOBBYING · POLITICIANS",
+        title="Browse politicians",
+        dek=(
+            "Every Designated Public Official on the lobbying register, ranked by "
+            "the number of returns targeting them. Filter by chamber or search by "
+            "name, then click a card to open the full Member Overview profile."
+        ),
+    )
+
+    pol_df = fetch_politician_index()
+    if pol_df.empty:
+        empty_state("No politicians", "The lobbying politician index is empty.")
+        _provenance_footer(summary)
+        return
+
+    # ── Filter strip ──────────────────────────────────────────────────────
+    search = st.text_input(
+        "Search politicians",
+        key="pol_idx_search",
+        placeholder="Search by name…",
+        label_visibility="collapsed",
+    )
+    chamber_choice = (
+        st.segmented_control(
+            "Chamber",
+            options=["All", "Dáil", "Seanad"],
+            default="All",
+            key="pol_idx_chamber",
+        )
+        or "All"
+    )
+
+    filtered = pol_df
+    if search and search.strip():
+        filtered = filtered[
+            filtered["member_name"].astype(str).str.contains(
+                search.strip(), case=False, na=False, regex=False
+            )
+        ]
+    if chamber_choice != "All":
+        # chamber column carries values like "Dáil Éireann" / "Seanad Éireann"
+        filtered = filtered[
+            filtered["chamber"].astype(str).str.contains(chamber_choice, case=False, na=False)
+        ]
+
+    st.caption(f"Showing {len(filtered):,} of {len(pol_df):,} politicians.")
+
+    if filtered.empty:
+        empty_state("No matches", "No politicians match the current filters.")
+        _provenance_footer(summary)
+        return
+
+    # ── Paginated card list ───────────────────────────────────────────────
+    evidence_heading("Politicians")
+    page_size, page_idx = pagination_controls(
+        total=len(filtered),
+        key_prefix="pol_idx",
+        label="politicians",
+    )
+    page_slice = filtered.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+    rank_offset = page_idx * page_size
+    cards: list[str] = []
+    for i, (_, row) in enumerate(page_slice.iterrows(), start=1):
+        name = _safe_str(row.get("member_name")) or "—"
+        member_id = _safe_str(row.get("unique_member_code"))
+        meta = clean_meta(
+            _safe_str(row.get("chamber")),
+            _safe_str(row.get("position")),
+        )
+        pills = [
+            f"{int(row.get('return_count', 0) or 0):,} returns",
+            f"{int(row.get('distinct_orgs', 0) or 0):,} orgs",
+            f"{int(row.get('distinct_policy_areas', 0) or 0):,} policy areas",
+        ]
+        # Cross-page: whole card jumps to the canonical Member Overview
+        # profile when the unique_member_code is known. Falls back to the
+        # legacy ?lob_pol=<name> route (which the shared member_moved_callout
+        # then handles) for any pol-index rows without a stable ID yet.
+        if member_id:
+            href = member_profile_url(member_id, section="lobbying")
+        else:
+            href = f"?lob_pol={quote(name)}"
+        cards.append(
+            clickable_card_link(
+                href=href,
+                inner_html=_lob_card_html(name, meta, pills, rank=rank_offset + i),
+                aria_label=f"View {name}'s full profile",
+            )
+        )
+    st.html("\n".join(cards))
+
+    _provenance_footer(summary)
+
+
+# ── Policy area index — browsable list of all 32 register categories ─────────
+# Audit fix (2026-05-26, P1-3): same family as the politician-index fix.
+# "Browse policy areas →" used to jump straight to the top area's Stage 2
+# (e.g. Justice and Equality); now opens a real index.
+
+
+def _render_area_index(summary: pd.DataFrame) -> None:
+    crumb = breadcrumb(["Lobbying", "Policy areas"], key_prefix="area_idx")
+    if crumb == 0:
+        _clear_profile()
+        _clear_lob_qp()
+        st.rerun()
+
+    hero_banner(
+        kicker="LOBBYING · POLICY AREAS",
+        title="Browse policy areas",
+        dek=(
+            "The 32 official lobbying.ie policy areas, ranked by the number of "
+            "returns filed under each. Click a card to see every return filed "
+            "under that area, the organisations responsible, and the politicians "
+            "they targeted."
+        ),
+    )
+
+    area_df = fetch_policy_area_summary()
+    if area_df.empty:
+        empty_state("No policy areas", "The policy area summary is empty.")
+        _provenance_footer(summary)
+        return
+
+    # ── Filter strip — area names are short, name search is enough ────────
+    search = st.text_input(
+        "Search policy areas",
+        key="area_idx_search",
+        placeholder="Search by area name…",
+        label_visibility="collapsed",
+    )
+
+    filtered = area_df
+    if search and search.strip():
+        filtered = filtered[
+            filtered["public_policy_area"].astype(str).str.contains(
+                search.strip(), case=False, na=False, regex=False
+            )
+        ]
+
+    st.caption(f"Showing {len(filtered):,} of {len(area_df):,} policy areas.")
+
+    if filtered.empty:
+        empty_state("No matches", "No policy areas match the current filters.")
+        _provenance_footer(summary)
+        return
+
+    # ── Card list — 32 areas fit in one viewport without pagination ──────
+    evidence_heading("Policy areas")
+    cards: list[str] = []
+    for i, (_, row) in enumerate(filtered.iterrows(), start=1):
+        name = _safe_str(row.get("public_policy_area")) or "—"
+        pills = [
+            f"{int(row.get('return_count', 0) or 0):,} returns",
+            f"{int(row.get('distinct_orgs', 0) or 0):,} orgs",
+            f"{int(row.get('distinct_politicians', 0) or 0):,} politicians",
+        ]
+        # Each area opens its Stage 2 (filtered returns table).
+        cards.append(
+            clickable_card_link(
+                href=f"?lob_area={quote(name)}",
+                inner_html=_lob_card_html(name, "", pills, rank=i),
+                aria_label=f"Browse returns filed under {name}",
+            )
+        )
+    st.html("\n".join(cards))
+
+    _provenance_footer(summary)
+
+
 # ── Organisation index — browsable, filterable list of every lobbying org ────
 
 # Filter-option label → funding_profile value.
@@ -978,8 +1221,8 @@ def _render_org_index(summary: pd.DataFrame) -> None:
     rank_offset = page_idx * page_size
     cards: list[str] = []
     for i, (_, row) in enumerate(page_slice.iterrows(), start=1):
-        name = str(row.get("lobbyist_name", "—"))
-        meta = str(row.get("sector", "") or "")
+        name = _safe_str(row.get("lobbyist_name")) or "—"
+        meta = _safe_str(row.get("sector"))
         pills = [
             f"{int(row.get('return_count', 0) or 0):,} returns",
             f"{int(row.get('politicians_targeted', 0) or 0):,} politicians",
@@ -1044,11 +1287,14 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
         badges=badges or None,
     )
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Returns", f"{ret_cnt:,}")
-    m2.metric("Firms", f"{firm_cnt:,}")
-    m3.metric("Politicians", f"{pol_cnt:,}")
-    m4.metric("Policy areas", f"{area_cnt:,}")
+    totals_strip(
+        [
+            (f"{ret_cnt:,}", "Returns"),
+            (f"{firm_cnt:,}", "Firms"),
+            (f"{pol_cnt:,}", "Politicians"),
+            (f"{area_cnt:,}", "Policy areas"),
+        ]
+    )
 
     # ── Firms represented ─────────────────────────────────────────────────
     evidence_heading("Firms represented")
@@ -1264,11 +1510,15 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
         return
 
     # ── Stat strip ────────────────────────────────────────────────────────
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Returns matching", f"{total:,}")
-    c2.metric("Distinct organisations", f"{orgs:,}")
-    c3.metric("Policy areas spanned", f"{areas:,}")
-    c4.metric("Period", f"{first_p[:7]} – {last_p[:7]}" if first_p != "—" else "—")
+    period_label = f"{first_p[:7]} – {last_p[:7]}" if first_p != "—" else "—"
+    totals_strip(
+        [
+            (f"{total:,}", "Returns matching"),
+            (f"{orgs:,}", "Distinct organisations"),
+            (f"{areas:,}", "Policy areas spanned"),
+            (period_label, "Period"),
+        ]
+    )
 
     # ── Year filter + fetch ───────────────────────────────────────────────
     detail_all = fetch_topic_returns(keywords)
@@ -1412,10 +1662,13 @@ def render_member_lobbying(
             badges=meta_badges or None,
         )
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Returns targeting them", f"{ret_cnt:,}")
-    c2.metric("Distinct organisations", f"{org_cnt:,}")
-    c3.metric("Policy areas", f"{area_cnt:,}")
+    totals_strip(
+        [
+            (f"{ret_cnt:,}", "Returns targeting them"),
+            (f"{org_cnt:,}", "Distinct organisations"),
+            (f"{area_cnt:,}", "Policy areas"),
+        ]
+    )
 
     # Cross-page CTA only in stand-alone mode — embedded copy already lives
     # on the canonical profile page, so the link would point at itself.
@@ -1467,7 +1720,7 @@ def render_member_lobbying(
         max_ret = int(disp2["Returns"].max()) if not disp2.empty else 1
         st.dataframe(
             disp2,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={
                 "Policy area": st.column_config.TextColumn("Policy area"),
@@ -1505,7 +1758,7 @@ def render_member_lobbying(
                     "Return URL", display_text=r"https://www\.lobbying\.ie/return/(\d+)"
                 )
             },
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
         export_button(detail, "Export CSV", f"{name.replace(' ', '_')}_lobbying.csv", "lob_export_pol_detail")
@@ -1552,13 +1805,13 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
         if not m.empty:
             org_row = m.iloc[0]
 
-    sector = str(org_row.get("sector", "") or "")
-    website = str(org_row.get("website", "") or "")
+    sector = _safe_str(org_row.get("sector"))
+    website = _safe_str(org_row.get("website"))
     ret_cnt = int(org_row.get("return_count", 0) or 0)
     pol_cnt = int(org_row.get("politicians_targeted", 0) or 0)
     area_cnt = int(org_row.get("distinct_policy_areas", 0) or 0)
-    first_p = str(org_row.get("first_period", "") or "")
-    last_p = str(org_row.get("last_period", "") or "")
+    first_p = _safe_str(org_row.get("first_period"))
+    last_p = _safe_str(org_row.get("last_period"))
 
     badges = [b for b in [sector] if b]
     badges.extend(_register_pills(org_row))
@@ -1581,16 +1834,22 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
     persist = fetch_org_persistence(org_name)
     if not persist.empty:
         pr = persist.iloc[0]
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Returns filed", f"{ret_cnt:,}")
-        c2.metric("Politicians targeted", f"{pol_cnt:,}")
-        c3.metric("Periods filed", str(pr.get("distinct_periods_filed", "—") or "—"))
-        c4.metric("Active span (days)", str(pr.get("active_span_days", "—") or "—"))
+        totals_strip(
+            [
+                (f"{ret_cnt:,}", "Returns filed"),
+                (f"{pol_cnt:,}", "Politicians targeted"),
+                (str(pr.get("distinct_periods_filed", "—") or "—"), "Periods filed"),
+                (str(pr.get("active_span_days", "—") or "—"), "Active span (days)"),
+            ]
+        )
     else:
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Returns filed", f"{ret_cnt:,}")
-        c2.metric("Politicians targeted", f"{pol_cnt:,}")
-        c3.metric("Policy areas", f"{area_cnt:,}")
+        totals_strip(
+            [
+                (f"{ret_cnt:,}", "Returns filed"),
+                (f"{pol_cnt:,}", "Politicians targeted"),
+                (f"{area_cnt:,}", "Policy areas"),
+            ]
+        )
 
     # ── Politicians targeted — ranked cards (primary view) ────────────────
     evidence_heading("Politicians targeted")
@@ -1638,7 +1897,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
         )
         st.dataframe(
             disp_c,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={
                 "Client": st.column_config.TextColumn("Client"),
@@ -1728,7 +1987,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
                     "Return URL", display_text=r"https://www\.lobbying\.ie/return/(\d+)"
                 )
             },
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
         export_filename_suffix = f"_{''.join(c if c.isalnum() else '_' for c in topic_ctx)[:40]}" if topic_kws else ""
@@ -1872,10 +2131,13 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
         ),
     )
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Returns", f"{ret_cnt:,}")
-    c2.metric("Organisations", f"{org_cnt:,}")
-    c3.metric("Politicians", f"{pol_cnt:,}")
+    totals_strip(
+        [
+            (f"{ret_cnt:,}", "Returns"),
+            (f"{org_cnt:,}", "Organisations"),
+            (f"{pol_cnt:,}", "Politicians"),
+        ]
+    )
 
     # ── Most-exposed politicians — ranked cards (primary view) ─────────────
     evidence_heading("Most-targeted politicians")
@@ -1933,7 +2195,7 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
                     "Return URL", display_text=r"https://www\.lobbying\.ie/return/(\d+)"
                 )
             },
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
         export_button(detail, "Export CSV", f"{area[:40].replace(' ', '_')}_lobbying.csv", "lob_export_area_detail")
@@ -2007,15 +2269,15 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
 
     dpo_count = sum(1 for _, r in detail.iterrows() if str(r.get("return_id", "")) in dpo_by_return)
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Returns shown", f"{len(detail):,}")
-    c2.metric(
-        "Distinct organisations", f"{detail['lobbyist_name'].nunique():,}" if "lobbyist_name" in detail.columns else "—"
+    orgs_label = (
+        f"{detail['lobbyist_name'].nunique():,}" if "lobbyist_name" in detail.columns else "—"
     )
-    c3.metric(
-        "DPO involvement",
-        f"{dpo_count:,}",
-        help="Returns where a former Designated Public Officer carried out the lobbying.",
+    totals_strip(
+        [
+            (f"{len(detail):,}", "Returns shown"),
+            (orgs_label, "Distinct organisations"),
+            (f"{dpo_count:,}", "DPO involvement"),
+        ]
     )
 
     csv_export = detail.copy()
@@ -2099,6 +2361,12 @@ def lobbying_page() -> None:
     elif "lob_orgindex" in qp:
         _clear_profile()
         st.session_state.lob_view_org_index = True
+    elif "lob_polindex" in qp:
+        _clear_profile()
+        st.session_state.lob_view_pol_index = True
+    elif "lob_areaindex" in qp:
+        _clear_profile()
+        st.session_state.lob_view_area_index = True
     elif "lob_topic" in qp:
         _clear_profile()
         st.session_state.lob_selected_topic = qp["lob_topic"]
@@ -2129,6 +2397,8 @@ def lobbying_page() -> None:
     sel_topic = st.session_state.lob_selected_topic
     view_rd = st.session_state.lob_view_revolving_door
     view_org_index = st.session_state.lob_view_org_index
+    view_pol_index = st.session_state.lob_view_pol_index
+    view_area_index = st.session_state.lob_view_area_index
     sel_result_pol = st.session_state.lob_results_pol
 
     if sel_dpo:
@@ -2137,27 +2407,31 @@ def lobbying_page() -> None:
         _render_dpo_index(summary)
     elif view_org_index:
         _render_org_index(summary)
+    elif view_pol_index:
+        _render_pol_index(summary)
+    elif view_area_index:
+        _render_area_index(summary)
     elif sel_topic:
         _render_topic(sel_topic, summary)
     elif sel_pol:
-        # Legacy ?lob_pol=<name> URLs (from before Phase 4) now redirect to
-        # the canonical /member-overview?member=<code>#lobbying profile.
-        # Card hrefs already point there, so this is for bookmarks / external
+        # Legacy ?lob_pol=<name> URLs (from before Phase 4) redirect to the
+        # canonical /member-overview?member=<code>#lobbying profile. Card
+        # hrefs already point there, so this is for bookmarks / external
         # links only.
-        target = member_profile_url(name_join_key(sel_pol), section="lobbying")
-        st.html(
-            f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
-            f"<strong>Politician profiles have moved.</strong><br>"
-            f'<span style="color:var(--text-meta)">Per-TD lobbying now lives on the '
-            f"canonical member-overview page. Bookmarks to <code>?lob_pol={_h(sel_pol)}</code> "
-            f"redirect here.</span><br>"
-            f'<a class="dt-member-link" href="{_h(target)}" target="_self" '
-            f'style="margin-top:0.6rem;display:inline-block;">'
-            f"Open {_h(sel_pol)}'s profile →</a>"
-            f"</div>"
+        #
+        # Audit fix (2026-05-26): the previous hand-rolled `st.html` + state
+        # mutation rendered an apparently blank page because the query-param
+        # pop triggered a rerun that ate the callout. The shared helper
+        # `member_moved_callout` uses `resolve_member_code` (not the
+        # deprecated `name_join_key`) and calls `st.stop()` after rendering
+        # so the callout stays put.
+        member_moved_callout(
+            sel_pol,
+            section="lobbying",
+            section_label="Per-TD lobbying",
+            legacy_param="lob_pol",
+            state_keys=("lob_selected_politician",),
         )
-        _clear_profile()
-        _clear_lob_qp()
     elif sel_org:
         _render_org(sel_org, summary)
     elif sel_area and sel_result_pol:

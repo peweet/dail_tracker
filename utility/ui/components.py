@@ -99,13 +99,36 @@ def render_notable_chips(
     available   — members actually in the dataset (filters names to this set)
     key_prefix  — unique prefix for button keys
     session_key — st.session_state key to write the selected name into
+
+    Audit fix (2026-05-26, interests P1-3 / attendance P1-6): when two
+    chips share a surname (e.g. "Michael Healy-Rae" and "Danny Healy-Rae"),
+    the chip label was ambiguous — both rendered as "Healy-Rae" with only
+    a hover tooltip distinguishing them. Hover doesn't work on mobile, so
+    citizens couldn't tell them apart. Now: when a surname collides among
+    visible chips, prepend the first initial (D. Healy-Rae, M. Healy-Rae).
     """
     st.markdown('<p class="sidebar-label">Notable members</p>', unsafe_allow_html=True)
     visible = [n for n in names if n in available]
+    # Count surnames to detect collisions among visible chips only.
+    surname_counts: dict[str, int] = {}
+    for n in visible:
+        last = n.split()[-1] if n else n
+        surname_counts[last] = surname_counts.get(last, 0) + 1
+
+    def _chip_label(name: str) -> str:
+        parts = name.split()
+        if not parts:
+            return name
+        last = parts[-1]
+        if surname_counts.get(last, 0) > 1 and len(parts) >= 2:
+            first_initial = parts[0][:1].upper()
+            return f"{first_initial}. {last}"
+        return last
+
     chip_cols = st.columns(cols)
     for i, name in enumerate(visible):
         if chip_cols[i % cols].button(
-            name.split()[-1], key=f"{key_prefix}_{name}", use_container_width=True, help=name
+            _chip_label(name), key=f"{key_prefix}_{name}", use_container_width=True, help=name
         ):
             st.session_state[session_key] = name
             return True
@@ -222,6 +245,39 @@ def glossary_strip(terms: list[tuple[str, str]]) -> None:
     st.html(f'<div class="dt-glossary-strip">{items}</div>')
 
 
+def totals_strip(items: list[tuple[str, str]]) -> None:
+    """Compact horizontal strip of value / label pairs, with thin dividers
+    between cells. Replaces ``st.metric`` triplets / quadruplets on Stage 2
+    views that previously read as a fintech-dashboard hero block. CSS
+    classes (``.dt-totals-*``) live in ``shared_css.py``.
+
+    Each tuple is ``(value, label)``; value is rendered escaped, label is
+    rendered escaped + UPPERCASED via CSS.
+
+    Use this rather than ``st.columns(N)`` + ``st.metric`` on:
+    - payments Rankings view (since-2020 summary)
+    - lobbying org Stage 2 (returns / politicians / periods / span)
+    - lobbying topic Stage 2 (returns / orgs / areas / period)
+    - lobbying DPO Stage 2b individual (firms / clients / politicians / returns)
+
+    The year-view of payments has historically used the older ``pay-totals-*``
+    markup directly; that call site should migrate to this helper in the same
+    pass and the ``pay-totals-*`` classes can be retired.
+    """
+    if not items:
+        return
+    cells: list[str] = []
+    for value, label in items:
+        cells.append(
+            f'<div class="dt-totals-item">'
+            f'<span class="dt-totals-num">{_h(str(value))}</span>'
+            f'<span class="dt-totals-lbl">{_h(str(label))}</span>'
+            f"</div>"
+        )
+    inner = '<div class="dt-totals-divider"></div>'.join(cells)
+    st.html(f'<div class="dt-totals-strip">{inner}</div>')
+
+
 def stat_strip(stats: list[tuple[str, str, str]] | list[tuple[str, str, str, str]]) -> None:
     """Render evidence stats. Each stat is (value, label, colour) or
     (value, label, colour, sub_label) where sub_label adds comparative
@@ -252,7 +308,17 @@ def outcome_badge(outcome: str) -> str:
 
 
 def evidence_heading(text: str) -> None:
-    st.markdown(f'<p class="section-heading">{text}</p>', unsafe_allow_html=True)
+    """Cross-page section heading.
+
+    Tier-2 audit fix (2026-05-26): emits a real ``<h2>`` rather than
+    ``<p class="section-heading">``. Screen readers can now navigate by
+    heading level between the page ``<h1>`` (in `hero_banner`) and
+    section content. Visual styling is unchanged — same class is kept
+    so the existing CSS rule still applies; only the tag changes.
+    Resolves: votes Appendix #4, interests Part 3 H4, legislation P2-3,
+    attendance P2-6.
+    """
+    st.markdown(f'<h2 class="section-heading">{_h(text)}</h2>', unsafe_allow_html=True)
 
 
 def todo_callout(message: str) -> None:
@@ -290,6 +356,13 @@ def todo_callout(message: str) -> None:
     citizen_msg = parts[1].strip() if len(parts) > 1 else ""
     if not citizen_msg:
         citizen_msg = "More data coming soon."
+    # Audit fix (2026-05-26, interests P1-1 / committees P1-1): callers
+    # often write the citizen sentence in lowercase because the developer
+    # prefix before the em-dash naturally flows into it. Capitalise the
+    # first character so the rendered sentence reads as a complete
+    # standalone statement ("A ranked leaderboard..." not "a ranked
+    # leaderboard...").
+    citizen_msg = citizen_msg[0].upper() + citizen_msg[1:] if citizen_msg else citizen_msg
 
     show_detail = os.getenv("DT_SHOW_TODO_DETAIL") == "1"
     detail_html = (
@@ -366,10 +439,16 @@ def member_moved_callout(
             f"All TDs browse</a>.</span>"
         )
 
+    # Sentence-case the section label while preserving the canonical acronym
+    # casing for TD / TAA / PRA / EU / US / SI. `str.capitalize()` lowercases
+    # everything after the first letter — turning "Per-TD attendance" into the
+    # ugly "Per-td attendance". Instead, uppercase the first letter only.
+    label_display = section_label[:1].upper() + section_label[1:] if section_label else section_label
+
     st.html(
         f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
         f"<strong>Member profiles have moved.</strong><br>"
-        f'<span style="color:var(--text-meta)">{_h(section_label.capitalize())} '
+        f'<span style="color:var(--text-meta)">{_h(label_display)} '
         f"now lives on the canonical member-overview page.</span><br>"
         f"{link_html}"
         f"</div>"
@@ -405,26 +484,26 @@ def main_member_jump(
     setting the relevant ``selected_td`` session-state key + ``st.rerun()``).
     Mirrors ``sidebar_member_filter`` but is sized and labelled for the
     main column as a primary call-to-action under the hero.
+
+    Audit fix (2026-05-26, interests P1-4): the previous version was a
+    ``text_input + selectbox`` pair where the text input filtered the
+    selectbox options. Streamlit's red-border ``Press Enter to apply``
+    hint led users to think Enter would commit the filter; in reality
+    only clicking a dropdown option did anything. Worse, ``st.selectbox``
+    has its own built-in type-to-search, so the text input was doubly
+    redundant. Now a single placeholder-leading ``st.selectbox`` — one
+    affordance, one click target, no Enter trap.
     """
     st.html(f'<p class="dt-main-search-kicker">{_h(label)}</p>')
-    cols = st.columns([3, 2])
-    with cols[0]:
-        search = st.text_input(
-            label,
-            placeholder=placeholder,
-            key=f"{key_prefix}_main_search",
-            label_visibility="collapsed",
-        )
-    sq = search.strip().lower()
-    filtered = [m for m in members if sq in m.lower()] if sq else members
-    with cols[1]:
-        chosen = st.selectbox(
-            label,
-            ["— select —"] + filtered,
-            key=f"{key_prefix}_main_select",
-            label_visibility="collapsed",
-        )
-    return chosen if chosen and chosen != "— select —" else None
+    options = [placeholder] + list(members)
+    chosen = st.selectbox(
+        label,
+        options,
+        index=0,
+        key=f"{key_prefix}_main_select",
+        label_visibility="collapsed",
+    )
+    return chosen if chosen and chosen != placeholder else None
 
 
 def breadcrumb(labels: list[str], *, key_prefix: str) -> int | None:
@@ -516,8 +595,26 @@ def member_card_html(
     avatar_initials  — 1–2 letter fallback when neither photo nor rank fits
                        the page (e.g. profile-context cards).
     """
+    # Audit fix (2026-05-26, interests P1-2): the previous priority was
+    # photo → rank → initials, which meant rank was INVISIBLE on every
+    # card that had a member photo (~80% of Dáil members). Critical for a
+    # leaderboard. Now: when a photo is present, the rank renders as a
+    # small overlay chip on the avatar; rank-only and initials-only paths
+    # are unchanged. The overlay slot is positioned by
+    # ``.dt-name-card-rank-overlay`` in shared_css.py.
     if avatar_url:
-        left_inner = f'<img class="dt-name-card-avatar" src="{_h(avatar_url)}" alt="" loading="lazy">'
+        rank_overlay = ""
+        if rank is not None:
+            rank_overlay_cls = (
+                "dt-name-card-rank-overlay dt-name-card-rank-overlay-top"
+                if rank <= 3
+                else "dt-name-card-rank-overlay"
+            )
+            rank_overlay = f'<span class="{rank_overlay_cls}">#{rank}</span>'
+        left_inner = (
+            f'<img class="dt-name-card-avatar" src="{_h(avatar_url)}" alt="" loading="lazy">'
+            f"{rank_overlay}"
+        )
     elif rank is not None:
         rank_cls = "dt-name-card-rank dt-name-card-rank-top" if rank <= 3 else "dt-name-card-rank"
         left_inner = f'<span class="{rank_cls}">#{rank}</span>'
@@ -659,15 +756,14 @@ def committee_row_html(
         meta_parts.append(f"<strong>{int(members)}</strong> member{'s' if members != 1 else ''}")
     meta_html = f'<div class="cmt-row-meta">{" · ".join(meta_parts)}</div>' if meta_parts else ""
     stripe_html = party_stripe_html(party_seats, show_legend=True) if party_seats else ""
-    link_html = ""
-    if oireachtas_url:
-        from ui.entity_links import source_link_html  # local import — avoids any future circular risk
-
-        link_html = (
-            f'<div class="cmt-row-pills">'
-            f"{source_link_html(oireachtas_url, 'Oireachtas.ie', aria_label=f'Open {name} on oireachtas.ie')}"
-            f"</div>"
-        )
+    # P2-5 audit fix: previously each register card carried its own
+    # "Oireachtas.ie ↗" link — five identical accent-coloured external
+    # links per page created a vertical column of click-bait that
+    # competed with the actual card click target. The committee detail
+    # identity strip already surfaces this link in context (one link,
+    # the right time). The `oireachtas_url` argument is kept on the
+    # signature so callers don't need editing; it's just not rendered
+    # on the register row any more.
     return (
         f'<div class="cmt-row">'
         f"{rank_html}"
@@ -675,7 +771,6 @@ def committee_row_html(
         f'<div class="cmt-row-head"><span class="cmt-row-name">{_h(name)}</span>{status_html}</div>'
         f"{meta_html}"
         f"{stripe_html}"
-        f"{link_html}"
         f"</div>"
         f"</div>"
     )
@@ -693,9 +788,16 @@ def committee_identity_strip(
     source_document_url: str | None = None,
 ) -> None:
     """Stage-2 identity strip for a single committee."""
-    meta_parts: list[str] = []
+    # P2-3 audit fix: Active / Ended was rendered as inline text inside the
+    # meta line, despite the register cards rendering the same value as a
+    # coloured chip. Lift status out of the meta line and emit it with the
+    # same chip CSS so the detail page is visually consistent with the
+    # register.
+    status_html = ""
     if status:
-        meta_parts.append(status)
+        status_cls = "cmt-row-status-active" if status == "Active" else "cmt-row-status-ended"
+        status_html = f'<span class="cmt-row-status {status_cls}">{_h(status)}</span>'
+    meta_parts: list[str] = []
     if type_:
         meta_parts.append(type_)
     if member_count:
@@ -726,7 +828,10 @@ def committee_identity_strip(
     links_html = f'<div class="cmt-identity-links">{"".join(links)}</div>' if links else ""
     st.markdown(
         f'<div class="cmt-identity">'
+        f'<div class="cmt-identity-head">'
         f'<p class="cmt-identity-name">{_h(name)}</p>'
+        f"{status_html}"
+        f"</div>"
         f'<p class="cmt-identity-meta">{meta_html}</p>'
         f"{links_html}"
         f"</div>",
