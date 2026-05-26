@@ -73,7 +73,34 @@ from ui.components import (
     pill,
     sidebar_page_header,
 )
+from data_access.identity_resolver import resolve_member_code
 from ui.entity_links import member_profile_url, name_join_key, source_link_html
+
+
+def _resolve_or_join(name: str) -> str:
+    """Prefer the canonical registry code; fall back to the deprecated
+    sorted-letters join key only when the name isn't in v_member_registry.
+    Matches the post-round-3 contract used by every other dimension page.
+    """
+    return resolve_member_code(name) or name_join_key(name)
+
+
+def _p(n: int, singular: str, plural: str | None = None) -> str:
+    """Pluralise a count with thousand-separators. `_p(1, 'firm')` → '1 firm'."""
+    word = singular if n == 1 else (plural or singular + "s")
+    return f"{n:,} {word}"
+
+
+def _fmt_period(value: object) -> str:
+    """Friendly month-year format for ISO date / period strings.
+    `2025-09-01` → `Sep 2025`; `2025-09` → `Sep 2025`; falsy → '—'.
+    """
+    if value is None or value == "" or value == "None":
+        return "—"
+    try:
+        return pd.to_datetime(value).strftime("%b %Y")
+    except Exception:
+        return str(value)
 from ui.export_controls import export_button
 from ui.source_links import render_source_links
 from ui.source_pdfs import provenance_expander
@@ -223,7 +250,7 @@ def _provenance_footer(summary: pd.DataFrame) -> None:
             "**Data source:** lobbying.ie — the Irish Register of Lobbying. "
             "Returns are filed quarterly by organisations lobbying Designated Public Officials.",
             f"Source: {src}",
-            f"Dataset covers: {fp} → {lp}  ·  Last fetched: {ts}",
+            f"Dataset covers: {_fmt_period(fp)} → {_fmt_period(lp)}  ·  Last fetched: {ts}",
         ]
     )
 
@@ -270,7 +297,7 @@ def _render_sidebar() -> None:
                 st.query_params["lp3_org"] = sel[6:]
             else:
                 # Politicians: redirect to canonical member-overview (matches lobby_2 behaviour).
-                target = member_profile_url(name_join_key(sel), section="lobbying")
+                target = member_profile_url(_resolve_or_join(sel), section="lobbying")
                 st.markdown(
                     f'<meta http-equiv="refresh" content="0;url={_h(target)}">',
                     unsafe_allow_html=True,
@@ -294,7 +321,8 @@ def _render_landing(summary: pd.DataFrame) -> None:
     # Hero — plain H1 + dek. No badges, no kicker. A single sentence puts the
     # counts inline as part of the prose, not as separate chips.
     period_clause_html = (
-        f" The dataset covers returns from <strong>{_h(first_p)}</strong> to <strong>{_h(last_p)}</strong>."
+        f" The dataset covers returns from <strong>{_h(_fmt_period(first_p))}</strong> "
+        f"to <strong>{_h(_fmt_period(last_p))}</strong>."
         if first_p and last_p and first_p != "None" and last_p != "None"
         else ""
     )
@@ -315,56 +343,64 @@ def _render_landing(summary: pd.DataFrame) -> None:
         )
 
     # Gateway — three matching quiet tiles. Identical shape across the trio
-    # (heading + one sentence + CTA underneath). Icons dropped; the prose is
-    # the affordance.
+    # (heading + one sentence). Whole tile is the click target via the
+    # clickable_card_link stretched-link pattern — no separate buttons,
+    # matches the rest of the app's ranked-card affordance contract.
     _section_head(
         "Where do you want to investigate?",
         "Three entry points into the register. The data underneath is the same; the angle differs.",
     )
+
+    # Pre-compute URLs so each tile becomes a real <a href> at render-time.
+    pol_idx = fetch_politician_index()
+    if not pol_idx.empty:
+        m_id = str(pol_idx.iloc[0].get("unique_member_code", "") or "")
+        m_name = str(pol_idx.iloc[0].get("member_name", ""))
+        pol_gateway_href = member_profile_url(m_id or _resolve_or_join(m_name), section="lobbying")
+    else:
+        pol_gateway_href = "#"
+    org_gateway_href = f"{ROUTE}?lp3_orgindex=1"
+    area_summary = fetch_policy_area_summary()
+    if not area_summary.empty:
+        first_area = str(area_summary.iloc[0]["public_policy_area"])
+        area_gateway_href = f"{ROUTE}?lp3_area={quote(first_area)}"
+    else:
+        area_gateway_href = "#"
+
     g1, g2, g3 = st.columns(3)
     with g1:
         st.html(
-            _tile_html(
-                "Follow a politician",
-                "See every lobbying return targeting a specific TD, senator, or minister.",
+            clickable_card_link(
+                href=pol_gateway_href,
+                inner_html=_tile_html(
+                    "Follow a politician",
+                    "See every lobbying return targeting a specific TD, senator, or minister.",
+                ),
+                aria_label="Open a politician profile",
             )
         )
-        if st.button("Open politician profile →", key="lp3_gw_pol", width="stretch"):
-            idx = fetch_politician_index()
-            if not idx.empty:
-                # Politicians live on /member-overview (canonical, per lobby_2 redirect).
-                m_id = str(idx.iloc[0].get("unique_member_code", "") or "")
-                m_name = str(idx.iloc[0].get("member_name", ""))
-                target = member_profile_url(m_id or name_join_key(m_name), section="lobbying")
-                st.markdown(
-                    f'<meta http-equiv="refresh" content="0;url={_h(target)}">',
-                    unsafe_allow_html=True,
-                )
-                st.stop()
     with g2:
         st.html(
-            _tile_html(
-                "Follow an organisation",
-                "See which politicians an organisation has lobbied, on what topics, and over what period.",
+            clickable_card_link(
+                href=org_gateway_href,
+                inner_html=_tile_html(
+                    "Follow an organisation",
+                    "See which politicians an organisation has lobbied, on what topics, and over what period.",
+                ),
+                aria_label="Browse all lobbying organisations",
             )
         )
-        if st.button("Browse organisations →", key="lp3_gw_org", width="stretch"):
-            _clear_lp3_qp()
-            st.query_params["lp3_orgindex"] = "1"
-            st.rerun()
     with g3:
         st.html(
-            _tile_html(
-                "Browse by policy area",
-                "Find every return filed under one of lobbying.ie's 32 registered public policy areas.",
+            clickable_card_link(
+                href=area_gateway_href,
+                inner_html=_tile_html(
+                    "Browse by policy area",
+                    "Find every return filed under one of lobbying.ie's 32 registered public policy areas.",
+                ),
+                aria_label="Browse lobbying by policy area",
             )
         )
-        if st.button("Browse policy areas →", key="lp3_gw_area", width="stretch"):
-            areas = fetch_policy_area_summary()
-            if not areas.empty:
-                _clear_lp3_qp()
-                st.query_params["lp3_area"] = str(areas.iloc[0]["public_policy_area"])
-                st.rerun()
 
     # Topics rail — preserved per user instruction. Calmer than lobby_2:
     # solid border (not dashed), no rust icon, one italic caveat instead
@@ -376,11 +412,13 @@ def _render_landing(summary: pd.DataFrame) -> None:
     t_cols = st.columns(len(_CURATED_TOPICS))
     for col, (topic_name, spec) in zip(t_cols, _CURATED_TOPICS.items(), strict=True):
         with col:
-            st.html(_topic_tile_html(topic_name, str(spec["blurb"])))
-            if st.button(f"Open {topic_name} →", key=f"lp3_topic_{topic_name[:24]}", width="stretch"):
-                _clear_lp3_qp()
-                st.query_params["lp3_topic"] = topic_name
-                st.rerun()
+            st.html(
+                clickable_card_link(
+                    href=f"{ROUTE}?lp3_topic={quote(topic_name)}",
+                    inner_html=_topic_tile_html(topic_name, str(spec["blurb"])),
+                    aria_label=f"Open {topic_name} returns",
+                )
+            )
 
     # Two ranked card lists side-by-side: most-lobbied politicians, most-active
     # orgs. These preserve the "instantly searchable" feel the user named as
@@ -398,10 +436,10 @@ def _render_landing(summary: pd.DataFrame) -> None:
                 m_id = str(row.get("unique_member_code", "") or "")
                 meta = clean_meta(str(row.get("chamber", "") or ""), str(row.get("position", "") or ""))
                 pills_list = [
-                    f"{int(row.get('return_count', 0) or 0):,} returns",
-                    f"{int(row.get('distinct_orgs', 0) or 0):,} orgs",
+                    _p(int(row.get("return_count", 0) or 0), "return"),
+                    _p(int(row.get("distinct_orgs", 0) or 0), "org"),
                 ]
-                jump = member_profile_url(m_id or name_join_key(name), section="lobbying")
+                jump = member_profile_url(m_id or _resolve_or_join(name), section="lobbying")
                 inner = _ranked_card_html(
                     name, meta, pills_list, rank,
                     avatar_url=avatar_data_url(name),
@@ -592,11 +630,25 @@ def _datasette_table(detail: pd.DataFrame, columns: dict[str, str], height: int 
     """Plain Datasette-tone dataframe. DateColumn for any 'Period' / 'First
     filing' / 'Last filing' column, LinkColumn for any 'Return URL' column.
     Everything else is plain TextColumn or NumberColumn.
+
+    Defensive against schema drift: when the source view has been updated
+    and none of the expected columns are present, emit an empty_state
+    callout instead of rendering a silent grey rectangle (audit P0-1).
     """
     if not columns:
         return
     keep = [c for c in columns if c in detail.columns]
+    if not keep or detail.empty:
+        empty_state(
+            "No data available",
+            "Records exist but the expected columns are missing — the view "
+            "shape may have drifted. Run the pipeline to refresh.",
+        )
+        return
     display = detail[keep].rename(columns=columns)
+    if display.empty:
+        empty_state("No data available", "No matching records to display.")
+        return
     col_config: dict[str, object] = {}
     for orig, new in columns.items():
         if orig not in detail.columns:
@@ -751,7 +803,8 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
 
     sector_clause_html = f" {_h(sector)}." if sector else ""
     period_clause_html = (
-        f" Active <strong>{_h(first_p)}</strong> to <strong>{_h(last_p)}</strong>."
+        f" Active <strong>{_h(_fmt_period(first_p))}</strong> "
+        f"to <strong>{_h(_fmt_period(last_p))}</strong>."
         if first_p and last_p and first_p != "None" and last_p != "None"
         else ""
     )
@@ -813,7 +866,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
                 f"{int(row.get('returns_in_relationship', 0) or 0):,} returns",
                 f"{int(row.get('distinct_policy_areas', 0) or 0):,} policy areas",
             ]
-            jump = member_profile_url(member_id or name_join_key(pol_name), section="lobbying")
+            jump = member_profile_url(member_id or _resolve_or_join(pol_name), section="lobbying")
             cards.append(
                 clickable_card_link(
                     href=jump,
@@ -1378,7 +1431,7 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
             if pname in pol_known:
                 cards.append(
                     clickable_card_link(
-                        href=member_profile_url(name_join_key(pname), section="lobbying"),
+                        href=member_profile_url(_resolve_or_join(pname), section="lobbying"),
                         inner_html=inner,
                         aria_label=f"Open profile for {pname}",
                     )

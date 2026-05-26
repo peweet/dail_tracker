@@ -1,11 +1,19 @@
 # Statutory Instruments page — impeccable audit (2026-05-24)
 
+> **Status update (2026-05-26):** P0 + most P1/P2 items below shipped.
+> See `[[project-si-audit-2026-05-24]]` memory for the rework diary;
+> the original audit findings below are kept for reference. Items
+> still open: **P1-2** (mobile hero height), **P1-5 full** (dedicated
+> EU-scrutiny sub-view), **P2-9 / P3-2 / P3-5** (deferred). Capture
+> script + verifier live at `audit_screenshots/_si_capture.py` and
+> `audit_screenshots/_si_verify_titles.py`.
+
 Captured via Playwright over `/rankings-statutory-instruments` on the running
-Streamlit app. 58 screenshots in `tmp/audit_si/*.png` covering desktop,
-tablet, mobile, every facet tab, every filter combination, search states,
-detail variants (default / EU-minister / Health-dept / Substantive-or-base /
-deep-link cold-load), pagination, empty states, focus traversal, and the
-EU-scrutiny callout interaction.
+Streamlit app. 58 screenshots covering desktop, tablet, mobile, every facet
+tab, every filter combination, search states, detail variants (default /
+EU-minister / Health-dept / Substantive-or-base / deep-link cold-load),
+pagination, empty states, focus traversal, and the EU-scrutiny callout
+interaction.
 
 This document has two parts:
 1. **Audit findings** — what's wrong, why it matters, ranked by severity.

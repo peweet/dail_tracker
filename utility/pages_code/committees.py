@@ -164,12 +164,21 @@ def _load(chamber: str):
             c_name = row.get(f"{prefix}_name_en")
             if pd.isna(c_name):
                 continue
+            # P1-6: strip redundant chamber suffix — chamber pill already
+            # establishes context, so "(Dáil Éireann)" / "(Seanad Éireann)"
+            # at the end of every committee title is duplication noise that
+            # pushes the meaningful committee name later in the line.
+            c_name_clean = re.sub(
+                r"\s*\((Dáil|Seanad)\s+Éireann\)\s*$",
+                "",
+                str(c_name),
+            ).strip()
             role = _coalesce(row.get(f"{prefix}_role_title")) or "Member"
             records.append(
                 {
                     **base,
-                    "committee": str(c_name).strip(),
-                    "committee_url": _committee_url(c_name, base["dail_number"]),
+                    "committee": c_name_clean,
+                    "committee_url": _committee_url(c_name_clean, base["dail_number"]),
                     "type": _coalesce(row.get(f"{prefix}_type")) or "Unknown",
                     "status": status_map.get(row.get(f"{prefix}_main_status"), "Unknown"),
                     "role": role,
@@ -335,9 +344,13 @@ def _stage_register(
         )
         f_search, f_type, f_status = st.columns([3, 2, 2])
         with f_search:
+            # P1-2 audit fix: placeholder previously suggested live filter
+            # ("e.g. Finance, Health…"); Streamlit's st.text_input applies
+            # only on Enter / blur. Make the Enter-to-apply requirement
+            # explicit so users don't conclude the filter is broken.
             search = st.text_input(
                 "Committee name",
-                placeholder="e.g. Finance, Health…",
+                placeholder="e.g. Finance, Health (press Enter)",
                 label_visibility="collapsed",
                 key="reg_search",
             )
@@ -424,7 +437,7 @@ def _stage_register(
         render_stat_strip(
             stat_item(len(summary), "Committees"),
             stat_item(member_count, member_label),
-            stat_item(active_memberships, "Active memberships"),
+            stat_item(active_memberships, "Current memberships"),
             stat_item(chair_total, "Chairs held"),
         )
 
@@ -523,7 +536,15 @@ def _stage_committee(
         oireachtas_url=url,
         source_document_url=None,  # TODO_PIPELINE_VIEW_REQUIRED below
     )
-    todo_callout("source_document_url column on v_committee_sources")
+    # P1-1 audit fix: the bare TODO token produced "Coming soon. More data
+    # coming soon." after the round-3 P1-A helper rewrite — vacuous and
+    # took prime above-the-fold space. Give the helper an em-dash split
+    # point so it extracts a real citizen sentence.
+    todo_callout(
+        "source_document_url column on v_committee_sources — "
+        "Source documents will link here in a future release: the official "
+        "terms of reference and meeting transcripts for every committee."
+    )
 
     # ── Composition + Roster (two evidence sections) ──────────────────
     comp_col, roster_col = st.columns([1, 2], gap="large")
@@ -550,7 +571,17 @@ def _stage_committee(
                 .mark_bar(cornerRadiusTopRight=3, cornerRadiusBottomRight=3)
                 .encode(
                     x=alt.X("seats:Q", title="Seats", axis=alt.Axis(tickMinStep=1)),
-                    y=alt.Y("party:N", sort="-x", title=None),
+                    # P1-4 audit fix: lift labelLimit so "Independent Ireland"
+                    # doesn't get clipped to "Independent Irel..." on the
+                    # narrow composition column. Default is 180 — bumping to
+                    # 280 fits the longest party label comfortably without
+                    # eating chart width.
+                    y=alt.Y(
+                        "party:N",
+                        sort="-x",
+                        title=None,
+                        axis=alt.Axis(labelLimit=280),
+                    ),
                     color=alt.Color("party:N", scale=alt.Scale(domain=domain, range=rng), legend=None),
                     tooltip=[
                         alt.Tooltip("party:N", title="Party"),
@@ -559,7 +590,7 @@ def _stage_committee(
                 )
                 .properties(height=max(140, len(seats) * 26))
             )
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
 
     with roster_col:
         evidence_heading("Roster")
@@ -731,7 +762,7 @@ def render_member_committees(
             )
             .properties(height=max(120, len(domain) * 26))
         )
-        st.altair_chart(timeline_chart, use_container_width=True)
+        st.altair_chart(timeline_chart, width="stretch")
 
     # ── Memberships table + export ────────────────────────────────────
     evidence_heading("Committee memberships")
