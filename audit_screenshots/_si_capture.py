@@ -122,24 +122,9 @@ def phase_landing(page: Page) -> None:
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase B — EU scrutiny callout
-# ─────────────────────────────────────────────────────────────────────────
-
-def phase_eu_callout(page: Page) -> None:
-    print("\n== PHASE B — EU scrutiny callout ==")
-    page.set_viewport_size(DESKTOP)
-    goto(page)
-    shot(page, "B01_callout_visible", full_page=False)
-
-    if click_button_re(page, r"^Show these \d"):
-        shot(page, "B02_callout_after_show_clicked")
-        page.mouse.wheel(0, 1600); settle(page, 500)
-        shot(page, "B03_callout_filter_applied_cards", full_page=False)
-    else:
-        print("  !! Show-these button not found")
-
-    if click_button_re(page, r"^Clear all$"):
-        shot(page, "B04_after_clear_all", full_page=False)
-
+# Phase B (EU scrutiny callout) was removed when the user deleted the
+# top-of-page callout block from statutory_instruments.py on 2026-05-24.
+# The EU scrutiny tab inside the facets still exists (phase D10).
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase C — Search box live
@@ -454,7 +439,6 @@ def main() -> None:
 
         phases = [
             ("LANDING",      phase_landing),
-            ("EU CALLOUT",   phase_eu_callout),
             ("SEARCH",       phase_search),
             ("FACETS",       phase_facets),
             ("ACTIVE BAR",   phase_active_filter_bar),

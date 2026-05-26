@@ -50,6 +50,8 @@ from ui.components import (
     page_error_boundary,
     render_notable_chips,
     sidebar_member_filter,
+    sidebar_page_header,
+    totals_strip,
     year_selector,
 )
 from data_access.identity_resolver import resolve_member_code
@@ -88,12 +90,16 @@ def _flip_name(raw: str) -> str:
     return raw
 
 
-def _clean_taa_label(raw: str) -> str:
+def _clean_taa_label(raw: str) -> tuple[str, bool]:
     """Strip the internal '(unmapped)' / '(unknown)' parentheticals from
-    TAA band labels so citizens don't see system jargon. Returns "Band X"
-    or the original string if no parenthetical to strip."""
+    TAA band labels so citizens don't see system jargon. Returns
+    ``(clean_label, is_unmapped)`` — the second flag drives a small
+    caveat pill on the card so users know the distance band isn't
+    derived from the current registry (P1-6 audit fix)."""
     import re
-    return re.sub(r"\s*\((?:unmapped|unknown)\)\s*$", "", raw).strip() or raw
+    is_unmapped = bool(re.search(r"\((?:unmapped|unknown)\)", raw))
+    clean = re.sub(r"\s*\((?:unmapped|unknown)\)\s*$", "", raw).strip() or raw
+    return clean, is_unmapped
 
 
 def _pay_card_html(row: pd.Series) -> str:
@@ -115,11 +121,24 @@ def _pay_card_html(row: pd.Series) -> str:
     pos = str(row.get("position", "Deputy"))
     party = str(row.get("party_name", "") or "")
     constit = str(row.get("constituency", "") or "")
-    taa = _h(_clean_taa_label(str(row.get("taa_band_label", "—"))))
+    taa_label, taa_unmapped = _clean_taa_label(str(row.get("taa_band_label", "—")))
+    taa = _h(taa_label)
     count = int(row.get("payment_count", 0) or 0)
     total_str = f"€{float(row.get('total_paid', 0) or 0):,.0f}"
     meta = clean_meta(party, constit) or pos
-    pills = f'<span class="pay-taa-pill">{taa}</span><span class="pay-count-pill-accent">{count} payments</span>'
+    # P1-6: unmapped bands carry a small caveat glyph + tooltip so the
+    # uncertainty is visible without dev jargon. Mapped bands stay clean.
+    taa_pill_cls = "pay-taa-pill pay-taa-pill-unmapped" if taa_unmapped else "pay-taa-pill"
+    taa_caveat = (
+        '<span class="pay-taa-caveat" title="Distance band not mapped in the '
+        'current registry — verified using the recorded TAA value instead.">?</span>'
+        if taa_unmapped
+        else ""
+    )
+    pills = (
+        f'<span class="{taa_pill_cls}">{taa}{taa_caveat}</span>'
+        f'<span class="pay-count-pill-accent">{count} payments</span>'
+    )
     badge = (
         f'<div class="pay-total-badge">'
         f'<span class="pay-total-badge-num">{total_str}</span>'
@@ -168,55 +187,57 @@ def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
     members = since_2020["members"]
     avg = since_2020["avg_per_td"]
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Total since 2020", f"€{total:,.0f}")
-    c2.metric("TDs with payments", members)
-    c3.metric("Avg per TD since 2020", f"€{avg:,.0f}")
+    totals_strip(
+        [
+            (f"€{total:,.0f}", "Total since 2020"),
+            (f"{members:,}", "TDs with payments"),
+            (f"€{avg:,.0f}", "Avg per TD since 2020"),
+        ]
+    )
 
     alltime = fetch_alltime_ranking()
     if alltime.empty:
         empty_state(
             "All-time rankings not yet available",
-            "current_td_payment_rankings.parquet not found — run the pipeline to generate it.",
+            "v_payments_alltime_ranking returned no rows. Re-run the pipeline if you expect data here.",
         )
         _render_provenance(summary)
         return
 
     st.caption(f"All-time rankings · since 2020 · {len(alltime)} members")
 
-    name_col = "member_name" if "member_name" in alltime.columns else None
-    amt_col = "total_amount_paid_since_2020"
-
-    # TODO_PIPELINE_VIEW_REQUIRED: taa_band_label in current_td_payment_rankings.parquet
-    # — parquet currently has ['rank','member_name','join_key','total_amount_paid_since_2020'] only
-    has_taa = "taa_band_label" in alltime.columns
-
-    top_10 = alltime.head(10)
-    next_10 = alltime.iloc[10:20]
+    # The new view exposes the same columns the year-view card already
+    # reads, with two name aliases: total_paid_since_2020 → total_paid and
+    # payment_count_since_2020 → payment_count. Aliasing here keeps the
+    # _pay_card_html helper unchanged.
+    top_10 = alltime.head(10).copy()
+    next_10 = alltime.iloc[10:20].copy()
+    for chunk in (top_10, next_10):
+        chunk["total_paid"] = chunk["total_paid_since_2020"]
+        chunk["payment_count"] = chunk["payment_count_since_2020"]
 
     col_l, col_r = st.columns(2)
-    for col, chunk, offset in ((col_l, top_10, 0), (col_r, next_10, 10)):
+    for col, chunk in ((col_l, top_10), (col_r, next_10)):
         with col:
-            for i, (_, row) in enumerate(chunk.iterrows()):
-                rank = offset + i + 1
-                name = _h(str(row.get(name_col, "—")) if name_col else "—")
-                amt = float(row.get(amt_col, 0) or 0)
-                rank_cls = "dt-name-card-rank-top" if rank <= 3 else "dt-name-card-rank"
-                taa_pill = f'<span class="pay-taa-pill">{_h(str(row["taa_band_label"]))}</span>' if has_taa else ""
-                card_html = (
-                    f'<div class="dt-name-card">'
-                    f'<div class="dt-name-card-left"><span class="{rank_cls}">#{rank}</span></div>'
-                    f'<div class="dt-name-card-body">'
-                    f'<div class="dt-name-card-name">{name}</div>'
-                    f'<div class="dt-name-card-meta">{taa_pill}</div>'
-                    f"</div>"
-                    f'<div class="dt-name-card-badge dt-name-card-badge-metric">'
-                    f'<span class="dt-name-card-badge-num">€{amt:,.0f}</span>'
-                    f'<span class="dt-name-card-badge-lbl">total</span>'
-                    f"</div>"
-                    f"</div>"
-                )
-                st.markdown(card_html, unsafe_allow_html=True)
+            cards: list[str] = []
+            for _, row in chunk.iterrows():
+                # The data ships names "Last, First"; resolve_member_code
+                # normalises both forms so either works as the lookup key.
+                raw_name = str(row["member_name"])
+                display_name = _flip_name(raw_name)
+                code = resolve_member_code(raw_name)
+                inner = _pay_card_html(row)
+                if code:
+                    cards.append(
+                        clickable_card_link(
+                            href=member_profile_url(code, section="payments"),
+                            inner_html=inner,
+                            aria_label=f"View {display_name}'s payments profile",
+                        )
+                    )
+                else:
+                    cards.append(inner)
+            st.html("\n".join(cards))
 
     _render_provenance(summary)
 
@@ -240,15 +261,24 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
     )
 
     all_views = ["Rankings"] + year_options
+    # Default to the most-recent COMPLETED year, not the current YTD year
+    # (audit P1-1). year_options is sorted DESC, so skip the first option
+    # if it matches the current calendar year.
+    import datetime as _dt
+    current_year_str = str(_dt.date.today().year)
+    default_year = (
+        year_options[1] if len(year_options) > 1 and year_options[0] == current_year_str
+        else year_options[0]
+    )
     selected_view = (
         st.segmented_control(
             "View",
             all_views,
-            default=year_options[0],
+            default=default_year,
             key="pay_view",
             label_visibility="collapsed",
         )
-        or year_options[0]
+        or default_year
     )
 
     since_2020 = fetch_since_2020_summary()
@@ -272,18 +302,11 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
     yr_count = int(ranking.iloc[0]["year_member_count"])
     avg_yr = float(ranking.iloc[0]["year_avg_per_td"])
 
-    st.html(
-        f'<div class="pay-totals-strip">'
-        f'<div class="pay-totals-item">'
-        f'<span class="pay-totals-num">€{total_yr:,.0f}</span>'
-        f'<span class="pay-totals-lbl">Total · {selected_year}</span>'
-        f"</div>"
-        f'<div class="pay-totals-divider"></div>'
-        f'<div class="pay-totals-item">'
-        f'<span class="pay-totals-num">€{avg_yr:,.0f}</span>'
-        f'<span class="pay-totals-lbl">Avg per TD · {selected_year}</span>'
-        f"</div>"
-        f"</div>"
+    totals_strip(
+        [
+            (f"€{total_yr:,.0f}", f"Total · {selected_year}"),
+            (f"€{avg_yr:,.0f}", f"Avg per TD · {selected_year}"),
+        ]
     )
 
     st.caption(f"Ranked by total PSA received · {selected_year} · {yr_count} members")
@@ -344,6 +367,13 @@ def render_member_payments(
     embedding page provides those), and the two ``st.dataframe`` views are
     converted to card lists (``.pay-record-card`` + a compact ``.pay-year-row``)
     — required by feedback_member_overview_no_dataframes.
+
+    Phase-6 note (2026-05-26 audit): the ``show_member_header=True`` paths
+    are unreachable from /rankings-payments — every member click on that
+    page redirects to /member-overview, and member_overview always calls
+    this with ``show_member_header=False``. The True branches are kept
+    intentionally so a future stand-alone profile page can be reintroduced
+    without re-deriving the dataframe layout.
     """
     if show_member_header and back_button("← Back to all members", key="pay"):
         st.session_state.pop("selected_td_pay", None)
@@ -412,7 +442,7 @@ def render_member_payments(
         )
         .properties(height=180)
     )
-    st.altair_chart(bars, use_container_width=True)
+    st.altair_chart(bars, width="stretch")
 
     # ── All-years summary ────────────────────────────────────────────────
     st.markdown("**All years**")
@@ -431,7 +461,7 @@ def render_member_payments(
         st.dataframe(
             years_display,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "Year": st.column_config.NumberColumn("Year", format="%d"),
                 "Total received (€)": st.column_config.NumberColumn("Total received (€)", format="€%.2f"),
@@ -491,7 +521,7 @@ def render_member_payments(
                     }
                 ),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
                 column_config={
                     "Date": st.column_config.DateColumn("Date", format="D MMM YYYY"),
                     "Amount (€)": st.column_config.NumberColumn("Amount (€)", format="€%.2f"),
@@ -567,7 +597,12 @@ def payments_page() -> None:
         return
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
+    # P1-5 fix: previously the sidebar had no page header / kicker — only the
+    # search box + notable chips. Other pages anchor the sidebar with the
+    # `DÁIL TRACKER` kicker + page title so users always know which page
+    # they're on. Mirrors lobbying_2.py:494.
     with st.sidebar:
+        sidebar_page_header("Payments")
         chosen = sidebar_member_filter(
             "Browse all members",
             opts["members"],
@@ -579,7 +614,6 @@ def payments_page() -> None:
             st.session_state["selected_td_pay"] = chosen
             st.rerun()
 
-        st.divider()
         if render_notable_chips(NOTABLE_TDS, opts["members"], "pay_notable", "selected_td_pay"):
             st.rerun()
 

@@ -251,20 +251,20 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> None:
     param, which attendance_page() copies into selected_td_att on load.
     """
     today = datetime.date.today()
+    is_partial = year >= today.year
 
-    # ── Partial / current year ─────────────────────────────────────────────────
-    if year >= today.year:
-        st.info(
-            f"**{year} is in progress** — the Dáil year is not yet complete so a "
-            f"full attendance ranking would be misleading. Showing all members by "
-            f"days attended so far."
+    # P1-2 audit fix: previously the in-progress year branch dumped every
+    # member as one long ranked column, losing the editorial good/bad
+    # split that's the page's whole point. Keep the split year-round; add
+    # a one-sentence YTD caveat above so readers know the "lowest" column
+    # is provisional.
+    if is_partial:
+        st.caption(
+            f"**{year} is in progress** — the Dáil year is not yet complete, "
+            "so the lowest column is provisional and may change as more "
+            "sitting days are added."
         )
-        partial = ranking_df.copy().sort_values("attended_count", ascending=False).reset_index(drop=True)
-        cards = [_att_card_link(row, side="good", rank=i + 1) for i, (_, row) in enumerate(partial.iterrows())]
-        st.html("\n".join(cards))
-        return
 
-    # ── Full year ──────────────────────────────────────────────────────────────
     top = (
         ranking_df.sort_values(["rank_high", "attended_count"], ascending=[True, False])
         .head(_HALL_SIZE)
@@ -294,7 +294,10 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> None:
         st.html("\n".join(good_cards))
 
     with col_bad:
-        st.html('<p class="att-hall-heading-bad">Lowest recorded attendance</p>')
+        bad_label = (
+            "Lowest recorded attendance (so far)" if is_partial else "Lowest recorded attendance"
+        )
+        st.html(f'<p class="att-hall-heading-bad">{bad_label}</p>')
         bad_cards = [_att_card_link(row, side="bad", rank=i + 1) for i, (_, row) in enumerate(bottom.iterrows())]
         st.html("\n".join(bad_cards))
 
@@ -352,7 +355,7 @@ def _render_attendance_strip(timeline: pd.DataFrame, year: int) -> None:
         .configure_view(strokeWidth=1, stroke="#d1d5db", fill="#ffffff")
         .configure_axis(labelFont="sans-serif")
     )
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width="stretch")
 
 
 # ── Member profile body (lifted into member-overview Attendance expander) ─────
@@ -376,6 +379,13 @@ def render_member_attendance(
 
     ``export_key_suffix`` namespaces export-button widget keys so the
     embedded copy doesn't collide with the stand-alone page state.
+
+    Phase-6 note (2026-05-26 audit): the ``show_member_header=True`` paths
+    are unreachable from /rankings-attendance — every member click on that
+    page redirects to /member-overview, and member_overview always calls
+    this with ``show_member_header=False``. The True branches are kept
+    intentionally so a future stand-alone profile page can be reintroduced
+    without re-deriving the dataframe layout.
     """
     profile = _fetch_td_profile(td_name)
     if profile.empty:
@@ -429,8 +439,6 @@ def render_member_attendance(
         ]
     )
 
-    st.divider()
-
     # ── Sitting calendar ───────────────────────────────────────────────────────
     timeline = _fetch_timeline_for_year(td_name, selected_year)
     _required_cols = {"sitting_date", "attendance_status"}
@@ -481,7 +489,7 @@ def render_member_attendance(
                 st.dataframe(
                     tl_table[["#", "Date", "Weekday"]],
                     hide_index=True,
-                    use_container_width=True,
+                    width="stretch",
                     column_config={
                         "#": st.column_config.NumberColumn("#", width="small"),
                         "Date": st.column_config.TextColumn("Date", width="medium"),
@@ -496,7 +504,6 @@ def render_member_attendance(
             key=f"att_td_export{export_key_suffix}",
         )
 
-    st.divider()
     _render_year_breakdown(
         td_name,
         member_years_df,
@@ -544,7 +551,7 @@ def _render_year_breakdown(
         st.dataframe(
             table_df,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "Year": st.column_config.NumberColumn("Year", format="%d", width="small"),
                 "Days": st.column_config.NumberColumn("Days attended", width="small"),
@@ -553,7 +560,7 @@ def _render_year_breakdown(
                     "Attendance",
                     min_value=0.0,
                     max_value=1.0,
-                    format="%.0%",
+                    format="{:.0%}",
                 ),
             },
         )
@@ -718,8 +725,6 @@ def attendance_page() -> None:
             st.session_state["selected_td_att"] = chosen
             st.rerun()
 
-        st.divider()
-
         if render_notable_chips(NOTABLE_TDS, opts["members"], "chip_att", "selected_td_att"):
             st.rerun()
 
@@ -748,8 +753,12 @@ def attendance_page() -> None:
         )
 
     # ── Primary view: year selector ────────────────────────────────────────────
+    # skip_current=True defaults to the most-recent COMPLETED year so the
+    # hall-of-fame/shame split renders on first load (the in-progress year
+    # falls through to the partial-year flat list, which is editorially
+    # weaker — the audit doc P1-1 flagged this).
     year_options = [str(y) for y in opts["years"]]  # DESC from query
-    selected_year = year_selector(year_options, key="att_year", skip_current=False)
+    selected_year = year_selector(year_options, key="att_year", skip_current=True)
 
     # ── Good cop / bad cop ────────────────────────────────────────────────────
     ranking_df = _fetch_year_ranking(selected_year)
@@ -766,13 +775,11 @@ def attendance_page() -> None:
     n_members = len(ranking_df)
     rate_note = f" · {total_days} scheduled sitting days" if total_days else ""
 
-    st.caption(f"{n_members} members on record{rate_note}")
-
-    st.info(
-        "Plenary attendance only — does not include committee hearings, ministerial duties, "
-        "illness, or other absences with legitimate reasons. "
-        "Low figures are not evidence of poor engagement.",
-        icon=":material/info:",
+    st.caption(
+        f"{n_members} members on record{rate_note}. "
+        "Plenary attendance only — committee hearings, ministerial duties, illness, "
+        "and constituency work are not in the record. Low figures are not evidence of "
+        "poor engagement (full caveat in About & data provenance below)."
     )
 
     _render_good_bad(ranking_df, selected_year)

@@ -72,10 +72,10 @@ def _render_legislation_index(
 ) -> None:
     # ── Hero ──────────────────────────────────────────────────────────────────
     hero_banner(
-        kicker="Bills · Oireachtas · Dáil Tracker",
+        kicker="Bills · Oireachtas",
         title="Bills Before the Oireachtas",
         dek=(
-            "Track where each Private Members' Bill stands in the legislative journey — "
+            "Track where each Bill stands in the legislative journey — "
             "from First Reading in the Dáil through the Seanad to Presidential signature. "
             "Select a phase below, then click any bill to open the full record."
         ),
@@ -127,26 +127,6 @@ def _render_legislation_index(
         """
     )
 
-    # ── Government Bills notice ───────────────────────────────────────────────
-    # TODO_GOVT_BILLS: The unscoped fetcher now lands Government bills in
-    # silver via services/legislation_unscoped.py + legislation.py. Remaining
-    # UI follow-up:
-    #   1. Remove this entire callout block.
-    #   2. Generalise hero copy at lines ~56-60 ("Private Members'" → "Bills").
-    #   3. Update the provenance text at lines ~207-212 to drop the
-    #      "Government Bills not yet included" caveat.
-    #   4. Add a Government / Private Member / All segmented control next to
-    #      the existing phase selector at lines ~127-134, and surface `source`
-    #      on the bill card meta strip at line ~174.
-    st.html(
-        '<div class="leg-todo-callout">'
-        '<span class="leg-todo-label">Pipeline todo</span> '
-        "Government Bills are not yet indexed — the pipeline is currently scoped to "
-        "Private Members' Bills only. Government Bills will appear here once the "
-        "pipeline scope is extended."
-        "</div>"
-    )
-
     # ── Phase selector ────────────────────────────────────────────────────────
     phase_opts = {
         f"All ({len(df)})": df,
@@ -189,8 +169,13 @@ def _render_legislation_index(
         status_cls = _status_badge_class(status)
         date_str = _fmt_date(row.get("introduced_date"))
         title = row.get("bill_title", "—") or "—"
-        sponsor = row.get("sponsor", "—") or "—"
+        sponsor_raw = row.get("sponsor")
+        sponsor = sponsor_raw if isinstance(sponsor_raw, str) and sponsor_raw.strip() and sponsor_raw.strip() != "—" else ""
         stage = row.get("current_stage", "—") or "—"
+        # Drop the leading em-dash on cards with no sponsor (e.g. older
+        # enacted bills with NULL sponsor in the API) — used to render
+        # "— · Enacted · Oireachtas ↗" on all 525 Enacted bills.
+        meta_text = f"{sponsor} · {stage}" if sponsor else stage
         url = row.get("oireachtas_url") or ""
         link_html = source_link_html(
             url,
@@ -206,7 +191,7 @@ def _render_legislation_index(
             f"</div>"
             f'<div class="leg-bill-card-title">{html.escape(title)}</div>'
             f'<div class="leg-bill-card-footer">'
-            f'<span class="leg-bill-card-meta">{html.escape(sponsor)} · {html.escape(stage)}</span>'
+            f'<span class="leg-bill-card-meta">{html.escape(meta_text)}</span>'
             f"{link_html}"
             f"</div>"
             f"</div>"
@@ -249,7 +234,7 @@ def _render_legislation_index(
     provenance_expander(
         sections=[
             "**Source:** [Houses of the Oireachtas Open Data API](https://api.oireachtas.ie)\n\n"
-            "**Dataset:** Private Members' Bills introduced to the Dáil. Government Bills not yet included.\n\n"
+            "**Dataset:** All Bills introduced to the Oireachtas (Private Members' and Government Bills).\n\n"
             "**Bill phases:** Dáil stages (1–5) → Seanad stages (6–10) → Enacted (stage 11). "
             "[How a Bill Becomes Law](https://www.oireachtas.ie/en/how-parliament-works/legislation/how-a-bill-becomes-law/)\n\n"
             "**Stage information** reflects the most recent stage recorded in the API at time of extract.",
@@ -497,8 +482,7 @@ def _section_statutory_instruments(bill_id: str) -> None:
         else:
             minister = "—"
         eu_badge = (
-            '<span class="signal" style="background:#fef3c7;border-color:#fcd34d;'
-            'color:#92400e;margin-left:0.25rem;">EU</span>'
+            '<span class="signal signal-eu">EU</span>'
             if bool(row.get("si_is_eu"))
             else ""
         )
@@ -514,7 +498,7 @@ def _section_statutory_instruments(bill_id: str) -> None:
         )
 
         st.html(
-            f'<div class="leg-bill-card" style="margin-bottom:0.3rem;">'
+            f'<div class="leg-bill-card leg-si-card">'
             f'<div class="leg-bill-card-header">'
             f'<span class="leg-bill-card-date">'
             f"SI {int(row['si_number'])}/{int(row['si_year'])} · {html.escape(date_disp)}"
@@ -523,8 +507,7 @@ def _section_statutory_instruments(bill_id: str) -> None:
             f"{eu_badge}"
             f"</div>"
             f'<div class="leg-bill-card-title">{html.escape(str(row["si_title"]))}</div>'
-            f'<div style="margin-top:0.2rem;font-size:0.85rem;'
-            f'color:var(--text-secondary);">'
+            f'<div class="leg-si-meta">'
             f"{html.escape(operation)} · {html.escape(domain)} · "
             f"{html.escape(minister)} · {url_html}"
             f"</div>"
@@ -555,7 +538,7 @@ def _render_pre2014_act_detail(bill_id: str) -> None:
             <div class="leg-bill-badges">{badges}</div>
             <div class="leg-bill-title">{html.escape(title)}</div>
             <div class="leg-bill-ref">Enacted {year}</div>
-            <p class="leg-long-title" style="margin:0.45rem 0 0.35rem">
+            <p class="leg-long-title leg-pre2014-long-title">
                 Primary Act predates the Oireachtas bills database (2014).
                 Statutory Instruments made under it are listed below;
                 stage timeline and Oireachtas debates are not available
@@ -625,7 +608,7 @@ def _render_bill_detail(bill_id: str) -> None:
     long_title_raw = (row.get("long_title") or "").strip()
     long_title_clean = _re.sub(r"<[^>]+>", "", long_title_raw).strip()
     long_title_html = (
-        f'<p class="leg-long-title" style="margin:0.45rem 0 0.35rem">{html.escape(long_title_clean)}</p>'
+        f'<p class="leg-long-title leg-long-title-tight">{html.escape(long_title_clean)}</p>'
         if long_title_clean
         else ""
     )

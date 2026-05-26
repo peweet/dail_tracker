@@ -256,7 +256,7 @@ def _render_timeline_chart(timeline: pd.DataFrame, year: int) -> None:
         .configure_view(strokeWidth=1, stroke="#d1d5db", fill="#ffffff")
         .configure_axis(labelFont="sans-serif")
     )
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width="stretch")
 
 
 # ── Render: good / bad two-column cards ───────────────────────────────────────
@@ -433,7 +433,7 @@ def _render_profile(td_name: str) -> None:
     st.dataframe(
         pd.DataFrame(rows),
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         column_config={
             "Year": st.column_config.NumberColumn("Year", format="%d", width="small"),
             "Days": st.column_config.NumberColumn("Days attended", width="small"),
@@ -442,7 +442,7 @@ def _render_profile(td_name: str) -> None:
                 "Attendance",
                 min_value=0.0,
                 max_value=1.0,
-                format="%.0%",
+                format="{:.0%}",
             ),
         },
     )

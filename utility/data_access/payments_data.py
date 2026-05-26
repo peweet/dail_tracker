@@ -4,11 +4,12 @@ Payments data access layer.
 Owns:
 - DuckDB connection bootstrapped from sql_views/payments_*.sql
 - All retrieval SQL for the payments page (SELECT / WHERE / ORDER BY / LIMIT only)
-- fetch_since_2020_summary: reads the pipeline silver parquet directly (Polars)
 
 Forbidden here (same rules as Streamlit page files):
 - JOIN, GROUP BY, HAVING, WINDOW in ad-hoc retrieval SQL
 - CREATE VIEW / CREATE TABLE
+- read_parquet / read_csv from inside this module (pipeline writes the views;
+  this module only SELECTs from them)
 - pandas groupby, merge, pivot
 - Business metric definitions
 """
@@ -19,10 +20,7 @@ from pathlib import Path
 
 import duckdb
 import pandas as pd
-import polars as pl
 import streamlit as st
-
-from config import GOLD_PARQUET_DIR
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _SQL_VIEWS = _PROJECT_ROOT / "sql_views"
@@ -141,24 +139,52 @@ def fetch_member_payments(member_name: str, year: int) -> pd.DataFrame:
 
 @st.cache_data(ttl=3600)
 def fetch_alltime_ranking() -> pd.DataFrame:
-    """Current 34th Dáil TDs ranked by total PSA received since 2020, deduplicated."""
-    path = GOLD_PARQUET_DIR / "current_td_payment_rankings.parquet"
-    if not path.exists():
-        return pd.DataFrame()
-    df = pl.read_parquet(path).to_pandas()
-    if "total_amount_paid_since_2020" not in df.columns:
-        return pd.DataFrame()
-    return df
+    """All-time PSA ranking since 2020 from v_payments_alltime_ranking.
+
+    Returns the full ranked list of every member with PSA payments since
+    2020. Columns: member_name, position, party_name, constituency,
+    taa_band_label, total_paid_since_2020, payment_count_since_2020,
+    earliest_year, latest_year, rank_high.
+
+    Audit fix (2026-05-26): replaced direct parquet read +
+    schema-mismatched column lookup. The parquet's schema had drifted
+    (`member_name` → `identifier` slug) and every Rankings card rendered
+    "—". The pipeline now owns the ranking via v_payments_alltime_ranking.
+    """
+    return (
+        get_payments_conn()
+        .execute(
+            "SELECT member_name, position, party_name, constituency,"
+            " taa_band_label, total_paid_since_2020, payment_count_since_2020,"
+            " earliest_year, latest_year, rank_high"
+            " FROM v_payments_alltime_ranking"
+            " ORDER BY rank_high ASC"
+        )
+        .df()
+    )
 
 
 @st.cache_data(ttl=3600)
 def fetch_since_2020_summary() -> dict[str, float | int]:
-    """Summary stats from the current TD payment rankings (34th Dáil only)."""
-    path = GOLD_PARQUET_DIR / "current_td_payment_rankings.parquet"
-    if not path.exists():
+    """Summary stats (total / member-count / avg) from v_payments_alltime_summary.
+
+    Audit fix (2026-05-26): replaced direct parquet read +
+    ``pl.read_parquet(...).sum()`` / ``.n_unique()`` in Streamlit, which
+    violated the page contract (no read_parquet, SUM not in allowed
+    aggregates). The aggregation now lives in v_payments_alltime_summary.
+    """
+    row = (
+        get_payments_conn()
+        .execute(
+            "SELECT total_paid_since_2020, member_count, avg_per_td_since_2020"
+            " FROM v_payments_alltime_summary LIMIT 1"
+        )
+        .fetchone()
+    )
+    if not row:
         return {"total": 0.0, "members": 0, "avg_per_td": 0.0}
-    df = pl.read_parquet(path)
-    total = float(df["total_amount_paid_since_2020"].sum())
-    members = int(df["join_key"].n_unique())
-    avg = total / members if members else 0.0
-    return {"total": total, "members": members, "avg_per_td": avg}
+    return {
+        "total": float(row[0] or 0.0),
+        "members": int(row[1] or 0),
+        "avg_per_td": float(row[2] or 0.0),
+    }

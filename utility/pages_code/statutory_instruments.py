@@ -20,6 +20,7 @@ Features:
 """
 from __future__ import annotations
 
+import datetime
 import html
 import sys
 from pathlib import Path
@@ -52,7 +53,12 @@ PAGE_SIZE = 10
 # so the canonical class set is not polluted by this page's si-* classes.
 # ──────────────────────────────────────────────────────────────────────────────
 def _inject_si_css() -> None:
-    st.html(
+    # Use st.markdown with unsafe_allow_html so styles inject into the
+    # document head (shared_css.inject_css does the same). st.html()
+    # renders inside a sandboxed iframe in recent Streamlit versions,
+    # which silently scopes any <style> block to that iframe only and
+    # leaves the rest of the page unstyled.
+    st.markdown(
         """
         <style>
         .si-stat-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(170px,1fr));
@@ -64,8 +70,19 @@ def _inject_si_css() -> None:
             color:#5b6b73; margin-top:0.35rem; }
         .si-stat-sub { font-size:0.75rem; color:#5b6b73; margin-top:0.15rem; }
 
+        /* Whole card is wrapped in <a class="si-card-link"> — strip the
+           default link colour/underline and give it a subtle hover lift so
+           the affordance reads as clickable without screaming. */
+        .si-card-link { display:block; text-decoration:none; color:inherit;
+            margin-bottom:0.55rem; }
+        .si-card-link:focus-visible { outline:2px solid #14232b; outline-offset:2px; }
+        .si-card-link:hover .si-card { border-color:#c9cfd3;
+            box-shadow: 0 1px 3px rgba(20,35,43,0.08); }
+        .si-card-link:hover .si-card-title { color:#0a1418; }
+
         .si-card { background:#ffffff; border:1px solid #e5e2db; border-radius:8px;
-            padding:1rem 1.15rem; margin-bottom:0.55rem; }
+            padding:1rem 1.15rem;
+            transition: border-color 120ms ease-out, box-shadow 120ms ease-out; }
         .si-card-head { display:flex; align-items:baseline; gap:0.6rem; flex-wrap:wrap; }
         .si-card-ref { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:0.78rem;
             color:#5b6b73; }
@@ -111,8 +128,6 @@ def _inject_si_css() -> None:
         .si-trend-card-h { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.07em;
             color:#5b6b73; margin-bottom:0.35rem; }
 
-        .si-note { font-size:0.78rem; color:#5b6b73; font-style:italic; margin: 0.4rem 0 1rem; }
-
         /* Active-filter scope bar — read-only chips that show what's
            currently filtered. Modify filters via the facet tabs below. */
         .si-active-bar { display:flex; flex-wrap:wrap; gap:0.4rem; align-items:center;
@@ -120,12 +135,26 @@ def _inject_si_css() -> None:
             border-radius:6px; margin:0.4rem 0 0.6rem; }
         .si-active-label { font-size:0.7rem; text-transform:uppercase;
             letter-spacing:0.07em; color:#5b6b73; margin-right:0.3rem; }
-        .si-active-chip { background:#ffffff; border:1px solid #cfdde6;
-            border-radius:999px; padding:0.18rem 0.7rem; font-size:0.78rem;
-            color:#14232b; line-height:1.4; white-space:nowrap; }
+        .si-active-chip { display:inline-flex; align-items:center; gap:0.3rem;
+            background:#ffffff; border:1px solid #cfdde6; border-radius:999px;
+            padding:0.18rem 0.45rem 0.18rem 0.7rem; font-size:0.78rem;
+            color:#14232b; line-height:1.4; white-space:nowrap;
+            text-decoration:none;
+            transition: background 120ms ease-out, border-color 120ms ease-out; }
+        .si-active-chip:hover { background:#fef2f2; border-color:#fca5a5;
+            color:#7f1d1d; }
+        .si-active-chip:focus-visible { outline:2px solid #14232b; outline-offset:1px; }
+        .si-active-chip-x { font-size:0.95rem; line-height:1; color:#5b6b73;
+            font-weight:400; }
+        .si-active-chip:hover .si-active-chip-x { color:#7f1d1d; }
+        .si-active-chip-all { background:transparent; border-color:#5b6b73;
+            color:#5b6b73; padding-right:0.7rem; }
+        .si-active-chip-all:hover { background:#14232b; border-color:#14232b;
+            color:#ffffff; }
 
         </style>
-        """
+        """,
+        unsafe_allow_html=True,
     )
 
 
@@ -182,13 +211,26 @@ def _fmt_date(val) -> str:
 
 
 def _pretty_token(s: str) -> str:
-    """snake_case → sentence case; leaves human strings (with spaces/caps)
-    alone. Pill rows read calmer with sentence case than Title Case."""
+    """snake_case / lowercase taxonomy values → sentence case; mixed-case
+    human strings pass through. Pill rows read calmer with sentence case
+    than Title Case. Two-axis decision tree:
+      - underscores OR plain-lowercase → strip underscores + capitalise
+      - already mixed-case → leave alone
+    Special-case: tokens beginning with 'eu_'/'eu ' keep the EU prefix
+    upper ('Eu instrument referenced' → 'EU instrument referenced')."""
     if not isinstance(s, str) or not s:
         return ""
     if "_" in s and s.lower() == s:
-        return s.replace("_", " ").capitalize()
-    return s
+        out = s.replace("_", " ").capitalize()
+    elif s == s.lower():
+        out = s.capitalize()
+    else:
+        out = s
+    # Preserve the EU acronym at word boundaries (handles 'Eu full effect',
+    # 'Eu instrument referenced', and the underscore-converted 'Eu derived').
+    if out.lower().startswith("eu "):
+        out = "EU" + out[2:]
+    return out
 
 
 def _split_multi(s, sep="|"):
@@ -235,18 +277,23 @@ def _apply_filters(df, years, domain, op, department, minister, eu_only, search,
 # View 1 — KPI strip
 # ──────────────────────────────────────────────────────────────────────────────
 def _render_kpi_strip(df: pd.DataFrame) -> None:
+    """Four cells: total + year span, most active department, EU-derived
+    share, enabling-Act link rate. The previous version repeated 'Finance'
+    in two adjacent cells (policy-domain top almost always == dept top);
+    dropped the domain cell and added the enabling-Act stat — that's the
+    bridge to /legislation and the cleanest editorial fact about SI
+    provenance."""
     total = len(df)
     if total == 0:
         return
-    top_domain = df["si_policy_domain"].dropna().value_counts().head(1)
     top_dept   = df["si_department_label"].dropna().value_counts().head(1)
     eu_count   = int(df["si_is_eu"].fillna(False).astype(bool).sum())
     eu_share   = (eu_count / total * 100) if total else 0
+    bill_count = int(df["bill_id"].notna().sum()) if "bill_id" in df.columns else 0
+    bill_share = (bill_count / total * 100) if total else 0
     yrs        = sorted(int(y) for y in df["si_year"].dropna().unique())
     yr_span    = f"{yrs[0]}–{yrs[-1]}" if len(yrs) >= 2 else (str(yrs[0]) if yrs else "—")
 
-    td   = top_domain.index[0] if not top_domain.empty else "—"
-    tdc  = int(top_domain.iloc[0]) if not top_domain.empty else 0
     tdep = top_dept.index[0] if not top_dept.empty else "—"
     tdepc = int(top_dept.iloc[0]) if not top_dept.empty else 0
 
@@ -258,11 +305,6 @@ def _render_kpi_strip(df: pd.DataFrame) -> None:
         <div class="si-stat-sub">{html.escape(yr_span)}</div>
       </div>
       <div class="si-stat">
-        <div class="si-stat-num">{html.escape(_pretty_token(td))}</div>
-        <div class="si-stat-label">Top policy domain</div>
-        <div class="si-stat-sub">{tdc:,} SIs</div>
-      </div>
-      <div class="si-stat">
         <div class="si-stat-num">{html.escape(_pretty_token(tdep))}</div>
         <div class="si-stat-label">Most active department</div>
         <div class="si-stat-sub">{tdepc:,} SIs</div>
@@ -271,6 +313,11 @@ def _render_kpi_strip(df: pd.DataFrame) -> None:
         <div class="si-stat-num">{eu_count:,}</div>
         <div class="si-stat-label">EU-derived</div>
         <div class="si-stat-sub">{eu_share:.0f}% of scope</div>
+      </div>
+      <div class="si-stat">
+        <div class="si-stat-num">{bill_share:.0f}%</div>
+        <div class="si-stat-label">Linked to enabling Act</div>
+        <div class="si-stat-sub">{bill_count:,} of {total:,} SIs</div>
       </div>
     </div>
     """)
@@ -377,34 +424,62 @@ def _render_eu_scrutiny_tab(full_df: pd.DataFrame) -> None:
         st.markdown(f"[Read the article ↗]({_ARTICLE_URL})")
 
 
-def _active_filter_labels(full_df: pd.DataFrame) -> list[str]:
-    """Human-readable labels for every facet that's currently filtering. Year
-    is collapsed when many are selected so the bar stays readable."""
-    labels: list[str] = []
+# Facet → clear handler. Each entry knows how to reset its own widget's
+# session-state key. Driven by the ?clear=<key> URL handler at the top of
+# the page entry — clicking a chip in the active-filter bar triggers the
+# handler before widgets render, so the next rerun sees the cleared state.
+def _clear_facet(key: str) -> None:
+    if key == "year":
+        st.session_state.si_year_filter = []
+    elif key == "dept":
+        st.session_state.si_dept_filter = "All"
+    elif key == "op":
+        st.session_state.si_op_filter = "All"
+    elif key == "dom":
+        st.session_state.si_domain_filter = "All"
+    elif key == "min":
+        st.session_state.si_minister_filter = "All"
+    elif key == "eu":
+        st.session_state.si_eu_filter = False
+    elif key == "post":
+        st.session_state.si_post_committee_filter = False
+    elif key == "search":
+        st.session_state.si_title_search = ""
+    elif key == "all":
+        _clear_all_filters()
+
+
+def _active_filter_chips(full_df: pd.DataFrame) -> list[tuple[str, str]]:
+    """(label, clear_key) pairs for every facet currently filtering. The
+    clear_key feeds into _clear_facet via the ?clear=<key> URL handler.
+    Year is collapsed under one 'Years (N)' chip when ≥3 are selected so
+    the bar stays readable; clicking the chip clears the year filter
+    entirely (rather than picking off years one-by-one)."""
+    chips: list[tuple[str, str]] = []
     all_yrs = set(int(y) for y in full_df["si_year"].dropna().unique())
     yrs     = st.session_state.get("si_year_filter") or []
     if yrs and set(yrs) != all_yrs:
-        if len(yrs) <= 3:
+        if len(yrs) <= 2:
             for y in sorted(yrs, reverse=True):
-                labels.append(str(int(y)))
+                chips.append((str(int(y)), "year"))
         else:
-            labels.append(f"Years ({len(yrs)})")
+            chips.append((f"Years ({len(yrs)})", "year"))
     if (d := st.session_state.get("si_dept_filter")) and d != "All":
-        labels.append(d)
+        chips.append((d, "dept"))
     if (op := st.session_state.get("si_op_filter")) and op != "All":
-        labels.append(_pretty_token(op))
+        chips.append((_pretty_token(op), "op"))
     if (dom := st.session_state.get("si_domain_filter")) and dom != "All":
-        labels.append(_pretty_token(dom))
+        chips.append((_pretty_token(dom), "dom"))
     if (m := st.session_state.get("si_minister_filter")) and m != "All":
-        labels.append(m)
+        chips.append((m, "min"))
     if st.session_state.get("si_eu_filter"):
-        labels.append("EU-derived")
+        chips.append(("EU-derived", "eu"))
     if st.session_state.get("si_post_committee_filter"):
-        labels.append("Since Dec 2025")
+        chips.append(("Since Dec 2025", "post"))
     s = (st.session_state.get("si_title_search") or "").strip()
     if s:
-        labels.append(f'"{s}"')
-    return labels
+        chips.append((f'"{s}"', "search"))
+    return chips
 
 
 def _tab_label(base: str, active_value: str | None) -> str:
@@ -435,35 +510,45 @@ def _render_facets(full_df: pd.DataFrame) -> None:
         st.toggle("EU-derived only", key="si_eu_filter")
 
     # ── Row 2: active-filter scope bar (only when something is filtered) ──
-    active = _active_filter_labels(full_df)
+    # Each chip is an <a href="?clear=key"> — clicking it removes that
+    # facet's filter via the handler at the top of the page entry. The
+    # trailing "Clear all" chip clears every facet at once.
+    active = _active_filter_chips(full_df)
     if active:
-        chips = "".join(
-            f'<span class="si-active-chip">{html.escape(lbl)}</span>'
-            for lbl in active
+        chip_html = "".join(
+            f'<a class="si-active-chip" href="?clear={key}" target="_self" '
+            f'aria-label="Remove filter: {html.escape(lbl, quote=True)}">'
+            f'{html.escape(lbl)}<span class="si-active-chip-x" aria-hidden="true">×</span>'
+            '</a>'
+            for lbl, key in active
         )
-        bar_col, btn_col = st.columns([6, 1])
-        with bar_col:
-            st.html(
-                '<div class="si-active-bar">'
-                '<span class="si-active-label">Filtered by</span>'
-                f' {chips}</div>'
-            )
-        with btn_col:
-            # on_click for the same reason — Clear all mutates every widget
-            # key, so the mutation must happen pre-render.
-            st.button("Clear all", type="tertiary", key="si_clear_all",
-                      on_click=_clear_all_filters)
+        chip_html += (
+            '<a class="si-active-chip si-active-chip-all" href="?clear=all" '
+            'target="_self" aria-label="Clear all filters">Clear all</a>'
+        )
+        st.html(
+            '<div class="si-active-bar">'
+            '<span class="si-active-label">Filtered by</span>'
+            f'{chip_html}</div>'
+        )
 
     # ── Row 3: Year — always visible, single line, multi-select ──────────
     yrs       = sorted((int(y) for y in full_df["si_year"].dropna().unique()), reverse=True)
     yr_counts = full_df["si_year"].astype("Int64").value_counts().to_dict()
+    # The current year is necessarily year-to-date; tag it so readers don't
+    # compare its partial count against full-year neighbours.
+    _current_year = datetime.date.today().year
     st.pills(
         "Year",
         yrs,
         default=yrs[:3] if len(yrs) >= 3 else yrs,
         selection_mode="multi",
         key="si_year_filter",
-        format_func=lambda y: f"{y}  · {yr_counts.get(y, 0):,}",
+        format_func=lambda y: (
+            f"{y} · {yr_counts.get(y, 0):,} YTD"
+            if y == _current_year
+            else f"{y} · {yr_counts.get(y, 0):,}"
+        ),
     )
 
     # ── Row 4: tabbed primary facets — only one set of pills shows at a
@@ -492,7 +577,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
             label_visibility="collapsed",
             format_func=lambda x: "All departments"
                                   if x == "All"
-                                  else f"{x}  · {dept_counts.get(x, 0):,}",
+                                  else f"{x} · {dept_counts.get(x, 0):,}",
         )
 
     with tabs[1]:
@@ -506,7 +591,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
             label_visibility="collapsed",
             format_func=lambda x: "All operations"
                                   if x == "All"
-                                  else f"{_pretty_token(x)}  · {op_counts.get(x, 0):,}",
+                                  else f"{_pretty_token(x)} · {op_counts.get(x, 0):,}",
         )
 
     with tabs[2]:
@@ -520,7 +605,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
             label_visibility="collapsed",
             format_func=lambda x: "All policy areas"
                                   if x == "All"
-                                  else f"{_pretty_token(x)}  · {dom_counts.get(x, 0):,}",
+                                  else f"{_pretty_token(x)} · {dom_counts.get(x, 0):,}",
         )
 
     with tabs[3]:
@@ -534,7 +619,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
             label_visibility="collapsed",
             format_func=lambda x: "All ministers"
                                   if x == "All"
-                                  else f"{x}  · {min_counts.get(x, 0):,}",
+                                  else f"{x} · {min_counts.get(x, 0):,}",
         )
 
     with tabs[4]:
@@ -565,7 +650,13 @@ def _render_si_card(row: pd.Series) -> str:
     if dept:
         pills.append(f'<span class="si-pill si-pill-dept">{html.escape(dept)}</span>')
 
+    # Whole card is the click target — Streamlit can't put a native button
+    # inside an HTML block, so the previous "<card> + detached View detail
+    # button" pattern wasted vertical space and broke the click affordance.
+    # An <a href="?si=…"> wrapper lets Streamlit pick up the param change
+    # on the next rerun via the listener at the top of the page entry.
     return (
+        f'<a class="si-card-link" href="?si={html.escape(si_id, quote=True)}" target="_self">'
         '<div class="si-card">'
         '<div class="si-card-head">'
         f'<span class="si-card-ref">SI No. {si_id}</span>'
@@ -574,6 +665,7 @@ def _render_si_card(row: pd.Series) -> str:
         f'<div class="si-card-title">{title}</div>'
         f'<div class="si-card-foot">{"".join(pills)}</div>'
         '</div>'
+        '</a>'
     )
 
 
@@ -594,10 +686,6 @@ def _render_si_index(df: pd.DataFrame) -> None:
 
     for _, row in visible.iterrows():
         st.html(_render_si_card(row))
-        if st.button("View detail →", key=f"si_open_{row['si_id']}", type="tertiary"):
-            st.session_state["si_selected_id"] = row["si_id"]
-            st.query_params["si"] = row["si_id"]
-            st.rerun()
 
     pagination_controls(
         total,
@@ -643,12 +731,17 @@ def _render_si_detail(row: pd.Series) -> None:
     </div>
     """)
 
-    render_stat_strip(
+    # Department isn't detected on ~60% of pre-2014 SIs; render the cell
+    # only when there's a real value rather than parking an em-dash and
+    # wasting a quarter of the stat strip.
+    stat_items = [
         stat_item(_fmt_date(row.get("si_signed_date")), "Issued"),
         stat_item(_pretty_token(op) or "—", "Operation"),
         stat_item(_pretty_token(domain) or "—", "Policy domain"),
-        stat_item(dept or "—", "Department"),
-    )
+    ]
+    if dept:
+        stat_items.append(stat_item(dept, "Department"))
+    render_stat_strip(*stat_items)
 
     rows_html: list[str] = []
 
@@ -724,11 +817,19 @@ def _render_si_detail(row: pd.Series) -> None:
             f'<a class="dt-source-link" href="/legislation?bill={html.escape(bill_id)}" '
             f'target="_self">View {ref_label} detail →</a>'
         )
+        # Pre-2014 bill_ids are internal slugs ('act_1993_statistics') — not
+        # useful to the reader. Only show the meta line when bill_id is the
+        # canonical Oireachtas reference (post-2014, e.g. 'bill-123-of-2024').
+        meta_html = (
+            ""
+            if is_pre2014
+            else f'<div class="si-billlink-meta">{ref_label} {html.escape(bill_id)}</div>'
+        )
         st.html(f"""
         <div class="si-billlink">
           <div class="si-billlink-kicker">{kicker}</div>
           <div class="si-billlink-title">{html.escape(bill_title) or "—"}</div>
-          <div class="si-billlink-meta">{ref_label} {html.escape(bill_id)}</div>
+          {meta_html}
           {local_link}
         </div>
         """)
@@ -760,23 +861,46 @@ def statutory_instruments_page() -> None:
         st.session_state["si_selected_id"] = url_si
     selected = st.session_state.get("si_selected_id")
 
+    # Filter-chip click handler — chips in the active-filter bar link to
+    # ?clear=<key>; we drain the param, mutate session state pre-widget,
+    # then rerun so widgets pick up the cleared values. Must happen here,
+    # before _render_facets instantiates the widgets it references.
+    url_clear = st.query_params.get("clear")
+    if url_clear:
+        _clear_facet(url_clear)
+        del st.query_params["clear"]
+        st.rerun()
+
+
     # ── Sidebar ───────────────────────────────────────────────────────────────
     # All filters live in the main panel now (see _render_facets), so the
     # sidebar is just the page header — the facet pills are more discoverable
     # in the main flow than tucked into a sidebar selectbox stack.
     with st.sidebar:
         sidebar_page_header("Statutory Instruments")
-        st.html(
-            '<div class="page-subtitle">'
-            + ('SI detail' if selected else 'Secondary legislation · Iris Oifigiúil')
-            + '</div>'
-        )
+        # Subtitle only on the index — it explains what SIs are for first-time
+        # visitors. On the detail view the back button + breadcrumb make state
+        # obvious, so 'SI detail' as a subtitle was redundant restatement.
+        if not selected:
+            st.html(
+                '<div class="page-subtitle">'
+                'Secondary legislation · Iris Oifigiúil'
+                '</div>'
+            )
 
     # ── Detail view ───────────────────────────────────────────────────────────
     if selected:
         match = si_df[si_df["si_id"] == selected]
         if match.empty:
-            st.warning(f"SI '{selected}' not found.")
+            # The bare st.warning was off-register with the rest of the
+            # page; an empty_state in civic voice tells the user what
+            # actually happened (corpus floor) and where to go next.
+            empty_state(
+                f"SI {selected!r} isn't in the index",
+                "The Dáil Tracker SI corpus covers 2016 onwards — older "
+                "instruments aren't yet ingested. Old bookmark or typed URL? "
+                "Try browsing the index, or search by title.",
+            )
             if back_button("← Back to SI Index", key="si_detail_nf"):
                 st.session_state.pop("si_selected_id", None)
                 st.query_params.clear()
@@ -798,14 +922,23 @@ def statutory_instruments_page() -> None:
         ),
     )
 
-    # Facet pills first — they are the interaction surface that replaces the
-    # old static heatmaps + bar charts. Each chip is its own click-to-filter
-    # control, with the SI count baked into the label.
-    _render_facets(si_df)
-
+    # KPI strip above the fold — anchors the headline numbers BEFORE the
+    # facet machinery. Session-state values reflect the prior rerun's
+    # widget state, so computing `filtered` here (pre-_render_facets)
+    # produces the same result as computing it after. On the very first
+    # render of a session, `si_year_filter` doesn't exist yet — fall back
+    # to the same default the year-pill widget will use (most recent 3
+    # years) so KPIs and the cards below show the same scope. .get() with
+    # no default distinguishes 'never set' (use default) from '[] = user
+    # cleared the filter' (don't re-seed).
+    if "si_year_filter" in st.session_state:
+        _year_filter = st.session_state["si_year_filter"] or []
+    else:
+        _yrs = sorted((int(y) for y in si_df["si_year"].dropna().unique()), reverse=True)
+        _year_filter = _yrs[:3] if len(_yrs) >= 3 else _yrs
     filtered = _apply_filters(
         si_df,
-        years=st.session_state.get("si_year_filter") or [],
+        years=_year_filter,
         domain=st.session_state.get("si_domain_filter"),
         op=st.session_state.get("si_op_filter"),
         department=st.session_state.get("si_dept_filter"),
@@ -814,8 +947,13 @@ def statutory_instruments_page() -> None:
         post_committee=st.session_state.get("si_post_committee_filter", False),
         search=st.session_state.get("si_title_search"),
     )
-
     _render_kpi_strip(filtered)
+
+    # Facets next — each chip is a click-to-filter control with the SI
+    # count baked into the label. Changing a facet reruns the page and
+    # the KPI strip above updates with the new scope.
+    _render_facets(si_df)
+
     _render_si_index(filtered)
 
 

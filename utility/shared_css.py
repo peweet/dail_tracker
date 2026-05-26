@@ -485,11 +485,25 @@ def inject_css() -> None:
         }
         .stat-strip {
             display: flex;
-            gap: 2.5rem;
+            flex-wrap: wrap;
+            gap: 1.25rem 2.5rem;
             padding: 1rem 0;
             border-top: 1px solid var(--border);
             border-bottom: 1px solid var(--border);
             margin: 1rem 0 1.75rem 0;
+        }
+        /* Mobile: 4-column stat strips were overflowing the 390px viewport
+           and clipping the rightmost stat off-screen. Switch to a 2-up
+           grid so all stats stay visible. */
+        @media (max-width: 640px) {
+            .stat-strip {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem 1.5rem;
+            }
+            .stat-strip > * {
+                min-width: 0;
+            }
         }
         .stat-num {
             font-family: 'Zilla Slab', Georgia, serif;
@@ -1368,13 +1382,16 @@ def inject_css() -> None:
             border-left-color: var(--accent);
             border-color: var(--accent-dim);
         }
-        /* Left slot: avatar OR rank number — always reserves the space */
+        /* Left slot: avatar OR rank number — always reserves the space.
+           ``position: relative`` lets the rank overlay (.dt-name-card-rank-overlay)
+           anchor to the avatar's bottom-right when both are present. */
         .dt-name-card-left {
             flex-shrink: 0;
             width: 2.75rem;
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
         }
         .dt-name-card-avatar {
             width: 2.75rem;
@@ -1385,6 +1402,35 @@ def inject_css() -> None:
             border: 1px solid rgba(0,0,0,0.08);
             background: #f3f4f6;
             box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+        }
+        /* Rank chip overlaid on the avatar bottom-right corner. Used when a
+           card has BOTH a photo AND a rank — previously the rank was hidden
+           by the avatar (interests audit P1-2). Crisp ring around the chip
+           keeps it readable against the avatar edge. */
+        .dt-name-card-rank-overlay {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            min-width: 1.4rem;
+            height: 1.2rem;
+            padding: 0 0.3rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--text-primary, #111827);
+            color: #ffffff;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.66rem;
+            font-weight: 800;
+            border-radius: 999px;
+            border: 2px solid #ffffff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+            line-height: 1;
+            letter-spacing: -0.02em;
+        }
+        .dt-name-card-rank-overlay-top {
+            background: var(--accent, #b8860b);
+            color: #ffffff;
         }
         /* Initials chip used when no photo is available */
         .dt-name-card-initials {
@@ -1751,12 +1797,12 @@ def inject_css() -> None:
         }
         .att-hall-heading-good {
             font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em;
-            color: #1d4ed8; border-bottom: 3px solid #3b82f6;
+            color: var(--signal-good); border-bottom: 3px solid var(--signal-good-mid);
             padding-bottom: 0.5rem; margin: 0 0 0.9rem;
         }
         .att-hall-heading-bad {
             font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em;
-            color: #c2410c; border-bottom: 3px solid #f97316;
+            color: var(--signal-bad); border-bottom: 3px solid var(--signal-bad-mid);
             padding-bottom: 0.5rem; margin: 0 0 0.9rem;
         }
         .att-hall-card-good,
@@ -1767,10 +1813,14 @@ def inject_css() -> None:
             width: 100%;
         }
         .att-hall-card-good {
-            background: #eff6ff; border: 1px solid #bfdbfe; border-left: 5px solid #3b82f6;
+            background: var(--signal-good-subtle);
+            border: 1px solid var(--signal-good-border);
+            border-left: 5px solid var(--signal-good-mid);
         }
         .att-hall-card-bad {
-            background: #fff7ed; border: 1px solid #fed7aa; border-left: 5px solid #f97316;
+            background: var(--signal-bad-subtle);
+            border: 1px solid var(--signal-bad-border);
+            border-left: 5px solid var(--signal-bad-mid);
         }
         .att-hall-rank {
             font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em;
@@ -1794,14 +1844,14 @@ def inject_css() -> None:
             flex-shrink: 0; min-width: 3.4rem; padding: 0.3rem 0.6rem;
             border-radius: 12px; text-align: center; line-height: 1.1;
         }
-        .att-hall-badge-good { background: #dbeafe; border: 1px solid #93c5fd; }
-        .att-hall-badge-bad  { background: #ffedd5; border: 1px solid #fdba74; }
+        .att-hall-badge-good { background: var(--signal-good-subtle); border: 1px solid var(--signal-good-border); }
+        .att-hall-badge-bad  { background: var(--signal-bad-subtle);  border: 1px solid var(--signal-bad-border); }
         .att-hall-badge-num {
             font-size: 1.25rem; font-weight: 800; letter-spacing: -0.03em;
             color: var(--text-primary); display: block;
         }
-        .att-hall-badge-good .att-hall-badge-num { color: #1d4ed8; }
-        .att-hall-badge-bad  .att-hall-badge-num { color: #c2410c; }
+        .att-hall-badge-good .att-hall-badge-num { color: var(--signal-good-deep); }
+        .att-hall-badge-bad  .att-hall-badge-num { color: var(--signal-bad-deep); }
         .att-hall-badge-label { font-size: 0.62rem; font-weight: 600; color: var(--text-meta); display: block; }
 
         /* ── Hall cards as full-card-clickable links (clickable_card_link) ─── */
@@ -1875,8 +1925,31 @@ def inject_css() -> None:
         .pay-amount-badge-num  { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.03em; color: #1e40af; line-height: 1; display: block; }
         .pay-amount-badge-label { font-size: 0.58rem; font-weight: 600; color: #3b82f6; line-height: 1.4; display: block; }
         .pay-taa-pill {
-            display: inline-flex; align-items: center; background: #eff6ff; border: 1px solid #93c5fd;
+            display: inline-flex; align-items: center; gap: 0.25rem; background: #eff6ff; border: 1px solid #93c5fd;
             border-radius: 999px; padding: 2px 8px; font-size: 0.68rem; font-weight: 600; color: #1e40af;
+        }
+        /* P1-6: unmapped TAA bands — quieter neutral tint so the caveat
+           reads as "uncertainty", not "warning". Band string is still shown
+           so the reader has the registry value to compare against. */
+        .pay-taa-pill-unmapped {
+            background: #f5f5f4;
+            border-color: #d6d3d1;
+            color: #57534e;
+            font-style: italic;
+        }
+        .pay-taa-caveat {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 0.9rem;
+            height: 0.9rem;
+            background: #78716c;
+            color: #ffffff;
+            border-radius: 50%;
+            font-size: 0.6rem;
+            font-weight: 700;
+            font-style: normal;
+            cursor: help;
         }
         .pay-name-row { display: inline-flex; align-items: center; gap: 8px; padding: 2px 0; height: 100%; width: fit-content; max-width: 100%; }
 
@@ -2140,6 +2213,57 @@ def inject_css() -> None:
             width: 1px;
             height: 1.7rem;
             background: var(--border);
+        }
+
+        /* Generic totals strip — used by the `totals_strip()` component on
+           every Stage 2 view that previously emitted bare st.metric blocks
+           (payments Rankings, lobbying org / topic / DPO Stage 2). Same
+           visual treatment as .pay-totals-* but unprefixed for cross-page
+           reuse. */
+        .dt-totals-strip {
+            display: inline-flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1.4rem;
+            padding: 0.5rem 1rem;
+            margin: 0.4rem 0 0.6rem;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            max-width: 100%;
+        }
+        .dt-totals-item {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .dt-totals-num {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+        .dt-totals-lbl {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.66rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+            margin-top: 0.25rem;
+        }
+        .dt-totals-divider {
+            width: 1px;
+            height: 1.7rem;
+            background: var(--border);
+        }
+        @media (max-width: 640px) {
+            .dt-totals-strip { gap: 0.9rem; padding: 0.45rem 0.7rem; }
+            .dt-totals-num { font-size: 1.1rem; }
+            .dt-totals-divider { display: none; }
         }
 
         /* ── Data provenance box ────────────────────────────────────────
@@ -2515,8 +2639,8 @@ def inject_css() -> None:
             padding: 0.8rem 1rem; margin-bottom: 0.6rem;
         }
         .leg-source-label {
-            font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em;
-            text-transform: uppercase; color: var(--text-meta); margin-bottom: 0.25rem;
+            font-size: 0.82rem; font-weight: 600;
+            color: var(--text-primary); margin-bottom: 0.25rem;
         }
         .leg-source-link {
             font-size: 0.85rem; font-weight: 600;
@@ -2665,6 +2789,41 @@ def inject_css() -> None:
             letter-spacing: 0.01em;
         }
 
+        /* Mobile: stack pipeline cards vertically (was clipping the third
+           "Enacted" card off-screen on 390px wide). Rotate the → separator
+           to point down between stacked cards. */
+        @media (max-width: 640px) {
+            .leg-pipeline-strip {
+                flex-direction: column;
+            }
+            .leg-pipeline-sep {
+                padding: 0.35rem 0;
+                border-left: none;
+                border-right: none;
+                border-top: 1px solid var(--border);
+                border-bottom: 1px solid var(--border);
+                justify-content: center;
+                transform: rotate(90deg);
+            }
+        }
+
+        /* ── Legislation: SI card + pre-2014 act long-title ─────────── */
+        /* Inline-style extraction for legislation.py SI cards (P2-1 fix). */
+        .leg-si-card {
+            margin-bottom: 0.3rem;
+        }
+        .leg-si-meta {
+            margin-top: 0.2rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .leg-pre2014-long-title {
+            margin: 0.45rem 0 0.35rem;
+        }
+        .leg-long-title-tight {
+            margin: 0.45rem 0 0.35rem;
+        }
+
         /* ── Legislation: debate list in detail view ────────────────── */
         .leg-debate-list { display: flex; flex-direction: column; }
         .leg-debate-row {
@@ -2688,34 +2847,11 @@ def inject_css() -> None:
             font-size: 0.70rem; color: var(--text-meta); white-space: nowrap; flex-shrink: 0;
         }
 
-        /* ── Legislation: pipeline TODO callout ─────────────────────── */
-        .leg-todo-callout {
-            background: #fffbeb;
-            border: 1px solid #fcd34d;
-            border-left: 4px solid #d97706;
-            border-radius: 2px;
-            padding: 0.55rem 0.85rem;
-            font-size: 0.80rem;
-            color: #78350f;
-            line-height: 1.5;
-            margin: 0.6rem 0;
-        }
-        .leg-todo-callout code {
-            background: #fef3c7;
-            border: 1px solid #fcd34d;
-            border-radius: 2px;
-            padding: 0.05rem 0.3rem;
-            font-size: 0.75rem;
-            color: #92400e;
-        }
-        .leg-todo-label {
-            font-size: 0.65rem;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #b45309;
-            margin-right: 0.35rem;
-        }
+        /* (Legislation pipeline-TODO callout removed 2026-05-26 — the
+           unscoped fetcher now lands Government Bills in silver, so the
+           "Government Bills not yet indexed" notice was inaccurate. If a
+           page needs a citizen-facing "Coming soon" notice in future, use
+           the shared `todo_callout()` helper in ui/components.py.) */
 
         /* ── Cross-page entity links ─────────────────────────────────── */
         /* Inline anchor used wherever a TD name links to their profile.
@@ -3006,8 +3142,88 @@ def inject_css() -> None:
             color: var(--text-primary, #111827);
             font-weight: 700;
         }
-        /* Position-only rules for the source link inside vote cards.
-           Visual styling lives in the canonical .dt-source-link block above. */
+        /* P1-1 stage pill: legislative stage extracted from debate_title
+           after the first colon ("Committee and Remaining Stages",
+           "Second Stage (Resumed)", "Motion (Resumed)", etc). Lives in
+           the card header next to the date + outcome so cards for the
+           same bill at different stages are visually distinct without
+           cluttering the title line. */
+        .vt-card-stage {
+            background: #fafaf7;
+            color: var(--text-meta);
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            padding: 0.1rem 0.55rem;
+            border-radius: 2px;
+            border: 1px solid rgba(0,0,0,0.06);
+            white-space: nowrap;
+            text-transform: none;
+            margin-left: auto;
+            max-width: 18ch;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        /* P2-8 Private Members pill — same chip family as the stage pill
+           but a slightly warmer surface so the two read as siblings
+           (procedural facts about the vote) rather than competing. Sits
+           in the same header strip; when both are present the stage
+           pushes right via margin-left:auto and the private pill follows.
+           Tooltip carries the citizen-facing definition. */
+        .vt-card-private {
+            background: #fff7ed;
+            color: #7a4500;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            padding: 0.1rem 0.55rem;
+            border-radius: 2px;
+            border: 1px solid #fde0b8;
+            white-space: nowrap;
+            text-transform: none;
+        }
+        .vt-card-stage + .vt-card-private { margin-left: 0.35rem; }
+        .vt-card-header > .vt-card-private:not(.vt-card-stage + *) {
+            margin-left: auto;
+        }
+        /* Pillrow for cards that want a dedicated row below the title.
+           Not currently used (header carries both), kept for forward
+           compatibility if pill count grows. */
+        .vt-card-pillrow {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+            margin: 0.15rem 0 0.35rem;
+        }
+        .vt-card-pillrow:empty { display: none; }
+
+        /* P1-4 + P2-2: Oireachtas link demoted from card header (accent-
+           coloured, one per card) to card footer (quiet grey). The
+           internal navigation arrow added by clickable_card_link is now
+           the visually-primary affordance. */
+        .vt-card-footer .dt-source-link {
+            color: var(--text-meta);
+            font-weight: 400;
+            font-size: 0.75rem;
+            margin-left: auto;
+        }
+        .vt-card-footer .dt-source-link::after {
+            color: var(--text-meta);
+            opacity: 0.8;
+        }
+        .vt-card-footer .dt-source-link:hover {
+            color: var(--text-primary);
+        }
+        /* When both a margin pill AND a source link land in the footer,
+           the margin pill keeps its right-aligned position and the link
+           sits next to it (not pushed further right by its own auto). */
+        .vt-card-footer .vt-margin-pill + .dt-source-link { margin-left: 0.4rem; }
+
+        /* Legacy position rules for cards that still emit the source
+           link in the header (other consumers of vt_division_card_html
+           pattern). */
         .vt-card-header .dt-source-link,
         .vt-card-header .vt-source-link { margin-left: auto; }
         .vt-card-footer .dt-source-link + .vt-margin-pill,
@@ -3127,19 +3343,28 @@ def inject_css() -> None:
         .td-pick-card:hover {
             box-shadow: 0 4px 12px rgba(0,0,0,0.09);
         }
+        /* Card is now a single flowing statement: <Name> voted YES on <Bill>.
+           Vote, name, title classes all render inline inside .td-pick-statement
+           rather than as stacked blocks with a separate badge. */
+        .td-pick-statement {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.02rem;
+            line-height: 1.5;
+            color: var(--text-primary, #111827);
+            margin: 0 0 0.5rem;
+        }
         .td-pick-vote {
-            display: inline-flex;
-            align-items: center;
-            align-self: flex-start;
+            display: inline-block;
             font-family: 'Epilogue', sans-serif;
-            font-size: 0.78rem;
-            font-weight: 800;
+            font-size: 0.74rem;
+            font-weight: 700;
             letter-spacing: 0.04em;
             text-transform: uppercase;
-            padding: 0.3rem 0.7rem;
+            padding: 0.08rem 0.5rem;
             border-radius: 999px;
             white-space: nowrap;
-            margin-bottom: 0.2rem;
+            vertical-align: 0.05em;
+            margin: 0 0.15rem;
         }
         .td-pick-vote-yes {
             background: #ecfdf5;
@@ -3156,44 +3381,12 @@ def inject_css() -> None:
             color: #52525b;
             border: 1px solid #e4e4e7;
         }
-        .td-pick-prompt {
+        .td-pick-statement .td-pick-name {
             font-family: 'Epilogue', sans-serif;
-            font-size: 0.72rem;
-            color: var(--text-meta, #5a5a5a);
-            text-transform: lowercase;
-            letter-spacing: 0.02em;
-            margin: 0;
-        }
-        .td-pick-title {
-            font-family: 'Zilla Slab', Georgia, serif;
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: var(--text-primary, #111827);
-            line-height: 1.3;
-            margin: 0;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            min-height: calc(1.05rem * 1.3 * 2);
-        }
-        .td-pick-name {
-            font-family: 'Epilogue', sans-serif;
-            font-size: 0.98rem;
             font-weight: 700;
             color: var(--text-primary, #111827);
         }
-        .td-pick-name-row {
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            gap: 0.6rem;
-            margin-top: auto;
-            padding-top: 0.45rem;
-        }
-        .td-pick-profile {
-            font-size: 0.78rem;
-            white-space: nowrap;
+        .td-pick-statement .td-pick-title {
             font-weight: 600;
         }
         .td-pick-meta {
@@ -3202,8 +3395,9 @@ def inject_css() -> None:
             color: var(--text-meta, #5a5a5a);
             margin: 0;
         }
-        /* Tighten the gap between the picker card and its action button,
-           and stretch all columns in the row to equal height. */
+        /* Stretch picker cards in a row to equal height — no separate
+           action-button styling here any more (the card is the click target
+           via clickable_card_link). */
         [data-testid="stHorizontalBlock"]:has(.td-pick-card) {
             align-items: stretch !important;
         }
@@ -3211,21 +3405,6 @@ def inject_css() -> None:
             [data-testid="stColumn"] {
             display: flex;
             flex-direction: column;
-        }
-        [data-testid="stHorizontalBlock"]:has(.td-pick-card)
-            [data-testid="stButton"] > button {
-            margin-top: 0.4rem;
-            border: 1px solid rgba(0,0,0,0.12);
-            background: #ffffff;
-            color: var(--text-primary);
-            font-family: 'Epilogue', sans-serif;
-            font-weight: 600;
-            font-size: 0.85rem;
-        }
-        [data-testid="stHorizontalBlock"]:has(.td-pick-card)
-            [data-testid="stButton"] > button:hover {
-            border-color: var(--accent, #b04a1a);
-            color: var(--accent, #b04a1a);
         }
         .td-pick-foot {
             font-family: 'Epilogue', sans-serif;
@@ -3344,13 +3523,18 @@ def inject_css() -> None:
             padding: 0;
             overflow: hidden;
         }
+        /* P2-2 audit fix: the rank-chip column carried a peach tint that
+           read as a "selected first card" affordance even though no
+           selection state existed. Neutralised to the same warm-surface
+           token used elsewhere so it visually anchors but doesn't shout
+           that the first row is special. */
         .cmt-row-rank {
             display: flex;
             align-items: center;
             justify-content: center;
             min-width: 2.6rem;
             padding: 0.55rem 0.4rem;
-            background: oklch(97% 0.008 75);
+            background: var(--surface-deep, #f5f1ea);
             font-family: 'Epilogue', sans-serif;
             font-size: 0.78rem;
             font-weight: 800;
@@ -3471,6 +3655,16 @@ def inject_css() -> None:
             border-radius: 10px;
             padding: 0.85rem 1.1rem;
             margin: 0.3rem 0 0.9rem;
+        }
+        /* P2-3: identity-head wraps name + status chip so the chip sits
+           beside the committee name (same chip styling as register cards
+           via .cmt-row-status-*). Without this, the status was inline
+           text in the meta line; register and detail diverged. */
+        .cmt-identity-head {
+            display: flex;
+            align-items: baseline;
+            gap: 0.6rem;
+            flex-wrap: wrap;
         }
         .cmt-identity-name {
             font-family: 'Epilogue', sans-serif;

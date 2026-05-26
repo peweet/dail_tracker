@@ -661,7 +661,27 @@ def interests_page() -> None:
         opts = _fetch_filter_options(house)
 
         notable = NOTABLE_TDS if house == "Dáil" else NOTABLE_SENATORS
+        # P0-1 fix: previously this wrote selected_td and called st.rerun(),
+        # but nothing read selected_td (Phase 3 lifted the per-TD profile
+        # to /member-overview without rewiring the picker). Navigate
+        # directly to the canonical profile via the same contract the
+        # cards already use.
         if notable and render_notable_chips(notable, opts["members"], "chip_int", "selected_td"):
+            picked = st.session_state.pop("selected_td", None)
+            if picked:
+                code = resolve_member_code(picked)
+                if code:
+                    target = member_profile_url(code, section="interests")
+                    # Use st.markdown(unsafe_allow_html=True) — NOT st.html()
+                    # — because st.html iframes its content and a meta-refresh
+                    # inside an iframe redirects the iframe only, not the
+                    # parent page. See [[feedback-streamlit-css-and-state]]
+                    # and the same pattern in lobbying_3.py:274,340.
+                    st.markdown(
+                        f'<meta http-equiv="refresh" content="0;url={_h(target)}">',
+                        unsafe_allow_html=True,
+                    )
+                    st.stop()
             st.rerun()
 
     # ── Guard ─────────────────────────────────────────────────────────────────
@@ -713,15 +733,44 @@ def interests_page() -> None:
     # ── Browse mode ───────────────────────────────────────────────────────────
 
     # Main-panel member search — primary call-to-action under the hero.
+    # P0-1 fix: this used to write selected_td + rerun, but no branch ever
+    # read it (Phase 3 lifted the per-TD profile to /member-overview).
+    # Navigate directly to the canonical profile via the same contract
+    # the cards already use.
     chosen = main_member_jump(
         opts["members"],
         key_prefix="int",
         label="Find a TD",
         placeholder="Type a name…",
     )
-    if chosen and st.session_state.get("selected_td") != chosen:
-        st.session_state["selected_td"] = chosen
-        st.rerun()
+    if chosen:
+        code = resolve_member_code(chosen)
+        if code:
+            target = member_profile_url(code, section="interests")
+            # st.markdown not st.html — see notable-chip handler above.
+            st.markdown(
+                f'<meta http-equiv="refresh" content="0;url={_h(target)}">',
+                unsafe_allow_html=True,
+            )
+            st.stop()
+
+    # P0-1 audit fix: the typeahead + Notable Members chips both write
+    # `selected_td` into session state, but Phase 3 lifted the per-TD
+    # profile to /member-overview without rewiring the readers — so the
+    # primary CTA used to be dead. Mirror the legacy `?member=` redirect
+    # contract: when a TD has been selected via either control, render the
+    # shared "Member profiles have moved" callout (with a working profile
+    # link) and stop. The cards on this page already navigate via
+    # `clickable_card_link(href=member_profile_url(code, section="interests"))`
+    # so this branch only fires for typeahead / chip selections.
+    selected_td = st.session_state.get("selected_td")
+    if selected_td:
+        member_moved_callout(
+            selected_td,
+            section="interests",
+            section_label="The Interests section",
+            state_keys=("selected_td",),
+        )
 
     # Year pills — main content, newest first
     year_opts = [str(y) for y in opts["years"]]
@@ -738,14 +787,11 @@ def interests_page() -> None:
     ranking_df = _load_ranking(house, selected_year)
 
     if ranking_df.empty:
-        # Pipeline detail (dev): v_member_interests_index not yet registered;
-        # showing the unranked fallback list of members until it lands.
-        todo_callout(
-            "Member ranking — a ranked leaderboard (most declarations, "
-            "landlords, shareholders) will appear here once the underlying "
-            "data view is ready. Showing all members in name order for now."
-        )
-
+        # P2-1: demoted from a full todo_callout block to a single caption
+        # under the heading. The fallback delivers a usable member list so
+        # the "Coming soon" callout no longer earns prime above-fold real
+        # estate. Pipeline detail (dev): v_member_interests_index not yet
+        # registered; rendered list is the unranked fallback.
         members_df = _fetch_member_index_fallback(house, selected_year)
         if members_df.empty:
             empty_state(
@@ -755,7 +801,25 @@ def interests_page() -> None:
             _render_provenance()
             return
 
-        evidence_heading(f"Members · {selected_year} · {len(members_df)}")
+        # Audit fix (2026-05-26, P1-5): the previous heading
+        # "Members · 2025 · 174" was terse and didn't say WHY this list
+        # was showing or that switching the year pill above changed it.
+        # Rephrase to verbalise the year context so a year-pill switch
+        # has visible textual feedback.
+        evidence_heading(f"Declarations for {selected_year} · {len(members_df)} members")
+        # P2-1: demoted "Coming soon" callout to a single caption so the
+        # data isn't preceded by a heavy notice; P2-3: pill colour legend
+        # — declarations (blue), landlord (orange), property (green),
+        # shareholder (purple) — so the encoding is documented inline.
+        st.caption(
+            "Ranked leaderboard coming when the pipeline view lands — "
+            "showing all members in name order for now.   "
+            "Pill colours: "
+            "**declarations** (blue) · "
+            "**landlord** (orange) · "
+            "**property owner** (green) · "
+            "**shareholder** (purple)."
+        )
 
         # Pagination state (read-only here; nav widgets render below the cards).
         page_size = 12

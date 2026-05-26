@@ -17,6 +17,7 @@ from ui.components import (
     back_button,
     clickable_card_link,
     empty_state,
+    member_moved_callout,
     page_error_boundary,
     sidebar_date_range,
     sidebar_member_filter,
@@ -24,7 +25,7 @@ from ui.components import (
     todo_callout,
     year_selector,
 )
-from ui.entity_links import division_url, entity_cta_html, member_profile_url
+from ui.entity_links import division_url, member_profile_url
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
 from ui.vote_explorer import render_division_panel, vt_division_card_html
@@ -131,6 +132,24 @@ def _fetch_td_row_by_name(_conn, member_name: str) -> pd.DataFrame:
         " FROM td_vote_summary WHERE member_name = ? LIMIT 1",
         (member_name,),
     )
+
+
+@st.cache_data(ttl=300)
+def _fetch_td_name_by_id(_conn, member_id: str) -> str:
+    """Look up TD display name from member_id for the legacy redirect.
+
+    Used by `_render_mode_b_redirect` so the moved-callout link can show
+    the member's actual name rather than the bare ID slug.
+    """
+    df = _safe_query(
+        _conn,
+        "SELECT member_name FROM td_vote_summary WHERE member_id = ? LIMIT 1",
+        (member_id,),
+    )
+    if df.empty or "member_name" not in df.columns:
+        return ""
+    val = df.iloc[0]["member_name"]
+    return str(val) if val is not None else ""
 
 
 @st.cache_data(ttl=300)
@@ -282,11 +301,17 @@ def _pick_diverse_cards(df: pd.DataFrame, n: int) -> list[dict]:
 
 def _td_pick_card_html(row: dict) -> str:
     name = str(row.get("member_name") or "")
-    member_id = str(row.get("member_id") or "")
     party = str(row.get("party_name") or "")
     const = str(row.get("constituency") or "")
     vote_type = str(row.get("vote_type") or "")
     title = str(row.get("debate_title") or "")
+    # P2-8: lift the upstream "[Private Members]" tag out of the title so
+    # the prose statement doesn't carry trailing jargon. The flag becomes
+    # a small pill rendered alongside the meta line below.
+    _pm_tag = "[Private Members]"
+    is_private = title.rstrip().endswith(_pm_tag)
+    if is_private:
+        title = title[: title.rfind(_pm_tag)].rstrip().rstrip(":")
     vote_date = row.get("vote_date")
     date_str = ""
     if vote_date is not None:
@@ -295,38 +320,42 @@ def _td_pick_card_html(row: dict) -> str:
         except AttributeError:
             date_str = str(vote_date)[:10]
 
+    # P1-5: the previous "✓ Voted Yes" / "✗ Voted No" badges used red/green
+    # signal colours that read as the bill's *outcome* rather than the TD's
+    # vote. Reframe: one quiet pill carrying the TD's vote, prose-inlined
+    # into a single readable sentence ("<Name> voted YES on <bill>"). The
+    # bill's outcome belongs on Mode C, not on the TD picker.
     if vote_type == "Voted Yes":
-        chip_cls = "td-pick-vote td-pick-vote-yes"
-        chip_text = "✓ Voted Yes"
+        vote_text = "voted YES"
+        vote_cls = "td-pick-vote td-pick-vote-yes"
     elif vote_type == "Voted No":
-        chip_cls = "td-pick-vote td-pick-vote-no"
-        chip_text = "✗ Voted No"
+        vote_text = "voted NO"
+        vote_cls = "td-pick-vote td-pick-vote-no"
     else:
-        chip_cls = "td-pick-vote td-pick-vote-abs"
-        chip_text = "— Abstained"
+        vote_text = "abstained"
+        vote_cls = "td-pick-vote td-pick-vote-abs"
 
     meta_parts = [p for p in (party, const, date_str) if p]
     meta_html = " · ".join(_h(p) for p in meta_parts)
-
-    # Cross-page link to the full Member Overview profile, when ID is known.
-    profile_link_html = (
-        f'<a class="dt-member-link td-pick-profile" '
-        f'href="{_h(member_profile_url(member_id))}" target="_self" '
-        f'aria-label="View full profile of {_h(name)}">Profile ↗</a>'
-        if member_id
+    private_pill = (
+        '<span class="vt-card-private" title="Private Members’ motion or bill '
+        '— tabled by a TD/Senator who is not a government minister">Private Members</span>'
+        if is_private
         else ""
+    )
+
+    # Single-sentence framing — no orphan "on" word, no separate badge
+    # competing for attention with the title.
+    statement_html = (
+        f'<span class="td-pick-name">{_h(name)}</span> '
+        f'<span class="{vote_cls}">{vote_text}</span> on '
+        f'<span class="td-pick-title">{_h(title)}</span>'
     )
 
     return (
         f'<div class="td-pick-card">'
-        f'<div class="{chip_cls}">{chip_text}</div>'
-        f'<div class="td-pick-prompt">on</div>'
-        f'<div class="td-pick-title">{_h(title)}</div>'
-        f'<div class="td-pick-name-row">'
-        f'<div class="td-pick-name">{_h(name)}</div>'
-        f"{profile_link_html}"
-        f"</div>"
-        f'<div class="td-pick-meta">{meta_html}</div>'
+        f'<p class="td-pick-statement">{statement_html}</p>'
+        f'<div class="td-pick-meta">{meta_html}{(" " + private_pill) if private_pill else ""}</div>'
         f"</div>"
     )
 
@@ -353,18 +382,23 @@ def _render_td_picker(conn) -> None:
         )
         return
 
-    # Two-column grid of suggestion cards. Each card body shows the suggested
-    # vote; the CTA below jumps cross-page to the canonical member-overview
-    # Votes expander rather than the (now-removed) in-page Mode B view.
+    # Two-column grid of suggestion cards. Each card is itself the click
+    # target (stretched-link via clickable_card_link) — the previous
+    # round had a redundant ALL-CAPS "VIEW <NAME>'S RECORD →" button below
+    # every card competing with a small "Profile ↗" pill inside the card.
+    # One affordance per card is the rule.
     for row_pair_start in range(0, len(picks), 2):
         pair = picks[row_pair_start : row_pair_start + 2]
         cols = st.columns(2, gap="small")
         for j, pick in enumerate(pair):
             with cols[j]:
-                st.html(_td_pick_card_html(pick))
                 target = member_profile_url(str(pick["member_id"]), section="votes")
                 st.html(
-                    entity_cta_html(target, f"View {pick['member_name']}'s record →")
+                    clickable_card_link(
+                        href=target,
+                        inner_html=_td_pick_card_html(pick),
+                        aria_label=f"View {pick['member_name']}'s voting record",
+                    )
                 )
 
     st.html(
@@ -407,8 +441,17 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
     total = len(vote_df)
     show_all = st.session_state.get("v_show_all", False)
     visible = vote_df if show_all else vote_df.head(25)
+    # Caption echoes the active filter scope so users keep their bearings
+    # while scrolling. The outcome filter lives in the sidebar; without
+    # this users would scroll through results with no breadcrumb back to
+    # "you are filtered". Year is implicit in the pills above.
+    outcome_word = f" {outcome_filter.lower()}" if outcome_filter else ""
     suffix = " · showing first 25" if not show_all and total > 25 else ""
-    st.html(f'<p class="vt-index-caption">{total:,} division{"s" if total != 1 else ""}{suffix}</p>')
+    st.html(
+        f'<p class="vt-index-caption">'
+        f'{total:,}{outcome_word} division{"s" if total != 1 else ""}{suffix}'
+        f'</p>'
+    )
 
     cards_html: list[str] = []
     for _, row in visible.iterrows():
@@ -453,6 +496,9 @@ def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
     st.html('<p class="dt-kicker">Dáil Tracker · Voting Record</p><h1 class="dt-hero">Dáil Divisions</h1>')
     _card_list_fragment(conn, date_from, date_to, outcome_filter)
 
+    # P2-9: surface the provenance headline above the expander so the
+    # data-source story isn't buried behind a closed disclosure. The
+    # full expander still carries the long-form text + corpus counts.
     hero = _fetch_hero_stats(conn)
     sections: list[str] = [
         "Divisions data sourced from the Oireachtas Open Data API. Votes are as published in the official record."
@@ -463,38 +509,37 @@ def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
         mc = r.get("member_count")
         if dc:
             sections.insert(0, f"{int(dc):,} total divisions on record · {int(mc or 0):,} TDs recorded.")
-    provenance_expander(sections=sections)
-    # Pipeline detail (dev): v_vote_sources may carry local file paths
-    # instead of oireachtas.ie URLs; the link below could open a 404.
-    todo_callout(
-        "Source link quality — these official-source links are being "
-        "verified. If a link doesn't open, the underlying record is "
-        "incomplete and will be fixed in a future pipeline run."
+    st.caption(
+        "Sourced from the Oireachtas Open Data API — as published in the official record."
     )
+    provenance_expander(sections=sections)
+    # P2-6: removed the "Source link quality" todo_callout. The external
+    # Oireachtas link on every card was the only thing it warned about,
+    # and that link is now demoted to a quiet footer chip (P1-4/P2-2),
+    # so a static "some links may not work" banner under every visit
+    # is no longer earning its place.
 
 
 # ── Mode B (legacy) — redirect to canonical /member-overview profile ──────────
 
 
-def _render_mode_b_redirect(member_id: str) -> None:
+def _render_mode_b_redirect(conn, member_id: str) -> None:
     """Mode B's in-page TD profile was lifted into the member-overview Votes
-    expander in Phase 7. This renders a one-time callout for legacy
-    ``?member=<id>`` URLs so bookmarks keep working."""
-    target = member_profile_url(member_id, section="votes")
-    st.html(
-        f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
-        f"<strong>TD voting profiles have moved.</strong><br>"
-        f'<span style="color:var(--text-meta)">Per-TD voting now lives on the '
-        f'canonical member-overview page. Bookmarks to <code>?member={_h(member_id)}</code> '
-        f"redirect here.</span><br>"
-        f'<a class="dt-member-link" href="{_h(target)}" target="_self" '
-        f'style="margin-top:0.6rem;display:inline-block;">Open profile →</a>'
-        f"</div>"
+    expander in Phase 7. Renders the shared ``member_moved_callout`` so the
+    moved notice is stylistically consistent with the other dimension
+    pages (attendance / interests / payments / committees) — previously
+    used a bespoke inline callout that read "Open profile →" generically.
+    The shared helper looks up the canonical member code and renders
+    "Open <Name>'s profile →" with a working href; it also calls
+    ``st.stop()`` so the rest of the page body doesn't render under it."""
+    name = _fetch_td_name_by_id(conn, member_id)
+    member_moved_callout(
+        name=name or member_id,
+        section="votes",
+        section_label="Per-TD voting",
+        legacy_param="member",
+        state_keys=("v_sel_member_id", "v_from"),
     )
-    # Clear nav state so a refresh doesn't re-stick the callout once the
-    # user has clicked through to the new URL.
-    st.session_state.pop("v_sel_member_id", None)
-    st.query_params.pop("member", None)
 
 
 # ── Mode C: Division evidence ──────────────────────────────────────────────────
@@ -515,9 +560,13 @@ def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
 
     vote_df = _fetch_vote_by_id(conn, vote_id)
     if vote_df.empty:
+        # P2-7: drop the "ID:" dev-concept prefix. Don't echo the literal
+        # user-supplied vote_id when it's clearly malformed — say so plainly.
         empty_state(
             "Division not found",
-            f"No division on record for ID: {vote_id}.",
+            "No division matches that bookmark or link. The vote may have "
+            "been re-published with a different identifier, or the URL is "
+            "malformed. Try the divisions index.",
         )
         return
 
@@ -675,7 +724,7 @@ def votes_page() -> None:
             # Phase 7: Mode B's in-page TD profile was lifted into
             # member-overview's Votes expander. Redirect bookmarks / sidebar
             # selections to the canonical profile.
-            _render_mode_b_redirect(sel_member_id)
+            _render_mode_b_redirect(conn, sel_member_id)
         else:
             _render_td_picker(conn)
     else:
