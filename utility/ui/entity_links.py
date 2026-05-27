@@ -156,7 +156,11 @@ def oireachtas_profile_url(member_code: str | None) -> str | None:
 # Bluesky (B), and Instagram ("IG") follow the same convention.
 SOCIAL_GLYPHS: dict[str, tuple[str, str]] = {
     # platform_key: (glyph, accessible name)
-    "twitter": ("𝕏", "Twitter"),
+    # Audit P3-2: was 𝕏 (Mathematical Italic Capital X) which renders
+    # inconsistently across fonts — some showed it as lowercase "x". Plain
+    # ASCII "X" with the dt-icon-chip[data-glyph="X"] CSS rule (bold,
+    # filled black background) reads as a deliberate brand chip.
+    "twitter": ("X", "Twitter / X"),
     "bluesky": ("B", "Bluesky"),
     "facebook": ("f", "Facebook"),
     "instagram": ("IG", "Instagram"),
