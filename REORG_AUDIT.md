@@ -1,8 +1,10 @@
 # Repo reorganisation audit
 
-**Date:** 2026-05-27
+**Date:** 2026-05-27 (refreshed 2026-05-27 PM after Iris incremental shard cache wire-up)
 **Status:** Stage 0 — read-only scout. No files moved or deleted yet.
 **Decision needed before Stage 1:** review the `unsure` and `decide` sections and confirm/override the tags.
+
+**Change since morning baseline:** `iris_oifigiuil_etl_polars.py` is now incremental by default; a new `iris_incremental_shards.py` lives at project root and is imported by the ETL. The sandbox version (`pipeline_sandbox/iris_incremental_shards.py`) was deleted in the same session. See the IRIS section under KEEP for the destination, and the "Path-resolution caveat" note further down.
 
 ## Tag legend
 
@@ -21,13 +23,13 @@
 |---|---|
 | Python files in scope | 155 (133 after excluding `audit_screenshots/`, `experimental/`, `dail_tracker_bold_ui_contract_pack_v5/`) |
 | Markdown files in scope | 90 |
-| Top-level `.py` to classify | 45 → **44** (tear_down.py deleted this session) |
-| `keep` (will be moved) | 33 |
+| Top-level `.py` to classify | 45 → **44** (tear_down.py deleted morning) → **45** (iris_incremental_shards.py promoted from sandbox PM) |
+| `keep` (will be moved) | **34** (was 33; +1 for iris_incremental_shards.py) |
 | `dead` (will be deleted in Stage 1) | 3 |
 | `unsure` (resolved during session) | 0 — all 4 resolved (questions → keep; 3 sandbox files → deleted) |
 | `sandbox` (move into sandbox) | 1 |
 | Streamlit UI files (utility/) | 36 — all `keep`, moving to `src/dail_tracker/ui/` |
-| Pre-flight test baseline | **258 pass / 11 fail / 10 skipped** (refreshed 2026-05-27 after producer cleanups) |
+| Pre-flight test baseline | **294 pass / 11 fail / 10 skipped** (refreshed 2026-05-27 PM — +36 passes since the morning baseline came from the new oireachtas_pdf_poller + questions API pagination tests; same 11 failures) |
 
 ---
 
@@ -57,7 +59,8 @@
 |---|---|---|
 | **Iris** | | |
 | `iris_oifigiuil_poller.py` | `domains/iris/poller.py` | pipeline.STEPS + imported by run_iris_poll.py |
-| `iris_oifigiuil_etl_polars.py` | `domains/iris/etl.py` | pipeline.STEPS |
+| `iris_oifigiuil_etl_polars.py` | `domains/iris/etl.py` | pipeline.STEPS; **imports `iris_incremental_shards` for the per-PDF shard cache** |
+| `iris_incremental_shards.py` | `domains/iris/incremental_shards.py` | **Added 2026-05-27 PM.** Per-PDF parquet shard cache for the Iris ETL — fingerprints on (mtime_ns, size, EXTRACTOR_VERSION), atomic `.part`→`replace` writes, manifest-based skip. Imported by `iris_oifigiuil_etl_polars.py`; standalone CLI for cache inspection/`--rebuild`. |
 | `iris_si_bill_enrichment.py` | `domains/iris/si_bill_enrichment.py` | pipeline.STEPS |
 | `repair_future_iris_placeholders.py` | `domains/iris/repair_placeholders.py` | Per-memory ad-hoc repair utility for Iris parser gaps |
 | **Lobbying** | | |
@@ -137,7 +140,7 @@ All 36 files under `utility/` move to `src/dail_tracker/ui/` preserving internal
 | `pdf_backfill_scraper.py` | Imports `from pipeline_sandbox.payment_pdf_url_probe` — but that .py source has been deleted (only orphan .pyc remains). Script is broken on import. Has TODO header `"finish this feature"` — never finished. |
 | `experimental/test_read_scan_pdf.py` | Imports `config.SCAN_PDF_DIR` which doesn't exist in current config.py. Pulls in heavy `ocrmypdf` dependency. Single file in an `experimental/` folder; the experiment is over. |
 | `pipeline_sandbox/__pycache__/` (entire dir) | 10 orphan .pyc files for sources that no longer exist: `legislation_unscoped_fetch`, `legislation_unscoped_validate`, `legislation_unscoped_silver_views`, `payment_pdf_url_probe`, `si_entity_enrichment`, `iris_oifigiuil_etl_polars`, `cro_normalise`, `charity_normalise`, `quarantine`, `lobbying_fetch`. |
-| `pipeline_sandbox/iris_incremental_shards.py` | Imports `iris_oifiguil_etl` (typo, doesn't exist anywhere). Broken on import. |
+| ~~`pipeline_sandbox/iris_incremental_shards.py`~~ | **DELETED 2026-05-27 PM.** Promoted to project root with the typo-import fixed (now imports `iris_oifigiuil_etl_polars`). Live at root as `iris_incremental_shards.py` — see KEEP / Iris. |
 | **Stray root logs** | `pipeline.log`, `pipeline_run.log`, `endpoint_check.log`, `dbsect_after_pipeline.log`, `attendance_run.log`, `streamlit_test.log`, `logs/pipeline.log` (88 MB), `services/logs/` (dir). **Note 2026-05-27**: tear_down.py was deleted; sweep these manually in Stage 1. |
 | `.coverage` | pytest-cov artifact; should be gitignored (check `.gitignore`) |
 | `tear_down.py` | **DELETED 2026-05-27** — 60% of functions were no-ops on wrong paths or targeted nonexistent dirs. Useful cleanups migrated into producers: `member_interests.py` now self-cleans per-year CSVs; `lobby_processing.py` now self-cleans cleaned.csv/cleaned_output.csv. |
@@ -196,6 +199,23 @@ I didn't fully enumerate top-level directories beyond the known ones (services, 
 
 ---
 
+## Path-resolution caveat — Iris files
+
+Both Iris ETL files compute their default input/output dirs from `Path(__file__).resolve().parent`:
+
+- [iris_oifigiuil_etl_polars.py:1748-1750](iris_oifigiuil_etl_polars.py#L1748-L1750) — `DEFAULT_INPUT_GLOB`, `DEFAULT_OUT_DIR`
+- [iris_incremental_shards.py:71-73](iris_incremental_shards.py#L71-L73) — `DEFAULT_SHARD_ROOT`, `DEFAULT_INPUT_GLOB`
+
+Today `__file__.parent` IS the project root because both files live at root. After Stage 1 they move to `src/dail_tracker/domains/iris/`, and `__file__.parent` becomes that directory — so the defaults would resolve to `src/dail_tracker/domains/iris/data/bronze/iris_oifigiuil/…` which doesn't exist.
+
+**Stage 1 fix (small):** swap the `Path(__file__).resolve().parent` derivations for the canonical constants in [config.py](config.py) (`BRONZE_DIR`, `SILVER_DIR`). Both files already use `from config import …` patterns elsewhere in the codebase, so the import path is established. Roughly 6 lines across the two files.
+
+**The Iris shard cache directory** (`data/silver/iris_oifigiuil_shards/`) is NOT moved by the reorg — data dirs stay put. The fix is purely about how the Python code FINDS that directory after the file moves.
+
+Pipeline orchestration (`pipeline.py:71`) does NOT need updating for path resolution — it shells out via `[sys.executable, "iris_oifigiuil_etl_polars.py"]` today, will become `["-m", "dail_tracker.domains.iris.etl"]`, but in either form the child process inherits CWD = project root.
+
+---
+
 ## Subprocess invocation impact
 
 Only **one** location in the codebase uses `subprocess.run([sys.executable, script])` — [pipeline.py:121-122](pipeline.py#L121-L122). Every step name in `STEPS` becomes a module path:
@@ -238,7 +258,7 @@ The runners (`run_*_poll.py`) don't use subprocess — they call `oireachtas_pdf
 
 `pytest test/` on main, BEFORE any reorg moves:
 
-- **245 passed, 11 failed, 10 skipped** (12.75s)
+- **294 passed, 11 failed, 10 skipped** (13.38s)
 - All 11 failures are pre-existing bugs, NOT caused by anything in the reorg work. Three clusters:
 
 **Cluster A — pandera/polars API drift (7 failures)**
@@ -252,7 +272,7 @@ The runners (`run_*_poll.py`) don't use subprocess — they call `oireachtas_pdf
 **Cluster C — pandas/polars confusion (1 failure)**
 `test_normaize_join_key.py::test_join_keys_are_unique_in_members` — `AttributeError: 'DataFrame' object has no attribute 'alias'`. Test mixes a pandas DataFrame with a polars-only method.
 
-**What this means for the reorg**: 245/256 is our known-good baseline. After Stage 1, the same 245 should pass (in their new paths) and the same 11 should fail. Any new failures = reorg-induced regressions to investigate.
+**What this means for the reorg**: 294/305 is our known-good baseline. After Stage 1, the same 294 should pass (in their new paths) and the same 11 should fail. Any new failures = reorg-induced regressions to investigate.
 
 ## Next step
 
@@ -260,5 +280,5 @@ Once you've reviewed and confirmed/edited the remaining tags:
 1. I commit this file as-is in a setup PR (so reviewers of the reorg PR can see the rationale).
 2. Stage 1 opens a `git worktree` on a branch named `reorg/src-layout`.
 3. Inside the worktree: do all the moves + deletes + import rewrites per this audit; update `pyproject.toml`; switch subprocess calls to `-m` form.
-4. Run full test suite (expect 245 pass / 11 fail — same as baseline). Run full pipeline. Streamlit walkthrough.
+4. Run full test suite (expect 294 pass / 11 fail — same as baseline). Run full pipeline. Streamlit walkthrough.
 5. If clean: open PR. If something breaks at hour 5: walk away from the worktree, no damage to main.
