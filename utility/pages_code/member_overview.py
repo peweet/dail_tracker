@@ -13,6 +13,7 @@ TODO_PIPELINE_VIEW_REQUIRED: v_member_overview_browse
 
 from __future__ import annotations
 
+import datetime
 import logging
 from html import escape as _h
 from pathlib import Path
@@ -32,12 +33,14 @@ from ui.components import (
     clean_meta,
     clickable_card_link,
     empty_state,
+    evidence_heading,
     find_a_td_filter,
     glossary_strip,
     member_card_html,
     page_error_boundary,
     paginate,
     pagination_controls,
+    party_colour,
     sidebar_date_range,
     sidebar_page_header,
     stat_strip,
@@ -321,7 +324,7 @@ def _debate_sections(
 
 
 def _section_legislation(conn, join_key: str, member_name: str) -> None:
-    st.html('<p class="section-heading">Legislation sponsored</p>')
+    evidence_heading("Legislation sponsored")
 
     df = _legislation(conn, join_key)
     if df.empty:
@@ -356,13 +359,13 @@ def _section_legislation(conn, join_key: str, member_name: str) -> None:
             aria_label="Open this bill on oireachtas.ie",
         )
         st.html(
-            f'<div class="leg-bill-card" style="margin-bottom:0.3rem;">'
+            f'<div class="leg-bill-card mo-bill-card">'
             f'<div class="leg-bill-card-header">'
             f'<span class="leg-bill-card-date">{_h(year)}</span>'
             f'<span class="signal {status_css}">{_h(status)}</span>'
             f"</div>"
             f'<div class="leg-bill-card-title">{_h(title)}</div>'
-            f'<div style="margin-top:0.2rem;">{url_html}</div>'
+            f'<div class="mo-bill-card-link-row">{url_html}</div>'
             f"</div>"
         )
 
@@ -387,7 +390,7 @@ def _section_statutory_instruments(conn, join_key: str) -> None:
         return
 
     st.divider()
-    st.html('<p class="section-heading">Statutory Instruments signed</p>')
+    evidence_heading("Statutory Instruments signed")
 
     n = len(df)
     depts = [d for d in df["si_department_label"].dropna().unique().tolist()]
@@ -427,14 +430,14 @@ def _section_statutory_instruments(conn, join_key: str) -> None:
         )
         links_html = " &nbsp;·&nbsp; ".join(p for p in (eisb_html, si_page_html) if p)
         st.html(
-            f'<div class="leg-bill-card" style="margin-bottom:0.3rem;">'
+            f'<div class="leg-bill-card mo-bill-card">'
             f'<div class="leg-bill-card-header">'
             f'<span class="leg-bill-card-date">SI {_h(si_id or "—")}</span>'
             f'<span class="signal leg-status-active">{op}</span>'
             f"{eu_badge}"
             f"</div>"
             f'<div class="leg-bill-card-title">{_h(str(row.get("si_title", "—")))}</div>'
-            f'<div style="margin-top:0.2rem;">{links_html}</div>'
+            f'<div class="mo-bill-card-link-row">{links_html}</div>'
             f"</div>"
         )
 
@@ -449,7 +452,7 @@ def _section_statutory_instruments(conn, join_key: str) -> None:
 
 
 def _section_debates(conn, join_key: str, member_name: str) -> None:
-    st.html('<p class="section-heading">Debate participation</p>')
+    evidence_heading("Debate participation")
     st.caption(
         "Debate sections where this TD raised a parliamentary question, "
         "linked to the record on oireachtas.ie. Floor-speech attribution "
@@ -531,14 +534,13 @@ def _section_debates(conn, join_key: str, member_name: str) -> None:
             aria_label="Open this debate section on oireachtas.ie",
         )
         st.html(
-            f'<div class="leg-bill-card" style="margin-bottom:0.3rem;">'
+            f'<div class="leg-bill-card mo-bill-card">'
             f'<div class="leg-bill-card-header">'
             f'<span class="leg-bill-card-date">{_h(date_disp)}</span>'
             f'<span class="signal leg-status-active">{_h(chamber)}</span>'
             f"</div>"
             f'<div class="leg-bill-card-title">{_h(topic)}</div>'
-            f'<div style="margin-top:0.2rem;font-size:0.85rem;'
-            f'color:var(--text-secondary);">'
+            f'<div class="mo-debate-card-meta">'
             f"{qcount} question{'s' if qcount != 1 else ''} raised"
             f"&nbsp;·&nbsp;{url_html}</div>"
             f"</div>"
@@ -612,8 +614,7 @@ def _render_browse(conn) -> None:
     st.html(
         '<div class="dt-hero">'
         '<p class="dt-kicker">MEMBER OVERVIEW</p>'
-        '<h1 style="margin:0.1rem 0 0.25rem;font-size:1.85rem;font-weight:700;'
-        "font-family:'Zilla Slab',Georgia,serif;\">Browse all TDs</h1>"
+        '<h1 class="mo-browse-h1">Browse all TDs</h1>'
         '<p class="dt-dek">Pick a TD to open their accountability profile: '
         "attendance, votes by policy area, payments, lobbying, and legislation.</p>"
         "</div>"
@@ -674,7 +675,7 @@ def _render_browse(conn) -> None:
     showing = len(filtered)
 
     # Results pill — shows the current filtered count above the grid.
-    st.html(f'<p class="section-heading">{showing:,} TD{"s" if showing != 1 else ""}</p>')
+    evidence_heading(f'{showing:,} TD{"s" if showing != 1 else ""}')
 
     if filtered.empty:
         empty_state(
@@ -698,6 +699,13 @@ def _render_browse(conn) -> None:
         constit = str(row.get("constituency", "") or "")
         code = str(row["unique_member_code"])
         meta = clean_meta(party, constit)
+        # Audit P2-3: same party-swatch as the profile hero.
+        swatch_html = (
+            f'<span class="mo-party-swatch" style="background:{party_colour(party)};" '
+            f'aria-hidden="true"></span>'
+            if party
+            else ""
+        )
         cards.append(
             clickable_card_link(
                 href=member_profile_url(code),
@@ -706,6 +714,7 @@ def _render_browse(conn) -> None:
                     meta=meta,
                     avatar_url=avatar_data_url(name),
                     avatar_initials=_initials(name),
+                    meta_prefix_html=swatch_html,
                 ),
                 aria_label=f"View {name}",
             )
@@ -749,16 +758,21 @@ def _prev_next_member(conn, join_key: str) -> tuple[dict | None, dict | None]:
 def _render_profile_nav(conn, join_key: str) -> None:
     """Top-of-profile nav: [← All TDs] [← prev TD] [next TD →].
 
-    Round-3 audit P2-1: previously rendered 3 full-width stretched buttons
-    that dominated the area above the hero. Now uses natural-width buttons
-    in a tighter column layout — still keyboard-accessible, much quieter
-    visually so the hero is the focal point as PRODUCT.md prescribes.
+    Round-3 audit P2-1: previously rendered 3 full-width stretched buttons.
+    Audit 2026-05-27 P1-3: Streamlit columns collapse one-per-row on mobile,
+    so the 4-column layout became 4 stacked rows wasting ~140px above the
+    hero. Now wraps the three Streamlit buttons in a `.mo-prof-nav` flex
+    container so they stay on one horizontal row at every viewport (the
+    `:has()` CSS selector grabs the stHorizontalBlock around them).
     """
     prev_row, next_row = _prev_next_member(conn, join_key)
-    # Tight left-anchored columns; the trailing wide column eats the rest
-    # of the width so the buttons cluster together at the left.
     c_back, c_prev, c_next, _spacer = st.columns([1.4, 2.2, 2.2, 6])
     with c_back:
+        # Marker INSIDE the first column so the parent stHorizontalBlock's
+        # :has(.mo-prof-nav-marker) descendant selector matches and forces
+        # the row to stay horizontal on mobile (Streamlit columns otherwise
+        # stack one-per-row under 640px).
+        st.html('<div class="mo-prof-nav-marker"></div>')
         if back_button("← All TDs", key="mo_all", help="Return to the full TD list"):
             st.session_state.pop(_STAGE_KEY, None)
             st.query_params.clear()
@@ -806,13 +820,14 @@ def _render_stage2(
     if not identity:
         browse_href = f"/{PAGES['member_overview']}"
         st.html(
-            f'<div class="dt-callout">'
-            f"<strong>This TD is not in the dataset</strong><br>"
-            f'<span style="color:var(--text-meta)">No record matched <code>{_h(join_key)}</code> '
-            f"in <code>v_attendance_member_year_summary</code>. The link you followed may be "
-            f"out of date, or the pipeline has not yet ingested this member.</span><br>"
-            f'<a class="dt-member-link" href="{_h(browse_href)}" target="_self" '
-            f'style="margin-top:0.6rem;display:inline-block;">← Browse all TDs</a>'
+            f'<div class="mo-not-found-callout">'
+            f"<strong>We couldn't find this TD</strong><br>"
+            f'<span class="mo-not-found-body">'
+            f"The link you followed may be out of date, or this member "
+            f"hasn't been added yet — the Oireachtas roster updates as the "
+            f"membership changes.</span><br>"
+            f'<a class="mo-not-found-cta" href="{_h(browse_href)}" target="_self">'
+            f"&larr; Browse all TDs</a>"
             f"</div>"
         )
         return
@@ -822,6 +837,15 @@ def _render_stage2(
     constituency = str(identity.get("constituency", ""))
     is_minister = str(identity.get("is_minister", "false")).lower() == "true"
     meta = clean_meta(party, constituency)
+    # Audit P2-3: party-colour swatch as a small dot in front of the
+    # party text so the affiliation reads at a glance, not in prose.
+    # Reuses the committees colour map via ui.components.party_colour.
+    party_swatch_html = (
+        f'<span class="mo-party-swatch" style="background:{party_colour(party)};" '
+        f'aria-hidden="true"></span>'
+        if party
+        else ""
+    )
 
     role_html = (
         '<span class="dt-badge dt-badge-minister">Minister</span>'
@@ -830,7 +854,16 @@ def _render_stage2(
     )
 
     rd_df = _lobbying_rd(conn, join_key)
-    rd_html = '<span class="dt-badge dt-badge-revolving">Revolving door</span>' if not rd_df.empty else ""
+    # Audit P1-4: guard against the "former position = TD" misfire. The
+    # v_lobbying_revolving_door view records ANY prior position including
+    # "TD" for re-elected members, so every sitting TD was getting the
+    # warning chip. Genuine cases (former Minister, former Senator, etc.)
+    # survive this guard. Pipeline-side cleanup is tracked separately.
+    rd_is_real = False
+    if not rd_df.empty:
+        _pos = str(rd_df.iloc[0].get("former_position", "")).strip()
+        rd_is_real = bool(_pos) and _pos.upper() != "TD"
+    rd_html = '<span class="dt-badge dt-badge-revolving">Revolving door</span>' if rd_is_real else ""
 
     photo_url = avatar_data_url(member_name)
     photo_credit = avatar_credit_html(member_name)
@@ -897,8 +930,8 @@ def _render_stage2(
         f'  <div class="dt-profile-header">'
         f'    <div class="dt-profile-avatar-col">{avatar_block}{caption_block}</div>'
         f'    <div class="dt-profile-meta-col">'
-        f'      <h1 class="td-name" style="margin:0.15rem 0 0.2rem;">{_h(member_name)}</h1>'
-        f'      <p class="td-meta" style="margin:0 0 0.55rem;">{_h(meta)}</p>'
+        f'      <h1 class="td-name mo-profile-h1">{_h(member_name)}</h1>'
+        f'      <p class="td-meta mo-profile-meta">{party_swatch_html}{_h(meta)}</p>'
         f"      {meta_row}"
         f"    </div>"
         f"  </div>"
@@ -940,17 +973,25 @@ def _render_stage2(
         # Taoiseach), so we don't gate on it — empty-on-both is itself
         # the strongest signal that the regular plenary/TAA framing
         # doesn't apply.
-        votes_phrase = (
-            f"<strong>{votes_cast:,}</strong> votes cast across "
-            f"<strong>{votes_div:,}</strong> divisions"
-            if votes_cast
-            else "votes record not on file"
-        )
+        # Audit P2-2: "1,318 votes cast across 1,318 divisions" reads
+        # tautologically when the numbers match (a TD who voted in every
+        # division). Collapse to the one-number form in that case.
+        if votes_cast and votes_div and votes_cast == votes_div:
+            votes_phrase = (
+                f"voted in all <strong>{votes_div:,}</strong> divisions"
+            )
+        elif votes_cast:
+            votes_phrase = (
+                f"<strong>{votes_cast:,}</strong> votes cast across "
+                f"<strong>{votes_div:,}</strong> divisions"
+            )
+        else:
+            votes_phrase = "votes record not on file"
         headline = "Cabinet member." if is_minister else "Different rules apply."
         st.html(
-            f'<div class="dt-callout" style="margin:1rem 0 1.75rem;">'
+            f'<div class="dt-callout mo-cabinet-callout">'
             f"<strong>{headline}</strong> &nbsp;"
-            f'<span style="color:var(--text-secondary);">'
+            f'<span class="mo-cabinet-callout-body">'
             f"Plenary-attendance and Parliamentary Standard Allowance figures "
             f"aren't on file for this member &nbsp;·&nbsp; "
             f"{votes_phrase}.</span>"
@@ -958,9 +999,18 @@ def _render_stage2(
         )
     else:
         if not att_df.empty:
-            att_yr = int(att_df.iloc[0]["year"])
-            att_days = int(att_df.iloc[0]["attended_count"])
-            att_lbl = f"Days in chamber · {att_yr}"
+            # Skip the in-progress calendar year on the stat strip — it makes
+            # every TD look like an absentee from Jan-May (audit P1-6, mirrors
+            # attendance P1-1 and payments P1-1). Pick the first completed
+            # year; if the dataset only contains the in-progress year, fall
+            # back to it and label "(so far)" so the framing stays honest.
+            this_year = datetime.date.today().year
+            completed = att_df[att_df["year"] < this_year]
+            row = completed.iloc[0] if not completed.empty else att_df.iloc[0]
+            att_yr = int(row["year"])
+            att_days = int(row["attended_count"])
+            so_far = " (so far)" if att_yr >= this_year else ""
+            att_lbl = f"Days in chamber · {att_yr}{so_far}"
             att_val = str(att_days)
             if is_minister:
                 att_sub = "Minister · plenary record only"
@@ -972,16 +1022,38 @@ def _render_stage2(
 
         cast_val = f"{votes_cast:,}" if votes_cast else "—"
         cast_sub = f"across {votes_div:,} divisions" if votes_div else ""
-        pay_val = f"€{pay_total:,.0f}" if pay_total else "—"
-        pay_sub = "TAA · all years on record" if pay_total else ""
+        # Audit P1-1: drop the em-dash for a single empty stat. The TAA
+        # parquet only covers ministers + a small subset of TDs, so the
+        # bare "—" was the rule not the exception for ~150 of 176 members
+        # and read as broken data. "Not on file" + sub-label explanation
+        # mirrors the round-3 P1-F cabinet-member fallback pattern.
+        if pay_total:
+            pay_val = f"€{pay_total:,.0f}"
+            pay_sub = "TAA · all years on record"
+        else:
+            pay_val = "Not on file"
+            pay_sub = "TAA figures aren't tracked for this member"
 
         stat_strip(
             [
                 (att_val, att_lbl, "var(--text-primary)", att_sub),
                 (cast_val, "Votes cast", "var(--signal-good)", cast_sub),
-                (pay_val, "Payments received", "var(--text-primary)", pay_sub),
+                (pay_val, "Payments received", "var(--text-meta)" if not pay_total else "var(--text-primary)", pay_sub),
             ]
         )
+
+    # ── Section nav chip row (Phase 2 chrome, audit P0-2 finally rendered) ──
+    # Anchors jump to #mo-section-<sid> divs emitted alongside each expander
+    # below. CSS at shared_css.py:.mo-section-nav / .mo-section-chip shipped
+    # with Phase 2 but the markup was missing — citizens had no wayfinding
+    # past the hero on the longest page in the app.
+    chip_html = ['<nav class="mo-section-nav" aria-label="Profile sections">']
+    for sid, label, _ in _PROFILE_SECTIONS:
+        chip_html.append(
+            f'<a class="mo-section-chip" href="#mo-section-{sid}">{_h(label)}</a>'
+        )
+    chip_html.append('</nav>')
+    st.html("\n".join(chip_html))
 
     # ── "Open all sections" toggle (journalist mode + lazy-load escape) ──────
     # Flips every mo_open_<sid> key. Streamlit's st.expander reads expanded=
@@ -1046,23 +1118,26 @@ def _render_stage2(
                 # v_lobbying_revolving_door_member, which lobbying_2.py does
                 # not query directly). Renders above the lifted body so the
                 # most politically potent flag is the first thing visible.
+                # Audit P1-4: same "former position = TD" guard as the hero
+                # badge — without it, every sitting TD shows the warning.
                 rd_df = _lobbying_rd(conn, join_key)
                 if not rd_df.empty:
                     rd_row = rd_df.iloc[0]
-                    rc = int(rd_row.get("return_count", 0) or 0)
-                    firms = int(rd_row.get("distinct_firms", 0) or 0)
                     pos = str(rd_row.get("former_position", "")).strip()
-                    pos_line = f"Former position: <strong>{_h(pos)}</strong>. " if pos else ""
-                    st.badge("Revolving door", icon=":material/warning:", color="orange")
-                    st.html(
-                        f'<div class="lob-revolving-callout">'
-                        f'<div class="lob-revolving-heading">Revolving door flag</div>'
-                        f'<p style="margin:0;font-size:0.88rem;color:var(--text-secondary);">'
-                        f"{pos_line}"
-                        f"Appears on <strong>{rc}</strong> lobbying return{'s' if rc != 1 else ''} "
-                        f"across <strong>{firms}</strong> distinct firm{'s' if firms != 1 else ''}.</p>"
-                        f"</div>"
-                    )
+                    if pos and pos.upper() != "TD":
+                        rc = int(rd_row.get("return_count", 0) or 0)
+                        firms = int(rd_row.get("distinct_firms", 0) or 0)
+                        pos_line = f"Former position: <strong>{_h(pos)}</strong>. "
+                        st.badge("Revolving door", icon=":material/warning:", color="orange")
+                        st.html(
+                            f'<div class="lob-revolving-callout">'
+                            f'<div class="lob-revolving-heading">Revolving door flag</div>'
+                            f'<p class="lob-revolving-body">'
+                            f"{pos_line}"
+                            f"Appears on <strong>{rc}</strong> lobbying return{'s' if rc != 1 else ''} "
+                            f"across <strong>{firms}</strong> distinct firm{'s' if firms != 1 else ''}.</p>"
+                            f"</div>"
+                        )
                 # Phase 4 lift: full lobbying body (metrics + ranked orgs +
                 # policy exposure + returns + source links) rendered without
                 # the per-page lobbying hero (member-overview hero is shown).

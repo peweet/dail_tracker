@@ -23,7 +23,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from services.urls import (
     build_debates_day_urls,
     build_legislation_unscoped_url,
+    build_legislation_url,
     build_legislation_urls,
+    build_questions_url,
     build_questions_urls,
     debate_section_url,
 )
@@ -107,6 +109,38 @@ def test_build_questions_urls_one_url_per_member():
 def test_build_questions_urls_empty_df_returns_empty_list():
     df = pl.DataFrame({"member_uri": []}, schema={"member_uri": pl.Utf8})
     assert build_questions_urls(df) == []
+
+
+# ---------------------------------------------------------------------------
+# Singular per-member builders with skip — the pagination contract
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("skip,expected", [(0, "skip=0"), (1000, "skip=1000"), (3000, "skip=3000")])
+def test_build_questions_url_includes_skip(skip: int, expected: str):
+    """Per-member pagination depends on this skip param flowing through.
+    Regression here re-introduces the 1000-row truncation bug.
+    """
+    url = build_questions_url("/ie/oireachtas/member/id/test", skip=skip)
+    assert expected in url
+    assert "/questions" in url
+    assert "limit=1000" in url
+    assert "qtype=oral,written" in url
+
+
+@pytest.mark.parametrize("skip,expected", [(0, "skip=0"), (1000, "skip=1000"), (3000, "skip=3000")])
+def test_build_legislation_url_includes_skip(skip: int, expected: str):
+    url = build_legislation_url("/ie/oireachtas/member/id/test", skip=skip)
+    assert expected in url
+    assert "/legislation" in url
+    assert "limit=1000" in url
+
+
+def test_build_questions_url_defaults_skip_zero():
+    """skip is keyword-only-with-default — calling without it must produce
+    a sensible URL (legacy code paths rely on this)."""
+    url = build_questions_url("/ie/oireachtas/member/id/test")
+    assert "skip=0" in url
 
 
 # ---------------------------------------------------------------------------

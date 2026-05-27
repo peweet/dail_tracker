@@ -5,12 +5,13 @@ from services.dbsect_harvest import harvest_dbsect_index
 from services.http_engine import fetch_all
 from services.legislation_unscoped import fetch_all_bills
 from services.logging_setup import setup_logging
+from services.member_paginated import fetch_all_member_paginated
 from services.members import get_or_create_member_df
 from services.storage import output_exists, result_file_path, save_json
 from services.urls import (
     build_debates_day_urls,
-    build_legislation_urls,
-    build_questions_urls,
+    build_legislation_url,
+    build_questions_url,
 )
 from services.votes import fetch_votes
 
@@ -38,6 +39,40 @@ def run_member_scenario(
     logger.info(
         f"Finished scenario='{scenario_name}' | results={len(results)} | failures={failures} | bytes={total_bytes:,}"
     )
+
+
+def run_member_scenario_paginated(
+    scenario_name: str,
+    member_df,
+    url_builder,
+    overwrite: bool = False,
+    max_workers: int = 5,
+) -> None:
+    """Paginated alternative to run_member_scenario.
+
+    The single-fetch run_member_scenario silently truncates members past the
+    1000-row API server cap. This runner loops skip+=1000 per member until
+    head.counts.resultCount is satisfied; output shape matches what
+    questions.py / legislation.py already iterate.
+    """
+    output_path = result_file_path(scenario_name)
+
+    if output_exists(output_path, overwrite=overwrite):
+        return
+
+    logger.info("=" * 70)
+    logger.info(f"Starting paginated scenario: {scenario_name}")
+    logger.info("=" * 70)
+
+    results, total_bytes = fetch_all_member_paginated(
+        member_df,
+        url_builder=url_builder,
+        scenario_label=scenario_name,
+        max_workers=max_workers,
+    )
+    save_json(results, output_path)
+
+    logger.info(f"Finished paginated scenario='{scenario_name}' | members={len(results)} | bytes={total_bytes:,}")
 
 
 def _load_debates_worklist() -> list[tuple[str, str]]:
@@ -123,10 +158,13 @@ def main() -> None:
 
     logger.info("Starting Oireachtas API pipeline...")
 
-    # Change these when you want to force re-runs
+    # Change these when you want to force re-runs.
+    # 2026-05-27: legislation + questions flipped to True for a one-time
+    # backfill after the 1000-row pagination cap fix (services/member_paginated.py).
+    # Reset to False after the run.
     overwrite_members = False
-    overwrite_legislation = False
-    overwrite_questions = False
+    overwrite_legislation = True
+    overwrite_questions = True
     overwrite_votes = False
     overwrite_debates_listings = False
 
@@ -138,26 +176,27 @@ def main() -> None:
     logger.info(f"Member dataframe contains {member_df.height} unique members")
 
     logger.info("=" * 70)
-    logger.info("STEP 2: Building URLs")
+    logger.info("STEP 2: Fetching member-based scenarios (paginated)")
     logger.info("=" * 70)
 
-    legislation_urls = build_legislation_urls(member_df)
-    questions_urls = build_questions_urls(member_df)
-
-    logger.info("=" * 70)
-    logger.info("STEP 3: Fetching member-based scenarios")
-    logger.info("=" * 70)
-
-    run_member_scenario(
+    # Both /v1/legislation?member_id=… and /v1/questions?member_id=… cap each
+    # response at 1000 rows server-side. The paginated runner loops skip+=1000
+    # per member and asserts the running total reaches head.counts.resultCount.
+    # Before this change, 79 of 174 members were silently truncated on
+    # questions (~150k rows lost). Legislation was less affected (most members
+    # have <1000 sponsored bills) but the same fix applies for hygiene.
+    run_member_scenario_paginated(
         scenario_name="legislation",
-        urls=legislation_urls,
+        member_df=member_df,
+        url_builder=build_legislation_url,
         overwrite=overwrite_legislation,
         max_workers=5,
     )
 
-    run_member_scenario(
+    run_member_scenario_paginated(
         scenario_name="questions",
-        urls=questions_urls,
+        member_df=member_df,
+        url_builder=build_questions_url,
         overwrite=overwrite_questions,
         max_workers=5,
     )

@@ -281,7 +281,7 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> None:
 
     col_good, col_bad = st.columns(2, gap="medium")
     with col_good:
-        st.html('<p class="att-hall-heading-good">Highest recorded attendance</p>')
+        st.html('<h2 class="att-hall-heading-good">Highest recorded attendance</h2>')
         good_cards = [
             _att_card_link(
                 row,
@@ -297,7 +297,7 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> None:
         bad_label = (
             "Lowest recorded attendance (so far)" if is_partial else "Lowest recorded attendance"
         )
-        st.html(f'<p class="att-hall-heading-bad">{bad_label}</p>')
+        st.html(f'<h2 class="att-hall-heading-bad">{bad_label}</h2>')
         bad_cards = [_att_card_link(row, side="bad", rank=i + 1) for i, (_, row) in enumerate(bottom.iterrows())]
         st.html("\n".join(bad_cards))
 

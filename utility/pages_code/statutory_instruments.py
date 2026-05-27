@@ -152,6 +152,27 @@ def _inject_si_css() -> None:
         .si-active-chip-all:hover { background:#14232b; border-color:#14232b;
             color:#ffffff; }
 
+        /* Mobile hero tightening (≤640px). Audit P1-2: at 390×844 the
+           hero+dek pushed all data below the fold. The kicker
+           ("Iris Oifigiúil · Secondary legislation") is fully redundant
+           on mobile — the page title and sidebar already establish
+           context — so hide it. Clamp the dek to 2 lines so the search
+           input and first KPI/card land above the fold. Page-scoped via
+           _inject_si_css so other heroes are unaffected. */
+        @media (max-width: 640px) {
+            .dt-hero .dt-kicker { display: none; }
+            .dt-hero .dt-dek {
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                font-size: 0.82rem;
+                margin-top: 0.25rem;
+            }
+            .dt-hero { padding: 0.7rem 0.95rem 0.65rem !important; }
+            .dt-hero h1 { font-size: 1.2rem !important; }
+        }
+
         </style>
         """,
         unsafe_allow_html=True,

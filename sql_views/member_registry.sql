@@ -1,5 +1,7 @@
 -- v_member_registry — canonical TD list sourced from data.oireachtas.ie API
--- Source: data/silver/parquet/flattened_members.parquet (Dáil 34, 174 members)
+-- Source: data/silver/parquet/flattened_members.parquet
+--   Dáil 34 opened with 174 members; the parquet currently ships 176 as
+--   by-election TDs are absorbed. The UI count reflects the live parquet.
 --
 -- This is the authoritative member reference for the UI layer.
 -- PDF-derived data (attendance, payments) must supplement this; it must never
