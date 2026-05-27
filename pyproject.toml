@@ -23,12 +23,14 @@ classifiers = [
 ]
 
 # ── Core dependencies ────────────────────────────────────────────────────────
-# These are the packages actually imported across the codebase.
+# These are the packages the pipeline imports across the codebase.
+# UI-only deps (streamlit/altair/plotly/duckdb) live in the [ui] extra to keep
+# pipeline-only installs lean.
 # Transitive deps (certifi, urllib3, charset-normalizer, etc.) are handled
 # automatically by the resolver — don't pin them here.
 dependencies = [
     "polars>=1.39",
-    "pandas>=2.2",
+    "pandas>=2.2,<3.1",
     "numpy>=2.0",
     "PyMuPDF>=1.25",
     "requests>=2.31",
@@ -49,9 +51,14 @@ ocr = [
     "ocrmypdf>=17.0",
 ]
 
-# Gold layer / analytical database (planned medallion architecture)
-db = [
-    "duckdb>=1.0",
+# Streamlit dashboard runtime — used by utility/app.py and every page under
+# utility/pages_code/. Streamlit Cloud installs from requirements.txt at the
+# repo root; this extra is the source of truth for local dashboard runs.
+ui = [
+    "streamlit>=1.50,<2",
+    "altair>=6.0,<7",
+    "plotly>=6.0,<7",
+    "duckdb>=1.4,<2",
 ]
 
 # Development and testing
@@ -60,11 +67,12 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.11",
     "responses>=0.25",  # HTTP mocking for tests of services/http_engine.py and API scrapers
+    "duckdb>=1.4,<2",   # test_sql_views.py and test_gold_df.py register views via DuckDB
 ]
 
 # Everything — for a full local setup
 all = [
-    "dail-tracker[ocr,db,dev]",
+    "dail-tracker[ocr,ui,dev]",
 ]
 
 # ── Script entry points ──────────────────────────────────────────────────────
@@ -131,19 +139,28 @@ known-first-party = ["utility", "normalise_join_key"]
 testpaths = ["test"]
 pythonpath = ["."]
 
+# Only files/dirs that actually exist on disk — `uv build` validates each entry.
+# Top-level standalone scripts (payments_full_psa_etl.py, oireachtas_pdf_poller.py
+# etc.) are run via subprocess from pipeline.py, not imported, so they don't
+# need to be in the wheel for the pipeline to work after `pip install`. Add new
+# entries only when the corresponding file is imported as a library.
 [tool.hatch.build.targets.wheel]
 packages = [
     "utility",
-    "oireachtas_api_service.py",
-    "attendance.py",
-    "payments.py",
-    "enrich.py",
-    "lobbying_processing.py",
-    "member_interest.py",
+    "services",
+    "config.py",
+    "pipeline.py",
     "normalise_join_key.py",
+    "attendance.py",
+    "enrich.py",
+    "lobby_processing.py",
+    "member_interests.py",
+    "members_api_service.py",
+    "questions.py",
+    "legislation.py",
+    "transform_votes.py",
+    "manifest.py",
+    "oireachtas_pdf_poller.py",
+    "payments_full_psa_etl.py",
     "flatten_members_json_to_csv.py",
-    "flatten_service.py",
-    "pdf_enpoint_check.py",
-    "read_scan_pdf.py",
-    "tear_down.py",
 ]
