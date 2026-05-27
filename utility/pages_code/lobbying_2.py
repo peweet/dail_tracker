@@ -44,7 +44,6 @@ from data_access.lobbying_data import (
     fetch_dpo_firms,
     fetch_dpo_one,
     fetch_dpo_politicians_targeted,
-    fetch_dpo_return_map,
     fetch_dpo_returns_detail,
     fetch_org_contact_detail,
     fetch_org_index,
@@ -53,6 +52,7 @@ from data_access.lobbying_data import (
     fetch_policy_area_summary,
     fetch_policy_exposure_for_politician,
     fetch_politician_area_returns,
+    fetch_politician_area_returns_with_dpo,
     fetch_politician_index,
     fetch_politicians_for_area,
     fetch_politicians_for_org,
@@ -67,7 +67,6 @@ from data_access.lobbying_data import (
     fetch_topic_summary,
 )
 from shared_css import inject_css
-from ui.avatars import avatar_data_url, initials as _initials
 from ui.components import (
     back_button,
     breadcrumb,
@@ -77,11 +76,12 @@ from ui.components import (
     evidence_heading,
     glossary_strip,
     hero_banner,
-    member_card_html,
     member_moved_callout,
     page_error_boundary,
     pagination_controls,
+    period_year_pills as _year_selector,
     pill,
+    ranked_member_card,
     sidebar_divider,
     sidebar_page_header,
     sidebar_subtitle,
@@ -405,25 +405,15 @@ def _lob_card_html(
     rank: int | None = None,
     profile_href: str = "",
 ) -> str:
-    """Lobbying ranked-list card body (no link wrap, no arrow).
-
-    Mirrors the layout that ``rank_card_row`` produced before the migration:
-    a ``member_card_html`` with pill row and an optional cross-page
-    "Profile ↗" link to the canonical /member-overview profile.
+    """Lobbying ranked-list card body — pill row with optional "Profile ↗"
+    link to the canonical /member-overview profile.
     """
-    pills_html = "".join(pill(p) for p in pills)
-    if profile_href:
-        pills_html += (
-            f'<a class="dt-member-link int-stat-pill-link" href="{_h(profile_href)}" '
-            f'target="_self" aria-label="View profile of {_h(name)}">Profile ↗</a>'
-        )
-    return member_card_html(
+    return ranked_member_card(
         name=name,
         meta=meta,
         rank=rank,
-        pills_html=pills_html,
-        avatar_url=avatar_data_url(name),
-        avatar_initials=_initials(name),
+        pills_html="".join(pill(p) for p in pills),
+        profile_href=profile_href,
     )
 
 
@@ -443,32 +433,6 @@ def _back_button() -> None:
         _clear_profile()
         _clear_lob_qp()
         st.rerun()
-
-
-def _year_selector(df: pd.DataFrame, key: str) -> tuple[str | None, str | None]:
-    """Render year pills from already-fetched data; return SQL-ready (start, end) or (None, None).
-
-    Filtering is pushed to SQL via the returned params — no pandas row-masking here.
-    The pd.to_datetime call is display-only: extracting unique years for the pill control.
-    """
-    if df.empty or "period_start_date" not in df.columns:
-        return None, None
-    try:
-        years = sorted(
-            pd.to_datetime(df["period_start_date"], errors="coerce").dropna().dt.year.unique().tolist(),
-            reverse=True,
-        )
-    except Exception:
-        return None, None
-    if not years:
-        return None, None
-    options = ["All"] + [str(y) for y in years]
-    chosen = (
-        st.segmented_control("Year", options, default=options[0], key=key, label_visibility="collapsed") or options[0]
-    )
-    if chosen == "All":
-        return None, None
-    return f"{chosen}-01-01", f"{chosen}-12-31"
 
 
 def _provenance_footer(summary: pd.DataFrame) -> None:
@@ -1565,6 +1529,11 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
         st.caption(
             "Distribution across lobbying.ie's 32 official policy areas. Handy context for understanding which area a topic gets buried under."
         )
+        # logic_firewall: display_only — value_counts on the active filter
+        # set drives chip widths in the "Where filed" panel only. The
+        # denominator is the user's current topic query, not a registered
+        # metric; promoting to a view would require parameterising on the
+        # same keyword set.
         area_counts = (
             detail["public_policy_area"]
             .fillna("(unspecified)")
@@ -2280,7 +2249,10 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
 
     # ── Filters + export row ──────────────────────────────────────────────
     start, end = _year_selector(detail_all, "lob_year_results")
-    detail = fetch_politician_area_returns(politician, area, start, end) if start else detail_all
+    # Use the DPO-joined view so dpo_individuals (string) and dpo_count
+    # arrive pre-joined per return — kills the in-page dict-join that
+    # used to build dpo_by_return.
+    detail = fetch_politician_area_returns_with_dpo(politician, area, start, end) if start else detail_all
 
     # Build org-detail lookup (sector, website) without a pandas merge
     org_idx = fetch_org_index()
@@ -2292,15 +2264,12 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
                 "website": str(r.get("website", "") or ""),
             }
 
-    # Build DPO map: return_id -> sorted list of individual names
-    dpo_df = fetch_dpo_return_map()
-    dpo_by_return: dict[str, list[str]] = {}
-    if not dpo_df.empty and {"return_id", "individual_name"}.issubset(dpo_df.columns):
-        for _, r in dpo_df.iterrows():
-            rid = str(r["return_id"])
-            dpo_by_return.setdefault(rid, []).append(str(r["individual_name"]))
-
-    dpo_count = sum(1 for _, r in detail.iterrows() if str(r.get("return_id", "")) in dpo_by_return)
+    # DPO involvement count comes straight from the view column —
+    # one row per return with dpo_count already populated.
+    if "dpo_count" in detail.columns:
+        dpo_count = int((detail["dpo_count"] > 0).sum())
+    else:
+        dpo_count = 0
 
     orgs_label = (
         f"{detail['lobbyist_name'].nunique():,}" if "lobbyist_name" in detail.columns else "—"
@@ -2313,12 +2282,10 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
         ]
     )
 
-    csv_export = detail.copy()
-    csv_export["dpo_individuals"] = (
-        csv_export["return_id"].astype(str).map(lambda rid: "; ".join(dpo_by_return.get(rid, [])))
-    )
+    # CSV export — dpo_individuals is already a "; "-separated string column
+    # from v_lobbying_contact_detail_with_dpo, no in-page join needed.
     export_button(
-        csv_export,
+        detail,
         "Export every return as CSV",
         f"{politician.replace(' ', '_')}_{area[:30].replace(' ', '_')}_returns.csv",
         "lob_export_results",
@@ -2344,7 +2311,11 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
         sector = org_meta.get("sector", "")
         website = org_meta.get("website", "")
 
-        dpo_names = dpo_by_return.get(return_id, [])
+        # dpo_individuals arrives pre-joined from v_lobbying_contact_detail_with_dpo
+        # as a "; "-separated string. Split locally only for the comma-rendered
+        # meta line; no per-render dict-join.
+        dpo_str = str(row.get("dpo_individuals", "") or "")
+        dpo_names = [s.strip() for s in dpo_str.split(";") if s.strip()] if dpo_str else []
         meta_bits: list[str] = []
         if sector:
             meta_bits.append(sector)

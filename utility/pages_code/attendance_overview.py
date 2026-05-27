@@ -112,14 +112,16 @@ def _fetch_year_ranking(year: int) -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def _fetch_year_member_counts() -> pd.DataFrame:
-    """Per-year member count — used for the year summary strip."""
+    """Per-year member count — used for the year summary strip.
+
+    Sources v_attendance_year_member_counts (rollup defined in the view).
+    """
     return (
         get_attendance_conn()
         .execute(
-            "SELECT CAST(year AS INTEGER) AS year,"
-            " COUNT(DISTINCT member_name) AS members_count"
-            " FROM v_attendance_member_year_summary"
-            " WHERE year IS NOT NULL GROUP BY year ORDER BY year ASC"
+            "SELECT year, members_count"
+            " FROM v_attendance_year_member_counts"
+            " ORDER BY year ASC"
         )
         .df()
     )

@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import datetime
 from html import escape as _h
-import duckdb
 import pandas as pd
 import streamlit as st
 
@@ -48,12 +47,12 @@ from ui.components import (
     hero_banner,
     interest_declaration_item,
     main_member_jump,
-    member_card_html,
     member_moved_callout,
     member_profile_header,
     page_error_boundary,
     pagination_controls,
     pill,
+    ranked_member_card,
     render_notable_chips,
     sidebar_divider,
     sidebar_page_header,
@@ -71,226 +70,19 @@ from config import (
     INTEREST_CATEGORY_ORDER,
     NOTABLE_SENATORS,
     NOTABLE_TDS,
-    SILVER_INTERESTS_CSV,
-    SILVER_INTERESTS_PARQUET,
+)
+from data_access.interests_data import (
+    fetch_interests_availability,
+    fetch_interests_filter_options,
+    fetch_member_index,
+    fetch_td_interests,
 )
 
-_REQUIRED_COLS: set[str] = {
-    "member_name",
-    "party_name",
-    "constituency",
-    "declaration_year",
-    "interest_category",
-    "interest_text",
-    "landlord_flag",
-    "property_flag",
-}
-
-
-# ── Data access — retrieval only (SELECT / WHERE / ORDER BY / LIMIT) ──────────
-
-
-@st.cache_data(ttl=3600, show_spinner="Loading interests data…")
-def _load_interests(house: str) -> pd.DataFrame:
-    """
-    Load silver parquet and normalise to v_member_interests contract column shape.
-    Falls back to silver CSV if parquet not yet built.
-    TODO_PIPELINE_VIEW_REQUIRED: Replace with SELECT FROM v_member_interests_detail.
-    """
-    parquet_path = SILVER_INTERESTS_PARQUET.get(house)
-    if parquet_path is not None and parquet_path.exists():
-        df = pd.read_parquet(parquet_path)
-    else:
-        csv_path = SILVER_INTERESTS_CSV.get(house)
-        if csv_path is None or not csv_path.exists():
-            return pd.DataFrame()
-        df = pd.read_csv(csv_path, low_memory=False)
-    df.columns = df.columns.str.strip()
-    if "interest_category" in df.columns:
-        df = df[df["interest_category"] != "15"].copy()
-    for csv_col, contract_col in [
-        ("is_landlord", "landlord_flag"),
-        ("is_property_owner", "property_flag"),
-    ]:
-        if csv_col in df.columns:
-            df[contract_col] = df[csv_col].astype(str).str.lower() == "true"
-    df = df.rename(
-        columns={
-            "full_name": "member_name",
-            "party": "party_name",
-            "constituency_name": "constituency",
-            "year_declared": "declaration_year",
-            "interest_description_cleaned": "interest_text",
-        }
-    )
-    for col, default in [
-        ("directorship_flag", False),  # TODO_PIPELINE_VIEW_REQUIRED
-        ("shareholding_flag", False),  # TODO_PIPELINE_VIEW_REQUIRED
-        ("source_pdf_url", None),  # TODO_PIPELINE_VIEW_REQUIRED
-        ("source_page_number", None),  # TODO_PIPELINE_VIEW_REQUIRED
-    ]:
-        if col not in df.columns:
-            df[col] = default
-    if "declaration_year" in df.columns:
-        df["declaration_year"] = pd.to_numeric(df["declaration_year"], errors="coerce")
-    return df
-
-
-@st.cache_data(ttl=300)
-def _fetch_filter_options(house: str) -> dict[str, list]:
-    """Retrieval SQL: SELECT DISTINCT <col> FROM v_member_interests ORDER BY <col>."""
-    base = _load_interests(house)
-    if base.empty:
-        return {"years": [], "members": []}
-    con = duckdb.connect(":memory:")
-    con.register("v_member_interests", base)
-    years = (
-        con.execute(
-            "SELECT DISTINCT TRY_CAST(declaration_year AS INTEGER) AS y "
-            "FROM v_member_interests WHERE declaration_year IS NOT NULL ORDER BY y DESC"
-        )
-        .fetchdf()["y"]
-        .dropna()
-        .astype(int)
-        .tolist()
-    )
-    members = (
-        con.execute(
-            "SELECT DISTINCT member_name FROM v_member_interests WHERE member_name IS NOT NULL ORDER BY member_name"
-        )
-        .fetchdf()["member_name"]
-        .tolist()
-    )
-    return {"years": years, "members": members}
-
-
-@st.cache_data(ttl=300)
-def _fetch_interests(
-    house: str,
-    name_q: str,
-    years: tuple[int, ...],
-    landlord_only: bool,
-) -> pd.DataFrame:
-    """
-    Retrieval SQL: SELECT <cols> FROM v_member_interests
-    WHERE <approved filters> ORDER BY declaration_year DESC, member_name LIMIT 1000.
-    """
-    base = _load_interests(house)
-    if base.empty:
-        return pd.DataFrame()
-    con = duckdb.connect(":memory:")
-    con.register("v_member_interests", base)
-    where: list[str] = []
-    params: list = []
-    if name_q:
-        where.append("member_name ILIKE ?")
-        params.append(f"%{name_q}%")
-    if years:
-        ph = ", ".join("?" for _ in years)
-        where.append(f"TRY_CAST(declaration_year AS INTEGER) IN ({ph})")
-        params.extend(int(y) for y in years)
-    if landlord_only:
-        where.append("landlord_flag = ?")
-        params.append(True)
-    where_clause = "WHERE " + " AND ".join(where) if where else ""
-    return con.execute(
-        f"""
-        SELECT member_name, party_name, constituency,
-               TRY_CAST(declaration_year AS INTEGER) AS declaration_year,
-               interest_category, interest_text, landlord_flag, property_flag
-        FROM v_member_interests
-        {where_clause}
-        ORDER BY declaration_year DESC, member_name
-        LIMIT 1000
-        """,
-        params,
-    ).fetchdf()
-
-
-@st.cache_data(ttl=300)
-def _fetch_td_data(house: str, td_name: str) -> pd.DataFrame:
-    """
-    Retrieval SQL: SELECT <cols> FROM v_member_interests
-    WHERE member_name = ? ORDER BY declaration_year DESC, interest_category.
-    """
-    base = _load_interests(house)
-    if base.empty:
-        return pd.DataFrame()
-    con = duckdb.connect(":memory:")
-    con.register("v_member_interests", base)
-    return con.execute(
-        """
-        SELECT member_name, party_name, constituency,
-               TRY_CAST(declaration_year AS INTEGER) AS declaration_year,
-               interest_category, interest_text, landlord_flag, property_flag
-        FROM v_member_interests
-        WHERE member_name = ?
-        ORDER BY declaration_year DESC, interest_category
-        """,
-        [td_name],
-    ).fetchdf()
-
-
-# ── Gold ranking (pre-aggregated pipeline output) ─────────────────────────────
-
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def _load_ranking(house: str, year: int) -> pd.DataFrame:
-    """
-    TODO_PIPELINE_VIEW_REQUIRED: v_member_interests_index
-    Replace with: SELECT ... FROM v_member_interests_index WHERE house=? AND declaration_year=?
-    read_parquet is forbidden in Streamlit (streamlit_may_read_parquet: false).
-    """
-    return pd.DataFrame()
-
-
-@st.cache_data(ttl=300, show_spinner="Building member index…")
-def _fetch_member_index_fallback(house: str, year: int) -> pd.DataFrame:
-    """
-    Fallback until v_member_interests_index is registered.
-    One row per member: declaration count, landlord/property flags, rank.
-    """
-    base = _load_interests(house)
-    if base.empty:
-        return pd.DataFrame()
-    con = duckdb.connect(":memory:")
-    con.register("v_member_interests", base)
-    return con.execute(
-        """
-        WITH agg AS (
-            SELECT
-                member_name,
-                MAX(party_name)    AS party_name,
-                MAX(constituency)  AS constituency,
-                COUNT(*)           AS total_declarations,
-                0                  AS directorship_count,
-                COUNT(DISTINCT CASE
-                    WHEN interest_category = 'Land (including property)'
-                     AND interest_text IS NOT NULL
-                     AND TRIM(interest_text) <> ''
-                     AND LOWER(TRIM(interest_text)) <> 'no interests declared'
-                    THEN interest_text END)            AS property_count,
-                COUNT(DISTINCT CASE
-                    WHEN interest_category = 'Shares'
-                     AND interest_text IS NOT NULL
-                     AND TRIM(interest_text) <> ''
-                     AND LOWER(TRIM(interest_text)) <> 'no interests declared'
-                    THEN interest_text END)            AS share_count,
-                BOOL_OR(landlord_flag)    AS is_landlord,
-                BOOL_OR(property_flag)    AS is_property_owner
-            FROM v_member_interests
-            WHERE TRY_CAST(declaration_year AS INTEGER) = ?
-              AND member_name IS NOT NULL
-            GROUP BY member_name
-        )
-        SELECT
-            ROW_NUMBER() OVER (ORDER BY total_declarations DESC, member_name) AS rank,
-            *
-        FROM agg
-        ORDER BY rank
-        """,
-        [year],
-    ).fetchdf()
+# ── Data access ───────────────────────────────────────────────────────────────
+# All retrieval lives in data_access.interests_data and the two registered
+# views v_member_interests_detail + v_member_interests_index (sql_views/
+# member_interests_detail.sql, sql_views/member_zz_interests_index.sql).
+# This module is rendering only.
 
 
 def _int_member_card_html(row) -> str:
@@ -305,10 +97,8 @@ def _int_member_card_html(row) -> str:
     landlord = bool(row.get("is_landlord", False))
     is_prop = bool(row.get("is_property_owner", False))
 
-    meta = clean_meta(party, constit)
-    # Round-3 audit P3-2: emoji icons dropped per project convention
-    # (text + colour-by-pill-class carries enough signal in this register
-    # — editorial/civic, not consumer-app).
+    # Emoji icons intentionally dropped per project convention — text +
+    # colour-by-pill-class carries enough signal in this editorial register.
     parts = [pill(f"{total} declarations", "decl")]
     if landlord:
         parts.append(pill("Landlord", "accent"))
@@ -321,13 +111,11 @@ def _int_member_card_html(row) -> str:
     if d_count:
         parts.append(pill(f"{d_count} compan{'ies' if d_count != 1 else 'y'}", "company"))
 
-    return member_card_html(
+    return ranked_member_card(
         name=name,
-        meta=meta,
+        meta=clean_meta(party, constit),
         rank=rank,
         pills_html="".join(parts),
-        avatar_url=avatar_data_url(name),
-        avatar_initials=_initials(name),
     )
 
 
@@ -405,7 +193,7 @@ def render_member_interests(
     ``year_pill_key`` is overridable so the embedded copy can use a key that
     doesn't collide with the stand-alone interests-page state.
     """
-    td_df = _fetch_td_data(house, td_name)
+    td_df = fetch_td_interests(house, td_name)
     if td_df.empty:
         empty_state(
             "No records found",
@@ -662,7 +450,7 @@ def interests_page() -> None:
                 st.session_state.pop(k, None)
             st.session_state["_interests_last_house"] = house
 
-        opts = _fetch_filter_options(house)
+        opts = fetch_interests_filter_options(house)
 
         notable = NOTABLE_TDS if house == "Dáil" else NOTABLE_SENATORS
         # P0-1 fix: previously this wrote selected_td and called st.rerun(),
@@ -689,28 +477,14 @@ def interests_page() -> None:
             st.rerun()
 
     # ── Guard ─────────────────────────────────────────────────────────────────
-    parquet_path = SILVER_INTERESTS_PARQUET.get(house)
-    csv_path = SILVER_INTERESTS_CSV.get(house)
-    if not ((parquet_path and parquet_path.exists()) or (csv_path and csv_path.exists())):
+    # The column contract is now enforced by v_member_interests_detail itself
+    # (registration fails if a silver column is missing). The only remaining
+    # guard the page needs is "does the view have any rows for this house".
+    if not fetch_interests_availability(house):
         empty_state(
             "Register data not available",
-            f"Source data for {house} not found. Run the pipeline to populate data/silver/.",
-        )
-        return
-
-    base_df = _load_interests(house)
-    if base_df.empty:
-        empty_state(
-            "No interests data available",
-            "The source CSV loaded but contains no rows. Re-run the pipeline (member_interests.py).",
-        )
-        return
-
-    missing = sorted(_REQUIRED_COLS - set(base_df.columns))
-    if missing:
-        empty_state(
-            "View shape changed",
-            f"Required columns missing: {', '.join(missing)}. Align pipeline output with contract.",
+            f"Source data for {house} not found. Run the pipeline to populate "
+            "data/silver/ and re-register v_member_interests_detail.",
         )
         return
 
@@ -786,80 +560,73 @@ def interests_page() -> None:
     selected_year = year_selector(year_opts, key="int_year")
 
     # ── Leaderboard — one card per member, ranked by declarations ─────────────
-    # TODO_PIPELINE_VIEW_REQUIRED: v_member_interests_index
-    # Command bar (name filter + landlord toggle) reinstated once the view is registered.
-    ranking_df = _load_ranking(house, selected_year)
-
-    if ranking_df.empty:
-        # P2-1: demoted from a full todo_callout block to a single caption
-        # under the heading. The fallback delivers a usable member list so
-        # the "Coming soon" callout no longer earns prime above-fold real
-        # estate. Pipeline detail (dev): v_member_interests_index not yet
-        # registered; rendered list is the unranked fallback.
-        members_df = _fetch_member_index_fallback(house, selected_year)
-        if members_df.empty:
-            empty_state(
-                f"No declarations for {selected_year}",
-                "No interest declarations on record for this year and chamber.",
-            )
-            _render_provenance()
-            return
-
-        # Audit fix (2026-05-26, P1-5): the previous heading
-        # "Members · 2025 · 174" was terse and didn't say WHY this list
-        # was showing or that switching the year pill above changed it.
-        # Rephrase to verbalise the year context so a year-pill switch
-        # has visible textual feedback.
-        evidence_heading(f"Declarations for {selected_year} · {len(members_df)} members")
-        # P2-1: demoted "Coming soon" callout to a single caption so the
-        # data isn't preceded by a heavy notice; P2-3: pill colour legend
-        # — declarations (blue), landlord (orange), property (green),
-        # shareholder (purple) — so the encoding is documented inline.
-        st.caption(
-            "Ranked leaderboard coming when the pipeline view lands — "
-            "showing all members in name order for now.   "
-            "Pill colours: "
-            "**declarations** (blue) · "
-            "**landlord** (orange) · "
-            "**property owner** (green) · "
-            "**shareholder** (purple)."
+    # Data: v_member_interests_index (sql_views/member_zz_interests_index.sql).
+    # The same rank, counts and flag rollup that used to live in the page's
+    # _fetch_member_index_fallback now lives in that view.
+    members_df = fetch_member_index(house, selected_year)
+    if members_df.empty:
+        empty_state(
+            f"No declarations for {selected_year}",
+            "No interest declarations on record for this year and chamber.",
         )
-
-        # Pagination state (read-only here; nav widgets render below the cards).
-        page_size = 12
-        page_key = "int_fb_page"
-        cur = int(st.session_state.get(page_key, 1))
-        total_pages = max(1, (len(members_df) + page_size - 1) // page_size)
-        if cur > total_pages:
-            cur = 1
-            st.session_state[page_key] = 1
-        page_idx = cur - 1
-        visible = members_df.iloc[page_idx * page_size : (page_idx + 1) * page_size]
-
-        cards: list[str] = []
-        for _, row in visible.iterrows():
-            name = str(row["member_name"])
-            code = resolve_member_code(name)
-            if code:
-                cards.append(
-                    clickable_card_link(
-                        href=member_profile_url(code, section="interests"),
-                        inner_html=_int_member_card_html(row),
-                        aria_label=f"View {name}'s declarations",
-                    )
-                )
-            else:
-                cards.append(_int_member_card_html(row))
-        st.html("\n".join(cards))
-
-        pagination_controls(
-            total=len(members_df),
-            key_prefix="int_fb",
-            page_sizes=(page_size,),
-            default_page_size=page_size,
-            label="members",
-            show_caption=False,
-        )
-
         _render_provenance()
         return
+
+    # Audit fix (2026-05-26, P1-5): the previous heading
+    # "Members · 2025 · 174" was terse and didn't say WHY this list
+    # was showing or that switching the year pill above changed it.
+    # Rephrase to verbalise the year context so a year-pill switch
+    # has visible textual feedback.
+    evidence_heading(f"Declarations for {selected_year} · {len(members_df)} members")
+    # P2-1: demoted "Coming soon" callout to a single caption so the
+    # data isn't preceded by a heavy notice; P2-3: pill colour legend
+    # — declarations (blue), landlord (orange), property (green),
+    # shareholder (purple) — so the encoding is documented inline.
+    st.caption(
+        "Ranked leaderboard coming when the pipeline view lands — "
+        "showing all members in name order for now.   "
+        "Pill colours: "
+        "**declarations** (blue) · "
+        "**landlord** (orange) · "
+        "**property owner** (green) · "
+        "**shareholder** (purple)."
+    )
+
+    # Pagination state (read-only here; nav widgets render below the cards).
+    page_size = 12
+    page_key = "int_fb_page"
+    cur = int(st.session_state.get(page_key, 1))
+    total_pages = max(1, (len(members_df) + page_size - 1) // page_size)
+    if cur > total_pages:
+        cur = 1
+        st.session_state[page_key] = 1
+    page_idx = cur - 1
+    visible = members_df.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+
+    cards: list[str] = []
+    for _, row in visible.iterrows():
+        name = str(row["member_name"])
+        code = resolve_member_code(name)
+        if code:
+            cards.append(
+                clickable_card_link(
+                    href=member_profile_url(code, section="interests"),
+                    inner_html=_int_member_card_html(row),
+                    aria_label=f"View {name}'s declarations",
+                )
+            )
+        else:
+            cards.append(_int_member_card_html(row))
+    st.html("\n".join(cards))
+
+    pagination_controls(
+        total=len(members_df),
+        key_prefix="int_fb",
+        page_sizes=(page_size,),
+        default_page_size=page_size,
+        label="members",
+        show_caption=False,
+    )
+
+    _render_provenance()
+    return

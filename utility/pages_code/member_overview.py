@@ -304,14 +304,15 @@ def _q_years(_conn, join_key: str) -> list[int]:
 
 @st.cache_data(ttl=300)
 def _q_ministries(_conn, join_key: str) -> list[str]:
-    """Per-TD distinct ministries ordered by COUNT desc. Single-column
-    GROUP BY on a registered view is allowed as presentation rollup
-    (same pattern as _section_debates's topic selectbox)."""
+    """Per-TD distinct ministries ordered by COUNT desc.
+
+    Rollup lives in v_member_question_ministries; this is retrieval-only.
+    """
     df = _q(
         _conn,
-        "SELECT ministry, COUNT(*) AS n FROM v_member_questions"
-        " WHERE unique_member_code = ? AND ministry IS NOT NULL"
-        " GROUP BY ministry ORDER BY n DESC",
+        "SELECT ministry FROM v_member_question_ministries"
+        " WHERE unique_member_code = ?"
+        " ORDER BY n DESC, ministry ASC",
         [join_key],
     )
     return df["ministry"].astype(str).tolist() if not df.empty else []
@@ -319,11 +320,12 @@ def _q_ministries(_conn, join_key: str) -> list[str]:
 
 @st.cache_data(ttl=300)
 def _q_top_topics(_conn, join_key: str) -> pd.DataFrame:
+    """Top-3 topics for a TD. Rollup lives in v_member_question_top_topics."""
     return _q(
         _conn,
-        "SELECT topic, COUNT(*) AS n FROM v_member_questions"
-        " WHERE unique_member_code = ? AND topic IS NOT NULL AND topic <> ''"
-        " GROUP BY topic ORDER BY n DESC, topic ASC LIMIT 3",
+        "SELECT topic, n FROM v_member_question_top_topics"
+        " WHERE unique_member_code = ?"
+        " ORDER BY n DESC, topic ASC LIMIT 3",
         [join_key],
     )
 
@@ -336,12 +338,14 @@ def _q_feed(
     qtype: str | None = None,
     ministry: str | None = None,
     topic: str | None = None,
+    search_text: str | None = None,
 ) -> pd.DataFrame:
-    """Question feed query. Filters AND together. We pull up to 5000 rows
-    and paginate client-side via paginate(), matching _section_debates.
-    The 5000 ceiling is well above any plausible per-TD-per-filter slice
-    (Cullinane's full 7,052 is the only case that hits it; the year /
-    ministry filters narrow it well below)."""
+    """Question feed query. Filters AND together. Free-text search uses
+    ILIKE with %wrap on the user's input, case-insensitive. We pull up to
+    10k rows and paginate client-side via paginate(), matching
+    _section_debates. The 10k ceiling is above any plausible per-TD-per-
+    filter slice (Cullinane's full 7,052 is the only case that approaches
+    it; any filter narrows well below)."""
     clauses = ["unique_member_code = ?"]
     params: list = [join_key]
     if year is not None:
@@ -356,6 +360,9 @@ def _q_feed(
     if topic:
         clauses.append("topic = ?")
         params.append(topic)
+    if search_text:
+        clauses.append("question_text ILIKE ?")
+        params.append(f"%{search_text}%")
     return _q(
         _conn,
         "SELECT question_date, question_type, ministry, topic, question_text,"
@@ -602,18 +609,34 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
             f'<div class="q-conc-sparse">{total_qs} questions on record</div>'
         )
 
-    total_html = (
-        '<div class="q-strip-cell-label">On file</div>'
-        f'<div class="q-total-num">{total_qs:,}</div>'
-        '<div class="q-total-sub">Questions, 2020 to present</div>'
-    )
+    # Middle panel: distinct ministries with cabinet-denominator sub-line.
+    # Replaces the redundant "on file / total_qs" panel from v1 — total was
+    # already in the concentration sub-line. Distinct ministries is the
+    # genuine second-axis signal (specialist vs generalist).
+    if distinct_min > 0:
+        total_html = (
+            '<div class="q-strip-cell-label">Ministries engaged</div>'
+            f'<div class="q-total-num">{distinct_min}</div>'
+            '<div class="q-total-sub">Out of around 26 in cabinet</div>'
+        )
+    else:
+        total_html = (
+            '<div class="q-strip-cell-label">Activity</div>'
+            f'<div class="q-total-num">{total_qs:,}</div>'
+            '<div class="q-total-sub">Questions, 2020 to present</div>'
+        )
 
     # Top topics: small clickable chips that apply a topic filter to the feed.
     # Click handler is via st.query_params (?mo_q_topic=...) read at the top of
     # this section. Matches the feedback_css_card_pattern URL handler pattern.
+    # Each chip has a trailing ▾ glyph + aria-label so the click-to-filter
+    # affordance is recognisable. Cell label says "click to filter".
     topics_df = _q_top_topics(conn, join_key)
     if topics_df.empty:
-        topics_inner = '<div class="q-conc-detail">No topic taxonomy on file.</div>'
+        topics_inner = (
+            '<div class="q-strip-cell-label">Top topics</div>'
+            '<div class="q-conc-detail">No topic taxonomy on file.</div>'
+        )
     else:
         chip_html_parts = []
         for _, row in topics_df.iterrows():
@@ -621,11 +644,13 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
             n = int(row["n"])
             chip_html_parts.append(
                 f'<a class="q-topic-chip" href="?member={_h(join_key)}&mo_q_topic={_h(t)}" '
-                f'target="_self" title="Filter feed to questions on {_h(t)}">'
-                f"{_h(t)}<span class=\"q-topic-chip-count\">{n}</span></a>"
+                f'target="_self" aria-label="Filter feed to questions on {_h(t)} ({n} questions)">'
+                f'{_h(t)}<span class="q-topic-chip-count">{n}</span>'
+                '<span class="q-topic-chip-action" aria-hidden="true">▾</span>'
+                "</a>"
             )
         topics_inner = (
-            '<div class="q-strip-cell-label">Top topics</div>'
+            '<div class="q-strip-cell-label">Top topics <span class="q-strip-cell-hint">— click to filter</span></div>'
             '<div class="q-topic-list">' + "".join(chip_html_parts) + "</div>"
         )
 
@@ -655,17 +680,29 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
     )
 
     # ── Filter bar ───────────────────────────────────────────────────────────
-    # Topic comes from the chip URL handler; year, type, ministry from controls.
+    # Topic comes from the chip URL handler; year, type, ministry from
+    # controls; free-text search from a text input above the row.
     topic_filter = st.query_params.get("mo_q_topic")
     if topic_filter:
-        # Render an active-filter pill with a clear link (no widget; pure URL).
+        # Render an active-filter chip (× removes the filter via URL).
         clear_href = f"?member={_h(join_key)}"
         st.html(
-            f'<div style="margin: 0 0 0.7rem 0; font-size: 0.85rem;">'
-            f'Topic filter: <strong>{_h(topic_filter)}</strong> '
-            f'&nbsp;<a href="{clear_href}" target="_self" '
-            f'style="color: var(--accent); text-decoration: underline;">clear</a></div>'
+            '<div class="q-active-filter-bar">'
+            '<span class="q-active-filter-label">Topic filter:</span>'
+            f'<a class="q-active-chip" href="{_h(clear_href)}" target="_self" '
+            f'aria-label="Clear topic filter {_h(topic_filter)}">'
+            f'{_h(topic_filter)} '
+            '<span class="q-active-chip-x" aria-hidden="true">×</span>'
+            '</a></div>'
         )
+
+    # Free-text search of question_text. Empty input matches everything.
+    search_text = st.text_input(
+        "Search question text",
+        key=f"mo_q_search_{join_key}",
+        placeholder="Search question text (e.g. 'cardiac services', 'endometriosis')",
+        label_visibility="collapsed",
+    )
 
     years = _q_years(conn, join_key)
     ministries = _q_ministries(conn, join_key)
@@ -705,19 +742,23 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
 
     qtype_val = None if not selected_type or selected_type == "All" else selected_type.lower()
     ministry_val = None if not selected_ministry or selected_ministry == "All ministries" else selected_ministry
+    search_val = (search_text or "").strip() or None
 
     # ── Feed ─────────────────────────────────────────────────────────────────
-    df = _q_feed(conn, join_key, year_val, qtype_val, ministry_val, topic_filter)
+    df = _q_feed(conn, join_key, year_val, qtype_val, ministry_val, topic_filter, search_val)
     if df.empty:
         empty_state(
             "No questions match these filters",
-            "Try clearing the ministry, the year pill, or the topic filter.",
+            "Try clearing the search box, the ministry, the year pill, or the topic filter.",
         )
         return
 
     total = len(df)
     PAGE_SIZE = 10
-    filter_sig = f"{year_val or 'all'}_{qtype_val or 'all'}_{ministry_val or 'all'}_{topic_filter or 'all'}"
+    filter_sig = (
+        f"{year_val or 'all'}_{qtype_val or 'all'}_{ministry_val or 'all'}"
+        f"_{topic_filter or 'all'}_{hash(search_val) if search_val else 'all'}"
+    )
     pager_key = f"mo_q_{join_key}_{filter_sig}"
     page_idx = paginate(total, key_prefix=pager_key, page_size=PAGE_SIZE)
     visible = df.iloc[page_idx * PAGE_SIZE : (page_idx + 1) * PAGE_SIZE]
@@ -748,8 +789,14 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
         # Build the head row as a series of flex children so the .q-card-head
         # flex gap rule actually spaces them. (Nesting separators inside the
         # kicker span squashes them visually.)
+        # Ministry kicker is dropped when topic starts with the ministry word
+        # (Oireachtas taxonomy regularly does this — "Health" + "Health
+        # Services Waiting Lists" reads as "Health Health Services" otherwise).
         head_parts = [f'<span class="q-card-date">{_h(date_disp)}</span>']
-        if ministry:
+        topic_dupes_ministry = bool(
+            ministry and topic and topic.lower().startswith(ministry.lower())
+        )
+        if ministry and not topic_dupes_ministry:
             head_parts.append('<span class="q-card-sep">·</span>')
             head_parts.append(f'<span class="q-card-kicker">{_h(ministry)}</span>')
         if topic:
@@ -949,14 +996,17 @@ def _section_committees(member_name: str, join_key: str) -> None:
 
 
 _OTHER_PILL = "Other / Independent"
-_OTHER_MIN = 3  # parties with fewer TDs are grouped into Other
+_OTHER_MIN = 3  # UI display threshold — parties with fewer TDs collapse into
+                # the "Other / Independent" pill. This is a chip-layout
+                # decision (keep the pill row scannable), not a civic metric:
+                # changing it shouldn't require a pipeline rebuild.
 
 
 def _named_parties(df: pd.DataFrame) -> list[str]:
     """Parties with >= _OTHER_MIN members, sorted by size desc then name."""
     if df.empty or "party_name" not in df.columns:
         return []
-    counts = df["party_name"].value_counts()
+    counts = df["party_name"].value_counts()  # logic_firewall: display_only
     parties = df["party_name"].dropna().astype(str).unique().tolist()
     parties = [p for p in parties if p and p.lower() not in ("nan", "")]
     named = [p for p in parties if int(counts.get(p, 0)) >= _OTHER_MIN]
@@ -967,7 +1017,7 @@ def _party_pill_options(df: pd.DataFrame) -> list[str]:
     named = _named_parties(df)
     if not named:
         return []
-    counts = df["party_name"].value_counts()
+    counts = df["party_name"].value_counts()  # logic_firewall: display_only
     in_named = sum(int(counts.get(p, 0)) for p in named)
     has_other = (len(df) - in_named) > 0
     return named + ([_OTHER_PILL] if has_other else [])
@@ -995,8 +1045,10 @@ def _render_browse(conn) -> None:
         empty_state("No member data", "Run the pipeline to generate attendance parquet files.")
         return
 
-    df = df.drop_duplicates(subset=["unique_member_code"], keep="first").reset_index(drop=True)
-
+    # v_member_registry is unique on unique_member_code (verified on the
+    # silver parquet: 176 rows / 176 distinct codes). The page-side
+    # drop_duplicates that used to live here was defensive against a
+    # historical pipeline gap that no longer exists.
     member_names = df["member_name"].dropna().astype(str).tolist()
     search, picked = find_a_td_filter(
         member_names,
@@ -1110,7 +1162,9 @@ def _prev_next_member(conn, join_key: str) -> tuple[dict | None, dict | None]:
     df = _member_list(conn)
     if df.empty:
         return None, None
-    df = df.drop_duplicates(subset=["unique_member_code"], keep="first").reset_index(drop=True)
+    # v_member_registry is unique on unique_member_code — no in-page dedup
+    # needed (see comment at the browse-list above).
+    df = df.reset_index(drop=True)
     idx_match = df.index[df["unique_member_code"] == join_key]
     if len(idx_match) == 0:
         return None, None
