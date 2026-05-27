@@ -19,6 +19,7 @@ _UTIL = _HERE.parent
 if str(_UTIL) not in sys.path:
     sys.path.insert(0, str(_UTIL))
 
+import duckdb  # noqa: E402 — sys.path mutation above is required before this import
 import streamlit as st  # noqa: E402 — sys.path mutation above is required before streamlit import
 
 _log = logging.getLogger(__name__)
@@ -33,11 +34,6 @@ def _absolutize_data_paths(sql: str) -> str:
     return sql.replace("'data/", f"'{_PROJECT_ROOT.as_posix()}/data/")
 
 
-try:
-    import duckdb as _duckdb
-except ImportError:
-    _duckdb = None
-
 # Ordered — payments_base must precede its dependents
 _DOMAIN_FILES = [
     "attendance_member_year_summary.sql",
@@ -49,6 +45,13 @@ _DOMAIN_FILES = [
     "legislation_si_index.sql",
     "v_debate_listings.sql",
     "member_debate_sections.sql",
+    # Questions feature (added 2026-05-27 after the 1000-row API cap was lifted
+    # in services/member_paginated.py). Three views: feed, per-TD aggregate
+    # profile, and focus-shift detector. All read from
+    # data/silver/parquet/questions.parquet which is 264k rows post-backfill.
+    "member_questions.sql",
+    "member_question_profile.sql",
+    "member_question_focus_shift.sql",
 ]
 
 # {MEMBER_PARQUET_PATH} substituted with absolute path from config
@@ -86,9 +89,7 @@ def _load_sql(conn, fpath: Path, substitutions: dict[str, str]) -> None:
 
 @st.cache_resource
 def get_member_overview_conn():
-    if _duckdb is None:
-        return None
-    conn = _duckdb.connect()
+    conn = duckdb.connect()
 
     # Plain views — no path substitution needed
     for fname in _DOMAIN_FILES:

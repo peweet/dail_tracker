@@ -1,0 +1,20 @@
+# Streamlit Cloud deploy — UI runtime only.
+#
+# Pipeline deps (polars, PyMuPDF, beautifulsoup4, flatten-json) live in
+# pyproject.toml and are NOT installed on cloud since the app reads pre-built
+# parquet from data/gold/ and data/silver/, not raw PDFs or API JSON.
+#
+# Bounds rationale:
+#   - Upper bounds catch breaking-major releases (Altair 5→6 dropped APIs;
+#     Plotly 5→6 dropped Python 3.8). Loosen only after end-to-end testing.
+#   - pandas <3.1 covers both 2.x (older Streamlit Cloud images) and the
+#     locally-tested 3.0.x; pin tighter once Cloud is verified on 3.0.
+#
+# Keep this file in sync with the [ui] extra in pyproject.toml.
+
+streamlit>=1.50,<2
+pandas>=2.2,<3.1
+duckdb>=1.4,<2
+altair>=6.0,<7
+plotly>=6.0,<7
+pyarrow>=14

@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import duckdb
 import streamlit as st
 
 from config import GOLD_VOTE_HISTORY_PARQUET
@@ -23,17 +24,10 @@ _log = logging.getLogger(__name__)
 _SQL_VIEWS = Path(__file__).resolve().parents[2] / "sql_views"
 _PARQUET = GOLD_VOTE_HISTORY_PARQUET.as_posix()
 
-try:
-    import duckdb as _duckdb
-except ImportError:
-    _duckdb = None
-
 
 @st.cache_resource
 def get_votes_conn():
-    if _duckdb is None:
-        return None
-    conn = _duckdb.connect()
+    conn = duckdb.connect()
     if _SQL_VIEWS.exists():
         for f in sorted(_SQL_VIEWS.glob("vote*.sql")):
             try:
