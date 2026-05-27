@@ -1,18 +1,11 @@
 """
 iris_incremental_shards.py — incremental ETL caching for Iris Oifigiúil PDFs.
 
-STATUS: SANDBOX. Not wired into the active iris pipeline. Demonstrates the
-per-PDF shard pattern that would let `iris_oifigiuil_etl_polars.run()` skip
-re-extracting unchanged PDFs while keeping deterministic gold ordering.
-
-WHY
----
-`iris_oifigiuil_etl_polars.run()` re-extracts every PDF on every invocation
-(see lines ~1361-1372). At ~1K PDFs that's the dominant cost. The downstream
-Polars work (build_records / enrich_records / quarantine) is cheap by
-comparison and operates per-`source_file` (see `.over("source_file")` at
-~line 552), so it's safe to cache results at the bronze grain and rebuild
-silver/gold from the cache.
+Wired into `iris_oifigiuil_etl_polars.run()`. Per-PDF parquet shard + audit JSON
++ member-extract JSON, fingerprinted by (mtime_ns, size, EXTRACTOR_VERSION) so
+unchanged PDFs are skipped on subsequent runs. Silver/gold still rebuild over
+the full corpus from the concat of all shards — back-dated corrections to a
+single PDF still propagate.
 
 PATTERN
 -------
@@ -23,7 +16,7 @@ For each source PDF:
      write bronze rows to a parquet shard + audit JSON + member-extract JSON,
      and update the manifest entry.
 
-Gold rebuild is unchanged in shape — just sourced from the cache:
+Gold rebuild is unchanged in shape — sourced from the cache:
     bronze = pl.concat([pl.scan_parquet(p) for p in shards]).collect()
     # then build_records(bronze) → enrich → quarantine → write CSVs as before.
 
@@ -41,33 +34,15 @@ mismatch as cache invalidation — every shard gets rebuilt on the next run.
 File mtime/size alone are insufficient because the PDF is unchanged but
 the *interpretation* of it has changed.
 
-INTEGRATION SKETCH (for the eventual non-sandbox version)
----------------------------------------------------------
-Replace the body of `run()` in iris_oifigiuil_etl_polars.py
-(lines 1354-1440) with roughly:
+STANDALONE USAGE
+----------------
+The wired path is `python iris_oifigiuil_etl_polars.py` (incremental by
+default) and `python iris_oifigiuil_etl_polars.py --rebuild` (full re-extract).
+This module can still be invoked directly to populate / inspect the cache
+without running the silver/gold step:
 
-    summary = incremental_extract(paths, shard_root, EXTRACTOR_VERSION)
-    print(f"  extract: {summary.added} new, {summary.skipped} cached, "
-          f"{summary.restaged} re-staged")
-
-    bronze = concat_bronze(shard_root).collect()
-    metas  = load_audit(shard_root)
-    member_extracts = load_member_extracts(shard_root)
-
-    # …existing build_records / enrich / quarantine / shape_for_gold pipeline…
-    # …existing CSV + JSON writes…
-
-The shard layer slots in *underneath* the existing build_records call. The
-CSV outputs are byte-identical (modulo row order, which sort() controls).
-
-USAGE
------
-    python pipeline_sandbox/iris_incremental_shards.py \\
-        "data/bronze/iris_oifigiuil/*.pdf"
-        # → extracts only PDFs missing or stale in the shard cache
-    python pipeline_sandbox/iris_incremental_shards.py \\
-        "data/bronze/iris_oifigiuil/*.pdf" --rebuild
-        # → ignores manifest and rebuilds every shard
+    python iris_incremental_shards.py "data/bronze/iris_oifigiuil/*.pdf"
+    python iris_incremental_shards.py "data/bronze/iris_oifigiuil/*.pdf" --rebuild
 """
 
 from __future__ import annotations
@@ -83,11 +58,7 @@ from typing import Any
 
 import polars as pl
 
-# Import the canonical extractors from the top-level ETL so that whichever
-# entry point invokes us (this script standalone, or iris_oifiguil_etl.py
-# --shards) the same parsing rules produce the cached shards.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from iris_oifiguil_etl import (  # noqa: E402
+from iris_oifigiuil_etl_polars import (
     extract_lines_raw,
     find_member_interest_page_ranges,
 )
@@ -97,8 +68,9 @@ from iris_oifiguil_etl import (  # noqa: E402
 # under an older version are rebuilt automatically on the next run.
 EXTRACTOR_VERSION = "iris-extract/2026-05-05"
 
-DEFAULT_SHARD_ROOT = Path(__file__).resolve().parents[1] / "data" / "silver" / "iris_oifigiuil_shards"
-DEFAULT_INPUT_GLOB = str(Path(__file__).resolve().parents[1] / "data" / "bronze" / "iris_oifigiuil" / "*.pdf")
+_ROOT = Path(__file__).resolve().parent
+DEFAULT_SHARD_ROOT = _ROOT / "data" / "silver" / "iris_oifigiuil_shards"
+DEFAULT_INPUT_GLOB = str(_ROOT / "data" / "bronze" / "iris_oifigiuil" / "*.pdf")
 
 MANIFEST_NAME = "_manifest.json"
 BRONZE_SUBDIR = "bronze"
@@ -107,7 +79,7 @@ MEMBER_SUBDIR = "member_extracts"
 
 # 404 stubs from the publisher are tiny HTML pages with a .pdf extension.
 # fitz crashes on them; iris_oifigiuil_etl_polars.main filters at the same
-# threshold (line 1470).
+# threshold.
 MIN_REAL_PDF_BYTES = 5_000
 
 
@@ -278,7 +250,7 @@ def incremental_extract(
 
 
 # ---------------------------------------------------------------------------
-# Concat — what the gold step would call
+# Concat — what the gold step calls
 # ---------------------------------------------------------------------------
 
 

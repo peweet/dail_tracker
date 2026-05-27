@@ -175,7 +175,6 @@ sponsors_df["bill_url"] = sponsors_df.apply(
     lambda row: f"https://www.oireachtas.ie/en/bills/bill/{row['bill_year']}/{row['bill_no']}", axis=1
 )
 
-sponsors_df.to_csv(SILVER_DIR / "sponsors.csv")
 sponsors_df.to_parquet(
     SILVER_DIR / "parquet" / "sponsors.parquet",
     index=False,
@@ -184,7 +183,6 @@ sponsors_df.to_parquet(
 )
 print("Sponsors dataset created successfully.")
 
-stages_df.dropna(axis=0, how="all").to_csv(SILVER_DIR / "stages.csv")
 stages_df.to_parquet(
     SILVER_DIR / "parquet" / "stages.parquet",
     index=False,
@@ -203,8 +201,6 @@ debates_df["debate_url_web"] = (
     + debates_df["debateSectionId"].str.replace("dbsect_", "", regex=False)
     + "/"
 )
-debates_df.dropna(axis=0, how="all").to_csv(SILVER_DIR / "debates.csv")
-
 # Drop internal API URIs (debate_url_web is the public link, kept above) and
 # verified all-null sort columns. chamber.uri consumed at line 228 before drop.
 DEBATES_DROP_COLS = [
@@ -223,10 +219,6 @@ debates_df.to_parquet(
 )
 print("Debates dataset created successfully.")
 
-events_df.to_csv(SILVER_DIR / "events.csv", index=False)
-print("Events dataset created successfully.")
-
-# TODO: Review this to_parquet step for pipeline compatibility
 events_df.to_parquet(
     SILVER_DIR / "parquet" / "events.parquet",
     index=False,
@@ -235,10 +227,6 @@ events_df.to_parquet(
 )
 print("Events Parquet dataset created (check pipeline)")
 
-most_recent_stage_event_dates_df.to_csv(SILVER_DIR / "most_recent_stage_event_dates.csv", index=False)
-print("Most recent stage event dates dataset created successfully.")
-
-# TODO: Review this to_parquet step for pipeline compatibility
 most_recent_stage_event_dates_df.to_parquet(
     SILVER_DIR / "parquet" / "most_recent_stage_event_dates.parquet",
     index=False,
@@ -247,10 +235,6 @@ most_recent_stage_event_dates_df.to_parquet(
 )
 print("Most recent stage event dates Parquet dataset created (check pipeline)")
 
-related_docs_df.to_csv(SILVER_DIR / "related_docs.csv", index=False)
-print("Related documents dataset created successfully.")
-
-# TODO: Review this to_parquet step for pipeline compatibility
 related_docs_df.to_parquet(
     SILVER_DIR / "parquet" / "related_docs.parquet",
     index=False,
@@ -260,10 +244,6 @@ related_docs_df.to_parquet(
 print("Related documents Parquet dataset created (check pipeline)")
 
 
-versions_df.to_csv(SILVER_DIR / "versions.csv", index=False)
-print("Versions dataset created successfully.")
-
-# TODO: Review this to_parquet step for pipeline compatibility
 versions_df.to_parquet(
     SILVER_DIR / "parquet" / "versions.parquet",
     index=False,

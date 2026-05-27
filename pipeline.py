@@ -68,6 +68,11 @@ STEPS = [
     # Iris publishes Tue/Fri; this picks up new issues since the last run and
     # lands them in bronze before the Iris ETL globs *.pdf.
     ("Poll new Iris Oifigiuil PDFs", "iris_oifigiuil_poller.py"),
+    # Incremental extract: each bronze PDF is cached as a per-PDF parquet
+    # shard under data/silver/iris_oifigiuil_shards/, fingerprinted by
+    # (mtime_ns, size, EXTRACTOR_VERSION). Only new/changed PDFs are
+    # re-parsed; silver/gold still rebuild over the full corpus so back-dated
+    # corrections propagate. Pass --rebuild for a full historical re-extract.
     ("Iris Oifigiuil ETL", "iris_oifigiuil_etl_polars.py"),
     ("Iris SI <-> bill enrichment", "iris_si_bill_enrichment.py"),
     # ministerial_tenure_build refreshes the Wikidata-sourced minister table

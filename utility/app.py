@@ -24,13 +24,16 @@ st.set_page_config(
 # dimension pages get a `rankings-` prefix — they are discovery / league
 # tables that funnel into the canonical profile. Hyphens not slashes:
 # st.Page rejects nested url_path values.
+# Sidebar audit 2026-05-27 P0-1: position="hidden" — the per-page
+# sidebar content used to sit ~440px below the page-nav fold on a
+# default 1440x900 viewport, hiding member pickers / chips / year
+# filters from any user who didn't scroll the sidebar. Custom
+# horizontal nav strip now lives in shared_css.py's inject_css() and
+# carries the cross-page navigation in the dark banner row. Streamlit
+# still resolves the URL slug via st.Page; this just suppresses
+# Streamlit's own nav widget so the sidebar is 100% per-page content.
 pg = st.navigation(
     [
-        # default=True moved here from attendance_page (round-3 audit P0
-        # remaining-item fix). The canonical TD page is the semantic
-        # landing; also, having default=True on attendance was causing
-        # Streamlit to render the "Page not found" modal whenever a
-        # URL/query-param combination didn't match exactly.
         st.Page(
             member_overview_page,
             title="Member Overview",
@@ -73,6 +76,7 @@ pg = st.navigation(
             url_path="rankings-committees",
         ),
         st.Page(glossary_page, title="Glossary", icon=":material/menu_book:", url_path="glossary"),
-    ]
+    ],
+    position="hidden",
 )
 pg.run()

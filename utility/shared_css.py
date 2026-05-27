@@ -65,6 +65,69 @@ def inject_css() -> None:
             line-height: 1;
         }
 
+        /* ── Top nav strip (P0-1 sidebar-audit fix) ──────────────────────
+           Lives BELOW the dark banner. Streamlit's st.navigation is now
+           position="hidden" so the sidebar is 100% per-page content; this
+           strip carries the cross-page navigation that used to eat the
+           top ~440px of the sidebar. Pure HTML <a> links — Streamlit's
+           page router still resolves the URL slug, just doesn't render
+           its own widget. Active state is set by the JS at the end of
+           inject_css() (matches window.location.pathname against href). */
+        .site-topnav {
+            position: relative;
+            left: 50%;
+            margin-left: -50vw;
+            width: 100vw;
+            margin-top: -1.5rem;
+            margin-bottom: 1.5rem;
+            background: #14213a;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            overflow-x: auto;
+            scrollbar-width: thin;
+            -webkit-overflow-scrolling: touch;
+        }
+        .site-topnav::-webkit-scrollbar { height: 4px; }
+        .site-topnav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+        .site-topnav-inner {
+            max-width: 1340px;
+            padding: 0 2rem 0 22rem;
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            white-space: nowrap;
+        }
+        @media (max-width: 768px) {
+            .site-topnav-inner { padding: 0 0.5rem; }
+        }
+        .site-topnav-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.7rem 0.95rem;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: rgba(255,255,255,0.62);
+            text-decoration: none !important;
+            letter-spacing: 0.005em;
+            border-bottom: 2px solid transparent;
+            transition: color 100ms ease, border-color 100ms ease, background 100ms ease;
+            flex-shrink: 0;
+        }
+        .site-topnav-link:hover {
+            color: #ffffff;
+            background: rgba(255,255,255,0.04);
+        }
+        .site-topnav-link[aria-current="page"] {
+            color: #ffffff;
+            font-weight: 700;
+            border-bottom-color: oklch(60% 0.150 62);
+            background: rgba(255,255,255,0.05);
+        }
+        .site-topnav-link:focus-visible {
+            outline: 2px solid oklch(60% 0.150 62);
+            outline-offset: -2px;
+        }
+
         /* ── Streamlit toolbar: hide chrome, keep sidebar toggle ── */
         /* Strategy: leave the header's height intact so the sidebar
            collapse/expand button keeps working. Hide only the visual
@@ -472,6 +535,23 @@ def inject_css() -> None:
             color: var(--text-meta);
             line-height: 1.5;
             margin-bottom: 1.2rem;
+        }
+        /* P1-3 sidebar grammar: small provenance note, subdued vs subtitle. */
+        .page-provenance {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.72rem;
+            color: var(--text-meta);
+            line-height: 1.45;
+            margin: -0.6rem 0 1.1rem;
+            font-style: italic;
+        }
+        /* P1-3 sidebar grammar: light rule between slot groups
+           (header band → filters → secondary). Lighter than st.divider so
+           it reads as a section boundary, not decoration. */
+        .sidebar-divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 1rem 0 0.85rem;
         }
         .sidebar-label {
             font-family: 'Epilogue', sans-serif;
@@ -4197,6 +4277,21 @@ def inject_css() -> None:
             <span class="site-banner-sub">Irish parliamentary data, made searchable</span>
           </div>
         </div>
+        <nav class="site-topnav" aria-label="Primary">
+          <div class="site-topnav-inner">
+            <a class="site-topnav-link" href="/member-overview" data-slug="member-overview">Member Overview</a>
+            <a class="site-topnav-link" href="/rankings-attendance" data-slug="rankings-attendance">Attendance</a>
+            <a class="site-topnav-link" href="/rankings-votes" data-slug="rankings-votes">Votes</a>
+            <a class="site-topnav-link" href="/rankings-interests" data-slug="rankings-interests">Interests</a>
+            <a class="site-topnav-link" href="/rankings-payments" data-slug="rankings-payments">Payments</a>
+            <a class="site-topnav-link" href="/rankings-lobbying" data-slug="rankings-lobbying">Lobbying</a>
+            <a class="site-topnav-link" href="/rankings-lobbying-poc" data-slug="rankings-lobbying-poc">Lobbying (PoC)</a>
+            <a class="site-topnav-link" href="/rankings-legislation" data-slug="rankings-legislation">Legislation</a>
+            <a class="site-topnav-link" href="/rankings-statutory-instruments" data-slug="rankings-statutory-instruments">Statutory Instruments</a>
+            <a class="site-topnav-link" href="/rankings-committees" data-slug="rankings-committees">Committees</a>
+            <a class="site-topnav-link" href="/glossary" data-slug="glossary">Glossary</a>
+          </div>
+        </nav>
         """,
         unsafe_allow_html=True,
     )
@@ -4211,7 +4306,7 @@ def inject_css() -> None:
     # surface anyway. Safe: targets only the framework modal by exact
     # heading text; user-authored dialogs are unaffected.
     st.markdown(
-        """
+        r"""
         <script>
         (function () {
           const KILL_HEADINGS = new Set(['page not found']);
@@ -4236,6 +4331,37 @@ def inject_css() -> None:
               }
             }
           }).observe(document.body, { childList: true, subtree: true });
+
+          // P0-1 sidebar audit fix: top-nav lives in inject_css() as a
+          // pure-HTML strip below the site banner. Streamlit's router
+          // resolves the URL slug; this just paints the active state by
+          // matching window.location.pathname against each link's
+          // data-slug. Re-runs on every Streamlit script execution so
+          // client-side nav clicks (Streamlit treats them as soft
+          // navigation) light up correctly.
+          function paintActiveNav() {
+            const path = (window.location.pathname || '/').replace(/^\/+|\/+$/g, '');
+            const slug = path || 'member-overview';  // root => default page
+            document.querySelectorAll('.site-topnav-link').forEach(function (a) {
+              if (a.dataset.slug === slug) {
+                a.setAttribute('aria-current', 'page');
+              } else {
+                a.removeAttribute('aria-current');
+              }
+            });
+          }
+          paintActiveNav();
+          // Watch for client-side route changes (Streamlit replaces the
+          // page body without a full document reload). pathname changes
+          // are reliable via popstate, but in-app clicks need a poll.
+          let lastPath = window.location.pathname;
+          setInterval(function () {
+            if (window.location.pathname !== lastPath) {
+              lastPath = window.location.pathname;
+              paintActiveNav();
+            }
+          }, 300);
+          window.addEventListener('popstate', paintActiveNav);
         })();
         </script>
         """,

@@ -53,7 +53,7 @@ Only the current Dáil and Seanad are in scope. See [`doc/DATA_LIMITATIONS.md`](
 | Payments PDF extraction | Working |
 | Register of Members' Interests PDF extraction | Working |
 | Lobbying.ie ingestion | Working — manual CSV export |
-| Iris Oifigiúil parser | Implemented in main + sandbox; not in `pipeline.py` |
+| Iris Oifigiúil parser | Production — incremental shard cache (per-PDF skip), wired into `pipeline.py` |
 | CRO companies normaliser | Implemented in `pipeline_sandbox/`; not integrated |
 | Charities register normaliser | Implemented in `pipeline_sandbox/`; not integrated |
 | Cross-source unified Member Overview profile | Working — `unique_member_code` populated on attendance, votes, payments, debates, legislation (sponsor_join_key), and lobbying views |
@@ -123,7 +123,7 @@ All upstream data remains subject to the terms and licences of the publishing bo
 | Parliamentary Standard Allowance | Oireachtas PDFs | Published payment records | `payments.py` | Production |
 | Register of Members' Interests | Oireachtas PDFs | Published declarations | `member_interests.py`, `iris_memeber_interests.py` | Production |
 | Lobbying returns | lobbying.ie CSV exports | Downloaded register returns | `lobby_processing.py` | Production (manual ingest) |
-| Iris Oifigiúil | irisoifigiuil.ie | Twice-weekly state gazette | `iris_oifigiuil_poller.py`, `iris_oifigiuil_etl_polars.py` | Production |
+| Iris Oifigiúil | irisoifigiuil.ie | Twice-weekly state gazette | `iris_oifigiuil_poller.py`, `iris_oifigiuil_etl_polars.py`, `iris_incremental_shards.py` | Production (incremental) |
 | CRO companies | CRO bulk export | Director / company / address normalised | `cro_normalise.py` | Production |
 | Charities register | Charities Regulator XLSX | Register, trustees, annual reports + `charity_resolved.py` Tier-A join | `charity_normalise.py`, `charity_resolved.py` | Production |
 
@@ -229,6 +229,43 @@ python iris_oifigiuil_poller.py --year 2020 --dry-run
 `--year` and `--lookback-days` are mutually exclusive. Anything already on disk is skipped (no network request), so wider windows are cheap to point at.
 
 Exit codes: `0` = clean run · `1` = at least one download failed · `2` = a past Tue/Fri returned 4xx on every URL variant (slug pattern may have changed; investigate before trusting future runs).
+
+### Iris ETL: incremental shard cache
+
+`iris_oifigiuil_etl_polars.py` no longer re-parses every PDF on every run. Each bronze PDF is extracted once into a per-PDF parquet shard under `data/silver/iris_oifigiuil_shards/`, fingerprinted by `(mtime_ns, size, EXTRACTOR_VERSION)`. Subsequent runs skip any PDF whose fingerprint is unchanged.
+
+Silver and gold still rebuild over the **full corpus** every run (the silver/gold step is cheap and per-`source_file`), so a back-dated correction to a single PDF still propagates through `iris_notice_events_*.csv`, `iris_si_taxonomy.csv`, and the audit table. Determinism comes from sorting on `(issue_date, source_file, page_number, line_order)` before write — adding new shards never reorders existing rows.
+
+```text
+data/silver/iris_oifigiuil_shards/
+├── _manifest.json                  fingerprint per PDF
+├── bronze/IR010119.parquet         raw extracted lines (one per PDF)
+├── audit/IR010119.json             per-PDF audit meta
+└── member_extracts/IR010119.json   member-interest page ranges
+```
+
+The default `pipeline.py` invocation is incremental by definition — no flag needed. Three ways to force a full historical re-extract:
+
+```bash
+# 1. Ad-hoc: ignore the manifest, re-extract every PDF
+python iris_oifigiuil_etl_polars.py --rebuild
+
+# 2. Bump EXTRACTOR_VERSION in iris_incremental_shards.py.
+#    Required whenever extract_lines_raw or find_member_interest_page_ranges
+#    changes shape, values, or parsing rules — the next run auto-rebuilds.
+
+# 3. Nuke and restart: delete data/silver/iris_oifigiuil_shards/
+rm -rf data/silver/iris_oifigiuil_shards
+```
+
+You can also populate / inspect the cache without running silver/gold:
+
+```bash
+python iris_incremental_shards.py "data/bronze/iris_oifigiuil/*.pdf"
+python iris_incremental_shards.py "data/bronze/iris_oifigiuil/*.pdf" --rebuild
+```
+
+**Cron-readiness:** all writes go through `.part` → `replace`, so a SIGKILL mid-run leaves only complete files; the next run resumes. Each step in `pipeline.py` is wrapped in `try/except`, so an Iris extract failure does not poison the rest of the run.
 
 ---
 
@@ -405,9 +442,6 @@ dail_tracker/
 ├── dail_tracker_bold_ui_contract_pack_v5/   Page YAML contracts and runbooks
 │
 ├── pipeline_sandbox/                        Experimental enrichers not yet wired into pipeline.py
-│   ├── cro_normalise.py                     CRO companies register normaliser
-│   ├── charity_normalise.py                 Charities register normaliser
-│   ├── iris_oifigiuil_etl_polars.py         Polars rewrite of Iris parser
 │   ├── lobbying_bootstrap.py                Lobbying.ie ingestion automation
 │   └── …
 │
@@ -419,7 +453,8 @@ dail_tracker/
 ├── payments.py                              Payment PDF extraction
 ├── member_interests.py                      Register of Members' Interests extraction
 ├── iris_memeber_interests.py                Member-interest extraction from Iris notices
-├── iris_oifigiuil_etl_polars.py             Iris Oifigiúil PDF parser
+├── iris_oifigiuil_etl_polars.py             Iris Oifigiúil PDF parser (incremental by default)
+├── iris_incremental_shards.py               Per-PDF shard cache used by the Iris ETL
 ├── iris_oifigiuil_poller.py                 Iris Oifigiúil twice-weekly poller (replaces old downloader)
 ├── oireachtas_pdf_poller.py                 Multi-source poller (payments / attendance / interests)
 ├── run_payments_poll.py                     Click-and-run wrapper — payments only
