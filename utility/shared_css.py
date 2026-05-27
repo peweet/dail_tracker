@@ -3065,6 +3065,220 @@ def inject_css() -> None:
             min-width: 0 !important;
         }
 
+        /* ── Questions section (member-overview) ─────────────────────
+           Three bands inside the Questions expander:
+             .q-header-strip  compact aggregate header
+             (filters)        Streamlit-native widgets, no custom CSS
+             .q-card          one card per question in the paginated feed
+           Card pattern matches leg-bill-card: side-stripe + #ffffff bg.
+        */
+        .q-header-strip {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1.4fr);
+            gap: 1.25rem;
+            align-items: start;
+            padding: 0.9rem 1rem 0.85rem;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        @media (max-width: 720px) {
+            .q-header-strip {
+                grid-template-columns: 1fr;
+                gap: 0.85rem;
+            }
+        }
+        .q-strip-cell-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+            margin-bottom: 0.3rem;
+        }
+        .q-conc-pct {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+        .q-conc-ministry {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 0.25rem;
+        }
+        .q-conc-detail {
+            font-size: 0.78rem;
+            color: var(--text-meta);
+            margin-top: 0.15rem;
+        }
+        .q-conc-sparse {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-style: italic;
+        }
+        .q-total-num {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.1;
+        }
+        .q-total-sub {
+            font-size: 0.78rem;
+            color: var(--text-meta);
+            margin-top: 0.2rem;
+        }
+        .q-topic-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.1rem;
+        }
+        .q-topic-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.25rem 0.55rem;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            font-size: 0.78rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            line-height: 1;
+            transition: border-color 0.12s, color 0.12s;
+        }
+        .q-topic-chip:hover {
+            border-color: var(--accent-dim);
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .q-topic-chip-count {
+            font-size: 0.72rem;
+            color: var(--text-meta);
+            font-variant-numeric: tabular-nums;
+        }
+        .q-shift-subtitle {
+            grid-column: 1 / -1;
+            padding-top: 0.55rem;
+            margin-top: 0.5rem;
+            border-top: 1px dashed var(--border);
+            font-size: 0.82rem;
+            font-style: italic;
+            color: var(--text-secondary);
+            line-height: 1.45;
+        }
+        .q-shift-subtitle strong {
+            font-style: normal;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Question card. Side-stripe + #ffffff per PRODUCT.md intentional
+           overrides. Wider than leg-bill-card because question text needs
+           reading-length room.
+        */
+        .q-card {
+            display: block;
+            padding: 0.7rem 1rem 0.75rem;
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--border-strong);
+            border-radius: 6px;
+            background: #ffffff;
+            margin-bottom: 0.5rem;
+            transition: border-left-color 0.12s, border-color 0.12s;
+        }
+        .q-card:hover {
+            border-left-color: var(--accent);
+            border-color: var(--accent-dim);
+        }
+        .q-card-head {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            font-size: 0.74rem;
+            color: var(--text-meta);
+            margin-bottom: 0.4rem;
+        }
+        .q-card-date {
+            font-weight: 600;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+        .q-card-sep {
+            color: var(--text-meta);
+            opacity: 0.7;
+        }
+        .q-card-kicker {
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: 0.01em;
+        }
+        .q-card-type {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.15rem 0.5rem;
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            border-radius: 999px;
+            margin-left: auto;
+        }
+        .q-card-type-written {
+            background: var(--surface);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .q-card-type-oral {
+            background: var(--accent-subtle);
+            color: var(--accent);
+            border: 1px solid var(--accent-dim);
+        }
+        .q-card-body {
+            font-size: 0.92rem;
+            line-height: 1.5;
+            color: var(--text-primary);
+            margin: 0.1rem 0 0.55rem;
+        }
+        .q-card-body details summary {
+            cursor: pointer;
+            list-style: none;
+        }
+        .q-card-body details summary::-webkit-details-marker { display: none; }
+        .q-card-body details summary::after {
+            content: " Read full text ▾";
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-left: 0.25rem;
+        }
+        .q-card-body details[open] summary::after {
+            content: " Show less ▴";
+        }
+        .q-card-body details[open] .q-card-truncated { display: none; }
+        .q-card-foot {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.85rem;
+        }
+        .q-card-ref {
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            font-size: 0.72rem;
+            color: var(--text-meta);
+            letter-spacing: 0.01em;
+            white-space: nowrap;
+        }
+
         /* ── Legislation: pipeline phase strip ──────────────────────── */
         .leg-pipeline-strip {
             display: flex;

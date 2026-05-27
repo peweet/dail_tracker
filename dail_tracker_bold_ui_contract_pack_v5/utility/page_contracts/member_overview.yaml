@@ -1,56 +1,88 @@
-contract_version: 5
+contract_version: 6
+# Revised 2026-05-27. Refresh covers:
+#   - Architecture: 7 st.expander sections (Interests, Lobbying, Payments,
+#     Attendance, Votes, Legislation, Committees). Earlier v5 contract
+#     described st.tabs; the page consolidated to expanders during the
+#     Phase 1–8 TheyWorkForYou lift.
+#   - Stage 1 browse: card grid (clickable_card_link), not st.dataframe.
+#   - Resolved TODOs cleared:
+#       * v_legislation_index.sponsor_join_key — now present
+#       * v_lobbying_revolving_door.unique_member_code — now present
+#   - Added: Questions section + three new views (v_member_questions,
+#     v_member_question_profile, v_member_question_focus_shift). Built on
+#     full-history silver/questions.parquet (264k rows post May 2026
+#     pagination-cap fix; was 120k truncated). See cap_fix block under
+#     known_data_quality_issues.
 
 page:
   id: member_overview
   title: "Member Overview"
   route: "utility/pages_code/member_overview.py"
   user_question: "What does the full public accountability record of this TD look like across all datasets?"
-  existing_page_is: greenfield_no_existing_page
+  existing_page_is: live_production_page
   entry_points:
-    - arrow_button_on_any_ranked_list_card   # → button on attendance, payments, interests, votes pages
-    - sidebar_navigation
-    - url_query_param                        # ?member=join_key — enables direct linking
+    - card_click_on_browse_grid           # Stage 1 cards in Browse view
+    - cross_page_member_card              # any /rankings-* page that links to a TD profile
+    - sidebar_typeahead_filter            # find_a_td_filter in the sidebar
+    - url_query_param                     # ?member=join_key — bookmarkable
 
 data_access:
   mode: duckdb_in_process_registered_analytical_views
   persistent_duckdb_file: null
   streamlit_may_register_views: false
   streamlit_may_read_parquet: false
-  connection_owner: application_or_pipeline_exposition_layer
+  connection_owner: utility/data_access/member_overview_data.py
 
 approved_registered_views:
-  # Stage 1 browse — requires a unified mart that does not yet exist
+  # Stage 1 browse — minimal identity columns only
   stage_1_browse:
-    - v_member_overview_browse   # TODO_PIPELINE_VIEW_REQUIRED: one row per TD, cross-dataset columns
-                                 # columns needed: member_name, join_key, party, constituency,
-                                 #   government_status, attendance_rate, payment_total_eur,
-                                 #   declared_interests_count, lobbying_interactions_count,
-                                 #   revolving_door_flag, bills_sponsored_count
+    - v_member_registry                   # unique_member_code, member_name, party_name, constituency
 
-  # Stage 2 profile — query existing per-domain views filtered by join_key
+  # Stage 2 profile — per-domain views filtered by join_key
   stage_2_profile:
-    - v_attendance_member_year_summary  # attendance per year for this TD; filter: unique_member_code = ?
-    - v_payments_member_detail          # individual payment records; filter: unique_member_code = ? (grand total scalar)
-    - v_payments_yearly_evolution       # pre-aggregated year summary; filter: unique_member_code = ?
-                                        # columns: payment_year, total_paid, taa_band_label, payment_count
-    - td_vote_summary                   # voting record summary; filter: member_id = ?
-                                        # NOTE: actual view name is td_vote_summary (no v_ prefix)
-    - v_vote_member_detail              # per-division vote rows; filter: member_id = ? AND debate_title ILIKE ?
-                                        # used for topic keyword search in the Votes tab
-    - v_member_interests                # declared interests; filter: member_name = ? (member_id is NULL)
-                                        # TODO_PIPELINE_VIEW_REQUIRED: unique_member_code on v_member_interests
-    - v_lobbying_summary                # dataset-level aggregate only — no per-member rows
-                                        # TODO_PIPELINE_VIEW_REQUIRED: per-member lobbying view filtered by join_key
-    - v_lobbying_revolving_door         # per-name only — individual_name column, no unique_member_code
-                                        # TODO_PIPELINE_VIEW_REQUIRED: unique_member_code on v_lobbying_revolving_door
-    - v_legislation_index               # bills sponsored/co-sponsored; filter: sponsor name only
-                                        # TODO_PIPELINE_VIEW_REQUIRED: sponsor_join_key column
+    # Identity / hero
+    - v_member_registry                   # canonical TD registry
+    - v_member_external_links             # Wikidata-sourced socials + Wikipedia URL
+
+    # Attendance section
+    - v_attendance_member_year_summary    # year-aggregate per TD
+    - v_attendance_year_rank              # within-year rank (used for hero stat strip)
+
+    # Votes section
+    - td_vote_summary                     # one row per TD (legacy name, no v_ prefix)
+    - v_vote_member_detail                # per-division rows; filter member_id + optional date range
+    - v_member_debate_sections            # debate sections where the TD raised a question (used by _section_debates)
+
+    # Questions section (new 2026-05-27)
+    - v_member_questions                  # full per-question feed; filter unique_member_code, optional year/type/ministry
+    - v_member_question_profile           # one row per TD: total_qs, top_ministry, top_count, top_pct, distinct_ministries
+    - v_member_question_focus_shift       # 28 TDs with measurable career-brief shift between past/recent windows
+
+    # Interests section
+    - v_member_interests                  # filtered via render_member_interests helper
+
+    # Payments section
+    - v_payments_member_detail            # individual records; filter unique_member_code
+    - v_payments_yearly_evolution         # pre-aggregated year summary
+    - v_payments_summary                  # year filter options + summary
+
+    # Lobbying section
+    - v_lobbying_revolving_door           # now keyed on unique_member_code (resolved)
+    # (full lobbying body rendered via render_member_lobbying which uses
+    #  the lobbying page's own connection — separate registered views)
+
+    # Legislation section
+    - v_legislation_index                 # bills sponsored; keyed on sponsor_join_key (resolved)
+    - v_statutory_instruments             # SIs signed as minister; keyed on si_minister_member_code
 
 retrieval_sql_policy:
   allowed_statements: [SELECT]
   allowed_clauses: [WHERE, ORDER_BY, LIMIT]
   forbidden_clauses: [JOIN, GROUP_BY_MULTI_DIM, HAVING, WINDOW, CREATE_VIEW, CREATE_TABLE, INSERT, UPDATE, DELETE]
-  allowed_aggregate_functions: ["COUNT(*)", "COUNT(DISTINCT col)", "MAX(col)", "MIN(col)"]
+  allowed_aggregate_functions: ["COUNT(*)", "COUNT(DISTINCT col)", "MAX(col)", "MIN(col)", "SUM(col)"]
+  sum_note: >
+    SUM is allowed as a presentation-layer scalar (single-WHERE total, e.g.
+    grand payment total per TD). Multi-dim GROUP BY remains forbidden.
   forbidden_functions: [read_parquet, parquet_scan]
   parameter_binding_required: true
   missing_data_action: TODO_PIPELINE_VIEW_REQUIRED
@@ -59,161 +91,131 @@ retrieval_sql_policy:
 temporal:
   mode: cross_domain_no_single_year_axis
   note: >
-    Member Overview is a cross-dataset profile — there is no single reporting year that
-    applies to all sections. Attendance data uses calendar years; payments uses payment
-    year; votes and legislation use Dáil session. Each domain section manages its own
-    temporal scope independently.
-  per_domain_year_selector:
-    placement: within_each_tab_or_section  # not a global year pill at page level
-    control: st.pills
-    order: descending
-    default: most_recent
-  exception: >
-    A global year pill is NOT used on this page. Each domain section shows its own
-    year selector only if that domain's data is year-scoped.
+    Member Overview is a cross-dataset profile. Each domain section manages
+    its own temporal control independently. Attendance, Payments, and
+    Questions are year-scoped (st.pills); Votes uses a sidebar date range;
+    Interests has its own year axis; Lobbying and Legislation are
+    cross-year.
+  global_year_pill: forbidden
+  per_section_year_pill_pattern: st.pills (descending, most-recent default)
 
 known_data_quality_issues:
-  mart_not_yet_built:
-    description: >
-      v_member_overview_browse does not exist. The pipeline has not yet created a
-      unified cross-dataset mart at the one-row-per-member grain.
-    effect: >
-      Stage 1 browse can only show identity columns (name, party, constituency)
-      until the mart is built. Cross-dataset columns (attendance_rate, payment_total_eur,
-      declared_interests_count, etc.) must show as TODO_PIPELINE_VIEW_REQUIRED callouts.
-    implementation: >
-      Render Stage 1 with identity columns only. Show a visible callout above the table
-      listing the cross-dataset columns that are pending pipeline. Do not invent or
-      compute these in Streamlit.
-    pipeline_todo: >
-      TODO_PIPELINE_VIEW_REQUIRED: v_member_overview_browse — one row per TD, joining
-      attendance_member_year_summary, payments_member_detail, member_interests, lobbying_summary,
-      and legislation_index on join_key. Aggregate to a cross-dataset summary per member.
 
-  member_id_not_standardised:
+  cap_fix_backfill:
     description: >
-      Not all per-domain views use the same join_key. Some views (notably payments) use
-      a character-hash join_key from the silver CSV; others may use a different identifier.
-      Cross-domain filtering by join_key may silently return no rows for some members.
+      Until 2026-05-27, services/urls.build_questions_urls hardcoded skip=0
+      and dropped any /v1/questions response past the 1000-row server cap.
+      79 of 174 TDs were silently truncated; the long-tail of older years
+      (2020–2023) was the worst affected.
     effect: >
-      Stage 2 domain sections may show empty states for members whose join_key does not
-      match the identifier in a given view's source data.
+      Pre-fix: silver/questions.parquet had 120,139 rows and 79 TDs at
+      exactly 1000. Post-fix: 264,657 rows, 0 TDs capped, complete history
+      per TD. All three Questions views build on the post-fix dataset.
     implementation: >
-      Show the empty_state() helper for any section that returns no rows. Do not attempt
-      to reconcile identifiers in Streamlit.
-    pipeline_todo: >
-      TODO_PIPELINE_VIEW_REQUIRED: canonical join_key on all per-domain views —
-      all views must use the same normalised identifier for cross-page linking to work.
+      No UI action required. The fix is upstream in
+      services/member_paginated.py (per-member paginate-with-skip + assert
+      no silent truncation). Provenance line in the Questions section
+      should say "complete history per TD" rather than the old "latest
+      1000 only" caveat.
 
-  legislation_sponsor_column_missing:
+  questions_pre_2020_gap:
     description: >
-      v_legislation_index may not expose a sponsor join_key column linking a bill to its
-      sponsoring TD. If this column is absent, the legislation section cannot be filtered
-      by member.
+      The Oireachtas API only returns questions back to 2020. Long-serving
+      TDs (Aengus Ó Snodaigh elected 2002, Michael Healy-Rae 2011) have
+      ~6 years of questions on file, not their full tenure.
     effect: >
-      The Legislation tab in Stage 2 cannot show bills for this TD.
+      Concentration percentages and focus-shift detection are anchored to
+      the 2020+ window, not the TD's full career.
     implementation: >
-      Check for the column at runtime. If absent, show a TODO_PIPELINE_VIEW_REQUIRED
-      callout in the Legislation tab rather than an error.
+      Provenance line says "2020 to present" so the temporal scope is
+      explicit. No claim is made about pre-2020 questions.
+
+  v_member_overview_browse_not_built:
+    description: >
+      The cross-dataset browse mart (one row per TD, with attendance_rate,
+      payment_total_eur, declared_interests_count, etc.) was specified in
+      v5 of the contract but never built. Stage 1 browse still shows
+      identity columns only.
+    effect: >
+      The browse grid shows name/party/constituency cards. No per-TD
+      ranked metrics are visible from the index view.
+    implementation: >
+      Stage 1 renders cards via clickable_card_link + member_card_html.
+      Cross-dataset signals surface only on the per-TD profile, not the
+      browse grid.
     pipeline_todo: >
-      TODO_PIPELINE_VIEW_REQUIRED: sponsor_join_key column on v_legislation_index —
-      link each bill to its primary sponsor's join_key.
+      TODO_PIPELINE_VIEW_REQUIRED: v_member_overview_browse — one row per
+      TD joining attendance_member_year_summary, payments_member_detail,
+      member_interests, lobbying, and legislation_index on
+      unique_member_code. Out of scope for the Questions feature.
 
   minister_attendance_gap:
     description: >
-      The Oireachtas plenary attendance PDFs do not record attendance for members
-      holding ministerial office. Ministers appear as zero or near-zero — not because
-      they were absent, but because the source document does not capture their attendance.
+      The Oireachtas plenary attendance PDFs do not record attendance for
+      members holding ministerial office. Ministers appear as zero — not
+      because they were absent, but because the source document does not
+      capture their attendance.
     effect: >
-      The attendance section for a minister will show low or zero counts. This is a
-      source limitation, not an editorial judgment about ministerial duties.
+      The attendance section for a minister will show low or zero counts.
     implementation: >
-      Show the is_minister flag (if available on v_attendance_member_year_summary) in
-      the attendance section with a brief inline note about the source limitation.
+      The is_minister flag is shown in the attendance section with an
+      inline note about the source limitation. The hero stat strip's
+      "Days in chamber" cell collapses to an explanatory callout when
+      BOTH attendance and payments are empty (per the existing P1-F
+      audit fix).
     scope: attendance_section_only
 
-  vote_view_name_and_aggregate_only:
+  vote_view_aggregate_only:
     description: >
-      The votes view is named td_vote_summary (not v_vote_td_summary).
-      It is aggregate only: one row per TD with yes_count, no_count, abstained_count,
-      division_count, yes_rate_pct. There is no per-division row for this member.
-    effect: >
-      The Votes tab can show aggregate stats (aye rate, total divisions) but not
-      a per-vote breakdown table.
+      td_vote_summary (legacy name, no v_ prefix) is aggregate per TD:
+      yes_count, no_count, abstained_count, division_count, yes_rate_pct.
+      Per-division rows live in v_vote_member_detail.
     implementation: >
-      Use td_vote_summary with WHERE member_id = ?. Show aggregate stats as headline.
-      Show a TODO_PIPELINE_VIEW_REQUIRED callout for the per-vote breakdown table.
-    pipeline_todo: >
-      TODO_PIPELINE_VIEW_REQUIRED: per-vote detail view filtered by join_key —
-      columns needed: vote_date, bill_or_motion, td_vote (Aye/Níl/Absent), result
-
-  lobbying_no_per_member_filter:
-    description: >
-      v_lobbying_summary is a dataset-level aggregate (total returns, total orgs,
-      total politicians) — it has no per-member rows and cannot be filtered by join_key.
-      v_lobbying_revolving_door has individual_name only; no unique_member_code.
-    effect: >
-      The Lobbying tab cannot show lobbying contacts for a specific TD.
-      The revolving door check can only be done by approximate name match.
-    implementation: >
-      Show a TODO_PIPELINE_VIEW_REQUIRED callout for the lobbying activity table.
-      Attempt revolving door lookup by WHERE individual_name = member_name; label
-      it as approximate. Both gaps must be visible in the UI and in code comments.
-    pipeline_todo: >
-      TODO_PIPELINE_VIEW_REQUIRED: per-member lobbying view — one row per lobbying
-      return where the TD was the designated public official (DPO) or was lobbied.
-      Must include unique_member_code for cross-page join_key filtering.
-      Also: add unique_member_code to v_lobbying_revolving_door.
+      Use td_vote_summary for the headline stat strip. Use
+      v_vote_member_detail (via the shared render_member_votes wrapper)
+      for the in-section vote panel.
 
 uses_patterns:
   - member_drilldown
   - csv_export
-  - url_query_param_navigation  # ?member=join_key
+  - url_query_param_navigation
+  - lazy_loaded_expander_bodies               # all sections gated on mo_open_<sid>
 
 ui_philosophy:
   framing: neutral_accountability_record
   spirit: >
-    Informed by theyworkforyou.com (UK) — their single-politician profile pages show
-    attendance, votes, declared interests, and other public record evidence on one screen.
-    The user can form their own view. The page does not editorialize.
-    This is public record presented clearly, not a ranking or a verdict.
-  rationale: >
-    Members are individuals with complex records across multiple datasets. Presenting a
-    single ranked metric (e.g. "lowest attender") in isolation would be misleading.
-    The profile page exists to show the whole picture: how often they attend, how they
-    vote, what interests they declare, what payments they receive, who lobbies them, and
-    what legislation they sponsor. The user draws their own conclusions.
+    Informed by theyworkforyou.com. The user can form their own view; the
+    page does not editorialise. Public record presented clearly, not a
+    ranking or a verdict.
   required_patterns:
-    - identity_hero_with_role_context    # name, party, constituency, gov/opp status
-    - cross_dataset_headline_stats       # one key number per domain, side by side
-    - domain_evidence_sections           # each dataset gets its own evidence panel
-    - empty_state_per_section            # human-readable explanation when no data exists
-    - back_navigation_prominent          # back button at top of main content area
+    - identity_hero_with_role_context
+    - cross_dataset_headline_stats              # 3-cell stat strip
+    - dimension_expander_per_domain             # 7 expanders, defaults closed except Interests
+    - empty_state_per_section
+    - back_navigation_in_main_content_area
+    - prev_next_member_nav                      # alphabetical TD walker in top of profile
+    - clickable_card_browse_grid                # Stage 1
   forbidden_patterns:
-    - hall_of_fame_shame_framing         # no good/bad polarity on this page
-    - medal_emojis                       # implies a judgment
-    - editorial_framing                  # no "top earner", "poor attender" language
-    - single_metric_verdict              # never reduce a member to one number without context
+    - hall_of_fame_shame_framing
+    - medal_emojis
+    - editorial_framing                         # no "top earner" or "poor attender"
+    - single_metric_verdict
+    - st_dataframe_on_primary_views             # cards only; dataframes for secondary drill-down
+
   accessibility:
     colour_policy: no_red_green_distinction
     safe_colour_pairs:
-      - blue / amber-orange              # government vs opposition
+      - blue / amber-orange                     # government vs opposition
       - blue / violet-purple
       - teal / amber
       - any_of_above / neutral_grey
     forbidden_colour_pairs:
-      - red / green                      # deuteranopia (affects ~8% of men)
-    established_pill_palette:            # reuse from interests.py
-      declarations: "bg:#eff6ff border:#93c5fd color:#1e3a8a"
-      companies:    "bg:#f0fdfa border:#5eead4 color:#0e6655"
-      properties:   "bg:#fffbeb border:#fbbf24 color:#78350f"
-      shares:       "bg:#f5f3ff border:#c4b5fd color:#4c1d95"
+      - red / green                             # deuteranopia
     government_opposition:
-      government:   blue     # never green
-      opposition:   amber    # never red
+      government: blue                          # never green
+      opposition: amber                         # never red
 
 streamlit_api_rules:
-  # These rules are mandatory. Do not revert.
   html_insertion:   "st.html(...) only — never st.markdown(..., unsafe_allow_html=True)"
   button_width:     "width='stretch' — never use_container_width=True"
   toggle_filter:    "st.segmented_control — never st.radio(horizontal=True)"
@@ -223,159 +225,177 @@ streamlit_api_rules:
   icons:            ":material/icon_name: — never emoji strings in page config or headers"
   card_background:  "background: #ffffff — never var(--surface) which is warm beige"
   dynamic_html:     "html.escape(value) on all dynamic text inserted into HTML strings"
-  card_button_layout: >
-    When a card has variable height and a right-side action must match it:
-    Use CSS grid unit (display:grid; grid-template-columns:1fr auto; align-items:stretch)
-    rendered via st.html. Right panel uses <a href="?member=..."> for navigation.
-    Native compromise: st.columns([6, 1], vertical_alignment="center") with width="stretch".
-    Forbidden: ghost HTML, MutationObserver, setTimeout, position:absolute overlays.
 
 interaction_model:
   two_stage: true
-  specific_guidance: >
-    Stage 1 is a clean TD index with cross-dataset columns. Until the mart exists, it
-    shows identity columns only with visible TODO callouts for pending data.
-    Stage 2 is the full accountability profile, queryable now from per-domain views.
-    The page should feel like a theyworkforyou-style politician page: one place to see
-    the full public record for a single TD. Entry can be direct (query param) or via
-    browsing (Stage 1 row click).
-  primary_view_flow:
-    # Main content area: hero → TODO callout → table → export
-    # Search and filters live in the sidebar (see sidebar section below)
-    - kicker_and_title            # "MEMBER OVERVIEW" kicker, "TD Accountability Profile" title
-    - todo_callout                # visible callout: cross-dataset columns pending pipeline
-    - member_table:               # st.dataframe, selection_mode="single-row"
-        identity_columns:
-          - member_name
-          - party
-          - constituency
-          - government_status
-        cross_dataset_columns:    # show TODO callout above table until mart exists
-          - attendance_rate       # st.column_config.ProgressColumn
-          - payment_total_eur     # st.column_config.NumberColumn, format "€{:,.0f}"
-          - declared_interests_count
-          - lobbying_interactions_count
-          - revolving_door_flag   # st.column_config.CheckboxColumn
-    - export_button               # st.download_button, width="stretch", exports table
+  primary_view: browse_grid                     # Stage 1
+  secondary_view: per_td_profile                # Stage 2
 
-  secondary_view_flow:
-    - back_button_at_top          # st.button("← Back to all members") — top of main content, NOT sidebar
-    - url_param_entry:            # if ?member=join_key set, skip Stage 1 entirely
-        read_with: st.query_params.get("member")
-        clear_on_back: true
-    - identity_hero:
-        - td_name                 # large, dt-hero class
-        - party_constituency_meta # "Fine Gael · Dublin Bay North"
-        - government_opposition_badge  # st.badge, blue for gov / amber for opp
-        - revolving_door_badge    # st.badge("Revolving door", icon=":material/warning:", color="orange") if flagged
-    - headline_metrics_row:       # st.columns(4), one st.metric per domain
-        metrics:
-          - attendance_rate         # from v_attendance_member_year_summary
-          - total_payments_eur      # from v_payments_member_detail (COUNT/SUM scalar)
-          - declared_interests_count  # from v_member_interests (COUNT scalar)
-          - lobbying_contacts_count   # from v_lobbying_summary (COUNT scalar)
-        note: >
-          Each metric is a scalar aggregate (COUNT or SUM) from the existing per-domain view.
-          These are presentation-layer scalars — COUNT(*) / SUM(col) with a single WHERE join_key = ?
-          are permitted retrieval aggregates. No GROUP BY required.
-          Use TODO_PIPELINE_VIEW_REQUIRED for any metric whose view does not yet expose the column.
-    - domain_tabs:                # st.tabs — one tab per dataset
-        labels:
-          - ":material/calendar_today: Attendance"
-          - ":material/how_to_vote: Votes"
-          - ":material/interests: Interests"
-          - ":material/payments: Payments"
-          - ":material/groups: Lobbying"
-          - ":material/gavel: Legislation"
-        each_tab_structure:
-          - evidence_headline     # bold number + one plain-language sentence
-          - year_pills_if_scoped  # st.pills, newest first, only if domain is year-scoped
-          - domain_table          # st.dataframe with column_config
-          - export_button         # st.download_button, width="stretch"
-          - empty_state           # empty_state(heading, body) from components.py if no rows
+  stage_1_browse_grid:
+    layout: clickable_card_link grid via st.html
+    cards_per_page: 12
+    pagination: paginate + pagination_controls helpers (key_prefix="mo_browse")
+    filters:
+      - find_a_td_filter (search + typeahead)
+      - party_pill (st.pills with All / named-parties / Other)
+    cards_show:
+      - member_name
+      - party_name
+      - constituency
+      - avatar (avatar_data_url + initials fallback)
 
-    tab_content:
-      attendance:
-        headline: "{attended}/{possible} sittings attended in {year} — {rate}%"
-        year_selector: true       # st.pills, year-scoped
-        table_columns: [year, attended_count, possible_count, attendance_rate]
-        column_config:
-          attendance_rate: "st.column_config.ProgressColumn"
-        source_view: v_attendance_member_year_summary
-        filter: "WHERE join_key = ?"
-        known_issue: minister_attendance_gap
-        sort: year DESC
+  stage_2_profile:
+    prev_next_member_nav:
+      placement: top of profile, above hero
+      pattern: 3-button row, natural width, left-clustered
 
-      votes:
-        headline: "Voted in {pct}% of divisions — {aye_pct}% Aye, {nil_pct}% Níl"
-        year_selector: false      # summary stats are cross-year; per-vote needs pipeline TODO
-        table_columns: [yes_count, no_count, abstained_count, division_count, yes_rate_pct]
-        source_view: td_vote_summary    # actual view name — no v_ prefix
-        filter: "WHERE member_id = ?"   # member_id = unique_member_code alias in this view
-        note: "Aggregate only — one row per TD. No per-division breakdown available."
-        todo: "TODO_PIPELINE_VIEW_REQUIRED: per-vote detail view filtered by join_key — columns: vote_date, bill_or_motion, td_vote (Aye/Níl/Absent), result"
+    identity_hero:
+      - avatar (data URL or initials)
+      - td_name (h1, dt-hero)
+      - meta_line (party · constituency)
+      - role_badge (TD / Minister)
+      - revolving_door_badge (only if v_lobbying_revolving_door has a row)
+      - external_links_row (official profile, Wikipedia, socials)
+
+    stat_strip:
+      cells:
+        - days_in_chamber: "v_attendance_member_year_summary latest year + v_attendance_year_rank rank"
+        - votes_cast: "td_vote_summary"
+        - payments_received: "v_payments_member_detail SUM"
+      empty_state: >
+        When BOTH attendance and payments are empty (cabinet minister case),
+        replace the 3-cell strip with a single explanatory callout.
+
+    expanders:
+      order:
+        - interests       # opens by default (highest-signal landing)
+        - lobbying
+        - payments
+        - attendance
+        - votes           # also contains _section_debates sub-section
+        - questions       # NEW 2026-05-27
+        - legislation     # contains _section_legislation + _section_statutory_instruments
+        - committees
+      state_keys: "mo_open_<sid>"
+      lazy_load: true
+      open_all_toggle: present above the expander stack
+
+    section_content:
 
       interests:
-        headline: "{count} declared interests across {category_count} categories"
-        year_selector: false
-        table_columns: [interest_description, category, year_declared]
-        source_view: v_member_interests
-        filter: "WHERE join_key = ?"
-        pill_display: category_pills  # reuse established pill palette from interests.py
-
-      payments:
-        headline: "€{total:,.0f} received in parliamentary allowances"
-        year_selector: true
-        table_columns: [date_paid, narrative, amount, taa_band]
-        column_config:
-          amount: "st.column_config.NumberColumn, format='€{:,.2f}'"
-        source_view: v_payments_member_detail
-        filter: "WHERE join_key = ?"
-        sort: date_paid DESC
-        ui_note: "Always show TAA band alongside amount — it contextualises the figure"
+        renderer: render_member_interests (from pages_code/interests.py)
+        params: ["Dáil", member_name, show_member_header=False, year_pill_key]
 
       lobbying:
-        headline: "TODO_PIPELINE_VIEW_REQUIRED — lobbying contacts count not yet filterable by member"
-        year_selector: false
-        source_view: null   # v_lobbying_summary is aggregate only; no per-member rows
-        filter: null        # TODO_PIPELINE_VIEW_REQUIRED: per-member lobbying view
-        revolving_door:
-          source_view: v_lobbying_revolving_door
-          filter: "WHERE individual_name = ?"   # name-based only — no join_key column
-          filter_note: "fragile name match; unique_member_code not present in this view"
-          display: "prominent badge if flagged — st.badge('Revolving door', icon=':material/warning:', color='orange')"
-        implementation_note: >
-          Show a TODO_PIPELINE_VIEW_REQUIRED callout for the lobbying activity table.
-          Revolving door can be checked by name match (individual_name = member_name) as a
-          best-effort lookup, clearly labelled as approximate. Both gaps must be visible in code
-          and in the UI. Do not fabricate or impute data.
-        todo: "TODO_PIPELINE_VIEW_REQUIRED: per-member lobbying view with unique_member_code filter"
+        revolving_door_callout: >
+          Conditional, above the lifted body. Renders when
+          v_lobbying_revolving_door has a row for this unique_member_code.
+        body_renderer: render_member_lobbying (from pages_code/lobbying_2.py)
+
+      payments:
+        body_renderer: render_member_payments (from pages_code/payments.py)
+        params: [member_name, year_options, summary, show_member_header=False, year_pill_key]
+        no_dataframe_rule: cards only (feedback_member_overview_no_dataframes)
+
+      attendance:
+        body_renderer: render_member_attendance (from pages_code/attendance.py)
+        params: [member_name, show_member_header=False, year_pill_key, export_key_suffix]
+
+      votes:
+        body_renderer: render_member_votes (from utility/ui/vote_explorer.py)
+        sub_section: _section_debates (debate sections where TD asked questions)
+        date_range_filter: from sidebar (sidebar_date_range)
+
+      questions:
+        # NEW 2026-05-27. Hero = the question feed. Aggregate signals sit
+        # in a compact header strip above the feed.
+        header_strip:
+          left_panel: concentration
+          # "Most-questioned ministry: Health · 5,957 of 7,052 (84.5%)"
+          # Source: v_member_question_profile WHERE unique_member_code = ?
+          # Render full pill only when total_qs >= 100; below that, show
+          # "Recently elected · 47 questions on record"
+          middle_panel: total
+          # "{total_qs:,} questions on file (2020–present)"
+          right_panel: top_topics
+          # Top 3 topics from v_member_questions WHERE unique_member_code = ?
+          # GROUP BY topic ORDER BY COUNT(*) DESC LIMIT 3
+          # Render as compact clickable chips that filter the feed.
+          inline_subtitle: focus_shift
+          # When v_member_question_focus_shift has a row for this TD:
+          # "Most-questioned ministry shifted from {past_top}
+          #  ({past_year_min}–{past_year_max}, {past_n} q) to {recent_top}
+          #  ({recent_year_min}–{recent_year_max}, {recent_n} q)."
+
+        filter_bar:
+          year_pill: st.pills (All + descending year list from v_member_questions)
+          type_toggle: st.segmented_control (All / Written / Oral)
+          ministry_selectbox: st.selectbox (All ministries + per-TD distinct list)
+
+        feed:
+          source_view: v_member_questions
+          filter_pattern: >
+            WHERE unique_member_code = ?
+              AND (? IS NULL OR question_year = ?)
+              AND (? IS NULL OR question_type = ?)
+              AND (? IS NULL OR ministry = ?)
+          sort: question_date DESC, question_number DESC
+          page_size: 10
+          pagination: paginate + pagination_controls helpers
+          card_content:
+            - date (formatted dd MMM yyyy)
+            - ministry · topic kicker
+            - question_type pill (neutral; oral chip slightly heavier)
+            - question_text (truncated at 280 chars with "Read full text" expand)
+            - oireachtas_url link "Open on Oireachtas.ie"
+            - question_ref (monospace right-aligned, [28800/26] style)
+
+        empty_state:
+          no_questions_for_td: >
+            empty_state("No parliamentary questions on file",
+              "This TD does not appear in the questions register for 2020 onwards.")
+          filter_returns_empty: >
+            empty_state("No questions match these filters",
+              "Try clearing the ministry or widening the year range.")
+
+        export:
+          csv_button: "Export filtered questions (CSV)"
+          respects_filters: true
+          columns: [question_date, question_type, ministry, topic,
+                    question_text, question_ref, oireachtas_url]
+
+        provenance_caption: >
+          "Source: oireachtas.ie/en/debates/questions/ · 2020 to present ·
+          complete history per TD"
 
       legislation:
-        headline: "{count} bills sponsored or co-sponsored"
-        year_selector: false
-        table_columns: [bill_title, bill_status, year_introduced, oireachtas_url]
-        source_view: v_legislation_index
-        filter: "WHERE join_key = ?"
-        todo: "TODO_PIPELINE_VIEW_REQUIRED: sponsor_join_key column on v_legislation_index"
-        sort: year_introduced DESC
+        bills_sponsored_body: _section_legislation
+        statutory_instruments_body: _section_statutory_instruments
+        condition: SIs section renders only when v_statutory_instruments
+                   has rows for si_minister_member_code = ?
+
+      committees:
+        renderer: render_member_committees (from pages_code/committees.py)
+        backing: _committees_load (CSV scaffold; not yet view-backed)
 
   navigation:
     to_profile:
-      - row_click_in_stage1_table    # st.dataframe on_select triggers stage 2
-      - url_query_param              # ?member=join_key — direct link from other pages
-      - sidebar_selectbox            # alphabetical TD browse
+      - card_click_on_browse_grid
+      - cross_page_member_card_link
+      - sidebar_typeahead_filter
+      - url_query_param
+    within_profile:
+      - prev_next_member_nav        # alphabetical walker at top of profile
     from_profile:
-      - back_button_in_main_content  # "← Back to all members" — NOT sidebar only
-      - clears_query_param: true
+      - back_button_in_main_content # "← All TDs"
+      - clears_query_param
+
   sidebar:
-    both_views:
-      - td_name_search               # text input, filters selectbox list
-      - td_selectbox                 # alphabetical browse; loads Stage 2 directly
     stage_1_only:
-      - party_multiselect            # multiselect; filters the member_table
-      - constituency_multiselect     # multiselect; filters the member_table
-      - government_opposition_control  # st.segmented_control: All / Government / Opposition
+      - find_a_td_filter            # search + typeahead
+      - party_pill_filter
+    stage_2_only:
+      - sidebar_date_range          # filters the Votes section only
 
 exports:
   csv:
@@ -383,59 +403,74 @@ exports:
     behaviour: current_section_or_view_only
     respects_filters: true
     does_not_recompute_dataset: true
-    per_section: true               # each domain tab has its own export button
-    stage_1_export: full_browse_table_with_current_filters
+    per_section: true               # each expander section has its own export
 
 source_links:
-  enabled: true
-  note: >
-    No data provenance footer on this page — the data spans 5-6 disparate sources
-    and a merged provenance section would be too complex and misleading. Instead,
-    each domain section may show a minimal inline source note (one line only, not
-    an expander) where the source is unambiguous. The oireachtas_url column on
-    legislation rows should be rendered as a labelled link.
+  policy: per_section_inline_only
+  rationale: >
+    No page-level provenance footer. Each domain section may surface a
+    minimal inline source caption where the source is unambiguous. The
+    Questions section's caption explicitly names the new full-history
+    scope ("2020 to present · complete history per TD") to retire the
+    1000-row caveat that no longer applies.
   approved_url_columns:
-    - oireachtas_url    # legislation rows only — render as labelled link
+    - oireachtas_url                # legislation rows + question rows
+    - eisb_url                      # SI rows
+    - external_links_row chips      # hero (Wikipedia, socials)
   display: labelled_links_not_raw_urls
 
 ui_creativity_budget:
-  level: very_high
-  mandatory_bold_design: true       # greenfield — no existing page to preserve
-  must_feel_like:
-    - civic_editorial_journalism     # investigative newspaper crossed with data reference
-    - accountability_record          # not a dashboard, not a ranking page
-    - theyworkforyou_spirit          # simple, factual, trustworthy — not SaaS
-  must_not_feel_like:
-    - generic_streamlit_dashboard
-    - saas_analytics_product
-    - ranking_leaderboard
-    - verdict_or_judgment
+  level: high
+  notes: >
+    The page is live production. Bold redesigns are constrained by the
+    Phase 1–8 TheyWorkForYou consolidation that already shipped. New
+    sub-sections (Questions, SI lineage, etc.) should match the existing
+    expander rhythm, side-stripe card pattern, and shared_css classes.
   may_design_boldly:
-    - page_structure
-    - identity_hero_treatment
-    - domain_section_layout
-    - headline_stat_typography
-    - tab_design
-    - table_column_choices
+    - new_section_internal_layout       # e.g. Questions header strip
     - empty_state_copy
-    - source_link_treatment
-    - mobile_order
-    - shared_css_additions
+    - filter_bar_density
+    - new_shared_css_classes_for_new_sections
+  must_preserve:
+    - expander_order_and_ids
+    - hero_treatment
+    - stat_strip_3_cell_pattern
+    - prev_next_member_nav
+    - existing shared CSS class taxonomy (dt-*, att-*, pay-*, int-*, leg-*, lob-*)
 
 acceptance_tests:
-  - back_button_at_top_of_stage2_main_content
-  - url_query_param_loads_stage2_directly
-  - all_six_domain_tabs_present_or_todo_noted
-  - each_tab_has_headline_stat_and_table
-  - each_tab_has_empty_state
-  - export_button_per_section
-  - no_backend_files_modified
-  - no_read_parquet_or_parquet_scan
-  - no_create_view_or_table
-  - no_modelling_joins_or_groupby_in_streamlit
-  - no_unsafe_allow_html
-  - no_use_container_width_on_buttons
-  - no_st_radio_horizontal
-  - html_escape_on_all_dynamic_html_text
-  - no_red_green_colour_distinction
-  - TODO_PIPELINE_VIEW_REQUIRED_used_for_mart_and_missing_columns
+  cross_section:
+    - back_button_at_top_of_stage2_main_content
+    - prev_next_member_nav_present_and_working
+    - url_query_param_loads_stage2_directly
+    - all_seven_expanders_present
+    - each_expander_lazy_loads_body
+    - no_st_dataframe_on_primary_views
+    - no_unsafe_allow_html
+    - no_use_container_width_on_buttons
+    - no_st_radio_horizontal
+    - html_escape_on_all_dynamic_html_text
+    - no_red_green_colour_distinction
+    - no_backend_files_modified
+    - no_read_parquet_or_parquet_scan
+    - no_create_view_or_table
+    - no_modelling_joins_or_groupby_in_streamlit
+
+  questions_section:
+    - questions_expander_present_between_votes_and_legislation
+    - header_strip_renders_concentration_total_top_topics
+    - concentration_pill_hidden_below_100_questions
+    - focus_shift_subtitle_renders_when_view_returns_row
+    - focus_shift_subtitle_omitted_otherwise
+    - feed_paginated_10_per_page_date_descending
+    - year_pill_segmented_control_ministry_filter_all_present
+    - filters_AND_together_in_where_clause
+    - top_topic_chips_clickable_apply_filter
+    - cards_use_side_stripe_via_existing_helpers
+    - oral_question_type_visually_distinct
+    - reference_number_right_aligned_monospace
+    - oireachtas_url_opens_in_new_tab
+    - csv_export_respects_filters
+    - empty_state_for_no_questions_uses_empty_state_helper
+    - empty_state_for_no_filter_results_uses_empty_state_helper
+    - provenance_caption_says_2020_to_present_complete_history

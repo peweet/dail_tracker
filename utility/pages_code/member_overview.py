@@ -78,6 +78,7 @@ _PROFILE_SECTIONS: list[tuple[str, str, str]] = [
     ("payments", "Payments", "payments"),
     ("attendance", "Attendance", "attendance"),
     ("votes", "Votes", "votes"),
+    ("questions", "Questions", "votes"),  # 2026-05-27: see _section_questions
     ("legislation", "Legislation", "legislation"),
     ("committees", "Committees", "committees"),
 ]
@@ -258,6 +259,110 @@ def _si_signed(_conn, join_key: str) -> pd.DataFrame:
         " WHERE si_minister_member_code = ?"
         " ORDER BY si_signed_date DESC NULLS LAST",
         [join_key],
+    )
+
+
+# ── Questions section data helpers ─────────────────────────────────────────────
+# Added 2026-05-27. All three views read silver/questions.parquet (264k rows
+# post the May 2026 pagination-cap fix; see [[project-questions-cap-fix-2026-05-27]]).
+
+
+@st.cache_data(ttl=300)
+def _q_profile(_conn, join_key: str) -> dict:
+    df = _q(
+        _conn,
+        "SELECT total_qs, distinct_ministries, top_ministry, top_count, top_pct"
+        " FROM v_member_question_profile WHERE unique_member_code = ? LIMIT 1",
+        [join_key],
+    )
+    return df.iloc[0].to_dict() if not df.empty else {}
+
+
+@st.cache_data(ttl=300)
+def _q_focus_shift(_conn, join_key: str) -> dict:
+    df = _q(
+        _conn,
+        "SELECT past_top, past_n, past_year_min, past_year_max,"
+        " recent_top, recent_n, recent_year_min, recent_year_max"
+        " FROM v_member_question_focus_shift WHERE unique_member_code = ? LIMIT 1",
+        [join_key],
+    )
+    return df.iloc[0].to_dict() if not df.empty else {}
+
+
+@st.cache_data(ttl=300)
+def _q_years(_conn, join_key: str) -> list[int]:
+    df = _q(
+        _conn,
+        "SELECT DISTINCT question_year FROM v_member_questions"
+        " WHERE unique_member_code = ? AND question_year IS NOT NULL"
+        " ORDER BY question_year DESC",
+        [join_key],
+    )
+    return [int(y) for y in df["question_year"].dropna().tolist()] if not df.empty else []
+
+
+@st.cache_data(ttl=300)
+def _q_ministries(_conn, join_key: str) -> list[str]:
+    """Per-TD distinct ministries ordered by COUNT desc. Single-column
+    GROUP BY on a registered view is allowed as presentation rollup
+    (same pattern as _section_debates's topic selectbox)."""
+    df = _q(
+        _conn,
+        "SELECT ministry, COUNT(*) AS n FROM v_member_questions"
+        " WHERE unique_member_code = ? AND ministry IS NOT NULL"
+        " GROUP BY ministry ORDER BY n DESC",
+        [join_key],
+    )
+    return df["ministry"].astype(str).tolist() if not df.empty else []
+
+
+@st.cache_data(ttl=300)
+def _q_top_topics(_conn, join_key: str) -> pd.DataFrame:
+    return _q(
+        _conn,
+        "SELECT topic, COUNT(*) AS n FROM v_member_questions"
+        " WHERE unique_member_code = ? AND topic IS NOT NULL AND topic <> ''"
+        " GROUP BY topic ORDER BY n DESC, topic ASC LIMIT 3",
+        [join_key],
+    )
+
+
+@st.cache_data(ttl=300)
+def _q_feed(
+    _conn,
+    join_key: str,
+    year: int | None = None,
+    qtype: str | None = None,
+    ministry: str | None = None,
+    topic: str | None = None,
+) -> pd.DataFrame:
+    """Question feed query. Filters AND together. We pull up to 5000 rows
+    and paginate client-side via paginate(), matching _section_debates.
+    The 5000 ceiling is well above any plausible per-TD-per-filter slice
+    (Cullinane's full 7,052 is the only case that hits it; the year /
+    ministry filters narrow it well below)."""
+    clauses = ["unique_member_code = ?"]
+    params: list = [join_key]
+    if year is not None:
+        clauses.append("question_year = ?")
+        params.append(year)
+    if qtype:
+        clauses.append("question_type = ?")
+        params.append(qtype)
+    if ministry:
+        clauses.append("ministry = ?")
+        params.append(ministry)
+    if topic:
+        clauses.append("topic = ?")
+        params.append(topic)
+    return _q(
+        _conn,
+        "SELECT question_date, question_type, ministry, topic, question_text,"
+        " question_ref, oireachtas_url"
+        f" FROM v_member_questions WHERE {' AND '.join(clauses)}"
+        " ORDER BY question_date DESC LIMIT 10000",
+        params,
     )
 
 
@@ -448,6 +553,266 @@ def _section_statutory_instruments(conn, join_key: str) -> None:
         mime="text/csv",
         key="mo_si_export",
         width="stretch",
+    )
+
+
+def _section_questions(conn, join_key: str, member_name: str) -> None:
+    """Parliamentary questions section. Three bands:
+      1. Header strip with concentration % + total + top topics + shift subtitle.
+      2. Filter bar: year pills, type segmented control, ministry selectbox.
+      3. Paginated feed of question cards (date desc).
+    Built on the post-cap-fix full history (264k rows, 2020-present).
+    """
+    profile = _q_profile(conn, join_key)
+    total_qs = int(profile.get("total_qs", 0) or 0)
+
+    if total_qs == 0:
+        empty_state(
+            "No parliamentary questions on file",
+            f"{member_name} does not appear in the questions register (2020 onwards).",
+        )
+        return
+
+    # ── Build header strip ───────────────────────────────────────────────────
+    # Three columns: concentration / total / top topics, plus an optional
+    # inline shift subtitle spanning the full width below.
+    top_min = str(profile.get("top_ministry") or "").strip()
+    top_count = int(profile.get("top_count", 0) or 0)
+    top_pct = profile.get("top_pct")
+    distinct_min = int(profile.get("distinct_ministries", 0) or 0)
+
+    # Concentration cell. Suppress the percentage when total < 100 (the
+    # ratio is unstable below that and would mislead).
+    if total_qs >= 100 and top_pct is not None and not pd.isna(top_pct):
+        conc_html = (
+            f'<div class="q-strip-cell-label">Most-questioned ministry</div>'
+            f'<div class="q-conc-pct">{float(top_pct):.1f}%</div>'
+            f'<div class="q-conc-ministry">{_h(top_min)}</div>'
+            f'<div class="q-conc-detail">{top_count:,} of {total_qs:,} questions</div>'
+        )
+    elif distinct_min >= 15:
+        conc_html = (
+            '<div class="q-strip-cell-label">Pattern</div>'
+            f'<div class="q-conc-sparse">Questions across {distinct_min} ministries</div>'
+            '<div class="q-conc-detail">Constituency generalist</div>'
+        )
+    else:
+        conc_html = (
+            '<div class="q-strip-cell-label">Recently elected</div>'
+            f'<div class="q-conc-sparse">{total_qs} questions on record</div>'
+        )
+
+    total_html = (
+        '<div class="q-strip-cell-label">On file</div>'
+        f'<div class="q-total-num">{total_qs:,}</div>'
+        '<div class="q-total-sub">Questions, 2020 to present</div>'
+    )
+
+    # Top topics: small clickable chips that apply a topic filter to the feed.
+    # Click handler is via st.query_params (?mo_q_topic=...) read at the top of
+    # this section. Matches the feedback_css_card_pattern URL handler pattern.
+    topics_df = _q_top_topics(conn, join_key)
+    if topics_df.empty:
+        topics_inner = '<div class="q-conc-detail">No topic taxonomy on file.</div>'
+    else:
+        chip_html_parts = []
+        for _, row in topics_df.iterrows():
+            t = str(row["topic"])
+            n = int(row["n"])
+            chip_html_parts.append(
+                f'<a class="q-topic-chip" href="?member={_h(join_key)}&mo_q_topic={_h(t)}" '
+                f'target="_self" title="Filter feed to questions on {_h(t)}">'
+                f"{_h(t)}<span class=\"q-topic-chip-count\">{n}</span></a>"
+            )
+        topics_inner = (
+            '<div class="q-strip-cell-label">Top topics</div>'
+            '<div class="q-topic-list">' + "".join(chip_html_parts) + "</div>"
+        )
+
+    # Focus shift subtitle (only when present).
+    shift = _q_focus_shift(conn, join_key)
+    shift_html = ""
+    if shift:
+        shift_html = (
+            '<div class="q-shift-subtitle">'
+            f"Most-questioned ministry shifted from "
+            f"<strong>{_h(str(shift['past_top']))}</strong> "
+            f"({int(shift['past_year_min'])}–{int(shift['past_year_max'])}, "
+            f"{int(shift['past_n'])} questions) to "
+            f"<strong>{_h(str(shift['recent_top']))}</strong> "
+            f"({int(shift['recent_year_min'])}–{int(shift['recent_year_max'])}, "
+            f"{int(shift['recent_n'])} questions)."
+            "</div>"
+        )
+
+    st.html(
+        '<div class="q-header-strip">'
+        f'<div>{conc_html}</div>'
+        f'<div>{total_html}</div>'
+        f'<div>{topics_inner}</div>'
+        f"{shift_html}"
+        "</div>"
+    )
+
+    # ── Filter bar ───────────────────────────────────────────────────────────
+    # Topic comes from the chip URL handler; year, type, ministry from controls.
+    topic_filter = st.query_params.get("mo_q_topic")
+    if topic_filter:
+        # Render an active-filter pill with a clear link (no widget; pure URL).
+        clear_href = f"?member={_h(join_key)}"
+        st.html(
+            f'<div style="margin: 0 0 0.7rem 0; font-size: 0.85rem;">'
+            f'Topic filter: <strong>{_h(topic_filter)}</strong> '
+            f'&nbsp;<a href="{clear_href}" target="_self" '
+            f'style="color: var(--accent); text-decoration: underline;">clear</a></div>'
+        )
+
+    years = _q_years(conn, join_key)
+    ministries = _q_ministries(conn, join_key)
+
+    # Year pills
+    year_opts = ["All years"] + [str(y) for y in years]
+    selected_year_str = (
+        st.pills(
+            "Question year",
+            options=year_opts,
+            default="All years",
+            key=f"mo_q_year_{join_key}",
+            label_visibility="collapsed",
+        )
+        or "All years"
+    )
+    year_val: int | None = None if selected_year_str == "All years" else int(selected_year_str)
+
+    # Type segmented control + ministry selectbox side by side
+    c1, c2 = st.columns([1, 2])
+    with c1:
+        selected_type = st.segmented_control(
+            "Question type",
+            options=["All", "Written", "Oral"],
+            default="All",
+            key=f"mo_q_type_{join_key}",
+            label_visibility="collapsed",
+        )
+    with c2:
+        selected_ministry = st.selectbox(
+            "Ministry",
+            options=["All ministries"] + ministries,
+            index=0,
+            key=f"mo_q_min_{join_key}",
+            label_visibility="collapsed",
+        )
+
+    qtype_val = None if not selected_type or selected_type == "All" else selected_type.lower()
+    ministry_val = None if not selected_ministry or selected_ministry == "All ministries" else selected_ministry
+
+    # ── Feed ─────────────────────────────────────────────────────────────────
+    df = _q_feed(conn, join_key, year_val, qtype_val, ministry_val, topic_filter)
+    if df.empty:
+        empty_state(
+            "No questions match these filters",
+            "Try clearing the ministry, the year pill, or the topic filter.",
+        )
+        return
+
+    total = len(df)
+    PAGE_SIZE = 10
+    filter_sig = f"{year_val or 'all'}_{qtype_val or 'all'}_{ministry_val or 'all'}_{topic_filter or 'all'}"
+    pager_key = f"mo_q_{join_key}_{filter_sig}"
+    page_idx = paginate(total, key_prefix=pager_key, page_size=PAGE_SIZE)
+    visible = df.iloc[page_idx * PAGE_SIZE : (page_idx + 1) * PAGE_SIZE]
+
+    start = page_idx * PAGE_SIZE + 1
+    end = min((page_idx + 1) * PAGE_SIZE, total)
+    st.caption(f"Showing {start:,}–{end:,} of {total:,} question{'s' if total != 1 else ''}")
+
+    # Render each card. The body uses <details> for "Read full text" expand
+    # so toggling stays client-side (no Streamlit rerun per card).
+    TRUNC = 280
+    for _, row in visible.iterrows():
+        raw_date = row.get("question_date")
+        try:
+            date_disp = pd.to_datetime(raw_date).strftime("%d %b %Y")
+        except Exception:
+            date_disp = str(raw_date or "")
+        qtype = str(row.get("question_type", "") or "").lower()
+        ministry = str(row.get("ministry", "") or "").strip()
+        topic = str(row.get("topic", "") or "").strip()
+        text = str(row.get("question_text", "") or "").strip()
+        ref = str(row.get("question_ref", "") or "").strip()
+        url = str(row.get("oireachtas_url", "") or "").strip()
+
+        type_cls = "q-card-type-oral" if qtype == "oral" else "q-card-type-written"
+        type_label = "Oral" if qtype == "oral" else "Written"
+
+        # Build the head row as a series of flex children so the .q-card-head
+        # flex gap rule actually spaces them. (Nesting separators inside the
+        # kicker span squashes them visually.)
+        head_parts = [f'<span class="q-card-date">{_h(date_disp)}</span>']
+        if ministry:
+            head_parts.append('<span class="q-card-sep">·</span>')
+            head_parts.append(f'<span class="q-card-kicker">{_h(ministry)}</span>')
+        if topic:
+            head_parts.append('<span class="q-card-sep">·</span>')
+            head_parts.append(f'<span class="q-card-kicker">{_h(topic)}</span>')
+        head_parts.append(f'<span class="q-card-type {type_cls}">{type_label}</span>')
+
+        # Body: truncate beyond TRUNC chars with <details> expand.
+        if len(text) > TRUNC:
+            short = text[:TRUNC].rstrip()
+            body_html = (
+                "<details>"
+                f'<summary><span class="q-card-truncated">{_h(short)}…</span></summary>'
+                f'<div style="margin-top: 0.4rem;">{_h(text)}</div>'
+                "</details>"
+            )
+        else:
+            body_html = _h(text)
+
+        link_html = ""
+        if url.startswith("http"):
+            link_html = source_link_html(
+                url,
+                "Open on Oireachtas.ie",
+                aria_label="Open this question on oireachtas.ie",
+            )
+        ref_html = f'<span class="q-card-ref">[{_h(ref)}]</span>' if ref else ""
+
+        st.html(
+            '<div class="q-card">'
+            '<div class="q-card-head">'
+            + "".join(head_parts)
+            + "</div>"
+            f'<div class="q-card-body">{body_html}</div>'
+            '<div class="q-card-foot">'
+            f"{link_html}"
+            f"{ref_html}"
+            "</div>"
+            "</div>"
+        )
+
+    pagination_controls(
+        total=total,
+        key_prefix=pager_key,
+        page_sizes=(PAGE_SIZE,),
+        default_page_size=PAGE_SIZE,
+        label="questions",
+        show_caption=False,
+    )
+
+    # Export
+    st.download_button(
+        label="Export filtered questions (CSV)",
+        data=df.to_csv(index=False).encode("utf-8"),
+        file_name=f"questions_{member_name.replace(' ', '_')}.csv",
+        mime="text/csv",
+        key=f"mo_q_export_{join_key}",
+        width="stretch",
+    )
+
+    st.caption(
+        "Source: oireachtas.ie/en/debates/questions/ · 2020 to present "
+        "· complete history per TD."
     )
 
 
@@ -1196,6 +1561,11 @@ def _render_stage2(
                     key_suffix=f"_mo_{join_key}",
                 )
                 _section_debates(conn, join_key, member_name)
+            elif sid == "questions":
+                # 2026-05-27: full-history (264k row) Questions section.
+                # Header strip + filter bar + paginated feed. See contract
+                # member_overview.yaml -> section_content.questions.
+                _section_questions(conn, join_key, member_name)
             elif sid == "legislation":
                 _section_legislation(conn, join_key, member_name)
                 _section_statutory_instruments(conn, join_key)
