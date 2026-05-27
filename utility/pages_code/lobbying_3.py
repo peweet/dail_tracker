@@ -67,10 +67,11 @@ from ui.components import (
     clean_meta,
     clickable_card_link,
     empty_state,
-    member_card_html,
     page_error_boundary,
     pagination_controls,
+    period_year_pills as _year_pills,
     pill,
+    ranked_member_card,
     sidebar_divider,
     sidebar_page_header,
     sidebar_subtitle,
@@ -227,15 +228,14 @@ def _ranked_card_html(
     avatar_url: str | None = None,
     avatar_initials: str | None = None,
 ) -> str:
-    """Reuses member_card_html so the calm look stays consistent with the
-    rest of the app's ranked-list pages (Attendance, Payments). Pills are
-    rendered via the canonical pill() helper — escaping is safe."""
-    pills_html = "".join(pill(p) for p in pills_list)
-    return member_card_html(
+    """Reuses ``ranked_member_card`` so the calm look stays consistent with
+    the rest of the app's ranked-list pages (Attendance, Payments). Pills
+    rendered via the canonical ``pill()`` helper — escaping is safe."""
+    return ranked_member_card(
         name=name,
         meta=meta,
         rank=rank,
-        pills_html=pills_html,
+        pills_html="".join(pill(p) for p in pills_list),
         avatar_url=avatar_url,
         avatar_initials=avatar_initials,
     )
@@ -561,30 +561,6 @@ def _fmt_mmm(value: object) -> str:
         return pd.to_datetime(value).strftime("%b %Y")
     except Exception:
         return str(value or "—")
-
-
-def _year_pills(df: pd.DataFrame, key: str) -> tuple[str | None, str | None]:
-    """Year filter pills above a returns table. Pushes selection back to SQL
-    via the returned (start, end) tuple — pandas does no row masking here."""
-    if df.empty or "period_start_date" not in df.columns:
-        return None, None
-    try:
-        years = sorted(
-            pd.to_datetime(df["period_start_date"], errors="coerce").dropna().dt.year.unique().tolist(),
-            reverse=True,
-        )
-    except Exception:
-        return None, None
-    if not years:
-        return None, None
-    options = ["All"] + [str(y) for y in years]
-    chosen = (
-        st.segmented_control("Year", options, default=options[0], key=key, label_visibility="collapsed")
-        or options[0]
-    )
-    if chosen == "All":
-        return None, None
-    return f"{chosen}-01-01", f"{chosen}-12-31"
 
 
 def _return_card_html(

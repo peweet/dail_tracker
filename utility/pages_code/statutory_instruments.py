@@ -35,6 +35,7 @@ from shared_css import inject_css
 from ui.components import (
     back_button,
     empty_state,
+    fmt_civic_date as _fmt_date,
     hero_banner,
     paginate,
     pagination_controls,
@@ -222,14 +223,6 @@ def _safe(v) -> str:
     return str(v)
 
 
-def _fmt_date(val) -> str:
-    if val is None or (isinstance(val, float) and pd.isna(val)):
-        return "—"
-    try:
-        ts = pd.Timestamp(val)
-        return f"{ts.day} {ts.strftime('%b %Y')}"
-    except Exception:
-        return str(val)
 
 
 def _pretty_token(s: str) -> str:
@@ -308,6 +301,10 @@ def _render_kpi_strip(df: pd.DataFrame) -> None:
     total = len(df)
     if total == 0:
         return
+    # logic_firewall: display_only — KPI strip operates on the active filter
+    # set (df is post-filter). View-side rollup would need the same filter
+    # parameters passed to a registered view; render-time aggregation on a
+    # ≤6k-row frame is the simpler call.
     top_dept   = df["si_department_label"].dropna().value_counts().head(1)
     eu_count   = int(df["si_is_eu"].fillna(False).astype(bool).sum())
     eu_share   = (eu_count / total * 100) if total else 0
@@ -384,6 +381,8 @@ def _eu_scrutiny_stats(full_df: pd.DataFrame) -> dict:
     eu_df = full_df[eu_mask]
     return {
         "count":     int(len(eu_df)),
+        # logic_firewall: display_only — EU scrutiny callout's "top 5
+        # departments" panel; aggregation on the post-filter eu_df only.
         "top_depts": eu_df["si_department_label"].dropna().value_counts().head(5).to_dict(),
         "eu_df":     eu_df,
     }
@@ -556,6 +555,10 @@ def _render_facets(full_df: pd.DataFrame) -> None:
 
     # ── Row 3: Year — always visible, single line, multi-select ──────────
     yrs       = sorted((int(y) for y in full_df["si_year"].dropna().unique()), reverse=True)
+    # logic_firewall: display_only — year/department/operation/policy_domain/
+    # minister value_counts in this block power chip-width labels only
+    # ("All departments · 5,910"). They run on the full corpus once per page
+    # render; the cost is negligible at this scale.
     yr_counts = full_df["si_year"].astype("Int64").value_counts().to_dict()
     # The current year is necessarily year-to-date; tag it so readers don't
     # compare its partial count against full-year neighbours.
@@ -589,6 +592,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
     ])
 
     with tabs[0]:
+        # logic_firewall: display_only — chip-width counts (see panel header).
         dept_counts = full_df["si_department_label"].dropna().value_counts().to_dict()
         dept_opts   = ["All"] + sorted(dept_counts, key=dept_counts.get, reverse=True)
         st.pills(
@@ -603,6 +607,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
         )
 
     with tabs[1]:
+        # logic_firewall: display_only — chip-width counts.
         op_counts = full_df["si_operation"].dropna().value_counts().to_dict()
         op_opts   = ["All"] + sorted(op_counts, key=op_counts.get, reverse=True)
         st.pills(
@@ -617,6 +622,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
         )
 
     with tabs[2]:
+        # logic_firewall: display_only — chip-width counts.
         dom_counts = full_df["si_policy_domain"].dropna().value_counts().to_dict()
         dom_opts   = ["All"] + sorted(dom_counts, key=dom_counts.get, reverse=True)
         st.pills(
@@ -631,6 +637,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
         )
 
     with tabs[3]:
+        # logic_firewall: display_only — chip-width counts.
         min_counts = full_df["si_minister_name"].dropna().value_counts().to_dict()
         min_opts   = ["All"] + sorted(min_counts, key=min_counts.get, reverse=True)
         st.selectbox(

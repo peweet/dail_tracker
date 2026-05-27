@@ -28,7 +28,6 @@ import pandas as pd
 import streamlit as st
 
 from shared_css import inject_css
-from ui.avatars import avatar_credit_html, avatar_data_url, initials as _initials
 from ui.components import (
     clean_meta,
     clickable_card_link,
@@ -36,7 +35,6 @@ from ui.components import (
     evidence_heading,
     glossary_strip,
     hero_banner,
-    member_profile_header,
     page_error_boundary,
     sidebar_member_filter,
     sidebar_shell,
@@ -363,28 +361,21 @@ def _render_attendance_strip(timeline: pd.DataFrame, year: int) -> None:
 def render_member_attendance(
     td_name: str,
     *,
-    show_member_header: bool = True,
+    show_member_header: bool = False,
     year_pill_key: str = "att_profile_year",
     export_key_suffix: str = "",
 ) -> None:
-    """Render the per-TD attendance body.
+    """Render the per-TD attendance body embedded inside /member-overview.
 
-    Public so :mod:`pages_code.member_overview` can embed it inside the
-    Attendance expander. When ``show_member_header=False``: skip the
-    avatar/name/meta header (the embedding page provides it), skip the inner
-    "Sitting dates · N records" `st.expander` (Streamlit forbids nested
-    expanders), and render the year breakdown as a card list instead of a
-    `st.dataframe` (member_overview is dataframe-free).
+    The ``show_member_header`` kwarg is retained for API compatibility but
+    is no longer load-bearing: every reachable caller (member_overview)
+    passes False, and the legacy True paths — `member_profile_header`,
+    inner Sitting-dates `st.expander`, year-breakdown `st.dataframe` —
+    were dead code that also nested expanders (forbidden) and rendered
+    `st.dataframe` on a primary view (banned). Removed 2026-05-27.
 
     ``export_key_suffix`` namespaces export-button widget keys so the
     embedded copy doesn't collide with the stand-alone page state.
-
-    Phase-6 note (2026-05-26 audit): the ``show_member_header=True`` paths
-    are unreachable from /rankings-attendance — every member click on that
-    page redirects to /member-overview, and member_overview always calls
-    this with ``show_member_header=False``. The True branches are kept
-    intentionally so a future stand-alone profile page can be reintroduced
-    without re-deriving the dataframe layout.
     """
     profile = _fetch_td_profile(td_name)
     if profile.empty:
@@ -393,19 +384,6 @@ def render_member_attendance(
             "v_attendance_member_summary returned no rows for this name.",
         )
         return
-
-    row = profile.iloc[0]
-    party = str(row.get("party_name") or "—")
-    const = str(row.get("constituency") or "—")
-
-    if show_member_header:
-        member_profile_header(
-            td_name,
-            f"{party} · {const}",
-            avatar_url=avatar_data_url(td_name),
-            avatar_initials=_initials(td_name),
-            avatar_credit_html=avatar_credit_html(td_name),
-        )
 
     # ── Year pills (profile-level, newest first) ───────────────────────────────
     member_years_df = _fetch_member_years(td_name)
@@ -475,27 +453,6 @@ def render_member_attendance(
 
         _render_attendance_strip(timeline, selected_year)
 
-        # Inner expander is forbidden inside the member-overview Attendance
-        # expander (Streamlit nests fail). Stand-alone page keeps the
-        # collapsed sitting-dates table; embedded mode drops it (the
-        # calendar above already plots every date — tooltips show specifics).
-        if show_member_header:
-            with st.expander(f"Sitting dates · {n_attended} records", expanded=False):
-                tl_table = tl_all.copy()
-                tl_table["#"] = range(1, len(tl_table) + 1)
-                tl_table["Date"] = tl_table["sitting_date"].dt.strftime("%d %b %Y")
-                tl_table["Weekday"] = tl_table["sitting_date"].dt.strftime("%A")
-                st.dataframe(
-                    tl_table[["#", "Date", "Weekday"]],
-                    hide_index=True,
-                    width="stretch",
-                    column_config={
-                        "#": st.column_config.NumberColumn("#", width="small"),
-                        "Date": st.column_config.TextColumn("Date", width="medium"),
-                        "Weekday": st.column_config.TextColumn("Day", width="medium"),
-                    },
-                )
-
         export_button(
             timeline,
             label=f"Export {td_name} · {selected_year} · {n_attended} rows",
@@ -503,12 +460,7 @@ def render_member_attendance(
             key=f"att_td_export{export_key_suffix}",
         )
 
-    _render_year_breakdown(
-        td_name,
-        member_years_df,
-        as_dataframe=show_member_header,
-        export_key_suffix=export_key_suffix,
-    )
+    _render_year_breakdown(td_name, member_years_df, export_key_suffix=export_key_suffix)
 
 
 # ── Year breakdown table (profile secondary view) ─────────────────────────────
@@ -518,17 +470,11 @@ def _render_year_breakdown(
     td_name: str,
     years_df: pd.DataFrame,
     *,
-    as_dataframe: bool = True,
     export_key_suffix: str = "",
 ) -> None:
-    """Per-year attendance summary.
-
-    Stand-alone page (``as_dataframe=True``): sortable `st.dataframe` with a
-    ProgressColumn — drill-down + export-adjacent so allowed per
-    feedback_dataframes_secondary_only. Embedded in member-overview
-    (``as_dataframe=False``): card list of `.att-year-row`s with a CSS-width
-    bar in lieu of ProgressColumn — required by
-    feedback_member_overview_no_dataframes.
+    """Per-year attendance summary as a card list with a CSS-width bar
+    replacing ProgressColumn. ``st.dataframe`` is banned on member-overview
+    embedded sections per feedback_member_overview_no_dataframes.
     """
     evidence_heading("Attendance by year")
     if years_df.empty:
@@ -540,52 +486,31 @@ def _render_year_breakdown(
         y = int(r["year"])
         days = int(r["attended_count"])
         total = SITTING_DAYS_BY_YEAR.get(y)
-        # Rate computation uses the contract-permitted hardcoded sitting-day totals
+        # Rate uses the contract-permitted hardcoded sitting-day totals
         # (permitted_hardcoded_values.year_sitting_days in attendance.yaml).
         pct = days / total if total else None
         rows.append({"Year": y, "Days": days, "Total": str(total) if total else "—", "Rate": pct})
 
-    if as_dataframe:
-        table_df = pd.DataFrame(rows)
-        st.dataframe(
-            table_df,
-            hide_index=True,
-            width="stretch",
-            column_config={
-                "Year": st.column_config.NumberColumn("Year", format="%d", width="small"),
-                "Days": st.column_config.NumberColumn("Days attended", width="small"),
-                "Total": st.column_config.TextColumn("Sitting days", width="small"),
-                "Rate": st.column_config.ProgressColumn(
-                    "Attendance",
-                    min_value=0.0,
-                    max_value=1.0,
-                    format="{:.0%}",
-                ),
-            },
+    cards_html: list[str] = []
+    for row_d in rows:
+        y = row_d["Year"]
+        days = row_d["Days"]
+        total = row_d["Total"]
+        pct = row_d["Rate"]
+        pct_pad = max(0.0, min(1.0, float(pct))) * 100 if pct is not None else 0.0
+        pct_label = f"{pct * 100:.0f}%" if pct is not None else "—"
+        total_label = f"{days} / {total}" if total != "—" else f"{days}"
+        cards_html.append(
+            f'<div class="att-year-row">'
+            f'<span class="att-year-yr">{y}</span>'
+            f'<div class="att-year-bar-track">'
+            f'<div class="att-year-bar-fill" style="width:{pct_pad:.1f}%"></div>'
+            f"</div>"
+            f'<span class="att-year-days">{_h(total_label)}</span>'
+            f'<span class="att-year-pct">{_h(pct_label)}</span>'
+            f"</div>"
         )
-    else:
-        # Card list — one row per year with a CSS-width bar replacing the
-        # ProgressColumn. Keeps the same information density without st.dataframe.
-        cards_html: list[str] = []
-        for row_d in rows:
-            y = row_d["Year"]
-            days = row_d["Days"]
-            total = row_d["Total"]
-            pct = row_d["Rate"]
-            pct_pad = max(0.0, min(1.0, float(pct))) * 100 if pct is not None else 0.0
-            pct_label = f"{pct * 100:.0f}%" if pct is not None else "—"
-            total_label = f"{days} / {total}" if total != "—" else f"{days}"
-            cards_html.append(
-                f'<div class="att-year-row">'
-                f'<span class="att-year-yr">{y}</span>'
-                f'<div class="att-year-bar-track">'
-                f'<div class="att-year-bar-fill" style="width:{pct_pad:.1f}%"></div>'
-                f"</div>"
-                f'<span class="att-year-days">{_h(total_label)}</span>'
-                f'<span class="att-year-pct">{_h(pct_label)}</span>'
-                f"</div>"
-            )
-        st.html(f'<div class="att-year-list">{"".join(cards_html)}</div>')
+    st.html(f'<div class="att-year-list">{"".join(cards_html)}</div>')
 
     safe = td_name.replace(" ", "_")
     table_df = pd.DataFrame(rows)

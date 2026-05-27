@@ -165,19 +165,17 @@ def fetch_bill_debates(bill_id: str) -> pd.DataFrame:
 
 # ── Pre-2014 primary Acts (curated table) ─────────────────────────────────────
 
-_PRE2014_CSV = Path(__file__).resolve().parents[2] / "data" / "_meta" / "pre2014_acts.csv"
-
-
 @st.cache_data(ttl=3600)
 def fetch_pre2014_act_detail(bill_id: str) -> dict:
     """Return hero info for a synthetic 'act_<year>_<slug>' bill_id by
-    reading the curated pre-2014 Acts table. Returns {} on miss."""
+    selecting from v_legislation_pre2014_acts. Returns {} on miss."""
     if not (isinstance(bill_id, str) and bill_id.startswith("act_")):
         return {}
-    if not _PRE2014_CSV.exists():
-        return {}
-    df = pd.read_csv(_PRE2014_CSV)
-    rows = df[df["canonical_bill_id"] == bill_id]
+    rows = _safe(
+        "SELECT act_short_title, act_year, policy_domain"
+        " FROM v_legislation_pre2014_acts WHERE canonical_bill_id = ? LIMIT 1",
+        [bill_id],
+    )
     if rows.empty:
         return {}
     r = rows.iloc[0]
@@ -193,12 +191,15 @@ def fetch_pre2014_act_detail(bill_id: str) -> dict:
 
 @st.cache_data(ttl=300)
 def fetch_si_composition(bill_id: str) -> pd.DataFrame:
-    """Operation-mix summary for the 'composition sentence' above the SI list."""
+    """Operation-mix summary for the 'composition sentence' above the SI list.
+
+    Reads from v_bill_si_operation_mix — the GROUP BY now lives in the view.
+    """
     return _safe(
-        "SELECT si_operation, COUNT(*) AS n"
-        " FROM v_bill_statutory_instruments"
-        " WHERE bill_id = ? AND si_operation IS NOT NULL"
-        " GROUP BY si_operation ORDER BY n DESC",
+        "SELECT si_operation, n"
+        " FROM v_bill_si_operation_mix"
+        " WHERE bill_id = ?"
+        " ORDER BY n DESC",
         [bill_id],
     )
 

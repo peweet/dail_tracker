@@ -3097,6 +3097,13 @@ def inject_css() -> None:
             color: var(--text-meta);
             margin-bottom: 0.3rem;
         }
+        .q-strip-cell-hint {
+            text-transform: none;
+            font-weight: 400;
+            letter-spacing: 0;
+            color: var(--text-meta);
+            opacity: 0.85;
+        }
         .q-conc-pct {
             font-family: 'Zilla Slab', Georgia, serif;
             font-size: 2rem;
@@ -3163,6 +3170,65 @@ def inject_css() -> None:
             font-size: 0.72rem;
             color: var(--text-meta);
             font-variant-numeric: tabular-nums;
+            margin-left: 0.05rem;
+        }
+        .q-topic-chip-action {
+            font-size: 0.85rem;
+            line-height: 1;
+            color: var(--text-meta);
+            opacity: 0.55;
+            transition: opacity 0.12s, color 0.12s;
+            margin-left: 0.1rem;
+        }
+        .q-topic-chip:hover .q-topic-chip-action {
+            color: var(--accent);
+            opacity: 1;
+        }
+        /* Active-filter chip — same shape as si-active-chip but with
+           project tokens. Used when ?mo_q_topic= is set in the URL. */
+        .q-active-filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0 0 0.7rem 0;
+            font-size: 0.85rem;
+            flex-wrap: wrap;
+        }
+        .q-active-filter-label {
+            color: var(--text-meta);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+        .q-active-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.6rem 0.25rem 0.7rem;
+            background: var(--accent-subtle);
+            border: 1px solid var(--accent-dim);
+            border-radius: 999px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 0.82rem;
+            line-height: 1;
+            transition: background 0.12s, border-color 0.12s, color 0.12s;
+        }
+        .q-active-chip:hover {
+            background: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent);
+            text-decoration: none;
+        }
+        .q-active-chip-x {
+            font-size: 1.05rem;
+            line-height: 1;
+            margin-top: -1px;
+        }
+        .q-active-chip:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
         }
         .q-shift-subtitle {
             grid-column: 1 / -1;

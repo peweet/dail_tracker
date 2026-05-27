@@ -1,4 +1,5 @@
 import html
+import re
 import sys
 from pathlib import Path
 
@@ -27,6 +28,7 @@ from ui.components import (
     clickable_card_link,
     empty_state,
     evidence_heading,
+    fmt_civic_date as _fmt_date,
     hero_banner,
     page_error_boundary,
     paginate,
@@ -52,16 +54,6 @@ def _status_badge_class(status: str) -> str:
         if k in key:
             return f"signal {cls}"
     return "signal leg-status-active"
-
-
-def _fmt_date(val) -> str:
-    if val is None or (isinstance(val, float) and pd.isna(val)):
-        return "—"
-    try:
-        ts = pd.Timestamp(val)
-        return f"{ts.day} {ts.strftime('%b %Y')}"
-    except Exception:
-        return str(val)
 
 
 # ── Stage 1 — legislation index ────────────────────────────────────────────────
@@ -607,9 +599,8 @@ def _render_bill_detail(bill_id: str) -> None:
     # <p>...</p> wrappers (and occasionally <i>, <em>, etc). Previously the
     # whole string was html.escape()d and the tags rendered as literal
     # "<p>...</p>" text on screen. Strip tags first, then escape the result.
-    import re as _re
     long_title_raw = (row.get("long_title") or "").strip()
-    long_title_clean = _re.sub(r"<[^>]+>", "", long_title_raw).strip()
+    long_title_clean = re.sub(r"<[^>]+>", "", long_title_raw).strip()
     long_title_html = (
         f'<p class="leg-long-title leg-long-title-tight">{html.escape(long_title_clean)}</p>'
         if long_title_clean

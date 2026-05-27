@@ -247,6 +247,39 @@ def fetch_dpo_return_map() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
+def fetch_politician_area_returns_with_dpo(
+    member_name: str,
+    area: str,
+    start: str | None = None,
+    end: str | None = None,
+) -> pd.DataFrame:
+    """Returns filed for one politician × one policy area, pre-joined with
+    DPO individual names ("; "-separated string) and a dpo_count column.
+
+    Replaces the in-page dict-join in lobbying_2.py — the LEFT JOIN now
+    lives in v_lobbying_contact_detail_with_dpo.
+    """
+    if start and end:
+        return _safe(
+            "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
+            " period_start_date, source_url, dpo_individuals, dpo_count"
+            " FROM v_lobbying_contact_detail_with_dpo"
+            " WHERE member_name = ? AND public_policy_area = ?"
+            " AND period_start_date BETWEEN ? AND ?"
+            " ORDER BY period_start_date DESC",
+            [member_name, area, start, end],
+        )
+    return _safe(
+        "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
+        " period_start_date, source_url, dpo_individuals, dpo_count"
+        " FROM v_lobbying_contact_detail_with_dpo"
+        " WHERE member_name = ? AND public_policy_area = ?"
+        " ORDER BY period_start_date DESC",
+        [member_name, area],
+    )
+
+
+@st.cache_data(ttl=300)
 def fetch_area_contact_detail(
     area: str,
     start: str | None = None,
