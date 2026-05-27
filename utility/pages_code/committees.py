@@ -45,6 +45,8 @@ from ui.components import (
     party_colour,
     render_stat_strip,
     sidebar_page_header,
+    sidebar_provenance,
+    sidebar_subtitle,
     stat_item,
     todo_callout,
 )
@@ -946,6 +948,7 @@ def committees_page() -> None:
 
     with st.sidebar:
         sidebar_page_header("Committee<br>Register")
+        sidebar_subtitle("Standing & Joint Committees · membership and chairs")
         if df_long.empty:
             # Sidebar audit fix (2026-05-26, P1-4): `st.error` rendered a
             # red Streamlit box inside the otherwise calm sidebar voice.
@@ -955,10 +958,10 @@ def committees_page() -> None:
                 f"No records found for {chamber}. Run the pipeline to populate the register.",
             )
         else:
-            st.html(
-                f'<p class="page-subtitle">{df_long["committee"].nunique()} committees · '
-                f"{_h(str(df_long['name'].nunique()))} {_h(member_label)} · "
-                f"{int((df_long['status'] == 'Active').sum())} active memberships</p>"
+            sidebar_provenance(
+                f"{df_long['committee'].nunique()} committees · "
+                f"{df_long['name'].nunique()} {member_label} · "
+                f"{int((df_long['status'] == 'Active').sum())} active memberships"
             )
 
     if df_long.empty:

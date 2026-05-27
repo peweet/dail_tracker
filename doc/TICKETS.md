@@ -2723,6 +2723,61 @@ Cross-reference only — the existing `DAIL-116` (XHR investigation) and `DAIL-1
 
 ---
 
+### DAIL-168 — `committee_assignments.csv` has no current producer (stale data on /committees)
+
+- **Estimate:** 2-3h · **Priority:** P1 · **Dependencies:** none · **Labels:** pipeline, data-bug
+- **Affected files:** `enrich.py`, `sql_queries/committee_activity_summary.sql`, `sql_queries/committee_party_breakdown.sql`, possibly `flatten_members_json_to_csv.py`
+
+#### Description
+`gold/committee_assignments.csv` is consumed by two SQL queries (`committee_activity_summary.sql`, `committee_party_breakdown.sql`) via the auto-registration loop in `lobby_processing.py:835`. **But the producer code at `enrich.py:181` is commented out**, so the file on disk is from **2026-04-24** — over a month stale. The committees page is rendering data that hasn't refreshed in 33+ days, and every pipeline run since then has silently failed to update it.
+
+Discovered during 2026-05-27 tear_down audit. Producers were never explicitly removed; the write call was commented out and the dependent SQL queries kept reading the orphaned file.
+
+#### Acceptance criteria
+- [ ] Determine the correct producer: re-enable the `enrich.py:181` write, OR rewrite the SQL queries to read from `flattened_members.csv` / `flattened_members.parquet` (which has the same wide committee_N_* columns), OR create a dedicated `committee_assignments.py` step.
+- [ ] `gold/committee_assignments.csv` updates on every pipeline run (verify mtime is current).
+- [ ] Both consuming SQL queries continue to return the same shape / row count as before the fix (regression test).
+- [ ] Add a row-count drift assertion (per DAIL-017 pattern) so silent staleness can't recur.
+
+#### Helper prompt
+```
+Read enrich.py around line 181 to see the commented-out committee_df producer. Read sql_queries/committee_activity_summary.sql and sql_queries/committee_party_breakdown.sql to understand what columns they expect from `committee_assignments`. Read flattened_members.csv schema (it has committee_1_name_en ... committee_12_name_en columns) — that's likely the source.
+
+Decide: re-enable enrich.py producer, OR rewrite the SQL queries to read from flattened_members directly (cleaner — fewer intermediate files). Default to the SQL rewrite.
+
+Don't break the existing committees Streamlit page output.
+```
+
+---
+
+### DAIL-169 — Modernise gold-view auto-registration (prefer parquet, drop redundant CSV writes)
+
+- **Estimate:** 3-4h · **Priority:** P2 · **Dependencies:** DAIL-168 (committee_assignments resolved) · **Labels:** pipeline, cleanup, performance
+- **Affected files:** `lobby_processing.py`, `enrich.py`, `data/gold/*.csv` (loose root CSVs)
+
+#### Description
+`lobby_processing.py:805-840` auto-registers every `data/gold/*.csv` (root level) as a DuckDB view consumed by `sql_queries/*.sql`. It does NOT auto-register `data/gold/parquet/*.parquet`. This causes two problems:
+
+1. **`current_dail_vote_history.csv` (61 MB)** must keep being written by `enrich.py:122` even though `current_dail_vote_history.parquet` (2.4 MB, 25× smaller) is canonical per `config.GOLD_VOTE_HISTORY_PARQUET`. The CSV exists *only* for the auto-registration loop.
+2. **Stale gold-root CSVs shadow fresh versions**: `gold/attendance_by_td_year.csv` (Apr 28 stale) gets registered as the `attendance_by_td_year` view, shadowing the fresh May 27 version at `gold/csv/attendance_by_td_year.csv` and `gold/parquet/attendance_by_td_year.parquet`.
+
+#### Acceptance criteria
+- [ ] Auto-registration loop in `lobby_processing.py` checks `gold/parquet/*.parquet` BEFORE `gold/*.csv` (or `gold/csv/*.csv`) and prefers parquet when both exist for the same view name.
+- [ ] After the change: drop the `.write_csv(GOLD_DIR / "current_dail_vote_history.csv")` line in `enrich.py:122`. Verify all 3 consuming SQL queries (`td_vote_summary.sql`, `party_vote_breakdown.sql`, `debate_summary.sql`) still produce the same results.
+- [ ] Delete the stale `gold/attendance_by_td_year.csv` and `gold/top_tds_by_payment_since_2020.csv` at root.
+- [ ] Update the audit registration comment in `lobby_processing.py:834` to reflect parquet-first reality.
+
+#### Helper prompt
+```
+Read lobby_processing.py:805-840 — the save_gold_outputs() auto-registration loop. The current order is: silver/parquet → silver/lobbying/parquet → data/gold/*.csv. Change to: silver/parquet → silver/lobbying/parquet → data/gold/parquet/*.parquet → data/gold/*.csv (fallback). The `if name not in registered` guard already handles dedupe — parquet just needs to win when it exists.
+
+After the loop change is verified by running lobby_processing.py and confirming all gold SQL queries succeed, drop the .write_csv line at enrich.py:122 (the current_dail_vote_history.csv write). Then delete gold/attendance_by_td_year.csv and gold/top_tds_by_payment_since_2020.csv at root.
+
+Don't touch the gold/csv/ subdir outputs (those are produced separately by lobby_processing.save_gold_outputs at line 856 and are the export-friendly versions).
+```
+
+---
+
 # Plateau 2 — Mature single-purpose tool (epics, not full tickets)
 
 These are at "epic-level detail" — expand into full tickets when you reach them. Each maps to a v4 section.

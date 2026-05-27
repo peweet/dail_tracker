@@ -55,7 +55,9 @@ from ui.components import (
     pagination_controls,
     pill,
     render_notable_chips,
+    sidebar_divider,
     sidebar_page_header,
+    sidebar_subtitle,
     todo_callout,
     year_selector,
 )
@@ -638,9 +640,11 @@ def _render_provenance() -> None:
 def interests_page() -> None:
     inject_css()
 
-    # ── Sidebar ───────────────────────────────────────────────────────────────
+    # ── Sidebar (P1-3 grammar) ────────────────────────────────────────────────
     with st.sidebar:
         sidebar_page_header("Register of<br>Members&rsquo; Interests")
+        sidebar_subtitle("Declared interests by TD or Senator")
+        sidebar_divider()
 
         house: str = (
             st.segmented_control(

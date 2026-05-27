@@ -74,7 +74,8 @@ QUESTIONS_DROP_COLS = [
 ]
 questions_df = questions_df.drop(columns=[c for c in QUESTIONS_DROP_COLS if c in questions_df.columns])
 
-questions_df.to_csv(SILVER_DIR / "questions.csv", index=False)
+# CSV write dropped 2026-05-27: questions.csv (115 MB) had zero production consumers;
+# every SQL view and Streamlit page reads questions.parquet (17 MB) instead.
 questions_df.to_parquet(
     SILVER_DIR / "parquet" / "questions.parquet",
     index=False,

@@ -48,9 +48,8 @@ from ui.components import (
     hero_banner,
     member_card_html,
     page_error_boundary,
-    render_notable_chips,
     sidebar_member_filter,
-    sidebar_page_header,
+    sidebar_shell,
     totals_strip,
     year_selector,
 )
@@ -601,21 +600,24 @@ def payments_page() -> None:
     # search box + notable chips. Other pages anchor the sidebar with the
     # `DÁIL TRACKER` kicker + page title so users always know which page
     # they're on. Mirrors lobbying_2.py:494.
-    with st.sidebar:
-        sidebar_page_header("Payments")
-        chosen = sidebar_member_filter(
+    def _member_picker() -> str | None:
+        return sidebar_member_filter(
             "Browse all members",
             opts["members"],
             key_search="pay_sidebar_search",
             key_select="pay_member_sel",
             placeholder="e.g. Mary Lou McDonald",
         )
-        if chosen and st.session_state.get("selected_td_pay") != chosen:
-            st.session_state["selected_td_pay"] = chosen
-            st.rerun()
 
-        if render_notable_chips(NOTABLE_TDS, opts["members"], "pay_notable", "selected_td_pay"):
-            st.rerun()
+    picked = sidebar_shell(
+        page_header=("Payments", None),
+        subtitle="Parliamentary Standard Allowance per TD",
+        member_picker=_member_picker,
+        notable_chips=(NOTABLE_TDS, opts["members"], "pay_notable", "selected_td_pay"),
+    )
+    if picked and st.session_state.get("selected_td_pay") != picked:
+        st.session_state["selected_td_pay"] = picked
+        st.rerun()
 
     # Legacy ?member=<name> URLs AND sidebar-driven selections both redirect
     # to the canonical /member-overview?member=<code>#payments profile.

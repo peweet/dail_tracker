@@ -610,7 +610,7 @@ BRONZE_OUT_COLS = [
 ]
 
 
-def build_bronze_frame(rows: list[dict[str, Any]]) -> pl.DataFrame:
+def build_bronze_frame(rows: list[dict[str, Any]] | pl.DataFrame) -> pl.DataFrame:
     # One row per visible PDF text line. Example output row (after this fn):
     #   source_file:   "iris_2024_30.pdf"
     #   page_number:   4    block_id: 2    line_id: 0    line_order: 0
@@ -621,9 +621,16 @@ def build_bronze_frame(rows: list[dict[str, Any]]) -> pl.DataFrame:
     #   normalized_line: "S.I. No. 142 of 2024."        ← cleaned
     #   issue_date: "2024-04-12"   issue_number: 30
     #   ignore_publication_boilerplate: false
-    if not rows:
-        return pl.DataFrame()
-    df = pl.DataFrame(rows)
+    # Accepts either a list of raw extract dicts (legacy in-memory path) or a
+    # pre-built DataFrame (shard-based incremental path via concat_bronze).
+    if isinstance(rows, pl.DataFrame):
+        if rows.is_empty():
+            return pl.DataFrame()
+        df = rows
+    else:
+        if not rows:
+            return pl.DataFrame()
+        df = pl.DataFrame(rows)
     df = df.sort(["source_file", "page_number", "block_id", "line_id", "line_order"])
     df = df.with_columns(
         bbox=pl.format(
@@ -1651,30 +1658,56 @@ def write_dimensions(
     )
 
 
-def run(paths: list[str], out_dir: str, confidence_threshold: float = 0.75) -> None:
-    os.makedirs(out_dir, exist_ok=True)
+def run(
+    paths: list[str],
+    out_dir: str,
+    confidence_threshold: float = 0.75,
+    rebuild: bool = False,
+    shard_root: str | Path | None = None,
+) -> None:
+    """Run the full Iris ETL.
 
-    all_rows: list[dict[str, Any]] = []
-    metas: list[dict[str, Any]] = []
-    member_extracts: list[dict[str, Any]] = []
+    Extraction is incremental by default: each PDF's bronze rows + audit +
+    member-interest extracts are cached as per-PDF shards under `shard_root`,
+    fingerprinted by (mtime_ns, size, EXTRACTOR_VERSION). Subsequent runs only
+    re-extract PDFs whose file or extractor version changed.
 
-    total_pdfs = len(paths)
-    print(f"[1/5] Extracting text from {total_pdfs} PDFs...")
-    for idx, path in enumerate(paths, start=1):
-        print(f"[{idx}/{total_pdfs}] {os.path.basename(path)}")
-        rows, meta = extract_lines_raw(path)
-        metas.append(meta)
-        all_rows.extend(rows)
-        mi_extracts = find_member_interest_page_ranges(path)
-        if mi_extracts:
-            print(f"  Found {len(mi_extracts)} member-interest extract range(s)")
-        member_extracts.extend(mi_extracts)
-    print(
-        f"  Collected {len(all_rows)} raw lines across {total_pdfs} PDFs ({len(member_extracts)} member-interest extracts)"
+    Silver/gold still run over the full corpus every time, so back-dated
+    corrections to a single PDF propagate through the downstream tables.
+
+    Pass `rebuild=True` to ignore the manifest and re-extract every PDF
+    (equivalent to bumping EXTRACTOR_VERSION ad-hoc).
+    """
+    from iris_incremental_shards import (
+        DEFAULT_SHARD_ROOT,
+        concat_bronze,
+        incremental_extract,
+        load_audit,
+        load_member_extracts,
     )
 
-    print(f"[2/5] Building bronze frame from {len(all_rows)} lines...")
-    bronze = build_bronze_frame(all_rows)
+    os.makedirs(out_dir, exist_ok=True)
+    shard_root_path = Path(shard_root) if shard_root is not None else DEFAULT_SHARD_ROOT
+
+    total_pdfs = len(paths)
+    print(f"[1/5] Incremental extract over {total_pdfs} PDFs (shard root: {shard_root_path})...")
+    summary = incremental_extract(paths, shard_root_path, rebuild=rebuild)
+    print(
+        f"  extract: added={summary.added} skipped={summary.skipped} "
+        f"restaged={summary.restaged} failed={summary.failed}"
+    )
+
+    bronze_lf = concat_bronze(shard_root_path)
+    bronze_raw = bronze_lf.collect()
+    metas = load_audit(shard_root_path)
+    member_extracts = load_member_extracts(shard_root_path)
+    print(
+        f"  Loaded {bronze_raw.height} raw lines across {len(metas)} shards "
+        f"({len(member_extracts)} member-interest extracts)"
+    )
+
+    print(f"[2/5] Building bronze frame from {bronze_raw.height} lines...")
+    bronze = build_bronze_frame(bronze_raw)
     print(f"  Bronze: {bronze.height} rows, {bronze.width} cols")
 
     print("[3/5] Building silver records (cum_sum group_by)...")
@@ -1760,6 +1793,16 @@ def main() -> None:
     )
     parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
     parser.add_argument("--confidence-threshold", type=float, default=0.75)
+    parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="ignore the shard cache and re-extract every PDF (full historical rerun)",
+    )
+    parser.add_argument(
+        "--shard-root",
+        default=None,
+        help="override the per-PDF shard cache directory (defaults to data/silver/iris_oifigiuil_shards)",
+    )
     args = parser.parse_args()
 
     paths: list[str] = []
@@ -1785,7 +1828,13 @@ def main() -> None:
     if not paths:
         parser.error(f"No PDFs matched any of: {args.paths}")
     print(f"Processing {len(paths)} PDFs -> {args.out_dir}")
-    run(paths, args.out_dir, args.confidence_threshold)
+    run(
+        paths,
+        args.out_dir,
+        args.confidence_threshold,
+        rebuild=args.rebuild,
+        shard_root=args.shard_root,
+    )
 
 
 if __name__ == "__main__":

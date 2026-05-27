@@ -82,7 +82,9 @@ from ui.components import (
     page_error_boundary,
     pagination_controls,
     pill,
+    sidebar_divider,
     sidebar_page_header,
+    sidebar_subtitle,
     todo_callout,
     totals_strip,
 )
@@ -492,6 +494,8 @@ def _provenance_footer(summary: pd.DataFrame) -> None:
 def _render_sidebar() -> None:
     with st.sidebar:
         sidebar_page_header("Lobbying<br>Register")
+        sidebar_subtitle("Who's lobbying whom")
+        sidebar_divider()
 
         # ── Primary: search across politicians and organisations ─────────
         st.html('<p class="lob-sidebar-label">Search</p>')

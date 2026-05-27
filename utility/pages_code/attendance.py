@@ -38,9 +38,8 @@ from ui.components import (
     hero_banner,
     member_profile_header,
     page_error_boundary,
-    render_notable_chips,
     sidebar_member_filter,
-    sidebar_page_header,
+    sidebar_shell,
     stat_strip,
     todo_callout,
     year_selector,
@@ -711,22 +710,24 @@ def attendance_page() -> None:
             state_keys=("selected_td_att",),
         )
 
-    # ── Sidebar ────────────────────────────────────────────────────────────────
-    with st.sidebar:
-        sidebar_page_header("Plenary<br>Attendance")
-
-        chosen = sidebar_member_filter(
+    # ── Sidebar (P1-3 grammar via sidebar_shell) ──────────────────────────────
+    def _member_picker() -> str | None:
+        return sidebar_member_filter(
             "Browse all members",
             opts["members"],
             key_search="att_sidebar_search",
             key_select="att_member_sel",
         )
-        if chosen and st.session_state.get("selected_td_att") != chosen:
-            st.session_state["selected_td_att"] = chosen
-            st.rerun()
 
-        if render_notable_chips(NOTABLE_TDS, opts["members"], "chip_att", "selected_td_att"):
-            st.rerun()
+    picked = sidebar_shell(
+        page_header=("Plenary<br>Attendance", None),
+        subtitle="Days each TD spent in the chamber",
+        member_picker=_member_picker,
+        notable_chips=(NOTABLE_TDS, opts["members"], "chip_att", "selected_td_att"),
+    )
+    if picked and st.session_state.get("selected_td_att") != picked:
+        st.session_state["selected_td_att"] = picked
+        st.rerun()
 
     # ── Page header ────────────────────────────────────────────────────────────
     hero_banner(

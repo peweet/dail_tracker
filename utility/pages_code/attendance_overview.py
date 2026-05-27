@@ -27,9 +27,8 @@ from ui.components import (
     page_error_boundary,
     render_stat_strip,
     sidebar_member_filter,
-    sidebar_page_header,
+    sidebar_shell,
     stat_item,
-    render_notable_chips,
 )
 from ui.export_controls import export_button
 from ui.source_pdfs import ATTENDANCE, provenance_expander
@@ -487,27 +486,27 @@ def attendance_overview_page() -> None:
 
     selected_td: str | None = st.session_state.get("_ov_td")
 
-    # ── Sidebar ────────────────────────────────────────────────────────────────
-    with st.sidebar:
-        sidebar_page_header("Attendance<br>Overview")
+    # ── Sidebar (P1-3 grammar via sidebar_shell) ──────────────────────────────
+    all_members_df = _fetch_alltime_ranking()
+    all_names = all_members_df["member_name"].tolist() if not all_members_df.empty else []
 
-        all_members_df = _fetch_alltime_ranking()
-        all_names = all_members_df["member_name"].tolist() if not all_members_df.empty else []
-        chosen = sidebar_member_filter(
+    def _member_picker() -> str | None:
+        return sidebar_member_filter(
             "Browse all members",
             all_names,
             key_search="ov_sidebar_search",
             key_select="ov_member_sel",
         )
-        if chosen and st.session_state.get("_ov_td") != chosen:
-            st.session_state["_ov_td"] = chosen
-            st.rerun()
 
-        # Sidebar audit fix (2026-05-26, P2-1): the heavy section rule
-        # between picker and chips matched the attendance + payments
-        # cleanup. Removed for cross-page consistency.
-        if render_notable_chips(NOTABLE_TDS, all_names, "chip_ov", "_ov_td"):
-            st.rerun()
+    picked = sidebar_shell(
+        page_header=("Attendance<br>Overview", None),
+        subtitle="All-time Dáil attendance",
+        member_picker=_member_picker,
+        notable_chips=(NOTABLE_TDS, all_names, "chip_ov", "_ov_td"),
+    )
+    if picked and st.session_state.get("_ov_td") != picked:
+        st.session_state["_ov_td"] = picked
+        st.rerun()
 
     # ── Profile view ───────────────────────────────────────────────────────────
     if selected_td:

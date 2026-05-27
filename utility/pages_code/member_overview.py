@@ -42,7 +42,7 @@ from ui.components import (
     pagination_controls,
     party_colour,
     sidebar_date_range,
-    sidebar_page_header,
+    sidebar_shell,
     stat_strip,
 )
 from ui.entity_links import (
@@ -1219,15 +1219,25 @@ def member_overview_page() -> None:
 
     date_from: str | None = None
     date_to: str | None = None
-    with st.sidebar:
-        sidebar_page_header("Member<br>Overview", "OIREACHTAS EXPLORER")
+    _date_holder: dict[str, str | None] = {"from": None, "to": None}
+
+    def _vote_date_picker() -> None:
+        d_from, d_to = sidebar_date_range(
+            "Vote date range",
+            key="mo_vote_date",
+            empty_default=True,
+        )
+        _date_holder["from"] = d_from
+        _date_holder["to"] = d_to
+
+    sidebar_shell(
+        page_header=("Member<br>Overview", "OIREACHTAS EXPLORER"),
+        subtitle="Public accountability record for every TD",
+        provenance="Source: data.oireachtas.ie",
         # Date filter only on the profile view — applies to the votes section.
-        if join_key:
-            date_from, date_to = sidebar_date_range(
-                "Vote date range",
-                key="mo_vote_date",
-                empty_default=True,
-            )
+        secondary=[_vote_date_picker] if join_key else None,
+    )
+    date_from, date_to = _date_holder["from"], _date_holder["to"]
 
     if join_key:
         _render_stage2(conn, join_key, date_from, date_to)

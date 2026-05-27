@@ -21,12 +21,13 @@
 |---|---|
 | Python files in scope | 155 (133 after excluding `audit_screenshots/`, `experimental/`, `dail_tracker_bold_ui_contract_pack_v5/`) |
 | Markdown files in scope | 90 |
-| Top-level `.py` to classify | 45 |
+| Top-level `.py` to classify | 45 → **44** (tear_down.py deleted this session) |
 | `keep` (will be moved) | 33 |
-| `dead` (will be deleted) | 3 |
-| `unsure` (needs your call) | 4 |
+| `dead` (will be deleted in Stage 1) | 3 |
+| `unsure` (resolved during session) | 0 — all 4 resolved (questions → keep; 3 sandbox files → deleted) |
 | `sandbox` (move into sandbox) | 1 |
 | Streamlit UI files (utility/) | 36 — all `keep`, moving to `src/dail_tracker/ui/` |
+| Pre-flight test baseline | **258 pass / 11 fail / 10 skipped** (refreshed 2026-05-27 after producer cleanups) |
 
 ---
 
@@ -45,7 +46,7 @@
 | `services/urls.py` | `src/dail_tracker/infra/urls.py` | Imported by services/oireachtas_api_main, services/legislation_unscoped; tested by test/test_url_builders.py |
 | `services/dail_config.py` | **DELETE — merge into config.py** | Duplicates config.py's `LOG_DIR` / `API_BASE` / etc. Was a stale parallel constant module. Already noted as duplicate during earlier work. |
 | `pipeline.py` | `src/dail_tracker/orchestration/pipeline.py` | The orchestrator |
-| `tear_down.py` | `src/dail_tracker/orchestration/tear_down.py` | Post-pipeline cleanup |
+| ~~`tear_down.py`~~ | **DELETED 2026-05-27** | 60% of functions were no-ops on wrong paths. Useful cleanups migrated into producers (`member_interests.py`, `lobby_processing.py`). |
 | `normalise_join_key.py` | `src/dail_tracker/shared/normalise_join_key.py` | Imported by enrich.py, member_interests.py + 2 tests |
 | `quarantine.py` | `src/dail_tracker/shared/quarantine.py` | Imported by lobby_processing.py |
 | `analytics_loading.py` | `src/dail_tracker/shared/analytics_loading.py` | DuckDB helper — registers parquets as views (Jupyter / interactive use) |
@@ -89,6 +90,8 @@
 | `transform_votes.py` | `domains/votes/transform.py` | pipeline.STEPS |
 | `enrich.py` | `domains/votes/enrich.py` | pipeline.STEPS; cross-domain join, but votes is biggest consumer; tested by test/test_enrich_join.py |
 | `services/votes.py` | `domains/votes/api.py` | Imported by services/oireachtas_api_main; tested by test/test_services_votes.py |
+| **Questions** (added 2026-05-27) | | |
+| `questions.py` | `domains/questions/etl.py` | Wired into pipeline.STEPS this session ("Flatten parliamentary questions", after legislation step). Produces `silver/parquet/questions.parquet` consumed by `sql_views/member_debate_sections.sql`. |
 | **Debates** | | |
 | `dbsect_listings_flatten.py` | `domains/debates/listings_flatten.py` | pipeline.STEPS |
 | `services/dbsect_harvest.py` | `domains/debates/harvest.py` | Imported by services/oireachtas_api_main |
@@ -135,8 +138,9 @@ All 36 files under `utility/` move to `src/dail_tracker/ui/` preserving internal
 | `experimental/test_read_scan_pdf.py` | Imports `config.SCAN_PDF_DIR` which doesn't exist in current config.py. Pulls in heavy `ocrmypdf` dependency. Single file in an `experimental/` folder; the experiment is over. |
 | `pipeline_sandbox/__pycache__/` (entire dir) | 10 orphan .pyc files for sources that no longer exist: `legislation_unscoped_fetch`, `legislation_unscoped_validate`, `legislation_unscoped_silver_views`, `payment_pdf_url_probe`, `si_entity_enrichment`, `iris_oifigiuil_etl_polars`, `cro_normalise`, `charity_normalise`, `quarantine`, `lobbying_fetch`. |
 | `pipeline_sandbox/iris_incremental_shards.py` | Imports `iris_oifiguil_etl` (typo, doesn't exist anywhere). Broken on import. |
-| **Stray root logs** (already on `tear_down.clean_pipeline_log` list) | `pipeline.log`, `pipeline_run.log`, `endpoint_check.log`, `dbsect_after_pipeline.log`, `attendance_run.log`, `streamlit_test.log`, `logs/pipeline.log` (88 MB), `services/logs/` (dir) |
+| **Stray root logs** | `pipeline.log`, `pipeline_run.log`, `endpoint_check.log`, `dbsect_after_pipeline.log`, `attendance_run.log`, `streamlit_test.log`, `logs/pipeline.log` (88 MB), `services/logs/` (dir). **Note 2026-05-27**: tear_down.py was deleted; sweep these manually in Stage 1. |
 | `.coverage` | pytest-cov artifact; should be gitignored (check `.gitignore`) |
+| `tear_down.py` | **DELETED 2026-05-27** — 60% of functions were no-ops on wrong paths or targeted nonexistent dirs. Useful cleanups migrated into producers: `member_interests.py` now self-cleans per-year CSVs; `lobby_processing.py` now self-cleans cleaned.csv/cleaned_output.csv. |
 
 ---
 

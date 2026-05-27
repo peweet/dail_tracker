@@ -33,7 +33,10 @@ from ui.components import (
     pagination_controls,
     render_stat_strip,
     sidebar_date_range,
+    sidebar_divider,
     sidebar_page_header,
+    sidebar_provenance,
+    sidebar_subtitle,
     stat_item,
 )
 from ui.entity_links import bill_detail_url, source_link_html
@@ -702,10 +705,11 @@ def legislation_page() -> None:
         sidebar_page_header("Legislation")
 
         if selected_bill_id:
-            st.html('<div class="page-subtitle">Bill detail</div>')
+            sidebar_subtitle("Bill detail")
         else:
-            st.html('<div class="page-subtitle">Source: Oireachtas Open Data API</div>')
-            st.divider()
+            sidebar_subtitle("Bills before the Oireachtas")
+            sidebar_provenance("Source: Oireachtas Open Data API")
+            sidebar_divider()
 
             start_date, end_date = sidebar_date_range(
                 "Introduced between",

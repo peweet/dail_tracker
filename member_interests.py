@@ -558,6 +558,17 @@ def main() -> None:
     if seanad_years:
         combine_years(SILVER_DIR, seanad_years, "seanad")
 
+    # 9. Clean up per-year scratch CSVs now that the combined outputs (CSV + parquet)
+    # are written. Only clean if both combined files exist — otherwise leave the
+    # per-year files so a failed run can be diagnosed from the inputs.
+    for case, year_list in [("dail", dail_years), ("seanad", seanad_years)]:
+        combined_csv = SILVER_DIR / f"{case}_member_interests_combined.csv"
+        combined_parquet = SILVER_DIR / "parquet" / f"{case}_member_interests_combined.parquet"
+        if year_list and combined_csv.exists() and combined_parquet.exists():
+            for scratch in SILVER_DIR.glob(f"{case}_member_interests_grouped_*.csv"):
+                scratch.unlink()
+                print(f"  Cleaned scratch: {scratch.name}")
+
     print("\n=== Member interest pipeline complete ===")
 
 

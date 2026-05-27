@@ -20,8 +20,11 @@ from ui.components import (
     member_moved_callout,
     page_error_boundary,
     sidebar_date_range,
+    sidebar_divider,
     sidebar_member_filter,
     sidebar_page_header,
+    sidebar_provenance,
+    sidebar_subtitle,
     todo_callout,
     year_selector,
 )
@@ -623,9 +626,10 @@ def votes_page() -> None:
     if st.session_state["v_view"] == "Divisions":
         st.session_state["v_view"] = "Dáil"
 
-    # ── Sidebar ───────────────────────────────────────────────────────────────
+    # ── Sidebar (P1-3 grammar) ────────────────────────────────────────────────
     with st.sidebar:
         sidebar_page_header("Dáil<br>Divisions")
+        sidebar_subtitle("Vote-by-vote record")
 
         hero_df = _fetch_hero_stats(conn)
         if not hero_df.empty:
@@ -633,9 +637,9 @@ def votes_page() -> None:
             fd = r.get("first_vote_date")
             ld = r.get("last_vote_date")
             if fd and ld:
-                st.caption(f"Data covers {str(fd)[:7]} to {str(ld)[:7]}")
+                sidebar_provenance(f"Data covers {str(fd)[:7]} to {str(ld)[:7]}")
 
-        st.divider()
+        sidebar_divider()
 
         # ── View toggle ────────────────────────────────────────────────────
         st.html('<p class="sidebar-label">View</p>')
@@ -656,7 +660,7 @@ def votes_page() -> None:
                 st.query_params.pop("member", None)
             st.rerun()
 
-        st.divider()
+        sidebar_divider()
 
         outcome_filter = None
         sel_party = ""

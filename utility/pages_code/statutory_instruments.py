@@ -40,6 +40,7 @@ from ui.components import (
     pagination_controls,
     render_stat_strip,
     sidebar_page_header,
+    sidebar_subtitle,
     stat_item,
 )
 from ui.entity_links import member_profile_url, source_link_html
@@ -899,15 +900,11 @@ def statutory_instruments_page() -> None:
     # in the main flow than tucked into a sidebar selectbox stack.
     with st.sidebar:
         sidebar_page_header("Statutory Instruments")
-        # Subtitle only on the index — it explains what SIs are for first-time
-        # visitors. On the detail view the back button + breadcrumb make state
-        # obvious, so 'SI detail' as a subtitle was redundant restatement.
+        # Subtitle only on the index — on the detail view the back button +
+        # breadcrumb already make state obvious, so 'SI detail' as a subtitle
+        # would be redundant restatement.
         if not selected:
-            st.html(
-                '<div class="page-subtitle">'
-                'Secondary legislation · Iris Oifigiúil'
-                '</div>'
-            )
+            sidebar_subtitle("Secondary legislation · Iris Oifigiúil")
 
     # ── Detail view ───────────────────────────────────────────────────────────
     if selected:

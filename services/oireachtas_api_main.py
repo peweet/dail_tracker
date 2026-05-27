@@ -159,12 +159,9 @@ def main() -> None:
     logger.info("Starting Oireachtas API pipeline...")
 
     # Change these when you want to force re-runs.
-    # 2026-05-27: legislation + questions flipped to True for a one-time
-    # backfill after the 1000-row pagination cap fix (services/member_paginated.py).
-    # Reset to False after the run.
     overwrite_members = False
-    overwrite_legislation = True
-    overwrite_questions = True
+    overwrite_legislation = False
+    overwrite_questions = False
     overwrite_votes = False
     overwrite_debates_listings = False
 
