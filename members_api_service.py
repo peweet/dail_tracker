@@ -21,16 +21,10 @@ import requests
 
 from config import API_BASE, MEMBERS_DIR
 
-# Logging setup
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-file_handler = logging.FileHandler("pipeline.log")
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+# Module logger only — the pipeline orchestrator configures root logging
+# (per-run dir or stream-only under orchestration); standalone callers get
+# the root logger's default stderr handler.
 logger = logging.getLogger(__name__)
-logger.addHandler(file_handler)
 
 # Reusable session — keeps connections alive across requests (TCP reuse / connection pooling)
 session = requests.Session()

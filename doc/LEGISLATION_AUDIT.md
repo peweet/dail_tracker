@@ -1,14 +1,14 @@
 # Legislation — Impeccable audit (2026-05-26)
 
-> **Status update (2026-05-26):** P0 + all 5 P1s + 4 of 5 P2s shipped.
-> See [[project-legislation-audit-2026-05-26]] memory for the rework
-> diary, and `audit_screenshots/verify_legislation/V01..V06.png` for
-> the verification shots. Score lifted 13/20 → ~17/20. Open: P1-1
+> **Status update (2026-05-27):** P0 + all 5 P1s + all 5 P2s + P3-1
+> shipped. See [[project-legislation-audit-2026-05-26]] memory for
+> the rework diary, and `audit_screenshots/verify_legislation/V01..V06.png`
+> for the verification shots. Score lifted 13/20 → ~17/20. Open: P1-1
 > step 4 (Government/Private Member source-column segmented control —
-> blocked on `v_legislation_index_filtered` pipeline change), P2-3
-> (cross-page `<p class="section-heading">` → `<h2>`), P2-4
-> (term-badge context — needs pipeline `current_term_number`), P3
-> polish.
+> **blocked on `v_legislation_index_filtered` pipeline change**); P2-4
+> (term-badge "(current)" suffix — **blocked, needs pipeline
+> `current_term_number`**); P3-2 was "confirm only" (no code change),
+> P3-3 (year-vs-introduction tooltip) skipped as low leverage.
 
 Page audited: `/rankings-legislation` (`utility/pages_code/legislation.py`).
 Methodology: 30 Playwright screenshots across desktop / tablet / mobile,

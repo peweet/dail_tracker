@@ -444,14 +444,16 @@ def member_moved_callout(
     code = resolve_member_code(name)
     if code:
         target = member_profile_url(code, section=section)
+        # Audit 2026-05-27 P2-5: button-styled CTA (was a plain underlined
+        # text-link) so the redirect action carries the visual weight of an
+        # affordance, not an afterthought. .dt-moved-cta lives in shared_css.
         link_html = (
-            f'<a class="dt-member-link" href="{_h(target)}" target="_self" '
-            f'style="margin-top:0.6rem;display:inline-block;">'
-            f"Open {_h(name)}'s profile →</a>"
+            f'<a class="dt-moved-cta" href="{_h(target)}" target="_self">'
+            f"Open {_h(name)}'s profile <span aria-hidden=\"true\">&rarr;</span></a>"
         )
     else:
         link_html = (
-            f'<span style="color:var(--text-meta);font-style:italic;">'
+            f'<span class="dt-moved-fallback">'
             f"Couldn't find {_h(name)} in the member registry. Try the "
             f'<a class="dt-member-link" href="/member-overview">'
             f"All TDs browse</a>.</span>"
@@ -464,9 +466,9 @@ def member_moved_callout(
     label_display = section_label[:1].upper() + section_label[1:] if section_label else section_label
 
     st.html(
-        f'<div class="dt-callout" style="margin:0.5rem 0 1rem;">'
+        f'<div class="dt-callout dt-moved-callout">'
         f"<strong>Member profiles have moved.</strong><br>"
-        f'<span style="color:var(--text-meta)">{_h(label_display)} '
+        f'<span class="dt-moved-body">{_h(label_display)} '
         f"now lives on the canonical member-overview page.</span><br>"
         f"{link_html}"
         f"</div>"
@@ -601,6 +603,7 @@ def member_card_html(
     badge_html: str = "",
     avatar_url: str | None = None,
     avatar_initials: str | None = None,
+    meta_prefix_html: str = "",
 ) -> str:
     """Canonical member name card HTML string.
 
@@ -640,7 +643,11 @@ def member_card_html(
         left_inner = f'<span class="dt-name-card-initials" aria-hidden="true">{_h(avatar_initials)}</span>'
     else:
         left_inner = ""
-    meta_html = f'<div class="dt-name-card-meta">{_h(meta)}</div>' if meta else ""
+    meta_html = (
+        f'<div class="dt-name-card-meta">{meta_prefix_html}{_h(meta)}</div>'
+        if meta or meta_prefix_html
+        else ""
+    )
     pills_sec = f'<div class="dt-name-card-pills">{pills_html}</div>' if pills_html else ""
     badge_sec = f'<div class="dt-name-card-badge">{badge_html}</div>' if badge_html else ""
     return (

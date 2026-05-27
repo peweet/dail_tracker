@@ -891,6 +891,38 @@ def inject_css() -> None:
             font-size: 0.66rem;
             letter-spacing: 0.02em;
         }
+        /* Audit P3-2: X (Twitter) renders as a deliberate filled-black brand
+           chip rather than a bare letter that looks like a placeholder. */
+        .dt-icon-chip[data-glyph="X"] {
+            background: #14171a;
+            border-color: #14171a;
+            color: #ffffff;
+            font-weight: 800;
+        }
+        .dt-icon-chip[data-glyph="X"]:hover {
+            background: #000000;
+            border-color: #000000;
+        }
+        .dt-icon-chip[data-glyph="B"] {
+            /* Bluesky blue */
+            background: #1083fe;
+            border-color: #1083fe;
+            color: #ffffff;
+        }
+        .dt-icon-chip[data-glyph="B"]:hover {
+            background: #0d6dd1;
+            border-color: #0d6dd1;
+        }
+        .dt-icon-chip[data-glyph="f"] {
+            /* Facebook blue */
+            background: #1877f2;
+            border-color: #1877f2;
+            color: #ffffff;
+        }
+        .dt-icon-chip[data-glyph="f"]:hover {
+            background: #1465c8;
+            border-color: #1465c8;
+        }
         .dt-icon-chip:hover {
             background: var(--surface-deep);
             border-color: var(--accent);
@@ -1602,6 +1634,206 @@ def inject_css() -> None:
             top: -1rem;
             height: 0;
             visibility: hidden;
+        }
+
+        /* ── Member Overview: audit-fix bundle (2026-05-27) ──────────────────
+           Replaces all inline `style=""` leaks in member_overview.py and
+           adds the missing class rules referenced by markup (P2-1, P2-6).
+           Also: P1-2 not-found callout, P1-3 mobile profile-nav row,
+           P2-4 photo-credit clamp, P3-3 Open-all button weight. */
+
+        /* P2-1: typography for the browse-stage hero <h1> (was inline). */
+        .mo-browse-h1 {
+            margin: 0.1rem 0 0.25rem;
+            font-size: 1.85rem;
+            font-weight: 700;
+            font-family: 'Zilla Slab', Georgia, serif;
+        }
+        /* P2-1: profile-stage hero <h1> + meta (were inline). */
+        .mo-profile-h1   { margin: 0.15rem 0 0.2rem; }
+        .mo-profile-meta { margin: 0 0 0.55rem; }
+
+        /* P2-1: per-card tight bottom-margin + link-row top-margin used by
+           _section_legislation / _section_statutory_instruments / _section_debates. */
+        .mo-bill-card           { margin-bottom: 0.3rem; }
+        .mo-bill-card-link-row  { margin-top: 0.2rem; }
+        .mo-debate-card-meta {
+            margin-top: 0.2rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* P2-1: cabinet-member callout spacing + secondary text colour
+           (was two inline styles in the fallback render). */
+        .mo-cabinet-callout       { margin: 1rem 0 1.75rem; }
+        .mo-cabinet-callout-body  { color: var(--text-secondary); }
+
+        /* P1-2: civic-voice not-found callout (replaces the dt-callout
+           with raw inline `color:var(--text-meta)` body + inline CTA). */
+        .mo-not-found-callout {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: 2px;
+            padding: 1.1rem 1.35rem;
+            margin: 1rem 0 1.5rem;
+        }
+        .mo-not-found-body { color: var(--text-meta); }
+        .mo-not-found-cta {
+            display: inline-block;
+            margin-top: 0.6rem;
+            font-family: 'Epilogue', sans-serif;
+            font-weight: 600;
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .mo-not-found-cta:hover { text-decoration: underline; }
+
+        /* P2-1: lobbying revolving-door inner body (was inline). */
+        .lob-revolving-body {
+            margin: 0;
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+        }
+
+        /* P2-6: dedicated revolving-door badge styling. The class name was
+           referenced in member_overview markup but no rule existed, so the
+           chip inherited the plain .dt-badge background. Distinct warning
+           palette so the flag actually reads as a flag, not a routine label. */
+        .dt-badge-revolving {
+            background: var(--signal-warn-subtle, #fff7e6);
+            border-color: var(--signal-warn-border, #f0d99b);
+            color: var(--signal-warn-deep, #7a5a00);
+            font-weight: 600;
+        }
+        .dt-badge-revolving::before {
+            content: "\26A0";   /* warning sign */
+            margin-right: 0.35rem;
+            font-size: 0.85em;
+        }
+
+        /* P1-3: profile-nav row stays horizontal on mobile. Streamlit's
+           st.columns collapse one-per-row at narrow widths; this :has()
+           rule grabs the stHorizontalBlock following the marker div and
+           forces it to flex horizontally so the 3 buttons share a row. */
+        [data-testid="stHorizontalBlock"]:has(> div .mo-prof-nav-marker),
+        [data-testid="stHorizontalBlock"]:has(.mo-prof-nav-marker) ~ [data-testid="stHorizontalBlock"]:first-of-type {
+            /* fallback selector path — Streamlit nests the marker inside the
+               first column, so the parent stHorizontalBlock is the target. */
+        }
+        /* Direct rule: when the marker div exists ANYWHERE in the next
+           stHorizontalBlock, keep flex-row on mobile. */
+        [data-testid="stHorizontalBlock"]:has(.mo-prof-nav-marker) {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 0.4rem !important;
+            margin-bottom: 0.4rem !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.mo-prof-nav-marker)
+            > [data-testid="stColumn"] {
+            flex: 0 0 auto !important;
+            min-width: 0 !important;
+        }
+        @media (max-width: 640px) {
+            /* Truncate long TD names in the prev/next buttons so they fit. */
+            [data-testid="stHorizontalBlock"]:has(.mo-prof-nav-marker)
+                button {
+                font-size: 0.78rem !important;
+                padding: 0.3rem 0.55rem !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                max-width: 110px !important;
+            }
+            /* Drop the trailing spacer column on mobile — it was eating
+               ~50% of the row width on a 390px viewport. The first three
+               columns (back / prev / next) now share full available width
+               (auto-shrunk to button content), leaving no wasted space. */
+            [data-testid="stHorizontalBlock"]:has(.mo-prof-nav-marker)
+                > [data-testid="stColumn"]:nth-child(4) {
+                display: none !important;
+            }
+            /* And let the visible columns share natural-width rather than
+               their ratio-implied widths, so the buttons hug their labels. */
+            [data-testid="stHorizontalBlock"]:has(.mo-prof-nav-marker)
+                > [data-testid="stColumn"] {
+                flex: 0 1 auto !important;
+                width: auto !important;
+            }
+        }
+
+        /* P2-4: tighter photo-credit so long CC attributions don't wrap
+           into 4 lines under the avatar. Caps at 2-line clamp. */
+        .dt-profile-avatar-credit {
+            max-width: 96px;
+            font-size: 0.6rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* P3-3: "Open all sections" button needs visual weight to match
+           the brand chrome. The button-of-interest sits inside the wrap
+           below the section-nav chip row. Adds an accent border + tinted
+           background so it reads as a deliberate CTA, not a stray default. */
+        .st-key-mo_open_all_btn button {
+            background: var(--accent-soft, rgba(0, 102, 153, 0.08)) !important;
+            border: 1px solid var(--accent) !important;
+            color: var(--accent) !important;
+            font-weight: 600 !important;
+        }
+        .st-key-mo_open_all_btn button:hover {
+            background: var(--accent) !important;
+            color: #ffffff !important;
+        }
+
+        /* P2-5: legacy "Member profiles have moved" callout — replaces the
+           inline-styled callout in components.member_moved_callout. The CTA
+           is now a real-looking button (filled accent) so the redirect path
+           is obvious; the body text inherits the muted meta colour. */
+        .dt-moved-callout { margin: 0.5rem 0 1rem; }
+        .dt-moved-body    { color: var(--text-meta); }
+        .dt-moved-cta {
+            display: inline-block;
+            margin-top: 0.75rem;
+            padding: 0.42rem 0.95rem;
+            background: var(--accent);
+            color: #ffffff !important;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 4px;
+            text-decoration: none !important;
+            transition: background 100ms ease, transform 80ms ease;
+        }
+        .dt-moved-cta:hover {
+            background: var(--accent-deep, var(--accent));
+            transform: translateY(-1px);
+        }
+        .dt-moved-cta:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        .dt-moved-fallback {
+            color: var(--text-meta);
+            font-style: italic;
+        }
+
+        /* P2-3: party-colour swatch as a small dot in front of the party
+           text. Lives in front of the hero meta line and inside each
+           browse-card meta. Uses inline background-color (party_colour()
+           lookup) — the only inline style permitted here because the value
+           is data-driven, not theme-driven. */
+        .mo-party-swatch {
+            display: inline-block;
+            width: 0.55rem;
+            height: 0.55rem;
+            border-radius: 50%;
+            margin-right: 0.42rem;
+            vertical-align: 0.04em;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12) inset;
         }
 
         /* ── Reusable: full-card-clickable link (ui/components.py:
@@ -2708,6 +2940,11 @@ def inject_css() -> None:
             color: var(--text-primary);
             line-height: 1.35;
             margin-bottom: 0.25rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .leg-bill-card-footer {
             display: flex;
@@ -3960,6 +4197,47 @@ def inject_css() -> None:
             <span class="site-banner-sub">Irish parliamentary data, made searchable</span>
           </div>
         </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    # Audit MO P0-1: Streamlit's router fires a "Page not found" modal on
+    # cold load of /member-overview (and other valid pages) even when the
+    # page DOES route and render correctly underneath. The dialog blocks
+    # all interaction on the most-trafficked page in the app. This
+    # MutationObserver watches for any [role="dialog"] whose heading reads
+    # "Page not found" and removes it on sight (plus its overlay). The
+    # modal's other use-cases (genuine 404 from a typo) still hit the
+    # underlying page's empty-state copy, which is the citizen-facing
+    # surface anyway. Safe: targets only the framework modal by exact
+    # heading text; user-authored dialogs are unaffected.
+    st.markdown(
+        """
+        <script>
+        (function () {
+          const KILL_HEADINGS = new Set(['page not found']);
+          function killPageNotFound(root) {
+            const dialogs = (root || document).querySelectorAll('div[role="dialog"]');
+            dialogs.forEach(function (d) {
+              const h = d.querySelector('h1, h2, h3');
+              if (h && KILL_HEADINGS.has(h.textContent.trim().toLowerCase())) {
+                d.remove();
+                // Streamlit's modal overlay is a sibling at the same depth.
+                document.querySelectorAll('div[data-baseweb="modal"]').forEach(function (m) {
+                  m.remove();
+                });
+              }
+            });
+          }
+          killPageNotFound(document);
+          new MutationObserver(function (muts) {
+            for (const m of muts) {
+              for (const n of m.addedNodes) {
+                if (n.nodeType === 1) killPageNotFound(n.parentNode || n);
+              }
+            }
+          }).observe(document.body, { childList: true, subtree: true });
+        })();
+        </script>
         """,
         unsafe_allow_html=True,
     )

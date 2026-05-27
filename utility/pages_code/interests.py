@@ -242,7 +242,7 @@ def _load_ranking(house: str, year: int) -> pd.DataFrame:
     return pd.DataFrame()
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner="Building member index…")
 def _fetch_member_index_fallback(house: str, year: int) -> pd.DataFrame:
     """
     Fallback until v_member_interests_index is registered.

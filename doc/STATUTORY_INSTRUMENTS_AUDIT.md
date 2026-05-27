@@ -1,11 +1,13 @@
 # Statutory Instruments page — impeccable audit (2026-05-24)
 
-> **Status update (2026-05-26):** P0 + most P1/P2 items below shipped.
-> See `[[project-si-audit-2026-05-24]]` memory for the rework diary;
-> the original audit findings below are kept for reference. Items
-> still open: **P1-2** (mobile hero height), **P1-5 full** (dedicated
-> EU-scrutiny sub-view), **P2-9 / P3-2 / P3-5** (deferred). Capture
-> script + verifier live at `audit_screenshots/_si_capture.py` and
+> **Status update (2026-05-27):** P0 + P1-1/P1-2/P1-3/P1-4/P1-6 + most
+> P2 items shipped. See `[[project-si-audit-2026-05-24]]` memory for
+> the rework diary; the original audit findings below are kept for
+> reference. Items still open: **P1-5 full** (dedicated EU-scrutiny
+> sub-view — partial resolution already in place), **P2-9 / P3-2 /
+> P3-5** (deferred design decisions), **P2-8** (10 foreign-language
+> title-parse stragglers, no useful regex remaining). Capture script
+> + verifier live at `audit_screenshots/_si_capture.py` and
 > `audit_screenshots/_si_verify_titles.py`.
 
 Captured via Playwright over `/rankings-statutory-instruments` on the running

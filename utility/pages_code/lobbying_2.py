@@ -513,16 +513,29 @@ def _render_sidebar() -> None:
             pol_filtered = pol_names[:200]
             org_filtered = []
 
-        combined_labels = [""] + pol_filtered + [f"[Org] {n}" for n in org_filtered[:50]]
+        # Sidebar audit P2-4: was `[Org] Ibec` with dev-notation square
+        # brackets. Now uses a small em-dash + lowercase "org" suffix that
+        # reads as natural typography (`Ibec — org`) for sighted users; the
+        # leading bullet "•" prefix on politicians keeps the two groups
+        # visually distinct without leaking jargon.
+        ORG_SUFFIX = " — org"
+        combined_labels = (
+            [""]
+            + pol_filtered
+            + [f"{n}{ORG_SUFFIX}" for n in org_filtered[:50]]
+        )
 
+        # Sidebar audit P2-6: "Browse all members" collides with the
+        # attendance / payments label on a widget that's actually a
+        # combined people-and-organisations picker. Clarify the action.
         sel = st.selectbox(
-            "Browse all members",
+            "Jump to a person or organisation",
             combined_labels,
             label_visibility="collapsed",
         )
         if sel:
-            if sel.startswith("[Org] "):
-                _nav("org", sel[6:])
+            if sel.endswith(ORG_SUFFIX):
+                _nav("org", sel[: -len(ORG_SUFFIX)])
             else:
                 _nav("pol", sel)
             st.rerun()

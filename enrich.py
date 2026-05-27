@@ -6,7 +6,11 @@ import normalise_join_key
 from config import GOLD_CSV_DIR, GOLD_DIR, GOLD_PARQUET_DIR, SILVER_DIR
 
 # This module enriches the extracted datasets by joining them together and creating new features that can be used for analysis. It takes the cleaned and normalized datasets from the previous steps (e.g. attendance records, member metadata, committee assignments) and performs joins to create enriched datasets that combine information from multiple sources. The enriched datasets are then saved to CSV files for further analysis. This module also includes logging to track the progress of the enrichment process and any issues that may arise during the joining and feature creation steps. The resulting enriched datasets will provide a more comprehensive view of the TDs' activities and characteristics, allowing for deeper analysis of patterns and correlations across different dimensions of their work in the Dáil.
-member_profiles_df = pl.read_csv(SILVER_DIR / "aggregated_td_tables.csv")
+# Read the FACT table, not the raw aggregated table — attendance.py builds
+# sitting_days_count / other_days_count there (and drops the raw date-string
+# columns). The aggregated_td_tables CSV is still consumed directly by SQL
+# views that need the per-row iso_sitting_days_attendance dates.
+member_profiles_df = pl.read_csv(SILVER_DIR / "td_attendance_fact_table.csv")
 members_wide_df = pl.read_csv(SILVER_DIR / "flattened_members.csv")
 
 member_profiles_df = member_profiles_df.with_columns(

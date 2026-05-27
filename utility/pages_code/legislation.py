@@ -90,7 +90,7 @@ def _render_legislation_index(
     )
 
     if df.empty:
-        st.html('<p class="section-heading">0 bills</p>')
+        evidence_heading("0 bills")
         empty_state(
             "No bills found",
             "No bills match the current filters. Try widening the date range or clearing the status filter.",
@@ -152,7 +152,7 @@ def _render_legislation_index(
         return
 
     total = len(view_df)
-    st.html(f'<p class="section-heading">{total:,} bill{"s" if total != 1 else ""}</p>')
+    evidence_heading(f'{total:,} bill{"s" if total != 1 else ""}')
 
     # ── Pagination state (controls rendered below the cards) ──────────────────
     LEG_PAGE_SIZE = 10
@@ -189,7 +189,7 @@ def _render_legislation_index(
             f'<span class="{status_cls}">{html.escape(status)}</span>'
             f'<span class="leg-bill-card-date">{html.escape(date_str)}</span>'
             f"</div>"
-            f'<div class="leg-bill-card-title">{html.escape(title)}</div>'
+            f'<div class="leg-bill-card-title" title="{html.escape(title)}">{html.escape(title)}</div>'
             f'<div class="leg-bill-card-footer">'
             f'<span class="leg-bill-card-meta">{html.escape(meta_text)}</span>'
             f"{link_html}"
@@ -345,7 +345,7 @@ def _section_bill_pdfs(bill_id: str) -> None:
     """Oireachtas-issued PDFs for this bill: text versions, explanatory
     documents, and amendment lists. Sourced from v_legislation_pdfs
     (union of versions / related_docs / bill_amendments)."""
-    st.html('<p class="section-heading">Documents</p>')
+    evidence_heading("Documents")
 
     pdfs_df = fetch_bill_pdfs(bill_id)
     if pdfs_df.empty:
@@ -405,7 +405,7 @@ def _section_statutory_instruments(bill_id: str) -> None:
     """Statutory Instruments issued under this Act. Sourced from
     v_bill_statutory_instruments (Iris SI taxonomy joined to enabling
     bills via the lifted POC matcher)."""
-    st.html('<p class="section-heading">Statutory Instruments under this Act</p>')
+    evidence_heading("Statutory Instruments under this Act")
 
     fresh = fetch_si_freshness(bill_id)
     comp = fetch_si_composition(bill_id)
