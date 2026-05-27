@@ -1,5 +1,17 @@
 # Sidebar — cross-page impeccable audit (2026-05-26)
 
+> **Status update (2026-05-27):** Full uplift SHIPPED — score lifted
+> **12/20 → ~17/20**. P0-1 (sidebar-fold squeeze) closed via
+> `st.navigation(position="hidden")` + a horizontal top-nav strip in
+> the dark banner. P1-3 (sidebar grammar) closed via `sidebar_shell`
+> + `sidebar_subtitle` + `sidebar_provenance` + `sidebar_divider`
+> helpers + 11-page migration. P0-2 / P1-1 / P1-2 / P1-4 / P1-5 / P2-1
+> were already shipped 2026-05-26. Open: P1-6 chip handler
+> (pipeline-blocked); P2-2 session-key naming (memo); P2-3 chip
+> visibility (design decision); P3 polish (Streamlit-framework /
+> Playwright-only). See [[project-sidebar-audit-2026-05-26]] for the
+> full diary.
+
 Captured via Playwright across all 11 pages of the Dáil Tracker app at
 desktop (1440×900) and mobile (390×844). 29 screenshots in
 [audit_screenshots/sidebar/](../audit_screenshots/sidebar/) cover

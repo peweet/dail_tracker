@@ -975,6 +975,15 @@ def main() -> None:
     print("=== Gold layer ===")
     save_gold_outputs(activities_df, lobbying_df)
 
+    # 11. Clean up internal scratch files now that gold outputs are written.
+    # cleaned.csv / cleaned_output.csv are read+written within this script only;
+    # nothing downstream consumes them.
+    for scratch_name in ("cleaned.csv", "cleaned_output.csv"):
+        scratch = LOBBYING_RAW_DIR / scratch_name
+        if scratch.exists():
+            scratch.unlink()
+            print(f"Cleaned scratch: {scratch.name}")
+
     print("=== Lobbying pipeline complete ===")
 
 

@@ -71,7 +71,9 @@ from ui.components import (
     page_error_boundary,
     pagination_controls,
     pill,
+    sidebar_divider,
     sidebar_page_header,
+    sidebar_subtitle,
 )
 from data_access.identity_resolver import resolve_member_code
 from ui.entity_links import member_profile_url, name_join_key, source_link_html
@@ -265,6 +267,8 @@ def _render_sidebar() -> None:
     """
     with st.sidebar:
         sidebar_page_header("Lobbying<br>Register · PoC")
+        sidebar_subtitle("Prototype view of the lobbying register")
+        sidebar_divider()
 
         st.html('<p class="lp3-sidebar-label">Search</p>')
         search = st.text_input(

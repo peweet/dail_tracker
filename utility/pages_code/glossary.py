@@ -17,7 +17,7 @@ if str(_UTIL) not in sys.path:
 import streamlit as st
 
 from shared_css import inject_css
-from ui.components import hero_banner, page_error_boundary, sidebar_page_header
+from ui.components import hero_banner, page_error_boundary, sidebar_page_header, sidebar_subtitle
 
 
 # Single source of truth. `pages_code/*.py` import GLOSSARY_TERMS and pass
@@ -148,10 +148,9 @@ def glossary_page() -> None:
 
     with st.sidebar:
         sidebar_page_header("Glossary")
-        st.caption(
-            "A reference for Irish political acronyms and data terms used "
-            "throughout Dáil Tracker. Each page also shows a short glossary "
-            "strip under its hero with only the terms relevant to that page."
+        sidebar_subtitle(
+            "Reference for Irish political acronyms and data terms used "
+            "throughout Dáil Tracker."
         )
 
     hero_banner(

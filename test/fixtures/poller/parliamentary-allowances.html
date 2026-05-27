@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<!--
+  Synthetic fixture mirroring the structure of
+  https://www.oireachtas.ie/en/publications/?topic[]=parliamentary-allowances&resultsPerPage=50
+
+  Selectors and card layout match the live CMS template as of 2026-05.
+  Content (titles/dates/URLs) is representative but synthetic — replace
+  with a real captured page when one is available without changing the
+  test contract. See test/HANDS_OFF_TEST_PLAN.md §3.2.
+
+  Cards included (5):
+    [VALID]    Payments — February 2026 (top result, pdf)
+    [VALID]    Payments — January 2026 (older, pdf)
+    [FILTERED] Hint mismatch — pre-2020 statistical annex (no "payments-to-deputies" in URL)
+    [FILTERED] Wrong file type — docx instead of pdf
+    [FILTERED] Wrong host — links to www.oireachtas.ie, not data.oireachtas.ie
+-->
+<html>
+<body>
+  <div class="c-publications-list">
+
+    <!-- VALID #1 — current month -->
+    <div class="c-publications-list__item">
+      <p class="c-publications-list__title">Parliamentary Standard Allowance Payments to Deputies for February 2026</p>
+      <p class="c-publications-list__date">2 April 2026</p>
+      <p class="c-publications-list__view">
+        <a href="https://data.oireachtas.ie/ie/oireachtas/parliamentaryBusiness/psa/2026/2026-04-02_parliamentary-standard-allowance-payments-to-deputies-for-february-2026_en.pdf" data-file-type="pdf">View</a>
+      </p>
+    </div>
+
+    <!-- VALID #2 — previous month -->
+    <div class="c-publications-list__item">
+      <p class="c-publications-list__title">Parliamentary Standard Allowance Payments to Deputies for January 2026</p>
+      <p class="c-publications-list__date">5 March 2026</p>
+      <p class="c-publications-list__view">
+        <a href="https://data.oireachtas.ie/ie/oireachtas/parliamentaryBusiness/psa/2026/2026-03-05_parliamentary-standard-allowance-payments-to-deputies-for-january-2026_en.pdf" data-file-type="pdf">View</a>
+      </p>
+    </div>
+
+    <!-- FILTERED — hint mismatch (right host, right type, wrong slug) -->
+    <div class="c-publications-list__item">
+      <p class="c-publications-list__title">Statistical Annex — Parliamentary Allowances 2019</p>
+      <p class="c-publications-list__date">15 May 2020</p>
+      <p class="c-publications-list__view">
+        <a href="https://data.oireachtas.ie/ie/oireachtas/parliamentaryBusiness/psa/2020/statistical-annex-parliamentary-allowances-2019_en.pdf" data-file-type="pdf">View</a>
+      </p>
+    </div>
+
+    <!-- FILTERED — wrong file type -->
+    <div class="c-publications-list__item">
+      <p class="c-publications-list__title">Parliamentary Standard Allowance Payments to Deputies for December 2025 (DOCX version)</p>
+      <p class="c-publications-list__date">10 February 2026</p>
+      <p class="c-publications-list__view">
+        <a href="https://data.oireachtas.ie/ie/oireachtas/parliamentaryBusiness/psa/2025/2026-02-10_parliamentary-standard-allowance-payments-to-deputies-for-december-2025_en.docx" data-file-type="docx">View</a>
+      </p>
+    </div>
+
+    <!-- FILTERED — wrong host (publications landing page, not data.oireachtas.ie) -->
+    <div class="c-publications-list__item">
+      <p class="c-publications-list__title">Parliamentary Standard Allowance Payments to Deputies — landing</p>
+      <p class="c-publications-list__date">1 January 2026</p>
+      <p class="c-publications-list__view">
+        <a href="https://www.oireachtas.ie/en/publications/parliamentary-standard-allowance-payments-to-deputies/" data-file-type="html">View</a>
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>

@@ -1060,6 +1060,134 @@ def sidebar_member_filter(
     return chosen if chosen and chosen != placeholder else None
 
 
+# ── Sidebar grammar helpers (P1-3 sidebar-audit fix) ──────────────────────────
+# Codifies the slot order from doc/SIDEBAR_AUDIT.md Part 2 so every page's
+# sidebar reads the same way:
+#   1. page_header  (required)
+#   2. subtitle     (optional)
+#   3. provenance   (optional)
+#   ─── divider ───
+#   4. global_filters
+#   5. member_picker
+#   6. notable_chips
+#   ─── divider ───
+#   7. secondary    (date range, status, title search, etc.)
+
+
+def sidebar_subtitle(text: str) -> None:
+    """One-line page subtitle that sits directly under the page header.
+
+    Renders as ``<div class="page-subtitle">…</div>``. Replaces the five
+    distinct presentations the audit found for this slot
+    (votes used ``st.caption``, legislation a ``<div>``, SI a ``<div>``,
+    glossary an ``st.caption``, committees a ``<p>``).
+    """
+    if not text:
+        return
+    st.html(f'<div class="page-subtitle">{_h(text)}</div>')
+
+
+def sidebar_provenance(text: str) -> None:
+    """Small provenance note shown under the subtitle slot.
+
+    Sits in the same band as ``sidebar_subtitle`` but uses a more
+    subdued treatment (``<div class="page-provenance">``). Use for
+    "Data covers …" / "Source: …" lines that belong on every page but
+    don't deserve subtitle weight. Audit P3-3 recommendation.
+    """
+    if not text:
+        return
+    st.html(f'<div class="page-provenance">{_h(text)}</div>')
+
+
+def sidebar_divider() -> None:
+    """Light horizontal rule for the sidebar.
+
+    Replaces ``st.divider()`` (which renders a heavy 1-of-1 separator
+    that read as too loud inside the calm sidebar voice) with a
+    custom ``<hr class="sidebar-divider">`` so the rule matches the
+    rest of the sidebar's restraint.
+    """
+    st.html('<hr class="sidebar-divider">')
+
+
+def sidebar_shell(
+    *,
+    page_header: tuple[str, str | None] | None = None,
+    subtitle: str | None = None,
+    provenance: str | None = None,
+    global_filters: list = None,
+    member_picker=None,
+    notable_chips: tuple | None = None,
+    secondary: list = None,
+) -> str | None:
+    """Render the canonical sidebar shell per Part 2 of SIDEBAR_AUDIT.md.
+
+    All slots are optional; ordering is fixed. Pages call this once
+    inside ``with st.sidebar:`` (the helper opens its own sidebar context).
+
+    Slot contracts:
+
+    page_header     — ``(title, kicker)`` tuple. ``kicker`` may be ``None``
+                      to use the helper default ("Dáil Tracker"). ``title``
+                      may contain ``<br>``.
+    subtitle        — short page description; renders via
+                      :func:`sidebar_subtitle`.
+    provenance      — small provenance note ("Data covers …" /
+                      "Source: …"); renders via :func:`sidebar_provenance`.
+    global_filters  — list of zero-arg callables. Each is invoked in
+                      order inside the sidebar (use lambdas to bind
+                      page-specific args).
+    member_picker   — zero-arg callable returning ``str | None``. Render
+                      whatever picker the page wants (typically
+                      :func:`sidebar_member_filter`). Its return value
+                      propagates out of ``sidebar_shell``.
+    notable_chips   — ``(names, available, key_prefix, session_key)``
+                      tuple forwarded to :func:`render_notable_chips`.
+                      When the user clicks a chip, the session-state
+                      key is read and returned alongside the picker
+                      value.
+    secondary       — list of zero-arg callables for trailing filters
+                      (date range, status, search) that belong AFTER
+                      the member-picking band.
+
+    Returns the picked member name (from ``member_picker`` or the
+    notable chip handler), or ``None``.
+    """
+    global_filters = global_filters or []
+    secondary = secondary or []
+
+    with st.sidebar:
+        if page_header:
+            title, kicker = page_header
+            sidebar_page_header(title, kicker or "Dáil Tracker")
+        if subtitle:
+            sidebar_subtitle(subtitle)
+        if provenance:
+            sidebar_provenance(provenance)
+
+        if global_filters or member_picker or notable_chips:
+            sidebar_divider()
+
+        for fn in global_filters:
+            fn()
+
+        picked: str | None = None
+        if member_picker is not None:
+            picked = member_picker()
+        if notable_chips:
+            names, available, key_prefix, session_key = notable_chips
+            if render_notable_chips(names, available, key_prefix, session_key):
+                picked = st.session_state.get(session_key)
+
+        if secondary:
+            sidebar_divider()
+            for fn in secondary:
+                fn()
+
+        return picked
+
+
 def clickable_card_link(
     *,
     href: str,
