@@ -4,19 +4,18 @@ Primary view: register of every committee in the selected chamber.
 Stage 2a: committee record (chair, composition, roster).
 Stage 2b: TD profile (memberships, offices, tenure timeline).
 
-TRANSITIONAL: this page reads SILVER_MEMBERS_CSV and unpivots committee_*/office_*
-columns in-page while the v_committee_* analytical views are being built.
-The CSV scaffold and any in-page modelling derived from it is technical debt
-authorised in committees.yaml § transition_state on 2026-05-03 and MUST be
-removed once the views land. Every section that uses the scaffold renders a
-todo_callout (see _transition_notice).
+Data flows through the four registered analytical views
+(v_committee_assignments, v_committee_office_holders,
+v_committee_member_detail, v_committee_party_seats), produced from
+pipeline_sandbox/committees_long_format_etl.py. The wide→long reshape
+that used to live in this page was the actual hot path; moving it to
+the sandbox + views collapses each render to a flat retrieval.
 """
 
 from __future__ import annotations
 
-import re
+import os
 import sys
-import unicodedata
 from html import escape as _h
 from pathlib import Path
 from urllib.parse import quote
@@ -50,208 +49,24 @@ from ui.components import (
     stat_item,
     todo_callout,
 )
+from data_access.committees_data import (
+    fetch_committee_assignments,
+    fetch_committee_summary,
+    fetch_office_holders,
+    fetch_party_seats,
+)
 from data_access.identity_resolver import resolve_member_code
 from ui.entity_links import member_profile_url
 from ui.export_controls import export_button
 from ui.table_config import committee_membership_column_config, committee_roster_column_config
 
-from config import COMMITTEE_TYPES, SILVER_MEMBERS_CSV
+from config import COMMITTEE_TYPES
 
 
 # ── stage keys ────────────────────────────────────────────────────────
 _STAGE_REGISTER = "register"
 _STAGE_COMMITTEE = "committee"
 _STAGE_TD = "td"
-
-
-# ── helpers ───────────────────────────────────────────────────────────
-
-
-def _coalesce(*values):
-    for v in values:
-        if not pd.isna(v):
-            return v
-    return None
-
-
-def _committee_slug(name: str) -> str | None:
-    if pd.isna(name):
-        return None
-    s = str(name)
-    suffix = ""
-    chamber_patterns = [
-        (("Dáil Committee on ", "Dail Committee on "), "-dail"),
-        (("Seanad Committee on ",), "-seanad"),
-    ]
-    matched_chamber = False
-    for prefixes, suf in chamber_patterns:
-        for prefix in prefixes:
-            if s.startswith(prefix):
-                s = s[len(prefix) :]
-                suffix = suf
-                matched_chamber = True
-                break
-        if matched_chamber:
-            break
-    if not matched_chamber:
-        for prefix in ("Joint Committee on ", "Select Committee on ", "Committee on "):
-            if s.startswith(prefix):
-                s = s[len(prefix) :]
-                break
-    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii").lower()
-    s = re.sub(r"[^\w\s-]", "", s)
-    s = re.sub(r"\s+", "-", s.strip())
-    return (s + suffix) if s else None
-
-
-def _committee_url(name, dail_number) -> str | None:
-    if pd.isna(name) or pd.isna(dail_number):
-        return None
-    slug = _committee_slug(name)
-    return f"https://www.oireachtas.ie/en/committees/{int(dail_number)}/{slug}/" if slug else None
-
-
-# ── data loading (TRANSITIONAL CSV SCAFFOLD) ──────────────────────────
-
-
-@st.cache_data(show_spinner=False)
-def _load(chamber: str):
-    """Read silver members CSV and unpivot committee_*/office_* columns.
-
-    TRANSITIONAL: replace with parameter-bound SELECTs on
-        v_committee_assignments, v_committee_member_detail, v_committee_sources,
-        v_committee_party_seats
-    once registered. See committees.yaml § transition_state.
-    """
-    df = pd.read_csv(SILVER_MEMBERS_CSV[chamber], na_values=["Null"])
-
-    prefixes = sorted(
-        {m.group(1) for c in df.columns if (m := re.match(r"(committee_\d+)_", c))},
-        key=lambda p: int(p.split("_")[1]),
-    )
-    office_prefixes = sorted(
-        {m.group(1) for c in df.columns if (m := re.match(r"(office_\d+)_", c))},
-        key=lambda p: int(p.split("_")[1]),
-    )
-
-    office_records: list[dict] = []
-    for _, row in df.iterrows():
-        name = _coalesce(row.get("full_name")) or "Unknown"
-        party = _coalesce(row.get("party")) or "Unknown"
-        for op in office_prefixes:
-            office_name = row.get(f"{op}_name")
-            if pd.isna(office_name):
-                continue
-            office_records.append(
-                {
-                    "name": name,
-                    "party": party,
-                    "office": str(office_name).strip(),
-                    "start": _coalesce(row.get(f"{op}_start_date")),
-                    "end": _coalesce(row.get(f"{op}_end_date")),
-                }
-            )
-    offices = pd.DataFrame(office_records)
-
-    status_map = {"Live": "Active", "Dissolved": "Ended"}
-    records: list[dict] = []
-    for _, row in df.iterrows():
-        base = {
-            "name": _coalesce(row.get("full_name")) or "Unknown",
-            "party": _coalesce(row.get("party")) or "Unknown",
-            "constituency": _coalesce(row.get("constituency_name")),
-            "dail_number": _coalesce(row.get("dail_number")),
-        }
-        for prefix in prefixes:
-            c_name = row.get(f"{prefix}_name_en")
-            if pd.isna(c_name):
-                continue
-            # P1-6: strip redundant chamber suffix — chamber pill already
-            # establishes context, so "(Dáil Éireann)" / "(Seanad Éireann)"
-            # at the end of every committee title is duplication noise that
-            # pushes the meaningful committee name later in the line.
-            c_name_clean = re.sub(
-                r"\s*\((Dáil|Seanad)\s+Éireann\)\s*$",
-                "",
-                str(c_name),
-            ).strip()
-            role = _coalesce(row.get(f"{prefix}_role_title")) or "Member"
-            records.append(
-                {
-                    **base,
-                    "committee": c_name_clean,
-                    "committee_url": _committee_url(c_name_clean, base["dail_number"]),
-                    "type": _coalesce(row.get(f"{prefix}_type")) or "Unknown",
-                    "status": status_map.get(row.get(f"{prefix}_main_status"), "Unknown"),
-                    "role": role,
-                    "is_chair": "cathaoirleach" in str(role).lower(),
-                    "start": _coalesce(
-                        row.get(f"{prefix}_role_start_date"),
-                        row.get(f"{prefix}_member_start_date"),
-                    ),
-                    "end": _coalesce(
-                        row.get(f"{prefix}_role_end_date"),
-                        row.get(f"{prefix}_member_end_date"),
-                    ),
-                }
-            )
-
-    df_long = pd.DataFrame(records)
-    if not df_long.empty:
-        df_long["start"] = pd.to_datetime(df_long["start"], errors="coerce", utc=True).dt.tz_localize(None)
-        df_long["end"] = pd.to_datetime(df_long["end"], errors="coerce", utc=True).dt.tz_localize(None)
-
-    return df_long, offices
-
-
-@st.cache_data(show_spinner=False)
-def _committee_summary(df_long: pd.DataFrame) -> pd.DataFrame:
-    """Per-committee rollup. TRANSITIONAL — replace with v_committee_member_detail."""
-    if df_long.empty:
-        return pd.DataFrame(
-            columns=[
-                "committee",
-                "members",
-                "parties",
-                "chairs",
-                "status",
-                "type",
-                "url",
-                "chair_name",
-                "chair_party",
-                "party_seats",
-            ]
-        )
-
-    # Single-column groupbys for count only — permitted by transition_state.
-    summary = (
-        df_long.groupby("committee")
-        .agg(
-            members=("name", "count"),
-            parties=("party", "nunique"),
-            chairs=("is_chair", "sum"),
-            status=("status", "first"),
-            type=("type", "first"),
-            url=("committee_url", "first"),
-        )
-        .reset_index()
-    )
-
-    chair_lookup: dict[str, tuple[str, str]] = {}
-    for cname, sub in df_long[df_long["is_chair"]].groupby("committee"):
-        first = sub.iloc[0]
-        chair_lookup[cname] = (str(first["name"]), str(first.get("party") or ""))
-
-    party_seats_lookup: dict[str, list[tuple[str, int]]] = {}
-    for cname, sub in df_long.groupby("committee"):
-        counts = sub["party"].value_counts()
-        party_seats_lookup[cname] = [(str(p), int(c)) for p, c in counts.items()]
-
-    summary["chair_name"] = summary["committee"].map(lambda c: chair_lookup.get(c, ("", ""))[0])
-    summary["chair_party"] = summary["committee"].map(lambda c: chair_lookup.get(c, ("", ""))[1])
-    summary["party_seats"] = summary["committee"].map(party_seats_lookup)
-
-    return summary.sort_values(["status", "members"], ascending=[True, False]).reset_index(drop=True)
 
 
 # ── transitional banner ───────────────────────────────────────────────
@@ -279,7 +94,6 @@ def _transition_notice() -> None:
     Show the full dev detail in the rendered notice when
     DT_SHOW_TODO_DETAIL=1 in the environment.
     """
-    import os
     detail_html = ""
     if os.getenv("DT_SHOW_TODO_DETAIL") == "1":
         detail_html = (
@@ -420,13 +234,19 @@ def _stage_register(
             )
 
     # ── Apply filters ─────────────────────────────────────────────────
+    # status / type are committee-level (1:1 with summary rows), so applying
+    # those filters post-rollup gives the same set as pre-rollup filtering.
     filtered = df_long.copy()
     if status_filter != "All":
         filtered = filtered[filtered["status"] == status_filter]
     if type_filter != "All types":
         filtered = filtered[filtered["type"] == type_filter]
 
-    summary = _committee_summary(filtered)
+    summary = fetch_committee_summary(chamber)
+    if status_filter != "All":
+        summary = summary[summary["status"] == status_filter]
+    if type_filter != "All types":
+        summary = summary[summary["type"] == type_filter]
     if search.strip():
         summary = summary[summary["committee"].str.contains(search.strip(), case=False, na=False)]
     summary = summary.reset_index(drop=True)
@@ -563,9 +383,15 @@ def _stage_committee(
                 "Member-level data for this committee hasn't loaded yet.",
             )
         else:
-            # value_counts on a single column — presentation-layer aggregate
-            seats = members["party"].value_counts().reset_index()
-            seats.columns = ["party", "seats"]
+            # Per-committee party seats sourced from v_committee_party_seats —
+            # the rollup is view-side, the page only reads it.
+            seats = fetch_party_seats(chamber, selected)
+            if seats.empty:
+                # Defensive: chamber+committee filter returned nothing
+                # (e.g. cache mismatch). Fall back gracefully.
+                seats = pd.DataFrame(columns=["party", "seats"])
+            else:
+                seats = seats[["party", "seats"]]
             domain = seats["party"].tolist()
             rng = [party_colour(p) for p in domain]
             chart = (
@@ -944,7 +770,8 @@ def committees_page() -> None:
     chamber = st.session_state["comm_chamber"]
     member_label = "Senators" if chamber == "Seanad" else "TDs"
 
-    df_long, offices = _load(chamber)
+    df_long = fetch_committee_assignments(chamber)
+    offices = fetch_office_holders(chamber)
 
     with st.sidebar:
         sidebar_page_header("Committee<br>Register")

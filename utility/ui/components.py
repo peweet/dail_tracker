@@ -18,6 +18,61 @@ def clean_meta(*parts: str) -> str:
     return " · ".join(p for p in parts if p and p.lower() not in ("nan", ""))
 
 
+def period_year_pills(df, key: str) -> tuple[str | None, str | None]:
+    """Year filter pills above a lobbying-style returns table.
+
+    Reads unique years from ``df["period_start_date"]`` (datetime-like or
+    string) and renders an ``st.segmented_control`` with "All" + each year.
+    Returns a SQL-ready ``(start_iso, end_iso)`` tuple, or ``(None, None)``
+    when "All" is selected or when no years can be derived. Selection is
+    pushed back to SQL via the returned tuple — callers do no pandas row
+    masking on the year here.
+
+    Used to be byte-equivalent ``_year_pills`` / ``_year_selector`` in
+    lobbying_2 and lobbying_3.
+    """
+    import pandas as pd
+
+    if df.empty or "period_start_date" not in df.columns:
+        return None, None
+    try:
+        years = sorted(
+            pd.to_datetime(df["period_start_date"], errors="coerce").dropna().dt.year.unique().tolist(),
+            reverse=True,
+        )
+    except Exception:
+        return None, None
+    if not years:
+        return None, None
+    options = ["All"] + [str(y) for y in years]
+    chosen = (
+        st.segmented_control("Year", options, default=options[0], key=key, label_visibility="collapsed")
+        or options[0]
+    )
+    if chosen == "All":
+        return None, None
+    return f"{chosen}-01-01", f"{chosen}-12-31"
+
+
+def fmt_civic_date(val) -> str:
+    """Format a date for civic display as ``"7 Jul 2024"`` (no leading zero on
+    the day). Used across legislation, statutory instruments, votes, and
+    lobbying for a consistent ink-on-paper date shape.
+
+    Returns ``"—"`` for None / NaN; passes through unparseable values as
+    ``str(val)`` so SQL strings or already-formatted labels don't blow up.
+    """
+    import pandas as pd  # local import keeps pages that never call this off the pandas import path
+
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return "—"
+    try:
+        ts = pd.Timestamp(val)
+        return f"{ts.day} {ts.strftime('%b %Y')}"
+    except Exception:
+        return str(val)
+
+
 def page_error_boundary(page_fn):
     """Decorator: catch any unhandled exception in a page entry point and
     show a calm civic-voice empty_state instead of Streamlit's red traceback.
@@ -659,6 +714,52 @@ def member_card_html(
         f"</div>"
         f"{badge_sec}"
         f"</div>"
+    )
+
+
+def ranked_member_card(
+    name: str,
+    meta: str,
+    *,
+    rank: int | None = None,
+    pills_html: str = "",
+    badge_html: str = "",
+    profile_href: str = "",
+    avatar_url: str | None = None,
+    avatar_initials: str | None = None,
+) -> str:
+    """Canonical ranked-list member card — derives avatar from the member name
+    and routes pills/badge through ``member_card_html``.
+
+    Use ``pills_html`` (pre-built string) so callers can mix the canonical
+    :func:`pill` helper with domain-specific CSS classes (e.g. ``pay-taa-pill``).
+    When ``profile_href`` is provided, a small "Profile ↗" pill is appended to
+    the pill row (the link goes to the canonical /member-overview profile).
+
+    Replaces the byte-similar ``_pay_card_html`` / ``_int_member_card_html`` /
+    ``_lob_card_html`` / ``_ranked_card_html`` closing boilerplate that used
+    to live in 4 page files.
+    """
+    if avatar_url is None or avatar_initials is None:
+        from ui.avatars import avatar_data_url, initials as _initials_fn
+
+        if avatar_url is None:
+            avatar_url = avatar_data_url(name)
+        if avatar_initials is None:
+            avatar_initials = _initials_fn(name)
+    if profile_href:
+        pills_html = pills_html + (
+            f'<a class="dt-member-link int-stat-pill-link" href="{_h(profile_href)}" '
+            f'target="_self" aria-label="View profile of {_h(name)}">Profile ↗</a>'
+        )
+    return member_card_html(
+        name=name,
+        meta=meta,
+        rank=rank,
+        pills_html=pills_html,
+        badge_html=badge_html,
+        avatar_url=avatar_url,
+        avatar_initials=avatar_initials,
     )
 
 
