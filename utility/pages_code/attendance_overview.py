@@ -23,11 +23,11 @@ from ui.components import (
     empty_state,
     evidence_heading,
     hero_banner,
+    hide_sidebar,
+    member_jump_panel,
     member_profile_header,
     page_error_boundary,
     render_stat_strip,
-    sidebar_member_filter,
-    sidebar_shell,
     stat_item,
 )
 from ui.export_controls import export_button
@@ -488,27 +488,9 @@ def attendance_overview_page() -> None:
 
     selected_td: str | None = st.session_state.get("_ov_td")
 
-    # ── Sidebar (P1-3 grammar via sidebar_shell) ──────────────────────────────
-    all_members_df = _fetch_alltime_ranking()
-    all_names = all_members_df["member_name"].tolist() if not all_members_df.empty else []
-
-    def _member_picker() -> str | None:
-        return sidebar_member_filter(
-            "Browse all members",
-            all_names,
-            key_search="ov_sidebar_search",
-            key_select="ov_member_sel",
-        )
-
-    picked = sidebar_shell(
-        page_header=("Attendance<br>Overview", None),
-        subtitle="All-time Dáil attendance",
-        member_picker=_member_picker,
-        notable_chips=(NOTABLE_TDS, all_names, "chip_ov", "_ov_td"),
-    )
-    if picked and st.session_state.get("_ov_td") != picked:
-        st.session_state["_ov_td"] = picked
-        st.rerun()
+    # Sidebar→filter-bar migration: identity via top-nav + hero; the member
+    # picker + notable chips move to a main-panel jump under the index hero.
+    hide_sidebar()
 
     # ── Profile view ───────────────────────────────────────────────────────────
     if selected_td:
@@ -530,6 +512,21 @@ def attendance_overview_page() -> None:
             "Select a year below for that year's ranking, or view the all-time totals."
         ),
     )
+
+    # ── Member jump (was the sidebar) ───────────────────────────────────────────
+    all_members_df = _fetch_alltime_ranking()
+    all_names = all_members_df["member_name"].tolist() if not all_members_df.empty else []
+    picked = member_jump_panel(
+        all_names,
+        search_key_prefix="ov",
+        session_key="_ov_td",
+        label="Browse all members",
+        notable=NOTABLE_TDS,
+        chip_key_prefix="chip_ov",
+    )
+    if picked and st.session_state.get("_ov_td") != picked:
+        st.session_state["_ov_td"] = picked
+        st.rerun()
     render_stat_strip(
         stat_item(f"{n_members:,}", "members on record"),
         stat_item(f"{n_days:,}", "total sitting days"),

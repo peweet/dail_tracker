@@ -28,17 +28,15 @@ from ui.components import (
     clickable_card_link,
     empty_state,
     evidence_heading,
+    field_label,
+    filter_bar,
     fmt_civic_date as _fmt_date,
     hero_banner,
+    hide_sidebar,
     page_error_boundary,
     paginate,
     pagination_controls,
     render_stat_strip,
-    sidebar_date_range,
-    sidebar_divider,
-    sidebar_page_header,
-    sidebar_provenance,
-    sidebar_subtitle,
     stat_item,
 )
 from ui.entity_links import bill_detail_url, source_link_html
@@ -64,17 +62,22 @@ def _render_legislation_index(
     end_date: str | None = None,
     status: str | None = None,
     title_search: str | None = None,
+    *,
+    show_hero: bool = True,
 ) -> None:
     # ── Hero ──────────────────────────────────────────────────────────────────
-    hero_banner(
-        kicker="Bills · Oireachtas",
-        title="Bills Before the Oireachtas",
-        dek=(
-            "Track where each Bill stands in the legislative journey — "
-            "from First Reading in the Dáil through the Seanad to Presidential signature. "
-            "Select a phase below, then click any bill to open the full record."
-        ),
-    )
+    # show_hero=False lets a caller (e.g. the filter-bar prototype) render the
+    # hero itself and slot a filter bar between the hero and the results.
+    if show_hero:
+        hero_banner(
+            kicker="Bills · Oireachtas",
+            title="Bills Before the Oireachtas",
+            dek=(
+                "Track where each Bill stands in the legislative journey — "
+                "from First Reading in the Dáil through the Seanad to Presidential signature. "
+                "Select a phase below, then click any bill to open the full record."
+            ),
+        )
 
     # ── Fetch ─────────────────────────────────────────────────────────────────
     df = fetch_legislation_index_filtered(
@@ -676,6 +679,10 @@ def _render_bill_detail(bill_id: str) -> None:
 @page_error_boundary
 def legislation_page() -> None:
     inject_css()
+    # Sidebar→filter-bar migration: filters live in a main-panel filter bar
+    # under the hero. hide_sidebar() drops the empty rail + the brand band's
+    # sidebar-clearing gutter for this page (see ui.components.hide_sidebar).
+    hide_sidebar()
 
     # URL-driven entry: ?bill=<bill_id> opens the detail view (mirrors the
     # member_overview ?member=… pattern). Session state is the source of
@@ -686,29 +693,34 @@ def legislation_page() -> None:
 
     selected_bill_id: str | None = st.session_state.get("leg_selected_bill_id")
 
-    # ── Sidebar ───────────────────────────────────────────────────────────────
-    start_date: str | None = None
-    end_date: str | None = None
-    status_param: str | None = None
-    search_param: str | None = None
+    # ── Bill detail ────────────────────────────────────────────────────────────
+    if selected_bill_id:
+        _render_bill_detail(selected_bill_id)
+        return
 
-    with st.sidebar:
-        sidebar_page_header("Legislation")
+    # ── Hero ───────────────────────────────────────────────────────────────────
+    hero_banner(
+        kicker="Bills · Oireachtas",
+        title="Bills Before the Oireachtas",
+        dek=(
+            "Track where each Bill stands in the legislative journey — "
+            "from First Reading in the Dáil through the Seanad to Presidential signature. "
+            "Select a phase below, then click any bill to open the full record."
+        ),
+    )
 
-        if selected_bill_id:
-            sidebar_subtitle("Bill detail")
-        else:
-            sidebar_subtitle("Bills before the Oireachtas")
-            sidebar_provenance("Source: Oireachtas Open Data API")
-            sidebar_divider()
-
-            start_date, end_date = sidebar_date_range(
+    # ── Filter bar (was the sidebar) ───────────────────────────────────────────
+    with filter_bar([4, 3, 5]) as cols:
+        with cols[0]:
+            field_label("Introduced between")
+            date_val = st.date_input(
                 "Introduced between",
+                value=(),
+                label_visibility="collapsed",
                 key="leg_date_range",
-                empty_default=True,
             )
-
-            st.html('<p class="sidebar-label">Status</p>')
+        with cols[1]:
+            field_label("Status")
             statuses = fetch_all_statuses()
             status_sel = st.selectbox(
                 "Status",
@@ -716,24 +728,26 @@ def legislation_page() -> None:
                 label_visibility="collapsed",
                 key="leg_status_filter",
             )
-            status_param = status_sel if status_sel != "All" else None
-
-            st.html('<p class="sidebar-label">Search title</p>')
+        with cols[2]:
+            field_label("Search title")
             title_search = st.text_input(
                 "Search title",
                 placeholder="e.g. Housing, Health, Education…",
                 label_visibility="collapsed",
                 key="leg_title_search",
             )
-            search_param = title_search.strip() or None
 
-    # ── Main content ──────────────────────────────────────────────────────────
-    if selected_bill_id:
-        _render_bill_detail(selected_bill_id)
-    else:
-        _render_legislation_index(
-            start_date=start_date,
-            end_date=end_date,
-            status=status_param,
-            title_search=search_param,
-        )
+    start_date: str | None = None
+    end_date: str | None = None
+    if isinstance(date_val, (list, tuple)) and len(date_val) == 2:
+        start_date, end_date = str(date_val[0]), str(date_val[1])
+    status_param = status_sel if status_sel != "All" else None
+    search_param = title_search.strip() or None
+
+    _render_legislation_index(
+        start_date=start_date,
+        end_date=end_date,
+        status=status_param,
+        title_search=search_param,
+        show_hero=False,
+    )

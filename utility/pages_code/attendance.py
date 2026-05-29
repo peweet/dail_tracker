@@ -35,9 +35,9 @@ from ui.components import (
     evidence_heading,
     glossary_strip,
     hero_banner,
+    hide_sidebar,
+    member_jump_panel,
     page_error_boundary,
-    sidebar_member_filter,
-    sidebar_shell,
     stat_strip,
     todo_callout,
     year_selector,
@@ -52,11 +52,13 @@ from config import NOTABLE_TDS, SITTING_DAYS_BY_YEAR
 from data_access.attendance_data import get_attendance_conn
 
 _CAVEAT = (
-    "Attendance figures reflect days a member was recorded present in the Dáil chamber "
-    "on scheduled sitting days. The record does not capture committee hearings, ministerial "
-    "duties, illness, bereavement, parental leave, or constituency work. "
-    "Low attendance figures have many legitimate explanations that are not visible in this data. "
-    "This page presents the official record — it does not make a judgement about the reasons behind it."
+    "Attendance figures combine days a member was recorded present in the Dáil chamber "
+    "on scheduled sitting days with other recorded business (committee days etc.) "
+    "exactly as published in the official Oireachtas member-attendance PDFs. "
+    "The record does not capture ministerial duties, illness, bereavement, parental leave, "
+    "or constituency work. Low figures have many legitimate explanations that are not visible "
+    "in this data. This page presents the official record — it does not make a judgement "
+    "about the reasons behind it."
 )
 
 _MINISTER_NOTE = (
@@ -114,7 +116,8 @@ def _fetch_member_years(td_name: str) -> pd.DataFrame:
     return (
         get_attendance_conn()
         .execute(
-            "SELECT year, attended_count FROM v_attendance_member_year_summary"
+            "SELECT year, attended_count, sitting_days, other_days"
+            " FROM v_attendance_member_year_summary"
             " WHERE member_name = ? ORDER BY year DESC LIMIT 100",
             [td_name],
         )
@@ -398,6 +401,8 @@ def render_member_attendance(
     # ── Stats for selected year (from pipeline — no pandas aggregation) ──────────
     yr_row = member_years_df[member_years_df["year"] == selected_year]
     n_attended = int(yr_row["attended_count"].iloc[0]) if not yr_row.empty else 0
+    n_sitting = int(yr_row["sitting_days"].iloc[0]) if not yr_row.empty else 0
+    n_other = int(yr_row["other_days"].iloc[0]) if not yr_row.empty else 0
 
     ts_df = _fetch_timeline_stats(td_name, selected_year)
     ts_row = ts_df.iloc[0] if not ts_df.empty else None
@@ -410,7 +415,12 @@ def render_member_attendance(
 
     stat_strip(
         [
-            (str(n_attended), f"Days attended · {selected_year}", "var(--text-primary)", "plenary + committee days"),
+            (
+                str(n_attended),
+                f"Days recorded · {selected_year}",
+                "var(--text-primary)",
+                f"{n_sitting} plenary + {n_other} other",
+            ),
             (first_d, "First sitting", "var(--text-secondary)"),
             (last_d, "Most recent", "var(--text-secondary)"),
         ]
@@ -432,19 +442,10 @@ def render_member_attendance(
         )
     else:
         st.caption(
-            f"{n_attended} days attended in {selected_year} (plenary + committee). "
+            f"{n_attended} days recorded in {selected_year} "
+            f"({n_sitting} plenary + {n_other} other). "
             "Each mark below is a day the member was recorded present. "
             "Gaps between marks are Dáil recess periods."
-        )
-        # Pipeline detail (dev): the source CSV mixes plenary sitting-day rows
-        # with committee/other-day rows under the same date. Without a
-        # session_type column on v_attendance_timeline the UI can't dedupe
-        # them, so some days appear twice. attendance_status is hardcoded
-        # to 'Present' until the pipeline exposes the real session label.
-        todo_callout(
-            "Data quality note — some days appear more than once because "
-            "the source mixes plenary sittings with committee days. Counts "
-            "may overstate slightly until the next pipeline refresh."
         )
 
         tl_all = timeline.copy()
@@ -485,10 +486,13 @@ def _render_year_breakdown(
     for _, r in years_df.iterrows():
         y = int(r["year"])
         days = int(r["attended_count"])
+        sitting = int(r["sitting_days"]) if "sitting_days" in years_df.columns else days
         total = SITTING_DAYS_BY_YEAR.get(y)
-        # Rate uses the contract-permitted hardcoded sitting-day totals
-        # (permitted_hardcoded_values.year_sitting_days in attendance.yaml).
-        pct = days / total if total else None
+        # Rate uses sitting_days (chamber only) over the official chamber
+        # sitting-day count — both sides of the ratio are plenary, so the
+        # bar stays in [0,1] even though the headline `days` figure
+        # includes committee/other days.
+        pct = sitting / total if total else None
         rows.append({"Year": y, "Days": days, "Total": str(total) if total else "—", "Rate": pct})
 
     cards_html: list[str] = []
@@ -635,26 +639,10 @@ def attendance_page() -> None:
             state_keys=("selected_td_att",),
         )
 
-    # ── Sidebar (P1-3 grammar via sidebar_shell) ──────────────────────────────
-    def _member_picker() -> str | None:
-        return sidebar_member_filter(
-            "Browse all members",
-            opts["members"],
-            key_search="att_sidebar_search",
-            key_select="att_member_sel",
-        )
-
-    picked = sidebar_shell(
-        page_header=("Plenary<br>Attendance", None),
-        subtitle="Days each TD spent in the chamber",
-        member_picker=_member_picker,
-        notable_chips=(NOTABLE_TDS, opts["members"], "chip_att", "selected_td_att"),
-    )
-    if picked and st.session_state.get("selected_td_att") != picked:
-        st.session_state["selected_td_att"] = picked
-        st.rerun()
-
     # ── Page header ────────────────────────────────────────────────────────────
+    # Sidebar→filter-bar migration: identity via top-nav tab + hero; the member
+    # picker + notable chips move into a main-panel jump under the hero.
+    hide_sidebar()
     hero_banner(
         kicker="DÁIL PLENARY ATTENDANCE",
         title="The attendance record",
@@ -667,8 +655,21 @@ def attendance_page() -> None:
         ]
     )
 
-    # Sidebar-driven member selection also routes cross-page — the in-page
-    # profile branch is gone (lifted into /member-overview Phase 6).
+    # ── Member jump (was the sidebar) ───────────────────────────────────────────
+    picked = member_jump_panel(
+        opts["members"],
+        search_key_prefix="att",
+        session_key="selected_td_att",
+        label="Browse all members",
+        notable=NOTABLE_TDS,
+        chip_key_prefix="chip_att",
+    )
+    if picked and st.session_state.get("selected_td_att") != picked:
+        st.session_state["selected_td_att"] = picked
+        st.rerun()
+
+    # Member selection routes cross-page — the in-page profile branch is gone
+    # (lifted into /member-overview Phase 6).
     selected_td = st.session_state.get("selected_td_att")
     if selected_td:
         member_moved_callout(
@@ -703,9 +704,12 @@ def attendance_page() -> None:
 
     st.caption(
         f"{n_members} members on record{rate_note}. "
-        "Plenary attendance only — committee hearings, ministerial duties, illness, "
-        "and constituency work are not in the record. Low figures are not evidence of "
-        "poor engagement (full caveat in About & data provenance below)."
+        "Days recorded include both plenary chamber sittings and other "
+        "recorded business (committee days etc.) as published in the "
+        "official member-attendance PDFs. Ministerial duties, illness, "
+        "and constituency work are still outside the record, so low "
+        "figures are not evidence of poor engagement (full caveat in "
+        "About & data provenance below)."
     )
 
     _render_good_bad(ranking_df, selected_year)

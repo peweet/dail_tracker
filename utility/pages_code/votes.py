@@ -17,14 +17,11 @@ from ui.components import (
     back_button,
     clickable_card_link,
     empty_state,
+    field_label,
+    filter_bar,
+    hide_sidebar,
     member_moved_callout,
     page_error_boundary,
-    sidebar_date_range,
-    sidebar_divider,
-    sidebar_member_filter,
-    sidebar_page_header,
-    sidebar_provenance,
-    sidebar_subtitle,
     todo_callout,
     year_selector,
 )
@@ -626,99 +623,92 @@ def votes_page() -> None:
     if st.session_state["v_view"] == "Divisions":
         st.session_state["v_view"] = "Dáil"
 
-    # ── Sidebar (P1-3 grammar) ────────────────────────────────────────────────
-    with st.sidebar:
-        sidebar_page_header("Dáil<br>Divisions")
-        sidebar_subtitle("Vote-by-vote record")
+    # ── Controls (was the sidebar) ──────────────────────────────────────────────
+    # Sidebar→filter-bar migration: the View switch + filters move into a
+    # main-panel bar. The View toggle drives mode routing, so it sits above the
+    # per-mode hero; identity is carried by the top-nav tab + each mode's hero.
+    hide_sidebar()
 
-        hero_df = _fetch_hero_stats(conn)
-        if not hero_df.empty:
-            r = hero_df.iloc[0]
-            fd = r.get("first_vote_date")
-            ld = r.get("last_vote_date")
-            if fd and ld:
-                sidebar_provenance(f"Data covers {str(fd)[:7]} to {str(ld)[:7]}")
+    prev_view = st.session_state["v_view"]
+    outcome_filter = None
+    sel_party = ""
+    sel_name = None
+    # date_from/date_to feed Mode A (Dáil index); they stay None now — the old
+    # TDs-view date range fed the lifted-out in-page TD profile (Phase 7).
+    date_from = date_to = None
 
-        sidebar_divider()
-
-        # ── View toggle ────────────────────────────────────────────────────
-        st.html('<p class="sidebar-label">View</p>')
-        prev_view = st.session_state["v_view"]
-        view_sel = st.segmented_control(
-            "View",
-            options=["Dáil", "TDs"],
-            default=prev_view,
-            key="v_view_widget",
-            label_visibility="collapsed",
-        )
-        view = view_sel or prev_view
-        if view != prev_view:
-            st.session_state["v_view"] = view
-            # Switching to Dáil clears any selected TD so the index reappears.
-            if view == "Dáil" and sel_member_id:
-                st.session_state["_v_clear_member"] = True
-                st.query_params.pop("member", None)
-            st.rerun()
-
-        sidebar_divider()
-
-        outcome_filter = None
-        sel_party = ""
-        sel_name = None
-        date_from = date_to = None
-
-        if view == "Dáil":
-            # Outcome + party filters live with the divisions index.
-            st.html('<p class="sidebar-label">Outcome</p>')
-            outcome_sel = st.selectbox(
-                "Outcome",
-                ["All", "Carried", "Lost"],
-                key="v_outcome",
-                label_visibility="collapsed",
-            )
-            outcome_filter = None if outcome_sel == "All" else outcome_sel
-
-            party_names = _fetch_party_names(conn)
-            if party_names:
-                st.html('<p class="sidebar-label">Party</p>')
-                party_sel = st.selectbox(
-                    "Party",
-                    ["All parties"] + party_names,
-                    key="v_party",
-                    label_visibility="collapsed",
+    if prev_view == "Dáil":
+        party_names = _fetch_party_names(conn)
+        with filter_bar([2, 2, 3, 5] if party_names else [2, 2, 8]) as cols:
+            with cols[0]:
+                field_label("View")
+                view_sel = st.segmented_control(
+                    "View", options=["Dáil", "TDs"], default=prev_view,
+                    key="v_view_widget", label_visibility="collapsed",
                 )
+            with cols[1]:
+                field_label("Outcome")
+                outcome_sel = st.selectbox(
+                    "Outcome", ["All", "Carried", "Lost"],
+                    key="v_outcome", label_visibility="collapsed",
+                )
+            outcome_filter = None if outcome_sel == "All" else outcome_sel
+            if party_names:
+                with cols[2]:
+                    field_label("Party")
+                    party_sel = st.selectbox(
+                        "Party", ["All parties"] + party_names,
+                        key="v_party", label_visibility="collapsed",
+                    )
                 sel_party = "" if party_sel == "All parties" else party_sel
-        else:  # TDs view — search a single TD
-            if sel_member_id:
-                date_from, date_to = sidebar_date_range("Date range", key="v_date_range")
+    else:  # TDs view — search a single TD
+        member_names = _fetch_member_names(conn, sel_party)
+        with filter_bar([2, 4, 6]) as cols:
+            with cols[0]:
+                field_label("View")
+                view_sel = st.segmented_control(
+                    "View", options=["Dáil", "TDs"], default=prev_view,
+                    key="v_view_widget", label_visibility="collapsed",
+                )
+            with cols[1]:
+                field_label("Find a TD")
+                _opts = ["Search a member…"] + list(member_names)
+                _chosen = st.selectbox(
+                    "Find a TD", _opts, index=0,
+                    key="v_member_select", label_visibility="collapsed",
+                )
+                sel_name = _chosen if _chosen and _chosen != "Search a member…" else None
 
-            member_names = _fetch_member_names(conn, sel_party)
-            sel_name = sidebar_member_filter(
-                "Find a TD",
-                member_names,
-                key_search="v_member_search",
-                key_select="v_member_select",
-            )
+    view = view_sel or prev_view
+    if view != prev_view:
+        st.session_state["v_view"] = view
+        # Switching to Dáil clears any selected TD so the index reappears.
+        if view == "Dáil" and sel_member_id:
+            st.session_state["_v_clear_member"] = True
+            st.query_params.pop("member", None)
+        st.rerun()
 
-            # Track the dropdown's last-applied name so the auto-clear branch
-            # only fires when the user explicitly clears the dropdown — not
-            # when the picker (or a URL param) sets sel_member_id directly.
-            last_applied = st.session_state.get("_v_last_sel_name", "")
-            if sel_name:
-                if sel_name != last_applied:
-                    td_lkp = _fetch_td_row_by_name(conn, sel_name)
-                    if not td_lkp.empty:
-                        new_mid = str(td_lkp.iloc[0]["member_id"])
-                        st.session_state["v_sel_member_id"] = new_mid
-                        st.session_state["_v_last_sel_name"] = sel_name
-                        st.session_state.pop("v_sel_vote_id", None)
-                        st.query_params["member"] = new_mid
-                        st.query_params.pop("vote", None)
-                        st.rerun()
-            elif last_applied and sel_member_id:
-                st.session_state["_v_clear_member"] = True
-                st.query_params.clear()
-                st.rerun()
+    # ── TDs member-selection handler (mirrors the old sidebar logic) ────────────
+    if view == "TDs":
+        # Track the dropdown's last-applied name so the auto-clear branch only
+        # fires when the user explicitly clears the dropdown — not when the
+        # picker (or a URL param) sets sel_member_id directly.
+        last_applied = st.session_state.get("_v_last_sel_name", "")
+        if sel_name:
+            if sel_name != last_applied:
+                td_lkp = _fetch_td_row_by_name(conn, sel_name)
+                if not td_lkp.empty:
+                    new_mid = str(td_lkp.iloc[0]["member_id"])
+                    st.session_state["v_sel_member_id"] = new_mid
+                    st.session_state["_v_last_sel_name"] = sel_name
+                    st.session_state.pop("v_sel_vote_id", None)
+                    st.query_params["member"] = new_mid
+                    st.query_params.pop("vote", None)
+                    st.rerun()
+        elif last_applied and sel_member_id:
+            st.session_state["_v_clear_member"] = True
+            st.query_params.clear()
+            st.rerun()
 
     # ── Mode routing ──────────────────────────────────────────────────────────
     if sel_vote_id:

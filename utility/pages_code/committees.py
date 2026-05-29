@@ -36,6 +36,7 @@ from ui.components import (
     empty_state,
     evidence_heading,
     find_a_td_search,
+    hide_sidebar,
     member_moved_callout,
     member_profile_header,
     page_error_boundary,
@@ -43,9 +44,6 @@ from ui.components import (
     pagination_controls,
     party_colour,
     render_stat_strip,
-    sidebar_page_header,
-    sidebar_provenance,
-    sidebar_subtitle,
     stat_item,
     todo_callout,
 )
@@ -131,6 +129,13 @@ def _stage_register(
         "Who sits on which committee"
         "</h1>",
         unsafe_allow_html=True,
+    )
+    # Register stat line (relocated from the old sidebar provenance slot).
+    st.html(
+        '<p class="page-provenance" style="margin:0 0 0.9rem">'
+        f"{df_long['committee'].nunique()} committees · "
+        f"{df_long['name'].nunique()} {member_label} · "
+        f"{int((df_long['status'] == 'Active').sum())} active memberships</p>"
     )
 
     chosen_chamber = (
@@ -773,25 +778,17 @@ def committees_page() -> None:
     df_long = fetch_committee_assignments(chamber)
     offices = fetch_office_holders(chamber)
 
-    with st.sidebar:
-        sidebar_page_header("Committee<br>Register")
-        sidebar_subtitle("Standing & Joint Committees · membership and chairs")
-        if df_long.empty:
-            # Sidebar audit fix (2026-05-26, P1-4): `st.error` rendered a
-            # red Streamlit box inside the otherwise calm sidebar voice.
-            # `empty_state` matches the design-system register.
-            empty_state(
-                "No committee data",
-                f"No records found for {chamber}. Run the pipeline to populate the register.",
-            )
-        else:
-            sidebar_provenance(
-                f"{df_long['committee'].nunique()} committees · "
-                f"{df_long['name'].nunique()} {member_label} · "
-                f"{int((df_long['status'] == 'Active').sum())} active memberships"
-            )
+    # Sidebar→filter-bar migration: the sidebar was header + a stat line.
+    # Identity is carried by the top-nav tab + the register hero; the stat
+    # line moves under that hero (see _stage_register). hide_sidebar() drops
+    # the empty rail + the brand band's sidebar-clearing gutter.
+    hide_sidebar()
 
     if df_long.empty:
+        empty_state(
+            "No committee data",
+            f"No records found for {chamber}. Run the pipeline to populate the register.",
+        )
         return
 
     # Phase 8: _STAGE_TD is dead. Any session state still pointing at it

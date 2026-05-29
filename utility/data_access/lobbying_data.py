@@ -195,7 +195,7 @@ def fetch_org_contact_detail(
     if start and end:
         return _safe(
             "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
-            " period_start_date, source_url"
+            " period_start_date, source_url, intended_results"
             " FROM v_lobbying_contact_detail"
             " WHERE lobbyist_name = ?"
             " AND period_start_date BETWEEN ? AND ?"
@@ -204,7 +204,7 @@ def fetch_org_contact_detail(
         )
     return _safe(
         "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
-        " period_start_date, source_url"
+        " period_start_date, source_url, intended_results"
         " FROM v_lobbying_contact_detail"
         " WHERE lobbyist_name = ?"
         " ORDER BY period_start_date DESC",
