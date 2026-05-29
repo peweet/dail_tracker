@@ -6,6 +6,7 @@ import datetime
 import functools
 import logging
 import traceback
+from contextlib import contextmanager
 from html import escape as _h
 
 import streamlit as st
@@ -579,6 +580,99 @@ def main_member_jump(
         label_visibility="collapsed",
     )
     return chosen if chosen and chosen != placeholder else None
+
+
+def field_label(text: str) -> None:
+    """Small-caps micro-label for a control inside a main-panel filter bar.
+
+    Same typographic token as the old sidebar ``.sidebar-label`` but named
+    for the main panel so the sidebar/main-panel split stays legible. Place
+    immediately above the widget inside a :func:`filter_bar` column.
+    """
+    st.html(f'<p class="dt-field-label">{_h(text)}</p>')
+
+
+def hide_sidebar() -> None:
+    """Hide the (empty) sidebar rail on a page whose filters have moved into a
+    main-panel :func:`filter_bar`.
+
+    Hides the rail, the desktop collapse control, and the mobile expand
+    button, and reverts the dark brand band's 22rem sidebar-clearing gutter
+    to a normal main gutter. Every content page now calls this, so the sidebar
+    is effectively gone app-wide; ``app.py`` also sets
+    ``initial_sidebar_state="collapsed"`` so it never flashes on first paint.
+    """
+    st.markdown(
+        "<style>"
+        '[data-testid="stSidebar"],'
+        '[data-testid="stSidebarCollapsedControl"],'
+        '[data-testid="stExpandSidebarButton"]{display:none !important;}'
+        ".site-banner-inner{padding-left:2rem !important;}"
+        "</style>",
+        unsafe_allow_html=True,
+    )
+
+
+def member_jump_panel(
+    members: list[str],
+    *,
+    search_key_prefix: str,
+    session_key: str,
+    label: str = "Find a TD",
+    placeholder: str = "Type a name…",
+    notable: list[str] | None = None,
+    chip_key_prefix: str | None = None,
+    chip_cols: int = 6,
+) -> str | None:
+    """Main-panel member jump: searchable selectbox + optional notable-chip row.
+
+    Replaces the sidebar ``member_picker`` + ``notable_chips`` slots that
+    :func:`sidebar_shell` used to carry. Returns the picked member name (from
+    the search or a clicked chip), or ``None``. The caller owns the post-pick
+    action (set session + rerun, or navigate to the canonical profile).
+
+    ``chip_cols`` defaults to 6 because the main panel is far wider than the
+    old sidebar, where 2 columns made each chip span half the page.
+    """
+    picked = main_member_jump(
+        members, key_prefix=search_key_prefix, label=label, placeholder=placeholder
+    )
+    if notable and chip_key_prefix:
+        if render_notable_chips(notable, members, chip_key_prefix, session_key, cols=chip_cols):
+            picked = st.session_state.get(session_key)
+    return picked
+
+
+@contextmanager
+def filter_bar(weights: list[int]):
+    """Horizontal main-panel filter bar that sits directly under a page hero.
+
+    Replaces the per-page sidebar filter stack. Yields the column list so the
+    caller renders each control with a :func:`field_label` above it::
+
+        with filter_bar([3, 2, 4]) as cols:
+            with cols[0]:
+                field_label("Status")
+                status = st.selectbox(...)
+            with cols[1]:
+                field_label("Introduced")
+                dates = st.date_input(...)
+
+    Inline + hairline-rule treatment (no container box) per the ink-on-paper
+    register: a height:0 marker is dropped inside the first column so a
+    ``[data-testid="stHorizontalBlock"]:has(.dt-filterbar-marker)`` rule in
+    shared_css.py can scope the row (same ``:has()`` convention the card rows
+    use), and a closing ``.dt-filterbar-rule`` is drawn on exit. Streamlit
+    columns stack vertically on narrow viewports, so the bar is responsive
+    for free; the ≤640px CSS guard removes overflow.
+    """
+    cols = st.columns(weights, gap="medium")
+    with cols[0]:
+        st.html('<div class="dt-filterbar-marker"></div>')
+    try:
+        yield cols
+    finally:
+        st.html('<hr class="dt-filterbar-rule">')
 
 
 def breadcrumb(labels: list[str], *, key_prefix: str) -> int | None:

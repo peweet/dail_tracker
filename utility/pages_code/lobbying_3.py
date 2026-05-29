@@ -1,23 +1,24 @@
-"""Lobbying PoC — lobbying_3.py
+"""Lobbying — lobbying_3.py
 
-Calmer treatment of lobby_2's same IA. Hybrid reference: TheyWorkForYou-style
-prose heroes for Stage 2s, Datasette-style tables for returns lists, ranked
-cards only for drill-downs (top politicians per org, top orgs per area).
+The lobbying register page (served at /rankings-lobbying). Calm, hybrid
+treatment: TheyWorkForYou-style prose heroes for Stage 2s, Datasette-style
+tables for returns lists, ranked cards only for drill-downs (top politicians
+per org, top orgs per area).
 
-Shared with lobby_2:
-- data_access.lobbying_data.fetch_* (identical data layer)
+Data layer:
+- data_access.lobbying_data.fetch_* (DuckDB registered views; no raw reads here)
 - ui.components helpers (back_button, breadcrumb, empty_state, ...)
 - ui.entity_links (member_profile_url, name_join_key, source_link_html)
 
-Owned by this PoC (lp3-* CSS prefix prevents collision with lob-*):
+CSS namespace (lp3-* prefix):
 - lp3-hero, lp3-dek, lp3-prose
 - lp3-tile (quiet gateway tile)
 - lp3-topic-tile (calmer topic card)
 - lp3-section-head (quiet H2 with one-line dek)
 
-This file is incrementally built. As of now: landing only. Stage 2s, RD,
-Topic, Area, and Area×Politician are stubs that fall back to a "not yet
-built in PoC — open in production" callout pointing at /rankings-lobbying.
+Stages: landing gateway → org / area / topic / revolving-door / DPO / Stage 3
+(area×politician). The per-politician body (render_member_lobbying) is embedded
+on /member-overview rather than reached as a standalone route here.
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ from data_access.lobbying_data import (
     fetch_all_politician_names,
     fetch_area_contact_detail,
     fetch_clients_for_org,
+    fetch_contact_detail,
     fetch_dpo_client_breakdown,
     fetch_dpo_firms,
     fetch_dpo_one,
@@ -45,7 +47,9 @@ from data_access.lobbying_data import (
     fetch_org_contact_detail,
     fetch_org_index,
     fetch_org_persistence,
+    fetch_orgs_for_politician,
     fetch_policy_area_summary,
+    fetch_policy_exposure_for_politician,
     fetch_politician_area_returns,
     fetch_politician_index,
     fetch_politicians_for_area,
@@ -55,6 +59,7 @@ from data_access.lobbying_data import (
     fetch_revolving_door,
     fetch_revolving_door_summary,
     fetch_sources_for_org,
+    fetch_sources_for_politician,
     fetch_summary,
     fetch_topic_returns,
     fetch_topic_summary,
@@ -67,17 +72,22 @@ from ui.components import (
     clean_meta,
     clickable_card_link,
     empty_state,
+    evidence_heading,
+    field_label,
+    filter_bar,
+    hero_banner,
+    hide_sidebar,
     page_error_boundary,
     pagination_controls,
     period_year_pills as _year_pills,
     pill,
     ranked_member_card,
-    sidebar_divider,
-    sidebar_page_header,
-    sidebar_subtitle,
+    totals_strip,
 )
 from data_access.identity_resolver import resolve_member_code
-from ui.entity_links import member_profile_url, name_join_key, source_link_html
+from ui.entity_links import entity_cta_html, member_profile_url, name_join_key, source_link_html
+from ui.export_controls import export_button
+from ui.source_links import render_source_links
 
 
 def _resolve_or_join(name: str) -> str:
@@ -260,54 +270,56 @@ def _provenance_footer(summary: pd.DataFrame) -> None:
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 
 
-def _render_sidebar() -> None:
-    """Search only. The 'Notable targets' and 'Browse by policy area' expanders
-    from lobby_2's sidebar are dropped to reduce visual din; users reach areas
-    via the gateway tile on landing instead.
+def _render_search_bar() -> None:
+    """Main-panel search + jump-to (was the sidebar). Type an organisation or
+    politician name and jump straight to their record / canonical profile.
+    The 'Notable targets' / 'Browse by policy area' expanders from lobby_2's
+    sidebar stay dropped to reduce visual din; the landing gateway tiles cover
+    those entry points.
     """
-    with st.sidebar:
-        sidebar_page_header("Lobbying<br>Register · PoC")
-        sidebar_subtitle("Prototype view of the lobbying register")
-        sidebar_divider()
-
-        st.html('<p class="lp3-sidebar-label">Search</p>')
-        search = st.text_input(
-            "Search",
-            placeholder="e.g. Ibec, Mary Lou McDonald",
-            key="lp3_sidebar_search",
-            label_visibility="collapsed",
-        )
-
-        pol_names = fetch_all_politician_names()
-        org_names = fetch_all_org_names()
+    with filter_bar([3, 3, 4]) as cols:
+        with cols[0]:
+            field_label("Search the register")
+            search = st.text_input(
+                "Search",
+                placeholder="e.g. Ibec, Mary Lou McDonald",
+                key="lp3_sidebar_search",
+                label_visibility="collapsed",
+            )
 
         s = search.strip().lower()
+        pol_names = fetch_all_politician_names()
+        org_names = fetch_all_org_names()
         if s:
             pol_filtered = [n for n in pol_names if s in n.lower()]
             org_filtered = [n for n in org_names if s in n.lower()]
         else:
             pol_filtered = pol_names[:200]
             org_filtered = []
-
         combined = [""] + pol_filtered + [f"[Org] {n}" for n in org_filtered[:50]]
-        sel = st.selectbox(
-            "Jump to",
-            combined,
-            label_visibility="collapsed",
-        )
-        if sel:
-            _clear_lp3_qp()
-            if sel.startswith("[Org] "):
-                st.query_params["lp3_org"] = sel[6:]
-            else:
-                # Politicians: redirect to canonical member-overview (matches lobby_2 behaviour).
-                target = member_profile_url(_resolve_or_join(sel), section="lobbying")
-                st.markdown(
-                    f'<meta http-equiv="refresh" content="0;url={_h(target)}">',
-                    unsafe_allow_html=True,
-                )
-                st.stop()
-            st.rerun()
+
+        with cols[1]:
+            field_label("Jump to")
+            sel = st.selectbox(
+                "Jump to",
+                combined,
+                label_visibility="collapsed",
+                key="lp3_jump",
+            )
+
+    if sel:
+        _clear_lp3_qp()
+        if sel.startswith("[Org] "):
+            st.query_params["lp3_org"] = sel[6:]
+        else:
+            # Politicians: redirect to canonical member-overview (matches lobby_2 behaviour).
+            target = member_profile_url(_resolve_or_join(sel), section="lobbying")
+            st.markdown(
+                f'<meta http-equiv="refresh" content="0;url={_h(target)}">',
+                unsafe_allow_html=True,
+            )
+            st.stop()
+        st.rerun()
 
 
 # ── Landing ────────────────────────────────────────────────────────────────────
@@ -345,6 +357,9 @@ def _render_landing(summary: pd.DataFrame) -> None:
             title="Lobbying register",
             dek="The lobbying.ie register is not yet populated. Run lobby_processing.py to ingest the data.",
         )
+
+    # Search + jump (was the sidebar) — sits under the hero on the landing.
+    _render_search_bar()
 
     # Gateway — three matching quiet tiles. Identical shape across the trio
     # (heading + one sentence). Whole tile is the click target via the
@@ -534,11 +549,21 @@ def _render_landing(summary: pd.DataFrame) -> None:
             period = str(row.get("period_start_date", "") or "")[:7]
             org = str(row.get("lobbyist_name", "") or "—")
             area = str(row.get("public_policy_area", "") or "")
+            url = str(row.get("source_url", "") or "")
             area_clause = f" under <em>{_h(area)}</em>" if area else ""
+            inner = f"<strong>{_h(org)}</strong>{area_clause}"
+            if url.startswith("http"):
+                body = (
+                    f'<a class="lp3-recent-link" href="{_h(url)}" target="_blank" '
+                    f'rel="noopener" aria-label="Open the {_h(org)} return on lobbying.ie">'
+                    f"{inner}</a>"
+                )
+            else:
+                body = f'<span class="lp3-recent-body">{inner}</span>'
             rows.append(
                 f'<li class="lp3-recent-item">'
                 f'<span class="lp3-recent-period">{_h(period)}</span> '
-                f'<span class="lp3-recent-body"><strong>{_h(org)}</strong>{area_clause}</span>'
+                f"{body}"
                 "</li>"
             )
         st.html(f'<ul class="lp3-recent-list">{"".join(rows)}</ul>')
@@ -573,7 +598,7 @@ def _return_card_html(
     snippet: str = "",
     url: str = "",
 ) -> str:
-    """Canonical return-record card for the PoC. Used wherever a list of
+    """Canonical return-record card. Used wherever a list of
     lobbying returns is displayed — topic Stage 2, org / area / DPO / Stage 3.
 
     Header row: period chip, optional area pill, return-# on the right.
@@ -886,15 +911,19 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
             total=len(detail), key_prefix="lp3_org_returns", label="returns"
         )
         page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
-        cards = [
-            _return_card_html(
-                period=_fmt_mmm(row.get("period_start_date")),
-                title=str(row.get("member_name", "") or "—"),
-                area=str(row.get("public_policy_area", "") or ""),
-                url=str(row.get("source_url", "") or ""),
+        cards = []
+        for _, row in page_slice.iterrows():
+            wanted = str(row.get("intended_results", "") or "").strip()
+            snippet = (wanted[:260] + "…") if len(wanted) > 260 else wanted
+            cards.append(
+                _return_card_html(
+                    period=_fmt_mmm(row.get("period_start_date")),
+                    title=str(row.get("member_name", "") or "—"),
+                    area=str(row.get("public_policy_area", "") or ""),
+                    snippet=snippet,
+                    url=str(row.get("source_url", "") or ""),
+                )
             )
-            for _, row in page_slice.iterrows()
-        ]
         st.html("\n".join(cards))
         export_button(
             detail,
@@ -1504,6 +1533,195 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
     _provenance_footer(summary)
 
 
+# ── Per-politician body (embedded on /member-overview) ──────────────────────────
+#
+# Migrated verbatim from the retired lobbying_2.py. member_overview.py embeds
+# this with show_header=False; the standalone-page branches (back button, hero,
+# CTA, provenance footer) reuse this module's own _back_button/_provenance_footer.
+
+
+def _lob_card_html(
+    name: str,
+    meta: str,
+    pills: list[str],
+    *,
+    rank: int | None = None,
+    profile_href: str = "",
+) -> str:
+    """Lobbying ranked-list card body — pill row with optional "Profile ↗"
+    link to the canonical /member-overview profile.
+    """
+    return ranked_member_card(
+        name=name,
+        meta=meta,
+        rank=rank,
+        pills_html="".join(pill(p) for p in pills),
+        profile_href=profile_href,
+    )
+
+
+def render_member_lobbying(
+    name: str,
+    summary: pd.DataFrame | None = None,
+    *,
+    show_header: bool = True,
+    year_pill_key: str = "lob_year_pol",
+) -> None:
+    """Render the per-politician lobbying body.
+
+    Public so :mod:`pages_code.member_overview` can embed it inside the
+    Lobbying expander. When ``show_header=False``, the back button, lobbying-
+    specific hero, "View full accountability profile" CTA and provenance
+    footer are all skipped (the embedding page provides those).
+
+    ``year_pill_key`` is overridable so the embedded copy can use a key that
+    doesn't collide with the stand-alone lobbying-page state.
+    """
+    if show_header:
+        _back_button()
+
+    if summary is None:
+        summary = fetch_summary()
+
+    idx = fetch_politician_index()
+    pol_row = pd.Series()
+    if not idx.empty and "member_name" in idx.columns:
+        m = idx[idx["member_name"] == name]
+        if not m.empty:
+            pol_row = m.iloc[0]
+
+    chamber = str(pol_row.get("chamber", "") or "")
+    position = str(pol_row.get("position", "") or "")
+    member_id = str(pol_row.get("unique_member_code", "") or "")
+    ret_cnt = int(pol_row.get("return_count", 0) or 0)
+    org_cnt = int(pol_row.get("distinct_orgs", 0) or 0)
+    area_cnt = int(pol_row.get("distinct_policy_areas", 0) or 0)
+    first_p = str(pol_row.get("first_period", "") or "")
+    last_p = str(pol_row.get("last_period", "") or "")
+
+    if show_header:
+        meta_badges = [b for b in [chamber, position] if b]
+        hero_banner(
+            kicker="LOBBYING PROFILE · POLITICIAN",
+            title=name,
+            dek=(
+                f"Lobbied across {area_cnt} policy area(s) by {org_cnt} organisation(s). "
+                f"Returns span {first_p} → {last_p}."
+                if ret_cnt
+                else "No lobbying returns on record for this politician."
+            ),
+            badges=meta_badges or None,
+        )
+
+    totals_strip(
+        [
+            (f"{ret_cnt:,}", "Returns targeting them"),
+            (f"{org_cnt:,}", "Distinct organisations"),
+            (f"{area_cnt:,}", "Policy areas"),
+        ]
+    )
+
+    # Cross-page CTA only in stand-alone mode — embedded copy already lives
+    # on the canonical profile page, so the link would point at itself.
+    if show_header and member_id:
+        st.html(
+            entity_cta_html(
+                member_profile_url(member_id),
+                "View full accountability profile →",
+            )
+        )
+
+    # ── Orgs by intensity — ranked cards (primary view) ───────────────────
+    evidence_heading("Organisations lobbying this politician")
+    intensity = fetch_orgs_for_politician(name)
+    if intensity.empty:
+        empty_state("No intensity data", "No organisations found lobbying this politician.")
+    else:
+        cards: list[str] = []
+        for rank, (_, row) in enumerate(intensity.iterrows(), start=1):
+            org_name = str(row.get("lobbyist_name", "—"))
+            first_c = str(row.get("first_contact", "") or "")[:7]
+            last_c = str(row.get("last_contact", "") or "")[:7]
+            meta = clean_meta(first_c, last_c)
+            pills = [
+                f"{int(row.get('returns_in_relationship', 0) or 0):,} returns",
+                f"{int(row.get('distinct_policy_areas', 0) or 0):,} policy areas",
+                f"{int(row.get('distinct_periods', 0) or 0):,} periods",
+            ]
+            cards.append(
+                clickable_card_link(
+                    href=f"?lp3_org={quote(org_name)}",
+                    inner_html=_lob_card_html(org_name, meta, pills, rank=rank),
+                    aria_label=f"View lobbying profile for {org_name}",
+                )
+            )
+        st.html("\n".join(cards))
+
+    # ── Policy exposure ───────────────────────────────────────────────────
+    evidence_heading("Policy areas lobbied on")
+    exposure = fetch_policy_exposure_for_politician(name)
+    if not exposure.empty:
+        disp2 = exposure.rename(
+            columns={
+                "public_policy_area": "Policy area",
+                "returns_targeting": "Returns",
+                "distinct_lobbyists": "Organisations",
+            }
+        )
+        max_ret = int(disp2["Returns"].max()) if not disp2.empty else 1
+        st.dataframe(
+            disp2,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Policy area": st.column_config.TextColumn("Policy area"),
+                "Returns": st.column_config.ProgressColumn("Returns", format="%d", min_value=0, max_value=max_ret),
+                "Organisations": st.column_config.NumberColumn("Organisations"),
+            },
+        )
+
+    # ── Lobbying returns ──────────────────────────────────────────────────
+    detail_all = fetch_contact_detail(name)
+    evidence_heading("Lobbying returns")
+    if detail_all.empty:
+        empty_state("No lobbying returns", "No contact detail on record for this politician.")
+    else:
+        start, end = _year_pills(detail_all, year_pill_key)
+        detail = fetch_contact_detail(name, start, end) if start else detail_all
+        display = detail[
+            [
+                c
+                for c in ["period_start_date", "lobbyist_name", "public_policy_area", "source_url"]
+                if c in detail.columns
+            ]
+        ].rename(
+            columns={
+                "period_start_date": "Period",
+                "lobbyist_name": "Organisation",
+                "public_policy_area": "Policy area",
+                "source_url": "Return URL",
+            }
+        )
+        st.dataframe(
+            display,
+            column_config={
+                "Return URL": st.column_config.LinkColumn(
+                    "Return URL", display_text=r"https://www\.lobbying\.ie/return/(\d+)"
+                )
+            },
+            width="stretch",
+            hide_index=True,
+        )
+        export_button(detail, "Export CSV", f"{name.replace(' ', '_')}_lobbying.csv", "lob_export_pol_detail")
+
+    # ── Official source links ─────────────────────────────────────────────
+    evidence_heading("Official source links")
+    render_source_links(fetch_sources_for_politician(name))
+
+    if show_header:
+        _provenance_footer(summary)
+
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 
@@ -1513,7 +1731,9 @@ def lobbying_poc_page() -> None:
     inject_css()
 
     qp = st.query_params
-    _render_sidebar()
+    # Sidebar→filter-bar migration: the search/jump moved into a main-panel
+    # bar under the landing hero (see _render_search_bar in _render_landing).
+    hide_sidebar()
 
     summary = fetch_summary()
 

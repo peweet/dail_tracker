@@ -44,7 +44,9 @@ from ui.components import (
     clickable_card_link,
     empty_state,
     evidence_heading,
+    field_label,
     hero_banner,
+    hide_sidebar,
     interest_declaration_item,
     main_member_jump,
     member_moved_callout,
@@ -54,9 +56,6 @@ from ui.components import (
     pill,
     ranked_member_card,
     render_notable_chips,
-    sidebar_divider,
-    sidebar_page_header,
-    sidebar_subtitle,
     todo_callout,
     year_selector,
 )
@@ -428,53 +427,34 @@ def _render_provenance() -> None:
 def interests_page() -> None:
     inject_css()
 
-    # ── Sidebar (P1-3 grammar) ────────────────────────────────────────────────
-    with st.sidebar:
-        sidebar_page_header("Register of<br>Members&rsquo; Interests")
-        sidebar_subtitle("Declared interests by TD or Senator")
-        sidebar_divider()
+    # Sidebar→filter-bar migration: identity via top-nav + hero; the Chamber
+    # scope + member search + notable chips move into the main panel under the
+    # hero. Chamber stays near the top because every data fetch depends on it.
+    hide_sidebar()
 
-        house: str = (
-            st.segmented_control(
-                "Chamber",
-                ["Dáil", "Seanad"],
-                default="Dáil",
-                key="interests_house",
-            )
-            or "Dáil"
+    # ── Page header ───────────────────────────────────────────────────────────
+    hero_banner(
+        kicker="REGISTER OF MEMBERS' INTERESTS",
+        title="What has your TD declared?",
+    )
+
+    # ── Chamber scope (was the sidebar) ────────────────────────────────────────
+    field_label("Chamber")
+    house: str = (
+        st.segmented_control(
+            "Chamber",
+            ["Dáil", "Seanad"],
+            default="Dáil",
+            key="interests_house",
+            label_visibility="collapsed",
         )
-
-        # Clear year pill and member selection on chamber switch
-        if st.session_state.get("_interests_last_house") != house:
-            for k in ("int_profile_year", "selected_td", "int_member_sel", "int_member_q"):
-                st.session_state.pop(k, None)
-            st.session_state["_interests_last_house"] = house
-
-        opts = fetch_interests_filter_options(house)
-
-        notable = NOTABLE_TDS if house == "Dáil" else NOTABLE_SENATORS
-        # P0-1 fix: previously this wrote selected_td and called st.rerun(),
-        # but nothing read selected_td (Phase 3 lifted the per-TD profile
-        # to /member-overview without rewiring the picker). Navigate
-        # directly to the canonical profile via the same contract the
-        # cards already use.
-        if notable and render_notable_chips(notable, opts["members"], "chip_int", "selected_td"):
-            picked = st.session_state.pop("selected_td", None)
-            if picked:
-                code = resolve_member_code(picked)
-                if code:
-                    target = member_profile_url(code, section="interests")
-                    # Use st.markdown(unsafe_allow_html=True) — NOT st.html()
-                    # — because st.html iframes its content and a meta-refresh
-                    # inside an iframe redirects the iframe only, not the
-                    # parent page. See [[feedback-streamlit-css-and-state]]
-                    # and the same pattern in lobbying_3.py:274,340.
-                    st.markdown(
-                        f'<meta http-equiv="refresh" content="0;url={_h(target)}">',
-                        unsafe_allow_html=True,
-                    )
-                    st.stop()
-            st.rerun()
+        or "Dáil"
+    )
+    # Clear year pill and member selection on chamber switch
+    if st.session_state.get("_interests_last_house") != house:
+        for k in ("int_profile_year", "selected_td", "int_member_sel", "int_member_q"):
+            st.session_state.pop(k, None)
+        st.session_state["_interests_last_house"] = house
 
     # ── Guard ─────────────────────────────────────────────────────────────────
     # The column contract is now enforced by v_member_interests_detail itself
@@ -502,19 +482,13 @@ def interests_page() -> None:
             legacy_param="member",
         )
 
-    # ── Page header ───────────────────────────────────────────────────────────
-    hero_banner(
-        kicker="REGISTER OF MEMBERS' INTERESTS",
-        title="What has your TD declared?",
-    )
+    opts = fetch_interests_filter_options(house)
 
-    # ── Browse mode ───────────────────────────────────────────────────────────
-
-    # Main-panel member search — primary call-to-action under the hero.
-    # P0-1 fix: this used to write selected_td + rerun, but no branch ever
-    # read it (Phase 3 lifted the per-TD profile to /member-overview).
-    # Navigate directly to the canonical profile via the same contract
-    # the cards already use.
+    # ── Member jump (search + notable chips) ────────────────────────────────────
+    # Navigate straight to the canonical /member-overview profile (Phase 3
+    # lifted the per-TD profile there). st.markdown not st.html — st.html
+    # iframes the meta-refresh so it would redirect the iframe, not the parent
+    # page (see [[feedback-streamlit-css-and-state]]).
     chosen = main_member_jump(
         opts["members"],
         key_prefix="int",
@@ -525,12 +499,25 @@ def interests_page() -> None:
         code = resolve_member_code(chosen)
         if code:
             target = member_profile_url(code, section="interests")
-            # st.markdown not st.html — see notable-chip handler above.
             st.markdown(
                 f'<meta http-equiv="refresh" content="0;url={_h(target)}">',
                 unsafe_allow_html=True,
             )
             st.stop()
+
+    notable = NOTABLE_TDS if house == "Dáil" else NOTABLE_SENATORS
+    if notable and render_notable_chips(notable, opts["members"], "chip_int", "selected_td", cols=6):
+        picked = st.session_state.pop("selected_td", None)
+        if picked:
+            code = resolve_member_code(picked)
+            if code:
+                target = member_profile_url(code, section="interests")
+                st.markdown(
+                    f'<meta http-equiv="refresh" content="0;url={_h(target)}">',
+                    unsafe_allow_html=True,
+                )
+                st.stop()
+        st.rerun()
 
     # P0-1 audit fix: the typeahead + Notable Members chips both write
     # `selected_td` into session state, but Phase 3 lifted the per-TD

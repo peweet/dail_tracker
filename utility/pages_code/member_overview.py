@@ -35,14 +35,14 @@ from ui.components import (
     empty_state,
     evidence_heading,
     find_a_td_filter,
+    field_label,
     glossary_strip,
+    hide_sidebar,
     member_card_html,
     page_error_boundary,
     paginate,
     pagination_controls,
     party_colour,
-    sidebar_date_range,
-    sidebar_shell,
     stat_strip,
 )
 from ui.entity_links import (
@@ -56,9 +56,10 @@ from ui.entity_links import (
 from ui.vote_explorer import render_member_votes
 from data_access.member_overview_data import get_member_overview_conn
 from pages_code.attendance import render_member_attendance
-from pages_code.committees import _load as _committees_load, render_member_committees
+from data_access.committees_data import fetch_committee_assignments, fetch_office_holders
+from pages_code.committees import render_member_committees
 from pages_code.interests import render_member_interests
-from pages_code.lobbying_2 import render_member_lobbying
+from pages_code.lobbying_3 import render_member_lobbying
 from pages_code.payments import render_member_payments
 from data_access.payments_data import fetch_filter_options as _pay_filter_options
 from data_access.payments_data import fetch_payments_summary as _pay_summary
@@ -68,10 +69,8 @@ _STAGE_KEY = "mo_join_key"
 
 # ── Profile section IA (Phase 2 chrome) ────────────────────────────────────────
 # Section order is "most politically potent first" per project_design_principles.
-# (id, expander label, ranking-page key in entity_links.PAGES). The id is the
-# URL-fragment anchor (`/member-overview?member=<code>#<id>`) and the
-# session-state suffix (`mo_open_<id>`). The rankings page key is used to
-# render "see league table" deep links from each section's empty/lifted body.
+# (id, section label, ranking-page key in entity_links.PAGES). The id is the
+# URL-fragment anchor (`/member-overview?member=<code>#<id>`).
 _PROFILE_SECTIONS: list[tuple[str, str, str]] = [
     ("interests", "Interests", "interests"),
     ("lobbying", "Lobbying", "lobbying"),
@@ -971,13 +970,11 @@ def _section_debates(conn, join_key: str, member_name: str) -> None:
 def _section_committees(member_name: str, join_key: str) -> None:
     """Phase 8 lift: per-TD committee profile body.
 
-    Backed by committees.py's transitional CSV-scaffold loader (no
-    v_committee_* views yet — committees.py header explicitly notes this is
-    technical debt to be removed when the views land). Once the views ship,
-    swap `_committees_load("Dáil")` for direct conn queries against
-    v_committee_assignments / v_committee_member_detail.
+    Backed by the v_committee_* analytical views via data_access.committees_data
+    (same fetchers committees.py uses for its register and per-committee pages).
     """
-    df_long, offices = _committees_load("Dáil")
+    df_long = fetch_committee_assignments("Dáil")
+    offices = fetch_office_holders("Dáil")
     if df_long.empty:
         st.html(
             '<div class="dt-callout">No committee data available — '
@@ -1229,8 +1226,6 @@ def _render_profile_nav(conn, join_key: str) -> None:
 def _render_stage2(
     conn,
     join_key: str,
-    date_from: str | None = None,
-    date_to: str | None = None,
 ) -> None:
 
     _render_profile_nav(conn, join_key)
@@ -1474,157 +1469,134 @@ def _render_stage2(
     chip_html.append('</nav>')
     st.html("\n".join(chip_html))
 
-    # ── "Open all sections" toggle (journalist mode + lazy-load escape) ──────
-    # Flips every mo_open_<sid> key. Streamlit's st.expander reads expanded=
-    # on render, so a rerun after toggling propagates the new state. Also
-    # the workaround for the chevron-click UX wart documented below.
-    all_open = all(st.session_state.get(f"mo_open_{sid}", False) for sid, _, _ in _PROFILE_SECTIONS)
-    btn_label = "Close all sections" if all_open else "Open all sections"
-    if st.button(btn_label, key="mo_open_all_btn", help="Expand every section and load all data."):
-        new_state = not all_open
-        for sid, _, _ in _PROFILE_SECTIONS:
-            st.session_state[f"mo_open_{sid}"] = new_state
-        st.rerun()
-
-    # ── 7 dimension expanders ────────────────────────────────────────────────
-    # Interests opens by default — landing always renders the highest-signal
-    # section per PRODUCT.md principle #3. Other expanders gate their bodies
-    # on mo_open_<sid> for lazy-load.
-    #
-    # Known Streamlit limitation: st.expander has no on_change callback, so
-    # a user clicking the chevron to expand a still-gated body sees nothing
-    # until they click "Open all sections" or open another via session-state
-    # update. The audit P0 #3 fix accepts this wart in exchange for ~25→~5
-    # queries on cold load. Future work: replace with a custom accordion if
-    # the wart becomes a real friction point.
+    # ── Profile sections (always-rendered, flat headings) ────────────────────
+    # Every section's body runs on every view — no expand/collapse, no lazy
+    # gating. Trades ~5 cold-load SQL queries for ~25 to make the page
+    # scannable end-to-end (TheyWorkForYou pattern, PRODUCT.md principle #3).
     for sid, label, page_key in _PROFILE_SECTIONS:
-        state_key = f"mo_open_{sid}"
-        # Default-open Interests so the landing has content; everything else
-        # starts closed AND gated so cold load drops the per-body SQL.
-        is_default_open = sid == "interests"
-        if is_default_open:
-            st.session_state.setdefault(state_key, True)
-        expanded = st.session_state.get(state_key, False)
-
-        # Anchor lives OUTSIDE the expander so #mo-section-<sid> hash
-        # navigation lands on the expander header (always visible) rather
-        # than the inside of a collapsed body (round-1 audit P2).
+        # Anchor lives outside the heading so #mo-section-<sid> jumps land
+        # at the right scroll offset (CSS uses negative top to clear any
+        # sticky bits above).
         st.html(f'<div id="mo-section-{sid}" class="mo-section-anchor"></div>')
+        st.html(f'<h2 class="section-heading">{_h(label)}</h2>')
 
-        with st.expander(label, expanded=expanded):
-            if not expanded:
-                # Gated: don't run the expensive body. User clicked the
-                # chevron but session-state still says collapsed — see
-                # comment above on the chevron-click UX wart.
-                st.caption(
-                    "Section collapsed. Click *Open all sections* above to load every section,"
-                    " or use the cross-page links from /rankings-* pages to deep-link in."
-                )
-                continue
-
-            if sid == "interests":
-                # Phase 3 lift: full body rendered here without the per-page
-                # member header (the hero above already shows it). Dáil-only —
-                # member-overview never lists Senators.
-                render_member_interests(
-                    "Dáil",
-                    member_name,
-                    show_member_header=False,
-                    year_pill_key=f"mo_int_year_{join_key}",
-                )
-            elif sid == "lobbying":
-                # Revolving-door callout (member-overview-local — built from
-                # v_lobbying_revolving_door_member, which lobbying_2.py does
-                # not query directly). Renders above the lifted body so the
-                # most politically potent flag is the first thing visible.
-                # Audit P1-4: same "former position = TD" guard as the hero
-                # badge — without it, every sitting TD shows the warning.
-                rd_df = _lobbying_rd(conn, join_key)
-                if not rd_df.empty:
-                    rd_row = rd_df.iloc[0]
-                    pos = str(rd_row.get("former_position", "")).strip()
-                    if pos and pos.upper() != "TD":
-                        rc = int(rd_row.get("return_count", 0) or 0)
-                        firms = int(rd_row.get("distinct_firms", 0) or 0)
-                        pos_line = f"Former position: <strong>{_h(pos)}</strong>. "
-                        st.badge("Revolving door", icon=":material/warning:", color="orange")
-                        st.html(
-                            f'<div class="lob-revolving-callout">'
-                            f'<div class="lob-revolving-heading">Revolving door flag</div>'
-                            f'<p class="lob-revolving-body">'
-                            f"{pos_line}"
-                            f"Appears on <strong>{rc}</strong> lobbying return{'s' if rc != 1 else ''} "
-                            f"across <strong>{firms}</strong> distinct firm{'s' if firms != 1 else ''}.</p>"
-                            f"</div>"
-                        )
-                # Phase 4 lift: full lobbying body (metrics + ranked orgs +
-                # policy exposure + returns + source links) rendered without
-                # the per-page lobbying hero (member-overview hero is shown).
-                render_member_lobbying(
-                    member_name,
-                    show_header=False,
-                    year_pill_key=f"mo_lob_year_{join_key}",
-                )
-            elif sid == "payments":
-                # Phase 5 lift: full payments body (year metrics + Altair
-                # evolution chart + card-based all-years summary + card-based
-                # payment records) without the per-page identity strip,
-                # back button, or provenance footer. Two `st.dataframe`
-                # views in the stand-alone page are replaced by card lists
-                # here per feedback_member_overview_no_dataframes.
-                _pay_year_options = _pay_filter_options().get("years", [])
-                if _pay_year_options:
-                    render_member_payments(
-                        member_name,
-                        _pay_year_options,
-                        _pay_summary(),
-                        show_member_header=False,
-                        year_pill_key=f"mo_pay_year_{join_key}",
+        if sid == "interests":
+            # Phase 3 lift: full body rendered here without the per-page
+            # member header (the hero above already shows it). Dáil-only —
+            # member-overview never lists Senators.
+            render_member_interests(
+                "Dáil",
+                member_name,
+                show_member_header=False,
+                year_pill_key=f"mo_int_year_{join_key}",
+            )
+        elif sid == "lobbying":
+            # Revolving-door callout (member-overview-local — built from
+            # v_lobbying_revolving_door_member, which lobbying_2.py does
+            # not query directly). Renders above the lifted body so the
+            # most politically potent flag is the first thing visible.
+            # Audit P1-4: same "former position = TD" guard as the hero
+            # badge — without it, every sitting TD shows the warning.
+            rd_df = _lobbying_rd(conn, join_key)
+            if not rd_df.empty:
+                rd_row = rd_df.iloc[0]
+                pos = str(rd_row.get("former_position", "")).strip()
+                if pos and pos.upper() != "TD":
+                    rc = int(rd_row.get("return_count", 0) or 0)
+                    firms = int(rd_row.get("distinct_firms", 0) or 0)
+                    pos_line = f"Former position: <strong>{_h(pos)}</strong>. "
+                    st.badge("Revolving door", icon=":material/warning:", color="orange")
+                    st.html(
+                        f'<div class="lob-revolving-callout">'
+                        f'<div class="lob-revolving-heading">Revolving door flag</div>'
+                        f'<p class="lob-revolving-body">'
+                        f"{pos_line}"
+                        f"Appears on <strong>{rc}</strong> lobbying return{'s' if rc != 1 else ''} "
+                        f"across <strong>{firms}</strong> distinct firm{'s' if firms != 1 else ''}.</p>"
+                        f"</div>"
                     )
-                else:
-                    empty_state(
-                        "Payments data unavailable",
-                        "v_payments_summary returned no years. Run the payments pipeline.",
-                    )
-            elif sid == "attendance":
-                # Phase 6 lift: year metrics + sitting-calendar Altair strip +
-                # card-based year breakdown. No inner `st.expander` (nested
-                # expanders fail in Streamlit) and no `st.dataframe` (per
-                # feedback_member_overview_no_dataframes — the year breakdown
-                # renders as `.att-year-row`s with a CSS-width bar).
-                render_member_attendance(
+            # Phase 4 lift: full lobbying body (metrics + ranked orgs +
+            # policy exposure + returns + source links) rendered without
+            # the per-page lobbying hero (member-overview hero is shown).
+            render_member_lobbying(
+                member_name,
+                show_header=False,
+                year_pill_key=f"mo_lob_year_{join_key}",
+            )
+        elif sid == "payments":
+            # Phase 5 lift: full payments body (year metrics + Altair
+            # evolution chart + card-based all-years summary + card-based
+            # payment records) without the per-page identity strip,
+            # back button, or provenance footer. Two `st.dataframe`
+            # views in the stand-alone page are replaced by card lists
+            # here per feedback_member_overview_no_dataframes.
+            _pay_year_options = _pay_filter_options().get("years", [])
+            if _pay_year_options:
+                render_member_payments(
                     member_name,
+                    _pay_year_options,
+                    _pay_summary(),
                     show_member_header=False,
-                    year_pill_key=f"mo_att_year_{join_key}",
-                    export_key_suffix="_mo",
+                    year_pill_key=f"mo_pay_year_{join_key}",
                 )
-            elif sid == "votes":
-                # Phase 7 lift: shared `render_member_votes` wrapper fetches
-                # td_vote_summary + history + year summary and calls
-                # `render_td_panel(show_header=False)`. Same render path the
-                # stand-alone /rankings-votes page used to take in Mode B —
-                # vote_explorer was already shared, so this is the lightest
-                # cross-page lift. Debates stay as a sub-section (their data
-                # comes from member_debate_sections, unrelated to votes).
-                render_member_votes(
-                    conn,
-                    join_key,
-                    show_header=False,
-                    date_from=date_from,
-                    date_to=date_to,
-                    key_suffix=f"_mo_{join_key}",
+            else:
+                empty_state(
+                    "Payments data unavailable",
+                    "v_payments_summary returned no years. Run the payments pipeline.",
                 )
-                _section_debates(conn, join_key, member_name)
-            elif sid == "questions":
-                # 2026-05-27: full-history (264k row) Questions section.
-                # Header strip + filter bar + paginated feed. See contract
-                # member_overview.yaml -> section_content.questions.
-                _section_questions(conn, join_key, member_name)
-            elif sid == "legislation":
-                _section_legislation(conn, join_key, member_name)
-                _section_statutory_instruments(conn, join_key)
-            elif sid == "committees":
-                _section_committees(member_name, join_key)
+        elif sid == "attendance":
+            # Phase 6 lift: year metrics + sitting-calendar Altair strip +
+            # card-based year breakdown. No inner `st.expander` (nested
+            # expanders fail in Streamlit) and no `st.dataframe` (per
+            # feedback_member_overview_no_dataframes — the year breakdown
+            # renders as `.att-year-row`s with a CSS-width bar).
+            render_member_attendance(
+                member_name,
+                show_member_header=False,
+                year_pill_key=f"mo_att_year_{join_key}",
+                export_key_suffix="_mo",
+            )
+        elif sid == "votes":
+            # Phase 7 lift: shared `render_member_votes` wrapper fetches
+            # td_vote_summary + history + year summary and calls
+            # `render_td_panel(show_header=False)`. Same render path the
+            # stand-alone /rankings-votes page used to take in Mode B —
+            # vote_explorer was already shared, so this is the lightest
+            # cross-page lift. Debates stay as a sub-section (their data
+            # comes from member_debate_sections, unrelated to votes).
+            # Vote date range (relocated from the old sidebar secondary slot)
+            # now sits with the votes section it actually filters.
+            field_label("Vote date range")
+            _dv = st.date_input(
+                "Vote date range",
+                value=(),
+                label_visibility="collapsed",
+                key="mo_vote_date",
+            )
+            _v_from, _v_to = (
+                (str(_dv[0]), str(_dv[1]))
+                if isinstance(_dv, (list, tuple)) and len(_dv) == 2
+                else (None, None)
+            )
+            render_member_votes(
+                conn,
+                join_key,
+                show_header=False,
+                date_from=_v_from,
+                date_to=_v_to,
+                key_suffix=f"_mo_{join_key}",
+            )
+            _section_debates(conn, join_key, member_name)
+        elif sid == "questions":
+            # 2026-05-27: full-history (264k row) Questions section.
+            # Header strip + filter bar + paginated feed. See contract
+            # member_overview.yaml -> section_content.questions.
+            _section_questions(conn, join_key, member_name)
+        elif sid == "legislation":
+            _section_legislation(conn, join_key, member_name)
+            _section_statutory_instruments(conn, join_key)
+        elif sid == "committees":
+            _section_committees(member_name, join_key)
 
 
 # ── Main entry point ───────────────────────────────────────────────────────────
@@ -1641,29 +1613,12 @@ def member_overview_page() -> None:
 
     join_key = st.session_state.get(_STAGE_KEY)
 
-    date_from: str | None = None
-    date_to: str | None = None
-    _date_holder: dict[str, str | None] = {"from": None, "to": None}
-
-    def _vote_date_picker() -> None:
-        d_from, d_to = sidebar_date_range(
-            "Vote date range",
-            key="mo_vote_date",
-            empty_default=True,
-        )
-        _date_holder["from"] = d_from
-        _date_holder["to"] = d_to
-
-    sidebar_shell(
-        page_header=("Member<br>Overview", "OIREACHTAS EXPLORER"),
-        subtitle="Public accountability record for every TD",
-        provenance="Source: data.oireachtas.ie",
-        # Date filter only on the profile view — applies to the votes section.
-        secondary=[_vote_date_picker] if join_key else None,
-    )
-    date_from, date_to = _date_holder["from"], _date_holder["to"]
+    # Sidebar→filter-bar migration: identity is carried by the top-nav tab +
+    # each view's own hero. The only sidebar control was a vote-date filter,
+    # now relocated into the Votes section it filters (see _render_stage2).
+    hide_sidebar()
 
     if join_key:
-        _render_stage2(conn, join_key, date_from, date_to)
+        _render_stage2(conn, join_key)
     else:
         _render_browse(conn)

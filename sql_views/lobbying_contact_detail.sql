@@ -38,8 +38,12 @@ SELECT
     src.lobbyist_name,
     src.public_policy_area,
     src.lobbying_period_start_date::DATE AS period_start_date,
-    src.lobby_url                       AS source_url
+    src.lobby_url                       AS source_url,
+    rm.intended_results                 AS intended_results
 FROM read_parquet('data/silver/lobbying/parquet/politician_returns_detail.parquet') src
 LEFT JOIN member_codes mc
     ON LOWER(strip_accents(TRIM(src.full_name))) = mc.norm_name
+-- returns_master is one row per return (primary_key unique), so this stays 1:1.
+LEFT JOIN read_parquet('data/silver/lobbying/parquet/returns_master.parquet') rm
+    ON src.primary_key = rm.primary_key
 ORDER BY period_start_date DESC NULLS LAST;

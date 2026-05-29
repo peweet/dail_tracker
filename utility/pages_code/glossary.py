@@ -17,7 +17,7 @@ if str(_UTIL) not in sys.path:
 import streamlit as st
 
 from shared_css import inject_css
-from ui.components import hero_banner, page_error_boundary, sidebar_page_header, sidebar_subtitle
+from ui.components import hero_banner, hide_sidebar, page_error_boundary
 
 
 # Single source of truth. `pages_code/*.py` import GLOSSARY_TERMS and pass
@@ -145,13 +145,9 @@ def _render_explainer_block(title: str, body_html: str) -> str:
 @page_error_boundary
 def glossary_page() -> None:
     inject_css()
-
-    with st.sidebar:
-        sidebar_page_header("Glossary")
-        sidebar_subtitle(
-            "Reference for Irish political acronyms and data terms used "
-            "throughout Dáil Tracker."
-        )
+    # Sidebar→filter-bar migration: the sidebar was header-only; identity is
+    # carried by the top-nav tab + the main hero below.
+    hide_sidebar()
 
     hero_banner(
         kicker="REFERENCE",

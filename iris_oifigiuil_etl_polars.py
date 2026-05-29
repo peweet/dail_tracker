@@ -995,6 +995,18 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     ) | t.str.contains_any(["BY REASON OF ITS LIABILITIES", "CANNOT CONTINUE IN BUSINESS"])
     has_companies_act = t.str.contains_any(["COMPANIES ACT 2014", "COMPANIES ACTS 2014", "THE COMPANIES ACTS"])
     has_liquidator_kw = t.str.contains_any(["LIQUIDATOR", "VOLUNTARY LIQUIDATION", "VOLUNTARY WINDING"])
+    # Act-independent insolvency markers. Many receiver/examiner/winding-up
+    # notices never quote "Companies Act 2014" (banks appointing receivers,
+    # court winding-up petitions, examinership motions), so the has_companies_act
+    # branches above miss them and they drop to "other" — where the soft
+    # APPOINTMENT rule below then mis-files them as public_appointment (the
+    # "Notice of Appointment of Receiver" wording). These fallbacks are guarded
+    # on `unclassified` so they only reclassify genuinely-unmatched rows and
+    # never override a category set by an earlier block.
+    has_receiver_kw = t.str.contains("RECEIVER")  # RECEIVER, RECEIVERS, RECEIVERSHIP
+    has_examiner_kw = t.str.contains("EXAMINER")  # EXAMINER, EXAMINERSHIP
+    has_insolvency_kw = t.str.contains_any(["LIQUIDAT", "WINDING UP", "WINDING-UP", "WOUND UP"])
+    unclassified = pl.col("notice_category") == "other"
 
     df = df.with_columns(
         notice_category=(
@@ -1013,6 +1025,12 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
             .when(has_companies_act)
             .then(pl.lit("corporate_notice"))
             .when(~has_companies_act & has_liquidator_kw)
+            .then(pl.lit("corporate_insolvency"))
+            .when(unclassified & has_receiver_kw)
+            .then(pl.lit("corporate_insolvency"))
+            .when(unclassified & has_examiner_kw)
+            .then(pl.lit("corporate_rescue"))
+            .when(unclassified & has_insolvency_kw)
             .then(pl.lit("corporate_insolvency"))
             .otherwise(pl.col("notice_category"))
         ),
@@ -1036,6 +1054,16 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
             .when(~has_companies_act & has_liquidator_kw & explicit_mvl)
             .then(pl.lit("members_voluntary_liquidation"))
             .when(~has_companies_act & has_liquidator_kw)
+            .then(pl.lit("liquidation_unspecified"))
+            .when(unclassified & has_receiver_kw)
+            .then(pl.lit("receivership"))
+            .when(unclassified & has_examiner_kw)
+            .then(pl.lit("examinership"))
+            .when(unclassified & has_insolvency_kw & explicit_cvl)
+            .then(pl.lit("creditors_voluntary_liquidation"))
+            .when(unclassified & has_insolvency_kw & explicit_mvl)
+            .then(pl.lit("members_voluntary_liquidation"))
+            .when(unclassified & has_insolvency_kw)
             .then(pl.lit("liquidation_unspecified"))
             .otherwise(pl.col("notice_subtype"))
         ),
@@ -1063,19 +1091,24 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     has_appt = t.str.contains_any(
         ["APPOINTMENT", "RE-APPOINTMENT", "APPOINTED", "REAPPOINTED", "A CHEAPADH", "A ATHCHEAPADH", "BUANSANNADH"]
     )
+    # Belt-and-suspenders for the soft appointment fallback: A1 already reflows
+    # receiver/examiner/winding-up notices out of "other" above, but this guard
+    # guarantees a "Notice of Appointment of Receiver" can never be re-captured
+    # here as a public appointment if any insolvency wording survives.
+    appt_corp_excl = has_receiver_kw | has_examiner_kw | has_insolvency_kw
     df = df.with_columns(
         # special-adviser hard override; otherwise generic appointment only when category is still "other"
         notice_category=(
             pl.when(has_sa)
             .then(pl.lit("public_appointment"))
-            .when(~has_sa & has_appt & (pl.col("notice_category") == "other"))
+            .when(~has_sa & has_appt & (pl.col("notice_category") == "other") & ~appt_corp_excl)
             .then(pl.lit("public_appointment"))
             .otherwise(pl.col("notice_category"))
         ),
         notice_subtype=(
             pl.when(has_sa)
             .then(pl.lit("special_adviser_appointment"))
-            .when(~has_sa & has_appt & (pl.col("notice_category") == "other"))
+            .when(~has_sa & has_appt & (pl.col("notice_category") == "other") & ~appt_corp_excl)
             .then(pl.lit("appointment_or_assignment"))
             .otherwise(pl.col("notice_subtype"))
         ),
@@ -1091,7 +1124,16 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     )
 
     # ICAV
-    has_icav = t.str.contains_any(["ICAV ACT 2015", "VOLUNTARY STRIKE OFF"])
+    # Gated on category=="other" (same shape as the appointment guard): the ICAV
+    # rule used to be an unconditional hard override, so any notice merely
+    # *mentioning* "ICAV Act 2015"/"voluntary strike off" in its body — IDA
+    # Ireland board appointments, commencement SIs, corporate insolvency — got
+    # stolen into this bucket (~9% contamination, often via a record-split
+    # boundary gluing two notices). Genuine ICAV strike-offs are still "other"
+    # at this point, so the guard keeps them while releasing the contaminants.
+    has_icav = (pl.col("notice_category") == "other") & t.str.contains_any(
+        ["ICAV ACT 2015", "VOLUNTARY STRIKE OFF", "IRISH COLLECTIVE ASSET-MANAGEMENT"]
+    )
     df = df.with_columns(
         notice_category=pl.when(has_icav)
         .then(pl.lit("investment_vehicle_register_notice"))
@@ -1174,43 +1216,79 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
         )
     )
 
-    # entity_name — extract the company name from corporate notices.
-    # entity_pat matches a whole line containing a company-form keyword:
-    #   "ACME WIDGETS LIMITED"                              = match
-    #   "BRIGHT IDEAS DAC"                                  = match
-    #   "GREEN ENERGY ICAV"                                 = match
-    # bad_pat then drops false positives (statute references, addresses, etc.):
-    #   "COMPANIES ACT 2014"                                = rejected (statute)
-    #   "DUBLIN, IRELAND"                                   = rejected (address)
-    #   "VOLUNTARY LIQUIDATION OF ACME LIMITED"             = rejected (descriptor)
-    # For SI rows, entity_name=title (the regulation IS the entity).
-    # For others, prefer the extracted company name, fall back to title.
+    # entity_name — the company a corporate notice concerns.
+    #
+    # PRIMARY signal: the line(s) after "IN THE MATTER OF", the canonical Iris
+    # opener for insolvency/corporate notices. Captures the full name even when
+    # the company-form keyword sits on its own line:
+    #   "IN THE MATTER OF\nJJF DEVELOPMENTS LIMITED\n(In Voluntary Liquidation)"
+    #     -> "JJF DEVELOPMENTS LIMITED"
+    #   "IN THE MATTER OF\nSOUTH GALWAY ... SERVICE\nCOMPANY LIMITED BY GUARANTEE\n(In Members'..."
+    #     -> "SOUTH GALWAY ... SERVICE COMPANY LIMITED BY GUARANTEE"
+    # FALLBACK: a line carrying a company-form keyword (entity_pat), for notices
+    # that don't use the opener. bad_pat drops statute citations ("(ICAV Act
+    # 2015)", "Companies Act 2014"), addresses, and bare company-FORM lines that
+    # carry no name ("COMPANY LIMITED BY GUARANTEE").
+    #
+    # PRIVACY: we never surface a clean, displayable name for personal-insolvency
+    # (individual bankruptcy) notices — named persons with home addresses. The
+    # whole `bankruptcy` category plus personal-bankruptcy wording leaking into
+    # other buckets (~310 rows) gets entity_name=null; the company/register page
+    # must also exclude these at the view level.
+    personal_insolvency = (pl.col("notice_category") == "bankruptcy") | t.str.contains_any(
+        ["A BANKRUPT", "ADJUDICATED BANKRUPT", "BANKRUPT IN MAIN PROCEEDINGS",
+         "PERSONAL INSOLVENCY", "DEBT SETTLEMENT ARRANGEMENT", "DEBT RELIEF NOTICE", "PROTECTIVE CERTIFICATE"]
+    )
+    company_cat = pl.col("notice_category").is_in(
+        ["corporate_insolvency", "corporate_notice", "corporate_rescue", "investment_vehicle_register_notice"]
+    )
+    matter_pat = (
+        r"(?is)IN THE MATTER OF\b[\s:]*(.+?)\s*\n\s*"
+        r"(?:\(IN\b|AND IN THE MATTER|THE COMPANIES ACT|A BANKRUPT|DULY CONVENED|NOTICE IS HEREBY|TAKE NOTICE)"
+    )
     entity_pat = (
         r"(?im)^[^\n]*?\b(?:LIMITED|LTD|DAC|DESIGNATED ACTIVITY COMPANY|PLC|PUBLIC LIMITED COMPANY|"
         r"ICAV|UNLIMITED COMPANY|CLG|COMPANY LIMITED BY GUARANTEE)\b[^\n]*$"
     )
     bad_pat = (
-        r"(?i)COMPANIES ACT|GOVERNMENT PUBLICATIONS|SOLICITOR|LIQUIDATOR|DUBLIN|"
-        r"IN THE MATTER|VOLUNTARY LIQUIDATION|WINDING"
+        r"(?im)COMPANIES ACT|GOVERNMENT PUBLICATIONS|SOLICITOR|LIQUIDATOR|DUBLIN|"
+        r"IN THE MATTER|VOLUNTARY LIQUIDATION|WINDING|ICAV ACT|COLLECTIVE ASSET|\bACT\s+(?:19|20)\d\d\b|"
+        r"^\s*(?:COMPANY LIMITED BY GUARANTEE|DESIGNATED ACTIVITY COMPANY|PUBLIC LIMITED COMPANY|UNLIMITED COMPANY)\s*$"
     )
+    _matter_clean = (
+        pl.col("raw_text").str.extract(matter_pat, 1).str.replace_all(r"\s+", " ").str.strip_chars(" .,;:")
+    )
+    # Drop statute-only / boilerplate matter captures (the double-opener
+    # "IN THE MATTER OF THE COMPANIES ACT 2014 / AND / IN THE MATTER OF X LTD"
+    # grabs the Act first) so entity_name falls through to the company-form line.
+    _matter_bad = r"(?i)COMPANIES ACT|ICAV ACT|COLLECTIVE ASSET|\bACT\s+(?:19|20)\d\d|IN THE MATTER|NOTICE IS HEREBY"
     df = (
         df.with_columns(
+            _matter_name=pl.when(
+                _matter_clean.str.len_chars().is_between(2, 120) & ~_matter_clean.str.contains(_matter_bad)
+            )
+            .then(_matter_clean)
+            .otherwise(pl.lit(None, dtype=pl.String)),
             _entity_candidate=(
                 pl.col("raw_text")
                 .str.extract_all(entity_pat)
                 .list.eval(pl.element().filter(~pl.element().str.contains(bad_pat)))
                 .list.eval(pl.element().str.strip_chars())
                 .list.first()
-            )
+            ),
         )
         .with_columns(
             entity_name=(
                 pl.when(pl.col("notice_category") == "statutory_instrument")
                 .then(pl.col("title"))
+                .when(personal_insolvency)
+                .then(pl.lit(None, dtype=pl.String))
+                .when(company_cat)
+                .then(pl.coalesce([pl.col("_matter_name"), pl.col("_entity_candidate"), pl.col("title")]))
                 .otherwise(pl.coalesce([pl.col("_entity_candidate"), pl.col("title")]))
             )
         )
-        .drop("_entity_candidate")
+        .drop(["_matter_name", "_entity_candidate"])
     )
 
     # person_title_detected — full extracted titles, deduplicated, "; "-joined.

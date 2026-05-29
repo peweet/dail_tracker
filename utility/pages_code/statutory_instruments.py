@@ -37,11 +37,10 @@ from ui.components import (
     empty_state,
     fmt_civic_date as _fmt_date,
     hero_banner,
+    hide_sidebar,
     paginate,
     pagination_controls,
     render_stat_strip,
-    sidebar_page_header,
-    sidebar_subtitle,
     stat_item,
 )
 from ui.entity_links import member_profile_url, source_link_html
@@ -901,17 +900,12 @@ def statutory_instruments_page() -> None:
         st.rerun()
 
 
-    # ── Sidebar ───────────────────────────────────────────────────────────────
-    # All filters live in the main panel now (see _render_facets), so the
-    # sidebar is just the page header — the facet pills are more discoverable
-    # in the main flow than tucked into a sidebar selectbox stack.
-    with st.sidebar:
-        sidebar_page_header("Statutory Instruments")
-        # Subtitle only on the index — on the detail view the back button +
-        # breadcrumb already make state obvious, so 'SI detail' as a subtitle
-        # would be redundant restatement.
-        if not selected:
-            sidebar_subtitle("Secondary legislation · Iris Oifigiúil")
+    # ── Sidebar removed (sidebar→filter-bar migration) ──────────────────────────
+    # The sidebar was header-only — all filters already live in the main panel
+    # (see _render_facets), and page identity is carried by the top-nav tab +
+    # the main hero (index) / back button + breadcrumb (detail). hide_sidebar()
+    # drops the now-empty rail and the brand band's sidebar-clearing gutter.
+    hide_sidebar()
 
     # ── Detail view ───────────────────────────────────────────────────────────
     if selected:
