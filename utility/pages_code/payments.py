@@ -46,10 +46,10 @@ from ui.components import (
     empty_state,
     glossary_strip,
     hero_banner,
+    hide_sidebar,
+    member_jump_panel,
     page_error_boundary,
     ranked_member_card,
-    sidebar_member_filter,
-    sidebar_shell,
     totals_strip,
     year_selector,
 )
@@ -233,20 +233,8 @@ def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
 
 
 def _render_primary(year_options: list[str], summary: pd.Series) -> None:
-    hero_banner(
-        kicker="PUBLIC SPENDING · PARLIAMENTARY ALLOWANCES",
-        title="TD Payments",
-        dek="Parliamentary Standard Allowance (PSA): the official record of payments to Dáil members.",
-    )
-    glossary_strip(
-        [
-            ("TD", "Teachta Dála, a member of the Dáil"),
-            ("TAA", "Travel & Accommodation Allowance, reimbursed mileage and overnight stays"),
-            ("PRA", "Public Representation Allowance, an unvouched flat allowance for constituency work"),
-            ("PSA", "Parliamentary Standard Allowance, the umbrella term for TAA plus PRA"),
-        ]
-    )
-
+    # Hero + glossary are rendered by the caller (payments_page) so the
+    # main-panel member jump can sit between them and the view controls.
     all_views = ["Rankings"] + year_options
     # Default to the most-recent COMPLETED year, not the current YTD year
     # (audit P1-1). year_options is sorted DESC, so skip the first option
@@ -500,31 +488,39 @@ def payments_page() -> None:
         )
         return
 
-    # ── Sidebar ───────────────────────────────────────────────────────────────
-    # P1-5 fix: previously the sidebar had no page header / kicker — only the
-    # search box + notable chips. Other pages anchor the sidebar with the
-    # `DÁIL TRACKER` kicker + page title so users always know which page
-    # they're on. Mirrors lobbying_2.py:494.
-    def _member_picker() -> str | None:
-        return sidebar_member_filter(
-            "Browse all members",
-            opts["members"],
-            key_search="pay_sidebar_search",
-            key_select="pay_member_sel",
-            placeholder="e.g. Mary Lou McDonald",
-        )
+    # ── Page header ────────────────────────────────────────────────────────────
+    # Sidebar→filter-bar migration: identity via top-nav + hero; the member
+    # picker + notable chips move into a main-panel jump under the hero.
+    hide_sidebar()
+    hero_banner(
+        kicker="PUBLIC SPENDING · PARLIAMENTARY ALLOWANCES",
+        title="TD Payments",
+        dek="Parliamentary Standard Allowance (PSA): the official record of payments to Dáil members.",
+    )
+    glossary_strip(
+        [
+            ("TD", "Teachta Dála, a member of the Dáil"),
+            ("TAA", "Travel & Accommodation Allowance, reimbursed mileage and overnight stays"),
+            ("PRA", "Public Representation Allowance, an unvouched flat allowance for constituency work"),
+            ("PSA", "Parliamentary Standard Allowance, the umbrella term for TAA plus PRA"),
+        ]
+    )
 
-    picked = sidebar_shell(
-        page_header=("Payments", None),
-        subtitle="Parliamentary Standard Allowance per TD",
-        member_picker=_member_picker,
-        notable_chips=(NOTABLE_TDS, opts["members"], "pay_notable", "selected_td_pay"),
+    # ── Member jump (was the sidebar) ───────────────────────────────────────────
+    picked = member_jump_panel(
+        opts["members"],
+        search_key_prefix="pay",
+        session_key="selected_td_pay",
+        label="Browse all members",
+        placeholder="e.g. Mary Lou McDonald",
+        notable=NOTABLE_TDS,
+        chip_key_prefix="pay_notable",
     )
     if picked and st.session_state.get("selected_td_pay") != picked:
         st.session_state["selected_td_pay"] = picked
         st.rerun()
 
-    # Legacy ?member=<name> URLs AND sidebar-driven selections both redirect
+    # Legacy ?member=<name> URLs AND member-jump selections both redirect
     # to the canonical /member-overview?member=<code>#payments profile.
     # Shared helper resolves the real unique_member_code, scrubs state, and
     # calls st.stop() so the rankings page body doesn't render under the

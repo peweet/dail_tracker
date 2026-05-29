@@ -2,20 +2,36 @@ import streamlit as st
 
 
 def inject_css() -> None:
-    """Shared design system for all Dáil Tracker pages."""
+    """Shared design system for all Dáil Tracker pages.
+
+    Rendered once per script run at app level (utility/app.py, before
+    pg.run()) so the stylesheet + banner stay mounted across page
+    navigations. Previously each page called this inside its own function,
+    so the <style> and .site-banner lived under the page's element subtree
+    and were torn down on every navigation — a frame with no design system
+    (white/unstyled, collapsed content) that read as a flash/flicker,
+    worst on the heavier pages. The per-run guard below makes the legacy
+    per-page inject_css() calls harmless no-ops; the guard is reset at the
+    top of each run in app.py. """
+    if st.session_state.get("_dt_css_injected"):
+        return
+    st.session_state["_dt_css_injected"] = True
     st.markdown(
         """
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=Epilogue:ital,wght@0,400;0,500;0,600;1,400&family=Material+Symbols+Outlined&display=swap');
 
         /* ── Site banner ─────────────────────────── */
+        /* Sits at the very top of every page, above Streamlit's native
+           top nav (st.navigation(position="top") in utility/app.py).
+           Native nav handles routing — banner is pure presentation. */
         .site-banner {
             position: relative;
             left: 50%;
             margin-left: -50vw;
             width: 100vw;
             margin-top: -1.5rem;
-            margin-bottom: 1.75rem;
+            margin-bottom: 0.5rem;
             background: #111827;
             border-bottom: 3px solid oklch(51% 0.130 62);
         }
@@ -65,93 +81,124 @@ def inject_css() -> None:
             line-height: 1;
         }
 
-        /* ── Top nav strip (P0-1 sidebar-audit fix) ──────────────────────
-           Lives BELOW the dark banner. Streamlit's st.navigation is now
-           position="hidden" so the sidebar is 100% per-page content; this
-           strip carries the cross-page navigation that used to eat the
-           top ~440px of the sidebar. Pure HTML <a> links — Streamlit's
-           page router still resolves the URL slug, just doesn't render
-           its own widget. Active state is set by the JS at the end of
-           inject_css() (matches window.location.pathname against href). */
-        .site-topnav {
-            position: relative;
-            left: 50%;
-            margin-left: -50vw;
-            width: 100vw;
-            margin-top: -1.5rem;
-            margin-bottom: 1.5rem;
-            background: #14213a;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            overflow-x: auto;
-            scrollbar-width: thin;
-            -webkit-overflow-scrolling: touch;
-        }
-        .site-topnav::-webkit-scrollbar { height: 4px; }
-        .site-topnav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
-        .site-topnav-inner {
-            max-width: 1340px;
-            padding: 0 2rem 0 22rem;
-            display: flex;
-            align-items: stretch;
-            gap: 0;
-            white-space: nowrap;
-        }
-        @media (max-width: 768px) {
-            .site-topnav-inner { padding: 0 0.5rem; }
-        }
-        .site-topnav-link {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.7rem 0.95rem;
-            font-family: 'Epilogue', sans-serif;
-            font-size: 0.78rem;
-            font-weight: 500;
-            color: rgba(255,255,255,0.62);
-            text-decoration: none !important;
-            letter-spacing: 0.005em;
-            border-bottom: 2px solid transparent;
-            transition: color 100ms ease, border-color 100ms ease, background 100ms ease;
-            flex-shrink: 0;
-        }
-        .site-topnav-link:hover {
-            color: #ffffff;
-            background: rgba(255,255,255,0.04);
-        }
-        .site-topnav-link[aria-current="page"] {
-            color: #ffffff;
-            font-weight: 700;
-            border-bottom-color: oklch(60% 0.150 62);
-            background: rgba(255,255,255,0.05);
-        }
-        .site-topnav-link:focus-visible {
-            outline: 2px solid oklch(60% 0.150 62);
-            outline-offset: -2px;
-        }
 
-        /* ── Streamlit toolbar: hide chrome, keep sidebar toggle ── */
-        /* Strategy: leave the header's height intact so the sidebar
-           collapse/expand button keeps working. Hide only the visual
-           contents (deploy btn, status widget, decoration). Then pull
-           the banner up with a negative margin-top so it covers the
-           now-transparent header area.                               */
-        header[data-testid="stHeader"] {
-            background: transparent !important;
+        /* ── Masthead: brand band on top, native top-nav beneath ── */
+        /* st.navigation(position="top") renders the cross-page nav inside
+           the header toolbar, which Streamlit pins absolute at top:0. We
+           paint it #111827 and push it down by the brand-band height so
+           the "Oireachtas Explorer" .site-banner reads as the top row and
+           the nav row sits directly under it — one dark masthead. Routing
+           stays Streamlit's; this is pure presentation. */
+        header[data-testid="stHeader"],
+        [data-testid="stToolbar"] {
+            background: #111827 !important;
             border: none !important;
             box-shadow: none !important;
         }
+        /* Drop the nav row beneath the brand band (header is absolute, so
+           shift its top). 56px butts it flush against the brand band's
+           bottom (~57px) with a hair of overlap — the header is opaque, so
+           no off-white body gap shows between the two bars. The amber
+           masthead rule rides the nav's foot. */
+        header[data-testid="stHeader"] {
+            top: 56px !important;
+            border-bottom: 3px solid var(--accent) !important;
+        }
+        /* Hide dev chrome but keep the nav + sidebar toggle. Deploy and
+           the hamburger menu sit OUTSIDE stToolbarActions, so name them
+           explicitly. */
         [data-testid="stToolbarActions"],
         [data-testid="stDecoration"],
-        [data-testid="stStatusWidget"] {
-            visibility: hidden !important;
+        [data-testid="stStatusWidget"],
+        [data-testid="stAppDeployButton"],
+        [data-testid="stMainMenu"] {
+            display: none !important;
         }
         .main .block-container {
             padding-top: 0 !important;
         }
-        /* Pull banner up into the transparent header zone */
+        /* Pin the brand band to the viewport top so the masthead stays put
+           while the page scrolls. The native nav row is already pinned
+           (absolute, top:56 — its offset parent doesn't scroll), but the
+           brand band lives INSIDE the scrolling main container, so on its
+           own it scrolled away and left page content showing above the
+           still-pinned nav row. position:fixed pins it independently of the
+           scroll container (sticky can't grip here — the banner's parent is
+           no taller than the banner). Content padding-top below replaces the
+           in-flow spacing this used to provide. */
         .site-banner {
-            margin-top: -4rem !important;
-            position: relative !important;
-            z-index: 1000 !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            margin: 0 !important;
+            z-index: 1 !important;
+            border-bottom: none !important;
+        }
+        /* Masthead is now fully out of flow (fixed brand band + absolute nav
+           row). Pad the main content so its first element clears the ~120px
+           masthead instead of hiding beneath it. */
+        [data-testid="stMainBlockContainer"] {
+            padding-top: 128px !important;
+        }
+        /* Sidebar collapse/expand chevron lives in the now-dark header —
+           lighten it so it stays visible against #111827. */
+        header[data-testid="stHeader"] [data-testid="stIconMaterial"] {
+            color: rgba(255,255,255,0.85) !important;
+        }
+
+        /* ── Native top-nav links ───────────────────────────────── */
+        [data-testid="stTopNavLink"] {
+            background: transparent !important;
+            border-radius: 2px !important;
+            padding-left: 0.35rem !important;
+            padding-right: 0.35rem !important;
+        }
+        /* Collapse the whole icon slot (the first <span>, not just the
+           glyph) so each link is ~30px narrower. The label is the
+           second <span>. */
+        [data-testid="stTopNavLink"] > span:first-child {
+            display: none !important;
+        }
+        /* The toolbar reserves a ~200px slot on the right for the
+           Deploy/menu/status chrome, which squeezed the nav and forced
+           an early "5 more" overflow with empty space beside it. That
+           chrome is hidden, so reclaim the slot — all 11 sections then
+           fit on one row. */
+        [data-testid="stToolbar"] > div > div:last-child {
+            display: none !important;
+        }
+        [data-testid="stTopNavLink"] [data-testid="stMarkdownContainer"] p,
+        [data-testid="stTopNavSection"] [data-testid="stMarkdownContainer"] p {
+            font-family: 'Epilogue', sans-serif !important;
+            font-size: 0.82rem !important;
+            font-weight: 600 !important;
+            color: rgba(255,255,255,0.72) !important;
+            letter-spacing: 0.01em !important;
+            margin: 0 !important;
+        }
+        [data-testid="stTopNavLink"]:hover {
+            background: rgba(255,255,255,0.08) !important;
+        }
+        [data-testid="stTopNavLink"]:hover [data-testid="stMarkdownContainer"] p {
+            color: #ffffff !important;
+        }
+        /* Active page → amber underline + lightened amber label. */
+        [data-testid="stTopNavLink"][aria-current="page"] {
+            background: transparent !important;
+            border-radius: 0 !important;
+            border-bottom: 2px solid var(--accent) !important;
+        }
+        [data-testid="stTopNavLink"][aria-current="page"] [data-testid="stMarkdownContainer"] p {
+            color: oklch(72% 0.14 66) !important;
+        }
+        /* "5 more" overflow trigger picks up the same link styling. */
+        [data-testid="stTopNavSection"] {
+            background: transparent !important;
+            border-radius: 2px !important;
+        }
+        [data-testid="stTopNavSection"]:hover {
+            background: rgba(255,255,255,0.08) !important;
         }
 
         /* ── Sidebar nav links ───────────────────────────────────── */
@@ -561,6 +608,42 @@ def inject_css() -> None:
             text-transform: uppercase;
             color: var(--text-meta);
             margin: 0.85rem 0 0.35rem 0;
+        }
+        /* ── Main-panel filter bar (sidebar → filter-bar migration) ──
+           Inline, hairline-rule treatment under the page hero. Replaces the
+           per-page sidebar filter stack. .dt-field-label is the same token
+           as .sidebar-label but reset for the main panel; the row is scoped
+           via a height:0 marker dropped in the first column. */
+        .dt-field-label {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+            margin: 0 0 0.35rem 0;
+        }
+        .dt-filterbar-marker { height: 0; margin: 0; overflow: hidden; }
+        /* Bottom-align controls of unequal height (date_input vs selectbox). */
+        [data-testid="stHorizontalBlock"]:has(.dt-filterbar-marker) {
+            align-items: flex-end;
+            margin-top: 0.25rem;
+        }
+        .dt-filterbar-rule {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 0.9rem 0 1.15rem;
+        }
+        /* Mobile: Streamlit collapses columns to full width on its own, but
+           pin it explicitly so long controls never force horizontal overflow
+           (the legislation-audit mobile-strip clip). */
+        @media (max-width: 640px) {
+            [data-testid="stHorizontalBlock"]:has(.dt-filterbar-marker)
+                [data-testid="stColumn"] {
+                width: 100% !important;
+                flex: 1 1 100% !important;
+                min-width: 0 !important;
+            }
         }
         .section-rule {
             border: none;
@@ -1671,8 +1754,9 @@ def inject_css() -> None:
             height: 1.5rem;
         }
 
-        /* ── Member Overview profile: section nav strip + open-all row
-           (Phase 2 chrome — 7 dimension expanders below the hero/stat strip)
+        /* ── Member Overview profile: section nav chip row
+           (sits below the hero/stat strip, links to #mo-section-<sid>
+           anchors emitted alongside each section heading below).
            Mirrors the inline-flex chip pattern used elsewhere but stays
            visually quieter so the hero remains the focal point. */
         .mo-section-nav {
@@ -4457,6 +4541,28 @@ def inject_css() -> None:
             font-style: italic;
             color: var(--text-meta);
         }
+        .lp3-recent-link {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        .lp3-recent-link strong { font-weight: 700; }
+        .lp3-recent-link em {
+            font-style: italic;
+            color: var(--text-meta);
+        }
+        .lp3-recent-link:hover,
+        .lp3-recent-link:focus-visible {
+            color: var(--accent);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .lp3-recent-link:hover em,
+        .lp3-recent-link:focus-visible em { color: var(--accent); }
+        .lp3-recent-link:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
 
         /* Topic Stage 2 return card — narrative entry with prominent styled
            .dt-source-link footer. Per-return, not row-in-table. */
@@ -4548,7 +4654,11 @@ def inject_css() -> None:
         """,
         unsafe_allow_html=True,
     )
-    st.markdown(
+    # Banner only — no nav links. Streamlit's native top nav widget
+    # (st.navigation(position="top") in utility/app.py) renders the
+    # cross-page navigation below this band with internal routing and
+    # built-in active-state painting; no custom HTML or JS needed.
+    st.html(
         """
         <div class="site-banner">
           <div class="site-banner-inner">
@@ -4557,93 +4667,5 @@ def inject_css() -> None:
             <span class="site-banner-sub">Irish parliamentary data, made searchable</span>
           </div>
         </div>
-        <nav class="site-topnav" aria-label="Primary">
-          <div class="site-topnav-inner">
-            <a class="site-topnav-link" href="/member-overview" data-slug="member-overview">Member Overview</a>
-            <a class="site-topnav-link" href="/rankings-attendance" data-slug="rankings-attendance">Attendance</a>
-            <a class="site-topnav-link" href="/rankings-votes" data-slug="rankings-votes">Votes</a>
-            <a class="site-topnav-link" href="/rankings-interests" data-slug="rankings-interests">Interests</a>
-            <a class="site-topnav-link" href="/rankings-payments" data-slug="rankings-payments">Payments</a>
-            <a class="site-topnav-link" href="/rankings-lobbying" data-slug="rankings-lobbying">Lobbying</a>
-            <a class="site-topnav-link" href="/rankings-lobbying-poc" data-slug="rankings-lobbying-poc">Lobbying (PoC)</a>
-            <a class="site-topnav-link" href="/rankings-legislation" data-slug="rankings-legislation">Legislation</a>
-            <a class="site-topnav-link" href="/rankings-statutory-instruments" data-slug="rankings-statutory-instruments">Statutory Instruments</a>
-            <a class="site-topnav-link" href="/rankings-committees" data-slug="rankings-committees">Committees</a>
-            <a class="site-topnav-link" href="/glossary" data-slug="glossary">Glossary</a>
-          </div>
-        </nav>
-        """,
-        unsafe_allow_html=True,
-    )
-    # Audit MO P0-1: Streamlit's router fires a "Page not found" modal on
-    # cold load of /member-overview (and other valid pages) even when the
-    # page DOES route and render correctly underneath. The dialog blocks
-    # all interaction on the most-trafficked page in the app. This
-    # MutationObserver watches for any [role="dialog"] whose heading reads
-    # "Page not found" and removes it on sight (plus its overlay). The
-    # modal's other use-cases (genuine 404 from a typo) still hit the
-    # underlying page's empty-state copy, which is the citizen-facing
-    # surface anyway. Safe: targets only the framework modal by exact
-    # heading text; user-authored dialogs are unaffected.
-    st.markdown(
-        r"""
-        <script>
-        (function () {
-          const KILL_HEADINGS = new Set(['page not found']);
-          function killPageNotFound(root) {
-            const dialogs = (root || document).querySelectorAll('div[role="dialog"]');
-            dialogs.forEach(function (d) {
-              const h = d.querySelector('h1, h2, h3');
-              if (h && KILL_HEADINGS.has(h.textContent.trim().toLowerCase())) {
-                d.remove();
-                // Streamlit's modal overlay is a sibling at the same depth.
-                document.querySelectorAll('div[data-baseweb="modal"]').forEach(function (m) {
-                  m.remove();
-                });
-              }
-            });
-          }
-          killPageNotFound(document);
-          new MutationObserver(function (muts) {
-            for (const m of muts) {
-              for (const n of m.addedNodes) {
-                if (n.nodeType === 1) killPageNotFound(n.parentNode || n);
-              }
-            }
-          }).observe(document.body, { childList: true, subtree: true });
-
-          // P0-1 sidebar audit fix: top-nav lives in inject_css() as a
-          // pure-HTML strip below the site banner. Streamlit's router
-          // resolves the URL slug; this just paints the active state by
-          // matching window.location.pathname against each link's
-          // data-slug. Re-runs on every Streamlit script execution so
-          // client-side nav clicks (Streamlit treats them as soft
-          // navigation) light up correctly.
-          function paintActiveNav() {
-            const path = (window.location.pathname || '/').replace(/^\/+|\/+$/g, '');
-            const slug = path || 'member-overview';  // root => default page
-            document.querySelectorAll('.site-topnav-link').forEach(function (a) {
-              if (a.dataset.slug === slug) {
-                a.setAttribute('aria-current', 'page');
-              } else {
-                a.removeAttribute('aria-current');
-              }
-            });
-          }
-          paintActiveNav();
-          // Watch for client-side route changes (Streamlit replaces the
-          // page body without a full document reload). pathname changes
-          // are reliable via popstate, but in-app clicks need a poll.
-          let lastPath = window.location.pathname;
-          setInterval(function () {
-            if (window.location.pathname !== lastPath) {
-              lastPath = window.location.pathname;
-              paintActiveNav();
-            }
-          }, 300);
-          window.addEventListener('popstate', paintActiveNav);
-        })();
-        </script>
-        """,
-        unsafe_allow_html=True,
+        """
     )
