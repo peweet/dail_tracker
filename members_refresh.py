@@ -1,21 +1,26 @@
-"""members_refresh.py — Wikidata-sourced member enrichment.
+"""members_refresh.py — member-profile enrichment chain.
 
-Both steps are SPARQL pulls against Wikidata Query Service. Each is wrapped in
-try/except so a transient WDQS outage can't poison the next step.
+Wikidata pulls + long-format committee unpivot. All three steps read silver
+flattened-members and produce derived per-member artefacts. Each step is
+isolated so a transient Wikidata outage can't poison the others.
 
-    1. wikidata_socials_etl     Twitter/X + Wikipedia links per member
-                                → consumed by Member Overview hero chips
-    2. ministerial_tenure_build minister-of-the-day table
-                                → consumed by iris_refresh.step_si_gold
+    1. wikidata_socials_etl       Twitter/X + Wikipedia links per member
+                                  → consumed by Member Overview hero chips
+    2. ministerial_tenure_build   minister-of-the-day table
+                                  → consumed by iris_refresh.step_si_gold
+    3. committees_long_format_etl unpivots wide committee_N_*/office_N_*
+                                  columns into long-format parquets
+                                  → consumed by the Committees page
 
-Run AFTER bootstrap (needs flattened_members.parquet) and BEFORE iris (iris
-consumes ministerial_tenure for SI signatory attribution).
+Run AFTER bootstrap (all steps need flattened_members.parquet) and BEFORE iris
+(iris consumes ministerial_tenure for SI signatory attribution).
 
 CLI:
     python members_refresh.py
 """
 from __future__ import annotations
 
+import argparse
 import logging
 import subprocess
 import sys
@@ -38,22 +43,29 @@ def _subprocess(script: str) -> bool:
 
 
 def step_wikidata_socials() -> bool:
-    _hr("[1/2] wikidata_socials_etl — member external links")
+    _hr("[1/3] wikidata_socials_etl — member external links")
     return _subprocess("wikidata_socials_etl.py")
 
 
 def step_ministerial_tenure() -> bool:
-    _hr("[2/2] ministerial_tenure_build — Wikidata minister-of-the-day table")
+    _hr("[2/3] ministerial_tenure_build — Wikidata minister-of-the-day table")
     return _subprocess("ministerial_tenure_build.py")
 
 
+def step_committees_long_format() -> bool:
+    _hr("[3/3] committees_long_format_etl — committee_N_* / office_N_* unpivot")
+    return _subprocess("committees_long_format_etl.py")
+
+
 def main() -> int:
+    argparse.ArgumentParser(description=__doc__.splitlines()[0]).parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     started = time.monotonic()
     failures: list[str] = []
     for name, fn in [
         ("wikidata_socials", step_wikidata_socials),
         ("ministerial_tenure", step_ministerial_tenure),
+        ("committees_long_format", step_committees_long_format),
     ]:
         if not fn():
             failures.append(name)

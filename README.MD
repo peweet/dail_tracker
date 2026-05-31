@@ -181,44 +181,83 @@ data/
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Pipeline stages
+### Pipeline shape
 
-```text
-1. Download source PDFs and API data
-2. Flatten member, legislation, vote, and lobbying records
-3. Extract structured tables from PDFs
-4. Normalise names and join keys
-5. Enrich silver outputs into analytical datasets
-6. Build gold outputs and register SQL views
-```
+The pipeline is organised as **eight domain refresh chains**. Each chain is a
+self-contained `<domain>_refresh.py` script that orchestrates its own step
+sequence (poll → extract → enrich) for one logical area of the dataset.
+
+`pipeline.py` is a thin dispatcher around those chains: by default it runs them
+all in the order below; flags let you select or skip subsets.
+
+| # | Chain | Script | What it does |
+|---|---|---|---|
+| 1 | `bootstrap` | `bootstrap_refresh.py` | Poll new PDFs + Members API + flatten members & debates. Produces `flattened_members.parquet` (the cross-source join-key carrier) and the questions/votes/debates JSON every downstream chain reads. |
+| 2 | `members` | `members_refresh.py` | Wikidata SPARQL pulls (socials/Wikipedia, ministerial-of-the-day tenure) + committees long-format unpivot. |
+| 3 | `payments` | `payments_refresh.py` | PSA (TAA + PRA) parser + member enrichment (`unique_member_code` / party / constituency). |
+| 4 | `attendance` | `attendance_refresh.py` | Record-of-Attendance PDF parser. |
+| 5 | `interests` | `interests_refresh.py` | Register of Members' Interests PDF parser. |
+| 6 | `lobbying` | `lobbying_refresh.py` | lobbying.ie YTD CSV + CRO + charities Tier-A join + gold enrichment. |
+| 7 | `iris` | `iris_refresh.py` | Iris Oifigiúil poller + silver rebuild + SI entity + SI-bill + appointments + corporate notices. |
+| 8 | `legislation` | `legislation_refresh.py` | Bills + questions + amendments + votes + cross-dataset `enrich.py`. |
+
+**Cross-chain dependencies** (run upstream first if invoking a chain standalone):
+
+- Every chain assumes `bootstrap` has refreshed `flattened_members.parquet`.
+- `iris` step 3 (SI signatory enrichment) reads `ministerial_tenure` from `members`.
+- `legislation` reads bronze questions/votes JSON written by `bootstrap.members_api`.
 
 ### Run the pipeline
 
 ```bash
+# Full refresh — runs all 8 chains in default order
 python pipeline.py
+
+# Show chains and exit
+python pipeline.py --list
+
+# Run a single chain (everything else skipped)
+python pipeline.py --select iris
+
+# Run multiple chains (comma-separated)
+python pipeline.py --select bootstrap,members,iris
+
+# Run everything EXCEPT a chain
+python pipeline.py --exclude lobbying
 ```
 
-`pipeline.py` is the orchestration entrypoint and should be treated as the current source of truth for execution order. It runs each step as a subprocess so that a single failing source does not abort the whole run; the exit code reports overall success.
+Each chain runs as a subprocess of `pipeline.py`. Per-chain logs land at
+`logs/runs/<run_id>/steps/NN_<slug>.log`; the run manifest records every chain
+with exit code and final-line summary. A chain failure is isolated — the next
+chain still runs.
 
-### Pollers and click-and-run wrappers
+### Run a single chain directly
 
-Two pollers are wired into `pipeline.py` to detect new PDFs since the last run:
-
-- `oireachtas_pdf_poller.py` — scrapes the Oireachtas publications index for new payments, attendance, and interests PDFs.
-- `iris_oifigiuil_poller.py` — fetches new Iris Oifigiúil Tue/Fri issues.
-
-Each also has a single-source click-and-run wrapper for ad-hoc local use (no need to run the full pipeline):
+Every chain is also a normal Python script that you can invoke on its own
+(no need to go through `pipeline.py`):
 
 ```bash
-python run_payments_poll.py        # poll payments only
-python run_attendance_poll.py      # poll attendance only
-python run_interests_poll.py       # poll register of members' interests only
-python run_iris_poll.py            # poll Iris Oifigiúil only
+python iris_refresh.py             # iris poller → silver → 4 gold enrichments
+python iris_refresh.py --help      # see chain-specific flags (e.g. --skip-poll)
+
+python payments_refresh.py         # PSA ETL + member enrichment
+python lobbying_refresh.py         # full lobbying + CRO + charity chain
 ```
 
-### Backfilling Iris historical PDFs
+Use `<chain>_refresh.py --help` to see whether a chain accepts skip-flags
+(`iris` does; the others currently don't — adding them is a one-line change).
 
-`iris_oifigiuil_poller.py` defaults to "fill the gap since last on-disk issue". For deliberate backfill, two flags are available:
+### Bronze pollers (called by chains)
+
+Two pollers handle "have new PDFs been published since last run?" and are
+invoked by the chains above. You normally don't run them directly:
+
+- `oireachtas_pdf_poller.py` — payments + attendance + interests, called by
+  `bootstrap_refresh.step_poll_oireachtas`.
+- `iris_oifigiuil_poller.py` — Iris Oifigiúil Tue/Fri issues, called by
+  `iris_refresh.step_poll`.
+
+For ad-hoc backfill the Iris poller has explicit flags worth knowing:
 
 ```bash
 # Backfill a single calendar year (Tue/Fri only; current year truncated at today)
@@ -235,6 +274,38 @@ python iris_oifigiuil_poller.py --year 2020 --dry-run
 ```
 
 `--year` and `--lookback-days` are mutually exclusive. Anything already on disk is skipped (no network request), so wider windows are cheap to point at.
+
+### Manual / operator utilities (outside the chains)
+
+A handful of scripts live at repo root or in `pipeline_sandbox/` but are
+**deliberately not** wired into any chain. They're tools you reach for by hand
+when something needs investigation, backfill, or one-off repair. Listing them
+here so you remember they exist:
+
+| Script | When you'd reach for it |
+|---|---|
+| `lobbying_fetch.py --start YYYY-MM-DD --end YYYY-MM-DD [--force] [--dry-run]` | Backfill historical lobbying.ie CSVs for a date window. The chain's `lobbying_poller` only covers YTD. |
+| `iris_oifigiuil_poller.py --year YYYY [--dry-run]` | Iris historical backfill (see Iris-backfill section above). The chain runs it incremental with no flags. |
+| `iris_oifigiuil_etl_polars.py --rebuild` | Force a full historical Iris re-extract (ignore the per-PDF shard cache). |
+| `iris_incremental_shards.py "glob"` | Populate/inspect the per-PDF parquet shard cache without running silver/gold. |
+| `pdf_endpoint_check.py` | Smoke-test the Oireachtas PDF endpoint when you suspect upstream is down. Commented-out as STEPS[0] in the old pipeline; useful for triage. |
+| `pdf_backfill_scraper.py` | Hunt for historical PDFs outside the poller's window. Legacy helper, no docstring; treat as archaeology. |
+| `repair_future_iris_placeholders.py` | One-shot: cleans up 146-byte HTML stubs left by an older Iris downloader. Run once after switching pollers; already done in this repo. |
+| `pipeline_sandbox/cbi_registers_extract.py [--download \| --extract \| --xref]` | Central Bank registers ↔ member interests + lobbying cross-ref experiment. |
+| `pipeline_sandbox/public_appointments_enrichment.py --write` | Run standalone (also wired into `iris` chain). |
+| `corporate_notices_enrichment.py --write` | Same — standalone variant. |
+| `payments_member_enrichment.py` | Same — also wired into `payments` chain. |
+| `pipeline_sandbox/cso_pxstat_extract.py --write` | CSO PxStat per-LA × year housing tables. Not yet UI-consumed. |
+| `pipeline_sandbox/eurostat_extract.py --write` | Eurostat housing/tenure/citizenship indicators for Ireland. Not yet UI-consumed. |
+| `pipeline_sandbox/open_csv_extract.py --write` | DHLGH open-data housing/homelessness CSVs in one pass. Not yet UI-consumed. |
+| `pipeline_sandbox/hap_funding_xlsx_extract.py --write` | HAP per-LA expenditure & tenancies. Not yet UI-consumed. |
+| `pipeline_sandbox/ssha_appendix_a19_extract.py --write` | SSHA Appendix A1.9 per-LA citizenship of waiting-list applicants. Not yet UI-consumed. |
+
+**Sandbox `--write` convention:** sandbox scripts are dry-run by default and
+require `--write` to emit the parquet. Root-level scripts always write. If a
+sandbox extract earns a UI page later, fold it into the relevant chain (most
+likely a new `housing_refresh.py`) and drop the `--write` flag at the same
+time it graduates.
 
 Exit codes: `0` = clean run · `1` = at least one download failed · `2` = a past Tue/Fri returned 4xx on every URL variant (slug pattern may have changed; investigate before trusting future runs).
 
@@ -474,10 +545,14 @@ dail_tracker/
 ├── wikidata_socials_etl.py                  Wikidata socials + Wikipedia links per member
 ├── oireachtas_pdf_poller.py                 Multi-source poller (payments / attendance / interests)
 ├── lobbying_poller.py                       Auto-polls lobbying.ie YTD CSV endpoint
-├── run_payments_poll.py                     Click-and-run wrapper — payments only
-├── run_attendance_poll.py                   Click-and-run wrapper — attendance only
-├── run_interests_poll.py                    Click-and-run wrapper — interests only
-├── run_iris_poll.py                         Click-and-run wrapper — Iris only
+├── bootstrap_refresh.py                     Chain: PDF pollers + Members API + flatten members & debates
+├── members_refresh.py                       Chain: Wikidata socials + ministerial tenure
+├── payments_refresh.py                      Chain: PSA ETL + member enrichment
+├── attendance_refresh.py                    Chain: Record-of-Attendance PDF parser
+├── interests_refresh.py                     Chain: Register of Members' Interests PDF parser
+├── lobbying_refresh.py                      Chain: lobbying.ie + CRO + charities
+├── iris_refresh.py                          Chain: Iris poller + silver + 4 gold enrichments
+├── legislation_refresh.py                   Chain: bills + questions + amendments + votes + enrich
 ├── lobby_processing.py                      Lobbying CSV processing
 ├── lobbying_pdf_extract.py                  Extracts embedded PDFs from lobbying returns
 ├── legislation.py                           Legislation processing
@@ -500,7 +575,7 @@ dail_tracker/
 ├── analytics_loading.py                     Analytics helpers
 ├── manifest.py                              Pipeline run manifest
 ├── config.py                                Paths, directories, logging, constants
-├── pipeline.py                              Pipeline orchestration
+├── pipeline.py                              Pipeline orchestrator — dispatches refresh chains
 ├── pyproject.toml                           Build metadata and dependency groups
 └── README.MD
 ```

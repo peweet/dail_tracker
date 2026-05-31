@@ -9,7 +9,7 @@
 --   date_paid   → synthesises payment_year
 --
 -- unique_member_code / party_name / constituency populated by
--- pipeline_sandbox/payments_member_enrichment.py after the PSA ETL runs.
+-- payments_member_enrichment.py after the PSA ETL runs.
 -- Coverage: 172 of 176 current TDs (97.7%). The four unmatched (Daniel Ennis,
 -- Frankie Feighan, Paul Nicholas Gogarty, Conor D McGuinness) are upstream
 -- name-shape mismatches between the Oireachtas members API and the PSA

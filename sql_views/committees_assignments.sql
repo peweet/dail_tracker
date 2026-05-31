@@ -1,6 +1,6 @@
 -- v_committee_assignments — one row per (member × committee).
 -- Source: data/silver/committees/committee_assignments.parquet,
--- produced by pipeline_sandbox/committees_long_format_etl.py.
+-- produced by committees_long_format_etl.py.
 --
 -- Replaces the in-page unpivot of committee_*/office_* wide columns that
 -- used to live in utility/pages_code/committees.py::_load (two

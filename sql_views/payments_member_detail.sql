@@ -5,7 +5,7 @@
 -- This is the audit trail view: every individual payment that makes up a member's total.
 -- Do not aggregate here — aggregation lives in v_payments_yearly_evolution.
 --
--- party_name and constituency enriched by pipeline_sandbox/payments_member_enrichment.py
+-- party_name and constituency enriched by payments_member_enrichment.py
 -- TODO_PIPELINE_VIEW_REQUIRED: canonical member_id for cross-page linking
 -- TODO_PIPELINE_VIEW_REQUIRED: per-year official source PDF URL
 

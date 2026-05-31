@@ -253,9 +253,9 @@ FROM agg;
 
 Needs Polars enrichment before SQL can see the data.
 
-### 2.1 Committees — sandbox script + 4 views
+### 2.1 Committees — ETL script + 4 views
 
-**Sandbox script:** `pipeline_sandbox/committees_long_format_etl.py`
+**ETL script:** `committees_long_format_etl.py`
 
 ```python
 # Reads silver/members/<chamber>.csv, unpivots committee_*/office_* wide

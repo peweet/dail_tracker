@@ -4,7 +4,7 @@ Corporate — standalone browser page.
 Sources from the registered DuckDB view v_corporate_notices
 (sql_views/corporate_corporate_notices.sql), which reads
 data/gold/parquet/corporate_notices.parquet — produced by
-pipeline_sandbox/corporate_notices_enrichment.py.
+corporate_notices_enrichment.py.
 
 Civic frame: corporate notices in Iris Oifigiúil. The page leads with the
 recognition story — who's been calling in Irish loans (brand → parent fund
@@ -155,6 +155,51 @@ def _inject_corp_css() -> None:
             display: block; font-size: 0.68rem; color: #7a5a00;
             text-transform: uppercase; letter-spacing: 0.05em;
             margin-top: -0.05rem;
+        }
+        /* Receiver-appointer type chip — coloured pill replacing the small
+           grey subtitle so users see the vulture / bank / state mix at a glance. */
+        .corp-rank-row { grid-template-columns: 9rem 1fr 4.6rem 2.5rem; }
+        .corp-rank-typechip {
+            display: inline-block;
+            font-size: 0.66rem; line-height: 1.4;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            text-transform: uppercase; letter-spacing: 0.04em;
+            font-weight: 600;
+            white-space: nowrap; text-align: center;
+        }
+        .corp-rank-typechip.vulture { background: #f9ebe7; border: 1px solid #d8b09e; color: #7c2e1e; }
+        .corp-rank-typechip.bank    { background: #eef4f7; border: 1px solid #b9d0dc; color: #1f4757; }
+        .corp-rank-typechip.state   { background: #eef3ec; border: 1px solid #cfe0c8; color: #2c4a23; }
+        .corp-rank-typechip.servicer{ background: #f6f0e6; border: 1px solid #e6d9c2; color: #6b3f00; }
+        .corp-rank-typechip.other   { background: #f5f1ea; border: 1px solid #e5e2db; color: #5b6b73; }
+
+        /* Type-mix headline stat above the ranked list. */
+        .corp-typebreakdown {
+            display: flex; flex-wrap: wrap;
+            gap: 0.4rem 0.85rem;
+            font-size: 0.78rem; color: #14232b;
+            margin: 0.55rem 0 0.85rem;
+            line-height: 1.55;
+        }
+        .corp-typebreakdown span {
+            display: inline-flex; align-items: baseline; gap: 0.3rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .corp-typebreakdown b { font-weight: 600; }
+        .corp-typebreakdown .dot {
+            width: 0.6rem; height: 0.6rem; border-radius: 50%;
+            display: inline-block;
+            transform: translateY(0.05rem);
+        }
+        .corp-typebreakdown .dot.vulture { background: #7c2e1e; }
+        .corp-typebreakdown .dot.bank    { background: #1f4757; }
+        .corp-typebreakdown .dot.state   { background: #2c4a23; }
+        .corp-typebreakdown .dot.servicer{ background: #6b3f00; }
+        .corp-typebreakdown .dot.other   { background: #5b6b73; }
+        @media (max-width: 760px) {
+            .corp-rank-row { grid-template-columns: 1fr 4rem 2rem; }
+            .corp-rank-typechip { display: none; }
         }
         .corp-rank-bar {
             background: #efe6cf; border-radius: 2px; height: 0.55rem;
@@ -654,26 +699,104 @@ def _render_featured(df: pd.DataFrame) -> None:
         return
 
     pdf = pd.DataFrame(parent_rows)
-    top = pdf.groupby("parent").agg(n=("parent", "size"), ftype=("ftype", "first")).sort_values("n", ascending=False).head(FEATURED_TOP_N)
+    # Dominant type per parent — mode, not "first" (the old picker mislabelled
+    # Cerberus as 'credit servicer' even though its dominant role across
+    # receivership notices is 'vulture fund'). Ties broken by canonical priority.
+    _TYPE_PRIORITY = {
+        "vulture fund": 0,
+        "credit servicer": 1,
+        "Irish bank": 2,
+        "Irish bank (winding down)": 2,
+        "Irish bank (exited)": 2,
+        "state asset manager": 3,
+        "state agency": 3,
+    }
+    def _dominant_ftype(s: pd.Series) -> str:
+        counts = s.value_counts()
+        if counts.empty:
+            return ""
+        top_n = counts.iloc[0]
+        winners = counts[counts == top_n].index.tolist()
+        # Priority tiebreak so canonical role (vulture > servicer > bank > state) wins
+        winners.sort(key=lambda x: (_TYPE_PRIORITY.get(x, 99), x))
+        return winners[0]
+
+    parent_to_ftype: dict[str, str] = (
+        pdf.groupby("parent")["ftype"].agg(_dominant_ftype).to_dict()
+    )
+
+    top = (
+        pdf.groupby("parent")
+           .size().rename("n")
+           .reset_index()
+           .assign(ftype=lambda d: d["parent"].map(parent_to_ftype))
+           .sort_values("n", ascending=False)
+           .head(FEATURED_TOP_N)
+           .set_index("parent")
+    )
     n_tagged = int(recv["parent_fund_mentions"].apply(
         lambda x: bool(x is not None and hasattr(x, "__iter__") and len(list(x)) > 0)
     ).sum())
     coverage_pct = round(100 * n_tagged / max(n_recv, 1))
+
+    # Type-mix breakdown across ALL tagged parent mentions (not just top-N).
+    # Bucket the fine-grained Irish-bank variants + state variants for the
+    # headline stat.
+    def _type_bucket(ft: str) -> str:
+        if not ft:
+            return "other"
+        ft_low = ft.lower()
+        if "vulture" in ft_low: return "vulture"
+        if "servicer" in ft_low: return "servicer"
+        if "irish bank" in ft_low or ft_low.startswith("bank"): return "bank"
+        if "state" in ft_low or "nama" in ft_low or "revenue" in ft_low: return "state"
+        return "other"
+
+    pdf["bucket"] = pdf["parent"].map(parent_to_ftype).map(_type_bucket)
+    bucket_counts = pdf["bucket"].value_counts()
+    bucket_total = int(bucket_counts.sum()) or 1
+    bucket_pct = {k: round(100 * v / bucket_total) for k, v in bucket_counts.items()}
+    _BUCKET_LABEL = {
+        "vulture": "vulture funds",
+        "servicer": "credit servicers",
+        "bank": "Irish banks",
+        "state": "state (NAMA / Revenue)",
+        "other": "other",
+    }
+    breakdown_parts: list[str] = []
+    for b in ("vulture", "bank", "servicer", "state", "other"):
+        pct = bucket_pct.get(b, 0)
+        if pct == 0:
+            continue
+        breakdown_parts.append(
+            f'<span><span class="dot {b}"></span><b>{pct}%</b> {_BUCKET_LABEL[b]}</span>'
+        )
+    breakdown_html = (
+        '<div class="corp-typebreakdown" aria-label="Type breakdown of appointing parties">'
+        + "".join(breakdown_parts) +
+        '</div>'
+    ) if breakdown_parts else ""
 
     max_n = int(top["n"].iloc[0])
     rows_html: list[str] = []
     for parent, row in top.iterrows():
         width = max(8, int(round(100 * (int(row["n"]) / max_n))))
         ftype = row.get("ftype") or ""
+        bucket = _type_bucket(ftype)
+        chip_html = (
+            f'<span class="corp-rank-typechip {bucket}" title="{html.escape(ftype)}">'
+            f'{html.escape(_BUCKET_LABEL.get(bucket, ftype).replace(" funds", " fund").replace(" servicers", " servicer").replace(" banks", " bank"))}'
+            '</span>'
+        ) if ftype else ''
         rows_html.append(
             f'<a class="corp-rank-row" href="?fund={html.escape(str(parent), quote=True)}" '
             f'target="_self" style="text-decoration:none;color:inherit;" '
             f'aria-label="Filter to {html.escape(parent, quote=True)} ({int(row["n"])} notices)">'
             f'<div class="corp-rank-name" title="{html.escape(parent)}">'
             f'{html.escape(parent)}'
-            f'{(f"<span class=\"corp-rank-type\">{html.escape(ftype)}</span>" if ftype else "")}'
             f'</div>'
             f'<div class="corp-rank-bar"><span style="width:{width}%"></span></div>'
+            f'{chip_html}'
             f'<div class="corp-rank-count">{int(row["n"])}</div>'
             '</a>'
         )
@@ -721,10 +844,11 @@ def _render_featured(df: pd.DataFrame) -> None:
         "<h2 class=\"corp-featured-h\">Who's calling in Irish loans</h2>"
         f'<div class="corp-featured-sub">'
         f'Of <strong>{n_recv:,}</strong> receivership notices, '
-        f'<strong>{n_tagged:,}</strong> ({coverage_pct}%) name a known loan-book buyer or '
-        f'Irish bank. The rest are appointed by smaller institutions or under private '
-        f'debentures where no major fund is named. Click a row to filter the page.'
+        f'<strong>{n_tagged:,}</strong> ({coverage_pct}%) name a known appointer. '
+        f'The rest are smaller institutions or private debentures where no major '
+        f'fund is named. Click a row to filter the page.'
         f'</div>'
+        + breakdown_html
         + "".join(rows_html) +
         '</div>'
         f'<div>{spark_html}</div>'
