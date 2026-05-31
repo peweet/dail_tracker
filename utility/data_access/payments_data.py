@@ -76,8 +76,8 @@ def fetch_year_ranking(year: int) -> pd.DataFrame:
     return (
         get_payments_conn()
         .execute(
-            "SELECT member_name, position, party_name, constituency,"
-            " taa_band_label, total_paid, payment_count, rank_high,"
+            "SELECT member_name, unique_member_code, position, party_name,"
+            " constituency, taa_band_label, total_paid, payment_count, rank_high,"
             " year_total_paid, year_member_count, year_avg_per_td"
             " FROM v_payments_yearly_evolution"
             " WHERE payment_year = ?"
@@ -201,9 +201,9 @@ def fetch_alltime_ranking() -> pd.DataFrame:
     return (
         get_payments_conn()
         .execute(
-            "SELECT member_name, position, party_name, constituency,"
-            " taa_band_label, total_paid_since_2020, payment_count_since_2020,"
-            " earliest_year, latest_year, rank_high"
+            "SELECT member_name, unique_member_code, position, party_name,"
+            " constituency, taa_band_label, total_paid_since_2020,"
+            " payment_count_since_2020, earliest_year, latest_year, rank_high"
             " FROM v_payments_alltime_ranking"
             " ORDER BY rank_high ASC"
         )

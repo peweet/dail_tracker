@@ -208,11 +208,14 @@ def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
         with col:
             cards: list[str] = []
             for _, row in chunk.iterrows():
-                # The data ships names "Last, First"; resolve_member_code
-                # normalises both forms so either works as the lookup key.
+                # unique_member_code comes straight from the view (pipeline
+                # join), so we don't need to round-trip through a name lookup
+                # against v_member_registry — payment names are "Last, First"
+                # and accent-stripped, which never exact-matches the registry.
                 raw_name = str(row["member_name"])
                 display_name = _flip_name(raw_name)
-                code = resolve_member_code(raw_name)
+                code = str(row.get("unique_member_code", "") or "").strip() \
+                    or resolve_member_code(raw_name)
                 inner = _pay_card_html(row)
                 if code:
                     cards.append(
@@ -294,13 +297,18 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
             cards: list[str] = []
             for _, row in chunk.iterrows():
                 name = str(row["member_name"])
-                code = resolve_member_code(name)
+                # Pipeline ships unique_member_code on v_payments_yearly_evolution
+                # for ~97% of TDs; name-based resolver is the last-resort fallback
+                # (and is broken for the "Last, First" + accent-stripped format
+                # the payments parquet uses — every card was non-clickable before).
+                code = str(row.get("unique_member_code", "") or "").strip() \
+                    or resolve_member_code(name)
                 if code:
                     cards.append(
                         clickable_card_link(
                             href=member_profile_url(code, section="payments"),
                             inner_html=_pay_card_html(row),
-                            aria_label=f"View {name}'s payments profile",
+                            aria_label=f"View {_flip_name(name)}'s payments profile",
                         )
                     )
                 else:

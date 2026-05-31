@@ -1,0 +1,58 @@
+"""interests_refresh.py — Register of Members' Interests extraction.
+
+Single-step chain today; lives as a chain for consistency and so a future
+member-enrichment step can be added the same way it was for payments.
+
+    1. member_interests   parses bronze Register-of-Interests PDFs
+                          → silver/gold member_interests tables
+
+Bronze PDFs are picked up by bootstrap_refresh.step_poll_oireachtas. Run
+bootstrap first if there have been new publications.
+
+CLI:
+    python interests_refresh.py
+"""
+from __future__ import annotations
+
+import logging
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent
+_log = logging.getLogger("interests_refresh")
+
+
+def _hr(label: str) -> None:
+    print(f"\n{'─' * 74}\n{label}\n{'─' * 74}")
+
+
+def _subprocess(script: str) -> bool:
+    t = time.monotonic()
+    r = subprocess.run([sys.executable, script], cwd=_ROOT)
+    print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
+    return r.returncode == 0
+
+
+def step_extract() -> bool:
+    _hr("[1/1] member_interests — Register of Members' Interests PDF parser")
+    return _subprocess("member_interests.py")
+
+
+def main() -> int:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    started = time.monotonic()
+    failures: list[str] = []
+    if not step_extract():
+        failures.append("extract")
+    _hr(f"[done] interests_refresh complete in {time.monotonic() - started:.1f}s")
+    if failures:
+        print(f"  FAILED steps: {', '.join(failures)}")
+        return 1
+    print("  all steps succeeded.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
