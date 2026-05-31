@@ -76,3 +76,21 @@ def fetch_cbi_repeat_distress() -> pd.DataFrame:
     keep the panel honest about what is actually distress vs ETF/fund wind-up.
     """
     return _safe("SELECT * FROM v_corporate_cbi_repeat_distress")
+
+
+@st.cache_data(ttl=600)
+def fetch_brand_aliases() -> pd.DataFrame:
+    """Brand → parent_fund → fund_type curated alias map.
+
+    Source: data/_meta/loan_book_fund_aliases.csv. Used by the
+    Corporate page methodology expander to make the panel's brand-to-parent
+    classification provenance visible (so a reader sees Beltany → Goldman
+    Sachs without having to inspect the CSV)."""
+    csv_path = _PROJECT_ROOT / "data" / "_meta" / "loan_book_fund_aliases.csv"
+    if not csv_path.exists():
+        return pd.DataFrame(columns=["brand", "parent_fund", "fund_type", "notes"])
+    try:
+        return pd.read_csv(csv_path)
+    except Exception:
+        _log.exception("brand alias CSV load failed")
+        return pd.DataFrame(columns=["brand", "parent_fund", "fund_type", "notes"])

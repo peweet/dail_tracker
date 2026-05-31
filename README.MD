@@ -60,6 +60,9 @@ Only the current Dáil and Seanad are in scope. See [`doc/DATA_LIMITATIONS.md`](
 | SI entity / signatory enrichment (Wikidata ministerial tenure) | Production — wired into `pipeline.py` |
 | Wikidata socials & Wikipedia member links | Production — wired into `pipeline.py` |
 | Cross-source unified Member Overview profile | Working — `unique_member_code` populated on attendance, votes, payments, debates, legislation (sponsor_join_key), interests, appointments, and lobbying views |
+| Corporate Notices page (Iris distress + rescue) | Working — receiver-appointer panel with vulture/bank/state/servicer typing; receiver-firm operator strip; corporate-rescue panel; sources & methodology expander; CBI register cross-reference panel (sandbox) |
+| Central Bank of Ireland register cross-ref (Corporate page) | **Sandbox** — `pipeline_sandbox/cbi_registers_extract.py` parses 56 of the CBI downloads-page register PDFs into `data/sandbox/parquet/cbi_authorised_firms.parquet` (13.8k firm rows). Three SQL views (`sql_views/corporate_cbi_distress.sql`) expose the per-notice match + repeat-distress aggregate. **Enforcement actions / prohibition notices not yet ingested** — see [`doc/ENRICHMENTS.md`](doc/ENRICHMENTS.md) §E.5 |
+| Brand → parent fund alias map (Corporate page) | Working — `data/_meta/loan_book_fund_aliases.csv`, hand-curated, citation-anchored. Surfaces vulture-fund / Irish bank / credit servicer / state classification on the receiver-appointer panel |
 | Tests (silver / gold / SQL view shape) | Partial — many tests skip when fixtures are missing |
 | Public deployment | None — local Streamlit only |
 
@@ -111,6 +114,15 @@ This project joins those sources into one analytical pipeline so questions like 
 - [Register of Lobbying](https://www.lobbying.ie/app/home/search)
 
 All upstream data remains subject to the terms and licences of the publishing bodies.
+
+A forward-looking catalogue of candidate datasets (political accountability, state spending, beneficial ownership, regulatory enforcement, EU layer, public discourse, geography/demographics, Iris Oifigiúil) is maintained in [`doc/ENRICHMENTS.md`](doc/ENRICHMENTS.md). Sources graduate from there to the table above as they ship.
+
+### Editorial principles
+
+Two rules govern what gets written in the dashboard UI:
+
+- **No inference in app copy.** Every claim shown to a user must trace to a parquet query or be removed. Historical context, causal explanations, and value-laden framings are presented only as cited footnotes or methodology expanders — never woven into main copy as if data-derived. Inference is encouraged in planning conversations and design notes; it does not earn a place in the live UI.
+- **Cite real-world claims.** Any reference to a named scandal, fine, court case, or specific event in supporting docs carries a reputable-source URL inline. Bare claims in docs or memory are not accepted.
 
 ---
 
@@ -450,6 +462,7 @@ Production pages (native top-nav; filter bars live in the main panel, sidebar is
 - **Legislation** — bills, sponsors, debates, stages, related documents, pre-2014 Acts
 - **Statutory Instruments** — Iris-derived SIs with title-quality fixes, signatories, and parent-Act linkage
 - **Appointments** — Iris-derived public appointments index (boards, tribunals, statutory officers)
+- **Corporate Notices** — Iris-derived corporate distress + rescue events (receiverships, examinerships, SCARP, liquidations, ICAV strike-offs). Receiver-appointer ranking + vulture-fund classification + receiver-firm concentration strip + CBI cross-reference panel (sandbox) + corporate rescue panel + sources & methodology expander.
 - **Committees** — committee assignments, party composition, member rosters
 - **Glossary** — civic-vocabulary index (TAA, PRA, DPO, SI, Iris, etc.)
 

@@ -1,17 +1,36 @@
 """Dáil Tracker data pipeline orchestrator.
 
-Runs each STEPS entry as a subprocess (or in-process for the Members API),
-captures stdout+stderr to a per-step log file under
-``logs/runs/<run_id>/steps/NN_<slug>.log``, and records every step in the
-per-run manifest. The whole run is self-contained under
-``logs/runs/<run_id>/`` so it can be uploaded as a single CI artifact.
+Runs domain refresh chains in the default order below. Each chain is a
+self-contained ``<domain>_refresh.py`` script that orchestrates its own
+step sequence (poll → extract → enrich) and prints progress to stdout.
 
-Per-step failures are caught so a single flaky source doesn't poison the
-rest of the run (DAIL-163). Exit code 1 if any step failed.
+This file is a thin dispatcher around the chains. Per-chain logs land at
+``logs/runs/<run_id>/steps/NN_<slug>.log``, the manifest records each chain,
+and chain-level try/except keeps one flaky source from poisoning the rest.
+
+Default order:
+
+    bootstrap → members → payments → attendance → interests → lobbying
+                                                            → iris → legislation
+
+Cross-chain dependencies (run upstream first if you `--select` standalone):
+
+    * every chain assumes bootstrap has refreshed flattened_members.parquet
+    * iris.step_si_gold assumes members.ministerial_tenure has run
+    * legislation assumes bootstrap.members_api has fetched questions/votes JSON
+
+CLI:
+
+    python pipeline.py                            # full run
+    python pipeline.py --list                     # show chains and exit
+    python pipeline.py --select iris              # only iris
+    python pipeline.py --select members,iris      # subset, comma-separated
+    python pipeline.py --exclude lobbying         # everything except lobbying
 """
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import subprocess
@@ -25,71 +44,31 @@ from manifest import (
     run_finished_at,
 )
 from services.logging_setup import setup_logging
-from services.oireachtas_api_main import main as run_oireachtas_api
 from services.run_paths import ENV_RUN_ID, make_run_id, run_dir, step_log_path
 
-STEPS = [
-    # ("PDF Endpoint Check", "pdf_endpoint_check.py"),
-    # Poll the Oireachtas publications index for new PDFs across payments,
-    # attendance, and interests. Anything new lands in the source's bronze
-    # dir before PDF Downloader runs (which still covers the hard-coded
-    # historical URL list and skips files already on disk).
-    ("Poll new Oireachtas PDFs", "oireachtas_pdf_poller.py"),
-    ("PDF Downloader", "pdf_downloader.py"),
-    ("Members API", "dummy_value"),
-    ("Flatten debate listings", "dbsect_listings_flatten.py"),
-    ("Flatten members", "flatten_members_json_to_csv.py"),
-    ("Process payments (full PSA)", "payments_full_psa_etl.py"),
-    ("Attendance PDF", "attendance.py"),
-    # Fetches YTD lobbying returns from the public CSV endpoint. Slow (~80s)
-    # because the upstream assembles the response per-request. Hash-compare
-    # in the poller skips bronze writes when nothing changed. Auto-switches
-    # to wave mode on NEXT_WAVE_DATE for stricter size validation.
-    ("Poll lobbying returns (YTD)", "lobbying_poller.py"),
-    ("Lobbying PDF", "lobby_processing.py"),
-    ("Extract embedded PDFs from lobbying returns", "lobbying_pdf_extract.py"),
-    # CRO + Charities Tier-A resolution. Order matters: cro_normalise and
-    # charity_normalise each consume an independent bronze file (CSV + xlsx);
-    # charity_resolved joins their silver outputs together.
-    ("CRO normalise", "cro_normalise.py"),
-    ("Charity normalise", "charity_normalise.py"),
-    ("Charity resolved (Tier A join)", "charity_resolved.py"),
-    # Gold-layer enrichment of the Tier-A charity table: adds NACE sector
-    # labels, CRO filing dates, and compliance flags. Purely additive —
-    # reads silver, writes gold parquet only, does not modify any upstream
-    # output. Dedups defensively on RCN.
-    ("Charity enriched (gold)", "charity_enriched.py"),
-    ("Process legislation", "legislation.py"),
-    # Flattens bronze/questions/questions_results.json (written by Members API
-    # in-process step above) to silver. Parallel structure to legislation.py.
-    ("Flatten parliamentary questions", "questions.py"),
-    ("Flatten bill amendments", "bill_amendments_flatten.py"),
-    ("Member interests PDF conversion to Dataframe", "member_interests.py"),
-    # Iris publishes Tue/Fri; this picks up new issues since the last run and
-    # lands them in bronze before the Iris ETL globs *.pdf.
-    ("Poll new Iris Oifigiuil PDFs", "iris_oifigiuil_poller.py"),
-    # Incremental extract: each bronze PDF is cached as a per-PDF parquet
-    # shard under data/silver/iris_oifigiuil_shards/, fingerprinted by
-    # (mtime_ns, size, EXTRACTOR_VERSION). Only new/changed PDFs are
-    # re-parsed; silver/gold still rebuild over the full corpus so back-dated
-    # corrections propagate. Pass --rebuild for a full historical re-extract.
-    ("Iris Oifigiuil ETL", "iris_oifigiuil_etl_polars.py"),
-    ("Iris SI <-> bill enrichment", "iris_si_bill_enrichment.py"),
-    # ministerial_tenure_build refreshes the Wikidata-sourced minister table
-    # consumed by si_entity_enrichment. Network call; pipeline.py wraps each
-    # step in try/except so a transient Wikidata failure can't poison the run.
-    ("Ministerial tenure (Wikidata)", "ministerial_tenure_build.py"),
-    # Wikidata socials + Wikipedia links per member — consumed by
-    # member_overview hero chips. Network call to the same WDQS endpoint;
-    # failure here leaves the previous parquet in place (or no parquet on
-    # first ever run — the SQL view registration is wrapped in try/except,
-    # so the hero just falls back to "no chips").
-    ("Wikidata socials (member external links)", "wikidata_socials_etl.py"),
-    ("SI entity enrichment", "si_entity_enrichment.py"),
-    # transform_votes must precede enrich — enrich.py reads silver/pretty_votes.csv
-    ("Transform vote data", "transform_votes.py"),
-    ("Enrich", "enrich.py"),
+# Domain refresh chains in the default execution order. Each tuple is
+# (chain_name, script_path). Chain name is used by --select/--exclude.
+CHAINS: list[tuple[str, str]] = [
+    ("bootstrap",   "bootstrap_refresh.py"),
+    ("members",     "members_refresh.py"),
+    ("payments",    "payments_refresh.py"),
+    ("attendance",  "attendance_refresh.py"),
+    ("interests",   "interests_refresh.py"),
+    ("lobbying",    "lobbying_refresh.py"),
+    ("iris",        "iris_refresh.py"),
+    ("legislation", "legislation_refresh.py"),
 ]
+
+_CHAIN_BLURBS: dict[str, str] = {
+    "bootstrap":   "shared inputs: poll PDFs + Members API + flatten members & debates",
+    "members":     "Wikidata socials + ministerial tenure + committees long-format",
+    "payments":    "Parliamentary Standard Allowance: PSA ETL + member enrichment",
+    "attendance":  "plenary attendance PDF extraction",
+    "interests":   "Register of Members' Interests PDF extraction",
+    "lobbying":    "lobbying.ie YTD + CRO + charities Tier-A + gold enrichment",
+    "iris":        "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
+    "legislation": "bills + questions + amendments + votes + cross-dataset enrich",
+}
 
 _SUMMARY_SKIP_PREFIXES = ("warning:", "warn:", "[warn", "deprecation")
 
@@ -98,8 +77,7 @@ def _summarise_log(lines: list[str]) -> str | None:
     """Pick a useful summary line for the manifest.
 
     Walk from the end, skip blanks and obvious noise (warnings, deprecations),
-    return the first remaining line. Pollers print a single-line summary like
-    `[iris] poll done new=1 …` which lands here naturally.
+    return the first remaining line.
     """
     for line in reversed(lines):
         candidate = line.strip()
@@ -112,7 +90,7 @@ def _summarise_log(lines: list[str]) -> str | None:
 
 
 def _run_subprocess(run_id: str, name: str, script: str, log_path: Path) -> tuple[int, str | None]:
-    """Run a step script and tee its combined stdout/stderr to ``log_path``.
+    """Run a chain script and tee its combined stdout/stderr to ``log_path``.
 
     Forces UTF-8 on the child's stdio so non-ASCII chars (→, é, etc.) survive
     on Windows where the console codepage is usually cp1252.
@@ -148,51 +126,89 @@ def _run_subprocess(run_id: str, name: str, script: str, log_path: Path) -> tupl
     return exit_code, _summarise_log(tail)
 
 
-def _run_in_process(name: str, log_path: Path) -> tuple[int, str | None]:
-    """Run the in-process step under a dedicated FileHandler so its log is captured."""
-    root = logging.getLogger()
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    handler = logging.FileHandler(log_path, encoding="utf-8")
-    handler.setLevel(logging.INFO)
-    handler.setFormatter(formatter)
-    root.addHandler(handler)
-    try:
-        run_oireachtas_api()
-        return 0, f"{name} completed"
-    finally:
-        root.removeHandler(handler)
-        handler.close()
-
-
-def _run_step(
+def _run_chain(
     run_id: str, ordinal: int, total: int, name: str, script: str
 ) -> tuple[str, int | None, str | None, str | None]:
     """Returns (status, exit_code, summary, error)."""
     print(f"\n=== [{ordinal:02d}/{total}] {name} ===")
-    logging.info("Pipeline step started: %s", name)
+    logging.info("Pipeline chain started: %s", name)
 
     log_path = step_log_path(run_id, ordinal, name)
     record_step_started(run_id, ordinal, name, script, log_path)
 
     try:
-        if name == "Members API":
-            exit_code, summary = _run_in_process(name, log_path)
-        else:
-            exit_code, summary = _run_subprocess(run_id, name, script, log_path)
-
+        exit_code, summary = _run_subprocess(run_id, name, script, log_path)
         if exit_code != 0:
             err = f"exit code {exit_code}"
-            logging.error("Pipeline step %s failed: %s", name, err)
+            logging.error("Pipeline chain %s failed: %s", name, err)
             return "failed", exit_code, summary, err
-
-        logging.info("Pipeline step finished: %s", name)
+        logging.info("Pipeline chain finished: %s", name)
         return "ok", exit_code, summary, None
     except Exception as e:  # noqa: BLE001 — orchestrator must isolate every failure mode
-        logging.error("Pipeline step %s failed: %s", name, e)
+        logging.error("Pipeline chain %s failed: %s", name, e)
         return "failed", None, None, str(e)
 
 
+def _parse_csv_list(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+
+def _filter_chains(selected: list[str], excluded: list[str]) -> list[tuple[str, str]]:
+    known = {name for name, _ in CHAINS}
+    for name in selected + excluded:
+        if name not in known:
+            raise SystemExit(f"unknown chain: {name!r} (known: {', '.join(sorted(known))})")
+    if selected:
+        wanted = set(selected)
+        chains = [(n, s) for n, s in CHAINS if n in wanted]
+    else:
+        chains = list(CHAINS)
+    if excluded:
+        skip = set(excluded)
+        chains = [(n, s) for n, s in chains if n not in skip]
+    return chains
+
+
+def _print_chain_list() -> None:
+    print("Available chains (default run order):\n")
+    width = max(len(n) for n, _ in CHAINS)
+    for name, script in CHAINS:
+        blurb = _CHAIN_BLURBS.get(name, "")
+        print(f"  {name:<{width}}  {script:<26}  {blurb}")
+    print()
+
+
 def main() -> int:
+    ap = argparse.ArgumentParser(
+        description=__doc__.splitlines()[0],
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  python pipeline.py                       # full run, all chains\n"
+            "  python pipeline.py --list                # show chains and exit\n"
+            "  python pipeline.py --select iris         # only iris\n"
+            "  python pipeline.py --select members,iris # multiple chains\n"
+            "  python pipeline.py --exclude lobbying    # everything except lobbying\n"
+        ),
+    )
+    ap.add_argument("--list", action="store_true", help="print chains and exit")
+    ap.add_argument("--select", metavar="CHAINS", help="comma-separated chains to run (default: all)")
+    ap.add_argument("--exclude", metavar="CHAINS", help="comma-separated chains to skip")
+    args = ap.parse_args()
+
+    if args.list:
+        _print_chain_list()
+        return 0
+
+    selected = _parse_csv_list(args.select)
+    excluded = _parse_csv_list(args.exclude)
+    chains = _filter_chains(selected, excluded)
+    if not chains:
+        print("No chains selected after --select/--exclude. Nothing to do.", file=sys.stderr)
+        return 1
+
     run_id = make_run_id()
     setup_logging(run_id)
 
@@ -204,18 +220,19 @@ def main() -> int:
 
     create_run_manifest(run_id)
     logging.info("Pipeline run id: %s — logs at %s", run_id, run_dir(run_id))
+    logging.info("Running %d chain(s): %s", len(chains), ", ".join(n for n, _ in chains))
 
     succeeded: list[str] = []
-    broken_steps: list[tuple[str, str]] = []
-    total = len(STEPS)
+    broken: list[tuple[str, str]] = []
+    total = len(chains)
 
-    for ordinal, (name, script) in enumerate(STEPS, start=1):
-        status, exit_code, summary, error = _run_step(run_id, ordinal, total, name, script)
+    for ordinal, (name, script) in enumerate(chains, start=1):
+        status, exit_code, summary, error = _run_chain(run_id, ordinal, total, name, script)
         record_step_finished(run_id, name, status, exit_code, summary, error)
         if status == "ok":
             succeeded.append(name)
         else:
-            broken_steps.append((name, error or "unknown"))
+            broken.append((name, error or "unknown"))
 
     run_finished_at(run_id)
 
@@ -225,14 +242,14 @@ def main() -> int:
     print(f"Succeeded ({len(succeeded)}/{total}):")
     for name in succeeded:
         print(f"  + {name}")
-    if broken_steps:
-        print(f"Failed ({len(broken_steps)}/{total}):")
-        for name, error in broken_steps:
+    if broken:
+        print(f"Failed ({len(broken)}/{total}):")
+        for name, error in broken:
             print(f"  - {name}: {error}")
         print("\nData processing pipeline encountered errors.")
         return 1
 
-    print("Data processing pipeline complete. All steps executed successfully.")
+    print("Data processing pipeline complete. All chains executed successfully.")
     return 0
 
 

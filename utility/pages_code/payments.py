@@ -360,7 +360,8 @@ def render_member_payments(
         return
 
     latest = all_years.iloc[0]
-    taa_label = str(latest.get("taa_band_label", "—"))
+    _taa_raw = latest.get("taa_band_label")
+    taa_label = str(_taa_raw) if pd.notna(_taa_raw) and str(_taa_raw).strip() else "—"
 
     # Summary metrics
     alltime_total = float(all_years.iloc[0]["member_alltime_total"])
