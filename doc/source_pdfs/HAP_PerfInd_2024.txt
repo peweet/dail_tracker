@@ -1,0 +1,436 @@
+HAP Performance Indicators
+­ 2024
+
+November 2025
+
+Prepared by the Department of
+Housing, Local Government and Heritage
+gov.ie
+Table of Contents
+
+1 Introduction .......................................................................................................... 1
+2 HAP Funding and Delivery .................................................................................. 1
+3 Published HAP Performance Information ............................................................ 2
+4 2024 HAP Performance Indicators ...................................................................... 3
+
+  4.1 Household Composition ................................................................................ 4
+  4.2 Average Cost of HAP Tenancies................................................................... 6
+  4.3 Exits to Social Housing ................................................................................. 7
+  4.4 Homeless HAP Set-ups ................................................................................ 8
+  4.5 Use and level of HAP discretion .................................................................. 10
+  4.6 Tenant differential rent collection rate ......................................................... 13
+
+                                                                                                                 i
+1 Introduction
+
+The Housing Assistance Payment (HAP) is a form of social housing support
+available for people who have a long-term housing need. Any household assessed
+as eligible for social housing is immediately eligible for HAP. Eligible households can
+source their own accommodation in the private rental sector which should be within
+the HAP rent limits provided to them by the local authority.
+
+At the end of 2024, over 125,000 HAP tenancies had been set-up since the scheme
+commenced, of which there were over 53,700 households actively in receipt of HAP
+support and just under 28,000 separate landlords and agents providing
+accommodation to households supported by the scheme.
+
+2 HAP Funding and Delivery
+
+Year  New         Active        Exchequer   Outturn
+      Households  tenancies at  Allocation  M
+2014  supported   year end      M
+2015                            0.5         0.39
+2016  485         485           23.2        15.64
+2017  5,680       5,853         47.7        57.69
+2018  12,075      16,493        152.7       152.69
+2019  17,916      31,228        301.3       276.60
+2020  17,926      43,443        422.7       382.40
+2021  17,025      52,529        497.7       464.65
+2022  15,885      59,821        558.0       541.69
+2023  13,095      61,907        585.0       538.96
+2024  8,634       59,258        543.0       537.36
+      8,292       56,848        525.0       523.43
+      8,121       53,742
+
+                                                     1
+Data in relation to funding provided by the State for HAP tenancies in 20192024,
+broken down by local authority area, can be found on the Department's website at
+this link:
+https://assets.gov.ie/static/documents/HAP_Funding_and_Delivery_Statistics_to_Q4
+_2024.xlsx
+HAP is funded through a combination of Exchequer monies and tenant differential
+rents collected in respect of HAP tenancies. This breakdown of local authority
+funding represents the portion paid by the Department after receipt of the differential
+rent which is paid by the tenant to the local authority. It does not include
+administration costs related to the Scheme. State payments to landlords for HAP
+tenancies amounted to 487 million in 2024.
+
+3 Published HAP Performance Information
+
+This Department currently publishes statistical and performance information for a
+range of social housing supports on our website at:
+https://www.gov.ie/en/collection/6060e-overall-social-housing-provision/
+For HAP this information covers:
+
+     Total Annual HAP Expenditure 2014 ­ 2024
+     HAP Exchequer Spend Landlord Payments 2019 -2024
+     HAP Quarterly Statistics in relation to new HAP tenancies being set-up by
+
+         local authorities from 2014 to 2024.
+     2022 HAP Performance Indicators
+     2023 HAP Performance Indicators
+
+                                                                                                                2
+4 2024 HAP Performance Indicators
+
+Limerick City and County Council provide a highly effective HAP transactional
+shared service on behalf of all local authorities. The HAP SSC manages all HAP
+related rental transactions for the tenant, local authority and landlord.
+The below data for 2024 provides additional information on the operation and impact
+of HAP. It is sourced from data the HAP Shared Services Centre (SSC) provides to
+the Department. Data in respect of the following is provided:
+
+     Household Composition
+     Average cost of HAP tenancies
+     Exits to Social Housing
+     Homeless HAP Set-ups
+     Use and level of HAP discretion
+     Tenant differential rent collection rate
+
+                                                                                                                3
+4.1 Household Composition
+
+The chart and tables below show the family size or household make-up for 53,742
+active HAP tenancies at end 2024.
+
+Household Composition ­ 2024
+
+Family Size/Type based on     % of Active HAP  Total Active HAP
+HAP Active Tenancies              Tenancies        Tenancies
+                                                       2,090
+Couple                        4%                       3,480
+                                                       4,360
+Couple +1                     7%                       3,722
+                                                        154
+Couple +2                     8%                      10,999
+                                                      13,071
+Couple 3+                     7%                       7,188
+                                                       3,139
+Couple Sharing                0%                       2,060
+                                                       2,719
+Single                        21%                       760
+                                                      53,742
+Single +1                     24%
+
+Single +2                     13%
+
+Single 3+                     6%
+
+Single Sharing                4%
+
+*Uplift Single                5%
+
+*Uplift Single Sharing        1%
+
+Total                         100%
+
+* Additional flexibility allowing local authorities to apply a couple rate to a single
+person household (Uplift Single / Single Sharing), where required, in recognition of
+the shared one-bed need. This applies to tenancies set up from 11 July 2022 only.
+
+                                                                                        4
+Household Composition
+
+                                           Report B - Active HAP Tenancies - Split by Household Type @ 31
+                                                                         December 2024
+
+                                                     25%
+
+20%
+
+15%
+
+10%
+
+5%
+
+0%
+
+     COUPLE COUPLE COUPLE COUPLE SINGLE SINGLE SINGLE SINGLE SINGLE *UPLIFT *UPLIFT
+
+     +1  +2  3+  +1  +2  3+ SHARING SINGLE SINGLE
+
+                                                                                                           SHARING
+
+Note: Graph excludes Family Compositions at 0% (see table above).
+
+       *New Family Compositions introduced on July 11 2022.
+       Additional flexibility allowing local authorities to apply a couple rate to a single person household (Uplift Single / Single Sharing), where required, in recognition of the
+
+            shared one-bed need. This applies to tenancies set up from 11 July 2022 only.
+
+                                                                                                                                                                              5
+4.2 Average Cost of HAP Tenancies
+
+HAP is funded through a combination of Exchequer monies and tenant differential
+rents collected in respect of HAP tenancies.
+
+The monthly gross average cost per HAP tenancy at end 2024 is 1,000.79.
+
+The monthly average cost per HAP tenancy funded by the Exchequer i.e. net of
+average differential rent, is 769.95.
+
+The chart and table below shows monthly average cost per HAP tenancy funded by
+the Exchequer from 2016 to 2024.
+
+Average Monthly Exchequer Cost of HAP Tenancies
+
+Avg Cost   2016  2017  2018  2019  2020  2021    2022             2023 2024
+of HAP     470    556   612   651  682   719     740              754 770
+Tenancies
+
+                 Average Monthly Exchequer Cost of HAP Tenancies
+
+900.00
+
+800.00
+
+700.00
+
+600.00
+
+500.00
+
+400.00
+
+300.00
+
+200.00
+
+100.00
+
+0.00
+
+           2016  2017  2018  2019  2020  2021    2022  2023       2024
+
+                                                                                 6
+4.3 Exits to Social Housing
+
+At end 2024, 25,706 households had moved from HAP to other forms of social
+housing since the HAP scheme commenced in 2014. 4,691 of these households
+moved from HAP to social housing in 2024.
+
+The chart and table below shows the number of households that moved from HAP to
+other forms of local authority social housing from 2016 to 2024.
+
+Exits from HAP to Other Forms of Social Housing
+
+Reasons for     2016  2017  2018  2019  2020     2021  2022      2023  2024
+Cessation of
+HAP Tenancy
+(Cumulative)
+
+Social          240 627 1,322 2,314 3,253 4,587 4,058 4,614 4,691
+Housing
+
+                Exits from HAP to Other Forms of Social Housing
+
+5000
+
+4500
+
+4000
+
+3500
+
+3000
+
+2500
+
+2000
+
+1500
+
+1000
+
+500
+
+0               2017  2018  2019  2020  2021     2022        2023      2024
+    Cumulative
+        2016
+
+                                                                             7
+4.4 Homeless HAP Set-ups
+
+Additional supports are available under HAP for homeless households or households
+at risk of homelessness nationwide. While eligible households or individuals may
+source accommodation for themselves under the Homeless HAP scheme, a
+dedicated resource, the Place Finder Service, has been established nationwide to
+provide assistance.
+
+The Place Finder service assists households in or at immediate risk of
+homelessness primarily by providing access to deposits and advance rental
+payments. These elements are the core financial supports and are available to
+prospective tenants in all local authority areas.
+
+From 2016 up to the end of 2024, 28,124 Homeless HAP tenancies were set up
+across all 31 local authorities. In 2024, 3,106 Homeless HAP tenancies were set up.
+The chart and table below shows the number of households in or at immediate risk
+of homelessness that moved into HAP tenancies from 2016 to 2024.
+
+Homeless HAP Set-ups
+
+       2016 2017 2018 2019 2020 2021 2022 2023 2024
+
+HHAP   1,048  2,179   2,895  4,468  4,837  4,449  2,612  2,530  3,106
+ Set-
+ ups
+
+                                                                       8
+                                                           Homeless HAP Set-ups
+
+6,000
+
+5,000
+
+4,000
+
+3,000
+
+2,000
+
+1,000
+
+0                   Q4 2017  Q4 2018  Q4 2019  Q4 2020                           Q4 2021  Q4 2022  Q4 2023  Q4 2024
+           Q4 2016
+                                                                                                                            9
+4.5 Use and level of HAP discretion
+
+Since 11 July 2022, there has been an increase from 20% to 35% for local authority
+discretion to pay above maximum HAP rent limits and for new tenancies to extend
+the couple's rate to single persons households.
+
+Up to 50% discretion is available in the case of homeless households in the Dublin
+region. The additional discretion available to homeless households recognises the
+difficulty this cohort of households face in sourcing and securing properties in a
+highly competitive rental market. The Dublin Regional Homeless Executive (DRHE)
+is operating the HAP Homeless Place Finder Service on behalf of the four Dublin
+local authorities.
+
+The charts and tables below show the use of discretion which is what percentage of
+households are receiving additional discretion and level of discretion which is the
+average rate of discretion received by households. This information is shown both
+including and excluding HAP tenancies set-up by DRHE as those tenancies can
+receive a higher rate of discretion then is generally available under the HAP scheme.
+The period covered is 2018 to 2024.
+
+HAP Discretion including DRHE 50%               2021  2022  2023  2024
+                                2018 2019 2020
+
+Use of Discretion 33.1% 42.7% 50.4% 57.0% 61.8% 65.7% 69.0%
+
+Level of Discretion 21.8% 22.5% 23.2% 24.2% 25.5% 27.5% 29.2%
+
+HAP Discretion excluding DRHE 50%               2021  2022  2023  2024
+                                2018 2019 2020
+
+Use of Discretion 26.6% 36.0% 44.7% 51.2% 56.0% 60.7% 66.0%
+
+Level of Discretion 16.2% 16.6% 17.0% 17.3% 19.1% 22.1% 24.1%
+
+                                                                  10
+                    HAP Discretion including DRHE 50%
+
+80.00%
+
+70.00%
+
+60.00%
+
+50.00%
+
+40.00%
+
+30.00%
+
+20.00%
+
+10.00%
+
+0.00%
+
+        2018  2019  2020                   2021                       2022  2023  2024
+                        Use of Discretion
+                                                 Level of Discretion                            11
+                    HAP Discretion excluding DRHE 50%
+
+70.00%
+
+60.00%
+
+50.00%
+
+40.00%
+
+30.00%
+
+20.00%
+
+10.00%
+
+0.00%
+
+        2018  2019  2020                   2021                       2022  2023  2024
+                        Use of Discretion
+                                                 Level of Discretion
+
+                                                                                        12
+4.6 Tenant differential rent collection rate
+
+Tenants in the HAP scheme are required to sign a rent contribution agreement to
+pay a weekly rental contribution to the relevant local authority, in line with the local
+authority's differential rent scheme. As set out in the rent contribution agreement, this
+weekly rental contribution must be paid by them so that they remain eligible for the
+HAP scheme.
+In 2024, there was a 99% collection rate for HAP tenant differential rent. The chart
+and table below shows the differential rent collection rate for households in HAP
+from 2016 to 2024.
+
+HAP Tenant differential rent collection rate
+                           2016 2017 2018 2019 2020 2021 2022 2023 2024
+
+    Tenant Rent 99% 98% 98% 96% 97% 99% 99% 99% 99%
+    Collection %
+
+                        Tenant Rent Collection %
+
+100%
+
+99%
+
+99%
+
+98%
+
+98%
+
+97%
+
+97%
+
+96%
+
+96%
+
+95%
+
+95%               2017  2018  2019  2020  2021    2022  2023  2024
+            2016
+
+                                                                    13
+gov.ie/housing
+
+The Department of                       14
+
+Housing, Local Government and Heritage
+

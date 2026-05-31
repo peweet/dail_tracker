@@ -7,6 +7,7 @@ from pages_code.legislation import legislation_page
 from pages_code.lobbying_3 import lobbying_poc_page
 from pages_code.member_overview import member_overview_page
 from pages_code.payments import payments_page
+from pages_code.public_appointments import public_appointments_page
 from pages_code.statutory_instruments import statutory_instruments_page
 from pages_code.votes import votes_page
 from shared_css import inject_css
@@ -94,6 +95,12 @@ pg = st.navigation(
             title="Statutory Instruments",
             icon=":material/article:",
             url_path="rankings-statutory-instruments",
+        ),
+        st.Page(
+            public_appointments_page,
+            title="Appointments",
+            icon=":material/assignment_ind:",
+            url_path="rankings-appointments",
         ),
         st.Page(
             committees_page,
