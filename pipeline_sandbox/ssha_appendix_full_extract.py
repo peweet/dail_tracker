@@ -29,15 +29,17 @@ _OUT = _ROOT / "data" / "gold" / "parquet"
 
 # Appendix table configs: (table_id, pages [0-indexed], expected_categories_min)
 APPENDICES = {
+    # Pages are 0-indexed (PDF page = index + 1). Verified by grepping
+    # "Table A1.x:" markers in the PDF text.
     "a1_1_age": {"pages": [47, 48, 49], "min_cats": 6, "label": "Age profile"},
-    "a1_2_employment": {"pages": [50, 51, 52], "min_cats": 6, "label": "Employment status"},
-    "a1_3_income": {"pages": [53, 54, 55], "min_cats": 3, "label": "Sources of income"},
-    "a1_4_household_size": {"pages": [56, 57, 58, 59], "min_cats": 8, "label": "Household size"},
-    "a1_5_main_need": {"pages": [60, 61, 62], "min_cats": 8, "label": "Main need for social housing"},
-    "a1_6_accom_req": {"pages": [63, 64, 65], "min_cats": 4, "label": "Specific accommodation requirements"},
-    "a1_6a_traveller": {"pages": [66, 67], "min_cats": 3, "label": "Traveller identifier"},
-    "a1_7_tenure": {"pages": [68, 69, 70], "min_cats": 5, "label": "Current tenure"},
-    "a1_8_time_on_list": {"pages": [71, 72], "min_cats": 6, "label": "Length of time on waiting list"},
+    "a1_2_employment": {"pages": [49, 50, 51, 52], "min_cats": 6, "label": "Employment status"},
+    "a1_3_income": {"pages": [52, 53, 54], "min_cats": 3, "label": "Sources of income"},
+    "a1_4_household_size": {"pages": [55, 56, 57, 58], "min_cats": 8, "label": "Household size"},
+    "a1_5_main_need": {"pages": [59, 60, 61], "min_cats": 8, "label": "Main need for social housing"},
+    "a1_6_accom_req": {"pages": [62, 63, 64], "min_cats": 4, "label": "Specific accommodation requirements"},
+    "a1_6a_traveller": {"pages": [65, 66], "min_cats": 3, "label": "Traveller identifier"},
+    "a1_7_tenure": {"pages": [67, 68, 69], "min_cats": 5, "label": "Current tenure"},
+    "a1_8_time_on_list": {"pages": [70, 71], "min_cats": 5, "label": "Length of time on waiting list"},
     "a1_9_citizenship": {"pages": [72, 73], "min_cats": 4, "label": "Citizenship of main applicant"},
 }
 

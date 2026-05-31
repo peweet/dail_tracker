@@ -1,0 +1,69 @@
+"""members_refresh.py — Wikidata-sourced member enrichment.
+
+Both steps are SPARQL pulls against Wikidata Query Service. Each is wrapped in
+try/except so a transient WDQS outage can't poison the next step.
+
+    1. wikidata_socials_etl     Twitter/X + Wikipedia links per member
+                                → consumed by Member Overview hero chips
+    2. ministerial_tenure_build minister-of-the-day table
+                                → consumed by iris_refresh.step_si_gold
+
+Run AFTER bootstrap (needs flattened_members.parquet) and BEFORE iris (iris
+consumes ministerial_tenure for SI signatory attribution).
+
+CLI:
+    python members_refresh.py
+"""
+from __future__ import annotations
+
+import logging
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent
+_log = logging.getLogger("members_refresh")
+
+
+def _hr(label: str) -> None:
+    print(f"\n{'─' * 74}\n{label}\n{'─' * 74}")
+
+
+def _subprocess(script: str) -> bool:
+    t = time.monotonic()
+    r = subprocess.run([sys.executable, script], cwd=_ROOT)
+    print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
+    return r.returncode == 0
+
+
+def step_wikidata_socials() -> bool:
+    _hr("[1/2] wikidata_socials_etl — member external links")
+    return _subprocess("wikidata_socials_etl.py")
+
+
+def step_ministerial_tenure() -> bool:
+    _hr("[2/2] ministerial_tenure_build — Wikidata minister-of-the-day table")
+    return _subprocess("ministerial_tenure_build.py")
+
+
+def main() -> int:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    started = time.monotonic()
+    failures: list[str] = []
+    for name, fn in [
+        ("wikidata_socials", step_wikidata_socials),
+        ("ministerial_tenure", step_ministerial_tenure),
+    ]:
+        if not fn():
+            failures.append(name)
+    _hr(f"[done] members_refresh complete in {time.monotonic() - started:.1f}s")
+    if failures:
+        print(f"  FAILED steps: {', '.join(failures)}")
+        return 1
+    print("  all steps succeeded.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
