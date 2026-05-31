@@ -21,6 +21,7 @@ SELECT
     intended_results,
     lobbying_period_start_date::DATE     AS period_start_date,
     lobby_url                            AS source_url,
+    person_primarily_responsible         AS person_primarily_responsible,
     LOWER(
         COALESCE(specific_details,  '') || ' ' ||
         COALESCE(intended_results,  '') || ' ' ||

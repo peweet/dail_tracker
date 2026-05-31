@@ -169,7 +169,7 @@ def fetch_contact_detail(
     if start and end:
         return _safe(
             "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
-            " period_start_date, source_url"
+            " period_start_date, source_url, person_primarily_responsible"
             " FROM v_lobbying_contact_detail"
             " WHERE member_name = ?"
             " AND period_start_date BETWEEN ? AND ?"
@@ -178,7 +178,7 @@ def fetch_contact_detail(
         )
     return _safe(
         "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
-        " period_start_date, source_url"
+        " period_start_date, source_url, person_primarily_responsible"
         " FROM v_lobbying_contact_detail"
         " WHERE member_name = ?"
         " ORDER BY period_start_date DESC",
@@ -195,7 +195,8 @@ def fetch_org_contact_detail(
     if start and end:
         return _safe(
             "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
-            " period_start_date, source_url, intended_results"
+            " period_start_date, source_url, intended_results,"
+            " person_primarily_responsible"
             " FROM v_lobbying_contact_detail"
             " WHERE lobbyist_name = ?"
             " AND period_start_date BETWEEN ? AND ?"
@@ -204,7 +205,8 @@ def fetch_org_contact_detail(
         )
     return _safe(
         "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
-        " period_start_date, source_url, intended_results"
+        " period_start_date, source_url, intended_results,"
+        " person_primarily_responsible"
         " FROM v_lobbying_contact_detail"
         " WHERE lobbyist_name = ?"
         " ORDER BY period_start_date DESC",
@@ -223,7 +225,7 @@ def fetch_politician_area_returns(
     if start and end:
         return _safe(
             "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
-            " period_start_date, source_url"
+            " period_start_date, source_url, person_primarily_responsible"
             " FROM v_lobbying_contact_detail"
             " WHERE member_name = ? AND public_policy_area = ?"
             " AND period_start_date BETWEEN ? AND ?"
@@ -232,7 +234,7 @@ def fetch_politician_area_returns(
         )
     return _safe(
         "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
-        " period_start_date, source_url"
+        " period_start_date, source_url, person_primarily_responsible"
         " FROM v_lobbying_contact_detail"
         " WHERE member_name = ? AND public_policy_area = ?"
         " ORDER BY period_start_date DESC",
@@ -262,7 +264,8 @@ def fetch_org_politician_returns(
     if start and end:
         return _safe(
             "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
-            " period_start_date, source_url, intended_results"
+            " period_start_date, source_url, intended_results,"
+            " person_primarily_responsible"
             " FROM v_lobbying_contact_detail"
             " WHERE lobbyist_name = ? AND member_name = ?"
             " AND period_start_date BETWEEN ? AND ?"
@@ -271,7 +274,8 @@ def fetch_org_politician_returns(
         )
     return _safe(
         "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
-        " period_start_date, source_url, intended_results"
+        " period_start_date, source_url, intended_results,"
+        " person_primarily_responsible"
         " FROM v_lobbying_contact_detail"
         " WHERE lobbyist_name = ? AND member_name = ?"
         " ORDER BY period_start_date DESC",
@@ -354,7 +358,7 @@ def fetch_area_contact_detail(
     if start and end:
         return _safe(
             "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
-            " period_start_date, source_url"
+            " period_start_date, source_url, person_primarily_responsible"
             " FROM v_lobbying_contact_detail"
             " WHERE public_policy_area = ?"
             " AND period_start_date BETWEEN ? AND ?"
@@ -363,7 +367,7 @@ def fetch_area_contact_detail(
         )
     return _safe(
         "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
-        " period_start_date, source_url"
+        " period_start_date, source_url, person_primarily_responsible"
         " FROM v_lobbying_contact_detail"
         " WHERE public_policy_area = ?"
         " ORDER BY period_start_date DESC",
@@ -416,7 +420,7 @@ def fetch_topic_returns(
     sql = (
         "SELECT return_id, lobbyist_name, public_policy_area,"
         " relevant_matter, specific_details, intended_results,"
-        " period_start_date, source_url"
+        " period_start_date, source_url, person_primarily_responsible"
         " FROM v_lobbying_topic_search"
         f" WHERE {where_kw}"
     )
