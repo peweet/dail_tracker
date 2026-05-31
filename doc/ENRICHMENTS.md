@@ -731,22 +731,76 @@ Gotchas  Caseload is small relative to companies register.
 Rating   Value: M · Cost: L · Risk: L
 ```
 
-### E.5 Central Bank of Ireland enforcement
+### E.5 Central Bank of Ireland — registers + enforcement
+
+**Status: PARTIAL** — authorisation registers ingested as sandbox (Oct 2026); enforcement actions / prohibition notices still candidate.
+
+#### E.5a Authorisation registers (downloads page) — INGESTED AS SANDBOX
+
+```text
+What     CBI's 59 downloads-page registers of authorised firms — banks,
+         credit unions, insurance undertakings, investment firms, funds,
+         ICAVs, credit servicers, electronic money institutions, VASPs,
+         crypto (MiCAR), etc.
+Why      Substrate for the Corporate Notices page's CBI cross-reference
+         panel and badges. Identifies which wound-up entities in Iris
+         Oifigiúil were CBI-authorised, and on which register.
+URL(s)   https://registers.centralbank.ie/downloadspage.aspx
+Format   PDFs served via ASP.NET postbacks (no direct URLs; need a
+         requests.Session that walks ViewState / EventValidation).
+Cadence  Snapshot — CBI republishes the same URL with updated content
+         monthly. Sandbox refresh requires a manual script re-run.
+Auth     None.
+Licence  Open public record.
+Joins to data/gold/parquet/corporate_notices.parquet (entity_name);
+         pipeline_sandbox/cbi_registers_extract.py +
+         sql_views/corporate_cbi_distress.sql; 13.8k firm rows; 205
+         per-notice matches (149 distinct firms); 7 repeat-distress firms
+         after the SQL HAVING gate.
+Gotchas  Heuristic PDF extraction picks up some header / boilerplate
+         strings as firm names (filtered out by strict matching rules
+         in the UI). 2 of 59 registers fail the postback (CIT Providers,
+         Designated Entities). Only firm name + ref number are captured;
+         address / auth date / status are not extracted.
+Rating   Value: M · Cost: L · Risk: M  (already shipped as sandbox)
+```
+
+#### E.5b Enforcement actions + prohibition notices — STILL CANDIDATE
 
 ```text
 What     CBI publishes administrative sanctions against regulated firms
-         and individuals (PCFs).
-Why      Financial-sector regulatory signal; complements donor and
-         lobbying data when financial firms appear.
-URL(s)   https://www.centralbank.ie/regulation/how-we-regulate/enforcement
-Format   HTML + PDF press releases.
-Cadence  Continuous.
+         and individuals (Pre-Approval Controlled Functions). Includes
+         the €100.5M BoI tracker mortgage fine, €21.5M Coinbase Europe
+         AML fine, Davy €1.6M MiFID conflicts, Goodbody €1.2M MAR, etc.
+Why      Real news content. The Corporate Notices page surfaces firms
+         in distress AFTER the fact; enforcement actions are the
+         regulator's pre-distress accountability surface. Would join
+         existing CBI register substrate (which firms were on which
+         register at time of fine?) and corporate notices (did the
+         fined firm subsequently enter distress?).
+URL(s)   https://www.centralbank.ie/news-media/legal-notices/enforcement-actions
+         https://www.centralbank.ie/news-media/legal-notices/prohibition-notices
+         Individual press releases at /news/article/press-release-*
+         Settlement agreement PDFs at
+         /docs/default-source/news-and-media/legal-notices/settlement-agreements/*.pdf
+Format   JS-rendered listing hub (direct GET returns 404); individual
+         press release URLs resolve to 200 with structured HTML;
+         settlement PDFs carry full breach detail.
+Cadence  Continuous — handful per month.
 Auth     None.
 Licence  Open public record.
-Joins to CRO, RoMI, lobbying clients (financial sector).
-Gotchas  Some decisions name individuals; handle with the same care as
-         personal data.
-Rating   Value: M · Cost: L · Risk: M
+Joins to CBI authorisation substrate (E.5a), Iris corporate notices,
+         lobbying.ie (regulated lobbying entities), Register of Members'
+         Interests (cross-ref to TD financial exposure).
+Gotchas  Some decisions name individuals (F&P prohibitions) — handle
+         with the same privacy care as personal data. Penalty amount
+         disambiguation: "fined €X" can be gross OR settlement-discounted.
+         Some criminal convictions also surface on /news — must exclude
+         via title-keyword filter.
+Rating   Value: H · Cost: M · Risk: M  (~120-180 press releases since 2010;
+         scope deferred pending brand-expansion decision — see in-app
+         scope critique that concluded current Iris registers footprint
+         is the right size given the parliamentary-accountability brief).
 ```
 
 ### E.6 Coimisiún na Meán
@@ -992,9 +1046,88 @@ Auth     None.
 Licence  Open data (CC-BY).
 Joins to dim_constituency, dim_county.
 Gotchas  PxStat is well-documented but each table has its own dimensions;
-         no single "join everything" path.
+         no single "join everything" path. Geographies don't align: most
+         CSO tables are at County / NUTS3 / Garda Division / LA, not Dáil
+         constituency. Joining to dim_constituency needs a crosswalk
+         (LA → constituency exists; Garda Division → constituency does not).
 Rating   Value: M · Cost: L · Risk: L
 ```
+
+**Currently ingested** (see `pipeline_sandbox/cso_pxstat_extract.py`):
+- **Housing / HAP axis**: HSA07, HAP01/05/17/20/26/32, NDA01, NDQ07, HPM03/04/07/09, VAC14/15/16, F2021, F2023B
+- **Population axis**: PEA08 (county × year × age × sex), PEA01 (national age detail), PEA15 (annual migration components)
+- **Constituency axis**: FY005 (Census 2022 population per Dáil constituency — 2017 boundaries)
+
+Two registered SQL views built on top:
+- `v_member_constituency_demographics` (sql_views/member_constituency_demographics.sql) — wide row per constituency, sourced from FY005. **36/43 current constituencies join cleanly**; 7 are 2023 boundary-split cases pending Phase 2 spatial-join (Dublin Fingal East/West, Laois, Offaly, Tipperary North/South, Wicklow-Wexford).
+- (Phase 2) `v_constituency_civic_context` — SAPS rolled up to current Dáil constituency via Tailte Éireann boundary spatial-join. **Blocked on geopandas install + crosswalk script in pipeline_sandbox/**.
+
+Also landed (LA-axis, owned by the parallel housing context):
+`pipeline_sandbox/housing_la_master_build.py` → `data/gold/parquet/housing_la_master.parquet`
+(one row per Local Authority, ~30 metric cols + per-metric provenance).
+LA-axis and constituency-axis serve different pages — locality profile
+(LA) vs member overview (constituency) — and do not collide.
+
+#### H.1 — Future candidate inventory
+
+A scan of CSO.ie performed 2026-05-31. **None of these are queued** — this
+is a catalogue, not a roadmap. The bar for adding a CSO table is the same
+as any other source: it has to answer a question the existing surface
+can't. Tiers reflect estimated leverage, not effort.
+
+```text
+Tier 1 — high leverage, low cost, join-to-constituency exists
+  FY005             Census 2022 — population per Dáil constituency.
+                    The only CSO table natively keyed on Dáil constituency.
+                    Underwrites every per-capita ratio on member_overview.
+  GFS (annual + Q)  Government Finance Statistics. COFOG-classified spend
+                    by function (health, education, defence). Extension of
+                    the K.4 Exchequer Statement plan with categorical depth.
+  SHA               System of Health Accounts. Health expenditure by
+                    financing scheme + HSE-to-Government reconciliation.
+                    Closes the loop on B.4 (Section 38/39).
+  Profile 7         Census 2022 Profile 7 — Employment, Occupations,
+                    Commuting (county-level; constituency via crosswalk).
+                    Labour force participation, sector mix, unemployment.
+
+Tier 2 — strong fit
+  CJQ06             Recorded crime by Garda Division × quarter.
+  CJQ05, CJA07      Crime by Region / Garda Station × year.
+  Pop & Migration   Annual Population & Migration Estimates — net
+                    migration, country of origin, regional concentration.
+  Soc Protection    Annual Social Protection Expenditure by scheme.
+  Tax Statistics    Ireland's Tax Statistics (CSO + Revenue joint).
+  BRA18             Business Demography by Activity × County × Year.
+                    Joins to CRO companies (C.1) and lobbying clients.
+  EHECS             Earnings & Labour Costs Quarterly, by NACE × NUTS3.
+  SIA79 (SILC)      Survey on Income & Living Conditions — at-risk-of-
+                    poverty by region.
+
+Tier 3 — niche / corroborating
+  PLA*              Planning Permissions (companion to NDA01/Q07).
+  Profile 1 (rest)  Census 2022 Profile 1 — Distribution & Movements
+                    (other constituency-level tables alongside FY005).
+  Profile 4         Census 2022 Profile 4 — Disability, Health, Carers.
+  Profile 5         Census 2022 Profile 5 — Diversity, Migration,
+                    Ethnicity, Travellers, Religion (constituency view).
+  RPSB              Register of Public Sector Bodies in Ireland
+                    (CSO-maintained — reference dim for B.4 / K.2).
+  HBS               Household Budget Survey — income/expenditure quintiles.
+  Nat Accounts      National Accounts COFOG breakdown (academic depth).
+
+Tier 4 — skip unless project pivots
+  Census Small Area / Electoral Division — only worth the storage if
+    a map UI is built (see H.2).
+  External trade, IMF summary, climate, fishery, agri-environment —
+    no clear join to the political-accountability surface.
+```
+
+**Refresh cadence note**: anything from Census is one-shot per census
+cycle (next ~2026/2027 for Census 2027). GFS/SHA/SILC/EHECS are annual.
+Crime is quarterly. Population & Migration is annual (April reference
+date). The existing `cso_pxstat_extract.py` flow handles all of them
+with a code added to `TABLES` and the existing JSON-stat → fidelity →
+parquet pipeline — zero new infrastructure per table.
 
 ### H.2 Constituency boundaries (geographic)
 

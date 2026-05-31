@@ -105,7 +105,7 @@ pg = st.navigation(
         ),
         st.Page(
             corporate_page,
-            title="Corporate",
+            title="Corporate Notices",
             icon=":material/business_center:",
             url_path="rankings-corporate",
         ),

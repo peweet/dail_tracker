@@ -543,7 +543,58 @@ Committee work, constituency work, ministerial duties, and other official work a
 
 ---
 
-## 15. Minimum verification before public use
+## 15. Corporate Notices page — sandbox cross-references and heuristics
+
+The Corporate Notices page surfaces five distinct overlays beyond the raw Iris feed: a receiver-appointer ranking with parent-fund typing, a receiver-firm concentration strip, a CBI register cross-reference, a corporate-rescue panel, and a methodology expander. Each carries its own caveats.
+
+### 15.1 CBI register substrate is sandbox-grade
+
+`data/sandbox/parquet/cbi_authorised_firms.parquet` (13.8k rows) is produced by `pipeline_sandbox/cbi_registers_extract.py`, which parses 56 of the 59 CBI downloads-page register PDFs via a heuristic multi-layout extractor. Known issues:
+
+- PDF extraction picks up some header / boilerplate strings as firm names (e.g. `"LEI Code"`, `"Register of Credit Servicers Passporting In"`). These false positives sit in the substrate but are filtered out by the strict matching rules used in the UI cross-references.
+- Two registers (CIT Providers, Designated Entities) fail the postback request entirely and are absent.
+- Address, authorisation date, status, and classes of business are **not** captured — only firm name and CBI reference number.
+- The substrate is a snapshot, not a continuously updated feed. Re-run the script to refresh.
+
+### 15.2 Brand → parent fund alias map is hand-curated, citation-anchored
+
+`data/_meta/loan_book_fund_aliases.csv` is the single source of truth for the receiver-appointer panel's vulture / Irish bank / credit servicer / state classification. ~30 alias entries cover ~32% of receivership notices. Known issues:
+
+- Long-tail SPVs not in the alias map display under their original brand and contribute to the untagged ~68% rather than rolling up to a parent.
+- Each row in the CSV must carry a `notes` column citation — adding aliases without sourcing them violates the no-inference editorial rule.
+- Mapping is substring-based on UPPERCASE raw_text; a brand string that overlaps another (e.g. `OAKTREE` inside a hypothetical `OAKTREE LIMITED` not run by Oaktree Capital) could produce a false attribution. None observed at current scale.
+
+### 15.3 Receiver-firm operator strip is regex notice-presence, not appointed-role
+
+The "Who's doing the work" sub-strip counts notices whose `raw_text` mentions one of ~20 known professional firms (Big 6 accountancy + boutique insolvency firms). Each firm is counted at most once per notice. Known limitations:
+
+- A notice mentioning a firm does not strictly mean that firm was the appointed receiver — the firm could appear in a different role (auditor, advisor, charge-holder reference). Most appearances in receivership notices ARE the appointed receiver, but the regex match is approximate.
+- Case-sensitive matches are used for short abbreviations (`EY`, `KPMG`, `BDO`, `RBK`, `OCKT`) to avoid lowercase matches inside unrelated words.
+- "Big 6 accountancy firms" is the Irish-industry shorthand for the seven-firm set used in the page (PwC, Deloitte, EY, KPMG, Grant Thornton, BDO, Mazars). The label is broadly accepted but slightly fuzzy at the edges.
+
+### 15.4 SPV / DAC headline is a name-shape heuristic
+
+The appointer-panel subhead reports notices whose `entity_name` contains `DAC`, `Designated Activity Company`, or `ICAV`. This is a name-shape match, not a regulatory classification. It cannot distinguish a Section 110 securitisation SPV from a regulated DAC that happens to share the legal form. The labelling on the page deliberately states *what was matched* (the substring), not *what it means* (a Section 110 vehicle).
+
+### 15.5 Entity-name extraction quality
+
+The `entity_name` column in `corporate_notices.parquet` is heuristic — for ~24% of rows it contains junk extractions (statutory text headers, notice-body prefixes, partial sentences). The Corporate Notices page filters these via `_JUNK_RE` in `corporate.py` when rendering cards, falling back to `display_title` or a graceful "Company name not extracted" label. The CBI cross-reference uses a normalised substring match which tolerates extraction prefixes ("presented to the High Court by Independent Trustee Company Limited" still matches "Independent Trustee Company").
+
+### 15.6 CBI repeat-distress panel filters out solvent fund lifecycle
+
+The "Regulated firms with repeat distress notices" panel (`v_corporate_cbi_repeat_distress`) deliberately excludes Members' Voluntary Liquidation (MVL) from its HAVING clause, because MVL is a solvent wind-up — fund-lifecycle, not distress. Without this filter, Vanguard / iShares / Invesco ETF sub-fund closures would dominate the panel and obscure the genuine distress signal (Independent Trustee Company, M&F Finance Ireland, etc.). This is a deliberate editorial choice documented in the SQL view header.
+
+### 15.7 Sandbox status
+
+All Corporate Notices CBI cross-references live in `data/sandbox/parquet/` and `sql_views/corporate_cbi_distress.sql`. They are **not** part of the gold layer. If the sandbox is wiped, the Corporate Notices page degrades gracefully — the receiver-appointer panel, rescue panel, and feed continue to render; the CBI panel and badges simply disappear.
+
+### 15.8 Editorial rule for Corporate Notices UI copy
+
+Per the project-wide no-inference rule (also documented as a memory feedback note), all UI copy on the Corporate Notices page is restricted to claims derivable from the parquet layer. Historical context (post-2008 loan-book sales, COVID-19 mortgage moratorium, vulture-fund era) is **not** asserted in panel subheads or sparkline annotations. Where such context is necessary for understanding, it lives only in the Sources & methodology expander or external cited footnotes.
+
+---
+
+## 16. Minimum verification before public use
 
 Before using the data in reporting, publication, or public claims:
 
