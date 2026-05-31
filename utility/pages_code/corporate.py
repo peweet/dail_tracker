@@ -34,7 +34,9 @@ from __future__ import annotations
 import datetime
 import html
 import io
+import re
 import sys
+import unicodedata
 from pathlib import Path
 
 import pandas as pd
@@ -457,25 +459,73 @@ def load_corporate() -> pd.DataFrame:
     return df
 
 
+# Same legal-form strip as pipeline_sandbox/cbi_registers_extract._norm_firm —
+# inlined here so the page can normalise entity_name → entity_norm at row time
+# (the corporate_notices parquet has no stable per-row primary key we can use
+# to pre-join; notice_ref is sparse and shared across many rows).
+_NORM_SUFFIX_RE = re.compile(
+    r"\b(public limited company|limited liability partnership|limited|ltd\.?|"
+    r"plc|llp|sa|nv|gmbh|inc\.?)\b\.?",
+    re.I,
+)
+
+
+def _norm_entity(name) -> str:
+    if name is None or (isinstance(name, float) and pd.isna(name)):
+        return ""
+    s = str(name)
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii").lower()
+    s = re.sub(r"\bt/?a\b.*$", "", s)
+    s = _NORM_SUFFIX_RE.sub(" ", s)
+    s = re.sub(r"[^a-z0-9 ]+", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
 @st.cache_data(show_spinner=False)
-def load_cbi_badges() -> dict[str, dict]:
-    """notice_ref → {register, ref_no} lookup for the on-card CBI badge.
+def load_cbi_badges() -> list[tuple[str, dict]]:
+    """Sorted (entity_norm, badge_info) list for on-card CBI badge lookup.
+
     Sandbox source — see sql_views/corporate_cbi_distress.sql header for
-    provenance. Rows in v_corporate_cbi_notice_match that lack notice_ref
-    are skipped (the badge needs the join key)."""
+    provenance. Returned as a list sorted by name-length descending so the
+    badge resolver can take the *longest* matching CBI firm name appearing as
+    a word-boundary substring of a notice's normalised entity_name. This is
+    needed because corporate_notices entity_name often carries notice-text
+    prefixes ('presented to the High Court by ...', '... in its capacity as
+    trustee') that exact-match-equality misses but substring matching
+    correctly handles. The CBI side already requires corporate keywords +
+    ≥6 chars in the firm name, so substring matching is safe from noise.
+    """
     df = fetch_cbi_notice_matches()
     if df.empty:
-        return {}
-    out: dict[str, dict] = {}
+        return []
+    seen: dict[str, dict] = {}
     for _, r in df.iterrows():
-        ref = r.get("notice_ref")
-        if ref is None or pd.isna(ref) or str(ref).strip() == "":
+        norm = r.get("entity_norm")
+        if not norm or len(str(norm)) < 6:
             continue
-        out[str(ref)] = {
-            "register": str(r.get("primary_register") or ""),
-            "ref_no":   str(r.get("primary_ref_no") or ""),
-        }
-    return out
+        if norm not in seen:
+            seen[str(norm)] = {
+                "register": str(r.get("primary_register") or ""),
+                "ref_no":   str(r.get("primary_ref_no") or ""),
+            }
+    # Longest-first ordering so longest match wins (avoids "wealth" eating
+    # "wealth options trustees").
+    return sorted(seen.items(), key=lambda kv: -len(kv[0]))
+
+
+def _resolve_cbi_badge(entity_name, badges: list[tuple[str, dict]]) -> dict | None:
+    """Find the longest CBI firm name appearing as a delimited substring of
+    the given notice's normalised entity_name. Returns None when no match."""
+    if not badges:
+        return None
+    ent_norm = _norm_entity(entity_name)
+    if not ent_norm or len(ent_norm) < 6:
+        return None
+    padded = f" {ent_norm} "
+    for cand_norm, info in badges:
+        if f" {cand_norm} " in padded:
+            return info
+    return None
 
 
 @st.cache_data(show_spinner=False)
@@ -687,30 +737,73 @@ def _render_featured(df: pd.DataFrame) -> None:
 # CBI repeat-distress panel (experimental)
 # ──────────────────────────────────────────────────────────────────────────────
 def _shorten_register(name: str) -> str:
-    """Compact a long CBI register name for the side cell of the panel row."""
+    """Compact a long CBI register name for the side cell of the panel row.
+
+    Order matters: do the long specific matches FIRST while the original
+    "Register of" / "Authorised" wording is still intact, then strip the
+    generic prefixes for any register names not covered above.
+    """
     if not name:
         return ""
     n = name
-    # Drop trailing "as at DD Mon YYYY"
-    n = n.split(" as at ")[0]
-    n = n.replace("Register of ", "")
-    n = n.replace("Authorised ", "")
-    n = n.replace("Irish Collective Asset management Vehicles ICAV", "ICAV register")
-    n = n.replace("Charges created by Irish Collective Asset management Vehicles ICAV", "ICAV charges")
-    n = n.replace("Insurance Distribution Register", "Insurance Distribution")
-    n = n.replace("Authorised and Registered Alternative Investment Fund Managers", "AIFMs")
-    n = n.replace("Alternative Investment Fund Managers operating in Ireland on a Branc", "AIFMs (Branch/Cross-border)")
-    n = n.replace("Investment Business Firms authorised under Section 10 of the Investm", "Investment Business (S.10)")
-    n = n.replace("Investment Business Firms deemed to be authorised as Investment Inte", "Investment Business (RAIPI)")
-    n = n.replace("Investment Product Intermediaries Section 31 Register", "Investment Product Intermediaries (S.31)")
-    n = n.replace("UCITS European Communities Undertakings for Collective Investment in ", "UCITS")
-    n = n.replace("UCITS Management Companies operating in Ireland on a Branch or Cross", "UCITS Mgmt Cos (Branch/Cross-border)")
-    n = n.replace("Trust or Company Service Providers that are Subsidiaries of Credit o", "TCSPs (subsidiaries)")
-    n = n.replace("Credit Unions maintained by the Central Bank of Ireland pursuant to ", "Credit Unions (PSD)")
-    n = n.replace("Credit Unions maintained by the Central Bank of Ireland under Regula", "Credit Unions (EMI)")
-    n = n.replace("Crowdfunding Service Providers", "Crowdfunding")
-    n = n.replace("Authorised Crypto Asset Service Providers Under Article 63 of Regula", "Crypto (MiCAR)")
-    n = n.replace("Virtual Asset Service Providers", "VASPs")
+    # Drop trailing "as at [date]" — also matches when the trailing text is
+    # truncated to just "as at" with no date (source data quirk).
+    n = re.sub(r"\s+as at\b.*$", "", n).strip()
+    # Long-phrase canonical labels FIRST (depend on prefixes still being present).
+    long_map = [
+        ("Insurance Distribution Register",
+         "Insurance Distribution"),
+        ("Register of Insurance Distribution",
+         "Insurance Distribution"),
+        ("Register of Authorised and Registered Alternative Investment Fund Managers",
+         "AIFMs"),
+        ("Register of Alternative Investment Fund Managers operating in Ireland on a Branc",
+         "AIFMs (Branch/Cross-border)"),
+        ("Register of Investment Business Firms authorised under Section 10 of the Investm",
+         "Investment Business (S.10)"),
+        ("Register of Investment Business Firms deemed to be authorised as Investment Inte",
+         "Investment Business (RAIPI)"),
+        ("Register of Investment Product Intermediaries Section 31 Register",
+         "Investment Product Intermediaries (S.31)"),
+        ("Authorised UCITS European Communities Undertakings for Collective Investment in",
+         "UCITS"),
+        ("Register of UCITS Management Companies operating in Ireland on a Branch or Cross",
+         "UCITS Mgmt Cos (Branch/Cross-border)"),
+        ("Authorised UCITS Management Companies",
+         "UCITS Mgmt Cos"),
+        ("Register of Trust or Company Service Providers that are Subsidiaries of Credit o",
+         "TCSPs (subsidiaries)"),
+        ("Register of Credit Unions maintained by the Central Bank of Ireland pursuant to",
+         "Credit Unions (PSD)"),
+        ("Register of Credit Unions maintained by the Central Bank of Ireland under Regula",
+         "Credit Unions (EMI)"),
+        ("Register of Crowdfunding Service Providers",
+         "Crowdfunding"),
+        ("Register of Authorised Crypto Asset Service Providers Under Article 63 of Regula",
+         "Crypto (MiCAR)"),
+        ("Register of Virtual Asset Service Providers",
+         "VASPs"),
+        ("Authorised Irish Collective Asset management Vehicles Irish Collective Asset man",
+         "ICAV (authorised)"),
+        ("Authorised Designated Investment Companies Companies Act 1990 Part XIII",
+         "Designated Investment Companies"),
+        ("Authorised Investment Limited Partnerships Investment Limited Partnerships Act 1",
+         "Investment Limited Partnerships"),
+        ("Authorised Common Contractual Funds Investment Funds Companies and Miscellaneous",
+         "Common Contractual Funds"),
+        ("Authorised Unit Trust Schemes Unit Trust Act 1990",
+         "Unit Trust Schemes"),
+        ("Register of Registered Irish Collective Asset management Vehicles ICAV",
+         "Registered ICAVs"),
+        ("Register of Charges created by Irish Collective Asset management Vehicles ICAV",
+         "Charges by ICAVs"),
+    ]
+    for old, new in long_map:
+        if old in n:
+            n = n.replace(old, new)
+            break
+    # Generic prefixes for anything not covered above.
+    n = n.replace("Register of ", "").replace("List of ", "")
     return n.strip().rstrip(",")
 
 
@@ -879,7 +972,7 @@ def _render_facets(full_df: pd.DataFrame) -> int:
 # ──────────────────────────────────────────────────────────────────────────────
 # Feed
 # ──────────────────────────────────────────────────────────────────────────────
-def _render_card(row: pd.Series, cbi_badges: dict[str, dict] | None = None) -> str:
+def _render_card(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = None) -> str:
     ref = html.escape(_safe(row.get("display_ref")) or "", quote=True)
     subtype = _safe(row.get("notice_subtype"))
     subtype_label = _pretty_subtype(subtype)
@@ -902,12 +995,11 @@ def _render_card(row: pd.Series, cbi_badges: dict[str, dict] | None = None) -> s
     if len(parents) > 2:
         pills.append(f'<span class="corp-pill corp-pill-fund">+{len(parents) - 2}</span>')
 
-    # Experimental: CBI authorisation badge, when the notice's entity is on a
-    # Central Bank register. Keyed on notice_ref; rows without notice_ref do
-    # not badge (see load_cbi_badges docstring).
+    # Experimental: CBI authorisation badge, when the notice's entity is on
+    # a Central Bank register. Substring-resolved so notice-text prefixes
+    # ("presented to the High Court by …") don't break the match.
     if cbi_badges:
-        nref = _safe(row.get("notice_ref"))
-        info = cbi_badges.get(nref) if nref else None
+        info = _resolve_cbi_badge(row.get("entity_name"), cbi_badges)
         if info:
             short_reg = _shorten_register(info.get("register", ""))
             refno = info.get("ref_no") or ""
@@ -930,7 +1022,7 @@ def _render_card(row: pd.Series, cbi_badges: dict[str, dict] | None = None) -> s
     )
 
 
-def _render_feed(df: pd.DataFrame, cbi_badges: dict[str, dict] | None = None) -> None:
+def _render_feed(df: pd.DataFrame, cbi_badges: list[tuple[str, dict]] | None = None) -> None:
     if df.empty:
         empty_state(
             "No notices match these filters",
@@ -976,7 +1068,7 @@ def _render_feed(df: pd.DataFrame, cbi_badges: dict[str, dict] | None = None) ->
 # ──────────────────────────────────────────────────────────────────────────────
 # Detail
 # ──────────────────────────────────────────────────────────────────────────────
-def _render_detail(row: pd.Series, cbi_badges: dict[str, dict] | None = None) -> None:
+def _render_detail(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = None) -> None:
     if back_button("← Back to corporate notices", key="corp_detail"):
         st.session_state.pop("corp_selected_ref", None)
         st.query_params.clear()
@@ -1000,8 +1092,7 @@ def _render_detail(row: pd.Series, cbi_badges: dict[str, dict] | None = None) ->
     # Detail-header CBI badge (experimental).
     cbi_badge_html = ""
     if cbi_badges:
-        nref = _safe(row.get("notice_ref"))
-        info = cbi_badges.get(nref) if nref else None
+        info = _resolve_cbi_badge(row.get("entity_name"), cbi_badges)
         if info:
             short_reg = _shorten_register(info.get("register", ""))
             refno = info.get("ref_no") or ""
