@@ -12,29 +12,21 @@ Forbidden here (same rules as the Streamlit page file):
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import duckdb
 import pandas as pd
 import streamlit as st
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_SQL_VIEWS = _PROJECT_ROOT / "sql_views"
+from data_access._sql_registry import PROJECT_ROOT as _PROJECT_ROOT
+from data_access._sql_registry import register_views
+
 _log = logging.getLogger(__name__)
-
-
-def _absolutize_data_paths(sql: str) -> str:
-    return sql.replace("'data/", f"'{_PROJECT_ROOT.as_posix()}/data/")
 
 
 @st.cache_resource
 def get_corporate_conn() -> duckdb.DuckDBPyConnection:
     conn = duckdb.connect()
-    for sql_file in sorted(_SQL_VIEWS.glob("corporate_*.sql")):
-        try:
-            conn.execute(_absolutize_data_paths(sql_file.read_text(encoding="utf-8")))
-        except Exception as e:
-            _log.warning("corporate view failed to load: %s | %s", sql_file.name, e)
+    register_views(conn, ["corporate_*.sql"], swallow_errors=True)
     return conn
 
 

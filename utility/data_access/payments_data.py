@@ -16,28 +16,17 @@ Forbidden here (same rules as Streamlit page files):
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import duckdb
 import pandas as pd
 import streamlit as st
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_SQL_VIEWS = _PROJECT_ROOT / "sql_views"
-
-
-def _absolutize_data_paths(sql: str) -> str:
-    # SQL views use literals like read_parquet('data/gold/parquet/...').
-    # DuckDB resolves those against CWD, so a Streamlit launch from utility/
-    # breaks queries. Rewrite to absolute project paths at registration time.
-    return sql.replace("'data/", f"'{_PROJECT_ROOT.as_posix()}/data/")
+from data_access._sql_registry import register_views
 
 
 @st.cache_resource
 def get_payments_conn() -> duckdb.DuckDBPyConnection:
     conn = duckdb.connect()
-    for sql_file in sorted(_SQL_VIEWS.glob("payments_*.sql")):
-        conn.execute(_absolutize_data_paths(sql_file.read_text(encoding="utf-8")))
+    register_views(conn, ["payments_*.sql"], swallow_errors=False)
     return conn
 
 
