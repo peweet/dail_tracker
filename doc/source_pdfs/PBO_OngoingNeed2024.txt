@@ -1,0 +1,1093 @@
+       An Oifig Buiséid Pharlaiminteach
+               Parliamentary Budget Office
+
+                 Ongoing Need 2024 ­
+The True Demand for Social Housing
+
+                                          Publication 34 of 2025
+Séanadh
+
+Is í an Oifig Buiséid Pharlaiminteach (OBP) a d'ullmhaigh an doiciméad seo mar áis do Chomhaltaí Thithe an Oireachtais ina
+gcuid dualgas parlaiminteach. Ní bheartaítear é a bheith uileghabhálach ná críochnúil. Féadfaidh an OBP aon fhaisnéis atá ann
+a bhaint as nó a leasú aon tráth gan fógra roimh ré. Níl an OBP freagrach as aon tagairtí d'aon fhaisnéis atá á cothabháil ag tríú
+páirtithe nó naisc chuig aon fhaisnéis den sórt sin ná as ábhar aon fhaisnéise den sórt sin. Tá baill foirne an OBP ar fáil chun
+ábhar na bpáipéar seo a phlé le Comhaltaí agus lena gcuid foirne ach ní féidir leo dul i mbun plé leis an mórphobal nó le
+heagraíochtaí seachtracha.
+
+Is de chineál ginearálta í an Fhaisnéis. Baineann éiginnteacht le ráitis réamhbhreathnaitheacha agus d'fhéadfadh go
+dtiocfaidh nithe suntasacha chun cinn mar thoradh ar an bhFaisnéis. Ní sholáthraítear ráiteas cinntitheach leis an bhFaisnéis i
+ndáil le haon saincheist ar leith nó i ndáil le himthoisc phearsanta. Ní comhairle atá san Fhaisnéis. Ní mór a dheimhniú duit
+féin go bhfuil an Fhaisnéis a sholáthraímidne, an Oifig Buiséid Pharlaiminteach agus Coimisiún an Oireachtais (lena n-áirítear
+seirbhísigh, gníomhairí agus conraitheoirí na hOifige agus an Choimisiúin) oiriúnach agus iontaofa. Ní ghlacaimid aon
+fhreagracht as cruinneas ná oiriúnacht, ná eile, na Faisnéise agus ní thugaimid aon ráthaíocht ná aon ghealltanas ná aon
+bharánta i leith an chéanna; ná go mbeidh ár leathanaigh ghréasáin nó an Fhaisnéis nó ábhar eile saor ó earráidí, saor ó víris
+nó saor ó shárú. Ní ghlacaimid aon dliteanas (lena n-áirítear i leith éilimh maoine intleachtúla) a eascróidh as aon ábhar tríú
+páirtí nó aon suíomh gréasáin tríú páirtí a gcuirfimid nasc ar fáil chuige nó dá ndéanfaimid tagairt. Ní ghlactar le haon dliteanas
+ar bith, a mhéid is mó a cheadaítear faoin dlí is infheidhme nó (i) as aon iontaoibh a chuirfear san Fhaisnéis nó san ábhar ar ár
+leathanaigh ghréasáin nó (ii) as aon chaillteanas nó damáiste a eascróidh as an úsáid a bhainfidh tú as na leathanaigh
+ghréasáin sin nó i dtaca leis an úsáid sin. Féach ár bhFógra Séanta cuimsitheach anseo. I gcás aon easaontacht a bheith idir
+an Séanádh seo agus ár bhFógra Séanta cuimsitheach, is ag an gceann deireanach a bheidh an forlámhas.
+
+Disclaimer
+
+This document has been prepared by the Parliamentary Budget Office (PBO) for use by the Members of the Houses of the
+Oireachtas to aid them in their parliamentary duties. It is not intended to be either comprehensive or definitive. The PBO may
+remove, vary or amend any information contained therein at any time without prior notice. The PBO accepts no responsibility
+for any references or links to or the content of any information maintained by third parties. Staff of the PBO are available to
+discuss the contents of these papers with Members and their staff but cannot enter into discussions with members of the
+general public or external organisations.
+
+The Information is general in nature. Forward-looking statements involve uncertainties and matters may develop significantly
+from the Information. The Information does not provide a definitive statement in relation to any specific issue or personal
+circumstance. It does not constitute advice. You must satisfy yourself as to the suitability and any reliability of the
+Information that we, The Parliamentary Budget Office and Oireachtas Commission (including its servants, agents and
+contractors), provide. We accept no responsibility for, and give no guarantees, undertakings or warranties concerning, the
+accuracy or suitability or otherwise, of the Information; or that our webpages or the Information or other content will be error
+free, virus free, or infringement free. We accept no liability (including in respect of intellectual property claims) arising out of
+any third-party content or any third-party website to which we link or refer. To the fullest extent permitted by applicable law,
+no liability whatsoever is accepted (i) for any reliance placed on the Information or content on our webpages or (ii) for loss or
+damage arising out of or in connection with your use of these webpages. See our comprehensive Disclaimer Notice here. In
+any conflict between this Disclaimer and our comprehensive Disclaimer Notice, the latter will prevail.
+Contents
+
+1. THE HOUSING LANDSCAPE IN IRELAND 2024...............................................................................1
+2. DEFINING THE `ONGOING NEED' FOR SOCIAL HOUSING............................................................3
+3. AN OVERVIEW OF THE ONGOING NEED FOR SOCIAL HOUSING ................................................4
+4. WHERE IS THE ONGOING NEED? (BY LOCAL AUTHORITY) ..........................................................8
+5. AGE PROFILE OF THE ONGOING NEED IN 2024...........................................................................13
+6. CHILDREN WITH AN ONGOING NEED IN 2024 ............................................................................16
+7. HOUSING SUPPLY AND THE ONGOING NEED ..............................................................................21
+8. APPENDICES ......................................................................................................................................25
+
+This note is accompanied by an interactive data visualisation which can be
+accessed here. These publications are an update on previous PBO research into the
+ongoing need for social housing in 2022 and 2023, and builds on an in-depth
+analysis of social housing delivery between 2001 and 2020.
+[Page 1 of 28]
+
+ 1. The housing landscape in Ireland 2024
+
+Ireland is experiencing a sustained and acute housing challenge driven by
+population growth, demographic changes, structural demand, and affordability
+pressures. Population projections by the ESRI and analysis by the Central Bank
+indicate that between 44,000 and 52,000 new homes are required annually to meet
+structural and pent-up demand for housing. In its 2024 report, the Housing
+Commission estimates that the annual average requirement for additional housing
+to be between 33,400 and 81,400 units from 2024 to 2050. This is based on a
+population size of between 6.25 million and 7.25 million and household sizes of
+between 1.9 and 2.4 persons per dwelling.1 However, whatever figure is chosen,
+completions remain below these levels, with a total of 30,300 new dwellings
+delivered in 2024.2
+
+The Government's latest housing strategy, Delivering Homes, Building Communities
+(2025­2030), commits to delivering 300,000 homes by 2030, including 72,000
+social homes and 90,000 affordable supports, backed by increased investment of
+50 billion in housing and infrastructure.3 Despite these measures, affordability
+remains a significant concern. In 2024 house purchase prices rose by 8.6% and a
+further 7.4% in 2025.4 Nationally, average rents for new tenancies rose by 5.5%
+with average rents for existing tenancies growing by 4.6% year-on-year (Q4 2023 to
+Q4 2024).5 These rates of growth were only slightly behind the change in average
+weekly earnings, which saw 5.6% growth over the same period.6 Continued house
+price and rental cost growth places financial constraints on households, particularly
+those with lower incomes.
+
+1 The Housing Commission, Report of the Housing Commission, 2024
+2 Dr Sinéad Ashe, Capacity constraints and Ireland's housing supply, 2025.
+3 Department of Housing, Local Government and Heritage Delivering Homes Building Communities
+2025-2030, November 2025.
+4 CSO, Residential Property Price Index June 2024, August 2024.
+5 RTB, Rent Index Q4 2024, May 2025.
+6 CSO, Earnings and Labour Costs, February 2025.
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                                               [Page 2 of 28]
+A key element in addressing Ireland's housing challenges requires understanding
+the scale of current demand for, and reliance on, social housing supports. Currently,
+over 53,000 households depend on the Housing Assistance Payment (HAP), while
+almost 60,000 households remain on social housing waiting lists.7,8 Meeting these
+existing housing needs, along with the needs of future households, will require the
+accelerated delivery of secure, affordable, long-term accommodation.
+
+7 Correspondence with HAP Shared Services (April-October 2025).
+8 The Housing Agency, Summary of Social Housing Assessments 2024, 2025.
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+[Page 3 of 28]
+
+ 2. Defining the `Ongoing Need' for social housing
+
+When planning the type and location of social housing, local authorities and the
+Department of Housing use the net "unmet need" as a key guide. This figure reflects
+the number of eligible households on local authority waiting lists whose housing
+needs are not met. It excludes households already in local authority housing and
+those supported by the Housing Assistance Payment (HAP), as these are
+considered to have their needs met.
+The PBO argues that HAP tenancies, being private rental agreements, lack the
+security of tenure provided by local authority housing. Therefore, these households
+still have an ongoing need for social housing. An Ombudsman investigation into HAP
+in 2025 highlighted similar concerns, including:
+
+     The absence of security of tenure for HAP households compared to other
+        social housing tenants; and
+
+     A lack of transparency in how HAP households are managed on waiting lists.9
+For these reasons, and to give a more comprehensive picture, we believe HAP
+households should be included in planning and monitoring social housing delivery.
+The PBO introduces the term "ongoing need" to describe households eligible for
+social housing but not yet in receipt of it. This definition includes both those on
+Social Housing Waiting Lists (SHWLs) and those receiving HAP. Unlike the official
+"unmet need" category, which excludes HAP-supported households, ongoing need
+acknowledges that these households lack a guaranteed right to social housing if
+their tenancy ends.
+
+9 Ombudsman, Investigation of the HAP scheme, May 2025.
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                    [Page 4 of 28]
+
+3. An overview of the ongoing need for social
+  housing
+
+Using data from of the Summary of Social Housing Assessments 2024 (SSHA) and
+the number of active HAP tenancies at end-2024,10 the PBO estimates that there
+were 113,512 households that had an `ongoing need' for permanent, suitable,
+social housing at that time. This figure is comprised of 59,941 eligible households
+on the main social housing waiting list, plus, 53,571 active HAP-supported
+tenancies. This represents a decrease of 1.7% from 115,425 households at end-
+2023 (see table 1).
+
+Table 1: Changes in Ongoing Need 2023-2024
+
+                         2023      2024     Change 2023/2024
+
+                                            Number  %
+
+Local Authority Social   58,824    59,941   +1,117  +1.9%
+Housing Waiting Lists
+
+Housing Assistance Payment 56,601  53,571 -3,030    -5.4%
+
+Ongoing Need             115,425 113,512 -1,913     -1.7%
+By number of households
+
+Source: PBO based on Summary of Social Housing Assessment 2023, 2024 and correspondence
+with HAP Shared Services Centre (April-October 2025).
+
+Both the social housing waiting lists and HAP tenancy reports count households
+based on the main applicant only. However, for developing and implementing social
+housing policy, it is also important to consider household composition.
+
+Table 3 shows the household types represented among those receiving HAP
+supports and those on the social housing waiting lists. Understanding household
+composition helps identify the types of homes required--for example, families will
+need larger homes than single adults. It also provides insight into which groups are
+driving demand for social housing and how that demand may evolve over time.
+
+10 Information on HAP tenancies provided to the PBO by HAP Shared Services (April-October 2025).
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+[Page 5 of 28]
+
+Table 2: Ongoing need household compositions                                      2024    Change
+
+                                                                            2023  36,416
+                                                                                  11,230
+Social Housing Waiting Lists                                                      3,103   No.     %
+                                                                                  2,354
+1 adult                                       33,746                              1,471   2,670 7.9%
+                                                                                  1,326
+1 adult, 1-2 children                         12,103                              1,243   -873 -7.2%
+                                                                                  930
+Couple, 1-2 children                          1,579                               555     1,524 96.5%
+                                                                                  487
+Couple                                        2,126                               353     228 10.7%
+                                                                                  260
+1 adult, 3 or more children                   3,632                               213     -2,161 -59.5%
+                                                                                  59,941
+Couple, 3 or more children                    1,474                                       -148 -10%
+
+2 adults                                      475                                         768 161.7%
+
+2 adults, with child/children                 617                                         313 50.7%
+
+Couple, 1 or more other adults, 1-2 children  243                                         312 128.4%
+
+Couple, 1 or more other adults                1,232                                       -745 -60.5%
+
+3 or more adults                              1,019                                       -666 -65.4%
+
+3 or more adults, with child/children         313                                         -53     -16.9%
+
+Couple, 1 or more other adults, 3 or more children 265                                    -52     -19.6%
+
+Total Social Housing List Households          58,824                                      1,117 1.9%
+
+HAP Tenancies                                 14,018                              13,670  -348 -2.5%
+1 Adult                                       13,873                              13,037
+1 adult, 1 child                              7,690                               7,168   -836 -6%
+1 adult, 2 children                           3,385                               3,132
+1 adult, 3 or more children                   2,826                               2,080   -522 -6.8%
+Couple                                        2,173                               3,469
+Couple, 1 child                               3,782                               4,347   -253 -7.5%
+Couple, 2 children                            4,734                               3,714
+Couple, 3 or more children                    3,978                               2,801   -746 -26.4%
+Single sharing                                142                                 153
+Couple sharing                                56,601                              53,571  1,296 59.6%
+Total HAP Households
+                                                                                          565 14.9%
+
+                                                                                          -1,020 -21.6%
+
+                                                                                          -1,177 -29.6%
+
+                                                                                          11      7.8%
+
+                                                                                          -3,030 -5.4%
+
+Total Ongoing Need                            115,425 113,512 -1,913 -1.7%
+
+Source: PBO based on Summary of Social Housing Assessments 2024, correspondence with HAP
+Shared Services (April-October 2025) and Ongoing Need 2023.
+
+Substantial changes in the number of couple and multiple adult households can be
+seen across HAP and social housing waiting lists between 2023 and 2024.
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                                               [Page 6 of 28]
+
+     The categories of couples with 1­2 children, those in HAP tenancies and on
+        the waiting list, have grown since 2023. These categories saw an overall
+        combined increase of 3,385 households.
+
+     Single adult households (with and without children) have greatly decreased
+        over the last 12 months. Other than 1 adult households on the SHWLs, all
+        single adult groups have seen a reduction.
+
+     The largest proportionate increase is seen in the 2-adult household category
+        on the waiting list. This category increased by 768 additional households
+        (over 160%). This may suggest that even in dual income households, housing
+        affordability remains challenging.
+
+Using household composition, the PBO estimates there were a minimum of
+225,149 people with an ongoing need in 2024: 11
+
+     97,741 on the social housing waiting lists, and
+     127,408 in households receiving HAP supports.
+This suggests that approximately 4.2% of the population have an ongoing housing
+need,12 including both adults and children. As this is a lower-bound estimate, the
+actual number is likely higher.
+
+The HAP Shared Services Office collects data around the reasons for households
+exiting HAP tenancies. A report published by the Housing Agency in 2025 collated
+these reasons for exiting HAP between 2016 and 2021. It found that over the
+period:
+
+     37% of exits were due to households accepting an offer of social housing,
+     21% of HAP tenancies were terminated voluntarily,
+     while 19% were ended as a result of landlord driven reasons (e.g.,
+
+        notification of sale, termination of lease, landlord non-compliance, increases
+        in tenant rent contributions etc).
+
+11 Calculations based on lower bound estimates for each household type. For example, a household
+with a couple and two to three children is assumed to include at least four people.
+12 CSO, Annual Population estimates from 1926, June 2025.
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+[Page 7 of 28]
+While the share of HAP households exiting the programme into more secure social
+housing tenancies is welcome, it equates to just 7.4% of HAP exits annually.
+Paradoxically, the wait time to secure social housing for HAP tenants was ­ on
+average ­ shorter than the wait time for applicants that remained on the social
+housing waiting lists. 13 This is a result of HAP households typically being larger in
+size and more `suited' to the types of dwellings made available to local authorities.
+Smaller dwellings more suited to single adult and single adult with one child
+households (that make up the largest share of the ongoing need) are not well
+represented in the current social housing stock.14
+
+13 Bairéad, C. and Norris, M. Demographic and Socio-Economic Profile of Applicants for Social
+Housing and Recipients of Housing Assistance Payment, The Housing Agency, August 2025.
+14 Ibid
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                                               [Page 8 of 28]
+
+ 4. Where is the ongoing need? (by local authority)
+
+Looking at the aggregate ongoing need helps us understand the overall national
+housing requirement, though breaking it down by local authority highlights where
+housing supports may be most needed.
+In figure 1 we show the size of the ongoing need (2024 data) as a percentage of all
+households (Census 2022 data) across each local authority area in 2024. As a
+result of the lack of contemporaneous data, these figures are indicative of the
+general situation.
+Figure 1: Share of total households with ongoing need by local authority in 2024
+
+13%
+12%
+11%
+10%
+
+  9%
+  8%
+  7%
+  6%
+  5%
+  4%
+  3%
+  2%
+  1%
+  0%
+
+Source: PBO based on Summary of Social Housing Assessments 2024, correspondence with HAP
+shared services (April-October 2025) and CSO.
+
+Galway City Council has the highest percentage of households with an ongoing need
+in Ireland, currently at 12.2%. Roscommon has the lowest at 2.5%.
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+ [Page 9 of 28]
+
+Understanding the composition of the ongoing need in each local authority provides
+additional clarity as to the nature of housing pressures in each locale. Figure 2
+shows the distribution of ongoing need across local authorities. At opposite ends of
+the scale, in Louth, 71% of households with an ongoing need are availing of HAP
+supports rather than remaining on social housing waiting lists, while in Kildare the
+figure is only 32%. Nationally, the average is 47%.
+Figure 2: Composition of each local authority's ongoing need 2024
+
+100%
+  90%
+  80%
+  70%
+  60%
+  50%
+  40%
+  30%
+  20%
+  10%
+    0%
+
+                                                                           HAP SHWL
+Source: PBO based on correspondence with HAP Shared Services (April-October 2025) and
+Summary of Social Housing Assessments 2024.
+
+The variation across local authorities in their reliance on HAP or waiting lists is likely
+the result of several interrelated factors.
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                                             [Page 10 of 28]
+
+The Ombudsman's 2025 investigation into the HAP identified inconsistencies in the
+administration and efficiency in operating the scheme across local authorities--such
+as delays in landlord engagement and eligibility verification--that affect HAP
+uptake.15 Authorities with well-staffed and streamlined processes can finalise HAP
+tenancies more quickly, reducing waiting lists. Conversely, slower administration
+can often result in households remaining on traditional waiting lists.16
+Local housing supply and strategy may also play a role. Authorities actively
+delivering new-build or acquisition programmes may allocate more homes to those
+on waiting lists, while those lacking in social housing stock tend to substitute with
+HAP as a stopgap.17 While building more social housing should help reduce the
+waiting lists, PBO analysis has found limited correlation between the share of social
+housing as a proportion of total households in a local authority and the share of
+households opting to remain on waiting lists.
+Income levels among the population may be another driver for the makeup of the
+ongoing need. CSO data from 2022 shows that over 60% of HAP households were
+in employment, with median gross income around 19,300. HAP offers flexibility
+for income-earning families able to sustain private tenancies, whereas households
+in deeper poverty often remain on waiting lists awaiting permanent, state-funded
+accommodation.18
+
+15 Ombudsman, Investigation of the HAP scheme, May 2025.
+16 Ibid.
+17 Bairéad, C. and Norris, M. Demographic and Socio-Economic Profile of Applicants for Social
+Housing and Recipients of Housing Assistance Payment, The Housing Agency, August 2025.
+18 CSO, Social Housing in Ireland 2022 - Analysis of Housing Assistance Payment (HAP) Scheme,
+October 2023
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+[Page 11 of 28]
+
+Regardless of whether a household is currently on the social housing waiting list or
+in HAP-supported rental accommodation, the timely delivery of sufficient social
+housing units by local authorities is essential to meeting the housing needs of the
+target population. Figure 3 shows how each local authority performed against new
+build social housing delivery targets between 2022 and 2024.
+Figure 3: Local authority performance against new-build targets (2022­2024)
+
+200%
+180%
+160%
+140%
+120%
+100%
+
+  80%
+  60%
+  40%
+  20%
+
+   0%
+
+                                                                                 100%
+Source: Department of Housing, Local Government and Heritage, New build social housing delivery
+versus target, 2025.
+
+Comparing ongoing housing need with new-build delivery highlights inconsistencies
+between demand type and construction performance across local authorities. Areas
+with high reliance on social housing waiting lists, such as Kildare, have delivered
+above their new-build targets (122%), suggesting proactive efforts to address
+permanent housing shortages. Similarly, regions with significant HAP reliance, like
+Louth (71%), have also exceeded their targets (106%), indicating a possible
+strategy to reduce long-term dependence on private rental supports.
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                                             [Page 12 of 28]
+However, this pattern is not consistent nationwide. Authorities such as Dublin City
+and Donegal, which face substantial ongoing need, delivered less than 50% of their
+targets, creating a risk of persistent unmet need. Overall, the data suggests that
+while some high-need areas are aligning delivery with demand, others are falling
+significantly behind--underscoring the need for targeted supply allocation and
+diversified build strategies.
+It should be noted that delivering large volumes of high-density housing units in
+urban centres is challenging and more costly than traditional housing units.19
+Higher-density projects also have a greater risk of legal challenges and could be
+delayed or stopped if they undergo judicial review.20
+
+19 IGEES, Review of Social Housing Delivery and Spend, June 2024.
+20 Ibid.
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+[Page 13 of 28]
+
+ 5. Age profile of the ongoing need in 2024
+
+Understanding the age profile of households with an ongoing need for social
+housing is critical for effective planning and resource allocation. Different age
+groups have distinct housing requirements: older adults may need smaller,
+accessible homes or supported living arrangements, while families with children
+require larger homes with multiple bedrooms. Age data also informs long-term
+demand forecasting, as a younger population indicates sustained need over
+decades, whereas an aging population may require adaptations or specialist
+housing. In addition, age-related insights help align housing provision with
+associated services such as childcare, education, and healthcare, ensuring that
+social housing strategies are both responsive and sustainable.
+Figure 4: Composition of the ongoing need across each age category in 2024
+
+  70 years old or more
+
+         60-69 years old
+
+         50-59 years old
+
+         40-49 years old
+
+         30-39 years old
+
+         25-29 years old
+
+Less than 25 years old
+
+                                  15% 12% 9% 6% 3% 0% 3% 6% 9% 12% 15%
+                                                                                    SHWL HAP
+
+Source: PBO based on HAP Shared Services (April-October 2025) and Summary of Social Housing
+Assessments 2024.
+
+Figure 4 shows the share of households in each age cohort by main applicant age.
+70% of the total ongoing need falls between the ages of 30-59 years old. 19% are
+29 and under, and 12% are over the age of 60.
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                         [Page 14 of 28]
+
+The 30­49-year-old categories represented over half (55%) of the total ongoing
+need in 2024. Population estimates for 2024, suggest this age cohort made up just
+28.8% of the total population.21
+
+Similarly to 2023, almost twice as many applicants aged 29 and under are opting to
+apply for social housing than are availing of HAP supports. This trend may reflect
+young adults remaining in the family home for longer. Census 2022 data shows that
+61% of those aged 20­24 and 33% of those aged 25­29 were still living with their
+families.22
+
+Figure 5: Total ongoing need by age cohorts
+
+      35,000
+
+                 30,000                   32,715
+                 25,000
+                                                   29,187
+
+Main Applicants  20,000
+
+                 15,000                                    17,250
+
+                                  13,747
+
+                 10,000
+
+                                                                         9,260
+
+                 5,000   7,397
+
+                       0          25-29 years old  30-39 years old                     3,956
+                 Less than 25     60-69 years old  70 years old or more  40-49 years old
+                 years old
+
+                 50-59 years old
+
+Source: PBO based on correspondence with HAP Shared Services (April-October 2025) and
+Summary of Social Housing Assessments 2024.
+
+Looking at the number of households in each age bracket (figure 5), over a quarter
+(30,466 households) of the ongoing need are 50 years old or more. It's possible
+that their housing needs will remain largely unchanged over time as they may have
+
+21 CSO, Population Estimates from 1926, August 2025.
+22 CSO, Population aged 18 years and over living with their parents, August 2023.
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+[Page 15 of 28]
+
+reached or passed their peak earning point23 and may be unlikely to be in receipt of
+a financial windfall, increasing the likelihood of continued dependence on state
+support for their housing requirements. Limited access to affordable mortgage
+finance and the unsustainability of renting in later life make it increasingly likely
+that this group will depend on state support for housing, both now and in the future.
+Looking at the wider private rental market (which includes HAP tenancies), recent
+analysis has identified a significant increase in those aged 50+ renting from private
+landlords.24 In 2022 when compared to 2011, there were an additional 31,175
+households where the head of household was aged over 50 years of age ­ an 82%
+increase. For those aged 60 and over, there was a 102% increase in households
+renting privately.25 As Ireland's population ages more rapidly and housing remains
+difficult to attain, the share of older renters is likely to increase further.
+As recipients age, the cost of providing suitable housing will rise, driven by the need
+for more specialised housing types and adaptations. Also, maintaining ties to
+communities and locations of residence are important when developing housing for
+an older population. A report by the Housing Agency found that the majority of
+people surveyed said that their community and neighbours were the main reasons
+they'd like to stay in their current home. Over 20% indicated that the type of house
+they live in has a major negative impact on their ease of living. This report highlights
+the need for `age appropriate' accommodation in existing communities.26
+
+23 CSO, Earnings Analysis using Administrative Data Sources 2024, July 2025.
+24 Royal London Ireland, Record Rents and Older Renters Leave Many Financially Exposed.
+December 2025.
+25 Ibid.
+26 RIAI, Designing Homes for an Ageing Population, 2018.
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                                             [Page 16 of 28]
+
+ 6. Children with an ongoing need in 2024
+
+In 2024, Ireland had approximately 1.23 million people under the age of 18 (23%
+of total population).27 The PBO estimates that at least 85,182 of these children had
+an ongoing housing need - around 7% of all children in the country. Within this
+group, at least 25,108 children (29%) lived in households on social housing waiting
+lists, while more than twice that number, 60,074 children (71%), were in HAP-
+supported households.
+Children made up 23% of Ireland's total population in 2024, yet they accounted for
+38% of the overall ongoing housing need. Figure 6 is an estimate of the share of
+each local authority's under-18 population that has an ongoing need.
+Note: the local authority population data used in this chart is a PBO estimate based
+on 2023 population estimates (IPEADS02 Estimated Population, June 2025)
+uplifted to account for the estimated change in population in 2024 (PEA11
+Population Estimates from 1926, August 2025). It is not intended to provide a
+definitive number for under-18s with an ongoing housing need but, rather, to
+provide a reference point for considering the scale of housing need across the youth
+population.
+
+27CSO, Annual Population Estimates, August 2025.
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+[Page 17 of 28]
+
+Figure 6: Share of under-18s with an ongoing need by local authority
+
+          Kilkenny
+     Roscommon
+
+          Longford
+              Offaly
+             Cavan
+             Meath
+            Leitrim
+               Laois
+
+       Monaghan
+ Galway County
+
+              Mayo
+          Wexford
+     Cork County
+
+                DLR
+               Clare
+      Westmeath
+               Sligo
+         Tipperary
+            Carlow
+          Wicklow
+            Kildare
+          Donegal
+        Waterford
+         Cork City
+              Kerry
+          Limerick
+             Fingal
+    South Dublin
+              Louth
+       Dublin City
+      Galway City
+
+                      0% 1% 2% 3% 4% 5% 6% 7% 8% 9% 10% 11% 12% 13% 14% 15% 16% 17%
+
+Source: PBO calculations based on CSO (IPEADS02 Estimated Population, June 2025, and PEA11
+Population Estimates from 1926, August 2025), correspondence with HAP Shared Services (April-
+October 2025) and Summary of Social Housing Assessments 2024.
+
+The share of under-18s with an ongoing need varies significantly across local
+authorities, ranging from around 2% in Kilkenny to over 16% in Galway City. Urban
+areas such as Galway City, Dublin City, and Louth report the highest proportions,
+while smaller counties like Kilkenny and Roscommon have the lowest.
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                                             [Page 18 of 28]
+
+Figure 7 illustrates the share of children within each local authority's ongoing need
+population.
+In South Dublin, 45% of those with an ongoing need are under 18, the highest
+proportion nationally. We estimate 8,607 children in South Dublin have an ongoing
+need, with 75% (6,452) living in HAP-funded tenancies.
+By contrast, Dublin City has one of the lowest proportions of children with an
+ongoing need (34%). However, this still represents an estimated 14,086 children, of
+whom 83% (11,646) live in HAP-supported accommodation. This is the largest
+number and percentage of children in HAP nationally.
+Figure 7: Share of children in each local authority's ongoing housing need
+
+  50%
+  45%
+  40%
+  35%
+  30%
+  25%
+  20%
+  15%
+  10%
+
+   5%
+   0%
+
+Source: PBO based on correspondence with HAP Shared Services (April-October 2025) and
+Summary of Social Housing Assessments 2024.
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+[Page 19 of 28]
+Figures 8 and 9 show the distribution of children with an ongoing need and what
+kind of households they're in. The PBO found that 63% (53,602 children) live in
+households with a single adult and only 37% (31,580 children) live in couple-led
+households.
+Figure 8: Children in Single v Couple Households
+
+                                                                                                        37%
+
+                   63%
+
+                                                           Couple Single
+Source: PBO based on correspondence with HAP Shared Services (April-October 2025) and
+Summary of Social Housing Assessments 2024.
+
+Of the estimated 85,182 children in Ireland identified as having an ongoing need, a
+significant proportion--approximately 43%--reside in single-adult households that
+rely on the Housing Assistance Payment (HAP) scheme. A further 20% of these
+children are living in single-adult households currently on social housing waiting
+lists.
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                                             [Page 20 of 28]
+
+Figure 9: Number of children with ongoing need by household types 2024
+
+      40,000
+
+          35,000  Single adult on
+          30,000         HAP
+
+Children  25,000                   Couple on HAP
+          20,000
+
+          15,000                                  Single adult on
+          10,000                                        SHWL
+
+           5,000                                                                 Couple on SHWL
+
+              0
+Source: PBO based on correspondence with HAP Shared Services (April-October 2025) and Summary
+of Social Housing Assessments 2024.
+
+Single-parent households typically rely on one income, making it harder to afford
+private rental or mortgage costs. Research consistently shows single-parent
+families face higher poverty rates in Ireland. Research by the ESRI found that lone
+parent households have the highest deprivation and consistent poverty rates. They
+also found that children are more likely than older people to live in a household not
+meeting their expenditure needs.28
+
+However, the concerns around deprivation and poverty rates are not exclusive to
+single parent households. Upper limits on income levels to avail of HAP support or
+for qualify for social housing would still create issues around affordability even in
+dual income households.
+
+28 Department of Social Protection, Technical Paper on the impact of minimum income, Social
+Inclusion Technical Paper No.12, 2024.
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+[Page 21 of 28]
+
+ 7. Housing supply and the ongoing need
+
+Rising rents, the limited supply of suitable rental properties, and the lack of secure
+tenure in the private rental market underscore the inherent instability of HAP
+tenancies. This is a key reason the PBO considers the needs of HAP households
+only partially met and, therefore, ongoing.
+Figure 10 compares the average monthly HAP payment to landlords with the
+average monthly rent for existing private tenancies and for new tenancies across all
+local authorities in 2024. The HAP averages shown include any discretionary uplifts
+applied by the relevant local authority.29
+Figure 10: Comparison of average rents - HAP and non-HAP tenancies.
+
+2,500
+
+2,000
+
+1,500
+
+1,000
+
+   500
+
+      0
+
+Avg HAP  New  Existing
+
+Source: PBO based on RTB Rent Index Q4 2024 and correspondence with HAP Shared Services
+(April-October 2025).
+
+29 Standard HAP tenancies are eligible for rent uplifts up to 35% above maximum HAP limits, while
+Dublin Regional Homeless Executive households are eligible for up to 50% uplift.
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                                             [Page 22 of 28]
+As expected, the highest rents in all three categories are found in the four Dublin
+local authorities, as shown in the graph. Dún Laoghaire­Rathdown consistently
+ranks as the most expensive area across all categories.
+What stands out are the significant disparities between existing private rents and
+HAP tenancies. Dún Laoghaire­Rathdown shows the largest gap, with average
+private rents exceeding HAP rates by 782 per month. This is followed by Cork City
+(497), Galway City (454), and Limerick (443).
+Louth has the second-smallest gap between existing private rents and HAP
+tenancies, with an average difference of just 192 per month. It also records the
+highest proportion of households choosing HAP over remaining on social housing
+waiting lists. Even compared to new private rental agreements, the average rent
+difference is only 405 per month -- the lowest disparity nationally.
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+[Page 23 of 28]
+
+Meeting the ongoing demand
+
+The PBO notes that while the ongoing need measurement is a useful indicator for
+understanding the underlying demand for social housing, some households
+receiving HAP may only require short-term assistance rather than a long-term
+commitment to social housing. However, given the affordability challenges in
+renting or purchasing homes in 2025, it is unlikely that households with an ongoing
+need would decline an offer of secure, long-term social housing.
+If it is accepted that households with an ongoing need would accept an offer of
+social housing, the PBO estimates that the national social housing stock would need
+to increase by 51% to accommodate this demand.
+Figure 11: Increase needed in existing social housing stock to house the ongoing
+need in each Local Authority.
+
+100%
+  90%
+  80%
+  70%
+  60%
+  50%
+  40%
+  30%
+  20%
+  10%
+    0%
+
+Source: HAP Shared Services (April-October 2025), NOAC Performance Indicator Report 2023, Summary
+of Social Housing Assessments 2024, Overall social and affordable housing provision (July 2025)
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                                             [Page 24 of 28]
+Galway City and Fingal would both require the largest increases in their social
+housing stocks to house their households with an ongoing need. Both local
+authorities would need to almost double their existing stock to meet the potential
+demand. However, the need to increase social housing stock is present across all
+local authorities, with some of the greatest `shortfalls' seen in the larger population
+centres.
+When comparing ongoing need to the delivery of new-build social housing (see
+Figure 3), only four areas with a required increase of more than 50% came close to
+meeting or exceeding their delivery targets between 2022 and 2024. There also
+appears to be a strong correlation in that, local authorities that achieved or
+surpassed their new-build targets tend to have lower levels of additional need for
+social housing stock (in percentage terms).
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+[Page 25 of 28]
+
+8. Appendices
+
+Appendix 1: Ages of Main Applicants by Local Authority         70+ Total
+
+                   Less than 25 25-29 30-39 40-49 50-59 60-69
+
+Cork Co          257  461     1,314 1,477 1,037 640            328 5,514
+
+Kildare          319  643     1,532 1,389 826           490    203 5,402
+
+Cork City        323  523     1,547 1,483 842           383    133 5,234
+
+Louth            355  632     1,459 1,196 667           270    94 4,673
+
+Limerick         228  494     1214 1185 706             342    166 4,335
+
+Kerry            212  453     1,039 1,019 626           360    165 3,874
+
+Galway City 216       354     1,072 1,118 614           300    102 3,776
+
+Wicklow          182  340     865    771  484           320    127 3,089
+
+Meath            209  393     777    725  465           254    92 2,915
+
+Donegal          195  345     773    732  485           255    116 2,901
+
+Tipperary        207  349     717    674  467           339    113 2,866
+
+Waterford        223  395     781    680  421           241    120 2,861
+
+Galway Co        150  221     627    665  457           302    166 2,588
+
+Wexford          214  361     665    553  380           274    131 2,578
+
+Clare            177  265     542    571  455           274    156 2,440
+
+Mayo             118  208     568    508  375           264    136 2,177
+
+Westmeath        155  238     473    446  331           199    64 1,906
+
+Sligo            53   143     367    351  209           149    66 1,338
+
+Laois            110  176     352    356  200           92     47 1,333
+
+Carlow           105  165     340    285  193           124    33 1,245
+
+Kilkenny         70   95      285    260  173           124    38 1,045
+
+Cavan            81   140     233    239  169           93     44 999
+
+Offaly           62   116     260    222  168           120    49 997
+
+Monaghan         47   75      207    223  140           85     32 809
+
+Roscommon 46          68      144    143  122           90     27 640
+
+Leitrim          20   49      118    123  86            57     27 480
+
+Longford         22   41      124    106  92            52     21 458
+
+Dublin City      1,617 3,222  7,480 5,778 3,211 1,477          601 23,386
+
+Fingal           524  990     2,980 2,842 1,452 687            308 9,783
+
+South Dublin 641      1,322   2,820 2185 898            338    135 8,339
+
+DLR              259  470     1,040  882  499           265    116 3,531
+
+Source: PBO based on HAP Shared Services (April-October 2025) and Summary of Social Housing
+Assessments 2024.
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                                [Page 26 of 28]
+
+Appendix 2: Household Composition by Local Authority Area
+
+A - 1 Adult.                      B - 1 Adult, 1-2 children.   C - Couple, 1-2  D ­ Couple.
+E - 1 Adult, 3 or more children.                               children.
+I - Couple, 1 or more other       F - Couple, 3 or more                         H - 2 Adults, with
+adults, 1-2 children.             children                     G - 2 Adults.    child/children.
+M - Couple, 1 or more other
+adults, 3 or more children.       J - Couple, 1 or more other  K - 3 or more    L ­ 3 or more adults
+                                  adults.                      adults.          with child/children.
+
+SOCIAL HOUSING WAITING LISTS
+
+           A  B                   C  D  EF                     GHI J KL M
+
+Carlow     351 366 147 48 80 55 32 48 24 15 6 16 0
+
+Cavan      272 274 87 42 116 75 40 45 24 6 12 12 24
+
+Clare      788 578 222 98 168 130 78 54 44 36 39 36 18
+
+Cork City  1833 976 474 182 136 310 94 90 84 51 33 24 72
+
+Cork Co    1220 1098 381 182 220 220 102 144 64 60 33 32 30
+
+Donegal    706 512 201 98 136 115 40 66 24 12 24 8 24
+
+Dublin City 9836 2076 774 1424 564 690 364 330 276 270 132 128 192
+
+DLR        1450 824 261 116 280 200 50 90 44 36 18 16 18
+
+Fingal     2842 2446 1473 406 756 1160 392 423 516 339 288 320 270
+
+Galway City 1396 448 318 126 96 305 42 48 36 21 18 16 30
+
+Galway Co  753 438 198 96 116 165 70 57 36 27 24 8 12
+
+Kerry      1377 888 402 176 240 215 136 126 76 63 54 36 54
+
+Kildare    1935 1638 876 294 316 445 184 180 220 144 129 68 66
+
+Kilkenny   341 252 123 50 44 25 26 24 16 9 6 4 18
+
+Laois      359 364 174 54 48 70 30 21 24 9 6 0 6
+
+Leitrim    148 74 24 24 44 45 10 6 12 12 6 4 6
+
+Limerick   1284 1172 387 150 396 325 120 135 112 54 42 44 54
+
+Longford   113 84                 33 24 44 25 14 21 4 6 3 4 6
+
+Louth      1005 862 252 98 260 190 72 108 52 36 30 24 18
+
+Mayo       681 366 132 86 156 95 42 72 52 24 24 24 54
+
+Meath      792 734 309 108 80 160 66 48 40 18 12 20 48
+
+Monaghan   214 132 18 12 36 35 16 21 0 3 3 16 6
+
+Offaly     250 268 111 44 84 115 24 33 16 6 9 4 18
+
+Roscommon 165 98                  39 30 36 40 16 12 8 12 0 8 0
+
+Sligo      410 228 66 36 60 35 22 27 12 12 3 8 6
+
+South Dublin 1908 2082 609 224 508 560 104 195 168 57 36 36 156
+
+Tipperary  765 630 213 68 216 185 58 84 32 24 9 20 6
+
+Waterford  866 644 180 68 156 155 44 42 44 21 18 8 30
+
+Westmeath 598 466 180 64 92 135 60 57 44 12 18 20 0
+
+Wexford    733 816 303 120 204 210 56 72 48 27 3 20 24
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+[Page 27 of 28]
+
+N ­ 1 adult  O - 1 adult 1   P - 1 adult 2         Q - 1 adult, 3 or more      R - Couple
+             child           children              children
+
+S ­ Couple, 1 T - Couple, 2  U ­ Couple, 3 or      V - single sharing          W - Couple
+                             more children.                                    sharing
+child        children
+
+HAP
+
+             N         O     P   Q             R   S    T                  U   V           W
+
+Carlow       203 153 78          33            22  30   29                 25  38 4
+
+Cavan        153 84          55  29            20  23   23                 30  18 2
+
+Clare        449 231 139 71                    48  47   71                 73  29
+
+Cork City    846 570 288 103 124 230 234 167 211 10
+
+Cork Co      1129 712 456 229 186 207 233 197 77 7
+
+Donegal      610 333 236 134 61                    61   102 130 20
+
+Dublin City  2313 2999 1418 492 362 722 912 640 714 21
+
+DLR          270 392 232 76                    35  115 111 96                  115 3
+
+Fingal       357 1065 572 266 142 334 479 457 180 18
+
+Galway City 391 449 238 84                     64  150 203 147 202 11
+
+Galway Co    384 336 226 138 54                    86   83                 98  55 1
+
+Kerry        495 367 169 93                    80  110 131 105 67 1
+
+Kildare      339 430 234 78                    84  159 227 125 99 6
+
+Kilkenny     174 156 64          37            34  43   37                 20  24
+
+Laois        218 158 102 34                    33  59   62                 48  27
+
+Leitrim      99        51    28  13            7   7    9                  10  7
+
+Limerick     558 400 295 157 70                    131 183 201 88 5
+
+Longford     95        58    42  30            24  20   26                 15  6
+
+Louth        602 700 470 261 135 205 298 287 120 5
+
+Mayo         450 246 115 84                    46  55   55                 55  33 1
+
+Meath        386 409 198 76                    94  153 166 106 103 11
+
+Monaghan     151 110 61          32            22  29   33                 45  19 3
+
+Offaly       216 125 71          32            31  41   37                 28  18 4
+
+Roscommon 161 72             37  25            16  18   23                 38  6
+
+Sligo        285 182 112 44                    23  34   29                 27  26 3
+
+South Dublin 421 1545 786 316 84                   362 520 419 242 15
+
+Tipperary    572 392 218 125 55                    61   74                 82  42 4
+
+Waterford    592 314 200 82                    54  93   100 106 90 4
+
+Westmeath 286 191 128 54                       47  66   65                 61  52 2
+
+Wexford      434 289 182 72                    57  40   48                 54  59 1
+
+Wicklow      379 354 240 85                    59  91   131 86                 39
+
+Source: PBO based on HAP Shared Services (April-October 2025) and Summary of Social Housing
+Assessments 2024.
+
+Ongoing Need 2024 ­ The True Demand for Social Housing
+                                                                                             [Page 28 of 28]
+
+Contact: pbo@oireachtas.ie
+Go to our webpage: www.Oireachtas.ie/PBO
+Publication Date: 11 December 2025
+
+                                  Ongoing Need 2024 ­ The True Demand for Social Housing
+Houses of the Oireachtas
+Leinster House
+Kildare Street
+Dublin 2
+D02 XR20
+
+www.oireachtas.ie
+Tel: +353 (0)1 6183000 or 076 1001700
+Twitter: @OireachtasNews
+
+Connect with us
+
+Download our App
+
