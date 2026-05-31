@@ -23,6 +23,10 @@ CREATE OR REPLACE VIEW v_payments_alltime_ranking AS
 WITH per_member AS (
     SELECT
         member_name,
+        -- unique_member_code is consistent per member_name in the yearly view
+        -- (NULLIF strips the empty-string COALESCE so MAX picks the real code
+        -- when any row has it). MAX over a single value is a no-op.
+        MAX(NULLIF(unique_member_code, ''))                      AS unique_member_code,
         SUM(total_paid)                                          AS total_paid_since_2020,
         SUM(payment_count)                                       AS payment_count_since_2020,
         MAX(payment_year)                                        AS latest_year,
@@ -45,6 +49,7 @@ latest_band AS (
 )
 SELECT
     pm.member_name,
+    COALESCE(pm.unique_member_code, '')                          AS unique_member_code,
     COALESCE(lb.position_latest, 'Deputy')                       AS position,
     ''                                                           AS party_name,
     ''                                                           AS constituency,
