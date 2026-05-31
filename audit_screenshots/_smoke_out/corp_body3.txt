@@ -1,0 +1,203 @@
+DÁIL TRACKER
+
+Corporate
+Corporate notices · receiver / examinership / liquidation · Iris Oifigiúil
+keyboard_double_arrow_right
+
+Member Overview
+
+Attendance
+
+Votes
+
+Interests
+
+Payments
+
+Lobbying
+
+Legislation
+
+Statutory Instruments
+
+Appointments
+
+Corporate
+
+Committees
+
+Glossary
+
+Oireachtas Explorer
+Irish parliamentary data, made searchable
+
+IRIS OIFIGIÚIL · CORPORATE DISTRESS
+
+Corporate
+
+Who's calling in Irish loans, who's being rescued, who's winding down. Corporate-side notices from Iris Oifigiúil since 2016, with the major appointing parties translated to their parent funds.
+
+Brand-to-parent translation is curated in data/_meta/loan_book_fund_aliases.csv; long-tail SPVs display under their original brand. The page does not name wrongdoing — it surfaces who is on the public record as an appointing party.
+Privacy: personal insolvency (individual bankruptcy notices) is excluded by policy. Companies only.
+
+SPV Special-Purpose Vehicle (a fund structure that holds loan books or assets)
+ICAV Irish Collective Asset-management Vehicle
+MVL Members' Voluntary Liquidation (solvent wind-up)
+CVL Creditors' Voluntary Liquidation (insolvent wind-up)
+SCARP Small Company Administrative Rescue Process
+RECEIVER-APPOINTERS
+Who's calling in Irish loans
+Of 2,622 receivership notices, 777 (30%) name a known loan-book buyer or Irish bank. The rest are appointed by smaller institutions or under private debentures where no major fund is named. Click a row to filter the page.
+Cerberus
+CREDIT SERVICER
+310
+AIB
+IRISH BANK
+218
+Ulster Bank
+IRISH BANK (WINDING DOWN)
+125
+Bank of Ireland
+IRISH BANK
+99
+NAMA
+STATE ASSET MANAGER
+55
+Pepper
+CREDIT SERVICER
+54
+Pentire
+CREDIT SERVICER
+40
+Cabot
+CREDIT SERVICER
+36
+RECEIVERSHIP NOTICES BY YEAR
+2016
+2026
+Click a year to filter. Peaks 2016-17 (post-crisis clearouts); dip 2020.
+FILTERED BY
+Fund: Cerberus
+×
+Clear all
+
+Year
+
+2026 · 1,213 YTD
+
+2025 · 4,911
+
+2024 · 4,393
+
+2023 · 3,676
+
+2022 · 3,050
+
+2021 · 2,976
+
+2020 · 2,742
+
+2019 · 3,467
+
+2018 · 3,285
+
+2017 · 3,169
+
+2016 · 2,866
+
+Appointing fund / bank
+
+Cerberus · 361
+
+All
+
+Receiverships
+
+Examinership
+
+Liquidations
+
+Companies Act notices
+
+ICAV strike-offs
+
+DOWNLOAD 361 NOTICES (CSV)
+
+361 notices match the current filters, sorted newest first.
+FEBRUARY 2026
+13 Feb 2026
+PROMONTORIA MARINA DESIGNATED ACTIVITY COMPANY
+Members' Voluntary Liquidation
+Cerberus
+3 Feb 2026
+Designated Activity Company, having its registered office at 16
+Receivership
+Cerberus
+JANUARY 2026
+23 Jan 2026
+Limited (the "Company") dated 16th February 1991, Everyday Finance
+Receivership
+Cerberus
+16 Jan 2026
+PROMONTORIA BIG BEN DESIGNATED ACTIVITY COMPANY
+Liquidation
+Cerberus
+9 Jan 2026
+Designated Activity Company, having its registered office at 16
+Receivership
+Cerberus
+AIB
+DECEMBER 2025
+23 Dec 2025
+PROMONTORIA EAGLE LIMITED
+Liquidation
+Cerberus
+12 Dec 2025
+Designated Activity Company trading as Link Financial, having its
+Receivership
+Cerberus
+JULY 2025
+29 Jul 2025
+Designated Activity Company, having its registered office at 16
+Receivership
+Cerberus
+AIB
+29 Jul 2025
+Designated Activity Company, having its registered office at 16
+Receivership
+Cerberus
+AIB
+29 Jul 2025
+Designated Activity Company, having its registered office at 16
+Receivership
+Cerberus
+APRIL 2025
+25 Apr 2025
+Limited (the "Company") dated 21st August 2001, Everyday Finance
+Receivership
+Cerberus
+MARCH 2025
+7 Mar 2025
+PROMONTORIA (HENRICO) LIMITED (The "Company")
+Members' Voluntary Liquidation
+Cerberus
+
+‹
+
+1
+
+2
+
+3
+
+4
+
+5
+
+…
+
+31
+
+›
+
+Showing 1–12 of 361 notices

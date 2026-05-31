@@ -46,21 +46,57 @@ ROLES = {
 }
 # Recurring Irish-only body names → English (extend as coverage demands).
 BODIES = {
+    # Broadcasters / media regulators
     "RADIÓ TEILIFÍS ÉIREANN": "RTÉ",
-    "GNÍOMHAIREACHT UM CHAOMHNÚ COMHSHAOIL": "Environmental Protection Agency",
-    "ÓGLAIGH NA HÉIREANN": "Defence Forces",
     "COIMISIÚN NA MEÁN": "Coimisiún na Meán",
-    "COIMISIÚN UM ATHCHÓIRIÚ AN DLÍ": "Law Reform Commission",
+    # Environmental / planning
+    "GNÍOMHAIREACHT UM CHAOMHNÚ COMHSHAOIL": "Environmental Protection Agency",
+    "AN BORD PLEANÁLA": "An Bord Pleanála",
+    # Defence / Garda
+    "ÓGLAIGH NA HÉIREANN": "Defence Forces",
+    "AN GARDA SÍOCHÁNA": "An Garda Síochána",
+    # Irish-language statutory bodies
     "ÚDARÁS NA GAELTACHTA": "Údarás na Gaeltachta",
     "BORD NA GAEILGE": "Bord na Gaeilge",
     "FORAS NA GAEILGE": "Foras na Gaeilge",
+    # Law / standards / regulators
+    "COIMISIÚN UM ATHCHÓIRIÚ AN DLÍ": "Law Reform Commission",
+    "AN COIMISIÚN TOGHCHÁIN": "Electoral Commission",
+    "AN COIMISIÚN UM CHOSAINT SONRAÍ": "Data Protection Commission",
+    "AN COIMISIÚN UM SCRÚDUITHE STÁIT": "State Examinations Commission",
+    "COIMISIÚN NA SCRÚDUITHE STÁIT": "State Examinations Commission",  # preposition variant
+    "AN COIMISIÚN UM CHAIDHDÉAIN IN OIFIGÍ POIBLÍ": "Standards in Public Office Commission",
+    "ÚDARÁS RIALÁLA SEIRBHÍSÍ DLÍ": "Legal Services Regulatory Authority",
+    "ÚDARÁS PÓILÍNEACHTA": "Policing Authority",
+    "ÚDARÁS CRAOLACHÁIN NA HÉIREANN": "Broadcasting Authority of Ireland",
+    "FORAS TAIGHDE AR OIDEACHAS": "Educational Research Centre",
+    "AN COIMISIÚN UM IOMAÍOCHT": "Competition and Consumer Protection Commission",
+    "AN BORD ACHOMHAIRC UM SHEIRBHÍSÍ MAOINE": "Financial Services Appeals Board",
+    "AN BORD ACHOMHAIRC UM SHLÁNDÁIL": "Social Welfare Appeals Office",
+    "AN t-ÚDARÁS UM CHOSAINT IASCAIGH MHARA": "Sea-Fisheries Protection Authority",
+    "AN T-ÚDARÁS UM CHOSAINT IASCAIGH MHARA": "Sea-Fisheries Protection Authority",  # caps variant
+    # State agencies / boards
+    "AN CHOMHAIRLE CHOMHAIRLEACH UM ATHRÚ AERÁIDE": "Climate Change Advisory Council",
+    "AN tÚDARÁS UM ARD-OIDEACHAS": "Higher Education Authority",
+    "RÁSAÍOCHT CON ÉIREANN": "Greyhound Racing Ireland",
+    "CÓRAS IOMPAIR ÉIREANN": "Córas Iompair Éireann",  # CIÉ — keeps Irish acronym
+    "BORD IASCAIGH MHARA": "Bord Iascaigh Mhara",  # BIM
+    "BORD BIA": "Bord Bia",
+    # Note: AIRE STÁIT A CHEAPADH / AN tORDÚ CORRTHOGHCHÁIN are order TITLES,
+    # not bodies — handled via _TITLE_NOT_BODY rather than added here.
 }
 
 # Title first-segments that are preamble/headers, not a body — force the
 # body to be recovered from the notice text instead.
 _TITLE_NOT_BODY = re.compile(
     r"(?i)^\s*(i bhfeidhmiú|ag gníomhú|in exercise of|in accordance with|pursuant to|"
-    r"tá an|do rinne|the minister|the government|notice is)"
+    r"tá an|do rinne|the minister|the government|notice is|"
+    # Order TITLES that look body-shaped but describe the legal instrument,
+    # not the body being appointed to: "Appointment of Ministers of State",
+    # "Seanad by-election Order", "Attorney General Appointment".
+    r"aire stáit a cheapadh|airí stáit a cheapadh|an tard-aighne a cheapadh|"
+    r"an tordú corrthoghchán|an tordu corrthoghchán|"
+    r"an tordú um an gcoinbhinsiún|an tordu um an gcoinbhinsiún)"
 )
 
 _MIL_RE = re.compile(r"(?i)ÓGLAIGH NA hÉIREANN|DEFENCE FORCES\b|\bARMY\b|LIEUTENANT|COMMISSIONED OFFICER")
@@ -360,8 +396,21 @@ def enrich(df: pl.DataFrame) -> pl.DataFrame:
         role = extract_role(t, atype)
         portfolio = extract_portfolio(t) if atype == "special_adviser" else None
         body = portfolio if atype == "special_adviser" else extract_body(title, t, atype)
-        is_irish = bool(re.search(r"(?i)tá an|ag gníomhú|cheapadh|uachtarán|rialtas|roinn|gníomhaireacht", t)
-                        and not re.search(r"(?i)^appointment to|the government today", title))
+        # Language detection — the OLD rule flagged the whole notice "Irish" if
+        # ANY Irish marker appeared in the raw_text, including the standard
+        # Irish signature "MARTIN FRASER, Ard-Rúnaí an Rialtais" at the END of
+        # otherwise-English notices (e.g. "APPOINTMENT TO THE BOARD OF HORSE
+        # RACING IRELAND ...") — so English ministerial notices were
+        # mis-tagged as Irish and got the shallower Irish-flow treatment.
+        # New rule: an Irish marker must appear within the LEAD (first ~6 lines)
+        # of the notice — the body of the appointment, not the closing
+        # signature block. The English-title kicker exclusion is preserved.
+        lead = "\n".join(_lines(t)[:6])
+        is_irish = bool(
+            re.search(r"(?i)tá an|ag gníomhú|cheapadh|uachtarán|an rialtas|an roinn|gníomhaireacht|"
+                      r"an aire|tar éis", lead)
+            and not re.search(r"(?i)^appointment to|the government today", title)
+        )
         rows.append({
             "notice_ref": r.get("notice_ref"),
             "issue_date": r.get("issue_date"),

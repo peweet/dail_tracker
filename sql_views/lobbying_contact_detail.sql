@@ -39,7 +39,8 @@ SELECT
     src.public_policy_area,
     src.lobbying_period_start_date::DATE AS period_start_date,
     src.lobby_url                       AS source_url,
-    rm.intended_results                 AS intended_results
+    rm.intended_results                 AS intended_results,
+    rm.person_primarily_responsible     AS person_primarily_responsible
 FROM read_parquet('data/silver/lobbying/parquet/politician_returns_detail.parquet') src
 LEFT JOIN member_codes mc
     ON LOWER(strip_accents(TRIM(src.full_name))) = mc.norm_name

@@ -146,6 +146,23 @@ def inject_css() -> None:
         header[data-testid="stHeader"] [data-testid="stIconMaterial"] {
             color: rgba(255,255,255,0.85) !important;
         }
+        /* Force Material Symbols ligature activation on every Streamlit
+           icon span. Streamlit's own emotion stylesheet ships the font
+           family but not `font-feature-settings: 'liga'`; without it, the
+           browser renders the literal ligature text ("keyboard_arrow_right",
+           "person", "calendar_today" …) instead of the icon glyph, which
+           looks like leaked function names across every page. Pair `liga`
+           with `clip` + `width:1em` so the literal text — visible for the
+           one frame before the font loads — never overflows the icon box
+           into adjacent layout. */
+        [data-testid="stIconMaterial"] {
+            font-feature-settings: 'liga' !important;
+            -webkit-font-feature-settings: 'liga' !important;
+            text-rendering: optimizeLegibility !important;
+            overflow: hidden !important;
+            width: 1em !important;
+            white-space: nowrap !important;
+        }
 
         /* ── Native top-nav links ───────────────────────────────── */
         [data-testid="stTopNavLink"] {
@@ -246,7 +263,7 @@ def inject_css() -> None:
             --border-strong:  oklch(72%   0.010 75);
             --text-primary:   oklch(18%   0.008 75);
             --text-secondary: oklch(44%   0.010 75);
-            --text-meta:      oklch(58%   0.010 75);
+            --text-meta:      oklch(52%   0.012 75);
             --accent:         oklch(51%   0.130 62);
             --accent-subtle:  oklch(95%   0.055 72);
             --accent-dim:     oklch(86%   0.040 72);
@@ -4618,6 +4635,22 @@ def inject_css() -> None:
             margin: 0 0 0.4rem;
             font-size: 0.85rem;
             font-weight: 400;
+            color: var(--text-meta);
+        }
+        /* "Filed by …" — quiet meta line carrying the lobbyist-side
+           person_primarily_responsible field from the lobbying.ie return.
+           Reads as a byline, not as a competing title. */
+        .lp3-return-filed-by {
+            margin: 0 0 0.35rem;
+            font-size: 0.78rem;
+            color: var(--text-meta);
+        }
+        .lp3-return-filed-by strong {
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 600;
+            font-size: 0.7rem;
+            margin-right: 0.35rem;
             color: var(--text-meta);
         }
         .lp3-return-snippet {
