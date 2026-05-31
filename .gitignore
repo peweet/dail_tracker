@@ -18,6 +18,14 @@
 *.duckdb
 *.duckdb.wal
 data/gold/
+
+# === Curated reference data — hand-authored, NOT regenerable — MUST be tracked ===
+# The blanket *.csv/*.json rules above would otherwise swallow these source-of-truth
+# lookup tables (e.g. si_department_aliases, loan_book_fund_aliases, nace_v2_sections).
+# Re-include the directory so git descends into it, then its curated files.
+!data/_meta/
+!data/_meta/*.csv
+!data/_meta/*.json
 /pdf_storage/
 /payments_pdf/
 members/flattened_members.csv
