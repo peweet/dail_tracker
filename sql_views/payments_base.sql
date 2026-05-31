@@ -8,10 +8,13 @@
 --   amount      → amount_num   (matches payments_summary, payments_member_detail, etc.)
 --   date_paid   → synthesises payment_year
 --
--- TODO_PIPELINE_VIEW_REQUIRED: payments_member_enrichment.py is not yet built, so the
--- parquet currently lacks unique_member_code / party_name / constituency. They are
--- projected as NULL here so downstream views (member_detail, yearly_evolution) compile.
--- Once enrichment lands, drop these NULL casts and let the parquet supply the values.
+-- unique_member_code / party_name / constituency populated by
+-- pipeline_sandbox/payments_member_enrichment.py after the PSA ETL runs.
+-- Coverage: 172 of 176 current TDs (97.7%). The four unmatched (Daniel Ennis,
+-- Frankie Feighan, Paul Nicholas Gogarty, Conor D McGuinness) are upstream
+-- name-shape mismatches between the Oireachtas members API and the PSA
+-- payment publications; they retain NULL and fall back to the "Not on file"
+-- empty-state in the UI.
 
 CREATE OR REPLACE VIEW v_payments_base AS
 SELECT
@@ -26,7 +29,7 @@ SELECT
     EXTRACT(YEAR FROM date_paid)::INTEGER AS payment_year,
     source_pdf,
     schema,
-    NULL::VARCHAR AS unique_member_code,
-    NULL::VARCHAR AS party_name,
-    NULL::VARCHAR AS constituency
+    unique_member_code,
+    party_name,
+    constituency
 FROM read_parquet('data/gold/parquet/payments_full_psa.parquet');

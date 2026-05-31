@@ -799,6 +799,7 @@ EVENTS_OUT_COLS = [
     "si_number",
     "si_year",
     "title",
+    "display_title",
     "entity_name",
     "person_title_detected",
     "normalized_text",
@@ -906,15 +907,34 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
         .list.head(4)
         .list.join(" | ")
     )
+    # A4 — display_title: a clean, card-ready headline for non-SI notices.
+    # `title_non_si` joins the first 4 lines with " | " for back-compat
+    # (downstream consumers depend on the bled form). `display_title` is the
+    # first MEANINGFUL line only — what a citizen sees on a card without the
+    # preamble noise. Skips empty lines and "[123]" notice-ref label markers
+    # (same filter as title_non_si). SI rows reuse the already-clean title_si.
+    display_title_non_si = (
+        pl.col("raw_text")
+        .str.split("\n")
+        .list.eval(pl.element().str.strip_chars())
+        .list.eval(pl.element().filter((pl.element().str.len_chars() > 0) & ~pl.element().str.starts_with("[")))
+        .list.first()
+    )
     df = (
         df.with_columns(
             is_si_record=pl.col("raw_text").str.contains(r"^S\.I\.\s*No\."),
         )
-        .with_columns(title=pl.when(pl.col("is_si_record")).then(title_si).otherwise(title_non_si))
+        .with_columns(
+            title=pl.when(pl.col("is_si_record")).then(title_si).otherwise(title_non_si),
+            display_title=pl.when(pl.col("is_si_record")).then(title_si).otherwise(display_title_non_si),
+        )
         .with_columns(
             title=pl.when(pl.col("title").str.len_chars() > 0)
             .then(pl.col("title"))
-            .otherwise(pl.lit(None, dtype=pl.String))
+            .otherwise(pl.lit(None, dtype=pl.String)),
+            display_title=pl.when(pl.col("display_title").str.len_chars() > 0)
+            .then(pl.col("display_title"))
+            .otherwise(pl.lit(None, dtype=pl.String)),
         )
     )
 
@@ -1193,6 +1213,20 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     eu_si_markers = (pl.col("notice_category") == "statutory_instrument") & t.str.contains_any(
         ["EUROPEAN UNION", "EUROPEAN COMMUNITIES", "DIRECTIVE (EU)", "REGULATION (EU)"]
     )
+    # Section 181 orders — the State's emergency-pathway approvals of its own
+    # developments (IPAS accommodation cluster 2024, Brexit contingency 2019,
+    # EirGrid 2022, COVID 2020). Tag here so the SI page can lens them as a
+    # discrete civic-accountability slice without us having to forge a new
+    # category. Pattern: "PLANNING AND DEVELOPMENT ACT ... SECTION 181" in title.
+    si_section_181_marker = (pl.col("notice_category") == "statutory_instrument") & t.str.contains(
+        r"PLANNING\s+AND\s+DEVELOPMENT\s+ACT.{0,40}SECTION\s+181|SECTION\s+181\s*\(\s*2\s*\)"
+    )
+    # Foreshore Act decisions — ministerial planning consents for marine /
+    # coastal works (licences, leases). Currently buried among the broader
+    # statutory_instrument bucket. Tag for the same lens treatment.
+    si_foreshore_marker = (pl.col("notice_category") == "statutory_instrument") & t.str.contains_any(
+        ["FORESHORE ACT", "FORESHORE LICENCE", "FORESHORE LEASE", "NOTICE OF DECISION TO GRANT FORESHORE"]
+    )
     has_person_title_marker = pl.col("raw_text").str.contains(r"\b(?:MR|MS|MRS|DR)\.?\s+[A-Z]") | pl.col(
         "raw_text"
     ).str.contains(r"\sT\.?D\b")
@@ -1202,6 +1236,8 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
             pl.concat_list(
                 [
                     tag_or_none(eu_si_markers, "eu_derived_or_eu_related"),
+                    tag_or_none(si_section_181_marker, "si_section_181_state_development"),
+                    tag_or_none(si_foreshore_marker, "si_foreshore_act_decision"),
                     tag_or_none(has_companies_act, "companies_act_2014_exclusion_from_si"),
                     tag_or_none(t.str.contains_any(["FÓGRA", "FOGRA"]), "irish_language_notice_or_notice_label"),
                     tag_or_none(has_person_title_marker, "person_title_detected"),
@@ -1253,7 +1289,14 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     bad_pat = (
         r"(?im)COMPANIES ACT|GOVERNMENT PUBLICATIONS|SOLICITOR|LIQUIDATOR|DUBLIN|"
         r"IN THE MATTER|VOLUNTARY LIQUIDATION|WINDING|ICAV ACT|COLLECTIVE ASSET|\bACT\s+(?:19|20)\d\d\b|"
-        r"^\s*(?:COMPANY LIMITED BY GUARANTEE|DESIGNATED ACTIVITY COMPANY|PUBLIC LIMITED COMPANY|UNLIMITED COMPANY)\s*$"
+        r"^\s*(?:COMPANY LIMITED BY GUARANTEE|DESIGNATED ACTIVITY COMPANY|PUBLIC LIMITED COMPANY|UNLIMITED COMPANY)\s*$|"
+        # Known Irish insolvency / liquidator firms — these are signature
+        # blocks at the end of MVL/CVL notices, not the company being wound up.
+        # Adding here catches the recurring "PKF O'Connor, Leddy & Holmes Limited,"
+        # type rows (~86 of them) plus the other large practices.
+        r"PKF|FRIEL STAFFORD|HUGHES BLAKE|BAKER TILLY|\bBDO\b|CROWE IRELAND|CROWE HOWARTH|"
+        r"DELOITTE|GRANT THORNTON|MAZARS|\bRBK\b|KAVANAGH FENNELL|MCSTAY LUBY|ROBINSON RYAN|"
+        r"DAVID VAN DESSEL|COSGROVE GAYNARD|HLB SHEEHAN|HLB MCKEOGH|RUSSELL BRENNAN|GRINTHAL"
     )
     _matter_clean = (
         pl.col("raw_text").str.extract(matter_pat, 1).str.replace_all(r"\s+", " ").str.strip_chars(" .,;:")

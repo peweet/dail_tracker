@@ -332,6 +332,7 @@ def render_member_payments(
     *,
     show_member_header: bool = False,
     year_pill_key: str = "pay_profile_year",
+    unique_member_code: str | None = None,
 ) -> None:
     """Render the per-TD payments body embedded inside /member-overview.
 
@@ -344,7 +345,7 @@ def render_member_payments(
     """
     selected_year = year_selector(year_options, key=year_pill_key, skip_current=False)
 
-    all_years = fetch_member_all_years(td_name)
+    all_years = fetch_member_all_years(td_name, unique_member_code=unique_member_code)
 
     if all_years.empty:
         empty_state("No data found", f"No payment records found for {td_name}.")
@@ -355,7 +356,7 @@ def render_member_payments(
 
     # Summary metrics
     alltime_total = float(all_years.iloc[0]["member_alltime_total"])
-    yr_df = fetch_member_year_summary(td_name, selected_year)
+    yr_df = fetch_member_year_summary(td_name, selected_year, unique_member_code=unique_member_code)
 
     if not yr_df.empty:
         yr = yr_df.iloc[0]
@@ -411,7 +412,7 @@ def render_member_payments(
     st.html(f'<div class="pay-year-list">{"".join(rows_html)}</div>')
 
     # ── Payment records (audit trail) ────────────────────────────────────
-    payments = fetch_member_payments(td_name, selected_year)
+    payments = fetch_member_payments(td_name, selected_year, unique_member_code=unique_member_code)
 
     if payments.empty:
         empty_state(

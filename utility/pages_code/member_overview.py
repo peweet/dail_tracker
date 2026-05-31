@@ -1538,6 +1538,7 @@ def _render_stage2(
                     _pay_summary(),
                     show_member_header=False,
                     year_pill_key=f"mo_pay_year_{join_key}",
+                    unique_member_code=join_key,
                 )
             else:
                 empty_state(

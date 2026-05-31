@@ -1,0 +1,25 @@
+Our Housing List by bed size:
+
+Demand by 2021       2022      2023   2024   2025     2026
+                                                    At 30th
+bed size                              2,342  2,641
+                                       964    933     April
+1 Bed         2,224  2,194     2,102   572    563    2,841
+2 Bed         1,092   936       950     22     22
+3 Bed                 604       568   3,900  4,132     972
+4 Bed          612     25        32                    588
+Total           50   3,759                              22
+              3,978            3,652                  4,423
+
+The number of properties we have allocated:
+
+Allocation    2021 2022 2023 2024            2025     2026
+                                                    At 30th
+type                                          334
+                                              284     April
+Housing List  236    414       317    404     618      158
+                                                       144
+Transfers     119    90        191    306              302
+
+Total         355    504       508    710
+

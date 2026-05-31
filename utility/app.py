@@ -1,6 +1,7 @@
 import streamlit as st
 from pages_code.attendance import attendance_page
 from pages_code.committees import committees_page
+from pages_code.corporate import corporate_page
 from pages_code.glossary import glossary_page
 from pages_code.interests import interests_page
 from pages_code.legislation import legislation_page
@@ -101,6 +102,12 @@ pg = st.navigation(
             title="Appointments",
             icon=":material/assignment_ind:",
             url_path="rankings-appointments",
+        ),
+        st.Page(
+            corporate_page,
+            title="Corporate",
+            icon=":material/business_center:",
+            url_path="rankings-corporate",
         ),
         st.Page(
             committees_page,

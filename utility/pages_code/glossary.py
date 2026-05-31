@@ -23,28 +23,37 @@ from ui.components import hero_banner, hide_sidebar, page_error_boundary
 # Single source of truth. `pages_code/*.py` import GLOSSARY_TERMS and pass
 # subsets into glossary_strip() so wording is consistent everywhere.
 GLOSSARY_TERMS: dict[str, str] = {
-    "TD": "Teachta Dála — a member of the Dáil, Ireland's lower house of parliament. Elected from one of 43 multi-seat constituencies.",
+    "Act": "A bill that has been passed by both houses and signed by the President. Becomes law.",
+    "Appointing party": "On a receivership notice, the bank or fund that appointed the receiver. Naming the appointing party makes visible who has called in a particular loan.",
+    "Bill": "A proposed law before the Oireachtas. Progresses through five stages in the Dáil and Seanad before becoming an Act.",
+    "Committee": "A smaller group of TDs and senators that scrutinises bills line-by-line, holds inquiries, and questions ministers and officials. Most of the substantive work on legislation happens here, not on the chamber floor.",
+    "Constituency": "The geographic area a TD is elected to represent. Ireland has 43 constituencies, each electing 3, 4, or 5 TDs.",
     "Dáil": "Dáil Éireann — the lower house of the Oireachtas (Irish parliament). 174 TDs serve a maximum five-year term.",
-    "Seanad": "Seanad Éireann — the upper house. 60 senators, partly appointed and partly elected.",
+    "Designated Public Official": "See DPO.",
+    "Division": "A formal recorded vote in the Dáil. Each TD's vote (Yes / No / Abstained) is published.",
+    "DPO": "Designated Public Official — politicians, ministers, and senior civil servants whom lobbyists are required to register contact with.",
+    "Examinership": "A court-supervised rescue for an insolvent but viable company. An examiner is appointed for up to 100 days to negotiate a debt-restructuring scheme with creditors while the company keeps trading.",
+    "ICAV": "Irish Collective Asset-management Vehicle — a corporate fund structure widely used by international asset managers based in Ireland. ICAV strike-off (closure) notices appear in Iris Oifigiúil.",
+    "Iris Oifigiúil": "The official state gazette of Ireland, published twice weekly. Carries statutory instruments, corporate notices (receiverships, liquidations, examinerships), public appointments, and ICAV strike-offs.",
+    "Liquidation": "The formal winding up of a company. Solvent (Members' Voluntary, \"MVL\") liquidation closes a company that can pay its debts; creditors' or court-ordered liquidation handles insolvent ones.",
+    "Loan book": "The portfolio of loans held by a bank or fund. After 2010 large Irish loan books were sold by domestic banks (AIB, PTSB, Ulster Bank) to international funds, who hold them through SPVs.",
+    "Minister": "A TD appointed to the Cabinet (Government). Constitutionally required to attend Cabinet meetings and represent Ireland abroad; plenary attendance is therefore lower.",
     "Oireachtas": "The Irish parliament as a whole, comprising the President, Dáil, and Seanad.",
     "Plenary": "A full sitting of the Dáil chamber. Does not include committee meetings, ministerial duties, or constituency work.",
-    "Division": "A formal recorded vote in the Dáil. Each TD's vote (Yes / No / Abstained) is published.",
-    "Bill": "A proposed law before the Oireachtas. Progresses through five stages in the Dáil and Seanad before becoming an Act.",
-    "Act": "A bill that has been passed by both houses and signed by the President. Becomes law.",
-    "SI": "Statutory Instrument — secondary legislation made under powers granted by an Act. Does not require a fresh parliamentary vote.",
-    "Committee": "A smaller group of TDs and senators that scrutinises bills line-by-line, holds inquiries, and questions ministers and officials. Most of the substantive work on legislation happens here, not on the chamber floor.",
-    "Minister": "A TD appointed to the Cabinet (Government). Constitutionally required to attend Cabinet meetings and represent Ireland abroad; plenary attendance is therefore lower.",
-    "Taoiseach": "The head of Government, equivalent to Prime Minister.",
-    "Tánaiste": "The Deputy Prime Minister.",
-    "TAA": "Travel & Accommodation Allowance — reimbursed mileage and overnight stays for TDs travelling to Leinster House. Verified against attendance records.",
     "PRA": "Public Representation Allowance — an unvouched flat allowance for constituency work. TDs choose annually whether to take it vouched or unvouched.",
     "PSA": "Parliamentary Standard Allowance — the umbrella name for the combined TAA + PRA payments published monthly.",
-    "DPO": "Designated Public Official — politicians, ministers, and senior civil servants whom lobbyists are required to register contact with.",
+    "Receivership": "A lender (or a fund that bought the loan) appoints a receiver to take control of a company's assets after a default and sell what's needed to recover the debt. The borrower keeps legal ownership but loses control.",
+    "Register of Members' Interests": "The annual declaration each TD and senator must file disclosing directorships, shareholdings, landlord status, gifts received, and other potential conflicts.",
     "Return": "A quarterly filing on lobbying.ie by an organisation declaring its lobbying activity in that period.",
     "Revolving door": "Former Designated Public Officials (ex-TDs, ex-ministers, ex-senior-civil-servants) now working in the lobbying industry. Subject to a one-year cooling-off period before they can lobby.",
-    "Designated Public Official": "See DPO.",
-    "Register of Members' Interests": "The annual declaration each TD and senator must file disclosing directorships, shareholdings, landlord status, gifts received, and other potential conflicts.",
-    "Constituency": "The geographic area a TD is elected to represent. Ireland has 43 constituencies, each electing 3, 4, or 5 TDs.",
+    "SCARP": "Small Companies Administrative Rescue Process — a faster, out-of-court alternative to examinership for small and micro companies, introduced in 2021. Led by a process advisor rather than a court-appointed examiner.",
+    "Seanad": "Seanad Éireann — the upper house. 60 senators, partly appointed and partly elected.",
+    "SI": "Statutory Instrument — secondary legislation made under powers granted by an Act. Does not require a fresh parliamentary vote.",
+    "SPV": "Special Purpose Vehicle — a separate company set up to hold specific assets, typically a loan book bought from a bank. Many Irish receivership notices name SPV brand names (Promontoria, Beltany, Ennis) that are the Irish vehicles for international funds (Cerberus, Goldman Sachs, Cabot).",
+    "TAA": "Travel & Accommodation Allowance — reimbursed mileage and overnight stays for TDs travelling to Leinster House. Verified against attendance records.",
+    "Tánaiste": "The Deputy Prime Minister.",
+    "Taoiseach": "The head of Government, equivalent to Prime Minister.",
+    "TD": "Teachta Dála — a member of the Dáil, Ireland's lower house of parliament. Elected from one of 43 multi-seat constituencies.",
     "Whip": "The party-level instruction on how members should vote. Voting against the whip can have consequences ranging from a warning to expulsion from the parliamentary party.",
 }
 
@@ -94,6 +103,48 @@ EXPLAINERS: list[tuple[str, str]] = [
         <p>Committee membership is allocated in proportion to party strength
         in the Dáil. Reports and transcripts are public; most are the best
         single source on the technical content of a bill.</p>
+        """,
+    ),
+    (
+        "Corporate notices in Iris Oifigiúil",
+        """
+        <p>Alongside statutory instruments, <em>Iris Oifigiúil</em> carries the
+        formal corporate notices that Irish company law requires to be
+        published. Together they form a public record of which companies are
+        being <strong>wound down, rescued, or having their loans called in</strong>.</p>
+        <p>The main categories are:</p>
+        <ol>
+            <li><strong>Receivership.</strong> A lender — a bank, or a fund
+            that has bought the loan — appoints a receiver to take control of
+            a company's assets after a default and sell what's needed to
+            recover the debt. The notice names the <em>appointing party</em>
+            (who called in the loan) and the receiver (who executes it).</li>
+            <li><strong>Examinership.</strong> A court-supervised rescue for
+            an insolvent but viable company. An examiner is appointed for up
+            to 100 days to negotiate a restructuring scheme with creditors
+            while trading continues.</li>
+            <li><strong>SCARP.</strong> A faster, out-of-court rescue route
+            for small and micro companies introduced in 2021. Led by a process
+            advisor rather than a court-appointed examiner.</li>
+            <li><strong>Liquidation.</strong> The formal winding up of a
+            company. <em>Solvent</em> (Members' Voluntary) liquidations close
+            companies that can pay their debts in full; creditors' or
+            court-ordered liquidations handle insolvent ones.</li>
+            <li><strong>ICAV strike-offs.</strong> Closure notices for Irish
+            Collective Asset-management Vehicles — corporate fund structures
+            used by international asset managers based in Ireland.</li>
+        </ol>
+        <p>The receivership notices carry a hidden-in-plain-sight pattern. Many
+        appointing parties are <strong>Special Purpose Vehicles</strong> with
+        Irish brand names (<em>Promontoria, Beltany, Ennis, Pentire</em>) that
+        hold loan books bought by international funds — <em>Cerberus, Goldman
+        Sachs, Cabot</em> — from Irish banks after the 2010 banking crisis.
+        Translating the SPV brand back to the parent fund shows who has
+        actually been calling in Irish loans, and at what scale.</p>
+        <p><strong>Personal insolvency notices (named individual bankruptcies)
+        are excluded from this site by editorial policy.</strong> The corporate
+        register is public-interest data about firms; personal bankruptcy
+        listings are about private citizens and are not republished here.</p>
         """,
     ),
     (

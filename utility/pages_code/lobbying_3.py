@@ -605,6 +605,7 @@ def _return_card_html(
     return_id: str = "",
     snippet: str = "",
     url: str = "",
+    filed_by: str = "",
 ) -> str:
     """Canonical return-record card. Used wherever a list of
     lobbying returns is displayed — topic Stage 2, org / area / DPO / Stage 3.
@@ -612,7 +613,9 @@ def _return_card_html(
     Header row: period chip, optional area pill, return-# on the right.
     Body: title in serif (the variable field — politician, org, or firm),
     optional second-line subtitle (client / "on behalf of …"), optional
-    snippet of free-text details, styled `↗` source-link in the actions row.
+    "Filed by …" meta line (person_primarily_responsible from the lobbying.ie
+    return), optional snippet of free-text details, styled `↗` source-link
+    in the actions row.
     """
     head_bits = [f'<span class="lp3-return-period">{_h(period or "—")}</span>']
     if area:
@@ -627,6 +630,17 @@ def _return_card_html(
         else ""
     )
     sub_html = f'<p class="lp3-return-sub">{_h(subtitle)}</p>' if subtitle else ""
+    filed_by_clean = (filed_by or "").strip()
+    # The free-text source has rare paragraph-length entries (max seen: 334
+    # chars). Cap so card height stays predictable when paginating; the full
+    # string is one click away on lobbying.ie via the "View" link below.
+    if len(filed_by_clean) > 80:
+        filed_by_clean = filed_by_clean[:80].rstrip(" ,.;:-") + "…"
+    filed_html = (
+        f'<p class="lp3-return-filed-by"><strong>Filed by</strong> {_h(filed_by_clean)}</p>'
+        if filed_by_clean
+        else ""
+    )
     snippet_html = f'<p class="lp3-return-snippet">{_h(snippet)}</p>' if snippet else ""
     actions_html = f'<div class="lp3-return-actions">{link_html}</div>' if link_html else ""
 
@@ -634,7 +648,7 @@ def _return_card_html(
         '<article class="lp3-return-card">'
         f'<header class="lp3-return-head">{head_html}</header>'
         f'<p class="lp3-return-org">{_h(title)}</p>'
-        f"{sub_html}{snippet_html}{actions_html}"
+        f"{sub_html}{filed_html}{snippet_html}{actions_html}"
         "</article>"
     )
 
@@ -928,6 +942,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
                     area=str(row.get("public_policy_area", "") or ""),
                     snippet=snippet,
                     url=str(row.get("source_url", "") or ""),
+                    filed_by=str(row.get("person_primarily_responsible", "") or ""),
                 )
             )
         st.html("\n".join(cards))
@@ -1133,6 +1148,7 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
                     title=pol,
                     subtitle=f"lobbied by {org}" if org else "",
                     url=str(row.get("source_url", "") or ""),
+                    filed_by=str(row.get("person_primarily_responsible", "") or ""),
                 )
             )
         st.html("\n".join(cards))
@@ -1228,6 +1244,7 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
                 return_id=str(row.get("return_id", "") or ""),
                 snippet=snippet,
                 url=str(row.get("source_url", "") or ""),
+                filed_by=str(row.get("person_primarily_responsible", "") or ""),
             )
         )
     st.html("\n".join(cards))
@@ -1524,6 +1541,7 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
             title=str(row.get("lobbyist_name", "") or "—"),
             return_id=str(row.get("return_id", "") or ""),
             url=str(row.get("source_url", "") or ""),
+            filed_by=str(row.get("person_primarily_responsible", "") or ""),
         )
         for _, row in page_slice.iterrows()
     ]
@@ -1592,6 +1610,7 @@ def _render_org_results(org_name: str, politician: str, summary: pd.DataFrame) -
             area=str(row.get("public_policy_area", "") or ""),
             return_id=str(row.get("return_id", "") or ""),
             url=str(row.get("source_url", "") or ""),
+            filed_by=str(row.get("person_primarily_responsible", "") or ""),
         )
         for _, row in page_slice.iterrows()
     ]

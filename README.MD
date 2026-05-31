@@ -15,7 +15,7 @@ The strategic emphasis is on **cross-source linkage**: declared interests joined
 
 Only the current Dáil and Seanad are in scope. See [`doc/DATA_LIMITATIONS.md`](doc/DATA_LIMITATIONS.md) for the rationale.
 
-> **Status:** Active development. The dashboard, the medallion pipeline, and the registered SQL view layer are working. Several enrichers (Iris Oifigiúil, CRO, charities register) are implemented in `pipeline_sandbox/` and not yet wired into the main pipeline. See [Project status](#project-status) below.
+> **Status:** Active development. The dashboard, the medallion pipeline, and the registered SQL view layer are working. The Iris Oifigiúil parser, CRO companies normaliser, charities register normaliser, and the Tier-A charity↔CRO join are all wired into `pipeline.py` and producing gold outputs. See [Project status](#project-status) below.
 
 ---
 
@@ -44,19 +44,22 @@ Only the current Dáil and Seanad are in scope. See [`doc/DATA_LIMITATIONS.md`](
 | Surface | Status |
 |---|---|
 | Medallion pipeline (bronze → silver → gold) | Working |
-| Registered SQL view layer (`sql_views/`) | Working — 40+ views |
-| Streamlit dashboard | Working — 8 pages |
+| Registered SQL view layer (`sql_views/`) | Working — 65+ views |
+| Streamlit dashboard | Working — 11 pages (Member Overview is the canonical home, TheyWorkForYou-style) |
 | Logic firewall (UI reads only via registered views) | Enforced |
 | Provenance / source-PDF expanders | On every primary page |
-| Oireachtas API ingestion (members, votes, debates, questions) | Working |
+| Oireachtas API ingestion (members, votes, debates, questions) | Working — paginated questions ingest (264k rows, 1000-row API cap lifted) |
 | Attendance PDF extraction | Working |
-| Payments PDF extraction | Working |
+| Payments PDF extraction | Working — full TAA + PRA reconciliation (`payments_full_psa_etl.py`) |
 | Register of Members' Interests PDF extraction | Working |
-| Lobbying.ie ingestion | Working — manual CSV export |
+| Lobbying.ie ingestion | Working — YTD CSV poller (`lobbying_poller.py`) wired into `pipeline.py` |
 | Iris Oifigiúil parser | Production — incremental shard cache (per-PDF skip), wired into `pipeline.py` |
-| CRO companies normaliser | Implemented in `pipeline_sandbox/`; not integrated |
-| Charities register normaliser | Implemented in `pipeline_sandbox/`; not integrated |
-| Cross-source unified Member Overview profile | Working — `unique_member_code` populated on attendance, votes, payments, debates, legislation (sponsor_join_key), and lobbying views |
+| CRO companies normaliser | Production — wired into `pipeline.py` |
+| Charities register normaliser + Tier-A join + gold enrichment | Production — wired into `pipeline.py` |
+| Iris SI ↔ bill enrichment | Production — wired into `pipeline.py` |
+| SI entity / signatory enrichment (Wikidata ministerial tenure) | Production — wired into `pipeline.py` |
+| Wikidata socials & Wikipedia member links | Production — wired into `pipeline.py` |
+| Cross-source unified Member Overview profile | Working — `unique_member_code` populated on attendance, votes, payments, debates, legislation (sponsor_join_key), interests, appointments, and lobbying views |
 | Tests (silver / gold / SQL view shape) | Partial — many tests skip when fixtures are missing |
 | Public deployment | None — local Streamlit only |
 
@@ -115,19 +118,24 @@ All upstream data remains subject to the terms and licences of the publishing bo
 
 | Dataset | Source | Coverage | Main script | Status |
 |---|---|---|---|---|
-| Members | Oireachtas API | Current Dáil / Seanad | `members_api_service.py` | Production |
-| Legislation | Oireachtas API | Per member / bill metadata | `legislation.py` | Production |
-| Parliamentary questions | Oireachtas API | Per member | `members_api_service.py`, `questions.py` | Production |
-| Votes / divisions | Oireachtas API | Division and vote records | `transform_votes.py` | Production |
+| Members | Oireachtas API | Current Dáil / Seanad | `services/members.py`, `flatten_members_json_to_csv.py` | Production |
+| Legislation (bills) | Oireachtas API | Per member / bill metadata | `legislation.py` | Production |
+| Bill amendments | Oireachtas API | Amendment text and sponsors | `bill_amendments_flatten.py` | Production |
+| Parliamentary questions | Oireachtas API | Per member, paginated (264k rows; 1000-row API cap lifted) | `services/member_paginated.py`, `questions.py` | Production |
+| Debate listings (Dáil + Seanad) | Oireachtas API | Section-level debate index for member linkage | `services/dbsect_harvest.py`, `dbsect_listings_flatten.py` | Production |
+| Votes / divisions | Oireachtas API | Division and vote records | `services/votes.py`, `transform_votes.py` | Production |
 | Attendance | Oireachtas PDFs | Published attendance records | `attendance.py` | Production |
-| Parliamentary Standard Allowance | Oireachtas PDFs | Published payment records | `payments.py` | Production |
+| Parliamentary Standard Allowance | Oireachtas PDFs | Full TAA + PRA payments per TD | `payments_full_psa_etl.py` | Production |
 | Register of Members' Interests | Oireachtas PDFs | Published declarations | `member_interests.py`, `iris_memeber_interests.py` | Production |
-| Lobbying returns | lobbying.ie CSV exports | Downloaded register returns | `lobby_processing.py` | Production (manual ingest) |
-| Iris Oifigiúil | irisoifigiuil.ie | Twice-weekly state gazette | `iris_oifigiuil_poller.py`, `iris_oifigiuil_etl_polars.py`, `iris_incremental_shards.py` | Production (incremental) |
+| Lobbying returns | lobbying.ie YTD CSV | YTD register returns auto-polled per run | `lobbying_poller.py`, `lobby_processing.py`, `lobbying_pdf_extract.py` | Production |
+| Iris Oifigiúil | irisoifigiuil.ie | Twice-weekly state gazette (SIs, appointments, notices) | `iris_oifigiuil_poller.py`, `iris_oifigiuil_etl_polars.py`, `iris_incremental_shards.py` | Production (incremental) |
+| Iris SI ↔ bill enrichment | Iris + Oireachtas | Links statutory instruments back to parent enabling Acts | `iris_si_bill_enrichment.py` | Production |
+| SI signatory enrichment | Iris + Wikidata | Minister-of-the-day attribution for each signed SI | `ministerial_tenure_build.py`, `si_entity_enrichment.py` | Production |
 | CRO companies | CRO bulk export | Director / company / address normalised | `cro_normalise.py` | Production |
-| Charities register | Charities Regulator XLSX | Register, trustees, annual reports + `charity_resolved.py` Tier-A join | `charity_normalise.py`, `charity_resolved.py` | Production |
+| Charities register | Charities Regulator XLSX | Register, trustees, annual reports + Tier-A join + NACE-sector gold | `charity_normalise.py`, `charity_resolved.py`, `charity_enriched.py` | Production |
+| Member external links (socials / Wikipedia) | Wikidata SPARQL | Twitter/X, Wikipedia URLs per TD/Senator | `wikidata_socials_etl.py` | Production |
 
-**Sandbox** datasets are implemented and produce silver outputs but are not yet executed by `pipeline.py`. Their integration plans live in [`CRO/INTEGRATION_PLAN.md`](CRO/INTEGRATION_PLAN.md) and `pipeline_sandbox/*.md` notes files.
+A small number of one-off enrichers (e.g. committees long-format ETL, public-appointments enrichment) still live in [`pipeline_sandbox/`](pipeline_sandbox/) until promoted; the rest of the historical sandbox has been integrated into `pipeline.py`.
 
 ---
 
@@ -360,18 +368,21 @@ streamlit run utility/app.py
 
 ### Pages
 
-Production pages:
+Production pages (native top-nav; filter bars live in the main panel, sidebar is hidden):
 
+- **Member Overview** — canonical per-politician profile (TheyWorkForYou pattern); the app's default route at `/` and `/member-overview`. Unifies attendance, votes, payments, interests, debates, questions, committee seats, lobbying contacts, and external socials/Wikipedia per TD.
 - **Attendance** — plenary attendance records, year-by-year hall of fame / shame, per-TD timeline
-- **Member Overview** — unified per-politician accountability profile drawing from multiple sources
-- **Votes** — division records, party breakdown, per-TD voting patterns
-- **Interests** — Register of Members' Interests, browseable by year and category
-- **Payments** — Parliamentary Standard Allowance per TD, annual evolution
-- **Lobbying** — three-path investigative lookup (politician / organisation / policy area)
-- **Legislation** — bills, sponsors, debates, stages, related documents
-- **Committees** — committee assignments
+- **Votes** — division records, party breakdown, per-TD voting patterns, member-moved notice copy
+- **Interests** — Register of Members' Interests, browseable by year and category, with typeahead member lookup
+- **Payments** — Parliamentary Standard Allowance per TD, annual evolution, alltime ranking
+- **Lobbying** — three-path investigative lookup (politician / organisation / policy area) with DPO-firm/client breakdowns
+- **Legislation** — bills, sponsors, debates, stages, related documents, pre-2014 Acts
+- **Statutory Instruments** — Iris-derived SIs with title-quality fixes, signatories, and parent-Act linkage
+- **Appointments** — Iris-derived public appointments index (boards, tribunals, statutory officers)
+- **Committees** — committee assignments, party composition, member rosters
+- **Glossary** — civic-vocabulary index (TAA, PRA, DPO, SI, Iris, etc.)
 
-The dashboard is designed for exploration and interpretation of prepared datasets, not for core data transformation.
+The dashboard is designed for exploration and interpretation of prepared datasets, not for core data transformation. Each page's data-access module lives in [`utility/data_access/`](utility/data_access/) and is restricted to `SELECT / WHERE / ORDER BY / LIMIT` against registered DuckDB views.
 
 ### Page contracts
 
@@ -442,7 +453,8 @@ dail_tracker/
 ├── dail_tracker_bold_ui_contract_pack_v5/   Page YAML contracts and runbooks
 │
 ├── pipeline_sandbox/                        Experimental enrichers not yet wired into pipeline.py
-│   ├── lobbying_bootstrap.py                Lobbying.ie ingestion automation
+│   ├── committees_long_format_etl.py
+│   ├── public_appointments_enrichment.py
 │   └── …
 │
 ├── experimental/                            Scratch work not required for normal pipeline use
@@ -450,34 +462,45 @@ dail_tracker/
 ├── test/                                    pytest tests and test notes
 │
 ├── attendance.py                            Attendance PDF extraction
-├── payments.py                              Payment PDF extraction
+├── payments_full_psa_etl.py                 Full TAA + PRA payments parser (replaces old payments.py)
 ├── member_interests.py                      Register of Members' Interests extraction
 ├── iris_memeber_interests.py                Member-interest extraction from Iris notices
 ├── iris_oifigiuil_etl_polars.py             Iris Oifigiúil PDF parser (incremental by default)
 ├── iris_incremental_shards.py               Per-PDF shard cache used by the Iris ETL
-├── iris_oifigiuil_poller.py                 Iris Oifigiúil twice-weekly poller (replaces old downloader)
+├── iris_oifigiuil_poller.py                 Iris Oifigiúil twice-weekly poller
+├── iris_si_bill_enrichment.py               Links Iris SIs back to parent enabling Acts
+├── si_entity_enrichment.py                  Minister-of-the-day attribution for SI signatories
+├── ministerial_tenure_build.py              Wikidata-sourced ministerial tenure table
+├── wikidata_socials_etl.py                  Wikidata socials + Wikipedia links per member
 ├── oireachtas_pdf_poller.py                 Multi-source poller (payments / attendance / interests)
+├── lobbying_poller.py                       Auto-polls lobbying.ie YTD CSV endpoint
 ├── run_payments_poll.py                     Click-and-run wrapper — payments only
 ├── run_attendance_poll.py                   Click-and-run wrapper — attendance only
 ├── run_interests_poll.py                    Click-and-run wrapper — interests only
 ├── run_iris_poll.py                         Click-and-run wrapper — Iris only
 ├── lobby_processing.py                      Lobbying CSV processing
+├── lobbying_pdf_extract.py                  Extracts embedded PDFs from lobbying returns
 ├── legislation.py                           Legislation processing
+├── bill_amendments_flatten.py               Bill amendment flattening
 ├── transform_votes.py                       Vote transformation
 ├── flatten_members_json_to_csv.py           Member JSON flattening
+├── dbsect_listings_flatten.py               Debate-section listings flattening
+├── cro_normalise.py                         CRO companies normaliser
+├── charity_normalise.py                     Charities register normaliser
+├── charity_resolved.py                      Tier-A CRO ↔ charity join
+├── charity_enriched.py                      Gold charities table with NACE sector + compliance flags
 ├── enrich.py                                Cross-dataset enrichment
 ├── normalise_join_key.py                    Name normalisation and fuzzy join key logic
 ├── pdf_endpoint_check.py                    Source endpoint checks
 ├── pdf_downloader.py                        PDF downloader
 ├── pdf_backfill_scraper.py                  Historical PDF backfill
-├── generate_interests_ranking.py            Interests ranking helper
-├── members_api_service.py                   Oireachtas API client
-├── questions.py                             Parliamentary questions
+├── repair_future_iris_placeholders.py       Iris placeholder-PDF repair helper
+├── quarantine.py                            Quarantine helpers
+├── questions.py                             Parliamentary questions silver flattener
 ├── analytics_loading.py                     Analytics helpers
 ├── manifest.py                              Pipeline run manifest
 ├── config.py                                Paths, directories, logging, constants
 ├── pipeline.py                              Pipeline orchestration
-├── tear_down.py                             Cleanup utilities
 ├── pyproject.toml                           Build metadata and dependency groups
 └── README.MD
 ```

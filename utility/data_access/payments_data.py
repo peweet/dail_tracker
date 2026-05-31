@@ -89,8 +89,27 @@ def fetch_year_ranking(year: int) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def fetch_member_all_years(member_name: str) -> pd.DataFrame:
-    """All years for a member — used for the all-years summary table, chart, and all-time total."""
+def fetch_member_all_years(member_name: str, unique_member_code: str | None = None) -> pd.DataFrame:
+    """All years for a member — used for the all-years summary table, chart, and all-time total.
+
+    Prefers ``unique_member_code`` when provided (post-enrichment join key);
+    falls back to ``member_name`` string match for legacy callers (the stand-
+    alone /rankings-payments page populates its picker from the parquet's
+    native "Last, First" format, where member_name is the working key).
+    """
+    if unique_member_code:
+        return (
+            get_payments_conn()
+            .execute(
+                "SELECT payment_year, total_paid, payment_count, rank_high,"
+                " taa_band_label, position, party_name, constituency, member_alltime_total"
+                " FROM v_payments_yearly_evolution"
+                " WHERE unique_member_code = ?"
+                " ORDER BY payment_year DESC",
+                [unique_member_code],
+            )
+            .df()
+        )
     return (
         get_payments_conn()
         .execute(
@@ -106,8 +125,22 @@ def fetch_member_all_years(member_name: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def fetch_member_year_summary(member_name: str, year: int) -> pd.DataFrame:
+def fetch_member_year_summary(
+    member_name: str, year: int, unique_member_code: str | None = None
+) -> pd.DataFrame:
     """Single row for a member+year — summary metrics."""
+    if unique_member_code:
+        return (
+            get_payments_conn()
+            .execute(
+                "SELECT member_name, position, party_name, constituency,"
+                " taa_band_label, total_paid, payment_count, rank_high"
+                " FROM v_payments_yearly_evolution"
+                " WHERE unique_member_code = ? AND payment_year = ? LIMIT 1",
+                [unique_member_code, year],
+            )
+            .df()
+        )
     return (
         get_payments_conn()
         .execute(
@@ -122,8 +155,22 @@ def fetch_member_year_summary(member_name: str, year: int) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def fetch_member_payments(member_name: str, year: int) -> pd.DataFrame:
+def fetch_member_payments(
+    member_name: str, year: int, unique_member_code: str | None = None
+) -> pd.DataFrame:
     """Individual payment transactions for a member+year — the audit trail."""
+    if unique_member_code:
+        return (
+            get_payments_conn()
+            .execute(
+                "SELECT date_paid, narrative, amount_num, taa_band_label"
+                " FROM v_payments_member_detail"
+                " WHERE unique_member_code = ? AND payment_year = ?"
+                " ORDER BY date_paid ASC, narrative ASC",
+                [unique_member_code, year],
+            )
+            .df()
+        )
     return (
         get_payments_conn()
         .execute(
