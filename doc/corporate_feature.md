@@ -108,7 +108,7 @@ Standard SI/PA pattern. Facet pills → URL params/session state → rerun. Clic
 
 ```
 data/_meta/loan_book_fund_aliases.csv      ← curated brand → parent
-pipeline_sandbox/corporate_notices_enrichment.py
+corporate_notices_enrichment.py
   - read iris_notice_events_clean.csv, filter the 4 corporate categories
   - exclude personal-insolvency wording (~277 rows)
   - tag brand_mentions + parent_fund_mentions by joining text against alias CSV

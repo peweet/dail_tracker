@@ -16,7 +16,7 @@ Forbidden here (same rules as Streamlit page files):
   v_committee_member_detail, not here)
 
 The wide-to-long unpivot of committee_*/office_* slot columns is now a
-pipeline_sandbox script (pipeline_sandbox/committees_long_format_etl.py)
+pipeline script (committees_long_format_etl.py)
 whose output the four views read.
 
 The page consumes:
