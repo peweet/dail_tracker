@@ -247,6 +247,72 @@ def fetch_dpo_return_map() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
+def fetch_org_politician_returns(
+    org_name: str,
+    member_name: str,
+    start: str | None = None,
+    end: str | None = None,
+) -> pd.DataFrame:
+    """Returns filed by one organisation targeting one politician.
+
+    Feeds the Stage 3 org×politician sub-route on the lobbying page so the
+    user can see exactly what an organisation lobbied a specific politician
+    on, without losing context to the generic /member-overview profile.
+    """
+    if start and end:
+        return _safe(
+            "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
+            " period_start_date, source_url, intended_results"
+            " FROM v_lobbying_contact_detail"
+            " WHERE lobbyist_name = ? AND member_name = ?"
+            " AND period_start_date BETWEEN ? AND ?"
+            " ORDER BY period_start_date DESC",
+            [org_name, member_name, start, end],
+        )
+    return _safe(
+        "SELECT return_id, member_name, lobbyist_name, public_policy_area,"
+        " period_start_date, source_url, intended_results"
+        " FROM v_lobbying_contact_detail"
+        " WHERE lobbyist_name = ? AND member_name = ?"
+        " ORDER BY period_start_date DESC",
+        [org_name, member_name],
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_dpo_politician_returns(
+    individual_name: str,
+    member_name: str,
+    start: str | None = None,
+    end: str | None = None,
+) -> pd.DataFrame:
+    """Returns filed by one former-DPO targeting one politician.
+
+    Feeds the Stage 3 DPO×politician sub-route. Uses
+    v_lobbying_dpo_politician_returns (DPO returns ⨝ contact_detail on
+    return_id) so the in-page query stays a plain WHERE filter.
+    """
+    if start and end:
+        return _safe(
+            "SELECT return_id, member_name, lobbyist_name, client_name,"
+            " public_policy_area, period_start_date, source_url"
+            " FROM v_lobbying_dpo_politician_returns"
+            " WHERE individual_name = ? AND member_name = ?"
+            " AND period_start_date BETWEEN ? AND ?"
+            " ORDER BY period_start_date DESC",
+            [individual_name, member_name, start, end],
+        )
+    return _safe(
+        "SELECT return_id, member_name, lobbyist_name, client_name,"
+        " public_policy_area, period_start_date, source_url"
+        " FROM v_lobbying_dpo_politician_returns"
+        " WHERE individual_name = ? AND member_name = ?"
+        " ORDER BY period_start_date DESC",
+        [individual_name, member_name],
+    )
+
+
+@st.cache_data(ttl=300)
 def fetch_politician_area_returns_with_dpo(
     member_name: str,
     area: str,

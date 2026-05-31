@@ -628,3 +628,57 @@ a "civic context" sidebar/footer keyed on the TD's constituency:
 - **Map UI is a separate project.** Mentioned above as an unlock, but adding
   a real interactive map of Ireland is a much bigger lift than the data
   pulls — flag as a deferred follow-up, not a same-sprint task.
+
+---
+
+## Reality check — what the actual data shows (2026-05-31)
+
+Pulled the real files, sampled the contents, and tested the joins. Several
+earlier claims need walking back. Honest scoring below.
+
+### What survived contact with the data
+
+| Earlier claim | Verified by | Verdict |
+|---|---|---|
+| HSA07 PxStat REST = per-LA 30-yr series in one curl | Sampled CSV: clean LA×Year×Value rows from 1994 | **Confirmed — trivial pull** |
+| HAP01 PxStat REST = per-LA × family-type since 2014 | Sampled CSV: 10 family-type rows × LA × year | **Confirmed — trivial pull** |
+| Construction Status Report = per-scheme by LA | Q4 2025 CSV: 3,151 schemes, LA + stage columns | **Confirmed — trivial pull** |
+| Homelessness March 2026 CSV by region | Sampled — 8 regions with age/citizenship/family cols | **Confirmed — but regions are coarse (8 vs 43 constituencies)** |
+| Pobal HP CSV is open at ED level | Downloaded: 3,418 EDs × 19 cols including `Index22_ED_std_rel_wt` and 14 component variables | **Confirmed — trivial pull** |
+| SAPS Small Area CSV is open | Downloaded: 18,921 SAs × **795 columns** (every census variable) | **Confirmed — trivial pull** |
+| HAP Funding XLSX referenced by HAP Perf doc exists | HEAD 200, 742 KB, 9 sheets, "HAP Total Exp" = 191 × 45 grid | **Confirmed — extractable with care** |
+| PBO methodology = SSHA + HAP01, reproducible | PBO doc explicitly says so; both inputs are in hand | **Confirmed — re-compute, don't scrape** |
+
+### What was over-sold
+
+| Earlier claim | What I found | Honest version |
+|---|---|---|
+| "**NOAC tables have per-LA × per-year matrices, extractable**" | Some indicators do (H1, H4, etc.). **H6 Long-term Homeless reports only 5 authorities** (Cork City, Dublin City*, Galway City, Limerick C&C, Waterford C&C — Dublin City returns for all 4 Dublin LAs jointly). pdftotext layout is interspersed with trend charts; clean extraction needs `camelot` or `tabula`, not regex. | Per-LA NOAC data is real but **coverage is uneven across the 7 indicators**, and extraction is a few days of careful PDF-table work — not "extract with effort", more like "build a per-indicator parser with QA". |
+| "**PBO §4 has per-LA breakdown — tables extractable**" | PBO §4 has Figures 1, 2, 3 — all **charts, not tables**. Underlying numbers are not in the PDF text. | The PBO **methodology** is reproducible (SSHA waiting-list + HAP-active by LA → "ongoing need"). The PBO's own *exact* per-LA numbers come from internal HAP-SSC correspondence we can't access; we'd recompute using HAP01 as the public proxy. Cite PBO as the framing, compute our own figures. |
+| "**SAPS rolls up to constituency via boundary join — one-off work**" | SAPS file has `GEOGID` (e.g. `017001001`) and `GEOGDESC` — **no constituency column**. No pre-built SA→constituency crosswalk found on the CSO boundary-files page. Constituency boundary GeoJSON wasn't grep-able from data.gov.ie's HTML page; the ArcGIS REST endpoint I guessed returned HTTP 400. | The SA→constituency join is **real but harder than I implied**: needs (a) the SA boundary shapefile from CSO Census 2022, (b) the 2023 constituency boundary file from Tailte Éireann/GeoHive (URL needs more digging than "one curl"), (c) a GeoPandas spatial join handling SAs that straddle constituency boundaries. Realistically **1–2 weeks for someone who hasn't done it before**, days for someone who has. |
+| "**Constituency boundary file is a low-effort fetch**" | data.gov.ie CKAN API returned no `result` field for this dataset; the page itself uses JS-rendered download links. The OSi/GeoHive ArcGIS service exists but needs the exact REST URL. | Boundary file is **definitely available** (data.gov.ie + GeoHive both list it) but **discoverability is genuinely awkward** — needs either a browser session to grab the resource URL or fetching via the GeoHive ArcGIS portal's specific service path. Add 0.5 day for the first-time discovery. |
+
+### Re-scored feature feasibility
+
+| Feature | Honest feasibility | Why |
+|---|---|---|
+| **HSA07/HAP01-based per-LA timelines** (Housing page) | **High — days** | One curl, well-known LA names, ~30-year series ready |
+| **Construction Status Report quarterly pipeline** | **High — days** | Direct CSV, scheme-level, LA column present |
+| **HAP funding per-LA from XLSX** | **High — days** | Extractable from openpyxl, well-structured sheets |
+| **True Demand reproduction (PBO method)** | **High — days** | SSHA + HAP01 arithmetic; cite PBO as framing |
+| **Homelessness regional context** | **High — days, with caveat** | 8 regions vs 43 constituencies = coarse; surface as "your region", not "your constituency" |
+| **LA-level context on member_overview** ("your LA = X council") | **High — 1 week** | Hand-curated 31 LA × 43 constituency M:N map; present LA data with honest "your LA covers constituencies …" framing |
+| **Pobal deprivation at ED level** | **Medium — 1–2 weeks** | ED→constituency join needed; ED is bigger than SA so the spatial join is smaller but still needed |
+| **Council Performance page (NOAC)** | **Medium — 2–3 weeks** | Per-indicator PDF parsing + cross-LA QA; H6 has known coverage gap; H7 has data-quality flags in the PDF itself |
+| **Constituency Profile from SAPS** | **Medium-Hard — 2–4 weeks first time** | Spatial join is the gate; after that, every census variable is free |
+| **Map view of Ireland by constituency** | **Hard — separate project** | Streamlit map components + boundary files + responsive design; multi-week design+build |
+| **Real allocations transparency (who got the house)** | **Blocked** | Not in any open source; FOI route only |
+
+### Recommendations adjusted
+
+1. **Pick the easy wins first.** A "Housing & Social Housing" page using HSA07 + HAP01 + Construction Status + HAP funding XLSX + SSHA Data Hub is genuinely doable in ~1 week with LA-level data and an honest "your LA" framing. That gives the app a real housing dimension without requiring spatial GIS work.
+2. **Defer the spatial join.** Don't gate the first housing feature on Small-Area→constituency boundary work. Ship LA-level first; add SA/ED-level census context as a phase 2.
+3. **Council Performance is worth the PDF parsing investment** — it's the most distinctive civic feature, but budget it realistically (2–3 weeks, with QA for the H6 / H7 coverage quirks).
+4. **Treat PBO as editorial framing, not as a data source** — re-compute the figure ourselves from SSHA + HAP01 and cite PBO for the methodology.
+5. **Spatial work needs a spike before estimation.** Before promising any constituency-aggregated census/deprivation feature, spend half a day on a discovery spike to (a) get the constituency boundary GeoJSON in hand and (b) confirm whether existing SA→constituency lookups exist anywhere (CSO data hub, Tailte Éireann, AIRO).
+6. **What I shouldn't claim again:** "trivial spatial join", "one curl to GeoJSON", "extract NOAC tables with effort". All real, all harder than that.
