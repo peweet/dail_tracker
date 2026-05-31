@@ -12,27 +12,22 @@ Forbidden here (same rules as Streamlit page files):
 
 from __future__ import annotations
 
-import logging
-from pathlib import Path
-
 import duckdb
 import streamlit as st
 
 from config import GOLD_VOTE_HISTORY_PARQUET
+from data_access._sql_registry import register_views
 
-_log = logging.getLogger(__name__)
-_SQL_VIEWS = Path(__file__).resolve().parents[2] / "sql_views"
 _PARQUET = GOLD_VOTE_HISTORY_PARQUET.as_posix()
 
 
 @st.cache_resource
 def get_votes_conn():
     conn = duckdb.connect()
-    if _SQL_VIEWS.exists():
-        for f in sorted(_SQL_VIEWS.glob("vote*.sql")):
-            try:
-                sql = f.read_text(encoding="utf-8").replace("{PARQUET_PATH}", _PARQUET)
-                conn.execute(sql)
-            except Exception as exc:
-                _log.warning("votes view registration failed: %s | %s", f.name, exc)
+    register_views(
+        conn,
+        ["vote*.sql"],
+        substitutions={"{PARQUET_PATH}": _PARQUET},
+        swallow_errors=True,
+    )
     return conn
