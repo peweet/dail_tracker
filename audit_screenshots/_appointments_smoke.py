@@ -62,8 +62,11 @@ def main() -> int:
             or "Something went wrong" in body_text
         )
 
-        # Scroll down and capture the feed (cards + month dividers).
-        page.evaluate("window.scrollTo(0, 1200)")
+        # Scroll to the feed by targeting the first card link, then snap.
+        try:
+            page.locator(".pa-card-link").first.scroll_into_view_if_needed(timeout=4000)
+        except Exception:
+            page.evaluate("document.querySelector('[data-testid=\"stMain\"]').scrollTo(0, 1300)")
         page.wait_for_timeout(800)
         page.screenshot(path=str(SHOT_DIR / "01b_feed.png"), full_page=False)
 
@@ -80,7 +83,10 @@ def main() -> int:
         results["year filter applied"] = "2024" in body2 and "Filtered by" in body2
 
         # Scroll to capture the filtered feed.
-        page.evaluate("window.scrollTo(0, 1100)")
+        try:
+            page.locator(".pa-active-chip").first.scroll_into_view_if_needed(timeout=4000)
+        except Exception:
+            page.evaluate("document.querySelector('[data-testid=\"stMain\"]').scrollTo(0, 1100)")
         page.wait_for_timeout(800)
         page.screenshot(path=str(SHOT_DIR / "02b_feed_2024.png"), full_page=False)
 
