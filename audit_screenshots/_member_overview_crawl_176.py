@@ -34,7 +34,8 @@ OUT.mkdir(parents=True, exist_ok=True)
 LOG_FILE = OUT / "bugs.jsonl"
 
 VIEWPORT = {"width": 1440, "height": 1000}
-SETTLE_S = 4  # after networkidle, give async sections time to render
+HERO_TIMEOUT_MS = 20000  # wait for the hero to render before extracting body
+EXTRA_SETTLE_S = 1.5  # tiny buffer for downstream sections after hero appears
 
 # Bug patterns: each pattern triggers a finding with a label.
 BUG_PATTERNS: list[tuple[str, re.Pattern, str]] = [
@@ -62,9 +63,20 @@ def detect_bugs(body: str) -> list[dict]:
     return findings
 
 
+_PARTY_RE = re.compile(
+    r"(Fianna\s*F[áa]il|Fine\s*Gael|Sinn\s*F[ée]in|Labour|Green\s*Party|Social\s*Democrats?|Independent(?:\s+Ireland)?|People\s*Before\s*Profit|Aont[úu]|Solidarity)",
+    re.IGNORECASE,
+)
+
+
 def has_hero(body: str) -> bool:
-    # Hero should at least produce a party · constituency line for a current TD.
-    return bool(re.search(r"(Fianna F|Fine Gael|Sinn F|Labour|Green Party|Social Democrats|Independent|People Before Profit|Aontú|Solidarity)\s*[·•]\s*[A-Z][a-z]", body))
+    """Hero is present iff the body carries a party label.
+
+    The party · constituency line uses a UTF-8 middle dot (U+00B7); we don't
+    rely on the separator (it changes per breakpoint) — just on the party
+    name appearing somewhere in the body, which only the rendered hero emits.
+    """
+    return bool(_PARTY_RE.search(body))
 
 
 def dismiss_modal(page: Page) -> bool:
@@ -101,13 +113,31 @@ def main():
             name = m["full_name"]
             url = f"{BASE}/member-overview?member={quote(code, safe='')}"
             try:
-                page.goto(url, wait_until="networkidle", timeout=20000)
+                page.goto(url, wait_until="domcontentloaded", timeout=20000)
             except Exception as e:
                 bug_log.append({"i": i, "name": name, "code": code, "fatal": str(e)[:200]})
                 print(f"  [{i:>3}/176] [LOAD-FAIL] {name}  ({e.__class__.__name__})")
                 continue
-            time.sleep(SETTLE_S)
             modal_present = dismiss_modal(page)
+            # Wait for the hero anchor row OR a not-found banner to appear
+            # before extracting body text — Streamlit's networkidle fires
+            # before the page body finishes rendering.
+            hero_ready = False
+            try:
+                page.wait_for_function(
+                    f"""() => {{
+                        const t = document.body.innerText || '';
+                        if (/We couldn'?t find this TD|Page not found/i.test(t)) return true;
+                        return /(Fianna|Fine Gael|Sinn|Labour|Green Party|Social Democrats|Independent|People Before Profit|Aont|Solidarity)/i.test(t);
+                    }}""",
+                    timeout=HERO_TIMEOUT_MS,
+                )
+                hero_ready = True
+            except Exception:
+                pass
+            time.sleep(EXTRA_SETTLE_S)
+            if not modal_present:
+                modal_present = dismiss_modal(page)
 
             try:
                 body = page.locator('[data-testid="stApp"]').inner_text()

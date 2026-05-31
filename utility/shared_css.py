@@ -1849,6 +1849,68 @@ def inject_css() -> None:
         .mo-cabinet-callout       { margin: 1rem 0 1.75rem; }
         .mo-cabinet-callout-body  { color: var(--text-secondary); }
 
+        /* Constituency civic-context strip (2026-05-31).
+           Renders under the hero stat strip, before section nav. Provenance
+           is a first-class element here — the source attribution line below
+           the card is not optional and not hidden in an expander. */
+        .mo-cc-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0.45rem;
+            line-height: 1.4;
+        }
+        .mo-cc-row-secondary {
+            margin-top: 0.2rem;
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+        }
+        .mo-cc-kicker {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+        }
+        .mo-cc-headline {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .mo-cc-headline-label {
+            color: var(--text-secondary);
+        }
+        .mo-cc-sep {
+            color: var(--text-meta);
+        }
+        .mo-cc-pos { color: var(--signal-good); font-weight: 600; }
+        .mo-cc-neg { color: var(--signal-bad);  font-weight: 600; }
+        .mo-cc-caveat {
+            margin: 0.35rem 0 0;
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+        .mo-cc-caveat strong { color: var(--text-primary); font-weight: 600; }
+        .mo-cc-source {
+            margin: 0.35rem 0 1rem 0.15rem;
+            font-size: 0.78rem;
+            color: var(--text-meta);
+            line-height: 1.4;
+        }
+        .mo-cc-source-label { font-weight: 600; }
+        .mo-cc-source-body  { }
+        .mo-cc-source-link a {
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--accent);
+        }
+        .mo-cc-source-link a:hover,
+        .mo-cc-source-link a:focus-visible {
+            border-bottom-style: solid;
+        }
+
         /* P1-2: civic-voice not-found callout (replaces the dt-callout
            with raw inline `color:var(--text-meta)` body + inline CTA). */
         .mo-not-found-callout {

@@ -100,15 +100,12 @@ def fidelity_check(df: pl.DataFrame) -> dict:
     rpt["checks"]["1_extraction"] = {"unique_mechanisms": mechs, "pass": mechs >= 5}
     yrs = df["year"].n_unique()
     rpt["checks"]["2_year_coverage"] = {"years": yrs, "pass": yrs >= 4}
-    # Check 3 — Total 2020 should be ~€2.6bn (€2,633m per the PDF)
-    if "Total" in df["mechanism"].to_list():
-        total_2020 = df.filter((pl.col("mechanism") == "Total") & (pl.col("year") == 2020))
-        v = total_2020["spend_eur_millions"].item(0) if len(total_2020) else 0
-        rpt["checks"]["3_national_total"] = {
-            "total_2020_eur_m": v, "expected": 2633, "pass": abs(v - 2633) < 50,
-        }
-    else:
-        rpt["checks"]["3_national_total"] = {"pass": False, "note": "no Total row"}
+    # Check 3 — sum of all mechanisms for 2020 should be ~€2,633m per the published table
+    s2020 = df.filter(pl.col("year") == 2020)["spend_eur_millions"].sum()
+    rpt["checks"]["3_national_total"] = {
+        "computed_2020_sum_eur_m": s2020, "expected": 2633,
+        "pass": abs(s2020 - 2633) < 50,
+    }
     rpt["checks"]["4_cross_source"] = {"pass": True, "note": "skipped"}
     bad = df.filter(pl.col("spend_eur_millions") < 0).height
     rpt["checks"]["5_semantic"] = {"negatives": bad, "pass": bad == 0}

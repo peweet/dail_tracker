@@ -18,6 +18,7 @@ CLI:
 """
 from __future__ import annotations
 
+import argparse
 import logging
 import subprocess
 import sys
@@ -73,6 +74,7 @@ def step_flatten_debates() -> bool:
 
 
 def main() -> int:
+    argparse.ArgumentParser(description=__doc__.splitlines()[0]).parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     started = time.monotonic()
     failures: list[str] = []

@@ -45,6 +45,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.corporate_data import (
+    fetch_brand_aliases,
     fetch_cbi_notice_matches,
     fetch_cbi_repeat_distress,
     fetch_corporate_notices,
@@ -116,6 +117,15 @@ def _inject_corp_css() -> None:
             display: block; margin-top: 0.4rem;
             color: #7a5a00; font-size: 0.78rem;
         }
+        /* Compact privacy line below the hero/callout — single sentence,
+           visible but unobtrusive. Replaces the larger context paragraph
+           which used to carry methodology language now lifted into the
+           Sources & methodology expander. */
+        .corp-privacy-line {
+            font-size: 0.78rem; color: #7a5a00;
+            margin: 0 0 1rem; line-height: 1.5;
+        }
+        .corp-privacy-line strong { color: #14232b; font-weight: 600; }
 
         /* FEATURED panel — receiver-appointer recognition story */
         .corp-featured {
@@ -158,7 +168,7 @@ def _inject_corp_css() -> None:
         }
         /* Receiver-appointer type chip — coloured pill replacing the small
            grey subtitle so users see the vulture / bank / state mix at a glance. */
-        .corp-rank-row { grid-template-columns: 9rem 1fr 4.6rem 2.5rem; }
+        .corp-rank-row { grid-template-columns: 9rem 1fr 7rem 2.5rem; }
         .corp-rank-typechip {
             display: inline-block;
             font-size: 0.66rem; line-height: 1.4;
@@ -240,6 +250,267 @@ def _inject_corp_css() -> None:
         }
         .corp-spark-note {
             font-size: 0.75rem; color: #5b6b73; margin-top: 0.35rem;
+        }
+
+        /* Operator-side receiver-firms strip — sits as a thin sub-strip
+           immediately below the appointer panel. Shows which professional
+           firms are appointed AS receivers (Big 6 accountancy + boutique
+           insolvency firms). Visually subordinate to the appointer panel:
+           paler beige, smaller chips, single line. */
+        .corp-operator-strip {
+            background: #fef9f0;
+            border: 1px solid #ead9b3;
+            border-radius: 0 0 8px 8px;
+            border-top: none;
+            padding: 0.65rem 1.25rem 0.75rem;
+            margin: -1.65rem 0 1.6rem;
+            font-size: 0.78rem;
+        }
+        .corp-operator-strip-h {
+            font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.07em;
+            color: #7a5a00; font-weight: 600;
+            display: inline-block; margin-right: 0.85rem;
+        }
+        .corp-operator-strip-context {
+            color: #5b6b73; line-height: 1.55;
+            margin-bottom: 0.4rem; font-size: 0.78rem;
+        }
+        .corp-operator-strip-chips {
+            display: flex; flex-wrap: wrap; gap: 0.35rem 0.45rem;
+            align-items: center;
+        }
+        .corp-operator-chip {
+            display: inline-flex; align-items: baseline; gap: 0.3rem;
+            background: #ffffff; border: 1px solid #e6d9c2;
+            border-radius: 999px;
+            padding: 0.12rem 0.55rem 0.12rem 0.7rem;
+            font-size: 0.78rem;
+            color: #14232b; line-height: 1.45;
+            text-decoration: none; white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+            transition: background 120ms ease-out, border-color 120ms ease-out;
+        }
+        .corp-operator-chip:hover {
+            background: #fff7e6; border-color: #f0d99b;
+        }
+        .corp-operator-chip:focus-visible {
+            outline: 2px solid #14232b; outline-offset: 1px;
+        }
+        .corp-operator-chip-n {
+            color: #7a5a00; font-weight: 600;
+        }
+        .corp-operator-strip-tail {
+            color: #5b6b73; font-size: 0.72rem;
+            margin-left: 0.35rem;
+        }
+
+        /* Latest-full-year callout — small bordered card under the hero
+           showing headline numbers with year-over-year deltas. Pure data;
+           no interpretive labels. */
+        .corp-thisyear {
+            background: #ffffff;
+            border: 1px solid #e5e2db;
+            border-radius: 8px;
+            padding: 0.85rem 1.1rem 0.95rem;
+            margin: 0.5rem 0 1.2rem;
+        }
+        .corp-thisyear-h {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
+            color: #5b6b73; font-weight: 600; margin-bottom: 0.6rem;
+        }
+        .corp-thisyear-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 1.2rem;
+        }
+        @media (max-width: 760px) {
+            .corp-thisyear-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.2rem; }
+        }
+        .corp-thisyear-num {
+            font-family: ui-serif, Georgia, serif;
+            font-size: 1.55rem; font-weight: 700;
+            color: #14232b; line-height: 1.1;
+            font-variant-numeric: tabular-nums;
+        }
+        .corp-thisyear-lbl {
+            font-size: 0.78rem; color: #5b6b73; line-height: 1.4;
+            margin-top: 0.2rem;
+        }
+        .corp-thisyear-delta {
+            display: inline-block; margin-left: 0.3rem;
+            font-variant-numeric: tabular-nums;
+            font-weight: 500;
+        }
+        .corp-thisyear-delta.up   { color: #7c2e1e; }
+        .corp-thisyear-delta.down { color: #2c4a23; }
+        .corp-thisyear-delta.flat { color: #5b6b73; }
+
+        /* Corporate-rescue panel — Examinership + SCARP. Counterbalances the
+           failure-story panels with the rescue-story. Cool green palette to
+           visually distinguish from the warm beige (distress) and cool blue
+           (CBI regulatory) panels. */
+        .corp-rescue-panel {
+            background: #f1f6ee;
+            border: 1px solid #cbdcc1;
+            border-radius: 10px;
+            padding: 1.05rem 1.25rem 1.2rem;
+            margin: 0 0 1.6rem;
+        }
+        .corp-rescue-kicker {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+            color: #2c4a23; font-weight: 600;
+        }
+        .corp-rescue-h {
+            font-family: ui-serif, Georgia, serif; font-size: 1.18rem;
+            line-height: 1.35; margin: 0.25rem 0 0.45rem; color: #14232b;
+        }
+        .corp-rescue-sub {
+            font-size: 0.82rem; color: #5b6b73; margin-bottom: 0.85rem; line-height: 1.45;
+        }
+        .corp-rescue-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+            gap: 1.4rem;
+        }
+        @media (max-width: 760px) {
+            .corp-rescue-grid { grid-template-columns: 1fr; gap: 1.1rem; }
+        }
+        .corp-rescue-yearbars {
+            display: flex; flex-direction: column; gap: 0.3rem;
+            font-size: 0.82rem;
+        }
+        .corp-rescue-yearrow {
+            display: grid; grid-template-columns: 3rem 1fr 2.2rem;
+            gap: 0.55rem; align-items: center;
+            color: #14232b; font-variant-numeric: tabular-nums;
+        }
+        .corp-rescue-yearbar {
+            background: #dbe6d3; border-radius: 2px; height: 0.55rem;
+            overflow: hidden; position: relative;
+        }
+        .corp-rescue-yearbar > span {
+            display: block; height: 100%; background: #5c7a4a; border-radius: 2px;
+        }
+        .corp-rescue-yearcount {
+            text-align: right; color: #5b6b73; font-size: 0.8rem;
+        }
+        .corp-rescue-list { display: flex; flex-direction: column; gap: 0.35rem; }
+        .corp-rescue-list-label {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
+            color: #2c4a23; font-weight: 600; margin-bottom: 0.2rem;
+        }
+        .corp-rescue-item {
+            display: grid;
+            grid-template-columns: 4.4rem 1fr auto;
+            gap: 0.55rem; align-items: baseline;
+            padding: 0.32rem 0; font-size: 0.82rem;
+            border-top: 1px solid #dee9d6;
+        }
+        .corp-rescue-item:first-of-type { border-top: none; }
+        .corp-rescue-item-date {
+            font-variant-numeric: tabular-nums; color: #5b6b73; font-size: 0.8rem;
+        }
+        .corp-rescue-item-firm {
+            color: #14232b; overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .corp-rescue-typepill {
+            display: inline-block;
+            font-size: 0.66rem; line-height: 1.4;
+            padding: 0.08rem 0.45rem;
+            border-radius: 999px;
+            text-transform: uppercase; letter-spacing: 0.04em;
+            font-weight: 600;
+            background: #dde9d4; border: 1px solid #b8cdab; color: #2c4a23;
+            white-space: nowrap;
+        }
+        .corp-rescue-typepill.scarp {
+            background: #f0e9d6; border-color: #d6c89a; color: #6b4f00;
+        }
+
+        /* Sources & methodology expander — collapsed by default; opens to
+           a brand→parent table + plain-English glossary so experts can see
+           how Beltany → Goldman Sachs etc. without leaving the page. */
+        .corp-methodology {
+            border: 1px solid #e5dfd0;
+            border-radius: 8px;
+            background: #f8f6f4;
+            padding: 0;
+            margin: -1.2rem 0 1.6rem;
+        }
+        .corp-methodology > summary {
+            list-style: none;
+            cursor: pointer;
+            font-size: 0.78rem;
+            color: #6b3f00;
+            padding: 0.55rem 0.95rem;
+            user-select: none;
+            display: flex; align-items: center; gap: 0.5rem;
+            font-weight: 500;
+        }
+        .corp-methodology > summary::-webkit-details-marker { display: none; }
+        .corp-methodology > summary::before {
+            content: "▸";
+            font-size: 0.7rem;
+            color: #7a5a00;
+            transition: transform 120ms ease-out;
+            display: inline-block;
+        }
+        .corp-methodology[open] > summary::before {
+            transform: rotate(90deg);
+        }
+        .corp-methodology > summary:hover { color: #14232b; background: #f5f1ea; border-radius: 8px 8px 0 0; }
+        .corp-methodology[open] > summary { border-bottom: 1px solid #e5e2db; border-radius: 8px 8px 0 0; }
+        .corp-methodology-body {
+            padding: 0.85rem 1.05rem 1rem;
+        }
+        .corp-methodology-intro {
+            font-size: 0.82rem; color: #5b6b73; line-height: 1.55;
+            margin: 0 0 0.85rem; max-width: 64rem;
+        }
+        .corp-methodology-intro code {
+            background: #ffffff; border: 1px solid #e5e2db; border-radius: 3px;
+            padding: 0.05rem 0.3rem; font-size: 0.78rem; color: #14232b;
+        }
+        .corp-methodology-table {
+            width: 100%; border-collapse: collapse; font-size: 0.82rem;
+            margin-bottom: 1rem;
+        }
+        .corp-methodology-table th {
+            text-align: left; font-size: 0.7rem; text-transform: uppercase;
+            letter-spacing: 0.06em; color: #5b6b73; font-weight: 600;
+            padding: 0.4rem 0.55rem; border-bottom: 1px solid #cfcabf;
+        }
+        .corp-methodology-table td {
+            padding: 0.5rem 0.55rem; border-bottom: 1px solid #ebe6d8;
+            vertical-align: top; color: #14232b; line-height: 1.5;
+        }
+        .corp-methodology-table tr:last-child td { border-bottom: none; }
+        .corp-meth-parent { font-weight: 600; white-space: nowrap; }
+        .corp-meth-brands { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.78rem; color: #5b6b73; }
+        .corp-meth-notes  { font-size: 0.78rem; color: #5b6b73; }
+        .corp-methodology-glossary {
+            margin: 0.6rem 0 0;
+            font-size: 0.82rem; color: #14232b; line-height: 1.55;
+            display: grid;
+            grid-template-columns: 9rem 1fr;
+            gap: 0.4rem 1rem;
+        }
+        .corp-methodology-glossary dt {
+            font-weight: 600; color: #14232b;
+        }
+        .corp-methodology-glossary dd { margin: 0; color: #5b6b73; }
+        .corp-methodology-glossary .corp-meth-glossary-h {
+            grid-column: 1 / -1;
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+            color: #5b6b73; font-weight: 600;
+            padding-top: 0.4rem; border-top: 1px solid #cfcabf;
+            margin-top: 0.4rem;
+        }
+        @media (max-width: 640px) {
+            .corp-methodology-glossary { grid-template-columns: 1fr; gap: 0.2rem 0; }
+            .corp-methodology-table th:nth-child(3),
+            .corp-methodology-table td:nth-child(3) { display: none; }
         }
 
         /* Active-filter chip bar */
@@ -579,6 +850,12 @@ def load_cbi_repeat_distress() -> pd.DataFrame:
     return fetch_cbi_repeat_distress()
 
 
+@st.cache_data(show_spinner=False)
+def load_brand_aliases() -> pd.DataFrame:
+    """Curated brand → parent → fund_type table for the methodology expander."""
+    return fetch_brand_aliases()
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
@@ -698,6 +975,15 @@ def _render_featured(df: pd.DataFrame) -> None:
         )
         return
 
+    # SPV-shape detector — entity_name ending in / containing DAC, ICAV, or
+    # the long form "DESIGNATED ACTIVITY COMPANY". These are Section 110 SPVs
+    # or fund vehicles used by vulture funds / banks to hold loan books.
+    _SPV_RE = re.compile(r"\b(DAC|DESIGNATED ACTIVITY COMPANY|ICAV)\b", re.I)
+    n_spv = int(recv["entity_name"].fillna("").astype(str).str.contains(
+        _SPV_RE, regex=True, na=False
+    ).sum())
+    spv_pct = round(100 * n_spv / max(n_recv, 1))
+
     pdf = pd.DataFrame(parent_rows)
     # Dominant type per parent — mode, not "first" (the old picker mislabelled
     # Cerberus as 'credit servicer' even though its dominant role across
@@ -777,6 +1063,14 @@ def _render_featured(df: pd.DataFrame) -> None:
         '</div>'
     ) if breakdown_parts else ""
 
+    # Short labels used inside the chip — the full type sits in the title tooltip.
+    _BUCKET_CHIP = {
+        "vulture": "Vulture fund",
+        "bank":    "Irish bank",
+        "servicer":"Credit servicer",
+        "state":   "State",
+        "other":   "Other",
+    }
     max_n = int(top["n"].iloc[0])
     rows_html: list[str] = []
     for parent, row in top.iterrows():
@@ -785,7 +1079,7 @@ def _render_featured(df: pd.DataFrame) -> None:
         bucket = _type_bucket(ftype)
         chip_html = (
             f'<span class="corp-rank-typechip {bucket}" title="{html.escape(ftype)}">'
-            f'{html.escape(_BUCKET_LABEL.get(bucket, ftype).replace(" funds", " fund").replace(" servicers", " servicer").replace(" banks", " bank"))}'
+            f'{html.escape(_BUCKET_CHIP.get(bucket, "Other"))}'
             '</span>'
         ) if ftype else ''
         rows_html.append(
@@ -801,7 +1095,8 @@ def _render_featured(df: pd.DataFrame) -> None:
             '</a>'
         )
 
-    # Year sparkline of the receiver wave.
+    # Year sparkline of the receiver wave. Pure-data note (peak / low /
+    # latest-full-year + counts) — no causal framing per the no-inference rule.
     yc = recv["year"].dropna().astype(int).value_counts().sort_index()
     if yc.empty:
         spark_html = ""
@@ -828,12 +1123,30 @@ def _render_featured(df: pd.DataFrame) -> None:
                 f'style="height:{h_pct}%" '
                 f'aria-label="{tip}" title="{tip}"></a>'
             )
+
+        # Pure-data annotation: peak year + count, low year + count, latest
+        # full year + count. No editorial framing.
+        import datetime as _dt
+        today_y = _dt.date.today().year
+        full_year_counts = [(y, c) for y, c in zip(years_full, counts) if y < today_y]
+        peak_y, peak_c = max(full_year_counts, key=lambda t: t[1]) if full_year_counts else (None, None)
+        low_y, low_c = min(full_year_counts, key=lambda t: t[1]) if full_year_counts else (None, None)
+        latest_full_y, latest_full_c = full_year_counts[-1] if full_year_counts else (None, None)
+        ann_parts = []
+        if peak_y is not None:
+            ann_parts.append(f"peak: <strong>{peak_y}</strong> ({peak_c})")
+        if low_y is not None and low_y != peak_y:
+            ann_parts.append(f"low: <strong>{low_y}</strong> ({low_c})")
+        if latest_full_y is not None and latest_full_y not in (peak_y, low_y):
+            ann_parts.append(f"{latest_full_y}: ({latest_full_c})")
+        ann_text = " · ".join(ann_parts)
+
         spark_html = (
             '<div class="corp-spark-wrap">'
             '<div class="corp-spark-label">Receivership notices by year</div>'
             f'<div class="corp-spark-row">{"".join(bars)}</div>'
             f'<div class="corp-spark-years"><span>{ymin}</span><span>{ymax}</span></div>'
-            '<div class="corp-spark-note">Click a year to filter. Peaks 2016-17 (post-crisis clearouts); dip 2020.</div>'
+            f'<div class="corp-spark-note">Click a year to filter · {ann_text}</div>'
             '</div>'
         )
 
@@ -845,14 +1158,304 @@ def _render_featured(df: pd.DataFrame) -> None:
         f'<div class="corp-featured-sub">'
         f'Of <strong>{n_recv:,}</strong> receivership notices, '
         f'<strong>{n_tagged:,}</strong> ({coverage_pct}%) name a known appointer. '
-        f'The rest are smaller institutions or private debentures where no major '
-        f'fund is named. Click a row to filter the page.'
+        f'<strong>{n_spv:,}</strong> ({spv_pct}%) have a wound-up entity whose name contains '
+        f'<em>DAC</em>, <em>Designated Activity Company</em> or <em>ICAV</em>. '
+        f'Click a row to filter the page.'
         f'</div>'
         + breakdown_html
         + "".join(rows_html) +
         '</div>'
         f'<div>{spark_html}</div>'
         '</section>',
+        unsafe_allow_html=True,
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Latest-full-year callout — pure-data snapshot under the hero. The "latest
+# full year" is determined by excluding the current calendar year (which is
+# always partial at render time). Numbers update automatically.
+# logic_firewall: display_only.
+# ──────────────────────────────────────────────────────────────────────────────
+def _render_this_year_callout(df: pd.DataFrame, cbi_repeat: pd.DataFrame | None) -> None:
+    if df is None or df.empty:
+        return
+    today_year = datetime.date.today().year
+    all_years = sorted(int(y) for y in df["year"].dropna().astype(int).unique())
+    # Latest "full" year — exclude the calendar current year as partial-at-render.
+    full_years = [y for y in all_years if y < today_year]
+    if not full_years:
+        return
+    cur = full_years[-1]
+    prev = full_years[-2] if len(full_years) >= 2 else None
+
+    recv = df[df["notice_subtype"] == "receivership"]
+    n_recv_cur = int((recv["year"].astype("Int64") == cur).sum())
+    n_recv_prev = int((recv["year"].astype("Int64") == prev).sum()) if prev else 0
+
+    resc = df[df["notice_subtype"].isin(_RESCUE_SUBTYPES)]
+    n_resc_cur = int((resc["year"].astype("Int64") == cur).sum())
+    n_resc_prev = int((resc["year"].astype("Int64") == prev).sum()) if prev else 0
+
+    # Distinct firms named in this year's notices (across all subtypes).
+    n_firms_cur = int(df.loc[df["year"].astype("Int64") == cur, "entity_name"].nunique())
+
+    # CBI repeat distress count — already filtered by SQL view.
+    n_repeat = len(cbi_repeat) if cbi_repeat is not None else 0
+
+    def _delta_html(c: int, p: int) -> str:
+        if not p:
+            return ""
+        d = c - p
+        pct = round(100 * d / p)
+        if d > 0:
+            cls, sign = "up", "▲"
+        elif d < 0:
+            cls, sign = "down", "▼"
+        else:
+            return ''
+        return f'<span class="corp-thisyear-delta {cls}">{sign}{abs(pct)}% vs {prev}</span>'
+
+    st.markdown(
+        f'<section class="corp-thisyear" aria-label="Latest full year snapshot">'
+        f'<div class="corp-thisyear-h">Latest full year — {cur}</div>'
+        f'<div class="corp-thisyear-grid">'
+        f'<div><div class="corp-thisyear-num">{n_recv_cur:,}</div>'
+        f'<div class="corp-thisyear-lbl">receivership notices{_delta_html(n_recv_cur, n_recv_prev)}</div></div>'
+        f'<div><div class="corp-thisyear-num">{n_resc_cur:,}</div>'
+        f'<div class="corp-thisyear-lbl">rescues (examinership + SCARP){_delta_html(n_resc_cur, n_resc_prev)}</div></div>'
+        f'<div><div class="corp-thisyear-num">{n_firms_cur:,}</div>'
+        f'<div class="corp-thisyear-lbl">distinct companies named in {cur}</div></div>'
+        f'<div><div class="corp-thisyear-num">{n_repeat:,}</div>'
+        f'<div class="corp-thisyear-lbl">CBI-authorised firms with repeat distress (since 2016)</div></div>'
+        f'</div>'
+        f'</section>',
+        unsafe_allow_html=True,
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Operator-side: which professional firms are appointed AS receiver. This is
+# the counterpart to the appointer panel — the latter shows the funds calling
+# in loans; this strip shows the accountancy / boutique firms doing the work.
+# logic_firewall: display_only. Single-pass regex over raw_text of the
+# receivership-shaped subset; cached via @st.cache_data.
+# ──────────────────────────────────────────────────────────────────────────────
+_OPERATOR_PATTERNS_WORD = [
+    ("Deloitte",                 re.compile(r"\bDeloitte\b")),
+    ("Grant Thornton",           re.compile(r"\bGrant Thornton\b")),
+    ("Mazars",                   re.compile(r"\bMazars\b")),
+    ("Kroll",                    re.compile(r"\bKroll\b")),
+    ("Crowe",                    re.compile(r"\bCrowe\b")),
+    ("Friel Stafford",           re.compile(r"\bFriel Stafford\b")),
+    ("McKeogh Gallagher Ryan",   re.compile(r"\bMcKeogh Gallagher Ryan\b")),
+    ("McStay Luby",              re.compile(r"\bMcStay Luby\b")),
+    ("Hughes Blake",             re.compile(r"\bHughes Blake\b")),
+    ("Baker Tilly",              re.compile(r"\bBaker Tilly\b")),
+    ("Cooney Carey",             re.compile(r"\bCooney Carey\b")),
+    ("FTI Consulting",           re.compile(r"\bFTI Consulting\b")),
+    ("Interpath",                re.compile(r"\bInterpath\b")),
+    ("Teneo",                    re.compile(r"\bTeneo\b")),
+]
+# Case-sensitive uppercase abbreviation matches — lowercase variants are too
+# noisy ('ey' matched inside many unrelated words during probing).
+_OPERATOR_PATTERNS_CASE = [
+    ("EY",   re.compile(r"\bEY\b")),
+    ("KPMG", re.compile(r"\bKPMG\b")),
+    ("BDO",  re.compile(r"\bBDO\b")),
+    ("RBK",  re.compile(r"\bRBK\b")),
+    ("OCKT", re.compile(r"\bOCKT\b")),
+]
+_OPERATOR_PWC = re.compile(r"\b(?:PwC|PWC|PricewaterhouseCoopers|PriceWaterhouseCoopers)\b")
+
+
+@st.cache_data(show_spinner=False)
+def _receiver_firm_concentration(raw_texts: tuple[str, ...]) -> list[tuple[str, int]]:
+    """Count distinct receivership notices mentioning each professional firm.
+    Each firm is counted at most ONCE per notice — so the number reflects
+    notice presence, not raw mention frequency."""
+    if not raw_texts:
+        return []
+    counts: dict[str, int] = {}
+    for raw in raw_texts:
+        if not raw:
+            continue
+        present: set[str] = set()
+        for name, pat in _OPERATOR_PATTERNS_WORD:
+            if pat.search(raw):
+                present.add(name)
+        for name, pat in _OPERATOR_PATTERNS_CASE:
+            if pat.search(raw):
+                present.add(name)
+        if _OPERATOR_PWC.search(raw):
+            present.add("PwC")
+        for name in present:
+            counts[name] = counts.get(name, 0) + 1
+    return sorted(counts.items(), key=lambda kv: -kv[1])
+
+
+def _render_operator_strip(df: pd.DataFrame) -> None:
+    """Thin sub-strip below the appointer panel listing receiver firms by
+    notice presence. Each chip links to ?q=<firm> to filter the feed."""
+    if df is None or df.empty:
+        return
+    recv = df[
+        (df["notice_subtype"] == "receivership")
+        | df["raw_text"].fillna("").astype(str).str.contains(
+            "APPOINTMENT OF (?:STATUTORY )?RECEIVER|NOTICE OF APPOINTMENT OF RECEIVER",
+            case=False, regex=True, na=False,
+        )
+    ]
+    if recv.empty:
+        return
+    raw_texts = tuple(recv["raw_text"].fillna("").astype(str).tolist())
+    top = _receiver_firm_concentration(raw_texts)[:10]
+    if not top:
+        return
+
+    n_recv = len(recv)
+    n_tagged = sum(n for _, n in top)  # caps to top-10 firms
+    # Distinct notices mentioning at least one operator firm — recompute cheaply
+    # via a single combined regex pass (only used for the headline %).
+    combined_pat = re.compile(
+        r"\bDeloitte\b|\bGrant Thornton\b|\bMazars\b|\bKroll\b|\bCrowe\b|"
+        r"\bFriel Stafford\b|\bMcKeogh Gallagher Ryan\b|\bMcStay Luby\b|"
+        r"\bHughes Blake\b|\bBaker Tilly\b|\bCooney Carey\b|\bFTI Consulting\b|"
+        r"\bInterpath\b|\bTeneo\b|\bEY\b|\bKPMG\b|\bBDO\b|\bRBK\b|\bOCKT\b|"
+        r"\b(?:PwC|PWC|PricewaterhouseCoopers|PriceWaterhouseCoopers)\b"
+    )
+    n_any_tagged = sum(1 for t in raw_texts if combined_pat.search(t or ""))
+    cov_pct = round(100 * n_any_tagged / max(n_recv, 1))
+
+    # Big 6 share of those tagged (the concentration story)
+    big6 = {"Deloitte", "EY", "PwC", "KPMG", "Grant Thornton", "BDO", "Mazars"}
+    n_big6 = sum(n for name, n in top if name in big6)
+    big6_pct_of_tagged = round(100 * n_big6 / max(n_any_tagged, 1))
+
+    chip_html: list[str] = []
+    for name, n in top:
+        chip_html.append(
+            f'<a class="corp-operator-chip" href="?q={html.escape(name, quote=True)}" '
+            f'target="_self" aria-label="Filter feed to notices mentioning {html.escape(name, quote=True)}">'
+            f'{html.escape(name)}'
+            f'<span class="corp-operator-chip-n">{n:,}</span>'
+            '</a>'
+        )
+
+    st.markdown(
+        '<section class="corp-operator-strip" aria-label="Receiver-firm concentration strip">'
+        '<div class="corp-operator-strip-context">'
+        '<span class="corp-operator-strip-h">Who&apos;s doing the work</span>'
+        f'Across <strong>{n_recv:,}</strong> receivership notices, '
+        f'<strong>{n_any_tagged:,}</strong> ({cov_pct}%) mention a known professional firm — '
+        f'the Big 6 accountancy firms account for <strong>{big6_pct_of_tagged}%</strong> of those. '
+        f'Click a chip to filter the feed.'
+        '</div>'
+        f'<div class="corp-operator-strip-chips">{"".join(chip_html)}'
+        f'<span class="corp-operator-strip-tail">notice presence · regex over raw text</span>'
+        '</div>'
+        '</section>',
+        unsafe_allow_html=True,
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Methodology expander — sits just below the receiver-appointer panel.
+# Surfaces the brand → parent_fund mapping so a reader sees, e.g., that
+# Beltany is tagged as Goldman Sachs. Collapsed by default.
+# ──────────────────────────────────────────────────────────────────────────────
+_TYPE_BUCKET_FOR_HTML = {
+    "vulture fund":               "vulture",
+    "credit servicer":            "servicer",
+    "Irish bank":                 "bank",
+    "Irish bank (winding down)":  "bank",
+    "Irish bank (exited)":        "bank",
+    "state asset manager":        "state",
+    "state agency":               "state",
+}
+
+_METHODOLOGY_GLOSSARY = [
+    ("Vulture fund",
+     "US or UK private-equity / distressed-debt investor that buys Irish loan "
+     "books at a discount. Cerberus, Goldman Sachs, Oaktree, Lone Star, Apollo "
+     "are the largest active in Ireland."),
+    ("Credit servicer",
+     "CBI-authorised firm that operates day-to-day collection on loans owned "
+     "by a vulture fund. Sometimes the same parent (Cerberus / Pepper); "
+     "sometimes a third-party servicer (Pepper, Mars Capital, BCMGlobal)."),
+    ("SPV / DAC",
+     "Special-Purpose Vehicle, usually a Designated Activity Company. "
+     "An Irish legal shell incorporated to hold a specific loan portfolio. "
+     "Most are Section 110 companies, which gives tax-efficient treatment of "
+     "interest payments."),
+    ("Schedule 2 firm",
+     "Non-bank financial firm registered with the Central Bank under "
+     "Schedule 2 of the Criminal Justice Act 2010 (as amended) for AML / CFT "
+     "supervision only — not prudentially regulated like a bank. Most Section "
+     "110 SPVs sit here."),
+    ("NAMA",
+     "National Asset Management Agency — the state bad-bank that bought "
+     "distressed property loans from Irish banks 2010-2014."),
+]
+
+
+def _render_methodology_expander(aliases: pd.DataFrame) -> None:
+    """Collapsed `<details>` block under the receiver-appointer panel showing
+    the curated brand → parent mapping + plain-English type glossary. Source
+    of truth is data/_meta/loan_book_fund_aliases.csv."""
+    if aliases is None or aliases.empty:
+        return
+
+    # Group brands by parent + canonical type for the table
+    grouped = (
+        aliases.groupby(["parent_fund", "fund_type"], as_index=False)
+               .agg(brands=("brand", lambda s: ", ".join(sorted(s))),
+                    notes_concat=("notes", lambda s: " · ".join(sorted({str(n) for n in s if str(n).strip()}))))
+               .sort_values(["fund_type", "parent_fund"])
+    )
+
+    rows_html: list[str] = []
+    for _, r in grouped.iterrows():
+        bucket = _TYPE_BUCKET_FOR_HTML.get(str(r["fund_type"]), "other")
+        rows_html.append(
+            '<tr>'
+            f'<td class="corp-meth-parent">{html.escape(str(r["parent_fund"]))}</td>'
+            f'<td class="corp-meth-brands">{html.escape(str(r["brands"]))}</td>'
+            f'<td><span class="corp-rank-typechip {bucket}">{html.escape(str(r["fund_type"]))}</span></td>'
+            f'<td class="corp-meth-notes">{html.escape(str(r["notes_concat"]))}</td>'
+            '</tr>'
+        )
+
+    glossary_html = "".join(
+        f'<dt>{html.escape(t)}</dt><dd>{html.escape(d)}</dd>'
+        for t, d in _METHODOLOGY_GLOSSARY
+    )
+
+    st.markdown(
+        '<details class="corp-methodology">'
+        '<summary>Sources &amp; methodology — how brands map to parent funds</summary>'
+        '<div class="corp-methodology-body">'
+        '<p class="corp-methodology-intro">'
+        'Brand-to-parent classification is hand-curated in '
+        '<code>data/_meta/loan_book_fund_aliases.csv</code> from public sources '
+        '(CBI Credit Servicers register, news reporting, regulatory filings). '
+        'Each notice\'s raw text is scanned for the brand strings below; matching '
+        'rolls up to the parent and the fund_type. The receiver-appointer panel '
+        'counts unique parent appearances.'
+        '</p>'
+        '<table class="corp-methodology-table">'
+        '<thead><tr>'
+        '<th>Parent fund</th><th>Brand strings matched in notices</th>'
+        '<th>Type</th><th>Source / note</th>'
+        '</tr></thead>'
+        f'<tbody>{"".join(rows_html)}</tbody>'
+        '</table>'
+        '<dl class="corp-methodology-glossary">'
+        '<dt class="corp-meth-glossary-h">Plain-English terms</dt><dd></dd>'
+        f'{glossary_html}'
+        '</dl>'
+        '</div>'
+        '</details>',
         unsafe_allow_html=True,
     )
 
@@ -987,6 +1590,90 @@ def _render_cbi_repeat_distress(df_cbi: pd.DataFrame) -> None:
         f'see the sandbox extract for caveats.'
         '</div>'
         + "".join(rows_html) +
+        '</section>',
+        unsafe_allow_html=True,
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Corporate-rescue panel — Examinership + SCARP. Counterbalances the
+# distress story with the rescue story. logic_firewall: display_only.
+# ──────────────────────────────────────────────────────────────────────────────
+_RESCUE_SUBTYPES = {"examinership", "scarp_process_adviser"}
+
+
+def _render_rescue_panel(df: pd.DataFrame) -> None:
+    if df is None or df.empty:
+        return
+    resc = df[df["notice_subtype"].isin(_RESCUE_SUBTYPES)].copy()
+    n_total = len(resc)
+    if n_total == 0:
+        return
+
+    n_exam = int((resc["notice_subtype"] == "examinership").sum())
+    n_scarp = int((resc["notice_subtype"] == "scarp_process_adviser").sum())
+
+    # Year-by-year bars — exclude any null/invalid years
+    resc_years = resc["year"].dropna().astype(int)
+    if resc_years.empty:
+        yc = pd.Series(dtype=int)
+    else:
+        ymin, ymax = int(resc_years.min()), int(resc_years.max())
+        yc = resc_years.value_counts().reindex(range(ymin, ymax + 1), fill_value=0).sort_index()
+
+    max_yc = int(yc.max()) if not yc.empty else 1
+
+    year_rows_html: list[str] = []
+    for y, c in yc.items():
+        if c == 0 and y < int(resc_years.min()):  # don't render leading zeros
+            continue
+        width = max(4, int(round(100 * (int(c) / max_yc)))) if max_yc else 4
+        year_rows_html.append(
+            f'<a class="corp-rescue-yearrow" href="?spark={int(y)}" target="_self" '
+            f'style="text-decoration:none;color:inherit;" '
+            f'aria-label="Filter feed to {int(y)} ({int(c)} rescue notice{"s" if c != 1 else ""})">'
+            f'<div>{int(y)}</div>'
+            f'<div class="corp-rescue-yearbar"><span style="width:{width}%"></span></div>'
+            f'<div class="corp-rescue-yearcount">{int(c)}</div>'
+            '</a>'
+        )
+
+    # Recent rescues — newest 8 with extracted entity name
+    recent = resc.sort_values("issue_date", ascending=False).head(8)
+    list_rows_html: list[str] = []
+    for _, r in recent.iterrows():
+        name, _missing = _card_name(r)
+        date_str = _fmt_date(r.get("issue_date"))
+        st_label = "SCARP" if r["notice_subtype"] == "scarp_process_adviser" else "Examiner"
+        st_cls = "scarp" if r["notice_subtype"] == "scarp_process_adviser" else ""
+        list_rows_html.append(
+            '<div class="corp-rescue-item">'
+            f'<div class="corp-rescue-item-date">{html.escape(date_str)}</div>'
+            f'<div class="corp-rescue-item-firm" title="{html.escape(name)}">{html.escape(name)}</div>'
+            f'<span class="corp-rescue-typepill {st_cls}">{html.escape(st_label)}</span>'
+            '</div>'
+        )
+
+    st.markdown(
+        '<section class="corp-rescue-panel" aria-label="Corporate rescue panel">'
+        '<div class="corp-rescue-kicker">Corporate rescue</div>'
+        '<h2 class="corp-rescue-h">Firms in rescue</h2>'
+        '<div class="corp-rescue-sub">'
+        f'<strong>{n_total:,}</strong> firms have entered formal rescue since 2016 — '
+        f'<strong>{n_exam}</strong> examinerships (court-supervised restructure) and '
+        f'<strong>{n_scarp}</strong> SCARP filings (small-company process; first filings 2021). '
+        f'See year bars for the annual trend.'
+        '</div>'
+        '<div class="corp-rescue-grid">'
+        '<div>'
+        '<div class="corp-rescue-list-label">Rescues by year (click to filter feed)</div>'
+        f'<div class="corp-rescue-yearbars">{"".join(year_rows_html)}</div>'
+        '</div>'
+        '<div>'
+        '<div class="corp-rescue-list-label">Most recent</div>'
+        f'<div class="corp-rescue-list">{"".join(list_rows_html)}</div>'
+        '</div>'
+        '</div>'
         '</section>',
         unsafe_allow_html=True,
     )
@@ -1294,6 +1981,7 @@ def corporate_page() -> None:
     df = load_corporate()
     cbi_badges = load_cbi_badges()
     cbi_repeat = load_cbi_repeat_distress()
+    brand_aliases = load_brand_aliases()
 
     # URL handlers — run before widgets so session_state is right.
     url_ref = st.query_params.get("ref")
@@ -1332,7 +2020,7 @@ def corporate_page() -> None:
     # Sidebar
     selected = st.session_state.get("corp_selected_ref")
     with st.sidebar:
-        sidebar_page_header("Corporate")
+        sidebar_page_header("Corporate Notices")
         if not selected:
             sidebar_subtitle("Corporate notices · receiver / examinership / liquidation · Iris Oifigiúil")
 
@@ -1359,28 +2047,31 @@ def corporate_page() -> None:
         _render_detail(match.iloc[0], cbi_badges)
         return
 
-    # Index
+    # Index — pure-data lede. No interpretive framing per the no-inference
+    # rule; the reader arrives at conclusions from the panels below.
+    n_total = len(df)
+    n_distinct = int(df["entity_name"].nunique()) if "entity_name" in df.columns else 0
     hero_banner(
-        kicker="Iris Oifigiúil · Corporate distress",
-        title="Corporate",
+        kicker="Iris Oifigiúil",
+        title="Corporate Notices",
         dek=(
-            "Who's calling in Irish loans, who's being rescued, who's winding down. "
-            "Corporate-side notices from Iris Oifigiúil since 2016, with the major "
-            "appointing parties translated to their parent funds."
+            f"{n_total:,} corporate notices since 2016 naming {n_distinct:,} distinct "
+            f"Irish companies — receiverships, examinerships, SCARP filings, "
+            f"liquidations, ICAV strike-offs, and Companies Act filings. The panels "
+            f"below break down the appointing parties, the firms doing the operational "
+            f"work, the regulated entities in repeat distress, and the rescues."
         ),
     )
+    _render_this_year_callout(df, cbi_repeat)
 
     # Constitutional / privacy caveat + acronyms.
+    # Compact one-line privacy disclosure — brand-mapping methodology lives
+    # in the Sources & methodology expander below the appointer panel, so
+    # not repeated here. Privacy stance retained as a single visible line.
     st.html(
-        '<p class="corp-context">'
-        'Brand-to-parent translation is curated in '
-        '<code style="color:#14232b">data/_meta/loan_book_fund_aliases.csv</code>; '
-        'long-tail SPVs display under their original brand. The page does not name '
-        'wrongdoing — it surfaces who is on the public record as an appointing party.'
-        '<span class="corp-privacy">'
-        '<strong>Privacy:</strong> personal insolvency (individual bankruptcy notices) is '
-        'excluded by policy. Companies only.'
-        '</span>'
+        '<p class="corp-privacy-line">'
+        '<strong>Privacy:</strong> personal insolvency (individual bankruptcy notices) '
+        'is excluded by policy. Companies only.'
         '</p>'
     )
 
@@ -1402,9 +2093,14 @@ def corporate_page() -> None:
 
     # Featured panel — receiver-appointer ranking, independent of filters.
     _render_featured(df)
+    _render_operator_strip(df)
+    _render_methodology_expander(brand_aliases)
 
     # Experimental — regulated firms in repeat distress (CBI x corporate cross-ref).
     _render_cbi_repeat_distress(cbi_repeat)
+
+    # Counter-narrative — corporate rescue (Examinership + SCARP).
+    _render_rescue_panel(df)
 
     # Facets (search + year + fund + type-tab)
     type_idx = _render_facets(df)

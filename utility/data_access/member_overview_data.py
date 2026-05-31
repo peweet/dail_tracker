@@ -52,6 +52,18 @@ _DOMAIN_FILES = [
     "member_questions.sql",
     "member_question_profile.sql",
     "member_question_focus_shift.sql",
+    # Per-TD aggregates over v_member_questions. Must come AFTER member_questions.sql.
+    # Without these the ministry-filter selectbox + Top Topics card silently fall
+    # back to empty state — bug surfaced 2026-05-31 in the Member Overview crawl
+    # via the server-side Catalog Error logs.
+    "member_zz_question_ministries.sql",
+    "member_zz_question_top_topics.sql",
+    # Constituency civic context (added 2026-05-31).
+    # Sourced from cso_fy005.parquet (CSO PxStat — Census 2022 population per
+    # Dáil constituency, 2017 boundaries). Wide one row per constituency.
+    # See sql_views/member_constituency_demographics.sql for the 36/43 vs
+    # 7/43 boundary-split match coverage note.
+    "member_constituency_demographics.sql",
 ]
 
 # {MEMBER_PARQUET_PATH} substituted with absolute path from config

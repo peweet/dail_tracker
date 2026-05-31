@@ -281,39 +281,29 @@ def _provenance_footer(summary: pd.DataFrame) -> None:
 
 
 def _render_search_bar() -> None:
-    """Main-panel search + jump-to (was the sidebar). Type an organisation or
-    politician name and jump straight to their record / canonical profile.
-    The 'Notable targets' / 'Browse by policy area' expanders from lobby_2's
-    sidebar stay dropped to reduce visual din; the landing gateway tiles cover
-    those entry points.
+    """Main-panel typeahead. One control: a Streamlit selectbox whose built-in
+    type-to-filter behaviour replaces the previous two-input pattern (text
+    input + adjacent dropdown) where Enter on the text input did nothing —
+    confusing reporters who typed "Ibec" or "greyhound" and saw no response.
+
+    Picking a politician routes to their canonical /member-overview; picking
+    an org sets ?lp3_org=<name> on this page.
     """
-    with filter_bar([3, 3, 4]) as cols:
+    pol_names = fetch_all_politician_names()
+    org_names = fetch_all_org_names()
+    # Politicians first, then orgs (prefixed so the routing branch can
+    # distinguish without a second lookup).
+    combined = [""] + pol_names + [f"[Org] {n}" for n in org_names]
+
+    with filter_bar([6, 6]) as cols:
         with cols[0]:
             field_label("Search the register")
-            search = st.text_input(
-                "Search",
-                placeholder="e.g. Ibec, Mary Lou McDonald",
-                key="lp3_sidebar_search",
-                label_visibility="collapsed",
-            )
-
-        s = search.strip().lower()
-        pol_names = fetch_all_politician_names()
-        org_names = fetch_all_org_names()
-        if s:
-            pol_filtered = [n for n in pol_names if s in n.lower()]
-            org_filtered = [n for n in org_names if s in n.lower()]
-        else:
-            pol_filtered = pol_names[:200]
-            org_filtered = []
-        combined = [""] + pol_filtered + [f"[Org] {n}" for n in org_filtered[:50]]
-
-        with cols[1]:
-            field_label("Jump to")
             sel = st.selectbox(
-                "Jump to",
+                "Search",
                 combined,
+                index=0,
                 label_visibility="collapsed",
+                placeholder="e.g. Ibec, Mary Lou McDonald",
                 key="lp3_jump",
             )
 
@@ -322,7 +312,6 @@ def _render_search_bar() -> None:
         if sel.startswith("[Org] "):
             st.query_params["lp3_org"] = sel[6:]
         else:
-            # Politicians: redirect to canonical member-overview (matches lobby_2 behaviour).
             target = member_profile_url(_resolve_or_join(sel), section="lobbying")
             st.markdown(
                 f'<meta http-equiv="refresh" content="0;url={_h(target)}">',
