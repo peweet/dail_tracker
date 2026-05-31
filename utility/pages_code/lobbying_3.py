@@ -16,9 +16,17 @@ CSS namespace (lp3-* prefix):
 - lp3-topic-tile (calmer topic card)
 - lp3-section-head (quiet H2 with one-line dek)
 
-Stages: landing gateway → org / area / topic / revolving-door / DPO / Stage 3
-(area×politician). The per-politician body (render_member_lobbying) is embedded
-on /member-overview rather than reached as a standalone route here.
+Stages: landing gateway → org / area / topic / revolving-door / DPO /
+politician → Stage 3 (org×politician, area×politician, DPO×politician).
+Stage 3 sub-routes keep the lobbyist context: the politician is only
+relevant because a specific org / area / DPO targeted them, so the cards
+filter the returns instead of dropping the user into the generic
+/member-overview profile. A secondary CTA at the bottom of each Stage 3
+page still points at the full accountability profile.
+
+The per-politician body (render_member_lobbying) is embedded on
+/member-overview (show_header=False) and also reached standalone via
+?lp3_pol=X from the landing's most-lobbied list.
 """
 
 from __future__ import annotations
@@ -42,11 +50,13 @@ from data_access.lobbying_data import (
     fetch_dpo_client_breakdown,
     fetch_dpo_firms,
     fetch_dpo_one,
+    fetch_dpo_politician_returns,
     fetch_dpo_politicians_targeted,
     fetch_dpo_returns_detail,
     fetch_org_contact_detail,
     fetch_org_index,
     fetch_org_persistence,
+    fetch_org_politician_returns,
     fetch_orgs_for_politician,
     fetch_policy_area_summary,
     fetch_policy_exposure_for_politician,
@@ -452,13 +462,11 @@ def _render_landing(summary: pd.DataFrame) -> None:
             cards: list[str] = []
             for rank, (_, row) in enumerate(idx.head(10).iterrows(), start=1):
                 name = str(row.get("member_name", "—"))
-                m_id = str(row.get("unique_member_code", "") or "")
                 meta = clean_meta(str(row.get("chamber", "") or ""), str(row.get("position", "") or ""))
                 pills_list = [
                     _p(int(row.get("return_count", 0) or 0), "return"),
                     _p(int(row.get("distinct_orgs", 0) or 0), "org"),
                 ]
-                jump = member_profile_url(m_id or _resolve_or_join(name), section="lobbying")
                 inner = _ranked_card_html(
                     name, meta, pills_list, rank,
                     avatar_url=avatar_data_url(name),
@@ -466,9 +474,9 @@ def _render_landing(summary: pd.DataFrame) -> None:
                 )
                 cards.append(
                     clickable_card_link(
-                        href=jump,
+                        href=f"?lp3_pol={quote(name)}",
                         inner_html=inner,
-                        aria_label=f"View {name}'s profile",
+                        aria_label=f"View lobbying record for {name}",
                     )
                 )
             st.html("\n".join(cards))
@@ -855,7 +863,6 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
         cards: list[str] = []
         for rank, (_, row) in enumerate(pol_intensity.head(20).iterrows(), start=1):
             pol_name = str(row.get("member_name", "—"))
-            member_id = str(row.get("unique_member_code", "") or "")
             chamber = str(row.get("chamber", "") or "")
             first_c = str(row.get("first_contact", "") or "")[:7]
             last_c = str(row.get("last_contact", "") or "")[:7]
@@ -864,16 +871,15 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
                 _p(int(row.get("returns_in_relationship", 0) or 0), "return"),
                 _p(int(row.get("distinct_policy_areas", 0) or 0), "policy area"),
             ]
-            jump = member_profile_url(member_id or _resolve_or_join(pol_name), section="lobbying")
             cards.append(
                 clickable_card_link(
-                    href=jump,
+                    href=f"?lp3_org={quote(org_name)}&lp3_result_pol={quote(pol_name)}",
                     inner_html=_ranked_card_html(
                         pol_name, meta, pills_list, rank,
                         avatar_url=avatar_data_url(pol_name),
                         avatar_initials=_initials(pol_name),
                     ),
-                    aria_label=f"View {pol_name}'s profile",
+                    aria_label=f"View every return from {org_name} targeting {pol_name}",
                 )
             )
         st.html("\n".join(cards))
@@ -1410,8 +1416,10 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
     # Politicians targeted — ranked card list (cross-link to canonical /member-overview)
     pols_df = fetch_dpo_politicians_targeted(individual_name)
     if not pols_df.empty:
-        _section_head("Politicians targeted")
-        pol_known = set(fetch_all_politician_names())
+        _section_head(
+            "Politicians targeted",
+            "Click any card to see every return this individual filed targeting that politician.",
+        )
         cards: list[str] = []
         for rank, (_, prow) in enumerate(pols_df.head(20).iterrows(), start=1):
             pname = str(prow.get("member_name", "—"))
@@ -1423,16 +1431,13 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
                 avatar_url=avatar_data_url(pname),
                 avatar_initials=_initials(pname),
             )
-            if pname in pol_known:
-                cards.append(
-                    clickable_card_link(
-                        href=member_profile_url(_resolve_or_join(pname), section="lobbying"),
-                        inner_html=inner,
-                        aria_label=f"Open profile for {pname}",
-                    )
+            cards.append(
+                clickable_card_link(
+                    href=f"?lp3_dpo={quote(individual_name)}&lp3_result_pol={quote(pname)}",
+                    inner_html=inner,
+                    aria_label=f"View every return from {individual_name} targeting {pname}",
                 )
-            else:
-                cards.append(inner)
+            )
         st.html("\n".join(cards))
         if len(pols_df) > 20:
             st.caption(f"Showing top 20 of {len(pols_df):,} politicians.")
@@ -1528,6 +1533,158 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
         "Export every return as CSV",
         f"{politician.replace(' ', '_')}_{area[:30].replace(' ', '_')}_returns.csv",
         "lp3_export_results",
+    )
+
+    _provenance_footer(summary)
+
+
+# ── Org × Politician (Stage 3) ────────────────────────────────────────────────
+
+
+def _render_org_results(org_name: str, politician: str, summary: pd.DataFrame) -> None:
+    """Every return filed by ``org_name`` targeting ``politician``.
+
+    Mirrors the area×politician Stage 3 shape so users staying inside the
+    lobbying page see exactly what the org lobbied this politician on,
+    instead of the generic /member-overview profile (the lobbyist context
+    would otherwise be lost the moment they click).
+    """
+    if back_button(f"← Back to {org_name}", key="lp3_org_results"):
+        st.query_params.pop("lp3_result_pol", None)
+        st.rerun()
+
+    detail_all = fetch_org_politician_returns(org_name, politician)
+    if not detail_all.empty:
+        _quiet_hero(
+            title=f"{politician} lobbied by {org_name}",
+            dek_html=(
+                f"<strong>{len(detail_all):,}</strong> returns filed by "
+                f"{_h(org_name)} targeting {_h(politician)}. Each card links to the "
+                "original filing on lobbying.ie."
+            ),
+        )
+    else:
+        _quiet_hero(
+            title=f"{politician} lobbied by {org_name}",
+            dek=f"No returns on record from {org_name} targeting {politician}.",
+        )
+    if detail_all.empty:
+        _provenance_footer(summary)
+        return
+
+    start, end = _year_pills(detail_all, "lp3_year_org_results")
+    detail = (
+        fetch_org_politician_returns(org_name, politician, start, end) if start else detail_all
+    )
+
+    _section_head(
+        "Every return",
+        "Each card links to the original filing on lobbying.ie.",
+    )
+    page_size, page_idx = pagination_controls(
+        total=len(detail), key_prefix="lp3_org_results_page", label="returns"
+    )
+    page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+    cards = [
+        _return_card_html(
+            period=_fmt_mmm(row.get("period_start_date")),
+            title=str(row.get("lobbyist_name", "") or "—"),
+            area=str(row.get("public_policy_area", "") or ""),
+            return_id=str(row.get("return_id", "") or ""),
+            url=str(row.get("source_url", "") or ""),
+        )
+        for _, row in page_slice.iterrows()
+    ]
+    st.html("\n".join(cards))
+    export_button(
+        detail,
+        "Export every return as CSV",
+        f"{politician.replace(' ', '_')}_x_{org_name[:30].replace(' ', '_')}_returns.csv",
+        "lp3_export_org_results",
+    )
+
+    # Secondary CTA — full accountability profile is still one click away.
+    st.html(
+        entity_cta_html(
+            member_profile_url(_resolve_or_join(politician)),
+            f"View {politician}'s full accountability profile →",
+        )
+    )
+
+    _provenance_footer(summary)
+
+
+# ── DPO × Politician (Stage 3) ────────────────────────────────────────────────
+
+
+def _render_dpo_results(individual_name: str, politician: str, summary: pd.DataFrame) -> None:
+    """Every return filed by former-DPO ``individual_name`` targeting ``politician``."""
+    if back_button(f"← Back to {individual_name}", key="lp3_dpo_results"):
+        st.query_params.pop("lp3_result_pol", None)
+        st.rerun()
+
+    detail_all = fetch_dpo_politician_returns(individual_name, politician)
+    if not detail_all.empty:
+        _quiet_hero(
+            title=f"{politician} lobbied by {individual_name}",
+            dek_html=(
+                f"<strong>{len(detail_all):,}</strong> returns filed by former DPO "
+                f"{_h(individual_name)} targeting {_h(politician)}. Each card links to the "
+                "original filing on lobbying.ie."
+            ),
+        )
+    else:
+        _quiet_hero(
+            title=f"{politician} lobbied by {individual_name}",
+            dek=f"No returns on record from {individual_name} targeting {politician}.",
+        )
+    if detail_all.empty:
+        _provenance_footer(summary)
+        return
+
+    start, end = _year_pills(detail_all, "lp3_year_dpo_results")
+    detail = (
+        fetch_dpo_politician_returns(individual_name, politician, start, end)
+        if start
+        else detail_all
+    )
+
+    _section_head(
+        "Every return",
+        "Each card links to the original filing on lobbying.ie.",
+    )
+    page_size, page_idx = pagination_controls(
+        total=len(detail), key_prefix="lp3_dpo_results_page", label="returns"
+    )
+    page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
+    cards = []
+    for _, row in page_slice.iterrows():
+        client = str(row.get("client_name", "") or "")
+        cards.append(
+            _return_card_html(
+                period=_fmt_mmm(row.get("period_start_date")),
+                title=str(row.get("lobbyist_name", "") or "—"),
+                subtitle=f"on behalf of {client}" if client else "",
+                area=str(row.get("public_policy_area", "") or ""),
+                return_id=str(row.get("return_id", "") or ""),
+                url=str(row.get("source_url", "") or ""),
+            )
+        )
+    st.html("\n".join(cards))
+    safe_ind = "".join(c if c.isalnum() else "_" for c in individual_name)[:60]
+    export_button(
+        detail,
+        "Export every return as CSV",
+        f"{politician.replace(' ', '_')}_x_{safe_ind}_returns.csv",
+        "lp3_export_dpo_results",
+    )
+
+    # Secondary CTA — full accountability profile is still one click away.
+    st.html(
+        entity_cta_html(
+            member_profile_url(_resolve_or_join(politician)),
+            f"View {politician}'s full accountability profile →",
+        )
     )
 
     _provenance_footer(summary)
@@ -1737,9 +1894,12 @@ def lobbying_poc_page() -> None:
 
     summary = fetch_summary()
 
-    # Dispatch by URL parameter. lp3_area + lp3_result_pol = Stage 3.
+    # Dispatch by URL parameter. *_pol + lp3_result_pol = Stage 3.
     if "lp3_dpo" in qp:
-        _render_dpo_individual(qp["lp3_dpo"], summary)
+        if "lp3_result_pol" in qp:
+            _render_dpo_results(qp["lp3_dpo"], qp["lp3_result_pol"], summary)
+        else:
+            _render_dpo_individual(qp["lp3_dpo"], summary)
     elif "lp3_rd" in qp:
         _render_rd_index(summary)
     elif "lp3_orgindex" in qp:
@@ -1747,12 +1907,17 @@ def lobbying_poc_page() -> None:
     elif "lp3_topic" in qp:
         _render_topic(qp["lp3_topic"], summary)
     elif "lp3_org" in qp:
-        _render_org(qp["lp3_org"], summary)
+        if "lp3_result_pol" in qp:
+            _render_org_results(qp["lp3_org"], qp["lp3_result_pol"], summary)
+        else:
+            _render_org(qp["lp3_org"], summary)
     elif "lp3_area" in qp:
         if "lp3_result_pol" in qp:
             _render_results(qp["lp3_area"], qp["lp3_result_pol"], summary)
         else:
             _render_area(qp["lp3_area"], summary)
+    elif "lp3_pol" in qp:
+        render_member_lobbying(qp["lp3_pol"], summary, show_header=True, year_pill_key="lp3_year_pol")
     else:
         _render_landing(summary)
 
