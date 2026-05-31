@@ -36,6 +36,7 @@ dependencies = [
     "requests>=2.31",
     "beautifulsoup4>=4.12",
     "flatten-json>=0.1.14",
+    "jsonschema>=4.0,<5",  # validate-at-fetch of Oireachtas API envelopes (services/schema_validation.py)
 ]
 
 [project.urls]
