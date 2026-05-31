@@ -425,3 +425,206 @@ under **Related programme references — SHCEP & capital schemes** above.
 > time-on-list band, and whether the allocation was local-authority-owned, AHB,
 > Part V, acquisition, leasing, RAS/HAP exit, or another route, with small-cell
 > suppression applied where needed to prevent identification of individuals.
+
+---
+
+## Data assessment — what's actually in each source (2026-05-30)
+
+Honest per-source assessment for enrichment / feature creation. Marked
+**[sampled]** where I downloaded and inspected the actual data/PDF;
+**[inferred]** where I'm reading from publisher metadata / table-of-contents
+without pulling the full data. No code built — assessment only.
+
+### A. Direct-use open datasets (CSV / JSON-stat API ready)
+
+These are the **lowest-effort, highest-yield** enrichment candidates: open
+formats, no scraping, stable URLs.
+
+| Source | What's actually in it | Format | Feature ideas | Effort |
+|---|---|---|---|---|
+| **HSA07 — Social and Affordable Provision** [sampled] | Authorised starts for LA housing **per local authority per year from 1994**. Columns: `STATISTIC, Statistic Label, Year, C01947V02657 (LA code), Local Authority, UNIT, VALUE`. | PxStat CSV via REST API; one URL pull | Per-LA / per-constituency 30-year housing-supply timeline; "homes started per year in your area"; compare neighbouring LAs | **Low** — single curl, parse, join on LA name |
+| **CSO HAP01** [sampled] | Households starting HAP per LA per year 2014–. Columns include `Local Authority`, `Family Type` (Couple, Couple +N children, Single, etc.). | PxStat CSV via REST API | HAP take-up by LA/family type; constituency context for "private-rental social-housing reliance" | **Low** |
+| **CSO HAP17, HAP20, HAP26, HAP32** [inferred from naming] | Working % / income; rent as % disposable income; median waiting time on HAP; median waiting time to move from HAP to social. All per LA per year. | PxStat CSV/JSON-stat | "HAP household financial profile" + "wait time to a real social-housing tenancy" by LA | **Low** |
+| **Construction Status Report Q4 2025 CSV** [sampled] | One row per **scheme/project**: funding programme, LA, scheme name, no. of units, AHB, stage (1–4, On Site, Completed). ~3,151 schemes / 51,638 units in Q4 2025. | Direct CSV (≈1 file/quarter) | Per-LA / per-constituency "social housing pipeline" — units in planning vs on-site vs completed, named schemes; quarterly time series | **Low–Medium** — clean column headers manually, quarterly refresh |
+| **Homelessness Report March 2026 CSV** [sampled] | One row per **region** (Dublin, Mid-East, Midlands, Mid-West, South-East, South-West, West, North-East/North-West). Columns: total/male/female adults, age bands, accommodation type (PEA/STA/TEA/Other), citizenship, families, dependants, single-parent families. | Direct CSV (1 file/month) | Monthly homelessness trends by region; surface alongside SSHA "homeless" basis-of-need figures (different definitions, see SSHA methodology) | **Low** — region→constituency mapping is broad but workable |
+| **Pobal HP Deprivation Index 2022** [inferred from publisher metadata] | ED-level scores (~3,400 EDs) with overall affluence/deprivation index + 10 component variables (Census 2022 derived). Small-Area level on licence. | CSV / XLSX on data.gov.ie | Per-constituency deprivation context to pair with TD voting / debate themes; "your constituency vs national" | **Low** for ED-level; **High** if Small-Area needed (licence) |
+| **HAP Scheme 2014–2020 (data.gov.ie)** [inferred] | Historical HAP scheme data. | CSV/JSON/XML | Backfill for HAP01 baseline; less useful now that PxStat HAP tables exist | **Low** but largely redundant |
+| **Census 2022 SAPS** [inferred from publisher metadata] | 48 tables, Small-Area level (~19,000 SAs); housing/tenure (T6_…), household composition, Travellers, nationality, age, education, commuting. Open CSV; complete-country ZIP ~16 MB. | Direct CSV / ZIP | Constituency-level census denominator for every dimension above; aggregate SAs → constituencies via boundary join. **The single highest-value source for the app.** | **Medium** — needs SA→constituency spatial join (one-off) |
+| **CSO PxStat JSON-stat API** (`data.cso.ie`) [sampled — tested HSA07/HAP01] | Any CSO table by code (`HSA07`, `HAP01`, `HAP17`, etc.). Multiple output formats. | RESTful API | Reusable puller for any future CSO statistic | **Low** — same pattern for every table |
+| **Constituency boundaries (2023 revision)** [inferred from publisher metadata] | The current 43-constituency boundaries (post-Electoral Commission review). | GeoJSON / GDB / REST | The required crosswalk to roll Small-Area / ED / region data up to constituencies | **Low** to fetch; spatial join needed |
+
+### B. Tabular PDFs (per-LA tables, extractable with effort)
+
+These contain rich per-LA tables behind PDF. Extractable with `pdftotext -layout`
++ table-region parsing or `camelot/tabula`, but messier than a CSV.
+
+| Source | What's in it | Tables extractable? | Feature ideas | Effort |
+|---|---|---|---|---|
+| **SSHA 2024 & 2025** [sampled — summarised in this doc] | Per-LA breakdown of: age, employment, income, household size, basis of need, accommodation requirements, Traveller identifier, tenure, time on list, citizenship (Tables A1.1–A1.9). Annual since 2016. | Yes — better via the Housing Agency **Data Hub** (machine-readable) than PDF | Per-constituency "social-housing need profile" card; trend chart since 2016 | **Low** (Data Hub) / **Medium** (PDF) |
+| **PBO — Ongoing Need 2024** [sampled, 28 pp.] | PBO's "ongoing need" = SSHA net need + active HAP tenancies (≈113,512 HH end-2024). Sections: total, **by local authority** (§4), age profile (§5), children (§6), housing supply context (§7). Has accompanying interactive viz. | Yes — tables in §3, §4, §5, §6 | A "true demand" figure per constituency alongside SSHA net need (with the methodological caveat surfaced honestly); composition stories (children-in-need) | **Medium** — PDF tables; or replicate the calc directly (SSHA + HAP01) |
+| **NOAC LA Performance Indicator Report 2024** [sampled, 240 pp.] | Section 1 = **Housing**: 7 indicators across all 31 LAs, year-by-year 2015–2024. **H1** Social Housing Stock; **H2** Housing Vacancies (% vacant); **H3** Average Re-letting Time + cost; **H4** Maintenance direct cost; **H5** Private Rented Sector Inspections; **H6** Long-term Homeless Adults; **H7** Social Housing Retrofit. | Yes — each indicator has a wide-format table of all 31 LAs × multiple years | **The strongest "council performance" feature in the catalogue.** Per-LA performance card, league-table view, year-on-year trend. Pair with TD/constituency to ask "is your council vacant-filling slower than the median?" | **Medium** — table-region extraction per indicator |
+| **HAP Performance Indicators 2024** [sampled, 16 pp.] | National-level: household composition split, average HAP cost (€770 net Exchequer/month 2024), HAP→social-housing exits (4,691 in 2024), Homeless HAP set-ups (3,106 in 2024), discretion rates (up to 35% / 50% DRHE), 99% rent collection rate. **Per-LA HAP funding XLSX exists**: https://assets.gov.ie/static/documents/HAP_Funding_and_Delivery_Statistics_to_Q4_2024.xlsx | Mostly national + per-LA XLSX appendix | National HAP context; per-LA HAP funding feature using the XLSX | **Low** for XLSX; **Medium** for embedded PDF tables |
+
+### C. Reference / interactive (browse-only — not enrichment feeds)
+
+These are sites/maps/dashboards. Useful for design inspiration and for linking out
+from the app; not extractable as data feeds.
+
+- **CSO Census Mapping / CSO Visual** — interactive Census map (county → SA);
+  good design reference for our own map view.
+- **Pobal HP Deprivation interactive map** — pattern for "score by area" UI.
+- **Galway County Council dashboards** — civic-tech precedent; shows what LAs
+  themselves consider worth publishing (and what they don't).
+- **Housing Agency Data Hub** — already machine-readable, prefer over PDF
+  scraping for SSHA.
+- **DHLGH Open Data portal + data.gov.ie housing tag** — discovery for new
+  datasets as they get published; quarterly refresh worth a cron check.
+
+### D. Qualitative / policy PDFs (context for editorial + page copy)
+
+Useful for explanatory copy, glossary entries, and "why this matters" framing on
+pages — **not data feeds**.
+
+- **Housing Commission Report** — macro policy review (33,400–81,400 homes/year
+  needed 2024–2050). Source for any "national-context" callout.
+- **C&AG — Housing schemes: funding and delivery (2025)** — audit framing on
+  delivery vs spend; useful for editorial caveats on official figures.
+- **Ombudsman — Investigation of the HAP scheme** — cited by PBO; supports the
+  "HAP isn't permanent housing" framing if we want to expose ongoing-need.
+- **Disability Federation of Ireland — The Right Home** — disability-housing
+  needs context; would inform a future "specific accommodation requirement"
+  drill-down.
+- **Focus Ireland slide decks** — methodology for understanding allocations
+  data gaps; supports the FOI wording above.
+- **Spending Review 2021 SHCEP analyses, CSO Financial Schemes summary,
+  publicpolicy.ie expenditure review, AHB overview** — programme-mechanics
+  background for the glossary (helps avoid the "Capital vs Current SHCEP"
+  confusion).
+- **Dublin Inquirer, Irish Times articles** — current journalism / data-gap
+  reporting; cite when surfacing the data-transparency story.
+
+### E. Live operational data (not open — would need different access)
+
+- **SHCEP property-level dataset** (PSB Data Catalogue) — daily-updated, API
+  available, **but restricted (personal data)**. Would need DPIA + data-sharing
+  agreement. Not viable as open enrichment.
+- **HAP Shared Services Centre** data referenced by PBO — only released via
+  correspondence; not open.
+
+### F. Cross-cutting recommendations
+
+If/when this work is picked up:
+
+1. **Start with HSA07 + HAP01 via PxStat REST.** Cheapest, most polished, gives
+   30-year per-LA series for the two foundational schemes. Single Polars puller
+   pattern reusable for every other CSO table (HAP17/20/26/32, HSA…).
+2. **Census SAPS is the single biggest unlock** — it gives the population
+   denominator for every other dataset and lets us express need *per head* by
+   constituency. Doing the SA→constituency spatial join once pays off
+   forever. Use the 2023-revision constituency boundary GeoJSON from data.gov.ie.
+3. **Housing Agency Data Hub** beats PDF-scraping SSHA — go to the source.
+4. **Construction Status Report CSV** is the only quarterly per-scheme pipeline
+   feed; quarterly cron makes sense.
+5. **NOAC housing tables** are the most under-used civic dataset in the
+   catalogue — a per-LA "council performance" card would be a genuinely new
+   civic feature in the app, not duplicating anything in member_overview or
+   votes.
+6. **Geography is the blocker for honest UX**, not data scarcity: LAs ≠
+   constituencies, regions ≠ constituencies. Plan the crosswalk story (and the
+   "many-to-many" caveat copy) before the first page is built.
+7. **Skip the restricted data** (SHCEP property-level, HAP-SSC raw). The
+   open-data + FOI route is sufficient for everything we'd want to surface
+   publicly.
+8. **Per-PDF assessment caveat:** I sampled SSHA 2024/2025, PBO, NOAC TOC + housing
+   indicator list, HAP Performance Indicators, and the four direct CSVs / two
+   PxStat API tables. Everything else here is read from publisher metadata —
+   verify column-by-column before building.
+
+---
+
+## Potential app improvements unlocked by this data (2026-05-30)
+
+Brainstorm, not a spec. The app is currently TD-organised; this data is mostly
+**local-authority / region / Small-Area** scale. The biggest unlock is adding a
+**constituency dimension** — not just "what is my TD doing" but "what does that
+mean against the conditions in their constituency".
+
+### 1. New page candidates
+
+| Page | Data spine | What it answers | Notes |
+|---|---|---|---|
+| **Housing & Social Housing** (per constituency + per LA) | SSHA + HAP01 + HSA07 + Construction Status Report + Homelessness CSV | "What's the social-housing picture where I live — waiting list, supply pipeline, homelessness, HAP reliance?" | Most natural new page; pairs cleanly with member_overview |
+| **Council Performance** (per LA, league-table view) | NOAC H1–H7 | "How is my council doing on vacancy turnaround, retrofit, PRS inspections, long-term homelessness vs other LAs?" | New civic-accountability angle; nothing in current app does this. Best feature in this catalogue not yet anywhere else |
+| **Constituency Profile / Context** (per constituency, all dimensions) | Census SAPS + Pobal deprivation + RTB rents + above | "Who lives here, what do they rent, how deprived, what's the housing need?" | Becomes the reusable backdrop that every other page can sip from |
+| **True Demand vs Stated Need** (national + per LA) | SSHA + HAP01 (PBO methodology) | Reproduce the PBO "ongoing need" figure live; show the gap between official "net need" and reality | Editorial / accountability piece; cite PBO |
+
+### 2. Enrichments to existing pages
+
+Rather than only standing up new pages, the data lets every existing page get
+a "civic context" sidebar/footer keyed on the TD's constituency:
+
+- **`member_overview`** — add a "constituency at a glance" panel: waiting-list
+  size, HAP take-up, deprivation decile, recent housing completions. Frames
+  every other section ("their attendance vs constituency need").
+- **`votes`** — on housing-related votes, surface the TD's constituency
+  housing-need backdrop next to their vote. Honest accountability: "voted X
+  while constituency has Y on the list".
+- **`legislation`** — when a bill touches housing, show what's being legislated
+  *for* (national + constituency-level need).
+- **`questions` / debates** — when a TD asks a housing PQ, surface the
+  constituency's housing figures alongside. Currently the question shows in a
+  vacuum.
+- **`lobbying`** — when a property/REIT/housing firm appears on the lobbying
+  register, show the constituency housing context of who they're lobbying.
+- **`interests` / `payments`** — overlay deprivation index on TD constituencies
+  to give silent context on the financial-disclosure picture.
+- **`statutory_instruments` / `public_appointments`** — housing-sector SIs and
+  appointments to housing bodies (Housing Agency, LDA, AHB regulator) get a
+  housing-need context.
+
+### 3. Cross-cutting capabilities unlocked
+
+- **Geographic dimension.** First time the app has a real spatial story. Even
+  without a map view, the constituency dimension lets every page filter / sort
+  by area, not just by TD. (A constituency map view is a separate, larger
+  follow-up.)
+- **Historical trend.** HSA07 goes back to 1994; SSHA back to 2016; NOAC since
+  2015 — 10–30 year per-LA series support "long-arc" charts the app doesn't
+  currently have.
+- **Reusable `constituency_context()` component.** A single render helper that
+  takes a TD/constituency and returns a small card of housing+census+deprivation
+  stats. Used everywhere; built once.
+- **Editorial denominators.** Most raw figures (e.g. "8,787 homeless
+  households") are useless without a denominator. SAPS + boundaries give us
+  per-constituency denominators for honest framing.
+- **Cross-source civic synthesis.** "Council says X% vacancy, waiting list
+  shows Y need, RTB shows €Z median rent, Census shows W private-rented" — the
+  app could be the first place that surfaces these together at constituency
+  level.
+
+### 4. Glossary / editorial wins
+
+- New glossary entries: HAP, SHCEP (with the Capital-vs-Current note), AHB,
+  RAS, SSHA, NOAC, SHIP/CALF/CAS, Direct Provision.
+- Methodology footnote pattern when surfacing waiting-list figures (the
+  HAP/RAS/SHCEP exclusions, the homelessness-count divergence — all already
+  written up in the SSHA summary above).
+- "Why this matters" copy sourced from Housing Commission / C&AG / Ombudsman /
+  DFI for design-time editorial framing.
+
+### 5. Honest limits — what this data **won't** fix
+
+- **TD-level housing accountability.** Most data is LA / region / Small Area.
+  We can show *constituency context* around a TD, not *what a TD personally
+  did about housing in their patch*.
+- **Allocations transparency.** The actual "who got the house and why"
+  question — addressed by the FOI wording above — is **not** in any of these
+  open sources. That's a data gap the catalogue documents, not solves.
+- **Real-time / current state.** Almost everything is annual (SSHA, NOAC, HSA07)
+  or quarterly (Construction Status). Monthly homelessness is the freshest.
+- **Geography boundaries shift.** Constituency boundaries were revised in 2023
+  and will revise again. Any constituency-level rollup needs versioned
+  boundaries to stay honest across years.
+- **Map UI is a separate project.** Mentioned above as an unlock, but adding
+  a real interactive map of Ireland is a much bigger lift than the data
+  pulls — flag as a deferred follow-up, not a same-sprint task.
