@@ -26,7 +26,7 @@ table or a surname-disambiguated fallback matcher; deferred until requested.
 Historic payment rows (former TDs no longer in the registry) also retain NULL.
 That's correct — they have no Member Overview page to surface them on.
 
-Run: `python pipeline_sandbox/payments_member_enrichment.py`
+Run: `python payments_member_enrichment.py`
 """
 from __future__ import annotations
 

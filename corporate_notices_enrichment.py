@@ -20,8 +20,8 @@ appointing party — the rest are appointed by smaller institutions or
 individuals.
 
 CLI:
-    python pipeline_sandbox/corporate_notices_enrichment.py            # print summary, no write
-    python pipeline_sandbox/corporate_notices_enrichment.py --write    # write parquet + coverage JSON
+    python corporate_notices_enrichment.py            # print summary, no write
+    python corporate_notices_enrichment.py --write    # write parquet + coverage JSON
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ from pathlib import Path
 
 import polars as pl
 
-_ROOT = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(_ROOT))
 
 _SRC = _ROOT / "data" / "silver" / "iris_oifigiuil" / "iris_notice_events_clean.csv"

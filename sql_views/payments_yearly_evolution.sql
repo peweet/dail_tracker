@@ -4,7 +4,7 @@
 -- Aggregation and ranking live here (pipeline layer), not in Streamlit.
 -- rank_high: 1 = highest paid member for that year (most total PSA received)
 --
--- party_name and constituency enriched by pipeline_sandbox/payments_member_enrichment.py
+-- party_name and constituency enriched by payments_member_enrichment.py
 -- (normalise_join_key join against flattened_members.csv — 34th Dail members only).
 -- Pre-34th Dail payment rows will have empty party_name/constituency by design.
 --

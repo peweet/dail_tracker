@@ -14,6 +14,7 @@ CLI:
 """
 from __future__ import annotations
 
+import argparse
 import logging
 import subprocess
 import sys
@@ -42,10 +43,11 @@ def step_extract() -> bool:
 
 def step_member_enrichment() -> bool:
     _hr("[2/2] payments_member_enrichment — add unique_member_code / party / constituency")
-    return _subprocess("pipeline_sandbox/payments_member_enrichment.py")
+    return _subprocess("payments_member_enrichment.py")
 
 
 def main() -> int:
+    argparse.ArgumentParser(description=__doc__.splitlines()[0]).parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     started = time.monotonic()
     failures: list[str] = []

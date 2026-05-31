@@ -101,7 +101,7 @@ def step_appointments_gold() -> bool:
 def step_corporate_gold() -> bool:
     _hr("[6/6] corporate_notices_enrichment — corporate_notices.parquet")
     t = time.monotonic()
-    script = _ROOT / "pipeline_sandbox" / "corporate_notices_enrichment.py"
+    script = _ROOT / "corporate_notices_enrichment.py"
     r = subprocess.run([sys.executable, str(script), "--write"], cwd=_ROOT)
     print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
     return r.returncode == 0

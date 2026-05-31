@@ -7,7 +7,7 @@ Stage 2b: TD profile (memberships, offices, tenure timeline).
 Data flows through the four registered analytical views
 (v_committee_assignments, v_committee_office_holders,
 v_committee_member_detail, v_committee_party_seats), produced from
-pipeline_sandbox/committees_long_format_etl.py. The wide→long reshape
+committees_long_format_etl.py. The wide→long reshape
 that used to live in this page was the actual hot path; moving it to
 the sandbox + views collapses each render to a flat retrieval.
 """

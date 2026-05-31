@@ -1,5 +1,5 @@
 """
-Committees long-format ETL — pipeline_sandbox.
+Committees long-format ETL.
 
 Reads the silver flattened-members parquet for both chambers and unpivots
 the wide ``committee_N_*`` / ``office_N_*`` slot columns into long-format
@@ -23,7 +23,7 @@ Outputs (both with zstd / level=3 / statistics=True):
 
 Run ad-hoc::
 
-    python pipeline_sandbox/committees_long_format_etl.py
+    python committees_long_format_etl.py
 
 Safe to re-run; outputs are overwritten atomically by Polars.
 """

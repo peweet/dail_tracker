@@ -1,6 +1,6 @@
 -- v_corporate_notices — corporate distress / register notices from Iris Oifigiúil.
 -- Source: data/gold/parquet/corporate_notices.parquet (produced by
--- pipeline_sandbox/corporate_notices_enrichment.py). Personal insolvency
+-- corporate_notices_enrichment.py). Personal insolvency
 -- (individual bankruptcies) is excluded by policy at the enrichment level —
 -- see [[feedback_personal_insolvency_privacy]].
 --
