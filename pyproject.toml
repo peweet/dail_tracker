@@ -36,6 +36,10 @@ dependencies = [
     "requests>=2.31",
     "beautifulsoup4>=4.12",
     "flatten-json>=0.1.14",
+    "jsonschema>=4.0,<5",  # validate-at-fetch of Oireachtas API envelopes (services/schema_validation.py)
+    "orjson>=3.9",         # fast JSON read/write in manifest.py, members_api_service.py, member_interests.py, wiki_data.py
+    "regex>=2023.0",       # \p{Lu} unicode-property patterns in member_interests.py (stdlib re can't do these)
+    "openpyxl>=3.1",       # charity_normalise.py reads the Charities Register .xlsx via load_workbook
 ]
 
 [project.urls]
@@ -68,6 +72,7 @@ dev = [
     "ruff>=0.11",
     "responses>=0.25",  # HTTP mocking for tests of services/http_engine.py and API scrapers
     "duckdb>=1.4,<2",   # test_sql_views.py and test_gold_df.py register views via DuckDB
+    "pandera[polars]>=0.20",  # DataFrameModel schema checks (import pandera.polars) in the silver/gold tests
 ]
 
 # Everything — for a full local setup

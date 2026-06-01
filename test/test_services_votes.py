@@ -62,10 +62,18 @@ def test_build_vote_url_targets_dail_chamber():
 
 
 def _page_response(results: list, result_count: int) -> dict:
-    """Build a fake API page response matching the live API shape."""
+    """Build a fake API page response matching the live API shape.
+
+    Every real /v1/votes result item carries a ``division`` wrapper (see the
+    bronze samples under test/fixtures/api/). Inject it on any item missing one
+    so the page passes the validate-at-fetch schema check in fetch_json
+    (services/schema_validation.py) — while leaving each item's other keys
+    untouched so the pass-through assertions below still hold.
+    """
+    normalised = [{"division": item.get("division", {}), **item} for item in results]
     return {
         "head": {"counts": {"resultCount": result_count}},
-        "results": results,
+        "results": normalised,
     }
 
 

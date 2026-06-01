@@ -1063,10 +1063,15 @@ Two registered SQL views built on top:
 - (Phase 2) `v_constituency_civic_context` — SAPS rolled up to current Dáil constituency via Tailte Éireann boundary spatial-join. **Blocked on geopandas install + crosswalk script in pipeline_sandbox/**.
 
 Also landed (LA-axis, owned by the parallel housing context):
-`pipeline_sandbox/housing_la_master_build.py` → `data/gold/parquet/housing_la_master.parquet`
+`pipeline_sandbox/housing_la_master_build_experimental.py` → `data/gold/parquet/housing_la_master.parquet`
 (one row per Local Authority, ~30 metric cols + per-metric provenance).
 LA-axis and constituency-axis serve different pages — locality profile
 (LA) vs member overview (constituency) — and do not collide.
+**`_experimental` suffix** on this and ~24 other housing-domain extractors
+in `pipeline_sandbox/` is intentional: the housing locality page is a
+provisional PoC, not committed for promotion. Files without the suffix
+(`cso_pxstat_extract.py`, `cbi_registers_extract.py`,
+`public_appointments_enrichment.py`) are not in scope of that PoC.
 
 #### H.1 — Future candidate inventory
 

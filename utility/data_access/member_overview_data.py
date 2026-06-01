@@ -22,16 +22,14 @@ if str(_UTIL) not in sys.path:
 import duckdb  # noqa: E402 — sys.path mutation above is required before this import
 import streamlit as st  # noqa: E402 — sys.path mutation above is required before streamlit import
 
+from data_access._sql_registry import (  # noqa: E402 — sys.path mutation above
+    SQL_VIEWS_DIR as _SQL_VIEWS,
+)
+from data_access._sql_registry import (  # noqa: E402
+    absolutize_data_paths as _absolutize_data_paths,
+)
+
 _log = logging.getLogger(__name__)
-_PROJECT_ROOT = _HERE.parents[1]
-_SQL_VIEWS = _PROJECT_ROOT / "sql_views"
-
-
-def _absolutize_data_paths(sql: str) -> str:
-    # SQL views use literals like read_parquet('data/silver/...').
-    # DuckDB resolves those against CWD, so a Streamlit launch from utility/
-    # breaks queries. Rewrite to absolute project paths at registration time.
-    return sql.replace("'data/", f"'{_PROJECT_ROOT.as_posix()}/data/")
 
 
 # Ordered — payments_base must precede its dependents

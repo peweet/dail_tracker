@@ -36,7 +36,7 @@ import polars as pl
 
 # Share canon() + SAPS_CODE + CANONICAL_LAS from the master builder
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from housing_la_master_build import CANONICAL_LAS, SAPS_CODE, canon  # noqa: E402
+from housing_la_master_build_experimental import CANONICAL_LAS, SAPS_CODE, canon  # noqa: E402
 
 _ROOT = Path(__file__).resolve().parents[1]
 _PARQ = _ROOT / "data" / "gold" / "parquet"
