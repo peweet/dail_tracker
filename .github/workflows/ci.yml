@@ -29,6 +29,13 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen --extra dev
-      # Skip tests that require committed pipeline output (integration, sql)
-      # or external network (sources, bronze). These run locally / nightly.
+      # Skip markers that can't run in CI:
+      #   integration / sql / bronze — need committed pipeline output, but
+      #     data/gold is gitignored, so these are LOCAL-ONLY for now. Run them
+      #     after a pipeline run with:  uv run pytest -m "integration or sql or bronze"
+      #     (set DAIL_INTEGRATION_TESTS=1 for the view tests lacking fixtures).
+      #     They become CI-runnable once outputs are fixtured/built — see
+      #     doc/CI_CD.md Phase 6.
+      #   sources — external network. Source-URL health runs on a schedule via
+      #     .github/workflows/nightly.yml (pdf_endpoint_check.py), not here.
       - run: uv run pytest -m "not integration and not sql and not sources and not bronze" -v

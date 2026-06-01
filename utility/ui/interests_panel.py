@@ -1,3 +1,37 @@
+"""Per-TD interests panel — embedded in the /member-overview Interests section.
+
+Extracted from ``pages_code/interests.py`` (2026-06-01) so member-overview no
+longer imports a render body out of another page. Pure rendering + data-access
+retrieval, no business logic — mirrors ``ui/vote_explorer.py``.
+"""
+
+from __future__ import annotations
+
+import datetime
+from html import escape as _h
+
+import pandas as pd
+import streamlit as st
+from data_access.interests_data import fetch_td_interests
+from ui.avatars import avatar_credit_html, avatar_data_url
+from ui.avatars import initials as _initials
+from ui.components import (
+    clean_meta,
+    empty_state,
+    evidence_heading,
+    interest_declaration_item,
+    member_profile_header,
+    pill,
+    todo_callout,
+    year_selector,
+)
+from ui.entity_links import source_link_html
+from ui.export_controls import export_button
+from ui.source_pdfs import interests_pdf_url
+
+from config import INTEREST_CATEGORY_LABELS, INTEREST_CATEGORY_ORDER
+
+
 def _real_descriptions(rows: pd.DataFrame) -> list[str]:
     """Return non-empty, non-boilerplate interest_text entries, deduplicated."""
     if rows.empty or "interest_text" not in rows.columns:
