@@ -1,4 +1,5 @@
 import logging
+import sys
 
 import requests
 
@@ -462,7 +463,7 @@ def endpoint_checker(manual_urls=manual_endpoints, urls=urls, session=session, t
 
 if __name__ == "__main__":
     session = requests.Session()
-    broken = endpoint_checker(urls, session=session)
+    broken, _ = endpoint_checker(urls=urls, session=session)
 
     if not broken:
         print("Endpoint check complete. All URLs are accessible and working correctly.")
@@ -472,3 +473,6 @@ if __name__ == "__main__":
         for url in broken:
             print(f" - {url}")
         print("See endpoint_check.log for full details.")
+
+    # Non-zero exit so CI (nightly endpoint-health workflow) can detect link rot.
+    sys.exit(1 if broken else 0)
