@@ -1,0 +1,22 @@
+section_letter,section_label,division_min,division_max
+A,"Agriculture, forestry and fishing",1,3
+B,"Mining and quarrying",5,9
+C,"Manufacturing",10,33
+D,"Electricity, gas, steam and air conditioning supply",35,35
+E,"Water supply; sewerage, waste management and remediation activities",36,39
+F,"Construction",41,43
+G,"Wholesale and retail trade; repair of motor vehicles and motorcycles",45,47
+H,"Transportation and storage",49,53
+I,"Accommodation and food service activities",55,56
+J,"Information and communication",58,63
+K,"Financial and insurance activities",64,66
+L,"Real estate activities",68,68
+M,"Professional, scientific and technical activities",69,75
+N,"Administrative and support service activities",77,82
+O,"Public administration and defence; compulsory social security",84,84
+P,"Education",85,85
+Q,"Human health and social work activities",86,88
+R,"Arts, entertainment and recreation",90,93
+S,"Other service activities",94,96
+T,"Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use",97,98
+U,"Activities of extraterritorial organisations and bodies",99,99

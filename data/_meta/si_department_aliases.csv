@@ -1,0 +1,21 @@
+alias,department_key,department_label
+finance,finance,Department of Finance
+public expenditure,public_expenditure,"Department of Public Expenditure, NDP Delivery and Reform"
+health,health,Department of Health
+agriculture,agriculture,"Department of Agriculture, Food and the Marine"
+children,children_disability_equality,"Department of Children, Disability and Equality"
+climate,climate_energy_environment,"Department of Climate, Energy and the Environment"
+environment,climate_energy_environment,"Department of Climate, Energy and the Environment"
+culture,culture_communications_sport,"Department of Culture, Communications and Sport"
+tourism,culture_communications_sport,"Department of Culture, Communications and Sport"
+enterprise,enterprise,"Department of Enterprise, Tourism and Employment"
+further and higher education,further_higher_education,"Department of Further and Higher Education, Research, Innovation and Science"
+education,education,Department of Education
+foreign affairs,foreign_affairs,Department of Foreign Affairs
+housing,housing,"Department of Housing, Local Government and Heritage"
+justice,justice,"Department of Justice, Home Affairs and Migration"
+transport,transport,Department of Transport
+social protection,social_protection,Department of Social Protection
+rural and community,rural_community,Department of Rural and Community Development
+defence,defence,Department of Defence
+posts and telegraphs,posts_telegraphs,Department of Posts and Telegraphs
