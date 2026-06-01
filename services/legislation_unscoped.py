@@ -46,6 +46,11 @@ def fetch_all_bills() -> tuple[list[dict], int]:
 
         if expected is None:
             expected = page["head"]["counts"]["resultCount"]
+            if not isinstance(expected, int):
+                raise ValueError(
+                    f"Bill pagination: expected integer head.counts.resultCount, got {expected!r}. "
+                    "The legislation API returned a malformed count."
+                )
             logger.info(f"Bill pagination | expected={expected} | page_size={PAGE_SIZE}")
 
         page_results = page.get("results", [])

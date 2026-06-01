@@ -162,6 +162,7 @@ Required:
 8. CSV export of current displayed view
 9. better empty states
 10. shared CSS polish
+11. Same in spirit to TheyWorkForYou (UK) who has a Register member interest page
 
 Forbidden:
 - backend changes

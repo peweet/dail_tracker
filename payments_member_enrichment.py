@@ -36,7 +36,7 @@ from pathlib import Path
 
 import polars as pl
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from normalise_join_key import normalise_df_td_name  # noqa: E402

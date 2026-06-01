@@ -56,11 +56,11 @@ _DOMAIN_FILES = [
     # via the server-side Catalog Error logs.
     "member_zz_question_ministries.sql",
     "member_zz_question_top_topics.sql",
-    # Constituency civic context (added 2026-05-31).
-    # Sourced from cso_fy005.parquet (CSO PxStat — Census 2022 population per
-    # Dáil constituency, 2017 boundaries). Wide one row per constituency.
-    # See sql_views/member_constituency_demographics.sql for the 36/43 vs
-    # 7/43 boundary-split match coverage note.
+    # Constituency civic context (added 2026-05-31; re-sourced 2026-06-01).
+    # Sourced from ec_constituency_pop_2022.parquet (Electoral Commission
+    # Constituency Review 2023, App. 2 — Census 2022 population on the current
+    # 2023 boundaries). One row per constituency, 43/43 clean join to the
+    # registry. Replaces the earlier 2017-boundary cso_fy005 source.
     "member_constituency_demographics.sql",
 ]
 

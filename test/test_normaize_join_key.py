@@ -129,7 +129,7 @@ def test_join_keys_are_unique_in_members():
     df = pl.read_csv(path, columns=["full_name", "first_name", "last_name"])
     name_col = pl.concat_str([pl.col("first_name"), pl.col("last_name")], separator=" ")
     df = df.with_columns(name_col.alias("combined_name"))
-    keys = normalise_df_td_name(df, "combined_name")
-    df = df.with_columns(keys.alias("join_key"))
-    duplicated = df.filter(pl.col("join_key").is_duplicated())
+    # normalise_df_td_name returns the frame with a `join_key` column appended.
+    keyed = normalise_df_td_name(df, "combined_name")
+    duplicated = keyed.filter(pl.col("join_key").is_duplicated())
     assert len(duplicated) == 0, f"Anagram collision detected — these TDs share a join key:\n{duplicated}"

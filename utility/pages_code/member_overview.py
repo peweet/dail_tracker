@@ -262,24 +262,25 @@ def _si_signed(_conn, join_key: str) -> pd.DataFrame:
     )
 
 
-# CSO PxStat deep link — surfaces the source table for citizen verification.
-# This is the only external URL specific to constituency demographics; the rest
-# of the provenance is captured inline in the SQL view header.
-_CSO_FY005_URL = "https://data.cso.ie/table/FY005"
+# Electoral Commission review deep link — surfaces the source report for citizen
+# verification. This is the only external URL specific to constituency
+# demographics; the rest of the provenance is captured inline in the SQL view header.
+_EC_REVIEW_URL = "https://www.electoralcommission.ie/publications/constituency-review-reports/"
 
 
 @st.cache_data(ttl=300)
 def _constituency_context(_conn, constituency: str) -> dict:
     """Return the v_member_constituency_demographics row for ``constituency``,
-    or an empty dict when the current (2023-boundary) name has no match in
-    FY005 (the 2017-boundary table). Empty dict is the contract — the caller
-    distinguishes between "no FY005 join" and "no constituency at all"."""
+    or an empty dict when the name has no row. With the Electoral Commission
+    (2023-boundary) source every current constituency matches 43/43, so the
+    empty-dict branch is now a defensive fallback rather than the common
+    boundary-split case it used to guard."""
     if not constituency:
         return {}
     df = _q(
         _conn,
-        "SELECT population_2016, population_2022, pct_change_2016_2022,"
-        " td_seats_2022, population_per_td_2022, boundaries_label, source_key"
+        "SELECT population_2022, population_per_td, td_seats,"
+        " boundaries_label, source_key"
         " FROM v_member_constituency_demographics"
         " WHERE constituency_name = ?",
         [constituency],
@@ -1175,38 +1176,23 @@ def _render_browse(conn) -> None:
     )
 
 
-# ── Constituency civic context (Census 2022 / CSO PxStat FY005) ───────────────
+# ── Constituency civic context (Census 2022 / Electoral Commission 2023) ──────
 # Renders one info card under the hero stat strip showing the constituency's
 # headline civic numbers, with an inline source attribution that double-clicks
-# as a verification link to the original CSO table.
+# as a verification link to the Electoral Commission review.
 #
-# Two render branches, both honest about the data:
-#   - clean match: 36/43 current constituencies map directly to FY005's
-#     2017-boundary names. Show population, growth, seats, per-TD.
-#   - boundary-split: 7/43 current constituencies (Dublin Fingal East/West,
-#     Laois, Offaly, Tipperary North/South, Wicklow-Wexford) have no FY005
-#     row because they were created/renamed in the 2023 Electoral Commission
-#     boundary review. Show a transparent caveat card pointing back to the
-#     2017-boundary parent on CSO PxStat. NO interpolated numbers.
-
-
-_SPLIT_CONSTITUENCY_PARENTS: dict[str, str] = {
-    "Dublin Fingal East":  "Dublin Fingal",
-    "Dublin Fingal West":  "Dublin Fingal",
-    "Tipperary North":     "Tipperary",
-    "Tipperary South":     "Tipperary",
-    "Laois":               "Laois-Offaly",
-    "Offaly":              "Laois-Offaly",
-    "Wicklow-Wexford":     "Wicklow and Wexford (split for 2024)",
-}
+# Source is now the Electoral Commission's 2023 review (2023 boundaries), which
+# matches all 43 current constituencies. The empty-ctx branch below is retained
+# only as a defensive fallback (e.g. an unexpected/renamed constituency string);
+# in normal operation every constituency resolves to the clean-match branch.
 
 
 def _render_constituency_context(constituency: str, ctx: dict) -> None:
     """Render the constituency civic-context strip with built-in provenance.
 
-    A clean-match constituency (FY005 row found) gets the headline figures.
-    A boundary-split constituency gets a transparent caveat card pointing to
-    the 2017-boundary parent. Never interpolate or estimate across the split.
+    A matched constituency (Electoral Commission row found) gets the headline
+    figures. An unmatched constituency gets a transparent "no figure on file"
+    caveat card. Never interpolate or estimate a population figure.
     """
     if not constituency:
         return
@@ -1216,17 +1202,9 @@ def _render_constituency_context(constituency: str, ctx: dict) -> None:
 
     if ctx:
         pop22 = int(ctx.get("population_2022") or 0)
-        pop16 = int(ctx.get("population_2016") or 0)
-        pct   = float(ctx.get("pct_change_2016_2022") or 0.0)
-        per_td = int(ctx.get("population_per_td_2022") or 0)
-        seats = int(ctx.get("td_seats_2022") or 0)
+        per_td = int(ctx.get("population_per_td") or 0)
+        seats = int(ctx.get("td_seats") or 0)
         boundary_caption = str(ctx.get("boundaries_label") or "Census 2022")
-
-        growth_html = (
-            f'<span class="mo-cc-pos">+{pct:.1f}% since 2016</span>'
-            if pct >= 0
-            else f'<span class="mo-cc-neg">{pct:.1f}% since 2016</span>'
-        )
 
         body = (
             f'<div class="mo-cc-row">'
@@ -1235,34 +1213,21 @@ def _render_constituency_context(constituency: str, ctx: dict) -> None:
             f'<div class="mo-cc-row">'
             f'  <strong class="mo-cc-headline">{pop22:,}</strong>'
             f'  <span class="mo-cc-headline-label">residents at Census 2022</span>'
-            f'  <span class="mo-cc-sep">·</span>'
-            f'  {growth_html}'
             f'</div>'
             f'<div class="mo-cc-row mo-cc-row-secondary">'
             f'  <strong>{per_td:,}</strong> per TD'
             f'  <span class="mo-cc-sep">·</span>'
             f'  <strong>{seats}</strong> {"seat" if seats == 1 else "seats"}'
-            f'  <span class="mo-cc-sep">·</span>'
-            f'  Population 2016: {pop16:,}'
             f'</div>'
         )
     else:
-        # Boundary-split fallback. Cite the 2017-boundary parent if we have one;
-        # otherwise just be transparent that we have no CSO row for this
-        # post-2023 constituency.
-        parent = _SPLIT_CONSTITUENCY_PARENTS.get(constituency)
-        if parent:
-            note = (
-                f"Created in the 2023 Electoral Commission boundary review "
-                f"(formerly part of <strong>{_h(parent)}</strong>). The CSO "
-                f"hasn't published Census 2022 figures on the new boundaries — "
-                f"the next per-constituency snapshot comes with Census 2027."
-            )
-        else:
-            note = (
-                "No CSO Census 2022 population figures are on file for this "
-                "constituency yet."
-            )
+        # Defensive fallback only. Since the Electoral Commission source matches
+        # all 43 current constituencies, this branch fires only for an
+        # unexpected/unrecognised constituency string. Be transparent rather
+        # than guess a figure.
+        note = (
+            "No Census 2022 population figure is on file for this constituency."
+        )
         body = (
             f'<div class="mo-cc-row">'
             f'  <span class="mo-cc-kicker">Constituency · {_h(constituency)}</span>'
@@ -1271,24 +1236,24 @@ def _render_constituency_context(constituency: str, ctx: dict) -> None:
             # caveat copy doesn't force a flex-line break before/after it.
             f'<p class="mo-cc-caveat">{note}</p>'
         )
-        boundary_caption = "Census 2022 (2017 boundaries — split case)"
+        boundary_caption = "Census 2022 (2023 boundaries)"
 
     info_card(body, border_left_color="var(--accent)", padding="0.7rem 1rem")
 
-    # Inline verification footer — visible source attribution + deep link to
-    # the canonical CSO PxStat table so any reader can verify the figure
+    # Inline verification footer — visible source attribution + deep link to the
+    # Electoral Commission review so any reader can verify the figure
     # themselves. Project pattern: provenance is a first-class UI element,
     # not a hidden expander.
-    cso_chip = source_link_html(
-        _CSO_FY005_URL,
-        "Verify at CSO PxStat (FY005)",
-        aria_label="Open the CSO PxStat table FY005 in a new tab",
+    source_chip = source_link_html(
+        _EC_REVIEW_URL,
+        "Verify in the Electoral Commission review",
+        aria_label="Open the Electoral Commission Constituency Review Report 2023 in a new tab",
     )
     st.html(
         f'<div class="mo-cc-source">'
         f'<span class="mo-cc-source-label">Source · </span>'
-        f'<span class="mo-cc-source-body">CSO Census 2022 · {_h(boundary_caption)}</span>'
-        f'<span class="mo-cc-source-link"> · {cso_chip or ""}</span>'
+        f'<span class="mo-cc-source-body">CSO Census 2022, via Electoral Commission Constituency Review 2023 · {_h(boundary_caption)}</span>'
+        f'<span class="mo-cc-source-link"> · {source_chip or ""}</span>'
         f'</div>'
     )
 
@@ -1602,12 +1567,11 @@ def _render_stage2(
             ]
         )
 
-    # ── Constituency civic context (CSO Census 2022 FY005) ──────────────────
+    # ── Constituency civic context (Census 2022 / Electoral Commission 2023) ─
     # Sits between the TD-axis stat strip (about this TD) and the section nav
     # (about this TD's record). Anchors the page to the constituency the TD
-    # represents — population, growth, seats, per-TD. Honest about the
-    # 2017→2023 boundary mismatch: 36/43 constituencies render figures, 7/43
-    # render a transparent caveat.
+    # represents — population, seats, per-TD on the current 2023 boundaries
+    # (43/43 match; unmatched names get a transparent caveat).
     ctx = _constituency_context(conn, constituency)
     _render_constituency_context(constituency, ctx)
 

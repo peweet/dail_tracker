@@ -175,6 +175,17 @@ sponsors_df["bill_url"] = sponsors_df.apply(
     lambda row: f"https://www.oireachtas.ie/en/bills/bill/{row['bill_year']}/{row['bill_no']}", axis=1
 )
 
+# Sponsor-resolution flag: a null unique_member_code is NOT a missing member.
+# Government bills are sponsored by a ministerial office (sponsor_as_show_as =
+# "Minister for …"), not an individual TD/Senator. Distinguish member / office /
+# unresolved so downstream views don't read a blank code as "sponsor unknown".
+# See doc/DATA_LIMITATIONS.md §2.3 (nil vs missing vs extraction-failed).
+_code = sponsors_df["unique_member_code"].fillna("").astype(str).str.strip()
+_office = sponsors_df["sponsor_as_show_as"].fillna("").astype(str).str.strip()
+sponsors_df["sponsor_resolution"] = "unresolved"
+sponsors_df.loc[_office != "", "sponsor_resolution"] = "office"
+sponsors_df.loc[_code != "", "sponsor_resolution"] = "member"
+
 sponsors_df.to_parquet(
     SILVER_DIR / "parquet" / "sponsors.parquet",
     index=False,

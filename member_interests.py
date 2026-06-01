@@ -302,7 +302,7 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
     )
 
     df = df.with_columns(
-        pl.col("interest_code").replace(INTEREST_CODE_MAP, default=pl.col("interest_code")).alias("interest_category")
+        pl.col("interest_code").replace_strict(INTEREST_CODE_MAP, default=pl.col("interest_code")).alias("interest_category")
     )
 
     df = df.with_columns(
