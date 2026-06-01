@@ -4,6 +4,8 @@ import logging
 import requests
 from requests.adapters import HTTPAdapter
 
+from services.schema_validation import validate_if_known
+
 logger = logging.getLogger(__name__)
 
 session = requests.Session()
@@ -17,7 +19,13 @@ def fetch_json(url: str, timeout: tuple[int, int] = (10, 60)) -> tuple[dict, int
     response = session.get(url, timeout=timeout)
     response.raise_for_status()
     raw_bytes = len(response.content)
-    return response.json(), raw_bytes
+    payload = response.json()
+    # Validate-at-fetch: assert the Oireachtas API envelope still matches its
+    # registered schema before any flattener reads it (DAIL-019/020). No-op for
+    # unrecognised hosts/endpoints. Raises SchemaValidationError on drift; the
+    # caller lets it propagate so a systematic break fails loudly.
+    validate_if_known(url, payload)
+    return payload, raw_bytes
 
 
 def fetch_all(urls: list[str], max_workers: int = 5) -> tuple[list[dict], int, int]:

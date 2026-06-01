@@ -29,25 +29,18 @@ The shapes match what utility/pages_code/committees.py used to build in-page.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import duckdb
 import pandas as pd
 import streamlit as st
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_SQL_VIEWS = _PROJECT_ROOT / "sql_views"
-
-
-def _absolutize_data_paths(sql: str) -> str:
-    return sql.replace("'data/", f"'{_PROJECT_ROOT.as_posix()}/data/")
+from data_access._sql_registry import register_views
 
 
 @st.cache_resource
 def get_committees_conn() -> duckdb.DuckDBPyConnection:
     conn = duckdb.connect()
-    for sql_file in sorted(_SQL_VIEWS.glob("committees_*.sql")):
-        conn.execute(_absolutize_data_paths(sql_file.read_text(encoding="utf-8")))
+    register_views(conn, ["committees_*.sql"], swallow_errors=False)
     return conn
 
 
