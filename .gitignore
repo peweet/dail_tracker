@@ -266,3 +266,11 @@ members/
 scan_pdf/output/
 scan_pdf/target/
 lobbyist/raw/
+
+# === Curated reference data — hand-authored, NOT regenerable — MUST be tracked ===
+# Overrides the blanket *.csv / *.json rules above (last match wins) so these
+# source-of-truth lookup tables (si_department_aliases, loan_book_fund_aliases,
+# nace_v2_sections) are committed, not silently swallowed. Keep this block last.
+!data/_meta/
+!data/_meta/*.csv
+!data/_meta/*.json

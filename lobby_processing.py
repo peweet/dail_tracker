@@ -17,7 +17,7 @@ from config import (
     SILVER_PARQUET_DIR,
 )
 from quarantine import quarantine
-from utility.select_drop_rename_cols_mappings import lobbying_rename
+from select_drop_rename_cols_mappings import lobbying_rename
 
 SOURCE = "lobbying"
 
