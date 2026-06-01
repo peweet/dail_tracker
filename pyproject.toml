@@ -30,7 +30,7 @@ classifiers = [
 # automatically by the resolver — don't pin them here.
 dependencies = [
     "polars>=1.39",
-    "pandas>=2.2,<3.1",
+    "pandas>=2.2,<3.0",  # capped <3.0 for launch: pandas 3.0 + plotly 6.7 has an import-order pd.Series bug; revisit post-launch
     "numpy>=2.0",
     "PyMuPDF>=1.25",
     "requests>=2.31",
@@ -73,6 +73,7 @@ dev = [
     "responses>=0.25",  # HTTP mocking for tests of services/http_engine.py and API scrapers
     "duckdb>=1.4,<2",   # test_sql_views.py and test_gold_df.py register views via DuckDB
     "pandera[polars]>=0.20",  # DataFrameModel schema checks (import pandera.polars) in the silver/gold tests
+    "basedpyright>=1.39",  # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
 ]
 
 # Everything — for a full local setup
@@ -143,6 +144,40 @@ known-first-party = ["utility", "normalise_join_key"]
 [tool.pytest.ini_options]
 testpaths = ["test"]
 pythonpath = ["."]
+
+# ── basedpyright (scoped static type-checking) ───────────────────────────────
+# Deliberately NOT repo-wide. Type-checking pays off on the API/JSON boundary
+# (services/ + the pure-logic modules), where a wrong type is a real latent bug
+# — it already caught a null-resultCount crash in legislation_unscoped and a
+# lying `-> dict` return in members.py. It does NOT pay off on the pandas/polars
+# transform code, where every dataframe op degrades to Unknown/Any and would
+# bury real findings under hundreds of "partially unknown type" warnings.
+#
+# `[tool.basedpyright]` (not `[tool.pyright]`) is read only by basedpyright, so
+# the IDE's stock Pylance/pyright is unaffected. typeCheckingMode="standard"
+# keeps wrong-type / bad-operator / bad-return checks and drops the Unknown
+# family. The scoped tree is currently clean (0 errors), so CI fails on any new
+# type error. If a future stub false-positive appears and can't be annotated
+# away, snapshot it with `uv run basedpyright --writebaseline` (creates
+# basedpyright-baseline.json) rather than loosening a rule repo-wide.
+# Run locally:  uv run basedpyright
+[tool.basedpyright]
+include = [
+    "services",
+    "normalise_join_key.py",
+    "config.py",
+    "manifest.py",
+    # Already type-clean ETL scripts — costless to guard against future regressions.
+    "enrich.py",
+    "transform_votes.py",
+    "questions.py",
+]
+# Resolve third-party imports (polars/pandas/requests) from the uv-managed venv,
+# deterministically, in both local runs and CI (`uv sync` creates ./.venv).
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
 
 # Only files/dirs that actually exist on disk — `uv build` validates each entry.
 # Top-level standalone scripts (payments_full_psa_etl.py, oireachtas_pdf_poller.py

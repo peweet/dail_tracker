@@ -28,6 +28,13 @@ def load_members_payload() -> dict:
     if isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict) and "results" in data[0]:
         data = data[0]
 
+    if not isinstance(data, dict):
+        raise ValueError(
+            f"Unexpected members payload shape in {path}: expected a dict "
+            f"(or legacy [dict] wrapper), got {type(data).__name__}. "
+            "Re-fetch with get_or_create_members_payload(overwrite=True)."
+        )
+
     return data
 
 

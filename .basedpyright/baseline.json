@@ -1,0 +1,102 @@
+{
+    "files": {
+        "./services/dbsect_harvest.py": [
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 36,
+                    "endColumn": 43,
+                    "lineCount": 1
+                }
+            },
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 36,
+                    "endColumn": 43,
+                    "lineCount": 1
+                }
+            },
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 46,
+                    "endColumn": 67,
+                    "lineCount": 1
+                }
+            },
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 41,
+                    "endColumn": 58,
+                    "lineCount": 1
+                }
+            },
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 36,
+                    "endColumn": 43,
+                    "lineCount": 1
+                }
+            },
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 36,
+                    "endColumn": 43,
+                    "lineCount": 1
+                }
+            },
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 46,
+                    "endColumn": 90,
+                    "lineCount": 1
+                }
+            },
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 41,
+                    "endColumn": 65,
+                    "lineCount": 1
+                }
+            },
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 36,
+                    "endColumn": 43,
+                    "lineCount": 1
+                }
+            },
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 36,
+                    "endColumn": 43,
+                    "lineCount": 1
+                }
+            },
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 46,
+                    "endColumn": 81,
+                    "lineCount": 1
+                }
+            },
+            {
+                "code": "reportArgumentType",
+                "range": {
+                    "startColumn": 41,
+                    "endColumn": 67,
+                    "lineCount": 1
+                }
+            }
+        ]
+    }
+}

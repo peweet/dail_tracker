@@ -778,22 +778,32 @@ def build_revolving_door_returns_fact_table(activities_df: pl.DataFrame) -> pl.D
 # ---------------------------------------------------------------------------
 
 
-def save_output(df: pl.DataFrame, filename: str, overwrite: bool = True) -> None:
-    """Write a DataFrame to silver/lobbying/ (CSV) and silver/lobbying/parquet/ (parquet)."""
+def save_output(df: pl.DataFrame, filename: str, overwrite: bool = True, write_csv: bool = True) -> None:
+    """Write a DataFrame to silver/lobbying/parquet/ (parquet) and, by default, silver/lobbying/ (CSV).
+
+    write_csv=False skips the CSV mirror. Use for very large intermediate tables
+    (e.g. lobby_break_down_by_politician — 1.1M rows / ~1.3 GB as CSV) whose CSV is
+    never read: the gold layer registers these from the parquet under
+    silver/lobbying/parquet/ (see save_gold_outputs), not the CSV.
+    """
     LOBBY_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     LOBBY_PARQUET_DIR.mkdir(parents=True, exist_ok=True)
     path = LOBBY_OUTPUT_DIR / filename
-    if not overwrite and path.exists():
+    parquet_path = LOBBY_PARQUET_DIR / path.with_suffix(".parquet").name
+    # When skipping the CSV, gate the overwrite check on the parquet instead.
+    skip_target = path if write_csv else parquet_path
+    if not overwrite and skip_target.exists():
         print(f"{filename} already exists, skipping.")
         return
-    df.write_csv(path)
+    if write_csv:
+        df.write_csv(path)
     df.write_parquet(
-        LOBBY_PARQUET_DIR / path.with_suffix(".parquet").name,
+        parquet_path,
         compression="zstd",
         compression_level=3,
         statistics=True,
     )
-    print(f"Saved {filename}")
+    print(f"Saved {filename}" + ("" if write_csv else " (parquet only)"))
 
 
 # ---------------------------------------------------------------------------
@@ -949,7 +959,9 @@ def main() -> None:
 
     # 6. Silver — persist the two base tables that SQL queries run against
     save_output(lobbying_df, "returns.csv")
-    save_output(activities_df, "lobby_break_down_by_politician.csv", overwrite=False)
+    # parquet-only: 1.1M rows / ~1.3 GB as CSV, and the CSV is never read (the gold
+    # layer registers this table from silver/lobbying/parquet/). See save_output.
+    save_output(activities_df, "lobby_break_down_by_politician.csv", overwrite=False, write_csv=False)
 
     # 7. Polars metrics — string parsing / transformation that belongs in Python, not SQL
     split_lobbyists_df = split_lobbyists(lobbying_df, lobby_org)

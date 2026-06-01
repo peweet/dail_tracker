@@ -21,6 +21,20 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
 
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      # basedpyright resolves third-party imports from .venv (see the venv keys
+      # in [tool.basedpyright]); --extra ui covers duckdb so every in-scope
+      # services module's imports resolve. Scope + rules live in pyproject.toml.
+      - run: uv sync --frozen --extra dev --extra ui
+      # Scoped to services/ + pure-logic modules; fails on any NEW type error.
+      - run: uv run basedpyright
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -28,7 +42,9 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra dev
+      # --extra ui installs streamlit/altair/plotly/duckdb so test_page_imports.py
+      # (imports every Streamlit page) can collect and run in CI rather than erroring.
+      - run: uv sync --frozen --extra dev --extra ui
       # Skip markers that can't run in CI:
       #   integration / sql / bronze — need committed pipeline output, but
       #     data/gold is gitignored, so these are LOCAL-ONLY for now. Run them
