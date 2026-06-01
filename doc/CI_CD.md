@@ -6,14 +6,43 @@ The goal is not to bolt on every possible check. It is to automate the things th
 
 ---
 
-## Starting point (Phase 0 — what already exists)
+## Status (updated 2026-06-01)
+
+Much of the plan below is now shipped. Quick reconciliation against reality:
+
+| Phase | Item | Status |
+|-------|------|--------|
+| 1 | `ci.yml` lint + test on push/PR (uv, frozen) | ✅ shipped |
+| 2a | SQL view bootstrap smoke + committed fixtures (`test/fixtures/sql_views/`) | ✅ shipped (lobbying/payments/attendance fixtures still TODO — gated on `DAIL_INTEGRATION_TESTS=1`) |
+| 2b | Parquet schema contracts | ◑ partial (`test_gold_df.py`, `test_silver_*` exist) |
+| 2c | Streamlit page-import smoke (`test_page_imports.py`) | ✅ shipped |
+| 2d | Name-normalisation parity (`test_normaize_join_key.py`) | ✅ shipped |
+| 3a | Pre-commit hooks | ✗ not done |
+| 3b | Dependabot (`uv` + `github-actions`, weekly) | ✅ shipped |
+| 3d | pip-audit (`audit.yml`, weekly + issue-on-fail) | ✅ shipped |
+| — | **requirements.txt ↔ pyproject drift guard** (`test_requirements_sync.py`) | ✅ shipped 2026-06-01 |
+| 4a | Endpoint health check (`nightly.yml` → `pdf_endpoint_check.py`, weekly + issue-on-fail) | ✅ shipped 2026-06-01 |
+
+**Markers reality:** `integration` / `sql` / `bronze` need committed pipeline
+output, but `data/gold/` is gitignored — so they are **local-only** (run after a
+pipeline run; set `DAIL_INTEGRATION_TESTS=1` for view tests without fixtures).
+They are *not* run nightly in CI, and won't be until outputs are fixtured or
+built in CI (Phase 6). The `sources` marker has no live tests; source-URL health
+is covered by the `pdf_endpoint_check.py` script in `nightly.yml` instead.
+
+Still open below: Phase 3a (pre-commit), Phase 4b/4c (lobbying freshness, TODO
+inventory), Phase 5 (CD docs), Phase 6 (pipeline automation).
+
+---
+
+## Starting point (Phase 0 — original baseline)
+
+*(Historical — `.github/` and `test/` now exist; see Status table above.)*
 
 - `pyproject.toml` configures ruff and pytest:
   - `ruff` lint rules: `E`, `W`, `F`, `I`, `UP`, `B`, `SIM`; line length 120; target `py311`.
   - `pytest`: `testpaths = ["test"]`, `pythonpath = ["."]`.
   - Dev extras: `pytest`, `pytest-cov`, `ruff` under `[project.optional-dependencies].dev`.
-- No `.github/` directory yet.
-- No `test/` directory yet — `pytest` will exit code 5 ("no tests collected") until a placeholder lands.
 - Repo lives at `github.com/peweet/dail_tracker` (per `pyproject.toml`).
 - Streamlit entry: `utility/app.py`. Pipeline entry: `pipeline.py`. Health-check script already exists: `pdf_endpoint_check.py`.
 

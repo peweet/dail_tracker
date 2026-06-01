@@ -32,13 +32,11 @@ TODO_PIPELINE_VIEW_REQUIRED: mart_version, code_version, latest_fetch_timestamp_
 
 from __future__ import annotations
 
-import datetime
 from html import escape as _h
 import pandas as pd
 import streamlit as st
 
 from shared_css import inject_css
-from ui.avatars import avatar_credit_html, avatar_data_url, initials as _initials
 from ui.components import (
     clean_meta,
     clickable_card_link,
@@ -47,26 +45,20 @@ from ui.components import (
     field_label,
     hero_banner,
     hide_sidebar,
-    interest_declaration_item,
     main_member_jump,
     member_moved_callout,
-    member_profile_header,
     page_error_boundary,
     pagination_controls,
     pill,
     ranked_member_card,
     render_notable_chips,
-    todo_callout,
     year_selector,
 )
 from data_access.identity_resolver import resolve_member_code
-from ui.entity_links import member_profile_url, source_link_html
-from ui.export_controls import export_button
-from ui.source_pdfs import interests_pdf_url, provenance_expander
+from ui.entity_links import member_profile_url
+from ui.source_pdfs import provenance_expander
 
 from config import (
-    INTEREST_CATEGORY_LABELS,
-    INTEREST_CATEGORY_ORDER,
     NOTABLE_SENATORS,
     NOTABLE_TDS,
 )
@@ -74,7 +66,6 @@ from data_access.interests_data import (
     fetch_interests_availability,
     fetch_interests_filter_options,
     fetch_member_index,
-    fetch_td_interests,
 )
 
 # ── Data access ───────────────────────────────────────────────────────────────
