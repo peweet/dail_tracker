@@ -24,6 +24,15 @@ from config import GOLD_DIR, SILVER_DIR
 LOBBY_OUTPUT_DIR = SILVER_DIR / "lobbying"
 
 
+def _df(data) -> pl.DataFrame:
+    """Unwrap a pl.DataFrame from a Pandera Polars @pa.dataframe_check argument.
+
+    Newer pandera-polars passes a PolarsData wrapper (with a .lazyframe), not the
+    DataFrame directly. Mirrors the _df helper in test_silver_parquet.py.
+    """
+    return data.lazyframe.collect()
+
+
 # ---------------------------------------------------------------------------
 # SCHEMAS
 # ---------------------------------------------------------------------------
@@ -50,16 +59,21 @@ class MasterTDSchema(pa.DataFrameModel):
         name = "master_td_list"
 
     @pa.dataframe_check
-    def td_count_in_range(cls, df: pl.DataFrame) -> bool:
-        # 160 Dáil seats; allow up to 174 for by-election churn
-        return 1 <= len(df) <= 174
+    def td_count_in_range(cls, data) -> bool:
+        df = _df(data)
+        # 174 Dáil seats; the membership record exceeds the seat count over a
+        # term as mid-term replacements/by-elections add rows (the 34th Dáil
+        # members API returns 176). Cap at 185 to still catch a runaway join.
+        return 1 <= len(df) <= 185
 
     @pa.dataframe_check
-    def unique_identifiers(cls, df: pl.DataFrame) -> bool:
+    def unique_identifiers(cls, data) -> bool:
+        df = _df(data)
         return df["identifier"].n_unique() == len(df)
 
     @pa.dataframe_check
-    def unique_join_keys(cls, df: pl.DataFrame) -> bool:
+    def unique_join_keys(cls, data) -> bool:
+        df = _df(data)
         return df["join_key"].n_unique() == len(df)
 
 
@@ -82,7 +96,8 @@ class EnrichedAttendanceSchema(pa.DataFrameModel):
         name = "enriched_td_attendance"
 
     @pa.dataframe_check
-    def sitting_total_consistent(cls, df: pl.DataFrame) -> bool:
+    def sitting_total_consistent(cls, data) -> bool:
+        df = _df(data)
         # sitting_total_days must equal sitting + other where all three are non-null
         if "sitting_total_days" not in df.columns:
             return True
@@ -96,7 +111,8 @@ class EnrichedAttendanceSchema(pa.DataFrameModel):
         return check.all() if len(check) > 0 else True
 
     @pa.dataframe_check
-    def join_enriched_party_coverage(cls, df: pl.DataFrame) -> bool:
+    def join_enriched_party_coverage(cls, data) -> bool:
+        df = _df(data)
         # After enrichment >80% of rows should have a party value.
         # Lower coverage signals the join key is failing.
         non_null = df["party"].drop_nulls()
@@ -114,7 +130,8 @@ class CommitteeAssignmentsSchema(pa.DataFrameModel):
         name = "committee_assignments"
 
     @pa.dataframe_check
-    def unique_member_codes(cls, df: pl.DataFrame) -> bool:
+    def unique_member_codes(cls, data) -> bool:
+        df = _df(data)
         return df["unique_member_code"].n_unique() == len(df)
 
 
@@ -130,7 +147,8 @@ class MostLobbiedPoliticiansSchema(pa.DataFrameModel):
         name = "most_lobbied_politicians"
 
     @pa.dataframe_check
-    def no_duplicate_politicians(cls, df: pl.DataFrame) -> bool:
+    def no_duplicate_politicians(cls, data) -> bool:
+        df = _df(data)
         return df["full_name"].n_unique() == len(df)
 
 
@@ -197,29 +215,19 @@ SAMPLE_ATTENDANCE_BAD_DAYS = pl.DataFrame(
 # ---------------------------------------------------------------------------
 
 
-# NOTE: @pa.dataframe_check methods in MasterTDSchema and EnrichedAttendanceSchema
-# use the older pandera API (df passed directly); newer pandera-polars wraps in
-# PolarsData. Migration mirrors the pattern in test_silver_parquet.py (use a _df
-# helper to unwrap data.lazyframe.collect()). Skipped until that refactor lands.
-@pytest.mark.skip(
-    reason="pandera-polars API drift: dataframe_check needs PolarsData unwrap — see test_silver_parquet for pattern"
-)
 def test_master_td_schema_accepts_valid_data():
     MasterTDSchema.validate(SAMPLE_MASTER_TD)
 
 
-@pytest.mark.skip(reason="pandera-polars API drift: dataframe_check needs PolarsData unwrap")
 def test_master_td_schema_rejects_duplicate_identifiers():
     with pytest.raises(pa.errors.SchemaError):
         MasterTDSchema.validate(SAMPLE_DUPLICATE_TD)
 
 
-@pytest.mark.skip(reason="pandera-polars API drift: dataframe_check needs PolarsData unwrap")
 def test_enriched_attendance_schema_accepts_valid_data():
     EnrichedAttendanceSchema.validate(SAMPLE_ATTENDANCE)
 
 
-@pytest.mark.skip(reason="pandera-polars API drift: dataframe_check needs PolarsData unwrap")
 def test_enriched_attendance_rejects_out_of_range_days():
     with pytest.raises(pa.errors.SchemaError):
         EnrichedAttendanceSchema.validate(SAMPLE_ATTENDANCE_BAD_DAYS)
@@ -283,7 +291,9 @@ def test_master_td_schema(master_td_df):
 @pytest.mark.integration
 def test_master_td_count_in_range(master_td_df):
     count = len(master_td_df)
-    assert 127 <= count <= 174, f"Unexpected TD count: {count}"
+    # 174 Dáil seats; membership records exceed seats over a term as mid-term
+    # replacements/by-elections add rows (34th Dáil members API returns 176).
+    assert 127 <= count <= 185, f"Unexpected TD count: {count}"
 
 
 @pytest.mark.integration

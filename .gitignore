@@ -274,3 +274,9 @@ lobbyist/raw/
 !data/_meta/
 !data/_meta/*.csv
 !data/_meta/*.json
+
+# basedpyright baseline — snapshots known/false-positive type findings so CI
+# fails only on NEW errors. Must be tracked or CI re-flags the baselined items.
+# Overrides the blanket *.json rule above (last match wins).
+!.basedpyright/
+!.basedpyright/baseline.json

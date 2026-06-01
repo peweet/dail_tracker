@@ -321,26 +321,65 @@ SAMPLE_SEANAD_DUPLICATE = pl.DataFrame(
 )
 
 
+class PaymentTableSchema(pa.DataFrameModel):
+    """
+    Payments table (TAA/PRA rows). Guards the two integrity invariants that PDF
+    extraction can silently violate:
+      - a date must never leak into the Amount column (a known failure mode), and
+      - join_key must be normalise_join_key output (lowercase letters, sorted),
+        not a raw name.
+    strict=False — only the integrity-critical columns are declared.
+    """
+
+    TAA_Band: str = pa.Field(nullable=True)
+    Amount: str = pa.Field(nullable=False)
+    Full_Name: str = pa.Field(nullable=False)
+    join_key: str = pa.Field(nullable=False)
+
+    class Config:
+        strict = False
+        name = "payments"
+
+    @pa.check("Amount")
+    def amount_is_currency_not_date(cls, data) -> bool:
+        s = _s(data).drop_nulls()
+        if len(s) == 0:
+            return True
+        # Money like "€4,422.08" or "1000.00" — never a date such as "26/06/2020".
+        return bool(s.str.contains(r"^€?\s*[\d,]+\.\d{2}$").all())
+
+    @pa.check("Full_Name")
+    def no_empty_full_name(cls, data) -> bool:
+        return bool((_s(data).drop_nulls() != "").all())
+
+    @pa.check("join_key")
+    def join_key_is_normalised(cls, data) -> bool:
+        s = _s(data).drop_nulls()
+        if len(s) == 0:
+            return True
+        # normalise_join_key output: lowercase letters only, characters sorted ascending.
+        if not bool(s.str.contains(r"^[a-z]+$").all()):
+            return False
+        return all(list(v) == sorted(v) for v in s.to_list())
+
+
 # ---------------------------------------------------------------------------
 # UNIT TESTS
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skip(reason="PaymentTableSchema not yet defined; SAMPLE_PAYMENT fixtures retained for when it is added")
 def test_payment_accepts_valid_data():
-    PaymentTableSchema.validate(SAMPLE_PAYMENT)  # noqa: F821
+    PaymentTableSchema.validate(SAMPLE_PAYMENT)
 
 
-@pytest.mark.skip(reason="PaymentTableSchema not yet defined")
 def test_payment_rejects_date_leak_in_amount():
     with pytest.raises(pa.errors.SchemaError):
-        PaymentTableSchema.validate(SAMPLE_PAYMENT_DATE_LEAK)  # noqa: F821
+        PaymentTableSchema.validate(SAMPLE_PAYMENT_DATE_LEAK)
 
 
-@pytest.mark.skip(reason="PaymentTableSchema not yet defined")
 def test_payment_rejects_bad_join_key():
     with pytest.raises(pa.errors.SchemaError):
-        PaymentTableSchema.validate(SAMPLE_PAYMENT_BAD_JOIN_KEY)  # noqa: F821
+        PaymentTableSchema.validate(SAMPLE_PAYMENT_BAD_JOIN_KEY)
 
 
 def test_debate_accepts_valid_data():

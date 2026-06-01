@@ -140,7 +140,7 @@ Implement the `payments` UI redesign.
 
 This is a UI redesign, not a safe refactor.
 
-You may modify only the allowed files listed in `page_runbooks/payments.md`.
+You may modify only the allowed files listed in `page_runbooks/payments.md`. You are allowed to innovate and experiment.
 
 The final UI must be materially different from the current page.
 

@@ -38,7 +38,7 @@ from pathlib import Path
 import polars as pl
 
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parent
 _SILVER_PARQUET_DIR = _PROJECT_ROOT / "data" / "silver" / "parquet"
 _OUT_DIR = _PROJECT_ROOT / "data" / "silver" / "committees"
 

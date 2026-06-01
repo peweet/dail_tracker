@@ -39,7 +39,12 @@ def flatten_members_to_csv(house: str = "dail"):
         "Minister", case=False, na=False
     )
     df["ministerial_office"] = minister_bool_mask.astype(str).replace({"True": "true", "False": "false"})
-    df["year_elected"] = df["unique_member_code"].str.extract(r"(\b\d{4}\b)", expand=False)
+    # Year elected is the 4-digit year embedded in the member code. Store it as a
+    # nullable integer (not the raw extracted string) so it matches the silver
+    # schema's int range-check and so parquet readers get a numeric column.
+    df["year_elected"] = (
+        df["unique_member_code"].str.extract(r"(\b\d{4}\b)", expand=False).astype("Int64")
+    )
     csv_path = SILVER_DIR / csv_name
     df.to_csv(csv_path, index=False, encoding="utf-8")
     df.to_parquet(

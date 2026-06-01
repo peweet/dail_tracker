@@ -55,20 +55,20 @@ def _all_iso_dates(series: pl.Series) -> bool:
 class AttendanceSilverSchema(pa.DataFrameModel):
     """
     data/silver/aggregated_td_tables.csv
-    One row per TD per year. The PDF scraper in attendance.py emits one row
-    per sitting/other-day pair, aggregated by year after extraction.
+    One row per TD per attendance DAY (not per year). attendance.py emits the
+    sitting/other day as a raw DD/MM/YYYY string plus an ISO (YYYY-MM-DD) copy;
+    both are stored as strings (the CSV carries no type metadata). The ISO
+    columns are validated; a leaked PDF footer row surfaces as a non-ISO value.
     """
 
     identifier: str = pa.Field(nullable=False)
     first_name: str = pa.Field(nullable=False)
     last_name: str = pa.Field(nullable=False)
     year: int = pa.Field(ge=2000, le=2030, nullable=False)
-    # Dates stored as ISO strings; use explicit check rather than polars Date
-    # type because the CSV has no type metadata.
+    sitting_days_attendance: str = pa.Field(nullable=True)
+    other_days_attendance: str = pa.Field(nullable=True)
     iso_sitting_days_attendance: str = pa.Field(nullable=True)
     iso_other_days_attendance: str = pa.Field(nullable=True)
-    sitting_days_count: int = pa.Field(ge=0, le=300, nullable=True)
-    other_days_count: int = pa.Field(ge=0, le=300, nullable=True)
 
     class Config:
         strict = False
@@ -146,10 +146,10 @@ SAMPLE_ATTENDANCE = pl.DataFrame(
         "first_name": ["Mary", "Sean"],
         "last_name": ["Murphy", "O Brien"],
         "year": [2024, 2024],
-        "iso_sitting_days_attendance": ["2024-01-17", "2024-01-17"],
-        "iso_other_days_attendance": ["2024-01-03", "2024-01-03"],
-        "sitting_days_count": [87, 94],
-        "other_days_count": [12, 8],
+        "sitting_days_attendance": ["17/01/2024", "18/01/2024"],
+        "other_days_attendance": ["03/01/2024", "04/01/2024"],
+        "iso_sitting_days_attendance": ["2024-01-17", "2024-01-18"],
+        "iso_other_days_attendance": ["2024-01-03", "2024-01-04"],
     }
 )
 
@@ -159,23 +159,23 @@ SAMPLE_ATTENDANCE_BAD_DATE = pl.DataFrame(
         "first_name": ["Mary"],
         "last_name": ["Murphy"],
         "year": [2024],
+        "sitting_days_attendance": ["17/01/2024"],
+        "other_days_attendance": ["03/01/2024"],
         "iso_sitting_days_attendance": ["47"],  # footer row leaked in — must fail
         "iso_other_days_attendance": ["2024-01-03"],
-        "sitting_days_count": [87],
-        "other_days_count": [12],
     }
 )
 
-SAMPLE_ATTENDANCE_OVERFLOW = pl.DataFrame(
+SAMPLE_ATTENDANCE_BAD_YEAR = pl.DataFrame(
     {
         "identifier": ["Murphy_Mary"],
         "first_name": ["Mary"],
         "last_name": ["Murphy"],
-        "year": [2024],
+        "year": [1800],  # out of range (ge=2000) — must fail
+        "sitting_days_attendance": ["17/01/2024"],
+        "other_days_attendance": ["03/01/2024"],
         "iso_sitting_days_attendance": ["2024-01-17"],
         "iso_other_days_attendance": ["2024-01-03"],
-        "sitting_days_count": [999],  # impossible — must fail
-        "other_days_count": [0],
     }
 )
 
@@ -218,9 +218,9 @@ def test_attendance_schema_rejects_non_iso_date():
         AttendanceSilverSchema.validate(SAMPLE_ATTENDANCE_BAD_DATE)
 
 
-def test_attendance_schema_rejects_overflow_days():
+def test_attendance_schema_rejects_bad_year():
     with pytest.raises(pa.errors.SchemaError):
-        AttendanceSilverSchema.validate(SAMPLE_ATTENDANCE_OVERFLOW)
+        AttendanceSilverSchema.validate(SAMPLE_ATTENDANCE_BAD_YEAR)
 
 
 def test_members_schema_accepts_valid_data():
@@ -299,9 +299,11 @@ def test_attendance_iso_dates(attendance_df):
 
 @pytest.mark.integration
 def test_attendance_days_within_bounds(attendance_df):
-    for col in ("sitting_days_count", "other_days_count"):
-        max_val = attendance_df[col].drop_nulls().max()
-        assert max_val <= 300, f"{col} max={max_val} — likely a mis-parsed PDF row"
+    # One row per (TD, attendance-day). No (TD, year) should exceed ~250 days —
+    # a higher count signals mis-parsed/duplicated rows leaking into the table.
+    per_td_year = attendance_df.group_by(["identifier", "year"]).len()
+    max_days = per_td_year["len"].max()
+    assert max_days <= 250, f"max days for a (TD, year) = {max_days} — likely mis-parsed rows"
 
 
 @pytest.mark.integration
