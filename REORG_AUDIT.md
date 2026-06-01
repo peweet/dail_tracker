@@ -117,12 +117,12 @@
 
 ### ui/
 
-All 36 files under `utility/` move to `src/dail_tracker/ui/` preserving internal structure:
+All 35 files under `utility/` move to `src/dail_tracker/ui/` preserving internal structure:
 - `utility/app.py` → `ui/app.py` (Streamlit entrypoint)
 - `utility/shared_css.py` → `ui/shared_css.py`
 - `utility/config.py` → `ui/config.py` (UI-specific constants — distinct from infra/config.py)
 - `utility/constants.py` → `ui/constants.py`
-- `utility/select_drop_rename_cols_mappings.py` → `ui/select_drop_rename_cols_mappings.py` (imported by flatten_members_json_to_csv + lobby_processing)
+- `select_drop_rename_cols_mappings.py` (repo root) → `src/dail_tracker/shared/select_drop_rename_cols_mappings.py` — pure ETL column-mapping data; imported by domains/lobbying/processing + domains/members/flatten. Relocated out of `utility/` (the UI layer) to repo root on 2026-06-01 to fix a domain→UI import; it is **shared/**, not UI.
 - `utility/pages_code/` → `ui/pages/`
 - `utility/ui/` → `ui/components/` (rename to avoid `ui/ui/` nesting)
 - `utility/data_access/` → `ui/data_access/`

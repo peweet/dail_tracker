@@ -60,7 +60,7 @@ from data_access.committees_data import fetch_committee_assignments, fetch_offic
 from pages_code.committees import render_member_committees
 from pages_code.interests import render_member_interests
 from pages_code.lobbying_3 import render_member_lobbying
-from pages_code.payments import render_member_payments
+from ui.payments_panel import render_member_payments
 from data_access.payments_data import fetch_filter_options as _pay_filter_options
 from data_access.payments_data import fetch_payments_summary as _pay_summary
 
