@@ -308,16 +308,26 @@ here so you remember they exist:
 | `corporate_notices_enrichment.py --write` | Same — standalone variant. |
 | `payments_member_enrichment.py` | Same — also wired into `payments` chain. |
 | `pipeline_sandbox/cso_pxstat_extract.py --write` | CSO PxStat per-LA × year housing tables. Not yet UI-consumed. |
-| `pipeline_sandbox/eurostat_extract.py --write` | Eurostat housing/tenure/citizenship indicators for Ireland. Not yet UI-consumed. |
-| `pipeline_sandbox/open_csv_extract.py --write` | DHLGH open-data housing/homelessness CSVs in one pass. Not yet UI-consumed. |
-| `pipeline_sandbox/hap_funding_xlsx_extract.py --write` | HAP per-LA expenditure & tenancies. Not yet UI-consumed. |
-| `pipeline_sandbox/ssha_appendix_a19_extract.py --write` | SSHA Appendix A1.9 per-LA citizenship of waiting-list applicants. Not yet UI-consumed. |
+| `pipeline_sandbox/eurostat_extract_experimental.py --write` | Eurostat housing/tenure/citizenship indicators for Ireland. Housing-PoC scope (see "_experimental suffix" note below). |
+| `pipeline_sandbox/open_csv_extract_experimental.py --write` | DHLGH open-data housing/homelessness CSVs in one pass. Housing-PoC scope. |
+| `pipeline_sandbox/hap_funding_xlsx_extract_experimental.py --write` | HAP per-LA expenditure & tenancies. Housing-PoC scope. |
+| `pipeline_sandbox/ssha_appendix_a19_extract_experimental.py --write` | SSHA Appendix A1.9 per-LA citizenship of waiting-list applicants. Housing-PoC scope. |
 
 **Sandbox `--write` convention:** sandbox scripts are dry-run by default and
 require `--write` to emit the parquet. Root-level scripts always write. If a
 sandbox extract earns a UI page later, fold it into the relevant chain (most
 likely a new `housing_refresh.py`) and drop the `--write` flag at the same
 time it graduates.
+
+**`_experimental` suffix in `pipeline_sandbox/`:** files with this suffix
+belong to the housing locality PoC, which has NOT been committed to ship
+as a feature. They produce real parquets used by
+`pipeline_sandbox/housing_locality_poc_experimental.py` and nothing else.
+**Do not promote a `_experimental` file without first stripping the suffix
+and confirming the housing PoC decision.** Files in `pipeline_sandbox/`
+*without* the suffix (`cso_pxstat_extract.py`, `cbi_registers_extract.py`,
+`public_appointments_enrichment.py`) are load-bearing for other contexts
+and follow the normal promotion path.
 
 Exit codes: `0` = clean run · `1` = at least one download failed · `2` = a past Tue/Fri returned 4xx on every URL variant (slug pattern may have changed; investigate before trusting future runs).
 
