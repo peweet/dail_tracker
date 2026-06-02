@@ -24,6 +24,7 @@ match — same convention as the upstream Tier-A join):
 Purely additive — does not modify any upstream script. Re-runnable; final
 unique() on RCN is belt-and-braces in case any join introduces duplicates.
 """
+
 from __future__ import annotations
 
 import sys
@@ -36,21 +37,21 @@ from config import GOLD_PARQUET_DIR, SILVER_DIR
 _ROOT = Path(__file__).resolve().parent
 
 CHARITY_RESOLVED = SILVER_DIR / "charities" / "charity_resolved.parquet"
-CRO_COMPANIES    = SILVER_DIR / "cro" / "companies.parquet"
-NACE_REFERENCE   = _ROOT / "data" / "_meta" / "nace_v2_sections.csv"
-OUTPUT           = GOLD_PARQUET_DIR / "charities_enriched.parquet"
+CRO_COMPANIES = SILVER_DIR / "cro" / "companies.parquet"
+NACE_REFERENCE = _ROOT / "data" / "_meta" / "nace_v2_sections.csv"
+OUTPUT = GOLD_PARQUET_DIR / "charities_enriched.parquet"
 
 # CRO columns we want on top of what charity_resolved already pulls,
 # renamed to the cro_* prefix used in the gold contract.
 _EXTRA_CRO_COLS = {
-    "last_ar_date":               "cro_last_ar_date",
-    "nard":                       "cro_nard",
-    "last_accounts_date":         "cro_last_accounts_date",
+    "last_ar_date": "cro_last_ar_date",
+    "nard": "cro_nard",
+    "last_accounts_date": "cro_last_accounts_date",
     "annual_return_overdue_flag": "cro_annual_return_overdue",
-    "accounts_overdue_flag":      "cro_accounts_overdue",
-    "recent_distress_flag":       "cro_recent_distress",
+    "accounts_overdue_flag": "cro_accounts_overdue",
+    "recent_distress_flag": "cro_recent_distress",
     "no_registered_address_flag": "cro_no_registered_address",
-    "recent_rename_flag":         "cro_recent_rename",
+    "recent_rename_flag": "cro_recent_rename",
 }
 
 
@@ -72,20 +73,18 @@ def main() -> int:
     nace = pl.read_csv(NACE_REFERENCE)
 
     # ── 1. Add the extra CRO columns by Tier-A key ───────────────────────
-    enriched = resolved.join(
-        cro, left_on="cro_number", right_on="company_num", how="left"
-    )
+    enriched = resolved.join(cro, left_on="cro_number", right_on="company_num", how="left")
 
     # ── 2. NACE section labels via chained when/then over division ranges ─
     # 4-digit class // 100 → 2-digit division. 21 sections, one branch each.
     # No cross-join, no risk of duplicates.
     div = pl.col("nace_v2_code") // 100
     letter_expr: pl.Expr = pl.lit(None, dtype=pl.Utf8)
-    label_expr:  pl.Expr = pl.lit(None, dtype=pl.Utf8)
+    label_expr: pl.Expr = pl.lit(None, dtype=pl.Utf8)
     for r in nace.iter_rows(named=True):
         cond = (div >= r["division_min"]) & (div <= r["division_max"])
         letter_expr = pl.when(cond).then(pl.lit(r["section_letter"])).otherwise(letter_expr)
-        label_expr  = pl.when(cond).then(pl.lit(r["section_label"])).otherwise(label_expr)
+        label_expr = pl.when(cond).then(pl.lit(r["section_label"])).otherwise(label_expr)
     enriched = enriched.with_columns(
         letter_expr.alias("nace_section_letter"),
         label_expr.alias("nace_section_label"),
@@ -98,13 +97,11 @@ def main() -> int:
         print(f"WARNING: dedup collapsed {before - enriched.height:,} duplicate RCN rows")
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    enriched.write_parquet(
-        OUTPUT, compression="zstd", compression_level=3, statistics=True
-    )
+    enriched.write_parquet(OUTPUT, compression="zstd", compression_level=3, statistics=True)
 
-    matched  = enriched.filter(pl.col("link_method").is_not_null()).height
+    matched = enriched.filter(pl.col("link_method").is_not_null()).height
     has_nace = enriched.filter(pl.col("nace_section_label").is_not_null()).height
-    has_fil  = enriched.filter(pl.col("cro_last_accounts_date").is_not_null()).height
+    has_fil = enriched.filter(pl.col("cro_last_accounts_date").is_not_null()).height
     distress = enriched.filter(pl.col("cro_recent_distress").fill_null(False)).height
     print(f"[charity_enriched] wrote {OUTPUT}")
     print(f"  rows={enriched.height:,}  cols={enriched.width}")

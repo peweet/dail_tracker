@@ -172,9 +172,7 @@ def main() -> None:
 
     FLATTENED_MEMBERS.write_parquet(members_path, compression="zstd", compression_level=3, statistics=True)
     PRETTY_VOTES.write_parquet(votes_path, compression="zstd", compression_level=3, statistics=True)
-    MEMBER_EXTERNAL_LINKS.write_parquet(
-        ext_links_path, compression="zstd", compression_level=3, statistics=True
-    )
+    MEMBER_EXTERNAL_LINKS.write_parquet(ext_links_path, compression="zstd", compression_level=3, statistics=True)
 
     print(f"Wrote {members_path} ({FLATTENED_MEMBERS.height} rows)")
     print(f"Wrote {votes_path} ({PRETTY_VOTES.height} rows)")

@@ -20,7 +20,6 @@ from __future__ import annotations
 import duckdb
 import pandas as pd
 import streamlit as st
-
 from data_access._sql_registry import register_views
 
 

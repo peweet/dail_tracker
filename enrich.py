@@ -14,6 +14,7 @@ Graceful per-input skips:
   - pretty_votes.csv missing           → skip vote-history (still write enriched + by-year)
   - payments_full_psa.parquet missing  → skip payment rankings
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,15 @@ from pathlib import Path
 import polars as pl
 
 import normalise_join_key
-from config import GOLD_CSV_DIR, GOLD_DIR, GOLD_PARQUET_DIR, SILVER_DIR
+from config import (
+    GOLD_CSV_DIR,
+    GOLD_DIR,
+    GOLD_PARQUET_DIR,
+    GOLD_SEANAD_VOTE_HISTORY_PARQUET,
+    SEANAD_ATTENDANCE_BY_YEAR_PARQUET,
+    SEANAD_PAYMENTS_PARQUET,
+    SILVER_DIR,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +40,7 @@ logger = logging.getLogger(__name__)
 def _build_members_and_master(members_csv: Path) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Read flattened_members, build join_key + master_td_list."""
     members_wide_df = pl.read_csv(members_csv)
-    members_wide_df = members_wide_df.with_columns(
-        pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key")
-    )
+    members_wide_df = members_wide_df.with_columns(pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key"))
     members_wide_df = normalise_join_key.normalise_df_td_name(members_wide_df, "join_key")
     members_wide_df = members_wide_df.unique(subset=["join_key"], keep="first")
     logging.info("normalised members_wide_df  (API members) TD names")
@@ -253,11 +260,67 @@ def main() -> int:
 
     # ── Optional: payment rankings ───────────────────────────────────────────
     if payments_parquet.exists():
-        _build_payment_rankings(
-            master_td_list, payments_parquet, payment_rankings_csv, payment_rankings_parquet
-        )
+        _build_payment_rankings(master_td_list, payments_parquet, payment_rankings_csv, payment_rankings_parquet)
     else:
         print(f"WARN: {payments_parquet} not found — skipping current TD payment rankings")
+
+    return 0
+
+
+def main_seanad() -> int:
+    """Build gold enriched Senator datasets — additive sibling of main().
+
+    Reuses every _build_* helper verbatim with Senator inputs/outputs; main()
+    (the Dáil path) is untouched. Same graceful per-input skips. Called by
+    seanad_refresh.py after the Senator silver has been produced.
+
+    Exit codes:
+        0 — ok, or skipped sub-stages cleanly
+        1 — flattened_seanad_members.csv missing (cannot proceed)
+    """
+    members_csv = SILVER_DIR / "flattened_seanad_members.csv"
+    fact_csv = SILVER_DIR / "seanad_attendance_fact_table.csv"
+    votes_csv = SILVER_DIR / "seanad_pretty_votes.csv"
+    payments_parquet = SEANAD_PAYMENTS_PARQUET
+
+    master_csv_out = GOLD_DIR / "seanad_master_list.csv"
+    enriched_csv_out = GOLD_DIR / "enriched_senator_attendance.csv"
+    attendance_year_csv = GOLD_CSV_DIR / "seanad_attendance_by_year.csv"
+    attendance_year_parquet = SEANAD_ATTENDANCE_BY_YEAR_PARQUET
+    vote_history_csv = GOLD_DIR / "current_seanad_vote_history.csv"
+    vote_history_parquet = GOLD_SEANAD_VOTE_HISTORY_PARQUET
+    payment_rankings_csv = GOLD_CSV_DIR / "current_senator_payment_rankings.csv"
+    payment_rankings_parquet = GOLD_PARQUET_DIR / "current_senator_payment_rankings.parquet"
+
+    if not members_csv.exists():
+        logger.error("Cannot enrich Seanad: %s missing (flatten_members seanad must run first).", members_csv)
+        print(f"ERROR: {members_csv} missing — cannot enrich Seanad.")
+        return 1
+
+    members_wide_df, master_td_list = _build_members_and_master(members_csv)
+    master_td_list.write_csv(master_csv_out)
+    print(f"Seanad master list written to {master_csv_out} with {master_td_list.height} rows.")
+
+    if fact_csv.exists():
+        enriched_df = _build_enriched_attendance(members_wide_df, fact_csv)
+        enriched_df.write_csv(enriched_csv_out)
+        _build_attendance_by_year(enriched_df, attendance_year_csv, attendance_year_parquet)
+    else:
+        logger.warning("%s missing — skipping Seanad enriched + attendance_by_year.", fact_csv)
+        print(f"WARN: {fact_csv} missing — skipping Seanad enrichment + attendance_by_year.")
+
+    if votes_csv.exists() and enriched_csv_out.exists():
+        _build_vote_history(votes_csv, enriched_csv_out, vote_history_csv, vote_history_parquet)
+    elif not votes_csv.exists():
+        logger.warning("%s missing — skipping current_seanad_vote_history.", votes_csv)
+        print(f"WARN: {votes_csv} missing — skipping Seanad vote history.")
+    else:
+        print("WARN: enriched_senator_attendance.csv missing — skipping Seanad vote history.")
+
+    if payments_parquet.exists():
+        _build_payment_rankings(master_td_list, payments_parquet, payment_rankings_csv, payment_rankings_parquet)
+    else:
+        print(f"WARN: {payments_parquet} not found — skipping Senator payment rankings")
 
     return 0
 

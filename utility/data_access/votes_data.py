@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import duckdb
 import streamlit as st
+from data_access._sql_registry import register_views
 
 from config import GOLD_VOTE_HISTORY_PARQUET
-from data_access._sql_registry import register_views
 
 _PARQUET = GOLD_VOTE_HISTORY_PARQUET.as_posix()
 

@@ -13,11 +13,11 @@ from html import escape as _h
 import altair as alt
 import pandas as pd
 import streamlit as st
-
-from config import SITTING_DAYS_BY_YEAR
 from data_access.attendance_data import get_attendance_conn
 from ui.components import empty_state, evidence_heading, stat_strip, todo_callout, year_selector
 from ui.export_controls import export_button
+
+from config import SITTING_DAYS_BY_YEAR
 
 
 @st.cache_data(ttl=300)

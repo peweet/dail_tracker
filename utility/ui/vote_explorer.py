@@ -359,9 +359,7 @@ def vt_division_card_html(row) -> str:
         is_private = True
     title = _h(bill_title)
     stage_html = (
-        f'<span class="vt-card-stage" title="Legislative stage">{_h(stage_label)}</span>'
-        if stage_label
-        else ""
+        f'<span class="vt-card-stage" title="Legislative stage">{_h(stage_label)}</span>' if stage_label else ""
     )
     private_html = (
         '<span class="vt-card-private" title="Private Members’ motion or bill '
@@ -402,10 +400,7 @@ def vt_division_card_html(row) -> str:
             margin_label = f"lost by {abs(margin_int)}"
         else:
             margin_label = f"margin {margin_int:+d}"
-        margin_html = (
-            f'<span class="vt-margin-pill" title="Yes votes minus No votes">'
-            f"{margin_label}</span>"
-        )
+        margin_html = f'<span class="vt-margin-pill" title="Yes votes minus No votes">{margin_label}</span>'
     else:
         margin_html = ""
 

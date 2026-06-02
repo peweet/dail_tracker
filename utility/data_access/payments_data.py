@@ -19,7 +19,6 @@ from __future__ import annotations
 import duckdb
 import pandas as pd
 import streamlit as st
-
 from data_access._sql_registry import register_views
 
 
@@ -114,9 +113,7 @@ def fetch_member_all_years(member_name: str, unique_member_code: str | None = No
 
 
 @st.cache_data(ttl=300)
-def fetch_member_year_summary(
-    member_name: str, year: int, unique_member_code: str | None = None
-) -> pd.DataFrame:
+def fetch_member_year_summary(member_name: str, year: int, unique_member_code: str | None = None) -> pd.DataFrame:
     """Single row for a member+year — summary metrics."""
     if unique_member_code:
         return (
@@ -144,9 +141,7 @@ def fetch_member_year_summary(
 
 
 @st.cache_data(ttl=300)
-def fetch_member_payments(
-    member_name: str, year: int, unique_member_code: str | None = None
-) -> pd.DataFrame:
+def fetch_member_payments(member_name: str, year: int, unique_member_code: str | None = None) -> pd.DataFrame:
     """Individual payment transactions for a member+year — the audit trail."""
     if unique_member_code:
         return (
@@ -212,8 +207,7 @@ def fetch_since_2020_summary() -> dict[str, float | int]:
     row = (
         get_payments_conn()
         .execute(
-            "SELECT total_paid_since_2020, member_count, avg_per_td_since_2020"
-            " FROM v_payments_alltime_summary LIMIT 1"
+            "SELECT total_paid_since_2020, member_count, avg_per_td_since_2020 FROM v_payments_alltime_summary LIMIT 1"
         )
         .fetchone()
     )

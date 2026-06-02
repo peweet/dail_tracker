@@ -23,6 +23,7 @@ ENDPOINT BEHAVIOUR:
 ⚠ NEXT_WAVE_DATE: update after each successful wave run. Wave deadlines fall
    ~10 days after each regulatory return deadline (21 May, 21 Sep, 21 Jan).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -40,10 +41,7 @@ ENDPOINT = "https://api.lobbying.ie/api/ExportReturns/Csv"
 NEXT_WAVE_DATE = date(2026, 5, 31)
 
 # ── Fixed configuration ─────────────────────────────────────────────────────
-USER_AGENT = (
-    "dail-tracker-bot/0.1 "
-    "(+https://github.com/peweet/dail_tracker; mailto:p.glynn18@gmail.com)"
-)
+USER_AGENT = "dail-tracker-bot/0.1 (+https://github.com/peweet/dail_tracker; mailto:p.glynn18@gmail.com)"
 DEST_FILE = BRONZE_DIR / "lobbying_csv_data" / "lobbying_ytd.csv"
 # Connect timeout is short (10s); read timeout is generous because the
 # server can take 1-3 min to assemble a year of data.
@@ -57,13 +55,23 @@ WAVE_MIN_BYTES = 500_000
 
 # Set-inclusion check: any of these missing is a hard fail. Extras are OK.
 EXPECTED_COLUMNS = {
-    "Id", "Url", "Lobbyist Name", "Date Published", "Period",
-    "Relevant Matter", "Public Policy Area", "Specific Details",
-    "DPOs Lobbied", "Intended Results", "Lobbying Activities",
+    "Id",
+    "Url",
+    "Lobbyist Name",
+    "Date Published",
+    "Period",
+    "Relevant Matter",
+    "Public Policy Area",
+    "Specific Details",
+    "DPOs Lobbied",
+    "Intended Results",
+    "Lobbying Activities",
     "Person primarily responsible for lobbying on this activity",
     "Any DPOs or Former DPOs who carried out lobbying activities",
-    "Current or Former DPOs", "Was this a grassroots campaign?",
-    "Grassroots directive", "Was this lobbying done on behalf of a client?",
+    "Current or Former DPOs",
+    "Was this a grassroots campaign?",
+    "Grassroots directive",
+    "Was this lobbying done on behalf of a client?",
     "Client(s)",
 }
 
@@ -77,30 +85,28 @@ def fetch_ytd() -> bytes:
     today = date.today()
     start = date(today.year, 1, 1)
     params = {
-        "currentPage":         0,
-        "pageSize":             PAGE_SIZE,
-        "queryText":            "",
-        "subjectMatters":       "",
-        "subjectMatterAreas":   "",
-        "publicBodys":          "",
-        "jobTitles":            "",
-        "returnDateFrom":       start.strftime("%d-%m-%Y"),
-        "returnDateTo":         today.strftime("%d-%m-%Y"),
-        "period":               "",
-        "dpo":                  "",
-        "client":               "",
-        "responsible":          "",
-        "lobbyist":             "",
-        "lobbyistId":           "",
+        "currentPage": 0,
+        "pageSize": PAGE_SIZE,
+        "queryText": "",
+        "subjectMatters": "",
+        "subjectMatterAreas": "",
+        "publicBodys": "",
+        "jobTitles": "",
+        "returnDateFrom": start.strftime("%d-%m-%Y"),
+        "returnDateTo": today.strftime("%d-%m-%Y"),
+        "period": "",
+        "dpo": "",
+        "client": "",
+        "responsible": "",
+        "lobbyist": "",
+        "lobbyistId": "",
     }
-    resp = requests.get(ENDPOINT, headers={"User-Agent": USER_AGENT},
-                        params=params, timeout=TIMEOUT)
+    resp = requests.get(ENDPOINT, headers={"User-Agent": USER_AGENT}, params=params, timeout=TIMEOUT)
     if resp.status_code == 429:
         retry_after = int(resp.headers.get("Retry-After", "30"))
         print(f"[lobbying] 429 rate-limited, sleeping {retry_after}s and retrying once")
         time.sleep(retry_after)
-        resp = requests.get(ENDPOINT, headers={"User-Agent": USER_AGENT},
-                            params=params, timeout=TIMEOUT)
+        resp = requests.get(ENDPOINT, headers={"User-Agent": USER_AGENT}, params=params, timeout=TIMEOUT)
     resp.raise_for_status()
     return resp.content
 
@@ -172,12 +178,13 @@ def main() -> int:
         for p in problems:
             print(f"[lobbying] PROBLEM: {p}", file=sys.stderr)
         if any("missing required columns" in p for p in problems):
-            print(f"[lobbying] saved drift sample: {quarantine(csv_bytes, 'SCHEMA_DRIFT')}",
-                  file=sys.stderr)
+            print(f"[lobbying] saved drift sample: {quarantine(csv_bytes, 'SCHEMA_DRIFT')}", file=sys.stderr)
             return 2
         if mode == "wave" and any("below wave-mode minimum" in p for p in problems):
-            print(f"[lobbying] saved small-wave sample: {quarantine(csv_bytes, 'SUSPICIOUSLY_SMALL_WAVE')}",
-                  file=sys.stderr)
+            print(
+                f"[lobbying] saved small-wave sample: {quarantine(csv_bytes, 'SUSPICIOUSLY_SMALL_WAVE')}",
+                file=sys.stderr,
+            )
             return 2
         return 1
 

@@ -20,6 +20,7 @@ Programmatic:
     from iris_silver_rebuild import rebuild_silver_from_bronze
     summary = rebuild_silver_from_bronze()
 """
+
 from __future__ import annotations
 
 import argparse
@@ -111,8 +112,12 @@ def rebuild_silver_from_bronze(threshold: float = _DEFAULT_THRESHOLD) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--threshold", type=float, default=_DEFAULT_THRESHOLD,
-                    help="extraction-confidence threshold for clean/quarantined split")
+    ap.add_argument(
+        "--threshold",
+        type=float,
+        default=_DEFAULT_THRESHOLD,
+        help="extraction-confidence threshold for clean/quarantined split",
+    )
     args = ap.parse_args()
     rebuild_silver_from_bronze(args.threshold)
 

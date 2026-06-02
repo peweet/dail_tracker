@@ -29,6 +29,7 @@ Sections (top → bottom):
      sandbox cross-ref.
   6. Detail view on ?ref= (also carries the CBI badge when matched)
 """
+
 from __future__ import annotations
 
 import datetime
@@ -85,9 +86,16 @@ _TYPE_GROUPS = [
     ("All", None),
     ("Receiverships", {"receivership"}),
     ("Examinership", {"examinership", "scarp_process_adviser"}),
-    ("Liquidations", {"members_voluntary_liquidation", "creditors_voluntary_liquidation",
-                      "voluntary_liquidation_unspecified", "liquidation_unspecified",
-                      "court_winding_up"}),
+    (
+        "Liquidations",
+        {
+            "members_voluntary_liquidation",
+            "creditors_voluntary_liquidation",
+            "voluntary_liquidation_unspecified",
+            "liquidation_unspecified",
+            "court_winding_up",
+        },
+    ),
     ("Companies Act notices", {"companies_act_notice"}),
     ("ICAV strike-offs", {"icav_voluntary_strike_off"}),
 ]
@@ -95,10 +103,7 @@ _TYPE_GROUPS = [
 # Junk-pattern rejection for the entity_name display fallback. When entity_name
 # matches one of these, the card shows display_title instead (or a graceful
 # "Company name not extracted in this notice" if both are junky).
-_JUNK_RE = (
-    "NOTICE IS HEREBY|ABOVE NAMED|IN THE MATTER|COMPANIES ACT|ICAV ACT|"
-    "COLLECTIVE ASSET|^Notice is hereby"
-)
+_JUNK_RE = "NOTICE IS HEREBY|ABOVE NAMED|IN THE MATTER|COMPANIES ACT|ICAV ACT|COLLECTIVE ASSET|^Notice is hereby"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -762,6 +767,7 @@ def load_corporate() -> pd.DataFrame:
     fallback = pd.Series([f"row-{i}" for i in range(len(df))], index=df.index)
     has_ref = df["notice_ref"].notna() & (df["notice_ref"].astype(str).str.strip() != "")
     df["display_ref"] = df["notice_ref"].where(has_ref, fallback)
+
     # Materialise an exploded "any-parent-mentioned" column for fund filtering
     # without the page doing list-join business logic on its own. Stored as a
     # comma-joined string for easy str.contains() filtering.
@@ -822,7 +828,7 @@ def load_cbi_badges() -> list[tuple[str, dict]]:
         if norm not in seen:
             seen[str(norm)] = {
                 "register": str(r.get("primary_register") or ""),
-                "ref_no":   str(r.get("primary_ref_no") or ""),
+                "ref_no": str(r.get("primary_ref_no") or ""),
             }
     # Longest-first ordering so longest match wins (avoids "wealth" eating
     # "wealth options trustees").
@@ -894,8 +900,9 @@ def _card_name(row: pd.Series) -> tuple[str, bool]:
 # ──────────────────────────────────────────────────────────────────────────────
 # Filters
 # ──────────────────────────────────────────────────────────────────────────────
-def _apply_filters(df: pd.DataFrame, years: list[int], subtypes: set | None,
-                   fund: str, search: str, type_label: str) -> pd.DataFrame:
+def _apply_filters(
+    df: pd.DataFrame, years: list[int], subtypes: set | None, fund: str, search: str, type_label: str
+) -> pd.DataFrame:
     out = df
     if years:
         out = out[out["year"].isin(years)]
@@ -941,9 +948,14 @@ def _render_featured(df: pd.DataFrame) -> None:
     # Receivership-shaped subset, same definition as the enrichment uses.
     recv = df[
         (df["notice_subtype"] == "receivership")
-        | df["raw_text"].fillna("").astype(str).str.contains(
+        | df["raw_text"]
+        .fillna("")
+        .astype(str)
+        .str.contains(
             "APPOINTMENT OF (?:STATUTORY )?RECEIVER|NOTICE OF APPOINTMENT OF RECEIVER",
-            case=False, regex=True, na=False,
+            case=False,
+            regex=True,
+            na=False,
         )
     ]
     n_recv = len(recv)
@@ -960,18 +972,20 @@ def _render_featured(df: pd.DataFrame) -> None:
         ftypes = list(ftypes) if ftypes is not None and hasattr(ftypes, "__iter__") else []
         for i, p in enumerate(parents):
             if p:
-                parent_rows.append({
-                    "parent": p,
-                    "ftype": (ftypes[i] if i < len(ftypes) else "") or "",
-                })
+                parent_rows.append(
+                    {
+                        "parent": p,
+                        "ftype": (ftypes[i] if i < len(ftypes) else "") or "",
+                    }
+                )
     if not parent_rows:
         st.html(
             '<section class="corp-featured" aria-label="Featured receiver-appointer panel">'
             '<div><div class="corp-featured-kicker">Receiver-appointers</div>'
             '<h2 class="corp-featured-h">Who&apos;s calling in Irish loans</h2>'
             f'<div class="corp-featured-sub">No known major loan-book buyer or Irish bank '
-            f'mentioned in the current scope (of {n_recv:,} receivership notices).</div>'
-            '</div></section>'
+            f"mentioned in the current scope (of {n_recv:,} receivership notices).</div>"
+            "</div></section>"
         )
         return
 
@@ -979,9 +993,7 @@ def _render_featured(df: pd.DataFrame) -> None:
     # the long form "DESIGNATED ACTIVITY COMPANY". These are Section 110 SPVs
     # or fund vehicles used by vulture funds / banks to hold loan books.
     _SPV_RE = re.compile(r"\b(DAC|DESIGNATED ACTIVITY COMPANY|ICAV)\b", re.I)
-    n_spv = int(recv["entity_name"].fillna("").astype(str).str.contains(
-        _SPV_RE, regex=True, na=False
-    ).sum())
+    n_spv = int(recv["entity_name"].fillna("").astype(str).str.contains(_SPV_RE, regex=True, na=False).sum())
     spv_pct = round(100 * n_spv / max(n_recv, 1))
 
     pdf = pd.DataFrame(parent_rows)
@@ -997,6 +1009,7 @@ def _render_featured(df: pd.DataFrame) -> None:
         "state asset manager": 3,
         "state agency": 3,
     }
+
     def _dominant_ftype(s: pd.Series) -> str:
         counts = s.value_counts()
         if counts.empty:
@@ -1007,22 +1020,23 @@ def _render_featured(df: pd.DataFrame) -> None:
         winners.sort(key=lambda x: (_TYPE_PRIORITY.get(x, 99), x))
         return winners[0]
 
-    parent_to_ftype: dict[str, str] = (
-        pdf.groupby("parent")["ftype"].agg(_dominant_ftype).to_dict()
-    )
+    parent_to_ftype: dict[str, str] = pdf.groupby("parent")["ftype"].agg(_dominant_ftype).to_dict()
 
     top = (
         pdf.groupby("parent")
-           .size().rename("n")
-           .reset_index()
-           .assign(ftype=lambda d: d["parent"].map(parent_to_ftype))
-           .sort_values("n", ascending=False)
-           .head(FEATURED_TOP_N)
-           .set_index("parent")
+        .size()
+        .rename("n")
+        .reset_index()
+        .assign(ftype=lambda d: d["parent"].map(parent_to_ftype))
+        .sort_values("n", ascending=False)
+        .head(FEATURED_TOP_N)
+        .set_index("parent")
     )
-    n_tagged = int(recv["parent_fund_mentions"].apply(
-        lambda x: bool(x is not None and hasattr(x, "__iter__") and len(list(x)) > 0)
-    ).sum())
+    n_tagged = int(
+        recv["parent_fund_mentions"]
+        .apply(lambda x: bool(x is not None and hasattr(x, "__iter__") and len(list(x)) > 0))
+        .sum()
+    )
     coverage_pct = round(100 * n_tagged / max(n_recv, 1))
 
     # Type-mix breakdown across ALL tagged parent mentions (not just top-N).
@@ -1032,10 +1046,14 @@ def _render_featured(df: pd.DataFrame) -> None:
         if not ft:
             return "other"
         ft_low = ft.lower()
-        if "vulture" in ft_low: return "vulture"
-        if "servicer" in ft_low: return "servicer"
-        if "irish bank" in ft_low or ft_low.startswith("bank"): return "bank"
-        if "state" in ft_low or "nama" in ft_low or "revenue" in ft_low: return "state"
+        if "vulture" in ft_low:
+            return "vulture"
+        if "servicer" in ft_low:
+            return "servicer"
+        if "irish bank" in ft_low or ft_low.startswith("bank"):
+            return "bank"
+        if "state" in ft_low or "nama" in ft_low or "revenue" in ft_low:
+            return "state"
         return "other"
 
     pdf["bucket"] = pdf["parent"].map(parent_to_ftype).map(_type_bucket)
@@ -1054,22 +1072,24 @@ def _render_featured(df: pd.DataFrame) -> None:
         pct = bucket_pct.get(b, 0)
         if pct == 0:
             continue
-        breakdown_parts.append(
-            f'<span><span class="dot {b}"></span><b>{pct}%</b> {_BUCKET_LABEL[b]}</span>'
-        )
+        breakdown_parts.append(f'<span><span class="dot {b}"></span><b>{pct}%</b> {_BUCKET_LABEL[b]}</span>')
     breakdown_html = (
-        '<div class="corp-typebreakdown" aria-label="Type breakdown of appointing parties">'
-        + "".join(breakdown_parts) +
-        '</div>'
-    ) if breakdown_parts else ""
+        (
+            '<div class="corp-typebreakdown" aria-label="Type breakdown of appointing parties">'
+            + "".join(breakdown_parts)
+            + "</div>"
+        )
+        if breakdown_parts
+        else ""
+    )
 
     # Short labels used inside the chip — the full type sits in the title tooltip.
     _BUCKET_CHIP = {
         "vulture": "Vulture fund",
-        "bank":    "Irish bank",
-        "servicer":"Credit servicer",
-        "state":   "State",
-        "other":   "Other",
+        "bank": "Irish bank",
+        "servicer": "Credit servicer",
+        "state": "State",
+        "other": "Other",
     }
     max_n = int(top["n"].iloc[0])
     rows_html: list[str] = []
@@ -1078,21 +1098,25 @@ def _render_featured(df: pd.DataFrame) -> None:
         ftype = row.get("ftype") or ""
         bucket = _type_bucket(ftype)
         chip_html = (
-            f'<span class="corp-rank-typechip {bucket}" title="{html.escape(ftype)}">'
-            f'{html.escape(_BUCKET_CHIP.get(bucket, "Other"))}'
-            '</span>'
-        ) if ftype else ''
+            (
+                f'<span class="corp-rank-typechip {bucket}" title="{html.escape(ftype)}">'
+                f"{html.escape(_BUCKET_CHIP.get(bucket, 'Other'))}"
+                "</span>"
+            )
+            if ftype
+            else ""
+        )
         rows_html.append(
             f'<a class="corp-rank-row" href="?fund={html.escape(str(parent), quote=True)}" '
             f'target="_self" style="text-decoration:none;color:inherit;" '
             f'aria-label="Filter to {html.escape(parent, quote=True)} ({int(row["n"])} notices)">'
             f'<div class="corp-rank-name" title="{html.escape(parent)}">'
-            f'{html.escape(parent)}'
-            f'</div>'
+            f"{html.escape(parent)}"
+            f"</div>"
             f'<div class="corp-rank-bar"><span style="width:{width}%"></span></div>'
-            f'{chip_html}'
+            f"{chip_html}"
             f'<div class="corp-rank-count">{int(row["n"])}</div>'
-            '</a>'
+            "</a>"
         )
 
     # Year sparkline of the receiver wave. Pure-data note (peak / low /
@@ -1109,7 +1133,7 @@ def _render_featured(df: pd.DataFrame) -> None:
         current_years = set(int(y) for y in (st.session_state.get("corp_year_filter") or []))
 
         bars: list[str] = []
-        for y, c in zip(years_full, counts):
+        for y, c in zip(years_full, counts, strict=True):
             h_pct = max(4, int(round(100 * (c / peak)))) if peak else 4
             klass = ["corp-spark-bar"]
             if spike_threshold > 0 and c >= spike_threshold:
@@ -1127,8 +1151,9 @@ def _render_featured(df: pd.DataFrame) -> None:
         # Pure-data annotation: peak year + count, low year + count, latest
         # full year + count. No editorial framing.
         import datetime as _dt
+
         today_y = _dt.date.today().year
-        full_year_counts = [(y, c) for y, c in zip(years_full, counts) if y < today_y]
+        full_year_counts = [(y, c) for y, c in zip(years_full, counts, strict=True) if y < today_y]
         peak_y, peak_c = max(full_year_counts, key=lambda t: t[1]) if full_year_counts else (None, None)
         low_y, low_c = min(full_year_counts, key=lambda t: t[1]) if full_year_counts else (None, None)
         latest_full_y, latest_full_c = full_year_counts[-1] if full_year_counts else (None, None)
@@ -1147,26 +1172,23 @@ def _render_featured(df: pd.DataFrame) -> None:
             f'<div class="corp-spark-row">{"".join(bars)}</div>'
             f'<div class="corp-spark-years"><span>{ymin}</span><span>{ymax}</span></div>'
             f'<div class="corp-spark-note">Click a year to filter · {ann_text}</div>'
-            '</div>'
+            "</div>"
         )
 
     st.markdown(
         '<section class="corp-featured" aria-label="Featured receiver-appointer panel">'
-        '<div>'
+        "<div>"
         '<div class="corp-featured-kicker">Receiver-appointers</div>'
-        "<h2 class=\"corp-featured-h\">Who's calling in Irish loans</h2>"
+        '<h2 class="corp-featured-h">Who\'s calling in Irish loans</h2>'
         f'<div class="corp-featured-sub">'
-        f'Of <strong>{n_recv:,}</strong> receivership notices, '
-        f'<strong>{n_tagged:,}</strong> ({coverage_pct}%) name a known appointer. '
-        f'<strong>{n_spv:,}</strong> ({spv_pct}%) have a wound-up entity whose name contains '
-        f'<em>DAC</em>, <em>Designated Activity Company</em> or <em>ICAV</em>. '
-        f'Click a row to filter the page.'
-        f'</div>'
-        + breakdown_html
-        + "".join(rows_html) +
-        '</div>'
-        f'<div>{spark_html}</div>'
-        '</section>',
+        f"Of <strong>{n_recv:,}</strong> receivership notices, "
+        f"<strong>{n_tagged:,}</strong> ({coverage_pct}%) name a known appointer. "
+        f"<strong>{n_spv:,}</strong> ({spv_pct}%) have a wound-up entity whose name contains "
+        f"<em>DAC</em>, <em>Designated Activity Company</em> or <em>ICAV</em>. "
+        f"Click a row to filter the page."
+        f"</div>" + breakdown_html + "".join(rows_html) + "</div>"
+        f"<div>{spark_html}</div>"
+        "</section>",
         unsafe_allow_html=True,
     )
 
@@ -1213,7 +1235,7 @@ def _render_this_year_callout(df: pd.DataFrame, cbi_repeat: pd.DataFrame | None)
         elif d < 0:
             cls, sign = "down", "▼"
         else:
-            return ''
+            return ""
         return f'<span class="corp-thisyear-delta {cls}">{sign}{abs(pct)}% vs {prev}</span>'
 
     st.markdown(
@@ -1228,8 +1250,8 @@ def _render_this_year_callout(df: pd.DataFrame, cbi_repeat: pd.DataFrame | None)
         f'<div class="corp-thisyear-lbl">distinct companies named in {cur}</div></div>'
         f'<div><div class="corp-thisyear-num">{n_repeat:,}</div>'
         f'<div class="corp-thisyear-lbl">CBI-authorised firms with repeat distress (since 2016)</div></div>'
-        f'</div>'
-        f'</section>',
+        f"</div>"
+        f"</section>",
         unsafe_allow_html=True,
     )
 
@@ -1242,28 +1264,28 @@ def _render_this_year_callout(df: pd.DataFrame, cbi_repeat: pd.DataFrame | None)
 # receivership-shaped subset; cached via @st.cache_data.
 # ──────────────────────────────────────────────────────────────────────────────
 _OPERATOR_PATTERNS_WORD = [
-    ("Deloitte",                 re.compile(r"\bDeloitte\b")),
-    ("Grant Thornton",           re.compile(r"\bGrant Thornton\b")),
-    ("Mazars",                   re.compile(r"\bMazars\b")),
-    ("Kroll",                    re.compile(r"\bKroll\b")),
-    ("Crowe",                    re.compile(r"\bCrowe\b")),
-    ("Friel Stafford",           re.compile(r"\bFriel Stafford\b")),
-    ("McKeogh Gallagher Ryan",   re.compile(r"\bMcKeogh Gallagher Ryan\b")),
-    ("McStay Luby",              re.compile(r"\bMcStay Luby\b")),
-    ("Hughes Blake",             re.compile(r"\bHughes Blake\b")),
-    ("Baker Tilly",              re.compile(r"\bBaker Tilly\b")),
-    ("Cooney Carey",             re.compile(r"\bCooney Carey\b")),
-    ("FTI Consulting",           re.compile(r"\bFTI Consulting\b")),
-    ("Interpath",                re.compile(r"\bInterpath\b")),
-    ("Teneo",                    re.compile(r"\bTeneo\b")),
+    ("Deloitte", re.compile(r"\bDeloitte\b")),
+    ("Grant Thornton", re.compile(r"\bGrant Thornton\b")),
+    ("Mazars", re.compile(r"\bMazars\b")),
+    ("Kroll", re.compile(r"\bKroll\b")),
+    ("Crowe", re.compile(r"\bCrowe\b")),
+    ("Friel Stafford", re.compile(r"\bFriel Stafford\b")),
+    ("McKeogh Gallagher Ryan", re.compile(r"\bMcKeogh Gallagher Ryan\b")),
+    ("McStay Luby", re.compile(r"\bMcStay Luby\b")),
+    ("Hughes Blake", re.compile(r"\bHughes Blake\b")),
+    ("Baker Tilly", re.compile(r"\bBaker Tilly\b")),
+    ("Cooney Carey", re.compile(r"\bCooney Carey\b")),
+    ("FTI Consulting", re.compile(r"\bFTI Consulting\b")),
+    ("Interpath", re.compile(r"\bInterpath\b")),
+    ("Teneo", re.compile(r"\bTeneo\b")),
 ]
 # Case-sensitive uppercase abbreviation matches — lowercase variants are too
 # noisy ('ey' matched inside many unrelated words during probing).
 _OPERATOR_PATTERNS_CASE = [
-    ("EY",   re.compile(r"\bEY\b")),
+    ("EY", re.compile(r"\bEY\b")),
     ("KPMG", re.compile(r"\bKPMG\b")),
-    ("BDO",  re.compile(r"\bBDO\b")),
-    ("RBK",  re.compile(r"\bRBK\b")),
+    ("BDO", re.compile(r"\bBDO\b")),
+    ("RBK", re.compile(r"\bRBK\b")),
     ("OCKT", re.compile(r"\bOCKT\b")),
 ]
 _OPERATOR_PWC = re.compile(r"\b(?:PwC|PWC|PricewaterhouseCoopers|PriceWaterhouseCoopers)\b")
@@ -1301,9 +1323,14 @@ def _render_operator_strip(df: pd.DataFrame) -> None:
         return
     recv = df[
         (df["notice_subtype"] == "receivership")
-        | df["raw_text"].fillna("").astype(str).str.contains(
+        | df["raw_text"]
+        .fillna("")
+        .astype(str)
+        .str.contains(
             "APPOINTMENT OF (?:STATUTORY )?RECEIVER|NOTICE OF APPOINTMENT OF RECEIVER",
-            case=False, regex=True, na=False,
+            case=False,
+            regex=True,
+            na=False,
         )
     ]
     if recv.empty:
@@ -1314,7 +1341,6 @@ def _render_operator_strip(df: pd.DataFrame) -> None:
         return
 
     n_recv = len(recv)
-    n_tagged = sum(n for _, n in top)  # caps to top-10 firms
     # Distinct notices mentioning at least one operator firm — recompute cheaply
     # via a single combined regex pass (only used for the headline %).
     combined_pat = re.compile(
@@ -1337,24 +1363,24 @@ def _render_operator_strip(df: pd.DataFrame) -> None:
         chip_html.append(
             f'<a class="corp-operator-chip" href="?q={html.escape(name, quote=True)}" '
             f'target="_self" aria-label="Filter feed to notices mentioning {html.escape(name, quote=True)}">'
-            f'{html.escape(name)}'
+            f"{html.escape(name)}"
             f'<span class="corp-operator-chip-n">{n:,}</span>'
-            '</a>'
+            "</a>"
         )
 
     st.markdown(
         '<section class="corp-operator-strip" aria-label="Receiver-firm concentration strip">'
         '<div class="corp-operator-strip-context">'
         '<span class="corp-operator-strip-h">Who&apos;s doing the work</span>'
-        f'Across <strong>{n_recv:,}</strong> receivership notices, '
-        f'<strong>{n_any_tagged:,}</strong> ({cov_pct}%) mention a known professional firm — '
-        f'the Big 6 accountancy firms account for <strong>{big6_pct_of_tagged}%</strong> of those. '
-        f'Click a chip to filter the feed.'
-        '</div>'
+        f"Across <strong>{n_recv:,}</strong> receivership notices, "
+        f"<strong>{n_any_tagged:,}</strong> ({cov_pct}%) mention a known professional firm — "
+        f"the Big 6 accountancy firms account for <strong>{big6_pct_of_tagged}%</strong> of those. "
+        f"Click a chip to filter the feed."
+        "</div>"
         f'<div class="corp-operator-strip-chips">{"".join(chip_html)}'
         f'<span class="corp-operator-strip-tail">notice presence · regex over raw text</span>'
-        '</div>'
-        '</section>',
+        "</div>"
+        "</section>",
         unsafe_allow_html=True,
     )
 
@@ -1365,37 +1391,47 @@ def _render_operator_strip(df: pd.DataFrame) -> None:
 # Beltany is tagged as Goldman Sachs. Collapsed by default.
 # ──────────────────────────────────────────────────────────────────────────────
 _TYPE_BUCKET_FOR_HTML = {
-    "vulture fund":               "vulture",
-    "credit servicer":            "servicer",
-    "Irish bank":                 "bank",
-    "Irish bank (winding down)":  "bank",
-    "Irish bank (exited)":        "bank",
-    "state asset manager":        "state",
-    "state agency":               "state",
+    "vulture fund": "vulture",
+    "credit servicer": "servicer",
+    "Irish bank": "bank",
+    "Irish bank (winding down)": "bank",
+    "Irish bank (exited)": "bank",
+    "state asset manager": "state",
+    "state agency": "state",
 }
 
 _METHODOLOGY_GLOSSARY = [
-    ("Vulture fund",
-     "US or UK private-equity / distressed-debt investor that buys Irish loan "
-     "books at a discount. Cerberus, Goldman Sachs, Oaktree, Lone Star, Apollo "
-     "are the largest active in Ireland."),
-    ("Credit servicer",
-     "CBI-authorised firm that operates day-to-day collection on loans owned "
-     "by a vulture fund. Sometimes the same parent (Cerberus / Pepper); "
-     "sometimes a third-party servicer (Pepper, Mars Capital, BCMGlobal)."),
-    ("SPV / DAC",
-     "Special-Purpose Vehicle, usually a Designated Activity Company. "
-     "An Irish legal shell incorporated to hold a specific loan portfolio. "
-     "Most are Section 110 companies, which gives tax-efficient treatment of "
-     "interest payments."),
-    ("Schedule 2 firm",
-     "Non-bank financial firm registered with the Central Bank under "
-     "Schedule 2 of the Criminal Justice Act 2010 (as amended) for AML / CFT "
-     "supervision only — not prudentially regulated like a bank. Most Section "
-     "110 SPVs sit here."),
-    ("NAMA",
-     "National Asset Management Agency — the state bad-bank that bought "
-     "distressed property loans from Irish banks 2010-2014."),
+    (
+        "Vulture fund",
+        "US or UK private-equity / distressed-debt investor that buys Irish loan "
+        "books at a discount. Cerberus, Goldman Sachs, Oaktree, Lone Star, Apollo "
+        "are the largest active in Ireland.",
+    ),
+    (
+        "Credit servicer",
+        "CBI-authorised firm that operates day-to-day collection on loans owned "
+        "by a vulture fund. Sometimes the same parent (Cerberus / Pepper); "
+        "sometimes a third-party servicer (Pepper, Mars Capital, BCMGlobal).",
+    ),
+    (
+        "SPV / DAC",
+        "Special-Purpose Vehicle, usually a Designated Activity Company. "
+        "An Irish legal shell incorporated to hold a specific loan portfolio. "
+        "Most are Section 110 companies, which gives tax-efficient treatment of "
+        "interest payments.",
+    ),
+    (
+        "Schedule 2 firm",
+        "Non-bank financial firm registered with the Central Bank under "
+        "Schedule 2 of the Criminal Justice Act 2010 (as amended) for AML / CFT "
+        "supervision only — not prudentially regulated like a bank. Most Section "
+        "110 SPVs sit here.",
+    ),
+    (
+        "NAMA",
+        "National Asset Management Agency — the state bad-bank that bought "
+        "distressed property loans from Irish banks 2010-2014.",
+    ),
 ]
 
 
@@ -1406,56 +1442,59 @@ def _render_methodology_expander(aliases: pd.DataFrame) -> None:
     if aliases is None or aliases.empty:
         return
 
-    # Group brands by parent + canonical type for the table
+    # Group brands by parent + canonical type for the table. `notes` is an
+    # optional column in the curated CSV — aggregate it only when present so a
+    # leaner alias file (brand/parent_fund/fund_type only) still renders.
+    agg_kwargs = {"brands": ("brand", lambda s: ", ".join(sorted(s)))}
+    if "notes" in aliases.columns:
+        agg_kwargs["notes_concat"] = ("notes", lambda s: " · ".join(sorted({str(n) for n in s if str(n).strip()})))
     grouped = (
         aliases.groupby(["parent_fund", "fund_type"], as_index=False)
-               .agg(brands=("brand", lambda s: ", ".join(sorted(s))),
-                    notes_concat=("notes", lambda s: " · ".join(sorted({str(n) for n in s if str(n).strip()}))))
-               .sort_values(["fund_type", "parent_fund"])
+        .agg(**agg_kwargs)
+        .sort_values(["fund_type", "parent_fund"])
     )
+    if "notes_concat" not in grouped.columns:
+        grouped["notes_concat"] = ""
 
     rows_html: list[str] = []
     for _, r in grouped.iterrows():
         bucket = _TYPE_BUCKET_FOR_HTML.get(str(r["fund_type"]), "other")
         rows_html.append(
-            '<tr>'
+            "<tr>"
             f'<td class="corp-meth-parent">{html.escape(str(r["parent_fund"]))}</td>'
             f'<td class="corp-meth-brands">{html.escape(str(r["brands"]))}</td>'
             f'<td><span class="corp-rank-typechip {bucket}">{html.escape(str(r["fund_type"]))}</span></td>'
             f'<td class="corp-meth-notes">{html.escape(str(r["notes_concat"]))}</td>'
-            '</tr>'
+            "</tr>"
         )
 
-    glossary_html = "".join(
-        f'<dt>{html.escape(t)}</dt><dd>{html.escape(d)}</dd>'
-        for t, d in _METHODOLOGY_GLOSSARY
-    )
+    glossary_html = "".join(f"<dt>{html.escape(t)}</dt><dd>{html.escape(d)}</dd>" for t, d in _METHODOLOGY_GLOSSARY)
 
     st.markdown(
         '<details class="corp-methodology">'
-        '<summary>Sources &amp; methodology — how brands map to parent funds</summary>'
+        "<summary>Sources &amp; methodology — how brands map to parent funds</summary>"
         '<div class="corp-methodology-body">'
         '<p class="corp-methodology-intro">'
-        'Brand-to-parent classification is hand-curated in '
-        '<code>data/_meta/loan_book_fund_aliases.csv</code> from public sources '
-        '(CBI Credit Servicers register, news reporting, regulatory filings). '
-        'Each notice\'s raw text is scanned for the brand strings below; matching '
-        'rolls up to the parent and the fund_type. The receiver-appointer panel '
-        'counts unique parent appearances.'
-        '</p>'
+        "Brand-to-parent classification is hand-curated in "
+        "<code>data/_meta/loan_book_fund_aliases.csv</code> from public sources "
+        "(CBI Credit Servicers register, news reporting, regulatory filings). "
+        "Each notice's raw text is scanned for the brand strings below; matching "
+        "rolls up to the parent and the fund_type. The receiver-appointer panel "
+        "counts unique parent appearances."
+        "</p>"
         '<table class="corp-methodology-table">'
-        '<thead><tr>'
-        '<th>Parent fund</th><th>Brand strings matched in notices</th>'
-        '<th>Type</th><th>Source / note</th>'
-        '</tr></thead>'
-        f'<tbody>{"".join(rows_html)}</tbody>'
-        '</table>'
+        "<thead><tr>"
+        "<th>Parent fund</th><th>Brand strings matched in notices</th>"
+        "<th>Type</th><th>Source / note</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(rows_html)}</tbody>"
+        "</table>"
         '<dl class="corp-methodology-glossary">'
         '<dt class="corp-meth-glossary-h">Plain-English terms</dt><dd></dd>'
-        f'{glossary_html}'
-        '</dl>'
-        '</div>'
-        '</details>',
+        f"{glossary_html}"
+        "</dl>"
+        "</div>"
+        "</details>",
         unsafe_allow_html=True,
     )
 
@@ -1478,52 +1517,50 @@ def _shorten_register(name: str) -> str:
     n = re.sub(r"\s+as at\b.*$", "", n).strip()
     # Long-phrase canonical labels FIRST (depend on prefixes still being present).
     long_map = [
-        ("Insurance Distribution Register",
-         "Insurance Distribution"),
-        ("Register of Insurance Distribution",
-         "Insurance Distribution"),
-        ("Register of Authorised and Registered Alternative Investment Fund Managers",
-         "AIFMs"),
-        ("Register of Alternative Investment Fund Managers operating in Ireland on a Branc",
-         "AIFMs (Branch/Cross-border)"),
-        ("Register of Investment Business Firms authorised under Section 10 of the Investm",
-         "Investment Business (S.10)"),
-        ("Register of Investment Business Firms deemed to be authorised as Investment Inte",
-         "Investment Business (RAIPI)"),
-        ("Register of Investment Product Intermediaries Section 31 Register",
-         "Investment Product Intermediaries (S.31)"),
-        ("Authorised UCITS European Communities Undertakings for Collective Investment in",
-         "UCITS"),
-        ("Register of UCITS Management Companies operating in Ireland on a Branch or Cross",
-         "UCITS Mgmt Cos (Branch/Cross-border)"),
-        ("Authorised UCITS Management Companies",
-         "UCITS Mgmt Cos"),
-        ("Register of Trust or Company Service Providers that are Subsidiaries of Credit o",
-         "TCSPs (subsidiaries)"),
-        ("Register of Credit Unions maintained by the Central Bank of Ireland pursuant to",
-         "Credit Unions (PSD)"),
-        ("Register of Credit Unions maintained by the Central Bank of Ireland under Regula",
-         "Credit Unions (EMI)"),
-        ("Register of Crowdfunding Service Providers",
-         "Crowdfunding"),
-        ("Register of Authorised Crypto Asset Service Providers Under Article 63 of Regula",
-         "Crypto (MiCAR)"),
-        ("Register of Virtual Asset Service Providers",
-         "VASPs"),
-        ("Authorised Irish Collective Asset management Vehicles Irish Collective Asset man",
-         "ICAV (authorised)"),
-        ("Authorised Designated Investment Companies Companies Act 1990 Part XIII",
-         "Designated Investment Companies"),
-        ("Authorised Investment Limited Partnerships Investment Limited Partnerships Act 1",
-         "Investment Limited Partnerships"),
-        ("Authorised Common Contractual Funds Investment Funds Companies and Miscellaneous",
-         "Common Contractual Funds"),
-        ("Authorised Unit Trust Schemes Unit Trust Act 1990",
-         "Unit Trust Schemes"),
-        ("Register of Registered Irish Collective Asset management Vehicles ICAV",
-         "Registered ICAVs"),
-        ("Register of Charges created by Irish Collective Asset management Vehicles ICAV",
-         "Charges by ICAVs"),
+        ("Insurance Distribution Register", "Insurance Distribution"),
+        ("Register of Insurance Distribution", "Insurance Distribution"),
+        ("Register of Authorised and Registered Alternative Investment Fund Managers", "AIFMs"),
+        (
+            "Register of Alternative Investment Fund Managers operating in Ireland on a Branc",
+            "AIFMs (Branch/Cross-border)",
+        ),
+        (
+            "Register of Investment Business Firms authorised under Section 10 of the Investm",
+            "Investment Business (S.10)",
+        ),
+        (
+            "Register of Investment Business Firms deemed to be authorised as Investment Inte",
+            "Investment Business (RAIPI)",
+        ),
+        (
+            "Register of Investment Product Intermediaries Section 31 Register",
+            "Investment Product Intermediaries (S.31)",
+        ),
+        ("Authorised UCITS European Communities Undertakings for Collective Investment in", "UCITS"),
+        (
+            "Register of UCITS Management Companies operating in Ireland on a Branch or Cross",
+            "UCITS Mgmt Cos (Branch/Cross-border)",
+        ),
+        ("Authorised UCITS Management Companies", "UCITS Mgmt Cos"),
+        ("Register of Trust or Company Service Providers that are Subsidiaries of Credit o", "TCSPs (subsidiaries)"),
+        ("Register of Credit Unions maintained by the Central Bank of Ireland pursuant to", "Credit Unions (PSD)"),
+        ("Register of Credit Unions maintained by the Central Bank of Ireland under Regula", "Credit Unions (EMI)"),
+        ("Register of Crowdfunding Service Providers", "Crowdfunding"),
+        ("Register of Authorised Crypto Asset Service Providers Under Article 63 of Regula", "Crypto (MiCAR)"),
+        ("Register of Virtual Asset Service Providers", "VASPs"),
+        ("Authorised Irish Collective Asset management Vehicles Irish Collective Asset man", "ICAV (authorised)"),
+        ("Authorised Designated Investment Companies Companies Act 1990 Part XIII", "Designated Investment Companies"),
+        (
+            "Authorised Investment Limited Partnerships Investment Limited Partnerships Act 1",
+            "Investment Limited Partnerships",
+        ),
+        (
+            "Authorised Common Contractual Funds Investment Funds Companies and Miscellaneous",
+            "Common Contractual Funds",
+        ),
+        ("Authorised Unit Trust Schemes Unit Trust Act 1990", "Unit Trust Schemes"),
+        ("Register of Registered Irish Collective Asset management Vehicles ICAV", "Registered ICAVs"),
+        ("Register of Charges created by Irish Collective Asset management Vehicles ICAV", "Charges by ICAVs"),
     ]
     for old, new in long_map:
         if old in n:
@@ -1546,11 +1583,11 @@ def _render_cbi_repeat_distress(df_cbi: pd.DataFrame) -> None:
 
     rows_html: list[str] = [
         '<div class="corp-cbi-row corp-cbi-row-head">'
-        '<div>Firm (CBI-authorised)</div>'
+        "<div>Firm (CBI-authorised)</div>"
         '<div style="text-align:right;">Distress<br>notices</div>'
         '<div style="text-align:right;">Total<br>notices</div>'
-        '<div>Register</div>'
-        '</div>'
+        "<div>Register</div>"
+        "</div>"
     ]
 
     for _, r in df_cbi.iterrows():
@@ -1561,36 +1598,31 @@ def _render_cbi_repeat_distress(df_cbi: pd.DataFrame) -> None:
         n_total = int(r.get("n_notices_total") or 0)
         # Link the firm name to a search on the existing corp_search box
         link = f"?clear=year&q={html.escape(name, quote=True)}"
-        ref_html = (
-            f' · <span class="corp-cbi-refno">{html.escape(primary_ref)}</span>'
-            if primary_ref else ""
-        )
+        ref_html = f' · <span class="corp-cbi-refno">{html.escape(primary_ref)}</span>' if primary_ref else ""
         rows_html.append(
             '<div class="corp-cbi-row">'
             f'<div class="corp-cbi-name" title="{html.escape(name)}">'
             f'<a href="{link}" target="_self"><strong>{html.escape(name)}</strong></a>'
-            f'</div>'
+            f"</div>"
             f'<div class="corp-cbi-count">{n_distress}</div>'
             f'<div class="corp-cbi-count-routine">{n_total}</div>'
             f'<div class="corp-cbi-reg">{html.escape(primary_reg)}{ref_html}</div>'
-            '</div>'
+            "</div>"
         )
 
     st.markdown(
         '<section class="corp-cbi-panel" aria-label="Regulated firms in repeat distress (experimental)">'
         '<div class="corp-cbi-kicker">CBI authorisation '
         '<span class="corp-cbi-tag">EXPERIMENTAL</span></div>'
-        "<h2 class=\"corp-cbi-h\">Regulated firms with repeat distress notices</h2>"
+        '<h2 class="corp-cbi-h">Regulated firms with repeat distress notices</h2>'
         '<div class="corp-cbi-sub">'
-        f'<strong>{n_firms}</strong> CBI-authorised firms have appeared in '
-        f'<strong>{n_distress_total}</strong> receivership, court winding-up, examinership, '
-        f'creditors\' liquidation or SCARP notices since 2016 — and at least twice each. '
-        f'Solvent fund wind-ups (Members\' Voluntary Liquidation) are filtered out. '
-        f'Match is by exact normalised entity name against CBI register snapshots; '
-        f'see the sandbox extract for caveats.'
-        '</div>'
-        + "".join(rows_html) +
-        '</section>',
+        f"<strong>{n_firms}</strong> CBI-authorised firms have appeared in "
+        f"<strong>{n_distress_total}</strong> receivership, court winding-up, examinership, "
+        f"creditors' liquidation or SCARP notices since 2016 — and at least twice each. "
+        f"Solvent fund wind-ups (Members' Voluntary Liquidation) are filtered out. "
+        f"Match is by exact normalised entity name against CBI register snapshots; "
+        f"see the sandbox extract for caveats."
+        "</div>" + "".join(rows_html) + "</section>",
         unsafe_allow_html=True,
     )
 
@@ -1632,10 +1664,10 @@ def _render_rescue_panel(df: pd.DataFrame) -> None:
             f'<a class="corp-rescue-yearrow" href="?spark={int(y)}" target="_self" '
             f'style="text-decoration:none;color:inherit;" '
             f'aria-label="Filter feed to {int(y)} ({int(c)} rescue notice{"s" if c != 1 else ""})">'
-            f'<div>{int(y)}</div>'
+            f"<div>{int(y)}</div>"
             f'<div class="corp-rescue-yearbar"><span style="width:{width}%"></span></div>'
             f'<div class="corp-rescue-yearcount">{int(c)}</div>'
-            '</a>'
+            "</a>"
         )
 
     # Recent rescues — newest 8 with extracted entity name
@@ -1651,7 +1683,7 @@ def _render_rescue_panel(df: pd.DataFrame) -> None:
             f'<div class="corp-rescue-item-date">{html.escape(date_str)}</div>'
             f'<div class="corp-rescue-item-firm" title="{html.escape(name)}">{html.escape(name)}</div>'
             f'<span class="corp-rescue-typepill {st_cls}">{html.escape(st_label)}</span>'
-            '</div>'
+            "</div>"
         )
 
     st.markdown(
@@ -1659,22 +1691,22 @@ def _render_rescue_panel(df: pd.DataFrame) -> None:
         '<div class="corp-rescue-kicker">Corporate rescue</div>'
         '<h2 class="corp-rescue-h">Firms in rescue</h2>'
         '<div class="corp-rescue-sub">'
-        f'<strong>{n_total:,}</strong> firms have entered formal rescue since 2016 — '
-        f'<strong>{n_exam}</strong> examinerships (court-supervised restructure) and '
-        f'<strong>{n_scarp}</strong> SCARP filings (small-company process; first filings 2021). '
-        f'See year bars for the annual trend.'
-        '</div>'
+        f"<strong>{n_total:,}</strong> firms have entered formal rescue since 2016 — "
+        f"<strong>{n_exam}</strong> examinerships (court-supervised restructure) and "
+        f"<strong>{n_scarp}</strong> SCARP filings (small-company process; first filings 2021). "
+        f"See year bars for the annual trend."
+        "</div>"
         '<div class="corp-rescue-grid">'
-        '<div>'
+        "<div>"
         '<div class="corp-rescue-list-label">Rescues by year (click to filter feed)</div>'
         f'<div class="corp-rescue-yearbars">{"".join(year_rows_html)}</div>'
-        '</div>'
-        '<div>'
+        "</div>"
+        "<div>"
         '<div class="corp-rescue-list-label">Most recent</div>'
         f'<div class="corp-rescue-list">{"".join(list_rows_html)}</div>'
-        '</div>'
-        '</div>'
-        '</section>',
+        "</div>"
+        "</div>"
+        "</section>",
         unsafe_allow_html=True,
     )
 
@@ -1718,20 +1750,16 @@ def _render_facets(full_df: pd.DataFrame) -> int:
     if active:
         chip_html = "".join(
             f'<a class="corp-active-chip" href="?clear={k}" target="_self" '
-            f'aria-label="Remove filter: {html.escape(l, quote=True)}">'
-            f'{html.escape(l)}<span class="corp-active-chip-x" aria-hidden="true">×</span>'
-            '</a>'
-            for l, k in active
+            f'aria-label="Remove filter: {html.escape(label, quote=True)}">'
+            f'{html.escape(label)}<span class="corp-active-chip-x" aria-hidden="true">×</span>'
+            "</a>"
+            for label, k in active
         )
         chip_html += (
             '<a class="corp-active-chip corp-active-chip-all" href="?clear=all" '
             'target="_self" aria-label="Clear all filters">Clear all</a>'
         )
-        st.html(
-            '<div class="corp-active-bar">'
-            '<span class="corp-active-label">Filtered by</span>'
-            f'{chip_html}</div>'
-        )
+        st.html(f'<div class="corp-active-bar"><span class="corp-active-label">Filtered by</span>{chip_html}</div>')
 
     # Row 2 — year pills.
     yrs = sorted((int(y) for y in full_df["year"].dropna().unique()), reverse=True)
@@ -1743,9 +1771,7 @@ def _render_facets(full_df: pd.DataFrame) -> int:
         default=[],
         selection_mode="multi",
         key="corp_year_filter",
-        format_func=lambda y: (
-            f"{y} · {yc.get(y, 0):,} YTD" if y == current_year else f"{y} · {yc.get(y, 0):,}"
-        ),
+        format_func=lambda y: f"{y} · {yc.get(y, 0):,} YTD" if y == current_year else f"{y} · {yc.get(y, 0):,}",
     )
 
     # Row 3 — fund picker (parent funds known in the data).
@@ -1814,13 +1840,13 @@ def _render_card(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = Non
         if info:
             short_reg = _shorten_register(info.get("register", ""))
             refno = info.get("ref_no") or ""
-            tip = f"CBI-authorised: {info.get('register','')}" + (f" · {refno}" if refno else "")
+            tip = f"CBI-authorised: {info.get('register', '')}" + (f" · {refno}" if refno else "")
             label = "CBI · " + short_reg if short_reg else "CBI-authorised"
             pills.append(
                 f'<span class="corp-pill corp-pill-cbi" title="{html.escape(tip)}">'
-                f'{html.escape(label)}'
+                f"{html.escape(label)}"
                 + (f' <span class="corp-pill-cbi-ref">{html.escape(refno)}</span>' if refno else "")
-                + '</span>'
+                + "</span>"
             )
 
     return (
@@ -1829,7 +1855,7 @@ def _render_card(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = Non
         f'<div class="corp-card-date">{html.escape(date_str)}</div>'
         f'<div class="corp-card-who">{name_html}</div>'
         f'<div class="corp-card-meta">{"".join(pills)}</div>'
-        '</div></a>'
+        "</div></a>"
     )
 
 
@@ -1844,9 +1870,9 @@ def _render_feed(df: pd.DataFrame, cbi_badges: list[tuple[str, dict]] | None = N
     total = len(df)
     st.html(
         f'<div style="margin:0.4rem 0 0.2rem;font-size:0.85rem;color:#5b6b73;">'
-        f'<strong>{total:,}</strong> notice{"s" if total != 1 else ""} '
-        f'match the current filters, sorted newest first.'
-        f'</div>'
+        f"<strong>{total:,}</strong> notice{'s' if total != 1 else ''} "
+        f"match the current filters, sorted newest first."
+        f"</div>"
     )
 
     page_idx = paginate(total, key_prefix="corp_feed", page_size=PAGE_SIZE)
@@ -1907,13 +1933,13 @@ def _render_detail(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = N
         if info:
             short_reg = _shorten_register(info.get("register", ""))
             refno = info.get("ref_no") or ""
-            tip = f"CBI-authorised: {info.get('register','')}" + (f" · {refno}" if refno else "")
+            tip = f"CBI-authorised: {info.get('register', '')}" + (f" · {refno}" if refno else "")
             label = "CBI · " + short_reg if short_reg else "CBI-authorised"
             cbi_badge_html = (
                 f'<span class="corp-pill corp-pill-cbi" title="{html.escape(tip)}">'
-                f'{html.escape(label)}'
+                f"{html.escape(label)}"
                 + (f' <span class="corp-pill-cbi-ref">{html.escape(refno)}</span>' if refno else "")
-                + '</span> '
+                + "</span> "
             )
 
     st.html(
@@ -1921,12 +1947,9 @@ def _render_detail(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = N
         f'<div class="corp-detail-ref">{html.escape(ref)}</div>'
         f'<div class="corp-detail-title">{html.escape(headline)}</div>'
         f'<span class="corp-pill {subtype_cls}">{html.escape(subtype_label)}</span> '
-        + "".join(
-            f'<span class="corp-pill corp-pill-fund">{html.escape(str(p))}</span> '
-            for p in parents
-        )
+        + "".join(f'<span class="corp-pill corp-pill-fund">{html.escape(str(p))}</span> ' for p in parents)
         + cbi_badge_html
-        + '</div>'
+        + "</div>"
     )
 
     rows_html: list[str] = []
@@ -1936,7 +1959,7 @@ def _render_detail(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = N
             f'<div class="corp-detail-row">'
             f'<div class="corp-detail-label">{html.escape(label)}</div>'
             f'<div class="corp-detail-val">{value_html}</div>'
-            f'</div>'
+            f"</div>"
         )
 
     _row("Date", html.escape(date_str))
@@ -1956,7 +1979,7 @@ def _render_detail(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = N
             '<div class="corp-detail-label">Iris Oifigiúil source</div>'
             f'<div class="corp-detail-val" style="font-family:ui-monospace,Menlo,monospace;'
             f'font-size:0.85rem;color:#5b6b73;">{html.escape(src_pdf)}</div>'
-            '</div>'
+            "</div>"
         )
 
     st.html('<div class="corp-detail">' + "".join(rows_html) + "</div>")
@@ -1966,8 +1989,8 @@ def _render_detail(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = N
         st.html(
             '<div class="corp-detail-raw">'
             '<div class="corp-detail-raw-kicker">Original notice text</div>'
-            f'{html.escape(pretty)}'
-            '</div>'
+            f"{html.escape(pretty)}"
+            "</div>"
         )
 
 
@@ -2070,18 +2093,20 @@ def corporate_page() -> None:
     # not repeated here. Privacy stance retained as a single visible line.
     st.html(
         '<p class="corp-privacy-line">'
-        '<strong>Privacy:</strong> personal insolvency (individual bankruptcy notices) '
-        'is excluded by policy. Companies only.'
-        '</p>'
+        "<strong>Privacy:</strong> personal insolvency (individual bankruptcy notices) "
+        "is excluded by policy. Companies only."
+        "</p>"
     )
 
-    glossary_strip([
-        ("SPV", "Special-Purpose Vehicle (a fund structure that holds loan books or assets)"),
-        ("ICAV", "Irish Collective Asset-management Vehicle"),
-        ("MVL", "Members' Voluntary Liquidation (solvent wind-up)"),
-        ("CVL", "Creditors' Voluntary Liquidation (insolvent wind-up)"),
-        ("SCARP", "Small Company Administrative Rescue Process"),
-    ])
+    glossary_strip(
+        [
+            ("SPV", "Special-Purpose Vehicle (a fund structure that holds loan books or assets)"),
+            ("ICAV", "Irish Collective Asset-management Vehicle"),
+            ("MVL", "Members' Voluntary Liquidation (solvent wind-up)"),
+            ("CVL", "Creditors' Voluntary Liquidation (insolvent wind-up)"),
+            ("SCARP", "Small Company Administrative Rescue Process"),
+        ]
+    )
 
     if df.empty:
         empty_state(
@@ -2119,17 +2144,24 @@ def corporate_page() -> None:
     # CSV export
     if not filtered.empty:
         csv_cols = [
-            "issue_date", "notice_category", "notice_subtype", "entity_name",
-            "display_title", "parent_fund_mentions", "brand_mentions",
+            "issue_date",
+            "notice_category",
+            "notice_subtype",
+            "entity_name",
+            "display_title",
+            "parent_fund_mentions",
+            "brand_mentions",
             "iris_source_pdf",
         ]
         export_df = filtered[csv_cols].copy()
+
         # Flatten list columns for CSV friendliness.
         def _csv_join(lst):
             if lst is None or not hasattr(lst, "__iter__"):
                 return ""
             items = [str(x) for x in lst]
             return "; ".join(items)
+
         for c in ("parent_fund_mentions", "brand_mentions"):
             export_df[c] = export_df[c].apply(_csv_join)
         buf = io.StringIO()

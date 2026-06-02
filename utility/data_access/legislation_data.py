@@ -17,7 +17,6 @@ from __future__ import annotations
 import duckdb
 import pandas as pd
 import streamlit as st
-
 from data_access._sql_registry import register_views
 
 
@@ -149,6 +148,7 @@ def fetch_bill_debates(bill_id: str) -> pd.DataFrame:
 
 # ── Pre-2014 primary Acts (curated table) ─────────────────────────────────────
 
+
 @st.cache_data(ttl=3600)
 def fetch_pre2014_act_detail(bill_id: str) -> dict:
     """Return hero info for a synthetic 'act_<year>_<slug>' bill_id by
@@ -180,10 +180,7 @@ def fetch_si_composition(bill_id: str) -> pd.DataFrame:
     Reads from v_bill_si_operation_mix — the GROUP BY now lives in the view.
     """
     return _safe(
-        "SELECT si_operation, n"
-        " FROM v_bill_si_operation_mix"
-        " WHERE bill_id = ?"
-        " ORDER BY n DESC",
+        "SELECT si_operation, n FROM v_bill_si_operation_mix WHERE bill_id = ? ORDER BY n DESC",
         [bill_id],
     )
 

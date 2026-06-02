@@ -8,18 +8,18 @@ logger = logging.getLogger(__name__)
 PAGE_SIZE = 1000  # API server cap; larger values are silently clamped
 
 
-def build_vote_url() -> str:
-    """Single base URL for the post-cutoff Dáil vote query.
+def build_vote_url(chamber: str = "dail") -> str:
+    """Single base URL for the post-cutoff vote query (Dáil by default).
 
     Trailing &outcome= is required: omitting it triggers a hidden default
     filter that returns ~10 of ~1078 records. Sort/order are explicit so
-    paging is stable across calls.
+    paging is stable across calls. `chamber` accepts "dail" or "seanad".
     """
     return (
         f"{API_BASE}/votes"
         f"?chamber_type=house"
         f"&chamber_id="
-        f"&chamber=dail"
+        f"&chamber={chamber}"
         f"&date_start={VOTES_DATE_START}"
         f"&sort=date"
         f"&order=desc"
@@ -27,14 +27,15 @@ def build_vote_url() -> str:
     )
 
 
-def fetch_votes() -> tuple[list[dict], int]:
+def fetch_votes(chamber: str = "dail") -> tuple[list[dict], int]:
     """Fetch every vote since VOTES_DATE_START via skip/limit pagination.
 
     Returns one synthetic payload (a list of one dict) preserving the
     on-disk shape consumed by transform_votes.py. Asserts the cumulative
     count matches head.counts.resultCount so silent truncation cannot recur.
+    `chamber` accepts "dail" (default) or "seanad".
     """
-    base_url = build_vote_url()
+    base_url = build_vote_url(chamber)
     all_results: list[dict] = []
     total_bytes = 0
     expected = None
