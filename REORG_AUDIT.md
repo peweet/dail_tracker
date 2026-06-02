@@ -638,7 +638,128 @@ Executed dry-run-first, incrementally, baseline-gated. **Result: green, no regre
 - **`seanad_refresh.py` deliberately UNTOUCHED** — it has uncommitted in-flight Seanad work (adds `payments_member_enrichment` to the payments step). Its 2 pre-existing `E402`s are in that WIP, not introduced here.
 - **Verification:** ruff clean on all changed files; all 8 chains import with zero side-effects and correct `_ROOT`; `pipeline.py --list` works; **final pytest = 334·1·24, identical to baseline.**
 
-**Deferred to later increments (deliberately, not done here):**
-1. **~12 root-level domain ETLs** still self-derive root (`charity_enriched`, `ministerial_tenure_build`, `wikidata_socials_etl`, `wiki_data`, `si_entity_enrichment`, `committees_long_format_etl`, `payments_member_enrichment`, `corporate_notices_enrichment`, `iris_silver_rebuild`, `iris_si_bill_enrichment`, `iris_oifigiuil_etl_polars`, `iris_incremental_shards`). Most use `_ROOT` to build **data paths** (`_ROOT / "data" / ...`) — those should switch to `config.SILVER_DIR`/`BRONZE_DIR` constants, which is the audit's move-time path fix (bigger than a root swap, and several use `Path` elsewhere). Best done as its own reviewed increment or folded into Step 5.
+**Deferred to later increments:**
+1. ✅ **DONE 2026-06-02 — Option B (see Option B execution log below).** The ~12 root-level domain ETLs were migrated to `config` layer constants.
 2. **`_sql_registry.py` (`parents[2]`) + the rest of `utility/`** — UI layer; carries `sys.path` mechanics risk. Fold into the Step-5 move where packaging/sys.path is handled properly.
 3. **`lobbying_fetch.py:41`** uses `parents[1]` from a root-level file → resolves to the *parent of the repo root* (latent bug); it's sandbox-bound per the audit. Flag for the sandbox move.
+
+### Option B — EXECUTION LOG (2026-06-02, domain-ETL data paths → config constants, DONE)
+
+Same dry-run-first, baseline-gated discipline. **Result: 358 passed · 0 failed · 24 skipped — no regressions.**
+
+- **Scope:** 12 root-level domain ETLs switched from `_ROOT / "data" / ...` string-walking to `config.BRONZE_DIR` / `SILVER_DIR` / `SILVER_PARQUET_DIR` / `GOLD_PARQUET_DIR` / `DATA_DIR` constants. Medallion *layers* now come from config (one owner); domain *leaf* dirs (`iris_oifigiuil`, `wikidata`, `_meta`, `committees`) stay as local appends. **No new config constants added** (lowest-risk, config untouched).
+- **Per-file nuances handled:**
+  - `corporate_notices_enrichment.py` & `payments_member_enrichment.py` keep their root var (repointed to `paths.PROJECT_ROOT`) because it's still needed for `sys.path.insert` / `.relative_to()`; only the data paths moved to config.
+  - `wiki_data.py` builds `avatar/wikidata` (not a medallion layer, no config constant) → got the Step-1 treatment (`from paths import PROJECT_ROOT`) instead of Option B.
+  - 6 files gained `from config import …`; 5 already imported config (extended); ruff auto-removed 6 now-dead `from pathlib import Path` imports.
+- **Verification:** (1) dry-run proof asserted all **20** `config`-constant expressions resolve byte-identically to the old `_ROOT`-based paths *before* editing; (2) ruff clean on all 12; (3) import-smoke imported all 12 modules and re-confirmed all 20 constants byte-identical at runtime; (4) **pytest 358·0·24**.
+- **Env note:** the venv was missing `idna`/`certifi` (and earlier `rpds-py`) mid-session — restored via targeted `pip install` to unblock the gate. Likely concurrent `uv` activity uninstalling the `pipeline` extra ([[feedback_uv_env_management]]). Recommend a clean `uv sync --extra pipeline` to reconcile pip/uv state.
+- **What remains from the original `Path(__file__)` footprint:** `_sql_registry.py` + `utility/*` (UI, deferred item 2), `lobbying_fetch.py` (item 3), and `paths.py` itself (the one legitimate `__file__` derivation — by design). `wiki_data.py` keeps a benign `PROJECT_ROOT / "avatar"` append.
+
+---
+---
+
+# 8. Logging hardening plan (added 2026-06-02)
+
+*Remediation design for the logging assessment, parked here because it shares a code touch with **D2** (collapse the 9 duplicated chain step-runners into one) — do both in the same pass. Phase 3 (retention) belongs with `doc/CI_CD.md` / `doc/CICD_TODO.md` scheduled jobs.*
+
+**Status:** Plan only — nothing implemented. Phases 1 & 2 are ready to build on `main`; Phase 3 deferred to go-live (log history is low-priority during alpha, important once unattended in production).
+
+## 8.0 Why (plain summary)
+
+There's a good **per-run logging system**: `python pipeline.py` creates `logs/runs/<run_id>/` with the orchestrator log, one file per chain, and a `manifest.json` (what ran, durations, exit codes, git SHA). Keep it. The problem: it's used **only by the full pipeline**. The 9 per-domain chain scripts (`attendance_refresh.py`, `iris_refresh.py`, …) don't plug in — run one on its own and nothing is saved. So output got captured by hand (`python attendance_refresh.py > attendance_run.log`), and those files piled up at repo root and in `tmp/`. Separately, the old catch-all `logs/pipeline.log` has no size limit and reached 92 MB. None are git-tracked (all ignored) → a tidiness/observability problem, not a leak risk.
+
+## 8.1 The one idea that shapes the fix
+
+Chains print progress with plain `print()` (the `──── [1/6] … ────` banners, "done in 4.2s", Seanad summaries). Python's logging **cannot capture `print()`** — so "turning on logging" in a chain would save a near-empty file while the useful output still vanishes. The full pipeline already solves this by **tee-ing the whole output stream** of each chain to a file ([pipeline.py:106-128](pipeline.py#L106-L128)). So the standalone-chain fix is the same: copy the whole stream to a file. Simpler than rewriting ~200 `print()` calls into logging, captures everything, and keeps the console clean.
+
+## 8.2 Phase 1 — stop the bleeding *(now; ~30 min, low-risk)*
+
+| # | Change | Plain terms |
+|---|---|---|
+| 1.1 | One shared log format | Pipeline and chains format lines differently today (separators + field order). Define the format once in `services/logging_setup.py`; everything imports it. |
+| 1.2 | Size-cap the old catch-all | `logs/pipeline.log` grows forever (the 92 MB file). Swap its `FileHandler` for `RotatingFileHandler(maxBytes≈10 MB, backupCount=3)` → can't exceed ~40 MB. Affects only the 4 standalone scripts that hit the legacy path. See **Decision A**. |
+| 1.3 | One-time cleanup | Delete ~120 MB of stray logs: root `pipeline.log`/`pipeline_run.log`/`attendance_run.log`/`dbsect_after_pipeline.log`/`endpoint_check.log`/`streamlit_test.log`, stale `services/logs/`, 11× `tmp/*.log`, the 92 MB `logs/pipeline.log`, and the aborted `logs/runs/2026-05-31…` dir. All git-ignored. |
+
+## 8.3 Phase 2 — chains save their own logs *(now; the real fix, ~1–2 hrs; D2-aligned)*
+
+Stops new stray logs at the source — there's no longer any reason to hand-redirect.
+
+**8.3a New helper `chain_logging(chain_name)` in `services/logging_setup.py`:**
+
+```python
+@contextmanager
+def chain_logging(chain_name: str):
+    if os.environ.get(ENV_RUN_ID):
+        # started BY the full pipeline — parent already tees our output
+        setup_logging()                      # console only
+        yield None
+        return
+    # run on its own — act as our own mini-pipeline
+    run_id = make_run_id()
+    os.environ[ENV_RUN_ID] = run_id          # so sub-scripts we launch cooperate
+    setup_logging()                          # console only (tee owns the file)
+    create_run_manifest(run_id)              # full-parity manifest — agreed
+    log_path = run_dir(run_id) / "pipeline.log"
+    with _tee_stdio(log_path):               # copy ALL output (print + logging) to file
+        try:
+            yield run_id
+        finally:
+            run_finished_at(run_id)
+```
+
+`_tee_stdio(path)` = small context manager replacing `sys.stdout`/`sys.stderr` with a writer fanning out to console + file (UTF-8, line-buffered — reuse the pipeline's encoding care for `→`/`é` on Windows).
+
+Two points so a future reader doesn't "fix" them:
+- **No duplicate lines:** in standalone mode we deliberately attach *no* logging file-handler. The tee owns the file; logging writes to console, which the tee copies. One writer = no double-write.
+- **Sub-scripts captured free:** a launched step (e.g. `attendance.py`) inherits the tee'd stream, so its output lands in the same run-folder file — no per-chain plumbing.
+
+**8.3b Manifest (agreed):** standalone runs write a full `manifest.json` + rollup row + `latest_run_id.txt`, same as a pipeline run. `manifest.py` already supports it; it's just not called from chains today.
+
+**8.3c Apply to all 9 chains:** replace each `logging.basicConfig(...)` with wrapping `main()`'s body in `with chain_logging("<name>"):`.
+
+```python
+# before (attendance_refresh.py)
+def main() -> int:
+    argparse.ArgumentParser(...).parse_args()
+    logging.basicConfig(level=logging.INFO, format="…")   # remove
+    started = time.monotonic()
+    ...
+# after
+def main() -> int:
+    argparse.ArgumentParser(...).parse_args()
+    with chain_logging("attendance"):
+        started = time.monotonic()
+        ...
+```
+
+Per-chain notes: `seanad_refresh.py` configures **no** logging today (its `_log.info` is silently dropped) — this wires it up for the first time. All 9 already import root from `paths.py`, so no path work.
+
+**Outcome:** `python iris_refresh.py` alone now produces `logs/runs/<id>/pipeline.log` + manifest, like the full pipeline. Running under `pipeline.py` is unchanged (chain detects it's a child, lets parent capture).
+
+## 8.4 Phase 3 — go-live grade *(deferred; decide now, enable at launch)*
+
+- **3.1 Retention:** `prune_old_runs(days=…)` exists ([run_paths.py:87](services/run_paths.py#L87)) but is dead code ([pipeline.py:218-221](pipeline.py#L218-L221)). Enable in `main()` or (preferred) from the scheduled CI job. Window: suggest 90 days.
+- **3.2** Revisit the Phase-1 size cap once real run volume is known.
+- **3.3** Upload `logs/runs/<id>/` as a CI artifact on failed scheduled runs (layout already zip-friendly). Add a `doc/CICD_TODO.md` line.
+- **3.4** `DAIL_LOG_LEVEL` env switch; optional JSON formatter for ingestion. Cheap once format is centralised (1.1).
+- **3.5** Failure alerting — out of scope; the seam where this meets `test/HANDS_OFF_TEST_PLAN.md` notifications.
+
+## 8.5 Decision A — the old catch-all file (plain English)
+
+`logs/pipeline.log` is a shared file a few small scripts write to when run alone (`iris_si_bill_enrichment.py`, `si_entity_enrichment.py`, `services/dbsect_harvest.py`, `services/oireachtas_api_main.py`).
+- **Option A (recommended, = Phase 1.2):** keep it, but cap its size ("never past ~10 MB; when full, start fresh, keep last 3"). One line; nothing else moves.
+- **Option B:** drop it entirely — make even these small scripts create their own timestamped run folder. Tidier/uniform, but changes shared-function behaviour and touches the 4 scripts (more work, slightly more risk).
+
+**Recommend A now** (solves the only real problem — runaway size — in one line); revisit B later for full uniformity. This is the only open question; everything else is agreed.
+
+## 8.6 Risks & verification
+
+- A chain run *under* the pipeline must not mint a second run folder — the `ENV_RUN_ID` check prevents it; confirm `python pipeline.py --select attendance` yields exactly one run dir.
+- Tee must force UTF-8 (as the pipeline does) for arrows/accents on Windows.
+- `setup_logging` already refuses to add handlers twice; verify chains don't import a step module that configures logging before `chain_logging` runs.
+- **Acceptance:** (1) `python attendance_refresh.py` → exactly one `logs/runs/<id>/pipeline.log` with banners + a manifest row; (2) `python pipeline.py --select iris` → one run dir, no nesting, iris still captured; (3) repeated standalone `si_entity_enrichment.py` → `logs/pipeline.log` stays under the cap.
+
+## 8.7 Effort & order
+
+Phase 1 (~30 min) → Phase 2 (~1–2 hrs, the payoff) → Phase 3 (go-live). Phases 1–2 are low-risk, land on `main`, and aren't blocked by the `src/` reorg. When the reorg lands, `chain_logging` is the natural home for the consolidated chain-runner (**D2**).

@@ -31,17 +31,18 @@ import datetime as _dt
 import json
 import re
 import sys
-from pathlib import Path
 
 import polars as pl
 
-_ROOT = Path(__file__).resolve().parent
+from config import DATA_DIR, GOLD_PARQUET_DIR, SILVER_DIR
+from paths import PROJECT_ROOT as _ROOT
+
 sys.path.insert(0, str(_ROOT))
 
-_SRC = _ROOT / "data" / "silver" / "iris_oifigiuil" / "iris_notice_events_clean.csv"
-_OUT = _ROOT / "data" / "gold" / "parquet" / "corporate_notices.parquet"
-_META = _ROOT / "data" / "_meta" / "corporate_notices_coverage.json"
-_BRAND_CSV = _ROOT / "data" / "_meta" / "loan_book_fund_aliases.csv"
+_SRC = SILVER_DIR / "iris_oifigiuil" / "iris_notice_events_clean.csv"
+_OUT = GOLD_PARQUET_DIR / "corporate_notices.parquet"
+_META = DATA_DIR / "_meta" / "corporate_notices_coverage.json"
+_BRAND_CSV = DATA_DIR / "_meta" / "loan_book_fund_aliases.csv"
 
 # Categories in scope for the Corporate page.
 CORPORATE_CATEGORIES = [

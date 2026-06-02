@@ -3,8 +3,8 @@ Attendance data-access layer.
 
 Owns:
 - DuckDB connection bootstrapped from sql_views/attendance_*.sql
-- All retrieval functions for the attendance pages (attendance.py +
-  attendance_overview.py). Pages call these; they never run SQL themselves.
+- All retrieval functions for the attendance page (attendance.py).
+  The page calls these; it never runs SQL itself.
 
 Forbidden here (same rules as Streamlit page files):
 - JOIN, GROUP_BY_MULTI_DIM, HAVING, WINDOW in ad-hoc retrieval SQL
@@ -90,76 +90,6 @@ def fetch_year_ranking(year: int) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def fetch_global_stats() -> pd.DataFrame:
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT members_count, sitting_count, first_sitting_date, last_sitting_date"
-            " FROM v_attendance_summary LIMIT 1"
-        )
-        .df()
-    )
-
-
-@st.cache_data(ttl=300)
-def fetch_available_years() -> list[int]:
-    """Returns years ASC — oldest on the left, newest on the right."""
-    rows = (
-        get_attendance_conn()
-        .execute(
-            "SELECT DISTINCT year FROM v_attendance_member_year_summary"
-            " WHERE year IS NOT NULL AND house = 'Dáil' ORDER BY year ASC"
-        )
-        .fetchall()
-    )
-    return [int(r[0]) for r in rows]
-
-
-@st.cache_data(ttl=300)
-def fetch_alltime_ranking() -> pd.DataFrame:
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT member_name, party_name, constituency,"
-            " attended_count, sitting_count"
-            " FROM v_attendance_member_summary WHERE house = 'Dáil'"
-            " ORDER BY attended_count DESC LIMIT 500"
-        )
-        .df()
-    )
-
-
-@st.cache_data(ttl=300)
-def fetch_year_member_counts() -> pd.DataFrame:
-    """Per-year member count — used for the year summary strip.
-
-    Sources v_attendance_year_member_counts (rollup defined in the view).
-    """
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT year, members_count FROM v_attendance_year_member_counts"
-            " WHERE house = 'Dáil' ORDER BY year ASC"
-        )
-        .df()
-    )
-
-
-@st.cache_data(ttl=300)
-def fetch_member_years(td_name: str) -> pd.DataFrame:
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT CAST(year AS INTEGER) AS year, attended_count"
-            " FROM v_attendance_member_year_summary"
-            " WHERE member_name = ? ORDER BY year DESC LIMIT 100",
-            [td_name],
-        )
-        .df()
-    )
-
-
-@st.cache_data(ttl=300)
 def fetch_chamber_sitting_days(house: str) -> dict[int, int]:
     """{year: distinct chamber sitting days} for a house — the data-derived
     attendance-bar denominator used for Seanad (Dáil keeps SITTING_DAYS_BY_YEAR).
@@ -173,31 +103,3 @@ def fetch_chamber_sitting_days(house: str) -> dict[int, int]:
         .fetchall()
     )
     return {int(r[0]): int(r[1]) for r in rows}
-
-
-@st.cache_data(ttl=300)
-def fetch_member_profile(td_name: str) -> pd.DataFrame:
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT member_name, party_name, constituency"
-            " FROM v_attendance_member_summary WHERE member_name = ? LIMIT 1",
-            [td_name],
-        )
-        .df()
-    )
-
-
-@st.cache_data(ttl=300)
-def fetch_member_timeline(td_name: str, year: int) -> pd.DataFrame:
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT sitting_date, attendance_status"
-            " FROM v_attendance_timeline"
-            " WHERE member_name = ? AND year(sitting_date) = ?"
-            " ORDER BY sitting_date ASC LIMIT 400",
-            [td_name, year],
-        )
-        .df()
-    )

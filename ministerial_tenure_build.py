@@ -38,21 +38,18 @@ import logging
 import re
 import time
 import unicodedata
-from pathlib import Path
 
 import pandas as pd
 import requests
 
-from config import SILVER_DIR
+from config import BRONZE_DIR, SILVER_DIR
 from si_entity_enrichment import canonicalise_department, load_department_aliases
-
-_ROOT = Path(__file__).resolve().parent
 
 logger = logging.getLogger(__name__)
 
 _MEMBERS_CSV = SILVER_DIR / "flattened_members.csv"
 _OUT = SILVER_DIR / "ministerial_tenure.parquet"
-_RAW_OUT = _ROOT / "data" / "bronze" / "wikidata" / "ministerial_tenure_raw.csv"
+_RAW_OUT = BRONZE_DIR / "wikidata" / "ministerial_tenure_raw.csv"
 
 _SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 _USER_AGENT = "dail-tracker/1.0 (civic accountability data project)"

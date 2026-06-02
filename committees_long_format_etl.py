@@ -37,9 +37,10 @@ from pathlib import Path
 
 import polars as pl
 
-_PROJECT_ROOT = Path(__file__).resolve().parent
-_SILVER_PARQUET_DIR = _PROJECT_ROOT / "data" / "silver" / "parquet"
-_OUT_DIR = _PROJECT_ROOT / "data" / "silver" / "committees"
+from config import SILVER_DIR, SILVER_PARQUET_DIR
+
+_SILVER_PARQUET_DIR = SILVER_PARQUET_DIR
+_OUT_DIR = SILVER_DIR / "committees"
 
 _SILVER_INPUTS: dict[str, Path] = {
     "Dáil": _SILVER_PARQUET_DIR / "flattened_members.parquet",
