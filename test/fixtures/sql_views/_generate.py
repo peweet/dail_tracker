@@ -49,6 +49,7 @@ def _wp(df: pl.DataFrame, rel: str) -> Path:
     df.write_parquet(path, compression="zstd", compression_level=3, statistics=True)
     return path
 
+
 # ---------------------------------------------------------------------------
 # flattened_members.parquet — drives v_member_registry
 # Columns: unique_member_code, full_name, constituency_name, party,
@@ -246,7 +247,9 @@ _INTERESTS_SCHEMA = {
 }
 
 
-def _interest_row(code, fn, ln, party, constituency, category, desc, year, *, landlord=False, owner=False, occupation=False):
+def _interest_row(
+    code, fn, ln, party, constituency, category, desc, year, *, landlord=False, owner=False, occupation=False
+):
     return {
         "unique_member_code": code,
         "first_name": fn,
@@ -272,30 +275,107 @@ def _interest_row(code, fn, ln, party, constituency, category, desc, year, *, la
 
 _DAIL_INTERESTS = pl.DataFrame(
     [
-        _interest_row("Mary-Murphy.D.2020-02-08", "Mary", "Murphy", "Fianna Fáil", "Dublin South",
-                      "Land (including property)", "Rental property in Dublin 6", 2024, landlord=True, owner=True),
-        _interest_row("Mary-Murphy.D.2020-02-08", "Mary", "Murphy", "Fianna Fáil", "Dublin South",
-                      "Shares", "Shares in Acme plc", 2024),
-        _interest_row("Mary-Murphy.D.2020-02-08", "Mary", "Murphy", "Fianna Fáil", "Dublin South",
-                      "Directorships", "Director of Murphy Holdings Ltd", 2024),
-        _interest_row("Mary-Murphy.D.2020-02-08", "Mary", "Murphy", "Fianna Fáil", "Dublin South",
-                      "Occupations", "Practising solicitor", 2023, occupation=True),
-        _interest_row("Sean-OBrien.D.2016-02-26", "Sean", "O'Brien", "Sinn Féin", "Cork North-West",
-                      "Land (including property)", "Family farm in Cork", 2024, owner=True),
-        _interest_row("Sean-OBrien.D.2016-02-26", "Sean", "O'Brien", "Sinn Féin", "Cork North-West",
-                      "Shares", "Shares in Beta Energy", 2024),
-        _interest_row("Sean-OBrien.D.2016-02-26", "Sean", "O'Brien", "Sinn Féin", "Cork North-West",
-                      "Gifts", "Hospitality at conference", 2023),
+        _interest_row(
+            "Mary-Murphy.D.2020-02-08",
+            "Mary",
+            "Murphy",
+            "Fianna Fáil",
+            "Dublin South",
+            "Land (including property)",
+            "Rental property in Dublin 6",
+            2024,
+            landlord=True,
+            owner=True,
+        ),
+        _interest_row(
+            "Mary-Murphy.D.2020-02-08",
+            "Mary",
+            "Murphy",
+            "Fianna Fáil",
+            "Dublin South",
+            "Shares",
+            "Shares in Acme plc",
+            2024,
+        ),
+        _interest_row(
+            "Mary-Murphy.D.2020-02-08",
+            "Mary",
+            "Murphy",
+            "Fianna Fáil",
+            "Dublin South",
+            "Directorships",
+            "Director of Murphy Holdings Ltd",
+            2024,
+        ),
+        _interest_row(
+            "Mary-Murphy.D.2020-02-08",
+            "Mary",
+            "Murphy",
+            "Fianna Fáil",
+            "Dublin South",
+            "Occupations",
+            "Practising solicitor",
+            2023,
+            occupation=True,
+        ),
+        _interest_row(
+            "Sean-OBrien.D.2016-02-26",
+            "Sean",
+            "O'Brien",
+            "Sinn Féin",
+            "Cork North-West",
+            "Land (including property)",
+            "Family farm in Cork",
+            2024,
+            owner=True,
+        ),
+        _interest_row(
+            "Sean-OBrien.D.2016-02-26",
+            "Sean",
+            "O'Brien",
+            "Sinn Féin",
+            "Cork North-West",
+            "Shares",
+            "Shares in Beta Energy",
+            2024,
+        ),
+        _interest_row(
+            "Sean-OBrien.D.2016-02-26",
+            "Sean",
+            "O'Brien",
+            "Sinn Féin",
+            "Cork North-West",
+            "Gifts",
+            "Hospitality at conference",
+            2023,
+        ),
     ],
     schema_overrides=_INTERESTS_SCHEMA,
 )
 
 _SEANAD_INTERESTS = pl.DataFrame(
     [
-        _interest_row("Aoife-NiBhroin.S.2024-11-29", "Aoife", "Ní Bhroin", "Green Party", "Agricultural Panel",
-                      "Land (including property)", "Holiday home in Galway", 2024, owner=True),
-        _interest_row("Aoife-NiBhroin.S.2024-11-29", "Aoife", "Ní Bhroin", "Green Party", "Agricultural Panel",
-                      "Shares", "Shares in Gamma Renewables", 2024),
+        _interest_row(
+            "Aoife-NiBhroin.S.2024-11-29",
+            "Aoife",
+            "Ní Bhroin",
+            "Green Party",
+            "Agricultural Panel",
+            "Land (including property)",
+            "Holiday home in Galway",
+            2024,
+            owner=True,
+        ),
+        _interest_row(
+            "Aoife-NiBhroin.S.2024-11-29",
+            "Aoife",
+            "Ní Bhroin",
+            "Green Party",
+            "Agricultural Panel",
+            "Shares",
+            "Shares in Gamma Renewables",
+            2024,
+        ),
     ],
     schema_overrides=_INTERESTS_SCHEMA,
 )
@@ -400,23 +480,62 @@ def _build_questions() -> pl.DataFrame:
     n = 1000
     # Mary: 30 past (Health, 2023), 30 recent (Justice, 2025) → focus-shift row.
     for i in range(30):
-        rows.append(_q_row("Mary-Murphy.D.2020-02-08", "Mary Murphy",
-                            datetime(2023, 1, 10) + _days(i * 3), "Health", "Hospital waiting lists", n)); n += 1
+        rows.append(
+            _q_row(
+                "Mary-Murphy.D.2020-02-08",
+                "Mary Murphy",
+                datetime(2023, 1, 10) + _days(i * 3),
+                "Health",
+                "Hospital waiting lists",
+                n,
+            )
+        )
+        n += 1
     for i in range(30):
-        rows.append(_q_row("Mary-Murphy.D.2020-02-08", "Mary Murphy",
-                            datetime(2025, 1, 10) + _days(i * 3), "Justice", "Garda staffing levels", n)); n += 1
+        rows.append(
+            _q_row(
+                "Mary-Murphy.D.2020-02-08",
+                "Mary Murphy",
+                datetime(2025, 1, 10) + _days(i * 3),
+                "Justice",
+                "Garda staffing levels",
+                n,
+            )
+        )
+        n += 1
     # Sean: a smaller mixed spread across both windows.
     for i in range(6):
-        rows.append(_q_row("Sean-OBrien.D.2016-02-26", "Sean O'Brien",
-                            datetime(2023, 3, 1) + _days(i * 5), "Housing", "Social housing delivery", n)); n += 1
+        rows.append(
+            _q_row(
+                "Sean-OBrien.D.2016-02-26",
+                "Sean O'Brien",
+                datetime(2023, 3, 1) + _days(i * 5),
+                "Housing",
+                "Social housing delivery",
+                n,
+            )
+        )
+        n += 1
     for i in range(4):
-        rows.append(_q_row("Sean-OBrien.D.2016-02-26", "Sean O'Brien",
-                            datetime(2025, 3, 1) + _days(i * 5), "Housing", "Rent pressure zones", n)); n += 1
-    return pl.DataFrame(rows, schema_overrides={
-        "question_date": pl.Datetime,
-        "question_number": pl.Int64,
-        "year": pl.Int32,
-    }).select(_QUESTIONS_COLS)
+        rows.append(
+            _q_row(
+                "Sean-OBrien.D.2016-02-26",
+                "Sean O'Brien",
+                datetime(2025, 3, 1) + _days(i * 5),
+                "Housing",
+                "Rent pressure zones",
+                n,
+            )
+        )
+        n += 1
+    return pl.DataFrame(
+        rows,
+        schema_overrides={
+            "question_date": pl.Datetime,
+            "question_number": pl.Int64,
+            "year": pl.Int32,
+        },
+    ).select(_QUESTIONS_COLS)
 
 
 def _days(n: int):
