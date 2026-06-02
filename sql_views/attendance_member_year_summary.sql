@@ -23,7 +23,19 @@
 --     using sitting_days only — numerator and denominator both
 --     chamber-only, so bars don't exceed 100%.
 
+-- Reads both houses (identical schema from enrich._build_attendance_by_year).
+-- A `house` literal is tagged per source so dependent views (rank, member
+-- counts) can partition by house — without it, TD ranks would be computed
+-- against a mixed Dáil+Seanad pool. The per-member panel filters by
+-- member_name/unique_member_code, so a member resolves to their own rows.
 CREATE OR REPLACE VIEW v_attendance_member_year_summary AS
+WITH unioned AS (
+    SELECT *, 'Dáil' AS house
+    FROM read_parquet('data/gold/parquet/attendance_by_td_year.parquet')
+    UNION ALL BY NAME
+    SELECT *, 'Seanad' AS house
+    FROM read_parquet('data/gold/parquet/seanad_attendance_by_year.parquet')
+)
 SELECT
     COALESCE(unique_member_code, '') AS unique_member_code,
     full_name                        AS member_name,
@@ -35,7 +47,8 @@ SELECT
     total_days                       AS total_days,
     COALESCE(party_name,    '')      AS party_name,
     COALESCE(constituency,  '')      AS constituency,
-    COALESCE(is_minister, 'false')   AS is_minister
-FROM read_parquet('data/gold/parquet/attendance_by_td_year.parquet')
+    COALESCE(is_minister, 'false')   AS is_minister,
+    house
+FROM unioned
 WHERE full_name IS NOT NULL
   AND year IS NOT NULL;

@@ -101,18 +101,40 @@ def _q(conn, sql: str, params: list | None = None) -> pd.DataFrame:
 def _member_list(_conn) -> pd.DataFrame:
     return _q(
         _conn,
-        "SELECT unique_member_code, member_name, party_name, constituency FROM v_member_registry ORDER BY member_name",
+        "SELECT unique_member_code, member_name, party_name, constituency, house"
+        " FROM v_member_registry ORDER BY member_name",
     )
 
 
 @st.cache_data(ttl=300)
-def _join_key_by_name(_conn, name: str) -> str | None:
+def _join_key_by_name(_conn, name: str, house: str | None = None) -> str | None:
+    if house:
+        df = _q(
+            _conn,
+            "SELECT unique_member_code FROM v_member_registry WHERE member_name = ? AND house = ? LIMIT 1",
+            [name, house],
+        )
+    else:
+        df = _q(
+            _conn,
+            "SELECT unique_member_code FROM v_member_registry WHERE member_name = ? LIMIT 1",
+            [name],
+        )
+    return str(df.iloc[0]["unique_member_code"]) if not df.empty else None
+
+
+@st.cache_data(ttl=300)
+def _member_house(_conn, join_key: str) -> str:
+    """House ('Dáil'/'Seanad') for a member code. Defaults to 'Dáil'. The one
+    cross-house code collision (Seán Kyne) resolves to his current house via
+    the Seanad-last ordering of the registry; acceptable for a single edge case.
+    """
     df = _q(
         _conn,
-        "SELECT unique_member_code FROM v_member_registry WHERE member_name = ? LIMIT 1",
-        [name],
+        "SELECT house FROM v_member_registry WHERE unique_member_code = ? ORDER BY house DESC LIMIT 1",
+        [join_key],
     )
-    return str(df.iloc[0]["unique_member_code"]) if not df.empty else None
+    return str(df.iloc[0]["house"]) if not df.empty else "Dáil"
 
 
 @st.cache_data(ttl=300)
@@ -148,9 +170,10 @@ def _att_all_years(_conn, join_key: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def _att_rank_for_year(_conn, join_key: str, year: int) -> tuple[int | None, int | None]:
+def _att_rank_for_year(_conn, join_key: str, year: int, house: str = "Dáil") -> tuple[int | None, int | None]:
     """Member's attendance rank for a given year and the total ranked field size.
-    Returns (rank_high, total). Both None on miss. Retrieval-only."""
+    Returns (rank_high, total). Both None on miss. Retrieval-only.
+    Rank + total are scoped to the member's house (TDs ranked among TDs only)."""
     df = _q(
         _conn,
         "SELECT rank_high FROM v_attendance_year_rank WHERE unique_member_code = ? AND year = ? LIMIT 1",
@@ -160,8 +183,8 @@ def _att_rank_for_year(_conn, join_key: str, year: int) -> tuple[int | None, int
         return None, None
     total_df = _q(
         _conn,
-        "SELECT COUNT(*) AS n FROM v_attendance_year_rank WHERE year = ?",
-        [year],
+        "SELECT COUNT(*) AS n FROM v_attendance_year_rank WHERE year = ? AND house = ?",
+        [year, house],
     )
     rank = int(df.iloc[0]["rank_high"]) if pd.notna(df.iloc[0]["rank_high"]) else None
     total = int(total_df.iloc[0]["n"]) if not total_df.empty else None
@@ -1043,17 +1066,34 @@ def _party_pill_options(df: pd.DataFrame) -> list[str]:
 def _render_browse(conn) -> None:
     df = _member_list(conn)
 
+    # House scope — Dáil (default) or Seanad. Keeps the list, labels and glossary
+    # coherent: a mixed 236-member list with a "TDs" heading would mislead.
+    house = st.segmented_control(
+        "House",
+        options=["Dáil", "Seanad"],
+        default="Dáil",
+        key="mo_browse_house",
+        label_visibility="collapsed",
+    ) or "Dáil"
+    is_seanad = house == "Seanad"
+    term = "Senator" if is_seanad else "TD"
+    terms = "Senators" if is_seanad else "TDs"
+    place_word = "panel" if is_seanad else "constituency"
+
     st.html(
         '<div class="dt-hero">'
         '<p class="dt-kicker">MEMBER OVERVIEW</p>'
-        '<h1 class="mo-browse-h1">Browse all TDs</h1>'
-        '<p class="dt-dek">Pick a TD to open their accountability profile: '
+        f'<h1 class="mo-browse-h1">Browse all {_h(terms)}</h1>'
+        f'<p class="dt-dek">Pick a {_h(term)} to open their accountability profile: '
         "attendance, votes by policy area, payments, lobbying, and legislation.</p>"
         "</div>"
     )
     glossary_strip(
         [
-            ("TD", "Teachta Dála, a member of the Dáil"),
+            (
+                term,
+                "Seanadóir, a member of the Seanad (Senate)" if is_seanad else "Teachta Dála, a member of the Dáil",
+            ),
             ("Accountability profile", "attendance, votes, payments, lobbying, and legislation in one place"),
         ]
     )
@@ -1061,6 +1101,8 @@ def _render_browse(conn) -> None:
     if df.empty:
         empty_state("No member data", "Run the pipeline to generate attendance parquet files.")
         return
+
+    df = df[df["house"] == house].reset_index(drop=True)
 
     # v_member_registry is unique on unique_member_code (verified on the
     # silver parquet: 176 rows / 176 distinct codes). The page-side
@@ -1070,11 +1112,11 @@ def _render_browse(conn) -> None:
     search, picked = find_a_td_filter(
         member_names,
         key_prefix="mo_browse",
-        label="Find a TD",
-        placeholder="Search by name, party or constituency…",
+        label=f"Find a {term}",
+        placeholder=f"Search by name, party or {place_word}…",
     )
     if picked:
-        picked_jk = _join_key_by_name(conn, picked)
+        picked_jk = _join_key_by_name(conn, picked, house)
         if picked_jk:
             st.session_state[_STAGE_KEY] = picked_jk
             st.query_params["member"] = picked_jk
@@ -1109,11 +1151,11 @@ def _render_browse(conn) -> None:
     showing = len(filtered)
 
     # Results pill — shows the current filtered count above the grid.
-    evidence_heading(f"{showing:,} TD{'s' if showing != 1 else ''}")
+    evidence_heading(f"{showing:,} {term if showing == 1 else terms}")
 
     if filtered.empty:
         empty_state(
-            "No TDs match your filters",
+            f"No {terms} match your filters",
             "Try clearing the search box or choosing a different party.",
         )
         return
@@ -1162,7 +1204,7 @@ def _render_browse(conn) -> None:
         key_prefix=pager_key,
         page_sizes=(MO_PAGE_SIZE,),
         default_page_size=MO_PAGE_SIZE,
-        label="TDs",
+        label=terms,
     )
 
 
@@ -1334,17 +1376,21 @@ def _render_stage2(
         browse_href = f"/{PAGES['member_overview']}"
         st.html(
             f'<div class="mo-not-found-callout">'
-            f"<strong>We couldn't find this TD</strong><br>"
+            f"<strong>We couldn't find this member</strong><br>"
             f'<span class="mo-not-found-body">'
             f"The link you followed may be out of date, or this member "
             f"hasn't been added yet — the Oireachtas roster updates as the "
             f"membership changes.</span><br>"
             f'<a class="mo-not-found-cta" href="{_h(browse_href)}" target="_self">'
-            f"&larr; Browse all TDs</a>"
+            f"&larr; Browse all members</a>"
             f"</div>"
         )
         return
 
+    # House drives a handful of label/section differences (Senator vs TD badge,
+    # panel vs constituency, no PQs/constituency-demographics for Senators).
+    house = _member_house(conn, join_key)
+    is_seanad = house == "Seanad"
     member_name = str(identity.get("member_name", ""))
     party = str(identity.get("party_name", ""))
     constituency = str(identity.get("constituency", ""))
@@ -1362,7 +1408,7 @@ def _render_stage2(
     role_html = (
         '<span class="dt-badge dt-badge-minister">Minister</span>'
         if is_minister
-        else '<span class="dt-badge dt-badge-td">TD</span>'
+        else f'<span class="dt-badge dt-badge-td">{"Senator" if is_seanad else "TD"}</span>'
     )
 
     rd_df = _lobbying_rd(conn, join_key)
@@ -1514,8 +1560,8 @@ def _render_stage2(
             if is_minister:
                 att_sub = "Minister · plenary record only"
             else:
-                rank, total = _att_rank_for_year(conn, join_key, att_yr)
-                att_sub = f"Rank {rank} of {total} TDs" if rank and total else ""
+                rank, total = _att_rank_for_year(conn, join_key, att_yr, house)
+                att_sub = f"Rank {rank} of {total} {'Senators' if is_seanad else 'TDs'}" if rank and total else ""
         else:
             att_lbl, att_val, att_sub = "Days in chamber", "—", ""
 
@@ -1546,8 +1592,12 @@ def _render_stage2(
     # (about this TD's record). Anchors the page to the constituency the TD
     # represents — population, seats, per-TD on the current 2023 boundaries
     # (43/43 match; unmatched names get a transparent caveat).
-    ctx = _constituency_context(conn, constituency)
-    _render_constituency_context(constituency, ctx)
+    # Seanad seats are filled by vocational panels / university / Taoiseach
+    # nomination, not geographic constituencies — there is no Census population
+    # denominator to show, so this card is Dáil-only.
+    if not is_seanad:
+        ctx = _constituency_context(conn, constituency)
+        _render_constituency_context(constituency, ctx)
 
     # ── Section nav chip row (Phase 2 chrome, audit P0-2 finally rendered) ──
     # Anchors jump to #mo-section-<sid> divs emitted alongside each expander
@@ -1611,10 +1661,10 @@ def _render_stage2(
 
         if sid == "interests":
             # Phase 3 lift: full body rendered here without the per-page
-            # member header (the hero above already shows it). Dáil-only —
-            # member-overview never lists Senators.
+            # member header (the hero above already shows it). House-aware —
+            # the Register of Interests is published per chamber.
             render_member_interests(
-                "Dáil",
+                house,
                 member_name,
                 show_member_header=False,
                 year_pill_key=f"mo_int_year_{join_key}",
@@ -1682,6 +1732,7 @@ def _render_stage2(
             # renders as `.att-year-row`s with a CSS-width bar).
             render_member_attendance(
                 member_name,
+                house=house,
                 show_member_header=False,
                 year_pill_key=f"mo_att_year_{join_key}",
                 export_key_suffix="_mo",
@@ -1723,7 +1774,17 @@ def _render_stage2(
             # 2026-05-27: full-history (264k row) Questions section.
             # Header strip + filter bar + paginated feed. See contract
             # member_overview.yaml -> section_content.questions.
-            _section_questions(conn, join_key, member_name)
+            # Parliamentary Questions are a Dáil instrument — Senators raise
+            # Commencement Matters instead, which this dataset does not yet
+            # cover. State that plainly rather than showing an empty feed.
+            if is_seanad:
+                empty_state(
+                    "Not applicable to Senators",
+                    "Parliamentary Questions are tabled by TDs. Senators raise "
+                    "Commencement Matters in the Seanad, which are not yet tracked here.",
+                )
+            else:
+                _section_questions(conn, join_key, member_name)
         elif sid == "legislation":
             _section_legislation(conn, join_key, member_name)
             _section_statutory_instruments(conn, join_key)

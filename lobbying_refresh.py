@@ -25,9 +25,9 @@ import logging
 import subprocess
 import sys
 import time
-from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent
+from paths import PROJECT_ROOT as _ROOT
+
 _log = logging.getLogger("lobbying_refresh")
 
 

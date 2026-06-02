@@ -46,9 +46,9 @@ PAYMENTS_PARQUET = REPO_ROOT / "data" / "gold" / "parquet" / "payments_full_psa.
 MEMBERS_PARQUET = REPO_ROOT / "data" / "silver" / "parquet" / "flattened_members.parquet"
 
 
-def _build_member_lookup() -> pl.DataFrame:
-    """One row per current TD: join_key → (unique_member_code, party, constituency)."""
-    members = pl.read_parquet(MEMBERS_PARQUET).select(["unique_member_code", "full_name", "party", "constituency_name"])
+def _build_member_lookup(members_parquet: Path = MEMBERS_PARQUET) -> pl.DataFrame:
+    """One row per member: join_key → (unique_member_code, party, constituency)."""
+    members = pl.read_parquet(members_parquet).select(["unique_member_code", "full_name", "party", "constituency_name"])
     normalised = normalise_df_td_name(members, "full_name")
     lookup = normalised.select(
         [
@@ -71,14 +71,18 @@ def _build_member_lookup() -> pl.DataFrame:
     return lookup
 
 
-def enrich() -> dict:
-    """Read payments parquet, attach member metadata, write back. Returns coverage stats."""
-    if not PAYMENTS_PARQUET.exists():
-        raise FileNotFoundError(f"payments parquet not found: {PAYMENTS_PARQUET}")
-    if not MEMBERS_PARQUET.exists():
-        raise FileNotFoundError(f"members parquet not found: {MEMBERS_PARQUET}")
+def enrich(payments_parquet: Path = PAYMENTS_PARQUET, members_parquet: Path = MEMBERS_PARQUET) -> dict:
+    """Read payments parquet, attach member metadata, write back. Returns coverage stats.
 
-    payments = pl.read_parquet(PAYMENTS_PARQUET)
+    Defaults reproduce the Dáil behaviour. The Senator chain passes the Senator
+    payments + Senator members parquets to reuse the same fuzzy-key match.
+    """
+    if not payments_parquet.exists():
+        raise FileNotFoundError(f"payments parquet not found: {payments_parquet}")
+    if not members_parquet.exists():
+        raise FileNotFoundError(f"members parquet not found: {members_parquet}")
+
+    payments = pl.read_parquet(payments_parquet)
     n_rows_before = payments.height
 
     # Idempotency: if the parquet already has these enrichment columns from a
@@ -89,7 +93,7 @@ def enrich() -> dict:
     # Derive the same sorted-letters key on the payments side.
     payments_keyed = normalise_df_td_name(payments, "member_name")
 
-    lookup = _build_member_lookup()
+    lookup = _build_member_lookup(members_parquet)
     enriched = (
         payments_keyed.join(lookup, on="join_key", how="left")
         .rename({"party_name_enriched": "party_name", "constituency_enriched": "constituency"})
@@ -108,9 +112,9 @@ def enrich() -> dict:
 
     # Atomic write via .part swap, per project convention. Parquet write
     # convention (per memory): zstd, level 3, statistics on.
-    part_path = PAYMENTS_PARQUET.with_suffix(".part")
+    part_path = payments_parquet.with_suffix(".part")
     enriched.write_parquet(part_path, compression="zstd", compression_level=3, statistics=True)
-    part_path.replace(PAYMENTS_PARQUET)
+    part_path.replace(payments_parquet)
 
     return {
         "rows_total": n_rows_before,

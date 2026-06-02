@@ -31,5 +31,15 @@ SELECT
     schema,
     unique_member_code,
     party_name,
-    constituency
-FROM read_parquet('data/gold/parquet/payments_full_psa.parquet');
+    constituency,
+    COALESCE(house, 'Dáil')               AS house
+-- Reads both houses. The Dáil parquet has no `house` column; the Senator one
+-- (seanad_payments_full_psa.parquet, enriched by payments_member_enrichment)
+-- does. union_by_name=true tolerates the differing column set and fills the
+-- Dáil rows' house as NULL → coalesced to 'Dáil'. The per-member panel filters
+-- by unique_member_code, so a member's code resolves to their own house's rows.
+FROM read_parquet(
+    ['data/gold/parquet/payments_full_psa.parquet',
+     'data/gold/parquet/seanad_payments_full_psa.parquet'],
+    union_by_name = true
+);
