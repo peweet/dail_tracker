@@ -310,3 +310,11 @@ lobbyist/raw/
 !avatar/wikidata/*.png
 !avatar/wikidata/*.webp
 !avatar/wikidata/manifest.json
+
+# === SQL-view test fixtures — committed deliberately ===
+# test/fixtures/sql_views/_generate.py writes small synthetic parquets that let
+# test/test_sql_views.py run the view-contract tests in CI without any pipeline
+# output. The blanket *.parquet rule above swallows them; re-include the whole
+# fixture tree (last match wins). No parent dir is ignored, so file-level
+# negation is enough.
+!test/fixtures/sql_views/**/*.parquet
