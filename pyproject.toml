@@ -7,7 +7,7 @@ name = "dail-tracker"
 version = "0.1.0"
 description = "Civic data pipeline for Irish parliamentary transparency — attendance, payments, lobbying, legislation, and member interests from the Oireachtas"
 readme = "README.MD"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [
     { name = "peweet" },
@@ -17,21 +17,43 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Topic :: Sociology",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
 
-# ── Core dependencies ────────────────────────────────────────────────────────
-# These are the packages the pipeline imports across the codebase.
-# UI-only deps (streamlit/altair/plotly/duckdb) live in the [ui] extra to keep
-# pipeline-only installs lean.
-# Transitive deps (certifi, urllib3, charset-normalizer, etc.) are handled
-# automatically by the resolver — don't pin them here.
+# ── Core dependencies = the deployed app's runtime ───────────────────────────
+# Streamlit Community Cloud installs the project from uv.lock by running
+# `uv sync`, which installs ONLY this core set — optional-dependencies extras
+# are NOT synced by default (https://docs.astral.sh/uv/concepts/projects/sync/).
+# So every package the deployed app (utility/app.py + pages_code/*) imports MUST
+# live here. Pipeline/ETL-only deps live in the [pipeline] extra to keep the
+# Cloud install lean. Transitive deps (certifi, urllib3, pytz, …) are resolved
+# automatically — don't pin them here.
 dependencies = [
-    "polars>=1.39",
+    "streamlit>=1.50,<2",
+    "altair>=6.0,<7",
+    "plotly>=6.0,<7",
+    "duckdb>=1.4,<2",
     "pandas>=2.2,<3.0",  # capped <3.0 for launch: pandas 3.0 + plotly 6.7 has an import-order pd.Series bug; revisit post-launch
     "numpy>=2.0",
+    "pyarrow>=14",       # duckdb/pandas parquet I/O for the gold/silver reads
+]
+
+[project.urls]
+Repository = "https://github.com/peweet/dail_tracker"
+Issues = "https://github.com/peweet/dail_tracker/issues"
+
+# ── Optional dependency groups ───────────────────────────────────────────────
+# The deployed app needs none of these — they're for the pipeline, OCR, and
+# local dev/CI. Install with `uv sync --extra pipeline` (or `--all-extras`),
+# or `pip install -e ".[pipeline]"`.
+[project.optional-dependencies]
+
+# Pipeline / ETL — extraction, enrichment, API + PDF ingestion. NOT imported by
+# the deployed Streamlit app, so kept out of core to keep the Cloud `uv sync`
+# lean.
+pipeline = [
+    "polars>=1.39,!=1.41.0",  # 1.41.0 (+ polars-runtime-32) was yanked upstream
     "PyMuPDF>=1.25",
     "requests>=2.31",
     "beautifulsoup4>=4.12",
@@ -42,43 +64,27 @@ dependencies = [
     "openpyxl>=3.1",       # charity_normalise.py reads the Charities Register .xlsx via load_workbook
 ]
 
-[project.urls]
-Repository = "https://github.com/peweet/dail_tracker"
-Issues = "https://github.com/peweet/dail_tracker/issues"
-
-# ── Optional dependency groups ───────────────────────────────────────────────
-# Install with: pip install -e ".[ocr]" or pip install -e ".[dev]" etc.
-[project.optional-dependencies]
-
 # OCR pipeline for scanned PDFs (read_scan_pdf.py)
 ocr = [
     "ocrmypdf>=17.0",
 ]
 
-# Streamlit dashboard runtime — used by utility/app.py and every page under
-# utility/pages_code/. Streamlit Cloud installs from requirements.txt at the
-# repo root; this extra is the source of truth for local dashboard runs.
-ui = [
-    "streamlit>=1.50,<2",
-    "altair>=6.0,<7",
-    "plotly>=6.0,<7",
-    "duckdb>=1.4,<2",
-]
-
-# Development and testing
+# Development and testing. Pulls in [pipeline] because the test suite imports the
+# pipeline/ETL modules (requests, polars, PyMuPDF, …) and the silver/gold schema
+# tests. duckdb is in core now, so it's not repeated here.
 dev = [
+    "dail-tracker[pipeline]",
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "ruff>=0.11",
     "responses>=0.25",  # HTTP mocking for tests of services/http_engine.py and API scrapers
-    "duckdb>=1.4,<2",   # test_sql_views.py and test_gold_df.py register views via DuckDB
     "pandera[polars]>=0.20",  # DataFrameModel schema checks (import pandera.polars) in the silver/gold tests
     "basedpyright>=1.39",  # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
 ]
 
 # Everything — for a full local setup
 all = [
-    "dail-tracker[ocr,ui,dev]",
+    "dail-tracker[ocr,dev]",
 ]
 
 # ── Script entry points ──────────────────────────────────────────────────────
@@ -117,8 +123,17 @@ dail-pipeline = "pipeline:main"
 # ── Tool configuration ───────────────────────────────────────────────────────
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 120
+# Throwaway / scratch trees: one-off Playwright capture harnesses and
+# pipeline experiments that aren't shipped code. Linting them buries real
+# app/pipeline findings under hundreds of capture-script semicolon warnings.
+extend-exclude = [
+    "audit_screenshots",
+    "pipeline_sandbox",
+    "experimental",
+    "tmp",
+]
 
 [tool.ruff.lint]
 select = [
@@ -176,7 +191,7 @@ include = [
 # deterministically, in both local runs and CI (`uv sync` creates ./.venv).
 venvPath = "."
 venv = ".venv"
-pythonVersion = "3.11"
+pythonVersion = "3.12"
 typeCheckingMode = "standard"
 
 # Only files/dirs that actually exist on disk — `uv build` validates each entry.

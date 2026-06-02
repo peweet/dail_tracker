@@ -33,7 +33,13 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-from config import ATTENDANCE_PDF_DIR, INTERESTS_PDF_DIR, PAYMENTS_PDF_DIR
+from config import (
+    ATTENDANCE_PDF_DIR,
+    ATTENDANCE_PDF_DIR_SEANAD,
+    INTERESTS_PDF_DIR,
+    PAYMENTS_PDF_DIR,
+    PAYMENTS_PDF_DIR_SEANAD,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +83,22 @@ SOURCES: dict[str, PollSource] = {
         topic_slug="record-of-attendance",
         target_dir=ATTENDANCE_PDF_DIR,
         filename_hint="deputies-verification-of-attendance",
+    ),
+    # Seanad equivalents — same CMS topic pages, Senator filename hints. Land in
+    # sibling dirs so the deputies-format ETL never sees them (the Senator chain
+    # globs these). The hints are clean: "payments-to-senators" excludes the
+    # combined "payments-to-deputies-senators-and-ministers" PDF.
+    "payments_seanad": PollSource(
+        name="payments_seanad",
+        topic_slug="parliamentary-allowances",
+        target_dir=PAYMENTS_PDF_DIR_SEANAD,
+        filename_hint="parliamentary-standard-allowance-payments-to-senators",
+    ),
+    "attendance_seanad": PollSource(
+        name="attendance_seanad",
+        topic_slug="record-of-attendance",
+        target_dir=ATTENDANCE_PDF_DIR_SEANAD,
+        filename_hint="senators-verification-of-attendance",
     ),
     # Hint deliberately stops at 'register-of-member' so it catches both
     # pre-2022 ('register-of-members-interests-...') and 2022+

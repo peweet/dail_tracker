@@ -21,7 +21,6 @@ if str(_UTIL) not in sys.path:
 
 import duckdb  # noqa: E402 — sys.path mutation above is required before this import
 import streamlit as st  # noqa: E402 — sys.path mutation above is required before streamlit import
-
 from data_access._sql_registry import (  # noqa: E402 — sys.path mutation above
     SQL_VIEWS_DIR as _SQL_VIEWS,
 )

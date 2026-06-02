@@ -1,22 +1,20 @@
-# Streamlit Cloud deploy — UI runtime only.
+# pip / non-uv FALLBACK ONLY — this is NOT what Streamlit Community Cloud installs.
 #
-# Pipeline deps (polars, PyMuPDF, beautifulsoup4, flatten-json) live in
-# pyproject.toml and are NOT installed on cloud since the app reads pre-built
-# parquet from data/gold/ and data/silver/, not raw PDFs or API JSON.
+# Cloud installs from uv.lock (the highest-priority dependency file it finds) by
+# running `uv sync`, which installs the core [project.dependencies] in
+# pyproject.toml — i.e. the app runtime. See:
+#   https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/app-dependencies
 #
-# Bounds rationale:
-#   - Upper bounds catch breaking-major releases (Altair 5→6 dropped APIs;
-#     Plotly 5→6 dropped Python 3.8). Loosen only after end-to-end testing.
-#   - pandas capped <3.0 for launch: pandas 3.0 + plotly 6.7 has an import-order
-#     pd.Series bug (mirrors the cap in pyproject.toml core deps). Revisit
-#     post-launch and lift both together.
+# This file exists solely so the app can also be run via plain
+# `pip install -r requirements.txt` by anyone not using uv. It mirrors the
+# app-runtime specifiers in pyproject's core [project.dependencies].
+# test/test_requirements_sync.py fails CI if these drift from pyproject.
 #
-# Keep this file in sync with pyproject.toml (core deps + [ui] extra). The
-# test/test_requirements_sync.py guard fails CI if these specifiers drift.
+# pandas held <3.0: pandas 3.0 + plotly 6.7 has an import-order pd.Series crash.
 
 streamlit>=1.50,<2
-pandas>=2.2,<3.0
-duckdb>=1.4,<2
 altair>=6.0,<7
 plotly>=6.0,<7
+duckdb>=1.4,<2
+pandas>=2.2,<3.0
 pyarrow>=14

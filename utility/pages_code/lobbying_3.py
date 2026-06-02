@@ -55,7 +55,6 @@ from data_access.lobbying_data import (
     fetch_dpo_returns_detail,
     fetch_org_contact_detail,
     fetch_org_index,
-    fetch_org_persistence,
     fetch_org_politician_returns,
     fetch_orgs_for_politician,
     fetch_policy_area_summary,
@@ -124,8 +123,8 @@ def _fmt_period(value: object) -> str:
         return pd.to_datetime(value).strftime("%b %Y")
     except Exception:
         return str(value)
-from ui.export_controls import export_button
-from ui.source_links import render_source_links
+
+
 from ui.source_pdfs import provenance_expander
 
 # Curated topics — same as lobby_2; presented quieter on landing.
@@ -179,9 +178,7 @@ _QP_KEYS = (
 
 
 def _init() -> None:
-    for k in (
-        "lp3_sidebar_search",
-    ):
+    for k in ("lp3_sidebar_search",):
         st.session_state.setdefault(k, "")
 
 
@@ -203,12 +200,7 @@ def _quiet_hero(title: str, dek: str = "", *, dek_html: str = "") -> None:
     variable substrings via ``_h()``.
     """
     dek_inner = dek_html if dek_html else _h(dek)
-    st.html(
-        '<header class="lp3-hero">'
-        f'<h1 class="lp3-h1">{_h(title)}</h1>'
-        f'<p class="lp3-dek">{dek_inner}</p>'
-        "</header>"
-    )
+    st.html(f'<header class="lp3-hero"><h1 class="lp3-h1">{_h(title)}</h1><p class="lp3-dek">{dek_inner}</p></header>')
 
 
 def _section_head(label: str, dek: str = "") -> None:
@@ -295,17 +287,16 @@ def _render_search_bar() -> None:
     # distinguish without a second lookup).
     combined = [""] + pol_names + [f"[Org] {n}" for n in org_names]
 
-    with filter_bar([6, 6]) as cols:
-        with cols[0]:
-            field_label("Search the register")
-            sel = st.selectbox(
-                "Search",
-                combined,
-                index=0,
-                label_visibility="collapsed",
-                placeholder="e.g. Ibec, Mary Lou McDonald",
-                key="lp3_jump",
-            )
+    with filter_bar([6, 6]) as cols, cols[0]:
+        field_label("Search the register")
+        sel = st.selectbox(
+            "Search",
+            combined,
+            index=0,
+            label_visibility="collapsed",
+            placeholder="e.g. Ibec, Mary Lou McDonald",
+            key="lp3_jump",
+        )
 
     if sel:
         _clear_lp3_qp()
@@ -377,7 +368,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
         pol_gateway_href = member_profile_url(m_id or _resolve_or_join(m_name), section="lobbying")
     else:
         pol_gateway_href = "#"
-    org_gateway_href = f"?lp3_orgindex=1"
+    org_gateway_href = "?lp3_orgindex=1"
     area_summary = fetch_policy_area_summary()
     if not area_summary.empty:
         first_area = str(area_summary.iloc[0]["public_policy_area"])
@@ -457,7 +448,10 @@ def _render_landing(summary: pd.DataFrame) -> None:
                     _p(int(row.get("distinct_orgs", 0) or 0), "org"),
                 ]
                 inner = _ranked_card_html(
-                    name, meta, pills_list, rank,
+                    name,
+                    meta,
+                    pills_list,
+                    rank,
                     avatar_url=avatar_data_url(name),
                     avatar_initials=_initials(name),
                 )
@@ -523,7 +517,10 @@ def _render_landing(summary: pd.DataFrame) -> None:
                 clickable_card_link(
                     href=f"?lp3_dpo={quote(name)}",
                     inner_html=_ranked_card_html(
-                        name, meta, pills_list, rank,
+                        name,
+                        meta,
+                        pills_list,
+                        rank,
                         avatar_initials=_initials(name),
                     ),
                     aria_label=f"View revolving-door profile for {name}",
@@ -557,12 +554,7 @@ def _render_landing(summary: pd.DataFrame) -> None:
                 )
             else:
                 body = f'<span class="lp3-recent-body">{inner}</span>'
-            rows.append(
-                f'<li class="lp3-recent-item">'
-                f'<span class="lp3-recent-period">{_h(period)}</span> '
-                f"{body}"
-                "</li>"
-            )
+            rows.append(f'<li class="lp3-recent-item"><span class="lp3-recent-period">{_h(period)}</span> {body}</li>')
         st.html(f'<ul class="lp3-recent-list">{"".join(rows)}</ul>')
 
     _provenance_footer(summary)
@@ -626,9 +618,7 @@ def _return_card_html(
     if len(filed_by_clean) > 80:
         filed_by_clean = filed_by_clean[:80].rstrip(" ,.;:-") + "…"
     filed_html = (
-        f'<p class="lp3-return-filed-by"><strong>Filed by</strong> {_h(filed_by_clean)}</p>'
-        if filed_by_clean
-        else ""
+        f'<p class="lp3-return-filed-by"><strong>Filed by</strong> {_h(filed_by_clean)}</p>' if filed_by_clean else ""
     )
     snippet_html = f'<p class="lp3-return-snippet">{_h(snippet)}</p>' if snippet else ""
     actions_html = f'<div class="lp3-return-actions">{link_html}</div>' if link_html else ""
@@ -672,9 +662,7 @@ def _datasette_table(detail: pd.DataFrame, columns: dict[str, str], height: int 
         if new in ("Period", "First filing", "Last filing"):
             col_config[new] = st.column_config.DateColumn(new, format="MMM YYYY")
         elif new == "Return URL":
-            col_config[new] = st.column_config.LinkColumn(
-                new, display_text=r"https://www\.lobbying\.ie/return/(\d+)"
-            )
+            col_config[new] = st.column_config.LinkColumn(new, display_text=r"https://www\.lobbying\.ie/return/(\d+)")
     kwargs: dict[str, object] = {
         "width": "stretch",
         "hide_index": True,
@@ -744,9 +732,7 @@ def _render_org_index(summary: pd.DataFrame) -> None:
     filtered = orgs
     if search and search.strip():
         filtered = filtered[
-            filtered["lobbyist_name"].astype(str).str.contains(
-                search.strip(), case=False, na=False, regex=False
-            )
+            filtered["lobbyist_name"].astype(str).str.contains(search.strip(), case=False, na=False, regex=False)
         ]
     if funding_choice and funding_choice != "All":
         filtered = filtered[filtered["funding_profile"] == _FUNDING_FILTER[funding_choice]]
@@ -760,9 +746,7 @@ def _render_org_index(summary: pd.DataFrame) -> None:
         return
 
     _section_head("Organisations", "Click any card to open its lobbying profile.")
-    page_size, page_idx = pagination_controls(
-        total=len(filtered), key_prefix="lp3_org_idx", label="organisations"
-    )
+    page_size, page_idx = pagination_controls(total=len(filtered), key_prefix="lp3_org_idx", label="organisations")
     page_slice = filtered.iloc[page_idx * page_size : (page_idx + 1) * page_size]
     rank_offset = page_idx * page_size
     cards: list[str] = []
@@ -819,8 +803,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
 
     sector_clause_html = f" {_h(sector)}." if sector else ""
     period_clause_html = (
-        f" Active <strong>{_h(_fmt_period(first_p))}</strong> "
-        f"to <strong>{_h(_fmt_period(last_p))}</strong>."
+        f" Active <strong>{_h(_fmt_period(first_p))}</strong> to <strong>{_h(_fmt_period(last_p))}</strong>."
         if first_p and last_p and first_p != "None" and last_p != "None"
         else ""
     )
@@ -878,7 +861,10 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
                 clickable_card_link(
                     href=f"?lp3_org={quote(org_name)}&lp3_result_pol={quote(pol_name)}",
                     inner_html=_ranked_card_html(
-                        pol_name, meta, pills_list, rank,
+                        pol_name,
+                        meta,
+                        pills_list,
+                        rank,
                         avatar_url=avatar_data_url(pol_name),
                         avatar_initials=_initials(pol_name),
                     ),
@@ -916,9 +902,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
     else:
         start, end = _year_pills(detail_all, "lp3_year_org")
         detail = fetch_org_contact_detail(org_name, start, end) if start else detail_all
-        page_size, page_idx = pagination_controls(
-            total=len(detail), key_prefix="lp3_org_returns", label="returns"
-        )
+        page_size, page_idx = pagination_controls(total=len(detail), key_prefix="lp3_org_returns", label="returns")
         page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
         cards = []
         for _, row in page_slice.iterrows():
@@ -1101,7 +1085,10 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
                 clickable_card_link(
                     href=f"?lp3_area={quote(area)}&lp3_result_pol={quote(pol_name)}",
                     inner_html=_ranked_card_html(
-                        pol_name, chamber, pills_list, rank,
+                        pol_name,
+                        chamber,
+                        pills_list,
+                        rank,
                         avatar_url=avatar_data_url(pol_name),
                         avatar_initials=_initials(pol_name),
                     ),
@@ -1123,9 +1110,7 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
     else:
         start, end = _year_pills(detail_all, "lp3_year_area")
         detail = fetch_area_contact_detail(area, start, end) if start else detail_all
-        page_size, page_idx = pagination_controls(
-            total=len(detail), key_prefix="lp3_area_returns", label="returns"
-        )
+        page_size, page_idx = pagination_controls(total=len(detail), key_prefix="lp3_area_returns", label="returns")
         page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
         cards = []
         for _, row in page_slice.iterrows():
@@ -1217,9 +1202,7 @@ def _render_topic(topic_name: str, summary: pd.DataFrame) -> None:
         "Matching returns",
         "Each card links straight to the original filing on lobbying.ie — open it to read what was lobbied for.",
     )
-    page_size, page_idx = pagination_controls(
-        total=len(detail), key_prefix=f"lp3_topic_{topic_name}", label="returns"
-    )
+    page_size, page_idx = pagination_controls(total=len(detail), key_prefix=f"lp3_topic_{topic_name}", label="returns")
     page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
     cards: list[str] = []
     for _, row in page_slice.iterrows():
@@ -1338,7 +1321,10 @@ def _render_rd_index(summary: pd.DataFrame) -> None:
                 clickable_card_link(
                     href=f"?lp3_dpo={quote(name)}",
                     inner_html=_ranked_card_html(
-                        name, meta, pills_list, rank,
+                        name,
+                        meta,
+                        pills_list,
+                        rank,
                         avatar_initials=_initials(name),
                     ),
                     aria_label=f"View revolving-door profile for {name}",
@@ -1433,7 +1419,10 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
             pcnt = int(prow.get("return_count", 0) or 0)
             pills_list = [_p(pcnt, "return")]
             inner = _ranked_card_html(
-                pname, pchm, pills_list, rank,
+                pname,
+                pchm,
+                pills_list,
+                rank,
                 avatar_url=avatar_data_url(pname),
                 avatar_initials=_initials(pname),
             )
@@ -1456,9 +1445,7 @@ def _render_dpo_individual(individual_name: str, summary: pd.DataFrame) -> None:
             "Each card links to the original filing on lobbying.ie.",
         )
         safe_name = "".join(c if c.isalnum() else "_" for c in individual_name)[:60]
-        page_size, page_idx = pagination_controls(
-            total=len(returns_df), key_prefix="lp3_rd_returns", label="returns"
-        )
+        page_size, page_idx = pagination_controls(total=len(returns_df), key_prefix="lp3_rd_returns", label="returns")
         page_slice = returns_df.iloc[page_idx * page_size : (page_idx + 1) * page_size]
         cards = []
         for _, row in page_slice.iterrows():
@@ -1512,17 +1499,13 @@ def _render_results(area: str, politician: str, summary: pd.DataFrame) -> None:
         return
 
     start, end = _year_pills(detail_all, "lp3_year_results")
-    detail = (
-        fetch_politician_area_returns(politician, area, start, end) if start else detail_all
-    )
+    detail = fetch_politician_area_returns(politician, area, start, end) if start else detail_all
 
     _section_head(
         "Every return",
         "Each card links to the original filing on lobbying.ie.",
     )
-    page_size, page_idx = pagination_controls(
-        total=len(detail), key_prefix="lp3_results_page", label="returns"
-    )
+    page_size, page_idx = pagination_controls(total=len(detail), key_prefix="lp3_results_page", label="returns")
     page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
     cards = [
         _return_card_html(
@@ -1580,17 +1563,13 @@ def _render_org_results(org_name: str, politician: str, summary: pd.DataFrame) -
         return
 
     start, end = _year_pills(detail_all, "lp3_year_org_results")
-    detail = (
-        fetch_org_politician_returns(org_name, politician, start, end) if start else detail_all
-    )
+    detail = fetch_org_politician_returns(org_name, politician, start, end) if start else detail_all
 
     _section_head(
         "Every return",
         "Each card links to the original filing on lobbying.ie.",
     )
-    page_size, page_idx = pagination_controls(
-        total=len(detail), key_prefix="lp3_org_results_page", label="returns"
-    )
+    page_size, page_idx = pagination_controls(total=len(detail), key_prefix="lp3_org_results_page", label="returns")
     page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
     cards = [
         _return_card_html(
@@ -1651,19 +1630,13 @@ def _render_dpo_results(individual_name: str, politician: str, summary: pd.DataF
         return
 
     start, end = _year_pills(detail_all, "lp3_year_dpo_results")
-    detail = (
-        fetch_dpo_politician_returns(individual_name, politician, start, end)
-        if start
-        else detail_all
-    )
+    detail = fetch_dpo_politician_returns(individual_name, politician, start, end) if start else detail_all
 
     _section_head(
         "Every return",
         "Each card links to the original filing on lobbying.ie.",
     )
-    page_size, page_idx = pagination_controls(
-        total=len(detail), key_prefix="lp3_dpo_results_page", label="returns"
-    )
+    page_size, page_idx = pagination_controls(total=len(detail), key_prefix="lp3_dpo_results_page", label="returns")
     page_slice = detail.iloc[page_idx * page_size : (page_idx + 1) * page_size]
     cards = []
     for _, row in page_slice.iterrows():

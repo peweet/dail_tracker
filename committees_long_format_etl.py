@@ -37,7 +37,6 @@ from pathlib import Path
 
 import polars as pl
 
-
 _PROJECT_ROOT = Path(__file__).resolve().parent
 _SILVER_PARQUET_DIR = _PROJECT_ROOT / "data" / "silver" / "parquet"
 _OUT_DIR = _PROJECT_ROOT / "data" / "silver" / "committees"
@@ -72,7 +71,7 @@ def _committee_slug(name: str | None) -> str | None:
     for prefixes, suf in chamber_patterns:
         for prefix in prefixes:
             if s.startswith(prefix):
-                s = s[len(prefix):]
+                s = s[len(prefix) :]
                 suffix = suf
                 matched = True
                 break
@@ -85,7 +84,7 @@ def _committee_slug(name: str | None) -> str | None:
             "Committee on ",
         ):
             if s.startswith(prefix):
-                s = s[len(prefix):]
+                s = s[len(prefix) :]
                 break
     s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii").lower()
     s = re.sub(r"[^\w\s-]", "", s)
@@ -122,14 +121,8 @@ def _committee_slot_records(row: dict, slot: int, chamber: str) -> dict | None:
         "status": _STATUS_MAP.get(row.get(f"committee_{slot}_main_status"), "Unknown"),
         "role": role,
         "is_chair": "cathaoirleach" in str(role).lower(),
-        "start": (
-            row.get(f"committee_{slot}_role_start_date")
-            or row.get(f"committee_{slot}_member_start_date")
-        ),
-        "end": (
-            row.get(f"committee_{slot}_role_end_date")
-            or row.get(f"committee_{slot}_member_end_date")
-        ),
+        "start": (row.get(f"committee_{slot}_role_start_date") or row.get(f"committee_{slot}_member_start_date")),
+        "end": (row.get(f"committee_{slot}_role_end_date") or row.get(f"committee_{slot}_member_end_date")),
     }
 
 
@@ -188,12 +181,8 @@ def build() -> None:
 
     def _parse_dates(df: pl.DataFrame) -> pl.DataFrame:
         return df.with_columns(
-            pl.col("start").str.to_datetime(
-                format=_DATE_FMT, time_zone="UTC", strict=False
-            ).dt.replace_time_zone(None),
-            pl.col("end").str.to_datetime(
-                format=_DATE_FMT, time_zone="UTC", strict=False
-            ).dt.replace_time_zone(None),
+            pl.col("start").str.to_datetime(format=_DATE_FMT, time_zone="UTC", strict=False).dt.replace_time_zone(None),
+            pl.col("end").str.to_datetime(format=_DATE_FMT, time_zone="UTC", strict=False).dt.replace_time_zone(None),
         )
 
     if assignments:
@@ -201,23 +190,37 @@ def build() -> None:
             pl.col("dail_number").cast(pl.Int32, strict=False),
         )
     else:
-        df_a = pl.DataFrame(schema={
-            "chamber": pl.Utf8, "name": pl.Utf8, "party": pl.Utf8,
-            "constituency": pl.Utf8, "dail_number": pl.Int32,
-            "committee": pl.Utf8, "committee_url": pl.Utf8,
-            "type": pl.Utf8, "status": pl.Utf8, "role": pl.Utf8,
-            "is_chair": pl.Boolean,
-            "start": pl.Datetime, "end": pl.Datetime,
-        })
+        df_a = pl.DataFrame(
+            schema={
+                "chamber": pl.Utf8,
+                "name": pl.Utf8,
+                "party": pl.Utf8,
+                "constituency": pl.Utf8,
+                "dail_number": pl.Int32,
+                "committee": pl.Utf8,
+                "committee_url": pl.Utf8,
+                "type": pl.Utf8,
+                "status": pl.Utf8,
+                "role": pl.Utf8,
+                "is_chair": pl.Boolean,
+                "start": pl.Datetime,
+                "end": pl.Datetime,
+            }
+        )
 
     if offices:
         df_o = _parse_dates(pl.DataFrame(offices))
     else:
-        df_o = pl.DataFrame(schema={
-            "chamber": pl.Utf8, "name": pl.Utf8, "party": pl.Utf8,
-            "office": pl.Utf8,
-            "start": pl.Datetime, "end": pl.Datetime,
-        })
+        df_o = pl.DataFrame(
+            schema={
+                "chamber": pl.Utf8,
+                "name": pl.Utf8,
+                "party": pl.Utf8,
+                "office": pl.Utf8,
+                "start": pl.Datetime,
+                "end": pl.Datetime,
+            }
+        )
 
     assignments_path = _OUT_DIR / "committee_assignments.parquet"
     offices_path = _OUT_DIR / "office_holders.parquet"

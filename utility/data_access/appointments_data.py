@@ -11,6 +11,7 @@ Forbidden here (same rules as the Streamlit page file):
   registered view, not here)
 - pandas merge / pivot / business-metric definitions
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,7 +19,6 @@ import logging
 import duckdb
 import pandas as pd
 import streamlit as st
-
 from data_access._sql_registry import register_views
 
 _log = logging.getLogger(__name__)

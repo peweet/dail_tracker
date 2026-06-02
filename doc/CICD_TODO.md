@@ -48,15 +48,15 @@ After pushing the workflow files on a branch + opening a PR:
 
 ---
 
-## 4. Test debt surfaced during setup (deferred — pandera-polars API drift)
+## 4. Test debt surfaced during setup (DONE — pandera-polars API drift)
 
-Seven tests were marked `@pytest.mark.skip` to land a green CI baseline. None are blocking, but each represents a small refactor worth picking up:
+Seven tests were marked `@pytest.mark.skip` to land a green CI baseline. **All resolved** (the skip marks are removed and the tests pass):
 
-- [ ] **`test_silver_parquet.py` — 3 tests skipped**: reference `PaymentTableSchema` which has never been defined. `SAMPLE_PAYMENT*` fixtures retained. Define the schema (mirror `DebateSchema` pattern in the same file) and remove the skip marks.
+- [x] **`test_silver_parquet.py` — 3 tests**: `PaymentTableSchema` is now defined (rejects a date leaked into `Amount` and a non-normalised `join_key`); skip marks removed.
 
-- [ ] **`test_gold_df.py` — 4 tests skipped**: `MasterTDSchema` and `EnrichedAttendanceSchema` use the old pandera API (`df: pl.DataFrame` passed directly into `@pa.dataframe_check`). Newer pandera-polars wraps it in a `PolarsData` adapter. Migration pattern is already in [test_silver_parquet.py](../test/test_silver_parquet.py) (the `_df(data) = data.lazyframe.collect()` helper). Roughly 6 check methods need updating.
+- [x] **`test_gold_df.py` — 4 tests**: `MasterTDSchema` / `EnrichedAttendanceSchema` `@pa.dataframe_check` methods migrated to the `_df(data) = data.lazyframe.collect()` unwrap; skip marks removed.
 
-Once both are addressed, the CI test count should go from `25 pass, 7 skip` to `32 pass, 0 skip`.
+Materialising the warehouse and running the full suite also surfaced (and fixed) several **stale** validation tests that had drifted from the current pipeline output: the attendance silver schema (per-day date columns, not per-year counts), the `master_td` count cap (174→185 for the 176-member 34th Dáil), `year_elected` dtype (now `Int64`), and a broken `normalise_df_td_name` Series/DataFrame call. Full suite now: **335 passed, 24 skipped, 0 failed** (the 24 skips are integration tests awaiting committed pipeline output).
 
 ---
 
@@ -65,7 +65,7 @@ Once both are addressed, the CI test count should go from `25 pass, 7 skip` to `
 These were noted in [CI_CD.md](CI_CD.md) and would extend coverage but aren't on the critical path:
 
 - [ ] **Pre-commit hooks** ([CI_CD.md §3a](CI_CD.md#L160)) — runs ruff locally before commit, so CI catches drift not lint debt.
-- [ ] **Page-import smoke test** ([CI_CD.md §2c](CI_CD.md#L132)) — `test/test_page_imports.py` importing every Streamlit page. Pure import, no data, catches typos for free.
+- [x] **Page-import smoke test** ([CI_CD.md §2c](CI_CD.md#L132)) — `test/test_page_imports.py` imports every Streamlit page. DONE: the CI `test` job now installs `--extra ui` (streamlit/altair/plotly/duckdb) so this collects and runs in CI instead of erroring on a missing import.
 - [ ] **SQL view bootstrap smoke** ([CI_CD.md §2a](CI_CD.md#L76)) — requires committing tiny fixture parquets under `test/fixtures/`. Bigger task; defer until pipeline output schemas are more stable.
 
 ---

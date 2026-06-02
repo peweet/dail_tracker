@@ -65,25 +65,84 @@ _EU_NEGATIVE = {"none_detected", "", "nan"}
 # that already mix case (rarer in the corpus but they exist) pass through.
 
 _TITLE_LOWER = {
-    "a", "an", "and", "as", "at", "but", "by", "for", "from",
-    "in", "of", "on", "or", "the", "to", "with", "nor",
+    "a",
+    "an",
+    "and",
+    "as",
+    "at",
+    "but",
+    "by",
+    "for",
+    "from",
+    "in",
+    "of",
+    "on",
+    "or",
+    "the",
+    "to",
+    "with",
+    "nor",
 }
 # Tokens we want to keep upper-case regardless of position. Drives most of
 # the EU/UK/US/state-body acronym handling.
 _TITLE_KEEP_UPPER = {
     # Jurisdictions / EU bodies
-    "EU", "EC", "EEA", "EFTA", "US", "UK", "UN", "EEC", "ECB", "OECD",
-    "WHO", "WTO", "NATO",
+    "EU",
+    "EC",
+    "EEA",
+    "EFTA",
+    "US",
+    "UK",
+    "UN",
+    "EEC",
+    "ECB",
+    "OECD",
+    "WHO",
+    "WTO",
+    "NATO",
     # Irish taxes / state bodies / agencies
-    "VAT", "PAYE", "PRSI", "USC", "ESB", "RTÉ", "RTE", "DPP", "HSE",
-    "IBRC", "NAMA", "NTMA", "AGS", "BAI", "CAO", "IDA", "EI", "PSO",
-    "TII", "DIT",
+    "VAT",
+    "PAYE",
+    "PRSI",
+    "USC",
+    "ESB",
+    "RTÉ",
+    "RTE",
+    "DPP",
+    "HSE",
+    "IBRC",
+    "NAMA",
+    "NTMA",
+    "AGS",
+    "BAI",
+    "CAO",
+    "IDA",
+    "EI",
+    "PSO",
+    "TII",
+    "DIT",
     # Education
-    "DCU", "UCD", "TCD", "UCC", "UL", "GAA",
+    "DCU",
+    "UCD",
+    "TCD",
+    "UCC",
+    "UL",
+    "GAA",
     # Tech / measurement / standards
-    "GDPR", "ISO", "NUTS", "ETS", "SI", "IR", "IT", "AI",
+    "GDPR",
+    "ISO",
+    "NUTS",
+    "ETS",
+    "SI",
+    "IR",
+    "IT",
+    "AI",
     # Science / medicine / health
-    "DNA", "RNA", "HIV", "AIDS", "COVID",
+    "DNA",
+    "RNA",
+    "HIV",
+    "AIDS",
+    "COVID",
 }
 
 
@@ -121,7 +180,7 @@ _PREAMBLE_CUTS = re.compile(
     r"The Board\b|"
     r"The Council\b|"
     r"The Members\b|"
-    r"Minister of State\b|"   # Bare role, no preceding "The"
+    r"Minister of State\b|"  # Bare role, no preceding "The"
     r"These Regulations\b|"
     r"This Order\b|"
     r"Copies of\b|"
@@ -176,7 +235,7 @@ def _strip_preamble(title: str) -> str:
         end = m.end()
         rest = title[end:].strip(" .,;:")
         if not rest or rest.startswith(")"):
-            continue   # trailing punctuation only — this match is the actual end
+            continue  # trailing punctuation only — this match is the actual end
         # If the remainder contains any of the strong preamble cues, cut here.
         if _PREAMBLE_CUTS.search(" " + rest) or rest[:1].isupper():
             return title[:end]
@@ -184,7 +243,7 @@ def _strip_preamble(title: str) -> str:
     m = _YEAR_THEN_SENTENCE.search(title)
     if m is not None:
         # Cut at the year+period boundary, not the start of the next sentence.
-        end = m.start() + len(re.match(r"\d{4}\.?", title[m.start():]).group())
+        end = m.start() + len(re.match(r"\d{4}\.?", title[m.start() :]).group())
         return title[:end].rstrip(" .,;:")
     # Pass 3: first preamble lead-in keyword.
     m = _PREAMBLE_CUTS.search(title)
@@ -236,6 +295,7 @@ def _normalise_si_title(title: object) -> object:
         lowered = core.lower()
         if (not is_first) and lowered in _TITLE_LOWER:
             return prefix + lowered + suffix
+
         # Hyphen-aware capitalisation: WORK-LIFE → Work-Life,
         # COVID-19 → COVID-19 (per-part keep-upper check).
         def _case_part(p: str) -> str:
@@ -246,6 +306,7 @@ def _normalise_si_title(title: object) -> object:
             if p.upper() in _TITLE_KEEP_UPPER:
                 return p.upper()
             return p[:1].upper() + p[1:]
+
         parts = lowered.split("-")
         return prefix + "-".join(_case_part(p) for p in parts) + suffix
 

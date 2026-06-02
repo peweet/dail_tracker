@@ -44,8 +44,8 @@ Only the current Dáil and Seanad are in scope. See [`doc/DATA_LIMITATIONS.md`](
 | Surface | Status |
 |---|---|
 | Medallion pipeline (bronze → silver → gold) | Working |
-| Registered SQL view layer (`sql_views/`) | Working — 65+ views |
-| Streamlit dashboard | Working — 11 pages (Member Overview is the canonical home, TheyWorkForYou-style) |
+| Registered SQL view layer (`sql_views/`) | Working — 70+ views |
+| Streamlit dashboard | Working — 12 pages (Member Overview is the canonical home, TheyWorkForYou-style) |
 | Logic firewall (UI reads only via registered views) | Enforced |
 | Provenance / source-PDF expanders | On every primary page |
 | Oireachtas API ingestion (members, votes, debates, questions) | Working — paginated questions ingest (264k rows, 1000-row API cap lifted) |

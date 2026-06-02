@@ -47,8 +47,7 @@ def period_year_pills(df, key: str) -> tuple[str | None, str | None]:
         return None, None
     options = ["All"] + [str(y) for y in years]
     chosen = (
-        st.segmented_control("Year", options, default=options[0], key=key, label_visibility="collapsed")
-        or options[0]
+        st.segmented_control("Year", options, default=options[0], key=key, label_visibility="collapsed") or options[0]
     )
     if chosen == "All":
         return None, None
@@ -131,10 +130,7 @@ def sidebar_page_header(title: str, kicker: str = "Dáil Tracker") -> None:
     # call-site contract without reintroducing an unsafe-html path.
     _BR_MARKER = "\x00BR\x00"
     safe_title = _h(title.replace("<br>", _BR_MARKER)).replace(_BR_MARKER, "<br>")
-    st.html(
-        f'<p class="page-kicker">{_h(kicker)}</p>'
-        f'<h2 class="page-title">{safe_title}</h2>'
-    )
+    st.html(f'<p class="page-kicker">{_h(kicker)}</p><h2 class="page-title">{safe_title}</h2>')
 
 
 def year_selector(
@@ -505,7 +501,7 @@ def member_moved_callout(
         # affordance, not an afterthought. .dt-moved-cta lives in shared_css.
         link_html = (
             f'<a class="dt-moved-cta" href="{_h(target)}" target="_self">'
-            f"Open {_h(name)}'s profile <span aria-hidden=\"true\">&rarr;</span></a>"
+            f'Open {_h(name)}\'s profile <span aria-hidden="true">&rarr;</span></a>'
         )
     else:
         link_html = (
@@ -634,12 +630,13 @@ def member_jump_panel(
     ``chip_cols`` defaults to 6 because the main panel is far wider than the
     old sidebar, where 2 columns made each chip span half the page.
     """
-    picked = main_member_jump(
-        members, key_prefix=search_key_prefix, label=label, placeholder=placeholder
-    )
-    if notable and chip_key_prefix:
-        if render_notable_chips(notable, members, chip_key_prefix, session_key, cols=chip_cols):
-            picked = st.session_state.get(session_key)
+    picked = main_member_jump(members, key_prefix=search_key_prefix, label=label, placeholder=placeholder)
+    if (
+        notable
+        and chip_key_prefix
+        and render_notable_chips(notable, members, chip_key_prefix, session_key, cols=chip_cols)
+    ):
+        picked = st.session_state.get(session_key)
     return picked
 
 
@@ -776,15 +773,10 @@ def member_card_html(
         rank_overlay = ""
         if rank is not None:
             rank_overlay_cls = (
-                "dt-name-card-rank-overlay dt-name-card-rank-overlay-top"
-                if rank <= 3
-                else "dt-name-card-rank-overlay"
+                "dt-name-card-rank-overlay dt-name-card-rank-overlay-top" if rank <= 3 else "dt-name-card-rank-overlay"
             )
             rank_overlay = f'<span class="{rank_overlay_cls}">#{rank}</span>'
-        left_inner = (
-            f'<img class="dt-name-card-avatar" src="{_h(avatar_url)}" alt="" loading="lazy">'
-            f"{rank_overlay}"
-        )
+        left_inner = f'<img class="dt-name-card-avatar" src="{_h(avatar_url)}" alt="" loading="lazy">{rank_overlay}'
     elif rank is not None:
         rank_cls = "dt-name-card-rank dt-name-card-rank-top" if rank <= 3 else "dt-name-card-rank"
         left_inner = f'<span class="{rank_cls}">#{rank}</span>'
@@ -792,11 +784,7 @@ def member_card_html(
         left_inner = f'<span class="dt-name-card-initials" aria-hidden="true">{_h(avatar_initials)}</span>'
     else:
         left_inner = ""
-    meta_html = (
-        f'<div class="dt-name-card-meta">{meta_prefix_html}{_h(meta)}</div>'
-        if meta or meta_prefix_html
-        else ""
-    )
+    meta_html = f'<div class="dt-name-card-meta">{meta_prefix_html}{_h(meta)}</div>' if meta or meta_prefix_html else ""
     pills_sec = f'<div class="dt-name-card-pills">{pills_html}</div>' if pills_html else ""
     badge_sec = f'<div class="dt-name-card-badge">{badge_html}</div>' if badge_html else ""
     return (
@@ -835,7 +823,8 @@ def ranked_member_card(
     to live in 4 page files.
     """
     if avatar_url is None or avatar_initials is None:
-        from ui.avatars import avatar_data_url, initials as _initials_fn
+        from ui.avatars import avatar_data_url
+        from ui.avatars import initials as _initials_fn
 
         if avatar_url is None:
             avatar_url = avatar_data_url(name)

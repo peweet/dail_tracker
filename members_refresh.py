@@ -18,6 +18,7 @@ Run AFTER bootstrap (all steps need flattened_members.parquet) and BEFORE iris
 CLI:
     python members_refresh.py
 """
+
 from __future__ import annotations
 
 import argparse

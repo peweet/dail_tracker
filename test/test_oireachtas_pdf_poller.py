@@ -59,10 +59,7 @@ _JAN_URL = (
     "2026/2026-03-05_parliamentary-standard-allowance-payments-to-deputies-"
     "for-january-2026_en.pdf"
 )
-_FEB_FILENAME = (
-    "2026-04-02_parliamentary-standard-allowance-payments-to-deputies-"
-    "for-february-2026_en.pdf"
-)
+_FEB_FILENAME = "2026-04-02_parliamentary-standard-allowance-payments-to-deputies-for-february-2026_en.pdf"
 
 
 def _read_payments_fixture() -> str:
@@ -416,7 +413,7 @@ def test_fetch_index_html_forces_utf8_decoding(tmp_path):
     response encoding to utf-8 — this guards that override.
     """
     src = _make_source(tmp_path)
-    payload = "<html><body>Dáil Éireann</body></html>".encode("utf-8")
+    payload = "<html><body>Dáil Éireann</body></html>".encode()
     responses.add(
         responses.GET,
         src.index_url,

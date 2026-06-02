@@ -23,7 +23,6 @@ from __future__ import annotations
 import datetime
 from html import escape as _h
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -38,8 +37,6 @@ from ui.components import (
     hide_sidebar,
     member_jump_panel,
     page_error_boundary,
-    stat_strip,
-    todo_callout,
     year_selector,
 )
 from data_access.identity_resolver import resolve_member_code
@@ -235,9 +232,7 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> None:
         st.html("\n".join(good_cards))
 
     with col_bad:
-        bad_label = (
-            "Lowest recorded attendance (so far)" if is_partial else "Lowest recorded attendance"
-        )
+        bad_label = "Lowest recorded attendance (so far)" if is_partial else "Lowest recorded attendance"
         st.html(f'<h2 class="att-hall-heading-bad">{bad_label}</h2>')
         bad_cards = [_att_card_link(row, side="bad", rank=i + 1) for i, (_, row) in enumerate(bottom.iterrows())]
         st.html("\n".join(bad_cards))
@@ -252,9 +247,7 @@ def _name_pill(row: pd.Series, *, with_office: bool) -> str:
     const = str(row.get("constituency", "") or "")
     meta = _h(clean_meta(party, const))
     office = str(row.get("departments_held", "") or "") if with_office else ""
-    office_html = (
-        f'<span class="att-miss-office">{_h(office)}</span>' if office else ""
-    )
+    office_html = f'<span class="att-miss-office">{_h(office)}</span>' if office else ""
     return (
         '<div class="att-miss-row">'
         f'<span class="att-miss-name">{name}</span>'
@@ -286,10 +279,7 @@ def _render_missing_members() -> None:
 
         if not office.empty:
             evidence_heading(f"Ministers and ministers of state · {len(office)}")
-            st.caption(
-                "TAA records exclude office-holders by design — they are not absent, "
-                "they are not recorded."
-            )
+            st.caption("TAA records exclude office-holders by design — they are not absent, they are not recorded.")
             st.html("\n".join(_name_pill(r, with_office=True) for _, r in office.iterrows()))
 
         if not no_record.empty:
