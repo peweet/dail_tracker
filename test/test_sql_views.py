@@ -102,6 +102,9 @@ def _load(filename: str, con=None) -> str:
     sql = sql.replace("{MEMBER_PARQUET_PATH}", str(MEMBER_PARQUET).replace("\\", "/"))
     sql = sql.replace("{SEANAD_MEMBER_PARQUET_PATH}", str(SEANAD_MEMBER_PARQUET).replace("\\", "/"))
     sql = sql.replace("{PARQUET_PATH}", str(VOTE_PARQUET).replace("\\", "/"))
+    # The Seanad vote gold shares the Dáil schema, so the committed Dáil fixture
+    # doubles as the Seanad source for v_vote_base's chamber-union template.
+    sql = sql.replace("{SEANAD_VOTE_PARQUET_PATH}", str(VOTE_PARQUET).replace("\\", "/"))
     sql = sql.replace("{EXTERNAL_LINKS_PARQUET_PATH}", str(EXTERNAL_LINKS_PARQUET).replace("\\", "/"))
     # Rewrite hardcoded read_parquet/read_csv('data/...') literals to an absolute
     # base (mirrors production absolutize_data_paths). CWD-independent, and in CI
@@ -625,6 +628,9 @@ def test_vote_view_executes(filename, view_name, key_cols):
     """
     _skip_missing(VOTE_PARQUET)
     con = _con()
+    # All vote views read FROM v_vote_base (the chamber-union chokepoint) — it
+    # must be created on the connection first.
+    con.execute(_load("vote_base.sql"))
     con.execute(_load(filename))
     result = _result(con, view_name)
     for col in key_cols:
@@ -667,7 +673,16 @@ _REGISTRATION_GROUPS = [
     ("legislation", ["legislation_*.sql"], {}),
     ("lobbying", ["lobbying_*.sql"], {}),
     ("payments", ["payments_*.sql"], {}),
-    ("votes", ["vote*.sql"], {"{PARQUET_PATH}": GOLD_VOTE_HISTORY_PARQUET.as_posix()}),
+    (
+        "votes",
+        ["vote*.sql"],
+        {
+            "{PARQUET_PATH}": GOLD_VOTE_HISTORY_PARQUET.as_posix(),
+            "{SEANAD_VOTE_PARQUET_PATH}": (
+                GOLD_VOTE_HISTORY_PARQUET.parent / "current_seanad_vote_history.parquet"
+            ).as_posix(),
+        },
+    ),
 ]
 
 

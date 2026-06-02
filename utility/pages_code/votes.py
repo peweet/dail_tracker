@@ -314,10 +314,7 @@ def _card_list_fragment(date_from, date_to, outcome_filter, house: str = "Dáil"
 
 def _render_mode_a(date_from, date_to, outcome_filter, house: str = "Dáil") -> None:
     term = "Senator" if house == "Seanad" else "TD"
-    st.html(
-        '<p class="dt-kicker">Dáil Tracker · Voting Record</p>'
-        f'<h1 class="dt-hero">{_h(house)} Divisions</h1>'
-    )
+    st.html(f'<p class="dt-kicker">Dáil Tracker · Voting Record</p><h1 class="dt-hero">{_h(house)} Divisions</h1>')
     _card_list_fragment(date_from, date_to, outcome_filter, house)
 
     # P2-9: surface the provenance headline above the expander so the
