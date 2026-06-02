@@ -325,6 +325,16 @@ def load_si() -> pd.DataFrame:
     df = df[df["si_taxonomy_confidence"].fillna(0) >= MIN_TAXO_CONFIDENCE]
     df["si_id"] = df["si_year"].astype(str) + "-" + df["si_number"].astype(str).str.zfill(3)
     df["issue_date"] = pd.to_datetime(df["issue_date"], errors="coerce")
+
+    # Recover a signing office for the notices the parser left blank, and
+    # capture any literally-printed signatory name. The parser's actor is kept
+    # when present; recovery only fills the gaps. See recover_actor_and_signatory.
+    recovered = [recover_actor_and_signatory(t) for t in df["raw_text"]]
+    rec_actor = pd.Series([a for a, _ in recovered], index=df.index)
+    df["si_signatory_name"] = pd.Series([s for _, s in recovered], index=df.index).replace("", pd.NA)
+    existing = df["si_responsible_actor"].fillna("").astype(str).str.strip()
+    df["si_responsible_actor"] = existing.where(existing != "", rec_actor).replace("", pd.NA)
+
     return df.drop_duplicates(subset=["si_id"]).reset_index(drop=True)
 
 
@@ -368,6 +378,117 @@ def canonicalise_department(text, aliases: list[tuple[str, str, str]]):
         if alias in phrase:
             return key, label
     return None, None
+
+
+# ── Signer-aware actor recovery ───────────────────────────────────────────────
+# The parser's si_responsible_actor only fires on "The Minister for ..." plus a
+# short list of named bodies, leaving ~60% of SI notices with an empty actor.
+# The making office is almost always still printed in the notice body, under
+# phrasings the parser misses: a signature block ("Eoghan Murphy, Minister for
+# Housing"), "Tánaiste and Minister for ...", a non-ministerial maker (Revenue,
+# Central Bank, a court rules committee), or a bare "... the Minister for X has
+# made". We recover those here from raw_text — NO PDF re-parse.
+#
+# ACCURACY GUARD: a notice frequently names a *consenting* minister ("with the
+# consent of the Minister for Finance") who did NOT make the SI. We delete those
+# clauses before extraction so a consenter is never mistaken for the signer.
+
+# Consent / concurrence clauses — stripped before office extraction.
+_CONSENT_CLAUSE_RE = re.compile(
+    r"(?:with\s+the\s+)?(?:consent|concurrence|approval|sanction|agreement)\s+of\s+"
+    r"(?:the\s+)?(?:Tánaiste\s+and\s+)?Minister(?:\s+of\s+State)?\s+(?:for|of)\s+[^,.;/\n]+",
+    re.IGNORECASE,
+)
+
+# Literal signature block: a personal name (1–3 capitalised tokens), optional
+# T.D., then the office. Captures the PRINTED signatory — a stronger fact than
+# the tenure-inferred minister name, and the office it pins is the signer's.
+_SIGNATORY_RE = re.compile(
+    r"([A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú'’\-]+(?:\s+[A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú'’\-]+){0,2})"
+    r"(?:\s*,?\s*T\.?D\.?)?,\s*"
+    r"(Minister\s+(?:of\s+State\s+)?(?:for|at)\b[^,.;/\n]*)"
+)
+
+# A ministerial office anywhere in the (de-consented) body. group(1) = the
+# "Minister of State ..." dept, group(2) = the "Minister for ..." dept.
+_MIN_OFFICE_RE = re.compile(
+    r"(?:The\s+)?(?:Tánaiste\s+and\s+)?Minister\s+of\s+State\s+(?:at\s+the\s+Department\s+of|for)\s+([^,.;/\n]+)"
+    r"|(?:The\s+)?(?:Tánaiste\s+and\s+)?Minister\s+for\s+([^,.;/\n]+)",
+    re.IGNORECASE,
+)
+
+# Non-ministerial makers — these populate the office but resolve to no person
+# (they are not departments in the ministerial-tenure table, which is correct:
+# the SI was made by a body, not a minister).
+_BODY_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\bRevenue Commissioners\b", re.I), "The Revenue Commissioners"),
+    (re.compile(r"\bCentral Bank of Ireland\b|\bCentral Bank\b", re.I), "The Central Bank of Ireland"),
+    (re.compile(r"\bSuperior Court Rules?\b|\bRules?\s+of\s+the\s+Superior\s+Courts?\b", re.I), "Superior Courts Rules Committee"),
+    (re.compile(r"\bCircuit Court Rules?\b", re.I), "Circuit Court Rules Committee"),
+    (re.compile(r"\bDistrict Court Rules?\b", re.I), "District Court Rules Committee"),
+]
+
+# Trim a captured department phrase at verb/clause boundaries the dept-capture
+# over-runs into ("Minister for Foreign Affairs and Trade has made ..."). We do
+# NOT cut on "and" — it is part of real titles (Foreign Affairs and Trade).
+_DEPT_TAIL_RE = re.compile(r"\s+(?:has|have|hereby|in\s+exercise|by|under|shall|may|after)\b.*$", re.I)
+_NAME_LEAD_RE = re.compile(r"^(?:Mr|Ms|Mrs|Dr|Deputy|Senator)\s+", re.I)
+_NAME_TAIL_RE = re.compile(r"\s*,?\s*T\.?D\.?\s*$", re.I)
+
+
+def _clean_name(name: str) -> str:
+    name = _NAME_LEAD_RE.sub("", name.strip())
+    name = _NAME_TAIL_RE.sub("", name).strip(" ,")
+    return re.sub(r"\s+", " ", name)
+
+
+def _office_from_minister_phrase(office: str) -> str:
+    """Normalise a captured 'Minister ...' fragment to a clean office string,
+    trimming any trailing verb clause the greedy dept capture ran into."""
+    office = re.sub(r"\s+", " ", office).strip()
+    office = _DEPT_TAIL_RE.sub("", office).strip(" ,;-")
+    return f"The {office}" if not office.lower().startswith("the ") else office
+
+
+def recover_actor_and_signatory(raw_text) -> tuple[str, str]:
+    """(actor, signatory_name) recovered from a notice body.
+
+    actor — a clean office string ("The Minister for X", "The Revenue
+    Commissioners", ...) or "" if none found. signatory_name — the literally
+    printed signer name ("Eoghan Murphy") or "" if no signature block is
+    present. Both are accuracy-first: consenting ministers are excluded."""
+    if not isinstance(raw_text, str) or not raw_text.strip():
+        return "", ""
+
+    actor = ""
+    signatory = ""
+
+    # 1) Signature block — strongest signal; pins both name and signing office.
+    msig = _SIGNATORY_RE.search(raw_text)
+    if msig:
+        signatory = _clean_name(msig.group(1))
+        actor = _office_from_minister_phrase(msig.group(2))
+
+    # 2) Strip consenting-minister clauses so they cannot be picked up below.
+    body = _CONSENT_CLAUSE_RE.sub(" ", raw_text)
+
+    # 3) Any remaining ministerial office in the de-consented body.
+    if not actor:
+        mo = _MIN_OFFICE_RE.search(body)
+        if mo:
+            if mo.group(1):  # Minister of State
+                actor = _office_from_minister_phrase(f"Minister of State for {mo.group(1)}")
+            else:
+                actor = _office_from_minister_phrase(f"Minister for {mo.group(2)}")
+
+    # 4) Non-ministerial maker bodies (no person resolution).
+    if not actor:
+        for rx, label in _BODY_PATTERNS:
+            if rx.search(raw_text):
+                actor = label
+                break
+
+    return actor, signatory
 
 
 def load_bill_links() -> pd.DataFrame:
@@ -479,6 +600,7 @@ def run() -> dict:
             "si_policy_domain": si["si_policy_domain_primary"],
             "si_policy_domains_all": si["si_policy_domains"],
             "si_responsible_actor": si["si_responsible_actor"],
+            "si_signatory_name": si["si_signatory_name"],
             "si_department": si["si_department"],
             "si_department_label": si["si_department_label"],
             "si_minister_member_code": si["si_minister_member_code"],
