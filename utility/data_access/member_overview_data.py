@@ -109,8 +109,16 @@ def get_member_overview_conn():
         from config import SILVER_PARQUET_DIR
 
         member_parquet = (SILVER_PARQUET_DIR / "flattened_members.parquet").as_posix()
+        seanad_member_parquet = (SILVER_PARQUET_DIR / "flattened_seanad_members.parquet").as_posix()
         for fname in _REGISTRY_FILES:
-            _load_sql(conn, _SQL_VIEWS / fname, {"{MEMBER_PARQUET_PATH}": member_parquet})
+            _load_sql(
+                conn,
+                _SQL_VIEWS / fname,
+                {
+                    "{MEMBER_PARQUET_PATH}": member_parquet,
+                    "{SEANAD_MEMBER_PARQUET_PATH}": seanad_member_parquet,
+                },
+            )
     except Exception as exc:
         _log.warning("member_overview: could not load member registry: %s", exc)
 
@@ -126,13 +134,16 @@ def get_member_overview_conn():
     except Exception as exc:
         _log.warning("member_overview: could not load external-links view: %s", exc)
 
-    # Vote views — absolute path injected
+    # Vote views — both houses via a glob. current_dail_vote_history.parquet and
+    # current_seanad_vote_history.parquet share an identical schema (same
+    # enrich._build_vote_history helper), so the glob unions them; a member's
+    # unique_member_code resolves to their own house's divisions.
     try:
         from config import GOLD_VOTE_HISTORY_PARQUET
 
-        vote_parquet = GOLD_VOTE_HISTORY_PARQUET.as_posix()
+        vote_glob = (GOLD_VOTE_HISTORY_PARQUET.parent / "current_*_vote_history.parquet").as_posix()
         for fname in _VOTE_FILES:
-            _load_sql(conn, _SQL_VIEWS / fname, {"{PARQUET_PATH}": vote_parquet})
+            _load_sql(conn, _SQL_VIEWS / fname, {"{PARQUET_PATH}": vote_glob})
     except Exception as exc:
         _log.warning("member_overview: could not load vote views: %s", exc)
 

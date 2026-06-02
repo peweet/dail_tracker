@@ -5,6 +5,9 @@
 -- for cabinet ministers who are constitutionally required to attend cabinet meetings,
 -- represent Ireland abroad, and conduct ministerial duties on sitting days).
 
+-- Ranks are partitioned by (year, house) so TDs rank only against TDs and
+-- Senators only against Senators — a plain PARTITION BY year would mix the two
+-- chambers' pools once the Seanad rows joined v_attendance_member_year_summary.
 CREATE OR REPLACE VIEW v_attendance_year_rank AS
 SELECT
     COALESCE(unique_member_code, '') AS unique_member_code,
@@ -14,12 +17,13 @@ SELECT
     party_name,
     constituency,
     is_minister,
-    RANK() OVER (PARTITION BY year ORDER BY attended_count DESC) AS rank_high,
-    RANK() OVER (PARTITION BY year ORDER BY attended_count ASC)  AS rank_low,
+    house,
+    RANK() OVER (PARTITION BY year, house ORDER BY attended_count DESC) AS rank_high,
+    RANK() OVER (PARTITION BY year, house ORDER BY attended_count ASC)  AS rank_low,
     CASE
         WHEN is_minister THEN NULL
         ELSE RANK() OVER (
-            PARTITION BY year
+            PARTITION BY year, house
             ORDER BY CASE WHEN is_minister THEN NULL ELSE attended_count END ASC NULLS LAST
         )
     END AS rank_low_exc_ministers

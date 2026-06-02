@@ -34,7 +34,16 @@ from ui.export_controls import export_button
 from ui.source_pdfs import ATTENDANCE, provenance_expander
 
 from config import NOTABLE_TDS, SITTING_DAYS_BY_YEAR
-from data_access.attendance_data import get_attendance_conn
+from data_access.attendance_data import (
+    fetch_alltime_ranking as _fetch_alltime_ranking,
+    fetch_available_years as _fetch_available_years,
+    fetch_global_stats as _fetch_global_stats,
+    fetch_member_profile as _fetch_ov_profile,
+    fetch_member_timeline as _fetch_ov_timeline,
+    fetch_member_years as _fetch_ov_member_years,
+    fetch_year_member_counts as _fetch_year_member_counts,
+    fetch_year_ranking as _fetch_year_ranking,
+)
 
 _CAVEAT = (
     "Attendance figures reflect days a member was recorded present in the Dáil chamber "
@@ -55,114 +64,7 @@ _GOOD_MEDALS = ["🥇", "🥈", "🥉"]
 _HALL_SIZE = 15
 
 
-# ── Data retrieval ─────────────────────────────────────────────────────────────
-
-
-@st.cache_data(ttl=300)
-def _fetch_global_stats() -> pd.DataFrame:
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT members_count, sitting_count, first_sitting_date, last_sitting_date"
-            " FROM v_attendance_summary LIMIT 1"
-        )
-        .df()
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_available_years() -> list[int]:
-    """Returns years ASC — oldest on the left, newest on the right."""
-    rows = (
-        get_attendance_conn()
-        .execute("SELECT DISTINCT year FROM v_attendance_member_year_summary WHERE year IS NOT NULL ORDER BY year ASC")
-        .fetchall()
-    )
-    return [int(r[0]) for r in rows]
-
-
-@st.cache_data(ttl=300)
-def _fetch_alltime_ranking() -> pd.DataFrame:
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT member_name, party_name, constituency,"
-            " attended_count, sitting_count"
-            " FROM v_attendance_member_summary"
-            " ORDER BY attended_count DESC LIMIT 500"
-        )
-        .df()
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_year_ranking(year: int) -> pd.DataFrame:
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT member_name, party_name, constituency,"
-            " attended_count, is_minister, rank_high, rank_low"
-            " FROM v_attendance_year_rank WHERE year = ?"
-            " ORDER BY rank_high ASC LIMIT 500",
-            [year],
-        )
-        .df()
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_year_member_counts() -> pd.DataFrame:
-    """Per-year member count — used for the year summary strip.
-
-    Sources v_attendance_year_member_counts (rollup defined in the view).
-    """
-    return (
-        get_attendance_conn()
-        .execute("SELECT year, members_count FROM v_attendance_year_member_counts ORDER BY year ASC")
-        .df()
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_ov_member_years(td_name: str) -> pd.DataFrame:
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT CAST(year AS INTEGER) AS year, attended_count"
-            " FROM v_attendance_member_year_summary"
-            " WHERE member_name = ? ORDER BY year DESC LIMIT 100",
-            [td_name],
-        )
-        .df()
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_ov_profile(td_name: str) -> pd.DataFrame:
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT member_name, party_name, constituency"
-            " FROM v_attendance_member_summary WHERE member_name = ? LIMIT 1",
-            [td_name],
-        )
-        .df()
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_ov_timeline(td_name: str, year: int) -> pd.DataFrame:
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT sitting_date, attendance_status"
-            " FROM v_attendance_timeline"
-            " WHERE member_name = ? AND year(sitting_date) = ?"
-            " ORDER BY sitting_date ASC LIMIT 400",
-            [td_name, year],
-        )
-        .df()
-    )
+# ── Retrieval lives in data_access.attendance_data (imported above) ───────────
 
 
 # ── Card / HTML helpers ────────────────────────────────────────────────────────

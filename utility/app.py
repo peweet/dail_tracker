@@ -1,5 +1,6 @@
 import streamlit as st
 from pages_code.attendance import attendance_page
+from pages_code.attendance_overview import attendance_overview_page
 from pages_code.committees import committees_page
 from pages_code.corporate import corporate_page
 from pages_code.glossary import glossary_page
@@ -80,6 +81,12 @@ pg = st.navigation(
             title="Attendance",
             icon=":material/calendar_today:",
             url_path="rankings-attendance",
+        ),
+        st.Page(
+            attendance_overview_page,
+            title="Attendance Overview",
+            icon=":material/leaderboard:",
+            url_path="rankings-attendance-overview",
         ),
         st.Page(votes_page, title="Votes", icon=":material/how_to_vote:", url_path="rankings-votes"),
         st.Page(interests_page, title="Interests", icon=":material/interests:", url_path="rankings-interests"),
