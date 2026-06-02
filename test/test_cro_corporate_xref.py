@@ -28,7 +28,7 @@ for _p in (str(_ROOT), str(_ROOT / "pipeline_sandbox")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from cro_corporate_xref_enrichment import _OUTPUT_COLS, build_cro_xref
+from cro_corporate_xref_enrichment import _OUTPUT_COLS, build_cro_xref  # noqa: E402 — sys.path set above
 
 
 def _notices(rows: list[dict]) -> pl.DataFrame:
