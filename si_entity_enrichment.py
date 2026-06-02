@@ -333,7 +333,7 @@ def load_si() -> pd.DataFrame:
     rec_actor = pd.Series([a for a, _ in recovered], index=df.index)
     df["si_signatory_name"] = pd.Series([s for _, s in recovered], index=df.index).replace("", pd.NA)
     existing = df["si_responsible_actor"].fillna("").astype(str).str.strip()
-    df["si_responsible_actor"] = existing.where(existing != "", rec_actor).replace("", pd.NA)
+    df["si_responsible_actor"] = existing.where(existing != "", rec_actor).map(tidy_actor).replace("", pd.NA)
 
     return df.drop_duplicates(subset=["si_id"]).reset_index(drop=True)
 
@@ -447,7 +447,26 @@ def _office_from_minister_phrase(office: str) -> str:
     trimming any trailing verb clause the greedy dept capture ran into."""
     office = re.sub(r"\s+", " ", office).strip()
     office = _DEPT_TAIL_RE.sub("", office).strip(" ,;-")
+    # "Minister for State" is not an office title — the junior office is
+    # "Minister of State". Normalise the misrendering.
+    office = re.sub(r"\bMinister for State\b", "Minister of State", office, flags=re.IGNORECASE)
     return f"The {office}" if not office.lower().startswith("the ") else office
+
+
+def tidy_actor(actor):
+    """Normalise a signing-office string for display, fixing pre-existing parser
+    artifacts as well as recovered values: strip a name/'TD' prefix from
+    signature-form actors ('Canney, Minister for ...' → 'The Minister for ...')
+    and trim verb run-ons ('The Minister for Justice has made ...' → 'The
+    Minister for Justice'). Non-ministerial bodies pass through untouched except
+    for tail trimming. The canonical department token always survives, so
+    department→minister resolution is unaffected."""
+    if not isinstance(actor, str) or not actor.strip():
+        return actor
+    m = re.search(r"(Minister\s+(?:of\s+State\s+)?(?:for|at)\b.*)", actor, re.IGNORECASE)
+    if m:
+        return _office_from_minister_phrase(m.group(1))
+    return _DEPT_TAIL_RE.sub("", actor).strip(" ,;-")
 
 
 def recover_actor_and_signatory(raw_text) -> tuple[str, str]:
@@ -583,6 +602,21 @@ def run() -> dict:
     )
     si = pd.concat([si, minister], axis=1)
 
+    # A printed signatory is ground truth. Where it contradicts the tenure-
+    # inferred senior minister — typically a Minister of State signing, whom the
+    # senior-minister tenure table cannot resolve — suppress the inference so we
+    # never show, or link to, the wrong person; the printed name is surfaced
+    # instead. Where they agree (a senior minister signing under their own
+    # name), the inference and its clickable profile link are kept.
+    def _surname(n) -> str:
+        return str(n).strip().lower().split()[-1] if isinstance(n, str) and n.strip() else ""
+
+    contradicts = si["si_signatory_name"].notna() & (
+        si["si_minister_name"].isna()
+        | (si["si_signatory_name"].map(_surname) != si["si_minister_name"].map(_surname))
+    )
+    si.loc[contradicts, ["si_minister_member_code", "si_minister_name"]] = None
+
     si = si.merge(links, on="si_id", how="left")
 
     out = pd.DataFrame(
@@ -619,6 +653,7 @@ def run() -> dict:
 
     total = len(out)
     actor_known = int(si["si_responsible_actor"].notna().sum())
+    signatory_printed = int(out["si_signatory_name"].notna().sum())
     dept_known = int(out["si_department"].notna().sum())
     minister_named = int(out["si_minister_name"].notna().sum())
     minister_coded = int(out["si_minister_member_code"].notna().sum())
@@ -630,6 +665,7 @@ def run() -> dict:
         "total_sis": total,
         "year_range": f"{int(out['si_year'].min())}-{int(out['si_year'].max())}",
         "actor_present": actor_known,
+        "signatory_printed": signatory_printed,
         "department_known": dept_known,
         "minister_named": minister_named,
         "minister_coded": minister_coded,

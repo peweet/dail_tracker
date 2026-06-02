@@ -1,7 +1,7 @@
 # Dáil Tracker
 
 [![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/peweet/dail_tracker/blob/main/pyproject.toml)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/peweet/dail_tracker)
 [![DuckDB](https://img.shields.io/badge/DuckDB-analytical%20layer-yellow.svg)](https://duckdb.org/)
 [![Polars](https://img.shields.io/badge/Polars-dataframes-lightgrey.svg)](https://pola.rs/)
@@ -35,6 +35,7 @@ Only the current Dáil and Seanad are in scope. See [`doc/DATA_LIMITATIONS.md`](
 - [Repository structure](#repository-structure)
 - [Data limitations](#data-limitations)
 - [Competitive landscape](#competitive-landscape)
+- [Licensing & attribution](#licensing--attribution)
 - [Contributing](#contributing)
 
 ---
@@ -113,7 +114,7 @@ This project joins those sources into one analytical pipeline so questions like 
 - [Record of Attendance](https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=record-of-attendance)
 - [Register of Lobbying](https://www.lobbying.ie/app/home/search)
 
-All upstream data remains subject to the terms and licences of the publishing bodies.
+All upstream data remains subject to the terms and licences of the publishing bodies. The code and the third-party data are licensed **separately** — see [Licensing & attribution](#licensing--attribution) and [`NOTICE.md`](NOTICE.md) for the per-source terms and the required attribution strings.
 
 A forward-looking catalogue of candidate datasets (political accountability, state spending, beneficial ownership, regulatory enforcement, EU layer, public discourse, geography/demographics, Iris Oifigiúil) is maintained in [`doc/ENRICHMENTS.md`](doc/ENRICHMENTS.md). Sources graduate from there to the table above as they ship.
 
@@ -632,6 +633,52 @@ doc/DATA_LIMITATIONS.md
 For an audit of how Dáil Tracker compares to existing Irish civic-tech tools (KildareStreet, Lobbyieng, Gript Datahub, Oireachtas Connect, etc.), and the strategic gaps Dáil Tracker is built to fill, see [`doc/COMPETITIVE_LANDSCAPE.md`](doc/COMPETITIVE_LANDSCAPE.md).
 
 The short version: source-by-source competitors exist for votes/debates, lobbying, and payments. **Cross-source linkage** (Iris × CRO × charities × declared interests × lobbying) is not currently offered by any other Irish tool, and that is where this project's strategic value sits.
+
+---
+
+## Licensing & attribution
+
+This repository contains two kinds of material under **different licences**. See
+[`NOTICE.md`](NOTICE.md) for the full text; this is the summary.
+
+### Code — AGPL-3.0
+
+The original source code (ETL pipeline, parsers, SQL views, Streamlit app) is
+licensed under the **GNU Affero General Public License v3.0 or later** (see
+[`LICENSE`](LICENSE)). In short: you may use, study, modify, and redistribute it,
+but any **hosted / network-deployed** version that includes modifications must
+also make its complete corresponding source available under the same licence.
+
+### Data — upstream licences (NOT covered by AGPL)
+
+The derived data files in this repo (silver CSVs, gold parquet) come from public
+bodies and remain under **their own** licences. The AGPL does not grant any
+rights over them. All but Iris Oifigiúil permit free reuse and redistribution
+with attribution:
+
+| Source | Licence | Required attribution |
+|---|---|---|
+| Houses of the Oireachtas (members, votes, debates, questions, bills) | Oireachtas (Open Data) PSI Licence = **CC BY 4.0** | "Contains Oireachtas information licensed under the Oireachtas (Open Data) PSI Licence. © Houses of the Oireachtas." |
+| lobbying.ie (SIPO) — lobbying returns | PSI re-use policy (free reuse in any format) | "Contains lobbying register data © Standards in Public Office Commission, reused under its PSI re-use policy." |
+| Companies Registration Office (CRO) — companies *(sandbox)* | **CC BY 4.0** (open-data portal) | "Contains Irish Public Sector Data licensed under CC BY 4.0." |
+| Charities Regulator — register *(sandbox)* | **CC BY 4.0** | "Contains Irish Public Sector Data licensed under CC BY 4.0." |
+| Iris Oifigiúil (OPW) — SIs, appointments, notices | **Government of Ireland copyright — not an open licence** | "Contains public sector information from Iris Oifigiúil © Government of Ireland." |
+
+**Iris Oifigiúil is the exception.** It is published under Government of Ireland
+copyright, not an open/CC licence. This project relies on extracting and
+re-expressing *facts* (SI numbers, dates, entity names, appointment events) —
+copyright protects expression, not facts — rather than redistributing verbatim
+gazette text. Bulk reproduction of verbatim Iris text is **not** authorised.
+
+**Personal data / GDPR.** A CC BY licence covers copyright and database rights
+only — it does **not** grant any data-protection rights. Re-publishing records
+of **public figures** (TDs, Senators, registered lobbyists) rests on a public-
+interest basis; cross-referencing **named private individuals** (CRO directors,
+charity trustees) is separate GDPR processing and is kept in the sandbox layer
+pending a documented lawful basis. Personal insolvency / individual bankruptcy
+notices are excluded by policy at the enrichment level.
+
+Nothing here is legal advice.
 
 ---
 
