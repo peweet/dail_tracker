@@ -10,8 +10,8 @@ and chain-level try/except keeps one flaky source from poisoning the rest.
 
 Default order:
 
-    bootstrap → members → payments → attendance → interests → lobbying
-                                                            → iris → legislation
+    bootstrap → members → payments → attendance → seanad → interests
+                                          → lobbying → iris → legislation
 
 Cross-chain dependencies (run upstream first if you `--select` standalone):
 

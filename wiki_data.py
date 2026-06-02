@@ -1,15 +1,20 @@
 """
 test_wiki_data.py - Wikidata SPARQL avatar downloader (exploratory)
 
-Step 1 (this script): pull current-Dáil TDs from Wikidata via the position-held
-statement (P39 = TD, P2937 = 34th Dáil), download portrait thumbnails, and
-fetch per-image licensing metadata from the Commons API so the app can show
-required CC BY / CC BY-SA attribution.
+Step 1 (this script): pull current Oireachtas members from Wikidata via the
+position-held statement — both sitting TDs (P39 = TD, term = 34th Dáil) and
+sitting Senators (P39 = senator, term = 27th Seanad) — download portrait
+thumbnails, and fetch per-image licensing metadata from the Commons API so the
+app can show required CC BY / CC BY-SA attribution.
 
-Wikidata properties used:
+Wikidata properties / items used:
   P39   = "position held" (statement)
-  P2937 = parliamentary term qualifier (Q131309742 = 34th Dáil)
-  P768  = electoral district qualifier (constituency)
+  Q654291      = "Teachta Dála" (TD), the Dáil position value for P39
+  Q18043391    = "senator of Ireland", the Seanad position value for P39
+  P2937 = parliamentary term qualifier
+  Q131309742   = 34th Dáil  (current Dáil term)
+  Q131367442   = 27th Seanad (current Seanad term)
+  P768  = electoral district qualifier (Dáil constituency; absent for senators)
   P4100 = parliamentary group qualifier (party)
   P2336 = "Houses of the Oireachtas member ID" (our join key, OPTIONAL)
   P18   = "image" (Commons file, OPTIONAL)
@@ -76,22 +81,30 @@ SELECT DISTINCT
   ?image
   ?constituencyLabel
   ?groupLabel
+  ?chamber
 WHERE {
-  ?person p:P39 ?tdStatement.
+  # One (position, term, chamber-label) pair per house. Add a row here to
+  # roll the query forward to a new Dáil/Seanad term.
+  VALUES (?position ?term ?chamber) {
+    ( wd:Q654291   wd:Q131309742 "Dáil"   )
+    ( wd:Q18043391 wd:Q131367442 "Seanad" )
+  }
 
-  ?tdStatement ps:P39 wd:Q654291 ;
-               pq:P2937 wd:Q131309742 .
+  ?person p:P39 ?statement.
+
+  ?statement ps:P39 ?position ;
+             pq:P2937 ?term .
 
   OPTIONAL { ?person wdt:P2336 ?oireachtasId. }
   OPTIONAL { ?person wdt:P18   ?image. }
-  OPTIONAL { ?tdStatement pq:P768  ?constituency. }
-  OPTIONAL { ?tdStatement pq:P4100 ?group. }
+  OPTIONAL { ?statement pq:P768  ?constituency. }
+  OPTIONAL { ?statement pq:P4100 ?group. }
 
   SERVICE wikibase:label {
     bd:serviceParam wikibase:language "en,ga" .
   }
 }
-ORDER BY ?constituencyLabel ?personLabel
+ORDER BY ?chamber ?constituencyLabel ?personLabel
 """
 
 
@@ -266,6 +279,7 @@ def main() -> None:
         image = r.get("image", {}).get("value")
         constit = r.get("constituencyLabel", {}).get("value", "")
         group = r.get("groupLabel", {}).get("value", "")
+        chamber = r.get("chamber", {}).get("value", "")
 
         if person_uri in seen_persons:
             continue
@@ -281,6 +295,7 @@ def main() -> None:
             "wikidata_qid": qid,
             "oireachtas_id": oid,
             "name": name,
+            "chamber": chamber,
             "constituency": constit,
             "group": group,
             "image_commons_url": image,
@@ -346,6 +361,16 @@ def main() -> None:
     )
 
     # ── Summary ────────────────────────────────────────────────────────────
+    print()
+    print("CHAMBER BREAKDOWN")
+    print("-" * 40)
+    chambers: dict[str, int] = {}
+    for e in out:
+        ch = e.get("chamber") or "(unknown)"
+        chambers[ch] = chambers.get(ch, 0) + 1
+    for ch, count in sorted(chambers.items(), key=lambda kv: -kv[1]):
+        with_img = sum(1 for e in out if (e.get("chamber") or "(unknown)") == ch and e.get("local_file"))
+        print(f"  {count:>4}  {ch:<10} ({with_img} with photo)")
     print()
     print("DOWNLOADS")
     print("-" * 40)

@@ -25,9 +25,9 @@ Each chain is a self-contained `<domain>_refresh.py` orchestrator at repo root t
 
 1. **Subprocess impact is 10× larger.** It's not one site at `pipeline.py:121` — it's `pipeline.py` plus all 9 refresh scripts. Every relative `"<script>.py"` name + every `cwd=_ROOT` breaks once files move under `src/dail_tracker/`.
 2. **The Iris path-resolution caveat generalises.** Every refresh script (not just the 2 Iris ETL files) derives paths from `Path(__file__).parent`. After the move, `_ROOT` is the new package dir, not repo root.
-3. **Two sandbox files are now load-bearing in the pipeline** — they are pipeline dependencies, not throwaway:
-   - `pipeline_sandbox/public_appointments_enrichment.py` — required gold step in [iris_refresh.py:99-100](iris_refresh.py#L99-L100).
-   - The Seanad chain: `seanad_refresh.py` imports the Dáil domain modules directly (`attendance`, `enrich`, `payments_full_psa_etl`, `transform_votes`, `oireachtas_pdf_poller`, `services.votes`) — a deliberate cross-domain reuse, see [seanad_refresh.py:28-42](seanad_refresh.py#L28-L42).
+3. **Load-bearing sandbox dependency** — ✅ RESOLVED 2026-06-02 (see DECIDE — promote load-bearing sandbox files):
+   - ~~`pipeline_sandbox/public_appointments_enrichment.py`~~ **promoted to repo root** as `public_appointments_enrichment.py` (required Iris gold step, [iris_refresh.py:95](iris_refresh.py#L95)). C5 violation cleared.
+   - The Seanad chain (still fine, no sandbox): `seanad_refresh.py` imports the Dáil domain modules directly (`attendance`, `enrich`, `payments_full_psa_etl`, `transform_votes`, `oireachtas_pdf_poller`, `services.votes`) — a deliberate cross-domain reuse, see [seanad_refresh.py:28-42](seanad_refresh.py#L28-L42).
 4. **~14 new production files** are unclassified by the original KEEP table — listed in the new "KEEP — added 2026-06-02" subsection.
 
 **Frontloading opportunity (the point of this re-scout):** collapse the repeated `_ROOT = Path(__file__).parent` + relative-`cwd` subprocess pattern across all 10 orchestrators into **one shared `PROJECT_ROOT` import** *now, on main*. After that, the structural move is find/replace instead of per-file path surgery.
@@ -145,7 +145,7 @@ Each chain is a self-contained `<domain>_refresh.py` orchestrator at repo root t
 | `seanad_refresh.py` | `orchestration/chains/seanad.py` | CHAINS; **imports Dáil domain modules directly** (`attendance`, `enrich`, `payments_full_psa_etl`, `transform_votes`, `oireachtas_pdf_poller`, `services.votes`) — cross-domain reuse, update these import paths carefully |
 | `interests_refresh.py` | `orchestration/chains/interests.py` | CHAINS |
 | `lobbying_refresh.py` | `orchestration/chains/lobbying.py` | CHAINS |
-| `iris_refresh.py` | `orchestration/chains/iris.py` | CHAINS; imports `iris_silver_rebuild`, `si_entity_enrichment`, `iris_si_bill_enrichment`; subprocesses `pipeline_sandbox/public_appointments_enrichment.py` + `corporate_notices_enrichment.py` |
+| `iris_refresh.py` | `orchestration/chains/iris.py` | CHAINS; imports `iris_silver_rebuild`, `si_entity_enrichment`, `iris_si_bill_enrichment`; subprocesses `public_appointments_enrichment.py` (promoted out of sandbox 2026-06-02) + `corporate_notices_enrichment.py` |
 | `legislation_refresh.py` | `orchestration/chains/legislation.py` | CHAINS |
 
 **New domain ETL / enrichment files:**
@@ -157,7 +157,7 @@ Each chain is a self-contained `<domain>_refresh.py` orchestrator at repo root t
 | `payments_member_enrichment.py` | `domains/payments/member_enrichment.py` | Payments chain step; consumed by `sql_views/payments_member_detail.sql` |
 | `committees_long_format_etl.py` | `domains/committees/long_format_etl.py` (**NEW domain dir**) | Members chain step; consumed by `utility/data_access/committees_data.py` + committees UI |
 | `services/schema_validation.py` | `infra/schema_validation.py` | jsonschema validate-at-fetch of API envelopes (per pyproject comment); API/JSON boundary → infra |
-| `services/member_paginated.py` | `infra/member_paginated.py` *(unsure — could be `domains/members/paginated.py`)* | API pagination helper (the questions-cap fix per memory); tested by `test/test_member_paginated.py` |
+| `services/member_paginated.py` | `infra/member_paginated.py` *(RESOLVED 2026-06-02 — see DECIDE; only dep is `http_engine`, generic across questions+legislation → infra not members)* | API pagination helper (the questions-cap fix per memory); tested by `test/test_member_paginated.py` |
 
 ### runners/
 
@@ -312,25 +312,40 @@ I assumed in Stage 1 we'd add one. You already have a 5KB `pyproject.toml` at ro
 
 Also note: `[project.scripts]` only defines `dail-pipeline = "pipeline:main"` (the rest are commented out) → becomes `dail-tracker.orchestration.pipeline:main`.
 
-### DECIDE — chain destination (NEW 2026-06-02)
+### DECIDE — chain destination (NEW 2026-06-02) — ✅ RESOLVED 2026-06-02: A
 
 The 9 `*_refresh.py` chains can go either:
-- **(A, proposed)** `src/dail_tracker/orchestration/chains/<name>.py` — keeps the dispatcher (`pipeline.py`) and its chains together; clean separation of orchestration from domain logic.
+- **(A, CHOSEN)** `src/dail_tracker/orchestration/chains/<name>.py` — keeps the dispatcher (`pipeline.py`) and its chains together; clean separation of orchestration from domain logic.
 - **(B)** `src/dail_tracker/domains/<domain>/refresh.py` — domain-local cohesion, but scatters orchestration and is awkward for `bootstrap` (cross-domain) and `seanad` (imports 6 Dáil modules).
 
-Recommend A. Confirm before Stage 1.
+**Resolution: A.** Grounded in reading the chains: `bootstrap_refresh` (PDFs + Members API + debates) and `seanad_refresh` (imports `attendance`/`enrich`/`payments_full_psa_etl`/`transform_votes`) are inherently cross-domain — B has no clean home for them. They are dispatched as a set by `pipeline.py`'s `CHAINS` list, so they ARE the orchestration layer.
 
-### DECIDE — promote load-bearing sandbox files (NEW 2026-06-02)
+**Does Step 3 (D2) make this moot? No — half-true only.** The chains are a *mix*: inside `iris_refresh`, steps 2–4 are import-and-call (`si_entity_enrichment.run()`), steps 1/5/6 are subprocess; `pipeline.py` then dispatches each whole chain as a subprocess (to tee per-chain stdout). Step 3 collapses the duplicated *runner* boilerplate (`_hr()`, timing, `failures.append`, subprocess wrapper) into one shared runner, but each chain's *definition* (which steps, order, skip-flags) remains per-chain data that still needs a home — and that home is `orchestration/chains/`. Step 3 shrinks each file from ~150 lines to a short declaration; it does not remove the destination question.
 
-`pipeline_sandbox/public_appointments_enrichment.py` is a **required** Iris gold step ([iris_refresh.py:99](iris_refresh.py#L99)), yet lives in the throwaway sandbox. Either promote it to `domains/iris/public_appointments_enrichment.py` (recommended — it's production) or formally accept that the pipeline depends on a sandbox path. The Seanad chain's reuse of Dáil domain modules is fine (direct import, no sandbox), but `seanad_refresh.py` itself should land in `orchestration/chains/` and its imports updated.
+### DECIDE — promote load-bearing sandbox files (NEW 2026-06-02) — ✅ RESOLVED + EXECUTED 2026-06-02
 
-### DECIDE — root `__init__.py` (NEW 2026-06-02)
+`pipeline_sandbox/public_appointments_enrichment.py` was a **required** Iris gold step ([iris_refresh.py:95](iris_refresh.py#L95)) living in the throwaway sandbox (C5 violation).
 
-There is a tracked `__init__.py` at repo root. Clarify its purpose — it likely becomes `src/dail_tracker/__init__.py`, or is a stray that should be deleted. Flag before the move.
+**Resolution: promoted (Step 4 done on this branch).** It's the identical twin of `corporate_notices_enrichment.py` (same `main()`+argparse+`--write`+`__main__` shape, same required-gold-step role, same subprocess-with-`--write` invocation) — and corporate was already at root. Actions taken:
+- `git mv pipeline_sandbox/public_appointments_enrichment.py → ./public_appointments_enrichment.py` (final home `domains/iris/` at Step 5).
+- Repointed path setup to match the twin: `from config import GOLD_PARQUET_DIR, SILVER_DIR` + `from paths import PROJECT_ROOT as _ROOT` (the old `Path(__file__).parents[1]` would have resolved to the *parent of repo root* once moved up a level — a latent break this fixes).
+- Updated `iris_refresh.py` step 5 to reference the root path (drops the `/ "pipeline_sandbox"` segment).
+- Fixed 5 pre-existing `E741` lints (the file was previously exempt via ruff's `extend-exclude = ["pipeline_sandbox"]`; at root it's now linted — renamed ambiguous `l` → `line`).
+- **Verified:** appointments parquet is data-identical pre/post (1060×13, `frames.equals()==True`; only parquet metadata bytes differ); ruff clean; `pytest test/` = **358 passed · 24 skipped**, identical to baseline.
+
+Kept subprocess-driven (no `run()` library entry added) to stay consistent with the twin; an optional `run()` for both is a Step-6 nicety, not now. The Seanad chain's reuse of Dáil domain modules is fine (direct import, no sandbox); `seanad_refresh.py` lands in `orchestration/chains/` at Step 5 with imports repathed.
+
+### DECIDE — root `__init__.py` (NEW 2026-06-02) — ✅ RESOLVED + EXECUTED 2026-06-02
+
+**Resolution: stray — deleted on this branch.** It was a 0-byte empty file created incidentally in commit `b316d2a`. Under the current flat layout (`pytest.pythonpath=["."]`) every module imports top-level (`import config`, `import enrich`); confirmed **zero** `import dail_extractor` / `from dail_extractor` references anywhere. It does NOT "become" `src/dail_tracker/__init__.py` (that's a fresh file at Step 5). An empty package marker at repo root is a latent hazard (tools may treat the whole repo as one package). `git rm __init__.py` done; pytest unchanged.
+
+### DECIDE — `services/member_paginated.py` destination — ✅ RESOLVED 2026-06-02: `infra/`
+
+**Resolution: `infra/member_paginated.py`** (NOT `domains/members/`). Its only dependency is `from services.http_engine import fetch_json` (an adapter) — zero domain logic. It's a *generic* per-member API-pagination helper (takes a `url_builder` callable + df, returns raw payloads) used by **both** the questions and legislation flatteners via `oireachtas_api_main`. It's a peer of `http_engine`/`urls`/`storage`/`schema_validation`, all → `infra/`. Test → `test/unit/infra/test_member_paginated.py`.
 
 ### New SQL views & tests (NEW 2026-06-02)
 
-`sql_views/corporate_corporate_notices.sql` + `sql_views/payments_member_detail.sql` stay in `sql_views/` (SQL views don't move, per original plan). New test `test/test_member_paginated.py` slots into the test-reorg table → `test/unit/infra/test_member_paginated.py` (or `domains/members/` depending on where `member_paginated.py` lands).
+`sql_views/corporate_corporate_notices.sql` + `sql_views/payments_member_detail.sql` stay in `sql_views/` (SQL views don't move, per original plan). New test `test/test_member_paginated.py` → `test/unit/infra/test_member_paginated.py` (resolved: `member_paginated.py` → `infra/`, see DECIDE above).
 
 ### `archive/` directory doesn't exist yet
 
