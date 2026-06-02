@@ -430,7 +430,7 @@ def _render_featured_spads(df: pd.DataFrame) -> None:
 
     # Top ministers by SpAd count (portfolio carries the minister/dept).
     pf = sa["portfolio"].dropna()
-    top = pf.value_counts().head(FEATURED_TOP_N)
+    top = pf.value_counts().head(FEATURED_TOP_N)  # logic_firewall: display_only
     if top.empty:
         return
     max_n = int(top.iloc[0])
@@ -447,7 +447,7 @@ def _render_featured_spads(df: pd.DataFrame) -> None:
         )
 
     # Year sparkline. Spikes track new governments; we mark the top-3 years.
-    yc = sa["year"].dropna().astype(int).value_counts().sort_index()
+    yc = sa["year"].dropna().astype(int).value_counts().sort_index()  # logic_firewall: display_only
     if yc.empty:
         spark_html = ""
     else:
@@ -555,7 +555,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
 
     # Row 2 — year pills, always visible.
     yrs = sorted((int(y) for y in full_df["year"].dropna().unique()), reverse=True)
-    yc = full_df["year"].astype("Int64").value_counts().to_dict()
+    yc = full_df["year"].astype("Int64").value_counts().to_dict()  # logic_firewall: display_only
     current_year = datetime.date.today().year
     st.pills(
         "Year",
@@ -590,7 +590,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
     )
 
     with tabs[0]:
-        ac = full_df["appointing_authority"].dropna().value_counts().to_dict()
+        ac = full_df["appointing_authority"].dropna().value_counts().to_dict()  # logic_firewall: display_only
         opts = ["All"] + [a for a in _AUTH_ORDER if a in ac]
         st.pills(
             "Appointing authority",
@@ -602,7 +602,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
         )
 
     with tabs[1]:
-        tc = full_df["appointment_type"].dropna().value_counts().to_dict()
+        tc = full_df["appointment_type"].dropna().value_counts().to_dict()  # logic_firewall: display_only
         opts = ["All"] + [t for t in _PA_TYPES if t in tc]
         st.pills(
             "Type",
@@ -614,7 +614,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
         )
 
     with tabs[2]:
-        bc = full_df["body"].dropna().value_counts()
+        bc = full_df["body"].dropna().value_counts()  # logic_firewall: display_only
         # Bodies are long-tail. Show the top 30 in a searchable selectbox; below
         # that there's a long tail of one-offs and a junk tail (FOGRA, etc.)
         # being cleaned upstream.
@@ -629,7 +629,9 @@ def _render_facets(full_df: pd.DataFrame) -> None:
         )
 
     with tabs[3]:
-        pf = full_df[full_df["appointment_type"] == "special_adviser"]["portfolio"].dropna().value_counts()
+        pf = (  # logic_firewall: display_only
+            full_df[full_df["appointment_type"] == "special_adviser"]["portfolio"].dropna().value_counts()
+        )
         min_opts = ["All"] + pf.index.tolist()
         st.selectbox(
             "Minister or department (advisers only)",
@@ -641,7 +643,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
         )
 
     with tabs[4]:
-        lc = full_df["lang"].dropna().value_counts().to_dict()
+        lc = full_df["lang"].dropna().value_counts().to_dict()  # logic_firewall: display_only
         opts = ["All"] + sorted(lc, key=lc.get, reverse=True)
         st.pills(
             "Language",

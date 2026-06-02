@@ -22,7 +22,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from si_entity_enrichment import recover_actor_and_signatory, tidy_actor
 
-
 # ── recover_actor_and_signatory ───────────────────────────────────────────────
 
 
@@ -63,7 +62,10 @@ def test_tanaiste_and_minister_for_is_recovered():
 def test_non_ministerial_maker_bodies_populate_office_only():
     for text, expected in [
         ("The Revenue Commissioners have made these Regulations.", "The Revenue Commissioners"),
-        ("The Central Bank of Ireland, in exercise of its powers, makes these Regulations.", "The Central Bank of Ireland"),
+        (
+            "The Central Bank of Ireland, in exercise of its powers, makes these Regulations.",
+            "The Central Bank of Ireland",
+        ),
         ("These rules amend the Circuit Court Rules as set out below.", "Circuit Court Rules Committee"),
     ]:
         actor, sig = recover_actor_and_signatory(text)
@@ -113,5 +115,7 @@ def test_tidy_keeps_compound_department_names():
     # "and" / "," must not be treated as clause boundaries — the full office
     # title is preserved for display (department canonicalisation splits on
     # comma separately, downstream).
-    assert tidy_actor("The Minister for Children, Equality and Youth") == "The Minister for Children, Equality and Youth"
+    assert (
+        tidy_actor("The Minister for Children, Equality and Youth") == "The Minister for Children, Equality and Youth"
+    )
     assert tidy_actor("The Minister for Foreign Affairs and Trade") == "The Minister for Foreign Affairs and Trade"

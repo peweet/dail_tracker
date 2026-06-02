@@ -26,9 +26,11 @@ Integrity self-checks (all must pass before --write):
   * population_2022 sums to the report national total 5,149,139
   * derived seats (population / population_per_td) sum to 174
 """
+
 from __future__ import annotations
 
 import argparse
+import contextlib
 import re
 import sys
 from pathlib import Path
@@ -38,10 +40,8 @@ import requests
 
 from paths import PROJECT_ROOT as _ROOT
 
-try:
+with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-except Exception:
-    pass
 
 _OUT = _ROOT / "data" / "gold" / "parquet"
 _PDF_URL = "https://www.rte.ie/documents/news/2023/08/constituency-review-report-2023.pdf"
@@ -50,15 +50,49 @@ _PDF_URL = "https://www.rte.ie/documents/news/2023/08/constituency-review-report
 # Appendix 2's table. Names are the canonical Oireachtas spellings and match
 # v_member_registry.constituency 43/43 with no aliasing required.
 _NAMES = [
-    "Carlow-Kilkenny", "Cavan-Monaghan", "Clare", "Cork East", "Cork North-Central",
-    "Cork North-West", "Cork South-Central", "Cork South-West", "Donegal", "Dublin Bay North",
-    "Dublin Bay South", "Dublin Central", "Dublin Fingal East", "Dublin Fingal West",
-    "Dublin Mid-West", "Dublin North-West", "Dublin Rathdown", "Dublin South-Central",
-    "Dublin South-West", "Dublin West", "Dún Laoghaire", "Galway East", "Galway West", "Kerry",
-    "Kildare North", "Kildare South", "Laois", "Limerick City", "Limerick County",
-    "Longford-Westmeath", "Louth", "Mayo", "Meath East", "Meath West", "Offaly",
-    "Roscommon-Galway", "Sligo-Leitrim", "Tipperary North", "Tipperary South", "Waterford",
-    "Wexford", "Wicklow", "Wicklow-Wexford",
+    "Carlow-Kilkenny",
+    "Cavan-Monaghan",
+    "Clare",
+    "Cork East",
+    "Cork North-Central",
+    "Cork North-West",
+    "Cork South-Central",
+    "Cork South-West",
+    "Donegal",
+    "Dublin Bay North",
+    "Dublin Bay South",
+    "Dublin Central",
+    "Dublin Fingal East",
+    "Dublin Fingal West",
+    "Dublin Mid-West",
+    "Dublin North-West",
+    "Dublin Rathdown",
+    "Dublin South-Central",
+    "Dublin South-West",
+    "Dublin West",
+    "Dún Laoghaire",
+    "Galway East",
+    "Galway West",
+    "Kerry",
+    "Kildare North",
+    "Kildare South",
+    "Laois",
+    "Limerick City",
+    "Limerick County",
+    "Longford-Westmeath",
+    "Louth",
+    "Mayo",
+    "Meath East",
+    "Meath West",
+    "Offaly",
+    "Roscommon-Galway",
+    "Sligo-Leitrim",
+    "Tipperary North",
+    "Tipperary South",
+    "Waterford",
+    "Wexford",
+    "Wicklow",
+    "Wicklow-Wexford",
 ]
 
 _NATIONAL_TOTAL = 5_149_139  # report's own Appendix-2 total; used as a checksum
@@ -97,7 +131,7 @@ def parse_appendix2(pdf_path: Path) -> pl.DataFrame:
         ) from e
 
     populations = nums[:tot_idx]
-    per_td = nums[tot_idx + 1: tot_idx + 1 + len(_NAMES)]
+    per_td = nums[tot_idx + 1 : tot_idx + 1 + len(_NAMES)]
 
     if len(populations) != len(_NAMES) or len(per_td) != len(_NAMES):
         raise RuntimeError(
@@ -105,14 +139,16 @@ def parse_appendix2(pdf_path: Path) -> pl.DataFrame:
             f"{len(populations)} / {len(per_td)} — PDF layout drift."
         )
 
-    return pl.DataFrame({
-        "constituency_name": _NAMES,
-        "population_2022": populations,
-        "population_per_td_2022": per_td,
-        "td_seats_2024": [round(p / t) for p, t in zip(populations, per_td)],
-        "boundaries_label": ["Census 2022 (2023 boundaries)"] * len(_NAMES),
-        "source_key": ["Electoral Commission Constituency Review 2023, App. 2"] * len(_NAMES),
-    })
+    return pl.DataFrame(
+        {
+            "constituency_name": _NAMES,
+            "population_2022": populations,
+            "population_per_td_2022": per_td,
+            "td_seats_2024": [round(p / t) for p, t in zip(populations, per_td, strict=True)],
+            "boundaries_label": ["Census 2022 (2023 boundaries)"] * len(_NAMES),
+            "source_key": ["Electoral Commission Constituency Review 2023, App. 2"] * len(_NAMES),
+        }
+    )
 
 
 def integrity_check(df: pl.DataFrame) -> dict:
@@ -124,8 +160,7 @@ def integrity_check(df: pl.DataFrame) -> dict:
         "seats_sum_to_174": seat_sum == _TOTAL_SEATS,
         "no_null_population": df["population_2022"].null_count() == 0,
     }
-    return {"checks": checks, "pop_sum": pop_sum, "seat_sum": seat_sum,
-            "green": all(checks.values())}
+    return {"checks": checks, "pop_sum": pop_sum, "seat_sum": seat_sum, "green": all(checks.values())}
 
 
 def _write_parquet(df: pl.DataFrame, path: Path) -> None:
@@ -136,8 +171,12 @@ def _write_parquet(df: pl.DataFrame, path: Path) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", action="store_true")
-    ap.add_argument("--pdf", type=Path, default=_ROOT / "data" / "_meta" / "ec_review_2023.pdf",
-                    help="Local cache for the report PDF; downloaded if absent.")
+    ap.add_argument(
+        "--pdf",
+        type=Path,
+        default=_ROOT / "data" / "_meta" / "ec_review_2023.pdf",
+        help="Local cache for the report PDF; downloaded if absent.",
+    )
     args = ap.parse_args()
 
     if not args.pdf.exists():

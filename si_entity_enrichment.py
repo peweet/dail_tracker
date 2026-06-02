@@ -423,7 +423,10 @@ _MIN_OFFICE_RE = re.compile(
 _BODY_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bRevenue Commissioners\b", re.I), "The Revenue Commissioners"),
     (re.compile(r"\bCentral Bank of Ireland\b|\bCentral Bank\b", re.I), "The Central Bank of Ireland"),
-    (re.compile(r"\bSuperior Court Rules?\b|\bRules?\s+of\s+the\s+Superior\s+Courts?\b", re.I), "Superior Courts Rules Committee"),
+    (
+        re.compile(r"\bSuperior Court Rules?\b|\bRules?\s+of\s+the\s+Superior\s+Courts?\b", re.I),
+        "Superior Courts Rules Committee",
+    ),
     (re.compile(r"\bCircuit Court Rules?\b", re.I), "Circuit Court Rules Committee"),
     (re.compile(r"\bDistrict Court Rules?\b", re.I), "District Court Rules Committee"),
 ]
@@ -612,8 +615,7 @@ def run() -> dict:
         return str(n).strip().lower().split()[-1] if isinstance(n, str) and n.strip() else ""
 
     contradicts = si["si_signatory_name"].notna() & (
-        si["si_minister_name"].isna()
-        | (si["si_signatory_name"].map(_surname) != si["si_minister_name"].map(_surname))
+        si["si_minister_name"].isna() | (si["si_signatory_name"].map(_surname) != si["si_minister_name"].map(_surname))
     )
     si.loc[contradicts, ["si_minister_member_code", "si_minister_name"]] = None
 
