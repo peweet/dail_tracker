@@ -388,5 +388,72 @@ views are house-aware — not required for the per-member parity milestone.
 Before/independent of full ETL promotion, point the member-overview views at the sandbox
 `_seanad_output/` parquets and seed the 60 senators into the registry to render a **live Senator
 profile in the existing UI** — a throwaway spike proving the reuse with zero production ETL risk.
+
+---
+
+## 10. Test suite — concrete, against the PROMOTED code (2026-06-02)
+
+Supersedes the speculative §8. The promotion (config + poller + payments + attendance + votes +
+`enrich.main_seanad` + `seanad_refresh.py` + pipeline registration) is in `main`; these are the tests
+that lock it. All unit tests are pure / fixture-driven (no network, no PDF binaries in CI).
+
+### 10.1 Unit — `_split_position` (highest-value guard; the silent-mislabel bug)
+`test/test_payments_golden.py` (or new `test/test_payments_split_position.py`):
+- `"Deputy Adams, Gerry"` → `("Deputy", "Adams, Gerry")` (regression: Dáil unchanged)
+- `"Minister Harris, Simon"` / `"Taoiseach Varadkar, Leo"` → unchanged
+- `"Senator Ahearn, Garret"` → `("Senator", "Ahearn, Garret")`
+- `"Senaotr Goldsboro, Imelda"` → `("Senator", "Goldsboro, Imelda")` (source-typo tolerance)
+- `"Adams, Gerry"` (bare) → `("Deputy", "Adams, Gerry")`
+- `"Sennett, Joe"` → `("Deputy", "Sennett, Joe")` (must NOT clobber a Sen* surname)
+- `""` / `None` → `("Deputy", "")`
+
+### 10.2 Unit — chamber-aware votes
+`test/test_services_votes.py` (extend):
+- `build_vote_url()` contains `chamber=dail` + trailing `&outcome=`.
+- `build_vote_url("seanad")` contains `chamber=seanad`.
+`test/test_transform_votes.py` (new) — feed a 1-division raw fixture to
+`build_seanad_votes_silver` and assert: columns equal the Dáil `pretty_votes` set; `vote_url`
+contains `/seanad/`; `vote_id` is date-prefixed; tally labels mapped (Voted Yes/No/Abstained).
+
+### 10.3 Unit — house-tagging params (backward-compat)
+- `payments_full_psa_etl.build_full_psa`: monkeypatch `_iter_rows_from_pdf` to yield 2 fixture rows;
+  call with `house="Seanad"` → output has `house` col all "Seanad"; call with defaults → **no** `house`
+  col and writes to `OUTPUT_PARQUET` (assert default args unchanged).
+- `attendance._build_fact_table`: tiny silver-CSV fixture → with `house="Seanad"` adds the column;
+  without, schema is byte-identical to the pre-change fact table.
+
+### 10.4 Unit — poller config
+`test/test_oireachtas_pdf_poller.py` (extend):
+- `SOURCES` has `payments_seanad` / `attendance_seanad` with the Senator hints.
+- `parse_index` on a saved Senator index HTML fixture keeps only `…to-senators` /
+  `senators-verification…` and rejects the combined `…deputies-senators-and-ministers` PDF.
+
+### 10.5 Integration — `enrich.main_seanad` + `seanad_refresh`
+`test/test_enrich_seanad.py` (new) — point the helpers at trimmed fixtures
+(`flattened_seanad_members.csv` 3 rows, `seanad_pretty_votes.csv`, `seanad_attendance_fact_table.csv`,
+`seanad_payments_full_psa.parquet`) and assert the 4 gold outputs are produced with expected columns
+and that a known senator resolves (non-null member metadata). Reuses the same `_build_*` helpers the
+Dáil `main()` does, so this also guards the helpers stay house-agnostic.
+
+### 10.6 Pipeline registration + regression
+`test/test_pipeline_chains.py` (new or extend):
+- `"seanad"` is in `pipeline.CHAINS` → `"seanad_refresh.py"`, and has a blurb.
+- `seanad_refresh` imports cleanly (smoke).
+`test/test_page_imports.py`: still green (no UI change yet).
+- **Dáil-golden regression**: `test_payments_golden.py` re-run unchanged must still pass (proves the
+  `build_full_psa`/`_split_position` edits didn't move Dáil output).
+
+### 10.7 Data-quality assertions (run on real outputs, not CI-blocking)
+A `scripts`/notebook check (or `test_silver_parquet.py` style, guarded on file existence):
+- `seanad_master_list` = 60; `seanad_payments_full_psa` quarantine = 0; payments `position` all
+  "Senator".
+- 60/60 current senators in vote history with non-null metadata; ≥58/60 attendance; ≥59/60 payments
+  (the 1–2 gaps are the documented name-key cases: Craughwell middle-initial, Ní Chuilinn Irish name).
+- `current_dail_vote_history` / `payments_full_psa` row counts unchanged vs a recorded baseline.
+
+### 10.8 Fixtures
+`test/fixtures/seanad/`: trimmed members CSV, one raw Seanad vote-division JSON, a Senator attendance
+silver-CSV slice, a small Senator payments parquet, and a saved Senator publications-index HTML.
+Text/JSON only — no PDF binaries (mirrors the existing fixture discipline).
 </content>
 </invoke>

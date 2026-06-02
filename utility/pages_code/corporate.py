@@ -546,6 +546,86 @@ def _inject_corp_css() -> None:
         }
         .corp-active-chip-all:hover { background: #14232b; border-color: #14232b; color: #ffffff; }
 
+        /* Per-year breakdown strip (shown when a fund filter is active) */
+        .corp-yearcount {
+            background: #fbf8f1; border: 1px solid #e5dfd0; border-radius: 8px;
+            padding: 0.6rem 0.85rem 0.7rem; margin: 0.5rem 0 0.4rem;
+        }
+        .corp-yearcount-h {
+            font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.08em;
+            color: #7a5a00; font-weight: 600; margin-bottom: 0.45rem;
+        }
+        .corp-yearcount-row {
+            display: flex; flex-wrap: wrap; gap: 0.35rem 0.4rem; align-items: stretch;
+        }
+        .corp-yearcount-chip {
+            display: inline-flex; flex-direction: column; align-items: center;
+            gap: 0.05rem; min-width: 3.2rem;
+            background: #ffffff; border: 1px solid #e6d9c2; border-radius: 7px;
+            padding: 0.3rem 0.5rem; text-decoration: none; line-height: 1.2;
+            transition: background 120ms ease-out, border-color 120ms ease-out;
+        }
+        .corp-yearcount-chip:hover { background: #fff7e6; border-color: #f0d99b; }
+        .corp-yearcount-chip:focus-visible { outline: 2px solid #14232b; outline-offset: 1px; }
+        .corp-yearcount-chip b {
+            font-size: 0.82rem; color: #14232b; font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+        .corp-yearcount-chip span {
+            font-size: 0.92rem; color: #6b3f00; font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        .corp-yearcount-chip.is-active {
+            background: #6b3f00; border-color: #6b3f00;
+        }
+        .corp-yearcount-chip.is-active b,
+        .corp-yearcount-chip.is-active span { color: #ffffff; }
+
+        /* Firm view (?firm=) — receiver/insolvency-firm landing */
+        .corp-firm-head {
+            background: #fbf8f1; border: 1px solid #e5dfd0; border-radius: 10px;
+            padding: 1.05rem 1.3rem 1.2rem; margin: 0.6rem 0 1.4rem;
+        }
+        .corp-firm-kicker {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+            color: #7a5a00; font-weight: 600;
+        }
+        .corp-firm-h {
+            font-family: ui-serif, Georgia, serif; font-size: 1.45rem;
+            line-height: 1.3; margin: 0.2rem 0 0.4rem; color: #14232b;
+        }
+        .corp-firm-sub { font-size: 0.85rem; color: #5b6b73; line-height: 1.5; max-width: 60rem; }
+        .corp-firm-caveat {
+            display: block; margin-top: 0.45rem; font-size: 0.76rem; color: #7a5a00;
+        }
+        .corp-firm-grid {
+            display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+            gap: 1.4rem; margin: 0 0 1.5rem;
+        }
+        @media (max-width: 760px) { .corp-firm-grid { grid-template-columns: 1fr; gap: 1.1rem; } }
+        .corp-firm-panel {
+            background: #ffffff; border: 1px solid #e5e2db; border-radius: 9px;
+            padding: 0.9rem 1.1rem 1rem;
+        }
+        .corp-firm-panel-h {
+            font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em;
+            color: #5b6b73; font-weight: 600; margin-bottom: 0.6rem;
+        }
+        .corp-firm-row {
+            display: grid; grid-template-columns: minmax(0,1fr) 1fr 2.6rem;
+            gap: 0.6rem; align-items: center; padding: 0.24rem 0; font-size: 0.85rem;
+            text-decoration: none; color: inherit;
+        }
+        a.corp-firm-row:hover .corp-firm-row-name { color: #6b3f00; text-decoration: underline; }
+        .corp-firm-row-name {
+            color: #14232b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .corp-firm-bar { background: #efe6cf; border-radius: 2px; height: 0.5rem; overflow: hidden; }
+        .corp-firm-bar > span { display: block; height: 100%; background: #6b3f00; border-radius: 2px; }
+        .corp-firm-count {
+            text-align: right; color: #5b6b73; font-variant-numeric: tabular-nums; font-size: 0.82rem;
+        }
+
         /* Recent feed */
         .corp-month-h {
             font-family: ui-serif, Georgia, serif;
@@ -883,6 +963,22 @@ def _subtype_pill_class(subtype: str) -> str:
     if subtype == "icav_voluntary_strike_off":
         return "corp-pill-icav"
     return "corp-pill-subtype"
+
+
+def _iris_archive_url(issue_date) -> str:
+    """Iris Oifigiúil archive *month* URL for a notice's issue date.
+
+    The archive's per-PDF filename casing (IR vs Ir) is inconsistent and not
+    derivable from the date, but the month-directory listing always resolves —
+    and the dated PDF sits one click inside it (a month has ~8 issues). This
+    keeps the link live with zero pipeline work. Empty string when undated."""
+    if issue_date is None or pd.isna(issue_date):
+        return ""
+    try:
+        d = pd.Timestamp(issue_date)
+    except (ValueError, TypeError):
+        return ""
+    return f"https://irisoifigiuil.ie/archive/{d.year}/{d.strftime('%B').lower()}/"
 
 
 def _card_name(row: pd.Series) -> tuple[str, bool]:
@@ -1361,8 +1457,8 @@ def _render_operator_strip(df: pd.DataFrame) -> None:
     chip_html: list[str] = []
     for name, n in top:
         chip_html.append(
-            f'<a class="corp-operator-chip" href="?q={html.escape(name, quote=True)}" '
-            f'target="_self" aria-label="Filter feed to notices mentioning {html.escape(name, quote=True)}">'
+            f'<a class="corp-operator-chip" href="?firm={html.escape(name, quote=True)}" '
+            f'target="_self" aria-label="Open the {html.escape(name, quote=True)} firm view">'
             f"{html.escape(name)}"
             f'<span class="corp-operator-chip-n">{n:,}</span>'
             "</a>"
@@ -1383,6 +1479,135 @@ def _render_operator_strip(df: pd.DataFrame) -> None:
         "</section>",
         unsafe_allow_html=True,
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Firm view (?firm=) — a dedicated landing for a receiver / insolvency firm.
+# Mirrors the fund click-through but adds the firm-specific cross-references:
+#   1. the fund↔firm connection (which appointing funds/banks the firm is most
+#      often named alongside) — the insight unique to this dataset,
+#   2. the role mix (which notice types the firm shows up in), then
+#   3. the case list, year-grouped, with Iris links (reuses _render_feed).
+# Honesty: matching is regex notice-presence over raw_text (same as the strip),
+# so copy says "named in", never "was receiver in". logic_firewall: display_only.
+# ──────────────────────────────────────────────────────────────────────────────
+_OPERATOR_PATTERN_BY_NAME: dict[str, "re.Pattern[str]"] = {
+    **{name: pat for name, pat in _OPERATOR_PATTERNS_WORD},
+    **{name: pat for name, pat in _OPERATOR_PATTERNS_CASE},
+    "PwC": _OPERATOR_PWC,
+}
+
+
+def _firm_notice_mask(df: pd.DataFrame, firm: str) -> pd.Series:
+    """Boolean mask of notices whose raw_text names the firm, using the same
+    pattern the operator strip counts with (literal word-boundary fallback for
+    any firm not in the curated list)."""
+    pat = _OPERATOR_PATTERN_BY_NAME.get(firm) or re.compile(r"\b" + re.escape(firm) + r"\b")
+    return df["raw_text"].fillna("").astype(str).apply(lambda t: bool(pat.search(t)))
+
+
+def _explode_fund_counts(sub: pd.DataFrame) -> list[tuple[str, int]]:
+    """Count how often each appointing parent fund is co-named across a subset,
+    one count per notice per distinct parent."""
+    counts: dict[str, int] = {}
+    for parents in sub["parent_fund_mentions"]:
+        seen: set[str] = set()
+        if parents is None or not hasattr(parents, "__iter__"):
+            continue
+        for p in parents:
+            if p and p not in seen:
+                counts[p] = counts.get(p, 0) + 1
+                seen.add(p)
+    return sorted(counts.items(), key=lambda kv: -kv[1])
+
+
+def _firm_ranked_rows(items: list[tuple[str, int]], link_fund: bool = False) -> str:
+    """Render a small ranked bar list (name · bar · count). When link_fund, each
+    row pivots to that fund's view via ?fund=."""
+    if not items:
+        return '<div style="font-size:0.82rem;color:#8a7a4a;">None named in these notices.</div>'
+    top = items[:8]
+    max_n = max(n for _, n in top) or 1
+    rows: list[str] = []
+    for name, n in top:
+        width = max(8, int(round(100 * n / max_n)))
+        inner = (
+            f'<div class="corp-firm-row-name" title="{html.escape(name)}">{html.escape(name)}</div>'
+            f'<div class="corp-firm-bar"><span style="width:{width}%"></span></div>'
+            f'<div class="corp-firm-count">{n:,}</div>'
+        )
+        if link_fund:
+            rows.append(
+                f'<a class="corp-firm-row" href="?fund={html.escape(name, quote=True)}" target="_self" '
+                f'aria-label="See {html.escape(name, quote=True)} ({n} notices)">{inner}</a>'
+            )
+        else:
+            rows.append(f'<div class="corp-firm-row">{inner}</div>')
+    return "".join(rows)
+
+
+def _render_firm_view(df: pd.DataFrame, firm: str, cbi_badges: list[tuple[str, dict]] | None = None) -> None:
+    if back_button("← Back to corporate notices", key="corp_firm"):
+        st.session_state.pop("corp_firm_view", None)
+        st.query_params.clear()
+        st.rerun()
+
+    fdf = df[_firm_notice_mask(df, firm)]
+    n = len(fdf)
+    if n == 0:
+        empty_state(
+            f"No notices name {firm}",
+            "This firm isn't matched in the current corporate-notice corpus.",
+        )
+        return
+
+    # Receivership-shaped subset — the fund↔firm connection is sharpest here.
+    recv = fdf[
+        (fdf["notice_subtype"] == "receivership")
+        | fdf["raw_text"].fillna("").astype(str).str.contains(
+            "APPOINTMENT OF (?:STATUTORY )?RECEIVER|NOTICE OF APPOINTMENT OF RECEIVER",
+            case=False, regex=True, na=False,
+        )
+    ]
+    fund_rows = _explode_fund_counts(recv if not recv.empty else fdf)
+
+    # Role mix — notice-type breakdown.
+    sub_counts = [
+        (_pretty_subtype(s), int(c))
+        for s, c in fdf["notice_subtype"].value_counts().items()
+    ]
+
+    yrs = fdf["year"].dropna().astype(int)
+    yr_span = f"{int(yrs.min())}–{int(yrs.max())}" if not yrs.empty else "—"
+
+    st.html(
+        '<section class="corp-firm-head" aria-label="Firm overview">'
+        '<div class="corp-firm-kicker">Receiver / insolvency firm</div>'
+        f'<h1 class="corp-firm-h">{html.escape(firm)}</h1>'
+        '<div class="corp-firm-sub">'
+        f'Named in <strong>{n:,}</strong> corporate notice{"s" if n != 1 else ""} '
+        f'({yr_span}), of which <strong>{len(recv):,}</strong> are receiverships. '
+        '<span class="corp-firm-caveat">A firm named in a notice is not necessarily the '
+        'appointed receiver — it may appear as solicitor, auditor or filing agent. '
+        'Counts are notice presence (regex over the published text), not confirmed appointments.</span>'
+        '</div></section>'
+    )
+
+    st.html(
+        '<div class="corp-firm-grid">'
+        '<div class="corp-firm-panel">'
+        '<div class="corp-firm-panel-h">Most often named alongside (appointing fund / bank)</div>'
+        + _firm_ranked_rows(fund_rows, link_fund=True) +
+        '</div>'
+        '<div class="corp-firm-panel">'
+        '<div class="corp-firm-panel-h">By notice type</div>'
+        + _firm_ranked_rows(sub_counts, link_fund=False) +
+        '</div>'
+        '</div>'
+    )
+
+    # Case list — year-grouped, Iris-linked (reuses the feed renderer).
+    _render_feed(fdf, cbi_badges, group_by_year=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1859,7 +2084,11 @@ def _render_card(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = Non
     )
 
 
-def _render_feed(df: pd.DataFrame, cbi_badges: list[tuple[str, dict]] | None = None) -> None:
+def _render_feed(
+    df: pd.DataFrame,
+    cbi_badges: list[tuple[str, dict]] | None = None,
+    group_by_year: bool = False,
+) -> None:
     if df.empty:
         empty_state(
             "No notices match these filters",
@@ -1868,6 +2097,28 @@ def _render_feed(df: pd.DataFrame, cbi_badges: list[tuple[str, dict]] | None = N
         return
 
     total = len(df)
+
+    # When a fund is selected, lead with a per-year breakdown of that fund's
+    # notices so the "separated by year" picture is visible before paging. Each
+    # chip drills into that year (re-uses the ?spark= year handler).
+    if group_by_year:
+        yc = df["year"].dropna().astype(int).value_counts().sort_index()
+        if not yc.empty:
+            active_years = set(int(y) for y in (st.session_state.get("corp_year_filter") or []))
+            chips = "".join(
+                f'<a class="corp-yearcount-chip{" is-active" if y in active_years else ""}" '
+                f'href="?spark={y}" target="_self" '
+                f'aria-label="Filter to {y} ({c} notice{"s" if c != 1 else ""})">'
+                f"<b>{y}</b><span>{c:,}</span></a>"
+                for y, c in yc.items()
+            )
+            st.html(
+                '<div class="corp-yearcount" aria-label="Notices by year">'
+                '<div class="corp-yearcount-h">By year</div>'
+                f'<div class="corp-yearcount-row">{chips}</div>'
+                "</div>"
+            )
+
     st.html(
         f'<div style="margin:0.4rem 0 0.2rem;font-size:0.85rem;color:#5b6b73;">'
         f"<strong>{total:,}</strong> notice{'s' if total != 1 else ''} "
@@ -1878,17 +2129,23 @@ def _render_feed(df: pd.DataFrame, cbi_badges: list[tuple[str, dict]] | None = N
     page_idx = paginate(total, key_prefix="corp_feed", page_size=PAGE_SIZE)
     visible = df.iloc[page_idx * PAGE_SIZE : (page_idx + 1) * PAGE_SIZE]
 
-    last_month: str | None = None
+    last_key: str | None = None
     parts: list[str] = []
     for _, r in visible.iterrows():
         d = r.get("issue_date")
         try:
-            month_key = pd.Timestamp(d).strftime("%B %Y").upper() if pd.notna(d) else "UNDATED"
+            ts = pd.Timestamp(d) if pd.notna(d) else None
         except Exception:
-            month_key = "UNDATED"
-        if month_key != last_month:
-            parts.append(f'<div class="corp-month-h">{html.escape(month_key)}</div>')
-            last_month = month_key
+            ts = None
+        if ts is None:
+            group_key = "UNDATED"
+        elif group_by_year:
+            group_key = str(ts.year)
+        else:
+            group_key = ts.strftime("%B %Y").upper()
+        if group_key != last_key:
+            parts.append(f'<div class="corp-month-h">{html.escape(group_key)}</div>')
+            last_key = group_key
         parts.append(_render_card(r, cbi_badges))
 
     st.html("".join(parts))
@@ -1973,12 +2230,26 @@ def _render_detail(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = N
             "Parent fund / bank",
             ", ".join(html.escape(str(p)) for p in parents),
         )
-    if src_pdf:
+    iris_url = _iris_archive_url(row.get("issue_date"))
+    if src_pdf or iris_url:
+        if iris_url:
+            val_html = (
+                f'<a href="{html.escape(iris_url, quote=True)}" target="_blank" rel="noopener" '
+                f'style="color:#1f4757;text-decoration:none;border-bottom:1px solid #b9d0dc;">'
+                f"Iris Oifigiúil — {html.escape(date_str)} ↗</a>"
+                f'<div style="font-family:ui-monospace,Menlo,monospace;font-size:0.78rem;'
+                f'color:#8a8a8a;margin-top:0.2rem;">{html.escape(src_pdf)} '
+                f"· opens the issue's PDF list</div>"
+            )
+        else:
+            val_html = (
+                f'<span style="font-family:ui-monospace,Menlo,monospace;'
+                f'font-size:0.85rem;color:#5b6b73;">{html.escape(src_pdf)}</span>'
+            )
         rows_html.append(
             '<div class="corp-detail-row">'
             '<div class="corp-detail-label">Iris Oifigiúil source</div>'
-            f'<div class="corp-detail-val" style="font-family:ui-monospace,Menlo,monospace;'
-            f'font-size:0.85rem;color:#5b6b73;">{html.escape(src_pdf)}</div>'
+            f'<div class="corp-detail-val">{val_html}</div>'
             "</div>"
         )
 
@@ -2030,7 +2301,14 @@ def corporate_page() -> None:
     url_fund = st.query_params.get("fund")
     if url_fund:
         st.session_state["corp_fund_filter"] = url_fund
+        st.session_state.pop("corp_firm_view", None)  # fund pivot exits firm view
         del st.query_params["fund"]
+        st.rerun()
+
+    url_firm = st.query_params.get("firm")
+    if url_firm:
+        st.session_state["corp_firm_view"] = url_firm
+        del st.query_params["firm"]
         st.rerun()
 
     # Click-through from the CBI repeat-distress panel — set the search box.
@@ -2068,6 +2346,18 @@ def corporate_page() -> None:
                 st.rerun()
             return
         _render_detail(match.iloc[0], cbi_badges)
+        return
+
+    # Firm view (?firm=) — dedicated receiver/insolvency-firm landing.
+    firm_view = st.session_state.get("corp_firm_view")
+    if firm_view:
+        if df.empty:
+            empty_state(
+                "Corporate data unavailable",
+                "The underlying gold parquet did not load.",
+            )
+            return
+        _render_firm_view(df, firm_view, cbi_badges)
         return
 
     # Index — pure-data lede. No interpretive framing per the no-inference
@@ -2174,7 +2464,8 @@ def corporate_page() -> None:
             key="corp_csv_download",
         )
 
-    _render_feed(filtered, cbi_badges)
+    fund_active = (st.session_state.get("corp_fund_filter") or "All") != "All"
+    _render_feed(filtered, cbi_badges, group_by_year=fund_active)
 
 
 if __name__ == "__main__":

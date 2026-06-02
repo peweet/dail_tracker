@@ -1,4 +1,3 @@
-import logging
 import sys
 from pathlib import Path
 
@@ -7,8 +6,6 @@ sys.path.insert(0, str(_UTIL))
 
 import pandas as pd
 import streamlit as st
-
-_log = logging.getLogger(__name__)
 
 from html import escape as _h
 
@@ -29,14 +26,24 @@ from ui.entity_links import division_url, member_profile_url
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
 from ui.vote_explorer import render_division_panel, vt_division_card_html
-from data_access.votes_data import get_votes_conn
+from data_access.votes_data import (
+    fetch_division_members,
+    fetch_hero_stats,
+    fetch_member_names,
+    fetch_party_breakdown,
+    fetch_party_names,
+    fetch_sources,
+    fetch_td_name_by_id,
+    fetch_td_row_by_name,
+    fetch_topical_votes,
+    fetch_vote_by_id,
+    fetch_vote_index,
+    fetch_vote_years,
+)
 
 _REQUIRED_INDEX_COLS: frozenset[str] = frozenset(
     {"vote_id", "vote_date", "debate_title", "vote_outcome", "yes_count", "no_count"}
 )
-
-_VOTE_INDEX_LIMIT = 500
-_DIVISION_MEMBERS_LIMIT = 5000
 
 # Topical seed terms used for the "Find a TD" landing page. Each one matches a
 # debate_title substring; presentation-only filter, not modelling.
@@ -54,190 +61,7 @@ _TD_PICKER_TOPICS: tuple[tuple[str, str], ...] = (
 _TD_PICKER_CARD_COUNT = 4
 
 
-def _safe_query(conn, sql: str, params=()) -> pd.DataFrame:
-    if conn is None:
-        return pd.DataFrame()
-    try:
-        return conn.execute(sql, list(params)).df()
-    except Exception as exc:
-        _log.warning("votes query failed: %s | params=%s | error=%s", sql[:120], params, exc)
-        return pd.DataFrame()
-
-
-def _and_clauses(clauses: list[str]) -> str:
-    sql = ""
-    for c in clauses:
-        sql = (sql + " AND " if sql else "") + c
-    return sql
-
-
-# ── Data fetch ─────────────────────────────────────────────────────────────────
-
-
-@st.cache_data(ttl=300)
-def _fetch_hero_stats(_conn) -> pd.DataFrame:
-    return _safe_query(
-        _conn,
-        "SELECT division_count, member_count, first_vote_date, last_vote_date FROM v_vote_result_summary LIMIT 1",
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_vote_years(_conn) -> list[int]:
-    df = _safe_query(
-        _conn,
-        "SELECT DISTINCT CAST(EXTRACT(YEAR FROM vote_date) AS INTEGER) AS year"
-        " FROM v_vote_index WHERE vote_date IS NOT NULL ORDER BY year DESC LIMIT 20",
-    )
-    if not df.empty and "year" in df.columns:
-        return [int(y) for y in df["year"].dropna().tolist()]
-    return []
-
-
-@st.cache_data(ttl=300)
-def _fetch_member_names(_conn, party: str = "") -> list[str]:
-    if party:
-        df = _safe_query(
-            _conn,
-            "SELECT DISTINCT member_name FROM td_vote_summary"
-            " WHERE member_name IS NOT NULL AND party_name = ?"
-            " ORDER BY member_name ASC LIMIT 1000",
-            (party,),
-        )
-    else:
-        df = _safe_query(
-            _conn,
-            "SELECT DISTINCT member_name FROM td_vote_summary"
-            " WHERE member_name IS NOT NULL ORDER BY member_name ASC LIMIT 1000",
-        )
-    return df["member_name"].tolist() if not df.empty and "member_name" in df.columns else []
-
-
-@st.cache_data(ttl=300)
-def _fetch_party_names(_conn) -> list[str]:
-    df = _safe_query(
-        _conn,
-        "SELECT DISTINCT party_name FROM td_vote_summary"
-        " WHERE party_name IS NOT NULL ORDER BY party_name ASC LIMIT 100",
-    )
-    return df["party_name"].tolist() if not df.empty and "party_name" in df.columns else []
-
-
-@st.cache_data(ttl=300)
-def _fetch_td_row_by_name(_conn, member_name: str) -> pd.DataFrame:
-    return _safe_query(
-        _conn,
-        "SELECT member_id, member_name, party_name, constituency,"
-        " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
-        " FROM td_vote_summary WHERE member_name = ? LIMIT 1",
-        (member_name,),
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_td_name_by_id(_conn, member_id: str) -> str:
-    """Look up TD display name from member_id for the legacy redirect.
-
-    Used by `_render_mode_b_redirect` so the moved-callout link can show
-    the member's actual name rather than the bare ID slug.
-    """
-    df = _safe_query(
-        _conn,
-        "SELECT member_name FROM td_vote_summary WHERE member_id = ? LIMIT 1",
-        (member_id,),
-    )
-    if df.empty or "member_name" not in df.columns:
-        return ""
-    val = df.iloc[0]["member_name"]
-    return str(val) if val is not None else ""
-
-
-@st.cache_data(ttl=300)
-def _fetch_vote_index(_conn, date_from, date_to, outcome) -> pd.DataFrame:
-    clauses: list[str] = []
-    params: list = []
-    if date_from:
-        clauses.append("vote_date >= ?")
-        params.append(date_from)
-    if date_to:
-        clauses.append("vote_date <= ?")
-        params.append(date_to)
-    if outcome:
-        clauses.append("vote_outcome = ?")
-        params.append(outcome)
-    where = ""
-    body = _and_clauses(clauses)
-    if body:
-        where = " WHERE " + body
-    sql = (
-        "SELECT vote_id, vote_date, debate_title, vote_outcome,"
-        " yes_count, no_count, abstained_count, margin, oireachtas_url"
-        f" FROM v_vote_index{where} ORDER BY vote_date DESC LIMIT ?"
-    )
-    params.append(_VOTE_INDEX_LIMIT)
-    return _safe_query(_conn, sql, params)
-
-
-@st.cache_data(ttl=300)
-def _fetch_vote_by_id(_conn, vote_id: str) -> pd.DataFrame:
-    return _safe_query(
-        _conn,
-        "SELECT vote_id, vote_date, debate_title, vote_outcome,"
-        " yes_count, no_count, abstained_count, margin"
-        " FROM v_vote_index WHERE vote_id = ? LIMIT 1",
-        (vote_id,),
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_party_breakdown(_conn, vote_id) -> pd.DataFrame:
-    return _safe_query(
-        _conn,
-        "SELECT party_name, vote_type, member_count, vote_pct FROM party_vote_breakdown WHERE vote_id = ? LIMIT 500",
-        (vote_id,),
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_division_members(_conn, vote_id) -> pd.DataFrame:
-    return _safe_query(
-        _conn,
-        "SELECT member_id, member_name, party_name, constituency, vote_type"
-        " FROM v_vote_member_detail WHERE vote_id = ?"
-        " AND member_name IS NOT NULL"
-        " ORDER BY party_name ASC, member_name ASC LIMIT ?",
-        (vote_id, _DIVISION_MEMBERS_LIMIT),
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_sources(_conn, vote_id) -> pd.DataFrame:
-    return _safe_query(
-        _conn,
-        "SELECT source_url, source_document_url, official_pdf_url, legislation_url, source_label"
-        " FROM v_vote_sources WHERE vote_id = ? LIMIT 50",
-        (vote_id,),
-    )
-
-
-@st.cache_data(ttl=300)
-def _fetch_topical_votes(_conn) -> pd.DataFrame:
-    """Recent member votes on hot-topic debates. Used to seed the TD picker cards.
-
-    Retrieval-only: SELECT with WHERE/ORDER BY/LIMIT against the approved view.
-    """
-    likes = " OR ".join(["debate_title ILIKE ?" for _ in _TD_PICKER_TOPICS])
-    sql = (
-        "SELECT vote_date, member_id, member_name, party_name, constituency,"
-        " vote_type, debate_title, vote_outcome"
-        " FROM v_vote_member_detail"
-        " WHERE vote_type IN ('Voted Yes', 'Voted No')"
-        " AND member_name IS NOT NULL"
-        f" AND ({likes})"
-        " ORDER BY vote_date DESC LIMIT 2000"
-    )
-    params = [pat for _label, pat in _TD_PICKER_TOPICS]
-    return _safe_query(_conn, sql, params)
+# ── Data fetch lives in data_access.votes_data (imported above) ───────────────
 
 
 # ── TD picker (landing for the TDs view) ───────────────────────────────────────
@@ -359,7 +183,7 @@ def _td_pick_card_html(row: dict) -> str:
     )
 
 
-def _render_td_picker(conn) -> None:
+def _render_td_picker() -> None:
     """Editorial 'Find a TD' landing page with curated suggestion cards."""
     st.html(
         '<p class="dt-kicker">Dáil Tracker · Voting Record</p>'
@@ -370,7 +194,7 @@ def _render_td_picker(conn) -> None:
         "</p>"
     )
 
-    topical = _fetch_topical_votes(conn)
+    topical = fetch_topical_votes(tuple(pat for _label, pat in _TD_PICKER_TOPICS))
     picks = _pick_diverse_cards(topical, _TD_PICKER_CARD_COUNT)
 
     if not picks:
@@ -409,9 +233,9 @@ def _render_td_picker(conn) -> None:
 
 
 @st.fragment
-def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
+def _card_list_fragment(date_from, date_to, outcome_filter) -> None:
     """Fragment: year pills + card list. Reruns only this block when year changes."""
-    years = _fetch_vote_years(conn)
+    years = fetch_vote_years()
     eff_from = date_from
     eff_to = date_to
 
@@ -422,7 +246,7 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
             eff_from = f"{sel_year}-01-01"
             eff_to = f"{sel_year}-12-31"
 
-    vote_df = _fetch_vote_index(conn, eff_from, eff_to, outcome_filter)
+    vote_df = fetch_vote_index(eff_from, eff_to, outcome_filter)
 
     missing = sorted(c for c in _REQUIRED_INDEX_COLS if c not in vote_df.columns)
     if missing:
@@ -487,14 +311,14 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
     )
 
 
-def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
+def _render_mode_a(date_from, date_to, outcome_filter) -> None:
     st.html('<p class="dt-kicker">Dáil Tracker · Voting Record</p><h1 class="dt-hero">Dáil Divisions</h1>')
-    _card_list_fragment(conn, date_from, date_to, outcome_filter)
+    _card_list_fragment(date_from, date_to, outcome_filter)
 
     # P2-9: surface the provenance headline above the expander so the
     # data-source story isn't buried behind a closed disclosure. The
     # full expander still carries the long-form text + corpus counts.
-    hero = _fetch_hero_stats(conn)
+    hero = fetch_hero_stats()
     sections: list[str] = [
         "Divisions data sourced from the Oireachtas Open Data API. Votes are as published in the official record."
     ]
@@ -516,7 +340,7 @@ def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
 # ── Mode B (legacy) — redirect to canonical /member-overview profile ──────────
 
 
-def _render_mode_b_redirect(conn, member_id: str) -> None:
+def _render_mode_b_redirect(member_id: str) -> None:
     """Mode B's in-page TD profile was lifted into the member-overview Votes
     expander in Phase 7. Renders the shared ``member_moved_callout`` so the
     moved notice is stylistically consistent with the other dimension
@@ -525,7 +349,7 @@ def _render_mode_b_redirect(conn, member_id: str) -> None:
     The shared helper looks up the canonical member code and renders
     "Open <Name>'s profile →" with a working href; it also calls
     ``st.stop()`` so the rest of the page body doesn't render under it."""
-    name = _fetch_td_name_by_id(conn, member_id)
+    name = fetch_td_name_by_id(member_id)
     member_moved_callout(
         name=name or member_id,
         section="votes",
@@ -538,7 +362,7 @@ def _render_mode_b_redirect(conn, member_id: str) -> None:
 # ── Mode C: Division evidence ──────────────────────────────────────────────────
 
 
-def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
+def _render_mode_c(vote_id: str, v_from: str) -> None:
     back_label = "← Back to TD record" if v_from == "td" else "← Back to divisions"
     if back_button(back_label, key="v_c"):
         st.session_state["_v_clear_vote"] = True
@@ -551,7 +375,7 @@ def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
             st.query_params.clear()
         st.rerun()
 
-    vote_df = _fetch_vote_by_id(conn, vote_id)
+    vote_df = fetch_vote_by_id(vote_id)
     if vote_df.empty:
         # P2-7: drop the "ID:" dev-concept prefix. Don't echo the literal
         # user-supplied vote_id when it's clearly malformed — say so plainly.
@@ -564,9 +388,9 @@ def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
         return
 
     vote_row = vote_df.iloc[0]
-    members_df = _fetch_division_members(conn, vote_id)
-    sources_df = _fetch_sources(conn, vote_id)
-    breakdown_df = _fetch_party_breakdown(conn, vote_id)
+    members_df = fetch_division_members(vote_id)
+    sources_df = fetch_sources(vote_id)
+    breakdown_df = fetch_party_breakdown(vote_id)
 
     render_division_panel(vote_row, members_df, sources_df, breakdown_df)
 
@@ -579,7 +403,6 @@ def _render_mode_c(conn, vote_id: str, v_from: str) -> None:
 @page_error_boundary
 def votes_page() -> None:
     inject_css()
-    conn = get_votes_conn()
 
     # Resolve pending back-navigation flags before any widgets are instantiated
     if st.session_state.get("_v_clear_member"):
@@ -631,7 +454,7 @@ def votes_page() -> None:
     date_from = date_to = None
 
     if prev_view == "Dáil":
-        party_names = _fetch_party_names(conn)
+        party_names = fetch_party_names()
         with filter_bar([2, 2, 3, 5] if party_names else [2, 2, 8]) as cols:
             with cols[0]:
                 field_label("View")
@@ -662,7 +485,7 @@ def votes_page() -> None:
                     )
                 sel_party = "" if party_sel == "All parties" else party_sel
     else:  # TDs view — search a single TD
-        member_names = _fetch_member_names(conn, sel_party)
+        member_names = fetch_member_names(sel_party)
         with filter_bar([2, 4, 6]) as cols:
             with cols[0]:
                 field_label("View")
@@ -702,7 +525,7 @@ def votes_page() -> None:
         last_applied = st.session_state.get("_v_last_sel_name", "")
         if sel_name:
             if sel_name != last_applied:
-                td_lkp = _fetch_td_row_by_name(conn, sel_name)
+                td_lkp = fetch_td_row_by_name(sel_name)
                 if not td_lkp.empty:
                     new_mid = str(td_lkp.iloc[0]["member_id"])
                     st.session_state["v_sel_member_id"] = new_mid
@@ -718,14 +541,14 @@ def votes_page() -> None:
 
     # ── Mode routing ──────────────────────────────────────────────────────────
     if sel_vote_id:
-        _render_mode_c(conn, sel_vote_id, v_from)
+        _render_mode_c(sel_vote_id, v_from)
     elif view == "TDs":
         if sel_member_id:
             # Phase 7: Mode B's in-page TD profile was lifted into
             # member-overview's Votes expander. Redirect bookmarks / sidebar
             # selections to the canonical profile.
-            _render_mode_b_redirect(conn, sel_member_id)
+            _render_mode_b_redirect(sel_member_id)
         else:
-            _render_td_picker(conn)
+            _render_td_picker()
     else:
-        _render_mode_a(conn, date_from, date_to, outcome_filter)
+        _render_mode_a(date_from, date_to, outcome_filter)

@@ -13,7 +13,7 @@ from html import escape as _h
 import altair as alt
 import pandas as pd
 import streamlit as st
-from data_access.attendance_data import get_attendance_conn
+from data_access.attendance_data import fetch_chamber_sitting_days, get_attendance_conn
 from ui.components import empty_state, evidence_heading, stat_strip, todo_callout, year_selector
 from ui.export_controls import export_button
 
@@ -141,6 +141,7 @@ def _render_attendance_strip(timeline: pd.DataFrame, year: int) -> None:
 def render_member_attendance(
     td_name: str,
     *,
+    house: str = "Dáil",
     show_member_header: bool = False,
     year_pill_key: str = "att_profile_year",
     export_key_suffix: str = "",
@@ -222,7 +223,7 @@ def render_member_attendance(
             f"{n_attended} days recorded in {selected_year} "
             f"({n_sitting} plenary + {n_other} other). "
             "Each mark below is a day the member was recorded present. "
-            "Gaps between marks are Dáil recess periods."
+            f"Gaps between marks are {house} recess periods."
         )
 
         tl_all = timeline.copy()
@@ -238,7 +239,7 @@ def render_member_attendance(
             key=f"att_td_export{export_key_suffix}",
         )
 
-    _render_year_breakdown(td_name, member_years_df, export_key_suffix=export_key_suffix)
+    _render_year_breakdown(td_name, member_years_df, house=house, export_key_suffix=export_key_suffix)
 
 
 # ── Year breakdown table (profile secondary view) ─────────────────────────────
@@ -248,6 +249,7 @@ def _render_year_breakdown(
     td_name: str,
     years_df: pd.DataFrame,
     *,
+    house: str = "Dáil",
     export_key_suffix: str = "",
 ) -> None:
     """Per-year attendance summary as a card list with a CSS-width bar
@@ -259,12 +261,17 @@ def _render_year_breakdown(
         empty_state("No year data available", "v_attendance_member_year_summary returned no rows.")
         return
 
+    # Bar denominator = the chamber's official sitting days that year. Dáil uses
+    # the curated config figures; Seanad uses the data-derived per-year count
+    # (the two chambers sit on different days).
+    denom_map = SITTING_DAYS_BY_YEAR if house == "Dáil" else fetch_chamber_sitting_days("Seanad")
+
     rows = []
     for _, r in years_df.iterrows():
         y = int(r["year"])
         days = int(r["attended_count"])
         sitting = int(r["sitting_days"]) if "sitting_days" in years_df.columns else days
-        total = SITTING_DAYS_BY_YEAR.get(y)
+        total = denom_map.get(y)
         # Rate uses sitting_days (chamber only) over the official chamber
         # sitting-day count — both sides of the ratio are plenary, so the
         # bar stays in [0,1] even though the headline `days` figure

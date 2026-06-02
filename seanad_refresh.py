@@ -28,6 +28,7 @@ import time
 import attendance
 import enrich
 import payments_full_psa_etl as payments
+import payments_member_enrichment
 import transform_votes
 from config import (
     ATTENDANCE_PDF_DIR_SEANAD,
@@ -38,6 +39,8 @@ from config import (
     SILVER_DIR,
     SILVER_PARQUET_DIR,
 )
+
+_SEANAD_MEMBERS_PARQUET = SILVER_PARQUET_DIR / "flattened_seanad_members.parquet"
 from oireachtas_pdf_poller import SOURCES, run_one
 from services.votes import fetch_votes
 
@@ -96,6 +99,12 @@ def step_payments() -> bool:
         house="Seanad",
     )
     print(f"  clean={stats['clean_rows']:,} quarantine={stats['quarantine_rows']:,}")
+    # Attach unique_member_code/party/constituency so the per-member payments
+    # panel resolves senators (reuses the Dáil fuzzy-key enricher).
+    enr = payments_member_enrichment.enrich(
+        payments_parquet=SEANAD_PAYMENTS_PARQUET, members_parquet=_SEANAD_MEMBERS_PARQUET
+    )
+    print(f"  enriched: {enr['members_resolved']} senators resolved ({enr['rows_matched']}/{enr['rows_total']} rows)")
     return True
 
 

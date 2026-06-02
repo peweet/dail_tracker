@@ -6,10 +6,11 @@ which runs at import to keep existing scripts working. Use `services.logging_set
 for logger configuration.
 """
 
-from pathlib import Path
+from paths import PROJECT_ROOT
 
-BASE_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = BASE_DIR
+# Single source of truth for the project root lives in paths.py (side-effect-free).
+# BASE_DIR is kept as an alias for the ~32 modules that import it from config.
+BASE_DIR = PROJECT_ROOT
 DATA_DIR = BASE_DIR / "data"
 LOG_DIR = BASE_DIR / "logs"
 
