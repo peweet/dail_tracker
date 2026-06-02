@@ -94,9 +94,9 @@ def step_bill_si_gold() -> bool:
 def step_appointments_gold() -> bool:
     _hr("[5/6] public_appointments_enrichment — public_appointments.parquet")
     t = time.monotonic()
-    # Subprocess (it's a sandbox script with its own __main__/argparse and isn't
-    # set up to be imported as a library). Pass --write so it persists the parquet.
-    script = _ROOT / "pipeline_sandbox" / "public_appointments_enrichment.py"
+    # Subprocess (own __main__/argparse, not set up to import as a library).
+    # Pass --write so it persists the parquet.
+    script = _ROOT / "public_appointments_enrichment.py"
     r = subprocess.run([sys.executable, str(script), "--write"], cwd=_ROOT)
     print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
     return r.returncode == 0
