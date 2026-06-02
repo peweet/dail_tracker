@@ -36,12 +36,13 @@ from pathlib import Path
 import polars as pl
 import requests
 
+from paths import PROJECT_ROOT as _ROOT
+
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 except Exception:
     pass
 
-_ROOT = Path(__file__).resolve().parents[1]
 _OUT = _ROOT / "data" / "gold" / "parquet"
 _PDF_URL = "https://www.rte.ie/documents/news/2023/08/constituency-review-report-2023.pdf"
 
