@@ -35,16 +35,18 @@ def views_ready() -> bool:
 
 
 @st.cache_data(ttl=300)
-def fetch_filter_options() -> dict[str, list]:
+def fetch_filter_options(house: str = "Dáil") -> dict[str, list]:
     conn = get_attendance_conn()
-    # Standalone /attendance is the TD page — scope to Dáil so the unioned
-    # Seanad rows don't leak into its member dropdown / year filter.
+    # The attendance views UNION both chambers with a `house` column; scope to
+    # the picked house so the member dropdown / year filter stay single-chamber.
     members = conn.execute(
         "SELECT DISTINCT member_name FROM v_attendance_member_summary"
-        " WHERE house = 'Dáil' ORDER BY member_name LIMIT 2000"
+        " WHERE house = ? ORDER BY member_name LIMIT 2000",
+        [house],
     ).fetchall()
     years = conn.execute(
-        "SELECT DISTINCT year FROM v_attendance_member_year_summary WHERE house = 'Dáil' ORDER BY year DESC LIMIT 100"
+        "SELECT DISTINCT year FROM v_attendance_member_year_summary WHERE house = ? ORDER BY year DESC LIMIT 100",
+        [house],
     ).fetchall()
     return {
         "members": [r[0] for r in members],
@@ -73,16 +75,20 @@ def fetch_missing_members() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def fetch_year_ranking(year: int) -> pd.DataFrame:
-    """Top and bottom attenders for a given year from v_attendance_year_rank."""
+def fetch_year_ranking(year: int, house: str = "Dáil") -> pd.DataFrame:
+    """Top and bottom attenders for a given year from v_attendance_year_rank.
+
+    Ranks are partitioned by (year, house) in the view, so passing a house
+    yields a clean single-chamber ranking (Senators ranked among Senators).
+    """
     return (
         get_attendance_conn()
         .execute(
             "SELECT member_name, party_name, constituency,"
             " attended_count, is_minister, rank_high, rank_low"
-            " FROM v_attendance_year_rank WHERE year = ? AND house = 'Dáil'"
+            " FROM v_attendance_year_rank WHERE year = ? AND house = ?"
             " ORDER BY rank_high ASC LIMIT 500",
-            [year],
+            [year, house],
         )
         .df()
     )

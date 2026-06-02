@@ -1,6 +1,7 @@
 CREATE OR REPLACE VIEW v_vote_index AS
 SELECT
     vote_id,
+    MAX(house)                                                                       AS house,
     MAX(CAST(date AS DATE))                                                          AS vote_date,
     MAX(debate_title)                                                                AS debate_title,
     MAX(vote_outcome)                                                                AS vote_outcome,
@@ -13,6 +14,6 @@ SELECT
     )                                                                                AS margin,
     MAX(subject)                                                                     AS subject,
     MAX(vote_url)                                                                    AS oireachtas_url
-FROM read_parquet('{PARQUET_PATH}')
+FROM v_vote_base
 WHERE full_name IS NOT NULL
 GROUP BY vote_id;

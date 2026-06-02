@@ -81,12 +81,13 @@ remain possible and are documented as data limitations.
 
 ## Installation
 
-Requires Python 3.11+.
+Requires Python 3.12+.
 
 ```bash
 git clone https://github.com/peweet/dail_tracker.git
 cd dail_tracker
-pip install -e .            # add ".[db]" or ".[dev]" for analytical / dev deps
+uv sync                                       # app runtime only (what Streamlit Cloud installs)
+uv sync --extra pipeline --group dev          # full local dev: + ETL deps + test/lint/typecheck tooling
 ```
 
 ## Dashboard
@@ -114,9 +115,9 @@ Streamlit layer, SQL views for reviewable joins.
 ## Testing
 
 ```bash
-pip install -e ".[dev]"
-pytest test/ -v
-ruff check .
+uv sync --extra pipeline --group dev
+uv run pytest test/ -v
+uv run ruff check .
 ```
 
 Tests cover join-key normalisation, silver/gold output shape, SQL view

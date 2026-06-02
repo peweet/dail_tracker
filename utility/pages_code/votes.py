@@ -183,24 +183,25 @@ def _td_pick_card_html(row: dict) -> str:
     )
 
 
-def _render_td_picker() -> None:
-    """Editorial 'Find a TD' landing page with curated suggestion cards."""
+def _render_td_picker(house: str = "Dáil") -> None:
+    """Editorial 'Find a member' landing page with curated suggestion cards."""
+    term = "Senator" if house == "Seanad" else "TD"
     st.html(
         '<p class="dt-kicker">Dáil Tracker · Voting Record</p>'
-        '<h1 class="dt-hero">Find a TD</h1>'
+        f'<h1 class="dt-hero">Find a {_h(term)}</h1>'
         '<p class="td-pick-dek">'
-        "Search for a TD on the left, or jump straight in: here are recent "
+        f"Search for a {_h(term)} above, or jump straight in: here are recent "
         "votes on housing, health and other crucial legislation."
         "</p>"
     )
 
-    topical = fetch_topical_votes(tuple(pat for _label, pat in _TD_PICKER_TOPICS))
+    topical = fetch_topical_votes(tuple(pat for _label, pat in _TD_PICKER_TOPICS), house)
     picks = _pick_diverse_cards(topical, _TD_PICKER_CARD_COUNT)
 
     if not picks:
         empty_state(
-            "Pick a TD from the sidebar",
-            "Use the search box on the left to find an individual TD and view "
+            f"Pick a {term} above",
+            f"Use the search box to find an individual {term} and view "
             "their full voting record across every published division.",
         )
         return
@@ -233,9 +234,9 @@ def _render_td_picker() -> None:
 
 
 @st.fragment
-def _card_list_fragment(date_from, date_to, outcome_filter) -> None:
+def _card_list_fragment(date_from, date_to, outcome_filter, house: str = "Dáil") -> None:
     """Fragment: year pills + card list. Reruns only this block when year changes."""
-    years = fetch_vote_years()
+    years = fetch_vote_years(house)
     eff_from = date_from
     eff_to = date_to
 
@@ -246,7 +247,7 @@ def _card_list_fragment(date_from, date_to, outcome_filter) -> None:
             eff_from = f"{sel_year}-01-01"
             eff_to = f"{sel_year}-12-31"
 
-    vote_df = fetch_vote_index(eff_from, eff_to, outcome_filter)
+    vote_df = fetch_vote_index(eff_from, eff_to, outcome_filter, house)
 
     missing = sorted(c for c in _REQUIRED_INDEX_COLS if c not in vote_df.columns)
     if missing:
@@ -306,19 +307,23 @@ def _card_list_fragment(date_from, date_to, outcome_filter) -> None:
     export_button(
         vote_df[display_cols],
         label="↓ Export division list CSV",
-        filename="dail_divisions.csv",
+        filename=f"{house.lower()}_divisions.csv",
         key="exp_vote_idx",
     )
 
 
-def _render_mode_a(date_from, date_to, outcome_filter) -> None:
-    st.html('<p class="dt-kicker">Dáil Tracker · Voting Record</p><h1 class="dt-hero">Dáil Divisions</h1>')
-    _card_list_fragment(date_from, date_to, outcome_filter)
+def _render_mode_a(date_from, date_to, outcome_filter, house: str = "Dáil") -> None:
+    term = "Senator" if house == "Seanad" else "TD"
+    st.html(
+        '<p class="dt-kicker">Dáil Tracker · Voting Record</p>'
+        f'<h1 class="dt-hero">{_h(house)} Divisions</h1>'
+    )
+    _card_list_fragment(date_from, date_to, outcome_filter, house)
 
     # P2-9: surface the provenance headline above the expander so the
     # data-source story isn't buried behind a closed disclosure. The
     # full expander still carries the long-form text + corpus counts.
-    hero = fetch_hero_stats()
+    hero = fetch_hero_stats(house)
     sections: list[str] = [
         "Divisions data sourced from the Oireachtas Open Data API. Votes are as published in the official record."
     ]
@@ -327,7 +332,7 @@ def _render_mode_a(date_from, date_to, outcome_filter) -> None:
         dc = r.get("division_count")
         mc = r.get("member_count")
         if dc:
-            sections.insert(0, f"{int(dc):,} total divisions on record · {int(mc or 0):,} TDs recorded.")
+            sections.insert(0, f"{int(dc):,} total divisions on record · {int(mc or 0):,} {term}s recorded.")
     st.caption("Sourced from the Oireachtas Open Data API — as published in the official record.")
     provenance_expander(sections=sections)
     # P2-6: removed the "Source link quality" todo_callout. The external
@@ -428,16 +433,17 @@ def votes_page() -> None:
     sel_member_id = st.session_state.get("v_sel_member_id")
     v_from = st.session_state.get("v_from", "index")
 
-    # Default view: Dáil (Mode A — divisions index). If a TD is already
-    # selected via URL or prior interaction, surface the TDs view so the
-    # sidebar member search is visible.
+    # Default view: Divisions (Mode A — divisions index). If a member is already
+    # selected via URL or prior interaction, surface the Members view so the
+    # member search is visible.
     if "v_view" not in st.session_state:
-        st.session_state["v_view"] = "TDs" if sel_member_id else "Dáil"
-    # Migrate legacy session state from the previous "Divisions" label so users
-    # who toggled before this rename don't get stuck on a value that no longer
-    # matches an option.
-    if st.session_state["v_view"] == "Divisions":
-        st.session_state["v_view"] = "Dáil"
+        st.session_state["v_view"] = "Members" if sel_member_id else "Divisions"
+    # Migrate legacy view labels. The toggle was "Dáil"/"TDs" (and earlier
+    # "Divisions") before the chamber toggle was added; "Dáil" now names the
+    # CHAMBER, so the mode toggle is "Divisions"/"Members".
+    _legacy_view = {"Dáil": "Divisions", "TDs": "Members"}
+    if st.session_state["v_view"] in _legacy_view:
+        st.session_state["v_view"] = _legacy_view[st.session_state["v_view"]]
 
     # ── Controls (was the sidebar) ──────────────────────────────────────────────
     # Sidebar→filter-bar migration: the View switch + filters move into a
@@ -445,22 +451,45 @@ def votes_page() -> None:
     # per-mode hero; identity is carried by the top-nav tab + each mode's hero.
     hide_sidebar()
 
+    # Chamber scope — Dáil (default) or Seanad. Divisions, member search and the
+    # hero corpus counts all scope to the picked house (v_vote_base tags every
+    # row with `house`). Switching chamber clears any selected member, whose
+    # member_id belongs to a single house.
+    house = (
+        st.segmented_control(
+            "Chamber",
+            options=["Dáil", "Seanad"],
+            default="Dáil",
+            key="v_house",
+            label_visibility="collapsed",
+        )
+        or "Dáil"
+    )
+    if st.session_state.get("_v_house_applied", "Dáil") != house:
+        st.session_state["_v_house_applied"] = house
+        if sel_member_id:
+            st.session_state["_v_clear_member"] = True
+            st.query_params.pop("member", None)
+            st.rerun()
+    is_seanad = house == "Seanad"
+    term = "Senator" if is_seanad else "TD"
+
     prev_view = st.session_state["v_view"]
     outcome_filter = None
     sel_party = ""
     sel_name = None
-    # date_from/date_to feed Mode A (Dáil index); they stay None now — the old
-    # TDs-view date range fed the lifted-out in-page TD profile (Phase 7).
+    # date_from/date_to feed Mode A (divisions index); they stay None now — the
+    # old Members-view date range fed the lifted-out in-page profile (Phase 7).
     date_from = date_to = None
 
-    if prev_view == "Dáil":
-        party_names = fetch_party_names()
+    if prev_view == "Divisions":
+        party_names = fetch_party_names(house)
         with filter_bar([2, 2, 3, 5] if party_names else [2, 2, 8]) as cols:
             with cols[0]:
                 field_label("View")
                 view_sel = st.segmented_control(
                     "View",
-                    options=["Dáil", "TDs"],
+                    options=["Divisions", "Members"],
                     default=prev_view,
                     key="v_view_widget",
                     label_visibility="collapsed",
@@ -484,23 +513,23 @@ def votes_page() -> None:
                         label_visibility="collapsed",
                     )
                 sel_party = "" if party_sel == "All parties" else party_sel
-    else:  # TDs view — search a single TD
-        member_names = fetch_member_names(sel_party)
+    else:  # Members view — search a single member
+        member_names = fetch_member_names(sel_party, house)
         with filter_bar([2, 4, 6]) as cols:
             with cols[0]:
                 field_label("View")
                 view_sel = st.segmented_control(
                     "View",
-                    options=["Dáil", "TDs"],
+                    options=["Divisions", "Members"],
                     default=prev_view,
                     key="v_view_widget",
                     label_visibility="collapsed",
                 )
             with cols[1]:
-                field_label("Find a TD")
+                field_label(f"Find a {term}")
                 _opts = ["Search a member…"] + list(member_names)
                 _chosen = st.selectbox(
-                    "Find a TD",
+                    f"Find a {term}",
                     _opts,
                     index=0,
                     key="v_member_select",
@@ -511,21 +540,21 @@ def votes_page() -> None:
     view = view_sel or prev_view
     if view != prev_view:
         st.session_state["v_view"] = view
-        # Switching to Dáil clears any selected TD so the index reappears.
-        if view == "Dáil" and sel_member_id:
+        # Switching to Divisions clears any selected member so the index reappears.
+        if view == "Divisions" and sel_member_id:
             st.session_state["_v_clear_member"] = True
             st.query_params.pop("member", None)
         st.rerun()
 
-    # ── TDs member-selection handler (mirrors the old sidebar logic) ────────────
-    if view == "TDs":
+    # ── Member-selection handler (mirrors the old sidebar logic) ────────────────
+    if view == "Members":
         # Track the dropdown's last-applied name so the auto-clear branch only
         # fires when the user explicitly clears the dropdown — not when the
         # picker (or a URL param) sets sel_member_id directly.
         last_applied = st.session_state.get("_v_last_sel_name", "")
         if sel_name:
             if sel_name != last_applied:
-                td_lkp = fetch_td_row_by_name(sel_name)
+                td_lkp = fetch_td_row_by_name(sel_name, house)
                 if not td_lkp.empty:
                     new_mid = str(td_lkp.iloc[0]["member_id"])
                     st.session_state["v_sel_member_id"] = new_mid
@@ -542,13 +571,13 @@ def votes_page() -> None:
     # ── Mode routing ──────────────────────────────────────────────────────────
     if sel_vote_id:
         _render_mode_c(sel_vote_id, v_from)
-    elif view == "TDs":
+    elif view == "Members":
         if sel_member_id:
-            # Phase 7: Mode B's in-page TD profile was lifted into
-            # member-overview's Votes expander. Redirect bookmarks / sidebar
+            # Phase 7: Mode B's in-page profile was lifted into
+            # member-overview's Votes expander. Redirect bookmarks / picker
             # selections to the canonical profile.
             _render_mode_b_redirect(sel_member_id)
         else:
-            _render_td_picker()
+            _render_td_picker(house)
     else:
-        _render_mode_a(date_from, date_to, outcome_filter)
+        _render_mode_a(date_from, date_to, outcome_filter, house)

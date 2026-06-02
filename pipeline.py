@@ -62,6 +62,10 @@ CHAINS: list[tuple[str, str]] = [
     # (produced by iris) against the CBI register extract. Skips re-download
     # when the source PDFs are cached, so routine runs are extract+xref only.
     ("cbi", "pipeline_sandbox/cbi_registers_extract.py"),
+    # freshness runs last: it reads the silver + gold the chains above produced
+    # and writes data/_meta/freshness.json (the data-age signal the Streamlit
+    # badge + scheduled report read). Pure read — never mutates pipeline data.
+    ("freshness", "tools/check_freshness.py"),
 ]
 
 _CHAIN_BLURBS: dict[str, str] = {
@@ -74,6 +78,8 @@ _CHAIN_BLURBS: dict[str, str] = {
     "lobbying": "lobbying.ie YTD + CRO + charities Tier-A + gold enrichment",
     "iris": "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
     "legislation": "bills + questions + amendments + votes + cross-dataset enrich",
+    "cbi": "CBI register extract + corporate-notices xref (gold)",
+    "freshness": "data-age signal per domain -> data/_meta/freshness.json",
 }
 
 _SUMMARY_SKIP_PREFIXES = ("warning:", "warn:", "[warn", "deprecation")

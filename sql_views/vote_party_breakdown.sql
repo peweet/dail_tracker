@@ -9,7 +9,7 @@ SELECT
         / SUM(COUNT(*)) OVER (PARTITION BY vote_id, party),
         1
     )                           AS vote_pct
-FROM read_parquet('{PARQUET_PATH}')
+FROM v_vote_base
 WHERE full_name IS NOT NULL
   AND party IS NOT NULL
 GROUP BY vote_id, party, vote_type;

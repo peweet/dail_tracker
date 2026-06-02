@@ -164,7 +164,7 @@ def _render_provenance(summary: pd.Series, year: int | None = None) -> None:
 # ── Rankings view (all-time since 2020) ───────────────────────────────────────
 
 
-def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
+def _render_rankings(since_2020: dict, summary: pd.Series, house: str, term: str, terms: str) -> None:
     total = since_2020["total"]
     members = since_2020["members"]
     avg = since_2020["avg_per_td"]
@@ -172,12 +172,12 @@ def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
     totals_strip(
         [
             (f"€{total:,.0f}", "Total since 2020"),
-            (f"{members:,}", "TDs with payments"),
-            (f"€{avg:,.0f}", "Avg per TD since 2020"),
+            (f"{members:,}", f"{terms} with payments"),
+            (f"€{avg:,.0f}", f"Avg per {term} since 2020"),
         ]
     )
 
-    alltime = fetch_alltime_ranking()
+    alltime = fetch_alltime_ranking(house)
     if alltime.empty:
         empty_state(
             "All-time rankings not yet available",
@@ -229,7 +229,7 @@ def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
 # ── Stage 1 — Primary ranked view ─────────────────────────────────────────────
 
 
-def _render_primary(year_options: list[str], summary: pd.Series) -> None:
+def _render_primary(year_options: list[str], summary: pd.Series, house: str, term: str, terms: str) -> None:
     # Hero + glossary are rendered by the caller (payments_page) so the
     # main-panel member jump can sit between them and the view controls.
     all_views = ["Rankings"] + year_options
@@ -249,14 +249,14 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
         or default_year
     )
 
-    since_2020 = fetch_since_2020_summary()
+    since_2020 = fetch_since_2020_summary(house)
 
     if selected_view == "Rankings":
-        _render_rankings(since_2020, summary)
+        _render_rankings(since_2020, summary, house, term, terms)
         return
 
     selected_year = int(selected_view)
-    ranking = fetch_year_ranking(selected_year)
+    ranking = fetch_year_ranking(selected_year, house)
 
     if ranking.empty:
         empty_state(
@@ -273,11 +273,11 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
     totals_strip(
         [
             (f"€{total_yr:,.0f}", f"Total · {selected_year}"),
-            (f"€{avg_yr:,.0f}", f"Avg per TD · {selected_year}"),
+            (f"€{avg_yr:,.0f}", f"Avg per {term} · {selected_year}"),
         ]
     )
 
-    st.caption(f"Ranked by total PSA received · {selected_year} · {yr_count} members")
+    st.caption(f"Ranked by total PSA received · {selected_year} · {yr_count} {terms.lower()}")
 
     top_10 = ranking.head(10)
     next_10 = ranking.iloc[10:20]
@@ -313,7 +313,7 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
     export_button(
         export_df,
         f"Download {selected_year} payments CSV",
-        f"td_payments_{selected_year}.csv",
+        f"{house.lower()}_payments_{selected_year}.csv",
         key="pay_export_primary",
     )
 
@@ -328,8 +328,29 @@ def payments_page() -> None:
     inject_css()
 
     summary = fetch_payments_summary()
-    opts = fetch_filter_options()
 
+    # ── Page header ────────────────────────────────────────────────────────────
+    # Sidebar→filter-bar migration: identity via top-nav + hero; the member
+    # picker + notable chips move into a main-panel jump under the hero.
+    hide_sidebar()
+
+    # House scope — Dáil (default) or Seanad. The payments views UNION both
+    # chambers; the rankings/totals are house-partitioned in the view layer
+    # (Senators rank among Senators), and this picker scopes the page to one.
+    house = (
+        st.segmented_control(
+            "Chamber",
+            options=["Dáil", "Seanad"],
+            default="Dáil",
+            key="pay_house",
+            label_visibility="collapsed",
+        )
+        or "Dáil"
+    )
+    is_seanad = house == "Seanad"
+    term, terms = ("Senator", "Senators") if is_seanad else ("TD", "TDs")
+
+    opts = fetch_filter_options(house)
     year_options = opts.get("years", [])
     if not year_options:
         st.error(
@@ -338,18 +359,14 @@ def payments_page() -> None:
         )
         return
 
-    # ── Page header ────────────────────────────────────────────────────────────
-    # Sidebar→filter-bar migration: identity via top-nav + hero; the member
-    # picker + notable chips move into a main-panel jump under the hero.
-    hide_sidebar()
     hero_banner(
         kicker="PUBLIC SPENDING · PARLIAMENTARY ALLOWANCES",
-        title="TD Payments",
-        dek="Parliamentary Standard Allowance (PSA): the official record of payments to Dáil members.",
+        title=f"{term} Payments",
+        dek=f"Parliamentary Standard Allowance (PSA): the official record of payments to {house} members.",
     )
     glossary_strip(
         [
-            ("TD", "Teachta Dála, a member of the Dáil"),
+            (term, "Seanadóir, a member of the Seanad (Senate)" if is_seanad else "Teachta Dála, a member of the Dáil"),
             ("TAA", "Travel & Accommodation Allowance, reimbursed mileage and overnight stays"),
             ("PRA", "Public Representation Allowance, an unvouched flat allowance for constituency work"),
             ("PSA", "Parliamentary Standard Allowance, the umbrella term for TAA plus PRA"),
@@ -361,9 +378,9 @@ def payments_page() -> None:
         opts["members"],
         search_key_prefix="pay",
         session_key="selected_td_pay",
-        label="Browse all members",
-        placeholder="e.g. Mary Lou McDonald",
-        notable=NOTABLE_TDS,
+        label=f"Browse all {terms.lower()}",
+        placeholder="e.g. Mary Lou McDonald" if not is_seanad else "e.g. Michael McDowell",
+        notable=None if is_seanad else NOTABLE_TDS,
         chip_key_prefix="pay_notable",
     )
     if picked and st.session_state.get("selected_td_pay") != picked:
@@ -394,4 +411,4 @@ def payments_page() -> None:
             state_keys=("selected_td_pay",),
         )
 
-    _render_primary(year_options, summary)
+    _render_primary(year_options, summary, house, term, terms)

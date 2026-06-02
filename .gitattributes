@@ -1,0 +1,6 @@
+# Generated dependency files are byte-compared by the CI `deps` job (the
+# `uv export` diff guard) on Linux, where uv writes LF line endings. Pin them to
+# LF so the committed blob matches that output regardless of a contributor's
+# core.autocrlf setting — otherwise a CRLF commit from Windows fails the guard.
+requirements.txt text eol=lf
+uv.lock          text eol=lf

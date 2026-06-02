@@ -76,8 +76,10 @@ _EXTERNAL_LINKS_FILES = [
     "member_external_links.sql",
 ]
 
-# {PARQUET_PATH} substituted with absolute path from config
+# {PARQUET_PATH} + {SEANAD_VOTE_PARQUET_PATH} substituted with absolute paths.
+# vote_base.sql must precede its dependents (both views read FROM v_vote_base).
 _VOTE_FILES = [
+    "vote_base.sql",
     "vote_td_summary.sql",
     "vote_member_detail.sql",
 ]
@@ -134,16 +136,21 @@ def get_member_overview_conn():
     except Exception as exc:
         _log.warning("member_overview: could not load external-links view: %s", exc)
 
-    # Vote views — both houses via a glob. current_dail_vote_history.parquet and
+    # Vote views — both houses via v_vote_base's explicit two-parquet union
+    # (mirrors the member registry). current_dail_vote_history.parquet and
     # current_seanad_vote_history.parquet share an identical schema (same
-    # enrich._build_vote_history helper), so the glob unions them; a member's
-    # unique_member_code resolves to their own house's divisions.
+    # enrich._build_vote_history helper); a member's unique_member_code resolves
+    # to their own house's divisions. (Was a current_*_vote_history glob; the
+    # base now owns the union so the per-house `house` column is available.)
     try:
-        from config import GOLD_VOTE_HISTORY_PARQUET
+        from config import GOLD_SEANAD_VOTE_HISTORY_PARQUET, GOLD_VOTE_HISTORY_PARQUET
 
-        vote_glob = (GOLD_VOTE_HISTORY_PARQUET.parent / "current_*_vote_history.parquet").as_posix()
+        vote_subs = {
+            "{PARQUET_PATH}": GOLD_VOTE_HISTORY_PARQUET.as_posix(),
+            "{SEANAD_VOTE_PARQUET_PATH}": GOLD_SEANAD_VOTE_HISTORY_PARQUET.as_posix(),
+        }
         for fname in _VOTE_FILES:
-            _load_sql(conn, _SQL_VIEWS / fname, {"{PARQUET_PATH}": vote_glob})
+            _load_sql(conn, _SQL_VIEWS / fname, vote_subs)
     except Exception as exc:
         _log.warning("member_overview: could not load vote views: %s", exc)
 

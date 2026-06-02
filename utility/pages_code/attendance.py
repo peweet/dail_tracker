@@ -47,6 +47,7 @@ from ui.source_pdfs import ATTENDANCE, provenance_expander
 
 from config import NOTABLE_TDS, SITTING_DAYS_BY_YEAR
 from data_access.attendance_data import (
+    fetch_chamber_sitting_days as _fetch_chamber_sitting_days,
     fetch_filter_options as _fetch_filter_options,
     fetch_missing_members as _fetch_missing_members,
     fetch_year_ranking as _fetch_year_ranking,
@@ -54,7 +55,7 @@ from data_access.attendance_data import (
 )
 
 _CAVEAT = (
-    "Attendance figures combine days a member was recorded present in the Dáil chamber "
+    "Attendance figures combine days a member was recorded present in the {chamber} chamber "
     "on scheduled sitting days with other recorded business (committee days etc.) "
     "exactly as published in the official Oireachtas member-attendance PDFs. "
     "The record does not capture ministerial duties, illness, bereavement, parental leave, "
@@ -126,7 +127,7 @@ def _att_card_link(row: pd.Series, *, side: str, rank: int, medal: str = "") -> 
     )
 
 
-def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> None:
+def _render_good_bad(ranking_df: pd.DataFrame, year: int, house: str = "Dáil") -> None:
     """
     Full-year: top/bottom _HALL_SIZE attenders side by side, full-card click.
     Partial/current year: flat ranked list with an in-progress notice.
@@ -145,7 +146,7 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int) -> None:
     # is provisional.
     if is_partial:
         st.caption(
-            f"**{year} is in progress** — the Dáil year is not yet complete, "
+            f"**{year} is in progress** — the {house} year is not yet complete, "
             "so the lowest column is provisional and may change as more "
             "sitting days are added."
         )
@@ -241,13 +242,17 @@ def _render_missing_members() -> None:
 # ── Provenance footer ──────────────────────────────────────────────────────────
 
 
-def _render_provenance(year: int | None = None) -> None:
+def _render_provenance(year: int | None = None, house: str = "Dáil") -> None:
+    # ATTENDANCE is a curated list of Dáil ("deputies-verification") PDF URLs;
+    # the Seanad equivalent isn't curated yet, so don't link Dáil PDFs under a
+    # Senator view. TODO: add a SEANAD attendance-PDF list to ui/source_pdfs.
+    pdf_links = [] if house == "Seanad" else list(ATTENDANCE)
     provenance_expander(
-        sections=[_CAVEAT, _MINISTER_NOTE],
+        sections=[_CAVEAT.format(chamber=house), _MINISTER_NOTE],
         source_caption=(
             "Data: Oireachtas TAA verification records (data.oireachtas.ie)" + (f" · {year}" if year else "")
         ),
-        pdf_links=list(ATTENDANCE),
+        pdf_links=pdf_links,
     )
 
 
@@ -260,7 +265,6 @@ def attendance_page() -> None:
 
     try:
         ready = _views_ready()
-        opts = _fetch_filter_options()
     except Exception as exc:
         empty_state(
             "Attendance views not available",
@@ -271,10 +275,6 @@ def attendance_page() -> None:
 
     if not ready:
         empty_state("No attendance data found", "v_attendance_summary returned no rows.")
-        return
-
-    if not opts["years"]:
-        empty_state("No year data found", "v_attendance_member_year_summary returned no rows.")
         return
 
     # Legacy ?att_td=<name> URLs (from before Phase 6) and the legacy in-page
@@ -298,24 +298,47 @@ def attendance_page() -> None:
     # picker + notable chips move into a main-panel jump under the hero.
     hide_sidebar()
     hero_banner(
-        kicker="DÁIL PLENARY ATTENDANCE",
+        kicker="PLENARY ATTENDANCE",
         title="The attendance record",
     )
+
+    # House scope — Dáil (default) or Seanad. Drives the member list, the
+    # ranking query, sitting-day denominator, labels and glossary. The
+    # attendance views are house-partitioned (v_attendance_year_rank ranks
+    # within (year, house)), so a Senator ranking never mixes in TDs.
+    house = (
+        st.segmented_control(
+            "Chamber",
+            options=["Dáil", "Seanad"],
+            default="Dáil",
+            key="att_house",
+            label_visibility="collapsed",
+        )
+        or "Dáil"
+    )
+    is_seanad = house == "Seanad"
+    term, terms = ("Senator", "Senators") if is_seanad else ("TD", "TDs")
+
     glossary_strip(
         [
-            ("TD", "Teachta Dála, a member of the Dáil"),
+            (term, "Seanadóir, a member of the Seanad (Senate)" if is_seanad else "Teachta Dála, a member of the Dáil"),
             ("Plenary", "the full chamber sitting (does not include committees or ministerial duties)"),
             ("TAA", "Travel & Accommodation Allowance, the official attendance record"),
         ]
     )
+
+    opts = _fetch_filter_options(house)
+    if not opts["years"]:
+        empty_state("No year data found", f"No {house} attendance years are available yet.")
+        return
 
     # ── Member jump (was the sidebar) ───────────────────────────────────────────
     picked = member_jump_panel(
         opts["members"],
         search_key_prefix="att",
         session_key="selected_td_att",
-        label="Browse all members",
-        notable=NOTABLE_TDS,
+        label=f"Browse all {terms.lower()}",
+        notable=None if is_seanad else NOTABLE_TDS,
         chip_key_prefix="chip_att",
     )
     if picked and st.session_state.get("selected_td_att") != picked:
@@ -342,17 +365,23 @@ def attendance_page() -> None:
     selected_year = year_selector(year_options, key="att_year", skip_current=True)
 
     # ── Good cop / bad cop ────────────────────────────────────────────────────
-    ranking_df = _fetch_year_ranking(selected_year)
+    ranking_df = _fetch_year_ranking(selected_year, house)
 
     if ranking_df.empty:
         empty_state(
             "No records found",
             "Try a different year — v_attendance_year_rank returned no rows.",
         )
-        _render_provenance(selected_year)
+        _render_provenance(selected_year, house)
         return
 
-    total_days = SITTING_DAYS_BY_YEAR.get(selected_year)
+    # Dáil keeps the curated SITTING_DAYS_BY_YEAR scheduled-day lookup; the
+    # Seanad sitting calendar isn't in config, so derive it from the data via
+    # the per-house chamber-sitting-days view (already house-aware).
+    if is_seanad:
+        total_days = _fetch_chamber_sitting_days("Seanad").get(selected_year)
+    else:
+        total_days = SITTING_DAYS_BY_YEAR.get(selected_year)
     n_members = len(ranking_df)
     rate_note = f" · {total_days} scheduled sitting days" if total_days else ""
 
@@ -366,7 +395,7 @@ def attendance_page() -> None:
         "About & data provenance below)."
     )
 
-    _render_good_bad(ranking_df, selected_year)
+    _render_good_bad(ranking_df, selected_year, house)
 
     # Export full list for the year
     today_str = datetime.date.today().isoformat()
@@ -374,11 +403,14 @@ def attendance_page() -> None:
     export_df = export_df.rename(columns={"rank_high": "rank_by_attendance"})
     export_button(
         export_df,
-        label=f"Export full ranking · {selected_year} · {n_members} members",
-        filename=f"dail_tracker_attendance_{selected_year}_{today_str}.csv",
+        label=f"Export full ranking · {selected_year} · {n_members} {terms.lower()}",
+        filename=f"dail_tracker_{house.lower()}_attendance_{selected_year}_{today_str}.csv",
         key="att_export",
     )
 
-    _render_missing_members()
+    # The missing-members section is the Dáil TAA office-holder gap — it reads a
+    # Dáil-roster view (v_attendance_missing_members) and has no Seanad analogue.
+    if not is_seanad:
+        _render_missing_members()
 
-    _render_provenance(selected_year)
+    _render_provenance(selected_year, house)

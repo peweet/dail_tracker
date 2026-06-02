@@ -16,6 +16,7 @@ SELECT
     position,
     COALESCE(party_name,   '') AS party_name,
     COALESCE(constituency, '') AS constituency,
+    house,
     taa_band_raw,
     taa_band_label,
     date_paid,

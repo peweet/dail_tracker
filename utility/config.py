@@ -32,6 +32,7 @@ SILVER_MEMBERS_CSV: dict[str, Path] = {
 }
 
 GOLD_VOTE_HISTORY_PARQUET = GOLD_PARQUET_DIR / "current_dail_vote_history.parquet"
+GOLD_SEANAD_VOTE_HISTORY_PARQUET = GOLD_PARQUET_DIR / "current_seanad_vote_history.parquet"
 
 # ── Notable members ─────────────────────────────────────────────────────────────
 # Quick-select sidebar chips on member-level pages.
