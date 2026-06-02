@@ -44,8 +44,7 @@ def fetch_filter_options() -> dict[str, list]:
         " WHERE house = 'Dáil' ORDER BY member_name LIMIT 2000"
     ).fetchall()
     years = conn.execute(
-        "SELECT DISTINCT year FROM v_attendance_member_year_summary"
-        " WHERE house = 'Dáil' ORDER BY year DESC LIMIT 100"
+        "SELECT DISTINCT year FROM v_attendance_member_year_summary WHERE house = 'Dáil' ORDER BY year DESC LIMIT 100"
     ).fetchall()
     return {
         "members": [r[0] for r in members],

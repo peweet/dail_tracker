@@ -8,6 +8,7 @@ small additive changes that gave the Dáil parsers Senator awareness:
   * attendance._build_fact_table           — house tagging + Dáil-default parity
   * transform_votes.build_seanad_votes_silver — /seanad/ URL + schema parity
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -29,14 +30,14 @@ import transform_votes  # noqa: E402
 @pytest.mark.parametrize(
     "cell, expected",
     [
-        ("Deputy Adams, Gerry", ("Deputy", "Adams, Gerry")),            # Dáil unchanged
-        ("Minister Harris, Simon", ("Minister", "Harris, Simon")),      # other roles unchanged
+        ("Deputy Adams, Gerry", ("Deputy", "Adams, Gerry")),  # Dáil unchanged
+        ("Minister Harris, Simon", ("Minister", "Harris, Simon")),  # other roles unchanged
         ("Taoiseach Varadkar, Leo", ("Taoiseach", "Varadkar, Leo")),
-        ("Senator Ahearn, Garret", ("Senator", "Ahearn, Garret")),      # the new case
+        ("Senator Ahearn, Garret", ("Senator", "Ahearn, Garret")),  # the new case
         ("Senaotr Goldsboro, Imelda", ("Senator", "Goldsboro, Imelda")),  # source typo tolerated
         ("Cathaoirleach Daly, Mark", ("Cathaoirleach", "Daly, Mark")),
-        ("Adams, Gerry", ("Deputy", "Adams, Gerry")),                   # bare name → Deputy default
-        ("Sennett, Joe", ("Deputy", "Sennett, Joe")),                   # Sen* surname NOT clobbered
+        ("Adams, Gerry", ("Deputy", "Adams, Gerry")),  # bare name → Deputy default
+        ("Sennett, Joe", ("Deputy", "Sennett, Joe")),  # Sen* surname NOT clobbered
         ("", ("Deputy", "")),
     ],
 )
@@ -48,16 +49,28 @@ def test_split_position(cell, expected):
 def _fake_rows():
     return [
         P.ExtractedRow(
-            member_name="Ahearn, Garret", position="Senator", payment_kind="TAA",
-            taa_band_raw="6", taa_band_label="Band 6 — 160–190 km",
-            date_paid=_dt.date(2026, 2, 27), narrative="PSA February 2026",
-            amount=3172.83, source_pdf="x.pdf", schema="v2020_h2_plus",
+            member_name="Ahearn, Garret",
+            position="Senator",
+            payment_kind="TAA",
+            taa_band_raw="6",
+            taa_band_label="Band 6 — 160–190 km",
+            date_paid=_dt.date(2026, 2, 27),
+            narrative="PSA February 2026",
+            amount=3172.83,
+            source_pdf="x.pdf",
+            schema="v2020_h2_plus",
         ),
         P.ExtractedRow(
-            member_name="Black, Frances", position="Senator", payment_kind="PSA_DUBLIN",
-            taa_band_raw="Dublin", taa_band_label="Dublin / under 25 km",
-            date_paid=_dt.date(2026, 2, 27), narrative="PSA February 2026",
-            amount=1456.25, source_pdf="x.pdf", schema="v2020_h2_plus",
+            member_name="Black, Frances",
+            position="Senator",
+            payment_kind="PSA_DUBLIN",
+            taa_band_raw="Dublin",
+            taa_band_label="Dublin / under 25 km",
+            date_paid=_dt.date(2026, 2, 27),
+            narrative="PSA February 2026",
+            amount=1456.25,
+            source_pdf="x.pdf",
+            schema="v2020_h2_plus",
         ),
     ]
 
@@ -67,8 +80,11 @@ def test_build_full_psa_house_tag(tmp_path, monkeypatch):
     (tmp_path / "dummy.pdf").write_bytes(b"%PDF-1.4")  # build_full_psa globs *.pdf
     out = tmp_path / "out.parquet"
     P.build_full_psa(
-        pdf_dir=tmp_path, out_parquet=out, out_csv=tmp_path / "out.csv",
-        quarantine_parquet=tmp_path / "q.parquet", house="Seanad",
+        pdf_dir=tmp_path,
+        out_parquet=out,
+        out_csv=tmp_path / "out.csv",
+        quarantine_parquet=tmp_path / "q.parquet",
+        house="Seanad",
     )
     df = pl.read_parquet(out)
     assert "house" in df.columns
@@ -82,7 +98,9 @@ def test_build_full_psa_default_has_no_house_col(tmp_path, monkeypatch):
     (tmp_path / "dummy.pdf").write_bytes(b"%PDF-1.4")
     out = tmp_path / "out.parquet"
     P.build_full_psa(
-        pdf_dir=tmp_path, out_parquet=out, out_csv=tmp_path / "out.csv",
+        pdf_dir=tmp_path,
+        out_parquet=out,
+        out_csv=tmp_path / "out.csv",
         quarantine_parquet=tmp_path / "q.parquet",  # house omitted
     )
     assert "house" not in pl.read_parquet(out).columns
@@ -131,14 +149,28 @@ def _fake_division():
             "subject": {"showAs": "Amendment put"},
             "debate": {"showAs": "Some Bill 2026: Committee Stage"},
             "tallies": {
-                "taVotes": {"members": [
-                    {"member": {"showAs": "Andrews, Chris.", "memberCode": "Chris-Andrews.D.2007-06-14",
-                                "uri": "https://data.oireachtas.ie/x"}}
-                ]},
-                "nilVotes": {"members": [
-                    {"member": {"showAs": "Black, Frances", "memberCode": "Frances-Black.S.2016-04-25",
-                                "uri": "https://data.oireachtas.ie/y"}}
-                ]},
+                "taVotes": {
+                    "members": [
+                        {
+                            "member": {
+                                "showAs": "Andrews, Chris.",
+                                "memberCode": "Chris-Andrews.D.2007-06-14",
+                                "uri": "https://data.oireachtas.ie/x",
+                            }
+                        }
+                    ]
+                },
+                "nilVotes": {
+                    "members": [
+                        {
+                            "member": {
+                                "showAs": "Black, Frances",
+                                "memberCode": "Frances-Black.S.2016-04-25",
+                                "uri": "https://data.oireachtas.ie/y",
+                            }
+                        }
+                    ]
+                },
             },
         }
     }

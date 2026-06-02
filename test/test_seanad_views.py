@@ -6,6 +6,7 @@ absent (CI without a pipeline run). Run after `python seanad_refresh.py`:
 
     pytest test/test_seanad_views.py -v -m sql
 """
+
 from __future__ import annotations
 
 import sys
@@ -51,9 +52,12 @@ def att_conn():
 # ── Registry: both houses, house column, composite-key uniqueness ────────────
 @_needs_gold
 def test_registry_unions_both_houses(mo_conn):
-    rows = mo_conn.execute(
-        "SELECT house, COUNT(*) n FROM v_member_registry GROUP BY house"
-    ).df().set_index("house")["n"].to_dict()
+    rows = (
+        mo_conn.execute("SELECT house, COUNT(*) n FROM v_member_registry GROUP BY house")
+        .df()
+        .set_index("house")["n"]
+        .to_dict()
+    )
     assert rows.get("Dáil", 0) > 100
     assert rows.get("Seanad", 0) >= 50
     houses = {r[0] for r in mo_conn.execute("SELECT DISTINCT house FROM v_member_registry").fetchall()}
@@ -82,9 +86,7 @@ def test_kyne_appears_in_both_houses(mo_conn):
 # ── Domain views resolve a senator + keep Dáil intact ────────────────────────
 @_needs_gold
 def test_votes_glob_resolves_senator(mo_conn):
-    div = mo_conn.execute(
-        "SELECT division_count FROM td_vote_summary WHERE member_id = ?", [_AHEARN]
-    ).fetchone()
+    div = mo_conn.execute("SELECT division_count FROM td_vote_summary WHERE member_id = ?", [_AHEARN]).fetchone()
     assert div and div[0] > 0
 
 
@@ -126,9 +128,7 @@ def test_year_rank_partitioned_by_house(att_conn):
 @_needs_gold
 def test_member_summary_per_house_denominator(att_conn):
     """Each house must carry its own sitting-day denominator, not a shared one."""
-    rows = att_conn.execute(
-        "SELECT DISTINCT house, sitting_count FROM v_attendance_member_summary ORDER BY house"
-    ).df()
-    by_house = dict(zip(rows["house"], rows["sitting_count"]))
+    rows = att_conn.execute("SELECT DISTINCT house, sitting_count FROM v_attendance_member_summary ORDER BY house").df()
+    by_house = dict(zip(rows["house"], rows["sitting_count"], strict=True))
     assert "Dáil" in by_house and "Seanad" in by_house
     assert by_house["Dáil"] != by_house["Seanad"]

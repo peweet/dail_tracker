@@ -13,6 +13,7 @@ Writes : data/gold/parquet/public_appointments.parquet (when --write)
 Row-wise Python extraction (n~1.2k, instant) for readability. Vectorise into
 the ETL once the shape is agreed.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,19 +32,35 @@ _OUT = GOLD_PARQUET_DIR / "public_appointments.parquet"
 
 # ── Curated Irish→English maps (the dozen recurring forms) ──────────────────────
 COURTS = {
-    "ARD-CHÚIRT": "High Court", "AN ARD-CHÚIRT": "High Court",
-    "CÚIRT UACHTARACH": "Supreme Court", "CHÚIRT UACHTARACH": "Supreme Court",
-    "CÚIRT ACHOMHAIRC": "Court of Appeal", "CHÚIRT ACHOMHAIRC": "Court of Appeal",
-    "CÚIRT ARCHOMHAIRC": "Court of Appeal", "CHÚIRT ACHOMAIRC": "Court of Appeal",
-    "CÚIRT CHUARDA": "Circuit Court", "CHÚIRT CHUARDA": "Circuit Court",
-    "CÚIRT DÚICHE": "District Court", "CHÚIRT DÚICHE": "District Court",
+    "ARD-CHÚIRT": "High Court",
+    "AN ARD-CHÚIRT": "High Court",
+    "CÚIRT UACHTARACH": "Supreme Court",
+    "CHÚIRT UACHTARACH": "Supreme Court",
+    "CÚIRT ACHOMHAIRC": "Court of Appeal",
+    "CHÚIRT ACHOMHAIRC": "Court of Appeal",
+    "CÚIRT ARCHOMHAIRC": "Court of Appeal",
+    "CHÚIRT ACHOMAIRC": "Court of Appeal",
+    "CÚIRT CHUARDA": "Circuit Court",
+    "CHÚIRT CHUARDA": "Circuit Court",
+    "CÚIRT DÚICHE": "District Court",
+    "CHÚIRT DÚICHE": "District Court",
 }
 ROLES = {
-    "BREITHEAMH": "Judge", "BREITHIÚNA": "Judges", "BHREITHEAMH": "Judge", "BHREITHIÚNA": "Judges",
-    "UACHTARÁN": "President", "CATHAOIRLEACH": "Chairperson", "CHATHAOIRLEACH": "Chairperson",
-    "STIÚRTHÓIR": "Director", "GHNÍOMHAIREACHT": "Director",
-    "COMHALTA": "Member", "CHOMHALTA": "Member", "BHALL": "Member", "BALL": "Member",
-    "COMHAIRLEOIR SPEISIALTA": "Special adviser", "CHOMHAIRLEOIR SPEISIALTA": "Special adviser",
+    "BREITHEAMH": "Judge",
+    "BREITHIÚNA": "Judges",
+    "BHREITHEAMH": "Judge",
+    "BHREITHIÚNA": "Judges",
+    "UACHTARÁN": "President",
+    "CATHAOIRLEACH": "Chairperson",
+    "CHATHAOIRLEACH": "Chairperson",
+    "STIÚRTHÓIR": "Director",
+    "GHNÍOMHAIREACHT": "Director",
+    "COMHALTA": "Member",
+    "CHOMHALTA": "Member",
+    "BHALL": "Member",
+    "BALL": "Member",
+    "COMHAIRLEOIR SPEISIALTA": "Special adviser",
+    "CHOMHAIRLEOIR SPEISIALTA": "Special adviser",
 }
 # Recurring Irish-only body names → English (extend as coverage demands).
 BODIES = {
@@ -158,8 +175,11 @@ def appointing_authority(t: str, title: str = "") -> str:
         return "President"
     if re.search(r"(?i)an rialtas|the government|chomhairle an rialtais", t):
         return "Government"
-    if re.search(r"(?i)\bthe minister\b|\ban aire\b|minister for\b|minister of state|"
-                 r"powers conferred on the minister|aire stáit|ag an aire|by the minister", t):
+    if re.search(
+        r"(?i)\bthe minister\b|\ban aire\b|minister for\b|minister of state|"
+        r"powers conferred on the minister|aire stáit|ag an aire|by the minister",
+        t,
+    ):
         return "Minister"
     # Department-header notices with no explicit appointer are ministerial acts.
     if re.match(r"(?i)\s*(department of|an roinn)\b", title):
@@ -250,7 +270,7 @@ def extract_appointees(t: str) -> list[str]:
         if re.search(r"(?i)tar éis$|have this day$|appointed[,:.]?$", line):
             start = i
         if start is not None and _APPT_VERB_GA.search(line) and i > start:
-            for cand in lines[start + 1:i]:
+            for cand in lines[start + 1 : i]:
                 if re.fullmatch(r"(?i)agus|and|&", _clean_name_line(cand)):
                     continue
                 nm = _name_from_line(cand)
@@ -272,7 +292,7 @@ def extract_appointees(t: str) -> list[str]:
     # English "the following…:" / bullet list of names (name may trail a sentence).
     for i, line in enumerate(lines):
         if re.search(r"(?i)following\b", line) or line.rstrip().endswith(":"):
-            for cand in lines[i + 1:i + 12]:
+            for cand in lines[i + 1 : i + 12]:
                 nm = _name_from_line(cand)
                 if nm:
                     names.append(nm)
@@ -284,7 +304,7 @@ def extract_appointees(t: str) -> list[str]:
     # English: verb line then the next proper-noun line.
     for i, line in enumerate(lines):
         if _APPT_VERB_EN.search(line):
-            for cand in lines[i + 1:i + 3]:
+            for cand in lines[i + 1 : i + 3]:
                 nm = _name_from_line(cand)
                 if nm:
                     return [nm]
@@ -306,7 +326,9 @@ def extract_role(t: str, atype: str) -> str | None:
         if re.search(r"(?i)mar uachtarán ar|president of the", t):
             return "Court President"
         return "Judge"
-    m = re.search(r"(?i)\bas\s+(?:a|an|the)?\s*(ordinary member|member|chairperson|chair|director|deputy chair[^,\n.]*)", t)
+    m = re.search(
+        r"(?i)\bas\s+(?:a|an|the)?\s*(ordinary member|member|chairperson|chair|director|deputy chair[^,\n.]*)", t
+    )
     if m:
         return m.group(1).strip().title()
     u = t.upper()
@@ -330,7 +352,11 @@ def extract_body(title: str, t: str, atype: str) -> str | None:
     # go to text fallback.
     if _TITLE_NOT_BODY.match(seg) or re.search(r"(?i)\bact\b.{0,6}(19|20)\d\d", seg):
         seg = ""
-    seg = re.sub(r"(?i)^(notice of )?appointment(?:s)?(?:/re-appointment)?\s+(?:of members\s+)?to\s+(?:the board of\s+)?(?:the\s+)?", "", seg)
+    seg = re.sub(
+        r"(?i)^(notice of )?appointment(?:s)?(?:/re-appointment)?\s+(?:of members\s+)?to\s+(?:the board of\s+)?(?:the\s+)?",
+        "",
+        seg,
+    )
     seg = re.sub(r"(?i)^the board of\s+", "", seg)
     seg = re.sub(r"(?i)^department of .*|^an roinn.*", "", seg)  # dept header isn't the body
     seg = seg.strip(" .,|")
@@ -341,9 +367,12 @@ def extract_body(title: str, t: str, atype: str) -> str | None:
                 return en
         return seg
     # Title was a department header — recover the body from the notice text.
-    m = re.search(r"(?i)\b(?:to the board of|as (?:a |an )?member of (?:the )?|appointment to (?:the )?|"
-                  r"mar (?:chomhalta|bhall|stiúrthóir|chathaoirleach) (?:de |den |ar )?)"
-                  r"([A-ZÁÉÍÓÚ][^\n.,:•]{3,60})", t)
+    m = re.search(
+        r"(?i)\b(?:to the board of|as (?:a |an )?member of (?:the )?|appointment to (?:the )?|"
+        r"mar (?:chomhalta|bhall|stiúrthóir|chathaoirleach) (?:de |den |ar )?)"
+        r"([A-ZÁÉÍÓÚ][^\n.,:•]{3,60})",
+        t,
+    )
     if m:
         return m.group(1).strip(" .")
     # Last resort: the department name itself.
@@ -408,25 +437,30 @@ def enrich(df: pl.DataFrame) -> pl.DataFrame:
         # signature block. The English-title kicker exclusion is preserved.
         lead = "\n".join(_lines(t)[:6])
         is_irish = bool(
-            re.search(r"(?i)tá an|ag gníomhú|cheapadh|uachtarán|an rialtas|an roinn|gníomhaireacht|"
-                      r"an aire|tar éis", lead)
+            re.search(
+                r"(?i)tá an|ag gníomhú|cheapadh|uachtarán|an rialtas|an roinn|gníomhaireacht|"
+                r"an aire|tar éis",
+                lead,
+            )
             and not re.search(r"(?i)^appointment to|the government today", title)
         )
-        rows.append({
-            "notice_ref": r.get("notice_ref"),
-            "issue_date": r.get("issue_date"),
-            "appointing_authority": auth,
-            "appointment_type": atype,
-            "body": body,
-            "appointee": "; ".join(appointees) if appointees else None,
-            "appointee_count": len(appointees),
-            "role": role,
-            "portfolio": portfolio,
-            "english_summary": english_summary(auth, atype, appointees, role, body, portfolio, t),
-            "lang": "Irish" if is_irish else "English",
-            "title": title,
-            "iris_source_pdf": r.get("source_file"),
-        })
+        rows.append(
+            {
+                "notice_ref": r.get("notice_ref"),
+                "issue_date": r.get("issue_date"),
+                "appointing_authority": auth,
+                "appointment_type": atype,
+                "body": body,
+                "appointee": "; ".join(appointees) if appointees else None,
+                "appointee_count": len(appointees),
+                "role": role,
+                "portfolio": portfolio,
+                "english_summary": english_summary(auth, atype, appointees, role, body, portfolio, t),
+                "lang": "Irish" if is_irish else "English",
+                "title": title,
+                "iris_source_pdf": r.get("source_file"),
+            }
+        )
     return pl.DataFrame(rows)
 
 
@@ -451,18 +485,22 @@ def main() -> None:
     print("\nfield coverage:")
     for c in ["appointee", "body", "role", "english_summary"]:
         f = out.filter(pl.col(c).is_not_null() & (pl.col(c).cast(pl.Utf8).str.strip_chars() != "")).height
-        print(f"   {c:18s} {f:5d} ({100*f/n:3.0f}%)")
+        print(f"   {c:18s} {f:5d} ({100 * f / n:3.0f}%)")
     # appointee only meaningful where a person is named (boards + judicial)
     nonsa = out.filter(pl.col("appointment_type") != "special_adviser")
     naf = nonsa.filter(pl.col("appointee").is_not_null()).height
-    print(f"   appointee (non-SA) {naf:5d}/{nonsa.height} ({100*naf/max(nonsa.height,1):3.0f}%)")
+    print(f"   appointee (non-SA) {naf:5d}/{nonsa.height} ({100 * naf / max(nonsa.height, 1):3.0f}%)")
     print(f"   total appointees named: {int(out['appointee_count'].sum())}")
     sa = out.filter(pl.col("appointment_type") == "special_adviser")
     saf = sa.filter(pl.col("portfolio").is_not_null()).height
     print(f"   portfolio (of SAs) {saf:5d}/{sa.height}")
 
     print("\nsample enriched rows:")
-    for r in out.select(["appointment_type", "appointing_authority", "appointee", "role", "body", "english_summary"]).head(16).iter_rows():
+    for r in (
+        out.select(["appointment_type", "appointing_authority", "appointee", "role", "body", "english_summary"])
+        .head(16)
+        .iter_rows()
+    ):
         print("  ", [str(x)[:34] for x in r])
 
     if args.write:

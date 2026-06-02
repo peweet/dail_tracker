@@ -1068,13 +1068,16 @@ def _render_browse(conn) -> None:
 
     # House scope — Dáil (default) or Seanad. Keeps the list, labels and glossary
     # coherent: a mixed 236-member list with a "TDs" heading would mislead.
-    house = st.segmented_control(
-        "House",
-        options=["Dáil", "Seanad"],
-        default="Dáil",
-        key="mo_browse_house",
-        label_visibility="collapsed",
-    ) or "Dáil"
+    house = (
+        st.segmented_control(
+            "House",
+            options=["Dáil", "Seanad"],
+            default="Dáil",
+            key="mo_browse_house",
+            label_visibility="collapsed",
+        )
+        or "Dáil"
+    )
     is_seanad = house == "Seanad"
     term = "Senator" if is_seanad else "TD"
     terms = "Senators" if is_seanad else "TDs"

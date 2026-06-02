@@ -791,6 +791,7 @@ def _render_si_detail(row: pd.Series) -> None:
                 f'<span class="si-pill si-pill-eu">{html.escape(_pretty_token(e))}</span>' for e in _split_multi(eu_rel)
             ),
         )
+
     # ── Who signed — office-primary, person attributed ────────────────────────
     # The gazette prints the signing OFFICE (a fact). The PERSON is either
     # printed in a signature block (si_signatory_name — also a fact) or, absent
@@ -821,7 +822,10 @@ def _render_si_detail(row: pd.Series) -> None:
     elif min_name:
         # Not printed — derived from the signing office + date.
         held = f"— office held on {signed_date}" if signed_date and signed_date != "—" else "— office holder"
-        _row("Signed by", _profile_link(min_name) + _attrib(f"{held}, per ministerial-tenure record (not printed in the notice)"))
+        _row(
+            "Signed by",
+            _profile_link(min_name) + _attrib(f"{held}, per ministerial-tenure record (not printed in the notice)"),
+        )
     elif not actor:
         _row("Signing office", _attrib("Not recorded in this notice").strip())
     if parent.strip():
