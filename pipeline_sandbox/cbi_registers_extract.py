@@ -1,24 +1,28 @@
-"""CBI Registers — SANDBOX extract + cross-reference experiment.
+"""CBI Registers — heuristic register extract + cross-reference.
 
 Source : https://registers.centralbank.ie/downloadspage.aspx (ASP.NET postbacks)
-Outputs (all under data/sandbox/, never gold/silver):
+Outputs:
     data/sandbox/_cbi_raw/*.pdf                              cached source PDFs
-    data/sandbox/parquet/cbi_authorised_firms.parquet        flattened firm rows
-    data/sandbox/parquet/cbi_xref_member_interests.parquet   matches to TDs/Senators interests
-    data/sandbox/parquet/cbi_xref_lobbying_entities.parquet  matches to lobbying return entities
+    data/sandbox/parquet/cbi_authorised_firms.parquet        flattened firm rows (intermediate)
+    data/sandbox/parquet/cbi_xref_member_interests.parquet   matches to TDs/Senators interests (experimental, unused)
+    data/sandbox/parquet/cbi_xref_lobbying_entities.parquet  matches to lobbying return entities (experimental, unused)
+    data/gold/parquet/cbi_xref_corporate_notices.parquet     PROMOTED — read by the Corporate page
     data/sandbox/_cbi_meta.json                              extraction stats
 
-Why sandbox:
-  * Source PDFs are SSRS-rendered tables — column inference is heuristic.
-  * Cross-ref is a noise/signal experiment, not a production join.
+Promotion note (2026-06-02):
+  Only the corporate-notices cross-ref is promoted to gold — it is load-bearing
+  for the Corporate page (v_corporate_cbi_notice_match / _repeat_distress in
+  sql_views/corporate_cbi_distress.sql) and the panel/badges go blank without
+  it. It uses EXACT normalised-name matching (no substring), so it is not prone
+  to the fragment false-positives the member-interests substring xref produces;
+  that one + the lobbying xref + the raw firm table stay sandbox-grade.
+
+Why the register extract stays heuristic:
+  * Source PDFs are SSRS-rendered tables — column inference is heuristic, so the
+    raw firm table carries false positives; the EXACT-match xref filters them.
   * Two registers (#57 CIT Providers, #58 Designated Entities) fail on direct
     postback today; left out of scope.
-
-Honest framing:
-  * NO write to data/gold or data/silver.
-  * NO touch of pipeline.py / enrich.py / normalise_join_key.py.
-  * Match tiers are conservative (exact normalised substring + dual signal),
-    not fuzzy — bias to under-call rather than over-call.
+  * Match tiers are conservative — bias to under-call rather than over-call.
 
 CLI:
     python pipeline_sandbox/cbi_registers_extract.py --download
@@ -48,6 +52,7 @@ H = {"User-Agent": "Mozilla/5.0 dail_extractor sandbox"}
 
 _RAW = _ROOT / "data" / "sandbox" / "_cbi_raw"
 _OUT = _ROOT / "data" / "sandbox" / "parquet"
+_GOLD = _ROOT / "data" / "gold" / "parquet"  # promoted corporate-notices xref only
 _META = _ROOT / "data" / "sandbox" / "_cbi_meta.json"
 
 # CBI reference number patterns observed across registers.
@@ -619,9 +624,9 @@ def main() -> int:
         xref_lob = xref_lobbying_entities(firms)
         _write_parquet(xref_lob, _OUT / "cbi_xref_lobbying_entities.parquet")
 
-        print(" - Corporate notices")
+        print(" - Corporate notices (PROMOTED -> gold)")
         xref_cn = xref_corporate_notices(firms)
-        _write_parquet(xref_cn, _OUT / "cbi_xref_corporate_notices.parquet")
+        _write_parquet(xref_cn, _GOLD / "cbi_xref_corporate_notices.parquet")
 
         meta["xref"] = {
             "member_interests": {
