@@ -297,3 +297,16 @@ lobbyist/raw/
 !data/silver/seanad_aggregated_tables.csv
 !data/silver/lobbying/
 !data/silver/lobbying/client_company_returns_detail.csv
+
+# === Member avatars (Wikidata portraits + manifest) — committed deliberately ===
+# wiki_data.py downloads CC-licensed TD + Senator portraits into avatar/wikidata/.
+# Streamlit Cloud boots from a fresh git clone with no ETL, so utility/ui/avatars.py
+# has nothing to read unless these ship in the repo. The blanket *.jpg / *.json
+# rules above swallow them; re-include the portrait set here (last match wins).
+# Parent dir re-included first — git cannot un-ignore a file under an excluded dir.
+!avatar/wikidata/
+!avatar/wikidata/*.jpg
+!avatar/wikidata/*.jpeg
+!avatar/wikidata/*.png
+!avatar/wikidata/*.webp
+!avatar/wikidata/manifest.json
