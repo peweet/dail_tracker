@@ -11,9 +11,15 @@ isolated so a transient Wikidata outage can't poison the others.
     3. committees_long_format_etl unpivots wide committee_N_*/office_N_*
                                   columns into long-format parquets
                                   → consumed by the Committees page
+    4. ec_constituency_pop_extract Census 2022 population on the current 43
+                                  constituency boundaries (Electoral Commission
+                                  Review 2023, App. 2); integrity-gated --write
+                                  → consumed by member_constituency_demographics
 
-Run AFTER bootstrap (all steps need flattened_members.parquet) and BEFORE iris
-(iris consumes ministerial_tenure for SI signatory attribution).
+Run AFTER bootstrap (the first three steps need flattened_members.parquet) and
+BEFORE iris (iris consumes ministerial_tenure for SI signatory attribution).
+Step 4 is independent reference data (the constituency join is at the view
+layer) and re-parses a cached ~30 MB PDF, so it is cheap and idempotent.
 
 CLI:
     python members_refresh.py
@@ -36,26 +42,31 @@ def _hr(label: str) -> None:
     print(f"\n{'─' * 74}\n{label}\n{'─' * 74}")
 
 
-def _subprocess(script: str) -> bool:
+def _subprocess(script: str, *args: str) -> bool:
     t = time.monotonic()
-    r = subprocess.run([sys.executable, script], cwd=_ROOT)
+    r = subprocess.run([sys.executable, script, *args], cwd=_ROOT)
     print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
     return r.returncode == 0
 
 
 def step_wikidata_socials() -> bool:
-    _hr("[1/3] wikidata_socials_etl — member external links")
+    _hr("[1/4] wikidata_socials_etl — member external links")
     return _subprocess("wikidata_socials_etl.py")
 
 
 def step_ministerial_tenure() -> bool:
-    _hr("[2/3] ministerial_tenure_build — Wikidata minister-of-the-day table")
+    _hr("[2/4] ministerial_tenure_build — Wikidata minister-of-the-day table")
     return _subprocess("ministerial_tenure_build.py")
 
 
 def step_committees_long_format() -> bool:
-    _hr("[3/3] committees_long_format_etl — committee_N_* / office_N_* unpivot")
+    _hr("[3/4] committees_long_format_etl — committee_N_* / office_N_* unpivot")
     return _subprocess("committees_long_format_etl.py")
+
+
+def step_constituency_pop() -> bool:
+    _hr("[4/4] ec_constituency_pop_extract — Census 2022 constituency population")
+    return _subprocess("ec_constituency_pop_extract.py", "--write")
 
 
 def main() -> int:
@@ -67,6 +78,7 @@ def main() -> int:
         ("wikidata_socials", step_wikidata_socials),
         ("ministerial_tenure", step_ministerial_tenure),
         ("committees_long_format", step_committees_long_format),
+        ("constituency_pop", step_constituency_pop),
     ]:
         if not fn():
             failures.append(name)
