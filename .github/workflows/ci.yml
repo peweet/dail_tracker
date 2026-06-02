@@ -21,6 +21,20 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
 
+  # Streamlit logic firewall: the UI/data-access layer must read registered
+  # views only — no raw parquet/CSV reads, joins, or rollups (a sanctioned
+  # render-time aggregation is exempted inline with `# logic_firewall:
+  # display_only`). The checker is pure-stdlib AST, so a core sync is enough.
+  firewall:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run python tools/check_streamlit_logic_firewall.py
+
   typecheck:
     runs-on: ubuntu-latest
     steps:
@@ -47,13 +61,31 @@ jobs:
       # dev pulls [pipeline], so test_page_imports.py (imports every Streamlit page)
       # plus the pipeline/schema tests all collect and run in CI.
       - run: uv sync --frozen --extra dev
-      # Skip markers that can't run in CI:
-      #   integration / sql / bronze — need committed pipeline output, but
-      #     data/gold is gitignored, so these are LOCAL-ONLY for now. Run them
-      #     after a pipeline run with:  uv run pytest -m "integration or sql or bronze"
-      #     (set DAIL_INTEGRATION_TESTS=1 for the view tests lacking fixtures).
-      #     They become CI-runnable once outputs are fixtured/built — see
-      #     doc/CI_CD.md Phase 6.
+      # Skip markers that can't run in the default lane:
+      #   integration / bronze — need committed pipeline output beyond gold.
+      #   sql — runs in its own `sql-contracts` job below (against committed gold).
       #   sources — external network. Source-URL health runs on a schedule via
       #     .github/workflows/nightly.yml (pdf_endpoint_check.py), not here.
       - run: uv run pytest -m "not integration and not sql and not sources and not bronze" -v
+
+  # SQL view contract suite (~80 tests): executes every registered view against
+  # the committed gold parquet under data/gold/ (un-gitignored), so it gates PRs
+  # without a pipeline build. DAIL_INTEGRATION_TESTS=1 points the view loader at
+  # the real committed data instead of the small CI fixtures. A column rename or
+  # cast break in any view now fails CI instead of shipping a silently-empty page.
+  sql-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --extra dev
+      # Guard against a silent all-skip pass: if the committed gold is ever
+      # re-gitignored, the contract tests would skip and the job would go falsely
+      # green. Fail loudly instead.
+      - name: Assert committed gold is present
+        run: test -f data/gold/parquet/current_dail_vote_history.parquet
+      - run: uv run pytest -m sql -q
+        env:
+          DAIL_INTEGRATION_TESTS: "1"

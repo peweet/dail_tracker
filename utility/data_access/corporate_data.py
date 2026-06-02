@@ -17,7 +17,6 @@ import logging
 import duckdb
 import pandas as pd
 import streamlit as st
-from data_access._sql_registry import PROJECT_ROOT as _PROJECT_ROOT
 from data_access._sql_registry import register_views
 
 _log = logging.getLogger(__name__)
@@ -74,15 +73,12 @@ def fetch_cbi_repeat_distress() -> pd.DataFrame:
 def fetch_brand_aliases() -> pd.DataFrame:
     """Brand → parent_fund → fund_type curated alias map.
 
-    Source: data/_meta/loan_book_fund_aliases.csv. Used by the
-    Corporate page methodology expander to make the panel's brand-to-parent
-    classification provenance visible (so a reader sees Beltany → Goldman
-    Sachs without having to inspect the CSV)."""
-    csv_path = _PROJECT_ROOT / "data" / "_meta" / "loan_book_fund_aliases.csv"
-    if not csv_path.exists():
+    Reads the registered v_corporate_brand_aliases view (sourced from
+    data/_meta/loan_book_fund_aliases.csv) so the methodology expander can show
+    the brand-to-parent provenance (Beltany → Goldman Sachs) without inspecting
+    the CSV. Falls back to a typed-empty frame if the view/source is absent, so
+    the page's `if "notes" in aliases.columns` guard still holds."""
+    df = _safe("SELECT * FROM v_corporate_brand_aliases")
+    if df.empty:
         return pd.DataFrame(columns=["brand", "parent_fund", "fund_type", "notes"])
-    try:
-        return pd.read_csv(csv_path)
-    except Exception:
-        _log.exception("brand alias CSV load failed")
-        return pd.DataFrame(columns=["brand", "parent_fund", "fund_type", "notes"])
+    return df

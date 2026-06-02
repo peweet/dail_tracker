@@ -20,6 +20,7 @@ standalone (step 1 polls the PDFs it needs).
 CLI:
     python seanad_refresh.py
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,10 +40,10 @@ from config import (
     SILVER_DIR,
     SILVER_PARQUET_DIR,
 )
-
-_SEANAD_MEMBERS_PARQUET = SILVER_PARQUET_DIR / "flattened_seanad_members.parquet"
 from oireachtas_pdf_poller import SOURCES, run_one
 from services.votes import fetch_votes
+
+_SEANAD_MEMBERS_PARQUET = SILVER_PARQUET_DIR / "flattened_seanad_members.parquet"
 
 _log = logging.getLogger("seanad_refresh")
 

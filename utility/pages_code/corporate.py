@@ -1107,7 +1107,7 @@ def _render_featured(df: pd.DataFrame) -> None:
     }
 
     def _dominant_ftype(s: pd.Series) -> str:
-        counts = s.value_counts()
+        counts = s.value_counts()  # logic_firewall: display_only
         if counts.empty:
             return ""
         top_n = counts.iloc[0]
@@ -1153,7 +1153,7 @@ def _render_featured(df: pd.DataFrame) -> None:
         return "other"
 
     pdf["bucket"] = pdf["parent"].map(parent_to_ftype).map(_type_bucket)
-    bucket_counts = pdf["bucket"].value_counts()
+    bucket_counts = pdf["bucket"].value_counts()  # logic_firewall: display_only
     bucket_total = int(bucket_counts.sum()) or 1
     bucket_pct = {k: round(100 * v / bucket_total) for k, v in bucket_counts.items()}
     _BUCKET_LABEL = {
@@ -1217,7 +1217,7 @@ def _render_featured(df: pd.DataFrame) -> None:
 
     # Year sparkline of the receiver wave. Pure-data note (peak / low /
     # latest-full-year + counts) — no causal framing per the no-inference rule.
-    yc = recv["year"].dropna().astype(int).value_counts().sort_index()
+    yc = recv["year"].dropna().astype(int).value_counts().sort_index()  # logic_firewall: display_only
     if yc.empty:
         spark_html = ""
     else:
@@ -1491,7 +1491,7 @@ def _render_operator_strip(df: pd.DataFrame) -> None:
 # Honesty: matching is regex notice-presence over raw_text (same as the strip),
 # so copy says "named in", never "was receiver in". logic_firewall: display_only.
 # ──────────────────────────────────────────────────────────────────────────────
-_OPERATOR_PATTERN_BY_NAME: dict[str, "re.Pattern[str]"] = {
+_OPERATOR_PATTERN_BY_NAME: dict[str, re.Pattern[str]] = {
     **{name: pat for name, pat in _OPERATOR_PATTERNS_WORD},
     **{name: pat for name, pat in _OPERATOR_PATTERNS_CASE},
     "PwC": _OPERATOR_PWC,
@@ -1564,18 +1564,20 @@ def _render_firm_view(df: pd.DataFrame, firm: str, cbi_badges: list[tuple[str, d
     # Receivership-shaped subset — the fund↔firm connection is sharpest here.
     recv = fdf[
         (fdf["notice_subtype"] == "receivership")
-        | fdf["raw_text"].fillna("").astype(str).str.contains(
+        | fdf["raw_text"]
+        .fillna("")
+        .astype(str)
+        .str.contains(
             "APPOINTMENT OF (?:STATUTORY )?RECEIVER|NOTICE OF APPOINTMENT OF RECEIVER",
-            case=False, regex=True, na=False,
+            case=False,
+            regex=True,
+            na=False,
         )
     ]
     fund_rows = _explode_fund_counts(recv if not recv.empty else fdf)
 
-    # Role mix — notice-type breakdown.
-    sub_counts = [
-        (_pretty_subtype(s), int(c))
-        for s, c in fdf["notice_subtype"].value_counts().items()
-    ]
+    # Role mix — notice-type breakdown.  logic_firewall: display_only
+    sub_counts = [(_pretty_subtype(s), int(c)) for s, c in fdf["notice_subtype"].value_counts().items()]
 
     yrs = fdf["year"].dropna().astype(int)
     yr_span = f"{int(yrs.min())}–{int(yrs.max())}" if not yrs.empty else "—"
@@ -1585,25 +1587,25 @@ def _render_firm_view(df: pd.DataFrame, firm: str, cbi_badges: list[tuple[str, d
         '<div class="corp-firm-kicker">Receiver / insolvency firm</div>'
         f'<h1 class="corp-firm-h">{html.escape(firm)}</h1>'
         '<div class="corp-firm-sub">'
-        f'Named in <strong>{n:,}</strong> corporate notice{"s" if n != 1 else ""} '
-        f'({yr_span}), of which <strong>{len(recv):,}</strong> are receiverships. '
+        f"Named in <strong>{n:,}</strong> corporate notice{'s' if n != 1 else ''} "
+        f"({yr_span}), of which <strong>{len(recv):,}</strong> are receiverships. "
         '<span class="corp-firm-caveat">A firm named in a notice is not necessarily the '
-        'appointed receiver — it may appear as solicitor, auditor or filing agent. '
-        'Counts are notice presence (regex over the published text), not confirmed appointments.</span>'
-        '</div></section>'
+        "appointed receiver — it may appear as solicitor, auditor or filing agent. "
+        "Counts are notice presence (regex over the published text), not confirmed appointments.</span>"
+        "</div></section>"
     )
 
     st.html(
         '<div class="corp-firm-grid">'
         '<div class="corp-firm-panel">'
         '<div class="corp-firm-panel-h">Most often named alongside (appointing fund / bank)</div>'
-        + _firm_ranked_rows(fund_rows, link_fund=True) +
-        '</div>'
+        + _firm_ranked_rows(fund_rows, link_fund=True)
+        + "</div>"
         '<div class="corp-firm-panel">'
         '<div class="corp-firm-panel-h">By notice type</div>'
-        + _firm_ranked_rows(sub_counts, link_fund=False) +
-        '</div>'
-        '</div>'
+        + _firm_ranked_rows(sub_counts, link_fund=False)
+        + "</div>"
+        "</div>"
     )
 
     # Case list — year-grouped, Iris-linked (reuses the feed renderer).
@@ -1674,7 +1676,7 @@ def _render_methodology_expander(aliases: pd.DataFrame) -> None:
     if "notes" in aliases.columns:
         agg_kwargs["notes_concat"] = ("notes", lambda s: " · ".join(sorted({str(n) for n in s if str(n).strip()})))
     grouped = (
-        aliases.groupby(["parent_fund", "fund_type"], as_index=False)
+        aliases.groupby(["parent_fund", "fund_type"], as_index=False)  # logic_firewall: display_only
         .agg(**agg_kwargs)
         .sort_values(["fund_type", "parent_fund"])
     )
@@ -1893,7 +1895,9 @@ def _render_rescue_panel(df: pd.DataFrame) -> None:
         yc = pd.Series(dtype=int)
     else:
         ymin, ymax = int(resc_years.min()), int(resc_years.max())
-        yc = resc_years.value_counts().reindex(range(ymin, ymax + 1), fill_value=0).sort_index()
+        yc = (  # logic_firewall: display_only
+            resc_years.value_counts().reindex(range(ymin, ymax + 1), fill_value=0).sort_index()
+        )
 
     max_yc = int(yc.max()) if not yc.empty else 1
 
@@ -2005,7 +2009,7 @@ def _render_facets(full_df: pd.DataFrame) -> int:
 
     # Row 2 — year pills.
     yrs = sorted((int(y) for y in full_df["year"].dropna().unique()), reverse=True)
-    yc = full_df["year"].astype("Int64").value_counts().to_dict()
+    yc = full_df["year"].astype("Int64").value_counts().to_dict()  # logic_firewall: display_only
     current_year = datetime.date.today().year
     st.pills(
         "Year",
@@ -2021,7 +2025,7 @@ def _render_facets(full_df: pd.DataFrame) -> int:
     for lst in full_df["parent_fund_mentions"]:
         if lst is not None and hasattr(lst, "__iter__"):
             parents_in_data.extend(list(lst))
-    fund_counts = pd.Series(parents_in_data).value_counts()
+    fund_counts = pd.Series(parents_in_data).value_counts()  # logic_firewall: display_only
     fund_opts = ["All"] + fund_counts.index.tolist()
     st.selectbox(
         "Appointing fund / bank",
@@ -2119,7 +2123,7 @@ def _render_feed(
     # notices so the "separated by year" picture is visible before paging. Each
     # chip drills into that year (re-uses the ?spark= year handler).
     if group_by_year:
-        yc = df["year"].dropna().astype(int).value_counts().sort_index()
+        yc = df["year"].dropna().astype(int).value_counts().sort_index()  # logic_firewall: display_only
         if not yc.empty:
             active_years = set(int(y) for y in (st.session_state.get("corp_year_filter") or []))
             chips = "".join(
