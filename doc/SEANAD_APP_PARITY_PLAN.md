@@ -7,13 +7,17 @@
 both chambers. **These are not ETL gaps — the gold is built. They are SQL-view +
 Streamlit wiring gaps.**
 
-Status after this pass:
+Status: **ALL DONE** on branch `seanad-app-parity` (2026-06-02).
 
 | Page | State | Action |
 |------|-------|--------|
-| Attendance | ✅ **DONE** (this branch) | Dáil/Seanad picker shipped; views were already house-partitioned |
-| Payments | 🔴 **Live bug + missing picker** | Thread `house` through 4 views, then add picker |
-| Votes | 🔴 **True data-layer gap** | Gold exists; 7 views never read it. UNION + house, then picker |
+| Attendance | ✅ **DONE** | Dáil/Seanad picker shipped; views were already house-partitioned |
+| Payments | ✅ **DONE** | `house` threaded through `v_payments_member_detail` + `v_payments_yearly_evolution` + alltime ranking/summary (windows now partition by `(payment_year, house)` / `house`); contamination bug fixed (Dáil ranking 428→372 members); picker + house-aware labels shipped |
+| Votes | ✅ **DONE** | New `v_vote_base` chokepoint unions both gold parquets with a `house` column; 7 views rewritten to read from it; `votes_data` + `member_overview_data` pass `{SEANAD_VOTE_PARQUET_PATH}`; chamber toggle + renamed Divisions/Members view toggle shipped |
+
+Verified end-to-end against real gold: votes conn (1208 Seanad divisions, 60 senators), payments conn (Dáil 372 / Seanad 64 — clean split, each house its own rank #1), member_overview senator divisions match between summary + detail (no glob double-count). `test_sql_views.py` updated (v_vote_base dependency + second placeholder); full suite 248 passed / 0 failed.
+
+The sections below are retained as the implementation record.
 
 ---
 

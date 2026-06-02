@@ -1,0 +1,51 @@
+name: Data freshness
+
+# Read-only staleness CANARY. Reads the committed data/_meta/freshness.json and
+# reports how old the deployed data is — i.e. when the pipeline last produced
+# data. It does NOT refresh anything: making data fresh requires running
+# pipeline.py (the deferred cloud-automation work — see doc/CI_CD.md Phase 6).
+#
+# Alerts on the AGE OF THE PIPELINE RUN (freshness.json generated_at), not on
+# per-dataset record dates — those go quiet legitimately during Dáil recess.
+# On a scheduled run, if the pipeline hasn't produced fresh data within the
+# threshold, this opens a tracking issue (same pattern as audit.yml/nightly.yml).
+# It is schedule-only: it never blocks a PR.
+
+on:
+  schedule:
+    - cron: "0 8 * * 1,4"   # Mon & Thu 08:00 UTC
+  workflow_dispatch:
+    inputs:
+      max_age_days:
+        description: "Alert if the pipeline last ran more than this many days ago"
+        required: false
+        default: "14"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Pure stdlib — no dependency install needed; it only reads committed JSON.
+      - name: Report data freshness
+        env:
+          FRESHNESS_MAX_AGE_DAYS: ${{ github.event.inputs.max_age_days || '14' }}
+        run: python tools/freshness_report.py
+      - name: Open issue on staleness (scheduled runs only)
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              ...context.repo,
+              title: `Data freshness: deployed data looks stale (${new Date().toISOString().slice(0, 10)})`,
+              body: `The committed \`data/_meta/freshness.json\` shows the pipeline has not produced fresh data within the threshold.\n\nJob log: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nThis is a staleness *canary* ("did the pipeline stop running?"), not proof of missed upstream data. To refresh: run \`pipeline.py\` locally and commit the updated gold parquet + \`data/_meta/freshness.json\`.`,
+              labels: ["data", "freshness"],
+            });
