@@ -280,3 +280,20 @@ lobbyist/raw/
 # Overrides the blanket *.json rule above (last match wins).
 !.basedpyright/
 !.basedpyright/baseline.json
+
+# === Runtime data for the deployed Streamlit app — committed deliberately (~16 MB) ===
+# Streamlit Cloud boots from a fresh git clone with no ETL, so the gold parquet + the
+# handful of silver CSVs that utility/ + sql_views/ read at runtime MUST be tracked.
+# The blanket *.parquet / *.csv / data/gold/ rules above swallow them; re-include
+# exactly the runtime set here (last match wins). Parent dirs are re-included first —
+# git cannot un-ignore a file whose parent directory is excluded. Everything else in
+# these trees (gold/csv, intermediate silver) stays ignored via the type rules above.
+!data/gold/
+!data/gold/parquet/
+!data/gold/parquet/*.parquet
+!data/silver/aggregated_td_tables.csv
+!data/silver/flattened_members.csv
+!data/silver/flattened_seanad_members.csv
+!data/silver/seanad_aggregated_tables.csv
+!data/silver/lobbying/
+!data/silver/lobbying/client_company_returns_detail.csv
