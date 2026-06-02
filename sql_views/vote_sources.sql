@@ -6,6 +6,6 @@ SELECT DISTINCT
     NULL::VARCHAR               AS official_pdf_url,
     NULL::VARCHAR               AS legislation_url,
     'Oireachtas division record' AS source_label
-FROM read_parquet('{PARQUET_PATH}')
+FROM v_vote_base
 WHERE vote_url IS NOT NULL
   AND vote_url != '';

@@ -20,7 +20,7 @@ Much of the plan below is now shipped. Quick reconciliation against reality:
 | 3a | Pre-commit hooks | ✗ not done |
 | 3b | Dependabot (`uv` + `github-actions`, weekly) | ✅ shipped |
 | 3d | pip-audit (`audit.yml`, weekly + issue-on-fail) | ✅ shipped |
-| — | **requirements.txt ↔ pyproject drift guard** (`test_requirements_sync.py`) | ✅ shipped 2026-06-01 |
+| — | **Dependency truth: pyproject → uv.lock → requirements.txt** (`deps` job: `uv lock --check` + `uv export` diff guard) | ✅ shipped 2026-06-02 (replaced the hand-curated `test_requirements_sync.py`; `requirements.txt` is now a generated `uv export`, not a hand-maintained mirror) |
 | 4a | Endpoint health check (`nightly.yml` → `pdf_endpoint_check.py`, weekly + issue-on-fail) | ✅ shipped 2026-06-01 |
 
 **Markers reality:** `integration` / `sql` / `bronze` need committed pipeline

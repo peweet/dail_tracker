@@ -45,13 +45,19 @@ def fetch_payments_summary() -> pd.Series:
 
 
 @st.cache_data(ttl=300)
-def fetch_filter_options() -> dict[str, list]:
+def fetch_filter_options(house: str = "Dáil") -> dict[str, list]:
     conn = get_payments_conn()
+    # The payments views UNION both chambers with a `house` column; scope to the
+    # picked house so the standalone page's member list / year filter and (via
+    # fetch_year_ranking) the rankings stay single-chamber — Senators are no
+    # longer blended into the TD list.
     members = conn.execute(
-        "SELECT DISTINCT member_name FROM v_payments_member_detail ORDER BY member_name LIMIT 2000"
+        "SELECT DISTINCT member_name FROM v_payments_member_detail WHERE house = ? ORDER BY member_name LIMIT 2000",
+        [house],
     ).fetchall()
     years = conn.execute(
-        "SELECT DISTINCT payment_year FROM v_payments_yearly_evolution ORDER BY payment_year DESC LIMIT 50"
+        "SELECT DISTINCT payment_year FROM v_payments_yearly_evolution WHERE house = ? ORDER BY payment_year DESC LIMIT 50",
+        [house],
     ).fetchall()
     return {
         "members": [r[0] for r in members],
@@ -60,7 +66,7 @@ def fetch_filter_options() -> dict[str, list]:
 
 
 @st.cache_data(ttl=300)
-def fetch_year_ranking(year: int) -> pd.DataFrame:
+def fetch_year_ranking(year: int, house: str = "Dáil") -> pd.DataFrame:
     return (
         get_payments_conn()
         .execute(
@@ -68,9 +74,9 @@ def fetch_year_ranking(year: int) -> pd.DataFrame:
             " constituency, taa_band_label, total_paid, payment_count, rank_high,"
             " year_total_paid, year_member_count, year_avg_per_td"
             " FROM v_payments_yearly_evolution"
-            " WHERE payment_year = ?"
+            " WHERE payment_year = ? AND house = ?"
             " ORDER BY rank_high ASC",
-            [year],
+            [year, house],
         )
         .df()
     )
@@ -169,13 +175,13 @@ def fetch_member_payments(member_name: str, year: int, unique_member_code: str |
 
 
 @st.cache_data(ttl=3600)
-def fetch_alltime_ranking() -> pd.DataFrame:
+def fetch_alltime_ranking(house: str = "Dáil") -> pd.DataFrame:
     """All-time PSA ranking since 2020 from v_payments_alltime_ranking.
 
     Returns the full ranked list of every member with PSA payments since
-    2020. Columns: member_name, position, party_name, constituency,
-    taa_band_label, total_paid_since_2020, payment_count_since_2020,
-    earliest_year, latest_year, rank_high.
+    2020 in the given house. Columns: member_name, position, party_name,
+    constituency, taa_band_label, total_paid_since_2020,
+    payment_count_since_2020, earliest_year, latest_year, rank_high.
 
     Audit fix (2026-05-26): replaced direct parquet read +
     schema-mismatched column lookup. The parquet's schema had drifted
@@ -189,14 +195,16 @@ def fetch_alltime_ranking() -> pd.DataFrame:
             " constituency, taa_band_label, total_paid_since_2020,"
             " payment_count_since_2020, earliest_year, latest_year, rank_high"
             " FROM v_payments_alltime_ranking"
-            " ORDER BY rank_high ASC"
+            " WHERE house = ?"
+            " ORDER BY rank_high ASC",
+            [house],
         )
         .df()
     )
 
 
 @st.cache_data(ttl=3600)
-def fetch_since_2020_summary() -> dict[str, float | int]:
+def fetch_since_2020_summary(house: str = "Dáil") -> dict[str, float | int]:
     """Summary stats (total / member-count / avg) from v_payments_alltime_summary.
 
     Audit fix (2026-05-26): replaced direct parquet read +
@@ -207,7 +215,9 @@ def fetch_since_2020_summary() -> dict[str, float | int]:
     row = (
         get_payments_conn()
         .execute(
-            "SELECT total_paid_since_2020, member_count, avg_per_td_since_2020 FROM v_payments_alltime_summary LIMIT 1"
+            "SELECT total_paid_since_2020, member_count, avg_per_td_since_2020"
+            " FROM v_payments_alltime_summary WHERE house = ? LIMIT 1",
+            [house],
         )
         .fetchone()
     )

@@ -17,9 +17,30 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --group dev
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+
+  # Dependency truth: pyproject.toml (human intent) → uv.lock (resolved env) →
+  # requirements.txt (app-runtime export for Streamlit Cloud / pip fallback).
+  # This job proves all three stay in sync: the lock is current with pyproject,
+  # AND requirements.txt is a faithful export of the lock. A forgotten re-lock or
+  # a hand-edited requirements.txt fails the PR instead of silently shipping the
+  # deployed app on different versions than CI tested.
+  deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          version: "0.11.16"   # pin: keeps `uv export` output byte-stable for the diff guard
+      - name: uv.lock is in sync with pyproject.toml
+        run: uv lock --check
+      - name: requirements.txt is a current export of uv.lock (app runtime only)
+        run: |
+          uv export --frozen --no-hashes --no-emit-project --no-default-groups -o requirements.txt
+          git diff --exit-code -- requirements.txt
 
   # Streamlit logic firewall: the UI/data-access layer must read registered
   # views only — no raw parquet/CSV reads, joins, or rollups (a sanctioned
@@ -43,10 +64,10 @@ jobs:
         with:
           enable-cache: true
       # basedpyright resolves third-party imports from .venv (see the venv keys
-      # in [tool.basedpyright]). The app runtime (duckdb/streamlit/…) is core now,
-      # and --extra dev also pulls [pipeline], so every in-scope import resolves.
-      # Scope + rules live in pyproject.toml.
-      - run: uv sync --frozen --extra dev
+      # in [tool.basedpyright]). The app runtime (duckdb/streamlit/…) is core; the
+      # dev group adds basedpyright and the pipeline extra adds polars/requests/…,
+      # so every in-scope import resolves. Scope + rules live in pyproject.toml.
+      - run: uv sync --frozen --extra pipeline --group dev
       # Scoped to services/ + pure-logic modules; fails on any NEW type error.
       - run: uv run basedpyright
 
@@ -57,10 +78,10 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-      # The app runtime (streamlit/altair/plotly/duckdb) is core now, and --extra
-      # dev pulls [pipeline], so test_page_imports.py (imports every Streamlit page)
-      # plus the pipeline/schema tests all collect and run in CI.
-      - run: uv sync --frozen --extra dev
+      # The app runtime (streamlit/altair/plotly/duckdb) is core; the pipeline
+      # extra + dev group add polars/PyMuPDF/pytest/…, so test_page_imports.py
+      # (imports every Streamlit page) plus the pipeline/schema tests all run in CI.
+      - run: uv sync --frozen --extra pipeline --group dev
       # Skip markers that can't run in the default lane:
       #   integration / bronze — need committed pipeline output beyond gold.
       #   sql — runs in its own `sql-contracts` job below (against committed gold).
@@ -80,7 +101,7 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --extra pipeline --group dev
       # Guard against a silent all-skip pass: if the committed gold is ever
       # re-gitignored, the contract tests would skip and the job would go falsely
       # green. Fail loudly instead.

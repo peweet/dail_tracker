@@ -44,10 +44,12 @@ dependencies = [
 Repository = "https://github.com/peweet/dail_tracker"
 Issues = "https://github.com/peweet/dail_tracker/issues"
 
-# ── Optional dependency groups ───────────────────────────────────────────────
-# The deployed app needs none of these — they're for the pipeline, OCR, and
-# local dev/CI. Install with `uv sync --extra pipeline` (or `--all-extras`),
-# or `pip install -e ".[pipeline]"`.
+# ── Optional dependency extras ───────────────────────────────────────────────
+# Extras are published in package metadata and are the home for OPTIONAL RUNTIME
+# capability sets (the data-build pipeline, OCR). The deployed Streamlit app
+# needs none of them. Install with `uv sync --extra pipeline` (or `--all-extras`),
+# or `pip install -e ".[pipeline]"`. Dev/test TOOLING is NOT here — it lives in
+# the [dependency-groups] dev group below, so it never ships to Streamlit Cloud.
 [project.optional-dependencies]
 
 # Pipeline / ETL — extraction, enrichment, API + PDF ingestion. NOT imported by
@@ -70,22 +72,34 @@ ocr = [
     "ocrmypdf>=17.0",
 ]
 
-# Development and testing. Pulls in [pipeline] because the test suite imports the
-# pipeline/ETL modules (requests, polars, PyMuPDF, …) and the silver/gold schema
-# tests. duckdb is in core now, so it's not repeated here.
+# Everything installable as an EXTRA — a full optional-runtime local setup.
+# Dev/test tooling is intentionally excluded (it's the dev group, not an extra).
+# Full local dev env (runtime + pipeline + tooling):
+#   uv sync --extra pipeline --extra ocr --group dev
+all = [
+    "dail-tracker[ocr,pipeline]",
+]
+
+# ── Dependency groups (PEP 735) ──────────────────────────────────────────────
+# Dev/test/lint/typecheck/audit TOOLING. Two reasons this is a dependency-group,
+# not an extra:
+#   1. Groups are NOT published in package metadata — tooling never leaks into
+#      anything that installs the package.
+#   2. With `[tool.uv] default-groups = []` below, a bare `uv sync` (which is
+#      what Streamlit Cloud runs from uv.lock) installs ONLY the core runtime —
+#      never pytest/ruff/basedpyright. This is what keeps the Cloud image lean.
+# The test suite imports the pipeline/ETL modules, so the FULL dev/CI environment
+# is `core + pipeline extra + dev group`:
+#   uv sync --extra pipeline --group dev        # = CI's full lane
+[dependency-groups]
 dev = [
-    "dail-tracker[pipeline]",
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "ruff>=0.11",
-    "responses>=0.25",  # HTTP mocking for tests of services/http_engine.py and API scrapers
+    "responses>=0.25",        # HTTP mocking for tests of services/http_engine.py and API scrapers
     "pandera[polars]>=0.20",  # DataFrameModel schema checks (import pandera.polars) in the silver/gold tests
-    "basedpyright>=1.39",  # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
-]
-
-# Everything — for a full local setup
-all = [
-    "dail-tracker[ocr,dev]",
+    "basedpyright>=1.39",     # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
+    "pip-audit>=2.7",         # supply-chain CVE audit — run in .github/workflows/audit.yml
 ]
 
 # ── Script entry points ──────────────────────────────────────────────────────
@@ -122,6 +136,15 @@ dail-pipeline = "pipeline:main"
 # dail-endpoints  = "pdf_enpoint_check:main"
 
 # ── Tool configuration ───────────────────────────────────────────────────────
+
+[tool.uv]
+# Keep `uv sync` lean by default: install ONLY the core runtime unless a group is
+# explicitly requested. uv's built-in default would auto-install the `dev` group;
+# emptying default-groups means Streamlit Cloud's `uv sync` (run from uv.lock)
+# installs the deployed-app runtime and NOT the dev tooling. CI opts into the
+# group explicitly with `--group dev`; the requirements.txt export below relies
+# on this too (no default group → app-runtime-only export).
+default-groups = []
 
 [tool.ruff]
 target-version = "py312"

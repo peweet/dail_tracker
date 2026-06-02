@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-06-02T14:51:58Z",
+  "as_of_utc_date": "2026-06-02",
+  "note": "Age of the data already held — a canary for 'did the pipeline stop running'. NOT proof that no newer upstream data exists; only the source pollers can confirm that. Generated at pipeline-end (sees silver + gold) and read-only thereafter (Streamlit badge + scheduled report).",
+  "datasets": {
+    "members": {
+      "measure": "fetch_mtime",
+      "source": "data/silver/parquet/flattened_members.parquet",
+      "latest_fetch_at": "2026-06-01T12:01:06Z",
+      "status": "ok"
+    },
+    "votes": {
+      "measure": "record_date",
+      "source": "data/gold/parquet/current_dail_vote_history.parquet",
+      "status": "ok",
+      "latest_record_date": "2026-04-29"
+    },
+    "questions": {
+      "measure": "record_date",
+      "source": "data/silver/parquet/questions.parquet",
+      "status": "ok",
+      "latest_record_date": "2026-05-26"
+    },
+    "lobbying": {
+      "measure": "period",
+      "source": "data/gold/parquet/lobbyist_persistence.parquet",
+      "status": "ok",
+      "latest_period_end_date": "2026-05-01",
+      "period_label": "Q2 2026"
+    },
+    "iris": {
+      "measure": "record_date",
+      "sources": [
+        "data/gold/parquet/corporate_notices.parquet",
+        "data/gold/parquet/public_appointments.parquet",
+        "data/gold/parquet/statutory_instruments.parquet"
+      ],
+      "status": "ok",
+      "latest_record_date": "2026-05-29"
+    },
+    "corporate": {
+      "measure": "record_date",
+      "source": "data/gold/parquet/corporate_notices.parquet",
+      "status": "ok",
+      "latest_record_date": "2026-05-29"
+    },
+    "statutory_instruments": {
+      "measure": "record_date",
+      "source": "data/gold/parquet/statutory_instruments.parquet",
+      "status": "ok",
+      "latest_record_date": "2026-05-29"
+    }
+  }
+}

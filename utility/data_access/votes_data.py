@@ -21,11 +21,12 @@ import pandas as pd
 import streamlit as st
 from data_access._sql_registry import register_views
 
-from config import GOLD_VOTE_HISTORY_PARQUET
+from config import GOLD_SEANAD_VOTE_HISTORY_PARQUET, GOLD_VOTE_HISTORY_PARQUET
 
 _log = logging.getLogger(__name__)
 
 _PARQUET = GOLD_VOTE_HISTORY_PARQUET.as_posix()
+_SEANAD_PARQUET = GOLD_SEANAD_VOTE_HISTORY_PARQUET.as_posix()
 
 _VOTE_INDEX_LIMIT = 500
 _DIVISION_MEMBERS_LIMIT = 5000
@@ -34,10 +35,15 @@ _DIVISION_MEMBERS_LIMIT = 5000
 @st.cache_resource
 def get_votes_conn():
     conn = duckdb.connect()
+    # v_vote_base unions both chambers (Dáil + Seanad) and tags each row with a
+    # `house` column; the page scopes by house via a chamber toggle.
     register_views(
         conn,
         ["vote*.sql"],
-        substitutions={"{PARQUET_PATH}": _PARQUET},
+        substitutions={
+            "{PARQUET_PATH}": _PARQUET,
+            "{SEANAD_VOTE_PARQUET_PATH}": _SEANAD_PARQUET,
+        },
         swallow_errors=True,
     )
     return conn
@@ -67,19 +73,23 @@ def _and_clauses(clauses: list[str]) -> str:
 
 
 @st.cache_data(ttl=300)
-def fetch_hero_stats() -> pd.DataFrame:
+def fetch_hero_stats(house: str = "Dáil") -> pd.DataFrame:
     return _safe_query(
         get_votes_conn(),
-        "SELECT division_count, member_count, first_vote_date, last_vote_date FROM v_vote_result_summary LIMIT 1",
+        "SELECT division_count, member_count, first_vote_date, last_vote_date"
+        " FROM v_vote_result_summary WHERE house = ? LIMIT 1",
+        (house,),
     )
 
 
 @st.cache_data(ttl=300)
-def fetch_vote_years() -> list[int]:
+def fetch_vote_years(house: str = "Dáil") -> list[int]:
     df = _safe_query(
         get_votes_conn(),
         "SELECT DISTINCT CAST(EXTRACT(YEAR FROM vote_date) AS INTEGER) AS year"
-        " FROM v_vote_index WHERE vote_date IS NOT NULL ORDER BY year DESC LIMIT 20",
+        " FROM v_vote_index WHERE vote_date IS NOT NULL AND house = ?"
+        " ORDER BY year DESC LIMIT 20",
+        (house,),
     )
     if not df.empty and "year" in df.columns:
         return [int(y) for y in df["year"].dropna().tolist()]
@@ -87,42 +97,44 @@ def fetch_vote_years() -> list[int]:
 
 
 @st.cache_data(ttl=300)
-def fetch_member_names(party: str = "") -> list[str]:
+def fetch_member_names(party: str = "", house: str = "Dáil") -> list[str]:
     if party:
         df = _safe_query(
             get_votes_conn(),
             "SELECT DISTINCT member_name FROM td_vote_summary"
-            " WHERE member_name IS NOT NULL AND party_name = ?"
+            " WHERE member_name IS NOT NULL AND house = ? AND party_name = ?"
             " ORDER BY member_name ASC LIMIT 1000",
-            (party,),
+            (house, party),
         )
     else:
         df = _safe_query(
             get_votes_conn(),
             "SELECT DISTINCT member_name FROM td_vote_summary"
-            " WHERE member_name IS NOT NULL ORDER BY member_name ASC LIMIT 1000",
+            " WHERE member_name IS NOT NULL AND house = ? ORDER BY member_name ASC LIMIT 1000",
+            (house,),
         )
     return df["member_name"].tolist() if not df.empty and "member_name" in df.columns else []
 
 
 @st.cache_data(ttl=300)
-def fetch_party_names() -> list[str]:
+def fetch_party_names(house: str = "Dáil") -> list[str]:
     df = _safe_query(
         get_votes_conn(),
         "SELECT DISTINCT party_name FROM td_vote_summary"
-        " WHERE party_name IS NOT NULL ORDER BY party_name ASC LIMIT 100",
+        " WHERE party_name IS NOT NULL AND house = ? ORDER BY party_name ASC LIMIT 100",
+        (house,),
     )
     return df["party_name"].tolist() if not df.empty and "party_name" in df.columns else []
 
 
 @st.cache_data(ttl=300)
-def fetch_td_row_by_name(member_name: str) -> pd.DataFrame:
+def fetch_td_row_by_name(member_name: str, house: str = "Dáil") -> pd.DataFrame:
     return _safe_query(
         get_votes_conn(),
         "SELECT member_id, member_name, party_name, constituency,"
         " yes_count, no_count, abstained_count, division_count, yes_rate_pct"
-        " FROM td_vote_summary WHERE member_name = ? LIMIT 1",
-        (member_name,),
+        " FROM td_vote_summary WHERE member_name = ? AND house = ? LIMIT 1",
+        (member_name, house),
     )
 
 
@@ -145,9 +157,9 @@ def fetch_td_name_by_id(member_id: str) -> str:
 
 
 @st.cache_data(ttl=300)
-def fetch_vote_index(date_from, date_to, outcome) -> pd.DataFrame:
-    clauses: list[str] = []
-    params: list = []
+def fetch_vote_index(date_from, date_to, outcome, house: str = "Dáil") -> pd.DataFrame:
+    clauses: list[str] = ["house = ?"]
+    params: list = [house]
     if date_from:
         clauses.append("vote_date >= ?")
         params.append(date_from)
@@ -213,8 +225,8 @@ def fetch_sources(vote_id) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def fetch_topical_votes(topics: tuple[str, ...]) -> pd.DataFrame:
-    """Recent member votes on hot-topic debates. Used to seed the TD picker cards.
+def fetch_topical_votes(topics: tuple[str, ...], house: str = "Dáil") -> pd.DataFrame:
+    """Recent member votes on hot-topic debates. Used to seed the member picker cards.
 
     ``topics`` is a sequence of ILIKE patterns (e.g. ``"%housing%"``); the
     presentation labels stay in the page. Retrieval-only: SELECT with
@@ -229,8 +241,8 @@ def fetch_topical_votes(topics: tuple[str, ...]) -> pd.DataFrame:
         " vote_type, debate_title, vote_outcome"
         " FROM v_vote_member_detail"
         " WHERE vote_type IN ('Voted Yes', 'Voted No')"
-        " AND member_name IS NOT NULL"
+        " AND member_name IS NOT NULL AND house = ?"
         f" AND ({likes})"
         " ORDER BY vote_date DESC LIMIT 2000"
     )
-    return _safe_query(get_votes_conn(), sql, patterns)
+    return _safe_query(get_votes_conn(), sql, [house, *patterns])

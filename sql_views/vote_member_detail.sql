@@ -6,9 +6,10 @@ SELECT
     vote_type,
     party                       AS party_name,
     constituency_name           AS constituency,
+    house,
     CAST(date AS DATE)          AS vote_date,
     debate_title,
     vote_outcome,
     vote_url                    AS oireachtas_url
-FROM read_parquet('{PARQUET_PATH}')
+FROM v_vote_base
 WHERE full_name IS NOT NULL;
