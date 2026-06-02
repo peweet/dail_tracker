@@ -62,6 +62,28 @@ else:
     VOTE_PARQUET = _FIXTURES_DIR / "gold" / "parquet" / "pretty_votes.parquet"
     EXTERNAL_LINKS_PARQUET = _FIXTURES_DIR / "silver" / "parquet" / "member_external_links.parquet"
 
+# Base for resolving views' hardcoded read_parquet('data/...') literals. Many
+# views embed 'data/...' paths with no template hook, so _load rewrites them to
+# this base (mirroring production's absolutize_data_paths). In integration mode
+# that is the real project root; in CI it is the committed fixture data-tree
+# (test/fixtures/sql_views/data/...), built by _generate.py. Domains without a
+# committed fixture simply have no file there, so their tests skip in CI.
+_DATA_BASE = PROJECT_ROOT if _USE_REAL_PATHS else _FIXTURES_DIR
+
+# In CI mode, point the imported data-dir constants at the fixture tree too, so a
+# skip guard and _load resolve against the SAME base. Without this, a dev machine
+# that has real pipeline output would NOT skip a non-fixtured domain (real file
+# present) yet _load would target the absent fixture — a false failure. Domains
+# we committed fixtures for run; the rest skip cleanly. (GOLD_VOTE_HISTORY_PARQUET
+# is intentionally left real — the registration smoke test loads real data.)
+if not _USE_REAL_PATHS:
+    _FIX_DATA = _FIXTURES_DIR / "data"
+    GOLD_PARQUET_DIR = _FIX_DATA / "gold" / "parquet"
+    SILVER_PARQUET_DIR = _FIX_DATA / "silver" / "parquet"
+    SILVER_DIR = _FIX_DATA / "silver"
+    LOBBY_PARQUET_DIR = _FIX_DATA / "silver" / "lobbying" / "parquet"
+    DATA_DIR = _FIX_DATA
+
 
 # ---------------------------------------------------------------------------
 # HELPERS
@@ -80,6 +102,10 @@ def _load(filename: str, con=None) -> str:
     sql = sql.replace("{SEANAD_MEMBER_PARQUET_PATH}", str(SEANAD_MEMBER_PARQUET).replace("\\", "/"))
     sql = sql.replace("{PARQUET_PATH}", str(VOTE_PARQUET).replace("\\", "/"))
     sql = sql.replace("{EXTERNAL_LINKS_PARQUET_PATH}", str(EXTERNAL_LINKS_PARQUET).replace("\\", "/"))
+    # Rewrite hardcoded read_parquet/read_csv('data/...') literals to an absolute
+    # base (mirrors production absolutize_data_paths). CWD-independent, and in CI
+    # it points at the committed fixture tree.
+    sql = sql.replace("'data/", f"'{_DATA_BASE.as_posix()}/data/")
     return sql
 
 
@@ -97,10 +123,12 @@ def _result(con, view_name: str, limit: int = 5):
 def _src(*rel_paths: str):
     """Resolve a view's verbatim 'data/...' source literal to an absolute path.
 
-    Views read literals like read_parquet('data/gold/parquet/x.parquet'); under
-    pytest (CWD = project root) those resolve fine, but skip guards need the
-    absolute path. Pass the same 'data/...' string the SQL uses."""
-    return [PROJECT_ROOT / p for p in rel_paths]
+    Views read literals like read_parquet('data/gold/parquet/x.parquet'); skip
+    guards need the absolute path. Resolves against the SAME base _load rewrites
+    to — real project root in integration mode, the fixture tree in CI — so a
+    domain with a committed fixture runs in CI and one without skips. Pass the
+    same 'data/...' string the SQL uses."""
+    return [_DATA_BASE / p for p in rel_paths]
 
 
 def _assert_cols(result, *cols):
@@ -1249,12 +1277,8 @@ def test_member_overview_connection_builds():
     except Exception as exc:  # noqa: BLE001 — import side-effects (streamlit/config)
         pytest.skip(f"member_overview_data not importable in this env: {exc}")
 
-    subs = {
-        "{MEMBER_PARQUET_PATH}": str(MEMBER_PARQUET).replace("\\", "/"),
-        "{SEANAD_MEMBER_PARQUET_PATH}": str(SEANAD_MEMBER_PARQUET).replace("\\", "/"),
-        "{EXTERNAL_LINKS_PARQUET_PATH}": str(EXTERNAL_LINKS_PARQUET).replace("\\", "/"),
-        "{PARQUET_PATH}": str(VOTE_PARQUET).replace("\\", "/"),
-    }
+    # _load() already substitutes {MEMBER_PARQUET_PATH}, {SEANAD_MEMBER_PARQUET_PATH},
+    # {EXTERNAL_LINKS_PARQUET_PATH} and {PARQUET_PATH} — the full set these files use.
     ordered_files = [*_DOMAIN_FILES, *_REGISTRY_FILES, *_EXTERNAL_LINKS_FILES, *_VOTE_FILES]
 
     con = _con()

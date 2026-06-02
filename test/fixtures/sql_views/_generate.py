@@ -6,11 +6,20 @@ Run this to (re)create the committed fixtures under
 committed; this script exists so the schema is human-readable and
 regeneration is reproducible if the pipeline schema drifts.
 
-Fixtures generated:
-  - silver/parquet/flattened_members.parquet         (3 rows, satisfies member_registry view)
-  - silver/parquet/member_external_links.parquet    (3 rows, satisfies v_member_external_links view)
-  - gold/parquet/pretty_votes.parquet                (12 rows = 3 votes × 4 members,
-                                                      satisfies 7 vote_* views)
+Two fixture layouts:
+  - Template-path views (member registry, votes, external links) read fixtures
+    via {…_PATH} substitution, so they live directly under silver/ and gold/:
+      - silver/parquet/flattened_members.parquet      (member_registry)
+      - silver/parquet/member_external_links.parquet  (v_member_external_links)
+      - gold/parquet/pretty_votes.parquet             (7 vote_* views)
+  - Hardcoded-path views embed read_parquet('data/...') literals with no hook,
+    so their fixtures mirror the real project layout under data/ (the test's
+    _load rewrites 'data/ → this tree in CI mode):
+      - data/gold/parquet/public_appointments.parquet        (v_public_appointments)
+      - data/gold/parquet/ec_constituency_pop_2022.parquet   (constituency demographics)
+      - data/silver/parquet/dail_/seanad_member_interests_combined.parquet (6 interests views)
+      - data/silver/committees/committee_assignments.parquet + office_holders.parquet (4 committee views)
+      - data/silver/parquet/questions.parquet                (6 member-question views)
 
 Run:
     python test/fixtures/sql_views/_generate.py
@@ -18,7 +27,7 @@ Run:
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import polars as pl
@@ -26,6 +35,19 @@ import polars as pl
 FIXTURES_ROOT = Path(__file__).resolve().parent
 SILVER_PQ = FIXTURES_ROOT / "silver" / "parquet"
 GOLD_PQ = FIXTURES_ROOT / "gold" / "parquet"
+
+# Hardcoded-path views read literals like read_parquet('data/gold/parquet/x').
+# The test loader (_load) rewrites 'data/ → this fixture tree in CI mode, so the
+# layout below MIRRORS the real project data/ layout under a fixtures root.
+FIX_DATA = FIXTURES_ROOT / "data"
+
+
+def _wp(df: pl.DataFrame, rel: str) -> Path:
+    """Write a fixture parquet under FIX_DATA/<rel> (project convention: zstd)."""
+    path = FIX_DATA / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.write_parquet(path, compression="zstd", compression_level=3, statistics=True)
+    return path
 
 # ---------------------------------------------------------------------------
 # flattened_members.parquet — drives v_member_registry
@@ -162,6 +184,247 @@ MEMBER_EXTERNAL_LINKS = pl.DataFrame(
 )
 
 
+# ---------------------------------------------------------------------------
+# public_appointments.parquet — drives v_public_appointments (straight passthrough)
+# ---------------------------------------------------------------------------
+
+PUBLIC_APPOINTMENTS = pl.DataFrame(
+    {
+        "notice_ref": ["IO-APP-001", "IO-APP-002", "IO-APP-003"],
+        "issue_date": ["2025-01-15", "2025-02-20", "2025-03-10"],
+        "appointing_authority": ["Minister for Finance", "Government", "Minister for Health"],
+        "appointment_type": ["board", "board", "authority"],
+        "body": ["Central Bank Commission", "An Bord Pleanála", "HSE Board"],
+        "appointee": ["Aoife Ní Bhroin", "John Walsh", "Mary Murphy"],
+        "appointee_count": [1, 1, 1],
+        "role": ["Member", "Member", "Chairperson"],
+        "portfolio": ["Finance", "Planning", "Health"],
+        "english_summary": [
+            "Appointment of a member to the Central Bank Commission.",
+            "Appointment of a member to An Bord Pleanála.",
+            "Appointment of the Chairperson of the HSE Board.",
+        ],
+        "lang": ["en", "en", "en"],
+        "title": ["Central Bank Commission", "An Bord Pleanála", "HSE Board"],
+        "iris_source_pdf": ["iris_2025_005.pdf", "iris_2025_015.pdf", "iris_2025_020.pdf"],
+    },
+    schema_overrides={"appointee_count": pl.Int64},
+)
+
+# ---------------------------------------------------------------------------
+# ec_constituency_pop_2022.parquet — drives v_member_constituency_demographics
+# ---------------------------------------------------------------------------
+
+EC_CONSTITUENCY_POP = pl.DataFrame(
+    {
+        "constituency_name": ["Dublin South", "Cork North-West", "Galway West"],
+        "population_2022": [120000, 95000, 110000],
+        "population_per_td_2022": [30000, 31667, 27500],
+        "td_seats_2024": [4, 3, 4],
+        "boundaries_label": ["2023 boundaries"] * 3,
+        "source_key": ["EC2023_appendix2"] * 3,
+    },
+    schema_overrides={
+        "population_2022": pl.Int64,
+        "population_per_td_2022": pl.Int64,
+        "td_seats_2024": pl.Int64,
+    },
+)
+
+# ---------------------------------------------------------------------------
+# dail_/seanad_member_interests_combined.parquet — drives the 6 interests views.
+# Category labels matter: v_member_interests_index keys 'Land (including
+# property)' and 'Shares' for property_count/share_count; category '15' is the
+# excluded sentinel (none used here so nothing is filtered out).
+# ---------------------------------------------------------------------------
+
+_INTERESTS_SCHEMA = {
+    "year_elected": pl.Int64,
+    "interest_code": pl.Int64,
+    "interest_count": pl.Int64,
+    "year_declared": pl.Int32,
+}
+
+
+def _interest_row(code, fn, ln, party, constituency, category, desc, year, *, landlord=False, owner=False, occupation=False):
+    return {
+        "unique_member_code": code,
+        "first_name": fn,
+        "last_name": ln,
+        "constituency_name": constituency,
+        "full_name": f"{fn} {ln}",
+        "party": party,
+        "ministerial_office": False,
+        "year_elected": 2020,
+        "constituency": constituency,
+        "interest_code": 1,
+        "interest_description_cleaned": desc,
+        "interest_category": category,
+        "is_landlord": landlord,
+        "is_property_owner": owner,
+        "is_occupation": occupation,
+        "occupation_description": "Solicitor" if occupation else "",
+        "registration_status": "registered",
+        "interest_count": 1,
+        "year_declared": year,
+    }
+
+
+_DAIL_INTERESTS = pl.DataFrame(
+    [
+        _interest_row("Mary-Murphy.D.2020-02-08", "Mary", "Murphy", "Fianna Fáil", "Dublin South",
+                      "Land (including property)", "Rental property in Dublin 6", 2024, landlord=True, owner=True),
+        _interest_row("Mary-Murphy.D.2020-02-08", "Mary", "Murphy", "Fianna Fáil", "Dublin South",
+                      "Shares", "Shares in Acme plc", 2024),
+        _interest_row("Mary-Murphy.D.2020-02-08", "Mary", "Murphy", "Fianna Fáil", "Dublin South",
+                      "Directorships", "Director of Murphy Holdings Ltd", 2024),
+        _interest_row("Mary-Murphy.D.2020-02-08", "Mary", "Murphy", "Fianna Fáil", "Dublin South",
+                      "Occupations", "Practising solicitor", 2023, occupation=True),
+        _interest_row("Sean-OBrien.D.2016-02-26", "Sean", "O'Brien", "Sinn Féin", "Cork North-West",
+                      "Land (including property)", "Family farm in Cork", 2024, owner=True),
+        _interest_row("Sean-OBrien.D.2016-02-26", "Sean", "O'Brien", "Sinn Féin", "Cork North-West",
+                      "Shares", "Shares in Beta Energy", 2024),
+        _interest_row("Sean-OBrien.D.2016-02-26", "Sean", "O'Brien", "Sinn Féin", "Cork North-West",
+                      "Gifts", "Hospitality at conference", 2023),
+    ],
+    schema_overrides=_INTERESTS_SCHEMA,
+)
+
+_SEANAD_INTERESTS = pl.DataFrame(
+    [
+        _interest_row("Aoife-NiBhroin.S.2024-11-29", "Aoife", "Ní Bhroin", "Green Party", "Agricultural Panel",
+                      "Land (including property)", "Holiday home in Galway", 2024, owner=True),
+        _interest_row("Aoife-NiBhroin.S.2024-11-29", "Aoife", "Ní Bhroin", "Green Party", "Agricultural Panel",
+                      "Shares", "Shares in Gamma Renewables", 2024),
+    ],
+    schema_overrides=_INTERESTS_SCHEMA,
+)
+
+# ---------------------------------------------------------------------------
+# committee_assignments.parquet + office_holders.parquet — drive the 4 committee
+# views. Each committee needs exactly one is_chair=True row so chair_name resolves.
+# ---------------------------------------------------------------------------
+
+
+def _assign_row(name, party, constituency, committee, role, is_chair):
+    return {
+        "chamber": "Dáil",
+        "name": name,
+        "party": party,
+        "constituency": constituency,
+        "dail_number": 34,
+        "committee": committee,
+        "committee_url": f"https://www.oireachtas.ie/en/committees/34/{committee.lower().replace(' ', '-')}/",
+        "type": "Standing",
+        "status": "active",
+        "role": role,
+        "is_chair": is_chair,
+        "start": datetime(2024, 12, 18, 0, 0, 0),
+        "end": None,
+    }
+
+
+COMMITTEE_ASSIGNMENTS = pl.DataFrame(
+    [
+        _assign_row("Mary Murphy", "Fianna Fáil", "Dublin South", "Committee on Finance", "Chair", True),
+        _assign_row("Sean O'Brien", "Sinn Féin", "Cork North-West", "Committee on Finance", "Member", False),
+        _assign_row("John Walsh", "Fine Gael", "Dublin Rathdown", "Committee on Finance", "Member", False),
+        _assign_row("Sean O'Brien", "Sinn Féin", "Cork North-West", "Committee on Health", "Chair", True),
+        _assign_row("Aoife Ní Bhroin", "Green Party", "Galway West", "Committee on Health", "Member", False),
+        _assign_row("Mary Murphy", "Fianna Fáil", "Dublin South", "Committee on Health", "Member", False),
+    ],
+    schema_overrides={"dail_number": pl.Int32, "start": pl.Datetime, "end": pl.Datetime},
+)
+
+COMMITTEE_OFFICES = pl.DataFrame(
+    {
+        "chamber": ["Dáil", "Dáil"],
+        "name": ["Mary Murphy", "John Walsh"],
+        "party": ["Fianna Fáil", "Fine Gael"],
+        "office": ["Ceann Comhairle", "Leas-Cheann Comhairle"],
+        "start": [datetime(2024, 12, 18), datetime(2024, 12, 18)],
+        "end": [None, None],
+    },
+    schema_overrides={"start": pl.Datetime, "end": pl.Datetime},
+)
+
+# ---------------------------------------------------------------------------
+# questions.parquet — drives 6 member-question views. v_member_question_focus_shift
+# needs ≥30 questions in BOTH the pre-2024-11-29 ("past") and post ("recent")
+# windows for one member, with a DIFFERENT top ministry in each, to emit a row.
+# Mary gets 30 past (Health) + 30 recent (Justice); Sean gets a small spread.
+# ---------------------------------------------------------------------------
+
+_QUESTIONS_COLS = [
+    "context_date",
+    "td_name",
+    "unique_member_code",
+    "question_date",
+    "question_number",
+    "house_no",
+    "question.house.houseCode",
+    "house",
+    "question_type",
+    "debate_section_id",
+    "topic",
+    "ministry",
+    "question_text",
+    "question_ref",
+    "year",
+]
+
+
+def _q_row(code, name, dt: datetime, ministry, topic, n):
+    ds = dt.strftime("%Y-%m-%d")
+    return {
+        "context_date": ds,
+        "td_name": name,
+        "unique_member_code": code,
+        "question_date": dt,
+        "question_number": n,
+        "house_no": "34",
+        "question.house.houseCode": "dail",
+        "house": "Dáil",
+        "question_type": "written" if n % 2 else "oral",
+        "debate_section_id": f"sec-{ds}-{(n % 3) + 1}",
+        "topic": topic,
+        "ministry": ministry,
+        "question_text": f"To ask the Minister for {ministry} about {topic}. [{n}/{dt.year % 100}]",
+        "question_ref": f"{n}/{dt.year % 100}",
+        "year": dt.year,
+    }
+
+
+def _build_questions() -> pl.DataFrame:
+    rows = []
+    n = 1000
+    # Mary: 30 past (Health, 2023), 30 recent (Justice, 2025) → focus-shift row.
+    for i in range(30):
+        rows.append(_q_row("Mary-Murphy.D.2020-02-08", "Mary Murphy",
+                            datetime(2023, 1, 10) + _days(i * 3), "Health", "Hospital waiting lists", n)); n += 1
+    for i in range(30):
+        rows.append(_q_row("Mary-Murphy.D.2020-02-08", "Mary Murphy",
+                            datetime(2025, 1, 10) + _days(i * 3), "Justice", "Garda staffing levels", n)); n += 1
+    # Sean: a smaller mixed spread across both windows.
+    for i in range(6):
+        rows.append(_q_row("Sean-OBrien.D.2016-02-26", "Sean O'Brien",
+                            datetime(2023, 3, 1) + _days(i * 5), "Housing", "Social housing delivery", n)); n += 1
+    for i in range(4):
+        rows.append(_q_row("Sean-OBrien.D.2016-02-26", "Sean O'Brien",
+                            datetime(2025, 3, 1) + _days(i * 5), "Housing", "Rent pressure zones", n)); n += 1
+    return pl.DataFrame(rows, schema_overrides={
+        "question_date": pl.Datetime,
+        "question_number": pl.Int64,
+        "year": pl.Int32,
+    }).select(_QUESTIONS_COLS)
+
+
+def _days(n: int):
+    from datetime import timedelta
+
+    return timedelta(days=n)
+
+
 def main() -> None:
     SILVER_PQ.mkdir(parents=True, exist_ok=True)
     GOLD_PQ.mkdir(parents=True, exist_ok=True)
@@ -177,6 +440,21 @@ def main() -> None:
     print(f"Wrote {members_path} ({FLATTENED_MEMBERS.height} rows)")
     print(f"Wrote {votes_path} ({PRETTY_VOTES.height} rows)")
     print(f"Wrote {ext_links_path} ({MEMBER_EXTERNAL_LINKS.height} rows)")
+
+    # Hardcoded-'data/'-path view fixtures, mirroring the real project layout.
+    questions = _build_questions()
+    hardcoded = [
+        (PUBLIC_APPOINTMENTS, "gold/parquet/public_appointments.parquet"),
+        (EC_CONSTITUENCY_POP, "gold/parquet/ec_constituency_pop_2022.parquet"),
+        (_DAIL_INTERESTS, "silver/parquet/dail_member_interests_combined.parquet"),
+        (_SEANAD_INTERESTS, "silver/parquet/seanad_member_interests_combined.parquet"),
+        (COMMITTEE_ASSIGNMENTS, "silver/committees/committee_assignments.parquet"),
+        (COMMITTEE_OFFICES, "silver/committees/office_holders.parquet"),
+        (questions, "silver/parquet/questions.parquet"),
+    ]
+    for df, rel in hardcoded:
+        path = _wp(df, rel)
+        print(f"Wrote {path} ({df.height} rows)")
 
 
 if __name__ == "__main__":
