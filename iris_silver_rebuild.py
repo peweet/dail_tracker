@@ -28,6 +28,7 @@ from pathlib import Path
 
 import polars as pl
 
+from config import BRONZE_DIR, SILVER_DIR
 from iris_oifigiuil_etl_polars import (
     add_quarantine,
     build_bronze_frame,
@@ -37,10 +38,9 @@ from iris_oifigiuil_etl_polars import (
     shape_for_gold,
 )
 
-_ROOT = Path(__file__).resolve().parent
-_OUT = _ROOT / "data" / "silver" / "iris_oifigiuil"
+_OUT = SILVER_DIR / "iris_oifigiuil"
 _BRONZE_CSV = _OUT / "iris_raw_lines_pymupdf.csv"
-_PDFS = _ROOT / "data" / "bronze" / "iris_oifigiuil"
+_PDFS = BRONZE_DIR / "iris_oifigiuil"
 _DEFAULT_THRESHOLD = 0.75
 
 _OUTPUT_FILES = [

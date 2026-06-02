@@ -58,6 +58,7 @@ from typing import Any
 
 import polars as pl
 
+from config import BRONZE_DIR, SILVER_DIR
 from iris_oifigiuil_etl_polars import (
     extract_lines_raw,
     find_member_interest_page_ranges,
@@ -68,9 +69,8 @@ from iris_oifigiuil_etl_polars import (
 # under an older version are rebuilt automatically on the next run.
 EXTRACTOR_VERSION = "iris-extract/2026-05-05"
 
-_ROOT = Path(__file__).resolve().parent
-DEFAULT_SHARD_ROOT = _ROOT / "data" / "silver" / "iris_oifigiuil_shards"
-DEFAULT_INPUT_GLOB = str(_ROOT / "data" / "bronze" / "iris_oifigiuil" / "*.pdf")
+DEFAULT_SHARD_ROOT = SILVER_DIR / "iris_oifigiuil_shards"
+DEFAULT_INPUT_GLOB = str(BRONZE_DIR / "iris_oifigiuil" / "*.pdf")
 
 MANIFEST_NAME = "_manifest.json"
 BRONZE_SUBDIR = "bronze"

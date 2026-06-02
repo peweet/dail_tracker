@@ -57,17 +57,15 @@ from __future__ import annotations
 import io
 import logging
 import time
-from pathlib import Path
 
 import polars as pl
 import requests
 
-from config import SILVER_PARQUET_DIR
+from config import BRONZE_DIR, SILVER_PARQUET_DIR
 
-_ROOT = Path(__file__).resolve().parent
 _MEMBERS_PARQUET = SILVER_PARQUET_DIR / "flattened_members.parquet"
 _OUT = SILVER_PARQUET_DIR / "member_external_links.parquet"
-_RAW_OUT = _ROOT / "data" / "bronze" / "wikidata" / "member_external_links_raw.csv"
+_RAW_OUT = BRONZE_DIR / "wikidata" / "member_external_links_raw.csv"
 
 _SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 _USER_AGENT = "dail-tracker/1.0 (civic accountability data project)"

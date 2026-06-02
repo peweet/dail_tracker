@@ -37,18 +37,16 @@ from __future__ import annotations
 
 import logging
 import re
-from pathlib import Path
 
 import pandas as pd
 
-from config import GOLD_PARQUET_DIR, SILVER_DIR
+from config import DATA_DIR, GOLD_PARQUET_DIR, SILVER_DIR
 
 logger = logging.getLogger(__name__)
 
-_ROOT = Path(__file__).resolve().parent
 _SI_CSV = SILVER_DIR / "iris_oifigiuil" / "iris_si_taxonomy.csv"
 _BILL_SI = GOLD_PARQUET_DIR / "bill_statutory_instruments.parquet"
-_ALIASES = _ROOT / "data" / "_meta" / "si_department_aliases.csv"
+_ALIASES = DATA_DIR / "_meta" / "si_department_aliases.csv"
 _TENURE = SILVER_DIR / "ministerial_tenure.parquet"
 _OUT = GOLD_PARQUET_DIR / "statutory_instruments.parquet"
 
