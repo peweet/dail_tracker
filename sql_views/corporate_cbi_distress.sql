@@ -2,11 +2,12 @@
 -- v_corporate_cbi_repeat_distress — per-firm aggregate for the "regulated firms
 --                                    in repeat distress" panel.
 --
--- Source: data/sandbox/parquet/cbi_xref_corporate_notices.parquet
---   produced by pipeline_sandbox/cbi_registers_extract.py (sandbox enrichment;
---   the underlying CBI register PDFs are extracted heuristically — see the
---   script docstring). Inner-join of v_corporate_notices entity_name against
---   the de-duplicated CBI firm-name index, EXACT normalised match only.
+-- Source: data/gold/parquet/cbi_xref_corporate_notices.parquet
+--   produced by pipeline_sandbox/cbi_registers_extract.py (the corporate xref is
+--   the one PROMOTED output — committed gold, run as the `cbi` pipeline chain).
+--   The underlying CBI register PDFs are extracted heuristically (see the script
+--   docstring), but this xref is an inner-join of v_corporate_notices entity_name
+--   against the de-duplicated CBI firm-name index, EXACT normalised match only.
 --
 -- Why this lives behind sql_views/corporate_*.sql and not its own family:
 --   it's a strict subset of the corporate notices grain — every row in
@@ -38,7 +39,7 @@ SELECT
     -- remains available for the detail view.
     COALESCE(registers[1], '')                            AS primary_register,
     COALESCE(ref_nos[1],   '')                            AS primary_ref_no
-FROM read_parquet('data/sandbox/parquet/cbi_xref_corporate_notices.parquet')
+FROM read_parquet('data/gold/parquet/cbi_xref_corporate_notices.parquet')
 WHERE entity_norm IS NOT NULL;
 
 -- 2. Per-firm aggregate — used for the "regulated firms in repeat distress"
@@ -65,7 +66,7 @@ WITH base AS (
         COUNT(*) FILTER (WHERE notice_subtype = 'companies_act_notice')                   AS n_companies_act,
         MIN(issue_date)                                   AS first_notice_date,
         MAX(issue_date)                                   AS last_notice_date
-    FROM read_parquet('data/sandbox/parquet/cbi_xref_corporate_notices.parquet')
+    FROM read_parquet('data/gold/parquet/cbi_xref_corporate_notices.parquet')
     WHERE entity_norm IS NOT NULL
     GROUP BY entity_norm
 )

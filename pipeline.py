@@ -58,6 +58,10 @@ CHAINS: list[tuple[str, str]] = [
     ("lobbying", "lobbying_refresh.py"),
     ("iris", "iris_refresh.py"),
     ("legislation", "legislation_refresh.py"),
+    # cbi runs last: its corporate-notices xref joins gold corporate_notices
+    # (produced by iris) against the CBI register extract. Skips re-download
+    # when the source PDFs are cached, so routine runs are extract+xref only.
+    ("cbi", "pipeline_sandbox/cbi_registers_extract.py"),
 ]
 
 _CHAIN_BLURBS: dict[str, str] = {
