@@ -40,10 +40,12 @@ We store both the raw handle and the derived URL so:
 - the URL is what the UI consumes, computed once at ETL time instead of
   scattering URL-construction code across pages.
 
-Coverage as of last probe (Dáil 34): ~95% of sitting TDs have a Wikidata
-entry; ~56% have Twitter; Wikipedia coverage matches the Wikidata-entry
-coverage. Seanad members are mostly absent from Wikidata — that's fine,
-the UI just shows fewer chips.
+Both chambers are in scope: the filter set unions the Dáil and Seanad
+flattened-members parquets, and the SPARQL query already over-fetches every
+Oireachtas P4690 slug. Coverage as of last probe (Dáil 34): ~95% of sitting
+TDs have a Wikidata entry; ~56% have Twitter; Wikipedia coverage matches the
+Wikidata-entry coverage. Senators are sparser on Wikidata — that's fine, the
+UI just shows fewer chips for them.
 
 PROVENANCE: the raw SPARQL CSV is cached to
 data/bronze/wikidata/member_external_links_raw.csv on every run.
@@ -64,6 +66,7 @@ import requests
 from config import BRONZE_DIR, SILVER_PARQUET_DIR
 
 _MEMBERS_PARQUET = SILVER_PARQUET_DIR / "flattened_members.parquet"
+_SEANAD_MEMBERS_PARQUET = SILVER_PARQUET_DIR / "flattened_seanad_members.parquet"
 _OUT = SILVER_PARQUET_DIR / "member_external_links.parquet"
 _RAW_OUT = BRONZE_DIR / "wikidata" / "member_external_links_raw.csv"
 
@@ -170,19 +173,27 @@ def fetch_wikidata(attempts: int = 4) -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def current_member_codes() -> set[str]:
-    """`unique_member_code` values from the silver members parquet — the set
-    we filter Wikidata results to. Missing parquet = empty set; the ETL still
-    writes an empty output so downstream views don't break, but it logs loud.
-    """
-    if not _MEMBERS_PARQUET.exists():
-        logger.warning(
-            "flattened_members.parquet not found — output will be empty: %s",
-            _MEMBERS_PARQUET,
-        )
+def _codes_from(parquet) -> set[str]:
+    """`unique_member_code` values from one flattened-members parquet. Missing
+    file = empty set (logged loud), so a single absent chamber narrows coverage
+    but never crashes the ETL or empties the other chamber's output."""
+    if not parquet.exists():
+        logger.warning("%s not found — its members get no social chips: %s", parquet.name, parquet)
         return set()
-    df = pl.read_parquet(_MEMBERS_PARQUET, columns=["unique_member_code"])
+    df = pl.read_parquet(parquet, columns=["unique_member_code"])
     return set(df["unique_member_code"].drop_nulls().unique().to_list())
+
+
+def current_member_codes() -> set[str]:
+    """The `unique_member_code` set we filter Wikidata results to: both chambers.
+
+    The SPARQL query over-fetches every Oireachtas P4690 slug (TDs *and*
+    Senators), so the only thing that scopes coverage is this filter. Union the
+    Dáil and Seanad flattened-members parquets — `unique_member_code` is unique
+    across chambers, so one combined `member_external_links.parquet` correctly
+    keys both, and the member-overview hero joins on it regardless of house.
+    """
+    return _codes_from(_MEMBERS_PARQUET) | _codes_from(_SEANAD_MEMBERS_PARQUET)
 
 
 def build_links_df(raw: pl.DataFrame, codes_now: set[str]) -> pl.DataFrame:
