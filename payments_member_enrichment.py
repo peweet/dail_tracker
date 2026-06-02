@@ -37,13 +37,15 @@ from pathlib import Path
 
 import polars as pl
 
-REPO_ROOT = Path(__file__).resolve().parent
+from config import GOLD_PARQUET_DIR, SILVER_PARQUET_DIR
+from paths import PROJECT_ROOT as REPO_ROOT
+
 sys.path.insert(0, str(REPO_ROOT))
 
 from normalise_join_key import normalise_df_td_name  # noqa: E402
 
-PAYMENTS_PARQUET = REPO_ROOT / "data" / "gold" / "parquet" / "payments_full_psa.parquet"
-MEMBERS_PARQUET = REPO_ROOT / "data" / "silver" / "parquet" / "flattened_members.parquet"
+PAYMENTS_PARQUET = GOLD_PARQUET_DIR / "payments_full_psa.parquet"
+MEMBERS_PARQUET = SILVER_PARQUET_DIR / "flattened_members.parquet"
 
 
 def _build_member_lookup(members_parquet: Path = MEMBERS_PARQUET) -> pl.DataFrame:

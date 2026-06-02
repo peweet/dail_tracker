@@ -28,17 +28,14 @@ unique() on RCN is belt-and-braces in case any join introduces duplicates.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 import polars as pl
 
-from config import GOLD_PARQUET_DIR, SILVER_DIR
-
-_ROOT = Path(__file__).resolve().parent
+from config import DATA_DIR, GOLD_PARQUET_DIR, SILVER_DIR
 
 CHARITY_RESOLVED = SILVER_DIR / "charities" / "charity_resolved.parquet"
 CRO_COMPANIES = SILVER_DIR / "cro" / "companies.parquet"
-NACE_REFERENCE = _ROOT / "data" / "_meta" / "nace_v2_sections.csv"
+NACE_REFERENCE = DATA_DIR / "_meta" / "nace_v2_sections.csv"
 OUTPUT = GOLD_PARQUET_DIR / "charities_enriched.parquet"
 
 # CRO columns we want on top of what charity_resolved already pulls,

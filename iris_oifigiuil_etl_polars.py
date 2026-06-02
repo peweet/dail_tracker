@@ -38,6 +38,8 @@ from typing import Any
 import fitz  # PyMuPDF
 import polars as pl
 
+from config import BRONZE_DIR, SILVER_DIR
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -1904,9 +1906,8 @@ def run(
 # Default input — every Iris PDF in bronze. When the script is run with no
 # arguments (e.g. clicked from an IDE) we fall back to this so we always
 # process the full historical corpus rather than erroring out.
-_ROOT = Path(__file__).resolve().parent
-DEFAULT_INPUT_GLOB = str(_ROOT / "data" / "bronze" / "iris_oifigiuil" / "*.pdf")
-DEFAULT_OUT_DIR = str(_ROOT / "data" / "silver" / "iris_oifigiuil")
+DEFAULT_INPUT_GLOB = str(BRONZE_DIR / "iris_oifigiuil" / "*.pdf")
+DEFAULT_OUT_DIR = str(SILVER_DIR / "iris_oifigiuil")
 
 
 def main() -> None:

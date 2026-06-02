@@ -34,6 +34,8 @@ from pathlib import Path
 
 import orjson
 
+from paths import PROJECT_ROOT
+
 SPARQL_URL = "https://query.wikidata.org/sparql"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 
@@ -42,7 +44,6 @@ HEADERS = {
     "Accept": "application/sparql-results+json",
 }
 
-PROJECT_ROOT = Path(__file__).resolve().parent
 PHOTO_DIR = PROJECT_ROOT / "avatar" / "wikidata"
 MANIFEST_PATH = PHOTO_DIR / "manifest.json"
 

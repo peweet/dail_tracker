@@ -41,10 +41,14 @@ _FIXTURES_DIR = Path(__file__).parent / "fixtures" / "sql_views"
 
 if _USE_REAL_PATHS:
     MEMBER_PARQUET = SILVER_PARQUET_DIR / "flattened_members.parquet"
+    SEANAD_MEMBER_PARQUET = SILVER_PARQUET_DIR / "flattened_seanad_members.parquet"
     VOTE_PARQUET = GOLD_PARQUET_DIR / "pretty_votes.parquet"
     EXTERNAL_LINKS_PARQUET = SILVER_PARQUET_DIR / "member_external_links.parquet"
 else:
     MEMBER_PARQUET = _FIXTURES_DIR / "silver" / "parquet" / "flattened_members.parquet"
+    # The Seanad members parquet shares the Dáil schema, so the committed Dáil
+    # fixture doubles as the Seanad source for the registry-union template test.
+    SEANAD_MEMBER_PARQUET = MEMBER_PARQUET
     VOTE_PARQUET = _FIXTURES_DIR / "gold" / "parquet" / "pretty_votes.parquet"
     EXTERNAL_LINKS_PARQUET = _FIXTURES_DIR / "silver" / "parquet" / "member_external_links.parquet"
 
@@ -63,6 +67,7 @@ def _load(filename: str, con=None) -> str:
     """Read a SQL view file and substitute known template paths."""
     sql = (SQL_VIEWS_DIR / filename).read_text(encoding="utf-8")
     sql = sql.replace("{MEMBER_PARQUET_PATH}", str(MEMBER_PARQUET).replace("\\", "/"))
+    sql = sql.replace("{SEANAD_MEMBER_PARQUET_PATH}", str(SEANAD_MEMBER_PARQUET).replace("\\", "/"))
     sql = sql.replace("{PARQUET_PATH}", str(VOTE_PARQUET).replace("\\", "/"))
     sql = sql.replace("{EXTERNAL_LINKS_PARQUET_PATH}", str(EXTERNAL_LINKS_PARQUET).replace("\\", "/"))
     return sql
@@ -151,6 +156,7 @@ def test_v_member_registry_executes():
     result = _result(con, "v_member_registry")
     assert "unique_member_code" in result.columns
     assert "member_name" in result.columns
+    assert "house" in result.columns  # Dáil/Seanad union column
     assert len(result) > 0
 
 

@@ -158,3 +158,23 @@ def test_build_seanad_votes_silver(tmp_path):
     # tally labels mapped
     assert set(df["vote_type"]) == {"Voted Yes", "Voted No"}
     assert "Chris-Andrews.D.2007-06-14" in set(df["unique_member_code"])
+
+
+# ── Chamber-aware vote URL + pipeline registration ───────────────────────────
+def test_build_vote_url_is_chamber_aware():
+    try:
+        from services.votes import build_vote_url
+    except ImportError as exc:  # pragma: no cover - env-specific (rpds/jsonschema)
+        pytest.skip(f"services.votes unimportable in this env: {exc}")
+    assert "chamber=dail" in build_vote_url()
+    assert "chamber=seanad" in build_vote_url("seanad")
+    assert build_vote_url().endswith("&outcome=")  # the load-bearing trailing param
+
+
+def test_pipeline_registers_seanad_chain():
+    try:
+        import pipeline
+    except ImportError as exc:  # pragma: no cover
+        pytest.skip(f"pipeline unimportable in this env: {exc}")
+    assert ("seanad", "seanad_refresh.py") in pipeline.CHAINS
+    assert "seanad" in pipeline._CHAIN_BLURBS

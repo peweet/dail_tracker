@@ -25,15 +25,13 @@ from __future__ import annotations
 import logging
 import re
 import string
-from pathlib import Path
 
 import pandas as pd
 
-from config import GOLD_PARQUET_DIR, SILVER_DIR, SILVER_PARQUET_DIR
+from config import DATA_DIR, GOLD_PARQUET_DIR, SILVER_DIR, SILVER_PARQUET_DIR
 
 logger = logging.getLogger(__name__)
 
-_ROOT = Path(__file__).resolve().parent
 _SI_CSV = SILVER_DIR / "iris_oifigiuil" / "iris_si_taxonomy.csv"
 _SPONSORS = SILVER_PARQUET_DIR / "sponsors.parquet"
 _OUT = GOLD_PARQUET_DIR / "bill_statutory_instruments.parquet"
@@ -44,7 +42,7 @@ _OUT_UNM = SILVER_DIR / "_meta" / "bill_statutory_instruments_unmatched.parquet"
 # being mis-attributed to a same-name 2014+ Amendment Bill. Synthetic
 # bill_ids are "act_<year>_<slug>" so they're visually distinct from
 # real "<year>_<bill_no>" ids and don't collide with v_legislation_index.
-_PRE2014_ACTS = _ROOT / "data" / "_meta" / "pre2014_acts.csv"
+_PRE2014_ACTS = DATA_DIR / "_meta" / "pre2014_acts.csv"
 
 # Constants lifted verbatim from statutory_instruments.py
 SI_YEAR_FLOOR = 2018
