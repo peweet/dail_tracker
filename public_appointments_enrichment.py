@@ -1,4 +1,4 @@
-"""Public Appointments enrichment (PROTOTYPE — pipeline_sandbox).
+"""Public Appointments enrichment — Iris-derived gold step (iris_refresh step 5).
 
 Builds the on-mission appointments entity from the Iris `public_appointment`
 notices: state boards/agencies, special advisers, and judicial appointments
@@ -10,23 +10,24 @@ templates and many carry the English inline in parentheses. Proper nouns
 Reads  : data/silver/iris_oifigiuil/iris_notice_events_clean.csv
 Writes : data/gold/parquet/public_appointments.parquet (when --write)
 
-This is a sandbox prototype: row-wise Python extraction (n~1.2k, instant) for
-readability. Vectorise into the ETL once the shape is agreed.
+Row-wise Python extraction (n~1.2k, instant) for readability. Vectorise into
+the ETL once the shape is agreed.
 """
 from __future__ import annotations
 
 import argparse
 import re
 import sys
-from pathlib import Path
 
 import polars as pl
 
-_ROOT = Path(__file__).resolve().parents[1]
+from config import GOLD_PARQUET_DIR, SILVER_DIR
+from paths import PROJECT_ROOT as _ROOT
+
 sys.path.insert(0, str(_ROOT))
 
-_SRC = _ROOT / "data" / "silver" / "iris_oifigiuil" / "iris_notice_events_clean.csv"
-_OUT = _ROOT / "data" / "gold" / "parquet" / "public_appointments.parquet"
+_SRC = SILVER_DIR / "iris_oifigiuil" / "iris_notice_events_clean.csv"
+_OUT = GOLD_PARQUET_DIR / "public_appointments.parquet"
 
 # ── Curated Irish→English maps (the dozen recurring forms) ──────────────────────
 COURTS = {
@@ -245,10 +246,10 @@ def extract_appointees(t: str) -> list[str]:
     # formula line and the "a cheapadh/athcheapadh/…" verb line.
     names: list[str] = []
     start = None
-    for i, l in enumerate(lines):
-        if re.search(r"(?i)tar éis$|have this day$|appointed[,:.]?$", l):
+    for i, line in enumerate(lines):
+        if re.search(r"(?i)tar éis$|have this day$|appointed[,:.]?$", line):
             start = i
-        if start is not None and _APPT_VERB_GA.search(l) and i > start:
+        if start is not None and _APPT_VERB_GA.search(line) and i > start:
             for cand in lines[start + 1:i]:
                 if re.fullmatch(r"(?i)agus|and|&", _clean_name_line(cand)):
                     continue
@@ -261,16 +262,16 @@ def extract_appointees(t: str) -> list[str]:
 
     # English: name(s) on the same line as the verb — "appointed Ms Carol Gibbons",
     # "appointed X and Y as board members". Highest-yield English pattern.
-    for l in lines:
-        got = _names_after_verb(l)
+    for line in lines:
+        got = _names_after_verb(line)
         if got:
             names.extend(got)
     if names:
         return _dedup(names)
 
     # English "the following…:" / bullet list of names (name may trail a sentence).
-    for i, l in enumerate(lines):
-        if re.search(r"(?i)following\b", l) or l.rstrip().endswith(":"):
+    for i, line in enumerate(lines):
+        if re.search(r"(?i)following\b", line) or line.rstrip().endswith(":"):
             for cand in lines[i + 1:i + 12]:
                 nm = _name_from_line(cand)
                 if nm:
@@ -281,16 +282,16 @@ def extract_appointees(t: str) -> list[str]:
                 return _dedup(names)
 
     # English: verb line then the next proper-noun line.
-    for i, l in enumerate(lines):
-        if _APPT_VERB_EN.search(l):
+    for i, line in enumerate(lines):
+        if _APPT_VERB_EN.search(line):
             for cand in lines[i + 1:i + 3]:
                 nm = _name_from_line(cand)
                 if nm:
                     return [nm]
 
     # Irish fallback: nearest name line before the verb.
-    for i, l in enumerate(lines):
-        if _APPT_VERB_GA.search(l):
+    for i, line in enumerate(lines):
+        if _APPT_VERB_GA.search(line):
             for j in range(i - 1, max(i - 6, -1), -1):
                 nm = _name_from_line(lines[j])
                 if nm:
