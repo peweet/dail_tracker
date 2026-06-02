@@ -32,6 +32,7 @@ Run: python test_wiki_data.py
 
 import html as _html
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -108,13 +109,29 @@ ORDER BY ?chamber ?constituencyLabel ?personLabel
 """
 
 
-def fetch_sparql(query: str) -> list[dict]:
+def fetch_sparql(query: str, attempts: int = 4) -> list[dict]:
+    """Run the SPARQL query against WDQS with retry/backoff.
+
+    WDQS rate-limits aggressively during active-outage windows (HTTP 429,
+    "1 req / min"). Back off on any transient failure and retry rather than
+    aborting the whole run, mirroring wikidata_socials_etl.fetch_wikidata.
+    """
     params = urllib.parse.urlencode({"query": query, "format": "json"})
     url = f"{SPARQL_URL}?{params}"
-    req = urllib.request.Request(url, headers=HEADERS)
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        data = orjson.loads(resp.read())
-    return data["results"]["bindings"]
+    last_err: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            req = urllib.request.Request(url, headers=HEADERS)
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = orjson.loads(resp.read())
+            return data["results"]["bindings"]
+        except Exception as e:  # noqa: BLE001 — retry every transient cause
+            last_err = e
+            wait = 65 * attempt  # WDQS throttle is 1 req/min when active
+            print(f"SPARQL attempt {attempt}/{attempts} failed: {e} -- sleeping {wait}s")
+            if attempt < attempts:
+                time.sleep(wait)
+    raise SystemExit(f"Wikidata SPARQL fetch failed after {attempts} attempts: {last_err}")
 
 
 def image_url_to_thumb(commons_url: str, width: int) -> str:
