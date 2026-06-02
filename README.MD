@@ -65,7 +65,9 @@ Only the current Dáil and Seanad are in scope. See [`doc/DATA_LIMITATIONS.md`](
 | Central Bank of Ireland register cross-ref (Corporate page) | **Sandbox** — `pipeline_sandbox/cbi_registers_extract.py` parses 56 of the CBI downloads-page register PDFs into `data/sandbox/parquet/cbi_authorised_firms.parquet` (13.8k firm rows). Three SQL views (`sql_views/corporate_cbi_distress.sql`) expose the per-notice match + repeat-distress aggregate. **Enforcement actions / prohibition notices not yet ingested** — see [`doc/ENRICHMENTS.md`](doc/ENRICHMENTS.md) §E.5 |
 | Brand → parent fund alias map (Corporate page) | Working — `data/_meta/loan_book_fund_aliases.csv`, hand-curated, citation-anchored. Surfaces vulture-fund / Irish bank / credit servicer / state classification on the receiver-appointer panel |
 | Tests (silver / gold / SQL view shape) | Partial — many tests skip when fixtures are missing |
-| Public deployment | None — local Streamlit only |
+| Seanad (Senator) parity chain | Working — `seanad_refresh.py` reuses the Dáil parsers (votes + attendance + payments + gold) with Senator inputs; senator enrichment + UI shipped |
+| Constituency population (Census 2022 on 43 EC boundaries) | Working — `ec_constituency_pop_extract.py`, wired into the `members` chain |
+| Public deployment | Streamlit Community Cloud — deploy configured (installs from `uv.lock`; runtime gold parquet + member avatars committed) |
 
 ---
 
@@ -147,6 +149,8 @@ Two rules govern what gets written in the dashboard UI:
 | CRO companies | CRO bulk export | Director / company / address normalised | `cro_normalise.py` | Production |
 | Charities register | Charities Regulator XLSX | Register, trustees, annual reports + Tier-A join + NACE-sector gold | `charity_normalise.py`, `charity_resolved.py`, `charity_enriched.py` | Production |
 | Member external links (socials / Wikipedia) | Wikidata SPARQL | Twitter/X, Wikipedia URLs per TD/Senator | `wikidata_socials_etl.py` | Production |
+| Constituency population | Electoral Commission / Census 2022 | Census 2022 population on the current 43 constituency boundaries | `ec_constituency_pop_extract.py` | Production |
+| Seanad (Senator) parity | Oireachtas API + PDFs | Senator votes, attendance, payments + gold enrichment (reuses Dáil parsers) | `seanad_refresh.py` | Production |
 
 A small number of one-off enrichers (e.g. committees long-format ETL, public-appointments enrichment) still live in [`pipeline_sandbox/`](pipeline_sandbox/) until promoted; the rest of the historical sandbox has been integrated into `pipeline.py`.
 
@@ -196,7 +200,7 @@ data/
 
 ### Pipeline shape
 
-The pipeline is organised as **eight domain refresh chains**. Each chain is a
+The pipeline is organised as **nine domain refresh chains**. Each chain is a
 self-contained `<domain>_refresh.py` script that orchestrates its own step
 sequence (poll → extract → enrich) for one logical area of the dataset.
 
@@ -206,24 +210,26 @@ all in the order below; flags let you select or skip subsets.
 | # | Chain | Script | What it does |
 |---|---|---|---|
 | 1 | `bootstrap` | `bootstrap_refresh.py` | Poll new PDFs + Members API + flatten members & debates. Produces `flattened_members.parquet` (the cross-source join-key carrier) and the questions/votes/debates JSON every downstream chain reads. |
-| 2 | `members` | `members_refresh.py` | Wikidata SPARQL pulls (socials/Wikipedia, ministerial-of-the-day tenure) + committees long-format unpivot. |
+| 2 | `members` | `members_refresh.py` | Wikidata SPARQL pulls (socials/Wikipedia, ministerial-of-the-day tenure) + committees long-format unpivot + Census 2022 constituency population on the 43 Electoral Commission boundaries (`ec_constituency_pop_extract.py`). |
 | 3 | `payments` | `payments_refresh.py` | PSA (TAA + PRA) parser + member enrichment (`unique_member_code` / party / constituency). |
 | 4 | `attendance` | `attendance_refresh.py` | Record-of-Attendance PDF parser. |
-| 5 | `interests` | `interests_refresh.py` | Register of Members' Interests PDF parser. |
-| 6 | `lobbying` | `lobbying_refresh.py` | lobbying.ie YTD CSV + CRO + charities Tier-A join + gold enrichment. |
-| 7 | `iris` | `iris_refresh.py` | Iris Oifigiúil poller + silver rebuild + SI entity + SI-bill + appointments + corporate notices. |
-| 8 | `legislation` | `legislation_refresh.py` | Bills + questions + amendments + votes + cross-dataset `enrich.py`. |
+| 5 | `seanad` | `seanad_refresh.py` | Seanad parity: polls Senator payment/attendance PDFs, then reuses the Dáil parsers (votes + attendance + payments + gold `enrich.main_seanad()`) with Senator inputs — no parser logic duplicated. |
+| 6 | `interests` | `interests_refresh.py` | Register of Members' Interests PDF parser. |
+| 7 | `lobbying` | `lobbying_refresh.py` | lobbying.ie YTD CSV + CRO + charities Tier-A join + gold enrichment. |
+| 8 | `iris` | `iris_refresh.py` | Iris Oifigiúil poller + silver rebuild + SI entity + SI-bill + appointments + corporate notices. |
+| 9 | `legislation` | `legislation_refresh.py` | Bills + questions + amendments + votes + cross-dataset `enrich.py`. |
 
 **Cross-chain dependencies** (run upstream first if invoking a chain standalone):
 
 - Every chain assumes `bootstrap` has refreshed `flattened_members.parquet`.
+- `seanad` assumes `bootstrap` has flattened `flattened_seanad_members.csv` (its step 1 polls the Senator PDFs it needs).
 - `iris` step 3 (SI signatory enrichment) reads `ministerial_tenure` from `members`.
 - `legislation` reads bronze questions/votes JSON written by `bootstrap.members_api`.
 
 ### Run the pipeline
 
 ```bash
-# Full refresh — runs all 8 chains in default order
+# Full refresh — runs all 9 chains in default order
 python pipeline.py
 
 # Show chains and exit
@@ -567,12 +573,14 @@ dail_tracker/
 ├── si_entity_enrichment.py                  Minister-of-the-day attribution for SI signatories
 ├── ministerial_tenure_build.py              Wikidata-sourced ministerial tenure table
 ├── wikidata_socials_etl.py                  Wikidata socials + Wikipedia links per member
+├── ec_constituency_pop_extract.py           Census 2022 population on the 43 Electoral Commission constituency boundaries
 ├── oireachtas_pdf_poller.py                 Multi-source poller (payments / attendance / interests)
 ├── lobbying_poller.py                       Auto-polls lobbying.ie YTD CSV endpoint
 ├── bootstrap_refresh.py                     Chain: PDF pollers + Members API + flatten members & debates
-├── members_refresh.py                       Chain: Wikidata socials + ministerial tenure
+├── members_refresh.py                       Chain: Wikidata socials + ministerial tenure + constituency pop
 ├── payments_refresh.py                      Chain: PSA ETL + member enrichment
 ├── attendance_refresh.py                    Chain: Record-of-Attendance PDF parser
+├── seanad_refresh.py                        Chain: Seanad parity (votes + attendance + payments + gold; reuses Dáil parsers)
 ├── interests_refresh.py                     Chain: Register of Members' Interests PDF parser
 ├── lobbying_refresh.py                      Chain: lobbying.ie + CRO + charities
 ├── iris_refresh.py                          Chain: Iris poller + silver + 4 gold enrichments
