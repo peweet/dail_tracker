@@ -315,7 +315,7 @@ Extend **`test/test_services_votes.py`**:
   assert `house` column and zstd/level-3/statistics writer convention.
 
 ### 8.4 Cross-cutting / regression guards
-- **`test/test_requirements_sync.py`** — unaffected unless new deps (none expected).
+- **Dependency-truth `deps` CI job** (`uv lock --check` + `uv export` diff guard) — if Seanad work adds a new app-runtime dep, re-lock and re-export `requirements.txt`; pipeline-only deps go in the `pipeline` extra and never touch `requirements.txt`.
 - **Logic-firewall guard** (extend whatever enforces it, e.g. `test_silver_layer`/review tooling):
   assert no new `read_parquet` / JOIN in page files or `utility/data_access/`.
 - **Empty-state copy** (Phase 4): a render smoke test asserting the Questions card shows the
