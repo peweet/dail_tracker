@@ -40,8 +40,7 @@ def fetch_filter_options(house: str = "Dáil") -> dict[str, list]:
     # The attendance views UNION both chambers with a `house` column; scope to
     # the picked house so the member dropdown / year filter stay single-chamber.
     members = conn.execute(
-        "SELECT DISTINCT member_name FROM v_attendance_member_summary"
-        " WHERE house = ? ORDER BY member_name LIMIT 2000",
+        "SELECT DISTINCT member_name FROM v_attendance_member_summary WHERE house = ? ORDER BY member_name LIMIT 2000",
         [house],
     ).fetchall()
     years = conn.execute(

@@ -141,14 +141,17 @@ def _pay_card_html(row: pd.Series) -> str:
 # ── Provenance footer ──────────────────────────────────────────────────────────
 
 
-def _render_provenance(summary: pd.Series, year: int | None = None) -> None:
+def _render_provenance(summary: pd.Series, year: int | None = None, house: str = "Dáil") -> None:
     first_year = summary.get("first_year", "2020")
     last_year = summary.get("last_year", "—")
     year_str = str(year) if year else None
-    links = [(lbl, url) for lbl, url in PAYMENTS if not year_str or year_str in lbl]
+    # PAYMENTS is a curated list of Dáil PSA source PDFs; don't link them under a
+    # Seanad view. TODO: add a Seanad PSA-PDF list to ui/source_pdfs.
+    links = [] if house == "Seanad" else [(lbl, url) for lbl, url in PAYMENTS if not year_str or year_str in lbl]
+    caveat = _CAVEAT if house != "Seanad" else _CAVEAT.replace("a TD receives", "a Senator receives")
     provenance_expander(
         sections=[
-            _CAVEAT,
+            caveat,
             "**TAA distance bands**\n\n" + TAA_BAND_TABLE,
             TAA_DEDUCTIONS_NOTE,
             _QUARANTINE_NOTE,
@@ -183,7 +186,7 @@ def _render_rankings(since_2020: dict, summary: pd.Series, house: str, term: str
             "All-time rankings not yet available",
             "v_payments_alltime_ranking returned no rows. Re-run the pipeline if you expect data here.",
         )
-        _render_provenance(summary)
+        _render_provenance(summary, house=house)
         return
 
     st.caption(f"All-time rankings · since 2020 · {len(alltime)} members")
@@ -223,7 +226,7 @@ def _render_rankings(since_2020: dict, summary: pd.Series, house: str, term: str
                     cards.append(inner)
             st.html("\n".join(cards))
 
-    _render_provenance(summary)
+    _render_provenance(summary, house=house)
 
 
 # ── Stage 1 — Primary ranked view ─────────────────────────────────────────────
@@ -263,7 +266,7 @@ def _render_primary(year_options: list[str], summary: pd.Series, house: str, ter
             "No payment data for this year",
             "The selected year has no records in the current dataset.",
         )
-        _render_provenance(summary, selected_year)
+        _render_provenance(summary, selected_year, house)
         return
 
     total_yr = float(ranking.iloc[0]["year_total_paid"])
@@ -317,7 +320,7 @@ def _render_primary(year_options: list[str], summary: pd.Series, house: str, ter
         key="pay_export_primary",
     )
 
-    _render_provenance(summary, selected_year)
+    _render_provenance(summary, selected_year, house)
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
