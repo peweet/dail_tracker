@@ -62,6 +62,10 @@ CHAINS: list[tuple[str, str]] = [
     # (produced by iris) against the CBI register extract. Skips re-download
     # when the source PDFs are cached, so routine runs are extract+xref only.
     ("cbi", "pipeline_sandbox/cbi_registers_extract.py"),
+    # cro xref runs after both iris (corporate_notices gold) and lobbying (CRO
+    # silver via cro_normalise): exact normalised-name join of notices to the
+    # CRO company register, committed gold, read by the Corporate page badge.
+    ("cro", "pipeline_sandbox/cro_corporate_xref_enrichment.py"),
     # freshness runs last: it reads the silver + gold the chains above produced
     # and writes data/_meta/freshness.json (the data-age signal the Streamlit
     # badge + scheduled report read). Pure read — never mutates pipeline data.
@@ -79,6 +83,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "iris": "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
     "legislation": "bills + questions + amendments + votes + cross-dataset enrich",
     "cbi": "CBI register extract + corporate-notices xref (gold)",
+    "cro": "CRO company register ↔ corporate-notices exact-name xref (gold)",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
 }
 
