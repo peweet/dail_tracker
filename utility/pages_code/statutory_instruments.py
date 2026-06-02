@@ -729,6 +729,8 @@ def _render_si_detail(row: pd.Series) -> None:
     actor = _safe(row.get("si_responsible_actor"))
     min_name = _safe(row.get("si_minister_name"))
     min_code = _safe(row.get("si_minister_member_code"))
+    signatory = _safe(row.get("si_signatory_name"))
+    signed_date = _fmt_date(row.get("si_signed_date"))
     si_form = _safe(row.get("si_form"))
     eu_rel = _safe(row.get("si_eu_relationship"))
     parent = _safe(row.get("si_parent_legislation"))
@@ -789,22 +791,39 @@ def _render_si_detail(row: pd.Series) -> None:
                 f'<span class="si-pill si-pill-eu">{html.escape(_pretty_token(e))}</span>' for e in _split_multi(eu_rel)
             ),
         )
-    if min_name:
-        # Section anchor lands the user in /member-overview's Legislation
-        # expander — that's where SIs signed by ministers live as a
-        # sub-section. Matches the cross-page contract from Phases 3–8.
-        person_html = (
-            (
+    # ── Who signed — office-primary, person attributed ────────────────────────
+    # The gazette prints the signing OFFICE (a fact). The PERSON is either
+    # printed in a signature block (si_signatory_name — also a fact) or, absent
+    # that, inferred from office + signing date against the ministerial-tenure
+    # record (si_minister_name — a derivation, labelled as such). We never
+    # present the inferred person as if the gazette named them.
+    def _profile_link(name: str) -> str:
+        # A clickable profile is shown only when the pipeline kept a consistent
+        # sitting-member match (contradicting inferences are suppressed upstream
+        # in si_entity_enrichment, so a present min_code is safe to link here).
+        if min_code:
+            return (
                 f'<a class="dt-source-link" '
                 f'href="{html.escape(member_profile_url(min_code, section="legislation"), quote=True)}" '
-                f'target="_self">{html.escape(min_name)}</a>'
+                f'target="_self">{html.escape(name)}</a>'
             )
-            if min_code
-            else html.escape(min_name)
-        )
-        _row("Minister", person_html)
+        return html.escape(name)
+
+    def _attrib(text: str) -> str:
+        return f' <span style="color:#5b6b73;font-size:0.82rem;">{html.escape(text)}</span>'
+
     if actor:
-        _row("Responsible actor (as signed)", html.escape(actor))
+        _row("Signing office", html.escape(actor))
+
+    if signatory:
+        # Printed in the notice — ground truth.
+        _row("Signed by", _profile_link(signatory) + _attrib("— as printed in the notice"))
+    elif min_name:
+        # Not printed — derived from the signing office + date.
+        held = f"— office held on {signed_date}" if signed_date and signed_date != "—" else "— office holder"
+        _row("Signed by", _profile_link(min_name) + _attrib(f"{held}, per ministerial-tenure record (not printed in the notice)"))
+    elif not actor:
+        _row("Signing office", _attrib("Not recorded in this notice").strip())
     if parent.strip():
         # Pipe-separated Act names — rendered as plain text now that the
         # /legislation-poc target has been retired.
