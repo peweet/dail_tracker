@@ -54,6 +54,31 @@ def _status_badge_class(status: str) -> str:
     return "signal leg-status-active"
 
 
+# Canonical stage labels — Oireachtas "How a Bill becomes Law".
+# https://www.oireachtas.ie/en/how-parliament-works/legislation/how-a-bill-becomes-law/
+# Maps the most-recent progressStage (1–12) to a human label. The API name
+# repeats across chambers (e.g. "Second Stage" at both 2 and 6), so we label by
+# number. progressStage 10–12 all resolve to "Enacted" in the data, so collapse.
+_STAGE_LABELS: dict[int, str] = {
+    1: "First Stage",
+    2: "Second Stage",
+    3: "Committee Stage",
+    4: "Report Stage",
+    5: "Final Stage",
+    6: "Second Stage — Seanad",
+    7: "Committee Stage — Seanad",
+    8: "Report Stage — Seanad",
+    9: "Final Stage — Seanad",
+    10: "Enacted",
+    11: "Enacted",
+    12: "Enacted",
+}
+
+
+def _stage_label(n: int) -> str:
+    return _STAGE_LABELS.get(int(n), f"Stage {int(n)}")
+
+
 # ── Stage 1 — legislation index ────────────────────────────────────────────────
 
 
@@ -149,6 +174,47 @@ def _render_legislation_index(
         empty_state("No bills in this phase", "No bills in this phase match the current filters.")
         return
 
+    # ── Stage drill-down (pills) ──────────────────────────────────────────────
+    # Refine the selected phase by the bill's most-recent stage. Options are
+    # derived from the stages actually present in this phase, so empty stages
+    # never surface and the Enacted tail (progressStage 10–12) collapses into a
+    # single "Enacted" pill. Pandas mask on an existing column (logic-firewall
+    # clean — same pattern as the phase grouping above).
+    present_stages = sorted({int(s) for s in view_df["stage_number"].dropna().unique()})
+    # Ordered, de-duplicated labels → the set of stage_numbers each label covers.
+    label_to_nums: dict[str, set[int]] = {}
+    ordered_labels: list[str] = []
+    for n in present_stages:
+        lbl = _stage_label(n)
+        if lbl not in label_to_nums:
+            label_to_nums[lbl] = set()
+            ordered_labels.append(lbl)
+        label_to_nums[lbl].add(n)
+
+    if len(ordered_labels) >= 2:
+        selected_labels = (
+            st.pills(
+                "Stage",
+                ordered_labels,
+                selection_mode="multi",
+                label_visibility="collapsed",
+                key=f"leg_stage_{phase_sel}",
+            )
+            or []
+        )
+        if selected_labels:
+            selected_nums: set[int] = set()
+            for lbl in selected_labels:
+                selected_nums |= label_to_nums.get(lbl, set())
+            view_df = view_df[view_df["stage_number"].isin(selected_nums)]
+
+    if view_df.empty:
+        empty_state(
+            "No bills at this stage",
+            "No bills in this phase match the selected stage(s). Try clearing the stage filter.",
+        )
+        return
+
     total = len(view_df)
     evidence_heading(f"{total:,} bill{'s' if total != 1 else ''}")
 
@@ -237,7 +303,8 @@ def _render_legislation_index(
             "**Dataset:** All Bills introduced to the Oireachtas (Private Members' and Government Bills).\n\n"
             "**Bill phases:** Dáil stages (1–5) → Seanad stages (6–10) → Enacted (stage 11). "
             "[How a Bill Becomes Law](https://www.oireachtas.ie/en/how-parliament-works/legislation/how-a-bill-becomes-law/)\n\n"
-            "**Stage information** reflects the most recent stage recorded in the API at time of extract.",
+            "**Stage information** reflects the most recent stage recorded in the API at time of extract. "
+            "The stage filter groups bills by that most-recent stage; bills with no recorded stage appear only when no stage is selected.",
         ],
         source_caption="Data: Houses of the Oireachtas Open Data API",
     )

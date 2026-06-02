@@ -656,7 +656,7 @@ Executed dry-run-first, incrementally, baseline-gated. **Result: green, no regre
 **Deferred to later increments:**
 1. ✅ **DONE 2026-06-02 — Option B (see Option B execution log below).** The ~12 root-level domain ETLs were migrated to `config` layer constants.
 2. **`_sql_registry.py` (`parents[2]`) + the rest of `utility/`** — UI layer; carries `sys.path` mechanics risk. Fold into the Step-5 move where packaging/sys.path is handled properly.
-3. **`lobbying_fetch.py:41`** uses `parents[1]` from a root-level file → resolves to the *parent of the repo root* (latent bug); it's sandbox-bound per the audit. Flag for the sandbox move.
+3. ✅ **DONE 2026-06-02.** `lobbying_fetch.py` used `parents[1]` from a root-level file → resolved to the *parent of the repo root* (would write bronze CSVs outside the project). Root cause: it was **misfiled at root** — its docstring usage (`python pipeline_sandbox/lobbying_fetch.py`), `STATUS: SANDBOX` header, and sibling convention all expect it in `pipeline_sandbox/`, where `parents[1]` correctly resolves to repo root. Fixed by `git mv lobbying_fetch.py pipeline_sandbox/` (no code change — `parents[1]` is now correct). Verified via `--dry-run` (`Dest: data/bronze/lobbying_csv_data`); nothing imports it (companion `lobbying_bootstrap` already deleted). Closes the audit's SANDBOX item.
 
 ### Option B — EXECUTION LOG (2026-06-02, domain-ETL data paths → config constants, DONE)
 
@@ -669,7 +669,12 @@ Same dry-run-first, baseline-gated discipline. **Result: 358 passed · 0 failed 
   - 6 files gained `from config import …`; 5 already imported config (extended); ruff auto-removed 6 now-dead `from pathlib import Path` imports.
 - **Verification:** (1) dry-run proof asserted all **20** `config`-constant expressions resolve byte-identically to the old `_ROOT`-based paths *before* editing; (2) ruff clean on all 12; (3) import-smoke imported all 12 modules and re-confirmed all 20 constants byte-identical at runtime; (4) **pytest 358·0·24**.
 - **Env note:** the venv was missing `idna`/`certifi` (and earlier `rpds-py`) mid-session — restored via targeted `pip install` to unblock the gate. Likely concurrent `uv` activity uninstalling the `pipeline` extra ([[feedback_uv_env_management]]). Recommend a clean `uv sync --extra pipeline` to reconcile pip/uv state.
-- **What remains from the original `Path(__file__)` footprint:** `_sql_registry.py` + `utility/*` (UI, deferred item 2), `lobbying_fetch.py` (item 3), and `paths.py` itself (the one legitimate `__file__` derivation — by design). `wiki_data.py` keeps a benign `PROJECT_ROOT / "avatar"` append.
+- **What remains from the original `Path(__file__)` footprint (categorised audit 2026-06-02):** of ~115 raw hits, only one category is the real bug, and it's now closed in live code.
+  - **(A) project-root derivation** — the actual bug. **Live pipeline/server code: DONE** (config, paths, 9 chains, 12 domain ETLs, `lobby_processing.py` sql_queries, `lobbying_fetch` moved). Remainder is **UI only** (`utility/config.py`, `data_access/_sql_registry.py`, `ui/avatars.py`, `data_access/member_overview_data.py`, `_UTIL` in votes/member_overview/glossary) → **deferred to Step 5** (entangled with packaging/sys.path); plus `services/dail_config.py` (dead — delete) and `tools/check_streamlit_logic_firewall.py` (trivial dev tool).
+  - **(B) `sys.path.insert` bootstrap hacks (~31: 9 UI, ~21 tests, 1 sandbox)** — a separate smell, **removed wholesale by the Step-5 editable install**, not per-file.
+  - **(C) legitimate file-relative resource access (~47)** — `schema_validation.SCHEMA_DIR`, test fixture dirs, `audit_screenshots/` outputs — **correct, must stay**.
+  - **(D) `pipeline_sandbox/` `_ROOT` (~32)** — throwaway; out of scope.
+  - **`paths.py`** is the one legitimate derivation by design; `wiki_data.py` keeps a benign `PROJECT_ROOT / "avatar"` append.
 
 ---
 ---
