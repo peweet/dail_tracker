@@ -29,6 +29,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # utility/ on the path to import the real production view loader
 # (data_access._sql_registry.register_views) for the registration smoke test.
 sys.path.append(str(Path(__file__).parent.parent / "utility"))
+from data_access._sql_registry import register_views
+
 from config import (
     DATA_DIR,
     GOLD_PARQUET_DIR,
@@ -37,7 +39,6 @@ from config import (
     SILVER_DIR,
     SILVER_PARQUET_DIR,
 )
-from data_access._sql_registry import register_views
 
 PROJECT_ROOT = Path(__file__).parent.parent
 SQL_VIEWS_DIR = PROJECT_ROOT / "sql_views"
@@ -789,7 +790,16 @@ def test_v_member_interests_index_executes():
     con.execute(_load("member_interests_detail.sql"))
     con.execute(_load("member_zz_interests_index.sql"))
     result = _result(con, "v_member_interests_index")
-    _assert_cols(result, "rank", "house", "member_name", "total_declarations", "directorship_count", "property_count", "is_landlord")
+    _assert_cols(
+        result,
+        "rank",
+        "house",
+        "member_name",
+        "total_declarations",
+        "directorship_count",
+        "property_count",
+        "is_landlord",
+    )
     assert len(result) > 0
 
 
@@ -810,7 +820,9 @@ def test_v_member_questions_executes():
     con = _con()
     con.execute(_load("member_questions.sql"))
     result = _result(con, "v_member_questions")
-    _assert_cols(result, "unique_member_code", "td_name", "question_date", "ministry", "topic", "question_text", "oireachtas_url")
+    _assert_cols(
+        result, "unique_member_code", "td_name", "question_date", "ministry", "topic", "question_text", "oireachtas_url"
+    )
     assert len(result) > 0
 
 
@@ -864,7 +876,16 @@ def test_v_member_debate_sections_executes():
     con = _con()
     con.execute(_load("member_debate_sections.sql"))
     result = _result(con, "v_member_debate_sections")
-    _assert_cols(result, "unique_member_code", "td_name", "debate_section_id", "debate_date", "chamber", "question_count", "oireachtas_url")
+    _assert_cols(
+        result,
+        "unique_member_code",
+        "td_name",
+        "debate_section_id",
+        "debate_date",
+        "chamber",
+        "question_count",
+        "oireachtas_url",
+    )
     assert len(result) > 0
 
 
@@ -943,7 +964,15 @@ def test_v_lobbying_dpo_returns_executes():
     con = _con()
     con.execute(_load("lobbying_dpo_returns.sql"))
     result = _result(con, "v_lobbying_dpo_returns")
-    _assert_cols(result, "individual_name", "return_id", "lobbyist_name", "client_name", "public_policy_area", "period_start_date")
+    _assert_cols(
+        result,
+        "individual_name",
+        "return_id",
+        "lobbyist_name",
+        "client_name",
+        "public_policy_area",
+        "period_start_date",
+    )
     assert len(result) > 0
 
 
@@ -955,7 +984,16 @@ def test_v_lobbying_contact_detail_executes():
     con = _con()
     con.execute(_load("lobbying_contact_detail.sql"))
     result = _result(con, "v_lobbying_contact_detail")
-    _assert_cols(result, "return_id", "member_name", "unique_member_code", "chamber", "lobbyist_name", "public_policy_area", "period_start_date")
+    _assert_cols(
+        result,
+        "return_id",
+        "member_name",
+        "unique_member_code",
+        "chamber",
+        "lobbyist_name",
+        "public_policy_area",
+        "period_start_date",
+    )
     assert len(result) > 0
 
 
@@ -1001,7 +1039,9 @@ def test_v_lobbying_policy_exposure_executes():
     con = _con()
     con.execute(_load("lobbying_policy_exposure.sql"))
     result = _result(con, "v_lobbying_policy_exposure")
-    _assert_cols(result, "member_name", "unique_member_code", "public_policy_area", "returns_targeting", "distinct_lobbyists")
+    _assert_cols(
+        result, "member_name", "unique_member_code", "public_policy_area", "returns_targeting", "distinct_lobbyists"
+    )
     assert len(result) > 0
 
 
@@ -1081,9 +1121,7 @@ def test_v_attendance_timeline_executes():
 
 @pytest.mark.sql
 def test_v_attendance_missing_members_executes():
-    _skip_missing(
-        *_src("data/silver/flattened_members.csv", "data/gold/parquet/attendance_by_td_year.parquet")
-    )
+    _skip_missing(*_src("data/silver/flattened_members.csv", "data/gold/parquet/attendance_by_td_year.parquet"))
     con = _con()
     con.execute(_load("attendance_missing_members.sql"))
     result = _result(con, "v_attendance_missing_members")
@@ -1136,7 +1174,9 @@ def test_v_legislation_detail_executes():
     con = _con()
     con.execute(_load("legislation_detail.sql"))
     result = _result(con, "v_legislation_detail")
-    _assert_cols(result, "bill_id", "bill_title", "bill_status", "sponsor", "introduced_date", "current_stage", "oireachtas_url")
+    _assert_cols(
+        result, "bill_id", "bill_title", "bill_status", "sponsor", "introduced_date", "current_stage", "oireachtas_url"
+    )
     assert len(result) > 0
 
 
@@ -1205,7 +1245,9 @@ def test_v_public_appointments_executes():
     con = _con()
     con.execute(_load("appointments_public_appointments.sql"))
     result = _result(con, "v_public_appointments")
-    _assert_cols(result, "notice_ref", "issue_date", "appointing_authority", "body", "appointee", "role", "english_summary")
+    _assert_cols(
+        result, "notice_ref", "issue_date", "appointing_authority", "body", "appointee", "role", "english_summary"
+    )
     assert len(result) > 0
 
 
@@ -1225,9 +1267,7 @@ _KNOWN_UNPREFIXED_VIEWS = {
     "td_vote_year_summary",
 }
 
-_CREATE_VIEW_RE = re.compile(
-    r"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(\w+)", re.IGNORECASE
-)
+_CREATE_VIEW_RE = re.compile(r"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(\w+)", re.IGNORECASE)
 
 
 def test_view_names_follow_v_prefix_convention():
@@ -1241,8 +1281,7 @@ def test_view_names_follow_v_prefix_convention():
 
     new_offenders = unprefixed - _KNOWN_UNPREFIXED_VIEWS
     assert not new_offenders, (
-        f"New view(s) without the 'v_' prefix: {sorted(new_offenders)}. "
-        "Add the prefix to match the convention."
+        f"New view(s) without the 'v_' prefix: {sorted(new_offenders)}. Add the prefix to match the convention."
     )
 
     fixed = _KNOWN_UNPREFIXED_VIEWS - unprefixed
