@@ -26,6 +26,7 @@ SELECT
     si_policy_domain,
     si_policy_domains_all,
     si_responsible_actor,
+    si_signatory_name,
     si_department,
     si_department_label,
     si_minister_member_code,

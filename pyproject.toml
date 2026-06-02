@@ -8,14 +8,15 @@ version = "0.1.0"
 description = "Civic data pipeline for Irish parliamentary transparency — attendance, payments, lobbying, legislation, and member interests from the Oireachtas"
 readme = "README.MD"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = { text = "AGPL-3.0-or-later" }
 authors = [
-    { name = "peweet" },
+    { name = "Patrick Glynn" },
 ]
 keywords = ["oireachtas", "dail", "lobbying", "civic-tech", "ireland", "transparency"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Topic :: Sociology",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
