@@ -150,7 +150,7 @@ def _render_legislation_index(
         return
 
     total = len(view_df)
-    evidence_heading(f'{total:,} bill{"s" if total != 1 else ""}')
+    evidence_heading(f"{total:,} bill{'s' if total != 1 else ''}")
 
     # ── Pagination state (controls rendered below the cards) ──────────────────
     LEG_PAGE_SIZE = 10
@@ -168,7 +168,9 @@ def _render_legislation_index(
         date_str = _fmt_date(row.get("introduced_date"))
         title = row.get("bill_title", "—") or "—"
         sponsor_raw = row.get("sponsor")
-        sponsor = sponsor_raw if isinstance(sponsor_raw, str) and sponsor_raw.strip() and sponsor_raw.strip() != "—" else ""
+        sponsor = (
+            sponsor_raw if isinstance(sponsor_raw, str) and sponsor_raw.strip() and sponsor_raw.strip() != "—" else ""
+        )
         stage = row.get("current_stage", "—") or "—"
         # Drop the leading em-dash on cards with no sponsor (e.g. older
         # enacted bills with NULL sponsor in the API) — used to render
@@ -479,11 +481,7 @@ def _section_statutory_instruments(bill_id: str) -> None:
             minister = role.strip()
         else:
             minister = "—"
-        eu_badge = (
-            '<span class="signal signal-eu">EU</span>'
-            if bool(row.get("si_is_eu"))
-            else ""
-        )
+        eu_badge = '<span class="signal signal-eu">EU</span>' if bool(row.get("si_is_eu")) else ""
         url = row.get("eisb_url") or ""
         url_html = (
             source_link_html(

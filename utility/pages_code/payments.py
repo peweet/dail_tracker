@@ -209,8 +209,7 @@ def _render_rankings(since_2020: dict, summary: pd.Series) -> None:
                 # and accent-stripped, which never exact-matches the registry.
                 raw_name = str(row["member_name"])
                 display_name = _flip_name(raw_name)
-                code = str(row.get("unique_member_code", "") or "").strip() \
-                    or resolve_member_code(raw_name)
+                code = str(row.get("unique_member_code", "") or "").strip() or resolve_member_code(raw_name)
                 inner = _pay_card_html(row)
                 if code:
                     cards.append(
@@ -238,10 +237,7 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
     # (audit P1-1). year_options is sorted DESC, so skip the first option
     # if it matches the current calendar year.
     current_year_str = str(_dt.date.today().year)
-    default_year = (
-        year_options[1] if len(year_options) > 1 and year_options[0] == current_year_str
-        else year_options[0]
-    )
+    default_year = year_options[1] if len(year_options) > 1 and year_options[0] == current_year_str else year_options[0]
     selected_view = (
         st.segmented_control(
             "View",
@@ -296,8 +292,7 @@ def _render_primary(year_options: list[str], summary: pd.Series) -> None:
                 # for ~97% of TDs; name-based resolver is the last-resort fallback
                 # (and is broken for the "Last, First" + accent-stripped format
                 # the payments parquet uses — every card was non-clickable before).
-                code = str(row.get("unique_member_code", "") or "").strip() \
-                    or resolve_member_code(name)
+                code = str(row.get("unique_member_code", "") or "").strip() or resolve_member_code(name)
                 if code:
                     cards.append(
                         clickable_card_link(

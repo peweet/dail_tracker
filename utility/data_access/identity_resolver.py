@@ -16,10 +16,10 @@ Once the pipeline ships unique_member_code on every dimension view
 payments / attendance / committees), pages can read the code directly
 from their own queries and skip this resolver.
 """
+
 from __future__ import annotations
 
 import streamlit as st
-
 from data_access.member_overview_data import get_member_overview_conn
 
 
@@ -42,8 +42,7 @@ def resolve_member_code(name: str) -> str | None:
         return None
     try:
         df = conn.execute(
-            "SELECT unique_member_code FROM v_member_registry"
-            " WHERE member_name = ? LIMIT 1",
+            "SELECT unique_member_code FROM v_member_registry WHERE member_name = ? LIMIT 1",
             [name.strip()],
         ).df()
     except Exception:

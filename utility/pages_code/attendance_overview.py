@@ -118,11 +118,7 @@ def _fetch_year_member_counts() -> pd.DataFrame:
     """
     return (
         get_attendance_conn()
-        .execute(
-            "SELECT year, members_count"
-            " FROM v_attendance_year_member_counts"
-            " ORDER BY year ASC"
-        )
+        .execute("SELECT year, members_count FROM v_attendance_year_member_counts ORDER BY year ASC")
         .df()
     )
 

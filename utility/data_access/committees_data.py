@@ -33,7 +33,6 @@ import json
 import duckdb
 import pandas as pd
 import streamlit as st
-
 from data_access._sql_registry import register_views
 
 
@@ -79,8 +78,7 @@ def fetch_office_holders(chamber: str) -> pd.DataFrame:
     """One row per (member × office) — column shape matches the old
     _load() offices return: name, party, office, start, end."""
     return _safe(
-        'SELECT name, party, office, start, "end"'
-        " FROM v_committee_office_holders WHERE chamber = ?",
+        'SELECT name, party, office, start, "end" FROM v_committee_office_holders WHERE chamber = ?',
         [chamber],
     )
 

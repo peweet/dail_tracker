@@ -28,6 +28,7 @@ The checker is intentionally conservative: it works on the AST + string
 literals, never executes user code. False positives can be silenced with
 the allow-list marker; do not change the checker to widen its definitions.
 """
+
 from __future__ import annotations
 
 import ast
@@ -35,7 +36,6 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -109,10 +109,7 @@ def _line_is_allowed(source_lines: list[str], lineno: int) -> bool:
     the aggregation is sanctioned."""
     idx = lineno - 1
     start = max(0, idx - _ALLOW_LOOKBACK)
-    for ln in range(start, idx + 1):
-        if 0 <= ln < len(source_lines) and _ALLOW_MARKER in source_lines[ln]:
-            return True
-    return False
+    return any(0 <= ln < len(source_lines) and _ALLOW_MARKER in source_lines[ln] for ln in range(start, idx + 1))
 
 
 def _looks_like_retrieval_sql(text: str) -> bool:
@@ -126,13 +123,10 @@ def _looks_like_retrieval_sql(text: str) -> bool:
     s = text.lstrip()
     if re.match(r"(?i)^(SELECT|WITH|INSERT|UPDATE|DELETE)\b", s):
         return True
-    if re.search(r"(?is)\bSELECT\b.{0,500}?\bFROM\b", text):
-        return True
-    return False
+    return bool(re.search(r"(?is)\bSELECT\b.{0,500}?\bFROM\b", text))
 
 
-def _scan_sql_literal(text: str, lineno: int, path: Path,
-                       source_lines: list[str]) -> list[Violation]:
+def _scan_sql_literal(text: str, lineno: int, path: Path, source_lines: list[str]) -> list[Violation]:
     """Inspect a Python string literal for forbidden SQL keywords."""
     out: list[Violation] = []
     if not _looks_like_retrieval_sql(text):
@@ -150,15 +144,13 @@ def _collect_docstring_lines(tree: ast.Module) -> set[int]:
     module / function / class. Used to skip prose that quotes SQL examples."""
     doc_lines: set[int] = set()
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.Module, ast.FunctionDef,
-                                  ast.AsyncFunctionDef, ast.ClassDef)):
+        if not isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             continue
         body = getattr(node, "body", None) or []
         if not body:
             continue
         first = body[0]
-        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) \
-                and isinstance(first.value.value, str):
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
             start = first.lineno
             end = getattr(first, "end_lineno", start) or start
             for ln in range(start, end + 1):
@@ -167,8 +159,7 @@ def _collect_docstring_lines(tree: ast.Module) -> set[int]:
 
 
 class _Visitor(ast.NodeVisitor):
-    def __init__(self, path: Path, source_lines: list[str],
-                 doc_lines: set[int]):
+    def __init__(self, path: Path, source_lines: list[str], doc_lines: set[int]):
         self.path = path
         self.source_lines = source_lines
         self.doc_lines = doc_lines
@@ -177,24 +168,14 @@ class _Visitor(ast.NodeVisitor):
     # ── Forbidden function/method calls ─────────────────────────────────
     def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
         dotted = _dotted_name(node.func)
-        if dotted in _FORBIDDEN_CALLS and not _line_is_allowed(
-            self.source_lines, node.lineno
-        ):
-            self.violations.append(
-                Violation(self.path, node.lineno, "CALL", _FORBIDDEN_CALLS[dotted])
-            )
+        if dotted in _FORBIDDEN_CALLS and not _line_is_allowed(self.source_lines, node.lineno):
+            self.violations.append(Violation(self.path, node.lineno, "CALL", _FORBIDDEN_CALLS[dotted]))
 
         # Method-style: <expr>.merge(...), <expr>.pivot(...), etc.
         if isinstance(node.func, ast.Attribute):
             attr = node.func.attr
-            if attr in _FORBIDDEN_METHODS and not _line_is_allowed(
-                self.source_lines, node.lineno
-            ):
-                self.violations.append(
-                    Violation(
-                        self.path, node.lineno, "METHOD", _FORBIDDEN_METHODS[attr]
-                    )
-                )
+            if attr in _FORBIDDEN_METHODS and not _line_is_allowed(self.source_lines, node.lineno):
+                self.violations.append(Violation(self.path, node.lineno, "METHOD", _FORBIDDEN_METHODS[attr]))
 
             # groupby(...).<agg>(...) — flag the agg, since groupby alone
             # is sometimes used for iteration patterns inside transitional
@@ -202,9 +183,7 @@ class _Visitor(ast.NodeVisitor):
             # modelling rollup.
             if attr in _AGGREGATION_TERMINALS:
                 inner = node.func.value
-                if _is_groupby_chain(inner) and not _line_is_allowed(
-                    self.source_lines, node.lineno
-                ):
+                if _is_groupby_chain(inner) and not _line_is_allowed(self.source_lines, node.lineno):
                     self.violations.append(
                         Violation(
                             self.path,
@@ -215,8 +194,11 @@ class _Visitor(ast.NodeVisitor):
                     )
 
             # bare .value_counts() on a column / Series
-            if attr == "value_counts" and not _is_inside_groupby_chain(node.func) \
-                    and not _line_is_allowed(self.source_lines, node.lineno):
+            if (
+                attr == "value_counts"
+                and not _is_inside_groupby_chain(node.func)
+                and not _line_is_allowed(self.source_lines, node.lineno)
+            ):
                 self.violations.append(
                     Violation(
                         self.path,
@@ -231,38 +213,42 @@ class _Visitor(ast.NodeVisitor):
         # duckdb.connect(":memory:") — in-memory frame registration pattern
         if dotted == "duckdb.connect" and node.args:
             first = node.args[0]
-            if isinstance(first, ast.Constant) and first.value == ":memory:":
-                if not _line_is_allowed(self.source_lines, node.lineno):
-                    self.violations.append(
-                        Violation(
-                            self.path,
-                            node.lineno,
-                            "DUCKDB_MEMORY",
-                            "duckdb.connect(':memory:') — register-a-frame pattern; "
-                            "use the page's shared get_*_conn() and a registered view",
-                        )
-                    )
-
-        # con.register('view_name', df) — registering a DataFrame as a view
-        if isinstance(node.func, ast.Attribute) and node.func.attr == "register":
-            if not _line_is_allowed(self.source_lines, node.lineno):
+            if (
+                isinstance(first, ast.Constant)
+                and first.value == ":memory:"
+                and not _line_is_allowed(self.source_lines, node.lineno)
+            ):
                 self.violations.append(
                     Violation(
                         self.path,
                         node.lineno,
-                        "REGISTER",
-                        "con.register(...) — registering a frame as a view is pipeline territory",
+                        "DUCKDB_MEMORY",
+                        "duckdb.connect(':memory:') — register-a-frame pattern; "
+                        "use the page's shared get_*_conn() and a registered view",
                     )
                 )
+
+        # con.register('view_name', df) — registering a DataFrame as a view
+        if (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "register"
+            and not _line_is_allowed(self.source_lines, node.lineno)
+        ):
+            self.violations.append(
+                Violation(
+                    self.path,
+                    node.lineno,
+                    "REGISTER",
+                    "con.register(...) — registering a frame as a view is pipeline territory",
+                )
+            )
 
         self.generic_visit(node)
 
     # ── SQL string literals ─────────────────────────────────────────────
     def visit_Constant(self, node: ast.Constant) -> None:  # noqa: N802
         if isinstance(node.value, str) and node.lineno not in self.doc_lines:
-            self.violations.extend(
-                _scan_sql_literal(node.value, node.lineno, self.path, self.source_lines)
-            )
+            self.violations.extend(_scan_sql_literal(node.value, node.lineno, self.path, self.source_lines))
         self.generic_visit(node)
 
 

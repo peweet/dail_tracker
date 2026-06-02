@@ -83,12 +83,15 @@ def member_profile_url(member_id: str, *, section: str | None = None) -> str:
 
     Pass ``section`` to append a section-anchor fragment, e.g.
     ``member_profile_url(code, section="payments")`` →
-    ``/member-overview?member=<code>#payments``. The anchor maps to the
-    expander section IDs rendered on the member-overview page.
+    ``/member-overview?member=<code>#mo-section-payments``. The fragment must
+    match the anchor divs emitted on the member-overview page
+    (``id="mo-section-<sid>"``) AND the prefix the page's scroll-honouring
+    script tests for (``hash.startsWith('#mo-section-')``); a bare ``#payments``
+    matches neither and silently lands the user at the top of the page.
     """
     url = f"/{PAGES['member_overview']}?member={_q(member_id)}"
     if section:
-        url = f"{url}#{_q(section)}"
+        url = f"{url}#mo-section-{_q(section)}"
     return url
 
 

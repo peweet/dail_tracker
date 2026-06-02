@@ -240,7 +240,6 @@ def _fetch_topical_votes(_conn) -> pd.DataFrame:
     return _safe_query(_conn, sql, params)
 
 
-
 # ── TD picker (landing for the TDs view) ───────────────────────────────────────
 
 
@@ -447,11 +446,7 @@ def _card_list_fragment(conn, date_from, date_to, outcome_filter) -> None:
     # "you are filtered". Year is implicit in the pills above.
     outcome_word = f" {outcome_filter.lower()}" if outcome_filter else ""
     suffix = " · showing first 25" if not show_all and total > 25 else ""
-    st.html(
-        f'<p class="vt-index-caption">'
-        f'{total:,}{outcome_word} division{"s" if total != 1 else ""}{suffix}'
-        f'</p>'
-    )
+    st.html(f'<p class="vt-index-caption">{total:,}{outcome_word} division{"s" if total != 1 else ""}{suffix}</p>')
 
     cards_html: list[str] = []
     for _, row in visible.iterrows():
@@ -509,9 +504,7 @@ def _render_mode_a(conn, date_from, date_to, outcome_filter) -> None:
         mc = r.get("member_count")
         if dc:
             sections.insert(0, f"{int(dc):,} total divisions on record · {int(mc or 0):,} TDs recorded.")
-    st.caption(
-        "Sourced from the Oireachtas Open Data API — as published in the official record."
-    )
+    st.caption("Sourced from the Oireachtas Open Data API — as published in the official record.")
     provenance_expander(sections=sections)
     # P2-6: removed the "Source link quality" todo_callout. The external
     # Oireachtas link on every card was the only thing it warned about,
@@ -643,22 +636,29 @@ def votes_page() -> None:
             with cols[0]:
                 field_label("View")
                 view_sel = st.segmented_control(
-                    "View", options=["Dáil", "TDs"], default=prev_view,
-                    key="v_view_widget", label_visibility="collapsed",
+                    "View",
+                    options=["Dáil", "TDs"],
+                    default=prev_view,
+                    key="v_view_widget",
+                    label_visibility="collapsed",
                 )
             with cols[1]:
                 field_label("Outcome")
                 outcome_sel = st.selectbox(
-                    "Outcome", ["All", "Carried", "Lost"],
-                    key="v_outcome", label_visibility="collapsed",
+                    "Outcome",
+                    ["All", "Carried", "Lost"],
+                    key="v_outcome",
+                    label_visibility="collapsed",
                 )
             outcome_filter = None if outcome_sel == "All" else outcome_sel
             if party_names:
                 with cols[2]:
                     field_label("Party")
                     party_sel = st.selectbox(
-                        "Party", ["All parties"] + party_names,
-                        key="v_party", label_visibility="collapsed",
+                        "Party",
+                        ["All parties"] + party_names,
+                        key="v_party",
+                        label_visibility="collapsed",
                     )
                 sel_party = "" if party_sel == "All parties" else party_sel
     else:  # TDs view — search a single TD
@@ -667,15 +667,21 @@ def votes_page() -> None:
             with cols[0]:
                 field_label("View")
                 view_sel = st.segmented_control(
-                    "View", options=["Dáil", "TDs"], default=prev_view,
-                    key="v_view_widget", label_visibility="collapsed",
+                    "View",
+                    options=["Dáil", "TDs"],
+                    default=prev_view,
+                    key="v_view_widget",
+                    label_visibility="collapsed",
                 )
             with cols[1]:
                 field_label("Find a TD")
                 _opts = ["Search a member…"] + list(member_names)
                 _chosen = st.selectbox(
-                    "Find a TD", _opts, index=0,
-                    key="v_member_select", label_visibility="collapsed",
+                    "Find a TD",
+                    _opts,
+                    index=0,
+                    key="v_member_select",
+                    label_visibility="collapsed",
                 )
                 sel_name = _chosen if _chosen and _chosen != "Search a member…" else None
 

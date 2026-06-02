@@ -16,6 +16,7 @@ without bootstrap, member-attached fields may be stale.
 CLI:
     python bootstrap_refresh.py
 """
+
 from __future__ import annotations
 
 import argparse
@@ -55,6 +56,7 @@ def step_members_api() -> bool:
     t = time.monotonic()
     try:
         from services.oireachtas_api_main import main as run_oireachtas_api
+
         run_oireachtas_api()
     except Exception as exc:
         _log.exception("Members API failed: %s", exc)

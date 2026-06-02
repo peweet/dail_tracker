@@ -12,6 +12,7 @@ bootstrap first if there have been new publications.
 CLI:
     python payments_refresh.py
 """
+
 from __future__ import annotations
 
 import argparse

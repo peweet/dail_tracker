@@ -28,6 +28,7 @@ That's correct — they have no Member Overview page to surface them on.
 
 Run: `python payments_member_enrichment.py`
 """
+
 from __future__ import annotations
 
 import logging
@@ -47,9 +48,7 @@ MEMBERS_PARQUET = REPO_ROOT / "data" / "silver" / "parquet" / "flattened_members
 
 def _build_member_lookup() -> pl.DataFrame:
     """One row per current TD: join_key → (unique_member_code, party, constituency)."""
-    members = pl.read_parquet(MEMBERS_PARQUET).select(
-        ["unique_member_code", "full_name", "party", "constituency_name"]
-    )
+    members = pl.read_parquet(MEMBERS_PARQUET).select(["unique_member_code", "full_name", "party", "constituency_name"])
     normalised = normalise_df_td_name(members, "full_name")
     lookup = normalised.select(
         [
@@ -85,17 +84,17 @@ def enrich() -> dict:
     # Idempotency: if the parquet already has these enrichment columns from a
     # previous run, drop them so the join re-applies cleanly (the upstream ETL
     # may have overwritten the parquet without them since the last enrichment).
-    payments = payments.drop(
-        [c for c in ("unique_member_code", "party_name", "constituency") if c in payments.columns]
-    )
+    payments = payments.drop([c for c in ("unique_member_code", "party_name", "constituency") if c in payments.columns])
 
     # Derive the same sorted-letters key on the payments side.
     payments_keyed = normalise_df_td_name(payments, "member_name")
 
     lookup = _build_member_lookup()
-    enriched = payments_keyed.join(lookup, on="join_key", how="left").rename(
-        {"party_name_enriched": "party_name", "constituency_enriched": "constituency"}
-    ).drop("join_key")
+    enriched = (
+        payments_keyed.join(lookup, on="join_key", how="left")
+        .rename({"party_name_enriched": "party_name", "constituency_enriched": "constituency"})
+        .drop("join_key")
+    )
 
     if enriched.height != n_rows_before:
         raise RuntimeError(
@@ -104,19 +103,13 @@ def enrich() -> dict:
         )
 
     n_matched = enriched.filter(pl.col("unique_member_code").is_not_null()).height
-    n_distinct_matched = enriched.filter(pl.col("unique_member_code").is_not_null())[
-        "unique_member_code"
-    ].n_unique()
-    n_distinct_unmatched_names = enriched.filter(pl.col("unique_member_code").is_null())[
-        "member_name"
-    ].n_unique()
+    n_distinct_matched = enriched.filter(pl.col("unique_member_code").is_not_null())["unique_member_code"].n_unique()
+    n_distinct_unmatched_names = enriched.filter(pl.col("unique_member_code").is_null())["member_name"].n_unique()
 
     # Atomic write via .part swap, per project convention. Parquet write
     # convention (per memory): zstd, level 3, statistics on.
     part_path = PAYMENTS_PARQUET.with_suffix(".part")
-    enriched.write_parquet(
-        part_path, compression="zstd", compression_level=3, statistics=True
-    )
+    enriched.write_parquet(part_path, compression="zstd", compression_level=3, statistics=True)
     part_path.replace(PAYMENTS_PARQUET)
 
     return {

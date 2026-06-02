@@ -49,24 +49,26 @@ from services.run_paths import ENV_RUN_ID, make_run_id, run_dir, step_log_path
 # Domain refresh chains in the default execution order. Each tuple is
 # (chain_name, script_path). Chain name is used by --select/--exclude.
 CHAINS: list[tuple[str, str]] = [
-    ("bootstrap",   "bootstrap_refresh.py"),
-    ("members",     "members_refresh.py"),
-    ("payments",    "payments_refresh.py"),
-    ("attendance",  "attendance_refresh.py"),
-    ("interests",   "interests_refresh.py"),
-    ("lobbying",    "lobbying_refresh.py"),
-    ("iris",        "iris_refresh.py"),
+    ("bootstrap", "bootstrap_refresh.py"),
+    ("members", "members_refresh.py"),
+    ("payments", "payments_refresh.py"),
+    ("attendance", "attendance_refresh.py"),
+    ("seanad", "seanad_refresh.py"),
+    ("interests", "interests_refresh.py"),
+    ("lobbying", "lobbying_refresh.py"),
+    ("iris", "iris_refresh.py"),
     ("legislation", "legislation_refresh.py"),
 ]
 
 _CHAIN_BLURBS: dict[str, str] = {
-    "bootstrap":   "shared inputs: poll PDFs + Members API + flatten members & debates",
-    "members":     "Wikidata socials + ministerial tenure + committees long-format",
-    "payments":    "Parliamentary Standard Allowance: PSA ETL + member enrichment",
-    "attendance":  "plenary attendance PDF extraction",
-    "interests":   "Register of Members' Interests PDF extraction",
-    "lobbying":    "lobbying.ie YTD + CRO + charities Tier-A + gold enrichment",
-    "iris":        "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
+    "bootstrap": "shared inputs: poll PDFs + Members API + flatten members & debates",
+    "members": "Wikidata socials + ministerial tenure + committees long-format",
+    "payments": "Parliamentary Standard Allowance: PSA ETL + member enrichment",
+    "attendance": "plenary attendance PDF extraction",
+    "seanad": "Seanad parity: votes + payments + attendance + gold (reuses Dáil parsers)",
+    "interests": "Register of Members' Interests PDF extraction",
+    "lobbying": "lobbying.ie YTD + CRO + charities Tier-A + gold enrichment",
+    "iris": "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
     "legislation": "bills + questions + amendments + votes + cross-dataset enrich",
 }
 

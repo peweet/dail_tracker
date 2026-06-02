@@ -20,6 +20,7 @@ Sections (top → bottom):
   5. Recent feed — month-grouped appointment cards with pagination
   6. Detail view (with original Irish text + Iris source) on ?ref=
 """
+
 from __future__ import annotations
 
 import datetime
@@ -45,7 +46,6 @@ from ui.components import (
     sidebar_page_header,
     sidebar_subtitle,
 )
-from ui.entity_links import source_link_html
 
 PAGE_SIZE = 12
 FEATURED_TOP_N = 8  # ministers shown in the SpAd panel
@@ -443,7 +443,7 @@ def _render_featured_spads(df: pd.DataFrame) -> None:
             f'<div class="pa-rank-name" title="{html.escape(str(name))}">{html.escape(str(name))}</div>'
             f'<div class="pa-rank-bar"><span style="width:{width}%"></span></div>'
             f'<div class="pa-rank-count">{int(n)}</div>'
-            f'</div>'
+            f"</div>"
         )
 
     # Year sparkline. Spikes track new governments; we mark the top-3 years.
@@ -460,7 +460,7 @@ def _render_featured_spads(df: pd.DataFrame) -> None:
         current_year_set = set(int(y) for y in current_year)
 
         bars: list[str] = []
-        for y, c in zip(years_full, counts):
+        for y, c in zip(years_full, counts, strict=True):
             h_pct = max(4, int(round(100 * (c / peak)))) if peak else 4
             klass = ["pa-spark-bar"]
             if spike_threshold > 0 and c >= spike_threshold:
@@ -480,20 +480,18 @@ def _render_featured_spads(df: pd.DataFrame) -> None:
             f'<div class="pa-spark-row">{"".join(bars)}</div>'
             f'<div class="pa-spark-years"><span>{ymin}</span><span>{ymax}</span></div>'
             '<div class="pa-spark-note">Click a year to filter. Spikes track new governments.</div>'
-            '</div>'
+            "</div>"
         )
 
     st.markdown(
         '<section class="pa-featured" aria-label="Special advisers featured panel">'
-        '<div>'
+        "<div>"
         '<div class="pa-featured-kicker">Special advisers</div>'
         '<h2 class="pa-featured-h">Who advises which minister</h2>'
         f'<div class="pa-featured-sub">Top portfolios by special-adviser appointments, since 2016. '
-        f'Total notices: {sa.shape[0]:,}.</div>'
-        + "".join(rows_html) +
-        '</div>'
-        f'<div>{spark_html}</div>'
-        '</section>',
+        f"Total notices: {sa.shape[0]:,}.</div>" + "".join(rows_html) + "</div>"
+        f"<div>{spark_html}</div>"
+        "</section>",
         unsafe_allow_html=True,
     )
 
@@ -544,20 +542,16 @@ def _render_facets(full_df: pd.DataFrame) -> None:
     if active:
         chip_html = "".join(
             f'<a class="pa-active-chip" href="?clear={k}" target="_self" '
-            f'aria-label="Remove filter: {html.escape(l, quote=True)}">'
-            f'{html.escape(l)}<span class="pa-active-chip-x" aria-hidden="true">×</span>'
-            '</a>'
-            for l, k in active
+            f'aria-label="Remove filter: {html.escape(label, quote=True)}">'
+            f'{html.escape(label)}<span class="pa-active-chip-x" aria-hidden="true">×</span>'
+            "</a>"
+            for label, k in active
         )
         chip_html += (
             '<a class="pa-active-chip pa-active-chip-all" href="?clear=all" '
             'target="_self" aria-label="Clear all filters">Clear all</a>'
         )
-        st.html(
-            '<div class="pa-active-bar">'
-            '<span class="pa-active-label">Filtered by</span>'
-            f'{chip_html}</div>'
-        )
+        st.html(f'<div class="pa-active-bar"><span class="pa-active-label">Filtered by</span>{chip_html}</div>')
 
     # Row 2 — year pills, always visible.
     yrs = sorted((int(y) for y in full_df["year"].dropna().unique()), reverse=True)
@@ -569,9 +563,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
         default=[],
         selection_mode="multi",
         key="pa_year_filter",
-        format_func=lambda y: (
-            f"{y} · {yc.get(y, 0):,} YTD" if y == current_year else f"{y} · {yc.get(y, 0):,}"
-        ),
+        format_func=lambda y: f"{y} · {yc.get(y, 0):,} YTD" if y == current_year else f"{y} · {yc.get(y, 0):,}",
     )
 
     # Row 3 — tabbed primary facets (one set of controls visible at a time).
@@ -587,13 +579,15 @@ def _render_facets(full_df: pd.DataFrame) -> None:
         v = str(val)
         return f"{base}: {v[:22]}…" if len(v) > 22 else f"{base}: {v}"
 
-    tabs = st.tabs([
-        _tab_label("Authority", auth_sel),
-        _tab_label("Type", _pretty_type(type_sel) if type_sel and type_sel != "All" else None),
-        _tab_label("Body", body_sel),
-        _tab_label("Minister (advisers)", min_sel),
-        _tab_label("Language", lang_sel),
-    ])
+    tabs = st.tabs(
+        [
+            _tab_label("Authority", auth_sel),
+            _tab_label("Type", _pretty_type(type_sel) if type_sel and type_sel != "All" else None),
+            _tab_label("Body", body_sel),
+            _tab_label("Minister (advisers)", min_sel),
+            _tab_label("Language", lang_sel),
+        ]
+    )
 
     with tabs[0]:
         ac = full_df["appointing_authority"].dropna().value_counts().to_dict()
@@ -692,10 +686,7 @@ def _render_card(row: pd.Series) -> str:
 
     body_html = ""
     if body:
-        body_html = (
-            f'<span class="body-prefix">to</span> '
-            f'<span class="body">{html.escape(body)}</span>'
-        )
+        body_html = f'<span class="body-prefix">to</span> <span class="body">{html.escape(body)}</span>'
 
     pills = [f'<span class="pa-pill pa-pill-auth {auth_cls}">{html.escape(auth_label)}</span>']
     if type_label:
@@ -711,7 +702,7 @@ def _render_card(row: pd.Series) -> str:
         f'<div class="pa-card-date">{html.escape(date_str)}</div>'
         f'<div class="pa-card-who">{who_html}{role_html}{(" " + body_html) if body_html else ""}</div>'
         f'<div class="pa-card-meta">{"".join(pills)}</div>'
-        '</div></a>'
+        "</div></a>"
     )
 
 
@@ -726,9 +717,9 @@ def _render_feed(df: pd.DataFrame) -> None:
     total = len(df)
     st.html(
         f'<div style="margin:0.4rem 0 0.2rem;font-size:0.85rem;color:#5b6b73;">'
-        f'<strong>{total:,}</strong> appointment{"s" if total != 1 else ""} '
-        f'match the current filters, sorted newest first.'
-        f'</div>'
+        f"<strong>{total:,}</strong> appointment{'s' if total != 1 else ''} "
+        f"match the current filters, sorted newest first."
+        f"</div>"
     )
 
     page_idx = paginate(total, key_prefix="pa_feed", page_size=PAGE_SIZE)
@@ -786,14 +777,16 @@ def _render_detail(row: pd.Series) -> None:
     # readable distillation. Fall back to title only if summary is empty.
     headline = summary or title_raw or "—"
 
+    ga_pill = ' <span class="pa-pill pa-pill-ga">Gaeilge</span>' if lang == "Irish" else ""
+
     st.html(
         '<div class="pa-detail">'
         f'<div class="pa-detail-ref">{html.escape(ref)}</div>'
         f'<div class="pa-detail-title">{html.escape(headline)}</div>'
         f'<span class="pa-pill pa-pill-auth {auth_cls}">{html.escape(auth_label)}</span> '
         f'<span class="pa-pill pa-pill-type">{html.escape(_pretty_type(atype))}</span>'
-        f'{" <span class=\"pa-pill pa-pill-ga\">Gaeilge</span>" if lang == "Irish" else ""}'
-        '</div>'
+        f"{ga_pill}"
+        "</div>"
     )
 
     rows_html: list[str] = []
@@ -803,7 +796,7 @@ def _render_detail(row: pd.Series) -> None:
             f'<div class="pa-detail-row">'
             f'<div class="pa-detail-label">{html.escape(label)}</div>'
             f'<div class="pa-detail-val">{value_html}</div>'
-            f'</div>'
+            f"</div>"
         )
 
     _row("Date", html.escape(date_str))
@@ -823,8 +816,8 @@ def _render_detail(row: pd.Series) -> None:
             '<div class="pa-detail-row">'
             '<div class="pa-detail-label">Iris Oifigiúil source</div>'
             f'<div class="pa-detail-val" style="font-family:ui-monospace,Menlo,monospace;font-size:0.85rem;color:#5b6b73;">'
-            f'{html.escape(src_pdf)}</div>'
-            '</div>'
+            f"{html.escape(src_pdf)}</div>"
+            "</div>"
         )
 
     st.html('<div class="pa-detail">' + "".join(rows_html) + "</div>")
@@ -835,8 +828,8 @@ def _render_detail(row: pd.Series) -> None:
         st.html(
             '<div class="pa-detail-irish">'
             '<div class="pa-detail-irish-kicker">Original notice text</div>'
-            f'{html.escape(irish_pretty)}'
-            '</div>'
+            f"{html.escape(irish_pretty)}"
+            "</div>"
         )
 
 
@@ -919,12 +912,12 @@ def public_appointments_page() -> None:
     # Quiet civic-context line about the constitutional Irish/English split.
     st.html(
         '<p class="pa-context">'
-        'Formal acts of the <strong>President</strong> and <strong>Government</strong> '
-        '(judicial appointments, senior board appointments) are recorded in Irish, the '
-        'first official language under Article 8. Ministerial appointments are issued '
-        'in English. The pattern is preserved on every card, with structured English '
-        'summaries built from curated translations of the constitutional templates.'
-        '</p>'
+        "Formal acts of the <strong>President</strong> and <strong>Government</strong> "
+        "(judicial appointments, senior board appointments) are recorded in Irish, the "
+        "first official language under Article 8. Ministerial appointments are issued "
+        "in English. The pattern is preserved on every card, with structured English "
+        "summaries built from curated translations of the constitutional templates."
+        "</p>"
     )
 
     if df.empty:
@@ -959,9 +952,17 @@ def public_appointments_page() -> None:
     # rather than buried at the bottom).
     if not filtered.empty:
         csv_cols = [
-            "issue_date", "appointing_authority", "appointment_type", "body",
-            "appointee", "appointee_count", "role", "portfolio",
-            "english_summary", "lang", "iris_source_pdf",
+            "issue_date",
+            "appointing_authority",
+            "appointment_type",
+            "body",
+            "appointee",
+            "appointee_count",
+            "role",
+            "portfolio",
+            "english_summary",
+            "lang",
+            "iris_source_pdf",
         ]
         buf = io.StringIO()
         filtered[csv_cols].to_csv(buf, index=False)

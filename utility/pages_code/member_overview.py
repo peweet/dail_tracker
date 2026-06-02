@@ -338,9 +338,7 @@ def _q_ministries(_conn, join_key: str) -> list[str]:
     """
     df = _q(
         _conn,
-        "SELECT ministry FROM v_member_question_ministries"
-        " WHERE unique_member_code = ?"
-        " ORDER BY n DESC, ministry ASC",
+        "SELECT ministry FROM v_member_question_ministries WHERE unique_member_code = ? ORDER BY n DESC, ministry ASC",
         [join_key],
     )
     return df["ministry"].astype(str).tolist() if not df.empty else []
@@ -700,9 +698,9 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
 
     st.html(
         '<div class="q-header-strip">'
-        f'<div>{conc_html}</div>'
-        f'<div>{total_html}</div>'
-        f'<div>{topics_inner}</div>'
+        f"<div>{conc_html}</div>"
+        f"<div>{total_html}</div>"
+        f"<div>{topics_inner}</div>"
         f"{shift_html}"
         "</div>"
     )
@@ -719,9 +717,9 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
             '<span class="q-active-filter-label">Topic filter:</span>'
             f'<a class="q-active-chip" href="{_h(clear_href)}" target="_self" '
             f'aria-label="Clear topic filter {_h(topic_filter)}">'
-            f'{_h(topic_filter)} '
+            f"{_h(topic_filter)} "
             '<span class="q-active-chip-x" aria-hidden="true">×</span>'
-            '</a></div>'
+            "</a></div>"
         )
 
     # Free-text search of question_text. Empty input matches everything.
@@ -821,9 +819,7 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
         # (Oireachtas taxonomy regularly does this — "Health" + "Health
         # Services Waiting Lists" reads as "Health Health Services" otherwise).
         head_parts = [f'<span class="q-card-date">{_h(date_disp)}</span>']
-        topic_dupes_ministry = bool(
-            ministry and topic and topic.lower().startswith(ministry.lower())
-        )
+        topic_dupes_ministry = bool(ministry and topic and topic.lower().startswith(ministry.lower()))
         if ministry and not topic_dupes_ministry:
             head_parts.append('<span class="q-card-sep">·</span>')
             head_parts.append(f'<span class="q-card-kicker">{_h(ministry)}</span>')
@@ -855,9 +851,7 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
 
         st.html(
             '<div class="q-card">'
-            '<div class="q-card-head">'
-            + "".join(head_parts)
-            + "</div>"
+            '<div class="q-card-head">' + "".join(head_parts) + "</div>"
             f'<div class="q-card-body">{body_html}</div>'
             '<div class="q-card-foot">'
             f"{link_html}"
@@ -885,10 +879,7 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
         width="stretch",
     )
 
-    st.caption(
-        "Source: oireachtas.ie/en/debates/questions/ · 2020 to present "
-        "· complete history per TD."
-    )
+    st.caption("Source: oireachtas.ie/en/debates/questions/ · 2020 to present · complete history per TD.")
 
 
 def _section_debates(conn, join_key: str, member_name: str) -> None:
@@ -1023,9 +1014,9 @@ def _section_committees(member_name: str, join_key: str) -> None:
 
 _OTHER_PILL = "Other / Independent"
 _OTHER_MIN = 3  # UI display threshold — parties with fewer TDs collapse into
-                # the "Other / Independent" pill. This is a chip-layout
-                # decision (keep the pill row scannable), not a civic metric:
-                # changing it shouldn't require a pipeline rebuild.
+# the "Other / Independent" pill. This is a chip-layout
+# decision (keep the pill row scannable), not a civic metric:
+# changing it shouldn't require a pipeline rebuild.
 
 
 def _named_parties(df: pd.DataFrame) -> list[str]:
@@ -1118,7 +1109,7 @@ def _render_browse(conn) -> None:
     showing = len(filtered)
 
     # Results pill — shows the current filtered count above the grid.
-    evidence_heading(f'{showing:,} TD{"s" if showing != 1 else ""}')
+    evidence_heading(f"{showing:,} TD{'s' if showing != 1 else ''}")
 
     if filtered.empty:
         empty_state(
@@ -1144,8 +1135,7 @@ def _render_browse(conn) -> None:
         meta = clean_meta(party, constit)
         # Audit P2-3: same party-swatch as the profile hero.
         swatch_html = (
-            f'<span class="mo-party-swatch" style="background:{party_colour(party)};" '
-            f'aria-hidden="true"></span>'
+            f'<span class="mo-party-swatch" style="background:{party_colour(party)};" aria-hidden="true"></span>'
             if party
             else ""
         )
@@ -1209,29 +1199,27 @@ def _render_constituency_context(constituency: str, ctx: dict) -> None:
         body = (
             f'<div class="mo-cc-row">'
             f'  <span class="mo-cc-kicker">Constituency · {_h(constituency)}</span>'
-            f'</div>'
+            f"</div>"
             f'<div class="mo-cc-row">'
             f'  <strong class="mo-cc-headline">{pop22:,}</strong>'
             f'  <span class="mo-cc-headline-label">residents at Census 2022</span>'
-            f'</div>'
+            f"</div>"
             f'<div class="mo-cc-row mo-cc-row-secondary">'
-            f'  <strong>{per_td:,}</strong> per TD'
+            f"  <strong>{per_td:,}</strong> per TD"
             f'  <span class="mo-cc-sep">·</span>'
-            f'  <strong>{seats}</strong> {"seat" if seats == 1 else "seats"}'
-            f'</div>'
+            f"  <strong>{seats}</strong> {'seat' if seats == 1 else 'seats'}"
+            f"</div>"
         )
     else:
         # Defensive fallback only. Since the Electoral Commission source matches
         # all 43 current constituencies, this branch fires only for an
         # unexpected/unrecognised constituency string. Be transparent rather
         # than guess a figure.
-        note = (
-            "No Census 2022 population figure is on file for this constituency."
-        )
+        note = "No Census 2022 population figure is on file for this constituency."
         body = (
             f'<div class="mo-cc-row">'
             f'  <span class="mo-cc-kicker">Constituency · {_h(constituency)}</span>'
-            f'</div>'
+            f"</div>"
             # Use a block (not flex) container so inline <strong> in the
             # caveat copy doesn't force a flex-line break before/after it.
             f'<p class="mo-cc-caveat">{note}</p>'
@@ -1254,7 +1242,7 @@ def _render_constituency_context(constituency: str, ctx: dict) -> None:
         f'<span class="mo-cc-source-label">Source · </span>'
         f'<span class="mo-cc-source-body">CSO Census 2022, via Electoral Commission Constituency Review 2023 · {_h(boundary_caption)}</span>'
         f'<span class="mo-cc-source-link"> · {source_chip or ""}</span>'
-        f'</div>'
+        f"</div>"
     )
 
 
@@ -1366,8 +1354,7 @@ def _render_stage2(
     # party text so the affiliation reads at a glance, not in prose.
     # Reuses the committees colour map via ui.components.party_colour.
     party_swatch_html = (
-        f'<span class="mo-party-swatch" style="background:{party_colour(party)};" '
-        f'aria-hidden="true"></span>'
+        f'<span class="mo-party-swatch" style="background:{party_colour(party)};" aria-hidden="true"></span>'
         if party
         else ""
     )
@@ -1442,13 +1429,7 @@ def _render_stage2(
             link_parts.append(chip)
 
     sep_html = '<span class="dt-hero-sep" aria-hidden="true"></span>' if link_parts else ""
-    meta_row = (
-        '<div class="dt-hero-meta-row">'
-        + "".join(badge_parts)
-        + sep_html
-        + "".join(link_parts)
-        + "</div>"
-    )
+    meta_row = '<div class="dt-hero-meta-row">' + "".join(badge_parts) + sep_html + "".join(link_parts) + "</div>"
 
     st.html(
         f'<div class="dt-hero">'
@@ -1482,9 +1463,7 @@ def _render_stage2(
     if not vote_df.empty:
         vr = vote_df.iloc[0]
         votes_cast = (
-            int(vr.get("yes_count", 0) or 0)
-            + int(vr.get("no_count", 0) or 0)
-            + int(vr.get("abstained_count", 0) or 0)
+            int(vr.get("yes_count", 0) or 0) + int(vr.get("no_count", 0) or 0) + int(vr.get("abstained_count", 0) or 0)
         )
         votes_div = int(vr.get("division_count", 0) or 0)
     else:
@@ -1502,14 +1481,9 @@ def _render_stage2(
         # tautologically when the numbers match (a TD who voted in every
         # division). Collapse to the one-number form in that case.
         if votes_cast and votes_div and votes_cast == votes_div:
-            votes_phrase = (
-                f"voted in all <strong>{votes_div:,}</strong> divisions"
-            )
+            votes_phrase = f"voted in all <strong>{votes_div:,}</strong> divisions"
         elif votes_cast:
-            votes_phrase = (
-                f"<strong>{votes_cast:,}</strong> votes cast across "
-                f"<strong>{votes_div:,}</strong> divisions"
-            )
+            votes_phrase = f"<strong>{votes_cast:,}</strong> votes cast across <strong>{votes_div:,}</strong> divisions"
         else:
             votes_phrase = "votes record not on file"
         headline = "Cabinet member." if is_minister else "Different rules apply."
@@ -1582,10 +1556,8 @@ def _render_stage2(
     # past the hero on the longest page in the app.
     chip_html = ['<nav class="mo-section-nav" aria-label="Profile sections">']
     for sid, label, _ in _PROFILE_SECTIONS:
-        chip_html.append(
-            f'<a class="mo-section-chip" href="#mo-section-{sid}">{_h(label)}</a>'
-        )
-    chip_html.append('</nav>')
+        chip_html.append(f'<a class="mo-section-chip" href="#mo-section-{sid}">{_h(label)}</a>')
+    chip_html.append("</nav>")
     st.html("\n".join(chip_html))
 
     # Hash-scroll shim — Streamlit doesn't honour `#anchor` on cold-load (the
@@ -1595,6 +1567,7 @@ def _render_stage2(
     # Lives inside an st.components.v1.html iframe so the <script> isn't
     # stripped by st.markdown's DOMPurify (per feedback_streamlit_css_and_state).
     import streamlit.components.v1 as components  # local import keeps top tidy
+
     components.html(
         """
         <script>
@@ -1629,7 +1602,7 @@ def _render_stage2(
     # Every section's body runs on every view — no expand/collapse, no lazy
     # gating. Trades ~5 cold-load SQL queries for ~25 to make the page
     # scannable end-to-end (TheyWorkForYou pattern, PRODUCT.md principle #3).
-    for sid, label, page_key in _PROFILE_SECTIONS:
+    for sid, label, _page_key in _PROFILE_SECTIONS:
         # Anchor lives outside the heading so #mo-section-<sid> jumps land
         # at the right scroll offset (CSS uses negative top to clear any
         # sticky bits above).
@@ -1731,9 +1704,7 @@ def _render_stage2(
                 key="mo_vote_date",
             )
             _v_from, _v_to = (
-                (str(_dv[0]), str(_dv[1]))
-                if isinstance(_dv, (list, tuple)) and len(_dv) == 2
-                else (None, None)
+                (str(_dv[0]), str(_dv[1])) if isinstance(_dv, (list, tuple)) and len(_dv) == 2 else (None, None)
             )
             render_member_votes(
                 conn,

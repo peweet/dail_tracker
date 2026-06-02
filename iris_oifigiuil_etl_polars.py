@@ -1272,8 +1272,15 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
     # other buckets (~310 rows) gets entity_name=null; the company/register page
     # must also exclude these at the view level.
     personal_insolvency = (pl.col("notice_category") == "bankruptcy") | t.str.contains_any(
-        ["A BANKRUPT", "ADJUDICATED BANKRUPT", "BANKRUPT IN MAIN PROCEEDINGS",
-         "PERSONAL INSOLVENCY", "DEBT SETTLEMENT ARRANGEMENT", "DEBT RELIEF NOTICE", "PROTECTIVE CERTIFICATE"]
+        [
+            "A BANKRUPT",
+            "ADJUDICATED BANKRUPT",
+            "BANKRUPT IN MAIN PROCEEDINGS",
+            "PERSONAL INSOLVENCY",
+            "DEBT SETTLEMENT ARRANGEMENT",
+            "DEBT RELIEF NOTICE",
+            "PROTECTIVE CERTIFICATE",
+        ]
     )
     company_cat = pl.col("notice_category").is_in(
         ["corporate_insolvency", "corporate_notice", "corporate_rescue", "investment_vehicle_register_notice"]
@@ -1298,9 +1305,7 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
         r"DELOITTE|GRANT THORNTON|MAZARS|\bRBK\b|KAVANAGH FENNELL|MCSTAY LUBY|ROBINSON RYAN|"
         r"DAVID VAN DESSEL|COSGROVE GAYNARD|HLB SHEEHAN|HLB MCKEOGH|RUSSELL BRENNAN|GRINTHAL"
     )
-    _matter_clean = (
-        pl.col("raw_text").str.extract(matter_pat, 1).str.replace_all(r"\s+", " ").str.strip_chars(" .,;:")
-    )
+    _matter_clean = pl.col("raw_text").str.extract(matter_pat, 1).str.replace_all(r"\s+", " ").str.strip_chars(" .,;:")
     # Drop statute-only / boilerplate matter captures (the double-opener
     # "IN THE MATTER OF THE COMPANIES ACT 2014 / AND / IN THE MATTER OF X LTD"
     # grabs the Act first) so entity_name falls through to the company-form line.

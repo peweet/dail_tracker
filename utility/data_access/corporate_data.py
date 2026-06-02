@@ -9,6 +9,7 @@ Forbidden here (same rules as the Streamlit page file):
 - CREATE VIEW / CREATE TABLE / read_parquet
 - pandas merge / pivot / business-metric definitions
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,7 +17,6 @@ import logging
 import duckdb
 import pandas as pd
 import streamlit as st
-
 from data_access._sql_registry import PROJECT_ROOT as _PROJECT_ROOT
 from data_access._sql_registry import register_views
 

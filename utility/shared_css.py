@@ -12,7 +12,7 @@ def inject_css() -> None:
     (white/unstyled, collapsed content) that read as a flash/flicker,
     worst on the heavier pages. The per-run guard below makes the legacy
     per-page inject_css() calls harmless no-ops; the guard is reset at the
-    top of each run in app.py. """
+    top of each run in app.py."""
     if st.session_state.get("_dt_css_injected"):
         return
     st.session_state["_dt_css_injected"] = True

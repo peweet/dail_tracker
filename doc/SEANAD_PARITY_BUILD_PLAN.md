@@ -329,5 +329,64 @@ Extend **`test/test_services_votes.py`**:
   PDF (text only, not the binary, to keep the repo light).
 - Keep fixtures minimal and deterministic; no network in unit tests (the API/PDF fetch is mocked,
   matching `test_http_engine.py` / `test_services_votes.py` patterns).
+
+---
+
+## 9. UI display plan — reuse the TD Member Overview (reconciled against validated data)
+
+**Principle:** every per-member section in `member_overview.py` already renders generically off
+registered SQL views keyed by `unique_member_code`. So the SAME page renders a Senator once
+(a) senators are in the registry, and (b) the views include Senator gold. **No new page, no new
+components.** Net new UI work = 1 registry union + 1 picker toggle + 3 view unions + label/empty
+tweaks.
+
+### 9.1 What the data supports (validated 2026-06-01 against pipeline_sandbox/_seanad_output/)
+
+| Section | Senator data | Coverage | UI outcome |
+|---|---|---|---|
+| Identity / hero | members parquet | 60/60 | full — name, party, **panel** (not constituency), house |
+| Votes (summary + detail) | `current_seanad_vote_history` | **60/60**, 0 null-metadata, 18,571 rows | full vote record (e.g. Ahearn 467 votes) |
+| Attendance (by year) | `seanad_attendance_by_year` | **58/60** | full; 2 gaps = name-key (Craughwell middle initial, Ní Chuilinn Irish-name) — same class as TDs |
+| Payments (rankings + detail) | `seanad_payments_full_psa` | **59/60** | full; 1 gap = Craughwell middle-initial key |
+| Committees | committees long-format (both chambers) | full | already chamber-aware |
+| Interests | `v_member_interests_detail` | already live | already has Dáil/Seanad toggle |
+| **Questions (PQs)** | none — TD instrument | n/a | **civic-voice empty state** (Senators raise Commencement Matters) |
+| Constituency demographics | none (panels aren't geographic) | n/a | hide for Seanad / show "Panel — national" note |
+
+### 9.2 Layer 1 — registry (makes senators selectable)
+- `sql_views/member_registry.sql`: `UNION ALL flattened_members + flattened_seanad_members`, add
+  `house` (`CASE dail_number WHEN '27' THEN 'Seanad' ELSE 'Dáil' END`). Keep panel in
+  `constituency`. Mirror `member_interests_detail.sql`.
+- `utility/data_access/member_overview_data.py`: inject `{SEANAD_MEMBER_PARQUET_PATH}` next to the
+  existing `{MEMBER_PARQUET_PATH}` substitution.
+- Identity key must become `(unique_member_code, house)` — codes collide across houses (Seán Kyne).
+  Update `_member_list` SELECT and the two lookups (`member_overview.py:104/112/133`) and the
+  uniqueness assumptions at `:1074/:1267`.
+- Picker: add a Dáil/Seanad segmented control (copy `interests.py:189`); default Dáil.
+
+### 9.3 Layer 2 — domain views read Senator gold
+Each view filters by the selected member's `unique_member_code`, so a plain `UNION ALL` of the two
+houses' gold is sufficient — the senator's code resolves to senator rows automatically:
+- `vote_td_summary.sql` / `vote_member_detail.sql`: read Dáil **+** `current_seanad_vote_history`.
+- `payments_base.sql`: union `seanad_payments_full_psa`.
+- attendance views: union `seanad_attendance_by_year` + enriched senator attendance.
+- `member_overview_data.py`: add the Senator gold paths to the substitution dicts.
+
+### 9.4 Layer 3 — labels & empty states (no new components)
+- `constituency` label → **"Panel"** when `house = Seanad` (data already carries the panel string).
+- "TD"/"Deputy" → **"Senator"** in hero + section copy (house-aware helper).
+- Questions card: render the existing empty-state component with civic-voice copy — factual, no
+  inference ("Senators raise Commencement Matters, not Parliamentary Questions").
+- Constituency-demographics card: suppress for Seanad (panels have no Census denominator).
+- Hero chip row: party + panel + house badge.
+
+### 9.5 Standalone pages (later, optional)
+Votes / Payments list pages can gain a Dáil/Seanad filter reusing the same card components once the
+views are house-aware — not required for the per-member parity milestone.
+
+### 9.6 De-risking preview
+Before/independent of full ETL promotion, point the member-overview views at the sandbox
+`_seanad_output/` parquets and seed the 60 senators into the registry to render a **live Senator
+profile in the existing UI** — a throwaway spike proving the reuse with zero production ETL risk.
 </content>
 </invoke>

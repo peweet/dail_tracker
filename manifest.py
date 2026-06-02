@@ -96,35 +96,36 @@ def create_run_manifest(run_id: str | None = None) -> dict:
     _write_json(_per_run_path(run_id), record)
 
     rollup = _read_json(MANIFEST_PATH, default=[])
-    rollup.append({
-        "run_id": run_id,
-        "started_at": started_at,
-        "status": "running",
-        "git_sha": record["git_sha"],
-        "log_dir": _rel_to_project(run_dir(run_id)),
-    })
+    rollup.append(
+        {
+            "run_id": run_id,
+            "started_at": started_at,
+            "status": "running",
+            "git_sha": record["git_sha"],
+            "log_dir": _rel_to_project(run_dir(run_id)),
+        }
+    )
     _write_json(MANIFEST_PATH, rollup)
 
     return record
 
 
-def record_step_started(
-    run_id: str, ordinal: int, name: str, script: str, log_file: Path | None
-) -> None:
+def record_step_started(run_id: str, ordinal: int, name: str, script: str, log_file: Path | None) -> None:
     record = _read_json(_per_run_path(run_id), default=None)
     if record is None:
         return
-    record["steps"].append({
-        "ordinal": ordinal,
-        "name": name,
-        "script": script,
-        "started_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "status": "running",
-        "log_file": (
-            str(log_file.relative_to(run_dir(run_id))).replace("\\", "/")
-            if log_file is not None else None
-        ),
-    })
+    record["steps"].append(
+        {
+            "ordinal": ordinal,
+            "name": name,
+            "script": script,
+            "started_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "status": "running",
+            "log_file": (
+                str(log_file.relative_to(run_dir(run_id))).replace("\\", "/") if log_file is not None else None
+            ),
+        }
+    )
     _write_json(_per_run_path(run_id), record)
 
 
@@ -150,8 +151,7 @@ def record_step_finished(
                 step["error"] = error
             with suppress(KeyError, ValueError):
                 step["duration_seconds"] = round(
-                    (datetime.fromisoformat(finished_at)
-                     - datetime.fromisoformat(step["started_at"])).total_seconds(),
+                    (datetime.fromisoformat(finished_at) - datetime.fromisoformat(step["started_at"])).total_seconds(),
                     2,
                 )
             break
@@ -170,10 +170,7 @@ def run_finished_at(run_id: str | None = None) -> None:
     record["finished_at"] = finished_at
     duration: float | None
     try:
-        duration = (
-            datetime.fromisoformat(finished_at)
-            - datetime.fromisoformat(record["started_at"])
-        ).total_seconds()
+        duration = (datetime.fromisoformat(finished_at) - datetime.fromisoformat(record["started_at"])).total_seconds()
         record["duration_seconds"] = round(duration, 2)
     except (KeyError, ValueError):
         duration = None

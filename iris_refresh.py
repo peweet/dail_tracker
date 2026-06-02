@@ -21,6 +21,7 @@ CLI:
     python iris_refresh.py --skip-silver   # only refresh derived gold from current silver
     python iris_refresh.py --skip-derived  # poll + silver only
 """
+
 from __future__ import annotations
 
 import argparse
@@ -51,6 +52,7 @@ def step_silver() -> bool:
     t = time.monotonic()
     try:
         from iris_silver_rebuild import rebuild_silver_from_bronze
+
         rebuild_silver_from_bronze()
     except Exception as exc:
         _log.exception("silver rebuild failed: %s", exc)
@@ -66,6 +68,7 @@ def step_si_gold() -> bool:
         # import-and-call avoids subprocess overhead; si_entity_enrichment.run()
         # is the same entry point its __main__ uses.
         import si_entity_enrichment
+
         si_entity_enrichment.run()
     except Exception as exc:
         _log.exception("si_entity_enrichment failed: %s", exc)
@@ -79,6 +82,7 @@ def step_bill_si_gold() -> bool:
     t = time.monotonic()
     try:
         import iris_si_bill_enrichment
+
         iris_si_bill_enrichment.run()
     except Exception as exc:
         _log.exception("iris_si_bill_enrichment failed: %s", exc)
@@ -110,23 +114,26 @@ def step_corporate_gold() -> bool:
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--skip-poll", action="store_true",
-                    help="skip the iris_oifigiuil_poller step (use existing bronze)")
-    ap.add_argument("--skip-silver", action="store_true",
-                    help="skip the silver delta-rebuild (refresh derived gold from current silver)")
-    ap.add_argument("--skip-derived", action="store_true",
-                    help="skip the 3 derived gold enrichments (poll + silver only)")
+    ap.add_argument(
+        "--skip-poll", action="store_true", help="skip the iris_oifigiuil_poller step (use existing bronze)"
+    )
+    ap.add_argument(
+        "--skip-silver",
+        action="store_true",
+        help="skip the silver delta-rebuild (refresh derived gold from current silver)",
+    )
+    ap.add_argument(
+        "--skip-derived", action="store_true", help="skip the 3 derived gold enrichments (poll + silver only)"
+    )
     args = ap.parse_args()
 
     started = time.monotonic()
     failures: list[str] = []
 
-    if not args.skip_poll:
-        if not step_poll():
-            failures.append("poll")
-    if not args.skip_silver:
-        if not step_silver():
-            failures.append("silver")
+    if not args.skip_poll and not step_poll():
+        failures.append("poll")
+    if not args.skip_silver and not step_silver():
+        failures.append("silver")
     if not args.skip_derived:
         if not step_si_gold():
             failures.append("si_gold")

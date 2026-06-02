@@ -13,6 +13,7 @@ reads silver/pretty_votes.csv).
 CLI:
     python legislation_refresh.py
 """
+
 from __future__ import annotations
 
 import argparse

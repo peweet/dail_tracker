@@ -25,6 +25,10 @@ GOLD_CSV_DIR = GOLD_DIR / "csv"
 BRONZE_PDF_DIR = BRONZE_DIR / "pdfs"
 ATTENDANCE_PDF_DIR = BRONZE_PDF_DIR / "attendance"
 PAYMENTS_PDF_DIR = BRONZE_PDF_DIR / "payments"
+# Seanad sources live in sibling dirs so the deputies-format ETL globs never see
+# Senator PDFs; the Senator chain (seanad_refresh.py) globs these instead.
+ATTENDANCE_PDF_DIR_SEANAD = BRONZE_PDF_DIR / "attendance_seanad"
+PAYMENTS_PDF_DIR_SEANAD = BRONZE_PDF_DIR / "payments_seanad"
 INTERESTS_PDF_DIR = BRONZE_DIR / "interests"
 LOBBYING_RAW_DIR = BRONZE_DIR / "lobbying_csv_data"
 # Bronze: API JSON and member data storage
@@ -38,6 +42,10 @@ LOBBY_PARQUET_DIR = LOBBY_OUTPUT_DIR / "parquet"
 
 # Gold parquet consumed by votes_data and member_overview_data
 GOLD_VOTE_HISTORY_PARQUET = GOLD_PARQUET_DIR / "current_dail_vote_history.parquet"
+# Seanad gold — produced by enrich.main_seanad(); consumed by the house-aware views.
+GOLD_SEANAD_VOTE_HISTORY_PARQUET = GOLD_PARQUET_DIR / "current_seanad_vote_history.parquet"
+SEANAD_PAYMENTS_PARQUET = GOLD_PARQUET_DIR / "seanad_payments_full_psa.parquet"
+SEANAD_ATTENDANCE_BY_YEAR_PARQUET = GOLD_PARQUET_DIR / "seanad_attendance_by_year.parquet"
 
 API_BASE = "https://api.oireachtas.ie/v1"
 DATE_RANGE = ("2024-01-01", "2099-01-01")
@@ -57,6 +65,8 @@ DIRS = [
     BRONZE_PDF_DIR,
     ATTENDANCE_PDF_DIR,
     PAYMENTS_PDF_DIR,
+    ATTENDANCE_PDF_DIR_SEANAD,
+    PAYMENTS_PDF_DIR_SEANAD,
     INTERESTS_PDF_DIR,
     LOBBYING_RAW_DIR,
     MEMBERS_DIR,

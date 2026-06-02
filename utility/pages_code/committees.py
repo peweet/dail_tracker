@@ -204,10 +204,7 @@ def _stage_register(
         # (typing + Enter doesn't return a value). Make that expectation
         # explicit so keyboard users aren't left wondering why Enter
         # does nothing.
-        st.caption(
-            "Type a name then **pick from the suggestions** to open that "
-            "member's committee profile."
-        )
+        st.caption("Type a name then **pick from the suggestions** to open that member's committee profile.")
         chosen_td = find_a_td_search(
             all_names,
             key_prefix="reg",
@@ -391,12 +388,9 @@ def _stage_committee(
             # Per-committee party seats sourced from v_committee_party_seats —
             # the rollup is view-side, the page only reads it.
             seats = fetch_party_seats(chamber, selected)
-            if seats.empty:
-                # Defensive: chamber+committee filter returned nothing
-                # (e.g. cache mismatch). Fall back gracefully.
-                seats = pd.DataFrame(columns=["party", "seats"])
-            else:
-                seats = seats[["party", "seats"]]
+            # Defensive: chamber+committee filter returned nothing (e.g. cache
+            # mismatch) — fall back to an empty frame rather than KeyError.
+            seats = pd.DataFrame(columns=["party", "seats"]) if seats.empty else seats[["party", "seats"]]
             domain = seats["party"].tolist()
             rng = [party_colour(p) for p in domain]
             chart = (
@@ -654,9 +648,7 @@ def render_member_committees(
                     "Active": "comm-status-active",
                     "Ended": "comm-status-ended",
                 }.get(status, "comm-status-unknown")
-                chair_pill = (
-                    '<span class="comm-chair-pill">Chair</span>' if is_chair else ""
-                )
+                chair_pill = '<span class="comm-chair-pill">Chair</span>' if is_chair else ""
                 cards.append(
                     f'<div class="comm-member-card">'
                     f'<div class="comm-member-card-header">'
@@ -666,7 +658,7 @@ def render_member_committees(
                     f"</div>"
                     f'<div class="comm-member-card-meta">'
                     f"{_h(role)}"
-                    f' &nbsp;·&nbsp; {_h(ctype)}'
+                    f" &nbsp;·&nbsp; {_h(ctype)}"
                     f' &nbsp;·&nbsp; <span class="comm-member-card-dates">{_h(start_disp)} → {_h(end_disp)}</span>'
                     f"</div>"
                     f"</div>"

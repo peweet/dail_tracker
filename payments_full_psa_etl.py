@@ -248,16 +248,25 @@ def _parse_date(value, expected_year: int | None = None) -> date | None:
     return None
 
 
+# Exact-match position prefixes. 'Senaotr' is a real source-PDF typo for
+# 'Senator' (Apr-2025 / Feb-2026 Senator PSA PDFs); matching it exactly is safe
+# (a loose startswith could clobber surnames like 'Sennett, Joe').
+_KNOWN_POSITIONS = {"Deputy", "Minister", "Taoiseach", "Tánaiste", "Tanaiste", "Senator", "Senaotr", "Cathaoirleach"}
+_SENATOR_PREFIXES = {"Senator", "Senaotr"}
+
+
 def _split_position(name_cell: str) -> tuple[str, str]:
     """Names appear as 'Deputy Adams, Gerry' / 'Minister Harris, Simon' /
-    'Taoiseach Varadkar, Leo'. Split on the first space. If the leading token
-    is not a known position, treat the whole cell as the name (Deputy default).
+    'Taoiseach Varadkar, Leo' / 'Senator Ahearn, Garret'. Split on the first
+    space. If the leading token is not a known position, treat the whole cell as
+    the name (Deputy default).
     """
     if not name_cell:
         return "Deputy", ""
     parts = name_cell.strip().split(" ", 1)
-    if len(parts) == 2 and parts[0] in {"Deputy", "Minister", "Taoiseach", "Tánaiste", "Tanaiste"}:
-        return parts[0], parts[1].strip()
+    if len(parts) == 2 and parts[0] in _KNOWN_POSITIONS:
+        position = "Senator" if parts[0] in _SENATOR_PREFIXES else parts[0]
+        return position, parts[1].strip()
     return "Deputy", name_cell.strip()
 
 
@@ -432,9 +441,22 @@ def _iter_rows_from_pdf(pdf_path: Path) -> Iterable[ExtractedRow]:
 # ---------------------------------------------------------------------------
 
 
-def build_full_psa() -> dict[str, int]:
-    pdfs = sorted(PAYMENTS_PDF_DIR.glob("*.pdf"))
-    print(f"Found {len(pdfs)} PSA PDFs in {PAYMENTS_PDF_DIR}")
+def build_full_psa(
+    pdf_dir: Path = PAYMENTS_PDF_DIR,
+    out_parquet: Path = OUTPUT_PARQUET,
+    out_csv: Path = OUTPUT_CSV,
+    quarantine_parquet: Path = QUARANTINE_PARQUET,
+    house: str | None = None,
+) -> dict[str, int]:
+    """Parse every PSA PDF in pdf_dir into the gold parquet.
+
+    Defaults reproduce the original Dáil behaviour exactly. The Senator chain
+    passes pdf_dir=PAYMENTS_PDF_DIR_SEANAD + house="Seanad" + Senator output
+    paths to reuse the entire parser unchanged (only _split_position learned
+    'Senator'). `house`, when given, is tagged onto every row.
+    """
+    pdfs = sorted(pdf_dir.glob("*.pdf"))
+    print(f"Found {len(pdfs)} PSA PDFs in {pdf_dir}")
 
     rows: list[ExtractedRow] = []
     for pdf in pdfs:
@@ -458,6 +480,9 @@ def build_full_psa() -> dict[str, int]:
         }
     )
 
+    if house is not None:
+        df = df.with_columns(pl.lit(house).alias("house"))
+
     # Dedup: same member, same date_paid, same amount, same kind = duplicate
     # (some PDFs are republished or share rows across listings).
     df = df.unique(subset=["member_name", "date_paid", "amount", "payment_kind"], keep="first")
@@ -473,11 +498,11 @@ def build_full_psa() -> dict[str, int]:
     clean = df.filter(is_clean)
     quarantine = df.filter(~is_clean)
 
-    OUTPUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
-    clean.write_parquet(OUTPUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
-    clean.write_csv(OUTPUT_CSV)
-    quarantine.write_parquet(QUARANTINE_PARQUET, compression="zstd", compression_level=3, statistics=True)
+    out_parquet.parent.mkdir(parents=True, exist_ok=True)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    clean.write_parquet(out_parquet, compression="zstd", compression_level=3, statistics=True)
+    clean.write_csv(out_csv)
+    quarantine.write_parquet(quarantine_parquet, compression="zstd", compression_level=3, statistics=True)
 
     return {"clean_rows": clean.height, "quarantine_rows": quarantine.height}
 

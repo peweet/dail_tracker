@@ -17,6 +17,7 @@ Steps 4–7 are independent of steps 1–3 but only useful as a unit.
 CLI:
     python lobbying_refresh.py
 """
+
 from __future__ import annotations
 
 import argparse

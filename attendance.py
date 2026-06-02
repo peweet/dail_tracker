@@ -11,6 +11,7 @@ Behaviour:
   - If aggregated_td_tables.csv already exists, PDF processing is skipped
     and only the fact table is rebuilt (matches pre-refactor behaviour).
 """
+
 from __future__ import annotations
 
 import logging
@@ -105,12 +106,14 @@ def _build_silver_csv(dataframes: list[pd.DataFrame], csv_path: Path) -> None:
     df.to_csv(csv_path, index=False)
 
 
-def _build_fact_table(silver_csv: Path, fact_csv: Path, fact_parquet: Path) -> None:
+def _build_fact_table(silver_csv: Path, fact_csv: Path, fact_parquet: Path, house: str | None = None) -> None:
     """Re-read silver CSV, compute counts, write fact CSV + parquet.
 
     Re-read (rather than passing the in-memory df) is intentional — keeps
     dtype coercions to_csv → read_csv applies, so the fact table is
     deterministic across silver-write paths.
+
+    `house`, when given, is tagged onto every row (Senator chain passes "Seanad").
     """
     df = pd.read_csv(silver_csv)
 
@@ -138,6 +141,8 @@ def _build_fact_table(silver_csv: Path, fact_csv: Path, fact_parquet: Path) -> N
     ]
     if drop_cols:
         df = df.drop(drop_cols, axis=1)
+    if house is not None:
+        df["house"] = house
     df.to_csv(fact_csv, index=False)
 
     df.to_parquet(
@@ -148,30 +153,41 @@ def _build_fact_table(silver_csv: Path, fact_csv: Path, fact_parquet: Path) -> N
     )
 
 
-def main() -> int:
+def main(
+    pdf_dir: Path = ATTENDANCE_PDF_DIR,
+    silver_csv: Path | None = None,
+    fact_csv: Path | None = None,
+    fact_parquet: Path | None = None,
+    house: str | None = None,
+) -> int:
     """Build silver attendance CSV + fact table from bronze PDFs.
+
+    Defaults reproduce the original Dáil behaviour exactly. The Senator chain
+    passes pdf_dir=ATTENDANCE_PDF_DIR_SEANAD + Senator output paths + house=
+    "Seanad" to reuse the whole parser unchanged (name detection + date-table
+    counting are already chamber-agnostic and term-agnostic).
 
     Exit codes:
         0 — ok, or skipped cleanly (no PDFs / no tables extracted)
     """
-    silver_csv = SILVER_DIR / "aggregated_td_tables.csv"
-    fact_csv = SILVER_DIR / "td_attendance_fact_table.csv"
-    fact_parquet = SILVER_DIR / "parquet" / "td_attendance_fact_table.parquet"
+    silver_csv = silver_csv or SILVER_DIR / "aggregated_td_tables.csv"
+    fact_csv = fact_csv or SILVER_DIR / "td_attendance_fact_table.csv"
+    fact_parquet = fact_parquet or SILVER_DIR / "parquet" / "td_attendance_fact_table.parquet"
 
     date_range = ""
 
     if not silver_csv.is_file():
-        print("Aggregated payment tables CSV not found. Starting PDF processing to create it...")
-        pdfs_exist = any(ATTENDANCE_PDF_DIR.glob("*.pdf"))
+        print("Aggregated attendance tables CSV not found. Starting PDF processing to create it...")
+        pdfs_exist = any(pdf_dir.glob("*.pdf"))
         if not pdfs_exist:
             logger.warning(
                 "No attendance PDFs in %s and no existing silver CSV — skipping attendance build.",
-                ATTENDANCE_PDF_DIR,
+                pdf_dir,
             )
-            print(f"No attendance PDFs in {ATTENDANCE_PDF_DIR} — skipping.")
+            print(f"No attendance PDFs in {pdf_dir} — skipping.")
             return 0
 
-        dataframes, date_range = _extract_pdf_tables(ATTENDANCE_PDF_DIR)
+        dataframes, date_range = _extract_pdf_tables(pdf_dir)
         if not dataframes:
             logger.warning("Attendance PDFs present but no tables extracted — skipping silver write.")
             print("No tables extracted from attendance PDFs — skipping.")
@@ -179,12 +195,12 @@ def main() -> int:
 
         _build_silver_csv(dataframes, silver_csv)
     else:
-        print(f"Aggregated payment tables CSV already exists at {silver_csv}. Skipping PDF processing.")
+        print(f"Aggregated attendance tables CSV already exists at {silver_csv}. Skipping PDF processing.")
 
-    _build_fact_table(silver_csv, fact_csv, fact_parquet)
+    _build_fact_table(silver_csv, fact_csv, fact_parquet, house=house)
 
     print(f"date range extracted from title: {date_range}")
-    print("TD attendance CSV created successfully.")
+    print("Attendance CSV created successfully.")
     return 0
 
 

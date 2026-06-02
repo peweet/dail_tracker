@@ -9,6 +9,7 @@ silver/pretty_votes.csv.
 Behaviour:
   - Skipped cleanly (exit 0) when VOTES_RAW_DIR has no JSON or no vote rows.
 """
+
 from __future__ import annotations
 
 import glob
@@ -67,6 +68,49 @@ def normalize_vote_data(result: dict) -> list[pd.DataFrame]:
         df["house_number"] = house_number
         different_vote_types.append(df)
     return different_vote_types
+
+
+def build_seanad_votes_silver(results: list[dict], out_csv) -> int:
+    """Flatten raw Seanad vote results → seanad_pretty_votes.csv.
+
+    Reuses normalize_vote_data verbatim (it is chamber-agnostic — reads houseNo
+    from the division). The only difference from main() is the /seanad/ URL
+    segment and the output path, so the silver schema is identical to the Dáil
+    pretty_votes.csv that enrich._build_vote_history consumes.
+    """
+    dfs: list[pd.DataFrame] = []
+    for result in results:
+        dfs.extend(normalize_vote_data(result))
+    if not dfs:
+        logger.warning("No Seanad vote tallies extracted — skipping.")
+        return 0
+
+    df = pd.concat(dfs, ignore_index=True)
+    df = (
+        df.rename(
+            columns={
+                "member.showAs": "member_name",
+                "member.memberCode": "unique_member_code",
+                "member.uri": "member_uri",
+            }
+        )
+        .drop_duplicates()
+        .drop("member_uri", axis=1)
+    )
+    df["vote_id"] = df["vote_id"].str.split("_").str[-1]
+    df["vote_url"] = df.apply(
+        lambda row: (
+            f"https://www.oireachtas.ie/en/debates/vote/seanad/{row['house_number']}/{row['vote_date']}/{row['vote_id']}/"
+        ),
+        axis=1,
+    )
+    df["vote_id"] = df["vote_date"].astype(str) + "_" + df["vote_id"].astype(str)
+    df["date"] = pd.to_datetime(df["vote_date"], errors="coerce").dt.date
+    df = df.drop("member_name", axis=1).drop("vote_date", axis=1)
+    df = df.replace({"nilVotes": "Voted No", "taVotes": "Voted Yes", "staonVotes": "Abstained"})
+    df.to_csv(out_csv, index=False)
+    print(f"Seanad votes normalized and saved to {out_csv}")
+    return 0
 
 
 def main() -> int:

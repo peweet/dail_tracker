@@ -23,6 +23,7 @@ CLI:
     python corporate_notices_enrichment.py            # print summary, no write
     python corporate_notices_enrichment.py --write    # write parquet + coverage JSON
 """
+
 from __future__ import annotations
 
 import argparse
@@ -67,8 +68,7 @@ def _load_brand_map() -> dict[str, tuple[str, str]]:
     for r in df.iter_rows(named=True):
         brand = str(r.get("brand", "")).strip().upper()
         if brand:
-            out[brand] = (str(r.get("parent_fund", "")).strip(),
-                          str(r.get("fund_type", "")).strip())
+            out[brand] = (str(r.get("parent_fund", "")).strip(), str(r.get("fund_type", "")).strip())
     return out
 
 
@@ -115,36 +115,35 @@ def enrich(df: pl.DataFrame) -> tuple[pl.DataFrame, dict]:
         parents_col.append(p)
         types_col.append(ft)
 
-    out = corp.select([
-        "notice_ref",
-        "issue_date",
-        "issue_number",
-        "notice_category",
-        "notice_subtype",
-        "entity_name",
-        "display_title",
-        "title",
-        "raw_text",
-        "iris_source_pdf" if "iris_source_pdf" in corp.columns else "source_file",
-    ]).rename({"source_file": "iris_source_pdf"} if "source_file" in corp.columns else {})
+    out = corp.select(
+        [
+            "notice_ref",
+            "issue_date",
+            "issue_number",
+            "notice_category",
+            "notice_subtype",
+            "entity_name",
+            "display_title",
+            "title",
+            "raw_text",
+            "iris_source_pdf" if "iris_source_pdf" in corp.columns else "source_file",
+        ]
+    ).rename({"source_file": "iris_source_pdf"} if "source_file" in corp.columns else {})
 
-    out = out.with_columns([
-        pl.Series("brand_mentions", brands_col, dtype=pl.List(pl.Utf8)),
-        pl.Series("parent_fund_mentions", parents_col, dtype=pl.List(pl.Utf8)),
-        pl.Series("fund_type_mentions", types_col, dtype=pl.List(pl.Utf8)),
-    ])
+    out = out.with_columns(
+        [
+            pl.Series("brand_mentions", brands_col, dtype=pl.List(pl.Utf8)),
+            pl.Series("parent_fund_mentions", parents_col, dtype=pl.List(pl.Utf8)),
+            pl.Series("fund_type_mentions", types_col, dtype=pl.List(pl.Utf8)),
+        ]
+    )
 
     # Receivership-shaped subset (used for the brand-coverage stat).
-    recv_mask = (
-        (out["notice_subtype"] == "receivership")
-        | out["raw_text"].cast(pl.Utf8).str.to_uppercase().str.contains(
-            "APPOINTMENT OF (?:STATUTORY )?RECEIVER|NOTICE OF APPOINTMENT OF RECEIVER"
-        )
-    )
+    recv_mask = (out["notice_subtype"] == "receivership") | out["raw_text"].cast(
+        pl.Utf8
+    ).str.to_uppercase().str.contains("APPOINTMENT OF (?:STATUTORY )?RECEIVER|NOTICE OF APPOINTMENT OF RECEIVER")
     n_recv = int(recv_mask.sum())
-    n_recv_tagged = int(
-        ((out["brand_mentions"].list.len() > 0) & recv_mask).sum()
-    )
+    n_recv_tagged = int(((out["brand_mentions"].list.len() > 0) & recv_mask).sum())
 
     # A5 coverage gate JSON.
     coverage = {
@@ -167,12 +166,15 @@ def enrich(df: pl.DataFrame) -> tuple[pl.DataFrame, dict]:
             ),
         },
         "entity_name_quality": {
-            "null_or_empty": int((out["entity_name"].is_null() | (out["entity_name"].cast(pl.Utf8).str.strip_chars() == "")).sum()),
+            "null_or_empty": int(
+                (out["entity_name"].is_null() | (out["entity_name"].cast(pl.Utf8).str.strip_chars() == "")).sum()
+            ),
             "junk_pattern_count": int(
                 out.filter(
-                    pl.col("entity_name").cast(pl.Utf8).str.to_uppercase().str.contains(
-                        r"NOTICE IS HEREBY|ABOVE NAMED|IN THE MATTER|COMPANIES ACT|ICAV ACT|COLLECTIVE ASSET"
-                    )
+                    pl.col("entity_name")
+                    .cast(pl.Utf8)
+                    .str.to_uppercase()
+                    .str.contains(r"NOTICE IS HEREBY|ABOVE NAMED|IN THE MATTER|COMPANIES ACT|ICAV ACT|COLLECTIVE ASSET")
                 ).height
             ),
         },
@@ -200,9 +202,11 @@ def main() -> None:
     print("=" * 64)
     print(f"  final rows:                       {out.height:,}")
     print(f"  excluded (personal insolvency):   {coverage['rows_excluded_personal_insolvency']:,}")
-    print(f"  receivership brand-tag coverage:  {coverage['receivership_brand_tagging']['coverage_pct']}%  "
-          f"({coverage['receivership_brand_tagging']['receivership_notices_with_known_brand']:,} of "
-          f"{coverage['receivership_brand_tagging']['receivership_notices_total']:,})")
+    print(
+        f"  receivership brand-tag coverage:  {coverage['receivership_brand_tagging']['coverage_pct']}%  "
+        f"({coverage['receivership_brand_tagging']['receivership_notices_with_known_brand']:,} of "
+        f"{coverage['receivership_brand_tagging']['receivership_notices_total']:,})"
+    )
     print(f"  entity_name nulls:                {coverage['entity_name_quality']['null_or_empty']:,}")
     print(f"  entity_name junk-pattern hits:    {coverage['entity_name_quality']['junk_pattern_count']:,}")
     print()
