@@ -2,7 +2,6 @@ import csv
 import os
 import uuid
 from datetime import UTC, datetime
-from pathlib import Path
 
 import duckdb
 import polars as pl
@@ -14,6 +13,7 @@ from config import (
     LOBBY_OUTPUT_DIR,
     LOBBY_PARQUET_DIR,
     LOBBYING_RAW_DIR,
+    PROJECT_ROOT,
     SILVER_PARQUET_DIR,
 )
 from quarantine import quarantine
@@ -851,7 +851,7 @@ def save_gold_outputs(activities_df: pl.DataFrame, lobbying_df: pl.DataFrame) ->
     GOLD_PARQUET_DIR.mkdir(parents=True, exist_ok=True)
     GOLD_CSV_DIR.mkdir(parents=True, exist_ok=True)
 
-    sql_dir = Path(__file__).parent / "sql_queries"
+    sql_dir = PROJECT_ROOT / "sql_queries"
     for sql_file in sorted(sql_dir.glob("*.sql")):
         name = sql_file.stem
         query = sql_file.read_text(encoding="utf-8")
