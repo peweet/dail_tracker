@@ -1724,11 +1724,16 @@ def _render_methodology_expander(aliases: pd.DataFrame) -> None:
     )
 
     # Let the reader take the full curated mapping away as a CSV (the same
-    # source-of-truth rows the table above is built from, ungrouped).
+    # source-of-truth rows the table above is built from, ungrouped). Captioned
+    # so it stays self-describing even when the methodology block is collapsed.
+    st.caption(
+        "Curated financial-institution list — every loan-book brand, its parent "
+        "fund and type (vulture fund, credit servicer, Irish bank, state body)."
+    )
     buf = io.StringIO()
     aliases.to_csv(buf, index=False)
     st.download_button(
-        label=f"Download brand → parent mapping ({len(aliases):,} rows, CSV)",
+        label=f"Download financial-institution mapping ({len(aliases):,} brands, CSV)",
         data=buf.getvalue(),
         file_name="dail_tracker_loan_book_fund_aliases.csv",
         mime="text/csv",
