@@ -105,6 +105,14 @@ DATASETS: dict[str, dict] = {
         "source": GOLD_PARQUET_DIR / "statutory_instruments.parquet",
         "column": "si_signed_date",
     },
+    "procurement": {
+        "measure": "record_date",
+        # eTenders/OGP awards (full-file CSV, refreshed ~quarterly). The notice date
+        # is the raw source string in DD/MM/YYYY, so declare its format.
+        "source": GOLD_PARQUET_DIR / "procurement_awards.parquet",
+        "column": "Notice Published Date/Contract Created Date",
+        "date_format": "%d/%m/%Y",
+    },
 }
 
 
@@ -116,14 +124,19 @@ def _rel(path: Path) -> str:
         return path.as_posix()
 
 
-def _as_date_expr(col: str, dtype: pl.DataType) -> pl.Expr:
-    """Coerce a date/datetime/string column to ``pl.Date`` for comparison."""
+def _as_date_expr(col: str, dtype: pl.DataType, fmt: str | None = None) -> pl.Expr:
+    """Coerce a date/datetime/string column to ``pl.Date`` for comparison.
+
+    ``fmt`` is the strptime pattern for string columns whose dates are not ISO
+    (e.g. the eTenders DD/MM/YYYY notice date); ISO/typed columns ignore it."""
     if dtype == pl.Utf8:
-        return pl.col(col).str.strptime(pl.Date, strict=False)
+        return pl.col(col).str.strptime(pl.Date, format=fmt, strict=False)
     return pl.col(col).cast(pl.Date, strict=False)
 
 
-def _latest_record_date(sources: list[tuple[Path, str]], today: date) -> tuple[str | None, str]:
+def _latest_record_date(
+    sources: list[tuple[Path, str]], today: date, fmt: str | None = None
+) -> tuple[str | None, str]:
     """Max date <= today across one or more (path, column) pairs.
 
     Returns (iso_date_or_none, status). status is ``ok`` when at least one
@@ -141,7 +154,7 @@ def _latest_record_date(sources: list[tuple[Path, str]], today: date) -> tuple[s
             continue
         dtype = lf.collect_schema()[column]
         out = (
-            lf.select(_as_date_expr(column, dtype).alias("_d"))
+            lf.select(_as_date_expr(column, dtype, fmt).alias("_d"))
             .filter(pl.col("_d") <= pl.lit(today))
             .select(pl.col("_d").max())
             .collect()
@@ -194,7 +207,7 @@ def _build() -> dict:
                 pairs = [(spec["source"], spec["column"])]
                 entry["source"] = _rel(spec["source"])
 
-            iso, status = _latest_record_date(pairs, today)
+            iso, status = _latest_record_date(pairs, today, spec.get("date_format"))
             entry["status"] = status
             if measure == "period":
                 entry["latest_period_end_date"] = iso

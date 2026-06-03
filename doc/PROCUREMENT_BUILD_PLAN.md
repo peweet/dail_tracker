@@ -341,6 +341,41 @@ Candidate sources **not yet considered** (in-scope-ish, log before deciding):
 - **Revised Estimates Volume (central appropriations by programme)** — deprioritised earlier
   as "too far" (central-gov budget, not procurement per se); revisit only on request.
 
+## 8d. ⭐ FINAL CRITICAL STEP — cross-source consolidation (the union), gated on FULL ingestion
+
+**Do NOT start until every payment-grain source above is materialised.** Attempting the union
+mid-ingestion just churns the contract as councils / HSE-Tusla land their real shapes (decided
+2026-06-03 — premature otherwise). This is the last step before any gold promotion + views + page.
+
+**Feasibility was checked empirically (2026-06-03) — "union everything" is NOT real.** The
+sources are three different grains; only one grain unions:
+
+- **Payment grain → the union** (`public_payments_fact`): central/semi-state `public_payments_fact`
+  (built, sandbox) + **HSE/Tusla** (`procurement_hse_tusla_parser.py`) + **LA POs** (per-council,
+  not built). These concat — *once they share a schema* (see precondition).
+- **Award grain → SEPARATE sibling fact**: eTenders `procurement_awards` (gold) + TED
+  `ted_ie_awards` (silver). Award *ceilings*, not paid transactions — never concat into payments.
+- **Budget grain → SEPARATE sibling fact**: amalgamated AFS + per-LA AFS + CSO. Aggregate
+  by-division, not per-transaction — never concat into payments.
+
+**The blocker is a schema contract, not a `pl.concat`.** Three vocabularies already drift:
+`public_payments_fact` uses `amount_semantics`∈{po_committed,payment_actual}; HSE/Tusla emits
+`{payment_incl_vat,invoice_payment}` (and a DQ JSON, *not a parquet*, with `supplier_norm`/
+`doc_ref` column-name mismatches + missing provenance/privacy cols); TED uses
+`{contract_award_value,framework_or_dps_ceiling}`. Per §4b, lock the **2-axis taxonomy
+(`realisation_tier` + controlled `value_kind`)** as the canonical `public_payments_fact` schema
+FIRST; every producer then EMITS that schema (HSE/Tusla needs renames + vocab map + the missing
+columns + to actually write a parquet — a cross-context coordination item), THEN the concat is trivial.
+
+Sequence when ingestion is complete:
+1. Author the canonical `public_payments_fact` schema + taxonomy contract (one source of truth;
+   `doc/PUBLIC_PAYMENTS_FACT_SCHEMA.md` must adopt `value_kind`+`realisation_tier`, not fork).
+2. Conform each payment-grain producer to it (public-body extractor, HSE/Tusla parser, LA parser).
+3. Run the privacy quarantine pass (public_display currently True for all — deferred) + a CRO join
+   on the public-body rows (it has none yet; reuse the eTenders/TED matcher).
+4. `pl.concat` the conformed producers → one `public_payments_fact`; keep award + budget as siblings.
+5. Promote to gold + `sql_views/public_payments_*.sql` + tests/fixtures + (optional) page (§6/§7).
+
 ## 9. Logic-firewall checklist (gate before merge)
 
 - [ ] No `read_parquet` / JOIN / GROUP BY / window / pandas merge in

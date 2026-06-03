@@ -49,7 +49,7 @@ with contextlib.suppress(Exception):
 from cro_normalise import name_norm_expr  # noqa: E402
 
 CRO = ROOT / "data/silver/cro/companies.parquet"
-RAW_CACHE = Path("c:/tmp/ted_ie_awards_raw.json")           # bronze: raw API capture
+RAW_CACHE = ROOT / "data/bronze/ted/ted_ie_awards_raw.json"  # bronze: raw API capture (portable, headless-safe)
 OUT_SILVER = ROOT / "data/silver/parquet/ted_ie_awards.parquet"
 OUT_COV = ROOT / "data/_meta/ted_ie_awards_coverage.json"
 
@@ -220,6 +220,14 @@ def main() -> None:
     hr("PULL TED — Irish contract-award notices (eForms era, 2024+)")
     raw = load_raw(args.max_pages, args.refresh)
     print(f"\nnotices: {len(raw):,}")
+
+    # Graceful skip: an external-API outage (TED down / network) must NOT fail the whole
+    # pipeline. If we got nothing AND have no prior silver to keep, exit 0 with a warning;
+    # if a prior silver exists it simply stays in place (this run is a no-op).
+    if not raw:
+        print("WARNING: TED API returned no notices and no cache is available — skipping this "
+              "run (pipeline continues; prior silver, if any, is left untouched).")
+        return
 
     df = pl.DataFrame(build_rows(raw), infer_schema_length=None)
 

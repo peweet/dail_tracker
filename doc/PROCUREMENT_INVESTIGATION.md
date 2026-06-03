@@ -685,6 +685,58 @@ got paid*, locally, over time, and (via CRO) *who they are*. Candidate stories:
 **source-linked co-occurrence, never implied influence/wrongdoing**; quarantine sole-trader/
 individual payees (personal data). Inference belongs in this eval, not the UI.
 
+## LA PO corpus — kickoff (paste into a fresh window) — 2026-06-03
+
+> Build the **Local-Authority Purchase-Orders-over-€20k corpus (31 councils)** into a
+> production **silver fact** — the per-transaction COMMITTED/SPENT layer. This is the biggest
+> outstanding procurement gap: fully probed, registry-ready, never materialised.
+>
+> **Read first:** `doc/PROCUREMENT_INVESTIGATION.md` (sections "National SEED REGISTRY",
+> "MERGED authoritative seed registry", "Coverage MEASURED — Excel vs PDF" incl. the ~10
+> per-council parser-debt list); `doc/PROCUREMENT_BUILD_PLAN.md` §4b (VALUE TAXONOMY), §8b
+> (spend-tier sizing), §8c (backlog), §9 (firewall); memory `project_procurement_phase_taxonomy`,
+> `project_procurement_etenders`, `feedback_no_inference_in_app`, `feedback_personal_insolvency_privacy`.
+>
+> **Reuse, do NOT rebuild** (`pipeline_sandbox/`): `procurement_la_registry.py` (31-council
+> registry: council→url→format→pattern→schema→status; CSV at `c:/tmp/procurement_la/registry.csv`);
+> `procurement_la_seed.py` (harvester: requests + **curl fallback** for Meath/Sligo TLS +
+> **one-hop crawl**); `probe_procurement_coverage.py` (xlsx/csv parsers w/ content-fallback for
+> odd headers); `probe_procurement_pdf_counties.py` (`cluster_word_rows` + **largest-x-gap split**
+> + leading-digit strip); `cro_normalise.name_norm_expr` + CRO silver for supplier→company match;
+> `afs_amalgamated_extract.py` + `test/test_afs_amalgamated.py` = the medallion + reconciliation
+> + golden-fixture pattern to MIRROR.
+>
+> **Design:** a `schema_map` table (publisher → {host, format, url_pattern, supplier_col,
+> amount_col, column_order, po_id_prefix, grain}) + ONE generic reader; adding a council = one row,
+> never a new parser. Known per-council quirks already found (each ≈1 config): Westmeath split
+> mis-cut; Waterford OrderNo prefix; **Fingal supplier-is-an-ID-code (CRO 0%)**; Laois total-row
+> grab; Leitrim hit an aggregate; **Kilkenny "Ap/Ar ID(T)" supplier col + NEGATIVE amounts (use
+> abs)**; Galway amount-LAST column order; **Mayo/Donegal leading PO#/ID prefix (strip
+> `^(?:\d{3,}\s+){1,2}`)**; Cork County paid-flag + description bleed.
+>
+> **Taxonomy (master vocab — NOT `amount_semantics`):** tag `value_kind ∈ {po_committed,
+> payment_actual}` per the council's grain (orders-raised vs payments-made; use the Paid flag
+> where present), `realisation_tier ∈ {COMMITTED, SPENT}`, `value_safe_to_sum=true` (these ARE
+> summable within council+period). **CRITICAL coordination:** `data/sandbox/parquet/
+> public_payments_fact.parquet` already holds 17 central/semi-state publishers in the SAME shape
+> but on the **drifted `amount_semantics`** column. DECIDE with the semistate window: (a) extend
+> `public_payments_fact` to include the 31 LAs AND converge it to `value_kind`+`realisation_tier`,
+> or (b) build a sibling `la_payments_fact` and union later. **Recommend (a) — one fact, master
+> vocab.** Do NOT create a 3rd schema.
+>
+> **Medallion + ops:** raw files→`data/bronze/...`; reconciled fact→`data/silver/parquet/`
+> (zstd/3/stats + gitignore negation, Cloud-readable); gold SQL views + data_access later with a
+> page; wire a `pipeline.py` chain only on promotion (cbi/cro/procurement/afs precedent).
+> **Fetch:** requests→curl fallback; **Playwright** for the 4 JS councils (Carlow/Cavan/Mayo/
+> Roscommon — project already uses Playwright). **Privacy:** quarantine sole-trader/individual
+> payees (keep company-suffix; `privacy_status`); CC-BY-or-attribute (+`retrieved_utc`); no-inference UI.
+>
+> **Sequence:** tabular councils first (SDCC/Cork City/Wicklow/Monaghan/Kilkenny/Wexford — no
+> parsing) → digital-PDF councils (fitz) → 4 Playwright → defer pre-2016. **DQ/tests:** per-council
+> reconciliation (row count + total vs source), golden fixtures (1 xlsx + 1 digital PDF) like
+> `test_afs_amalgamated.py`, privacy-quarantine count, CRO band ~35–65%. Goal: a validated,
+> tested, Cloud-committable silver `*_payments_fact` covering ~24–28 councils, on the master taxonomy.
+
 ## Kickoff prompt (paste into a fresh window)
 
 > Resume the eTenders/public-procurement enrichment investigation. Read

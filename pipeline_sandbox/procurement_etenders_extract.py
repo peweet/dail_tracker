@@ -191,6 +191,10 @@ def main() -> None:
     # expenditure. So `value_safe_to_sum` is the only column anything downstream may total,
     # and even that should be labelled "awarded value, not actual spend".
     FRAMEWORK_TYPES = ["Framework", "FW - Mini-Comp", "DPS Tender", "DPS/UQS"]
+    # A sub-€1 "awarded value" is not a real contract value — it is source noise (a
+    # handful parse to fractions of a cent, e.g. 0.0013) or a €1 placeholder. Below
+    # this floor a row is never value_safe_to_sum; the value_eur is still kept as-is.
+    MIN_PLAUSIBLE_VALUE_EUR = 1.0
     # The source carries the literal string "NULL" for ~7% of award rows. Make it an honest
     # null so it can't (a) collapse 4k unrelated awards into one group_by bucket, nor (b) be
     # mistaken for a joinable id downstream.
@@ -222,7 +226,7 @@ def main() -> None:
             & ~pl.col("value_shared_across_suppliers")
             & pl.col("Tender ID").is_not_null()  # null id => can't verify the value isn't a repeated ceiling
             & pl.col("value_eur").is_not_null()
-            & (pl.col("value_eur") > 0)
+            & (pl.col("value_eur") >= MIN_PLAUSIBLE_VALUE_EUR)  # drop sub-€1 source noise / placeholders
         ).alias("value_safe_to_sum"),
     )
     print(
