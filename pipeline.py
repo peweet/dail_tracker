@@ -79,6 +79,10 @@ CHAINS: list[tuple[str, str]] = [
     # lobbying registrants/clients, committed gold, read by the Lobbying page's
     # "also a state supplier" enrichment and the (future) Procurement page.
     ("procurement_lobbying", "pipeline_sandbox/procurement_lobbying_xref.py"),
+    # ted: TED (EU procurement journal) Irish award notices -> SILVER (cleaned, not yet
+    # exposed to the UI). Zero-auth API, caches raw to bronze, depends on the CRO silver
+    # register (winner->CRO match), skips gracefully on an API outage. Headless-safe.
+    ("ted", "pipeline_sandbox/ted_ireland_extract.py"),
     # freshness runs last: it reads the silver + gold the chains above produced
     # and writes data/_meta/freshness.json (the data-age signal the Streamlit
     # badge + scheduled report read). Pure read — never mutates pipeline data.
@@ -100,6 +104,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "cro": "CRO company register <-> corporate-notices exact-name xref (gold)",
     "procurement": "eTenders/OGP awards + supplier->CRO match (gold); value-is-not-spend flags",
     "procurement_lobbying": "supplier <-> lobbying registrant/client overlap xref (gold)",
+    "ted": "TED EU award notices (Ireland) + winner->CRO match (silver); award-value-not-spend flags",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
 }
 

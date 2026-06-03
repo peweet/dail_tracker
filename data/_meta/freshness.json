@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-02T14:51:58Z",
-  "as_of_utc_date": "2026-06-02",
+  "generated_at": "2026-06-03T14:06:34Z",
+  "as_of_utc_date": "2026-06-03",
   "note": "Age of the data already held — a canary for 'did the pipeline stop running'. NOT proof that no newer upstream data exists; only the source pollers can confirm that. Generated at pipeline-end (sees silver + gold) and read-only thereafter (Streamlit badge + scheduled report).",
   "datasets": {
     "members": {
@@ -49,6 +49,12 @@
       "source": "data/gold/parquet/statutory_instruments.parquet",
       "status": "ok",
       "latest_record_date": "2026-05-29"
+    },
+    "procurement": {
+      "measure": "record_date",
+      "source": "data/gold/parquet/procurement_awards.parquet",
+      "status": "ok",
+      "latest_record_date": "2025-12-24"
     }
   }
 }
