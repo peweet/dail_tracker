@@ -140,6 +140,13 @@ def _assert_cols(result, *cols):
         assert col in result.columns, f"Expected column '{col}' (have: {sorted(result.columns)})"
 
 
+def _fixture_only():
+    """Skip a test whose exact-value assertions are calibrated to the synthetic
+    fixture — they don't hold against real pipeline output in integration mode."""
+    if _USE_REAL_PATHS:
+        pytest.skip("exact-value assertions are calibrated to the synthetic fixture (unset DAIL_INTEGRATION_TESTS)")
+
+
 # ---------------------------------------------------------------------------
 # ATTENDANCE VIEWS
 # ---------------------------------------------------------------------------
@@ -1364,6 +1371,186 @@ def test_v_public_appointments_executes():
         result, "notice_ref", "issue_date", "appointing_authority", "body", "appointee", "role", "english_summary"
     )
     assert len(result) > 0
+
+
+# ---------------------------------------------------------------------------
+# PROCUREMENT VIEWS
+# ---------------------------------------------------------------------------
+#
+# These assert the VALUE-IS-NOT-SPEND semantics, not just that the views run.
+# The fixture (test/fixtures/sql_views/_generate.py) plants rows whose aggregates
+# are known exactly, so a regression in the value_safe_to_sum filter, the privacy/
+# truncation exclusions, the CRO join, or the lobbying-overlap dedup fails loudly.
+
+_PROC_AWARDS = "data/gold/parquet/procurement_awards.parquet"
+_PROC_CRO = "data/gold/parquet/procurement_supplier_cro_match.parquet"
+_PROC_OVERLAP = "data/gold/parquet/procurement_lobbying_overlap.parquet"
+
+
+@pytest.mark.sql
+def test_v_procurement_awards_executes():
+    _fixture_only()
+    _skip_missing(*_src(_PROC_AWARDS))
+    con = _con()
+    con.execute(_load("procurement_awards.sql"))
+    df = con.execute("SELECT * FROM v_procurement_awards").pl()
+    _assert_cols(
+        df, "tender_id", "supplier", "supplier_norm", "supplier_class", "name_truncated",
+        "contracting_authority", "cpv_code", "cpv_description", "award_date",
+        "value_eur", "value_kind", "is_framework_or_dps",
+        "value_shared_across_suppliers", "value_safe_to_sum",
+    )
+    assert len(df) == 10  # raw passthrough — every award×supplier row, nothing filtered
+
+    by_supplier = {r["supplier"]: r for r in df.to_dicts()}
+
+    # DD/MM/YYYY parsed to a real DATE (TRY_STRPTIME)
+    from datetime import date as _date
+    assert by_supplier["Mason & Sons Ltd"]["award_date"] == _date(2023, 4, 4)
+
+    # Entity-split fix CONTRACT: a name with '&' survives whole — never fragmented
+    # into "Mason" + "Sons Ltd". Guards against an ETL regression reaching gold.
+    assert "Mason & Sons Ltd" in by_supplier
+    assert "&" in by_supplier["Mason & Sons Ltd"]["supplier"]
+    assert not any(r["supplier"] in {"Sons Ltd", "Company", "Co. Limited"} for r in df.to_dicts())
+
+    # Tender ID literal "NULL" is now an honest null (2026-06-03 fix)
+    assert by_supplier["Nullid Co Ltd"]["tender_id"] is None
+
+    # A framework/DPS row is carried but flagged unsummable
+    bigco = by_supplier["Bigco Services Ltd"]
+    assert bigco["is_framework_or_dps"] is True
+    assert bigco["value_safe_to_sum"] is False
+
+
+@pytest.mark.sql
+def test_v_procurement_supplier_summary_value_semantics():
+    _fixture_only()
+    _skip_missing(*_src(_PROC_AWARDS, _PROC_CRO, _PROC_OVERLAP))
+    con = _con()
+    con.execute(_load("procurement_supplier_summary.sql"))
+    df = con.execute("SELECT * FROM v_procurement_supplier_summary").pl()
+    _assert_cols(
+        df, "supplier", "supplier_norm", "n_awards", "n_authorities", "awarded_value_safe_eur",
+        "company_num", "company_status", "cro_match_method",
+        "on_lobbying_register", "lobbying_returns", "is_lobbying_registrant", "is_lobbying_client",
+    )
+    by = {r["supplier_norm"]: r for r in df.to_dicts()}
+
+    # Privacy + quality exclusions: sole-trader and name_truncated never rank.
+    assert "joemurphy" not in by, "sole trader leaked into supplier ranking"
+    assert "eloittetruncnorm" not in by, "name_truncated supplier leaked into ranking"
+    assert len(df) == 7
+
+    # Clean multi-award supplier sums only its safe rows.
+    acme = by["acmeconstructionltd"]
+    assert acme["n_awards"] == 2
+    assert acme["n_authorities"] == 2
+    assert acme["awarded_value_safe_eur"] == 300000.0
+    assert acme["company_num"] == 123456
+    assert acme["company_status"] == "Normal"
+    assert acme["on_lobbying_register"] is False
+
+    # KEY: a framework CEILING is counted but contributes ZERO to the value sum.
+    bigco = by["bigcoservicesltd"]
+    assert bigco["n_awards"] == 1
+    assert bigco["awarded_value_safe_eur"] == 0.0
+
+    # KEY: a value shared across co-suppliers on one tender is NOT summed.
+    assert by["sharedcoaltd"]["awarded_value_safe_eur"] == 0.0
+    # KEY: a NULL-Tender-ID row can't be verified unshared → not summed.
+    assert by["nullidcoltd"]["awarded_value_safe_eur"] == 0.0
+
+    # Lobbying overlap folded in: variant rows (registrant+client) aggregate per
+    # supplier_norm — returns SUM to 8, both side flags true, value still 400k.
+    lob = by["lobbycoltd"]
+    assert lob["awarded_value_safe_eur"] == 400000.0
+    assert lob["on_lobbying_register"] is True
+    assert lob["lobbying_returns"] == 8  # 5 (registrant) + 3 (client)
+    assert lob["is_lobbying_registrant"] is True
+    assert lob["is_lobbying_client"] is True
+
+    # Ordered by n_awards DESC → Acme (2 awards) leads.
+    assert df["n_awards"].to_list()[0] == 2
+
+
+@pytest.mark.sql
+def test_v_procurement_authority_summary_value_semantics():
+    _fixture_only()
+    _skip_missing(*_src(_PROC_AWARDS))
+    con = _con()
+    con.execute(_load("procurement_authority_summary.sql"))
+    df = con.execute("SELECT * FROM v_procurement_authority_summary").pl()
+    _assert_cols(df, "contracting_authority", "n_awards", "n_suppliers", "awarded_value_safe_eur")
+    by = {r["contracting_authority"]: r for r in df.to_dicts()}
+    assert len(df) == 8
+
+    # Two safe awards (Acme 100k + Lobbyco 400k) to two distinct suppliers.
+    dcc = by["Dublin City Council"]
+    assert dcc["n_awards"] == 2
+    assert dcc["n_suppliers"] == 2
+    assert dcc["awarded_value_safe_eur"] == 500000.0
+
+    # Framework-only and shared-value-only authorities sum to ZERO.
+    assert by["Health Service Executive"]["awarded_value_safe_eur"] == 0.0
+    assert by["Office of Public Works (OPW)"]["awarded_value_safe_eur"] == 0.0
+
+
+@pytest.mark.sql
+def test_v_procurement_cpv_summary_value_semantics():
+    _fixture_only()
+    _skip_missing(*_src(_PROC_AWARDS))
+    con = _con()
+    con.execute(_load("procurement_cpv_summary.sql"))
+    df = con.execute("SELECT * FROM v_procurement_cpv_summary").pl()
+    _assert_cols(df, "cpv_code", "cpv_description", "n_awards", "n_suppliers", "awarded_value_safe_eur")
+    by = {r["cpv_code"]: r for r in df.to_dicts()}
+    assert len(df) == 5
+
+    construction = by["45000000"]
+    assert construction["cpv_description"] == "Construction work"
+    assert construction["n_awards"] == 3  # Acme×2 + Mason
+    assert construction["awarded_value_safe_eur"] == 450000.0  # 100k + 200k + 150k
+
+    # Business services: Bigco framework (5m) excluded; only eloitte 75k + Lobbyco 400k.
+    assert by["79000000"]["awarded_value_safe_eur"] == 475000.0
+
+
+@pytest.mark.sql
+def test_v_procurement_lobbying_overlap_executes():
+    _fixture_only()
+    _skip_missing(*_src(_PROC_OVERLAP))
+    con = _con()
+    con.execute(_load("procurement_lobbying_overlap.sql"))
+    df = con.execute("SELECT * FROM v_procurement_lobbying_overlap").pl()
+    _assert_cols(
+        df, "lobby_name", "lobby_side", "supplier", "supplier_norm",
+        "n_lobby_returns", "n_award_rows", "n_authorities", "awarded_value_safe_eur",
+    )
+    # Passthrough: one row per matched lobbying entity (registrant + client variant).
+    assert len(df) == 2
+    assert set(df["supplier"].to_list()) == {"Lobbyco Ltd"}
+    # Anomaly #3 is INTENTIONAL in this two-keyed table: a naive row-sum
+    # double-counts the same supplier's awarded value. Lock that so a consumer
+    # never SUM()s this column without deduping by supplier first.
+    assert df["awarded_value_safe_eur"].sum() == 800000.0  # 2 × 400k — NOT the true 400k
+
+
+@pytest.mark.sql
+def test_v_lobbying_org_procurement_dedups_to_registrant():
+    _fixture_only()
+    _skip_missing(*_src(_PROC_OVERLAP))
+    con = _con()
+    con.execute(_load("lobbying_org_procurement.sql"))
+    df = con.execute("SELECT * FROM v_lobbying_org_procurement").pl()
+    _assert_cols(df, "lobbyist_name", "supplier", "n_awards", "n_authorities", "awarded_value_safe_eur")
+    # Registrant-side only (the client variant is filtered out), grouped per name.
+    assert len(df) == 1
+    row = df.to_dicts()[0]
+    assert row["lobbyist_name"] == "Lobbyco Limited"
+    assert row["n_awards"] == 1
+    assert row["n_authorities"] == 1
+    assert row["awarded_value_safe_eur"] == 400000.0
 
 
 # ---------------------------------------------------------------------------

@@ -1,9 +1,9 @@
 {
-  "overlap_rows": 172,
-  "distinct_suppliers_in_overlap": 123,
-  "registrant_matches": 103,
-  "client_matches": 69,
-  "procurement_suppliers_matched_against": 7559,
+  "overlap_rows": 175,
+  "distinct_suppliers_in_overlap": 126,
+  "registrant_matches": 105,
+  "client_matches": 70,
+  "procurement_suppliers_matched_against": 7554,
   "match_method": "exact normalised-name (name_norm_expr) on company-class, non-truncated suppliers",
   "procurement_retrieved_utc": "2026-06-02",
   "sources": {

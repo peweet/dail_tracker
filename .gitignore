@@ -301,6 +301,9 @@ lobbyist/raw/
 !data/silver/seanad_aggregated_tables.csv
 !data/silver/lobbying/
 !data/silver/lobbying/client_company_returns_detail.csv
+# amalgamated AFS silver fact (afs_amalgamated_extract.py) — read by the afs_*.sql views
+!data/silver/parquet/
+!data/silver/parquet/afs_amalgamated_divisions.parquet
 
 # === Member avatars (Wikidata portraits + manifest) — committed deliberately ===
 # wiki_data.py downloads CC-licensed TD + Senator portraits into avatar/wikidata/.

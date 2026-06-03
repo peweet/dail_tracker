@@ -58,6 +58,10 @@ CHAINS: list[tuple[str, str]] = [
     ("lobbying", "lobbying_refresh.py"),
     ("iris", "iris_refresh.py"),
     ("legislation", "legislation_refresh.py"),
+    # afs: amalgamated LA Annual Financial Statements (gov.ie PDFs) -> silver
+    # spend-by-service-division fact (BUDGET/SPENT-tier macro context). Standalone —
+    # self-fetches + caches PDFs to bronze, no deps, headless-safe.
+    ("afs", "pipeline_sandbox/afs_amalgamated_extract.py"),
     # cbi runs last: its corporate-notices xref joins gold corporate_notices
     # (produced by iris) against the CBI register extract. Skips re-download
     # when the source PDFs are cached, so routine runs are extract+xref only.
@@ -91,6 +95,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "lobbying": "lobbying.ie YTD + CRO + charities Tier-A + gold enrichment",
     "iris": "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
     "legislation": "bills + questions + amendments + votes + cross-dataset enrich",
+    "afs": "amalgamated LA Annual Financial Statements: spend by service division (silver)",
     "cbi": "CBI register extract + corporate-notices xref (gold)",
     "cro": "CRO company register <-> corporate-notices exact-name xref (gold)",
     "procurement": "eTenders/OGP awards + supplier->CRO match (gold); value-is-not-spend flags",

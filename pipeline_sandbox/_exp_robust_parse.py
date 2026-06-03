@@ -87,10 +87,11 @@ def experiment(key, pages_cells, norm_keys, norm_to_name):
             nm, sc = etl.match_constituency(c["text"], norm_keys, norm_to_name)
             if nm:
                 anchors.append((pno, c, nm)); has_anchor = True
-        # TOTAL row: a cell containing 'TOTAL' -> take the rightmost money on its y
+        # TOTAL row: the cell whose label is exactly 'TOTAL'/'TOTAL:' (NOT the
+        # column header 'Total Expenditure ...') -> rightmost money on its y
         for c in cells:
-            if "TOTAL" in c["text"].upper():
-                same = sorted([m for m in page_money if abs(yc(m[0]) - yc(c)) <= 20], key=lambda m: xc(m[0]))
+            if re.sub(r"[^a-z]", "", c["text"].lower()) == "total":
+                same = sorted([m for m in page_money if abs(yc(m[0]) - yc(c)) <= 25], key=lambda m: xc(m[0]))
                 if same:
                     total_spend = same[-1][1]
         if has_anchor:
