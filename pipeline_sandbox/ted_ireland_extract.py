@@ -80,7 +80,11 @@ CPV_DIV = {
     "60": "Transport services", "92": "Recreation/Culture", "30": "Office/IT equipment",
     "98": "Other services", "70": "Real estate", "66": "Financial/Insurance",
 }
-COMPANY_SUFFIX = re.compile(r"\b(limited|ltd|dac|plc|clg|uc|llp|teoranta|teo|unlimited company|t/a|inc|llc|gmbh|group|company|holdings|services|solutions|consult|partners|associates|university|institute|board|council|&)\b", re.I)
+COMPANY_SUFFIX = re.compile(r"\b(limited|ltd|dac|plc|clg|uc|llp|teoranta|teo|unlimited company|t/a|group|company|holdings|services|solutions|consult|partners|associates|university|institute|board|council|&)\b", re.I)
+# TED winners skew FOREIGN (Bechtle AG, Proact IT Sweden AB, CloudFerro S.A., Vaisala Oyj) —
+# without this they fall through COMPANY_SUFFIX and get mislabelled sole_trader, inflating the
+# privacy flag. Mirrors the FOREIGN_FORM regex in procurement_etenders_extract.py.
+FOREIGN_FORM = re.compile(r"\b(gmbh|ag|s\.?a\.?|n\.?v\.?|s\.?a\.?s|s\.?p\.?a|spa|inc|llc|\bpty\b|\bab\b|\bas\b|a/s|\bbv\b|\boy\b|oyj|srl|sl|sarl|aps|kft|ltda|s\.?r\.?o)\b", re.I)
 PAN_EU_HINT = re.compile(r"g[eé]ant|cloudferro|european dynamics|t-systems|softwareone|telecom italia", re.I)
 PAN_EU_VALUE = 100_000_000  # multi-winner notices above this are framework ceilings, not IE spend
 
@@ -224,14 +228,16 @@ def main() -> None:
         name_norm_expr("winner_name").alias("winner_name_norm"),
         pl.col("winner_name").map_elements(
             lambda s: bool(COMPANY_SUFFIX.search(s or "")), return_dtype=pl.Boolean).alias("_co"),
+        pl.col("winner_name").map_elements(
+            lambda s: bool(FOREIGN_FORM.search(s or "")), return_dtype=pl.Boolean).alias("_for"),
     ).with_columns(
         pl.when(pl.col("winner_name").is_null()).then(pl.lit("unknown"))
         .when(pl.col("_co")).then(pl.lit("company"))
+        .when(pl.col("_for")).then(pl.lit("foreign_company"))
         .otherwise(pl.lit("sole_trader_or_individual")).alias("supplier_class"),
-    ).with_columns(
-        pl.when(pl.col("supplier_class") == "sole_trader_or_individual")
-        .then(pl.lit("review_personal_data")).otherwise(pl.lit("ok")).alias("privacy_status"),
-    ).drop("_co")
+    ).drop(["_co", "_for"])
+    # privacy_status deferred until AFTER the CRO join — a CRO match is decisive evidence the
+    # winner is a registered company, not an individual (see below).
 
     # ---- CRO match: by winner-identifier (exact reg number) THEN by normalised name ----
     cro = pl.read_parquet(CRO).select(["name_norm", "company_num", "company_status"])
@@ -254,12 +260,36 @@ def main() -> None:
         ).drop(["company_num_id", "company_num", "status_by_id", "company_status"])
     )
 
-    # ---- value_safe_to_sum: single-winner, real value, not framework/pan-EU outlier ----
+    # CRO-evidence upgrade: a winner that joins the company register IS a registered company,
+    # even if its TED name dropped the suffix word (Sweeney Consultancy, Three Ireland, Savills,
+    # Cruinn Diagnostics...). Upgrade those from sole_trader_or_individual -> company so the
+    # privacy flag isn't inflated by real firms. privacy_status computed AFTER this.
     df = df.with_columns(
+        pl.when((pl.col("supplier_class") == "sole_trader_or_individual")
+                & (pl.col("cro_match_method") != "none"))
+        .then(pl.lit("company")).otherwise(pl.col("supplier_class")).alias("supplier_class"),
+    ).with_columns(
+        pl.when(pl.col("supplier_class") == "sole_trader_or_individual")
+        .then(pl.lit("review_personal_data")).otherwise(pl.lit("ok")).alias("privacy_status"),
+    )
+
+    # ---- value flags ----------------------------------------------------------------
+    # TED award values are ceiling/award-grade, not transactions. Even SINGLE-winner
+    # notices above EU thresholds are routinely multi-year framework/operating CEILINGS
+    # (e.g. Version1 €10.3bn IT framework for Education; NTA bus operating contracts €1-2bn).
+    # So a "single-winner" test is NOT enough — gate large awards out of value_safe_to_sum
+    # and flag them for review. The trustworthy metrics here are COUNT and MEDIAN, never a
+    # naive sum (per doc/PROCUREMENT_INVESTIGATION.md). Threshold is deliberately blunt and
+    # documented; a later view should refine it with TED's framework-agreement field.
+    LARGE_AWARD = 50_000_000
+    df = df.with_columns(
+        (pl.col("award_value_eur") >= LARGE_AWARD).alias("is_large_award_review"),
+    ).with_columns(
         (
             (pl.col("value_kind") == "contract_award_value")
             & ~pl.col("is_multi_supplier_framework")
             & ~pl.col("is_pan_eu_outlier")
+            & ~pl.col("is_large_award_review")  # likely multi-year ceiling, not a transaction
             & pl.col("award_value_eur").is_not_null()
             & (pl.col("award_value_eur") > 0)
         ).alias("value_safe_to_sum"),
@@ -293,6 +323,9 @@ def main() -> None:
         "value_safe_to_sum_rows": safe.height,
         "value_safe_to_sum_total_eur": float(safe["award_value_eur"].sum() or 0),
         "value_naive_sum_eur_DO_NOT_USE": float(df["award_value_eur"].sum() or 0),
+        "large_award_review_rows_ge_50m": int(df["is_large_award_review"].sum()),
+        "median_award_eur": float(df.filter(pl.col("award_value_eur") > 0)["award_value_eur"].median() or 0),
+        "trustworthy_metrics": "COUNT of awards + MEDIAN award value; never the naive sum (ceiling/award-grade values, tail-dominated)",
         "supplier_class_counts": {r["supplier_class"]: r["len"]
                                   for r in df.group_by("supplier_class").len().iter_rows(named=True)},
         "cro_match_counts": {r["cro_match_method"]: r["len"]

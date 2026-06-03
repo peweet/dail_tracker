@@ -322,3 +322,8 @@ lobbyist/raw/
 # fixture tree (last match wins). No parent dir is ignored, so file-level
 # negation is enough.
 !test/fixtures/sql_views/**/*.parquet
+
+# === AFS golden fixture — committed deliberately (test/test_afs_amalgamated.py) ===
+# The 64-row amalgamated-AFS golden parquet lets the data-integrity tests run in CI
+# without re-downloading the gov.ie PDFs. Page-text fixture (.txt) isn't ignored.
+!test/fixtures/afs/*.parquet
