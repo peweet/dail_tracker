@@ -67,6 +67,98 @@ the statutory limit (universal) rather than any party's assigned amounts.
     Centre Party also on the collection page)
 - Background: [Citizens Information — Election expenses](https://www.citizensinformation.ie/en/government-in-ireland/elections-and-referenda/running-for-office/election-expenses/)
 
+## Part 4 — itemised expenses (`sipo_expense_items_fact.parquet` + `sipo_expense_categories_fact.parquet`)
+
+A second extractor, `pipeline_sandbox/sipo_expense_items_paddle_etl.py`, reads
+**Part 4** of the same National-Agent returns (the candidate-summary above is
+Part 3). Two outputs, both sandbox:
+
+- **Line items** (`sipo_expense_items_fact.parquet`): one row per `Ref | Item |
+  Cost` line under each heading — e.g. `A16 | Meta ads | €24,853.05`. The Ref
+  prefix letter deterministically encodes the heading (A=Advertising …
+  H=Campaign Workers), so categorisation needs no header OCR.
+- **Category totals** (`sipo_expense_categories_fact.parquet`): the 8 heading
+  totals + Overall total from the "Expenses Review" page.
+
+Part 4 headings (standard SIPO National-Agent form):
+
+| Section | Heading |
+|---|---|
+| 4A | Advertising (incl. social-media / Meta ads) |
+| 4B | Publicity |
+| 4C | Election Posters |
+| 4D | Other Election Material |
+| 4E | Office and Stationery |
+| 4F | Transport and Travel |
+| 4G | Market Research |
+| 4H | Campaign Workers |
+
+**Validator (engine-independent):** Σ(line items in a heading) is reconciled to
+that heading's review-page total (`reconciles` column); a mismatch flags an OCR
+miss or a page-split item. This is the Part-4 analogue of the constituency/cap
+anchor used in Part 3.
+
+**Granularity caveat:** these line items are at **party / National-Agent level**
+("NATIONAL LEVEL" on each heading page) — e.g. *Fianna Fáil → Meta ads €24,853*,
+NOT *per-candidate → vendor* (e.g. a specific TD paying the Galway Advertiser).
+The per-candidate vendor detail lives in each candidate's **own** election-expense
+statement, a separate document not held here.
+
+## Per-TD / Senator / MEP annual donation disclosures (future track, NOT yet sourced)
+
+Individual Oireachtas members file an **annual Donation Statement** (separate from
+the election-period returns above). These are the "who personally gave money to
+this TD" records.
+
+- Source collection: <https://www.sipo.ie/en/collection/76651-annual-disclosures/#reports-of-donations-to-tds-senators-and-meps>
+- Status: **not downloaded / not extracted.** Candidate for a later sourcing pass.
+
+## Full collection census (2026-06-03) — all 18 national-agent statements + the candidate tier
+
+Verified against the collection's raw HTML (`2e0c0-dail-general-election-2024`), not the
+lossy summariser. The collection has **three sections**:
+
+1. **National Agent Election Expenses Statements — exactly 18 PDFs** (party-level spend;
+   this is the tier the ETL targets). Full map below.
+2. **Candidates Election Statements — 43 constituency sub-pages**, each listing ~10–16
+   individual candidate sub-pages, each holding that candidate's **own** expense
+   statement ⇒ ≈400–600 per-candidate PDFs. This is the granular per-candidate→vendor
+   detail referenced above as "not held here." **Untouched corpus.**
+3. **Other Persons Election Expenses Statements — empty.**
+
+Donations are **not** in this collection (separate Election-reports `5b104` /
+Annual-disclosures `76651`).
+
+| media-id | Party / org | pp | size | layer | in repo? |
+|---|---|---|---|---|---|
+| 283955 | Fianna Fáil | 45 | 3.2 MB | OCR'd→extracted | ✅ |
+| 283935 | Sinn Féin | 30 | 1.0 MB | **TEXT (born-digital)** | ✅ |
+| 285737 | Aontú | 45 | 1.0 MB | **TEXT (born-digital)** | ✅ |
+| 283936 | Fine Gael | 37 | 11.9 MB | scanned | ✅ (OCR in progress) |
+| 285734 | Green Party | 26 | 7.7 MB | scanned | ✅ |
+| 283939 | Labour | 33 | 8.7 MB | scanned | ✅ |
+| 285690 | People Before Profit/Solidarity | 30 | 7.1 MB | scanned | ✅ |
+| 283937 | Social Democrats | 28 | 7.1 MB | scanned | ✅ |
+| 286561 | National Party | 24 | 0.4 MB | **TEXT (born-digital)** | ❌ |
+| 283933 | Independent Ireland | 17 | 4.1 MB | scanned | ❌ |
+| 284004 | 100% Redress | 24 | 6.1 MB | scanned | ❌ |
+| 284005 | Independents4Change | 35 | 6.9 MB | scanned | ❌ |
+| 285402 | Right to Change | 24 | 6.2 MB | scanned | ❌ |
+| 285787 | Irish Freedom Party | 25 | 1.8 MB | scanned | ❌ |
+| 286560 | The Centre Party of Ireland | 29 | 7.3 MB | scanned | ❌ |
+| 286559 | The Irish People | 24 | 15.9 MB | scanned | ❌ |
+| 286562 | Ireland First | 24 | 6.4 MB | scanned | ❌ |
+| 283923 | Aontú (2nd entry) | 12 | 3.8 MB | scanned | ❌ — distinct from 285737; likely earlier/partial/superseded, verify |
+
+Asset URL pattern: `https://assets.sipo.ie/media/<id>/<uuid>.pdf`. The 10 not-in-repo
+PDFs are cached at `c:/tmp/sipo_missing/`. **3 of 18 are born-digital text (SF, Aontú
+285737, National Party) → no OCR, fitz `get_text` direct.** 14 scanned → PaddleOCR.
+
+## Scope constraint
+
+**GE2024 / 2024 only.** Do not ingest SIPO years beyond 2024 (no 2025+ returns or
+disclosures) until explicitly extended.
+
 ## Editorial note (no-inference rule)
 
 These figures are *spending* by a party's national agent on behalf of its
