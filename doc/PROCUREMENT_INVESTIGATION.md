@@ -4,6 +4,38 @@
 > code → `pipeline_sandbox/`, nothing wired into `pipeline.py`/`enrich.py` yet.
 > Written so a fresh context window can resume cold. This is review-plan **Phase 5**.
 
+## Executive summary — decision brief (2026-06-03)
+
+Procurement spend is **one lifecycle split across levels & owners** (advertise → award →
+commit/PO → pay → aggregate; EU / national / local). No source spans it — each exists to
+satisfy a *separate obligation* (EU directives → TED; OGP → eTenders; Circular Fin
+07/2012 → €20k PO lists; FOI 2014; NOAC → AFS). Fragmentation = layered rules by tier and
+owner, "publish ≠ datafy", pre-open-data timing. The value-add is **stitching them via
+CRO** into a "who-got-paid" ledger no single obligation produces.
+
+**What's been done (evaluation only, no ETL):**
+- **eTenders awards** — in gold (60,501 award-supplier rows); awarded value = *ceilings*,
+  `value_safe_to_sum` flags set (naïve €570bn vs safe €23.3bn).
+- **LA spend tier (the new corpus)** — seed registry for all **31 LAs**
+  (`procurement_la_registry.py`): **~22 scrapeable now, 27 obtainable, 2 non-publishers**;
+  parsed **22 councils / 5,771 rows** live; schema converges (`supplier·amount·description`);
+  **digital everywhere, zero OCR**. National est. **~250–320k PO rows**, multi-year.
+- **Format**: Excel/CSV = high-fidelity (CRO ~59–70%), minority of councils; PDF = the
+  volume (16 councils, fitz + largest-x-gap), CRO ~35–66%.
+- **Remaining sources measured**: TED API live (19,295 IE awards, **72% of 2025 carry real
+  values**, zero-auth) = the real-value award layer; CKAN tabular (Kilkenny/Dept Housing) =
+  minor/redundant or central-grain.
+
+**Cost of the build (if greenlit):** bounded — **~10 of 31 councils need a ~1-line per-council
+config** (column map / amount-sign / PO#-prefix / right-file selector); 3 need Playwright;
+2 don't publish. One shared reader + the validated CRO matcher + a quarterly re-harvest.
+
+**Open decisions (all gated on user — nothing started):**
+1. Go/no-go on the **LA spend tier** (per-transaction "who got paid").
+2. Whether to **pull TED** for real award values (highest-value single add, zero-auth).
+3. If go: promote `procurement_la_registry.py` → `data/_meta/procurement_la_seed.csv` +
+   build the shared reader; clear the ~10 configs + 3 Playwright councils.
+
 ## Goal
 
 Decide whether to build a procurement enrichment, and if so design it: awarded
