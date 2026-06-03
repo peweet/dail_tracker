@@ -1,0 +1,61 @@
+{
+  "councils_attempted": 3,
+  "councils_with_rows": 2,
+  "rows_extracted": 23,
+  "rows_public_display": 5,
+  "rows_quarantined": 18,
+  "supplier_class_counts": {
+    "id_code": 3,
+    "sole_trader_or_individual": 15,
+    "company": 5
+  },
+  "value_kind_counts": {
+    "po_committed": 23
+  },
+  "public_safe_to_sum_rows": 5,
+  "public_safe_to_sum_total_eur": 2765000.0,
+  "by_council": [
+    {
+      "slug": "leitrim",
+      "council": "Leitrim",
+      "region": "Connacht",
+      "value_kind": "po_committed",
+      "files_parsed": 1,
+      "rows": 21,
+      "total_eur": 4522206.0,
+      "cro_rate": 0.25,
+      "periods": [
+        "2023"
+      ]
+    },
+    {
+      "slug": "laois",
+      "council": "Laois",
+      "region": "Leinster",
+      "value_kind": "po_committed",
+      "files_parsed": 0,
+      "rows": 0,
+      "total_eur": 0,
+      "cro_rate": 0.0,
+      "periods": []
+    },
+    {
+      "slug": "fingal",
+      "council": "Fingal",
+      "region": "Dublin",
+      "value_kind": "po_committed",
+      "files_parsed": 3,
+      "rows": 2,
+      "total_eur": 5000.0,
+      "cro_rate": 0.0,
+      "periods": []
+    }
+  ],
+  "privacy_quarantine_applied": true,
+  "schema_version": 1,
+  "parser_version": "0.1.0",
+  "taxonomy": "master value_kind + realisation_tier; unions with public_payments_fact (rename that fact's amount_semantics\u2192value_kind, derive realisation_tier).",
+  "source": "Each LA's own website, Circular Fin 07/2012 publications (CC-BY / attribute).",
+  "generated_at": "2026-06-03T14:28:28+00:00",
+  "caveat": "One row = one published PO/payment line. value_kind distinguishes po_committed (ordered/COMMITTED) vs payment_actual (paid/SPENT); only value_safe_to_sum may be totalled, within a council+period, labelled 'ordered'/'paid', never mixed with award ceilings. Personal-data payees (sole_trader/id_code/unknown) are quarantined (public_display=False). A line is a purchase order or payment, NOT evidence of influence."
+}

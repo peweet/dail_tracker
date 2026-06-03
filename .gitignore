@@ -304,6 +304,8 @@ lobbyist/raw/
 # amalgamated AFS silver fact (afs_amalgamated_extract.py) — read by the afs_*.sql views
 !data/silver/parquet/
 !data/silver/parquet/afs_amalgamated_divisions.parquet
+# LA Purchase-Orders/Payments-over-€20k silver fact (procurement_la_payments_extract.py)
+!data/silver/parquet/la_payments_fact.parquet
 
 # === Member avatars (Wikidata portraits + manifest) — committed deliberately ===
 # wiki_data.py downloads CC-licensed TD + Senator portraits into avatar/wikidata/.

@@ -1,0 +1,21 @@
+
+=== watchdog launch #1 for ff ===
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff â€” Fianna FÃ¡il
+======================================================================
+    [ff] OCR page 1/45 @ 300dpi...
+    [ff] OCR page 2/45 @ 300dpi...
+    [ff] OCR page 3/45 @ 300dpi...
+    [ff] OCR page 4/45 @ 300dpi...
+    [ff] OCR page 5/45 @ 300dpi...
+    [ff] OCR page 6/45 @ 300dpi...
+
+=== watchdog launch #2 for ff ===
