@@ -145,3 +145,164 @@ OCR+PARSE ff â€” Fianna FÃ¡il
     [ff] OCR page 20/45 @ 300dpi...
 
 === watchdog launch #10 for ff ===
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff â€” Fianna FÃ¡il
+======================================================================
+    [ff] OCR page 20/45 @ 300dpi...
+    [ff] OCR page 21/45 @ 300dpi...
+    [ff] OCR page 22/45 @ 300dpi...
+
+=== watchdog launch #11 for ff ===
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff â€” Fianna FÃ¡il
+======================================================================
+    [ff] OCR page 22/45 @ 300dpi...
+    [ff] OCR page 23/45 @ 300dpi...
+
+=== watchdog launch #12 for ff ===
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff â€” Fianna FÃ¡il
+======================================================================
+    [ff] OCR page 23/45 @ 300dpi...
+
+=== watchdog launch #13 for ff ===
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff â€” Fianna FÃ¡il
+======================================================================
+    [ff] OCR page 23/45 @ 200dpi...
+
+=== watchdog launch #14 for ff ===
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff â€” Fianna FÃ¡il
+======================================================================
+    [ff] page 23: crashed at [300, 300, 200] -> SKIP
+    [ff] OCR page 24/45 @ 300dpi...
+    [ff] OCR page 25/45 @ 300dpi...
+
+=== watchdog launch #15 for ff ===
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff â€” Fianna FÃ¡il
+======================================================================
+    [ff] OCR page 25/45 @ 300dpi...
+    [ff] OCR page 26/45 @ 300dpi...
+
+=== watchdog launch #16 for ff ===
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff â€” Fianna FÃ¡il
+======================================================================
+    [ff] OCR page 26/45 @ 300dpi...
+
+=== watchdog launch #17 for ff ===
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff â€” Fianna FÃ¡il
+======================================================================
+    [ff] OCR page 26/45 @ 200dpi...
+
+=== watchdog launch #18 for ff ===
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff â€” Fianna FÃ¡il
+======================================================================
+    [ff] page 26: crashed at [300, 300, 200] -> SKIP
+    [ff] OCR page 27/45 @ 300dpi...
+
+=== watchdog launch #19 for ff ===
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff â€” Fianna FÃ¡il
+======================================================================
+    [ff] OCR page 27/45 @ 300dpi...
+
+=== watchdog launch #20 for ff ===
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff â€” Fianna FÃ¡il
+======================================================================
+    [ff] OCR page 27/45 @ 200dpi...
+
+=== watchdog launch #21 for ff ===
