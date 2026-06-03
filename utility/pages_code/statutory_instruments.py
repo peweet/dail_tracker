@@ -116,6 +116,32 @@ def _inject_si_css() -> None:
         .si-detail-val { flex:1; font-size:0.93rem; color:#14232b; line-height:1.5; }
         .si-detail-val .si-pill { margin-right:0.25rem; }
 
+        /* Legal-status block — sits directly under the SI title. Sourced from
+           the eISB Legislation Directory (v_si_current_state). Discovery only:
+           we surface the negative state eISB records, never a positive "in
+           force" claim, and a missing record reads as "status not checked". */
+        .si-legal { display:flex; align-items:flex-start; gap:0.7rem; flex-wrap:wrap;
+            padding:0.75rem 0.95rem; border:1px solid #e5e2db; border-radius:8px;
+            background:#fbfaf7; margin:0.1rem 0 1.05rem; }
+        .si-legal-chip { display:inline-flex; align-items:center; border:1px solid;
+            border-radius:999px; padding:0.2rem 0.7rem; font-size:0.72rem; font-weight:600;
+            text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap; line-height:1.5; }
+        .si-legal-body { flex:1; min-width:210px; font-size:0.88rem; color:#14232b; line-height:1.5; }
+        .si-legal-src { font-size:0.79rem; color:#5b6b73; margin-top:0.15rem; }
+        .si-legal-caveat { font-size:0.76rem; color:#5b6b73; margin-top:0.4rem;
+            padding-top:0.35rem; border-top:1px dashed #e5e2db; }
+        .si-legal--revoked { background:#fdf2f2; border-color:#f1c6c6; }
+        .si-legal--revoked .si-legal-chip { background:#fbe3e3; border-color:#e3a3a3; color:#9b1c1c; }
+        .si-legal--partial { background:#fdf6ee; border-color:#eccfa8; }
+        .si-legal--partial .si-legal-chip { background:#fbe6cb; border-color:#e6b77a; color:#7a4a00; }
+        .si-legal--amended { background:#fdf8ee; border-color:#ecd9a8; }
+        .si-legal--amended .si-legal-chip { background:#fbeecb; border-color:#e6c87a; color:#7a5a00; }
+        .si-legal--made { background:#f3f7f2; border-color:#cfe0c8; }
+        .si-legal--made .si-legal-chip { background:#e6efe3; border-color:#bcd1b3; color:#2c4a23; }
+        .si-legal--other, .si-legal--unknown { background:#f6f5f2; border-color:#e0dcd3; }
+        .si-legal--other .si-legal-chip, .si-legal--unknown .si-legal-chip {
+            background:#efeee9; border-color:#d8d3c8; color:#5b6b73; }
+
         .si-billlink { background:#fbfcf9; border:1px solid #c9d6c0; border-radius:8px;
             padding:1.1rem 1.25rem; margin-top:1.1rem; }
         .si-billlink-kicker { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;
@@ -250,6 +276,50 @@ def _split_multi(s, sep="|"):
     if not isinstance(s, str):
         return []
     return [p.strip() for p in s.split(sep) if p.strip()]
+
+
+# ── Legal status (eISB Legislation Directory, via v_si_current_state) ─────────
+# Display-only formatting for the legal-state block. The state itself is a
+# sourced fact from the directory; these helpers only render it. Per the
+# no-inference rule we NEVER present a positive "in force" claim — a null state
+# is "status not checked", and even in_force_as_made is phrased as the directory
+# fact ("no amendment or revocation recorded"), not a legal assertion.
+
+# state → (css modifier, chip label)
+_LEGAL_PRESENTATION = {
+    "revoked": ("revoked", "Revoked"),
+    "partially_revoked": ("partial", "Partially revoked"),
+    "amended_and_partially_revoked": ("partial", "Amended & partly revoked"),
+    "amended": ("amended", "Amended"),
+    "other_affected": ("other", "Affected"),
+    "in_force_as_made": ("made", "No changes recorded"),
+}
+
+
+def _fmt_si_ref(ref) -> str:
+    """'332/2025' → 'S.I. No. 332 of 2025' (display formatting only)."""
+    s = _safe(ref).strip()
+    num, _, yr = s.partition("/")
+    return f"S.I. No. {num} of {yr}" if num.isdigit() and yr.isdigit() else s
+
+
+def _si_ref_eli_url(ref) -> str:
+    """Canonical eISB ELI link to an affecting SI's made text — the 'confirm'
+    link — built from its 'number/year' citation (same pattern as _eisb_url)."""
+    s = _safe(ref).strip()
+    num, _, yr = s.partition("/")
+    return f"https://www.irishstatutebook.ie/eli/{yr}/si/{num}/made/en/html" if num.isdigit() and yr.isdigit() else ""
+
+
+def _affecting_list(val) -> list[str]:
+    """The joined affecting_sis cell arrives as a list / numpy array / None /
+    NaN depending on the LEFT-JOIN match — coerce to a clean list of refs."""
+    if val is None:
+        return []
+    try:
+        return [str(x) for x in list(val) if _safe(x)]
+    except TypeError:  # scalar NaN for an unmatched (NULL) row
+        return []
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -715,6 +785,89 @@ def _render_si_index(df: pd.DataFrame) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 # View 4 — SI detail (+ View 5 cross-link, inline)
 # ──────────────────────────────────────────────────────────────────────────────
+def _render_legal_status(row: pd.Series) -> None:
+    """Legal-status block under the SI title, sourced from the eISB Legislation
+    Directory (v_si_current_state, LEFT-joined into v_statutory_instruments).
+    Reports the state eISB records — revoked / amended / etc. — with confirm
+    links and a verify-before-reliance caveat. A missing directory row renders
+    as 'status not checked', never as 'in force'."""
+    state = _safe(row.get("current_state"))
+    updated = _safe(row.get("directory_updated_to"))
+    src_url = _safe(row.get("state_source_url"))
+    affecting = _affecting_list(row.get("affecting_sis"))
+
+    # No directory row → not checked. NEVER rendered as "in force".
+    if not state:
+        eisb = _eisb_url(row)
+        verify = (
+            source_link_html(eisb, "Check the eISB entry", aria_label="Open this SI on the Electronic Irish Statute Book")
+            if eisb
+            else ""
+        )
+        st.html(
+            '<div class="si-legal si-legal--unknown">'
+            '<span class="si-legal-chip">Status not checked</span>'
+            '<div class="si-legal-body">Not yet checked against the eISB Legislation Directory '
+            "for later amendment or revocation. "
+            f"{verify}</div></div>"
+        )
+        return
+
+    css_mod, chip = _LEGAL_PRESENTATION.get(state, ("other", "Affected"))
+
+    # Affecting SIs in plain English, each linked to its own made text (confirm).
+    ref_parts = []
+    for ref in affecting:
+        url = _si_ref_eli_url(ref)
+        label = html.escape(_fmt_si_ref(ref))
+        ref_parts.append(source_link_html(url, label) if url else label)
+    refs = ", ".join(ref_parts)
+    by = f" by {refs}" if refs else ""
+
+    if state == "revoked":
+        body = f"Revoked{by}."
+    elif state == "partially_revoked":
+        body = f"Partially revoked — one or more provisions revoked{by}."
+    elif state == "amended_and_partially_revoked":
+        body = f"Amended and partially revoked{by}."
+    elif state == "amended":
+        body = f"Amended{by}."
+    elif state == "in_force_as_made":
+        body = "The eISB Legislation Directory records no amendment or revocation of this instrument."
+    else:  # other_affected — show the directory's own wording, no interpretation
+        raw = _safe(row.get("how_affected_raw")).split(" || ")[0].strip()
+        body = f"Affected — the directory records: “{html.escape(raw)}”." if raw else "Affected — see the directory entry."
+
+    upd_phrase = f", updated {html.escape(updated)}" if updated else ""
+    src_link = (
+        source_link_html(
+            src_url,
+            "View the directory entry",
+            aria_label="Open the eISB Legislation Directory entry for this SI",
+        )
+        if src_url
+        else ""
+    )
+    src_line = f'<div class="si-legal-src">Per the eISB Legislation Directory{upd_phrase}. {src_link}</div>'
+
+    # Verify-before-reliance caveat on every state that is not a plain "no
+    # changes recorded" — this is a discovery index, not a legal register.
+    caveat = ""
+    if state != "in_force_as_made":
+        caveat = (
+            '<div class="si-legal-caveat">Discovery / indexing only — verify the official eISB '
+            "entry before any legal reliance. Whole vs partial revocation is derived from the "
+            "directory’s wording.</div>"
+        )
+
+    st.html(
+        f'<div class="si-legal si-legal--{css_mod}">'
+        f'<span class="si-legal-chip">{html.escape(chip)}</span>'
+        f'<div class="si-legal-body">{body}{src_line}{caveat}</div>'
+        "</div>"
+    )
+
+
 def _render_si_detail(row: pd.Series) -> None:
     if back_button("← Back to SI Index", key="si_detail"):
         st.session_state.pop("si_selected_id", None)
@@ -748,6 +901,10 @@ def _render_si_detail(row: pd.Series) -> None:
       <div class="si-detail-title">{title}</div>
     </div>
     """)
+
+    # Legal status (eISB Legislation Directory) — directly under the title so a
+    # revocation/amendment is the first thing the reader sees.
+    _render_legal_status(row)
 
     # Department isn't detected on ~60% of pre-2014 SIs; render the cell
     # only when there's a real value rather than parking an em-dash and

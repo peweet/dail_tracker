@@ -361,14 +361,31 @@ def test_v_debate_listings_executes():
 # ---------------------------------------------------------------------------
 
 
+_SI_STATE_ENUM = {
+    "in_force_as_made",
+    "amended",
+    "partially_revoked",
+    "amended_and_partially_revoked",
+    "revoked",
+    "other_affected",
+}
+
+
 @pytest.mark.sql
 def test_v_statutory_instruments_executes():
     """The SI-as-entity view. Locks the signatory contract the SI detail panel
     reads — si_responsible_actor (printed signing office), si_signatory_name
     (printed signer name), and the tenure-inferred si_minister_name/member_code.
-    A schema drift on any of these silently breaks 'who signed the SI'."""
-    _skip_missing(GOLD_PARQUET_DIR / "statutory_instruments.parquet")
+    A schema drift on any of these silently breaks 'who signed the SI'. Also
+    locks the legal-state columns LEFT-JOINed from v_si_current_state."""
+    _skip_missing(
+        GOLD_PARQUET_DIR / "statutory_instruments.parquet",
+        GOLD_PARQUET_DIR / "si_current_state.parquet",
+    )
     con = _con()
+    # v_statutory_instruments LEFT-JOINs v_si_current_state, so register that
+    # view first (production's register_views does this via alphabetical order).
+    con.execute(_load("legislation_si_current_state.sql"))
     con.execute(_load("legislation_si_index.sql"))
     result = _result(con, "v_statutory_instruments")
     for col in (
@@ -378,9 +395,93 @@ def test_v_statutory_instruments_executes():
         "si_signatory_name",
         "si_minister_name",
         "si_minister_member_code",
+        # legal-state columns from the LEFT JOIN
+        "current_state",
+        "affecting_sis",
+        "state_source_url",
+        "directory_updated_to",
+        "state_confidence",
     ):
         assert col in result.columns, f"Expected column '{col}' in v_statutory_instruments"
     assert len(result) > 0
+
+
+@pytest.mark.sql
+def test_v_statutory_instruments_left_join_no_inflation():
+    """The legal-state LEFT JOIN must be one-row-per-SI: the view row count must
+    equal the base parquet row count (no fan-out), and SIs absent from the
+    directory crawl must keep a NULL current_state ('status not checked'), never
+    drop out."""
+    _skip_missing(
+        GOLD_PARQUET_DIR / "statutory_instruments.parquet",
+        GOLD_PARQUET_DIR / "si_current_state.parquet",
+    )
+    con = _con()
+    con.execute(_load("legislation_si_current_state.sql"))
+    con.execute(_load("legislation_si_index.sql"))
+    base = con.execute(
+        f"SELECT count(*) FROM read_parquet('{(_DATA_BASE / 'data/gold/parquet/statutory_instruments.parquet').as_posix()}')"
+    ).fetchone()[0]
+    view = con.execute("SELECT count(*) FROM v_statutory_instruments").fetchone()[0]
+    assert view == base, f"LEFT JOIN inflated rows: base={base} view={view}"
+
+
+@pytest.mark.sql
+def test_v_si_current_state_executes():
+    """The SI legal-state view (eISB Legislation Directory). Locks the enum and
+    the provenance invariant the detail-panel chip + caveat depend on: every
+    revoked / partially_revoked row must carry a confirm link (state_source_url),
+    and current_state must stay within the agreed enum."""
+    _skip_missing(GOLD_PARQUET_DIR / "si_current_state.parquet")
+    con = _con()
+    con.execute(_load("legislation_si_current_state.sql"))
+    result = _result(con, "v_si_current_state")
+    _assert_cols(
+        result,
+        "si_id",
+        "current_state",
+        "affecting_sis",
+        "this_si_eli_url",
+        "how_affected_raw",
+        "state_source",
+        "state_source_url",
+        "directory_updated_to",
+        "confidence",
+    )
+    assert len(result) > 0
+
+    # Enum check across the whole view.
+    states = con.execute("SELECT DISTINCT current_state FROM v_si_current_state").fetchall()
+    for (s,) in states:
+        assert s in _SI_STATE_ENUM, f"current_state '{s}' outside the agreed enum"
+
+    # Provenance invariant: a negative legal state must always be sourced.
+    unsourced = con.execute(
+        "SELECT count(*) FROM v_si_current_state "
+        "WHERE current_state IN ('revoked', 'partially_revoked') AND state_source_url IS NULL"
+    ).fetchone()[0]
+    assert unsourced == 0, f"{unsourced} revoked/partially_revoked rows missing state_source_url"
+
+
+@pytest.mark.sql
+def test_v_si_current_state_coverage_gate():
+    """Join coverage vs gold ≥ 95% (the extractor measured 99.5%). Guards against
+    an eISB layout change silently dropping the directory crawl to a stub. Runs
+    only against real pipeline output — the CI fixture is a 2/3 stub by design."""
+    if not _USE_REAL_PATHS:
+        pytest.skip("coverage gate needs real pipeline output (set DAIL_INTEGRATION_TESTS=1)")
+    _skip_missing(
+        GOLD_PARQUET_DIR / "statutory_instruments.parquet",
+        GOLD_PARQUET_DIR / "si_current_state.parquet",
+    )
+    con = _con()
+    con.execute(_load("legislation_si_current_state.sql"))
+    con.execute(_load("legislation_si_index.sql"))
+    total, matched = con.execute(
+        "SELECT count(*), count(current_state) FROM v_statutory_instruments"
+    ).fetchone()
+    cov = matched / total if total else 0
+    assert cov >= 0.95, f"SI legal-state coverage {cov:.1%} < 95% — directory crawl may be broken"
 
 
 @pytest.mark.sql

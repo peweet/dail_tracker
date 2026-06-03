@@ -544,6 +544,105 @@ def _days(n: int):
     return timedelta(days=n)
 
 
+# ---------------------------------------------------------------------------
+# statutory_instruments.parquet — base for v_statutory_instruments.
+# si_current_state.parquet — drives v_si_current_state and the LEFT-JOIN that
+# adds legal-state to v_statutory_instruments. Three SIs:
+#   2024-001  revoked (whole)        → has a state row
+#   2024-002  in force as made       → has a state row
+#   2024-003  not in the directory   → NO state row, exercises the LEFT-JOIN
+#                                       NULL path ("status not checked")
+# Joins on si_id; the state table covers 2 of the 3 base SIs so the contract
+# test can assert both the matched and the unchecked (NULL) branches.
+# ---------------------------------------------------------------------------
+
+STATUTORY_INSTRUMENTS = pl.DataFrame(
+    {
+        "si_id": ["2024-001", "2024-002", "2024-003"],
+        "si_year": [2024, 2024, 2024],
+        "si_number": [1, 2, 3],
+        "si_title": [
+            "Sea-Fisheries (Quota Management) Regulations 2024",
+            "Health (Pricing) (Amendment) Regulations 2024",
+            "Local Government (Boundary) Order 2024",
+        ],
+        "si_signed_date": [date(2024, 1, 12), date(2024, 1, 18), date(2024, 2, 3)],
+        "si_operation": ["amends", "amends", "establishes"],
+        "si_operation_flags": ["amends|commences", "amends", "establishes"],
+        "si_form": ["regulations", "regulations", "order"],
+        "si_eu_relationship": ["gives_effect", "none_detected", "none_detected"],
+        "si_is_eu": [True, False, False],
+        "si_policy_domain": ["Agriculture", "Health", "Local Government"],
+        "si_policy_domains_all": ["Agriculture|Marine", "Health", "Local Government"],
+        "si_responsible_actor": [
+            "Minister for Agriculture, Food and the Marine",
+            "Minister for Health",
+            "Minister for Housing, Local Government and Heritage",
+        ],
+        "si_signatory_name": ["Mary Murphy", None, None],
+        "si_department": ["agriculture", "health", "housing"],
+        "si_department_label": [
+            "Agriculture, Food and the Marine",
+            "Health",
+            "Housing, Local Government and Heritage",
+        ],
+        "si_minister_member_code": ["Mary-Murphy.D.2020-02-08", None, None],
+        "si_minister_name": ["Mary Murphy", "Sean O'Brien", None],
+        "si_parent_legislation": ["Sea-Fisheries Act 2006", "Health Act 2013", None],
+        "bill_id": ["bill-101-of-2023", None, None],
+        "bill_short_title": ["Sea-Fisheries Bill 2023", None, None],
+        "eisb_url": [
+            "https://www.irishstatutebook.ie/eli/2024/si/1/made/en/html",
+            "https://www.irishstatutebook.ie/eli/2024/si/2/made/en/html",
+            "https://www.irishstatutebook.ie/eli/2024/si/3/made/en/html",
+        ],
+        "iris_source_pdf": ["iris_2024_002.pdf", "iris_2024_004.pdf", "iris_2024_009.pdf"],
+        "si_taxonomy_confidence": [0.91, 0.84, 0.77],
+    },
+    schema_overrides={"si_year": pl.Int64, "si_number": pl.Int64, "si_taxonomy_confidence": pl.Float64},
+)
+
+SI_CURRENT_STATE = pl.DataFrame(
+    {
+        "si_id": ["2024-001", "2024-002"],
+        "si_year": [2024, 2024],
+        "si_number": [1, 2],
+        "directory_title": [
+            "Sea-Fisheries (Quota Management) Regulations 2024",
+            "Health (Pricing) (Amendment) Regulations 2024",
+        ],
+        "current_state": ["revoked", "in_force_as_made"],
+        "affecting_sis": [["318/2025"], []],
+        "affecting_si_urls": [
+            ["https://www.irishstatutebook.ie/eli/2025/si/318/made/en/html"],
+            [],
+        ],
+        "this_si_eli_url": [
+            "https://www.irishstatutebook.ie/eli/2024/si/1/made/en/html",
+            "https://www.irishstatutebook.ie/eli/2024/si/2/made/en/html",
+        ],
+        "how_affected_raw": [
+            "Revoked on 1 September 2025 || S.I. No. 318 of 2025 , reg. 9",
+            "Not affected",
+        ],
+        "state_source": ["eISB Legislation Directory", "eISB Legislation Directory"],
+        "state_source_url": [
+            "https://www.irishstatutebook.ie/isbc/si2024_1-50.html",
+            "https://www.irishstatutebook.ie/isbc/si2024_1-50.html",
+        ],
+        "directory_updated_to": ["29 May 2026", "29 May 2026"],
+        "confidence": [0.85, 0.95],
+    },
+    schema_overrides={
+        "si_year": pl.Int64,
+        "si_number": pl.Int64,
+        "affecting_sis": pl.List(pl.String),
+        "affecting_si_urls": pl.List(pl.String),
+        "confidence": pl.Float64,
+    },
+)
+
+
 def main() -> None:
     SILVER_PQ.mkdir(parents=True, exist_ok=True)
     GOLD_PQ.mkdir(parents=True, exist_ok=True)
@@ -570,6 +669,8 @@ def main() -> None:
         (COMMITTEE_ASSIGNMENTS, "silver/committees/committee_assignments.parquet"),
         (COMMITTEE_OFFICES, "silver/committees/office_holders.parquet"),
         (questions, "silver/parquet/questions.parquet"),
+        (STATUTORY_INSTRUMENTS, "gold/parquet/statutory_instruments.parquet"),
+        (SI_CURRENT_STATE, "gold/parquet/si_current_state.parquet"),
     ]
     for df, rel in hardcoded:
         path = _wp(df, rel)

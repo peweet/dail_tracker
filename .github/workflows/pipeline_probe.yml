@@ -1,0 +1,77 @@
+name: Pipeline probe (Linux, no publish)
+
+# Manual-only probe. Runs the pipeline on the real Linux runner to answer two
+# questions WITHOUT touching your repo or live data:
+#   1. Does every selected chain COMPLETE on Linux (execution, not just import)?
+#   2. How thin is the gold when the runner starts from a clean checkout
+#      (no bronze, no big silver) — i.e. how much does cold-start thin the data?
+#
+# SAFETY: `permissions: contents: read` — this workflow physically cannot write
+# to the repo. It never commits, never pushes, and never calls publish_data.py.
+# Everything the pipeline writes lands on the ephemeral runner and is discarded
+# when the job ends. The committed gold in your repo is never affected.
+
+on:
+  workflow_dispatch:
+    inputs:
+      chains:
+        description: "pipeline.py --select value (comma-separated chains; e.g. iris or bootstrap,iris)"
+        required: false
+        default: "iris"
+
+permissions:
+  contents: read   # read-only — cannot push anything
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --extra pipeline
+
+      - name: Baseline — committed gold row counts (clean checkout)
+        run: uv run python tools/gold_rowcounts.py | tee /tmp/gold_before.json
+
+      - name: Run pipeline subset (timed; chain failures are reported, not fatal)
+        id: run
+        run: |
+          echo "::group::pipeline.py --select ${{ github.event.inputs.chains }}"
+          start=$(date +%s)
+          set +e
+          uv run python pipeline.py --select "${{ github.event.inputs.chains }}"
+          code=$?
+          set -e
+          end=$(date +%s)
+          echo "::endgroup::"
+          echo "pipeline_exit=$code" >> "$GITHUB_OUTPUT"
+          echo "elapsed_seconds=$((end - start))" >> "$GITHUB_OUTPUT"
+          echo "pipeline exit code: $code  (elapsed $((end - start))s)"
+
+      - name: After — gold row counts (post-run, on the runner only)
+        if: always()
+        run: uv run python tools/gold_rowcounts.py | tee /tmp/gold_after.json
+
+      - name: Report — runtime + cold-start thinning (baseline vs after)
+        if: always()
+        run: uv run python tools/gold_rowcounts.py --diff /tmp/gold_before.json /tmp/gold_after.json
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Pipeline probe — no publish"
+            echo ""
+            echo "- chains: \`${{ github.event.inputs.chains }}\`"
+            echo "- pipeline exit: \`${{ steps.run.outputs.pipeline_exit }}\`  (0 = all selected chains OK)"
+            echo "- elapsed: \`${{ steps.run.outputs.elapsed_seconds }}s\`"
+            echo ""
+            echo "See the **Report** step for per-table cold-start thinning."
+            echo "A \`DROPPED >50%\` flag means the runner rebuilt that table from a thin slice —"
+            echo "the signal that state-persistence work is needed before publishing is ever wired in."
+            echo ""
+            echo "_This run published nothing; the committed gold in the repo is untouched._"
+          } >> "$GITHUB_STEP_SUMMARY"
