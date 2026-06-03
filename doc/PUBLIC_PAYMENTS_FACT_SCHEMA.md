@@ -5,6 +5,13 @@
 **Companion to:** `doc/PROCUREMENT_SEMISTATE_EXPANSION_PLAN.md` (esp. §3 constraints, §5 columns, §11 pilot results)
 **Created:** 2026-06-03
 
+> **Subordinate to the master plan `doc/PROCUREMENT_BUILD_PLAN.md`.** This schema must
+> implement the master's **VALUE TAXONOMY (§4b): `value_kind` + `realisation_tier`** — do **not**
+> use the `amount_semantics` enum drafted in §2 below if it conflicts; reconcile to `value_kind`
+> + `realisation_tier` and derive `value_safe_to_sum` from `value_kind`. The §8 test plan and
+> any firewall rules **reference master §7 (tests) and §9 (firewall checklist)** rather than
+> re-specify them. (See `project_procurement_phase_taxonomy` memory → PROCUREMENT DOC MAP.)
+
 This document is the proposed data contract for the unified public-body **payments / purchase-order** corpus that the bespoke per-publisher parsers (HSE, Tusla, …) will eventually feed. It exists so the grain, value-semantics, privacy, and provenance decisions are fixed *before* any row is written to gold.
 
 ---
@@ -155,3 +162,68 @@ Parquet, partitioned by `publisher_type` then `year`; `compression="zstd"`, `com
 
 ## 7. Build order (after this contract is agreed)
 Per the plan's Phases 4→9: finish per-publisher parsers (one grain at a time, clearly labelled) → assemble `public_payments_fact.parquet` → DQ + privacy pass → **verification gate per publisher** → *only then* CRO/entity resolution and any cross-enrichment join → SQL views → tests → optional Procurement page.
+
+---
+
+## 8. Test & data-quality plan — **DEFERRED, do not build yet**
+
+> **Status: PLAN ONLY.** Tests are *not* being written while extraction is in active flux —
+> the publisher set, schema, and parser internals still churn, and tests on a moving target
+> are waste/false-confidence. This section is the blueprint to execute **once the feature
+> stabilises** (schema frozen, publisher set settled, privacy pass on). Build it then.
+
+### 8.1 How it must slot into the existing CI
+The repo CI (`.github/workflows/ci.yml`) already defines the gates this work has to fit:
+- **`ruff check .` + `ruff format --check .`** gate **every committed `.py`** — so the
+  sandbox scripts must be lint+format clean *before first commit* (today they are not:
+  unused `amt_i` in `inspect_hse_tusla.py`, import-sort in `procurement_hse_tusla_parser.py`).
+  While iterating, either keep them uncommitted or clean on commit.
+- **`test` job** runs `pytest -m "not integration and not sql and not sources and not bronze"`
+  → **only unmarked, fast, data-free tests run in CI.**
+- **`sql-contracts` job** runs `pytest -m sql` against *committed gold* (asserts a gold
+  parquet exists first).
+- **`basedpyright`** is scoped to `services/` + pure-logic modules — `pipeline_sandbox/` is
+  **not** typechecked today; no obligation unless that scope is widened.
+- **`firewall`** is UI/data-access only — irrelevant to this ETL.
+
+### 8.2 Tier 1 — pure-function unit tests *(CI, unmarked, no data files)* — highest value
+Test the parsing primitives on **synthetic inputs** (no PDF/parquet needed, so they run in
+CI and lock the logic that actually breaks):
+- `clean_supplier` / `DIGIT_PREFIX`: `"539106 A HORTON LTD"` → `"A HORTON LTD"`; clean name unchanged.
+- `to_eur`: `"€1,234.56"`→1234.56, `"(20)"`→-20, `"20,000.00 IACT"`→20000.0, junk→`None`.
+- `norm_name`: case/space/trailing-digit normalisation is stable + idempotent.
+- `cols_by_xcuts`: a synthetic word-row + HSE / Tusla cut lists → expected column buckets.
+- `hse_row` / `tusla_row`: synthetic cell lists → correct field mapping, period parse, amount.
+- seed `validate()`: catches a duplicate id / bad enum / missing url.
+
+### 8.3 Tier 2 — seed registry test *(CI, unmarked — the CSV is committed)*
+Against `data/_meta/procurement_publishers/publishers_seed.csv`: loads as CSV, required
+columns present, `publisher_id` unique, enum membership for `source_status`/`source_format`/
+`grain`, `landing_url` present where `source_status != NOT_FOUND`. (Mirrors plan §6 Phase-1
+tests + §9 acceptance criteria.)
+
+### 8.4 Tier 3 — gold-contract test *(marker: `integration`; local until promoted)*
+Assert the §3 invariants against `public_payments_fact`:
+unique `payment_id` + provenance non-null · safe-to-sum gate · privacy gate · sole-trader
+default · cro⇒company · amount-null⇔flag · aggregation/double-count rule. Mark `integration`
+so CI skips it (the parquet lives in `data/sandbox/`, gitignored). When the table is
+promoted to committed gold, either move it to the `sql`-style contract job or add a tiny
+fixture (next point).
+
+### 8.5 Tier 4 — data-quality assertions *(marker: `integration`)*
+Threshold checks (extend the existing `dq()` + `public_payments_coverage.json`, don't
+duplicate): no unexpected negatives/zeros · **single-row outlier share < 50% per publisher**
+(the TII €1.2bn guard) · period-null rate under threshold (currently ~12%) · supplier-name
+quality (leading/trailing-digit %, very-short %, total-row count) · content-duplicate rate
+per publisher (HSE 87 / Tusla 253 — needs a dedup policy) · **no VAT-basis mixing in any
+summed view** · once privacy is on, **zero `public_display=true` among quarantined rows**.
+
+### 8.6 Fixtures
+Tier 3/4 without committed gold → a small hand-built **synthetic fixture parquet** (~20 rows
+spanning both grains, VAT bases, a quarantined row, a total row, an outlier, a null-period
+row) committed under the test tree. **Mind the `*.parquet` gitignore** — needs a negation
+rule + `git add`, the exact trap documented for the SQL-view fixtures.
+
+### 8.7 What is *not* planned (consistent with one-shot scope)
+No CI job dedicated to procurement, no nightly DQ run, no automation/scheduling. The four
+tiers above are the whole intended surface, and only Tiers 1–2 ever run in CI.

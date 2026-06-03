@@ -587,10 +587,63 @@ Income & Expenditure-by-service-division statement (p12). **DQ:**
 (Housing/Roads/Water/… — the civic "what areas" cut CSO's economic-category GFA04 lacks),
 (2) actual-vs-budget variance (Note 16, needs the sub-table parser), (3) a **national
 denominator** to frame the micro procurement layers, (4) income-vs-expenditure (self-funding)
-per division — **all cheap (1 PDF/yr, 2009–2023) and clean.** BUT it's **national-only**; the
-per-LA granularity that would power per-council/per-constituency civic features needs the 31
+per division — **all cheap (1 PDF/yr) and clean.** BUT it's **national-only**; the per-LA
+granularity that would power per-council/per-constituency civic features needs the 31
 individual AFS PDFs. So: **amalgamated AFS = low-cost context/denominator; per-LA AFS = a
 separate larger decision.**
+
+### FULL INGEST complete (`afs_amalgamated_extract.py`, 2026-06-03) — 2016–2023
+Ingested the I&E-by-division statement for **all 8 modern years (2016–2023, cut off at 2016
+per request)**: **64 rows (8 yrs × 8 divisions), every year 8/8 and reconciling EXACTLY** to
+its printed total → faithful extraction. Output (sandbox, NOT gold): `data/sandbox/parquet/
+afs_amalgamated_divisions.parquet` (zstd), tagged `realisation_tier=SPENT`,
+`value_kind=net_expenditure_actual`, `scope=all-31-LAs`.
+- **DQ catches that the full run surfaced:** (a) **2019 reports in €millions with an "M"
+  suffix** (`1,630.75 M`) while every other year uses full euros — made the number parser
+  unit-aware. (b) Divisions matched by **keyword** (not exact string) to survive the wording
+  drift across years. (c) Pre-2016 uses the old programme-group names → deliberately excluded.
+- **Series shows real movement:** national LA gross revenue expenditure €4.0bn (2016) →
+  €4.6bn (2018) → **€6.75bn (2020, COVID supports spike)** → €6.2bn (2021–22) → €6.7bn (2023);
+  the 2020 jump reconciles exactly, so it's a real outturn surge, not a parse error.
+- Net-by-division pivot confirms the funding story: Housing net ≈€0 (≈99% grant-funded),
+  Recreation/Roads/Environment are the rates/LPT-funded net cost.
+- Still NOT per-LA (amalgamated) and accrual-grain — the per-LA AFS remains the separate
+  larger decision; Note-16 budget-vs-actual still needs the targeted sub-table parser.
+
+### Data checks + unit tests (2026-06-03)
+Validated beyond per-year reconciliation: **net = gross − income holds for 64/64 rows**
+(max residual €10k = 2019 M-rounding); **cross-year consistency** — each year's restated
+prior-year column equals the previous year's reported net across all 56 pairs (max €522k, 0
+off by >€1m) = independent cross-document validation; 8 divisions every year; no negative
+gross/income; the only >50% YoY moves are the tiny (~99% grant-funded) Housing/Misc net
+divisions (genuinely volatile, not errors). Tests: `test/test_afs_amalgamated.py` (14 pass) —
+`to_num` (incl. M-suffix/parens), a golden parse of a committed I&E page-text fixture, and the
+invariants above on a committed 64-row golden parquet (`test/fixtures/afs/`, gitignore-negated).
+
+### Medallion placement + promotion plan (when greenlit)
+- **Bronze** = raw PDFs → `config.BRONZE_PDF_DIR/"afs"/{year}.pdf` (extractor self-fetches, like
+  procurement's `ensure_csv` → headless-safe; immutable, re-derivable).
+- **Silver** = the reconciled tidy fact → `config.SILVER_PARQUET_DIR/"afs_amalgamated_divisions.parquet"`
+  (zstd/3/stats). It's a *conformed, source-faithful* fact (net=gross−income, reconciled,
+  unit-normalised) — the natural silver home (like the CRO register), NOT a UI aggregate.
+  Commit via a gitignore negation so Streamlit Cloud (clean clone, no ETL) can read it.
+- **Gold** = SQL view(s) `sql_views/afs_*.sql` — `v_afs_divisions` (+ later `v_afs_division_trend`
+  YoY, and `v_afs_per_capita` once population joins). All aggregation in views (firewall);
+  `value_safe_to_sum` discipline carries over (sum within a year, never across tiers).
+- **Transition (cbi/cro/procurement pattern):** (1) repoint download→bronze + output→silver;
+  (2) add gitignore negation for the silver parquet; (3) register `("afs",
+  "pipeline_sandbox/afs_amalgamated_extract.py")` in `pipeline.py` CHAINS (no deps → standalone)
+  + a `_CHAIN_BLURBS` line; (4) add the `afs_*.sql` views + `utility/data_access/afs_data.py`
+  (SELECT-only); (5) wire the tests into CI + a view-registration smoke test; (6) UI is a
+  context/denominator panel, not a standalone page (deferred).
+
+### Poller? — NO dedicated poller; annual freshness check
+AFS is published **annually** (one audited PDF, mid-following-year). A continuous poller is
+over-engineering. Instead: add AFS to `tools/check_freshness.py` with an **annual cadence**
+(latest-year ingested), and a once-a-year "is next year's PDF up?" check that scrapes the
+gov.ie collection page for a new year's link (reusing the existing PDF-poller pattern — URLs
+are mostly predictable `…annual-financial-statement-{year}…`/`AFS_{year}.pdf` but carry guid
+suffixes, so scrape-the-listing beats URL-guessing). Runs inside the existing freshness job.
 
 ## Story angles the data unlocks (eval — inference OK here, NOT in app UI)
 
