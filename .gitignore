@@ -332,3 +332,5 @@ lobbyist/raw/
 # The 64-row amalgamated-AFS golden parquet lets the data-integrity tests run in CI
 # without re-downloading the gov.ie PDFs. Page-text fixture (.txt) isn't ignored.
 !test/fixtures/afs/*.parquet
+# LA-payments golden slice (test/fixtures/la_payments/_generate.py) for the Tier-3 invariants
+!test/fixtures/la_payments/*.parquet
