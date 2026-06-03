@@ -29,6 +29,7 @@ Run:  ./.venv/Scripts/python.exe pipeline_sandbox/probe_procurement_lobbying_ove
 from __future__ import annotations
 
 import contextlib
+import json
 import sys
 from pathlib import Path
 
@@ -44,7 +45,20 @@ from cro_normalise import name_norm_expr  # noqa: E402
 AWARDS = ROOT / "data/sandbox/parquet/procurement_awards.parquet"
 LOBBY_MASTER = ROOT / "data/silver/lobbying/parquet/returns_master.parquet"
 LOBBY_CLIENT = ROOT / "data/silver/lobbying/parquet/client_company_returns_detail.parquet"
+PROC_COV = ROOT / "data/_meta/procurement_coverage.json"
 OUT = ROOT / "data/sandbox/parquet/procurement_lobbying_overlap.parquet"
+OUT_COV = ROOT / "data/_meta/procurement_lobbying_overlap_coverage.json"
+
+# An overlap row joins TWO sources -> cite BOTH so the UI footer can attribute each.
+SOURCES = {
+    "procurement": "see data/_meta/procurement_coverage.json (Office of Government Procurement, CC-BY 4.0)",
+    "lobbying": {
+        "dataset": "Register of Lobbying returns",
+        "publisher": "Standards in Public Office Commission (SIPO)",
+        "landing_page": "https://www.lobbying.ie/",
+        "license": "Re-use permitted with attribution (lobbying.ie)",
+    },
+}
 
 
 def hr(t: str) -> None:
@@ -112,6 +126,27 @@ def main() -> None:
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     ov.write_parquet(OUT, compression="zstd", compression_level=3, statistics=True)
+
+    proc_retrieved = None
+    if PROC_COV.exists():
+        proc_retrieved = json.loads(PROC_COV.read_text(encoding="utf-8")).get("retrieved_utc")
+    OUT_COV.write_text(
+        json.dumps(
+            {
+                "overlap_entities": ov.height,
+                "procurement_suppliers_matched_against": proc.height,
+                "match_method": "exact normalised-name (name_norm_expr) on company-class, non-truncated suppliers",
+                "procurement_retrieved_utc": proc_retrieved,
+                "sources": SOURCES,
+                "caveat": "Co-occurrence by ENTITY only: a company appears on BOTH the procurement and "
+                          "lobbying registers. NOT evidence that lobbying influenced any contract -- there "
+                          "is no shared key linking a specific lobby to a specific award. Exact-name match "
+                          "undercounts (subsidiary/trading-name variants are missed).",
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     hr("OVERLAP: suppliers that ALSO appear on the lobbying register")
     print(f"overlapping entities: {ov.height:,} of {proc.height:,} suppliers "

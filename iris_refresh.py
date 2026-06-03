@@ -1,7 +1,7 @@
 """iris_refresh.py — one-shot Iris refresh: poll + silver delta + derived gold.
 
-Chains the five steps that have to happen together to keep the three
-Iris-derived gold parquets (and the Streamlit pages reading them) in sync:
+Chains the steps that have to happen together to keep the Iris-derived gold
+parquets (and the Streamlit pages reading them) in sync:
 
     1. iris_oifigiuil_poller        fetch any new Tue/Fri PDFs into bronze
     2. iris_silver_rebuild          delta-rebuild the silver notice CSVs
@@ -9,14 +9,18 @@ Iris-derived gold parquets (and the Streamlit pages reading them) in sync:
     4. iris_si_bill_enrichment      -> data/gold/parquet/bill_statutory_instruments.parquet
     5. public_appointments enrichment -> data/gold/parquet/public_appointments.parquet
     6. corporate_notices_enrichment -> data/gold/parquet/corporate_notices.parquet
+    7. si_legislation_directory_extract -> data/gold/parquet/si_current_state.parquet
+                                        (eISB legal-state: revoked/amended per SI)
 
 Steps 3-5 are the ones that quietly went stale after the silver rebuild on
 2026-05-31 (the live regression that prompted this script). Each step is
 independent: any can be skipped, any failure logs and continues so the next
-step still gets a chance.
+step still gets a chance. Step 7 crawls the eISB Legislation Directory and is
+freshness-gated (only re-crawls years whose "Updated to" date moved), so a
+steady-state run adds only ~11 cheap index requests.
 
 CLI:
-    python iris_refresh.py                 # all five steps
+    python iris_refresh.py                 # all seven steps
     python iris_refresh.py --skip-poll     # only refresh from existing bronze
     python iris_refresh.py --skip-silver   # only refresh derived gold from current silver
     python iris_refresh.py --skip-derived  # poll + silver only
@@ -40,7 +44,7 @@ def _hr(label: str) -> None:
 
 
 def step_poll() -> bool:
-    _hr("[1/6] iris_oifigiuil_poller — fetch new PDFs into bronze")
+    _hr("[1/7] iris_oifigiuil_poller — fetch new PDFs into bronze")
     t = time.monotonic()
     r = subprocess.run([sys.executable, "iris_oifigiuil_poller.py"], cwd=_ROOT)
     print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
@@ -48,7 +52,7 @@ def step_poll() -> bool:
 
 
 def step_silver() -> bool:
-    _hr("[2/6] iris_silver_rebuild — delta from bronze to silver")
+    _hr("[2/7] iris_silver_rebuild — delta from bronze to silver")
     t = time.monotonic()
     try:
         from iris_silver_rebuild import rebuild_silver_from_bronze
@@ -62,7 +66,7 @@ def step_silver() -> bool:
 
 
 def step_si_gold() -> bool:
-    _hr("[3/6] si_entity_enrichment — statutory_instruments.parquet")
+    _hr("[3/7] si_entity_enrichment — statutory_instruments.parquet")
     t = time.monotonic()
     try:
         # import-and-call avoids subprocess overhead; si_entity_enrichment.run()
@@ -78,7 +82,7 @@ def step_si_gold() -> bool:
 
 
 def step_bill_si_gold() -> bool:
-    _hr("[4/6] iris_si_bill_enrichment — bill_statutory_instruments.parquet")
+    _hr("[4/7] iris_si_bill_enrichment — bill_statutory_instruments.parquet")
     t = time.monotonic()
     try:
         import iris_si_bill_enrichment
@@ -92,7 +96,7 @@ def step_bill_si_gold() -> bool:
 
 
 def step_appointments_gold() -> bool:
-    _hr("[5/6] public_appointments_enrichment — public_appointments.parquet")
+    _hr("[5/7] public_appointments_enrichment — public_appointments.parquet")
     t = time.monotonic()
     # Subprocess (own __main__/argparse, not set up to import as a library).
     # Pass --write so it persists the parquet.
@@ -103,10 +107,23 @@ def step_appointments_gold() -> bool:
 
 
 def step_corporate_gold() -> bool:
-    _hr("[6/6] corporate_notices_enrichment — corporate_notices.parquet")
+    _hr("[6/7] corporate_notices_enrichment — corporate_notices.parquet")
     t = time.monotonic()
     script = _ROOT / "corporate_notices_enrichment.py"
     r = subprocess.run([sys.executable, str(script), "--write"], cwd=_ROOT)
+    print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
+    return r.returncode == 0
+
+
+def step_si_legal_state() -> bool:
+    _hr("[7/7] si_legislation_directory_extract — si_current_state.parquet (eISB legal-state)")
+    t = time.monotonic()
+    # Subprocess: the crawler has its own __main__/argparse and lives in
+    # pipeline_sandbox/. Freshness-gated by default — it re-checks each year
+    # index and only re-crawls range pages whose "Updated to" date moved, so a
+    # steady-state run is ~11 cheap requests rather than a full ~150-page crawl.
+    script = _ROOT / "pipeline_sandbox" / "si_legislation_directory_extract.py"
+    r = subprocess.run([sys.executable, str(script)], cwd=_ROOT)
     print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
     return r.returncode == 0
 
@@ -123,7 +140,7 @@ def main() -> int:
         help="skip the silver delta-rebuild (refresh derived gold from current silver)",
     )
     ap.add_argument(
-        "--skip-derived", action="store_true", help="skip the 3 derived gold enrichments (poll + silver only)"
+        "--skip-derived", action="store_true", help="skip the derived gold enrichments (poll + silver only)"
     )
     args = ap.parse_args()
 
@@ -143,6 +160,8 @@ def main() -> int:
             failures.append("appointments_gold")
         if not step_corporate_gold():
             failures.append("corporate_gold")
+        if not step_si_legal_state():
+            failures.append("si_legal_state")
 
     _hr(f"[done] iris_refresh complete in {time.monotonic() - started:.1f}s")
     if failures:

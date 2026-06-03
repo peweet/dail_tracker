@@ -1,0 +1,16 @@
+{
+  "overlap_entities": 123,
+  "procurement_suppliers_matched_against": 7559,
+  "match_method": "exact normalised-name (name_norm_expr) on company-class, non-truncated suppliers",
+  "procurement_retrieved_utc": "2026-06-02",
+  "sources": {
+    "procurement": "see data/_meta/procurement_coverage.json (Office of Government Procurement, CC-BY 4.0)",
+    "lobbying": {
+      "dataset": "Register of Lobbying returns",
+      "publisher": "Standards in Public Office Commission (SIPO)",
+      "landing_page": "https://www.lobbying.ie/",
+      "license": "Re-use permitted with attribution (lobbying.ie)"
+    }
+  },
+  "caveat": "Co-occurrence by ENTITY only: a company appears on BOTH the procurement and lobbying registers. NOT evidence that lobbying influenced any contract -- there is no shared key linking a specific lobby to a specific award. Exact-name match undercounts (subsidiary/trading-name variants are missed)."
+}

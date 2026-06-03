@@ -126,11 +126,17 @@ Verified via data.gov.ie CKAN `package_search`. Tiers by value/effort:
   already has `TED Notice Link`/`TED CAN Link` → joinable. Big (EU-wide); own probe,
   filter to IE. **This is a real-value source the OGP ceilings can't provide.**
 
-**Tier 3 — actual SPEND (fixes the ceiling≠spend caveat), fragmented:**
-- **Procurement Related Payments over €20,000** — 18 datasets, per Dept/body, yearly CSV.
-- **Purchase Orders over €20,000** — 106 datasets, per council/body, quarterly,
-  MIXED formats (CSV/XLSX/XLS/PDF). Actual POs but a normalisation project across 100+
-  publishers.
+**Tier 3 — actual SPEND (fixes the ceiling≠spend caveat):**
+- **Procurement Related Payments over €20,000** / **Purchase Orders over €20,000.**
+  ⚠️ **CORRECTION (census `probe_procurement_pdf.py` 2026-06-03):** the "106 datasets /
+  100+ publishers" figure was a CKAN **free-text artifact** — `q="purchase orders over
+  20"` returns 124 datasets but ~99 are GEOSPATIAL noise (EPA "Groundwater Pressures",
+  Marine Institute seabed surveys) that merely contain "over"/"20". **Title-confirmed,
+  only 25 spend datasets from 3 publishers on data.gov.ie:** Dept of Housing LG&H (29
+  CSV resources, payments), Kilkenny CoCo (12 XLSX, POs), Kildare CoCo (10 PDF, POs).
+  Most public bodies publish PO/payment listings on their OWN websites per Circular
+  05/2023, **not** to the data.gov.ie portal — so the open-data spend corpus is small,
+  and the "normalisation across 100+ bodies" framing was wrong.
 
 **Sequencing:** eTenders (have) → Mini-Competitions (easy) → TED (real values) →
 spend datasets (big, later). Only TED or the spend datasets resolve the
@@ -150,12 +156,16 @@ title, suppliers, contract start/end/signing dates, CPV — **NO value column**.
 **88.1% supplier overlap with eTenders → only 110 net-new suppliers.** Verdict:
 **marginal add**, low priority. CRO 1:1 = 45%.
 
-**3. Actual-SPEND datasets** ("Payments over €20k" 29 CSV res / "Purchase Orders over
-€20k" pdf+xlsx, ~14+ publishers) — REAL € paid (€5–8m/file, named payees: Dublin
-Airport Authority, Micromail, RPS). BUT fragmented: per-body, per-year ~100-row
-files, **mixed CSV/XLSX/PDF**, non-uniform schemas (embedded newlines, `(€)`→`(�)`,
-different column names per body), CRO ~33%. Verdict: **highest fidelity, highest
-normalisation cost — a project**, not a quick win. Cherry-pick big publishers later.
+**3. Actual-SPEND datasets** — REAL € paid (€5–8m/file, named payees: Dublin Airport
+Authority, Micromail, RPS), per-body per-quarter ~100-row files, non-uniform schemas
+(embedded newlines, `(€)`→`(�)`, different column names per body), CRO ~33%.
+**Census correction (`probe_procurement_pdf.py`):** the open-data spend corpus on
+data.gov.ie is SMALL, not 100+ bodies — only **25 title-confirmed datasets from 3
+publishers**: Dept Housing LG&H (29 CSV, payments), Kilkenny CoCo (12 XLSX, POs),
+Kildare CoCo (10 **PDF**, POs). The PDFs are **DIGITAL** (fitz extracts straight to
+`supplier · €amount · category`; **no OCR**, 8/8 sampled). Verdict: highest fidelity,
+but **smaller than feared** — 2 publishers are already tabular; the only PDF work is one
+council, and it's fitz-trivial. Real cost is per-publisher column mapping, not scale.
 
 **4. TED (ted.europa.eu API v3)** — **THE real-value source. Public, no auth.**
 `https://api.ted.europa.eu/v3/notices/search` (POST JSON). **8,230 Irish notices
@@ -234,6 +244,83 @@ PDFs answer "who got *paid* how much"; CSV/TED answer "who was *awarded* what". 
 PO supplier may never appear in eTenders (below-threshold / un-published direct buys), and
 one framework award spawns many POs that never appear as awards. PDFs have a spend
 category but NO CPV / no tender link; eTenders has CPV but no actual expenditure.
+
+## Off-portal LA harvest — Dublin region pilot (`probe_procurement_dublin_la.py`, 2026-06-03)
+
+Since the open-data portals carry almost no council spend (3 publishers nationally), the
+real data lives on each council's OWN website per Circular 05/2023. Probed all four Dublin
+local authorities to size an off-portal harvest. **Result: four councils, four different
+realities — no uniformity even within one region:**
+
+| Council | Source | Format | Enumerable? | Coverage | Schema / grain |
+|---|---|---|---|---|---|
+| **South Dublin** | sdcc.ie | **XLSX** | ✅ clean URL template `…/purchase-order-over-20-000-quarter-{Q}-{YYYY}.xlsx` (19/20 quarters 200; 1 name-variant 404) | Q1 2020→present | `PO# · SUPPLIER · TOTAL(€) · DESCRIPTION · PAID(Y/N)`, ~172 PO rows/qtr — **richest**, line-level, even a paid-flag |
+| **Fingal** | fingal.ie | **PDF** (digital) | ⚠️ scattered `…/sites/default/files/{upload-mm}/…20k….pdf` + `/media/<id>` — no template, must scrape a listing | 2013→2024 | `SupplierID · Acc element · Amount(€)`, line-level; € renders as `�` |
+| **Dublin City** | smartdublin/data.gov.ie CKAN | CSV/XLS | — | **only 2012Q3–2014Q1 (abandoned)** | AGGREGATE prompt-payment return, **NOT** line-level POs — wrong grain + stale |
+| **Dún Laoghaire-Rathdown** | dlrcoco.ie | — | ❌ | none | nothing published openly → FOI territory |
+
+**Verified facts:** SmartDublin CKAN lists all 4 LAs as orgs (DCC 161 / Fingal 411 /
+SDCC 230 / DLR 109 datasets) but spend coverage is ~nil; SDCC XLSX template HEAD-checks
+200 for 19 of 20 recent quarters; Fingal PDFs are **digital (fitz, no OCR)**; DCC's only
+spend dataset stops in 2014 and is the wrong grain; DLR's procurement page is policy PDFs
+only.
+
+**Implication for sizing:** an all-LA harvest is **bespoke-per-council** — different host,
+format, URL pattern, schema and grain for each. Of the 31 LAs, expect ~half usable
+(template-able XLSX/CSV or scrapeable digital PDF), the rest stale/aggregate/absent, with
+**no shared schema** (each needs its own column map; two grains — line-level PO vs
+aggregate return). The portal captures ~none of it. Sequencing if pursued: start with the
+clean XLSX/CSV councils (SDCC-style template), add digital-PDF councils via fitz +
+per-council listing scrape (Fingal/Kildare), and treat DCC-style aggregate returns and
+non-publishers (DLR) as out of scope for a line-level spend layer.
+
+## National SEED REGISTRY + scrape test (`procurement_la_seed.py`, 2026-06-03)
+
+Built a per-council seed registry (council → finance landing page) and a generic
+scrape-tester (harvest links → classify a real sample). Ran it on 12 councils across all
+four provinces. **Result: the off-portal harvest is far more tractable than "31 bespoke
+scrapers" feared — a single-page harvest works and the schema CONVERGES.**
+
+**8 of 12 councils yield directly-scrapeable quarterly PO files** (supplier + amount +
+description, line-level), classified from a downloaded sample:
+
+| Council | Format | Sample schema | Notes |
+|---|---|---|---|
+| South Dublin | **XLSX** | `PO·SUPPLIER·TOTAL·DESCRIPTION·PAID` | 130 xlsx + 90 xls on page |
+| Cork City | **XLSX** | `Supplier·Sum of Gross Amount·Description` | + 51 pdf |
+| Wicklow | **XLSX/CSV** | `Supplier·EURO·Description` | 41 xlsx + 17 csv + 53 pdf |
+| Monaghan | **XLSX** | `Supplier·Amount·Description` | + 28 pdf |
+| Cork County | **PDF (digital)** | `Supplier Name·Total·Description·Paid` | **107 files** (deep archive) |
+| Waterford | **PDF (digital)** | `OrderNo·Supplier·…` | 44 files |
+| Limerick | **PDF (digital)** | `Supplier·Paid·Description` | quarterly |
+| Westmeath | **PDF (digital)** | (Westmeath CoCo notice) | 55 files |
+
+**Three big positives:**
+1. **Every actual PO PDF sampled is DIGITAL (fitz, no OCR)** — Cork County, Waterford,
+   Limerick, Westmeath all digital. The only "SCANNED" hits were policy/guideline docs
+   (irrelevant). Confirms the zero-OCR conclusion *nationally*, not just Galway/Kildare.
+2. **Schema CONVERGES** — nearly every council is a variant of `Supplier · Amount(€) ·
+   Description` (± PO#, ± Paid flag). Earlier "no shared schema" (Dublin pilot) was too
+   pessimistic: column ORDER/naming differ, but the *semantic* schema is one 3–4-field
+   shape ⇒ ONE normaliser + a small per-council column-map, not 31 bespoke parsers. The
+   Galway largest-x-gap reader handles the PDF order differences.
+3. **Deep single-page archives** — Cork County 107, Westmeath 55, Wicklow 111 (pdf+xlsx+
+   csv), Monaghan 53: years of quarterly history, harvestable from one landing page.
+
+**The 4 that need extra work:**
+- **Fingal** — its procurement page carries only policy PDFs; the PO files are off-page
+  (`…/sites/default/files/…`) with no clean listing → needs a site crawl, not a seed page.
+- **Dublin City** — only the stale (≤2014) aggregate prompt-payment CSV; no current line-level.
+- **Dún Laoghaire-Rathdown** — only policy PDFs; nothing published → FOI territory.
+- **Meath** — TLS handshake dropped (same WAF/egress block as Galway County); needs a
+  browser/Playwright fetch or different IP, not a scan-vs-digital question.
+
+**Verdict for the build:** the seed-registry approach is validated. Plan: a committed
+`council → landing_url → format → column_map → grain` registry + one shared reader (fitz
+largest-x-gap for PDFs, direct read for XLSX/CSV) + the validated CRO matcher. Expect
+~⅔ of 31 LAs to fall straight in; the rest are site-crawl (Fingal-type), browser-fetch
+(Meath/Galway-County WAF), or out-of-scope (stale/non-publishers). OCR stays unneeded.
+Report (`c:/tmp/procurement_la/seed_report.json`) holds the per-council link tallies.
 
 ## Kickoff prompt (paste into a fresh window)
 

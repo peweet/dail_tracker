@@ -41,6 +41,19 @@ TMP = Path("c:/tmp/procurement_pdf")
 H = {"User-Agent": "dail-tracker research probe"}
 
 MONEY_RE = re.compile(r"(?:€|EUR)?\s?\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+\.\d{2}")
+NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+def to_eur(token: str) -> float:
+    """Parse the first numeric run in a money token, tolerating €/� prefixes and a
+    stray trailing period (e.g. '20,000.00.')."""
+    m = NUM_RE.search(token)
+    if not m:
+        return 0.0
+    try:
+        return float(m.group().replace(",", ""))
+    except ValueError:
+        return 0.0
 COMPANY_SUFFIX_RE = re.compile(
     r"\b(limited|ltd|dac|plc|clg|uc|llp|teoranta|teo|unlimited|company|holdings|group)\b", re.I
 )
@@ -48,10 +61,11 @@ COMPANY_SUFFIX_RE = re.compile(
 # discovered off-catalog quarterly PO-over-20k PDFs (web search, June 2026)
 SEEDS: dict[str, list[str]] = {
     "Galway County Council": [
-        "https://galwaycoco.ie/sites/default/files/2026-01/Quarter%201%202025%20%28ENG%29.pdf",
-        "https://galwaycoco.ie/sites/default/files/2026-01/Quarter%202%202025%20%28ENG%29.pdf",
-        "https://galwaycoco.ie/sites/default/files/2025-06/Quater%201%202024.pdf",
-        "https://galwaycoco.ie/sites/default/files/2025-06/Quater%203%202024.pdf",
+        # bare galwaycoco.ie has no DNS record; the files live on the www host
+        "https://www.galwaycoco.ie/sites/default/files/2026-01/Quarter%201%202025%20%28ENG%29.pdf",
+        "https://www.galwaycoco.ie/sites/default/files/2026-01/Quarter%202%202025%20%28ENG%29.pdf",
+        "https://www.galwaycoco.ie/sites/default/files/2025-06/Quater%201%202024.pdf",
+        "https://www.galwaycoco.ie/sites/default/files/2025-06/Quater%203%202024.pdf",
     ],
     "Galway City Council": [
         "https://www.galwaycity.ie/sites/default/files/2025-05/Qtr%201%202025%20_Purchase%20Orders%20Over%20%E2%82%AC20k.pdf",
@@ -73,38 +87,79 @@ def fetch(url: str) -> Path | None:
     dest = TMP / name
     if dest.exists() and dest.stat().st_size > 2000:
         return dest
-    try:
-        b = requests.get(url, headers=H, timeout=90).content
-    except Exception as e:
-        print(f"    download ERR {e!r}")
-        return None
-    if b[:4] != b"%PDF":
-        print(f"    not a PDF (got {b[:16]!r})")
+    # some council servers (galwaycoco.ie) drop a strict TLS1.3 handshake with an
+    # SSL EOF; retry the bare host and an http fallback before giving up.
+    candidates = [url]
+    if "www.galwaycoco.ie" in url:
+        candidates.append(url.replace("www.galwaycoco.ie", "galwaycoco.ie"))
+        candidates.append(url.replace("https://", "http://"))
+    b = None
+    for u in candidates:
+        try:
+            r = requests.get(u, headers=H, timeout=90, allow_redirects=True)
+            if r.content[:4] == b"%PDF":
+                b = r.content
+                break
+        except Exception as e:
+            print(f"    try {u[:38]}… ERR {type(e).__name__}")
+    if b is None:
         return None
     TMP.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(b)
     return dest
 
 
-def cluster_rows(page, ytol: float = 3.0) -> list[str]:
+def cluster_word_rows(page, ytol: float = 3.0) -> list[list]:
+    """Group word boxes into rows, KEEPING the (x0,y0,x1,y1,text) tuples so we can
+    split columns geometrically (council PO layouts differ in column ORDER)."""
     words = page.get_text("words")
     words.sort(key=lambda w: (round(w[1] / ytol), w[0]))
     rows, cur, cur_y = [], [], None
     for w in words:
         y = w[1]
         if cur_y is None or abs(y - cur_y) <= ytol:
-            cur.append(w[4])
+            cur.append(w)
             cur_y = y if cur_y is None else cur_y
         else:
-            rows.append(" ".join(cur))
-            cur, cur_y = [w[4]], y
+            rows.append(cur)
+            cur, cur_y = [w], y
     if cur:
-        rows.append(" ".join(cur))
+        rows.append(cur)
     return rows
 
 
+def split_row(words: list) -> dict | None:
+    """Layout-agnostic column split. Drop the money token (the amount), then split
+    the remaining words at their LARGEST horizontal gap: left = supplier, right =
+    category. Works whether the € sits last (Galway) or mid-row (Kildare) because
+    we remove it before measuring gaps."""
+    ws = sorted(words, key=lambda w: w[0])
+    money_idx = [i for i, w in enumerate(ws) if MONEY_RE.fullmatch(w[4].replace("€", "").replace("�", "").strip(" .")) or MONEY_RE.search(w[4])]
+    if not money_idx:
+        return None
+    # the amount = the money token furthest right (PO listings put the € last/right)
+    amt_i = max(money_idx, key=lambda i: ws[i][0])
+    eur = to_eur(ws[amt_i][4])
+    rest = [w for i, w in enumerate(ws) if i != amt_i and not MONEY_RE.search(w[4])]
+    if len(rest) < 1 or eur < 1000:
+        return None
+    # largest x-gap between consecutive words = the supplier|category boundary
+    if len(rest) >= 2:
+        gaps = [(rest[i + 1][0] - rest[i][2], i) for i in range(len(rest) - 1)]
+        gap, cut = max(gaps)
+        if gap < 12:  # one-column row (no real category gap) -> all supplier
+            cut = len(rest) - 1
+    else:
+        cut = 0
+    supplier = " ".join(w[4] for w in rest[: cut + 1]).strip(" -:|")
+    category = " ".join(w[4] for w in rest[cut + 1:]).strip(" -:|")
+    if len(supplier) < 3:
+        return None
+    return {"supplier": supplier, "eur": eur, "category": category}
+
+
 def parse_pdf(path: Path) -> dict:
-    """Classify digital/scanned + lift supplier/€ rows via word geometry."""
+    """Classify digital/scanned + lift supplier/€ rows via word-geometry columns."""
     doc = fitz.open(path)
     npages = doc.page_count
     text_chars = 0
@@ -114,17 +169,15 @@ def parse_pdf(path: Path) -> dict:
         page = doc[i]
         txt = page.get_text("text")
         text_chars += len(txt.strip())
-        for r in cluster_rows(page):
-            m = MONEY_RE.search(r)
-            if not m or len(r) < 12:
+        for wrow in cluster_word_rows(page):
+            rec = split_row(wrow)
+            if rec is None:
                 continue
-            supplier = r[: m.start()].strip(" -:\t|")
-            eur = float(re.sub(r"[^0-9.]", "", m.group()) or 0)
-            category = r[m.end():].strip(" -:\t|")
-            if len(supplier) >= 3 and eur >= 1000:
-                rows_out.append({"supplier": supplier, "eur": eur, "category": category})
-                if len(sample_lines) < 5 and i < 2:
-                    sample_lines.append(f"{supplier[:40]} | {eur:,.2f} | {category[:28]}")
+            rows_out.append({**rec, "category": rec["category"]})
+            if len(sample_lines) < 5 and i < 2:
+                sample_lines.append(
+                    f"{rec['supplier'][:38]:<38} | {rec['eur']:>12,.2f} | {rec['category'][:24]}"
+                )
     doc.close()
     return {
         "pages": npages,
@@ -160,7 +213,9 @@ def main() -> None:
             c_rows += info["rows"]
 
         if not c_rows:
-            summary.append((council, "no rows", digital_docs, scanned_docs, 0.0))
+            # distinguish a host that BLOCKED us (0 docs fetched) from a scanned doc
+            label = "BLOCKED" if (digital_docs + scanned_docs) == 0 else "no rows"
+            summary.append((council, label, digital_docs, scanned_docs, 0.0))
             continue
 
         cdf = pl.DataFrame(c_rows)
@@ -188,12 +243,22 @@ def main() -> None:
         print(f"{council:<26}{docs:<10}{nrows:>8,}{nsup:>11,}{rate:>8.0%}")
 
     hr("VERDICT (off-catalog Galway scan)")
-    any_scanned = any("S" in d and not d.startswith("0") and d.split("/")[1][0] != "0" for _, d, *_ in summary if "/" in d)
-    print(f"total PO rows lifted from 2 off-catalog councils: {len(grand):,}")
+    # docs labels look like "4D/0S"; a scanned doc => the S-count is > 0
+    any_scanned = any(
+        d.endswith("S") and d.split("/")[1].rstrip("S").isdigit() and int(d.split("/")[1].rstrip("S")) > 0
+        for _, d, *_ in summary if "/" in d
+    )
+    blocked = [c for c, d, *_ in summary if d == "BLOCKED"]
+    print(f"total PO rows lifted from off-catalog councils: {len(grand):,}")
     print("These PDFs are NOT on data.gov.ie — pure off-catalog, found via the councils'")
-    print("own finance pages. Confirms the real PO-over-20k universe is per-council web,")
-    print("not CKAN.  Extraction =", "MIXED (some scanned -> OCR)" if any_scanned else
-          "fitz word-geometry, NO OCR needed (digital text layers).")
+    print("own finance pages. Confirms the real PO-over-20k universe is per-council web, not CKAN.")
+    print("Extraction =", "MIXED (some scanned -> OCR)" if any_scanned else
+          "fitz word-geometry + largest-x-gap column split, NO OCR (digital text layers).")
+    if blocked:
+        print(f"\nNOTE: {', '.join(blocked)} could NOT be fetched — host drops every TLS")
+        print("connection (requests SSL-EOF, curl http=000, even no-verify/legacy-reneg).")
+        print("That's a WAF/egress block, NOT a scanned-vs-digital signal: digital-vs-scanned")
+        print("for that council stays UNKNOWN until fetched via a browser (Playwright) or other IP.")
     print("Build path: a small per-council seed list (finance page -> quarterly PDFs) +")
     print("the shared fitz row reader + the validated CRO matcher; OCR only if a council scans.")
 

@@ -101,6 +101,11 @@ def _inject_si_css() -> None:
         .si-pill-eu     { background:#fff7e6; border-color:#f0d99b; color:#7a5a00; }
         .si-pill-act    { background:#e8efe6; border-color:#bcd1b3; color:#2c4a23; }
         .si-pill-dept   { background:#ffffff; border-color:#dfd9cf; color:#5b6b73; }
+        /* Legal-state pills on index cards — surface only the negative states
+           (revoked / amended), so the list reads as a change-log at a glance. */
+        .si-pill-revoked { background:#fbe3e3; border-color:#e3a3a3; color:#9b1c1c; font-weight:600; }
+        .si-pill-amended { background:#fbeecb; border-color:#e6c87a; color:#7a5a00; font-weight:600; }
+        .si-pill-partial { background:#fbe6cb; border-color:#e6b77a; color:#7a4a00; font-weight:600; }
 
         .si-detail { background:#ffffff; border:1px solid #e5e2db; border-radius:10px;
             padding:1.4rem 1.55rem; margin-top:0.5rem; }
@@ -285,7 +290,7 @@ def _split_multi(s, sep="|"):
 # is "status not checked", and even in_force_as_made is phrased as the directory
 # fact ("no amendment or revocation recorded"), not a legal assertion.
 
-# state → (css modifier, chip label)
+# state → (css modifier, chip label) for the detail-panel block.
 _LEGAL_PRESENTATION = {
     "revoked": ("revoked", "Revoked"),
     "partially_revoked": ("partial", "Partially revoked"),
@@ -294,6 +299,45 @@ _LEGAL_PRESENTATION = {
     "other_affected": ("other", "Affected"),
     "in_force_as_made": ("made", "No changes recorded"),
 }
+
+# state → (card-pill css class, short label). Only the negative states get a
+# card pill — in_force/other/unchecked stay bare so the list reads as a
+# change-log and we never put a positive "in force" claim on a card.
+_CARD_STATE_PILL = {
+    "revoked": ("si-pill-revoked", "Revoked"),
+    "partially_revoked": ("si-pill-partial", "Part. revoked"),
+    "amended_and_partially_revoked": ("si-pill-partial", "Amended/revoked"),
+    "amended": ("si-pill-amended", "Amended"),
+}
+
+# Legal-status facet — friendly labels + a stable display order. The "__unchecked__"
+# sentinel maps to a NULL current_state (SI absent from the directory crawl).
+_STATE_FACET_LABELS = {
+    "revoked": "Revoked",
+    "amended": "Amended",
+    "partially_revoked": "Partially revoked",
+    "amended_and_partially_revoked": "Amended & part. revoked",
+    "other_affected": "Other change",
+    "in_force_as_made": "No changes recorded",
+    "__unchecked__": "Not checked",
+}
+_STATE_FACET_ORDER = [
+    "revoked",
+    "partially_revoked",
+    "amended",
+    "amended_and_partially_revoked",
+    "other_affected",
+    "in_force_as_made",
+]
+
+
+def _state_card_pill(state: str) -> str:
+    """Pill HTML for an index card's legal state, or '' for states we don't pill."""
+    cls_label = _CARD_STATE_PILL.get(state)
+    if not cls_label:
+        return ""
+    cls, label = cls_label
+    return f'<span class="si-pill {cls}">{label}</span>'
 
 
 def _fmt_si_ref(ref) -> str:
@@ -332,10 +376,14 @@ def _affecting_list(val) -> list[str]:
 _COMMITTEE_FORMED = pd.Timestamp("2025-12-01")
 
 
-def _apply_filters(df, years, domain, op, department, minister, eu_only, search, post_committee=False) -> pd.DataFrame:
+def _apply_filters(
+    df, years, domain, op, department, minister, eu_only, search, post_committee=False, state=None
+) -> pd.DataFrame:
     out = df
     if years:
         out = out[out["si_year"].isin(years)]
+    if state and state != "All" and "current_state" in out.columns:
+        out = out[out["current_state"].isna()] if state == "__unchecked__" else out[out["current_state"] == state]
     if domain and domain != "All":
         out = out[out["si_policy_domain"] == domain]
     if op and op != "All":
@@ -383,6 +431,22 @@ def _render_kpi_strip(df: pd.DataFrame) -> None:
     tdep = top_dept.index[0] if not top_dept.empty else "—"
     tdepc = int(top_dept.iloc[0]) if not top_dept.empty else 0
 
+    # Revoked-count cell — a factual count of eISB-recorded whole revocations
+    # over the active frame. Only shown when legal-state has been checked for at
+    # least some SIs in scope (else the cell would read a misleading "0").
+    revoked_cell = ""
+    if "current_state" in df.columns:
+        checked = int(df["current_state"].notna().sum())
+        if checked:
+            revoked = int((df["current_state"] == "revoked").sum())
+            revoked_cell = (
+                '<div class="si-stat">'
+                f'<div class="si-stat-num">{revoked:,}</div>'
+                '<div class="si-stat-label">Revoked (per eISB)</div>'
+                f'<div class="si-stat-sub">of {checked:,} checked</div>'
+                "</div>"
+            )
+
     st.html(f"""
     <div class="si-stat-grid">
       <div class="si-stat">
@@ -405,6 +469,7 @@ def _render_kpi_strip(df: pd.DataFrame) -> None:
         <div class="si-stat-label">Linked to enabling Act</div>
         <div class="si-stat-sub">{bill_count:,} of {total:,} SIs</div>
       </div>
+      {revoked_cell}
     </div>
     """)
 
@@ -427,6 +492,7 @@ def _clear_all_filters() -> None:
     st.session_state.si_op_filter = "All"
     st.session_state.si_domain_filter = "All"
     st.session_state.si_minister_filter = "All"
+    st.session_state.si_state_filter = "All"
     st.session_state.si_eu_filter = False
     st.session_state.si_post_committee_filter = False
     st.session_state.si_title_search = ""
@@ -528,6 +594,8 @@ def _clear_facet(key: str) -> None:
         st.session_state.si_domain_filter = "All"
     elif key == "min":
         st.session_state.si_minister_filter = "All"
+    elif key == "state":
+        st.session_state.si_state_filter = "All"
     elif key == "eu":
         st.session_state.si_eu_filter = False
     elif key == "post":
@@ -561,6 +629,8 @@ def _active_filter_chips(full_df: pd.DataFrame) -> list[tuple[str, str]]:
         chips.append((_pretty_token(dom), "dom"))
     if (m := st.session_state.get("si_minister_filter")) and m != "All":
         chips.append((m, "min"))
+    if (stt := st.session_state.get("si_state_filter")) and stt != "All":
+        chips.append((_STATE_FACET_LABELS.get(stt, stt), "state"))
     if st.session_state.get("si_eu_filter"):
         chips.append(("EU-derived", "eu"))
     if st.session_state.get("si_post_committee_filter"):
@@ -645,12 +715,16 @@ def _render_facets(full_df: pd.DataFrame) -> None:
     op_sel = st.session_state.get("si_op_filter")
     dom_sel = st.session_state.get("si_domain_filter")
     min_sel = st.session_state.get("si_minister_filter")
+    state_sel = st.session_state.get("si_state_filter")
     tabs = st.tabs(
         [
             _tab_label("Department", dept_sel if dept_sel and dept_sel != "All" else None),
             _tab_label("What it does", _pretty_token(op_sel) if op_sel and op_sel != "All" else None),
             _tab_label("Policy area", _pretty_token(dom_sel) if dom_sel and dom_sel != "All" else None),
             _tab_label("Minister", min_sel if min_sel and min_sel != "All" else None),
+            _tab_label(
+                "Legal status", _STATE_FACET_LABELS.get(state_sel) if state_sel and state_sel != "All" else None
+            ),
             "⚠ EU scrutiny",
         ]
     )
@@ -710,6 +784,40 @@ def _render_facets(full_df: pd.DataFrame) -> None:
         )
 
     with tabs[4]:
+        # logic_firewall: display_only — legal-state value_counts power the
+        # chip-width labels only ("Revoked · 1,195"); run once on the full corpus.
+        if "current_state" not in full_df.columns:
+            st.caption("Legal-state data isn't available for this corpus yet.")
+        else:
+            sc = full_df["current_state"]
+            state_counts = sc.dropna().value_counts().to_dict()
+            n_unchecked = int(sc.isna().sum())
+            state_opts = ["All"] + [s for s in _STATE_FACET_ORDER if state_counts.get(s)]
+            if n_unchecked:
+                state_opts.append("__unchecked__")
+
+            def _state_label(x: str) -> str:
+                if x == "All":
+                    return "All statuses"
+                if x == "__unchecked__":
+                    return f"Not checked · {n_unchecked:,}"
+                return f"{_STATE_FACET_LABELS.get(x, x)} · {state_counts.get(x, 0):,}"
+
+            st.pills(
+                "Legal status",
+                state_opts,
+                default="All",
+                key="si_state_filter",
+                label_visibility="collapsed",
+                format_func=_state_label,
+            )
+            st.caption(
+                "Whether the eISB Legislation Directory records a later amendment or "
+                "revocation. “Not checked” = not yet matched to the directory — not a "
+                "statement that the SI is in force."
+            )
+
+    with tabs[5]:
         _render_eu_scrutiny_tab(full_df)
 
 
@@ -726,6 +834,11 @@ def _render_si_card(row: pd.Series) -> str:
     bill = _safe(row.get("bill_short_title"))
 
     pills = []
+    # Legal state first — a revoked/amended pill is the most consequential thing
+    # on the card, so it leads the pill row (empty string for in-force/unchecked).
+    state_pill = _state_card_pill(_safe(row.get("current_state")))
+    if state_pill:
+        pills.append(state_pill)
     if domain:
         pills.append(f'<span class="si-pill si-pill-domain">{html.escape(domain)}</span>')
     if op:
@@ -800,7 +913,9 @@ def _render_legal_status(row: pd.Series) -> None:
     if not state:
         eisb = _eisb_url(row)
         verify = (
-            source_link_html(eisb, "Check the eISB entry", aria_label="Open this SI on the Electronic Irish Statute Book")
+            source_link_html(
+                eisb, "Check the eISB entry", aria_label="Open this SI on the Electronic Irish Statute Book"
+            )
             if eisb
             else ""
         )
@@ -836,7 +951,9 @@ def _render_legal_status(row: pd.Series) -> None:
         body = "The eISB Legislation Directory records no amendment or revocation of this instrument."
     else:  # other_affected — show the directory's own wording, no interpretation
         raw = _safe(row.get("how_affected_raw")).split(" || ")[0].strip()
-        body = f"Affected — the directory records: “{html.escape(raw)}”." if raw else "Affected — see the directory entry."
+        body = (
+            f"Affected — the directory records: “{html.escape(raw)}”." if raw else "Affected — see the directory entry."
+        )
 
     upd_phrase = f", updated {html.escape(updated)}" if updated else ""
     src_link = (
@@ -1146,6 +1263,7 @@ def statutory_instruments_page() -> None:
         eu_only=st.session_state.get("si_eu_filter", False),
         post_committee=st.session_state.get("si_post_committee_filter", False),
         search=st.session_state.get("si_title_search"),
+        state=st.session_state.get("si_state_filter"),
     )
     _render_kpi_strip(filtered)
 

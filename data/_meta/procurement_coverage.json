@@ -3,10 +3,10 @@
   "award_notices": 40474,
   "award_supplier_rows": 60501,
   "supplier_class_counts": {
-    "company": 30629,
     "sole_trader_or_individual": 28736,
-    "foreign_company": 855,
-    "public_body": 281
+    "company": 30629,
+    "public_body": 281,
+    "foreign_company": 855
   },
   "distinct_suppliers": 15798,
   "company_class_suppliers": 7468,
@@ -21,6 +21,16 @@
   "value_safe_to_sum_rows": 14671,
   "value_safe_to_sum_total_eur": 23303114134.2604,
   "value_naive_sum_eur_DO_NOT_USE": 570948079738.9604,
-  "license": "CC-BY 4.0 (data.gov.ie / OGP)",
+  "source": {
+    "dataset": "Contract Notices Published on eTenders",
+    "publisher": "Office of Government Procurement (OGP)",
+    "distributor": "data.gov.ie",
+    "landing_page": "https://data.gov.ie/dataset/contract-notices-published-on-etenders",
+    "download_url": "https://assets.gov.ie/static/documents/7ba65f1b/Public_Procurement_Opendata_Dataset.csv",
+    "license": "Creative Commons Attribution 4.0 (CC-BY 4.0)",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "Contains Irish Public Sector Data (Office of Government Procurement) licensed under CC-BY 4.0."
+  },
+  "retrieved_utc": "2026-06-02",
   "caveat": "A contract award is a fact, not evidence of influence or wrongdoing. Sole-trader/individual supplier names are quarantined (personal data). name_truncated rows have a leading capital dropped in the OGP source and cannot be reconstructed safely; they are flagged and excluded from CRO matching. VALUE IS NOT SPEND: 'Awarded Value' is the estimated/awarded contract value; framework & DPS notices carry notional multi-year CEILINGS and multi-supplier frameworks repeat one ceiling across every supplier row. Only sum value_safe_to_sum, and even then label it 'awarded value, not actual expenditure'."
 }

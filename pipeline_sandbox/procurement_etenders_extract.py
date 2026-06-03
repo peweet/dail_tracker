@@ -1,6 +1,6 @@
-"""SANDBOX BUILD (investigation): eTenders/OGP procurement -> awards -> CRO match.
-Promotes probe_etenders_procurement.py to a cleaned extractor that writes sandbox
-parquets and self-tests. NOT wired into pipeline.py.
+"""eTenders/OGP procurement -> awards -> CRO match.
+Promoted from probe_etenders_procurement.py. Lives in pipeline_sandbox/ but runs
+as the `procurement` pipeline.py CHAIN, writing committed gold (cbi/cro pattern).
 
 Cleaning vs the probe:
   - decode HTML entities (&amp; etc.), strip leading '|', split suppliers on '|'
@@ -9,8 +9,8 @@ Cleaning vs the probe:
   - flag foreign legal forms (GmbH/SA/NV/...) -> CRO match not expected
 
 Outputs:
-  data/sandbox/parquet/procurement_awards.parquet            (one row per award-supplier)
-  data/sandbox/parquet/procurement_supplier_cro_match.parquet (distinct supplier -> CRO)
+  data/gold/parquet/procurement_awards.parquet            (one row per award-supplier)
+  data/gold/parquet/procurement_supplier_cro_match.parquet (distinct supplier -> CRO)
   data/_meta/procurement_coverage.json
 
 Run:  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_etenders_extract.py
@@ -22,6 +22,7 @@ import html
 import json
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import polars as pl
@@ -37,10 +38,23 @@ except Exception:
 from cro_normalise import name_norm_expr  # noqa: E402
 
 URL = "https://assets.gov.ie/static/documents/7ba65f1b/Public_Procurement_Opendata_Dataset.csv"
+# Provenance: the citable record of where this data came from. Emitted into the
+# coverage JSON so the UI provenance footer reads source-of-truth, not hardcoded copy.
+SOURCE = {
+    "dataset": "Contract Notices Published on eTenders",  # verified via data.gov.ie package_show
+    "publisher": "Office of Government Procurement (OGP)",
+    "distributor": "data.gov.ie",
+    "landing_page": "https://data.gov.ie/dataset/contract-notices-published-on-etenders",
+    "download_url": URL,
+    "license": "Creative Commons Attribution 4.0 (CC-BY 4.0)",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "Contains Irish Public Sector Data (Office of Government Procurement) licensed under CC-BY 4.0.",
+}
 CACHE = Path("c:/tmp/etenders_opendata.csv")
 CRO = ROOT / "data/silver/cro/companies.parquet"
-OUT_AWARDS = ROOT / "data/sandbox/parquet/procurement_awards.parquet"
-OUT_MATCH = ROOT / "data/sandbox/parquet/procurement_supplier_cro_match.parquet"
+# Promoted to committed gold (cbi/cro pattern): read by sql_views/procurement_*.sql.
+OUT_AWARDS = ROOT / "data/gold/parquet/procurement_awards.parquet"
+OUT_MATCH = ROOT / "data/gold/parquet/procurement_supplier_cro_match.parquet"
 OUT_COV = ROOT / "data/_meta/procurement_coverage.json"
 
 COMPANY_SUFFIX = re.compile(r"\b(limited|ltd|dac|plc|clg|uc|llp|teoranta|teo|unlimited company|t/a)\b", re.I)
@@ -256,7 +270,8 @@ def main() -> None:
         "value_safe_to_sum_rows": int(aw["value_safe_to_sum"].sum()),
         "value_safe_to_sum_total_eur": float(aw.filter(pl.col("value_safe_to_sum"))["value_eur"].sum() or 0),
         "value_naive_sum_eur_DO_NOT_USE": float(aw["value_eur"].sum() or 0),
-        "license": "CC-BY 4.0 (data.gov.ie / OGP)",
+        "source": SOURCE,
+        "retrieved_utc": datetime.fromtimestamp(CACHE.stat().st_mtime, tz=timezone.utc).strftime("%Y-%m-%d"),
         "caveat": "A contract award is a fact, not evidence of influence or wrongdoing. "
                   "Sole-trader/individual supplier names are quarantined (personal data). "
                   "name_truncated rows have a leading capital dropped in the OGP source and "
