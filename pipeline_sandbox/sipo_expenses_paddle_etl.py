@@ -156,8 +156,11 @@ def ocr_party(ocr, key: str, pdf_path: Path) -> None:
 
 # -------------------------------------------------------------- parse stage ----
 def is_money(cell: dict) -> float | None:
-    if "€" in cell["text"] or re.search(r"\d{3}", cell["text"]):
-        return parse_money(cell["text"])
+    t = cell["text"].strip()
+    if re.fullmatch(r"[€\s]*(0|0\.00|nil|Nil|NIL)", t):  # explicit zero expenditure
+        return 0.0
+    if "€" in t or re.search(r"\d{3}", t):
+        return parse_money(t)
     return None
 
 
@@ -181,47 +184,61 @@ def column_split(money: list[dict]) -> float | None:
     return mid if span and g > span * 0.15 else None
 
 
-def parse_page(cells: list[dict], pno: int, norm_keys, norm_to_name, name_to_seats) -> list[dict]:
-    anchors = []
+def find_total_spend(cells: list[dict], split_x: float | None) -> float | None:
+    """The candidate-summary TOTAL row: a cell whose label is exactly 'TOTAL'/'TOTAL:'
+    (NOT the 'Total Expenditure ...' column header) -> the rightmost money on its y,
+    i.e. the printed expenditure total used as a reconciliation checksum."""
     for c in cells:
-        nm, sc = match_constituency(c["text"], norm_keys, norm_to_name)
-        if nm:
-            anchors.append((c, nm, sc))
-    money = [c for c in cells if is_money(c)]
+        if re.sub(r"[^a-z]", "", c["text"].lower()) == "total":
+            same = sorted(((m, v) for m in cells if (v := is_money(m)) is not None
+                           and abs(yc(m) - yc(c)) <= 25), key=lambda t: xc(t[0]))
+            if same:
+                return same[-1][1]
+    return None
+
+
+def parse_page(cells: list[dict], pno: int, norm_keys, norm_to_name, name_to_seats) -> list[dict]:
+    """NEAREST-ANCHOR pairing (proven on aligned/offset/blank layouts via
+    _exp_robust_parse.py): each constituency anchor claims its nearest left-band
+    money (assigned) and nearest UNCLAIMED right-band money (expenditure). The wide
+    expenditure window + claiming tolerates the vertical column offset (PBP/Labour)
+    and true blanks; per-pair spend<=assigned is the consistency check."""
+    anchors = [(c, nm, sc) for c in cells
+               if (nm := match_constituency(c["text"], norm_keys, norm_to_name)[0])
+               for sc in [match_constituency(c["text"], norm_keys, norm_to_name)[1]]]
+    money = [(c, v) for c in cells if (v := is_money(c)) is not None]
     if len(anchors) < 3 or len(money) < 3:  # not a candidate-summary page
         return []
-    split_x = column_split(money)
+    split_x = column_split([c for c, _ in money])
     ays = sorted(yc(a[0]) for a in anchors)
-    diffs = [ays[i + 1] - ays[i] for i in range(len(ays) - 1) if ays[i + 1] - ays[i] > 5]
+    diffs = [b - a for a, b in zip(ays, ays[1:]) if b - a > 5]
     row_h = statistics.median(diffs) if diffs else 40.0
-    tol = row_h * 0.75
+    a_tol, e_tol = row_h * 0.7, row_h * 1.5  # assigned aligns tight; expenditure may offset
+    left = [(c, v) for c, v in money if split_x is None or xc(c) < split_x]
+    right = [(c, v) for c, v in money if split_x is not None and xc(c) >= split_x]
 
+    claimed: set[int] = set()
     rows = []
-    for cell, nm, sc in anchors:
+    for cell, nm, sc in sorted(anchors, key=lambda a: yc(a[0])):
         ay, ax = yc(cell), cell["x0"]
         seats = int(name_to_seats.get(nm, 0))
         limit = STATUTORY_LIMIT.get(seats)
-        # money cells right of the constituency, near this anchor by y
-        near = sorted(
-            ((c, xc(c), is_money(c)) for c in money if xc(c) > ax and abs(yc(c) - ay) <= tol),
-            key=lambda t: t[1],
-        )
-        near = [t for t in near if t[2] and 0 < t[2] <= (limit or STATUTORY_LIMIT[5]) * 1.05]
-        assigned = expenditure = None
-        a_conf = e_conf = None
-        if len(near) >= 2:
-            assigned, expenditure = near[0][2], near[-1][2]
-            a_conf, e_conf = near[0][0]["score"], near[-1][0]["score"]
-        elif len(near) == 1:
-            c, x, v = near[0]
-            if split_x is not None and x < split_x:
-                assigned, a_conf = v, c["score"]  # left band -> assigned (expenditure blank)
-            else:
-                expenditure, e_conf = v, c["score"]
+        # assigned: nearest left-band money to the right of the constituency
+        la = sorted([(c, v) for c, v in left if xc(c) > ax and abs(yc(c) - ay) <= a_tol],
+                    key=lambda t: abs(yc(t[0]) - ay))
+        assigned = la[0][1] if la else None
+        a_conf = la[0][0]["score"] if la else None
+        # expenditure: nearest UNCLAIMED right-band money (wide window for offset)
+        cand = sorted([(c, v) for c, v in right if id(c) not in claimed and abs(yc(c) - ay) <= e_tol],
+                      key=lambda t: abs(yc(t[0]) - ay))
+        spend = e_conf = None
+        if cand:
+            c, v = cand[0]
+            claimed.add(id(c)); spend, e_conf = v, c["score"]
         # candidate name: non-money, non-numeric cells left of constituency, near y
         name_cells = sorted(
             (c for c in cells
-             if c["x0"] < ax and abs(yc(c) - ay) <= tol
+             if c["x0"] < ax and abs(yc(c) - ay) <= a_tol
              and "€" not in c["text"]
              and not re.fullmatch(r"[\d.,)\s]+", c["text"])
              and not match_constituency(c["text"], norm_keys, norm_to_name)[0]),
@@ -231,10 +248,10 @@ def parse_page(cells: list[dict], pno: int, norm_keys, norm_to_name, name_to_sea
                           " ".join(c["text"] for c in name_cells)).strip()
         rows.append({
             "name_raw": name_raw, "constituency": nm, "score": sc, "limit": limit,
-            "assigned": assigned, "spend": expenditure,
-            "spend_conf": round(e_conf, 3) if e_conf else None,
-            "row_conf": round(min([sc] + [c["score"] for c in name_cells] +
-                                  ([a_conf] if a_conf else []) + ([e_conf] if e_conf else [])), 3),
+            "assigned": assigned, "spend": spend,
+            "spend_conf": round(e_conf, 3) if e_conf is not None else None,
+            "row_conf": round(min([sc] + ([a_conf] if a_conf else []) +
+                                  ([e_conf] if e_conf is not None else []) or [sc]), 3),
             "page": pno,
         })
     return rows
@@ -245,17 +262,22 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
     if not ckpt.exists():
         return pl.DataFrame()
     page_rows: dict[int, list[dict]] = {}
+    page_total: dict[int, float] = {}
     for f in sorted(ckpt.glob("c*.json")):
         d = json.loads(f.read_text(encoding="utf-8"))
-        if d.get("failed") or not d.get("cells"):
+        cells = d if isinstance(d, list) else (None if d.get("failed") else d.get("cells"))
+        if not cells:
             continue
         pno = int(f.stem[1:])
-        rows = parse_page(d["cells"], pno, norm_keys, norm_to_name, name_to_seats)
+        rows = parse_page(cells, pno, norm_keys, norm_to_name, name_to_seats)
         if rows:
             page_rows[pno] = rows
-    # candidate-summary pages: >=3 rows that carry TWO money columns
+            t = find_total_spend(cells, None)
+            if t is not None:
+                page_total[pno] = t
+    # candidate-summary pages: >=3 rows that carry BOTH money columns (0.0 is valid)
     summary_pages = sorted(p for p, rs in page_rows.items()
-                           if sum(1 for r in rs if r["assigned"] and r["spend"]) >= 3)
+                           if sum(1 for r in rs if r["assigned"] is not None and r["spend"] is not None) >= 3)
     facts = []
     for p in summary_pages:
         for r in page_rows[p]:
@@ -264,7 +286,7 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
                 flag = "no_amount"
             elif limit and spend > limit:
                 flag = "over_limit_verify"
-            elif assigned and spend > assigned * 1.02:
+            elif assigned is not None and spend > assigned * 1.02:
                 flag = "spend_gt_assigned_verify"
             elif (r["spend_conf"] or 1) < LOW_CONF or r["row_conf"] < LOW_CONF:
                 flag = "low_confidence_verify"
@@ -273,7 +295,7 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
             facts.append({
                 "party": party, "candidate_name_raw": r["name_raw"],
                 "constituency": r["constituency"], "constituency_match_score": r["score"],
-                "amount_assigned_eur": float(assigned) if assigned else None,
+                "amount_assigned_eur": float(assigned) if assigned is not None else None,
                 "expenditure_eur": spend, "expenditure_confidence": r["spend_conf"],
                 "row_min_confidence": r["row_conf"],
                 "statutory_limit_eur": float(limit) if limit else None,
@@ -296,6 +318,21 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
         if df.height < before:
             print(f"    [{party}] deduped {before - df.height} repeated summary rows "
                   f"({before}->{df.height})", flush=True)
+        # QA: reconcile Σ expenditure against the form's printed TOTAL row (the grand
+        # total = the largest TOTAL found; equal duplicates from the twice-printed
+        # summary collapse to one). Where no TOTAL is printed, the per-pair
+        # spend<=assigned check (flag spend_gt_assigned_verify) is the fallback.
+        totals = [page_total[p] for p in summary_pages if p in page_total]
+        sum_spend = df["expenditure_eur"].sum() or 0.0
+        if totals:
+            target = max(totals)
+            ok = abs(sum_spend - target) <= max(1.0, target * 0.01)
+            print(f"    [{party}] RECONCILE: Σspend €{sum_spend:,.2f} vs TOTAL €{target:,.2f} "
+                  f"-> {'✅ OK' if ok else '❌ MISMATCH'}", flush=True)
+        else:
+            viol = df.filter((pl.col("flag") == "spend_gt_assigned_verify")).height
+            print(f"    [{party}] no printed TOTAL; spend>assigned violations={viol} "
+                  f"(Σspend €{sum_spend:,.2f})", flush=True)
     return df
 
 
