@@ -477,9 +477,7 @@ def test_v_si_current_state_coverage_gate():
     con = _con()
     con.execute(_load("legislation_si_current_state.sql"))
     con.execute(_load("legislation_si_index.sql"))
-    total, matched = con.execute(
-        "SELECT count(*), count(current_state) FROM v_statutory_instruments"
-    ).fetchone()
+    total, matched = con.execute("SELECT count(*), count(current_state) FROM v_statutory_instruments").fetchone()
     cov = matched / total if total else 0
     assert cov >= 0.95, f"SI legal-state coverage {cov:.1%} < 95% — directory crawl may be broken"
 

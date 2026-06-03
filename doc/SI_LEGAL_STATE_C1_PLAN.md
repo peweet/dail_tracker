@@ -1,11 +1,38 @@
 # C1 — SI legal-state from the eISB Legislation Directory: full build plan
 
-> **Status (2026-06-03):** sandbox extractor BUILT + VALIDATED across all years.
-> Not yet wired into pipeline/app. This is now a **shipping** task, not a
-> feasibility one. Read the "Current state + kickoff" section at the very bottom
-> first if you're resuming this in a dedicated window. This plan turns the SI page
-> from a discovery index into a **statutory-chronology tool** by adding a sourced,
-> confidence-scored legal-state to every SI.
+> **Status (2026-06-03):** SHIPPED end-to-end (PR1–PR4). The extractor now writes
+> the gold table, a registered view LEFT-joins legal-state into
+> `v_statutory_instruments`, and the SI page shows a detail-panel legal-status
+> block, index-card pills, a "Legal status" facet, and a revoked-count KPI. The
+> classifier is locked by `test/test_si_legal_state.py` (23 cases) and the view by
+> contract tests in `test/test_sql_views.py`. **§8 pipeline-wiring is DONE** — the
+> extractor runs as `iris_refresh.step_si_legal_state` (step 7/7, under
+> `python pipeline.py --select iris`), freshness-gated so a steady-state run is
+> ~11 cheap index requests, not a full crawl. Only PR5 (legal-pack export fields,
+> ties into C5) remains deferred. The gold parquet is committed, so Cloud has data
+> even between pipeline runs.
+>
+> **What shipped, by file:**
+> - `pipeline_sandbox/si_legislation_directory_extract.py` — writes
+>   `data/gold/parquet/si_current_state.parquet`; `derive_state()` hardened with an
+>   end-anchored, dot-required `PROVISION_MARKER` (preserves the validated
+>   5421/1335/161/10/428 distribution; the affecting-column provision can no longer
+>   mis-scope a whole revocation as partial).
+> - `sql_views/legislation_si_current_state.sql` (`v_si_current_state`) +
+>   `legislation_si_index.sql` LEFT-JOIN (one-row-per-SI, no inflation; NULL =
+>   "not checked").
+> - `test/test_si_legal_state.py` (unit, 23) + `test/test_sql_views.py` (executes,
+>   no-inflation, enum + revoked⇒source_url, coverage≥95% integration-only) +
+>   `test/fixtures/sql_views/_generate.py` (committed `statutory_instruments` +
+>   `si_current_state` CI fixtures, incl. an unmatched SI for the NULL path).
+> - `utility/pages_code/statutory_instruments.py` — `_render_legal_status` block,
+>   `_state_card_pill`, "Legal status" facet (`si_state_filter`), revoked KPI cell.
+>   No-inference rule honoured: null → "Status not checked", `in_force_as_made` →
+>   "No changes recorded" (never a positive "in force" claim).
+>
+> Read the "Current state + kickoff" section below for the original framing. This
+> plan turned the SI page from a discovery index into a **statutory-chronology
+> tool** by adding a sourced, confidence-scored legal-state to every SI.
 
 ## CURRENT STATE + KICKOFF (read first if resuming)
 

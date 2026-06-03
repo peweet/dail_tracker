@@ -96,48 +96,48 @@ def _fmt(res: dict) -> str:
     return f or "unknown"
 
 
-def census_formats(pkgs: list[dict], want: str) -> list[tuple[str, str]]:
-    """(publisher, format) for every resource in matching datasets."""
-    out = []
-    for d in pkgs:
-        if want.lower() not in d["title"].lower():
-            continue
-        pub = _publisher(d)
-        for x in d.get("resources", []):
-            if x.get("url"):
-                out.append((pub, _fmt(x)))
-    return out
+# Genuine procurement-spend datasets only. The CKAN free-text query "purchase
+# orders over 20" returns 100+ GEOSPATIAL false positives (EPA "Groundwater
+# Pressures", Marine Institute seabed surveys) that merely contain the words
+# "over"/"20" — so a TITLE filter is mandatory or the census is meaningless.
+SPEND_TITLE_RE = re.compile(
+    r"purchase order|procurement related payment|payments over|purchases over|po'?s over",
+    re.I,
+)
 
 
 def run_census(po: list[dict], pay: list[dict]) -> None:
     """How many spend publishers ship PDF vs CSV/XLSX — sizes the normalisation job."""
-    rows = census_formats(po, "Purchase Orders over") + census_formats(
-        pay, "Procurement Related Payments"
-    )
-    hr("FORMAT CENSUS — all spend publishers (sizes the normalisation project)")
-    if not rows:
-        print("no resources surfaced.")
-        return
-    fmt_total = Counter(f for _, f in rows)
-    print(f"datasets matched: PO={sum('Purchase Orders over' in d['title'] for d in po)}, "
-          f"Payments={sum('Procurement Related Payments' in d['title'] for d in pay)}")
-    print(f"total resources : {len(rows):,}")
-    print("resource formats:", dict(fmt_total.most_common()))
+    seen: dict[str, dict] = {}
+    for d in po + pay:
+        seen[d["id"]] = d
+    spend = [d for d in seen.values() if SPEND_TITLE_RE.search(d.get("title", ""))]
 
-    # per-publisher format set
-    by_pub: dict[str, set] = {}
+    hr("FORMAT CENSUS — genuine spend publishers (sizes the normalisation project)")
+    print(f"raw free-text union: {len(seen)} datasets (mostly geospatial noise);")
+    print(f"title-confirmed procurement-spend datasets: {len(spend)}")
+    if not spend:
+        print("none matched the spend-title filter.")
+        return
+
+    rows = [(_publisher(d), _fmt(x)) for d in spend for x in d.get("resources", []) if x.get("url")]
+    print(f"total resources    : {len(rows):,}")
+    print("resource formats   :", dict(Counter(f for _, f in rows).most_common()))
+
+    by_pub: dict[str, Counter] = {}
     for pub, f in rows:
-        by_pub.setdefault(pub, set()).add(f)
+        by_pub.setdefault(pub, Counter())[f] += 1
     TAB = {"csv", "xlsx"}
-    pdf_only = [p for p, fs in by_pub.items() if fs and fs <= {"pdf"}]
-    has_tab = [p for p, fs in by_pub.items() if fs & TAB]
-    has_pdf = [p for p, fs in by_pub.items() if "pdf" in fs]
+    pdf_only = [p for p, c in by_pub.items() if set(c) and set(c) <= {"pdf"}]
+    has_tab = [p for p, c in by_pub.items() if set(c) & TAB]
+    has_pdf = [p for p, c in by_pub.items() if "pdf" in c]
     print(f"\ndistinct publishers          : {len(by_pub):,}")
     print(f"  publish ANY CSV/XLSX (easy): {len(has_tab):,}")
     print(f"  publish ANY PDF            : {len(has_pdf):,}")
-    print(f"  *** PDF-ONLY (the debt)    : {len(pdf_only):,}  -> {sorted(pdf_only)[:12]}")
-    mixed = [p for p, fs in by_pub.items() if "pdf" in fs and (fs & TAB)]
-    print(f"  mixed PDF + tabular        : {len(mixed):,}")
+    print(f"  *** PDF-ONLY (the debt)    : {len(pdf_only):,}  -> {sorted(pdf_only)}")
+    print("\nper-publisher format breakdown:")
+    for p, c in sorted(by_pub.items(), key=lambda kv: -sum(kv[1].values())):
+        print(f"  {p:<48} {dict(c)}")
 
 
 def fetch(url: str) -> Path | None:
