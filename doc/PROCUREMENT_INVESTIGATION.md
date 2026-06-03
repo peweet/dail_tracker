@@ -468,10 +468,129 @@ Checked the three non-council sources directly:
   ones** (the only source that fixes ceiling≠spend at the award layer), public + zero-auth.
   Caveat: winner *name* needs an org-ID resolve; pre-eForms (≤2023) notices have empty BT
   value fields, so real-value coverage is strong only from 2024+.
+
+### TED — PULLED & explored (`probe_ted_ireland.py`, 8,614 notices, 2026-06-03)
+Paginated all IE `can-standard` award notices since 2024 (250/page × 35). Winner resolves
+from `organisation-name-tenderer.eng[]`; `tender-value[]` is EUR.
+- **4,428 of 8,614 (51%) carry a € value**; **median single award €245k**; span 2023-12→2026-06.
+- ⚠️ **Headline €81bn total is MEANINGLESS — a data-quality trap.** `buyer-country=IRL`
+  catches **pan-EU framework ceilings** where Ireland merely participates: the top "awards"
+  are **GÉANT Vereniging** (the EU research-network body) €15.3bn / €14.85bn / €2.88bn IT
+  frameworks — not Irish spend. IT-services shows €49bn almost entirely from these. **Use the
+  median / per-notice values, exclude multi-supplier frameworks (1,005) and pan-EU buyers;
+  never sum raw.**
+- **Top buyers (real signal):** HSE (€906m), Irish Rail (€2.36bn), OGP (€599m), OPW, Education
+  Procurement Service, Dublin City / South Dublin / Limerick councils, universities.
+- **Winners skew FOREIGN** — European Dynamics, CloudFerro, VSHN, Telecom Italia, SoftwareONE,
+  T-Systems — because TED captures big above-threshold EU framework winners. Irish names appear
+  too (Deloitte Ireland, eir, AECOM Ireland, Arup, Ergo). → **CRO match only 35% by name**
+  (vs ~50–65% in the LA PO layer): TED ≠ the Irish-SME spend, it's the big centralised/EU layer.
+- **BIG WIN (verified):** `winner-identifier[]` **is the supplier's CRO number** and joins
+  cleanly. (The probe first reported 0% — a type bug: string IDs vs Int64 `company_num`.)
+  Re-tested: of identifiers that look like IE company numbers (172/288 ≈ 60% of a sample;
+  the rest are VAT/foreign/names), **133 match CRO raw and 145/172 (~84%) after stripping
+  non-digits + leading zeros.** So **Irish TED winners are ~84% matchable by ID** — far above
+  the 35% name rate, and exact (no fuzzy). Identifier field is mixed (CRO numbers, VAT, even
+  bare personal names → sole-trader **quarantine** applies). Summary: `c:/tmp/ted_ireland_summary.json`.
+- **Verdict:** TED genuinely delivers real award values + a national who-buys map, zero-auth —
+  but it's the **big-contract / centralised / EU-framework layer**, complementary to (not a
+  substitute for) the LA per-transaction PO corpus. Two must-haves before any use: exclude
+  pan-EU framework outliers, and reconcile the winner-identifier→CRO join.
 - **CKAN tabular is a minor add** — Kilkenny CKAN duplicates a council we already reach
   (just cleaner + older quarters); Dept Housing is central-gov grain, not the LA corpus.
 - **New per-council quirk logged:** Kilkenny stores PO amounts as negatives (sign
   convention) — one more ~1-line config, like the others.
+
+## VALUE TAXONOMY & classification pattern (2026-06-03)
+
+The single biggest way to mislead a user is to put a € figure on screen without saying
+*which kind of money it is*. Every source measures a **different point in the spend
+lifecycle**, and the figures are NOT interchangeable or summable across points. The
+classification has two axes.
+
+### Axis 1 — realisation tier (the spine: how real is this money?)
+
+`PLANNED → AWARDED → COMMITTED → SPENT` (+ BUDGET as a parallel aggregate). Each tier
+answers a different user question and must never be mixed or summed with another.
+
+### Axis 2 — `value_kind` (controlled vocab; extends the 2 already in gold)
+
+| `value_kind` | Tier | Plain-English verb | Summable? | Where it comes from |
+|---|---|---|---|---|
+| `estimate_advertised` | PLANNED | "expected ~€X" | **No** (pre-award guess) | eTenders/TED *notice* estimated value |
+| `budget_allocated` | PLANNED (agg) | "budgeted €X" | within-LA/year only | AFS / NOAC service-division budgets |
+| `contract_award_value` | AWARDED | "awarded €X" | **Caution** (commitment, may not all draw) | eTenders non-framework award; TED single award *(shipped)* |
+| `framework_or_dps_ceiling` | AWARDED | "up to €X over N yrs (shared)" | **NO — the trap** | eTenders framework/DPS; TED multi-supplier framework (GÉANT) *(shipped)* |
+| `po_committed` | COMMITTED | "ordered €X" | **Yes** (per PO) | LA Purchase-Orders-over-€20k (orders raised) |
+| `payment_actual` | SPENT | "paid €X" | **Yes — true spend** | LA lists with a Paid flag; Dept "Procurement Related Payments" |
+
+Note: a single contract can produce a row in *several* kinds (a notice `estimate`, an
+`award_value`, then many `po_committed`/`payment_actual`) — with **no key linking them**, so
+they must be presented as separate facts, never reconciled into "awarded vs spent = X left".
+
+### The classification PATTERN (how to not overwhelm the user)
+
+1. **One tier per view.** A page/section answers ONE question: *"Who got paid?"* (SPENT) or
+   *"Who won contracts?"* (AWARDED) — never a blended list or total.
+2. **Verb + confidence on every figure.** Render `value_kind`'s verb, never a bare €:
+   "paid €X", "awarded up to €X", "estimated €X". The verb *is* the disambiguation.
+3. **Headline number = the single summable kind in scope.** Sum only `payment_actual` or
+   `po_committed`; for AWARDED show **"€X awarded across N contracts"** (a count, not a sum,
+   because of ceilings) and always exclude `framework_or_dps_ceiling` + pan-EU outliers.
+4. **Default to the realised layer, drill to the rest.** Lead with SPENT/COMMITTED (what
+   people mean by "where did the money go"); offer AWARDED/PLANNED as progressive disclosure
+   for procurement-savvy users.
+5. **Persistent tier badge.** A small coloured pill (Paid / Committed / Awarded / Estimated)
+   on every figure and card so the user always knows the realisation level at a glance.
+6. **No cross-tier arithmetic** unless explicitly modelled and flagged — grains/identifiers
+   don't reconcile, so "awarded minus paid" is a fiction by default.
+
+This is the same firewall the gold already enforces (`value_safe_to_sum`) generalised to a
+user-facing vocabulary: the data stays rich, but the UI only ever asks one honest question
+at a time.
+
+## BUDGET tier — FIRST INGEST of an uncovered source (`probe_la_finance_budget.py`, 2026-06-03)
+
+All procurement micro-layers are covered by context windows (eTenders awards→gold; LA POs;
+TED; mini-comp; semi-state/depts/health/edu; lobbying overlap). The one **taxonomy tier
+nothing filled was BUDGET** — so ingested it. Source: **CSO PxStat**, official API, CC-BY,
+**no scraping/no OCR**.
+- **GFA04** — General Government expenditure by **ESA economic category**, **2000–2025**
+  (current); 2025 = €124.3bn total expense (€36bn pay, €32bn social benefits, €21bn goods &
+  services, €17bn capital). **GFA01** — revenue & expenditure 1995–2025.
+- Ingested **1,887 rows**, each tagged `realisation_tier=BUDGET`, `value_kind=budget_allocated`,
+  `value_safe_to_sum_within_table` (summable only within a matrix+year — never across tiers).
+  Tidy CSV: `c:/tmp/la_finance_budget.csv`.
+- **Honest limits found:** (1) the clean PxStat series is **general government** (central+local
+  combined) by **economic category** — NOT per-LA, NOT by COFOG function. (2) The older
+  NAH20/NAH27 and CEPHA tables are **historical (≤1995)** — discontinued; use the GFA series.
+  (3) The richer **per-LA, by-service-division BUDGET** = the **amalgamated AFS** (Dept of
+  Housing, all 31 LAs 2009–2023) which is **PDF on gov.ie** (datacatalogue entry is a pointer
+  with 0 resources) → a heavier PDF extraction, **deferred**.
+- **Net:** BUDGET tier now has a current, clean, national macro layer; the per-LA AFS PDF is
+  the deferred deepening. Slots straight into the taxonomy with nothing to reconcile.
+
+### Amalgamated AFS — SAMPLE ingested + DQ (`probe_afs_amalgamated.py`, 2026-06-03)
+Pulled the 2020 audited amalgamation (gov.ie PDF, 49pp, digital) and extracted the
+Income & Expenditure-by-service-division statement (p12). **DQ:**
+- **8/8 divisions extracted; Σ gross = €6,750,822,111 vs printed €6,750,822,110 → €1 (rounding) = faithful.**
+- Digital (no OCR) for 2020; older years may be scanned. Prior-year column present → time series.
+- **⚠ SCOPE: the "amalgamated" AFS is the all-31-SUMMED national total — ZERO per-LA rows**
+  (no council names in the doc). Per-council by-division = the **31 individual council AFS PDFs**
+  (a separate, much larger ingest — the actual prize for per-constituency features).
+- **⚠ DQ caught:** Note 16 (actual-vs-budget per division, p29) stacks an Expenditure *and* an
+  Income sub-table → a naive line-parser mis-aligns; needs a targeted sub-table extractor.
+- Accrual basis (revenue account) — "net expenditure" ≠ cash POs; **different grain from the PO
+  layer, do not reconcile the two.**
+
+**Tangible-benefits verdict:** the amalgamated AFS adds (1) spend by **service function**
+(Housing/Roads/Water/… — the civic "what areas" cut CSO's economic-category GFA04 lacks),
+(2) actual-vs-budget variance (Note 16, needs the sub-table parser), (3) a **national
+denominator** to frame the micro procurement layers, (4) income-vs-expenditure (self-funding)
+per division — **all cheap (1 PDF/yr, 2009–2023) and clean.** BUT it's **national-only**; the
+per-LA granularity that would power per-council/per-constituency civic features needs the 31
+individual AFS PDFs. So: **amalgamated AFS = low-cost context/denominator; per-LA AFS = a
+separate larger decision.**
 
 ## Story angles the data unlocks (eval — inference OK here, NOT in app UI)
 

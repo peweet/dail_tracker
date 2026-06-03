@@ -28,6 +28,7 @@ Run (party keys; default all):
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 import tempfile
@@ -44,6 +45,7 @@ except Exception:
 
 OUT_DIR = ROOT / "pipeline_sandbox/_sipo_output"
 BY_PARTY_DIR = OUT_DIR / "by_party"
+CKPT_ITEMS_DIR = BY_PARTY_DIR / "_ckpt_items"  # separate from Part-3's _ckpt
 ITEMS_PARQUET = OUT_DIR / "sipo_expense_items_fact.parquet"
 CATS_PARQUET = OUT_DIR / "sipo_expense_categories_fact.parquet"
 SCAN_DIR = ROOT / "data/bronze/scan_pdf"
@@ -98,8 +100,8 @@ def parse_money(text: str) -> float | None:
     return float(digits) if digits else None
 
 
-def ocr_page(ocr, page, tmp_png: Path) -> tuple[list[dict], int]:
-    pix = page.get_pixmap(matrix=fitz.Matrix(DPI / 72, DPI / 72))
+def ocr_page(ocr, page, tmp_png: Path, dpi: int = DPI) -> tuple[list[dict], int]:
+    pix = page.get_pixmap(matrix=fitz.Matrix(dpi / 72, dpi / 72))
     pix.save(tmp_png)
     res = ocr.predict(input=str(tmp_png))
     cells = []
@@ -208,31 +210,63 @@ def parse_summary_row(row, width) -> dict | None:
 
 
 def process_party(ocr, key, pdf_path, party):
+    """Crash-proof per-page (mirrors the Part-3 ETL): each page's parsed items +
+    category rows are checkpointed to _ckpt_items/<key>/p<N>.json. PaddleOCR can
+    SEGFAULT (uncatchable, kills the process) or HANG — on restart we skip done
+    pages and walk a DPI retry ladder, skipping a page that keeps crashing us."""
     doc = fitz.open(pdf_path)
     y_tol = int(DPI / 72 * 9)
     tmp_png = Path(tempfile.gettempdir()) / f"sipo_items_{key}.png"
+    ckpt = CKPT_ITEMS_DIR / key
+    ckpt.mkdir(parents=True, exist_ok=True)
     items: list[dict] = []
     cats: list[dict] = []
+
     for pno, page in enumerate(doc, start=1):
-        print(f"    [{party}] OCR page {pno}/{doc.page_count}...", flush=True)
-        try:
-            cells, width = ocr_page(ocr, page, tmp_png)
-        except Exception as e:
-            print(f"      !! page {pno} failed: {type(e).__name__}: {str(e)[:80]}", flush=True)
+        done = ckpt / f"p{pno:03}.json"
+        attempt = ckpt / f"p{pno:03}.attempt"
+        if done.exists():
+            d = json.loads(done.read_text(encoding="utf-8"))
+            items += d.get("items", [])
+            cats += d.get("cats", [])
             continue
+        # retry ladder: 2x@300 (transient segfaults), then 1x@200, then skip
+        tries = json.loads(attempt.read_text(encoding="utf-8"))["tries"] if attempt.exists() else []
+        if not tries:
+            dpi = 300
+        elif tries == [300]:
+            dpi = 300
+        elif tries == [300, 300]:
+            dpi = 200
+        else:
+            print(f"    [{party}] page {pno}: crashed at {tries} -> SKIP (failed)", flush=True)
+            done.write_text(json.dumps({"failed": True, "tries": tries, "items": [], "cats": []}), encoding="utf-8")
+            attempt.unlink(missing_ok=True)
+            continue
+        print(f"    [{party}] OCR page {pno}/{doc.page_count} @ {dpi}dpi...", flush=True)
+        attempt.write_text(json.dumps({"tries": tries + [dpi]}), encoding="utf-8")  # mark BEFORE the call
+        cells, width = ocr_page(ocr, page, tmp_png, dpi)
         rows = cluster_rows(cells, y_tol)
         blob = " ".join(c["text"].lower() for c in cells)
         is_summary = "expenses review" in blob or (
             sum(1 for r in rows if parse_summary_row(r, width)) >= 5
         )
+        page_items: list[dict] = []
+        page_cats: list[dict] = []
         for r in rows:
             if is_summary:
                 s = parse_summary_row(r, width)
                 if s:
-                    cats.append({**s, "source_pdf": pdf_path.name, "source_page": pno})
+                    page_cats.append({**s, "source_pdf": pdf_path.name, "source_page": pno})
             it = parse_item_row(r, width)
             if it and (it["cost_eur"] is not None or it["item_description"]):
-                items.append({"party": party, **it, "source_pdf": pdf_path.name, "source_page": pno})
+                page_items.append({"party": party, **it, "source_pdf": pdf_path.name, "source_page": pno})
+        done.write_text(
+            json.dumps({"failed": False, "items": page_items, "cats": page_cats}), encoding="utf-8"
+        )
+        attempt.unlink(missing_ok=True)
+        items += page_items
+        cats += page_cats
 
     # flag line items
     for it in items:

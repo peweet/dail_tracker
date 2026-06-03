@@ -274,6 +274,10 @@ lobbyist/raw/
 !data/_meta/
 !data/_meta/*.csv
 !data/_meta/*.json
+# public-body procurement publisher seed registry (Phase-1 of the semistate plan) —
+# a subdir, so the *.csv negation above (top-level only) does not reach it.
+!data/_meta/procurement_publishers/
+!data/_meta/procurement_publishers/*.csv
 
 # basedpyright baseline — snapshots known/false-positive type findings so CI
 # fails only on NEW errors. Must be tracked or CI re-flags the baselined items.
