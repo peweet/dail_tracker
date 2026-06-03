@@ -1,9 +1,14 @@
 # Procurement (eTenders) — Build & Streamlit Integration Plan
 
-Status: **planning** (kickoff). Sandbox ETL built + validated
-(`pipeline_sandbox/procurement_etenders_extract.py`,
-`pipeline_sandbox/probe_procurement_lobbying_overlap.py`). This doc turns it into
-a shipped page.
+Status: **Phases 0–2 + lobbying enrichment SHIPPED (2026-06-03); Procurement page
+(Phase 3) deferred by request.** Done: extractor → committed gold; overlap probe
+promoted to `pipeline_sandbox/procurement_lobbying_xref.py` (gold); both wired as
+`procurement` + `procurement_lobbying` pipeline chains; five `procurement_*.sql`
+views + `utility/data_access/procurement_data.py`; lobbying enrichment live
+(`sql_views/lobbying_org_procurement.sql` + `fetch_org_procurement` +
+"Also a State supplier" disclosure on the org profile); `procurement` group added
+to the `test_view_group_registers` smoke test (passes). NOT done: the dedicated
+Procurement page + nav (Phase 3), bespoke fixture column-tests (Phase 4).
 
 Owner context: see [[project_procurement_etenders]],
 [[feedback_pipeline_view_inspection]] (read the SQL views before writing UI),

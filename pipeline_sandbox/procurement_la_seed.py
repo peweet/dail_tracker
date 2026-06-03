@@ -26,9 +26,10 @@ from __future__ import annotations
 import contextlib
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -71,57 +72,147 @@ SEEDS: list[dict] = [
      "url": "https://www.westmeathcoco.ie/en/ourservices/finance/procurement/purchaseorders/", "kind": "pdf-digital(55 files)"},
     {"council": "Monaghan", "region": "Ulster",
      "url": "https://monaghan.ie/finance/publication-of-purchase-orders/", "kind": "xlsx+pdf(Supplier·Amount·Description)"},
+    # --- remaining LAs to complete all 31 (kind = scrape-test result 2026-06-03) ---
+    {"council": "Carlow", "region": "Leinster",
+     "url": "https://carlow.ie/information-technology/statistics-and-reports/financial-statistical-reports", "kind": "?refixed"},
+    {"council": "Cavan", "region": "Ulster",
+     "url": "https://www.cavancoco.ie/file-library/business/procurement/over-20k/", "kind": "FIX:sub-page(no direct links)"},
+    {"council": "Clare", "region": "Munster",
+     "url": "https://www.clarecoco.ie/business-licensing-and-economy/procurement-and-tenders", "kind": "FIX:sub-page(PDFs at /sites/default/files)"},
+    {"council": "Donegal", "region": "Ulster",
+     "url": "https://www.donegalcoco.ie/en/services/other-services/finance/procurement", "kind": "NON-PUBLISHER(only >=10m)"},
+    {"council": "Galway City", "region": "Connacht",
+     "url": "https://www.galwaycity.ie/services/finance-services/budgets-and-financial-publications", "kind": "pdf-digital(PO PDFs; budgets page mixes prompt-pay)"},
+    {"council": "Galway County", "region": "Connacht",
+     "url": "https://www.gaillimh.ie/en/finance/financial-publications/purchase-orders", "kind": "pdf-digital(SUPPLIER·PRODUCT·€; gaillimh.ie UNBLOCKS galwaycoco WAF)"},
+    {"council": "Kerry", "region": "Munster",
+     "url": "https://www.kerrycoco.ie/finance/financial-documents/", "kind": "pdf-digital(16 files; transient fetch err)"},
+    {"council": "Kildare", "region": "Leinster",
+     "url": "https://kildarecoco.ie/YourCouncil/Publications/Finance/PurchaseOrdersover20000/", "kind": "pdf-digital(Supplier·Total·Description; 52 files)"},
+    {"council": "Kilkenny", "region": "Leinster",
+     "url": "https://kilkennycoco.ie/eng/services/finance/purchase-orders-over-%E2%82%AC20-000/", "kind": "xlsx(Ap/Ar·Period·EURO·DESCRIPTION; 67; also CKAN)"},
+    {"council": "Laois", "region": "Leinster",
+     "url": "https://laois.ie/finance/business-and-enterprise-support/procurement-information-and-advice", "kind": "?refixed"},
+    {"council": "Leitrim", "region": "Connacht",
+     "url": "https://www.leitrim.ie/council/services/finance/procurement/purchase-orders-greater-thank-20k/", "kind": "FIX:sub-page(no direct links)"},
+    {"council": "Longford", "region": "Leinster",
+     "url": "https://www.longfordcoco.ie/services/finance/finance-documents/large-purchase-orders/", "kind": "pdf-digital(SUPPLIER·EURO·DESCRIPTION)"},
+    {"council": "Louth", "region": "Leinster",
+     "url": "https://www.louthcoco.ie/en/publications/finance_reports/", "kind": "FIX:sub-page(no direct links)"},
+    {"council": "Mayo", "region": "Connacht",
+     "url": "https://www.mayo.ie/financial-documents/purchase-orders", "kind": "FIX:sub-page/JS(no direct links)"},
+    {"council": "Offaly", "region": "Leinster",
+     "url": "https://www.offaly.ie/financial-reports/", "kind": "pdf-digital(GL30 Payments>€20k; 19pp)"},
+    {"council": "Roscommon", "region": "Connacht",
+     "url": "https://www.roscommoncoco.ie/en/Download-It/Finance-Publications/", "kind": "FIX:sub-page(no direct links)"},
+    {"council": "Sligo", "region": "Connacht",
+     "url": "https://www.sligococo.ie/YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/", "kind": "FIX:BLOCKED-tls(SSL)"},
+    {"council": "Tipperary", "region": "Munster",
+     "url": "https://www.tipperarycoco.ie/finance/financial-reports", "kind": "UNCERTAIN(sample=scanned contracts doc; check PO file)"},
+    {"council": "Wexford", "region": "Leinster",
+     "url": "https://www.wexfordcoco.ie/council-and-democracy/procurement-finance-and-credit-control/council-spend", "kind": "xls+xlsx(tabular; old .xls needs xlrd)"},
 ]
 
 HREF_RE = re.compile(r"""href\s*=\s*["']([^"']+)["']""", re.I)
 DATA_EXT = (".pdf", ".xlsx", ".xls", ".csv")
 # link text/url must look procurement-ish to avoid harvesting nav junk
 PO_HINT = re.compile(r"purchase|p\.?o\.?s?\b|20[,]?0?00|20k|payment|supplier|procure|quarter|q[1-4]", re.I)
-# an ACTUAL quarterly data file (vs a policy/guidance doc) — used to pick the sample
+# an ACTUAL quarterly PO data file (vs a policy/guidance/aggregate doc) — picks the sample
 DATA_FILE_RE = re.compile(r"q[1-4]\b|qtr|quarter|20[12]\d|q[1-4]\s*['’]?\d{2}", re.I)
-POLICY_RE = re.compile(r"guide|guidelin|\bplan\b|policy|circular|strategy|manual|terms", re.I)
+# exclude policy/guidance docs AND aggregate returns / non-PO publications that share the page
+POLICY_RE = re.compile(
+    r"guide|guidelin|\bplan\b|policy|circular|strategy|manual|terms|fin.?07|"
+    r"prompt.?payment|\bcontract|10.?m\b|10.?million|over.?10|appendix|procedure",
+    re.I,
+)
 
 
 def hr(t: str) -> None:
     print(f"\n{'=' * 72}\n{t}\n{'=' * 72}")
 
 
-def get(url: str, **kw):
-    return requests.get(url, headers=H, timeout=45, **kw)
+# nav links worth following on a one-hop crawl when the landing page has no direct files
+NAV_HINT = re.compile(r"purchase|procure|over.?20|20k|payment|quarter|qtr|finance|publication|spend|supplier", re.I)
+
+
+def _curl(url: str) -> bytes | None:
+    """Fallback fetch via curl — some council hosts (Meath/Sligo) fail Python's TLS
+    stack but answer curl fine (NOT a server block). -k tolerates their cert quirks."""
+    try:
+        p = subprocess.run(
+            ["curl", "-sS", "-k", "-L", "--max-time", "40", "-A", H["User-Agent"], url],
+            capture_output=True, timeout=60,
+        )
+        return p.stdout if p.returncode == 0 and p.stdout else None
+    except Exception:
+        return None
+
+
+def fetch_bytes(url: str) -> bytes | None:
+    try:
+        r = requests.get(url, headers=H, timeout=40)
+        r.raise_for_status()
+        return r.content
+    except Exception:
+        return _curl(url)
+
+
+def fetch_text(url: str) -> str | None:
+    b = fetch_bytes(url)
+    return b.decode("utf-8", "ignore") if b else None
+
+
+def extract_data_links(html: str, base: str) -> dict[str, list[str]]:
+    hits: dict[str, list[str]] = {}
+    for href in HREF_RE.findall(html):
+        low = href.lower().split("?")[0]
+        ext = next((e for e in DATA_EXT if low.endswith(e)), None)
+        if ext and PO_HINT.search(href):
+            hits.setdefault(ext, []).append(urljoin(base, href))
+    return hits
+
+
+def pick_sample(hits: dict[str, list[str]]) -> str | None:
+    def best(urls: list[str]) -> str | None:
+        good = [u for u in urls if DATA_FILE_RE.search(u) and not POLICY_RE.search(u)]
+        return (good or urls)[0] if urls else None
+    for e in (".xlsx", ".csv", ".xls", ".pdf"):  # prefer a tabular sample, else pdf
+        if hits.get(e):
+            return best(hits[e])
+    return None
 
 
 def harvest_links(landing: str) -> dict:
-    """Return {ok, formats:{ext:count}, sample:url|None, error}."""
-    try:
-        r = get(landing)
-        r.raise_for_status()
-        html = r.text
-    except Exception as e:
-        return {"ok": False, "error": repr(e)[:80], "formats": {}, "sample": None}
-    hits: dict[str, list[str]] = {}
-    for href in HREF_RE.findall(html):
-        low = href.lower()
-        ext = next((e for e in DATA_EXT if low.split("?")[0].endswith(e)), None)
-        if not ext:
-            continue
-        if not PO_HINT.search(href):
-            continue
-        full = urljoin(landing, href)
-        hits.setdefault(ext, []).append(full)
-    formats = {e: len(v) for e, v in hits.items()}
-
-    def pick(urls: list[str]) -> str | None:
-        # a real quarterly data file, not a policy/guidance doc
-        good = [u for u in urls if DATA_FILE_RE.search(u) and not POLICY_RE.search(u)]
-        return (good or urls)[0] if urls else None
-
-    # prefer a tabular sample (cheaper to prove) else a pdf
-    sample = None
-    for e in (".xlsx", ".csv", ".xls", ".pdf"):
-        if hits.get(e):
-            sample = pick(hits[e])
-            break
-    return {"ok": True, "error": None, "formats": formats, "sample": sample}
+    """Harvest PO data links from the landing page; if none, one-hop crawl same-host
+    nav links. Returns {ok, formats, sample, error, via}."""
+    html = fetch_text(landing)
+    if html is None:
+        return {"ok": False, "error": "fetch failed (requests+curl)", "formats": {}, "sample": None, "via": None}
+    hits = extract_data_links(html, landing)
+    via = "landing"
+    if not hits:
+        host = urlparse(landing).netloc
+        subs, seen = [], set()
+        for href in HREF_RE.findall(html):
+            full = urljoin(landing, href)
+            low = full.lower().split("?")[0]
+            if urlparse(full).netloc != host or full == landing:
+                continue
+            if any(low.endswith(e) for e in DATA_EXT):
+                continue
+            if NAV_HINT.search(href) and full not in seen:
+                seen.add(full)
+                subs.append(full)
+        for s in subs[:6]:
+            sub_html = fetch_text(s)
+            if not sub_html:
+                continue
+            for e, v in extract_data_links(sub_html, s).items():
+                hits.setdefault(e, []).extend(v)
+            if hits and via == "landing":
+                via = f"crawl:{s.rsplit('/', 1)[-1][:28] or urlparse(s).path[:28]}"
+    return {"ok": True, "error": None, "formats": {e: len(v) for e, v in hits.items()},
+            "sample": pick_sample(hits), "via": via}
 
 
 def classify(url: str) -> str:
@@ -131,11 +222,10 @@ def classify(url: str) -> str:
     dest = TMP / (re.sub(r"[^A-Za-z0-9._-]", "_", url.rsplit("/", 1)[-1])[:60] or "s")
     if not dest.suffix:
         dest = dest.with_suffix(ext or ".bin")
-    try:
-        b = get(url).content
-        dest.write_bytes(b)
-    except Exception as e:
-        return f"download ERR {e!r}"[:90]
+    b = fetch_bytes(url)
+    if not b:
+        return "download ERR (requests+curl)"
+    dest.write_bytes(b)
     try:
         if ext == ".pdf":
             import fitz
@@ -182,7 +272,7 @@ def main() -> None:
         elif not fmt:
             print("     no PO-looking data links on landing page (may be a sub-page or JS-rendered)")
         else:
-            print(f"     data links: {fmt}")
+            print(f"     data links: {fmt}  [via {h.get('via')}]")
             if h["sample"]:
                 c = classify(h["sample"])
                 line["sample_classify"] = c

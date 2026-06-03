@@ -4,9 +4,9 @@
   "award_supplier_rows": 60501,
   "supplier_class_counts": {
     "sole_trader_or_individual": 28736,
-    "company": 30629,
+    "foreign_company": 855,
     "public_body": 281,
-    "foreign_company": 855
+    "company": 30629
   },
   "distinct_suppliers": 15798,
   "company_class_suppliers": 7468,

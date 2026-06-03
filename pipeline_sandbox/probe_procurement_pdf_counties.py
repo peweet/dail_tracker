@@ -43,12 +43,17 @@ NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
 
 # concrete off-catalog PO-over-20k files, harvested via web search (June 2026)
 SEEDS: dict[str, list[str]] = {
+    # Cork CITY moved to JS-listed Umbraco /media/{guid}/ paths (old media-folder
+    # URLs now 404); current PO files aren't guessable without a browser render.
     "Cork City Council": [
         "https://www.corkcity.ie/en/media-folder/finance/q1-2021-pos-over-20k.pdf",
-        "https://www.corkcity.ie/en/media-folder/finance/q4-2018-purchase-orders-greater-than-20000.pdf",
     ],
+    # Cork COUNTY: live Drupal sites/default/files URLs (re-found 2026-06-03; the
+    # 2019 deep-link had 404'd). Search pre-extracted "Supplier Name Total ..." text.
     "Cork County Council": [
-        "https://www.corkcoco.ie/sites/default/files/2019-11/Purchase%20Orders%20over%20%E2%82%AC20k%20Qtr%202%202019.pdf",
+        "https://www.corkcoco.ie/sites/default/files/2025-08/2025-q2-purchase-orders-in-excess-of-eu20000.pdf",
+        "https://www.corkcoco.ie/sites/default/files/2025-05/2025-q1-purchase-orders-in-excess-of-eu20000-pdf.pdf",
+        "https://www.corkcoco.ie/sites/default/files/2024-11/2024-q3-purchase-orders-in-excess-of-eu20000-pdf.pdf",
     ],
     "Mayo County Council": [
         "https://www.mayo.ie/getattachment/6a915b4f-ab78-4b69-8ba6-d07569222e03/attachment.aspx",

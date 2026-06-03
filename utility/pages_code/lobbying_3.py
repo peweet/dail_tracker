@@ -56,6 +56,7 @@ from data_access.lobbying_data import (
     fetch_org_contact_detail,
     fetch_org_index,
     fetch_org_politician_returns,
+    fetch_org_procurement,
     fetch_orgs_for_politician,
     fetch_policy_area_summary,
     fetch_policy_exposure_for_politician,
@@ -822,6 +823,29 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
     if website and website.startswith("http"):
         st.html(
             f'<p class="lp3-prose">Website: {source_link_html(website, website, aria_label=f"Open {org_name} website")}</p>'
+        )
+
+    # Procurement cross-reference (eTenders). Co-occurrence disclosure ONLY — the
+    # org appears on both the lobbying and procurement registers; this is NOT
+    # evidence lobbying influenced any contract (see v_lobbying_org_procurement
+    # header + feedback_no_inference_in_app). n_awards is a count; value is
+    # awarded value, not spend.
+    proc = fetch_org_procurement(org_name)
+    if not proc.empty:
+        prow = proc.iloc[0]
+        n_aw = int(prow.get("n_awards", 0) or 0)
+        n_au = int(prow.get("n_authorities", 0) or 0)
+        val = float(prow.get("awarded_value_safe_eur", 0) or 0)
+        val_clause = f" Awarded value ~€{val / 1e6:,.1f}m (awarded value, not money paid)." if val > 0 else ""
+        st.html(
+            '<div class="lp3-tile">'
+            '<h3 class="lp3-tile-heading">Also a State supplier</h3>'
+            '<p class="lp3-tile-body">On the eTenders procurement register this organisation has '
+            f"<strong>{_h(_p(n_aw, 'contract award'))}</strong> across "
+            f"<strong>{_h(_p(n_au, 'public body', 'public bodies'))}</strong>.{_h(val_clause)} "
+            "Appearing on both the lobbying and procurement registers is a factual disclosure — "
+            "not evidence that lobbying influenced any contract.</p>"
+            "</div>"
         )
 
     # Switch organisation (sits below hero, narrow column)

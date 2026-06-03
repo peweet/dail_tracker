@@ -277,43 +277,73 @@ non-publishers (DLR) as out of scope for a line-level spend layer.
 ## National SEED REGISTRY + scrape test (`procurement_la_seed.py`, 2026-06-03)
 
 Built a per-council seed registry (council → finance landing page) and a generic
-scrape-tester (harvest links → classify a real sample). Ran it on 12 councils across all
-four provinces. **Result: the off-portal harvest is far more tractable than "31 bespoke
-scrapers" feared — a single-page harvest works and the schema CONVERGES.**
+scrape-tester (harvest links → classify a real sample). **Now covers ALL 31 local
+authorities.** Result: the off-portal harvest is far more tractable than "31 bespoke
+scrapers" feared — a single-page harvest already works for ~half, schema CONVERGES, and
+only 3 councils genuinely don't publish line-level PO data.
 
-**8 of 12 councils yield directly-scrapeable quarterly PO files** (supplier + amount +
-description, line-level), classified from a downloaded sample:
+**Full tally (31 LAs) after clearing the fix-list (curl fallback + one-hop crawl added
+to the harvester, 2026-06-03):**
+- **~24 reachable over plain HTTP** (requests + curl fallback + one-hop sub-page crawl) —
+  the 16 below **plus** Meath & Sligo (their `SSLError` was our Python TLS stack, NOT a
+  server block — `curl` gets HTTP 200; added a curl fallback) and Clare, Leitrim, Laois,
+  Louth, Fingal (files on a sub-page, reached by a one-hop crawl from the landing page).
+- **4 need a headless browser (Playwright)** — Carlow, Cavan, Mayo, Roscommon publish a
+  **JS-rendered** file list (0 file links in raw HTML; Carlow/Cavan expose SPA/JSON
+  markers). The project already has Playwright (used for lobbying).
+- **3 genuine non-publishers** — Dublin City (stale ≤2014 aggregate), Dún Laoghaire-Rathdown
+  (policy only), Donegal (only procurement >€10m).
 
-| Council | Format | Sample schema | Notes |
+So **~28 of 31 are obtainable** (24 HTTP + 4 Playwright); only 3 truly don't publish
+line-level PO data. Per-council link tallies/classifications: `c:/tmp/procurement_la/seed_report.json`.
+
+**The 16 ready now** (line-level supplier+amount+description, classified from a real sample):
+
+| Council | Format | Sample schema | Files on page |
 |---|---|---|---|
-| South Dublin | **XLSX** | `PO·SUPPLIER·TOTAL·DESCRIPTION·PAID` | 130 xlsx + 90 xls on page |
-| Cork City | **XLSX** | `Supplier·Sum of Gross Amount·Description` | + 51 pdf |
-| Wicklow | **XLSX/CSV** | `Supplier·EURO·Description` | 41 xlsx + 17 csv + 53 pdf |
-| Monaghan | **XLSX** | `Supplier·Amount·Description` | + 28 pdf |
-| Cork County | **PDF (digital)** | `Supplier Name·Total·Description·Paid` | **107 files** (deep archive) |
-| Waterford | **PDF (digital)** | `OrderNo·Supplier·…` | 44 files |
-| Limerick | **PDF (digital)** | `Supplier·Paid·Description` | quarterly |
-| Westmeath | **PDF (digital)** | (Westmeath CoCo notice) | 55 files |
+| South Dublin | XLSX | `PO·SUPPLIER·TOTAL·DESCRIPTION·PAID` | 220 |
+| Cork City | XLSX | `Supplier·Sum of Gross Amount·Description` | 6 (+51 pdf) |
+| Wicklow | XLSX/CSV | `Supplier·EURO·Description` | 111 |
+| Monaghan | XLSX | `Supplier·Amount·Description` | 53 |
+| Kilkenny | XLSX | `Ap/Ar ID·Period·EURO·DESCRIPTION` | 67 |
+| Wexford | XLS/XLSX | (tabular; old `.xls` needs xlrd) | 68 |
+| Cork County | PDF digital | `Supplier·Total·Description·Paid` | **107** |
+| Kildare | PDF digital | `Supplier·Total·Description` | 52 |
+| Westmeath | PDF digital | (Westmeath notice) | 55 |
+| Waterford | PDF digital | `OrderNo·Supplier·…` | 44 |
+| Galway County | PDF digital | `SUPPLIER·PRODUCT·EURO` (via **gaillimh.ie**) | 28 |
+| Offaly | PDF digital | GL30 `Payments Greater than €20k` | 26 |
+| Galway City | PDF digital | (PO PDFs; budgets page) | 10 |
+| Kerry | PDF digital | (16 files; transient fetch err) | 16 |
+| Longford | PDF digital | `SUPPLIER·EURO·DESCRIPTION` | 10 |
+| Limerick | PDF digital | `Supplier·Paid·Description` | 2 |
 
-**Three big positives:**
-1. **Every actual PO PDF sampled is DIGITAL (fitz, no OCR)** — Cork County, Waterford,
-   Limerick, Westmeath all digital. The only "SCANNED" hits were policy/guideline docs
-   (irrelevant). Confirms the zero-OCR conclusion *nationally*, not just Galway/Kildare.
-2. **Schema CONVERGES** — nearly every council is a variant of `Supplier · Amount(€) ·
-   Description` (± PO#, ± Paid flag). Earlier "no shared schema" (Dublin pilot) was too
-   pessimistic: column ORDER/naming differ, but the *semantic* schema is one 3–4-field
-   shape ⇒ ONE normaliser + a small per-council column-map, not 31 bespoke parsers. The
-   Galway largest-x-gap reader handles the PDF order differences.
-3. **Deep single-page archives** — Cork County 107, Westmeath 55, Wicklow 111 (pdf+xlsx+
-   csv), Monaghan 53: years of quarterly history, harvestable from one landing page.
+**Three confirmed-at-scale positives:**
+1. **Every actual PO PDF is DIGITAL (fitz, no OCR)** across all provinces — the only
+   "SCANNED" hits were policy/guideline/contract docs (irrelevant). Zero-OCR confirmed nationally.
+2. **Schema CONVERGES** to `Supplier · Amount(€) · Description` (± PO# / Period / Paid).
+   Column order/naming differ, but it's one 3–4-field shape ⇒ ONE normaliser + a small
+   per-council column-map, not 31 bespoke parsers. The Galway largest-x-gap reader handles
+   PDF order differences.
+3. **Deep archives** — Cork County 107, Wicklow 111, Kilkenny 67, Wexford 68, Westmeath 55:
+   years of quarterly history off a single landing page.
 
-**The 4 that need extra work:**
-- **Fingal** — its procurement page carries only policy PDFs; the PO files are off-page
-  (`…/sites/default/files/…`) with no clean listing → needs a site crawl, not a seed page.
-- **Dublin City** — only the stale (≤2014) aggregate prompt-payment CSV; no current line-level.
-- **Dún Laoghaire-Rathdown** — only policy PDFs; nothing published → FOI territory.
-- **Meath** — TLS handshake dropped (same WAF/egress block as Galway County); needs a
-  browser/Playwright fetch or different IP, not a scan-vs-digital question.
+**3 genuine non-publishers (exclude from a line-level layer):** Dublin City (only stale
+≤2014 aggregate prompt-payment CSV), Dún Laoghaire-Rathdown (policy PDFs only),
+Donegal (publishes only procurement >€10m, not PO-over-€20k).
+
+**Fix-list — RESOLVED (harvester now has curl fallback + one-hop crawl):**
+- *Was "TLS blocked"* → **FIXED via curl fallback**: Meath, Sligo. Their `SSLError` was
+  our Python TLS stack; `curl` returns HTTP 200. (Galway-County's real WAF block was a
+  separate case, solved earlier by the `gaillimh.ie` alt domain.)
+- *Was "sub-page"* → **FIXED via one-hop crawl**: Clare, Leitrim, Laois, Louth, Fingal —
+  the crawl follows a finance/procurement nav link to the actual file list. (Sampler
+  sometimes grabs a neighbour doc e.g. a supplier-setup form; the *files* are present.)
+- *Still need a headless browser (Playwright)* — Carlow, Cavan, Mayo, Roscommon: the file
+  list is **JS-rendered** (0 file links in raw HTML; Carlow/Cavan expose SPA/JSON markers).
+  Build-time fetch via the project's existing Playwright.
+- *Uncertain* — Tipperary: 37 PDFs but the sample was a scanned *contracts* doc; its
+  actual PO file needs a targeted check.
 
 **Verdict for the build:** the seed-registry approach is validated. Plan: a committed
 `council → landing_url → format → column_map → grain` registry + one shared reader (fitz
