@@ -288,14 +288,25 @@ to the harvester, 2026-06-03):**
   the 16 below **plus** Meath & Sligo (their `SSLError` was our Python TLS stack, NOT a
   server block — `curl` gets HTTP 200; added a curl fallback) and Clare, Leitrim, Laois,
   Louth, Fingal (files on a sub-page, reached by a one-hop crawl from the landing page).
-- **4 need a headless browser (Playwright)** — Carlow, Cavan, Mayo, Roscommon publish a
-  **JS-rendered** file list (0 file links in raw HTML; Carlow/Cavan expose SPA/JSON
-  markers). The project already has Playwright (used for lobbying).
-- **3 genuine non-publishers** — Dublin City (stale ≤2014 aggregate), Dún Laoghaire-Rathdown
-  (policy only), Donegal (only procurement >€10m).
+- **4 publish behind a JS-rendered file list** (0 file links in raw HTML; Carlow/Cavan
+  expose SPA/JSON markers) — Carlow, Cavan, Mayo, Roscommon. The *files* exist
+  (e.g. **Mayo = 837 rows digital**, served as `getattachment/{guid}` URLs); only
+  *enumeration* needs a rendered DOM (the project already has Playwright).
+- **2 genuine non-publishers** — Dublin City (stale ≤2014 aggregate) and
+  Dún Laoghaire-Rathdown (policy only).
 
-So **~28 of 31 are obtainable** (24 HTTP + 4 Playwright); only 3 truly don't publish
-line-level PO data. Per-council link tallies/classifications: `c:/tmp/procurement_la/seed_report.json`.
+So **~29 of 31 are obtainable**; only 2 truly don't publish line-level PO data.
+Per-council link tallies/classifications: `c:/tmp/procurement_la/seed_report.json`.
+
+> **Cross-validation note (2026-06-03):** a parallel context's `probe_procurement_pdf_counties.py`
+> independently scanned several counties and **corrects two errors in the registry's first
+> pass**, both caused by a seed URL pointing at the wrong page: **Donegal IS a publisher**
+> (yearly PDFs at `donegalcoco.ie/media/{code}/YYYY.pdf`, **1,221 rows, digital** — the
+> procurement landing page only lists the >€10m docs), and **Mayo has 837 digital rows**.
+> Conversely this probe found a working **Cork City** route (the spending-and-revenue XLSX)
+> that the counties probe had as blocked. Lesson: per-council coverage needs the *file-list*
+> page, not the generic finance/procurement landing — the two probes' routes should be merged
+> into one seed list. Both agree on the core finding: **digital everywhere, zero OCR.**
 
 **The 16 ready now** (line-level supplier+amount+description, classified from a real sample):
 

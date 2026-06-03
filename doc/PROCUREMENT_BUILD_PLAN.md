@@ -208,6 +208,63 @@ CI jobs (lint / firewall / typecheck / test / sql-contracts,
 
 ---
 
+## 8b. Actual-spend tier (per-council PO-over-€20k) — deferred, decision-gated
+
+The shipped feature is the eTenders **awards** layer (framework ceilings, not spend).
+A second tier — the per-council **"Purchase Orders over €20,000"** publications — is
+the *actual money paid* (supplier-named, CRO-joinable). It is **additive and optional**:
+grow it one council at a time, stop whenever the marginal council isn't worth it. The
+project is already ambitious, so this tier stays **deferred behind a one-probe decision
+gate**, not committed wholesale.
+
+**What the probes already established** (`pipeline_sandbox/probe_procurement_pdf*.py`,
+`probe_procurement_excel.py`, `probe_procurement_city_vs_county.py`):
+
+- **Extraction is solved, no OCR.** 7 reachable councils sampled → **all digital**;
+  PDFs via fitz word-geometry + largest-x-gap column split + leading-PO#/ID strip;
+  Excel via openpyxl. CRO joins land in the same 32–56% band as eTenders. PaddleOCR is
+  **not** needed for procurement (reserved for SIPO).
+- **Excel is the lowest-debt format.** Only ~2 distinct schemas seen
+  (`OrderNo·Supplier·Period·EURO·Description` / `PO·SUPPLIER·TOTAL·DESCRIPTION·PAID`),
+  because **Circular Fin 07/2012 mandates the fields** (supplier, cost, description) so
+  councils converge. Landmines are mild and uniform (header at row 2, 1–3 total rows,
+  amounts are real numbers, single-sheet).
+- **City ≠ county.** 31 LAs = 26 county + 3 city + 2 merged; where both exist they
+  publish separate lists (Galway City vs Cork County share only 2.7% of suppliers, all
+  national utilities). The macro budget-by-division layer is a *different* question,
+  best sourced from the official **amalgamated AFS (datacatalogue.gov.ie) + NOAC**, not
+  by scraping POs.
+
+**RECOMMENDATION — size the schema count before building, not the file count.**
+
+1. **Decision gate (one probe, ~½ day):** run a header-signature census across all CKAN
+   spend publishers + ~10 off-catalog councils. The debt scales with the number of
+   **distinct schemas**, *not* the number of files or councils.
+   - ~3–5 schemas → **GO**: the tier is a small finite `schema_map` table. Build it.
+   - 15+ schemas → **DEFER**: not worth the maintenance surface yet.
+2. **Debt-capping design (when GO):** a `schema_map` table keyed by publisher →
+   `{host, format (pdf/xlsx), supplier_col, amount_col, column_order, po_id_prefix}` +
+   **one** generic reader (find-header / drop-totals / coerce-amount / fitz-or-openpyxl).
+   Adding a council = adding one row, never a new parser.
+3. **Known finite gaps to budget for (all minor, none blocking):**
+   - Legacy `.xls` (~9% of corpus) needs `xlrd` — add the dep (pipeline-only extra) or
+     convert; never core deps (Cloud syncs core only).
+   - 2 of ~9 councils are access-blocked (Galway County WAF/TLS, Cork City Umbraco
+     `/media/{guid}/` behind JS) → need a small **Playwright** listing-scrape, not new
+     extraction logic.
+   - Per-council column ORDER and PO#/ID prefixes vary → already handled by the
+     largest-x-gap split + numeric-strip; record the quirk in `schema_map`, don't
+     special-case in code.
+4. **Provenance / privacy carry over unchanged:** `value_safe_to_sum` discipline,
+   `name_truncated` flag, sole-trader/individual quarantine (keep company-suffix
+   suppliers), CC-BY attribution + `retrieved_utc`, no-inference UI copy.
+
+Net: the spend tier is **bounded, known-pattern work** — safe to commit *per council*
+once the schema census says GO, and cheap to stop. Do **not** treat it as a single
+all-or-nothing national scrape.
+
+---
+
 ## 9. Logic-firewall checklist (gate before merge)
 
 - [ ] No `read_parquet` / JOIN / GROUP BY / window / pandas merge in
