@@ -1,0 +1,60 @@
+publisher_id,publisher_name,publisher_type,sector,landing_url,source_status,source_format,grain,years_available,latest_period,supplier_level_available,amount_available,paid_flag_available,source_caveat,privacy_risk,notes
+ie_cie,Córas Iompair Éireann (CIÉ),semi_state,transport,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,parent group; landing page for PO/payments not yet located
+ie_irishrail,Iarnród Éireann,semi_state,transport,https://www.irishrail.ie/_kontent/d2e85689-fbf9-010a-a02e-587ed94b5032/480d2a0d-cd41-430d-956f-a64b2f5d6e8a/025b45de-29cc-4f2c-b5b4-184ba73ef865.pdf,FOI_AIE_CONFIRMED_EXISTS,UNKNOWN,unknown,,,,,,,low,FOI publication-scheme PDF clue; not a clean file list
+ie_buseireann,Bus Éireann,semi_state,transport,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,
+ie_dublinbus,Dublin Bus,semi_state,transport,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,
+ie_daa,daa (Dublin/Cork Airports),semi_state,transport,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,
+ie_dublinport,Dublin Port Company,semi_state,transport,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,
+ie_shannonfoynes,Shannon Foynes Port Company,semi_state,transport,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,
+ie_portofcork,Port of Cork Company,semi_state,transport,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,
+ie_esb,ESB (Electricity Supply Board),semi_state,energy_utilities,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,commercial state body; PO disclosure obligation unclear vs regulated ESBN
+ie_esbnetworks,ESB Networks DAC,semi_state,energy_utilities,https://www.esbnetworks.ie/about-us/company/publication-scheme/financial-information,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,regulated; publication scheme financial-information page
+ie_eirgrid,EirGrid,semi_state,energy_utilities,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,
+ie_gni,Gas Networks Ireland,semi_state,energy_utilities,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,
+ie_uisce,Uisce Éireann (Irish Water),semi_state,energy_utilities,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,
+ie_bnm,Bord na Móna,semi_state,forestry_land,https://ocei.ie/,FOI_CLUE_ONLY,UNKNOWN,unknown,,,,,,,low,AIE/OCEI route only per plan; no clean PO file list located
+ie_coillte,Coillte,semi_state,forestry_land,https://ocei.ie/,FOI_CLUE_ONLY,UNKNOWN,unknown,,,,,,,low,AIE/OCEI route only per plan; no clean PO file list located
+ie_teagasc,Teagasc,semi_state,agri_food_marine,https://teagasc.ie/about/corporate-responsibility/information-for-suppliers/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,information-for-suppliers landing; plan flags as easy first candidate
+ie_bordbia,Bord Bia,semi_state,agri_food_marine,https://www.bordbia.ie/about/governance/corporate-governance/purchase-orders/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,dedicated purchase-orders page; plan flags as easy first candidate
+ie_bim,Bord Iascaigh Mhara (BIM),semi_state,agri_food_marine,https://bim.ie/about/corporate-governance/purchase-orders-over-20k/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,PO-over-20k page
+ie_rte,RTÉ,semi_state,media_culture,https://about.rte.ie/procurement-2/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,procurement landing
+ie_tg4,TG4,semi_state,media_culture,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,
+ie_enterprise_ireland,Enterprise Ireland,semi_state,enterprise_tourism,https://www.enterprise-ireland.com/,FOI_CLUE_ONLY,UNKNOWN,unknown,,,,,,,low,FOI disclosure logs per plan; no clean PO file list located yet
+ie_ida,IDA Ireland,semi_state,enterprise_tourism,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,plan flags as easy first candidate but landing URL not supplied
+ie_failte,Fáilte Ireland,semi_state,enterprise_tourism,https://www.failteireland.ie/,FOI_CLUE_ONLY,UNKNOWN,unknown,,,,,,,low,FOI disclosure logs per plan
+ie_tourism_ireland,Tourism Ireland,semi_state,enterprise_tourism,,NOT_FOUND,UNKNOWN,unknown,,,,,,,low,
+ie_opw,Office of Public Works (OPW),state_body,property_land,https://www.gov.ie/en/office-of-public-works/collections/payments-greater-than-20000/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,"clean gov.ie collection, likely quarterly files; plan flags as best first candidate"
+ie_tailte,Tailte Éireann,state_body,property_land,https://tailte.ie/category/publications/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,publications archive: PO>20k / prompt-pay / contracts>25k / annual reports / FOI logs mixed
+dept_finance,Department of Finance,department,central_government,https://www.gov.ie/en/department-of-finance/collections/purchase-orders/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+dept_climate,"Department of Climate, Energy and the Environment",department,central_government,https://www.gov.ie/en/department-of-climate-energy-and-the-environment/collections/payments-over-20000/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+dept_housing,"Department of Housing, Local Government and Heritage",department,central_government,https://www.gov.ie/en/department-of-housing-local-government-and-heritage/organisation-information/procurement/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+dept_children,"Department of Children, Disability and Equality",department,central_government,https://www.gov.ie/en/department-of-children-disability-and-equality/collections/department-of-children-equality-disability-integration-and-youth-purchase-orders-for-20000-or-above/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+dept_enterprise,"Department of Enterprise, Tourism and Employment",department,central_government,https://enterprise.gov.ie/en/publications/payments-over-20k.html,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+dept_defence,Department of Defence,department,central_government,https://www.gov.ie/en/department-of-defence/collections/purchase-orders-over-20000/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+dept_justice,"Department of Justice, Home Affairs and Migration",department,central_government,https://www.gov.ie/en/department-of-justice-home-affairs-and-migration/collections/department-of-justice-purchase-orders-issued-over-20000-in-value/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+dept_dper,Dept of Public Expenditure / OGCIO / OGP,department,central_government,https://www.gov.ie/en/department-of-public-expenditure-infrastructure-public-service-reform-and-digitalisation/collections/dpendr-ogcio-and-ogp-purchase-order-payments-2024/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+dept_culture,"Department of Culture, Communications and Sport",department,central_government,https://www.gov.ie/en/department-of-culture-communications-and-sport/collections/purchase-orders/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+ie_ipas,International Protection Accommodation Services (IPAS),state_body,central_government,https://www.gov.ie/en/international-protection-accommodation-services-ipas/publications/facts-and-figures/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,medium,"facts-and-figures landing; may be aggregate/category, not supplier-level"
+ie_nta,National Transport Authority,agency,transport,https://www.nationaltransport.ie/publications/2026-purchase-orders-e20000-and-over/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,year-specific PO page; plan flags as easy first candidate
+ie_tii,Transport Infrastructure Ireland,agency,transport,https://websitecms.tii.ie/en/compliance/payments/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,compliance/payments page
+ie_cib,Citizens Information Board,agency,social,https://www.citizensinformationboard.ie/en/freedom_of_information/financial_information/payments_or_purchase_orders_for_goods_and_services.html,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,plan flags as easy first candidate
+ie_hsa,Health and Safety Authority,agency,regulator,https://www.hsa.ie/eng/about_us/public_sector_information/purchase_orders_in_excess_of_-20_000/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+ie_marine,Marine Institute,agency,agri_food_marine,https://marine.ie/site-area/about-us/purchase-orders,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+ie_revenue,Revenue Commissioners,agency,regulator,https://www.revenue.ie/en/corporate/statutory-obligations/freedom-of-information/section8/procurement.aspx,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+ie_tusla,Tusla — Child and Family Agency,agency,social,https://www.tusla.ie/about/your-personal-information/new-freedom-of-information/financial-information/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,high,child/family agency; suppliers may include individual carers/practitioners
+ie_rsa,Road Safety Authority,agency,transport,https://www.rsa.ie/about/reporting,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+ie_screen,Screen Ireland,agency,media_culture,https://www.screenireland.ie/about/policies/purchase-orders-for-20000-or-above/2025,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,medium,film funding; payees may be individuals/production cos
+ie_arts_council,Arts Council,agency,media_culture,https://artscouncil.ie/,NOT_FOUND,UNKNOWN,unknown,,,,,,,medium,only homepage supplied; PO/payments page not yet located; grantees often individuals
+ie_hse,Health Service Executive (HSE),state_body,health,https://healthservice.hse.ie/staff/information-healthcare-workers/procurement/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,high,"procurement landing; high public-interest, supplier-rich, but formats vary"
+ie_ntpf,National Treatment Purchase Fund,state_body,health,https://www.ntpf.ie/,NOT_FOUND,UNKNOWN,unknown,,,,,,,high,homepage only; pays private hospitals/practitioners — handle with care
+ie_hiqa,Health Information and Quality Authority (HIQA),agency,health,https://www.hiqa.ie/,NOT_FOUND,UNKNOWN,unknown,,,,,,,medium,homepage only; PO/payments page not yet located
+ie_tuh,Tallaght University Hospital,hospital,health,https://www.tuh.ie/,NOT_FOUND,UNKNOWN,unknown,,,,,,,high,homepage only; voluntary hospital; may include individual practitioners
+ie_svuh,St Vincent's University Hospital,hospital,health,https://www.stvincents.ie/about-us/financial-statements/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,high,"financial-statements page (likely ANNUAL_REPORT_ONLY, not supplier-level)"
+ie_hea,Higher Education Authority,agency,education,https://hea.ie/about-us/public-sector-information/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,low,
+ie_atu,Atlantic Technological University,education_body,education,https://www.atu.ie/freedom-of-information/freedom-of-information-financial-information,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,medium,
+ie_loetb,Laois & Offaly ETB,education_body,education,https://loetb.ie/organisation-support-development/finance/purchase-orders-over-20000/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,medium,
+ie_lmetb,Louth & Meath ETB,education_body,education,https://www.lmetb.ie/category/finance/purchase-orders-over-e20000/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,medium,
+ie_cdetb,City of Dublin ETB,education_body,education,https://www.cityofdublinetb.ie/about-us/finance-and-procurement/procurement/,NEEDS_MANUAL_CHECK,UNKNOWN,unknown,,,,,,,medium,
+ie_ncse,National Council for Special Education,agency,education,https://ncse.ie/,NOT_FOUND,UNKNOWN,unknown,,,,,,,medium,homepage only
+foi_ocei,Commissioner for Environmental Information (OCEI),foi_lead,foi_aie,https://ocei.ie/,FOI_CLUE_ONLY,UNKNOWN,unknown,,,,,,,low,"AIE decisions — clue source for Bord na Móna / Coillte etc., not a payment file"
+foi_thestory,TheStory.ie / Right To Know,foi_lead,foi_aie,https://www.thestory.ie/,FOI_CLUE_ONLY,UNKNOWN,unknown,,,,,,,low,"public-spend investigations; secondary clue source, do not ETL as primary"

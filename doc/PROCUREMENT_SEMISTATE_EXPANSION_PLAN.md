@@ -39,6 +39,50 @@ publisher/source registry
 
 ---
 
+## 1A. Status & scope reality-check (2026-06-03)
+
+**Read this before treating any later section as a to-do list.** Sections 4–10 below were
+written as a full productionisation spec. The actual effort is a **one-shot research
+extraction for now** — not a maintained, scheduled pipeline — so much of that ceremony is
+deliberately *not* being built. This section is the source of truth for what is done,
+what is deliberately skipped, and what genuinely remains. Detailed results are in §11.
+
+**Phase reconciliation:**
+
+| Phase | Plan intent | Reality |
+|---|---|---|
+| 0 Inspect | read existing code | ✅ done |
+| 1 Seed registry | CSVs in `data/_meta/procurement_publishers/` | ✅ done — `data/_meta/procurement_publishers/publishers_seed.csv` (59 publishers, committed) |
+| 2 Probe | harvest + classify | ✅ done (`probe_procurement_publishers.py`) |
+| 3 Sample extraction | confirm schema + landmines | ✅ done (tabular + PDF samplers) |
+| 4 Parser classes | a `PaymentFileParser` Protocol | ✅ **functionally done, architecture changed on purpose** → config-registry extractor (`procurement_public_body_extract.py`) + bespoke specs for exceptions (`procurement_hse_tusla_parser.py`). **The Protocol pattern is overengineering here and is NOT being adopted** (publisher is known up front, so runtime dispatch is unneeded; small N). Do not refactor. |
+| 5 Gold parquet | `data/gold/parquet/public_payments_fact.parquet` | ⚠️ **candidate only** at `data/sandbox/parquet/public_payments_fact.parquet` (8,021 rows / 19 publishers; HSE+Tusla parsed separately, ~19k more, not yet merged). Not promoted to gold. |
+| 6 Coverage metadata | full key set | ✅ `data/_meta/public_payments_coverage.json` (a few §6 keys still absent) |
+| 7 SQL views | 6 views | ❌ not started — **right-sized DOWN: at most a supplier-summary + publisher-summary if/when a page is built; the 6-view enrichment fan-out is deferred indefinitely** |
+| 8 Tests | 5 test files | ❌ not started — **right-sized to ONE contract test** enforcing the safe-to-sum + privacy + provenance invariants (see `doc/PUBLIC_PAYMENTS_FACT_SCHEMA.md` §3) |
+| 9 Streamlit page | Procurement page | ❌ not started — correctly gated; out of scope for the one-shot |
+
+**Deliberately skipped while this is one-shot:** the Protocol parser framework (§6 Phase 4
+code), the 6-view SQL fan-out (§7), the 5-file test suite (§8), `pipeline.py` wiring /
+scheduling / automation, and **all cross-enrichment joins** (§7 overlap views, §11.6) —
+the latter are HARD-GATED per `doc/PUBLIC_PAYMENTS_FACT_SCHEMA.md`: *no join until the data
+is stable and per-publisher verified, because a premature join is actively misleading.*
+
+**Genuinely open, if/when this is picked up again** (small, concrete):
+1. **Privacy quarantine is OFF** — 2,427 sole-trader rows are flagged but still
+   `public_display=true`. Must run a quarantine pass before any UI use.
+2. **No `vat_status` column** — BIM (excl-VAT) vs HSE (incl-VAT) means any cross-publisher
+   sum silently mixes bases. Add the column or never sum across publishers.
+3. **Merge HSE+Tusla** into the fact table — but first align the bespoke parser's output to
+   the full fact schema (it currently emits a leaner set).
+4. **NTA** needs a bespoke spec (generic reader can't find its header); period null on ~12%
+   of rows (filenames lack a quarter/year).
+
+Everything below (§2–§10) remains as reference for the *full* ambition, should the one-shot
+ever graduate into a maintained product.
+
+---
+
 ## 2. Current Project Context
 
 The project already has procurement work on the `seanad-app-parity` branch.
@@ -1395,3 +1439,108 @@ source-linked public payment / purchase-order records
 The moat is not the chart.
 
 The moat is the cleaned, source-linked, high-fidelity Irish public-money corpus.
+
+---
+
+## 11. Discovery & Phase-4 Pilot Results (2026-06-03)
+
+This section records what was actually built and found running Phases 0–4 against the real
+sources. **Everything below is PRE-ETL** — sandbox scripts in `pipeline_sandbox/` writing
+only to `c:/tmp/procurement_publishers/`. Nothing is wired into `pipeline.py`, no gold
+parquet, no SQL views, no UI.
+
+### 11.1 Sandbox artifacts produced
+
+```text
+pipeline_sandbox/procurement_publishers_seed.py        # Phase-1 seed registry (59 publishers)
+pipeline_sandbox/probe_procurement_publishers.py       # Phase-2 harvest+classify probe
+pipeline_sandbox/sample_extract_procurement.py         # Phase-3 tabular (xlsx/csv) sampler
+pipeline_sandbox/sample_extract_procurement_pdf.py     # Phase-3b header-anchored PDF sampler
+pipeline_sandbox/inspect_hse_tusla.py                  # diagnostic for the two hard PDFs
+pipeline_sandbox/procurement_hse_tusla_parser.py       # Phase-4 bespoke parsers + DQ check
+
+data/_meta/procurement_publishers/publishers_seed.csv     # committed (moved out of c:/tmp 2026-06-03)
+c:/tmp/procurement_publishers/procurement_publishers_probe.json
+c:/tmp/procurement_publishers/sample_extraction_report.json
+c:/tmp/procurement_publishers/sample_extraction_pdf_report.json
+c:/tmp/procurement_publishers/hse_tusla_dq_report.json
+```
+
+Design reused (not rebuilt): the LA harvester (`procurement_la_seed.py`), the digital-PDF
+word-geometry extractor (`probe_procurement_pdf_counties.py`), and the supplier
+classification + `value_safe_to_sum` discipline in `procurement_etenders_extract.py`.
+
+### 11.2 Probe coverage (45 landing URLs hit, 736 data files seen)
+
+- **24 confirmed supplier-level leads**; formats 621 pdf / 53 xlsx / 34 xls / 28 csv.
+- Tabular & cleanest first parsers: **OPW, TII, Dept Climate, Dept Children/IPAS, Dept
+  Enterprise, Screen Ireland** (xlsx/csv with Supplier+Amount).
+- JS-rendered / no links (need browser render): Irish Rail, RTÉ, HSA, RSA, HIQA, Tallaght
+  Hospital, NCSE.
+- FOI/AIE-only (no clean route): Bord na Móna, Coillte, Enterprise Ireland, Fáilte Ireland,
+  OCEI, TheStory.
+- NOT_FOUND (landing URL not located): CIÉ, Bus/Dublin Bus, daa, the ports, ESB, EirGrid,
+  GNI, Uisce Éireann, TG4, IDA, Tourism Ireland.
+
+### 11.3 Per-source status after sampling
+
+```text
+CLEAN GENERIC (header-anchored reader handles today):
+  Teagasc, Bord Bia, BIM, Dept Defence, Dept Culture, CIB, Revenue, NTPF   (PDF)
+  OPW, TII, Dept Climate                                                    (tabular)
+NEEDS BESPOKE PARSER (per-publisher column spec) — DONE for HSE+Tusla:
+  HSE, Tusla   (built);  ATU, NTA   (pending)
+DIFFERENT GRAIN (not line-level — separate data product):
+  ESB Networks (category totals), SVUH (per-supplier aggregate)
+WRONG SAMPLE / NO HEADER (probe sample-picker grabbed a policy/preamble PDF):
+  Dept Housing (privacy statement), City of Dublin ETB (procurement policy),
+  Enterprise Ireland (ESG export guide), Marine Institute, LM ETB
+```
+
+### 11.4 Read-fixes folded into the PDF sampler
+
+- **Digit-prefix strip** (LA Mayo/Donegal lesson): drop a leading PO/vendor-ID run from the
+  supplier cell (`539106 A HORTON LTD` → `A HORTON LTD`).
+- **Numeric-aware role pick**: amount = the amount-labelled column whose cells are *most*
+  numeric (recovered **Revenue** from €0 → €52m — it had been reading a `Paid` flag);
+  supplier = the supplier-labelled column that is *least* numeric (fixed ATU reading a
+  numeric `Supplier ID`).
+- **Negative result (reverted):** a generic data-gutter column splitter did **not** fix
+  left-aligned vendor bleed and *regressed* HSE — confirming that the hard layouts need
+  per-publisher x-specs, not a smarter generic heuristic.
+
+### 11.5 Phase-4 bespoke parsers — HSE & Tusla (with DQ)
+
+Per-publisher column-x cuts measured from word geometry:
+
+```text
+HSE    VENDOR(<180) | DOC REF(180-270) | GL DESC(270-450) | € AMOUNT(450-515) | Qx YYYY(>515)
+TUSLA  YEAR(<110) | QTR(110-160) | DATE(160-290) | AMOUNT(290-375) | VENDOR(375-570) | DESC(>570)
+```
+
+| Source | Rows | Distinct suppliers | Periods | Sum (€) | Max share | Supplier-name quality |
+|---|---|---|---|---|---|---|
+| HSE   | 16,972 | 1,370 | 2021 Q4 → 2025 Q3 (16 qtrs, cumulative file) | 6.39bn | 1.0% | empty 0 · lead-digit 2 · total-rows 4 |
+| Tusla | 1,980  | 274   | 2021 Q1–Q4 | 178.4m | 1.5% | 100% clean |
+
+No negatives, no zeros, no single-row outlier domination in either. Top suppliers are
+coherent (HSE: Pfizer €294m, Byrne Wallace Solicitors €239m, IBM €149m; Tusla: residential
+childcare providers). **~19k clean supplier-level payment rows** with page/row provenance.
+
+### 11.6 Open items for the wider Phase-4 build (decisions, not bugs)
+
+1. **Amount semantics / period**: HSE file is a 4-year *cumulative* publication, Tusla is
+   single-year — `period`/`year`/`quarter` must be carried per row (done in the pilot).
+2. **Content-duplicate policy**: HSE 87 / Tusla 253 rows are content-identical
+   (year+quarter+supplier+amount+description+date). Likely genuine same-day repeated
+   invoices; needs a documented dedup rule before any total is published.
+3. **Entity resolution**: e.g. HSE `PFH TECHNOLOGY` vs `PFH TECHNOLOGY GROUP` — reuse the
+   existing eTenders supplier→CRO matcher, do not rebuild.
+4. **Privacy**: `personal_name_risk` is a conservative over-count (suffix-free company names
+   like `NUA HEALTHCARE SERVICES`). A real classifier (COMPANY_SUFFIX broadening + CRO hit)
+   is needed before any quarantine decision. Tusla especially may carry individual carers.
+5. **Remaining parsers**: ATU + NTA need their own x-specs; fix the probe sample-picker to
+   skip policy/privacy/annual-report PDFs (recovers Housing, CDETB, Enterprise Ireland).
+
+Only after the above are settled should this become gold (`public_payments_fact.parquet`),
+SQL views, tests, and finally a Procurement page — per Phases 5–9 above.
