@@ -3,6 +3,9 @@
     2016,
     2026
   ],
+  "last_crawled_years": [
+    2026
+  ],
   "directory_pages_updated_to": {
     "2016": "29 May 2026",
     "2017": "29 May 2026",
@@ -19,10 +22,10 @@
   "rows": 7355,
   "state_distribution": {
     "in_force_as_made": 5421,
+    "other_affected": 428,
     "revoked": 1335,
     "amended": 161,
-    "partially_revoked": 10,
-    "other_affected": 428
+    "partially_revoked": 10
   },
   "gold_si_count": 5924,
   "gold_join_coverage_pct": 99.53,
