@@ -58,7 +58,9 @@ DIVISIONS = [
     ("Agriculture, Education, Health & Welfare", r"agriculture"),
     ("Miscellaneous Services", r"miscellaneous"),
 ]
-NUM = re.compile(r"^\(?-?[\d,]+\)?$")
+# a numeric cell: full euros "6,750,822,110", negatives "(13,737,809)", or the 2019
+# millions-with-suffix notation "1,630.75 M"
+NUM = re.compile(r"^\(?-?[\d,]+(?:\.\d+)?\)?\s*[Mm]?$")
 
 
 def hr(t: str) -> None:
@@ -67,9 +69,13 @@ def hr(t: str) -> None:
 
 def to_num(s: str) -> float:
     s = s.strip()
-    neg = s.startswith("(") and s.endswith(")")
-    v = re.sub(r"[^\d]", "", s)
-    return (-float(v) if neg else float(v)) if v else 0.0
+    neg = s.startswith("(")
+    mult = 1e6 if re.search(r"[Mm]\s*$", s) else 1.0  # 2019 reports in € millions ("1,630.75 M")
+    m = re.search(r"[\d,]+(?:\.\d+)?", s)
+    if not m:
+        return 0.0
+    v = float(m.group().replace(",", "")) * mult
+    return -v if neg else v
 
 
 def download(year: int, url: str) -> Path | None:
@@ -160,7 +166,7 @@ def main() -> None:
         recon = "n/a"
         if total:
             diff = abs(gross_sum - total[0])
-            recon = "EXACT" if diff <= 2 else f"diff €{diff:,.0f}"
+            recon = "EXACT" if diff <= 2 else (f"≈ M-rounded (€{diff:,.0f})" if diff < 100_000 else f"diff €{diff:,.0f}")
         for canon, v in ie.items():
             all_rows.append({"year": year, "division": canon, "gross_expenditure": v[0],
                              "income": v[1], "net_expenditure": v[2], "net_expenditure_prior_yr": v[3]})

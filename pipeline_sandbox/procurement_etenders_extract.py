@@ -130,7 +130,17 @@ def main() -> None:
             + ([cpv_col] if cpv_col else [])
             + ([cpv_desc_col] if cpv_desc_col else [])
         )
-        .with_columns(pl.col(sup_col).str.replace_all(";", "|").str.split("|").alias("sl"))
+        # decode HTML entities FIRST: the source encodes '&' as '&amp;', whose literal
+        # ';' would otherwise be turned into the '|' supplier delimiter below and split a
+        # single name ("Bourke &amp; Co. Limited" -> "Bourke" + "Co. Limited"). Unescape,
+        # then normalise ';' separators to '|', then split.
+        .with_columns(
+            pl.col(sup_col)
+            .map_elements(lambda s: html.unescape(s or ""), return_dtype=pl.Utf8)
+            .str.replace_all(";", "|")
+            .str.split("|")
+            .alias("sl")
+        )
         .explode("sl")
         .with_columns(pl.col("sl").map_elements(tidy_name, return_dtype=pl.Utf8).alias("supplier_raw"))
         .filter(pl.col("supplier_raw").str.len_chars() >= 3)
@@ -181,13 +191,27 @@ def main() -> None:
     # expenditure. So `value_safe_to_sum` is the only column anything downstream may total,
     # and even that should be labelled "awarded value, not actual spend".
     FRAMEWORK_TYPES = ["Framework", "FW - Mini-Comp", "DPS Tender", "DPS/UQS"]
+    # The source carries the literal string "NULL" for ~7% of award rows. Make it an honest
+    # null so it can't (a) collapse 4k unrelated awards into one group_by bucket, nor (b) be
+    # mistaken for a joinable id downstream.
+    aw = aw.with_columns(
+        pl.when(pl.col("Tender ID").str.strip_chars().is_in(["", "NULL"]))
+        .then(None)
+        .otherwise(pl.col("Tender ID"))
+        .alias("Tender ID"),
+    )
     aw = aw.with_columns(
         pl.col(val_col).str.replace_all(r"[^0-9.]", "").cast(pl.Float64, strict=False).alias("value_eur"),
         pl.col(comp_col).is_in(FRAMEWORK_TYPES).alias("is_framework_or_dps"),
         (pl.col(parent_col).is_not_null() & (pl.col(parent_col) != "NULL") & (pl.col(parent_col).str.strip_chars() != "")).alias("is_call_off"),
     ).with_columns(
-        # >1 supplier row on a tender => the single ceiling is repeated across them
-        (pl.len().over("Tender ID") > 1).alias("value_shared_across_suppliers"),
+        # >1 supplier row on a tender => the single ceiling is repeated across them. A null
+        # Tender ID can't be grouped reliably (every null would otherwise share one bucket),
+        # so leave it un-shared here and exclude it from value_safe_to_sum below instead.
+        pl.when(pl.col("Tender ID").is_null())
+        .then(False)
+        .otherwise(pl.len().over("Tender ID") > 1)
+        .alias("value_shared_across_suppliers"),
     ).with_columns(
         pl.when(pl.col("is_framework_or_dps")).then(pl.lit("framework_or_dps_ceiling"))
         .when(pl.col("is_call_off")).then(pl.lit("framework_call_off"))
@@ -196,6 +220,7 @@ def main() -> None:
         (
             (pl.col("value_kind") == "contract_award_value")
             & ~pl.col("value_shared_across_suppliers")
+            & pl.col("Tender ID").is_not_null()  # null id => can't verify the value isn't a repeated ceiling
             & pl.col("value_eur").is_not_null()
             & (pl.col("value_eur") > 0)
         ).alias("value_safe_to_sum"),

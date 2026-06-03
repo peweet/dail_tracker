@@ -5,6 +5,12 @@
 **Status:** Planning document  
 **Recommended location:** `doc/PROCUREMENT_SEMISTATE_EXPANSION_PLAN.md`
 
+> **This is a SOURCE-LANE doc** (the semistate / public-body lane), kept separate by design.
+> The **master plan is `doc/PROCUREMENT_BUILD_PLAN.md`** — it owns the cross-cutting contracts:
+> the VALUE TAXONOMY (§4b), tests (§7), and logic-firewall checklist (§9). The unified
+> fact-table column contract is `doc/PUBLIC_PAYMENTS_FACT_SCHEMA.md`. **Any value classification
+> here must use the master's `value_kind` + `realisation_tier`, never a competing vocabulary.**
+
 ---
 
 ## 1. Purpose
@@ -59,7 +65,7 @@ what is deliberately skipped, and what genuinely remains. Detailed results are i
 | 5 Gold parquet | `data/gold/parquet/public_payments_fact.parquet` | ⚠️ **candidate only** at `data/sandbox/parquet/public_payments_fact.parquet` (8,021 rows / 19 publishers; HSE+Tusla parsed separately, ~19k more, not yet merged). Not promoted to gold. |
 | 6 Coverage metadata | full key set | ✅ `data/_meta/public_payments_coverage.json` (a few §6 keys still absent) |
 | 7 SQL views | 6 views | ❌ not started — **right-sized DOWN: at most a supplier-summary + publisher-summary if/when a page is built; the 6-view enrichment fan-out is deferred indefinitely** |
-| 8 Tests | 5 test files | ❌ not started — **right-sized to ONE contract test** enforcing the safe-to-sum + privacy + provenance invariants (see `doc/PUBLIC_PAYMENTS_FACT_SCHEMA.md` §3) |
+| 8 Tests | 5 test files | ❌ not started — **DEFERRED until the feature stabilises**; right-sized 4-tier plan (pure-function units + seed test in CI; gold-contract + DQ as `integration`) written up in `doc/PUBLIC_PAYMENTS_FACT_SCHEMA.md` §8 |
 | 9 Streamlit page | Procurement page | ❌ not started — correctly gated; out of scope for the one-shot |
 
 **Deliberately skipped while this is one-shot:** the Protocol parser framework (§6 Phase 4
