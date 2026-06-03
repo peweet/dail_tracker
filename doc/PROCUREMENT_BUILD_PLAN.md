@@ -307,6 +307,40 @@ all-or-nothing national scrape.
 
 ---
 
+## 8c. Outstanding ingestion backlog (stocktake 2026-06-03)
+
+**In production:** eTenders awards (gold), **TED IE awards (silver `ted_ie_awards`, 13,126)**,
+**amalgamated AFS (silver `afs_amalgamated_divisions`, 64, BUDGET tier)**.
+**Built, not promoted:** `public_payments_fact` (sandbox, 8,021 rows / 17 central+semi-state
+publishers, SPENT tier) — ⚠ still on the drifted `amount_semantics` col; **converge to
+`value_kind`+`realisation_tier` before promoting** (§4b).
+
+Not yet ingested, in rough priority:
+
+1. **⭐ LA Purchase-Orders over €20k — 31 councils (the per-transaction layer).** Fully probed
+   (22/31 parsed live, ~250–320k row estimate), merged registry `procurement_la_registry.py`,
+   shared reader proven (fitz+largest-x-gap+numeric-strip / xlsx-csv direct) — but **never
+   materialised into a fact**, and NOT in `public_payments_fact` (which holds only central/
+   semi-state publishers, zero councils). **Being kicked off in its own context window** —
+   see the kickoff prompt in `doc/PROCUREMENT_INVESTIGATION.md` ("LA PO corpus — kickoff").
+2. **Per-LA AFS** — the 31 *individual* council financial statements (per-council by-division
+   BUDGET; the per-constituency prize). Only the amalgamated/national AFS is in. Heavier PDF
+   extract (statutory tables, scanned older years possible). Reuse `afs_amalgamated_extract.py`.
+3. **Rest of the AFS document** — only I&E-by-division is ingested. **Note-16 budget-vs-actual**
+   (stacked sub-table parser needed), capital expenditure by division, balance sheet.
+4. **Hard LA tail** — Carlow/Cavan/Mayo/Roscommon (JS-rendered → Playwright), Louth/Tipperary
+   (target the right file), pre-2016 AFS (old programme-group wording).
+5. **CSO GFA budget** (`probe_la_finance_budget.py`) — probed only (general-gov by economic
+   category, 2000–2025); promote to silver if the BUDGET tier wants the economic-category cut.
+6. **Mini-competitions / standalone awards** — probed; ~88% supplier overlap with eTenders →
+   marginal, **deliberate skip** unless a specific need appears.
+
+Candidate sources **not yet considered** (in-scope-ish, log before deciding):
+- **NDP / capital-projects tracker** (gov.ie investment projects / MyProjectIreland) — major
+  capital procurement with values; never looked at.
+- **Revised Estimates Volume (central appropriations by programme)** — deprioritised earlier
+  as "too far" (central-gov budget, not procurement per se); revisit only on request.
+
 ## 9. Logic-firewall checklist (gate before merge)
 
 - [ ] No `read_parquet` / JOIN / GROUP BY / window / pandas merge in

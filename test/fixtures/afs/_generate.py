@@ -21,15 +21,15 @@ import fitz
 
 ROOT = Path(__file__).resolve().parents[3]
 FX = Path(__file__).resolve().parent
-SANDBOX_PARQUET = ROOT / "data/sandbox/parquet/afs_amalgamated_divisions.parquet"
-PDF_2020 = Path("c:/tmp/afs/afs_full_2020.pdf")
+SILVER_PARQUET = ROOT / "data/silver/parquet/afs_amalgamated_divisions.parquet"
+PDF_2020 = ROOT / "data/bronze/pdfs/afs/afs_full_2020.pdf"
 
 
 def main() -> None:
     doc = fitz.open(PDF_2020)
     (FX / "afs_2020_ie_page.txt").write_text(doc[12].get_text("text"), encoding="utf-8")
     doc.close()
-    shutil.copy(SANDBOX_PARQUET, FX / "afs_amalgamated_divisions.parquet")
+    shutil.copy(SILVER_PARQUET, FX / "afs_amalgamated_divisions.parquet")
     print("regenerated:", *(p.name for p in sorted(FX.glob("afs_*"))))
 
 
