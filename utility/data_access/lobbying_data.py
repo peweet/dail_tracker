@@ -145,6 +145,26 @@ def fetch_all_org_names() -> list[str]:
     return df["lobbyist_name"].dropna().tolist()
 
 
+# ── Procurement footprint (eTenders cross-reference) ────────────────────────────
+
+
+@st.cache_data(ttl=300)
+def fetch_org_procurement(org_name: str) -> pd.DataFrame:
+    """State-procurement footprint for one lobbying organisation.
+
+    Returns one row (or empty) from v_lobbying_org_procurement — a registrant on
+    lobbying.ie that is ALSO an eTenders contract winner. Co-occurrence by entity
+    only, NOT evidence lobbying influenced any award; n_awards is a count and
+    awarded_value_safe_eur is awarded value, not spend. Sourced from the
+    procurement_lobbying gold xref; empty if that chain has not run.
+    """
+    return _safe(
+        "SELECT lobbyist_name, supplier, n_awards, n_authorities, awarded_value_safe_eur"
+        " FROM v_lobbying_org_procurement WHERE lobbyist_name = ? LIMIT 1",
+        [org_name],
+    )
+
+
 # ── Contact detail ─────────────────────────────────────────────────────────────
 
 
