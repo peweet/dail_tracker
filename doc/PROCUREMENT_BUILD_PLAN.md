@@ -112,6 +112,48 @@ raw feed flagged "source name incomplete" ([[feedback_gold_layer_quarantine]]).
 
 ---
 
+## 4b. VALUE TAXONOMY & classification pattern (cross-source — adopt before consolidation)
+
+> **Where we are:** still the **ingestion phase** — taking sources in piecemeal, parsing
+> and testing each (eTenders gold ✓, LA PO probes ✓, TED pulled ✓), seeing what turns up.
+> **Wholesale consolidation has NOT begun.** This taxonomy is the contract to lock in
+> *now*, before merging anything, so the consolidation doesn't corrupt the data by
+> conflating money that means different things — and so a PDF's logical row structure is
+> replicated faithfully in tabular form (one PO line = one typed row, with its tier).
+
+Every source measures a **different point in the spend lifecycle**; figures are NOT
+interchangeable or summable across points. Tag every row on two axes.
+
+**Axis 1 — realisation tier:** `PLANNED → AWARDED → COMMITTED → SPENT` (+ BUDGET aggregate).
+**Axis 2 — `value_kind`** (controlled vocab; extends the 2 already in gold):
+
+| `value_kind` | tier | UI verb | summable? | source |
+|---|---|---|---|---|
+| `estimate_advertised` | PLANNED | "expected ~€X" | no | eTenders/TED notice estimate |
+| `budget_allocated` | PLANNED(agg) | "budgeted €X" | within LA/year only | AFS / NOAC |
+| `contract_award_value` | AWARDED | "awarded €X" | caution | eTenders/TED single award *(in gold)* |
+| `framework_or_dps_ceiling` | AWARDED | "up to €X, shared" | **NO** | frameworks/DPS, pan-EU (GÉANT) *(in gold)* |
+| `po_committed` | COMMITTED | "ordered €X" | yes | LA Purchase-Orders-over-€20k |
+| `payment_actual` | SPENT | "paid €X" | **yes (true spend)** | LA "Paid" lists / Dept payments |
+
+Rules to bake into the model + views (not the page):
+1. **Every value row carries `value_kind` + `realisation_tier`** — extend the gold's
+   existing `value_kind` to this full vocab when the spend/TED tiers land.
+2. **`value_safe_to_sum` is derived from `value_kind`** (true only for `po_committed` /
+   `payment_actual`, and `contract_award_value` with caution) — the firewall already does
+   this for awards; generalise it, don't reinvent per source.
+3. **One tier per view / per page section** — never a blended list or cross-tier total.
+4. **The verb is the disambiguation** — render "paid/ordered/awarded/expected €X", never bare €.
+5. **No cross-tier arithmetic** (no "awarded − paid = outstanding"): the tiers have no shared
+   key (a notice→award→PO→payment chain is unlinked), so reconciliation is a fiction by default.
+6. **PDF→tabular fidelity:** when ingesting a PO PDF, one printed line becomes one row tagged
+   `po_committed` or `payment_actual` (per that council's Paid flag) — preserve the source's
+   own grain; do not aggregate or re-interpret at ingestion. Test each council's parse against
+   the PDF's visible row count + total before trusting it.
+
+Full rationale + the anti-overwhelm UX pattern: `doc/PROCUREMENT_INVESTIGATION.md`
+("VALUE TAXONOMY & classification pattern").
+
 ## 5. Phase 2 — data access
 
 New `utility/data_access/procurement_data.py`, copying `corporate_data.py`:
@@ -272,6 +314,8 @@ all-or-nothing national scrape.
 - [ ] Every business metric (counts, safe-to-sum totals, CRO match, overlap)
       defined in a `sql_views/procurement_*.sql` view.
 - [ ] `value_safe_to_sum` gating lives in the view; the page can only display it.
+- [ ] Every value row tagged `value_kind` + `realisation_tier` (§4b); one tier per view,
+      no cross-tier totals, verb-on-every-figure.
 - [ ] `name_truncated` / individual quarantine enforced in the view.
 - [ ] CC-BY attribution + landing page + `retrieved_utc` shown in the UI.
 - [ ] No inference / causal language in UI copy (overlap = co-occurrence only).

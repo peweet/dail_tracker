@@ -1,0 +1,41 @@
+{
+  "rows_notice_x_winner": 13126,
+  "distinct_notices": 8614,
+  "rows_with_value": 5478,
+  "multi_supplier_framework_rows": 5517,
+  "pan_eu_outlier_rows": 375,
+  "value_safe_to_sum_rows": 4064,
+  "value_safe_to_sum_total_eur": 31524984920.829998,
+  "value_naive_sum_eur_DO_NOT_USE": 624457109931.12,
+  "supplier_class_counts": {
+    "company": 6935,
+    "unknown": 948,
+    "sole_trader_or_individual": 5243
+  },
+  "cro_match_counts": {
+    "none": 4727,
+    "name": 1705,
+    "identifier": 6694
+  },
+  "cro_match_rate": 0.64,
+  "rows_review_personal_data": 5243,
+  "date_span": [
+    "2023-12-29",
+    "2026-06-02"
+  ],
+  "layer": "silver",
+  "next_step": "build sql_views/ted_*.sql (reconcile frameworks + CRO) before any gold/UI",
+  "source": {
+    "dataset": "TED \u2014 Tenders Electronic Daily (contract award notices, Ireland)",
+    "publisher": "Publications Office of the European Union",
+    "api": "https://api.ted.europa.eu/v3/notices/search",
+    "query": "buyer-country=IRL AND notice-type=can-standard AND publication-date>=20240101",
+    "landing_page": "https://ted.europa.eu/",
+    "notice_url_template": "https://ted.europa.eu/en/notice/-/detail/{publication_number}",
+    "license": "EU open data \u2014 reuse authorised under Commission Decision 2011/833/EU",
+    "attribution": "Contains information from TED (\u00a9 European Union), reused under Decision 2011/833/EU."
+  },
+  "schema_version": 1,
+  "generated_at": "2026-06-03T13:30:27+00:00",
+  "caveat": "SILVER (cleaned, not frontend-exposed). One row per notice x winner. tender-value is a NOTICE-level figure: for multi-supplier frameworks it is the framework CEILING, never per-winner \u2014 only value_safe_to_sum (single-winner, non-framework, non-pan-EU) may be totalled, labelled 'awarded', not spend. winner-identifier matched to CRO company_num after digit-strip; bare personal-name winners flagged review_personal_data (quarantine deferred). A contract award is a fact, not evidence of influence."
+}
