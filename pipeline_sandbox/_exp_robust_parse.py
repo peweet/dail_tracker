@@ -35,6 +35,7 @@ CELLS = Path("c:/tmp/exp_cells")
 JOBS = [
     ("green", "green_sipo_ge_2024_expenses.pdf", range(2, 7)),
     ("pbp", "pbp_sipo_ge_2024_expenses.pdf", range(2, 12)),
+    ("lab", "lab_sipo_ge_2024_expenses.pdf", range(2, 10)),
 ]
 
 
@@ -87,14 +88,16 @@ def experiment(key, pages_cells, norm_keys, norm_to_name):
             nm, sc = etl.match_constituency(c["text"], norm_keys, norm_to_name)
             if nm:
                 anchors.append((pno, c, nm)); has_anchor = True
-        # TOTAL row: the cell whose label is exactly 'TOTAL'/'TOTAL:' (NOT the
-        # column header 'Total Expenditure ...') -> rightmost money on its y
-        for c in cells:
-            if re.sub(r"[^a-z]", "", c["text"].lower()) == "total":
-                same = sorted([m for m in page_money if abs(yc(m[0]) - yc(c)) <= 25], key=lambda m: xc(m[0]))
-                if same:
-                    total_spend = same[-1][1]
+        # TOTAL row — ONLY on summary pages (other sections have their own 'Total:'
+        # rows that must not overwrite it). Label exactly 'TOTAL'/'TOTAL:' (NOT the
+        # 'Total Expenditure ...' column header) -> rightmost money on its y.
         if has_anchor:
+            for c in cells:
+                if re.sub(r"[^a-z]", "", c["text"].lower()) == "total":
+                    same = sorted([m for m in page_money if abs(yc(m[0]) - yc(c)) <= 25], key=lambda m: xc(m[0]))
+                    if same:
+                        total_spend = same[-1][1]
+                        print(f"    [{key}] TOTAL row on p{pno}: rightmost €{total_spend:,.2f}  (row money: {[round(m[1],2) for m in same]})")
             money += [(pno, c, v) for c, v in page_money]
 
     if not money:
@@ -131,6 +134,39 @@ def experiment(key, pages_cells, norm_keys, norm_to_name):
         diff = sum_spend - total_spend
         ok = abs(diff) <= max(1.0, total_spend * 0.005)
         lines.append(f"RECONCILES           : {'✅ YES' if ok else '❌ NO'}  (diff €{diff:,.2f})")
+
+    # ---- validator A: ORDER-pairing (offset-immune, breaks on blanks) ----
+    lv = [m for m in left if m[2] != total_spend]
+    n = min(len(lv), len(right))
+    ov = sum(1 for i in range(n) if right[i][2] > lv[i][2] * 1.02)
+    lines.append(f"order-pair: {len(lv)} assigned vs {len(right)} spend; "
+                 f"spend>assigned violations = {ov}/{n} {'✅' if ov == 0 and len(lv)==len(right) else '⚠️'}")
+
+    # ---- validator B: NEAREST-ANCHOR pairing (handles blanks) ----
+    # row height from anchor y spacing (per page)
+    rights = [m for m in right if m[2] != total_spend]
+    claimed = set()
+    pairs = []
+    for pno, acell, nm in anchors:
+        ay = yc(acell)
+        # assigned: nearest left-band money on same page
+        cand_l = sorted([m for m in left if m[0] == pno and m[2] != total_spend],
+                        key=lambda m: abs(yc(m[1]) - ay))
+        assigned = cand_l[0][2] if cand_l and abs(yc(cand_l[0][1]) - ay) < 80 else None
+        # expenditure: nearest UNCLAIMED right-band money on same page within ~1.2 row
+        cand_r = sorted([(j, m) for j, m in enumerate(rights) if m[0] == pno and j not in claimed],
+                        key=lambda t: abs(yc(t[1][1]) - ay))
+        spend = None
+        if cand_r and abs(yc(cand_r[0][1][1]) - ay) < 120:
+            j, m = cand_r[0]; claimed.add(j); spend = m[2]
+        if assigned or spend:
+            pairs.append((nm, assigned, spend))
+    na_viol = sum(1 for _, a, s in pairs if a and s and s > a * 1.02)
+    na_sum = round(sum(s for _, a, s in pairs if s), 2)
+    lines.append(f"nearest-anchor: {len(pairs)} pairs, Σspend €{na_sum:,.2f}, "
+                 f"spend>assigned violations = {na_viol} {'✅' if na_viol == 0 else '⚠️'}")
+    if total_spend:
+        lines.append(f"  nearest-anchor reconcile: {'✅' if abs(na_sum-total_spend)<=max(1,total_spend*0.01) else '❌'} (diff €{na_sum-total_spend:,.2f})")
     return "\n".join(lines)
 
 

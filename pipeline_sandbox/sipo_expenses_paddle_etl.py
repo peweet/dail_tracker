@@ -279,7 +279,24 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
                 "statutory_limit_eur": float(limit) if limit else None,
                 "flag": flag, "source_pdf": pdf_name, "source_page": p,
             })
-    return pl.DataFrame(facts) if facts else pl.DataFrame()
+    df = pl.DataFrame(facts) if facts else pl.DataFrame()
+    if df.height:
+        # SIPO forms print the candidate summary TWICE ("expenses NOT met from public
+        # funds" + "expenses MET from public funds"); when both copies carry amounts the
+        # summary-page detector grabs both, doubling every candidate (e.g. Labour p3==p29
+        # -> 52 rows, total inflated 2x). A candidate+constituency is unique within a
+        # party, so dedup keeping the highest-confidence (then earliest-page) row collapses
+        # the repeat safely.
+        before = df.height
+        df = (
+            df.sort(["expenditure_confidence", "source_page"], descending=[True, False], nulls_last=True)
+            .unique(subset=["candidate_name_raw", "constituency"], keep="first")
+            .sort(["source_page", "candidate_name_raw"])
+        )
+        if df.height < before:
+            print(f"    [{party}] deduped {before - df.height} repeated summary rows "
+                  f"({before}->{df.height})", flush=True)
+    return df
 
 
 def rebuild_combined() -> None:
