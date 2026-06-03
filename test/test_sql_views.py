@@ -772,6 +772,7 @@ _REGISTRATION_GROUPS = [
     ("legislation", ["legislation_*.sql"], {}),
     ("lobbying", ["lobbying_*.sql"], {}),
     ("payments", ["payments_*.sql"], {}),
+    ("procurement", ["procurement_*.sql"], {}),
     (
         "votes",
         ["vote*.sql"],

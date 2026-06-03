@@ -18,11 +18,12 @@ Run:  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_etenders_extract.p
 
 from __future__ import annotations
 
+import contextlib
 import html
 import json
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
@@ -30,10 +31,8 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-try:
+with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
-except Exception:
-    pass
 
 from cro_normalise import name_norm_expr  # noqa: E402
 
@@ -114,6 +113,7 @@ def main() -> None:
     val_col = next(c for c in df.columns if "Awarded Value" in c)
     date_col = next(c for c in df.columns if "Published" in c and "Date" in c)
     cpv_col = next((c for c in df.columns if c == "Main Cpv Code"), None)
+    cpv_desc_col = next((c for c in df.columns if c == "Main Cpv Code Description"), None)
     comp_col = "Competition Type"      # Framework / DPS / Standalone / Bespoke ...
     parent_col = "Parent Agreement ID"  # present => call-off under a parent framework
 
@@ -125,7 +125,11 @@ def main() -> None:
 
     # explode supplier cells (separator '|'), decode entities, clean
     aw = (
-        awards.select(["Tender ID", sup_col, auth_col, val_col, date_col, comp_col, parent_col] + ([cpv_col] if cpv_col else []))
+        awards.select(
+            ["Tender ID", sup_col, auth_col, val_col, date_col, comp_col, parent_col]
+            + ([cpv_col] if cpv_col else [])
+            + ([cpv_desc_col] if cpv_desc_col else [])
+        )
         .with_columns(pl.col(sup_col).str.replace_all(";", "|").str.split("|").alias("sl"))
         .explode("sl")
         .with_columns(pl.col("sl").map_elements(tidy_name, return_dtype=pl.Utf8).alias("supplier_raw"))
@@ -271,7 +275,7 @@ def main() -> None:
         "value_safe_to_sum_total_eur": float(aw.filter(pl.col("value_safe_to_sum"))["value_eur"].sum() or 0),
         "value_naive_sum_eur_DO_NOT_USE": float(aw["value_eur"].sum() or 0),
         "source": SOURCE,
-        "retrieved_utc": datetime.fromtimestamp(CACHE.stat().st_mtime, tz=timezone.utc).strftime("%Y-%m-%d"),
+        "retrieved_utc": datetime.fromtimestamp(CACHE.stat().st_mtime, tz=UTC).strftime("%Y-%m-%d"),
         "caveat": "A contract award is a fact, not evidence of influence or wrongdoing. "
                   "Sole-trader/individual supplier names are quarantined (personal data). "
                   "name_truncated rows have a leading capital dropped in the OGP source and "

@@ -66,6 +66,15 @@ CHAINS: list[tuple[str, str]] = [
     # silver via cro_normalise): exact normalised-name join of notices to the
     # CRO company register, committed gold, read by the Corporate page badge.
     ("cro", "pipeline_sandbox/cro_corporate_xref_enrichment.py"),
+    # procurement: eTenders/OGP open data -> gold awards + supplier→CRO match.
+    # Self-fetches + caches the source CSV; depends on the CRO silver register
+    # (same as cro), so it runs after it.
+    ("procurement", "pipeline_sandbox/procurement_etenders_extract.py"),
+    # procurement_lobbying xref runs after BOTH procurement (gold awards) and
+    # lobbying (silver returns): exact normalised-name overlap of suppliers and
+    # lobbying registrants/clients, committed gold, read by the Lobbying page's
+    # "also a state supplier" enrichment and the (future) Procurement page.
+    ("procurement_lobbying", "pipeline_sandbox/procurement_lobbying_xref.py"),
     # freshness runs last: it reads the silver + gold the chains above produced
     # and writes data/_meta/freshness.json (the data-age signal the Streamlit
     # badge + scheduled report read). Pure read — never mutates pipeline data.
@@ -83,7 +92,9 @@ _CHAIN_BLURBS: dict[str, str] = {
     "iris": "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
     "legislation": "bills + questions + amendments + votes + cross-dataset enrich",
     "cbi": "CBI register extract + corporate-notices xref (gold)",
-    "cro": "CRO company register ↔ corporate-notices exact-name xref (gold)",
+    "cro": "CRO company register <-> corporate-notices exact-name xref (gold)",
+    "procurement": "eTenders/OGP awards + supplier->CRO match (gold); value-is-not-spend flags",
+    "procurement_lobbying": "supplier <-> lobbying registrant/client overlap xref (gold)",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
 }
 
