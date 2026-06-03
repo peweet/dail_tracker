@@ -27,6 +27,7 @@ Run (one or more party keys; default = all):
 from __future__ import annotations
 
 import difflib
+import json
 import re
 import sys
 import tempfile
@@ -104,10 +105,10 @@ def match_constituency(text: str, norm_keys, norm_to_name) -> tuple[str | None, 
     return norm_to_name[mm[0]], round(difflib.SequenceMatcher(None, cand, mm[0]).ratio(), 2)
 
 
-def ocr_page(ocr, page, tmp_png: Path) -> list[dict]:
+def ocr_page(ocr, page, tmp_png: Path, dpi: int = DPI) -> list[dict]:
     """Render a page to a temp PNG (the stable input path — a numpy array
     segfaults paddle 3.3.1) and return PaddleOCR cells: text, score, x0,y0,x1,y1."""
-    pix = page.get_pixmap(matrix=fitz.Matrix(DPI / 72, DPI / 72))
+    pix = page.get_pixmap(matrix=fitz.Matrix(dpi / 72, dpi / 72))
     pix.save(tmp_png)
     res = ocr.predict(input=str(tmp_png))
     cells = []
@@ -186,19 +187,47 @@ def parse_row(row: list[dict], norm_keys, norm_to_name, name_to_seats) -> dict |
 
 
 def process_party(ocr, key, pdf_path, party, norm_keys, norm_to_name, name_to_seats) -> pl.DataFrame:
+    """Crash-proof: each page's parsed rows are checkpointed to _ckpt/<key>/p<N>.json.
+    PaddleOCR can SEGFAULT (kills the whole process, uncatchable). On a restart we
+    skip pages already done, and skip a page whose .attempt marker survived without
+    a result (= it crashed us last time) so a deterministically-bad page can't loop."""
     doc = fitz.open(pdf_path)
     y_tol = int(DPI / 72 * 9)
     tmp_png = Path(tempfile.gettempdir()) / f"sipo_etl_{key}.png"
+    ckpt = BY_PARTY_DIR / "_ckpt" / key
+    ckpt.mkdir(parents=True, exist_ok=True)
+
     page_rows: dict[int, list[dict]] = {}
     for pno, page in enumerate(doc, start=1):
-        print(f"    [{party}] OCR page {pno}/{doc.page_count}...", flush=True)
-        try:
-            cells = ocr_page(ocr, page, tmp_png)
-        except Exception as e:
-            print(f"      !! page {pno} failed: {type(e).__name__}: {str(e)[:80]}", flush=True)
+        done = ckpt / f"p{pno:03}.json"
+        attempt = ckpt / f"p{pno:03}.attempt"
+        if done.exists():
+            d = json.loads(done.read_text(encoding="utf-8"))
+            if d.get("rows"):
+                page_rows[pno] = d["rows"]
             continue
+        # retry ladder: a page that crashed us before left an .attempt marker listing
+        # the DPIs already tried. Allow 2x at 300 (transient segfaults), then 1x at
+        # 200 (lower DPI often dodges the crash), then give up.
+        tries = json.loads(attempt.read_text(encoding="utf-8"))["tries"] if attempt.exists() else []
+        if not tries:
+            dpi = 300
+        elif tries == [300]:
+            dpi = 300
+        elif tries == [300, 300]:
+            dpi = 200
+        else:
+            print(f"    [{party}] page {pno}: crashed at {tries} -> SKIP (failed)", flush=True)
+            done.write_text(json.dumps({"failed": True, "tries": tries, "rows": []}), encoding="utf-8")
+            attempt.unlink(missing_ok=True)
+            continue
+        print(f"    [{party}] OCR page {pno}/{doc.page_count} @ {dpi}dpi...", flush=True)
+        attempt.write_text(json.dumps({"tries": tries + [dpi]}), encoding="utf-8")  # mark BEFORE the call
+        cells = ocr_page(ocr, page, tmp_png, dpi)
         rows = [r for row in cluster_rows(cells, y_tol)
                 if (r := parse_row(row, norm_keys, norm_to_name, name_to_seats))]
+        done.write_text(json.dumps({"failed": False, "rows": rows}), encoding="utf-8")
+        attempt.unlink(missing_ok=True)
         if rows:
             page_rows[pno] = rows
 

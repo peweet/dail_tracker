@@ -363,6 +363,115 @@ largest-x-gap for PDFs, direct read for XLSX/CSV) + the validated CRO matcher. E
 (Meath/Galway-County WAF), or out-of-scope (stale/non-publishers). OCR stays unneeded.
 Report (`c:/tmp/procurement_la/seed_report.json`) holds the per-council link tallies.
 
+## MERGED authoritative seed registry (`procurement_la_registry.py`, 2026-06-03)
+
+Consolidated the two parallel probes' resolved routes into ONE registry (still pre-ETL —
+not wired into `pipeline.py`). One row per LA: `council · region · entity · status · fmt ·
+url (best file-list/sample) · pattern (quarter template) · schema · notes · src`. Emits
+`c:/tmp/procurement_la/registry.csv`. Coverage:
+
+| Status | # | Councils |
+|---|---|---|
+| READY-HTTP | 18 | South Dublin, Cork City, Wicklow, Monaghan, Kilkenny, Wexford, Cork County, Kildare, Westmeath, Waterford, Limerick, Offaly, Longford, Galway City, Galway County, Kerry, Meath, Sligo |
+| READY-CRAWL | 4 | Clare, Leitrim, Laois, Fingal |
+| NEEDS-RENDER | 5 | Mayo, Donegal, Carlow, Cavan, Roscommon (Mayo+Donegal data already confirmed) |
+| NEEDS-CHECK | 2 | Louth, Tipperary |
+| NON-PUBLISHER | 2 | Dublin City, Dún Laoghaire-Rathdown |
+
+**22 scrapeable now (HTTP+crawl) · 27 obtainable incl. render-to-enumerate · 2 don't publish.**
+Format mix 6 xlsx / 1 xls / 1 csv / 22 pdf — **every PO PDF digital, zero OCR.** Entities:
+23 county + 2 city + 2 merged (Limerick/Waterford) + 4 Dublin. Promote to
+`data/_meta/procurement_la_seed.csv` only on a build go-ahead.
+
+## Coverage MEASURED — Excel vs PDF (`probe_procurement_coverage.py`, 2026-06-03)
+
+Parsed the FULL set — live files (1–2 quarters each) across **22 of 31 councils**, matched
+to CRO. Still evaluation (no ETL). Sampled totals: **5,771 PO rows, from one or two quarters
+per council** (Galway County unblocked via `gaillimh.ie`).
+
+| Format | Councils parsed | Rows | Avg CRO 1:1 |
+|---|---|---|---|
+| **XLSX** | 5 (SDCC, Cork City, Monaghan, Wicklow, Wexford) | 1,345 | **59%** |
+| **CSV** | 1 (Wicklow) | 76 | 59% |
+| **PDF** | 16 | 4,350 | **35%** (depressed by 5 mis-parses — see below) |
+
+**Head-to-head conclusions:**
+1. **Excel/CSV is the high-fidelity path — ~59–70% CRO**, near-zero parse work. Cleanly-parsed
+   PDFs match comparably (Kildare 66%, Limerick 64%, Galway County 58%, Clare 56%, Mayo 54%);
+   the 35% PDF average is dragged down by councils whose layout the generic reader mis-cuts.
+2. **PDF is the volume** — 16 of 22 councils, most are PDF-only. The reader is unavoidable.
+3. **Per-council parser debt is now ENUMERATED (the real cost number):** ~10 of 31 councils
+   need a bespoke column-map/parse-config entry, the rest parse out-of-the-box:
+   - *Parses but wrong* — Westmeath (CRO 0%, split mis-cut), Waterford (14%, OrderNo prefix),
+     Fingal (0% — supplier published as an ID code, not a name), Laois (€397m = a total-row
+     mis-grab), Leitrim (1 row — hit a prompt-pay aggregate).
+   - *Skipped* — Kilkenny (supplier col `Ap/Ar ID(T)`; also on CKAN), Meath (no xlsx links via
+     curl — likely pdf), Kerry / Sligo / Louth (fetched but sample was wrong-doc/aggregate).
+   None are blockers — each is ~1 config (column map, prefix strip, or right-file selector).
+
+**Clean out-of-the-box (~14):** South Dublin, Cork City, Monaghan, Wicklow, Wexford,
+Cork County, Kildare, Longford, Galway City, Galway County, Limerick, Mayo, Donegal,
+Clare, Tipperary, Offaly.
+
+**Coverage estimate:** ~**160k rows across the 22 sampled councils' archives**; national
+order-of-magnitude ≈ **250–320k PO rows**, multi-year (spans 2015→2026). Rough — a few file
+counts include non-quarterly docs and a couple of councils couldn't be enumerated.
+
+**Still not parseable over HTTP:** Carlow, Cavan, Roscommon (JS-rendered → Playwright);
+Dublin City, DLR (non-publishers).
+
+## Remaining sources — MEASURED (2026-06-03)
+
+Checked the three non-council sources directly:
+
+| Source | Measured | CRO | Notes |
+|---|---|---|---|
+| **eTenders gold** (have) | 60,501 award-supplier rows, value_eur on 34,460 | (matcher built) | Awarded-value = **ceilings**; `value_safe_to_sum` flags already in gold |
+| **CKAN Kilkenny xlsx** | 896 rows / 8 qtrs 2018-19, €60.9m | 31% | Clean `Order Number·Supplier Name·Period·EURO·Description` **but amounts NEGATIVE** (debit sign → needs `abs()`). 12 qtrs on CKAN (2017-19); same data its own site continues post-2019 |
+| **CKAN Dept Housing csv** | 1,431 rows / 2023-24, €86.3m | 45% | **CENTRAL gov** (the Dept's own payments, not an LA); 2014→2025 available, CC-BY |
+| **TED API** (live, zero-auth) | **55,720 IE notices; 19,295 awards; 8,614 since 2024** | n/a | `POST /v3/notices/search`, eForms BT fields; **72% of 2025 awards carry a real award VALUE** (€ amounts); winner-name only ~21% via `winner-partname` (eForms links winners by org-ID → needs a resolve step) |
+
+**Takeaways:**
+- **TED is the real prize** — ~19k IE award notices, **real award values on ~72% of recent
+  ones** (the only source that fixes ceiling≠spend at the award layer), public + zero-auth.
+  Caveat: winner *name* needs an org-ID resolve; pre-eForms (≤2023) notices have empty BT
+  value fields, so real-value coverage is strong only from 2024+.
+- **CKAN tabular is a minor add** — Kilkenny CKAN duplicates a council we already reach
+  (just cleaner + older quarters); Dept Housing is central-gov grain, not the LA corpus.
+- **New per-council quirk logged:** Kilkenny stores PO amounts as negatives (sign
+  convention) — one more ~1-line config, like the others.
+
+## Story angles the data unlocks (eval — inference OK here, NOT in app UI)
+
+The per-council spend corpus answers questions eTenders structurally cannot — *who actually
+got paid*, locally, over time, and (via CRO) *who they are*. Candidate stories:
+
+**Payment-layer (impossible on eTenders):**
+- **Below-threshold / no-competition spend** — POs over €20k but under the €25k/€50k tender
+  thresholds: money that never appears as a published competition.
+- **Award vs actual spend drift** — eTenders framework *ceiling* vs the real call-off totals
+  (the coverage JSON already shows €570bn naïve vs €23.3bn safe-to-sum — a 24× gap).
+- **Repeat-winner concentration** — multi-year archives → "one supplier = €Xm over 6 years
+  from Council Y"; % of a council's spend to its top-5 suppliers.
+
+**Local-granularity (only because it's per-council):**
+- **Does your council spend locally?** map supplier home vs council, tie to the
+  constituency crosswalk + population for **per-capita** and **% spent locally**.
+- **Council-vs-council benchmarking** — supplier diversity, consultancy/legal spend per head;
+  pair with the AFS macro layer (budget by service division) for context.
+- **Category trends** — PO descriptions give actual spend categories (Construction, Legal,
+  Consultancy) — "consultancy spend up X% since 2019."
+
+**Cross-link (the project's edge; CRO-matched):**
+- **Lobbying ↔ contracts** — already built (`procurement_lobbying_overlap`, 123 firms on
+  both registers): did a firm that lobbied a body later receive POs from it?
+- **Public money → firms that later failed** (CRO corporate/insolvency).
+- **Common directors winning across multiple councils.**
+
+**Hard gate for the app (per [[feedback_no_inference_in_app]] / privacy):** ship these as
+**source-linked co-occurrence, never implied influence/wrongdoing**; quarantine sole-trader/
+individual payees (personal data). Inference belongs in this eval, not the UI.
+
 ## Kickoff prompt (paste into a fresh window)
 
 > Resume the eTenders/public-procurement enrichment investigation. Read
