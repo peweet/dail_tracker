@@ -41,7 +41,6 @@ import json
 import re
 import subprocess
 import sys
-from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import unquote, urljoin, urlparse
@@ -73,7 +72,6 @@ MONEY_RE = re.compile(r"(?:€|EUR)?\s?\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+\.\d{2}
 NUM_RE = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
 HREF_RE = re.compile(r"""href\s*=\s*["']([^"']+)["']""", re.I)
 DIGIT_PREFIX = re.compile(r"^(?:\d{3,}\s+){1,2}")  # leading PO#/vendor-ID run (Mayo/Donegal/Waterford)
-PERIOD_RE = re.compile(r"(?:^|[^0-9])(20[12]\d)(?:[^0-9]|$)")
 QUARTER_RE = re.compile(r"q\s?([1-4])|quarter[\s_-]?([1-4])|qtr[\s_-]?([1-4])", re.I)
 
 SUP_RE = re.compile(r"supplier|payee|vendor|provider|creditor|benefic|\bname\b|company", re.I)
@@ -260,6 +258,21 @@ def fetch_bytes(url: str) -> bytes | None:
 def fetch_text(url: str) -> str | None:
     b = fetch_bytes(url)
     return b.decode("utf-8", "ignore") if b else None
+
+
+def fetch_to_bronze(slug: str, url: str, ext: str) -> bytes | None:
+    """Self-fetch a source file to bronze/pdfs/la_procurement/<slug>/ and reuse the cached
+    copy on re-runs (immutable, re-derivable medallion bronze; same shape as afs)."""
+    dest = BRONZE / slug / (re.sub(r"[^A-Za-z0-9._-]", "_", unquote(url.rsplit("/", 1)[-1]))[:80] or "file")
+    if not dest.suffix:
+        dest = dest.with_suffix(ext if ext in DATA_EXT else ".pdf")
+    if dest.exists() and dest.stat().st_size > 1500:
+        return dest.read_bytes()
+    b = fetch_bytes(url)
+    if b and len(b) > 1500:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b)
+    return b
 
 
 # ============================================================================ harvest
@@ -550,10 +563,19 @@ def emit_file(cf: dict, file_url: str, b: bytes, ext: str) -> tuple[list[dict], 
             "source_caveat": cf["caveat"] or None, "supplier_is_id_code": cf["supplier_is_id"],
         })
 
-    total = sum(r["amount_eur"] for r in rows_out)
+    # content-validity gate: a real PO/payment list has many rows and a healthy share of
+    # company / public-body payees. A stray policy / review / heritage doc that slips past
+    # the filename filters yields a handful of rows of prose-numbers with almost no
+    # company suffixes → reject the whole file so it never pollutes the fact.
+    org_share = (sum(bool(COMPANY_SUFFIX.search(r["supplier_raw"]) or PUBLIC_BODY.search(r["supplier_raw"]))
+                     for r in rows_out) / len(rows_out)) if rows_out else 0.0
+    looks_like_po = len(rows_out) >= 8 and org_share >= 0.12
+    accepted = rows_out if looks_like_po else []
     stat = {"file": file_url.rsplit("/", 1)[-1][:48], "digital": digital,
-            "rows": len(rows_out), "total_eur": total, "period": period}
-    return rows_out, stat
+            "rows": len(accepted), "raw_rows": len(rows_out), "period": period,
+            "total_eur": sum(r["amount_eur"] for r in accepted),
+            "org_share": round(org_share, 2), "valid": looks_like_po}
+    return accepted, stat
 
 
 def classify_and_flag(df: pl.DataFrame) -> pl.DataFrame:
@@ -645,7 +667,7 @@ def main() -> None:
                 continue
             if ext not in READERS and not u.endswith(".aspx"):
                 continue
-            b = fetch_bytes(u)
+            b = fetch_to_bronze(cf["slug"], u, ext)
             if not b:
                 print(f"     ! download failed: {u.rsplit('/', 1)[-1][:48]}")
                 continue
@@ -660,6 +682,10 @@ def main() -> None:
             # aggregate_guard: a 1-row "file" is a prompt-pay/total aggregate, not a PO list
             if cf["aggregate_guard"] and stat["rows"] <= 1:
                 print(f"     ~ skip (aggregate_guard, {stat['rows']} row): {stat['file']}")
+                continue
+            if not stat["valid"]:
+                print(f"     ~ reject (not a PO list: {stat['raw_rows']} rows, "
+                      f"{stat['org_share']:.0%} orgs): {stat['file']}")
                 continue
             c_rows.extend(rows)
             file_stats.append(stat)
