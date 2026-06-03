@@ -23,7 +23,11 @@ Output:
 HTML cached to: data/bronze/eisb_directory/
 
 Run:  ./.venv/Scripts/python.exe pipeline_sandbox/si_legislation_directory_extract.py
-      (optional args: start_year end_year ; --offline for cache-only)
+      # full gold-range sweep, merge-on-write (the pipeline's call)
+        ... --year 2014            # backfill one year, merged into the parquet
+        ... --year 2012 2013 2014  # backfill several years (mirrors the Iris poller)
+        ... 2016 2026              # explicit range
+        ... --offline              # cache-only, no freshness re-check
 """
 
 from __future__ import annotations
@@ -221,10 +225,37 @@ def _prior_updated_map() -> dict[str, str | None]:
     return {}
 
 
+def _merge_years(new_df: pl.DataFrame, crawl_years: list[int]) -> pl.DataFrame:
+    """Merge freshly-crawled years into the existing gold parquet instead of
+    clobbering it. Rows for the crawled years are REPLACED; every other year
+    already on disk is preserved. This makes a subset run (``--year 2014``) a
+    true backfill that *extends* coverage, while the default full-range run
+    behaves exactly like a full replace (it crawls every gold year, so nothing
+    older survives to keep — unless gold's floor later rises, in which case the
+    older years are correctly retained)."""
+    crawled = set(crawl_years)
+    if OUT_PARQUET.exists():
+        old = pl.read_parquet(OUT_PARQUET)
+        kept = old.filter(~pl.col("si_year").is_in(list(crawled)))
+        merged = pl.concat([kept, new_df], how="diagonal_relaxed") if new_df.height else kept
+    else:
+        merged = new_df
+    return merged.unique(subset=["si_year", "si_number"], keep="first").sort(["si_year", "si_number"])
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("start_year", nargs="?", type=int, help="first SI year (default: gold min)")
-    ap.add_argument("end_year", nargs="?", type=int, help="last SI year (default: gold max)")
+    ap.add_argument("start_year", nargs="?", type=int, help="first SI year of a range (default: gold min)")
+    ap.add_argument("end_year", nargs="?", type=int, help="last SI year of a range (default: gold max)")
+    ap.add_argument(
+        "--year",
+        nargs="+",
+        type=int,
+        metavar="YYYY",
+        help="crawl specific year(s) and merge them into the existing parquet "
+        "(backfill). Mirrors iris_oifigiuil_poller --year; takes precedence over "
+        "the positional range. e.g. --year 2014  /  --year 2012 2013 2014",
+    )
     ap.add_argument(
         "--offline",
         action="store_true",
@@ -233,8 +264,12 @@ def main() -> None:
     args = ap.parse_args()
 
     gold = pl.read_parquet(GOLD)
-    y0 = args.start_year if args.start_year is not None else int(gold["si_year"].min())
-    y1 = args.end_year if args.end_year is not None else int(gold["si_year"].max())
+    if args.year:
+        crawl_years = sorted(set(args.year))
+    else:
+        y0 = args.start_year if args.start_year is not None else int(gold["si_year"].min())
+        y1 = args.end_year if args.end_year is not None else int(gold["si_year"].max())
+        crawl_years = list(range(y0, y1 + 1))
 
     # Freshness gate (default; --offline bypasses it). Each year INDEX is
     # re-fetched (1 cheap request/year) to read its current "Updated to" date;
@@ -243,11 +278,12 @@ def main() -> None:
     # yet picks up new revocations/amendments the day eISB publishes them.
     prior = _prior_updated_map()
     mode = "offline (cache only)" if args.offline else "freshness-gated"
-    hr(f"CRAWL eISB Legislation Directory {y0}..{y1}  ({mode})")
+    span = f"{crawl_years[0]}..{crawl_years[-1]}" if crawl_years else "(none)"
+    hr(f"CRAWL eISB Legislation Directory {span}  ({len(crawl_years)} year(s), {mode})")
 
     rows: list[dict] = []
     updated_map: dict[int, str | None] = {}
-    for year in range(y0, y1 + 1):
+    for year in crawl_years:
         try:
             names, upd = range_urls(year, force_index=not args.offline)
             updated_map[year] = upd
@@ -261,16 +297,18 @@ def main() -> None:
         except Exception as e:
             print(f"  {year}: ERROR {e!r}")
 
-    df = pl.DataFrame(rows).unique(subset=["si_year", "si_number"], keep="first")
+    new_df = pl.DataFrame(rows).unique(subset=["si_year", "si_number"], keep="first") if rows else pl.DataFrame()
+    df = _merge_years(new_df, crawl_years)
     OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
     df.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
-    hr("WROTE PARQUET")
-    print(f"{OUT_PARQUET}  ({df.height:,} rows)")
+    hr("WROTE PARQUET (merged)")
+    print(f"{OUT_PARQUET}  ({df.height:,} rows; crawled {len(crawl_years)} year(s), "
+          f"{new_df.height:,} rows refreshed)")
 
     hr("STATE DISTRIBUTION (all years)")
     print(df.group_by("current_state").len().sort("len", descending=True))
 
-    # ---- self-test: join coverage vs gold -------------------------------
+    # ---- self-test: join coverage vs gold (over the MERGED frame) -------
     g = gold.select(["si_id", "si_year", "si_number", "si_title"])
     j = g.join(df.select(["si_year", "si_number", "current_state"]), on=["si_year", "si_number"], how="left")
     matched = j.filter(pl.col("current_state").is_not_null()).height
@@ -289,9 +327,18 @@ def main() -> None:
     print(f"gold SIs with a non-'made' legal state: {not_made:,}  ({not_made / g.height:.1%})")
 
     # ---- coverage JSON ---------------------------------------------------
+    # directory_pages_updated_to merges this run's crawled years over the prior
+    # map, so years we DIDN'T crawl keep their last-known dates (the freshness
+    # gate on the next run still works for them). as_of_years reflects the full
+    # merged span, not just what this run touched.
+    merged_updated: dict[str, str | None] = {str(k): v for k, v in prior.items()}
+    for y, upd in updated_map.items():
+        merged_updated[str(y)] = upd
+    yrs_all = sorted(int(x) for x in df["si_year"].unique().to_list()) if df.height else crawl_years
     cov = {
-        "as_of_years": [y0, y1],
-        "directory_pages_updated_to": {str(k): v for k, v in updated_map.items()},
+        "as_of_years": [yrs_all[0], yrs_all[-1]] if yrs_all else None,
+        "last_crawled_years": crawl_years,
+        "directory_pages_updated_to": merged_updated,
         "rows": df.height,
         "state_distribution": {r["current_state"]: r["len"] for r in df.group_by("current_state").len().iter_rows(named=True)},
         "gold_si_count": g.height,
