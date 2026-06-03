@@ -643,6 +643,129 @@ SI_CURRENT_STATE = pl.DataFrame(
 )
 
 
+# ---------------------------------------------------------------------------
+# procurement_awards.parquet — base for v_procurement_awards and the supplier/
+# authority/cpv summaries. Source: pipeline_sandbox/procurement_etenders_extract.py.
+# The rows are chosen to exercise the VALUE-IS-NOT-SPEND semantics and the privacy/
+# quality filters, so the value tests can assert exact aggregates:
+#   - Acme Construction Ltd: 2 clean standalone awards, 2 authorities → summable
+#   - Bigco Services Ltd:     a framework/DPS CEILING → counted, NEVER summed
+#   - Sharedco A/B Ltd:       2 suppliers share ONE tender → value repeated, not summable
+#   - Nullid Co Ltd:          NULL Tender ID → sharing unverifiable, not summable (the
+#                             2026-06-03 fix: literal "NULL" is now a real null)
+#   - Joe Murphy:             sole_trader_or_individual → excluded from supplier ranking
+#   - eloitte Ireland Ltd:    name_truncated (dropped leading capital) → excluded from ranking
+#   - Mason & Sons Ltd:       name with '&' survives WHOLE (the entity-split fix) — one row,
+#                             not fragmented into "Mason" + "Sons Ltd"
+#   - Lobbyco Ltd:            on the lobbying register (see overlap fixture)
+# ---------------------------------------------------------------------------
+
+_AWARDS_COLS = [
+    "Tender ID", "supplier", "supplier_norm", "supplier_class", "name_truncated",
+    "Contracting Authority", "Main Cpv Code", "Main Cpv Code Description",
+    "Competition Type", "Notice Published Date/Contract Created Date",
+    "value_eur", "value_kind", "is_framework_or_dps",
+    "value_shared_across_suppliers", "value_safe_to_sum",
+]
+
+
+def _award(tender, supplier, norm, cls, trunc, auth, cpv, cpv_desc, comp, date_str,
+           value, kind, fw, shared, safe):
+    return dict(zip(_AWARDS_COLS, [
+        tender, supplier, norm, cls, trunc, auth, cpv, cpv_desc, comp, date_str,
+        value, kind, fw, shared, safe,
+    ], strict=True))
+
+
+PROCUREMENT_AWARDS = pl.DataFrame(
+    [
+        _award("T001", "Acme Construction Ltd", "acmeconstructionltd", "company", False,
+               "Dublin City Council", "45000000", "Construction work", "Open", "01/03/2023",
+               100000.0, "contract_award_value", False, False, True),
+        _award("T002", "Acme Construction Ltd", "acmeconstructionltd", "company", False,
+               "Cork County Council", "45000000", "Construction work", "Open", "15/06/2023",
+               200000.0, "contract_award_value", False, False, True),
+        _award("T003", "Bigco Services Ltd", "bigcoservicesltd", "company", False,
+               "Health Service Executive", "79000000", "Business services", "Framework", "20/01/2024",
+               5000000.0, "framework_or_dps_ceiling", True, False, False),
+        _award("T004", "Sharedco A Ltd", "sharedcoaltd", "company", False,
+               "Office of Public Works (OPW)", "71000000", "Architectural services", "Open", "10/10/2022",
+               1000000.0, "contract_award_value", False, True, False),
+        _award("T004", "Sharedco B Ltd", "sharedcobltd", "company", False,
+               "Office of Public Works (OPW)", "71000000", "Architectural services", "Open", "10/10/2022",
+               1000000.0, "contract_award_value", False, True, False),
+        _award(None, "Nullid Co Ltd", "nullidcoltd", "company", False,
+               "Revenue Commissioners", "48000000", "Software", "Open", "05/05/2021",
+               999999.0, "contract_award_value", False, False, False),
+        _award("T005", "Joe Murphy", "joemurphy", "sole_trader_or_individual", False,
+               "Mayo County Council", "60000000", "Transport services", "Open", "01/01/2023",
+               50000.0, "contract_award_value", False, False, True),
+        _award("T006", "eloitte Ireland Ltd", "eloittetruncnorm", "company", True,
+               "Department of Finance", "79000000", "Business services", "Open", "02/02/2023",
+               75000.0, "contract_award_value", False, False, True),
+        _award("T007", "Lobbyco Ltd", "lobbycoltd", "company", False,
+               "Dublin City Council", "79000000", "Business services", "Open", "03/03/2024",
+               400000.0, "contract_award_value", False, False, True),
+        _award("T008", "Mason & Sons Ltd", "masonsonsltd", "company", False,
+               "Galway City Council", "45000000", "Construction work", "Open", "04/04/2023",
+               150000.0, "contract_award_value", False, False, True),
+    ],
+    schema_overrides={
+        "Tender ID": pl.String,
+        "value_eur": pl.Float64,
+        "name_truncated": pl.Boolean,
+        "is_framework_or_dps": pl.Boolean,
+        "value_shared_across_suppliers": pl.Boolean,
+        "value_safe_to_sum": pl.Boolean,
+    },
+).select(_AWARDS_COLS)
+
+# ---------------------------------------------------------------------------
+# procurement_supplier_cro_match.parquet — exact normalised-name → CRO register.
+# Covers 3 of the company-class suppliers; the rest LEFT-JOIN to NULL company_num.
+# ---------------------------------------------------------------------------
+
+PROCUREMENT_CRO_MATCH = pl.DataFrame(
+    {
+        "supplier": ["Acme Construction Ltd", "Bigco Services Ltd", "Lobbyco Ltd"],
+        "supplier_norm": ["acmeconstructionltd", "bigcoservicesltd", "lobbycoltd"],
+        "n_cro": [1, 1, 1],
+        "company_num": [123456, 234567, 345678],
+        "company_status": ["Normal", "Dissolved", "Normal"],
+        "match_method": ["exact_unique", "exact_unique", "exact_unique"],
+        "match_confidence": [0.9, 0.9, 0.9],
+    },
+    schema_overrides={"n_cro": pl.UInt32, "company_num": pl.Int64, "match_confidence": pl.Float64},
+)
+
+# ---------------------------------------------------------------------------
+# procurement_lobbying_overlap.parquet — suppliers also on the lobbying register.
+# Lobbyco appears under TWO lobby_name variants (registrant + client) keyed to the
+# SAME supplier_norm — the variant-key duplication (anomaly #3): summing
+# awarded_value_safe_eur across ROWS double-counts (2×400000), so the registrant-only
+# v_lobbying_org_procurement and the supplier-summary ov CTE must dedup/group correctly.
+# ---------------------------------------------------------------------------
+
+PROCUREMENT_LOBBYING_OVERLAP = pl.DataFrame(
+    {
+        "lobby_name": ["Lobbyco Limited", "LOBBYCO LTD"],
+        "lobby_side": ["registrant", "client"],
+        "supplier": ["Lobbyco Ltd", "Lobbyco Ltd"],
+        "supplier_norm": ["lobbycoltd", "lobbycoltd"],
+        "n_lobby_returns": [5, 3],
+        "n_award_rows": [1, 1],
+        "n_authorities": [1, 1],
+        "awarded_value_safe_eur": [400000.0, 400000.0],
+    },
+    schema_overrides={
+        "n_lobby_returns": pl.UInt32,
+        "n_award_rows": pl.UInt32,
+        "n_authorities": pl.UInt32,
+        "awarded_value_safe_eur": pl.Float64,
+    },
+)
+
+
 def main() -> None:
     SILVER_PQ.mkdir(parents=True, exist_ok=True)
     GOLD_PQ.mkdir(parents=True, exist_ok=True)
@@ -671,6 +794,9 @@ def main() -> None:
         (questions, "silver/parquet/questions.parquet"),
         (STATUTORY_INSTRUMENTS, "gold/parquet/statutory_instruments.parquet"),
         (SI_CURRENT_STATE, "gold/parquet/si_current_state.parquet"),
+        (PROCUREMENT_AWARDS, "gold/parquet/procurement_awards.parquet"),
+        (PROCUREMENT_CRO_MATCH, "gold/parquet/procurement_supplier_cro_match.parquet"),
+        (PROCUREMENT_LOBBYING_OVERLAP, "gold/parquet/procurement_lobbying_overlap.parquet"),
     ]
     for df, rel in hardcoded:
         path = _wp(df, rel)

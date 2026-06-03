@@ -27,12 +27,16 @@ import fitz
 import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
-CACHE = Path("c:/tmp/afs")
-OUT_PARQUET = ROOT / "data/sandbox/parquet/afs_amalgamated_divisions.parquet"
-OUT_CSV = CACHE / "afs_amalgamated_divisions.csv"
+import config  # noqa: E402
+
+# medallion: raw PDFs -> bronze; reconciled conformed fact -> silver. (Gold = SQL views.)
+CACHE = config.BRONZE_PDF_DIR / "afs"
+OUT_PARQUET = config.SILVER_PARQUET_DIR / "afs_amalgamated_divisions.parquet"
+OUT_CSV = Path("c:/tmp/afs/afs_amalgamated_divisions.csv")  # debug copy only
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research)"}
 
 URLS = {
@@ -184,7 +188,9 @@ def main() -> None:
     ).sort(["year", "division"])
     OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
     df.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
-    df.write_csv(OUT_CSV)
+    with contextlib.suppress(Exception):  # debug CSV; c:/tmp may not exist headless
+        OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+        df.write_csv(OUT_CSV)
 
     hr("DATA-QUALITY — per year")
     print(f"  {'year':<6}{'status':<16}{'div':<5}{'Σ gross':>14}  reconciliation")

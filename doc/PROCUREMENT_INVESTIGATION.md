@@ -620,7 +620,16 @@ divisions (genuinely volatile, not errors). Tests: `test/test_afs_amalgamated.py
 `to_num` (incl. M-suffix/parens), a golden parse of a committed I&E page-text fixture, and the
 invariants above on a committed 64-row golden parquet (`test/fixtures/afs/`, gitignore-negated).
 
-### Medallion placement + promotion plan (when greenlit)
+### Medallion placement + promotion — DATA LAYER DONE 2026-06-03
+**Executed:** extractor repointed to **bronze** (`data/bronze/pdfs/afs/{year}.pdf`, self-fetched)
++ **silver** (`data/silver/parquet/afs_amalgamated_divisions.parquet`, zstd, gitignore-negated →
+Cloud-readable); registered `("afs", …)` in `pipeline.py` CHAINS (standalone, headless-safe) +
+blurb; tests green (14) + fixtures regen from bronze/silver. **Remaining (deferred until a
+consuming UI exists):** gold `sql_views/afs_*.sql` view + `utility/data_access/afs_data.py`
+(SELECT-only) — premature to register a view nothing reads yet; and the freshness-manifest entry
+(annual — needs a year→date adapter in `tools/check_freshness.py`; small, deliberate follow-up).
+
+### Original plan (for reference)
 - **Bronze** = raw PDFs → `config.BRONZE_PDF_DIR/"afs"/{year}.pdf` (extractor self-fetches, like
   procurement's `ensure_csv` → headless-safe; immutable, re-derivable).
 - **Silver** = the reconciled tidy fact → `config.SILVER_PARQUET_DIR/"afs_amalgamated_divisions.parquet"`
