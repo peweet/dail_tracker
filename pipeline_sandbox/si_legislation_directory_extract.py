@@ -4,8 +4,15 @@ self-tests join coverage against gold. Lives in pipeline_sandbox/ (per the
 sandbox rule) but is now a SHIPPING extractor: it owns the gold table
 si_current_state.parquet, which sql_views/legislation_si_current_state.sql
 (v_si_current_state) reads and legislation_si_index.sql LEFT-JOINs into
-v_statutory_instruments. NOT yet wired into pipeline.py's iris chain (deferred);
-re-run by hand on an eISB refresh.
+v_statutory_instruments. Wired into the iris chain as iris_refresh.step_si_legal_state
+(runs under `python pipeline.py --select iris`).
+
+Freshness: runs are freshness-gated by default — each year INDEX is re-fetched
+to read its current "Updated to" date, and a year's range pages are re-crawled
+only when that date has moved since the last run (recorded in the coverage JSON).
+Steady-state re-runs are therefore near-instant (≈11 index requests, no full
+crawl) yet pick up new revocations the day eISB publishes them. `--offline`
+serves entirely from cache (fast dev/test).
 
 The parsing contract (derive_state + affecting_sis) is locked by
 test/test_si_legal_state.py — keep them in sync.
@@ -16,11 +23,12 @@ Output:
 HTML cached to: data/bronze/eisb_directory/
 
 Run:  ./.venv/Scripts/python.exe pipeline_sandbox/si_legislation_directory_extract.py
-      (optional args: start_year end_year ; defaults to gold's range)
+      (optional args: start_year end_year ; --offline for cache-only)
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
@@ -60,8 +68,8 @@ def hr(t: str) -> None:
     print(f"\n{'=' * 70}\n{t}\n{'=' * 70}")
 
 
-def fetch(url: str, cache_name: str | None = None) -> str:
-    if cache_name:
+def fetch(url: str, cache_name: str | None = None, *, force: bool = False) -> str:
+    if cache_name and not force:
         cp = CACHE_DIR / cache_name
         if cp.exists() and cp.stat().st_size > 500:
             return cp.read_text(encoding="utf-8", errors="ignore")
@@ -76,8 +84,8 @@ def fetch(url: str, cache_name: str | None = None) -> str:
     return txt
 
 
-def range_urls(year: int) -> tuple[list[str], str | None]:
-    html = fetch(f"{BASE}/si{year}.html", f"si{year}_index.html")
+def range_urls(year: int, *, force_index: bool = False) -> tuple[list[str], str | None]:
+    html = fetch(f"{BASE}/si{year}.html", f"si{year}_index.html", force=force_index)
     soup = BeautifulSoup(html, "html.parser")
     upd = UPDATED_TO.search(soup.get_text(" ", strip=True))
     urls = []
@@ -201,22 +209,55 @@ def parse_table(html: str, year: int, src_url: str, updated_to: str | None) -> l
     return out
 
 
+def _prior_updated_map() -> dict[str, str | None]:
+    """Last run's per-year 'Updated to' dates, from the coverage JSON. Drives the
+    freshness gate: a year whose directory date hasn't moved is served from
+    cache. Missing/unreadable coverage → empty map → full re-crawl."""
+    if OUT_COVERAGE.exists():
+        try:
+            return json.loads(OUT_COVERAGE.read_text(encoding="utf-8")).get("directory_pages_updated_to", {})
+        except Exception:
+            return {}
+    return {}
+
+
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("start_year", nargs="?", type=int, help="first SI year (default: gold min)")
+    ap.add_argument("end_year", nargs="?", type=int, help="last SI year (default: gold max)")
+    ap.add_argument(
+        "--offline",
+        action="store_true",
+        help="serve entirely from cached HTML — skip the freshness re-check (fast dev/test re-run)",
+    )
+    args = ap.parse_args()
+
     gold = pl.read_parquet(GOLD)
-    y0 = int(sys.argv[1]) if len(sys.argv) > 1 else int(gold["si_year"].min())
-    y1 = int(sys.argv[2]) if len(sys.argv) > 2 else int(gold["si_year"].max())
-    hr(f"CRAWL eISB Legislation Directory {y0}..{y1}")
+    y0 = args.start_year if args.start_year is not None else int(gold["si_year"].min())
+    y1 = args.end_year if args.end_year is not None else int(gold["si_year"].max())
+
+    # Freshness gate (default; --offline bypasses it). Each year INDEX is
+    # re-fetched (1 cheap request/year) to read its current "Updated to" date;
+    # a year's range pages are re-crawled only when that date has moved since
+    # the last run. This keeps a pipeline re-run near-instant in steady state
+    # yet picks up new revocations/amendments the day eISB publishes them.
+    prior = _prior_updated_map()
+    mode = "offline (cache only)" if args.offline else "freshness-gated"
+    hr(f"CRAWL eISB Legislation Directory {y0}..{y1}  ({mode})")
 
     rows: list[dict] = []
     updated_map: dict[int, str | None] = {}
     for year in range(y0, y1 + 1):
         try:
-            names, upd = range_urls(year)
+            names, upd = range_urls(year, force_index=not args.offline)
             updated_map[year] = upd
+            # Re-crawl this year's range pages when its directory date moved
+            # (or we've no prior record). Offline always trusts the cache.
+            changed = (not args.offline) and (str(upd) != str(prior.get(str(year))))
             for name in names:
-                html = fetch(f"{BASE}/{name}", name)
+                html = fetch(f"{BASE}/{name}", name, force=changed)
                 rows += parse_table(html, year, f"{BASE}/{name}", upd)
-            print(f"  {year}: {len(names)} pages, updated_to={upd}")
+            print(f"  {year}: {len(names)} pages, updated_to={upd} [{'refetched' if changed else 'cache'}]")
         except Exception as e:
             print(f"  {year}: ERROR {e!r}")
 
