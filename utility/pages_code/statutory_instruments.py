@@ -1006,7 +1006,6 @@ def _render_si_detail(row: pd.Series) -> None:
     parent = _safe(row.get("si_parent_legislation"))
     op_flags = _split_multi(_safe(row.get("si_operation_flags")))
     domains = _split_multi(_safe(row.get("si_policy_domains_all")))
-    confidence = row.get("si_taxonomy_confidence")
 
     eisb = _eisb_url(row)
     bill_id = _safe(row.get("bill_id"))
@@ -1110,9 +1109,6 @@ def _render_si_detail(row: pd.Series) -> None:
             "Parent legislation",
             " &nbsp;·&nbsp; ".join(html.escape(p) for p in pieces) if pieces else html.escape(parent),
         )
-    if isinstance(confidence, (int, float)) and pd.notna(confidence):
-        _row("Taxonomy confidence", f"{float(confidence):.2f}")
-
     eisb_html = (
         source_link_html(
             eisb,
