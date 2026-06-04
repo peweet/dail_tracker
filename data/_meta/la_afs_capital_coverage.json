@@ -1,8 +1,8 @@
 {
-  "councils_attempted": 30,
-  "councils_with_rows": 19,
-  "councils_reconciled": 19,
-  "rows": 143,
+  "councils_attempted": 31,
+  "councils_with_rows": 21,
+  "councils_reconciled": 21,
+  "rows": 158,
   "by_council": [
     {
       "council": "South Dublin",
@@ -140,6 +140,19 @@
       "year": 2025
     },
     {
+      "council": "Sligo",
+      "slug": "sligo",
+      "status": "ok",
+      "year": 2024,
+      "method": "tab",
+      "page": 39,
+      "divisions": 8,
+      "capital_expenditure_total": 73326872.0,
+      "printed_total": 73326871.0,
+      "income_total": 76484034.0,
+      "reconciled": true
+    },
+    {
       "council": "Clare",
       "slug": "clare",
       "status": "no-capital-page",
@@ -160,14 +173,21 @@
     {
       "council": "Kilkenny",
       "slug": "kilkenny",
-      "status": "no-capital-page",
-      "year": 2024
+      "status": "ok",
+      "year": 2023,
+      "method": "geom",
+      "page": 34,
+      "divisions": 7,
+      "capital_expenditure_total": 93065621.0,
+      "printed_total": 93065622.0,
+      "income_total": 93451668.0,
+      "reconciled": true
     },
     {
       "council": "Louth",
       "slug": "louth",
       "status": "no-capital-page",
-      "year": 2025
+      "year": 2024
     },
     {
       "council": "Wexford",
@@ -311,6 +331,6 @@
   "realisation_tier": "SPENT",
   "value_kind": "capital_expenditure_actual",
   "scope": "per-LA audited AFS Capital Account, expenditure by service division",
-  "generated_at": "2026-06-04T13:36:11.975694+00:00",
+  "generated_at": "2026-06-04T13:57:35.509959+00:00",
   "caveat": "Capital (build/acquire) expenditure by division \u2014 a DISTINCT grain from the revenue I&E net-expenditure fact (la_afs_divisions). NEVER union or reconcile the two. Capital income is overwhelmingly DHLGH/central grants. Sum only within a (council, year)."
 }

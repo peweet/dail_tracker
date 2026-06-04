@@ -7,12 +7,13 @@ profile, trustee count, dominant income source etc. on each org card).
     1. lobbying_poller          fetch YTD lobbying CSV (~80s; hash-skip on no-change)
     2. lobby_processing         flatten CSV to silver
     3. lobbying_pdf_extract     extract embedded PDF URLs from return free-text
-    4. cro_normalise            CRO bulk export → silver
-    5. charity_normalise        Charities Regulator XLSX → silver
-    6. charity_resolved         CRO ⨝ charity Tier-A join
-    7. charity_enriched         gold charity table: NACE sector + compliance flags
+    4. cro_poller              refresh CRO bulk export from CKAN (idempotent daily)
+    5. cro_normalise            CRO bulk export → silver
+    6. charity_normalise        Charities Regulator XLSX → silver
+    7. charity_resolved         CRO ⨝ charity Tier-A join
+    8. charity_enriched         gold charity table: NACE sector + compliance flags
 
-Steps 4–7 are independent of steps 1–3 but only useful as a unit.
+Steps 4–8 are independent of steps 1–3 but only useful as a unit.
 
 CLI:
     python lobbying_refresh.py
@@ -57,23 +58,39 @@ def step_pdf_extract() -> bool:
     return _subprocess("lobbying_pdf_extract.py")
 
 
+def step_cro_poll() -> bool:
+    _hr("[4/8] cro_poller — refresh CRO bulk export from CKAN (idempotent)")
+    if _subprocess("cro_poller.py"):
+        return True
+    # A poll failure (CKAN outage / drift) is non-fatal as long as we still hold
+    # a snapshot cro_normalise can use — degrade to the last good export rather
+    # than failing the whole chain. Only fatal when there is no snapshot at all.
+    from cro_poller import latest_local_date
+
+    if latest_local_date() is not None:
+        print("  poll failed but a CRO snapshot exists — continuing on last snapshot")
+        return True
+    print("  poll failed and NO CRO snapshot on disk — cannot proceed")
+    return False
+
+
 def step_cro_normalise() -> bool:
-    _hr("[4/7] cro_normalise — CRO bulk export → silver")
+    _hr("[5/8] cro_normalise — CRO bulk export → silver")
     return _subprocess("cro_normalise.py")
 
 
 def step_charity_normalise() -> bool:
-    _hr("[5/7] charity_normalise — Charities Regulator XLSX → silver")
+    _hr("[6/8] charity_normalise — Charities Regulator XLSX → silver")
     return _subprocess("charity_normalise.py")
 
 
 def step_charity_resolved() -> bool:
-    _hr("[6/7] charity_resolved — CRO ⨝ charity Tier-A join")
+    _hr("[7/8] charity_resolved — CRO ⨝ charity Tier-A join")
     return _subprocess("charity_resolved.py")
 
 
 def step_charity_enriched() -> bool:
-    _hr("[7/7] charity_enriched — gold charity table with NACE + compliance flags")
+    _hr("[8/8] charity_enriched — gold charity table with NACE + compliance flags")
     return _subprocess("charity_enriched.py")
 
 
@@ -86,6 +103,7 @@ def main() -> int:
         ("poll", step_poll),
         ("process", step_process),
         ("pdf_extract", step_pdf_extract),
+        ("cro_poll", step_cro_poll),
         ("cro_normalise", step_cro_normalise),
         ("charity_normalise", step_charity_normalise),
         ("charity_resolved", step_charity_resolved),
