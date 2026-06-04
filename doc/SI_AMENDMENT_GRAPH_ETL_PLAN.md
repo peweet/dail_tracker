@@ -99,6 +99,16 @@ free. No `pipeline.py` change, no new coverage JSON.
 - [x] view registers in the legislation group; reads only gold parquet.
 - [x] one row per clean edge; row count == clean-state affecting count.
 - [x] effect enum locked; `other_affected` excluded; no list fan-out.
-- [ ] `get_si_amendments` returns both directions with stable columns.
-- [ ] SI detail panel shows bidirectional history, card-based, firewall-clean.
-- [ ] empty state renders nothing (no orphan card).
+- [x] `fetch_si_amendments_made(year, number)` returns the forward direction with
+      stable columns (reverse direction stays in the legal-status block to avoid
+      duplication). Plain SELECT off the view → retrieval-contract clean.
+- [x] SI detail panel shows the "what this instrument changes" card, card-based,
+      firewall-clean (no edge logic in the page), internal `?si=YYYY-N` links
+      with eISB fallback for pre-2016 affected SIs; provision note gated on a
+      provision marker.
+- [x] empty state renders nothing (no orphan card) — verified on a base SI (1/2016).
+- [x] app boots fresh (HTTP 200) with the changes; ruff + py_compile clean.
+
+SHIPPED 2026-06-04. Validated: 2 view tests pass; `fetch_si_amendments_made(2024,444)`
+returns 18 revoked instruments through the production loader; card HTML well-formed
+with correct internal links; fresh Streamlit server health 200.

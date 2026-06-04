@@ -11,11 +11,10 @@ TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL on v_attendance_summary
 TODO_PIPELINE_VIEW_REQUIRED: session_type column on v_attendance_timeline
     (attendance_status is hardcoded 'Present'; source CSV has sitting-day and other-day rows
     for the same date producing duplicates — pipeline must expose original session-type label)
-TODO_PIPELINE_VIEW_REQUIRED: unique_member_code on v_attendance_member_summary,
-    v_attendance_member_year_summary, v_attendance_year_rank — required for cross-page
-    member-name links (utility/ui/entity_links.member_link_html). Until then this page
-    cannot link member names out to /member-overview without an in-Streamlit name lookup,
-    which is forbidden by the data-access rule.
+
+SHIPPED — token cleared 2026-06-04: unique_member_code is now present on
+v_attendance_member_summary / _member_year_summary / _year_rank (verified in sql_views/),
+so cross-page member links work without an in-Streamlit lookup.
 """
 
 from __future__ import annotations

@@ -294,18 +294,22 @@ def parse_page(cells: list[dict], pno: int, norm_keys, norm_to_name, name_to_sea
             claimed.add(id(c)); spend, e_conf = v, c["score"]
         # candidate name: non-money, non-numeric cells left of constituency, on the
         # SAME row (tight name_tol — avoids merging the adjacent row's name fragment)
-        name_cells = sorted(
-            (c for c in cells
-             if c["x0"] < ax and abs(yc(c) - ay) <= name_tol
-             and id(c) not in consumed  # not a constituency continuation line
-             and "€" not in c["text"]
-             and not re.fullmatch(r"[\d.,)\s]+", c["text"])
-             and norm(c["text"]) not in DIRECTIONS  # drop lone WEST/CENTRAL etc.
-             and not match_constituency(c["text"], norm_keys, norm_to_name)[0]),
-            key=lambda c: c["x0"],
-        )
-        name_raw = re.sub(r"^\W*\d{1,3}[.\-)]?\s*", "",
-                          " ".join(c["text"] for c in name_cells)).strip()
+        def name_in(tol):
+            return sorted(
+                (c for c in cells
+                 if c["x0"] < ax and abs(yc(c) - ay) <= tol
+                 and id(c) not in consumed  # not a constituency continuation line
+                 and "€" not in c["text"]
+                 and not re.fullmatch(r"[\d.,)\s]+", c["text"])
+                 and norm(c["text"]) not in DIRECTIONS  # drop lone WEST/CENTRAL etc.
+                 and not match_constituency(c["text"], norm_keys, norm_to_name)[0]),
+                key=lambda c: c["x0"],
+            )
+        name_cells = name_in(name_tol)
+        raw = " ".join(c["text"] for c in name_cells)
+        raw = re.sub(r"^\s*\d{1,3}[.\-)\s]*", "", raw)        # leading row-number "12." / "12 " / "12Name"
+        raw = re.sub(r"\s+\d{1,3}[.\-)]\s*", " ", raw)         # embedded "Coppinger 35. Ruth"
+        name_raw = re.sub(r"\s+", " ", raw).strip(" ,.")
         rows.append({
             "name_raw": name_raw, "constituency": nm, "score": sc, "limit": limit,
             "assigned": assigned, "spend": spend,

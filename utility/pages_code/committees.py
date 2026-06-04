@@ -717,11 +717,11 @@ def _provenance(chamber: str) -> None:
               ranking, now removed) will be replaced by `currently_in_government_office`
               on `v_committee_member_detail`.
 
-            **Pending pipeline work.**
-            - `TODO_PIPELINE_VIEW_REQUIRED: v_committee_assignments`
-            - `TODO_PIPELINE_VIEW_REQUIRED: v_committee_member_detail`
+            **Pending pipeline work.** (v_committee_assignments, v_committee_member_detail
+            and v_committee_party_seats now ship and back this page; remaining gaps:)
             - `TODO_PIPELINE_VIEW_REQUIRED: v_committee_sources` (incl. per-year source PDF URL)
-            - `TODO_PIPELINE_VIEW_REQUIRED: v_committee_party_seats`
+            - `TODO_PIPELINE_VIEW_REQUIRED: unique_member_code` on v_committee_assignments /
+              v_committee_member_detail — for cross-page member links
             """
         )
 
