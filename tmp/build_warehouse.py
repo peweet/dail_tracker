@@ -18,8 +18,8 @@ PY = sys.executable
 STEPS: list[tuple[str, list[str]]] = [
     ("flatten_members",        ["flatten_members_json_to_csv.py"]),
     ("flatten_debates",        ["dbsect_listings_flatten.py"]),
-    ("wikidata_socials",       ["wikidata_socials_etl.py"]),
-    ("ministerial_tenure",     ["ministerial_tenure_build.py"]),
+    ("wikidata_socials",       ["-m", "wikidata.wikidata_socials_etl"]),
+    ("ministerial_tenure",     ["-m", "wikidata.ministerial_tenure_build"]),
     ("committees_long_format", ["committees_long_format_etl.py"]),
     ("payments_etl",           ["payments_full_psa_etl.py"]),
     ("payments_enrichment",    ["payments_member_enrichment.py"]),

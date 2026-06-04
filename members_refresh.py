@@ -49,14 +49,23 @@ def _subprocess(script: str, *args: str) -> bool:
     return r.returncode == 0
 
 
+def _module(mod: str, *args: str) -> bool:
+    """Run a packaged step via ``python -m <mod>`` (cwd=root → ``import config``
+    resolves). Used for steps that live in a package dir, not at repo root."""
+    t = time.monotonic()
+    r = subprocess.run([sys.executable, "-m", mod, *args], cwd=_ROOT)
+    print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
+    return r.returncode == 0
+
+
 def step_wikidata_socials() -> bool:
     _hr("[1/4] wikidata_socials_etl — member external links")
-    return _subprocess("wikidata_socials_etl.py")
+    return _module("wikidata.wikidata_socials_etl")
 
 
 def step_ministerial_tenure() -> bool:
     _hr("[2/4] ministerial_tenure_build — Wikidata minister-of-the-day table")
-    return _subprocess("ministerial_tenure_build.py")
+    return _module("wikidata.ministerial_tenure_build")
 
 
 def step_committees_long_format() -> bool:
