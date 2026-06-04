@@ -28,7 +28,7 @@ import requests
 import responses
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from oireachtas_pdf_poller import (
+from pdf_infra.oireachtas_pdf_poller import (
     SOURCES,
     IndexEntry,
     PollSource,

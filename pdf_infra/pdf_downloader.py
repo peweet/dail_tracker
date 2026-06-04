@@ -3,7 +3,7 @@ import logging
 import requests
 
 from config import BRONZE_PDF_DIR, GOLD_DIR, SILVER_DIR
-from pdf_endpoint_check import endpoint_checker, manual_endpoints, urls
+from pdf_infra.pdf_endpoint_check import endpoint_checker, manual_endpoints, urls
 
 download_path = BRONZE_PDF_DIR
 logging.info(f"Download path set to: {download_path}")

@@ -70,11 +70,16 @@ LISTING_URLS = [
     "https://www.nationaltransport.ie/publications/2026-purchase-orders-e20000-and-over/",
 ]
 
-# Record start: a date, a PO reference, then the supplier — all on one reading-order line.
-RECORD_START = re.compile(r"^(\d{2}/\d{2}/\d{4})\s+(PO\w+)\s+(.+)$")
-# A money line is the value cell on its own line; allow an optional € and require decimals so
-# it can't match a PO number or a bare year.
-MONEY_LINE = re.compile(r"^\s*€?\s*(\d{1,3}(?:,\d{3})*\.\d{2})\s*$")
+# NTA publishes two layouts across years, both handled by anchoring on the DATE line:
+#   - 2026 (rotated PDF): "DD/MM/YYYY PO<n> <supplier>" on one line, then <services>, then €value
+#   - 2024-25 (upright):  "DD/MM/YYYY" / "<order-no>" / "<supplier>" / "<services>" / €value
+# DATE_ANCHOR captures the date and, IF present on the same line, the order ref + supplier.
+# The date is either DD/MM/YYYY (2024-Q1..2025-Q3, 2026) or YYYYMMDD as one token (2025-Q4);
+# an 8-digit 20###### can't be confused with a 7-digit order ref (e.g. "2025229").
+DATE_ANCHOR = re.compile(r"^(\d{2}/\d{2}/\d{4}|20\d{6})(?:\s+(\S+)\s+(.+))?$")
+# Value cell on its own line: € is the reliable marker; decimals are optional (2024-25 omit
+# the cents). Requiring the € sign keeps it from matching an order number or bare year.
+MONEY_LINE = re.compile(r"^\s*€\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*$")
 
 
 def harvest_pdfs() -> list[str]:
@@ -112,17 +117,25 @@ def parse_records(doc) -> list[dict]:
             lines.append(s)
             pages.append(i + 1)
 
-    starts = [i for i, ln in enumerate(lines) if RECORD_START.match(ln)]
+    starts = [i for i, ln in enumerate(lines) if DATE_ANCHOR.match(ln)]
     recs: list[dict] = []
     for k, s in enumerate(starts):
         end = starts[k + 1] if k + 1 < len(starts) else len(lines)
-        m = RECORD_START.match(lines[s])
-        date, po, supplier = m.group(1), m.group(2), m.group(3).strip()
-        money_i = next((j for j in range(s + 1, end) if MONEY_LINE.match(lines[j])), None)
+        # value = the (last) € line inside this record's window
+        money_i = next((j for j in range(end - 1, s, -1) if MONEY_LINE.match(lines[j])), None)
         if money_i is None:
             continue  # no value in this window -> not a complete record, skip defensively
         amount = float(MONEY_LINE.match(lines[money_i]).group(1).replace(",", ""))
-        desc = " ".join(lines[s + 1:money_i]).strip() or None
+        m = DATE_ANCHOR.match(lines[s])
+        date = m.group(1)
+        if m.group(2) and m.group(3):                       # 2026: date + order + supplier inline
+            po, supplier = m.group(2), m.group(3).strip()
+            desc = " ".join(lines[s + 1:money_i]).strip() or None
+        else:                                               # 2024-25: order / supplier / services
+            body = lines[s + 1:money_i]
+            po = body[0] if body else None
+            supplier = body[1] if len(body) > 1 else None
+            desc = " ".join(body[2:]).strip() or None
         recs.append({
             "supplier_raw": supplier, "amount_eur": amount, "description": desc,
             "po_number": po, "order_date": date,

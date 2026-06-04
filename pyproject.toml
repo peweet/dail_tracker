@@ -240,7 +240,7 @@ packages = [
     "legislation.py",
     "transform_votes.py",
     "manifest.py",
-    "oireachtas_pdf_poller.py",
+    "pdf_infra",
     "payments_full_psa_etl.py",
     "flatten_members_json_to_csv.py",
 ]

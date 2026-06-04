@@ -160,3 +160,43 @@ cfg("ie_pobal", "Pobal", "agency", "social",
   HTML-table reader path (not OCR; a new reader). Defer.
 - **UCD / SETU** — domains 403-block the fetcher; need a real browser/UA pass to lock file URLs.
 - **OCR bodies (Coimisiún na Meán, Irish Prison Service)** — EXCLUDED by request (no OCR).
+
+---
+
+## DISCOVERY SWEEP 2 — commercial semi-states + non-commercial regulators (2026-06-04)
+
+Triggered by "any other semi-states we missed — RTÉ? Electric Ireland?". Two parallel agents.
+**Key principle: the €20k PO-publication circular binds NON-COMMERCIAL bodies; COMMERCIAL state
+bodies are exempt and publish annual reports only.** So the commercial asks are the least likely.
+
+### Commercial semi-states — mostly dead ends (as expected)
+| Body | verdict |
+|---|---|
+| **RTÉ** | CATEGORY-ONLY — about.rte.ie/purchase-orders-over-e20000/ Q3.pdf is spend by category (Capital/Communication circuits + PO counts), NOT supplier-level. (agent's "supplier-level" was wrong for this file) |
+| **ESB / Electric Ireland** | NOT_FOUND — commercial, FOI-exempt, eTenders/OJEU only. Annual report only. |
+| **EirGrid / Gas Networks Ireland / Uisce Éireann** | ⚠️ CATEGORY-ONLY TRAP — pages titled "PO over €20k" but data is rolled up by expense category, NO supplier names (EirGrid frozen at 2016). Do NOT ingest as supplier facts. |
+| daa, An Post, ports (Dublin/Cork/Shannon-Foynes), Shannon Group, IAA | annual report only (commercial) |
+| Bord na Móna, Coillte | annual report only; explicitly outside FOI, fought disclosure at OCEI |
+| Irish Rail, HRI, TG4, CIÉ buses | FOI-request-only, no proactive file |
+
+### Non-commercial regulators / cultural bodies — the real haul (none were in the seed)
+| Body | status | format | wired? |
+|---|---|---|---|
+| **HPRA** | CONFIRMED | pdf (assets.hpra.ie CDN, quarterly) | ✅ WIRED Tier E (Deloitte/Eircom/Kano clean) |
+| **CCPC** | CONFIRMED | pdf (assets.ccpc.ie, quarterly Q1-2026) | ✅ WIRED Tier E (CPL recruitment clean, 28 rows) |
+| **National Library** | CONFIRMED | pdf (Drupal) | ✅ WIRED Tier E (Synergy/Electric Ireland, 13 rows) |
+| **An Bord Pleanála** | CONFIRMED | pdf, **Irish bilingual headers** | DEFERRED — multi-line Irish header bleeds date into supplier; added Irish keywords to ROLE_RE (Soláthraí/Glanmhéid/Méid Comhlán/Dáta) so amount now detects, but supplier still needs header-wrap handling |
+| **EPA** | CONFIRMED | **.php HTML pages** (Q1-2026) | needs HTML-table reader |
+| **RTB** | CONFIRMED | pdf **+ .docx drift by quarter** | needs Word reader |
+| **National Gallery** | CONFIRMED | native **.docx** | needs Word reader |
+| **WRC** | CONFIRMED | **HTML annual tables** (2023-25) + pdf (2018-22) | needs HTML reader |
+| **National Museum / FSAI** | CONFIRMED (exists) | 403/404 bot-blocked | need real-browser/UA |
+| **Legal Aid Board** | CONFIRMED (PO grain) | pdf; only a 2014 file confirmed, index 404'd | re-locate live index |
+| **CRU** | stale (last file Q2-2019) | skip |
+| ComReg, DPC, Pensions Authority, PSRA | no supplier-level €20k listing |
+| **Central Bank** | publishes CONTRACTS-AWARDED only (award grain, not PO-over-20k) |
+
+**Shared improvement banked:** ROLE_RE now includes Irish-as-Gaeilge header terms (regression-clean
+on OPW/HPRA). Helps any bilingual publisher. **Run to bank HPRA/CCPC/NLI was DEFERRED** — parallel
+context had 4 live python processes (re-clobber risk on public_payments_fact.parquet); run when quiet.
+**Next reader investment with best ROI: an HTML-table reader** — unlocks EPA + WRC (and is reusable).
