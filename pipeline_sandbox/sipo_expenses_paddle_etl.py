@@ -69,6 +69,11 @@ STATUTORY_LIMIT = {3: 38900, 4: 48600, 5: 58350}
 DPI = 300
 LOW_CONF = 0.85
 DIRECTIONS = {"north", "south", "east", "west", "central", "city", "county", "bay", "mid"}
+# BORN-DIGITAL returns (clean embedded text layer, NOT scans) — read cells straight
+# from the text layer (instant, exact); no PaddleOCR. (Census in
+# data/_meta/sipo_ge2024_expenses_sources.md.) NB: ff has a text layer too but it's
+# the GARBLED Tesseract one, so ff is NOT here — it must be re-OCR'd.
+BORN_DIGITAL = {"sf", "aontu"}
 
 
 def hr(t: str) -> None:
@@ -102,6 +107,25 @@ def match_constituency(text: str, norm_keys, norm_to_name) -> tuple[str | None, 
 
 
 # ---------------------------------------------------------------- OCR stage ----
+def text_layer_cells(page) -> list[dict]:
+    """Cells straight from a born-digital PDF's embedded text layer (one cell per
+    line). Coords are PDF points, not 300-DPI pixels — fine, the parser is
+    scale-invariant (x-band split + row-relative tolerances)."""
+    cells = []
+    for block in page.get_text("dict")["blocks"]:
+        for line in block.get("lines", []):
+            spans = line["spans"]
+            text = "".join(s["text"] for s in spans).strip()
+            if not text:
+                continue
+            xs0 = [s["bbox"][0] for s in spans]; ys0 = [s["bbox"][1] for s in spans]
+            xs1 = [s["bbox"][2] for s in spans]; ys1 = [s["bbox"][3] for s in spans]
+            cells.append({"text": text, "score": 1.0,
+                          "x0": int(min(xs0)), "y0": int(min(ys0)),
+                          "x1": int(max(xs1)), "y1": int(max(ys1))})
+    return cells
+
+
 def ocr_page(ocr, page, tmp_png: Path, dpi: int = DPI) -> list[dict]:
     import fitz
 
@@ -130,6 +154,16 @@ def ocr_party(ocr, key: str, pdf_path: Path) -> None:
     ckpt = CKPT_ROOT / key
     ckpt.mkdir(parents=True, exist_ok=True)
     tmp_png = Path(tempfile.gettempdir()) / f"sipo_etl_{key}.png"
+    # born-digital: pull cells from the text layer (instant, no PaddleOCR, no segfaults)
+    if key in BORN_DIGITAL:
+        for pno, page in enumerate(doc, start=1):
+            done = ckpt / f"c{pno:03}.json"
+            if done.exists():
+                continue
+            done.write_text(json.dumps({"failed": False, "cells": text_layer_cells(page)}),
+                            encoding="utf-8")
+        print(f"    [{key}] text-layer cells cached for {doc.page_count} pages", flush=True)
+        return
     for pno, page in enumerate(doc, start=1):
         done = ckpt / f"c{pno:03}.json"
         attempt = ckpt / f"a{pno:03}.attempt"
@@ -203,17 +237,40 @@ def parse_page(cells: list[dict], pno: int, norm_keys, norm_to_name, name_to_sea
     money (assigned) and nearest UNCLAIMED right-band money (expenditure). The wide
     expenditure window + claiming tolerates the vertical column offset (PBP/Labour)
     and true blanks; per-pair spend<=assigned is the consistency check."""
-    anchors = [(c, nm, sc) for c in cells
-               if (nm := match_constituency(c["text"], norm_keys, norm_to_name)[0])
-               for sc in [match_constituency(c["text"], norm_keys, norm_to_name)[1]]]
+    # base constituency matches (per cell)
+    base = [(c, nm, sc) for c in cells
+            if (nm := match_constituency(c["text"], norm_keys, norm_to_name)[0])
+            for sc in [match_constituency(c["text"], norm_keys, norm_to_name)[1]]]
     money = [(c, v) for c in cells if (v := is_money(c)) is not None]
-    if len(anchors) < 3 or len(money) < 3:  # not a candidate-summary page
+    if len(base) < 3 or len(money) < 3:  # not a candidate-summary page
         return []
-    split_x = column_split([c for c, _ in money])
-    ays = sorted(yc(a[0]) for a in anchors)
+    ays = sorted(yc(a[0]) for a in base)
     diffs = [b - a for a, b in zip(ays, ays[1:]) if b - a > 5]
     row_h = statistics.median(diffs) if diffs else 40.0
+    split_x = column_split([c for c, _ in money])
+
+    # CONTINUATION JOIN: some forms split a constituency over two lines
+    # ("DUBLIN SOUTH" / "CENTRAL"), so the base cell mis-matches a short name
+    # (-> Dublin Bay South). If the cell directly below in the same column makes the
+    # joined text match BETTER, adopt the fuller match and consume the continuation
+    # (so it can't leak into the candidate name).
+    consumed: set[int] = set()
+    anchors = []
+    for c, nm, sc in base:
+        cx, cy = c["x0"], yc(c)
+        below = [d for d in cells if id(d) != id(c)
+                 and abs(d["x0"] - cx) <= 50 and 0 < (yc(d) - cy) <= row_h * 1.3
+                 and "€" not in d["text"] and not re.fullmatch(r"[\d.,)\s]+", d["text"])]
+        below.sort(key=lambda d: yc(d) - cy)
+        if below:
+            jn, js = match_constituency(c["text"] + " " + below[0]["text"], norm_keys, norm_to_name)
+            if jn and js > sc + 0.02:
+                nm, sc = jn, js
+                consumed.add(id(below[0]))
+        anchors.append((c, nm, sc))
     a_tol, e_tol = row_h * 0.7, row_h * 1.5  # assigned aligns tight; expenditure may offset
+    name_tol = row_h * 0.45  # names sit ON the constituency row; a tight window avoids
+    #                          grabbing the adjacent row's name fragment (e.g. Aontú)
     left = [(c, v) for c, v in money if split_x is None or xc(c) < split_x]
     right = [(c, v) for c, v in money if split_x is not None and xc(c) >= split_x]
 
@@ -235,12 +292,15 @@ def parse_page(cells: list[dict], pno: int, norm_keys, norm_to_name, name_to_sea
         if cand:
             c, v = cand[0]
             claimed.add(id(c)); spend, e_conf = v, c["score"]
-        # candidate name: non-money, non-numeric cells left of constituency, near y
+        # candidate name: non-money, non-numeric cells left of constituency, on the
+        # SAME row (tight name_tol — avoids merging the adjacent row's name fragment)
         name_cells = sorted(
             (c for c in cells
-             if c["x0"] < ax and abs(yc(c) - ay) <= a_tol
+             if c["x0"] < ax and abs(yc(c) - ay) <= name_tol
+             and id(c) not in consumed  # not a constituency continuation line
              and "€" not in c["text"]
              and not re.fullmatch(r"[\d.,)\s]+", c["text"])
+             and norm(c["text"]) not in DIRECTIONS  # drop lone WEST/CENTRAL etc.
              and not match_constituency(c["text"], norm_keys, norm_to_name)[0]),
             key=lambda c: c["x0"],
         )
@@ -282,7 +342,18 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
     for p in summary_pages:
         for r in page_rows[p]:
             spend, assigned, limit = r["spend"], r["assigned"], r["limit"]
-            if spend is None:
+            # TODO(parser gap, flagged 2026-06-03): the over-limit guard below only
+            # checks `spend`, NOT `assigned`. On the FF scan, decimal-loss OCR inflated
+            # two ASSIGNED cells x100 past the statutory limit (Jim O'Callaghan
+            # €1,944,000 = €19,440; Michael Cahill €1,458,750 = €14,587.50) and they
+            # sailed through as "ok" — caught only by test_assigned_within_statutory_limit
+            # in test_sipo_data_quality.py. Mirror the limit check on `assigned` (flag
+            # e.g. "assigned_over_limit_verify" or null it) so impossible assigned
+            # amounts can't ship. The 4 expenditure x100 outliers ARE already caught by
+            # over_limit_verify below; this is only the assigned-column blind spot.
+            if assigned is not None and limit and assigned > limit * 1.02:
+                flag = "assigned_over_limit_verify"  # garbage OCR in the assigned col
+            elif spend is None:
                 flag = "no_amount"
             elif limit and spend > limit:
                 flag = "over_limit_verify"
@@ -337,10 +408,20 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
 
 
 def rebuild_combined() -> None:
-    parts = [pl.read_parquet(p) for p in sorted(BY_PARTY_DIR.glob("*.parquet"))]
+    # by_party/ is SHARED with the Part-4 extractor (sipo_expense_items_paddle_etl.py
+    # writes *_items / *_categories parquets here too). Combine ONLY the Part-3
+    # candidate-summary parquets — identified by the candidate-expense schema — so
+    # Part-4 line-items/category-totals can't pollute the candidate fact.
+    parts = []
+    for p in sorted(BY_PARTY_DIR.glob("*.parquet")):
+        sch = pl.read_parquet_schema(p)
+        if "candidate_name_raw" in sch and "expenditure_eur" in sch:
+            parts.append(pl.read_parquet(p))
     if not parts:
         return
-    combined = pl.concat(parts, how="vertical_relaxed").sort(["party", "source_page", "candidate_name_raw"])
+    # diagonal_relaxed: align by column NAME, fill missing with null (tolerates a
+    # stale parquet with e.g. no statutory_limit_eur).
+    combined = pl.concat(parts, how="diagonal_relaxed").sort(["party", "source_page", "candidate_name_raw"])
     combined.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
     hr("COMBINED FACT")
     print(combined.group_by("party").agg(
@@ -374,7 +455,8 @@ def main() -> None:
     BY_PARTY_DIR.mkdir(parents=True, exist_ok=True)
 
     ocr = None
-    if not parse_only:
+    needs_paddle = not parse_only and any(k not in BORN_DIGITAL for k in keys)
+    if needs_paddle:
         from paddleocr import PaddleOCR
 
         ocr = PaddleOCR(lang="en", use_doc_orientation_classify=False, use_doc_unwarping=False,

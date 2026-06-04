@@ -501,6 +501,142 @@ def test_v_bill_statutory_instruments_executes():
     assert len(result) > 0
 
 
+# --- v_si_amendments — the SI→SI amendment/revocation graph (edge inversion) ---
+
+_SI_AMEND_EFFECTS = {"revokes", "amends", "partially revokes", "amends and partially revokes"}
+
+
+def _write_si_amendments_fixture(root: Path) -> None:
+    """Build a minimal si_current_state + statutory_instruments parquet pair under
+    root/data/gold/parquet/ that exercises every derivation rule of v_si_amendments."""
+    import polars as pl
+
+    pdir = root / "data" / "gold" / "parquet"
+    pdir.mkdir(parents=True, exist_ok=True)
+
+    # affected-side rows. Lists are the eISB "affecting" instruments.
+    state = pl.DataFrame(
+        {
+            "si_year": [2020, 2020, 2020, 2020, 2020],
+            "si_number": [100, 101, 102, 103, 104],
+            "current_state": [
+                "revoked",            # -> 1 edge, effect 'revokes'
+                "amended",            # -> 1 edge, effect 'amends', provision parsed
+                "other_affected",     # EXCLUDED (indirect refs)
+                "in_force_as_made",   # EXCLUDED (no affecting edge)
+                "partially_revoked",  # -> 1 edge, effect 'partially revokes', amender out-of-gold
+            ],
+            "this_si_eli_url": ["eli100", "eli101", "eli102", "eli103", "eli104"],
+            "how_affected_raw": [
+                "Revoked || S.I. No. 200 of 2021 , reg. 5",
+                "Reg. 3 amended || S.I. No. 201 of 2022 , reg. 2",
+                "Rendered obsolete by revocation of S.I. No. 90 of 2019 || S.I. No. 202 of 2021 , reg. 1",
+                None,
+                "Reg. 4 revoked || S.I. No. 204 of 2023 , reg. 9",
+            ],
+            "confidence": [0.90, 0.88, 0.70, 0.95, 0.85],
+            "affecting_sis": [
+                ["200/2021"],
+                ["201/2022"],
+                ["90/2019", "202/2021"],  # would inflate if not excluded
+                [],
+                ["204/2023"],
+            ],
+            "affecting_si_urls": [
+                ["u200"],
+                ["u201"],
+                ["u90", "u202"],
+                [],
+                ["u204"],
+            ],
+        }
+    )
+    state.write_parquet(pdir / "si_current_state.parquet")
+
+    # titles: include both bases and the in-gold amenders; OMIT 204/2023 so its
+    # amender_title must come back NULL (LEFT JOIN, not an inner-join drop).
+    sis = pl.DataFrame(
+        {
+            "si_year": [2020, 2020, 2020, 2020, 2021, 2022],
+            "si_number": [100, 101, 102, 104, 200, 201],
+            "si_title": [
+                "Base A Regs 2020", "Base B Regs 2020", "Base C Regs 2020",
+                "Base E Regs 2020", "Revoker Regs 2021", "Amender Regs 2022",
+            ],
+        }
+    )
+    sis.write_parquet(pdir / "statutory_instruments.parquet")
+
+
+def test_v_si_amendments_inversion_contract(tmp_path):
+    """Precise derivation contract on a synthetic fixture (no real data needed):
+    edge inversion, effect mapping, other_affected exclusion, no row inflation
+    from multi-element lists, number/year parse, LEFT-JOIN title fill."""
+    _write_si_amendments_fixture(tmp_path)
+    sql = (SQL_VIEWS_DIR / "legislation_si_amendments.sql").read_text(encoding="utf-8")
+    sql = sql.replace("'data/", f"'{tmp_path.as_posix()}/data/")  # mirror absolutize
+    con = _con()
+    con.execute(sql)
+    df = con.execute("SELECT * FROM v_si_amendments ORDER BY affected_number").pl()
+
+    # exactly 3 edges: revoked(100), amended(101), partially_revoked(104).
+    # other_affected(102) excluded -> its 2-element list does NOT inflate; 103 has no edge.
+    assert df.height == 3, f"expected 3 clean edges, got {df.height}"
+    assert set(df["current_state"]) == {"revoked", "amended", "partially_revoked"}
+    assert set(df["effect"]).issubset(_SI_AMEND_EFFECTS)
+    assert 102 not in set(df["affected_number"]), "other_affected must be excluded"
+    assert 103 not in set(df["affected_number"]), "no-edge row must be excluded"
+
+    # effect mapping + number/year parse + provision extraction (the amended row)
+    amend = con.execute("SELECT * FROM v_si_amendments WHERE affected_number=101").pl().to_dicts()[0]
+    assert amend["effect"] == "amends"
+    assert (amend["amender_number"], amend["amender_year"]) == (201, 2022)
+    assert amend["amender_title"] == "Amender Regs 2022"
+    assert amend["provision_note"] == "Reg. 3 amended"
+
+    # DIR2 inversion: the revoker 200/2021 points at the affected base 100/2020
+    rev = con.execute("SELECT * FROM v_si_amendments WHERE amender_number=200 AND amender_year=2021").pl().to_dicts()[0]
+    assert rev["effect"] == "revokes"
+    assert (rev["affected_number"], rev["affected_year"]) == (100, 2020)
+
+    # LEFT JOIN: amender 204/2023 is absent from gold -> title NULL, row still present
+    part = con.execute("SELECT * FROM v_si_amendments WHERE effect='partially revokes'").pl().to_dicts()[0]
+    assert (part["amender_number"], part["amender_year"]) == (204, 2023)
+    assert part["amender_title"] is None
+
+
+@pytest.mark.sql
+def test_v_si_amendments_executes():
+    """Real-data execute + contract: column shape, effect enum, other_affected
+    excluded, and row count equals the clean-state edge count in the source
+    parquet (guards the inversion against silent fan-out or scope drift)."""
+    _skip_missing(GOLD_PARQUET_DIR / "si_current_state.parquet", GOLD_PARQUET_DIR / "statutory_instruments.parquet")
+    con = _con()
+    con.execute(_load("legislation_si_amendments.sql"))
+    result = _result(con, "v_si_amendments")
+    for col in (
+        "amender_number", "amender_year", "amender_title", "amender_eli_url",
+        "effect", "current_state", "provision_note", "confidence",
+        "affected_number", "affected_year", "affected_title", "affected_eli_url",
+    ):
+        assert col in result.columns, f"Expected column '{col}' in v_si_amendments"
+
+    effects = con.execute("SELECT DISTINCT effect FROM v_si_amendments").fetchall()
+    for (e,) in effects:
+        assert e in _SI_AMEND_EFFECTS, f"effect '{e}' outside the agreed set"
+    assert con.execute("SELECT count(*) FROM v_si_amendments WHERE current_state='other_affected'").fetchone()[0] == 0
+
+    # row count must equal sum(len(affecting_sis)) over clean states — no inflation
+    src = (_DATA_BASE / "data/gold/parquet/si_current_state.parquet").as_posix()
+    expected = con.execute(
+        f"SELECT coalesce(sum(len(affecting_sis)),0) FROM read_parquet('{src}') "
+        "WHERE current_state IN ('revoked','partially_revoked','amended','amended_and_partially_revoked') "
+        "AND affecting_sis IS NOT NULL"
+    ).fetchone()[0]
+    view_n = con.execute("SELECT count(*) FROM v_si_amendments").fetchone()[0]
+    assert view_n == expected, f"edge count {view_n} != clean-state affecting count {expected}"
+
+
 # ---------------------------------------------------------------------------
 # PAYMENTS VIEWS
 # ---------------------------------------------------------------------------

@@ -306,3 +306,99 @@ OCR+PARSE ff — Fianna Fáil
     [ff] OCR page 27/45 @ 200dpi...
 
 === watchdog launch #21 for ff ===
+
+=== watchdog launch #1 for ff ===
+Information�: impossible de trouver des fichiers pour le(s) mod�le(s) sp�cifi�(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff — Fianna Fáil
+======================================================================
+    [ff] page 27: crashed at [300, 300, 200] -> SKIP
+    [ff] OCR page 28/45 @ 300dpi...
+    [ff] OCR page 29/45 @ 300dpi...
+    [ff] OCR page 30/45 @ 300dpi...
+    [ff] OCR page 31/45 @ 300dpi...
+    [ff] OCR page 32/45 @ 300dpi...
+
+=== watchdog launch #2 for ff ===
+Information�: impossible de trouver des fichiers pour le(s) mod�le(s) sp�cifi�(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff — Fianna Fáil
+======================================================================
+    [ff] OCR page 32/45 @ 300dpi...
+    [ff] OCR page 33/45 @ 300dpi...
+    [ff] OCR page 34/45 @ 300dpi...
+    [ff] OCR page 35/45 @ 300dpi...
+
+=== watchdog launch #3 for ff ===
+Information�: impossible de trouver des fichiers pour le(s) mod�le(s) sp�cifi�(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff — Fianna Fáil
+======================================================================
+    [ff] OCR page 35/45 @ 300dpi...
+
+=== watchdog launch #1 for ff ===
+Information�: impossible de trouver des fichiers pour le(s) mod�le(s) sp�cifi�(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+======================================================================
+OCR+PARSE ff — Fianna Fáil
+======================================================================
+    [ff] OCR page 35/45 @ 200dpi...
+    [ff] OCR page 36/45 @ 300dpi...
+    [ff] OCR page 37/45 @ 300dpi...
+    [ff] OCR page 38/45 @ 300dpi...
+    [ff] OCR page 39/45 @ 300dpi...
+    [ff] OCR page 40/45 @ 300dpi...
+    [ff] OCR page 41/45 @ 300dpi...
+    [ff] OCR page 42/45 @ 300dpi...
+    [ff] OCR page 43/45 @ 300dpi...
+    [ff] OCR page 44/45 @ 300dpi...
+    [ff] OCR page 45/45 @ 300dpi...
+    [Fianna Fáil] no printed TOTAL; spend>assigned violations=0 (Σspend €3,442,412.99)
+  Fianna Fáil: 78 rows, 77 with amount (99%), Σspend €3,442,412.99
+
+======================================================================
+COMBINED FACT
+======================================================================
+shape: (7, 4)
+┌─────────────────────────────────┬──────┬──────────┬─────────────┐
+│ party                           ┆ rows ┆ with_amt ┆ total_spend │
+│ ---                             ┆ ---  ┆ ---      ┆ ---         │
+│ str                             ┆ u32  ┆ u32      ┆ f64         │
+╞═════════════════════════════════╪══════╪══════════╪═════════════╡
+│ Fianna Fáil                     ┆ 78   ┆ 77       ┆ 3.4424e6    │
+│ Fine Gael                       ┆ 80   ┆ 80       ┆ 368642.78   │
+│ Aontú                           ┆ 38   ┆ 38       ┆ 146127.15   │
+│ Labour                          ┆ 26   ┆ 23       ┆ 138590.19   │
+│ Sinn Féin                       ┆ 71   ┆ 71       ┆ 91237.99    │
+│ People Before Profit/Solidarit… ┆ 40   ┆ 40       ┆ 66232.8     │
+│ Green Party                     ┆ 43   ┆ 43       ┆ 36729.6     │
+└─────────────────────────────────┴──────┴──────────┴─────────────┘
+
+wrote pipeline_sandbox\_sipo_output\sipo_expenses_fact.parquet  (376 rows, 7 parties)

@@ -55,7 +55,7 @@ Each chain is a self-contained `<domain>_refresh.py` orchestrator at repo root t
 | `unsure` (resolved during session) | 0 original — but 3 NEW `decide`/`unsure` items added 2026-06-02 (chain destination, sandbox promotion, root `__init__.py`) |
 | `sandbox` (move into sandbox) | 1 — but 2 sandbox files are now load-bearing pipeline deps (see ARCHITECTURE CHANGE) |
 | Streamlit UI files (utility/) | 36 — all `keep`, moving to `src/dail_tracker/ui/` |
-| Pre-flight test baseline | **STALE — re-run before Stage 1.** Original 294/11/10 from 2026-05-27 predates ~3+ new test files (e.g. `test/test_member_paginated.py`). Establish a fresh baseline on `main` immediately before the worktree move. |
+| Pre-flight test baseline | **CURRENT = 358 passed · 0 failed · 24 skipped** (re-established 2026-06-02, Option B execution log). Supersedes the stale 294/11/10 from 2026-05-27. Re-confirm immediately before the Step-5 worktree move; the only moving piece is the live Seanad WIP. |
 
 ---
 
@@ -418,11 +418,15 @@ The poll runners (`run_*_poll.py`) still don't use subprocess — they call `oir
 
 ---
 
-## Pre-flight test baseline (2026-05-27)
+## Pre-flight test baseline
 
-**[2026-06-02] STALE — the 294/11/10 figures below predate ~3+ new test files (e.g. `test/test_member_paginated.py`). Re-run `pytest test/` on `main` immediately before the worktree move to establish the real baseline. The failure *clusters* below are still useful as expected-failure categories, but the counts will differ.**
+**CURRENT BASELINE (2026-06-02): 358 passed · 0 failed · 24 skipped.** Established during the Option B execution (see log below) and re-confirmed after each frontload step. This is the live gate — any reorg PR must match it exactly. Re-run `pytest test/` on the working branch immediately before the Step-5 worktree move to re-confirm (the only in-flight moving piece is the Seanad WIP).
 
-`pytest test/` on main, BEFORE any reorg moves:
+> The 2026-05-27 figures and failure clusters below are **HISTORICAL** — retained for rationale only. The 11 failures they describe (pandera/polars API drift, schema/data freshness, pandas/polars confusion) were resolved between then and the 2026-06-02 re-baseline; an interim Step-1 baseline of 334·1·24 (1 Seanad-WIP failure) was also superseded by the 358·0·24 figure above.
+
+---
+
+### HISTORICAL — `pytest test/` on main, 2026-05-27, BEFORE any reorg moves:
 
 - **294 passed, 11 failed, 10 skipped** (13.38s)
 - All 11 failures are pre-existing bugs, NOT caused by anything in the reorg work. Three clusters:
@@ -438,7 +442,7 @@ The poll runners (`run_*_poll.py`) still don't use subprocess — they call `oir
 **Cluster C — pandas/polars confusion (1 failure)**
 `test_normaize_join_key.py::test_join_keys_are_unique_in_members` — `AttributeError: 'DataFrame' object has no attribute 'alias'`. Test mixes a pandas DataFrame with a polars-only method.
 
-**What this means for the reorg**: 294/305 is our known-good baseline. After Stage 1, the same 294 should pass (in their new paths) and the same 11 should fail. Any new failures = reorg-induced regressions to investigate.
+**What this meant at the time**: 294/305 was the known-good baseline as of 2026-05-27. This has been superseded — the current gate is **358·0·24** (see top of this section). After the Step-5 move, the same 358 should pass in their new paths; any new failure = a reorg-induced regression to investigate.
 
 ## Next step
 
