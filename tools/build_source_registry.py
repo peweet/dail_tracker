@@ -364,7 +364,6 @@ def build_records() -> list[dict]:
             print(f"  ! skipped {group}: {type(e).__name__}: {e}", file=sys.stderr)
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "extractors"))
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline_sandbox"))
 
     def _oireachtas():
         from oireachtas_pdf_poller import SOURCES
