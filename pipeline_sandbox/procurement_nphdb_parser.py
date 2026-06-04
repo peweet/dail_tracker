@@ -48,9 +48,9 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 # Reuse, don't rebuild: the gold-schema classification + safe-to-sum + coverage caveat all
-# live in the generic extractor. Import it by path (sibling module, not a package).
+# live in the generic extractor (graduated to extractors/). Import it by path.
 _spec = importlib.util.spec_from_file_location(
-    "pbe", str(ROOT / "pipeline_sandbox/procurement_public_body_extract.py"))
+    "pbe", str(ROOT / "extractors/procurement_public_body_extract.py"))
 pbe = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pbe)
 

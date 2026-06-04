@@ -147,7 +147,9 @@ def step_si_lrc_enrichment() -> bool:
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    from services.logging_setup import setup_standalone_logging
+
+    setup_standalone_logging("iris_refresh")
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument(
         "--skip-poll", action="store_true", help="skip the iris_oifigiuil_poller step (use existing bronze)"

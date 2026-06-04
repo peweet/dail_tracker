@@ -357,10 +357,9 @@ def _exit_code(results: dict[str, dict]) -> int:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-    )
+    from services.logging_setup import setup_standalone_logging
+
+    setup_standalone_logging("oireachtas_pdf_poller")
     results = run_all()
     print(json.dumps(results, indent=2))
     sys.exit(_exit_code(results))

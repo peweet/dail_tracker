@@ -383,11 +383,6 @@ manual_endpoints = [
     "https://www.oireachtas.ie/en/publications/?q=&topic%5B%5D=parliamentary-allowances",
 ]
 
-logging.basicConfig(
-    filename="endpoint_check.log",
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-)
 
 
 def endpoint_checker(manual_urls=manual_endpoints, urls=urls, session=session, timeout=10):
@@ -462,6 +457,10 @@ def endpoint_checker(manual_urls=manual_endpoints, urls=urls, session=session, t
 
 
 if __name__ == "__main__":
+    from services.logging_setup import setup_standalone_logging
+
+    setup_standalone_logging("endpoint_check")
+
     session = requests.Session()
     broken, _ = endpoint_checker(urls=urls, session=session)
 
@@ -472,7 +471,7 @@ if __name__ == "__main__":
         print(f"Broken URLs found: {len(broken)}")
         for url in broken:
             print(f" - {url}")
-        print("See endpoint_check.log for full details.")
+        print("See logs/standalone/endpoint_check.log for full details.")
 
     # Non-zero exit so CI (nightly endpoint-health workflow) can detect link rot.
     sys.exit(1 if broken else 0)

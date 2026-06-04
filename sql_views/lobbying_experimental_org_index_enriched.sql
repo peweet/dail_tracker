@@ -185,6 +185,20 @@ company_pick AS (
             CASE WHEN company_status = 'Normal' THEN 0 ELSE 1 END,
             company_reg_date DESC NULLS LAST
     ) = 1
+),
+-- Per-company statutory-accounts filing summary from the CRO financial-statements
+-- FILING INDEX (silver; metadata only — the figures are paywalled). Recent
+-- period-years are INCOMPLETE (companies file on later statutory deadlines), so
+-- downstream surfaces only WHAT WAS filed (latest period + count), never
+-- delinquency. See doc/CRO_FINANCIAL_STATEMENTS_EXPLORATION.md.
+filings_pick AS (
+    SELECT
+        company_num,
+        MAX(accounts_period_end)    AS latest_accounts_period_end,
+        COUNT(DISTINCT period_year) AS filing_periods_count
+    FROM read_parquet('data/silver/cro/financial_statements.parquet')
+    WHERE company_num IS NOT NULL
+    GROUP BY company_num
 )
 SELECT
     o.lobbyist_name,
@@ -263,6 +277,13 @@ SELECT
     -- Entity age (prefer CRO incorporation date — most reliable origin date)
     co.entity_age_years,
 
+    -- CRO statutory-accounts filing recency (financial-statements INDEX; metadata
+    -- only — figures paywalled). Neutral recency disclosure: the period the latest
+    -- filed accounts cover + how many reporting periods are on file. NEVER framed
+    -- as delinquency (recent years are incomplete). NULL when no filing on record.
+    CAST(f.latest_accounts_period_end AS VARCHAR) AS latest_accounts_period_end,
+    f.filing_periods_count,
+
     -- Newly-incorporated flag — within 24 months of first lobbying return
     CASE
         WHEN co.company_reg_date IS NOT NULL
@@ -323,4 +344,5 @@ SELECT
 FROM org_norm o
 LEFT JOIN charity_pick c  USING (name_norm)
 LEFT JOIN company_pick co USING (name_norm)
+LEFT JOIN filings_pick f  ON f.company_num = co.company_num
 ORDER BY o.return_count DESC;

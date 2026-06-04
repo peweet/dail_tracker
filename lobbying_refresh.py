@@ -96,7 +96,9 @@ def step_charity_enriched() -> bool:
 
 def main() -> int:
     argparse.ArgumentParser(description=__doc__.splitlines()[0]).parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    from services.logging_setup import setup_standalone_logging
+
+    setup_standalone_logging("lobbying_refresh")
     started = time.monotonic()
     failures: list[str] = []
     for name, fn in [

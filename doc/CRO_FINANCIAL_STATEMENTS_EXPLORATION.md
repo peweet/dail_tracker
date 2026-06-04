@@ -15,6 +15,21 @@ period-years) and as the targeting map if the paid PDFs are ever pursued.
 The **actual financial figures stay parked** — they're in the PDFs behind the
 CORE paywall (~€2.50/doc), not the open data (see "the only real prize" below).
 
+### Wiring status (2026-06-04)
+- **Source-health registry:** registered as `file_sources:cro_financial_statements`
+  (file_age on the silver, 200-day threshold; figures-paywalled caveat).
+- **Lobbying page — WIRED.** `sql_views/lobbying_experimental_org_index_enriched.sql`
+  gains a `filings_pick` CTE (join on `company_num`) exposing
+  `latest_accounts_period_end` + `filing_periods_count`; surfaced on the org
+  profile as a neutral line ("Most recent statutory accounts filed with the CRO
+  cover the period ending <Month YYYY>"). 686 / 893 company-matched orgs carry it.
+- **Procurement page — DATA-READY, NOT WIRED.** No procurement page exists yet,
+  and `v_procurement_supplier_summary` is CI-fixture-tested (adding a silver read
+  needs a new fixture). The join is trivial when the page is built:
+  `procurement_supplier_cro_match` (supplier_norm→company_num) → this index on
+  `company_num`. Deferred deliberately rather than break a tested view for a
+  non-existent page.
+
 ⚠️ **Caveat for any "went quiet / stopped filing" signal:** recent period-years
 are *incomplete* (2023 was 121k vs 2022's 214k at ingest — filings still arriving
 on later statutory deadlines). "Filed 2022 but not 2023" mixes genuine

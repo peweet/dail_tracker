@@ -79,6 +79,8 @@ def fetch_all_bills() -> tuple[list[dict], int]:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    from services.logging_setup import setup_standalone_logging
+
+    setup_standalone_logging("legislation_unscoped")
     bills, total = fetch_all_bills()
     logger.info(f"Fetched {len(bills)} payload(s) | total {total:,} bytes")
