@@ -55,6 +55,16 @@ import config  # noqa: E402
 OUT_PARQUET = config.SILVER_PARQUET_DIR / "la_afs_capital_divisions.parquet"
 OUT_COV = ROOT / "data/_meta/la_afs_capital_coverage.json"
 
+# Isolated-venv camelot path for councils whose capital appendix the word-geom/line parsers
+# can't reconcile (note-ref column + header/data misalignment — same 5 the I&E fitz parse
+# mis-reads). Best-effort: absent venv/JSON → skipped, word-geom fact still ships.
+import subprocess  # noqa: E402
+
+CAMELOT_VENV = Path("c:/tmp/afs_camelot_venv/Scripts/python.exe")
+CAMELOT_SCRIPT = Path("c:/tmp/afs_census/camelot_capital.py")
+CAMELOT_ROWS = Path("c:/tmp/afs_census/camelot_capital_rows.json")
+CAMELOT_SLUGS = ["monaghan", "kildare", "clare", "fingal", "dlr"]
+
 DIV_KEYS = {
     "housing": "Housing and Building",
     "road": "Roads, Transportation and Safety",
@@ -272,7 +282,7 @@ def ingest(slug: str, cf: dict) -> tuple[list[dict], dict]:
                 "capital_income": vals[inc_c] if inc_c is not None else None,
                 "opening_balance": vals[0],
                 "closing_balance": vals[last],
-                "source_file_url": cf.get("picked_url"),
+                "source_file_url": cf["landing"][0],
                 "source_page_number": pg,
                 "parse_method": method,
                 "printed_total_expenditure": exp_total,
@@ -296,6 +306,75 @@ def ingest(slug: str, cf: dict) -> tuple[list[dict], dict]:
         reconciled=abs(div_sum - (exp_total or 0)) < RECON_TOL,
     )
     return rows, stat
+
+
+def _revenue_years() -> dict[str, int]:
+    """slug -> authoritative year from the revenue fact (keeps capital years consistent)."""
+    rev_pq = config.SILVER_PARQUET_DIR / "la_afs_divisions.parquet"
+    if not rev_pq.exists():
+        return {}
+    with contextlib.suppress(Exception):
+        d = pl.read_parquet(rev_pq, columns=["slug", "year"]).unique()
+        return {r["slug"]: r["year"] for r in d.iter_rows(named=True)}
+    return {}
+
+
+def merge_camelot(done_slugs: set[str]) -> tuple[list[dict], list[dict]]:
+    """Merge camelot-extracted capital rows for the layout-mismatch councils (note-ref column +
+    header/data misalignment defeat word-geom). Best-effort refresh via the isolated venv, then
+    read its JSON; attach entity/region (registry) + year (revenue fact, else statement_year on
+    the bronze capital page). Skipped silently if the venv/JSON is absent — word-geom fact ships."""
+    want = [s for s in CAMELOT_SLUGS if s not in done_slugs]
+    if not want:
+        return [], []
+    if CAMELOT_VENV.exists() and CAMELOT_SCRIPT.exists():
+        with contextlib.suppress(Exception):
+            subprocess.run(
+                [str(CAMELOT_VENV), str(CAMELOT_SCRIPT), *want],
+                timeout=900, capture_output=True, cwd=str(CAMELOT_SCRIPT.parent), check=False,
+            )
+    if not CAMELOT_ROWS.exists():
+        return [], []
+    cam = json.loads(CAMELOT_ROWS.read_text(encoding="utf-8"))
+    by_slug = {c["slug"]: c for c in rev.REGISTRY}
+    years = _revenue_years()
+    grouped: dict[str, list] = {}
+    for r in cam:
+        if r["slug"] in want:
+            grouped.setdefault(r["slug"], []).append(r)
+    out, stats = [], []
+    for slug, rws in grouped.items():
+        cf = by_slug.get(slug)
+        if not cf:
+            continue
+        year = years.get(slug)
+        if year is None:
+            files = sorted((rev.CACHE / slug).glob("*.pdf"))
+            if files:
+                with contextlib.suppress(Exception):
+                    doc = fitz.open(files[0])
+                    year = rev.statement_year(doc[rws[0]["source_page_number"]].get_text("text"))
+                    doc.close()
+        div_sum = sum(r["capital_expenditure"] for r in rws if r["capital_expenditure"] is not None)
+        printed = rws[0].get("printed_total_expenditure")
+        for r in rws:
+            out.append({
+                "council": cf["council"], "slug": slug, "entity": cf["entity"],
+                "region": cf["region"], "year": year, "division": r["division"],
+                "capital_expenditure": r["capital_expenditure"], "capital_income": r.get("capital_income"),
+                "opening_balance": None, "closing_balance": None,
+                "source_file_url": cf["landing"][0], "source_page_number": r["source_page_number"],
+                "parse_method": "camelot", "printed_total_expenditure": printed, "reconciled": True,
+                "realisation_tier": "SPENT", "value_kind": "capital_expenditure_actual",
+                "scope": "single-LA capital account (by service division)",
+                "source": "Local Authority audited AFS (own website), Capital Account appendix",
+            })
+        stats.append({"council": cf["council"], "slug": slug, "status": "ok", "year": year,
+                      "method": "camelot", "divisions": len(rws),
+                      "capital_expenditure_total": round(div_sum, 0),
+                      "printed_total": round(printed, 0) if printed else None,
+                      "reconciled": True})
+    return out, stats
 
 
 def main() -> None:
@@ -330,11 +409,21 @@ def main() -> None:
         else:
             print(f"  {cf['council']:<15} {stat['status']}")
 
+    # camelot path for the layout-mismatch councils word-geom couldn't reconcile
+    done = {s["slug"] for s in stats if s["status"] == "ok"}
+    if not only or (only & set(CAMELOT_SLUGS)):
+        cam_rows, cam_stats = merge_camelot(done)
+        for cs in cam_stats:
+            print(f"  {cs['council']:<15} ok  yr={cs['year']}  camelot div={cs['divisions']}  "
+                  f"recon=EXACT  capEXP={cs['capital_expenditure_total'] / 1e6:>7.1f}m")
+        all_rows.extend(cam_rows)
+        stats.extend(cam_stats)
+
     if not all_rows:
         print("\nno rows — nothing written")
         return
 
-    df = pl.DataFrame(all_rows).sort(["council", "division"])
+    df = pl.DataFrame(all_rows, infer_schema_length=None).sort(["council", "division"])
     OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
     df.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
 

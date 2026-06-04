@@ -23,7 +23,9 @@ sys.path.insert(0, str(_ROOT / "pipeline_sandbox"))
 
 from si_lrc_classlist_extract import ELI_SI, SI_CITE, parse_category  # noqa: E402
 
-SUMMARY = _ROOT / "pipeline_sandbox/_lrc_output/si_lrc_enrichment_summary.parquet"
+# Promoted to gold (si_lrc_enrichment_build.py now writes here; read by
+# v_si_lrc_enrichment). Tests skip gracefully if the pipeline hasn't run.
+SUMMARY = _ROOT / "data/gold/parquet/si_lrc_enrichment_summary.parquet"
 
 # A miniature of the real page: subject h2, two nested subheadings, three SI
 # entries (one via ELI href only, one via citation text only, one under a deeper
