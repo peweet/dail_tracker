@@ -69,12 +69,15 @@ PERIOD_RE = re.compile(r"(?:^|[^0-9])(20[12]\d)(?:[^0-9]|$)")
 QUARTER_RE = re.compile(r"q\s?([1-4])|quarter[\s_-]?([1-4])|qtr[\s_-]?([1-4])", re.I)
 
 ROLE_RE = {
-    "supplier": re.compile(r"supplier|payee|vendor|provider|customer|recipient|\bname\b", re.I),
-    "amount": re.compile(r"amount|total|value|gross|\beuro\b|€|\bpaid\b|\bvat\b|ledger|payment\b", re.I),
-    "description": re.compile(r"descript|\bdesc\b|detail|categor|service|goods|nature|\bgl\b|main gl", re.I),
-    "po": re.compile(r"\border\b|\bpo\b|\bpor\b|referen|\bref\b|\bnumber\b|invoice|\bdoc\b|transaction", re.I),
-    "period": re.compile(r"period|quarter|\bqtr\b|\bdate\b|\byear\b|posting|month", re.I),
-    "paid": re.compile(r"\bpaid\b|payment type|status|no\.? of payments", re.I),
+    # English + Irish (as Gaeilge) — some bodies (e.g. An Bord Pleanála) publish bilingual
+    # headers: Soláthraí=supplier, Glanmhéid/Méid Comhlán=net/gross amount, Cur Síos=description,
+    # Tagairt=reference, Dáta=date. English-only role regexes leave supplier=None on those.
+    "supplier": re.compile(r"supplier|payee|vendor|provider|customer|recipient|\bname\b|soláthr", re.I),
+    "amount": re.compile(r"amount|total|value|gross|\beuro\b|€|\bpaid\b|\bvat\b|ledger|payment\b|m[ée]id|mhéid|luach|comhlán", re.I),
+    "description": re.compile(r"descript|\bdesc\b|detail|categor|service|goods|nature|\bgl\b|main gl|cur síos|tuairisc|seirbhís|earraí", re.I),
+    "po": re.compile(r"\border\b|\bpo\b|\bpor\b|referen|\bref\b|\bnumber\b|invoice|\bdoc\b|transaction|tagairt|uimhir|ordú", re.I),
+    "period": re.compile(r"period|quarter|\bqtr\b|\bdate\b|\byear\b|posting|month|dáta|ráithe|bliain", re.I),
+    "paid": re.compile(r"\bpaid\b|payment type|status|no\.? of payments|íoctha", re.I),
 }
 CAVEAT_RE = re.compile(r"\bvat\b|exclud|inclus|indicativ|not (a )?payment|net of|estimate|note:|please note", re.I)
 COMPANY_SUFFIX = re.compile(

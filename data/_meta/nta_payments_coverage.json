@@ -1,0 +1,87 @@
+{
+  "publisher_id": "ie_nta",
+  "publisher_name": "National Transport Authority",
+  "listing_urls": [
+    "https://www.nationaltransport.ie/publications/2024-purchase-orders-e20000-and-over/",
+    "https://www.nationaltransport.ie/publications/2025-purchase-orders-e20000-and-over/",
+    "https://www.nationaltransport.ie/publications/2026-purchase-orders-e20000-and-over/"
+  ],
+  "files_parsed": 9,
+  "by_file": [
+    {
+      "file": "2024-POs-20k-and-above-Q4.pdf",
+      "pages": 7,
+      "rows": 0,
+      "sum_eur": 0
+    },
+    {
+      "file": "2024-POs-20k-and-above-Q3.pdf",
+      "pages": 7,
+      "rows": 0,
+      "sum_eur": 0
+    },
+    {
+      "file": "2024-POs-20k-and-above-Q2.pdf",
+      "pages": 8,
+      "rows": 0,
+      "sum_eur": 0
+    },
+    {
+      "file": "2024-POs-20k-and-above-Q1.pdf",
+      "pages": 7,
+      "rows": 0,
+      "sum_eur": 0
+    },
+    {
+      "file": "Purchase-Orders-20k-and-over-Quarter-4-2025.pdf",
+      "pages": 11,
+      "rows": 0,
+      "sum_eur": 0
+    },
+    {
+      "file": "Purchase-Orders-20k-and-over-Quarter-3-2025.pdf",
+      "pages": 8,
+      "rows": 0,
+      "sum_eur": 0
+    },
+    {
+      "file": "Purchase-Orders-20k-and-over-Quarter-2-2025.pdf",
+      "pages": 7,
+      "rows": 0,
+      "sum_eur": 0
+    },
+    {
+      "file": "Purchase-Orders-20k-and-over-Quarter-1-2025.pdf",
+      "pages": 7,
+      "rows": 0,
+      "sum_eur": 0
+    },
+    {
+      "file": "Purchase-Orders-20k-and-over-Quarter-1-2026.pdf",
+      "pages": 14,
+      "rows": 435,
+      "sum_eur": 228398416.82
+    }
+  ],
+  "rows_extracted": 435,
+  "quarters_covered": [
+    "2026-Q1"
+  ],
+  "supplier_class_counts": {
+    "foreign_company": 5,
+    "sole_trader_or_individual": 123,
+    "public_body": 9,
+    "company": 298
+  },
+  "amount_total_eur": 228398416.81999993,
+  "largest_amount_eur": 140565268.03,
+  "largest_amount_share_of_total": 0.6154,
+  "outlier_warning": true,
+  "value_safe_to_sum_rows": 435,
+  "rows_review_personal_data": 123,
+  "privacy_quarantine_applied": false,
+  "schema_version": 1,
+  "parser_version": "0.1.0",
+  "generated_at": "2026-06-04T16:01:51+00:00",
+  "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). NTA quarterly purchase orders \u20ac20,000+. Rotated PDFs read in reading order. One row per PO line. amount_semantics=po_committed (orders, not payments). Unions with public_payments_fact at promotion. PRIVACY QUARANTINE DEFERRED (public_display=True for all rows)."
+}
