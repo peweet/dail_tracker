@@ -8,11 +8,15 @@ utility/data_access/payments_data.py.
 This file: layout, controls, HTML card rendering, and navigation only.
 No groupby, merge, pivot, or metric definitions here.
 
+Genuinely-open pipeline gaps (verified against sql_views/ on 2026-06-04):
+
 TODO_PIPELINE_VIEW_REQUIRED: per-year source PDF URL on v_payments_sources
-TODO_PIPELINE_VIEW_REQUIRED: canonical unique_member_code on payments views — required
-    for cross-page member-name links via utility/ui/entity_links.member_link_html.
-    Until then this page cannot link member names out to /member-overview.
-TODO_PIPELINE_VIEW_REQUIRED: party_name and constituency — not present in payments source CSV
+    (v_payments_sources exposes source_url; the per-year official PDF link is not yet
+    surfaced as a dedicated column)
+
+SHIPPED — tokens cleared 2026-06-04: canonical unique_member_code AND party_name +
+constituency are now present on v_payments_member_detail (verified in sql_views/), so
+cross-page member links and party/constituency display work without an in-page lookup.
 """
 
 from __future__ import annotations

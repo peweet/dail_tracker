@@ -11,6 +11,8 @@ parquets (and the Streamlit pages reading them) in sync:
     6. corporate_notices_enrichment -> data/gold/parquet/corporate_notices.parquet
     7. si_legislation_directory_extract -> data/gold/parquet/si_current_state.parquet
                                         (eISB legal-state: revoked/amended per SI)
+    8. si_lrc (classlist extract + build) -> data/gold/parquet/si_lrc_enrichment_summary.parquet
+                                        (LRC subject classification; discovery only)
 
 Steps 3-5 are the ones that quietly went stale after the silver rebuild on
 2026-05-31 (the live regression that prompted this script). Each step is
@@ -116,7 +118,7 @@ def step_corporate_gold() -> bool:
 
 
 def step_si_legal_state() -> bool:
-    _hr("[7/7] si_legislation_directory_extract — si_current_state.parquet (eISB legal-state)")
+    _hr("[7/8] si_legislation_directory_extract — si_current_state.parquet (eISB legal-state)")
     t = time.monotonic()
     # Subprocess: the crawler has its own __main__/argparse and lives in
     # pipeline_sandbox/. Freshness-gated by default — it re-checks each year
@@ -126,6 +128,22 @@ def step_si_legal_state() -> bool:
     r = subprocess.run([sys.executable, str(script)], cwd=_ROOT)
     print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
     return r.returncode == 0
+
+
+def step_si_lrc_enrichment() -> bool:
+    _hr("[8/8] si_lrc — si_lrc_enrichment_summary.parquet (LRC subject classification)")
+    t = time.monotonic()
+    # Two sandbox-located, pipeline-invoked scripts: the classlist fetch+parse
+    # (36 polite requests, bronze-cached) then the deterministic gold build over
+    # current SI gold. DISCOVERY/CLASSIFICATION only — never asserts legal status.
+    extract = _ROOT / "pipeline_sandbox" / "si_lrc_classlist_extract.py"
+    build = _ROOT / "pipeline_sandbox" / "si_lrc_enrichment_build.py"
+    rc = 0
+    for script in (extract, build):
+        r = subprocess.run([sys.executable, str(script)], cwd=_ROOT)
+        rc = rc or r.returncode
+    print(f"  done in {time.monotonic() - t:.1f}s (exit {rc})")
+    return rc == 0
 
 
 def main() -> int:
@@ -162,6 +180,8 @@ def main() -> int:
             failures.append("corporate_gold")
         if not step_si_legal_state():
             failures.append("si_legal_state")
+        if not step_si_lrc_enrichment():
+            failures.append("si_lrc_enrichment")
 
     _hr(f"[done] iris_refresh complete in {time.monotonic() - started:.1f}s")
     if failures:

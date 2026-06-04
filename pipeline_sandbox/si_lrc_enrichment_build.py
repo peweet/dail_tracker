@@ -1,9 +1,13 @@
-"""LRC enrichment SUMMARY builder — sandbox gold-candidate (PR1 scope).
+"""LRC enrichment SUMMARY builder — PROMOTED gold writer (PR1 scope).
 
 Turns the raw classlist occurrences into a clean, deterministic, one-row-per-SI
-enrichment table over our SI gold. This is the artifact a SQL view would read.
+enrichment GOLD table over our SI gold. Read by v_si_lrc_enrichment
+(sql_views/legislation_si_lrc_enrichment.sql) and joined into
+v_statutory_instruments_classified for the SI page's subject chip + topic browse.
+Run after si_lrc_classlist_extract.py; wired into the iris chain as
+iris_refresh.step_si_lrc_enrichment ([8/8]).
 
-SAFE LANGUAGE (locked by test_si_lrc_enrichment.py):
+SAFE LANGUAGE (locked by test_si_lrc_enrichment.py + the SQL-view enum test):
   - status is matched_classified_list | not_matched  — NEVER "in_force".
   - "not_matched" does NOT mean the SI is not in force; it means the LRC
     Classified List does not list it (it may be ephemeral, spent, or simply
@@ -15,8 +19,8 @@ Grain: one row per SI in our gold (matched and unmatched both present).
 
 Reads : pipeline_sandbox/_lrc_output/si_lrc_classlist_raw.parquet
         data/gold/parquet/statutory_instruments.parquet
-Writes: pipeline_sandbox/_lrc_output/si_lrc_enrichment_summary.parquet
-        pipeline_sandbox/_lrc_output/si_lrc_enrichment_summary_coverage.json
+Writes: data/gold/parquet/si_lrc_enrichment_summary.parquet   (git-tracked gold)
+        data/_meta/si_lrc_enrichment_summary_coverage.json
 """
 
 from __future__ import annotations
@@ -36,8 +40,8 @@ except Exception:
 
 LRC = ROOT / "pipeline_sandbox/_lrc_output/si_lrc_classlist_raw.parquet"
 GOLD = ROOT / "data/gold/parquet/statutory_instruments.parquet"
-OUT = ROOT / "pipeline_sandbox/_lrc_output/si_lrc_enrichment_summary.parquet"
-COVERAGE = ROOT / "pipeline_sandbox/_lrc_output/si_lrc_enrichment_summary_coverage.json"
+OUT = ROOT / "data/gold/parquet/si_lrc_enrichment_summary.parquet"
+COVERAGE = ROOT / "data/_meta/si_lrc_enrichment_summary_coverage.json"
 
 # Catch-all subheadings that are poor browse landing pages — kept, but never
 # chosen as the *primary* leaf if a more specific one exists.

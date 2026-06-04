@@ -260,6 +260,16 @@ def fetch_si_entity_index() -> pd.DataFrame:
     return _safe("SELECT * FROM v_statutory_instruments")
 
 
+def fetch_si_entity_index_classified() -> pd.DataFrame:
+    """v_statutory_instruments enriched with the LRC subject classification
+    (lrc_primary_subject / lrc_primary_leaf / lrc_enrichment_status / lrc_caveat).
+    Same one-row-per-SI grain as fetch_si_entity_index — the LEFT JOIN lives in
+    v_statutory_instruments_classified. Returns an empty frame if the LRC gold
+    table is absent (view fails to register), so the page can fall back to the
+    unclassified index."""
+    return _safe("SELECT * FROM v_statutory_instruments_classified")
+
+
 @st.cache_data(ttl=300)
 def fetch_si_amendments_made(si_year: int, si_number: int) -> pd.DataFrame:
     """The instruments THIS SI amends/revokes — the forward direction of the

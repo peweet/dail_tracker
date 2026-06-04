@@ -211,16 +211,15 @@ REGISTRY: list[dict] = [
         "region": "Leinster",
         "landing": ["https://www.louthcoco.ie/en/Your_Council/Finance/", "https://www.louthcoco.ie"],
     },
-    # ---- Phase 1: census seed pointed at the wrong page (no AFS link found) — finance
-    #      landing + homepage crawl; reconcile-gate drops anything that isn't the AFS ----
+    # ---- Phase 1: AFS landing URLs found via web search (census seed had pointed at the
+    #      wrong page); `direct` = known-good audited PDF as a fallback if harvest misses ----
     {
         "council": "Wexford",
         "slug": "wexford",
         "entity": "county",
         "region": "Leinster",
         "landing": [
-            "https://www.wexfordcoco.ie/council-and-democracy/procurement-finance-and-credit-control",
-            "https://www.wexfordcoco.ie",
+            "https://www.wexfordcoco.ie/council-and-democracy/council-minutes-plans-publications-and-reports/annual-financial-statements"
         ],
     },
     {
@@ -228,45 +227,59 @@ REGISTRY: list[dict] = [
         "slug": "waterford",
         "entity": "merged",
         "region": "Munster",
-        "landing": [
-            "https://waterfordcouncil.ie/openness-transparency/governance-related-financial-information/",
-            "https://waterfordcouncil.ie",
-        ],
+        "landing": ["https://waterfordcouncil.ie/documents/annual-reports/", "https://waterfordcouncil.ie/documents/"],
     },
     {
         "council": "Limerick",
         "slug": "limerick",
         "entity": "merged",
         "region": "Munster",
-        "landing": ["https://www.limerick.ie/council/services/business-and-economy/finance", "https://www.limerick.ie"],
+        "landing": [
+            "https://www.limerick.ie/council/services/your-council/budgets-expenditure-and-financial-statements/annual-financial"
+        ],
+        "direct": [
+            "https://www.limerick.ie/sites/default/files/media/documents/2026-02/limerick-city-and-county-council-audited-annual-financial-statement-2024.pdf"
+        ],
     },
     {
         "council": "Offaly",
         "slug": "offaly",
         "entity": "county",
         "region": "Leinster",
-        "landing": ["https://www.offaly.ie/financial-reports/", "https://www.offaly.ie"],
+        "landing": [
+            "https://www.offaly.ie/annual-financial-statement-publication-2/",
+            "https://www.offaly.ie/financial-reports/",
+        ],
+        "direct": ["https://www.offaly.ie/app/uploads/Council/Council_Services_A-Z/Finance/Audited-AFS-2022.pdf"],
     },
     {
         "council": "Longford",
         "slug": "longford",
         "entity": "county",
         "region": "Leinster",
-        "landing": ["https://www.longfordcoco.ie/services/finance/finance-documents/", "https://www.longfordcoco.ie"],
+        "landing": ["https://www.longfordcoco.ie/services/finance/annual-financial-statements/"],
+        "direct": [
+            "https://www.longfordcoco.ie/services/finance/annual-financial-statements/annual-financial-statement-2024.pdf"
+        ],
     },
     {
         "council": "Kerry",
         "slug": "kerry",
         "entity": "county",
         "region": "Munster",
-        "landing": ["https://www.kerrycoco.ie/finance/financial-documents/", "https://www.kerrycoco.ie"],
+        "landing": ["https://www.kerrycoco.ie/finance/financial-documents/", "https://www.kerrycoco.ie/publications/"],
     },
     {
         "council": "Leitrim",
         "slug": "leitrim",
         "entity": "county",
         "region": "Connacht",
-        "landing": ["https://www.leitrim.ie/council/services/finance/", "https://www.leitrim.ie"],
+        "landing": [
+            "https://www.leitrim.ie/council/services/finance/finance-publications/annual-financial-statements/"
+        ],
+        "direct": [
+            "https://www.leitrim.ie/council/services/finance/finance-publications/annual-financial-statements/2023-audited-afs.pdf"
+        ],
     },
     {
         "council": "Laois",
@@ -280,10 +293,8 @@ REGISTRY: list[dict] = [
         "slug": "dublin_city",
         "entity": "dublin",
         "region": "Dublin",
-        "landing": [
-            "https://www.dublincity.ie/residential/business/doing-business-council/council-budgets-spending",
-            "https://www.dublincity.ie",
-        ],
+        "landing": ["https://www.dublincity.ie/council/budgets-and-finance/financial-accounting-services-council"],
+        "direct": ["https://www.dublincity.ie/sites/default/files/2025-04/dcc-afs-accounts-for-publication-2024.pdf"],
     },
     # ---- Deferred: JS-rendered file lists need Playwright to ENUMERATE (Carlow/Cavan/
     #      Mayo/Roscommon) — batch with the PO Playwright work. ----
@@ -486,16 +497,21 @@ def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
 
 
 def merge_camelot(stats: list[dict]) -> list[dict]:
-    """Merge camelot-extracted rows for the layout-mismatch councils (CAMELOT_SLUGS).
+    """Merge camelot-extracted rows for the layout-mismatch councils (the dynamic fitz fail-set).
     Best-effort refresh via the isolated venv, then read its JSON; attach council/entity/
     region (registry), year (fitz statement_year on the bronze page), source_file_url (the
     fitz pass's picked url); re-validate net=gross−income before admitting. Skips silently if
     the isolated venv/JSON is absent (CI/Cloud) — the fitz fact still ships."""
+    # DYNAMIC fail-set: every council fitz downloaded + found an I&E page for but could NOT
+    # reconcile (layout mismatch). Hand those slugs to camelot — not a hardcoded list.
+    fail_slugs = sorted({s["slug"] for s in stats if s.get("status") == "no-reconcile"})
+    if not fail_slugs:
+        return []
     if CAMELOT_VENV.exists() and CAMELOT_SCRIPT.exists():
         with contextlib.suppress(Exception):
             subprocess.run(
-                [str(CAMELOT_VENV), str(CAMELOT_SCRIPT)],
-                timeout=600,
+                [str(CAMELOT_VENV), str(CAMELOT_SCRIPT), *fail_slugs],
+                timeout=900,
                 capture_output=True,
                 cwd=str(CAMELOT_SCRIPT.parent),
                 check=False,
@@ -507,7 +523,7 @@ def merge_camelot(stats: list[dict]) -> list[dict]:
     picked_of = {s["council"]: s.get("picked") for s in stats}
     grouped: dict[str, list] = {}
     for r in cam:
-        if r["slug"] in CAMELOT_SLUGS:  # exclude the control council + any not-mismatch slug
+        if r["slug"] in fail_slugs:  # only councils fitz actually failed this run
             grouped.setdefault(r["slug"], []).append(r)
     out: list[dict] = []
     for slug, rows in grouped.items():

@@ -4,30 +4,25 @@ Register of Members' Interests — Dáil Tracker.
 Data source: silver CSV via in-memory DuckDB (registered view simulation).
 All retrieval follows SELECT / WHERE / ORDER BY / LIMIT only — no aggregation in Streamlit.
 
-TODO_PIPELINE_VIEW_REQUIRED: v_member_interests_index
-    Member-level summary per year: member_name, party_name, constituency,
-    declaration_count, categories_count, landlord_flag, property_flag.
-    Needed to replace the flat declaration browse table with a clean member index.
-
-TODO_PIPELINE_VIEW_REQUIRED: v_member_interests_detail
-    Replace _load_interests() silver CSV simulation with a registered view.
+Genuinely-open pipeline gaps (verified against sql_views/ on 2026-06-04):
 
 TODO_PIPELINE_VIEW_REQUIRED: v_member_interests_yearly_summary
     Year + interest_category + declarations_count.
-    Needed for the year-responsive category breakdown chart.
+    Needed for the year-responsive category breakdown chart. (Not yet built.)
 
 TODO_PIPELINE_VIEW_REQUIRED: v_member_interests_sources
-    Per-declaration source PDF links: source_pdf_url, source_page_number, oireachtas_url.
+    Per-declaration source-document view: source_page_number, oireachtas_url
+    (v_member_interests_detail already carries source_pdf_url, but the
+    per-declaration sources view itself is not built).
 
-TODO_PIPELINE_VIEW_REQUIRED: directorship_flag — derive from interest_category in pipeline
-TODO_PIPELINE_VIEW_REQUIRED: shareholding_flag — derive from interest_category in pipeline
-TODO_PIPELINE_VIEW_REQUIRED: source_pdf_url — add PDF URL to silver output
 TODO_PIPELINE_VIEW_REQUIRED: unique_member_code — stable join key on v_member_interests_*
     views. Required for cross-page member-name links via
-    utility/ui/entity_links.member_link_html. Until then this page cannot link member
-    names out to /member-overview without an in-Streamlit name lookup (forbidden).
-TODO_PIPELINE_VIEW_REQUIRED: mart_version, code_version, latest_fetch_timestamp_utc
-    on v_member_interests_detail
+    utility/ui/entity_links.member_link_html. Until then the page links out via the
+    exact-match data_access.identity_resolver.resolve_member_code workaround.
+
+SHIPPED — tokens cleared 2026-06-04 (verified present in sql_views/ AND consumed by
+interests_data.py): v_member_interests_index, v_member_interests_detail,
+directorship_flag, shareholding_flag, source_pdf_url.
 """
 
 from __future__ import annotations
