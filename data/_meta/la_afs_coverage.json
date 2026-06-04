@@ -1,10 +1,281 @@
 {
-  "councils_attempted": 27,
-  "councils_with_rows": 21,
+  "councils_total": 31,
+  "councils_available": 21,
+  "councils_unavailable": 10,
   "councils_fitz": 15,
   "councils_camelot": 6,
   "rows": 168,
   "phase": 1,
+  "coverage_by_council": [
+    {
+      "council": "Clare",
+      "slug": "clare",
+      "region": "Munster",
+      "available": true,
+      "year": 2024,
+      "parser": "camelot"
+    },
+    {
+      "council": "Cork City",
+      "slug": "cork_city",
+      "region": "Munster",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Cork County",
+      "slug": "cork_county",
+      "region": "Munster",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Donegal",
+      "slug": "donegal",
+      "region": "Ulster",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Dublin City",
+      "slug": "dublin_city",
+      "region": "Dublin",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Dun Laoghaire-Rathdown",
+      "slug": "dlr",
+      "region": "Dublin",
+      "available": true,
+      "year": 2023,
+      "parser": "camelot"
+    },
+    {
+      "council": "Fingal",
+      "slug": "fingal",
+      "region": "Dublin",
+      "available": true,
+      "year": 2024,
+      "parser": "camelot"
+    },
+    {
+      "council": "Galway City",
+      "slug": "galway_city",
+      "region": "Connacht",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Galway County",
+      "slug": "galway_county",
+      "region": "Connacht",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Kildare",
+      "slug": "kildare",
+      "region": "Leinster",
+      "available": true,
+      "year": 2025,
+      "parser": "camelot"
+    },
+    {
+      "council": "Kilkenny",
+      "slug": "kilkenny",
+      "region": "Leinster",
+      "available": true,
+      "year": 2023,
+      "parser": "fitz"
+    },
+    {
+      "council": "Leitrim",
+      "slug": "leitrim",
+      "region": "Connacht",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Limerick",
+      "slug": "limerick",
+      "region": "Munster",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Longford",
+      "slug": "longford",
+      "region": "Leinster",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Meath",
+      "slug": "meath",
+      "region": "Leinster",
+      "available": true,
+      "year": 2019,
+      "parser": "fitz"
+    },
+    {
+      "council": "Monaghan",
+      "slug": "monaghan",
+      "region": "Ulster",
+      "available": true,
+      "year": 2024,
+      "parser": "camelot"
+    },
+    {
+      "council": "Offaly",
+      "slug": "offaly",
+      "region": "Leinster",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Sligo",
+      "slug": "sligo",
+      "region": "Connacht",
+      "available": true,
+      "year": 2024,
+      "parser": "camelot"
+    },
+    {
+      "council": "South Dublin",
+      "slug": "south_dublin",
+      "region": "Dublin",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Tipperary",
+      "slug": "tipperary",
+      "region": "Munster",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Westmeath",
+      "slug": "westmeath",
+      "region": "Leinster",
+      "available": true,
+      "year": 2024,
+      "parser": "fitz"
+    },
+    {
+      "council": "Carlow",
+      "slug": "carlow",
+      "region": "Leinster",
+      "available": false,
+      "reason_category": "interactive_viewer",
+      "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
+    },
+    {
+      "council": "Cavan",
+      "slug": "cavan",
+      "region": "Ulster",
+      "available": false,
+      "reason_category": "interactive_viewer",
+      "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
+    },
+    {
+      "council": "Kerry",
+      "slug": "kerry",
+      "region": "Munster",
+      "available": false,
+      "reason_category": "not_located",
+      "reason": "We could not locate this council's published audited statement online."
+    },
+    {
+      "council": "Laois",
+      "slug": "laois",
+      "region": "Leinster",
+      "available": false,
+      "reason_category": "scanned_image",
+      "reason": "This council publishes its statement only as a scanned image, which is not yet machine-readable."
+    },
+    {
+      "council": "Louth",
+      "slug": "louth",
+      "region": "Leinster",
+      "available": false,
+      "reason_category": "unusual_layout",
+      "reason": "This council's statement uses a layout we cannot yet read reliably."
+    },
+    {
+      "council": "Mayo",
+      "slug": "mayo",
+      "region": "Connacht",
+      "available": false,
+      "reason_category": "interactive_viewer",
+      "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
+    },
+    {
+      "council": "Roscommon",
+      "slug": "roscommon",
+      "region": "Connacht",
+      "available": false,
+      "reason_category": "interactive_viewer",
+      "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
+    },
+    {
+      "council": "Waterford",
+      "slug": "waterford",
+      "region": "Munster",
+      "available": false,
+      "reason_category": "scanned_image",
+      "reason": "This council publishes its statement only as a scanned image, which is not yet machine-readable."
+    },
+    {
+      "council": "Wexford",
+      "slug": "wexford",
+      "region": "Leinster",
+      "available": false,
+      "reason_category": "scanned_image",
+      "reason": "This council publishes its statement only as a scanned image, which is not yet machine-readable."
+    },
+    {
+      "council": "Wicklow",
+      "slug": "wicklow",
+      "region": "Leinster",
+      "available": false,
+      "reason_category": "unusual_layout",
+      "reason": "This council's statement uses a layout we cannot yet read reliably."
+    }
+  ],
+  "unavailable_by_reason": {
+    "scanned_image": [
+      "Laois",
+      "Waterford",
+      "Wexford"
+    ],
+    "not_located": [
+      "Kerry"
+    ],
+    "unusual_layout": [
+      "Louth",
+      "Wicklow"
+    ],
+    "interactive_viewer": [
+      "Carlow",
+      "Cavan",
+      "Mayo",
+      "Roscommon"
+    ]
+  },
   "by_council": [
     {
       "council": "South Dublin",
@@ -331,279 +602,6 @@
   "realisation_tier": "SPENT",
   "value_kind": "net_expenditure_actual",
   "scope": "per-council audited AFS (not amalgamated, not cash-PO)",
-  "generated_at": "2026-06-04T13:43:36+00:00",
-  "caveat": "Per-LA accrual net-expenditure by service division. Sum only within a (council, year). NEVER reconcile against afs_amalgamated_divisions (national) or la_payments_fact (cash-PO/payment grain) \u2014 different grains.",
-  "councils_total": 31,
-  "councils_available": 21,
-  "councils_unavailable": 10,
-  "coverage_by_council": [
-    {
-      "council": "Clare",
-      "slug": "clare",
-      "region": "Munster",
-      "available": true,
-      "year": 2024,
-      "parser": "camelot"
-    },
-    {
-      "council": "Cork City",
-      "slug": "cork_city",
-      "region": "Munster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Cork County",
-      "slug": "cork_county",
-      "region": "Munster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Donegal",
-      "slug": "donegal",
-      "region": "Ulster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Dublin City",
-      "slug": "dublin_city",
-      "region": "Dublin",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Dun Laoghaire-Rathdown",
-      "slug": "dlr",
-      "region": "Dublin",
-      "available": true,
-      "year": 2023,
-      "parser": "camelot"
-    },
-    {
-      "council": "Fingal",
-      "slug": "fingal",
-      "region": "Dublin",
-      "available": true,
-      "year": 2024,
-      "parser": "camelot"
-    },
-    {
-      "council": "Galway City",
-      "slug": "galway_city",
-      "region": "Connacht",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Galway County",
-      "slug": "galway_county",
-      "region": "Connacht",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Kildare",
-      "slug": "kildare",
-      "region": "Leinster",
-      "available": true,
-      "year": 2025,
-      "parser": "camelot"
-    },
-    {
-      "council": "Kilkenny",
-      "slug": "kilkenny",
-      "region": "Leinster",
-      "available": true,
-      "year": 2023,
-      "parser": "fitz"
-    },
-    {
-      "council": "Leitrim",
-      "slug": "leitrim",
-      "region": "Connacht",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Limerick",
-      "slug": "limerick",
-      "region": "Munster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Longford",
-      "slug": "longford",
-      "region": "Leinster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Meath",
-      "slug": "meath",
-      "region": "Leinster",
-      "available": true,
-      "year": 2019,
-      "parser": "fitz"
-    },
-    {
-      "council": "Monaghan",
-      "slug": "monaghan",
-      "region": "Ulster",
-      "available": true,
-      "year": 2024,
-      "parser": "camelot"
-    },
-    {
-      "council": "Offaly",
-      "slug": "offaly",
-      "region": "Leinster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Sligo",
-      "slug": "sligo",
-      "region": "Connacht",
-      "available": true,
-      "year": 2024,
-      "parser": "camelot"
-    },
-    {
-      "council": "South Dublin",
-      "slug": "south_dublin",
-      "region": "Dublin",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Tipperary",
-      "slug": "tipperary",
-      "region": "Munster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Westmeath",
-      "slug": "westmeath",
-      "region": "Leinster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Carlow",
-      "slug": "carlow",
-      "region": "Leinster",
-      "available": false,
-      "reason_category": "interactive_viewer",
-      "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
-    },
-    {
-      "council": "Cavan",
-      "slug": "cavan",
-      "region": "Ulster",
-      "available": false,
-      "reason_category": "interactive_viewer",
-      "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
-    },
-    {
-      "council": "Kerry",
-      "slug": "kerry",
-      "region": "Munster",
-      "available": false,
-      "reason_category": "not_located",
-      "reason": "We could not locate this council's published audited statement online."
-    },
-    {
-      "council": "Laois",
-      "slug": "laois",
-      "region": "Leinster",
-      "available": false,
-      "reason_category": "scanned_image",
-      "reason": "This council publishes its statement only as a scanned image, which is not yet machine-readable."
-    },
-    {
-      "council": "Louth",
-      "slug": "louth",
-      "region": "Leinster",
-      "available": false,
-      "reason_category": "unusual_layout",
-      "reason": "This council's statement uses a layout we cannot yet read reliably."
-    },
-    {
-      "council": "Mayo",
-      "slug": "mayo",
-      "region": "Connacht",
-      "available": false,
-      "reason_category": "interactive_viewer",
-      "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
-    },
-    {
-      "council": "Roscommon",
-      "slug": "roscommon",
-      "region": "Connacht",
-      "available": false,
-      "reason_category": "interactive_viewer",
-      "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
-    },
-    {
-      "council": "Waterford",
-      "slug": "waterford",
-      "region": "Munster",
-      "available": false,
-      "reason_category": "scanned_image",
-      "reason": "This council publishes its statement only as a scanned image, which is not yet machine-readable."
-    },
-    {
-      "council": "Wexford",
-      "slug": "wexford",
-      "region": "Leinster",
-      "available": false,
-      "reason_category": "scanned_image",
-      "reason": "This council publishes its statement only as a scanned image, which is not yet machine-readable."
-    },
-    {
-      "council": "Wicklow",
-      "slug": "wicklow",
-      "region": "Leinster",
-      "available": false,
-      "reason_category": "unusual_layout",
-      "reason": "This council's statement uses a layout we cannot yet read reliably."
-    }
-  ],
-  "unavailable_by_reason": {
-    "unusual_layout": [
-      "Louth",
-      "Wicklow"
-    ],
-    "not_located": [
-      "Kerry"
-    ],
-    "interactive_viewer": [
-      "Carlow",
-      "Cavan",
-      "Mayo",
-      "Roscommon"
-    ],
-    "scanned_image": [
-      "Laois",
-      "Waterford",
-      "Wexford"
-    ]
-  }
+  "generated_at": "2026-06-04T14:26:40+00:00",
+  "caveat": "Per-LA accrual net-expenditure by service division. Sum only within a (council, year). NEVER reconcile against afs_amalgamated_divisions (national) or la_payments_fact (cash-PO/payment grain) \u2014 different grains."
 }
