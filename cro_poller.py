@@ -215,7 +215,9 @@ def main() -> int:
     ap.add_argument("--check-only", action="store_true",
                     help="report whether a newer snapshot exists; do not download")
     args = ap.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    from services.logging_setup import setup_standalone_logging
+
+    setup_standalone_logging("cro_poller")
 
     DEST_DIR.mkdir(parents=True, exist_ok=True)
     session = _session()

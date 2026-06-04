@@ -825,6 +825,24 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
             f'<p class="lp3-prose">Website: {source_link_html(website, website, aria_label=f"Open {org_name} website")}</p>'
         )
 
+    # CRO statutory-accounts filing recency. The CRO financial-statements FILING
+    # INDEX is metadata only (the figures are paywalled) and recent period-years
+    # are incomplete (companies file on later statutory deadlines) — so this is a
+    # neutral recency disclosure (what period the latest filed accounts cover),
+    # never delinquency. See doc/CRO_FINANCIAL_STATEMENTS_EXPLORATION.md.
+    latest_acct = str(org_row.get("latest_accounts_period_end", "") or "")
+    if latest_acct and latest_acct not in ("None", "NaT"):
+        try:
+            acct_label = pd.to_datetime(latest_acct).strftime("%B %Y")
+        except (ValueError, TypeError):
+            acct_label = latest_acct
+        n_per = int(org_row.get("filing_periods_count", 0) or 0)
+        hist_clause = f" {_p(n_per, 'reporting period')} on file." if n_per > 1 else ""
+        st.html(
+            '<p class="lp3-prose">Most recent statutory accounts filed with the CRO cover the '
+            f"period ending <strong>{_h(acct_label)}</strong>.{_h(hist_clause)}</p>"
+        )
+
     # Procurement cross-reference (eTenders). Co-occurrence disclosure ONLY — the
     # org appears on both the lobbying and procurement registers; this is NOT
     # evidence lobbying influenced any contract (see v_lobbying_org_procurement

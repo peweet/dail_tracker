@@ -1,4 +1,4 @@
-"""Unit tests for pipeline_sandbox/cro_financial_statements_extract.normalise.
+"""Unit tests for extractors/cro_financial_statements_extract.normalise.
 
 Pure unit test (no marker, default CI lane). Drives the normaliser with a tiny
 in-memory frame mirroring the 8-field CRO index — no network, no fetch. Locks the
@@ -13,7 +13,7 @@ from pathlib import Path
 import polars as pl
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "pipeline_sandbox"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "extractors"))
 from cro_financial_statements_extract import normalise  # noqa: E402
 
 

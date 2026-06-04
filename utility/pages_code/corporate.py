@@ -861,7 +861,7 @@ def load_corporate() -> pd.DataFrame:
     return df
 
 
-# Same legal-form strip as pipeline_sandbox/cbi_registers_extract._norm_firm —
+# Same legal-form strip as extractors/cbi_registers_extract._norm_firm —
 # inlined here so the page can normalise entity_name → entity_norm at row time
 # (the corporate_notices parquet has no stable per-row primary key we can use
 # to pre-join; notice_ref is sparse and shared across many rows).

@@ -106,8 +106,24 @@ is live-editing pipeline.py/CRO/SIPO. Resume once that reorg is committed.
 - MTU  pdf (132KB):          `https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q4-2025.pdf`
 - SEAI pdf (313KB):          `https://www.seai.ie/sites/default/files/2025-08/Q2-2025-PO-Report-over-20K.pdf`
 
-### cfg() entries to add (NOTE: parse quality NOT yet row-validated — the test crashed when the
-### file moved mid-run; confirm rows/conf on first run, especially TUS Q1-2026 = maybe prompt-pay)
+### ⚑ PARSE-VALIDATED 2026-06-04 (round 2) — only MTU is generic-reader-clean
+Ran emit_rows on a real file for each. Verdict:
+- **MTU ✅ WIRED** — 123 rows/high-conf (Q4-2025); 3 quarter URLs pinned via direct_files (Q2/Q3/Q4 2025).
+- **CHI ❌ needs fix** — xlsx row 0 is a TITLE ("CHI Vendor payments >25K"); real header "Vendor Name/Amount"
+  is row 1, but the title row wins header detection on a tie → amount col mis-picked (got €21). Fix = skip
+  title rows / prefer later header row in read_xlsx (shared — test carefully) or a 1-line per-publisher offset.
+- **SEAI ❌ needs bespoke** — generic reader returns supplier=None and €400m garbage amounts (header/column
+  detect fails on this PO-report layout).
+- **Pobal ❌ needs bespoke** — geometric find_header returns nothing (cols=[], 0 rows) despite digital text;
+  header has TWO 'SUPPLIER' columns (code + name). NPHDB-class problem → reading-order or column-x parser.
+- **TUS ❌ wrong files** — landing exposes prompt-PAYMENT summary PDFs (supplier=None, "Total invoices paid
+  in Quarter"), not PO supplier tables. Combined-Files-202X.pdf don't parse. Need the rolling xlsx the
+  discovery agent originally cited (different URL — re-locate).
+- **Beaumont ❌ wrong/!malformed** — the CSV is ragged (expected 63 rows, got 16); guessed xlsx URL 404s.
+  Re-harvest the correct file URL from the landing and decide grain (payment files vs the Q1-2026 PO file).
+
+The cfg() block below was the PRE-validation guess; keep only MTU (done). The other five are NOT generic-
+reader-clean — they join the bespoke tier (like HSE/Tusla/NPHDB). Original guess retained for reference:
 ```
 cfg("ie_beaumont", "Beaumont Hospital", "hospital", "health",
     listing="https://www.beaumont.ie/page/financial-statements",

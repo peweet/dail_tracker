@@ -219,8 +219,12 @@ PUBLISHERS: list[dict] = [
     cfg("ie_ntma", "National Treasury Management Agency (NTMA)", "state_body", "finance",
         listing="https://www.ntma.ie/information-pages/freedom-of-information/freedom-of-information-publication-scheme/financial-information",
         semantics="payment_actual", grain="payment", tier="D",
+        exclude=r"revised-foi-publication|[-_ ]publication\.pdf",
         caveat="one quarterly scheme covers 6 business units incl NDFA (ADM/Nat-Debt/ISIF/NDFA/FIF/ICNF); "
-               "do NOT also wire ie_ndfa or its rows double-count"),
+               "do NOT also wire ie_ndfa or its rows double-count. The 6-row 'Revised-FOI-Publication' / "
+               "'*-Publication.pdf' files are per-unit SUMMARIES (different grain) that overlap the "
+               "line-level Q*-Payments files in 2018-19 — excluded to avoid double-counting. "
+               "NOTE: the per-unit Q1-2020..Q2-2024 PDFs currently parse to 0 rows (layout/scan break) — known gap."),
     cfg("ie_courts", "Courts Service of Ireland", "agency", "justice",
         listing="https://www.courts.ie/publications/purchase-orders-greater-than-20k",
         semantics="po_committed", grain="purchase_order", tier="D",
@@ -237,10 +241,14 @@ PUBLISHERS: list[dict] = [
         listing="https://www.mtu.ie/about-mtu/legal/freedom-of-information/",
         semantics="po_committed", grain="purchase_order", tier="D",
         include=r"pos?-over-?20k|purchase-order|po[s]?[-_ ]?over",
-        caveat="TODO harvest gap: probe finds 15 PO PDFs from this URL but the extractor's one-hop "
-               "crawl/include misses them (files live under /media/.../foi/financial-information/) — "
-               "needs a deeper crawl or a direct sub-page listing_url; 0 rows until fixed. "
-               "Also exclude the 'Procurement Listing' tender-register xlsx (Tendered-by columns)"),
+        # Landing only exposes the tender-register xlsx + FOI logs; the actual PO PDFs live under
+        # /media/.../foi/financial-information/ and aren't reachable by the one-hop crawl, so the
+        # quarterly files are pinned directly. All 3 byte-verified 2026-06-04 (%PDF, 88-132KB);
+        # Q4-2025 parses to 123 rows high-conf. Add more quarters as their URLs are confirmed.
+        direct=["https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q4-2025.pdf",
+                "https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q3-2025.pdf",
+                "https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q2-2025.pdf"],
+        caveat="PO PDFs pinned via direct_files (landing exposes only tender-register xlsx + FOI logs)"),
 ]
 
 
@@ -462,11 +470,9 @@ def read_pdf(b: bytes, max_pages: int | None) -> dict:
             "roles": roles, "rows": out_rows, "page0": page0, "pages": npages}
 
 
-# ---- XLSX / CSV ----
-def read_xlsx(b: bytes):
-    import openpyxl
-    ws = openpyxl.load_workbook(io.BytesIO(b), read_only=True, data_only=True).active
-    raw = [list(r) for r in ws.iter_rows(values_only=True)]
+# ---- XLSX / XLS / CSV ----
+def _tabular_from_raw(raw: list[list]):
+    """Shared header-pick + body-trim for any 2D cell grid (openpyxl or xlrd)."""
     full = " ".join(str(c) for row in raw[:6] for c in row if c is not None)
     def score(row):
         return sum(any(rx.search(str(c)) for rx in ROLE_RE.values()) for c in (row or []) if c is not None)
@@ -474,6 +480,20 @@ def read_xlsx(b: bytes):
     header = [str(c).strip() if c is not None else f"col{j}" for j, c in enumerate(raw[hi])]
     rows = [r for r in raw[hi + 1:] if any(c is not None and str(c).strip() for c in r)]
     return header, rows, full
+
+
+def read_xlsx(b: bytes):
+    import openpyxl
+    ws = openpyxl.load_workbook(io.BytesIO(b), read_only=True, data_only=True).active
+    raw = [list(r) for r in ws.iter_rows(values_only=True)]
+    return _tabular_from_raw(raw)
+
+
+def read_xls(b: bytes):
+    import xlrd  # legacy binary .xls (pre-2021 quarterlies); openpyxl is .xlsx-only
+    sh = xlrd.open_workbook(file_contents=b).sheet_by_index(0)
+    raw = [sh.row_values(i) for i in range(sh.nrows)]
+    return _tabular_from_raw(raw)
 
 
 def read_csv(b: bytes):
@@ -542,8 +562,9 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
                 rec[paid_i] if paid_i is not None and paid_i < len(rec) else None))
         conf = "high" if good > 20 else ("medium" if good > 3 else "low")
 
-    else:  # xlsx / csv
-        header, rows, full = (read_xlsx if fmt in ("xlsx", "xls") else read_csv)(b)
+    else:  # xlsx / xls / csv
+        reader = {"xlsx": read_xlsx, "xls": read_xls, "csv": read_csv}[fmt]
+        header, rows, full = reader(b)
         caveat_detected = bool(CAVEAT_RE.search(full) or any(CAVEAT_RE.search(h or "") for h in header))
         roles = detect_roles_tab(header, rows)
         sup_i, amt_i = roles["supplier"], roles["amount"]
@@ -606,7 +627,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true", help="harvest-only: print candidate files, no parse")
     ap.add_argument("--only", default="", help="comma-separated publisher ids")
-    ap.add_argument("--max-files", type=int, default=6, help="cap files parsed per publisher")
+    ap.add_argument("--max-files", type=int, default=None,
+                    help="cap files parsed per publisher (default: all — full history)")
     ap.add_argument("--max-pages", type=int, default=None, help="cap pages per PDF")
     args = ap.parse_args()
     only = {x.strip() for x in args.only.split(",") if x.strip()} or None
@@ -634,10 +656,6 @@ def main() -> None:
             ext = next((e for e in DATA_EXT if u.lower().split("?")[0].endswith(e)), "")
             fmt = {".pdf": "pdf", ".xlsx": "xlsx", ".xls": "xls", ".csv": "csv"}.get(ext)
             if not fmt:
-                continue
-            if fmt == "xls":  # legacy binary .xls needs xlrd (pipeline-only extra) — deferred gap
-                skipped += 1
-                print(f"     ~ skip (.xls needs xlrd): {u.rsplit('/', 1)[-1][:50]}")
                 continue
             b = fetch_bytes(u)
             if not b:

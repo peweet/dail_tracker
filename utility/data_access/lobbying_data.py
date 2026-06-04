@@ -106,6 +106,7 @@ _ORG_INDEX_COLS = (
     "lobbyist_name, sector_label AS sector, return_count, politicians_targeted,"
     " distinct_policy_areas, first_period, last_period,"
     " rcn, company_num, status, match_method, entity_age_years,"
+    " latest_accounts_period_end, filing_periods_count,"
     " newly_incorporated_flag, state_adjacent_flag, country_established,"
     " trustee_count,"
     " funding_profile, gov_funded_share_latest, dominant_income_source,"

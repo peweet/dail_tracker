@@ -53,7 +53,9 @@ def endpoint_downloader(urls: list, session=session) -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    from services.logging_setup import setup_standalone_logging
+
+    setup_standalone_logging("pdf_downloader")
     endpoint_checker(urls, session=session)
     endpoint_downloader(urls, session=session)
     print(

@@ -1,4 +1,4 @@
-"""pipeline_sandbox/cro_financial_statements_extract.py — CRO filing INDEX.
+"""extractors/cro_financial_statements_extract.py — CRO filing INDEX.
 
 Fetches + normalises the CRO financial-statements FILING INDEX (free CKAN open
 data) → data/silver/cro/financial_statements.parquet. Keyed on company_num, so it
@@ -22,8 +22,8 @@ Idempotent: each yearly CSV is re-downloaded only when the CKAN last_modified is
 newer than what the coverage sidecar records (or --force / missing bronze).
 
 Run:
-    python pipeline_sandbox/cro_financial_statements_extract.py
-    python pipeline_sandbox/cro_financial_statements_extract.py --force
+    python extractors/cro_financial_statements_extract.py
+    python extractors/cro_financial_statements_extract.py --force
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ SOURCE_META = {
     "ckan_base": CKAN_BASE,
     "package_id": PACKAGE_ID,
     # health = age of the silver we hold; upstream updates only a few times/year,
-    # and this is sandbox (not yet pipeline-wired), so the threshold is generous.
+    # and this is not yet wired into a gold chain, so the threshold is generous.
     "silver_pattern": "data/silver/cro/financial_statements.parquet",
     "stale_after_days": 200,
 }

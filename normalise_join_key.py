@@ -58,7 +58,9 @@ def normalise_df_td_name(df: pl.DataFrame, col_name: str) -> pl.DataFrame:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    from services.logging_setup import setup_standalone_logging
+
+    setup_standalone_logging("normalise_join_key")
     logging.info("Testing normalise_df_td_name function with sample data...")
     sample_data = pl.DataFrame(
         {

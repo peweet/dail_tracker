@@ -128,7 +128,9 @@ def enrich(payments_parquet: Path = PAYMENTS_PARQUET, members_parquet: Path = ME
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s")
+    from services.logging_setup import setup_standalone_logging
+
+    setup_standalone_logging("payments_member_enrichment")
     stats = enrich()
     pct = 100 * stats["rows_matched"] / max(stats["rows_total"], 1)
     logging.info("payments enrichment complete:")
