@@ -4,7 +4,7 @@ Public Appointments — standalone browser page.
 Sources from the registered DuckDB view v_public_appointments
 (sql_views/appointments_public_appointments.sql), which reads
 data/gold/parquet/public_appointments.parquet — produced by
-pipeline_sandbox/public_appointments_enrichment.py.
+public_appointments_enrichment.py (repo root).
 
 Civic angle (and editorial spine): who the State puts into public office.
 The Irish/English split in the data tracks the appointing authority

@@ -1,5 +1,20 @@
 import requests
-from pipeline_sandbox.payment_pdf_url_probe import construct_candidates
+
+
+def construct_candidates(data_year: int, data_month: int):  # noqa: ARG001
+    """Placeholder for the removed candidate-URL builder.
+
+    This unfinished backfill scaffolding originally imported
+    ``construct_candidates`` from ``pipeline_sandbox/payment_pdf_url_probe.py``,
+    which was deleted as redundant in commit 55e5395. The probe is gone and this
+    feature was never wired into the pipeline, so the import broke. Kept as a
+    loud stub (not silently removed) so the dead-but-intentional scaffolding stays
+    visible; re-implement the candidate builder before finishing this feature.
+    """
+    raise NotImplementedError(
+        "payment_pdf_url_probe.construct_candidates was removed (commit 55e5395); "
+        "this PDF-backfill feature is unfinished — see module TODOs."
+    )
 
 # TODO add real user agent and contact info when deploying application
 # TODO finish this feature as it makes the project more robust to upstream changes and reduces unnecessary requests to the server when PDFs are missing. Also consider adding retry logic with backoff for transient errors.
