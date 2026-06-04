@@ -27,6 +27,13 @@ most relevant — **The Journal's 2025 investigation of this exact SIPO dataset*
   is that the *legislated* categories "do not provide useful information to voters",
   so present them plainly, not as analysis.
 
+- **Profile shape (OpenSecrets).** A profile leads with a **"Total Raised & Spent"
+  summary bar**, then drills into sections. The contributor/donor half is donations
+  (not our data), but the *summary-header → ranked drill* shape maps onto our **party
+  detail**: header (verified spend / assigned / candidate count + proportion bar) →
+  ranked candidate list → collapsed "figures to verify". (Non-Anglo register —
+  Germany/Canada — not yet checked; web-search rate-limited, low priority.)
+
 **The finding that changes the framing (critical):**
 - The Journal's totals are **candidate's-own-return + party combined** (€9.2m;
   Ruth Coppinger **€46,186**; FG €2.6m, FF €2.2m). **Our dataset is ONLY the party
@@ -202,13 +209,19 @@ Reused helpers: `hero_banner`, `glossary_strip`, `totals_strip`,
 
 ---
 
-### Open decisions for the user (before build)
-1. **Default lens** — *By party* (recommended: honest, the filing entity) vs *Top
-   candidates* (punchier). 
-2. **Card click target** — party card → party detail (in-page) is clear; candidate
-   card → nothing in v1 (no member link yet) vs → source PDF. Recommend: candidate
-   card opens the **source PDF** until member-linking lands.
-3. **Page title / url** — "Election Spending" / `election-spending` (recommended) vs
-   folding under a broader "Election Finance" umbrella that could later hold donations.
-4. **Naming** — show names as printed (fast, v1) vs wait for member-link
-   normalisation (slower, cleaner). Recommend ship as-printed with the caveat.
+### Decisions — LOCKED for v1 (all reversible; recommendations adopted)
+1. **Default lens = By party.** The filing entity, unambiguous scope ("this party's
+   national agent spent €X on its candidates"), and it avoids the scope-confusion with
+   The Journal's bigger per-candidate totals. *Top candidates* is the prominent second
+   lens (leaderboard convention), with the national-agent scope caveat pinned to it.
+3. **Candidate-card click = open the source SIPO PDF** (page-anchored) in v1. No
+   member-link yet (candidates ≠ all TDs; fuzzy-match deferred).
+2. **One page, "Election Finance"**, own slug `election-finance`, NOT a `rankings-`
+   page. v1 ships the **Spending** view; a **Donations** tab is the later home for
+   that dataset — one nav item for the domain. Distinct from **Payments** (salaries).
+   Nav-grouping of the whole top bar = separate future task.
+4. **Names shown as printed** on the SIPO return, with the OCR caveat. Member-link +
+   `SURNAME, First`→`First Surname` normalisation deferred (flagged in §10).
+
+Plan status: **locked & build-ready.** Build is gated only on the user's go-ahead
+(page-build was explicitly deferred for planning, now complete).

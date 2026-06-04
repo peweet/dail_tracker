@@ -71,7 +71,7 @@ DATA_EXT = (".pdf", ".xlsx", ".xls", ".csv")
 MONEY_RE = re.compile(r"(?:€|EUR)?\s?\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+\.\d{2}")
 NUM_RE = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
 HREF_RE = re.compile(r"""href\s*=\s*["']([^"']+)["']""", re.I)
-DIGIT_PREFIX = re.compile(r"^(?:\d{3,}\s+){1,2}")  # leading PO#/vendor-ID run (Mayo/Donegal/Waterford)
+DIGIT_PREFIX = re.compile(r"^\d{3,}(?:\s+\d+)?\s+")  # leading PO# + optional vendor-ID run (Mayo/Donegal/Waterford/Kilkenny)
 QUARTER_RE = re.compile(r"q\s?([1-4])|quarter[\s_-]?([1-4])|qtr[\s_-]?([1-4])", re.I)
 
 SUP_RE = re.compile(r"supplier|payee|vendor|provider|creditor|benefic|\bname\b|company", re.I)

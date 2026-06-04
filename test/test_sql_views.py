@@ -605,6 +605,73 @@ def test_v_si_amendments_inversion_contract(tmp_path):
     assert part["amender_title"] is None
 
 
+# --- v_si_lrc_enrichment + v_statutory_instruments_classified (LRC subject) ---
+
+_LRC_STATUS_ENUM = {"matched_classified_list", "not_matched"}
+_LRC_FORBIDDEN = {"in_force", "valid", "invalid", "official_status", "legally_current"}
+
+
+@pytest.mark.sql
+def test_v_si_lrc_enrichment_executes():
+    """LRC subject-classification view. Locks the column contract the SI subject
+    chip + topic facet read, the SAFE-status enum (never 'in force'), and one row
+    per SI (no fan-out from the source summary)."""
+    _skip_missing(GOLD_PARQUET_DIR / "si_lrc_enrichment_summary.parquet")
+    con = _con()
+    con.execute(_load("legislation_si_lrc_enrichment.sql"))
+    result = _result(con, "v_si_lrc_enrichment")
+    for col in (
+        "si_year", "si_number", "has_lrc_classified_list_match",
+        "lrc_primary_subject", "lrc_primary_leaf", "lrc_enrichment_status",
+        "lrc_caveat", "lrc_list_updated_to",
+    ):
+        assert col in result.columns, f"Expected column '{col}' in v_si_lrc_enrichment"
+
+    # safe status vocabulary — the dangerous failure is a legal-status assertion
+    states = {s for (s,) in con.execute("SELECT DISTINCT lrc_enrichment_status FROM v_si_lrc_enrichment").fetchall()}
+    assert states <= _LRC_STATUS_ENUM, f"status outside safe enum: {states - _LRC_STATUS_ENUM}"
+    joined = " ".join(states)
+    for bad in _LRC_FORBIDDEN:
+        assert bad not in joined, f"forbidden legal-status token {bad!r} in lrc_enrichment_status"
+
+    # one row per SI
+    n, distinct = con.execute(
+        "SELECT count(*), count(DISTINCT (si_year, si_number)) FROM v_si_lrc_enrichment"
+    ).fetchone()
+    assert n == distinct, f"v_si_lrc_enrichment not one-row-per-SI: {n} rows, {distinct} distinct"
+    # unmatched rows must carry no subject (never a fabricated classification)
+    bad = con.execute(
+        "SELECT count(*) FROM v_si_lrc_enrichment "
+        "WHERE lrc_enrichment_status='not_matched' AND lrc_primary_subject IS NOT NULL"
+    ).fetchone()[0]
+    assert bad == 0, f"{bad} not_matched rows carry a subject"
+
+
+@pytest.mark.sql
+def test_v_statutory_instruments_classified_no_inflation():
+    """The page's browse surface = v_statutory_instruments LEFT JOIN the LRC
+    enrichment. Must stay one-row-per-SI (no fan-out) and expose the subject
+    columns the facet/chip read."""
+    _skip_missing(
+        GOLD_PARQUET_DIR / "statutory_instruments.parquet",
+        GOLD_PARQUET_DIR / "si_current_state.parquet",
+        GOLD_PARQUET_DIR / "si_lrc_enrichment_summary.parquet",
+    )
+    con = _con()
+    # dependency order: current_state -> index (v_statutory_instruments) ->
+    # lrc_enrichment -> zz_classified
+    con.execute(_load("legislation_si_current_state.sql"))
+    con.execute(_load("legislation_si_index.sql"))
+    con.execute(_load("legislation_si_lrc_enrichment.sql"))
+    con.execute(_load("legislation_si_zz_classified.sql"))
+    base = con.execute("SELECT count(*) FROM v_statutory_instruments").fetchone()[0]
+    clf = con.execute("SELECT count(*) FROM v_statutory_instruments_classified").fetchone()[0]
+    assert clf == base, f"LRC LEFT JOIN inflated rows: base={base} classified={clf}"
+    result = _result(con, "v_statutory_instruments_classified")
+    for col in ("si_id", "lrc_primary_subject", "lrc_primary_leaf", "lrc_enrichment_status"):
+        assert col in result.columns, f"Expected column '{col}' in v_statutory_instruments_classified"
+
+
 @pytest.mark.sql
 def test_v_si_amendments_executes():
     """Real-data execute + contract: column shape, effect enum, other_affected

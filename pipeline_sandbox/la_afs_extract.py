@@ -202,14 +202,20 @@ REGISTRY: list[dict] = [
         "slug": "kilkenny",
         "entity": "county",
         "region": "Leinster",
-        "landing": ["https://kilkennycoco.ie/eng/services/finance/", "https://kilkennycoco.ie"],
+        "landing": [
+            "https://kilkennycoco.ie/eng/services/finance/annual-financial-statements/",
+            "https://kilkennycoco.ie/eng/publications/annual-financial-statements/",
+        ],
+        "direct": [
+            "https://kilkennycoco.ie/eng/publications/annual-financial-statements/final-afs-2023-for-website11.pdf"
+        ],
     },
     {
         "council": "Louth",
         "slug": "louth",
         "entity": "county",
         "region": "Leinster",
-        "landing": ["https://www.louthcoco.ie/en/Your_Council/Finance/", "https://www.louthcoco.ie"],
+        "landing": ["https://www.louthcoco.ie/en/publications/finance_reports/afs/"],
     },
     # ---- Phase 1: AFS landing URLs found via web search (census seed had pointed at the
     #      wrong page); `direct` = known-good audited PDF as a fallback if harvest misses ----
@@ -267,7 +273,11 @@ REGISTRY: list[dict] = [
         "slug": "kerry",
         "entity": "county",
         "region": "Munster",
-        "landing": ["https://www.kerrycoco.ie/finance/financial-documents/", "https://www.kerrycoco.ie/publications/"],
+        "landing": [
+            "https://www.kerrycoco.ie/finance/financial-documents/",
+            "https://www.kerrycoco.ie/publications/",
+            "http://reports.kerrycoco.ie",
+        ],
     },
     {
         "council": "Leitrim",
@@ -339,7 +349,12 @@ def harvest_afs(landing: str) -> list[str]:
         out = []
         for href in HREF_RE.findall(h):
             low = href.lower().split("?")[0]
-            if low.endswith(".pdf") and (AFS_LINK.search(href) or ("statement" in low and YEAR_RE.search(href))):
+            # require an AFS-specific token (afs / annual financial / financial statement) —
+            # a bare 'statement'+year matches non-AFS docs (child-safeguarding, AA-conclusion,
+            # development-plan statements) that the file-selector would then wrongly pick.
+            # unquote first: 'Annual%20Financial%20Statement.pdf' must decode to spaces or the
+            # %20 (3 chars) breaks AFS_LINK's single-separator class.
+            if low.endswith(".pdf") and AFS_LINK.search(unquote(href)):
                 out.append(urljoin(base, href))
         return out
 
@@ -379,11 +394,25 @@ def select_afs(urls: list[str]) -> str | None:
     return max(urls, key=key)
 
 
+def _browser_curl(url: str) -> bytes | None:
+    """curl with a real-browser UA — some council WAFs (Sligo) block the research UA used by
+    fetch_bytes/_curl but serve a normal browser fine."""
+    with contextlib.suppress(Exception):
+        ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+        p = subprocess.run(
+            ["curl", "-sS", "-k", "-L", "--max-time", "60", "-A", ua, url], capture_output=True, timeout=90, check=False
+        )
+        return p.stdout if p.returncode == 0 and p.stdout[:4] == b"%PDF" else None
+    return None
+
+
 def download(slug: str, url: str, year: int) -> Path | None:
     dest = CACHE / slug / f"{year or 'latest'}.pdf"
     if dest.exists() and dest.stat().st_size > 20000:
         return dest
     b = fetch_bytes(url)
+    if not b or b[:4] != b"%PDF":
+        b = _browser_curl(url)  # WAF fallback (e.g. Sligo)
     if not b or b[:4] != b"%PDF":
         return None
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -502,9 +531,11 @@ def merge_camelot(stats: list[dict]) -> list[dict]:
     region (registry), year (fitz statement_year on the bronze page), source_file_url (the
     fitz pass's picked url); re-validate net=gross−income before admitting. Skips silently if
     the isolated venv/JSON is absent (CI/Cloud) — the fitz fact still ships."""
-    # DYNAMIC fail-set: every council fitz downloaded + found an I&E page for but could NOT
-    # reconcile (layout mismatch). Hand those slugs to camelot — not a hardcoded list.
-    fail_slugs = sorted({s["slug"] for s in stats if s.get("status") == "no-reconcile"})
+    # DYNAMIC fail-set: every council fitz downloaded a real AFS for but could NOT turn into
+    # reconciling rows — either it mis-read the layout (no-reconcile) or couldn't even locate
+    # the I&E page (no-IE-page, e.g. the table has no 'gross expenditure' text fitz keys on).
+    # Camelot's cell grid handles both. Hand those slugs to camelot — not a hardcoded list.
+    fail_slugs = sorted({s["slug"] for s in stats if s.get("status") in ("no-reconcile", "no-IE-page")})
     if not fail_slugs:
         return []
     if CAMELOT_VENV.exists() and CAMELOT_SCRIPT.exists():

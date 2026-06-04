@@ -1,8 +1,8 @@
 {
-  "councils_attempted": 18,
-  "councils_with_rows": 9,
-  "councils_reconciled": 9,
-  "rows": 68,
+  "councils_attempted": 30,
+  "councils_with_rows": 19,
+  "councils_reconciled": 19,
+  "rows": 143,
   "by_council": [
     {
       "council": "South Dublin",
@@ -170,15 +170,147 @@
       "year": 2025
     },
     {
+      "council": "Wexford",
+      "slug": "wexford",
+      "status": "no-capital-page",
+      "year": 2022
+    },
+    {
+      "council": "Waterford",
+      "slug": "waterford",
+      "status": "no-capital-page",
+      "year": 2022
+    },
+    {
+      "council": "Limerick",
+      "slug": "limerick",
+      "status": "ok",
+      "year": 2024,
+      "method": "geom",
+      "page": 41,
+      "divisions": 8,
+      "capital_expenditure_total": 296928799.0,
+      "printed_total": 296928799.0,
+      "income_total": 279810514.0,
+      "reconciled": true
+    },
+    {
+      "council": "Offaly",
+      "slug": "offaly",
+      "status": "ok",
+      "year": 2024,
+      "method": "geom",
+      "page": 34,
+      "divisions": 7,
+      "capital_expenditure_total": 62015472.0,
+      "printed_total": 62015473.0,
+      "income_total": 63972146.0,
+      "reconciled": true
+    },
+    {
+      "council": "Longford",
+      "slug": "longford",
+      "status": "ok",
+      "year": 2024,
+      "method": "geom",
+      "page": 37,
+      "divisions": 8,
+      "capital_expenditure_total": 30269532.0,
+      "printed_total": 30269533.0,
+      "income_total": 29744542.0,
+      "reconciled": true
+    },
+    {
+      "council": "Leitrim",
+      "slug": "leitrim",
+      "status": "ok",
+      "year": 2024,
+      "method": "geom",
+      "page": 35,
+      "divisions": 8,
+      "capital_expenditure_total": 31412559.0,
+      "printed_total": 31412558.0,
+      "income_total": 34049537.0,
+      "reconciled": true
+    },
+    {
       "council": "Laois",
       "slug": "laois",
       "status": "no-capital-page",
       "year": 2024
+    },
+    {
+      "council": "Dublin City",
+      "slug": "dublin_city",
+      "status": "ok",
+      "year": 2024,
+      "method": "geom",
+      "page": 49,
+      "divisions": 7,
+      "capital_expenditure_total": 821769544.0,
+      "printed_total": 821769544.0,
+      "income_total": 808832259.0,
+      "reconciled": true
+    },
+    {
+      "council": "Monaghan",
+      "slug": "monaghan",
+      "status": "ok",
+      "year": 2024,
+      "method": "camelot",
+      "divisions": 7,
+      "capital_expenditure_total": 58317848.0,
+      "printed_total": 58317848.0,
+      "reconciled": true
+    },
+    {
+      "council": "Kildare",
+      "slug": "kildare",
+      "status": "ok",
+      "year": 2025,
+      "method": "camelot",
+      "divisions": 8,
+      "capital_expenditure_total": 189022523.0,
+      "printed_total": 189022523.0,
+      "reconciled": true
+    },
+    {
+      "council": "Clare",
+      "slug": "clare",
+      "status": "ok",
+      "year": 2024,
+      "method": "camelot",
+      "divisions": 7,
+      "capital_expenditure_total": 125246884.0,
+      "printed_total": 125269152.0,
+      "reconciled": true
+    },
+    {
+      "council": "Fingal",
+      "slug": "fingal",
+      "status": "ok",
+      "year": 2024,
+      "method": "camelot",
+      "divisions": 7,
+      "capital_expenditure_total": 567688978.0,
+      "printed_total": 567688978.0,
+      "reconciled": true
+    },
+    {
+      "council": "Dun Laoghaire-Rathdown",
+      "slug": "dlr",
+      "status": "ok",
+      "year": 2023,
+      "method": "camelot",
+      "divisions": 8,
+      "capital_expenditure_total": 237169227.0,
+      "printed_total": 237169228.0,
+      "reconciled": true
     }
   ],
   "realisation_tier": "SPENT",
   "value_kind": "capital_expenditure_actual",
   "scope": "per-LA audited AFS Capital Account, expenditure by service division",
-  "generated_at": "2026-06-04T11:24:38.685045+00:00",
+  "generated_at": "2026-06-04T13:36:11.975694+00:00",
   "caveat": "Capital (build/acquire) expenditure by division \u2014 a DISTINCT grain from the revenue I&E net-expenditure fact (la_afs_divisions). NEVER union or reconcile the two. Capital income is overwhelmingly DHLGH/central grants. Sum only within a (council, year)."
 }
