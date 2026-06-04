@@ -2,14 +2,24 @@
 
 **Explored:** 2026-06-04 · **Source:** `https://opendata.cro.ie/dataset/financial-statements` (CKAN DataStore, `datastore_active=True`)
 
-## TL;DR verdict
+## Status: free INDEX ingested 2026-06-04 · PDF figures parked (paywalled)
 
-**Park it — do not ingest now.** This dataset is a **filing index** (submission
-metadata + a PDF filename), *not* the financial figures. Most of what it offers
-(filing recency / accounts-overdue signal) is **already derived** from the
-companies register's `last_accounts_date`. Its only net-new value is the pointer
-to the actual accounts PDF — and realising that is a heavy, low-yield OCR project
-(abridged SME accounts, ~200k PDFs/year, retrieval path unconfirmed).
+The **free filing index** is now ingested →
+`pipeline_sandbox/cro_financial_statements_extract.py` →
+`data/silver/cro/financial_statements.parquet` (335,318 filing events / 219,756
+distinct companies; **100% join** to the CRO register on `company_num`). It is
+kept for the one thing the register's single `last_accounts_date` cannot show:
+**multi-year filing history / consistency** (109,742 companies filed in ≥2
+period-years) and as the targeting map if the paid PDFs are ever pursued.
+
+The **actual financial figures stay parked** — they're in the PDFs behind the
+CORE paywall (~€2.50/doc), not the open data (see "the only real prize" below).
+
+⚠️ **Caveat for any "went quiet / stopped filing" signal:** recent period-years
+are *incomplete* (2023 was 121k vs 2022's 214k at ingest — filings still arriving
+on later statutory deadlines). "Filed 2022 but not 2023" mixes genuine
+non-filers with not-yet-filed, so never present it as delinquency without
+accounting for the trailing window.
 
 ## What it actually is
 
@@ -52,13 +62,28 @@ The financial-statements dataset only adds:
 
 `file_name` points at the actual filed accounts, where real numbers (turnover,
 balance sheet) live. But:
-1. **Retrieval path unconfirmed** — the CSV gives a bare filename, not a URL; the
-   CRO document-download endpoint/pattern was not established in this pass.
+
+1. **The PDFs are PAYWALLED, not open data (decisive).** Confirmed 2026-06-04:
+   the open-data portal publishes the CSV index **only** — no PDF bulk download,
+   no public URL pattern (the dataset page says contact `registrar@cro.ie`; the
+   object-store bucket `cro-bulk-store-public` 403s for these files). The
+   documents are retrieved individually via **CORE** (core.cro.ie) at **from
+   €2.50 per image**, pay-per-call, registered account only. So a "50-PDF
+   sample" is **~€125 + a CORE account**, not a free scrape — and enriching at
+   any scale is thousands × €2.50.
 2. **Abridged accounts** — most Irish SMEs file under the small-company regime
-   (often balance-sheet only, no P&L/turnover), so even parsed, the financials
-   are sparse for the majority.
-3. **Volume** — ~335k PDFs across 2022–23; OCR/parse at that scale is its own
-   project (cf. the SIPO OCR effort).
+   (often balance-sheet only, no P&L/turnover), so even if purchased+parsed, the
+   financials are sparse for the majority.
+3. **Volume** — ~335k filings across 2022–23; OCR/parse at that scale is its own
+   project (cf. the SIPO OCR effort) — on top of the per-document fee.
+
+**Net:** the free open data is the index (redundant with `last_accounts_date`);
+the actual numbers sit behind a per-document paywall. The PDF path is **not a
+free enrichment** and is parked pending an explicit decision to spend on CORE.
+
+Sources: CRO Access to Data <https://cro.ie/services-and-help/access-to-cro-data/>;
+CRO financial-statements dataset <https://opendata.cro.ie/dataset/financial-statements>
+(CC BY 4.0, CSV/API only).
 
 ## If revisited later
 

@@ -15,8 +15,8 @@ strange-value battery (incl. the single-outlier check that caught TII's €1.2bn
 This is a probe, not a parser: wrapped descriptions / multi-line cells fragment a bit, and
 that's fine — the goal is to confirm schema + landmines per source before Phase-4 parsers.
 
-Run:  ./.venv/Scripts/python.exe pipeline_sandbox/sample_extract_procurement_pdf.py
-      ./.venv/Scripts/python.exe pipeline_sandbox/sample_extract_procurement_pdf.py --max-pages 3
+Run:  ./.venv/Scripts/python.exe extractors/sample_extract_procurement_pdf.py
+      ./.venv/Scripts/python.exe extractors/sample_extract_procurement_pdf.py --max-pages 3
 Writes c:/tmp/procurement_publishers/sample_extraction_pdf_report.json
 """
 

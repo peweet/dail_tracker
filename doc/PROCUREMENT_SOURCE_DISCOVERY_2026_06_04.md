@@ -83,3 +83,64 @@ collection). Sport Ireland Facilities/Nat. Sports Campus merged into Sport Irela
    403s with the real harvester + curl fallback, locks direct file URLs).
 3. Wire the generic-reader-clean ones into `procurement_public_body_extract.py`; bespoke only where
    needed (EPA HTML, any rotated PDFs à la NPHDB).
+
+---
+
+## RESUME CHECKLIST — round 2 wiring (PAUSED 2026-06-04, blocked on parallel reorg)
+
+Steps 1–2 DONE (seeded + probed). 5 publishers wired in round 1 (NTMA/Courts/SportIreland/
+TU Dublin + MTU-stub). **Round 2 was paused mid-flight** because a parallel context session
+executed the deferred reorg `pipeline_sandbox/*.py → extractors/*.py` (staged, uncommitted) and
+is live-editing pipeline.py/CRO/SIPO. Resume once that reorg is committed.
+
+### ⚠️ First, fix the reorg fallout
+- `pipeline_sandbox/procurement_nphdb_parser.py` was left behind (untracked) but its `pbe` import
+  points at the OLD `ROOT/"pipeline_sandbox/procurement_public_body_extract.py"` path — now moved to
+  `extractors/`. Update that path (and decide whether the nphdb parser itself moves to `extractors/`).
+- `extractors/procurement_public_body_extract.py` already holds my Tier-D edits + TITLE_ROW fix.
+  Confirm `from cro_normalise import name_norm_expr` still resolves (cro_normalise.py is at repo root;
+  the module does `sys.path.insert(0, str(ROOT))`, ROOT=parents[1]=repo root — OK).
+
+### Direct URLs VERIFIED to fetch (2026-06-04, byte-checked headers)
+- CHI  xlsx (PK/zip, 17.5KB): `https://www.childrenshealthireland.ie/documents/3541/CHI_Paid_Invoices_over_25K_incl_VAT_Qtr_1_2026updated.xlsx`
+- MTU  pdf (132KB):          `https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q4-2025.pdf`
+- SEAI pdf (313KB):          `https://www.seai.ie/sites/default/files/2025-08/Q2-2025-PO-Report-over-20K.pdf`
+
+### cfg() entries to add (NOTE: parse quality NOT yet row-validated — the test crashed when the
+### file moved mid-run; confirm rows/conf on first run, especially TUS Q1-2026 = maybe prompt-pay)
+```
+cfg("ie_beaumont", "Beaumont Hospital", "hospital", "health",
+    listing="https://www.beaumont.ie/page/financial-statements",
+    semantics="payment_actual", grain="payment", privacy="low", tier="D",
+    include=r"payments.*over.*\.csv",   # CSV-ONLY: xlsx/pdf/csv are 3 copies of same data → triple-count
+    caveat="picks the 2-year 'Payments Over €20k' CSVs (payment grain); the 'POs Greater than' Q1-2026 file is a separate PO-grain file, excluded"),
+cfg("ie_chi", "Children's Health Ireland (CHI)", "state_body", "health",
+    listing="https://www.childrenshealthireland.ie/about-us/corporate-information/payments-to-suppliers-over-20000/",
+    semantics="payment_actual", grain="payment", privacy="low", tier="D",
+    direct=["https://www.childrenshealthireland.ie/documents/3541/CHI_Paid_Invoices_over_25K_incl_VAT_Qtr_1_2026updated.xlsx"],
+    caveat="paid invoices at €25k incl VAT (not €20k); landing exposes no direct links → direct_files"),
+cfg("ie_tus", "Technological University of the Shannon (TUS)", "education_body", "education",
+    listing="https://tus.ie/privacy/freedom-of-information/publications/financial-reports/",
+    semantics="po_committed", grain="purchase_order", tier="D",
+    caveat="landing yields Combined-Files-2021/2022/2023 PDFs + Q1-2026.pdf; verify Q1-2026 isn't the prompt-payment appendix"),
+cfg("ie_mtu", ...as already wired but ADD:
+    direct=["https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q4-2025.pdf"],
+    # landing only exposes the tender-register xlsx + FOI logs; PO PDFs live under /media/.../foi/financial-information/ — needs direct_files or that sub-page as listing_url),
+cfg("ie_seai", "Sustainable Energy Authority of Ireland (SEAI)", "agency", "energy_utilities",
+    listing="https://www.seai.ie/publications", semantics="po_committed", grain="purchase_order",
+    privacy="medium", tier="D",
+    direct=["https://www.seai.ie/sites/default/files/2025-08/Q2-2025-PO-Report-over-20K.pdf"],
+    caveat="files buried in general /publications search → direct_files"),
+cfg("ie_pobal", "Pobal", "agency", "social",
+    listing="https://www.pobal.ie/financial-information/", semantics="po_committed",
+    grain="purchase_order", privacy="medium", tier="D",
+    caveat="files titled 'Purchase Order OR Payments over €20k' but rows carry PO/SUPPLIER/TOTAL/PAID columns = POs with a paid-flag (not truly mixed). Full 2020-2026 series, 25 PDFs"),
+```
+
+### Still BLOCKED / out of scope
+- **Garda** — landing (`.../budgets-and-spending/`) harvests 69 *fleet-management* PDFs, NOT POs.
+  The PO listing is on a different subpage ("purchases over €20,000") — URL not yet located. Find it.
+- **EPA** — serves PO data as `.php` HTML pages; the extractor only reads pdf/xlsx/xls/csv → needs an
+  HTML-table reader path (not OCR; a new reader). Defer.
+- **UCD / SETU** — domains 403-block the fetcher; need a real browser/UA pass to lock file URLs.
+- **OCR bodies (Coimisiún na Meán, Irish Prison Service)** — EXCLUDED by request (no OCR).

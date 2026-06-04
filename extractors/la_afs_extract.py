@@ -19,9 +19,9 @@ grain) — accrual net-expenditure by division; a third, NON-UNIONED fact. Do no
 across the three (different grains).
 
 Run:
-  ./.venv/Scripts/python.exe pipeline_sandbox/la_afs_extract.py            # full Phase-0 ingest
-  ./.venv/Scripts/python.exe pipeline_sandbox/la_afs_extract.py --only meath,donegal
-  ./.venv/Scripts/python.exe pipeline_sandbox/la_afs_extract.py --list     # harvest/select only
+  ./.venv/Scripts/python.exe extractors/la_afs_extract.py            # full Phase-0 ingest
+  ./.venv/Scripts/python.exe extractors/la_afs_extract.py --only meath,donegal
+  ./.venv/Scripts/python.exe extractors/la_afs_extract.py --list     # harvest/select only
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "pipeline_sandbox"))
+sys.path.insert(0, str(ROOT / "extractors"))
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -66,7 +66,7 @@ OUT_COV = ROOT / "data/_meta/la_afs_coverage.json"
 # Rebuild the venv (then re-run): the recipe is in la_afs_camelot_ie.py's docstring. The venv
 # path is overridable via $AFS_CAMELOT_VENV so a fresh clone can point at its own.
 CAMELOT_VENV = Path(os.environ.get("AFS_CAMELOT_VENV", "c:/tmp/afs_camelot_venv/Scripts/python.exe"))
-CAMELOT_SCRIPT = ROOT / "pipeline_sandbox" / "la_afs_camelot_ie.py"
+CAMELOT_SCRIPT = ROOT / "extractors" / "la_afs_camelot_ie.py"
 CAMELOT_ROWS = ROOT / "data" / "_meta" / "la_afs_camelot_rows.json"
 
 YEAR_RE = re.compile(r"20[12]\d")

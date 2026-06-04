@@ -1,4 +1,4 @@
-"""Tests for the per-LA AFS extractor (pipeline_sandbox/la_afs_extract.py).
+"""Tests for the per-LA AFS extractor (extractors/la_afs_extract.py).
 
 Two layers (mirrors test_afs_amalgamated.py):
   1. Pure-function unit tests — the year primitives that two real bugs hid in:
@@ -22,7 +22,7 @@ import polars as pl
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "pipeline_sandbox"))
+sys.path.insert(0, str(ROOT / "extractors"))
 from la_afs_extract import select_afs, statement_year, title_year  # noqa: E402
 
 FX = ROOT / "test" / "fixtures" / "la_afs" / "la_afs_divisions.parquet"

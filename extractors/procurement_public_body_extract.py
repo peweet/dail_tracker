@@ -21,10 +21,10 @@ is DEFERRED by request — public_display defaults True for every row and NOTHIN
 coverage records privacy_quarantine_applied=false so the deferral is explicit, not silent.
 
 Run:
-  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_public_body_extract.py --list            # harvest-only (lock URLs)
-  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_public_body_extract.py --list --only ie_opw,ie_tii
-  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_public_body_extract.py                   # full ingest
-  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_public_body_extract.py --only ie_hse --max-files 2
+  ./.venv/Scripts/python.exe extractors/procurement_public_body_extract.py --list            # harvest-only (lock URLs)
+  ./.venv/Scripts/python.exe extractors/procurement_public_body_extract.py --list --only ie_opw,ie_tii
+  ./.venv/Scripts/python.exe extractors/procurement_public_body_extract.py                   # full ingest
+  ./.venv/Scripts/python.exe extractors/procurement_public_body_extract.py --only ie_hse --max-files 2
 """
 
 from __future__ import annotations
@@ -88,6 +88,11 @@ PUBLIC_BODY = re.compile(r"\b(county council|city council|university|institute o
 # supplier column with the literal €20,000 threshold as its amount). Plural "Purchase Orders"
 # and "Payments greater than/over €20,000" headings leaked through the singular-only pattern.
 CATEGORY_WORD = re.compile(r"^\s*(total|category total|sum|subtotal|grand total|all suppliers|various|publication of|purchase orders?|payments? (greater|over|to suppliers)|payments? greater than)\b", re.I)
+# Non-anchored variant: a page-title that bleeds into the supplier column may LEAD with the
+# body name (e.g. "TU Dublin Payments and Purchase Orders over €20,000") so ^-anchoring misses
+# it. These rows carry the literal threshold as their amount; the phrasing is never a real
+# supplier name. Checked in addition to CATEGORY_WORD.
+TITLE_ROW = re.compile(r"(purchase orders?|payments?)\b.{0,30}(over|greater than)\s*€?\s*20[,.]?000|payments?\s+(and|or)\s+purchase orders?", re.I)
 # exclude policy/guidance/privacy/contract docs when harvesting period data files
 POLICY_RE = re.compile(
     r"guide|guidelin|\bplan\b|policy|circular|strategy|manual|terms|fin.?07|privacy|"
@@ -524,8 +529,8 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
             if amt is None:
                 continue
             sup = clean_supplier(rec[sup_i]) if sup_i is not None and sup_i < len(rec) else None
-            if sup and CATEGORY_WORD.search(sup):
-                continue  # drop total/category-masquerade rows
+            if sup and (CATEGORY_WORD.search(sup) or TITLE_ROW.search(sup)):
+                continue  # drop total/category/title-masquerade rows
             good += 1
             rows_out.append(base(
                 srn, page, sup, amt,

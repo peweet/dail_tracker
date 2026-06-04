@@ -1,7 +1,7 @@
 """Unit tests locking the SI legal-state parsing contract.
 
 These pin derive_state() + affecting_sis() in
-pipeline_sandbox/si_legislation_directory_extract.py — the extractor that writes
+extractors/si_legislation_directory_extract.py — the extractor that writes
 data/gold/parquet/si_current_state.parquet (read by v_si_current_state and
 LEFT-joined into v_statutory_instruments). The eISB "How Affected" wording is the
 sole signal for an SI's legal state, so a silent drift in these rules would
@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 _ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_ROOT / "pipeline_sandbox"))
+sys.path.insert(0, str(_ROOT / "extractors"))
 
 from si_legislation_directory_extract import (  # noqa: E402
     affecting_sis,

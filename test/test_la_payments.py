@@ -1,5 +1,5 @@
 """Tests for the LA Purchase-Orders/Payments extractor
-(pipeline_sandbox/procurement_la_payments_extract.py).
+(extractors/procurement_la_payments_extract.py).
 
 Three layers, mirroring test_afs_amalgamated.py:
   1. Pure-function units — the parsing primitives that actually break (amount coercion,
@@ -23,7 +23,7 @@ import polars as pl
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "pipeline_sandbox"))
+sys.path.insert(0, str(ROOT / "extractors"))
 import procurement_la_payments_extract as m  # noqa: E402
 
 FX = Path(__file__).resolve().parent / "fixtures" / "la_payments"

@@ -40,6 +40,7 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "extractors"))
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 

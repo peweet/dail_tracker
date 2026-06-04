@@ -17,7 +17,7 @@ Goal: turn "31 LAs = 31 bespoke scrapers" into a concrete, testable registry so 
 eventual harvester has a seed list and we know up front what each council yields.
 Merge target for the parallel Galway work (probe_procurement_pdf_galway.py).
 
-Run:  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_la_seed.py
+Run:  ./.venv/Scripts/python.exe extractors/procurement_la_seed.py
 Writes a summary to c:/tmp/procurement_la/seed_report.json; samples to same dir.
 """
 

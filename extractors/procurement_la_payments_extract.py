@@ -26,9 +26,9 @@ individual / bare-ID payees are personal data → supplier_class drives a quaran
 (public_display=False); company-suffix and public-body payees are kept.
 
 Run:
-  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_la_payments_extract.py --list
-  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_la_payments_extract.py --only south_dublin,cork_county
-  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_la_payments_extract.py --max-files 6
+  ./.venv/Scripts/python.exe extractors/procurement_la_payments_extract.py --list
+  ./.venv/Scripts/python.exe extractors/procurement_la_payments_extract.py --only south_dublin,cork_county
+  ./.venv/Scripts/python.exe extractors/procurement_la_payments_extract.py --max-files 6
 """
 
 from __future__ import annotations

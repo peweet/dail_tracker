@@ -1,5 +1,5 @@
 """eTenders/OGP procurement -> awards -> CRO match.
-Promoted from probe_etenders_procurement.py. Lives in pipeline_sandbox/ but runs
+Promoted from probe_etenders_procurement.py. Lives in extractors/ but runs
 as the `procurement` pipeline.py CHAIN, writing committed gold (cbi/cro pattern).
 
 Cleaning vs the probe:
@@ -13,7 +13,7 @@ Outputs:
   data/gold/parquet/procurement_supplier_cro_match.parquet (distinct supplier -> CRO)
   data/_meta/procurement_coverage.json
 
-Run:  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_etenders_extract.py
+Run:  ./.venv/Scripts/python.exe extractors/procurement_etenders_extract.py
 """
 
 from __future__ import annotations

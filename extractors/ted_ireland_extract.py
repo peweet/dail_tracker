@@ -23,9 +23,9 @@ sole-trader quarantine flag.
 NOT wired into pipeline.py. Silver parquet is regenerable from the API (left untracked).
 
 Run:
-  ./.venv/Scripts/python.exe pipeline_sandbox/ted_ireland_extract.py
-  ./.venv/Scripts/python.exe pipeline_sandbox/ted_ireland_extract.py --max-pages 4   # quick
-  ./.venv/Scripts/python.exe pipeline_sandbox/ted_ireland_extract.py --refresh        # ignore cache
+  ./.venv/Scripts/python.exe extractors/ted_ireland_extract.py
+  ./.venv/Scripts/python.exe extractors/ted_ireland_extract.py --max-pages 4   # quick
+  ./.venv/Scripts/python.exe extractors/ted_ireland_extract.py --refresh        # ignore cache
 """
 
 from __future__ import annotations

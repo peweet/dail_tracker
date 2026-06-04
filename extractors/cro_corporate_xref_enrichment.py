@@ -3,7 +3,7 @@
 Replaces the throwaway probe_cro_corporate_join.py once its D3 feasibility
 assumption was confirmed (usable-name 75.1%, clean 1:1 match 76.4%, ambiguous
 2.1%). This is the real, committed-gold enrichment — mirrors the CBI xref
-(pipeline_sandbox/cbi_registers_extract.py :: xref_corporate_notices) one-for-one.
+(extractors/cbi_registers_extract.py :: xref_corporate_notices) one-for-one.
 
 Output:
     data/gold/parquet/cro_xref_corporate_notices.parquet
@@ -27,7 +27,7 @@ Ambiguity policy:
     Ambiguous and no-match notices simply get no badge (left join on the page).
 
 Run:
-    .venv/Scripts/python.exe pipeline_sandbox/cro_corporate_xref_enrichment.py
+    .venv/Scripts/python.exe extractors/cro_corporate_xref_enrichment.py
 """
 
 from __future__ import annotations
