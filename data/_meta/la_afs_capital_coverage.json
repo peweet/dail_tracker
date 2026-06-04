@@ -2,7 +2,7 @@
   "councils_attempted": 31,
   "councils_with_rows": 21,
   "councils_reconciled": 21,
-  "rows": 158,
+  "rows": 159,
   "by_council": [
     {
       "council": "South Dublin",
@@ -300,8 +300,8 @@
       "status": "ok",
       "year": 2024,
       "method": "camelot",
-      "divisions": 7,
-      "capital_expenditure_total": 125246884.0,
+      "divisions": 8,
+      "capital_expenditure_total": 125269152.0,
       "printed_total": 125269152.0,
       "reconciled": true
     },
@@ -331,6 +331,6 @@
   "realisation_tier": "SPENT",
   "value_kind": "capital_expenditure_actual",
   "scope": "per-LA audited AFS Capital Account, expenditure by service division",
-  "generated_at": "2026-06-04T13:57:35.509959+00:00",
+  "generated_at": "2026-06-04T14:28:29.469677+00:00",
   "caveat": "Capital (build/acquire) expenditure by division \u2014 a DISTINCT grain from the revenue I&E net-expenditure fact (la_afs_divisions). NEVER union or reconcile the two. Capital income is overwhelmingly DHLGH/central grants. Sum only within a (council, year)."
 }

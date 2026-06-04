@@ -84,7 +84,10 @@ COMPANY_SUFFIX = re.compile(
     r"council|hse|board|institute|ireland|technolog|systems|media|hotel|centre|&)\b", re.I)
 FOREIGN_FORM = re.compile(r"\b(gmbh|s\.?a\.?|n\.?v\.?|s\.?a\.?s|s\.?p\.?a|inc|llc|\bpty\b|\bab\b|\bbv\b|\boy\b|srl|sl|sarl|aps|kft|ltda)\b", re.I)
 PUBLIC_BODY = re.compile(r"\b(county council|city council|university|institute of technology|department of|office of|\bHSE\b|health service|an garda|údarás|udaras|education and training board|\bETB\b|local authority|national \w+ authority|\bOPW\b|hospital)\b", re.I)
-CATEGORY_WORD = re.compile(r"^\s*(total|category total|sum|subtotal|grand total|all suppliers|various|publication of|purchase order)\b", re.I)
+# Drops title/threshold rows that masquerade as a supplier (the page heading bleeds into the
+# supplier column with the literal €20,000 threshold as its amount). Plural "Purchase Orders"
+# and "Payments greater than/over €20,000" headings leaked through the singular-only pattern.
+CATEGORY_WORD = re.compile(r"^\s*(total|category total|sum|subtotal|grand total|all suppliers|various|publication of|purchase orders?|payments? (greater|over|to suppliers)|payments? greater than)\b", re.I)
 # exclude policy/guidance/privacy/contract docs when harvesting period data files
 POLICY_RE = re.compile(
     r"guide|guidelin|\bplan\b|policy|circular|strategy|manual|terms|fin.?07|privacy|"
@@ -200,6 +203,38 @@ PUBLISHERS: list[dict] = [
         semantics="po_committed", grain="purchase_order", tier="C",
         include=r"purchase|payment|po[s]?[-_ ]?over|20[,]?000|over.?20k",
         caveat="FOI-only: no clean PO file located at this URL (only sustainability/climate reports surface)"),
+
+    # ---- Tier D: discovery sweep 2026-06-04 (doc/PROCUREMENT_SOURCE_DISCOVERY_2026_06_04.md) --
+    # Probe-confirmed, generic-reader-clean. Held back for bespoke/render passes (NOT here):
+    #   Beaumont + Pobal (dual/MIXED PO+payment grain — need value_kind split),
+    #   Coimisiún na Meán + Irish Prison Service (scanned PDFs — need OCR),
+    #   Garda (sampler hit a fleet report — needs the right PO subpage),
+    #   UCD / SETU / CHI / SEAI / EPA (no links via landing — JS/403, EPA serves .php HTML).
+    cfg("ie_ntma", "National Treasury Management Agency (NTMA)", "state_body", "finance",
+        listing="https://www.ntma.ie/information-pages/freedom-of-information/freedom-of-information-publication-scheme/financial-information",
+        semantics="payment_actual", grain="payment", tier="D",
+        caveat="one quarterly scheme covers 6 business units incl NDFA (ADM/Nat-Debt/ISIF/NDFA/FIF/ICNF); "
+               "do NOT also wire ie_ndfa or its rows double-count"),
+    cfg("ie_courts", "Courts Service of Ireland", "agency", "justice",
+        listing="https://www.courts.ie/publications/purchase-orders-greater-than-20k",
+        semantics="po_committed", grain="purchase_order", tier="D",
+        include=r"purchase-order|over-20|po[s]?[-_ ]?over"),
+    cfg("ie_sportireland", "Sport Ireland", "agency", "sport",
+        listing="https://www.sportireland.ie/about-us/freedom-of-information/financial-information",
+        semantics="po_committed", grain="purchase_order", tier="D",
+        caveat="single rolling PO log (not per-quarter); period likely null"),
+    cfg("ie_tudublin", "Technological University Dublin", "education_body", "education",
+        listing="https://www.tudublin.ie/explore/governance-and-compliance/foi/foi-publication-scheme/",
+        semantics="po_committed", grain="purchase_order", tier="D",
+        include=r"po-report|purchase-order|over-?20k"),
+    cfg("ie_mtu", "Munster Technological University (MTU)", "education_body", "education",
+        listing="https://www.mtu.ie/about-mtu/legal/freedom-of-information/",
+        semantics="po_committed", grain="purchase_order", tier="D",
+        include=r"pos?-over-?20k|purchase-order|po[s]?[-_ ]?over",
+        caveat="TODO harvest gap: probe finds 15 PO PDFs from this URL but the extractor's one-hop "
+               "crawl/include misses them (files live under /media/.../foi/financial-information/) — "
+               "needs a deeper crawl or a direct sub-page listing_url; 0 rows until fixed. "
+               "Also exclude the 'Procurement Listing' tender-register xlsx (Tendered-by columns)"),
 ]
 
 

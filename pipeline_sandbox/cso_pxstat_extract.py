@@ -55,6 +55,12 @@ TABLES = [
               # complements PEA08's stock estimates)
     "PEA01",  # Population estimates by Single Year of Age, Sex, Region
               # (age-cohort detail at NUTS3 region level)
+    # Added 2026-06-04 round 4 — general government finance (national denominators
+    # for the public-money facts: turns isolated € figures into "share of" context).
+    # National-only series: the categorical split is the "Item" column, not geo.
+    "GFA01",  # General Govt revenue/expenditure/financing/deficit, annual 1995–2025
+    "GFQ01",  # Same, quarterly 2000Q1–2025Q4
+    "NA012",  # Current Income & Expenditure of Central AND Local Government →2024
 ]
 
 
@@ -94,7 +100,10 @@ def fidelity_check(df: pl.DataFrame, code: str) -> dict:
                 # National-only tables expose only categorical (non-geo) splits.
                 # Treat the component / event split as the de-facto "geo" so the
                 # extraction check passes on national time series.
-                "Component", "Vital Event", "Population Change Component"}
+                "Component", "Vital Event", "Population Change Component",
+                # National general-government finance tables (GFA01/GFQ01/NA012)
+                # split only by transaction "Item" (revenue/expenditure/deficit lines).
+                "Item"}
     time_cols = {"Year", "Quarter", "Month", "CensusYear", "Census Year"}
     has_geo = any(c in have for c in geo_cols)
     has_time = any(c in have for c in time_cols)
@@ -143,14 +152,17 @@ def fidelity_check(df: pl.DataFrame, code: str) -> dict:
         label_col = next((c for c in ("Statistic Label", "STATISTIC Label", "Statistic")
                           if c in have), None)
         signal_terms = ("change", "movement", "growth", "annual", "rppi",
-                        "migration", "net", "balance", "emigrant", "exit")
+                        "migration", "net", "balance", "emigrant", "exit",
+                        # General-government finance: deficit/financing/saving lines
+                        # are legitimately negative.
+                        "deficit", "surplus", "saving", "liabilities", "financing")
         if label_col:
             labels = " ".join(df[label_col].drop_nulls().unique().to_list()).lower()
             is_change_table = any(t in labels for t in signal_terms)
         # Migration tables often carry the signal in a "Component" / event split
         # rather than the Statistic label.
         if not is_change_table:
-            for component_col in ("Component", "Vital Event", "Population Change Component"):
+            for component_col in ("Component", "Vital Event", "Population Change Component", "Item"):
                 if component_col in have:
                     comp_vals = " ".join(df[component_col].drop_nulls().unique().to_list()).lower()
                     if any(t in comp_vals for t in signal_terms):
