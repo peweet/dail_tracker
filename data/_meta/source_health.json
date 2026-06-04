@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-06-04T14:15:27Z",
+  "generated_at": "2026-06-04T15:09:37Z",
   "links_checked": false,
   "summary": {
-    "sources_checked": 65,
-    "sources_ok": 1,
+    "sources_checked": 102,
+    "sources_ok": 2,
     "sources_warning": 1,
     "sources_failed": 0,
-    "sources_skipped": 63,
+    "sources_skipped": 99,
     "stale_sources": 0
   },
   "sources": [
@@ -89,6 +89,17 @@
       "stale_after_days": 7
     },
     {
+      "source_id": "file_sources:cro_financial_statements",
+      "group": "file_sources",
+      "check_type": "file_age",
+      "status": "ok",
+      "detail": "0d old (<= 200d)",
+      "input_pattern": "data/silver/cro/financial_statements.parquet",
+      "latest_file": "data/silver/cro/financial_statements.parquet",
+      "days_old": 0,
+      "stale_after_days": 200
+    },
+    {
       "source_id": "hse_tusla_payments:ie_hse",
       "group": "hse_tusla_payments",
       "check_type": "index_poll",
@@ -98,6 +109,223 @@
     {
       "source_id": "hse_tusla_payments:ie_tusla",
       "group": "hse_tusla_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:carlow",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:cavan",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:clare",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:cork_city",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:cork_county",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:dlr",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:donegal",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:dublin_city",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:fingal",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:galway_city",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:galway_county",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:kerry",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:kildare",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:kilkenny",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:laois",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:leitrim",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:limerick",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:longford",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:louth",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:mayo",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:meath",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:monaghan",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:offaly",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:roscommon",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:sligo",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:south_dublin",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:tipperary",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:waterford",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:westmeath",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:wexford",
+      "group": "local_authority_afs",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "local_authority_afs:wicklow",
+      "group": "local_authority_afs",
       "check_type": "index_poll",
       "status": "skipped",
       "detail": "link check disabled"
@@ -404,6 +632,13 @@
       "detail": "link check disabled"
     },
     {
+      "source_id": "public_body_payments:ie_courts",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
       "source_id": "public_body_payments:ie_enterprise_ireland",
       "group": "public_body_payments",
       "check_type": "index_poll",
@@ -432,7 +667,21 @@
       "detail": "link check disabled"
     },
     {
+      "source_id": "public_body_payments:ie_mtu",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
       "source_id": "public_body_payments:ie_nta",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "public_body_payments:ie_ntma",
       "group": "public_body_payments",
       "check_type": "index_poll",
       "status": "skipped",
@@ -447,6 +696,13 @@
     },
     {
       "source_id": "public_body_payments:ie_revenue",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "public_body_payments:ie_sportireland",
       "group": "public_body_payments",
       "check_type": "index_poll",
       "status": "skipped",
@@ -468,6 +724,13 @@
     },
     {
       "source_id": "public_body_payments:ie_tii",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "public_body_payments:ie_tudublin",
       "group": "public_body_payments",
       "check_type": "index_poll",
       "status": "skipped",

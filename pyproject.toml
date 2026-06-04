@@ -65,6 +65,7 @@ pipeline = [
     "orjson>=3.9",         # fast JSON read/write in manifest.py, members_api_service.py, member_interests.py, wiki_data.py
     "regex>=2023.0",       # \p{Lu} unicode-property patterns in member_interests.py (stdlib re can't do these)
     "openpyxl>=3.1",       # charity_normalise.py reads the Charities Register .xlsx via load_workbook
+    "xlrd>=2.0",           # legacy .xls reader (pre-2021 OPW/LA payment quarterlies are .xls; openpyxl is .xlsx-only)
 ]
 
 # OCR pipeline for scanned PDFs (read_scan_pdf.py)
