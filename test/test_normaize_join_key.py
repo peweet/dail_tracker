@@ -24,7 +24,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import SILVER_DIR
-from normalise_join_key import normalise_df_td_name
+from shared.normalise_join_key import normalise_df_td_name
 
 
 def _key(name: str) -> str:

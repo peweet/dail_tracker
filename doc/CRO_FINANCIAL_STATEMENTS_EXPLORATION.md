@@ -5,7 +5,7 @@
 ## Status: free INDEX ingested 2026-06-04 · PDF figures parked (paywalled)
 
 The **free filing index** is now ingested →
-`pipeline_sandbox/cro_financial_statements_extract.py` →
+`extractors/cro_financial_statements_extract.py` →
 `data/silver/cro/financial_statements.parquet` (335,318 filing events / 219,756
 distinct companies; **100% join** to the CRO register on `company_num`). It is
 kept for the one thing the register's single `last_accounts_date` cannot show:

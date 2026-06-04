@@ -35,13 +35,11 @@ try:
 except Exception:
     pass
 
-# key -> (display party, cached pdf path)
-JOBS = {
-    "national_party": ("National Party", ROOT / "c_tmp_placeholder"),
-}
-# cached download location
-MISSING = Path("c:/tmp/sipo_missing")
-PDF_BY_KEY = {"national_party": MISSING / "national_party.pdf"}
+# key -> display party
+JOBS = {"national_party": ("National Party", None)}
+# source PDFs live in bronze alongside the other party returns
+SCAN = ROOT / "data/bronze/scan_pdf"
+PDF_BY_KEY = {"national_party": SCAN / "national_party_sipo_ge_2024_expenses.pdf"}
 
 
 def words_to_cells(page) -> list[dict]:

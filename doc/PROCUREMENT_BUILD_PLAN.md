@@ -170,6 +170,12 @@ New `utility/data_access/procurement_data.py`, copying `corporate_data.py`:
 
 ## 6. Phase 3 — the Streamlit page (the specific integration)
 
+> ⚠️ **SUPERSEDED for the multi-source picture (2026-06-04).** This §6 describes an
+> *eTenders-awards-only* page. The agreed IA once awards + payments + AFS are modelled together
+> is **entity-first (company / public body), lifecycle-structured leaves**, with the
+> extraction-derived caveat as a UI primitive — see `PUBLIC_PAYMENTS_FACT_SCHEMA.md` **Part C**.
+> Keep §6 below only as the eTenders-slice reference.
+
 ### 6.1 Where it goes in the nav
 Procurement is an **institutional/transparency dataset**, org-centric not
 TD-centric — the same shape as Corporate Notices, Statutory Instruments,

@@ -175,7 +175,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["utility", "normalise_join_key"]
+known-first-party = ["utility", "shared"]
 
 [tool.ruff.lint.per-file-ignores]
 # sys.path.insert before local imports is required in Streamlit page files
@@ -204,7 +204,7 @@ pythonpath = ["."]
 [tool.basedpyright]
 include = [
     "services",
-    "normalise_join_key.py",
+    "shared/normalise_join_key.py",
     "config.py",
     "manifest.py",
     # Already type-clean ETL scripts — costless to guard against future regressions.
@@ -228,9 +228,9 @@ typeCheckingMode = "standard"
 packages = [
     "utility",
     "services",
+    "shared",
     "config.py",
     "pipeline.py",
-    "normalise_join_key.py",
     "attendance.py",
     "enrich.py",
     "lobby_processing.py",

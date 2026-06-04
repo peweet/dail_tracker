@@ -40,12 +40,20 @@ def test_oireachtas_adapter_uses_index_url():
 
 
 def test_public_body_adapter_extracts_compiled_regex():
-    pubs = [{
-        "id": "ie_opw", "name": "OPW", "listing_url": "https://gov.ie/opw",
-        "direct_files": ["https://gov.ie/opw/q1.xlsx"], "amount_semantics": "payment_actual",
-        "grain": "payment", "privacy_risk": "low", "tier": "A",
-        "include": re.compile(r"purchase|payment", re.I), "caveat": "",
-    }]
+    pubs = [
+        {
+            "id": "ie_opw",
+            "name": "OPW",
+            "listing_url": "https://gov.ie/opw",
+            "direct_files": ["https://gov.ie/opw/q1.xlsx"],
+            "amount_semantics": "payment_actual",
+            "grain": "payment",
+            "privacy_risk": "low",
+            "tier": "A",
+            "include": re.compile(r"purchase|payment", re.I),
+            "caveat": "",
+        }
+    ]
     [rec] = adapt_public_body(pubs)
     assert _has_schema(rec)
     assert rec["source_id"] == "public_body_payments:ie_opw"
@@ -59,14 +67,22 @@ def test_public_body_adapter_extracts_compiled_regex():
 
 def test_la_adapter_status_gates_pollable():
     rows = [
-        {"slug": "cork_city", "council": "Cork City", "status": "READY",
-         "listing_url": "https://corkcity.ie", "value_kind": "po_committed"},
-        {"slug": "mayo", "council": "Mayo", "status": "DIRECT",
-         "direct_files": ["https://mayo.ie/a.pdf"], "value_kind": "po_committed"},
-        {"slug": "carlow", "council": "Carlow", "status": "NEEDS-RENDER",
-         "value_kind": "po_committed"},
-        {"slug": "dublin_city", "council": "Dublin City", "status": "NON-PUBLISHER",
-         "value_kind": "po_committed"},
+        {
+            "slug": "cork_city",
+            "council": "Cork City",
+            "status": "READY",
+            "listing_url": "https://corkcity.ie",
+            "value_kind": "po_committed",
+        },
+        {
+            "slug": "mayo",
+            "council": "Mayo",
+            "status": "DIRECT",
+            "direct_files": ["https://mayo.ie/a.pdf"],
+            "value_kind": "po_committed",
+        },
+        {"slug": "carlow", "council": "Carlow", "status": "NEEDS-RENDER", "value_kind": "po_committed"},
+        {"slug": "dublin_city", "council": "Dublin City", "status": "NON-PUBLISHER", "value_kind": "po_committed"},
     ]
     recs = {r["source_id"]: r for r in adapt_la(rows)}
     assert recs["local_authority_payments:cork_city"]["pollable"] is True
@@ -84,8 +100,7 @@ def test_la_adapter_defaults_missing_status_to_ready():
 
 def test_afs_adapter_emits_fixed_file_per_year():
     recs = adapt_afs({2023: "https://gov.ie/AFS_2023.pdf", 2016: "https://gov.ie/2016.pdf"})
-    assert [r["source_id"] for r in recs] == [
-        "afs_amalgamated:2016", "afs_amalgamated:2023"]  # sorted by year
+    assert [r["source_id"] for r in recs] == ["afs_amalgamated:2016", "afs_amalgamated:2023"]  # sorted by year
     assert recs[1]["check_type"] == "fixed_file"
     assert recs[1]["direct_files"] == ["https://gov.ie/AFS_2023.pdf"]
     assert recs[1]["listing_url"] is None
@@ -107,9 +122,15 @@ def test_hse_tusla_listing_from_seed_landing():
 
 
 def test_manual_adapter_carries_glob_and_threshold():
-    specs = [{"id": "cro_companies", "owner_module": "cro_normalise",
-              "name": "CRO", "input_pattern": "data/bronze/cro/companies_*.csv",
-              "stale_after_days": 45}]
+    specs = [
+        {
+            "id": "cro_companies",
+            "owner_module": "cro_normalise",
+            "name": "CRO",
+            "input_pattern": "data/bronze/cro/companies_*.csv",
+            "stale_after_days": 45,
+        }
+    ]
     [rec] = adapt_manual(specs)
     assert rec["check_type"] == "file_age"
     assert rec["input_pattern"] == "data/bronze/cro/companies_*.csv"
@@ -124,6 +145,7 @@ def test_build_records_live_configs_are_importable_and_unique():
     records = build_records()
     if not records:
         import pytest
+
         pytest.skip("no source configs importable in this environment")
     ids = [r["source_id"] for r in records]
     assert len(ids) == len(set(ids)), "source_id collision"

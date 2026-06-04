@@ -33,7 +33,7 @@ import polars as pl
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from normalise_join_key import normalise_df_td_name
+from shared.normalise_join_key import normalise_df_td_name
 
 # ---------------------------------------------------------------------------
 # Helpers — mirror enrich.py's "normalise + dedupe" preparation step

@@ -75,14 +75,14 @@ def check_file_age(rec: dict, root: Path, now: datetime) -> dict:
         return _health(rec, FAILED, "manual source has no input_pattern")
     matches = sorted(root.glob(pattern))
     if not matches:
-        return _health(rec, FAILED, f"no file matches {pattern}",
-                       input_pattern=pattern, latest_file=None, days_old=None)
+        return _health(
+            rec, FAILED, f"no file matches {pattern}", input_pattern=pattern, latest_file=None, days_old=None
+        )
     latest = max(matches, key=lambda p: p.stat().st_mtime)
     age_days = (now - datetime.fromtimestamp(latest.stat().st_mtime, tz=UTC)).days
     threshold = rec.get("stale_after_days")
     rel = str(latest.relative_to(root)).replace("\\", "/")
-    common = dict(input_pattern=pattern, latest_file=rel, days_old=age_days,
-                  stale_after_days=threshold)
+    common = dict(input_pattern=pattern, latest_file=rel, days_old=age_days, stale_after_days=threshold)
     if threshold is None:
         # no policy configured → can't assert stale; surface age as a warning
         return _health(rec, WARNING, "no stale threshold configured", **common)
@@ -101,17 +101,25 @@ def check_link(rec: dict, timeout: float = 20.0) -> dict:
     import requests  # lazy: offline runs must not require requests/idna
 
     try:
-        r = requests.head(url, allow_redirects=True, timeout=timeout,
-                          headers={"User-Agent": "dail-tracker-bot/0.1 (source-health)"})
+        r = requests.head(
+            url, allow_redirects=True, timeout=timeout, headers={"User-Agent": "dail-tracker-bot/0.1 (source-health)"}
+        )
         # some servers 405 on HEAD — retry a lightweight ranged GET before judging
         if r.status_code in (403, 405):
-            r = requests.get(url, allow_redirects=True, timeout=timeout, stream=True,
-                             headers={"User-Agent": "dail-tracker-bot/0.1 (source-health)",
-                                      "Range": "bytes=0-0"})
-        meta = dict(http_status=r.status_code, final_url=r.url,
-                    content_type=r.headers.get("Content-Type"),
-                    content_length=r.headers.get("Content-Length"),
-                    last_modified=r.headers.get("Last-Modified"))
+            r = requests.get(
+                url,
+                allow_redirects=True,
+                timeout=timeout,
+                stream=True,
+                headers={"User-Agent": "dail-tracker-bot/0.1 (source-health)", "Range": "bytes=0-0"},
+            )
+        meta = dict(
+            http_status=r.status_code,
+            final_url=r.url,
+            content_type=r.headers.get("Content-Type"),
+            content_length=r.headers.get("Content-Length"),
+            last_modified=r.headers.get("Last-Modified"),
+        )
         if r.status_code >= 400:
             return _health(rec, FAILED, f"HTTP {r.status_code}", **meta)
         return _health(rec, OK, f"HTTP {r.status_code}", **meta)
@@ -123,8 +131,7 @@ def _summary(health: list[dict]) -> dict:
     by = {OK: 0, WARNING: 0, FAILED: 0, SKIPPED: 0}
     for h in health:
         by[h["status"]] = by.get(h["status"], 0) + 1
-    stale = sum(1 for h in health
-                if h["check_type"] == "file_age" and h["status"] == FAILED)
+    stale = sum(1 for h in health if h["check_type"] == "file_age" and h["status"] == FAILED)
     return {
         "sources_checked": len(health),
         "sources_ok": by[OK],
@@ -135,8 +142,13 @@ def _summary(health: list[dict]) -> dict:
     }
 
 
-def run(records: list[dict] | None = None, *, check_links: bool = False,
-        root: Path | None = None, now: datetime | None = None) -> dict:
+def run(
+    records: list[dict] | None = None,
+    *,
+    check_links: bool = False,
+    root: Path | None = None,
+    now: datetime | None = None,
+) -> dict:
     """Compute health for every source. ``records`` defaults to the live registry
     (build_records); tests inject a fixture list. Returns the full payload."""
     root = root or Path(__file__).resolve().parents[1]
@@ -168,12 +180,13 @@ def run(records: list[dict] | None = None, *, check_links: bool = False,
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--check-links", action="store_true",
-                    help="HEAD-check online sources (network). Also via DAIL_CHECK_LINKS=1")
-    ap.add_argument("--strict", action="store_true",
-                    help="exit 1 if any source is failed (for CI/gate use; default exits 0)")
-    ap.add_argument("--print", action="store_true", dest="echo",
-                    help="echo the health report to stdout")
+    ap.add_argument(
+        "--check-links", action="store_true", help="HEAD-check online sources (network). Also via DAIL_CHECK_LINKS=1"
+    )
+    ap.add_argument(
+        "--strict", action="store_true", help="exit 1 if any source is failed (for CI/gate use; default exits 0)"
+    )
+    ap.add_argument("--print", action="store_true", dest="echo", help="echo the health report to stdout")
     args = ap.parse_args()
 
     check_links = args.check_links or os.environ.get("DAIL_CHECK_LINKS") == "1"
@@ -184,9 +197,11 @@ def main() -> int:
     out_path.write_bytes(orjson.dumps(payload, option=orjson.OPT_INDENT_2))
 
     s = payload["summary"]
-    print(f"source health: {s['sources_ok']} ok / {s['sources_warning']} warn / "
-          f"{s['sources_failed']} failed / {s['sources_skipped']} skipped "
-          f"(links_checked={payload['links_checked']}) -> {out_path}")
+    print(
+        f"source health: {s['sources_ok']} ok / {s['sources_warning']} warn / "
+        f"{s['sources_failed']} failed / {s['sources_skipped']} skipped "
+        f"(links_checked={payload['links_checked']}) -> {out_path}"
+    )
     if s["sources_failed"]:
         for h in payload["sources"]:
             if h["status"] == FAILED:

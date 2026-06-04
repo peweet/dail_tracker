@@ -1550,3 +1550,33 @@ childcare providers). **~19k clean supplier-level payment rows** with page/row p
 
 Only after the above are settled should this become gold (`public_payments_fact.parquet`),
 SQL views, tests, and finally a Procurement page — per Phases 5–9 above.
+
+## 11.7 Full-history "nothing-missed" pass (2026-06-04)
+
+A completeness pass on `procurement_public_body_extract.py` found the prior run was
+silently truncating to the most-recent ~4-6 files per publisher (an unintended
+`--max-files` default), parsing only a fraction of each publisher's available history.
+
+**Fixes applied (depth-only; broken publishers left for a later pass):**
+- `--max-files` default → `None` (parse ALL harvested files = full history).
+- `.xls` reader added (`xlrd`, new `[pipeline]` extra + `read_xls`/`_tabular_from_raw`
+  refactor). Legacy `.xls` quarterlies were being skipped — this alone recovered OPW's
+  2020-2024 history (OPW 1,848 → 18,663 rows).
+- Harvest dedup now keys on the filename **stem** (extension stripped), preferring the
+  cleaner tabular format on collision. Fixes a systematic double-count where the same
+  report is served as both `.xlsx` AND `.pdf` (caught at dept_climate Q1-2026).
+- NTMA `exclude` drops its 6-row `Revised-FOI-Publication`/`*-Publication.pdf` per-unit
+  SUMMARY files that overlap (different grain) the line-level `Q*-Payments` files in 2018-19.
+
+**Result:** 9,695 → **68,033 rows** (7×), €3.35bn → **€13.35bn** safe-to-sum, 22/24
+publishers with data. Same-period double-counts down to 72 rows (0.1%, all coincidental
+/ coarse-period — Defence quarterlies are tagged by year only, NTMA's 6 business-unit
+files are legitimate). Verified via a cross-file (publisher+supplier+amount+po+period)
+duplicate audit.
+
+**Residual known gaps (out of scope this pass):** NTMA Q1-2020..Q2-2024 (~80 PDFs parse
+to 0 rows — layout/scan break, needs OCR or a bespoke reader); Courts has 6 `.xlsx` links
+that 404→non-zip (`BadZipFile`); `ie_nta` (header not found on its single PDF); Defence
+month-name quarterlies (`jan-mar-2019.pdf`) get period=YEAR only (quarter precision lost,
+no row loss); the previously-held-back render/OCR publishers (Beaumont/Pobal/CnaM/Garda/
+UCD/SETU/CHI/SEAI/EPA) remain unwired.

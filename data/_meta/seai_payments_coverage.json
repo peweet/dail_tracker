@@ -1,0 +1,20 @@
+{
+  "publisher_id": "ie_seai",
+  "source_file_url": "https://www.seai.ie/sites/default/files/2025-08/Q2-2025-PO-Report-over-20K.pdf",
+  "source_file_hash": "d48aab99ba691908",
+  "rows_extracted": 211,
+  "amount_total_eur": 66226780.66,
+  "largest_amount_share_of_total": 0.0279,
+  "outlier_warning": false,
+  "value_safe_to_sum_rows": 211,
+  "supplier_class_counts": {
+    "company": 163,
+    "sole_trader_or_individual": 45,
+    "public_body": 3
+  },
+  "privacy_quarantine_applied": false,
+  "schema_version": 1,
+  "parser_version": "0.1.0",
+  "generated_at": "2026-06-04T15:45:37+00:00",
+  "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). SEAI quarterly PO-over-\u20ac20k report, 5-line reading-order records. amount_semantics=po_committed, paid_flag P=paid. Unions with public_payments_fact at promotion. PRIVACY QUARANTINE DEFERRED."
+}

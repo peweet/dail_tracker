@@ -118,6 +118,39 @@ Every money metric in `sql_views/` **filters `value_safe_to_sum` AND is scoped t
 `realisation_tier`** (extends master §7/§9). This is the OCDS "never sum across stages" rule and
 the Kimball additivity rule, encoded once in the view layer.
 
+## A.8 Every figure is EXTRACTION-DERIVED — there is no single authoritative total
+
+**This is as important as the tier rule, and orthogonal to it.** Almost every euro in these
+facts is **parsed out of a published document** (PDF purchase-order lists, AFS statements,
+sometimes scanned reports) or a semi-structured export — **not read from an authoritative
+ledger.** The number on screen is *"the figure we extracted from document X"*, not *"the amount
+that was paid."* The two caveats are different axes:
+
+- **`value_kind`/`realisation_tier`** answers *what KIND of money is this* (ceiling vs paid).
+- **`extraction_confidence`** answers *how reliably do we even know the number* — and the honest
+  answer is often "approximately."
+
+Why the real number isn't clear, and the model must say so:
+
+- **Extraction is lossy.** OCR/column mis-read, supplier-name bleed, VAT basis (incl/excl),
+  grain confusion (line vs aggregate vs total row), multi-quarter cumulative files. Even when a
+  row reconciles, the *figure* is only as good as the parse.
+- **Coverage is partial.** 20/31 councils, ~19 publishers, HSE/Tusla pending; awards are
+  ceilings. **No total is complete** — every aggregate is a *floor*, not *the* number.
+- **Therefore "how much did X get / spend" is not knowable from these sources alone** — only
+  *"at least €Y, across the documents we could read, as extracted."*
+
+**Model carries it** (already partly in Part B): `extraction_status` {ok|partial|needs_review},
+`extraction_confidence` {high|medium|low}, `source_file_url`/`source_page_number` on **every**
+row; aggregates additionally report `n_source_documents` + the confidence mix.
+
+**Presentation MUST state it** (see Part C): every € is a link to the document it came from;
+totals are labelled *"based on figures extracted from N published documents — indicative, not an
+audited total"*; low-confidence rows are visibly flagged; **never** render "Company X received
+€Y" as a bare fact — always "€Y, extracted from [source]." (This is the
+`feedback_no_inference_in_app` rule applied to *quantities*: present the verifiable extracted
+figure + its source, never an asserted authoritative total.)
+
 ---
 
 # PART B — `fct_payment` detail (the payment-grain fact)
@@ -344,3 +377,77 @@ rule + `git add`, the exact trap documented for the SQL-view fixtures.
 ### 8.7 What is *not* planned (consistent with one-shot scope)
 No CI job dedicated to procurement, no nightly DQ run, no automation/scheduling. The four
 tiers above are the whole intended surface, and only Tiers 1–2 ever run in CI.
+
+---
+
+# PART C — Presentation / Information Architecture (when a page is built)
+
+> Planning only — **no page is being built yet.** This fixes *how the multifaceted model is
+> organised for a reader* so the IA is agreed alongside the data model. Supersedes the
+> eTenders-only page sketch in `PROCUREMENT_BUILD_PLAN.md` §6.
+
+## C.1 Organise by ENTITY, with the lifecycle *inside* — not by source
+
+The data answers two user questions ("follow a company", "follow a public body / my area")
+through one lifecycle. Three ways to slice it; only one works:
+
+- ❌ **By source** (an "eTenders page", a "TED page") — exposes plumbing; the reader should
+  never need to know the data architecture.
+- ❌ **By lifecycle at top level** ("Awarded page", "Paid page") — clean but not how people ask.
+- ✅ **By entity** (a *company*, a *public body / area*) — matches real questions; the
+  **lifecycle becomes the structure *inside* an entity** (the tiered dossier). Matches the
+  project's org-centric `rankings-*` pattern.
+
+**Sources disappear from the UI** — the reader sees *awarded / ordered / paid* (the
+`realisation_tier`), never "eTenders vs TED vs LA POs".
+
+## C.2 Section shape — a "Public Money" section, two entry points, dossier leaves
+
+```
+PUBLIC MONEY
+├─ ① Landing / framing
+│     "Three different things — awarded, ordered, paid — never added together."
+│     + the EXTRACTION caveat (C.4): figures are read from published documents, indicative.
+│     → [ Find a company ]    [ Find a public body ]
+├─ ② SUPPLIER view (the Dossier)   — rank by contracts WON (count); leaf = tiered dossier
+│        identity (CRO + ⚠confidence) · lobbying flag
+│        ▸ AWARDED €X (ceilings excluded) ▸ COMMITTED €Y ▸ PAID €Z   — never summed
+├─ ③ PUBLIC BODY view              — by dept/council/agency: who they buy from / pay
+│        → council body-profile cross-links to its AFS budget (sibling page)
+└─ ④ Methodology — awarded≠paid worked example · coverage · extraction caveat · provenance
+```
+
+**AFS budget = a sibling page, not part of this section** (different grain: council×service, no
+supplier). It answers a constituent question ("what does my council spend on housing/roads").
+**Cross-link** both ways with the council body-profile.
+
+## C.3 The four never-blend layout rules (from the value taxonomy)
+
+1. **One tier per section** — Awarded / Ordered / Paid never share a list or a total; persistent
+   tier badge on each block.
+2. **The verb is the disambiguation** — "awarded €X" / "ordered €Y" / "paid €Z", never a bare €.
+3. **Count is the headline, € is caveated** — rank by contracts *won*; value only with its tier
+   label + `value_safe_to_sum` filtering.
+4. **No cross-tier arithmetic** — the two physical facts make "awarded + paid" impossible; the
+   IA inherits that safety.
+
+## C.4 The extraction caveat as a UI primitive (§A.8 made visible)
+
+- **Persistent disclosure** near every figure block: *"Figures are extracted from published
+  documents — indicative, not audited totals."*
+- **Every € links to its `source_file_url`** (+ page) — the figure is always traceable.
+- **Totals are framed as floors**: *"at least €Y, from N documents we could read"*, with the
+  confidence mix shown — never "€Y" as the definitive amount.
+- **Low `extraction_confidence` rows are visibly flagged** (and `needs_review` rows excluded
+  from headline figures).
+- Pairs with C.3: a number on this page always carries **two** qualifiers — its **tier**
+  (what kind of money) and its **extraction status** (how well we know it).
+
+## C.5 What this gives the reader
+- Land on a **company** → its whole footprint across the lifecycle, each figure source-linked
+  and tier-labelled (e.g. AECOM: *awarded* €14.93m / *ordered* €6.80m / *paid* €2.47m — three
+  honest figures, never one).
+- Land on a **public body / their council** → who it buys from, with a jump to its service-level
+  budget.
+- Never a misleading blended "€X total", and never a number presented as more certain than the
+  document it was scraped from supports.

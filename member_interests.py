@@ -27,8 +27,8 @@ import orjson
 import polars as pl
 import regex
 
-import normalise_join_key
 from config import GOLD_DIR, INTERESTS_PDF_DIR, MEMBERS_DIR, SILVER_DIR
+from shared import normalise_join_key
 
 # ---------------------------------------------------------------------------
 # Constants

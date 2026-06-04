@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Election Money — design mockup</title>
+<style>
+  :root{
+    /* ink-on-paper, OKLCH, warm-tinted neutrals (never #000/#fff for ink) */
+    --paper:    oklch(0.94 0.007 75);
+    --card:     #ffffff;
+    --ink:      oklch(0.25 0.012 75);   /* money + headings */
+    --ink-2:    oklch(0.45 0.010 75);   /* secondary */
+    --ink-3:    oklch(0.62 0.008 75);   /* muted / labels */
+    --rule:     oklch(0.88 0.006 75);
+    --accent:   oklch(0.52 0.13 245);   /* one sharp accent: links, active lens */
+    /* monochrome ink ramp for the spend ribbon (light -> dark), NOT party colours */
+    --seg-1: oklch(0.86 0.010 75); --seg-2: oklch(0.78 0.012 75);
+    --seg-3: oklch(0.70 0.014 75); --seg-4: oklch(0.62 0.015 75);
+    --seg-5: oklch(0.54 0.016 75); --seg-6: oklch(0.46 0.016 75);
+    --seg-7: oklch(0.38 0.015 75); --seg-8: oklch(0.30 0.013 75);
+    /* party stripe colours (used ONLY as the 3px editorial stripe + swatch) */
+    --p-ff: oklch(0.50 0.10 150); --p-sf: oklch(0.42 0.07 150);
+    --p-lab: oklch(0.52 0.16 25); --p-grn: oklch(0.62 0.14 145);
+    --p-pbp: oklch(0.50 0.15 20); --p-sd: oklch(0.50 0.13 300);
+    --p-aon: oklch(0.45 0.12 20);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font:400 15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:40px 28px 80px}
+  .num{font-variant-numeric:tabular-nums}
+  /* ---- hero ---- */
+  .kicker{font:600 12px/1 inherit;letter-spacing:.10em;text-transform:uppercase;color:var(--ink-3);margin:0 0 12px}
+  h1{font:650 40px/1.05 inherit;letter-spacing:-.02em;margin:0 0 12px}
+  .dek{font-size:17px;color:var(--ink-2);max-width:64ch;margin:0 0 4px}
+  .dek a{color:var(--accent);text-decoration:none;border-bottom:1px solid currentColor}
+  /* ---- lens tabs (CSS-only) ---- */
+  .lens{display:flex;gap:0;margin:28px 0 8px;border-bottom:1px solid var(--rule)}
+  .lens label{padding:10px 18px 12px;cursor:pointer;color:var(--ink-3);font-weight:600;
+    letter-spacing:.01em;border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;gap:8px;align-items:baseline}
+  .lens label .g{font-size:12px;color:var(--ink-3)}
+  input[name=lens]{display:none}
+  #l-spend:checked ~ .lens label[for=l-spend],
+  #l-dons:checked  ~ .lens label[for=l-dons]{color:var(--ink);border-bottom-color:var(--ink)}
+  .pane{display:none;margin-top:22px}
+  #l-spend:checked ~ #pane-spend{display:block}
+  #l-dons:checked  ~ #pane-dons{display:block}
+  /* ---- totals strip ---- */
+  .totals{display:flex;gap:34px;flex-wrap:wrap;padding:2px 0 22px}
+  .totals .t b{display:block;font:650 26px/1 inherit;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .totals .t span{font-size:12.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+  /* ---- party cards ---- */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--stripe,var(--ink-3));
+    border-radius:7px;padding:18px 20px 16px;position:relative}
+  .card .dir{position:absolute;top:16px;right:18px;font-size:12px;color:var(--ink-3);letter-spacing:.04em}
+  .ptitle{display:flex;align-items:center;gap:9px;margin:0 0 2px}
+  .swatch{width:9px;height:9px;border-radius:2px;background:var(--stripe)}
+  .ptitle h3{font:600 16px/1 inherit;margin:0}
+  .big{font:650 30px/1.05 inherit;font-variant-numeric:tabular-nums;letter-spacing:-.015em;margin:8px 0 2px}
+  .sub{font-size:12.5px;color:var(--ink-3)}
+  /* ribbon */
+  .ribbon{display:flex;height:5px;border-radius:3px;overflow:hidden;margin:14px 0 12px}
+  .ribbon i{display:block;height:100%}
+  /* ledger lines */
+  .led{display:grid;grid-template-columns:1fr auto;gap:3px 14px;font-size:13.5px;margin-top:2px}
+  .led .l{color:var(--ink-2);text-transform:uppercase;font-size:11.5px;letter-spacing:.05em;align-self:center}
+  .led .v{font-variant-numeric:tabular-nums;text-align:right;color:var(--ink)}
+  .meta{margin-top:11px;padding-top:11px;border-top:1px dotted var(--rule);display:flex;justify-content:space-between;align-items:baseline}
+  .meta .ml{font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2)}
+  .meta .mv{font:650 16px/1 inherit;font-variant-numeric:tabular-nums}
+  .link{color:var(--accent);text-decoration:none;font-size:13px;font-weight:600}
+  /* ---- source mark (verify) ---- */
+  .vmark{font:600 10.5px/1 inherit;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);
+    white-space:nowrap}
+  /* ---- drill detail ---- */
+  .detail{background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--p-ff);
+    border-radius:7px;padding:22px 24px;margin:26px 0}
+  .detail h2{font:650 19px/1 inherit;margin:0 0 2px}
+  .ledger{margin:18px 0 6px}
+  .lrow{display:grid;grid-template-columns:200px 1fr 120px;align-items:center;gap:16px;padding:7px 0;border-bottom:1px solid var(--rule)}
+  .lrow .cat{font-size:13px}
+  .lrow .cat small{display:block;color:var(--ink-3);font-size:11.5px;margin-top:2px}
+  .lrow .bar{height:6px;background:var(--seg-4);border-radius:3px}
+  .lrow .amt{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+  .lrow.tot{border-bottom:none;border-top:2px solid var(--ink);margin-top:4px;padding-top:11px;font-weight:650}
+  .lrow.tot .amt{font-size:17px}
+  .nested{color:var(--ink-2);font-size:12.5px}
+  /* ---- donor receipts ---- */
+  .receipts{background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--p-grn);border-radius:7px;padding:8px 20px}
+  .rrow{display:grid;grid-template-columns:1fr auto auto auto;align-items:baseline;gap:18px;padding:11px 0;border-bottom:1px solid var(--rule)}
+  .rrow:last-child{border-bottom:none}
+  .rrow .dn{font-weight:500}
+  .rrow .dt{color:var(--ink-3);font-size:13px;font-variant-numeric:tabular-nums}
+  .rrow .mt{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);border:1px solid var(--rule);border-radius:4px;padding:2px 7px}
+  .rrow .da{font-variant-numeric:tabular-nums;font-weight:600;min-width:78px;text-align:right}
+  /* ---- member panel ---- */
+  .mpanel{background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--p-lab);border-radius:7px;padding:18px 22px;max-width:560px}
+  .mpanel .eh{font:600 12px/1 inherit;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin:0 0 14px}
+  .mline{display:grid;grid-template-columns:84px 1fr;gap:12px;align-items:baseline;padding:6px 0}
+  .mline .ml{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2)}
+  .mline .mv{font-variant-numeric:tabular-nums}
+  .mline .mv b{font-weight:650;font-size:18px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+  .chip{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);background:var(--paper);border:1px solid var(--rule);border-radius:5px;padding:3px 8px}
+  /* ---- section + footer ---- */
+  .sect{font:600 12px/1 inherit;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin:34px 0 14px}
+  .foot{margin-top:40px;padding-top:18px;border-top:1px solid var(--rule);font-size:12.5px;color:var(--ink-3);max-width:70ch}
+  .foot a{color:var(--accent);text-decoration:none}
+  .note{margin:30px 0 0;font-size:12px;color:var(--ink-3);font-style:italic}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">General Election 2024 · 34th Dáil</p>
+  <h1>Election Money</h1>
+  <p class="dek">What parties spent getting elected, and the donations they declared. Figures read from official <a href="#">SIPO returns</a> — verify against source.</p>
+
+  <!-- lens radios drive CSS-only tabs -->
+  <input type="radio" name="lens" id="l-spend" checked>
+  <input type="radio" name="lens" id="l-dons">
+  <div class="lens">
+    <label for="l-spend">Spending <span class="g">↓ money out</span></label>
+    <label for="l-dons">Donations <span class="g">↑ money in</span></label>
+  </div>
+
+  <!-- ===================== SPENDING ===================== -->
+  <div class="pane" id="pane-spend">
+    <div class="totals">
+      <div class="t"><b class="num">€1.46m</b><span>total campaign spend</span></div>
+      <div class="t"><b class="num">9</b><span>parties</span></div>
+      <div class="t"><b class="num">298</b><span>candidates</span></div>
+    </div>
+
+    <div class="grid">
+      <!-- Fianna Fáil card -->
+      <div class="card" style="--stripe:var(--p-ff)">
+        <span class="dir">↓ spent</span>
+        <div class="ptitle"><span class="swatch"></span><h3>Fianna Fáil</h3></div>
+        <div class="big num">€626,576</div>
+        <div class="sub">78 candidates · National Agent return</div>
+        <div class="ribbon">
+          <i style="width:29%;background:var(--seg-8)"></i><i style="width:27%;background:var(--seg-6)"></i>
+          <i style="width:26%;background:var(--seg-5)"></i><i style="width:6%;background:var(--seg-4)"></i>
+          <i style="width:6%;background:var(--seg-3)"></i><i style="width:2%;background:var(--seg-2)"></i>
+          <i style="width:2%;background:var(--seg-2)"></i><i style="width:2%;background:var(--seg-1)"></i>
+        </div>
+        <div class="led">
+          <div class="l">Election Posters</div><div class="v num">€184,117</div>
+          <div class="l">Advertising</div><div class="v num">€171,981</div>
+          <div class="l">Publicity</div><div class="v num">€161,253</div>
+        </div>
+        <div class="meta">
+          <span class="ml">▸ incl. Meta ads</span><span class="mv num">€77,725</span>
+        </div>
+        <div style="margin-top:12px"><a class="link" href="#detail">Where it went →</a></div>
+      </div>
+
+      <!-- Sinn Féin card -->
+      <div class="card" style="--stripe:var(--p-sf)">
+        <span class="dir">↓ spent</span>
+        <div class="ptitle"><span class="swatch"></span><h3>Sinn Féin</h3></div>
+        <div class="big num">€321,238</div>
+        <div class="sub">71 candidates · National Agent return</div>
+        <div class="ribbon">
+          <i style="width:34%;background:var(--seg-8)"></i><i style="width:24%;background:var(--seg-6)"></i>
+          <i style="width:18%;background:var(--seg-5)"></i><i style="width:10%;background:var(--seg-4)"></i>
+          <i style="width:8%;background:var(--seg-3)"></i><i style="width:6%;background:var(--seg-2)"></i>
+        </div>
+        <div class="led">
+          <div class="l">Advertising</div><div class="v num">€98,400</div>
+          <div class="l">Publicity</div><div class="v num">€71,900</div>
+          <div class="l">Election Posters</div><div class="v num">€58,300</div>
+        </div>
+        <div class="meta">
+          <span class="ml">▸ incl. Meta ads</span><span class="mv num">€41,200</span>
+        </div>
+        <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+          <a class="link" href="#">Where it went →</a>
+          <span class="vmark">verify · SIPO p.13</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- party drill detail -->
+    <div class="detail" id="detail">
+      <h2>Fianna Fáil · where the €626,576 went</h2>
+      <div class="sub">National Agent election-expenses return, GE2024</div>
+      <div class="ledger">
+        <div class="lrow"><div class="cat">Election Posters</div><div class="bar" style="width:100%"></div><div class="amt num">€184,117</div></div>
+        <div class="lrow"><div class="cat">Advertising<small>└ incl. Meta ads €77,725</small></div><div class="bar" style="width:93%"></div><div class="amt num">€171,981</div></div>
+        <div class="lrow"><div class="cat">Publicity</div><div class="bar" style="width:88%"></div><div class="amt num">€161,253</div></div>
+        <div class="lrow"><div class="cat">Other Election Material</div><div class="bar" style="width:20%"></div><div class="amt num">€37,752</div></div>
+        <div class="lrow"><div class="cat">Market Research</div><div class="bar" style="width:20%"></div><div class="amt num">€37,392</div></div>
+        <div class="lrow"><div class="cat">Campaign Workers</div><div class="bar" style="width:8%"></div><div class="amt num">€14,814</div></div>
+        <div class="lrow"><div class="cat">Transport &amp; Travel</div><div class="bar" style="width:7%"></div><div class="amt num">€13,001</div></div>
+        <div class="lrow"><div class="cat">Office &amp; Stationery</div><div class="bar" style="width:3%"></div><div class="amt num">€6,266</div></div>
+        <div class="lrow tot"><div class="cat">Total</div><div></div><div class="amt num">€626,576</div></div>
+      </div>
+      <div class="sub" style="margin-top:10px"><span class="vmark">source · SIPO National-Agent return, pp. 11–21</span></div>
+    </div>
+  </div>
+
+  <!-- ===================== DONATIONS ===================== -->
+  <div class="pane" id="pane-dons">
+    <div class="totals">
+      <div class="t"><b class="num">€161,578</b><span>declared (&gt; €1,500)</span></div>
+      <div class="t"><b class="num">7</b><span>parties</span></div>
+      <div class="t"><b class="num">74</b><span>donations</span></div>
+    </div>
+
+    <div class="grid">
+      <div class="card" style="--stripe:var(--p-sf)"><span class="dir">↑ received</span>
+        <div class="ptitle"><span class="swatch"></span><h3>Sinn Féin</h3></div>
+        <div class="big num">€65,599</div><div class="sub">29 donations</div>
+        <div style="margin-top:12px"><a class="link" href="#receipts">View donors →</a></div></div>
+      <div class="card" style="--stripe:var(--p-lab)"><span class="dir">↑ received</span>
+        <div class="ptitle"><span class="swatch"></span><h3>Labour</h3></div>
+        <div class="big num">€31,550</div><div class="sub">18 donations</div>
+        <div style="margin-top:12px"><a class="link" href="#">View donors →</a></div></div>
+      <div class="card" style="--stripe:var(--p-pbp)"><span class="dir">↑ received</span>
+        <div class="ptitle"><span class="swatch"></span><h3>People Before Profit · Solidarity</h3></div>
+        <div class="big num">€22,551</div><div class="sub">10 donations</div>
+        <div style="margin-top:12px"><a class="link" href="#">View donors →</a></div></div>
+      <div class="card" style="--stripe:var(--p-grn)"><span class="dir">↑ received</span>
+        <div class="ptitle"><span class="swatch"></span><h3>Green Party</h3></div>
+        <div class="big num">€17,792</div><div class="sub">8 donations</div>
+        <div style="margin-top:12px"><a class="link" href="#">View donors →</a></div></div>
+    </div>
+
+    <div class="sect">Green Party · donations received 2024</div>
+    <div class="receipts" id="receipts">
+      <div class="rrow"><span class="dn">Kevin McGeeney</span><span class="dt num">2 Jan 2024</span><span class="mt">EFT</span><span class="da num">€2,500</span></div>
+      <div class="rrow"><span class="dn">Roderic O'Gorman</span><span class="dt">Monthly</span><span class="mt">Standing order</span><span class="da num">€2,500</span></div>
+      <div class="rrow"><span class="dn">Nigel Smith</span><span class="dt num">16 Dec 2024</span><span class="mt">Stripe</span><span class="da num">€2,500</span></div>
+      <div class="rrow"><span class="dn">Steven Matthews</span><span class="dt">Monthly</span><span class="mt">Standing order</span><span class="da num">€2,400</span></div>
+      <div class="rrow"><span class="dn">Marc Ó Cathasaigh</span><span class="dt">Monthly</span><span class="mt">Standing order</span><span class="da num">€2,325</span></div>
+      <div class="rrow"><span class="dn">Pauline O'Reilly</span><span class="dt num">2 Sep 2024</span><span class="mt">EFT</span><span class="da num">€1,775</span></div>
+      <div class="rrow"><span class="dn">Jonathan Wyse</span><span class="dt">Various</span><span class="mt">Stripe ×2</span><span class="da num">€1,500</span><span class="vmark" style="grid-column:1/-1">verify · SIPO p.27</span></div>
+    </div>
+    <p class="note">Donor name, amount, date and method are the public record. Home addresses are never shown.</p>
+  </div>
+
+  <!-- ===================== MEMBER PANEL ===================== -->
+  <div class="sect">On a TD's profile — member-overview panel (below payments)</div>
+  <div class="mpanel">
+    <p class="eh">Election finance · GE2024</p>
+    <div class="mline"><span class="ml">Campaign</span>
+      <span class="mv"><b class="num">€1,130</b> &nbsp;of €16,524 assigned
+        <div class="chips"><span class="chip">Advertising</span><span class="chip">Posters</span><span class="chip">Publicity</span></div></span></div>
+    <div class="mline"><span class="ml">Gave</span>
+      <span class="mv"><b class="num">€2,800</b> → Labour · monthly standing order</span></div>
+    <div class="sub" style="margin-top:12px"><span class="vmark">source · SIPO returns — verify vs official PDF p.34</span></div>
+  </div>
+
+  <div class="foot">
+    Source: <a href="#">Standards in Public Office Commission</a> — General Election 2024 statements.
+    Figures are read by OCR from the official scanned returns and may contain errors; each carries a
+    page reference so you can verify against the source PDF. Election spending and donations are a
+    matter of public record; nothing here implies influence or wrongdoing.
+  </div>
+
+  <p class="note">Static design mockup · real GE2024 figures (FF spending, Green donors, I. Bacik). SF/donor numbers shown for parties with extracted data; some category splits illustrative pending the remaining parties.</p>
+
+</div>
+</body>
+</html>
