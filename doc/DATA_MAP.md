@@ -61,7 +61,8 @@ but invisible). Prefer moving things rightward (③→②→①) over starting n
 | **Per-LA AFS — revenue** (21 councils) | ③ | gitignored silver; validated |
 | **Per-LA AFS — capital** (21 councils) | ③ | gitignored silver; validated + cross-checked |
 | **LA supplier payments** (20 councils) | ③ | gitignored silver |
-| public_payments_fact (central/semi-state) | ③ | schema-drifted (`amount_semantics`); pre-promotion |
+| public_payments_fact (central/semi-state) | ③ | schema-drifted (`amount_semantics`); **churning publisher set run-to-run (~25 publishers / ~17k rows, 2026-06-04) — unstable, don't conform yet** |
+| **NPHDB payments** (National Paediatric Hospital Dev Board) ⭐new | ③ | 260 rows / €193.8m / COMMITTED; ⚠ **born on legacy `amount_semantics`** — drift is *spreading*, not converging |
 
 ### Legal / regulatory
 | Dataset | Tier | Note |
@@ -116,6 +117,16 @@ PAYMENT / SPENT (supplier-level) →  actual € to a NAMED supplier
 
 The 2-axis taxonomy (`realisation_tier` + `value_kind`) in `PROCUREMENT_BUILD_PLAN.md` §4b is
 the controlled vocab; lock it before any cross-source merge.
+
+**⚠️ The figures are EXTRACTION-DERIVED — there is no single authoritative total.** Almost every
+euro is *parsed out of a published document* (PDF PO lists, AFS statements, sometimes scans), not
+read from a ledger. So a number carries **two** independent qualifiers: its **tier** (what kind
+of money — ceiling/ordered/paid) **and** its **extraction confidence** (how well we even know the
+number — OCR/column/VAT/grain risk). Coverage is partial (20/31 councils, ~19 publishers, HSE/
+Tusla pending), so every aggregate is a **floor**, never *the* total. Carry `extraction_status`/
+`extraction_confidence`/`source_file_url` on every row; present totals as "at least €Y, from N
+documents — indicative, not audited," with each € linked to its source. (Full principle:
+`PUBLIC_PAYMENTS_FACT_SCHEMA.md` §A.8; UI rules in §C.4.)
 
 ---
 
@@ -215,3 +226,14 @@ following established practice rather than a house scheme:**
   happens), `dim_buyer`; lobbying/SIPO are **bridges off `dim_supplier`**, not facts.
 - **Additivity enforced in the view layer** (`value_safe_to_sum` + tier-scoped metrics), with a
   test that no view sums across `realisation_tier`. Scaled to Polars+DuckDB (no SCD2/warehouse).
+
+> **On the `amount_semantics` "drift" (assessed 2026-06-04 — low stakes):** new payment sources
+> (NPHDB, public_payments) use the column name `amount_semantics`, but the **values are the SAME
+> clean vocabulary** as `value_kind` (`payment_actual`, `po_committed`) — it's a column rename +
+> a deterministic `realisation_tier` derivation (`po_committed`→COMMITTED, `payment_actual`→
+> SPENT), absorbed at the staging layer. `value_safe_to_sum` (the dangerous axis) is already set
+> on all of them. So this is cosmetic, gated (no merge yet), and cheap-per-source — **not a
+> threat.** The thing to ACTUALLY watch: a genuinely **new `value_kind` token** (esp. HSE/Tusla's
+> rumoured `payment_incl_vat`/`invoice_payment`, which fold in a VAT-basis decision) — *that*
+> would be a real fork needing a crosswalk, not a rename. Optional tidy-up: have new producers
+> emit `value_kind`+`realisation_tier` directly; not required.

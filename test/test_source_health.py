@@ -21,8 +21,10 @@ NOW = datetime(2026, 6, 4, tzinfo=UTC)
 
 def _manual_rec(pattern, threshold):
     return {
-        "source_id": "manual:cro_companies", "group": "manual_sources",
-        "check_type": "file_age", "input_pattern": pattern,
+        "source_id": "manual:cro_companies",
+        "group": "manual_sources",
+        "check_type": "file_age",
+        "input_pattern": pattern,
         "stale_after_days": threshold,
     }
 
@@ -32,6 +34,7 @@ def _touch(path: Path, days_ago: int):
     path.write_text("x", encoding="utf-8")
     ts = (NOW - timedelta(days=days_ago)).timestamp()
     import os
+
     os.utime(path, (ts, ts))
 
 
@@ -77,11 +80,20 @@ def test_manual_picks_newest_match(tmp_path):
 
 def test_online_sources_skipped_when_links_disabled(tmp_path):
     records = [
-        {"source_id": "oireachtas_pdfs:payments", "group": "oireachtas_pdfs",
-         "check_type": "index_poll", "pollable": True, "listing_url": "https://o.ie"},
-        {"source_id": "afs_amalgamated:2023", "group": "afs_amalgamated",
-         "check_type": "fixed_file", "pollable": True,
-         "direct_files": ["https://gov.ie/a.pdf"]},
+        {
+            "source_id": "oireachtas_pdfs:payments",
+            "group": "oireachtas_pdfs",
+            "check_type": "index_poll",
+            "pollable": True,
+            "listing_url": "https://o.ie",
+        },
+        {
+            "source_id": "afs_amalgamated:2023",
+            "group": "afs_amalgamated",
+            "check_type": "fixed_file",
+            "pollable": True,
+            "direct_files": ["https://gov.ie/a.pdf"],
+        },
     ]
     payload = run(records=records, check_links=False, root=tmp_path, now=NOW)
     assert payload["links_checked"] is False
@@ -94,8 +106,13 @@ def test_run_summary_counts_and_stale(tmp_path):
     _touch(tmp_path / "data/bronze/cro/companies_2025.csv", days_ago=60)
     records = [
         _manual_rec("data/bronze/cro/companies_*.csv", threshold=45),  # stale -> failed
-        {"source_id": "oireachtas_pdfs:x", "group": "oireachtas_pdfs",
-         "check_type": "index_poll", "pollable": True, "listing_url": "https://o.ie"},
+        {
+            "source_id": "oireachtas_pdfs:x",
+            "group": "oireachtas_pdfs",
+            "check_type": "index_poll",
+            "pollable": True,
+            "listing_url": "https://o.ie",
+        },
     ]
     payload = run(records=records, check_links=False, root=tmp_path, now=NOW)
     s = payload["summary"]

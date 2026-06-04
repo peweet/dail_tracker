@@ -23,7 +23,6 @@ from pathlib import Path
 
 import polars as pl
 
-import normalise_join_key
 from config import (
     GOLD_CSV_DIR,
     GOLD_DIR,
@@ -33,6 +32,7 @@ from config import (
     SEANAD_PAYMENTS_PARQUET,
     SILVER_DIR,
 )
+from shared import normalise_join_key
 
 logger = logging.getLogger(__name__)
 
