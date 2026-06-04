@@ -113,11 +113,12 @@ MERGE_GAP = 22.0
 # listing_url = page to harvest period files from; direct_files = known-good file URLs
 # (used as a floor so a publisher still yields data if its listing is JS/awkward).
 def cfg(pid, name, ptype, sector, *, listing, semantics, grain, privacy="low",
-        tier="A", direct=None, include=None, caveat="") -> dict:
+        tier="A", direct=None, include=None, exclude=None, caveat="") -> dict:
     return {"id": pid, "name": name, "ptype": ptype, "sector": sector,
             "listing_url": listing, "amount_semantics": semantics, "grain": grain,
             "privacy_risk": privacy, "tier": tier, "direct_files": direct or [],
-            "include": re.compile(include, re.I) if include else None, "caveat": caveat}
+            "include": re.compile(include, re.I) if include else None,
+            "exclude": re.compile(exclude, re.I) if exclude else None, "caveat": caveat}
 
 
 PUBLISHERS: list[dict] = [
@@ -285,6 +286,8 @@ def harvest_files(cf: dict, crawl_cap: int = 12) -> list[str]:
                 if not DATA_FILE_RE.search(href):
                     continue
                 if cf["include"] and not cf["include"].search(href):
+                    continue
+                if cf["exclude"] and cf["exclude"].search(href):
                     continue
                 out.append(urljoin(base, href))
             return out
