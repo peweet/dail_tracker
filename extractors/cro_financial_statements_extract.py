@@ -56,12 +56,16 @@ COVERAGE_OUT = config.PROJECT_ROOT / "data" / "_meta" / "cro_financial_statement
 
 # source columns (the 8-field index). Renamed/typed in normalise().
 EXPECTED_COLUMNS = {
-    "file_name", "company_num", "company_name", "submission_num",
-    "submission_rec_date", "submission_eff_date", "submission_reg_date",
+    "file_name",
+    "company_num",
+    "company_name",
+    "submission_num",
+    "submission_rec_date",
+    "submission_eff_date",
+    "submission_reg_date",
     "submissions_accounts_to_date",
 }
-DATE_COLS = ["submission_rec_date", "submission_eff_date", "submission_reg_date",
-             "submissions_accounts_to_date"]
+DATE_COLS = ["submission_rec_date", "submission_eff_date", "submission_reg_date", "submissions_accounts_to_date"]
 MIN_TOTAL_ROWS = 200_000  # 2022 alone is ~214k; floor rejects a truncated transfer
 
 # what the source-health registry needs (read by tools/build_source_registry.py).
@@ -101,8 +105,7 @@ def _parse_ckan_date(raw: str | None) -> str | None:
 
 def resolve_resources(session: requests.Session) -> list[dict]:
     """Return [{year, url, last_modified}] for each CSV resource in the package."""
-    r = session.get(f"{CKAN_BASE}/api/3/action/package_show",
-                    params={"id": PACKAGE_ID}, timeout=60)
+    r = session.get(f"{CKAN_BASE}/api/3/action/package_show", params={"id": PACKAGE_ID}, timeout=60)
     r.raise_for_status()
     body = r.json()
     if not body.get("success"):
@@ -114,8 +117,13 @@ def resolve_resources(session: requests.Session) -> list[dict]:
         m = _YEAR_RE.search(res.get("name") or "") or _YEAR_RE.search(res.get("url") or "")
         if not m:
             raise SourceDrift(f"cannot derive year from resource {res.get('name')!r}")
-        out.append({"year": int(m.group(1)), "url": res.get("url"),
-                    "last_modified": _parse_ckan_date(res.get("last_modified") or res.get("created"))})
+        out.append(
+            {
+                "year": int(m.group(1)),
+                "url": res.get("url"),
+                "last_modified": _parse_ckan_date(res.get("last_modified") or res.get("created")),
+            }
+        )
     if not out:
         raise SourceDrift("no CSV resources in financial-statements package")
     return sorted(out, key=lambda d: d["year"])
@@ -144,8 +152,7 @@ def normalise(frames: list[pl.DataFrame]) -> pl.DataFrame:
     if missing:
         raise SourceDrift(f"index missing expected columns: {sorted(missing)}")
     date_exprs = [
-        pl.col(c).cast(pl.Utf8).str.slice(0, 10)
-        .str.strptime(pl.Date, format="%Y-%m-%d", strict=False).alias(c)
+        pl.col(c).cast(pl.Utf8).str.slice(0, 10).str.strptime(pl.Date, format="%Y-%m-%d", strict=False).alias(c)
         for c in DATE_COLS
     ]
     df = df.with_columns(
@@ -154,23 +161,32 @@ def normalise(frames: list[pl.DataFrame]) -> pl.DataFrame:
         *date_exprs,
     ).rename({"submissions_accounts_to_date": "accounts_period_end"})
     df = df.with_columns(pl.col("accounts_period_end").dt.year().alias("period_year"))
-    return df.select([
-        "company_num", "company_name", "submission_num", "file_name",
-        "submission_rec_date", "submission_eff_date", "submission_reg_date",
-        "accounts_period_end", "period_year",
-    ])
+    return df.select(
+        [
+            "company_num",
+            "company_name",
+            "submission_num",
+            "file_name",
+            "submission_rec_date",
+            "submission_eff_date",
+            "submission_reg_date",
+            "accounts_period_end",
+            "period_year",
+        ]
+    )
 
 
 def _coverage(df: pl.DataFrame, resources: list[dict], bronze_rows: dict[int, int]) -> dict:
-    by_year = (df.group_by("period_year").agg(pl.len().alias("rows"))
-               .sort("period_year").to_dicts())
+    by_year = df.group_by("period_year").agg(pl.len().alias("rows")).sort("period_year").to_dicts()
     return {
         "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "source": f"{CKAN_BASE}/dataset/{PACKAGE_ID}",
         "note": "CRO financial-statements FILING INDEX (metadata only; PDFs paywalled). "
-                "See doc/CRO_FINANCIAL_STATEMENTS_EXPLORATION.md.",
-        "resources": [{"year": r["year"], "last_modified": r["last_modified"],
-                       "bronze_rows": bronze_rows.get(r["year"])} for r in resources],
+        "See doc/CRO_FINANCIAL_STATEMENTS_EXPLORATION.md.",
+        "resources": [
+            {"year": r["year"], "last_modified": r["last_modified"], "bronze_rows": bronze_rows.get(r["year"])}
+            for r in resources
+        ],
         "silver_rows": df.height,
         "distinct_companies": int(df["company_num"].n_unique()),
         "rows_by_period_year": by_year,
@@ -204,7 +220,7 @@ def main() -> int:
             print(f"[cro_fs] {res['year']}: current (last_modified={res['last_modified']}), reuse bronze")
         else:
             nbytes = download_csv(session, res["url"], bronze)
-            print(f"[cro_fs] {res['year']}: downloaded {nbytes/1e6:.1f} MB -> {bronze.name}")
+            print(f"[cro_fs] {res['year']}: downloaded {nbytes / 1e6:.1f} MB -> {bronze.name}")
 
     frames = []
     for res in resources:
@@ -223,8 +239,10 @@ def main() -> int:
     cov = _coverage(df, resources, bronze_rows)
     COVERAGE_OUT.write_bytes(orjson.dumps(cov, option=orjson.OPT_INDENT_2))
 
-    print(f"[cro_fs] wrote {SILVER_OUT.relative_to(config.PROJECT_ROOT)}  "
-          f"rows={df.height:,}  distinct_companies={cov['distinct_companies']:,}")
+    print(
+        f"[cro_fs] wrote {SILVER_OUT.relative_to(config.PROJECT_ROOT)}  "
+        f"rows={df.height:,}  distinct_companies={cov['distinct_companies']:,}"
+    )
     for r in cov["rows_by_period_year"]:
         print(f"    period {r['period_year']}: {r['rows']:,}")
     return 0

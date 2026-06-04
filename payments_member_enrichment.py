@@ -42,7 +42,7 @@ from paths import PROJECT_ROOT as REPO_ROOT
 
 sys.path.insert(0, str(REPO_ROOT))
 
-from normalise_join_key import normalise_df_td_name  # noqa: E402
+from shared.normalise_join_key import normalise_df_td_name  # noqa: E402
 
 PAYMENTS_PARQUET = GOLD_PARQUET_DIR / "payments_full_psa.parquet"
 MEMBERS_PARQUET = SILVER_PARQUET_DIR / "flattened_members.parquet"

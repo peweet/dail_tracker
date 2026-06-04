@@ -40,7 +40,7 @@ A four-front evidence sweep on 2026-06-04 found this plan's **executed-work ledg
 
 1. **NOT 9 chains — there are 16.** `CHAINS` ([pipeline.py:51-90](pipeline.py#L51-L90)) now runs: bootstrap, members, payments, attendance, seanad, interests, lobbying, iris, legislation, **afs, cbi, cro, procurement, procurement_lobbying, ted, freshness**. Every "9 chains" / "10 orchestrators" statement below is stale; the 7 new chains are unclassified by the KEEP tables.
 
-2. **C5 (sandbox→production) is NOT resolved — it grew ~7×.** The "✅ RESOLVED 2026-06-02" notes (which promoted ONE file) are misleading. **7–8 `pipeline_sandbox/` scripts are now load-bearing committed pipeline steps**: `afs_amalgamated_extract.py` (pipeline.py:64), `cbi_registers_extract.py` (:68), `cro_corporate_xref_enrichment.py` (:72), `procurement_etenders_extract.py` (:76), `procurement_lobbying_xref.py` (:81), `ted_ireland_extract.py` (:85), and `si_legislation_directory_extract.py` (nested in iris_refresh.py:125). Several write committed **gold** consumed by the UI. **This is the worst coupling in the repo and the real decision the reorg must make:** promote these to `domains/` or gate them out of `CHAINS`. It matters more than the `src/` move itself.
+2. **C5 (sandbox→production) — ✅ NOW RESOLVED 2026-06-04 (see CURRENT TARGET STRUCTURE above).** *The text below is the original finding, retained for rationale; it described the problem before the `extractors/` graduation closed it.* It grew ~7× before resolution: The "✅ RESOLVED 2026-06-02" notes (which promoted ONE file) are misleading. **7–8 `pipeline_sandbox/` scripts are now load-bearing committed pipeline steps**: `afs_amalgamated_extract.py` (pipeline.py:64), `cbi_registers_extract.py` (:68), `cro_corporate_xref_enrichment.py` (:72), `procurement_etenders_extract.py` (:76), `procurement_lobbying_xref.py` (:81), `ted_ireland_extract.py` (:85), and `si_legislation_directory_extract.py` (nested in iris_refresh.py:125). Several write committed **gold** consumed by the UI. **This is the worst coupling in the repo and the real decision the reorg must make:** promote these to `domains/` or gate them out of `CHAINS`. It matters more than the `src/` move itself.
 
 3. **`__main__`-guard claim is REFUTED.** "Most top-level scripts execute on import (no guard)" (and the matching `pyproject.toml` TODO) is stale: 13/15 sampled production files HAVE guards. Only `legislation.py` and `questions.py` lack one (both write parquet at module level). The `-m` dispatch precondition for Step 5 is therefore mostly already met.
 
@@ -49,6 +49,83 @@ A four-front evidence sweep on 2026-06-04 found this plan's **executed-work ledg
 5. **Test baseline corrected (supersedes the "358/0/24" edit, which was itself wrong).** Real state on this branch = **506 passed / 3 failed / 78 skipped**, and **CI's `test` job is RED** — 2 genuine, non-data-gated failures in `test/test_la_payments.py` (`strip_id_prefix` two-numeric-run case; broken xlsx `emit_file` path). A 3rd, `test_sipo_expenses.py::test_name_quality`, is data-gated (SIPO parquet untracked) and flaky on collection order. **Fix CI red before any reorg work — it is the gate the whole plan depends on.**
 
 **Net:** the executed frontload (paths.py, public_appointments promotion, `__init__.py` deletion, lobbying_fetch move, config-constant migration) is all verified real, and the strategy (frontload → mechanical worktree move) still holds. But every inventory/status section below is **circa-2026-06-02 and partially stale** until reconciled against 16 chains + the reopened C5.
+
+---
+
+## ✅ CURRENT TARGET STRUCTURE (refreshed 2026-06-04) — authoritative
+
+**This section is the live folder plan. It supersedes the stale per-file KEEP tables (below) and the §2 tree** — both predate the `extractors/` layer and the 7 newer chains. Two things changed the picture since 2026-06-02:
+
+1. **`extractors/` now exists** as the "graduated from sandbox" production layer. 17 load-bearing scripts were `git mv`'d out of `pipeline_sandbox/` into a flat top-level `extractors/` dir. In the package layout, `extractors/` **dissolves into `domains/`** — each script belongs to a data subject; the flat holding-pen has no reason to persist one level down.
+2. **C5 (sandbox→production coupling) is FULLY RESOLVED (2026-06-04).** Zero production code imports from `pipeline_sandbox/` — verified by grep (the only `sys.path.insert(pipeline_sandbox)` calls left are sandbox-internal SIPO siblings). The last straggler, `cro_financial_statements_extract.py` (a stale untracked duplicate that lingered in `pipeline_sandbox/` after the graduation), was promoted to `extractors/` and its registry/test/doc callers repointed. `pipeline_sandbox/` is now prunable without breaking the pipeline. **The earlier "C5 NOT resolved — grew 7×" bullet and the REOPENED DECIDE item are obsolete.**
+
+**Organizing principle (unchanged):** infra → shared → domains (by data subject) → orchestration → tools → ui. Flat domains (~18 sibling folders), each = one source/subject.
+
+```
+src/dail_tracker/
+├── infra/              # bedrock: no domain logic, imported everywhere
+│   config.py · paths.py · manifest.py · run_paths.py · logging_setup.py
+│   http_engine.py · storage.py · urls.py · schema_validation.py · member_paginated.py
+│   (DELETE services/dail_config.py — duplicate of config.py)
+├── shared/             # pure cross-domain helpers
+│   normalise_join_key.py · quarantine.py · analytics_loading.py
+│   select_drop_rename_cols_mappings.py
+├── orchestration/
+│   pipeline.py         # the 16-chain dispatcher
+│   chains/             # the *_refresh.py orchestrators:
+│                       #   bootstrap members payments attendance seanad
+│                       #   interests lobbying iris legislation
+│                       # (afs/cbi/cro/procurement/ted/freshness/source_health are
+│                       #  single-script chains → CHAINS points straight at the
+│                       #  domain/tool module; no chains/ wrapper needed)
+├── domains/            # one folder per data subject
+│   members/        ← members_api_service, flatten_members_json_to_csv, member_interests,
+│                     services/members, wikidata_socials_etl, ministerial_tenure_build, wiki_data
+│   attendance/     ← attendance
+│   votes/          ← transform_votes, enrich, services/votes
+│   debates/        ← dbsect_listings_flatten, services/dbsect_harvest
+│   questions/      ← questions
+│   interests/      ← (interests ETL driven by interests_refresh)
+│   committees/     ← committees_long_format_etl
+│   payments/       ← payments_full_psa_etl, payments_member_enrichment
+│   legislation/    ← legislation, bill_amendments_flatten, si_entity_enrichment,
+│                     services/legislation_unscoped, extractors/si_legislation_directory_extract,
+│                     extractors/si_lrc_classlist_extract, extractors/si_lrc_enrichment_build
+│   iris/           ← iris_oifigiuil_poller, iris_oifigiuil_etl_polars, iris_incremental_shards,
+│                     iris_silver_rebuild, iris_si_bill_enrichment, repair_future_iris_placeholders,
+│                     public_appointments_enrichment, corporate_notices_enrichment
+│   corporate/      ← cro_poller, cro_normalise, extractors/cro_corporate_xref_enrichment,
+│                     extractors/cro_financial_statements_extract, extractors/cbi_registers_extract
+│   charity/        ← charity_normalise, charity_resolved, charity_enriched
+│   lobbying/       ← lobbying_poller, lobby_processing, lobbying_pdf_extract
+│   procurement/    ← extractors/procurement_etenders_extract, procurement_public_body_extract,
+│                     procurement_la_payments_extract, procurement_hse_tusla_parser,
+│                     procurement_lobbying_xref, procurement_la_seed, procurement_publishers_seed,
+│                     sample_extract_procurement_pdf, extractors/ted_ireland_extract
+│   local_authority/← extractors/afs_amalgamated_extract, la_afs_extract, la_afs_camelot_ie
+│   reference/      ← ec_constituency_pop_extract
+│   oireachtas_api/ ← services/oireachtas_api_main   (cross-domain fetch layer)
+│   pdf_infra/      ← oireachtas_pdf_poller, pdf_downloader, pdf_endpoint_check
+├── tools/              # operational / CI / monitoring (stay grouped, not scattered)
+│   build_source_registry.py · build_source_health.py · check_freshness.py
+│   freshness_report.py · gold_rowcounts.py · check_streamlit_logic_firewall.py · publish_data.py
+└── ui/                 ← all of utility/ (app.py · shared_css · config · constants
+                          · pages_code→pages/ · ui→components/ · data_access/)
+
+pipeline_sandbox/       # STAYS at root — research/probes, NOT packaged, now prunable
+archive/                # dead/superseded (si_baseline.json, old audit .py, _old docs)
+test/  →  unit/{infra,shared,domains/<d>} · integration/ · golden/ · ui/
+```
+
+**Judgment calls (signed off 2026-06-04):**
+- **`extractors/` dissolves into `domains/`** (vs keeping it as a flat "pipeline-step scripts" layer — rejected: re-creates the flat problem).
+- **`cro_*` → `corporate/` not `charity/`** — CRO is the company register; its real consumers are corporate-notices, procurement supplier-matching, and lobbying xref.
+- **Single-script chains** (afs, cbi, cro, procurement, procurement_lobbying, ted, freshness, source_health) need no `chains/` wrapper — `CHAINS` references the domain/tool module directly.
+- **`tools/` stays cohesive** rather than scattering monitoring scripts into domains.
+- **3 deletions on the way in:** `future_enrichment_ideas.py`, `iris_memeber_interests.py` (typo, dead), `pdf_backfill_scraper.py` (broken import) — all already tagged `dead`.
+- **Flat domains over thematic super-groups** — ~18 folders, each unambiguously one subject; thematic grouping adds debatable boundary calls (is PSA pay "parliament" or "money"?).
+
+The B1–B6 boundary rationale in §2 below (paths.py single root, pure `transform.py` vs thin `etl.py`, hoisted pandera contracts, chains-as-data) still holds — this section only refreshes *where the files land*, not *why the boundaries exist*.
 
 ---
 
@@ -342,7 +419,7 @@ The 9 `*_refresh.py` chains can go either:
 
 **Does Step 3 (D2) make this moot? No — half-true only.** The chains are a *mix*: inside `iris_refresh`, steps 2–4 are import-and-call (`si_entity_enrichment.run()`), steps 1/5/6 are subprocess; `pipeline.py` then dispatches each whole chain as a subprocess (to tee per-chain stdout). Step 3 collapses the duplicated *runner* boilerplate (`_hr()`, timing, `failures.append`, subprocess wrapper) into one shared runner, but each chain's *definition* (which steps, order, skip-flags) remains per-chain data that still needs a home — and that home is `orchestration/chains/`. Step 3 shrinks each file from ~150 lines to a short declaration; it does not remove the destination question.
 
-### DECIDE — promote load-bearing sandbox files (NEW 2026-06-02) — ⚠️ REOPENED 2026-06-04 (only 1 of 8 done)
+### DECIDE — promote load-bearing sandbox files (NEW 2026-06-02) — ✅ RESOLVED 2026-06-04 (all graduated to `extractors/`; see CURRENT TARGET STRUCTURE at top)
 
 > **REOPENED 2026-06-04:** This was marked resolved after promoting ONE file, but the sweep found **7–8** sandbox scripts are now load-bearing pipeline steps (see the RE-AUDIT block at the top): `afs_amalgamated_extract.py`, `cbi_registers_extract.py`, `cro_corporate_xref_enrichment.py`, `procurement_etenders_extract.py`, `procurement_lobbying_xref.py`, `ted_ireland_extract.py`, `si_legislation_directory_extract.py`. Each needs the same promote-or-gate decision applied below. The text that follows resolved only `public_appointments_enrichment.py`.
 

@@ -37,7 +37,6 @@ import json
 import re
 import subprocess
 import sys
-from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
@@ -249,6 +248,30 @@ PUBLISHERS: list[dict] = [
                 "https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q3-2025.pdf",
                 "https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q2-2025.pdf"],
         caveat="PO PDFs pinned via direct_files (landing exposes only tender-register xlsx + FOI logs)"),
+    cfg("ie_chi", "Children's Health Ireland (CHI)", "state_body", "health",
+        listing="https://www.childrenshealthireland.ie/about-us/corporate-information/payments-to-suppliers-over-20000/",
+        semantics="payment_actual", grain="payment", privacy="low", tier="D",
+        # Children's-hospital OPERATOR side (complements NPHDB construction). Landing exposes no
+        # direct links → file pinned. xlsx row 0 is a TITLE ("CHI Vendor payments >25K") above the
+        # real "Vendor Name/Amount" header; the length-filtered header scorer now skips it (297 rows).
+        direct=["https://www.childrenshealthireland.ie/documents/3541/CHI_Paid_Invoices_over_25K_incl_VAT_Qtr_1_2026updated.xlsx"],
+        caveat="paid invoices at €25k incl VAT (not €20k); single Q1-2026 file; payment grain"),
+    cfg("ie_pobal", "Pobal", "agency", "social",
+        listing="https://www.pobal.ie/financial-information/",
+        semantics="po_committed", grain="purchase_order", privacy="medium", tier="D",
+        # Files titled 'Purchase Order OR Payments over €20k' but rows carry PO/SUPPLIER/TOTAL/PAID
+        # columns = POs with a paid-flag (Paid/Not Paid captured in paid_flag), not truly mixed.
+        # Generic reader handles it (29 rows/high-conf on Q1-2026). Full 2020-2026 series (25 PDFs).
+        caveat="grant-adjacent (privacy=medium); harvest returns oldest-first so a low --max-files "
+               "biases to 2020 — raise --max-files for full series"),
+    cfg("ie_beaumont", "Beaumont Hospital", "hospital", "health",
+        listing="https://www.beaumont.ie/page/financial-statements",
+        semantics="payment_actual", grain="payment", privacy="low", tier="D",
+        # Landing exposes 3 xlsx: two 'Payments Over €20k' (annual, payment grain, 2024+2025) and
+        # one 'POs Greater than €20k' (PO grain). include= grabs ONLY the payment files to keep one
+        # grain. Header 'No. of Payments > €20,000' is a COUNT trap; COUNT_HDR routes amount to 'Value'.
+        include=r"payments.*over",
+        caveat="annual supplier payment totals (Value col), €20k threshold; the separate Q1-2026 PO file is excluded"),
 ]
 
 
@@ -318,14 +341,30 @@ def harvest_files(cf: dict, crawl_cap: int = 12) -> list[str]:
                 if sub_html:
                     hits.extend(scan(sub_html, s))
         found.extend(hits)
-    # dedup by basename (same file served via two hosts -> one entry, e.g. TII)
-    seen, uniq = set(), []
+    # Dedup by basename STEM (extension stripped), not basename: the same quarterly
+    # report is sometimes published in two formats (e.g. dept_climate Q1-2026 as both
+    # .xlsx AND .pdf) which a with-extension key let through -> double-counted rows.
+    # On a stem collision prefer the cleaner tabular format (xlsx/csv > xls > pdf).
+    # (Also still collapses the same file served via two hosts, e.g. TII.)
+    fmt_pref = {".xlsx": 0, ".csv": 1, ".xls": 2, ".pdf": 3}
+
+    def stem_ext(u: str) -> tuple[str, str]:
+        base = u.rsplit("/", 1)[-1].split("?")[0].lower()
+        for e in DATA_EXT:
+            if base.endswith(e):
+                return base[: -len(e)], e
+        return base, ""
+
+    best: dict[str, str] = {}
+    order: list[str] = []
     for u in found:
-        key = u.rsplit("/", 1)[-1].split("?")[0].lower()
-        if key not in seen:
-            seen.add(key)
-            uniq.append(u)
-    return uniq
+        s, e = stem_ext(u)
+        if s not in best:
+            best[s] = u
+            order.append(s)
+        elif fmt_pref.get(e, 9) < fmt_pref.get(stem_ext(best[s])[1], 9):
+            best[s] = u  # keep the more reliable format for the same report
+    return [best[s] for s in order]
 
 
 # ============================================================================ readers
@@ -429,9 +468,18 @@ def refine_roles(cols, roles, records):
     def numfrac(i):
         vals = [r[i] for r in records if i < len(r) and r[i]]
         return sum(to_eur(v) is not None for v in vals) / len(vals) if vals else 0.0
+    def moneyfrac(i):  # fraction of cells that look like MONEY (thousands/decimals) — a bare
+        vals = [r[i] for r in records if i < len(r) and r[i]]  # year col like "2023" won't match
+        return sum(bool(MONEY_RE.search(str(v))) for v in vals) / len(vals) if vals else 0.0
     amt_cands = [i for i, c in enumerate(cols) if ROLE_RE["amount"].search(c["label"])]
     if amt_cands:
         roles["amount"] = max(amt_cands, key=numfrac)
+    elif "amount" not in roles and cols:
+        # No header word matches "amount" (e.g. NTMA's amount column is headed "Q4"/"Q3",
+        # the quarter, not a money word). Fall back to the most money-like column by content.
+        best = max(range(len(cols)), key=moneyfrac)
+        if moneyfrac(best) >= 0.5:
+            roles["amount"] = best
     sup_cands = [i for i, c in enumerate(cols) if ROLE_RE["supplier"].search(c["label"])]
     if sup_cands:
         roles["supplier"] = min(sup_cands, key=numfrac)
@@ -475,8 +523,14 @@ def _tabular_from_raw(raw: list[list]):
     """Shared header-pick + body-trim for any 2D cell grid (openpyxl or xlrd)."""
     full = " ".join(str(c) for row in raw[:6] for c in row if c is not None)
     def score(row):
-        return sum(any(rx.search(str(c)) for rx in ROLE_RE.values()) for c in (row or []) if c is not None)
-    hi = max(range(min(8, len(raw))), key=lambda i: score(raw[i]), default=0)
+        # Count SHORT role-matching cells only: a real header is short labels ("Vendor Name",
+        # "Amount"); a TITLE row above it is one long sentence with embedded keywords
+        # ("CHI Vendor payments >25K (incl VAT)") that should NOT win header detection.
+        return sum(1 for c in (row or [])
+                   if c is not None and len(str(c).strip()) <= 30
+                   and any(rx.search(str(c)) for rx in ROLE_RE.values()))
+    # Tie-break toward the LATER row — a title/banner row precedes the real header.
+    hi = max(range(min(8, len(raw))), key=lambda i: (score(raw[i]), i), default=0)
     header = [str(c).strip() if c is not None else f"col{j}" for j, c in enumerate(raw[hi])]
     rows = [r for r in raw[hi + 1:] if any(c is not None and str(c).strip() for c in r)]
     return header, rows, full
@@ -502,6 +556,9 @@ def read_csv(b: bytes):
     return df.columns, [list(r) for r in df.iter_rows()], " ".join(df.columns)
 
 
+COUNT_HDR = re.compile(r"no\.?\s*of\b|number of|\bcount\b|\bqty\b|quantit", re.I)
+
+
 def detect_roles_tab(header, rows):
     roles = {k: None for k in ROLE_RE}
     for role, rx in ROLE_RE.items():
@@ -509,6 +566,10 @@ def detect_roles_tab(header, rows):
         if not cands:
             continue
         if role == "amount":
+            # Avoid count-columns that carry money keywords in their label, e.g. Beaumont's
+            # "No. of Payments > €20,000" (a COUNT, values 1..300) vs the real "Value" column.
+            strong = [i for i in cands if not COUNT_HDR.search(header[i] or "")]
+            cands = strong or cands
             cands.sort(key=lambda i: -(sum(to_eur(r[i]) is not None for r in rows[:200] if i < len(r))
                                        / max(1, len(rows[:200]))))
         roles[role] = cands[0]
@@ -552,12 +613,17 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
             if amt is None:
                 continue
             sup = clean_supplier(rec[sup_i]) if sup_i is not None and sup_i < len(rec) else None
-            if sup and (CATEGORY_WORD.search(sup) or TITLE_ROW.search(sup)):
-                continue  # drop total/category/title-masquerade rows
+            desc = rec[desc_i] if desc_i is not None and desc_i < len(rec) else None
+            # Drop total/category/title-masquerade rows. The page banner ("... Payments greater
+            # than €20,000") splits across cells — "greater than" into the description, the
+            # "€20,000" into the amount column — so no single cell holds the whole phrase. Test
+            # TITLE_ROW against the JOINED row (bucket order re-adjoins "greater than … 20,000").
+            rowtext = " ".join(str(x) for x in rec if x)
+            if (sup and CATEGORY_WORD.search(sup)) or TITLE_ROW.search(rowtext):
+                continue
             good += 1
             rows_out.append(base(
-                srn, page, sup, amt,
-                rec[desc_i] if desc_i is not None and desc_i < len(rec) else None,
+                srn, page, sup, amt, desc,
                 clean_supplier(rec[po_i]) if po_i is not None and po_i < len(rec) else None,
                 rec[paid_i] if paid_i is not None and paid_i < len(rec) else None))
         conf = "high" if good > 20 else ("medium" if good > 3 else "low")

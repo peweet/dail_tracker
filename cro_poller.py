@@ -77,11 +77,26 @@ MIN_ZIP_BYTES = 5_000_000
 
 # the 21 columns cro_normalise.py's schema check depends on (exact set).
 EXPECTED_COLUMNS = {
-    "company_num", "company_name", "company_status_code", "company_status",
-    "company_type_code", "company_type", "company_reg_date", "last_ar_date",
-    "company_address_1", "company_address_2", "company_address_3", "company_address_4",
-    "comp_dissolved_date", "nard", "last_accounts_date", "company_status_date",
-    "nace_v2_code", "eircode", "company_name_eff_date", "company_type_eff_date",
+    "company_num",
+    "company_name",
+    "company_status_code",
+    "company_status",
+    "company_type_code",
+    "company_type",
+    "company_reg_date",
+    "last_ar_date",
+    "company_address_1",
+    "company_address_2",
+    "company_address_3",
+    "company_address_4",
+    "comp_dissolved_date",
+    "nard",
+    "last_accounts_date",
+    "company_status_date",
+    "nace_v2_code",
+    "eircode",
+    "company_name_eff_date",
+    "company_type_eff_date",
     "princ_object_code",
 }
 
@@ -121,8 +136,7 @@ def resolve_resource(session: requests.Session) -> dict:
     if not body.get("success"):
         raise SourceDrift(f"CKAN package_show(id={PACKAGE_ID}) returned success=false")
     resources = body.get("result", {}).get("resources", [])
-    csv_res = next((res for res in resources
-                    if (res.get("format") or "").upper() == "CSV"), None)
+    csv_res = next((res for res in resources if (res.get("format") or "").upper() == "CSV"), None)
     if csv_res is None:
         fmts = sorted({(res.get("format") or "?") for res in resources})
         raise SourceDrift(f"no CSV resource in package {PACKAGE_ID!r}; formats present: {fmts}")
@@ -210,10 +224,8 @@ def extract_and_validate(zip_path: Path, out_csv: Path) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--force", action="store_true",
-                    help="download even if the held snapshot is already current")
-    ap.add_argument("--check-only", action="store_true",
-                    help="report whether a newer snapshot exists; do not download")
+    ap.add_argument("--force", action="store_true", help="download even if the held snapshot is already current")
+    ap.add_argument("--check-only", action="store_true", help="report whether a newer snapshot exists; do not download")
     args = ap.parse_args()
     from services.logging_setup import setup_standalone_logging
 
@@ -233,13 +245,11 @@ def main() -> int:
 
     upstream = res["last_modified"]
     have = latest_local_date()
-    logger.info("upstream last_modified=%s  held=%s  resource=%s",
-                upstream, have, res["resource_id"])
+    logger.info("upstream last_modified=%s  held=%s  resource=%s", upstream, have, res["resource_id"])
 
     up_to_date = have is not None and have >= upstream
     if args.check_only:
-        print(f"cro_poller: {'CURRENT' if up_to_date else 'UPDATE AVAILABLE'} "
-              f"(upstream={upstream}, held={have})")
+        print(f"cro_poller: {'CURRENT' if up_to_date else 'UPDATE AVAILABLE'} (upstream={upstream}, held={have})")
         return 0
     if up_to_date and not args.force:
         print(f"cro_poller: already current (held {have} >= upstream {upstream})")
@@ -259,8 +269,7 @@ def main() -> int:
             logger.error("download/extract failed (transient): %s", e)
             return 1
 
-    print(f"cro_poller: wrote {out_csv.relative_to(BRONZE_DIR.parent.parent)}  "
-          f"rows={rows:,}")
+    print(f"cro_poller: wrote {out_csv.relative_to(BRONZE_DIR.parent.parent)}  rows={rows:,}")
     return 0
 
 

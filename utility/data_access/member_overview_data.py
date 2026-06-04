@@ -39,6 +39,11 @@ _DOMAIN_FILES = [
     "payments_yearly_evolution.sql",
     "lobbying_revolving_door.sql",
     "legislation_index.sql",
+    # legislation_si_index.sql LEFT JOINs v_si_current_state for SI legal-state,
+    # so current_state must register FIRST — otherwise the index view fails with
+    # "Table v_si_current_state does not exist" (silently swallowed in prod by
+    # _load_sql, caught by test_member_overview_connection_builds).
+    "legislation_si_current_state.sql",
     "legislation_si_index.sql",
     "v_debate_listings.sql",
     "member_debate_sections.sql",
