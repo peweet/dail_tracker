@@ -1,13 +1,14 @@
 {
   "councils_attempted": 27,
-  "councils_with_rows": 14,
-  "councils_fitz": 9,
+  "councils_with_rows": 19,
+  "councils_fitz": 14,
   "councils_camelot": 5,
-  "rows": 112,
+  "rows": 152,
   "phase": 1,
   "by_council": [
     {
       "council": "South Dublin",
+      "slug": "south_dublin",
       "n_afs": 31,
       "picked": "https://www.sdcc.ie/en/services/our-council/policies-and-plans/budgets-and-spending/financial-statements/audited-afs-2024.pdf",
       "year": 2024,
@@ -20,6 +21,7 @@
     },
     {
       "council": "Cork City",
+      "slug": "cork_city",
       "n_afs": 9,
       "picked": "https://www.corkcity.ie/media/52zlwx42/afs-audited-2024-final.pdf",
       "year": 2024,
@@ -32,6 +34,7 @@
     },
     {
       "council": "Cork County",
+      "slug": "cork_county",
       "n_afs": 8,
       "picked": "https://www.corkcoco.ie/sites/default/files/2026-03/annual-financial-statement-signed-audited-accounts-2024-pdf.pdf",
       "year": 2024,
@@ -44,6 +47,7 @@
     },
     {
       "council": "Westmeath",
+      "slug": "westmeath",
       "n_afs": 18,
       "picked": "https://www.westmeathcoco.ie/en/media/AuditedAnnualFinancialStatement2024.pdf",
       "year": 2024,
@@ -56,6 +60,7 @@
     },
     {
       "council": "Galway City",
+      "slug": "galway_city",
       "n_afs": 1,
       "picked": "https://files.galwaycity.ie/uploads/downloads/budgets_financials/Audited%20Annual%20Financial%20Statements%202022.pdf",
       "year": 2022,
@@ -68,6 +73,7 @@
     },
     {
       "council": "Galway County",
+      "slug": "galway_county",
       "n_afs": 11,
       "picked": "https://www.gaillimh.ie/sites/default/files/2026-04/2024%20Annual%20Financial%20Statement.pdf",
       "year": 2024,
@@ -80,6 +86,7 @@
     },
     {
       "council": "Meath",
+      "slug": "meath",
       "n_afs": 21,
       "picked": "https://www.meath.ie/system/files/media/file-uploads/2021-07/Meath%202019%20Audited%20Annual%20Financial%20Statements%20Signed%20Dec%202020.pdf",
       "year": 2019,
@@ -92,6 +99,7 @@
     },
     {
       "council": "Donegal",
+      "slug": "donegal",
       "n_afs": 6,
       "picked": "https://www.donegalcoco.ie/media/qinnedf1/afs-2024-audited.pdf",
       "year": 2024,
@@ -104,6 +112,7 @@
     },
     {
       "council": "Tipperary",
+      "slug": "tipperary",
       "n_afs": 5,
       "picked": "https://www.tipperarycoco.ie/sites/default/files/2022-07/Audited%20Annual%20Financial%20Statement%202018.pdf",
       "year": 2018,
@@ -116,6 +125,7 @@
     },
     {
       "council": "Wicklow",
+      "slug": "wicklow",
       "n_afs": 14,
       "picked": "https://www.wicklow.ie/Portals/0/adam/Documents/ASxERbym80esqEC6UFah5g/Link/Audited AFS 2024.pdf",
       "year": 2024,
@@ -123,6 +133,7 @@
     },
     {
       "council": "Monaghan",
+      "slug": "monaghan",
       "n_afs": 16,
       "picked": "https://monaghan.ie/finance/wp-content/uploads/sites/10/2025/11/AFS-2024-Audited.pdf",
       "year": 2024,
@@ -135,6 +146,7 @@
     },
     {
       "council": "Kildare",
+      "slug": "kildare",
       "n_afs": 15,
       "picked": "https://kildarecoco.ie/YourCouncil/Publications/Finance/AnnualFinancialStatements/Unaudited Annual Financial Statements 2025.pdf",
       "year": 2025,
@@ -147,6 +159,7 @@
     },
     {
       "council": "Sligo",
+      "slug": "sligo",
       "n_afs": 18,
       "picked": "https://www.sligococo.ie/YourCouncil/Finance/AnnualFinancialStatements/SligoCOCO-AFS-yr-end-2024 AUDITED.pdf",
       "year": 2024,
@@ -154,6 +167,7 @@
     },
     {
       "council": "Clare",
+      "slug": "clare",
       "n_afs": 14,
       "picked": "https://www.clarecoco.ie/sites/default/files/2025-07/annual-financial-statement-2024-57446.pdf",
       "year": 2024,
@@ -166,6 +180,7 @@
     },
     {
       "council": "Fingal",
+      "slug": "fingal",
       "n_afs": 4,
       "picked": "https://www.fingal.ie/sites/default/files/2026-03/audited-afs-2024-book.pdf",
       "year": 2024,
@@ -178,6 +193,7 @@
     },
     {
       "council": "Dun Laoghaire-Rathdown",
+      "slug": "dlr",
       "n_afs": 11,
       "picked": "https://www.dlrcoco.ie/sites/dlrcoco/files/2024-11/AFS%202023%20audited.pdf",
       "year": 2023,
@@ -190,6 +206,7 @@
     },
     {
       "council": "Kilkenny",
+      "slug": "kilkenny",
       "n_afs": 1,
       "picked": "https://kilkennycoco.ie/eng/your_council/customer_care_information/child-protection/child-safeguarding-general-statement-2024.pdf",
       "year": 2024,
@@ -197,6 +214,7 @@
     },
     {
       "council": "Louth",
+      "slug": "louth",
       "n_afs": 2,
       "picked": "https://www.louthcoco.ie/en/publications/development-plans/louth-county-development-plan-2021-2027/dundalk-lap-2025-2031-aa-conclusion-statement.pdf",
       "year": 2025,
@@ -204,41 +222,62 @@
     },
     {
       "council": "Wexford",
-      "n_afs": 0,
-      "picked": null,
-      "year": null,
-      "status": "no-afs"
+      "slug": "wexford",
+      "n_afs": 10,
+      "picked": "https://www.wexfordcoco.ie/sites/default/files/content/AFS-2022-Post-Audit.pdf",
+      "year": 2022,
+      "status": "no-IE-page"
     },
     {
       "council": "Waterford",
-      "n_afs": 0,
-      "picked": null,
-      "year": null,
-      "status": "no-afs"
+      "slug": "waterford",
+      "n_afs": 9,
+      "picked": "https://waterfordcouncil.ie/app/uploads/2024/02/2022-AFS-English-Audited-V2.pdf",
+      "year": 2022,
+      "status": "no-IE-page"
     },
     {
       "council": "Limerick",
-      "n_afs": 0,
-      "picked": null,
-      "year": null,
-      "status": "no-afs"
+      "slug": "limerick",
+      "n_afs": 26,
+      "picked": "https://www.limerick.ie/sites/default/files/media/documents/2026-02/limerick-city-and-county-council-audited-annual-financial-statement-2024.pdf",
+      "year": 2024,
+      "status": "ok",
+      "divisions": 8,
+      "gross_sum": 928251687.0,
+      "reconciled": true,
+      "pages": 44,
+      "ie_page": 13
     },
     {
       "council": "Offaly",
-      "n_afs": 0,
-      "picked": null,
-      "year": null,
-      "status": "no-afs"
+      "slug": "offaly",
+      "n_afs": 9,
+      "picked": "https://www.offaly.ie/app/uploads/Council/Publications_Reports/AFS-2024-AUDITED.pdf",
+      "year": 2024,
+      "status": "ok",
+      "divisions": 8,
+      "gross_sum": 102001321.0,
+      "reconciled": true,
+      "pages": 37,
+      "ie_page": 10
     },
     {
       "council": "Longford",
-      "n_afs": 0,
-      "picked": null,
-      "year": null,
-      "status": "no-afs"
+      "slug": "longford",
+      "n_afs": 10,
+      "picked": "https://www.longfordcoco.ie/services/finance/annual-financial-statements/annual-financial-statement-2024.pdf",
+      "year": 2024,
+      "status": "ok",
+      "divisions": 8,
+      "gross_sum": 73176709.0,
+      "reconciled": true,
+      "pages": 40,
+      "ie_page": 13
     },
     {
       "council": "Kerry",
+      "slug": "kerry",
       "n_afs": 0,
       "picked": null,
       "year": null,
@@ -246,13 +285,20 @@
     },
     {
       "council": "Leitrim",
-      "n_afs": 0,
-      "picked": null,
-      "year": null,
-      "status": "no-afs"
+      "slug": "leitrim",
+      "n_afs": 9,
+      "picked": "https://www.leitrim.ie/Council/Services/Finance/Finance-Publications/Annual-Financial-Statements/Audited-AFS-2024-Leitrim.pdf",
+      "year": 2024,
+      "status": "ok",
+      "divisions": 8,
+      "gross_sum": 61173374.0,
+      "reconciled": true,
+      "pages": 38,
+      "ie_page": 11
     },
     {
       "council": "Laois",
+      "slug": "laois",
       "n_afs": 7,
       "picked": "https://laois.ie/sites/default/files/2026-05/AFS%202024%20Audited%20Laois%20County%20Council.pdf",
       "year": 2024,
@@ -260,15 +306,21 @@
     },
     {
       "council": "Dublin City",
-      "n_afs": 0,
-      "picked": null,
-      "year": null,
-      "status": "no-afs"
+      "slug": "dublin_city",
+      "n_afs": 8,
+      "picked": "https://www.dublincity.ie/sites/default/files/2025-10/dcc-afs-audited-accounts-for-publication-2024.pdf",
+      "year": 2024,
+      "status": "ok",
+      "divisions": 8,
+      "gross_sum": 1374236606.0,
+      "reconciled": true,
+      "pages": 54,
+      "ie_page": 22
     }
   ],
   "realisation_tier": "SPENT",
   "value_kind": "net_expenditure_actual",
   "scope": "per-council audited AFS (not amalgamated, not cash-PO)",
-  "generated_at": "2026-06-04T11:16:55+00:00",
+  "generated_at": "2026-06-04T11:27:27+00:00",
   "caveat": "Per-LA accrual net-expenditure by service division. Sum only within a (council, year). NEVER reconcile against afs_amalgamated_divisions (national) or la_payments_fact (cash-PO/payment grain) \u2014 different grains."
 }

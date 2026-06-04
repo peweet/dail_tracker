@@ -1,0 +1,16 @@
+{
+  "dataset": "si_lrc_enrichment_summary",
+  "source": "Law Reform Commission — Classified List of In-Force Legislation",
+  "source_urls": [
+    "https://revisedacts.lawreform.ie/classlist/intro"
+  ],
+  "lrc_list_updated_to": "1 June 2026",
+  "row_count": 5924,
+  "matched_si_count": 5335,
+  "match_rate": 0.9006,
+  "fills_empty_domain_count": 816,
+  "distinct_subjects": 36,
+  "distinct_leaves": 251,
+  "coverage_note": "Source-linked research aid; may be incomplete or out of date.",
+  "legal_caveat": "Not legal advice. 'Not matched' does not mean 'not in force'."
+}

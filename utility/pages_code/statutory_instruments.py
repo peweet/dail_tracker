@@ -32,7 +32,11 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from data_access.legislation_data import fetch_si_amendments_made, fetch_si_entity_index
+from data_access.legislation_data import (
+    fetch_si_amendments_made,
+    fetch_si_entity_index,
+    fetch_si_entity_index_classified,
+)
 from shared_css import inject_css
 from ui.components import (
     back_button,
@@ -178,6 +182,20 @@ def _inject_si_css() -> None:
         .si-amends-src { font-size:0.76rem; color:#5b6b73; margin-top:0.6rem;
             padding-top:0.45rem; border-top:1px dashed #e5e2db; }
 
+        /* LRC subject classification — discovery/topic only, never legal status.
+           Sits alongside the legal-status block; visually quieter (it's an
+           index aid, not a consequential state). */
+        .si-lrc { display:flex; align-items:flex-start; gap:0.7rem; flex-wrap:wrap;
+            padding:0.7rem 0.95rem; border:1px solid #d9e2ea; border-radius:8px;
+            background:#f7fafc; margin:0 0 1.05rem; }
+        .si-lrc-chip { flex-shrink:0; display:inline-flex; align-items:center; border:1px solid #bcd0de;
+            background:#e8f1f7; color:#1f4a63; border-radius:999px; padding:0.2rem 0.7rem;
+            font-size:0.68rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em;
+            white-space:nowrap; line-height:1.5; }
+        .si-lrc-body { flex:1; min-width:210px; font-size:0.9rem; color:#14232b; line-height:1.45; }
+        .si-lrc-leaf { color:#5b6b73; }
+        .si-lrc-src { font-size:0.76rem; color:#5b6b73; margin-top:0.3rem; }
+
         .si-section-h { font-family: ui-serif, Georgia, serif; font-size:1.05rem; margin: 1.5rem 0 0.55rem;
             color:#14232b; }
 
@@ -242,8 +260,15 @@ def _inject_si_css() -> None:
 def load_si() -> pd.DataFrame:
     """The full SI entity table via the registered v_statutory_instruments
     view. Year floor, taxonomy-confidence, quarantine and category filters are
-    already applied upstream by si_entity_enrichment.py."""
-    df = fetch_si_entity_index()
+    already applied upstream by si_entity_enrichment.py.
+
+    Prefers the LRC-classified view (adds lrc_primary_subject etc. for the
+    subject chip + topic browse); falls back to the unclassified index if the
+    LRC gold table is absent, so the page never goes dark on a missing enrichment.
+    """
+    df = fetch_si_entity_index_classified()
+    if df.empty:
+        df = fetch_si_entity_index()
     if df.empty:
         return df
     df["si_signed_date"] = pd.to_datetime(df["si_signed_date"], errors="coerce")
@@ -400,13 +425,15 @@ _COMMITTEE_FORMED = pd.Timestamp("2025-12-01")
 
 
 def _apply_filters(
-    df, years, domain, op, department, minister, eu_only, search, post_committee=False, state=None
+    df, years, domain, op, department, minister, eu_only, search, post_committee=False, state=None, subject=None
 ) -> pd.DataFrame:
     out = df
     if years:
         out = out[out["si_year"].isin(years)]
     if state and state != "All" and "current_state" in out.columns:
         out = out[out["current_state"].isna()] if state == "__unchecked__" else out[out["current_state"] == state]
+    if subject and subject != "All" and "lrc_primary_subject" in out.columns:
+        out = out[out["lrc_primary_subject"] == subject]
     if domain and domain != "All":
         out = out[out["si_policy_domain"] == domain]
     if op and op != "All":
@@ -1014,6 +1041,32 @@ def _render_legal_status(row: pd.Series) -> None:
 _PROVISION_MARKER = re.compile(r"\b(reg|regs|art|arts|sch|para|paras|pt|pts|s|ss)\.", re.I)
 
 
+def _render_lrc_classification(row: pd.Series) -> None:
+    """LRC subject classification block — the topic this SI is filed under in the
+    Law Reform Commission Classified List. DISCOVERY ONLY: it never asserts legal
+    status (that is the legal-status block above). Renders nothing when the SI is
+    unmatched, so an absent classification is silent rather than 'unclassified'."""
+    subject = _safe(row.get("lrc_primary_subject"))
+    if not subject:
+        return
+    leaf = _safe(row.get("lrc_primary_leaf"))
+    updated = _safe(row.get("lrc_list_updated_to"))
+    path = f"<strong>{html.escape(subject)}</strong>"
+    if leaf and leaf != subject:
+        path += f' <span class="si-lrc-leaf">› {html.escape(leaf)}</span>'
+    upd = f" (updated {html.escape(updated)})" if updated else ""
+    src = (
+        '<div class="si-lrc-src">Classified by the Law Reform Commission '
+        f"Classified List of in-force legislation{upd}. A source-linked research "
+        "aid for discovery, not legal advice — see the legal status above for "
+        "amendment/revocation.</div>"
+    )
+    st.html(
+        '<div class="si-lrc"><span class="si-lrc-chip">LRC subject</span>'
+        f'<div class="si-lrc-body">{path}{src}</div></div>'
+    )
+
+
 def _render_amendments_made(row: pd.Series) -> None:
     """The forward direction of the SI→SI amendment graph: the instruments THIS
     SI amends or revokes (e.g. a consolidating regulation that sweeps away its
@@ -1112,6 +1165,9 @@ def _render_si_detail(row: pd.Series) -> None:
     # Legal status (eISB Legislation Directory) — directly under the title so a
     # revocation/amendment is the first thing the reader sees.
     _render_legal_status(row)
+
+    # LRC subject classification (discovery/topic) — distinct from legal status.
+    _render_lrc_classification(row)
 
     # Department isn't detected on ~60% of pre-2014 SIs; render the cell
     # only when there's a real value rather than parking an em-dash and

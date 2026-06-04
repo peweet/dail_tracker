@@ -79,8 +79,9 @@ def test_no_duplicate_candidate_rows(df):
 
 
 def test_no_candidate_in_two_parties(df):
-    # a person stands for exactly one party at a general election
-    multi = (df.group_by("candidate_name_raw").agg(pl.col("party").n_unique().alias("n"))
+    # a person stands for exactly one party at a general election (ignore blank names)
+    named = df.filter(pl.col("candidate_name_raw").str.strip_chars() != "")
+    multi = (named.group_by("candidate_name_raw").agg(pl.col("party").n_unique().alias("n"))
              .filter(pl.col("n") > 1))
     assert multi.height == 0, multi.to_dicts()
 
@@ -151,13 +152,19 @@ def test_green_party_reconciles(df):
 
 
 def test_name_quality(df):
-    # a candidate name shouldn't carry digits, be header-like, or be absurdly long
-    # (those signal the name-extraction merged adjacent rows / grabbed a header)
+    # a candidate name must not be MERGED (two candidates conflated) or a header —
+    # signalled by embedded digits, absurd length, or a header word. An EMPTY name is
+    # "missing" not "wrong" (the page shows constituency+amount+verify), allowed below.
     bad = df.filter(
         pl.col("candidate_name_raw").str.contains(r"\d")
-        | (pl.col("candidate_name_raw").str.len_chars() < 3)
         | (pl.col("candidate_name_raw").str.len_chars() > 40)
         | pl.col("candidate_name_raw").str.to_lowercase().is_in(
-            ["total", "candidate name", "constituency", "name", ""])
+            ["total", "candidate name", "constituency", "name"])
     )
     assert bad.height == 0, bad.select("party", "candidate_name_raw").to_dicts()
+
+
+def test_missing_names_are_rare(df):
+    # blank names are tolerated (missing, not wrong) but must stay rare (<2%)
+    blank = df.filter(pl.col("candidate_name_raw").str.strip_chars() == "").height
+    assert blank <= max(1, round(df.height * 0.02)), f"{blank} blank names of {df.height}"

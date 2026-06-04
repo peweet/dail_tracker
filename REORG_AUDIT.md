@@ -32,6 +32,26 @@ Each chain is a self-contained `<domain>_refresh.py` orchestrator at repo root t
 
 **Frontloading opportunity (the point of this re-scout):** collapse the repeated `_ROOT = Path(__file__).parent` + relative-`cwd` subprocess pattern across all 10 orchestrators into **one shared `PROJECT_ROOT` import** *now, on main*. After that, the structural move is find/replace instead of per-file path surgery.
 
+---
+
+## ⚠️ RE-AUDIT 2026-06-04 — stale claims corrected (READ THIS FIRST)
+
+A four-front evidence sweep on 2026-06-04 found this plan's **executed-work ledger is accurate**, but its **codebase description and status claims have drifted**. The 2026-06-02 body below was written against a 9-chain model that no longer holds. Corrections, with code evidence:
+
+1. **NOT 9 chains — there are 16.** `CHAINS` ([pipeline.py:51-90](pipeline.py#L51-L90)) now runs: bootstrap, members, payments, attendance, seanad, interests, lobbying, iris, legislation, **afs, cbi, cro, procurement, procurement_lobbying, ted, freshness**. Every "9 chains" / "10 orchestrators" statement below is stale; the 7 new chains are unclassified by the KEEP tables.
+
+2. **C5 (sandbox→production) is NOT resolved — it grew ~7×.** The "✅ RESOLVED 2026-06-02" notes (which promoted ONE file) are misleading. **7–8 `pipeline_sandbox/` scripts are now load-bearing committed pipeline steps**: `afs_amalgamated_extract.py` (pipeline.py:64), `cbi_registers_extract.py` (:68), `cro_corporate_xref_enrichment.py` (:72), `procurement_etenders_extract.py` (:76), `procurement_lobbying_xref.py` (:81), `ted_ireland_extract.py` (:85), and `si_legislation_directory_extract.py` (nested in iris_refresh.py:125). Several write committed **gold** consumed by the UI. **This is the worst coupling in the repo and the real decision the reorg must make:** promote these to `domains/` or gate them out of `CHAINS`. It matters more than the `src/` move itself.
+
+3. **`__main__`-guard claim is REFUTED.** "Most top-level scripts execute on import (no guard)" (and the matching `pyproject.toml` TODO) is stale: 13/15 sampled production files HAVE guards. Only `legislation.py` and `questions.py` lack one (both write parquet at module level). The `-m` dispatch precondition for Step 5 is therefore mostly already met.
+
+4. **Subprocess topology mis-stated.** Not "~11 sites": 8 chains use `subprocess.run`, `pipeline.py` uses `Popen` (pipeline.py:145), `seanad_refresh.py` uses direct imports (no subprocess), plus ~30 inner dispatch sites.
+
+5. **Test baseline corrected (supersedes the "358/0/24" edit, which was itself wrong).** Real state on this branch = **506 passed / 3 failed / 78 skipped**, and **CI's `test` job is RED** — 2 genuine, non-data-gated failures in `test/test_la_payments.py` (`strip_id_prefix` two-numeric-run case; broken xlsx `emit_file` path). A 3rd, `test_sipo_expenses.py::test_name_quality`, is data-gated (SIPO parquet untracked) and flaky on collection order. **Fix CI red before any reorg work — it is the gate the whole plan depends on.**
+
+**Net:** the executed frontload (paths.py, public_appointments promotion, `__init__.py` deletion, lobbying_fetch move, config-constant migration) is all verified real, and the strategy (frontload → mechanical worktree move) still holds. But every inventory/status section below is **circa-2026-06-02 and partially stale** until reconciled against 16 chains + the reopened C5.
+
+---
+
 ## Tag legend
 
 | Tag | Meaning | Action in Stage 1 |
@@ -55,7 +75,7 @@ Each chain is a self-contained `<domain>_refresh.py` orchestrator at repo root t
 | `unsure` (resolved during session) | 0 original — but 3 NEW `decide`/`unsure` items added 2026-06-02 (chain destination, sandbox promotion, root `__init__.py`) |
 | `sandbox` (move into sandbox) | 1 — but 2 sandbox files are now load-bearing pipeline deps (see ARCHITECTURE CHANGE) |
 | Streamlit UI files (utility/) | 36 — all `keep`, moving to `src/dail_tracker/ui/` |
-| Pre-flight test baseline | **CURRENT = 358 passed · 0 failed · 24 skipped** (re-established 2026-06-02, Option B execution log). Supersedes the stale 294/11/10 from 2026-05-27. Re-confirm immediately before the Step-5 worktree move; the only moving piece is the live Seanad WIP. |
+| Pre-flight test baseline | **CURRENT = 506 passed · 3 failed · 78 skipped (CI `test` job RED)** — verified 2026-06-04. 2 real failures in `test/test_la_payments.py` block CI today; the 78 skips are all data-gated (uncommitted gold). The earlier "358/0/24" and "294/11" figures are both retired. **Fix CI red before Step 5.** |
 
 ---
 
@@ -322,7 +342,9 @@ The 9 `*_refresh.py` chains can go either:
 
 **Does Step 3 (D2) make this moot? No — half-true only.** The chains are a *mix*: inside `iris_refresh`, steps 2–4 are import-and-call (`si_entity_enrichment.run()`), steps 1/5/6 are subprocess; `pipeline.py` then dispatches each whole chain as a subprocess (to tee per-chain stdout). Step 3 collapses the duplicated *runner* boilerplate (`_hr()`, timing, `failures.append`, subprocess wrapper) into one shared runner, but each chain's *definition* (which steps, order, skip-flags) remains per-chain data that still needs a home — and that home is `orchestration/chains/`. Step 3 shrinks each file from ~150 lines to a short declaration; it does not remove the destination question.
 
-### DECIDE — promote load-bearing sandbox files (NEW 2026-06-02) — ✅ RESOLVED + EXECUTED 2026-06-02
+### DECIDE — promote load-bearing sandbox files (NEW 2026-06-02) — ⚠️ REOPENED 2026-06-04 (only 1 of 8 done)
+
+> **REOPENED 2026-06-04:** This was marked resolved after promoting ONE file, but the sweep found **7–8** sandbox scripts are now load-bearing pipeline steps (see the RE-AUDIT block at the top): `afs_amalgamated_extract.py`, `cbi_registers_extract.py`, `cro_corporate_xref_enrichment.py`, `procurement_etenders_extract.py`, `procurement_lobbying_xref.py`, `ted_ireland_extract.py`, `si_legislation_directory_extract.py`. Each needs the same promote-or-gate decision applied below. The text that follows resolved only `public_appointments_enrichment.py`.
 
 `pipeline_sandbox/public_appointments_enrichment.py` was a **required** Iris gold step ([iris_refresh.py:95](iris_refresh.py#L95)) living in the throwaway sandbox (C5 violation).
 
@@ -420,9 +442,16 @@ The poll runners (`run_*_poll.py`) still don't use subprocess — they call `oir
 
 ## Pre-flight test baseline
 
-**CURRENT BASELINE (2026-06-02): 358 passed · 0 failed · 24 skipped.** Established during the Option B execution (see log below) and re-confirmed after each frontload step. This is the live gate — any reorg PR must match it exactly. Re-run `pytest test/` on the working branch immediately before the Step-5 worktree move to re-confirm (the only in-flight moving piece is the Seanad WIP).
+**CURRENT BASELINE (verified 2026-06-04): 506 passed · 3 failed · 78 skipped (~13s).** This is NOT green:
 
-> The 2026-05-27 figures and failure clusters below are **HISTORICAL** — retained for rationale only. The 11 failures they describe (pandera/polars API drift, schema/data freshness, pandas/polars confusion) were resolved between then and the 2026-06-02 re-baseline; an interim Step-1 baseline of 334·1·24 (1 Seanad-WIP failure) was also superseded by the 358·0·24 figure above.
+- **CI's `test` job is RED.** Running CI's exact selector (`-m "not integration and not sql and not sources and not bronze"`) gives **2 failed / 431 passed / 6 skipped**. Both failures are in the git-tracked, unmarked `test/test_la_payments.py` and fail on synthetic inputs (not data-gated): `test_strip_id_prefix` (only strips one numeric run, not the PO#+vendor-ID two-run case) and `test_read_xlsx_roundtrip_and_debit_sign` (xlsx `emit_file` returns `valid=False`). **These block the green gate the whole reorg depends on — fix first.**
+- A 3rd local failure, `test_sipo_expenses.py::test_name_quality`, is data-gated on the untracked `sipo_expenses_fact.parquet` and is order-flaky; it surfaces a real OCR digit-bleed issue but won't run in CI.
+- The **78 skips are all "missing data" skips** (uncommitted gold/silver parquet) — they'd run if pipeline output were present; none are permanent.
+- Both failing files are WIP on this `seanad-app-parity` branch's SIPO / LA-AFS effort — newly-added tests outpacing their parser fixes, not rot in stable code.
+
+The earlier "358/0/24" (a bad edit) and "294/11" baselines are both **retired** — the suite grew and is no longer green. Re-run `.venv\Scripts\python.exe -m pytest test/ -q` on the working branch immediately before the Step-5 move to re-confirm.
+
+> The 2026-05-27 figures and failure clusters below are **HISTORICAL** — retained for rationale only.
 
 ---
 
@@ -442,7 +471,7 @@ The poll runners (`run_*_poll.py`) still don't use subprocess — they call `oir
 **Cluster C — pandas/polars confusion (1 failure)**
 `test_normaize_join_key.py::test_join_keys_are_unique_in_members` — `AttributeError: 'DataFrame' object has no attribute 'alias'`. Test mixes a pandas DataFrame with a polars-only method.
 
-**What this meant at the time**: 294/305 was the known-good baseline as of 2026-05-27. This has been superseded — the current gate is **358·0·24** (see top of this section). After the Step-5 move, the same 358 should pass in their new paths; any new failure = a reorg-induced regression to investigate.
+**What this meant at the time**: 294/305 was the known-good baseline as of 2026-05-27. Superseded — see the current 506·3·78 (CI RED) gate at the top of this section. After the Step-5 move, the post-fix pass count must match the pre-move count exactly; any new failure = a reorg-induced regression to investigate.
 
 ## Next step
 
