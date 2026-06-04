@@ -1,6 +1,6 @@
 """SI legal-state from the eISB Legislation Directory chronological tables.
 A full multi-year extractor that writes the gold parquet + coverage JSON and
-self-tests join coverage against gold. Lives in pipeline_sandbox/ (per the
+self-tests join coverage against gold. Lives in extractors/ (per the
 sandbox rule) but is now a SHIPPING extractor: it owns the gold table
 si_current_state.parquet, which sql_views/legislation_si_current_state.sql
 (v_si_current_state) reads and legislation_si_index.sql LEFT-JOINs into
@@ -22,7 +22,7 @@ Output:
   data/_meta/si_current_state_coverage.json
 HTML cached to: data/bronze/eisb_directory/
 
-Run:  ./.venv/Scripts/python.exe pipeline_sandbox/si_legislation_directory_extract.py
+Run:  ./.venv/Scripts/python.exe extractors/si_legislation_directory_extract.py
       # full gold-range sweep, merge-on-write (the pipeline's call)
         ... --year 2014            # backfill one year, merged into the parquet
         ... --year 2012 2013 2014  # backfill several years (mirrors the Iris poller)

@@ -12,7 +12,7 @@ keyword (survives wording drift across years) → reconcile Σ vs the printed To
 Divisions matched by KEYWORD so the 2014 service-division rename + pre-2014 programme-group
 wording both map to one canonical taxonomy.
 
-Run:  ./.venv/Scripts/python.exe pipeline_sandbox/afs_amalgamated_extract.py
+Run:  ./.venv/Scripts/python.exe extractors/afs_amalgamated_extract.py
 """
 
 from __future__ import annotations

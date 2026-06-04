@@ -170,6 +170,22 @@ def value_block(cells: list[dict], label: dict | None, y_until: float, x_min: in
     )
 
 
+def field_value(cells: list[dict], label: dict | None, x_min: int = 900, ywin: int = 95) -> str | None:
+    """Value-column entry nearest a label's y — handles General-Information fields
+    whose value is offset vertically from the label (party name sits above OR below
+    'Name of Political Party:'). Joins cells on the nearest value-row."""
+    if label is None:
+        return None
+    ly = yc(label)
+    vcol = sorted((c for c in cells if c["x0"] > x_min and abs(yc(c) - ly) <= ywin),
+                  key=lambda c: abs(yc(c) - ly))
+    if not vcol:
+        return None
+    row_y = yc(vcol[0])
+    row = sorted((c for c in vcol if abs(yc(c) - row_y) <= 18), key=lambda c: c["x0"])
+    return re.sub(r"\s+", " ", " ".join(c["text"] for c in row)).strip(" .,-:") or None
+
+
 def join(cells: list[dict]) -> str:
     return re.sub(r"\s+", " ", " ".join(c["text"] for c in cells)).strip(" .,-")
 
@@ -239,10 +255,11 @@ def parse_stage() -> pl.DataFrame:
         kind = classify(cells)
         page_kinds[pno] = kind
         if kind == "general_info":
+            # each general-info page starts a NEW party packet -> reset
             pl_lbl = find_label(cells, "name of political party")
             of_lbl = find_label(cells, "appropriate officer", "name of appropriate")
-            party = (join(value_right(cells, pl_lbl)) or None) if pl_lbl else party
-            officer = (join(value_right(cells, of_lbl)) or None) if of_lbl else officer
+            party = field_value(cells, pl_lbl)
+            officer = field_value(cells, of_lbl)
             continue
         if kind != "donation_detail":
             continue

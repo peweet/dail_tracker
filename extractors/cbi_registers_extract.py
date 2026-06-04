@@ -25,10 +25,10 @@ Why the register extract stays heuristic:
   * Match tiers are conservative — bias to under-call rather than over-call.
 
 CLI:
-    python pipeline_sandbox/cbi_registers_extract.py --download
-    python pipeline_sandbox/cbi_registers_extract.py --extract
-    python pipeline_sandbox/cbi_registers_extract.py --xref
-    python pipeline_sandbox/cbi_registers_extract.py            # all three (skips download if PDFs cached)
+    python extractors/cbi_registers_extract.py --download
+    python extractors/cbi_registers_extract.py --extract
+    python extractors/cbi_registers_extract.py --xref
+    python extractors/cbi_registers_extract.py            # all three (skips download if PDFs cached)
 """
 from __future__ import annotations
 

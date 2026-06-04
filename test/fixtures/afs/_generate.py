@@ -3,7 +3,7 @@
 1. afs_2020_ie_page.txt          — the Income & Expenditure page text (parse target)
 2. afs_amalgamated_divisions.parquet — the full 2016–2023 golden series
 
-Run AFTER pipeline_sandbox/afs_amalgamated_extract.py (which produces the sandbox parquet
+Run AFTER extractors/afs_amalgamated_extract.py (which produces the sandbox parquet
 and caches the per-year PDFs under c:/tmp/afs/). Then:
 
     python test/fixtures/afs/_generate.py

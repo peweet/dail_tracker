@@ -30,7 +30,7 @@ Outputs (committed gold):
   data/gold/parquet/procurement_lobbying_overlap.parquet
   data/_meta/procurement_lobbying_overlap_coverage.json
 
-Run:  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_lobbying_xref.py
+Run:  ./.venv/Scripts/python.exe extractors/procurement_lobbying_xref.py
 """
 
 from __future__ import annotations

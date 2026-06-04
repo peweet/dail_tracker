@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-06-04T15:03:08Z",
+  "source": "https://opendata.cro.ie/dataset/financial-statements",
+  "note": "CRO financial-statements FILING INDEX (metadata only; PDFs paywalled). See doc/CRO_FINANCIAL_STATEMENTS_EXPLORATION.md.",
+  "resources": [
+    {
+      "year": 2022,
+      "last_modified": "2025-02-05",
+      "bronze_rows": 213931
+    },
+    {
+      "year": 2023,
+      "last_modified": "2025-09-29",
+      "bronze_rows": 121387
+    }
+  ],
+  "silver_rows": 335318,
+  "distinct_companies": 219756,
+  "rows_by_period_year": [
+    {
+      "period_year": null,
+      "rows": 13
+    },
+    {
+      "period_year": 2022,
+      "rows": 213932
+    },
+    {
+      "period_year": 2023,
+      "rows": 121371
+    },
+    {
+      "period_year": 2024,
+      "rows": 2
+    }
+  ]
+}

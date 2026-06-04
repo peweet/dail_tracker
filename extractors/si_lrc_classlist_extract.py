@@ -11,9 +11,11 @@ SI appearing here means the LRC lists it in its Classified List of in-force
 legislation under the given subject path, subject to LRC accuracy warnings and
 our own number/year match confidence. "Not matched" never means "not in force".
 
-Sandbox-only (per the pipeline_sandbox rule). It writes NOTHING to gold and does
-NOT touch statutory_instruments.parquet / si_current_state.parquet. Outputs land
-under _lrc_output/ for inspection; promotion to gold is a later decision.
+Graduated to extractors/ — pipeline-invoked by iris_refresh.py (the LRC step),
+paired with si_lrc_enrichment_build.py which promotes to gold. This stage itself
+writes NOTHING to gold and does NOT touch statutory_instruments.parquet /
+si_current_state.parquet; its raw output lands under extractors/_lrc_output/ as the
+intermediate the build step reads.
 
 Grain of the parsed table: one row per (SI entry occurrence) — an SI listed under
 two subject paths yields two rows. Dedup/aggregation happens downstream.
@@ -21,9 +23,9 @@ two subject paths yields two rows. Dedup/aggregation happens downstream.
 Outputs:
   data/bronze/lrc_classlist/classlist_{n}.html         (raw cached pages)
   data/bronze/lrc_classlist/classlist_{n}.meta.json     (provenance sidecar)
-  pipeline_sandbox/_lrc_output/si_lrc_classlist_raw.parquet
+  extractors/_lrc_output/si_lrc_classlist_raw.parquet
 
-Run:  ./.venv/Scripts/python.exe pipeline_sandbox/si_lrc_classlist_extract.py
+Run:  ./.venv/Scripts/python.exe extractors/si_lrc_classlist_extract.py
         ... --offline    # parse from cache only, never hit the network
         ... --refresh    # force re-fetch all 36 pages
 """
@@ -51,7 +53,7 @@ except Exception:
 BASE = "https://revisedacts.lawreform.ie/classlist"
 HDRS = {"User-Agent": "dail-tracker civic-research/enrichment (planning; contact via repo)"}
 CACHE_DIR = ROOT / "data/bronze/lrc_classlist"
-OUT_DIR = ROOT / "pipeline_sandbox/_lrc_output"
+OUT_DIR = ROOT / "extractors/_lrc_output"
 OUT_PARQUET = OUT_DIR / "si_lrc_classlist_raw.parquet"
 
 N_CATEGORIES = 36
