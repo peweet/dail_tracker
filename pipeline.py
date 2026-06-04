@@ -87,6 +87,11 @@ CHAINS: list[tuple[str, str]] = [
     # and writes data/_meta/freshness.json (the data-age signal the Streamlit
     # badge + scheduled report read). Pure read — never mutates pipeline data.
     ("freshness", "tools/check_freshness.py"),
+    # source_health runs last: reads the in-code source registry + bronze and
+    # writes data/_meta/source_health.json (manual-source staleness now; listing
+    # reachability when DAIL_CHECK_LINKS=1). Monitoring only — always exits 0 (a
+    # separate --strict run gates CI). Pure read — never mutates pipeline data.
+    ("source_health", "tools/build_source_health.py"),
 ]
 
 _CHAIN_BLURBS: dict[str, str] = {
@@ -106,6 +111,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "procurement_lobbying": "supplier <-> lobbying registrant/client overlap xref (gold)",
     "ted": "TED EU award notices (Ireland) + winner->CRO match (silver); award-value-not-spend flags",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
+    "source_health": "per-source health -> data/_meta/source_health.json (manual staleness; links opt-in)",
 }
 
 _SUMMARY_SKIP_PREFIXES = ("warning:", "warn:", "[warn", "deprecation")
