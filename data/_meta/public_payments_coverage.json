@@ -1,22 +1,22 @@
 {
-  "publishers_attempted": 19,
-  "publishers_with_rows": 17,
-  "rows_extracted": 8021,
-  "rows_public_display": 8021,
-  "rows_review_personal_data": 2427,
+  "publishers_attempted": 24,
+  "publishers_with_rows": 21,
+  "rows_extracted": 9701,
+  "rows_public_display": 9701,
+  "rows_review_personal_data": 2817,
   "supplier_class_counts": {
-    "company": 4164,
-    "sole_trader_or_individual": 2427,
-    "foreign_company": 55,
-    "unknown": 800,
-    "public_body": 575
+    "public_body": 607,
+    "company": 5269,
+    "sole_trader_or_individual": 2817,
+    "foreign_company": 67,
+    "unknown": 941
   },
   "amount_semantics_counts": {
-    "po_committed": 2630,
-    "payment_actual": 5391
+    "payment_actual": 5512,
+    "po_committed": 4189
   },
-  "value_safe_to_sum_rows": 8018,
-  "value_safe_to_sum_total_eur": 3063705282.5599995,
+  "value_safe_to_sum_rows": 9696,
+  "value_safe_to_sum_total_eur": 3352185667.45,
   "by_publisher": [
     {
       "id": "ie_opw",
@@ -50,7 +50,7 @@
       "files_parsed": 4,
       "files_skipped": 0,
       "files_with_rows": 3,
-      "rows": 1002,
+      "rows": 1001,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -62,7 +62,7 @@
       "files_parsed": 4,
       "files_skipped": 0,
       "files_with_rows": 4,
-      "rows": 130,
+      "rows": 128,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -206,7 +206,7 @@
       "files_parsed": 3,
       "files_skipped": 0,
       "files_with_rows": 3,
-      "rows": 9,
+      "rows": 6,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -245,11 +245,71 @@
       "rows": 0,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
+    },
+    {
+      "id": "ie_ntma",
+      "name": "National Treasury Management Agency (NTMA)",
+      "tier": "D",
+      "files_seen": 132,
+      "files_parsed": 4,
+      "files_skipped": 0,
+      "files_with_rows": 4,
+      "rows": 121,
+      "amount_semantics": "payment_actual",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "ie_courts",
+      "name": "Courts Service of Ireland",
+      "tier": "D",
+      "files_seen": 36,
+      "files_parsed": 4,
+      "files_skipped": 0,
+      "files_with_rows": 4,
+      "rows": 530,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "ie_sportireland",
+      "name": "Sport Ireland",
+      "tier": "D",
+      "files_seen": 2,
+      "files_parsed": 2,
+      "files_skipped": 0,
+      "files_with_rows": 2,
+      "rows": 168,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "ie_tudublin",
+      "name": "Technological University Dublin",
+      "tier": "D",
+      "files_seen": 6,
+      "files_parsed": 4,
+      "files_skipped": 0,
+      "files_with_rows": 3,
+      "rows": 867,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "ie_mtu",
+      "name": "Munster Technological University (MTU)",
+      "tier": "D",
+      "files_seen": 0,
+      "files_parsed": 0,
+      "files_skipped": 0,
+      "files_with_rows": 0,
+      "rows": 0,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
     }
   ],
   "privacy_quarantine_applied": false,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-03T13:18:21+00:00",
+  "generated_at": "2026-06-04T14:36:00+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE IS DEFERRED: rows flagged privacy_status=review_personal_data are NOT yet excluded (public_display=True for all) \u2014 a quarantine pass must run before any UI use. A line is a purchase order or payment record, not evidence of influence."
 }

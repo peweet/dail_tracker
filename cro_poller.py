@@ -48,6 +48,22 @@ from config import BRONZE_DIR
 
 logger = logging.getLogger("cro_poller")
 
+# ── API alternative (kept as bulk for now; see note) ─────────────────────────
+# The same portal exposes a CKAN DataStore over this resource (datastore_active=
+# True), so the full register is queryable live WITHOUT the bulk download:
+#   search: GET  {CKAN_BASE}/api/3/action/datastore_search?resource_id=<id>&q=...
+#   SQL:    POST {CKAN_BASE}/api/3/action/datastore_search_sql   (arbitrary SQL,
+#           e.g. SELECT ... FROM "<resource_id>" WHERE company_name ILIKE 'X%')
+# The DataStore is the cleaner path for one-off / interactive TARGETED lookups
+# (resolve a single company by num/name). It is NOT better for the batch
+# supplier->CRO match: that join is thousands of names against the register and
+# relies on the local `name_norm` key (the server has no normalisation), so the
+# bulk-zip + Polars join stays the right tool there. We keep the bulk zip for
+# the FULL-register silver join: one ~46MB fetch beats ~26 paginated API pages of
+# 815k rows. Sibling dataset `financial-statements` explored 2026-06-04 — a
+# filing INDEX (PDF pointer + dates), not financial figures; see
+# doc/CRO_FINANCIAL_STATEMENTS_EXPLORATION.md.
+
 # ── source config (read by tools/build_source_registry.py) ───────────────────
 CKAN_BASE = "https://opendata.cro.ie"
 PACKAGE_ID = "companies"

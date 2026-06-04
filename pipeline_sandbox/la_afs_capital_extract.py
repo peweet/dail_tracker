@@ -481,9 +481,28 @@ def main() -> None:
         print("\nno rows — nothing written")
         return
 
-    df = pl.DataFrame(all_rows, infer_schema_length=None).sort(["council", "division"])
+    df = pl.DataFrame(all_rows, infer_schema_length=None)
+    # a division row that parsed empty (reconciles → genuinely €0) should be 0, not null
+    df = df.with_columns(pl.col("capital_expenditure").fill_null(0.0))
+    # completeness flag: does Σ division expenditure tie to the printed total to the euro?
+    # (guards the "missing small division masked by the €100k tolerance" failure mode)
+    comp = (
+        df.group_by("council")
+        .agg(
+            pl.col("division").n_unique().alias("division_count"),
+            (pl.col("capital_expenditure").sum() - pl.col("printed_total_expenditure").first())
+            .abs()
+            .alias("_delta"),
+        )
+        .with_columns((pl.col("_delta") < 10).alias("complete"))
+        .drop("_delta")
+    )
+    df = df.join(comp, on="council", how="left").sort(["council", "division"])
     OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
     df.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
+    incomplete = comp.filter(~pl.col("complete"))
+    if incomplete.height:
+        print(f"  ⚠ INCOMPLETE councils (Σ≠printed): {incomplete['council'].to_list()}")
 
     ok = [s for s in stats if s["status"] == "ok"]
     cov = {

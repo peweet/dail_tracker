@@ -36,7 +36,7 @@ cross-source merge.
 |---|---|---|---|---|---|---|
 | **Amalgamated AFS** | `data/silver/parquet/afs_amalgamated_divisions.parquet` | silver | revenue I&E by division | **national, all-31 summed**, 2016–23 | 64 | ✅ pipeline chain `afs` |
 | **Per-LA AFS — revenue** | `data/silver/parquet/la_afs_divisions.parquet` | silver | revenue **net**-expenditure by division | per-council (21) | 168 | 🟡 sandbox, gitignored |
-| **Per-LA AFS — capital** | `data/silver/parquet/la_afs_capital_divisions.parquet` | silver | **capital** expenditure by division | per-council (21) | 158 | 🟡 sandbox, gitignored |
+| **Per-LA AFS — capital** | `data/silver/parquet/la_afs_capital_divisions.parquet` | silver | **capital** expenditure by division | per-council (21) | 159 | 🟡 sandbox, gitignored |
 | **LA payments** | `data/silver/parquet/la_payments_fact.parquet` | silver | **per-supplier** PO/payment | per-council, named suppliers | 11,091 | 🟡 sandbox, gitignored |
 
 Producers:
