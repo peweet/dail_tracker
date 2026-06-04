@@ -1,0 +1,184 @@
+{
+  "councils_attempted": 18,
+  "councils_with_rows": 9,
+  "councils_reconciled": 9,
+  "rows": 68,
+  "by_council": [
+    {
+      "council": "South Dublin",
+      "slug": "south_dublin",
+      "status": "ok",
+      "year": 2024,
+      "method": "geom",
+      "page": 41,
+      "divisions": 7,
+      "capital_expenditure_total": 472164439.0,
+      "printed_total": 472164439.0,
+      "income_total": 458292217.0,
+      "reconciled": true
+    },
+    {
+      "council": "Cork City",
+      "slug": "cork_city",
+      "status": "ok",
+      "year": 2024,
+      "method": "geom",
+      "page": 57,
+      "divisions": 7,
+      "capital_expenditure_total": 288872459.0,
+      "printed_total": 288872460.0,
+      "income_total": 288187382.0,
+      "reconciled": true
+    },
+    {
+      "council": "Cork County",
+      "slug": "cork_county",
+      "status": "ok",
+      "year": 2024,
+      "method": "geom",
+      "page": 44,
+      "divisions": 8,
+      "capital_expenditure_total": 390038055.0,
+      "printed_total": 390038054.0,
+      "income_total": 377718339.0,
+      "reconciled": true
+    },
+    {
+      "council": "Westmeath",
+      "slug": "westmeath",
+      "status": "ok",
+      "year": 2024,
+      "method": "geom",
+      "page": 39,
+      "divisions": 8,
+      "capital_expenditure_total": 91891239.0,
+      "printed_total": 91891238.0,
+      "income_total": 93155370.0,
+      "reconciled": true
+    },
+    {
+      "council": "Galway City",
+      "slug": "galway_city",
+      "status": "ok",
+      "year": 2022,
+      "method": "geom",
+      "page": 37,
+      "divisions": 7,
+      "capital_expenditure_total": 96666741.0,
+      "printed_total": 96666742.0,
+      "income_total": 89137478.0,
+      "reconciled": true
+    },
+    {
+      "council": "Galway County",
+      "slug": "galway_county",
+      "status": "ok",
+      "year": 2024,
+      "method": "geom",
+      "page": 38,
+      "divisions": 8,
+      "capital_expenditure_total": 102131309.0,
+      "printed_total": 102131309.0,
+      "income_total": 105883057.0,
+      "reconciled": true
+    },
+    {
+      "council": "Meath",
+      "slug": "meath",
+      "status": "ok",
+      "year": 2019,
+      "method": "geom",
+      "page": 49,
+      "divisions": 8,
+      "capital_expenditure_total": 92663881.0,
+      "printed_total": 92663880.0,
+      "income_total": 100049645.0,
+      "reconciled": true
+    },
+    {
+      "council": "Donegal",
+      "slug": "donegal",
+      "status": "ok",
+      "year": 2024,
+      "method": "geom",
+      "page": 50,
+      "divisions": 8,
+      "capital_expenditure_total": 180089968.0,
+      "printed_total": 180089967.0,
+      "income_total": 184440731.0,
+      "reconciled": true
+    },
+    {
+      "council": "Tipperary",
+      "slug": "tipperary",
+      "status": "ok",
+      "year": 2018,
+      "method": "line",
+      "page": 35,
+      "divisions": 7,
+      "capital_expenditure_total": 45966830.0,
+      "printed_total": 45966830.0,
+      "income_total": null,
+      "reconciled": true
+    },
+    {
+      "council": "Wicklow",
+      "slug": "wicklow",
+      "status": "no-capital-page",
+      "year": 2024
+    },
+    {
+      "council": "Monaghan",
+      "slug": "monaghan",
+      "status": "no-capital-page",
+      "year": 2024
+    },
+    {
+      "council": "Kildare",
+      "slug": "kildare",
+      "status": "no-capital-page",
+      "year": 2025
+    },
+    {
+      "council": "Clare",
+      "slug": "clare",
+      "status": "no-capital-page",
+      "year": 2024
+    },
+    {
+      "council": "Fingal",
+      "slug": "fingal",
+      "status": "no-capital-page",
+      "year": 2024
+    },
+    {
+      "council": "Dun Laoghaire-Rathdown",
+      "slug": "dlr",
+      "status": "no-capital-page",
+      "year": 2023
+    },
+    {
+      "council": "Kilkenny",
+      "slug": "kilkenny",
+      "status": "no-capital-page",
+      "year": 2024
+    },
+    {
+      "council": "Louth",
+      "slug": "louth",
+      "status": "no-capital-page",
+      "year": 2025
+    },
+    {
+      "council": "Laois",
+      "slug": "laois",
+      "status": "no-capital-page",
+      "year": 2024
+    }
+  ],
+  "realisation_tier": "SPENT",
+  "value_kind": "capital_expenditure_actual",
+  "scope": "per-LA audited AFS Capital Account, expenditure by service division",
+  "generated_at": "2026-06-04T11:03:45.544160+00:00",
+  "caveat": "Capital (build/acquire) expenditure by division \u2014 a DISTINCT grain from the revenue I&E net-expenditure fact (la_afs_divisions). NEVER union or reconcile the two. Capital income is overwhelmingly DHLGH/central grants. Sum only within a (council, year)."
+}

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import datetime
 import html
+import re
 import sys
 from pathlib import Path
 
@@ -31,7 +32,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from data_access.legislation_data import fetch_si_entity_index
+from data_access.legislation_data import fetch_si_amendments_made, fetch_si_entity_index
 from shared_css import inject_css
 from ui.components import (
     back_button,
@@ -154,6 +155,28 @@ def _inject_si_css() -> None:
         .si-billlink-title { font-family: ui-serif, Georgia, serif; font-size:1.1rem; margin:0.35rem 0 0.45rem;
             color:#14232b; line-height:1.35; }
         .si-billlink-meta { font-size:0.82rem; color:#5b6b73; margin-bottom:0.55rem; }
+
+        /* Amendment graph — the forward direction ("what this instrument
+           changes"). Reverse ("amended/revoked by") is the legal-status block.
+           Derived from v_si_amendments (inverted from the eISB directory). */
+        .si-amends { background:#ffffff; border:1px solid #e5e2db; border-radius:8px;
+            padding:1.0rem 1.2rem; margin-top:1.1rem; }
+        .si-amends-kicker { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;
+            color:#14232b; font-weight:600; margin-bottom:0.6rem; }
+        .si-amends-list { list-style:none; margin:0; padding:0; display:flex;
+            flex-direction:column; gap:0.5rem; }
+        .si-amends-item { display:flex; align-items:baseline; gap:0.55rem; flex-wrap:wrap;
+            font-size:0.9rem; line-height:1.45; color:#14232b;
+            padding-bottom:0.5rem; border-bottom:1px solid #f0ede7; }
+        .si-amends-item:last-child { border-bottom:none; padding-bottom:0; }
+        .si-amends-eff { flex-shrink:0; display:inline-flex; align-items:center; border:1px solid;
+            border-radius:999px; padding:0.12rem 0.55rem; font-size:0.68rem; font-weight:600;
+            text-transform:uppercase; letter-spacing:0.03em; white-space:nowrap; }
+        .si-amends-eff--revokes { background:#fbe3e3; border-color:#e3a3a3; color:#9b1c1c; }
+        .si-amends-eff--amends { background:#fbeecb; border-color:#e6c87a; color:#7a5a00; }
+        .si-amends-prov { color:#5b6b73; font-size:0.8rem; }
+        .si-amends-src { font-size:0.76rem; color:#5b6b73; margin-top:0.6rem;
+            padding-top:0.45rem; border-top:1px dashed #e5e2db; }
 
         .si-section-h { font-family: ui-serif, Georgia, serif; font-size:1.05rem; margin: 1.5rem 0 0.55rem;
             color:#14232b; }
@@ -985,6 +1008,74 @@ def _render_legal_status(row: pd.Series) -> None:
     )
 
 
+# A provision marker ("Reg. 2", "Sch.", "pt. B", "art. 9") signals that the
+# directory's note names a specific provision worth showing alongside the effect
+# pill; a bare "Revoked" / "Revoked on <date>" does not.
+_PROVISION_MARKER = re.compile(r"\b(reg|regs|art|arts|sch|para|paras|pt|pts|s|ss)\.", re.I)
+
+
+def _render_amendments_made(row: pd.Series) -> None:
+    """The forward direction of the SI→SI amendment graph: the instruments THIS
+    SI amends or revokes (e.g. a consolidating regulation that sweeps away its
+    predecessors). The reverse direction ("amended / revoked BY …") is already
+    shown by the legal-status block from affecting_sis, so this surfaces only the
+    new, made-side relationships. Reads v_si_amendments via the data-access layer
+    — the page computes no edges itself (logic firewall)."""
+    try:
+        si_year = int(row.get("si_year"))
+        si_number = int(row.get("si_number"))
+    except (TypeError, ValueError):
+        return
+    df = fetch_si_amendments_made(si_year, si_number)
+    if df.empty:
+        return
+
+    items: list[str] = []
+    for r in df.itertuples(index=False):
+        effect = _safe(r.effect)
+        eff_cls = "revokes" if "revok" in effect.lower() else "amends"
+        cite = f"S.I. No. {int(r.affected_number)} of {int(r.affected_year)}"
+        title = _safe(r.affected_title)
+        if title:
+            # affected SI is in our index → keep the reader in the tracker
+            href = f"?si={int(r.affected_year)}-{int(r.affected_number)}"
+            link = (
+                f'<a class="dt-source-link" href="{html.escape(href, quote=True)}" target="_self">'
+                f"{html.escape(cite)} — {html.escape(title)}</a>"
+            )
+        else:
+            # affected SI predates our index (pre-2016) → link the eISB made text
+            url = _safe(r.affected_eli_url)
+            link = source_link_html(url, cite) if url else html.escape(cite)
+        # provision_note adds value only when it names a specific provision
+        # ("Reg. 2 amended", "Sch., pt. B amended"); a bare "Revoked" or a
+        # "Revoked on <date>" just duplicates the effect pill, so gate on a
+        # provision marker rather than on any digit.
+        prov = _safe(r.provision_note)
+        prov_html = (
+            f' <span class="si-amends-prov">({html.escape(prov)})</span>'
+            if prov and _PROVISION_MARKER.search(prov)
+            else ""
+        )
+        items.append(
+            f'<li class="si-amends-item">'
+            f'<span class="si-amends-eff si-amends-eff--{eff_cls}">{html.escape(effect)}</span>'
+            f"<span>{link}{prov_html}</span></li>"
+        )
+
+    n = len(items)
+    kicker = f"This instrument changes {n} earlier instrument{'s' if n != 1 else ''}"
+    src = (
+        '<div class="si-amends-src">Amendment relationships derived from the eISB '
+        "Legislation Directory (SI→SI only). Discovery / indexing — verify the official "
+        "entry before any legal reliance.</div>"
+    )
+    st.html(
+        f'<div class="si-amends"><div class="si-amends-kicker">↳ {html.escape(kicker)}</div>'
+        f'<ul class="si-amends-list">{"".join(items)}</ul>{src}</div>'
+    )
+
+
 def _render_si_detail(row: pd.Series) -> None:
     if back_button("← Back to SI Index", key="si_detail"):
         st.session_state.pop("si_selected_id", None)
@@ -1168,6 +1259,10 @@ def _render_si_detail(row: pd.Series) -> None:
           </div>
         </div>
         """)
+
+    # Forward amendment relationships — what this instrument changes. Renders
+    # nothing when this SI amends/revokes no indexed instrument.
+    _render_amendments_made(row)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
