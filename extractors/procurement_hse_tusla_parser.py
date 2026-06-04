@@ -14,7 +14,7 @@ Both emit the same normalised schema and then run a data-quality check (plan §6
 battery + supplier-name quality + period coverage + top suppliers). Nothing is written to
 gold or wired into pipeline.py — output is c:/tmp/procurement_publishers/.
 
-Run:  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_hse_tusla_parser.py
+Run:  ./.venv/Scripts/python.exe extractors/procurement_hse_tusla_parser.py
 """
 
 from __future__ import annotations

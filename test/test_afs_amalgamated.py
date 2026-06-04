@@ -1,4 +1,4 @@
-"""Tests for the amalgamated AFS extractor (pipeline_sandbox/afs_amalgamated_extract.py).
+"""Tests for the amalgamated AFS extractor (extractors/afs_amalgamated_extract.py).
 
 Three layers:
   1. Pure number-parsing (to_num) — incl. the 2019 "€ millions + M suffix" notation
@@ -22,7 +22,7 @@ import polars as pl
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "pipeline_sandbox"))
+sys.path.insert(0, str(ROOT / "extractors"))
 from afs_amalgamated_extract import DIVISIONS, parse_ie, to_num  # noqa: E402
 
 FX = Path(__file__).resolve().parent / "fixtures" / "afs"

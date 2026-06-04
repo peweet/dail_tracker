@@ -14,7 +14,7 @@ Writes reconciling rows to data/_meta/la_afs_camelot_rows.json for the main venv
 Build the isolated venv (one-off, paths are examples):
     uv venv c:/tmp/afs_camelot_venv --python <64-bit python3.12>
     uv pip install --python c:/tmp/afs_camelot_venv "camelot-py[base]" pypdf
-Run standalone:  <venv>/python.exe pipeline_sandbox/la_afs_camelot_ie.py monaghan kildare …
+Run standalone:  <venv>/python.exe extractors/la_afs_camelot_ie.py monaghan kildare …
 """
 
 from __future__ import annotations

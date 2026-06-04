@@ -1,18 +1,135 @@
-# `public_payments_fact` — Schema Contract (DRAFT)
+# Public Contracting & Payments — Unified Data Model + Schema Contract (DRAFT)
 
 **Project:** Dáil Tracker
-**Status:** DRAFT / design sketch — **not built, not in `pipeline.py`, no gold parquet yet**
-**Companion to:** `doc/PROCUREMENT_SEMISTATE_EXPANSION_PLAN.md` (esp. §3 constraints, §5 columns, §11 pilot results)
-**Created:** 2026-06-03
+**Status:** DRAFT / design — **not built; no unified gold parquet yet.** (`procurement_awards`
+gold + `ted_ie_awards` silver + per-LA AFS + `la_payments_fact` + `public_payments_fact`
+sandbox all exist as *separate* tables today — this doc is the target model to conform them to.)
+**Created:** 2026-06-03 · **Unified-model pass:** 2026-06-04
+**Companion to:** `doc/PROCUREMENT_BUILD_PLAN.md` (master + value taxonomy §4b),
+`doc/PROCUREMENT_SEMISTATE_EXPANSION_PLAN.md`, `doc/DATA_MAP.md` (status board + grains).
 
-> **Subordinate to the master plan `doc/PROCUREMENT_BUILD_PLAN.md`.** This schema must
-> implement the master's **VALUE TAXONOMY (§4b): `value_kind` + `realisation_tier`** — do **not**
-> use the `amount_semantics` enum drafted in §2 below if it conflicts; reconcile to `value_kind`
-> + `realisation_tier` and derive `value_safe_to_sum` from `value_kind`. The §8 test plan and
-> any firewall rules **reference master §7 (tests) and §9 (firewall checklist)** rather than
-> re-specify them. (See `project_procurement_phase_taxonomy` memory → PROCUREMENT DOC MAP.)
+> **Subordinate to the master plan `doc/PROCUREMENT_BUILD_PLAN.md`.** Implements the master's
+> **VALUE TAXONOMY (§4b): `value_kind` + `realisation_tier`**, `value_safe_to_sum` derived from
+> `value_kind`. Where Part B below still says `amount_semantics`, that is the LEGACY column on
+> the current sandbox parquet — it is **renamed to `value_kind` (+ a new `realisation_tier`)** in
+> this model; do not carry `amount_semantics` forward. Tests/firewall reference master §7/§9.
 
-This document is the proposed data contract for the unified public-body **payments / purchase-order** corpus that the bespoke per-publisher parsers (HSE, Tusla, …) will eventually feed. It exists so the grain, value-semantics, privacy, and provenance decisions are fixed *before* any row is written to gold.
+---
+
+# PART A — The unified model (OCDS-aligned dimensional design)
+
+> **Why this part exists:** five source tables (eTenders, TED, LA payments, public-body
+> payments, HSE/Tusla) all describe *a supplier, a public buyer, an amount, a date, a kind* —
+> but at **different lifecycle stages that must never be summed together**. Rather than invent a
+> scheme, this follows the established answers: **OCDS** (open-contracting lifecycle stages),
+> **Kimball** (conformed dimensions, one fact per business process, explicit additivity), and
+> **medallion staging→marts**. Scaled to a solo Polars + DuckDB-views project — **no SCD2, no
+> surrogate-key framework, no warehouse**; the value is the contract + two conformed facts +
+> view-layer enforcement.
+
+## A.1 The lifecycle — `realisation_tier` ≡ OCDS stages (never sum across)
+
+Every public euro is measured at exactly one stage. A euro at one stage is **not** comparable
+to a euro at another; consolidation only ever happens *within* a stage.
+
+| `realisation_tier` | OCDS stage | `value_kind` (controlled vocab) | additive? |
+|---|---|---|---|
+| **PLANNED** | tender / planning | `estimate_advertised`, `budget_allocated` | no |
+| **AWARDED** | award | `contract_award_value` (caution), `framework_or_dps_ceiling` (**never**) | guarded |
+| **COMMITTED** | contract | `po_committed` | yes (within publisher+period) |
+| **SPENT** | implementation | `payment_actual` | **yes** (true spend) |
+
+`value_safe_to_sum` is **derived** from `value_kind` (true for `po_committed`/`payment_actual`;
+`contract_award_value` with caution; ceilings/estimates never). One rule, generalised — not
+re-decided per source.
+
+## A.2 Two grain-separated facts, one shared contract
+
+Kimball: *awarding a contract* and *disbursing a payment* are different business processes →
+**separate fact tables sharing conformed dimensions.** Physical separation makes a cross-grain
+`SUM()` impossible (the project's #1 risk — the "€570bn" mirage).
+
+| Fact | Tier(s) | Sources | Grain (one row =) |
+|---|---|---|---|
+| **`fct_award`** | AWARDED (+PLANNED) | eTenders, TED | a notice × awarded supplier |
+| **`fct_payment`** | COMMITTED / SPENT | LA payments, public-body payments, HSE/Tusla | a published payment/PO line |
+
+Both use the **same column contract** (§A.4) and the same dimensions. They are **never unioned
+into one amount column**; they meet only on the supplier dimension, in a view, after the join
+gate (Part B hard-rule). The **AFS budget facts** (`la_afs_divisions` / `_capital` —
+council×year×division, *no supplier*) are a **third grain**: sibling tables, never in either.
+
+## A.3 Conformed dimensions — built ONCE, referenced by both facts
+
+| Dimension | Key | Built from | Notes |
+|---|---|---|---|
+| **`dim_supplier`** | `supplier_norm` (+ `cro_company_num`) | `cro_normalise.name_norm_expr` | the **single place** name→CRO matching happens; carries `supplier_class`, `name_truncated`. Today CRO lives in a *separate* eTenders match table, *inline* in TED, *absent* in payments — collapse to one dim. |
+| **`dim_buyer`** | `buyer_id` | publisher seed + authority names | `buyer_type` {department, local_authority, semistate, agency, hospital, education_body}; optional parent department. |
+| **`dim_cpv`** | `cpv_code` | source CPV | code → division → description (awards only). |
+| date | `year`/`period` | — | lightweight; no calendar dim. |
+
+The **lobbying overlap** and **SIPO** links are **bridges off `dim_supplier`** (co-occurrence
+disclosures), **not facts and never summed in**.
+
+## A.4 The shared column contract (both facts emit exactly this)
+
+```
+identity   source_dataset {etenders|ted|la_payments|public_payments|hse_tusla}
+           payment_id/award_id (deterministic hash of the natural key)
+           source_file_url, source_file_hash, source_row_number, source_page_number?,
+           parser_name, parser_version, downloaded_at, source_caveat
+parties    buyer_id → (dim_buyer); buyer_name_raw
+           supplier_norm → (dim_supplier); supplier_raw, supplier_display
+money      amount_eur, currency,
+           realisation_tier {PLANNED|AWARDED|COMMITTED|SPENT},
+           value_kind  (controlled vocab, §A.1),
+           value_shared_across_suppliers, value_safe_to_sum (DERIVED), vat_status
+class/time  cpv_code?, description_raw?, year, period_raw?, quarter?, event_date?
+privacy    privacy_status {public|quarantined}, public_display, privacy_reason?
+quality    data_quality_flags(struct: is_total_row, is_aggregate, amount_missing,
+           name_truncated, amount_is_outlier, is_duplicate_candidate)
+```
+
+## A.5 Per-source → contract mapping (the staging layer)
+
+| Source | buyer field → | amount → | supplier-norm → | tier | gap to close |
+|---|---|---|---|---|---|
+| eTenders `procurement_awards` | `Contracting Authority` | `value_eur` | `supplier_norm` | AWARDED | **add `realisation_tier`**; fold CRO from `procurement_supplier_cro_match` |
+| TED `ted_ie_awards` | `buyer_name` | `award_value_eur` | `winner_name_norm` | AWARDED | **add `realisation_tier`**; CRO already inline |
+| LA payments `la_payments_fact` | `publisher_name` | `amount_eur` | `supplier_normalised` | COMMITTED/SPENT | reference template — already has both axes; add CRO |
+| public-body `public_payments_fact` | `publisher_name` | `amount_eur` | `supplier_normalised` | SPENT | **`amount_semantics` → `value_kind` + add `realisation_tier`**; add CRO |
+| HSE / Tusla | (publisher) | (amount) | (norm) | SPENT | **materialise to parquet** (today a DQ JSON); map 3rd vocab → `value_kind` |
+
+## A.6 Build pipeline (medallion: staging → union → marts)
+
+1. **`stg_<source>`** — one transform per source that renames/recasts to the §A.4 contract
+   (this *is* the §A.5 gap-closing work). Output stays the producer's layer.
+2. **union same-grain producers** — `UNION ALL` the staged AWARD producers → `fct_award`; the
+   staged PAYMENT producers → `fct_payment`. (Never union across the two.)
+3. **conformed dims** — build `dim_supplier` (the one CRO match) + `dim_buyer` once; both facts
+   reference them.
+4. **marts/views** — `sql_views/*.sql` expose tier-scoped, additivity-safe metrics (§A.7).
+
+## A.7 Additivity enforced in the semantic layer, not in humans
+
+Every money metric in `sql_views/` **filters `value_safe_to_sum` AND is scoped to a single
+`realisation_tier`** — e.g. a `total_paid` metric can only ever touch `payment_actual` rows; an
+"awarded" figure is a COUNT (+ a guarded, caveated sum). A **test asserts no view sums across
+`realisation_tier`** (extends master §7/§9). This is the OCDS "never sum across stages" rule and
+the Kimball additivity rule, encoded once in the view layer.
+
+---
+
+# PART B — `fct_payment` detail (the payment-grain fact)
+
+> Part B is the detailed contract for **one of the two facts in Part A** (`fct_payment`,
+> COMMITTED/SPENT). It is the most-evolved spec (built first, on the messiest sources) and the
+> template the shared §A.4 contract is generalised from. Where it says `amount_semantics`, read
+> `value_kind` + `realisation_tier` per the header note.
+
+This is the proposed data contract for the unified public-body **payments / purchase-order**
+corpus that the bespoke per-publisher parsers (HSE, Tusla, …) feed. It fixes the grain,
+value-semantics, privacy, and provenance decisions *before* any row is written to gold.
 
 ---
 

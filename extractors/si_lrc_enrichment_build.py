@@ -17,7 +17,7 @@ SAFE LANGUAGE (locked by test_si_lrc_enrichment.py + the SQL-view enum test):
 
 Grain: one row per SI in our gold (matched and unmatched both present).
 
-Reads : pipeline_sandbox/_lrc_output/si_lrc_classlist_raw.parquet
+Reads : extractors/_lrc_output/si_lrc_classlist_raw.parquet
         data/gold/parquet/statutory_instruments.parquet
 Writes: data/gold/parquet/si_lrc_enrichment_summary.parquet   (git-tracked gold)
         data/_meta/si_lrc_enrichment_summary_coverage.json
@@ -38,7 +38,7 @@ try:
 except Exception:
     pass
 
-LRC = ROOT / "pipeline_sandbox/_lrc_output/si_lrc_classlist_raw.parquet"
+LRC = ROOT / "extractors/_lrc_output/si_lrc_classlist_raw.parquet"
 GOLD = ROOT / "data/gold/parquet/statutory_instruments.parquet"
 OUT = ROOT / "data/gold/parquet/si_lrc_enrichment_summary.parquet"
 COVERAGE = ROOT / "data/_meta/si_lrc_enrichment_summary_coverage.json"

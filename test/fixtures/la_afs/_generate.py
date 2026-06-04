@@ -4,7 +4,7 @@ la_afs_divisions.parquet — the committed golden fact (19 councils × 8 divisio
 test/test_la_afs.py runs its data-integrity invariants against, so they execute without
 re-harvesting 31 council websites.
 
-Run AFTER pipeline_sandbox/la_afs_extract.py (which writes the silver parquet). Then:
+Run AFTER extractors/la_afs_extract.py (which writes the silver parquet). Then:
 
     python test/fixtures/la_afs/_generate.py
 

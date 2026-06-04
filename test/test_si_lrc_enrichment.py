@@ -19,7 +19,7 @@ import polars as pl
 import pytest
 
 _ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_ROOT / "pipeline_sandbox"))
+sys.path.insert(0, str(_ROOT / "extractors"))
 
 from si_lrc_classlist_extract import ELI_SI, SI_CITE, parse_category  # noqa: E402
 

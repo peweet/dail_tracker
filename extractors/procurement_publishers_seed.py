@@ -16,7 +16,7 @@ Nothing here is wired into pipeline.py. Run prints a summary and writes the comm
 source-of-truth registry to data/_meta/procurement_publishers/publishers_seed.csv
 (tracked via a .gitignore negation rule — the blanket *.csv ignore would swallow it).
 
-Run:  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_publishers_seed.py
+Run:  ./.venv/Scripts/python.exe extractors/procurement_publishers_seed.py
 """
 
 from __future__ import annotations

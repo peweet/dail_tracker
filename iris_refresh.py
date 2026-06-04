@@ -121,10 +121,10 @@ def step_si_legal_state() -> bool:
     _hr("[7/8] si_legislation_directory_extract — si_current_state.parquet (eISB legal-state)")
     t = time.monotonic()
     # Subprocess: the crawler has its own __main__/argparse and lives in
-    # pipeline_sandbox/. Freshness-gated by default — it re-checks each year
+    # extractors/. Freshness-gated by default — it re-checks each year
     # index and only re-crawls range pages whose "Updated to" date moved, so a
     # steady-state run is ~11 cheap requests rather than a full ~150-page crawl.
-    script = _ROOT / "pipeline_sandbox" / "si_legislation_directory_extract.py"
+    script = _ROOT / "extractors" / "si_legislation_directory_extract.py"
     r = subprocess.run([sys.executable, str(script)], cwd=_ROOT)
     print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
     return r.returncode == 0
@@ -133,11 +133,11 @@ def step_si_legal_state() -> bool:
 def step_si_lrc_enrichment() -> bool:
     _hr("[8/8] si_lrc — si_lrc_enrichment_summary.parquet (LRC subject classification)")
     t = time.monotonic()
-    # Two sandbox-located, pipeline-invoked scripts: the classlist fetch+parse
+    # Two pipeline-invoked extractors: the classlist fetch+parse
     # (36 polite requests, bronze-cached) then the deterministic gold build over
     # current SI gold. DISCOVERY/CLASSIFICATION only — never asserts legal status.
-    extract = _ROOT / "pipeline_sandbox" / "si_lrc_classlist_extract.py"
-    build = _ROOT / "pipeline_sandbox" / "si_lrc_enrichment_build.py"
+    extract = _ROOT / "extractors" / "si_lrc_classlist_extract.py"
+    build = _ROOT / "extractors" / "si_lrc_enrichment_build.py"
     rc = 0
     for script in (extract, build):
         r = subprocess.run([sys.executable, str(script)], cwd=_ROOT)

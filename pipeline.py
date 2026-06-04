@@ -61,28 +61,28 @@ CHAINS: list[tuple[str, str]] = [
     # afs: amalgamated LA Annual Financial Statements (gov.ie PDFs) -> silver
     # spend-by-service-division fact (BUDGET/SPENT-tier macro context). Standalone —
     # self-fetches + caches PDFs to bronze, no deps, headless-safe.
-    ("afs", "pipeline_sandbox/afs_amalgamated_extract.py"),
+    ("afs", "extractors/afs_amalgamated_extract.py"),
     # cbi runs last: its corporate-notices xref joins gold corporate_notices
     # (produced by iris) against the CBI register extract. Skips re-download
     # when the source PDFs are cached, so routine runs are extract+xref only.
-    ("cbi", "pipeline_sandbox/cbi_registers_extract.py"),
+    ("cbi", "extractors/cbi_registers_extract.py"),
     # cro xref runs after both iris (corporate_notices gold) and lobbying (CRO
     # silver via cro_normalise): exact normalised-name join of notices to the
     # CRO company register, committed gold, read by the Corporate page badge.
-    ("cro", "pipeline_sandbox/cro_corporate_xref_enrichment.py"),
+    ("cro", "extractors/cro_corporate_xref_enrichment.py"),
     # procurement: eTenders/OGP open data -> gold awards + supplier→CRO match.
     # Self-fetches + caches the source CSV; depends on the CRO silver register
     # (same as cro), so it runs after it.
-    ("procurement", "pipeline_sandbox/procurement_etenders_extract.py"),
+    ("procurement", "extractors/procurement_etenders_extract.py"),
     # procurement_lobbying xref runs after BOTH procurement (gold awards) and
     # lobbying (silver returns): exact normalised-name overlap of suppliers and
     # lobbying registrants/clients, committed gold, read by the Lobbying page's
     # "also a state supplier" enrichment and the (future) Procurement page.
-    ("procurement_lobbying", "pipeline_sandbox/procurement_lobbying_xref.py"),
+    ("procurement_lobbying", "extractors/procurement_lobbying_xref.py"),
     # ted: TED (EU procurement journal) Irish award notices -> SILVER (cleaned, not yet
     # exposed to the UI). Zero-auth API, caches raw to bronze, depends on the CRO silver
     # register (winner->CRO match), skips gracefully on an API outage. Headless-safe.
-    ("ted", "pipeline_sandbox/ted_ireland_extract.py"),
+    ("ted", "extractors/ted_ireland_extract.py"),
     # freshness runs last: it reads the silver + gold the chains above produced
     # and writes data/_meta/freshness.json (the data-age signal the Streamlit
     # badge + scheduled report read). Pure read — never mutates pipeline data.

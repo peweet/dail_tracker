@@ -309,6 +309,29 @@ def adapt_cro(meta: dict) -> list[dict]:
     ]
 
 
+def adapt_cro_fs(meta: dict) -> list[dict]:
+    """CRO financial-statements filing INDEX — sandbox extractor (CKAN, free).
+    Health = age of the silver event log we hold; figures stay paywalled. Not yet
+    wired to pipeline.py, so the stale threshold is generous (annual-ish upstream)."""
+    return [
+        _record(
+            source_id=f"file_sources:{meta['source_id']}",
+            group="file_sources",
+            owner_module=meta["owner_module"],
+            name=meta["name"],
+            check_type="file_age",
+            listing_url=f"{meta['ckan_base']}/dataset/{meta['package_id']}",
+            grain="company_filing_index",
+            status="automated",
+            pollable=True,
+            refresh_mode="automated",
+            input_pattern=meta["silver_pattern"],
+            stale_after_days=meta.get("stale_after_days"),
+            caveat="CKAN filing index (figures paywalled); sandbox extractor, not yet pipeline-wired",
+        )
+    ]
+
+
 # Manual-source specs (no code config exists; the plan defines these) -----------
 MANUAL_SOURCES = [
     {
@@ -340,6 +363,7 @@ def build_records() -> list[dict]:
         except Exception as e:  # noqa: BLE001 - health tool must not hard-fail
             print(f"  ! skipped {group}: {type(e).__name__}: {e}", file=sys.stderr)
 
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "extractors"))
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline_sandbox"))
 
     def _oireachtas():
@@ -382,6 +406,11 @@ def build_records() -> list[dict]:
 
         return adapt_cro(SOURCE_META)
 
+    def _cro_fs():
+        from cro_financial_statements_extract import SOURCE_META as FS_META
+
+        return adapt_cro_fs(FS_META)
+
     _try("oireachtas_pdfs", _oireachtas)
     _try("public_body_payments", _public_body)
     _try("local_authority_payments", _la)
@@ -389,6 +418,7 @@ def build_records() -> list[dict]:
     _try("local_authority_afs", _la_afs)
     _try("hse_tusla_payments", _hse_tusla)
     _try("file_sources:cro", _cro)
+    _try("file_sources:cro_fs", _cro_fs)
     _try("file_sources:manual", lambda: adapt_manual(MANUAL_SOURCES))
 
     records.sort(key=lambda r: r["source_id"])

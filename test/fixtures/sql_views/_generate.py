@@ -645,7 +645,7 @@ SI_CURRENT_STATE = pl.DataFrame(
 
 # ---------------------------------------------------------------------------
 # procurement_awards.parquet — base for v_procurement_awards and the supplier/
-# authority/cpv summaries. Source: pipeline_sandbox/procurement_etenders_extract.py.
+# authority/cpv summaries. Source: extractors/procurement_etenders_extract.py.
 # The rows are chosen to exercise the VALUE-IS-NOT-SPEND semantics and the privacy/
 # quality filters, so the value tests can assert exact aggregates:
 #   - Acme Construction Ltd: 2 clean standalone awards, 2 authorities → summable

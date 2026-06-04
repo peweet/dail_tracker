@@ -23,8 +23,8 @@ from pathlib import Path
 import polars as pl
 
 _ROOT = Path(__file__).resolve().parent.parent
-# Root for `cro_normalise` + root `config`; pipeline_sandbox for the enrichment.
-for _p in (str(_ROOT), str(_ROOT / "pipeline_sandbox")):
+# Root for `cro_normalise` + root `config`; extractors/ for the enrichment.
+for _p in (str(_ROOT), str(_ROOT / "extractors")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
