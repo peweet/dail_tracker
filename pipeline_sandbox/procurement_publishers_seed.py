@@ -228,6 +228,99 @@ SEEDS: list[dict] = [
     _row("ie_ncse", "National Council for Special Education", "agency", "education",
          "https://ncse.ie/", status=NF, privacy_risk="medium", notes="homepage only"),
 
+    # ============================ 5.9 DISCOVERY SWEEP 2026-06-04 ========================
+    # Bodies absent from the original seed, surfaced by the category-2 discovery sweep
+    # (doc/PROCUREMENT_SOURCE_DISCOVERY_2026_06_04.md) after the NPHDB finding. Landing URLs
+    # were seen in live search/fetch and look supplier-level, but status stays
+    # NEEDS_MANUAL_CHECK — the probe must byte-confirm before any CONFIRMED claim. Grain/
+    # format hints + direct-file URLs are parked in notes for the probe + later wiring.
+    # -- capital project board (the NPHDB sibling that started this) --
+    _row("ie_nphdb", "National Paediatric Hospital Development Board", "state_body", "health",
+         "https://newchildrenshospital.ie/freedom-of-information/procurement/",
+         notes="INGESTED 2026-06-04 via bespoke procurement_nphdb_parser.py (90deg-rotated PDF, "
+               "reading-order parse). grain=purchase_order pdf. Holds the BAM children's-hospital "
+               "conciliator/adjudicator award rows (single ~€107.6m row = outlier)."),
+    # -- universities (Technological Universities comply; traditional unis mostly FOI-only) --
+    _row("ie_tus", "Technological University of the Shannon (TUS)", "education_body", "education",
+         "https://tus.ie/privacy/freedom-of-information/publications/financial-reports/",
+         notes="grain=purchase_order xlsx. ONE rolling xlsx all years (easiest): "
+               "tus.ie/app/uploads/ProfessionalServices/FOI/TUS_POs_over_20k_2021QTR4_2022_2023_2024_2025_Q1.2026.xlsx"),
+    _row("ie_mtu", "Munster Technological University (MTU)", "education_body", "education",
+         "https://www.mtu.ie/about-mtu/legal/freedom-of-information/",
+         notes="grain=purchase_order pdf+xlsx, quarterly to Q4 2025. e.g. "
+               "mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q4-2025.pdf"),
+    _row("ie_tudublin", "Technological University Dublin (TU Dublin)", "education_body", "education",
+         "https://www.tudublin.ie/explore/governance-and-compliance/foi/foi-publication-scheme/",
+         notes="grain=purchase_order pdf, quarterly to Q2 2026. e.g. PO-Report-over-20K-Quarter-2-2026.pdf"),
+    _row("ie_ucd", "University College Dublin (UCD)", "education_body", "education",
+         "https://www.ucd.ie/foi/freedomofinformation/publicationscheme/procurementinformation/",
+         notes="grain=purchase_order pdf. ucd.ie domain 403-blocks fetcher — confirm file "
+               "inventory in browser; may publish per-org-unit not one consolidated file"),
+    _row("ie_setu", "South East Technological University (SETU)", "education_body", "education",
+         "https://www.setu.ie/procurement-information",
+         notes="grain=purchase_order pdf ('Purchase of Orders over €20k incl VAT'). setu.ie "
+               "403-blocks fetcher — confirm in browser; legacy itcarlow.ie URLs 301->setu.ie"),
+    # -- voluntary / Section 38 hospitals (only 2 of 12 publish; rest FOI-only) --
+    _row("ie_beaumont", "Beaumont Hospital", "hospital", "health",
+         "https://www.beaumont.ie/page/financial-statements",
+         notes="grain=purchase_order €20k, pdf/xlsx/CSV, quarterly to Q1 2026 — cleanest hospital "
+               "find. e.g. beaumont.ie/sites/default/files/2026-04/POs Greater than €20k - Q1 2026.xlsx"),
+    _row("ie_chi", "Children's Health Ireland (CHI)", "state_body", "health",
+         "https://www.childrenshealthireland.ie/about-us/corporate-information/payments-to-suppliers-over-20000/",
+         notes="grain=payment (paid invoices) at €25k incl VAT, xlsx, to Q1 2026. children's-hospital "
+               "OPERATOR side (complements NPHDB construction). e.g. CHI_Paid_Invoices_over_25K_incl_VAT_Qtr_1_2026updated.xlsx",
+         caveat="threshold is €25k incl VAT, not €20k; payment grain not PO"),
+    # -- justice cluster (Garda/Prisons high privacy: security redactions) --
+    _row("ie_courts", "Courts Service of Ireland", "agency", "justice",
+         "https://www.courts.ie/publications/purchase-orders-greater-than-20k",
+         notes="grain=purchase_order pdf, clean 'PO No/Supplier/Amount' tables 2012->Q1 2026. "
+               "e.g. courts.ie/docs/default-source/publications-files/purchase-orders-greater-than-20k/"
+               "purchase-orders-greater-than-20k---q1-2026-v2.pdf — strongest state-body find"),
+    _row("ie_garda", "An Garda Síochána", "state_body", "justice",
+         "https://www.garda.ie/en/freedom-of-information/publication-scheme/budgets-and-spending/",
+         privacy_risk="high",
+         notes="grain=purchase_order pdf/html, under publication-scheme procurement subpage. "
+               "Security redactions likely; 403/nested — confirm in browser"),
+    _row("ie_prisons", "Irish Prison Service", "agency", "justice",
+         "https://www.irishprisons.ie/information-centre/procurement/",
+         privacy_risk="high",
+         notes="grain=purchase_order pdf, ANNUAL (not quarterly) incl VAT. e.g. "
+               "irishprisons.ie/wp-content/uploads/documents_pdf/POs-greater-than-E20k-2024.pdf. "
+               "Security redactions possible"),
+    # -- finance / NTMA family (payment grain, per-business-unit PDFs) --
+    _row("ie_ntma", "National Treasury Management Agency (NTMA)", "state_body", "finance",
+         "https://www.ntma.ie/information-pages/freedom-of-information/freedom-of-information-publication-scheme/financial-information",
+         notes="grain=payment pdf, 6 per-unit files/qtr (ADM/Nat-Debt/ISIF/NDFA/FIF/ICNF) back to "
+               "2016. e.g. ntma.ie/uploads/general/Q1-2026-ADM.pdf"),
+    _row("ie_ndfa", "National Development Finance Agency (NDFA)", "agency", "finance",
+         "https://www.ntma.ie/information-pages/freedom-of-information/freedom-of-information-publication-scheme/financial-information",
+         notes="grain=payment pdf; published AS the 'NDFA' business-unit file inside the NTMA scheme. "
+               "e.g. ntma.ie/uploads/general/Q1-2026-NDFA.pdf — dedupe vs ie_ntma"),
+    # -- agencies / regulators --
+    _row("ie_cnam", "Coimisiún na Meán", "agency", "media_culture",
+         "https://www.cnam.ie/about/reports-finances/procurement/",
+         notes="grain=purchase_order pdf, quarterly to Q1 2026. e.g. cnam.ie/app/uploads/2026/05/"
+               "Q1-2026_PO-Report-1.pdf — inconsistent per-quarter filenames"),
+    _row("ie_sportireland", "Sport Ireland", "agency", "sport",
+         "https://www.sportireland.ie/about-us/freedom-of-information/financial-information",
+         notes="grain=purchase_order pdf, SINGLE rolling log (not per-quarter) 2023-25. Drupal media "
+               "paths. Incl. Sport Ireland Facilities (ex-Nat Sports Campus, merged)"),
+    _row("ie_seai", "Sustainable Energy Authority of Ireland (SEAI)", "agency", "energy_utilities",
+         "https://www.seai.ie/publications", privacy_risk="medium",
+         notes="grain=purchase_order pdf, in general /publications search (filter 'PO Report over 20k'), "
+               "to Q2 2025. e.g. seai.ie/sites/default/files/2025-08/Q2-2025-PO-Report-over-20K.pdf. "
+               "Grant-heavy body → possible individual-grantee names elsewhere"),
+    _row("ie_epa", "Environmental Protection Agency (EPA)", "agency", "regulator",
+         "https://www.epa.ie/who-we-are/corporate-compliance/procurement/purchase-orders/",
+         caveat="some quarters served as .php HTML pages, not PDF — needs an HTML-table reader",
+         notes="grain=purchase_order, per-quarter pages. e.g. epa.ie/publications/corporate/governance/"
+               "purchase-orders-quarter-3-2024-over-20k.php"),
+    _row("ie_pobal", "Pobal", "agency", "social",
+         "https://www.pobal.ie/financial-information/", privacy_risk="medium",
+         caveat="files titled 'Purchase Order OR Payments over €20k' — MIXED grain, split by value_kind",
+         notes="grain=mixed (PO+payment) pdf, full series 2017->Q1 2026. e.g. pobal.ie/wp-content/"
+               "uploads/2026/04/Purchase-Order-or-Payments-over-E20k-Q1-2026.pdf. Grant-adjacent → medium"),
+
     # ============================ 5.8 FOI / AIE / OCEI LEADS ===========================
     # Kept separate: data likely exists but not via a clean, repeatable, lawful file route.
     _row("foi_ocei", "Commissioner for Environmental Information (OCEI)", "foi_lead", "foi_aie",

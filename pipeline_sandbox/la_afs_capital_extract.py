@@ -63,7 +63,7 @@ import subprocess  # noqa: E402
 CAMELOT_VENV = Path("c:/tmp/afs_camelot_venv/Scripts/python.exe")
 CAMELOT_SCRIPT = Path("c:/tmp/afs_census/camelot_capital.py")
 CAMELOT_ROWS = Path("c:/tmp/afs_census/camelot_capital_rows.json")
-CAMELOT_SLUGS = ["monaghan", "kildare", "clare", "fingal", "dlr"]
+CAMELOT_SLUGS = ["monaghan", "kildare", "clare", "fingal", "dlr", "kilkenny"]
 
 DIV_KEYS = {
     "housing": "Housing and Building",
@@ -197,6 +197,64 @@ def _parse_lines(page) -> tuple[dict, list, dict] | None:
     return aligned, colx, totrow
 
 
+# ---- tab-aware line parser: some councils (Sligo) emit TAB-joined multi-number cells in a
+# single text span ('705,551 \t 33,534,074 \t 31,463,047') that defeat the word/line parsers.
+# Split every line into number-or-dash tokens, accumulate per division in column order
+# (Opening, EXPENDITURE=idx1, Grants, Loans, Other, Total Income, transfers…, Closing).
+_TOK = re.compile(r"\(?-?[\d,]+(?:\.\d+)?\)?")
+
+
+def _tab_tokens(line: str) -> list:
+    out: list = []
+    for p in line.split():
+        if p == "-":
+            out.append(None)
+        elif _TOK.fullmatch(p):
+            out.append(tonum(p))
+    return out
+
+
+def _parse_tab(page) -> tuple[dict, list, dict] | None:
+    lines = [ln.strip() for ln in page.get_text("text").splitlines() if ln.strip()]
+    drows: dict[str, list] = {}
+    total: list | None = None
+    cur: str | None = None
+    buf: list = []
+
+    def flush():
+        nonlocal total
+        if cur and buf:
+            if cur == "TOTAL" and total is None:
+                total = list(buf)
+            elif cur in DIV_KEYS.values() and cur not in drows:
+                drows[cur] = list(buf)
+
+    for ln in lines:
+        low = ln.lower()
+        has_digit = any(c.isdigit() for c in ln)
+        lab = None
+        if low.startswith("total") and "income" not in low and "expend" not in low and not has_digit:
+            lab = "TOTAL"
+        elif not has_digit:
+            lab = next((n for k, n in DIV_KEYS.items() if k.split()[0] in low), None)
+        if lab:
+            flush()
+            cur, buf = lab, []
+        elif cur:
+            t = _tab_tokens(ln)
+            if t or "-" in ln:
+                buf.extend(t if t else [None])
+    flush()
+    if len(drows) < 6:
+        return None
+    ncol = max((len(v) for v in drows.values()), default=0)
+    aligned = {k: v + [None] * (ncol - len(v)) for k, v in drows.items() if len(v) >= 2}
+    if len(aligned) < 6:
+        return None
+    totrow = (total + [None] * ncol)[:ncol] if total else [None] * ncol
+    return aligned, list(range(ncol)), totrow
+
+
 def _reconciles(mat: dict, totrow: list, c: int) -> bool:
     tv = totrow[c] if c < len(totrow) else None
     if tv is None:
@@ -215,7 +273,7 @@ def _find_capital(doc, skip_pages: set[int]) -> tuple[int, str, dict, list, list
         U = doc[i].get_text("text").upper()
         if "CAPITAL" not in U or "EXPENDITURE" not in U:
             continue
-        for method, fn in (("geom", _parse_geom), ("line", _parse_lines)):
+        for method, fn in (("geom", _parse_geom), ("line", _parse_lines), ("tab", _parse_tab)):
             res = fn(doc[i])
             if not res:
                 continue

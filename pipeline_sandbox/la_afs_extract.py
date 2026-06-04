@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -58,15 +59,15 @@ OUT_COV = ROOT / "data/_meta/la_afs_coverage.json"
 
 # Camelot fallback for councils whose I&E LAYOUT the fitz parse_ie mis-reads (it grabs the
 # wrong cells → ~2× inflated Σgross that the reconcile gate rejects). Camelot's structured
-# cell grid reads them correctly. It runs in an ISOLATED venv (immune to the main-venv
-# `uv sync` churn + avoids the opencv/cv2 clash that would break SIPO) — see
-# feedback_dual_parser_rule. Best-effort: if the venv/script is absent (CI/Cloud), these
-# councils are simply skipped (the fitz fact still ships). Build the venv with:
-#   uv venv c:/tmp/afs_camelot_venv --python <64-bit 3.12>; uv pip install --python … camelot-py[base] pypdf
-CAMELOT_VENV = Path("c:/tmp/afs_camelot_venv/Scripts/python.exe")
-CAMELOT_SCRIPT = Path("c:/tmp/afs_census/camelot_ie.py")
-CAMELOT_ROWS = Path("c:/tmp/afs_census/camelot_rows.json")
-CAMELOT_SLUGS = {"monaghan", "kildare", "clare", "fingal", "dlr"}  # fitz mis-reads these layouts
+# cell grid reads them correctly. The script lives in the REPO (la_afs_camelot_ie.py) but
+# RUNS in an ISOLATED venv (immune to the main-venv `uv sync` churn + avoids the opencv/cv2
+# clash that would break SIPO) — see feedback_dual_parser_rule. Best-effort: if the venv is
+# absent (CI/Cloud/fresh machine), these councils are skipped and the fitz fact still ships.
+# Rebuild the venv (then re-run): the recipe is in la_afs_camelot_ie.py's docstring. The venv
+# path is overridable via $AFS_CAMELOT_VENV so a fresh clone can point at its own.
+CAMELOT_VENV = Path(os.environ.get("AFS_CAMELOT_VENV", "c:/tmp/afs_camelot_venv/Scripts/python.exe"))
+CAMELOT_SCRIPT = ROOT / "pipeline_sandbox" / "la_afs_camelot_ie.py"
+CAMELOT_ROWS = ROOT / "data" / "_meta" / "la_afs_camelot_rows.json"
 
 YEAR_RE = re.compile(r"20[12]\d")
 AFS_LINK = re.compile(r"(annual[-_ %]?financial|\bafs\b|financial[-_ %]?statement)", re.I)
@@ -311,6 +312,91 @@ REGISTRY: list[dict] = [
 ]
 
 
+# Councils NOT in the harvest loop above — their AFS file list is JS-rendered and needs
+# Playwright to enumerate (deferred). Listed so coverage accounts for all 31 LAs.
+DEFERRED_COUNCILS: list[dict] = [
+    {"council": "Carlow", "slug": "carlow", "entity": "county", "region": "Leinster", "landing": ["https://carlow.ie"]},
+    {
+        "council": "Cavan",
+        "slug": "cavan",
+        "entity": "county",
+        "region": "Ulster",
+        "landing": ["https://www.cavancoco.ie"],
+    },
+    {"council": "Mayo", "slug": "mayo", "entity": "county", "region": "Connacht", "landing": ["https://www.mayo.ie"]},
+    {
+        "council": "Roscommon",
+        "slug": "roscommon",
+        "entity": "county",
+        "region": "Connacht",
+        "landing": ["https://www.roscommoncoco.ie"],
+    },
+]
+
+# Plain-English reason a council's AFS is NOT yet in the fact, for surfacing to end users
+# (factual availability only — no inference). Anything not listed gets a generic message.
+_SCANNED = (
+    "scanned_image",
+    "This council publishes its statement only as a scanned image, which is not yet machine-readable.",
+)
+_VIEWER = (
+    "interactive_viewer",
+    "This council publishes its statement through an interactive online viewer we cannot yet read automatically.",
+)
+_LAYOUT = ("unusual_layout", "This council's statement uses a layout we cannot yet read reliably.")
+_NOTFOUND = ("not_located", "We could not locate this council's published audited statement online.")
+UNAVAILABLE_REASON: dict[str, tuple[str, str]] = {
+    "wexford": _SCANNED,
+    "waterford": _SCANNED,
+    "laois": _SCANNED,
+    "wicklow": _LAYOUT,
+    "louth": _LAYOUT,
+    "kerry": _NOTFOUND,
+    "carlow": _VIEWER,
+    "cavan": _VIEWER,
+    "mayo": _VIEWER,
+    "roscommon": _VIEWER,
+}
+
+
+def coverage_by_council(df: pl.DataFrame) -> list[dict]:
+    """One entry per ALL 31 LAs: available (with year + parser) or flagged with a plain-English
+    reason — the structure an end-user UI reads to show "21 of 31 available; the rest because…"."""
+    meta = {
+        r["slug"]: r
+        for r in df.group_by("slug")
+        .agg(pl.col("council").first(), pl.col("region").first(), pl.col("year").first(), pl.col("parser").first())
+        .iter_rows(named=True)
+    }
+    out = []
+    for cf in REGISTRY + DEFERRED_COUNCILS:
+        slug = cf["slug"]
+        if slug in meta:
+            out.append(
+                {
+                    "council": cf["council"],
+                    "slug": slug,
+                    "region": cf["region"],
+                    "available": True,
+                    "year": meta[slug]["year"],
+                    "parser": meta[slug]["parser"],
+                }
+            )
+        else:
+            cat, msg = UNAVAILABLE_REASON.get(slug, ("unavailable", "Not yet available."))
+            out.append(
+                {
+                    "council": cf["council"],
+                    "slug": slug,
+                    "region": cf["region"],
+                    "available": False,
+                    "reason_category": cat,
+                    "reason": msg,
+                }
+            )
+    return sorted(out, key=lambda r: (not r["available"], r["council"]))
+
+
 def hr(t: str) -> None:
     print(f"\n{'=' * 74}\n{t}\n{'=' * 74}")
 
@@ -399,6 +485,7 @@ def _browser_curl(url: str) -> bytes | None:
     fetch_bytes/_curl but serve a normal browser fine."""
     with contextlib.suppress(Exception):
         ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+        url = url.replace(" ", "%20")  # curl won't auto-encode a literal space (Sligo) → 404
         p = subprocess.run(
             ["curl", "-sS", "-k", "-L", "--max-time", "60", "-A", ua, url], capture_output=True, timeout=90, check=False
         )
@@ -651,13 +738,22 @@ def main() -> None:
     )
     print(f"  rows: {df.height}  | all reconciled: {df['reconciled'].all()}")
 
+    manifest = coverage_by_council(df)
+    n_total = len(REGISTRY) + len(DEFERRED_COUNCILS)
+    unavailable = [m for m in manifest if not m["available"]]
     cov = {
-        "councils_attempted": len(pubs),
-        "councils_with_rows": df["council"].n_unique(),
+        "councils_total": n_total,
+        "councils_available": df["council"].n_unique(),
+        "councils_unavailable": len(unavailable),
         "councils_fitz": n_fitz,
         "councils_camelot": n_cam,
         "rows": df.height,
         "phase": 1,
+        "coverage_by_council": manifest,  # all 31 LAs, available or flagged with a plain-English reason
+        "unavailable_by_reason": {
+            cat: [m["council"] for m in unavailable if m.get("reason_category") == cat]
+            for cat in {m.get("reason_category") for m in unavailable}
+        },
         "by_council": stats,
         "realisation_tier": "SPENT",
         "value_kind": "net_expenditure_actual",
@@ -668,7 +764,11 @@ def main() -> None:
         "(national) or la_payments_fact (cash-PO/payment grain) — different grains.",
     }
     OUT_COV.write_text(json.dumps(cov, indent=2, default=str), encoding="utf-8")
-    print(f"\nwrote {OUT_PARQUET}\n      {OUT_COV}")
+    print(
+        f"\n  coverage: {df['council'].n_unique()}/{n_total} councils available; "
+        f"{len(unavailable)} flagged ({', '.join(sorted({m['reason_category'] for m in unavailable}))})"
+    )
+    print(f"wrote {OUT_PARQUET}\n      {OUT_COV}")
 
 
 if __name__ == "__main__":

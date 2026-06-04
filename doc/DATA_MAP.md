@@ -35,8 +35,8 @@ cross-source merge.
 | Fact | File | Layer | Grain | Scope | Rows | Status |
 |---|---|---|---|---|---|---|
 | **Amalgamated AFS** | `data/silver/parquet/afs_amalgamated_divisions.parquet` | silver | revenue I&E by division | **national, all-31 summed**, 2016–23 | 64 | ✅ pipeline chain `afs` |
-| **Per-LA AFS — revenue** | `data/silver/parquet/la_afs_divisions.parquet` | silver | revenue **net**-expenditure by division | per-council (9) | 72 | 🟡 sandbox, gitignored |
-| **Per-LA AFS — capital** | `data/silver/parquet/la_afs_capital_divisions.parquet` | silver | **capital** expenditure by division | per-council (9) | 68 | 🟡 sandbox, gitignored |
+| **Per-LA AFS — revenue** | `data/silver/parquet/la_afs_divisions.parquet` | silver | revenue **net**-expenditure by division | per-council (21) | 168 | 🟡 sandbox, gitignored |
+| **Per-LA AFS — capital** | `data/silver/parquet/la_afs_capital_divisions.parquet` | silver | **capital** expenditure by division | per-council (21) | 158 | 🟡 sandbox, gitignored |
 | **LA payments** | `data/silver/parquet/la_payments_fact.parquet` | silver | **per-supplier** PO/payment | per-council, named suppliers | 11,091 | 🟡 sandbox, gitignored |
 
 Producers:
@@ -50,7 +50,7 @@ Producers:
 - *per-LA revenue* = each council's day-to-day spend **by service** — here **Housing nets ≈ €0**
   (HAP/RAS recoupment + tenant rents pass straight through; it's centrally/rent-financed).
 - *per-LA capital* = each council's **build/acquire** programme by service — here **Housing is
-  the dominant line** (€995m pooled across 9, 34–68% of each council's capital) but **~98%
+  the dominant line** (€2.5bn pooled across 20, 34–68% of each council's capital) but **~98%
   DHLGH-grant-funded**.
 - *LA payments* = **"who actually got paid"** (named companies, CRO-joinable) — the
   accountability micro-layer.

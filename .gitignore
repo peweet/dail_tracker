@@ -306,6 +306,9 @@ lobbyist/raw/
 !data/silver/parquet/afs_amalgamated_divisions.parquet
 # LA Purchase-Orders/Payments-over-€20k silver fact (procurement_la_payments_extract.py)
 !data/silver/parquet/la_payments_fact.parquet
+# per-LA AFS revenue fact (la_afs_extract.py) — read by tests + future gold views/UI; commit
+# so it survives machine failure / is Cloud-readable even if a council removes its source PDF
+!data/silver/parquet/la_afs_divisions.parquet
 
 # === Member avatars (Wikidata portraits + manifest) — committed deliberately ===
 # wiki_data.py downloads CC-licensed TD + Senator portraits into avatar/wikidata/.
@@ -334,3 +337,5 @@ lobbyist/raw/
 !test/fixtures/afs/*.parquet
 # LA-payments golden slice (test/fixtures/la_payments/_generate.py) for the Tier-3 invariants
 !test/fixtures/la_payments/*.parquet
+# per-LA AFS golden fact (test/fixtures/la_afs/_generate.py) for test/test_la_afs.py invariants
+!test/fixtures/la_afs/*.parquet
