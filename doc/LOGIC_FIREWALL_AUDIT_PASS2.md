@@ -3,7 +3,7 @@
 **Date:** 2026-05-27 (post-implementation sweep)
 **Status:** `tools/check_streamlit_logic_firewall.py` returns **OK — scanned 23 files, no violations**. This doc catalogs what the checker *cannot* catch — pipeline-territory drift that hides in patterns the AST scanner doesn't model.
 
-Companion to [LOGIC_FIREWALL_AUDIT.md](LOGIC_FIREWALL_AUDIT.md) and [LOGIC_FIREWALL_PLAN.md](LOGIC_FIREWALL_PLAN.md).
+Successor to the pass-1 `LOGIC_FIREWALL_AUDIT.md` + `LOGIC_FIREWALL_PLAN.md` (both removed 2026-06-04 once their violations were remediated and the checker passed clean). This is now the sole firewall doc, tracking only the residual drift the AST scanner cannot catch.
 
 ---
 
