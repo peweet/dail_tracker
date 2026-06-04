@@ -57,7 +57,7 @@ def _check_endpoints() -> bool | None:
     """HEAD-check every known PDF URL. Opt-in via DAIL_CHECK_ENDPOINTS=1."""
     if os.environ.get("DAIL_CHECK_ENDPOINTS") != "1":
         return None
-    import pdf_endpoint_check
+    from pdf_infra import pdf_endpoint_check
 
     broken, ok = pdf_endpoint_check.endpoint_checker()
     if ok:

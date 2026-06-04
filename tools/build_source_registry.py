@@ -366,7 +366,7 @@ def build_records() -> list[dict]:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "extractors"))
 
     def _oireachtas():
-        from oireachtas_pdf_poller import SOURCES
+        from pdf_infra.oireachtas_pdf_poller import SOURCES
 
         return adapt_oireachtas(SOURCES)
 
