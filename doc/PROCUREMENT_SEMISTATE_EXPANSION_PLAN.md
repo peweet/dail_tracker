@@ -1568,15 +1568,25 @@ silently truncating to the most-recent ~4-6 files per publisher (an unintended
 - NTMA `exclude` drops its 6-row `Revised-FOI-Publication`/`*-Publication.pdf` per-unit
   SUMMARY files that overlap (different grain) the line-level `Q*-Payments` files in 2018-19.
 
-**Result:** 9,695 → **68,033 rows** (7×), €3.35bn → **€13.35bn** safe-to-sum, 22/24
-publishers with data. Same-period double-counts down to 72 rows (0.1%, all coincidental
-/ coarse-period — Defence quarterlies are tagged by year only, NTMA's 6 business-unit
-files are legitimate). Verified via a cross-file (publisher+supplier+amount+po+period)
-duplicate audit.
+**Result:** 9,695 → **68,033 rows** (7×), €3.35bn → **€13.35bn** safe-to-sum. Same-period
+double-counts down to 72 rows (0.1%, all coincidental / coarse-period — Defence quarterlies
+are tagged by year only, NTMA's 6 business-unit files are legitimate). Verified via a
+cross-file (publisher+supplier+amount+po+period) duplicate audit.
 
-**Residual known gaps (out of scope this pass):** NTMA Q1-2020..Q2-2024 (~80 PDFs parse
-to 0 rows — layout/scan break, needs OCR or a bespoke reader); Courts has 6 `.xlsx` links
-that 404→non-zip (`BadZipFile`); `ie_nta` (header not found on its single PDF); Defence
-month-name quarterlies (`jan-mar-2019.pdf`) get period=YEAR only (quarter precision lost,
-no row loss); the previously-held-back render/OCR publishers (Beaumont/Pobal/CnaM/Garda/
-UCD/SETU/CHI/SEAI/EPA) remain unwired.
+**Follow-up: NTMA 2020-2024 block RECOVERED (same day).** The ~80 NTMA Q1-2020..Q2-2024
+per-unit PDFs that parsed to 0 rows were NOT scanned — they're fully digital, but their
+**amount column is headed `"Q4"`/`"Q3"`** (the quarter), not a money word, so `assign_role`
+found no amount column and bailed. Fixes: (a) `refine_roles` now falls back to the most
+**money-like column by content** (MONEY_RE thousands/decimals — excludes the bare `Year`
+column) when no header word matches "amount"; (b) the page banner ("…Payments greater than
+€20,000") split across cells leaving a phantom €20,000 row per file — `TITLE_ROW` is now
+tested against the JOINED row text (not a single cell), removing it. NTMA 1,943 → **3,767
+rows, 0 unparsed**. Combined with concurrently-wired publishers (Pobal/Beaumont/CHI, sibling
+context), the fact table is now **72,423 rows / €14.27bn / 25 publishers**.
+
+**Residual known gaps:** Courts has 6 `.xlsx` links that 404→non-zip (`BadZipFile`);
+`ie_nta` (single PDF is a columnar/non-tabular layout — a whole €-column clusters into one
+row — needs a bespoke reader like NPHDB, not a header tweak); Defence month-name quarterlies
+(`jan-mar-2019.pdf`) get period=YEAR only (quarter precision lost, no row loss); Beaumont/
+Pobal are MIXED PO+payment grain (sibling-context lane); CnaM/Garda/UCD/SETU/SEAI/EPA remain
+unwired (render/OCR/right-URL).
