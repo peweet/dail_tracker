@@ -275,6 +275,29 @@ PUBLISHERS: list[dict] = [
         # grain. Header 'No. of Payments > €20,000' is a COUNT trap; COUNT_HDR routes amount to 'Value'.
         include=r"payments.*over",
         caveat="annual supplier payment totals (Value col), €20k threshold; the separate Q1-2026 PO file is excluded"),
+
+    # ---- Tier E: regulators / cultural bodies (discovery sweep 2 — commercial-vs-noncommercial) --
+    # Commercial semi-states (ESB/Electric Ireland, daa, An Post, ports, CIÉ group) are FOI-exempt
+    # and publish annual reports only — NOT here. EirGrid/GNI/Uisce publish CATEGORY-only rollups
+    # (no supplier names) despite "PO over €20k" page titles — NOT here. RTÉ's published file is a
+    # category summary (Capital/Communication circuits + counts), NOT supplier-level — NOT here.
+    # ABP is supplier-level but its multi-line bilingual (Irish) header bleeds date into supplier —
+    # deferred (needs header-wrap handling). These three parse clean with the generic reader:
+    cfg("ie_hpra", "Health Products Regulatory Authority (HPRA)", "agency", "regulator",
+        listing="https://www.hpra.ie/transparency/financial-information/purchase-orders",
+        semantics="po_committed", grain="purchase_order", tier="E",
+        direct=["https://assets.hpra.ie/data/docs/default-source/corporate/purchase-orders/purchase-orders---q3-2025.pdf"],
+        caveat="clean assets.hpra.ie CDN, predictable quarterly PDF filenames"),
+    cfg("ie_ccpc", "Competition and Consumer Protection Commission (CCPC)", "agency", "regulator",
+        listing="https://www.ccpc.ie/about-us/corporate-information/governance/payment-reports",
+        semantics="payment_actual", grain="payment", tier="E",
+        direct=["https://assets.ccpc.ie/data/docs/default-source/about-us/corporate-information/governance/payment-reports/payments-over-20k-in-q1-2026.pdf"],
+        caveat="quarterly payments >€20k; description column repeats the € amount as a prefix (cosmetic)"),
+    cfg("ie_nli", "National Library of Ireland", "agency", "media_culture",
+        listing="https://www.nli.ie/corporate-information",
+        semantics="payment_actual", grain="payment", tier="E",
+        direct=["https://www.nli.ie/sites/default/files/2025-05/payments-over-eu20000-q1-2025.pdf"],
+        caveat="Drupal /sites/default/files PDFs; some files bundle Q1-Q4 annually"),
 ]
 
 

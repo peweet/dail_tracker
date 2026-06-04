@@ -41,14 +41,23 @@ def _subprocess(script: str) -> bool:
     return r.returncode == 0
 
 
+def _module(mod: str) -> bool:
+    """Run a packaged step via ``python -m <mod>`` (cwd=root → ``import config``
+    resolves). Used for steps that live in a package dir, not at repo root."""
+    t = time.monotonic()
+    r = subprocess.run([sys.executable, "-m", mod], cwd=_ROOT)
+    print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
+    return r.returncode == 0
+
+
 def step_poll_oireachtas() -> bool:
     _hr("[1/5] oireachtas_pdf_poller — payments / attendance / interests PDFs")
-    return _subprocess("oireachtas_pdf_poller.py")
+    return _module("pdf_infra.oireachtas_pdf_poller")
 
 
 def step_pdf_downloader() -> bool:
     _hr("[2/5] pdf_downloader — historical URL list catch-up")
-    return _subprocess("pdf_downloader.py")
+    return _module("pdf_infra.pdf_downloader")
 
 
 def step_members_api() -> bool:

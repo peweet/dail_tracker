@@ -75,7 +75,7 @@ def step_committees_long_format() -> bool:
 
 def step_constituency_pop() -> bool:
     _hr("[4/4] ec_constituency_pop_extract — Census 2022 constituency population")
-    return _subprocess("ec_constituency_pop_extract.py", "--write")
+    return _module("reference.ec_constituency_pop_extract", "--write")
 
 
 def main() -> int:
