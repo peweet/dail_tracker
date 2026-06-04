@@ -378,6 +378,20 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
             })
     df = pl.DataFrame(facts) if facts else pl.DataFrame()
     if df.height:
+        # DROP nameless rows. On a couple of born-digital returns (Aontú p5, FG p2)
+        # the candidate name is split across two text-layer lines; that two-line
+        # layout occasionally spawns a phantom constituency anchor with no name cell
+        # beside it (the deeper name-pairing limitation is documented in
+        # doc/SIPO_OCR_INVESTIGATION.md). A candidate-expenses fact with no candidate
+        # isn't usable — drop it transparently rather than ship a blank-name row. We
+        # never invent the missing name (faithful-extraction).
+        nameless = df.filter(pl.col("candidate_name_raw").str.strip_chars() == "")
+        if nameless.height:
+            print(f"    [{party}] dropped {nameless.height} nameless row(s) "
+                  f"(two-line-layout phantom): "
+                  f"{nameless.select(['constituency', 'expenditure_eur', 'source_page']).to_dicts()}",
+                  flush=True)
+            df = df.filter(pl.col("candidate_name_raw").str.strip_chars() != "")
         # SIPO forms print the candidate summary TWICE ("expenses NOT met from public
         # funds" + "expenses MET from public funds"); when both copies carry amounts the
         # summary-page detector grabs both, doubling every candidate (e.g. Labour p3==p29

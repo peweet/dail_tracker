@@ -20,7 +20,7 @@ from pathlib import Path
 import polars as pl
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from wikidata_socials_etl import (
+from wikidata.wikidata_socials_etl import (
     bluesky_url,
     build_links_df,
     facebook_url,

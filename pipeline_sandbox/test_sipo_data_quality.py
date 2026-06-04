@@ -44,8 +44,8 @@ REQUIRED_COLS = {
     "row_min_confidence", "flag", "source_pdf", "source_page",
 }
 ALLOWED_FLAGS = {
-    "ok", "no_amount", "over_limit_verify", "spend_gt_assigned_verify",
-    "low_confidence_verify",
+    "ok", "no_amount", "over_limit_verify", "assigned_over_limit_verify",
+    "spend_gt_assigned_verify", "low_confidence_verify",
 }
 # a party realistically runs at most ~3 candidates in one constituency; >5 (the max
 # seat count) signals an OCR constituency mis-snap (the FF "Dublin Bay South"=5 bug).
@@ -129,14 +129,21 @@ def test_expenditure_within_statutory_limit_unless_flagged(df):
 
 
 def test_assigned_within_statutory_limit(df):
+    """Any assigned amount over the seat-count's statutory limit MUST carry
+    assigned_over_limit_verify — these are decimal-loss OCR mis-reads (e.g. FF
+    Jim O'Callaghan €1,944,000 = €19,440) the parser honestly flags for manual
+    verification rather than shipping as fact. An UNflagged over-limit assigned
+    value is a silent bad read (mirrors test_expenditure_within_statutory_limit_unless_flagged)."""
     seats = _seats()
     rows = df.filter(pl.col("amount_assigned_eur").is_not_null()).to_dicts()
     offenders = [
         (r["party"], r["candidate_name_raw"], r["constituency"], r["amount_assigned_eur"])
         for r in rows
-        if (lim := STATUTORY_LIMIT.get(int(seats.get(r["constituency"], 0)))) and r["amount_assigned_eur"] > lim * 1.001
+        if (lim := STATUTORY_LIMIT.get(int(seats.get(r["constituency"], 0))))
+        and r["amount_assigned_eur"] > lim * 1.001
+        and r["flag"] != "assigned_over_limit_verify"
     ]
-    assert not offenders, f"assigned-amount over statutory limit: {offenders[:5]}"
+    assert not offenders, f"unflagged assigned-amount over statutory limit: {offenders[:5]}"
 
 
 def test_expenditure_not_misread_assigned(df):

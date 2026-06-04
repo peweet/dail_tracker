@@ -8,6 +8,12 @@ from pages_code.legislation import legislation_page
 from pages_code.lobbying_3 import lobbying_poc_page
 from pages_code.member_overview import member_overview_page
 from pages_code.payments import payments_page
+
+# Pre-donations backup of the Payments page, kept untouched at
+# pages_code/payments_original.py. To restore the original page (without the
+# Party-donations lens), comment the import above and uncomment the line below:
+# from pages_code.payments_original import payments_page
+
 from pages_code.public_appointments import public_appointments_page
 from pages_code.statutory_instruments import statutory_instruments_page
 from pages_code.votes import votes_page
@@ -83,7 +89,7 @@ pg = st.navigation(
         ),
         st.Page(votes_page, title="Votes", icon=":material/how_to_vote:", url_path="rankings-votes"),
         st.Page(interests_page, title="Interests", icon=":material/interests:", url_path="rankings-interests"),
-        st.Page(payments_page, title="Payments", icon=":material/payments:", url_path="rankings-payments"),
+        st.Page(payments_page, title="Payments & Donations", icon=":material/payments:", url_path="rankings-payments"),
         st.Page(lobbying_poc_page, title="Lobbying", icon=":material/groups:", url_path="rankings-lobbying"),
         st.Page(
             legislation_page,

@@ -4744,6 +4744,41 @@ def inject_css() -> None:
             .lp3-recent-period { min-width: 0; }
         }
 
+        /* ── Party donations (Payments & Donations page) ─────────────────────
+           Ink-on-paper ledger: money is one ink, party identity is the 3px
+           editorial side-stripe (project signature), figures are tabular. */
+        .don-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.9rem; margin:0.4rem 0 0.2rem; }
+        @media (max-width: 760px){ .don-grid { grid-template-columns:1fr; } }
+        .don-card { display:block; background:#ffffff; border:1px solid var(--border, oklch(88% 0.006 75));
+            border-left:3px solid var(--don-stripe, oklch(62% 0.008 75)); border-radius:7px;
+            padding:0.95rem 1.05rem 0.9rem; text-decoration:none; color:inherit; position:relative;
+            transition:box-shadow .18s cubic-bezier(.22,1,.36,1), border-color .18s; }
+        .don-card:hover { box-shadow:0 1px 10px oklch(0% 0 0 / .07); border-color:var(--don-stripe); }
+        .don-card .don-dir { position:absolute; top:0.9rem; right:1.05rem; font-size:0.72rem;
+            letter-spacing:.04em; color:oklch(62% 0.008 75); }
+        .don-ptitle { display:flex; align-items:center; gap:0.5rem; margin:0 0 0.1rem; }
+        .don-swatch { width:9px; height:9px; border-radius:2px; background:var(--don-stripe); flex:none; }
+        .don-ptitle h3 { font-size:0.98rem; font-weight:600; margin:0; color:oklch(25% 0.012 75); }
+        .don-amount { font-size:1.7rem; font-weight:650; letter-spacing:-.015em; line-height:1.1;
+            font-variant-numeric:tabular-nums; color:oklch(25% 0.012 75); margin:0.35rem 0 0.1rem; }
+        .don-sub { font-size:0.8rem; color:oklch(62% 0.008 75); }
+        .don-cardfoot { display:flex; justify-content:space-between; align-items:baseline; margin-top:0.7rem; }
+        .don-cardfoot .go { color:var(--accent); font-weight:600; font-size:0.82rem; }
+        /* receipts (donor list) */
+        .don-receipts { background:#ffffff; border:1px solid var(--border, oklch(88% 0.006 75));
+            border-left:3px solid var(--don-stripe, oklch(62% 0.008 75)); border-radius:7px; padding:0.2rem 1.1rem; }
+        .don-rrow { display:grid; grid-template-columns:1fr auto auto auto; align-items:baseline;
+            gap:0.4rem 1.1rem; padding:0.65rem 0; border-bottom:1px solid oklch(92% 0.005 75); }
+        .don-rrow:last-child { border-bottom:none; }
+        .don-rrow .dn { font-weight:500; color:oklch(25% 0.012 75); }
+        .don-rrow .dt { color:oklch(62% 0.008 75); font-size:0.83rem; font-variant-numeric:tabular-nums; }
+        .don-rrow .mt { font-size:0.66rem; letter-spacing:.06em; text-transform:uppercase; color:oklch(45% 0.01 75);
+            border:1px solid oklch(90% 0.006 75); border-radius:4px; padding:0.1rem 0.4rem; align-self:center; }
+        .don-rrow .da { font-variant-numeric:tabular-nums; font-weight:600; min-width:5.3rem; text-align:right;
+            color:oklch(25% 0.012 75); }
+        .don-vmark { font-size:0.64rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
+            color:oklch(62% 0.008 75); white-space:nowrap; }
+        .don-rrow .don-vmark { grid-column:1 / -1; padding-top:0.1rem; }
 
         </style>
         """,
