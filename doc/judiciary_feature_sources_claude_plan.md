@@ -1324,6 +1324,75 @@ would compete but needs **ghostscript** (not installed). camelot is also **not a
 
 ---
 
+## PLANNED FEATURE — UI Sketch & Build Contracts (data-grounded, 2026-06-04)
+
+Status: **PLANNED — nothing built.** Grounded in the 12 validated sandbox datasets
+(`data/sandbox/judiciary/`, see that folder's README). Aligns to app conventions: card-based
+(no `st.dataframe` on primary views), year pills, provenance expanders, `#ffffff` cards, no
+inference in copy, logic firewall (all classification in SQL views, parquet read only in data_access).
+
+### UI sketch — page "Courts & Judiciary" (two halves + cross-page integration)
+
+Hero dek (no inference): *"Who sits on Ireland's courts, who appointed them, and how the courts are
+performing. Source-linked public records — does not rate judges or imply misconduct."*
+
+1. **The Bench (roster)** — browse by court tier (pills), each judge a card: name, court, rank,
+   appointed date + authority (spine), elevation flag, HC specialist-list chip, salary band. Vacancies
+   as muted cards. *Data: roster + spine + hc_assignments + salaries.*
+2. **Judge profile (drill-down)** — career arc: appointed [court] [date] by [authority] → elevated to
+   [court]; assignment; salary rank; (2016+) prior career + the vacancy filled (predecessor). Provenance:
+   Iris + gov.ie + roster links. Honest tiers: rich for Supreme/Appeal & 2016+, thin for pre-2016 District/Circuit.
+3. **Appointments & government** — authority split (President 160 / Government 388 / Minister 429);
+   elevation ladder chips (HC→Appeal 17, HC→Supreme 6, District→Circuit 4); **cross-page panel on
+   Taoiseach / Minister-for-Justice profiles: "judges this government appointed"** (the unique wedge —
+   reuses the elected-side spine; no competitor can build it).
+4. **Vacancy pipeline** — gov.ie funnel: vacancy cause (resignation/retirement/elevation/death + named
+   predecessor) → nominees (prior career) → now on bench. Closes lifecycle (e.g. O'Shea appt 2017 → resigned
+   2025 → replaced 2026).
+5. **The Courts — system health (no named judges)** — clearance by court 2017–24 (CoA 68% lowest, shown
+   with trend), waiting times by venue/matter YoY (Limerick 50wk outlier), 94-courthouse map. Present
+   numbers; no editorial "failing" language.
+6. **Judicial conduct — AGGREGATE ONLY** — Section 87(4): received 2022·17 → 2023·216 → 2024·273; of 2024's
+   273: 0 determinations, 0 reprimands, 1 inquiry. Prominent caveat; never attributed to a named judge.
+7. **Cost & context** — salary by rank (€147,961–€266,295; bench ≈ €34.3M); footnote: Irish judges at EU
+   courts (standalone, not bench-linked).
+
+**Excluded (and why):** revolving-door / any fuzzy name-matching (false positives, 0 current-bench signal —
+tested & removed); judgments corpus (redundant + copyright); Legal Diary cases-up-for-judgement (privacy:
+wards/minors/childcare); per-judge conduct/performance/bias scoring (the third rail).
+
+### Build contracts
+
+**Pre-promotion cleanup** (sandbox → `data/gold/parquet/judiciary_*.parquet`): drop `body=='Courts'` junk
+bucket; name-alias CSV in `data/_meta/` (Liz↔Elizabeth, Gabett↔Gabbett); ex-officio resolution (prefer
+substantive seat); event-type + dedup multi-notice judges; alias fix kills the one false elevation.
+
+**SQL views** (`sql_views/`, all logic here):
+- `v_judiciary_roster` — one row per sitting judge-seat (name, court, rank, is_president/ex_officio/vacancy, assignment, salary_band, source_url)
+- `v_judiciary_appointments` — one row per appointment event (appointee, court, date, authority, is_elevation, current_court, prior_career, vacancy_cause/predecessor, iris+govie urls)
+- `v_judiciary_profile` — one row per judge identity, UI summary (current court/rank, first_appointed, elevation_path, assignment, salary_band, match_confidence, requires_manual_review)
+- `v_courts_clearance` (jurisdiction×area×category×year, +clearance_pct, 2017–24)
+- `v_courts_waiting_times` (court×venue/matter×year)
+- `v_courthouses` (per office + lat/lon)
+- `v_judicial_conduct` (aggregate Section 87(4), year×item — kept separate, aggregate-only)
+- SQL contract tests: views register; no vacancy in profile; source_url non-null; no named-join onto conduct; match_confidence present.
+
+**Data access** (`utility/data_access/judiciary_data.py`): cached `fetch_*` per view; parquet read ONLY here;
+expose failure state to UI (never silent empty frame).
+
+**Page chain:** `sql_views/judiciary_*.sql → v_* → data_access.fetch_* → utility/pages_code/judiciary.py →
+st.Page` (mirror `statutory_instruments.py`). Pure presentation, `ui/components.py` cards, `shared_css.py`.
+
+**Smallest first PR:** Sections 1–3 (Bench + profiles + appointments/government) — all green data in hand;
+views `v_judiciary_roster` / `v_judiciary_appointments` / `v_judiciary_profile`. The Courts module
+(clearance/waiting/map) = PR2; conduct = PR3.
+
+**Open decisions before build:** (1) standalone page vs Appointments sub-panel (judicial is already an
+`appointment_type`); (2) pre-2016 veteran backfill (61 judges) vs honest gap; (3) scrape refresh cadence
+(roster has `Published at`; assignments per-term); (4) surface vs hide `requires_manual_review` (TWFY-style: show, flagged).
+
+---
+
 ## Recommended Build Order
 
 ### Phase 0 — Audit Existing Appointments Data

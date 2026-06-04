@@ -115,16 +115,23 @@ def _build_xlsx(headers, rows) -> bytes:
 
 
 def test_read_xlsx_roundtrip_and_debit_sign():
+    # ≥8 company rows: emit_file's content-validity gate (looks_like_po) needs a
+    # realistic PO-list size; a sub-8-row file is correctly rejected as a stray doc.
     b = _build_xlsx(
         ["Order No", "Supplier", "EURO", "Description"],
         [["400171680", "DAVID WALSH CIVIL ENGINEERING LTD", -21188.82, "Engineering"],
          ["400171809", "CARROLL QUARRIES LTD", -40000.0, "Materials"],
-         ["400171999", "ENERGIA LTD", -25035.56, "Utilities"]],
+         ["400171999", "ENERGIA LTD", -25035.56, "Utilities"],
+         ["400172040", "MURPHY CONCRETE LTD", -18750.00, "Materials"],
+         ["400172112", "KELLY PLANT HIRE LTD", -33200.45, "Plant Hire"],
+         ["400172233", "BYRNE ELECTRICAL LIMITED", -27600.10, "Electrical"],
+         ["400172301", "WALSH ROOFING LTD", -45120.00, "Construction"],
+         ["400172388", "DOYLE LANDSCAPING LTD", -21000.00, "Grounds"]],
     )
     cf = m.la("synthetic", "Synthetic", "Test", "county", fmt="xlsx",
               listing="https://x", value_kind="po_committed")
     rows, stat = m.emit_file(cf, "https://x/pos-q1-2025.xlsx", b, ".xlsx")
-    assert stat["valid"] and len(rows) == 3
+    assert stat["valid"] and len(rows) == 8
     # debit-sign auto-detected → amounts abs'd to positive
     assert all(r["amount_eur"] > 0 for r in rows)
     assert rows[0]["supplier_raw"].startswith("DAVID WALSH")

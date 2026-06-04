@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
@@ -100,7 +100,7 @@ def build() -> pl.DataFrame:
         # the concrete data-quality win: SI had no topic, LRC supplies one
         (matched & pl.col("si_policy_domain").is_null()).alias("lrc_fills_empty_domain"),
         pl.when(matched).then(pl.lit(CAVEAT)).otherwise(None).alias("lrc_caveat"),
-        pl.lit(datetime.now(timezone.utc).isoformat(timespec="seconds")).alias("source_built_at"),
+        pl.lit(datetime.now(UTC).isoformat(timespec="seconds")).alias("source_built_at"),
     )
     return summary
 

@@ -541,6 +541,7 @@ def _clear_all_filters() -> None:
     st.session_state.si_dept_filter = "All"
     st.session_state.si_op_filter = "All"
     st.session_state.si_domain_filter = "All"
+    st.session_state.si_subject_filter = "All"
     st.session_state.si_minister_filter = "All"
     st.session_state.si_state_filter = "All"
     st.session_state.si_eu_filter = False
@@ -642,6 +643,8 @@ def _clear_facet(key: str) -> None:
         st.session_state.si_op_filter = "All"
     elif key == "dom":
         st.session_state.si_domain_filter = "All"
+    elif key == "subject":
+        st.session_state.si_subject_filter = "All"
     elif key == "min":
         st.session_state.si_minister_filter = "All"
     elif key == "state":
@@ -677,6 +680,8 @@ def _active_filter_chips(full_df: pd.DataFrame) -> list[tuple[str, str]]:
         chips.append((_pretty_token(op), "op"))
     if (dom := st.session_state.get("si_domain_filter")) and dom != "All":
         chips.append((_pretty_token(dom), "dom"))
+    if (subj := st.session_state.get("si_subject_filter")) and subj != "All":
+        chips.append((subj, "subject"))
     if (m := st.session_state.get("si_minister_filter")) and m != "All":
         chips.append((m, "min"))
     if (stt := st.session_state.get("si_state_filter")) and stt != "All":
@@ -764,6 +769,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
     dept_sel = st.session_state.get("si_dept_filter")
     op_sel = st.session_state.get("si_op_filter")
     dom_sel = st.session_state.get("si_domain_filter")
+    subj_sel = st.session_state.get("si_subject_filter")
     min_sel = st.session_state.get("si_minister_filter")
     state_sel = st.session_state.get("si_state_filter")
     tabs = st.tabs(
@@ -771,6 +777,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
             _tab_label("Department", dept_sel if dept_sel and dept_sel != "All" else None),
             _tab_label("What it does", _pretty_token(op_sel) if op_sel and op_sel != "All" else None),
             _tab_label("Policy area", _pretty_token(dom_sel) if dom_sel and dom_sel != "All" else None),
+            _tab_label("Topic (LRC)", subj_sel if subj_sel and subj_sel != "All" else None),
             _tab_label("Minister", min_sel if min_sel and min_sel != "All" else None),
             _tab_label(
                 "Legal status", _STATE_FACET_LABELS.get(state_sel) if state_sel and state_sel != "All" else None
@@ -821,6 +828,28 @@ def _render_facets(full_df: pd.DataFrame) -> None:
         )
 
     with tabs[3]:
+        # logic_firewall: display_only — chip-width counts power the pill labels
+        # only ("Transport · 237"); run once on the full corpus per render.
+        if "lrc_primary_subject" not in full_df.columns:
+            st.caption("LRC subject classification isn't available for this corpus yet.")
+        else:
+            subj_counts = full_df["lrc_primary_subject"].dropna().value_counts().to_dict()
+            subj_opts = ["All"] + sorted(subj_counts, key=subj_counts.get, reverse=True)
+            st.pills(
+                "Topic (LRC)",
+                subj_opts,
+                default="All",
+                key="si_subject_filter",
+                label_visibility="collapsed",
+                format_func=lambda x: "All topics" if x == "All" else f"{x} · {subj_counts.get(x, 0):,}",
+            )
+            st.caption(
+                "Subject heading from the Law Reform Commission Classified List of "
+                "in-force legislation — a discovery aid, not a legal-status claim. "
+                "Unmatched SIs (often spent or revoked) are absent from these counts."
+            )
+
+    with tabs[4]:
         # logic_firewall: display_only — chip-width counts.
         min_counts = full_df["si_minister_name"].dropna().value_counts().to_dict()
         min_opts = ["All"] + sorted(min_counts, key=min_counts.get, reverse=True)
@@ -833,7 +862,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
             format_func=lambda x: "All ministers" if x == "All" else f"{x} · {min_counts.get(x, 0):,}",
         )
 
-    with tabs[4]:
+    with tabs[5]:
         # logic_firewall: display_only — legal-state value_counts power the
         # chip-width labels only ("Revoked · 1,195"); run once on the full corpus.
         if "current_state" not in full_df.columns:
@@ -867,7 +896,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
                 "statement that the SI is in force."
             )
 
-    with tabs[5]:
+    with tabs[6]:
         _render_eu_scrutiny_tab(full_df)
 
 
@@ -1411,6 +1440,7 @@ def statutory_instruments_page() -> None:
         post_committee=st.session_state.get("si_post_committee_filter", False),
         search=st.session_state.get("si_title_search"),
         state=st.session_state.get("si_state_filter"),
+        subject=st.session_state.get("si_subject_filter"),
     )
     _render_kpi_strip(filtered)
 
