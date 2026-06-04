@@ -1,0 +1,482 @@
+[
+  {
+    "slug": "clare",
+    "division": "Housing and Building",
+    "gross_expenditure": 34115918.0,
+    "income": 34702911.0,
+    "net_expenditure": -586993.0,
+    "net_expenditure_prior_yr": -624502.0,
+    "source_page_number": 28,
+    "printed_total_eur": 182430749.0
+  },
+  {
+    "slug": "clare",
+    "division": "Roads, Transportation and Safety",
+    "gross_expenditure": 45933590.0,
+    "income": 31402554.0,
+    "net_expenditure": 14531037.0,
+    "net_expenditure_prior_yr": 12159233.0,
+    "source_page_number": 28,
+    "printed_total_eur": 182430749.0
+  },
+  {
+    "slug": "clare",
+    "division": "Water Services",
+    "gross_expenditure": 12329060.0,
+    "income": 11701689.0,
+    "net_expenditure": 627371.0,
+    "net_expenditure_prior_yr": 233966.0,
+    "source_page_number": 28,
+    "printed_total_eur": 182430749.0
+  },
+  {
+    "slug": "clare",
+    "division": "Development Management",
+    "gross_expenditure": 49555385.0,
+    "income": 47829445.0,
+    "net_expenditure": 1725941.0,
+    "net_expenditure_prior_yr": -1497779.0,
+    "source_page_number": 28,
+    "printed_total_eur": 182430749.0
+  },
+  {
+    "slug": "clare",
+    "division": "Environmental Services",
+    "gross_expenditure": 17730805.0,
+    "income": 4192987.0,
+    "net_expenditure": 13537818.0,
+    "net_expenditure_prior_yr": 13103216.0,
+    "source_page_number": 28,
+    "printed_total_eur": 182430749.0
+  },
+  {
+    "slug": "clare",
+    "division": "Recreation and Amenity",
+    "gross_expenditure": 12926593.0,
+    "income": 1623574.0,
+    "net_expenditure": 11303018.0,
+    "net_expenditure_prior_yr": 10249547.0,
+    "source_page_number": 28,
+    "printed_total_eur": 182430749.0
+  },
+  {
+    "slug": "clare",
+    "division": "Agriculture, Education, Health & Welfare",
+    "gross_expenditure": 771741.0,
+    "income": 371821.0,
+    "net_expenditure": 399921.0,
+    "net_expenditure_prior_yr": 310555.0,
+    "source_page_number": 28,
+    "printed_total_eur": 182430749.0
+  },
+  {
+    "slug": "clare",
+    "division": "Miscellaneous Services",
+    "gross_expenditure": 9067656.0,
+    "income": 15514435.0,
+    "net_expenditure": -6446779.0,
+    "net_expenditure_prior_yr": -4936108.0,
+    "source_page_number": 28,
+    "printed_total_eur": 182430749.0
+  },
+  {
+    "slug": "dlr",
+    "division": "Housing and Building",
+    "gross_expenditure": 66964237.0,
+    "income": 60799978.0,
+    "net_expenditure": 6164259.0,
+    "net_expenditure_prior_yr": 6500922.0,
+    "source_page_number": 11,
+    "printed_total_eur": 239993147.0
+  },
+  {
+    "slug": "dlr",
+    "division": "Roads, Transportation and Safety",
+    "gross_expenditure": 31336424.0,
+    "income": 13217527.0,
+    "net_expenditure": 18118896.0,
+    "net_expenditure_prior_yr": 14406600.0,
+    "source_page_number": 11,
+    "printed_total_eur": 239993147.0
+  },
+  {
+    "slug": "dlr",
+    "division": "Water Services",
+    "gross_expenditure": 12654271.0,
+    "income": 8294392.0,
+    "net_expenditure": 4359879.0,
+    "net_expenditure_prior_yr": 3766247.0,
+    "source_page_number": 11,
+    "printed_total_eur": 239993147.0
+  },
+  {
+    "slug": "dlr",
+    "division": "Development Management",
+    "gross_expenditure": 40866769.0,
+    "income": 20574025.0,
+    "net_expenditure": 20292744.0,
+    "net_expenditure_prior_yr": 17663589.0,
+    "source_page_number": 11,
+    "printed_total_eur": 239993147.0
+  },
+  {
+    "slug": "dlr",
+    "division": "Environmental Services",
+    "gross_expenditure": 35025702.0,
+    "income": 8484250.0,
+    "net_expenditure": 26541452.0,
+    "net_expenditure_prior_yr": 25492244.0,
+    "source_page_number": 11,
+    "printed_total_eur": 239993147.0
+  },
+  {
+    "slug": "dlr",
+    "division": "Recreation and Amenity",
+    "gross_expenditure": 38771998.0,
+    "income": 6665147.0,
+    "net_expenditure": 32106851.0,
+    "net_expenditure_prior_yr": 29013289.0,
+    "source_page_number": 11,
+    "printed_total_eur": 239993147.0
+  },
+  {
+    "slug": "dlr",
+    "division": "Agriculture, Education, Health & Welfare",
+    "gross_expenditure": 5585042.0,
+    "income": 5830472.0,
+    "net_expenditure": -245431.0,
+    "net_expenditure_prior_yr": 1113819.0,
+    "source_page_number": 11,
+    "printed_total_eur": 239993147.0
+  },
+  {
+    "slug": "dlr",
+    "division": "Miscellaneous Services",
+    "gross_expenditure": 8788703.0,
+    "income": 18122158.0,
+    "net_expenditure": -9333454.0,
+    "net_expenditure_prior_yr": -2168010.0,
+    "source_page_number": 11,
+    "printed_total_eur": 239993147.0
+  },
+  {
+    "slug": "fingal",
+    "division": "Housing and Building",
+    "gross_expenditure": 107323165.0,
+    "income": 106361238.0,
+    "net_expenditure": 961927.0,
+    "net_expenditure_prior_yr": -2289007.0,
+    "source_page_number": 15,
+    "printed_total_eur": 338932640.0
+  },
+  {
+    "slug": "fingal",
+    "division": "Roads, Transportation and Safety",
+    "gross_expenditure": 40056074.0,
+    "income": 10051213.0,
+    "net_expenditure": 30004861.0,
+    "net_expenditure_prior_yr": 25788599.0,
+    "source_page_number": 15,
+    "printed_total_eur": 338932640.0
+  },
+  {
+    "slug": "fingal",
+    "division": "Water Services",
+    "gross_expenditure": 17104636.0,
+    "income": 16517975.0,
+    "net_expenditure": 586661.0,
+    "net_expenditure_prior_yr": -25797.0,
+    "source_page_number": 15,
+    "printed_total_eur": 338932640.0
+  },
+  {
+    "slug": "fingal",
+    "division": "Development Management",
+    "gross_expenditure": 47437992.0,
+    "income": 27000411.0,
+    "net_expenditure": 20437581.0,
+    "net_expenditure_prior_yr": 19772610.0,
+    "source_page_number": 15,
+    "printed_total_eur": 338932640.0
+  },
+  {
+    "slug": "fingal",
+    "division": "Environmental Services",
+    "gross_expenditure": 51818178.0,
+    "income": 7836050.0,
+    "net_expenditure": 43982128.0,
+    "net_expenditure_prior_yr": 36292976.0,
+    "source_page_number": 15,
+    "printed_total_eur": 338932640.0
+  },
+  {
+    "slug": "fingal",
+    "division": "Recreation and Amenity",
+    "gross_expenditure": 61028110.0,
+    "income": 5202157.0,
+    "net_expenditure": 55825953.0,
+    "net_expenditure_prior_yr": 51540874.0,
+    "source_page_number": 15,
+    "printed_total_eur": 338932640.0
+  },
+  {
+    "slug": "fingal",
+    "division": "Agriculture, Education, Health & Welfare",
+    "gross_expenditure": 1701252.0,
+    "income": 466710.0,
+    "net_expenditure": 1234542.0,
+    "net_expenditure_prior_yr": 1070313.0,
+    "source_page_number": 15,
+    "printed_total_eur": 338932640.0
+  },
+  {
+    "slug": "fingal",
+    "division": "Miscellaneous Services",
+    "gross_expenditure": 12463232.0,
+    "income": 22241291.0,
+    "net_expenditure": -9778059.0,
+    "net_expenditure_prior_yr": -12369172.0,
+    "source_page_number": 15,
+    "printed_total_eur": 338932640.0
+  },
+  {
+    "slug": "kildare",
+    "division": "Housing and Building",
+    "gross_expenditure": 110660463.0,
+    "income": 104846350.0,
+    "net_expenditure": 5814112.0,
+    "net_expenditure_prior_yr": 5819019.0,
+    "source_page_number": 12,
+    "printed_total_eur": 263252645.0
+  },
+  {
+    "slug": "kildare",
+    "division": "Roads, Transportation and Safety",
+    "gross_expenditure": 47803666.0,
+    "income": 25374175.0,
+    "net_expenditure": 22429491.0,
+    "net_expenditure_prior_yr": 21460437.0,
+    "source_page_number": 12,
+    "printed_total_eur": 263252645.0
+  },
+  {
+    "slug": "kildare",
+    "division": "Water Services",
+    "gross_expenditure": 8634331.0,
+    "income": 8107284.0,
+    "net_expenditure": 527047.0,
+    "net_expenditure_prior_yr": 467408.0,
+    "source_page_number": 12,
+    "printed_total_eur": 263252645.0
+  },
+  {
+    "slug": "kildare",
+    "division": "Development Management",
+    "gross_expenditure": 28479210.0,
+    "income": 11562611.0,
+    "net_expenditure": 16916599.0,
+    "net_expenditure_prior_yr": 13858795.0,
+    "source_page_number": 12,
+    "printed_total_eur": 263252645.0
+  },
+  {
+    "slug": "kildare",
+    "division": "Environmental Services",
+    "gross_expenditure": 30893308.0,
+    "income": 12819865.0,
+    "net_expenditure": 18073443.0,
+    "net_expenditure_prior_yr": 17409624.0,
+    "source_page_number": 12,
+    "printed_total_eur": 263252645.0
+  },
+  {
+    "slug": "kildare",
+    "division": "Recreation and Amenity",
+    "gross_expenditure": 18343968.0,
+    "income": 2530794.0,
+    "net_expenditure": 15813174.0,
+    "net_expenditure_prior_yr": 14417787.0,
+    "source_page_number": 12,
+    "printed_total_eur": 263252645.0
+  },
+  {
+    "slug": "kildare",
+    "division": "Agriculture, Education, Health & Welfare",
+    "gross_expenditure": 1342111.0,
+    "income": 383787.0,
+    "net_expenditure": 958324.0,
+    "net_expenditure_prior_yr": 657579.0,
+    "source_page_number": 12,
+    "printed_total_eur": 263252645.0
+  },
+  {
+    "slug": "kildare",
+    "division": "Miscellaneous Services",
+    "gross_expenditure": 17095588.0,
+    "income": 14159378.0,
+    "net_expenditure": 2936210.0,
+    "net_expenditure_prior_yr": 7945915.0,
+    "source_page_number": 12,
+    "printed_total_eur": 263252645.0
+  },
+  {
+    "slug": "monaghan",
+    "division": "Housing and Building",
+    "gross_expenditure": 14280911.0,
+    "income": 16463497.0,
+    "net_expenditure": -2182586.0,
+    "net_expenditure_prior_yr": -1478762.0,
+    "source_page_number": 11,
+    "printed_total_eur": 94760563.0
+  },
+  {
+    "slug": "monaghan",
+    "division": "Roads, Transportation and Safety",
+    "gross_expenditure": 29787332.0,
+    "income": 22392055.0,
+    "net_expenditure": 7395276.0,
+    "net_expenditure_prior_yr": 7315791.0,
+    "source_page_number": 11,
+    "printed_total_eur": 94760563.0
+  },
+  {
+    "slug": "monaghan",
+    "division": "Water Services",
+    "gross_expenditure": 8205332.0,
+    "income": 7689534.0,
+    "net_expenditure": 515798.0,
+    "net_expenditure_prior_yr": -42986.0,
+    "source_page_number": 11,
+    "printed_total_eur": 94760563.0
+  },
+  {
+    "slug": "monaghan",
+    "division": "Development Management",
+    "gross_expenditure": 20314022.0,
+    "income": 13554961.0,
+    "net_expenditure": 6759061.0,
+    "net_expenditure_prior_yr": 5627491.0,
+    "source_page_number": 11,
+    "printed_total_eur": 94760563.0
+  },
+  {
+    "slug": "monaghan",
+    "division": "Environmental Services",
+    "gross_expenditure": 9071590.0,
+    "income": 2398254.0,
+    "net_expenditure": 6673335.0,
+    "net_expenditure_prior_yr": 6008463.0,
+    "source_page_number": 11,
+    "printed_total_eur": 94760563.0
+  },
+  {
+    "slug": "monaghan",
+    "division": "Recreation and Amenity",
+    "gross_expenditure": 6447852.0,
+    "income": 652597.0,
+    "net_expenditure": 5795255.0,
+    "net_expenditure_prior_yr": 5673606.0,
+    "source_page_number": 11,
+    "printed_total_eur": 94760563.0
+  },
+  {
+    "slug": "monaghan",
+    "division": "Agriculture, Education, Health & Welfare",
+    "gross_expenditure": 587615.0,
+    "income": 425841.0,
+    "net_expenditure": 161774.0,
+    "net_expenditure_prior_yr": 143388.0,
+    "source_page_number": 11,
+    "printed_total_eur": 94760563.0
+  },
+  {
+    "slug": "monaghan",
+    "division": "Miscellaneous Services",
+    "gross_expenditure": 6065910.0,
+    "income": 6764477.0,
+    "net_expenditure": -698568.0,
+    "net_expenditure_prior_yr": -676543.0,
+    "source_page_number": 11,
+    "printed_total_eur": 94760563.0
+  },
+  {
+    "slug": "sligo",
+    "division": "Housing and Building",
+    "gross_expenditure": 15430309.0,
+    "income": 13936847.0,
+    "net_expenditure": 1493461.0,
+    "net_expenditure_prior_yr": 1548570.0,
+    "source_page_number": 13,
+    "printed_total_eur": 84685553.0
+  },
+  {
+    "slug": "sligo",
+    "division": "Roads, Transportation and Safety",
+    "gross_expenditure": 27766473.0,
+    "income": 21147099.0,
+    "net_expenditure": 6619374.0,
+    "net_expenditure_prior_yr": 6444711.0,
+    "source_page_number": 13,
+    "printed_total_eur": 84685553.0
+  },
+  {
+    "slug": "sligo",
+    "division": "Water Services",
+    "gross_expenditure": 4409580.0,
+    "income": 4391898.0,
+    "net_expenditure": 17682.0,
+    "net_expenditure_prior_yr": -52747.0,
+    "source_page_number": 13,
+    "printed_total_eur": 84685553.0
+  },
+  {
+    "slug": "sligo",
+    "division": "Development Management",
+    "gross_expenditure": 12382910.0,
+    "income": 8293674.0,
+    "net_expenditure": 4089237.0,
+    "net_expenditure_prior_yr": 4025796.0,
+    "source_page_number": 13,
+    "printed_total_eur": 84685553.0
+  },
+  {
+    "slug": "sligo",
+    "division": "Environmental Services",
+    "gross_expenditure": 8861724.0,
+    "income": 1643399.0,
+    "net_expenditure": 7218324.0,
+    "net_expenditure_prior_yr": 6375680.0,
+    "source_page_number": 13,
+    "printed_total_eur": 84685553.0
+  },
+  {
+    "slug": "sligo",
+    "division": "Recreation and Amenity",
+    "gross_expenditure": 5796097.0,
+    "income": 738635.0,
+    "net_expenditure": 5057463.0,
+    "net_expenditure_prior_yr": 4910334.0,
+    "source_page_number": 13,
+    "printed_total_eur": 84685553.0
+  },
+  {
+    "slug": "sligo",
+    "division": "Agriculture, Education, Health & Welfare",
+    "gross_expenditure": 873114.0,
+    "income": 435541.0,
+    "net_expenditure": 437574.0,
+    "net_expenditure_prior_yr": 378318.0,
+    "source_page_number": 13,
+    "printed_total_eur": 84685553.0
+  },
+  {
+    "slug": "sligo",
+    "division": "Miscellaneous Services",
+    "gross_expenditure": 9165346.0,
+    "income": 9627449.0,
+    "net_expenditure": -462102.0,
+    "net_expenditure_prior_yr": -906162.0,
+    "source_page_number": 13,
+    "printed_total_eur": 84685553.0
+  }
+]
