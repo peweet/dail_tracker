@@ -43,6 +43,15 @@ def _subprocess(script: str) -> bool:
     return r.returncode == 0
 
 
+def _module(mod: str) -> bool:
+    """Run a packaged step via ``python -m <mod>`` (cwd=root → ``import config``
+    resolves). Used for steps that live in a package dir, not at repo root."""
+    t = time.monotonic()
+    r = subprocess.run([sys.executable, "-m", mod], cwd=_ROOT)
+    print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
+    return r.returncode == 0
+
+
 def step_poll() -> bool:
     _hr("[1/7] lobbying_poller — YTD lobbying.ie CSV fetch")
     return _subprocess("lobbying_poller.py")
@@ -81,17 +90,17 @@ def step_cro_normalise() -> bool:
 
 def step_charity_normalise() -> bool:
     _hr("[6/8] charity_normalise — Charities Regulator XLSX → silver")
-    return _subprocess("charity_normalise.py")
+    return _module("charity.charity_normalise")
 
 
 def step_charity_resolved() -> bool:
     _hr("[7/8] charity_resolved — CRO ⨝ charity Tier-A join")
-    return _subprocess("charity_resolved.py")
+    return _module("charity.charity_resolved")
 
 
 def step_charity_enriched() -> bool:
     _hr("[8/8] charity_enriched — gold charity table with NACE + compliance flags")
-    return _subprocess("charity_enriched.py")
+    return _module("charity.charity_enriched")
 
 
 def main() -> int:
