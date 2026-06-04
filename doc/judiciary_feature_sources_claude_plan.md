@@ -1202,6 +1202,128 @@ Priority:
 
 ---
 
+## International Comparators (What Other Projects Build)
+
+Surveyed 2026-06-04. These are **reference models, not ingestion targets**. They establish that judiciary-monitoring is a mature civic-tech field, identify which archetype fits Dáil Tracker, and flag which depth-plays could underpin a supporter/paid tier. Six archetypes:
+
+### Archetype 1 — Appointment / biographical spine  (BEST FIT; matches the Iris-spine instinct)
+
+- Federal Judicial Center — Biographical Directory of Article III Judges, 1789–present; searchable by appointing president; full export — https://www.fjc.gov/history/judges
+- Free Law Project — Judge & Disclosure Database — https://free.law/projects/judge-db/
+
+Government-built, 25 yrs live, appointment-history **not** scoring. Direct analog to `judiciary_appointments` + the appointing-government angle.
+
+### Archetype 2 — Appointment as a political act  (ON-MISSION for an elected-accountability app)
+
+- Alliance for Justice — Vacancy Tracker — https://afj.org/vacancy-tracker/
+- Heritage Foundation — Judicial Appointments Tracker — https://datavisualizations.heritage.org/courts/judicial-appointments-tracker/
+- Brennan Center — Federal Judicial Nominations — https://www.brennancenter.org/our-work/research-reports/federal-judicial-nominations
+- ACS — On the Bench — https://www.acslaw.org/judicial-nominations/on-the-bench-tracking-president-bidens-judicial-nominations/
+- Ballotpedia — Federal judicial appointments by president — https://ballotpedia.org/Federal_judicial_appointments_by_president
+
+Same data, a spectrum of partisan framings → appointment-as-political-act is mainstream **and** contested.
+
+### Archetype 3 — Financial disclosure / conflicts  (HIGHEST IMPACT; likely BLOCKED in Ireland)
+
+- CourtListener — Judicial Financial Disclosures DB — https://www.courtlistener.com/financial-disclosures/
+- Fix the Court — Financial Disclosures — https://fixthecourt.com/fix/financial-disclosures/
+
+Only exists because the US Ethics in Government Act 1978 forces public filing; fed ProPublica's 2024 Pulitzer SCOTUS investigation. **Ireland has no equivalent public judicial financial-interest regime — CONFIRM.** If absent, this avenue is closed and the absence is itself a story.
+
+### Archetype 4 — System performance metrics (aggregate, never named-judge)
+
+- EU Justice Scoreboard — https://commission.europa.eu/strategy-and-policy/policies/justice-and-fundamental-rights/upholding-rule-law/eu-justice-scoreboard_en
+- Council of Europe CEPEJ — https://www.coe.int/en/web/cepej/cepej-work/evaluation-of-judicial-systems
+- World Justice Project — Rule of Law Index — https://worldjusticeproject.org/rule-of-law-index/
+
+CEPEJ already publishes Irish **national** clearance-rate/disposition-time/pendency — don't re-derive; the gap is court-level granularity.
+
+### Archetype 5 — Case-data / pendency analytics  (DEPTH-FOR-LAWYERS; = a second product)
+
+- DAKSH (India) — High Court Data Portal — https://www.dakshindia.org/daksh-high-court-data-portal/
+- Development Data Lab — Judicial Data Portal (India) — https://www.devdatalab.org/judicial-data
+
+NGO-scale missions (data scientists + lawyers); scrape cause lists / national grids → open court-data portal. The model for "depth done well", and the scale warning.
+
+### Archetype 6 — Ideology / performance scoring  (THE THIRD RAIL — banned by this plan, correctly)
+
+- Martin–Quinn scores — https://en.wikipedia.org/wiki/Martin-Quinn_score
+- Judicial Common Space — https://en.wikipedia.org/wiki/Judicial_Common_Space
+
+Rigorous peer-reviewed academic ideology scoring from voting records; even its authors treat it as contested research. A civic tracker reproducing anything like it = defamation + mission failure.
+
+### Adjacent / infrastructure
+
+- Wikidata (judges as CC0 linked entities) — https://www.wikidata.org/wiki/Q16533
+- UK Transparency Project (open-justice / family-court reporting reform) — https://transparencyproject.org.uk/
+- Existing Irish judgment hosts (do **NOT** re-host): BAILII https://www.bailii.org ; courts.ie Judgments https://www2.courts.ie/Judgments ; vLex/Justis (commercial) https://ie.vlex.com/
+
+### Support / monetisation signals
+
+- **Free Law Project / CourtListener**: nonprofit; paid membership now unlocks full API + bulk access — proves a free-public-UI + paid-API/bulk tier model.
+- **vLex / Justis**: commercial paywall; lawyer-grade headnotes/AI — proves willingness-to-pay exists in the Irish legal market (archetypes 1 + 5 are the saleable layers).
+- **DAKSH**: grant / NGO funded.
+- Implication: the saleable/fundable wedge is **structured + linked + queryable** (API / bulk) appointment + court data — the gap free Irish sources leave. Depth-for-lawyers (archetypes 1 + 5 with an API) is the credible paid tier; archetype 3 is highest-impact but legally gated; archetype 6 must never be built.
+
+---
+
+## VALIDATED AGAINST DATA — 2026-06-04
+
+Data pulled and pressure-tested before committing to build. Probes:
+`pipeline_sandbox/probe_judiciary_join.py` (spine→roster join) and
+`pipeline_sandbox/probe_judiciary_pdf.py` (two-pass PDF). Source files cached in `C:\tmp`.
+**Verdict: the privacy-safe, on-mission green core holds up; the dangerous/redundant tail stays deferred.**
+Reframe: this is an *enrichment that completes the elected-accountability map* (the government appoints
+the unelected) — NOT a second product. Stop at the green core.
+
+### Green core — VALIDATED ✅
+
+- **Appointment spine already exists** — `data/gold/parquet/public_appointments.parquet`,
+  `appointment_type=='judicial'` → 134 notices, **114 clean** (real court), 2016–2026, 87% named.
+  The 20 `body=='Courts'` rows are a junk bucket (companies/receivers/PO boxes) → drop.
+- **Spine → live roster join** (courts.ie/judges, ~190 current judges): naive **87%** (134/154),
+  **~97% effective** after removing departed-judge true-misses + ~3 contaminants. Real norm-failure ~3%
+  (diminutive "Liz↔Elizabeth", typo "Gabett↔Gabbett") → fix with a ~10-line alias table.
+- **Elevation/promotion feature works** — diffing court-appointed-to (Iris) vs court-now (roster)
+  auto-detected **29 real promotion chains** (Costello HC→CoA→Supreme; Barniville/Donnelly/Hyland/O'Moore
+  HC→Supreme; Burns/MacGrath/McDonald/Owens HC→CoA). *Caveat:* ex-officio cross-listing skews "current
+  court" for court presidents — prefer the substantive seat. Iris has multiple notices/judge → event-type + dedup.
+- **gov.ie nominations** — one PR tested gives Cabinet date, prior career, and **vacancy cause + predecessor**.
+  Closes the loop: "resignation of Judge O'Shea" (gov.ie 2026) ↔ Brian O'Shea appointed DC 2017 (Iris) ↔
+  8 replacements now on roster (courts.ie).
+- **Conduct stats** — Judicial Council Annual Report, **fitz `find_tables()`** (NOT camelot — see below):
+  statutory Section 87(4) table, 11 items, AGGREGATE-only, year-comparable (2024: 273 complaints, +26% YoY,
+  1 inquiry, 0 reprimands). Born-digital → no OCR, no scraper.
+- **Courts clearance** — `data.courts.ie` annual-report CSV (CC-BY): jurisdiction×area×category×incoming/resolved,
+  2017–2024. 2024: District 493k/88%, **Court of Appeal 68% backlog**, Liquidated Debt 54%. System-level, no named-judge risk.
+- **Courthouses** — `court-offices.csv` (direct CC-BY): 94 offices, **all with lat/long** → map-ready.
+- **Wikidata** (CC0): judge DOB/education/positions → the **revolving-door** view (former TD/Minister/AG → judge),
+  uniquely joinable to the app's existing elected-member data. No competitor can build this.
+
+### Deferred — confirmed correct to defer
+
+- **Judgments corpus** — redundant (BAILII/courts.ie/vLex own it) + copyright-risky. The PSB Data Catalogue
+  "Judgements & Determinations" dataset is **NOT open** (API:No, Open Data:No, personal data) → only route is
+  scraping the server-rendered `www2.courts.ie/Judgments` (its "Page 1 of 2" looks like a filtered slice — needs a
+  coverage check). If ever built: **metadata + link only, never re-host.**
+- **Legal Diary "cases up for judgement"** — EXISTS and parses from the daily DOCX (zipfile→XML, no python-docx):
+  "JUDGMENTS FOR ELECTRONIC DELIVERY" / "ELECTRONIC JUDGMENTS" give named judge (joins roster) + court + time +
+  case ref + parties. **BUT most privacy-sensitive source in the plan** — saturated with Wards of Court, minors
+  (`[A MINOR]` special-ed JRs), childcare/Tusla, clinical negligence, repossessions naming private citizens. Only
+  defensible slice = public-law JR-vs-State, count-level / hard-filtered; **never** family/minor/ward/in-camera detail.
+  Current-day only (no history without daily capture).
+- **Financial-conflicts** (highest-impact intl archetype; CourtListener→ProPublica Pulitzer) — **legally blocked**:
+  Ireland has no public judicial financial-disclosure regime (confirm; the absence is itself a story).
+
+### Tooling note (born-digital gov PDFs)
+
+For these reports, **fitz `find_tables()` beats camelot stream** — camelot stream read two-column prose as ~11
+false "tables", fitz cleanly isolated the one real ruled table and returned 0 on prose pages. camelot *lattice*
+would compete but needs **ghostscript** (not installed). camelot is also **not a declared project dependency** (the
+`*_camelot_extract_experimental.py` scripts can't run in the current venv); use an isolated venv for camelot probes.
+
+---
+
 ## Recommended Build Order
 
 ### Phase 0 — Audit Existing Appointments Data

@@ -258,3 +258,19 @@ def fetch_si_entity_index() -> pd.DataFrame:
     view. One registered analytical surface; the page does its filtering and
     facet derivation in pandas off this frame."""
     return _safe("SELECT * FROM v_statutory_instruments")
+
+
+@st.cache_data(ttl=300)
+def fetch_si_amendments_made(si_year: int, si_number: int) -> pd.DataFrame:
+    """The instruments THIS SI amends/revokes — the forward direction of the
+    SI→SI amendment graph (v_si_amendments). The reverse direction ("amended /
+    revoked BY …") is already surfaced by the legal-status block from
+    affecting_sis, so the detail panel renders only this side to avoid
+    duplication. Plain SELECT off the view; the inversion/JOIN lives in
+    v_si_amendments, keeping this within the retrieval-only contract."""
+    return _safe(
+        "SELECT effect, affected_number, affected_year, affected_title, affected_eli_url, provision_note "
+        "FROM v_si_amendments WHERE amender_number = ? AND amender_year = ? "
+        "ORDER BY affected_year DESC, affected_number DESC",
+        [si_number, si_year],
+    )

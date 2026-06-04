@@ -1,5 +1,14 @@
 # Per-LA Annual Financial Statements — feasibility census + build plan
 
+> **UPDATE 2026-06-03 — PHASE 0 SHIPPED.** `pipeline_sandbox/la_afs_extract.py` →
+> `data/silver/parquet/la_afs_divisions.parquet`: **72 rows, 9 councils, 9/9 reconcile
+> EXACTLY to the printed total, 0 accounting-identity violations.** The predicted parser-debt
+> items #1 (generalise the finder) and #2 (file-selector) were resolved by **`best_ie_page`**
+> — scan every page, keep the one whose `parse_ie` yields the most divisions AND reconciles
+> (rejecting narrative pages and the Note-16 sub-table). This fixed Galway County (was 1/8
+> €2.3m → p14 €181.4m gross), Westmeath, and Donegal in one change. Remaining work below is
+> Phase 1+ (more councils, seed-URL fixes, Playwright tail). State: [[project_la_afs_fact]].
+
 > **Status:** SCOPING ONLY (2026-06-03). No extractor code written. This is the
 > reachability + format census that answers "does a per-council AFS cleanly exist for
 > each of the 31 LAs?" and sizes the build. Companion to the national-amalgamated layer

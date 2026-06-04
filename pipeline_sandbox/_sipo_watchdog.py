@@ -33,7 +33,7 @@ MAX_RESTARTS = 120
 
 def ckpt_count(key: str) -> int:
     d = CKPT / key
-    return len(list(d.glob("p*.json"))) if d.exists() else 0
+    return len(list(d.glob("c*.json"))) if d.exists() else 0  # ETL caches cNNN.json cells
 
 
 def kill_tree(pid: int) -> None:

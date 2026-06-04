@@ -105,10 +105,14 @@ def test_confidence_in_range(df):
         assert bad.height == 0, f"{bad.height} rows have {col} outside [0,1]"
 
 
-def test_expenditure_positive(df):
+def test_expenditure_non_negative(df):
+    """Expenditure may legitimately be 0/blank: parties that report spend at NATIONAL
+    level (SF, Green) leave the per-candidate Expenditure column empty, which the parser
+    records as €0. Only NEGATIVE values are invalid. (The 'is this real spend?' guard is
+    test_expenditure_not_misread_assigned, not a >0 floor.)"""
     sub = df.filter(pl.col("expenditure_eur").is_not_null())
-    bad = sub.filter(pl.col("expenditure_eur") <= 0)
-    assert bad.height == 0, f"{bad.height} rows have non-positive expenditure"
+    bad = sub.filter(pl.col("expenditure_eur") < 0)
+    assert bad.height == 0, f"{bad.height} rows have negative expenditure"
 
 
 def test_expenditure_within_statutory_limit_unless_flagged(df):
@@ -133,6 +137,29 @@ def test_assigned_within_statutory_limit(df):
         if (lim := STATUTORY_LIMIT.get(int(seats.get(r["constituency"], 0)))) and r["amount_assigned_eur"] > lim * 1.001
     ]
     assert not offenders, f"assigned-amount over statutory limit: {offenders[:5]}"
+
+
+def test_expenditure_not_misread_assigned(df):
+    """The single biggest correctness risk. SIPO's per-candidate form has TWO money
+    columns — 'Amount Assigned' and 'Total Expenditure by the national agent' — and for
+    parties that report spend at NATIONAL level (SF, Labour) the Expenditure column is
+    BLANK. When the parser captures only one money cell it wrongly stores the *assigned*
+    value as expenditure. Signature: assigned=null + a ROUND expenditure (no cents),
+    typically €5,000 / €10,000 (SF) or 15,560 / 19,440 / 23,340 = 40% of the statutory
+    limit (FF-style). Verified against the SF born-digital page (titled 'Amount assigned
+    by each candidate to the political party', expenditure column empty) and the Labour
+    scan (e.g. Ciaran Ahern parsed €23,340 but the PDF shows assigned €23,340 / spend
+    €4,233.05). These rows must be 0 — otherwise expenditure_eur is NOT real spend."""
+    suspect = df.filter(
+        pl.col("amount_assigned_eur").is_null()
+        & pl.col("expenditure_eur").is_not_null()
+        & (pl.col("expenditure_eur") == pl.col("expenditure_eur").round(0))
+    )
+    assert suspect.height == 0, (
+        f"{suspect.height} rows look like the Amount-Assigned column misread as "
+        f"expenditure (assigned=null + whole-€ value), Σ=€{suspect['expenditure_eur'].sum():,.0f}: "
+        f"{suspect.group_by('party').len().sort('party').to_dicts()}"
+    )
 
 
 def test_no_duplicate_candidate_rows(df):
@@ -169,6 +196,58 @@ def test_source_page_valid(df):
     assert bad.height == 0, f"{bad.height} rows with invalid source_page"
 
 
+# -------------------------------------------------------------------- Part 4 tests
+ITEMS = ROOT / "pipeline_sandbox/_sipo_output/sipo_expense_items_fact.parquet"
+CATS = ROOT / "pipeline_sandbox/_sipo_output/sipo_expense_categories_fact.parquet"
+VALID_SECTIONS = {"4A", "4B", "4C", "4D", "4E", "4F", "4G", "4H"}
+
+
+@pytest.fixture(scope="module")
+def cats() -> pl.DataFrame:
+    if not CATS.exists():
+        pytest.skip("sipo_expense_categories_fact.parquet absent (Part 4 not built)")
+    return pl.read_parquet(CATS)
+
+
+@pytest.fixture(scope="module")
+def items() -> pl.DataFrame:
+    if not ITEMS.exists():
+        pytest.skip("sipo_expense_items_fact.parquet absent (Part 4 not built)")
+    return pl.read_parquet(ITEMS)
+
+
+def test_part4_sections_valid(cats):
+    bad = set(cats["section"].unique().to_list()) - (VALID_SECTIONS | {"TOTAL"})
+    assert not bad, f"unexpected Part-4 sections: {bad}"
+
+
+def test_part4_one_overall_per_party(cats):
+    over = cats.filter(pl.col("is_overall")).group_by("party").len().filter(pl.col("len") != 1)
+    assert over.height == 0, f"parties without exactly one Overall total: {over.to_dicts()}"
+
+
+def test_part4_totals_non_negative(cats):
+    assert cats.filter(pl.col("category_total_eur") < 0).height == 0
+
+
+def test_part4_born_digital_fully_reconciles(cats):
+    """Born-digital returns (SF, Aontú) have a clean text layer, so EVERY non-zero
+    heading's line-item sum must reconcile to its printed total. (Scanned parties may
+    carry OCR mismatches — those are flagged via `reconciles`, not asserted here.)"""
+    bd = cats.filter(
+        pl.col("party").is_in(["Sinn Féin", "Aontú"])
+        & ~pl.col("is_overall")
+        & (pl.col("category_total_eur") > 0)
+        & (pl.col("items_sum_eur") > 0)  # Aontú has totals-only (no Ref'd items) -> skip
+    )
+    bad = bd.filter(~pl.col("reconciles"))
+    assert bad.height == 0, f"born-digital headings that don't reconcile: {bad.select(['party','section','category_total_eur','items_sum_eur']).to_dicts()}"
+
+
+def test_part4_item_costs_non_negative(items):
+    assert items.filter(pl.col("cost_eur") < 0).height == 0
+
+
 # ------------------------------------------------------------------------- scorecard
 def scorecard() -> None:
     df = _load()
@@ -186,7 +265,13 @@ def scorecard() -> None:
     checks["constituencies_in_set"] = df.filter(~pl.col("constituency").is_in(list(valid))).height == 0
     checks["flags_allowed"] = not (set(df["flag"].unique().to_list()) - ALLOWED_FLAGS)
     wa = df.filter(pl.col("expenditure_eur").is_not_null())
-    checks["expenditure_positive"] = wa.filter(pl.col("expenditure_eur") <= 0).height == 0
+    checks["expenditure_non_negative"] = wa.filter(pl.col("expenditure_eur") < 0).height == 0
+    suspect = df.filter(
+        pl.col("amount_assigned_eur").is_null()
+        & pl.col("expenditure_eur").is_not_null()
+        & (pl.col("expenditure_eur") == pl.col("expenditure_eur").round(0))
+    )
+    checks["no_assigned_misread_as_expenditure"] = suspect.height == 0
     over = (df.group_by(["party", "constituency"]).len().filter(pl.col("len") > MAX_CANDIDATES_PER_CONSTIT))
     checks["constit_counts_plausible"] = over.height == 0
     dups = df.group_by(["party", "candidate_name_raw", "constituency"]).len().filter(pl.col("len") > 1)
