@@ -16,9 +16,14 @@ by procurement_hse_tusla_parser.py (bespoke column-x specs — the generic reade
 them); local-authority POs and the BUDGET tier are owned by other context windows. All
 emit THIS same schema so the layers union at promotion time.
 
-PRIVACY: classification is computed (supplier_class -> privacy_status) but the quarantine
-is DEFERRED by request — public_display defaults True for every row and NOTHING is dropped.
-coverage records privacy_quarantine_applied=false so the deferral is explicit, not silent.
+PRIVACY: supplier_class -> privacy_status, and the quarantine IS APPLIED. Any row whose
+supplier looks like a sole trader / individual (privacy_status=review_personal_data) is
+marked public_display=False so it can never surface in a UI or be promoted. Rows are
+RETAINED (nothing is dropped) for analysis/coverage — the gate is the display flag — and a
+runtime invariant in main() refuses to write if any personal row is left displayable.
+Classification errs toward over-quarantine (an org without a recognised company suffix is
+treated as personal): the safe direction. coverage records privacy_quarantine_applied=true
+with the suppressed-row count.
 
 Run:
   ./.venv/Scripts/python.exe extractors/procurement_public_body_extract.py --list            # harvest-only (lock URLs)
@@ -722,10 +727,13 @@ def classify_and_flag(df: pl.DataFrame) -> pl.DataFrame:
         .then(pl.lit("unknown"))
         .otherwise(pl.lit("sole_trader_or_individual")).alias("supplier_class"),
     ).with_columns(
-        # privacy_status flags likely-personal rows for a LATER quarantine pass; nothing dropped now.
+        # privacy_status flags likely-personal rows (sole traders / individuals).
         pl.when(pl.col("supplier_class") == "sole_trader_or_individual").then(pl.lit("review_personal_data"))
         .otherwise(pl.lit("ok")).alias("privacy_status"),
-        pl.lit(True).alias("public_display"),  # DEFERRED: quarantine not applied this run
+        # QUARANTINE APPLIED: a likely-personal supplier is never displayable. Rows are RETAINED
+        # for analysis/coverage (nothing dropped) — only the display flag is gated, so a
+        # downstream UI / promotion must filter on public_display.
+        (pl.col("supplier_class") != "sole_trader_or_individual").alias("public_display"),
         # po_committed / payment_actual are summable; contract_award_value is caution-only.
         (pl.col("amount_semantics").is_in(["po_committed", "payment_actual"])
          & pl.col("amount_eur").is_not_null() & (pl.col("amount_eur") > 0)).alias("value_safe_to_sum"),
@@ -814,6 +822,14 @@ def main() -> None:
     df = classify_and_flag(df)
     df = df.select([c for c in SCHEMA_COLS if c in df.columns])
 
+    # PRIVACY INVARIANT (runtime, -O-proof): no displayable row may be a likely person.
+    leaked = df.filter(pl.col("public_display")
+                       & (pl.col("supplier_class") == "sole_trader_or_individual"))
+    if leaked.height:
+        raise RuntimeError(
+            f"privacy quarantine breached: {leaked.height} sole_trader_or_individual rows "
+            "left public_display=True; refusing to write public_payments_fact")
+
     OUT_FACT.parent.mkdir(parents=True, exist_ok=True)
     df.write_parquet(OUT_FACT, compression="zstd", compression_level=3, statistics=True)
 
@@ -830,6 +846,7 @@ def main() -> None:
         "rows_extracted": df.height,
         "rows_public_display": int(df["public_display"].sum()),
         "rows_review_personal_data": int((df["privacy_status"] == "review_personal_data").sum()),
+        "rows_quarantined": int((~df["public_display"]).sum()),
         "supplier_class_counts": {r["supplier_class"]: r["len"]
                                   for r in df.group_by("supplier_class").len().iter_rows(named=True)},
         "amount_semantics_counts": {r["amount_semantics"]: r["len"]
@@ -837,16 +854,17 @@ def main() -> None:
         "value_safe_to_sum_rows": safe.height,
         "value_safe_to_sum_total_eur": float(safe["amount_eur"].sum() or 0),
         "by_publisher": per_pub,
-        "privacy_quarantine_applied": False,
+        "privacy_quarantine_applied": True,
         "schema_version": 1,
         "parser_version": PARSER_VERSION,
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. "
                   "amount_semantics distinguishes po_committed/payment_actual/contract_award_value; "
                   "only value_safe_to_sum (po_committed+payment_actual) may be totalled, labelled "
-                  "'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE IS DEFERRED: "
-                  "rows flagged privacy_status=review_personal_data are NOT yet excluded "
-                  "(public_display=True for all) — a quarantine pass must run before any UI use. "
+                  "'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: "
+                  "rows flagged privacy_status=review_personal_data (likely sole traders / "
+                  "individuals) are marked public_display=False and must be filtered out before any "
+                  "UI use; they are retained here for analysis only. "
                   "A line is a purchase order or payment record, not evidence of influence.",
     }
     OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
