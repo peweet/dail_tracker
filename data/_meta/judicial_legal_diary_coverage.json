@@ -1,0 +1,28 @@
+{
+  "parser_version": "1.0.0",
+  "generated_at": "2026-06-05T08:30:06.253398+00:00",
+  "source_name": "Courts Service Legal Diary",
+  "source_url": "https://legaldiary.courts.ie/",
+  "days": [
+    {
+      "file": "2026-06-04.docx",
+      "diary_date": "2026-06-04",
+      "sha256": "f2cc14f4ff016112",
+      "sessions": 63,
+      "cases": 359
+    }
+  ],
+  "n_days": 1,
+  "tier_a_sessions": 63,
+  "tier_b_counts": 36,
+  "case_lines_parsed": 359,
+  "cases_dropped_protected": 61,
+  "cases_kept_anonymised": 298,
+  "drop_reasons": {
+    "minor": 41,
+    "asylum": 10,
+    "family law": 8,
+    "child and family": 2
+  },
+  "privacy_note": "Tier C drops statutory in-camera categories entirely and reduces every natural person to initials; organisations/State bodies kept in clear; case refs stripped; provenance link + source_sha256 attached."
+}

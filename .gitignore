@@ -309,6 +309,19 @@ lobbyist/raw/
 # per-LA AFS revenue fact (la_afs_extract.py) — read by tests + future gold views/UI; commit
 # so it survives machine failure / is Cloud-readable even if a council removes its source PDF
 !data/silver/parquet/la_afs_divisions.parquet
+# SIPO GE2024 silver facts + per-party intermediates + OCR checkpoint cache
+# (extractors/sipo_*; all regenerable). The OCR cache enables --parse-only without
+# re-OCR. Gold (data/gold/parquet/sipo_donations.parquet, sipo_expenses_fact.parquet)
+# is the committed serving copy the SQL views read.
+data/silver/sipo/
+
+# === Legal Diary raw daily DOCX archive — NEVER commit ===
+# pdf_infra/legal_diary_poller.py archives the Courts Service daily diary under
+# data/bronze/legal_diary/<date>.docx. The raw file names PRIVATE parties (minors,
+# wards, criminal defendants) in full — only the ANONYMISED gold parquet
+# (judicial_legal_diary_cases.parquet, initials only) may ever leave this machine.
+# No *.docx rule exists above, so this dir would otherwise be committable. Guard it.
+data/bronze/legal_diary/
 
 # === Member avatars (Wikidata portraits + manifest) — committed deliberately ===
 # wiki_data.py downloads CC-licensed TD + Senator portraits into avatar/wikidata/.

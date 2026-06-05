@@ -1,100 +1,64 @@
-"""Procurement (eTenders) data access layer.
+"""Procurement (eTenders) data access — thin Streamlit wrapper over dail_tracker_core.
 
-Owns:
-- DuckDB connection bootstrapped from sql_views/procurement_*.sql
-- Retrieval SQL for the (future) Procurement page (SELECT / WHERE / ORDER BY / LIMIT only)
+This module is now a THIN adapter. The retrieval SQL and the QueryResult
+state-handling live in ``dail_tracker_core.queries.procurement``; this file owns
+only the Streamlit caching (``st.cache_resource`` for the connection,
+``st.cache_data`` for per-query memoisation) and unwraps ``QueryResult`` to the
+DataFrame the page expects.
 
-Forbidden here (same rules as the Streamlit page file):
-- JOIN, multi-column GROUP BY, HAVING, WINDOW in ad-hoc retrieval SQL
-- CREATE VIEW / CREATE TABLE / read_parquet
-- pandas merge / pivot / business-metric definitions
+Return contract is preserved EXACTLY: on a source failure the core returns an
+``unavailable`` QueryResult whose ``.data`` is an empty DataFrame, so callers see
+the same empty frame the old ``_safe`` produced. The richer ok/unavailable
+distinction is now available in core for a future page revision that wants to
+render "source unavailable" explicitly instead of an empty state.
 
-All aggregation/joins/value-gating live in the views (the firewall layer).
-Gold parquets are produced by the `procurement` + `procurement_lobbying` pipeline
-chains; if they have not run, fetchers return empty DataFrames gracefully.
+Forbidden here (unchanged contract): JOIN / GROUP BY / HAVING / WINDOW in SQL,
+CREATE VIEW, read_parquet, pandas merge/pivot, business-metric definitions — all
+of which live in sql_views/ and dail_tracker_core.
 """
 
 from __future__ import annotations
 
-import logging
-
 import duckdb
 import pandas as pd
 import streamlit as st
-from data_access._sql_registry import register_views
 
-_log = logging.getLogger(__name__)
+from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.queries import procurement as _q
 
 
 @st.cache_resource
 def get_procurement_conn() -> duckdb.DuckDBPyConnection:
-    conn = duckdb.connect()
-    register_views(conn, ["procurement_*.sql"], swallow_errors=True)
-    return conn
-
-
-def _safe(sql: str, params: list | None = None) -> pd.DataFrame:
-    try:
-        return get_procurement_conn().execute(sql, params or []).df()
-    except Exception:
-        _log.exception("procurement query failed")
-        return pd.DataFrame()
+    return connect_with_views(["procurement_*.sql"], swallow_errors=True)
 
 
 @st.cache_data(ttl=300)
 def fetch_supplier_summary(limit: int | None = None) -> pd.DataFrame:
     """Supplier ranking — one row per distinct supplier (company-class), ordered by
     contract count (the trustworthy metric). Carries CRO match + lobbying flags."""
-    sql = (
-        "SELECT supplier, supplier_norm, n_awards, n_authorities, awarded_value_safe_eur,"
-        " company_num, company_status, cro_match_method,"
-        " on_lobbying_register, lobbying_returns, is_lobbying_registrant, is_lobbying_client"
-        " FROM v_procurement_supplier_summary ORDER BY n_awards DESC"
-    )
-    if limit is not None:
-        sql += " LIMIT ?"
-        return _safe(sql, [int(limit)])
-    return _safe(sql)
+    return _q.supplier_summary(get_procurement_conn(), limit=limit).data
 
 
 @st.cache_data(ttl=300)
 def fetch_awards_for_supplier(supplier_norm: str) -> pd.DataFrame:
     """Every award row for one supplier (detail view), most recent first."""
-    return _safe(
-        "SELECT tender_id, contracting_authority, cpv_code, cpv_description,"
-        " competition_type, award_date, value_eur, value_kind, value_safe_to_sum"
-        " FROM v_procurement_awards WHERE supplier_norm = ?"
-        " ORDER BY award_date DESC NULLS LAST",
-        [supplier_norm],
-    )
+    return _q.awards_for_supplier(get_procurement_conn(), supplier_norm).data
 
 
 @st.cache_data(ttl=300)
 def fetch_authority_summary(limit: int = 50) -> pd.DataFrame:
     """Contracting authorities ranked by number of awards."""
-    return _safe(
-        "SELECT contracting_authority, n_awards, n_suppliers, awarded_value_safe_eur"
-        " FROM v_procurement_authority_summary ORDER BY n_awards DESC LIMIT ?",
-        [int(limit)],
-    )
+    return _q.authority_summary(get_procurement_conn(), limit=limit).data
 
 
 @st.cache_data(ttl=300)
 def fetch_cpv_summary(limit: int = 50) -> pd.DataFrame:
     """CPV categories ranked by number of awards."""
-    return _safe(
-        "SELECT cpv_code, cpv_description, n_awards, n_suppliers, awarded_value_safe_eur"
-        " FROM v_procurement_cpv_summary ORDER BY n_awards DESC LIMIT ?",
-        [int(limit)],
-    )
+    return _q.cpv_summary(get_procurement_conn(), limit=limit).data
 
 
 @st.cache_data(ttl=300)
 def fetch_lobbying_overlap() -> pd.DataFrame:
     """Companies on BOTH the procurement and lobbying registers (co-occurrence
     disclosure only — never causation; see the view header)."""
-    return _safe(
-        "SELECT lobby_name, lobby_side, supplier, supplier_norm, n_lobby_returns,"
-        " n_award_rows, n_authorities, awarded_value_safe_eur"
-        " FROM v_procurement_lobbying_overlap ORDER BY n_award_rows DESC"
-    )
+    return _q.lobbying_overlap(get_procurement_conn()).data

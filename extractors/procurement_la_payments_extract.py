@@ -55,7 +55,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 import config  # noqa: E402
-from cro_normalise import name_norm_expr  # noqa: E402
+from shared.name_norm import name_norm_expr  # noqa: E402
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research)"}
 BRONZE = config.BRONZE_PDF_DIR / "la_procurement"

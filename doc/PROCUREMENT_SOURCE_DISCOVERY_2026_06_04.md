@@ -98,8 +98,9 @@ is live-editing pipeline.py/CRO/SIPO. Resume once that reorg is committed.
   points at the OLD `ROOT/"pipeline_sandbox/procurement_public_body_extract.py"` path — now moved to
   `extractors/`. Update that path (and decide whether the nphdb parser itself moves to `extractors/`).
 - `extractors/procurement_public_body_extract.py` already holds my Tier-D edits + TITLE_ROW fix.
-  Confirm `from cro_normalise import name_norm_expr` still resolves (cro_normalise.py is at repo root;
-  the module does `sys.path.insert(0, str(ROOT))`, ROOT=parents[1]=repo root — OK).
+  Confirm `from shared.name_norm import name_norm_expr` still resolves (name_norm_expr was extracted
+  from cro_normalise.py to shared/name_norm.py; the module does `sys.path.insert(0, str(ROOT))`,
+  ROOT=parents[1]=repo root, so the `shared` package resolves — OK).
 
 ### Direct URLs VERIFIED to fetch (2026-06-04, byte-checked headers)
 - CHI  xlsx (PK/zip, 17.5KB): `https://www.childrenshealthireland.ie/documents/3541/CHI_Paid_Invoices_over_25K_incl_VAT_Qtr_1_2026updated.xlsx`

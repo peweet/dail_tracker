@@ -28,8 +28,8 @@ import time
 
 import attendance
 import enrich
-import payments_full_psa_etl as payments
-import payments_member_enrichment
+import payments.payments_full_psa_etl as payments
+import payments.payments_member_enrichment as payments_member_enrichment
 import transform_votes
 from config import (
     ATTENDANCE_PDF_DIR_SEANAD,

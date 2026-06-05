@@ -23,7 +23,7 @@ try:
 except Exception:
     pass
 
-from cro_normalise import name_norm_expr  # noqa: E402
+from shared.name_norm import name_norm_expr  # noqa: E402
 from procurement_etenders_extract import build_canonical_map, tidy_name  # noqa: E402
 
 CRO = ROOT / "data/silver/cro/companies.parquet"
