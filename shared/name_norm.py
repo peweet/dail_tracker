@@ -19,10 +19,13 @@ from __future__ import annotations
 
 import polars as pl
 
-# Legal suffixes / corporate fillers dropped so "ACME HOLDINGS LIMITED" and
-# "Acme" collapse to the same key. Word-bounded so it never eats a substring.
+# Legal suffixes / corporate fillers / connectors dropped so "ACME HOLDINGS LIMITED"
+# and "Acme" collapse to the same key. Word-bounded so it never eats a substring.
+# AND is dropped for the SAME reason '&' is (replaced with space below): otherwise
+# "Turner & Townsend"->TURNER TOWNSEND but "Turner And Townsend"->TURNER AND TOWNSEND
+# miss each other and the CRO register.
 LEGAL_SUFFIX_PATTERN = (
-    r"\b(?:THE|LIMITED|LTD|DAC|PLC|CLG|UC|COMPANY|"
+    r"\b(?:THE|AND|LIMITED|LTD|DAC|PLC|CLG|UC|COMPANY|"
     r"DESIGNATED ACTIVITY COMPANY|"
     r"COMPANY LIMITED BY GUARANTEE|"
     r"UNLIMITED COMPANY|GROUP|HOLDINGS|IRELAND|IRL|OF)\b"

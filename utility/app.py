@@ -4,6 +4,7 @@ from pages_code.committees import committees_page
 from pages_code.corporate import corporate_page
 from pages_code.glossary import glossary_page
 from pages_code.interests import interests_page
+from pages_code.judiciary import judiciary_page
 from pages_code.legislation import legislation_page
 from pages_code.lobbying_3 import lobbying_poc_page
 from pages_code.member_overview import member_overview_page
@@ -120,6 +121,12 @@ pg = st.navigation(
             title="Committees",
             icon=":material/account_balance:",
             url_path="rankings-committees",
+        ),
+        st.Page(
+            judiciary_page,
+            title="Courts & Judiciary",
+            icon=":material/balance:",
+            url_path="rankings-judiciary",
         ),
         st.Page(glossary_page, title="Glossary", icon=":material/menu_book:", url_path="glossary"),
     ],

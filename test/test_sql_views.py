@@ -251,6 +251,45 @@ def test_v_member_ministerial_tenure_executes():
     assert nulls == 0
 
 
+def test_v_charity_financials_by_year_executes():
+    """Per-charity annual financial series — reads charities/annual_reports.parquet.
+    Must be strictly one row per (rcn, period_year); the source has up to 3.
+    """
+    _skip_missing(_DATA_BASE / "data" / "silver" / "charities" / "annual_reports.parquet")
+    con = _con()
+    con.execute(_load("charity_financials_by_year.sql"))
+    con.execute(_load("charity_sector_totals_by_year.sql"))
+    result = _result(con, "v_charity_financials_by_year")
+    _assert_cols(result, "rcn", "period_year", "gross_income", "gross_expenditure", "gov_share")
+    assert len(result) > 0
+    dup = con.execute(
+        "SELECT COUNT(*) FROM (SELECT rcn, period_year, COUNT(*) c"
+        " FROM v_charity_financials_by_year GROUP BY rcn, period_year HAVING c > 1)"
+    ).fetchone()[0]
+    assert dup == 0, "view is not one-row-per-(rcn, period_year)"
+    # Sector rollup (depends on the per-year view) must be one row per year.
+    totals = _result(con, "v_charity_sector_totals_by_year")
+    _assert_cols(totals, "period_year", "n_charities", "total_gross_income")
+    assert len(totals) > 0
+
+
+def test_v_bill_amendment_intensity_executes():
+    """Per-bill amendment activity — reads parquet/bill_amendments.parquet.
+    One row per bill_id (= v_legislation_index key); ranked by amendment_lists.
+    """
+    _skip_missing(_DATA_BASE / "data" / "silver" / "parquet" / "bill_amendments.parquet")
+    con = _con()
+    con.execute(_load("legislation_bill_amendment_intensity.sql"))
+    result = _result(con, "v_bill_amendment_intensity")
+    _assert_cols(result, "bill_id", "bill_title", "amendment_lists", "committee_lists", "report_lists")
+    assert len(result) > 0
+    dup = con.execute(
+        "SELECT COUNT(*) FROM (SELECT bill_id, COUNT(*) c"
+        " FROM v_bill_amendment_intensity GROUP BY bill_id HAVING c > 1)"
+    ).fetchone()[0]
+    assert dup == 0, "view is not one-row-per-bill"
+
+
 def test_v_member_external_links_executes():
     """Runs against the Wikidata-sourced external-links fixture by default.
     The view's columns are the contract the member-overview hero relies on

@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-06-03T14:06:34Z",
-  "as_of_utc_date": "2026-06-03",
+  "generated_at": "2026-06-05T09:01:48Z",
+  "as_of_utc_date": "2026-06-05",
   "note": "Age of the data already held — a canary for 'did the pipeline stop running'. NOT proof that no newer upstream data exists; only the source pollers can confirm that. Generated at pipeline-end (sees silver + gold) and read-only thereafter (Streamlit badge + scheduled report).",
   "datasets": {
     "members": {
       "measure": "fetch_mtime",
       "source": "data/silver/parquet/flattened_members.parquet",
-      "latest_fetch_at": "2026-06-01T12:01:06Z",
+      "latest_fetch_at": "2026-06-05T08:57:33Z",
       "status": "ok"
     },
     "votes": {

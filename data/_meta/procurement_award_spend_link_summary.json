@@ -10,6 +10,6 @@
   "spend_only_eur": 3685307831.520001,
   "keyed_by_cro": 3227,
   "clean_spend_total_eur": 5721675451.08,
-  "generated_at": "2026-06-05T08:43:52+00:00",
+  "generated_at": "2026-06-05T08:57:25+00:00",
   "caveat": "Award value and realised spend are DIFFERENT lifecycle stages (ceiling vs paid) \u2014 NEVER sum the value columns together. Spend side EXCLUDES public_body suppliers (councils / TII inter-gov transfers) and extraction_confidence=low rows. Entity key is CRO company_num where available else normalised name; CRO coverage is partial so name-keyed entities may still be the same firm under a variant spelling."
 }

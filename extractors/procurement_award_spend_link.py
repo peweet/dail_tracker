@@ -14,11 +14,11 @@ Sides:
   - TED AWARDS      : data/silver/parquet/ted_ie_awards.parquet (value_safe_to_sum)
 
 Entity key is HYBRID: CRO company_num when available (most reliable, merges name variants),
-else a LOOSE normalised name. ALL THREE sides resolve to CRO the SAME way — an exact-unique
-join of their loose name against the CRO register (data/silver/cro/companies.parquet) — so the
-same firm gets the same company_num everywhere (e.g. Turner & Townsend's "&"/"And"/"Ltd"
-spellings collapse to one CRO:102886 entity instead of three). Loose key drops the standalone
-word "AND" because the base normaliser strips '&' but keeps 'and'.
+else the normalised name. ALL THREE sides resolve to CRO the SAME way — an exact-unique join of
+their normalised name against the CRO register (data/silver/cro/companies.parquet) — so the same
+firm gets one company_num everywhere (e.g. Turner & Townsend's "&"/"And"/"Ltd" spellings collapse
+to one CRO:102886 entity). This relies on shared.name_norm.name_norm_expr dropping BOTH '&' and
+the word 'and' (fixed 2026-06-04); the register's name_norm uses the identical rule.
 
 Output: data/sandbox/parquet/procurement_award_spend_link.parquet (one row per supplier entity)
         + data/_meta/procurement_award_spend_link_summary.json
@@ -48,34 +48,24 @@ OUT = ROOT / "data/sandbox/parquet/procurement_award_spend_link.parquet"
 OUT_SUMMARY = ROOT / "data/_meta/procurement_award_spend_link_summary.json"
 
 
-def _loose(col: str) -> pl.Expr:
-    """A LOOSE join key over an already-normalised name: drop the standalone word AND so the
-    "X & Y" vs "X And Y" spellings collapse (the base normaliser strips '&' but keeps the word
-    'and' — e.g. 'Turner & Townsend'->TURNER TOWNSEND but 'Turner And Townsend'->TURNER AND
-    TOWNSEND, which then miss each other AND the CRO register). Also squeeze whitespace."""
-    return (pl.col(col).str.replace_all(r"\bAND\b", " ")
-            .str.replace_all(r"\s+", " ").str.strip_chars().alias("loose_key"))
-
-
 def load_cro_map() -> pl.DataFrame:
-    """EXACT-UNIQUE loose-name -> CRO company_num map, applied identically to all three sides so
-    the SAME firm resolves to the SAME company_num everywhere (fixes the dedup gap where a
-    name-keyed spend entity didn't merge with a CRO-keyed award entity). Loose names that map to
-    >1 company_num (dissolved+active duplicates etc.) are dropped — a wrong merge is worse than a
-    missed one; those entities stay name-keyed."""
+    """EXACT-UNIQUE normalised-name -> CRO company_num map, applied identically to all three sides
+    so the SAME firm resolves to the SAME company_num everywhere. Names mapping to >1 company_num
+    (dissolved+active duplicates) are dropped — a wrong merge is worse than a missed one.
+    Relies on shared.name_norm.name_norm_expr dropping both '&' and the word 'and' so "X & Y" /
+    "X And Y" already collapse before this join (the register's name_norm uses the SAME rule)."""
     cro = (pl.read_parquet(CRO_REGISTER)
            .select(["name_norm", "company_num", "company_status"])
-           .filter(pl.col("name_norm").is_not_null() & (pl.col("name_norm").str.len_chars() >= 4))
-           .with_columns(_loose("name_norm")))
-    counts = cro.group_by("loose_key").agg(pl.col("company_num").n_unique().alias("n"))
-    unique_names = counts.filter(pl.col("n") == 1).select("loose_key")
-    return (cro.join(unique_names, on="loose_key", how="inner")
-            .unique("loose_key").select(["loose_key", "company_num", "company_status"]))
+           .filter(pl.col("name_norm").is_not_null() & (pl.col("name_norm").str.len_chars() >= 4)))
+    counts = cro.group_by("name_norm").agg(pl.col("company_num").n_unique().alias("n"))
+    unique_names = counts.filter(pl.col("n") == 1).select("name_norm")
+    return (cro.join(unique_names, on="name_norm", how="inner")
+            .unique("name_norm").select(["name_norm", "company_num", "company_status"]))
 
 
 def attach_cro(df: pl.DataFrame, norm_col: str, cro_map: pl.DataFrame) -> pl.DataFrame:
-    """Add loose_key + a CRO company_num (joined on the loose key)."""
-    return df.with_columns(_loose(norm_col)).join(cro_map, on="loose_key", how="left")
+    """Left-join a CRO company_num via the normalised-name column."""
+    return df.join(cro_map.rename({"name_norm": norm_col}), on=norm_col, how="left")
 
 
 def _entity(cro_col: str, norm_col: str) -> pl.Expr:
@@ -106,7 +96,7 @@ def load_spend(cro_map: pl.DataFrame) -> pl.DataFrame:
         & (pl.col("supplier_normalised").str.strip_chars() != "")
     )
     clean = attach_cro(clean, "supplier_normalised", cro_map)
-    clean = clean.with_columns(_entity("company_num", "loose_key"))
+    clean = clean.with_columns(_entity("company_num", "supplier_normalised"))
     return clean.group_by("entity").agg(
         pl.col("supplier_raw").drop_nulls().first().alias("spend_name"),
         pl.col("supplier_normalised").first().alias("spend_norm"),
@@ -120,7 +110,7 @@ def load_spend(cro_map: pl.DataFrame) -> pl.DataFrame:
 
 def load_etenders(cro_map: pl.DataFrame) -> pl.DataFrame:
     aw = pl.read_parquet(ETENDERS).filter(pl.col("value_safe_to_sum"))
-    aw = attach_cro(aw, "supplier_norm", cro_map).with_columns(_entity("company_num", "loose_key"))
+    aw = attach_cro(aw, "supplier_norm", cro_map).with_columns(_entity("company_num", "supplier_norm"))
     return aw.group_by("entity").agg(
         pl.col("supplier").drop_nulls().first().alias("etenders_name"),
         pl.col("value_eur").sum().alias("etenders_award_eur"),
@@ -133,7 +123,7 @@ def load_ted(cro_map: pl.DataFrame) -> pl.DataFrame:
     # re-derive CRO from the shared map (not ted's own cro_company_num) so the key matches the
     # other two sides exactly.
     ted = attach_cro(ted.drop("company_num", strict=False), "winner_name_norm", cro_map)
-    ted = ted.with_columns(_entity("company_num", "loose_key"))
+    ted = ted.with_columns(_entity("company_num", "winner_name_norm"))
     return ted.group_by("entity").agg(
         pl.col("winner_name").drop_nulls().first().alias("ted_name"),
         pl.col("award_value_eur").sum().alias("ted_award_eur"),

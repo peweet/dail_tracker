@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-06-04T15:09:37Z",
+  "generated_at": "2026-06-05T09:01:48Z",
   "links_checked": false,
   "summary": {
-    "sources_checked": 102,
+    "sources_checked": 107,
     "sources_ok": 2,
     "sources_warning": 1,
     "sources_failed": 0,
-    "sources_skipped": 99,
+    "sources_skipped": 104,
     "stale_sources": 0
   },
   "sources": [
@@ -74,7 +74,7 @@
       "detail": "no stale threshold configured",
       "input_pattern": "data/bronze/charities/public_register_*.xlsx",
       "latest_file": "data/bronze/charities/public_register_20260426.xlsx",
-      "days_old": 34,
+      "days_old": 35,
       "stale_after_days": null
     },
     {
@@ -84,7 +84,7 @@
       "status": "ok",
       "detail": "0d old (<= 7d)",
       "input_pattern": "data/bronze/cro/companies_*.csv",
-      "latest_file": "data/bronze/cro/companies_20260604.csv",
+      "latest_file": "data/bronze/cro/companies_20260605.csv",
       "days_old": 0,
       "stale_after_days": 7
     },
@@ -604,6 +604,13 @@
       "detail": "link check disabled"
     },
     {
+      "source_id": "public_body_payments:ie_beaumont",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
       "source_id": "public_body_payments:ie_bim",
       "group": "public_body_payments",
       "check_type": "index_poll",
@@ -618,7 +625,21 @@
       "detail": "link check disabled"
     },
     {
+      "source_id": "public_body_payments:ie_ccpc",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
       "source_id": "public_body_payments:ie_cdetb",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "public_body_payments:ie_chi",
       "group": "public_body_payments",
       "check_type": "index_poll",
       "status": "skipped",
@@ -660,6 +681,13 @@
       "detail": "link check disabled"
     },
     {
+      "source_id": "public_body_payments:ie_hpra",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
       "source_id": "public_body_payments:ie_marine",
       "group": "public_body_payments",
       "check_type": "index_poll",
@@ -674,7 +702,7 @@
       "detail": "link check disabled"
     },
     {
-      "source_id": "public_body_payments:ie_nta",
+      "source_id": "public_body_payments:ie_nli",
       "group": "public_body_payments",
       "check_type": "index_poll",
       "status": "skipped",
@@ -689,6 +717,13 @@
     },
     {
       "source_id": "public_body_payments:ie_opw",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "public_body_payments:ie_pobal",
       "group": "public_body_payments",
       "check_type": "index_poll",
       "status": "skipped",

@@ -559,6 +559,17 @@ def payments_page() -> None:
     inject_css()
     hide_sidebar()
 
+    # Drill links set only a query param (?dparty / ?eparty). A card click is a fresh
+    # navigation that resets the segmented control, so route a drill param straight to
+    # its lens here — independent of the widget. The lens's own "← All parties" back
+    # button clears the param to return to the grid.
+    if st.query_params.get("eparty"):
+        _render_party_expenses()
+        return
+    if st.query_params.get("dparty"):
+        _render_party_donations()
+        return
+
     # ── Lens: per-member parliamentary payments vs SIPO party donations ─────────
     # Donations are party-level (GE2024), so they get their own lens rather than
     # threading through the per-member, chamber-scoped payments flow.

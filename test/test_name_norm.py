@@ -44,6 +44,14 @@ def test_same_entity_variants_produce_identical_key():
     assert _norm("ACME LIMITED") == _norm("Acme Ltd") == "ACME"
 
 
+def test_ampersand_and_word_and_collapse_identically():
+    # '&' and the word 'and' are BOTH dropped so the two spellings of a connector
+    # land on one key (and match the CRO register). Regression guard for the
+    # Turner & Townsend / Turner And Townsend dedup gap.
+    assert _norm("Turner & Townsend") == _norm("Turner And Townsend") == "TURNER TOWNSEND"
+    assert _norm("Black and Decker") == "BLACK DECKER"
+
+
 def test_accents_and_symbols_dropped_lossily():
     # non-[A-Z0-9 ] chars (accents, '#') become spaces — documents the lossy
     # behaviour (it does NOT transliterate É -> E).

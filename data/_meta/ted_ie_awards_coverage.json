@@ -11,18 +11,18 @@
   "median_award_eur": 342086.1,
   "trustworthy_metrics": "COUNT of awards + MEDIAN award value; never the naive sum (ceiling/award-grade values, tail-dominated)",
   "supplier_class_counts": {
-    "company": 9897,
-    "sole_trader_or_individual": 1729,
-    "foreign_company": 552,
-    "unknown": 948
+    "sole_trader_or_individual": 1709,
+    "unknown": 948,
+    "company": 9917,
+    "foreign_company": 552
   },
   "cro_match_counts": {
+    "name": 1793,
     "identifier": 6694,
-    "name": 1705,
-    "none": 4727
+    "none": 4639
   },
-  "cro_match_rate": 0.64,
-  "rows_review_personal_data": 1729,
+  "cro_match_rate": 0.647,
+  "rows_review_personal_data": 1709,
   "date_span": [
     "2023-12-29",
     "2026-06-02"
@@ -40,6 +40,6 @@
     "attribution": "Contains information from TED (\u00a9 European Union), reused under Decision 2011/833/EU."
   },
   "schema_version": 1,
-  "generated_at": "2026-06-03T14:04:46+00:00",
+  "generated_at": "2026-06-05T09:01:47+00:00",
   "caveat": "SILVER (cleaned, not frontend-exposed). One row per notice x winner. tender-value is a NOTICE-level figure: for multi-supplier frameworks it is the framework CEILING, never per-winner \u2014 only value_safe_to_sum (single-winner, non-framework, non-pan-EU) may be totalled, labelled 'awarded', not spend. winner-identifier matched to CRO company_num after digit-strip; bare personal-name winners flagged review_personal_data (quarantine deferred). A contract award is a fact, not evidence of influence."
 }
