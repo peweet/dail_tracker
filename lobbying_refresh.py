@@ -54,17 +54,17 @@ def _module(mod: str) -> bool:
 
 def step_poll() -> bool:
     _hr("[1/7] lobbying_poller — YTD lobbying.ie CSV fetch")
-    return _subprocess("lobbying_poller.py")
+    return _module("lobbying.lobbying_poller")
 
 
 def step_process() -> bool:
     _hr("[2/7] lobby_processing — CSV → silver")
-    return _subprocess("lobby_processing.py")
+    return _module("lobbying.lobby_processing")
 
 
 def step_pdf_extract() -> bool:
     _hr("[3/7] lobbying_pdf_extract — embedded PDF URLs from return free-text")
-    return _subprocess("lobbying_pdf_extract.py")
+    return _module("lobbying.lobbying_pdf_extract")
 
 
 def step_cro_poll() -> bool:

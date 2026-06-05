@@ -34,6 +34,7 @@ from ui.components import (
     clickable_card_link,
     empty_state,
     evidence_heading,
+    subsection_heading,
     find_a_td_filter,
     field_label,
     glossary_strip,
@@ -501,7 +502,7 @@ def _debate_sections(
 
 
 def _section_legislation(conn, join_key: str, member_name: str) -> None:
-    evidence_heading("Legislation sponsored")
+    subsection_heading("Legislation sponsored")
 
     df = _legislation(conn, join_key)
     if df.empty:
@@ -582,7 +583,7 @@ def _section_ministerial_roles(conn, join_key: str) -> None:
         return
 
     st.divider()
-    evidence_heading("Ministerial roles")
+    subsection_heading("Ministerial roles")
 
     n = len(df)
     current_n = int(df["is_current"].fillna(False).astype(bool).sum())
@@ -628,7 +629,7 @@ def _section_statutory_instruments(conn, join_key: str) -> None:
         return
 
     st.divider()
-    evidence_heading("Statutory Instruments signed")
+    subsection_heading("Statutory Instruments signed")
 
     n = len(df)
     depts = [d for d in df["si_department_label"].dropna().unique().tolist()]
@@ -934,7 +935,7 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
             body_html = (
                 "<details>"
                 f'<summary><span class="q-card-truncated">{_h(short)}…</span></summary>'
-                f'<div style="margin-top: 0.4rem;">{_h(text)}</div>'
+                f'<div class="q-card-fulltext">{_h(text)}</div>'
                 "</details>"
             )
         else:
@@ -983,7 +984,7 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
 
 
 def _section_debates(conn, join_key: str, member_name: str) -> None:
-    evidence_heading("Debate participation")
+    subsection_heading("Debate participation")
     st.caption(
         "Debate sections where this TD raised a parliamentary question, "
         "linked to the record on oireachtas.ie. Floor-speech attribution "
@@ -1371,15 +1372,20 @@ def _render_constituency_context(constituency: str, ctx: dict) -> None:
 # ── Profile ─────────────────────────────────────────────────────────────────────
 
 
-def _prev_next_member(conn, join_key: str) -> tuple[dict | None, dict | None]:
+def _prev_next_member(conn, join_key: str, house: str) -> tuple[dict | None, dict | None]:
     """Return (prev, next) member dicts in alphabetical-name order, or None at ends.
 
     Retrieval-only: reuses _member_list which already SELECTs from v_member_registry
     ORDER BY member_name. Wraps at the ends to None so the buttons can disable.
+
+    Scoped to ``house`` so the walker stays within the same chamber the browse
+    grid is filtered to — otherwise a TD's "next" could land on a Senator
+    (the registry interleaves both houses alphabetically).
     """
     df = _member_list(conn)
     if df.empty:
         return None, None
+    df = df[df["house"] == house]
     # v_member_registry is unique on unique_member_code — no in-page dedup
     # needed (see comment at the browse-list above).
     df = df.reset_index(drop=True)
@@ -1392,8 +1398,12 @@ def _prev_next_member(conn, join_key: str) -> tuple[dict | None, dict | None]:
     return prev_row, next_row
 
 
-def _render_profile_nav(conn, join_key: str) -> None:
+def _render_profile_nav(conn, join_key: str, house: str, term: str, terms: str) -> None:
     """Top-of-profile nav: [← All TDs] [← prev TD] [next TD →].
+
+    ``term``/``terms`` adapt the labels and help text to the member's chamber
+    (TD/TDs for the Dáil, Senator/Senators for the Seanad). ``house`` scopes
+    the prev/next walker to the same chamber.
 
     Round-3 audit P2-1: previously rendered 3 full-width stretched buttons.
     Audit 2026-05-27 P1-3: Streamlit columns collapse one-per-row on mobile,
@@ -1402,7 +1412,7 @@ def _render_profile_nav(conn, join_key: str) -> None:
     container so they stay on one horizontal row at every viewport (the
     `:has()` CSS selector grabs the stHorizontalBlock around them).
     """
-    prev_row, next_row = _prev_next_member(conn, join_key)
+    prev_row, next_row = _prev_next_member(conn, join_key, house)
     c_back, c_prev, c_next, _spacer = st.columns([1.4, 2.2, 2.2, 6])
     with c_back:
         # Marker INSIDE the first column so the parent stHorizontalBlock's
@@ -1410,7 +1420,7 @@ def _render_profile_nav(conn, join_key: str) -> None:
         # the row to stay horizontal on mobile (Streamlit columns otherwise
         # stack one-per-row under 640px).
         st.html('<div class="mo-prof-nav-marker"></div>')
-        if back_button("← All TDs", key="mo_all", help="Return to the full TD list"):
+        if back_button(f"← All {terms}", key="mo_all", help=f"Return to the full {term} list"):
             st.session_state.pop(_STAGE_KEY, None)
             st.query_params.clear()
             st.rerun()
@@ -1420,7 +1430,7 @@ def _render_profile_nav(conn, join_key: str) -> None:
             if st.button(
                 label,
                 key="mo_prev_td",
-                help=f"Previous TD alphabetically: {prev_row['member_name']}",
+                help=f"Previous {term} alphabetically: {prev_row['member_name']}",
             ):
                 st.session_state[_STAGE_KEY] = str(prev_row["unique_member_code"])
                 st.query_params.clear()
@@ -1434,7 +1444,7 @@ def _render_profile_nav(conn, join_key: str) -> None:
             if st.button(
                 label,
                 key="mo_next_td",
-                help=f"Next TD alphabetically: {next_row['member_name']}",
+                help=f"Next {term} alphabetically: {next_row['member_name']}",
             ):
                 st.session_state[_STAGE_KEY] = str(next_row["unique_member_code"])
                 st.query_params.clear()
@@ -1449,7 +1459,15 @@ def _render_stage2(
     join_key: str,
 ) -> None:
 
-    _render_profile_nav(conn, join_key)
+    # House drives a handful of label/section differences (Senator vs TD badge,
+    # panel vs constituency, no PQs/constituency-demographics for Senators) and
+    # scopes the prev/next walker + back-button wording to the right chamber.
+    house = _member_house(conn, join_key)
+    is_seanad = house == "Seanad"
+    term = "Senator" if is_seanad else "TD"
+    terms = "Senators" if is_seanad else "TDs"
+
+    _render_profile_nav(conn, join_key, house, term, terms)
 
     identity = _identity(conn, join_key)
     if not identity:
@@ -1467,10 +1485,6 @@ def _render_stage2(
         )
         return
 
-    # House drives a handful of label/section differences (Senator vs TD badge,
-    # panel vs constituency, no PQs/constituency-demographics for Senators).
-    house = _member_house(conn, join_key)
-    is_seanad = house == "Seanad"
     member_name = str(identity.get("member_name", ""))
     party = str(identity.get("party_name", ""))
     constituency = str(identity.get("constituency", ""))

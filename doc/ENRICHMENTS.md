@@ -1053,7 +1053,7 @@ Gotchas  PxStat is well-documented but each table has its own dimensions;
 Rating   Value: M · Cost: L · Risk: L
 ```
 
-**Currently ingested** (see `pipeline_sandbox/cso_pxstat_extract.py`):
+**Currently ingested** (see `extractors/cso_pxstat_extract.py`):
 - **Housing / HAP axis**: HSA07, HAP01/05/17/20/26/32, NDA01, NDQ07, HPM03/04/07/09, VAC14/15/16, F2021, F2023B
 - **Population axis**: PEA08 (county × year × age × sex), PEA01 (national age detail), PEA15 (annual migration components)
 - **Constituency axis**: FY005 (Census 2022 population per Dáil constituency — 2017 boundaries)

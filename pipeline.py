@@ -83,6 +83,11 @@ CHAINS: list[tuple[str, str]] = [
     # exposed to the UI). Zero-auth API, caches raw to bronze, depends on the CRO silver
     # register (winner->CRO match), skips gracefully on an API outage. Headless-safe.
     ("ted", "extractors/ted_ireland_extract.py"),
+    # cso: CSO PxStat tables (housing/HAP + general-government finance GFA01/GFQ01/
+    # NA012) -> gold cso_<table>.parquet (the national denominators behind
+    # v_gov_finance_annual). Zero-auth REST, no deps; writes any GREEN table by
+    # default (--dry-run validates only). Headless-safe, fidelity-gated per table.
+    ("cso", "extractors/cso_pxstat_extract.py"),
     # freshness runs last: it reads the silver + gold the chains above produced
     # and writes data/_meta/freshness.json (the data-age signal the Streamlit
     # badge + scheduled report read). Pure read — never mutates pipeline data.
@@ -110,6 +115,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "procurement": "eTenders/OGP awards + supplier->CRO match (gold); value-is-not-spend flags",
     "procurement_lobbying": "supplier <-> lobbying registrant/client overlap xref (gold)",
     "ted": "TED EU award notices (Ireland) + winner->CRO match (silver); award-value-not-spend flags",
+    "cso": "CSO PxStat housing/HAP + govt-finance (GFA01/GFQ01/NA012) -> gold denominators",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
     "source_health": "per-source health -> data/_meta/source_health.json (manual staleness; links opt-in)",
 }

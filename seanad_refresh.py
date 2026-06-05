@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import time
 
-import attendance
+import attendance.attendance as attendance
 import payments.payments_full_psa_etl as payments
 import payments.payments_member_enrichment as payments_member_enrichment
 import votes.enrich as enrich

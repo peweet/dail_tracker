@@ -4,7 +4,7 @@
 -- per-capita number that a reader can actually judge.
 --
 -- Source : data/gold/parquet/cso_gfa01.parquet
---          (pipeline_sandbox/cso_pxstat_extract.py — CSO PxStat GFA01,
+--          (extractors/cso_pxstat_extract.py — CSO PxStat GFA01,
 --           "General Government Transactions ESA 2010", annual 1995–2025).
 -- Grain  : one row per calendar year. GFA01's native grain is (Year × Item),
 --          exactly one row per pair (31 yrs × 29 items = 899), so the conditional

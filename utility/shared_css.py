@@ -947,6 +947,16 @@ def inject_css() -> None:
             padding-bottom: 0.35rem;
             border-bottom: 2px solid var(--accent);
         }
+        /* Sub-section heading (h3) nested under a .section-heading (h2).
+           Visually quieter — lighter rule, smaller top margin — so the
+           heading level reads as subordinate, not a sibling section. */
+        .section-subheading {
+            font-size: 0.66rem;
+            margin: 1rem 0 0.45rem 0;
+            border-bottom-width: 1px;
+            border-bottom-color: var(--border, #d9d2c4);
+            color: var(--text-meta);
+        }
 
         /* ── Editorial hero band (main content area) ── */
         .dt-hero {
@@ -3511,6 +3521,7 @@ def inject_css() -> None:
             content: " Show less ▴";
         }
         .q-card-body details[open] .q-card-truncated { display: none; }
+        .q-card-fulltext { margin-top: 0.4rem; }
         .q-card-foot {
             display: flex;
             align-items: baseline;

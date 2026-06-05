@@ -25,7 +25,7 @@ import polars as pl
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from lobby_processing import (
+from lobbying.lobby_processing import (
     clean_dpo_name,
     explode_activities,
     explode_politicians,
