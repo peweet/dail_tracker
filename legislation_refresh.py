@@ -38,6 +38,15 @@ def _subprocess(script: str) -> bool:
     return r.returncode == 0
 
 
+def _module(mod: str) -> bool:
+    """Run a packaged step via ``python -m <mod>`` (cwd=root → ``import config``
+    resolves). Used for steps that live in a package dir, not at repo root."""
+    t = time.monotonic()
+    r = subprocess.run([sys.executable, "-m", mod], cwd=_ROOT)
+    print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
+    return r.returncode == 0
+
+
 def step_legislation() -> bool:
     _hr("[1/5] legislation — bills + sponsors + stages")
     return _subprocess("legislation.py")
@@ -55,12 +64,12 @@ def step_bill_amendments() -> bool:
 
 def step_transform_votes() -> bool:
     _hr("[4/5] transform_votes — divisions + per-TD vote patterns")
-    return _subprocess("transform_votes.py")
+    return _module("votes.transform_votes")
 
 
 def step_enrich() -> bool:
     _hr("[5/5] enrich — cross-dataset enrichment over silver outputs")
-    return _subprocess("enrich.py")
+    return _module("votes.enrich")
 
 
 def main() -> int:
