@@ -285,6 +285,22 @@ def _si_signed(_conn, join_key: str) -> pd.DataFrame:
     )
 
 
+@st.cache_data(ttl=300)
+def _ministerial_roles(_conn, join_key: str) -> pd.DataFrame:
+    """Ministerial posts this member has held (Wikidata-sourced tenure spine).
+    Wider history than _si_signed: spans 2011→present, current government and
+    earlier. Empty for members who never held office."""
+    return _q(
+        _conn,
+        "SELECT department_label, minister_name, start_date, end_date,"
+        " is_current, tenure_days"
+        " FROM v_member_ministerial_tenure"
+        " WHERE unique_member_code = ?"
+        " ORDER BY start_date DESC",
+        [join_key],
+    )
+
+
 # Electoral Commission review deep link — surfaces the source report for citizen
 # verification. This is the only external URL specific to constituency
 # demographics; the rest of the provenance is captured inline in the SQL view header.
@@ -539,6 +555,67 @@ def _section_legislation(conn, join_key: str, member_name: str) -> None:
         key="mo_leg_export",
         width="stretch",
     )
+
+
+def _fmt_tenure_days(days) -> str:
+    """Humanise a tenure length in days → '2 yrs 10 mths'. Presentation only."""
+    if days is None or pd.isna(days):
+        return ""
+    days = int(days)
+    yrs, rem = divmod(days, 365)
+    mths = rem // 30
+    parts: list[str] = []
+    if yrs:
+        parts.append(f"{yrs} yr{'s' if yrs != 1 else ''}")
+    if mths:
+        parts.append(f"{mths} mth{'s' if mths != 1 else ''}")
+    return " ".join(parts) or "< 1 mth"
+
+
+def _section_ministerial_roles(conn, join_key: str) -> None:
+    """Ministerial posts the member has held (Wikidata-sourced tenure spine).
+    Conditional: rendered only when the member held office, so non-ministers see
+    nothing. Wider than the SIs-signed section below — it covers earlier
+    governments back to 2011, not just the current one."""
+    df = _ministerial_roles(conn, join_key)
+    if df.empty:
+        return
+
+    st.divider()
+    evidence_heading("Ministerial roles")
+
+    n = len(df)
+    current_n = int(df["is_current"].fillna(False).astype(bool).sum())
+    current_str = f", {current_n} held now" if current_n else ""
+    st.caption(
+        f"{n} ministerial post{'s' if n != 1 else ''} held{current_str} — "
+        "departmental office history sourced from Wikidata. Dates are the "
+        "appointment and departure recorded for each post."
+    )
+
+    for _, row in df.iterrows():
+        start = row.get("start_date")
+        end = row.get("end_date")
+        is_current = bool(row.get("is_current"))
+        start_txt = start.strftime("%b %Y") if pd.notna(start) else "—"
+        if is_current or pd.isna(end):
+            date_range = f"since {start_txt}"
+            pill = '<span class="signal leg-status-active">Current</span>'
+        else:
+            date_range = f"{start_txt} – {end.strftime('%b %Y')}"
+            pill = ""
+        duration = _fmt_tenure_days(row.get("tenure_days"))
+        dur_html = f"In post {_h(duration)}" if duration else ""
+        st.html(
+            f'<div class="leg-bill-card mo-bill-card">'
+            f'<div class="leg-bill-card-header">'
+            f'<span class="leg-bill-card-date">{_h(date_range)}</span>'
+            f"{pill}"
+            f"</div>"
+            f'<div class="leg-bill-card-title">{_h(str(row.get("department_label", "—")))}</div>'
+            f'<div class="mo-bill-card-link-row">{dur_html}</div>'
+            f"</div>"
+        )
 
 
 def _section_statutory_instruments(conn, join_key: str) -> None:
@@ -1790,6 +1867,7 @@ def _render_stage2(
                 _section_questions(conn, join_key, member_name)
         elif sid == "legislation":
             _section_legislation(conn, join_key, member_name)
+            _section_ministerial_roles(conn, join_key)
             _section_statutory_instruments(conn, join_key)
         elif sid == "committees":
             _section_committees(member_name, join_key)

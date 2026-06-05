@@ -33,4 +33,13 @@ SELECT
     wikidata_position
 FROM read_parquet('data/silver/ministerial_tenure.parquet')
 WHERE start_date IS NOT NULL
+-- Source dedup: Wikidata occasionally records the SAME post twice with restated
+-- start dates (e.g. a mid-term re-appointment to a department already held, both
+-- left open-ended). Collapse to one row per (minister, department, end_date),
+-- keeping the EARLIEST start — the appointment date. This is cleaning a
+-- duplicated record, not inferring a fact: the held-since date is the first one.
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY minister_name, department_label, end_date
+    ORDER BY start_date
+) = 1
 ORDER BY department_label, start_date DESC;
