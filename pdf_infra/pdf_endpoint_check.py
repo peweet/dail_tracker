@@ -1,5 +1,6 @@
 import logging
 import sys
+from datetime import date
 
 import requests
 
@@ -456,6 +457,165 @@ def endpoint_checker(manual_urls=manual_endpoints, urls=urls, session=session, t
     return broken, validated_endpoints
 
 
+# ── API endpoint canaries ─────────────────────────────────────────────────────
+# The PDF checks above HEAD-validate fixed file URLs. The feed/API sources can't
+# be HEAD-checked (POST-only / query-parameterised), so each gets a *canary*: a
+# minimal VALID request that proves the endpoint is up AND returns the expected
+# shape. Kept self-contained here (endpoints inline, like the PDF URLs above) so
+# the nightly endpoint-health job validates every source from one place. Each
+# canary returns {ok, detail, http_status, rows}; pass a session for offline tests.
+_CANARY_UA = "dail-tracker-bot/0.1 (endpoint-canary; +https://github.com/peweet/dail_tracker)"
+CANARY_TIMEOUT = 60
+
+
+def _canary(ok: bool, detail: str, status=None, rows=None) -> dict:
+    return {"ok": ok, "detail": detail, "http_status": status, "rows": rows}
+
+
+def canary_oireachtas_api(session=None) -> dict:
+    """Oireachtas API: 1-row legislation GET -> JSON with `head` + `results` list."""
+    s = session or requests
+    try:
+        r = s.get(
+            "https://api.oireachtas.ie/v1/legislation",
+            params={"limit": 1},
+            headers={"Accept": "application/json"},
+            timeout=CANARY_TIMEOUT,
+        )
+    except Exception as e:  # noqa: BLE001 — a transport error IS the health signal
+        return _canary(False, f"{type(e).__name__}: {e}")
+    if r.status_code != 200:
+        return _canary(False, f"HTTP {r.status_code}", r.status_code)
+    body = r.json()
+    results = body.get("results")
+    if "head" not in body or not isinstance(results, list):
+        return _canary(False, "missing head/results", 200)
+    return _canary(True, "API OK", 200, len(results))
+
+
+def canary_lobbying(session=None) -> dict:
+    """lobbying.ie ExportReturns CSV: 1-row, 1-day GET (the full filter-param
+    schema is required or the API 404s) -> CSV whose header carries the columns."""
+    s = session or requests
+    stamp = date.today().strftime("%d-%m-%Y")
+    params = {
+        "currentPage": 0, "pageSize": 1, "queryText": "", "subjectMatters": "",
+        "subjectMatterAreas": "", "publicBodys": "", "jobTitles": "",
+        "returnDateFrom": stamp, "returnDateTo": stamp, "period": "", "dpo": "",
+        "client": "", "responsible": "", "lobbyist": "", "lobbyistId": "",
+    }
+    try:
+        r = s.get(
+            "https://api.lobbying.ie/api/ExportReturns/Csv",
+            headers={"User-Agent": _CANARY_UA},
+            params=params,
+            timeout=CANARY_TIMEOUT,
+        )
+    except Exception as e:  # noqa: BLE001 — a transport error IS the health signal
+        return _canary(False, f"{type(e).__name__}: {e}")
+    if r.status_code != 200:
+        return _canary(False, f"HTTP {r.status_code}", r.status_code)
+    text = r.content.lstrip(b"\xef\xbb\xbf").decode("utf-8", errors="replace")
+    lines = text.splitlines()
+    header = {c.strip() for c in lines[0].split(",")} if lines else set()
+    needed = {"Id", "Lobbyist Name", "Date Published", "Period", "Relevant Matter"}
+    if needed - header:
+        return _canary(False, f"CSV missing columns: {sorted(needed - header)}", 200)
+    return _canary(True, "CSV header valid", 200, max(0, len(lines) - 1))
+
+
+def canary_ted(session=None) -> dict:
+    """TED search API: POST a 1-row Ireland-CAN query -> JSON with a `notices` list."""
+    s = session or requests
+    body = {
+        "query": "buyer-country=IRL AND notice-type=can-standard AND publication-date>=20240101",
+        "fields": ["publication-number"], "limit": 1, "page": 1, "paginationMode": "PAGE_NUMBER",
+    }
+    try:
+        r = s.post(
+            "https://api.ted.europa.eu/v3/notices/search",
+            json=body,
+            headers={"User-Agent": _CANARY_UA, "Accept": "application/json"},
+            timeout=CANARY_TIMEOUT,
+        )
+    except Exception as e:  # noqa: BLE001 — a transport error IS the health signal
+        return _canary(False, f"{type(e).__name__}: {e}")
+    if r.status_code != 200:
+        return _canary(False, f"HTTP {r.status_code}: {r.text[:120]}", r.status_code)
+    notices = r.json().get("notices")
+    if not isinstance(notices, list):
+        return _canary(False, "no 'notices' list", 200)
+    return _canary(True, "search OK", 200, len(notices))
+
+
+def canary_etenders(session=None) -> dict:
+    """eTenders open data: data.gov.ie CKAN `package_show` -> non-empty resources
+    list (also surfaces resource-URL drift of the direct CSV download)."""
+    s = session or requests
+    try:
+        r = s.get(
+            "https://data.gov.ie/api/3/action/package_show",
+            params={"id": "contract-notices-published-on-etenders"},
+            headers={"User-Agent": _CANARY_UA},
+            timeout=CANARY_TIMEOUT,
+        )
+    except Exception as e:  # noqa: BLE001 — a transport error IS the health signal
+        return _canary(False, f"{type(e).__name__}: {e}")
+    if r.status_code != 200:
+        return _canary(False, f"HTTP {r.status_code}", r.status_code)
+    body = r.json()
+    resources = (body.get("result") or {}).get("resources") or []
+    if not body.get("success") or not resources:
+        return _canary(False, "CKAN package_show: no resources", 200, 0)
+    return _canary(True, f"{len(resources)} CKAN resources", 200, len(resources))
+
+
+def canary_wikidata(session=None) -> dict:
+    """Wikidata SPARQL: trivial LIMIT 1 query -> JSON with a `results.bindings` list."""
+    s = session or requests
+    params = {"query": "SELECT ?x WHERE { ?x wdt:P31 wd:Q5 } LIMIT 1", "format": "json"}
+    try:
+        r = s.get(
+            "https://query.wikidata.org/sparql",
+            params=params,
+            headers={"User-Agent": _CANARY_UA, "Accept": "application/sparql-results+json"},
+            timeout=CANARY_TIMEOUT,
+        )
+    except Exception as e:  # noqa: BLE001 — a transport error IS the health signal
+        return _canary(False, f"{type(e).__name__}: {e}")
+    if r.status_code != 200:
+        return _canary(False, f"HTTP {r.status_code}", r.status_code)
+    bindings = (r.json().get("results") or {}).get("bindings")
+    if not isinstance(bindings, list):
+        return _canary(False, "no results.bindings", 200)
+    return _canary(True, "SPARQL OK", 200, len(bindings))
+
+
+# Each feed/API source -> its canary. The endpoint URLs are intentionally inline
+# (same convention as the PDF URLs above); keep them in sync with the owning
+# extractor's config (lobbying_poller.ENDPOINT, ted_ireland_extract.URL, etc.).
+API_CANARIES = [
+    ("oireachtas_api", canary_oireachtas_api),
+    ("lobbying", canary_lobbying),
+    ("ted", canary_ted),
+    ("etenders", canary_etenders),
+    ("wikidata", canary_wikidata),
+]
+
+
+def run_api_canaries(session=None) -> list[tuple[str, dict]]:
+    """Run every API canary, print one line each, and return [(name, result)]."""
+    results: list[tuple[str, dict]] = []
+    for name, fn in API_CANARIES:
+        result = fn(session)
+        rows = result.get("rows")
+        suffix = f" (rows={rows})" if rows is not None else ""
+        print(f"[{'OK' if result['ok'] else 'BROKEN'}] api:{name} — {result['detail']}{suffix}")
+        logging.info("canary %s: ok=%s %s", name, result["ok"], result["detail"])
+        results.append((name, result))
+    return results
+
+
 if __name__ == "__main__":
     from services.logging_setup import setup_standalone_logging
 
@@ -464,14 +624,22 @@ if __name__ == "__main__":
     session = requests.Session()
     broken, _ = endpoint_checker(urls=urls, session=session)
 
-    if not broken:
-        print("Endpoint check complete. All URLs are accessible and working correctly.")
+    print("\n=== API endpoint canaries ===")
+    canary_results = run_api_canaries(session)
+    failed_canaries = [name for name, result in canary_results if not result["ok"]]
+
+    if not broken and not failed_canaries:
+        print("\nEndpoint check complete. All PDF URLs and API canaries are healthy.")
     else:
         print("\nEndpoint check complete.")
-        print(f"Broken URLs found: {len(broken)}")
-        for url in broken:
-            print(f" - {url}")
+        if broken:
+            print(f"Broken PDF URLs: {len(broken)}")
+            for url in broken:
+                print(f" - {url}")
+        if failed_canaries:
+            print(f"Failed API canaries: {', '.join(failed_canaries)}")
         print("See logs/standalone/endpoint_check.log for full details.")
 
-    # Non-zero exit so CI (nightly endpoint-health workflow) can detect link rot.
-    sys.exit(1 if broken else 0)
+    # Non-zero exit so CI (nightly endpoint-health workflow) can detect link rot
+    # OR a feed/API endpoint going down / changing shape.
+    sys.exit(1 if (broken or failed_canaries) else 0)
