@@ -13,9 +13,12 @@ Sides:
   - eTenders AWARDS : data/gold/parquet/procurement_awards.parquet (value_safe_to_sum)
   - TED AWARDS      : data/silver/parquet/ted_ie_awards.parquet (value_safe_to_sum)
 
-Entity key is HYBRID: CRO company_num when available (most reliable, catches name variants
-like BAM Building / BAM Contractors), else the normalised name. CRO numbers come from
-procurement_supplier_cro_match.parquet (spend + eTenders side) and ted's own cro_company_num.
+Entity key is HYBRID: CRO company_num when available (most reliable, merges name variants),
+else a LOOSE normalised name. ALL THREE sides resolve to CRO the SAME way — an exact-unique
+join of their loose name against the CRO register (data/silver/cro/companies.parquet) — so the
+same firm gets the same company_num everywhere (e.g. Turner & Townsend's "&"/"And"/"Ltd"
+spellings collapse to one CRO:102886 entity instead of three). Loose key drops the standalone
+word "AND" because the base normaliser strips '&' but keeps 'and'.
 
 Output: data/sandbox/parquet/procurement_award_spend_link.parquet (one row per supplier entity)
         + data/_meta/procurement_award_spend_link_summary.json
@@ -38,11 +41,41 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 SPEND_PARQUETS = ["public_payments_fact", "nphdb_payments_fact", "seai_payments_fact", "nta_payments_fact"]
-CRO_MATCH = ROOT / "data/gold/parquet/procurement_supplier_cro_match.parquet"
+CRO_REGISTER = ROOT / "data/silver/cro/companies.parquet"
 ETENDERS = ROOT / "data/gold/parquet/procurement_awards.parquet"
 TED = ROOT / "data/silver/parquet/ted_ie_awards.parquet"
 OUT = ROOT / "data/sandbox/parquet/procurement_award_spend_link.parquet"
 OUT_SUMMARY = ROOT / "data/_meta/procurement_award_spend_link_summary.json"
+
+
+def _loose(col: str) -> pl.Expr:
+    """A LOOSE join key over an already-normalised name: drop the standalone word AND so the
+    "X & Y" vs "X And Y" spellings collapse (the base normaliser strips '&' but keeps the word
+    'and' — e.g. 'Turner & Townsend'->TURNER TOWNSEND but 'Turner And Townsend'->TURNER AND
+    TOWNSEND, which then miss each other AND the CRO register). Also squeeze whitespace."""
+    return (pl.col(col).str.replace_all(r"\bAND\b", " ")
+            .str.replace_all(r"\s+", " ").str.strip_chars().alias("loose_key"))
+
+
+def load_cro_map() -> pl.DataFrame:
+    """EXACT-UNIQUE loose-name -> CRO company_num map, applied identically to all three sides so
+    the SAME firm resolves to the SAME company_num everywhere (fixes the dedup gap where a
+    name-keyed spend entity didn't merge with a CRO-keyed award entity). Loose names that map to
+    >1 company_num (dissolved+active duplicates etc.) are dropped — a wrong merge is worse than a
+    missed one; those entities stay name-keyed."""
+    cro = (pl.read_parquet(CRO_REGISTER)
+           .select(["name_norm", "company_num", "company_status"])
+           .filter(pl.col("name_norm").is_not_null() & (pl.col("name_norm").str.len_chars() >= 4))
+           .with_columns(_loose("name_norm")))
+    counts = cro.group_by("loose_key").agg(pl.col("company_num").n_unique().alias("n"))
+    unique_names = counts.filter(pl.col("n") == 1).select("loose_key")
+    return (cro.join(unique_names, on="loose_key", how="inner")
+            .unique("loose_key").select(["loose_key", "company_num", "company_status"]))
+
+
+def attach_cro(df: pl.DataFrame, norm_col: str, cro_map: pl.DataFrame) -> pl.DataFrame:
+    """Add loose_key + a CRO company_num (joined on the loose key)."""
+    return df.with_columns(_loose(norm_col)).join(cro_map, on="loose_key", how="left")
 
 
 def _entity(cro_col: str, norm_col: str) -> pl.Expr:
@@ -55,7 +88,7 @@ def _entity(cro_col: str, norm_col: str) -> pl.Expr:
     )
 
 
-def load_spend() -> pl.DataFrame:
+def load_spend(cro_map: pl.DataFrame) -> pl.DataFrame:
     parts = []
     for p in SPEND_PARQUETS:
         fp = ROOT / f"data/sandbox/parquet/{p}.parquet"
@@ -72,11 +105,8 @@ def load_spend() -> pl.DataFrame:
         & pl.col("supplier_normalised").is_not_null()
         & (pl.col("supplier_normalised").str.strip_chars() != "")
     )
-    cro = (pl.read_parquet(CRO_MATCH)
-           .filter(pl.col("company_num").is_not_null())
-           .select(["supplier_norm", "company_num", "company_status"]).unique("supplier_norm"))
-    clean = clean.join(cro, left_on="supplier_normalised", right_on="supplier_norm", how="left")
-    clean = clean.with_columns(_entity("company_num", "supplier_normalised"))
+    clean = attach_cro(clean, "supplier_normalised", cro_map)
+    clean = clean.with_columns(_entity("company_num", "loose_key"))
     return clean.group_by("entity").agg(
         pl.col("supplier_raw").drop_nulls().first().alias("spend_name"),
         pl.col("supplier_normalised").first().alias("spend_norm"),
@@ -88,12 +118,9 @@ def load_spend() -> pl.DataFrame:
     )
 
 
-def load_etenders() -> pl.DataFrame:
+def load_etenders(cro_map: pl.DataFrame) -> pl.DataFrame:
     aw = pl.read_parquet(ETENDERS).filter(pl.col("value_safe_to_sum"))
-    cro = (pl.read_parquet(CRO_MATCH)
-           .filter(pl.col("company_num").is_not_null())
-           .select(["supplier_norm", "company_num"]).unique("supplier_norm"))
-    aw = aw.join(cro, on="supplier_norm", how="left").with_columns(_entity("company_num", "supplier_norm"))
+    aw = attach_cro(aw, "supplier_norm", cro_map).with_columns(_entity("company_num", "loose_key"))
     return aw.group_by("entity").agg(
         pl.col("supplier").drop_nulls().first().alias("etenders_name"),
         pl.col("value_eur").sum().alias("etenders_award_eur"),
@@ -101,9 +128,12 @@ def load_etenders() -> pl.DataFrame:
     )
 
 
-def load_ted() -> pl.DataFrame:
+def load_ted(cro_map: pl.DataFrame) -> pl.DataFrame:
     ted = pl.read_parquet(TED).filter(pl.col("value_safe_to_sum") & pl.col("winner_name_norm").is_not_null())
-    ted = ted.with_columns(_entity("cro_company_num", "winner_name_norm"))
+    # re-derive CRO from the shared map (not ted's own cro_company_num) so the key matches the
+    # other two sides exactly.
+    ted = attach_cro(ted.drop("company_num", strict=False), "winner_name_norm", cro_map)
+    ted = ted.with_columns(_entity("company_num", "loose_key"))
     return ted.group_by("entity").agg(
         pl.col("winner_name").drop_nulls().first().alias("ted_name"),
         pl.col("award_value_eur").sum().alias("ted_award_eur"),
@@ -112,10 +142,12 @@ def load_ted() -> pl.DataFrame:
 
 
 def main() -> None:
-    spend = load_spend()
-    et = load_etenders()
-    ted = load_ted()
+    cro_map = load_cro_map()
+    spend = load_spend(cro_map)
+    et = load_etenders(cro_map)
+    ted = load_ted(cro_map)
     print(f"{'=' * 78}\nAWARD <-> SPEND LINKAGE\n{'=' * 78}")
+    print(f"CRO exact-unique name->company map: {cro_map.height:,} names")
     print(f"entities — spend {spend.height:,} | eTenders {et.height:,} | TED {ted.height:,}")
 
     link = (spend.join(et, on="entity", how="full", coalesce=True)

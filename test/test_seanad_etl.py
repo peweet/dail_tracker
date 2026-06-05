@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import attendance  # noqa: E402
 import payments.payments_full_psa_etl as P  # noqa: E402
-import transform_votes  # noqa: E402
+import votes.transform_votes as transform_votes  # noqa: E402
 
 
 # ── _split_position — the highest-value guard ────────────────────────────────

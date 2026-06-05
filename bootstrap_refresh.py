@@ -76,12 +76,12 @@ def step_members_api() -> bool:
 
 def step_flatten_members() -> bool:
     _hr("[4/5] flatten_members_json_to_csv — silver flattened members")
-    return _subprocess("flatten_members_json_to_csv.py")
+    return _module("members.flatten_members_json_to_csv")
 
 
 def step_flatten_debates() -> bool:
     _hr("[5/5] dbsect_listings_flatten — silver debate-section listings")
-    return _subprocess("dbsect_listings_flatten.py")
+    return _module("debates.dbsect_listings_flatten")
 
 
 def main() -> int:

@@ -95,7 +95,13 @@ from ui.components import (
     totals_strip,
 )
 from data_access.identity_resolver import resolve_member_code
-from ui.entity_links import entity_cta_html, member_profile_url, name_join_key, source_link_html
+from ui.entity_links import (
+    entity_cta_html,
+    member_profile_url,
+    name_join_key,
+    normalise_external_url,
+    source_link_html,
+)
 from ui.export_controls import export_button
 from ui.source_links import render_source_links
 
@@ -753,7 +759,12 @@ def _render_org_index(summary: pd.DataFrame) -> None:
     cards: list[str] = []
     for i, (_, row) in enumerate(page_slice.iterrows(), start=1):
         name = str(row.get("lobbyist_name", "—"))
-        meta = clean_meta(str(row.get("sector", "") or ""))
+        # Prefer the CRO/charity sector classification; fall back to the
+        # register's own self-declared main activity so cards aren't blank for
+        # the ~half of orgs with no company/charity match.
+        sector = str(row.get("sector", "") or "").strip()
+        activity = str(row.get("main_activities", "") or "").strip()
+        meta = clean_meta(sector or activity)
         pills_list = [
             _p(int(row.get("return_count", 0) or 0), "return"),
             _p(int(row.get("politicians_targeted", 0) or 0), "politician"),
@@ -820,10 +831,47 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
     else:
         _quiet_hero(title=org_name, dek="No lobbying returns on record for this organisation.")
 
-    if website and website.startswith("http"):
-        st.html(
-            f'<p class="lp3-prose">Website: {source_link_html(website, website, aria_label=f"Open {org_name} website")}</p>'
+    # ── Organisation register record ──────────────────────────────────────────
+    # Self-declared identity from the lobbying.ie organisation register, carried
+    # through gold (sql_queries/top_lobbyist_organisations.sql). Factual register
+    # fields only — never framed as a judgement (feedback_no_inference_in_app).
+    # The register `website` box is free text: most values are scheme-less
+    # (www.ibec.ie) and a minority are junk (an org name); normalise_external_url
+    # renders the real ones and drops the junk.
+    activity = str(org_row.get("main_activities", "") or "").strip()
+    reg_co_name = str(org_row.get("register_company_name", "") or "").strip()
+    reg_cro_num = str(org_row.get("register_company_registration_number", "") or "").strip()
+    web_url = normalise_external_url(website)
+    profile_url = str(org_row.get("lobbying_profile_url", "") or "").strip()
+
+    identity_clauses: list[str] = []
+    if activity:
+        identity_clauses.append(f"Registered main activity: <strong>{_h(activity)}</strong>.")
+    if reg_cro_num and reg_co_name:
+        identity_clauses.append(
+            "On the lobbying register, lists Companies Registration Office no. "
+            f"<strong>{_h(reg_cro_num)}</strong> — registered name <strong>{_h(reg_co_name)}</strong>."
         )
+    elif reg_cro_num:
+        identity_clauses.append(
+            "On the lobbying register, lists Companies Registration Office no. "
+            f"<strong>{_h(reg_cro_num)}</strong>."
+        )
+    if identity_clauses:
+        st.html(f'<p class="lp3-prose">{" ".join(identity_clauses)}</p>')
+
+    # External links — own website + the lobbying.ie organisation page. Both
+    # helpers no-op on missing/junk URLs, so the row only renders what exists.
+    link_chips = [
+        c
+        for c in (
+            source_link_html(web_url, "Visit website", aria_label=f"Open {org_name}'s website in a new tab"),
+            source_link_html(profile_url, "View on lobbying.ie", aria_label=f"Open {org_name} on lobbying.ie"),
+        )
+        if c
+    ]
+    if link_chips:
+        st.html('<p class="lp3-prose">' + " &nbsp;·&nbsp; ".join(link_chips) + "</p>")
 
     # CRO statutory-accounts filing recency. The CRO financial-statements FILING
     # INDEX is metadata only (the figures are paywalled) and recent period-years

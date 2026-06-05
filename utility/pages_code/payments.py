@@ -45,6 +45,11 @@ from data_access.sipo_donations_data import (
     fetch_donations_totals,
     fetch_party_donors,
 )
+from data_access.sipo_expenses_data import (
+    fetch_expenses_by_party,
+    fetch_expenses_totals,
+    fetch_party_candidates,
+)
 from shared_css import inject_css
 from ui.components import (
     back_button,
@@ -436,6 +441,119 @@ def _render_party_donations() -> None:
     st.caption(_DON_CAVEAT)
 
 
+# ── Party election-expenses lens (SIPO political finance, GE2024) ────────────────
+# Companion to the donations lens; reuses the .don-* card styling. Shows the
+# national-agent "expenditure on the candidate" column (Part 3) — money SPENT, not
+# received. It is per-candidate-allocated spend, so it UNDER-counts parties that book
+# spend centrally (Sinn Féin); it is not a total campaign outlay. Decimal-loss OCR
+# mis-reads (flag over_limit_verify) are quarantined by the view and shown as
+# "verify · SIPO p.N", never as a number.
+
+_EXP_CAVEAT = (
+    "Source: Standards in Public Office Commission, 2024 National-Agent election "
+    "expenses statements. Figures are OCR-read from the official scanned returns; "
+    "rows marked “to verify” should be checked against the source PDF. This is "
+    "per-candidate national-agent spend, not a party's total campaign outlay; "
+    "nothing here implies influence or wrongdoing."
+)
+
+
+def _exp_party_card(row: pd.Series) -> str:
+    party = str(row["party"])
+    stripe = party_colour(party)
+    total = float(row["total_expenditure"] or 0)
+    n = int(row["candidate_count"] or 0)
+    exc = int(row["excluded_count"] or 0)
+    note = f'<span class="don-vmark">{exc} to verify</span>' if exc else ""
+    return (
+        f'<a class="don-card" href="?eparty={quote(party)}" target="_self" '
+        f'style="--don-stripe:{stripe}">'
+        f'<span class="don-dir">↓ spent on candidates</span>'
+        f'<div class="don-ptitle"><span class="don-swatch"></span><h3>{_h(party)}</h3></div>'
+        f'<div class="don-amount">€{total:,.0f}</div>'
+        f'<div class="don-sub">{n} candidate{"" if n == 1 else "s"}</div>'
+        f'<div class="don-cardfoot"><span class="go">View candidates →</span>{note}</div>'
+        "</a>"
+    )
+
+
+def _render_party_candidate_list(party: str) -> None:
+    if back_button("← All parties", key="exp_back"):
+        st.query_params.pop("eparty", None)
+        st.rerun()
+    st.markdown(f"#### {_h(party)} · national-agent spend on candidates 2024")
+    cands = fetch_party_candidates(party)
+    if cands.empty:
+        empty_state(
+            "No candidate expenses on record",
+            f"{party} has no national-agent candidate expenditure loaded.",
+        )
+        return
+    stripe = party_colour(party)
+    rows: list[str] = []
+    for _, c in cands.iterrows():
+        flag = str(c["flag"])
+        name = _h(str(c["candidate_name"] or "—"))
+        const = _h(str(c["constituency"] or "—"))
+        page = int(c["source_page"]) if pd.notna(c["source_page"]) else 0
+        if flag in ("over_limit_verify", "no_amount"):
+            # decimal-loss / missing amount — never show the bad magnitude
+            amt_html = '<span class="da">—</span>'
+            vmark = f'<span class="don-vmark">verify · SIPO p.{page}</span>'
+        else:
+            amt = float(c["expenditure_eur"] or 0)
+            amt_html = f'<span class="da">€{amt:,.0f}</span>'
+            vmark = (
+                f'<span class="don-vmark">verify · SIPO p.{page}</span>'
+                if not bool(c["is_verified"])
+                else ""
+            )
+        rows.append(
+            f'<div class="don-rrow"><span class="dn">{name}</span>'
+            f'<span class="mt">{const}</span>{amt_html}{vmark}</div>'
+        )
+    st.html(f'<div class="don-receipts" style="--don-stripe:{stripe}">{"".join(rows)}</div>')
+    st.caption(
+        "National-agent expenditure on each candidate (Part 3 of the SIPO return). "
+        "Amounts flagged “verify” are OCR reads to check against the source PDF."
+    )
+
+
+def _render_party_expenses() -> None:
+    hero_banner(
+        kicker="POLITICAL FINANCE · GENERAL ELECTION 2024",
+        title="Election Expenses",
+        dek=(
+            "What each party's national agent spent on its candidates at the 2024 "
+            "general election, from the returns filed with the Standards in Public "
+            "Office Commission. This is per-candidate spend — parties also spend "
+            "centrally, which is not counted here."
+        ),
+    )
+    selected = st.query_params.get("eparty")
+    if selected:
+        _render_party_candidate_list(selected)
+        return
+    totals = fetch_expenses_totals()
+    totals_strip(
+        [
+            (f"€{totals['total']:,.0f}", "spent on candidates"),
+            (str(totals["parties"]), "parties"),
+            (str(totals["candidates"]), "candidates"),
+        ]
+    )
+    by_party = fetch_expenses_by_party()
+    if by_party.empty:
+        empty_state(
+            "No expenses on record",
+            "No party election-expense returns are loaded for this election yet.",
+        )
+        return
+    cards = "".join(_exp_party_card(r) for _, r in by_party.iterrows())
+    st.html(f'<div class="don-grid">{cards}</div>')
+    st.caption(_EXP_CAVEAT)
+
+
 @page_error_boundary
 def payments_page() -> None:
     inject_css()
@@ -447,7 +565,7 @@ def payments_page() -> None:
     lens = (
         st.segmented_control(
             "View",
-            options=["Member payments", "Party donations"],
+            options=["Member payments", "Party donations", "Election expenses"],
             default="Member payments",
             key="pay_lens",
             label_visibility="collapsed",
@@ -456,6 +574,9 @@ def payments_page() -> None:
     )
     if lens == "Party donations":
         _render_party_donations()
+        return
+    if lens == "Election expenses":
+        _render_party_expenses()
         return
 
     summary = fetch_payments_summary()

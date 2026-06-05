@@ -4,7 +4,7 @@ import pandas as pd
 from flatten_json import flatten
 
 from config import MEMBERS_DIR, SILVER_DIR
-from members_api_service import fetch_members, save_members_json
+from members.members_api_service import fetch_members, save_members_json
 from shared.select_drop_rename_cols_mappings import members_drop_cols, members_rename
 
 

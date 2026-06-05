@@ -16,15 +16,15 @@ PY = sys.executable
 
 # (label, [args]) — args[0] is script relative to ROOT
 STEPS: list[tuple[str, list[str]]] = [
-    ("flatten_members",        ["flatten_members_json_to_csv.py"]),
-    ("flatten_debates",        ["dbsect_listings_flatten.py"]),
+    ("flatten_members",        ["-m", "members.flatten_members_json_to_csv"]),
+    ("flatten_debates",        ["-m", "debates.dbsect_listings_flatten"]),
     ("wikidata_socials",       ["-m", "wikidata.wikidata_socials_etl"]),
     ("ministerial_tenure",     ["-m", "wikidata.ministerial_tenure_build"]),
     ("committees_long_format", ["committees_long_format_etl.py"]),
     ("payments_etl",           ["-m", "payments.payments_full_psa_etl"]),
     ("payments_enrichment",    ["-m", "payments.payments_member_enrichment"]),
     ("attendance",             ["attendance.py"]),
-    ("member_interests",       ["member_interests.py"]),
+    ("member_interests",       ["-m", "members.member_interests"]),
     ("lobby_processing",       ["lobby_processing.py"]),
     ("lobbying_pdf_extract",   ["lobbying_pdf_extract.py"]),
     ("cro_normalise",          ["-m", "corporate.cro_normalise"]),
@@ -34,8 +34,8 @@ STEPS: list[tuple[str, list[str]]] = [
     ("legislation",            ["legislation.py"]),
     ("questions",              ["questions.py"]),
     ("bill_amendments",        ["bill_amendments_flatten.py"]),
-    ("transform_votes",        ["transform_votes.py"]),
-    ("enrich",                 ["enrich.py"]),
+    ("transform_votes",        ["-m", "votes.transform_votes"]),
+    ("enrich",                 ["-m", "votes.enrich"]),
     ("iris",                   ["iris_refresh.py", "--skip-poll"]),
 ]
 

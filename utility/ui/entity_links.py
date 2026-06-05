@@ -239,6 +239,36 @@ def entity_cta_html(
     return f'<a class="{_h(css_class)}" href="{_h(href)}" target="_self">{_h(label)}</a>'
 
 
+# ── Free-text URL normalisation ────────────────────────────────────────────────
+#
+# Some register-sourced "website" fields arrive scheme-less (``www.ibec.ie``,
+# ``irishheart.ie``) or as outright junk (an org name typed into the website box,
+# e.g. ``Chambers Ireland``, or ``n/a``). ``source_link_html`` deliberately
+# no-ops on anything that is not already http(s), so passing these raw would
+# silently drop the majority of valid websites. This presentation helper accepts
+# a domain-shaped value, prepends ``https://`` when no scheme is present, and
+# rejects values that don't look like a host — so the UI renders real links and
+# hides junk. It is a display guard only (no business logic): the underlying
+# register value is unchanged.
+
+_DOMAIN_RE = re.compile(r"^(?:https?://)?[\w-]+(?:\.[\w-]+)+(?:[/?#].*)?$", re.IGNORECASE)
+
+
+def normalise_external_url(raw: object) -> str:
+    """Return an http(s) URL for a domain-shaped free-text value, else ``""``.
+
+    ``www.ibec.ie`` → ``https://www.ibec.ie``; ``https://x.ie`` passes through;
+    ``Chambers Ireland`` / ``n/a`` / empty → ``""`` (so callers can splice the
+    result into ``source_link_html`` unconditionally — it no-ops on ``""``).
+    """
+    s = str(raw or "").strip()
+    if not s or s.lower() == "n/a" or not _DOMAIN_RE.match(s):
+        return ""
+    if not s.lower().startswith(("http://", "https://")):
+        s = "https://" + s
+    return s
+
+
 def source_link_html(
     url: str | None,
     label: str = "Oireachtas",
