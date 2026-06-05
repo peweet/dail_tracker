@@ -11,11 +11,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config import BILL_STATUS_CSS
 from data_access.legislation_data import (
     fetch_all_statuses,
+    fetch_bill_amendment_intensity,
     fetch_bill_debates,
     fetch_bill_detail,
     fetch_bill_pdfs,
     fetch_bill_timeline,
     fetch_legislation_index_filtered,
+    fetch_most_contested_bills,
     fetch_pre2014_act_detail,
     fetch_si_by_bill,
     fetch_si_composition,
@@ -149,6 +151,11 @@ def _render_legislation_index(
         </div>
         """
     )
+
+    # Discovery: most-contested bills (collapsed). Only on the default index so it
+    # doesn't appear in the embedded filter-bar variant.
+    if show_hero:
+        _render_most_contested()
 
     # ── Phase selector ────────────────────────────────────────────────────────
     phase_opts = {
@@ -360,6 +367,83 @@ def _render_stage_timeline(timeline_df: pd.DataFrame) -> None:
         )
 
     st.html(f'<div class="leg-stage-list">{rows_html}</div>')
+
+
+def _render_most_contested() -> None:
+    """Discovery panel: bills that drew the most tabled amendments. Collapsed by
+    default so it never competes with the main browse flow. amendment_lists is a
+    contestation proxy (tabled amendment-list documents), not a clause count."""
+    df = fetch_most_contested_bills(limit=10)
+    if df.empty:
+        return
+    with st.expander("Most contested bills — by amendment activity", expanded=False):
+        st.caption(
+            "Bills ranked by how many amendment-list documents were tabled across "
+            "their stages — a proxy for how heavily each was contested, not a count "
+            "of individual amendments. Click any bill to open its record."
+        )
+        cards: list[str] = []
+        for _, row in df.iterrows():
+            n = int(row.get("amendment_lists") or 0)
+            title = str(row.get("bill_title") or "(Untitled)")
+            status = str(row.get("bill_status") or "—")
+            status_cls = _status_badge_class(status)
+            card_html = (
+                f'<div class="leg-bill-card">'
+                f'<div class="leg-bill-card-header">'
+                f'<span class="leg-amend-count">{n}</span>'
+                f'<span class="leg-amend-label">amendment lists</span>'
+                f'<span class="{status_cls}">{html.escape(status)}</span>'
+                f"</div>"
+                f'<div class="leg-bill-card-title" title="{html.escape(title)}">{html.escape(title)}</div>'
+                f"</div>"
+            )
+            cards.append(
+                clickable_card_link(
+                    href=bill_detail_url(str(row["bill_id"])),
+                    inner_html=card_html,
+                    aria_label=f"Open {title}",
+                )
+            )
+        st.html("\n".join(cards))
+
+
+def _render_amendment_intensity(bill_id: str) -> None:
+    """Compact amendment-activity line under the stage timeline. Conditional:
+    most bills draw no tabled amendments, so this renders nothing for them.
+    `amendment_lists` counts published amendment-list documents per stage
+    (numbered + cream lists) — a proxy for how contested the bill was, NOT a
+    count of individual amendments. Framed that way so it is never overstated."""
+    df = fetch_bill_amendment_intensity(bill_id)
+    if df.empty:
+        return
+    row = df.iloc[0]
+    total = int(row.get("amendment_lists") or 0)
+    if total <= 0:
+        return
+    committee = int(row.get("committee_lists") or 0)
+    report = int(row.get("report_lists") or 0)
+    cream = int(row.get("cream_lists") or 0)
+    parts = []
+    if committee:
+        parts.append(f"{committee} at Committee Stage")
+    if report:
+        parts.append(f"{report} at Report Stage")
+    if cream:
+        parts.append(f"{cream} cream-list")
+    breakdown = " · ".join(parts)
+    st.html(
+        f'<div class="leg-amend-badge">'
+        f'<span class="leg-amend-count">{total}</span>'
+        f'<span class="leg-amend-label">amendment list{"s" if total != 1 else ""} tabled</span>'
+        f"</div>"
+        + (f'<div class="leg-amend-breakdown">{html.escape(breakdown)}</div>' if breakdown else "")
+    )
+    st.caption(
+        "Amendment lists are the documents of amendments formally tabled at each "
+        "stage — a measure of how much the bill was contested, not a count of "
+        "individual amendments."
+    )
 
 
 def _render_debates(debates_df: pd.DataFrame) -> None:
@@ -706,6 +790,7 @@ def _render_bill_detail(bill_id: str) -> None:
     with col_left:
         evidence_heading("Stage Timeline")
         _render_stage_timeline(timeline_df)
+        _render_amendment_intensity(bill_id)
 
     with col_right:
         debate_label = f"Debates ({len(debates_df)})" if not debates_df.empty else "Debates"

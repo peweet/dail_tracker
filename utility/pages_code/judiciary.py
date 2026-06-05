@@ -49,9 +49,9 @@ from data_access.judiciary_data import (
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 from ui.components import (
     empty_state,
+    glossary_strip,
     hero_banner,
-    sidebar_page_header,
-    sidebar_subtitle,
+    hide_sidebar,
 )
 
 # Court display order — constitutional seniority, the natural reading order.
@@ -104,6 +104,10 @@ def _inject_jd_css() -> None:
             margin: 0.35rem 0 1.1rem; max-width: 64rem;
         }
         .jd-context strong { color: #14232b; font-weight: 600; }
+        .jd-section-head {
+            font-size: 1.15rem; font-weight: 700; color: #14232b;
+            margin: 0.2rem 0 0.1rem; padding: 0;
+        }
         .jd-court-head {
             font-size: 0.95rem; font-weight: 700; color: #14232b;
             margin: 1.4rem 0 0.6rem; padding-bottom: 0.3rem;
@@ -174,7 +178,7 @@ def _chip_class(category: str) -> str:
 # Section renderers
 # ──────────────────────────────────────────────────────────────────────────────
 def _render_bench(day_sched: pd.DataFrame) -> None:
-    st.markdown("#### Today on the bench")
+    st.html('<h2 class="jd-section-head">Today on the bench</h2>')
     st.caption("Each card is a judge's sitting session — court, list and start time. "
                "Item count is how many matters were listed for that session.")
     present = [c for c in _COURT_ORDER if c in set(day_sched["court"].dropna())]
@@ -198,7 +202,7 @@ def _render_bench(day_sched: pd.DataFrame) -> None:
 
 
 def _render_busiest(day_counts: pd.DataFrame) -> None:
-    st.markdown("#### Busiest lists today")
+    st.html('<h2 class="jd-section-head">Busiest lists today</h2>')
     top = day_counts.sort_values("n_items", ascending=False).head(8)
     if top.empty or int(top["n_items"].max() or 0) == 0:
         empty_state("No scheduled items", "No lists had listed matters on this day.")
@@ -217,12 +221,14 @@ def _render_busiest(day_counts: pd.DataFrame) -> None:
 
 
 def _render_cases(day_cases: pd.DataFrame, day_label: str) -> None:
-    st.markdown("#### What's before the courts")
+    st.html('<h2 class="jd-section-head">What\'s before the courts</h2>')
     st.caption("Anonymised list entries. People are shown by initials; organisations and "
                "the State are named. Private hearings (family, childcare, wards, minors) are "
                "not published. Each entry links to the official diary.")
 
-    # category summary cards
+    # category summary cards — render-time count over the already day-filtered set,
+    # driving the category chip layout (not a pipeline rollup).
+    # logic_firewall: display_only
     counts = day_cases["category"].value_counts().to_dict()
     cat_cards = []
     for key, label, desc in _CATEGORIES:
@@ -276,9 +282,7 @@ def _render_cases(day_cases: pd.DataFrame, day_label: str) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 def judiciary_page() -> None:
     _inject_jd_css()
-    with st.sidebar:
-        sidebar_page_header("Courts & Judiciary")
-        sidebar_subtitle("The Legal Diary · daily court sittings · Courts Service")
+    hide_sidebar()
 
     schedule = fetch_legal_diary_schedule()
     counts = fetch_legal_diary_counts()
@@ -307,16 +311,21 @@ def judiciary_page() -> None:
             f"latest: {_fmt_day(days[0])}",
         ],
     )
-    st.markdown(
+    st.html(
         '<div class="jd-context">We publish the <strong>sitting schedule</strong> and '
         '<strong>anonymised</strong> list entries. Matters heard in private — family law, '
         'childcare, wards of court and cases involving minors — are <strong>excluded</strong>. '
         'People are shown by <strong>initials only</strong>; organisations and the State are '
         'named. Every entry links to the official diary so the public record can be checked. '
         'This page describes the work of the courts; it does not track or comment on any '
-        'individual case or judge.</div>',
-        unsafe_allow_html=True,
+        'individual case or judge.</div>'
     )
+    glossary_strip([
+        ("DPP", "Director of Public Prosecutions — the State's prosecutor in criminal cases"),
+        ("For mention", "a short listing to manage a case, not a full hearing"),
+        ("Ex parte", "an application made by one side only"),
+        ("Judicial review", "a challenge to a decision of the State or a public body"),
+    ])
 
     # day selector — segmented for a handful of days, selectbox once history grows
     labels = {d: _fmt_day(d) for d in days}
@@ -350,13 +359,12 @@ def judiciary_page() -> None:
     if day_cases is not None and not day_cases.empty and "source_sha256" in day_cases.columns:
         vals = [s for s in day_cases["source_sha256"].dropna().unique()]
         sha = vals[0] if vals else ""
-    st.markdown(
+    st.html(
         '<div class="jd-foot"><strong>Source:</strong> Courts Service Legal Diary '
         '(<a href="https://legaldiary.courts.ie/" target="_blank" rel="noopener">'
         'legaldiary.courts.ie ↗</a>). The official diary shows the current court day only; '
         'earlier days here come from our daily capture. Names are reduced to initials and '
         'private hearings are excluded — see the note above.'
         + (f' Captured file digest: <code>{_esc(sha)}</code>.' if sha else "")
-        + "</div>",
-        unsafe_allow_html=True,
+        + "</div>"
     )

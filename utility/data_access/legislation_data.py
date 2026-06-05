@@ -90,6 +90,34 @@ def fetch_bill_detail(bill_id: str) -> pd.DataFrame:
     )
 
 
+# ── Amendment intensity (contestation proxy) ────────────────────────────────────
+# amendment_lists counts published amendment-LIST documents per stage (numbered +
+# cream lists), not individual amendments — a faithful "how reworked was this bill"
+# signal. Aggregation lives in v_bill_amendment_intensity; these are plain SELECTs.
+
+
+@st.cache_data(ttl=300)
+def fetch_bill_amendment_intensity(bill_id: str) -> pd.DataFrame:
+    return _safe(
+        "SELECT bill_id, amendment_lists, distinct_stages, committee_lists,"
+        " report_lists, cream_lists, dail_lists, seanad_lists,"
+        " first_amendment_date, last_amendment_date"
+        " FROM v_bill_amendment_intensity WHERE bill_id = ? LIMIT 1",
+        [bill_id],
+    )
+
+
+@st.cache_data(ttl=300)
+def fetch_most_contested_bills(limit: int = 15) -> pd.DataFrame:
+    return _safe(
+        "SELECT bill_id, bill_title, bill_status, amendment_lists,"
+        " committee_lists, report_lists"
+        " FROM v_bill_amendment_intensity"
+        " ORDER BY amendment_lists DESC, bill_id LIMIT ?",
+        [limit],
+    )
+
+
 # ── Timeline ───────────────────────────────────────────────────────────────────
 
 
