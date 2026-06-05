@@ -36,6 +36,7 @@ from html import escape as _h
 from pathlib import Path
 from urllib.parse import quote
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -45,6 +46,7 @@ from data_access.lobbying_data import (
     fetch_all_org_names,
     fetch_all_politician_names,
     fetch_area_contact_detail,
+    fetch_charity_financial_series,
     fetch_clients_for_org,
     fetch_contact_detail,
     fetch_dpo_client_breakdown,
@@ -781,6 +783,93 @@ def _render_org_index(summary: pd.DataFrame) -> None:
     _provenance_footer(summary)
 
 
+def _eur(v: float) -> str:
+    """Compact euro label: €1.2m / €840k / €120."""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return "—"
+    if abs(v) >= 1e6:
+        return f"€{v / 1e6:,.1f}m"
+    if abs(v) >= 1e3:
+        return f"€{v / 1e3:,.0f}k"
+    return f"€{v:,.0f}"
+
+
+def _render_charity_finances(org_row: pd.Series) -> None:
+    """Charity income/expenditure trajectory for an org matched to a registered
+    charity (rcn). Snapshot context comes from the enriched org row (already
+    fetched); the multi-year trend comes from v_charity_financials_by_year. Renders
+    nothing when the org is not a charity or has no filed accounts. Figures are as
+    filed with the Charities Regulator — presented, not interpreted."""
+    rcn = org_row.get("rcn")
+    if rcn is None or pd.isna(rcn):
+        return
+    series = fetch_charity_financial_series(int(rcn))
+    if series.empty:
+        return
+
+    inc_latest = org_row.get("gross_income_latest_eur")
+    exp_latest = org_row.get("gross_expenditure_latest_eur")
+    profile = str(org_row.get("funding_profile", "") or "").replace("_", " ").strip()
+    trend = str(org_row.get("income_trend", "") or "").strip()
+    gov_share = org_row.get("gov_funded_share_latest")
+    years_filed = int(org_row.get("years_filed", 0) or 0)
+
+    bits: list[str] = []
+    if pd.notna(inc_latest):
+        bits.append(f"Latest filed income <strong>{_h(_eur(inc_latest))}</strong>")
+    if pd.notna(exp_latest):
+        bits.append(f"expenditure <strong>{_h(_eur(exp_latest))}</strong>")
+    snapshot = ", ".join(bits) + "." if bits else ""
+    extra: list[str] = []
+    if profile and profile != "undisclosed":
+        extra.append(f"{_h(profile)}-funded")
+    if pd.notna(gov_share) and float(gov_share) > 0:
+        extra.append(f"government/LA share of income ~{float(gov_share) * 100:.0f}%")
+    extra_str = (" " + "; ".join(extra) + ".") if extra else ""
+    trend_str = f" Income {_h(trend)} across {years_filed} years filed." if trend and years_filed > 1 else ""
+
+    st.html(
+        '<div class="lp3-tile">'
+        '<h3 class="lp3-tile-heading">Charity finances</h3>'
+        f'<p class="lp3-tile-body">{snapshot}{extra_str}{trend_str}</p>'
+        "</div>"
+    )
+
+    # Multi-year income vs expenditure trend (promoted from the annual-report series).
+    plot = series[["period_year", "gross_income", "gross_expenditure"]].copy()
+    long = plot.melt(id_vars="period_year", var_name="metric", value_name="eur").dropna(subset=["eur"])
+    long["metric"] = long["metric"].map({"gross_income": "Income", "gross_expenditure": "Expenditure"})
+    chart = (
+        alt.Chart(long)
+        .mark_line(point=True)
+        .encode(
+            x=alt.X("period_year:O", title=None, axis=alt.Axis(labelAngle=0)),
+            y=alt.Y("eur:Q", title="€", axis=alt.Axis(format="~s")),
+            color=alt.Color(
+                "metric:N",
+                title=None,
+                scale=alt.Scale(domain=["Income", "Expenditure"], range=["#16a34a", "#b45309"]),
+                legend=alt.Legend(orient="top"),
+            ),
+            tooltip=[
+                alt.Tooltip("period_year:O", title="Year"),
+                alt.Tooltip("metric:N", title=None),
+                alt.Tooltip("eur:Q", title="€", format=",.0f"),
+            ],
+        )
+        .properties(height=200)
+        .configure_view(strokeWidth=0)
+    )
+    st.altair_chart(chart, width="stretch")
+    st.caption(
+        "Annual income and expenditure as filed with the Charities Regulator. "
+        "Figures are reported as filed — a single-year spike usually signals a "
+        "data-entry error in that return, not a real jump."
+    )
+
+
 # ── Organisation Stage 2 ──────────────────────────────────────────────────────
 
 
@@ -890,6 +979,11 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
             '<p class="lp3-prose">Most recent statutory accounts filed with the CRO cover the '
             f"period ending <strong>{_h(acct_label)}</strong>.{_h(hist_clause)}</p>"
         )
+
+    # Charity finances — income/expenditure trajectory for orgs matched to a
+    # registered charity (rcn). Promoted from the Charities Regulator annual-report
+    # series; renders nothing for non-charity orgs.
+    _render_charity_finances(org_row)
 
     # Procurement cross-reference (eTenders). Co-occurrence disclosure ONLY — the
     # org appears on both the lobbying and procurement registers; this is NOT

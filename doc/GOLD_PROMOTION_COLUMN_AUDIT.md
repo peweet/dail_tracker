@@ -78,11 +78,19 @@ failed per stage**, not just "reached stage N" — turns the pipeline strip into
 narrative. Pairs naturally with B3.
 
 ### B5. Attendance per-date detail — `td_attendance_fact_table` / `seanad_attendance_fact_table`
-**Stranded:** `iso_other_days_attendance` (per-date ISO list), `other_days_count`,
-`sitting_total_days`. (`iso_sitting_days_attendance`, `sitting_days_count` are referenced.)
-**Verdict: PROMOTE (medium, niche).** Gold `attendance_by_td_year` keeps only summed counts.
-**Story:** a **calendar heatmap** of *when* a member attended; "other days" (committee/official)
-vs plenary split. Only the date arrays can show within-year pattern.
+**CORRECTION (2026-06-05): the sitting-date calendar already exists — do NOT rebuild.**
+The audit's token-match keyed on the *parquet* file, but `v_attendance_timeline` already
+promotes the per-date `iso_sitting_days_attendance` (from the CSV mirror
+`aggregated_td_tables.csv`) and the member-overview attendance section renders it as an
+Altair "Sitting calendar" tick strip. So the sitting dates are **not** stranded.
+**Genuinely stranded:** only `iso_other_days_attendance` / `other_days_count` — the
+existing timeline is sitting-only.
+**Verdict: DO NOT PROMOTE (as-is).** The sole novel column ("other days") has **ambiguous
+semantics** (the source PDF's second day-category is not clearly defined — see
+`project_attendance_audit_2026_05_26`), so surfacing it would direct users to a conclusion
+the data doesn't support (no-inference rule). Revisit only if "other days" is first defined
+from the source. A code-keyed parquet-based replacement for the legacy name-keyed,
+JOIN-in-view `v_attendance_timeline` is a separate *refactor*, not a promotion.
 
 ### B6. Lobbying campaign mechanics — `silver/lobbying/parquet/lobby_break_down_by_politician.parquet` (1.13M rows)
 **Stranded (9/28):** `members_targeted` (reach band), `grassroots_directive` (the actual

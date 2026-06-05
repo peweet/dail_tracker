@@ -177,7 +177,13 @@ def strip_refs(t: str) -> str:
 
 _SKIP = {"the", "and", "of", "for", "mr", "mrs", "ms", "dr", "an", "na", "orse",
          "through", "nf", "trading", "as", "formerly", "also", "known", "minor", "a"}
-_TAIL = re.compile(r"&\s*(ors|anor|others)\b", re.I)
+# trailing "& Ors" / "and Others" / "& Anor" / "and Another" -> collapsed to "& Ors"
+_TAIL = re.compile(r"(?:&|\band)\s*(ors|anor|another|others)\b", re.I)
+# EVERY "v" / "-v-" party separator (NOT maxsplit=1 — consolidated listings chain them)
+_VSPLIT = re.compile(r"\s*-?\s*\bv\b\.?\s*-?\s*", re.I)
+# and-conjunction between co-parties on one side (so a public body riding alongside
+# named individuals cannot keep them in clear); also catches stray "&" inside a side
+_ANDSPLIT = re.compile(r"\s*(?:\band\b|&)\s*", re.I)
 
 
 def _initials(side: str) -> str:
@@ -194,17 +200,59 @@ def _is_org(side: str) -> bool:
     return any(k in side.lower() for k in ORG_KEYS)
 
 
+def _anonymise_party(side: str) -> str:
+    """Anonymise ONE party side. Split into and-chunks so a public body riding
+    alongside named individuals (e.g. '<Name> and <Name> and X County Council')
+    cannot keep the individuals in clear: each non-org chunk is reduced to initials,
+    org / State chunks are kept verbatim. A trailing '& Ors' / 'and others' is
+    preserved. Over-anonymising an org name (no keyword) is harmless; the only
+    unsafe direction is a natural person kept in clear, which this prevents."""
+    side = side.strip()
+    if not side:
+        return ""
+    tail = " & Ors" if _TAIL.search(side) else ""
+    core = _TAIL.sub("", side)
+    rendered = [c.strip() if _is_org(c.strip()) else _initials(c.strip())
+                for c in _ANDSPLIT.split(core) if c.strip()]
+    joined = " and ".join(r for r in rendered if r)
+    return (joined + tail) if joined else ("X" + tail)
+
+
 def anonymise(raw: str) -> str:
+    """Reduce a raw case line to a publishable, anonymised form. Splits on EVERY
+    'v' separator (consolidated matters chain them) and anonymises each segment
+    side-by-side. Natural persons -> initials; organisations / State bodies kept."""
     t = strip_refs(raw)
     if not t:
         return ""
-    parts = re.split(r"\s*-?\s*\bv\b\.?\s*-?\s*", t, maxsplit=1, flags=re.I)
-    if len(parts) != 2:
-        return t if _is_org(t) else _initials(t)
-    a, b = parts
-    a2 = a.strip() if _is_org(a) else _initials(a)
-    b2 = b.strip() if _is_org(b) else _initials(b)
-    return f"{a2} v {b2}"
+    segments = [s for s in _VSPLIT.split(t) if s.strip()]
+    if len(segments) < 2:
+        return _anonymise_party(t)
+    return " v ".join(_anonymise_party(s) for s in segments)
+
+
+class PrivacyInvariantError(RuntimeError):
+    """Raised when the anonymised gold cases set would expose a natural person.
+    A hard, ``-O``-proof gate (never an ``assert``): the writer refuses to emit gold."""
+
+
+_NAME_TOKEN = re.compile(r"[A-Za-z]{2,}")
+
+
+def residual_name_tokens(case_anonymised: str) -> list[str]:
+    """Natural-person name tokens that survived anonymisation. Every non-org party
+    chunk must be pure initials (single letters); any 2+-letter word in such a chunk
+    is a leaked name. Org / State chunks (legitimately kept in clear) are exempt.
+    This is the CONTENT privacy invariant the old column-name assert never checked."""
+    leaks: list[str] = []
+    for seg in re.split(r"\s+v\s+", case_anonymised):
+        core = _TAIL.sub("", seg)
+        for chunk in _ANDSPLIT.split(core):
+            chunk = chunk.strip()
+            if not chunk or _is_org(chunk):
+                continue
+            leaks.extend(_NAME_TOKEN.findall(chunk))
+    return leaks
 
 
 # ============================================================ parse one day
@@ -333,10 +381,25 @@ def run(args) -> int:
                 .select(["diary_date", "court", "judge", "list_type", "status", "category",
                          "case_anonymised", "source", "source_url", "source_sha256"])
                 .sort(["diary_date", "court", "judge"]))
-    cases_df.write_parquet(GOLD_PARQUET_DIR / "judicial_legal_diary_cases.parquet", **PARQUET_KW)
 
-    # privacy invariant: the published cases file must carry NO raw-name column
-    assert "raw_case" not in cases_df.columns, "raw_case leaked into gold cases parquet"
+    # ---- PRIVACY GATE (runtime, -O-proof; runs BEFORE any gold is written) ----
+    # 1. structural: no raw-name column may reach the published set.
+    forbidden = {"raw_case", "party", "parties", "solicitor", "solicitors"} & set(cases_df.columns)
+    if forbidden:
+        raise PrivacyInvariantError(f"raw-name column(s) leaked into gold cases: {sorted(forbidden)}")
+    # 2. content: no anonymised row may retain a natural-person name. This is the
+    #    check the old column-name assert never made — see anonymise() bugs fixed
+    #    2026-06-05 (multi-`v` split + whole-side org classification).
+    offenders = [(r["case_anonymised"], toks)
+                 for r in cases_df.select("case_anonymised").iter_rows(named=True)
+                 if (toks := residual_name_tokens(r["case_anonymised"]))]
+    if offenders:
+        sample = " | ".join(f"{c!r}->{t}" for c, t in offenders[:5])
+        raise PrivacyInvariantError(
+            f"{len(offenders)} of {cases_df.height} gold case rows retain natural-person names "
+            f"after anonymisation; refusing to write gold. e.g. {sample}")
+
+    cases_df.write_parquet(GOLD_PARQUET_DIR / "judicial_legal_diary_cases.parquet", **PARQUET_KW)
 
     n_protected = audit_df.filter(pl.col("protected")).height
     drop_reasons = {r[0]: r[1] for r in (audit_df.filter(pl.col("protected"))

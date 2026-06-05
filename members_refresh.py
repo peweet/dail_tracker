@@ -70,7 +70,7 @@ def step_ministerial_tenure() -> bool:
 
 def step_committees_long_format() -> bool:
     _hr("[3/4] committees_long_format_etl — committee_N_* / office_N_* unpivot")
-    return _subprocess("committees_long_format_etl.py")
+    return _module("committees.committees_long_format_etl")
 
 
 def step_constituency_pop() -> bool:

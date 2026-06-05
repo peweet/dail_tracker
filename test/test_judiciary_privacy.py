@@ -1,0 +1,131 @@
+"""Golden privacy tests for the judiciary Legal Diary Tier C (anonymised cases).
+
+Locks ``extractors/legal_diary_extract.py`` ``anonymise()`` + ``residual_name_tokens()`` —
+the sole barrier between the raw Courts Service diary and the COMMITTED, Streamlit-Cloud-
+shipped gold parquet ``data/gold/parquet/judicial_legal_diary_cases.parquet``.
+
+Two real leak paths were found 2026-06-05 (doc/JUDICIARY_LANE_REVIEW.md):
+  (A) the splitter used ``maxsplit=1`` and never anonymised a 2nd ``v`` clause;
+  (B) ``_is_org()`` tested the WHOLE side, so individuals riding alongside a public
+      body (``... and X County Council``) were kept verbatim.
+A natural-person name surviving into gold is a Critical privacy incident, so these
+tests are the regression wall. All names below are invented — no real party data lives
+in this file.
+
+Run:  pytest test/test_judiciary_privacy.py -v
+"""
+
+import re
+import sys
+from pathlib import Path
+
+import pytest
+
+_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_ROOT / "extractors"))
+
+from legal_diary_extract import (  # noqa: E402
+    PrivacyInvariantError,
+    anonymise,
+    residual_name_tokens,
+)
+
+# a properly-anonymised non-org chunk is pure initials: 'J.', 'J.S.', 'A.B.C.D.'
+_INITIALS = re.compile(r"^[A-Z](?:\.[A-Z])*\.?$")
+
+GOLD_CASES = _ROOT / "data" / "gold" / "parquet" / "judicial_legal_diary_cases.parquet"
+CONTRACT_COLS = {
+    "diary_date", "court", "judge", "list_type", "status", "category",
+    "case_anonymised", "source", "source_url", "source_sha256",
+}
+FORBIDDEN_COLS = {"raw_case", "party", "parties", "solicitor", "solicitors"}
+
+
+# ----------------------------------------------------------------- no-residual cases
+@pytest.mark.parametrize("raw", [
+    # plain person v person — both sides must initialise
+    "JOHN SMITHFIELD -v- MARY MOORLAND",
+    # bug A: a second 'v' clause must STILL be anonymised
+    "ANNE BRACKENRIDGE -v- ACME PLC -v- DAVID NORTHGATE",
+    "WILLIAM OAKHAM v PETER QUILLFORD v ROBERT STANWICK",
+    # bug B: individuals riding alongside a public body must NOT be kept in clear
+    "JOHN SMITHFIELD AND MARY MOORLAND AND CORK COUNTY COUNCIL -v- THE MINISTER FOR HEALTH",
+    "BARRY ELMWOOD AND THE HEALTH SERVICE EXECUTIVE -v- DUBLIN CITY COUNCIL",
+    # criminal prosecutor side kept, accused anonymised
+    "THE PEOPLE AT THE SUIT OF THE DPP -v- JOHN DOEFIELD",
+    # tail forms must not leak the named lead party
+    "PATRICK MULBERRY & ORS -v- ELECTRICITY SUPPLY BOARD",
+    "SARAH VANBROOK AND ANOTHER -v- THE REVENUE COMMISSIONERS",
+    # in-the-matter single-side person
+    "IN THE MATTER OF GEORGE HOLLOWFIELD A BANKRUPT",
+])
+def test_anonymise_leaves_no_residual_name(raw):
+    out = anonymise(raw)
+    leaked = residual_name_tokens(out)
+    assert leaked == [], f"anonymise({raw!r}) = {out!r} leaked {leaked}"
+
+
+# ----------------------------------------------------------------- orgs kept in clear
+@pytest.mark.parametrize("raw,expect_substr", [
+    ("ACME LIMITED -v- BETA HOLDINGS DAC", "Acme Limited"),
+    ("THE MINISTER FOR HEALTH -v- GAMMA INSURANCE PLC", "Minister For Health"),
+])
+def test_org_sides_survive_in_clear(raw, expect_substr):
+    out = anonymise(raw)
+    assert expect_substr.lower() in out.lower(), f"org name dropped: {raw!r} -> {out!r}"
+    assert residual_name_tokens(out) == []
+
+
+# ----------------------------------------------------------------- detector itself
+def test_residual_detector_flags_a_real_leak():
+    # the pre-fix bug-B output shape: a named individual kept beside an org
+    assert "Smithfield" in residual_name_tokens("John Smithfield and Cork County Council v M.M.")
+
+
+def test_residual_detector_passes_pure_initials_and_orgs():
+    assert residual_name_tokens("J.S. and M.M. and Cork County Council v Minister For Health") == []
+
+
+def test_initials_shape_on_person_sides():
+    out = anonymise("JOHN SMITHFIELD -v- MARY MOORLAND")
+    a, b = out.split(" v ")
+    assert _INITIALS.match(a.strip()), out
+    assert _INITIALS.match(b.strip()), out
+
+
+def test_ors_tail_preserved_without_leaking_lead():
+    out = anonymise("PATRICK MULBERRY & ORS -v- ELECTRICITY SUPPLY BOARD")
+    assert out.endswith("& Ors") or "& Ors v" in out, out
+    assert residual_name_tokens(out) == []
+
+
+def test_empty_and_refs_are_safe():
+    assert anonymise("") == ""
+    assert residual_name_tokens("") == []
+    # a pure case-reference line strips to nothing publishable
+    assert residual_name_tokens(anonymise("RECORD NO. 2022 3507 P")) == []
+
+
+# ----------------------------------------------------------------- live gold parquet
+@pytest.mark.integration
+def test_gold_cases_contract_and_zero_residual_names():
+    """The committed/Cloud-shipped gold parquet must (a) match the 10-col contract,
+    (b) carry no raw-name column, and (c) contain ZERO residual natural-person names.
+    Regenerate via `python extractors/legal_diary_extract.py --all-archived` if stale."""
+    pl = pytest.importorskip("polars")
+    if not GOLD_CASES.exists():
+        pytest.skip(f"{GOLD_CASES} not built; run the legal_diary extractor first")
+    df = pl.read_parquet(GOLD_CASES)
+    cols = set(df.columns)
+    assert cols == CONTRACT_COLS, f"gold cases columns drifted: {cols ^ CONTRACT_COLS}"
+    assert not (FORBIDDEN_COLS & cols), f"raw-name column in gold: {FORBIDDEN_COLS & cols}"
+    offenders = [(c, residual_name_tokens(c))
+                 for c in df.get_column("case_anonymised").to_list()
+                 if residual_name_tokens(c)]
+    assert not offenders, f"{len(offenders)} gold rows leak names, e.g. {offenders[:5]}"
+
+
+@pytest.mark.integration
+def test_writer_privacy_gate_is_importable_and_runtime():
+    # the gate must be a real exception class (survives `python -O`), not an assert
+    assert issubclass(PrivacyInvariantError, Exception)
