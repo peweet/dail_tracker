@@ -3100,6 +3100,23 @@ def inject_css() -> None:
         }
         .leg-stage-group:first-child { border-top: none; padding-top: 0.1rem; }
 
+        /* Amendment-activity badge under the stage timeline (contestation proxy) */
+        .leg-amend-badge {
+            display: inline-flex; align-items: baseline; gap: 0.45rem;
+            margin-top: 0.9rem; padding: 0.35rem 0.7rem;
+            background: var(--accent-subtle); border-radius: 6px;
+        }
+        .leg-amend-count {
+            font-size: 1.15rem; font-weight: 800; color: var(--accent);
+            line-height: 1;
+        }
+        .leg-amend-label {
+            font-size: 0.82rem; font-weight: 600; color: var(--text-primary);
+        }
+        .leg-amend-breakdown {
+            font-size: 0.78rem; color: var(--text-meta); margin-top: 0.35rem;
+        }
+
         /* Oireachtas link in bill identity strip */
         .leg-bill-oireachtas-link {
             display: inline-block;
