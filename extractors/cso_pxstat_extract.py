@@ -9,7 +9,8 @@ Tables targeted:
   HAP32 — Median waiting time from main social housing list to HAP
 
 Reads  : Eurostat-style JSON-stat from https://ws.cso.ie (REST)
-Writes : data/gold/parquet/cso_<table_id>.parquet (one per table, --write)
+Writes : data/gold/parquet/cso_<table_id>.parquet (one per table; writes by
+         default for any GREEN table — pass --dry-run to validate without writing)
 """
 from __future__ import annotations
 
@@ -188,7 +189,11 @@ def _write_parquet(df: pl.DataFrame, path: Path) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--write", action="store_true")
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="validate/fidelity-check only; do not write gold parquet",
+    )
     ap.add_argument("--tables", nargs="*", default=TABLES, help="Subset of tables")
     args = ap.parse_args()
 
@@ -209,7 +214,7 @@ def main() -> None:
             print(f"  [{tag}] {name}: {chk}")
         print(f"  >>> overall: {'GREEN' if green else 'AMBER/RED'}")
 
-        if args.write and green:
+        if not args.dry_run and green:
             path = _OUT / f"cso_{code.lower()}.parquet"
             _write_parquet(df, path)
             print(f"  Wrote {path.relative_to(_ROOT)}")

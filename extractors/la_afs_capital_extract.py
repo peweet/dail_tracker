@@ -26,8 +26,8 @@ Reuses la_afs_extract wholesale (REGISTRY, cached bronze PDFs, statement_year/be
 a year consistent with the revenue fact). Reads the SAME cached PDFs; writes a SEPARATE parquet.
 
 Run:
-  ./.venv/Scripts/python.exe pipeline_sandbox/la_afs_capital_extract.py
-  ./.venv/Scripts/python.exe pipeline_sandbox/la_afs_capital_extract.py --only cork_city,meath
+  ./.venv/Scripts/python.exe extractors/la_afs_capital_extract.py
+  ./.venv/Scripts/python.exe extractors/la_afs_capital_extract.py --only cork_city,meath
 """
 
 from __future__ import annotations
