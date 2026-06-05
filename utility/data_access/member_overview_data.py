@@ -66,6 +66,11 @@ _DOMAIN_FILES = [
     # 2023 boundaries). One row per constituency, 43/43 clean join to the
     # registry. Replaces the earlier 2017-boundary cso_fy005 source.
     "member_constituency_demographics.sql",
+    # Ministerial tenure timeline (added 2026-06-05). Sourced from
+    # data/silver/ministerial_tenure.parquet (Wikidata-derived). One row per
+    # (department, minister, span); unique_member_code links the ~52% who are
+    # current members. Read via dail_tracker_core.queries.ministerial.
+    "member_ministerial_tenure.sql",
 ]
 
 # {MEMBER_PARQUET_PATH} substituted with absolute path from config

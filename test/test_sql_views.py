@@ -223,6 +223,34 @@ def test_v_member_registry_executes():
     assert len(result) > 0
 
 
+def test_v_member_ministerial_tenure_executes():
+    """Ministerial tenure timeline — reads data/silver/ministerial_tenure.parquet.
+    The columns are the contract dail_tracker_core.queries.ministerial relies on.
+    """
+    _skip_missing(_DATA_BASE / "data" / "silver" / "ministerial_tenure.parquet")
+    con = _con()
+    con.execute(_load("member_ministerial_tenure.sql"))
+    result = _result(con, "v_member_ministerial_tenure")
+    expected = {
+        "department_key", "department_label", "minister_name", "unique_member_code",
+        "start_date", "end_date", "is_current", "tenure_days",
+        "wikidata_person", "wikidata_position",
+    }
+    _assert_cols(result, *expected)
+    assert len(result) > 0
+    # is_current must be a real boolean and at least one post should be filled.
+    full = con.execute(
+        "SELECT COUNT(*) FILTER (WHERE is_current) AS cur, COUNT(*) AS n"
+        " FROM v_member_ministerial_tenure"
+    ).fetchone()
+    assert full[0] >= 1, "no sitting minister flagged is_current"
+    # minister_name is the display field — never null.
+    nulls = con.execute(
+        "SELECT COUNT(*) FROM v_member_ministerial_tenure WHERE minister_name IS NULL"
+    ).fetchone()[0]
+    assert nulls == 0
+
+
 def test_v_member_external_links_executes():
     """Runs against the Wikidata-sourced external-links fixture by default.
     The view's columns are the contract the member-overview hero relies on

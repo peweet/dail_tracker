@@ -40,6 +40,7 @@ import json
 import logging
 import re
 import sys
+import time
 import zipfile
 from pathlib import Path
 from urllib.parse import urljoin
@@ -71,13 +72,53 @@ def _session() -> requests.Session:
     return s
 
 
-def resolve_docx_url(html: str, base: str) -> str | None:
-    """Find the .docx download link on the landing page."""
+def _get(sess: requests.Session, url: str, attempts: int = 3) -> requests.Response:
+    """GET with a small retry. The legaldiary Domino/.nsf server intermittently
+    drops a keep-alive connection mid-session (RemoteDisconnected); a retry on a
+    fresh connection clears it. Raises the last error if all attempts fail."""
+    last: Exception | None = None
+    for i in range(attempts):
+        try:
+            r = sess.get(url, timeout=TIMEOUT)
+            r.raise_for_status()
+            return r
+        except requests.RequestException as exc:
+            last = exc
+            logger.warning("GET %s failed (attempt %d/%d): %s", url, i + 1, attempts, exc)
+            time.sleep(1.5 * (i + 1))
+    raise last  # type: ignore[misc]
+
+
+def _find_docx(html: str, base: str) -> str | None:
+    """A direct .docx link in this page, if any (e.g. the $File attachment)."""
     hrefs = re.findall(r'href=["\']([^"\']+\.docx[^"\']*)["\']', html, re.I)
-    if not hrefs:
-        # some pages expose a generic /download endpoint that serves the docx
-        hrefs = re.findall(r'href=["\']([^"\']*download[^"\']*)["\']', html, re.I)
     return urljoin(base, hrefs[0]) if hrefs else None
+
+
+def _find_chooser(html: str, base: str) -> str | None:
+    """The /download chooser page link (which itself lists the .docx + .pdf)."""
+    hrefs = re.findall(r'href=["\']([^"\']*download[^"\']*)["\']', html, re.I)
+    for h in hrefs:
+        if h.rstrip("/").lower().endswith("download"):
+            return urljoin(base, h)
+    return urljoin(base, hrefs[0]) if hrefs else None
+
+
+def resolve_docx_url(sess: requests.Session, landing_html: str, base: str) -> str | None:
+    """Resolve the current diary .docx. The landing page links a /download chooser
+    page; the chooser lists the dated .docx ($File attachment). Walk both hops."""
+    direct = _find_docx(landing_html, base)
+    if direct:
+        return direct
+    chooser = _find_chooser(landing_html, base)
+    if not chooser:
+        return None
+    try:
+        cr = _get(sess, chooser)
+    except requests.RequestException as exc:
+        logger.error("Download chooser unreachable (%s): %s", chooser, exc)
+        return None
+    return _find_docx(cr.text, chooser)
 
 
 def _load_index() -> dict:
@@ -108,21 +149,20 @@ def poll(force: bool = False, check_only: bool = False) -> int:
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
     sess = _session()
     try:
-        r = sess.get(LANDING_URL, timeout=TIMEOUT)
-        r.raise_for_status()
+        r = _get(sess, LANDING_URL)
     except requests.RequestException as exc:
         logger.error("Landing page unreachable: %s", exc)
         return 1
 
-    docx_url = resolve_docx_url(r.text, LANDING_URL)
+    docx_url = resolve_docx_url(sess, r.text, LANDING_URL)
     if not docx_url:
-        logger.error("No .docx link found on %s — page structure may have drifted.", LANDING_URL)
+        logger.error("No .docx link found via %s (or its /download chooser) — page structure "
+                     "may have drifted.", LANDING_URL)
         return 2
     logger.info("Resolved diary docx: %s", docx_url)
 
     try:
-        d = sess.get(docx_url, timeout=TIMEOUT)
-        d.raise_for_status()
+        d = _get(sess, docx_url)
     except requests.RequestException as exc:
         logger.error("Download failed: %s", exc)
         return 1

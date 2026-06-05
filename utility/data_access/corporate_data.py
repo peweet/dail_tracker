@@ -1,40 +1,27 @@
-"""Corporate notices data access layer.
+"""Corporate notices data access — thin Streamlit wrapper over dail_tracker_core.
 
-Owns:
-- DuckDB connection bootstrapped from sql_views/corporate_*.sql
-- Retrieval SQL for the Corporate page (SELECT / WHERE / ORDER BY / LIMIT only)
+Retrieval SQL + QueryResult state-handling live in
+``dail_tracker_core.queries.corporate``; this file owns only Streamlit caching
+and unwraps ``.data`` to the DataFrame the page expects (empty on a source
+failure — same contract as the old ``_safe``).
 
-Forbidden here (same rules as the Streamlit page file):
-- JOIN, multi-column GROUP BY, HAVING, WINDOW in ad-hoc retrieval SQL
-- CREATE VIEW / CREATE TABLE / read_parquet
-- pandas merge / pivot / business-metric definitions
+Forbidden here (unchanged): JOIN/multi-col GROUP BY/HAVING/WINDOW in SQL,
+CREATE VIEW, read_parquet, pandas merge/pivot, business-metric definitions.
 """
 
 from __future__ import annotations
 
-import logging
-
 import duckdb
 import pandas as pd
 import streamlit as st
-from data_access._sql_registry import register_views
 
-_log = logging.getLogger(__name__)
+from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.queries import corporate as _q
 
 
 @st.cache_resource
 def get_corporate_conn() -> duckdb.DuckDBPyConnection:
-    conn = duckdb.connect()
-    register_views(conn, ["corporate_*.sql"], swallow_errors=True)
-    return conn
-
-
-def _safe(sql: str, params: list | None = None) -> pd.DataFrame:
-    try:
-        return get_corporate_conn().execute(sql, params or []).df()
-    except Exception:
-        _log.exception("corporate query failed")
-        return pd.DataFrame()
+    return connect_with_views(["corporate_*.sql"], swallow_errors=True)
 
 
 @st.cache_data(ttl=300)
@@ -42,43 +29,27 @@ def fetch_corporate_notices() -> pd.DataFrame:
     """Every in-scope corporate notice as a row — the full v_corporate_notices
     view. Personal insolvency is excluded upstream by enrichment. The page
     does its faceting / search / aggregation in pandas off this frame."""
-    return _safe("SELECT * FROM v_corporate_notices")
+    return _q.corporate_notices(get_corporate_conn()).data
 
 
 @st.cache_data(ttl=300)
 def fetch_cbi_notice_matches() -> pd.DataFrame:
-    """Per-notice CBI authorisation lookup (EXPERIMENTAL — sandbox source).
-
-    Returns one row per (corporate notice × CBI register hit) where the
-    notice's entity name is an exact normalised match for a CBI-authorised
-    firm. Keyed on entity_norm; the Corporate page joins against its own
-    pandas frame to render an authorisation badge on each card.
-    """
-    return _safe("SELECT * FROM v_corporate_cbi_notice_match")
+    """Per-notice CBI authorisation lookup (EXPERIMENTAL — sandbox source)."""
+    return _q.cbi_notice_matches(get_corporate_conn()).data
 
 
 @st.cache_data(ttl=300)
 def fetch_cbi_repeat_distress() -> pd.DataFrame:
-    """Per-firm repeat-distress aggregate (EXPERIMENTAL — sandbox source).
-
-    Returns CBI-authorised firms with ≥ 2 genuine-distress notices, OR ≥ 3
-    notices total including at least one distress event. Members' Voluntary
-    Liquidation (solvent fund lifecycle) is suppressed by the HAVING gate to
-    keep the panel honest about what is actually distress vs ETF/fund wind-up.
-    """
-    return _safe("SELECT * FROM v_corporate_cbi_repeat_distress")
+    """Per-firm repeat-distress aggregate (EXPERIMENTAL — sandbox source)."""
+    return _q.cbi_repeat_distress(get_corporate_conn()).data
 
 
 @st.cache_data(ttl=600)
 def fetch_brand_aliases() -> pd.DataFrame:
-    """Brand → parent_fund → fund_type curated alias map.
-
-    Reads the registered v_corporate_brand_aliases view (sourced from
-    data/_meta/loan_book_fund_aliases.csv) so the methodology expander can show
-    the brand-to-parent provenance (Beltany → Goldman Sachs) without inspecting
-    the CSV. Falls back to a typed-empty frame if the view/source is absent, so
-    the page's `if "notes" in aliases.columns` guard still holds."""
-    df = _safe("SELECT * FROM v_corporate_brand_aliases")
+    """Brand → parent_fund → fund_type curated alias map. Falls back to a
+    typed-empty frame if the view/source is absent, so the page's
+    `if "notes" in aliases.columns` guard still holds."""
+    df = _q.brand_aliases(get_corporate_conn()).data
     if df.empty:
         return pd.DataFrame(columns=["brand", "parent_fund", "fund_type", "notes"])
     return df
