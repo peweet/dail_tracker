@@ -1,6 +1,6 @@
 """legal_diary_extract.py — Courts Service daily Legal Diary -> judiciary gold facts.
 
-Graduates pipeline_sandbox/legal_diary_parse_spike.py into a re-runnable extractor.
+Graduated from a sandbox parse spike into this re-runnable extractor.
 Parses ONE day's diary .docx (zipfile -> XML state machine: Court -> Courtroom ->
 Judge -> Time -> List -> case lines) into three privacy-tiered outputs.
 

@@ -387,8 +387,24 @@ def evidence_heading(text: str) -> None:
     so the existing CSS rule still applies; only the tag changes.
     Resolves: votes Appendix #4, interests Part 3 H4, legislation P2-3,
     attendance P2-6.
+
+    2026-06-05: switched from st.markdown(unsafe_allow_html=True) to st.html
+    to comply with the page contracts' `no_unsafe_allow_html` rule (the input
+    is already escaped, so this is a like-for-like swap).
     """
-    st.markdown(f'<h2 class="section-heading">{_h(text)}</h2>', unsafe_allow_html=True)
+    st.html(f'<h2 class="section-heading">{_h(text)}</h2>')
+
+
+def subsection_heading(text: str) -> None:
+    """Sub-section heading nested one level below `evidence_heading`.
+
+    Emits a real ``<h3>`` so screen readers see proper h2 → h3 nesting when a
+    section (h2) contains several labelled sub-sections (e.g. the Member
+    Overview "Legislation" section's "Legislation sponsored" / "Ministerial
+    roles" / "Statutory Instruments signed" blocks). Reuses the
+    `.section-heading` class for visual parity; only the tag level differs.
+    """
+    st.html(f'<h3 class="section-heading section-subheading">{_h(text)}</h3>')
 
 
 def todo_callout(message: str) -> None:
