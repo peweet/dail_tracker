@@ -1326,10 +1326,19 @@ would compete but needs **ghostscript** (not installed). camelot is also **not a
 
 ## PLANNED FEATURE — UI Sketch & Build Contracts (data-grounded, 2026-06-04)
 
-Status: **PLANNED — nothing built.** Grounded in the 12 validated sandbox datasets
-(`data/sandbox/judiciary/`, see that folder's README). Aligns to app conventions: card-based
-(no `st.dataframe` on primary views), year pills, provenance expanders, `#ffffff` cards, no
-inference in copy, logic firewall (all classification in SQL views, parquet read only in data_access).
+Status (updated 2026-06-05): **the live tile today is ONLY the daily Legal Diary**
+(`utility/pages_code/judiciary.py` → `Courts & Judiciary` page, reading the
+`judicial_legal_diary_*` gold parquets: anonymised sittings, busiest-judge counts,
+case listings). **The seven-section feature sketched below is PLANNED — not built.**
+It is grounded in the 12 validated sandbox datasets (`data/sandbox/judiciary/`, see
+that folder's README). Current grounding counts: appointments spine 134 events
+(High 50 / District 33 / Circuit 24 / Supreme 4 / Appeal 3); current roster 198
+seats (District 71 / High 52 / Circuit 47 / Appeal 17 / Supreme 11); courts
+clearance 741 rows (2017–24); waiting times 45 rows; 94 courthouses; conduct stats
+23 rows; 8 European seats; 8 salary bands; 16 gov.ie nominations. Aligns to app
+conventions: card-based (no `st.dataframe` on primary views), year pills, provenance
+expanders, `#ffffff` cards, no inference in copy, logic firewall (all classification
+in SQL views, parquet read only in data_access).
 
 ### UI sketch — page "Courts & Judiciary" (two halves + cross-page integration)
 

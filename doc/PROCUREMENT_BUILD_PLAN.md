@@ -10,6 +10,14 @@ views + `utility/data_access/procurement_data.py`; lobbying enrichment live
 to the `test_view_group_registers` smoke test (passes). NOT done: the dedicated
 Procurement page + nav (Phase 3), bespoke fixture column-tests (Phase 4).
 
+**Current gold snapshot (2026-06-05):** `procurement_awards` = 59,439 award rows ·
+1,948 contracting authorities · 15,886 distinct suppliers (30,629 company /
+27,674 sole-trader / 855 foreign / 281 public-body); `value_kind` splits 43,236
+`contract_award_value` vs 16,203 `framework_or_dps_ceiling`. The honesty headline
+holds exactly: naive Σ = €570.7bn vs `value_safe_to_sum` Σ = €23.46bn → **24.3×**.
+`procurement_lobbying_overlap` = 182 rows / 172 lobbying orgs. `ted_ie_awards`
+(silver) = 13,126 rows, 2023–2026. These are the figures the planned page renders.
+
 Owner context: see [[project_procurement_etenders]],
 [[feedback_pipeline_view_inspection]] (read the SQL views before writing UI),
 [[feedback_no_inference_in_app]] (verifiable data only in the UI),

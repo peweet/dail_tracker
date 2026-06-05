@@ -1,6 +1,6 @@
 # Dáil Tracker
 
-[![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.12-blue.svg)](https://www.python.org/)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/peweet/dail_tracker)
 
@@ -36,6 +36,10 @@ Inspired by [TheyWorkForYou](https://github.com/mysociety/theyworkforyou),
 | [Companies Registration Office](https://cro.ie/) | Director / shareholding cross-reference | Bulk export |
 | [Charities Regulator](https://www.charitiesregulator.ie/) | Trustee cross-reference | XLSX |
 | [Iris Oifigiúil](https://www.irisoifigiuil.ie/) | Statutory instruments, appointments, official notices | PDF |
+| [eTenders / OGP](https://www.etenders.gov.ie/) | Public procurement awards (supplier → CRO match) | CSV |
+| [TED](https://ted.europa.eu/) | EU-journal Irish award notices (silver only) | API / JSON |
+| [Central Bank of Ireland registers](https://registers.centralbank.ie/) | Regulated-entity cross-reference for corporate notices | PDF |
+| [Local Authority Annual Financial Statements](https://www.gov.ie/) | Council spend by service division | PDF |
 
 Upstream data stays under the publishing bodies' own licences — see
 [Licensing](#licensing) and [`NOTICE.md`](NOTICE.md). Candidate future datasets
@@ -50,32 +54,48 @@ trace to a query; context and real-world claims appear only as cited footnotes.
 
 The pipeline follows a medallion layout — `data/bronze/` (raw inputs),
 `data/silver/` (cleaned), `data/gold/` (joined analytical outputs) — and is
-organised as nine domain refresh chains. `pipeline.py` is a thin dispatcher that
-runs them in order; flags select or skip subsets.
+organised as a sequence of domain refresh chains. `pipeline.py` is a thin
+dispatcher that runs them in order; flags select or skip subsets. Per-chain logs
+land at `logs/runs/<run_id>/steps/`, a manifest records each chain, and
+chain-level try/except keeps one flaky source from poisoning the rest.
 
 ```bash
-python pipeline.py                       # full refresh (all 9 chains)
+python pipeline.py                       # full refresh (all chains)
 python pipeline.py --list                # show chains and exit
 python pipeline.py --select iris         # run one chain
+python pipeline.py --select members,iris # a comma-separated subset
 python pipeline.py --exclude lobbying    # run everything except one
 ```
 
-Each chain is also a standalone script (`<domain>_refresh.py`) you can run
-directly — e.g. `python iris_refresh.py`. Use `--help` for chain-specific flags.
+The core domain chains are also standalone scripts (`<domain>_refresh.py`) you
+can run directly — e.g. `python iris_refresh.py`. Use `--help` for chain-specific
+flags.
 
-The chains: `bootstrap` (PDF/API polling + member flattening), `members`
-(Wikidata + committees + constituency population), `payments`, `attendance`,
-`seanad`, `interests`, `lobbying` (+ CRO + charities join), `iris` (SIs +
-appointments + corporate notices), and `legislation`. Every chain assumes
-`bootstrap` has run first.
+The chains, in run order:
+
+- **Core domains:** `bootstrap` (PDF/API polling + member & debate flattening),
+  `members` (Wikidata + ministerial tenure + committees), `payments`,
+  `attendance`, `seanad` (parity, reuses the Dáil parsers), `interests`,
+  `lobbying` (+ CRO + charities join), `iris` (SIs + appointments + corporate
+  notices), and `legislation` (bills + questions + amendments + votes).
+- **Cross-reference & enrichment:** `afs` (LA financial statements → spend by
+  division), `cbi` (Central Bank register ↔ corporate notices), `cro` (CRO
+  company register ↔ corporate notices), `procurement` (eTenders awards +
+  supplier→CRO match), `procurement_lobbying` (supplier ↔ lobbying overlap), and
+  `ted` (EU award notices, silver only).
+- **Monitoring (read-only, never mutate pipeline data):** `freshness`
+  (data-age signal per domain → `data/_meta/freshness.json`) and `source_health`
+  (per-source staleness / listing reachability → `data/_meta/source_health.json`).
+
+Every chain assumes `bootstrap` has run first.
 
 ### Joins
 
 There's no shared person identifier across sources. Where the source carries the
 Oireachtas member code it's used directly as `unique_member_code`; otherwise the
 view layer joins on a normalised name (see
-[`normalise_join_key.py`](normalise_join_key.py)). Collisions and missed matches
-remain possible and are documented as data limitations.
+[`shared/normalise_join_key.py`](shared/normalise_join_key.py)). Collisions and
+missed matches remain possible and are documented as data limitations.
 
 ---
 
@@ -96,10 +116,11 @@ uv sync --extra pipeline --group dev          # full local dev: + ETL deps + tes
 streamlit run utility/app.py
 ```
 
-A Streamlit app with twelve pages — Member Overview (the canonical
-TheyWorkForYou-style profile and default route), Attendance, Votes, Interests,
-Payments, Lobbying, Legislation, Statutory Instruments, Appointments, Corporate
-Notices, Committees, and a Glossary.
+A Streamlit app (titled *Oireachtas Explorer*) with fourteen pages — a Home
+landing view, Member Overview (the canonical TheyWorkForYou-style profile),
+Attendance, Votes, Interests, Payments & Donations, Lobbying, Legislation,
+Statutory Instruments, Appointments, Corporate Notices, Committees, Courts &
+Judiciary, and a Glossary.
 
 Streamlit is a thin presentation layer: pages read **only** through registered
 DuckDB views and are restricted to `SELECT / WHERE / ORDER BY / LIMIT`. All
@@ -109,6 +130,35 @@ Each page has a YAML contract in
 
 **Stack:** DuckDB for the analytical layer, Polars for ETL, pandas in the
 Streamlit layer, SQL views for reviewable joins.
+
+---
+
+## Roadmap
+
+Active and planned work — data already lands in the pipeline ahead of the UI, so
+several datasets exist in gold/silver before they get a dedicated page.
+
+- **Procurement page** — the `procurement` chain (eTenders/OGP awards +
+  supplier→CRO match) and `ted` chain (EU award notices) already produce gold/
+  silver data (59k awards · 1.9k authorities · 16k suppliers). Today it surfaces
+  only via the Lobbying page's "also a state supplier" enrichment; a dedicated
+  Procurement tile is planned, built around the *awards-are-not-payments* caveat
+  (`value_safe_to_sum`) and the lobbying/CRO cross-source flags. Full IA in
+  [`doc/PROCUREMENT_BUILD_PLAN.md`](doc/PROCUREMENT_BUILD_PLAN.md).
+- **Courts & Judiciary** — the live tile today is the daily **Legal Diary**
+  (anonymised sittings, bench, case listings). A fuller section is planned over
+  the validated sandbox datasets: the **bench roster**, an **appointments &
+  government** spine (who appointed which judge, from Iris), **court-performance**
+  (clearance, waiting times, 94-courthouse map), and **aggregate conduct** stats.
+  Deliberately excluded: revolving-door name-matching (tested, removed — false
+  positives), the judgments corpus (copyright), and per-judge scoring. Sketch and
+  build contracts in
+  [`doc/judiciary_feature_sources_claude_plan.md`](doc/judiciary_feature_sources_claude_plan.md).
+- **LA Annual Financial Statements** — the `afs` chain produces council
+  spend-by-division silver data; a public-finance view over it is planned.
+
+Candidate future datasets are catalogued in
+[`doc/ENRICHMENTS.md`](doc/ENRICHMENTS.md).
 
 ---
 
