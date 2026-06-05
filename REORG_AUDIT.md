@@ -40,6 +40,8 @@ A four-front evidence sweep on 2026-06-04 found this plan's **executed-work ledg
 
 1. **NOT 9 chains — there are 16.** `CHAINS` ([pipeline.py:51-90](pipeline.py#L51-L90)) now runs: bootstrap, members, payments, attendance, seanad, interests, lobbying, iris, legislation, **afs, cbi, cro, procurement, procurement_lobbying, ted, freshness**. Every "9 chains" / "10 orchestrators" statement below is stale; the 7 new chains are unclassified by the KEEP tables.
 
+   **↳ 2026-06-05:** now **18 chains** (added `source_health` + `cso`); all 18 chain script paths exist. The `extractors/` graduation is complete and a new **`corporate/`** package now holds `cro_poller` + `cro_normalise` (with `shared/name_norm.py` extracted) — both post-date this block's tree.
+
 2. **C5 (sandbox→production) — ✅ NOW RESOLVED 2026-06-04 (see CURRENT TARGET STRUCTURE above).** *The text below is the original finding, retained for rationale; it described the problem before the `extractors/` graduation closed it.* It grew ~7× before resolution: The "✅ RESOLVED 2026-06-02" notes (which promoted ONE file) are misleading. **7–8 `pipeline_sandbox/` scripts are now load-bearing committed pipeline steps**: `afs_amalgamated_extract.py` (pipeline.py:64), `cbi_registers_extract.py` (:68), `cro_corporate_xref_enrichment.py` (:72), `procurement_etenders_extract.py` (:76), `procurement_lobbying_xref.py` (:81), `ted_ireland_extract.py` (:85), and `si_legislation_directory_extract.py` (nested in iris_refresh.py:125). Several write committed **gold** consumed by the UI. **This is the worst coupling in the repo and the real decision the reorg must make:** promote these to `domains/` or gate them out of `CHAINS`. It matters more than the `src/` move itself.
 
 3. **`__main__`-guard claim is REFUTED.** "Most top-level scripts execute on import (no guard)" (and the matching `pyproject.toml` TODO) is stale: 13/15 sampled production files HAVE guards. Only `legislation.py` and `questions.py` lack one (both write parquet at module level). The `-m` dispatch precondition for Step 5 is therefore mostly already met.
@@ -47,6 +49,8 @@ A four-front evidence sweep on 2026-06-04 found this plan's **executed-work ledg
 4. **Subprocess topology mis-stated.** Not "~11 sites": 8 chains use `subprocess.run`, `pipeline.py` uses `Popen` (pipeline.py:145), `seanad_refresh.py` uses direct imports (no subprocess), plus ~30 inner dispatch sites.
 
 5. **Test baseline corrected (supersedes the "358/0/24" edit, which was itself wrong).** Real state on this branch = **506 passed / 3 failed / 78 skipped**, and **CI's `test` job is RED** — 2 genuine, non-data-gated failures in `test/test_la_payments.py` (`strip_id_prefix` two-numeric-run case; broken xlsx `emit_file` path). A 3rd, `test_sipo_expenses.py::test_name_quality`, is data-gated (SIPO parquet untracked) and flaky on collection order. **Fix CI red before any reorg work — it is the gate the whole plan depends on.**
+
+   **↳ 2026-06-05 update — the CI-red gate is now MET.** The `test_la_payments` failures are fixed; the full `test` lane is **615 passed / 0 failed / 9 skipped** (green). The `sql-contracts` job was *separately* red — `member_overview_data._DOMAIN_FILES` registered `legislation_si_index.sql` before its `v_si_current_state` dependency (silently swallowed in prod, caught by `test_member_overview_connection_builds`); **fixed 2026-06-05** (added `legislation_si_current_state.sql` ahead of the index view), now 75 passed / 0 failed. **`test` + `sql-contracts` + `firewall` + `typecheck` are all green.** The only red left is the `lint` job (≈45 `ruff check` + 50 `format` files) — but that is in-flight reorg churn (judiciary / legislation / payments / sipo / dead `split_attendance_hall`), not a logic break; it clears with a `ruff format .` + `--fix` once the slices settle. So the "fix CI red before reorg work" precondition no longer blocks.
 
 **Net:** the executed frontload (paths.py, public_appointments promotion, `__init__.py` deletion, lobbying_fetch move, config-constant migration) is all verified real, and the strategy (frontload → mechanical worktree move) still holds. But every inventory/status section below is **circa-2026-06-02 and partially stale** until reconciled against 16 chains + the reopened C5.
 
@@ -152,7 +156,7 @@ The B1–B6 boundary rationale in §2 below (paths.py single root, pure `transfo
 | `unsure` (resolved during session) | 0 original — but 3 NEW `decide`/`unsure` items added 2026-06-02 (chain destination, sandbox promotion, root `__init__.py`) |
 | `sandbox` (move into sandbox) | 1 — but 2 sandbox files are now load-bearing pipeline deps (see ARCHITECTURE CHANGE) |
 | Streamlit UI files (utility/) | 36 — all `keep`, moving to `src/dail_tracker/ui/` |
-| Pre-flight test baseline | **CURRENT = 506 passed · 3 failed · 78 skipped (CI `test` job RED)** — verified 2026-06-04. 2 real failures in `test/test_la_payments.py` block CI today; the 78 skips are all data-gated (uncommitted gold). The earlier "358/0/24" and "294/11" figures are both retired. **Fix CI red before Step 5.** |
+| Pre-flight test baseline | **CURRENT = 615 passed · 0 failed · 9 skipped (CI `test` job GREEN)** — verified 2026-06-05. The 2026-06-04 "506·3·78 / CI RED" figure is retired: the `test_la_payments` failures are fixed and `sql-contracts` was repaired (member_overview SI-view ordering). `test`/`sql-contracts`/`firewall`/`typecheck` all green; only `lint` is red (in-flight reorg formatting churn). Earlier "358/0/24" and "294/11" also retired. **The CI-red precondition for Step 5 is met.** |
 
 ---
 
@@ -519,14 +523,11 @@ The poll runners (`run_*_poll.py`) still don't use subprocess — they call `oir
 
 ## Pre-flight test baseline
 
-**CURRENT BASELINE (verified 2026-06-04): 506 passed · 3 failed · 78 skipped (~13s).** This is NOT green:
+**CURRENT BASELINE (verified 2026-06-05): 615 passed · 0 failed · 9 skipped — GREEN.** Running CI's exact selector (`-m "not integration and not sql and not sources and not bronze"`) is clean. The `sql-contracts` job is also green (75 passed / 0) after the member_overview SI-view ordering fix. `firewall` + `typecheck` green. Only `lint` is red (in-flight reorg formatting churn — not a logic break).
 
-- **CI's `test` job is RED.** Running CI's exact selector (`-m "not integration and not sql and not sources and not bronze"`) gives **2 failed / 431 passed / 6 skipped**. Both failures are in the git-tracked, unmarked `test/test_la_payments.py` and fail on synthetic inputs (not data-gated): `test_strip_id_prefix` (only strips one numeric run, not the PO#+vendor-ID two-run case) and `test_read_xlsx_roundtrip_and_debit_sign` (xlsx `emit_file` returns `valid=False`). **These block the green gate the whole reorg depends on — fix first.**
-- A 3rd local failure, `test_sipo_expenses.py::test_name_quality`, is data-gated on the untracked `sipo_expenses_fact.parquet` and is order-flaky; it surfaces a real OCR digit-bleed issue but won't run in CI.
-- The **78 skips are all "missing data" skips** (uncommitted gold/silver parquet) — they'd run if pipeline output were present; none are permanent.
-- Both failing files are WIP on this `seanad-app-parity` branch's SIPO / LA-AFS effort — newly-added tests outpacing their parser fixes, not rot in stable code.
-
-The earlier "358/0/24" (a bad edit) and "294/11" baselines are both **retired** — the suite grew and is no longer green. Re-run `.venv\Scripts\python.exe -m pytest test/ -q` on the working branch immediately before the Step-5 move to re-confirm.
+- The earlier **2026-06-04 "506 · 3 · 78 / CI test job RED"** claim is **retired**: the two `test/test_la_payments.py` failures (`strip_id_prefix` two-numeric-run; xlsx `emit_file`) are fixed on this branch.
+- The **9 skips are all "missing data" skips** (uncommitted gold/silver parquet) — they'd run if pipeline output were present; none are permanent.
+- The earlier "358/0/24" (a bad edit) and "294/11" baselines are also **retired**. Re-run `.venv\Scripts\python.exe -m pytest -m "not integration and not sql and not sources and not bronze" -q` immediately before the Step-5 move to re-confirm green.
 
 > The 2026-05-27 figures and failure clusters below are **HISTORICAL** — retained for rationale only.
 
@@ -548,7 +549,7 @@ The earlier "358/0/24" (a bad edit) and "294/11" baselines are both **retired** 
 **Cluster C — pandas/polars confusion (1 failure)**
 `test_normaize_join_key.py::test_join_keys_are_unique_in_members` — `AttributeError: 'DataFrame' object has no attribute 'alias'`. Test mixes a pandas DataFrame with a polars-only method.
 
-**What this meant at the time**: 294/305 was the known-good baseline as of 2026-05-27. Superseded — see the current 506·3·78 (CI RED) gate at the top of this section. After the Step-5 move, the post-fix pass count must match the pre-move count exactly; any new failure = a reorg-induced regression to investigate.
+**What this meant at the time**: 294/305 was the known-good baseline as of 2026-05-27. Superseded — see the current **615 · 0 · 9 (GREEN)** baseline at the top of this section. After the Step-5 move, the post-fix pass count must match the pre-move count exactly; any new failure = a reorg-induced regression to investigate.
 
 ## Next step
 
