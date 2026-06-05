@@ -1,14 +1,16 @@
-"""
-Attendance data-access layer.
+"""Attendance data access — thin Streamlit wrapper over dail_tracker_core.
 
-Owns:
-- DuckDB connection bootstrapped from sql_views/attendance_*.sql
-- All retrieval functions for the attendance page (attendance.py).
-  The page calls these; it never runs SQL itself.
+Retrieval SQL + QueryResult state-handling live in
+``dail_tracker_core.queries.attendance``; this file owns only the Streamlit
+caching and the small presentation-layer reshaping the page already expected
+(dict of option lists, a readiness bool, a {year: sitting_days} map).
 
-Forbidden here (same rules as Streamlit page files):
-- JOIN, GROUP_BY_MULTI_DIM, HAVING, WINDOW in ad-hoc retrieval SQL
-- Business metric definitions
+``get_attendance_conn`` is still exported because ui/attendance_panel.py builds
+its own per-TD timeline SELECTs against the same connection — preserving it
+keeps that consumer working unchanged.
+
+Forbidden here (unchanged): read_parquet, parquet_scan, CREATE VIEW,
+pandas groupby/merge/pivot business logic, multi-dim GROUP BY.
 """
 
 from __future__ import annotations
@@ -16,94 +18,56 @@ from __future__ import annotations
 import duckdb
 import pandas as pd
 import streamlit as st
-from data_access._sql_registry import register_views
+
+from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.queries import attendance as _q
 
 
 @st.cache_resource
 def get_attendance_conn() -> duckdb.DuckDBPyConnection:
-    conn = duckdb.connect()
-    register_views(conn, ["attendance_*.sql"], swallow_errors=True)
-    return conn
+    # swallow_errors=True preserves the prior register_views(...) behaviour:
+    # a missing optional attendance view degrades that section to its empty
+    # state rather than taking the whole page down.
+    return connect_with_views(["attendance_*.sql"], swallow_errors=True)
 
 
-# ── Retrieval (SELECT / WHERE / ORDER BY / LIMIT only) ────────────────────────
+# ── Retrieval wrappers (caching + presentation reshaping only) ────────────────
 
 
 @st.cache_data(ttl=300)
 def views_ready() -> bool:
-    return not get_attendance_conn().execute("SELECT 1 FROM v_attendance_summary LIMIT 1").df().empty
+    r = _q.summary_probe(get_attendance_conn())
+    return r.ok and not r.is_empty
 
 
 @st.cache_data(ttl=300)
 def fetch_filter_options(house: str = "Dáil") -> dict[str, list]:
     conn = get_attendance_conn()
-    # The attendance views UNION both chambers with a `house` column; scope to
-    # the picked house so the member dropdown / year filter stay single-chamber.
-    members = conn.execute(
-        "SELECT DISTINCT member_name FROM v_attendance_member_summary WHERE house = ? ORDER BY member_name LIMIT 2000",
-        [house],
-    ).fetchall()
-    years = conn.execute(
-        "SELECT DISTINCT year FROM v_attendance_member_year_summary WHERE house = ? ORDER BY year DESC LIMIT 100",
-        [house],
-    ).fetchall()
+    members = _q.distinct_members(conn, house)
+    years = _q.distinct_years(conn, house)
     return {
-        "members": [r[0] for r in members],
-        "years": [r[0] for r in years],
+        "members": members.data["member_name"].tolist() if (members.ok and not members.is_empty) else [],
+        "years": years.data["year"].tolist() if (years.ok and not years.is_empty) else [],
     }
 
 
 @st.cache_data(ttl=300)
 def fetch_missing_members() -> pd.DataFrame:
-    """Roster TDs with no row in the attendance parquet.
-
-    Two groups via the `missing_reason` column:
-      • office_holder      — ministers/ministers-of-state; documented TAA gap
-      • no_record_on_file  — everyone else (Taoiseach + genuine roster gaps)
-    """
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT member_name, party_name, constituency,"
-            " ministerial_office, departments_held, missing_reason"
-            " FROM v_attendance_missing_members"
-            " ORDER BY missing_reason, member_name LIMIT 500"
-        )
-        .df()
-    )
+    """Roster TDs with no row in the attendance parquet (see core docstring)."""
+    return _q.missing_members(get_attendance_conn()).data
 
 
 @st.cache_data(ttl=300)
 def fetch_year_ranking(year: int, house: str = "Dáil") -> pd.DataFrame:
-    """Top and bottom attenders for a given year from v_attendance_year_rank.
-
-    Ranks are partitioned by (year, house) in the view, so passing a house
-    yields a clean single-chamber ranking (Senators ranked among Senators).
-    """
-    return (
-        get_attendance_conn()
-        .execute(
-            "SELECT member_name, party_name, constituency,"
-            " attended_count, is_minister, rank_high, rank_low"
-            " FROM v_attendance_year_rank WHERE year = ? AND house = ?"
-            " ORDER BY rank_high ASC LIMIT 500",
-            [year, house],
-        )
-        .df()
-    )
+    """Top and bottom attenders for a given year (single-chamber)."""
+    return _q.year_ranking(get_attendance_conn(), year, house).data
 
 
 @st.cache_data(ttl=300)
 def fetch_chamber_sitting_days(house: str) -> dict[int, int]:
-    """{year: distinct chamber sitting days} for a house — the data-derived
-    attendance-bar denominator used for Seanad (Dáil keeps SITTING_DAYS_BY_YEAR).
-    """
-    rows = (
-        get_attendance_conn()
-        .execute(
-            "SELECT year, sitting_days FROM v_attendance_chamber_sitting_days WHERE house = ?",
-            [house],
-        )
-        .fetchall()
-    )
-    return {int(r[0]): int(r[1]) for r in rows}
+    """{year: distinct chamber sitting days} — the Seanad attendance-bar denominator."""
+    r = _q.chamber_sitting_days(get_attendance_conn(), house)
+    if not r.ok or r.is_empty:
+        return {}
+    df = r.data
+    return {int(y): int(s) for y, s in zip(df["year"], df["sitting_days"])}
