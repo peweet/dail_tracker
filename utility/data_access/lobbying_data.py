@@ -28,6 +28,12 @@ from data_access._sql_registry import register_views
 def get_lobbying_conn() -> duckdb.DuckDBPyConnection:
     conn = duckdb.connect()
     register_views(conn, ["lobbying_*.sql"], swallow_errors=False)
+    # Charity financial time-series — used by the org panel's "Charity finances"
+    # tile when a lobbyist org matches a registered charity (rcn). Registered
+    # separately with swallow_errors=True so a missing annual_reports parquet
+    # degrades gracefully (the tile simply doesn't render) rather than breaking
+    # the whole lobbying page.
+    register_views(conn, ["charity_financials_by_year.sql"], swallow_errors=True)
     return conn
 
 
@@ -150,6 +156,22 @@ def fetch_all_org_names() -> list[str]:
     if df.empty:
         return []
     return df["lobbyist_name"].dropna().tolist()
+
+
+@st.cache_data(ttl=300)
+def fetch_charity_financial_series(rcn: int) -> pd.DataFrame:
+    """Multi-year income/expenditure series for a charity-matched org (by rcn).
+
+    Reads v_charity_financials_by_year (promoted from the Charities Regulator
+    annual-report filings). Empty when the org has no charity match or no filed
+    accounts. Figures are as filed — the consumer should be resilient to the rare
+    outlier filing; see the view header.
+    """
+    return _safe(
+        "SELECT period_year, gross_income, gross_expenditure, gov_share, income_trend"
+        " FROM v_charity_financials_by_year WHERE rcn = ? ORDER BY period_year",
+        [int(rcn)],
+    )
 
 
 # ── Procurement footprint (eTenders cross-reference) ────────────────────────────

@@ -20,7 +20,7 @@ STEPS: list[tuple[str, list[str]]] = [
     ("flatten_debates",        ["-m", "debates.dbsect_listings_flatten"]),
     ("wikidata_socials",       ["-m", "wikidata.wikidata_socials_etl"]),
     ("ministerial_tenure",     ["-m", "wikidata.ministerial_tenure_build"]),
-    ("committees_long_format", ["committees_long_format_etl.py"]),
+    ("committees_long_format", ["-m", "committees.committees_long_format_etl"]),
     ("payments_etl",           ["-m", "payments.payments_full_psa_etl"]),
     ("payments_enrichment",    ["-m", "payments.payments_member_enrichment"]),
     ("attendance",             ["attendance.py"]),
