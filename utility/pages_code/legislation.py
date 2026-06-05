@@ -152,9 +152,9 @@ def _render_legislation_index(
         """
     )
 
-    # Discovery: most-contested bills (collapsed). Only on the default index so it
-    # doesn't appear in the embedded filter-bar variant.
-    if show_hero:
+    # Discovery: most-contested bills (collapsed). Shown on the browse view; hidden
+    # during an active title search, where a global ranking would be out of context.
+    if not title_search:
         _render_most_contested()
 
     # ── Phase selector ────────────────────────────────────────────────────────
