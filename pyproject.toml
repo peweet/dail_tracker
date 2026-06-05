@@ -211,6 +211,10 @@ include = [
     "enrich.py",
     "transform_votes.py",
     "questions.py",
+    # Streamlit-free core: the API/JSON boundary the type-checker pays off on.
+    # Added at creation so it starts (and stays) clean; NEVER widen to the
+    # pandas-heavy pipeline scripts (they degrade to Unknown and bury findings).
+    "dail_tracker_core",
 ]
 # Resolve third-party imports (polars/pandas/requests) from the uv-managed venv,
 # deterministically, in both local runs and CI (`uv sync` creates ./.venv).
@@ -241,6 +245,6 @@ packages = [
     "transform_votes.py",
     "manifest.py",
     "pdf_infra",
-    "payments_full_psa_etl.py",
+    "payments",
     "flatten_members_json_to_csv.py",
 ]

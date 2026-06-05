@@ -69,12 +69,12 @@ def step_pdf_extract() -> bool:
 
 def step_cro_poll() -> bool:
     _hr("[4/8] cro_poller — refresh CRO bulk export from CKAN (idempotent)")
-    if _subprocess("cro_poller.py"):
+    if _module("corporate.cro_poller"):
         return True
     # A poll failure (CKAN outage / drift) is non-fatal as long as we still hold
     # a snapshot cro_normalise can use — degrade to the last good export rather
     # than failing the whole chain. Only fatal when there is no snapshot at all.
-    from cro_poller import latest_local_date
+    from corporate.cro_poller import latest_local_date
 
     if latest_local_date() is not None:
         print("  poll failed but a CRO snapshot exists — continuing on last snapshot")
@@ -85,7 +85,7 @@ def step_cro_poll() -> bool:
 
 def step_cro_normalise() -> bool:
     _hr("[5/8] cro_normalise — CRO bulk export → silver")
-    return _subprocess("cro_normalise.py")
+    return _module("corporate.cro_normalise")
 
 
 def step_charity_normalise() -> bool:

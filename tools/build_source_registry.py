@@ -401,7 +401,7 @@ def build_records() -> list[dict]:
         return adapt_hse_tusla(SPECS, seed_landing)
 
     def _cro():
-        from cro_poller import SOURCE_META
+        from corporate.cro_poller import SOURCE_META
 
         return adapt_cro(SOURCE_META)
 

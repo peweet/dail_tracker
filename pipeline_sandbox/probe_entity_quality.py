@@ -31,7 +31,7 @@ try:
 except Exception:
     pass
 
-from cro_normalise import name_norm_expr  # noqa: E402
+from shared.name_norm import name_norm_expr  # noqa: E402
 
 NOTICES = ROOT / "data/gold/parquet/corporate_notices.parquet"
 

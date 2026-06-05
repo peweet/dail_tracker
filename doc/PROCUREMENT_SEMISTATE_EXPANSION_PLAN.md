@@ -81,8 +81,10 @@ is stable and per-publisher verified, because a premature join is actively misle
    sum silently mixes bases. Add the column or never sum across publishers.
 3. **Merge HSE+Tusla** into the fact table — but first align the bespoke parser's output to
    the full fact schema (it currently emits a leaner set).
-4. **NTA** needs a bespoke spec (generic reader can't find its header); period null on ~12%
-   of rows (filenames lack a quarter/year).
+4. ~~**NTA** needs a bespoke spec (generic reader can't find its header)~~ ✅ **DONE** —
+   `pipeline_sandbox/procurement_nta_parser.py` (rotated-PDF reading-order reader, 9 quarters /
+   2,278 rows; see §11.7). Period null on ~12% of OTHER publishers' rows (HSE-style filenames
+   lacking a quarter/year) is still open.
 
 Everything below (§2–§10) remains as reference for the *full* ambition, should the one-shot
 ever graduate into a maintained product.
@@ -1584,9 +1586,22 @@ tested against the JOINED row text (not a single cell), removing it. NTMA 1,943 
 rows, 0 unparsed**. Combined with concurrently-wired publishers (Pobal/Beaumont/CHI, sibling
 context), the fact table is now **72,423 rows / €14.27bn / 25 publishers**.
 
-**Residual known gaps:** Courts has 6 `.xlsx` links that 404→non-zip (`BadZipFile`);
-`ie_nta` (single PDF is a columnar/non-tabular layout — a whole €-column clusters into one
-row — needs a bespoke reader like NPHDB, not a header tweak); Defence month-name quarterlies
-(`jan-mar-2019.pdf`) get period=YEAR only (quarter precision lost, no row loss); Beaumont/
+**NTA bespoke parser BUILT (same day) — `pipeline_sandbox/procurement_nta_parser.py`.**
+Every NTA PO PDF is 90°-rotated so the generic word-geometry reader clustered a whole
+€-column into one row (0 rows). The bespoke parser reads `get_text("text")` in reading order,
+anchoring on the DATE line. It handles **three layouts across years**: 2026 (rotated; date +
+`PO####` + supplier inline), 2024-Q1..2025-Q3 (upright; date / order-no / supplier / services
+/ €value as 5 lines, cents omitted), and 2025-Q4 (date as `YYYYMMDD`, no slashes). Harvests
+all per-year listing pages (`/publications/<year>-purchase-orders-e20000-and-over/`). Result:
+**9 quarters (2024-Q1..2026-Q1), 2,278 rows, €646.7m**, QC clean (0 under-€20k, 0 null
+supplier/amount, 0 order-no-as-supplier drift, 0 intra-file dups). The single €140.6m row
+(Graham Projects / BusConnects Infrastructure, 21.7% share) is a REAL major-capital PO —
+`outlier_warning` fires. amount_semantics=po_committed. Writes `nta_payments_fact.parquet`
++ `nta_payments_coverage.json` (unions at promotion); `ie_nta` DE-SCOPED from the generic
+PUBLISHERS list. Same bespoke family as NPHDB / HSE-Tusla.
+
+**Residual known gaps:** Courts has 6 `.xlsx` links that 404→non-zip (`BadZipFile`); Defence
+month-name quarterlies (`jan-mar-2019.pdf`) get period=YEAR only (quarter precision lost, no
+row loss); Beaumont/
 Pobal are MIXED PO+payment grain (sibling-context lane); CnaM/Garda/UCD/SETU/SEAI/EPA remain
 unwired (render/OCR/right-URL).

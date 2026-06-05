@@ -26,7 +26,7 @@ try:
 except Exception:
     pass
 
-from cro_normalise import name_norm_expr  # noqa: E402
+from shared.name_norm import name_norm_expr  # noqa: E402
 
 CRO = ROOT / "data/silver/cro/companies.parquet"
 H = {"User-Agent": "dail-tracker research"}

@@ -1,6 +1,6 @@
 """Data-quality unit tests for the SIPO GE2024 candidate-expenses gold fact
 (data/gold/parquet/sipo_expenses_fact.parquet), produced by
-pipeline_sandbox/sipo_expenses_paddle_etl.py.
+extractors/sipo_expenses_paddle_etl.py.
 
 These guard the invariants the data-quality exploration established, so the page
 can trust the VERIFIED (flag='ok') rows and the flag system genuinely quarantines

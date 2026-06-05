@@ -22,7 +22,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import attendance  # noqa: E402
-import payments_full_psa_etl as P  # noqa: E402
+import payments.payments_full_psa_etl as P  # noqa: E402
 import transform_votes  # noqa: E402
 
 

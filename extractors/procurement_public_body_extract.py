@@ -50,7 +50,7 @@ sys.path.insert(0, str(ROOT))
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from cro_normalise import name_norm_expr  # noqa: E402
+from shared.name_norm import name_norm_expr  # noqa: E402
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research probe)"}
 TMP = Path("c:/tmp/procurement_publishers")
@@ -65,6 +65,10 @@ MONEY_RE = re.compile(r"(?:€|EUR)?\s?\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+\.\d{2}
 NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
 HREF_RE = re.compile(r"""href\s*=\s*["']([^"']+)["']""", re.I)
 DIGIT_PREFIX = re.compile(r"^(?:\d{3,}\s+){1,3}")  # strips a leading PO/vendor-ID run
+# A multi-word alphabetic string (e.g. "AN POST", "AIRNAV IRELAND") — used to recover a supplier
+# name that a mis-mapped column put into po_number while the supplier cell came out blank.
+NAME_LIKE = re.compile(r"[A-Za-z]{2,}[A-Za-z .,&'/-]*\s[A-Za-z&]", re.I)
+NUMERIC_NOISE = re.compile(r"\d{4,}|\d,\d{3}")  # a big/grouped number => category total, not a name
 PERIOD_RE = re.compile(r"(?:^|[^0-9])(20[12]\d)(?:[^0-9]|$)")
 QUARTER_RE = re.compile(r"q\s?([1-4])|quarter[\s_-]?([1-4])|qtr[\s_-]?([1-4])", re.I)
 
@@ -179,10 +183,10 @@ PUBLISHERS: list[dict] = [
         semantics="payment_actual", grain="payment", privacy="medium", tier="C",
         direct=["https://www.atu.ie/app/uploads/2026/03/atu-payments-purchase-orders-q1-2025.pdf"],
         caveat="supplier published with a leading numeric supplier-ID; stripped on read"),
-    cfg("ie_nta", "National Transport Authority", "agency", "transport",
-        listing="https://www.nationaltransport.ie/publications/2026-purchase-orders-e20000-and-over/",
-        semantics="po_committed", grain="purchase_order", tier="C",
-        direct=["https://www.nationaltransport.ie/wp-content/uploads/2026/05/Purchase-Orders-20k-and-over-Quarter-1-2026.pdf"]),
+    # ie_nta DE-SCOPED to pipeline_sandbox/procurement_nta_parser.py — every NTA PO PDF is
+    # 90deg-rotated (and the layout/date format varies by year), so the generic word-geometry
+    # reader clusters a whole €-column into one row and yields 0. The bespoke reading-order
+    # parser owns it (9 quarters, ~2.3k rows) and emits THIS schema. Do not re-add here.
     cfg("ie_marine", "Marine Institute", "agency", "agri_food_marine",
         listing="https://www.marine.ie/site-area/about-us/purchase-orders",
         semantics="po_committed", grain="purchase_order", tier="C",
@@ -683,6 +687,21 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
         r["extraction_status"] = "extracted"
         r["extraction_confidence"] = conf
         r["caveat_text_detected"] = caveat_detected
+        # Blank-supplier repair: a mis-mapped column can leave supplier_raw empty while the
+        # company name sits in po_number ("AN POST", "AIRNAV IRELAND"). Promote it back IF it
+        # looks like a multi-word name and carries no big number (which would mean it is a
+        # category-total line, e.g. ESB Networks "Meter Reading Services 3,823,410").
+        sup = (r.get("supplier_raw") or "").strip()
+        po = (r.get("po_number") or "").strip()
+        if not sup and po and NAME_LIKE.search(po) and not NUMERIC_NOISE.search(po):
+            r["supplier_raw"] = po
+            r["po_number"] = None
+            sup = po
+        # Anything still missing a supplier is NOT a clean supplier-level row (category totals,
+        # blank cells) — downgrade so it is filterable and never ranked as a real supplier.
+        if not sup:
+            r["extraction_confidence"] = "low"
+            r["caveat_text_detected"] = True
     return rows_out, {"status": "ok" if rows_out else "empty", "rows": len(rows_out), "confidence": conf}
 
 

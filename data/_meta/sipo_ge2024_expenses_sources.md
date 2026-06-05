@@ -1,13 +1,15 @@
 # sipo_expenses_fact.parquet — source citation
 
-Companion to the (sandbox, pre-promotion) fact
-`pipeline_sandbox/_sipo_output/sipo_expenses_fact.parquet`. One row per candidate
+Companion to the silver (pre-promotion) fact
+`data/silver/sipo/sipo_expenses_fact.parquet`, promoted to gold
+`data/gold/parquet/sipo_expenses_fact.parquet` by `extractors/sipo_promote_to_gold.py`.
+One row per candidate
 per party, from each party's **National Agent — Election Expenses Statement** for
 the 2024 general election (the 34th Dáil), as published by the Standards in Public
 Office Commission (SIPO). These are **election expenses** (money spent
 campaigning), NOT donations — see the editorial note at the bottom.
 
-Built by `pipeline_sandbox/sipo_expenses_paddle_etl.py` (PaddleOCR re-OCR of the
+Built by `extractors/sipo_expenses_paddle_etl.py` (PaddleOCR re-OCR of the
 scanned returns → geometry + 43-constituency closed-set anchor; see
 `doc/SIPO_OCR_INVESTIGATION.md`). OCR-derived → every figure must carry a
 "verify against the official SIPO PDF (page N)" caveat; the `flag` column marks
@@ -69,7 +71,7 @@ the statutory limit (universal) rather than any party's assigned amounts.
 
 ## Part 4 — itemised expenses (`sipo_expense_items_fact.parquet` + `sipo_expense_categories_fact.parquet`)
 
-A second extractor, `pipeline_sandbox/sipo_expense_items_paddle_etl.py`, reads
+A second extractor, `extractors/sipo_expense_items_paddle_etl.py`, reads
 **Part 4** of the same National-Agent returns (the candidate-summary above is
 Part 3). Two outputs, both sandbox:
 

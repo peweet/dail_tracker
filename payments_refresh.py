@@ -37,14 +37,23 @@ def _subprocess(script: str) -> bool:
     return r.returncode == 0
 
 
+def _module(mod: str) -> bool:
+    """Run a packaged step via ``python -m <mod>`` (cwd=root → ``import config``
+    resolves). Used for steps that live in a package dir, not at repo root."""
+    t = time.monotonic()
+    r = subprocess.run([sys.executable, "-m", mod], cwd=_ROOT)
+    print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
+    return r.returncode == 0
+
+
 def step_extract() -> bool:
     _hr("[1/2] payments_full_psa_etl — TAA + PRA payments parser")
-    return _subprocess("payments_full_psa_etl.py")
+    return _module("payments.payments_full_psa_etl")
 
 
 def step_member_enrichment() -> bool:
     _hr("[2/2] payments_member_enrichment — add unique_member_code / party / constituency")
-    return _subprocess("payments_member_enrichment.py")
+    return _module("payments.payments_member_enrichment")
 
 
 def main() -> int:

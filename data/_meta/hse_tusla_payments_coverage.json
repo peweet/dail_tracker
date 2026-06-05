@@ -1,0 +1,70 @@
+{
+  "publishers": [
+    "ie_hse",
+    "ie_tusla"
+  ],
+  "rows_extracted": 21662,
+  "by_file": [
+    {
+      "publisher": "ie_hse",
+      "file": "HSE_FOI_Model_Publication_of_HSE_Purchase_Order_Payments_above_20k.pdf",
+      "status": "ok",
+      "rows": 16972,
+      "sum_eur": 6385474120.0
+    },
+    {
+      "publisher": "ie_tusla",
+      "file": "2021_Tusla_POs_over_20k_Final.pdf",
+      "status": "ok",
+      "rows": 1980,
+      "sum_eur": 178353192.56
+    },
+    {
+      "publisher": "ie_tusla",
+      "file": "2022_Tusla_POs_over_20k_Final.pdf",
+      "status": "excluded",
+      "reason": "implausible median \u20ac24",
+      "rows": 26
+    },
+    {
+      "publisher": "ie_tusla",
+      "file": "2023_Tusla_POs_over_20k_Final.pdf",
+      "status": "ok",
+      "rows": 2710,
+      "sum_eur": 219434464.69
+    },
+    {
+      "publisher": "ie_tusla",
+      "file": "2024_Tusla_POs_over_20K_Final.pdf",
+      "status": "excluded",
+      "reason": "implausible median \u20ac1",
+      "rows": 1
+    },
+    {
+      "publisher": "ie_tusla",
+      "file": "Tusla_Purchase_Orders_over_20k_-_2025.pdf",
+      "status": "excluded",
+      "reason": "0 rows",
+      "rows": 0
+    }
+  ],
+  "supplier_class_counts": {
+    "foreign_company": 82,
+    "sole_trader_or_individual": 7409,
+    "unknown": 52,
+    "public_body": 191,
+    "company": 13928
+  },
+  "amount_semantics_counts": {
+    "payment_actual": 16972,
+    "po_committed": 4690
+  },
+  "value_safe_to_sum_rows": 21662,
+  "value_safe_to_sum_total_eur": 6783261777.25,
+  "rows_review_personal_data": 7409,
+  "privacy_quarantine_applied": false,
+  "schema_version": 1,
+  "parser_version": "0.1.0",
+  "generated_at": "2026-06-05T07:50:29+00:00",
+  "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. Per-year files layout-gated. PRIVACY QUARANTINE DEFERRED (public_display=True)."
+}
