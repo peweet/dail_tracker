@@ -309,6 +309,40 @@ lobbyist/raw/
 # per-LA AFS revenue fact (la_afs_extract.py) — read by tests + future gold views/UI; commit
 # so it survives machine failure / is Cloud-readable even if a council removes its source PDF
 !data/silver/parquet/la_afs_divisions.parquet
+# Silver facts the deployed app's runtime SQL views read DIRECTLY and query live in
+# DuckDB (registered via utility/data_access/_sql_registry.py + member_overview_data.py).
+# Without these a fresh Cloud clone hard-crashes the Lobbying / Interests / Committees
+# pages (swallow_errors=False) and leaves Home / Legislation / Attendance half-empty.
+# ~85 MB total, all zstd. Parent dirs re-included first (git can't un-ignore a file
+# under an excluded dir). Keep in sync with the runtime view scan over sql_views/.
+!data/silver/ministerial_tenure.parquet
+!data/silver/charities/
+!data/silver/charities/annual_reports.parquet
+!data/silver/charities/charity_resolved.parquet
+!data/silver/committees/
+!data/silver/committees/committee_assignments.parquet
+!data/silver/committees/office_holders.parquet
+!data/silver/cro/
+!data/silver/cro/companies.parquet
+!data/silver/cro/financial_statements.parquet
+!data/silver/lobbying/parquet/
+!data/silver/lobbying/parquet/politician_returns_detail.parquet
+!data/silver/lobbying/parquet/returns_master.parquet
+!data/silver/lobbying/parquet/revolving_door_returns_detail.parquet
+!data/silver/parquet/bill_amendments.parquet
+!data/silver/parquet/dail_member_interests_combined.parquet
+!data/silver/parquet/debate_listings.parquet
+!data/silver/parquet/debates.parquet
+!data/silver/parquet/flattened_members.parquet
+!data/silver/parquet/flattened_seanad_members.parquet
+!data/silver/parquet/lobbying_return_documents.parquet
+!data/silver/parquet/member_external_links.parquet
+!data/silver/parquet/questions.parquet
+!data/silver/parquet/related_docs.parquet
+!data/silver/parquet/seanad_member_interests_combined.parquet
+!data/silver/parquet/sponsors.parquet
+!data/silver/parquet/stages.parquet
+!data/silver/parquet/versions.parquet
 # SIPO GE2024 silver facts + per-party intermediates + OCR checkpoint cache
 # (extractors/sipo_*; all regenerable). The OCR cache enables --parse-only without
 # re-OCR. Gold (data/gold/parquet/sipo_donations.parquet, sipo_expenses_fact.parquet)

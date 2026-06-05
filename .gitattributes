@@ -4,3 +4,12 @@
 # core.autocrlf setting — otherwise a CRLF commit from Windows fails the guard.
 requirements.txt text eol=lf
 uv.lock          text eol=lf
+
+# Committed runtime data (gold + the silver facts the deployed app reads). Mark
+# binary so git never line-ending-normalizes them — a CRLF rewrite on Windows
+# would corrupt the parquet/avatar payload. git auto-detects this, but pin it.
+*.parquet binary
+*.jpg     binary
+*.jpeg    binary
+*.png     binary
+*.webp    binary
