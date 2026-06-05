@@ -4,32 +4,42 @@
     2026
   ],
   "last_crawled_years": [
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025,
     2026
   ],
   "directory_pages_updated_to": {
-    "2016": "29 May 2026",
-    "2017": "29 May 2026",
-    "2018": "29 May 2026",
-    "2019": "29 May 2026",
-    "2020": "29 May 2026",
-    "2021": "29 May 2026",
-    "2022": "29 May 2026",
-    "2023": "29 May 2026",
-    "2024": "29 May 2026",
-    "2025": "29 May 2026",
-    "2026": "29 May 2026"
+    "2016": "1 June 2026",
+    "2017": "1 June 2026",
+    "2018": "1 June 2026",
+    "2019": "1 June 2026",
+    "2020": "1 June 2026",
+    "2021": "1 June 2026",
+    "2022": "1 June 2026",
+    "2023": "1 June 2026",
+    "2024": "1 June 2026",
+    "2025": "1 June 2026",
+    "2026": "1 June 2026"
   },
-  "rows": 7355,
+  "rows": 7367,
   "state_distribution": {
-    "in_force_as_made": 5421,
-    "other_affected": 428,
-    "revoked": 1335,
+    "revoked": 1342,
+    "partially_revoked": 10,
     "amended": 161,
-    "partially_revoked": 10
+    "other_affected": 428,
+    "in_force_as_made": 5426
   },
   "gold_si_count": 5924,
-  "gold_join_coverage_pct": 99.53,
-  "gold_with_non_made_state": 1341,
+  "gold_join_coverage_pct": 99.66,
+  "gold_with_non_made_state": 1347,
   "source": "eISB Legislation Directory chronological tables (isbc/siYYYY_*.html)",
   "caveat": "Discovery/indexing only \u2014 verify the official eISB entry before legal reliance. Whole vs provision-level revocation is heuristic from the 'How Affected' column."
 }

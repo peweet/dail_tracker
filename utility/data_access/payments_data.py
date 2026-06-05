@@ -1,17 +1,21 @@
-"""
-Payments data access layer.
+"""Payments data access — thin Streamlit wrapper over dail_tracker_core.
 
-Owns:
-- DuckDB connection bootstrapped from sql_views/payments_*.sql
-- All retrieval SQL for the payments page (SELECT / WHERE / ORDER BY / LIMIT only)
+Retrieval SQL (incl. the unique_member_code/member_name branch) and QueryResult
+state-handling live in ``dail_tracker_core.queries.payments``; this file owns the
+Streamlit caching and the small UI-shaping the page consumes:
+  - fetch_payments_summary  -> a single pd.Series (the one summary row)
+  - fetch_filter_options    -> {"members": [...], "years": [...str...]}
+  - fetch_since_2020_summary-> {"total": float, "members": int, "avg_per_td": float}
+All other fetchers return the DataFrame unchanged.
 
-Forbidden here (same rules as Streamlit page files):
-- JOIN, GROUP BY, HAVING, WINDOW in ad-hoc retrieval SQL
-- CREATE VIEW / CREATE TABLE
-- read_parquet / read_csv from inside this module (pipeline writes the views;
-  this module only SELECTs from them)
-- pandas groupby, merge, pivot
-- Business metric definitions
+Return contracts are preserved exactly. Note the NULL handling in
+fetch_since_2020_summary: the old code read the row via .fetchone() (SQL NULL ->
+Python None -> ``None or 0.0`` -> 0.0). Reading via .df() turns NULL into NaN
+(which is truthy), so we coerce with an explicit pd.notna guard to reproduce the
+old None->0 behaviour exactly.
+
+Forbidden here (unchanged): JOIN/GROUP BY/HAVING/WINDOW in ad-hoc SQL,
+CREATE VIEW, read_parquet/read_csv, pandas groupby/merge/pivot, business metrics.
 """
 
 from __future__ import annotations
@@ -19,212 +23,81 @@ from __future__ import annotations
 import duckdb
 import pandas as pd
 import streamlit as st
-from data_access._sql_registry import register_views
+
+from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.queries import payments as _q
 
 
 @st.cache_resource
 def get_payments_conn() -> duckdb.DuckDBPyConnection:
-    conn = duckdb.connect()
-    register_views(conn, ["payments_*.sql"], swallow_errors=False)
-    return conn
+    return connect_with_views(["payments_*.sql"], swallow_errors=False)
 
 
 @st.cache_data(ttl=300)
 def fetch_payments_summary() -> pd.Series:
-    row = (
-        get_payments_conn()
-        .execute(
-            "SELECT members_count, payment_count, total_paid,"
-            " first_payment_date, last_payment_date, first_year, last_year,"
-            " source_summary, latest_fetch_timestamp_utc, mart_version, code_version"
-            " FROM v_payments_summary LIMIT 1"
-        )
-        .df()
-    )
-    return row.iloc[0] if not row.empty else pd.Series()
+    df = _q.summary(get_payments_conn()).data
+    return df.iloc[0] if not df.empty else pd.Series()
 
 
 @st.cache_data(ttl=300)
 def fetch_filter_options(house: str = "Dáil") -> dict[str, list]:
     conn = get_payments_conn()
-    # The payments views UNION both chambers with a `house` column; scope to the
-    # picked house so the standalone page's member list / year filter and (via
-    # fetch_year_ranking) the rankings stay single-chamber — Senators are no
-    # longer blended into the TD list.
-    members = conn.execute(
-        "SELECT DISTINCT member_name FROM v_payments_member_detail WHERE house = ? ORDER BY member_name LIMIT 2000",
-        [house],
-    ).fetchall()
-    years = conn.execute(
-        "SELECT DISTINCT payment_year FROM v_payments_yearly_evolution WHERE house = ? ORDER BY payment_year DESC LIMIT 50",
-        [house],
-    ).fetchall()
+    members_df = _q.member_options(conn, house).data
+    years_df = _q.year_options(conn, house).data
     return {
-        "members": [r[0] for r in members],
-        "years": [str(r[0]) for r in years],
+        "members": members_df["member_name"].tolist() if not members_df.empty else [],
+        "years": [str(y) for y in years_df["payment_year"].tolist()] if not years_df.empty else [],
     }
 
 
 @st.cache_data(ttl=300)
 def fetch_year_ranking(year: int, house: str = "Dáil") -> pd.DataFrame:
-    return (
-        get_payments_conn()
-        .execute(
-            "SELECT member_name, unique_member_code, position, party_name,"
-            " constituency, taa_band_label, total_paid, payment_count, rank_high,"
-            " year_total_paid, year_member_count, year_avg_per_td"
-            " FROM v_payments_yearly_evolution"
-            " WHERE payment_year = ? AND house = ?"
-            " ORDER BY rank_high ASC",
-            [year, house],
-        )
-        .df()
-    )
+    return _q.year_ranking(get_payments_conn(), year, house).data
 
 
 @st.cache_data(ttl=300)
 def fetch_member_all_years(member_name: str, unique_member_code: str | None = None) -> pd.DataFrame:
-    """All years for a member — used for the all-years summary table, chart, and all-time total.
+    """All years for a member — all-years summary table, chart, and all-time total.
 
     Prefers ``unique_member_code`` when provided (post-enrichment join key);
-    falls back to ``member_name`` string match for legacy callers (the stand-
-    alone /rankings-payments page populates its picker from the parquet's
-    native "Last, First" format, where member_name is the working key).
-    """
-    if unique_member_code:
-        return (
-            get_payments_conn()
-            .execute(
-                "SELECT payment_year, total_paid, payment_count, rank_high,"
-                " taa_band_label, position, party_name, constituency, member_alltime_total"
-                " FROM v_payments_yearly_evolution"
-                " WHERE unique_member_code = ?"
-                " ORDER BY payment_year DESC",
-                [unique_member_code],
-            )
-            .df()
-        )
-    return (
-        get_payments_conn()
-        .execute(
-            "SELECT payment_year, total_paid, payment_count, rank_high,"
-            " taa_band_label, position, party_name, constituency, member_alltime_total"
-            " FROM v_payments_yearly_evolution"
-            " WHERE member_name = ?"
-            " ORDER BY payment_year DESC",
-            [member_name],
-        )
-        .df()
-    )
+    falls back to ``member_name`` string match for legacy callers."""
+    return _q.member_all_years(get_payments_conn(), member_name, unique_member_code).data
 
 
 @st.cache_data(ttl=300)
 def fetch_member_year_summary(member_name: str, year: int, unique_member_code: str | None = None) -> pd.DataFrame:
     """Single row for a member+year — summary metrics."""
-    if unique_member_code:
-        return (
-            get_payments_conn()
-            .execute(
-                "SELECT member_name, position, party_name, constituency,"
-                " taa_band_label, total_paid, payment_count, rank_high"
-                " FROM v_payments_yearly_evolution"
-                " WHERE unique_member_code = ? AND payment_year = ? LIMIT 1",
-                [unique_member_code, year],
-            )
-            .df()
-        )
-    return (
-        get_payments_conn()
-        .execute(
-            "SELECT member_name, position, party_name, constituency,"
-            " taa_band_label, total_paid, payment_count, rank_high"
-            " FROM v_payments_yearly_evolution"
-            " WHERE member_name = ? AND payment_year = ? LIMIT 1",
-            [member_name, year],
-        )
-        .df()
-    )
+    return _q.member_year_summary(get_payments_conn(), member_name, year, unique_member_code).data
 
 
 @st.cache_data(ttl=300)
 def fetch_member_payments(member_name: str, year: int, unique_member_code: str | None = None) -> pd.DataFrame:
     """Individual payment transactions for a member+year — the audit trail."""
-    if unique_member_code:
-        return (
-            get_payments_conn()
-            .execute(
-                "SELECT date_paid, narrative, amount_num, taa_band_label"
-                " FROM v_payments_member_detail"
-                " WHERE unique_member_code = ? AND payment_year = ?"
-                " ORDER BY date_paid ASC, narrative ASC",
-                [unique_member_code, year],
-            )
-            .df()
-        )
-    return (
-        get_payments_conn()
-        .execute(
-            "SELECT date_paid, narrative, amount_num, taa_band_label"
-            " FROM v_payments_member_detail"
-            " WHERE member_name = ? AND payment_year = ?"
-            " ORDER BY date_paid ASC, narrative ASC",
-            [member_name, year],
-        )
-        .df()
-    )
+    return _q.member_payments(get_payments_conn(), member_name, year, unique_member_code).data
 
 
 @st.cache_data(ttl=3600)
 def fetch_alltime_ranking(house: str = "Dáil") -> pd.DataFrame:
-    """All-time PSA ranking since 2020 from v_payments_alltime_ranking.
-
-    Returns the full ranked list of every member with PSA payments since
-    2020 in the given house. Columns: member_name, position, party_name,
-    constituency, taa_band_label, total_paid_since_2020,
-    payment_count_since_2020, earliest_year, latest_year, rank_high.
-
-    Audit fix (2026-05-26): replaced direct parquet read +
-    schema-mismatched column lookup. The parquet's schema had drifted
-    (`member_name` → `identifier` slug) and every Rankings card rendered
-    "—". The pipeline now owns the ranking via v_payments_alltime_ranking.
-    """
-    return (
-        get_payments_conn()
-        .execute(
-            "SELECT member_name, unique_member_code, position, party_name,"
-            " constituency, taa_band_label, total_paid_since_2020,"
-            " payment_count_since_2020, earliest_year, latest_year, rank_high"
-            " FROM v_payments_alltime_ranking"
-            " WHERE house = ?"
-            " ORDER BY rank_high ASC",
-            [house],
-        )
-        .df()
-    )
+    """All-time PSA ranking since 2020 from v_payments_alltime_ranking."""
+    return _q.alltime_ranking(get_payments_conn(), house).data
 
 
 @st.cache_data(ttl=3600)
 def fetch_since_2020_summary(house: str = "Dáil") -> dict[str, float | int]:
-    """Summary stats (total / member-count / avg) from v_payments_alltime_summary.
-
-    Audit fix (2026-05-26): replaced direct parquet read +
-    ``pl.read_parquet(...).sum()`` / ``.n_unique()`` in Streamlit, which
-    violated the page contract (no read_parquet, SUM not in allowed
-    aggregates). The aggregation now lives in v_payments_alltime_summary.
-    """
-    row = (
-        get_payments_conn()
-        .execute(
-            "SELECT total_paid_since_2020, member_count, avg_per_td_since_2020"
-            " FROM v_payments_alltime_summary WHERE house = ? LIMIT 1",
-            [house],
-        )
-        .fetchone()
-    )
-    if not row:
+    """Summary stats (total / member-count / avg) from v_payments_alltime_summary."""
+    df = _q.alltime_summary(get_payments_conn(), house).data
+    if df.empty:
         return {"total": 0.0, "members": 0, "avg_per_td": 0.0}
+    r = df.iloc[0]
+
+    def _f(v) -> float:
+        return float(v) if pd.notna(v) else 0.0
+
+    def _i(v) -> int:
+        return int(v) if pd.notna(v) else 0
+
     return {
-        "total": float(row[0] or 0.0),
-        "members": int(row[1] or 0),
-        "avg_per_td": float(row[2] or 0.0),
+        "total": _f(r["total_paid_since_2020"]),
+        "members": _i(r["member_count"]),
+        "avg_per_td": _f(r["avg_per_td_since_2020"]),
     }
