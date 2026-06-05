@@ -17,16 +17,15 @@ Run:  ./.venv/Scripts/python.exe extractors/sipo_promote_to_gold.py
 
 from __future__ import annotations
 
+import contextlib
 import sys
 from pathlib import Path
 
 import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
-try:
+with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
-except Exception:
-    pass
 
 SILVER = ROOT / "data/silver/sipo"
 GOLD = ROOT / "data/gold/parquet"
@@ -51,6 +50,13 @@ def canon_party(name: str | None) -> str | None:
     return PARTY_CANON.get(name.strip().lower(), name.strip())
 
 
+def address_columns(df: pl.DataFrame) -> list[str]:
+    """Columns that look like they carry a postal address (PII). Donor NAMES + AMOUNTS
+    are the public SIPO record and stay; only addresses are dropped/guarded. Name-based
+    so a renamed/extra address column (not just donor_address_raw) is still caught."""
+    return [c for c in df.columns if "address" in c.lower()]
+
+
 def promote_donations() -> None:
     src = SILVER / "sipo_donations_fact.parquet"
     if not src.exists():
@@ -58,16 +64,20 @@ def promote_donations() -> None:
         return
     df = pl.read_parquet(src)
     # DROP donor_address_raw (PII) + any address-bearing columns before gold.
-    drop = [c for c in ("donor_address_raw",) if c in df.columns]
+    drop = address_columns(df)
     df = df.drop(drop)
     df = df.with_columns(
         pl.col("party").map_elements(canon_party, return_dtype=pl.Utf8).alias("party"),
         pl.lit("GE2024").alias("election_event"),
     )
+    # PRIVACY INVARIANT (runtime, -O-proof; BEFORE the write): no address column may reach
+    # committed gold. The old assert was -O-strippable AND ran post-write — both defeated it.
+    leaked = address_columns(df)
+    if leaked:
+        raise RuntimeError(f"PII leak: address column(s) {leaked} must not reach gold")
     GOLD.mkdir(parents=True, exist_ok=True)
     out = GOLD / "sipo_donations.parquet"
     df.write_parquet(out, compression="zstd", compression_level=3, statistics=True)
-    assert "donor_address_raw" not in df.columns, "PII leak: address must not reach gold"
     print(f"  donations -> {out.relative_to(ROOT)}  ({df.height} rows, address dropped: {bool(drop)})")
     print("  parties:", sorted(df["party"].unique().to_list()))
     print("  columns:", df.columns)
