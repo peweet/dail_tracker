@@ -49,17 +49,17 @@ def _module(mod: str) -> bool:
 
 def step_legislation() -> bool:
     _hr("[1/5] legislation — bills + sponsors + stages")
-    return _subprocess("legislation.py")
+    return _module("legislation.legislation")
 
 
 def step_questions() -> bool:
     _hr("[2/5] questions — parliamentary questions → silver")
-    return _subprocess("questions.py")
+    return _module("legislation.questions")
 
 
 def step_bill_amendments() -> bool:
     _hr("[3/5] bill_amendments_flatten — amendment text + sponsors")
-    return _subprocess("bill_amendments_flatten.py")
+    return _module("legislation.bill_amendments_flatten")
 
 
 def step_transform_votes() -> bool:
