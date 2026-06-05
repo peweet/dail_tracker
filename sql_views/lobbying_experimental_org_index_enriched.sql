@@ -66,7 +66,15 @@ org_base AS (
         lobbyist_name,
         returns_filed                            AS return_count,
         distinct_politicians_targeted            AS politicians_targeted,
-        distinct_policy_areas
+        distinct_policy_areas,
+        -- lobbying.ie organisation-register fields (carried through gold by
+        -- sql_queries/top_lobbyist_organisations.sql). The register is the
+        -- authoritative source for a lobbyist's own website + activities.
+        website                                  AS register_website,
+        main_activities_of_organisation          AS register_main_activities,
+        company_registration_number              AS register_cro_number,
+        company_registered_name                  AS register_company_name,
+        lobby_org_link                           AS register_profile_url
     FROM read_parquet('data/gold/parquet/top_lobbyist_organisations.parquet')
 ),
 persistence AS (
@@ -84,6 +92,11 @@ org_norm AS (
         o.return_count,
         o.politicians_targeted,
         o.distinct_policy_areas,
+        o.register_website,
+        o.register_main_activities,
+        o.register_cro_number,
+        o.register_company_name,
+        o.register_profile_url,
         p.first_return_date,
         p.last_return_date,
         TRIM(
@@ -207,6 +220,15 @@ SELECT
     o.distinct_policy_areas,
     CAST(o.first_return_date AS VARCHAR) AS first_period,
     CAST(o.last_return_date  AS VARCHAR) AS last_period,
+
+    -- lobbying.ie organisation-register identity (authoritative self-declared
+    -- fields). `website` is consumed by the org detail panel in
+    -- utility/pages_code/lobbying_3.py.
+    o.register_website                                            AS website,
+    o.register_main_activities                                    AS main_activities,
+    o.register_cro_number                                         AS register_company_registration_number,
+    o.register_company_name                                       AS register_company_name,
+    o.register_profile_url                                        AS lobbying_profile_url,
 
     c.rcn,
     co.company_num,

@@ -1,6 +1,6 @@
 -- v_sipo_donations — declared political donations to parties (SIPO), GE2024.
 -- Reads data/gold/parquet/sipo_donations.parquet (promoted by
--- pipeline_sandbox/sipo_promote_to_gold.py).
+-- extractors/sipo_promote_to_gold.py).
 --
 -- Grain: one row per declared donation (> EUR 1,500 threshold). OCR-derived from
 -- the official SIPO scanned return → every row carries `flag` + `min_confidence`

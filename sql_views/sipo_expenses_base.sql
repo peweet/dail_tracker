@@ -1,5 +1,5 @@
 -- v_sipo_expenses_base — reads the SIPO GE2024 candidate-expenses gold Parquet
--- produced by pipeline_sandbox/sipo_expenses_paddle_etl.py (PaddleOCR / text-layer
+-- produced by extractors/sipo_expenses_paddle_etl.py (PaddleOCR / text-layer
 -- extraction of each party's National-Agent Election Expenses Statement).
 --
 -- Grain: one row per candidate per party (the "amount assigned to the party" /

@@ -13,8 +13,7 @@ Pipeline usage:
     glob picks it up on the same run.
 
 Standalone usage:
-    python oireachtas_pdf_poller.py            # poll every source
-    python run_payments_poll.py                # poll one source (click-and-run)
+    python -m pdf_infra.oireachtas_pdf_poller  # poll every source
 
 Exit codes:
     0 — clean (nothing new or one+ files downloaded successfully)

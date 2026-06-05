@@ -105,6 +105,9 @@ def fetch_all_politician_names() -> list[str]:
 _ORG_INDEX_COLS = (
     "lobbyist_name, sector_label AS sector, return_count, politicians_targeted,"
     " distinct_policy_areas, first_period, last_period,"
+    # lobbying.ie organisation-register identity (authoritative self-declared
+    # fields, carried through gold). website is rendered in the org profile panel.
+    " website, main_activities, lobbying_profile_url,"
     " rcn, company_num, status, match_method, entity_age_years,"
     " latest_accounts_period_end, filing_periods_count,"
     " newly_incorporated_flag, state_adjacent_flag, country_established,"

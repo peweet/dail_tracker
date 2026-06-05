@@ -52,6 +52,8 @@ from data_access.attendance_data import (
     fetch_year_ranking as _fetch_year_ranking,
     views_ready as _views_ready,
 )
+from dail_tracker_core.attendance import split_attendance_hall
+from dail_tracker_core.attendance import split_attendance_hall
 
 _CAVEAT = (
     "Attendance figures combine days a member was recorded present in the {chamber} chamber "
@@ -150,19 +152,13 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int, house: str = "Dáil") 
             "sitting days are added."
         )
 
-    top = (
-        ranking_df.sort_values(["rank_high", "attended_count"], ascending=[True, False])
-        .head(_HALL_SIZE)
-        .reset_index(drop=True)
-    )
-    # Ministers excluded from lowest-attendance list (data quality: source PDFs
-    # do not record ministerial attendance — contract: known_data_quality_issues).
-    non_ministers = ranking_df[ranking_df["is_minister"].astype(str).str.lower() != "true"]
-    bottom = (
-        non_ministers.sort_values(["rank_low", "attended_count"], ascending=[True, True])
-        .head(_HALL_SIZE)
-        .reset_index(drop=True)
-    )
+    # The highest/lowest split + the minister-exclusion rule (ministers are kept
+    # in the highest list but removed from the lowest one, because the source TAA
+    # PDFs don't record ministerial attendance) now live in the Streamlit-free,
+    # unit-tested dail_tracker_core.attendance.split_attendance_hall. The page
+    # only renders the two slices it returns.
+    hall = split_attendance_hall(ranking_df, hall_size=_HALL_SIZE)
+    top, bottom = hall.highest, hall.lowest
 
     col_good, col_bad = st.columns(2, gap="medium")
     with col_good:

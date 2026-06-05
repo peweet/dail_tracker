@@ -35,8 +35,8 @@
     {
       "file": "Purchase-Orders-20k-and-over-Quarter-4-2025.pdf",
       "pages": 11,
-      "rows": 0,
-      "sum_eur": 0
+      "rows": 328,
+      "sum_eur": 89133219.55
     },
     {
       "file": "Purchase-Orders-20k-and-over-Quarter-3-2025.pdf",
@@ -63,7 +63,7 @@
       "sum_eur": 228398416.82
     }
   ],
-  "rows_extracted": 1950,
+  "rows_extracted": 2278,
   "quarters_covered": [
     "2024-Q1",
     "2024-Q2",
@@ -72,23 +72,24 @@
     "2025-Q1",
     "2025-Q2",
     "2025-Q3",
+    "2025-Q4",
     "2026-Q1"
   ],
   "supplier_class_counts": {
-    "public_body": 24,
-    "company": 1354,
-    "foreign_company": 18,
-    "sole_trader_or_individual": 554
+    "company": 1573,
+    "foreign_company": 37,
+    "sole_trader_or_individual": 640,
+    "public_body": 28
   },
-  "amount_total_eur": 557531196.46,
+  "amount_total_eur": 646664416.01,
   "largest_amount_eur": 140565268.03,
-  "largest_amount_share_of_total": 0.2521,
+  "largest_amount_share_of_total": 0.2174,
   "outlier_warning": false,
-  "value_safe_to_sum_rows": 1950,
-  "rows_review_personal_data": 554,
+  "value_safe_to_sum_rows": 2278,
+  "rows_review_personal_data": 640,
   "privacy_quarantine_applied": false,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-04T16:17:23+00:00",
+  "generated_at": "2026-06-05T07:28:50+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). NTA quarterly purchase orders \u20ac20,000+. Rotated PDFs read in reading order. One row per PO line. amount_semantics=po_committed (orders, not payments). Unions with public_payments_fact at promotion. PRIVACY QUARANTINE DEFERRED (public_display=True for all rows)."
 }

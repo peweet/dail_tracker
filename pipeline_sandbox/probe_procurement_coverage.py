@@ -42,7 +42,7 @@ from procurement_la_seed import (  # noqa: E402  (reuse robust fetch + crawl + f
     fetch_text,
 )
 
-from cro_normalise import name_norm_expr  # noqa: E402
+from shared.name_norm import name_norm_expr  # noqa: E402
 
 CRO = ROOT / "data/silver/cro/companies.parquet"
 REPORT = Path("c:/tmp/procurement_la/seed_report.json")

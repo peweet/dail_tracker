@@ -4,9 +4,12 @@
 -- first_period / last_period derived from lobbyist_persistence.parquet
 --   (first_return_date / last_return_date already computed by pipeline).
 --
--- TODO_PIPELINE_REQUIRED: sector, website, profile_url — not in current gold files.
---   The org_registry enrichment in lobbying_enrichment.py has scaffolding for these
---   but does not yet populate them. Add to enrichment step before wiring here.
+-- website / profile_url come from the lobbying.ie organisation register, carried
+--   through gold by sql_queries/top_lobbyist_organisations.sql (joined from
+--   split_lobbyists). `sector` has no clean source — the register only supplies a
+--   free-text `main_activities_of_organisation`, surfaced here as `main_activities`
+--   rather than mislabelled as a sector taxonomy. The richer charity/CRO-derived
+--   sector_label lives in v_experimental_lobbying_org_index_enriched.
 
 CREATE OR REPLACE VIEW v_lobbying_org_index AS
 WITH persistence AS (
@@ -22,8 +25,11 @@ SELECT
     o.returns_filed                             AS return_count,
     o.distinct_politicians_targeted             AS politicians_targeted,
     o.distinct_policy_areas,
-    ''                                          AS website,
-    ''                                          AS profile_url,
+    COALESCE(o.website, '')                      AS website,
+    COALESCE(o.lobby_org_link, '')               AS profile_url,
+    COALESCE(o.main_activities_of_organisation, '') AS main_activities,
+    COALESCE(o.company_registration_number, '')  AS company_registration_number,
+    COALESCE(o.company_registered_name, '')      AS company_registered_name,
     CAST(p.first_return_date AS VARCHAR)        AS first_period,
     CAST(p.last_return_date  AS VARCHAR)        AS last_period
 FROM read_parquet('data/gold/parquet/top_lobbyist_organisations.parquet') o

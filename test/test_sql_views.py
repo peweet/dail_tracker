@@ -293,6 +293,42 @@ def test_v_lobbying_org_intensity_executes():
 
 
 @pytest.mark.sql
+def test_v_lobbying_org_index_exposes_register_fields():
+    """website / profile_url come from the lobbying.ie org register via gold."""
+    _skip_missing(
+        GOLD_PARQUET_DIR / "top_lobbyist_organisations.parquet",
+        GOLD_PARQUET_DIR / "lobbyist_persistence.parquet",
+    )
+    con = _con()
+    con.execute(_load("lobbying_org_index.sql"))
+    result = _result(con, "v_lobbying_org_index")
+    _assert_cols(result, "lobbyist_name", "website", "profile_url", "main_activities")
+    # At least one org must carry a real website — guards against the columns
+    # silently reverting to the old hardcoded '' literals.
+    populated = con.execute(
+        "SELECT COUNT(*) FROM v_lobbying_org_index WHERE website IS NOT NULL AND website <> ''"
+    ).fetchone()[0]
+    assert populated > 0, "no website populated — gold join may have regressed"
+
+
+@pytest.mark.sql
+def test_v_experimental_org_index_enriched_exposes_website():
+    """The org detail panel reads `website` from this view."""
+    _skip_missing(
+        GOLD_PARQUET_DIR / "top_lobbyist_organisations.parquet",
+        GOLD_PARQUET_DIR / "lobbyist_persistence.parquet",
+        SILVER_DIR / "charities" / "charity_resolved.parquet",
+        SILVER_DIR / "cro" / "companies.parquet",
+        SILVER_DIR / "cro" / "financial_statements.parquet",
+    )
+    con = _con()
+    con.execute(_load("lobbying_experimental_org_index_enriched.sql"))
+    result = _result(con, "v_experimental_lobbying_org_index_enriched")
+    _assert_cols(result, "lobbyist_name", "website", "sector_label", "lobbying_profile_url")
+    assert len(result) > 0
+
+
+@pytest.mark.sql
 def test_v_lobbying_clients_executes():
     _skip_missing(SILVER_DIR / "lobbying" / "client_company_returns_detail.csv")
     con = _con()

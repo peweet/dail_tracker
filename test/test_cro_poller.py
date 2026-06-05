@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import cro_poller as cp  # noqa: E402
+import corporate.cro_poller as cp  # noqa: E402
 
 HEADER = ",".join(sorted(cp.EXPECTED_COLUMNS))
 

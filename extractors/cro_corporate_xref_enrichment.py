@@ -48,7 +48,7 @@ except Exception:
 
 # Import CRO's production normalisation so the join key is byte-identical to the
 # CRO silver `name_norm` column (see module docstring — do NOT re-implement).
-from cro_normalise import name_norm_expr  # noqa: E402
+from shared.name_norm import name_norm_expr  # noqa: E402
 
 NOTICES_PARQUET = ROOT / "data" / "gold" / "parquet" / "corporate_notices.parquet"
 CRO_PARQUET = ROOT / "data" / "silver" / "cro" / "companies.parquet"

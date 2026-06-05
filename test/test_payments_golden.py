@@ -45,7 +45,7 @@ import pytest
 from polars.testing import assert_frame_equal
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from payments_full_psa_etl import _iter_rows_from_pdf
+from payments.payments_full_psa_etl import _iter_rows_from_pdf
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "payments"
 

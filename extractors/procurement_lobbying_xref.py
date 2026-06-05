@@ -47,7 +47,7 @@ sys.path.insert(0, str(ROOT))
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from cro_normalise import name_norm_expr  # noqa: E402
+from shared.name_norm import name_norm_expr  # noqa: E402
 
 AWARDS = ROOT / "data/gold/parquet/procurement_awards.parquet"
 LOBBY_MASTER = ROOT / "data/silver/lobbying/parquet/returns_master.parquet"
