@@ -1668,10 +1668,12 @@ def _render_stage2(
         # mirrors the round-3 P1-F cabinet-member fallback pattern.
         if pay_total:
             pay_val = f"€{pay_total:,.0f}"
-            pay_sub = "TAA · all years on record"
+            # Expand TAA on first use (it appears unexpanded nowhere else above
+            # the fold); the Payments section below repeats it once known.
+            pay_sub = "Travel & Accommodation Allowance (TAA), all years on record"
         else:
             pay_val = "Not on file"
-            pay_sub = "TAA figures aren't tracked for this member"
+            pay_sub = "Travel & Accommodation Allowance (TAA) not tracked for this member"
 
         stat_strip(
             [

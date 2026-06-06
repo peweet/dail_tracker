@@ -14,7 +14,6 @@ TODO_PIPELINE_VIEW_REQUIRED: v_member_overview_browse
 from __future__ import annotations
 
 import datetime
-import logging
 from html import escape as _h
 from pathlib import Path
 import sys
@@ -71,7 +70,6 @@ from ui.payments_panel import render_member_payments
 from data_access.payments_data import fetch_filter_options as _pay_filter_options
 from data_access.payments_data import fetch_payments_summary as _pay_summary
 
-_log = logging.getLogger(__name__)
 _STAGE_KEY = "mo_join_key"
 
 # ── Profile section IA (Phase 2 chrome) ────────────────────────────────────────
@@ -1474,10 +1472,12 @@ def _render_stage2(
         # mirrors the round-3 P1-F cabinet-member fallback pattern.
         if pay_total:
             pay_val = f"€{pay_total:,.0f}"
-            pay_sub = "TAA · all years on record"
+            # Expand TAA on first use (it appears unexpanded nowhere else above
+            # the fold); the Payments section below repeats it once known.
+            pay_sub = "Travel & Accommodation Allowance (TAA), all years on record"
         else:
             pay_val = "Not on file"
-            pay_sub = "TAA figures aren't tracked for this member"
+            pay_sub = "Travel & Accommodation Allowance (TAA) not tracked for this member"
 
         stat_strip(
             [

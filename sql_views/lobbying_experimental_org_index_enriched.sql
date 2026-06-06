@@ -20,7 +20,7 @@
 --
 -- JOINS:
 --   Tier B/C name match — the gold lobbyist_name is free text, so we compute
---   `name_norm` inline using exactly the same rule as the sandbox normalisers
+--   `name_norm` inline using exactly the same rule as shared/name_norm.py (name_norm_expr)
 --   (upper, strip punctuation, drop legal suffixes, alphanumeric only,
 --   collapse whitespace) and join on equality.
 --

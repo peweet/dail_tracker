@@ -576,6 +576,11 @@ _ARTICLE_URL = (
     "https://www.irishtimes.com/politics/2026/02/18/"
     "eu-directives-not-being-passed-to-special-committee-before-being-signed-into-law/"
 )
+# Source for the €1.54m CJEU fine (work-life balance directive), ruled 1 Aug 2025.
+_FINE_URL = (
+    "https://www.irishtimes.com/business/work/2025/08/01/"
+    "ireland-fined-154m-by-ecj-for-delay-in-writing-work-life-balance-directive-into-irish-law/"
+)
 
 
 def _render_eu_scrutiny_tab(full_df: pd.DataFrame) -> None:
@@ -587,7 +592,7 @@ def _render_eu_scrutiny_tab(full_df: pd.DataFrame) -> None:
         st.caption("No EU-derived SIs have been signed since the committee was established (1 December 2025).")
         return
 
-    st.html("""
+    st.html(f"""
     <p style="font-size:0.95rem; line-height:1.55; margin: 0.6rem 0 0.7rem;">
       A new <strong>Seanad Committee on EU Scrutiny &amp; Transparency</strong>,
       chaired by Cathaoirleach Mark Daly, was established in December 2025 to
@@ -598,15 +603,18 @@ def _render_eu_scrutiny_tab(full_df: pd.DataFrame) -> None:
     </p>
     <p style="font-size:0.95rem; line-height:1.55; margin: 0 0 0.8rem;">
       In February 2026, the chair reported that
-      <strong>not one draft EU law had been received.</strong> The State has
-      also paid a <strong>€1.54&nbsp;m</strong> fine for failing to transpose
-      the EU work-life balance directive on time.
+      <strong>not one draft EU law had been received</strong>
+      (<a href="{_ARTICLE_URL}" target="_blank" rel="noopener">Irish Times ↗</a>).
+      The State has also paid a <strong>€1.54&nbsp;m</strong> fine for failing to
+      transpose the EU work-life balance directive on time
+      (<a href="{_FINE_URL}" target="_blank" rel="noopener">Irish Times ↗</a>).
     </p>
     """)
 
-    c1, c2 = st.columns(2)
-    c1.metric("EU SIs signed since 1 Dec 2025", f"{n:,}")
-    c2.metric("Departments transposing", f"{len(s['top_depts'])}+")
+    render_stat_strip(
+        stat_item(f"{n:,}", "EU SIs signed since 1 Dec 2025"),
+        stat_item(f"{len(s['top_depts'])}+", "Departments transposing"),
+    )
 
     st.markdown("**By department**")
     for d, c in s["top_depts"].items():
@@ -782,7 +790,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
             _tab_label(
                 "Legal status", _STATE_FACET_LABELS.get(state_sel) if state_sel and state_sel != "All" else None
             ),
-            "⚠ EU scrutiny",
+            "EU scrutiny",
         ]
     )
 

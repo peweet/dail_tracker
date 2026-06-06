@@ -2,14 +2,14 @@
 -- Source: data/silver/parquet/debate_listings.parquet
 --
 -- Stage 1 of the debates integration plan (see
--- pipeline_sandbox/dbsect_integration_plan.md §3, §10). One row per
+-- the dbsect integration plan §3, §10). One row per
 -- (date, chamber, debate_section_id) — the composite identity. dbsect_2
 -- recurs every sitting day, so downstream views must never join on
 -- debate_section_id alone.
 --
 -- This view supersedes the bill-only data/silver/parquet/debates.parquet
 -- that v_legislation_debates reads from. Once the harvester / flattener
--- graduate from pipeline_sandbox/, v_legislation_debates will be
+-- have graduated, v_legislation_debates can be
 -- refactored to read from this view filtered to bill_ref IS NOT NULL.
 
 CREATE OR REPLACE VIEW v_debate_listings AS

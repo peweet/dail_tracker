@@ -1,6 +1,6 @@
 -- v_procurement_lobbying_overlap — companies that appear on BOTH the procurement
 -- and lobbying registers. Source: data/gold/parquet/procurement_lobbying_overlap.parquet
--- (procurement_lobbying chain, pipeline_sandbox/procurement_lobbying_xref.py).
+-- (procurement_lobbying chain, extractors/procurement_lobbying_xref.py).
 --
 -- One row per matched lobbying entity (registrant OR client). lobby_name is the raw
 -- lobbying display name; supplier_norm/supplier the procurement side. This is the

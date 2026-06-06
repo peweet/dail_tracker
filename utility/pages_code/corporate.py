@@ -1029,10 +1029,14 @@ def _clear_facet(key: str) -> None:
     if key == "all":
         for v, k in defaults.values():
             st.session_state[k] = v
+        # Also reset the segmented_control's own widget state (keyed separately).
+        st.session_state["corp_type_radio"] = _TYPE_GROUPS[0][0]
         return
     if key in defaults:
         v, k = defaults[key]
         st.session_state[k] = v
+        if key == "type":
+            st.session_state["corp_type_radio"] = _TYPE_GROUPS[0][0]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -2038,14 +2042,18 @@ def _render_facets(full_df: pd.DataFrame) -> int:
     # Row 4 — sub-type tabs.
     tab_labels = [g[0] for g in _TYPE_GROUPS]
     type_idx = st.session_state.get("corp_type_idx", 0) or 0
-    selected = st.radio(
+    # Seed the widget's own key (not `default=`) so a ?clear=type chip can reset
+    # it by writing corp_type_radio directly, and so we avoid the "default value
+    # but also set via Session State" warning when both exist.
+    st.session_state.setdefault("corp_type_radio", tab_labels[type_idx])
+    selected = st.segmented_control(
         "Type",
         tab_labels,
-        index=type_idx,
-        horizontal=True,
         key="corp_type_radio",
         label_visibility="collapsed",
     )
+    if selected not in tab_labels:  # deselection → keep the current sub-type
+        selected = tab_labels[type_idx]
     new_idx = tab_labels.index(selected)
     if new_idx != type_idx:
         st.session_state["corp_type_idx"] = new_idx

@@ -28,16 +28,21 @@ import requests
 import responses
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import json
+
 from pdf_infra.oireachtas_pdf_poller import (
+    FINGERPRINT_FILENAME,
     SOURCES,
     IndexEntry,
     PollSource,
     _exit_code,
+    check_supersessions,
     download,
     fetch_index_html,
     filter_new,
     parse_index,
     run_one,
+    write_supersession_log,
 )
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "poller"
@@ -494,6 +499,104 @@ def test_run_one_skips_entries_already_on_disk(tmp_path):
     assert result["downloaded"] == 1
     # Pre-existing file is left untouched.
     assert (src.target_dir / _FEB_FILENAME).read_bytes() == b"already here"
+
+
+# ---------------------------------------------------------------------------
+# check_supersessions — DAIL-162: same filename, changed bytes at source
+# ---------------------------------------------------------------------------
+
+
+def test_supersession_baselines_unseen_file_without_network(tmp_path):
+    """First time we fingerprint an on-disk file: record a baseline, NO HEAD,
+    NO supersession. (Comparison only starts on the next run.) No @responses.activate
+    here proves the baseline path makes zero network calls."""
+    src = _make_source(tmp_path)
+    src.target_dir.mkdir(parents=True)
+    (src.target_dir / "a.pdf").write_bytes(_VALID_PDF_BODY)
+    index: dict = {}
+
+    superseded = check_supersessions(src, [_entry("a.pdf")], requests.Session(), index)
+
+    assert superseded == []
+    assert index["a.pdf"]["bytes"] == len(_VALID_PDF_BODY)
+    assert "sha256" in index["a.pdf"]
+
+
+@responses.activate
+def test_supersession_flagged_when_remote_size_changed(tmp_path):
+    src = _make_source(tmp_path)
+    src.target_dir.mkdir(parents=True)
+    entry = _entry("a.pdf")
+    (src.target_dir / "a.pdf").write_bytes(b"x" * 100)
+    index = {"a.pdf": {"sha256": "old", "bytes": 100, "source_url": entry.url}}
+    responses.add(responses.HEAD, entry.url, headers={"Content-Length": "250"}, status=200)
+
+    superseded = check_supersessions(src, [entry], requests.Session(), index)
+
+    assert len(superseded) == 1
+    assert superseded[0]["filename"] == "a.pdf"
+    assert superseded[0]["held_bytes"] == 100
+    assert superseded[0]["remote_bytes"] == 250
+
+
+@responses.activate
+def test_supersession_silent_when_remote_size_unchanged(tmp_path):
+    src = _make_source(tmp_path)
+    src.target_dir.mkdir(parents=True)
+    entry = _entry("a.pdf")
+    index = {"a.pdf": {"sha256": "x", "bytes": 100, "source_url": entry.url}}
+    responses.add(responses.HEAD, entry.url, headers={"Content-Length": "100"}, status=200)
+
+    assert check_supersessions(src, [entry], requests.Session(), index) == []
+
+
+@responses.activate
+def test_supersession_unknown_when_head_refused(tmp_path):
+    """Server that 405s on HEAD -> size unknown -> conservative: NO false alarm."""
+    src = _make_source(tmp_path)
+    src.target_dir.mkdir(parents=True)
+    entry = _entry("a.pdf")
+    index = {"a.pdf": {"sha256": "x", "bytes": 100, "source_url": entry.url}}
+    responses.add(responses.HEAD, entry.url, status=405)
+
+    assert check_supersessions(src, [entry], requests.Session(), index) == []
+
+
+@responses.activate
+def test_run_one_flags_supersession_for_held_file(tmp_path):
+    """End-to-end: the held February file has a baseline whose size differs from the
+    server's HEAD -> run_one surfaces it under result['superseded'], while still
+    downloading the genuinely new January file."""
+    src = _make_source(tmp_path)
+    src.target_dir.mkdir(parents=True)
+    (src.target_dir / _FEB_FILENAME).write_bytes(b"y" * 500)
+    # Pre-seed a baseline for FEB with a DIFFERENT size than the server will report.
+    fp = src.target_dir / FINGERPRINT_FILENAME
+    fp.write_text(json.dumps({_FEB_FILENAME: {"sha256": "old", "bytes": 500, "source_url": _FEB_URL}}), encoding="utf-8")
+
+    responses.add(responses.GET, src.index_url, body=_read_payments_fixture(), status=200)
+    responses.add(responses.HEAD, _FEB_URL, headers={"Content-Length": "9999"}, status=200)
+    responses.add(responses.GET, _JAN_URL, body=_VALID_PDF_BODY, status=200)
+
+    result = run_one(src)
+
+    assert result["status"] == "ok"
+    assert result["already_on_disk"] == 1
+    assert result["downloaded"] == 1
+    assert [s["filename"] for s in result["superseded"]] == [_FEB_FILENAME]
+
+
+def test_write_supersession_log_writes_only_when_findings(tmp_path):
+    out = tmp_path / "_meta" / "supersessions.json"
+    # Clean run: nothing written, count 0.
+    assert write_supersession_log({"payments": {"superseded": []}}, path=out) == 0
+    assert not out.exists()
+    # With a finding: file written, payload carries the detection.
+    findings = {"payments": {"superseded": [{"filename": "a.pdf", "held_bytes": 1, "remote_bytes": 2}]}}
+    assert write_supersession_log(findings, path=out) == 1
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["count"] == 1
+    assert payload["detected"][0]["filename"] == "a.pdf"
 
 
 @responses.activate
