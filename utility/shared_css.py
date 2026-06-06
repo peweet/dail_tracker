@@ -3859,9 +3859,11 @@ def inject_css() -> None:
             flex-wrap: wrap;
             margin-top: 0.15rem;
         }
+        /* Yes/No use the deuteranopia-safe blue/orange signal tokens, not
+           red/green; the "Yes"/"No" text label is the non-colour channel. */
         .vt-count-yes {
-            background: #f0fdf4;
-            color: #166534;
+            background: var(--signal-good-subtle);
+            color: var(--signal-good-deep);
             font-size: 0.75rem;
             font-weight: 700;
             padding: 0.12rem 0.55rem;
@@ -3869,8 +3871,8 @@ def inject_css() -> None:
             white-space: nowrap;
         }
         .vt-count-no {
-            background: #fef2f2;
-            color: #991b1b;
+            background: var(--signal-bad-subtle);
+            color: var(--signal-bad-deep);
             font-size: 0.75rem;
             font-weight: 700;
             padding: 0.12rem 0.55rem;
@@ -3887,8 +3889,8 @@ def inject_css() -> None:
             white-space: nowrap;
         }
         .vt-outcome-carried {
-            background: #f0fdf4;
-            color: #166534;
+            background: var(--signal-good-subtle);
+            color: var(--signal-good-deep);
             font-size: 0.72rem;
             font-weight: 700;
             padding: 0.12rem 0.55rem;
@@ -3898,8 +3900,8 @@ def inject_css() -> None:
             letter-spacing: 0.04em;
         }
         .vt-outcome-lost {
-            background: #fef2f2;
-            color: #991b1b;
+            background: var(--signal-bad-subtle);
+            color: var(--signal-bad-deep);
             font-size: 0.72rem;
             font-weight: 700;
             padding: 0.12rem 0.55rem;
@@ -4159,14 +4161,14 @@ def inject_css() -> None:
             margin: 0 0.15rem;
         }
         .td-pick-vote-yes {
-            background: #ecfdf5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
+            background: var(--signal-good-subtle);
+            color: var(--signal-good-deep);
+            border: 1px solid var(--signal-good-border);
         }
         .td-pick-vote-no {
-            background: #fef2f2;
-            color: #991b1b;
-            border: 1px solid #fecaca;
+            background: var(--signal-bad-subtle);
+            color: var(--signal-bad-deep);
+            border: 1px solid var(--signal-bad-border);
         }
         .td-pick-vote-abs {
             background: #f4f4f5;

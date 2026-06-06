@@ -53,7 +53,6 @@ from data_access.attendance_data import (
     views_ready as _views_ready,
 )
 from dail_tracker_core.attendance import split_attendance_hall
-from dail_tracker_core.attendance import split_attendance_hall
 
 _CAVEAT = (
     "Attendance figures combine days a member was recorded present in the {chamber} chamber "
@@ -81,11 +80,10 @@ _MINISTER_NOTE = (
 
 # ── Good cop / bad cop browse view ────────────────────────────────────────────
 
-_GOOD_MEDALS = ["🥇", "🥈", "🥉"]
 _HALL_SIZE = 15
 
 
-def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
+def _hall_card(row: pd.Series, side: str, rank: int = 1) -> str:
     name = _h(str(row["member_name"]))
     party = str(row.get("party_name", "") or "")
     const = str(row.get("constituency", "") or "")
@@ -94,7 +92,6 @@ def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
     return (
         f'<div class="att-hall-card-{side}">'
         f'<span class="att-hall-rank">#{rank}</span>'
-        f'<span class="att-hall-medal">{medal}</span>'
         f'<div class="att-hall-body">'
         f'<p class="att-hall-name">{name}</p>'
         f'<p class="att-hall-meta">{meta}</p>'
@@ -107,7 +104,7 @@ def _hall_card(row: pd.Series, medal: str, side: str, rank: int = 1) -> str:
     )
 
 
-def _att_card_link(row: pd.Series, *, side: str, rank: int, medal: str = "") -> str:
+def _att_card_link(row: pd.Series, *, side: str, rank: int) -> str:
     """Full-card-clickable hall card linking to the canonical profile.
 
     Cross-page jump: every card on /rankings-attendance lands on
@@ -117,7 +114,7 @@ def _att_card_link(row: pd.Series, *, side: str, rank: int, medal: str = "") -> 
     """
     name = str(row["member_name"])
     code = resolve_member_code(name)
-    inner = _hall_card(row, medal, side, rank=rank)
+    inner = _hall_card(row, side, rank=rank)
     if not code:
         return inner
     return clickable_card_link(
@@ -164,13 +161,7 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int, house: str = "Dáil") 
     with col_good:
         st.html('<h2 class="att-hall-heading-good">Highest recorded attendance</h2>')
         good_cards = [
-            _att_card_link(
-                row,
-                side="good",
-                rank=i + 1,
-                medal=_GOOD_MEDALS[i] if i < len(_GOOD_MEDALS) else "",
-            )
-            for i, (_, row) in enumerate(top.iterrows())
+            _att_card_link(row, side="good", rank=i + 1) for i, (_, row) in enumerate(top.iterrows())
         ]
         st.html("\n".join(good_cards))
 
@@ -210,8 +201,9 @@ def _render_missing_members() -> None:
     total = len(df)
 
     with st.expander(
-        f"⚠ {total} TDs do not appear in the attendance record · why?",
+        f"{total} TDs do not appear in the attendance record · why?",
         expanded=False,
+        icon=":material/info:",
     ):
         st.markdown(
             "The official Oireachtas Travel & Accommodation Allowance (TAA) PDFs — "

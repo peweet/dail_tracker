@@ -346,6 +346,16 @@ def _money(col: str) -> pl.Expr:
 IMPLAUSIBLE_RATIO = 50.0
 IMPLAUSIBLE_FLOOR_EUR = 100_000_000.0
 
+# Income-trend anchor floor. Many returns carry a placeholder near-zero gross
+# income (€0.01, €10 etc.) for a dormant/first year; using one as the first
+# anchor makes income_change_pct explode to billions of percent and mislabels
+# the charity "growing" (e.g. RCN 20084417 read €0.01→€873k = +8.7bn%, when its
+# real income went €972k→€873k = flat). A charity reporting <€1,000 gross income
+# is effectively a nil return, so we anchor the trend on its first/last filing
+# with at least this much income. Filings below the floor are untouched in the
+# data — only excluded as trend anchors.
+TREND_MIN_INCOME_EUR = 1_000.0
+
 
 def _implausible(col: str, median_col: str) -> pl.Expr:
     return (
@@ -452,6 +462,40 @@ def _band_clean(col: str, alias: str) -> pl.Expr:
     return pl.when(pl.col(col).is_in(list(VALID_BANDS))).then(pl.col(col)).otherwise(None).alias(alias)
 
 
+def compute_income_trend(annual: pl.DataFrame) -> pl.DataFrame:
+    """Per-RCN income trend: first vs last gross income across income-bearing years.
+
+    Requires rcn, period_year, gross_income. Returns rcn, income_change_pct,
+    income_trend (growing|flat|shrinking|insufficient_data; ±20% band, ≥3 years).
+    Anchors only on filings with a substantive income (>= TREND_MIN_INCOME_EUR)
+    so a placeholder near-zero first year can't make income_change_pct explode to
+    billions of percent and mislabel a flat charity "growing".
+    """
+    return (
+        annual.filter(pl.col("gross_income").is_not_null() & (pl.col("gross_income") >= TREND_MIN_INCOME_EUR))
+        .group_by("rcn")
+        .agg(
+            pl.col("gross_income").sort_by("period_year").first().alias("gi_first"),
+            pl.col("gross_income").sort_by("period_year").last().alias("gi_last"),
+            pl.col("period_year").drop_nulls().n_unique().alias("income_years"),
+        )
+        .with_columns(
+            (pl.col("gi_last") / pl.col("gi_first") - 1.0).alias("income_change_pct"),
+        )
+        .with_columns(
+            pl.when(pl.col("income_years") < 3)
+            .then(pl.lit("insufficient_data"))
+            .when(pl.col("income_change_pct") > 0.20)
+            .then(pl.lit("growing"))
+            .when(pl.col("income_change_pct") < -0.20)
+            .then(pl.lit("shrinking"))
+            .otherwise(pl.lit("flat"))
+            .alias("income_trend"),
+        )
+        .select(["rcn", "income_change_pct", "income_trend"])
+    )
+
+
 def build_charity_latest(annual: pl.DataFrame) -> pl.DataFrame:
     """Per-RCN charity profile: latest-filing snapshot + multi-year trajectory.
 
@@ -477,30 +521,7 @@ def build_charity_latest(annual: pl.DataFrame) -> pl.DataFrame:
         (pl.col("surplus_deficit") < 0).sum().cast(pl.Int32).alias("deficit_years_count"),
     )
 
-    # ── Income trend — first vs last gross income across income-bearing years
-    inc_traj = (
-        annual.filter(pl.col("gross_income").is_not_null() & (pl.col("gross_income") > 0))
-        .group_by("rcn")
-        .agg(
-            pl.col("gross_income").sort_by("period_year").first().alias("gi_first"),
-            pl.col("gross_income").sort_by("period_year").last().alias("gi_last"),
-            pl.col("period_year").drop_nulls().n_unique().alias("income_years"),
-        )
-        .with_columns(
-            (pl.col("gi_last") / pl.col("gi_first") - 1.0).alias("income_change_pct"),
-        )
-        .with_columns(
-            pl.when(pl.col("income_years") < 3)
-            .then(pl.lit("insufficient_data"))
-            .when(pl.col("income_change_pct") > 0.20)
-            .then(pl.lit("growing"))
-            .when(pl.col("income_change_pct") < -0.20)
-            .then(pl.lit("shrinking"))
-            .otherwise(pl.lit("flat"))
-            .alias("income_trend"),
-        )
-        .select(["rcn", "income_change_pct", "income_trend"])
-    )
+    inc_traj = compute_income_trend(annual)
 
     # ── Latest filing per RCN ───────────────────────────────────────────────
     latest = (

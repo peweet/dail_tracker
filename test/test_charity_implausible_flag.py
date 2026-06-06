@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from charity.charity_normalise import add_implausible_flag
+from charity.charity_normalise import add_implausible_flag, compute_income_trend
 
 
 def _flag(df: pl.DataFrame) -> pl.DataFrame:
@@ -96,3 +96,31 @@ def test_requires_three_filings() -> None:
     )
     out = add_implausible_flag(df)
     assert out["amount_implausible_flag"].sum() == 0
+
+
+def test_income_trend_ignores_placeholder_first_year() -> None:
+    # RCN 20084417 shape: €0.01 placeholder then ~€1m flat. The placeholder must
+    # not anchor the trend (else income_change_pct = +8.7bn% and trend "growing").
+    df = pl.DataFrame(
+        {
+            "rcn": [1] * 4,
+            "period_year": [2014, 2015, 2016, 2017],
+            "gross_income": [0.01, 972_000.0, 1_003_000.0, 873_000.0],
+        }
+    )
+    out = compute_income_trend(df).row(0, named=True)
+    assert out["income_trend"] == "flat"
+    assert abs(out["income_change_pct"]) < 1.0  # ~ -10%, nowhere near billions
+
+
+def test_income_trend_reports_real_growth() -> None:
+    # Genuine growth above the placeholder floor is still labelled growing.
+    df = pl.DataFrame(
+        {
+            "rcn": [1] * 3,
+            "period_year": [2022, 2023, 2024],
+            "gross_income": [4_000_000.0, 20_000_000.0, 47_000_000.0],
+        }
+    )
+    out = compute_income_trend(df).row(0, named=True)
+    assert out["income_trend"] == "growing"
