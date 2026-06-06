@@ -39,6 +39,32 @@ _RESOURCES = [
         "filters": ["year", "operation", "department", "eu_only"],
         "count_view": "v_statutory_instruments",
     },
+    {
+        "resource": "votes",
+        "list": "/v1/votes",
+        "item": "/v1/votes/{vote_id}",
+        "description": "Dáil/Seanad divisions; the dossier adds party breakdown, every "
+        "member's vote, and source links.",
+        "filters": ["house", "date_from", "date_to", "outcome"],
+        "count_view": "v_vote_index",
+    },
+    {
+        "resource": "payments",
+        "list": "/v1/payments",
+        "item": None,
+        "description": "All-time Travel & Accommodation Allowance ranking by member.",
+        "filters": ["house"],
+        "count_view": "v_payments_alltime_ranking",
+    },
+    {
+        "resource": "lobbying",
+        "list": "/v1/lobbying/organisations",
+        "item": None,
+        "description": "Registered lobbying organisations (CRO + charity-enriched), plus "
+        "/v1/lobbying/revolving-door (former office-holders now lobbying).",
+        "filters": ["name", "exclude_state_adjacent"],
+        "count_view": "v_experimental_lobbying_org_index_enriched",
+    },
 ]
 
 
@@ -54,12 +80,10 @@ def _count(conn, view: str) -> int | None:
 
 @router.get("/catalog", summary="Manifest of published resources + live counts")
 def catalog(request: Request) -> dict:
-    member_conn = getattr(request.app.state, "conn", None)
-    leg_conn = getattr(request.app.state, "leg_conn", None)
+    conn = getattr(request.app.state, "conn", None)
 
     resources = []
     for r in _RESOURCES:
-        conn = member_conn if r["count_view"] == "v_member_registry" else leg_conn
         resources.append({**{k: v for k, v in r.items() if k != "count_view"}, "count": _count(conn, r["count_view"])})
 
     return {

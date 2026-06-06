@@ -19,7 +19,7 @@ Two check tiers — and why links are opt-in
 So a default (offline) run gives a real signal on the manual sources and marks
 the online ones ``skipped`` — safe to run anywhere. CI never runs the live tool
 (it would flag CRO/Charities as missing because bronze is gitignored); CI runs
-the unit tests in test/test_source_health.py against fixtures instead.
+the unit tests in test/tools/test_source_health.py against fixtures instead.
 
 Status vocab: ok | warning | failed | skipped. Only ``failed`` affects exit code.
 

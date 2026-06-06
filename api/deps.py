@@ -19,17 +19,12 @@ from fastapi import Request
 
 
 def get_cursor(request: Request) -> Iterator[duckdb.DuckDBPyConnection]:
-    """Cursor off the member-overview connection (members, dossiers)."""
+    """An independent cursor off the single read-only union connection.
+
+    DuckDB cursors share the database catalog (so they see all registered views)
+    while isolating fetch state — safe for concurrent reads off one connection.
+    """
     cur = request.app.state.conn.cursor()
-    try:
-        yield cur
-    finally:
-        cur.close()
-
-
-def get_legislation_cursor(request: Request) -> Iterator[duckdb.DuckDBPyConnection]:
-    """Cursor off the legislation/SI connection."""
-    cur = request.app.state.leg_conn.cursor()
     try:
         yield cur
     finally:
