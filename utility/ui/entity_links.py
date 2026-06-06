@@ -299,3 +299,26 @@ def source_link_html(
         f'<a class="dt-source-link" href="{_h(s)}" target="_blank" '
         f'rel="noopener" aria-label="{_h(aria)}">{_h(label)}</a>'
     )
+
+
+def api_json_link(path: str, label: str = "View as JSON") -> str:
+    """Quiet developer affordance: link this record to the public JSON API.
+
+    ``path`` is an API path beginning with '/', e.g.
+    ``/v1/members/<code>/dossier``. Config-gated on the ``DAIL_API_BASE_URL`` env
+    var (read directly — there are two ``config`` modules on the path depending on
+    caller, so the env var is the unambiguous source): returns ``""`` when unset,
+    so it renders nothing until the API is deployed — callers can splice it in
+    unconditionally. The app never imports the API; this only builds a URL string.
+    """
+    import os
+
+    base = os.getenv("DAIL_API_BASE_URL", "").rstrip("/")
+    if not base or not path.startswith("/"):
+        return ""
+    href = base + path
+    return (
+        f'<a class="dt-api-link" href="{_h(href)}" target="_blank" rel="noopener" '
+        f'aria-label="Open this record as JSON on the open-data API">'
+        f"<span aria-hidden=\"true\">{{ }}</span> {_h(label)}</a>"
+    )

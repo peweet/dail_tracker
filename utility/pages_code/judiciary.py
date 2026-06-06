@@ -632,6 +632,17 @@ def _render_clearance_drilldown(sel_year: int, year_df: pd.DataFrame) -> None:
 
 def _wait_card(row) -> str:
     w24, w23 = row.get("weeks_2024"), row.get("weeks_2023")
+    # The big value comes from the PARSED weeks, not the raw wait_2024 text — that text can
+    # be a phrase ("Date immediately available") that doesn't belong in a number slot. Zero
+    # weeks = no wait; render that as "Immediate" with correct singular/plural otherwise.
+    if pd.isna(w24):
+        big = f'<span class="jd-wait-weeks">{_esc(row.get("wait_2024")) or "—"}</span>'
+    elif float(w24) == 0:
+        big = '<span class="jd-wait-weeks">Immediate</span>'
+    else:
+        w = float(w24)
+        unit = "week" if w == 1 else "weeks"
+        big = f'<span class="jd-wait-weeks">{w:g}</span><span class="jd-wait-unit">{unit}</span>'
     delta = ""
     if pd.notna(w24) and pd.notna(w23):
         d = float(w24) - float(w23)
@@ -640,11 +651,11 @@ def _wait_card(row) -> str:
         else:
             cls = "up" if d > 0 else "down"
             arrow = "▲" if d > 0 else "▼"
-            delta = f'<div class="jd-delta {cls}">{arrow} {abs(d):g} wk vs 2023 ({_esc(row.get("wait_2023"))})</div>'
+            delta = f'<div class="jd-delta {cls}">{arrow} {abs(d):g} wk vs 2023</div>'
     return (
         '<div class="jd-cat-card"><div class="jd-cat-label">'
         f'{_esc(row.get("matter_or_venue"))}</div>'
-        f'<div class="jd-wait-n"><span class="jd-wait-weeks">{_esc(row.get("wait_2024"))}</span></div>'
+        f'<div class="jd-wait-n">{big}</div>'
         f"{delta}</div>"
     )
 
@@ -861,6 +872,11 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
     _render_ld_plaintiffs(day_cases)
 
     st.html('<h3 class="jd-subhead">Every listed matter</h3>')
+    search = st.text_input(
+        "Search by party or judge",
+        key="jd_search",
+        placeholder="A company, a State body, the DPP, or a judge's name…",
+    ).strip()
     present_cats = [(k, lbl) for k, lbl, _ in _CATEGORIES if k in counts]
     options = ["All"] + [lbl for _, lbl in present_cats]
     pick = st.segmented_control("Filter by type", options, default="All", key="jd_cat_filter") or "All"
@@ -869,11 +885,24 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
         view = day_cases[day_cases["category"] == chosen]
     else:
         view = day_cases
+    if search:
+        # display-only text filter over the anonymised title (which carries plaintiff +
+        # defendant) and the judge. logic_firewall: display_only
+        q = search.lower()
+        view = view[
+            view["case_anonymised"].str.lower().str.contains(q, na=False, regex=False)
+            | view["judge"].astype(str).str.lower().str.contains(q, na=False, regex=False)
+        ]
 
-    st.caption(f"{len(view)} listed matter{'s' if len(view) != 1 else ''} · {day_label}")
+    if view.empty:
+        st.caption(f'No listed matter matches "{search}" on {day_label}.' if search else f"No matters · {day_label}")
+        return
+    matched = f' matching "{search}"' if search else ""
+    st.caption(f"{len(view)} listed matter{'s' if len(view) != 1 else ''}{matched} · {day_label}")
     # Render court-by-court in seniority order (mirrors the schedule section above) with a
     # PER-COURT cap. A flat global cap let one big group (e.g. a 55-case Central Criminal
-    # Court list) exhaust the budget and hide every court after it alphabetically.
+    # Court list) exhaust the budget and hide every court after it alphabetically. A search
+    # auto-expands the matching groups so hits are visible without clicking.
     present = [c for c in _COURT_ORDER if c in set(view["court"].dropna())]
     extra = sorted({str(c) for c in view["court"].dropna()} - set(_COURT_ORDER))
     for court in present + extra:
@@ -887,13 +916,13 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
             if shown >= TIER_C_PAGE:
                 st.caption(
                     f"… and {len(cv) - shown} more in the {court}. "
-                    "Use the type filter or open the official diary."
+                    "Narrow with the search box or type filter, or open the official diary."
                 )
                 break
             # NaN-safe labels (groupby keeps NaN keys, which are truthy floats — `or` won't catch them)
             jlabel = judge if isinstance(judge, str) and judge else "Court"
             llabel = list_type if isinstance(list_type, str) and list_type else "List"
-            with st.expander(f"{jlabel} — {llabel}  ({len(g)})"):
+            with st.expander(f"{jlabel} — {llabel}  ({len(g)})", expanded=bool(search)):
                 rows = []
                 for r in g.itertuples():
                     link = (

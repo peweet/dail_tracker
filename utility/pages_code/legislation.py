@@ -41,7 +41,7 @@ from ui.components import (
     render_stat_strip,
     stat_item,
 )
-from ui.entity_links import bill_detail_url, source_link_html
+from ui.entity_links import api_json_link, bill_detail_url, source_link_html
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
 
@@ -315,6 +315,11 @@ def _render_legislation_index(
         ],
         source_caption="Data: Houses of the Oireachtas Open Data API",
     )
+
+    # Quiet developer affordance: this list on the open-data API (config-gated).
+    _api = api_json_link("/v1/legislation", "Bills as JSON")
+    if _api:
+        st.html(f'<div class="dt-api-footer">{_api}</div>')
 
 
 # ── Stage 2 — bill detail ──────────────────────────────────────────────────────

@@ -47,6 +47,7 @@ from ui.components import (
 )
 from ui.entity_links import (
     PAGES,
+    api_json_link,
     member_profile_url,
     oireachtas_profile_url,
     si_detail_url,
@@ -1686,6 +1687,14 @@ def _render_stage2(
             _section_statutory_instruments(conn, join_key)
         elif sid == "committees":
             _section_committees(member_name, join_key)
+
+    # Quiet developer affordance: this whole dossier as JSON on the open-data API.
+    # Renders nothing until DAIL_API_BASE_URL is configured (config-gated).
+    from urllib.parse import quote
+
+    _api = api_json_link(f"/v1/members/{quote(str(join_key), safe='')}/dossier", "This profile as JSON")
+    if _api:
+        st.html(f'<div class="dt-api-footer">{_api}</div>')
 
 
 # ── Main entry point ───────────────────────────────────────────────────────────
