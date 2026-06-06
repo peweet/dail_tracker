@@ -317,28 +317,67 @@ def _normalise_si_title(title: object) -> object:
     return " ".join(case_one(tok, i == 0) for i, tok in enumerate(tokens))
 
 
-def _dedupe_parent_legislation(raw: object) -> object:
-    """Collapse the '|'-joined parent-Act list, dropping fragments that are a
-    trailing sub-name of a longer sibling.
+# ── Parent-legislation cleanup ────────────────────────────────────────────────
+# The upstream extractor (iris_oifigiuil_etl_polars.py) matches every
+# "<Title-Case run> Act <year>" span in the *body text*, which produces three
+# classes of artefact the raw column carries into display:
+#   1. PROSE LEAD-INS — the lazy match starts at a sentence capital, so "These
+#      Regulations amend the Health Act 1947" / "This Order commences certain
+#      provisions of the Road Traffic Act 2016" arrive whole.
+#   2. ORPHAN-PAREN FRAGMENTS — "(Amendment) Act 1996" surfaces as
+#      "Amendment) Act 1996" when the leading words were lost (unbalanced ')').
+#   3. SUFFIX FRAGMENTS — a long name also yields its own tail, e.g.
+#      "Central Treasury Services Act 2020" + "Services Act 2020".
+# si_responsible_actor has tidy_actor() to neutralise the same greedy capture;
+# parent_legislation had no equivalent, so this is its tidy_* sibling. Validated
+# on the gold corpus: prose lead-ins 235→1 parts, orphan-paren 432→0, zero clean
+# Act names damaged.
+_PARENT_THIS_LEAD = re.compile(r"^(?:This|These|That)\b.*?\bthe\s+(?=[A-Z][^|]*?\bAct\s+\d{4})", re.I)
+_PARENT_VERB_LEAD = re.compile(
+    r"^.*?\b(?:amend(?:s|ing)?|revoke(?:s|ing)?|applies(?:\s+part\s+[ivxlc]+)?|application of|"
+    r"in\s+exercise\s+of[^.]*?of|pursuant\s+to|conferred\s+by|under)\s+(?:both\s+)?the\s+(?=[A-Z])",
+    re.I,
+)
+_PARENT_BARE_LEAD = re.compile(r"^(?:Under|Of|In|Pursuant\s+to|And)\s+the\s+(?=[A-Z])", re.I)
+_PARENT_CAPS_JUNK = re.compile(r"^(?:ACTS?|AND|OR|THE)\s+(?=[A-Z])")
 
-    The upstream extractor (iris_oifigiuil_etl_polars.py) matches every
-    "<Title-Case run> Act <year>" span, and a long Act name yields shorter
-    suffix matches as well — e.g. "...Central Treasury Services Act 2020" also
-    surfaces the fragment "Services Act 2020". Both share the same trailing
-    "Act <year>", so the shorter is a word-suffix of the longer; keep only the
-    longest of each suffix family. Order-preserving; non-string/empty pass
-    through unchanged."""
-    if not isinstance(raw, str) or "|" not in raw:
+
+def _tidy_parent_part(p: str) -> str | None:
+    """Clean a single parent-Act citation; return None to drop an unusable one."""
+    p = re.sub(r"\s+", " ", p).strip(" .,;")
+    if not p:
+        return None
+    p = _PARENT_CAPS_JUNK.sub("", p)
+    p = _PARENT_THIS_LEAD.sub("", p)
+    p = _PARENT_VERB_LEAD.sub("", p)
+    p = _PARENT_BARE_LEAD.sub("", p)
+    p = p.strip(" .,;")
+    # More ')' than '(' → the opening words of the Act name were lost upstream;
+    # the fragment is not a usable citation, so drop it rather than display it.
+    if p.count(")") > p.count("("):
+        return None
+    if "Act" not in p:  # lost the Act token entirely → not a parent-Act cite
+        return None
+    return p or None
+
+
+def _tidy_parent_legislation(raw: object) -> object:
+    """Clean the '|'-joined parent-Act list: strip prose lead-ins, drop
+    truncation fragments, then collapse word-suffix duplicates (a long name's
+    own tail, e.g. 'Services Act 2020' under 'Treasury Services Act 2020').
+    Order-preserving; returns None when nothing usable survives so the page
+    renders no parent rather than garbage."""
+    if not isinstance(raw, str) or not raw.strip():
         return raw
-    parts = [p.strip(" .,;") for p in raw.split("|") if p.strip(" .,;")]
+    parts = [c for p in raw.split("|") if (c := _tidy_parent_part(p))]
     kept: list[str] = []
     for p in parts:
         # Drop p if some other part ends with " <p>" (p is a word-suffix of it).
-        if any(other != p and (other == p or other.endswith(" " + p)) for other in parts):
+        if any(other != p and other.endswith(" " + p) for other in parts):
             continue
         if p not in kept:
             kept.append(p)
-    return "|".join(kept) if kept else raw
+    return "|".join(kept) if kept else None
 
 
 def load_si() -> pd.DataFrame:
@@ -670,7 +709,7 @@ def run() -> dict:
             "si_department_label": si["si_department_label"],
             "si_minister_member_code": si["si_minister_member_code"],
             "si_minister_name": si["si_minister_name"],
-            "si_parent_legislation": si["si_parent_legislation"].map(_dedupe_parent_legislation),
+            "si_parent_legislation": si["si_parent_legislation"].map(_tidy_parent_legislation),
             "bill_id": si["bill_id"],
             "bill_short_title": si["bill_short_title"],
             "eisb_url": si["eisb_url"],

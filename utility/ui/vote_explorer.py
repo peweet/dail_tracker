@@ -358,8 +358,12 @@ def vt_division_card_html(row) -> str:
         # Tag was in the stage half; helper already removed it from stage.
         is_private = True
     title = _h(bill_title)
+    # The chip truncates long stages at 18ch (CSS ellipsis); carry the full label in the
+    # tooltip so "Committee an…" / "Second Stage (Re…" are recoverable on hover.
     stage_html = (
-        f'<span class="vt-card-stage" title="Legislative stage">{_h(stage_label)}</span>' if stage_label else ""
+        f'<span class="vt-card-stage" title="Legislative stage: {_h(stage_label)}">{_h(stage_label)}</span>'
+        if stage_label
+        else ""
     )
     private_html = (
         '<span class="vt-card-private" title="Private Members’ motion or bill '
