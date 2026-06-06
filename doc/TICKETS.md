@@ -2778,6 +2778,50 @@ Don't touch the gold/csv/ subdir outputs (those are produced separately by lobby
 
 ---
 
+### DAIL-170 — SIPO: ingest remaining GE2024 party returns + scope independents/annual corpus
+
+- **Estimate:** Tier 1 ≈ 3h · Tier 2 scout ≈ 4h · **Priority:** P2 · **Dependencies:** none (expenses + donations already in gold) · **Labels:** sipo, ocr, ingestion, enrichment
+- **Affected files:** `extractors/sipo_expenses_paddle_etl.py` (PARTY_JOBS), `extractors/_sipo_watchdog.py`, `extractors/sipo_promote_to_gold.py`, `data/bronze/scan_pdf/`, `data/bronze/sipo_annual/`
+- **Scope floor:** 2022 and later. Full scope/sizing/crash-rules in **`doc/SIPO_EXTRACTION_BACKLOG.md`** — read that first.
+
+#### Description
+GE2024 national-agent expenses (9 parties) and election donations are in gold. Three tiers of remaining SIPO work, scoped 2026-06-06 (the 10 unextracted GE2024 party PDFs were moved into `data/bronze/scan_pdf/`; annual-disclosure samples into `data/bronze/sipo_annual/`):
+- **Tier 1 (low-risk reuse):** OCR the 8 remaining scanned party returns now in bronze (centre_party, i4c, indep_ireland, ireland_first, irish_freedom, irish_people, redress100, right_to_change; ≈202pp ≈2h). Adds Independent Ireland & Independents4Change — but PARTY candidates only.
+- **Tier 2 (genuine independents):** non-party Independent TDs file only in the 43-constituency **Candidate Election Statements** tier (~400–600 per-candidate PDFs, untouched). New extractor + large OCR load — **scout first** (enumerate count/pages/text-layer) before any OCR.
+- **Tier 3 (missed corpus):** the full **2022→2025 annual-disclosure series** (party/TD/Senator/MEP donations) + other Election-Reports events ≥2022 (Seanad bye-2022, European 2024, Limerick mayoral 2024, Presidential 2025, Dáil bye-2026); not yet downloaded.
+
+#### Acceptance criteria
+- [ ] Tier 1: 8 keys + party labels added to `PARTY_JOBS`; each run **one at a time via `_sipo_watchdog.py`**; `sipo_promote_to_gold.py` re-run; new parties present in `sipo_expenses_fact.parquet` with per-row `flag`/verify caveats.
+- [ ] `aontu2_283923_..._VERIFY-DUP.pdf` eyeballed and either queued or confirmed superseded (NOT queued blind).
+- [ ] FF ×100 decimal-loss outliers addressed (links to `doc/SIPO_CONSOLIDATION_PLAN.md` cap-repair) so the €3.44M gold total reflects ≈€375k after re-promote.
+- [ ] Tier 2: scout output (per-constituency candidate PDF count + page/text-layer census) recorded before committing to OCR.
+- [ ] Privacy preserved: donor home addresses never promoted to gold/UI (existing `test/test_sipo_promote_privacy.py` guard).
+
+#### References
+- `doc/SIPO_EXTRACTION_BACKLOG.md` (this ticket's authoritative scope)
+- `doc/SIPO_PIPELINE.md`, `doc/SIPO_CONSOLIDATION_PLAN.md`, `data/_meta/sipo_ge2024_expenses_sources.md`
+- DAIL-280 (the original SIPO-donations epic; now largely shipped)
+
+#### Helper prompt
+```
+Read doc/SIPO_EXTRACTION_BACKLOG.md first. We're doing Tier 1 only this session.
+
+CRASH RULES (non-negotiable): never run two PaddleOCR processes at once; launch ONLY via extractors/_sipo_watchdog.py (it kills a >200s stall and resumes); per-page checkpoints + DPI retry ladder are already in place; ~33-40s/page. Run the 8 parties one at a time.
+
+1. Add 8 entries to PARTY_JOBS in extractors/sipo_expenses_paddle_etl.py (keys: centre_party, i4c, indep_ireland, ireland_first, irish_freedom, irish_people, redress100, right_to_change) with the correct registry party labels and the bronze paths already in data/bronze/scan_pdf/.
+2. Run each through the watchdog, validate per party (roster-layout vs FF/SF table — some need the band-based roster parse), then re-run extractors/sipo_promote_to_gold.py.
+3. Confirm new parties appear in gold with flags/verify caveats; confirm no donor-address leak.
+
+Do NOT touch the Candidate-Election-Statements (Tier 2) corpus or annual disclosures (Tier 3) this session. Do NOT queue aontu2_..._VERIFY-DUP until eyeballed.
+```
+
+#### What NOT to do
+- Don't run two OCR processes at once, and don't bypass the watchdog.
+- Don't ingest the per-candidate (Tier 2) or annual (Tier 3) corpus without a separate scoped session.
+- Don't display or promote donor home addresses.
+
+---
+
 # Plateau 2 — Mature single-purpose tool (epics, not full tickets)
 
 These are at "epic-level detail" — expand into full tickets when you reach them. Each maps to a v4 section.
