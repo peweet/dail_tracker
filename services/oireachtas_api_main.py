@@ -170,18 +170,23 @@ def main() -> None:
 
     logger.info("Starting Oireachtas API pipeline...")
 
-    # Change these when you want to force re-runs.
+    # Change these when you want to force a full re-fetch. Routine freshness is
+    # handled by DATA_MAX_AGE_HOURS below (DAIL-160): a cached JSON older than the
+    # threshold is refetched even with overwrite=False, so a daily cron no longer
+    # freezes on the first run's data.
     overwrite_members = False
     overwrite_legislation = False
     overwrite_questions = False
     overwrite_votes = False
     overwrite_debates_listings = False
+    max_age = DATA_MAX_AGE_HOURS
+    logger.info("Cache freshness: refetch any cached scenario older than %.0fh", max_age)
 
     logger.info("=" * 70)
     logger.info("STEP 1: Preparing member dataframe")
     logger.info("=" * 70)
 
-    member_df = get_or_create_member_df(overwrite_members=overwrite_members)
+    member_df = get_or_create_member_df(overwrite_members=overwrite_members, max_age_hours=max_age)
     logger.info(f"Member dataframe contains {member_df.height} unique members")
 
     logger.info("=" * 70)
@@ -200,6 +205,7 @@ def main() -> None:
         url_builder=build_legislation_url,
         overwrite=overwrite_legislation,
         max_workers=5,
+        max_age_hours=max_age,
     )
 
     run_member_scenario_paginated(
@@ -208,15 +214,16 @@ def main() -> None:
         url_builder=build_questions_url,
         overwrite=overwrite_questions,
         max_workers=5,
+        max_age_hours=max_age,
     )
 
-    run_legislation_unscoped(overwrite=overwrite_legislation)
+    run_legislation_unscoped(overwrite=overwrite_legislation, max_age_hours=max_age)
 
     logger.info("=" * 70)
     logger.info("STEP 4: Fetching votes")
     logger.info("=" * 70)
 
-    run_votes(overwrite=overwrite_votes)
+    run_votes(overwrite=overwrite_votes, max_age_hours=max_age)
 
     logger.info("=" * 70)
     logger.info("STEP 4.5: Harvesting dbsect index from bronze")
@@ -242,6 +249,7 @@ def main() -> None:
         urls=debates_urls,
         overwrite=overwrite_debates_listings,
         max_workers=5,
+        max_age_hours=max_age,
     )
 
     logger.info("=" * 70)

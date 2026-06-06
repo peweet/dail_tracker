@@ -280,6 +280,51 @@ def test_output_exists_returns_false_when_path_missing(tmp_path):
     assert output_exists(tmp_path / "missing.json", overwrite=False) is False
 
 
+# --- DAIL-160: staleness-aware caching -------------------------------------------------
+# A bare path.exists() check let a daily cron skip every Oireachtas API pull forever once
+# the bronze JSON existed (members/questions/votes/legislation/debates froze at first-run
+# values). max_age_hours refetches a too-old cache even with overwrite=False.
+import os  # noqa: E402
+import time  # noqa: E402
+
+
+def _age_file(path, hours):
+    """Backdate a file's mtime by ``hours`` hours."""
+    past = time.time() - hours * 3600
+    os.utime(path, (past, past))
+
+
+def test_output_exists_refetches_when_cache_older_than_max_age(tmp_path):
+    path = tmp_path / "stale.json"
+    path.write_text("{}", encoding="utf-8")
+    _age_file(path, 25)  # 25h old
+    assert output_exists(path, overwrite=False, max_age_hours=18) is False
+
+
+def test_output_exists_reuses_when_cache_within_max_age(tmp_path):
+    path = tmp_path / "fresh.json"
+    path.write_text("{}", encoding="utf-8")
+    _age_file(path, 2)  # 2h old
+    assert output_exists(path, overwrite=False, max_age_hours=18) is True
+
+
+def test_output_exists_max_age_none_is_backward_compatible(tmp_path):
+    """max_age_hours=None must preserve the original exists-only behaviour."""
+    path = tmp_path / "old.json"
+    path.write_text("{}", encoding="utf-8")
+    _age_file(path, 1000)
+    assert output_exists(path, overwrite=False, max_age_hours=None) is True
+
+
+def test_api_main_defines_a_live_freshness_default():
+    """Regression guard against silently reverting DAIL-160: the API entrypoint must
+    carry a positive, finite refetch threshold (not None/0/inf), so a cron refetches."""
+    from services.oireachtas_api_main import DATA_MAX_AGE_HOURS
+
+    assert isinstance(DATA_MAX_AGE_HOURS, float)
+    assert 0 < DATA_MAX_AGE_HOURS < float("inf")
+
+
 @pytest.mark.parametrize(
     "scenario,expected_segment",
     [

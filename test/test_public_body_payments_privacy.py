@@ -22,7 +22,11 @@ _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT / "extractors"))
 
 pl = pytest.importorskip("polars")
-from procurement_public_body_extract import classify_and_flag  # noqa: E402
+from procurement_public_body_extract import (  # noqa: E402
+    DEDUP_SIG,
+    classify_and_flag,
+    dedup_source_repeats,
+)
 
 
 def _flag(suppliers):
@@ -124,6 +128,74 @@ def test_invariant_no_personal_row_is_displayable():
     assert leaked.height == 0, f"{leaked.height} personal rows left displayable"
     # and the quarantine actually suppressed the two invented individuals
     assert df.filter(~pl.col("public_display")).height == 2
+
+
+# ----------------------------------------------------------------------------------------
+# dedup_source_repeats: drop within-file parser repeats (identical in EVERY extracted field)
+# without collapsing genuinely-distinct payments (DQ audit 2026-06-05, A3). Errs toward
+# under-deduping: any differing field — notably description — preserves the row.
+# ----------------------------------------------------------------------------------------
+def _rows(specs):
+    """specs: list of (supplier, amount, description, po, page) -> a fact-shaped frame.
+    All share one source_file_hash/period so dedup is judged within-file."""
+    base = {"source_file_hash": "h1", "period": "2024-Q1", "paid_flag": None}
+    return pl.DataFrame([
+        {**base, "supplier_raw": s, "amount_eur": float(a),
+         "description": d, "po_number": po, "source_page_number": pg}
+        for (s, a, d, po, pg) in specs
+    ])
+
+
+def test_identical_rows_are_collapsed():
+    df = _rows([("Acme Ltd", 1000, "Stationery", "PO1", 1)] * 4)  # 4 identical
+    out, dropped = dedup_source_repeats(df)
+    assert out.height == 1
+    assert dropped == 3
+
+
+def test_distinct_description_is_preserved():
+    # The Courts pattern: same mis-parsed amount + same (truncated) supplier, but 3 DIFFERENT
+    # descriptions = 3 real payment lines. None may be dropped.
+    df = _rows([
+        ("Ireland Ltd", 21613, "Court A repairs", None, 2),
+        ("Ireland Ltd", 21613, "Court B IT",      None, 2),
+        ("Ireland Ltd", 21613, "Court C legal",   None, 2),
+    ])
+    out, dropped = dedup_source_repeats(df)
+    assert dropped == 0
+    assert out.height == 3
+
+
+def test_differing_any_field_preserves_row():
+    df = _rows([
+        ("Acme Ltd", 1000, "X", "PO1", 1),
+        ("Acme Ltd", 1000, "X", "PO2", 1),   # different PO -> kept
+        ("Acme Ltd", 1000, "X", "PO1", 2),   # different page -> kept
+        ("Acme Ltd", 2000, "X", "PO1", 1),   # different amount -> kept
+        ("Acme Ltd", 1000, "X", "PO1", 1),   # exact repeat of row 0 -> dropped
+    ])
+    out, dropped = dedup_source_repeats(df)
+    assert dropped == 1
+    assert out.height == 4
+
+
+def test_same_payment_in_two_files_is_not_collapsed():
+    # Different source files (different hash) are NOT deduped here — that is the small,
+    # separately-handled cross-file republish case, not a within-file parser repeat.
+    df = pl.concat([
+        _rows([("Acme Ltd", 1000, "X", "PO1", 1)]).with_columns(pl.lit("hA").alias("source_file_hash")),
+        _rows([("Acme Ltd", 1000, "X", "PO1", 1)]).with_columns(pl.lit("hB").alias("source_file_hash")),
+    ])
+    out, dropped = dedup_source_repeats(df)
+    assert dropped == 0
+    assert out.height == 2
+
+
+def test_dedup_sig_excludes_volatile_provenance():
+    # source_row_number (a running counter) must NOT be in the signature, else true repeats with
+    # different counters would never collapse. Confirms the key is content, not emission order.
+    assert "source_row_number" not in DEDUP_SIG
+    assert "supplier_raw" in DEDUP_SIG and "description" in DEDUP_SIG and "amount_eur" in DEDUP_SIG
 
 
 @pytest.mark.integration
