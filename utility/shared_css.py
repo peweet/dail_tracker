@@ -292,6 +292,43 @@ def inject_css() -> None:
             --signal-warn-subtle:  oklch(94%   0.060  90);  /* amber tint   ≈ #fef3c7 */
             --signal-warn-border:  oklch(82%   0.130  85);  /* amber border ≈ #fcd34d */
             --signal-warn-deep:    oklch(40%   0.120  60);  /* amber deep   ≈ #92400e */
+
+            /* ── Neutral ink ramp (warm-gray, hue 75) ─────────────────────
+               Exact values that were previously inlined across components.
+               Tokenised so the gray scale has one source of truth; each
+               holds the identical literal it replaced (zero visual change). */
+            --ink-strong:  oklch(25% 0.012 75);   /* dark heading / value on cards */
+            --ink-700:     oklch(28% 0.012 75);   /* slightly lighter dark text   */
+            --ink-muted:   oklch(62% 0.008 75);   /* muted label / secondary value */
+
+            /* ── Vote-outcome colours (separate from the blue/orange signal
+               family): carried = green, lost = red. Previously inlined in the
+               vote tables and outcome labels. */
+            --vote-carried: oklch(38% 0.130 145);
+            --vote-lost:    oklch(45% 0.180 30);
+
+            /* ── Literal sRGB blue/orange ramp ────────────────────────────
+               The exact Tailwind hexes used by a number of components
+               (interests pills, attendance heads, calm-blue cards, etc).
+               Kept as literals — and NOT folded into the oklch --signal-*
+               family — because that family is already used in 50+ places at
+               its own (very slightly different) oklch values, so unifying
+               would shift those. The oklch --signal-* tokens remain the
+               preferred semantic set; migrate a component here to --signal-*
+               only when an imperceptible 1-3% colour shift is acceptable.
+               Note: the dataframe/GDG header keeps its own literal #eff6ff
+               (it mirrors .streamlit/config.toml) and is intentionally not
+               wired to --blue-050. */
+            --blue-700:   #1d4ed8;
+            --blue-500:   #3b82f6;
+            --blue-300:   #93c5fd;
+            --blue-800:   #1e40af;
+            --blue-050:   #eff6ff;
+            --orange-700: #c2410c;
+            --orange-500: #f97316;
+            --orange-300: #fdba74;
+            --orange-900: #9a3412;
+            --orange-050: #fff7ed;
         }
 
         /* Reusable EU-derived badge — use on any chip / signal that
@@ -1136,8 +1173,8 @@ def inject_css() -> None:
         }
 
         /* ── Vote outcome labels ──────────────────── */
-        .dt-outcome-carried { color: oklch(38% 0.130 145); font-weight: 700; }
-        .dt-outcome-lost    { color: oklch(45% 0.180 30);  font-weight: 700; }
+        .dt-outcome-carried { color: var(--vote-carried); font-weight: 700; }
+        .dt-outcome-lost    { color: var(--vote-lost);  font-weight: 700; }
         .dt-outcome-unknown { color: var(--text-meta);     font-weight: 600; }
 
         /* ── Vote-type table (TD history / division member list) ── */
@@ -1166,13 +1203,13 @@ def inject_css() -> None:
         }
         .dt-vt-table tr:last-child td { border-bottom: none; }
         .dt-vt-table tr:hover td { background: var(--surface); }
-        .dt-vt-yes  { color: oklch(38% 0.130 145); font-weight: 700; white-space: nowrap; }
-        .dt-vt-no   { color: oklch(45% 0.180 30);  font-weight: 700; white-space: nowrap; }
+        .dt-vt-yes  { color: var(--vote-carried); font-weight: 700; white-space: nowrap; }
+        .dt-vt-no   { color: var(--vote-lost);  font-weight: 700; white-space: nowrap; }
         .dt-vt-abs  { color: var(--text-meta);      font-weight: 500; white-space: nowrap; }
         .dt-vt-date { color: var(--text-meta);      white-space: nowrap; font-size: 0.82rem; }
         .dt-vt-meta { color: var(--text-meta);      font-size: 0.84rem; }
-        .dt-vt-outcome-carried { color: oklch(38% 0.130 145); font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
-        .dt-vt-outcome-lost    { color: oklch(45% 0.180 30);  font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+        .dt-vt-outcome-carried { color: var(--vote-carried); font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+        .dt-vt-outcome-lost    { color: var(--vote-lost);  font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
         .dt-vt-outcome-other   { color: var(--text-meta);     font-size: 0.78rem; }
         /* ── Canonical external-source link ─────────────────────────────
            One rule for every "open the official record on oireachtas.ie /
@@ -1423,7 +1460,7 @@ def inject_css() -> None:
             justify-content: center;
             padding: 4px 10px;
             border-radius: 12px;
-            background: #eff6ff;
+            background: var(--blue-050);
             border: 1px solid #bfdbfe;
             text-align: center;
         }
@@ -1432,18 +1469,18 @@ def inject_css() -> None:
             font-weight: 800;
             letter-spacing: -0.03em;
             line-height: 1;
-            color: #1d4ed8;
+            color: var(--blue-700);
         }
         .dt-success-lbl {
             font-size: 0.58rem;
             font-weight: 600;
-            color: #3b82f6;
+            color: var(--blue-500);
             line-height: 1.4;
         }
 
         /* Card / panel container (e.g. Hall of Fame card) */
         .dt-success-card {
-            background: #eff6ff;
+            background: var(--blue-050);
             border: 1px solid #bfdbfe;
             border-left: 5px solid #2563eb;
             border-radius: 8px;
@@ -1454,13 +1491,13 @@ def inject_css() -> None:
             display: inline-flex;
             align-items: center;
             gap: 0.2rem;
-            background: #eff6ff;
+            background: var(--blue-050);
             border: 1px solid #bfdbfe;
             border-radius: 999px;
             padding: 0.1rem 0.55rem;
             font-size: 0.76rem;
             font-weight: 600;
-            color: #1d4ed8;
+            color: var(--blue-700);
         }
 
         /* Stat number inside a stat-strip or summary block */
@@ -1567,7 +1604,7 @@ def inject_css() -> None:
             border-color: var(--accent, #b04a1a);
             color: var(--accent, #b04a1a) !important;
         }
-        .int-pill-decl    { background:#eff6ff; border-color:#93c5fd; color:#1e3a8a; }
+        .int-pill-decl    { background:var(--blue-050); border-color:var(--blue-300); color:#1e3a8a; }
         .int-pill-company { background:#f0fdfa; border-color:#5eead4; color:#0e6655; }
         .int-pill-prop    { background:#fffbeb; border-color:#fbbf24; color:#78350f; }
         .int-pill-shares  { background:#f5f3ff; border-color:#c4b5fd; color:#4c1d95; }
@@ -1722,21 +1759,21 @@ def inject_css() -> None:
             min-width: 2.5rem;
         }
         .dt-name-card-badge-metric {
-            background: #eff6ff;
+            background: var(--blue-050);
             border: 1px solid #bfdbfe;
         }
         .dt-name-card-badge-num {
             font-size: 1.1rem;
             font-weight: 800;
             letter-spacing: -0.03em;
-            color: #1d4ed8;
+            color: var(--blue-700);
             line-height: 1;
             display: block;
         }
         .dt-name-card-badge-lbl {
             font-size: 0.56rem;
             font-weight: 600;
-            color: #3b82f6;
+            color: var(--blue-500);
             display: block;
         }
         /* Streamlit column override — one rule for every page */
@@ -2356,15 +2393,15 @@ def inject_css() -> None:
         /* Preserve blue (good) and orange (bad) identity on hover —
            override the generic accent recolour. Lift + tinted shadow only. */
         .dt-card-link-wrap:hover > .att-hall-card-good {
-            border-left-color: #3b82f6 !important;
-            border-color: #93c5fd !important;
-            background: #eff6ff !important;
+            border-left-color: var(--blue-500) !important;
+            border-color: var(--blue-300) !important;
+            background: var(--blue-050) !important;
             box-shadow: 0 3px 10px rgba(59,130,246,0.22) !important;
         }
         .dt-card-link-wrap:hover > .att-hall-card-bad {
-            border-left-color: #f97316 !important;
-            border-color: #fdba74 !important;
-            background: #fff7ed !important;
+            border-left-color: var(--orange-500) !important;
+            border-color: var(--orange-300) !important;
+            background: var(--orange-050) !important;
             box-shadow: 0 3px 10px rgba(249,115,22,0.22) !important;
         }
 
@@ -2406,13 +2443,13 @@ def inject_css() -> None:
         .pay-amount-badge {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             min-width: 62px; padding: 5px 10px; border-radius: 12px;
-            background: #eff6ff; border: 1px solid #93c5fd; text-align: center; flex-shrink: 0;
+            background: var(--blue-050); border: 1px solid var(--blue-300); text-align: center; flex-shrink: 0;
         }
-        .pay-amount-badge-num  { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.03em; color: #1e40af; line-height: 1; display: block; }
-        .pay-amount-badge-label { font-size: 0.58rem; font-weight: 600; color: #3b82f6; line-height: 1.4; display: block; }
+        .pay-amount-badge-num  { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.03em; color: var(--blue-800); line-height: 1; display: block; }
+        .pay-amount-badge-label { font-size: 0.58rem; font-weight: 600; color: var(--blue-500); line-height: 1.4; display: block; }
         .pay-taa-pill {
-            display: inline-flex; align-items: center; gap: 0.25rem; background: #eff6ff; border: 1px solid #93c5fd;
-            border-radius: 999px; padding: 2px 8px; font-size: 0.68rem; font-weight: 600; color: #1e40af;
+            display: inline-flex; align-items: center; gap: 0.25rem; background: var(--blue-050); border: 1px solid var(--blue-300);
+            border-radius: 999px; padding: 2px 8px; font-size: 0.68rem; font-weight: 600; color: var(--blue-800);
         }
         /* P1-6: unmapped TAA bands — quieter neutral tint so the caveat
            reads as "uncertainty", not "warning". Band string is still shown
@@ -2765,8 +2802,8 @@ def inject_css() -> None:
 
         /* ── Attendance: extra heading variants ──────────────────────── */
         .att-hall-subheading { font-size: 0.75rem; color: #6b7280; margin: 0 0 0.75rem; }
-        .att-cop-head-good { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #1d4ed8; border-bottom: 3px solid #3b82f6; padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
-        .att-cop-head-bad  { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #c2410c; border-bottom: 3px solid #f97316; padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
+        .att-cop-head-good { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--blue-700); border-bottom: 3px solid var(--blue-500); padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
+        .att-cop-head-bad  { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--orange-700); border-bottom: 3px solid var(--orange-500); padding-bottom: 0.3rem; margin: 0 0 0.6rem; }
 
         /* ── Attendance overview: year summary strip ─────────────────── */
         .att-ov-year-strip {
@@ -2824,7 +2861,7 @@ def inject_css() -> None:
         .lob-attach-card {
             background: #ffffff;
             border: 1px solid var(--border);
-            border-left: 3px solid #9a3412;   /* rust to distinguish from navy/amber */
+            border-left: 3px solid var(--orange-900);   /* rust to distinguish from navy/amber */
             border-radius: 8px;
             padding: 0.65rem 0.85rem 0.7rem;
         }
@@ -2839,7 +2876,7 @@ def inject_css() -> None:
         .lob-attach-tag {
             font-family: 'Epilogue', sans-serif;
             font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em;
-            color: #9a3412; background: #fff7ed;
+            color: var(--orange-900); background: var(--orange-050);
             border: 1px solid #fed7aa; border-radius: 3px;
             padding: 0.05rem 0.35rem;
         }
@@ -2865,7 +2902,7 @@ def inject_css() -> None:
             min-height: 175px;
             transition: border-top-color 0.15s, box-shadow 0.15s;
         }
-        .lob-path-card:hover { border-top-color: #9a3412; box-shadow: 0 4px 16px rgba(17,24,39,0.1); }
+        .lob-path-card:hover { border-top-color: var(--orange-900); box-shadow: 0 4px 16px rgba(17,24,39,0.1); }
         .lob-path-icon { font-size: 1.6rem; line-height: 1; margin-bottom: 0.55rem; }
         .lob-path-heading { margin: 0 0 0.3rem; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
         .lob-path-body { margin: 0 0 0.65rem; font-size: 0.82rem; color: var(--text-meta); line-height: 1.5; }
@@ -2881,28 +2918,28 @@ def inject_css() -> None:
             line-height: 1.55;
             margin: 0 0 0.65rem;
             padding: 0.55rem 0.75rem;
-            background: #fff7ed;
-            border-left: 3px solid #c2410c;
+            background: var(--orange-050);
+            border-left: 3px solid var(--orange-700);
             border-radius: 0 8px 8px 0;
         }
         .lob-topic-caveat em { color: #0f3d5e; font-style: normal; font-weight: 600; }
         .lob-topic-card {
             background: #ffffff;
-            border: 1px dashed #c2410c;
-            border-top: 4px solid #c2410c;
+            border: 1px dashed var(--orange-700);
+            border-top: 4px solid var(--orange-700);
             border-radius: 12px;
             padding: 0.75rem 1rem 0.75rem;
             box-shadow: 0 1px 2px rgba(17,24,39,0.06);
             min-height: 145px;
         }
-        .lob-topic-icon { font-size: 1.6rem; line-height: 1; margin-bottom: 0.55rem; color: #9a3412; }
+        .lob-topic-icon { font-size: 1.6rem; line-height: 1; margin-bottom: 0.55rem; color: var(--orange-900); }
         .lob-topic-heading { margin: 0 0 0.3rem; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
         .lob-topic-body { margin: 0; font-size: 0.82rem; color: var(--text-meta); line-height: 1.5; }
 
         .lob-topic-banner {
-            background: #fff7ed;
+            background: var(--orange-050);
             border: 1px solid #fed7aa;
-            border-left: 5px solid #c2410c;
+            border-left: 5px solid var(--orange-700);
             border-radius: 12px;
             padding: 0.85rem 1.1rem;
             margin: 0.85rem 0;
@@ -2912,7 +2949,7 @@ def inject_css() -> None:
             font-weight: 800;
             letter-spacing: 0.08em;
             text-transform: uppercase;
-            color: #9a3412;
+            color: var(--orange-900);
             margin: 0 0 0.35rem;
         }
         .lob-topic-banner-body {
@@ -2942,9 +2979,9 @@ def inject_css() -> None:
             align-items: center;
             flex-wrap: wrap;
             gap: 0.6rem;
-            background: #fff7ed;
+            background: var(--orange-050);
             border: 1px solid #fed7aa;
-            border-left: 5px solid #c2410c;
+            border-left: 5px solid var(--orange-700);
             border-radius: 10px;
             padding: 0.65rem 0.95rem;
             margin: 0.85rem 0 0.55rem;
@@ -2956,13 +2993,13 @@ def inject_css() -> None:
             font-weight: 800;
             letter-spacing: 0.08em;
             text-transform: uppercase;
-            color: #9a3412;
+            color: var(--orange-900);
         }
         .lob-topic-filter-clear {
             margin-left: auto;
             background: #ffffff;
-            border: 1px solid #c2410c;
-            color: #9a3412 !important;
+            border: 1px solid var(--orange-700);
+            color: var(--orange-900) !important;
             font-size: 0.78rem;
             font-weight: 700;
             text-decoration: none;
@@ -2970,7 +3007,7 @@ def inject_css() -> None:
             border-radius: 999px;
         }
         .lob-topic-filter-clear:hover {
-            background: #c2410c;
+            background: var(--orange-700);
             color: #ffffff !important;
         }
 
@@ -3014,21 +3051,21 @@ def inject_css() -> None:
         /* Stage 2a prominent-cases sub-callout — sits inside the RD index
            hero zone to flag the highest-impact individuals. */
         .lob-rd-prominent {
-            background: #fff7ed;
-            border: 1px solid #fdba74;
-            border-left: 5px solid #c2410c;
+            background: var(--orange-050);
+            border: 1px solid var(--orange-300);
+            border-left: 5px solid var(--orange-700);
             border-radius: 10px;
             padding: 0.7rem 1rem;
             margin: 0.5rem 0 1.1rem;
         }
-        .lob-rd-prominent-heading { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: #9a3412; margin-bottom: 0.4rem; }
+        .lob-rd-prominent-heading { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--orange-900); margin-bottom: 0.4rem; }
         .lob-rd-prominent-grid { display: flex; flex-wrap: wrap; gap: 0.55rem; }
         .lob-rd-prominent-pill {
-            background: #ffffff; border: 1px solid #fdba74; border-radius: 999px;
+            background: #ffffff; border: 1px solid var(--orange-300); border-radius: 999px;
             padding: 0.3rem 0.75rem; font-size: 0.82rem; color: #1f2937;
             display: inline-flex; align-items: baseline; gap: 0.4rem;
         }
-        .lob-rd-prominent-pill strong { color: #9a3412; font-weight: 700; }
+        .lob-rd-prominent-pill strong { color: var(--orange-900); font-weight: 700; }
 
         .lob-activity-row { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.65rem 0; border-bottom: 1px solid var(--border); }
         .lob-activity-period { font-size: 0.73rem; font-weight: 700; color: #0f3d5e; white-space: nowrap; min-width: 5rem; padding-top: 0.1rem; }
@@ -3963,7 +4000,7 @@ def inject_css() -> None:
            pushes right via margin-left:auto and the private pill follows.
            Tooltip carries the citizen-facing definition. */
         .vt-card-private {
-            background: #fff7ed;
+            background: var(--orange-050);
             color: #7a4500;
             font-family: 'Epilogue', sans-serif;
             font-size: 0.7rem;
@@ -4363,7 +4400,7 @@ def inject_css() -> None:
             border-radius: 999px;
             border: 1px solid;
         }
-        .cmt-row-status-active { color: oklch(38% 0.130 145); background: oklch(96% 0.045 145); border-color: oklch(82% 0.080 145); }
+        .cmt-row-status-active { color: var(--vote-carried); background: oklch(96% 0.045 145); border-color: oklch(82% 0.080 145); }
         .cmt-row-status-ended  { color: var(--text-meta);     background: var(--surface);     border-color: var(--border-strong); }
         .cmt-row-meta {
             font-family: 'Epilogue', sans-serif;
@@ -4777,34 +4814,34 @@ def inject_css() -> None:
         .don-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.9rem; margin:0.4rem 0 0.2rem; }
         @media (max-width: 760px){ .don-grid { grid-template-columns:1fr; } }
         .don-card { display:block; background:#ffffff; border:1px solid var(--border, oklch(88% 0.006 75));
-            border-left:3px solid var(--don-stripe, oklch(62% 0.008 75)); border-radius:7px;
+            border-left:3px solid var(--don-stripe, var(--ink-muted)); border-radius:7px;
             padding:0.95rem 1.05rem 0.9rem; text-decoration:none; color:inherit; position:relative;
             transition:box-shadow .18s cubic-bezier(.22,1,.36,1), border-color .18s; }
         .don-card:hover { box-shadow:0 1px 10px oklch(0% 0 0 / .07); border-color:var(--don-stripe); }
         .don-card .don-dir { position:absolute; top:0.9rem; right:1.05rem; font-size:0.72rem;
-            letter-spacing:.04em; color:oklch(62% 0.008 75); }
+            letter-spacing:.04em; color:var(--ink-muted); }
         .don-ptitle { display:flex; align-items:center; gap:0.5rem; margin:0 0 0.1rem; }
         .don-swatch { width:9px; height:9px; border-radius:2px; background:var(--don-stripe); flex:none; }
-        .don-ptitle h3 { font-size:0.98rem; font-weight:600; margin:0; color:oklch(25% 0.012 75); }
+        .don-ptitle h3 { font-size:0.98rem; font-weight:600; margin:0; color:var(--ink-strong); }
         .don-amount { font-size:1.7rem; font-weight:650; letter-spacing:-.015em; line-height:1.1;
-            font-variant-numeric:tabular-nums; color:oklch(25% 0.012 75); margin:0.35rem 0 0.1rem; }
-        .don-sub { font-size:0.8rem; color:oklch(62% 0.008 75); }
+            font-variant-numeric:tabular-nums; color:var(--ink-strong); margin:0.35rem 0 0.1rem; }
+        .don-sub { font-size:0.8rem; color:var(--ink-muted); }
         .don-cardfoot { display:flex; justify-content:space-between; align-items:baseline; margin-top:0.7rem; }
         .don-cardfoot .go { color:var(--accent); font-weight:600; font-size:0.82rem; }
         /* receipts (donor list) */
         .don-receipts { background:#ffffff; border:1px solid var(--border, oklch(88% 0.006 75));
-            border-left:3px solid var(--don-stripe, oklch(62% 0.008 75)); border-radius:7px; padding:0.2rem 1.1rem; }
+            border-left:3px solid var(--don-stripe, var(--ink-muted)); border-radius:7px; padding:0.2rem 1.1rem; }
         .don-rrow { display:grid; grid-template-columns:1fr auto auto auto; align-items:baseline;
             gap:0.4rem 1.1rem; padding:0.65rem 0; border-bottom:1px solid oklch(92% 0.005 75); }
         .don-rrow:last-child { border-bottom:none; }
-        .don-rrow .dn { font-weight:500; color:oklch(25% 0.012 75); }
-        .don-rrow .dt { color:oklch(62% 0.008 75); font-size:0.83rem; font-variant-numeric:tabular-nums; }
+        .don-rrow .dn { font-weight:500; color:var(--ink-strong); }
+        .don-rrow .dt { color:var(--ink-muted); font-size:0.83rem; font-variant-numeric:tabular-nums; }
         .don-rrow .mt { font-size:0.66rem; letter-spacing:.06em; text-transform:uppercase; color:oklch(45% 0.01 75);
             border:1px solid oklch(90% 0.006 75); border-radius:4px; padding:0.1rem 0.4rem; align-self:center; }
         .don-rrow .da { font-variant-numeric:tabular-nums; font-weight:600; min-width:5.3rem; text-align:right;
-            color:oklch(25% 0.012 75); }
+            color:var(--ink-strong); }
         .don-vmark { font-size:0.64rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
-            color:oklch(62% 0.008 75); white-space:nowrap; }
+            color:var(--ink-muted); white-space:nowrap; }
         .don-rrow .don-vmark { grid-column:1 / -1; padding-top:0.1rem; }
 
         /* ───────────────────────── Judiciary: The Bench & Courts ──────────
@@ -4822,7 +4859,7 @@ def inject_css() -> None:
             padding:0.7rem 0.85rem; display:flex; flex-direction:column; gap:0.18rem; height:100%;
         }
         .jud-card.vacant { background:var(--surface); border-style:dashed; }
-        .jud-jn { font-weight:650; color:oklch(25% 0.012 75); font-size:0.95rem; line-height:1.2; }
+        .jud-jn { font-weight:650; color:var(--ink-strong); font-size:0.95rem; line-height:1.2; }
         .jud-jc { font-size:0.76rem; color:var(--text-meta); }
         .jud-appt { font-size:0.8rem; color:oklch(38% 0.012 75); margin-top:0.1rem; }
         .jud-chiprow { display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.4rem; align-items:center; }
@@ -4858,23 +4895,26 @@ def inject_css() -> None:
         .jud-node-dot { width:0.85rem; height:0.85rem; border-radius:999px; background:#ffffff;
             border:2.5px solid var(--accent); position:relative; z-index:1; }
         .jud-node.now .jud-node-dot { background:var(--accent); }
-        .jud-node-court { font-weight:650; color:oklch(25% 0.012 75); font-size:0.88rem; margin-top:0.35rem; }
+        .jud-node-court { font-weight:650; color:var(--ink-strong); font-size:0.88rem; margin-top:0.35rem; }
         .jud-node-date { font-size:0.74rem; color:var(--text-meta); }
         .jud-node-auth { font-size:0.72rem; color:oklch(40% 0.012 75); margin-top:0.1rem; }
 
         /* profile header + provenance + vacancy-lifecycle */
         .jud-prof-head { margin:0.2rem 0 0.5rem; }
-        .jud-prof-name { font-size:1.5rem; font-weight:700; color:oklch(22% 0.012 75); line-height:1.15; }
+        .jud-prof-name { font-size:1.5rem; font-weight:700; color:oklch(22% 0.012 75); line-height:1.15; margin:0; padding:0; }
         .jud-prof-sub { font-size:0.9rem; color:var(--text-meta); margin-top:0.15rem; }
         .jud-vac { background:#ffffff; border:1px solid var(--border); border-radius:10px;
             padding:0.65rem 0.85rem; margin-bottom:0.5rem; }
-        .jud-vac-cause { font-weight:600; color:oklch(28% 0.012 75); font-size:0.86rem; }
+        .jud-vac-cause { font-weight:600; color:var(--ink-700); font-size:0.86rem; }
         .jud-vac-pred { font-size:0.78rem; color:var(--text-meta); margin-top:0.15rem; }
         .jud-vac-nom { font-size:0.82rem; color:oklch(35% 0.012 75); margin-top:0.25rem; }
+        .jud-stat { background:#ffffff; border:1px solid var(--border); border-radius:10px;
+            padding:0.65rem 0.85rem; text-align:center; display:flex; flex-direction:column;
+            align-items:center; gap:0.3rem; }
         .jud-ladder { display:flex; flex-wrap:wrap; gap:0.5rem; margin:0.3rem 0 0.2rem; }
         .jud-rung { background:#ffffff; border:1px solid var(--border); border-radius:10px;
             padding:0.55rem 0.8rem; display:flex; align-items:baseline; gap:0.6rem; }
-        .jud-rung-path { font-weight:600; color:oklch(28% 0.012 75); font-size:0.84rem; }
+        .jud-rung-path { font-weight:600; color:var(--ink-700); font-size:0.84rem; }
         .jud-rung-n { font-weight:700; color:var(--accent); font-size:1.05rem; font-variant-numeric:tabular-nums; }
         .jud-foot { font-size:0.76rem; color:var(--text-meta); line-height:1.5; margin-top:1.4rem;
             border-top:1px solid var(--border); padding-top:0.8rem; max-width:64rem; }
