@@ -73,14 +73,29 @@ def test_empty_rows_returns_cleanly(monkeypatch):
 
 
 def test_full_data_renders_cards_without_raising(monkeypatch):
-    sup = pd.DataFrame([{
-        "supplier": "Acme Ltd", "supplier_norm": "acme ltd", "n_awards": 5, "n_authorities": 2,
-        "awarded_value_safe_eur": 1_500_000.0, "company_num": "123456", "company_status": "Normal",
-        "cro_match_method": "exact", "on_lobbying_register": True, "lobbying_returns": 3,
-        "is_lobbying_registrant": False, "is_lobbying_client": True,
-    }])
+    # Row 2 carries pd.NA for the nullable CRO/lobbying columns — the real views
+    # leave these NA for unmatched suppliers, and bool(pd.NA) raises, so this is
+    # the regression guard for the NA-safe truthiness/coalesce helpers.
+    sup = pd.DataFrame([
+        {"supplier": "Acme Ltd", "supplier_norm": "acme ltd", "n_awards": 5, "n_authorities": 2,
+         "awarded_value_safe_eur": 1_500_000.0, "company_num": "123456", "company_status": "Normal",
+         "cro_match_method": "exact", "on_lobbying_register": True, "lobbying_returns": 3,
+         "is_lobbying_registrant": False, "is_lobbying_client": True},
+        {"supplier": "Beta Services Ltd", "supplier_norm": "beta services ltd", "n_awards": 2,
+         "n_authorities": 1, "awarded_value_safe_eur": 40_000.0, "company_num": pd.NA,
+         "company_status": pd.NA, "cro_match_method": pd.NA, "on_lobbying_register": pd.NA,
+         "lobbying_returns": pd.NA, "is_lobbying_registrant": pd.NA, "is_lobbying_client": pd.NA},
+    ])
     _patch(monkeypatch, supplier=QueryResult.success(sup))
     assert procurement.procurement_page() is None
+
+
+def test_na_safe_helpers():
+    assert procurement._truthy(pd.NA) is False
+    assert procurement._truthy(None) is False
+    assert procurement._truthy("123") is True
+    assert procurement._coalesce(pd.NA, None, "  ", "Acme") == "Acme"
+    assert procurement._coalesce(pd.NA, None) == ""
 
 
 @pytest.mark.integration
