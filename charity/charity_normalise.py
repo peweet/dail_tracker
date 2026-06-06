@@ -41,6 +41,14 @@ DERIVES:
 - period_year: from Period End Date
 - gov_share: (gov_or_la_income + other_public_bodies_income) / gross_income,
   null when gross_income is null/0
+- amount_implausible_flag: within-entity sanity gate on annual_reports. The
+  source register carries filer data-entry errors where one return's gross
+  income/expenditure is orders of magnitude beyond the same charity's every
+  other filing (e.g. RCN 20026691 gross_expenditure = €299bn for 2024). Flagged
+  True when, for a charity with >=3 filings, gross_income or gross_expenditure is
+  both >=€100m and >=50x that charity's own median for the field. The raw value
+  is PRESERVED (faithful extraction); charity_latest excludes flagged filings so
+  a single bad cell never becomes the headline figure or skews the income trend.
 - trustee_count: count of parsed trustees per RCN, folded onto register.parquet
 - charity_latest is a per-RCN profile: a latest-filing snapshot PLUS a
   multi-year trajectory drawn from the whole annual-reports time series.
@@ -323,6 +331,54 @@ def _money(col: str) -> pl.Expr:
     return pl.col(col).cast(pl.Float64, strict=False)
 
 
+# Within-entity plausibility gate for the two headline money fields. The
+# Charities Regulator's public register contains filer data-entry errors where a
+# single annual return carries a value many orders of magnitude beyond the same
+# charity's every other filing (e.g. RCN 20026691 South West Mayo Development
+# Company filed gross_expenditure = €299,304,304,680 for 2024, vs ~€3-5m every
+# other year — the same row's gross_income is a correct €5m). These are faithful
+# extractions of a wrong source cell, so we never rewrite the value; we only
+# flag the row so it can be excluded from the latest-snapshot and trajectory
+# metrics that feed gold/UI. A value is implausible when, across a charity with
+# >=3 filings, it is both >=€100m in absolute terms AND >=50x that charity's own
+# median for the field. HSE/HEA/Pobal-scale bodies grow smoothly (max/median
+# ~1.5x) and are never flagged; the genuine garbage sits at 14,000x-2,800,000x.
+IMPLAUSIBLE_RATIO = 50.0
+IMPLAUSIBLE_FLOOR_EUR = 100_000_000.0
+
+
+def _implausible(col: str, median_col: str) -> pl.Expr:
+    return (
+        (pl.col("_entity_filings") >= 3)
+        & pl.col(col).is_not_null()
+        & (pl.col(median_col) > 0)
+        & (pl.col(col) >= IMPLAUSIBLE_FLOOR_EUR)
+        & (pl.col(col) >= IMPLAUSIBLE_RATIO * pl.col(median_col))
+    )
+
+
+def add_implausible_flag(df: pl.DataFrame) -> pl.DataFrame:
+    """Add the boolean amount_implausible_flag via the within-entity gate.
+
+    Requires rcn, gross_income, gross_expenditure columns. Median is taken over
+    each charity's own filing history; a lone extreme barely moves it, so a
+    garbage year stands out as a huge multiple of its peers. Raw values are left
+    untouched — only the flag column is added. See _implausible for the rule.
+    """
+    df = df.with_columns(
+        pl.len().over("rcn").alias("_entity_filings"),
+        pl.col("gross_income").median().over("rcn").alias("_gross_income_median"),
+        pl.col("gross_expenditure").median().over("rcn").alias("_gross_expenditure_median"),
+    )
+    df = df.with_columns(
+        (
+            _implausible("gross_income", "_gross_income_median")
+            | _implausible("gross_expenditure", "_gross_expenditure_median")
+        ).alias("amount_implausible_flag")
+    )
+    return df.drop("_entity_filings", "_gross_income_median", "_gross_expenditure_median")
+
+
 def normalise_annual_reports(path: Path) -> pl.DataFrame:
     cols = read_sheet(path, "Annual Reports")
     missing = [c for c in ANNUAL_RENAME if c not in cols]
@@ -380,7 +436,10 @@ def normalise_annual_reports(path: Path) -> pl.DataFrame:
         )
         .alias("gov_share"),
     )
-    return df
+
+    # Within-entity plausibility flag — flags filer data-entry errors in the
+    # source register without rewriting the raw value (see add_implausible_flag).
+    return add_implausible_flag(df)
 
 
 # ---------------------------------------------------------------------------
@@ -402,6 +461,13 @@ def build_charity_latest(annual: pl.DataFrame) -> pl.DataFrame:
     are taken from the single most-recent filing.
     """
     today = dt.date.today()
+
+    # Exclude filings flagged as implausible (see _implausible) from every
+    # derived metric: a single fat-fingered source cell must not become a
+    # charity's headline figure in gold/UI, nor skew its income trend. The raw
+    # rows remain in annual_reports.parquet; here we simply look past them and
+    # fall back to the charity's most recent clean filing.
+    annual = annual.filter(pl.col("amount_implausible_flag").not_())
 
     # ── Trajectory — aggregates over every filed year ───────────────────────
     traj = annual.group_by("rcn").agg(
@@ -705,11 +771,13 @@ def main() -> int:
     print(f"[charity_normalise] wrote {out_latest}   rows={latest.height}  cols={latest.width}")
     print(f"[charity_normalise] wrote {out_trustees}    rows={trustees.height}  cols={trustees.width}")
 
+    implausible = int(annual["amount_implausible_flag"].sum())
     cro_present = int(register["has_cro_number_flag"].sum())
     deregistered = int(register.filter(pl.col("status").str.contains("(?i)deregister")).height)
     state_adj = int(latest["state_adjacent_flag"].sum())
     strict_trustees = int(trustees.filter(pl.col("parse_quality") == "strict").height)
     raw_trustees = int(trustees.filter(pl.col("parse_quality") == "raw").height)
+    print("  annual_amount_implausible:", f"{implausible:,}")
     print("  register_with_cro_number:", f"{cro_present:,}")
     print("  register_deregistered:   ", f"{deregistered:,}")
     print("  charities_state_adjacent:", f"{state_adj:,}")

@@ -60,6 +60,42 @@ def test_public_body_is_displayable():
     assert row["public_display"] is True
 
 
+# ----------------------------------------------------------------------------------------
+# value_safe_to_sum: intergovernmental transfers must NOT be summable (DQ audit 2026-06-05).
+# A payment whose recipient is itself a public body (e.g. TII -> county-council road grants,
+# €2.5bn / 32% of the fact) is a transfer/grant, not private procurement; totalling it inflates
+# "procurement spend" and triple-counts the same euro down the grant -> council -> contractor
+# chain. Such rows are RETAINED (public_display=True) but excluded from value_safe_to_sum.
+# ----------------------------------------------------------------------------------------
+def test_public_body_recipient_is_not_summable():
+    row = _flag(["Cork County Council"]).row(0, named=True)
+    assert row["supplier_class"] == "public_body"
+    assert row["value_safe_to_sum"] is False  # transfer, not procurement
+    assert row["public_display"] is True       # but still retained/displayable
+
+
+def test_company_payment_is_summable():
+    row = _flag(["Acme Engineering Ltd"]).row(0, named=True)
+    assert row["supplier_class"] == "company"
+    assert row["value_safe_to_sum"] is True
+
+
+def test_no_public_body_row_is_summable_in_mix():
+    # Mirrors the real transfer pattern: TII pays county councils (recipient = public body),
+    # which is the €2.5bn of intergovernmental transfers the fix excludes from summing.
+    df = _flag([
+        "Cork County Council",                # public body -> transfer, not summable
+        "Donegal County Council",             # public body -> transfer, not summable
+        "Acme Engineering Ltd",               # company -> summable
+        "Brightwater Solutions Limited",      # company -> summable
+    ])
+    leaked = df.filter(
+        pl.col("value_safe_to_sum") & (pl.col("supplier_class") == "public_body")
+    )
+    assert leaked.height == 0, f"{leaked.height} public_body transfer rows left summable"
+    assert df.filter(pl.col("value_safe_to_sum")).height == 2  # only the two companies
+
+
 def test_invariant_no_personal_row_is_displayable():
     df = _flag([
         "Jonathan Oakfield",            # personal -> quarantined

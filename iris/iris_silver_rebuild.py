@@ -29,7 +29,7 @@ from pathlib import Path
 import polars as pl
 
 from config import BRONZE_DIR, SILVER_DIR
-from iris_oifigiuil_etl_polars import (
+from iris.iris_oifigiuil_etl_polars import (
     add_quarantine,
     build_bronze_frame,
     build_records,

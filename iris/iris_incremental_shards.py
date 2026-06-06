@@ -59,7 +59,7 @@ from typing import Any
 import polars as pl
 
 from config import BRONZE_DIR, SILVER_DIR
-from iris_oifigiuil_etl_polars import (
+from iris.iris_oifigiuil_etl_polars import (
     extract_lines_raw,
     find_member_interest_page_ranges,
 )

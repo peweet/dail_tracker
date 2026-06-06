@@ -1806,7 +1806,7 @@ def run(
     Pass `rebuild=True` to ignore the manifest and re-extract every PDF
     (equivalent to bumping EXTRACTOR_VERSION ad-hoc).
     """
-    from iris_incremental_shards import (
+    from iris.iris_incremental_shards import (
         DEFAULT_SHARD_ROOT,
         concat_bronze,
         incremental_extract,
