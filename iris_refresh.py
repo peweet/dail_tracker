@@ -48,7 +48,7 @@ def _hr(label: str) -> None:
 def step_poll() -> bool:
     _hr("[1/7] iris_oifigiuil_poller — fetch new PDFs into bronze")
     t = time.monotonic()
-    r = subprocess.run([sys.executable, "iris_oifigiuil_poller.py"], cwd=_ROOT)
+    r = subprocess.run([sys.executable, "-m", "iris.iris_oifigiuil_poller"], cwd=_ROOT)
     print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
     return r.returncode == 0
 
@@ -57,7 +57,7 @@ def step_silver() -> bool:
     _hr("[2/7] iris_silver_rebuild — delta from bronze to silver")
     t = time.monotonic()
     try:
-        from iris_silver_rebuild import rebuild_silver_from_bronze
+        from iris.iris_silver_rebuild import rebuild_silver_from_bronze
 
         rebuild_silver_from_bronze()
     except Exception as exc:
@@ -87,7 +87,7 @@ def step_bill_si_gold() -> bool:
     _hr("[4/7] iris_si_bill_enrichment — bill_statutory_instruments.parquet")
     t = time.monotonic()
     try:
-        import iris_si_bill_enrichment
+        import iris.iris_si_bill_enrichment as iris_si_bill_enrichment
 
         iris_si_bill_enrichment.run()
     except Exception as exc:
@@ -102,8 +102,7 @@ def step_appointments_gold() -> bool:
     t = time.monotonic()
     # Subprocess (own __main__/argparse, not set up to import as a library).
     # Pass --write so it persists the parquet.
-    script = _ROOT / "public_appointments_enrichment.py"
-    r = subprocess.run([sys.executable, str(script), "--write"], cwd=_ROOT)
+    r = subprocess.run([sys.executable, "-m", "iris.public_appointments_enrichment", "--write"], cwd=_ROOT)
     print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
     return r.returncode == 0
 
@@ -111,8 +110,7 @@ def step_appointments_gold() -> bool:
 def step_corporate_gold() -> bool:
     _hr("[6/7] corporate_notices_enrichment — corporate_notices.parquet")
     t = time.monotonic()
-    script = _ROOT / "corporate_notices_enrichment.py"
-    r = subprocess.run([sys.executable, str(script), "--write"], cwd=_ROOT)
+    r = subprocess.run([sys.executable, "-m", "iris.corporate_notices_enrichment", "--write"], cwd=_ROOT)
     print(f"  done in {time.monotonic() - t:.1f}s (exit {r.returncode})")
     return r.returncode == 0
 
