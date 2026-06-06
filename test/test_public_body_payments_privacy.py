@@ -28,6 +28,7 @@ from procurement_public_body_extract import (  # noqa: E402
     classify_and_flag,
     dedup_source_repeats,
     flag_unidentifiable_suppliers,
+    period_from_url,
 )
 
 
@@ -227,8 +228,20 @@ def test_generic_word_name_downgraded_to_low():
 def test_real_oneword_firm_not_downgraded():
     # Distinctive token survives normalisation -> must STAY high-confidence.
     out = flag_unidentifiable_suppliers(_norm_conf(
-        ["Sodexo Ireland Ltd", "Fujitsu Ireland Ltd", "Adston Ltd", "Accenture Limited"]))
+        ["Sodexo Ireland Ltd", "Fujitsu Ireland Ltd", "Adston Ltd", "Accenture Limited",
+         "Atkins Ltd", "Marsh Ireland Ltd", "Capgemini Ireland Ltd"]))
     assert set(out["extraction_confidence"].to_list()) == {"high"}
+
+
+def test_suffix_and_geographic_remnants_downgraded():
+    # Bare legal-form / geographic remnants (a distinctive lead word was truncated at source).
+    out = flag_unidentifiable_suppliers(_norm_conf(["Deloitte LLP", "Ltd", "Ireland"], conf="high"))
+    # "Deloitte LLP" -> norm "DELOITTE LLP" (2 tokens, distinctive) stays high; "Ltd"->'' and
+    # "Ireland"->'IRELAND' (single generic) drop to low.
+    confs = dict(zip(out["supplier_raw"].to_list(), out["extraction_confidence"].to_list(), strict=True))
+    assert confs["Deloitte LLP"] == "high"
+    assert confs["Ltd"] == "low"
+    assert confs["Ireland"] == "low"
 
 
 def test_unidentifiable_rows_stay_summable():
@@ -262,6 +275,23 @@ def test_nbi_split_is_merged_to_identifiable_name():
     flagged = flag_unidentifiable_suppliers(
         normed.with_columns(pl.lit("high").alias("extraction_confidence")))
     assert flagged.filter(pl.col("po_number") == "NBI")["extraction_confidence"].to_list() == ["high", "high"]
+
+
+# ----------------------------------------------------------------------------------------
+# Period precision: month-range filenames encode a quarter the Q\d patterns miss (DQ audit
+# 2026-06-06). Without this, recurring quarterly payments share a year-only period and look
+# like cross-file duplicates.
+# ----------------------------------------------------------------------------------------
+@pytest.mark.parametrize("fname,expected", [
+    ("https://x.ie/jan-mar-2016.pdf", ("2016-Q1", 2016, 1)),
+    ("https://x.ie/apr-jun-2018.pdf", ("2018-Q2", 2018, 2)),
+    ("https://x.ie/jul-sep-2016.pdf", ("2016-Q3", 2016, 3)),
+    ("https://x.ie/oct-dec-2016.pdf", ("2016-Q4", 2016, 4)),
+    ("https://x.ie/Q3_2023.pdf", ("2023-Q3", 2023, 3)),        # existing Q-pattern still works
+    ("https://x.ie/payments-2024.pdf", ("2024", 2024, None)),  # no quarter -> year only
+])
+def test_period_from_url_parses_month_ranges(fname, expected):
+    assert period_from_url(fname) == expected
 
 
 @pytest.mark.integration

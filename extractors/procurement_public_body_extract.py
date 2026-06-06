@@ -428,12 +428,32 @@ def clean_supplier(s) -> str:
     return DIGIT_PREFIX.sub("", str(s or "")).strip(" -:|,")
 
 
+# Month-range filenames (e.g. "jul-sep-2016.pdf") encode a quarter the Q\d patterns miss; many
+# older Dept of Defence PO lists are named this way, so their period otherwise collapses to the
+# bare year and recurring quarterly payments look like cross-file duplicates. DQ audit 2026-06-06.
+MONTH_RANGE_Q = [
+    (re.compile(r"jan\w*[-_ .]+mar", re.I), 1),
+    (re.compile(r"apr\w*[-_ .]+jun", re.I), 2),
+    (re.compile(r"jul\w*[-_ .]+sep", re.I), 3),
+    (re.compile(r"oct\w*[-_ .]+dec", re.I), 4),
+]
+
+
+def quarter_from_name(name: str) -> int | None:
+    q = QUARTER_RE.search(name)
+    if q:
+        return next((int(g) for g in q.groups() if g), None)
+    for rx, qn in MONTH_RANGE_Q:
+        if rx.search(name):
+            return qn
+    return None
+
+
 def period_from_url(url: str) -> tuple[str | None, int | None, int | None]:
     name = url.rsplit("/", 1)[-1]
     y = PERIOD_RE.search(name)
     year = int(y.group(1)) if y else None
-    q = QUARTER_RE.search(name)
-    quarter = next((int(g) for g in (q.groups() if q else []) if g), None) if q else None
+    quarter = quarter_from_name(name)
     period = (f"{year}-Q{quarter}" if year and quarter else (str(year) if year else None))
     return period, year, quarter
 
@@ -748,6 +768,9 @@ GENERIC_SUPPLIER_NAME = frozenset({
     "technology", "partnership", "bundle", "group", "holdings", "services",
     "solutions", "systems", "engineering", "logistics", "properties", "developments",
     "consulting", "consultants", "management", "international", "contractors",
+    # legal-form / geographic remnants left after the distinctive lead word was truncated
+    # (e.g. "Deloitte LLP" -> "LLP", "[Brand] Electric Ltd" -> "ELECTRIC", "X UK Ltd" -> "UK")
+    "llp", "electric", "europe", "uk", "ireland",
 })
 
 

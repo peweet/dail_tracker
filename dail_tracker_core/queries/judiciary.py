@@ -45,3 +45,27 @@ def legal_diary_counts(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 def legal_diary_cases(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Tier C — ANONYMISED case listings + provenance link."""
     return _run(conn, "SELECT * FROM v_judiciary_legal_diary_cases")
+
+
+# ── The Bench & Courts (green core) ─────────────────────────────────────────
+# All joins / classification live in the views (sql_views/judiciary_*.sql); these
+# are plain retrievals. Scope is appointment / office / rank / assignment / salary
+# band only — no performance, conduct, or ranking data.
+def roster(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """The sitting bench — one row per judge (identity grain)."""
+    return _run(conn, "SELECT * FROM v_judiciary_roster")
+
+
+def appointments(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Judicial appointment events + gov.ie nomination context (event grain)."""
+    return _run(conn, "SELECT * FROM v_judiciary_appointments")
+
+
+def profile(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Per-judge identity summary for the career-arc drill-down."""
+    return _run(conn, "SELECT * FROM v_judiciary_profile")
+
+
+def nominations(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """gov.ie nomination announcements (vacancy-lifecycle context)."""
+    return _run(conn, "SELECT * FROM v_judiciary_nominations")

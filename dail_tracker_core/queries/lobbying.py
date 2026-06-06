@@ -127,11 +127,35 @@ def all_politician_names(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 # ── Org index ─────────────────────────────────────────────────────────────────
 
 
-def org_index(conn: duckdb.DuckDBPyConnection, exclude_state_adjacent: bool = False) -> QueryResult:
-    where = " WHERE (state_adjacent_flag IS DISTINCT FROM TRUE)" if exclude_state_adjacent else ""
+def org_index(
+    conn: duckdb.DuckDBPyConnection,
+    exclude_state_adjacent: bool = False,
+    funding_profile: str | None = None,
+    income_trend: str | None = None,
+    name_q: str | None = None,
+) -> QueryResult:
+    """Ranked organisation index. The funding_profile / income_trend facets are
+    bound as SQL predicates (the columns already exist on the enriched view) so
+    the page no longer row-masks in pandas. name_q is an optional ILIKE on the
+    organisation name."""
+    clauses: list[str] = []
+    params: list = []
+    if exclude_state_adjacent:
+        clauses.append("(state_adjacent_flag IS DISTINCT FROM TRUE)")
+    if funding_profile:
+        clauses.append("funding_profile = ?")
+        params.append(funding_profile)
+    if income_trend:
+        clauses.append("income_trend = ?")
+        params.append(income_trend)
+    if name_q:
+        clauses.append("lobbyist_name ILIKE ?")
+        params.append(f"%{name_q}%")
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     return _run(
         conn,
         f"SELECT {_ORG_INDEX_COLS} FROM v_experimental_lobbying_org_index_enriched{where} ORDER BY return_count DESC",
+        params,
     )
 
 

@@ -69,8 +69,26 @@ def test_missing_or_invalid_generated_at_fails(tmp_path, bad):
 
 
 def test_non_ok_dataset_status_does_not_gate_exit(tmp_path):
-    """Per-dataset 'unavailable' is reported but does NOT fail the run — only
-    the pipeline-ran age (generated_at) gates the exit code."""
+    """Per-dataset 'unavailable' is reported but does NOT fail the run — a
+    not-yet-built source must not trip the canary. Only the pipeline-ran age
+    (generated_at) and per-dataset 'stale' gate the exit code."""
     datasets = {"lobbying": {"status": "unavailable", "latest_period_end_date": None}}
+    p = _write(tmp_path, _iso_days_ago(1), datasets=datasets)
+    assert _report(14, p) == 0
+
+
+def test_stale_dataset_gates_even_when_pipeline_ran_recently(tmp_path):
+    """The DAIL-160 case: pipeline ran today (generated_at fresh) but a source froze.
+    A per-dataset status='stale' must fail the canary."""
+    datasets = {
+        "votes": {"status": "stale", "latest_record_date": "2026-04-29", "fetch_age_days": 34, "stale_after_days": 14},
+        "questions": {"status": "ok", "latest_record_date": "2026-05-26"},
+    }
+    p = _write(tmp_path, _iso_days_ago(1), datasets=datasets)
+    assert _report(14, p) == 1
+
+
+def test_all_ok_recent_pipeline_passes(tmp_path):
+    datasets = {"votes": {"status": "ok", "latest_record_date": "2026-06-05", "fetch_age_days": 1}}
     p = _write(tmp_path, _iso_days_ago(1), datasets=datasets)
     assert _report(14, p) == 0
