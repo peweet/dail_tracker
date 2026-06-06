@@ -1225,6 +1225,23 @@ def inject_css() -> None:
             white-space: nowrap;
             transition: color 0.12s, text-decoration-color 0.12s;
         }
+        /* Quiet developer affordance — "View as JSON" link to the public API.
+           Deliberately muted (meta colour, monospace, smaller) so it reads as a
+           dev footnote, not a citizen-facing action. */
+        .dt-api-link {
+            color: var(--text-meta, #6b6356);
+            text-decoration: none;
+            font-family: 'IBM Plex Mono', ui-monospace, monospace;
+            font-size: 0.72rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .dt-api-link:hover {
+            color: var(--accent, #b04a1a);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .dt-api-footer { margin-top: 1.5rem; text-align: right; }
         .dt-source-link::after {
             content: " ↗";
             display: inline-block;

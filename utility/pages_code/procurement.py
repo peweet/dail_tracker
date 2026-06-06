@@ -470,6 +470,13 @@ def _render_supplier_profile(supplier_norm: str) -> None:
 
     pills = [_value_pill(row.get("awarded_value_safe_eur"))]
     pills += [p for p in (_cro_pill(row), _lobby_pill(row)) if p]
+    # TODO_PIPELINE_VIEW_REQUIRED: the "€X awarded" pill can be composed ENTIRELY of
+    # framework/DPS ceilings (e.g. Deloitte: 330/330 award rows are ceilings the page
+    # itself labels "not a payment"), so the headline reads as money when none is. The
+    # honest marker needs a per-supplier ceiling share on v_procurement_supplier_summary
+    # (e.g. ceiling_value_eur / n_ceiling_rows); computing it here would be a Streamlit
+    # aggregation (firewall breach). Until the column exists, add a "mostly ceilings"
+    # variant of _value_pill driven by that field.
     st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(pills)}</div>')
 
     awards = fetch_awards_for_supplier(supplier_norm)
@@ -595,7 +602,12 @@ def _stats_strip(stats, cov: dict) -> None:
     span = f"{min_y}–{max_y}" if min_y and max_y else "—"
     n_rows = _n(stats.get("n_award_rows"))
     n_safe = _n(stats.get("n_safe_rows"))
+    # Corpus counts lead the strip (previously hero badges) so this is the single
+    # scale anchor on the page — the sum-safe total appears here and nowhere else.
     chips = [
+        (f"{_n(stats.get('n_suppliers')):,}", "suppliers"),
+        (f"{_n(stats.get('n_authorities')):,}", "authorities"),
+        (f"{_n(stats.get('n_categories')):,}", "categories"),
         (safe_total, "sum-safe awarded value"),
         (span, "award years"),
         (f"{n_rows:,}", "award records"),
@@ -650,26 +662,24 @@ def procurement_page() -> None:
     stats = stats_res.data.iloc[0]
     cov = fetch_coverage()
 
+    # Hero carries no stat badges: the corpus counts + sum-safe total live in the
+    # single _stats_strip below, so the data isn't pushed off-screen by a second
+    # stat strip and the sum-safe total is shown exactly once (audit 2026-06-06).
     hero_banner(
         kicker="PUBLIC MONEY",
         title="Public Procurement",
         dek="Contract awards published on eTenders and the national procurement open data — "
         "who was awarded public contracts, by which bodies, in which categories.",
-        badges=[
-            f"{_n(stats.get('n_suppliers')):,} suppliers",
-            f"{_n(stats.get('n_authorities')):,} authorities",
-            f"{_n(stats.get('n_categories')):,} categories",
-            f"{_eur_scale(stats.get('value_safe_total_eur'))} awarded (sum-safe)",
-        ],
     )
 
     st.html(
         '<div class="pr-caveat"><strong>Awarded value, not actual spend.</strong> '
         "These are contract <em>award</em> values reported on eTenders — the value at award, "
         "not money actually paid. Framework and dynamic-purchasing ceilings can overstate what "
-        "is ever drawn down, so the page only ever shows the sum-safe awarded value per row and "
-        "never totals the corpus into a single headline figure. A contract award is a public "
-        "record of a procurement decision, not evidence of influence or wrongdoing.</div>"
+        "is ever drawn down, so the page only ever shows the <em>sum-safe</em> awarded value: the "
+        "total below sums only the rows that carry one, never a naive total of every reported "
+        "figure. A contract award is a public record of a procurement decision, not evidence of "
+        "influence or wrongdoing.</div>"
     )
     _stats_strip(stats, cov)
     glossary_strip(

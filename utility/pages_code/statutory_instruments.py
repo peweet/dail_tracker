@@ -245,6 +245,12 @@ def _inject_si_css() -> None:
             }
             .dt-hero { padding: 0.7rem 0.95rem 0.65rem !important; }
             .dt-hero h1 { font-size: 1.2rem !important; }
+            /* KPI numbers carry long single-token values (department names);
+               at the full 1.7rem serif they overrun the ~145px mobile column
+               and clip at the card edge. Shrink + allow mid-word wrap so the
+               value stays inside its card. */
+            .si-stat-grid { grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); }
+            .si-stat-num { font-size: 1.25rem; overflow-wrap: anywhere; }
         }
 
         </style>
@@ -489,13 +495,17 @@ def _render_kpi_strip(df: pd.DataFrame) -> None:
         checked = int(df["current_state"].notna().sum())
         if checked:
             revoked = int((df["current_state"] == "revoked").sum())
-            revoked_cell = (
-                '<div class="si-stat">'
-                f'<div class="si-stat-num">{revoked:,}</div>'
-                '<div class="si-stat-label">Revoked (per eISB)</div>'
-                f'<div class="si-stat-sub">of {checked:,} checked</div>'
-                "</div>"
-            )
+            # Suppress when the scope is already entirely revoked (e.g. the Legal
+            # status facet pinned to "Revoked") — the cell would just echo the
+            # "Statutory Instruments" total cell. Only informative as a fraction.
+            if revoked and revoked != total:
+                revoked_cell = (
+                    '<div class="si-stat">'
+                    f'<div class="si-stat-num">{revoked:,}</div>'
+                    '<div class="si-stat-label">Revoked (per eISB)</div>'
+                    f'<div class="si-stat-sub">of {checked:,} checked</div>'
+                    "</div>"
+                )
 
     st.html(f"""
     <div class="si-stat-grid">
@@ -1341,10 +1351,18 @@ def _render_si_detail(row: pd.Series) -> None:
         </div>
         """)
     elif parent.strip():
+        # Same pipe-split as the detail row above — si_parent_legislation is a
+        # '|'-joined string; rendering it raw leaks the separator ("Act A|Act B").
+        unmatched_pieces = [p.strip(" .,;") for p in parent.split("|") if p.strip(" .,;")]
+        unmatched_title = (
+            " &nbsp;·&nbsp; ".join(html.escape(p) for p in unmatched_pieces)
+            if unmatched_pieces
+            else html.escape(parent)
+        )
         st.html(f"""
         <div class="si-billlink" style="background:#fbf6ed; border-color:#e9dab3;">
           <div class="si-billlink-kicker" style="color:#7a5a00;">Parent legislation (unmatched)</div>
-          <div class="si-billlink-title">{html.escape(parent)}</div>
+          <div class="si-billlink-title">{unmatched_title}</div>
           <div class="si-billlink-meta">
             No confident match against the Oireachtas bills index or the curated
             pre-2014 Acts table. Many SIs are made under framework Acts that

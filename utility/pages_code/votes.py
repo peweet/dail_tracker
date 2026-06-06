@@ -22,7 +22,7 @@ from ui.components import (
     todo_callout,
     year_selector,
 )
-from ui.entity_links import division_url, member_profile_url
+from ui.entity_links import api_json_link, division_url, member_profile_url
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
 from ui.vote_explorer import render_division_panel, vt_division_card_html
@@ -397,6 +397,12 @@ def _render_mode_c(vote_id: str, v_from: str) -> None:
     render_division_panel(vote_row, members_df, sources_df, breakdown_df)
 
     provenance_expander(sections=["Division record sourced from the Oireachtas Open Data API."])
+
+    from urllib.parse import quote
+
+    _api = api_json_link(f"/v1/votes/{quote(str(vote_id), safe='')}", "This division as JSON")
+    if _api:
+        st.html(f'<div class="dt-api-footer">{_api}</div>')
 
 
 # ── Page entry point ───────────────────────────────────────────────────────────

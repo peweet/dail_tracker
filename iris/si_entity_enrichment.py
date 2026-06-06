@@ -263,6 +263,11 @@ def _normalise_si_title(title: object) -> object:
     title = _strip_preamble(title.strip())
     if not title:
         return title
+    # Restore the space between adjacent bracket groups that some source notices
+    # drop — "(Iran)(Human Rights)(No.2)" → "(Iran) (Human Rights) (No.2)". The
+    # eISB house style separates qualifier brackets with a space; the run-together
+    # form is a transcription artefact, not a real citation.
+    title = re.sub(r"\)\(", ") (", title)
     letters = [c for c in title if c.isalpha()]
     if not letters:
         return title
@@ -310,6 +315,30 @@ def _normalise_si_title(title: object) -> object:
 
     tokens = title.split()
     return " ".join(case_one(tok, i == 0) for i, tok in enumerate(tokens))
+
+
+def _dedupe_parent_legislation(raw: object) -> object:
+    """Collapse the '|'-joined parent-Act list, dropping fragments that are a
+    trailing sub-name of a longer sibling.
+
+    The upstream extractor (iris_oifigiuil_etl_polars.py) matches every
+    "<Title-Case run> Act <year>" span, and a long Act name yields shorter
+    suffix matches as well — e.g. "...Central Treasury Services Act 2020" also
+    surfaces the fragment "Services Act 2020". Both share the same trailing
+    "Act <year>", so the shorter is a word-suffix of the longer; keep only the
+    longest of each suffix family. Order-preserving; non-string/empty pass
+    through unchanged."""
+    if not isinstance(raw, str) or "|" not in raw:
+        return raw
+    parts = [p.strip(" .,;") for p in raw.split("|") if p.strip(" .,;")]
+    kept: list[str] = []
+    for p in parts:
+        # Drop p if some other part ends with " <p>" (p is a word-suffix of it).
+        if any(other != p and (other == p or other.endswith(" " + p)) for other in parts):
+            continue
+        if p not in kept:
+            kept.append(p)
+    return "|".join(kept) if kept else raw
 
 
 def load_si() -> pd.DataFrame:
@@ -641,7 +670,7 @@ def run() -> dict:
             "si_department_label": si["si_department_label"],
             "si_minister_member_code": si["si_minister_member_code"],
             "si_minister_name": si["si_minister_name"],
-            "si_parent_legislation": si["si_parent_legislation"],
+            "si_parent_legislation": si["si_parent_legislation"].map(_dedupe_parent_legislation),
             "bill_id": si["bill_id"],
             "bill_short_title": si["bill_short_title"],
             "eisb_url": si["eisb_url"],
