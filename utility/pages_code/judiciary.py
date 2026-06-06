@@ -38,6 +38,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from data_access.judiciary_data import (
     fetch_appointments,
     fetch_authority_summary,
+    fetch_courthouses,
+    fetch_courts_clearance,
+    fetch_courts_waiting_times,
     fetch_elevation_ladder,
     fetch_legal_diary_cases,
     fetch_legal_diary_counts,
@@ -54,7 +57,6 @@ from ui.components import (
     glossary_strip,
     hero_banner,
     hide_sidebar,
-    todo_callout,
 )
 
 # Court display order — constitutional seniority, the natural reading order.
@@ -186,6 +188,25 @@ def _inject_jd_css() -> None:
         .jd-foot { font-size: 0.76rem; color: #7b8b92; line-height: 1.5; margin-top: 1.6rem;
             border-top: 1px solid #e4e9ec; padding-top: 0.8rem; max-width: 64rem; }
         .jd-foot a { color: #2c5f6b; }
+        /* The Courts — clearance bars carry a backlog hue: under 100% = clearing slower
+           than cases arrive (amber), at/over 100% = keeping pace or cutting backlog (teal). */
+        .jd-bar-fill.under { background: #c98a3a; }
+        .jd-bar-fill.over { background: #3d7c8a; }
+        .jd-rank-n.under { color: #b3781f; }
+        .jd-rank-n.over { color: #2c5f6b; }
+        .jd-outlier {
+            background: #fbf3e8; border: 1px solid #ecd6b3; border-left: 4px solid #c98a3a;
+            border-radius: 8px; padding: 0.7rem 0.9rem; margin: 0.5rem 0 0.9rem;
+            font-size: 0.86rem; color: #5a4a2c; line-height: 1.5; max-width: 64rem;
+        }
+        .jd-outlier strong { color: #14232b; }
+        .jd-wait-n { display: flex; align-items: baseline; gap: 0.4rem; margin-top: 0.15rem; }
+        .jd-wait-weeks { font-size: 1.4rem; font-weight: 700; color: #14232b; line-height: 1; }
+        .jd-wait-unit { font-size: 0.72rem; color: #7b8b92; }
+        .jd-delta { font-size: 0.72rem; font-weight: 600; margin-top: 0.25rem; }
+        .jd-delta.down { color: #3f7a4b; }   /* shorter wait than last year */
+        .jd-delta.up   { color: #b3563f; }   /* longer wait than last year */
+        .jd-delta.flat { color: #8a9aa1; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -290,7 +311,9 @@ def _render_profile(judge_key: str) -> None:
         f'<div class="jud-prof-sub">{_esc(row.get("current_court"))}{_esc(rank_note)}</div></div>'
     )
 
-    # career arc — one node per appointment notice, in date order; last = current.
+    # career arc — one step per court, oldest → current. An elevation files each notice
+    # under the court appointed TO, so a judge who rose through the courts has one step
+    # per court, not one per notice.
     ev = (
         appts[appts["judge_key"] == judge_key].sort_values("issue_date")
         if appts is not None and not appts.empty
@@ -298,16 +321,45 @@ def _render_profile(judge_key: str) -> None:
     )
     if not ev.empty:
         st.html('<h2 class="jd-section-head">Career arc</h2>')
+        # Collapse consecutive same-court notices (re-notices / corrections) into one
+        # step, keeping the earliest notice + its Iris source link. Then append the
+        # roster's current court as the final "now" step whenever the last captured
+        # step is for a different court — the elevation notice to the current court can
+        # predate the 2016 Iris spine (so it is not captured as an event), and the arc
+        # must still reach the court the judge sits on today (e.g. Court of Appeal
+        # judges elevated from the High Court).
+        steps: list[dict] = []
+        for e in ev.itertuples():
+            if steps and steps[-1]["court"] == e.appointed_court:
+                continue
+            steps.append(
+                {
+                    "court": e.appointed_court,
+                    "year": _year(e.issue_date),
+                    "auth": _AUTHORITY.get(e.appointing_authority, (e.appointing_authority or "", ""))[0],
+                    "url": e.source_url if isinstance(e.source_url, str) and e.source_url else "",
+                }
+            )
+        current = row.get("current_court")
+        if isinstance(current, str) and current and (not steps or steps[-1]["court"] != current):
+            steps.append({"court": current, "year": "", "auth": "", "url": ""})
+
         nodes = []
-        last = len(ev) - 1
-        for i, e in enumerate(ev.itertuples()):
-            auth_label = _AUTHORITY.get(e.appointing_authority, (e.appointing_authority or "", ""))[0]
+        last = len(steps) - 1
+        for i, s in enumerate(steps):
+            date = s["year"] or ("current" if i == last else "")
+            auth = f'<div class="jud-node-auth">by {_esc(s["auth"])}</div>' if s["auth"] else ""
+            link = (
+                f'<a class="jud-node-link" href="{_esc(s["url"])}" target="_blank" rel="noopener">Iris notice ↗</a>'
+                if s["url"]
+                else ""
+            )
             nodes.append(
                 f'<div class="jud-node{" now" if i == last else ""}">'
                 f'<div class="jud-node-dot"></div>'
-                f'<div class="jud-node-court">{_esc(e.appointed_court)}</div>'
-                f'<div class="jud-node-date">{_year(e.issue_date)}</div>'
-                f'<div class="jud-node-auth">by {_esc(auth_label)}</div></div>'
+                f'<div class="jud-node-court">{_esc(s["court"])}</div>'
+                f'<div class="jud-node-date">{_esc(date)}</div>'
+                f"{auth}{link}</div>"
             )
         st.html(f'<div class="jud-arc">{"".join(nodes)}</div>')
     else:
@@ -446,12 +498,125 @@ def _render_appointments(appts: pd.DataFrame, noms: pd.DataFrame) -> None:
         st.html("".join(cards))
 
 
-# ══════════════════════════════════════════════════════════ ③ THE COURTS (PR2)
-def _render_courts_placeholder() -> None:
+# ══════════════════════════════════════════════════════════ ③ THE COURTS
+# System-health only: case throughput, waiting times, and where the courts sit.
+# Aggregate by court — NEVER attributed to a named judge (privacy rule). Every metric
+# (clearance_pct, parsed weeks) is computed in the SQL views; this renders the frames.
+def _clearance_bar(row, court_order: dict[str, int]) -> str:
+    pct = row.get("clearance_pct")
+    if pct is None or pd.isna(pct):
+        return ""
+    pct = float(pct)
+    state = "under" if pct < 100 else "over"
+    fill = min(pct, 100.0)
+    inc, res = row.get("incoming"), row.get("resolved")
+    sub = f"{int(inc):,} received · {int(res):,} resolved" if pd.notna(inc) and pd.notna(res) else ""
+    return (
+        '<div class="jd-rank">'
+        f'<div class="jd-rank-body"><div class="jd-rank-title">{_esc(row.get("jurisdiction"))}</div>'
+        f'<div class="jd-rank-sub">{sub}</div>'
+        f'<div class="jd-bar-track"><div class="jd-bar-fill {state}" style="width:{fill:.0f}%"></div></div></div>'
+        f'<div class="jd-rank-n {state}">{pct:.0f}%</div></div>'
+    )
+
+
+def _render_clearance(clr: pd.DataFrame) -> None:
+    st.html('<h2 class="jd-section-head">Case clearance by court</h2>')
+    st.caption(
+        "Clearance is cases resolved as a share of cases received that year. Below 100% means a "
+        "court resolved fewer than it took in (its backlog grew); at or above 100% it kept pace or "
+        "cut into the backlog. These are throughput counts only — not a measure of any judge."
+    )
+    years = sorted(clr["year"].dropna().astype(int).unique(), reverse=True)
+    if not years:
+        return
+    sel = st.pills("Year", years, default=years[0], key="courts_clear_year", label_visibility="collapsed") or years[0]
+    year_df = clr[clr["year"] == sel].copy()
+    order = {c: i for i, c in enumerate(_COURT_ORDER)}
+    # Lowest clearance first — the courts under most pressure surface at the top.
+    year_df = year_df.sort_values("clearance_pct", na_position="last")
+    st.caption(f"{int(sel)} · {len(year_df)} courts, ordered by clearance rate (lowest first).")
+    bars = "".join(_clearance_bar(r._asdict(), order) for r in year_df.itertuples())
+    st.html(bars)
+
+
+def _wait_card(row) -> str:
+    w24, w23 = row.get("weeks_2024"), row.get("weeks_2023")
+    delta = ""
+    if pd.notna(w24) and pd.notna(w23):
+        d = float(w24) - float(w23)
+        if abs(d) < 0.01:
+            delta = '<div class="jd-delta flat">no change on 2023</div>'
+        else:
+            cls = "up" if d > 0 else "down"
+            arrow = "▲" if d > 0 else "▼"
+            delta = f'<div class="jd-delta {cls}">{arrow} {abs(d):g} wk vs 2023 ({_esc(row.get("wait_2023"))})</div>'
+    return (
+        '<div class="jd-cat-card"><div class="jd-cat-label">'
+        f'{_esc(row.get("matter_or_venue"))}</div>'
+        f'<div class="jd-wait-n"><span class="jd-wait-weeks">{_esc(row.get("wait_2024"))}</span></div>'
+        f"{delta}</div>"
+    )
+
+
+def _render_waiting(wt: pd.DataFrame) -> None:
+    st.html('<h2 class="jd-section-head">Waiting times</h2>')
+    st.caption(
+        "Selected published waiting times from the Courts Service Annual Report 2024 — each is a "
+        "court's wait for a named venue or list type, longest first, with the change on 2023."
+    )
+    clean = wt[wt["is_clean_label"]].copy() if "is_clean_label" in wt.columns else wt.copy()
+    clean = clean.sort_values("weeks_2024", ascending=False, na_position="last")
+
+    # The standout outlier — surfaced as a callout, not buried in the grid.
+    lim = clean[clean["matter_or_venue"].astype(str).str.fullmatch("Limerick")]
+    if not lim.empty:
+        r = lim.iloc[0]
+        st.html(
+            f'<div class="jd-outlier"><strong>Limerick</strong> stands out among Circuit Court venues at '
+            f'<strong>{_esc(r["wait_2024"])}</strong>, against about four weeks elsewhere — though down from '
+            f'{_esc(r["wait_2023"])} the year before.</div>'
+        )
+    cards = "".join(_wait_card(r._asdict()) for r in clean.itertuples())
+    st.html(f'<div class="jd-catwrap">{cards}</div>')
+
+
+def _render_courthouses(ch: pd.DataFrame) -> None:
+    st.html('<h2 class="jd-section-head">Where the courts sit</h2>')
+    st.caption(f"{len(ch)} active courthouses across {ch['county'].nunique()} counties (Courts Service register).")
+    st.map(ch[["latitude", "longitude"]], color="#2c5f6b")
+
+
+def _render_courts() -> None:
+    clr = fetch_courts_clearance()
+    wt = fetch_courts_waiting_times()
+    ch = fetch_courthouses()
+
+    if (clr is None or clr.empty) and (wt is None or wt.empty) and (ch is None or ch.empty):
+        empty_state(
+            "Court statistics aren't loaded yet",
+            "Run extractors/judiciary_bench_extract.py to populate the clearance, waiting-time "
+            "and courthouse views.",
+        )
+        return
+
     st.caption("How the courts are performing as a system — never attributed to a named judge.")
-    todo_callout(
-        "TODO_PIPELINE_VIEW_REQUIRED: v_courts_clearance — Court clearance rates (2017–2024), "
-        "waiting times by venue, and the 94-courthouse map are coming in the next update."
+    if clr is not None and not clr.empty:
+        _render_clearance(clr)
+    if wt is not None and not wt.empty:
+        _render_waiting(wt)
+    if ch is not None and not ch.empty:
+        _render_courthouses(ch)
+
+    st.html(
+        '<div class="jd-foot"><strong>Sources:</strong> '
+        '<a href="https://data.courts.ie" target="_blank" rel="noopener">Courts Service annual statistics ↗</a> '
+        "(clearance, CC-BY 4.0) · "
+        '<a href="https://www.courts.ie/annual-report" target="_blank" rel="noopener">Courts Service Annual Report 2024 ↗</a> '
+        "(waiting times) · "
+        '<a href="https://data.courts.ie/files/court-offices/court-offices.csv" target="_blank" rel="noopener">'
+        "court-office register ↗</a> (courthouses, CC-BY). System-level throughput only — no judge is named, "
+        "ranked, or assessed. Clearance above 100% reflects backlog reduction, not error.</div>"
     )
 
 
@@ -704,6 +869,6 @@ def judiciary_page() -> None:
     with tab_appt:
         _render_appointments(appts, noms)
     with tab_courts:
-        _render_courts_placeholder()
+        _render_courts()
     with tab_diary:
         _render_legal_diary()
