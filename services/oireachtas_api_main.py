@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 from services.dbsect_harvest import harvest_dbsect_index
@@ -17,16 +18,26 @@ from services.votes import fetch_votes
 
 logger = logging.getLogger(__name__)
 
+# DAIL-160 guard: how old a cached bronze JSON may be before a run refetches it.
+# Without this, every scenario short-circuits on a bare path.exists() and a daily
+# cron silently freezes members/questions/votes/legislation/debates at first-run
+# values. 18h means a once-a-day cron always refetches, while two interactive runs
+# in the same session reuse the cache. Override with DAIL_DATA_MAX_AGE_HOURS
+# (e.g. 0 to force a full refetch; a large value to restore the old skip-if-exists
+# behaviour for offline dev).
+DATA_MAX_AGE_HOURS: float = float(os.environ.get("DAIL_DATA_MAX_AGE_HOURS", "18"))
+
 
 def run_member_scenario(
     scenario_name: str,
     urls: list[str],
     overwrite: bool = False,
     max_workers: int = 5,
+    max_age_hours: float | None = None,
 ) -> None:
     output_path = result_file_path(scenario_name)
 
-    if output_exists(output_path, overwrite=overwrite):
+    if output_exists(output_path, overwrite=overwrite, max_age_hours=max_age_hours):
         return
 
     logger.info("=" * 70)
@@ -47,6 +58,7 @@ def run_member_scenario_paginated(
     url_builder,
     overwrite: bool = False,
     max_workers: int = 5,
+    max_age_hours: float | None = None,
 ) -> None:
     """Paginated alternative to run_member_scenario.
 
@@ -57,7 +69,7 @@ def run_member_scenario_paginated(
     """
     output_path = result_file_path(scenario_name)
 
-    if output_exists(output_path, overwrite=overwrite):
+    if output_exists(output_path, overwrite=overwrite, max_age_hours=max_age_hours):
         return
 
     logger.info("=" * 70)
@@ -114,10 +126,10 @@ def _load_debates_worklist() -> list[tuple[str, str]]:
     return [(row["date"], row["chamber"]) for row in pairs_df.iter_rows(named=True)]
 
 
-def run_votes(overwrite: bool = False) -> None:
+def run_votes(overwrite: bool = False, max_age_hours: float | None = None) -> None:
     output_path = result_file_path("votes")
 
-    if output_exists(output_path, overwrite=overwrite):
+    if output_exists(output_path, overwrite=overwrite, max_age_hours=max_age_hours):
         return
 
     logger.info("=" * 70)
@@ -130,7 +142,7 @@ def run_votes(overwrite: bool = False) -> None:
     logger.info(f"Finished votes | batches={len(votes)} | bytes={vote_bytes:,}")
 
 
-def run_legislation_unscoped(overwrite: bool = False) -> None:
+def run_legislation_unscoped(overwrite: bool = False, max_age_hours: float | None = None) -> None:
     """Fetch every Bill (Government + Private Member) — unscoped pagination.
 
     Consumed by legislation.py, which reads legislation_results_unscoped.json
@@ -139,7 +151,7 @@ def run_legislation_unscoped(overwrite: bool = False) -> None:
     """
     output_path = result_file_path("legislation_unscoped")
 
-    if output_exists(output_path, overwrite=overwrite):
+    if output_exists(output_path, overwrite=overwrite, max_age_hours=max_age_hours):
         return
 
     logger.info("=" * 70)

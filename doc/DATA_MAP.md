@@ -54,7 +54,7 @@ but invisible). Prefer moving things rightward (③→②→①) over starting n
 |---|---|---|
 | Lobbying | ① | `lobbying` → `rankings-lobbying` |
 | Corporate notices + CRO xref | ① | → `rankings-corporate` |
-| **eTenders procurement** (+lobbying overlap) | **② gold, NO page** | backend + 5 views + `procurement_data.py` DONE; page deferred |
+| **eTenders procurement** (+lobbying overlap) | **① LIVE** | `procurement` chain → gold + 5 views + `procurement_data.py` + page `rankings-procurement` (Suppliers/Authorities/Categories/Lobbying-overlap tabs); firewall-clean, tested |
 | **TED EU awards** | ② | `ted` chain, no page |
 | **Amalgamated AFS** (national LA finance) | **② gold, NO page** | `afs` chain; no finance page exists |
 | CBI authorised firms | ② | `cbi` chain, no page |
@@ -151,7 +151,7 @@ Producers: `afs_amalgamated_extract.py`, `la_afs_extract.py`, `la_afs_capital_ex
 ### §B. Procurement AWARDS — 2 facts (AWARD grain — ceilings, NOT spend)
 | Fact | File | Layer | Rows | Status |
 |---|---|---|---|---|
-| eTenders awards | `data/gold/parquet/procurement_awards.parquet` | gold | 59,439 | ② backend done, page deferred |
+| eTenders awards | `data/gold/parquet/procurement_awards.parquet` | gold | 59,439 | ① LIVE — page `rankings-procurement` |
 | ↳ supplier↔CRO match | `data/gold/parquet/procurement_supplier_cro_match.parquet` | gold | — | ② |
 | ↳ lobbying overlap | `data/gold/parquet/procurement_lobbying_overlap.parquet` | gold | — | ② |
 | TED EU awards | `data/silver/parquet/ted_ie_awards.parquet` | silver | 13,126 | ② not wired to a page |
@@ -193,9 +193,10 @@ before promotion. HSE/Tusla emits a DQ **JSON not parquet** + a third vocab (coo
 
 Effort is better spent surfacing the ②/③ backlog than starting new ⓪ ingests.
 
-1. **Procurement page** (②→①) — *highest readiness*. Backend, views, `procurement_data.py`
-   already exist; only the Streamlit page (`PROCUREMENT_BUILD_PLAN.md` Phase 3) is deferred.
-2. **Council Finance / "Your Area"** (③→①) — *highest novelty*. Per-LA AFS revenue+capital
+1. ~~**Procurement page** (②→①)~~ ✅ **DONE 2026-06-06** — page `rankings-procurement` is LIVE
+   (Suppliers/Authorities/Categories/Lobbying-overlap tabs), firewall-clean, view+core tests
+   green. The "Phase 3 deferred" note was stale — it had already shipped.
+2. **Council Finance / "Your Area"** (③→①) — *highest novelty*, now the top open item. Per-LA AFS revenue+capital
    (21 councils, validated). Needs: gitignore-negation (Cloud), the **LA→constituency
    crosswalk**, ideally OCR the last 4 scanned councils. Hook = the housing insight above.
 3. **public_payments_fact convergence** (③→silver-ready) — prerequisite for any payment-grain
