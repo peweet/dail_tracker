@@ -97,6 +97,13 @@ CHAINS: list[tuple[str, str]] = [
     # reachability when DAIL_CHECK_LINKS=1). Monitoring only — always exits 0 (a
     # separate --strict run gates CI). Pure read — never mutates pipeline data.
     ("source_health", "tools/build_source_health.py"),
+    # output_regressions runs last: the COMPLETENESS guard (vs freshness's recency).
+    # Compares the just-built gold against data/_meta/output_baseline.json and writes
+    # output_regressions.json flagging silent row-thinning / emptied tables / removed
+    # columns — i.e. a PDF/layout/schema drift that parsed clean but shipped partial
+    # data. Monitoring only here (always exits 0); CI/scheduled runs use --strict to
+    # gate, and --update-baseline accepts an intended change. Pure read.
+    ("output_regressions", "tools/check_output_regressions.py"),
 ]
 
 _CHAIN_BLURBS: dict[str, str] = {
@@ -118,6 +125,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "cso": "CSO PxStat housing/HAP + govt-finance (GFA01/GFQ01/NA012) -> gold denominators",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
     "source_health": "per-source health -> data/_meta/source_health.json (manual staleness; links opt-in)",
+    "output_regressions": "completeness guard: gold row/column drop vs baseline -> data/_meta/output_regressions.json",
 }
 
 _SUMMARY_SKIP_PREFIXES = ("warning:", "warn:", "[warn", "deprecation")
