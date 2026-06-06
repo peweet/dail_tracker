@@ -1,15 +1,15 @@
-"""
-Legislation data access layer.
+"""Legislation data access — thin Streamlit wrapper over dail_tracker_core.
 
-Owns:
-- DuckDB connection bootstrapped from sql_views/legislation_*.sql
-- All retrieval SQL for the legislation page (SELECT / WHERE / ORDER BY / LIMIT only)
+Retrieval SQL + QueryResult state-handling live in
+``dail_tracker_core.queries.legislation``; this file owns only the Streamlit
+caching and the small list/dict shaping + the two ``v_bill_amendment_intensity``
+column projections the page contract expects (the core fns return a richer
+superset shared with the orphan most-contested helpers).
 
-Forbidden here (same rules as Streamlit page files):
-- JOIN, GROUP BY, HAVING, WINDOW in ad-hoc retrieval SQL
-- CREATE VIEW / CREATE TABLE
-- pandas groupby, merge, pivot
-- Business metric definitions
+Backs both the legislation page and the statutory-instruments page.
+
+Forbidden here (unchanged): read_parquet, parquet_scan, CREATE VIEW,
+pandas groupby/merge/pivot business logic, multi-dim GROUP BY.
 """
 
 from __future__ import annotations
@@ -17,22 +17,23 @@ from __future__ import annotations
 import duckdb
 import pandas as pd
 import streamlit as st
-from data_access._sql_registry import register_views
+
+from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.queries import legislation as _q
+
+# Column contracts the page consumed from the old narrower SELECTs. The core
+# fns return the full v_bill_amendment_intensity column set; we project to these
+# so the page frames are byte-identical to before.
+_MOST_CONTESTED_COLS = ["bill_id", "bill_title", "bill_status", "amendment_lists", "committee_lists", "report_lists"]
+_INTENSITY_COLS = [
+    "bill_id", "amendment_lists", "distinct_stages", "committee_lists", "report_lists",
+    "cream_lists", "dail_lists", "seanad_lists", "first_amendment_date", "last_amendment_date",
+]
 
 
 @st.cache_resource
 def get_legislation_conn() -> duckdb.DuckDBPyConnection:
-    conn = duckdb.connect()
-    register_views(conn, ["legislation_*.sql"], swallow_errors=True)
-    return conn
-
-
-def _safe(sql: str, params: list | None = None) -> pd.DataFrame:
-    try:
-        conn = get_legislation_conn()
-        return conn.execute(sql, params or []).df()
-    except Exception:
-        return pd.DataFrame()
+    return connect_with_views(["legislation_*.sql"], swallow_errors=True)
 
 
 # ── Index ──────────────────────────────────────────────────────────────────────
@@ -45,37 +46,12 @@ def fetch_legislation_index_filtered(
     status: str | None = None,
     title_search: str | None = None,
 ) -> pd.DataFrame:
-    clauses: list[str] = []
-    params: list = []
-
-    if start_date and end_date:
-        clauses.append("introduced_date BETWEEN ? AND ?")
-        params.extend([start_date, end_date])
-    if status:
-        clauses.append("bill_status = ?")
-        params.append(status)
-    if title_search:
-        clauses.append("bill_title ILIKE ?")
-        params.append(f"%{title_search}%")
-
-    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
-    return _safe(
-        f"SELECT bill_id, bill_title, bill_status, bill_type, sponsor,"
-        f" introduced_date, current_stage, stage_number, oireachtas_url, bill_no, bill_year,"
-        f" bill_phase"
-        f" FROM v_legislation_index{where}"
-        f" ORDER BY introduced_date DESC NULLS LAST",
-        params or None,
-    )
+    return _q.index_filtered(get_legislation_conn(), start_date, end_date, status, title_search).data
 
 
 @st.cache_data(ttl=300)
 def fetch_all_statuses() -> list[str]:
-    df = _safe(
-        "SELECT DISTINCT bill_status FROM v_legislation_index"
-        " WHERE bill_status IS NOT NULL AND bill_status != '—'"
-        " ORDER BY bill_status"
-    )
+    df = _q.distinct_statuses(get_legislation_conn()).data
     return df["bill_status"].tolist() if not df.empty else []
 
 
@@ -84,38 +60,22 @@ def fetch_all_statuses() -> list[str]:
 
 @st.cache_data(ttl=300)
 def fetch_bill_detail(bill_id: str) -> pd.DataFrame:
-    return _safe(
-        "SELECT * FROM v_legislation_detail WHERE bill_id = ? LIMIT 1",
-        [bill_id],
-    )
+    return _q.bill_detail(get_legislation_conn(), bill_id).data
 
 
 # ── Amendment intensity (contestation proxy) ────────────────────────────────────
-# amendment_lists counts published amendment-LIST documents per stage (numbered +
-# cream lists), not individual amendments — a faithful "how reworked was this bill"
-# signal. Aggregation lives in v_bill_amendment_intensity; these are plain SELECTs.
 
 
 @st.cache_data(ttl=300)
 def fetch_bill_amendment_intensity(bill_id: str) -> pd.DataFrame:
-    return _safe(
-        "SELECT bill_id, amendment_lists, distinct_stages, committee_lists,"
-        " report_lists, cream_lists, dail_lists, seanad_lists,"
-        " first_amendment_date, last_amendment_date"
-        " FROM v_bill_amendment_intensity WHERE bill_id = ? LIMIT 1",
-        [bill_id],
-    )
+    df = _q.amendment_intensity_for_bill(get_legislation_conn(), bill_id).data
+    return df[_INTENSITY_COLS] if not df.empty else df
 
 
 @st.cache_data(ttl=300)
 def fetch_most_contested_bills(limit: int = 15) -> pd.DataFrame:
-    return _safe(
-        "SELECT bill_id, bill_title, bill_status, amendment_lists,"
-        " committee_lists, report_lists"
-        " FROM v_bill_amendment_intensity"
-        " ORDER BY amendment_lists DESC, bill_id LIMIT ?",
-        [limit],
-    )
+    df = _q.most_contested_bills(get_legislation_conn(), limit).data
+    return df[_MOST_CONTESTED_COLS] if not df.empty else df
 
 
 # ── Timeline ───────────────────────────────────────────────────────────────────
@@ -123,12 +83,7 @@ def fetch_most_contested_bills(limit: int = 15) -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def fetch_bill_timeline(bill_id: str) -> pd.DataFrame:
-    return _safe(
-        "SELECT stage_name, stage_date, stage_number, is_current_stage, chamber"
-        " FROM v_legislation_timeline WHERE bill_id = ?"
-        " ORDER BY stage_number ASC NULLS LAST, stage_date ASC NULLS LAST",
-        [bill_id],
-    )
+    return _q.bill_timeline(get_legislation_conn(), bill_id).data
 
 
 # ── Sources ────────────────────────────────────────────────────────────────────
@@ -136,10 +91,7 @@ def fetch_bill_timeline(bill_id: str) -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def fetch_bill_sources(bill_id: str) -> pd.DataFrame:
-    return _safe(
-        "SELECT * FROM v_legislation_sources WHERE bill_id = ? LIMIT 1",
-        [bill_id],
-    )
+    return _q.bill_sources(get_legislation_conn(), bill_id).data
 
 
 # ── PDF documents ──────────────────────────────────────────────────────────────
@@ -147,18 +99,8 @@ def fetch_bill_sources(bill_id: str) -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def fetch_bill_pdfs(bill_id: str) -> pd.DataFrame:
-    """All Oireachtas-issued PDFs for a bill: versions, related docs, amendments.
-
-    One row per PDF, ordered by category (versions → related_docs → amendments)
-    then by pdf_date descending. Returns columns:
-        pdf_category, pdf_subtype, pdf_label, pdf_url, pdf_date, pdf_lang
-    """
-    return _safe(
-        "SELECT pdf_category, pdf_subtype, pdf_label, pdf_url, pdf_date, pdf_lang"
-        " FROM v_legislation_pdfs WHERE bill_id = ?"
-        " ORDER BY category_order, pdf_date DESC NULLS LAST, pdf_label",
-        [bill_id],
-    )
+    """All Oireachtas-issued PDFs for a bill (versions → related → amendments)."""
+    return _q.bill_pdfs(get_legislation_conn(), bill_id).data
 
 
 # ── Debates ────────────────────────────────────────────────────────────────────
@@ -166,12 +108,7 @@ def fetch_bill_pdfs(bill_id: str) -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def fetch_bill_debates(bill_id: str) -> pd.DataFrame:
-    return _safe(
-        "SELECT debate_date, debate_title, debate_url, chamber"
-        " FROM v_legislation_debates WHERE bill_id = ?"
-        " ORDER BY debate_date ASC NULLS LAST",
-        [bill_id],
-    )
+    return _q.bill_debates(get_legislation_conn(), bill_id).data
 
 
 # ── Pre-2014 primary Acts (curated table) ─────────────────────────────────────
@@ -179,15 +116,10 @@ def fetch_bill_debates(bill_id: str) -> pd.DataFrame:
 
 @st.cache_data(ttl=3600)
 def fetch_pre2014_act_detail(bill_id: str) -> dict:
-    """Return hero info for a synthetic 'act_<year>_<slug>' bill_id by
-    selecting from v_legislation_pre2014_acts. Returns {} on miss."""
+    """Hero info for a synthetic 'act_<year>_<slug>' bill_id. {} on miss/non-act."""
     if not (isinstance(bill_id, str) and bill_id.startswith("act_")):
         return {}
-    rows = _safe(
-        "SELECT act_short_title, act_year, policy_domain"
-        " FROM v_legislation_pre2014_acts WHERE canonical_bill_id = ? LIMIT 1",
-        [bill_id],
-    )
+    rows = _q.pre2014_act(get_legislation_conn(), bill_id).data
     if rows.empty:
         return {}
     r = rows.iloc[0]
@@ -203,27 +135,14 @@ def fetch_pre2014_act_detail(bill_id: str) -> dict:
 
 @st.cache_data(ttl=300)
 def fetch_si_composition(bill_id: str) -> pd.DataFrame:
-    """Operation-mix summary for the 'composition sentence' above the SI list.
-
-    Reads from v_bill_si_operation_mix — the GROUP BY now lives in the view.
-    """
-    return _safe(
-        "SELECT si_operation, n FROM v_bill_si_operation_mix WHERE bill_id = ? ORDER BY n DESC",
-        [bill_id],
-    )
+    """Operation-mix summary for the composition sentence (GROUP BY lives in view)."""
+    return _q.si_composition(get_legislation_conn(), bill_id).data
 
 
 @st.cache_data(ttl=300)
 def fetch_si_freshness(bill_id: str) -> dict:
     """Total + first/last SI date + EU share for the freshness line."""
-    df = _safe(
-        "SELECT MIN(si_signed_date) AS first_si,"
-        " MAX(si_signed_date) AS last_si,"
-        " COUNT(*) AS total,"
-        " SUM(CASE WHEN si_is_eu THEN 1 ELSE 0 END) AS eu_count"
-        " FROM v_bill_statutory_instruments WHERE bill_id = ?",
-        [bill_id],
-    )
+    df = _q.si_freshness(get_legislation_conn(), bill_id).data
     if df.empty or int(df.iloc[0]["total"] or 0) == 0:
         return {}
     r = df.iloc[0]
@@ -237,10 +156,7 @@ def fetch_si_freshness(bill_id: str) -> dict:
 
 @st.cache_data(ttl=300)
 def fetch_si_years_for_bill(bill_id: str) -> list[int]:
-    df = _safe(
-        "SELECT DISTINCT si_year FROM v_bill_statutory_instruments WHERE bill_id = ? ORDER BY si_year DESC",
-        [bill_id],
-    )
+    df = _q.si_years_for_bill(get_legislation_conn(), bill_id).data
     return [int(y) for y in df["si_year"].dropna().tolist()] if not df.empty else []
 
 
@@ -251,64 +167,25 @@ def fetch_si_by_bill(
     operation: str | None = None,
     eu_only: bool = False,
 ) -> pd.DataFrame:
-    clauses = ["bill_id = ?"]
-    params: list = [bill_id]
-    if year is not None:
-        clauses.append("si_year = ?")
-        params.append(year)
-    if operation:
-        clauses.append("si_operation = ?")
-        params.append(operation)
-    if eu_only:
-        clauses.append("si_is_eu = TRUE")
-    return _safe(
-        "SELECT si_year, si_number, si_id, si_title, si_signed_date,"
-        " si_minister, si_minister_named, si_policy_domain, si_operation,"
-        " si_form, si_is_eu, eisb_url"
-        " FROM v_bill_statutory_instruments"
-        f" WHERE {' AND '.join(clauses)}"
-        " ORDER BY si_signed_date DESC NULLS LAST",
-        params,
-    )
+    return _q.si_by_bill(get_legislation_conn(), bill_id, year, operation, eu_only).data
 
 
 # ── Statutory Instruments — first-class entity (v_statutory_instruments) ──────
-#
-# Backs the standalone Statutory Instruments page. Distinct from the
-# fetch_si_*_bill functions above: those are bill-gated (SIs under one Act);
-# this browses the full SI universe (~5,900 SIs, 2016+), bill link optional.
-# The page filters / facets / KPIs in pandas off this single frame.
 
 
 @st.cache_data(ttl=300)
 def fetch_si_entity_index() -> pd.DataFrame:
-    """Every Statutory Instrument as a row — the full v_statutory_instruments
-    view. One registered analytical surface; the page does its filtering and
-    facet derivation in pandas off this frame."""
-    return _safe("SELECT * FROM v_statutory_instruments")
+    """Every Statutory Instrument as a row — the page facets/filters in pandas."""
+    return _q.si_entity_index(get_legislation_conn()).data
 
 
 def fetch_si_entity_index_classified() -> pd.DataFrame:
-    """v_statutory_instruments enriched with the LRC subject classification
-    (lrc_primary_subject / lrc_primary_leaf / lrc_enrichment_status / lrc_caveat).
-    Same one-row-per-SI grain as fetch_si_entity_index — the LEFT JOIN lives in
-    v_statutory_instruments_classified. Returns an empty frame if the LRC gold
-    table is absent (view fails to register), so the page can fall back to the
-    unclassified index."""
-    return _safe("SELECT * FROM v_statutory_instruments_classified")
+    """v_statutory_instruments + LRC subject classification (falls back to empty
+    when the LRC gold table is absent). Uncached, matching prior behaviour."""
+    return _q.si_entity_index_classified(get_legislation_conn()).data
 
 
 @st.cache_data(ttl=300)
 def fetch_si_amendments_made(si_year: int, si_number: int) -> pd.DataFrame:
-    """The instruments THIS SI amends/revokes — the forward direction of the
-    SI→SI amendment graph (v_si_amendments). The reverse direction ("amended /
-    revoked BY …") is already surfaced by the legal-status block from
-    affecting_sis, so the detail panel renders only this side to avoid
-    duplication. Plain SELECT off the view; the inversion/JOIN lives in
-    v_si_amendments, keeping this within the retrieval-only contract."""
-    return _safe(
-        "SELECT effect, affected_number, affected_year, affected_title, affected_eli_url, provision_note "
-        "FROM v_si_amendments WHERE amender_number = ? AND amender_year = ? "
-        "ORDER BY affected_year DESC, affected_number DESC",
-        [si_number, si_year],
-    )
+    """The instruments THIS SI amends/revokes (forward direction of the SI→SI graph)."""
+    return _q.si_amendments_made(get_legislation_conn(), si_year, si_number).data

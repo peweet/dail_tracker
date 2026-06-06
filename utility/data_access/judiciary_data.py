@@ -66,3 +66,15 @@ def fetch_profile() -> pd.DataFrame:
 def fetch_nominations() -> pd.DataFrame:
     """gov.ie nomination announcements (vacancy-lifecycle context)."""
     return _q.nominations(get_judiciary_conn()).data
+
+
+@st.cache_data(ttl=600)
+def fetch_authority_summary() -> pd.DataFrame:
+    """Aggregate: appointment-notice count by appointing authority."""
+    return _q.authority_summary(get_judiciary_conn()).data
+
+
+@st.cache_data(ttl=600)
+def fetch_elevation_ladder() -> pd.DataFrame:
+    """Aggregate: real promotions per court transition."""
+    return _q.elevation_ladder(get_judiciary_conn()).data

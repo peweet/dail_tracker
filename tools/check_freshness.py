@@ -140,12 +140,18 @@ DATASETS: dict[str, dict] = {
     },
     "procurement": {
         "measure": "record_date",
-        # eTenders/OGP awards (full-file CSV, refreshed ~quarterly). The notice date
-        # is the raw source string in DD/MM/YYYY, so declare its format.
+        # eTenders/OGP awards (full-file CSV). The notice date is the raw source string
+        # in DD/MM/YYYY, so declare its format. We DISPLAY the latest notice date but gate
+        # staleness on FETCH age (the gold file's mtime = when we last re-pulled), because
+        # the OGP open-data export publishes with an inherent ~6-month lag: even a brand-new
+        # download's newest notice is months old, so a record-date threshold would false-flag
+        # a perfectly fresh pull. Verified 2026-06-06: a forced re-download still maxes at
+        # 2025-12-24. Fetch age is the honest "did we stop pulling?" signal.
         "source": GOLD_PARQUET_DIR / "procurement_awards.parquet",
         "column": "Notice Published Date/Contract Created Date",
         "date_format": "%d/%m/%Y",
-        "record_after_days": 120,  # ~quarterly source; >4 months means the pull stalled
+        "fetch_file": GOLD_PARQUET_DIR / "procurement_awards.parquet",
+        "fetch_after_days": 120,  # re-pull the OGP CSV at least quarterly
     },
 }
 

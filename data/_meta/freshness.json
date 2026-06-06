@@ -1,10 +1,8 @@
 {
-  "generated_at": "2026-06-06T07:41:09Z",
+  "generated_at": "2026-06-06T07:50:33Z",
   "as_of_utc_date": "2026-06-06",
   "note": "Age of the data already held — a canary for 'did the pipeline stop running'. NOT proof that no newer upstream data exists; only the source pollers can confirm that. Generated at pipeline-end (sees silver + gold) and read-only thereafter (Streamlit badge + scheduled report).",
-  "stale_datasets": [
-    "procurement"
-  ],
+  "stale_datasets": [],
   "datasets": {
     "members": {
       "measure": "fetch_mtime",
@@ -18,7 +16,7 @@
       "measure": "record_date",
       "source": "data/gold/parquet/current_dail_vote_history.parquet",
       "status": "ok",
-      "latest_record_date": "2026-04-29",
+      "latest_record_date": "2026-05-27",
       "fetched_at": "2026-06-06T07:40:19Z",
       "fetch_age_days": 0,
       "stale_after_days": 14
@@ -72,9 +70,10 @@
     "procurement": {
       "measure": "record_date",
       "source": "data/gold/parquet/procurement_awards.parquet",
-      "status": "stale",
+      "status": "ok",
       "latest_record_date": "2025-12-24",
-      "age_days": 164,
+      "fetched_at": "2026-06-06T07:49:37Z",
+      "fetch_age_days": 0,
       "stale_after_days": 120
     }
   }

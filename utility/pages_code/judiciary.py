@@ -27,6 +27,7 @@ from __future__ import annotations
 import datetime
 import html
 import sys
+import urllib.parse
 from pathlib import Path
 
 import pandas as pd
@@ -36,6 +37,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.judiciary_data import (
     fetch_appointments,
+    fetch_authority_summary,
+    fetch_elevation_ladder,
     fetch_legal_diary_cases,
     fetch_legal_diary_counts,
     fetch_legal_diary_schedule,
@@ -253,7 +256,7 @@ def _render_the_bench(roster: pd.DataFrame) -> None:
     st.caption(f"{len(sub)} judges on the {chosen} · {n_spine} with an appointment record since 2016.")
     cards = [
         clickable_card_link(
-            href=f"?judge={_esc(r.judge_key)}",
+            href=f"?judge={urllib.parse.quote(str(r.judge_key))}",
             inner_html=_bench_card_html(r._asdict()),
             aria_label=f"View the appointment history of {r.judge_name}",
         )
@@ -283,7 +286,7 @@ def _render_profile(judge_key: str) -> None:
 
     rank_note = " · ex-officio member of more senior courts" if row.get("is_ex_officio_or_multi") else ""
     st.html(
-        f'<div class="jud-prof-head"><div class="jud-prof-name">{_esc(row["judge_name"])}</div>'
+        f'<div class="jud-prof-head"><h1 class="jud-prof-name">{_esc(row["judge_name"])}</h1>'
         f'<div class="jud-prof-sub">{_esc(row.get("current_court"))}{_esc(rank_note)}</div></div>'
     )
 
@@ -345,7 +348,7 @@ def _render_profile(judge_key: str) -> None:
 
     if row.get("requires_manual_review"):
         st.caption(
-            "⚠ One appointment record for this judge is a low-confidence match and is flagged for manual review."
+            "Note: one appointment record for this judge is a low-confidence match and is flagged for manual review."
         )
 
     # provenance
@@ -378,40 +381,39 @@ def _render_appointments(appts: pd.DataFrame, noms: pd.DataFrame) -> None:
         return
     st.caption(
         "Every judicial appointment recorded since 2016, who made it, and how judges "
-        "have moved up through the courts. The government appoints the unelected bench; "
+        "have moved up through the courts. The Government appoints the unelected bench; "
         "this is the record of that power."
     )
 
-    # authority split — presentation count over the classified column.
-    # logic_firewall: display_only
-    auth_counts = appts["appointing_authority"].value_counts()
-    cells = []
-    for auth in ["President", "Government", "Minister", "Unknown"]:
-        if auth in auth_counts.index:
-            label = _AUTHORITY.get(auth, (auth, "other"))
-            cls = label[1]
-            cells.append(
-                f'<div class="jud-vac" style="text-align:center"><div class="jud-rung-n">{int(auth_counts[auth])}</div>'
-                f'<span class="jud-auth {cls}">{_esc(label[0])}</span></div>'
-            )
-    st.html('<h2 class="jd-section-head">Who appointed the bench</h2>')
-    st.caption(
-        "The President formally appoints all judges on the advice of the Government; the "
-        "figures below reflect how each notice recorded the appointing authority."
-    )
-    st.html(f'<div class="jud-grid">{"".join(cells)}</div>')
+    # Authority split + elevation ladder are PIPELINE-OWNED rollups
+    # (v_judiciary_authority_summary / v_judiciary_elevation_ladder); the page only
+    # renders the pre-aggregated frames — no counting in-app.
+    authority = fetch_authority_summary()
+    ladder = fetch_elevation_ladder()
 
-    # elevation ladder — count of real promotions per court transition.
-    # logic_firewall: display_only
-    elev = appts[appts["is_elevation"] & ~appts["requires_manual_review"]]
-    if not elev.empty:
-        ladder = elev.groupby(["appointed_court", "elevated_to"]).size().sort_values(ascending=False)
+    if authority is not None and not authority.empty:
+        st.html('<h2 class="jd-section-head">How each appointment was recorded</h2>')
+        st.caption(
+            "Under the Constitution the Government decides judicial appointments and the "
+            "President formally makes them. These are counts of how each notice recorded the "
+            "authority, not a measure of who exercised the choice."
+        )
+        cells = []
+        for r in authority.itertuples():
+            label, cls = _AUTHORITY.get(r.appointing_authority, (r.appointing_authority or "", "other"))
+            cells.append(
+                f'<div class="jud-stat"><div class="jud-rung-n">{int(r.n)}</div>'
+                f'<span class="jud-auth {cls}">{_esc(label)}</span></div>'
+            )
+        st.html(f'<div class="jud-grid">{"".join(cells)}</div>')
+
+    if ladder is not None and not ladder.empty:
         st.html('<h2 class="jd-section-head">The elevation ladder</h2>')
         st.caption("Judges promoted from one court to a more senior one (a fresh appointment notice each time).")
         rungs = [
-            f'<div class="jud-rung"><span class="jud-rung-n">{int(n)}</span>'
-            f'<span class="jud-rung-path">{_esc(a)} → {_esc(b)}</span></div>'
-            for (a, b), n in ladder.items()
+            f'<div class="jud-rung"><span class="jud-rung-n">{int(r.n)}</span>'
+            f'<span class="jud-rung-path">{_esc(r.appointed_court)} → {_esc(r.elevated_to)}</span></div>'
+            for r in ladder.itertuples()
         ]
         st.html(f'<div class="jud-ladder">{"".join(rungs)}</div>')
 
@@ -590,6 +592,14 @@ def _render_legal_diary() -> None:
         "<strong>excluded</strong>. People are shown by <strong>initials only</strong>; organisations "
         "and the State are named. Every entry links to the official diary.</div>"
     )
+    glossary_strip(
+        [
+            ("DPP", "Director of Public Prosecutions — the State's prosecutor in criminal cases"),
+            ("For mention", "a short listing to manage a case, not a full hearing"),
+            ("Ex parte", "an application made by one side only"),
+            ("Judicial review", "a challenge to a decision of the State or a public body"),
+        ]
+    )
 
     days = sorted(schedule["diary_date"].dropna().unique(), reverse=True)
     labels = {d: _fmt_day(d) for d in days}
@@ -661,6 +671,7 @@ def judiciary_page() -> None:
     roster = fetch_roster()
     appts = fetch_appointments()
     noms = fetch_nominations()
+    ladder = fetch_elevation_ladder()
 
     badges = []
     if roster is not None and not roster.empty:
@@ -668,7 +679,8 @@ def judiciary_page() -> None:
         badges.append(f"{roster['court'].nunique()} courts")
     if appts is not None and not appts.empty:
         badges.append(f"{len(appts)} appointments since 2016")
-        badges.append(f"{int(appts['is_elevation'].sum())} elevations")
+    if ladder is not None and not ladder.empty:
+        badges.append(f"{int(ladder['n'].sum())} elevations")
     hero_banner(
         kicker="COURTS & JUDICIARY",
         title="The bench and the courts",
@@ -678,10 +690,9 @@ def judiciary_page() -> None:
     )
     glossary_strip(
         [
-            ("TD", "Teachta Dála (member of the Dáil)"),
             ("Elevation", "promotion from one court to a more senior one"),
             ("Ex-officio", "a role held automatically by virtue of another office"),
-            ("DPP", "Director of Public Prosecutions — the State's prosecutor"),
+            ("Iris Oifigiúil", "the State gazette where appointments are formally notified"),
         ]
     )
 

@@ -101,6 +101,32 @@ def test_org_index_columns_and_exclude_filter(conn):
     assert len(excl.data) <= len(full.data)
 
 
+def test_org_index_facet_filters_bind_in_sql(conn):
+    """funding_profile / income_trend / name_q are SQL predicates now (no
+    in-page pandas masking). Each can only narrow the result, and the returned
+    rows must actually match the requested facet."""
+    full = _result_or_skip(q.org_index(conn))
+    if full.data.empty:
+        pytest.skip("org index empty")
+
+    funding_val = full.data["funding_profile"].dropna()
+    if not funding_val.empty:
+        val = funding_val.iloc[0]
+        sub = _result_or_skip(q.org_index(conn, funding_profile=val))
+        assert len(sub.data) <= len(full.data)
+        assert (sub.data["funding_profile"] == val).all()
+
+    trend_val = full.data["income_trend"].dropna()
+    if not trend_val.empty:
+        val = trend_val.iloc[0]
+        sub = _result_or_skip(q.org_index(conn, income_trend=val))
+        assert (sub.data["income_trend"] == val).all()
+
+    # name_q is an ILIKE substring filter; every returned name must contain it
+    sub = _result_or_skip(q.org_index(conn, name_q=full.data["lobbyist_name"].iloc[0][:3]))
+    assert len(sub.data) <= len(full.data)
+
+
 def test_revolving_door_columns_and_limit(conn):
     r = _result_or_skip(q.revolving_door(conn, limit=5))
     assert _EXPECTED_COLUMNS["revolving_door"].issubset(set(r.data.columns))

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import streamlit as st
 from data_access.member_overview_data import get_member_overview_conn
+from dail_tracker_core.queries import member_overview as moq
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -33,20 +34,12 @@ def resolve_member_code(name: str) -> str | None:
     DB at most once.
 
     Exact-match only. Trailing/leading whitespace is stripped; case is
-    preserved (the registry stores canonical casing).
+    preserved (the registry stores canonical casing). The retrieval is the
+    same WHERE member_name=? LIMIT 1 lookup, now via the shared core query
+    ``moq.join_key_by_name`` (which also maps a None conn / DuckDB error to an
+    empty result → None here).
     """
     if not name:
         return None
-    conn = get_member_overview_conn()
-    if conn is None:
-        return None
-    try:
-        df = conn.execute(
-            "SELECT unique_member_code FROM v_member_registry WHERE member_name = ? LIMIT 1",
-            [name.strip()],
-        ).df()
-    except Exception:
-        return None
-    if df.empty:
-        return None
-    return str(df.iloc[0]["unique_member_code"])
+    df = moq.join_key_by_name(get_member_overview_conn(), name.strip()).data
+    return str(df.iloc[0]["unique_member_code"]) if not df.empty else None

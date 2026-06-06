@@ -48,10 +48,20 @@ def conn():
         "v_judiciary_appointments",
         "v_judiciary_profile",
         "v_judiciary_nominations",
+        "v_judiciary_authority_summary",
+        "v_judiciary_elevation_ladder",
     ],
 )
 def test_views_register_and_have_rows(conn, view):
     assert conn.execute(f"SELECT count(*) FROM {view}").fetchone()[0] > 0
+
+
+def test_elevation_ladder_excludes_flagged_collisions(conn):
+    # the rollup must never include an "elevation" to a more junior court.
+    rows = conn.execute("SELECT appointed_court, elevated_to FROM v_judiciary_elevation_ladder").fetchall()
+    for appointed, current in rows:
+        ar, cr = _COURT_RANK.get(appointed), _COURT_RANK.get(current)
+        assert ar is None or cr is None or cr < ar, f"junior elevation in ladder: {appointed}->{current}"
 
 
 def test_roster_grain_one_row_per_judge(conn):

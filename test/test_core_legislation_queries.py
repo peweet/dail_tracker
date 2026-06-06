@@ -93,3 +93,62 @@ def test_intensity_for_bill_matches_ranking(conn):
     assert len(one.data) == 1
     assert one.data["bill_id"].iloc[0] == bill_id
     assert int(one.data["amendment_lists"].iloc[0]) == int(top["amendment_lists"].iloc[0])
+
+
+# ── Wider legislation + SI surface (added with the legislation_data migration) ──
+
+_INDEX_COLS = {
+    "bill_id", "bill_title", "bill_status", "bill_type", "sponsor", "introduced_date",
+    "current_stage", "stage_number", "oireachtas_url", "bill_no", "bill_year", "bill_phase",
+}
+
+
+@pytest.fixture(scope="module")
+def full_conn():
+    """All legislation_* views (bill index/detail/timeline/SIs/entity universe)."""
+    c = connect_with_views(["legislation_*.sql"], swallow_errors=True)
+    yield c
+    c.close()
+
+
+def test_index_filtered_columns_and_status_filter(full_conn):
+    r = _result_or_skip(q.index_filtered(full_conn))
+    assert _INDEX_COLS.issubset(set(r.data.columns))
+    statuses = _result_or_skip(q.distinct_statuses(full_conn)).data
+    if statuses.empty:
+        pytest.skip("no bill statuses")
+    s = statuses["bill_status"].iloc[0]
+    sub = _result_or_skip(q.index_filtered(full_conn, status=s))
+    assert len(sub.data) <= len(r.data)
+    if not sub.data.empty:
+        assert (sub.data["bill_status"] == s).all()
+
+
+def test_bill_detail_one_row(full_conn):
+    idx = _result_or_skip(q.index_filtered(full_conn))
+    if idx.data.empty:
+        pytest.skip("no bills")
+    bid = str(idx.data["bill_id"].iloc[0])
+    r = _result_or_skip(q.bill_detail(full_conn, bid))
+    assert len(r.data) <= 1
+
+
+def test_si_entity_index_runs(full_conn):
+    r = _result_or_skip(q.si_entity_index(full_conn))
+    # full SI universe — many rows, one registered surface
+    assert "si_id" in r.data.columns or "si_title" in r.data.columns
+
+
+def test_si_by_bill_eu_filter_narrows(full_conn):
+    idx = _result_or_skip(q.index_filtered(full_conn))
+    bid_si = None
+    for b in idx.data["bill_id"].astype(str).tolist():
+        ys = q.si_years_for_bill(full_conn, b)
+        if ys.ok and not ys.is_empty:
+            bid_si = b
+            break
+    if bid_si is None:
+        pytest.skip("no bill with SIs")
+    full = _result_or_skip(q.si_by_bill(full_conn, bid_si))
+    eu = _result_or_skip(q.si_by_bill(full_conn, bid_si, eu_only=True))
+    assert len(eu.data) <= len(full.data)

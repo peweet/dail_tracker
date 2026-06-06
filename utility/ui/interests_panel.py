@@ -10,9 +10,12 @@ from __future__ import annotations
 import datetime
 from html import escape as _h
 
-import pandas as pd
 import streamlit as st
-from data_access.interests_data import fetch_td_interests
+from data_access.interests_data import (
+    fetch_td_interest_declarations,
+    fetch_td_interest_year_summary,
+    fetch_td_interests,
+)
 from ui.avatars import avatar_credit_html, avatar_data_url
 from ui.avatars import initials as _initials
 from ui.components import (
@@ -30,19 +33,6 @@ from ui.export_controls import export_button
 from ui.source_pdfs import interests_pdf_url
 
 from config import INTEREST_CATEGORY_LABELS, INTEREST_CATEGORY_ORDER
-
-
-def _real_descriptions(rows: pd.DataFrame) -> list[str]:
-    """Return non-empty, non-boilerplate interest_text entries, deduplicated."""
-    if rows.empty or "interest_text" not in rows.columns:
-        return []
-    seen: dict[str, None] = {}
-    for d in rows["interest_text"].tolist():
-        s = str(d).strip()
-        if s and s.lower() not in ("no interests declared", "", "nan"):
-            seen[s] = None
-    return list(seen)
-
 
 # ── Profile view ───────────────────────────────────────────────────────────────
 
@@ -73,6 +63,12 @@ def render_member_interests(
         )
         return
 
+    # The de-dup, year-on-year diff, and category/new/removed counting now live
+    # in the pipeline views (v_member_interests_declarations /
+    # v_member_interests_member_year_summary). This panel only renders.
+    decl_df = fetch_td_interest_declarations(house, td_name)
+    summary_df = fetch_td_interest_year_summary(house, td_name)
+
     info = td_df.iloc[0]
     party = str(info.get("party_name", "") or "")
     constit = str(info.get("constituency", "") or "")
@@ -90,18 +86,17 @@ def render_member_interests(
 
     year_df = td_df[td_df["declaration_year"] == selected_year].copy()
     prior_year = selected_year - 1
-    prior_df = td_df[td_df["declaration_year"] == prior_year].copy()
-    has_prior = not prior_df.empty
+
+    # Per-year summary row from the view (counts + diff totals + badge inputs).
+    _sy = summary_df[summary_df["declaration_year"] == selected_year] if not summary_df.empty else summary_df
+    syr = _sy.iloc[0] if not _sy.empty else None
+    has_prior = bool(syr["has_prior_year"]) if syr is not None else False
 
     # ── Year-responsive identity badges ───────────────────────────────────────
-    is_landlord_year = bool(year_df["landlord_flag"].any()) if not year_df.empty else False
-    is_property_year = bool(year_df["property_flag"].any()) if not year_df.empty else False
-    prop_count = (
-        len(_real_descriptions(year_df[year_df["interest_category"] == "Land (including property)"]))
-        if not year_df.empty
-        else 0
-    )
-    share_count = len(_real_descriptions(year_df[year_df["interest_category"] == "Shares"])) if not year_df.empty else 0
+    is_landlord_year = bool(syr["is_landlord"]) if syr is not None else False
+    is_property_year = bool(syr["is_property_owner"]) if syr is not None else False
+    prop_count = int(syr["property_count"]) if syr is not None else 0
+    share_count = int(syr["share_count"]) if syr is not None else 0
 
     parts: list[str] = []
     if is_landlord_year:
@@ -131,12 +126,11 @@ def render_member_interests(
 
     # ── Editorial callout ──────────────────────────────────────────────────────
     name_short = _h(td_name.split()[-1])
-    if year_df.empty:
+    if syr is None or int(syr["total_declarations"]) == 0 and int(syr["category_count"]) == 0:
         glance = f"No declarations recorded for {selected_year}."
     else:
-        descs_all = _real_descriptions(year_df)
-        n_entries = len(descs_all)
-        n_cats = len(year_df["interest_category"].dropna().unique())
+        n_entries = int(syr["total_declarations"])
+        n_cats = int(syr["category_count"])
         parts: list[str] = [
             f"In {selected_year}, {name_short} filed "
             f"<strong>{n_entries}</strong> declaration{'s' if n_entries != 1 else ''} "
@@ -144,10 +138,8 @@ def render_member_interests(
             f"categor{'ies' if n_cats != 1 else 'y'}."
         ]
         if has_prior:
-            prior_all = set(_real_descriptions(prior_df))
-            current_all = set(descs_all)
-            n_new = len(current_all - prior_all)
-            n_removed = len(prior_all - current_all)
+            n_new = int(syr["new_count"])
+            n_removed = int(syr["removed_count"])
             if n_new:
                 parts.append(f"<strong>{n_new} new</strong> since {prior_year}.")
             if n_removed:
@@ -190,25 +182,24 @@ def render_member_interests(
 
     evidence_heading(f"Declarations · {selected_year}")
 
-    # ── Category sections — non-empty only ────────────────────────────────────
-    # Pre-compute descriptions per category once to avoid repeated calls inside the loop.
-    all_cats = list(INTEREST_CATEGORY_ORDER)
-    if not year_df.empty:
-        for cat in year_df["interest_category"].dropna().unique():
-            if cat not in INTEREST_CATEGORY_ORDER:
-                all_cats.append(cat)
+    # ── Category sections — reshaped from the diff-tagged declarations view ────
+    # present_by_cat / removed_by_cat are a pure presentation regrouping of the
+    # already-deduped, already-diff-tagged rows the view returns. No dedup, set
+    # maths, or counting happens here any more.
+    year_decls = decl_df[decl_df["declaration_year"] == selected_year] if not decl_df.empty else decl_df
+    present_by_cat: dict[str, list[tuple[str, str]]] = {}
+    removed_by_cat: dict[str, list[str]] = {}
+    for _, r in year_decls.iterrows():
+        cat = r["interest_category"]
+        text = r["interest_text"]
+        if r["change_status"] == "removed":
+            removed_by_cat.setdefault(cat, []).append(text)
+        else:
+            present_by_cat.setdefault(cat, []).append((text, r["change_status"]))
 
-    year_descs_by_cat: dict[str, list[str]] = {
-        cat: _real_descriptions(year_df[year_df["interest_category"] == cat] if not year_df.empty else pd.DataFrame())
-        for cat in all_cats
-    }
-    prior_descs_by_cat: dict[str, list[str]] = {
-        cat: (_real_descriptions(prior_df[prior_df["interest_category"] == cat]) if has_prior else [])
-        for cat in all_cats
-    }
-
-    cats_with_data = [cat for cat in all_cats if year_descs_by_cat[cat]]
-    cats_empty = [cat for cat in INTEREST_CATEGORY_ORDER if not year_descs_by_cat.get(cat)]
+    ordered_cats = list(INTEREST_CATEGORY_ORDER) + [c for c in present_by_cat if c not in INTEREST_CATEGORY_ORDER]
+    cats_with_data = [cat for cat in ordered_cats if present_by_cat.get(cat)]
+    cats_empty = [cat for cat in INTEREST_CATEGORY_ORDER if not present_by_cat.get(cat)]
 
     if not cats_with_data:
         empty_state(
@@ -217,29 +208,27 @@ def render_member_interests(
         )
     else:
         for cat in cats_with_data:
-            descs = year_descs_by_cat[cat]
-            prior_cat_set = set(prior_descs_by_cat[cat])
-            current_cat_set = set(descs)
+            items = present_by_cat[cat]
             label = INTEREST_CATEGORY_LABELS.get(cat, cat)
 
-            st.html(f'<p class="int-category-section">{_h(label)}&nbsp;&nbsp;·&nbsp;&nbsp;{len(descs)}</p>')
+            st.html(f'<p class="int-category-section">{_h(label)}&nbsp;&nbsp;·&nbsp;&nbsp;{len(items)}</p>')
 
             if show_diff and has_prior:
-                for d in descs:
-                    interest_declaration_item(d, "new" if d not in prior_cat_set else "unchanged")
-                for d in sorted(prior_cat_set - current_cat_set):
-                    interest_declaration_item(d, "removed")
+                for text, status in items:
+                    interest_declaration_item(text, status)
+                for text in sorted(removed_by_cat.get(cat, [])):
+                    interest_declaration_item(text, "removed")
             else:
-                for d in descs:
-                    interest_declaration_item(d, "unchanged")
+                for text, _status in items:
+                    interest_declaration_item(text, "unchanged")
 
         # Categories that existed in prior year but have nothing in current year
         if show_diff and has_prior:
             for cat in INTEREST_CATEGORY_ORDER:
                 if cat in cats_with_data:
                     continue
-                prior_descs = prior_descs_by_cat.get(cat, [])
-                if not prior_descs:
+                rem = removed_by_cat.get(cat, [])
+                if not rem:
                     continue
                 label = INTEREST_CATEGORY_LABELS.get(cat, cat)
                 st.html(
@@ -247,8 +236,8 @@ def render_member_interests(
                     f'0 <span style="font-weight:400;text-transform:none;font-size:0.75rem;">'
                     f"(all removed)</span></p>"
                 )
-                for d in sorted(prior_descs):
-                    interest_declaration_item(d, "removed")
+                for text in sorted(rem):
+                    interest_declaration_item(text, "removed")
 
     # ── Empty categories — single collapsed summary ────────────────────────────
     if cats_empty:

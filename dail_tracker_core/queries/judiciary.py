@@ -69,3 +69,13 @@ def profile(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 def nominations(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """gov.ie nomination announcements (vacancy-lifecycle context)."""
     return _run(conn, "SELECT * FROM v_judiciary_nominations")
+
+
+def authority_summary(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Aggregate: appointment-notice count by appointing authority."""
+    return _run(conn, "SELECT * FROM v_judiciary_authority_summary")
+
+
+def elevation_ladder(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Aggregate: real promotions per court transition."""
+    return _run(conn, "SELECT * FROM v_judiciary_elevation_ladder")
