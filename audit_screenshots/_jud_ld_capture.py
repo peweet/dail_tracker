@@ -1,4 +1,4 @@
-"""Legal Diary plaintiff-rework capture — scroll the plaintiff section into view."""
+"""Legal Diary capture — confirm every court appears in the case listing."""
 
 from __future__ import annotations
 
@@ -25,11 +25,6 @@ def _wait(page, ms=2500):
     page.wait_for_timeout(ms)
 
 
-def _shoot(pg, name):
-    pg.screenshot(path=str(OUT / name))
-    print("saved", name)
-
-
 with sync_playwright() as p:
     b = p.chromium.launch(headless=True)
     pg = b.new_context(viewport={"width": 1440, "height": 940}, device_scale_factor=1).new_page()
@@ -37,26 +32,14 @@ with sync_playwright() as p:
     _wait(pg, 3500)
     pg.get_by_role("tab", name="Legal Diary", exact=False).first.click()
     _wait(pg, 2500)
-
-    # 1. "Who's bringing these cases" section
-    try:
-        pg.get_by_text("Who's bringing these cases", exact=False).first.scroll_into_view_if_needed()
-        pg.wait_for_timeout(700)
-        _shoot(pg, "_jud_ld_01_plaintiffs.png")
-    except Exception as e:
-        print("plaintiffs scroll skip:", e)
-
-    # 2. open the first case expander, scroll it in, show reworked rows
-    try:
-        pg.get_by_text("Every listed matter", exact=False).first.scroll_into_view_if_needed()
-        pg.wait_for_timeout(500)
-        exp = pg.locator('[data-testid="stExpander"] summary').first
-        exp.click()
-        _wait(pg, 1200)
-        exp.scroll_into_view_if_needed()
-        pg.wait_for_timeout(700)
-        _shoot(pg, "_jud_ld_02_rows.png")
-    except Exception as e:
-        print("expander skip:", e)
+    # scroll to the case listing so the court sub-headers are visible
+    pg.get_by_text("Every listed matter", exact=False).first.scroll_into_view_if_needed()
+    pg.wait_for_timeout(800)
+    pg.screenshot(path=str(OUT / "_jud_ld_03_courts.png"))
+    print("saved _jud_ld_03_courts.png")
+    # full page to verify all court headers present in the DOM
+    body = pg.content()
+    for court in ["Supreme Court", "Court of Appeal", "High Court", "Central Criminal Court"]:
+        print(f"  has '{court}':", court in body)
     b.close()
 print("DONE")

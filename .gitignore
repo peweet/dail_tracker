@@ -263,6 +263,8 @@ pipeline.log
 
 # Pipeline output directories (all contents are regenerable)
 members/
+# ...but the test mirror dir test/members/ holds tracked tests, not pipeline output.
+!test/members/
 scan_pdf/output/
 scan_pdf/target/
 lobbyist/raw/

@@ -128,9 +128,13 @@ live counts. **Static parquet downloads still TODO** — needs a vetted allow-li
 (list, filters year/operation/department/eu_only) ✅ BUILT on a second lifespan
 connection (`legislation_conn`, all 111 views are `CREATE OR REPLACE` so registration
 is idempotent). `dossiers.build_bill_dossier` composes detail + timeline + amendment
-intensity + sources + PDFs + debates + SIs-under-bill. **Still TODO:** `/v1/votes`,
-`/v1/lobbying`, `/v1/payments` — each a thin map over existing core fns. Don't
-pre-expand to all 133.
+intensity + sources + PDFs + debates + SIs-under-bill. `/v1/votes` (list + `{vote_id}` division dossier: vote + party
+breakdown + each member's vote + sources), `/v1/payments` (all-time TAA ranking),
+`/v1/lobbying/organisations` + `/v1/lobbying/revolving-door` ✅ BUILT. **All 12
+endpoints now run off a SINGLE union connection** (`api_conn()` — `register_member_views`
++ the other domain globs; only 3 files need substitution, all handled). The five
+per-domain connections collapsed to one; every router uses one `get_cursor`.
+Don't pre-expand to all 133 — remaining core fns can become endpoints on demand.
 
 **Phase 4 — Hardening (only as traffic appears).**
 Pandera on published marts; Pydantic versioning policy; CDN + cache headers + ETags; CDN rate-limiting if abused.

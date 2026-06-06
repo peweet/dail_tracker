@@ -132,3 +132,48 @@ def legislation_conn() -> duckdb.DuckDBPyConnection:
     conn = duckdb.connect()
     register_views(conn, ["legislation_*.sql"], swallow_errors=True)
     return conn
+
+
+# Domains the API serves beyond the member set. Each is registered with its own
+# Streamlit page's glob (within-domain alphabetical order is proven by the pages).
+# Only member_registry / member_external_links / vote_base need substitutions, and
+# those are handled by register_member_views first; we pass the same substitutions
+# to the vote_*.sql glob so the idempotent CREATE OR REPLACE of vote_base re-applies
+# them correctly rather than registering a literal-placeholder view.
+_API_DOMAIN_GLOBS = [
+    "legislation_*.sql",
+    "lobbying_*.sql",
+    "charity_*.sql",
+    "payments_*.sql",
+    "committees_*.sql",
+    "procurement_*.sql",
+    "vote_*.sql",
+]
+
+
+def api_conn() -> duckdb.DuckDBPyConnection:
+    """One read-only connection with EVERY view set the API exposes.
+
+    Built once at FastAPI startup; requests get a ``conn.cursor()``. All 111 views
+    are CREATE OR REPLACE (idempotent), so the member set (registered first, in its
+    load-bearing order, with substitutions) and the per-domain globs coexist.
+    """
+    conn = duckdb.connect()
+    register_member_views(conn)  # member/registry/external/vote views + substitutions, explicit order
+
+    subs: dict[str, str] = {}
+    try:
+        from config import GOLD_SEANAD_VOTE_HISTORY_PARQUET, GOLD_VOTE_HISTORY_PARQUET, SILVER_PARQUET_DIR
+
+        subs = {
+            "{MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_members.parquet").as_posix(),
+            "{SEANAD_MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_seanad_members.parquet").as_posix(),
+            "{EXTERNAL_LINKS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_external_links.parquet").as_posix(),
+            "{PARQUET_PATH}": GOLD_VOTE_HISTORY_PARQUET.as_posix(),
+            "{SEANAD_VOTE_PARQUET_PATH}": GOLD_SEANAD_VOTE_HISTORY_PARQUET.as_posix(),
+        }
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("api_conn: could not load config substitutions: %s", exc)
+
+    register_views(conn, _API_DOMAIN_GLOBS, substitutions=subs, swallow_errors=True)
+    return conn

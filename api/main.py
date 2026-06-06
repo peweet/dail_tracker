@@ -15,8 +15,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from api import __version__
-from api.routers import catalog, health, legislation, members
-from dail_tracker_core.connections import legislation_conn, member_overview_conn
+from api.routers import catalog, health, legislation, lobbying, members, payments, votes
+from dail_tracker_core.connections import api_conn
 
 _DESCRIPTION = (
     "Read-only JSON API over Irish parliamentary accountability data "
@@ -27,14 +27,13 @@ _DESCRIPTION = (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Build the view sets ONCE (expensive); share via cursors per request.
-    app.state.conn = member_overview_conn()
-    app.state.leg_conn = legislation_conn()
+    # One read-only union connection with every served view set, built ONCE
+    # (expensive); requests get a cursor off it (see api/deps.py).
+    app.state.conn = api_conn()
     try:
         yield
     finally:
         app.state.conn.close()
-        app.state.leg_conn.close()
 
 
 app = FastAPI(
@@ -48,6 +47,9 @@ app.include_router(health.router, prefix="/v1")
 app.include_router(catalog.router, prefix="/v1")
 app.include_router(members.router, prefix="/v1")
 app.include_router(legislation.router, prefix="/v1")
+app.include_router(votes.router, prefix="/v1")
+app.include_router(payments.router, prefix="/v1")
+app.include_router(lobbying.router, prefix="/v1")
 
 
 @app.get("/", tags=["meta"])
@@ -68,5 +70,10 @@ def root() -> dict:
             "/v1/legislation",
             "/v1/legislation/{bill_id}",
             "/v1/statutory-instruments",
+            "/v1/votes",
+            "/v1/votes/{vote_id}",
+            "/v1/payments",
+            "/v1/lobbying/organisations",
+            "/v1/lobbying/revolving-door",
         ],
     }

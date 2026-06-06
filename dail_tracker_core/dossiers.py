@@ -20,7 +20,10 @@ import pandas as pd
 
 from dail_tracker_core import serialize
 from dail_tracker_core.queries import legislation as leg
+from dail_tracker_core.queries import lobbying as lb
 from dail_tracker_core.queries import member_overview as moq
+from dail_tracker_core.queries import payments as pay
+from dail_tracker_core.queries import votes as vot
 
 
 def _identity(conn: duckdb.DuckDBPyConnection, code: str) -> dict[str, Any] | None:
@@ -187,4 +190,75 @@ def list_statutory_instruments(
         df = df.loc[df["si_department_label"] == department]
     if eu_only:
         df = df.loc[df["si_is_eu"].fillna(False).astype(bool)]
+    return _page(df, skip, limit)
+
+
+# ── Votes ─────────────────────────────────────────────────────────────────────
+
+
+def list_votes(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    outcome: str | None = None,
+    house: str = "Dáil",
+    skip: int = 0,
+    limit: int = 50,
+) -> tuple[list[dict[str, Any]], int, bool]:
+    df = vot.vote_index(conn, date_from, date_to, outcome, house).data
+    if df.empty:
+        return [], 0, False
+    return _page(df, skip, limit)
+
+
+def build_division_dossier(conn: duckdb.DuckDBPyConnection, vote_id: str) -> dict[str, Any] | None:
+    """Composed division record: the vote + party breakdown + every member's vote + sources."""
+    one = vot.vote_by_id(conn, vote_id).data
+    if one.empty:
+        return None
+    return {
+        "division": serialize.first_record(one),
+        "party_breakdown": serialize.to_records(vot.party_breakdown(conn, vote_id).data),
+        "members": serialize.to_records(vot.division_members(conn, vote_id).data),
+        "sources": serialize.first_record(vot.sources(conn, vote_id).data),
+    }
+
+
+# ── Payments ──────────────────────────────────────────────────────────────────
+
+
+def list_payments_ranking(
+    conn: duckdb.DuckDBPyConnection, *, house: str = "Dáil", skip: int = 0, limit: int = 50
+) -> tuple[list[dict[str, Any]], int, bool]:
+    df = pay.alltime_ranking(conn, house).data
+    if df.empty:
+        return [], 0, False
+    return _page(df, skip, limit)
+
+
+# ── Lobbying ──────────────────────────────────────────────────────────────────
+
+
+def list_lobbying_orgs(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    name: str | None = None,
+    exclude_state_adjacent: bool = False,
+    skip: int = 0,
+    limit: int = 50,
+) -> tuple[list[dict[str, Any]], int, bool]:
+    df = lb.org_index(conn, exclude_state_adjacent, name_q=name).data
+    if df.empty:
+        return [], 0, False
+    return _page(df, skip, limit)
+
+
+def list_revolving_door(
+    conn: duckdb.DuckDBPyConnection, *, skip: int = 0, limit: int = 50
+) -> tuple[list[dict[str, Any]], int, bool]:
+    """Former office-holders (DPOs) now lobbying — the revolving-door register."""
+    df = lb.revolving_door(conn, None).data  # full list; paginate here
+    if df.empty:
+        return [], 0, False
     return _page(df, skip, limit)
