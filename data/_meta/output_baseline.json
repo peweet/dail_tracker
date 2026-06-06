@@ -1,0 +1,824 @@
+{
+  "outputs": {
+    "attendance_by_td_year.parquet": {
+      "rows": 499,
+      "columns": [
+        "full_name",
+        "year",
+        "unique_member_code",
+        "member_id",
+        "party_name",
+        "constituency",
+        "is_minister",
+        "sitting_days",
+        "other_days",
+        "total_days"
+      ]
+    },
+    "bilateral_relationships.parquet": {
+      "rows": 68103,
+      "columns": [
+        "lobbyist_name",
+        "full_name",
+        "chamber",
+        "returns_in_relationship",
+        "distinct_policy_areas",
+        "distinct_periods",
+        "relationship_start",
+        "relationship_last_seen"
+      ]
+    },
+    "bill_statutory_instruments.parquet": {
+      "rows": 375,
+      "columns": [
+        "bill_id",
+        "bill_short_title",
+        "sponsor_unique_member_code",
+        "si_year",
+        "si_number",
+        "si_id",
+        "si_title",
+        "si_signed_date",
+        "si_minister",
+        "si_minister_named",
+        "si_policy_domain",
+        "si_policy_domains_all",
+        "si_operation",
+        "si_operation_flags",
+        "si_form",
+        "si_eu_relationship",
+        "si_is_eu",
+        "eisb_url",
+        "iris_source_pdf",
+        "match_score"
+      ]
+    },
+    "cbi_xref_corporate_notices.parquet": {
+      "rows": 205,
+      "columns": [
+        "notice_ref",
+        "issue_date",
+        "issue_number",
+        "notice_category",
+        "notice_subtype",
+        "entity_name",
+        "display_title",
+        "title",
+        "raw_text",
+        "iris_source_pdf",
+        "brand_mentions",
+        "parent_fund_mentions",
+        "fund_type_mentions",
+        "entity_norm",
+        "registers",
+        "ref_nos",
+        "firm_name_raw_first"
+      ]
+    },
+    "charities_enriched.parquet": {
+      "rows": 14448,
+      "columns": [
+        "rcn",
+        "registered_charity_name",
+        "also_known_as",
+        "name_norm",
+        "aka_norm",
+        "status",
+        "governing_form",
+        "classification_primary",
+        "classification_secondary",
+        "classification_sub",
+        "country_established",
+        "county",
+        "cro_number",
+        "has_cro_number_flag",
+        "trustee_count",
+        "company_name",
+        "company_name_norm",
+        "company_status",
+        "company_status_pill_value",
+        "company_type",
+        "company_reg_date",
+        "comp_dissolved_date",
+        "entity_age_years",
+        "nace_v2_code",
+        "eircode",
+        "routing_key",
+        "link_method",
+        "period_end_latest",
+        "period_year_latest",
+        "gross_income_latest_eur",
+        "gross_expenditure_latest_eur",
+        "gov_funded_share_latest",
+        "surplus_deficit_latest",
+        "total_assets_latest_eur",
+        "total_liabilities_latest_eur",
+        "net_assets_latest_eur",
+        "cash_at_hand_latest_eur",
+        "reserves_months",
+        "reserves_band",
+        "share_government",
+        "share_other_public",
+        "share_philanthropic",
+        "share_donations",
+        "share_trading",
+        "share_other",
+        "share_bequests",
+        "dominant_income_source",
+        "funding_profile",
+        "employees_band_latest",
+        "volunteers_band_latest",
+        "employees_ft_latest",
+        "employees_pt_latest",
+        "beneficiary_tags",
+        "report_activity_latest",
+        "years_filed",
+        "first_period_year",
+        "last_period_year",
+        "deficit_years_count",
+        "income_change_pct",
+        "income_trend",
+        "state_adjacent_flag",
+        "charity_filing_overdue_flag",
+        "charity_deficit_latest_flag",
+        "charity_insolvent_latest_flag",
+        "cro_last_ar_date",
+        "cro_nard",
+        "cro_last_accounts_date",
+        "cro_annual_return_overdue",
+        "cro_accounts_overdue",
+        "cro_recent_distress",
+        "cro_no_registered_address",
+        "cro_recent_rename",
+        "nace_section_letter",
+        "nace_section_label"
+      ]
+    },
+    "corporate_notices.parquet": {
+      "rows": 35874,
+      "columns": [
+        "notice_ref",
+        "issue_date",
+        "issue_number",
+        "notice_category",
+        "notice_subtype",
+        "entity_name",
+        "display_title",
+        "title",
+        "raw_text",
+        "iris_source_pdf",
+        "brand_mentions",
+        "parent_fund_mentions",
+        "fund_type_mentions"
+      ]
+    },
+    "cro_xref_corporate_notices.parquet": {
+      "rows": 19482,
+      "columns": [
+        "notice_ref",
+        "entity_name",
+        "entity_norm",
+        "issue_date",
+        "notice_category",
+        "notice_subtype",
+        "company_num",
+        "company_status",
+        "company_reg_date",
+        "comp_dissolved_date",
+        "status_pill_value"
+      ]
+    },
+    "cso_gfa01.parquet": {
+      "rows": 899,
+      "columns": [
+        "STATISTIC",
+        "Statistic Label",
+        "TLIST(A1)",
+        "Year",
+        "C03144V03796",
+        "Item",
+        "UNIT",
+        "VALUE"
+      ]
+    },
+    "cso_gfq01.parquet": {
+      "rows": 3328,
+      "columns": [
+        "STATISTIC",
+        "Statistic Label",
+        "TLIST(Q1)",
+        "Quarter",
+        "C03144V03796",
+        "Item",
+        "UNIT",
+        "VALUE"
+      ]
+    },
+    "cso_na012.parquet": {
+      "rows": 450,
+      "columns": [
+        "STATISTIC",
+        "Statistic Label",
+        "TLIST(A1)",
+        "Year",
+        "C03015V04198",
+        "Item",
+        "UNIT",
+        "VALUE"
+      ]
+    },
+    "current_dail_vote_history.parquet": {
+      "rows": 226906,
+      "columns": [
+        "unique_member_code",
+        "vote_outcome",
+        "vote_id",
+        "debate_title",
+        "vote_type",
+        "subject",
+        "house_number",
+        "vote_url",
+        "date",
+        "year_elected",
+        "last_name",
+        "dail_term",
+        "dail_number",
+        "full_name",
+        "first_name",
+        "party",
+        "constituency_name"
+      ]
+    },
+    "current_seanad_vote_history.parquet": {
+      "rows": 41956,
+      "columns": [
+        "unique_member_code",
+        "vote_outcome",
+        "vote_id",
+        "debate_title",
+        "vote_type",
+        "subject",
+        "house_number",
+        "vote_url",
+        "date",
+        "year_elected",
+        "last_name",
+        "dail_term",
+        "dail_number",
+        "full_name",
+        "first_name",
+        "party",
+        "constituency_name"
+      ]
+    },
+    "current_senator_payment_rankings.parquet": {
+      "rows": 59,
+      "columns": [
+        "rank",
+        "join_key",
+        "identifier",
+        "party",
+        "constituency",
+        "total_amount_paid_since_2020"
+      ]
+    },
+    "current_td_payment_rankings.parquet": {
+      "rows": 172,
+      "columns": [
+        "rank",
+        "join_key",
+        "identifier",
+        "party",
+        "constituency",
+        "total_amount_paid_since_2020"
+      ]
+    },
+    "debate_summary.parquet": {
+      "rows": 859,
+      "columns": [
+        "debate_title",
+        "divisions",
+        "first_date",
+        "last_date",
+        "carried",
+        "lost",
+        "total_yes",
+        "total_no"
+      ]
+    },
+    "delivery_method_mix.parquet": {
+      "rows": 9809,
+      "columns": [
+        "lobbyist_name",
+        "delivery",
+        "delivery_count"
+      ]
+    },
+    "distinct_orgs_per_politician.parquet": {
+      "rows": 6270,
+      "columns": [
+        "full_name",
+        "chamber",
+        "position",
+        "distinct_orgs",
+        "distinct_returns",
+        "distinct_policy_areas"
+      ]
+    },
+    "ec_constituency_pop_2022.parquet": {
+      "rows": 43,
+      "columns": [
+        "constituency_name",
+        "population_2022",
+        "population_per_td_2022",
+        "td_seats_2024",
+        "boundaries_label",
+        "source_key"
+      ]
+    },
+    "grassroots_campaigns.parquet": {
+      "rows": 455,
+      "columns": [
+        "lobbyist_name",
+        "grassroots_returns_count"
+      ]
+    },
+    "judicial_legal_diary_cases.parquet": {
+      "rows": 1811,
+      "columns": [
+        "diary_date",
+        "court",
+        "judge",
+        "list_type",
+        "status",
+        "category",
+        "case_anonymised",
+        "source",
+        "source_url",
+        "source_sha256"
+      ]
+    },
+    "judicial_legal_diary_counts.parquet": {
+      "rows": 141,
+      "columns": [
+        "diary_date",
+        "court",
+        "judge",
+        "list_type",
+        "n_items"
+      ]
+    },
+    "judicial_legal_diary_schedule.parquet": {
+      "rows": 254,
+      "columns": [
+        "diary_date",
+        "court",
+        "courtroom",
+        "judge",
+        "list_type",
+        "time",
+        "n_items"
+      ]
+    },
+    "judiciary_appointments.parquet": {
+      "rows": 154,
+      "columns": [
+        "judge_key",
+        "appointee",
+        "issue_date",
+        "appointed_court",
+        "role",
+        "appointing_authority",
+        "notice_ref",
+        "source_url",
+        "current_court",
+        "status",
+        "is_elevation",
+        "elevated_to",
+        "requires_manual_review"
+      ]
+    },
+    "judiciary_bench.parquet": {
+      "rows": 194,
+      "columns": [
+        "judge_key",
+        "judge_name",
+        "court",
+        "current_court",
+        "court_rank",
+        "is_ex_officio_or_multi",
+        "seat_count",
+        "salary_band_eur",
+        "salary_office",
+        "salary_source",
+        "assignment",
+        "assignment_term",
+        "has_spine",
+        "first_appointed_date",
+        "first_appointing_authority",
+        "appointed_court",
+        "is_elevation",
+        "elevation_path",
+        "requires_manual_review",
+        "appt_source_url",
+        "source_url",
+        "source_published_at"
+      ]
+    },
+    "judiciary_nominations.parquet": {
+      "rows": 16,
+      "columns": [
+        "announce_date",
+        "nominee",
+        "judge_key",
+        "target_court",
+        "prior_career",
+        "vacancy_cause",
+        "predecessor",
+        "source_name",
+        "source_url"
+      ]
+    },
+    "lobbyist_persistence.parquet": {
+      "rows": 2568,
+      "columns": [
+        "lobbyist_name",
+        "first_return_date",
+        "last_return_date",
+        "total_returns",
+        "distinct_periods_filed",
+        "active_span_days"
+      ]
+    },
+    "member_interest_leaderboard.parquet": {
+      "rows": 173,
+      "columns": [
+        "full_name",
+        "party",
+        "max_interest_count",
+        "years_declared",
+        "latest_year",
+        "ever_landlord",
+        "ever_property_owner"
+      ]
+    },
+    "most_lobbied_politicians.parquet": {
+      "rows": 5768,
+      "columns": [
+        "unique_member_code",
+        "full_name",
+        "chamber",
+        "lobby_returns_targeting",
+        "distinct_orgs",
+        "total_returns"
+      ]
+    },
+    "party_vote_breakdown.parquet": {
+      "rows": 32,
+      "columns": [
+        "party",
+        "vote_type",
+        "vote_count",
+        "pct_of_party_votes"
+      ]
+    },
+    "payments_full_psa.parquet": {
+      "rows": 12214,
+      "columns": [
+        "member_name",
+        "position",
+        "payment_kind",
+        "taa_band_raw",
+        "taa_band_label",
+        "date_paid",
+        "narrative",
+        "amount",
+        "source_pdf",
+        "schema",
+        "unique_member_code",
+        "party_name",
+        "constituency"
+      ]
+    },
+    "payments_full_psa_quarantine.parquet": {
+      "rows": 7,
+      "columns": [
+        "member_name",
+        "position",
+        "payment_kind",
+        "taa_band_raw",
+        "taa_band_label",
+        "date_paid",
+        "narrative",
+        "amount",
+        "source_pdf",
+        "schema"
+      ]
+    },
+    "policy_area_breakdown.parquet": {
+      "rows": 32,
+      "columns": [
+        "public_policy_area",
+        "return_count",
+        "distinct_lobbyists"
+      ]
+    },
+    "politician_policy_exposure.parquet": {
+      "rows": 51729,
+      "columns": [
+        "full_name",
+        "chamber",
+        "public_policy_area",
+        "returns_targeting",
+        "distinct_lobbyists"
+      ]
+    },
+    "procurement_awards.parquet": {
+      "rows": 59439,
+      "columns": [
+        "Tender ID",
+        "Awarded Suppliers",
+        "Contracting Authority",
+        "Awarded Value (€)",
+        "Notice Published Date/Contract Created Date",
+        "Competition Type",
+        "Parent Agreement ID",
+        "Main Cpv Code",
+        "Main Cpv Code Description",
+        "sl",
+        "supplier_raw",
+        "supplier",
+        "name_repaired",
+        "name_truncated",
+        "supplier_norm",
+        "has_company_suffix",
+        "foreign_form",
+        "is_public_body",
+        "supplier_class",
+        "value_eur",
+        "is_framework_or_dps",
+        "is_call_off",
+        "value_shared_across_suppliers",
+        "value_kind",
+        "value_safe_to_sum"
+      ]
+    },
+    "procurement_lobbying_overlap.parquet": {
+      "rows": 182,
+      "columns": [
+        "lobby_name",
+        "lobby_side",
+        "supplier_norm",
+        "supplier",
+        "n_lobby_returns",
+        "n_award_rows",
+        "n_authorities",
+        "awarded_value_safe_eur"
+      ]
+    },
+    "procurement_supplier_cro_match.parquet": {
+      "rows": 7439,
+      "columns": [
+        "supplier",
+        "supplier_norm",
+        "n_cro",
+        "company_num",
+        "company_status",
+        "match_method",
+        "match_confidence"
+      ]
+    },
+    "public_appointments.parquet": {
+      "rows": 1060,
+      "columns": [
+        "notice_ref",
+        "issue_date",
+        "appointing_authority",
+        "appointment_type",
+        "body",
+        "appointee",
+        "appointee_count",
+        "role",
+        "portfolio",
+        "english_summary",
+        "lang",
+        "title",
+        "iris_source_pdf"
+      ]
+    },
+    "revolving_door_dpos.parquet": {
+      "rows": 1042,
+      "columns": [
+        "dpos_or_former_dpos_who_carried_out_lobbying_name",
+        "current_or_former_dpos_position",
+        "current_or_former_dpos_chamber",
+        "returns_involved_in",
+        "distinct_lobbyist_firms",
+        "distinct_policy_areas",
+        "distinct_politicians_targeted"
+      ]
+    },
+    "seanad_attendance_by_year.parquet": {
+      "rows": 142,
+      "columns": [
+        "full_name",
+        "year",
+        "unique_member_code",
+        "member_id",
+        "party_name",
+        "constituency",
+        "is_minister",
+        "sitting_days",
+        "other_days",
+        "total_days"
+      ]
+    },
+    "seanad_payments_full_psa.parquet": {
+      "rows": 840,
+      "columns": [
+        "member_name",
+        "position",
+        "payment_kind",
+        "taa_band_raw",
+        "taa_band_label",
+        "date_paid",
+        "narrative",
+        "amount",
+        "source_pdf",
+        "schema",
+        "house",
+        "unique_member_code",
+        "party_name",
+        "constituency"
+      ]
+    },
+    "seanad_payments_full_psa_quarantine.parquet": {
+      "rows": 0,
+      "columns": [
+        "member_name",
+        "position",
+        "payment_kind",
+        "taa_band_raw",
+        "taa_band_label",
+        "date_paid",
+        "narrative",
+        "amount",
+        "source_pdf",
+        "schema",
+        "house"
+      ]
+    },
+    "si_current_state.parquet": {
+      "rows": 7367,
+      "columns": [
+        "si_id",
+        "si_year",
+        "si_number",
+        "directory_title",
+        "current_state",
+        "affecting_sis",
+        "affecting_si_urls",
+        "this_si_eli_url",
+        "how_affected_raw",
+        "state_source",
+        "state_source_url",
+        "directory_updated_to",
+        "confidence"
+      ]
+    },
+    "si_lrc_enrichment_summary.parquet": {
+      "rows": 5924,
+      "columns": [
+        "si_year",
+        "si_number",
+        "si_title",
+        "si_policy_domain",
+        "eisb_url",
+        "lrc_subjects",
+        "lrc_leaves",
+        "lrc_paths",
+        "lrc_primary_subject",
+        "lrc_primary_leaf",
+        "lrc_eisb_url",
+        "lrc_list_updated_to",
+        "lrc_n_subjects",
+        "si_number_year",
+        "has_lrc_classified_list_match",
+        "lrc_enrichment_status",
+        "match_method",
+        "match_confidence",
+        "lrc_fills_empty_domain",
+        "lrc_caveat",
+        "source_built_at"
+      ]
+    },
+    "sipo_donations.parquet": {
+      "rows": 74,
+      "columns": [
+        "party",
+        "appropriate_officer",
+        "donation_page",
+        "donor_name",
+        "value_eur",
+        "value_raw",
+        "nature",
+        "description_of_donor",
+        "date_received_raw",
+        "requested",
+        "corporate_approval_form",
+        "receipt_issued",
+        "donor_irish_citizen",
+        "receipt_issuer",
+        "min_confidence",
+        "flag",
+        "source_pdf",
+        "source_page",
+        "election_event"
+      ]
+    },
+    "sipo_expenses_fact.parquet": {
+      "rows": 399,
+      "columns": [
+        "party",
+        "candidate_name_raw",
+        "constituency",
+        "constituency_match_score",
+        "amount_assigned_eur",
+        "expenditure_eur",
+        "expenditure_confidence",
+        "row_min_confidence",
+        "statutory_limit_eur",
+        "flag",
+        "source_pdf",
+        "source_page"
+      ]
+    },
+    "statutory_instruments.parquet": {
+      "rows": 5924,
+      "columns": [
+        "si_id",
+        "si_year",
+        "si_number",
+        "si_title",
+        "si_signed_date",
+        "si_operation",
+        "si_operation_flags",
+        "si_form",
+        "si_eu_relationship",
+        "si_is_eu",
+        "si_policy_domain",
+        "si_policy_domains_all",
+        "si_responsible_actor",
+        "si_signatory_name",
+        "si_department",
+        "si_department_label",
+        "si_minister_member_code",
+        "si_minister_name",
+        "si_parent_legislation",
+        "bill_id",
+        "bill_short_title",
+        "eisb_url",
+        "iris_source_pdf",
+        "si_taxonomy_confidence"
+      ]
+    },
+    "td_vote_summary.parquet": {
+      "rows": 176,
+      "columns": [
+        "full_name",
+        "party",
+        "constituency_name",
+        "divisions",
+        "yes_votes",
+        "no_votes",
+        "abstentions",
+        "yes_rate_pct"
+      ]
+    },
+    "top_client_companies.parquet": {
+      "rows": 1990,
+      "columns": [
+        "client_name",
+        "return_count",
+        "distinct_lobbyist_firms",
+        "distinct_politicians_targeted",
+        "distinct_policy_areas",
+        "distinct_chambers"
+      ]
+    },
+    "top_lobbyist_organisations.parquet": {
+      "rows": 2549,
+      "columns": [
+        "lobbyist_name",
+        "returns_filed",
+        "distinct_politicians_targeted",
+        "distinct_policy_areas",
+        "main_activities_of_organisation",
+        "website",
+        "company_registration_number",
+        "company_registered_name",
+        "lobby_org_link"
+      ]
+    }
+  }
+}

@@ -107,6 +107,12 @@ jobs:
       # green. Fail loudly instead.
       - name: Assert committed gold is present
         run: test -f data/gold/parquet/current_dail_vote_history.parquet
+      # Completeness guard: the committed gold must not have silently lost rows or
+      # columns vs data/_meta/output_baseline.json. Catches a PDF/layout/schema drift
+      # that parsed clean but shipped partial data. An intended change re-baselines via
+      # `python tools/check_output_regressions.py --update-baseline` (commit the JSON).
+      - name: Gold completeness guard (no silent row/column regression)
+        run: uv run python tools/check_output_regressions.py --strict
       - run: uv run pytest -m sql -q
         env:
           DAIL_INTEGRATION_TESTS: "1"
