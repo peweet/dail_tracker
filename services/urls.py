@@ -95,7 +95,7 @@ def build_questions_urls(member_df: pl.DataFrame) -> list[str]:
     DEPRECATED for production fetching — silently drops every question past
     the 1000-row cap. 79/174 members hit that cap as of May 2026, losing
     ~150k question-rows in aggregate. Kept for the URL-shape tests in
-    test/test_url_builders.py. New code should call
+    test/services/test_url_builders.py. New code should call
     services/member_paginated.fetch_all_member_paginated() instead.
     """
     if member_df.is_empty():

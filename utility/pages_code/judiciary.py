@@ -871,28 +871,40 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
         view = day_cases
 
     st.caption(f"{len(view)} listed matter{'s' if len(view) != 1 else ''} · {day_label}")
-    grouped = view.groupby(["court", "judge", "list_type"], dropna=False)
-    shown = 0
-    for (court, judge, list_type), g in grouped:
-        if shown >= TIER_C_PAGE:
-            st.caption(
-                f"… and {len(view) - shown} more. Use the type filter to narrow, "
-                "or open the official diary for the full day."
-            )
-            break
-        head = f"{judge or 'Court'} — {list_type or 'List'}  ({len(g)})"
-        with st.expander(f"{head}   ·   {court}"):
-            rows = []
-            for r in g.itertuples():
-                link = (
-                    f'<a class="jd-case-link" href="{_esc(r.source_url)}" target="_blank" '
-                    f'rel="noopener">official diary ↗</a>'
-                    if r.source_url
-                    else ""
+    # Render court-by-court in seniority order (mirrors the schedule section above) with a
+    # PER-COURT cap. A flat global cap let one big group (e.g. a 55-case Central Criminal
+    # Court list) exhaust the budget and hide every court after it alphabetically.
+    present = [c for c in _COURT_ORDER if c in set(view["court"].dropna())]
+    extra = sorted({str(c) for c in view["court"].dropna()} - set(_COURT_ORDER))
+    for court in present + extra:
+        cv = view[view["court"] == court]
+        st.html(
+            f'<div class="jd-court-head">{_esc(court)} '
+            f"<span>· {len(cv)} listed matter{'s' if len(cv) != 1 else ''}</span></div>"
+        )
+        shown = 0
+        for (judge, list_type), g in cv.groupby(["judge", "list_type"], dropna=False):
+            if shown >= TIER_C_PAGE:
+                st.caption(
+                    f"… and {len(cv) - shown} more in the {court}. "
+                    "Use the type filter or open the official diary."
                 )
-                rows.append(f'<div class="jd-case-row">{_case_party_html(r)}{link}</div>')
-            st.html("".join(rows))
-        shown += len(g)
+                break
+            # NaN-safe labels (groupby keeps NaN keys, which are truthy floats — `or` won't catch them)
+            jlabel = judge if isinstance(judge, str) and judge else "Court"
+            llabel = list_type if isinstance(list_type, str) and list_type else "List"
+            with st.expander(f"{jlabel} — {llabel}  ({len(g)})"):
+                rows = []
+                for r in g.itertuples():
+                    link = (
+                        f'<a class="jd-case-link" href="{_esc(r.source_url)}" target="_blank" '
+                        f'rel="noopener">official diary ↗</a>'
+                        if r.source_url
+                        else ""
+                    )
+                    rows.append(f'<div class="jd-case-row">{_case_party_html(r)}{link}</div>')
+                st.html("".join(rows))
+            shown += len(g)
 
 
 def _render_legal_diary() -> None:
