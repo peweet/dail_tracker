@@ -60,7 +60,7 @@ from services.logging_setup import setup_standalone_logging  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.0"  # 1.1.0: plaintiff/defendant split + plaintiff_kind columns
 SOURCE_NAME = "Courts Service Legal Diary"
 SOURCE_URL = "https://legaldiary.courts.ie/"
 
@@ -142,6 +142,37 @@ PROSECUTOR_KEYS = ["dpp", "director of public prosecutions", "people at the suit
 STATE_KEYS = ["minister", "attorney general", "ireland", "commissioner", "council",
               "authority", "revenue", " hse", "an garda", "state"]
 
+# Plaintiff-side classifier — the "who is bringing the case" accountability signal.
+# Deliberately NOT the greedy category_of sets: company markers are tested BEFORE
+# geographic / institution words so a commercial litigant ("Bank of Ireland", "Mars
+# Capital Finance Ireland DAC") classifies as an organisation, not mis-tagged a State
+# body on the bare word "ireland".
+PLAINTIFF_ORG_MARKERS = [
+    " ltd", "limited", " dac", "d.a.c", " plc", "designated activity", "company",
+    "bank", "finance", "insurance", "holdings", " fund", "capital", "mortgage",
+    "credit union", "university", "college", "society", "ventures", "investments",
+    "properties", " homes", "real estate", "airlines", "services", " group",
+]
+PLAINTIFF_STATE_MARKERS = [
+    "minister", "attorney general", "commissioner", "revenue", " hse", "an garda",
+    "the state", "county council", "city council", "local authority", " authority",
+    " agency", " board", "office of", "mental health review",
+]
+
+
+def plaintiff_kind(raw_side: str) -> str:
+    """Classify the FIRST (applicant / plaintiff / prosecutor) party, from the RAW
+    segment so org / State names are intact. Priority prosecutor > organisation >
+    State body > individual; company markers beat geographic words (see above)."""
+    s = raw_side.lower()
+    if any(k in s for k in PROSECUTOR_KEYS):
+        return "state-prosecutor"
+    if any(k in s for k in PLAINTIFF_ORG_MARKERS):
+        return "organisation"
+    if any(k in s for k in PLAINTIFF_STATE_MARKERS):
+        return "state-body"
+    return "individual"
+
 
 def protected_reason(list_type: str, case: str) -> str | None:
     blob = f"{list_type} || {case}".lower()
@@ -161,17 +192,27 @@ def category_of(list_type: str, case: str) -> str:
 
 # ============================================================ anonymisation
 def strip_refs(t: str) -> str:
+    # High Court record refs: generalise H.JR / H.P to the whole H.<list>.<year>.<seq>
+    # family (H.COS commercial, H.CA, …); the trailing seq can glue to the next word
+    # (H.COS.2025.0000177SOLFRENO), so eat optional trailing digits too.
+    t = re.sub(r"\bH\.?[A-Z]{1,4}\.?\s*\d{4}\.?\d*", " ", t, flags=re.I)
     t = re.sub(r"\([^)]*\)", " ", t)                         # solicitor / duration parens
     t = re.sub(r":[A-Z]{2,}:[A-Z0-9:]+", " ", t)             # :LCA:OLCA:2026:000144
-    t = re.sub(r"\b\d*\s*H\.?\s*JR\.?\s*\d{4}\.?\d+[A-Z]?", " ", t, flags=re.I)
-    t = re.sub(r"\bH\.?\s*P\.?\s*\d{4}\.?\d+", " ", t, flags=re.I)
     t = re.sub(r"\b\d*\s*CCDP\d+/\d+", " ", t, flags=re.I)
     t = re.sub(r"\b\d*\s*CJA/\d+", " ", t, flags=re.I)
     t = re.sub(r"\bPI\s*\d+", " ", t, flags=re.I)
     t = re.sub(r"\b\d{4}\s+\d+\s+[A-Z]\b", " ", t)           # 2022 3507 P
     t = re.sub(r"\b\d+\s*/\s*\d+\b", " ", t)                 # 260/22, 174/25
+    t = re.sub(r"^\s*\d+\.\s+", " ", t)                      # leading list index "20. "
+    t = re.sub(r"^\s*\d{4}\s+\d+\s+", " ", t)                # leading "2026 134 " ref
     t = re.sub(r"\d{3,}", " ", t)                            # long digit run / glued ref
+    t = re.sub(r"^\s*\d{1,3}\s+(?=[A-Za-z])", " ", t)        # short leading index "82 Filbeck"
     t = re.sub(r"^[A-Z]{1,4}\d[\w./:]*", " ", t)             # leading glued alnum ref
+    # leading court list-section codes, space-delimited only (SP / COS / COM / CHY) —
+    # glued variants ("SPPROMONTORIA" vs "SPROMONTORIA") carry inconsistent prefix
+    # lengths, so stripping them blind truncates the name; left intact instead.
+    t = re.sub(r"^\s*(?:SP|COS|COM|CHY)\s+(?=[A-Z])", " ", t)
+    t = re.sub(r"^\s*-?\s*v\s*-\s*", " ", t, flags=re.I)     # dangling leading "v-" separator
     return re.sub(r"\s+", " ", t).strip(" -:.,")
 
 
@@ -218,17 +259,28 @@ def _anonymise_party(side: str) -> str:
     return (joined + tail) if joined else ("X" + tail)
 
 
-def anonymise(raw: str) -> str:
-    """Reduce a raw case line to a publishable, anonymised form. Splits on EVERY
-    'v' separator (consolidated matters chain them) and anonymises each segment
-    side-by-side. Natural persons -> initials; organisations / State bodies kept."""
+def parties(raw: str) -> dict[str, str]:
+    """Reduce a raw case line to publishable, anonymised parties. Splits on EVERY 'v'
+    separator (consolidated matters chain them) and anonymises each segment side by
+    side. Returns case_anonymised (all segments joined), plaintiff (first segment),
+    defendant (the rest), and plaintiff_kind (classified from the RAW first segment).
+    plaintiff / defendant are the SAME anonymised material as case_anonymised, so the
+    privacy gate over case_anonymised covers them. Natural persons -> initials;
+    organisations / State bodies kept in clear."""
     t = strip_refs(raw)
-    if not t:
-        return ""
-    segments = [s for s in _VSPLIT.split(t) if s.strip()]
-    if len(segments) < 2:
-        return _anonymise_party(t)
-    return " v ".join(_anonymise_party(s) for s in segments)
+    raw_segs = [s for s in _VSPLIT.split(t) if s.strip()] if t else []
+    anon_segs = [_anonymise_party(s) for s in raw_segs]
+    return {
+        "case_anonymised": " v ".join(anon_segs),
+        "plaintiff": anon_segs[0] if anon_segs else "",
+        "defendant": " v ".join(anon_segs[1:]) if len(anon_segs) > 1 else "",
+        "plaintiff_kind": plaintiff_kind(raw_segs[0]) if raw_segs else "",
+    }
+
+
+def anonymise(raw: str) -> str:
+    """Backward-compatible scalar form: just the joined anonymised case title."""
+    return parties(raw)["case_anonymised"]
 
 
 class PrivacyInvariantError(RuntimeError):
@@ -372,14 +424,21 @@ def run(args) -> int:
     audit_df.write_parquet(SANDBOX_PARQUET_DIR / "judicial_legal_diary_audit.parquet", **PARQUET_KW)
 
     # ---- Tier C: anonymised cases (GOLD) ----
+    # parties() returns the joined title PLUS the split plaintiff / defendant / kind,
+    # all from the same anonymised segments — unnest into columns.
+    _parties_dtype = pl.Struct([
+        pl.Field("case_anonymised", pl.Utf8), pl.Field("plaintiff", pl.Utf8),
+        pl.Field("defendant", pl.Utf8), pl.Field("plaintiff_kind", pl.Utf8)])
     cases_df = (audit_df.filter(~pl.col("protected"))
-                .with_columns(pl.col("raw_case").map_elements(anonymise, return_dtype=pl.Utf8)
-                              .alias("case_anonymised"))
+                .with_columns(pl.col("raw_case").map_elements(parties, return_dtype=_parties_dtype)
+                              .alias("_parties"))
+                .unnest("_parties")
                 .filter(pl.col("case_anonymised").str.len_chars() > 2)
                 .with_columns([pl.lit(SOURCE_NAME).alias("source"),
                                pl.lit(SOURCE_URL).alias("source_url")])
                 .select(["diary_date", "court", "judge", "list_type", "status", "category",
-                         "case_anonymised", "source", "source_url", "source_sha256"])
+                         "case_anonymised", "plaintiff", "defendant", "plaintiff_kind",
+                         "source", "source_url", "source_sha256"])
                 .sort(["diary_date", "court", "judge"]))
 
     # ---- PRIVACY GATE (runtime, -O-proof; runs BEFORE any gold is written) ----
@@ -387,16 +446,20 @@ def run(args) -> int:
     forbidden = {"raw_case", "party", "parties", "solicitor", "solicitors"} & set(cases_df.columns)
     if forbidden:
         raise PrivacyInvariantError(f"raw-name column(s) leaked into gold cases: {sorted(forbidden)}")
-    # 2. content: no anonymised row may retain a natural-person name. This is the
-    #    check the old column-name assert never made — see anonymise() bugs fixed
+    # 2. content: no anonymised text column may retain a natural-person name. Checks
+    #    case_anonymised AND the derived plaintiff / defendant split (the split is built
+    #    from the same anonymised segments, but we gate each column explicitly so a
+    #    future change to the split can never quietly leak). See anonymise() bugs fixed
     #    2026-06-05 (multi-`v` split + whole-side org classification).
-    offenders = [(r["case_anonymised"], toks)
-                 for r in cases_df.select("case_anonymised").iter_rows(named=True)
-                 if (toks := residual_name_tokens(r["case_anonymised"]))]
+    _name_cols = ["case_anonymised", "plaintiff", "defendant"]
+    offenders = [(f"{col}={r[col]!r}", toks)
+                 for r in cases_df.select(_name_cols).iter_rows(named=True)
+                 for col in _name_cols
+                 if (toks := residual_name_tokens(r[col] or ""))]
     if offenders:
-        sample = " | ".join(f"{c!r}->{t}" for c, t in offenders[:5])
+        sample = " | ".join(f"{c}->{t}" for c, t in offenders[:5])
         raise PrivacyInvariantError(
-            f"{len(offenders)} of {cases_df.height} gold case rows retain natural-person names "
+            f"{len(offenders)} gold case text-cells retain natural-person names "
             f"after anonymisation; refusing to write gold. e.g. {sample}")
 
     cases_df.write_parquet(GOLD_PARQUET_DIR / "judicial_legal_diary_cases.parquet", **PARQUET_KW)
@@ -404,6 +467,8 @@ def run(args) -> int:
     n_protected = audit_df.filter(pl.col("protected")).height
     drop_reasons = {r[0]: r[1] for r in (audit_df.filter(pl.col("protected"))
                     .group_by("protected_reason").len().sort("len", descending=True).iter_rows())}
+    plaintiff_kinds = {r[0]: r[1] for r in (cases_df.group_by("plaintiff_kind").len()
+                       .sort("len", descending=True).iter_rows())}
     coverage = {
         "parser_version": PARSER_VERSION,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -417,6 +482,7 @@ def run(args) -> int:
         "cases_dropped_protected": n_protected,
         "cases_kept_anonymised": cases_df.height,
         "drop_reasons": drop_reasons,
+        "plaintiff_kinds": plaintiff_kinds,
         "privacy_note": ("Tier C drops statutory in-camera categories entirely and reduces every "
                          "natural person to initials; organisations/State bodies kept in clear; "
                          "case refs stripped; provenance link + source_sha256 attached."),

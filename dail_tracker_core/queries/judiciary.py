@@ -89,6 +89,11 @@ def courts_clearance(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     return _run(conn, "SELECT * FROM v_courts_clearance")
 
 
+def courts_clearance_by_area(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Annual case clearance by court × area of law, 2017–2024 (drill-down grain)."""
+    return _run(conn, "SELECT * FROM v_courts_clearance_by_area")
+
+
 def courts_waiting_times(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Published waiting-time lists, latest two years + parsed weeks for ranking."""
     return _run(conn, "SELECT * FROM v_courts_waiting_times")
