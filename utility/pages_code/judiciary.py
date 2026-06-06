@@ -31,6 +31,7 @@ import sys
 import urllib.parse
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -41,6 +42,7 @@ from data_access.judiciary_data import (
     fetch_authority_summary,
     fetch_courthouses,
     fetch_courts_clearance,
+    fetch_courts_clearance_by_area,
     fetch_courts_waiting_times,
     fetch_elevation_ladder,
     fetch_legal_diary_cases,
@@ -84,6 +86,18 @@ _CATEGORIES = [
     ("criminal", "Criminal", "prosecution; defendant shown by initials"),
     ("civil", "Civil", "private litigation; parties shown by initials"),
 ]
+# Plaintiff-kind display: pipeline value -> (css-class, short row-chip label, plural label).
+# Colour by CSS class (blue=State, amber=company, grey=individual) — deuteranopia-safe
+# AND text-labelled. State prosecutor + State body share the State-blue hue.
+_PKIND = {
+    "state-prosecutor": ("prosecutor", "DPP", "DPP prosecutions"),
+    "state-body": ("statebody", "State", "State bodies"),
+    "organisation": ("organisation", "Company", "Companies"),
+    "individual": ("individual", "Individual", "Individuals"),
+}
+# breakdown-strip order: institutions first (the accountability signal), individuals last
+_PKIND_ORDER = ["state-prosecutor", "organisation", "state-body", "individual"]
+_NAMED_PKINDS = ["organisation", "state-body"]  # kept in clear -> can be ranked by name
 _MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 TIER_C_PAGE = 40
 
@@ -178,12 +192,6 @@ def _inject_jd_css() -> None:
             border-bottom: 1px solid #f0f3f4; font-size: 0.86rem; color: #1f2d33;
         }
         .jd-case-row:last-child { border-bottom: none; }
-        .jd-chip { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
-            border-radius: 4px; padding: 0.05rem 0.4rem; white-space: nowrap; }
-        .jd-chip.publiclaw { background: #e8eef9; color: #2f4b86; }
-        .jd-chip.commercial { background: #eef5ea; color: #41663a; }
-        .jd-chip.criminal { background: #f7ece9; color: #8a4a3a; }
-        .jd-chip.civil { background: #f1f0f4; color: #5a5470; }
         .jd-case-link { font-size: 0.72rem; color: #6b7b83; text-decoration: none; white-space: nowrap; margin-left: auto; }
         .jd-case-link:hover { color: #2c5f6b; text-decoration: underline; }
         .jd-foot { font-size: 0.76rem; color: #7b8b92; line-height: 1.5; margin-top: 1.6rem;
@@ -208,49 +216,58 @@ def _inject_jd_css() -> None:
         .jd-delta.down { color: #3f7a4b; }   /* shorter wait than last year */
         .jd-delta.up   { color: #b3563f; }   /* longer wait than last year */
         .jd-delta.flat { color: #8a9aa1; }
+        /* Legal Diary — who's bringing the cases (plaintiff side). State=blue,
+           company=amber, individual=grey: deuteranopia-safe AND always text-labelled. */
+        .jd-subhead { font-size: 1.0rem; font-weight: 700; color: #14232b; margin: 1.4rem 0 0.1rem; }
+        .jd-pstrip { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0.5rem 0 0.3rem; }
+        .jd-pstat { display: flex; align-items: center; gap: 0.45rem; background: #ffffff;
+            border: 1px solid #e4e9ec; border-radius: 999px; padding: 0.25rem 0.75rem; font-size: 0.8rem; }
+        .jd-pstat b { font-weight: 700; color: #14232b; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+        .jd-pstat span { color: #5b6b73; }
+        .jd-pdot { width: 0.6rem; height: 0.6rem; border-radius: 999px; flex: none; }
+        .jd-pdot.prosecutor, .jd-pdot.statebody { background: #3a6ea5; }
+        .jd-pdot.organisation { background: #c98a3a; }
+        .jd-pdot.individual { background: #9aa7ad; }
+        .jd-pchip { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
+            border-radius: 4px; padding: 0.05rem 0.4rem; white-space: nowrap; flex: none; }
+        .jd-pchip.prosecutor, .jd-pchip.statebody { background: #e8eef9; color: #2f4b86; }
+        .jd-pchip.organisation { background: #fbf3e8; color: #8a5a2a; }
+        .jd-pchip.individual { background: #f1f0f4; color: #5a5470; }
+        .jd-party-p { font-weight: 600; color: #1f2d33; }
+        .jd-vs { color: #9aa7ad; font-style: italic; padding: 0 0.15rem; }
+        .jd-party-d { color: #3a4a51; }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
 
-def _chip_class(category: str) -> str:
-    return {"public-law": "publiclaw", "commercial": "commercial", "criminal": "criminal", "civil": "civil"}.get(
-        category, "civil"
-    )
-
-
 # ══════════════════════════════════════════════════════════════ ① THE BENCH
-def _salary_html(row) -> str:
-    band = row.get("salary_band_eur")
-    if band is not None and not pd.isna(band):
-        return f'<span class="jud-sal">€{int(band):,}<br><small>salary band</small></span>'
-    if row.get("is_ex_officio_or_multi"):
-        return '<span class="jud-sal"><small>president /<br>ex-officio</small></span>'
-    return ""
-
-
 def _bench_card_html(row) -> str:
+    # The cards are already filtered by the court pill, so the court sits in the
+    # section caption — repeating it on every card is noise. Salary band is uniform
+    # within a court (the ordinary-judge figure), so it lives on each judge's
+    # profile rather than 11× down the roster; only the senior-office exception
+    # (Chief Justice / President / ex-officio premium) is chipped here.
     chips = []
     if row.get("has_spine"):
         auth = row.get("first_appointing_authority")
-        label, cls = _AUTHORITY.get(auth, (auth or "", "other"))
+        label, _cls = _AUTHORITY.get(auth, (auth or "", "other"))
         appt = f'<div class="jud-appt">Appointed {_year(row.get("first_appointed_date"))} by {_esc(label)}</div>'
         if row.get("is_elevation") and not row.get("requires_manual_review"):
             chips.append('<span class="jud-chip elev">Elevated</span>')
     else:
         appt = ""
         chips.append('<span class="jud-chip gap">Record begins 2016</span>')
+    if row.get("is_ex_officio_or_multi"):
+        chips.append('<span class="jud-chip office">Senior office</span>')
     if isinstance(row.get("assignment"), str) and row["assignment"]:
         chips.append('<span class="jud-chip assign">Specialist list</span>')
     if row.get("requires_manual_review"):
         chips.append('<span class="jud-chip review">Needs review</span>')
-    chiprow = (
-        f'<div class="jud-chiprow">{"".join(chips)}{_salary_html(row)}</div>' if chips or _salary_html(row) else ""
-    )
+    chiprow = f'<div class="jud-chiprow">{"".join(chips)}</div>' if chips else ""
     return (
         f'<div class="jud-card"><div class="jud-jn">{_esc(row.get("judge_name"))}</div>'
-        f'<div class="jud-jc">{_esc(row.get("court"))}</div>'
         f"{appt}{chiprow}</div>"
     )
 
@@ -455,10 +472,10 @@ def _render_appointments(appts: pd.DataFrame, noms: pd.DataFrame) -> None:
         for r in authority.itertuples():
             label, cls = _AUTHORITY.get(r.appointing_authority, (r.appointing_authority or "", "other"))
             cells.append(
-                f'<div class="jud-stat"><div class="jud-rung-n">{int(r.n)}</div>'
+                f'<div class="jud-stat"><span class="jud-stat-n">{int(r.n)}</span>'
                 f'<span class="jud-auth {cls}">{_esc(label)}</span></div>'
             )
-        st.html(f'<div class="jud-grid">{"".join(cells)}</div>')
+        st.html(f'<div class="jud-statwrap">{"".join(cells)}</div>')
 
     if ladder is not None and not ladder.empty:
         st.html('<h2 class="jd-section-head">The elevation ladder</h2>')
@@ -503,7 +520,9 @@ def _render_appointments(appts: pd.DataFrame, noms: pd.DataFrame) -> None:
 # System-health only: case throughput, waiting times, and where the courts sit.
 # Aggregate by court — NEVER attributed to a named judge (privacy rule). Every metric
 # (clearance_pct, parsed weeks) is computed in the SQL views; this renders the frames.
-def _clearance_bar(row, court_order: dict[str, int]) -> str:
+def _clearance_bar(row, label_key: str = "jurisdiction") -> str:
+    """One ranked clearance bar. label_key picks the row field shown as the title, so
+    the same primitive renders both the court ranking and the per-court area breakdown."""
     pct = row.get("clearance_pct")
     if pct is None or pd.isna(pct):
         return ""
@@ -514,11 +533,45 @@ def _clearance_bar(row, court_order: dict[str, int]) -> str:
     sub = f"{int(inc):,} received · {int(res):,} resolved" if pd.notna(inc) and pd.notna(res) else ""
     return (
         '<div class="jd-rank">'
-        f'<div class="jd-rank-body"><div class="jd-rank-title">{_esc(row.get("jurisdiction"))}</div>'
+        f'<div class="jd-rank-body"><div class="jd-rank-title">{_esc(row.get(label_key))}</div>'
         f'<div class="jd-rank-sub">{sub}</div>'
         f'<div class="jd-bar-track"><div class="jd-bar-fill {state}" style="width:{fill:.0f}%"></div></div></div>'
         f'<div class="jd-rank-n {state}">{pct:.0f}%</div></div>'
     )
+
+
+def _clearance_trend_chart(clr: pd.DataFrame) -> alt.LayerChart:
+    """Multi-year clearance lines, one per court, with a 100% break-even reference rule.
+    Lines below the rule = backlog growing that year; above = backlog shrinking."""
+    df = clr[["jurisdiction", "year", "clearance_pct", "incoming", "resolved"]].dropna(subset=["clearance_pct"])
+    courts = [c for c in _COURT_ORDER if c in set(df["jurisdiction"])]
+    lines = (
+        alt.Chart(df)
+        .mark_line(point=alt.OverlayMarkDef(size=42, filled=True), strokeWidth=2.2)
+        .encode(
+            x=alt.X("year:O", title=None, axis=alt.Axis(labelAngle=0)),
+            y=alt.Y("clearance_pct:Q", title="Clearance %", scale=alt.Scale(zero=False)),
+            color=alt.Color(
+                "jurisdiction:N",
+                title="Court",
+                scale=alt.Scale(domain=courts, scheme="tableau10"),
+                legend=alt.Legend(orient="bottom", columns=3, labelLimit=200),
+            ),
+            tooltip=[
+                alt.Tooltip("jurisdiction:N", title="Court"),
+                alt.Tooltip("year:O", title="Year"),
+                alt.Tooltip("clearance_pct:Q", title="Clearance %", format=".0f"),
+                alt.Tooltip("incoming:Q", title="Received", format=","),
+                alt.Tooltip("resolved:Q", title="Resolved", format=","),
+            ],
+        )
+    )
+    rule = (
+        alt.Chart(pd.DataFrame({"y": [100]}))
+        .mark_rule(color="#9aa8ad", strokeDash=[4, 4])
+        .encode(y="y:Q")
+    )
+    return (rule + lines).properties(height=320)
 
 
 def _render_clearance(clr: pd.DataFrame) -> None:
@@ -532,13 +585,49 @@ def _render_clearance(clr: pd.DataFrame) -> None:
     if not years:
         return
     sel = st.pills("Year", years, default=years[0], key="courts_clear_year", label_visibility="collapsed") or years[0]
-    year_df = clr[clr["year"] == sel].copy()
-    order = {c: i for i, c in enumerate(_COURT_ORDER)}
     # Lowest clearance first — the courts under most pressure surface at the top.
-    year_df = year_df.sort_values("clearance_pct", na_position="last")
+    year_df = clr[clr["year"] == sel].sort_values("clearance_pct", na_position="last")
     st.caption(f"{int(sel)} · {len(year_df)} courts, ordered by clearance rate (lowest first).")
-    bars = "".join(_clearance_bar(r._asdict(), order) for r in year_df.itertuples())
-    st.html(bars)
+    st.html("".join(_clearance_bar(r._asdict()) for r in year_df.itertuples()))
+
+    _render_clearance_drilldown(sel, year_df)
+
+    # The time dimension — every court's trajectory across the whole 2017–2024 window.
+    st.html('<h2 class="jd-section-head" style="margin-top:1.4rem">Clearance over time</h2>')
+    st.caption("Each line is a court; the dashed rule marks 100% (cases resolved equalling cases received).")
+    st.altair_chart(_clearance_trend_chart(clr), width="stretch")
+
+
+def _render_clearance_drilldown(sel_year: int, year_df: pd.DataFrame) -> None:
+    """Break one court down by area of law (Civil / Criminal / Family / …) for the
+    selected year, reading the finer-grain v_courts_clearance_by_area view."""
+    area = fetch_courts_clearance_by_area()
+    if area is None or area.empty:
+        return
+    courts = [c for c in _COURT_ORDER if c in set(year_df["jurisdiction"])]
+    if not courts:
+        return
+    # Default to the court under most pressure (lowest clearance) — the one worth opening.
+    default_court = str(year_df.iloc[0]["jurisdiction"]) if not year_df.empty else courts[0]
+    st.html('<h2 class="jd-section-head" style="margin-top:1.2rem">Break a court down by area</h2>')
+    pick = (
+        st.pills(
+            "Court",
+            courts,
+            default=default_court if default_court in courts else courts[0],
+            key="courts_area_court",
+            label_visibility="collapsed",
+        )
+        or default_court
+    )
+    sub = area[(area["jurisdiction"] == pick) & (area["year"] == sel_year)].sort_values(
+        "clearance_pct", na_position="last"
+    )
+    if sub.empty:
+        st.caption(f"No area breakdown recorded for the {pick} in {int(sel_year)}.")
+        return
+    st.caption(f"{pick} · {int(sel_year)} · clearance by area of law (lowest first).")
+    st.html("".join(_clearance_bar(r._asdict(), label_key="area_of_law") for r in sub.itertuples()))
 
 
 def _wait_card(row) -> str:
@@ -674,6 +763,74 @@ def _render_ld_busiest(day_counts: pd.DataFrame) -> None:
         )
 
 
+def _case_party_html(row) -> str:
+    """A case row as plaintiff -> defendant with a plaintiff-kind chip. Falls back to
+    the joined title for single-party matters (e.g. 'In the matter of … a bankrupt')."""
+    cls, chip_label, _ = _PKIND.get(getattr(row, "plaintiff_kind", "") or "", ("individual", "—", ""))
+    chip = f'<span class="jd-pchip {cls}">{_esc(chip_label)}</span>'
+    plaintiff = getattr(row, "plaintiff", "") or ""
+    defendant = getattr(row, "defendant", "") or ""
+    if plaintiff and defendant:
+        party = (
+            f'<span class="jd-party-p">{_esc(plaintiff)}</span>'
+            f'<span class="jd-vs">v</span>'
+            f'<span class="jd-party-d">{_esc(defendant)}</span>'
+        )
+    else:
+        party = f'<span class="jd-party-p">{_esc(row.case_anonymised)}</span>'
+    return chip + party
+
+
+def _render_ld_plaintiffs(day_cases: pd.DataFrame) -> None:
+    """'Who's bringing these cases' — the applicant (plaintiff/prosecutor) side. The
+    split + classification are PIPELINE-owned columns (plaintiff / plaintiff_kind);
+    this only counts and ranks the already-classified rows for display."""
+    if "plaintiff_kind" not in day_cases.columns:
+        return
+    st.html('<h3 class="jd-subhead">Who\'s bringing these cases</h3>')
+    st.caption(
+        "The applicant side of each listing. Individuals stay as initials; named "
+        "companies and State bodies — the accountability signal — are shown in clear."
+    )
+    # logic_firewall: display_only (counts over the pipeline-classified plaintiff_kind)
+    kind_counts = day_cases["plaintiff_kind"].value_counts().to_dict()
+    chips = []
+    for key in _PKIND_ORDER:
+        n = int(kind_counts.get(key, 0))
+        if not n:
+            continue
+        cls, _row_label, plural = _PKIND[key]
+        chips.append(
+            f'<div class="jd-pstat"><span class="jd-pdot {cls}"></span>'
+            f"<b>{n}</b><span>{_esc(plural)}</span></div>"
+        )
+    if chips:
+        st.html(f'<div class="jd-pstrip">{"".join(chips)}</div>')
+
+    # named institutional plaintiffs (orgs + State bodies, kept in clear) — repeat
+    # applicants ranked by how often they appear. logic_firewall: display_only
+    named = day_cases[day_cases["plaintiff_kind"].isin(_NAMED_PKINDS)]
+    top = named["plaintiff"].value_counts().head(8)
+    if top.empty:
+        return
+    kind_by_name = named.drop_duplicates("plaintiff").set_index("plaintiff")["plaintiff_kind"].to_dict()
+    mx = int(top.iloc[0]) or 1
+    st.caption("Named institutions appearing most often as the applicant:")
+    rows = []
+    for name, n in top.items():
+        n = int(n)
+        pct = round(100 * n / mx)
+        label = _PKIND.get(kind_by_name.get(name, ""), ("", "", "Company"))[2]
+        rows.append(
+            f'<div class="jd-rank"><div class="jd-rank-body">'
+            f'<div class="jd-rank-title">{_esc(name)}</div>'
+            f'<div class="jd-rank-sub">{_esc(label)}</div>'
+            f'<div class="jd-bar-track"><div class="jd-bar-fill" style="width:{pct}%"></div></div>'
+            f'</div><div class="jd-rank-n">{n}</div></div>'
+        )
+    st.html("".join(rows))
+
+
 def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
     st.html('<h2 class="jd-section-head">What\'s before the courts</h2>')
     st.caption(
@@ -701,6 +858,9 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
         )
         return
 
+    _render_ld_plaintiffs(day_cases)
+
+    st.html('<h3 class="jd-subhead">Every listed matter</h3>')
     present_cats = [(k, lbl) for k, lbl, _ in _CATEGORIES if k in counts]
     options = ["All"] + [lbl for _, lbl in present_cats]
     pick = st.segmented_control("Filter by type", options, default="All", key="jd_cat_filter") or "All"
@@ -730,10 +890,7 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
                     if r.source_url
                     else ""
                 )
-                rows.append(
-                    f'<div class="jd-case-row"><span class="jd-chip {_chip_class(r.category)}">'
-                    f"{_esc(r.category)}</span><span>{_esc(r.case_anonymised)}</span>{link}</div>"
-                )
+                rows.append(f'<div class="jd-case-row">{_case_party_html(r)}{link}</div>')
             st.html("".join(rows))
         shown += len(g)
 
@@ -791,6 +948,9 @@ def _render_legal_diary() -> None:
                 "status",
                 "category",
                 "case_anonymised",
+                "plaintiff",
+                "defendant",
+                "plaintiff_kind",
                 "source",
                 "source_url",
                 "source_sha256",

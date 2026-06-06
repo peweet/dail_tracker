@@ -88,6 +88,12 @@ def fetch_courts_clearance() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=600)
+def fetch_courts_clearance_by_area() -> pd.DataFrame:
+    """Annual case clearance by court × area of law, 2017–2024 (drill-down)."""
+    return _q.courts_clearance_by_area(get_judiciary_conn()).data
+
+
+@st.cache_data(ttl=600)
 def fetch_courts_waiting_times() -> pd.DataFrame:
     """Published waiting-time lists (latest two years)."""
     return _q.courts_waiting_times(get_judiciary_conn()).data
