@@ -1,24 +1,18 @@
-"""
-Interests data access layer.
+"""Interests data access — thin Streamlit wrapper over dail_tracker_core.
 
-Owns:
-- DuckDB connection bootstrapped from sql_views/member_interests_*.sql
-  (v_member_interests_detail + v_member_interests_index)
-- All retrieval SQL for the interests page (SELECT / WHERE / ORDER BY / LIMIT only)
+Retrieval SQL + QueryResult state-handling live in
+``dail_tracker_core.queries.interests``; this file owns only the Streamlit
+caching and the small presentation reshaping the page expects (availability
+bool, the {"years", "members"} options dict, plain DataFrames).
 
-Forbidden here (same rules as Streamlit page files):
-- read_parquet / read_csv
-- duckdb.connect(":memory:") + register frame pattern
-- CREATE VIEW / CREATE TABLE
-- pandas groupby, merge, pivot
-- Business metric definitions (the leaderboard rollup lives in
-  v_member_interests_index, not here)
+``get_interests_conn`` is still exported for symmetry with the other data-access
+modules (the page imports fetchers, not the conn).
 
-Pre-existing /interests page behaviour preserved exactly: same filter
-options, same column contract, same row ordering, same leaderboard rank.
-The page-side _load_interests / _fetch_filter_options / _fetch_interests /
-_fetch_td_data / _fetch_member_index_fallback patterns are now thin SQL
-SELECTs against the two registered views.
+Pre-existing /interests behaviour preserved exactly: same filter options, same
+column contract, same row ordering, same leaderboard rank.
+
+Forbidden here (unchanged): read_parquet, parquet_scan, CREATE VIEW,
+pandas groupby/merge/pivot business logic, multi-dim GROUP BY.
 """
 
 from __future__ import annotations
@@ -26,29 +20,20 @@ from __future__ import annotations
 import duckdb
 import pandas as pd
 import streamlit as st
-from data_access._sql_registry import register_views
+
+from dail_tracker_core.db import connect_with_views
+from dail_tracker_core.queries import interests as _q
 
 
 @st.cache_resource
 def get_interests_conn() -> duckdb.DuckDBPyConnection:
-    """Open a connection and register v_member_interests_detail and
-    v_member_interests_index. The detail view file sorts before the index
-    file so dependency order works under the alphabetical glob."""
-    conn = duckdb.connect()
-    register_views(
-        conn,
+    # Detail-view glob sorts before the index glob so dependency order holds
+    # (the index view reads the detail view). Loud registration — a missing
+    # interests view is a real break, matching prior behaviour.
+    return connect_with_views(
         ["member_interests_*.sql", "member_zz_interests_*.sql"],
         swallow_errors=False,
     )
-    return conn
-
-
-def _safe(sql: str, params: list | None = None) -> pd.DataFrame:
-    try:
-        conn = get_interests_conn()
-        return conn.execute(sql, params or []).df()
-    except Exception:
-        return pd.DataFrame()
 
 
 # ── Availability guard ────────────────────────────────────────────────────────
@@ -56,17 +41,9 @@ def _safe(sql: str, params: list | None = None) -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def fetch_interests_availability(house: str) -> bool:
-    """Return True iff v_member_interests_detail has any row for this house.
-
-    Replaces the in-page parquet/CSV existence check + empty-frame check.
-    A single COUNT(*) > 0 is enough; we don't materialise the whole frame
-    just to find out whether data exists.
-    """
-    df = _safe(
-        "SELECT 1 FROM v_member_interests_detail WHERE house = ? LIMIT 1",
-        [house],
-    )
-    return not df.empty
+    """True iff v_member_interests_detail has any row for this house."""
+    r = _q.availability(get_interests_conn(), house)
+    return r.ok and not r.is_empty
 
 
 # ── Filter options ────────────────────────────────────────────────────────────
@@ -74,34 +51,16 @@ def fetch_interests_availability(house: str) -> bool:
 
 @st.cache_data(ttl=300)
 def fetch_interests_filter_options(house: str) -> dict[str, list]:
-    """{"years": [int], "members": [str]} for the sidebar / leaderboard
-    filters. Pure retrieval against v_member_interests_detail."""
-    years_df = _safe(
-        "SELECT DISTINCT declaration_year FROM v_member_interests_detail"
-        " WHERE house = ? AND declaration_year IS NOT NULL"
-        " ORDER BY declaration_year DESC",
-        [house],
-    )
-    years = years_df["declaration_year"].dropna().astype(int).tolist() if not years_df.empty else []
-
-    members_df = _safe(
-        "SELECT DISTINCT member_name FROM v_member_interests_detail"
-        " WHERE house = ? AND member_name IS NOT NULL"
-        " ORDER BY member_name",
-        [house],
-    )
-    members = members_df["member_name"].tolist() if not members_df.empty else []
-
+    """{"years": [int], "members": [str]} for the sidebar / leaderboard filters."""
+    conn = get_interests_conn()
+    yrs = _q.distinct_years(conn, house)
+    mem = _q.distinct_members(conn, house)
+    years = yrs.data["declaration_year"].dropna().astype(int).tolist() if (yrs.ok and not yrs.is_empty) else []
+    members = mem.data["member_name"].tolist() if (mem.ok and not mem.is_empty) else []
     return {"years": years, "members": members}
 
 
 # ── Detail retrieval ──────────────────────────────────────────────────────────
-
-
-_DETAIL_COLS = (
-    "member_name, party_name, constituency, declaration_year,"
-    " interest_category, interest_text, landlord_flag, property_flag"
-)
 
 
 @st.cache_data(ttl=300)
@@ -111,37 +70,14 @@ def fetch_interests(
     years: tuple[int, ...] = (),
     landlord_only: bool = False,
 ) -> pd.DataFrame:
-    """Browse-list rows. Filters AND together. Limit 1000 matches the
-    previous in-page behaviour."""
-    clauses: list[str] = ["house = ?"]
-    params: list = [house]
-    if name_q:
-        clauses.append("member_name ILIKE ?")
-        params.append(f"%{name_q}%")
-    if years:
-        placeholders = ", ".join("?" for _ in years)
-        clauses.append(f"declaration_year IN ({placeholders})")
-        params.extend(int(y) for y in years)
-    if landlord_only:
-        clauses.append("landlord_flag = ?")
-        params.append(True)
-    where = " WHERE " + " AND ".join(clauses)
-    return _safe(
-        f"SELECT {_DETAIL_COLS} FROM v_member_interests_detail"
-        f"{where} ORDER BY declaration_year DESC, member_name LIMIT 1000",
-        params,
-    )
+    """Browse-list rows. Filters AND together; LIMIT 1000."""
+    return _q.detail(get_interests_conn(), house, name_q, years, landlord_only).data
 
 
 @st.cache_data(ttl=300)
 def fetch_td_interests(house: str, td_name: str) -> pd.DataFrame:
     """Every declaration for one TD across all years."""
-    return _safe(
-        f"SELECT {_DETAIL_COLS} FROM v_member_interests_detail"
-        " WHERE house = ? AND member_name = ?"
-        " ORDER BY declaration_year DESC, interest_category",
-        [house, td_name],
-    )
+    return _q.td_interests(get_interests_conn(), house, td_name).data
 
 
 # ── Member index (ranked leaderboard) ─────────────────────────────────────────
@@ -149,14 +85,5 @@ def fetch_td_interests(house: str, td_name: str) -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def fetch_member_index(house: str, year: int) -> pd.DataFrame:
-    """Ranked member index for a house × year. The rank, counts and flags
-    are all produced by v_member_interests_index — retrieval-only here."""
-    return _safe(
-        "SELECT rank, member_name, party_name, constituency,"
-        " total_declarations, directorship_count, property_count, share_count,"
-        " is_landlord, is_property_owner"
-        " FROM v_member_interests_index"
-        " WHERE house = ? AND declaration_year = ?"
-        " ORDER BY rank",
-        [house, int(year)],
-    )
+    """Ranked member index for a house × year (retrieval-only over the index view)."""
+    return _q.member_index(get_interests_conn(), house, year).data
