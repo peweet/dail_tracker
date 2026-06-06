@@ -94,7 +94,12 @@ COMPANY_SUFFIX = re.compile(
     r"services|solutions|consult|engineer|partners|associates|holdings|university|college|"
     r"council|hse|board|institute|ireland|technolog|systems|media|hotel|centre|&)\b", re.I)
 FOREIGN_FORM = re.compile(r"\b(gmbh|s\.?a\.?|n\.?v\.?|s\.?a\.?s|s\.?p\.?a|inc|llc|\bpty\b|\bab\b|\bbv\b|\boy\b|srl|sl|sarl|aps|kft|ltda)\b", re.I)
-PUBLIC_BODY = re.compile(r"\b(county council|city council|university|institute of technology|department of|office of|\bHSE\b|health service|an garda|údarás|udaras|education and training board|\bETB\b|local authority|national \w+ authority|\bOPW\b|hospital)\b", re.I)
+# NOTE: national state agencies named "X Ireland" / "X Éireann" (e.g. Transport
+# Infrastructure Ireland, Uisce Éireann) must be caught HERE — _pub is tested before
+# _co, otherwise COMPANY_SUFFIX's bare "ireland" token misclassifies them as companies
+# and their intergovernmental transfers leak into value_safe_to_sum. Add agencies as
+# they surface as transfer recipients.
+PUBLIC_BODY = re.compile(r"\b(county council|city council|university|institute of technology|department of|office of|\bHSE\b|health service|an garda|údarás|udaras|education and training board|\bETB\b|local authority|national \w+ authority|\bOPW\b|hospital|transport infrastructure ireland|\bTII\b|uisce éireann|irish water|tailte éireann)\b", re.I)
 # Drops title/threshold rows that masquerade as a supplier (the page heading bleeds into the
 # supplier column with the literal €20,000 threshold as its amount). Plural "Purchase Orders"
 # and "Payments greater than/over €20,000" headings leaked through the singular-only pattern.

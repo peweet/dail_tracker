@@ -80,6 +80,20 @@ def test_company_payment_is_summable():
     assert row["value_safe_to_sum"] is True
 
 
+@pytest.mark.parametrize("name", [
+    "Transport Infrastructure Ireland",   # "...Ireland" — COMPANY_SUFFIX 'ireland' would mis-hit
+    "Uisce Éireann",
+    "Irish Water",
+    "Tailte Éireann",
+])
+def test_named_state_agency_is_public_body_not_summable(name):
+    # State agencies named "X Ireland"/"X Éireann" must classify public_body (tested before the
+    # company check) so their intergovernmental transfers never leak into value_safe_to_sum.
+    row = _flag([name]).row(0, named=True)
+    assert row["supplier_class"] == "public_body", f"{name} misclassified as {row['supplier_class']}"
+    assert row["value_safe_to_sum"] is False
+
+
 def test_no_public_body_row_is_summable_in_mix():
     # Mirrors the real transfer pattern: TII pays county councils (recipient = public body),
     # which is the €2.5bn of intergovernmental transfers the fix excludes from summing.

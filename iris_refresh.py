@@ -73,7 +73,7 @@ def step_si_gold() -> bool:
     try:
         # import-and-call avoids subprocess overhead; si_entity_enrichment.run()
         # is the same entry point its __main__ uses.
-        import si_entity_enrichment
+        import iris.si_entity_enrichment as si_entity_enrichment
 
         si_entity_enrichment.run()
     except Exception as exc:

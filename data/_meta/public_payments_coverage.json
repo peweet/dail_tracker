@@ -2,22 +2,22 @@
   "publishers_attempted": 29,
   "publishers_with_rows": 28,
   "rows_extracted": 73032,
-  "rows_public_display": 47922,
-  "rows_review_personal_data": 25110,
-  "rows_quarantined": 25110,
+  "rows_public_display": 47939,
+  "rows_review_personal_data": 25093,
+  "rows_quarantined": 25093,
   "supplier_class_counts": {
-    "public_body": 3440,
+    "sole_trader_or_individual": 25093,
     "unknown": 5417,
-    "sole_trader_or_individual": 25110,
+    "company": 38352,
     "foreign_company": 710,
-    "company": 38355
+    "public_body": 3460
   },
   "amount_semantics_counts": {
-    "po_committed": 32711,
-    "payment_actual": 40321
+    "payment_actual": 40321,
+    "po_committed": 32711
   },
-  "value_safe_to_sum_rows": 73027,
-  "value_safe_to_sum_total_eur": 14316415781.409977,
+  "value_safe_to_sum_rows": 69567,
+  "value_safe_to_sum_total_eur": 11723057788.869982,
   "by_publisher": [
     {
       "id": "ie_opw",
@@ -371,6 +371,6 @@
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-05T12:46:36+00:00",
-  "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
+  "generated_at": "2026-06-06T01:02:41+00:00",
+  "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }

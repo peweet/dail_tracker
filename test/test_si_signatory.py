@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from si_entity_enrichment import recover_actor_and_signatory, tidy_actor
+from iris.si_entity_enrichment import recover_actor_and_signatory, tidy_actor
 
 # ── recover_actor_and_signatory ───────────────────────────────────────────────
 
