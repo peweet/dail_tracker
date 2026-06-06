@@ -41,6 +41,7 @@ from ui.components import (
     empty_state,
     fmt_civic_date as _fmt_date,
     hero_banner,
+    hide_sidebar,
     paginate,
     pagination_controls,
     sidebar_page_header,
@@ -840,6 +841,7 @@ def _render_detail(row: pd.Series) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 def public_appointments_page() -> None:
     inject_css()
+    hide_sidebar()
     _inject_pa_css()
 
     df = load_appointments()

@@ -327,3 +327,13 @@ def provenance_expander(
 def interests_pdf_url(house: str, year: int) -> str | None:
     """Return the canonical PDF URL for a given house + declaration year, or None."""
     return INTERESTS.get((house.lower(), year))
+
+
+def interests_pdf_links(house: str) -> list[tuple[str, str]]:
+    """Register-of-interests PDF source links for a house, newest declaration year first.
+
+    Returns (label, url) tuples ready for provenance_expander(pdf_links=...).
+    House keys in INTERESTS are unaccented ("dail"/"seanad"); normalise "Dáil" → "dail".
+    """
+    h = house.strip().lower().replace("á", "a")
+    return [(f"Register {year}", url) for (hh, year), url in sorted(INTERESTS.items(), reverse=True) if hh == h]

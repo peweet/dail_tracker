@@ -51,7 +51,7 @@ from ui.components import (
 )
 from data_access.identity_resolver import resolve_member_code
 from ui.entity_links import member_profile_url
-from ui.source_pdfs import provenance_expander
+from ui.source_pdfs import interests_pdf_links, provenance_expander
 
 from config import (
     NOTABLE_SENATORS,
@@ -148,7 +148,7 @@ def _render_leaderboard(ranking_df: pd.DataFrame) -> None:
 # ── Provenance footer ──────────────────────────────────────────────────────────
 
 
-def _render_provenance() -> None:
+def _render_provenance(house: str) -> None:
     provenance_expander(
         sections=[
             "Declarations are extracted from published Oireachtas PDF documents. "
@@ -158,6 +158,7 @@ def _render_provenance() -> None:
             "A high declaration count reflects transparency, not wrongdoing."
         ],
         source_caption="Data: Oireachtas Register of Members' Interests (data.oireachtas.ie)",
+        pdf_links=interests_pdf_links(house),
     )
 
 
@@ -282,7 +283,7 @@ def interests_page() -> None:
     year_opts = [str(y) for y in opts["years"]]
     if not year_opts:
         empty_state("No year data found", "v_member_interests_detail returned no years.")
-        _render_provenance()
+        _render_provenance(house)
         return
 
     selected_year = year_selector(year_opts, key="int_year")
@@ -297,7 +298,7 @@ def interests_page() -> None:
             f"No declarations for {selected_year}",
             "No interest declarations on record for this year and chamber.",
         )
-        _render_provenance()
+        _render_provenance(house)
         return
 
     # Audit fix (2026-05-26, P1-5): the previous heading
@@ -356,5 +357,5 @@ def interests_page() -> None:
         show_caption=False,
     )
 
-    _render_provenance()
+    _render_provenance(house)
     return
