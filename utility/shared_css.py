@@ -4898,6 +4898,9 @@ def inject_css() -> None:
         .jud-node-court { font-weight:650; color:var(--ink-strong); font-size:0.88rem; margin-top:0.35rem; }
         .jud-node-date { font-size:0.74rem; color:var(--text-meta); }
         .jud-node-auth { font-size:0.72rem; color:oklch(40% 0.012 75); margin-top:0.1rem; }
+        .jud-node-link { display:inline-block; font-size:0.7rem; color:var(--accent);
+            text-decoration:none; margin-top:0.15rem; }
+        .jud-node-link:hover { text-decoration:underline; }
 
         /* profile header + provenance + vacancy-lifecycle */
         .jud-prof-head { margin:0.2rem 0 0.5rem; }
@@ -4919,6 +4922,73 @@ def inject_css() -> None:
         .jud-foot { font-size:0.76rem; color:var(--text-meta); line-height:1.5; margin-top:1.4rem;
             border-top:1px solid var(--border); padding-top:0.8rem; max-width:64rem; }
         .jud-foot a { color:var(--accent); }
+
+        /* ───────────────────────── Public Procurement ──────────────────
+           Supplier / authority / category register cards + supplier profile.
+           Ink-on-paper: white cards, full borders, blue/neutral chips
+           (deuteranopia-safe, text-labelled — never red/green). Supplier and
+           lobbying-overlap cards drill down via .dt-card-link-wrap (hover lift). */
+        .pr-caveat {
+            background: var(--signal-bad-subtle); border: 1px solid var(--signal-bad-border);
+            border-left: 3px solid var(--signal-bad-mid); border-radius: 8px;
+            padding: 0.7rem 0.95rem; margin: 0.4rem 0 0.9rem;
+            font-size: 0.86rem; color: var(--ink-700); line-height: 1.55; max-width: 64rem;
+        }
+        .pr-caveat strong { color: var(--signal-bad-deep); }
+        .pr-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+            gap: 0.7rem; margin-top: 0.5rem;
+        }
+        .pr-card {
+            background: #ffffff; border: 1px solid var(--border); border-radius: 10px;
+            padding: 0.7rem 0.85rem; display: flex; flex-direction: column; gap: 0.35rem;
+            height: 100%;
+        }
+        .pr-card-head { display: flex; align-items: baseline; gap: 0.5rem; }
+        .pr-rank {
+            font-weight: 700; color: var(--accent); font-size: 0.82rem;
+            font-variant-numeric: tabular-nums; flex: none;
+        }
+        .pr-name { font-weight: 650; color: var(--ink-strong); font-size: 0.93rem; line-height: 1.3; }
+        .pr-meta { font-size: 0.78rem; color: var(--text-meta); }
+        .pr-pills { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: auto; padding-top: 0.15rem; }
+        .pr-pill {
+            font-size: 0.72rem; font-weight: 600; padding: 0.08rem 0.5rem; border-radius: 999px;
+            background: var(--surface-deep); color: var(--ink-700); border: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        .pr-pill-val { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent-dim); }
+        .pr-pill-cro { background: var(--signal-good-subtle); color: var(--signal-good-deep);
+            border-color: var(--signal-good-border); }
+        /* lobbying co-occurrence is informational, NOT an alarm — neutral chip,
+           never red, so the colour never implies wrongdoing (honesty rail). */
+        .pr-pill-lob { background: var(--surface-deep); color: var(--ink-700); border-color: var(--border-strong); }
+
+        /* supplier profile (?supplier=) */
+        .pr-prof-head { margin: 0.2rem 0 0.5rem; }
+        .pr-prof-name { font-size: 1.5rem; font-weight: 700; color: var(--ink-strong);
+            line-height: 1.15; margin: 0; padding: 0; }
+        .pr-prof-sub { font-size: 0.9rem; color: var(--text-meta); margin-top: 0.15rem; }
+        .pr-award {
+            background: #ffffff; border: 1px solid var(--border); border-radius: 8px;
+            padding: 0.55rem 0.8rem; margin-bottom: 0.4rem;
+            display: flex; align-items: baseline; gap: 0.7rem;
+        }
+        .pr-award-body { flex: 1; min-width: 0; }
+        .pr-award-auth { font-weight: 600; color: var(--ink-700); font-size: 0.88rem; }
+        .pr-award-meta { font-size: 0.76rem; color: var(--text-meta); margin-top: 0.1rem; }
+        .pr-award-val { font-weight: 700; color: var(--accent); font-size: 0.92rem;
+            font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+        .pr-award-val small { display: block; font-weight: 500; color: var(--text-meta); font-size: 0.64rem; }
+        .pr-award-val.ceiling { color: var(--signal-bad-deep); }
+        .pr-foot {
+            font-size: 0.8rem; color: var(--text-meta); line-height: 1.55;
+            margin-top: 1.4rem; padding-top: 0.7rem; border-top: 1px solid var(--border); max-width: 64rem;
+        }
+        .pr-foot a { color: var(--accent); }
+        @media (max-width: 640px) {
+            .pr-grid { grid-template-columns: 1fr; }
+        }
 
         </style>
         """,

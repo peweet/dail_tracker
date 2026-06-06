@@ -20,9 +20,12 @@ The heavy name-matching was already validated in the sandbox join
 keys everything for the SQL views — it does NOT re-invent the join.
 
 OUTPUTS (committed runtime set):
-  data/gold/parquet/judiciary_appointments.parquet  one row per appointee per appointment event
-  data/gold/parquet/judiciary_bench.parquet         one row per sitting judge (identity grain)
-  data/gold/parquet/judiciary_nominations.parquet   one row per gov.ie nomination (vacancy context)
+  data/gold/parquet/judiciary_appointments.parquet      one row per appointee per appointment event
+  data/gold/parquet/judiciary_bench.parquet             one row per sitting judge (identity grain)
+  data/gold/parquet/judiciary_nominations.parquet       one row per gov.ie nomination (vacancy context)
+  data/gold/parquet/judiciary_courts_clearance.parquet  clearance facts (jurisdiction×area×category×year)
+  data/gold/parquet/judiciary_courts_waiting.parquet    waiting-time lists (latest two years)
+  data/gold/parquet/judiciary_courthouses.parquet       active geocoded courthouses (venue map)
 META:
   data/_meta/judiciary_bench_coverage.json
 
@@ -314,6 +317,94 @@ def build_nominations(nom: pd.DataFrame, aliases: dict[str, str]) -> pd.DataFram
     return n[cols].sort_values(["announce_date", "target_court", "nominee"]).reset_index(drop=True)
 
 
+# ──────────────────────────────────────────── build: the courts (system health)
+# Three faithful promotions of the Courts Service "system health" datasets. NO
+# metric is computed here — clearance_pct and the aggregation to court×year are the
+# SQL view's job (logic firewall). This step only fixes source artefacts that would
+# otherwise fragment a court or render as mojibake:
+#   * clearance JURISDICTION casing ("Court Of Appeal" criminal-appeals table vs
+#     "Court of Appeal" civil table are the SAME court — collapse to one canonical
+#     spelling so the view groups them; AREA_OF_LAW still separates the streams);
+#   * waiting-times labels carry PDF-extraction mojibake (U+FFFD replacement char) —
+#     the only reliably-fixable artefact (U+FFFD -> apostrophe) is repaired, the rest
+#     is left verbatim rather than guessed at.
+CLEARANCE_SOURCE_URL = "https://data.courts.ie"
+WAITING_SOURCE_URL = (
+    "https://www.courts.ie/annual-report"  # Courts Service Annual Report 2024, Waiting Times pp.135–140
+)
+COURTHOUSE_SOURCE_URL = "https://data.courts.ie/files/court-offices/court-offices.csv"
+
+# Source casing collisions -> one canonical court name (constitutional spelling).
+_COURT_CANON = {"Court Of Appeal": "Court of Appeal"}
+
+
+def build_courts_clearance(clr: pd.DataFrame) -> pd.DataFrame:
+    """Faithful clearance facts at source grain (jurisdiction × area × category × year).
+    Casing normalised so the view can group a court; counts untouched. The view computes
+    clearance_pct = resolved/incoming (which legitimately exceeds 100% when a court clears
+    backlog — that is a real signal, never capped here or downstream)."""
+    c = clr.copy()
+    c["jurisdiction"] = c["JURISDICTION"].replace(_COURT_CANON)
+    out = pd.DataFrame(
+        {
+            "jurisdiction": c["jurisdiction"],
+            "area_of_law": c["AREA_OF_LAW"],
+            "year": c["YEAR"].astype(int),
+            "category": c["CATEGORY"],
+            "incoming": c["INCOMING"].astype(int),
+            "resolved": c["RESOLVED"],
+            "source_name": "Courts Service annual statistics",
+            "source_url": CLEARANCE_SOURCE_URL,
+        }
+    )
+    return out.sort_values(["year", "jurisdiction", "area_of_law", "category"]).reset_index(drop=True)
+
+
+def build_courts_waiting(wt: pd.DataFrame) -> pd.DataFrame:
+    """Waiting-time lists as published (latest two years side by side), VERBATIM.
+    The source PDF carries ligature-extraction artefacts on the deeper matter-type rows
+    ('certfii ed', U+FFFD where an apostrophe/en-dash stood). These are NOT guessed at
+    here — U+FFFD is ambiguous (apostrophe vs en-dash) and silently 'fixing' it would
+    corrupt the text. The clean, headline rows are the named venues (Dublin…Limerick);
+    the page curates to those, but gold keeps every published row faithfully. The
+    is_clean_label flag marks rows free of the known artefacts for that curation."""
+    w = wt.copy()
+    label = w["matter_or_venue"].astype(str)
+    is_clean = ~label.str.contains(r"[�]|fii|\bfi\s", regex=True, na=False)
+    out = pd.DataFrame(
+        {
+            "page": w["page"].astype(int),
+            "matter_or_venue": w["matter_or_venue"],
+            "wait_2024": w["wait_2024"],
+            "wait_2023": w["wait_2023"],
+            "is_clean_label": is_clean.values,
+            "source_name": "Courts Service Annual Report 2024 (Waiting Times)",
+            "source_url": WAITING_SOURCE_URL,
+        }
+    )
+    return out.reset_index(drop=True)
+
+
+def build_courthouses(ch: pd.DataFrame) -> pd.DataFrame:
+    """Active, geocoded courthouses for the venue map (lat/lon + place metadata)."""
+    h = ch[ch["active_status"] == "active"].copy()
+    out = pd.DataFrame(
+        {
+            "court_house": h["court_house"],
+            "address": h["court_house_address"],
+            "eircode": h["court_house_eircode"],
+            "region": h["region"],
+            "county": h["county"],
+            "circuit": h["circuit"],
+            "latitude": h["latitude"],
+            "longitude": h["longitude"],
+            "source_name": "Courts Service court-office register",
+            "source_url": COURTHOUSE_SOURCE_URL,
+        }
+    )
+    return out.dropna(subset=["latitude", "longitude"]).sort_values("court_house").reset_index(drop=True)
+
+
 # ───────────────────────────────────────────────────────────────────── main
 def main() -> int:
     setup_standalone_logging("judiciary_bench_extract")
@@ -326,14 +417,23 @@ def main() -> int:
     hc = pd.read_parquet(SANDBOX_DIR / "judiciary_hc_assignments.parquet")
     salaries = pd.read_parquet(SANDBOX_DIR / "judicial_salaries.parquet")
     salaries_present = set(salaries["office"])
+    clearance_raw = pd.read_parquet(SANDBOX_DIR / "courts_clearance.parquet")
+    waiting_raw = pd.read_parquet(SANDBOX_DIR / "courts_waiting_times.parquet")
+    courthouses_raw = pd.read_parquet(SANDBOX_DIR / "courthouses.parquet")
 
     appts = build_appointments(spine, join, aliases)
     bench = build_bench(roster, appts, salaries_present, hc, aliases)
     noms = build_nominations(nom, aliases)
+    clearance = build_courts_clearance(clearance_raw)
+    waiting = build_courts_waiting(waiting_raw)
+    courthouses = build_courthouses(courthouses_raw)
 
     _write(appts, "judiciary_appointments")
     _write(bench, "judiciary_bench")
     _write(noms, "judiciary_nominations")
+    _write(clearance, "judiciary_courts_clearance")
+    _write(waiting, "judiciary_courts_waiting")
+    _write(courthouses, "judiciary_courthouses")
 
     coverage = {
         "parser_version": PARSER_VERSION,
@@ -347,12 +447,19 @@ def main() -> int:
         "elevations": int(appts["is_elevation"].sum()),
         "flagged_for_review": int(bench["requires_manual_review"].sum()),
         "nominations": int(len(noms)),
+        "courts_clearance_rows": int(len(clearance)),
+        "courts_clearance_years": [int(clearance["year"].min()), int(clearance["year"].max())],
+        "courts_waiting_rows": int(len(waiting)),
+        "courthouses": int(len(courthouses)),
         "salary_bands_available": sorted(salaries_present),
         "sources": {
             "appointments": "Iris Oifigiúil (public_appointments.parquet, appointment_type=='judicial')",
             "roster": ROSTER_SOURCE_URL,
             "nominations": GOVIE_SOURCE_URL,
             "salaries": SALARY_SOURCE,
+            "courts_clearance": CLEARANCE_SOURCE_URL,
+            "courts_waiting": WAITING_SOURCE_URL,
+            "courthouses": COURTHOUSE_SOURCE_URL,
         },
     }
     META_DIR.mkdir(parents=True, exist_ok=True)
@@ -362,7 +469,8 @@ def main() -> int:
     print(
         f"bench={len(bench)} (spine={coverage['bench_with_spine']}, "
         f"gap={coverage['bench_pre_2016_gap']}) | appts={len(appts)} "
-        f"(elev={coverage['elevations']}, review={coverage['flagged_for_review']}) | noms={len(noms)}"
+        f"(elev={coverage['elevations']}, review={coverage['flagged_for_review']}) | noms={len(noms)} | "
+        f"clearance={len(clearance)} | waiting={len(waiting)} | courthouses={len(courthouses)}"
     )
     return 0
 
