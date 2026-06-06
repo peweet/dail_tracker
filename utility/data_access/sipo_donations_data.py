@@ -33,10 +33,12 @@ def fetch_donations_totals() -> dict[str, float | int]:
     if not r.ok or r.is_empty:
         return {"total": 0.0, "donations": 0, "parties": 0}
     row = r.data.iloc[0]
+    # .df() yields NaN (truthy) where the old fetchone() gave SQL NULL -> None;
+    # coerce NaN -> 0 so an empty/NULL aggregate matches the old None-or-0 path.
     return {
-        "total": float(row["total_value"] or 0.0),
-        "donations": int(row["donation_count"] or 0),
-        "parties": int(row["parties"] or 0),
+        "total": float(row["total_value"]) if pd.notna(row["total_value"]) else 0.0,
+        "donations": int(row["donation_count"]) if pd.notna(row["donation_count"]) else 0,
+        "parties": int(row["parties"]) if pd.notna(row["parties"]) else 0,
     }
 
 
