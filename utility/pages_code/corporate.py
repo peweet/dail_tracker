@@ -64,6 +64,7 @@ from ui.components import (
     sidebar_page_header,
     sidebar_subtitle,
 )
+from ui.source_pdfs import iris_archive_url
 
 PAGE_SIZE = 12
 FEATURED_TOP_N = 8
@@ -966,20 +967,8 @@ def _subtype_pill_class(subtype: str) -> str:
     return "corp-pill-subtype"
 
 
-def _iris_archive_url(issue_date) -> str:
-    """Iris Oifigiúil archive *month* URL for a notice's issue date.
-
-    The archive's per-PDF filename casing (IR vs Ir) is inconsistent and not
-    derivable from the date, but the month-directory listing always resolves —
-    and the dated PDF sits one click inside it (a month has ~8 issues). This
-    keeps the link live with zero pipeline work. Empty string when undated."""
-    if issue_date is None or pd.isna(issue_date):
-        return ""
-    try:
-        d = pd.Timestamp(issue_date)
-    except (ValueError, TypeError):
-        return ""
-    return f"https://irisoifigiuil.ie/archive/{d.year}/{d.strftime('%B').lower()}/"
+# Iris archive-URL formula is shared with public_appointments — see ui.source_pdfs.
+_iris_archive_url = iris_archive_url
 
 
 def _card_name(row: pd.Series) -> tuple[str, bool]:

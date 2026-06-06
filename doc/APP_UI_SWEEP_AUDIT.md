@@ -27,6 +27,26 @@ reads as borderline rather than slop.
 
 ---
 
+## Fixes applied (2026-06-06, post-audit verification against code)
+Several findings were verified against the implementation and turned out already-handled or to be
+house style. The genuine defects were fixed:
+
+- **✅ P1-1 FIXED** — added `hide_sidebar()` to `public_appointments.py` + `corporate.py`.
+- **✅ P2-7 FIXED** — masthead tagline + separator now hidden ≤768px (was clipping on phones).
+- **✅ P2-5 FIXED (Votes)** — stage pill tooltip now carries the full stage label, not a generic
+  "Legislative stage", so 18ch-truncated stages are recoverable on hover. *(Appointments adviser
+  labels already had a `title=` tooltip — no change needed.)*
+- **↩︎ P2-2 NOT A DEFECT** — every stat strip is already responsive: legislation stacks ≤640px, SI
+  auto-fits (`minmax`), procurement uses `flex-wrap`, corporate goes 2-col ≤760px. No horizontal
+  overflow at 390px (`scrollWidth == clientWidth`). The original finding was inferred from desktop
+  shots; corrected.
+- **↩︎ P3-8 NOT A DEFECT** — the dashes are em-dashes, the app's documented editorial voice
+  (PRODUCT.md "editorial newspaper" register), not stray en-dashes. Left as-is.
+
+Still open (design judgment / debt, not one-shot fixes): P2-3 (stat-strip-as-tell), P2-4
+(hardcoded hex → tokens), P2-6 (half-empty Legislation cards), P3-9 (Legal-Diary mojibake, a
+pipeline decode fix), P3-10 (Interests legend colour verify).
+
 ## Findings by severity
 
 ### P1 — fix before release

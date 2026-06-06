@@ -241,6 +241,32 @@ These are decoupled from the registry build — pure display wins where the data
   payments.py already passes `PAYMENTS` — instant T3 register-document links on a ranking page that
   had none. Pure UI, no logic-firewall surface.
 
+- **W5 — public_appointments Iris source is now a clickable link. ✅ DONE (2026-06-06).** The
+  detail card already had the source (`iris_source_pdf`) but rendered it as **dead grey monospace
+  text** ([public_appointments.py:817](../utility/pages_code/public_appointments.py#L817)) — the URL
+  was a filename (`IR021018.pdf`), not clickable. Fixed by reusing corporate's Iris archive-URL
+  formula: lifted `_iris_archive_url` into a shared `iris_archive_url()` in
+  [source_pdfs.py](../utility/ui/source_pdfs.py) (one copy, both Iris pages use it; corporate
+  de-duplicated via alias) and rendered the clickable *"Iris Oifigiúil — {date} ↗"* archive link
+  with the filename as subtext, matching corporate exactly. Validated: 3 files compile · firewall
+  clean · alias produces byte-identical URLs. **Audit correction:** corporate was *already*
+  rendering its Iris link ([corporate.py:2269](../utility/pages_code/corporate.py#L2269)) — the
+  earlier Streamlit record's "corporate: export only" note was wrong.
+
+- **W6 (candidate — DEFERRED, not safe yet).** statutory_instruments.py renders `iris_source_pdf`
+  as the same dead grey text ([statutory_instruments.py:1321](../utility/pages_code/statutory_instruments.py#L1321)).
+  The shared `iris_archive_url()` *could* fix it — BUT the SI view only carries `si_signed_date`
+  (signing date), not the Iris publication date, so an archive-month link built from it could point
+  to the wrong month. The accurate date is encoded in the filename (`IRddmmyy.pdf`) but the format
+  isn't confirmed. **Do not ship until** either the filename date-encoding is verified or the
+  pipeline exposes an `iris_issue_date` on the SI view. A wrong link is worse than honest text.
+
+**Scan result (2026-06-06):** judiciary already links all 3 of its source URLs
+([judiciary.py:436](../utility/pages_code/judiciary.py#L436)); legislation/lobbying/SI-eisb already
+link theirs. The only clean dead-text cases were public_appointments (W5, fixed) and the SI iris-pdf
+(W6, deferred). The registry-wiring quick win is exhausted across the 3 PDF registries (interests
+W1 + payments/attendance already done).
+
 ---
 
 ## 7. Open questions for kickoff
