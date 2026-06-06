@@ -4,7 +4,7 @@ Four tabs on one page (design brief confirmed 2026-06-06, impeccable `shape`):
 
   ① The Bench               current roster, one card per judge, click -> ?judge= profile
   ② Appointments & Govt     who appointed whom, the elevation ladder, vacancy lifecycle
-  ③ The Courts              system health (clearance / waiting / map) — PR2 placeholder
+  ③ The Courts              system health: case clearance, waiting times, courthouse map
   ④ Legal Diary             the existing daily-sittings feature, unchanged
 
 Civic frame (no inference): who sits on Ireland's courts, who appointed them, and how
@@ -17,9 +17,10 @@ DATA BOUNDARY (logic firewall): every join / classification (current court, rank
 is_elevation, salary band, match confidence) lives in the SQL views
 (sql_views/judiciary_*.sql); this page reads them via data_access.judiciary_data and does
 presentation faceting only. Bench/appointments/profile read v_judiciary_roster /
-v_judiciary_appointments / v_judiciary_profile / v_judiciary_nominations
-(extractors/judiciary_bench_extract.py); the Legal Diary tab reads the
-v_judiciary_legal_diary_* views as before.
+v_judiciary_appointments / v_judiciary_profile / v_judiciary_nominations; The Courts
+reads v_courts_clearance / v_courts_waiting_times / v_courthouses (clearance_pct and
+week-parsing computed in those views) — all from extractors/judiciary_bench_extract.py.
+The Legal Diary tab reads the v_judiciary_legal_diary_* views as before.
 """
 
 from __future__ import annotations
