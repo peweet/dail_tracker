@@ -35,7 +35,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from services.dail_config import (
+from config import (
     LEGISLATION_DIR,
     QUESTIONS_DIR,
     SILVER_PARQUET_DIR,

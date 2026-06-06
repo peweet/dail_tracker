@@ -446,7 +446,7 @@ def _render_featured_spads(df: pd.DataFrame) -> None:
             f"</div>"
         )
 
-    # Year sparkline. Spikes track new governments; we mark the top-3 years.
+    # Year sparkline. Mark the busiest years (top-3 by appointment count).
     yc = sa["year"].dropna().astype(int).value_counts().sort_index()  # logic_firewall: display_only
     if yc.empty:
         spark_html = ""

@@ -1,6 +1,6 @@
 import logging
 
-from services.dail_config import API_BASE, VOTES_DATE_START
+from config import API_BASE, VOTES_DATE_START
 from services.http_engine import fetch_json
 
 logger = logging.getLogger(__name__)

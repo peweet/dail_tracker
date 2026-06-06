@@ -1,33 +1,25 @@
-"""Courts & Judiciary — The Legal Diary (standalone browser page).
+"""Courts & Judiciary — the bench, appointments, and the daily Legal Diary.
 
-Sources from three registered DuckDB views (sql_views/judiciary_legal_diary_*.sql),
-which read the gold parquets produced by extractors/legal_diary_extract.py from the
-Courts Service daily Legal Diary (archived by pdf_infra/legal_diary_poller.py):
+Four tabs on one page (design brief confirmed 2026-06-06, impeccable `shape`):
 
-  v_judiciary_legal_diary_schedule  Tier A — judge sitting-sessions (officials only)
-  v_judiciary_legal_diary_counts    Tier B — per-session case-item counts
-  v_judiciary_legal_diary_cases     Tier C — ANONYMISED case listings + source link
+  ① The Bench               current roster, one card per judge, click -> ?judge= profile
+  ② Appointments & Govt     who appointed whom, the elevation ladder, vacancy lifecycle
+  ③ The Courts              system health (clearance / waiting / map) — PR2 placeholder
+  ④ Legal Diary             the existing daily-sittings feature, unchanged
 
-Civic frame: the unelected bench doing public work in public — which judge sits on
-which list, in which court, on which day, and how busy each list is. The judge and
-the court are always the subject; parties are incidental, anonymised context.
+Civic frame (no inference): who sits on Ireland's courts, who appointed them, and how
+they got there — source-linked public records. The page does NOT rate judges, infer
+bias, or imply misconduct. Coverage gaps are shown, not hidden: judges appointed before
+the 2016 Iris spine carry an honest "record begins 2016" note; low-confidence joins
+carry a "needs review" chip.
 
-PRIVACY (load-bearing — see memory project_judiciary_feature_validation):
-statutory in-camera matters (minors / family / wards / childcare / asylum) are
-DROPPED entirely upstream; every natural person is reduced to initials; orgs and
-the State are named; each entry links to the official diary for verification. This
-page presents Tier C through judge/list headings and aggregate category counts —
-never as a flat, followable register of parties. NO inference in any copy.
-
-Sections (top → bottom):
-  Hero + method/privacy strip
-  Day selector (segmented if few days, else selectbox; latest default)
-  ① Today on the bench   (Tier A — grouped by court; the hero content)
-  ② Most active lists today  (Tier B — ranked by listed-item volume, top 8, inline
-     proportion bar; court only, NO judge name — a volume count, not performance)
-  ③ What's before the courts (Tier C — category counts → anonymised entries
-     nested under judge/list, each with a verification link)
-  Provenance footer
+DATA BOUNDARY (logic firewall): every join / classification (current court, rank,
+is_elevation, salary band, match confidence) lives in the SQL views
+(sql_views/judiciary_*.sql); this page reads them via data_access.judiciary_data and does
+presentation faceting only. Bench/appointments/profile read v_judiciary_roster /
+v_judiciary_appointments / v_judiciary_profile / v_judiciary_nominations
+(extractors/judiciary_bench_extract.py); the Legal Diary tab reads the
+v_judiciary_legal_diary_* views as before.
 """
 
 from __future__ import annotations
@@ -43,16 +35,23 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.judiciary_data import (
+    fetch_appointments,
     fetch_legal_diary_cases,
     fetch_legal_diary_counts,
     fetch_legal_diary_schedule,
+    fetch_nominations,
+    fetch_profile,
+    fetch_roster,
 )
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 from ui.components import (
+    back_button,
+    clickable_card_link,
     empty_state,
     glossary_strip,
     hero_banner,
     hide_sidebar,
+    todo_callout,
 )
 
 # Court display order — constitutional seniority, the natural reading order.
@@ -65,15 +64,30 @@ _COURT_ORDER = [
     "Circuit Court",
     "District Court",
 ]
+# The five courts the bench/roster spans (a subset of the legal-diary courts above).
+_BENCH_COURTS = [
+    "Supreme Court",
+    "Court of Appeal",
+    "High Court",
+    "Circuit Court",
+    "District Court",
+]
 _CATEGORIES = [
     ("public-law", "Public law", "v the State / a Minister / public body"),
     ("commercial", "Commercial", "a company or financial party named"),
     ("criminal", "Criminal", "prosecution; defendant shown by initials"),
     ("civil", "Civil", "private litigation; parties shown by initials"),
 ]
-_MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+_MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 TIER_C_PAGE = 40
+
+# Appointing-authority display + chip class (blue=Government, amber=President).
+_AUTHORITY = {
+    "Government": ("the Government", "gov"),
+    "President": ("the President", "pres"),
+    "Minister": ("the Minister for Justice", "other"),
+    "Unknown": ("authority not recorded", "other"),
+}
 
 
 def _esc(val) -> str:
@@ -92,9 +106,14 @@ def _fmt_day(s: str) -> str:
         return str(s)
 
 
+def _year(s) -> str:
+    return str(s)[:4] if s is not None and not (isinstance(s, float) and pd.isna(s)) else ""
+
+
 # ──────────────────────────────────────────────────────────────────────────────
-# Page-local CSS (jd-* family). Injected via st.markdown so it reaches <head>
-# (st.html would iframe the <style>); same precedent as corp-* / si-*.
+# Legal-diary-local CSS (jd-* family). Bench/timeline CSS (jud-*) lives in
+# shared_css.py; only the daily-diary classes stay page-local. Injected via
+# st.markdown so it reaches <head> (st.html would iframe the <style>).
 # ──────────────────────────────────────────────────────────────────────────────
 def _inject_jd_css() -> None:
     st.markdown(
@@ -171,17 +190,276 @@ def _inject_jd_css() -> None:
 
 
 def _chip_class(category: str) -> str:
-    return {"public-law": "publiclaw", "commercial": "commercial",
-            "criminal": "criminal", "civil": "civil"}.get(category, "civil")
+    return {"public-law": "publiclaw", "commercial": "commercial", "criminal": "criminal", "civil": "civil"}.get(
+        category, "civil"
+    )
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Section renderers
-# ──────────────────────────────────────────────────────────────────────────────
-def _render_bench(day_sched: pd.DataFrame) -> None:
+# ══════════════════════════════════════════════════════════════ ① THE BENCH
+def _salary_html(row) -> str:
+    band = row.get("salary_band_eur")
+    if band is not None and not pd.isna(band):
+        return f'<span class="jud-sal">€{int(band):,}<br><small>salary band</small></span>'
+    if row.get("is_ex_officio_or_multi"):
+        return '<span class="jud-sal"><small>president /<br>ex-officio</small></span>'
+    return ""
+
+
+def _bench_card_html(row) -> str:
+    chips = []
+    if row.get("has_spine"):
+        auth = row.get("first_appointing_authority")
+        label, cls = _AUTHORITY.get(auth, (auth or "", "other"))
+        appt = f'<div class="jud-appt">Appointed {_year(row.get("first_appointed_date"))} by {_esc(label)}</div>'
+        if row.get("is_elevation") and not row.get("requires_manual_review"):
+            chips.append('<span class="jud-chip elev">Elevated</span>')
+    else:
+        appt = ""
+        chips.append('<span class="jud-chip gap">Record begins 2016</span>')
+    if isinstance(row.get("assignment"), str) and row["assignment"]:
+        chips.append('<span class="jud-chip assign">Specialist list</span>')
+    if row.get("requires_manual_review"):
+        chips.append('<span class="jud-chip review">Needs review</span>')
+    chiprow = (
+        f'<div class="jud-chiprow">{"".join(chips)}{_salary_html(row)}</div>' if chips or _salary_html(row) else ""
+    )
+    return (
+        f'<div class="jud-card"><div class="jud-jn">{_esc(row.get("judge_name"))}</div>'
+        f'<div class="jud-jc">{_esc(row.get("court"))}</div>'
+        f"{appt}{chiprow}</div>"
+    )
+
+
+def _render_the_bench(roster: pd.DataFrame) -> None:
+    if roster is None or roster.empty:
+        empty_state(
+            "The bench isn't loaded yet",
+            "Run extractors/judiciary_bench_extract.py to populate the judiciary "
+            "roster, appointments and profile views.",
+        )
+        return
+    st.caption(
+        "Every judge currently sitting, grouped by court. Click a judge for their "
+        "full appointment history. Coverage of appointments before 2016 is partial — "
+        "those judges are shown with an honest note, not hidden."
+    )
+    present = [c for c in _BENCH_COURTS if c in set(roster["court"].dropna())]
+    if not present:
+        empty_state("No courts found", "The roster loaded but no recognised courts were present.")
+        return
+    chosen = st.pills("Court", present, default=present[0], key="jud_court", label_visibility="collapsed") or present[0]
+    sub = roster[roster["court"] == chosen].sort_values("judge_name")
+    n_spine = int(sub["has_spine"].sum())
+    st.caption(f"{len(sub)} judges on the {chosen} · {n_spine} with an appointment record since 2016.")
+    cards = [
+        clickable_card_link(
+            href=f"?judge={_esc(r.judge_key)}",
+            inner_html=_bench_card_html(r._asdict()),
+            aria_label=f"View the appointment history of {r.judge_name}",
+        )
+        for r in sub.itertuples()
+    ]
+    st.html(f'<div class="jud-grid">{"".join(cards)}</div>')
+
+
+# ══════════════════════════════════════════════════════ JUDGE PROFILE (?judge=)
+def _render_profile(judge_key: str) -> None:
+    profile = fetch_profile()
+    appts = fetch_appointments()
+    if back_button("← Back to the bench", key="judprof"):
+        st.query_params.clear()
+        st.rerun()
+
+    row = None
+    if profile is not None and not profile.empty:
+        match = profile[profile["judge_key"] == judge_key]
+        if not match.empty:
+            row = match.iloc[0]
+    if row is None:
+        empty_state(
+            "Judge not found", "That profile link didn't match a sitting judge. Use Back to return to the bench."
+        )
+        return
+
+    rank_note = " · ex-officio member of more senior courts" if row.get("is_ex_officio_or_multi") else ""
+    st.html(
+        f'<div class="jud-prof-head"><div class="jud-prof-name">{_esc(row["judge_name"])}</div>'
+        f'<div class="jud-prof-sub">{_esc(row.get("current_court"))}{_esc(rank_note)}</div></div>'
+    )
+
+    # career arc — one node per appointment notice, in date order; last = current.
+    ev = (
+        appts[appts["judge_key"] == judge_key].sort_values("issue_date")
+        if appts is not None and not appts.empty
+        else pd.DataFrame()
+    )
+    if not ev.empty:
+        st.html('<h2 class="jd-section-head">Career arc</h2>')
+        nodes = []
+        last = len(ev) - 1
+        for i, e in enumerate(ev.itertuples()):
+            auth_label = _AUTHORITY.get(e.appointing_authority, (e.appointing_authority or "", ""))[0]
+            nodes.append(
+                f'<div class="jud-node{" now" if i == last else ""}">'
+                f'<div class="jud-node-dot"></div>'
+                f'<div class="jud-node-court">{_esc(e.appointed_court)}</div>'
+                f'<div class="jud-node-date">{_year(e.issue_date)}</div>'
+                f'<div class="jud-node-auth">by {_esc(auth_label)}</div></div>'
+            )
+        st.html(f'<div class="jud-arc">{"".join(nodes)}</div>')
+    else:
+        st.html(
+            '<div class="jud-context"><strong>Appointment record begins 2016.</strong> '
+            f"{_esc(row['judge_name'])} sits on the {_esc(row.get('current_court'))}, but their "
+            "appointment predates the public Iris Oifigiúil spine, so the earlier career arc is "
+            "not yet recorded here.</div>"
+        )
+
+    # facts
+    facts = []
+    band = row.get("salary_band_eur")
+    if band is not None and not pd.isna(band):
+        facts.append(
+            f"<strong>Salary band</strong> €{int(band):,} ({_esc(row.get('salary_office'))}, "
+            f"{_esc(row.get('salary_source'))})"
+        )
+    elif row.get("is_ex_officio_or_multi"):
+        facts.append("<strong>Salary band</strong> President / ex-officio premium (not attributed here)")
+    if isinstance(row.get("assignment"), str) and row["assignment"]:
+        facts.append(f"<strong>Assignment</strong> {_esc(row['assignment'])} ({_esc(row.get('assignment_term'))})")
+    if facts:
+        st.html('<div class="jud-context">' + "<br>".join(facts) + "</div>")
+
+    # vacancy context (gov.ie)
+    if isinstance(row.get("govie_vacancy_cause"), str) and row["govie_vacancy_cause"]:
+        pred = row.get("govie_predecessor")
+        prior = row.get("govie_prior_career")
+        bits = [
+            f'<div class="jud-vac-cause">Filled a vacancy created by {_esc(row["govie_vacancy_cause"])}'
+            + (f": {_esc(pred)}" if isinstance(pred, str) and pred else "")
+            + "</div>"
+        ]
+        if isinstance(prior, str) and prior:
+            bits.append(f'<div class="jud-vac-nom">Prior career: {_esc(prior)}</div>')
+        st.html(f'<div class="jud-vac">{"".join(bits)}</div>')
+
+    if row.get("requires_manual_review"):
+        st.caption(
+            "⚠ One appointment record for this judge is a low-confidence match and is flagged for manual review."
+        )
+
+    # provenance
+    links = []
+    if isinstance(row.get("appt_source_url"), str) and row["appt_source_url"]:
+        links.append(
+            f'<a href="{_esc(row["appt_source_url"])}" target="_blank" rel="noopener">Iris Oifigiúil notice ↗</a>'
+        )
+    if isinstance(row.get("source_url"), str) and row["source_url"]:
+        links.append(f'<a href="{_esc(row["source_url"])}" target="_blank" rel="noopener">Courts Service roster ↗</a>')
+    if isinstance(row.get("govie_source_url"), str) and row["govie_source_url"]:
+        links.append(
+            f'<a href="{_esc(row["govie_source_url"])}" target="_blank" rel="noopener">gov.ie nomination ↗</a>'
+        )
+    st.html(
+        '<div class="jud-foot"><strong>Sources:</strong> '
+        + " · ".join(links)
+        + f". Roster snapshot {_esc(row.get('source_published_at'))}. This profile records "
+        "appointment, office and assignment only — not performance, conduct or any ranking.</div>"
+    )
+
+
+# ══════════════════════════════════════════════ ② APPOINTMENTS & GOVERNMENT
+def _render_appointments(appts: pd.DataFrame, noms: pd.DataFrame) -> None:
+    if appts is None or appts.empty:
+        empty_state(
+            "Appointments aren't loaded yet",
+            "Run extractors/judiciary_bench_extract.py to populate the appointments view.",
+        )
+        return
+    st.caption(
+        "Every judicial appointment recorded since 2016, who made it, and how judges "
+        "have moved up through the courts. The government appoints the unelected bench; "
+        "this is the record of that power."
+    )
+
+    # authority split — presentation count over the classified column.
+    # logic_firewall: display_only
+    auth_counts = appts["appointing_authority"].value_counts()
+    cells = []
+    for auth in ["President", "Government", "Minister", "Unknown"]:
+        if auth in auth_counts.index:
+            label = _AUTHORITY.get(auth, (auth, "other"))
+            cls = label[1]
+            cells.append(
+                f'<div class="jud-vac" style="text-align:center"><div class="jud-rung-n">{int(auth_counts[auth])}</div>'
+                f'<span class="jud-auth {cls}">{_esc(label[0])}</span></div>'
+            )
+    st.html('<h2 class="jd-section-head">Who appointed the bench</h2>')
+    st.caption(
+        "The President formally appoints all judges on the advice of the Government; the "
+        "figures below reflect how each notice recorded the appointing authority."
+    )
+    st.html(f'<div class="jud-grid">{"".join(cells)}</div>')
+
+    # elevation ladder — count of real promotions per court transition.
+    # logic_firewall: display_only
+    elev = appts[appts["is_elevation"] & ~appts["requires_manual_review"]]
+    if not elev.empty:
+        ladder = elev.groupby(["appointed_court", "elevated_to"]).size().sort_values(ascending=False)
+        st.html('<h2 class="jd-section-head">The elevation ladder</h2>')
+        st.caption("Judges promoted from one court to a more senior one (a fresh appointment notice each time).")
+        rungs = [
+            f'<div class="jud-rung"><span class="jud-rung-n">{int(n)}</span>'
+            f'<span class="jud-rung-path">{_esc(a)} → {_esc(b)}</span></div>'
+            for (a, b), n in ladder.items()
+        ]
+        st.html(f'<div class="jud-ladder">{"".join(rungs)}</div>')
+
+    # vacancy lifecycle from gov.ie nominations
+    if noms is not None and not noms.empty:
+        st.html('<h2 class="jd-section-head">Vacancy lifecycle</h2>')
+        st.caption(
+            "From gov.ie nomination announcements: what created each seat, who filled it, "
+            "and the career they came from. Text is preserved from the release, not inferred."
+        )
+        cards = []
+        for r in noms.itertuples():
+            pred = f" — {_esc(r.predecessor)}" if isinstance(r.predecessor, str) and r.predecessor else ""
+            prior = (
+                f'<div class="jud-vac-nom">{_esc(r.nominee)} · {_esc(r.prior_career)}</div>'
+                if isinstance(r.prior_career, str) and r.prior_career
+                else f'<div class="jud-vac-nom">{_esc(r.nominee)}</div>'
+            )
+            link = (
+                f' <a href="{_esc(r.source_url)}" target="_blank" rel="noopener" style="font-size:0.72rem">gov.ie ↗</a>'
+                if isinstance(r.source_url, str) and r.source_url
+                else ""
+            )
+            cards.append(
+                f'<div class="jud-vac"><div class="jud-vac-cause">{_esc(r.target_court)} · '
+                f"{_esc(r.vacancy_cause)}</div>"
+                f'<div class="jud-vac-pred">Seat created by: {_esc(r.vacancy_cause)}{pred}</div>'
+                f"{prior}{link}</div>"
+            )
+        st.html("".join(cards))
+
+
+# ══════════════════════════════════════════════════════════ ③ THE COURTS (PR2)
+def _render_courts_placeholder() -> None:
+    st.caption("How the courts are performing as a system — never attributed to a named judge.")
+    todo_callout(
+        "TODO_PIPELINE_VIEW_REQUIRED: v_courts_clearance — Court clearance rates (2017–2024), "
+        "waiting times by venue, and the 94-courthouse map are coming in the next update."
+    )
+
+
+# ══════════════════════════════════════════════════════════ ④ LEGAL DIARY
+def _render_ld_schedule(day_sched: pd.DataFrame) -> None:
     st.html('<h2 class="jd-section-head">Today on the bench</h2>')
-    st.caption("Each card is a judge's sitting session — court, list and start time. "
-               "Item count is how many matters were listed for that session.")
+    st.caption(
+        "Each card is a judge's sitting session — court, list and start time. "
+        "Item count is how many matters were listed for that session."
+    )
     present = [c for c in _COURT_ORDER if c in set(day_sched["court"].dropna())]
     extra = sorted(set(day_sched["court"].dropna()) - set(_COURT_ORDER))
     for court in present + extra:
@@ -189,23 +467,28 @@ def _render_bench(day_sched: pd.DataFrame) -> None:
         cards = []
         for r in rows.sort_values(["courtroom", "judge"], na_position="last").itertuples():
             n = int(getattr(r, "n_items", 0) or 0)
-            items = (f'<span class="jd-items">{n} listed</span>' if n
-                     else '<span class="jd-items zero">schedule only</span>')
+            items = (
+                f'<span class="jd-items">{n} listed</span>' if n else '<span class="jd-items zero">schedule only</span>'
+            )
             meta = " · ".join(p for p in (_esc(r.courtroom), _esc(r.time)) if p)
             cards.append(
                 f'<div class="jd-card"><div class="jd-judge">{_esc(r.judge)}</div>'
                 f'<div class="jd-meta">{meta}</div>'
                 f'<div class="jd-list">{_esc(r.list_type) or "—"}</div>{items}</div>'
             )
-        st.html(f'<div class="jd-court-head">{_esc(court)} '
-                f'<span>· {len(rows)} sitting{"s" if len(rows) != 1 else ""}</span></div>'
-                f'<div class="jd-grid">{"".join(cards)}</div>')
+        st.html(
+            f'<div class="jd-court-head">{_esc(court)} '
+            f"<span>· {len(rows)} sitting{'s' if len(rows) != 1 else ''}</span></div>"
+            f'<div class="jd-grid">{"".join(cards)}</div>'
+        )
 
 
-def _render_busiest(day_counts: pd.DataFrame) -> None:
+def _render_ld_busiest(day_counts: pd.DataFrame) -> None:
     st.html('<h2 class="jd-section-head">Most active lists today</h2>')
-    st.caption("Lists with the most scheduled items on this day — a count of listed "
-               "matters, not a measure of judicial workload or performance.")
+    st.caption(
+        "Lists with the most scheduled items on this day — a count of listed "
+        "matters, not a measure of judicial workload or performance."
+    )
     top = day_counts.sort_values("n_items", ascending=False).head(8)
     if top.empty or int(top["n_items"].max() or 0) == 0:
         empty_state("No scheduled items", "No lists had listed matters on this day.")
@@ -223,14 +506,15 @@ def _render_busiest(day_counts: pd.DataFrame) -> None:
         )
 
 
-def _render_cases(day_cases: pd.DataFrame, day_label: str) -> None:
+def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
     st.html('<h2 class="jd-section-head">What\'s before the courts</h2>')
-    st.caption("Anonymised list entries. People are shown by initials; organisations and "
-               "the State are named. Private hearings (family, childcare, wards, minors) are "
-               "not published. Each entry links to the official diary.")
+    st.caption(
+        "Anonymised list entries. People are shown by initials; organisations and "
+        "the State are named. Private hearings (family, childcare, wards, minors) are "
+        "not published. Each entry links to the official diary."
+    )
 
-    # category summary cards — render-time count over the already day-filtered set,
-    # driving the category chip layout (not a pipeline rollup).
+    # category summary cards — render-time count over the already day-filtered set.
     # logic_firewall: display_only
     counts = day_cases["category"].value_counts().to_dict()
     cat_cards = []
@@ -249,11 +533,9 @@ def _render_cases(day_cases: pd.DataFrame, day_label: str) -> None:
         )
         return
 
-    # category filter, then entries nested UNDER judge + list (judge stays the subject)
     present_cats = [(k, lbl) for k, lbl, _ in _CATEGORIES if k in counts]
     options = ["All"] + [lbl for _, lbl in present_cats]
-    pick = st.segmented_control("Filter by type", options, default="All",
-                                key="jd_cat_filter") or "All"
+    pick = st.segmented_control("Filter by type", options, default="All", key="jd_cat_filter") or "All"
     if pick != "All":
         chosen = next(k for k, lbl in present_cats if lbl == pick)
         view = day_cases[day_cases["category"] == chosen]
@@ -265,28 +547,30 @@ def _render_cases(day_cases: pd.DataFrame, day_label: str) -> None:
     shown = 0
     for (court, judge, list_type), g in grouped:
         if shown >= TIER_C_PAGE:
-            st.caption(f"… and {len(view) - shown} more. Use the type filter to narrow, "
-                       "or open the official diary for the full day.")
+            st.caption(
+                f"… and {len(view) - shown} more. Use the type filter to narrow, "
+                "or open the official diary for the full day."
+            )
             break
         head = f"{judge or 'Court'} — {list_type or 'List'}  ({len(g)})"
         with st.expander(f"{head}   ·   {court}"):
             rows = []
             for r in g.itertuples():
-                link = (f'<a class="jd-case-link" href="{_esc(r.source_url)}" target="_blank" '
-                        f'rel="noopener">official diary ↗</a>' if r.source_url else "")
+                link = (
+                    f'<a class="jd-case-link" href="{_esc(r.source_url)}" target="_blank" '
+                    f'rel="noopener">official diary ↗</a>'
+                    if r.source_url
+                    else ""
+                )
                 rows.append(
                     f'<div class="jd-case-row"><span class="jd-chip {_chip_class(r.category)}">'
-                    f'{_esc(r.category)}</span><span>{_esc(r.case_anonymised)}</span>{link}</div>'
+                    f"{_esc(r.category)}</span><span>{_esc(r.case_anonymised)}</span>{link}</div>"
                 )
             st.html("".join(rows))
         shown += len(g)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-def judiciary_page() -> None:
-    _inject_jd_css()
-    hide_sidebar()
-
+def _render_legal_diary() -> None:
     schedule = fetch_legal_diary_schedule()
     counts = fetch_legal_diary_counts()
     cases = fetch_legal_diary_cases()
@@ -295,46 +579,24 @@ def judiciary_page() -> None:
         empty_state(
             "The Legal Diary isn't loaded yet",
             "Run the daily capture (pdf_infra/legal_diary_poller.py) and "
-            "extractors/legal_diary_extract.py to populate the judiciary views.",
+            "extractors/legal_diary_extract.py to populate the diary views.",
         )
         return
 
-    days = sorted(schedule["diary_date"].dropna().unique(), reverse=True)
-    n_judges = schedule["judge"].nunique()
-    n_courts = schedule["court"].nunique()
-    hero_banner(
-        kicker="COURTS & JUDICIARY",
-        title="The Legal Diary",
-        dek="Daily court sittings from the Courts Service Legal Diary — which judge sits "
-            "on which list, in which court, and how busy each list is.",
-        badges=[
-            f"{len(days)} day{'s' if len(days) != 1 else ''} captured",
-            f"{n_judges} judges",
-            f"{n_courts} courts",
-            f"latest: {_fmt_day(days[0])}",
-        ],
-    )
     st.html(
-        '<div class="jd-context">We publish the <strong>sitting schedule</strong> and '
-        '<strong>anonymised</strong> list entries. Matters heard in private — family law, '
-        'childcare, wards of court and cases involving minors — are <strong>excluded</strong>. '
-        'People are shown by <strong>initials only</strong>; organisations and the State are '
-        'named. Every entry links to the official diary so the public record can be checked. '
-        'This page describes the work of the courts; it does not track or comment on any '
-        'individual case or judge.</div>'
+        '<div class="jd-context">The daily court list from the Courts Service. We publish the '
+        "<strong>sitting schedule</strong> and <strong>anonymised</strong> list entries. Matters "
+        "heard in private — family law, childcare, wards of court and cases involving minors — are "
+        "<strong>excluded</strong>. People are shown by <strong>initials only</strong>; organisations "
+        "and the State are named. Every entry links to the official diary.</div>"
     )
-    glossary_strip([
-        ("DPP", "Director of Public Prosecutions — the State's prosecutor in criminal cases"),
-        ("For mention", "a short listing to manage a case, not a full hearing"),
-        ("Ex parte", "an application made by one side only"),
-        ("Judicial review", "a challenge to a decision of the State or a public body"),
-    ])
 
-    # day selector — segmented for a handful of days, selectbox once history grows
+    days = sorted(schedule["diary_date"].dropna().unique(), reverse=True)
     labels = {d: _fmt_day(d) for d in days}
     if len(days) <= 7:
         chosen_label = st.segmented_control(
-            "Diary day", [labels[d] for d in days], default=labels[days[0]], key="jd_day")
+            "Diary day", [labels[d] for d in days], default=labels[days[0]], key="jd_day"
+        )
         chosen = next((d for d in days if labels[d] == chosen_label), days[0])
     else:
         chosen = st.selectbox("Diary day", days, index=0, format_func=lambda d: labels[d], key="jd_day")
@@ -342,22 +604,34 @@ def judiciary_page() -> None:
 
     day_sched = schedule[schedule["diary_date"] == chosen]
     day_counts = counts[counts["diary_date"] == chosen] if not counts.empty else counts
-    day_cases = cases[cases["diary_date"] == chosen] if cases is not None and not cases.empty else pd.DataFrame(
-        columns=["court", "judge", "list_type", "status", "category", "case_anonymised",
-                 "source", "source_url", "source_sha256"])
+    day_cases = (
+        cases[cases["diary_date"] == chosen]
+        if cases is not None and not cases.empty
+        else pd.DataFrame(
+            columns=[
+                "court",
+                "judge",
+                "list_type",
+                "status",
+                "category",
+                "case_anonymised",
+                "source",
+                "source_url",
+                "source_sha256",
+            ]
+        )
+    )
 
     if day_sched.empty:
-        empty_state("No sittings listed for this day",
-                    "Courts may not have sat (vacation or a non-court day).")
+        empty_state("No sittings listed for this day", "Courts may not have sat (vacation or a non-court day).")
         return
 
-    _render_bench(day_sched)
+    _render_ld_schedule(day_sched)
     st.divider()
-    _render_busiest(day_counts)
+    _render_ld_busiest(day_counts)
     st.divider()
-    _render_cases(day_cases, labels[chosen])
+    _render_ld_cases(day_cases, labels[chosen])
 
-    # provenance footer
     sha = ""
     if day_cases is not None and not day_cases.empty and "source_sha256" in day_cases.columns:
         vals = [s for s in day_cases["source_sha256"].dropna().unique()]
@@ -365,9 +639,60 @@ def judiciary_page() -> None:
     st.html(
         '<div class="jd-foot"><strong>Source:</strong> Courts Service Legal Diary '
         '(<a href="https://legaldiary.courts.ie/" target="_blank" rel="noopener">'
-        'legaldiary.courts.ie ↗</a>). The official diary shows the current court day only; '
-        'earlier days here come from our daily capture. Names are reduced to initials and '
-        'private hearings are excluded — see the note above.'
-        + (f' Captured file digest: <code>{_esc(sha)}</code>.' if sha else "")
+        "legaldiary.courts.ie ↗</a>). The official diary shows the current court day only; "
+        "earlier days here come from our daily capture. Names are reduced to initials and "
+        "private hearings are excluded."
+        + (f" Captured file digest: <code>{_esc(sha)}</code>." if sha else "")
         + "</div>"
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+def judiciary_page() -> None:
+    _inject_jd_css()
+    hide_sidebar()
+
+    # Profile drill-down — a single judge's career arc, full width, with back nav.
+    judge_key = st.query_params.get("judge")
+    if judge_key:
+        _render_profile(judge_key)
+        return
+
+    roster = fetch_roster()
+    appts = fetch_appointments()
+    noms = fetch_nominations()
+
+    badges = []
+    if roster is not None and not roster.empty:
+        badges.append(f"{len(roster)} sitting judges")
+        badges.append(f"{roster['court'].nunique()} courts")
+    if appts is not None and not appts.empty:
+        badges.append(f"{len(appts)} appointments since 2016")
+        badges.append(f"{int(appts['is_elevation'].sum())} elevations")
+    hero_banner(
+        kicker="COURTS & JUDICIARY",
+        title="The bench and the courts",
+        dek="Who sits on Ireland's courts, who appointed them, and how they got there. "
+        "Source-linked public records; this page does not rate judges or imply misconduct.",
+        badges=badges,
+    )
+    glossary_strip(
+        [
+            ("TD", "Teachta Dála (member of the Dáil)"),
+            ("Elevation", "promotion from one court to a more senior one"),
+            ("Ex-officio", "a role held automatically by virtue of another office"),
+            ("DPP", "Director of Public Prosecutions — the State's prosecutor"),
+        ]
+    )
+
+    tab_bench, tab_appt, tab_courts, tab_diary = st.tabs(
+        ["The Bench", "Appointments & Government", "The Courts", "Legal Diary"]
+    )
+    with tab_bench:
+        _render_the_bench(roster)
+    with tab_appt:
+        _render_appointments(appts, noms)
+    with tab_courts:
+        _render_courts_placeholder()
+    with tab_diary:
+        _render_legal_diary()

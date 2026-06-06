@@ -738,15 +738,18 @@ def _render_org_index(summary: pd.DataFrame) -> None:
         key="lp3_org_idx_trend",
     )
 
-    filtered = orgs
+    # Funding-profile and income-trend are semantic facets — bind them as SQL
+    # predicates (firewall: no in-page row-masking on view columns). The free-text
+    # name search stays in pandas (presentation-level substring match).
+    filtered = fetch_org_index(
+        exclude_state_adjacent=not show_state,
+        funding_profile=(_FUNDING_FILTER[funding_choice] if funding_choice and funding_choice != "All" else None),
+        income_trend=(trend_choice.lower() if trend_choice and trend_choice != "All" else None),
+    )
     if search and search.strip():
         filtered = filtered[
             filtered["lobbyist_name"].astype(str).str.contains(search.strip(), case=False, na=False, regex=False)
         ]
-    if funding_choice and funding_choice != "All":
-        filtered = filtered[filtered["funding_profile"] == _FUNDING_FILTER[funding_choice]]
-    if trend_choice and trend_choice != "All":
-        filtered = filtered[filtered["income_trend"] == trend_choice.lower()]
 
     st.caption(f"Showing {len(filtered):,} of {len(orgs):,} organisations.")
     if filtered.empty:

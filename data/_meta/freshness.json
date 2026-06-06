@@ -1,32 +1,45 @@
 {
-  "generated_at": "2026-06-05T09:01:48Z",
-  "as_of_utc_date": "2026-06-05",
+  "generated_at": "2026-06-06T07:41:09Z",
+  "as_of_utc_date": "2026-06-06",
   "note": "Age of the data already held — a canary for 'did the pipeline stop running'. NOT proof that no newer upstream data exists; only the source pollers can confirm that. Generated at pipeline-end (sees silver + gold) and read-only thereafter (Streamlit badge + scheduled report).",
+  "stale_datasets": [
+    "procurement"
+  ],
   "datasets": {
     "members": {
       "measure": "fetch_mtime",
-      "source": "data/silver/parquet/flattened_members.parquet",
-      "latest_fetch_at": "2026-06-05T08:57:33Z",
+      "source": "data/bronze/members/members.json",
+      "latest_fetch_at": "2026-06-06T07:40:11Z",
+      "age_days": 0,
+      "stale_after_days": 14,
       "status": "ok"
     },
     "votes": {
       "measure": "record_date",
       "source": "data/gold/parquet/current_dail_vote_history.parquet",
       "status": "ok",
-      "latest_record_date": "2026-04-29"
+      "latest_record_date": "2026-04-29",
+      "fetched_at": "2026-06-06T07:40:19Z",
+      "fetch_age_days": 0,
+      "stale_after_days": 14
     },
     "questions": {
       "measure": "record_date",
       "source": "data/silver/parquet/questions.parquet",
       "status": "ok",
-      "latest_record_date": "2026-05-26"
+      "latest_record_date": "2026-05-26",
+      "fetched_at": "2026-05-27T08:36:46Z",
+      "fetch_age_days": 10,
+      "stale_after_days": 14
     },
     "lobbying": {
       "measure": "period",
       "source": "data/gold/parquet/lobbyist_persistence.parquet",
       "status": "ok",
       "latest_period_end_date": "2026-05-01",
-      "period_label": "Q2 2026"
+      "period_label": "Q2 2026",
+      "age_days": 36,
+      "stale_after_days": null
     },
     "iris": {
       "measure": "record_date",
@@ -36,25 +49,33 @@
         "data/gold/parquet/statutory_instruments.parquet"
       ],
       "status": "ok",
-      "latest_record_date": "2026-05-29"
+      "latest_record_date": "2026-05-29",
+      "age_days": 8,
+      "stale_after_days": 14
     },
     "corporate": {
       "measure": "record_date",
       "source": "data/gold/parquet/corporate_notices.parquet",
       "status": "ok",
-      "latest_record_date": "2026-05-29"
+      "latest_record_date": "2026-05-29",
+      "age_days": 8,
+      "stale_after_days": 14
     },
     "statutory_instruments": {
       "measure": "record_date",
       "source": "data/gold/parquet/statutory_instruments.parquet",
       "status": "ok",
-      "latest_record_date": "2026-05-29"
+      "latest_record_date": "2026-05-29",
+      "age_days": 8,
+      "stale_after_days": 21
     },
     "procurement": {
       "measure": "record_date",
       "source": "data/gold/parquet/procurement_awards.parquet",
-      "status": "ok",
-      "latest_record_date": "2025-12-24"
+      "status": "stale",
+      "latest_record_date": "2025-12-24",
+      "age_days": 164,
+      "stale_after_days": 120
     }
   }
 }
