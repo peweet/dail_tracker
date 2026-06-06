@@ -60,9 +60,13 @@ OUT_COV = ROOT / "data/_meta/la_afs_capital_coverage.json"
 # mis-reads). Best-effort: absent venv/JSON → skipped, word-geom fact still ships.
 import subprocess  # noqa: E402
 
-CAMELOT_VENV = Path("c:/tmp/afs_camelot_venv/Scripts/python.exe")
-CAMELOT_SCRIPT = Path("c:/tmp/afs_census/camelot_capital.py")
-CAMELOT_ROWS = Path("c:/tmp/afs_census/camelot_capital_rows.json")
+# The camelot helper + its cached reconcile rows now live IN THE REPO (portable on any clone),
+# mirroring the revenue sibling la_afs_extract/la_afs_camelot_ie. Only the heavy isolated venv
+# stays in c:/tmp (build recipe in la_afs_camelot_capital_ie.py's docstring; override via
+# AFS_CAMELOT_VENV). Absent venv → the committed cached rows are merged as-is.
+CAMELOT_VENV = Path(os.environ.get("AFS_CAMELOT_VENV", "c:/tmp/afs_camelot_venv/Scripts/python.exe"))
+CAMELOT_SCRIPT = ROOT / "extractors" / "la_afs_camelot_capital_ie.py"
+CAMELOT_ROWS = ROOT / "data" / "_meta" / "la_afs_capital_camelot_rows.json"
 CAMELOT_SLUGS = ["monaghan", "kildare", "clare", "fingal", "dlr", "kilkenny"]
 
 DIV_KEYS = {
