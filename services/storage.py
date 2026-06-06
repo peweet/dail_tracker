@@ -32,11 +32,27 @@ def result_file_path(scenario: str) -> Path:
     return BRONZE_DIR / f"{scenario}_results.json"
 
 
-def output_exists(path: Path, overwrite: bool = False) -> bool:
-    if path.exists() and not overwrite:
-        logger.info(f"Output already exists, skipping: {path}")
-        return True
-    return False
+def output_exists(path: Path, overwrite: bool = False, max_age_hours: float | None = None) -> bool:
+    """Return True iff ``path`` is a usable cached output that should be reused.
+
+    ``overwrite=True`` always refetches. When ``max_age_hours`` is set, an
+    existing file older than that many hours is treated as STALE and reported as
+    missing (return False) so the caller refetches — the guard against DAIL-160,
+    where a bare ``path.exists()`` check let a daily cron skip every API pull
+    forever once the bronze JSON existed. ``max_age_hours=None`` preserves the
+    original exists-only behaviour for callers that opt out.
+    """
+    if overwrite or not path.exists():
+        return False
+    if max_age_hours is not None:
+        import time
+
+        age_hours = (time.time() - path.stat().st_mtime) / 3600.0
+        if age_hours > max_age_hours:
+            logger.info(f"Output stale ({age_hours:.1f}h > {max_age_hours}h), refetching: {path}")
+            return False
+    logger.info(f"Output already exists, skipping: {path}")
+    return True
 
 
 def save_json(data, path: Path) -> Path:
