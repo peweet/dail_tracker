@@ -13,17 +13,16 @@ from __future__ import annotations
 import polars as pl
 
 from iris.public_appointments_enrichment import (
+    _who,
     appointing_authority,
     appointment_type,
-    enrich,
     english_summary,
+    enrich,
     extract_appointees,
     extract_body,
     extract_role,
     looks_like_name,
-    _who,
 )
-
 
 # ── looks_like_name ──────────────────────────────────────────────────────────
 
