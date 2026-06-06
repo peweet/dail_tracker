@@ -735,8 +735,15 @@ def classify_and_flag(df: pl.DataFrame) -> pl.DataFrame:
         # downstream UI / promotion must filter on public_display.
         (pl.col("supplier_class") != "sole_trader_or_individual").alias("public_display"),
         # po_committed / payment_actual are summable; contract_award_value is caution-only.
+        # EXCLUDE public_body suppliers: a payment whose recipient is itself a public body is an
+        # intergovernmental TRANSFER / grant (e.g. TII -> county-council road grants = €2.5bn /
+        # 32% of this fact), NOT private procurement. Summing them inflates "procurement spend"
+        # and triple-counts the same euro (TII grant -> council -> contractor in la_payments_fact
+        # -> the contractor's eTenders/TED award). They are RETAINED (public_display stays True)
+        # but never summed. DQ audit 2026-06-05; supplier_class is derived in the block above.
         (pl.col("amount_semantics").is_in(["po_committed", "payment_actual"])
-         & pl.col("amount_eur").is_not_null() & (pl.col("amount_eur") > 0)).alias("value_safe_to_sum"),
+         & pl.col("amount_eur").is_not_null() & (pl.col("amount_eur") > 0)
+         & (pl.col("supplier_class") != "public_body")).alias("value_safe_to_sum"),
     ).drop(["_pub", "_co", "_for"])
     return df
 
@@ -860,8 +867,10 @@ def main() -> None:
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. "
                   "amount_semantics distinguishes po_committed/payment_actual/contract_award_value; "
-                  "only value_safe_to_sum (po_committed+payment_actual) may be totalled, labelled "
-                  "'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: "
+                  "only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body "
+                  "recipients which are intergovernmental transfers/grants e.g. TII road grants) "
+                  "may be totalled, labelled 'ordered/paid', never mixed with award ceilings. "
+                  "PRIVACY QUARANTINE APPLIED: "
                   "rows flagged privacy_status=review_personal_data (likely sole traders / "
                   "individuals) are marked public_display=False and must be filtered out before any "
                   "UI use; they are retained here for analysis only. "
