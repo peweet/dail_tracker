@@ -55,6 +55,13 @@ def inject_css() -> None:
             .site-banner-inner {
                 padding: 1.1rem 1rem;
             }
+            /* The tagline wraps and clips against the fixed band height on a
+               phone; it is pure decoration, so drop it (and its separator)
+               below tablet width and let the brand stand alone. */
+            .site-banner-sub,
+            .site-banner-sep {
+                display: none;
+            }
         }
         .site-banner-title {
             font-family: 'Zilla Slab', Georgia, serif;

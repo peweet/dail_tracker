@@ -7,7 +7,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 OUT = Path(__file__).parent
-BASE = "http://localhost:8533"
+BASE = "http://localhost:8534"
 DESK = {"width": 1440, "height": 1300}
 MOB = {"width": 390, "height": 844}
 
