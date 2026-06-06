@@ -43,7 +43,7 @@ import pandas as pd
 import requests
 
 from config import BRONZE_DIR, SILVER_DIR
-from si_entity_enrichment import canonicalise_department, load_department_aliases
+from iris.si_entity_enrichment import canonicalise_department, load_department_aliases
 
 logger = logging.getLogger(__name__)
 
