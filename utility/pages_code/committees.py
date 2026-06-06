@@ -14,7 +14,6 @@ the sandbox + views collapses each render to a flat retrieval.
 
 from __future__ import annotations
 
-import os
 import sys
 from html import escape as _h
 from pathlib import Path
@@ -67,52 +66,6 @@ _STAGE_COMMITTEE = "committee"
 _STAGE_TD = "td"
 
 
-# ── transitional banner ───────────────────────────────────────────────
-
-
-def _transition_notice() -> None:
-    """Citizen-facing notice that this page is in transition.
-
-    Round-3 audit P1-A fix: previously dumped a paragraph naming SILVER_MEMBERS_CSV,
-    six v_committee_* view names, three derived-column names, and a yaml section
-    reference — all developer-facing internals leaked to end users.
-
-    Pipeline-side details retained as a code comment for maintainers:
-
-      Pipeline gaps this page papers over while v_committee_* views are built:
-        - reads SILVER_MEMBERS_CSV, unpivots committee_*/office_* columns in-page
-        - is_chair derived from string match on role title
-        - committee_status normalised in-page to {Active, Ended}
-        - currently_in_government_office derived from office presence
-      Tracked in committees.yaml § transition_state. Remove this notice +
-      switch to direct view queries when v_committee_assignments,
-      v_committee_member_detail, v_committee_sources, v_committee_party_seats
-      land.
-
-    Show the full dev detail in the rendered notice when
-    DT_SHOW_TODO_DETAIL=1 in the environment.
-    """
-    detail_html = ""
-    if os.getenv("DT_SHOW_TODO_DETAIL") == "1":
-        detail_html = (
-            '<div style="margin-top:0.4rem;font-family:monospace;font-size:0.72rem;'
-            'color:var(--text-meta);">'
-            "Reads SILVER_MEMBERS_CSV; unpivots committee_*/office_* columns; "
-            "is_chair via role-title string match; awaiting v_committee_assignments / "
-            "_member_detail / _sources / _party_seats."
-            "</div>"
-        )
-    st.html(
-        '<div class="dt-callout">'
-        "<strong>Data refresh underway.</strong><br>"
-        '<span style="color:var(--text-meta);font-size:0.85rem;line-height:1.55">'
-        "Committee details on this page come from a transitional source while "
-        "the full pipeline is being built. Composition is correct; some "
-        "metadata (chair role, status) may be coarse."
-        f"</span>{detail_html}</div>"
-    )
-
-
 # ── stage 1: register ─────────────────────────────────────────────────
 
 
@@ -154,8 +107,6 @@ def _stage_register(
         st.session_state["comm_committee"] = None
         st.session_state.pop("reg_page", None)  # reset paginator to page 1
         st.rerun()
-
-    _transition_notice()
 
     # ── Command bar ───────────────────────────────────────────────────
     cmd_l, cmd_r = st.columns([3, 2], gap="large")
@@ -701,27 +652,25 @@ def _provenance(chamber: str) -> None:
     with st.expander("About & data provenance", expanded=False):
         st.markdown(
             f"""
-            **Source.** Member registers published by the Houses of the Oireachtas
-            (`{chamber}` chamber).
+            **Source.** Committee memberships, offices, and party composition as
+            published by the Houses of the Oireachtas ({chamber} chamber).
 
-            **Backing during transition.** This page reads the silver members CSV and
-            unpivots `committee_*` and `office_*` columns in the page itself. This is
-            a temporary scaffold authorised in `committees.yaml § transition_state`
-            (2026-05-03) until the analytical views land.
+            **How it is built.** Composition, chair roles, and active/ended status
+            come from the pipeline's registered analytical views
+            (committee assignments, member detail, and party seats). The page
+            queries those views directly — it does no counting or classification
+            of its own.
 
             **Caveats.**
-            - "Active" is derived from the source `Live` status; "Ended" from `Dissolved`.
-            - "Chair" is detected by string-matching `cathaoirleach` in the role title — to be
-              replaced by an `is_chair` boolean from `v_committee_assignments`.
-            - The "Currently in government office" filter (used by the older "fewest"
-              ranking, now removed) will be replaced by `currently_in_government_office`
-              on `v_committee_member_detail`.
+            - A committee is shown as "Active" while it is sitting and "Ended" once
+              it has been dissolved.
+            - Chair is the member recorded as Cathaoirleach of the committee.
 
-            **Pending pipeline work.** (v_committee_assignments, v_committee_member_detail
-            and v_committee_party_seats now ship and back this page; remaining gaps:)
-            - `TODO_PIPELINE_VIEW_REQUIRED: v_committee_sources` (incl. per-year source PDF URL)
-            - `TODO_PIPELINE_VIEW_REQUIRED: unique_member_code` on v_committee_assignments /
-              v_committee_member_detail — for cross-page member links
+            **Still to come.**
+            - `TODO_PIPELINE_VIEW_REQUIRED: v_committee_sources` — a per-year link to
+              the official membership source document.
+            - `TODO_PIPELINE_VIEW_REQUIRED: unique_member_code` on the committee views,
+              to link each member straight to their profile.
             """
         )
 

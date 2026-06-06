@@ -5,7 +5,7 @@
 -- Source: data/gold/parquet/ec_constituency_pop_2022.parquet
 --   Electoral Commission, Constituency Review Report 2023, Appendix 2
 --   ("Statistics Relating to Recommended Dáil Constituencies"). Built by
---   pipeline_sandbox/ec_constituency_pop_extract.py.
+--   reference/ec_constituency_pop_extract.py.
 --
 -- BOUNDARY NOTE: this REPLACES the earlier CSO PxStat FY005 source, which was
 -- keyed on the 2017 boundaries (39 constituencies) and left the four split/new

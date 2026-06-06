@@ -2,7 +2,7 @@
 -- procurement footprint: registrants on lobbying.ie that ALSO won public contracts.
 --
 -- Source: data/gold/parquet/procurement_lobbying_overlap.parquet
---   (procurement_lobbying chain, pipeline_sandbox/procurement_lobbying_xref.py —
+--   (procurement_lobbying chain, extractors/procurement_lobbying_xref.py —
 --   an exact normalised-name join of eTenders suppliers to lobbying registrants).
 --
 -- Keyed on lobbyist_name so the Lobbying page joins it to v_lobbying_org_index on

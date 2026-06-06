@@ -2,7 +2,7 @@
 --                                 Corporate page.
 --
 -- Source: data/gold/parquet/cro_xref_corporate_notices.parquet
---   produced by pipeline_sandbox/cro_corporate_xref_enrichment.py (the PROMOTED
+--   produced by extractors/cro_corporate_xref_enrichment.py (the PROMOTED
 --   output, committed gold, run as the `cro` pipeline chain). It is an
 --   inner-join of v_corporate_notices entity_name against the de-duplicated CRO
 --   silver company index, EXACT normalised match only, restricted to names that

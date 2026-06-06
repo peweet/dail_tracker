@@ -737,6 +737,56 @@ def dedup_source_repeats(df: pl.DataFrame) -> tuple[pl.DataFrame, int]:
     return out, n - out.height
 
 
+# Generic business/industry words that, standing ALONE as the whole normalised supplier name, do
+# NOT identify a specific company — they are the remnant after a distinctive leading word was
+# truncated at source (published "Construction Ltd" / "Aircraft Ltd" / "Ireland Energy Ltd" ->
+# norm "CONSTRUCTION"/"AIRCRAFT"/"ENERGY"), or a too-generic published name ("Infrastructure DAC").
+# Distinct from real one-word firms whose distinctive token survives (SODEXO, FUJITSU, ADSTON,
+# ACCENTURE). Single-token match only, so "NBI INFRASTRUCTURE" / "DSV LOGISTICS" are NOT flagged.
+GENERIC_SUPPLIER_NAME = frozenset({
+    "infrastructure", "energy", "construction", "aircraft", "shipping", "media",
+    "technology", "partnership", "bundle", "group", "holdings", "services",
+    "solutions", "systems", "engineering", "logistics", "properties", "developments",
+    "consulting", "consultants", "management", "international", "contractors",
+})
+
+
+def canonicalise_supplier_raw(df: pl.DataFrame) -> pl.DataFrame:
+    """Evidence-based merge of known split entities BEFORE normalisation (no name fabrication —
+    uses only strings already published in this data + the po_number signal). NBI: the National
+    Broadband Plan contractor is published both as 'Infrastructure DAC' (po_number 'NBI', Dept
+    Climate) and 'NBI Infrastructure DAC' (Dept Culture) — one legal entity. Rewrite the po=NBI
+    'Infrastructure DAC' form to 'NBI Infrastructure DAC' so it merges with the NBI-prefixed rows
+    and normalises to the identifiable 'NBI INFRASTRUCTURE' instead of the generic 'INFRASTRUCTURE'.
+    DQ audit 2026-06-05 (A2)."""
+    if df.is_empty() or "supplier_raw" not in df.columns or "po_number" not in df.columns:
+        return df
+    is_nbi = (pl.col("po_number").cast(pl.Utf8).str.to_uppercase().str.strip_chars() == "NBI") & (
+        pl.col("supplier_raw").str.contains(r"(?i)\binfrastructure dac\b"))
+    return df.with_columns(
+        pl.when(is_nbi).then(pl.lit("NBI Infrastructure DAC"))
+        .otherwise(pl.col("supplier_raw")).alias("supplier_raw"))
+
+
+def flag_unidentifiable_suppliers(df: pl.DataFrame) -> pl.DataFrame:
+    """Downgrade extraction_confidence to 'low' where the normalised supplier name is empty
+    (truncated to just a legal suffix, e.g. 'LTD'/'IRELAND LTD' -> '') or is a single generic
+    business word (truncation remnant, GENERIC_SUPPLIER_NAME). Such rows have a real amount —
+    they STAY summable (value_safe_to_sum untouched) — but no usable supplier identity, so the
+    low-confidence flag lets a supplier ranking filter them out. Real one-word firms keep their
+    distinctive token and are unaffected. DQ audit 2026-06-05 (A2/A4)."""
+    if df.is_empty() or "supplier_normalised" not in df.columns:
+        return df
+    norm = pl.col("supplier_normalised")
+    unidentifiable = (
+        norm.is_null()
+        | (norm.str.strip_chars() == "")
+        | norm.str.to_lowercase().str.strip_chars().is_in(list(GENERIC_SUPPLIER_NAME)))
+    conf = pl.col("extraction_confidence") if "extraction_confidence" in df.columns else pl.lit("high")
+    return df.with_columns(
+        pl.when(unidentifiable).then(pl.lit("low")).otherwise(conf).alias("extraction_confidence"))
+
+
 def classify_and_flag(df: pl.DataFrame) -> pl.DataFrame:
     """supplier_normalised + supplier_class + privacy_status; quarantine DEFERRED."""
     if df.is_empty():
@@ -856,7 +906,9 @@ def main() -> None:
     df, rows_deduped = dedup_source_repeats(df)
     if rows_deduped:
         print(f"\ndeduped {rows_deduped:,} within-file parser repeats (indistinguishable rows)")
+    df = canonicalise_supplier_raw(df)
     df = classify_and_flag(df)
+    df = flag_unidentifiable_suppliers(df)
     df = df.select([c for c in SCHEMA_COLS if c in df.columns])
 
     # PRIVACY INVARIANT (runtime, -O-proof): no displayable row may be a likely person.

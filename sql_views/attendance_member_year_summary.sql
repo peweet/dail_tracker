@@ -1,5 +1,5 @@
 -- Source: data/gold/parquet/attendance_by_td_year.parquet (written by
--- pipeline_sandbox/attendance_member_enrichment.py).
+-- votes/enrich.py).
 -- Join resolved upstream — no join needed here.
 --
 -- attended_count = total_days (sitting_days + other_days). The PDF

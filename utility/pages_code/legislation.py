@@ -134,19 +134,19 @@ def _render_legislation_index(
             <div class="leg-pipeline-card">
                 <div class="leg-pipeline-num">{len(dail_df)}</div>
                 <div class="leg-pipeline-label">Dáil Stages</div>
-                <div class="leg-pipeline-sub">stages 1–5 · before the Dáil</div>
+                <div class="leg-pipeline-sub">currently before the Dáil</div>
             </div>
             <div class="leg-pipeline-sep">→</div>
             <div class="leg-pipeline-card">
                 <div class="leg-pipeline-num">{len(seanad_df)}</div>
                 <div class="leg-pipeline-label">Seanad Stages</div>
-                <div class="leg-pipeline-sub">stages 6–10 · before the Seanad</div>
+                <div class="leg-pipeline-sub">currently before the Seanad</div>
             </div>
             <div class="leg-pipeline-sep">→</div>
             <div class="leg-pipeline-card">
                 <div class="leg-pipeline-num">{len(enacted_df)}</div>
                 <div class="leg-pipeline-label">Enacted</div>
-                <div class="leg-pipeline-sub">stage 11 · signed into law</div>
+                <div class="leg-pipeline-sub">signed into law</div>
             </div>
         </div>
         """
@@ -308,7 +308,7 @@ def _render_legislation_index(
         sections=[
             "**Source:** [Houses of the Oireachtas Open Data API](https://api.oireachtas.ie)\n\n"
             "**Dataset:** All Bills introduced to the Oireachtas (Private Members' and Government Bills).\n\n"
-            "**Bill phases:** Dáil stages (1–5) → Seanad stages (6–10) → Enacted (stage 11). "
+            "**Bill phases:** Dáil stages (1–5) → Seanad stages (6–9) → Enacted (stages 10–12). "
             "[How a Bill Becomes Law](https://www.oireachtas.ie/en/how-parliament-works/legislation/how-a-bill-becomes-law/)\n\n"
             "**Stage information** reflects the most recent stage recorded in the API at time of extract. "
             "The stage filter groups bills by that most-recent stage; bills with no recorded stage appear only when no stage is selected.",

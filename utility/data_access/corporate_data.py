@@ -34,13 +34,13 @@ def fetch_corporate_notices() -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def fetch_cbi_notice_matches() -> pd.DataFrame:
-    """Per-notice CBI authorisation lookup (EXPERIMENTAL — sandbox source)."""
+    """Per-notice CBI authorisation lookup (EXPERIMENTAL — CBI register, gold)."""
     return _q.cbi_notice_matches(get_corporate_conn()).data
 
 
 @st.cache_data(ttl=300)
 def fetch_cbi_repeat_distress() -> pd.DataFrame:
-    """Per-firm repeat-distress aggregate (EXPERIMENTAL — sandbox source)."""
+    """Per-firm repeat-distress aggregate (EXPERIMENTAL — CBI register, gold)."""
     return _q.cbi_repeat_distress(get_corporate_conn()).data
 
 

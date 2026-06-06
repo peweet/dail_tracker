@@ -1,6 +1,6 @@
 -- v_public_appointments — every public-appointment notice as a first-class row.
 -- Source: data/gold/parquet/public_appointments.parquet (produced by
--- pipeline_sandbox/public_appointments_enrichment.py — curated Irish→English
+-- iris/public_appointments_enrichment.py — curated Irish→English
 -- template mapping over the Iris Oifigiuil `public_appointment` notices,
 -- 2016+). Personal insolvency is excluded at the silver layer (privacy rule);
 -- military commissions, election results, court-sittings and other

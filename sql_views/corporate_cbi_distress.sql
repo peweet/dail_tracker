@@ -3,7 +3,7 @@
 --                                    in repeat distress" panel.
 --
 -- Source: data/gold/parquet/cbi_xref_corporate_notices.parquet
---   produced by pipeline_sandbox/cbi_registers_extract.py (the corporate xref is
+--   produced by extractors/cbi_registers_extract.py (the corporate xref is
 --   the one PROMOTED output — committed gold, run as the `cbi` pipeline chain).
 --   The underlying CBI register PDFs are extracted heuristically (see the script
 --   docstring), but this xref is an inner-join of v_corporate_notices entity_name

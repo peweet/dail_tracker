@@ -1,7 +1,7 @@
 -- v_si_lrc_enrichment — Law Reform Commission subject classification for each
 -- Statutory Instrument. One row per SI. Source:
 -- data/gold/parquet/si_lrc_enrichment_summary.parquet
--- (pipeline_sandbox/si_lrc_enrichment_build.py, from the LRC Classified List of
+-- (extractors/si_lrc_enrichment_build.py, from the LRC Classified List of
 -- In-Force Legislation: https://revisedacts.lawreform.ie/classlist/intro).
 --
 -- DISCOVERY / CLASSIFICATION ONLY — NOT a legal-status engine. A match means the
