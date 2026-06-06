@@ -41,3 +41,28 @@ def fetch_legal_diary_counts() -> pd.DataFrame:
 def fetch_legal_diary_cases() -> pd.DataFrame:
     """Tier C — ANONYMISED case listings + provenance link."""
     return _q.legal_diary_cases(get_judiciary_conn()).data
+
+
+# ── The Bench & Courts (green core) ─────────────────────────────────────────
+@st.cache_data(ttl=600)
+def fetch_roster() -> pd.DataFrame:
+    """The sitting bench — one row per judge (identity grain)."""
+    return _q.roster(get_judiciary_conn()).data
+
+
+@st.cache_data(ttl=600)
+def fetch_appointments() -> pd.DataFrame:
+    """Judicial appointment events + gov.ie nomination context."""
+    return _q.appointments(get_judiciary_conn()).data
+
+
+@st.cache_data(ttl=600)
+def fetch_profile() -> pd.DataFrame:
+    """Per-judge identity summary for the career-arc drill-down."""
+    return _q.profile(get_judiciary_conn()).data
+
+
+@st.cache_data(ttl=600)
+def fetch_nominations() -> pd.DataFrame:
+    """gov.ie nomination announcements (vacancy-lifecycle context)."""
+    return _q.nominations(get_judiciary_conn()).data

@@ -488,7 +488,7 @@ if __name__ == "__main__":
     n_superseded = write_supersession_log(results)
     if n_superseded:
         print(
-            f"\n⚠ {n_superseded} source file(s) appear SUPERSEDED (same filename, changed "
-            f"size) — held copies may be stale. See {SUPERSESSION_LOG_PATH}"
+            f"\n[SUPERSEDED] {n_superseded} source file(s) appear superseded (same filename, "
+            f"changed size) - held copies may be stale. See {SUPERSESSION_LOG_PATH}"
         )
     sys.exit(_exit_code(results))

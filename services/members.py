@@ -2,7 +2,7 @@ import logging
 
 import polars as pl
 
-from services.dail_config import API_BASE
+from config import API_BASE
 from services.http_engine import fetch_json
 from services.storage import load_json, members_file_path, output_exists, save_json
 

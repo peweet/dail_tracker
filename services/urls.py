@@ -3,7 +3,7 @@ from urllib.parse import quote
 
 import polars as pl
 
-from services.dail_config import API_BASE
+from config import API_BASE
 
 DEBATES_CHAMBERS = ("dail", "seanad")
 

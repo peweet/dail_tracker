@@ -1,11 +1,21 @@
 """
-Member Overview data-access layer — unified DuckDB connection.
+Member Overview data-access layer — unified DuckDB connection (CORE-BACKED).
 
-Loads all per-domain views needed by member_overview.py in dependency order.
+SANDBOX refactor of utility/data_access/member_overview_data.py. The bespoke
+4-phase view registration is now expressed through
+``dail_tracker_core.db.register_views`` instead of a local ``_load_sql`` loop —
+the path-substitution + absolutize + per-file-swallow semantics are identical
+(core's register_views is the shared implementation), so the resulting
+connection is byte-for-byte the same set of registered views.
 
-Forbidden here (same rules as Streamlit page files):
-- JOIN, GROUP_BY_MULTI_DIM, HAVING, WINDOW in ad-hoc retrieval SQL
-- Business metric definitions
+The four module-level file lists (_DOMAIN_FILES / _REGISTRY_FILES /
+_EXTERNAL_LINKS_FILES / _VOTE_FILES) are kept verbatim: they encode the explicit
+dependency order the domain views rely on, AND test_member_overview_connection_builds
+imports them by name.
+
+Forbidden here (unchanged): JOIN/GROUP_BY_MULTI_DIM/HAVING/WINDOW in ad-hoc
+retrieval SQL, business-metric definitions. (The retrieval SQL itself now lives
+in dail_tracker_core.queries.member_overview.)
 """
 
 from __future__ import annotations
@@ -19,14 +29,10 @@ _UTIL = _HERE.parent
 if str(_UTIL) not in sys.path:
     sys.path.insert(0, str(_UTIL))
 
-import duckdb  # noqa: E402 — sys.path mutation above is required before this import
-import streamlit as st  # noqa: E402 — sys.path mutation above is required before streamlit import
-from data_access._sql_registry import (  # noqa: E402 — sys.path mutation above
-    SQL_VIEWS_DIR as _SQL_VIEWS,
-)
-from data_access._sql_registry import (  # noqa: E402
-    absolutize_data_paths as _absolutize_data_paths,
-)
+import duckdb  # noqa: E402
+import streamlit as st  # noqa: E402
+
+from dail_tracker_core.db import register_views  # noqa: E402
 
 _log = logging.getLogger(__name__)
 
@@ -42,7 +48,7 @@ _DOMAIN_FILES = [
     # legislation_si_index.sql LEFT JOINs v_si_current_state for SI legal-state,
     # so current_state must register FIRST — otherwise the index view fails with
     # "Table v_si_current_state does not exist" (silently swallowed in prod by
-    # _load_sql, caught by test_member_overview_connection_builds).
+    # the swallow path, caught by test_member_overview_connection_builds).
     "legislation_si_current_state.sql",
     "legislation_si_index.sql",
     "v_debate_listings.sql",
@@ -69,7 +75,7 @@ _DOMAIN_FILES = [
     # Ministerial tenure timeline (added 2026-06-05). Sourced from
     # data/silver/ministerial_tenure.parquet (Wikidata-derived). One row per
     # (department, minister, span); unique_member_code links the ~52% who are
-    # current members. Read via dail_tracker_core.queries.ministerial.
+    # current members.
     "member_ministerial_tenure.sql",
 ]
 
@@ -80,8 +86,8 @@ _REGISTRY_FILES = [
 
 # {EXTERNAL_LINKS_PARQUET_PATH} substituted with absolute path from config.
 # Output of wikidata_socials_etl.py — optional: if the file is missing (first
-# pipeline run, or Wikidata fetch failed), _load_sql swallows the error and
-# the hero block falls back to "no chips" gracefully.
+# pipeline run, or Wikidata fetch failed), registration is swallowed and the
+# hero block falls back to "no chips" gracefully.
 _EXTERNAL_LINKS_FILES = [
     "member_external_links.sql",
 ]
@@ -95,26 +101,15 @@ _VOTE_FILES = [
 ]
 
 
-def _load_sql(conn, fpath: Path, substitutions: dict[str, str]) -> None:
-    if not fpath.exists():
-        _log.warning("member_overview: SQL file not found: %s", fpath.name)
-        return
-    try:
-        sql = fpath.read_text(encoding="utf-8")
-        for key, val in substitutions.items():
-            sql = sql.replace(key, val)
-        conn.execute(_absolutize_data_paths(sql))
-    except Exception as exc:
-        _log.warning("member_overview view failed: %s | %s", fpath.name, exc)
-
-
 @st.cache_resource
 def get_member_overview_conn():
     conn = duckdb.connect()
 
-    # Plain views — no path substitution needed
-    for fname in _DOMAIN_FILES:
-        _load_sql(conn, _SQL_VIEWS / fname, {})
+    # Plain domain views — no substitution. Passed as exact-filename "patterns"
+    # so register_views preserves _DOMAIN_FILES order (each name globs to itself).
+    # swallow_errors=True: a missing optional view degrades its section to the
+    # empty state rather than taking the whole page down (prior behaviour).
+    register_views(conn, _DOMAIN_FILES, swallow_errors=True)
 
     # Member registry — absolute path injected to avoid CWD ambiguity
     try:
@@ -122,45 +117,50 @@ def get_member_overview_conn():
 
         member_parquet = (SILVER_PARQUET_DIR / "flattened_members.parquet").as_posix()
         seanad_member_parquet = (SILVER_PARQUET_DIR / "flattened_seanad_members.parquet").as_posix()
-        for fname in _REGISTRY_FILES:
-            _load_sql(
-                conn,
-                _SQL_VIEWS / fname,
-                {
-                    "{MEMBER_PARQUET_PATH}": member_parquet,
-                    "{SEANAD_MEMBER_PARQUET_PATH}": seanad_member_parquet,
-                },
-            )
+        register_views(
+            conn,
+            _REGISTRY_FILES,
+            substitutions={
+                "{MEMBER_PARQUET_PATH}": member_parquet,
+                "{SEANAD_MEMBER_PARQUET_PATH}": seanad_member_parquet,
+            },
+            swallow_errors=True,
+        )
     except Exception as exc:
         _log.warning("member_overview: could not load member registry: %s", exc)
 
     # External links — Wikidata-sourced socials + Wikipedia. Parquet may be
-    # absent if wikidata_socials_etl.py hasn't run yet; _load_sql logs the
-    # failure and the hero falls back to no chips.
+    # absent if wikidata_socials_etl.py hasn't run yet; swallowed → hero falls
+    # back to no chips.
     try:
         from config import SILVER_PARQUET_DIR
 
         ext_links_parquet = (SILVER_PARQUET_DIR / "member_external_links.parquet").as_posix()
-        for fname in _EXTERNAL_LINKS_FILES:
-            _load_sql(conn, _SQL_VIEWS / fname, {"{EXTERNAL_LINKS_PARQUET_PATH}": ext_links_parquet})
+        register_views(
+            conn,
+            _EXTERNAL_LINKS_FILES,
+            substitutions={"{EXTERNAL_LINKS_PARQUET_PATH}": ext_links_parquet},
+            swallow_errors=True,
+        )
     except Exception as exc:
         _log.warning("member_overview: could not load external-links view: %s", exc)
 
     # Vote views — both houses via v_vote_base's explicit two-parquet union
     # (mirrors the member registry). current_dail_vote_history.parquet and
-    # current_seanad_vote_history.parquet share an identical schema (same
-    # enrich._build_vote_history helper); a member's unique_member_code resolves
-    # to their own house's divisions. (Was a current_*_vote_history glob; the
-    # base now owns the union so the per-house `house` column is available.)
+    # current_seanad_vote_history.parquet share an identical schema; a member's
+    # unique_member_code resolves to their own house's divisions.
     try:
         from config import GOLD_SEANAD_VOTE_HISTORY_PARQUET, GOLD_VOTE_HISTORY_PARQUET
 
-        vote_subs = {
-            "{PARQUET_PATH}": GOLD_VOTE_HISTORY_PARQUET.as_posix(),
-            "{SEANAD_VOTE_PARQUET_PATH}": GOLD_SEANAD_VOTE_HISTORY_PARQUET.as_posix(),
-        }
-        for fname in _VOTE_FILES:
-            _load_sql(conn, _SQL_VIEWS / fname, vote_subs)
+        register_views(
+            conn,
+            _VOTE_FILES,
+            substitutions={
+                "{PARQUET_PATH}": GOLD_VOTE_HISTORY_PARQUET.as_posix(),
+                "{SEANAD_VOTE_PARQUET_PATH}": GOLD_SEANAD_VOTE_HISTORY_PARQUET.as_posix(),
+            },
+            swallow_errors=True,
+        )
     except Exception as exc:
         _log.warning("member_overview: could not load vote views: %s", exc)
 

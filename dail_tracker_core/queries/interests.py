@@ -131,3 +131,38 @@ def member_index(conn: duckdb.DuckDBPyConnection, house: str, year: int) -> Quer
         " ORDER BY rank",
         [house, int(year)],
     )
+
+
+# ── Per-TD profile: deduped, diff-tagged declarations + per-year summary ───────
+# These move the year-on-year diff and the de-dup/category/new/removed counting
+# out of utility/ui/interests_panel.py and into the pipeline views
+# v_member_interests_declarations / v_member_interests_member_year_summary.
+
+
+def member_declarations(conn: duckdb.DuckDBPyConnection, house: str, td_name: str) -> QueryResult:
+    """One row per (year, category, real declaration) for a member, each carrying
+    a per-category ``change_status`` of new | unchanged | removed."""
+    return _run(
+        conn,
+        "SELECT declaration_year, interest_category, interest_text, change_status"
+        " FROM v_member_interests_declarations"
+        " WHERE house = ? AND member_name = ?"
+        " ORDER BY declaration_year DESC, interest_category, interest_text",
+        [house, td_name],
+    )
+
+
+def member_year_summary(conn: duckdb.DuckDBPyConnection, house: str, td_name: str) -> QueryResult:
+    """One row per declaration year for a member: total/category counts, the
+    year-on-year new/removed counts, has_prior_year, and the landlord/property/
+    share badge inputs."""
+    return _run(
+        conn,
+        "SELECT declaration_year, party_name, constituency, total_declarations,"
+        " category_count, new_count, removed_count, has_prior_year,"
+        " is_landlord, is_property_owner, property_count, share_count"
+        " FROM v_member_interests_member_year_summary"
+        " WHERE house = ? AND member_name = ?"
+        " ORDER BY declaration_year DESC",
+        [house, td_name],
+    )

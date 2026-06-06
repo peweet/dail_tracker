@@ -80,6 +80,18 @@ def fetch_td_interests(house: str, td_name: str) -> pd.DataFrame:
     return _q.td_interests(get_interests_conn(), house, td_name).data
 
 
+@st.cache_data(ttl=300)
+def fetch_td_interest_declarations(house: str, td_name: str) -> pd.DataFrame:
+    """Deduped, diff-tagged declarations for one TD (change_status per category)."""
+    return _q.member_declarations(get_interests_conn(), house, td_name).data
+
+
+@st.cache_data(ttl=300)
+def fetch_td_interest_year_summary(house: str, td_name: str) -> pd.DataFrame:
+    """Per-year editorial summary for one TD (counts, diff totals, badge inputs)."""
+    return _q.member_year_summary(get_interests_conn(), house, td_name).data
+
+
 # ── Member index (ranked leaderboard) ─────────────────────────────────────────
 
 

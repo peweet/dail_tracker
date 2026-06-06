@@ -37,6 +37,12 @@ MEMBERS_DIR = BRONZE_DIR / "members"
 LEGISLATION_DIR = BRONZE_DIR / "legislation"
 VOTES_DIR = BRONZE_DIR / "votes"
 VOTES_RAW_DIR = VOTES_DIR  # back-compat alias — both names point to the same dir
+# Bronze: parliamentary questions + debate-section listings JSON
+# (consolidated from the former services/dail_config.py duplicate).
+QUESTIONS_DIR = BRONZE_DIR / "questions"
+DEBATES_DIR = BRONZE_DIR / "debates"
+DEBATES_LISTINGS_DIR = DEBATES_DIR / "listings"
+AKN_DIR = DEBATES_DIR / "akn"  # reserved for Stage 2 (AKN XML pool)
 # Silver: lobbying processed output
 LOBBY_OUTPUT_DIR = SILVER_DIR / "lobbying"
 LOBBY_PARQUET_DIR = LOBBY_OUTPUT_DIR / "parquet"
@@ -49,6 +55,7 @@ SEANAD_PAYMENTS_PARQUET = GOLD_PARQUET_DIR / "seanad_payments_full_psa.parquet"
 SEANAD_ATTENDANCE_BY_YEAR_PARQUET = GOLD_PARQUET_DIR / "seanad_attendance_by_year.parquet"
 
 API_BASE = "https://api.oireachtas.ie/v1"
+VOTES_DATE_START = "2016-01-01"  # cutoff for paginated vote fetch
 DATE_RANGE = ("2024-01-01", "2099-01-01")
 CHAMBER_DAIL = "chamber=dail"
 CHAMBER_SEANAD = "chamber=seanad"
@@ -73,6 +80,10 @@ DIRS = [
     MEMBERS_DIR,
     LEGISLATION_DIR,
     VOTES_DIR,
+    QUESTIONS_DIR,
+    DEBATES_DIR,
+    DEBATES_LISTINGS_DIR,
+    AKN_DIR,
     LOBBY_OUTPUT_DIR,
     LOBBY_PARQUET_DIR,
 ]

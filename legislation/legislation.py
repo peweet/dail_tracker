@@ -10,8 +10,7 @@ import logging
 
 import pandas as pd
 
-from config import LEGISLATION_DIR, SILVER_DIR
-from services.dail_config import API_BASE
+from config import API_BASE, LEGISLATION_DIR, SILVER_DIR
 from services.http_engine import fetch_json
 
 logger = logging.getLogger(__name__)

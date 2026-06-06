@@ -2,7 +2,7 @@ import json
 import logging
 from pathlib import Path
 
-from services.dail_config import (
+from config import (
     BRONZE_DIR,
     DEBATES_LISTINGS_DIR,
     LEGISLATION_DIR,

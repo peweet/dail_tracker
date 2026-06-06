@@ -70,8 +70,19 @@ def fetch_all_politician_names() -> list[str]:
 
 
 @st.cache_data(ttl=300)
-def fetch_org_index(exclude_state_adjacent: bool = False) -> pd.DataFrame:
-    return _q.org_index(get_lobbying_conn(), exclude_state_adjacent).data
+def fetch_org_index(
+    exclude_state_adjacent: bool = False,
+    funding_profile: str | None = None,
+    income_trend: str | None = None,
+    name_q: str | None = None,
+) -> pd.DataFrame:
+    return _q.org_index(
+        get_lobbying_conn(),
+        exclude_state_adjacent,
+        funding_profile=funding_profile,
+        income_trend=income_trend,
+        name_q=name_q,
+    ).data
 
 
 @st.cache_data(ttl=300)

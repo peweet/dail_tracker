@@ -102,21 +102,39 @@ def _report(max_age_days: int, json_path: Path = _FRESHNESS_JSON) -> int:
         status = entry.get("status", "?")
         print(f"    {key:<22} {status:<14} {_dataset_value(entry)}")
 
-    # Surface non-ok dataset statuses as a warning, but they do not fail the run —
-    # only the generated_at age (the pipeline-ran canary) gates the exit code.
-    not_ok = [k for k, e in (payload.get("datasets") or {}).items() if e.get("status") != "ok"]
-    if not_ok:
-        print(f"  note: datasets not 'ok' in last run: {', '.join(not_ok)}")
+    datasets = payload.get("datasets") or {}
+    # Per-dataset 'stale' (set by check_freshness.py) DOES gate: it is a recess-immune
+    # fetch-age signal (or a year-round record-age one), so it cleanly flags the case
+    # this report otherwise misses — the pipeline keeps running (generated_at fresh)
+    # while one source silently froze (DAIL-160). Other non-ok statuses ('unavailable',
+    # 'no_valid_dates') are reported but do NOT gate: a not-yet-built source must not
+    # fail the canary.
+    stale_datasets = [k for k, e in datasets.items() if e.get("status") == "stale"]
+    other_not_ok = [k for k, e in datasets.items() if e.get("status") not in ("ok", "stale")]
+    if other_not_ok:
+        print(f"  note: datasets not 'ok' in last run: {', '.join(other_not_ok)}")
 
+    failed = False
     if age_days > max_age_days:
         print(
             f"\nSTALE: the pipeline has not produced fresh data in {age_days}d "
             f"(> {max_age_days}d). Likely the scheduled/manual pipeline run stopped. "
             "Run pipeline.py and commit the refreshed gold + freshness.json."
         )
+        failed = True
+
+    if stale_datasets:
+        print(
+            f"\nSTALE SOURCE(S): {', '.join(stale_datasets)} stopped updating while the pipeline "
+            "kept running (per-dataset fetch/record age over threshold — likely a DAIL-160 fetch "
+            "freeze on that source). Force-refresh: DAIL_DATA_MAX_AGE_HOURS=0 python bootstrap_refresh.py"
+        )
+        failed = True
+
+    if failed:
         return 1
 
-    print(f"\nOK: data is {age_days}d old, within the {max_age_days}d threshold.")
+    print(f"\nOK: data is {age_days}d old, within the {max_age_days}d threshold; no stale sources.")
     return 0
 
 
