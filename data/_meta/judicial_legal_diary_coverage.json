@@ -1,6 +1,6 @@
 {
-  "parser_version": "1.0.0",
-  "generated_at": "2026-06-06T06:00:07.576634+00:00",
+  "parser_version": "1.1.0",
+  "generated_at": "2026-06-06T10:29:43.278235+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -31,7 +31,7 @@
   "tier_b_counts": 141,
   "case_lines_parsed": 2177,
   "cases_dropped_protected": 366,
-  "cases_kept_anonymised": 1811,
+  "cases_kept_anonymised": 1808,
   "drop_reasons": {
     "asylum": 205,
     "minor": 87,
@@ -41,6 +41,12 @@
     "adoption": 3,
     "ward of court": 2,
     "custody": 1
+  },
+  "plaintiff_kinds": {
+    "individual": 1177,
+    "organisation": 343,
+    "state-prosecutor": 260,
+    "state-body": 28
   },
   "privacy_note": "Tier C drops statutory in-camera categories entirely and reduces every natural person to initials; organisations/State bodies kept in clear; case refs stripped; provenance link + source_sha256 attached."
 }

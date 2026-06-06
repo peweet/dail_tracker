@@ -4873,9 +4873,8 @@ def inject_css() -> None:
         .jud-chip.review { background:var(--signal-bad-subtle); color:var(--signal-bad-deep);
             border-color:var(--signal-bad-border); }
         .jud-chip.gap { background:var(--surface-deep); color:var(--text-meta); border-color:var(--border); }
-        .jud-sal { margin-left:auto; font-size:0.76rem; font-weight:600; color:oklch(32% 0.012 75);
-            font-variant-numeric:tabular-nums; }
-        .jud-sal small { font-weight:500; color:var(--text-meta); font-size:0.66rem; }
+        /* neutral (not gov/pres-coloured) — flags Chief Justice / President / ex-officio premium */
+        .jud-chip.office { background:var(--surface-deep); color:var(--ink-700); border-color:var(--border-strong); }
         /* appointing-authority chips (blue=Government, amber=President, neutral=other) */
         .jud-auth { font-size:0.66rem; font-weight:650; letter-spacing:0.02em; border-radius:999px;
             padding:0.08rem 0.5rem; white-space:nowrap; border:1px solid; }
@@ -4887,7 +4886,9 @@ def inject_css() -> None:
 
         /* career-arc timeline — the one bespoke flourish; horizontal nodes + connector */
         .jud-arc { display:flex; flex-wrap:wrap; align-items:stretch; gap:0; margin:0.6rem 0 0.4rem; }
-        .jud-node { position:relative; flex:1 1 0; min-width:9rem; padding:0 1.1rem 0.2rem 0; }
+        /* fixed-width nodes pack left — a two-step career reads as two adjacent steps,
+           not two halves of the page with a long empty connector between them. */
+        .jud-node { position:relative; flex:0 0 11rem; padding:0 1.1rem 0.2rem 0; }
         .jud-node:not(:last-child)::after {
             content:""; position:absolute; top:0.42rem; right:0.45rem; left:1.0rem; height:2px;
             background:var(--border-strong);
@@ -4911,9 +4912,13 @@ def inject_css() -> None:
         .jud-vac-cause { font-weight:600; color:var(--ink-700); font-size:0.86rem; }
         .jud-vac-pred { font-size:0.78rem; color:var(--text-meta); margin-top:0.15rem; }
         .jud-vac-nom { font-size:0.82rem; color:oklch(35% 0.012 75); margin-top:0.25rem; }
+        /* appointing-authority stats — compact chips that size to content, packed left,
+           not full-width cards stranding a number in empty space. */
+        .jud-statwrap { display:flex; flex-wrap:wrap; gap:0.5rem; margin:0.3rem 0 0.2rem; }
         .jud-stat { background:#ffffff; border:1px solid var(--border); border-radius:10px;
-            padding:0.65rem 0.85rem; text-align:center; display:flex; flex-direction:column;
-            align-items:center; gap:0.3rem; }
+            padding:0.5rem 0.85rem; display:flex; align-items:center; gap:0.6rem; }
+        .jud-stat-n { font-weight:700; font-size:1.5rem; color:var(--ink-strong);
+            font-variant-numeric:tabular-nums; line-height:1; }
         .jud-ladder { display:flex; flex-wrap:wrap; gap:0.5rem; margin:0.3rem 0 0.2rem; }
         .jud-rung { background:#ffffff; border:1px solid var(--border); border-radius:10px;
             padding:0.55rem 0.8rem; display:flex; align-items:baseline; gap:0.6rem; }
@@ -4935,6 +4940,19 @@ def inject_css() -> None:
             font-size: 0.86rem; color: var(--ink-700); line-height: 1.55; max-width: 64rem;
         }
         .pr-caveat strong { color: var(--signal-bad-deep); }
+        /* scale anchor / trust strip under the caveat: real corpus magnitude +
+           what's in / out. Numbers are tabular; labels are quiet meta. */
+        .pr-stats {
+            display: flex; flex-wrap: wrap; gap: 0.45rem 1.4rem;
+            padding: 0.7rem 0.95rem; margin: 0 0 0.9rem; max-width: 64rem;
+            background: #ffffff; border: 1px solid var(--border); border-radius: 10px;
+        }
+        .pr-stat { display: flex; flex-direction: column; line-height: 1.2; }
+        .pr-stat-num {
+            font-weight: 750; color: var(--ink-strong); font-size: 1.02rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .pr-stat-lbl { font-size: 0.72rem; color: var(--text-meta); }
         .pr-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
             gap: 0.7rem; margin-top: 0.5rem;

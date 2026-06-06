@@ -52,8 +52,21 @@ def test_page_is_callable():
 
 
 # ── source-state rendering (bare mode; monkeypatched results, no real data) ───
-def _patch(monkeypatch, *, supplier, others_empty=True):
+def _stats_frame(n_suppliers: int) -> QueryResult:
+    return QueryResult.success(pd.DataFrame([{
+        "min_year": 2013, "max_year": 2025, "n_award_rows": 100, "n_safe_rows": 40,
+        "value_safe_total_eur": 1.0e9, "n_suppliers": n_suppliers,
+        "n_authorities": 5, "n_categories": 7,
+    }]))
+
+
+def _patch(monkeypatch, *, supplier, stats=None, others_empty=True):
     empty = QueryResult.success(pd.DataFrame())
+    n = len(supplier.data) if supplier.ok else 0
+    monkeypatch.setattr(procurement, "fetch_coverage_stats_result",
+                        lambda *a, **k: stats if stats is not None else _stats_frame(n))
+    monkeypatch.setattr(procurement, "fetch_coverage", lambda *a, **k: {})
+    monkeypatch.setattr(procurement, "fetch_available_years", lambda *a, **k: [2025, 2024])
     monkeypatch.setattr(procurement, "fetch_supplier_summary_result", lambda *a, **k: supplier)
     if others_empty:
         for fn in ("fetch_authority_summary_result", "fetch_cpv_summary_result",
@@ -62,8 +75,9 @@ def _patch(monkeypatch, *, supplier, others_empty=True):
 
 
 def test_source_unavailable_returns_cleanly(monkeypatch):
-    _patch(monkeypatch, supplier=QueryResult.unavailable("test: view missing"))
-    # unavailable supplier result -> hero + "isn't available" state -> early return
+    # coverage_stats is the source-state gate now: unavailable -> hero + state -> return
+    _patch(monkeypatch, supplier=QueryResult.success(pd.DataFrame()),
+           stats=QueryResult.unavailable("test: view missing"))
     assert procurement.procurement_page() is None
 
 

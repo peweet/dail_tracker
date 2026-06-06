@@ -73,12 +73,20 @@ ocr = [
     "ocrmypdf>=17.0",
 ]
 
+# Read-only JSON API over the Streamlit-free core (dail_tracker_core). Optional:
+# the deployed Streamlit app does NOT import these, so they stay out of the lean
+# Cloud `uv sync`. Run the API with `uv sync --extra api` then `uvicorn api.main:app`.
+api = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30",
+]
+
 # Everything installable as an EXTRA — a full optional-runtime local setup.
 # Dev/test tooling is intentionally excluded (it's the dev group, not an extra).
 # Full local dev env (runtime + pipeline + tooling):
-#   uv sync --extra pipeline --extra ocr --group dev
+#   uv sync --extra pipeline --extra ocr --extra api --group dev
 all = [
-    "dail-tracker[ocr,pipeline]",
+    "dail-tracker[ocr,pipeline,api]",
 ]
 
 # ── Dependency groups (PEP 735) ──────────────────────────────────────────────
@@ -215,6 +223,8 @@ include = [
     # Added at creation so it starts (and stays) clean; NEVER widen to the
     # pandas-heavy pipeline scripts (they degrade to Unknown and bury findings).
     "dail_tracker_core",
+    # The FastAPI exposition layer — typed request/response boundary; start clean.
+    "api",
 ]
 # Resolve third-party imports (polars/pandas/requests) from the uv-managed venv,
 # deterministically, in both local runs and CI (`uv sync` creates ./.venv).
