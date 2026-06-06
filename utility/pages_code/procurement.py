@@ -72,6 +72,35 @@ def _n(val) -> int:
         return 0
 
 
+def _truthy(val) -> bool:
+    """Safe truthiness for possibly-NA pandas cells — ``bool(pd.NA)`` raises."""
+    if val is None:
+        return False
+    try:
+        if pd.isna(val):
+            return False
+    except (TypeError, ValueError):
+        pass
+    return bool(val)
+
+
+def _coalesce(*vals) -> str:
+    """First non-NA, non-empty value as a stripped string, else ''. Avoids the
+    ``pd.NA or x`` truthiness error when coalescing nullable columns."""
+    for v in vals:
+        if v is None:
+            continue
+        try:
+            if pd.isna(v):
+                continue
+        except (TypeError, ValueError):
+            pass
+        s = str(v).strip()
+        if s:
+            return s
+    return ""
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 def _inject_pr_css() -> None:
     st.markdown(
@@ -129,10 +158,10 @@ def _render_suppliers(df: pd.DataFrame) -> None:
     cards = []
     for r in df.head(_TOP).itertuples():
         pills = [f'<span class="pr-pill pr-pill-val">{_eur(r.awarded_value_safe_eur)} awarded</span>']
-        if getattr(r, "company_num", None):
-            status = _esc(getattr(r, "company_status", "") or "matched")
+        if _truthy(getattr(r, "company_num", None)):
+            status = _esc(_coalesce(getattr(r, "company_status", None)) or "matched")
             pills.append(f'<span class="pr-pill pr-pill-cro">CRO: {status}</span>')
-        if getattr(r, "on_lobbying_register", False):
+        if _truthy(getattr(r, "on_lobbying_register", None)):
             pills.append('<span class="pr-pill pr-pill-lob">also on lobbying register</span>')
         meta = (f"{_n(r.n_awards):,} award{'s' if _n(r.n_awards) != 1 else ''} · "
                 f"{_n(r.n_authorities):,} authorit{'ies' if _n(r.n_authorities) != 1 else 'y'}")
@@ -180,7 +209,7 @@ def _render_overlap(df: pd.DataFrame) -> None:
         return
     cards = []
     for r in df.head(_TOP).itertuples():
-        name = _esc(getattr(r, "supplier", "") or getattr(r, "lobby_name", "")) or "—"
+        name = _esc(_coalesce(getattr(r, "supplier", None), getattr(r, "lobby_name", None))) or "—"
         pills = [
             f'<span class="pr-pill pr-pill-val">{_eur(r.awarded_value_safe_eur)} awarded</span>',
             f'<span class="pr-pill pr-pill-lob">{_n(r.n_lobby_returns):,} lobbying returns</span>',
