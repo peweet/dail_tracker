@@ -185,9 +185,10 @@ EXPLAINERS: list[tuple[str, str]] = [
 
 
 def _render_explainer_block(title: str, body_html: str) -> str:
+    # h3: nests under the "In depth" <h2> so screen readers get h1 → h2 → h3.
     return (
         '<section class="dt-explainer">'
-        f'<h2 class="dt-explainer-title">{_h(title)}</h2>'
+        f'<h3 class="dt-explainer-title">{_h(title)}</h3>'
         f'<div class="dt-explainer-body">{body_html}</div>'
         "</section>"
     )
@@ -209,12 +210,37 @@ def glossary_page() -> None:
         ),
     )
 
-    body = "".join(_render_term_block(k, v) for k, v in GLOSSARY_TERMS.items())
-    st.html(f'<dl class="dt-glossary-list">{body}</dl>')
+    # Client-side filter. Pure presentation over the static dict — no data
+    # access, so no logic-firewall concern. Lets a citizen jump straight to
+    # "TAA" without scrolling the whole list on mobile.
+    query = (
+        st.text_input(
+            "Search the glossary",
+            key="glossary_search",
+            placeholder="Search a term or definition — e.g. TAA, receivership, DPO",
+        )
+        .strip()
+        .lower()
+    )
 
-    st.html('<div class="section-heading">In depth</div>')
-    explainers_html = "".join(_render_explainer_block(title, body_html) for title, body_html in EXPLAINERS)
-    st.html(explainers_html)
+    if query:
+        terms = [(k, v) for k, v in GLOSSARY_TERMS.items() if query in k.lower() or query in v.lower()]
+    else:
+        terms = list(GLOSSARY_TERMS.items())
+
+    st.html('<h2 class="section-heading">Terms &amp; acronyms</h2>')
+    if terms:
+        body = "".join(_render_term_block(k, v) for k, v in terms)
+        st.html(f'<dl class="dt-glossary-list">{body}</dl>')
+    else:
+        st.caption(f"No term matches “{query}”. Try a shorter search, or suggest it on GitHub.")
+
+    # The long-form explainers are reference reading; hide them while the
+    # reader is searching for a specific term to keep the result in focus.
+    if not query:
+        st.html('<h2 class="section-heading">In depth</h2>')
+        explainers_html = "".join(_render_explainer_block(title, body_html) for title, body_html in EXPLAINERS)
+        st.html(explainers_html)
 
     st.caption(
         "Source: Houses of the Oireachtas, lobbying.ie, and the Standards "

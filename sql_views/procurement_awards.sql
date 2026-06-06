@@ -1,6 +1,6 @@
 -- v_procurement_awards — one row per award×supplier from the eTenders open data.
 -- Source: data/gold/parquet/procurement_awards.parquet (procurement chain,
---   pipeline_sandbox/procurement_etenders_extract.py).
+--   extractors/procurement_etenders_extract.py).
 --
 -- This is the raw feed. Ugly source headers are renamed to snake_case; the date
 -- is parsed from DD/MM/YYYY. VALUE IS NOT SPEND: value_eur is the awarded/estimated

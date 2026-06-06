@@ -479,7 +479,7 @@ def _render_featured_spads(df: pd.DataFrame) -> None:
             '<div class="pa-spark-label">Hiring by year</div>'
             f'<div class="pa-spark-row">{"".join(bars)}</div>'
             f'<div class="pa-spark-years"><span>{ymin}</span><span>{ymax}</span></div>'
-            '<div class="pa-spark-note">Click a year to filter. Spikes track new governments.</div>'
+            '<div class="pa-spark-note">Click a year to filter. Taller bars mark the busiest hiring years.</div>'
             "</div>"
         )
 
@@ -914,6 +914,8 @@ def public_appointments_page() -> None:
     # Quiet civic-context line about the constitutional Irish/English split.
     st.html(
         '<p class="pa-context">'
+        "These appointments are published in <strong>Iris Oifigiúil</strong>, the "
+        "official State gazette. "
         "Formal acts of the <strong>President</strong> and <strong>Government</strong> "
         "(judicial appointments, senior board appointments) are recorded in Irish, the "
         "first official language under Article 8. Ministerial appointments are issued "

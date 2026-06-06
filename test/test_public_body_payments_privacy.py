@@ -24,8 +24,10 @@ sys.path.insert(0, str(_ROOT / "extractors"))
 pl = pytest.importorskip("polars")
 from procurement_public_body_extract import (  # noqa: E402
     DEDUP_SIG,
+    canonicalise_supplier_raw,
     classify_and_flag,
     dedup_source_repeats,
+    flag_unidentifiable_suppliers,
 )
 
 
@@ -196,6 +198,70 @@ def test_dedup_sig_excludes_volatile_provenance():
     # different counters would never collapse. Confirms the key is content, not emission order.
     assert "source_row_number" not in DEDUP_SIG
     assert "supplier_raw" in DEDUP_SIG and "description" in DEDUP_SIG and "amount_eur" in DEDUP_SIG
+
+
+# ----------------------------------------------------------------------------------------
+# A2/A4: unidentifiable + split supplier names (DQ audit 2026-06-05).
+# ----------------------------------------------------------------------------------------
+def _norm_conf(suppliers, conf="high"):
+    """Frame with supplier_normalised + extraction_confidence for flag_unidentifiable_suppliers."""
+    df = pl.DataFrame({"supplier_raw": suppliers,
+                       "amount_eur": [1000.0] * len(suppliers),
+                       "amount_semantics": ["payment_actual"] * len(suppliers),
+                       "extraction_confidence": [conf] * len(suppliers)})
+    return classify_and_flag(df)
+
+
+def test_empty_normalised_name_downgraded_to_low():
+    # Truncated to just a legal suffix -> normalises to '' -> not attributable.
+    out = flag_unidentifiable_suppliers(_norm_conf(["IRELAND LTD", "LTD", "(IRELAND) LTD"]))
+    assert out["extraction_confidence"].to_list() == ["low", "low", "low"]
+
+
+def test_generic_word_name_downgraded_to_low():
+    out = flag_unidentifiable_suppliers(_norm_conf(
+        ["Construction Ltd", "Aircraft Ltd", "Ireland Energy Ltd", "Shipping Group"]))
+    assert set(out["extraction_confidence"].to_list()) == {"low"}
+
+
+def test_real_oneword_firm_not_downgraded():
+    # Distinctive token survives normalisation -> must STAY high-confidence.
+    out = flag_unidentifiable_suppliers(_norm_conf(
+        ["Sodexo Ireland Ltd", "Fujitsu Ireland Ltd", "Adston Ltd", "Accenture Limited"]))
+    assert set(out["extraction_confidence"].to_list()) == {"high"}
+
+
+def test_unidentifiable_rows_stay_summable():
+    # The money is real; only attribution confidence drops. value_safe_to_sum must be untouched.
+    df = classify_and_flag(pl.DataFrame({
+        "supplier_raw": ["Construction Ltd"], "amount_eur": [1000.0],
+        "amount_semantics": ["payment_actual"], "extraction_confidence": ["high"]}))
+    out = flag_unidentifiable_suppliers(df)
+    assert out.row(0, named=True)["value_safe_to_sum"] is True
+    assert out.row(0, named=True)["extraction_confidence"] == "low"
+
+
+def test_nbi_split_is_merged_to_identifiable_name():
+    df = pl.DataFrame({
+        "supplier_raw": ["Infrastructure DAC", "Infrastructure DAC NBP",
+                         "NBI Infrastructure DAC", "Infrastructure DAC"],
+        "po_number": ["NBI", "NBI", None, "12345"],   # last one: not NBI -> left alone
+        "amount_eur": [1.0, 2.0, 3.0, 4.0],
+    })
+    out = canonicalise_supplier_raw(df)
+    raws = out["supplier_raw"].to_list()
+    assert raws[0] == "NBI Infrastructure DAC"   # po=NBI rewritten
+    assert raws[1] == "NBI Infrastructure DAC"   # 'Infrastructure DAC NBP' po=NBI rewritten
+    assert raws[2] == "NBI Infrastructure DAC"   # already canonical
+    assert raws[3] == "Infrastructure DAC"       # po != NBI -> untouched (no over-merge)
+    # and after normalisation the NBI rows share ONE identifiable id (not generic 'INFRASTRUCTURE')
+    normed = classify_and_flag(out.with_columns(pl.lit("payment_actual").alias("amount_semantics")))
+    nbi_norm = normed.filter(pl.col("po_number") == "NBI")["supplier_normalised"].unique().to_list()
+    assert nbi_norm == ["NBI INFRASTRUCTURE"], nbi_norm
+    # the canonical NBI name is NOT swept up by the generic-word downgrade
+    flagged = flag_unidentifiable_suppliers(
+        normed.with_columns(pl.lit("high").alias("extraction_confidence")))
+    assert flagged.filter(pl.col("po_number") == "NBI")["extraction_confidence"].to_list() == ["high", "high"]
 
 
 @pytest.mark.integration

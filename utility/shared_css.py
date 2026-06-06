@@ -2315,9 +2315,6 @@ def inject_css() -> None:
             font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em;
             color: var(--text-meta); width: 1.6rem; text-align: center; flex-shrink: 0;
         }
-        .att-hall-medal {
-            font-size: 1.2rem; line-height: 1; flex-shrink: 0; width: 1.4rem; text-align: center;
-        }
         .att-hall-body { flex: 1; min-width: 0; }
         .att-hall-name {
             margin: 0 0 0.05rem; font-size: 0.95rem; font-weight: 700;
@@ -3490,7 +3487,7 @@ def inject_css() -> None:
             margin-left: auto;
         }
         .q-card-type-written {
-            background: var(--surface);
+            background: #ffffff;
             color: var(--text-secondary);
             border: 1px solid var(--border);
         }
@@ -4059,14 +4056,14 @@ def inject_css() -> None:
             white-space: nowrap;
         }
         .vt-rec-vote-yes {
-            background: #ecfdf5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
+            background: var(--signal-good-subtle);
+            color: var(--signal-good-deep);
+            border: 1px solid var(--signal-good-border);
         }
         .vt-rec-vote-no {
-            background: #fef2f2;
-            color: #991b1b;
-            border: 1px solid #fecaca;
+            background: var(--signal-bad-subtle);
+            color: var(--signal-bad-deep);
+            border: 1px solid var(--signal-bad-border);
         }
         .vt-rec-vote-abs {
             background: #f4f4f5;

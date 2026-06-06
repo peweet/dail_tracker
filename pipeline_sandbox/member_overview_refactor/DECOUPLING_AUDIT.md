@@ -72,9 +72,42 @@ call-sites are unchanged):
 - **`test_member_overview_connection_builds`** imports `_DOMAIN_FILES` etc. BY NAME —
   the rebuilt builder keeps those module-level lists, so the test still passes.
 
+## Validation results (2026-06-06 — sandbox build complete)
+
+- **Query parity: 121/121** — original page fns vs refactored sandbox page fns, on
+  the SAME live connection, across 5 member archetypes (any / questions / minister /
+  payments / debates) × all 24 query helpers + `_member_list`. Byte-identical
+  (order-insensitive multiset compare on frames; repr-compare on dict/list/scalar).
+- **Conn-builder parity: identical 22-view set** — the rebuilt `register_views`-based
+  builder registers exactly the same views as the original `_load_sql` builder
+  (`information_schema` diff = ∅ both directions).
+- **Core tests:** `test/test_core_member_overview_queries.py` (8) + full core suite
+  **107 pass**. Firewall guard scans the new core module (Streamlit-free ✓).
+- **basedpyright:** 0 errors on `dail_tracker_core/queries/member_overview.py`.
+- **Firewall checker:** 33 utility pages clean (originals untouched).
+- **UI/API compliance (sandbox page):** 0 `unsafe_allow_html`, 0 `use_container_width`,
+  0 `st.radio`, 0 `var(--surface)`, 0 `st.markdown` (all `st.html`), no inline styles
+  except the dynamic party-colour swatch (accepted). Render code untouched, so the
+  prior civic-ui audit (subsection_heading nesting, walker house-scoping, etc., already
+  committed) is preserved. Removed dead `_log`/`logging` left over from deleting `_q`.
+
+## ⚠️ Pre-existing finding surfaced (NOT fixed — would change behaviour)
+
+`v_attendance_year_rank` is **not registered on the member-overview connection**
+(absent from `_DOMAIN_FILES`), so `_att_rank_for_year` always returns `(None, None)`
+and the hero "Rank X of Y TDs" sub-label silently never renders on this page. Old `_q`
+swallowed the Catalog Error into an empty frame; new `_run` returns `unavailable` (now
+visible in logs). Both behave identically → parity holds. **Fix is a one-line add of
+`attendance_year_rank.sql` to `_DOMAIN_FILES`** — but it's a behaviour change (the
+sub-label would start appearing), so it belongs in a separate follow-up, not this
+behaviour-preserving refactor.
+
 ## Integration (after greenlight)
-1. `dail_tracker_core/queries/member_overview.py` → already lands in core (real file).
-2. Copy sandbox `member_overview_data.py` over `utility/data_access/member_overview_data.py`.
-3. Copy sandbox `member_overview.py` over `utility/pages_code/member_overview.py`.
+1. `dail_tracker_core/queries/member_overview.py` → already a real core file (shipped, tested).
+2. Copy sandbox `member_overview_data.py` over `utility/data_access/member_overview_data.py`
+   (drop the sandbox `_REPO/_UTIL` bootstrap back to the original `parent` one-liner).
+3. Copy sandbox `member_overview.py` over `utility/pages_code/member_overview.py`
+   (restore the original `_UTIL = parent.parent` bootstrap; keep the `moq` import).
 4. Run: core tests, firewall, basedpyright, `test_member_overview_connection_builds`,
-   `test_seanad_views`, fresh-server visual check. Then delete the sandbox dir.
+   `test_seanad_views`, fresh-server visual check. Then delete this sandbox dir.
+5. Optional follow-up: the `v_attendance_year_rank` finding above.

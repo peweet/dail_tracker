@@ -338,10 +338,16 @@ MANUAL_SOURCES = [
         "id": "charities_register",
         "owner_module": "charity_normalise",
         "name": "Charities Public Register",
+        # 180d: the register is a manual/semi-manual XLSX drop and the Charities
+        # Regulator refreshes the public export on a slow (≈quarterly-to-annual)
+        # cadence, so a copy older than ~6 months means OUR ingest has lapsed, not
+        # that upstream is unchanged. Without a threshold the source could only ever
+        # 'warning', never 'failed' (build_source_health.check_file_age) — i.e. it
+        # was un-gateable. 180d makes a lapsed refresh an actionable failure.
         "grain": "charity_register",
         "input_pattern": "data/bronze/charities/public_register_*.xlsx",
-        "stale_after_days": None,
-        "caveat": "manual/semi-manual; stale threshold to be set by the health policy",
+        "stale_after_days": 180,
+        "caveat": "manual/semi-manual XLSX drop; refresh at least twice a year",
     },
 ]
 

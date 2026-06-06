@@ -2,7 +2,7 @@
 -- by the eISB Legislation Directory chronological tables (whether it has been
 -- revoked / partially revoked / amended, and by which SI). One row per SI.
 -- Source: data/gold/parquet/si_current_state.parquet
--- (pipeline_sandbox/si_legislation_directory_extract.py).
+-- (extractors/si_legislation_directory_extract.py).
 --
 -- DISCOVERY / INDEXING ONLY. This surfaces the *negative* states eISB explicitly
 -- records (amended / revoked); it never positively asserts an SI is "in force".

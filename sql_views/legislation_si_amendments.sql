@@ -6,7 +6,7 @@
 --   "This SI {revokes|amends} …"          → rows WHERE amender_(year,number)=X
 --
 -- Source: data/gold/parquet/si_current_state.parquet (eISB Legislation Directory,
--- via pipeline_sandbox/si_legislation_directory_extract.py) + titles from
+-- via extractors/si_legislation_directory_extract.py) + titles from
 -- statutory_instruments.parquet. No new extractor — this is a relational view.
 --
 -- SCOPE — clean states only. We include exactly the states where eISB names a

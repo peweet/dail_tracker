@@ -23,6 +23,7 @@ Exit codes:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import sys
@@ -35,12 +36,28 @@ from bs4 import BeautifulSoup
 from config import (
     ATTENDANCE_PDF_DIR,
     ATTENDANCE_PDF_DIR_SEANAD,
+    DATA_DIR,
     INTERESTS_PDF_DIR,
     PAYMENTS_PDF_DIR,
     PAYMENTS_PDF_DIR_SEANAD,
 )
+from pdf_infra.pdf_fingerprint import (
+    SUPERSEDED,
+    compare,
+    load_index,
+    save_index,
+    sha256_file,
+)
 
 logger = logging.getLogger(__name__)
+
+# Per-source content-fingerprint store (lives inside the source's own bronze dir,
+# which is gitignored operational state and auto-isolated under tmp_path in tests).
+# Detects DAIL-162: a same-filename file whose bytes changed at source.
+FINGERPRINT_FILENAME = ".pdf_fingerprints.json"
+# Where main() aggregates the cross-source supersession signal (data/_meta IS
+# committed, so the flag is visible to a human / source-health, unlike the bronze dir).
+SUPERSESSION_LOG_PATH = DATA_DIR / "_meta" / "oireachtas_pdf_supersessions.json"
 
 USER_AGENT = "dail-tracker-bot/0.1 (+https://github.com/peweet/dail_tracker; mailto:p.glynn18@gmail.com)"
 INDEX_BASE = "https://www.oireachtas.ie/en/publications/?topic%5B%5D={slug}&resultsPerPage=50"
@@ -206,6 +223,70 @@ def filter_new(source: PollSource, entries: list[IndexEntry]) -> list[IndexEntry
     return [e for e in entries if e.filename not in existing]
 
 
+# ── Phase 3.5: supersession check (DAIL-162) ────────────────────────────────
+
+
+def _remote_content_length(session: requests.Session, url: str) -> int | None:
+    """Cheap size probe via HEAD. Returns None on any error or a missing/garbled
+    Content-Length — the conservative input that maps to an UNKNOWN verdict (no
+    false supersession). Never raises: a transport hiccup must not fail a poll."""
+    try:
+        r = session.head(url, allow_redirects=True, timeout=30)
+        if r.status_code >= 400:
+            return None
+        cl = r.headers.get("Content-Length")
+        return int(cl) if cl and cl.strip().isdigit() else None
+    except Exception:  # noqa: BLE001 — a failed probe is a silent UNKNOWN, by design
+        return None
+
+
+def check_supersessions(
+    source: PollSource,
+    on_disk_entries: list[IndexEntry],
+    session: requests.Session,
+    index: dict,
+) -> list[dict]:
+    """For files we already hold, baseline never-seen ones (no network) and FLAG any
+    whose size changed at source. Mutates ``index`` in place; returns one dict per
+    suspected supersession. Flag-only by design — we never auto-download the
+    replacement into this ETL-globbed dir (it would double-count the period)."""
+    superseded: list[dict] = []
+    for e in on_disk_entries:
+        stored = index.get(e.filename)
+        local_path = source.target_dir / e.filename
+        if stored is None:
+            # First fingerprinting of an on-disk file: record a baseline, no network,
+            # no comparison. Comparison begins on the NEXT run, once a baseline exists.
+            if local_path.exists():
+                index[e.filename] = {
+                    "sha256": sha256_file(local_path),
+                    "bytes": local_path.stat().st_size,
+                    "source_url": e.url,
+                }
+            continue
+        remote = _remote_content_length(session, e.url)
+        verdict = compare(stored.get("bytes"), remote)
+        if verdict == SUPERSEDED:
+            superseded.append(
+                {
+                    "source": source.name,
+                    "filename": e.filename,
+                    "url": e.url,
+                    "held_bytes": stored.get("bytes"),
+                    "remote_bytes": remote,
+                }
+            )
+            logger.warning(
+                "[%s] SUPERSEDED at source: %s (held %s B, remote %s B). The held copy "
+                "may be stale — re-download with overwrite to refresh gold.",
+                source.name,
+                e.filename,
+                stored.get("bytes"),
+                remote,
+            )
+    return superseded
+
+
 # ── Phase 4: download ───────────────────────────────────────────────────────
 
 
@@ -265,6 +346,7 @@ def run_one(source: PollSource) -> dict:
             "downloaded": 0,
             "downloads_failed": 0,
             "new": [],
+            "superseded": [],
         }
 
     try:
@@ -280,6 +362,7 @@ def run_one(source: PollSource) -> dict:
             "downloaded": 0,
             "downloads_failed": 0,
             "new": [],
+            "superseded": [],
         }
 
     if not entries:
@@ -296,18 +379,40 @@ def run_one(source: PollSource) -> dict:
             "downloaded": 0,
             "downloads_failed": 0,
             "new": [],
+            "superseded": [],
         }
 
     new_entries = filter_new(source, entries)
 
     session = requests.Session()
     session.headers.update({"User-Agent": USER_AGENT})
+
+    # DAIL-162 supersession check on the files we already hold: baseline the new ones,
+    # flag any whose size changed at source. Defensive — never raises, never blocks
+    # the download phase below.
+    fp_path = source.target_dir / FINGERPRINT_FILENAME
+    index = load_index(fp_path)
+    new_filenames = {e.filename for e in new_entries}
+    on_disk_entries = [e for e in entries if e.filename not in new_filenames]
+    try:
+        superseded = check_supersessions(source, on_disk_entries, session, index)
+    except Exception:  # noqa: BLE001 — fingerprinting must never break a poll
+        logger.exception("[%s] supersession check failed (continuing)", source.name)
+        superseded = []
+
     downloaded: list[dict] = []
     failed = 0
     for entry in new_entries:
         try:
             path = download(source, entry, session)
             downloaded.append({**asdict(entry), "saved_to": str(path)})
+            # Record the fresh download's fingerprint so a later in-place replacement
+            # is detectable on the next run.
+            index[entry.filename] = {
+                "sha256": sha256_file(path),
+                "bytes": path.stat().st_size,
+                "source_url": entry.url,
+            }
             logger.info("[%s] downloaded: %s", source.name, path.name)
         except Exception as exc:
             failed += 1
@@ -318,13 +423,17 @@ def run_one(source: PollSource) -> dict:
                 exc,
             )
 
+    with contextlib.suppress(Exception):  # persisting fingerprints is best-effort
+        save_index(fp_path, index)
+
     logger.info(
-        "[%s] poll done — scanned=%d already_on_disk=%d downloaded=%d failed=%d",
+        "[%s] poll done — scanned=%d already_on_disk=%d downloaded=%d failed=%d superseded=%d",
         source.name,
         len(entries),
         len(entries) - len(new_entries),
         len(downloaded),
         failed,
+        len(superseded),
     )
     return {
         "source": source.name,
@@ -334,11 +443,26 @@ def run_one(source: PollSource) -> dict:
         "downloaded": len(downloaded),
         "downloads_failed": failed,
         "new": downloaded,
+        "superseded": superseded,
     }
 
 
 def run_all() -> dict[str, dict]:
     return {name: run_one(src) for name, src in SOURCES.items()}
+
+
+def write_supersession_log(results: dict[str, dict], path: Path = SUPERSESSION_LOG_PATH) -> int:
+    """Aggregate every source's suspected supersessions into one committed signal
+    under data/_meta (visible to a human / source-health). Returns the count.
+    Writes the file only when there is something to report, so a clean run leaves
+    no noise. Called by main() — never by run_one — so unit tests stay off data/_meta."""
+    all_superseded = [s for r in results.values() for s in r.get("superseded", [])]
+    if not all_superseded:
+        return 0
+    payload = {"count": len(all_superseded), "detected": all_superseded}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    return len(all_superseded)
 
 
 def _exit_code(results: dict[str, dict]) -> int:
@@ -361,4 +485,10 @@ if __name__ == "__main__":
     setup_standalone_logging("oireachtas_pdf_poller")
     results = run_all()
     print(json.dumps(results, indent=2))
+    n_superseded = write_supersession_log(results)
+    if n_superseded:
+        print(
+            f"\n⚠ {n_superseded} source file(s) appear SUPERSEDED (same filename, changed "
+            f"size) — held copies may be stale. See {SUPERSESSION_LOG_PATH}"
+        )
     sys.exit(_exit_code(results))
