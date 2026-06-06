@@ -23,7 +23,8 @@ Sections (top → bottom):
   Hero + method/privacy strip
   Day selector (segmented if few days, else selectbox; latest default)
   ① Today on the bench   (Tier A — grouped by court; the hero content)
-  ② Busiest lists today  (Tier B — ranked, top 8, inline proportion bar)
+  ② Most active lists today  (Tier B — ranked by listed-item volume, top 8, inline
+     proportion bar; court only, NO judge name — a volume count, not performance)
   ③ What's before the courts (Tier C — category counts → anonymised entries
      nested under judge/list, each with a verification link)
   Provenance footer
@@ -202,7 +203,9 @@ def _render_bench(day_sched: pd.DataFrame) -> None:
 
 
 def _render_busiest(day_counts: pd.DataFrame) -> None:
-    st.html('<h2 class="jd-section-head">Busiest lists today</h2>')
+    st.html('<h2 class="jd-section-head">Most active lists today</h2>')
+    st.caption("Lists with the most scheduled items on this day — a count of listed "
+               "matters, not a measure of judicial workload or performance.")
     top = day_counts.sort_values("n_items", ascending=False).head(8)
     if top.empty or int(top["n_items"].max() or 0) == 0:
         empty_state("No scheduled items", "No lists had listed matters on this day.")
@@ -214,7 +217,7 @@ def _render_busiest(day_counts: pd.DataFrame) -> None:
         st.html(
             f'<div class="jd-rank"><div class="jd-rank-body">'
             f'<div class="jd-rank-title">{_esc(r.list_type) or "—"}</div>'
-            f'<div class="jd-rank-sub">{_esc(r.judge)} · {_esc(r.court)}</div>'
+            f'<div class="jd-rank-sub">{_esc(r.court)}</div>'
             f'<div class="jd-bar-track"><div class="jd-bar-fill" style="width:{pct}%"></div></div>'
             f'</div><div class="jd-rank-n">{n}</div></div>'
         )
