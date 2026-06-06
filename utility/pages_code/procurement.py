@@ -470,13 +470,6 @@ def _render_supplier_profile(supplier_norm: str) -> None:
 
     pills = [_value_pill(row.get("awarded_value_safe_eur"))]
     pills += [p for p in (_cro_pill(row), _lobby_pill(row)) if p]
-    # TODO_PIPELINE_VIEW_REQUIRED: the "€X awarded" pill can be composed ENTIRELY of
-    # framework/DPS ceilings (e.g. Deloitte: 330/330 award rows are ceilings the page
-    # itself labels "not a payment"), so the headline reads as money when none is. The
-    # honest marker needs a per-supplier ceiling share on v_procurement_supplier_summary
-    # (e.g. ceiling_value_eur / n_ceiling_rows); computing it here would be a Streamlit
-    # aggregation (firewall breach). Until the column exists, add a "mostly ceilings"
-    # variant of _value_pill driven by that field.
     st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(pills)}</div>')
 
     awards = fetch_awards_for_supplier(supplier_norm)
@@ -484,11 +477,25 @@ def _render_supplier_profile(supplier_norm: str) -> None:
         empty_state("No itemised awards", "The supplier is in the ranking but no award rows were returned.")
         return
 
+    # Reconcile the headline with the rows the user is about to see: the sum-safe total
+    # is composed ONLY of contract-award rows (never a ceiling), but the most recent
+    # rows are often framework/DPS ceilings shown in rust — so a user can read "€134.6m
+    # awarded" then scroll past a screen of "not a payment" rows and wonder where the
+    # money is. The split counts (from the view, not computed here) close that gap.
     total = len(awards)
-    st.caption(
-        f"Every recorded contract award to this supplier ({total:,} in total), most recent first. "
-        "Framework / DPS ceilings are shown in rust and are not actual payments."
+    n_safe = _n(row.get("n_value_safe_awards"))
+    n_ceil = _n(row.get("n_ceiling_notices"))
+    recon = (
+        f"The {_eur(row.get('awarded_value_safe_eur'))} headline is the sum of {n_safe:,} contract "
+        f"award{'' if n_safe == 1 else 's'} that carry a sum-safe value."
     )
+    if n_ceil:
+        recon += (
+            f" A further {n_ceil:,} framework / DPS ceiling notice{'' if n_ceil == 1 else 's'} "
+            "are listed below in rust — spending limits a buyer may draw down against, not payments, "
+            "and never added to the headline."
+        )
+    st.caption(f"Every recorded contract award to this supplier ({total:,} in total), most recent first. " + recon)
     page_idx = paginate(total, key_prefix=f"pr_aw_{supplier_norm}", page_size=_AWARD_PAGE)
     page = awards.iloc[page_idx * _AWARD_PAGE : (page_idx + 1) * _AWARD_PAGE]
     st.html("".join(_award_row_html(r) for r in page.itertuples()))

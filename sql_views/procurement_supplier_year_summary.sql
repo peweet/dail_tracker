@@ -16,7 +16,11 @@ WITH agg AS (
         mode(supplier)                                              AS supplier,
         COUNT(*)                                                    AS n_awards,
         COUNT(DISTINCT "Contracting Authority")                     AS n_authorities,
-        COALESCE(SUM(value_eur) FILTER (WHERE value_safe_to_sum), 0) AS awarded_value_safe_eur
+        COALESCE(SUM(value_eur) FILTER (WHERE value_safe_to_sum), 0) AS awarded_value_safe_eur,
+        -- See all-time view header: split the count behind the sum-safe total from the
+        -- framework/DPS ceiling notices that are listed but never summed.
+        COUNT(*) FILTER (WHERE value_safe_to_sum)                   AS n_value_safe_awards,
+        COUNT(*) FILTER (WHERE is_framework_or_dps)                 AS n_ceiling_notices
     FROM read_parquet('data/gold/parquet/procurement_awards.parquet')
     WHERE supplier_class = 'company'
       AND NOT name_truncated
@@ -40,6 +44,8 @@ SELECT
     a.n_awards,
     a.n_authorities,
     a.awarded_value_safe_eur,
+    a.n_value_safe_awards,
+    a.n_ceiling_notices,
     c.company_num,
     c.company_status,
     c.match_method                            AS cro_match_method,

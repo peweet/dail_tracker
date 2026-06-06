@@ -58,6 +58,7 @@ from ui.components import (
     fmt_civic_date as _fmt_date,
     glossary_strip,
     hero_banner,
+    hide_sidebar,
     paginate,
     pagination_controls,
     sidebar_page_header,
@@ -2299,6 +2300,7 @@ def _render_detail(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = N
 # ──────────────────────────────────────────────────────────────────────────────
 def corporate_page() -> None:
     inject_css()
+    hide_sidebar()
     _inject_corp_css()
 
     df = load_corporate()

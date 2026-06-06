@@ -1,12 +1,18 @@
-# --- Write new DataFrames to CSV files ---
-
 # Silver flattener for bills. Reads `legislation_results_unscoped.json`, the
 # unscoped /v1/legislation feed produced by services/legislation_unscoped.py.
 # That fetcher hits the endpoint without a `member_id` filter so Government
 # bills (sponsored "in capacity as Minister" rather than as an individual TD)
 # are included alongside Private Member bills.
+#
+# The transforms live in the pure ``flatten_bills(bills)`` helper (one input
+# list of bills → a dict of silver DataFrames); ``main()`` is the thin
+# read→transform→write wrapper run by the pipeline via
+# ``python -m legislation.legislation``.
+
+from __future__ import annotations
 
 import logging
+import sys
 
 import pandas as pd
 
@@ -15,11 +21,6 @@ from services.http_engine import fetch_json
 
 logger = logging.getLogger(__name__)
 
-
-# flatten the top-level results
-bills = []
-for page in pd.read_json(LEGISLATION_DIR / "legislation_results_unscoped.json")["results"]:
-    bills.extend(page)
 # bill metadata fields to carry through to the sponsors, stages, and debates datasets for joining back to members and votes data later on
 BILL_META = [
     ["billSort", "billShortTitleEnSort"],
@@ -40,23 +41,6 @@ BILL_META = [
     ["bill", "mostRecentStage", "event", "house", "showAs"],
     "contextDate",
 ]
-# --- FULL bill mapping normalizations ---
-# Debates
-debates_df = pd.json_normalize(bills, record_path=["bill", "debates"], meta=BILL_META, errors="ignore")
-# Events
-events_df = pd.json_normalize(bills, record_path=["bill", "events"], meta=BILL_META, errors="ignore")
-# Most recent stage event dates
-most_recent_stage_event_dates_df = pd.json_normalize(
-    bills, record_path=["bill", "mostRecentStage", "event", "dates"], meta=BILL_META, errors="ignore"
-)
-# Related docs
-related_docs_df = pd.json_normalize(bills, record_path=["bill", "relatedDocs"], meta=BILL_META, errors="ignore")
-# Sponsors
-sponsors_df = pd.json_normalize(bills, record_path=["bill", "sponsors"], meta=BILL_META, errors="ignore")
-# Stages
-stages_df = pd.json_normalize(bills, record_path=["bill", "stages"], meta=BILL_META, errors="ignore")
-# Versions
-versions_df = pd.json_normalize(bills, record_path=["bill", "versions"], meta=BILL_META, errors="ignore")
 
 rename_bill_fields = {
     "billSort": "bill_sort",
@@ -103,6 +87,16 @@ sponsor_rename = {
     "bill.mostRecentStage.event.house.showAs": "most_recent_stage_event_house_show_as",
     "contextDate": "context_date",
 }
+
+# Drop internal API URIs (debate_url_web is the public link, kept below) and
+# verified all-null sort columns. chamber.uri is consumed to build the URL
+# before being dropped.
+DEBATES_DROP_COLS = [
+    "uri",
+    "chamber.uri",
+    "billSort.billShortTitleEnSort",
+    "billSort.billYearSort",
+]
 
 
 PAGE_SIZE = 1000  # API server cap — same as votes
@@ -152,112 +146,107 @@ def fetch_all_bills() -> tuple[list[dict], int, int]:
     return all_bills, expected, total_bytes
 
 
-sponsors_df = sponsors_df.dropna(subset=["sponsor.by.showAs", "sponsor.as.showAs"], how="all").rename(
-    columns=sponsor_rename
-)
-# print(sponsors_df.columns)
-sponsors_df = sponsors_df.dropna(axis=1, how="all")
-sponsors_df["sponsor_by_uri"] = sponsors_df["sponsor_by_uri"].str.split("/", n=7).str[-1]
-sponsors_df.rename(columns={"sponsor_by_uri": "unique_member_code"}, inplace=True)
+def flatten_bills(bills: list[dict]) -> dict[str, pd.DataFrame]:
+    """Normalise the bills list into the seven silver DataFrames.
 
-sponsors_df = sponsors_df.replace(r"[\r\n]+", " ", regex=True).replace(r"\s{2,}", " ", regex=True)
-sponsors_df = sponsors_df.rename(columns=rename_bill_fields)
-stages_df = stages_df.rename(columns=rename_bill_fields)
-# Bill URL enrichment
-#
-# Join vote history with stages.csv to attach a bill_no and Oireachtas URL to
-# each vote row where the debate maps to a known bill.
-#
-# URL format: https://www.oireachtas.ie/en/bills/bill/{bill_year}/{bill_no}/
-# Example:    Bill 75 of 2025  = https://www.oireachtas.ie/en/bills/bill/2025/75/
-sponsors_df["bill_url"] = sponsors_df.apply(
-    lambda row: f"https://www.oireachtas.ie/en/bills/bill/{row['bill_year']}/{row['bill_no']}", axis=1
-)
+    Pure transform — no I/O. Keys: sponsors, stages, debates, events,
+    most_recent_stage_event_dates, related_docs, versions. Behaviour mirrors
+    the original module-level script exactly.
+    """
+    # --- FULL bill mapping normalizations ---
+    debates_df = pd.json_normalize(bills, record_path=["bill", "debates"], meta=BILL_META, errors="ignore")
+    events_df = pd.json_normalize(bills, record_path=["bill", "events"], meta=BILL_META, errors="ignore")
+    most_recent_stage_event_dates_df = pd.json_normalize(
+        bills, record_path=["bill", "mostRecentStage", "event", "dates"], meta=BILL_META, errors="ignore"
+    )
+    related_docs_df = pd.json_normalize(bills, record_path=["bill", "relatedDocs"], meta=BILL_META, errors="ignore")
+    sponsors_df = pd.json_normalize(bills, record_path=["bill", "sponsors"], meta=BILL_META, errors="ignore")
+    stages_df = pd.json_normalize(bills, record_path=["bill", "stages"], meta=BILL_META, errors="ignore")
+    versions_df = pd.json_normalize(bills, record_path=["bill", "versions"], meta=BILL_META, errors="ignore")
 
-# Sponsor-resolution flag: a null unique_member_code is NOT a missing member.
-# Government bills are sponsored by a ministerial office (sponsor_as_show_as =
-# "Minister for …"), not an individual TD/Senator. Distinguish member / office /
-# unresolved so downstream views don't read a blank code as "sponsor unknown".
-# See doc/DATA_LIMITATIONS.md §2.3 (nil vs missing vs extraction-failed).
-_code = sponsors_df["unique_member_code"].fillna("").astype(str).str.strip()
-_office = sponsors_df["sponsor_as_show_as"].fillna("").astype(str).str.strip()
-sponsors_df["sponsor_resolution"] = "unresolved"
-sponsors_df.loc[_office != "", "sponsor_resolution"] = "office"
-sponsors_df.loc[_code != "", "sponsor_resolution"] = "member"
+    sponsors_df = sponsors_df.dropna(subset=["sponsor.by.showAs", "sponsor.as.showAs"], how="all").rename(
+        columns=sponsor_rename
+    )
+    sponsors_df = sponsors_df.dropna(axis=1, how="all")
+    sponsors_df["sponsor_by_uri"] = sponsors_df["sponsor_by_uri"].str.split("/", n=7).str[-1]
+    sponsors_df.rename(columns={"sponsor_by_uri": "unique_member_code"}, inplace=True)
 
-sponsors_df.to_parquet(
-    SILVER_DIR / "parquet" / "sponsors.parquet",
-    index=False,
-    compression="zstd",
-    compression_level=3,
-)
-print("Sponsors dataset created successfully.")
+    sponsors_df = sponsors_df.replace(r"[\r\n]+", " ", regex=True).replace(r"\s{2,}", " ", regex=True)
+    sponsors_df = sponsors_df.rename(columns=rename_bill_fields)
+    stages_df = stages_df.rename(columns=rename_bill_fields)
+    # Bill URL enrichment
+    #
+    # URL format: https://www.oireachtas.ie/en/bills/bill/{bill_year}/{bill_no}/
+    # Example:    Bill 75 of 2025  = https://www.oireachtas.ie/en/bills/bill/2025/75/
+    sponsors_df["bill_url"] = sponsors_df.apply(
+        lambda row: f"https://www.oireachtas.ie/en/bills/bill/{row['bill_year']}/{row['bill_no']}", axis=1
+    )
 
-stages_df.to_parquet(
-    SILVER_DIR / "parquet" / "stages.parquet",
-    index=False,
-    compression="zstd",
-    compression_level=3,
-)
-print("Stages dataset created successfully.")
+    # Sponsor-resolution flag: a null unique_member_code is NOT a missing member.
+    # Government bills are sponsored by a ministerial office (sponsor_as_show_as =
+    # "Minister for …"), not an individual TD/Senator. Distinguish member / office /
+    # unresolved so downstream views don't read a blank code as "sponsor unknown".
+    # See doc/DATA_LIMITATIONS.md §2.3 (nil vs missing vs extraction-failed).
+    _code = sponsors_df["unique_member_code"].fillna("").astype(str).str.strip()
+    _office = sponsors_df["sponsor_as_show_as"].fillna("").astype(str).str.strip()
+    sponsors_df["sponsor_resolution"] = "unresolved"
+    sponsors_df.loc[_office != "", "sponsor_resolution"] = "office"
+    sponsors_df.loc[_code != "", "sponsor_resolution"] = "member"
 
-debates_df = debates_df.sort_values(by="date", axis=0, ascending=True)
-debates_df["debate_url_web"] = (
-    "https://www.oireachtas.ie/en/debates/debate/"
-    + debates_df["chamber.uri"].str.split("/").str[-1]
-    + "/"
-    + debates_df["date"].astype(str)
-    + "/"
-    + debates_df["debateSectionId"].str.replace("dbsect_", "", regex=False)
-    + "/"
-)
-# Drop internal API URIs (debate_url_web is the public link, kept above) and
-# verified all-null sort columns. chamber.uri consumed at line 228 before drop.
-DEBATES_DROP_COLS = [
-    "uri",
-    "chamber.uri",
-    "billSort.billShortTitleEnSort",
-    "billSort.billYearSort",
+    debates_df = debates_df.sort_values(by="date", axis=0, ascending=True)
+    debates_df["debate_url_web"] = (
+        "https://www.oireachtas.ie/en/debates/debate/"
+        + debates_df["chamber.uri"].str.split("/").str[-1]
+        + "/"
+        + debates_df["date"].astype(str)
+        + "/"
+        + debates_df["debateSectionId"].str.replace("dbsect_", "", regex=False)
+        + "/"
+    )
+    debates_df = debates_df.drop(columns=[c for c in DEBATES_DROP_COLS if c in debates_df.columns])
+
+    return {
+        "sponsors": sponsors_df,
+        "stages": stages_df,
+        "debates": debates_df,
+        "events": events_df,
+        "most_recent_stage_event_dates": most_recent_stage_event_dates_df,
+        "related_docs": related_docs_df,
+        "versions": versions_df,
+    }
+
+
+# Each frame's status message preserves the original module's wording.
+_WRITE_PLAN = [
+    ("sponsors", "Sponsors dataset created successfully."),
+    ("stages", "Stages dataset created successfully."),
+    ("debates", "Debates dataset created successfully."),
+    ("events", "Events Parquet dataset created (check pipeline)"),
+    ("most_recent_stage_event_dates", "Most recent stage event dates Parquet dataset created (check pipeline)"),
+    ("related_docs", "Related documents Parquet dataset created (check pipeline)"),
+    ("versions", "Versions Parquet dataset created (check pipeline)"),
 ]
-debates_df = debates_df.drop(columns=[c for c in DEBATES_DROP_COLS if c in debates_df.columns])
-
-debates_df.to_parquet(
-    SILVER_DIR / "parquet" / "debates.parquet",
-    index=False,
-    compression="zstd",
-    compression_level=3,
-)
-print("Debates dataset created successfully.")
-
-events_df.to_parquet(
-    SILVER_DIR / "parquet" / "events.parquet",
-    index=False,
-    compression="zstd",
-    compression_level=3,
-)
-print("Events Parquet dataset created (check pipeline)")
-
-most_recent_stage_event_dates_df.to_parquet(
-    SILVER_DIR / "parquet" / "most_recent_stage_event_dates.parquet",
-    index=False,
-    compression="zstd",
-    compression_level=3,
-)
-print("Most recent stage event dates Parquet dataset created (check pipeline)")
-
-related_docs_df.to_parquet(
-    SILVER_DIR / "parquet" / "related_docs.parquet",
-    index=False,
-    compression="zstd",
-    compression_level=3,
-)
-print("Related documents Parquet dataset created (check pipeline)")
 
 
-versions_df.to_parquet(
-    SILVER_DIR / "parquet" / "versions.parquet",
-    index=False,
-    compression="zstd",
-    compression_level=3,
-)
-print("Versions Parquet dataset created (check pipeline)")
+def main() -> int:
+    # flatten the top-level results
+    bills: list[dict] = []
+    for page in pd.read_json(LEGISLATION_DIR / "legislation_results_unscoped.json")["results"]:
+        bills.extend(page)
+
+    frames = flatten_bills(bills)
+
+    out_dir = SILVER_DIR / "parquet"
+    for key, message in _WRITE_PLAN:
+        frames[key].to_parquet(
+            out_dir / f"{key}.parquet",
+            index=False,
+            compression="zstd",
+            compression_level=3,
+        )
+        print(message)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
