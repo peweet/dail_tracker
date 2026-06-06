@@ -78,3 +78,22 @@ def fetch_authority_summary() -> pd.DataFrame:
 def fetch_elevation_ladder() -> pd.DataFrame:
     """Aggregate: real promotions per court transition."""
     return _q.elevation_ladder(get_judiciary_conn()).data
+
+
+# ── The Courts — system health (no named judges) ────────────────────────────
+@st.cache_data(ttl=600)
+def fetch_courts_clearance() -> pd.DataFrame:
+    """Annual case clearance by court, 2017–2024."""
+    return _q.courts_clearance(get_judiciary_conn()).data
+
+
+@st.cache_data(ttl=600)
+def fetch_courts_waiting_times() -> pd.DataFrame:
+    """Published waiting-time lists (latest two years)."""
+    return _q.courts_waiting_times(get_judiciary_conn()).data
+
+
+@st.cache_data(ttl=600)
+def fetch_courthouses() -> pd.DataFrame:
+    """Active, geocoded courthouses for the venue map."""
+    return _q.courthouses(get_judiciary_conn()).data

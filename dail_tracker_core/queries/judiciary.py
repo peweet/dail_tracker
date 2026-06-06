@@ -79,3 +79,21 @@ def authority_summary(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 def elevation_ladder(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Aggregate: real promotions per court transition."""
     return _run(conn, "SELECT * FROM v_judiciary_elevation_ladder")
+
+
+# ── The Courts — system health (no named judges) ────────────────────────────
+# Aggregate court-throughput facts only; the clearance metric + week-parsing live
+# in the views (sql_views/judiciary_courts_*.sql). No row here names a judge.
+def courts_clearance(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Annual case clearance by court, 2017–2024 (incoming/resolved/clearance_pct)."""
+    return _run(conn, "SELECT * FROM v_courts_clearance")
+
+
+def courts_waiting_times(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Published waiting-time lists, latest two years + parsed weeks for ranking."""
+    return _run(conn, "SELECT * FROM v_courts_waiting_times")
+
+
+def courthouses(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Active, geocoded courthouses for the venue map."""
+    return _run(conn, "SELECT * FROM v_courthouses")
