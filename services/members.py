@@ -38,11 +38,16 @@ def load_members_payload() -> dict:
     return data
 
 
-def get_or_create_members_payload(overwrite: bool = False) -> dict:
-    """Use saved members payload when available, otherwise fetch and save."""
+def get_or_create_members_payload(overwrite: bool = False, max_age_hours: float | None = None) -> dict:
+    """Use saved members payload when available, otherwise fetch and save.
+
+    ``max_age_hours`` (DAIL-160) refetches a members.json older than the
+    threshold even when ``overwrite=False``, so TD turnover (by-elections,
+    resignations) is not frozen at the first run's roster on a recurring cron.
+    """
     path = members_file_path()
 
-    if output_exists(path, overwrite=overwrite):
+    if output_exists(path, overwrite=overwrite, max_age_hours=max_age_hours):
         logger.info("Using existing members.json")
         return load_members_payload()
 
@@ -89,6 +94,6 @@ def members_payload_to_df(payload: dict) -> pl.DataFrame:
     return df
 
 
-def get_or_create_member_df(overwrite_members: bool = False) -> pl.DataFrame:
-    payload = get_or_create_members_payload(overwrite=overwrite_members)
+def get_or_create_member_df(overwrite_members: bool = False, max_age_hours: float | None = None) -> pl.DataFrame:
+    payload = get_or_create_members_payload(overwrite=overwrite_members, max_age_hours=max_age_hours)
     return members_payload_to_df(payload)

@@ -715,6 +715,28 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
     return rows_out, {"status": "ok" if rows_out else "empty", "rows": len(rows_out), "confidence": conf}
 
 
+# Within-source-file duplicate signature: a row identical to another in EVERY extracted field
+# (same file + supplier + amount + description + PO + page + paid-flag + period) is an
+# indistinguishable repeat the word-row clusterer emitted more than once (a table row captured
+# twice, a header re-clustered), and summing both double-counts. A row that differs in ANY field
+# — notably `description` — is a DISTINCT payment and MUST be kept (e.g. Courts had 9 lines that
+# share a mis-parsed amount + truncated name but carry 9 different descriptions). DQ audit 2026-06-05.
+DEDUP_SIG = ["source_file_hash", "supplier_raw", "amount_eur", "description",
+             "po_number", "source_page_number", "paid_flag", "period"]
+
+
+def dedup_source_repeats(df: pl.DataFrame) -> tuple[pl.DataFrame, int]:
+    """Drop indistinguishable within-file parser repeats (see DEDUP_SIG). Keeps the first
+    occurrence; returns (deduped_df, n_dropped). Errs toward UNDER-deduping: any differing
+    field preserves the row, so genuine distinct payments are never collapsed."""
+    if df.is_empty():
+        return df, 0
+    keys = [c for c in DEDUP_SIG if c in df.columns]
+    n = df.height
+    out = df.unique(subset=keys, keep="first", maintain_order=True)
+    return out, n - out.height
+
+
 def classify_and_flag(df: pl.DataFrame) -> pl.DataFrame:
     """supplier_normalised + supplier_class + privacy_status; quarantine DEFERRED."""
     if df.is_empty():
@@ -831,6 +853,9 @@ def main() -> None:
         "source_caveat",
     ]
     df = pl.DataFrame(all_rows, infer_schema_length=None)
+    df, rows_deduped = dedup_source_repeats(df)
+    if rows_deduped:
+        print(f"\ndeduped {rows_deduped:,} within-file parser repeats (indistinguishable rows)")
     df = classify_and_flag(df)
     df = df.select([c for c in SCHEMA_COLS if c in df.columns])
 
@@ -856,6 +881,7 @@ def main() -> None:
         "publishers_attempted": len(per_pub),
         "publishers_with_rows": sum(p["rows"] > 0 for p in per_pub if "rows" in p),
         "rows_extracted": df.height,
+        "rows_deduped_within_file": rows_deduped,
         "rows_public_display": int(df["public_display"].sum()),
         "rows_review_personal_data": int((df["privacy_status"] == "review_personal_data").sum()),
         "rows_quarantined": int((~df["public_display"]).sum()),

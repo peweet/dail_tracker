@@ -22,9 +22,14 @@ import sys
 import pandas as pd
 import streamlit as st
 
-_UTIL = Path(__file__).resolve().parent.parent
-if str(_UTIL) not in sys.path:
-    sys.path.insert(0, str(_UTIL))
+# SANDBOX bootstrap: this copy lives in pipeline_sandbox/member_overview_refactor/,
+# so reach back to the repo root + utility/ for imports. (The integrated file in
+# utility/pages_code/ keeps the original two-line parent.parent bootstrap.)
+_REPO = Path(__file__).resolve().parent.parent.parent
+_UTIL = _REPO / "utility"
+for _p in (str(_REPO), str(_UTIL)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from shared_css import inject_css
 from ui.avatars import avatar_credit_html, avatar_data_url, initials as _initials
@@ -56,6 +61,7 @@ from ui.entity_links import (
 )
 from ui.vote_explorer import render_member_votes
 from data_access.member_overview_data import get_member_overview_conn
+from dail_tracker_core.queries import member_overview as moq
 from ui.attendance_panel import render_member_attendance
 from data_access.committees_data import fetch_committee_assignments, fetch_office_holders
 from pages_code.committees import render_member_committees
@@ -88,39 +94,21 @@ _PROFILE_SECTIONS: list[tuple[str, str, str]] = [
 # ── Data retrieval ─────────────────────────────────────────────────────────────
 
 
-def _q(conn, sql: str, params: list | None = None) -> pd.DataFrame:
-    if conn is None:
-        return pd.DataFrame()
-    try:
-        return conn.execute(sql, params or []).df()
-    except Exception as exc:
-        _log.warning("member_overview | %s | %s", sql[:80], exc)
-        return pd.DataFrame()
+# Retrieval SQL now lives in dail_tracker_core.queries.member_overview (imported
+# as `moq`). These wrappers keep the SAME names/signatures the renderers call, so
+# only the bodies changed: each delegates to a core QueryResult and applies the
+# small dict/list/scalar/fallback *shaping* the UI expects. @st.cache_data is kept
+# here (the cache layer is a Streamlit concern); core stays cache-free + UI-free.
 
 
 @st.cache_data(ttl=300)
 def _member_list(_conn) -> pd.DataFrame:
-    return _q(
-        _conn,
-        "SELECT unique_member_code, member_name, party_name, constituency, house"
-        " FROM v_member_registry ORDER BY member_name",
-    )
+    return moq.member_list(_conn).data
 
 
 @st.cache_data(ttl=300)
 def _join_key_by_name(_conn, name: str, house: str | None = None) -> str | None:
-    if house:
-        df = _q(
-            _conn,
-            "SELECT unique_member_code FROM v_member_registry WHERE member_name = ? AND house = ? LIMIT 1",
-            [name, house],
-        )
-    else:
-        df = _q(
-            _conn,
-            "SELECT unique_member_code FROM v_member_registry WHERE member_name = ? LIMIT 1",
-            [name],
-        )
+    df = moq.join_key_by_name(_conn, name, house).data
     return str(df.iloc[0]["unique_member_code"]) if not df.empty else None
 
 
@@ -130,63 +118,34 @@ def _member_house(_conn, join_key: str) -> str:
     cross-house code collision (Seán Kyne) resolves to his current house via
     the Seanad-last ordering of the registry; acceptable for a single edge case.
     """
-    df = _q(
-        _conn,
-        "SELECT house FROM v_member_registry WHERE unique_member_code = ? ORDER BY house DESC LIMIT 1",
-        [join_key],
-    )
+    df = moq.member_house(_conn, join_key).data
     return str(df.iloc[0]["house"]) if not df.empty else "Dáil"
 
 
 @st.cache_data(ttl=300)
 def _identity(_conn, join_key: str) -> dict:
-    # Attendance first — has year; fall back to canonical registry if no record
-    df = _q(
-        _conn,
-        "SELECT member_name, party_name, constituency, is_minister, year"
-        " FROM v_attendance_member_year_summary"
-        " WHERE unique_member_code = ? ORDER BY year DESC LIMIT 1",
-        [join_key],
-    )
+    # Attendance first — has year; fall back to canonical registry if no record.
+    df = moq.identity_attendance(_conn, join_key).data
     if not df.empty:
         return df.iloc[0].to_dict()
-    df = _q(
-        _conn,
-        "SELECT member_name, party_name, constituency, is_minister"
-        " FROM v_member_registry WHERE unique_member_code = ? LIMIT 1",
-        [join_key],
-    )
+    df = moq.identity_registry(_conn, join_key).data
     return df.iloc[0].to_dict() if not df.empty else {}
 
 
 @st.cache_data(ttl=300)
 def _att_all_years(_conn, join_key: str) -> pd.DataFrame:
-    return _q(
-        _conn,
-        "SELECT year, attended_count, is_minister"
-        " FROM v_attendance_member_year_summary"
-        " WHERE unique_member_code = ? ORDER BY year DESC LIMIT 20",
-        [join_key],
-    )
+    return moq.att_all_years(_conn, join_key).data
 
 
 @st.cache_data(ttl=300)
 def _att_rank_for_year(_conn, join_key: str, year: int, house: str = "Dáil") -> tuple[int | None, int | None]:
     """Member's attendance rank for a given year and the total ranked field size.
-    Returns (rank_high, total). Both None on miss. Retrieval-only.
-    Rank + total are scoped to the member's house (TDs ranked among TDs only)."""
-    df = _q(
-        _conn,
-        "SELECT rank_high FROM v_attendance_year_rank WHERE unique_member_code = ? AND year = ? LIMIT 1",
-        [join_key, year],
-    )
+    Returns (rank_high, total). Both None on miss. Rank + total are scoped to the
+    member's house (TDs ranked among TDs only)."""
+    df = moq.att_rank(_conn, join_key, year).data
     if df.empty:
         return None, None
-    total_df = _q(
-        _conn,
-        "SELECT COUNT(*) AS n FROM v_attendance_year_rank WHERE year = ? AND house = ?",
-        [year, house],
-    )
+    total_df = moq.att_rank_total(_conn, year, house).data
     rank = int(df.iloc[0]["rank_high"]) if pd.notna(df.iloc[0]["rank_high"]) else None
     total = int(total_df.iloc[0]["n"]) if not total_df.empty else None
     return rank, total
@@ -194,56 +153,32 @@ def _att_rank_for_year(_conn, join_key: str, year: int, house: str = "Dáil") ->
 
 @st.cache_data(ttl=300)
 def _external_links(_conn, join_key: str) -> dict:
-    """Wikidata-sourced socials + Wikipedia URL for the hero chips row.
-
-    Returns an empty dict when the view is missing (Wikidata ETL not yet run)
-    or the member has no entry — both are normal, the UI just renders fewer
-    chips. Every value is the pre-derived URL; the raw handles aren't needed
-    here (kept in the parquet for replay/debug only).
-    """
-    df = _q(
-        _conn,
-        "SELECT wikipedia_url, twitter_url, bluesky_url, facebook_url,"
-        " instagram_url, website_url"
-        " FROM v_member_external_links WHERE unique_member_code = ? LIMIT 1",
-        [join_key],
-    )
+    """Wikidata-sourced socials + Wikipedia URL for the hero chips row. Empty
+    dict when the view is missing or the member has no entry (both normal — the
+    UI just renders fewer chips). Nulls dropped so the hero only iterates over
+    populated platforms."""
+    df = moq.external_links(_conn, join_key).data
     if df.empty:
         return {}
     row = df.iloc[0].to_dict()
-    # Drop nulls so the hero block only iterates over populated platforms.
     return {k: v for k, v in row.items() if isinstance(v, str) and v.strip()}
 
 
 @st.cache_data(ttl=300)
 def _votes_summary(_conn, join_key: str) -> pd.DataFrame:
-    return _q(
-        _conn,
-        "SELECT yes_count, no_count, abstained_count, division_count, yes_rate_pct"
-        " FROM td_vote_summary WHERE member_id = ? LIMIT 1",
-        [join_key],
-    )
+    return moq.votes_summary(_conn, join_key).data
 
 
 @st.cache_data(ttl=300)
 def _pay_overview(_conn, join_key: str) -> pd.DataFrame:
-    return _q(
-        _conn,
-        "SELECT payment_year, total_paid, taa_band_label, payment_count"
-        " FROM v_payments_yearly_evolution"
-        " WHERE unique_member_code = ? ORDER BY payment_year DESC LIMIT 20",
-        [join_key],
-    )
+    return moq.pay_overview(_conn, join_key).data
 
 
 @st.cache_data(ttl=300)
 def _pay_grand_total(_conn, join_key: str) -> float:
-    # SUM permitted as presentation-layer scalar — contract §headline_metrics_row note
-    df = _q(
-        _conn,
-        "SELECT SUM(amount_num) AS total FROM v_payments_member_detail WHERE unique_member_code = ?",
-        [join_key],
-    )
+    # SUM permitted as presentation-layer scalar — contract §headline_metrics_row note.
+    # .df() yields NaN for a NULL SUM, so guard isna before float().
+    df = moq.pay_grand_total(_conn, join_key).data
     if df.empty or pd.isna(df.iloc[0]["total"]):
         return 0.0
     return float(df.iloc[0]["total"])
@@ -251,55 +186,25 @@ def _pay_grand_total(_conn, join_key: str) -> float:
 
 @st.cache_data(ttl=300)
 def _lobbying_rd(_conn, join_key: str) -> pd.DataFrame:
-    return _q(
-        _conn,
-        "SELECT individual_name, former_position, return_count, distinct_firms"
-        " FROM v_lobbying_revolving_door WHERE unique_member_code = ? LIMIT 5",
-        [join_key],
-    )
+    return moq.lobbying_rd(_conn, join_key).data
 
 
 @st.cache_data(ttl=300)
 def _legislation(_conn, join_key: str) -> pd.DataFrame:
-    return _q(
-        _conn,
-        "SELECT bill_title, bill_status, bill_year, oireachtas_url"
-        " FROM v_legislation_index"
-        " WHERE sponsor_join_key = ?"
-        " ORDER BY introduced_date DESC NULLS LAST LIMIT 50",
-        [join_key],
-    )
+    return moq.legislation(_conn, join_key).data
 
 
 @st.cache_data(ttl=300)
 def _si_signed(_conn, join_key: str) -> pd.DataFrame:
-    """SIs the member signed as a departmental minister. Joined on
-    si_minister_member_code (= unique_member_code)."""
-    return _q(
-        _conn,
-        "SELECT si_id, si_year, si_title, si_signed_date, si_operation,"
-        " si_department_label, si_is_eu, eisb_url"
-        " FROM v_statutory_instruments"
-        " WHERE si_minister_member_code = ?"
-        " ORDER BY si_signed_date DESC NULLS LAST",
-        [join_key],
-    )
+    """SIs the member signed as a departmental minister (si_minister_member_code)."""
+    return moq.si_signed(_conn, join_key).data
 
 
 @st.cache_data(ttl=300)
 def _ministerial_roles(_conn, join_key: str) -> pd.DataFrame:
-    """Ministerial posts this member has held (Wikidata-sourced tenure spine).
-    Wider history than _si_signed: spans 2011→present, current government and
-    earlier. Empty for members who never held office."""
-    return _q(
-        _conn,
-        "SELECT department_label, minister_name, start_date, end_date,"
-        " is_current, tenure_days"
-        " FROM v_member_ministerial_tenure"
-        " WHERE unique_member_code = ?"
-        " ORDER BY start_date DESC",
-        [join_key],
-    )
+    """Ministerial posts this member has held (Wikidata tenure spine; 2011→present).
+    Wider history than _si_signed. Empty for members who never held office."""
+    return moq.ministerial_roles(_conn, join_key).data
 
 
 # Electoral Commission review deep link — surfaces the source report for citizen
@@ -310,21 +215,12 @@ _EC_REVIEW_URL = "https://www.electoralcommission.ie/publications/constituency-r
 
 @st.cache_data(ttl=300)
 def _constituency_context(_conn, constituency: str) -> dict:
-    """Return the v_member_constituency_demographics row for ``constituency``,
-    or an empty dict when the name has no row. With the Electoral Commission
-    (2023-boundary) source every current constituency matches 43/43, so the
-    empty-dict branch is now a defensive fallback rather than the common
-    boundary-split case it used to guard."""
+    """v_member_constituency_demographics row for ``constituency``, or {} when the
+    name has no row. The empty-dict branch is a defensive fallback (the Electoral
+    Commission 2023-boundary source matches 43/43 current constituencies)."""
     if not constituency:
         return {}
-    df = _q(
-        _conn,
-        "SELECT population_2022, population_per_td, td_seats,"
-        " boundaries_label, source_key"
-        " FROM v_member_constituency_demographics"
-        " WHERE constituency_name = ?",
-        [constituency],
-    )
+    df = moq.constituency_context(_conn, constituency).data
     if df.empty:
         return {}
     return df.iloc[0].to_dict()
@@ -337,63 +233,33 @@ def _constituency_context(_conn, constituency: str) -> dict:
 
 @st.cache_data(ttl=300)
 def _q_profile(_conn, join_key: str) -> dict:
-    df = _q(
-        _conn,
-        "SELECT total_qs, distinct_ministries, top_ministry, top_count, top_pct"
-        " FROM v_member_question_profile WHERE unique_member_code = ? LIMIT 1",
-        [join_key],
-    )
+    df = moq.question_profile(_conn, join_key).data
     return df.iloc[0].to_dict() if not df.empty else {}
 
 
 @st.cache_data(ttl=300)
 def _q_focus_shift(_conn, join_key: str) -> dict:
-    df = _q(
-        _conn,
-        "SELECT past_top, past_n, past_year_min, past_year_max,"
-        " recent_top, recent_n, recent_year_min, recent_year_max"
-        " FROM v_member_question_focus_shift WHERE unique_member_code = ? LIMIT 1",
-        [join_key],
-    )
+    df = moq.question_focus_shift(_conn, join_key).data
     return df.iloc[0].to_dict() if not df.empty else {}
 
 
 @st.cache_data(ttl=300)
 def _q_years(_conn, join_key: str) -> list[int]:
-    df = _q(
-        _conn,
-        "SELECT DISTINCT question_year FROM v_member_questions"
-        " WHERE unique_member_code = ? AND question_year IS NOT NULL"
-        " ORDER BY question_year DESC",
-        [join_key],
-    )
+    df = moq.question_years(_conn, join_key).data
     return [int(y) for y in df["question_year"].dropna().tolist()] if not df.empty else []
 
 
 @st.cache_data(ttl=300)
 def _q_ministries(_conn, join_key: str) -> list[str]:
-    """Per-TD distinct ministries ordered by COUNT desc.
-
-    Rollup lives in v_member_question_ministries; this is retrieval-only.
-    """
-    df = _q(
-        _conn,
-        "SELECT ministry FROM v_member_question_ministries WHERE unique_member_code = ? ORDER BY n DESC, ministry ASC",
-        [join_key],
-    )
+    """Per-TD distinct ministries ordered by COUNT desc (rollup is in the view)."""
+    df = moq.question_ministries(_conn, join_key).data
     return df["ministry"].astype(str).tolist() if not df.empty else []
 
 
 @st.cache_data(ttl=300)
 def _q_top_topics(_conn, join_key: str) -> pd.DataFrame:
     """Top-3 topics for a TD. Rollup lives in v_member_question_top_topics."""
-    return _q(
-        _conn,
-        "SELECT topic, n FROM v_member_question_top_topics"
-        " WHERE unique_member_code = ?"
-        " ORDER BY n DESC, topic ASC LIMIT 3",
-        [join_key],
-    )
+    return moq.question_top_topics(_conn, join_key).data
 
 
 @st.cache_data(ttl=300)
@@ -406,48 +272,14 @@ def _q_feed(
     topic: str | None = None,
     search_text: str | None = None,
 ) -> pd.DataFrame:
-    """Question feed query. Filters AND together. Free-text search uses
-    ILIKE with %wrap on the user's input, case-insensitive. We pull up to
-    10k rows and paginate client-side via paginate(), matching
-    _section_debates. The 10k ceiling is above any plausible per-TD-per-
-    filter slice (Cullinane's full 7,052 is the only case that approaches
-    it; any filter narrows well below)."""
-    clauses = ["unique_member_code = ?"]
-    params: list = [join_key]
-    if year is not None:
-        clauses.append("question_year = ?")
-        params.append(year)
-    if qtype:
-        clauses.append("question_type = ?")
-        params.append(qtype)
-    if ministry:
-        clauses.append("ministry = ?")
-        params.append(ministry)
-    if topic:
-        clauses.append("topic = ?")
-        params.append(topic)
-    if search_text:
-        clauses.append("question_text ILIKE ?")
-        params.append(f"%{search_text}%")
-    return _q(
-        _conn,
-        "SELECT question_date, question_type, ministry, topic, question_text,"
-        " question_ref, oireachtas_url"
-        f" FROM v_member_questions WHERE {' AND '.join(clauses)}"
-        " ORDER BY question_date DESC LIMIT 10000",
-        params,
-    )
+    """Question feed query (filters AND together; free-text ILIKE %wrap; LIMIT
+    10000, page paginates client-side)."""
+    return moq.question_feed(_conn, join_key, year, qtype, ministry, topic, search_text).data
 
 
 @st.cache_data(ttl=300)
 def _debate_years(_conn, join_key: str) -> list[int]:
-    df = _q(
-        _conn,
-        "SELECT DISTINCT debate_year FROM v_member_debate_sections"
-        " WHERE unique_member_code = ? AND debate_year IS NOT NULL"
-        " ORDER BY debate_year DESC LIMIT 30",
-        [join_key],
-    )
+    df = moq.debate_years(_conn, join_key).data
     if df.empty or "debate_year" not in df.columns:
         return []
     return [int(y) for y in df["debate_year"].dropna().tolist()]
@@ -455,16 +287,7 @@ def _debate_years(_conn, join_key: str) -> list[int]:
 
 @st.cache_data(ttl=300)
 def _debate_topics(_conn, join_key: str, year: int | None = None) -> list[str]:
-    clauses = ["unique_member_code = ?", "topic IS NOT NULL"]
-    params: list = [join_key]
-    if year is not None:
-        clauses.append("debate_year = ?")
-        params.append(year)
-    df = _q(
-        _conn,
-        f"SELECT DISTINCT topic FROM v_member_debate_sections WHERE {' AND '.join(clauses)} ORDER BY topic LIMIT 100",
-        params,
-    )
+    df = moq.debate_topics(_conn, join_key, year).data
     if df.empty or "topic" not in df.columns:
         return []
     return [str(t) for t in df["topic"].dropna().tolist()]
@@ -477,25 +300,8 @@ def _debate_sections(
     year: int | None = None,
     topic: str | None = None,
 ) -> pd.DataFrame:
-    """Debate sections a TD raised a question in — retrieval-only filter on
-    v_member_debate_sections (SELECT / WHERE / ORDER BY / LIMIT)."""
-    clauses = ["unique_member_code = ?"]
-    params: list = [join_key]
-    if year is not None:
-        clauses.append("debate_year = ?")
-        params.append(year)
-    if topic:
-        clauses.append("topic = ?")
-        params.append(topic)
-    return _q(
-        _conn,
-        "SELECT debate_date, debate_section_id, chamber, topic,"
-        " question_count, oireachtas_url"
-        " FROM v_member_debate_sections"
-        f" WHERE {' AND '.join(clauses)}"
-        " ORDER BY debate_date DESC LIMIT 1000",
-        params,
-    )
+    """Debate sections a TD raised a question in (retrieval-only filter)."""
+    return moq.debate_sections(_conn, join_key, year, topic).data
 
 
 # ── Profile section renderers ──────────────────────────────────────────────────
