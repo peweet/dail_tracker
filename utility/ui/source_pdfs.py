@@ -12,6 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import pandas as pd
 import streamlit as st
 from ui.entity_links import source_link_html
 
@@ -327,6 +328,26 @@ def provenance_expander(
 def interests_pdf_url(house: str, year: int) -> str | None:
     """Return the canonical PDF URL for a given house + declaration year, or None."""
     return INTERESTS.get((house.lower(), year))
+
+
+def iris_archive_url(issue_date) -> str:
+    """Iris Oifigiúil archive *month* URL for a notice's issue date.
+
+    The archive's per-PDF filename casing (IR vs Ir) is inconsistent and not
+    derivable from the date, but the month-directory listing always resolves —
+    and the dated PDF sits one click inside it (a month has ~8 issues). This
+    keeps the link live with zero pipeline work. Empty string when undated.
+
+    Shared by the two Iris-sourced pages (corporate, public_appointments) so the
+    archive-URL formula lives in one place.
+    """
+    if issue_date is None or pd.isna(issue_date):
+        return ""
+    try:
+        d = pd.Timestamp(issue_date)
+    except (ValueError, TypeError):
+        return ""
+    return f"https://irisoifigiuil.ie/archive/{d.year}/{d.strftime('%B').lower()}/"
 
 
 def interests_pdf_links(house: str) -> list[tuple[str, str]]:

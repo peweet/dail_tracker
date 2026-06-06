@@ -47,6 +47,7 @@ from ui.components import (
     sidebar_page_header,
     sidebar_subtitle,
 )
+from ui.source_pdfs import iris_archive_url
 
 PAGE_SIZE = 12
 FEATURED_TOP_N = 8  # ministers shown in the SpAd panel
@@ -814,12 +815,26 @@ def _render_detail(row: pd.Series) -> None:
     if portfolio:
         _row("Minister / portfolio", html.escape(portfolio))
 
-    if src_pdf:
+    iris_url = iris_archive_url(row.get("issue_date"))
+    if src_pdf or iris_url:
+        if iris_url:
+            val_html = (
+                f'<a href="{html.escape(iris_url, quote=True)}" target="_blank" rel="noopener" '
+                f'style="color:#1f4757;text-decoration:none;border-bottom:1px solid #b9d0dc;">'
+                f"Iris Oifigiúil — {html.escape(date_str)} ↗</a>"
+                f'<div style="font-family:ui-monospace,Menlo,monospace;font-size:0.78rem;'
+                f'color:#8a8a8a;margin-top:0.2rem;">{html.escape(src_pdf)} '
+                f"· opens the issue's PDF list</div>"
+            )
+        else:
+            val_html = (
+                f'<span style="font-family:ui-monospace,Menlo,monospace;'
+                f'font-size:0.85rem;color:#5b6b73;">{html.escape(src_pdf)}</span>'
+            )
         rows_html.append(
             '<div class="pa-detail-row">'
             '<div class="pa-detail-label">Iris Oifigiúil source</div>'
-            f'<div class="pa-detail-val" style="font-family:ui-monospace,Menlo,monospace;font-size:0.85rem;color:#5b6b73;">'
-            f"{html.escape(src_pdf)}</div>"
+            f'<div class="pa-detail-val">{val_html}</div>'
             "</div>"
         )
 
