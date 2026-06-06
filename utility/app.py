@@ -9,6 +9,7 @@ from pages_code.legislation import legislation_page
 from pages_code.lobbying_3 import lobbying_poc_page
 from pages_code.member_overview import member_overview_page
 from pages_code.payments import payments_page
+from pages_code.procurement import procurement_page
 from pages_code.public_appointments import public_appointments_page
 from pages_code.statutory_instruments import statutory_instruments_page
 from pages_code.votes import votes_page
@@ -115,6 +116,12 @@ pg = st.navigation(
             title="Corporate Notices",
             icon=":material/business_center:",
             url_path="rankings-corporate",
+        ),
+        st.Page(
+            procurement_page,
+            title="Procurement",
+            icon=":material/request_quote:",
+            url_path="rankings-procurement",
         ),
         st.Page(
             committees_page,
