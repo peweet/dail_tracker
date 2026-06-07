@@ -172,10 +172,40 @@ consultancy spend rising?" using counts, not summed ceilings.
   the Suppliers tab (`supplier_concentration` — top 10 firms = 4.6% of awards, "a broad
   market") + an awards-per-year trend bar chart (`awards_by_year`). Both pre-aggregated in
   the core/view layer; the page only renders. Tests added.
-- **Stage D — the payment/spend tier (separate milestone, gated).** Only after: privacy
-  quarantine pass on `public_payments_fact`, `vat_status` column, HSE/Tusla merged to the
-  canonical `value_kind`+`realisation_tier` schema, CRO join, views + tests. Then a
-  distinct **"Money actually paid"** section, never merged with awards.
+- **Stage D — the payment/spend tier (separate milestone, gated). ⏳ STARTED — D.0
+  assessment done 2026-06-06.** Then a distinct **"Money actually paid"** section, never
+  merged with awards.
+
+### Stage D.0 — assessment of the real sandbox state (verified against the parquet, 2026-06-06)
+
+The on-disk data is **partly better and partly worse** than the stale docs claimed:
+
+| fact | rows | privacy state | note |
+|---|---:|---|---|
+| `public_payments_fact` (28 publishers) | 70,207 | ✅ **quarantine APPLIED** — 0 individuals public; all 24,093 `sole_trader_or_individual` → `public_display=False` | but **5,336 `unknown`-class rows are `public_display=True`** ⚠️ residual risk |
+| `hse_tusla_payments_fact` | 21,662 | ⛔ **quarantine NOT applied — 7,409 individuals are `public_display=True`** | hard PII blocker; Tusla may name individual carers |
+| `nta_` / `nphdb_` / `seai_` facts | ~few k | separate parquets, identical 28-col schema | po_committed/payment_actual |
+
+**Schema:** all facts share an **identical 28-column schema** → concat is mechanically
+trivial. BUT: (a) they use `amount_semantics ∈ {payment_actual, po_committed}`, **not** the
+canonical `value_kind`+`realisation_tier` (drift — needs a trivial map); (b) **no
+`vat_status`** anywhere — HSE/Tusla are VAT-inclusive, most others VAT-exclusive, so totals
+must never be summed across publishers until this column exists.
+
+**Real spend (public_display, payment_actual, safe-to-sum) is genuinely powerful:** OPW
+€1.73bn · Dept Climate €1.31bn · Revenue €360m · NTMA €309m · TII €224m · Beaumont €190m.
+
+**Stage D execution order (PII-first — do NOT reorder):**
+1. **🔴 Quarantine HSE/Tusla** (+ all sibling facts): suppress `sole_trader_or_individual`
+   AND conservatively suppress `unknown`-class from `public_display` until classified.
+   Re-assert the invariant: **zero non-company individuals displayable**. This is the gate.
+2. Add `vat_status` (per-publisher map: HSE/Tusla = `incl_vat`, others = `excl_vat`).
+3. Map `amount_semantics` → canonical `value_kind`+`realisation_tier`.
+4. `pl.concat` all conformed payment-grain facts → one `public_payments_fact`; CRO join
+   (reuse the eTenders/TED matcher).
+5. Promote to gold (gitignore negation) + `sql_views/procurement_payments_*.sql` + tests.
+6. UI: a distinct **"Money actually paid"** section — one tier only, per-publisher (never a
+   cross-publisher total until `vat_status` is trusted), verb "paid €X" / "ordered €X".
 
 Firewall checklist (gate every stage): no `read_parquet`/JOIN/GROUP BY/window in
 `procurement.py` or `procurement_data.py`; every metric in a view; `value_safe_to_sum`

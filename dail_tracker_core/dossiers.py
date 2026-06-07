@@ -389,6 +389,77 @@ def build_supplier_dossier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) 
     return {"summary": summary, "awards": awards}
 
 
+# Co-occurrence caveat — mirrors data/_meta/procurement_lobbying_overlap_coverage.json.
+# Rides on every overlap response so an AI consumer can't present it as causation.
+_PROC_LOBBY_CAVEAT = (
+    "Co-occurrence by ENTITY only: each company appears on BOTH the public-procurement "
+    "award register and the lobbying register. NOT evidence that lobbying influenced any "
+    "contract — there is no shared key linking a specific lobby to a specific award. "
+    "Exact normalised-name matching undercounts (subsidiary / trading-name variants are "
+    "missed). awarded_value_safe_eur is a per-supplier total carried on each of that "
+    "supplier's lobby entities — never sum it across the nested lobby_entities."
+)
+
+_PROC_LOBBY_ORDER = {
+    "award_value": "awarded_value_safe_eur",
+    "award_rows": "award_rows",
+    "lobby_returns": "lobby_returns_total",
+    "authorities": "authorities",
+}
+
+
+def list_procurement_lobbying_overlap(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    limit: int = 50,
+    order_by: str = "award_value",
+    side: str | None = None,
+) -> dict[str, Any]:
+    """Companies on BOTH the procurement and lobbying registers, ONE ROW PER SUPPLIER
+    with their lobby entities nested — so the per-supplier award value can never be
+    double-counted across multiple lobby-name matches. Co-occurrence disclosure only
+    (see caveat); never causation."""
+    res = proc.lobbying_overlap(conn)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    df = res.data
+    if side in ("registrant", "client"):
+        df = df.loc[df["lobby_side"] == side]
+
+    suppliers: list[dict[str, Any]] = []
+    for norm, grp in df.groupby("supplier_norm"):
+        first = grp.iloc[0]  # award_rows / authorities / value are per-supplier constants
+        entities = grp[["lobby_name", "lobby_side", "n_lobby_returns"]].sort_values(
+            "n_lobby_returns", ascending=False
+        )
+        suppliers.append(
+            {
+                "supplier": serialize.value(first["supplier"]),
+                "supplier_norm": serialize.value(norm),
+                "award_rows": int(first["n_award_rows"]),
+                "authorities": int(first["n_authorities"]),
+                "awarded_value_safe_eur": float(first["awarded_value_safe_eur"]),
+                "lobby_returns_total": int(grp["n_lobby_returns"].sum()),
+                "lobby_entities": serialize.to_records(entities),
+            }
+        )
+
+    sort_col = _PROC_LOBBY_ORDER.get(order_by, "awarded_value_safe_eur")
+    suppliers.sort(key=lambda r: r[sort_col], reverse=True)
+    # Summing per distinct supplier is the ONLY correct total (rows duplicate per match).
+    total = sum(s["awarded_value_safe_eur"] for s in suppliers)
+    return {
+        "summary": {
+            "distinct_suppliers": len(suppliers),
+            "total_awarded_value_safe_eur": total,
+            "side_filter": side,
+            "order_by": order_by if order_by in _PROC_LOBBY_ORDER else "award_value",
+        },
+        "suppliers": suppliers[:limit] if limit else suppliers,
+        "caveat": _PROC_LOBBY_CAVEAT,
+    }
+
+
 # ── Committees ────────────────────────────────────────────────────────────────
 
 

@@ -61,8 +61,6 @@ def test_failed_write_preserves_previous_file(tmp_path, monkeypatch):
     assert pl.read_parquet(dest).equals(good)
 
     # Force the next write to blow up partway through writing the temp.
-    import services.parquet_io as pio
-
     real_replace = Path.replace
 
     def boom(self, target):  # noqa: ARG001
