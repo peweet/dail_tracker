@@ -38,6 +38,7 @@ from pathlib import Path
 import polars as pl
 
 from config import SILVER_DIR, SILVER_PARQUET_DIR
+from services.parquet_io import save_parquet
 
 _SILVER_PARQUET_DIR = SILVER_PARQUET_DIR
 _OUT_DIR = SILVER_DIR / "committees"
@@ -225,18 +226,8 @@ def build() -> None:
 
     assignments_path = _OUT_DIR / "committee_assignments.parquet"
     offices_path = _OUT_DIR / "office_holders.parquet"
-    df_a.write_parquet(
-        assignments_path,
-        compression="zstd",
-        compression_level=3,
-        statistics=True,
-    )
-    df_o.write_parquet(
-        offices_path,
-        compression="zstd",
-        compression_level=3,
-        statistics=True,
-    )
+    save_parquet(df_a, assignments_path)
+    save_parquet(df_o, offices_path)
     print(f"wrote {assignments_path} — {len(df_a)} rows")
     print(f"wrote {offices_path} — {len(df_o)} rows")
 
