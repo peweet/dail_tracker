@@ -39,6 +39,7 @@ import polars as pl
 import requests
 
 from paths import PROJECT_ROOT as _ROOT
+from services.parquet_io import save_parquet
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
@@ -164,8 +165,7 @@ def integrity_check(df: pl.DataFrame) -> dict:
 
 
 def _write_parquet(df: pl.DataFrame, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(path, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, path)
 
 
 def main() -> None:

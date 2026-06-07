@@ -46,6 +46,8 @@ try:
 except Exception:
     pass
 
+from services.parquet_io import save_parquet  # noqa: E402
+
 # Import CRO's production normalisation so the join key is byte-identical to the
 # CRO silver `name_norm` column (see module docstring — do NOT re-implement).
 from shared.name_norm import name_norm_expr  # noqa: E402
@@ -124,8 +126,7 @@ def main() -> int:
     cro = pl.read_parquet(CRO_PARQUET)
     xref = build_cro_xref(notices, cro)
 
-    OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
-    xref.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(xref, OUT_PARQUET)
 
     matched_names = xref.select(pl.col("entity_norm").n_unique()).item() if xref.height else 0
     print(f"[cro_xref] wrote {OUT_PARQUET}")

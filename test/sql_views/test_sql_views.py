@@ -1855,6 +1855,52 @@ def test_v_lobbying_org_procurement_dedups_to_registrant():
     row = df.to_dicts()[0]
     assert row["lobbyist_name"] == "Lobbyco Limited"
     assert row["n_awards"] == 1
+
+
+@pytest.mark.sql
+def test_v_procurement_charity_overlap_grain_and_value_firewall():
+    """Charity ↔ procurement co-occurrence, linked by a HARD CRO company number
+    (charity_resolved.cro_number == supplier_cro_match.company_num). Locks the
+    column contract the linkage surface reads, the one-row-per-(rcn, supplier_norm)
+    grain (no fan-out), and the money-grain firewall: awarded_value_safe_eur is
+    never negative and never sums more rows than the summable-award subset, so a
+    framework/DPS ceiling can never inflate a charity's apparent award value.
+
+    Integration-data only — this cross-domain join has no synthetic fixture (the
+    registration smoke test already proves it parses/binds in the CI fixture run)."""
+    if not _USE_REAL_PATHS:
+        pytest.skip("charity×procurement overlap has no fixture (set DAIL_INTEGRATION_TESTS=1)")
+    _skip_missing(
+        *_src(_PROC_AWARDS, _PROC_CRO),
+        SILVER_DIR / "charities" / "charity_resolved.parquet",
+    )
+    con = _con()
+    con.execute(_load("procurement_charity_overlap.sql"))
+    df = con.execute("SELECT * FROM v_procurement_charity_overlap").pl()
+    _assert_cols(
+        df, "rcn", "registered_charity_name", "company_num", "supplier_norm",
+        "matched_supplier_name", "n_awards", "n_authorities", "awarded_value_safe_eur",
+        "n_value_safe_awards", "n_ceiling_notices", "gov_funded_share_latest",
+        "state_adjacent_flag",
+    )
+
+    # Grain: strictly one row per (rcn, supplier_norm) — a name-variant fan-out
+    # would silently double-count a charity's award footprint.
+    n, distinct = con.execute(
+        "SELECT count(*), count(DISTINCT (rcn, supplier_norm)) FROM v_procurement_charity_overlap"
+    ).fetchone()
+    assert n == distinct, f"not one-row-per-(rcn, supplier_norm): {n} rows, {distinct} distinct"
+
+    # Money-grain firewall: safe value never negative; the summable-award count
+    # never exceeds the total award count (a ceiling notice can't be summed).
+    bad = con.execute(
+        "SELECT count(*) FROM v_procurement_charity_overlap "
+        "WHERE awarded_value_safe_eur < 0 OR n_value_safe_awards > n_awards"
+    ).fetchone()[0]
+    assert bad == 0, "value firewall violated (negative safe value or safe>total awards)"
+
+    # The link is a hard CRO identifier — company_num must always be present.
+    assert df["company_num"].null_count() == 0
     assert row["n_authorities"] == 1
     assert row["awarded_value_safe_eur"] == 400000.0
 
