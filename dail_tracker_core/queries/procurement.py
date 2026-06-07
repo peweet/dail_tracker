@@ -114,6 +114,33 @@ def coverage_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
+def value_contrast(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Whole-corpus naive-vs-safe value contrast for the "€570bn that isn't" panel.
+
+    UNGATED on purpose (every award row, all supplier classes) — this is the open-data
+    literacy story about the *dataset*, distinct from the company-class rankings slice.
+    Returns one row: the naive Σ of every reported value (a ~24× overstatement driven by
+    multi-supplier framework ceilings repeated across rows), the only summable figure
+    (`value_safe_to_sum` Σ), and the framework ceiling counted *once per notice* (which
+    shows how much of the naive total is pure repetition). No metric leaves the view/core
+    layer — the page only renders these numbers."""
+    return _run(
+        conn,
+        "WITH per_framework AS ("
+        "  SELECT tender_id, MAX(value_eur) AS v FROM v_procurement_awards"
+        "  WHERE is_framework_or_dps GROUP BY tender_id)"
+        " SELECT"
+        "  COUNT(*) AS n_rows,"
+        "  COUNT(*) FILTER (WHERE is_framework_or_dps) AS n_framework_rows,"
+        "  COUNT(*) FILTER (WHERE value_safe_to_sum) AS n_safe_rows,"
+        "  COALESCE(SUM(value_eur), 0) AS naive_total_eur,"
+        "  COALESCE(SUM(value_eur) FILTER (WHERE value_safe_to_sum), 0) AS safe_total_eur,"
+        "  COALESCE(SUM(value_eur) FILTER (WHERE is_framework_or_dps), 0) AS framework_naive_eur,"
+        "  (SELECT COALESCE(SUM(v), 0) FROM per_framework) AS framework_once_eur"
+        " FROM v_procurement_awards",
+    )
+
+
 def awards_for_supplier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> QueryResult:
     """Every award row for one supplier (detail view), most recent first."""
     return _run(

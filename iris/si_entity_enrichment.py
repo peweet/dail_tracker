@@ -317,6 +317,96 @@ def _normalise_si_title(title: object) -> object:
     return " ".join(case_one(tok, i == 0) for i, tok in enumerate(tokens))
 
 
+# ── Title recovery from raw_text (fallback for broken titles) ─────────────────
+# _normalise_si_title works on the pre-joined `title` column. For ~1.5% of rows
+# that column is malformed — the body preamble is glued on (so the ALL-CAPS head
+# never gets case-normalised), multi-line PDF headers are joined with " | ", or a
+# leading "S.I. No. X of YYYY." citation survives. raw_text keeps the original
+# "//" line structure, so the true title is recoverable: drop a leading citation
+# line, then keep lines until the preamble begins. Applied as a STRICT FALLBACK
+# (see _resolve_si_title): only when the normalised title is unambiguously broken,
+# and only if the recovered title is itself clean — so a good title is never
+# touched (verified: 0 non-triggered rows change).
+_SI_CITE_LINE = re.compile(r"^\s*S\.?\s?I\.?\s*(?:No\.?)?\s*(?:of\s+)?\d+\s+(?:of\s+)?\d{4}\.?\s*$", re.I)
+_PREAMBLE_LINE = re.compile(
+    r"^\s*(?:"
+    r"The\s+[A-Z]"  # 'The <Capitalised>' — agent / preamble line opener
+    r"|Minister\s+(?:for|of\s+State)\b"
+    r"|In\s+exercise\s+of\b|WHEREAS\b|Whereas\b|I,\s+[A-Z]"
+    r"|Government\s+support\b|Notice\s+is\s+hereby\b|Pursuant\s+to\b"
+    r"|Rinne\s+an\s+tAire\b|[A-Z][a-z]+\s+[A-Z][A-Za-z'\-]+,\s+(?:Minister|Taoiseach|T\.D)"
+    r")"
+)
+_PREAMBLE_INLINE = re.compile(r"\b(?:in exercise of|,\s*in exercise|Government support|Notice is hereby)\b", re.I)
+# Strong, unambiguous "this title is broken" signals — deliberately NO weak cues
+# ("in accordance", "hereby", trailing comma) that also appear in legitimate long
+# titles, so the trigger never fires on a good title.
+_TITLE_STRONG_BREAK = re.compile(
+    r"\b(?:in exercise of|in the exercise of|these regulations|this order|"
+    r"government support|with the concurrence|notice is hereby)\b",
+    re.I,
+)
+
+
+def _title_caps_ratio(x: str) -> float:
+    letters = [c for c in x if c.isalpha()]
+    return sum(1 for c in letters if c.isupper()) / len(letters) if letters else 0.0
+
+
+def _title_is_broken(x: object) -> bool:
+    """True when a (normalised) title is unambiguously malformed — caps-dominant
+    (un-normalised head), pipe-joined PDF lines, a body double-quote, a surviving
+    'S.I. No.' citation prefix, or a hard preamble phrase."""
+    if not isinstance(x, str) or not x.strip():
+        return True
+    return bool(
+        " | " in x
+        or '"' in x
+        or _title_caps_ratio(x) > 0.6
+        or re.match(r"^S\.?\s?[Ii]\.\s", x)
+        or _TITLE_STRONG_BREAK.search(x)
+    )
+
+
+def _title_from_raw(raw: object) -> str | None:
+    """Recover the title from raw_text's '//' line structure: drop a leading
+    'S.I. No. X of YYYY.' citation line, then accumulate lines until the preamble
+    starts. Returns None when nothing usable is found."""
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    lines = [ln.strip(" .") for ln in re.split(r"\s*//\s*|\s*\|\s*", raw) if ln.strip(" .")]
+    out: list[str] = []
+    for i, ln in enumerate(lines):
+        if i == 0 and _SI_CITE_LINE.match(ln):
+            continue
+        if _PREAMBLE_LINE.match(ln):
+            break
+        m = _PREAMBLE_INLINE.search(ln)
+        if m:
+            # single-line case: drop a trailing agent clause ("... The X Authority")
+            head = re.sub(r"\s+The\s+[A-Z][\w'’&()\- ]+?$", "", ln[: m.start()].rstrip(" ,;")).rstrip(" ,;")
+            if head:
+                out.append(head)
+            break
+        out.append(ln)
+        if len(out) >= 6:  # a real title is rarely >6 source lines
+            break
+    return re.sub(r"\s+", " ", " ".join(out)).strip(" .,;") or None
+
+
+def _resolve_si_title(title: object, raw: object) -> object:
+    """Strict-fallback title resolver: the normalised `title` column, unless it is
+    unambiguously broken AND raw_text yields a title that is itself clean — in
+    which case the recovered title wins. Cannot regress a good title."""
+    cur = _normalise_si_title(title)
+    if not _title_is_broken(cur):
+        return cur
+    rec = _normalise_si_title(_title_from_raw(raw))
+    if isinstance(rec, str) and not _title_is_broken(rec) and rec.count("(") == rec.count(")"):
+        return rec
+    return cur
+
+
 # ── Parent-legislation cleanup ────────────────────────────────────────────────
 # The upstream extractor (iris_oifigiuil_etl_polars.py) matches every
 # "<Title-Case run> Act <year>" span in the *body text*, which produces three
@@ -694,7 +784,7 @@ def run() -> dict:
             "si_id": si["si_id"],
             "si_year": si["si_year"],
             "si_number": si["si_number"],
-            "si_title": si["title"].map(_normalise_si_title),
+            "si_title": [_resolve_si_title(t, r) for t, r in zip(si["title"], si["raw_text"], strict=True)],
             "si_signed_date": si["issue_date"].dt.date,
             "si_operation": si["si_operation_primary"],
             "si_operation_flags": si["si_operation_flags"],

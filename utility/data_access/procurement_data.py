@@ -51,6 +51,13 @@ def fetch_coverage() -> dict:
 
 
 @st.cache_data(ttl=300)
+def fetch_value_contrast_result() -> QueryResult:
+    """Whole-corpus naive-vs-safe value contrast for the '€570bn that isn't' panel
+    (ungated — the dataset-level literacy story, not the company-class rankings slice)."""
+    return _q.value_contrast(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
 def fetch_coverage_stats_result() -> QueryResult:
     """Live one-row corpus summary (counts, date span, sum-safe total) for the hero
     scale anchor. Also the page's source-state gate — if this is unavailable the

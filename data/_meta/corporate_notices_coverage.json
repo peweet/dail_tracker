@@ -1,36 +1,36 @@
 {
-  "as_of": "2026-06-06T01:43:54",
+  "as_of": "2026-06-07T16:25:54",
   "source": "data\\silver\\iris_oifigiuil\\iris_notice_events_clean.csv",
-  "rows_in_scope_before_exclusion": 36171,
+  "rows_in_scope_before_exclusion": 36263,
   "rows_excluded_personal_insolvency": 297,
-  "rows_in_final_parquet": 35874,
+  "rows_in_final_parquet": 35966,
   "category_counts": {
-    "corporate_insolvency": 31468,
-    "corporate_notice": 3511,
+    "corporate_insolvency": 31545,
+    "corporate_notice": 3526,
     "investment_vehicle_register_notice": 654,
     "corporate_rescue": 241
   },
   "subtype_counts": {
-    "members_voluntary_liquidation": 14178,
-    "voluntary_liquidation_unspecified": 7351,
-    "creditors_voluntary_liquidation": 4137,
-    "companies_act_notice": 3511,
-    "liquidation_unspecified": 2675,
-    "receivership": 2618,
+    "members_voluntary_liquidation": 14213,
+    "voluntary_liquidation_unspecified": 7368,
+    "creditors_voluntary_liquidation": 4143,
+    "companies_act_notice": 3526,
+    "liquidation_unspecified": 2687,
+    "receivership": 2620,
     "icav_voluntary_strike_off": 654,
-    "court_winding_up": 509,
+    "court_winding_up": 514,
     "scarp_process_adviser": 131,
     "examinership": 110
   },
   "receivership_brand_tagging": {
-    "receivership_notices_total": 2622,
+    "receivership_notices_total": 2624,
     "receivership_notices_with_known_brand": 783,
-    "coverage_pct": 29.9,
+    "coverage_pct": 29.8,
     "honest_note": "Of receivership notices, only a minority name a known major loan-book buyer or Irish bank. The rest are appointed by smaller institutions or under private debentures where no major fund is named, OR by brands not yet in data/_meta/loan_book_fund_aliases.csv."
   },
   "entity_name_quality": {
     "null_or_empty": 2,
-    "junk_pattern_count": 8591
+    "junk_pattern_count": 8630
   },
   "personal_insolvency_exclusion_rule": "notice_category == 'bankruptcy' (excluded upstream) PLUS personal-bankruptcy text patterns: A BANKRUPT, ADJUDICATED BANKRUPT, BANKRUPT IN MAIN PROCEEDINGS, PERSONAL INSOLVENCY, DEBT SETTLEMENT ARRANGEMENT, DEBT RELIEF NOTICE, PROTECTIVE CERTIFICATE."
 }
