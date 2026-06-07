@@ -32,6 +32,7 @@ import sys
 import pandas as pd
 
 from config import LEGISLATION_DIR, SILVER_PARQUET_DIR
+from services.parquet_io import save_parquet
 
 BILL_META = [
     ["bill", "billNo"],
@@ -119,9 +120,8 @@ def main() -> int:
 
     out = out.dropna(subset=["pdf_url"]).reset_index(drop=True)
 
-    SILVER_PARQUET_DIR.mkdir(parents=True, exist_ok=True)
     target = SILVER_PARQUET_DIR / "bill_amendments.parquet"
-    out.to_parquet(target, index=False, compression="zstd", compression_level=3)
+    save_parquet(out, target)
 
     by_type = out["amendment_type"].value_counts().to_dict()
     by_chamber = out["chamber"].value_counts().to_dict()
