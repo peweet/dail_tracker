@@ -1,23 +1,24 @@
 {
   "publishers_attempted": 29,
-  "publishers_with_rows": 28,
-  "rows_extracted": 73032,
-  "rows_public_display": 47939,
-  "rows_review_personal_data": 25093,
-  "rows_quarantined": 25093,
+  "publishers_with_rows": 29,
+  "rows_extracted": 74546,
+  "rows_deduped_within_file": 2980,
+  "rows_public_display": 49854,
+  "rows_review_personal_data": 24692,
+  "rows_quarantined": 24692,
   "supplier_class_counts": {
-    "sole_trader_or_individual": 25093,
-    "unknown": 5417,
-    "company": 38352,
-    "foreign_company": 710,
-    "public_body": 3460
+    "company": 40515,
+    "public_body": 2754,
+    "unknown": 5855,
+    "sole_trader_or_individual": 24692,
+    "foreign_company": 730
   },
   "amount_semantics_counts": {
-    "payment_actual": 40321,
-    "po_committed": 32711
+    "po_committed": 32920,
+    "payment_actual": 41626
   },
-  "value_safe_to_sum_rows": 69567,
-  "value_safe_to_sum_total_eur": 11723057788.869982,
+  "value_safe_to_sum_rows": 71788,
+  "value_safe_to_sum_total_eur": 11464934466.329983,
   "by_publisher": [
     {
       "id": "ie_opw",
@@ -203,11 +204,11 @@
       "id": "dept_housing",
       "name": "Department of Housing, Local Government and Heritage",
       "tier": "C",
-      "files_seen": 1,
-      "files_parsed": 1,
+      "files_seen": 48,
+      "files_parsed": 48,
       "files_skipped": 0,
-      "files_with_rows": 1,
-      "rows": 269,
+      "files_with_rows": 48,
+      "rows": 3837,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
     },
@@ -227,11 +228,11 @@
       "id": "ie_enterprise_ireland",
       "name": "Enterprise Ireland",
       "tier": "C",
-      "files_seen": 0,
-      "files_parsed": 0,
+      "files_seen": 9,
+      "files_parsed": 9,
       "files_skipped": 0,
-      "files_with_rows": 0,
-      "rows": 0,
+      "files_with_rows": 9,
+      "rows": 926,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -371,6 +372,6 @@
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-06T01:02:41+00:00",
-  "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
+  "generated_at": "2026-06-07T16:46:39+00:00",
+  "caveat": "Public-body PO/payment fact (gold). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }

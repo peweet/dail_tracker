@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-06-07T17:09:15",
+  "as_of": "2026-06-07T17:42:50",
   "source": "data\\silver\\iris_oifigiuil\\iris_notice_events_clean.csv",
   "rows_in_scope_before_exclusion": 36701,
   "rows_excluded_personal_insolvency": 297,

@@ -96,6 +96,33 @@ Found by re-searching SIPO 2026-06-06. The first pass only sampled 2024 + one 20
 addresses on any UI; no-inference rule applies (see `feedback_personal_insolvency_privacy`,
 `feedback_no_inference_in_app`).
 
+## Tier-1 OCR run + parser diagnosis (2026-06-07)
+
+OCR run (PaddleOCR, watchdog) cached cells for `indep_ireland` (17pp), `redress100`
+(24pp), `ireland_first` (17→23pp); the other 5 not yet OCR'd. **All parsed to 0 rows.**
+Read-only diagnosis (`c:/tmp/sipo_parse_diag.py`, imports the live parser, writes
+nothing) shows the constituency-anchored Part-3 parser does not fit these minor-party
+returns — **three distinct failure modes:**
+
+1. **`indep_ireland` — real data, parser drops it (RECOVERABLE).** Page 2 *is* a
+   candidate summary (`parse_page` returns 3 rows), but `parse_party`'s stricter
+   "≥3 rows carrying BOTH money columns" gate rejects it, AND real constituencies on
+   later per-candidate pages are OCR-garbled below `match_constituency`'s threshold
+   (`OFFAY`→Offaly 0.91, `Linerick Gity`→Limerick City 0.83, `ConK EAST`→Cork East
+   0.88). Fix = relax the parse_party gate for small returns + fuzzy-repair / lower the
+   constituency cutoff with the cap cross-check as backstop.
+2. **`redress100` — near-NIL return.** p12 "Expenses Review" = categories 4A–4H all
+   `€ NIL`; the only "money" cells are NIL template totals; no candidate table. 0 rows
+   is likely substantively correct — needs a NIL-confirmation path, not row extraction.
+3. **`ireland_first` — individual-level itemized, mostly €0.** p16 "Election Posters
+   (INDIVIDUAL LEVEL)" Ref L1–L15 all `€ 0`. Per-candidate template, near-NIL.
+
+**Implication:** these returns need either (a) a small-return/NIL detector that records
+"filed, nil/near-nil" rather than forcing the constituency-summary anchor, plus (b) OCR
+constituency fuzzy-repair for `indep_ireland`. This is parser work on the SHARED
+`extractors/sipo_expenses_paddle_etl.py` — coordinate before editing (the other context
+runs it). All cells are cached, so every iteration is re-parse only, **no re-OCR**.
+
 ## Recommended order
 
 1. **Tier 1** now (2 hrs, pure reuse) → adds 8 small/independent-leaning parties incl.
