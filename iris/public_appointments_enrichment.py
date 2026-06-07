@@ -24,6 +24,7 @@ import polars as pl
 
 from config import GOLD_PARQUET_DIR, SILVER_DIR
 from paths import PROJECT_ROOT as _ROOT
+from services.parquet_io import save_parquet
 
 sys.path.insert(0, str(_ROOT))
 
@@ -504,8 +505,7 @@ def main() -> None:
         print("  ", [str(x)[:34] for x in r])
 
     if args.write:
-        _OUT.parent.mkdir(parents=True, exist_ok=True)
-        out.write_parquet(_OUT, compression="zstd", compression_level=3, statistics=True)
+        save_parquet(out, _OUT)
         print(f"\nwrote {n} rows -> {_OUT}")
 
 

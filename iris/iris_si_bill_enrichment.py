@@ -29,6 +29,7 @@ import string
 import pandas as pd
 
 from config import DATA_DIR, GOLD_PARQUET_DIR, SILVER_DIR, SILVER_PARQUET_DIR
+from services.parquet_io import save_parquet
 
 logger = logging.getLogger(__name__)
 
@@ -325,8 +326,7 @@ def run() -> tuple[int, int]:
             "match_score": matched["match_score"],
         }
     )
-    _OUT.parent.mkdir(parents=True, exist_ok=True)
-    out.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
+    save_parquet(out, _OUT)
 
     unm = pd.DataFrame(
         {
@@ -335,8 +335,7 @@ def run() -> tuple[int, int]:
             "best_score": unmatched["match_score"],
         }
     )
-    _OUT_UNM.parent.mkdir(parents=True, exist_ok=True)
-    unm.to_parquet(_OUT_UNM, index=False, compression="zstd", compression_level=3)
+    save_parquet(unm, _OUT_UNM)
 
     matched_count = len(out)
     total = len(si)
