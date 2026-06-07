@@ -20,6 +20,7 @@ import sys
 import pandas as pd
 
 from config import BRONZE_DIR, SILVER_DIR
+from services.parquet_io import save_parquet
 
 QUESTIONS_DIR = BRONZE_DIR / "questions"
 
@@ -97,12 +98,7 @@ def main() -> int:
 
     # CSV write dropped 2026-05-27: questions.csv (115 MB) had zero production consumers;
     # every SQL view and Streamlit page reads questions.parquet (17 MB) instead.
-    questions_df.to_parquet(
-        SILVER_DIR / "parquet" / "questions.parquet",
-        index=False,
-        compression="zstd",
-        compression_level=3,
-    )
+    save_parquet(questions_df, SILVER_DIR / "parquet" / "questions.parquet")
     print("Questions dataset created successfully.")
     return 0
 

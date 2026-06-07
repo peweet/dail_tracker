@@ -18,6 +18,7 @@ import pandas as pd
 
 from config import API_BASE, LEGISLATION_DIR, SILVER_DIR
 from services.http_engine import fetch_json
+from services.parquet_io import save_parquet
 
 logger = logging.getLogger(__name__)
 
@@ -238,12 +239,7 @@ def main() -> int:
 
     out_dir = SILVER_DIR / "parquet"
     for key, message in _WRITE_PLAN:
-        frames[key].to_parquet(
-            out_dir / f"{key}.parquet",
-            index=False,
-            compression="zstd",
-            compression_level=3,
-        )
+        save_parquet(frames[key], out_dir / f"{key}.parquet")
         print(message)
     return 0
 
