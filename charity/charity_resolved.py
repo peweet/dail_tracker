@@ -40,6 +40,7 @@ from pathlib import Path
 import polars as pl
 
 from config import SILVER_DIR
+from services.parquet_io import save_parquet
 
 DEFAULT_CHARITY_DIR = SILVER_DIR / "charities"
 DEFAULT_CRO_DIR = SILVER_DIR / "cro"
@@ -127,7 +128,7 @@ def main() -> int:
     )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    resolved.write_parquet(args.out, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(resolved, args.out)
 
     print(f"[charity_resolved] wrote {args.out}  rows={resolved.height}  cols={resolved.width}")
     print(f"  charities_with_cro_number: {charities_with_cro:,}")
