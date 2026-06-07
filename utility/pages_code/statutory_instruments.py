@@ -957,7 +957,7 @@ def _render_si_card(row: pd.Series) -> str:
         '<div class="si-card">'
         '<div class="si-card-head">'
         f'<span class="si-card-ref">SI No. {si_id}</span>'
-        f'<span class="si-card-date">{date_str}</span>'
+        f'<span class="si-card-date" title="Published in Iris Oifigiúil">{date_str}</span>'
         "</div>"
         f'<div class="si-card-title">{title}</div>'
         f'<div class="si-card-foot">{"".join(pills)}</div>'
@@ -1219,14 +1219,24 @@ def _render_si_detail(row: pd.Series) -> None:
     # Department isn't detected on ~60% of pre-2014 SIs; render the cell
     # only when there's a real value rather than parking an em-dash and
     # wasting a quarter of the stat strip.
+    # si_signed_date is the Iris Oifigiúil *publication* date (parsed from the
+    # gazette issue's front page), NOT the signing date — they differ by a few
+    # days, and for late-December instruments the gazette appears the following
+    # January, so the published year can run one ahead of the SI's own year.
+    # Label it for what it is; the SI number above carries the official year.
     stat_items = [
-        stat_item(_fmt_date(row.get("si_signed_date")), "Issued"),
+        stat_item(_fmt_date(row.get("si_signed_date")), "Published in Iris"),
         stat_item(_pretty_token(op) or "—", "Operation"),
         stat_item(_pretty_token(domain) or "—", "Policy domain"),
     ]
     if dept:
         stat_items.append(stat_item(dept, "Department"))
     render_stat_strip(*stat_items)
+    st.caption(
+        "“Published in Iris” is the date this instrument appeared in Iris Oifigiúil, "
+        "the official gazette — usually a few days after it was signed. The "
+        "instrument’s official year is in its S.I. number above."
+    )
 
     rows_html: list[str] = []
 
@@ -1287,8 +1297,11 @@ def _render_si_detail(row: pd.Series) -> None:
         # Printed in the notice — ground truth.
         _row("Signed by", _profile_link(signatory) + _attrib("— as printed in the notice"))
     elif min_name:
-        # Not printed — derived from the signing office + date.
-        held = f"— office held on {signed_date}" if signed_date and signed_date != "—" else "— office holder"
+        # Not printed — derived from the signing office + the publication date
+        # (a proxy for the signing date, which the notice doesn't print).
+        held = (
+            f"— office held when published, {signed_date}" if signed_date and signed_date != "—" else "— office holder"
+        )
         _row(
             "Signed by",
             _profile_link(min_name) + _attrib(f"{held}, per ministerial-tenure record (not printed in the notice)"),

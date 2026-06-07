@@ -111,10 +111,81 @@ def test_coverage_stats_columns_and_single_row(conn):
     assert len(r.data) == 1  # single aggregate row, never a rollup
 
 
+def test_value_contrast_naive_dwarfs_safe(conn):
+    """The '€570bn that isn't' invariant: the ungated naive Σ must be many times the
+    sum-safe Σ (framework-ceiling repetition). Guards the contrast panel's whole premise
+    and that the safe gate never silently widens to swallow ceilings."""
+    r = _result_or_skip(q.value_contrast(conn))
+    assert len(r.data) == 1
+    row = r.data.iloc[0]
+    expected = {
+        "n_rows", "n_framework_rows", "n_safe_rows",
+        "naive_total_eur", "safe_total_eur", "framework_naive_eur", "framework_once_eur",
+    }
+    assert expected.issubset(set(r.data.columns))
+    naive, safe = float(row["naive_total_eur"]), float(row["safe_total_eur"])
+    assert safe > 0 and naive > safe * 5  # honesty story holds (real ratio ~24x)
+    # A framework ceiling repeated across suppliers inflates the once-counted figure.
+    assert float(row["framework_naive_eur"]) >= float(row["framework_once_eur"]) > 0
+
+
 def test_value_ordering_is_descending(conn):
     r = _result_or_skip(q.supplier_summary(conn, limit=20, order_by="value"))
     vals = r.data["awarded_value_safe_eur"].tolist()
     assert vals == sorted(vals, reverse=True)  # value lens surfaces the money leaders first
+
+
+def test_supplier_concentration_share_is_sane(conn):
+    r = _result_or_skip(q.supplier_concentration(conn, top_n=10))
+    assert len(r.data) == 1
+    row = r.data.iloc[0]
+    assert {"top_n", "n_suppliers", "total_awards", "top_n_awards", "top_n_share_pct"}.issubset(
+        set(r.data.columns)
+    )
+    share = float(row["top_n_share_pct"])
+    assert 0 < share <= 100  # a real share
+    assert int(row["top_n_awards"]) <= int(row["total_awards"])  # subset never exceeds whole
+
+
+def test_awards_by_year_counts_ascending_years(conn):
+    r = _result_or_skip(q.awards_by_year(conn))
+    years = [int(y) for y in r.data["year"].tolist()]
+    assert years == sorted(years)  # chronological for the trend chart
+    assert (r.data["n_awards"] >= 0).all()
+
+
+def test_ted_corpus_stats_single_row(conn):
+    r = _result_or_skip(q.ted_corpus_stats(conn))
+    assert len(r.data) == 1
+    expected = {
+        "n_notices", "n_notices_ex_pan_eu", "min_year", "max_year", "n_winners",
+        "n_buyers", "n_pan_eu", "value_safe_eur", "pan_eu_ceiling_eur",
+    }
+    assert expected.issubset(set(r.data.columns))
+    row = r.data.iloc[0]
+    # The default (ex-pan-EU) count must not exceed the full count, and pan-EU ceilings
+    # dwarf the real safe value (the TED echo of the eTenders mirage).
+    assert row["n_notices_ex_pan_eu"] <= row["n_notices"]
+    if row["n_pan_eu"] > 0:
+        assert float(row["pan_eu_ceiling_eur"]) > float(row["value_safe_eur"])
+
+
+def test_ted_supplier_summary_company_class_and_order(conn):
+    r = _result_or_skip(q.ted_supplier_summary(conn, limit=15, order_by="awards"))
+    assert {"winner_name", "winner_join_norm", "n_awards", "n_buyers",
+            "ted_value_safe_eur", "ted_value_safe_incl_eu_eur", "has_pan_eu"}.issubset(set(r.data.columns))
+    counts = r.data["n_awards"].tolist()
+    assert counts == sorted(counts, reverse=True)  # count-led ranking
+
+
+def test_ted_for_supplier_roundtrip(conn):
+    top = q.ted_supplier_summary(conn, limit=1)
+    if not top.ok or top.is_empty:
+        pytest.skip("no TED winners")
+    norm = top.data.iloc[0]["winner_join_norm"]
+    r = q.ted_for_supplier(conn, norm)
+    assert r.ok is True and not r.is_empty
+    assert r.data.iloc[0]["winner_join_norm"] == norm
 
 
 def test_awards_for_authority_drill_down(conn):

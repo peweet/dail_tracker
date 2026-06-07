@@ -1,0 +1,18 @@
+2026-06-07 17:07:58,547 - sipo_candidate_expenses_crawl - INFO - root: 43 sub-collections (constituencies)
+2026-06-07 17:07:59,247 - sipo_candidate_expenses_crawl - INFO - [1/43] f2238-carlow-kilkenny (Carlow Kilkenny): 19 candidates
+2026-06-07 17:08:11,995 - sipo_candidate_expenses_crawl - INFO - [2/43] 56f77-cavan-monaghan (Cavan Monaghan): 16 candidates
+2026-06-07 17:08:22,958 - sipo_candidate_expenses_crawl - INFO - [3/43] defd7-clare (Clare): 17 candidates
+2026-06-07 17:08:36,337 - sipo_candidate_expenses_crawl - INFO - [4/43] a8b8d-cork-east (Cork East): 16 candidates
+2026-06-07 17:08:48,306 - sipo_candidate_expenses_crawl - INFO - [5/43] 04050-cork-north-central (Cork North Central): 19 candidates
+2026-06-07 17:09:02,298 - sipo_candidate_expenses_crawl - INFO - [6/43] 2a129-cork-north-west (Cork North West): 10 candidates
+2026-06-07 17:09:09,786 - sipo_candidate_expenses_crawl - INFO - [7/43] 3efcd-cork-south-central (Cork South Central): 20 candidates
+2026-06-07 17:09:24,517 - sipo_candidate_expenses_crawl - INFO - [8/43] 2c34a-cork-south-west (Cork South West): 14 candidates
+2026-06-07 17:09:34,677 - sipo_candidate_expenses_crawl - INFO - [9/43] 0e980-donegal (Donegal): 15 candidates
+2026-06-07 17:09:45,630 - sipo_candidate_expenses_crawl - INFO - [10/43] 688ad-dublin-bay-north (Dublin Bay North): 16 candidates
+2026-06-07 17:09:57,203 - sipo_candidate_expenses_crawl - INFO - [11/43] 26a01-dublin-bay-south (Dublin Bay South): 15 candidates
+2026-06-07 17:10:08,053 - sipo_candidate_expenses_crawl - INFO - [12/43] 9d55c-dublin-central (Dublin Central): 12 candidates
+2026-06-07 17:10:16,761 - sipo_candidate_expenses_crawl - INFO - [13/43] 160a9-dublin-fingal-east (Dublin Fingal East): 11 candidates
+2026-06-07 17:10:24,725 - sipo_candidate_expenses_crawl - INFO - [14/43] e8fff-dublin-fingal-west (Dublin Fingal West): 12 candidates
+2026-06-07 17:10:33,344 - sipo_candidate_expenses_crawl - INFO - [15/43] 32b04-dublin-fingal-east (Dublin Mid West): 16 candidates
+2026-06-07 17:10:44,508 - sipo_candidate_expenses_crawl - INFO - [16/43] f5c47-dublin-north-west (Dublin North West): 12 candidates
+2026-06-07 17:10:53,156 - sipo_candidate_expenses_crawl - INFO - [17/43] 96248-dublin-rathdown (Dublin Rathdown): 13 candidates

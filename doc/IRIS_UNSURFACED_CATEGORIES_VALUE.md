@@ -190,9 +190,101 @@ un-extracted, and already on irishstatutebook/vLex. If anything, the cheap hones
 "who ran each department, and when" view) — convenient, but explicitly *not* novel. Do not invest in
 SI-body delegation extraction unless a specific accountability story demands it.
 
-## Choice A — implementation plan (Companies-Act corporate recovery)
+## Choice A — Companies-Act corporate recovery — ✅ IMPLEMENTED (2026-06-07)
 
-The agreed build. Recovers ~590 real corporate notices into the existing Corporate feature.
+**Shipped.** Recovered corporate notices that fell through to `other` into the existing Corporate
+feature, via a new rule in `enrich_records` ([iris_oifigiuil_etl_polars.py:1094](../iris/iris_oifigiuil_etl_polars.py#L1094)),
+gated on `notice_category == "other"` (so it can never steal SIs or perturb the MVL/CVL split).
+
+**Actual result (the ~590 estimate was too high — corrected here):**
+- Silver rebuild from cached bronze (`iris_silver_rebuild`): **clean 49,580 → 50,006 (+426)**,
+  **quarantined 14,976 → 14,550 (−426)**, **`si_taxonomy` unchanged (6,933 → 6,933)** — confirms
+  **no SIs were stolen**.
+- Gold (`corporate_notices_enrichment --write`): **35,966 → 36,404**.
+- Two recovery signals: a Companies-Act citation the strict flag missed (comma form / Assurance
+  Acts / §509) **or** an `IN THE MATTER OF <X> LIMITED/DAC/PLC…` opener. Guards: body-length (drops
+  bare page-shards), insolvency-verb exclusion (leaves liquidation/receiver to the insolvency
+  rules), and a **global `LIMITED PARTNERSHIP` exclusion** (privacy — LPs can name individuals; the
+  239 LP notices stay deferred).
+- Privacy backstop intact: the enrichment's `_PERSONAL_INSOL_RE` still drops any bankruptcy-wording
+  rows at gold-build (44 such rows in the corporate population were excluded).
+- Tests: `test/iris/test_corporate_recovery_classification.py` (7, incl. SI-not-stolen,
+  LP-excluded, fragment-excluded); full corporate+iris suite **56 passed**; ruff clean.
+
+**Limited-partnership cleanup — ✅ DONE (2026-06-07).** Added a single global privacy chokepoint in
+`corporate_notices_enrichment` next to the personal-insolvency exclusion: `_LIMITED_PARTNERSHIP_RE`
+drops LP rows from **every** classification path (not just my rule). Gold **36,404 → 36,356**
+(48 LP rows excluded across all paths), **0 LP remaining**; 297 personal-insolvency still excluded;
+56 corporate+iris tests pass; ruff clean.
+
+## Is the corporate-notice data actually valuable? (validated)
+
+Honest answer: **as standalone insolvency monitoring, no — it's a commodity** already served better
+elsewhere, and not for our audience. Iris is merely one raw feed those services aggregate:
+- **Stubbs' Gazette** — Irish insolvency/judgment publication **since 1828**, subscribed by credit
+  agencies, lawyers, debt/property firms, local authorities.
+  [Stubbs' Gazette](https://www.stubbsgazette.ie/)
+- **Vision-Net / CRIF** — commercial Irish company + insolvency + credit data, weekly.
+  [vision-net.ie](https://www.vision-net.ie/)
+- **Central Bank** publishes the births/insolvent-liquidations economic analysis.
+  ([letter](https://www.centralbank.ie/docs/default-source/publications/economic-letters/vol-2020-no-13-irish-company-births-and-insolvent-liquidations-during-the-covid-19-shock-(mcgeever-sarchi-and-woods).pdf))
+
+These track liquidations from "CRO submissions and notices published by CRIF Vision-Net, Iris
+Oifigiúil, and Stubbs Gazette" — i.e. they already consume our source.
+
+**The one genuinely on-mission, novel use — validated with a real join:** cross-reference insolvency
+with the **political datasets the app uniquely holds**, via the existing CRO spine
+(`cro_xref_corporate_notices` + `procurement_supplier_cro_match`). Joining on `company_num`:
+
+> **112 distinct state contractors appear in insolvency/rescue notices (190 notices)** — incl.
+> **Stobart Air (court winding-up, 2021)**. No commercial insolvency service frames this politically;
+> it's taxpayer-exposure / contract-continuity accountability — exactly the app's mission.
+
+Caveat (no-inference): ~half are `members_voluntary_liquidation` = **solvent** wind-ups (benign,
+not failures); the accountability-interesting subset is CVL / court-winding / receivership. A feature
+must distinguish them or it misleads. The richer cross-refs (insolvent company linked to a TD's
+declared interest / a SIPO donor / a lobbying client) are more compelling still but need
+**director-level** data (sparse/hard) — defer.
+
+**Verdict:** the corporate-notices feature as a generic "who went bust" list adds little over Stubbs
+/ Vision-Net. Its real, defensible value in *this* app is a **"state-contractor insolvency" view**
+(procurement × insolvency on CRO) — grounded in a 112-company / 190-notice join — with MVL excluded
+or clearly labelled. That is the thing worth building; the raw notices alone are not.
+
+### Prototype exploration (2026-06-07) — `pipeline_sandbox/probe_state_contractor_insolvency.py`
+
+Built a probe (sandbox only — no gold, no page) joining `procurement_awards` →
+`procurement_supplier_cro_match` (exact_unique only) → `cro_xref_corporate_notices`, with honesty
+rails (MVL/undetermined excluded, `value_safe_to_sum` only). What the data actually shows:
+
+- **The MVL filter is everything.** 112 matched companies collapse to **27 genuinely distressed**
+  (CVL / receivership / court winding-up / examinership / SCARP). The other 85 are solvent
+  members'-voluntary or undetermined — counting them would have been misleading.
+- **Quantifiable exposure is small and concentrated:** ~**€2.45M** safe-to-sum across the 27, most of
+  it in ~6 firms (e.g. VIDAPPT €882k, **Rennicks Signs Ireland** €519k/24 awards/12 buyers → CVL,
+  Fioru Software €261k/14 awards → CVL). Many show €0 because their awards are framework/call-off/
+  shared (not safe to sum) — so award-value exposure is largely *unquantifiable* from this data.
+- **Noise is real:** **3 of 27** have an award dated *after* the insolvency notice (e.g. Gutteridge
+  Haskins & Davey, D.&E. McHugh) — a name-reuse / false-CRO-match smell that needs per-case
+  verification. ~24 are genuine "won-a-contract-then-distressed".
+- **Exposure is diffuse:** mostly local authorities (Dublin/Cork/Limerick/Sligo/Tipperary councils),
+  ETBs, LGOPC, OPW — counts of 1–3 each.
+
+**Prototype verdict:** the angle is **real, novel and on-mission** — but the dataset is **thin
+(~27 cases) and noisy** (≈11% timing red-flags, name-match risk, most values not summable). It is
+**not a statistical data product**; at most a **verified watchlist** of ~two dozen narrative cases
+(Rennicks Signs is the strongest), each requiring manual review before publication (no-inference).
+Recommend: keep as a probe / occasional journalistic lead, **not** a built page — unless paired with
+director-level data to reach the higher-value TD/donor/lobbying connections, which remains deferred.
+
+**Note:** silver CSVs and `corporate_notices.parquet` were regenerated locally (equivalent to a full
+ETL re-run for rows in common, per `iris_silver_rebuild`). A normal pipeline run reproduces this.
+
+---
+
+### Original plan (for reference)
+
+Recovers corporate notices that fell through to `other` into the existing Corporate feature.
 
 ### The change
 **Classifier fix** — broaden `has_companies_act` at

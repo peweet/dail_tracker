@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Oireachtas /v1/members response envelope",
+  "description": "Loose validation: catches a renamed top-level key (results -> data), a dropped head.counts.resultCount, or a renamed result wrapper (member -> ...). Permissive on the nested fields the API may add over time. See services/schema_validation.py.",
+  "type": "object",
+  "required": ["head", "results"],
+  "properties": {
+    "head": {
+      "type": "object",
+      "required": ["counts"],
+      "properties": {
+        "counts": {
+          "type": "object",
+          "required": ["resultCount"],
+          "properties": {
+            "resultCount": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["member"],
+        "properties": {
+          "member": { "type": "object" }
+        }
+      }
+    }
+  }
+}

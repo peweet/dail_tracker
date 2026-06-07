@@ -196,7 +196,7 @@ SCHEMA_MAP: list[dict] = [
                "https://www.mayo.ie/getattachment/00705716-9095-410a-a719-9305e0a37f4f/attachment.aspx"],
        caveat="JS file list → direct URLs; leading PO#/ID prefix stripped"),
     la("donegal", "Donegal", "Ulster", "county", fmt="pdf",
-       listing="https://www.donegalcoco.ie/services/finance/", value_kind="po_committed", status="DIRECT",
+       listing="https://www.donegalcoco.ie/en/services/other-services/finance/finance-publications", value_kind="po_committed", status="DIRECT",
        direct=["https://www.donegalcoco.ie/media/h0flvm3b/2025.pdf",
                "https://www.donegalcoco.ie/media/b2aopuh2/2024.pdf"],
        caveat="yearly (not quarterly) PDFs at /media/{code}/{YYYY}.pdf; leading PO#/ID prefix stripped"),
