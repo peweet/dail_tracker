@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-06-06T07:50:33Z",
-  "as_of_utc_date": "2026-06-06",
+  "generated_at": "2026-06-07T15:27:46Z",
+  "as_of_utc_date": "2026-06-07",
   "note": "Age of the data already held — a canary for 'did the pipeline stop running'. NOT proof that no newer upstream data exists; only the source pollers can confirm that. Generated at pipeline-end (sees silver + gold) and read-only thereafter (Streamlit badge + scheduled report).",
   "stale_datasets": [],
   "datasets": {
     "members": {
       "measure": "fetch_mtime",
       "source": "data/bronze/members/members.json",
-      "latest_fetch_at": "2026-06-06T07:40:11Z",
+      "latest_fetch_at": "2026-06-07T15:19:39Z",
       "age_days": 0,
       "stale_after_days": 14,
       "status": "ok"
@@ -17,7 +17,7 @@
       "source": "data/gold/parquet/current_dail_vote_history.parquet",
       "status": "ok",
       "latest_record_date": "2026-05-27",
-      "fetched_at": "2026-06-06T07:40:19Z",
+      "fetched_at": "2026-06-07T15:20:32Z",
       "fetch_age_days": 0,
       "stale_after_days": 14
     },
@@ -25,9 +25,9 @@
       "measure": "record_date",
       "source": "data/silver/parquet/questions.parquet",
       "status": "ok",
-      "latest_record_date": "2026-05-26",
-      "fetched_at": "2026-05-27T08:36:46Z",
-      "fetch_age_days": 10,
+      "latest_record_date": "2026-05-28",
+      "fetched_at": "2026-06-07T15:20:24Z",
+      "fetch_age_days": 0,
       "stale_after_days": 14
     },
     "lobbying": {
@@ -36,7 +36,7 @@
       "status": "ok",
       "latest_period_end_date": "2026-05-01",
       "period_label": "Q2 2026",
-      "age_days": 36,
+      "age_days": 37,
       "stale_after_days": null
     },
     "iris": {
@@ -47,24 +47,24 @@
         "data/gold/parquet/statutory_instruments.parquet"
       ],
       "status": "ok",
-      "latest_record_date": "2026-05-29",
-      "age_days": 8,
+      "latest_record_date": "2026-06-05",
+      "age_days": 2,
       "stale_after_days": 14
     },
     "corporate": {
       "measure": "record_date",
       "source": "data/gold/parquet/corporate_notices.parquet",
       "status": "ok",
-      "latest_record_date": "2026-05-29",
-      "age_days": 8,
+      "latest_record_date": "2026-06-05",
+      "age_days": 2,
       "stale_after_days": 14
     },
     "statutory_instruments": {
       "measure": "record_date",
       "source": "data/gold/parquet/statutory_instruments.parquet",
       "status": "ok",
-      "latest_record_date": "2026-05-29",
-      "age_days": 8,
+      "latest_record_date": "2026-06-05",
+      "age_days": 2,
       "stale_after_days": 21
     },
     "procurement": {
@@ -72,7 +72,7 @@
       "source": "data/gold/parquet/procurement_awards.parquet",
       "status": "ok",
       "latest_record_date": "2025-12-24",
-      "fetched_at": "2026-06-06T07:49:37Z",
+      "fetched_at": "2026-06-07T15:27:07Z",
       "fetch_age_days": 0,
       "stale_after_days": 120
     }

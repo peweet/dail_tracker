@@ -21,6 +21,7 @@ from dail_tracker_core.results import QueryResult
 _EXPECTED_COLUMNS = {
     "supplier_summary": {
         "supplier", "supplier_norm", "n_awards", "n_authorities", "awarded_value_safe_eur",
+        "n_value_safe_awards", "n_ceiling_notices",
         "company_num", "company_status", "cro_match_method",
         "on_lobbying_register", "lobbying_returns", "is_lobbying_registrant", "is_lobbying_client",
     },

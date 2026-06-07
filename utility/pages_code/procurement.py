@@ -45,6 +45,7 @@ from data_access.procurement_data import (
     fetch_cpv_summary_result,
     fetch_lobbying_overlap_result,
     fetch_supplier_summary_result,
+    fetch_value_contrast_result,
 )
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 from ui.components import (
@@ -601,6 +602,40 @@ def _render_cpv_profile(cpv_code: str) -> None:
     _render_award_list(awards, key=f"pr_cpv_{cpv_code}", row_fn=_award_row_cpv)
 
 
+def _value_contrast_panel(vc) -> None:
+    """The signature "€570bn that isn't" panel: show the naive total only to demolish it.
+
+    The vast naive Σ (every reported figure added up) is rendered struck-through next to
+    the only summable figure, with the multiplier and a one-line why. This is the page's
+    open-data-literacy hook AND its methodology — see PROCUREMENT_MASTER.md §5. All
+    figures come pre-computed from the view/core layer (no arithmetic here)."""
+    naive = _n(vc.get("naive_total_eur"))
+    safe = _n(vc.get("safe_total_eur"))
+    if naive <= 0 or safe <= 0:
+        return
+    mult = naive / safe
+    fw_naive = _eur_scale(vc.get("framework_naive_eur"))
+    fw_once = _eur_scale(vc.get("framework_once_eur"))
+    st.html(
+        '<div class="pr-contrast">'
+        '<div class="pr-contrast-row">'
+        '<div class="pr-contrast-cell pr-contrast-naive">'
+        f'<span class="pr-contrast-num pr-strike">{_esc(_eur_scale(naive))}</span>'
+        '<span class="pr-contrast-lbl">if you naïvely add up every figure</span></div>'
+        f'<div class="pr-contrast-mult">{mult:.0f}× smaller</div>'
+        '<div class="pr-contrast-cell pr-contrast-safe">'
+        f'<span class="pr-contrast-num">{_esc(_eur_scale(safe))}</span>'
+        '<span class="pr-contrast-lbl">actually summable awarded value</span></div>'
+        '</div>'
+        '<div class="pr-contrast-note"><strong>Why the big number is a mirage:</strong> '
+        f"{_esc(fw_naive)} of that headline is framework &amp; DPS <em>ceilings</em> — one "
+        "multi-year spending limit repeated across every supplier on the framework. Counted "
+        f"once, those ceilings are just {_esc(fw_once)}. Only the {_esc(_eur_scale(safe))} is "
+        "awarded value you can sum — and even that is value <em>at the point of award</em>, "
+        "not money actually paid.</div></div>"
+    )
+
+
 def _stats_strip(stats, cov: dict) -> None:
     """Scale anchor + trust strip: the corpus's real magnitude and what's in / out.
     Honest by construction — only the sum-safe total is shown, never the naive sum."""
@@ -688,6 +723,9 @@ def procurement_page() -> None:
         "figure. A contract award is a public record of a procurement decision, not evidence of "
         "influence or wrongdoing.</div>"
     )
+    vc_res = fetch_value_contrast_result()
+    if vc_res.ok and not vc_res.data.empty:
+        _value_contrast_panel(vc_res.data.iloc[0])
     _stats_strip(stats, cov)
     glossary_strip(
         [

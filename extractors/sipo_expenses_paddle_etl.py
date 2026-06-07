@@ -60,6 +60,16 @@ PARTY_JOBS: dict[str, tuple[Path, str]] = {
     "socdem": (SCAN_DIR / "socdem_sipo_ge_2024_expenses.pdf", "Social Democrats"),
     "pbp": (SCAN_DIR / "pbp_sipo_ge_2024_expenses.pdf", "People Before Profit/Solidarity"),
     "aontu": (SCAN_DIR / "aontu_sipo_ge_2024_expenses.pdf", "Aontú"),
+    # Remaining GE2024 national-agent returns (all scanned -> PaddleOCR). Party labels
+    # use the SIPO collection spelling. Run via _sipo_watchdog.py, one at a time.
+    "centre_party": (SCAN_DIR / "centre_party_sipo_ge_2024_expenses.pdf", "The Centre Party of Ireland"),
+    "i4c": (SCAN_DIR / "i4c_sipo_ge_2024_expenses.pdf", "Independents 4 Change"),
+    "indep_ireland": (SCAN_DIR / "indep_ireland_sipo_ge_2024_expenses.pdf", "Independent Ireland"),
+    "ireland_first": (SCAN_DIR / "ireland_first_sipo_ge_2024_expenses.pdf", "Ireland First"),
+    "irish_freedom": (SCAN_DIR / "irish_freedom_sipo_ge_2024_expenses.pdf", "Irish Freedom Party"),
+    "irish_people": (SCAN_DIR / "irish_people_sipo_ge_2024_expenses.pdf", "The Irish People"),
+    "redress100": (SCAN_DIR / "redress100_sipo_ge_2024_expenses.pdf", "100% Redress Party"),
+    "right_to_change": (SCAN_DIR / "right_to_change_sipo_ge_2024_expenses.pdf", "Right to Change"),
 }
 
 # Statutory candidate spending limit per constituency seat-count (GE2024).

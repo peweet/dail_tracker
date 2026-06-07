@@ -1091,6 +1091,39 @@ def enrich_records(records: pl.DataFrame) -> pl.DataFrame:
         ),
     )
 
+    # CORPORATE NOTICES that fell through to "other". Two safe recovery signals,
+    # both GATED ON still-"other" (a SEPARATE rule, not a widening of
+    # has_companies_act — which also drives the MVL/CVL subtype split and could
+    # otherwise steal Companies-Act-citing SIs):
+    #   (a) ca_missed — a Companies-Act citation the strict flag misses: the comma
+    #       form ("Companies Act, 2014"), the Assurance Companies Acts, "Section 509".
+    #   (b) matter_co — the canonical "IN THE MATTER OF <X> LIMITED/DAC/PLC/…" opener
+    #       (schemes, mergers, High-Court companies-court matters).
+    # Guards: ca_body keeps bare "COMPANIES ACTS, 2014" page-shards (<60 chars, no
+    # matter-opener) out; the insolvency-kw exclusion leaves liquidation/receiver/
+    # examiner rows to the rules above; and LIMITED PARTNERSHIP is excluded — those
+    # are privacy-mixed (can name individuals via pension trusts) and have NO
+    # personal-insolvency backstop in the corporate enrichment, unlike bankruptcy
+    # wording which that enrichment already drops.
+    ca_missed = t.str.contains(r"\bCOMPANIES ACTS?,?\s*(?:19|20)\d\d") | t.str.contains("SECTION 509")
+    co_form = t.str.contains(
+        r"\b(?:LIMITED|LTD|DAC|DESIGNATED ACTIVITY COMPANY|PLC|PUBLIC LIMITED COMPANY|ICAV|"
+        r"UNLIMITED COMPANY|CLG|COMPANY LIMITED BY GUARANTEE)\b"
+    )
+    matter_co = t.str.contains("IN THE MATTER OF") & co_form
+    ca_body = t.str.contains("IN THE MATTER OF") | (pl.col("raw_text").str.len_chars() >= 60)
+    ca_recover = (
+        (pl.col("notice_category") == "other")
+        & (ca_missed | matter_co)
+        & ca_body
+        & ~(has_receiver_kw | has_examiner_kw | has_insolvency_kw)
+        & ~t.str.contains("LIMITED PARTNERSHIP")  # privacy: LPs can name individuals (pension trusts)
+    )
+    df = df.with_columns(
+        notice_category=pl.when(ca_recover).then(pl.lit("corporate_notice")).otherwise(pl.col("notice_category")),
+        notice_subtype=pl.when(ca_recover).then(pl.lit("companies_act_notice")).otherwise(pl.col("notice_subtype")),
+    )
+
     # AGREEMENTS ENTERED INTO FORCE
     has_agree = t.str.contains("AGREEMENTS WHICH ENTERED INTO FORCE")
     df = df.with_columns(

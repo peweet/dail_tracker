@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-06-05T09:01:48Z",
+  "generated_at": "2026-06-07T15:27:46Z",
   "links_checked": false,
   "summary": {
     "sources_checked": 107,
-    "sources_ok": 2,
-    "sources_warning": 1,
+    "sources_ok": 3,
+    "sources_warning": 0,
     "sources_failed": 0,
     "sources_skipped": 104,
     "stale_sources": 0
@@ -70,12 +70,12 @@
       "source_id": "file_sources:charities_register",
       "group": "file_sources",
       "check_type": "file_age",
-      "status": "warning",
-      "detail": "no stale threshold configured",
+      "status": "ok",
+      "detail": "37d old (<= 180d)",
       "input_pattern": "data/bronze/charities/public_register_*.xlsx",
       "latest_file": "data/bronze/charities/public_register_20260426.xlsx",
-      "days_old": 35,
-      "stale_after_days": null
+      "days_old": 37,
+      "stale_after_days": 180
     },
     {
       "source_id": "file_sources:cro_companies",
@@ -84,7 +84,7 @@
       "status": "ok",
       "detail": "0d old (<= 7d)",
       "input_pattern": "data/bronze/cro/companies_*.csv",
-      "latest_file": "data/bronze/cro/companies_20260605.csv",
+      "latest_file": "data/bronze/cro/companies_20260607.csv",
       "days_old": 0,
       "stale_after_days": 7
     },
@@ -93,10 +93,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "0d old (<= 200d)",
+      "detail": "3d old (<= 200d)",
       "input_pattern": "data/silver/cro/financial_statements.parquet",
       "latest_file": "data/silver/cro/financial_statements.parquet",
-      "days_old": 0,
+      "days_old": 3,
       "stale_after_days": 200
     },
     {
