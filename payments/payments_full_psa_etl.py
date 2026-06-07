@@ -48,6 +48,7 @@ import fitz  # PyMuPDF
 import polars as pl
 
 from config import GOLD_CSV_DIR, GOLD_PARQUET_DIR, PAYMENTS_PDF_DIR
+from services.parquet_io import save_parquet
 
 OUTPUT_PARQUET = GOLD_PARQUET_DIR / "payments_full_psa.parquet"
 OUTPUT_CSV = GOLD_CSV_DIR / "payments_full_psa.csv"
@@ -498,11 +499,10 @@ def build_full_psa(
     clean = df.filter(is_clean)
     quarantine = df.filter(~is_clean)
 
-    out_parquet.parent.mkdir(parents=True, exist_ok=True)
     out_csv.parent.mkdir(parents=True, exist_ok=True)
-    clean.write_parquet(out_parquet, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(clean, out_parquet)
     clean.write_csv(out_csv)
-    quarantine.write_parquet(quarantine_parquet, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(quarantine, quarantine_parquet)
 
     return {"clean_rows": clean.height, "quarantine_rows": quarantine.height}
 

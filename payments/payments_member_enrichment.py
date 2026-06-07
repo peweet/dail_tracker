@@ -39,6 +39,7 @@ import polars as pl
 
 from config import GOLD_PARQUET_DIR, SILVER_PARQUET_DIR
 from paths import PROJECT_ROOT as REPO_ROOT
+from services.parquet_io import save_parquet
 
 sys.path.insert(0, str(REPO_ROOT))
 
@@ -112,11 +113,8 @@ def enrich(payments_parquet: Path = PAYMENTS_PARQUET, members_parquet: Path = ME
     n_distinct_matched = enriched.filter(pl.col("unique_member_code").is_not_null())["unique_member_code"].n_unique()
     n_distinct_unmatched_names = enriched.filter(pl.col("unique_member_code").is_null())["member_name"].n_unique()
 
-    # Atomic write via .part swap, per project convention. Parquet write
-    # convention (per memory): zstd, level 3, statistics on.
-    part_path = payments_parquet.with_suffix(".part")
-    enriched.write_parquet(part_path, compression="zstd", compression_level=3, statistics=True)
-    part_path.replace(payments_parquet)
+    # Atomic write + zstd convention, centralised in services.parquet_io.
+    save_parquet(enriched, payments_parquet)
 
     return {
         "rows_total": n_rows_before,
