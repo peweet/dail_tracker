@@ -63,6 +63,7 @@ from iris.iris_oifigiuil_etl_polars import (
     extract_lines_raw,
     find_member_interest_page_ranges,
 )
+from services.parquet_io import save_parquet
 
 # Bump on any change to extract_lines_raw / find_member_interest_page_ranges
 # that affects column shape, values, or parsing rules. Cached shards built
@@ -172,25 +173,11 @@ def process_pdf_to_shard(pdf_path: Path, shard_root: Path) -> dict[str, Any]:
     paths = _shard_paths(shard_root, pdf_path.name)
 
     df = pl.from_dicts(rows) if rows else pl.DataFrame()
-    _atomic_write_parquet(df, paths["bronze"])
+    save_parquet(df, paths["bronze"])
     _atomic_write_json(meta, paths["audit"])
     _atomic_write_json(member_extracts, paths["member"])
 
     return meta
-
-
-def _atomic_write_parquet(df: pl.DataFrame, dest: Path) -> None:
-    tmp = dest.with_suffix(dest.suffix + ".part")
-    if df.is_empty():
-        # Polars refuses to round-trip a truly schemaless empty frame; write a
-        # zero-row frame with a single sentinel column so scan_parquet still
-        # works. Downstream code filters on row count, not columns.
-        pl.DataFrame({"_empty": pl.Series([], dtype=pl.Int64)}).write_parquet(
-            tmp, compression="zstd", compression_level=3, statistics=True
-        )
-    else:
-        df.write_parquet(tmp, compression="zstd", compression_level=3, statistics=True)
-    tmp.replace(dest)
 
 
 def _atomic_write_json(payload: Any, dest: Path) -> None:
