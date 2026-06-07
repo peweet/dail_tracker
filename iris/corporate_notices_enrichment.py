@@ -36,6 +36,7 @@ import polars as pl
 
 from config import DATA_DIR, GOLD_PARQUET_DIR, SILVER_DIR
 from paths import PROJECT_ROOT as _ROOT
+from services.parquet_io import save_parquet
 
 sys.path.insert(0, str(_ROOT))
 
@@ -227,7 +228,7 @@ def main() -> None:
     if args.write:
         _OUT.parent.mkdir(parents=True, exist_ok=True)
         _META.parent.mkdir(parents=True, exist_ok=True)
-        out.write_parquet(_OUT, compression="zstd", compression_level=3, statistics=True)
+        save_parquet(out, _OUT)
         _META.write_text(json.dumps(coverage, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"\nwrote {out.height:,} rows -> {_OUT.relative_to(_ROOT)}")
         print(f"wrote coverage JSON   -> {_META.relative_to(_ROOT)}")
