@@ -32,6 +32,7 @@ from config import (
     SEANAD_PAYMENTS_PARQUET,
     SILVER_DIR,
 )
+from services.parquet_io import save_parquet
 from shared import normalise_join_key
 
 logger = logging.getLogger(__name__)
@@ -110,12 +111,7 @@ def _build_attendance_by_year(enriched_df: pl.DataFrame, csv_path: Path, parquet
         .sort(["full_name", "year"])
     )
     attendance_year.write_csv(csv_path)
-    attendance_year.write_parquet(
-        parquet_path,
-        compression="zstd",
-        compression_level=3,
-        statistics=True,
-    )
+    save_parquet(attendance_year, parquet_path)
     logging.info("Gold attendance_by_td_year.csv + parquet written.")
 
 
@@ -153,12 +149,7 @@ def _build_vote_history(
 
     current_dail_vote_history_df.write_csv(out_csv)
     logging.info("Enriched TD votes CSV created successfully.")
-    current_dail_vote_history_df.write_parquet(
-        out_parquet,
-        compression="zstd",
-        compression_level=3,
-        statistics=True,
-    )
+    save_parquet(current_dail_vote_history_df, out_parquet)
     logging.info("Enriched TD votes Parquet created (check pipeline)")
 
 
@@ -192,12 +183,7 @@ def _build_payment_rankings(
         .with_row_index(name="rank", offset=1)
     )
     current_rankings.write_csv(out_csv)
-    current_rankings.write_parquet(
-        out_parquet,
-        compression="zstd",
-        compression_level=3,
-        statistics=True,
-    )
+    save_parquet(current_rankings, out_parquet)
     print(f"Current TD payment rankings written: {len(current_rankings)} TDs")
 
 

@@ -195,14 +195,39 @@ must never be summed across publishers until this column exists.
 **Real spend (public_display, payment_actual, safe-to-sum) is genuinely powerful:** OPW
 €1.73bn · Dept Climate €1.31bn · Revenue €360m · NTMA €309m · TII €224m · Beaumont €190m.
 
-**Stage D execution order (PII-first — do NOT reorder):**
-1. **🔴 Quarantine HSE/Tusla** (+ all sibling facts): suppress `sole_trader_or_individual`
-   AND conservatively suppress `unknown`-class from `public_display` until classified.
-   Re-assert the invariant: **zero non-company individuals displayable**. This is the gate.
+**PRIVACY DECISION (owner, 2026-06-06): suppliers ARE named, including sole traders and
+individuals.** Rationale: this data is sourced from **officially published** procurement
+documents (public bodies' own PO/payments-over-€20k lists, mandated by Circular 07/2012 /
+FOI), so a supplier name + amount + description is already in the public domain — re-surfacing
+it is not a new disclosure, and a sole trader winning a public contract acts in a business
+capacity. **Guardrail (kept):** display ONLY what the source document contains (name, amount,
+description, period) — never enrich with addresses or external PII. The sandbox facts carry no
+address column, so this holds by construction. (Distinct from [[feedback_personal_insolvency_privacy]]
+— that bars naming private citizens in *insolvency/bankruptcy* notices; procurement payments
+are public-money business transactions.) One edge to revisit later: Tusla residential-childcare
+payments to named individual carers — displayed for now per this decision.
+
+**✅ Stage D SHIPPED 2026-06-06.** `extractors/procurement_payments_consolidate.py` folds the
+5 sandbox facts → **`data/gold/parquet/procurement_payments_fact.parquet`** (94,618 rows / 33
+publishers) with `vat_status`, canonical `value_kind`+`realisation_tier`, and a CRO join.
+Three views (`v_procurement_payments` + `_publisher_summary` + `_supplier_summary`), core
+queries, a **"Money actually paid"** tab (Paid/Ordered tier toggle × Suppliers/Public-bodies
+view), an HSE-style publisher drill-down, and a **paid cross-reference** on the eTenders
+supplier profile. Verified figures: **€13.08bn paid / €4.32bn ordered** (sum-safe), HSE €6.27bn
+· OPW €2.66bn · Dept Climate €1.40bn. Suppliers **named** (incl. 32k individuals) per the
+published-source decision; no address/PII column. Tests: gold-quality + query contract + the
+tier-injection guard. The consolidation extractor is a **manual rebuild step** (reads sandbox
+inputs absent on a fresh clone; the committed gold ships) — like `la_afs_capital_extract`, NOT
+wired into nightly CHAINS. Removed a stale competing `procurement_public_payments.sql` (untracked
+concurrent-writer file: broken gold refs, only 2 of 5 facts, old `public_display` privacy gate
+the owner overrode) — superseded by the above.
+
+**Stage D execution order (revised — privacy un-blocked):**
+1. Display all suppliers as named in the source (drop the `public_display` suppression for the
+   spend tier; keep `value_safe_to_sum` + `extraction_status` for data quality).
 2. Add `vat_status` (per-publisher map: HSE/Tusla = `incl_vat`, others = `excl_vat`).
 3. Map `amount_semantics` → canonical `value_kind`+`realisation_tier`.
-4. `pl.concat` all conformed payment-grain facts → one `public_payments_fact`; CRO join
-   (reuse the eTenders/TED matcher).
+4. `pl.concat` all conformed payment-grain facts → one gold fact; CRO join (reuse matcher).
 5. Promote to gold (gitignore negation) + `sql_views/procurement_payments_*.sql` + tests.
 6. UI: a distinct **"Money actually paid"** section — one tier only, per-publisher (never a
    cross-publisher total until `vat_status` is trusted), verb "paid €X" / "ordered €X".

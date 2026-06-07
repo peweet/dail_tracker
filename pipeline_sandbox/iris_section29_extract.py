@@ -44,6 +44,11 @@ _CATS: dict[str, tuple[str, ...]] = {
     "Contracts": ("contract",),
 }
 
+# The existing Register (v_member_interests_detail) covers 2020+ with item-level
+# detail. To stay COMPLEMENTARY (not duplicate it), keep only the net-new pre-2020
+# tail from Iris — declarations for years strictly before this cutoff.
+CUTOFF_YEAR = 2020
+
 _TITLE_RE = re.compile(r"\b(Senator|Deputy|Minister of State|Minister|TD|T\.D\.|Cllr)\b", re.I)
 _YEAR_RE = re.compile(r"dec\w*\.?\s*,?\s*(\d{4})", re.I)  # "...December YYYY" → the year declared
 _ANCHOR = "Name of Member concerned"
@@ -76,7 +81,7 @@ def parse_doc(src, issue_date, full, detected):
     of a PDF's text first, then parse here over the whole document."""
     matches = list(re.finditer(re.escape(_ANCHOR) + r"\s*:?\s*([^\n]+)", full))
     if not matches:
-        years = sorted(set(_YEAR_RE.findall(full)))
+        years = _pre_cutoff(_YEAR_RE.findall(full))
         cats = _cats(full)
         return [_row(issue_date, src, m, years, cats, parsed=False) for m in (detected or [None])]
 
@@ -89,7 +94,13 @@ def parse_doc(src, issue_date, full, detected):
         b = by_member.setdefault(member, {"years": set(), "cats": set()})
         b["years"].update(_YEAR_RE.findall(win))
         b["cats"].update(_cats(win))
-    return [_row(issue_date, src, m, sorted(b["years"]), sorted(b["cats"]), parsed=True) for m, b in by_member.items()]
+    return [_row(issue_date, src, m, _pre_cutoff(b["years"]), sorted(b["cats"]), parsed=True) for m, b in by_member.items()]
+
+
+def _pre_cutoff(years):
+    """Keep only declarations for years strictly before CUTOFF_YEAR (the net-new
+    pre-Register tail). Returns a sorted list of year strings."""
+    return sorted({y for y in years if str(y).isdigit() and int(y) < CUTOFF_YEAR})
 
 
 def _row(issue_date, src, member, years, cats, *, parsed):
@@ -121,6 +132,13 @@ def main():
         for r in parse_doc(sf, g["issue_date"], "\n".join(g["text"]), sorted(x for x in g["detected"] if x))
     ]
     df = pd.DataFrame(rows)
+
+    # Cut off at the Register boundary: keep only rows with at least one pre-2020
+    # year. Rows whose declarations are entirely 2020+ are already covered by the
+    # Register (v_member_interests_detail) — drop them to stay complementary.
+    n_before = len(df)
+    df = df[df["n_years_declared"] > 0].reset_index(drop=True)
+    print(f"[cutoff <{CUTOFF_YEAR}] kept {len(df)} of {n_before} rows (dropped {n_before - len(df)} that were 2020+ only / no pre-2020 year)\n")
 
     df.to_parquet(OUT / "iris_s29_statements.parquet", compression="zstd", index=False)
     df.to_csv(OUT / "iris_s29_statements.csv", index=False, encoding="utf-8")

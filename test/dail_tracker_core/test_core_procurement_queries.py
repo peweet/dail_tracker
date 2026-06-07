@@ -135,6 +135,43 @@ def test_value_ordering_is_descending(conn):
     assert vals == sorted(vals, reverse=True)  # value lens surfaces the money leaders first
 
 
+def test_payments_corpus_stats_tiers_separate(conn):
+    r = _result_or_skip(q.payments_corpus_stats(conn))
+    assert len(r.data) == 1
+    row = r.data.iloc[0]
+    assert {"n_payments", "n_publishers", "n_suppliers", "spent_safe_eur", "committed_safe_eur"}.issubset(
+        set(r.data.columns)
+    )
+    # Paid and ordered are reported separately (never one blended total).
+    assert float(row["spent_safe_eur"]) >= 0 and float(row["committed_safe_eur"]) >= 0
+
+
+def test_payments_supplier_summary_named_and_single_tier(conn):
+    r = _result_or_skip(q.payments_supplier_summary(conn, tier="SPENT", limit=10))
+    assert {"supplier", "supplier_normalised", "realisation_tier", "n_publishers",
+            "total_safe_eur", "vat_mixed", "supplier_class"}.issubset(set(r.data.columns))
+    # The view is filtered to a single tier; the ranking is by money, descending.
+    assert set(r.data["realisation_tier"].unique()) <= {"SPENT"}
+    vals = r.data["total_safe_eur"].tolist()
+    assert vals == sorted(vals, reverse=True)
+
+
+def test_payments_tier_whitelist_rejects_injection(conn):
+    # An unknown tier falls back to SPENT (no raw string reaches SQL).
+    r = q.payments_supplier_summary(conn, tier="'; DROP TABLE x; --", limit=3)
+    if r.ok and not r.is_empty:
+        assert set(r.data["realisation_tier"].unique()) <= {"SPENT"}
+
+
+def test_payments_for_supplier_roundtrip(conn):
+    top = q.payments_supplier_summary(conn, tier="SPENT", limit=1)
+    if not top.ok or top.is_empty:
+        pytest.skip("no payment rows")
+    norm = top.data.iloc[0]["supplier_normalised"]
+    r = q.payments_for_supplier(conn, norm)
+    assert r.ok is True and not r.is_empty
+
+
 def test_supplier_concentration_share_is_sane(conn):
     r = _result_or_skip(q.supplier_concentration(conn, top_n=10))
     assert len(r.data) == 1

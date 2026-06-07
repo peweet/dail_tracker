@@ -116,6 +116,32 @@ def fetch_lobbying_overlap_result() -> QueryResult:
     return _q.lobbying_overlap(get_procurement_conn())
 
 
+# ── Public-body PAYMENTS (SPENT / COMMITTED) — different grain from awards ─────
+@st.cache_data(ttl=300)
+def fetch_payments_corpus_stats_result() -> QueryResult:
+    return _q.payments_corpus_stats(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
+def fetch_payments_publisher_summary_result(tier: str = "SPENT", limit: int | None = 60) -> QueryResult:
+    return _q.payments_publisher_summary(get_procurement_conn(), tier=tier, limit=limit)
+
+
+@st.cache_data(ttl=300)
+def fetch_payments_supplier_summary_result(tier: str = "SPENT", limit: int | None = 60) -> QueryResult:
+    return _q.payments_supplier_summary(get_procurement_conn(), tier=tier, limit=limit)
+
+
+@st.cache_data(ttl=300)
+def fetch_payments_for_publisher_result(publisher_name: str, tier: str = "SPENT") -> QueryResult:
+    return _q.payments_for_publisher(get_procurement_conn(), publisher_name, tier=tier)
+
+
+@st.cache_data(ttl=300)
+def fetch_payments_for_supplier_result(supplier_norm: str) -> QueryResult:
+    return _q.payments_for_supplier(get_procurement_conn(), supplier_norm)
+
+
 # ── TED (EU-journal awards) — separate register ───────────────────────────────
 @st.cache_data(ttl=300)
 def fetch_ted_corpus_stats_result() -> QueryResult:
