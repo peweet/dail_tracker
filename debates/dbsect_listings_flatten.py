@@ -29,6 +29,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import BRONZE_DIR, SILVER_PARQUET_DIR
+from services.parquet_io import save_parquet
 
 logger = logging.getLogger(__name__)
 
@@ -142,8 +143,7 @@ def run() -> int:
         df["debate_section_id"].nunique(),
         df["date"].nunique(),
     )
-    _OUT.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
+    save_parquet(df, _OUT)
     logger.info("dbsect_listings_flatten: wrote %s", _OUT)
     return len(df)
 

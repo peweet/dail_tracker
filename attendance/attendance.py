@@ -24,6 +24,7 @@ import pandas as pd
 from numpy import nan
 
 from config import ATTENDANCE_PDF_DIR, SILVER_DIR
+from services.parquet_io import save_parquet
 
 logger = logging.getLogger(__name__)
 
@@ -145,12 +146,7 @@ def _build_fact_table(silver_csv: Path, fact_csv: Path, fact_parquet: Path, hous
         df["house"] = house
     df.to_csv(fact_csv, index=False)
 
-    df.to_parquet(
-        fact_parquet,
-        index=False,
-        compression="zstd",
-        compression_level=3,
-    )
+    save_parquet(df, fact_parquet)
 
 
 def main(
