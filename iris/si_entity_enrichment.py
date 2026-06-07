@@ -41,6 +41,7 @@ import re
 import pandas as pd
 
 from config import DATA_DIR, GOLD_PARQUET_DIR, SILVER_DIR
+from services.parquet_io import save_parquet
 
 logger = logging.getLogger(__name__)
 
@@ -785,6 +786,11 @@ def run() -> dict:
             "si_year": si["si_year"],
             "si_number": si["si_number"],
             "si_title": [_resolve_si_title(t, r) for t, r in zip(si["title"], si["raw_text"], strict=True)],
+            # NB: this is the Iris Oifigiúil *publication* date (the gazette
+            # issue's front-page date), used as a proxy for the signing/made
+            # date, which the notices rarely print. Differs by ~5 days (median);
+            # late-Dec instruments publish in the following January. The column
+            # name is legacy — the UI labels it "Published in Iris".
             "si_signed_date": si["issue_date"].dt.date,
             "si_operation": si["si_operation_primary"],
             "si_operation_flags": si["si_operation_flags"],
@@ -808,8 +814,9 @@ def run() -> dict:
         }
     )
 
-    _OUT.parent.mkdir(parents=True, exist_ok=True)
-    out.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
+    # Atomic write (services.parquet_io): a crash mid-write can no longer corrupt
+    # the canonical SI gold — the reason statutory_instruments.parquet.bak existed.
+    save_parquet(out, _OUT)
 
     total = len(out)
     actor_known = int(si["si_responsible_actor"].notna().sum())

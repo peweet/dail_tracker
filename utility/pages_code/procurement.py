@@ -44,7 +44,12 @@ from data_access.procurement_data import (
     fetch_coverage_stats_result,
     fetch_cpv_summary_result,
     fetch_lobbying_overlap_result,
+    fetch_awards_by_year_result,
+    fetch_supplier_concentration_result,
     fetch_supplier_summary_result,
+    fetch_ted_corpus_stats_result,
+    fetch_ted_for_supplier_result,
+    fetch_ted_supplier_summary_result,
     fetch_value_contrast_result,
 )
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
@@ -218,7 +223,31 @@ def _lobby_pill(row) -> str:
 # ──────────────────────────────────────────────────────────────────────────────
 # Tab: Suppliers (search + pagination + clickable drill-down)
 # ──────────────────────────────────────────────────────────────────────────────
+def _concentration_and_trend() -> None:
+    """Market-shape context above the supplier ranking: how concentrated contract-winning is
+    (top-N share — answers 'do a few firms dominate?') and the award-count trend over time.
+    Both are pre-aggregated in the view/core layer; the page only renders them."""
+    con = fetch_supplier_concentration_result()
+    if con.ok and not con.data.empty:
+        c = con.data.iloc[0]
+        share = c.get("top_n_share_pct")
+        n_sup, total, topn = _n(c.get("n_suppliers")), _n(c.get("total_awards")), _n(c.get("top_n"))
+        if share is not None and n_sup and total:
+            verb = "a broad market" if float(share) < 25 else "a concentrated market"
+            st.html(
+                f'<p class="pr-cap">Across <strong>{n_sup:,}</strong> companies, the top {topn} firms '
+                f"hold <strong>{float(share):g}%</strong> of all {total:,} contract awards — {verb}. "
+                "Rankings count awards (the trustworthy metric), not euro value.</p>"
+            )
+    tr = fetch_awards_by_year_result()
+    if tr.ok and not tr.data.empty and len(tr.data) > 1:
+        st.caption("Contract awards per year (company-class)")
+        st.bar_chart(tr.data, x="year", y="n_awards", height=170, color="#9c5b2e")
+
+
 def _render_suppliers(year: int | None) -> None:
+    if not (st.session_state.get("pr_sup_q") or "").strip():
+        _concentration_and_trend()
     order = _sort_toggle("pr_sup_sort")
     res = fetch_supplier_summary_result(limit=None, order_by=order, year=year)
     if not res.ok:
@@ -377,6 +406,104 @@ def _render_overlap(df: pd.DataFrame, year: int | None = None) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Tab: EU-level awards (TED) — a SEPARATE register, never summed with eTenders.
+# ──────────────────────────────────────────────────────────────────────────────
+def _ted_value_pill(val) -> str:
+    """Sum-safe TED value pill; omitted when the firm has no summable value (all its EU
+    notices are framework ceilings) so the card shows the trustworthy count instead of '—'."""
+    if _eur(val) == "—":
+        return ""
+    return f'<span class="pr-pill pr-pill-val">{_eur(val)} awarded (EU)</span>'
+
+
+def _render_ted() -> None:
+    stats_res = fetch_ted_corpus_stats_result()
+    if not stats_res.ok or stats_res.data.empty:
+        empty_state(
+            "EU-level award data isn't available right now",
+            "The TED register couldn't be loaded — a source/pipeline issue, not an empty result.",
+        )
+        return
+    s = stats_res.data.iloc[0]
+
+    show_pan_eu = st.toggle(
+        "Include pan-EU research frameworks",
+        value=False,
+        key="pr_ted_paneu",
+        help="375 notices (e.g. GÉANT) where Ireland is one of dozens of participants. Their "
+        "vast shared ceilings are never summable, so this only changes the notice count.",
+    )
+    n_shown = _n(s.get("n_notices")) if show_pan_eu else _n(s.get("n_notices_ex_pan_eu"))
+    span = f"{_n(s.get('min_year'))}–{_n(s.get('max_year'))}"
+    caption = (
+        f"{n_shown:,} EU Official Journal award notices ({span}), from {_n(s.get('n_buyers')):,} "
+        f"Irish public buyers. {_eur_scale(s.get('value_safe_eur'))} in summable awarded value — "
+        "a different register from eTenders (some firms appear in both; the two are never added "
+        "together)."
+    )
+    if show_pan_eu:
+        caption += (
+            f" Including the {_n(s.get('n_pan_eu')):,} pan-EU frameworks adds "
+            f"{_eur_scale(s.get('pan_eu_ceiling_eur'))} of <em>shared</em> ceilings — a mirage like "
+            "the €570bn headline, never real Irish spend."
+        )
+    else:
+        caption += f" {_n(s.get('n_pan_eu')):,} pan-EU research frameworks are excluded from totals."
+    st.html(f'<p class="pr-cap">{caption}</p>')
+
+    res = fetch_ted_supplier_summary_result(limit=_TOP, order_by="awards")
+    df = res.data if res.ok else pd.DataFrame()
+    if df.empty:
+        empty_state("No TED winners", "The EU register loaded but returned no company-class winners.")
+        return
+    st.caption(f"Top {len(df):,} firms by number of EU award notices won. Value is awarded value, not spend.")
+    cards = []
+    for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
+        meta = (
+            f"{_awards_word(_n(r.n_awards))} · {_n(r.n_buyers):,} buyer{'s' if _n(r.n_buyers) != 1 else ''}"
+        )
+        cro = _cro_pill_from(getattr(r, "cro_company_num", None), getattr(r, "cro_company_status", None))
+        pills = [p for p in (_ted_value_pill(r.ted_value_safe_eur), cro) if p]
+        cards.append(_card(f"<span>{_esc(r.winner_name)}</span>", meta, pills, rank=i))
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html(
+        '<div class="pr-foot"><strong>Source:</strong> TED — Tenders Electronic Daily, the EU '
+        'Official Journal of public procurement (<a href="https://ted.europa.eu" target="_blank" '
+        'rel="noopener">ted.europa.eu ↗</a>), winners matched to the Companies Registration Office. '
+        "Award notices, not payments; a separate register from the national eTenders data — never summed.</div>"
+    )
+
+
+def _cro_pill_from(company_num, status) -> str:
+    """CRO chip from explicit num/status (TED rows expose these directly, not as a row attr)."""
+    if not _truthy(company_num):
+        return ""
+    label = _esc(_coalesce(status) or "matched")
+    return f'<span class="pr-pill pr-pill-cro">CRO: {label}</span>'
+
+
+def _render_ted_supplier_panel(supplier_norm: str) -> None:
+    """Cross-reference block on an eTenders supplier profile: the same firm's TED (EU-level)
+    footprint, matched on the normalised name. Clearly a separate register — never added to
+    the eTenders headline (honesty rail; 66% of TED winners also appear in eTenders)."""
+    res = fetch_ted_for_supplier_result(supplier_norm)
+    if not res.ok or res.data.empty:
+        return
+    r = res.data.iloc[0]
+    n = _n(r.get("n_awards"))
+    if n <= 0:
+        return
+    val = _eur(r.get("ted_value_safe_eur"))
+    val_clause = f" worth {val} in summable awarded value" if val != "—" else ""
+    st.html(
+        '<div class="pr-ted-xref"><div class="pr-ted-xref-h">Also in the EU register (TED)</div>'
+        f'<div class="pr-ted-xref-b">This firm also won <strong>{n:,} EU Official Journal award '
+        f"notice{'' if n == 1 else 's'}</strong>{val_clause}, from {_n(r.get('n_buyers')):,} buyers "
+        "(2023–2026). A separate register — these are <em>not</em> added to the national total above.</div></div>"
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Drill-down: a single supplier's profile + full award history (?supplier=)
 # ──────────────────────────────────────────────────────────────────────────────
 def _award_value_html(r) -> str:
@@ -508,6 +635,9 @@ def _render_supplier_profile(supplier_norm: str) -> None:
         default_page_size=_AWARD_PAGE,
         label="awards",
     )
+
+    # Cross-reference the EU register (TED) for the same firm — separate, never summed.
+    _render_ted_supplier_panel(supplier_norm)
 
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> eTenders / national procurement open data '
@@ -746,7 +876,9 @@ def procurement_page() -> None:
     year = _year_pills(fetch_available_years())
 
     overlap = fetch_lobbying_overlap_result()
-    tabs = st.tabs(["Suppliers", "Contracting authorities", "Categories", "Lobbying overlap"])
+    tabs = st.tabs(
+        ["Suppliers", "Contracting authorities", "Categories", "Lobbying overlap", "EU-level awards (TED)"]
+    )
     with tabs[0]:
         _render_suppliers(year)
     with tabs[1]:
@@ -755,6 +887,8 @@ def procurement_page() -> None:
         _render_cpv(year)
     with tabs[3]:
         _render_overlap(overlap.data if overlap.ok else pd.DataFrame(), year)
+    with tabs[4]:
+        _render_ted()
 
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> eTenders / national procurement open data '

@@ -51,6 +51,18 @@ def fetch_coverage() -> dict:
 
 
 @st.cache_data(ttl=300)
+def fetch_supplier_concentration_result(top_n: int = 10) -> QueryResult:
+    """Top-N share of all company-class awards (market-concentration line)."""
+    return _q.supplier_concentration(get_procurement_conn(), top_n=top_n)
+
+
+@st.cache_data(ttl=600)
+def fetch_awards_by_year_result() -> QueryResult:
+    """Company-class award counts per year (the trend mini-chart)."""
+    return _q.awards_by_year(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
 def fetch_value_contrast_result() -> QueryResult:
     """Whole-corpus naive-vs-safe value contrast for the '€570bn that isn't' panel
     (ungated — the dataset-level literacy story, not the company-class rankings slice)."""
@@ -102,6 +114,22 @@ def fetch_available_years() -> list[int]:
 @st.cache_data(ttl=300)
 def fetch_lobbying_overlap_result() -> QueryResult:
     return _q.lobbying_overlap(get_procurement_conn())
+
+
+# ── TED (EU-journal awards) — separate register ───────────────────────────────
+@st.cache_data(ttl=300)
+def fetch_ted_corpus_stats_result() -> QueryResult:
+    return _q.ted_corpus_stats(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
+def fetch_ted_supplier_summary_result(limit: int | None = 60, order_by: str = "awards") -> QueryResult:
+    return _q.ted_supplier_summary(get_procurement_conn(), limit=limit, order_by=order_by)
+
+
+@st.cache_data(ttl=300)
+def fetch_ted_for_supplier_result(join_norm: str) -> QueryResult:
+    return _q.ted_for_supplier(get_procurement_conn(), join_norm)
 
 
 @st.cache_data(ttl=300)

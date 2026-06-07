@@ -287,6 +287,14 @@ lobbyist/raw/
 !.basedpyright/
 !.basedpyright/baseline.json
 
+# Oireachtas API JSON schemas — fetch-time envelope validation (validate_if_known)
+# AND the test/services/test_api_schemas.py suite both load these at runtime. The
+# blanket *.json rule above swallows them, so a fresh clone / CI runner would hit
+# FileNotFoundError on the first validated fetch and fail the schema tests. Track
+# them explicitly (last match wins).
+!services/schemas/
+!services/schemas/*.json
+
 # === Runtime data for the deployed Streamlit app — committed deliberately (~16 MB) ===
 # Streamlit Cloud boots from a fresh git clone with no ETL, so the gold parquet + the
 # handful of silver CSVs that utility/ + sql_views/ read at runtime MUST be tracked.

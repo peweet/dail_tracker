@@ -147,6 +147,10 @@ _API_DOMAIN_GLOBS = [
     "payments_*.sql",
     "committees_*.sql",
     "procurement_*.sql",
+    # interests: detail glob first, then the zz_ index/summary that JOIN it — the
+    # proven order from utility/data_access/interests_data.py. Reads parquet directly.
+    "member_interests_*.sql",
+    "member_zz_interests_*.sql",
     "vote_*.sql",
 ]
 

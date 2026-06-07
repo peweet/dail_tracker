@@ -78,6 +78,82 @@ def test_fetch_json_propagates_timeout_via_session():
 
 
 # ---------------------------------------------------------------------------
+# fetch_json — transient-fault retry
+# ---------------------------------------------------------------------------
+
+
+@responses.activate
+def test_fetch_json_retries_5xx_then_succeeds(monkeypatch):
+    """A retryable status (500) followed by a 200 must recover, not raise.
+    Proves the backoff loop re-issues the request rather than giving up.
+    """
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)  # no real sleep in tests
+    url = "https://api.example.com/flaky"
+    responses.add(responses.GET, url, status=500)  # attempt 1
+    responses.add(responses.GET, url, json={"ok": True}, status=200)  # attempt 2
+
+    data, raw_bytes = he.fetch_json(url)
+
+    assert data == {"ok": True}
+    assert raw_bytes > 0
+    assert len(responses.calls) == 2  # retried exactly once
+
+
+@responses.activate
+def test_fetch_json_retries_connection_error_then_succeeds(monkeypatch):
+    """A transient ConnectionError (the DNS/read-timeout failure class that
+    silently dropped members on a bad connection) must be retried.
+    """
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    url = "https://api.example.com/blip"
+    responses.add(responses.GET, url, body=requests.exceptions.ConnectionError("boom"))
+    responses.add(responses.GET, url, json={"recovered": True}, status=200)
+
+    data, _ = he.fetch_json(url)
+
+    assert data == {"recovered": True}
+    assert len(responses.calls) == 2
+
+
+@responses.activate
+def test_fetch_json_exhausts_retries_then_raises(monkeypatch):
+    """Persistent 500 across all attempts must still raise (the contract
+    fetch_all relies on), after exactly RETRY_MAX_ATTEMPTS tries.
+    """
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    url = "https://api.example.com/down"
+    responses.add(responses.GET, url, status=500)
+
+    with pytest.raises(requests.HTTPError):
+        he.fetch_json(url)
+
+    assert len(responses.calls) == he.RETRY_MAX_ATTEMPTS
+
+
+@responses.activate
+def test_fetch_json_does_not_retry_4xx(monkeypatch):
+    """A permanent 404 must raise on the first attempt with no retry —
+    retrying a 404 just wastes wall-clock on a dead URL.
+    """
+    import services.http_engine as he
+
+    monkeypatch.setattr(he, "RETRY_BACKOFF_BASE", 0.0)
+    url = "https://api.example.com/gone"
+    responses.add(responses.GET, url, status=404)
+
+    with pytest.raises(requests.HTTPError):
+        he.fetch_json(url)
+
+    assert len(responses.calls) == 1  # no retry
+
+
+# ---------------------------------------------------------------------------
 # fetch_all — concurrent path
 # ---------------------------------------------------------------------------
 

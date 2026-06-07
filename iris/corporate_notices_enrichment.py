@@ -61,6 +61,12 @@ _PERSONAL_INSOL_RE = re.compile(
     re.I,
 )
 
+# Limited partnerships are privacy-mixed (can name individuals, e.g. via pension
+# trusts) and have no per-row name suppression — excluded from the corporate gold
+# entirely. A few reach scope via the original has_companies_act path; this is the
+# single global chokepoint that drops them regardless of classification route.
+_LIMITED_PARTNERSHIP_RE = re.compile(r"LIMITED PARTNERSHIP", re.I)
+
 
 def _load_brand_map() -> dict[str, tuple[str, str]]:
     """Return { BRAND_UPPER : (parent_fund, fund_type) }."""
@@ -98,13 +104,15 @@ def enrich(df: pl.DataFrame) -> tuple[pl.DataFrame, dict]:
     n_in_scope = raw_in_scope.height
     print(f"   in scope before personal-insolvency exclusion: {n_in_scope:,}")
 
-    print("[3/4] applying personal-insolvency exclusion (privacy rule)...")
+    print("[3/4] applying privacy exclusions (personal insolvency + limited partnerships)...")
     raw_texts = raw_in_scope["raw_text"].cast(pl.Utf8).fill_null("").to_list()
     personal_mask = [bool(_PERSONAL_INSOL_RE.search(t)) for t in raw_texts]
-    n_excluded = sum(personal_mask)
-    keep_mask = pl.Series("_keep", [not p for p in personal_mask])
+    lp_mask = [bool(_LIMITED_PARTNERSHIP_RE.search(t)) for t in raw_texts]
+    n_personal = sum(personal_mask)
+    n_lp = sum(lp_mask)
+    keep_mask = pl.Series("_keep", [not (p or lp) for p, lp in zip(personal_mask, lp_mask, strict=True)])
     corp = raw_in_scope.with_columns(keep_mask).filter(pl.col("_keep")).drop("_keep")
-    print(f"   excluded {n_excluded:,} personal-insolvency-wording rows | kept {corp.height:,}")
+    print(f"   excluded {n_personal:,} personal-insolvency + {n_lp:,} limited-partnership rows | kept {corp.height:,}")
 
     print("[4/4] tagging brand_mentions / parent_fund_mentions...")
     brands_col: list[list[str]] = []
@@ -151,7 +159,8 @@ def enrich(df: pl.DataFrame) -> tuple[pl.DataFrame, dict]:
         "as_of": _dt.datetime.now().isoformat(timespec="seconds"),
         "source": str(_SRC.relative_to(_ROOT)),
         "rows_in_scope_before_exclusion": n_in_scope,
-        "rows_excluded_personal_insolvency": n_excluded,
+        "rows_excluded_personal_insolvency": n_personal,
+        "rows_excluded_limited_partnership": n_lp,
         "rows_in_final_parquet": out.height,
         "category_counts": dict(out["notice_category"].value_counts(sort=True).iter_rows()),
         "subtype_counts": dict(out["notice_subtype"].value_counts(sort=True).head(20).iter_rows()),

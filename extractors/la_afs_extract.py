@@ -99,7 +99,7 @@ REGISTRY: list[dict] = [
         "entity": "county",
         "region": "Munster",
         "landing": [
-            "https://www.corkcoco.ie/en/council/accessibility-maps-and-publications/annual-financial-statements"
+            "https://www.corkcoco.ie/en/council/accessibility-maps-and-publications/annual-financial-statement"
         ],
     },
     {
