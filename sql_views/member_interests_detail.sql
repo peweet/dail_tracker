@@ -6,6 +6,7 @@
 -- coercion + category filter) that previously lived in utility/pages_code/interests.py.
 --
 -- Columns expose the contract the UI consumes:
+--   member_id (unique_member_code — stable join key to votes/payments/etc),
 --   member_name, party_name, constituency, declaration_year,
 --   interest_category, interest_text, landlord_flag, property_flag, house
 -- plus the four TODO_PIPELINE_VIEW_REQUIRED placeholder columns the page
@@ -19,6 +20,7 @@
 CREATE OR REPLACE VIEW v_member_interests_detail AS
 WITH dail AS (
     SELECT
+        unique_member_code              AS member_id,
         full_name                       AS member_name,
         party                           AS party_name,
         constituency_name               AS constituency,
@@ -37,6 +39,7 @@ WITH dail AS (
 ),
 seanad AS (
     SELECT
+        unique_member_code              AS member_id,
         full_name                       AS member_name,
         party                           AS party_name,
         constituency_name               AS constituency,

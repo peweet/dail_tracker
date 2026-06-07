@@ -19,10 +19,15 @@ import duckdb
 import pandas as pd
 
 from dail_tracker_core import serialize
+from dail_tracker_core.queries import committees as cmte
+from dail_tracker_core.queries import cross_ref as xref
+from dail_tracker_core.queries import interests as intr
 from dail_tracker_core.queries import legislation as leg
 from dail_tracker_core.queries import lobbying as lb
 from dail_tracker_core.queries import member_overview as moq
+from dail_tracker_core.queries import ministerial as min_
 from dail_tracker_core.queries import payments as pay
+from dail_tracker_core.queries import procurement as proc
 from dail_tracker_core.queries import votes as vot
 
 
@@ -86,7 +91,9 @@ def build_member_dossier(conn: duckdb.DuckDBPyConnection, code: str) -> dict[str
     vs = moq.votes_summary(conn, code).data
     if not vs.empty:
         r = vs.iloc[0]
-        votes_cast = int(r.get("yes_count", 0) or 0) + int(r.get("no_count", 0) or 0) + int(r.get("abstained_count", 0) or 0)
+        votes_cast = (
+            int(r.get("yes_count", 0) or 0) + int(r.get("no_count", 0) or 0) + int(r.get("abstained_count", 0) or 0)
+        )
         divisions = int(r.get("division_count", 0) or 0)
     else:
         votes_cast = divisions = 0
@@ -225,6 +232,64 @@ def build_division_dossier(conn: duckdb.DuckDBPyConnection, vote_id: str) -> dic
     }
 
 
+# ── Cross-reference: votes × Register of Members' Interests ────────────────────
+
+# Coverage caveat every cross-reference response carries, so an AI consumer states
+# it rather than implying full historical coverage.
+_INTERESTS_CAVEAT = (
+    "Register of Members' Interests covers 2020–2025 only; divisions before 2020 "
+    "have no interests counterpart and match nothing. 'landlord'/'property' use the "
+    "derived flags; 'director'/'shareholder' use the declared interest_category. "
+    "held_in_vote_year=true means the interest was declared in the vote's own year."
+)
+
+
+def build_division_interest_breakdown(conn: duckdb.DuckDBPyConnection, vote_id: str) -> dict[str, Any] | None:
+    """One division's Yes/Níl/Abstain tally split by the declared interests of its
+    voters (landlords / property-owners / directors / shareholders)."""
+    one = vot.vote_by_id(conn, vote_id).data
+    if one.empty:
+        return None
+    res = xref.division_interest_breakdown(conn, vote_id)
+    return {
+        "division": serialize.first_record(one),
+        "interest_breakdown": serialize.to_records(res.data),
+        "caveat": _INTERESTS_CAVEAT,
+    }
+
+
+def cross_reference_votes_interests(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    vote_id: str | None = None,
+    keyword: str | None = None,
+    vote_type: str = "Voted No",
+    interest: str = "landlord",
+    house: str = "Dáil",
+) -> dict[str, Any]:
+    """Members who voted ``vote_type`` on a division (by ``vote_id`` or debate-title
+    ``keyword``) AND declare ``interest`` on the register."""
+    res = xref.voting_vs_interests(
+        conn, vote_id=vote_id, keyword=keyword, vote_type=vote_type, interest=interest, house=house
+    )
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    matches = serialize.to_records(res.data)
+    return {
+        "query": {
+            "vote_id": vote_id,
+            "keyword": keyword,
+            "vote_type": vote_type,
+            "interest": interest,
+            "house": house,
+        },
+        "match_count": len(matches),
+        "distinct_members": len({m["member_id"] for m in matches}),
+        "matches": matches,
+        "caveat": _INTERESTS_CAVEAT,
+    }
+
+
 # ── Payments ──────────────────────────────────────────────────────────────────
 
 
@@ -259,6 +324,174 @@ def list_revolving_door(
 ) -> tuple[list[dict[str, Any]], int, bool]:
     """Former office-holders (DPOs) now lobbying — the revolving-door register."""
     df = lb.revolving_door(conn, None).data  # full list; paginate here
+    if df.empty:
+        return [], 0, False
+    return _page(df, skip, limit)
+
+
+# ── Member resolution (shared by member-scoped builders below) ─────────────────
+
+
+def _resolve_member(conn: duckdb.DuckDBPyConnection, name_or_code: str) -> dict[str, Any] | None:
+    """Resolve a code OR a name to ``{code, member_name, house}``.
+
+    Tries exact code, then exact (case-insensitive) name, then substring; takes the
+    first hit. Member-scoped views key differently — questions on
+    ``unique_member_code``, interests on ``member_name`` + ``house`` — so callers
+    need both surfaced from one lookup.
+    """
+    df = moq.member_list(conn).data
+    if df.empty:
+        return None
+    hit = df.loc[df["unique_member_code"] == name_or_code]
+    if hit.empty:
+        hit = df.loc[df["member_name"].astype(str).str.lower() == name_or_code.lower()]
+    if hit.empty:
+        hit = df.loc[df["member_name"].astype(str).str.contains(name_or_code, case=False, na=False)]
+    if hit.empty:
+        return None
+    row = hit.iloc[0]
+    return {
+        "code": str(row["unique_member_code"]),
+        "member_name": str(row["member_name"]),
+        "house": str(row["house"]),
+    }
+
+
+# ── Procurement ───────────────────────────────────────────────────────────────
+
+
+def list_suppliers(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    year: int | None = None,
+    order_by: str = "awards",
+    skip: int = 0,
+    limit: int = 20,
+) -> tuple[list[dict[str, Any]], int, bool]:
+    """Supplier ranking (one row per distinct supplier), carrying the view's CRO match
+    + lobbying-overlap flags. ``year`` scopes to one calendar year; ``None`` is all-time."""
+    df = proc.supplier_summary(conn, order_by=order_by, year=year).data
+    if df.empty:
+        return [], 0, False
+    return _page(df, skip, limit)
+
+
+def build_supplier_dossier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> dict[str, Any] | None:
+    """Composed supplier record: the ranking-row summary + every award, newest first.
+    None if the supplier_norm matches neither the summary nor any award."""
+    summary_df = proc.supplier_summary(conn).data
+    match = summary_df.loc[summary_df["supplier_norm"] == supplier_norm] if not summary_df.empty else summary_df
+    summary = serialize.first_record(match) if not match.empty else None
+    awards = serialize.to_records(proc.awards_for_supplier(conn, supplier_norm).data)
+    if summary is None and not awards:
+        return None
+    return {"summary": summary, "awards": awards}
+
+
+# ── Committees ────────────────────────────────────────────────────────────────
+
+
+def list_committees(conn: duckdb.DuckDBPyConnection, *, chamber: str = "Dáil") -> list[dict[str, Any]]:
+    """Per-committee rollup for a chamber (chair, member/party counts, party_seats_json)."""
+    return serialize.to_records(cmte.member_detail(conn, chamber).data)
+
+
+def get_committee(conn: duckdb.DuckDBPyConnection, chamber: str, committee: str) -> dict[str, Any] | None:
+    """One committee's rollup + its long-format party-seat breakdown. None if unknown."""
+    df = cmte.member_detail(conn, chamber).data
+    if df.empty:
+        return None
+    match = df.loc[df["committee"] == committee]
+    if match.empty:
+        return None
+    return {
+        "detail": serialize.first_record(match),
+        "party_seats": serialize.to_records(cmte.party_seats(conn, chamber, committee).data),
+    }
+
+
+# ── Interests (Register of Members' Interests) ────────────────────────────────
+
+
+def build_member_interests(conn: duckdb.DuckDBPyConnection, name_or_code: str) -> dict[str, Any] | None:
+    """A member's declared interests: per-year summary + every declaration across years.
+    None if the name/code resolves to no member."""
+    m = _resolve_member(conn, name_or_code)
+    if m is None:
+        return None
+    return {
+        "member": {"member_name": m["member_name"], "house": m["house"]},
+        "by_year": serialize.to_records(intr.member_year_summary(conn, m["house"], m["member_name"]).data),
+        "declarations": serialize.to_records(intr.td_interests(conn, m["house"], m["member_name"]).data),
+    }
+
+
+# ── Ministerial accountability ────────────────────────────────────────────────
+
+
+def who_was_minister(conn: duckdb.DuckDBPyConnection, department_query: str, on_date: str) -> dict[str, Any]:
+    """Who held a department on a given date (ISO 'YYYY-MM-DD'). ``department_query`` is a
+    fuzzy label resolved against the department picker; returns the holder, a
+    disambiguation list if several departments match, or the picker if none do."""
+    depts = min_.departments(conn).data
+    if depts.empty:
+        return {"error": "ministerial data unavailable"}
+    match = depts.loc[depts["department_label"].astype(str).str.contains(department_query, case=False, na=False)]
+    if match.empty:
+        match = depts.loc[depts["department_key"].astype(str).str.lower() == department_query.lower()]
+    if match.empty:
+        return {"error": f"no department matches '{department_query}'", "departments": serialize.to_records(depts)}
+    if len(match) > 1:
+        return {
+            "disambiguation": serialize.to_records(match),
+            "note": "multiple departments match — call again with a more specific name",
+        }
+    dept = match.iloc[0]
+    minister = serialize.first_record(min_.minister_on_date(conn, str(dept["department_key"]), on_date).data)
+    return {"department": str(dept["department_label"]), "on_date": on_date, "minister": minister}
+
+
+# ── Member questions feed ─────────────────────────────────────────────────────
+
+
+def build_member_questions(
+    conn: duckdb.DuckDBPyConnection,
+    name_or_code: str,
+    *,
+    year: int | None = None,
+    qtype: str | None = None,
+    ministry: str | None = None,
+    topic: str | None = None,
+    text: str | None = None,
+    limit: int = 200,
+) -> dict[str, Any] | None:
+    """A member's parliamentary-question feed with optional filters (year, type, ministry,
+    topic, free-text). Filters AND together. None if the name/code resolves to no member."""
+    m = _resolve_member(conn, name_or_code)
+    if m is None:
+        return None
+    df = moq.question_feed(
+        conn, m["code"], year=year, qtype=qtype, ministry=ministry, topic=topic, search_text=text
+    ).data
+    rows = serialize.to_records(df.iloc[:limit]) if not df.empty else []
+    return {
+        "member": {"unique_member_code": m["code"], "member_name": m["member_name"], "house": m["house"]},
+        "total_matched": int(len(df)),
+        "returned": len(rows),
+        "questions": rows,
+    }
+
+
+# ── Payments by year ──────────────────────────────────────────────────────────
+
+
+def list_payments_year_ranking(
+    conn: duckdb.DuckDBPyConnection, *, year: int, house: str = "Dáil", skip: int = 0, limit: int = 20
+) -> tuple[list[dict[str, Any]], int, bool]:
+    """Travel & Accommodation Allowance ranking for ONE calendar year (the all-time
+    ``list_payments_ranking`` can't answer 'who claimed most in <year>?')."""
+    df = pay.year_ranking(conn, year, house).data
     if df.empty:
         return [], 0, False
     return _page(df, skip, limit)

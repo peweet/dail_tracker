@@ -158,12 +158,20 @@ consultancy spend rising?" using counts, not summed ceilings.
 
 - **Stage A — the €570bn panel** (pure UI, no data change). Add a `coverage_stats`-fed
   contrast strip + the 24× explainer. Highest impact / lowest risk. *Ship first.*
-- **Stage B — TED uplift.** Promote `ted_ie_awards` silver → gold (zstd, gitignore
-  negation); clean winner-name `_NNNNN` suffix; `v_procurement_ted_*` view(s) (safe-to-sum
-  gated, pan-EU excluded by default); new "EU-level awards (TED)" tab + the per-firm TED
-  panel on the supplier profile; smoke + fixture tests.
-- **Stage C — concentration & trend** affordances (top-N share line; awards-by-year by
-  category) over existing views.
+- **Stage B — TED uplift. ✅ SHIPPED 2026-06-06.** Exposed `ted_ie_awards` via
+  `v_procurement_ted_awards` + `v_procurement_ted_supplier_summary` reading the enriched
+  **silver** parquet directly (same precedent as the lobbying-overlap view — no gold-parquet
+  duplication / gitignore dance, and the extractor's own design says "gold only when a view
+  exposes it"). Winner-name `_NNNNN` suffix stripped in-view (display + recovered join-norm).
+  New "EU-level awards (TED)" tab (count-led ranking, pan-EU **default-hidden** behind a
+  toggle that reveals the €586bn shared-ceiling mirage) + a per-firm TED cross-reference
+  panel on the eTenders supplier profile (matched on normalised name, **never summed**).
+  Core/query/UI tests added. *Follow-up:* clean the suffix at the extractor source so
+  `winner_name_norm` is clean for all rows (currently ~9% recovered in-view).
+- **Stage C — concentration & trend. ✅ SHIPPED 2026-06-06.** Top-N market-share line on
+  the Suppliers tab (`supplier_concentration` — top 10 firms = 4.6% of awards, "a broad
+  market") + an awards-per-year trend bar chart (`awards_by_year`). Both pre-aggregated in
+  the core/view layer; the page only renders. Tests added.
 - **Stage D — the payment/spend tier (separate milestone, gated).** Only after: privacy
   quarantine pass on `public_payments_fact`, `vat_status` column, HSE/Tusla merged to the
   canonical `value_kind`+`realisation_tier` schema, CRO join, views + tests. Then a

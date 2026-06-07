@@ -5057,6 +5057,19 @@ def inject_css() -> None:
             margin-top: 1.4rem; padding-top: 0.7rem; border-top: 1px solid var(--border); max-width: 64rem;
         }
         .pr-foot a { color: var(--accent); }
+        .pr-cap { font-size: 0.86rem; color: var(--ink-700); line-height: 1.5; margin: 0.2rem 0 0.6rem; max-width: 60rem; }
+        .pr-cap em { color: var(--text-meta); font-style: italic; }
+        /* TED cross-reference block on a supplier profile — a quiet, clearly-separate
+           "other register" callout. Neutral surface, left rule in accent (informational,
+           never alarm); the copy says "not added" so it can't read as a bigger total. */
+        .pr-ted-xref {
+            background: var(--surface-deep); border: 1px solid var(--border);
+            border-left: 3px solid var(--accent); border-radius: 8px;
+            padding: 0.6rem 0.85rem; margin: 1rem 0 0.4rem; max-width: 60rem;
+        }
+        .pr-ted-xref-h { font-weight: 700; color: var(--ink-strong); font-size: 0.84rem; }
+        .pr-ted-xref-b { font-size: 0.82rem; color: var(--ink-700); line-height: 1.5; margin-top: 0.2rem; }
+        .pr-ted-xref-b em { color: var(--text-meta); }
         @media (max-width: 640px) {
             .pr-grid { grid-template-columns: 1fr; }
         }

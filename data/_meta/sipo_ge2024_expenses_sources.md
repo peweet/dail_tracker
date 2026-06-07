@@ -125,7 +125,8 @@ lossy summariser. The collection has **three sections**:
 2. **Candidates Election Statements — 43 constituency sub-pages**, each listing ~10–16
    individual candidate sub-pages, each holding that candidate's **own** expense
    statement ⇒ ≈400–600 per-candidate PDFs. This is the granular per-candidate→vendor
-   detail referenced above as "not held here." **Untouched corpus.**
+   detail referenced above as "not held here." **Now being sourced** — see
+   *Per-candidate corpus* below.
 3. **Other Persons Election Expenses Statements — empty.**
 
 Donations are **not** in this collection (separate Election-reports `5b104` /
@@ -155,6 +156,29 @@ Annual-disclosures `76651`).
 Asset URL pattern: `https://assets.sipo.ie/media/<id>/<uuid>.pdf`. The 10 not-in-repo
 PDFs are cached at `c:/tmp/sipo_missing/`. **3 of 18 are born-digital text (SF, Aontú
 285737, National Party) → no OCR, fitz `get_text` direct.** 14 scanned → PaddleOCR.
+
+## Per-candidate corpus (`data/bronze/sipo_candidate_expenses/`)
+
+Sourced by `extractors/sipo_candidate_expenses_crawl.py`, which crawls the
+collection two levels deep (root → 43 constituencies → candidate pages) over the
+server-rendered HTML (no JS/OCR needed to discover links). **Each candidate page
+publishes up to two documents** — a *GE 2024 Election Expense Statement* and a
+*GE 2024 Donation Statement* (label variants incl. the abbreviations `EES`/`EDS`).
+The crawler classifies every document (`doc_type` = `expense_statement` /
+`donation_statement` / `other`).
+
+- **Manifest:** `data/bronze/sipo_candidate_expenses/_manifest.csv` — one row per
+  published document: constituency, candidate, candidate-page URL, `doc_type`,
+  `doc_label`, `pdf_url`, `media_id`, `local_path`, `bytes`, `sha256`,
+  `duplicate_of`, `status`. This is the OCR-ingestion work list.
+- **PDFs:** downloaded to `<constituency_slug>/<candidate_slug>__<media_id>.pdf`.
+  By default **only `expense_statement` docs are downloaded** (the manifest still
+  lists donation statements as `status=FOUND` so the donation corpus is
+  discoverable); pass `--doc-types all` (or `expense_statement,donation_statement`)
+  to fetch both. Re-runs are resumable (existing files → `CACHED`).
+- These per-candidate expense statements are the **scanned forms** that still need
+  the same PaddleOCR + geometry/anchor extraction pipeline as the party-level
+  returns — *not yet parsed*; the manifest is the queue for that pass.
 
 ## Scope constraint
 

@@ -114,6 +114,39 @@ def coverage_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
+def supplier_concentration(conn: duckdb.DuckDBPyConnection, *, top_n: int = 10) -> QueryResult:
+    """How concentrated is contract-winning? Returns the share of all company-class awards
+    held by the top-N firms (by award count), plus the totals behind it. The percentage is
+    computed in SQL (a metric belongs in the query layer, not the page). Answers a
+    journalist's first question — 'how few firms hold how much'."""
+    return _run(
+        conn,
+        "WITH ranked AS ("
+        "  SELECT n_awards, ROW_NUMBER() OVER (ORDER BY n_awards DESC) AS rn,"
+        "         SUM(n_awards) OVER () AS total_awards"
+        "  FROM v_procurement_supplier_summary)"
+        " SELECT"
+        f"  {int(top_n)} AS top_n,"
+        "  COUNT(*) AS n_suppliers,"
+        "  MAX(total_awards) AS total_awards,"
+        f"  COALESCE(SUM(n_awards) FILTER (WHERE rn <= {int(top_n)}), 0) AS top_n_awards,"
+        f"  ROUND(100.0 * COALESCE(SUM(n_awards) FILTER (WHERE rn <= {int(top_n)}), 0)"
+        "        / NULLIF(MAX(total_awards), 0), 1) AS top_n_share_pct"
+        " FROM ranked",
+    )
+
+
+def awards_by_year(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Company-class award counts per calendar year (the trend lens — 'is contract activity
+    rising?'). Counts only, pre-aggregated; the page renders, never computes."""
+    return _run(
+        conn,
+        "SELECT year, SUM(n_awards)::BIGINT AS n_awards"
+        " FROM v_procurement_supplier_year_summary"
+        " WHERE year IS NOT NULL GROUP BY year ORDER BY year",
+    )
+
+
 def value_contrast(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Whole-corpus naive-vs-safe value contrast for the "€570bn that isn't" panel.
 
@@ -224,6 +257,62 @@ def awards_for_cpv(conn: duckdb.DuckDBPyConnection, cpv_code: str, *, year: int 
         sql += " AND EXTRACT(year FROM award_date) = ?"
         params.append(int(year))
     return _run(conn, sql + " ORDER BY award_date DESC NULLS LAST", params)
+
+
+# ── TED (EU Official Journal award notices) — a SEPARATE award register ───────────
+# Award grain, never summed with eTenders. pan-EU outliers (GÉANT-type frameworks) are
+# excluded from value totals by default; the page's toggle re-includes them.
+_TED_ORDER = {
+    "awards": "n_awards DESC",
+    "value": "ted_value_safe_eur DESC, n_awards DESC",
+}
+
+
+def ted_corpus_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """One-row TED corpus summary for the tab headline + the pan-EU toggle. The sum-safe
+    value already EXCLUDES pan-EU outliers (those vast research-framework ceilings are never
+    value_safe_to_sum), so the toggle does not change the real total — it only adds the 375
+    pan-EU notices back to the count and *reveals* their headline ceiling (the TED echo of
+    the eTenders €570bn mirage). Also the page's TED source-state gate."""
+    return _run(
+        conn,
+        "SELECT"
+        "  COUNT(*) AS n_notices,"
+        "  COUNT(*) FILTER (WHERE NOT is_pan_eu_outlier) AS n_notices_ex_pan_eu,"
+        "  MIN(year)::INT AS min_year, MAX(year)::INT AS max_year,"
+        "  COUNT(DISTINCT winner_join_norm) FILTER (WHERE NOT is_pan_eu_outlier) AS n_winners,"
+        "  COUNT(DISTINCT buyer_name) AS n_buyers,"
+        "  COUNT(*) FILTER (WHERE is_pan_eu_outlier) AS n_pan_eu,"
+        "  COALESCE(SUM(award_value_eur) FILTER (WHERE value_safe_to_sum), 0) AS value_safe_eur,"
+        "  COALESCE(SUM(award_value_eur) FILTER (WHERE is_pan_eu_outlier), 0) AS pan_eu_ceiling_eur"
+        " FROM v_procurement_ted_awards",
+    )
+
+
+def ted_supplier_summary(
+    conn: duckdb.DuckDBPyConnection, *, limit: int | None = 60, order_by: str = "awards"
+) -> QueryResult:
+    """Top TED winners (company-class), ranked by award-notice count (trustworthy) or
+    sum-safe value (excl. pan-EU). Carries both value columns so the page's pan-EU toggle
+    needs no second query."""
+    order = _TED_ORDER.get(order_by, _TED_ORDER["awards"])
+    sql = f"SELECT * FROM v_procurement_ted_supplier_summary ORDER BY {order}"
+    params: list = []
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
+
+
+def ted_for_supplier(conn: duckdb.DuckDBPyConnection, join_norm: str) -> QueryResult:
+    """One TED winner's footprint for the cross-reference panel on an eTenders supplier
+    profile (matched on the normalised name). Returns the single summary row, or empty if
+    the firm has no TED notices. Never summed with the firm's eTenders total."""
+    return _run(
+        conn,
+        "SELECT * FROM v_procurement_ted_supplier_summary WHERE winner_join_norm = ?",
+        [join_norm],
+    )
 
 
 def lobbying_overlap(conn: duckdb.DuckDBPyConnection) -> QueryResult:

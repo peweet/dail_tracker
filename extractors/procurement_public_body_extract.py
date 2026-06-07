@@ -212,19 +212,19 @@ PUBLISHERS: list[dict] = [
         caveat="Purchase-Orders quarterly files (PO grain); contracts-awarded list excluded"),
     cfg("dept_housing", "Department of Housing, Local Government and Heritage", "department",
         "central_government",
-        listing="https://www.gov.ie/en/department-of-housing-local-government-and-heritage/collections/purchase-orders-and-payments-over-20000/",
+        listing="https://www.gov.ie/en/department-of-housing-local-government-and-heritage/collections/procurement-related-payments-over-20000-euro/",
         semantics="payment_actual", grain="payment", tier="C",
-        caveat="prior sample was a privacy statement; using the gov.ie payments collection"),
+        caveat="prior sample was a privacy statement; using the gov.ie payments collection (slug renamed to procurement-related-payments-over-20000-euro 2026-06)"),
     cfg("ie_cdetb", "City of Dublin ETB", "education_body", "education",
         listing="https://www.cityofdublinetb.ie/about-us/finance-and-procurement/procurement/",
         semantics="po_committed", grain="purchase_order", privacy="medium", tier="C",
         include=r"purchase|payment|po[s]?[-_ ]?over|20[,]?000|quarter|q[1-4]",
         caveat="prior sample was the procurement policy; excluding policy docs"),
     cfg("ie_enterprise_ireland", "Enterprise Ireland", "semi_state", "enterprise_tourism",
-        listing="https://www.enterprise-ireland.com/en/about-us/our-policies/purchase-orders-over-20000",
+        listing="https://www.enterprise-ireland.com/en/legal/policies-guidelines/procurement-policy",
         semantics="po_committed", grain="purchase_order", tier="C",
         include=r"purchase|payment|po[s]?[-_ ]?over|20[,]?000|over.?20k",
-        caveat="FOI-only: no clean PO file located at this URL (only sustainability/climate reports surface)"),
+        caveat="agency (not DETE dept) procurement-policy page; quarterly XLSX 'Payments over €20,000' 2012-present"),
 
     # ---- Tier D: discovery sweep 2026-06-04 (doc/PROCUREMENT_SOURCE_DISCOVERY_2026_06_04.md) --
     # Probe-confirmed, generic-reader-clean. Held back for bespoke/render passes (NOT here):
