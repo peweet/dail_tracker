@@ -315,6 +315,100 @@ def ted_for_supplier(conn: duckdb.DuckDBPyConnection, join_norm: str) -> QueryRe
     )
 
 
+# ── Public-body PAYMENTS (the SPENT / COMMITTED tiers) — a DIFFERENT grain from awards ──
+# Never summed with eTenders/TED. One lifecycle tier at a time; only value_safe_to_sum sums,
+# never across vat_status. Suppliers named per published source (see the view headers).
+_PAYMENT_TIERS = {"SPENT": "SPENT", "COMMITTED": "COMMITTED"}  # whitelist (no raw string in SQL)
+
+
+def _tier(tier: str) -> str:
+    return _PAYMENT_TIERS.get((tier or "").upper(), "SPENT")
+
+
+def payments_corpus_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """One-row summary of the public-body payment corpus for the section headline + source-state
+    gate: distinct publishers/suppliers, year span, and the sum-safe total for EACH tier shown
+    separately (paid vs ordered are never added). Totals span mixed vat_status, so the page must
+    label them indicative floors, not audited totals."""
+    return _run(
+        conn,
+        "SELECT"
+        "  COUNT(*) AS n_payments,"
+        "  COUNT(DISTINCT publisher_name) AS n_publishers,"
+        "  COUNT(DISTINCT supplier_normalised) AS n_suppliers,"
+        "  MIN(year)::INT AS min_year, MAX(year)::INT AS max_year,"
+        "  COALESCE(SUM(amount_eur) FILTER (WHERE value_safe_to_sum AND realisation_tier='SPENT'), 0)"
+        "    AS spent_safe_eur,"
+        "  COALESCE(SUM(amount_eur) FILTER (WHERE value_safe_to_sum AND realisation_tier='COMMITTED'), 0)"
+        "    AS committed_safe_eur"
+        " FROM v_procurement_payments",
+    )
+
+
+def payments_publisher_summary(
+    conn: duckdb.DuckDBPyConnection, *, tier: str = "SPENT", limit: int | None = 60
+) -> QueryResult:
+    """Public bodies ranked by sum-safe amount for one lifecycle tier (paid / ordered)."""
+    sql = (
+        "SELECT * FROM v_procurement_payments_publisher_summary"
+        " WHERE realisation_tier = ? ORDER BY total_safe_eur DESC"
+    )
+    params: list = [_tier(tier)]
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
+
+
+def payments_supplier_summary(
+    conn: duckdb.DuckDBPyConnection, *, tier: str = "SPENT", limit: int | None = 60
+) -> QueryResult:
+    """Suppliers ranked by sum-safe amount the State paid (SPENT) or ordered (COMMITTED)."""
+    sql = (
+        "SELECT * FROM v_procurement_payments_supplier_summary"
+        " WHERE realisation_tier = ? ORDER BY total_safe_eur DESC"
+    )
+    params: list = [_tier(tier)]
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
+
+
+def payments_for_publisher(
+    conn: duckdb.DuckDBPyConnection, publisher_name: str, *, tier: str = "SPENT", limit: int = 200
+) -> QueryResult:
+    """Top suppliers paid/ordered by one public body (drill-down), sum-safe within that body."""
+    return _run(
+        conn,
+        "SELECT mode(supplier) AS supplier, supplier_normalised, supplier_class,"
+        " COUNT(*) AS n_payments, MIN(year)::INT AS min_year, MAX(year)::INT AS max_year,"
+        " COALESCE(SUM(amount_eur) FILTER (WHERE value_safe_to_sum), 0) AS total_safe_eur,"
+        " mode(cro_company_num) AS cro_company_num"
+        " FROM v_procurement_payments WHERE publisher_name = ? AND realisation_tier = ?"
+        " GROUP BY supplier_normalised, supplier_class"
+        " ORDER BY total_safe_eur DESC LIMIT ?",
+        [publisher_name, _tier(tier), int(limit)],
+    )
+
+
+def payments_for_supplier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> QueryResult:
+    """One firm's public-body payment footprint for the cross-reference on an eTenders supplier
+    profile: paid (SPENT) and ordered (COMMITTED) totals + publisher count. Indicative floor
+    (mixed vat_status); never summed with the firm's award totals."""
+    return _run(
+        conn,
+        "SELECT realisation_tier, COUNT(*) AS n_payments,"
+        " COUNT(DISTINCT publisher_name) AS n_publishers,"
+        " MIN(year)::INT AS min_year, MAX(year)::INT AS max_year,"
+        " (COUNT(DISTINCT vat_status) > 1) AS vat_mixed,"
+        " COALESCE(SUM(amount_eur) FILTER (WHERE value_safe_to_sum), 0) AS total_safe_eur"
+        " FROM v_procurement_payments WHERE supplier_normalised = ?"
+        " GROUP BY realisation_tier ORDER BY total_safe_eur DESC",
+        [supplier_norm],
+    )
+
+
 def lobbying_overlap(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Companies on BOTH the procurement and lobbying registers (co-occurrence
     disclosure only — never causation; see the view header)."""

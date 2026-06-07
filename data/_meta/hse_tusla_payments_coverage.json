@@ -49,22 +49,23 @@
     }
   ],
   "supplier_class_counts": {
-    "foreign_company": 82,
-    "sole_trader_or_individual": 7409,
+    "public_body": 252,
+    "sole_trader_or_individual": 7348,
     "unknown": 52,
-    "public_body": 191,
+    "foreign_company": 82,
     "company": 13928
   },
   "amount_semantics_counts": {
     "payment_actual": 16972,
     "po_committed": 4690
   },
-  "value_safe_to_sum_rows": 21662,
-  "value_safe_to_sum_total_eur": 6783261777.25,
-  "rows_review_personal_data": 7409,
-  "privacy_quarantine_applied": false,
+  "value_safe_to_sum_rows": 21410,
+  "value_safe_to_sum_total_eur": 6668684973.070001,
+  "rows_review_personal_data": 7348,
+  "rows_quarantined": 7348,
+  "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-05T07:50:29+00:00",
-  "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. Per-year files layout-gated. PRIVACY QUARANTINE DEFERRED (public_display=True)."
+  "generated_at": "2026-06-07T16:38:54+00:00",
+  "caveat": "GOLD-CANDIDATE. HSE+Tusla via bespoke column-x parse, mapped to public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. Per-year files layout-gated. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals \u2014 HSE/Tusla pay individual practitioners & carers) are marked public_display=False and must be filtered out before any UI use; retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }

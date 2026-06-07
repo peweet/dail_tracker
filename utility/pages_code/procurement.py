@@ -45,6 +45,11 @@ from data_access.procurement_data import (
     fetch_cpv_summary_result,
     fetch_lobbying_overlap_result,
     fetch_awards_by_year_result,
+    fetch_payments_corpus_stats_result,
+    fetch_payments_for_publisher_result,
+    fetch_payments_for_supplier_result,
+    fetch_payments_publisher_summary_result,
+    fetch_payments_supplier_summary_result,
     fetch_supplier_concentration_result,
     fetch_supplier_summary_result,
     fetch_ted_corpus_stats_result,
@@ -406,6 +411,173 @@ def _render_overlap(df: pd.DataFrame, year: int | None = None) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Tab: Money actually paid — public-body PAYMENTS (SPENT/COMMITTED), a different grain
+# from awards, never summed with them. Suppliers named per published source.
+# ──────────────────────────────────────────────────────────────────────────────
+def _tier_toggle(key: str) -> str:
+    """'Paid' (SPENT) vs 'Ordered' (COMMITTED) — two lifecycle tiers, never blended."""
+    labels = {"Paid (actual spend)": "SPENT", "Ordered (purchase orders)": "COMMITTED"}
+    choice = st.segmented_control("Tier", list(labels), default="Paid (actual spend)", key=key, label_visibility="collapsed")
+    return labels.get(choice or "Paid (actual spend)", "SPENT")
+
+
+def _paid_verb(tier: str) -> str:
+    return "ordered" if tier == "COMMITTED" else "paid"
+
+
+def _paid_pill(val, tier: str) -> str:
+    if _eur(val) == "—":
+        return ""
+    return f'<span class="pr-pill pr-pill-val">{_eur(val)} {_paid_verb(tier)}</span>'
+
+
+def _paid_publisher_href(name) -> str:
+    return f"?paid_publisher={urllib.parse.quote(str(name))}"
+
+
+def _render_payments() -> None:
+    stats_res = fetch_payments_corpus_stats_result()
+    if not stats_res.ok or stats_res.data.empty:
+        empty_state(
+            "Payment data isn't available right now",
+            "The public-body payment views couldn't be loaded — a source/pipeline issue, not an empty result.",
+        )
+        return
+    s = stats_res.data.iloc[0]
+    span = f"{_n(s.get('min_year'))}–{_n(s.get('max_year'))}"
+    st.html(
+        '<div class="pr-caveat"><strong>Money actually paid — a different thing from awards.</strong> '
+        f"These are payments and purchase orders {_n(s.get('n_publishers')):,} public bodies "
+        f"<em>published themselves</em> (their over-€20,000 lists, {span}), to "
+        f"{_n(s.get('n_suppliers')):,} suppliers. At least <strong>{_eur_scale(s.get('spent_safe_eur'))} "
+        f"paid</strong> and {_eur_scale(s.get('committed_safe_eur'))} ordered — an indicative floor, "
+        "not an audited total (bodies use different VAT bases, so totals are never summed across them, "
+        "and these are <em>never</em> added to the award figures above — a paid invoice and a contract "
+        "ceiling are different stages of public money).</div>"
+    )
+
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        tier = _tier_toggle("pr_pay_tier")
+    with c2:
+        view_labels = {"Top suppliers": "supplier", "Top public bodies": "publisher"}
+        view = view_labels.get(
+            st.segmented_control("View", list(view_labels), default="Top suppliers", key="pr_pay_view", label_visibility="collapsed")
+            or "Top suppliers",
+            "supplier",
+        )
+
+    if view == "supplier":
+        _render_paid_suppliers(tier)
+    else:
+        _render_paid_publishers(tier)
+    st.html(
+        '<div class="pr-foot"><strong>Source:</strong> each public body\'s own published '
+        "purchase-order / payments-over-€20,000 disclosures (Circular 07/2012 / FOI), consolidated and "
+        "matched to the Companies Registration Office. Suppliers are named as published. "
+        "Paid (actual spend) and ordered (purchase orders) are different stages and are never summed "
+        "together; totals are never summed across bodies with different VAT bases; never added to award values.</div>"
+    )
+
+
+def _render_paid_suppliers(tier: str) -> None:
+    res = fetch_payments_supplier_summary_result(tier=tier, limit=_TOP)
+    df = res.data if res.ok else pd.DataFrame()
+    if df.empty:
+        empty_state("No payments", f"No supplier has {_paid_verb(tier)} records in this tier.")
+        return
+    st.caption(f"Top {len(df):,} suppliers by money {_paid_verb(tier)} (sum-safe). Names as published by the body.")
+    cards = []
+    for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
+        np_ = _n(r.n_publishers)
+        meta = f"{_n(r.n_payments):,} payment{'s' if _n(r.n_payments) != 1 else ''} · {np_:,} public bod{'ies' if np_ != 1 else 'y'}"
+        if _truthy(getattr(r, "vat_mixed", None)):
+            meta += " · mixed VAT bases (floor)"
+        pills = [p for p in (_paid_pill(r.total_safe_eur, tier),
+                             _cro_pill_from(getattr(r, "cro_company_num", None), getattr(r, "cro_company_status", None))) if p]
+        cards.append(_card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=i))
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+
+
+def _render_paid_publishers(tier: str) -> None:
+    res = fetch_payments_publisher_summary_result(tier=tier, limit=_TOP)
+    df = res.data if res.ok else pd.DataFrame()
+    if df.empty:
+        empty_state("No public bodies", f"No body has {_paid_verb(tier)} records in this tier.")
+        return
+    st.caption(f"Public bodies by money {_paid_verb(tier)} (sum-safe within each body). Click one for its suppliers.")
+    cards = []
+    for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
+        meta = f"{_n(r.n_suppliers):,} supplier{'s' if _n(r.n_suppliers) != 1 else ''} · {_n(r.min_year)}–{_n(r.max_year)}"
+        vat = _coalesce(getattr(r, "vat_status", None))
+        pills = [_paid_pill(r.total_safe_eur, tier)]
+        if vat == "incl_vat":
+            pills.append('<span class="pr-pill pr-pill-lob">VAT-inclusive</span>')
+        inner = _card(f"<span>{_esc(r.publisher_name)}</span>", meta, [p for p in pills if p], rank=i)
+        cards.append(
+            clickable_card_link(
+                href=_paid_publisher_href(r.publisher_name),
+                inner_html=inner,
+                aria_label=f"View the suppliers {_paid_verb(tier)} by {r.publisher_name}",
+            )
+        )
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+
+
+def _render_payments_publisher_profile(publisher_name: str) -> None:
+    if back_button("← Back to procurement", key="prpaypub"):
+        st.query_params.clear()
+        st.rerun()
+    res = fetch_payments_for_publisher_result(publisher_name, tier="SPENT")
+    df = res.data if res.ok else pd.DataFrame()
+    st.html(
+        f'<div class="pr-prof-head"><h1 class="pr-prof-name">{_esc(publisher_name)}</h1>'
+        '<div class="pr-prof-sub">Suppliers this public body paid (over €20,000), most paid first</div></div>'
+    )
+    if df.empty:
+        empty_state("No payments found", "This body has no sum-safe paid records, or the link didn't match.")
+        return
+    st.caption(
+        f"Top {len(df):,} suppliers by money paid (sum-safe). Names as published by the body; "
+        "amounts are payments made, not award ceilings."
+    )
+    cards = []
+    for i, r in enumerate(df.itertuples(), start=1):
+        meta = f"{_n(r.n_payments):,} payment{'s' if _n(r.n_payments) != 1 else ''} · {_n(r.min_year)}–{_n(r.max_year)}"
+        pills = [p for p in (_paid_pill(r.total_safe_eur, "SPENT"),
+                             _cro_pill_from(getattr(r, "cro_company_num", None), None)) if p]
+        cards.append(_card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=i))
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html(_FOOT_HTML)
+
+
+def _render_paid_supplier_panel(supplier_norm: str) -> None:
+    """Cross-reference on an eTenders supplier profile: what public bodies actually PAID this
+    firm (a later lifecycle stage than the awards above — never added to them)."""
+    res = fetch_payments_for_supplier_result(supplier_norm)
+    if not res.ok or res.data.empty:
+        return
+    parts = []
+    for r in res.data.itertuples():
+        val = _eur(getattr(r, "total_safe_eur", None))
+        if val == "—":
+            continue
+        verb = _paid_verb(getattr(r, "realisation_tier", "SPENT"))
+        floor = " (indicative floor — mixed VAT bases)" if _truthy(getattr(r, "vat_mixed", None)) else ""
+        parts.append(
+            f"<strong>{val} {verb}</strong> by {_n(r.n_publishers):,} public "
+            f"bod{'ies' if _n(r.n_publishers) != 1 else 'y'}{floor}"
+        )
+    if not parts:
+        return
+    st.html(
+        '<div class="pr-ted-xref"><div class="pr-ted-xref-h">Money actually paid (public-body disclosures)</div>'
+        f'<div class="pr-ted-xref-b">This firm was {", and ".join(parts)} (over €20k, self-published). '
+        "A later stage than the awards above — these are <em>not</em> added to the award totals.</div></div>"
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Tab: EU-level awards (TED) — a SEPARATE register, never summed with eTenders.
 # ──────────────────────────────────────────────────────────────────────────────
 def _ted_value_pill(val) -> str:
@@ -636,7 +808,8 @@ def _render_supplier_profile(supplier_norm: str) -> None:
         label="awards",
     )
 
-    # Cross-reference the EU register (TED) for the same firm — separate, never summed.
+    # Cross-references for the same firm — each a separate register/stage, never summed.
+    _render_paid_supplier_panel(supplier_norm)
     _render_ted_supplier_panel(supplier_norm)
 
     st.html(
@@ -814,6 +987,9 @@ def procurement_page() -> None:
     if params.get("cpv"):
         _render_cpv_profile(params.get("cpv"))
         return
+    if params.get("paid_publisher"):
+        _render_payments_publisher_profile(params.get("paid_publisher"))
+        return
 
     # coverage_stats is the source-state gate AND the scale anchor: a missing view /
     # parquet / DuckDB error is NOT "no results".
@@ -877,7 +1053,14 @@ def procurement_page() -> None:
 
     overlap = fetch_lobbying_overlap_result()
     tabs = st.tabs(
-        ["Suppliers", "Contracting authorities", "Categories", "Lobbying overlap", "EU-level awards (TED)"]
+        [
+            "Suppliers",
+            "Contracting authorities",
+            "Categories",
+            "Money actually paid",
+            "Lobbying overlap",
+            "EU-level awards (TED)",
+        ]
     )
     with tabs[0]:
         _render_suppliers(year)
@@ -886,8 +1069,10 @@ def procurement_page() -> None:
     with tabs[2]:
         _render_cpv(year)
     with tabs[3]:
-        _render_overlap(overlap.data if overlap.ok else pd.DataFrame(), year)
+        _render_payments()
     with tabs[4]:
+        _render_overlap(overlap.data if overlap.ok else pd.DataFrame(), year)
+    with tabs[5]:
         _render_ted()
 
     st.html(

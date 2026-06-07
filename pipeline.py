@@ -83,6 +83,15 @@ CHAINS: list[tuple[str, str]] = [
     # exposed to the UI). Zero-auth API, caches raw to bronze, depends on the CRO silver
     # register (winner->CRO match), skips gracefully on an API outage. Headless-safe.
     ("ted", "extractors/ted_ireland_extract.py"),
+    # public_body_payments: depts / semi-states / health / edu PO+payment disclosures over €20k
+    # -> gold public_payments_fact (one row per source line). Self-fetches + caches per-publisher
+    # files, no deps, headless-safe. Writes gold by default (--dry-run -> sandbox). Privacy
+    # quarantine enforced: likely-personal suppliers are public_display=False (refuses to write a leak).
+    ("public_body_payments", "extractors/procurement_public_body_extract.py"),
+    # hse_tusla_payments: HSE + Tusla bespoke column-x parse -> gold hse_tusla_payments_fact (same
+    # schema; unions behind v_public_payments). privacy_risk=high — same hard quarantine + write-
+    # invariant. Uses cached FOI PDFs (falls back to fetch); per-year files layout-drift-gated.
+    ("hse_tusla_payments", "extractors/procurement_hse_tusla_materialize.py"),
     # cso: CSO PxStat tables (housing/HAP + general-government finance GFA01/GFQ01/
     # NA012) -> gold cso_<table>.parquet (the national denominators behind
     # v_gov_finance_annual). Zero-auth REST, no deps; writes any GREEN table by
@@ -122,6 +131,8 @@ _CHAIN_BLURBS: dict[str, str] = {
     "procurement": "eTenders/OGP awards + supplier->CRO match (gold); value-is-not-spend flags",
     "procurement_lobbying": "supplier <-> lobbying registrant/client overlap xref (gold)",
     "ted": "TED EU award notices (Ireland) + winner->CRO match (silver); award-value-not-spend flags",
+    "public_body_payments": "public-body PO/payment disclosures over €20k -> gold public_payments_fact (privacy-gated)",
+    "hse_tusla_payments": "HSE + Tusla PO/payment PDFs -> gold hse_tusla_payments_fact (privacy-gated, high-risk)",
     "cso": "CSO PxStat housing/HAP + govt-finance (GFA01/GFQ01/NA012) -> gold denominators",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
     "source_health": "per-source health -> data/_meta/source_health.json (manual staleness; links opt-in)",
