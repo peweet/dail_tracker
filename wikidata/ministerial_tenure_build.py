@@ -44,6 +44,7 @@ import requests
 
 from config import BRONZE_DIR, SILVER_DIR
 from iris.si_entity_enrichment import canonicalise_department, load_department_aliases
+from services.parquet_io import save_parquet
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +208,7 @@ def run() -> dict:
     )
 
     _OUT.parent.mkdir(parents=True, exist_ok=True)
-    out.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
+    save_parquet(out, _OUT)
 
     n = len(out)
     coded = int(out["member_code"].notna().sum())

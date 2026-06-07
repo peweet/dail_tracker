@@ -92,6 +92,7 @@ import polars as pl
 from openpyxl import load_workbook
 
 from config import BRONZE_DIR, SILVER_DIR
+from services.parquet_io import save_parquet
 
 BRONZE_CHARITY_DIR = BRONZE_DIR / "charities"
 DEFAULT_SILVER_DIR = SILVER_DIR / "charities"
@@ -782,10 +783,10 @@ def main() -> int:
     out_annual = args.silver_dir / "annual_reports.parquet"
     out_latest = args.silver_dir / "charity_latest.parquet"
     out_trustees = args.silver_dir / "trustees_long.parquet"
-    register.write_parquet(out_register, compression="zstd", compression_level=3, statistics=True)
-    annual.write_parquet(out_annual, compression="zstd", compression_level=3, statistics=True)
-    latest.write_parquet(out_latest, compression="zstd", compression_level=3, statistics=True)
-    trustees.write_parquet(out_trustees, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(register, out_register)
+    save_parquet(annual, out_annual)
+    save_parquet(latest, out_latest)
+    save_parquet(trustees, out_trustees)
 
     print(f"[charity_normalise] wrote {out_register}        rows={register.height}  cols={register.width}")
     print(f"[charity_normalise] wrote {out_annual}   rows={annual.height}  cols={annual.width}")

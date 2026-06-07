@@ -64,6 +64,7 @@ import polars as pl
 import requests
 
 from config import BRONZE_DIR, SILVER_PARQUET_DIR
+from services.parquet_io import save_parquet
 
 _MEMBERS_PARQUET = SILVER_PARQUET_DIR / "flattened_members.parquet"
 _SEANAD_MEMBERS_PARQUET = SILVER_PARQUET_DIR / "flattened_seanad_members.parquet"
@@ -307,7 +308,7 @@ def run() -> dict:
     out = build_links_df(raw, codes_now)
 
     _OUT.parent.mkdir(parents=True, exist_ok=True)
-    out.write_parquet(_OUT, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(out, _OUT)
 
     # Coverage breakdown — useful in logs to see if a platform's coverage
     # degrades silently after a refresh.

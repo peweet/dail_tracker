@@ -32,6 +32,7 @@ import sys
 import polars as pl
 
 from config import DATA_DIR, GOLD_PARQUET_DIR, SILVER_DIR
+from services.parquet_io import save_parquet
 
 CHARITY_RESOLVED = SILVER_DIR / "charities" / "charity_resolved.parquet"
 CRO_COMPANIES = SILVER_DIR / "cro" / "companies.parquet"
@@ -94,7 +95,7 @@ def main() -> int:
         print(f"WARNING: dedup collapsed {before - enriched.height:,} duplicate RCN rows")
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    enriched.write_parquet(OUTPUT, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(enriched, OUTPUT)
 
     matched = enriched.filter(pl.col("link_method").is_not_null()).height
     has_nace = enriched.filter(pl.col("nace_section_label").is_not_null()).height

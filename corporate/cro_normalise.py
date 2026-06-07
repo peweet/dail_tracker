@@ -50,6 +50,7 @@ from pathlib import Path
 import polars as pl
 
 from config import BRONZE_DIR, SILVER_DIR
+from services.parquet_io import save_parquet
 from shared.name_norm import name_norm_expr
 
 BRONZE_CRO_DIR = BRONZE_DIR / "cro"
@@ -199,8 +200,7 @@ def main() -> int:
     df_raw = load_bronze(bronze_path)
     df, summary = normalise(df_raw)
 
-    args.silver.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(args.silver, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, args.silver)
 
     print(f"[cro_normalise] wrote {args.silver}  rows={df.height}  cols={df.width}")
     for k, v in summary.items():

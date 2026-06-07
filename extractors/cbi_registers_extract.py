@@ -30,6 +30,7 @@ CLI:
     python extractors/cbi_registers_extract.py --xref
     python extractors/cbi_registers_extract.py            # all three (skips download if PDFs cached)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,13 +40,15 @@ import sys
 import unicodedata
 from pathlib import Path
 
+import fitz
 import polars as pl
 import requests
 from bs4 import BeautifulSoup
-import fitz
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
+
+from services.parquet_io import save_parquet  # noqa: E402
 
 URL = "https://registers.centralbank.ie/downloadspage.aspx"
 H = {"User-Agent": "Mozilla/5.0 dail_extractor sandbox"}
@@ -63,22 +66,57 @@ _REF_RE = re.compile(r"\b(C\d{3,7}|F\d{3,6}|NU\d{3,6}|\d{2,4}CU)\b")
 
 # Header/template lines to never treat as firm names.
 _HEADER_TERMS = {
-    "name and address", "name of undertaking", "credit union name",
-    "applicant name", "business name", "business address",
-    "reference number", "ref no", "ref no.", "ref. no.",
-    "address", "authorisation date", "auth date", "auth date revocation",
-    "registered office", "registered number", "registration date",
-    "classes of business", "status", "country", "member state of origin",
-    "head office", "regulated as", "registered on", "registered as",
-    "tied to", "persons responsible", "passporting into",
-    "service provided", "services", "business services",
-    "financial instruments", "other  jurisdictions", "other jurisdictions",
-    "page", "run date", "deposit-taking and other services",
-    "client  money", "client money", "revocation",
-    "revocation  reason", "revocation reason", "tied agents",
-    "date of authorisation", "date authorised", "intermediary",
-    "intermediary*", "reference  number", "intermediary**",
-    "name", "trading name",
+    "name and address",
+    "name of undertaking",
+    "credit union name",
+    "applicant name",
+    "business name",
+    "business address",
+    "reference number",
+    "ref no",
+    "ref no.",
+    "ref. no.",
+    "address",
+    "authorisation date",
+    "auth date",
+    "auth date revocation",
+    "registered office",
+    "registered number",
+    "registration date",
+    "classes of business",
+    "status",
+    "country",
+    "member state of origin",
+    "head office",
+    "regulated as",
+    "registered on",
+    "registered as",
+    "tied to",
+    "persons responsible",
+    "passporting into",
+    "service provided",
+    "services",
+    "business services",
+    "financial instruments",
+    "other  jurisdictions",
+    "other jurisdictions",
+    "page",
+    "run date",
+    "deposit-taking and other services",
+    "client  money",
+    "client money",
+    "revocation",
+    "revocation  reason",
+    "revocation reason",
+    "tied agents",
+    "date of authorisation",
+    "date authorised",
+    "intermediary",
+    "intermediary*",
+    "reference  number",
+    "intermediary**",
+    "name",
+    "trading name",
 }
 
 # Address / boilerplate prefixes (rejection heuristic).
@@ -92,13 +130,47 @@ _ADDRESS_RE = re.compile(
 
 # Country names (registers list these as their own column for cross-border firms).
 _COUNTRY_ONLY = {
-    "ireland", "spain", "netherlands", "denmark", "germany", "luxembourg",
-    "france", "italy", "belgium", "austria", "portugal", "greece", "poland",
-    "sweden", "finland", "lithuania", "latvia", "estonia", "czech republic",
-    "slovakia", "slovenia", "hungary", "bulgaria", "romania", "croatia",
-    "cyprus", "malta", "iceland", "norway", "liechtenstein",
-    "united kingdom", "uk", "isle of man", "guernsey", "jersey",
-    "united states", "usa", "switzerland", "canada", "japan", "australia",
+    "ireland",
+    "spain",
+    "netherlands",
+    "denmark",
+    "germany",
+    "luxembourg",
+    "france",
+    "italy",
+    "belgium",
+    "austria",
+    "portugal",
+    "greece",
+    "poland",
+    "sweden",
+    "finland",
+    "lithuania",
+    "latvia",
+    "estonia",
+    "czech republic",
+    "slovakia",
+    "slovenia",
+    "hungary",
+    "bulgaria",
+    "romania",
+    "croatia",
+    "cyprus",
+    "malta",
+    "iceland",
+    "norway",
+    "liechtenstein",
+    "united kingdom",
+    "uk",
+    "isle of man",
+    "guernsey",
+    "jersey",
+    "united states",
+    "usa",
+    "switzerland",
+    "canada",
+    "japan",
+    "australia",
 }
 
 # Suffixes to strip when normalising firm names. Deliberately CONSERVATIVE —
@@ -120,10 +192,29 @@ _SUFFIX_RE = re.compile(
 
 # Generic words that, when alone, make a firm name too noisy to match on.
 _STOPWORDS_FIRM = {
-    "ireland", "europe", "international", "global", "group", "holdings",
-    "services", "management", "capital", "investments", "investment",
-    "financial", "finance", "bank", "insurance", "fund", "funds",
-    "asset", "the", "of", "and", "a", "an",
+    "ireland",
+    "europe",
+    "international",
+    "global",
+    "group",
+    "holdings",
+    "services",
+    "management",
+    "capital",
+    "investments",
+    "investment",
+    "financial",
+    "finance",
+    "bank",
+    "insurance",
+    "fund",
+    "funds",
+    "asset",
+    "the",
+    "of",
+    "and",
+    "a",
+    "an",
 }
 
 # Irish placenames / common street types that surface as extraction-artifact
@@ -131,22 +222,91 @@ _STOPWORDS_FIRM = {
 # whose non-stopword tokens are ENTIRELY drawn from this set is rejected.
 _IRISH_PLACES_AND_STREETS = {
     # Counties + city pieces
-    "co", "county", "ireland",
-    "dublin", "cork", "galway", "limerick", "waterford", "kilkenny", "wexford",
-    "wicklow", "carlow", "kildare", "meath", "louth", "longford", "westmeath",
-    "offaly", "laois", "kerry", "tipperary", "clare", "mayo", "sligo", "leitrim",
-    "donegal", "roscommon", "cavan", "monaghan",
+    "co",
+    "county",
+    "ireland",
+    "dublin",
+    "cork",
+    "galway",
+    "limerick",
+    "waterford",
+    "kilkenny",
+    "wexford",
+    "wicklow",
+    "carlow",
+    "kildare",
+    "meath",
+    "louth",
+    "longford",
+    "westmeath",
+    "offaly",
+    "laois",
+    "kerry",
+    "tipperary",
+    "clare",
+    "mayo",
+    "sligo",
+    "leitrim",
+    "donegal",
+    "roscommon",
+    "cavan",
+    "monaghan",
     # Common Dublin / city locales that appear bare in addresses
-    "kanturk", "donnybrook", "ballsbridge", "rathmines", "ranelagh", "killarney",
-    "tralee", "ennis", "navan", "drogheda", "dundalk", "bray", "wexford",
-    "athlone", "mullingar", "tullamore", "letterkenny", "killaloe",
-    "blackrock", "blackrock", "dun laoghaire", "dunlaoghaire",
+    "kanturk",
+    "donnybrook",
+    "ballsbridge",
+    "rathmines",
+    "ranelagh",
+    "killarney",
+    "tralee",
+    "ennis",
+    "navan",
+    "drogheda",
+    "dundalk",
+    "bray",
+    "athlone",
+    "mullingar",
+    "tullamore",
+    "letterkenny",
+    "killaloe",
+    "blackrock",
+    "dun laoghaire",
+    "dunlaoghaire",
     # Street/road words
-    "street", "st", "road", "rd", "avenue", "ave", "place", "park", "lane",
-    "square", "terrace", "drive", "close", "court", "way", "row", "quay",
-    "hill", "view", "grove", "crescent", "garden", "gardens",
-    "church", "high", "main", "upper", "lower", "north", "south", "east", "west",
-    "old", "new",
+    "street",
+    "st",
+    "road",
+    "rd",
+    "avenue",
+    "ave",
+    "place",
+    "park",
+    "lane",
+    "square",
+    "terrace",
+    "drive",
+    "close",
+    "court",
+    "way",
+    "row",
+    "quay",
+    "hill",
+    "view",
+    "grove",
+    "crescent",
+    "garden",
+    "gardens",
+    "church",
+    "high",
+    "main",
+    "upper",
+    "lower",
+    "north",
+    "south",
+    "east",
+    "west",
+    "old",
+    "new",
 }
 
 # Corporate-form keywords whose presence in the RAW firm name is strong
@@ -227,6 +387,7 @@ def _is_strong_firm_match_candidate(raw: str, norm: str) -> bool:
 
 # ─── 1. DOWNLOAD ──────────────────────────────────────────────────────────────
 
+
 def list_postback_targets() -> list[dict]:
     s = requests.Session()
     r = s.get(URL, headers=H, timeout=30)
@@ -251,13 +412,17 @@ def download_all(force: bool = False) -> list[dict]:
         fname = f"{i:02d}_{_slug(it['title'])}.pdf"
         path = _RAW / fname
         if path.exists() and not force:
-            results.append({"i": i, "title": it["title"], "file": str(path), "bytes": path.stat().st_size, "cached": True})
+            results.append(
+                {"i": i, "title": it["title"], "file": str(path), "bytes": path.stat().st_size, "cached": True}
+            )
             continue
         rg = s.get(URL, headers=H, timeout=30)
         sp = BeautifulSoup(rg.text, "html.parser")
+
         def _hidden(name):
             el = sp.find("input", {"name": name})
             return el.get("value", "") if el else ""
+
         data = {
             "__EVENTTARGET": it["target"],
             "__EVENTARGUMENT": "",
@@ -266,8 +431,7 @@ def download_all(force: bool = False) -> list[dict]:
             "__EVENTVALIDATION": _hidden("__EVENTVALIDATION"),
         }
         try:
-            rp = s.post(URL, headers={**H, "Content-Type": "application/x-www-form-urlencoded"},
-                        data=data, timeout=120)
+            rp = s.post(URL, headers={**H, "Content-Type": "application/x-www-form-urlencoded"}, data=data, timeout=120)
         except Exception as e:
             results.append({"i": i, "title": it["title"], "error": str(e)})
             continue
@@ -283,6 +447,7 @@ def download_all(force: bool = False) -> list[dict]:
 
 # ─── 2. EXTRACT ───────────────────────────────────────────────────────────────
 
+
 def _looks_like_firm_name(line: str) -> bool:
     """Heuristic — accept lines that plausibly are an organisation name."""
     if not line or len(line) < 4 or len(line) > 200:
@@ -296,7 +461,11 @@ def _looks_like_firm_name(line: str) -> bool:
     if _ADDRESS_RE.match(line):
         return False
     # Skip pagination / metadata
-    if re.match(r"^(page\s+\d|run date|total number|the (firms|undertakings|societies|register|registers|persons|companies)\b|listed (here|below)\b|please note|under (the|article|section)|all\s+credit|section\s+\d|undertakings with their head offices|in accordance|pursuant to|firms? on this register|name (and address|of undertaking)|insurance distribution|the register)", line, re.I):
+    if re.match(
+        r"^(page\s+\d|run date|total number|the (firms|undertakings|societies|register|registers|persons|companies)\b|listed (here|below)\b|please note|under (the|article|section)|all\s+credit|section\s+\d|undertakings with their head offices|in accordance|pursuant to|firms? on this register|name (and address|of undertaking)|insurance distribution|the register)",
+        line,
+        re.I,
+    ):
         return False
     # Skip pure boilerplate that mentions Central Bank of Ireland in narrative
     if "central bank of ireland" in low and len(line) > 50:
@@ -357,14 +526,14 @@ def extract_firms_from_pdf(pdf_path: Path, register_title: str) -> list[dict]:
 
             if ref:
                 # Try first line after the ref
-                tail = text[ref_match.end():].strip("\n :\t-")
+                tail = text[ref_match.end() :].strip("\n :\t-")
                 for ln in tail.splitlines():
                     ln = ln.strip()
                     if ln and not _REF_RE.fullmatch(ln) and _looks_like_firm_name(ln):
                         firm_name = ln
                         break
                 if not firm_name:
-                    head = text[:ref_match.start()].strip(" :\t-")
+                    head = text[: ref_match.start()].strip(" :\t-")
                     head_lines = [ln.strip() for ln in head.splitlines() if ln.strip()]
                     if head_lines and _looks_like_firm_name(head_lines[-1]):
                         firm_name = head_lines[-1]
@@ -381,14 +550,16 @@ def extract_firms_from_pdf(pdf_path: Path, register_title: str) -> list[dict]:
             if not firm_name:
                 continue
 
-            rows.append({
-                "register": register_title,
-                "page": page_no + 1,
-                "ref_no": ref or "",
-                "firm_name_raw": firm_name,
-                "firm_name_norm": _norm_firm(firm_name),
-                "block_text": text[:500],
-            })
+            rows.append(
+                {
+                    "register": register_title,
+                    "page": page_no + 1,
+                    "ref_no": ref or "",
+                    "firm_name_raw": firm_name,
+                    "firm_name_norm": _norm_firm(firm_name),
+                    "block_text": text[:500],
+                }
+            )
     doc.close()
     return rows
 
@@ -406,8 +577,14 @@ def extract_all() -> pl.DataFrame:
         print(f"  {p.name:80s}  rows={n_real}")
     df = pl.DataFrame(
         [r for r in all_rows if "_error" not in r],
-        schema={"register": pl.Utf8, "page": pl.Int32, "ref_no": pl.Utf8,
-                "firm_name_raw": pl.Utf8, "firm_name_norm": pl.Utf8, "block_text": pl.Utf8}
+        schema={
+            "register": pl.Utf8,
+            "page": pl.Int32,
+            "ref_no": pl.Utf8,
+            "firm_name_raw": pl.Utf8,
+            "firm_name_norm": pl.Utf8,
+            "block_text": pl.Utf8,
+        },
     )
     # Deduplicate exact (register, ref_no, firm_name_raw)
     df = df.unique(subset=["register", "ref_no", "firm_name_raw"], keep="first")
@@ -415,6 +592,7 @@ def extract_all() -> pl.DataFrame:
 
 
 # ─── 3. CROSS-REFERENCE ───────────────────────────────────────────────────────
+
 
 def _norm_text(s: str) -> str:
     if not s:
@@ -429,7 +607,7 @@ def _norm_text(s: str) -> str:
 def xref_member_interests(firms: pl.DataFrame) -> pl.DataFrame:
     """For each declared interest, find CBI firms whose normalised name appears as a substring."""
     paths = [
-        ("Dáil",   _ROOT / "data" / "silver" / "parquet" / "dail_member_interests_combined.parquet"),
+        ("Dáil", _ROOT / "data" / "silver" / "parquet" / "dail_member_interests_combined.parquet"),
         ("Seanad", _ROOT / "data" / "silver" / "parquet" / "seanad_member_interests_combined.parquet"),
     ]
     parts = []
@@ -449,10 +627,7 @@ def xref_member_interests(firms: pl.DataFrame) -> pl.DataFrame:
 
     # Build deduplicated firm-name index — STRICT filter for substring matching
     # (every char in interests is a substring-attack-surface, so under-call > over-call).
-    candidates = (
-        firms
-        .filter(pl.col("firm_name_norm").is_not_null() & (pl.col("firm_name_norm").str.len_chars() >= 6))
-    )
+    candidates = firms.filter(pl.col("firm_name_norm").is_not_null() & (pl.col("firm_name_norm").str.len_chars() >= 6))
     # Apply strict filter row-by-row in Python — small dataset, simple logic.
     strict_mask = [
         _is_strong_firm_match_candidate(raw or "", norm or "")
@@ -460,15 +635,11 @@ def xref_member_interests(firms: pl.DataFrame) -> pl.DataFrame:
     ]
     candidates = candidates.filter(pl.Series(strict_mask))
 
-    firm_idx = (
-        candidates
-        .group_by("firm_name_norm")
-        .agg(
-            pl.col("register").n_unique().alias("n_registers"),
-            pl.col("register").unique().alias("registers"),
-            pl.col("ref_no").unique().alias("ref_nos"),
-            pl.col("firm_name_raw").first().alias("firm_name_raw_first"),
-        )
+    firm_idx = candidates.group_by("firm_name_norm").agg(
+        pl.col("register").n_unique().alias("n_registers"),
+        pl.col("register").unique().alias("registers"),
+        pl.col("ref_no").unique().alias("ref_nos"),
+        pl.col("firm_name_raw").first().alias("firm_name_raw_first"),
     )
     print(f"  firm-name index: {firm_idx.height} unique normalised names (after strict filter)")
     print(f"  interest rows  : {interests.height} (post-norm)")
@@ -478,10 +649,17 @@ def xref_member_interests(firms: pl.DataFrame) -> pl.DataFrame:
     # appear as a delimited substring (start-of-line, space-surrounded, or end-of-line).
     firm_rows = firm_idx.iter_rows(named=True)
     firm_list = list(firm_rows)
-    int_rows = list(interests.select(
-        "house", "full_name", "unique_member_code", "interest_category",
-        "interest_description_cleaned", "interest_norm", "year_declared"
-    ).iter_rows(named=True))
+    int_rows = list(
+        interests.select(
+            "house",
+            "full_name",
+            "unique_member_code",
+            "interest_category",
+            "interest_description_cleaned",
+            "interest_norm",
+            "year_declared",
+        ).iter_rows(named=True)
+    )
 
     hits = []
     for f in firm_list:
@@ -491,19 +669,21 @@ def xref_member_interests(firms: pl.DataFrame) -> pl.DataFrame:
         for ir in int_rows:
             t = f" {ir['interest_norm']} "
             if token in t:
-                hits.append({
-                    "house": ir["house"],
-                    "full_name": ir["full_name"],
-                    "unique_member_code": ir["unique_member_code"],
-                    "year_declared": ir.get("year_declared"),
-                    "interest_category": ir["interest_category"],
-                    "firm_name_norm": fn,
-                    "firm_name_raw": f["firm_name_raw_first"],
-                    "registers": f["registers"],
-                    "n_registers": f["n_registers"],
-                    "ref_nos": f["ref_nos"],
-                    "interest_excerpt": (ir["interest_description_cleaned"] or "")[:200],
-                })
+                hits.append(
+                    {
+                        "house": ir["house"],
+                        "full_name": ir["full_name"],
+                        "unique_member_code": ir["unique_member_code"],
+                        "year_declared": ir.get("year_declared"),
+                        "interest_category": ir["interest_category"],
+                        "firm_name_norm": fn,
+                        "firm_name_raw": f["firm_name_raw_first"],
+                        "registers": f["registers"],
+                        "n_registers": f["n_registers"],
+                        "ref_nos": f["ref_nos"],
+                        "interest_excerpt": (ir["interest_description_cleaned"] or "")[:200],
+                    }
+                )
     return pl.DataFrame(hits)
 
 
@@ -518,18 +698,20 @@ def xref_corporate_notices(firms: pl.DataFrame) -> pl.DataFrame:
     p = _ROOT / "data" / "gold" / "parquet" / "corporate_notices.parquet"
     if not p.exists():
         return pl.DataFrame()
-    cn = pl.read_parquet(p).with_columns(
-        pl.col("entity_name").map_elements(_norm_firm, return_dtype=pl.Utf8).alias("entity_norm")
-    ).filter(pl.col("entity_norm").str.len_chars() >= 6)
+    cn = (
+        pl.read_parquet(p)
+        .with_columns(pl.col("entity_name").map_elements(_norm_firm, return_dtype=pl.Utf8).alias("entity_norm"))
+        .filter(pl.col("entity_norm").str.len_chars() >= 6)
+    )
 
     firm_idx = (
         firms.filter(pl.col("firm_name_norm").str.len_chars() >= 6)
-             .group_by("firm_name_norm")
-             .agg(
-                 pl.col("register").unique().alias("registers"),
-                 pl.col("ref_no").unique().alias("ref_nos"),
-                 pl.col("firm_name_raw").first().alias("firm_name_raw_first"),
-             )
+        .group_by("firm_name_norm")
+        .agg(
+            pl.col("register").unique().alias("registers"),
+            pl.col("ref_no").unique().alias("ref_nos"),
+            pl.col("firm_name_raw").first().alias("firm_name_raw_first"),
+        )
     )
     return cn.join(firm_idx, left_on="entity_norm", right_on="firm_name_norm", how="inner")
 
@@ -544,8 +726,7 @@ def xref_lobbying_entities(firms: pl.DataFrame) -> pl.DataFrame:
     )
 
     firm_idx = (
-        firms
-        .filter(pl.col("firm_name_norm").is_not_null() & (pl.col("firm_name_norm").str.len_chars() >= 6))
+        firms.filter(pl.col("firm_name_norm").is_not_null() & (pl.col("firm_name_norm").str.len_chars() >= 6))
         .filter(pl.col("firm_name_norm").map_elements(_is_meaningful_firm_token, return_dtype=pl.Boolean))
         .group_by("firm_name_norm")
         .agg(
@@ -561,9 +742,9 @@ def xref_lobbying_entities(firms: pl.DataFrame) -> pl.DataFrame:
 
 # ─── 4. WRITE ─────────────────────────────────────────────────────────────────
 
+
 def _write_parquet(df: pl.DataFrame, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(path, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, path)
     print(f"  wrote {path.name:50s}  rows={df.height:>6}  cols={df.width}")
 
 
@@ -590,8 +771,8 @@ def main() -> int:
             "n_attempted": len(results),
             "n_cached": sum(1 for r in results if r.get("cached")),
             "n_fetched": sum(1 for r in results if "file" in r and not r.get("cached")),
-            "n_failed":  sum(1 for r in results if "error" in r),
-            "failed":    [r for r in results if "error" in r],
+            "n_failed": sum(1 for r in results if "error" in r),
+            "failed": [r for r in results if "error" in r],
         }
 
     firms_path = _OUT / "cbi_authorised_firms.parquet"
@@ -604,11 +785,7 @@ def main() -> int:
             "n_unique_firm_names": firms.select(pl.col("firm_name_norm").n_unique()).item(),
             "n_registers": firms.select(pl.col("register").n_unique()).item(),
             "rows_per_register": (
-                firms.group_by("register")
-                     .agg(pl.len().alias("n"))
-                     .sort("n", descending=True)
-                     .head(15)
-                     .to_dicts()
+                firms.group_by("register").agg(pl.len().alias("n")).sort("n", descending=True).head(15).to_dicts()
             ),
         }
 
@@ -631,23 +808,27 @@ def main() -> int:
         meta["xref"] = {
             "member_interests": {
                 "n_matches": xref_mi.height,
-                "n_distinct_members": xref_mi.select(pl.col("unique_member_code").n_unique()).item() if xref_mi.height else 0,
-                "n_distinct_firms":   xref_mi.select(pl.col("firm_name_norm").n_unique()).item() if xref_mi.height else 0,
+                "n_distinct_members": xref_mi.select(pl.col("unique_member_code").n_unique()).item()
+                if xref_mi.height
+                else 0,
+                "n_distinct_firms": xref_mi.select(pl.col("firm_name_norm").n_unique()).item() if xref_mi.height else 0,
             },
             "lobbying": {
                 "n_matches": xref_lob.height,
-                "n_distinct_lobbyists": xref_lob.select(pl.col("lobbyist_name").n_unique()).item() if xref_lob.height else 0,
-                "n_distinct_firms":     xref_lob.select(pl.col("firm_name_norm").n_unique()).item() if xref_lob.height else 0,
+                "n_distinct_lobbyists": xref_lob.select(pl.col("lobbyist_name").n_unique()).item()
+                if xref_lob.height
+                else 0,
+                "n_distinct_firms": xref_lob.select(pl.col("firm_name_norm").n_unique()).item()
+                if xref_lob.height
+                else 0,
             },
             "corporate_notices": {
                 "n_matches": xref_cn.height,
-                "n_distinct_firms":     xref_cn.select(pl.col("entity_norm").n_unique()).item() if xref_cn.height else 0,
+                "n_distinct_firms": xref_cn.select(pl.col("entity_norm").n_unique()).item() if xref_cn.height else 0,
                 "by_category": (
-                    xref_cn.group_by("notice_category")
-                           .agg(pl.len().alias("n"))
-                           .sort("n", descending=True)
-                           .to_dicts()
-                    if xref_cn.height else []
+                    xref_cn.group_by("notice_category").agg(pl.len().alias("n")).sort("n", descending=True).to_dicts()
+                    if xref_cn.height
+                    else []
                 ),
             },
         }

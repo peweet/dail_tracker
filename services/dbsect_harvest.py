@@ -41,6 +41,7 @@ from config import (
     SILVER_PARQUET_DIR,
     VOTES_DIR,
 )
+from services.parquet_io import save_parquet
 
 logger = logging.getLogger(__name__)
 
@@ -188,8 +189,7 @@ def harvest_dbsect_index() -> int:
     logger.info("dbsect_harvest: counts by source\n%s", counts)
     logger.info("dbsect_harvest: distinct dbsect total=%d", df["debate_section_id"].nunique())
 
-    _OUT.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(_OUT, index=False, compression="zstd", compression_level=3)
+    save_parquet(df, _OUT)
     logger.info("dbsect_harvest: wrote %s (%d rows)", _OUT, len(df))
     return len(df)
 

@@ -45,6 +45,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 import config  # noqa: E402
+from services.parquet_io import save_parquet  # noqa: E402
 
 CKAN_BASE = "https://opendata.cro.ie"
 PACKAGE_ID = "financial-statements"
@@ -234,8 +235,7 @@ def main() -> int:
         print(f"[cro_fs] row floor not met: {df.height} < {MIN_TOTAL_ROWS}", file=sys.stderr)
         return 2
 
-    SILVER_OUT.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(SILVER_OUT, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, SILVER_OUT)
     cov = _coverage(df, resources, bronze_rows)
     COVERAGE_OUT.write_bytes(orjson.dumps(cov, option=orjson.OPT_INDENT_2))
 

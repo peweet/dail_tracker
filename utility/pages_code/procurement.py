@@ -709,11 +709,10 @@ def _award_row_html(r) -> str:
 
 
 def _supplier_head(r) -> str:
-    """Supplier name for an authority/category award row, with individuals masked.
-    Sole-trader / individual awardees are personal data — the award is disclosed but
-    the name is withheld (privacy rail); organisations are shown in full."""
-    if _coalesce(getattr(r, "supplier_class", None)) == "sole_trader_or_individual":
-        return "Individual / sole trader (name withheld)"
+    """Supplier name for an authority/category award row. Sole traders / individuals ARE
+    named (owner decision 2026-06-06): eTenders is published procurement data, so a supplier
+    name on a public contract is already public and shown in a business capacity — consistent
+    with the 'Money actually paid' tab. Only the published name is shown; no other PII."""
     return _esc(getattr(r, "supplier", None)) or "—"
 
 
@@ -940,20 +939,18 @@ def _value_contrast_panel(vc) -> None:
 
 
 def _stats_strip(stats, cov: dict) -> None:
-    """Scale anchor + trust strip: the corpus's real magnitude and what's in / out.
-    Honest by construction — only the sum-safe total is shown, never the naive sum."""
-    safe_total = _eur_scale(stats.get("value_safe_total_eur"))
+    """Coverage / scale strip: corpus counts + what's in/out. The euro story lives ONLY in the
+    contrast panel above (the whole-corpus €23.5bn) — this strip is deliberately count-only, so
+    the page never shows two different sum-safe totals (the company-slice total used to sit here
+    and read as inconsistent with the panel's corpus total)."""
     min_y, max_y = _n(stats.get("min_year")), _n(stats.get("max_year"))
     span = f"{min_y}–{max_y}" if min_y and max_y else "—"
     n_rows = _n(stats.get("n_award_rows"))
     n_safe = _n(stats.get("n_safe_rows"))
-    # Corpus counts lead the strip (previously hero badges) so this is the single
-    # scale anchor on the page — the sum-safe total appears here and nowhere else.
     chips = [
-        (f"{_n(stats.get('n_suppliers')):,}", "suppliers"),
+        (f"{_n(stats.get('n_suppliers')):,}", "company suppliers"),
         (f"{_n(stats.get('n_authorities')):,}", "authorities"),
         (f"{_n(stats.get('n_categories')):,}", "categories"),
-        (safe_total, "sum-safe awarded value"),
         (span, "award years"),
         (f"{n_rows:,}", "award records"),
         (f"{n_safe:,}", "carry a sum-safe value"),
@@ -1020,14 +1017,15 @@ def procurement_page() -> None:
         "who was awarded public contracts, by which bodies, in which categories.",
     )
 
+    # Caveat is intentionally short: the "how much of the headline is a mirage" explanation
+    # lives in the contrast panel directly below (no duplication). This keeps the no-causation
+    # point — which the panel doesn't make — and trims above-the-fold height.
     st.html(
         '<div class="pr-caveat"><strong>Awarded value, not actual spend.</strong> '
-        "These are contract <em>award</em> values reported on eTenders — the value at award, "
-        "not money actually paid. Framework and dynamic-purchasing ceilings can overstate what "
-        "is ever drawn down, so the page only ever shows the <em>sum-safe</em> awarded value: the "
-        "total below sums only the rows that carry one, never a naive total of every reported "
-        "figure. A contract award is a public record of a procurement decision, not evidence of "
-        "influence or wrongdoing.</div>"
+        "These are contract <em>award</em> values reported on eTenders — the value at award, not "
+        "money actually paid (the figures below show how far that overstates real spend). A "
+        "contract award is a public record of a procurement decision, not evidence of influence "
+        "or wrongdoing.</div>"
     )
     vc_res = fetch_value_contrast_result()
     if vc_res.ok and not vc_res.data.empty:

@@ -38,6 +38,8 @@ from pathlib import Path
 
 import polars as pl
 
+from services.parquet_io import save_parquet
+
 QUARANTINE_DIR = Path("data/silver/_quarantine")
 
 _META_COLS = ("_quarantine_rule", "_quarantine_reason", "_run_id", "_quarantined_at")
@@ -110,14 +112,8 @@ def quarantine(
         pl.lit(now).alias("_quarantined_at"),
     )
 
-    out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{source}_{safe(run_id)}.parquet"
-    annotated.write_parquet(
-        out_path,
-        compression="zstd",
-        compression_level=3,
-        statistics=True,
-    )
+    save_parquet(annotated, out_path)
     return out_path
 
 
