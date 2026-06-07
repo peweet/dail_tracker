@@ -31,6 +31,38 @@ the Iris-derived gold; the legislation-directory path captures the Gaeltacht one
 family the Irish Iris notices would add.** (The mid-analysis "~36 net-new Gaeltacht" figure was an
 artifact of comparing only against `statutory_instruments.parquet` — corrected here.)
 
+## What these notices *are* in reality (decoded)
+
+Translating the recurring Irish titles shows they are overwhelmingly **machinery-of-government
+statutory instruments** — the legal paper trail of how executive power is distributed and
+reorganised:
+
+| Order type (Irish → English) | What it actually does | In our data? |
+|---|---|---|
+| `Feidhmeanna Aire a Tharmligean` → **Delegation of Ministerial Functions Order** | Formally delegates specific powers from a Cabinet Minister to a **Minister of State** (junior minister), under the senior Minister's supervision — i.e. *which junior minister legally wields which powers* | `si_current_state`: **135** |
+| `Riaracháin Roinne a Aistriú` → **Transfer of Departmental Administration & Ministerial Functions Order** | The legal mechanism for **machinery-of-government reshuffles** — moving functions between departments when government restructures | `si_current_state`: **51** |
+| `Ainm na Roinne … a Athrú` → **Alteration of Name of Department & Title of Minister Order** | Renames a department / ministerial title | in `si_current_state` |
+| `Limistéir Pleanála Teanga … a Ainmniú` → **Gaeltacht Language Planning Area designation** | Designates Gaeltacht areas under the Gaeltacht Act 2012 | `si_current_state`: 26 |
+
+So the dig did **not** reveal hidden Irish-only data of value. It revealed that these notices belong
+to a **machinery-of-government SI category** that is (a) genuinely on-mission for an
+executive-accountability tracker, and (b) **already held** in `si_current_state` — just never
+surfaced as a distinct, meaningful view. **The value is in the category, not the language.**
+Sources: [Justice (Delegation of Ministerial Functions) Order 2023](https://www.irishstatutebook.ie/eli/2023/si/91/made/en/print),
+[Integration and Reception (Transfer …) Order 2025](https://www.irishstatutebook.ie/eli/2025/si/159/made/en/html).
+
+## How other countries surface this kind of data
+
+| Tool / source | Relevance |
+|---|---|
+| **The Gazette (UK, thegazette.co.uk)** | The direct analog to Iris: a national gazette turned into a **structured, searchable civic product** — categorised notices (insolvency, appointments, honours, state) + global search by keyword/company/person/date. **Proof the model works.** Note: it surfaces *personal* insolvency too — the opposite of our deliberate privacy suppression, a conscious and defensible divergence. |
+| **Canada Gazette** | Officially **bilingual** (English/French): Part I notices/appointments, Part II enacted regs/SIs, Part III Acts. Shows bilingual gazette publishing is normalised — **but at the official level, not as a third-party civic feature.** No notable civic-tech tool surfaces the second-language version. → supports treating Irish titles as optional polish, not a value driver. |
+| **Institute for Government (UK)** | Tracks **machinery-of-government changes** (departments created/abolished, functions moved) as analysis + the Whitehall/Parliamentary Monitor trackers — but there is **no structured per-instrument tracker of delegated ministerial functions**. → a Machinery-of-Government view built from the delegation/transfer SIs would be relatively **novel and on-mission**. |
+
+Sources: [How to search The Gazette](https://www.thegazette.co.uk/all-notices/content/116),
+[About the Canada Gazette](https://gazette.gc.ca/cg-gc/lm-sp-eng.html),
+[IfG — Machinery of government changes](https://www.instituteforgovernment.org.uk/explainer/machinery-government-changes).
+
 ## Irish → English mapping (Iris legal/notice vocabulary)
 
 Built from the actual notice text. Most notices are **bilingual** — the English title sits in

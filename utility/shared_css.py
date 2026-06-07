@@ -4966,6 +4966,35 @@ def inject_css() -> None:
         .pr-caveat strong { color: var(--signal-bad-deep); }
         /* scale anchor / trust strip under the caveat: real corpus magnitude +
            what's in / out. Numbers are tabular; labels are quiet meta. */
+        /* "The €570bn that isn't" — naive total shown struck-through only to demolish it.
+           Neutral/ink palette (no red/green): the mirage is muted grey, the real figure
+           is accent ink. The multiplier badge is the one bold accent. */
+        .pr-contrast {
+            background: #ffffff; border: 1px solid var(--border); border-radius: 10px;
+            padding: 0.85rem 1.1rem; margin: 0 0 0.9rem; max-width: 64rem;
+        }
+        .pr-contrast-row {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem 1.2rem;
+        }
+        .pr-contrast-cell { display: flex; flex-direction: column; line-height: 1.15; }
+        .pr-contrast-num { font-size: 1.7rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .pr-contrast-naive .pr-contrast-num { color: var(--text-meta); }
+        .pr-strike { text-decoration: line-through; text-decoration-thickness: 2px; }
+        .pr-contrast-safe .pr-contrast-num { color: var(--accent); }
+        .pr-contrast-lbl { font-size: 0.74rem; color: var(--text-meta); margin-top: 0.1rem; }
+        .pr-contrast-mult {
+            font-size: 0.82rem; font-weight: 700; color: #ffffff; background: var(--accent);
+            padding: 0.22rem 0.6rem; border-radius: 999px; white-space: nowrap; flex: none;
+        }
+        .pr-contrast-note {
+            font-size: 0.82rem; color: var(--ink-700); line-height: 1.5;
+            margin-top: 0.6rem; padding-top: 0.55rem; border-top: 1px solid var(--border);
+        }
+        .pr-contrast-note strong { color: var(--ink-strong); }
+        @media (max-width: 560px) {
+            .pr-contrast-num { font-size: 1.35rem; }
+        }
+
         .pr-stats {
             display: flex; flex-wrap: wrap; gap: 0.45rem 1.4rem;
             padding: 0.7rem 0.95rem; margin: 0 0 0.9rem; max-width: 64rem;
