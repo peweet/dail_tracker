@@ -33,6 +33,7 @@ import argparse
 import csv
 import hashlib
 import html
+import json
 import logging
 import re
 import sys
@@ -40,7 +41,7 @@ import time
 
 import requests
 
-from config import BRONZE_DIR
+from config import BRONZE_DIR, DATA_DIR
 from services.logging_setup import setup_standalone_logging
 
 log = logging.getLogger("sipo_candidate_expenses_crawl")
@@ -49,6 +50,13 @@ BASE = "https://www.sipo.ie"
 ROOT_SLUG = "2e0c0-dail-general-election-2024"
 OUT_DIR = BRONZE_DIR / "sipo_candidate_expenses"
 MANIFEST = OUT_DIR / "_manifest.csv"
+CKPT_DIR = OUT_DIR / "_ckpt"
+# Slim, git-tracked source list (data/_meta/*.csv is kept via a .gitignore negation
+# rule). The bronze _manifest.csv is gitignored; this is the durable, retrievable copy.
+SOURCES_META = DATA_DIR / "_meta" / "sipo_candidate_expenses_sources.csv"
+SOURCE_FIELDS = ["constituency_slug", "constituency_name", "candidate_slug",
+                 "candidate_name", "candidate_page_url", "doc_type", "doc_label",
+                 "pdf_url", "media_id"]
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (dail-tracker civic-data crawler; +contact via repo)"}
 SLEEP_S = 0.4  # politeness between requests
@@ -131,8 +139,40 @@ def _candidate_documents(page_html: str) -> list[dict]:
     return docs
 
 
+def _discover_constituency(session: requests.Session, c_slug: str) -> list[dict]:
+    """Discover one constituency's candidate documents (rows). Network-bound."""
+    c_html = _get(session, _slug_url(c_slug))
+    time.sleep(SLEEP_S)
+    c_name = _page_title(c_html)
+    candidates = [s for s in _collection_links(c_html) if s != c_slug]
+    log.info("  %s (%s): %d candidates", c_slug, c_name, len(candidates))
+
+    rows: list[dict] = []
+    for cand_slug in candidates:
+        cand_html = _get(session, _slug_url(cand_slug))
+        time.sleep(SLEEP_S)
+        cand_name = _page_title(cand_html)
+        docs = _candidate_documents(cand_html)
+        base = dict(constituency_slug=c_slug, constituency_name=c_name,
+                    candidate_slug=cand_slug, candidate_name=cand_name,
+                    candidate_page_url=_slug_url(cand_slug))
+        if not docs:
+            log.warning("    no documents on candidate page %s (%s)", cand_slug, cand_name)
+            rows.append({**base, "doc_label": "", "doc_type": "", "pdf_url": "",
+                         "media_id": "", "status": "NO_PDF"})
+            continue
+        for d in docs:
+            rows.append({**base, "doc_label": d["doc_label"], "doc_type": d["doc_type"],
+                         "pdf_url": d["pdf_url"], "media_id": d["media_id"],
+                         "status": "FOUND"})
+    return rows
+
+
 def discover(session: requests.Session, limit_constituencies: int | None) -> list[dict]:
-    """Two-level crawl: root → constituencies → candidates. Returns row dicts."""
+    """Two-level crawl: root → constituencies → candidates, checkpointed per
+    constituency to ``_ckpt/<c_slug>.json`` so a re-run resumes instantly (only
+    not-yet-discovered constituencies hit the network)."""
+    CKPT_DIR.mkdir(parents=True, exist_ok=True)
     root_html = _get(session, _slug_url(ROOT_SLUG))
     time.sleep(SLEEP_S)
     constituencies = _collection_links(root_html)
@@ -142,35 +182,15 @@ def discover(session: requests.Session, limit_constituencies: int | None) -> lis
 
     rows: list[dict] = []
     for ci, c_slug in enumerate(constituencies, 1):
-        c_html = _get(session, _slug_url(c_slug))
-        time.sleep(SLEEP_S)
-        c_name = _page_title(c_html)
-        candidates = _collection_links(c_html)
-        # A constituency page's own slug shouldn't list itself, but guard anyway.
-        candidates = [s for s in candidates if s != c_slug]
-        log.info("[%d/%d] %s (%s): %d candidates",
-                 ci, len(constituencies), c_slug, c_name, len(candidates))
-
-        for cand_slug in candidates:
-            cand_html = _get(session, _slug_url(cand_slug))
-            time.sleep(SLEEP_S)
-            cand_name = _page_title(cand_html)
-            docs = _candidate_documents(cand_html)
-            if not docs:
-                log.warning("  no documents on candidate page %s (%s)", cand_slug, cand_name)
-                rows.append(dict(constituency_slug=c_slug, constituency_name=c_name,
-                                 candidate_slug=cand_slug, candidate_name=cand_name,
-                                 candidate_page_url=_slug_url(cand_slug),
-                                 doc_label="", doc_type="", pdf_url="", media_id="",
-                                 status="NO_PDF"))
-                continue
-            for d in docs:
-                rows.append(dict(constituency_slug=c_slug, constituency_name=c_name,
-                                 candidate_slug=cand_slug, candidate_name=cand_name,
-                                 candidate_page_url=_slug_url(cand_slug),
-                                 doc_label=d["doc_label"], doc_type=d["doc_type"],
-                                 pdf_url=d["pdf_url"], media_id=d["media_id"],
-                                 status="FOUND"))
+        ckpt = CKPT_DIR / f"{c_slug}.json"
+        if ckpt.exists():
+            c_rows = json.loads(ckpt.read_text(encoding="utf-8"))
+            log.info("[%d/%d] %s: %d rows (cached)", ci, len(constituencies), c_slug, len(c_rows))
+        else:
+            log.info("[%d/%d] discovering %s ...", ci, len(constituencies), c_slug)
+            c_rows = _discover_constituency(session, c_slug)
+            ckpt.write_text(json.dumps(c_rows, ensure_ascii=False, indent=1), encoding="utf-8")
+        rows.extend(c_rows)
     return rows
 
 
@@ -244,6 +264,19 @@ def write_manifest(rows: list[dict]) -> None:
     log.info("manifest -> %s (%d rows)", MANIFEST, len(rows))
 
 
+def write_sources_meta(rows: list[dict]) -> None:
+    """Write the slim, git-tracked source list (no run-specific size/sha/status)."""
+    SOURCES_META.parent.mkdir(parents=True, exist_ok=True)
+    src = sorted((r for r in rows if r["pdf_url"]),
+                 key=lambda r: (r["constituency_slug"], r["candidate_slug"], r["doc_type"]))
+    with SOURCES_META.open("w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=SOURCE_FIELDS, extrasaction="ignore")
+        w.writeheader()
+        for r in src:
+            w.writerow(r)
+    log.info("source list -> %s (%d docs)", SOURCES_META, len(src))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--index-only", action="store_true",
@@ -276,6 +309,7 @@ def main() -> None:
         download(session, rows, doc_types)
 
     write_manifest(rows)
+    write_sources_meta(rows)
 
     by_status: dict[str, int] = {}
     for r in rows:

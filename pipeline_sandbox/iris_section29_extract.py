@@ -45,7 +45,7 @@ _CATS: dict[str, tuple[str, ...]] = {
 }
 
 _TITLE_RE = re.compile(r"\b(Senator|Deputy|Minister of State|Minister|TD|T\.D\.|Cllr)\b", re.I)
-_YEAR_RE = re.compile(r"to\s+\d{1,2}(?:st|nd|rd|th)?\s+december\s+(\d{4})", re.I)  # Jan–Dec period → year
+_YEAR_RE = re.compile(r"dec\w*\.?\s*,?\s*(\d{4})", re.I)  # "...December YYYY" → the year declared
 _ANCHOR = "Name of Member concerned"
 
 
@@ -70,26 +70,25 @@ def _cats(text):
     return {c for c, kws in _CATS.items() if any(k in low for k in kws)}
 
 
-def parse_notice(it):
-    """One row per (notice × distinct member) — years back-filled + categories unioned."""
-    issue_date, src = it.get("issue_date"), it.get("source_file")
-    full = "\n".join(_norm(p.get("raw_text", "")) for p in (it.get("pages") or []))
-    detected = [clean_name(d) for d in (it.get("detected_member_names") or []) if d]
-
-    segs = full.split(_ANCHOR)
-    if len(segs) <= 1:
+def parse_doc(src, issue_date, full, detected):
+    """One row per (notice-PDF × distinct member). A single PDF (e.g. Troy's bulk
+    supplement) is split across many JSON items upstream, so callers aggregate ALL
+    of a PDF's text first, then parse here over the whole document."""
+    matches = list(re.finditer(re.escape(_ANCHOR) + r"\s*:?\s*([^\n]+)", full))
+    if not matches:
         years = sorted(set(_YEAR_RE.findall(full)))
         cats = _cats(full)
         return [_row(issue_date, src, m, years, cats, parsed=False) for m in (detected or [None])]
 
     by_member = {}
-    for seg in segs[1:]:
-        nm = re.match(r"\s*:?\s*([^\n]+)", seg)
-        member = clean_name(nm.group(1)) if nm else None
-        body = seg[:1500]
+    for mt in matches:
+        member = clean_name(mt.group(1))
+        # The registration period precedes the name; the body follows it. Take a
+        # window spanning both so per-statement years + categories are captured.
+        win = full[max(0, mt.start() - 600) : mt.end() + 1600]
         b = by_member.setdefault(member, {"years": set(), "cats": set()})
-        b["years"].update(_YEAR_RE.findall(body))
-        b["cats"].update(_cats(body))
+        b["years"].update(_YEAR_RE.findall(win))
+        b["cats"].update(_cats(win))
     return [_row(issue_date, src, m, sorted(b["years"]), sorted(b["cats"]), parsed=True) for m, b in by_member.items()]
 
 
@@ -107,7 +106,20 @@ def _row(issue_date, src, member, years, cats, *, parsed):
 
 def main():
     data = json.loads(SRC.read_text(encoding="utf-8"))
-    rows = [r for it in data for r in parse_notice(it)]
+
+    # Aggregate JSON items by the actual notice PDF (upstream split one PDF into many).
+    byfile: dict[str, dict] = {}
+    for it in data:
+        sf = it.get("source_file")
+        g = byfile.setdefault(sf, {"issue_date": it.get("issue_date"), "text": [], "detected": set()})
+        g["text"].append("\n".join(_norm(p.get("raw_text", "")) for p in (it.get("pages") or [])))
+        g["detected"].update(clean_name(d) for d in (it.get("detected_member_names") or []) if d)
+
+    rows = [
+        r
+        for sf, g in byfile.items()
+        for r in parse_doc(sf, g["issue_date"], "\n".join(g["text"]), sorted(x for x in g["detected"] if x))
+    ]
     df = pd.DataFrame(rows)
 
     df.to_parquet(OUT / "iris_s29_statements.parquet", compression="zstd", index=False)
