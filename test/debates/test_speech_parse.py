@@ -85,6 +85,31 @@ def test_multi_section_attribution():
     assert df["chamber"].unique().tolist() == ["seanad"]
 
 
+def test_nested_section_business_grouping():
+    # A "Commencement Matters" parent section wraps a per-topic subsection that
+    # holds the speech. nearest -> topic; outermost -> business grouping.
+    refs = '<TLCPerson eId="A" href="/ie/oireachtas/member/id/Aoife-A.S.2020-01-01"/>'
+    sections = (
+        '<debateSection eId="dbsect_3"><heading>Commencement Matters</heading>'
+        '<debateSection eId="dbsect_4"><heading>Litter Pollution</heading>'
+        + _speech("A", "Senator A", "On litter in my county.")
+        + "</debateSection></debateSection>"
+    )
+    df = parse_akn(_doc("seanad", "2025-06-25", sections, refs))
+    assert len(df) == 1
+    assert df.iloc[0]["debate_section_id"] == "dbsect_4"
+    assert df.iloc[0]["section_heading"] == "Litter Pollution"  # nearest = topic
+    assert df.iloc[0]["business"] == "Commencement Matters"  # outermost = grouping
+
+
+def test_flat_section_business_equals_heading():
+    refs = '<TLCPerson eId="A" href="/ie/oireachtas/member/id/Aoife-A.S.2020-01-01"/>'
+    sections = '<debateSection eId="dbsect_1"><heading>Order of Business</heading>' + _speech("A", "Senator A", "A point.") + "</debateSection>"
+    df = parse_akn(_doc("seanad", "2025-06-25", sections, refs))
+    assert df.iloc[0]["section_heading"] == "Order of Business"
+    assert df.iloc[0]["business"] == "Order of Business"  # un-nested: coincide
+
+
 def test_question_and_answer_contribution_types():
     refs = '<TLCPerson eId="A" href="/ie/oireachtas/member/id/Aoife-A.S.2020-01-01"/>'
     sections = (

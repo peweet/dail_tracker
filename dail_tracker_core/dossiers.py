@@ -128,6 +128,7 @@ def build_member_dossier(conn: duckdb.DuckDBPyConnection, code: str) -> dict[str
         "statutory_instruments_signed": serialize.to_records(moq.si_signed(conn, code).data),
         "revolving_door": serialize.to_records(moq.lobbying_rd(conn, code).data),
         "questions_profile": serialize.first_record(moq.question_profile(conn, code).data),
+        "speeches_profile": serialize.first_record(moq.speech_summary(conn, code).data),
         "external_links": serialize.first_record(moq.external_links(conn, code).data) or {},
         "constituency_context": constituency_context,
     }
@@ -429,9 +430,7 @@ def list_procurement_lobbying_overlap(
     suppliers: list[dict[str, Any]] = []
     for norm, grp in df.groupby("supplier_norm"):
         first = grp.iloc[0]  # award_rows / authorities / value are per-supplier constants
-        entities = grp[["lobby_name", "lobby_side", "n_lobby_returns"]].sort_values(
-            "n_lobby_returns", ascending=False
-        )
+        entities = grp[["lobby_name", "lobby_side", "n_lobby_returns"]].sort_values("n_lobby_returns", ascending=False)
         suppliers.append(
             {
                 "supplier": serialize.value(first["supplier"]),
@@ -551,6 +550,47 @@ def build_member_questions(
         "total_matched": int(len(df)),
         "returned": len(rows),
         "questions": rows,
+    }
+
+
+# ── Member speeches feed (floor contributions) ────────────────────────────────
+
+
+def build_member_speeches(
+    conn: duckdb.DuckDBPyConnection,
+    name_or_code: str,
+    *,
+    year: int | None = None,
+    contribution_type: str | None = None,
+    business: str | None = None,
+    irish_only: bool = False,
+    text: str | None = None,
+    limit: int = 200,
+) -> dict[str, Any] | None:
+    """A member's floor-contribution feed (speeches + oral questions) from the
+    debate transcript record, with optional filters: year, contribution_type
+    (speech/question/answer), item of business, Irish-only, and free-text search
+    of the spoken words. Filters AND together. None if the name/code resolves to
+    no member. Answers 'what did this TD/Senator say — and in Irish?'."""
+    m = _resolve_member(conn, name_or_code)
+    if m is None:
+        return None
+    df = moq.member_speeches(
+        conn,
+        m["code"],
+        year=year,
+        contribution_type=contribution_type,
+        business=business,
+        irish_only=irish_only,
+        search=text,
+    ).data
+    rows = serialize.to_records(df.iloc[:limit]) if not df.empty else []
+    return {
+        "member": {"unique_member_code": m["code"], "member_name": m["member_name"], "house": m["house"]},
+        "summary": serialize.first_record(moq.speech_summary(conn, m["code"]).data),
+        "total_matched": int(len(df)),
+        "returned": len(rows),
+        "speeches": rows,
     }
 
 

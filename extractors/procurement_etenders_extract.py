@@ -253,6 +253,13 @@ def main() -> None:
     # handful parse to fractions of a cent, e.g. 0.0013) or a €1 placeholder. Below
     # this floor a row is never value_safe_to_sum; the value_eur is still kept as-is.
     MIN_PLAUSIBLE_VALUE_EUR = 1.0
+    # Upper guard mirroring TED (ted_enrich.LARGE_AWARD): a single-supplier "contract award"
+    # at or above this is, in practice, almost always a multi-year operating/framework CEILING
+    # mislabelled as a one-off award (Go-Ahead bus €1.486bn, Applus NCT €650m, Valero fuel
+    # €280m, PFH IT €475m). Without it, ~50 such rows = 38% of the entire "safe" total and
+    # dominate every supplier-by-value ranking. Flag them for review, keep them OUT of
+    # value_safe_to_sum, so eTenders and TED apply the identical honesty rail.
+    LARGE_AWARD_REVIEW_EUR = 50_000_000.0
     # The source carries the literal string "NULL" for ~7% of award rows. Make it an honest
     # null so it can't (a) collapse 4k unrelated awards into one group_by bucket, nor (b) be
     # mistaken for a joinable id downstream.
@@ -288,11 +295,15 @@ def main() -> None:
             .then(pl.lit("framework_call_off"))
             .otherwise(pl.lit("contract_award_value"))
             .alias("value_kind"),
+            # Mega single-supplier "awards" are almost always multi-year operating/framework
+            # ceilings — flag for review and exclude from value_safe_to_sum (TED-consistent).
+            (pl.col("value_eur") >= LARGE_AWARD_REVIEW_EUR).alias("is_large_award_review"),
         )
         .with_columns(
             (
                 (pl.col("value_kind") == "contract_award_value")
                 & ~pl.col("value_shared_across_suppliers")
+                & ~pl.col("is_large_award_review")  # mega single-award ceilings excluded (TED-consistent)
                 & pl.col("Tender ID").is_not_null()  # null id => can't verify the value isn't a repeated ceiling
                 & pl.col("value_eur").is_not_null()
                 & (pl.col("value_eur") >= MIN_PLAUSIBLE_VALUE_EUR)  # drop sub-€1 source noise / placeholders
@@ -303,6 +314,7 @@ def main() -> None:
         f"  value rows: {aw['value_eur'].is_not_null().sum():,} | "
         f"framework/DPS ceilings: {aw['is_framework_or_dps'].sum():,} | "
         f"multi-supplier (repeated value): {aw['value_shared_across_suppliers'].sum():,} | "
+        f"large-award (>=€50m) review: {aw['is_large_award_review'].sum():,} | "
         f"safe-to-sum award rows: {aw['value_safe_to_sum'].sum():,}"
     )
 
@@ -391,6 +403,7 @@ def main() -> None:
         "value_rows": int(aw["value_eur"].is_not_null().sum()),
         "framework_or_dps_ceiling_rows": int(aw["is_framework_or_dps"].sum()),
         "value_shared_across_suppliers_rows": int(aw["value_shared_across_suppliers"].sum()),
+        "large_award_review_rows_ge_50m": int(aw["is_large_award_review"].sum()),
         "value_safe_to_sum_rows": int(aw["value_safe_to_sum"].sum()),
         "value_safe_to_sum_total_eur": float(aw.filter(pl.col("value_safe_to_sum"))["value_eur"].sum() or 0),
         "value_naive_sum_eur_DO_NOT_USE": float(aw["value_eur"].sum() or 0),

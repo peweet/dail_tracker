@@ -143,6 +143,12 @@ def fetch_payments_publisher_profile_result(publisher_name: str) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_payments_by_year_result(publisher_name: str, tier: str = "SPENT") -> QueryResult:
+    """One body's sum-safe spend per year, one tier (the dossier spend-over-time chart)."""
+    return _q.payments_by_year(get_procurement_conn(), publisher_name, tier=tier)
+
+
+@st.cache_data(ttl=300)
 def fetch_payments_for_supplier_result(supplier_norm: str) -> QueryResult:
     return _q.payments_for_supplier(get_procurement_conn(), supplier_norm)
 

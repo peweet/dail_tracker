@@ -12,19 +12,67 @@ This file is purely "how do I push the OCR forward."
 
 ---
 
-## What's left (snapshot 2026-06-08)
+## What's left
 
-| doc_type | docs | OCR complete | untouched | pages OCR'd |
-|---|---|---|---|---|
-| `expense_statement` | 607 | 5 (+1 partial) | ~601 | 68 / ~7,840 |
-| `donation_statement` | 428 | 0 | 428 | 0 / ~570 |
+| doc_type | docs | pages (approx) |
+|---|---|---|
+| `expense_statement` | 607 | ~7,840 |
+| `donation_statement` | 428 | ~570 |
 
-So **~99% of the corpus is still un-OCR'd.** Get a live count any time with the
-progress check below.
+As of 2026-06-08 the **GPU fast path is running the expense tier** (~0.71 s/page, ~1.5 h to
+finish). The page count moves quickly — don't trust a hardcoded snapshot; **get a live count
+any time** with the progress check below (the GPU and CPU runs share the same `_ckpt`, so the
+count covers both).
 
 ---
 
-## The two pieces
+## ⚡ GPU fast path (RECOMMENDED — ~100× faster, validated 2026-06-08)
+
+This machine has an **NVIDIA RTX 3060** (CUDA 12.x). PaddleOCR on the GPU runs at
+**~0.76 s/page vs ~55 s/page on CPU — ~100× faster**, with **equivalent fidelity**
+(validated: single page byte-identical to CPU; a 25-doc / 318-page smoke had **0 errors**,
+**100 % identical text-region detection**, and the only text diffs were cosmetic
+whitespace/cell-order — in one case the GPU was *more* correct, reading `N/A` where CPU
+read `N/4`). The whole corpus (expenses + donations) finishes in **~3 hours** instead of
+~2 weeks of nights.
+
+It runs from an **isolated sandbox venv** so the main `.venv` is never touched, and it
+writes to the **same production `_ckpt`** in the same format as the CPU driver — so the two
+are interchangeable and the parser reads either identically.
+
+### One-time setup (the sandbox GPU venv)
+```powershell
+# 1. create the isolated venv (base interpreter, NOT the repo .venv)
+C:\Users\pglyn\AppData\Local\Programs\Python\Python312\python.exe -m venv C:\tmp\paddle_gpu_venv
+# 2. paddle GPU build — from paddle's CUDA index (NOT PyPI)
+C:\tmp\paddle_gpu_venv\Scripts\python.exe -m pip install paddlepaddle-gpu==3.3.1 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+# 3. paddleocr + pymupdf — from PyPI (a separate command; the -i above can't find them)
+C:\tmp\paddle_gpu_venv\Scripts\python.exe -m pip install paddleocr==3.6.0 pymupdf
+# 4. match cuDNN to what paddle was compiled against (9.9), else a "may cause serious bug" warning
+C:\tmp\paddle_gpu_venv\Scripts\python.exe -m pip install "nvidia-cudnn-cu12>=9.9,<9.10"
+```
+
+### Run it (after the clean-machine step 0 below)
+The runner is **`c:/tmp/gpu_ocr_runner.py`** — self-contained (paddleocr + pymupdf + stdlib
+only, no repo deps), resumable (skips cached pages), with the same 300→300→200→skip attempt
+ladder as the CPU driver, writing to `data/silver/sipo_candidate/_ckpt/`.
+```powershell
+taskkill /F /IM python.exe   # rule 0 — exactly one OCR process
+# expenses (default):
+C:\tmp\paddle_gpu_venv\Scripts\python.exe C:\tmp\gpu_ocr_runner.py
+# donations afterwards:
+C:\tmp\paddle_gpu_venv\Scripts\python.exe C:\tmp\gpu_ocr_runner.py --doc-types donation_statement
+```
+Logs to `data/silver/sipo_candidate/_log_gpu_runner.txt`. Progress check is the same as the
+CPU path (below). The hard rules still apply — **one OCR process, clean machine** — but the
+GPU run is fast enough (~1.5 h for expenses) that it's a single attended session, not an
+overnight grind. **Graduation note:** the runner + GPU venv live in `c:/tmp` (sandbox, kept
+isolated per "don't destabilise the main env"); promote `gpu_ocr_runner.py` into `extractors/`
+and the GPU deps into a pipeline extra if this becomes the standing method.
+
+---
+
+## The two pieces (CPU path — fallback / no-GPU machines)
 
 - **`extractors/sipo_candidate_ocr.py`** — the OCR driver. Renders each scanned page
   @300 DPI, runs PaddleOCR, and caches the raw cells to

@@ -373,3 +373,70 @@ def debate_sections(
         " ORDER BY debate_date DESC LIMIT 1000",
         params,
     )
+
+
+# ── Speeches (floor contributions) ─────────────────────────────────────────────
+
+
+def speech_summary(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
+    """One-row header aggregate for the Debates section (or empty if none)."""
+    return _run(conn, "SELECT * FROM v_member_speech_summary WHERE unique_member_code = ?", [join_key])
+
+
+def speech_years(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
+    return _run(
+        conn,
+        "SELECT DISTINCT year FROM v_member_speeches"
+        " WHERE unique_member_code = ? AND year IS NOT NULL ORDER BY year DESC LIMIT 30",
+        [join_key],
+    )
+
+
+def speech_business(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
+    """Business groupings the member contributed to (selectbox source).
+
+    Pre-aggregated in v_member_speech_business — retrieval-only SELECT here.
+    """
+    return _run(
+        conn,
+        "SELECT business, contribution_count AS n FROM v_member_speech_business"
+        " WHERE unique_member_code = ? ORDER BY n DESC LIMIT 100",
+        [join_key],
+    )
+
+
+def member_speeches(
+    conn: duckdb.DuckDBPyConnection,
+    join_key: str,
+    year: int | None = None,
+    contribution_type: str | None = None,
+    business: str | None = None,
+    irish_only: bool = False,
+    search: str | None = None,
+) -> QueryResult:
+    """The paginated floor-contribution feed (retrieval-only dynamic WHERE)."""
+    clauses = ["unique_member_code = ?"]
+    params: list = [join_key]
+    if year is not None:
+        clauses.append("year = ?")
+        params.append(year)
+    if contribution_type:
+        clauses.append("contribution_type = ?")
+        params.append(contribution_type)
+    if business:
+        clauses.append("business = ?")
+        params.append(business)
+    if irish_only:
+        clauses.append("is_irish")
+    if search:
+        clauses.append("speech_text ILIKE '%' || ? || '%'")
+        params.append(search)
+    return _run(
+        conn,
+        "SELECT speech_date, house, chamber, section_heading, business, contribution_type,"
+        " speaker_raw, recorded_time, speech_text, word_count, is_irish, irish_score, debate_url"
+        " FROM v_member_speeches"
+        f" WHERE {' AND '.join(clauses)}"
+        " ORDER BY speech_date DESC, contribution_order ASC LIMIT 2000",
+        params,
+    )

@@ -42,3 +42,32 @@ def member_dossier(
     if data is None:
         raise HTTPException(status_code=404, detail=f"member '{code}' not found")
     return MemberDossier(**data)
+
+
+@router.get(
+    "/members/{name_or_code}/speeches",
+    summary="A member's floor-contribution feed (speeches + oral questions) from the debate record",
+)
+def member_speeches(
+    name_or_code: str,
+    year: int | None = Query(None, description="Calendar year filter"),
+    contribution_type: str | None = Query(None, description="speech | question | answer"),
+    business: str | None = Query(None, description="Item of business, e.g. 'Commencement Matters'"),
+    irish_only: bool = Query(False, description="Only contributions delivered in Irish"),
+    text: str | None = Query(None, description="Free-text search of the spoken words"),
+    limit: int = Query(200, ge=1, le=2000),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    data = dossiers.build_member_speeches(
+        cur,
+        name_or_code,
+        year=year,
+        contribution_type=contribution_type,
+        business=business,
+        irish_only=irish_only,
+        text=text,
+        limit=limit,
+    )
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"member '{name_or_code}' not found")
+    return data

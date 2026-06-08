@@ -1915,6 +1915,32 @@ def inject_css() -> None:
             color: var(--text-secondary);
         }
 
+        /* Debates section — floor-speech "transcript" cards (2026-06-08).
+           A faithful upgrade of the old debate-section card: same evidence
+           stripe, plus a spoken-word excerpt and an As-Gaeilge accent badge. */
+        .mo-speech-card { padding-bottom: 0.55rem; }
+        .mo-speech-badges { display: inline-flex; gap: 0.3rem; flex-wrap: wrap; }
+        .mo-speech-crumb {
+            font-size: 0.7rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--ink-muted);
+            margin: 0.15rem 0 0.05rem;
+        }
+        .mo-speech-excerpt {
+            margin: 0.35rem 0 0.4rem;
+            font-size: 0.92rem;
+            line-height: 1.5;
+            color: var(--text-secondary);
+        }
+        /* As-Gaeilge badge — green (distinct from the accent chamber badge), a
+           sparing civic signal that a contribution was delivered in Irish. */
+        .signal-gaeilge {
+            background: var(--signal-good-subtle);
+            color: var(--signal-good-deep);
+            border: 1px solid var(--signal-good-border);
+        }
+
         /* P2-1: cabinet-member callout spacing + secondary text colour
            (was two inline styles in the fallback render). */
         .mo-cabinet-callout       { margin: 1rem 0 1.75rem; }

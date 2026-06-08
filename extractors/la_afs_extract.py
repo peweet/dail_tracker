@@ -531,26 +531,38 @@ def best_ie_page(doc) -> tuple[int | None, dict, tuple | None]:
     return best_pg, best_ie, best_total
 
 
-def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
-    urls: list[str] = []
-    for landing in cf["landing"]:
-        urls = harvest_afs(landing)
-        if urls:
-            break
-    urls = urls + [u for u in cf.get("direct", []) if u not in urls]  # known-good fallback URLs
-    picked = select_afs(urls)
-    stat = {
-        "council": cf["council"],
-        "slug": cf["slug"],
-        "n_afs": len(urls),
-        "picked": picked,
-        "year": title_year(picked) if picked else None,
-    }
-    if list_only or not picked:
-        stat["status"] = "no-afs" if not picked else "listed"
-        return [], stat
+MIN_AFS_YEAR = 2016  # the modern 8-division I&E format; pre-2016 used programme-group names
 
+
+def select_afs_years(urls: list[str]) -> list[str]:
+    """One AFS per title-year (AUDITED preferred), years >= MIN_AFS_YEAR, newest first.
+
+    Multi-year backfill (2026-06-08): councils file an AFS annually and keep the archive, but
+    `select_afs` took only the LATEST — so the fact was a 1-year snapshot. This returns the whole
+    post-2016 run so the per-LA fact becomes a by-division time series (the AFS twin of the PO
+    deep-history lift). pre-2016 statements use the old programme-group layout the parser can't
+    read, so they're excluded."""
+
+    def is_audited(u: str) -> bool:
+        return bool(re.search(r"audited", u, re.I) and not re.search(r"unaudited", u, re.I))
+
+    by_year: dict[int, str] = {}
+    for u in urls:
+        y = title_year(u)
+        if not y or y < MIN_AFS_YEAR:
+            continue
+        cur = by_year.get(y)
+        if cur is None or (is_audited(u) and not is_audited(cur)):
+            by_year[y] = u
+    return [by_year[y] for y in sorted(by_year, reverse=True)]
+
+
+def _parse_one_afs(cf: dict, picked: str) -> tuple[list[dict], dict]:
+    """Download + reconcile ONE AFS PDF → (rows, stat). Factored out of ingest_council so the
+    council loop can run it once per year. Same safety gate (emit rows only if Σ gross matches
+    the statement's own printed total)."""
     year = title_year(picked)
+    stat = {"council": cf["council"], "slug": cf["slug"], "picked": picked, "year": year}
     p = download(cf["slug"], picked, year)
     if not p:
         stat["status"] = "download-fail(WAF?)"
@@ -566,21 +578,14 @@ def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
         doc.close()
         stat["status"] = "no-IE-page"
         return [], stat
-    # AUTHORITATIVE year from the statement itself (filename year is unreliable — signing
-    # dates, %20-injected phantom digits). Fall back to the filename only if the page has none.
+    # AUTHORITATIVE year from the statement itself (filename year is unreliable).
     year = statement_year(doc[pg].get_text("text")) or year
     stat["year"] = year
     doc.close()
     gross_sum = sum(v[0] for v in ie.values() if v[0])
     reconciled = bool(total and abs(gross_sum - total[0]) < 100_000)
-    # SAFETY GATE: only councils whose Σ gross matches the statement's own printed total
-    # enter the fact. A non-reconciling parse means the parser mis-read this council's
-    # layout (wrong cells / wrong page) and the figures are NOT trustworthy — record the
-    # miss in coverage but emit NO rows, so the fact stays clean-by-construction.
     if not reconciled:
-        stat.update(
-            status="no-reconcile", divisions=len(ie), gross_sum=gross_sum, reconciled=False, pages=npages, ie_page=pg
-        )
+        stat.update(status="no-reconcile", divisions=len(ie), gross_sum=gross_sum, reconciled=False, pages=npages, ie_page=pg)
         return [], stat
     rows = [
         {
@@ -602,15 +607,47 @@ def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
         }
         for canon, v in ie.items()
     ]
-    stat.update(
-        status="ok" if len(ie) == 8 else f"{len(ie)}/8",
-        divisions=len(ie),
-        gross_sum=gross_sum,
-        reconciled=reconciled,
-        pages=npages,
-        ie_page=pg,
-    )
+    stat.update(status="ok" if len(ie) == 8 else f"{len(ie)}/8", divisions=len(ie),
+                gross_sum=gross_sum, reconciled=reconciled, pages=npages, ie_page=pg)
     return rows, stat
+
+
+def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
+    urls: list[str] = []
+    for landing in cf["landing"]:
+        urls = harvest_afs(landing)
+        if urls:
+            break
+    urls = urls + [u for u in cf.get("direct", []) if u not in urls]  # known-good fallback URLs
+    picks = select_afs_years(urls)
+    avail = sorted({title_year(u) for u in urls if title_year(u)}, reverse=True)
+    stat = {
+        "council": cf["council"],
+        "slug": cf["slug"],
+        "n_afs": len(urls),
+        "picked": picks[0] if picks else None,
+        "years_available": avail,
+        "year": title_year(picks[0]) if picks else None,
+    }
+    if list_only or not picks:
+        stat["status"] = "no-afs" if not picks else "listed"
+        return [], stat
+    # Loop every post-2016 statement → the fact becomes a multi-year by-division series. Each
+    # year passes its OWN reconcile gate independently (a layout-drifted old year is skipped, the
+    # clean recent years still land).
+    all_rows: list[dict] = []
+    years_done: list[int] = []
+    last_status = "no-reconcile"
+    for picked in picks:
+        rows, sub = _parse_one_afs(cf, picked)
+        last_status = sub.get("status", last_status)
+        if rows:
+            all_rows.extend(rows)
+            years_done.append(sub["year"])
+    stat["status"] = "ok" if all_rows else last_status  # 'ok' if ANY year landed → no camelot retry
+    stat["years"] = sorted(set(years_done))
+    stat["n_years"] = len(set(years_done))
+    return all_rows, stat
 
 
 def merge_camelot(stats: list[dict]) -> list[dict]:

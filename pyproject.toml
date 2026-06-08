@@ -182,6 +182,12 @@ ignore = [
     "E501",  # line too long — let the formatter handle it
 ]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency/parameter markers are call-in-default by design — the
+# idiomatic pattern across api/routers/*. Allowlist them so B008 doesn't fire on
+# every endpoint signature.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Header", "fastapi.Body"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["utility", "shared"]
 

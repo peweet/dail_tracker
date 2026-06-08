@@ -49,6 +49,7 @@ from data_access.procurement_data import (
     fetch_payments_corpus_stats_result,
     fetch_payments_for_publisher_result,
     fetch_payments_for_supplier_result,
+    fetch_payments_by_year_result,
     fetch_payments_publisher_profile_result,
     fetch_payments_publisher_summary_result,
     fetch_payments_supplier_summary_result,
@@ -668,6 +669,13 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
         )
         active = labels.get(choice or default, active)
 
+    # Spend-over-time spine — one tier only (never stack ordered+paid, which would read as a sum).
+    # Meaningful now the council payment data is a decade deep (2016–2026).
+    by_year = fetch_payments_by_year_result(publisher_name, tier=active)
+    if by_year.ok and len(by_year.data) > 1:
+        st.caption(f"Money {_paid_verb(active)} per year (sum-safe)")
+        st.bar_chart(by_year.data, x="year", y="total_safe_eur", height=200, color="#9c5b2e")
+
     res = fetch_payments_for_publisher_result(publisher_name, tier=active)
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
@@ -1244,15 +1252,13 @@ def procurement_page() -> None:
         "who was awarded public contracts, by which bodies, in which categories.",
     )
 
-    # One short caveat carries the honesty (awarded ≠ paid; ceilings aren't payments). The
-    # naive-vs-safe "€570bn" contrast panel was removed 2026-06-08 — it paraded a meaningless
-    # number and cluttered the top; the per-row ceiling labels + the "Money actually paid" tab
-    # make the point without it.
+    # Caveat trimmed to its two load-bearing honesty rails (awarded ≠ paid; no-inference). The
+    # ceilings explanation moved to the "What these terms mean" expander (no duplication), and the
+    # "€570bn" contrast panel was removed 2026-06-08 — both cut above-the-fold weight.
     st.html(
-        '<div class="pr-caveat"><strong>Awarded value, not actual spend.</strong> '
-        "These are contract <em>award</em> values reported on eTenders — the value at award, not "
-        "money actually paid. Framework / DPS ceilings (labelled on each row) are spending limits, "
-        "not payments. A contract award is a public record of a procurement decision, not evidence "
+        '<div class="pr-caveat"><strong>Awarded value, not money paid.</strong> '
+        "These are values at the point of award — see <em>Money actually paid</em> for real "
+        "payments. A contract award is a public record of a procurement decision, not evidence "
         "of influence or wrongdoing.</div>"
     )
     _stats_strip(stats, cov)

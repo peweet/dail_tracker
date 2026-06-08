@@ -298,6 +298,45 @@ def _debate_sections(
     return moq.debate_sections(_conn, join_key, year, topic).data
 
 
+# ── Speeches (floor contributions) section data helpers ────────────────────────
+
+
+@st.cache_data(ttl=300)
+def _speech_summary(_conn, join_key: str) -> dict:
+    df = moq.speech_summary(_conn, join_key).data
+    return df.iloc[0].to_dict() if not df.empty else {}
+
+
+@st.cache_data(ttl=300)
+def _speech_years(_conn, join_key: str) -> list[int]:
+    df = moq.speech_years(_conn, join_key).data
+    if df.empty or "year" not in df.columns:
+        return []
+    return [int(y) for y in df["year"].dropna().tolist()]
+
+
+@st.cache_data(ttl=300)
+def _speech_business(_conn, join_key: str) -> list[str]:
+    df = moq.speech_business(_conn, join_key).data
+    if df.empty or "business" not in df.columns:
+        return []
+    return [str(b) for b in df["business"].dropna().tolist()]
+
+
+@st.cache_data(ttl=300)
+def _member_speeches(
+    _conn,
+    join_key: str,
+    year: int | None = None,
+    contribution_type: str | None = None,
+    business: str | None = None,
+    irish_only: bool = False,
+    search: str | None = None,
+) -> pd.DataFrame:
+    """Paginated floor-contribution feed (retrieval-only filters)."""
+    return moq.member_speeches(_conn, join_key, year, contribution_type, business, irish_only, search).data
+
+
 # ── Profile section renderers ──────────────────────────────────────────────────
 
 
@@ -783,107 +822,188 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
     st.caption("Source: oireachtas.ie/en/debates/questions/ · 2020 to present · complete history per TD.")
 
 
-def _section_debates(conn, join_key: str, member_name: str) -> None:
-    subsection_heading("Debate participation")
-    st.caption(
-        "Debate sections where this TD raised a parliamentary question, "
-        "linked to the record on oireachtas.ie. Floor-speech attribution "
-        "(who said what) is pending the debates Stage 2 AKN-XML layer."
-    )
+_SPEECH_EXCERPT_CHARS = 360
 
-    years = _debate_years(conn, join_key)
-    if not years:
+
+def _render_speech_card(row) -> None:
+    """One floor-contribution 'transcript' card: date + badges, topic, spoken
+    excerpt, word count + source. Full text follows in an expander when clamped."""
+    date_raw = str(row.get("speech_date", "") or "")
+    try:
+        date_disp = pd.to_datetime(date_raw).strftime("%d %b %Y")
+    except Exception:
+        date_disp = date_raw
+    chamber = str(row.get("house", "") or "").strip() or "—"
+    business = str(row.get("business", "") or "").strip()
+    topic = str(row.get("section_heading", "") or "").strip()
+    ctype = str(row.get("contribution_type", "") or "")
+    words = int(row.get("word_count", 0) or 0)
+    text = str(row.get("speech_text", "") or "").strip()
+    url = str(row.get("debate_url", "") or "")
+    if url in ("nan", "None"):
+        url = ""
+
+    title = topic or business or "—"
+    crumb = business if business and business != topic else ""
+
+    badges = f'<span class="signal leg-status-active">{_h(chamber)}</span>'
+    if bool(row.get("is_irish")):
+        badges += '<span class="signal signal-gaeilge">As Gaeilge</span>'
+    if ctype == "question":
+        badges += '<span class="signal signal-neutral">Oral question</span>'
+
+    clamped = len(text) > _SPEECH_EXCERPT_CHARS
+    excerpt = (text[:_SPEECH_EXCERPT_CHARS].rsplit(" ", 1)[0] + "…") if clamped else text
+
+    url_html = source_link_html(url, "Oireachtas.ie", aria_label="Open this debate on oireachtas.ie") if url else ""
+    crumb_html = f'<div class="mo-speech-crumb">{_h(crumb)}</div>' if crumb else ""
+    meta_tail = ("&nbsp;·&nbsp;" + url_html) if url_html else ""
+
+    st.html(
+        f'<div class="leg-bill-card mo-bill-card mo-speech-card">'
+        f'<div class="leg-bill-card-header">'
+        f'<span class="leg-bill-card-date">{_h(date_disp)}</span>'
+        f'<span class="mo-speech-badges">{badges}</span>'
+        f"</div>"
+        f"{crumb_html}"
+        f'<div class="leg-bill-card-title">{_h(title)}</div>'
+        f'<div class="mo-speech-excerpt">{_h(excerpt)}</div>'
+        f'<div class="mo-debate-card-meta">{words:,} word{"s" if words != 1 else ""}{meta_tail}</div>'
+        f"</div>"
+    )
+    if clamped:
+        with st.expander("Read full contribution"):
+            st.write(text)
+
+
+def _section_debates(conn, join_key: str, member_name: str) -> None:
+    """Floor contributions (speeches + oral questions) from the AKN debate
+    transcript — the member's actual spoken words, with an As-Gaeilge flag and
+    full-text search. Replaces the former question-derived debate-section proxy.
+    """
+    subsection_heading("Debates")
+
+    summary = _speech_summary(conn, join_key)
+    total = int(summary.get("total_contributions", 0) or 0)
+    if total == 0:
         empty_state(
-            "No debate references found",
-            f"No parliamentary questions by {member_name} map to a debate section in v_member_debate_sections.",
+            "No floor contributions on record",
+            f"{member_name} has no speeches or oral questions in the available debate transcript record.",
         )
         return
 
-    # ── Year filter (pills) ──────────────────────────────────────────────
+    house = str(summary.get("house") or "Dáil")
+    role = "Senator" if house == "Seanad" else "TD"
+    words = int(summary.get("total_words", 0) or 0)
+    irish = int(summary.get("irish_count", 0) or 0)
+    distinct_business = int(summary.get("distinct_business", 0) or 0)
+    commencement = int(summary.get("commencement_count", 0) or 0)
+
+    st.caption(
+        f"What this {role} actually said on the floor — speeches and oral "
+        "questions from the Oireachtas debate record (oireachtas.ie AKN "
+        "transcripts). Contributions delivered in Irish are flagged."
+    )
+
+    # ── Header strip (reuses stat_strip) ─────────────────────────────────────
+    stats: list[tuple[str, str, str, str]] = [
+        (f"{total:,}", "Contributions", "var(--ink-strong)", f"≈{words:,} words spoken"),
+    ]
+    if irish > 0:
+        stats.append((f"{irish:,}", "As Gaeilge", "var(--accent)", "delivered in Irish"))
+    if commencement > 0:
+        stats.append((f"{commencement:,}", "Commencement Matters", "var(--ink-strong)", "issues raised"))
+    else:
+        stats.append((f"{distinct_business}", "Items of business", "var(--ink-strong)", "distinct debates"))
+    stat_strip(stats)
+
+    # ── Filter bar ───────────────────────────────────────────────────────────
+    years = _speech_years(conn, join_key)
     year_opts = ["All years"] + [str(y) for y in years]
     selected_year = (
-        st.pills(
-            "Debate year",
-            options=year_opts,
-            default="All years",
-            key="mo_debate_year",
-            label_visibility="collapsed",
-        )
+        st.pills("Year", options=year_opts, default="All years", key="mo_speech_year", label_visibility="collapsed")
         or "All years"
     )
     year_val = None if selected_year == "All years" else int(selected_year)
 
-    # ── Topic filter (selectbox — topics are free-form and numerous) ─────
-    # Key is year-scoped: changing year refreshes the topic list cleanly
-    # instead of stranding a now-absent selection in session state.
-    topics = _debate_topics(conn, join_key, year_val)
-    selected_topic = (
+    fcol1, fcol2 = st.columns([3, 1])
+    with fcol1:
+        type_label = (
+            st.segmented_control(
+                "Type",
+                options=["All", "Speeches", "Questions"],
+                default="All",
+                key="mo_speech_type",
+                label_visibility="collapsed",
+            )
+            or "All"
+        )
+    with fcol2:
+        irish_only = st.toggle(
+            "As Gaeilge",
+            key="mo_speech_irish",
+            help="Show only contributions identified as delivered in Irish.",
+        )
+    ctype = {"All": None, "Speeches": "speech", "Questions": "question"}.get(type_label)
+
+    business_opts = _speech_business(conn, join_key)
+    selected_business = (
         st.selectbox(
-            "Topic",
-            options=["All topics"] + topics,
+            "Item of business",
+            options=["All business"] + business_opts,
             index=0,
-            key=f"mo_debate_topic_{year_val or 'all'}",
+            key="mo_speech_business",
             label_visibility="collapsed",
         )
-        or "All topics"
+        or "All business"
     )
-    topic_val = None if selected_topic == "All topics" else selected_topic
+    business_val = None if selected_business == "All business" else selected_business
 
-    df = _debate_sections(conn, join_key, year_val, topic_val)
+    search = (
+        st.text_input(
+            "Search what they said",
+            value="",
+            key="mo_speech_search",
+            placeholder="Search the words they spoke…",
+            label_visibility="collapsed",
+        ).strip()
+        or None
+    )
+
+    df = _member_speeches(conn, join_key, year_val, ctype, business_val, bool(irish_only), search)
     if df.empty:
-        empty_state(
-            "No debate references match these filters",
-            "Try a different year or topic.",
-        )
+        if irish_only:
+            empty_state(
+                "No contributions in Irish match",
+                f"No contributions by {member_name} were identified as delivered in Irish under these filters.",
+            )
+        else:
+            empty_state(
+                "No contributions match these filters",
+                "Try a different year, type, item of business, or search term.",
+            )
         return
 
-    total = len(df)
-    PAGE_SIZE = 10
-    filter_sig = f"{year_val or 'all'}_{topic_val or 'all'}"
-    pager_key = f"mo_debate_{join_key}_{filter_sig}"
-    page_idx = paginate(total, key_prefix=pager_key, page_size=PAGE_SIZE)
+    total_rows = len(df)
+    PAGE_SIZE = 8
+    filter_sig = f"{year_val or 'all'}_{ctype or 'all'}_{business_val or 'all'}_{int(bool(irish_only))}_{search or ''}"
+    pager_key = f"mo_speech_{join_key}_{filter_sig}"
+    page_idx = paginate(total_rows, key_prefix=pager_key, page_size=PAGE_SIZE)
     visible = df.iloc[page_idx * PAGE_SIZE : (page_idx + 1) * PAGE_SIZE]
 
     start = page_idx * PAGE_SIZE + 1
-    end = min((page_idx + 1) * PAGE_SIZE, total)
-    st.caption(f"Showing {start:,}–{end:,} of {total:,} debate section{'s' if total != 1 else ''}")
+    end = min((page_idx + 1) * PAGE_SIZE, total_rows)
+    st.caption(f"Showing {start:,}–{end:,} of {total_rows:,} contribution{'s' if total_rows != 1 else ''}")
 
     for _, row in visible.iterrows():
-        date_raw = str(row.get("debate_date", "") or "")
-        try:
-            date_disp = pd.to_datetime(date_raw).strftime("%d %b %Y")
-        except Exception:
-            date_disp = date_raw
-        chamber = str(row.get("chamber", "") or "").title() or "—"
-        topic = str(row.get("topic", "") or "").strip() or "—"
-        qcount = int(row.get("question_count", 0) or 0)
-        url = str(row.get("oireachtas_url", "") or "")
-        if url in ("nan", "None"):
-            url = ""
-        url_html = source_link_html(
-            url,
-            "Oireachtas.ie",
-            aria_label="Open this debate section on oireachtas.ie",
-        )
-        st.html(
-            f'<div class="leg-bill-card mo-bill-card">'
-            f'<div class="leg-bill-card-header">'
-            f'<span class="leg-bill-card-date">{_h(date_disp)}</span>'
-            f'<span class="signal leg-status-active">{_h(chamber)}</span>'
-            f"</div>"
-            f'<div class="leg-bill-card-title">{_h(topic)}</div>'
-            f'<div class="mo-debate-card-meta">'
-            f"{qcount} question{'s' if qcount != 1 else ''} raised"
-            f"&nbsp;·&nbsp;{url_html}</div>"
-            f"</div>"
-        )
+        _render_speech_card(row)
 
     pagination_controls(
-        total=total,
+        total=total_rows,
         key_prefix=pager_key,
         page_sizes=(PAGE_SIZE,),
         default_page_size=PAGE_SIZE,
-        label="debate sections",
+        label="contributions",
         show_caption=False,
     )
 
@@ -1671,13 +1791,15 @@ def _render_stage2(
             # Header strip + filter bar + paginated feed. See contract
             # member_overview.yaml -> section_content.questions.
             # Parliamentary Questions are a Dáil instrument — Senators raise
-            # Commencement Matters instead, which this dataset does not yet
-            # cover. State that plainly rather than showing an empty feed.
+            # Commencement Matters instead. Those now live in the Debates
+            # section (speeches_fact), so point there rather than dead-ending.
             if is_seanad:
                 empty_state(
                     "Not applicable to Senators",
                     "Parliamentary Questions are tabled by TDs. Senators raise "
-                    "Commencement Matters in the Seanad, which are not yet tracked here.",
+                    "Commencement Matters in the Seanad — see the **Debates** "
+                    "section above (filter the item of business to "
+                    "“Commencement Matters”).",
                 )
             else:
                 _section_questions(conn, join_key, member_name)
