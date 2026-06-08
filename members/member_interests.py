@@ -28,6 +28,7 @@ import polars as pl
 import regex
 
 from config import GOLD_DIR, INTERESTS_PDF_DIR, MEMBERS_DIR, SILVER_DIR
+from services.parquet_io import save_parquet
 from shared import normalise_join_key
 
 # ---------------------------------------------------------------------------
@@ -473,12 +474,7 @@ def combine_years(silver_dir: pathlib.Path, years: list[str], case: str) -> pl.D
     parquet_dir = silver_dir / "parquet"
     parquet_dir.mkdir(parents=True, exist_ok=True)
     parquet_path = parquet_dir / f"{case}_member_interests_combined.parquet"
-    combined.write_parquet(
-        parquet_path,
-        compression="zstd",
-        compression_level=3,
-        statistics=True,
-    )
+    save_parquet(combined, parquet_path)
     print(f"Saved combined: {out_path} + {parquet_path.name}")
     return combined
 
