@@ -163,6 +163,19 @@ def test_payments_tier_whitelist_rejects_injection(conn):
         assert set(r.data["realisation_tier"].unique()) <= {"SPENT"}
 
 
+def test_payments_by_year_single_tier_chronological(conn):
+    top = q.payments_publisher_summary(conn, tier="COMMITTED", limit=1)
+    if not top.ok or top.is_empty:
+        pytest.skip("no payment publishers")
+    body = top.data.iloc[0]["publisher_name"]
+    r = q.payments_by_year(conn, body, tier="COMMITTED")
+    assert r.ok is True
+    assert {"year", "n_payments", "total_safe_eur"}.issubset(set(r.data.columns))
+    years = [int(y) for y in r.data["year"].tolist()]
+    assert years == sorted(years)  # chronological for the spend-over-time chart
+    assert (r.data["total_safe_eur"] >= 0).all()
+
+
 def test_payments_for_supplier_roundtrip(conn):
     top = q.payments_supplier_summary(conn, tier="SPENT", limit=1)
     if not top.ok or top.is_empty:

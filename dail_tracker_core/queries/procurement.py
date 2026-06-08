@@ -471,6 +471,24 @@ def payments_for_publisher(
     )
 
 
+def payments_by_year(
+    conn: duckdb.DuckDBPyConnection, publisher_name: str, *, tier: str = "SPENT"
+) -> QueryResult:
+    """One public body's sum-safe spend per calendar year, for ONE lifecycle tier (the body
+    dossier's spend-over-time spine — now meaningful with the 2016–2026 council backfill).
+    One tier only by design: ordered and paid are never charted on one stacked axis (that would
+    read as a sum). Counts + euros pre-aggregated here; the page renders, never computes."""
+    return _run(
+        conn,
+        "SELECT year, COUNT(*) AS n_payments,"
+        " COALESCE(SUM(amount_eur) FILTER (WHERE value_safe_to_sum), 0) AS total_safe_eur"
+        " FROM v_procurement_payments"
+        " WHERE publisher_name = ? AND realisation_tier = ? AND year IS NOT NULL"
+        " GROUP BY year ORDER BY year",
+        [publisher_name, _tier(tier)],
+    )
+
+
 def payments_publisher_profile(conn: duckdb.DuckDBPyConnection, publisher_name: str) -> QueryResult:
     """Single-row buyer dossier header for one public body (the per-council profile anchor).
 

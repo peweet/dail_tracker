@@ -53,6 +53,15 @@ EXTERNAL_LINKS_FILES = ["member_external_links.sql"]
 # {PARQUET_PATH} + {SEANAD_VOTE_PARQUET_PATH} — vote_base must precede its dependents.
 VOTE_FILES = ["vote_base.sql", "vote_td_summary.sql", "vote_member_detail.sql"]
 
+# {SPEECH_FACT_PARQUET_PATH} — speech_base (single unified parquet, carries house)
+# must precede its dependents. Powers the member-overview Debates section.
+SPEECH_FILES = [
+    "speech_base.sql",
+    "speech_member_detail.sql",
+    "speech_member_summary.sql",
+    "speech_member_business.sql",
+]
+
 
 def register_member_views(conn: duckdb.DuckDBPyConnection) -> None:
     """Register the full member-overview view set onto ``conn`` (4 phases).
@@ -111,6 +120,19 @@ def register_member_views(conn: duckdb.DuckDBPyConnection) -> None:
     except Exception as exc:  # noqa: BLE001
         _log.warning("member views: could not load vote views: %s", exc)
 
+    # Phase 5 — speech views (unified gold parquet; speech_base precedes dependents).
+    try:
+        from config import GOLD_SPEECHES_FACT_PARQUET
+
+        register_views(
+            conn,
+            SPEECH_FILES,
+            substitutions={"{SPEECH_FACT_PARQUET_PATH}": GOLD_SPEECHES_FACT_PARQUET.as_posix()},
+            swallow_errors=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("member views: could not load speech views: %s", exc)
+
 
 def member_overview_conn() -> duckdb.DuckDBPyConnection:
     """A fresh in-memory DuckDB connection with the member-overview view set.
@@ -152,6 +174,7 @@ _API_DOMAIN_GLOBS = [
     "member_interests_*.sql",
     "member_zz_interests_*.sql",
     "vote_*.sql",
+    "speech_*.sql",
 ]
 
 
@@ -167,7 +190,12 @@ def api_conn() -> duckdb.DuckDBPyConnection:
 
     subs: dict[str, str] = {}
     try:
-        from config import GOLD_SEANAD_VOTE_HISTORY_PARQUET, GOLD_VOTE_HISTORY_PARQUET, SILVER_PARQUET_DIR
+        from config import (
+            GOLD_SEANAD_VOTE_HISTORY_PARQUET,
+            GOLD_SPEECHES_FACT_PARQUET,
+            GOLD_VOTE_HISTORY_PARQUET,
+            SILVER_PARQUET_DIR,
+        )
 
         subs = {
             "{MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_members.parquet").as_posix(),
@@ -175,6 +203,7 @@ def api_conn() -> duckdb.DuckDBPyConnection:
             "{EXTERNAL_LINKS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_external_links.parquet").as_posix(),
             "{PARQUET_PATH}": GOLD_VOTE_HISTORY_PARQUET.as_posix(),
             "{SEANAD_VOTE_PARQUET_PATH}": GOLD_SEANAD_VOTE_HISTORY_PARQUET.as_posix(),
+            "{SPEECH_FACT_PARQUET_PATH}": GOLD_SPEECHES_FACT_PARQUET.as_posix(),
         }
     except Exception as exc:  # noqa: BLE001
         _log.warning("api_conn: could not load config substitutions: %s", exc)

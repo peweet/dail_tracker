@@ -53,6 +53,10 @@ GOLD_VOTE_HISTORY_PARQUET = GOLD_PARQUET_DIR / "current_dail_vote_history.parque
 GOLD_SEANAD_VOTE_HISTORY_PARQUET = GOLD_PARQUET_DIR / "current_seanad_vote_history.parquet"
 SEANAD_PAYMENTS_PARQUET = GOLD_PARQUET_DIR / "seanad_payments_full_psa.parquet"
 SEANAD_ATTENDANCE_BY_YEAR_PARQUET = GOLD_PARQUET_DIR / "seanad_attendance_by_year.parquet"
+# Debates: member-attributed floor speeches (both chambers). Silver is the raw
+# parsed transcript; gold joins member identity + language/topic enrichment.
+SILVER_SPEECHES_PARQUET = SILVER_PARQUET_DIR / "speeches.parquet"
+GOLD_SPEECHES_FACT_PARQUET = GOLD_PARQUET_DIR / "speeches_fact.parquet"
 
 API_BASE = "https://api.oireachtas.ie/v1"
 VOTES_DATE_START = "2016-01-01"  # cutoff for paginated vote fetch

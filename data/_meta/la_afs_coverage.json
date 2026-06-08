@@ -1,178 +1,18 @@
 {
   "councils_total": 31,
-  "councils_available": 21,
-  "councils_unavailable": 10,
-  "councils_fitz": 15,
-  "councils_camelot": 6,
-  "rows": 168,
+  "councils_available": 1,
+  "councils_unavailable": 30,
+  "councils_fitz": 1,
+  "councils_camelot": 0,
+  "rows": 80,
   "phase": 1,
   "coverage_by_council": [
-    {
-      "council": "Clare",
-      "slug": "clare",
-      "region": "Munster",
-      "available": true,
-      "year": 2024,
-      "parser": "camelot"
-    },
-    {
-      "council": "Cork City",
-      "slug": "cork_city",
-      "region": "Munster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Cork County",
-      "slug": "cork_county",
-      "region": "Munster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Donegal",
-      "slug": "donegal",
-      "region": "Ulster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Dublin City",
-      "slug": "dublin_city",
-      "region": "Dublin",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Dun Laoghaire-Rathdown",
-      "slug": "dlr",
-      "region": "Dublin",
-      "available": true,
-      "year": 2023,
-      "parser": "camelot"
-    },
-    {
-      "council": "Fingal",
-      "slug": "fingal",
-      "region": "Dublin",
-      "available": true,
-      "year": 2024,
-      "parser": "camelot"
-    },
-    {
-      "council": "Galway City",
-      "slug": "galway_city",
-      "region": "Connacht",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Galway County",
-      "slug": "galway_county",
-      "region": "Connacht",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Kildare",
-      "slug": "kildare",
-      "region": "Leinster",
-      "available": true,
-      "year": 2025,
-      "parser": "camelot"
-    },
-    {
-      "council": "Kilkenny",
-      "slug": "kilkenny",
-      "region": "Leinster",
-      "available": true,
-      "year": 2023,
-      "parser": "fitz"
-    },
-    {
-      "council": "Leitrim",
-      "slug": "leitrim",
-      "region": "Connacht",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Limerick",
-      "slug": "limerick",
-      "region": "Munster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Longford",
-      "slug": "longford",
-      "region": "Leinster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Meath",
-      "slug": "meath",
-      "region": "Leinster",
-      "available": true,
-      "year": 2019,
-      "parser": "fitz"
-    },
-    {
-      "council": "Monaghan",
-      "slug": "monaghan",
-      "region": "Ulster",
-      "available": true,
-      "year": 2024,
-      "parser": "camelot"
-    },
-    {
-      "council": "Offaly",
-      "slug": "offaly",
-      "region": "Leinster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Sligo",
-      "slug": "sligo",
-      "region": "Connacht",
-      "available": true,
-      "year": 2024,
-      "parser": "camelot"
-    },
     {
       "council": "South Dublin",
       "slug": "south_dublin",
       "region": "Dublin",
       "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Tipperary",
-      "slug": "tipperary",
-      "region": "Munster",
-      "available": true,
-      "year": 2024,
-      "parser": "fitz"
-    },
-    {
-      "council": "Westmeath",
-      "slug": "westmeath",
-      "region": "Leinster",
-      "available": true,
-      "year": 2024,
+      "year": 2016,
       "parser": "fitz"
     },
     {
@@ -192,6 +32,78 @@
       "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
     },
     {
+      "council": "Clare",
+      "slug": "clare",
+      "region": "Munster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Cork City",
+      "slug": "cork_city",
+      "region": "Munster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Cork County",
+      "slug": "cork_county",
+      "region": "Munster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Donegal",
+      "slug": "donegal",
+      "region": "Ulster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Dublin City",
+      "slug": "dublin_city",
+      "region": "Dublin",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Dun Laoghaire-Rathdown",
+      "slug": "dlr",
+      "region": "Dublin",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Fingal",
+      "slug": "fingal",
+      "region": "Dublin",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Galway City",
+      "slug": "galway_city",
+      "region": "Connacht",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Galway County",
+      "slug": "galway_county",
+      "region": "Connacht",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
       "council": "Kerry",
       "slug": "kerry",
       "region": "Munster",
@@ -200,12 +112,52 @@
       "reason": "We could not locate this council's published audited statement online."
     },
     {
+      "council": "Kildare",
+      "slug": "kildare",
+      "region": "Leinster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Kilkenny",
+      "slug": "kilkenny",
+      "region": "Leinster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
       "council": "Laois",
       "slug": "laois",
       "region": "Leinster",
       "available": false,
       "reason_category": "scanned_image",
       "reason": "This council publishes its statement only as a scanned image, which is not yet machine-readable."
+    },
+    {
+      "council": "Leitrim",
+      "slug": "leitrim",
+      "region": "Connacht",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Limerick",
+      "slug": "limerick",
+      "region": "Munster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Longford",
+      "slug": "longford",
+      "region": "Leinster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
     },
     {
       "council": "Louth",
@@ -224,6 +176,30 @@
       "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
     },
     {
+      "council": "Meath",
+      "slug": "meath",
+      "region": "Leinster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Monaghan",
+      "slug": "monaghan",
+      "region": "Ulster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Offaly",
+      "slug": "offaly",
+      "region": "Leinster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
       "council": "Roscommon",
       "slug": "roscommon",
       "region": "Connacht",
@@ -232,12 +208,36 @@
       "reason": "This council publishes its statement through an interactive online viewer we cannot yet read automatically."
     },
     {
+      "council": "Sligo",
+      "slug": "sligo",
+      "region": "Connacht",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
+      "council": "Tipperary",
+      "slug": "tipperary",
+      "region": "Munster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
+    },
+    {
       "council": "Waterford",
       "slug": "waterford",
       "region": "Munster",
       "available": false,
       "reason_category": "scanned_image",
       "reason": "This council publishes its statement only as a scanned image, which is not yet machine-readable."
+    },
+    {
+      "council": "Westmeath",
+      "slug": "westmeath",
+      "region": "Leinster",
+      "available": false,
+      "reason_category": "unavailable",
+      "reason": "Not yet available."
     },
     {
       "council": "Wexford",
@@ -257,13 +257,27 @@
     }
   ],
   "unavailable_by_reason": {
-    "scanned_image": [
-      "Laois",
-      "Waterford",
-      "Wexford"
-    ],
-    "not_located": [
-      "Kerry"
+    "unavailable": [
+      "Clare",
+      "Cork City",
+      "Cork County",
+      "Donegal",
+      "Dublin City",
+      "Dun Laoghaire-Rathdown",
+      "Fingal",
+      "Galway City",
+      "Galway County",
+      "Kildare",
+      "Kilkenny",
+      "Leitrim",
+      "Limerick",
+      "Longford",
+      "Meath",
+      "Monaghan",
+      "Offaly",
+      "Sligo",
+      "Tipperary",
+      "Westmeath"
     ],
     "unusual_layout": [
       "Louth",
@@ -274,6 +288,14 @@
       "Cavan",
       "Mayo",
       "Roscommon"
+    ],
+    "scanned_image": [
+      "Laois",
+      "Waterford",
+      "Wexford"
+    ],
+    "not_located": [
+      "Kerry"
     ]
   },
   "by_council": [
@@ -281,327 +303,45 @@
       "council": "South Dublin",
       "slug": "south_dublin",
       "n_afs": 31,
-      "picked": "https://www.sdcc.ie/en/services/our-council/policies-and-plans/budgets-and-spending/financial-statements/audited-afs-2024.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 313476235.0,
-      "reconciled": true,
-      "pages": 44,
-      "ie_page": 13
-    },
-    {
-      "council": "Cork City",
-      "slug": "cork_city",
-      "n_afs": 9,
-      "picked": "https://www.corkcity.ie/media/52zlwx42/afs-audited-2024-final.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 336999117.0,
-      "reconciled": true,
-      "pages": 60,
-      "ie_page": 24
-    },
-    {
-      "council": "Cork County",
-      "slug": "cork_county",
-      "n_afs": 8,
-      "picked": "https://www.corkcoco.ie/sites/default/files/2026-03/annual-financial-statement-signed-audited-accounts-2024-pdf.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 478058909.0,
-      "reconciled": true,
-      "pages": 47,
-      "ie_page": 20
-    },
-    {
-      "council": "Westmeath",
-      "slug": "westmeath",
-      "n_afs": 18,
-      "picked": "https://www.westmeathcoco.ie/en/media/AuditedAnnualFinancialStatement2024.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 111579086.0,
-      "reconciled": true,
-      "pages": 42,
-      "ie_page": 14
-    },
-    {
-      "council": "Galway City",
-      "slug": "galway_city",
-      "n_afs": 5,
-      "picked": "https://www.galwaycity.ie/sites/default/files/2025-12/Galway%20City%20Council%20Audited%20AFS%202024_.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 136940975.0,
-      "reconciled": true,
-      "pages": 41,
-      "ie_page": 14
-    },
-    {
-      "council": "Galway County",
-      "slug": "galway_county",
-      "n_afs": 11,
-      "picked": "https://www.gaillimh.ie/sites/default/files/2026-04/2024%20Annual%20Financial%20Statement.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 181356236.0,
-      "reconciled": true,
-      "pages": 41,
-      "ie_page": 14
-    },
-    {
-      "council": "Meath",
-      "slug": "meath",
-      "n_afs": 22,
-      "picked": "https://www.meath.ie/system/files/media/file-uploads/2021-07/Meath%202019%20Audited%20Annual%20Financial%20Statements%20Signed%20Dec%202020.pdf",
-      "year": 2019,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 123579631.0,
-      "reconciled": true,
-      "pages": 57,
-      "ie_page": 14
-    },
-    {
-      "council": "Donegal",
-      "slug": "donegal",
-      "n_afs": 6,
-      "picked": "https://www.donegalcoco.ie/media/qinnedf1/afs-2024-audited.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 201204533.0,
-      "reconciled": true,
-      "pages": 53,
-      "ie_page": 27
-    },
-    {
-      "council": "Tipperary",
-      "slug": "tipperary",
-      "n_afs": 11,
-      "picked": "https://www.tipperarycoco.ie/sites/default/files/2026-04/Audited%20AFS%202024.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 234320932.0,
-      "reconciled": true,
-      "pages": 37,
-      "ie_page": 11
-    },
-    {
-      "council": "Wicklow",
-      "slug": "wicklow",
-      "n_afs": 14,
-      "picked": "https://www.wicklow.ie/Portals/0/adam/Documents/ASxERbym80esqEC6UFah5g/Link/Audited AFS 2024.pdf",
-      "year": 2024,
-      "status": "no-IE-page"
-    },
-    {
-      "council": "Monaghan",
-      "slug": "monaghan",
-      "n_afs": 14,
-      "picked": "https://monaghan.ie/finance/wp-content/uploads/sites/10/2025/11/AFS-2024-Audited.pdf",
-      "year": 2024,
-      "status": "no-reconcile",
-      "divisions": 8,
-      "gross_sum": 175240216.0,
-      "reconciled": false,
-      "pages": 42,
-      "ie_page": 11
-    },
-    {
-      "council": "Kildare",
-      "slug": "kildare",
-      "n_afs": 15,
-      "picked": "https://kildarecoco.ie/YourCouncil/Publications/Finance/AnnualFinancialStatements/Unaudited Annual Financial Statements 2025.pdf",
+      "picked": "https://www.sdcc.ie/en/services/our-council/policies-and-plans/budgets-and-spending/financial-statements/unaudited-afs-2025.pdf",
+      "years_available": [
+        2025,
+        2024,
+        2023,
+        2022,
+        2021,
+        2020,
+        2019,
+        2018,
+        2017,
+        2016,
+        2015,
+        2014,
+        2013,
+        2012,
+        2011,
+        2010
+      ],
       "year": 2025,
-      "status": "no-reconcile",
-      "divisions": 8,
-      "gross_sum": 415844827.0,
-      "reconciled": false,
-      "pages": 43,
-      "ie_page": 12
-    },
-    {
-      "council": "Sligo",
-      "slug": "sligo",
-      "n_afs": 18,
-      "picked": "https://www.sligococo.ie/YourCouncil/Finance/AnnualFinancialStatements/SligoCOCO-AFS-yr-end-2024 AUDITED.pdf",
-      "year": 2024,
-      "status": "no-reconcile",
-      "divisions": 8,
-      "gross_sum": 84685553.0,
-      "reconciled": false,
-      "pages": 44,
-      "ie_page": 24
-    },
-    {
-      "council": "Clare",
-      "slug": "clare",
-      "n_afs": 14,
-      "picked": "https://www.clarecoco.ie/sites/default/files/2025-07/annual-financial-statement-2024-57446.pdf",
-      "year": 2024,
-      "status": "no-reconcile",
-      "divisions": 8,
-      "gross_sum": 330745579.0,
-      "reconciled": false,
-      "pages": 61,
-      "ie_page": 28
-    },
-    {
-      "council": "Fingal",
-      "slug": "fingal",
-      "n_afs": 10,
-      "picked": "https://www.fingal.ie/sites/default/files/2026-03/audited-afs-2024-book.pdf",
-      "year": 2024,
-      "status": "no-reconcile",
-      "divisions": 8,
-      "gross_sum": 570542114.0,
-      "reconciled": false,
-      "pages": 46,
-      "ie_page": 15
-    },
-    {
-      "council": "Dun Laoghaire-Rathdown",
-      "slug": "dlr",
-      "n_afs": 13,
-      "picked": "https://www.dlrcoco.ie/sites/dlrcoco/files/2024-11/AFS%202023%20audited.pdf",
-      "year": 2023,
-      "status": "no-reconcile",
-      "divisions": 8,
-      "gross_sum": 413022056.0,
-      "reconciled": false,
-      "pages": 41,
-      "ie_page": 11
-    },
-    {
-      "council": "Kilkenny",
-      "slug": "kilkenny",
-      "n_afs": 1,
-      "picked": "https://kilkennycoco.ie/eng/publications/annual-financial-statements/final-afs-2023-for-website11.pdf",
-      "year": 2023,
       "status": "ok",
-      "divisions": 8,
-      "gross_sum": 106356341.0,
-      "reconciled": true,
-      "pages": 37,
-      "ie_page": 12
-    },
-    {
-      "council": "Louth",
-      "slug": "louth",
-      "n_afs": 12,
-      "picked": "https://www.louthcoco.ie/en/publications/finance_reports/afs/2024-lcc-annual-financial-statement-audited.pdf",
-      "year": 2024,
-      "status": "no-IE-page"
-    },
-    {
-      "council": "Wexford",
-      "slug": "wexford",
-      "n_afs": 11,
-      "picked": "https://www.wexfordcoco.ie/sites/default/files/content/AFS-2022-Post-Audit.pdf",
-      "year": 2022,
-      "status": "no-IE-page"
-    },
-    {
-      "council": "Waterford",
-      "slug": "waterford",
-      "n_afs": 9,
-      "picked": "https://waterfordcouncil.ie/app/uploads/2024/02/2022-AFS-English-Audited-V2.pdf",
-      "year": 2022,
-      "status": "no-IE-page"
-    },
-    {
-      "council": "Limerick",
-      "slug": "limerick",
-      "n_afs": 28,
-      "picked": "https://www.limerick.ie/sites/default/files/media/documents/2026-02/limerick-city-and-county-council-audited-annual-financial-statement-2024.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 928251687.0,
-      "reconciled": true,
-      "pages": 44,
-      "ie_page": 13
-    },
-    {
-      "council": "Offaly",
-      "slug": "offaly",
-      "n_afs": 9,
-      "picked": "https://www.offaly.ie/app/uploads/Council/Publications_Reports/AFS-2024-AUDITED.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 102001321.0,
-      "reconciled": true,
-      "pages": 37,
-      "ie_page": 10
-    },
-    {
-      "council": "Longford",
-      "slug": "longford",
-      "n_afs": 10,
-      "picked": "https://www.longfordcoco.ie/services/finance/annual-financial-statements/annual-financial-statement-2024.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 73176709.0,
-      "reconciled": true,
-      "pages": 40,
-      "ie_page": 13
-    },
-    {
-      "council": "Kerry",
-      "slug": "kerry",
-      "n_afs": 0,
-      "picked": null,
-      "year": null,
-      "status": "no-afs"
-    },
-    {
-      "council": "Leitrim",
-      "slug": "leitrim",
-      "n_afs": 9,
-      "picked": "https://www.leitrim.ie/Council/Services/Finance/Finance-Publications/Annual-Financial-Statements/Audited-AFS-2024-Leitrim.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 61173374.0,
-      "reconciled": true,
-      "pages": 38,
-      "ie_page": 11
-    },
-    {
-      "council": "Laois",
-      "slug": "laois",
-      "n_afs": 8,
-      "picked": "https://laois.ie/sites/default/files/2026-05/AFS%202024%20Audited%20Laois%20County%20Council.pdf",
-      "year": 2024,
-      "status": "no-IE-page"
-    },
-    {
-      "council": "Dublin City",
-      "slug": "dublin_city",
-      "n_afs": 9,
-      "picked": "https://www.dublincity.ie/sites/default/files/2025-10/dcc-afs-audited-accounts-for-publication-2024.pdf",
-      "year": 2024,
-      "status": "ok",
-      "divisions": 8,
-      "gross_sum": 1374236606.0,
-      "reconciled": true,
-      "pages": 54,
-      "ie_page": 22
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "n_years": 10
     }
   ],
   "realisation_tier": "SPENT",
   "value_kind": "net_expenditure_actual",
   "scope": "per-council audited AFS (not amalgamated, not cash-PO)",
-  "generated_at": "2026-06-04T14:26:40+00:00",
+  "generated_at": "2026-06-08T18:57:13+00:00",
   "caveat": "Per-LA accrual net-expenditure by service division. Sum only within a (council, year). NEVER reconcile against afs_amalgamated_divisions (national) or la_payments_fact (cash-PO/payment grain) \u2014 different grains."
 }

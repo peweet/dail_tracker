@@ -3,9 +3,9 @@
   "award_notices": 40474,
   "award_supplier_rows": 59439,
   "supplier_class_counts": {
+    "sole_trader_or_individual": 27674,
     "foreign_company": 855,
     "public_body": 281,
-    "sole_trader_or_individual": 27674,
     "company": 30629
   },
   "distinct_suppliers": 15646,
@@ -18,8 +18,9 @@
   "value_rows": 34006,
   "framework_or_dps_ceiling_rows": 16203,
   "value_shared_across_suppliers_rows": 22227,
-  "value_safe_to_sum_rows": 15032,
-  "value_safe_to_sum_total_eur": 23463026453.451103,
+  "large_award_review_rows_ge_50m": 2346,
+  "value_safe_to_sum_rows": 14982,
+  "value_safe_to_sum_total_eur": 14460798535.271097,
   "value_naive_sum_eur_DO_NOT_USE": 570739603297.4604,
   "source": {
     "dataset": "Contract Notices Published on eTenders",
