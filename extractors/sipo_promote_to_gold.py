@@ -24,6 +24,9 @@ from pathlib import Path
 import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -77,7 +80,7 @@ def promote_donations() -> None:
         raise RuntimeError(f"PII leak: address column(s) {leaked} must not reach gold")
     GOLD.mkdir(parents=True, exist_ok=True)
     out = GOLD / "sipo_donations.parquet"
-    df.write_parquet(out, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, out)
     print(f"  donations -> {out.relative_to(ROOT)}  ({df.height} rows, address dropped: {bool(drop)})")
     print("  parties:", sorted(df["party"].unique().to_list()))
     print("  columns:", df.columns)
@@ -94,7 +97,7 @@ def promote_expenses() -> None:
     df = pl.read_parquet(src)
     GOLD.mkdir(parents=True, exist_ok=True)
     out = GOLD / "sipo_expenses_fact.parquet"
-    df.write_parquet(out, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, out)
     blank = df.filter(pl.col("candidate_name_raw").str.strip_chars() == "").height
     print(f"  expenses  -> {out.relative_to(ROOT)}  ({df.height} rows, {blank} blank-name)")
     print("  parties:", sorted(df["party"].unique().to_list()))

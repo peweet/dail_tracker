@@ -52,6 +52,8 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -82,9 +84,15 @@ ROLE_RE = {
     # headers: Soláthraí=supplier, Glanmhéid/Méid Comhlán=net/gross amount, Cur Síos=description,
     # Tagairt=reference, Dáta=date. English-only role regexes leave supplier=None on those.
     "supplier": re.compile(r"supplier|payee|vendor|provider|customer|recipient|\bname\b|soláthr", re.I),
-    "amount": re.compile(r"amount|total|value|gross|\beuro\b|€|\bpaid\b|\bvat\b|ledger|payment\b|m[ée]id|mhéid|luach|comhlán", re.I),
-    "description": re.compile(r"descript|\bdesc\b|detail|categor|service|goods|nature|\bgl\b|main gl|cur síos|tuairisc|seirbhís|earraí", re.I),
-    "po": re.compile(r"\border\b|\bpo\b|\bpor\b|referen|\bref\b|\bnumber\b|invoice|\bdoc\b|transaction|tagairt|uimhir|ordú", re.I),
+    "amount": re.compile(
+        r"amount|total|value|gross|\beuro\b|€|\bpaid\b|\bvat\b|ledger|payment\b|m[ée]id|mhéid|luach|comhlán", re.I
+    ),
+    "description": re.compile(
+        r"descript|\bdesc\b|detail|categor|service|goods|nature|\bgl\b|main gl|cur síos|tuairisc|seirbhís|earraí", re.I
+    ),
+    "po": re.compile(
+        r"\border\b|\bpo\b|\bpor\b|referen|\bref\b|\bnumber\b|invoice|\bdoc\b|transaction|tagairt|uimhir|ordú", re.I
+    ),
     "period": re.compile(r"period|quarter|\bqtr\b|\bdate\b|\byear\b|posting|month|dáta|ráithe|bliain", re.I),
     "paid": re.compile(r"\bpaid\b|payment type|status|no\.? of payments|íoctha", re.I),
 }
@@ -92,32 +100,49 @@ CAVEAT_RE = re.compile(r"\bvat\b|exclud|inclus|indicativ|not (a )?payment|net of
 COMPANY_SUFFIX = re.compile(
     r"\b(ltd|limited|dac|plc|clg|llp|teo|teoranta|t/a|uc|inc|llc|gmbh|company|co\.|group|"
     r"services|solutions|consult|engineer|partners|associates|holdings|university|college|"
-    r"council|hse|board|institute|ireland|technolog|systems|media|hotel|centre|&)\b", re.I)
-FOREIGN_FORM = re.compile(r"\b(gmbh|s\.?a\.?|n\.?v\.?|s\.?a\.?s|s\.?p\.?a|inc|llc|\bpty\b|\bab\b|\bbv\b|\boy\b|srl|sl|sarl|aps|kft|ltda)\b", re.I)
+    r"council|hse|board|institute|ireland|technolog|systems|media|hotel|centre|&)\b",
+    re.I,
+)
+FOREIGN_FORM = re.compile(
+    r"\b(gmbh|s\.?a\.?|n\.?v\.?|s\.?a\.?s|s\.?p\.?a|inc|llc|\bpty\b|\bab\b|\bbv\b|\boy\b|srl|sl|sarl|aps|kft|ltda)\b",
+    re.I,
+)
 # NOTE: national state agencies named "X Ireland" / "X Éireann" (e.g. Transport
 # Infrastructure Ireland, Uisce Éireann) must be caught HERE — _pub is tested before
 # _co, otherwise COMPANY_SUFFIX's bare "ireland" token misclassifies them as companies
 # and their intergovernmental transfers leak into value_safe_to_sum. Add agencies as
 # they surface as transfer recipients.
-PUBLIC_BODY = re.compile(r"\b(county council|city council|university|institute of technology|department of|office of|\bHSE\b|health service|an garda|údarás|udaras|education and training board|\bETB\b|local authority|national \w+ authority|\bOPW\b|hospital|transport infrastructure ireland|\bTII\b|uisce éireann|irish water|tailte éireann)\b", re.I)
+PUBLIC_BODY = re.compile(
+    r"\b(county council|city council|university|institute of technology|department of|office of|\bHSE\b|health service|an garda|údarás|udaras|education and training board|\bETB\b|local authority|national \w+ authority|\bOPW\b|hospital|transport infrastructure ireland|\bTII\b|uisce éireann|irish water|tailte éireann)\b",
+    re.I,
+)
 # Drops title/threshold rows that masquerade as a supplier (the page heading bleeds into the
 # supplier column with the literal €20,000 threshold as its amount). Plural "Purchase Orders"
 # and "Payments greater than/over €20,000" headings leaked through the singular-only pattern.
-CATEGORY_WORD = re.compile(r"^\s*(total|category total|sum|subtotal|grand total|all suppliers|various|publication of|purchase orders?|payments? (greater|over|to suppliers)|payments? greater than)\b", re.I)
+CATEGORY_WORD = re.compile(
+    r"^\s*(total|category total|sum|subtotal|grand total|all suppliers|various|publication of|purchase orders?|payments? (greater|over|to suppliers)|payments? greater than)\b",
+    re.I,
+)
 # Non-anchored variant: a page-title that bleeds into the supplier column may LEAD with the
 # body name (e.g. "TU Dublin Payments and Purchase Orders over €20,000") so ^-anchoring misses
 # it. These rows carry the literal threshold as their amount; the phrasing is never a real
 # supplier name. Checked in addition to CATEGORY_WORD.
-TITLE_ROW = re.compile(r"(purchase orders?|payments?)\b.{0,30}(over|greater than)\s*€?\s*20[,.]?000|payments?\s+(and|or)\s+purchase orders?", re.I)
+TITLE_ROW = re.compile(
+    r"(purchase orders?|payments?)\b.{0,30}(over|greater than)\s*€?\s*20[,.]?000|payments?\s+(and|or)\s+purchase orders?",
+    re.I,
+)
 # exclude policy/guidance/privacy/contract docs when harvesting period data files
 POLICY_RE = re.compile(
     r"guide|guidelin|\bplan\b|policy|circular|strategy|manual|terms|fin.?07|privacy|"
     r"prompt.?payment|appendix|procedure|annual.?report|statement|setup|form|charter|scheme",
-    re.I)
+    re.I,
+)
 DATA_FILE_RE = re.compile(r"q[1-4]\b|qtr|quarter|20[12]\d|h[12]\b|over.?20|over.?25|payment|purchase|\bpo[s]?\b", re.I)
 NAV_HINT = re.compile(
     r"purchase|procure|over.?20|over.?25|20k|payment|quarter|qtr|finance|"
-    r"publication|spend|supplier|expenditure|disclosure|financial", re.I)
+    r"publication|spend|supplier|expenditure|disclosure|financial",
+    re.I,
+)
 MERGE_GAP = 22.0
 
 
@@ -128,168 +153,370 @@ MERGE_GAP = 22.0
 #   contract_award_value -> "awarded €X" (Tailte contracts)      caution
 # listing_url = page to harvest period files from; direct_files = known-good file URLs
 # (used as a floor so a publisher still yields data if its listing is JS/awkward).
-def cfg(pid, name, ptype, sector, *, listing, semantics, grain, privacy="low",
-        tier="A", direct=None, include=None, exclude=None, caveat="") -> dict:
-    return {"id": pid, "name": name, "ptype": ptype, "sector": sector,
-            "listing_url": listing, "amount_semantics": semantics, "grain": grain,
-            "privacy_risk": privacy, "tier": tier, "direct_files": direct or [],
-            "include": re.compile(include, re.I) if include else None,
-            "exclude": re.compile(exclude, re.I) if exclude else None, "caveat": caveat}
+def cfg(
+    pid,
+    name,
+    ptype,
+    sector,
+    *,
+    listing,
+    semantics,
+    grain,
+    privacy="low",
+    tier="A",
+    direct=None,
+    include=None,
+    exclude=None,
+    caveat="",
+) -> dict:
+    return {
+        "id": pid,
+        "name": name,
+        "ptype": ptype,
+        "sector": sector,
+        "listing_url": listing,
+        "amount_semantics": semantics,
+        "grain": grain,
+        "privacy_risk": privacy,
+        "tier": tier,
+        "direct_files": direct or [],
+        "include": re.compile(include, re.I) if include else None,
+        "exclude": re.compile(exclude, re.I) if exclude else None,
+        "caveat": caveat,
+    }
 
 
 PUBLISHERS: list[dict] = [
     # ---- Tier A: clean tabular / high-confidence PDF -------------------------------
-    cfg("ie_opw", "Office of Public Works", "state_body", "property_land",
+    cfg(
+        "ie_opw",
+        "Office of Public Works",
+        "state_body",
+        "property_land",
         listing="https://www.gov.ie/en/office-of-public-works/collections/payments-greater-than-20000/",
-        semantics="payment_actual", grain="payment",
-        direct=["https://assets.gov.ie/static/documents/b526ff76/OPW_Payments_of_20000_or_over_in_Q1_2026.xlsx"]),
-    cfg("dept_climate", "Dept of Climate, Energy and the Environment", "department", "central_government",
+        semantics="payment_actual",
+        grain="payment",
+        direct=["https://assets.gov.ie/static/documents/b526ff76/OPW_Payments_of_20000_or_over_in_Q1_2026.xlsx"],
+    ),
+    cfg(
+        "dept_climate",
+        "Dept of Climate, Energy and the Environment",
+        "department",
+        "central_government",
         listing="https://www.gov.ie/en/department-of-climate-energy-and-the-environment/collections/payments-over-20000/",
-        semantics="payment_actual", grain="payment",
-        direct=["https://assets.gov.ie/static/documents/ae8b1a0a/DPER_Payments_over_20K_Q1_2026_Report.xlsx"]),
-    cfg("dept_defence", "Department of Defence", "department", "central_government",
+        semantics="payment_actual",
+        grain="payment",
+        direct=["https://assets.gov.ie/static/documents/ae8b1a0a/DPER_Payments_over_20K_Q1_2026_Report.xlsx"],
+    ),
+    cfg(
+        "dept_defence",
+        "Department of Defence",
+        "department",
+        "central_government",
         listing="https://www.gov.ie/en/department-of-defence/collections/purchase-orders-over-20000/",
-        semantics="po_committed", grain="purchase_order"),
-    cfg("dept_culture", "Department of Culture, Communications and Sport", "department", "central_government",
+        semantics="po_committed",
+        grain="purchase_order",
+    ),
+    cfg(
+        "dept_culture",
+        "Department of Culture, Communications and Sport",
+        "department",
+        "central_government",
         listing="https://www.gov.ie/en/department-of-culture-communications-and-sport/collections/purchase-orders/",
-        semantics="po_committed", grain="purchase_order",
-        caveat="contains very large NBI infrastructure POs; check outlier share before any total"),
-    cfg("ie_teagasc", "Teagasc", "semi_state", "agri_food_marine",
+        semantics="po_committed",
+        grain="purchase_order",
+        caveat="contains very large NBI infrastructure POs; check outlier share before any total",
+    ),
+    cfg(
+        "ie_teagasc",
+        "Teagasc",
+        "semi_state",
+        "agri_food_marine",
         listing="https://www.teagasc.ie/about/corporate-responsibility/information-for-suppliers/",
-        semantics="po_committed", grain="purchase_order"),
-    cfg("ie_bordbia", "Bord Bia", "semi_state", "agri_food_marine",
+        semantics="po_committed",
+        grain="purchase_order",
+    ),
+    cfg(
+        "ie_bordbia",
+        "Bord Bia",
+        "semi_state",
+        "agri_food_marine",
         listing="https://www.bordbia.ie/about/governance/corporate-governance/purchase-orders/",
-        semantics="po_committed", grain="purchase_order"),
-    cfg("ie_bim", "Bord Iascaigh Mhara (BIM)", "semi_state", "agri_food_marine",
+        semantics="po_committed",
+        grain="purchase_order",
+    ),
+    cfg(
+        "ie_bim",
+        "Bord Iascaigh Mhara (BIM)",
+        "semi_state",
+        "agri_food_marine",
         listing="https://bim.ie/about/corporate-governance/purchase-orders-over-20k/",
-        semantics="po_committed", grain="purchase_order",
-        caveat="amounts excluding VAT"),
-    cfg("ie_cib", "Citizens Information Board", "agency", "social",
+        semantics="po_committed",
+        grain="purchase_order",
+        caveat="amounts excluding VAT",
+    ),
+    cfg(
+        "ie_cib",
+        "Citizens Information Board",
+        "agency",
+        "social",
         listing="https://www.citizensinformationboard.ie/en/freedom_of_information/financial_information/payments_or_purchase_orders_for_goods_and_services.html",
-        semantics="payment_actual", grain="payment"),
-    cfg("ie_hea", "Higher Education Authority", "agency", "education",
+        semantics="payment_actual",
+        grain="payment",
+    ),
+    cfg(
+        "ie_hea",
+        "Higher Education Authority",
+        "agency",
+        "education",
         listing="https://hea.ie/about-us/public-sector-information/",
-        semantics="payment_actual", grain="payment", privacy="low"),
-
+        semantics="payment_actual",
+        grain="payment",
+        privacy="low",
+    ),
     # ---- Tier B: OWNED BY A SEPARATE CONTEXT (procurement_hse_tusla_parser.py) -----
     # HSE + Tusla need bespoke per-publisher column-x specs (the generic header-anchored
     # reader misparses them: HSE fuses amount+quarter+date, Tusla's vendor bleeds into the
     # amount column). NTPF + SVUH (health, privacy=high) de-scoped here too pending that
     # context's reconciliation. Their output merges into THIS schema later — do not re-add
     # HSE/Tusla here or the generic reader will produce duplicate low-quality rows.
-
     # ---- Tier C: needed a corrected listing URL or a parser fix --------------------
-    cfg("ie_tii", "Transport Infrastructure Ireland", "agency", "transport",
-        listing="https://www.tii.ie/en/compliance/payments/", semantics="payment_actual",
-        grain="payment", tier="C",
+    cfg(
+        "ie_tii",
+        "Transport Infrastructure Ireland",
+        "agency",
+        "transport",
+        listing="https://www.tii.ie/en/compliance/payments/",
+        semantics="payment_actual",
+        grain="payment",
+        tier="C",
         direct=["https://websitecms.tii.ie/media/sw3dzt2l/tii-payments-q1-2025-over-20k.csv"],
-        caveat="CSV carries a category-total row (~€1.2bn) that must be excluded from any sum"),
-    cfg("ie_revenue", "Revenue Commissioners", "agency", "regulator",
+        caveat="CSV carries a category-total row (~€1.2bn) that must be excluded from any sum",
+    ),
+    cfg(
+        "ie_revenue",
+        "Revenue Commissioners",
+        "agency",
+        "regulator",
         listing="https://www.revenue.ie/en/corporate/statutory-obligations/freedom-of-information/section8/procurement.aspx",
-        semantics="payment_actual", grain="payment", tier="C",
-        direct=["https://www.revenue.ie/en/corporate/documents/procurement/payments-over-20000-quarter4-2025.pdf"]),
-    cfg("ie_atu", "Atlantic Technological University", "education_body", "education",
+        semantics="payment_actual",
+        grain="payment",
+        tier="C",
+        direct=["https://www.revenue.ie/en/corporate/documents/procurement/payments-over-20000-quarter4-2025.pdf"],
+    ),
+    cfg(
+        "ie_atu",
+        "Atlantic Technological University",
+        "education_body",
+        "education",
         listing="https://www.atu.ie/freedom-of-information/freedom-of-information-financial-information",
-        semantics="payment_actual", grain="payment", privacy="medium", tier="C",
+        semantics="payment_actual",
+        grain="payment",
+        privacy="medium",
+        tier="C",
         direct=["https://www.atu.ie/app/uploads/2026/03/atu-payments-purchase-orders-q1-2025.pdf"],
-        caveat="supplier published with a leading numeric supplier-ID; stripped on read"),
+        caveat="supplier published with a leading numeric supplier-ID; stripped on read",
+    ),
     # ie_nta DE-SCOPED to pipeline_sandbox/procurement_nta_parser.py — every NTA PO PDF is
     # 90deg-rotated (and the layout/date format varies by year), so the generic word-geometry
     # reader clusters a whole €-column into one row and yields 0. The bespoke reading-order
     # parser owns it (9 quarters, ~2.3k rows) and emits THIS schema. Do not re-add here.
-    cfg("ie_marine", "Marine Institute", "agency", "agri_food_marine",
+    cfg(
+        "ie_marine",
+        "Marine Institute",
+        "agency",
+        "agri_food_marine",
         listing="https://www.marine.ie/site-area/about-us/purchase-orders",
-        semantics="po_committed", grain="purchase_order", tier="C",
-        direct=["https://marine.ie/sites/default/files/MIFiles/Docs/CS/Purchase%20Orders%20Qtr%201%202026.pdf"]),
-    cfg("ie_esbnetworks", "ESB Networks DAC", "semi_state", "energy_utilities",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="C",
+        direct=["https://marine.ie/sites/default/files/MIFiles/Docs/CS/Purchase%20Orders%20Qtr%201%202026.pdf"],
+    ),
+    cfg(
+        "ie_esbnetworks",
+        "ESB Networks DAC",
+        "semi_state",
+        "energy_utilities",
         listing="https://www.esbnetworks.ie/about-us/company/publication-scheme/financial-information",
-        semantics="payment_actual", grain="payment", tier="C",
-        caveat="prior sample was a category-total page; harvesting supplier-level file"),
-    cfg("ie_tailte", "Tailte Éireann", "state_body", "property_land",
-        listing="https://tailte.ie/category/publications/", semantics="po_committed",
-        grain="purchase_order", tier="C",
+        semantics="payment_actual",
+        grain="payment",
+        tier="C",
+        caveat="prior sample was a category-total page; harvesting supplier-level file",
+    ),
+    cfg(
+        "ie_tailte",
+        "Tailte Éireann",
+        "state_body",
+        "property_land",
+        listing="https://tailte.ie/category/publications/",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="C",
         include=r"purchase|payment|po[s]?[-_ ]?over|20[,]?000|over.?20k",
-        caveat="Purchase-Orders quarterly files (PO grain); contracts-awarded list excluded"),
-    cfg("dept_housing", "Department of Housing, Local Government and Heritage", "department",
+        caveat="Purchase-Orders quarterly files (PO grain); contracts-awarded list excluded",
+    ),
+    cfg(
+        "dept_housing",
+        "Department of Housing, Local Government and Heritage",
+        "department",
         "central_government",
         listing="https://www.gov.ie/en/department-of-housing-local-government-and-heritage/collections/procurement-related-payments-over-20000-euro/",
-        semantics="payment_actual", grain="payment", tier="C",
-        caveat="prior sample was a privacy statement; using the gov.ie payments collection (slug renamed to procurement-related-payments-over-20000-euro 2026-06)"),
-    cfg("ie_cdetb", "City of Dublin ETB", "education_body", "education",
+        semantics="payment_actual",
+        grain="payment",
+        tier="C",
+        caveat="prior sample was a privacy statement; using the gov.ie payments collection (slug renamed to procurement-related-payments-over-20000-euro 2026-06)",
+    ),
+    cfg(
+        "ie_cdetb",
+        "City of Dublin ETB",
+        "education_body",
+        "education",
         listing="https://www.cityofdublinetb.ie/about-us/finance-and-procurement/procurement/",
-        semantics="po_committed", grain="purchase_order", privacy="medium", tier="C",
+        semantics="po_committed",
+        grain="purchase_order",
+        privacy="medium",
+        tier="C",
         include=r"purchase|payment|po[s]?[-_ ]?over|20[,]?000|quarter|q[1-4]",
-        caveat="prior sample was the procurement policy; excluding policy docs"),
-    cfg("ie_enterprise_ireland", "Enterprise Ireland", "semi_state", "enterprise_tourism",
+        caveat="prior sample was the procurement policy; excluding policy docs",
+    ),
+    cfg(
+        "ie_enterprise_ireland",
+        "Enterprise Ireland",
+        "semi_state",
+        "enterprise_tourism",
         listing="https://www.enterprise-ireland.com/en/legal/policies-guidelines/procurement-policy",
-        semantics="po_committed", grain="purchase_order", tier="C",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="C",
         include=r"purchase|payment|po[s]?[-_ ]?over|20[,]?000|over.?20k",
-        caveat="agency (not DETE dept) procurement-policy page; quarterly XLSX 'Payments over €20,000' 2012-present"),
-
+        caveat="agency (not DETE dept) procurement-policy page; quarterly XLSX 'Payments over €20,000' 2012-present",
+    ),
     # ---- Tier D: discovery sweep 2026-06-04 (doc/PROCUREMENT_SOURCE_DISCOVERY_2026_06_04.md) --
     # Probe-confirmed, generic-reader-clean. Held back for bespoke/render passes (NOT here):
     #   Beaumont + Pobal (dual/MIXED PO+payment grain — need value_kind split),
     #   Coimisiún na Meán + Irish Prison Service (scanned PDFs — need OCR),
     #   Garda (sampler hit a fleet report — needs the right PO subpage),
     #   UCD / SETU / CHI / SEAI / EPA (no links via landing — JS/403, EPA serves .php HTML).
-    cfg("ie_ntma", "National Treasury Management Agency (NTMA)", "state_body", "finance",
+    cfg(
+        "ie_ntma",
+        "National Treasury Management Agency (NTMA)",
+        "state_body",
+        "finance",
         listing="https://www.ntma.ie/information-pages/freedom-of-information/freedom-of-information-publication-scheme/financial-information",
-        semantics="payment_actual", grain="payment", tier="D",
+        semantics="payment_actual",
+        grain="payment",
+        tier="D",
         exclude=r"revised-foi-publication|[-_ ]publication\.pdf",
         caveat="one quarterly scheme covers 6 business units incl NDFA (ADM/Nat-Debt/ISIF/NDFA/FIF/ICNF); "
-               "do NOT also wire ie_ndfa or its rows double-count. The 6-row 'Revised-FOI-Publication' / "
-               "'*-Publication.pdf' files are per-unit SUMMARIES (different grain) that overlap the "
-               "line-level Q*-Payments files in 2018-19 — excluded to avoid double-counting. "
-               "NOTE: the per-unit Q1-2020..Q2-2024 PDFs currently parse to 0 rows (layout/scan break) — known gap."),
-    cfg("ie_courts", "Courts Service of Ireland", "agency", "justice",
+        "do NOT also wire ie_ndfa or its rows double-count. The 6-row 'Revised-FOI-Publication' / "
+        "'*-Publication.pdf' files are per-unit SUMMARIES (different grain) that overlap the "
+        "line-level Q*-Payments files in 2018-19 — excluded to avoid double-counting. "
+        "NOTE: the per-unit Q1-2020..Q2-2024 PDFs currently parse to 0 rows (layout/scan break) — known gap.",
+    ),
+    cfg(
+        "ie_courts",
+        "Courts Service of Ireland",
+        "agency",
+        "justice",
         listing="https://www.courts.ie/publications/purchase-orders-greater-than-20k",
-        semantics="po_committed", grain="purchase_order", tier="D",
-        include=r"purchase-order|over-20|po[s]?[-_ ]?over"),
-    cfg("ie_sportireland", "Sport Ireland", "agency", "sport",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="D",
+        include=r"purchase-order|over-20|po[s]?[-_ ]?over",
+    ),
+    cfg(
+        "ie_sportireland",
+        "Sport Ireland",
+        "agency",
+        "sport",
         listing="https://www.sportireland.ie/about-us/freedom-of-information/financial-information",
-        semantics="po_committed", grain="purchase_order", tier="D",
-        caveat="single rolling PO log (not per-quarter); period likely null"),
-    cfg("ie_tudublin", "Technological University Dublin", "education_body", "education",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="D",
+        caveat="single rolling PO log (not per-quarter); period likely null",
+    ),
+    cfg(
+        "ie_tudublin",
+        "Technological University Dublin",
+        "education_body",
+        "education",
         listing="https://www.tudublin.ie/explore/governance-and-compliance/foi/foi-publication-scheme/",
-        semantics="po_committed", grain="purchase_order", tier="D",
-        include=r"po-report|purchase-order|over-?20k"),
-    cfg("ie_mtu", "Munster Technological University (MTU)", "education_body", "education",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="D",
+        include=r"po-report|purchase-order|over-?20k",
+    ),
+    cfg(
+        "ie_mtu",
+        "Munster Technological University (MTU)",
+        "education_body",
+        "education",
         listing="https://www.mtu.ie/about-mtu/legal/freedom-of-information/",
-        semantics="po_committed", grain="purchase_order", tier="D",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="D",
         include=r"pos?-over-?20k|purchase-order|po[s]?[-_ ]?over",
         # Landing only exposes the tender-register xlsx + FOI logs; the actual PO PDFs live under
         # /media/.../foi/financial-information/ and aren't reachable by the one-hop crawl, so the
         # quarterly files are pinned directly. All 3 byte-verified 2026-06-04 (%PDF, 88-132KB);
         # Q4-2025 parses to 123 rows high-conf. Add more quarters as their URLs are confirmed.
-        direct=["https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q4-2025.pdf",
-                "https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q3-2025.pdf",
-                "https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q2-2025.pdf"],
-        caveat="PO PDFs pinned via direct_files (landing exposes only tender-register xlsx + FOI logs)"),
-    cfg("ie_chi", "Children's Health Ireland (CHI)", "state_body", "health",
+        direct=[
+            "https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q4-2025.pdf",
+            "https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q3-2025.pdf",
+            "https://www.mtu.ie/media/mtu-website/files/foi/financial-information/MTU-POs-over-20k-Q2-2025.pdf",
+        ],
+        caveat="PO PDFs pinned via direct_files (landing exposes only tender-register xlsx + FOI logs)",
+    ),
+    cfg(
+        "ie_chi",
+        "Children's Health Ireland (CHI)",
+        "state_body",
+        "health",
         listing="https://www.childrenshealthireland.ie/about-us/corporate-information/payments-to-suppliers-over-20000/",
-        semantics="payment_actual", grain="payment", privacy="low", tier="D",
+        semantics="payment_actual",
+        grain="payment",
+        privacy="low",
+        tier="D",
         # Children's-hospital OPERATOR side (complements NPHDB construction). Landing exposes no
         # direct links → file pinned. xlsx row 0 is a TITLE ("CHI Vendor payments >25K") above the
         # real "Vendor Name/Amount" header; the length-filtered header scorer now skips it (297 rows).
-        direct=["https://www.childrenshealthireland.ie/documents/3541/CHI_Paid_Invoices_over_25K_incl_VAT_Qtr_1_2026updated.xlsx"],
-        caveat="paid invoices at €25k incl VAT (not €20k); single Q1-2026 file; payment grain"),
-    cfg("ie_pobal", "Pobal", "agency", "social",
+        direct=[
+            "https://www.childrenshealthireland.ie/documents/3541/CHI_Paid_Invoices_over_25K_incl_VAT_Qtr_1_2026updated.xlsx"
+        ],
+        caveat="paid invoices at €25k incl VAT (not €20k); single Q1-2026 file; payment grain",
+    ),
+    cfg(
+        "ie_pobal",
+        "Pobal",
+        "agency",
+        "social",
         listing="https://www.pobal.ie/financial-information/",
-        semantics="po_committed", grain="purchase_order", privacy="medium", tier="D",
+        semantics="po_committed",
+        grain="purchase_order",
+        privacy="medium",
+        tier="D",
         # Files titled 'Purchase Order OR Payments over €20k' but rows carry PO/SUPPLIER/TOTAL/PAID
         # columns = POs with a paid-flag (Paid/Not Paid captured in paid_flag), not truly mixed.
         # Generic reader handles it (29 rows/high-conf on Q1-2026). Full 2020-2026 series (25 PDFs).
         caveat="grant-adjacent (privacy=medium); harvest returns oldest-first so a low --max-files "
-               "biases to 2020 — raise --max-files for full series"),
-    cfg("ie_beaumont", "Beaumont Hospital", "hospital", "health",
+        "biases to 2020 — raise --max-files for full series",
+    ),
+    cfg(
+        "ie_beaumont",
+        "Beaumont Hospital",
+        "hospital",
+        "health",
         listing="https://www.beaumont.ie/page/financial-statements",
-        semantics="payment_actual", grain="payment", privacy="low", tier="D",
+        semantics="payment_actual",
+        grain="payment",
+        privacy="low",
+        tier="D",
         # Landing exposes 3 xlsx: two 'Payments Over €20k' (annual, payment grain, 2024+2025) and
         # one 'POs Greater than €20k' (PO grain). include= grabs ONLY the payment files to keep one
         # grain. Header 'No. of Payments > €20,000' is a COUNT trap; COUNT_HDR routes amount to 'Value'.
         include=r"payments.*over",
-        caveat="annual supplier payment totals (Value col), €20k threshold; the separate Q1-2026 PO file is excluded"),
-
+        caveat="annual supplier payment totals (Value col), €20k threshold; the separate Q1-2026 PO file is excluded",
+    ),
     # ---- Tier E: regulators / cultural bodies (discovery sweep 2 — commercial-vs-noncommercial) --
     # Commercial semi-states (ESB/Electric Ireland, daa, An Post, ports, CIÉ group) are FOI-exempt
     # and publish annual reports only — NOT here. EirGrid/GNI/Uisce publish CATEGORY-only rollups
@@ -297,29 +524,57 @@ PUBLISHERS: list[dict] = [
     # category summary (Capital/Communication circuits + counts), NOT supplier-level — NOT here.
     # ABP is supplier-level but its multi-line bilingual (Irish) header bleeds date into supplier —
     # deferred (needs header-wrap handling). These three parse clean with the generic reader:
-    cfg("ie_hpra", "Health Products Regulatory Authority (HPRA)", "agency", "regulator",
+    cfg(
+        "ie_hpra",
+        "Health Products Regulatory Authority (HPRA)",
+        "agency",
+        "regulator",
         listing="https://www.hpra.ie/transparency/financial-information/purchase-orders",
-        semantics="po_committed", grain="purchase_order", tier="E",
-        direct=["https://assets.hpra.ie/data/docs/default-source/corporate/purchase-orders/purchase-orders---q3-2025.pdf"],
-        caveat="clean assets.hpra.ie CDN, predictable quarterly PDF filenames"),
-    cfg("ie_ccpc", "Competition and Consumer Protection Commission (CCPC)", "agency", "regulator",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="E",
+        direct=[
+            "https://assets.hpra.ie/data/docs/default-source/corporate/purchase-orders/purchase-orders---q3-2025.pdf"
+        ],
+        caveat="clean assets.hpra.ie CDN, predictable quarterly PDF filenames",
+    ),
+    cfg(
+        "ie_ccpc",
+        "Competition and Consumer Protection Commission (CCPC)",
+        "agency",
+        "regulator",
         listing="https://www.ccpc.ie/about-us/corporate-information/governance/payment-reports",
-        semantics="payment_actual", grain="payment", tier="E",
-        direct=["https://assets.ccpc.ie/data/docs/default-source/about-us/corporate-information/governance/payment-reports/payments-over-20k-in-q1-2026.pdf"],
-        caveat="quarterly payments >€20k; description column repeats the € amount as a prefix (cosmetic)"),
-    cfg("ie_nli", "National Library of Ireland", "agency", "media_culture",
+        semantics="payment_actual",
+        grain="payment",
+        tier="E",
+        direct=[
+            "https://assets.ccpc.ie/data/docs/default-source/about-us/corporate-information/governance/payment-reports/payments-over-20k-in-q1-2026.pdf"
+        ],
+        caveat="quarterly payments >€20k; description column repeats the € amount as a prefix (cosmetic)",
+    ),
+    cfg(
+        "ie_nli",
+        "National Library of Ireland",
+        "agency",
+        "media_culture",
         listing="https://www.nli.ie/corporate-information",
-        semantics="payment_actual", grain="payment", tier="E",
+        semantics="payment_actual",
+        grain="payment",
+        tier="E",
         direct=["https://www.nli.ie/sites/default/files/2025-05/payments-over-eu20000-q1-2025.pdf"],
-        caveat="Drupal /sites/default/files PDFs; some files bundle Q1-Q4 annually"),
+        caveat="Drupal /sites/default/files PDFs; some files bundle Q1-Q4 annually",
+    ),
 ]
 
 
 # ============================================================================ fetch
 def _curl(url: str) -> bytes | None:
     try:
-        p = subprocess.run(["curl", "-sS", "-k", "-L", "--max-time", "90", "-A", H["User-Agent"], url],
-                           capture_output=True, timeout=120)
+        p = subprocess.run(
+            ["curl", "-sS", "-k", "-L", "--max-time", "90", "-A", H["User-Agent"], url],
+            capture_output=True,
+            timeout=120,
+        )
         return p.stdout if p.returncode == 0 and p.stdout else None
     except Exception:
         return None
@@ -346,6 +601,7 @@ def harvest_files(cf: dict, crawl_cap: int = 12) -> list[str]:
     found: list[str] = list(cf["direct_files"])
     html = fetch_text(cf["listing_url"])
     if html:
+
         def scan(page_html: str, base: str) -> list[str]:
             out = []
             for href in HREF_RE.findall(page_html):
@@ -362,6 +618,7 @@ def harvest_files(cf: dict, crawl_cap: int = 12) -> list[str]:
                     continue
                 out.append(urljoin(base, href))
             return out
+
         hits = scan(html, cf["listing_url"])
         if not hits:  # one-hop crawl same-host nav links
             host = urlparse(cf["listing_url"]).netloc
@@ -454,7 +711,7 @@ def period_from_url(url: str) -> tuple[str | None, int | None, int | None]:
     y = PERIOD_RE.search(name)
     year = int(y.group(1)) if y else None
     quarter = quarter_from_name(name)
-    period = (f"{year}-Q{quarter}" if year and quarter else (str(year) if year else None))
+    period = f"{year}-Q{quarter}" if year and quarter else (str(year) if year else None)
     return period, year, quarter
 
 
@@ -525,12 +782,15 @@ def row_to_cols(words: list, cols: list[dict]) -> list[str]:
 def refine_roles(cols, roles, records):
     if not records:
         return roles
+
     def numfrac(i):
         vals = [r[i] for r in records if i < len(r) and r[i]]
         return sum(to_eur(v) is not None for v in vals) / len(vals) if vals else 0.0
+
     def moneyfrac(i):  # fraction of cells that look like MONEY (thousands/decimals) — a bare
         vals = [r[i] for r in records if i < len(r) and r[i]]  # year col like "2023" won't match
         return sum(bool(MONEY_RE.search(str(v))) for v in vals) / len(vals) if vals else 0.0
+
     amt_cands = [i for i, c in enumerate(cols) if ROLE_RE["amount"].search(c["label"])]
     if amt_cands:
         roles["amount"] = max(amt_cands, key=numfrac)
@@ -574,30 +834,42 @@ def read_pdf(b: bytes, max_pages: int | None) -> dict:
             out_rows.append((i + 1, row_to_cols(wrow, cols)))
     doc.close()
     roles = refine_roles(cols, roles, [r for _, r in out_rows]) if cols else roles
-    return {"digital": digital_chars > 200, "cols": cols, "header_label": header_label,
-            "roles": roles, "rows": out_rows, "page0": page0, "pages": npages}
+    return {
+        "digital": digital_chars > 200,
+        "cols": cols,
+        "header_label": header_label,
+        "roles": roles,
+        "rows": out_rows,
+        "page0": page0,
+        "pages": npages,
+    }
 
 
 # ---- XLSX / XLS / CSV ----
 def _tabular_from_raw(raw: list[list]):
     """Shared header-pick + body-trim for any 2D cell grid (openpyxl or xlrd)."""
     full = " ".join(str(c) for row in raw[:6] for c in row if c is not None)
+
     def score(row):
         # Count SHORT role-matching cells only: a real header is short labels ("Vendor Name",
         # "Amount"); a TITLE row above it is one long sentence with embedded keywords
         # ("CHI Vendor payments >25K (incl VAT)") that should NOT win header detection.
-        return sum(1 for c in (row or [])
-                   if c is not None and len(str(c).strip()) <= 30
-                   and any(rx.search(str(c)) for rx in ROLE_RE.values()))
+        return sum(
+            1
+            for c in (row or [])
+            if c is not None and len(str(c).strip()) <= 30 and any(rx.search(str(c)) for rx in ROLE_RE.values())
+        )
+
     # Tie-break toward the LATER row — a title/banner row precedes the real header.
     hi = max(range(min(8, len(raw))), key=lambda i: (score(raw[i]), i), default=0)
     header = [str(c).strip() if c is not None else f"col{j}" for j, c in enumerate(raw[hi])]
-    rows = [r for r in raw[hi + 1:] if any(c is not None and str(c).strip() for c in r)]
+    rows = [r for r in raw[hi + 1 :] if any(c is not None and str(c).strip() for c in r)]
     return header, rows, full
 
 
 def read_xlsx(b: bytes):
     import openpyxl
+
     ws = openpyxl.load_workbook(io.BytesIO(b), read_only=True, data_only=True).active
     raw = [list(r) for r in ws.iter_rows(values_only=True)]
     return _tabular_from_raw(raw)
@@ -605,14 +877,16 @@ def read_xlsx(b: bytes):
 
 def read_xls(b: bytes):
     import xlrd  # legacy binary .xls (pre-2021 quarterlies); openpyxl is .xlsx-only
+
     sh = xlrd.open_workbook(file_contents=b).sheet_by_index(0)
     raw = [sh.row_values(i) for i in range(sh.nrows)]
     return _tabular_from_raw(raw)
 
 
 def read_csv(b: bytes):
-    df = pl.read_csv(io.BytesIO(b), infer_schema_length=0, truncate_ragged_lines=True,
-                     ignore_errors=True, encoding="utf8-lossy")
+    df = pl.read_csv(
+        io.BytesIO(b), infer_schema_length=0, truncate_ragged_lines=True, ignore_errors=True, encoding="utf8-lossy"
+    )
     return df.columns, [list(r) for r in df.iter_rows()], " ".join(df.columns)
 
 
@@ -630,8 +904,11 @@ def detect_roles_tab(header, rows):
             # "No. of Payments > €20,000" (a COUNT, values 1..300) vs the real "Value" column.
             strong = [i for i in cands if not COUNT_HDR.search(header[i] or "")]
             cands = strong or cands
-            cands.sort(key=lambda i: -(sum(to_eur(r[i]) is not None for r in rows[:200] if i < len(r))
-                                       / max(1, len(rows[:200]))))
+            cands.sort(
+                key=lambda i: (
+                    -(sum(to_eur(r[i]) is not None for r in rows[:200] if i < len(r)) / max(1, len(rows[:200])))
+                )
+            )
         roles[role] = cands[0]
     return roles
 
@@ -647,14 +924,26 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
 
     def base(srn, page, supplier, amount, desc, po, paid):
         return {
-            "publisher_id": cf["id"], "publisher_name": cf["name"],
-            "publisher_type": cf["ptype"], "sector": cf["sector"],
-            "source_landing_url": cf["listing_url"], "source_file_url": file_url,
-            "source_file_hash": fhash, "period": period, "year": year, "quarter": quarter,
-            "supplier_raw": supplier, "amount_eur": amount, "amount_semantics": cf["amount_semantics"],
-            "description": desc, "po_number": po, "paid_flag": paid,
-            "source_row_number": srn, "source_page_number": page,
-            "parser_name": f"public_body_{fmt}", "parser_version": PARSER_VERSION,
+            "publisher_id": cf["id"],
+            "publisher_name": cf["name"],
+            "publisher_type": cf["ptype"],
+            "sector": cf["sector"],
+            "source_landing_url": cf["listing_url"],
+            "source_file_url": file_url,
+            "source_file_hash": fhash,
+            "period": period,
+            "year": year,
+            "quarter": quarter,
+            "supplier_raw": supplier,
+            "amount_eur": amount,
+            "amount_semantics": cf["amount_semantics"],
+            "description": desc,
+            "po_number": po,
+            "paid_flag": paid,
+            "source_row_number": srn,
+            "source_page_number": page,
+            "parser_name": f"public_body_{fmt}",
+            "parser_version": PARSER_VERSION,
             "source_caveat": cf["caveat"] or None,
         }
 
@@ -662,8 +951,13 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
         info = read_pdf(b, max_pages)
         caveat_detected = bool(CAVEAT_RE.search(info["page0"]) or CAVEAT_RE.search(info["header_label"]))
         if not info["digital"] or not info["cols"] or "amount" not in info["roles"]:
-            return [], {"status": "unparsed", "reason": "scanned/no-header/no-amount",
-                        "rows": 0, "confidence": "low", "pages": info.get("pages")}
+            return [], {
+                "status": "unparsed",
+                "reason": "scanned/no-header/no-amount",
+                "rows": 0,
+                "confidence": "low",
+                "pages": info.get("pages"),
+            }
         sup_i = info["roles"].get("supplier")
         amt_i = info["roles"]["amount"]
         desc_i, po_i, paid_i = (info["roles"].get(k) for k in ("description", "po", "paid"))
@@ -682,10 +976,17 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
             if (sup and CATEGORY_WORD.search(sup)) or TITLE_ROW.search(rowtext):
                 continue
             good += 1
-            rows_out.append(base(
-                srn, page, sup, amt, desc,
-                clean_supplier(rec[po_i]) if po_i is not None and po_i < len(rec) else None,
-                rec[paid_i] if paid_i is not None and paid_i < len(rec) else None))
+            rows_out.append(
+                base(
+                    srn,
+                    page,
+                    sup,
+                    amt,
+                    desc,
+                    clean_supplier(rec[po_i]) if po_i is not None and po_i < len(rec) else None,
+                    rec[paid_i] if paid_i is not None and paid_i < len(rec) else None,
+                )
+            )
         conf = "high" if good > 20 else ("medium" if good > 3 else "low")
 
     else:  # xlsx / xls / csv
@@ -706,11 +1007,17 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
             if sup and CATEGORY_WORD.search(sup):
                 continue
             good += 1
-            rows_out.append(base(
-                srn, None, sup, amt,
-                r[desc_i] if desc_i is not None and desc_i < len(r) else None,
-                clean_supplier(r[po_i]) if po_i is not None and po_i < len(r) else None,
-                r[paid_i] if paid_i is not None and paid_i < len(r) else None))
+            rows_out.append(
+                base(
+                    srn,
+                    None,
+                    sup,
+                    amt,
+                    r[desc_i] if desc_i is not None and desc_i < len(r) else None,
+                    clean_supplier(r[po_i]) if po_i is not None and po_i < len(r) else None,
+                    r[paid_i] if paid_i is not None and paid_i < len(r) else None,
+                )
+            )
         conf = "high" if good > 20 else ("medium" if good > 3 else "low")
 
     for r in rows_out:
@@ -741,8 +1048,16 @@ def emit_rows(cf, file_url, b, fmt, max_pages) -> tuple[list[dict], dict]:
 # twice, a header re-clustered), and summing both double-counts. A row that differs in ANY field
 # — notably `description` — is a DISTINCT payment and MUST be kept (e.g. Courts had 9 lines that
 # share a mis-parsed amount + truncated name but carry 9 different descriptions). DQ audit 2026-06-05.
-DEDUP_SIG = ["source_file_hash", "supplier_raw", "amount_eur", "description",
-             "po_number", "source_page_number", "paid_flag", "period"]
+DEDUP_SIG = [
+    "source_file_hash",
+    "supplier_raw",
+    "amount_eur",
+    "description",
+    "po_number",
+    "source_page_number",
+    "paid_flag",
+    "period",
+]
 
 
 def dedup_source_repeats(df: pl.DataFrame) -> tuple[pl.DataFrame, int]:
@@ -763,15 +1078,40 @@ def dedup_source_repeats(df: pl.DataFrame) -> tuple[pl.DataFrame, int]:
 # norm "CONSTRUCTION"/"AIRCRAFT"/"ENERGY"), or a too-generic published name ("Infrastructure DAC").
 # Distinct from real one-word firms whose distinctive token survives (SODEXO, FUJITSU, ADSTON,
 # ACCENTURE). Single-token match only, so "NBI INFRASTRUCTURE" / "DSV LOGISTICS" are NOT flagged.
-GENERIC_SUPPLIER_NAME = frozenset({
-    "infrastructure", "energy", "construction", "aircraft", "shipping", "media",
-    "technology", "partnership", "bundle", "group", "holdings", "services",
-    "solutions", "systems", "engineering", "logistics", "properties", "developments",
-    "consulting", "consultants", "management", "international", "contractors",
-    # legal-form / geographic remnants left after the distinctive lead word was truncated
-    # (e.g. "Deloitte LLP" -> "LLP", "[Brand] Electric Ltd" -> "ELECTRIC", "X UK Ltd" -> "UK")
-    "llp", "electric", "europe", "uk", "ireland",
-})
+GENERIC_SUPPLIER_NAME = frozenset(
+    {
+        "infrastructure",
+        "energy",
+        "construction",
+        "aircraft",
+        "shipping",
+        "media",
+        "technology",
+        "partnership",
+        "bundle",
+        "group",
+        "holdings",
+        "services",
+        "solutions",
+        "systems",
+        "engineering",
+        "logistics",
+        "properties",
+        "developments",
+        "consulting",
+        "consultants",
+        "management",
+        "international",
+        "contractors",
+        # legal-form / geographic remnants left after the distinctive lead word was truncated
+        # (e.g. "Deloitte LLP" -> "LLP", "[Brand] Electric Ltd" -> "ELECTRIC", "X UK Ltd" -> "UK")
+        "llp",
+        "electric",
+        "europe",
+        "uk",
+        "ireland",
+    }
+)
 
 
 def canonicalise_supplier_raw(df: pl.DataFrame) -> pl.DataFrame:
@@ -785,10 +1125,11 @@ def canonicalise_supplier_raw(df: pl.DataFrame) -> pl.DataFrame:
     if df.is_empty() or "supplier_raw" not in df.columns or "po_number" not in df.columns:
         return df
     is_nbi = (pl.col("po_number").cast(pl.Utf8).str.to_uppercase().str.strip_chars() == "NBI") & (
-        pl.col("supplier_raw").str.contains(r"(?i)\binfrastructure dac\b"))
+        pl.col("supplier_raw").str.contains(r"(?i)\binfrastructure dac\b")
+    )
     return df.with_columns(
-        pl.when(is_nbi).then(pl.lit("NBI Infrastructure DAC"))
-        .otherwise(pl.col("supplier_raw")).alias("supplier_raw"))
+        pl.when(is_nbi).then(pl.lit("NBI Infrastructure DAC")).otherwise(pl.col("supplier_raw")).alias("supplier_raw")
+    )
 
 
 def flag_unidentifiable_suppliers(df: pl.DataFrame) -> pl.DataFrame:
@@ -804,47 +1145,67 @@ def flag_unidentifiable_suppliers(df: pl.DataFrame) -> pl.DataFrame:
     unidentifiable = (
         norm.is_null()
         | (norm.str.strip_chars() == "")
-        | norm.str.to_lowercase().str.strip_chars().is_in(list(GENERIC_SUPPLIER_NAME)))
+        | norm.str.to_lowercase().str.strip_chars().is_in(list(GENERIC_SUPPLIER_NAME))
+    )
     conf = pl.col("extraction_confidence") if "extraction_confidence" in df.columns else pl.lit("high")
-    return df.with_columns(
-        pl.when(unidentifiable).then(pl.lit("low")).otherwise(conf).alias("extraction_confidence"))
+    return df.with_columns(pl.when(unidentifiable).then(pl.lit("low")).otherwise(conf).alias("extraction_confidence"))
 
 
 def classify_and_flag(df: pl.DataFrame) -> pl.DataFrame:
     """supplier_normalised + supplier_class + privacy_status; quarantine DEFERRED."""
     if df.is_empty():
         return df
-    df = df.with_columns(
-        name_norm_expr("supplier_raw").alias("supplier_normalised"),
-        pl.col("supplier_raw").map_elements(lambda s: bool(PUBLIC_BODY.search(s or "")), return_dtype=pl.Boolean).alias("_pub"),
-        pl.col("supplier_raw").map_elements(lambda s: bool(COMPANY_SUFFIX.search(s or "")), return_dtype=pl.Boolean).alias("_co"),
-        pl.col("supplier_raw").map_elements(lambda s: bool(FOREIGN_FORM.search(s or "")), return_dtype=pl.Boolean).alias("_for"),
-    ).with_columns(
-        pl.when(pl.col("_pub")).then(pl.lit("public_body"))
-        .when(pl.col("_co")).then(pl.lit("company"))
-        .when(pl.col("_for")).then(pl.lit("foreign_company"))
-        .when(pl.col("supplier_raw").is_null() | (pl.col("supplier_raw").str.strip_chars() == ""))
-        .then(pl.lit("unknown"))
-        .otherwise(pl.lit("sole_trader_or_individual")).alias("supplier_class"),
-    ).with_columns(
-        # privacy_status flags likely-personal rows (sole traders / individuals).
-        pl.when(pl.col("supplier_class") == "sole_trader_or_individual").then(pl.lit("review_personal_data"))
-        .otherwise(pl.lit("ok")).alias("privacy_status"),
-        # QUARANTINE APPLIED: a likely-personal supplier is never displayable. Rows are RETAINED
-        # for analysis/coverage (nothing dropped) — only the display flag is gated, so a
-        # downstream UI / promotion must filter on public_display.
-        (pl.col("supplier_class") != "sole_trader_or_individual").alias("public_display"),
-        # po_committed / payment_actual are summable; contract_award_value is caution-only.
-        # EXCLUDE public_body suppliers: a payment whose recipient is itself a public body is an
-        # intergovernmental TRANSFER / grant (e.g. TII -> county-council road grants = €2.5bn /
-        # 32% of this fact), NOT private procurement. Summing them inflates "procurement spend"
-        # and triple-counts the same euro (TII grant -> council -> contractor in la_payments_fact
-        # -> the contractor's eTenders/TED award). They are RETAINED (public_display stays True)
-        # but never summed. DQ audit 2026-06-05; supplier_class is derived in the block above.
-        (pl.col("amount_semantics").is_in(["po_committed", "payment_actual"])
-         & pl.col("amount_eur").is_not_null() & (pl.col("amount_eur") > 0)
-         & (pl.col("supplier_class") != "public_body")).alias("value_safe_to_sum"),
-    ).drop(["_pub", "_co", "_for"])
+    df = (
+        df.with_columns(
+            name_norm_expr("supplier_raw").alias("supplier_normalised"),
+            pl.col("supplier_raw")
+            .map_elements(lambda s: bool(PUBLIC_BODY.search(s or "")), return_dtype=pl.Boolean)
+            .alias("_pub"),
+            pl.col("supplier_raw")
+            .map_elements(lambda s: bool(COMPANY_SUFFIX.search(s or "")), return_dtype=pl.Boolean)
+            .alias("_co"),
+            pl.col("supplier_raw")
+            .map_elements(lambda s: bool(FOREIGN_FORM.search(s or "")), return_dtype=pl.Boolean)
+            .alias("_for"),
+        )
+        .with_columns(
+            pl.when(pl.col("_pub"))
+            .then(pl.lit("public_body"))
+            .when(pl.col("_co"))
+            .then(pl.lit("company"))
+            .when(pl.col("_for"))
+            .then(pl.lit("foreign_company"))
+            .when(pl.col("supplier_raw").is_null() | (pl.col("supplier_raw").str.strip_chars() == ""))
+            .then(pl.lit("unknown"))
+            .otherwise(pl.lit("sole_trader_or_individual"))
+            .alias("supplier_class"),
+        )
+        .with_columns(
+            # privacy_status flags likely-personal rows (sole traders / individuals).
+            pl.when(pl.col("supplier_class") == "sole_trader_or_individual")
+            .then(pl.lit("review_personal_data"))
+            .otherwise(pl.lit("ok"))
+            .alias("privacy_status"),
+            # QUARANTINE APPLIED: a likely-personal supplier is never displayable. Rows are RETAINED
+            # for analysis/coverage (nothing dropped) — only the display flag is gated, so a
+            # downstream UI / promotion must filter on public_display.
+            (pl.col("supplier_class") != "sole_trader_or_individual").alias("public_display"),
+            # po_committed / payment_actual are summable; contract_award_value is caution-only.
+            # EXCLUDE public_body suppliers: a payment whose recipient is itself a public body is an
+            # intergovernmental TRANSFER / grant (e.g. TII -> county-council road grants = €2.5bn /
+            # 32% of this fact), NOT private procurement. Summing them inflates "procurement spend"
+            # and triple-counts the same euro (TII grant -> council -> contractor in la_payments_fact
+            # -> the contractor's eTenders/TED award). They are RETAINED (public_display stays True)
+            # but never summed. DQ audit 2026-06-05; supplier_class is derived in the block above.
+            (
+                pl.col("amount_semantics").is_in(["po_committed", "payment_actual"])
+                & pl.col("amount_eur").is_not_null()
+                & (pl.col("amount_eur") > 0)
+                & (pl.col("supplier_class") != "public_body")
+            ).alias("value_safe_to_sum"),
+        )
+        .drop(["_pub", "_co", "_for"])
+    )
     return df
 
 
@@ -853,8 +1214,9 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true", help="harvest-only: print candidate files, no parse")
     ap.add_argument("--only", default="", help="comma-separated publisher ids")
-    ap.add_argument("--max-files", type=int, default=None,
-                    help="cap files parsed per publisher (default: all — full history)")
+    ap.add_argument(
+        "--max-files", type=int, default=None, help="cap files parsed per publisher (default: all — full history)"
+    )
     ap.add_argument("--max-pages", type=int, default=None, help="cap pages per PDF")
     args = ap.parse_args()
     only = {x.strip() for x in args.only.split(",") if x.strip()} or None
@@ -878,7 +1240,7 @@ def main() -> None:
             continue
 
         pub_rows, parsed, ok_files, skipped = [], 0, 0, 0
-        for u in files[:args.max_files]:
+        for u in files[: args.max_files]:
             ext = next((e for e in DATA_EXT if u.lower().split("?")[0].endswith(e)), "")
             fmt = {".pdf": "pdf", ".xlsx": "xlsx", ".xls": "xls", ".csv": "csv"}.get(ext)
             if not fmt:
@@ -899,13 +1261,25 @@ def main() -> None:
             if rows:
                 ok_files += 1
             pub_rows.extend(rows)
-            print(f"     -> {u.rsplit('/', 1)[-1][:48]:<48} {stat['status']:<8} "
-                  f"rows={stat['rows']} conf={stat['confidence']}")
+            print(
+                f"     -> {u.rsplit('/', 1)[-1][:48]:<48} {stat['status']:<8} "
+                f"rows={stat['rows']} conf={stat['confidence']}"
+            )
         all_rows.extend(pub_rows)
-        per_pub.append({"id": cf["id"], "name": cf["name"], "tier": cf["tier"],
-                        "files_seen": len(files), "files_parsed": parsed, "files_skipped": skipped,
-                        "files_with_rows": ok_files, "rows": len(pub_rows),
-                        "amount_semantics": cf["amount_semantics"], "privacy_risk": cf["privacy_risk"]})
+        per_pub.append(
+            {
+                "id": cf["id"],
+                "name": cf["name"],
+                "tier": cf["tier"],
+                "files_seen": len(files),
+                "files_parsed": parsed,
+                "files_skipped": skipped,
+                "files_with_rows": ok_files,
+                "rows": len(pub_rows),
+                "amount_semantics": cf["amount_semantics"],
+                "privacy_risk": cf["privacy_risk"],
+            }
+        )
 
     if args.list:
         print(f"\n{'=' * 80}\nLIST DONE. Lock URLs into config, then run without --list.")
@@ -916,13 +1290,34 @@ def main() -> None:
         return
 
     SCHEMA_COLS = [
-        "publisher_id", "publisher_name", "publisher_type", "sector",
-        "source_landing_url", "source_file_url", "source_file_hash",
-        "period", "year", "quarter", "supplier_raw", "supplier_normalised",
-        "amount_eur", "amount_semantics", "value_safe_to_sum", "description",
-        "po_number", "paid_flag", "source_row_number", "source_page_number",
-        "parser_name", "parser_version", "extraction_status", "extraction_confidence",
-        "caveat_text_detected", "supplier_class", "privacy_status", "public_display",
+        "publisher_id",
+        "publisher_name",
+        "publisher_type",
+        "sector",
+        "source_landing_url",
+        "source_file_url",
+        "source_file_hash",
+        "period",
+        "year",
+        "quarter",
+        "supplier_raw",
+        "supplier_normalised",
+        "amount_eur",
+        "amount_semantics",
+        "value_safe_to_sum",
+        "description",
+        "po_number",
+        "paid_flag",
+        "source_row_number",
+        "source_page_number",
+        "parser_name",
+        "parser_version",
+        "extraction_status",
+        "extraction_confidence",
+        "caveat_text_detected",
+        "supplier_class",
+        "privacy_status",
+        "public_display",
         "source_caveat",
     ]
     df = pl.DataFrame(all_rows, infer_schema_length=None)
@@ -935,22 +1330,24 @@ def main() -> None:
     df = df.select([c for c in SCHEMA_COLS if c in df.columns])
 
     # PRIVACY INVARIANT (runtime, -O-proof): no displayable row may be a likely person.
-    leaked = df.filter(pl.col("public_display")
-                       & (pl.col("supplier_class") == "sole_trader_or_individual"))
+    leaked = df.filter(pl.col("public_display") & (pl.col("supplier_class") == "sole_trader_or_individual"))
     if leaked.height:
         raise RuntimeError(
             f"privacy quarantine breached: {leaked.height} sole_trader_or_individual rows "
-            "left public_display=True; refusing to write public_payments_fact")
+            "left public_display=True; refusing to write public_payments_fact"
+        )
 
     OUT_FACT.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(OUT_FACT, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, OUT_FACT)
 
     print(f"\n{'=' * 80}\nGOLD-CANDIDATE WRITTEN\n{'=' * 80}")
     print(f"rows: {df.height:,}  ->  {OUT_FACT}")
     print(df.group_by("supplier_class").len().sort("len", descending=True))
     safe = df.filter(pl.col("value_safe_to_sum"))
-    print(f"\nvalue_safe_to_sum rows: {safe.height:,}  "
-          f"sum=€{(safe['amount_eur'].sum() or 0):,.0f} (po_committed+payment_actual only)")
+    print(
+        f"\nvalue_safe_to_sum rows: {safe.height:,}  "
+        f"sum=€{(safe['amount_eur'].sum() or 0):,.0f} (po_committed+payment_actual only)"
+    )
 
     cov = {
         "publishers_attempted": len(per_pub),
@@ -960,10 +1357,12 @@ def main() -> None:
         "rows_public_display": int(df["public_display"].sum()),
         "rows_review_personal_data": int((df["privacy_status"] == "review_personal_data").sum()),
         "rows_quarantined": int((~df["public_display"]).sum()),
-        "supplier_class_counts": {r["supplier_class"]: r["len"]
-                                  for r in df.group_by("supplier_class").len().iter_rows(named=True)},
-        "amount_semantics_counts": {r["amount_semantics"]: r["len"]
-                                    for r in df.group_by("amount_semantics").len().iter_rows(named=True)},
+        "supplier_class_counts": {
+            r["supplier_class"]: r["len"] for r in df.group_by("supplier_class").len().iter_rows(named=True)
+        },
+        "amount_semantics_counts": {
+            r["amount_semantics"]: r["len"] for r in df.group_by("amount_semantics").len().iter_rows(named=True)
+        },
         "value_safe_to_sum_rows": safe.height,
         "value_safe_to_sum_total_eur": float(safe["amount_eur"].sum() or 0),
         "by_publisher": per_pub,
@@ -972,15 +1371,15 @@ def main() -> None:
         "parser_version": PARSER_VERSION,
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. "
-                  "amount_semantics distinguishes po_committed/payment_actual/contract_award_value; "
-                  "only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body "
-                  "recipients which are intergovernmental transfers/grants e.g. TII road grants) "
-                  "may be totalled, labelled 'ordered/paid', never mixed with award ceilings. "
-                  "PRIVACY QUARANTINE APPLIED: "
-                  "rows flagged privacy_status=review_personal_data (likely sole traders / "
-                  "individuals) are marked public_display=False and must be filtered out before any "
-                  "UI use; they are retained here for analysis only. "
-                  "A line is a purchase order or payment record, not evidence of influence.",
+        "amount_semantics distinguishes po_committed/payment_actual/contract_award_value; "
+        "only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body "
+        "recipients which are intergovernmental transfers/grants e.g. TII road grants) "
+        "may be totalled, labelled 'ordered/paid', never mixed with award ceilings. "
+        "PRIVACY QUARANTINE APPLIED: "
+        "rows flagged privacy_status=review_personal_data (likely sole traders / "
+        "individuals) are marked public_display=False and must be filtered out before any "
+        "UI use; they are retained here for analysis only. "
+        "A line is a purchase order or payment record, not evidence of influence.",
     }
     OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(f"wrote coverage {OUT_COV}")
