@@ -673,6 +673,15 @@ def read_pdf(b: bytes) -> tuple[list[dict], int]:
 
 # ---- XLSX / CSV: header-detect + content-fallback (handles odd headers e.g. Ap/Ar ID) ----
 def _col_roles(header: list[str], data: list[list]) -> dict[str, int | None]:
+    # "money-ness" of a column: how many cells parse to a PLAUSIBLE PO/payment amount
+    # (>= €100, < €50m). A PO-number column (9-digit integers ~€400m) scores 0, so it can
+    # never be mistaken for the amount even when it is the "most numeric" column — the bug
+    # that made South Dublin's 2023/24 files read PO numbers (≈€400m) as the value.
+    def money_score(j: int) -> int:
+        return sum(
+            1 for r in data[:300] if j < len(r) and (v := to_eur(r[j])) is not None and 100 <= v < 50_000_000
+        )
+
     roles: dict[str, int | None] = {}
     for role, rx in (
         ("supplier", SUP_RE),
@@ -682,22 +691,20 @@ def _col_roles(header: list[str], data: list[list]) -> dict[str, int | None]:
         ("po", PO_RE),
     ):
         cands = [j for j, h in enumerate(header) if h and rx.search(h)]
-        if role == "amount" and cands:  # prefer the most-numeric amount-named column
-            cands.sort(key=lambda j: -sum(to_eur(r[j]) is not None for r in data[:200] if j < len(r)))
+        if role == "amount" and cands:  # prefer the most money-like amount-named column
+            cands.sort(key=lambda j: -money_score(j))
         roles[role] = cands[0] if cands else None
-    # content-fallback for odd headers: amount = most-numeric col, supplier = most-alphabetic
+    # content-fallback for odd headers: amount = most money-like col, supplier = most-alphabetic
     if (roles["supplier"] is None or roles["amount"] is None) and data:
         ncol = max((len(r) for r in data[:200]), default=0)
-        nums, txts = [0] * ncol, [0] * ncol
+        txts = [0] * ncol
         for row in data[:200]:
             for j in range(min(ncol, len(row))):
                 v = row[j]
-                if isinstance(v, (int, float)) and not isinstance(v, bool):
-                    nums[j] += 1
-                elif isinstance(v, str) and re.search(r"[A-Za-z]", v):
+                if isinstance(v, str) and re.search(r"[A-Za-z]", v):
                     txts[j] += 1
-        if roles["amount"] is None and any(nums):
-            roles["amount"] = max(range(ncol), key=lambda j: nums[j])
+        if roles["amount"] is None and any(money_score(j) for j in range(ncol)):
+            roles["amount"] = max(range(ncol), key=money_score)
         if roles["supplier"] is None and any(txts):
             roles["supplier"] = max(
                 (j for j in range(ncol) if j != roles["amount"]), key=lambda j: txts[j], default=None

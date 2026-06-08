@@ -106,10 +106,42 @@ Heavy lift = Phases 1–3. Once `speeches_fact` exists, Phase 4 is nearly free.
    speech. Phase 3 must refine: exclude chair/procedural turns, require sustained Irish
    density over N words, or run `langdetect` on the speech body.
 
-### Phase-1 harvest gotchas found
-- **Raw `urllib` GET → HTTP 403** on `data.oireachtas.ie/akn/...`. The harvest MUST use
-  the repo's working fetch path (the probe files were fetched via it) — proper UA/session,
-  not a bare request.
+### Phase-1 harvest — ACCESS DIAGNOSED (2026-06-08): NOT blocked/throttled
+The earlier "403" was a **key-construction bug, not a block**. Full diagnosis:
+- The 403 body is S3 `<Error><Code>AccessDenied</Code></Error>` (Server: AmazonS3 /
+  CloudFront, no Retry-After, no WAF challenge). **S3 returns 403 AccessDenied — not 404 —
+  for non-existent keys** when ListBucket is denied.
+- `dbsect_listings_flatten.py:101` *constructs* `…/mul@/dbsect_<n>.xml` URLs as a fallback,
+  and those per-section S3 objects **frequently do not exist** → 403.
+- The **authoritative key is `…/mul@/main.xml`** (the whole sitting day), taken from the
+  API's `formats.xml.uri`. PROOF: the exact known-good probe URL (dail/2026-03-26/dbsect_30)
+  → 200/11,850 B; a live Seanad day `seanad/2025-12-18/.../main.xml` → 200/129 KB/65 speeches/
+  25 TLCPerson refs. Access is completely fine.
+- **HARVEST DESIGN CORRECTION:** harvest **`main.xml` per (chamber, sitting-day)** via the
+  API's authoritative `formats.xml.uri` — NEVER the constructed `dbsect_N.xml`. ~one fetch
+  per sitting day (~few thousand total), not 32,092 per-section fetches. Then split sections
+  out of `main.xml` by their `<debateSection eId="dbsect_N">` structure and map to the
+  listings index. Get day-level xml uris from `/v1/debates` (200, works).
 - **Listings bronze is STALE** — `debate_listings.parquet` only runs to ~2018. Phase 1
   must first re-run a fresh + wider `debates_listings` bronze harvest before the AKN sweep,
   else recent speeches (incl. current-term Seanad) are missing.
+
+## Reuse audit (2026-06-08) — avoid duplication
+- **Member resolution is FREE (direct join, no fuzzy match).** AKN `<references>` carries
+  `<TLCPerson eId="ErinMcGreehan" href="/ie/oireachtas/member/id/Erin-McGreehan.S.2020-06-29"/>`.
+  The href tail = `unique_member_code` exactly. So each speech's `by="#ErinMcGreehan"` →
+  eId lookup → href → `unique_member_code` → join member registry, IDENTICAL to how
+  `questions.py` joins on `question.by.memberCode`. Cross-house collision auto-handled
+  (code carries .D/.S + date). My spike's normalise fallback is a safety net, not needed.
+- **Harvest framework ~80% reusable, with one real gap.** `run_member_scenario(name, urls)`,
+  the worklist→URL idiom (`_load_debates_worklist`), `output_exists` freshness, and the
+  `fetch_json` retry/`fetch_all` ThreadPool machinery are all reusable in shape. GAP:
+  `fetch_json` calls `response.json()` (line 57) and `save_json` dumps JSON — **AKN is XML**,
+  so reuse needs a sibling `fetch_all_text` (returns `response.text`) + a per-file XML saver
+  under `bronze/debates/akn/`, reusing the same `session`/retry constants. ~40 LOC parallel
+  path, NOT a refactor of the JSON hot path.
+- **Silver/gold/view/UI all follow existing templates (pattern reuse, new content):** speech
+  flattener mirrors `dbsect_listings_flatten.py` (but XML, not json_normalize); gold mirrors
+  `enrich._build_*` arg-parameterised helpers; `speech_base.sql` clones `vote_base.sql`'s
+  2-placeholder chamber-union; Commencement-Matters surface reuses the questions page +
+  member_overview section; `save_parquet` atomic+zstd throughout.

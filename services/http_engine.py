@@ -79,6 +79,91 @@ def fetch_json(url: str, timeout: tuple[int, int] = (10, 60)) -> tuple[dict, int
     raise last_exc if last_exc is not None else RuntimeError("fetch_json: retry loop exited unexpectedly")
 
 
+def fetch_text(url: str, timeout: tuple[int, int] = (10, 60)) -> tuple[str, int]:
+    """Fetch one URL as raw text, retrying transient faults.
+
+    Sibling of fetch_json for non-JSON payloads (e.g. AKN debate XML). Same
+    shared session, same retry policy and "raises on failure" contract — only
+    the decode differs (response.text, no response.json()/schema validation).
+    Permanent 4xx still raise immediately: a 403 from the Oireachtas S3/AKN
+    bucket means the object key does not exist, so failing fast (rather than
+    retrying) is correct — the caller counts it as a miss.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
+        try:
+            response = session.get(url, timeout=timeout)
+            if response.status_code in RETRY_STATUS_FORCELIST and attempt < RETRY_MAX_ATTEMPTS:
+                logger.warning(
+                    "fetch_text %s -> HTTP %s (attempt %d/%d), retrying",
+                    url,
+                    response.status_code,
+                    attempt,
+                    RETRY_MAX_ATTEMPTS,
+                )
+                _sleep_backoff(attempt)
+                continue
+            response.raise_for_status()
+            raw_bytes = len(response.content)
+            return response.text, raw_bytes
+        except _RETRYABLE_EXC as exc:
+            last_exc = exc
+            if attempt < RETRY_MAX_ATTEMPTS:
+                logger.warning(
+                    "fetch_text %s -> %s (attempt %d/%d), retrying",
+                    url,
+                    type(exc).__name__,
+                    attempt,
+                    RETRY_MAX_ATTEMPTS,
+                )
+                _sleep_backoff(attempt)
+                continue
+            raise
+    raise last_exc if last_exc is not None else RuntimeError("fetch_text: retry loop exited unexpectedly")
+
+
+def fetch_all_text(urls: list[str], max_workers: int = 5) -> tuple[list[tuple[str, str]], int, int]:
+    """Fetch many URLs concurrently as text.
+
+    Mirrors fetch_all but yields (url, text) pairs so a caller can name an
+    output file per source URL (the AKN harvest writes one XML file per
+    sitting-day main.xml). A failed URL is omitted from results and counted.
+
+    Returns:
+        results [(url, text), ...], total_downloaded_bytes, failure_count
+    """
+    results: list[tuple[str, str]] = []
+    total_bytes = 0
+    failures = 0
+
+    if not urls:
+        logger.warning("No URLs provided to fetch_all_text().")
+        return results, total_bytes, failures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_url = {executor.submit(fetch_text, url): url for url in urls}
+
+        for i, future in enumerate(concurrent.futures.as_completed(future_to_url), start=1):
+            url = future_to_url[future]
+            try:
+                text, raw_bytes = future.result()
+                results.append((url, text))
+                total_bytes += raw_bytes
+                if i % 10 == 0 or i == len(urls):
+                    logger.info(
+                        f"Fetched {i}/{len(urls)} text URLs | successes={len(results)} | "
+                        f"failures={failures} | total_downloaded={total_bytes:,} bytes"
+                    )
+            except Exception as exc:
+                failures += 1
+                logger.error(f"Text fetch failed for {url}: {exc}")
+
+    logger.info(
+        f"Finished fetch_all_text | results={len(results)} | failures={failures} | downloaded={total_bytes:,} bytes"
+    )
+    return results, total_bytes, failures
+
+
 def fetch_all(urls: list[str], max_workers: int = 5) -> tuple[list[dict], int, int]:
     """Fetch many URLs concurrently.
 

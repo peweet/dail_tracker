@@ -161,6 +161,12 @@ def fetch_ted_competition_stats_result() -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_ted_awards_by_year_result() -> QueryResult:
+    """TED award notices per year (2016-2026, pan-EU excluded) — the TED 'over time' trend."""
+    return _q.ted_awards_by_year(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
 def fetch_ted_supplier_summary_result(limit: int | None = 60, order_by: str = "awards") -> QueryResult:
     return _q.ted_supplier_summary(get_procurement_conn(), limit=limit, order_by=order_by)
 

@@ -21,7 +21,7 @@ SELECT
     BOOL_OR(is_pan_eu_outlier)                         AS has_pan_eu,
     mode(cro_company_num)                              AS cro_company_num,
     mode(cro_company_status)                           AS cro_company_status
-FROM v_procurement_ted_awards
+FROM v_procurement_ted_winner_history
 WHERE supplier_class = 'company'
   AND length(winner_join_norm) >= 4
 GROUP BY winner_join_norm
