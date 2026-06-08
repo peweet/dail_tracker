@@ -20,7 +20,9 @@ rows (same discipline as procurement_etenders_extract.py). Winners are CRO-match
 AND by winner-identifier (often the IE company number). Bare-personal-name identifiers ->
 sole-trader quarantine flag.
 
-NOT wired into pipeline.py. Silver parquet is regenerable from the API (left untracked).
+Wired into pipeline.py as the `ted` chain. Silver parquet is regenerable from the API
+(left untracked). Surfaced via sql_views/procurement_ted_*.sql on the Procurement page —
+"gold" here = exposed as-is through a SQL view that reads this silver directly.
 
 Run:
   ./.venv/Scripts/python.exe extractors/ted_ireland_extract.py
@@ -67,8 +69,27 @@ FIELDS = [
     "classification-cpv",
     "dispatch-date",
     "notice-type",
+    # ── competition-intensity layer (eForms, 2024+; fill rates measured 2026-06-08) ──
+    "procedure-type",                  # 99.6% — open / restricted / negotiated / single-offer
+    "received-submissions-type-code",  # 99.2% — submission-type taxonomy (see TENDER_SUBMISSION_CODES)
+    "received-submissions-type-val",   # 99.2% — the per-lot submission COUNT (the single-bid signal)
+    "award-criterion-type-lot",        # 95.6% — price / cost / quality
 ]
+# 2024+ is deliberate, NOT an API limit. The API reaches back to 2016, BUT for pre-2024 legacy
+# notices the WINNER is unavailable: verified 2026-06-08 winner-name / winner-identifier /
+# organisation-name-tenderer = 0% for 2016-2023 (vs ~55% in 2024+), while buyer-name=100% and
+# total-value≈62-83%. This silver is winner-centric (winner->CRO, supplier rankings, per-winner
+# value_safe_to_sum), so a winner-less backfill would corrupt the grain. Pre-2024 winner+value
+# only exist in the bulk legacy TED_EXPORT XML packages. See doc/TED_ENRICHMENT.md §3.5.
 QUERY = "buyer-country=IRL AND notice-type=can-standard AND publication-date>=20240101"
+
+# received-submissions-type-code is an eForms taxonomy (BT-759/760). VERIFIED 2026-06-08: codes
+# are never mixed within a single notice (0/250). Every value below is a count of TENDERS
+# received; 'part-req' (requests-to-participate — a restricted/negotiated FIRST-stage count, not
+# tenders) is deliberately excluded so the single-bid signal isn't polluted.
+TENDER_SUBMISSION_CODES = {"tenders", "t-esubm", "t-sme", "t-small", "t-med", "t-oth-eea", "t-non-eea", "t-eea"}
+# procedure types that ran WITHOUT an open competitive call (a factual signal, never a verdict).
+UNCOMPETITIVE_PROCEDURES = {"neg-wo-call", "oth-single"}
 PAGE_CAP = 40  # 250/page
 
 SOURCE = {
@@ -197,9 +218,48 @@ def clean_identifier(s: str) -> str:
     return digits.lstrip("0")
 
 
+def competition_fields(n: dict) -> dict:
+    """Notice-level competition-intensity signals (same for every winner-row of the notice).
+
+    All eForms fields arrive as PER-LOT arrays. Rules (measured 2026-06-08):
+      * procedure_type: a scalar/first value.
+      * n_tenders_received: the MIN tender count across the notice's lots (the least-competitive
+        lot) — derived only from TENDER_SUBMISSION_CODES, never from 'part-req'. is_single_bid
+        means a lot received exactly one tender.
+      * award_criteria_kind: the distinct price/cost/quality types used; is_price_only flags a
+        lowest-price-only award (no quality criterion). All neutral facts, never verdicts.
+    """
+    proc = n.get("procedure-type")
+    if isinstance(proc, list):
+        proc = proc[0] if proc else None
+
+    codes = n.get("received-submissions-type-code") or []
+    vals = n.get("received-submissions-type-val") or []
+    tender_counts = []
+    for c, v in zip(codes, vals, strict=False):
+        if c in TENDER_SUBMISSION_CODES:
+            with contextlib.suppress(TypeError, ValueError):
+                tender_counts.append(int(str(v)))
+    n_tenders = min(tender_counts) if tender_counts else None
+
+    crit = n.get("award-criterion-type-lot") or []
+    crit = crit if isinstance(crit, list) else [crit]
+    crit_set = sorted({str(c) for c in crit if c})
+
+    return {
+        "procedure_type": proc,
+        "is_uncompetitive_procedure": (proc in UNCOMPETITIVE_PROCEDURES) if proc else None,
+        "n_tenders_received": n_tenders,
+        "is_single_bid": (n_tenders == 1) if n_tenders is not None else None,
+        "award_criteria_kind": "+".join(crit_set) if crit_set else None,
+        "is_price_only": (crit_set == ["price"]) if crit_set else None,
+    }
+
+
 def build_rows(raw: list[dict]) -> list[dict]:
     rows = []
     for n in raw:
+        comp = competition_fields(n)
         winners = names_list(n.get("organisation-name-tenderer")) or names_list(n.get("tendering-party-name"))
         ids = n.get("winner-identifier") or []
         ids = ids if isinstance(ids, list) else [ids]
@@ -223,6 +283,7 @@ def build_rows(raw: list[dict]) -> list[dict]:
             ident = str(ids[i]) if i < len(ids) and ids[i] is not None else None
             rows.append(
                 {
+                    **comp,
                     "publication_number": pub,
                     "notice_url": SOURCE["notice_url_template"].format(publication_number=pub) if pub else None,
                     "buyer_name": buyer,
@@ -407,11 +468,21 @@ def main() -> None:
         },
         "cro_match_rate": round(cro_hit.height / max(1, df.height), 3),
         "rows_review_personal_data": int((df["privacy_status"] == "review_personal_data").sum()),
+        "competition_signal": {
+            "rows_with_procedure_type": int(df["procedure_type"].is_not_null().sum()),
+            "rows_with_tenders_received": int(df["n_tenders_received"].is_not_null().sum()),
+            "single_bid_rows": int((df["is_single_bid"] == True).sum()),  # noqa: E712 (polars mask)
+            "uncompetitive_procedure_rows": int((df["is_uncompetitive_procedure"] == True).sum()),  # noqa: E712
+            "price_only_rows": int((df["is_price_only"] == True).sum()),  # noqa: E712
+            "note": "n_tenders_received = MIN tenders across the notice's lots (least-competitive "
+            "lot); is_single_bid = that min is 1. Derived from tender-count submission codes only "
+            "('part-req' excluded). A factual competition signal, never a verdict.",
+        },
         "date_span": [df["dispatch_date"].min(), df["dispatch_date"].max()],
         "layer": "silver",
         "next_step": "build sql_views/ted_*.sql (reconcile frameworks + CRO) before any gold/UI",
         "source": SOURCE,
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "SILVER (cleaned, not frontend-exposed). One row per notice x winner. "
         "tender-value is a NOTICE-level figure: for multi-supplier frameworks it is the "

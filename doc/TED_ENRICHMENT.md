@@ -93,17 +93,48 @@ to production is blocked by the same privacy/`vat_status` gate as the payments t
 - **Honesty rail:** award ceiling vs realised spend are **different tiers** — show
   side by side, never summed.
 
-### 3.5 Pre-2024 historical backfill — **biggest coverage gap, real cost**
-Current silver is **eForms-era (2024+) only**, because the extractor pulls the
-Search API with `publication-date>=20240101`. TED bulk **monthly XML packages**
-(1993–2026, URLs enumerated in `ted_data_ingestion_links.md`) give full history,
-but pre-2024 notices use the **legacy TED schema**, not eForms — so a second parser
-is required.
-- **Decide first:** is multi-year award history worth a legacy-schema parser?
-  Likely yes for trend/concentration depth, but it's the costliest item here.
-- **How:** add a bulk-XML lane (monthly package → filter Irish contracting
-  authorities → map legacy fields onto the existing silver schema), keep the API
-  lane for incremental daily.
+### 3.5 Historical backfill — **mostly a one-line win** (verified 2026-06-08)
+Current silver is 2024+ **only by choice**: the extractor hard-codes
+`QUERY = "... AND publication-date>=20240101"`. It is **not** an API limitation.
+
+**Verified by probing `api.ted.europa.eu/v3/notices/search` directly:**
+
+| range | how to get it | cost |
+|---|---|---|
+| **2016–2023 Irish awards** | **widen the date filter to `>=20160101`** — the API serves these with the *identical* eForms field set (buyer, winner, `tender-value`, CPV, `winner-identifier`). | **~1-line change + re-pull.** No new parser, no bulk download. |
+| pre-2016 (2011–2015 … 1993) | bulk legacy TED_EXPORT XML packages (proven parseable — see below) | high — all-EU package downloads + a legacy parser; low relevance |
+
+**The API wall is 2016, not 2024.** Year-by-year `can-standard` counts:
+2014 = 0, 2015 = 0, **2016 = 550**, 2017 = 1,019, 2018 = 1,190, 2019 = 1,301.
+No Irish notice of *any* type is indexed before 2016. So a date-filter widen takes
+silver from ~13k (2024+) to roughly **+5,000–8,000** more Irish award notices
+(2016–2023) for almost no work.
+
+**Implementation (cheap win):** in `extractors/ted_ireland_extract.py`, change the
+`QUERY` constant to `publication-date>=20160101`, run with `--refresh`, re-run the
+view layer. Watch the bronze cache size (~21k notices vs 13k) and re-verify the
+CRO-match rate holds on older names.
+
+**Pre-2016 bulk lane (only if older history is wanted) — proven feasible but costly.**
+Probed the bulk packages directly:
+- Daily/monthly XML packages **download via plain `curl`, no bot-gating** (~6–9 MB
+  per daily OJ S issue; `Content-Type: application/gzip`).
+- A daily issue is **all-EU** (1,100–3,400 notices); Irish notices are only ~2–4
+  per issue → you download the whole EU to filter to IE (~17 GB for 2011–2015).
+  Use **monthly** packages (12/yr) over daily (~250/yr) to cut request count.
+- **Format reality (matters for the parser):**
+  - Pre-2024 packages = uniform **TED_EXPORT R2.0.8/R2.0.9** envelope. Irish notices
+    found by `ISO_COUNTRY VALUE="IE"`; they carry everything needed —
+    `TD_DOCUMENT_TYPE CODE="7"` (award), `OFFICIALNAME` (buyer + winner),
+    `VAL_TOTAL`/`VAL_ESTIMATED_TOTAL` (+`CURRENCY`), `CPV_CODE`, and `NATIONALID`
+    (often the CRO number, e.g. *Enovation Solutions Ltd* `6348876N`).
+  - **Gotchas:** values use space thousand-separators (`"468 500"`); CPV codes
+    repeat per lot (dedupe); `VALUE@TYPE` distinguishes `ESTIMATED_TOTAL` (→
+    `estimate_advertised`) from `PROCUREMENT_TOTAL` (→ `contract_award_value`).
+  - The **2024 bulk package is a mix** of converted-TED_EXPORT *and* native eForms
+    UBL (`cac:`/`cbc:`, no `TD_DOCUMENT_TYPE`) — so bulk-parsing 2024+ is *harder*
+    than the API. Another reason to use the API for ≥2016 and reserve bulk for
+    pre-2016 only.
 
 ### 3.6 TD interest × TED award — **deep investigation, last**
 RoMI declared shareholdings → CRO → TED/eTenders winners: surface where a TD's
