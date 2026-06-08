@@ -103,6 +103,7 @@ PARTY_RULES: list[tuple[str, str]] = [
     ("irish freedom", "Irish Freedom Party"),
     ("100% redress", "100% Redress Party"),
     ("redress", "100% Redress Party"),
+    ("rdr", "100% Redress Party"),  # registry abbreviates "100% RDR"
     ("liberty republic", "Liberty Republic"),
     ("animal welfare", "Party for Animal Welfare"),
     ("rabharta", "Rabharta"),
@@ -113,10 +114,11 @@ PARTY_RULES: list[tuple[str, str]] = [
 ]
 
 
-def canon_party_expr() -> pl.Expr:
-    """Vectorised canonicalisation of party_declared -> party (no UDF). Builds a
-    when/then chain folded so the FIRST matching PARTY_RULES entry wins; unmatched -> NULL."""
-    norm = pl.col("party_declared").str.to_lowercase().str.strip_chars()
+def canon_party_expr(col: str = "party_declared") -> pl.Expr:
+    """Vectorised canonicalisation of a party-name column -> party (no UDF). Builds a
+    when/then chain folded so the FIRST matching PARTY_RULES entry wins; unmatched -> NULL.
+    Reused in the gold step to canonicalise the authoritative member-registry party too."""
+    norm = pl.col(col).str.to_lowercase().str.strip_chars()
     expr: pl.Expr = pl.lit(None, dtype=pl.Utf8)
     for sub, canon in reversed(PARTY_RULES):
         expr = pl.when(norm.str.contains(sub, literal=True)).then(pl.lit(canon)).otherwise(expr)

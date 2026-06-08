@@ -23,8 +23,10 @@ SELECT
     election_event,
     candidate_name,
     constituency_name,
-    party,            -- canonical party (NULL where the OCR'd field was a placeholder / unmatched)
+    party,            -- authoritative: registry party for elected TDs, else OCR-declared canonical
     party_declared,   -- raw OCR'd "declared party" field, kept for audit
+    unique_member_code, -- canonical member ID for cross-linking (NULL = not a sitting TD)
+    is_elected_td,
     total_spend_eur,
     spend_not_public_eur,
     spend_public_eur,
@@ -48,6 +50,7 @@ SELECT
     candidate_name,
     constituency_name,
     party,
+    unique_member_code,   -- cross-link a line item to a sitting TD (NULL if not elected)
     category,
     category_label,
     ref,
