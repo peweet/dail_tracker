@@ -54,6 +54,7 @@ from data_access.procurement_data import (
     fetch_payments_supplier_summary_result,
     fetch_supplier_concentration_result,
     fetch_supplier_summary_result,
+    fetch_ted_awards_by_year_result,
     fetch_ted_competition_stats_result,
     fetch_ted_corpus_stats_result,
     fetch_ted_for_supplier_result,
@@ -752,7 +753,8 @@ def _ted_competition_strip() -> None:
         '<p class="pr-cap"><strong>Competition signals (eForms, 2024+):</strong> '
         + "; ".join(parts)
         + ". These are factual disclosures recorded in the notices themselves — a single tender or "
-        "a negotiated procedure is a matter of record, not evidence of wrongdoing.</p>"
+        "a negotiated procedure is a matter of record, not evidence of wrongdoing. Competition detail "
+        "is only recorded from 2024 (eForms); earlier years show winners and value only.</p>"
     )
 
 
@@ -793,6 +795,13 @@ def _render_ted() -> None:
 
     _ted_competition_strip()
 
+    # EU awards over time (2016–2026) — the payoff of the legacy backfill. Collapsed so the
+    # winner ranking stays the first thing on the tab (matches the eTenders trend pattern).
+    tr = fetch_ted_awards_by_year_result()
+    if tr.ok and not tr.data.empty and len(tr.data) > 1:
+        with st.expander("EU awards over time"):
+            st.bar_chart(tr.data, x="year", y="n_awards", height=200, color="#9c5b2e")
+
     res = fetch_ted_supplier_summary_result(limit=_TOP, order_by="awards")
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
@@ -812,7 +821,9 @@ def _render_ted() -> None:
         '<div class="pr-foot"><strong>Source:</strong> TED — Tenders Electronic Daily, the EU '
         'Official Journal of public procurement (<a href="https://ted.europa.eu" target="_blank" '
         'rel="noopener">ted.europa.eu ↗</a>), winners matched to the Companies Registration Office. '
-        "Award notices, not payments; a separate register from the national eTenders data — never summed.</div>"
+        "2024+ from the TED API; 2016–2023 winner detail recovered from the per-notice Official Journal "
+        "XML (the API omits it for pre-2024 notices). Award notices, not payments; a separate register "
+        "from the national eTenders data — never summed.</div>"
     )
 
 
@@ -841,7 +852,7 @@ def _render_ted_supplier_panel(supplier_norm: str) -> None:
         '<div class="pr-ted-xref"><div class="pr-ted-xref-h">Also in the EU register (TED)</div>'
         f'<div class="pr-ted-xref-b">This firm also won <strong>{n:,} EU Official Journal award '
         f"notice{'' if n == 1 else 's'}</strong>{val_clause}, from {_n(r.get('n_buyers')):,} buyers "
-        "(2023–2026). A separate register — these are <em>not</em> added to the national total above.</div></div>"
+        "(2016–2026). A separate register — these are <em>not</em> added to the national total above.</div></div>"
     )
 
 
@@ -1263,41 +1274,63 @@ def procurement_page() -> None:
         empty_state("No supplier records", "The procurement views are loaded but returned no rows.")
         return
 
-    # Year pills scope the Suppliers / Authorities / Categories rankings. The lobbying
-    # overlap register isn't dated here, so that tab stays all-time (noted in-tab).
-    st.caption("Filter the rankings by award year:")
-    year = _year_pills(fetch_available_years())
-
+    # Four top-level tabs (decluttered 2026-06-08 from eight). Each groups its related lenses
+    # behind a segmented control — the same in-tab pattern the "Money actually paid" tab already
+    # uses — so the page presents four clear doors, not a wrapping tab bar. Surfacing-only: every
+    # lens calls an existing _render_* function; no logic moves into this layer.
     overlap = fetch_lobbying_overlap_result()
     charity_overlap = fetch_charity_overlap_result()
-    tabs = st.tabs(
-        [
-            "Suppliers",
-            "Contracting authorities",
-            "Categories",
-            "Money actually paid",
-            "Lobbying overlap",
-            "Charities",
-            "EU-level awards (TED)",
-            "Tender pipeline (TED)",
-        ]
-    )
+    tabs = st.tabs(["Contract awards", "Money actually paid", "EU awards (TED)", "Register overlaps"])
+
     with tabs[0]:
-        _render_suppliers(year)
+        # Year pills + lens picker live with the rankings they scope (national eTenders register).
+        st.caption("Filter the rankings by award year:")
+        year = _year_pills(fetch_available_years())
+        awards_lens = st.segmented_control(
+            "View awards by",
+            ["By supplier", "By authority", "By category"],
+            default="By supplier",
+            key="pr_awards_lens",
+            label_visibility="collapsed",
+        )
+        if awards_lens == "By authority":
+            _render_authorities(year)
+        elif awards_lens == "By category":
+            _render_cpv(year)
+        else:
+            _render_suppliers(year)
+
     with tabs[1]:
-        _render_authorities(year)
-    with tabs[2]:
-        _render_cpv(year)
-    with tabs[3]:
         _render_payments()
-    with tabs[4]:
-        _render_overlap(overlap.data if overlap.ok else pd.DataFrame(), year)
-    with tabs[5]:
-        _render_charity_overlap(charity_overlap.data if charity_overlap.ok else pd.DataFrame())
-    with tabs[6]:
-        _render_ted()
-    with tabs[7]:
-        _render_ted_tenders()
+
+    with tabs[2]:
+        # Two TED grains behind one control: contract awards WON (2016–2026) vs the pre-award
+        # tender pipeline (opportunities). Clearly different grains, never summed.
+        ted_lens = st.segmented_control(
+            "View",
+            ["Awards won", "Open tenders"],
+            default="Awards won",
+            key="pr_ted_lens",
+            label_visibility="collapsed",
+        )
+        if ted_lens == "Open tenders":
+            _render_ted_tenders()
+        else:
+            _render_ted()
+
+    with tabs[3]:
+        # Co-occurrence disclosures (same pattern, two registers). Both all-time (not year-scoped).
+        ov_lens = st.segmented_control(
+            "View",
+            ["Lobbying", "Charities"],
+            default="Lobbying",
+            key="pr_overlap_lens",
+            label_visibility="collapsed",
+        )
+        if ov_lens == "Charities":
+            _render_charity_overlap(charity_overlap.data if charity_overlap.ok else pd.DataFrame())
+        else:
+            _render_overlap(overlap.data if overlap.ok else pd.DataFrame(), None)
 
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> eTenders / national procurement open data '

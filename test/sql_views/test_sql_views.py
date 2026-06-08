@@ -1907,6 +1907,7 @@ def test_v_procurement_charity_overlap_grain_and_value_firewall():
 
 _TED_AWARDS_SILVER = "data/silver/parquet/ted_ie_awards.parquet"
 _TED_TENDERS_SILVER = "data/silver/parquet/ted_ie_tenders.parquet"
+_TED_WINNER_HISTORY_SILVER = "data/silver/parquet/ted_ie_winner_history.parquet"
 
 
 @pytest.mark.sql
@@ -1936,6 +1937,39 @@ def test_v_procurement_ted_awards_competition_columns():
         "AND is_single_bid <> (n_tenders_received = 1)"
     ).fetchone()[0]
     assert inconsistent == 0, "is_single_bid does not match (n_tenders_received = 1)"
+
+
+@pytest.mark.sql
+def test_v_procurement_ted_winner_history_union():
+    """The full winner-history view UNIONs the 2024+ API lane and the 2016-2023 per-notice-XML
+    backfill into one (notice x winner) feed. Both silvers gitignored → integration-data only."""
+    if not _USE_REAL_PATHS:
+        pytest.skip("TED silver is gitignored and unfixtured (set DAIL_INTEGRATION_TESTS=1)")
+    _skip_missing(*_src(_TED_AWARDS_SILVER), *_src(_TED_WINNER_HISTORY_SILVER))
+    con = _con()
+    con.execute(_load("procurement_ted_awards_history.sql"))
+    df = con.execute("SELECT * FROM v_procurement_ted_winner_history LIMIT 5").pl()
+    _assert_cols(df, "source_lane", "winner_join_norm", "winner_name", "value_safe_to_sum", "procedure_type")
+    # both ingestion lanes are present
+    lanes = {r[0] for r in con.execute("SELECT DISTINCT source_lane FROM v_procurement_ted_winner_history").fetchall()}
+    assert lanes == {"api", "per_notice_xml"}, f"unexpected lanes: {lanes}"
+    # boundary dedupe: no publication_number may appear in BOTH lanes
+    dup = con.execute(
+        "SELECT count(*) FROM (SELECT publication_number FROM v_procurement_ted_winner_history "
+        "GROUP BY 1 HAVING count(DISTINCT source_lane) > 1)"
+    ).fetchone()[0]
+    assert dup == 0, "publication_number present in both lanes — boundary dedupe failed"
+    # the eForms competition fields exist only on the 2024+ API lane
+    leaked = con.execute(
+        "SELECT count(*) FROM v_procurement_ted_winner_history "
+        "WHERE source_lane = 'per_notice_xml' AND procedure_type IS NOT NULL"
+    ).fetchone()[0]
+    assert leaked == 0, "competition field populated on a pre-2024 (legacy) row"
+    # winner_name _NNNNN eForms suffix is stripped for display
+    suffix = con.execute(
+        r"SELECT count(*) FROM v_procurement_ted_winner_history WHERE regexp_matches(winner_name, '_[0-9]+$')"
+    ).fetchone()[0]
+    assert suffix == 0, "winner_name _NNNNN suffix not stripped"
 
 
 @pytest.mark.sql
