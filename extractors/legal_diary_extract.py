@@ -45,6 +45,7 @@ import logging
 import re
 import sys
 import zipfile
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -111,13 +112,34 @@ _DATE_RE = re.compile(
 
 
 def diary_date_from_lines(lines: list[str]) -> str | None:
-    """Parse 'THURSDAY THE 4TH DAY OF JUNE 2026' -> '2026-06-04'."""
+    """Resolve the diary's own date, e.g. 'MONDAY THE 8TH DAY OF JUNE 2026' -> '2026-06-08'.
+
+    Taking the FIRST 'WEEKDAY THE Nth DAY OF MONTH YEAR' match is unsafe: a diary
+    routinely carries forward a notice naming a PREVIOUS court day near the top (e.g.
+    'Friday the 5th day of June 2026' sitting above the real Monday-the-8th masthead),
+    which mis-dated whole files — a weekend capture of the Monday diary was archived and
+    parsed as the Friday. The true date is the canonical masthead: an ALL-CAPS line that
+    is the date alone, repeated several times through the document; carried-over notices
+    appear once in mixed-case running text. So we score every match and prefer the
+    most-frequent all-caps standalone heading, falling back to the most-frequent mention.
+    """
+    canonical: Counter[str] = Counter()  # all-caps lines that ARE the date (the masthead)
+    mentioned: Counter[str] = Counter()  # every date mention, anywhere
     for ln in lines:
         m = _DATE_RE.search(ln)
-        if m:
-            day, month, year = int(m.group(1)), m.group(2).lower(), int(m.group(3))
-            if month in _MONTHS:
-                return f"{year:04d}-{_MONTHS[month]:02d}-{day:02d}"
+        if not m:
+            continue
+        day, month, year = int(m.group(1)), m.group(2).lower(), int(m.group(3))
+        if month not in _MONTHS:
+            continue
+        iso = f"{year:04d}-{_MONTHS[month]:02d}-{day:02d}"
+        mentioned[iso] += 1
+        if ln.isupper() and m.group(0).strip() == ln.strip():
+            canonical[iso] += 1
+    if canonical:
+        return canonical.most_common(1)[0][0]
+    if mentioned:
+        return mentioned.most_common(1)[0][0]
     return None
 
 
@@ -535,7 +557,13 @@ def run(args) -> int:
         logger.error("No diary .docx to parse (no --file, no archive, no cache). Aborting.")
         return 1
 
-    all_sched, all_cases, days = [], [], []
+    # Parse every input, then keep ONLY the fullest capture per TRUE diary date. The
+    # source republishes a day's diary as it fills (the poller archives each capture as
+    # <date>.rNN.docx), and a weekend capture can carry the next court day — so unioning
+    # every file double-counts a day and can mislabel one day's cases onto another. The
+    # diary only grows through the day, so the capture with the most case lines is the
+    # fullest; we group by the parsed date and keep that one.
+    by_date: dict[str, dict] = {}
     for path in inputs:
         if not path.exists():
             logger.error("File not found: %s", path)
@@ -549,12 +577,30 @@ def run(args) -> int:
         sched, cases = parse_day(lines, ddate)
         for c in cases:
             c["source_sha256"] = sha[:16]
-        all_sched += sched
-        all_cases += cases
-        days.append(
-            {"file": path.name, "diary_date": ddate, "sha256": sha[:16], "sessions": len(sched), "cases": len(cases)}
-        )
         logger.info("Parsed %s (%s): %d sessions, %d case lines", path.name, ddate, len(sched), len(cases))
+        prev = by_date.get(ddate)
+        if prev is None or len(cases) > prev["n_cases"]:
+            if prev is not None:
+                logger.info(
+                    "Superseding earlier capture of %s (%s, %d cases) with %s (%d cases).",
+                    ddate, prev["file"], prev["n_cases"], path.name, len(cases),
+                )
+            by_date[ddate] = {"file": path.name, "sha": sha[:16], "sched": sched, "cases": cases, "n_cases": len(cases)}
+
+    all_sched, all_cases, days = [], [], []
+    for ddate in sorted(by_date):
+        rec = by_date[ddate]
+        all_sched += rec["sched"]
+        all_cases += rec["cases"]
+        days.append(
+            {
+                "file": rec["file"],
+                "diary_date": ddate,
+                "sha256": rec["sha"],
+                "sessions": len(rec["sched"]),
+                "cases": rec["n_cases"],
+            }
+        )
 
     if not all_cases and not all_sched:
         logger.error(

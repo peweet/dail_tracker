@@ -127,6 +127,25 @@ def _fmt_day(s: str) -> str:
         return str(s)
 
 
+def _fmt_day_short(s: str) -> str:
+    """'2026-06-08' -> 'Mon 8 Jun' — a compact pill label (year carried by the month group)."""
+    try:
+        y, m, d = (int(p) for p in str(s)[:10].split("-"))
+        wd = datetime.date(y, m, d).strftime("%a")
+        return f"{wd} {d} {_MONTHS[m]}"
+    except Exception:  # noqa: BLE001
+        return str(s)
+
+
+def _fmt_month(ym: str) -> str:
+    """'2026-06' -> 'Jun 2026'."""
+    try:
+        y, m = (int(p) for p in str(ym).split("-")[:2])
+        return f"{_MONTHS[m]} {y}"
+    except Exception:  # noqa: BLE001
+        return str(ym)
+
+
 def _year(s) -> str:
     return str(s)[:4] if s is not None and not (isinstance(s, float) and pd.isna(s)) else ""
 
@@ -982,16 +1001,56 @@ def _render_legal_diary() -> None:
         ]
     )
 
-    days = sorted(schedule["diary_date"].dropna().unique(), reverse=True)
-    labels = {d: _fmt_day(d) for d in days}
-    if len(days) <= 7:
-        chosen_label = st.segmented_control(
-            "Diary day", [labels[d] for d in days], default=labels[days[0]], key="jd_day"
+    # Diary-day selector. The diary is a forward-accumulating daily source, so a flat strip
+    # of full "Thu 4 Jun 2026" labels grows without bound. Instead: recent court days are
+    # quick pills with compact labels; once history builds past a fortnight we group by month
+    # (month pills → day pills) so the control stays compact and scannable. Newest day first,
+    # defaulting to the latest court day.
+    days = [str(d) for d in sorted(schedule["diary_date"].dropna().unique(), reverse=True)]
+    latest = days[0]
+    if len(days) <= 14:
+        short = {d: _fmt_day_short(d) for d in days}
+        picked = (
+            st.pills(
+                "Diary day",
+                [short[d] for d in days],
+                default=short[latest],
+                key="jd_day",
+                label_visibility="collapsed",
+            )
+            or short[latest]
         )
-        chosen = next((d for d in days if labels[d] == chosen_label), days[0])
+        chosen = next((d for d in days if short[d] == picked), latest)
     else:
-        chosen = st.selectbox("Diary day", days, index=0, format_func=lambda d: labels[d], key="jd_day")
-    st.caption(f"Showing {labels[chosen]}.")
+        months = sorted({d[:7] for d in days}, reverse=True)
+        mlabels = {_fmt_month(m): m for m in months}
+        mpick = (
+            st.pills(
+                "Month",
+                list(mlabels),
+                default=_fmt_month(months[0]),
+                key="jd_month",
+                label_visibility="collapsed",
+            )
+            or _fmt_month(months[0])
+        )
+        mon = mlabels.get(mpick, months[0])
+        mdays = [d for d in days if d.startswith(mon)]
+        short = {d: _fmt_day_short(d) for d in mdays}
+        # Key is scoped to the month so a day picked in one month isn't carried as a stale
+        # selection into another month's (different) option set.
+        picked = (
+            st.pills(
+                "Diary day",
+                [short[d] for d in mdays],
+                default=short[mdays[0]],
+                key=f"jd_day_{mon}",
+                label_visibility="collapsed",
+            )
+            or short[mdays[0]]
+        )
+        chosen = next((d for d in mdays if short[d] == picked), mdays[0])
+    st.caption(f"Showing {_fmt_day(chosen)}{' · latest court day' if chosen == latest else ''}.")
 
     day_sched = schedule[schedule["diary_date"] == chosen]
     day_counts = counts[counts["diary_date"] == chosen] if not counts.empty else counts

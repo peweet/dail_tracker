@@ -5035,8 +5035,10 @@ def inject_css() -> None:
            never red, so the colour never implies wrongdoing (honesty rail). */
         .pr-pill-lob { background: var(--surface-deep); color: var(--ink-700); border-color: var(--border-strong); }
 
-        /* supplier profile (?supplier=) */
+        /* supplier / buyer profile (?supplier= / ?paid_publisher=) */
         .pr-prof-head { margin: 0.2rem 0 0.5rem; }
+        .pr-prof-kicker { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;
+            text-transform: uppercase; color: var(--text-meta); margin-bottom: 0.15rem; }
         .pr-prof-name { font-size: 1.5rem; font-weight: 700; color: var(--ink-strong);
             line-height: 1.15; margin: 0; padding: 0; }
         .pr-prof-sub { font-size: 0.9rem; color: var(--text-meta); margin-top: 0.15rem; }

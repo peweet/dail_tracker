@@ -155,10 +155,22 @@ def _conform(df: pl.DataFrame) -> pl.DataFrame:
         .then(pl.lit("incl_vat"))
         .otherwise(pl.lit("unknown"))
     )
+    # Triple-count firewall (operationalised): a public_body RECIPIENT is an intergovernmental
+    # transfer / council-as-payee (TII Road Grants central→council; LA payments to Irish Water,
+    # ETBs, other councils), NOT summable procurement spend — summing it would double-count the
+    # same money against the council→contractor leg. Force value_safe_to_sum=False for them so the
+    # single value_safe_to_sum filter (used by every view/page) enforces the guard. Rows stay in
+    # the fact, visible; they are merely excluded from spend totals.
+    safe = (
+        pl.when(pl.col("supplier_class") == "public_body")
+        .then(pl.lit(False))
+        .otherwise(pl.col("value_safe_to_sum"))
+    )
     return df.with_columns(
         kind.alias("value_kind"),
         tier.alias("realisation_tier"),
         vat.alias("vat_status"),
+        safe.alias("value_safe_to_sum"),
     )
 
 

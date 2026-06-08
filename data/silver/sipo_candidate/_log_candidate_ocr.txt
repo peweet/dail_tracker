@@ -10266,3 +10266,32 @@ C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\uti
 [32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
 2026-06-08 14:06:18,521 - sipo_candidate_ocr - INFO - [1/604] 04050-cork-north-central â€” 0961f-burke-colm__285153: +13/13 pages (run total 13)
 2026-06-08 14:15:31,704 - sipo_candidate_ocr - INFO - [2/604] 04050-cork-north-central â€” 24418-doyle-susan__285688: +13/13 pages (run total 26)
+
+=== watchdog launch #2 (args=[]) ===
+2026-06-08 14:41:35,383 - sipo_candidate_ocr - INFO - 606 documents in scope (doc_types=['expense_statement'])
+2026-06-08 14:41:37,154 - sipo_candidate_ocr - INFO - 602 documents need OCR, 4 already complete, 0 missing PDFs
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m
+
+=== watchdog launch #3 (args=[]) ===
+
+=== watchdog launch #1 (args=['--max-docs', '25']) ===
+
+=== watchdog launch #2 (args=['--max-docs', '25']) ===
+
+=== watchdog launch #1 (args=['--max-docs', '25']) ===
+2026-06-08 17:26:21,273 - sipo_candidate_ocr - INFO - 606 documents in scope (doc_types=['expense_statement'])
+2026-06-08 17:26:24,959 - sipo_candidate_ocr - INFO - 602 documents need OCR, 4 already complete, 0 missing PDFs
+2026-06-08 17:26:24,959 - sipo_candidate_ocr - INFO - chunk: 602 pending -> capping to 25 this run (--max-docs); rerun to advance
+Informationÿ: impossible de trouver des fichiers pour le(s) modŠle(s) sp‚cifi‚(s).
+C:\Users\pglyn\PycharmProjects\dail_extractor\.venv\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
+[32mCreating model: ('PP-OCRv5_server_det', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\PP-OCRv5_server_det`.[0m
+[32mCreating model: ('en_PP-OCRv5_mobile_rec', None, None)[0m
+[32mModel files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\pglyn\.paddlex\official_models\en_PP-OCRv5_mobile_rec`.[0m

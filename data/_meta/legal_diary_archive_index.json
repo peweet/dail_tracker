@@ -1,9 +1,23 @@
 {
+  "2026-06-04": {
+    "sha256": "f2cc14f4ff0161122f5abb4a9cdc9130a64a27ea2f99930f79a92b5f152cc7d6",
+    "filename": "2026-06-04.docx",
+    "bytes": 125213,
+    "source_url": "https://legaldiary.courts.ie/",
+    "revisions": 1
+  },
   "2026-06-05": {
+    "sha256": "88141880260fc8e2be5dff65852fcde08850f313b0864525f1a027daf6c47358",
+    "filename": "2026-06-05.docx",
+    "bytes": 132125,
+    "source_url": "https://legaldiary.courts.ie/",
+    "revisions": 1
+  },
+  "2026-06-08": {
     "sha256": "b1c81524d5e4629f8ee23aab627ff5b05b97f215da935115e1f2d6f580cb4b81",
-    "filename": "2026-06-05.r03.docx",
+    "filename": "2026-06-08.docx",
     "bytes": 184245,
     "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary June 8th.docx",
-    "revisions": 3
+    "revisions": 1
   }
 }

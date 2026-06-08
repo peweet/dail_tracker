@@ -34,6 +34,10 @@ STALL = 600  # s with no new page checkpoint => assume hung, kill & resume. Gene
 #              the first page lands; a real page-hang wastes <=10min/cycle, fine overnight.
 POLL = 20
 MAX_RESTARTS = 400  # corpus is ~8k pages; allow many resume cycles
+CHUNK = 25  # pending docs per driver invocation. Each chunk = a FRESH paddle process
+#             (paddle 3.3.1 segfaults more the longer it lives), and the driver resumes
+#             from checkpoints, so the corpus advances chunk by chunk. ~25 docs ≈ 300 pages
+#             ≈ a few hours; a mid-chunk crash loses at most one page (per-page checkpoints).
 
 
 def ckpt_count() -> int:
@@ -47,6 +51,9 @@ def kill_tree(pid: int) -> None:
 
 def main() -> None:
     passthrough = sys.argv[1:]  # forwarded to sipo_candidate_ocr (e.g. --doc-types ...)
+    drv_args = list(passthrough)
+    if "--max-docs" not in drv_args:  # chunked by default; an explicit --max-docs overrides
+        drv_args += ["--max-docs", str(CHUNK)]
     log = ROOT / "data/silver/sipo_candidate/_log_candidate_ocr.txt"
     log.parent.mkdir(parents=True, exist_ok=True)
     restarts = 0
@@ -55,10 +62,10 @@ def main() -> None:
         start_count = ckpt_count()
         t_start = time.monotonic()
         with open(log, "a", encoding="utf-8") as fh:
-            fh.write(f"\n=== watchdog launch #{restarts + 1} (args={passthrough}) ===\n")
+            fh.write(f"\n=== watchdog launch #{restarts + 1} (args={drv_args}) ===\n")
             fh.flush()
             proc = subprocess.Popen(
-                [str(PY), "-m", "extractors.sipo_candidate_ocr", *passthrough],
+                [str(PY), "-m", "extractors.sipo_candidate_ocr", *drv_args],
                 stdout=fh, stderr=subprocess.STDOUT, cwd=str(ROOT),
             )
         last_count = start_count
@@ -80,7 +87,16 @@ def main() -> None:
         print(f"[cand-watchdog] launch #{restarts + 1} ended rc={rc} hung={killed_hung} "
               f"progressed={progressed} ran={ran:.0f}s pages_cached={ckpt_count()}", flush=True)
         if rc == 0 and not killed_hung:
-            print("[cand-watchdog] OCR driver completed the corpus.", flush=True)
+            if progressed:
+                # a chunk finished cleanly -> loop for the next chunk (fresh paddle process)
+                print(f"[cand-watchdog] chunk done (+{ckpt_count() - start_count} pages, "
+                      f"total {ckpt_count()}); next chunk.", flush=True)
+                fast_fails = 0
+                restarts += 1
+                continue
+            # rc==0 with NO progress => driver found nothing pending => corpus complete
+            print(f"[cand-watchdog] corpus COMPLETE — nothing left to OCR "
+                  f"(total {ckpt_count()} pages).", flush=True)
             return
         # BACKOFF + ABORT so a crash-on-start can never become a spin-loop (the 228x bug):
         # a launch that crashed fast AND OCR'd nothing means paddle can't start — usually

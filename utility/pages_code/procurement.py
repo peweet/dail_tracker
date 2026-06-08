@@ -49,6 +49,7 @@ from data_access.procurement_data import (
     fetch_payments_corpus_stats_result,
     fetch_payments_for_publisher_result,
     fetch_payments_for_supplier_result,
+    fetch_payments_publisher_profile_result,
     fetch_payments_publisher_summary_result,
     fetch_payments_supplier_summary_result,
     fetch_supplier_concentration_result,
@@ -500,8 +501,10 @@ def _paid_pill(val, tier: str) -> str:
     return f'<span class="pr-pill pr-pill-val">{_eur(val)} {_paid_verb(tier)}</span>'
 
 
-def _paid_publisher_href(name) -> str:
-    return f"?paid_publisher={urllib.parse.quote(str(name))}"
+def _paid_publisher_href(name, tier: str = "SPENT") -> str:
+    """Buyer-dossier link carrying the tier so a council linked from the 'Ordered' ranking
+    lands on its ordered (purchase-order) dossier, not an empty 'paid' one."""
+    return f"?paid_publisher={urllib.parse.quote(str(name))}&paid_tier={urllib.parse.quote(tier)}"
 
 
 def _render_payments() -> None:
@@ -569,23 +572,38 @@ def _render_paid_suppliers(tier: str) -> None:
 
 
 def _render_paid_publishers(tier: str) -> None:
-    res = fetch_payments_publisher_summary_result(tier=tier, limit=_TOP)
+    res = fetch_payments_publisher_summary_result(tier=tier, limit=None)
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
         empty_state("No public bodies", f"No body has {_paid_verb(tier)} records in this tier.")
         return
+    # Local-authority lens (display-only slice over the fetched ranking — the per-council buyer
+    # view ProZorro-style). Councils mostly publish purchase ORDERS, so they cluster in the
+    # 'Ordered' tier; the toggle just narrows the list, it computes nothing.
+    n_la = int((df["publisher_type"] == "local_authority").sum()) if "publisher_type" in df.columns else 0
+    if n_la:
+        only_la = st.toggle(
+            "Local authorities only",
+            value=False,
+            key=f"pr_pay_la_{tier}",
+            help=f"{n_la} of the {len(df):,} bodies in this tier are county / city councils.",
+        )
+        if only_la:
+            df = df[df["publisher_type"] == "local_authority"]
     st.caption(f"Public bodies by money {_paid_verb(tier)} (sum-safe within each body). Click one for its suppliers.")
     cards = []
     for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
         meta = f"{_n(r.n_suppliers):,} supplier{'s' if _n(r.n_suppliers) != 1 else ''} · {_n(r.min_year)}–{_n(r.max_year)}"
         vat = _coalesce(getattr(r, "vat_status", None))
         pills = [_paid_pill(r.total_safe_eur, tier)]
+        if _coalesce(getattr(r, "publisher_type", None)) == "local_authority":
+            pills.append('<span class="pr-pill pr-pill-lob">local authority</span>')
         if vat == "incl_vat":
             pills.append('<span class="pr-pill pr-pill-lob">VAT-inclusive</span>')
         inner = _card(f"<span>{_esc(r.publisher_name)}</span>", meta, [p for p in pills if p], rank=i)
         cards.append(
             clickable_card_link(
-                href=_paid_publisher_href(r.publisher_name),
+                href=_paid_publisher_href(r.publisher_name, tier),
                 inner_html=inner,
                 aria_label=f"View the suppliers {_paid_verb(tier)} by {r.publisher_name}",
             )
@@ -593,27 +611,76 @@ def _render_paid_publishers(tier: str) -> None:
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
 
 
-def _render_payments_publisher_profile(publisher_name: str) -> None:
+def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT") -> None:
+    """Per-buyer dossier (the per-council profile): which tiers the body publishes, both totals
+    shown side by side (never summed), and its top suppliers in the active tier. Councils mostly
+    publish purchase ORDERS, so this falls back to whichever tier the body actually has."""
     if back_button("← Back to procurement", key="prpaypub"):
         st.query_params.clear()
         st.rerun()
-    res = fetch_payments_for_publisher_result(publisher_name, tier="SPENT")
-    df = res.data if res.ok else pd.DataFrame()
+
+    prof = fetch_payments_publisher_profile_result(publisher_name)
+    prow = prof.data.iloc[0] if (prof.ok and not prof.data.empty) else None
+    n_paid = _n(prow.get("n_paid_lines")) if prow is not None else 0
+    n_ordered = _n(prow.get("n_ordered_lines")) if prow is not None else 0
+    tiers_present = [t for t, c in (("SPENT", n_paid), ("COMMITTED", n_ordered)) if c]
+
+    is_la = prow is not None and _coalesce(prow.get("publisher_type")) == "local_authority"
+    kicker = "LOCAL AUTHORITY" if is_la else "PUBLIC BODY"
+    sector = _coalesce(prow.get("sector")) if prow is not None else ""
+    n_sup = _n(prow.get("n_suppliers")) if prow is not None else 0
+    span = ""
+    if prow is not None and _n(prow.get("min_year")):
+        span = f"{_n(prow.get('min_year'))}–{_n(prow.get('max_year'))}"
+    sub_parts = [f"{n_sup:,} supplier{'s' if n_sup != 1 else ''} over €20,000"]
+    if span:
+        sub_parts.append(span)
+    kick = kicker + (f" · {sector.upper()}" if sector and not is_la else "")
     st.html(
-        f'<div class="pr-prof-head"><h1 class="pr-prof-name">{_esc(publisher_name)}</h1>'
-        '<div class="pr-prof-sub">Suppliers this public body paid (over €20,000), most paid first</div></div>'
+        f'<div class="pr-prof-head"><div class="pr-prof-kicker">{_esc(kick)}</div>'
+        f'<h1 class="pr-prof-name">{_esc(publisher_name)}</h1>'
+        f'<div class="pr-prof-sub">{_esc(" · ".join(sub_parts))}</div></div>'
     )
+    # Both lifecycle tiers side by side — distinct stages of public money, NEVER summed.
+    if prow is not None:
+        tier_pills = []
+        if n_ordered:
+            tier_pills.append(_paid_pill(prow.get("ordered_safe_eur"), "COMMITTED"))
+        if n_paid:
+            tier_pills.append(_paid_pill(prow.get("paid_safe_eur"), "SPENT"))
+        tier_pills = [p for p in tier_pills if p]
+        if tier_pills:
+            st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(tier_pills)}</div>')
+
+    if not tiers_present:
+        empty_state("No payments found", "This body has no sum-safe records, or the link didn't match.")
+        return
+
+    # Active tier: honour the requested one; else the tier the body actually has. If it has
+    # both, a toggle switches the supplier list (the headline pills always show both).
+    active = tier if tier in tiers_present else tiers_present[0]
+    if len(tiers_present) > 1:
+        labels = {"Paid (actual spend)": "SPENT", "Ordered (purchase orders)": "COMMITTED"}
+        default = next(k for k, v in labels.items() if v == active)
+        choice = st.segmented_control(
+            "Tier", list(labels), default=default, key="pr_paypub_tier", label_visibility="collapsed"
+        )
+        active = labels.get(choice or default, active)
+
+    res = fetch_payments_for_publisher_result(publisher_name, tier=active)
+    df = res.data if res.ok else pd.DataFrame()
     if df.empty:
-        empty_state("No payments found", "This body has no sum-safe paid records, or the link didn't match.")
+        empty_state("No suppliers in this tier", f"This body has no sum-safe {_paid_verb(active)} records.")
+        st.html(_FOOT_HTML)
         return
     st.caption(
-        f"Top {len(df):,} suppliers by money paid (sum-safe). Names as published by the body; "
-        "amounts are payments made, not award ceilings."
+        f"Top {len(df):,} suppliers by money {_paid_verb(active)} (sum-safe). Names as published by the body; "
+        "amounts are the body's own reported figures, not award ceilings."
     )
     cards = []
     for i, r in enumerate(df.itertuples(), start=1):
-        meta = f"{_n(r.n_payments):,} payment{'s' if _n(r.n_payments) != 1 else ''} · {_n(r.min_year)}–{_n(r.max_year)}"
-        pills = [p for p in (_paid_pill(r.total_safe_eur, "SPENT"),
+        meta = f"{_n(r.n_payments):,} {_paid_verb(active)} line{'s' if _n(r.n_payments) != 1 else ''} · {_n(r.min_year)}–{_n(r.max_year)}"
+        pills = [p for p in (_paid_pill(r.total_safe_eur, active),
                              _cro_pill_from(getattr(r, "cro_company_num", None), None)) if p]
         cards.append(_card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=i))
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
@@ -1087,6 +1154,34 @@ def _stats_strip(stats, cov: dict) -> None:
     st.html(f'<div class="pr-stats">{items}</div>')
 
 
+def _data_completeness_note() -> None:
+    """Collapsed "How complete is this data?" honesty note. Static, sourced editorial prose
+    (no live metric — the firewall keeps computation in the view layer); the coverage figures
+    are documented point-in-time estimates from the 2026-06-08 coverage analysis, stated with
+    their caveats so a reader never mistakes this corpus for the whole of public spending."""
+    with st.expander("How complete is this data?"):
+        st.markdown(
+            "**Short answer: this is what public bodies publish — not the whole picture.** "
+            "Treat every total here as a *floor* (at least this much, from the records we can see), "
+            "never an audited figure.\n\n"
+            "- **Awards** (eTenders, TED) name almost every public buyer (~1,950 bodies), but only a "
+            "fraction of the euro value can be summed — most contracts fall below the publication "
+            "threshold or run through frameworks whose ceilings aren't real spend.\n"
+            "- **Money actually paid** comes from the over-€20,000 lists bodies publish themselves — and "
+            "only about **1 in 40 public buyers (~3%)** does so. Against the State's estimated "
+            "**€15–22 billion a year** of procurement, what's traceable here works out at roughly "
+            "**7% of the money spent overall** — rising to the **mid-teens (%) in recent years** as more "
+            "bodies began publishing, and under 2% before 2021. So on the order of **90%+ of actual "
+            "spend is not yet visible** here.\n"
+            "- The three records **aren't linked**: a contract's notice, its award, and the eventual "
+            "payments sit in separate registers with no shared key, so *awarded* and *paid* can never "
+            "be reconciled for the same deal.\n\n"
+            "For scale, Ukraine's **Prozorro** publishes 100% of public procurement, full lifecycle, in "
+            "one system — the standard Ireland has no equivalent of. National-spend estimate: OECD / "
+            "US trade.gov country guide."
+        )
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 def procurement_page() -> None:
     hide_sidebar()
@@ -1103,7 +1198,10 @@ def procurement_page() -> None:
         _render_cpv_profile(params.get("cpv"))
         return
     if params.get("paid_publisher"):
-        _render_payments_publisher_profile(params.get("paid_publisher"))
+        req_tier = (params.get("paid_tier") or "SPENT").upper()
+        _render_payments_publisher_profile(
+            params.get("paid_publisher"), req_tier if req_tier in ("SPENT", "COMMITTED") else "SPENT"
+        )
         return
 
     # coverage_stats is the source-state gate AND the scale anchor: a missing view /
