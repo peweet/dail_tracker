@@ -51,7 +51,9 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 import la_afs_extract as rev  # noqa: E402  (CACHE, REGISTRY, best_ie_page, statement_year, title_year)
+
 import config  # noqa: E402
+from services.parquet_io import save_parquet  # noqa: E402
 
 OUT_PARQUET = config.SILVER_PARQUET_DIR / "la_afs_capital_divisions.parquet"
 OUT_COV = ROOT / "data/_meta/la_afs_capital_coverage.json"
@@ -394,7 +396,10 @@ def merge_camelot(done_slugs: set[str]) -> tuple[list[dict], list[dict]]:
         with contextlib.suppress(Exception):
             subprocess.run(
                 [str(CAMELOT_VENV), str(CAMELOT_SCRIPT), *want],
-                timeout=900, capture_output=True, cwd=str(CAMELOT_SCRIPT.parent), check=False,
+                timeout=900,
+                capture_output=True,
+                cwd=str(CAMELOT_SCRIPT.parent),
+                check=False,
             )
     if not CAMELOT_ROWS.exists():
         return [], []
@@ -421,22 +426,42 @@ def merge_camelot(done_slugs: set[str]) -> tuple[list[dict], list[dict]]:
         div_sum = sum(r["capital_expenditure"] for r in rws if r["capital_expenditure"] is not None)
         printed = rws[0].get("printed_total_expenditure")
         for r in rws:
-            out.append({
-                "council": cf["council"], "slug": slug, "entity": cf["entity"],
-                "region": cf["region"], "year": year, "division": r["division"],
-                "capital_expenditure": r["capital_expenditure"], "capital_income": r.get("capital_income"),
-                "opening_balance": None, "closing_balance": None,
-                "source_file_url": cf["landing"][0], "source_page_number": r["source_page_number"],
-                "parse_method": "camelot", "printed_total_expenditure": printed, "reconciled": True,
-                "realisation_tier": "SPENT", "value_kind": "capital_expenditure_actual",
-                "scope": "single-LA capital account (by service division)",
-                "source": "Local Authority audited AFS (own website), Capital Account appendix",
-            })
-        stats.append({"council": cf["council"], "slug": slug, "status": "ok", "year": year,
-                      "method": "camelot", "divisions": len(rws),
-                      "capital_expenditure_total": round(div_sum, 0),
-                      "printed_total": round(printed, 0) if printed else None,
-                      "reconciled": True})
+            out.append(
+                {
+                    "council": cf["council"],
+                    "slug": slug,
+                    "entity": cf["entity"],
+                    "region": cf["region"],
+                    "year": year,
+                    "division": r["division"],
+                    "capital_expenditure": r["capital_expenditure"],
+                    "capital_income": r.get("capital_income"),
+                    "opening_balance": None,
+                    "closing_balance": None,
+                    "source_file_url": cf["landing"][0],
+                    "source_page_number": r["source_page_number"],
+                    "parse_method": "camelot",
+                    "printed_total_expenditure": printed,
+                    "reconciled": True,
+                    "realisation_tier": "SPENT",
+                    "value_kind": "capital_expenditure_actual",
+                    "scope": "single-LA capital account (by service division)",
+                    "source": "Local Authority audited AFS (own website), Capital Account appendix",
+                }
+            )
+        stats.append(
+            {
+                "council": cf["council"],
+                "slug": slug,
+                "status": "ok",
+                "year": year,
+                "method": "camelot",
+                "divisions": len(rws),
+                "capital_expenditure_total": round(div_sum, 0),
+                "printed_total": round(printed, 0) if printed else None,
+                "reconciled": True,
+            }
+        )
     return out, stats
 
 
@@ -477,8 +502,10 @@ def main() -> None:
     if not only or (only & set(CAMELOT_SLUGS)):
         cam_rows, cam_stats = merge_camelot(done)
         for cs in cam_stats:
-            print(f"  {cs['council']:<15} ok  yr={cs['year']}  camelot div={cs['divisions']}  "
-                  f"recon=EXACT  capEXP={cs['capital_expenditure_total'] / 1e6:>7.1f}m")
+            print(
+                f"  {cs['council']:<15} ok  yr={cs['year']}  camelot div={cs['divisions']}  "
+                f"recon=EXACT  capEXP={cs['capital_expenditure_total'] / 1e6:>7.1f}m"
+            )
         all_rows.extend(cam_rows)
         stats.extend(cam_stats)
 
@@ -495,16 +522,14 @@ def main() -> None:
         df.group_by("council")
         .agg(
             pl.col("division").n_unique().alias("division_count"),
-            (pl.col("capital_expenditure").sum() - pl.col("printed_total_expenditure").first())
-            .abs()
-            .alias("_delta"),
+            (pl.col("capital_expenditure").sum() - pl.col("printed_total_expenditure").first()).abs().alias("_delta"),
         )
         .with_columns((pl.col("_delta") < 10).alias("complete"))
         .drop("_delta")
     )
     df = df.join(comp, on="council", how="left").sort(["council", "division"])
     OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, OUT_PARQUET)
     incomplete = comp.filter(~pl.col("complete"))
     if incomplete.height:
         print(f"  ⚠ INCOMPLETE councils (Σ≠printed): {incomplete['council'].to_list()}")

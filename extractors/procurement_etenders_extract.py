@@ -37,6 +37,8 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -304,8 +306,7 @@ def main() -> None:
         f"safe-to-sum award rows: {aw['value_safe_to_sum'].sum():,}"
     )
 
-    OUT_AWARDS.parent.mkdir(parents=True, exist_ok=True)
-    aw.write_parquet(OUT_AWARDS, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(aw, OUT_AWARDS)
     hr("AWARD-SUPPLIER ROWS")
     print(f"rows: {aw.height:,}  ->  {OUT_AWARDS}")
     print(aw.group_by("supplier_class").len().sort("len", descending=True))
@@ -342,7 +343,7 @@ def main() -> None:
             .alias("match_confidence"),
         )
     )
-    m.write_parquet(OUT_MATCH, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(m, OUT_MATCH)
 
     hr("SUPPLIER -> CRO (company-class only; individuals quarantined)")
     tot = m.height
