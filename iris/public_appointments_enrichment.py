@@ -66,7 +66,8 @@ ROLES = {
 # Recurring Irish-only body names → English (extend as coverage demands).
 BODIES = {
     # Broadcasters / media regulators
-    "RADIÓ TEILIFÍS ÉIREANN": "RTÉ",
+    "RAIDIÓ TEILIFÍS ÉIREANN": "RTÉ",
+    "RADIÓ TEILIFÍS ÉIREANN": "RTÉ",  # spelling variant printed by some notices
     "COIMISIÚN NA MEÁN": "Coimisiún na Meán",
     # Environmental / planning
     "GNÍOMHAIREACHT UM CHAOMHNÚ COMHSHAOIL": "Environmental Protection Agency",
@@ -85,6 +86,7 @@ BODIES = {
     "AN COIMISIÚN UM SCRÚDUITHE STÁIT": "State Examinations Commission",
     "COIMISIÚN NA SCRÚDUITHE STÁIT": "State Examinations Commission",  # preposition variant
     "AN COIMISIÚN UM CHAIDHDÉAIN IN OIFIGÍ POIBLÍ": "Standards in Public Office Commission",
+    "UM CHAIGHDEÁIN IN OIFIGÍ POIBLÍ": "Standards in Public Office Commission",  # correct spelling variant
     "ÚDARÁS RIALÁLA SEIRBHÍSÍ DLÍ": "Legal Services Regulatory Authority",
     "ÚDARÁS PÓILÍNEACHTA": "Policing Authority",
     "ÚDARÁS CRAOLACHÁIN NA HÉIREANN": "Broadcasting Authority of Ireland",
@@ -101,9 +103,49 @@ BODIES = {
     "CÓRAS IOMPAIR ÉIREANN": "Córas Iompair Éireann",  # CIÉ — keeps Irish acronym
     "BORD IASCAIGH MHARA": "Bord Iascaigh Mhara",  # BIM
     "BORD BIA": "Bord Bia",
+    # Auto-enrolment pensions authority — its name splits across the PDF's
+    # pipe-joined lines ("AN tÚDARÁS | NÁISIÚNTA UM UATHROLLÚ COIGILTIS SCOIR"),
+    # so the title-HEAD scan in extract_body (not the per-segment one) catches it.
+    "ÚDARÁS NÁISIÚNTA UM UATHROLLÚ COIGILTIS SCOIR": "National Automatic Enrolment Retirement Savings Authority",
+    "UISCE ÉIREANN": "Uisce Éireann",  # Irish Water — official Irish name kept
+    "BANC CEANNAIS NA hÉIREANN": "Central Bank of Ireland",
+    # The Water Forum — notices print "AN FORAM USICE" (an OCR transposition of
+    # "Fóram Uisce"); map both the printed form and the correct spelling.
+    "FORAM USICE": "The Water Forum",
+    "FÓRAM UISCE": "The Water Forum",
+    # Bodies recurring in the Irish-language ("FÓGRA") appointment notices. The
+    # lenited/genitive forms ("de Choimisiún…", "ar Choimisiún…") are listed
+    # alongside the nominative because the body name is matched by substring.
+    "COIMISIÚN OMBUDSMAN AN GHARDA SÍOCHÁNA": "Garda Síochána Ombudsman Commission",
+    "OMBUDSMAN AN GHARDA SÍOCHÁNA": "Garda Síochána Ombudsman Commission",
+    "COIMISIÚN NA hÉIREANN UM CHEARTA AN DUINE AGUS COMHIONANNAS": "Irish Human Rights and Equality Commission",
+    "NA hÉIREANN UM CHEARTA AN DUINE": "Irish Human Rights and Equality Commission",  # lenited/truncated variant
+    "AN CHOMHAIRLE STÁIT": "Council of State",
+    "AN COIMISINÉIR TEANGA": "An Coimisinéir Teanga",  # Language Commissioner — Irish name kept
+    "OMBUDSMAN PÓILÍNEACHTA": "Policing Ombudsman",
+    "AN tOMBUDSMAN DO LEANAÍ": "Ombudsman for Children",
+    "OMBUDSMAN DO LEANAÍ": "Ombudsman for Children",
+    "CÚIRT CHOIRIÚIL SPEISIALTA": "Special Criminal Court",
+    "CHÚIRT CHOIRIÚIL SPEISIALTA": "Special Criminal Court",
+    "OIFIG NA mBREITHNEOIRÍ COSTAS DLÍ": "Office of the Legal Costs Adjudicators",
+    "CIGIREACHT AN GHARDA SÍOCHÁNA": "Garda Síochána Inspectorate",
+    "BORD SOLÁTHAIR AN LEICTREACHAIS": "ESB",
+    "TEILIFÍS NA GAEILGE": "TG4",
+    "BINSE ACHOMHAIRC SEIRBHÍSÍ AIRGEADAIS": "Financial Services Appeals Tribunal",
     # Note: AIRE STÁIT A CHEAPADH / AN tORDÚ CORRTHOGHCHÁIN are order TITLES,
     # not bodies — handled via _TITLE_NOT_BODY rather than added here.
 }
+
+# Raw-Irish headers / order-titles / preamble sentences that are NOT a body being
+# appointed to. When a body resolves to one of these (an Irish-language notice
+# whose body we could not map), we surface no body rather than leaking Gaeilge.
+_IRISH_NONBODY = re.compile(
+    r"(?i)^\s*(?:FÓGRA|FOGRA|AN tORD|DO RINNE AN RIALTAS|DO DHEIN|TÁ AN RIALTA|"
+    r"RINNE AN|RINNEADH AN|DO SHÍNIGH|ARD-RÚNAÍ|CEAPACHÁN|"
+    r"COMHALTA[ÍI]? (?:DEN|AN) RIALTA|.*\bA CHEAPADH\b|.*\bA CHUR AS OIFIG\b|"
+    r"AN ROINN|.*\bFÁN ACHT\b|.*\bFÁN OIFIG\b|Fógra maidir|.*\bAN gCOINBHINS|"
+    r"I BHFEIDHMIÚ|D[EO] BHUN AIRTEAGAL|AN RIALÁLAÍ\b)"
+)
 
 # Title first-segments that are preamble/headers, not a body — force the
 # body to be recovered from the notice text instead.
@@ -134,6 +176,15 @@ _APPT_VERB_GA = re.compile(r"(?i)\ba (cheapadh|athcheapadh|cheap|fhoirceannadh|b
 _AS_EN = re.compile(r"(?i)\b(?:re-)?appointed\s+([A-ZÁÉÍÓÚ][A-Za-zÁÉÍÓÚáéíóú.'\- ]+?)\s+as\b")
 _SA_PAREN = re.compile(r"\((Appointment of Special Advisers?[^)]*)\)")
 _PORTFOLIO_EN = re.compile(r"(?i)\(Appointment of Special Advisers?\s*\(([^)]*)\)")
+
+# Irish constitutional/statutory appointment Orders read "<office> A CHEAPADH";
+# they name an office/role, not a body, and print their English in an
+# "(Appointment of …)" parenthetical. _CHEAPADH_ORDER detects the Gaeilge form;
+# _EN_APPT_PAREN lifts the English so the body never shows raw Irish.
+_CHEAPADH_ORDER = re.compile(r"(?i)\bcheapadh\b")
+_EN_APPT_PAREN = re.compile(r"\((Appointment of [^)]*)\)")
+# Preamble lead-ins that mark the end of the title HEAD (English + Irish).
+_TITLE_HEAD_END = re.compile(r"(?i)\bin exercise\b|\bthe minister\b|\bthe government\b|\btá an\b|\bi bhfeidhmiú\b")
 
 _NAME_STOP = re.compile(
     r"(?i)rialtas|uachtar|\baire\b|minister|government|department|roinn|chúirt|cúirt|court|"
@@ -348,6 +399,24 @@ def extract_body(title: str, t: str, atype: str) -> str | None:
             if ga in u:
                 return en
         return "Courts"
+    # A registered body name can span the PDF's pipe-joined line breaks
+    # ("AN tÚDARÁS | NÁISIÚNTA UM UATHROLLÚ COIGILTIS SCOIR"), which the
+    # per-segment scan below would miss. Match the curated map against the whole
+    # title HEAD (up to the preamble) first — the proper noun is authoritative
+    # wherever it falls in the head.
+    head = _TITLE_HEAD_END.split(title)[0] if title else ""
+    head_u = re.sub(r"\s*(?:\||//)\s*", " ", head).upper()
+    for ga, en in BODIES.items():
+        if ga.upper() in head_u:  # .upper() both sides: some keys carry a lower h/t (hÉIREANN, tÚDARÁS)
+            return en
+    # Irish "<office> A CHEAPADH" appointment Orders are not a body being
+    # appointed to; lift the English from their "(Appointment of …)" parenthetical
+    # rather than leaking the Gaeilge order-title as the body.
+    first_seg = re.split(r"\s*(?:\||//)\s*", title)[0] if title else ""
+    if _CHEAPADH_ORDER.search(first_seg):
+        mpar = _EN_APPT_PAREN.search(title)
+        if mpar:
+            return re.sub(r"\s*(?:\||//)\s*", " ", mpar.group(1)).strip()
     seg = re.split(r"\s*(?:\||//)\s*", title)[0] if title else ""
     # Title segments that are preamble/headers/statute names carry no body —
     # go to text fallback.
@@ -361,12 +430,38 @@ def extract_body(title: str, t: str, atype: str) -> str | None:
     seg = re.sub(r"(?i)^the board of\s+", "", seg)
     seg = re.sub(r"(?i)^department of .*|^an roinn.*", "", seg)  # dept header isn't the body
     seg = seg.strip(" .,|")
+
+    # A curated body anywhere in the FULL title — the Irish-language ("FÓGRA")
+    # notices bury the body in a later segment after the "Ceapachán …" lead, so
+    # the head/segment scans above miss it. Used as the fallback for any segment
+    # that is itself raw Irish (a header/order/preamble), never to override a
+    # clean English segment.
+    full_u = re.sub(r"\s*(?:\||//)\s*", " ", title).upper() if title else ""
+
+    def _curated(text_u: str) -> str | None:
+        for ga, en in BODIES.items():
+            if ga.upper() in text_u:
+                return en
+        return None
+
+    def _curated_in_full() -> str | None:
+        return _curated(full_u)
+
     if seg:
         su = seg.upper()
         for ga, en in BODIES.items():
-            if ga in su:
+            if ga.upper() in su:
                 return en
+        # Raw-Irish header/order/preamble segment: prefer a curated body found
+        # elsewhere in the title; otherwise surface no body rather than Gaeilge.
+        if _IRISH_NONBODY.match(seg):
+            return _curated_in_full()
         return seg
+    # A curated body named anywhere in the title wins over a raw text-recovered
+    # fragment (e.g. "den // Chúirt Choiriúil Speisialta // (Uimh…").
+    curated = _curated_in_full()
+    if curated:
+        return curated
     # Title was a department header — recover the body from the notice text.
     m = re.search(
         r"(?i)\b(?:to the board of|as (?:a |an )?member of (?:the )?|appointment to (?:the )?|"
@@ -375,9 +470,13 @@ def extract_body(title: str, t: str, atype: str) -> str | None:
         t,
     )
     if m:
-        return m.group(1).strip(" .")
-    # Last resort: the department name itself.
+        cand = re.sub(r"\s*(?:\||//)\s*", " ", m.group(1)).strip(" .")
+        return _curated(cand.upper()) or cand
+    # Last resort: the department name itself — unless it is raw Irish, in which
+    # case fall back to a curated body or no body.
     dh = re.split(r"\s*(?:\||//)\s*", title)[0].strip(" .,|") if title else ""
+    if dh and _IRISH_NONBODY.match(dh):
+        return _curated_in_full()
     return dh or None
 
 

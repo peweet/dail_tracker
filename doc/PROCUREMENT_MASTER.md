@@ -251,6 +251,21 @@ inference/causal copy.
 
 ---
 
+## 7b. Civic-UI review (2026-06-06) — findings fixed
+
+A formal review pass after the A–D uplift found and fixed 5 issues (all firewall-clean,
+verified live on a fresh server):
+1. Above-the-fold over-furnished (the contrast panel re-added height) → trimmed via #2/#3.
+2. The caveat prose duplicated the €570bn panel's framework explanation → caveat shortened to
+   its unique no-causation point; the panel owns the "mirage" story.
+3. Two different sum-safe totals on screen (panel €23.5bn corpus vs strip €13.1bn company
+   slice) → removed the €-chip from the stats strip; the contrast panel is the page's single
+   euro story; strip relabelled "company suppliers".
+4. eTenders award drill-down still **masked** sole traders while the spend tab named them →
+   `_supplier_head` now names them (consistent with the published-source privacy decision).
+5. Stale "private names withheld" coverage chip contradicted the named-suppliers decision →
+   removed.
+
 ## 8. Value taxonomy (canonical — carried verbatim from the old build plan §4b)
 
 `realisation_tier`: **PLANNED → AWARDED → COMMITTED → SPENT** (+ BUDGET aggregate).

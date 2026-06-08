@@ -68,6 +68,25 @@ def _jobs(doc_types: set[str], only: str | None, limit: int | None) -> list[dict
     return jobs[:limit] if limit else jobs
 
 
+def _resolve_pdf(row: dict) -> Path:
+    """Absolute path to a manifest row's PDF (local_path is repo-root-relative)."""
+    p = Path(row["local_path"])
+    if p.is_absolute():
+        return p
+    return (BRONZE_DIR.parent / row["local_path"]).resolve()
+
+
+def _pending_pages(key: str, pdf_path: Path) -> int:
+    """How many pages of this document still lack a cNNN.json checkpoint."""
+    doc = fitz.open(pdf_path)
+    n = doc.page_count
+    doc.close()
+    ckpt = CKPT_ROOT / key
+    if not ckpt.exists():
+        return n
+    return sum(1 for pno in range(1, n + 1) if not (ckpt / f"c{pno:03}.json").exists())
+
+
 def ocr_document(ocr, key: str, pdf_path: Path) -> tuple[int, int]:
     """Cache raw OCR cells per page (cNNN.json) with a DPI retry ladder mirroring
     the party extractor. Returns (pages_ocrd_this_run, pages_total)."""
@@ -130,8 +149,28 @@ def main() -> None:
 
     doc_types = {t.strip() for t in args.doc_types.split(",") if t.strip()}
     jobs = _jobs(doc_types, args.only, args.limit)
-    log.info("%d documents to OCR (doc_types=%s)", len(jobs), sorted(doc_types))
+    log.info("%d documents in scope (doc_types=%s)", len(jobs), sorted(doc_types))
     if not jobs:
+        return
+
+    # Resolve PDFs and find which documents still have uncached pages. Crucially we
+    # do NOT construct PaddleOCR (which segfaults on teardown -> rc=1) unless there
+    # is real OCR work — otherwise an all-cached corpus would crash on exit and the
+    # watchdog would relaunch forever. With no pending work, exit 0 cleanly here.
+    pending = []
+    missing = 0
+    for r in jobs:
+        pdf_path = _resolve_pdf(r)
+        if not pdf_path.exists():
+            log.warning("missing PDF for %s (%s)", _doc_key(r), r["local_path"])
+            missing += 1
+            continue
+        if _pending_pages(_doc_key(r), pdf_path) > 0:
+            pending.append((r, pdf_path))
+    log.info("%d documents need OCR, %d already complete, %d missing PDFs",
+             len(pending), len(jobs) - len(pending) - missing, missing)
+    if not pending:
+        log.info("ALL_DONE — nothing to OCR; exiting cleanly without building model")
         return
 
     from paddleocr import PaddleOCR
@@ -140,22 +179,15 @@ def main() -> None:
                     text_det_limit_side_len=1280, text_det_limit_type="max")
 
     total_pages_done = 0
-    for i, r in enumerate(jobs, 1):
+    for i, (r, pdf_path) in enumerate(pending, 1):
         key = _doc_key(r)
-        pdf_path = DATA_DIR.parent / r["local_path"] if not Path(r["local_path"]).is_absolute() \
-            else Path(r["local_path"])
-        if not pdf_path.exists():
-            # local_path is stored relative to the repo root (data/...)
-            pdf_path = (BRONZE_DIR.parent / r["local_path"]).resolve()
-        if not pdf_path.exists():
-            log.warning("[%d/%d] missing PDF for %s (%s)", i, len(jobs), key, r["local_path"])
-            continue
         did, total = ocr_document(ocr, key, pdf_path)
         total_pages_done += did
         log.info("[%d/%d] %s — %s: +%d/%d pages (run total %d)",
-                 i, len(jobs), r["constituency_slug"], key, did, total, total_pages_done)
+                 i, len(pending), r["constituency_slug"], key, did, total, total_pages_done)
 
-    log.info("done. OCR'd %d new pages this run across %d documents", total_pages_done, len(jobs))
+    log.info("done. OCR'd %d new pages this run across %d documents",
+             total_pages_done, len(pending))
 
 
 if __name__ == "__main__":

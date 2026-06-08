@@ -1855,6 +1855,8 @@ def test_v_lobbying_org_procurement_dedups_to_registrant():
     row = df.to_dicts()[0]
     assert row["lobbyist_name"] == "Lobbyco Limited"
     assert row["n_awards"] == 1
+    assert row["n_authorities"] == 1
+    assert row["awarded_value_safe_eur"] == 400000.0
 
 
 @pytest.mark.sql
@@ -1901,8 +1903,6 @@ def test_v_procurement_charity_overlap_grain_and_value_firewall():
 
     # The link is a hard CRO identifier — company_num must always be present.
     assert df["company_num"].null_count() == 0
-    assert row["n_authorities"] == 1
-    assert row["awarded_value_safe_eur"] == 400000.0
 
 
 # ---------------------------------------------------------------------------
