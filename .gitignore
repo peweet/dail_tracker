@@ -311,6 +311,10 @@ lobbyist/raw/
 !data/silver/seanad_aggregated_tables.csv
 !data/silver/lobbying/
 !data/silver/lobbying/client_company_returns_detail.csv
+# SIPO per-candidate OCR working state (cells .json / .attempt files / logs) — transient,
+# regenerable from the bronze PDFs, thousands of files; NEVER commit. Explicit ignore so
+# the .attempt/.txt files (not caught by the *.json type rule) can't leak in either.
+data/silver/sipo_candidate/
 # amalgamated AFS silver fact (afs_amalgamated_extract.py) — read by the afs_*.sql views
 !data/silver/parquet/
 !data/silver/parquet/afs_amalgamated_divisions.parquet

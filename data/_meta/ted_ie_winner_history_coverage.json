@@ -1,20 +1,21 @@
 {
-  "rows_notice_x_winner": 63,
-  "distinct_notices": 30,
-  "rows_with_winner": 57,
-  "cro_match_rate": 0.397,
+  "rows_notice_x_winner": 23263,
+  "distinct_notices": 10667,
+  "rows_with_winner": 22002,
+  "cro_match_rate": 0.501,
   "by_year": {
-    "2017": 6,
-    "2018": 2,
-    "2019": 2,
-    "2020": 35,
-    "2021": 5,
-    "2022": 5,
-    "2023": 8
+    "2016": 1249,
+    "2017": 2608,
+    "2018": 2673,
+    "2019": 2527,
+    "2020": 3332,
+    "2021": 3352,
+    "2022": 3243,
+    "2023": 4279
   },
   "date_span": [
-    "2017-01-08",
-    "2023-02-13"
+    "2016-06-06",
+    "2023-12-29"
   ],
   "layer": "silver",
   "grain": "one row per (notice x distinct winner); source_lane=per_notice_xml",
@@ -28,6 +29,6 @@
     "lane": "per_notice_xml (recovers the winner the pre-2024 Search API drops)"
   },
   "schema_version": 1,
-  "generated_at": "2026-06-08T16:50:01+00:00",
+  "generated_at": "2026-06-08T17:37:46+00:00",
   "caveat": "Pre-2024 winners recovered from per-notice TED_EXPORT XML (the Search API drops them). Notice-level facts (buyer/date/CPV/total-value) reused from the API buyer layer. award_value_eur is the NOTICE total repeated per winner; value_safe_to_sum excludes frameworks + pan-EU + large, same as the API lane. COUNT is the trustworthy metric."
 }
