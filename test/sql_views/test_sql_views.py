@@ -1905,6 +1905,67 @@ def test_v_procurement_charity_overlap_grain_and_value_firewall():
     assert df["company_num"].null_count() == 0
 
 
+_TED_AWARDS_SILVER = "data/silver/parquet/ted_ie_awards.parquet"
+_TED_TENDERS_SILVER = "data/silver/parquet/ted_ie_tenders.parquet"
+
+
+@pytest.mark.sql
+def test_v_procurement_ted_awards_competition_columns():
+    """The TED award view must expose the eForms competition-intensity columns, and they must
+    be internally consistent: is_single_bid is exactly (n_tenders_received == 1), tender counts
+    are never < 1, and the flags stay boolean/null. Integration-data only (silver is gitignored,
+    eForms-only so populated from ~2024)."""
+    if not _USE_REAL_PATHS:
+        pytest.skip("TED silver is gitignored and unfixtured (set DAIL_INTEGRATION_TESTS=1)")
+    _skip_missing(*_src(_TED_AWARDS_SILVER))
+    con = _con()
+    con.execute(_load("procurement_ted_awards.sql"))
+    df = con.execute("SELECT * FROM v_procurement_ted_awards LIMIT 5").pl()
+    _assert_cols(
+        df, "procedure_type", "is_uncompetitive_procedure", "n_tenders_received",
+        "is_single_bid", "award_criteria_kind", "is_price_only",
+    )
+    # no nonsensical tender counts
+    bad = con.execute(
+        "SELECT count(*) FROM v_procurement_ted_awards WHERE n_tenders_received IS NOT NULL AND n_tenders_received < 1"
+    ).fetchone()[0]
+    assert bad == 0, "tenders-received below 1 — taxonomy/aggregation bug"
+    # single-bid is exactly (min tenders == 1), wherever a count exists
+    inconsistent = con.execute(
+        "SELECT count(*) FROM v_procurement_ted_awards WHERE n_tenders_received IS NOT NULL "
+        "AND is_single_bid <> (n_tenders_received = 1)"
+    ).fetchone()[0]
+    assert inconsistent == 0, "is_single_bid does not match (n_tenders_received = 1)"
+
+
+@pytest.mark.sql
+def test_v_procurement_ted_tenders_pre_award_grain():
+    """The TED tender-pipeline view (cn-standard) is a pre-award grain: value_safe_to_sum must
+    be FALSE on every row (estimates are never summable across grains), value_kind is the
+    pre-award marker, and the contract columns the tab reads are present. Integration-data only."""
+    if not _USE_REAL_PATHS:
+        pytest.skip("TED tenders silver is gitignored and unfixtured (set DAIL_INTEGRATION_TESTS=1)")
+    _skip_missing(*_src(_TED_TENDERS_SILVER))
+    con = _con()
+    con.execute(_load("procurement_ted_tenders.sql"))
+    df = con.execute("SELECT * FROM v_procurement_ted_tenders LIMIT 5").pl()
+    _assert_cols(
+        df, "publication_number", "buyer_name", "cpv_division", "procedure_type",
+        "submission_deadline", "is_still_open", "estimated_value_eur", "value_safe_to_sum",
+    )
+    assert con.execute("SELECT count(*) FROM v_procurement_ted_tenders").fetchone()[0] > 0
+    # FIREWALL: a pre-award estimate is never summable — not one row may be value_safe_to_sum.
+    summable = con.execute(
+        "SELECT count(*) FROM v_procurement_ted_tenders WHERE value_safe_to_sum"
+    ).fetchone()[0]
+    assert summable == 0, "a tender estimate was marked value_safe_to_sum — three-grain firewall breach"
+    # one row per notice (no fan-out)
+    n, distinct = con.execute(
+        "SELECT count(*), count(DISTINCT publication_number) FROM v_procurement_ted_tenders"
+    ).fetchone()
+    assert n == distinct, f"tenders view not one-row-per-notice: {n} rows, {distinct} distinct"
+
+
 # ---------------------------------------------------------------------------
 # VIEW-NAMING LINT  (no data needed — always runs)
 # ---------------------------------------------------------------------------

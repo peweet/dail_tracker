@@ -1,0 +1,26 @@
+{
+  "rows_notices": 11250,
+  "distinct_notices": 11250,
+  "rows_with_estimated_value": 9040,
+  "rows_with_deadline": 10651,
+  "still_open_by_deadline": 36,
+  "uncompetitive_procedure_rows": 2,
+  "date_span": [
+    "2023-12-29",
+    "2026-03-25"
+  ],
+  "grain": "one row per cn-standard notice (lots aggregated: earliest deadline, summed estimate)",
+  "layer": "silver",
+  "source": {
+    "dataset": "TED \u2014 Tenders Electronic Daily (contract/competition notices, Ireland)",
+    "publisher": "Publications Office of the European Union",
+    "api": "https://api.ted.europa.eu/v3/notices/search",
+    "query": "buyer-country=IRL AND notice-type=cn-standard AND publication-date>=20240101",
+    "notice_url_template": "https://ted.europa.eu/en/notice/-/detail/{publication_number}",
+    "license": "EU open data \u2014 reuse authorised under Commission Decision 2011/833/EU",
+    "attribution": "Contains information from TED (\u00a9 European Union), reused under Decision 2011/833/EU."
+  },
+  "schema_version": 1,
+  "generated_at": "2026-06-08T13:14:06+00:00",
+  "caveat": "PRE-AWARD competition notices. estimated_value_eur is a BUYER ESTIMATE \u2014 never an award value and never a payment; value_safe_to_sum is always FALSE. NEVER sum with award or payment figures (three-grain firewall). A tender notice is a procurement opportunity, not a contract."
+}

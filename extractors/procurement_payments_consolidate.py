@@ -4,6 +4,20 @@ The semistate/public-body lane produced several sandbox facts, all sharing an ID
 28-column schema and NO publisher overlap:
   public_payments_fact (28 publishers) + hse_tusla + nta + nphdb + seai  →  one gold fact.
 
+The 31 local authorities' Purchase-Orders/Payments-over-€20k fact (silver
+la_payments_fact, extractors/procurement_la_payments_extract.py) is ALSO folded in here, via a
+dedicated conformer (it lives in silver, not sandbox, and was already built on the canonical
+value_kind + realisation_tier taxonomy). Councils enter the gold fact as
+publisher_type='local_authority' and surface through v_procurement_payments automatically.
+
+⚠️ TRIPLE-COUNT TRAP (do not let a consumer sum the whole fact blindly): TII "Road Grant"
+rows in public_payments_fact are central→council TRANSFERS (supplier is a council,
+supplier_class='public_body'); the LA fact then records that same money flowing council→
+contractor. Summing both double-counts it. The guard is at the consuming view/page: exclude
+supplier_class='public_body' from spend totals (those rows are transfers/councils-as-payee,
+not procurement). The LA contractors are companies, so this fold does not worsen the trap — it
+just makes both legs visible in one fact.
+
 This is the Stage-D consolidation (see doc/PROCUREMENT_MASTER.md §6). It does four things, all
 mechanical — no re-parsing of source documents:
   1. concat the conformed facts (asserting schema identity first);
@@ -46,9 +60,14 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 SANDBOX = ROOT / "data/sandbox/parquet"
+SILVER = ROOT / "data/silver/parquet"
 CRO = ROOT / "data/silver/cro/companies.parquet"
 OUT = ROOT / "data/gold/parquet/procurement_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/procurement_payments_fact_coverage.json"
+
+# The 31 local authorities' PO/Payments-over-€20k fact (silver, canonical taxonomy already) —
+# folded in via _load_la_fact() rather than SOURCE_FACTS (different layer + native value_kind).
+LA_FACT = SILVER / "la_payments_fact.parquet"
 
 # The per-publisher facts to fold in. All share the 28-column schema; none overlap.
 SOURCE_FACTS = [
@@ -92,6 +111,39 @@ def _load_facts() -> pl.DataFrame:
     if not frames:
         raise SystemExit("no payment facts found under data/sandbox/parquet/")
     return pl.concat(frames, how="vertical")
+
+
+def _load_la_fact(base: pl.DataFrame) -> pl.DataFrame | None:
+    """Conform the silver local-authority fact to the base (sandbox) 28-col schema so it can
+    concat. The LA fact was built on the canonical taxonomy (value_kind ∈ {po_committed,
+    payment_actual}); that vocabulary is identical to the base's legacy ``amount_semantics``, so
+    the map is lossless and _conform then re-derives value_kind/realisation_tier consistently.
+
+    Privacy: the LA fact carries its own quarantine vocab (public/quarantined); we remap it to
+    the consolidated fact's (ok/review_personal_data) and keep the columns as transparency
+    metadata. No rows are suppressed — the gold view names suppliers either way (the established
+    owner decision), and the LA source is the council's own published over-€20k list.
+    """
+    if not LA_FACT.exists():
+        print("  WARN local-authority fact absent — councils not folded in")
+        return None
+    la = pl.read_parquet(LA_FACT)
+    n, n_la = la.height, la["publisher_name"].n_unique()
+    la = la.with_columns(
+        pl.col("value_kind").alias("amount_semantics"),  # same vocab; _conform re-derives the 2 axes
+        pl.lit("extracted").alias("extraction_status"),
+        pl.lit("high").alias("extraction_confidence"),  # reconcile-gated parse, no OCR
+        pl.lit(False).alias("caveat_text_detected"),  # LA caveat is config-level (source_caveat), not doc-detected
+        pl.col("privacy_status")
+        .replace({"quarantined": "review_personal_data", "public": "ok"})
+        .alias("privacy_status"),
+    )
+    missing = set(base.columns) - set(la.columns)
+    if missing:
+        raise SystemExit(f"LA fact cannot conform — missing base columns: {sorted(missing)}")
+    la = la.select(base.columns).cast(dict(base.schema))
+    print(f"  + la_payments_fact.parquet (silver)    {n:>7,} rows  [{n_la} local authorities]")
+    return la
 
 
 def _conform(df: pl.DataFrame) -> pl.DataFrame:
@@ -142,7 +194,9 @@ def _attach_cro(df: pl.DataFrame) -> pl.DataFrame:
 
 def main() -> None:
     print("Consolidating payment-grain facts → gold:")
-    df = _load_facts()
+    base = _load_facts()
+    la = _load_la_fact(base)
+    df = pl.concat([base, la], how="vertical") if la is not None else base
     df = _conform(df)
     df = _attach_cro(df)
 
@@ -164,12 +218,20 @@ def main() -> None:
         "n_publishers": int(df["publisher_name"].n_unique()),
         "n_suppliers": int(df["supplier_normalised"].n_unique()),
         "cro_matched_pct": round(100.0 * df["cro_company_num"].is_not_null().sum() / df.height, 1),
+        "rows_by_publisher_type": dict(df["publisher_type"].value_counts(sort=True).iter_rows()),
+        "n_local_authorities": int(
+            df.filter(pl.col("publisher_type") == "local_authority")["publisher_name"].n_unique()
+        ),
         "safe_eur_by_tier": {r["realisation_tier"]: round(r["safe_eur"], 2) for r in by_tier.to_dicts()},
         "vat_status_counts": dict(df["vat_status"].value_counts().iter_rows()),
         "privacy_note": "Suppliers named per published source PO/payments-over-€20k lists "
         "(Circular 07/2012 / FOI); no address/PII beyond the published figure.",
         "value_note": "po_committed (ordered) and payment_actual (paid) are different lifecycle "
         "tiers — never summed together; only value_safe_to_sum rows sum, and never across vat_status.",
+        "triple_count_note": "Includes both central→council transfers (TII Road Grants, "
+        "supplier_class='public_body') and council→contractor LA payments. To avoid double-"
+        "counting the same money across those two legs, exclude supplier_class='public_body' "
+        "from spend totals at the consuming view/page.",
     }
     OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(f"wrote coverage -> {OUT_COV}")

@@ -179,7 +179,10 @@ def _build_payment_rankings(
     current_rankings = (
         pay_agg.join(member_lookup, on="join_key", how="inner")
         .select(["join_key", "identifier", "party", "constituency", "total_amount_paid_since_2020"])
-        .sort("total_amount_paid_since_2020", descending=True)
+        # Tie-break on the unique identifier so equal-amount members get a stable
+        # rank/order across runs — otherwise the output parquet's content hash
+        # churns run-to-run (non-reproducible gold).
+        .sort(["total_amount_paid_since_2020", "identifier"], descending=[True, False])
         .with_row_index(name="rank", offset=1)
     )
     current_rankings.write_csv(out_csv)

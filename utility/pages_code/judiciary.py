@@ -99,7 +99,8 @@ _PKIND = {
 _PKIND_ORDER = ["state-prosecutor", "organisation", "state-body", "individual"]
 _NAMED_PKINDS = ["organisation", "state-body"]  # kept in clear -> can be ranked by name
 _MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-TIER_C_PAGE = 40
+TIER_C_PAGE = 60  # max matters rendered inside a single sitting expander
+TIER_C_GROUPS = 12  # max sittings (expanders) shown per court before the rest are summarised
 
 # Appointing-authority display + chip class (blue=Government, amber=President).
 _AUTHORITY = {
@@ -899,10 +900,15 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
         return
     matched = f' matching "{search}"' if search else ""
     st.caption(f"{len(view)} listed matter{'s' if len(view) != 1 else ''}{matched} · {day_label}")
-    # Render court-by-court in seniority order (mirrors the schedule section above) with a
-    # PER-COURT cap. A flat global cap let one big group (e.g. a 55-case Central Criminal
-    # Court list) exhaust the budget and hide every court after it alphabetically. A search
-    # auto-expands the matching groups so hits are visible without clicking.
+    # Render court-by-court in seniority order (mirrors the schedule section above), each
+    # court's sittings shown busiest-first as collapsed expanders. The cap is on the NUMBER
+    # of sittings per court (TIER_C_GROUPS) plus the rows WITHIN each (TIER_C_PAGE) — not a
+    # flat per-court row budget. The old row budget, walked in alphabetical judge order, let
+    # one large early sitting (e.g. a 147-matter Court of Appeal list) exhaust it and SILENTLY
+    # drop every later sitting — including all unattributed matters — so whole courts looked
+    # near-empty. Busiest-first + a per-court-and-per-sitting cap guarantees each court's
+    # substantive lists surface and any remainder is summarised with an honest count. A search
+    # auto-expands the matching sittings so hits are visible without clicking.
     present = [c for c in _COURT_ORDER if c in set(view["court"].dropna())]
     extra = sorted({str(c) for c in view["court"].dropna()} - set(_COURT_ORDER))
     for court in present + extra:
@@ -911,20 +917,24 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
             f'<div class="jd-court-head">{_esc(court)} '
             f"<span>· {len(cv)} listed matter{'s' if len(cv) != 1 else ''}</span></div>"
         )
-        shown = 0
-        for (judge, list_type), g in cv.groupby(["judge", "list_type"], dropna=False):
-            if shown >= TIER_C_PAGE:
-                st.caption(
-                    f"… and {len(cv) - shown} more in the {court}. "
-                    "Narrow with the search box or type filter, or open the official diary."
-                )
-                break
+        # Sittings, biggest first (NaN-safe groupby keeps unattributed matters as their own group).
+        groups = sorted(
+            cv.groupby(["judge", "list_type"], dropna=False),
+            key=lambda kv: len(kv[1]),
+            reverse=True,
+        )
+        hidden_groups = hidden_rows = 0
+        for i, ((judge, list_type), g) in enumerate(groups):
+            if i >= TIER_C_GROUPS:
+                hidden_groups += 1
+                hidden_rows += len(g)
+                continue
             # NaN-safe labels (groupby keeps NaN keys, which are truthy floats — `or` won't catch them)
             jlabel = judge if isinstance(judge, str) and judge else "Court"
             llabel = list_type if isinstance(list_type, str) and list_type else "List"
             with st.expander(f"{jlabel} — {llabel}  ({len(g)})", expanded=bool(search)):
                 rows = []
-                for r in g.itertuples():
+                for r in g.head(TIER_C_PAGE).itertuples():
                     link = (
                         f'<a class="jd-case-link" href="{_esc(r.source_url)}" target="_blank" '
                         f'rel="noopener">official diary ↗</a>'
@@ -933,7 +943,14 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
                     )
                     rows.append(f'<div class="jd-case-row">{_case_party_html(r)}{link}</div>')
                 st.html("".join(rows))
-            shown += len(g)
+                if len(g) > TIER_C_PAGE:
+                    st.caption(f"… and {len(g) - TIER_C_PAGE} more in this list — open the official diary.")
+        if hidden_groups:
+            st.caption(
+                f"… and {hidden_groups} more sitting{'s' if hidden_groups != 1 else ''} "
+                f"({hidden_rows} matter{'s' if hidden_rows != 1 else ''}) in the {court}. "
+                "Narrow with the search box or type filter, or open the official diary."
+            )
 
 
 def _render_legal_diary() -> None:

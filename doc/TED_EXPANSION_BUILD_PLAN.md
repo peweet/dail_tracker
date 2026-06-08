@@ -1,5 +1,13 @@
 # TED Expansion — Build Plan (pipeline + app)
 
+> **STATUS 2026-06-08: Phases 1 & 2 SHIPPED.** Phase 1 (competition-intensity fields + single-bid lens)
+> and Phase 2 (`cn-standard` tender-pipeline grain + tab) are built, wired into `pipeline.py`
+> (`ted`, `ted_tenders`), surfaced on the Procurement page (TED tab competition strip + new "Tender
+> pipeline (TED)" tab), and tested (`test_v_procurement_ted_awards_competition_columns`,
+> `test_v_procurement_ted_tenders_pre_award_grain`). Phase 3 (place→constituency) stays BLOCKED on the
+> LA→constituency crosswalk; Phase 4 (pre-2024 backfill) confirmed **not viable via the API** — pre-2024
+> notices are winner-less (0% winner fields), so it needs the bulk legacy TED_EXPORT XML lane.
+
 **Date:** 2026-06-08
 **Context:** The live API probe (report §8) showed we ingest **~8.6k of a ~55.9k** Irish TED footprint, using **9 of 1,830** available fields. This plan expands that *without* breaking the money-grain firewall or the no-inference rule.
 
@@ -17,28 +25,47 @@
 
 ---
 
+## Data exploration (live API, 2026-06-08) — what's actually populated
+Measured fill rates on **250 real Irish `can-standard` award notices (2025)**, so the field set is evidence-based, not guessed. (Vocabulary saved at `c:/tmp/ted_fields.txt`.)
+
+| Candidate field (friendly id) | Fill % | Verdict |
+|---|---:|---|
+| `place-of-performance` (NUTS/country) | **100%** | ADD — constituency hook (Phase 3) |
+| `procedure-type` | **99.6%** | ADD — open/restricted/negotiated mix |
+| `received-submissions-type-val` (+ `-code`) | **99.2%** | **ADD — the competition-intensity signal** |
+| `award-criterion-type-lot` (price/cost/quality) | **95.6%** | ADD — price-vs-quality dimension |
+| `estimated-value-lot` (+ `-cur`) | 51.6% | ADD (partial) — show when present |
+| `green-procurement-criteria-lot` | 12.8% | SKIP — too sparse |
+| `contract-duration-period-lot` | 2.4% | SKIP — effectively empty |
+| `winner-size` (SME) | **0.4%** | **DROP — the "SME chip" idea is dead** |
+
+**Headline finding (the analytical payoff):** `received-submissions-type-val` is a true count (e.g. 3, 9, 4) → **29% of Irish award notices received only ONE tender on ≥1 lot** (72/248). Combined with `procedure-type` (8/250 were *negotiated-without-prior-call*), this is a real, factual **competition-intensity** layer. `award-criterion-type` splits quality 272 / cost 202 / price-only 56 (lot-level).
+
+**Implementation notes from the raw payloads:**
+- Fields return as **per-lot arrays** (`place-of-performance: ["IRL","IRL"]`, `received-submissions-type-val: ["3"]`). Each new column needs an explicit **aggregation rule** (e.g. `n_tenders_min` = min across lots for the single-bid flag; explode/first for CPV; first non-IRL-default NUTS for place).
+- `received-submissions-type-code` is a **taxonomy** (`tenders`, `t-esubm`, requests-to-participate…) — the count is only comparable within a code; filter to tender-count codes before deriving single-bid.
+- `buyer-name` (needed in Phase 2) is a **multilingual dict** `{"eng": [...], "gle": [...]}` — extract `eng` (fall back `gle`).
+
 ## Phase 1 — Curated field expansion (LOW effort, high value, NO new grain)
-*Enrich the existing 2024+ award pull; backward-compatible (new columns only).*
+*Enrich the existing 2024+ award pull; backward-compatible (new columns only). Field set is the measured one above — not the original guess.*
 
-**Pipeline**
-- In `ted_ireland_extract.py`, grow `FIELDS` from 9 to ~20. Map these to exact eForms ids from `c:/tmp/ted_fields.txt`:
-  - **procedure type** (open / restricted / negotiated / direct) — `BT-105-Procedure`
-  - **number of tenders received** per lot → *competition intensity* (1 = single-bid)
-  - **SME participation / winner size** (`sme-part` family)
-  - **place-of-performance NUTS** (region) — the constituency-linkage hook (Phase 3)
-  - **contract duration**, **framework flag**, **award-criteria type** (price-only vs quality)
-- Add the derived columns to silver: `procedure_type`, `n_tenders_received`, `is_single_bid` (n_tenders_received = 1), `winner_is_sme`, `place_nuts`, `place_label`, `contract_duration_months`, `award_criteria_kind`.
-- Bump `OUT_COV` coverage json with per-field fill rates (some eForms fields are sparsely populated — measure, don't assume).
+**Pipeline** — in `ted_ireland_extract.py`, grow `FIELDS` from 9 to ~14 (the ADD rows above), and derive notice-level columns with explicit aggregation:
+- `procedure_type` (99.6%), `is_uncompetitive_procedure` (procedure ∈ {neg-wo-call, oth-single})
+- `n_tenders_received` (from `received-submissions-type-val`, tender-codes only) + `is_single_bid` (min across lots = 1) — **the headline new signal**
+- `award_criteria_kind` (price-only / cost / quality — from `award-criterion-type-lot`)
+- `place_nuts` + `place_label` (100%) — constituency hook for Phase 3
+- `estimated_value_eur` + `estimated_value_safe` (partial; `value_safe_to_sum` semantics — a pre-award estimate, never summed with the awarded value)
+- **DROPPED from the original plan:** SME/`winner-size` (0.4%), contract-duration (2.4%), green-procurement (12.8%).
+- Bump `OUT_COV` with measured per-field fill rates (already gathered above — bake the floors into the coverage gate).
 
-**App** (extend `_render_ted` + the supplier panel)
-- Add neutral chips/meta: procedure type, "N tenders received", an SME chip.
-- New honest analytical angle: a **single-bid filter** ("awards that received only one tender") — a factual competition signal, captioned as disclosure not judgement.
+**App** (extend `_render_ted` + supplier panel) — neutral, no-inference framing:
+- Card meta: procedure type, "N tenders received".
+- **A "single-bid awards" filter/lens** ("awards that received only one tender") — captioned as factual disclosure, never "uncompetitive"/"rigged". This is the distinctive new capability and it's ~universally populated.
+- A small price-vs-quality breakdown (award-criteria mix).
 
-**Tests**
-- Extend `test/extractors/test_procurement_gold_quality.py` (or the TED test) for the new columns + fill-rate floors.
-- Extend `sql_views` test for `v_procurement_ted_awards` new columns.
+**Tests:** extend the TED gold-quality + `sql_views` tests for the new columns; **fill-rate floors** (procedure ≥95%, tenders-received ≥95%, criteria ≥90%) so a future eForms layout change that drops a field fails loudly.
 
-**Effort:** ~0.5–1 day. **Risk:** low (additive). **Gotcha:** several eForms BTs are sparsely filled — gate on measured fill rate, show "—" gracefully.
+**Effort:** ~0.5–1 day. **Risk:** low (additive). **Gotcha (now confirmed, not feared):** per-lot arrays + the submissions-code taxonomy — handle both in the aggregation step.
 
 ---
 
@@ -47,7 +74,7 @@
 
 **Pipeline**
 - New extractor `extractors/ted_ireland_tenders_extract.py` (or a `--tenders` mode on the existing one) querying `buyer-country=IRL AND notice-type=cn-standard`.
-- Output `data/silver/parquet/ted_ie_tenders.parquet`. Grain: **one row per notice × lot**. Fields: buyer, title, CPV, procedure-type, **submission deadline**, **estimated value** (`value_safe_to_sum = FALSE` — it's a pre-award ceiling), place-of-performance, framework flag.
+- Output `data/silver/parquet/ted_ie_tenders.parquet`. Grain: **one row per notice × lot**. **Fields confirmed present in the probe:** `buyer-name` (multilingual dict → take `eng`), `classification-cpv`, `procedure-type`, `deadline-receipt-tender-date-lot` (submission deadline ✓), `estimated-value-lot` + `estimated-value-cur-lot` (pre-award ceiling → **`value_safe_to_sum = FALSE`**, present on a subset), `place-of-performance`.
 - New chain `ted_tenders` in `pipeline.py` (or fold into `ted`).
 
 **App**
