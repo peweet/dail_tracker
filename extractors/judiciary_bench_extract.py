@@ -52,11 +52,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -118,8 +118,6 @@ _HONORIFICS = (
 # "Michael MacGrath, AS" and roster "Michael MacGrath" collapse to one key.
 _STOP_TOKENS = {"as", "ag"}
 
-PARQUET_KW = {"compression": "zstd", "compression_level": 3, "write_statistics": True}
-
 
 # ───────────────────────────────────────────────────────── name normalisation
 def _load_aliases() -> dict[str, str]:
@@ -160,7 +158,7 @@ def _iris_url(issue_date, pdf: str | None) -> str | None:
 
 def _write(df: pd.DataFrame, name: str) -> Path:
     out = GOLD_PARQUET_DIR / f"{name}.parquet"
-    pq.write_table(pa.Table.from_pandas(df, preserve_index=False), out, **PARQUET_KW)
+    save_parquet(df, out)
     logger.info("wrote %s (%d rows, %d cols)", out.name, len(df), len(df.columns))
     return out
 

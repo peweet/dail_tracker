@@ -39,6 +39,9 @@ from pathlib import Path
 import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
@@ -128,11 +131,20 @@ def text_layer_cells(page) -> list[dict]:
             text = "".join(s["text"] for s in spans).strip()
             if not text:
                 continue
-            xs0 = [s["bbox"][0] for s in spans]; ys0 = [s["bbox"][1] for s in spans]
-            xs1 = [s["bbox"][2] for s in spans]; ys1 = [s["bbox"][3] for s in spans]
-            cells.append({"text": text, "score": 1.0,
-                          "x0": int(min(xs0)), "y0": int(min(ys0)),
-                          "x1": int(max(xs1)), "y1": int(max(ys1))})
+            xs0 = [s["bbox"][0] for s in spans]
+            ys0 = [s["bbox"][1] for s in spans]
+            xs1 = [s["bbox"][2] for s in spans]
+            ys1 = [s["bbox"][3] for s in spans]
+            cells.append(
+                {
+                    "text": text,
+                    "score": 1.0,
+                    "x0": int(min(xs0)),
+                    "y0": int(min(ys0)),
+                    "x1": int(max(xs1)),
+                    "y1": int(max(ys1)),
+                }
+            )
     return cells
 
 
@@ -150,8 +162,16 @@ def ocr_page(ocr, page, tmp_png: Path, dpi: int = DPI) -> list[dict]:
         boxes = d.get("rec_boxes")
         boxes = boxes.tolist() if hasattr(boxes, "tolist") else (boxes or [])
         for t, s, b in zip(texts, scores, boxes):
-            cells.append({"text": t, "score": round(float(s), 4),
-                          "x0": int(b[0]), "y0": int(b[1]), "x1": int(b[2]), "y1": int(b[3])})
+            cells.append(
+                {
+                    "text": t,
+                    "score": round(float(s), 4),
+                    "x0": int(b[0]),
+                    "y0": int(b[1]),
+                    "x1": int(b[2]),
+                    "y1": int(b[3]),
+                }
+            )
     return cells
 
 
@@ -170,8 +190,7 @@ def ocr_party(ocr, key: str, pdf_path: Path) -> None:
             done = ckpt / f"c{pno:03}.json"
             if done.exists():
                 continue
-            done.write_text(json.dumps({"failed": False, "cells": text_layer_cells(page)}),
-                            encoding="utf-8")
+            done.write_text(json.dumps({"failed": False, "cells": text_layer_cells(page)}), encoding="utf-8")
         print(f"    [{key}] text-layer cells cached for {doc.page_count} pages", flush=True)
         return
     for pno, page in enumerate(doc, start=1):
@@ -180,9 +199,7 @@ def ocr_party(ocr, key: str, pdf_path: Path) -> None:
         if done.exists():
             continue
         tries = json.loads(attempt.read_text(encoding="utf-8"))["tries"] if attempt.exists() else []
-        if not tries:
-            dpi = 300
-        elif tries == [300]:
+        if not tries or tries == [300]:
             dpi = 300
         elif tries == [300, 300]:
             dpi = 200
@@ -234,8 +251,10 @@ def find_total_spend(cells: list[dict], split_x: float | None) -> float | None:
     i.e. the printed expenditure total used as a reconciliation checksum."""
     for c in cells:
         if re.sub(r"[^a-z]", "", c["text"].lower()) == "total":
-            same = sorted(((m, v) for m in cells if (v := is_money(m)) is not None
-                           and abs(yc(m) - yc(c)) <= 25), key=lambda t: xc(t[0]))
+            same = sorted(
+                ((m, v) for m in cells if (v := is_money(m)) is not None and abs(yc(m) - yc(c)) <= 25),
+                key=lambda t: xc(t[0]),
+            )
             if same:
                 return same[-1][1]
     return None
@@ -248,9 +267,12 @@ def parse_page(cells: list[dict], pno: int, norm_keys, norm_to_name, name_to_sea
     expenditure window + claiming tolerates the vertical column offset (PBP/Labour)
     and true blanks; per-pair spend<=assigned is the consistency check."""
     # base constituency matches (per cell)
-    base = [(c, nm, sc) for c in cells
-            if (nm := match_constituency(c["text"], norm_keys, norm_to_name)[0])
-            for sc in [match_constituency(c["text"], norm_keys, norm_to_name)[1]]]
+    base = [
+        (c, nm, sc)
+        for c in cells
+        if (nm := match_constituency(c["text"], norm_keys, norm_to_name)[0])
+        for sc in [match_constituency(c["text"], norm_keys, norm_to_name)[1]]
+    ]
     money = [(c, v) for c in cells if (v := is_money(c)) is not None]
     if len(base) < 3 or len(money) < 3:  # not a candidate-summary page
         return []
@@ -268,9 +290,15 @@ def parse_page(cells: list[dict], pno: int, norm_keys, norm_to_name, name_to_sea
     anchors = []
     for c, nm, sc in base:
         cx, cy = c["x0"], yc(c)
-        below = [d for d in cells if id(d) != id(c)
-                 and abs(d["x0"] - cx) <= 50 and 0 < (yc(d) - cy) <= row_h * 1.3
-                 and "€" not in d["text"] and not re.fullmatch(r"[\d.,)\s]+", d["text"])]
+        below = [
+            d
+            for d in cells
+            if id(d) != id(c)
+            and abs(d["x0"] - cx) <= 50
+            and 0 < (yc(d) - cy) <= row_h * 1.3
+            and "€" not in d["text"]
+            and not re.fullmatch(r"[\d.,)\s]+", d["text"])
+        ]
         below.sort(key=lambda d: yc(d) - cy)
         if below:
             jn, js = match_constituency(c["text"] + " " + below[0]["text"], norm_keys, norm_to_name)
@@ -291,43 +319,60 @@ def parse_page(cells: list[dict], pno: int, norm_keys, norm_to_name, name_to_sea
         seats = int(name_to_seats.get(nm, 0))
         limit = STATUTORY_LIMIT.get(seats)
         # assigned: nearest left-band money to the right of the constituency
-        la = sorted([(c, v) for c, v in left if xc(c) > ax and abs(yc(c) - ay) <= a_tol],
-                    key=lambda t: abs(yc(t[0]) - ay))
+        la = sorted(
+            [(c, v) for c, v in left if xc(c) > ax and abs(yc(c) - ay) <= a_tol], key=lambda t: abs(yc(t[0]) - ay)
+        )
         assigned = la[0][1] if la else None
         a_conf = la[0][0]["score"] if la else None
         # expenditure: nearest UNCLAIMED right-band money (wide window for offset)
-        cand = sorted([(c, v) for c, v in right if id(c) not in claimed and abs(yc(c) - ay) <= e_tol],
-                      key=lambda t: abs(yc(t[0]) - ay))
+        cand = sorted(
+            [(c, v) for c, v in right if id(c) not in claimed and abs(yc(c) - ay) <= e_tol],
+            key=lambda t: abs(yc(t[0]) - ay),
+        )
         spend = e_conf = None
         if cand:
             c, v = cand[0]
-            claimed.add(id(c)); spend, e_conf = v, c["score"]
+            claimed.add(id(c))
+            spend, e_conf = v, c["score"]
+
         # candidate name: non-money, non-numeric cells left of constituency, on the
         # SAME row (tight name_tol — avoids merging the adjacent row's name fragment)
         def name_in(tol):
             return sorted(
-                (c for c in cells
-                 if c["x0"] < ax and abs(yc(c) - ay) <= tol
-                 and id(c) not in consumed  # not a constituency continuation line
-                 and "€" not in c["text"]
-                 and not re.fullmatch(r"[\d.,)\s]+", c["text"])
-                 and norm(c["text"]) not in DIRECTIONS  # drop lone WEST/CENTRAL etc.
-                 and not match_constituency(c["text"], norm_keys, norm_to_name)[0]),
+                (
+                    c
+                    for c in cells
+                    if c["x0"] < ax
+                    and abs(yc(c) - ay) <= tol
+                    and id(c) not in consumed  # not a constituency continuation line
+                    and "€" not in c["text"]
+                    and not re.fullmatch(r"[\d.,)\s]+", c["text"])
+                    and norm(c["text"]) not in DIRECTIONS  # drop lone WEST/CENTRAL etc.
+                    and not match_constituency(c["text"], norm_keys, norm_to_name)[0]
+                ),
                 key=lambda c: c["x0"],
             )
+
         name_cells = name_in(name_tol)
         raw = " ".join(c["text"] for c in name_cells)
-        raw = re.sub(r"^\s*\d{1,3}[.\-)\s]*", "", raw)        # leading row-number "12." / "12 " / "12Name"
-        raw = re.sub(r"\s+\d{1,3}[.\-)]\s*", " ", raw)         # embedded "Coppinger 35. Ruth"
+        raw = re.sub(r"^\s*\d{1,3}[.\-)\s]*", "", raw)  # leading row-number "12." / "12 " / "12Name"
+        raw = re.sub(r"\s+\d{1,3}[.\-)]\s*", " ", raw)  # embedded "Coppinger 35. Ruth"
         name_raw = re.sub(r"\s+", " ", raw).strip(" ,.")
-        rows.append({
-            "name_raw": name_raw, "constituency": nm, "score": sc, "limit": limit,
-            "assigned": assigned, "spend": spend,
-            "spend_conf": round(e_conf, 3) if e_conf is not None else None,
-            "row_conf": round(min([sc] + ([a_conf] if a_conf else []) +
-                                  ([e_conf] if e_conf is not None else []) or [sc]), 3),
-            "page": pno,
-        })
+        rows.append(
+            {
+                "name_raw": name_raw,
+                "constituency": nm,
+                "score": sc,
+                "limit": limit,
+                "assigned": assigned,
+                "spend": spend,
+                "spend_conf": round(e_conf, 3) if e_conf is not None else None,
+                "row_conf": round(
+                    min([sc] + ([a_conf] if a_conf else []) + ([e_conf] if e_conf is not None else []) or [sc]), 3
+                ),
+                "page": pno,
+            }
+        )
     return rows
 
 
@@ -350,8 +395,11 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
             if t is not None:
                 page_total[pno] = t
     # candidate-summary pages: >=3 rows that carry BOTH money columns (0.0 is valid)
-    summary_pages = sorted(p for p, rs in page_rows.items()
-                           if sum(1 for r in rs if r["assigned"] is not None and r["spend"] is not None) >= 3)
+    summary_pages = sorted(
+        p
+        for p, rs in page_rows.items()
+        if sum(1 for r in rs if r["assigned"] is not None and r["spend"] is not None) >= 3
+    )
     facts = []
     for p in summary_pages:
         for r in page_rows[p]:
@@ -377,15 +425,22 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
                 flag = "low_confidence_verify"
             else:
                 flag = "ok"
-            facts.append({
-                "party": party, "candidate_name_raw": r["name_raw"],
-                "constituency": r["constituency"], "constituency_match_score": r["score"],
-                "amount_assigned_eur": float(assigned) if assigned is not None else None,
-                "expenditure_eur": spend, "expenditure_confidence": r["spend_conf"],
-                "row_min_confidence": r["row_conf"],
-                "statutory_limit_eur": float(limit) if limit else None,
-                "flag": flag, "source_pdf": pdf_name, "source_page": p,
-            })
+            facts.append(
+                {
+                    "party": party,
+                    "candidate_name_raw": r["name_raw"],
+                    "constituency": r["constituency"],
+                    "constituency_match_score": r["score"],
+                    "amount_assigned_eur": float(assigned) if assigned is not None else None,
+                    "expenditure_eur": spend,
+                    "expenditure_confidence": r["spend_conf"],
+                    "row_min_confidence": r["row_conf"],
+                    "statutory_limit_eur": float(limit) if limit else None,
+                    "flag": flag,
+                    "source_pdf": pdf_name,
+                    "source_page": p,
+                }
+            )
     df = pl.DataFrame(facts) if facts else pl.DataFrame()
     if df.height:
         # DROP nameless rows. On a couple of born-digital returns (Aontú p5, FG p2)
@@ -397,10 +452,12 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
         # never invent the missing name (faithful-extraction).
         nameless = df.filter(pl.col("candidate_name_raw").str.strip_chars() == "")
         if nameless.height:
-            print(f"    [{party}] dropped {nameless.height} nameless row(s) "
-                  f"(two-line-layout phantom): "
-                  f"{nameless.select(['constituency', 'expenditure_eur', 'source_page']).to_dicts()}",
-                  flush=True)
+            print(
+                f"    [{party}] dropped {nameless.height} nameless row(s) "
+                f"(two-line-layout phantom): "
+                f"{nameless.select(['constituency', 'expenditure_eur', 'source_page']).to_dicts()}",
+                flush=True,
+            )
             df = df.filter(pl.col("candidate_name_raw").str.strip_chars() != "")
         # SIPO forms print the candidate summary TWICE ("expenses NOT met from public
         # funds" + "expenses MET from public funds"); when both copies carry amounts the
@@ -415,8 +472,9 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
             .sort(["source_page", "candidate_name_raw"])
         )
         if df.height < before:
-            print(f"    [{party}] deduped {before - df.height} repeated summary rows "
-                  f"({before}->{df.height})", flush=True)
+            print(
+                f"    [{party}] deduped {before - df.height} repeated summary rows ({before}->{df.height})", flush=True
+            )
         # QA: reconcile Σ expenditure against the form's printed TOTAL row (the grand
         # total = the largest TOTAL found; equal duplicates from the twice-printed
         # summary collapse to one). Where no TOTAL is printed, the per-pair
@@ -426,12 +484,17 @@ def parse_party(key: str, party: str, pdf_name: str, norm_keys, norm_to_name, na
         if totals:
             target = max(totals)
             ok = abs(sum_spend - target) <= max(1.0, target * 0.01)
-            print(f"    [{party}] RECONCILE: Σspend €{sum_spend:,.2f} vs TOTAL €{target:,.2f} "
-                  f"-> {'✅ OK' if ok else '❌ MISMATCH'}", flush=True)
+            print(
+                f"    [{party}] RECONCILE: Σspend €{sum_spend:,.2f} vs TOTAL €{target:,.2f} "
+                f"-> {'✅ OK' if ok else '❌ MISMATCH'}",
+                flush=True,
+            )
         else:
-            viol = df.filter((pl.col("flag") == "spend_gt_assigned_verify")).height
-            print(f"    [{party}] no printed TOTAL; spend>assigned violations={viol} "
-                  f"(Σspend €{sum_spend:,.2f})", flush=True)
+            viol = df.filter(pl.col("flag") == "spend_gt_assigned_verify").height
+            print(
+                f"    [{party}] no printed TOTAL; spend>assigned violations={viol} (Σspend €{sum_spend:,.2f})",
+                flush=True,
+            )
     return df
 
 
@@ -450,23 +513,29 @@ def rebuild_combined() -> None:
     # diagonal_relaxed: align by column NAME, fill missing with null (tolerates a
     # stale parquet with e.g. no statutory_limit_eur).
     combined = pl.concat(parts, how="diagonal_relaxed").sort(["party", "source_page", "candidate_name_raw"])
-    combined.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(combined, OUT_PARQUET)
     hr("COMBINED FACT")
-    print(combined.group_by("party").agg(
-        pl.len().alias("rows"),
-        pl.col("expenditure_eur").is_not_null().sum().alias("with_amt"),
-        pl.col("expenditure_eur").sum().alias("total_spend"),
-    ).sort("total_spend", descending=True))
+    print(
+        combined.group_by("party")
+        .agg(
+            pl.len().alias("rows"),
+            pl.col("expenditure_eur").is_not_null().sum().alias("with_amt"),
+            pl.col("expenditure_eur").sum().alias("total_spend"),
+        )
+        .sort("total_spend", descending=True)
+    )
     print(f"\nwrote {OUT_PARQUET.relative_to(ROOT)}  ({combined.height} rows, {len(parts)} parties)")
 
 
 def write_party(key, party, df) -> None:
     if df.height:
-        df.sort(["source_page", "candidate_name_raw"]).write_parquet(
-            BY_PARTY_DIR / f"{key}.parquet", compression="zstd", compression_level=3, statistics=True)
+        save_parquet(df.sort(["source_page", "candidate_name_raw"]), BY_PARTY_DIR / f"{key}.parquet")
         wa = df.filter(pl.col("expenditure_eur").is_not_null())
-        print(f"  {party}: {df.height} rows, {wa.height} with amount "
-              f"({wa.height/max(1,df.height):.0%}), Σspend €{wa['expenditure_eur'].sum():,.2f}", flush=True)
+        print(
+            f"  {party}: {df.height} rows, {wa.height} with amount "
+            f"({wa.height / max(1, df.height):.0%}), Σspend €{wa['expenditure_eur'].sum():,.2f}",
+            flush=True,
+        )
     else:
         print(f"  {party}: NO rows", flush=True)
 
@@ -487,9 +556,15 @@ def main() -> None:
     if needs_paddle:
         from paddleocr import PaddleOCR
 
-        ocr = PaddleOCR(lang="en", use_doc_orientation_classify=False, use_doc_unwarping=False,
-                        use_textline_orientation=False, enable_mkldnn=False,
-                        text_det_limit_side_len=1280, text_det_limit_type="max")
+        ocr = PaddleOCR(
+            lang="en",
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
+            use_textline_orientation=False,
+            enable_mkldnn=False,
+            text_det_limit_side_len=1280,
+            text_det_limit_type="max",
+        )
 
     for key in keys:
         pdf_path, party = PARTY_JOBS[key]

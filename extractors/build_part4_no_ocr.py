@@ -22,6 +22,9 @@ import fitz
 import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 sys.path.insert(0, str(ROOT / "extractors"))
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -49,10 +52,11 @@ def text_layer_cells(page) -> list[dict]:
             text = "".join(s["text"] for s in spans).strip()
             if not text:
                 continue
-            xs0 = [s["bbox"][0] for s in spans]; ys0 = [s["bbox"][1] for s in spans]
-            xs1 = [s["bbox"][2] for s in spans]; ys1 = [s["bbox"][3] for s in spans]
-            cells.append({"text": text, "score": 1.0,
-                          "x0": min(xs0), "y0": min(ys0), "x1": max(xs1), "y1": max(ys1)})
+            xs0 = [s["bbox"][0] for s in spans]
+            ys0 = [s["bbox"][1] for s in spans]
+            xs1 = [s["bbox"][2] for s in spans]
+            ys1 = [s["bbox"][3] for s in spans]
+            cells.append({"text": text, "score": 1.0, "x0": min(xs0), "y0": min(ys0), "x1": max(xs1), "y1": max(ys1)})
     return cells
 
 
@@ -111,21 +115,19 @@ def _flag_and_reconcile(items: list[dict], cats: list[dict], party: str) -> None
 
 def write_party(key: str, items_df: pl.DataFrame, cats_df: pl.DataFrame) -> None:
     if items_df.height:
-        items_df.sort(["section", "ref"]).write_parquet(
-            BY / f"{key}_items.parquet", compression="zstd", compression_level=3, statistics=True)
+        save_parquet(items_df.sort(["section", "ref"]), BY / f"{key}_items.parquet")
     if cats_df.height:
         # SIPO prints the Expenses Review twice (expenses NOT met / MET from public
         # funds), so a heading + the Overall total can appear twice. Keep, per section,
         # the row with the larger total (the real 'not met from public funds' figures;
         # the 'met' copy is typically €0/blank). Mirrors the Part-3 twice-printed dedup.
-        cats_df = cats_df.sort("category_total_eur", descending=True).unique(
-            subset=["section"], keep="first").sort("section")
-        cats_df.write_parquet(
-            BY / f"{key}_categories.parquet", compression="zstd", compression_level=3, statistics=True)
-    overall = (cats_df.filter(pl.col("is_overall"))["category_total_eur"].sum() if cats_df.height else 0)
+        cats_df = (
+            cats_df.sort("category_total_eur", descending=True).unique(subset=["section"], keep="first").sort("section")
+        )
+        save_parquet(cats_df, BY / f"{key}_categories.parquet")
+    overall = cats_df.filter(pl.col("is_overall"))["category_total_eur"].sum() if cats_df.height else 0
     n_cost = items_df.filter(pl.col("cost_eur").is_not_null()).height if items_df.height else 0
-    print(f"  {key}: {items_df.height} items ({n_cost} w/cost), {cats_df.height} cat rows, "
-          f"overall €{overall:,.2f}")
+    print(f"  {key}: {items_df.height} items ({n_cost} w/cost), {cats_df.height} cat rows, overall €{overall:,.2f}")
 
 
 def main() -> None:
@@ -139,11 +141,15 @@ def main() -> None:
     item_parts = [pl.read_parquet(p) for p in sorted(BY.glob("*_items.parquet"))]
     cat_parts = [pl.read_parquet(p) for p in sorted(BY.glob("*_categories.parquet"))]
     if item_parts:
-        pl.concat(item_parts, how="vertical_relaxed").sort(["party", "section", "ref"]).write_parquet(
-            OUT_DIR / "sipo_expense_items_fact.parquet", compression="zstd", compression_level=3, statistics=True)
+        save_parquet(
+            pl.concat(item_parts, how="vertical_relaxed").sort(["party", "section", "ref"]),
+            OUT_DIR / "sipo_expense_items_fact.parquet",
+        )
     if cat_parts:
-        pl.concat(cat_parts, how="vertical_relaxed").sort(["party", "section"]).write_parquet(
-            OUT_DIR / "sipo_expense_categories_fact.parquet", compression="zstd", compression_level=3, statistics=True)
+        save_parquet(
+            pl.concat(cat_parts, how="vertical_relaxed").sort(["party", "section"]),
+            OUT_DIR / "sipo_expense_categories_fact.parquet",
+        )
 
     print("\n=== category overall totals (the real per-party national-agent spend) ===")
     if cat_parts:
