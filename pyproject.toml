@@ -32,8 +32,8 @@ classifiers = [
 # automatically — don't pin them here.
 dependencies = [
     "streamlit>=1.50,<2",
-    "altair>=6.0,<7",
-    "plotly>=6.0,<7",
+    "altair>=6.2.1,<7",
+    "plotly>=6.8.0,<7",
     "duckdb>=1.4,<2",
     "pandas>=2.2,<3.0",  # capped <3.0 for launch: pandas 3.0 + plotly 6.7 has an import-order pd.Series bug; revisit post-launch
     "numpy>=2.0",
@@ -59,7 +59,7 @@ pipeline = [
     "polars>=1.39,!=1.41.0",  # 1.41.0 (+ polars-runtime-32) was yanked upstream
     "PyMuPDF>=1.25",
     "requests>=2.31",
-    "beautifulsoup4>=4.12",
+    "beautifulsoup4>=4.15.0",
     "flatten-json>=0.1.14",
     "jsonschema>=4.0,<5",  # validate-at-fetch of Oireachtas API envelopes (services/schema_validation.py)
     "orjson>=3.9",         # fast JSON read/write in manifest.py, members_api_service.py, member_interests.py, wiki_data.py
@@ -70,7 +70,7 @@ pipeline = [
 
 # OCR pipeline for scanned PDFs (read_scan_pdf.py)
 ocr = [
-    "ocrmypdf>=17.0",
+    "ocrmypdf>=17.5.0",
 ]
 
 # Read-only JSON API over the Streamlit-free core (dail_tracker_core). Optional:
@@ -104,10 +104,10 @@ all = [
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
-    "ruff>=0.11",
+    "ruff>=0.15.16",
     "responses>=0.25",        # HTTP mocking for tests of services/http_engine.py and API scrapers
     "pandera[polars]>=0.20",  # DataFrameModel schema checks (import pandera.polars) in the silver/gold tests
-    "basedpyright>=1.39",     # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
+    "basedpyright>=1.39.7",     # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
     "pip-audit>=2.7",         # supply-chain CVE audit — run in .github/workflows/audit.yml
 ]
 
