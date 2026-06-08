@@ -57,6 +57,7 @@ with contextlib.suppress(Exception):
 
 from config import BRONZE_DIR, DATA_DIR, GOLD_PARQUET_DIR  # noqa: E402
 from services.logging_setup import setup_standalone_logging  # noqa: E402
+from services.parquet_io import save_parquet  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +69,6 @@ ARCHIVE_DIR = BRONZE_DIR / "legal_diary"
 SANDBOX_PARQUET_DIR = DATA_DIR / "sandbox" / "parquet"
 META_DIR = DATA_DIR / "_meta"
 COVERAGE_PATH = META_DIR / "judicial_legal_diary_coverage.json"
-
-PARQUET_KW = {"compression": "zstd", "compression_level": 3, "statistics": True}
 
 
 # ============================================================ docx -> lines
@@ -84,12 +83,31 @@ def read_docx_lines(path: Path) -> list[str]:
     return out
 
 
-_MONTHS = {m: i for i, m in enumerate(
-    ["january", "february", "march", "april", "may", "june", "july", "august",
-     "september", "october", "november", "december"], start=1)}
+_MONTHS = {
+    m: i
+    for i, m in enumerate(
+        [
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
+        ],
+        start=1,
+    )
+}
 _DATE_RE = re.compile(
     r"(?:MON|TUES|WEDNES|THURS|FRI|SATUR|SUN)DAY\s+THE\s+(\d{1,2})(?:ST|ND|RD|TH)\s+"
-    r"DAY\s+OF\s+([A-Z]+)\s+(\d{4})", re.I)
+    r"DAY\s+OF\s+([A-Z]+)\s+(\d{4})",
+    re.I,
+)
 
 
 def diary_date_from_lines(lines: list[str]) -> str | None:
@@ -117,30 +135,85 @@ JUDGE_RE = re.compile(r"^(MR|MS|MRS)\s+JUSTICE\s+[A-Z]", re.I)
 PRES_RE = re.compile(r"^(THE PRESIDENT|THE CHIEF JUSTICE|HER HONOUR|HIS HONOUR|JUDGE)\b", re.I)
 ROOM_RE = re.compile(r"^(IN COURT\b|COURT\s+\d)", re.I)
 TIME_RE = re.compile(r"^AT\b.*(O'CLOCK|AM|PM|\d[:.]\d)", re.I)
-STATUS_RE = re.compile(r"^(FOR MENTION|FOR HEARING|AT HEARING|FOR RULING|FOR JUDGMENT|"
-                       r"FOR DIRECTIONS|FOR CALL ?OVER|NOT IN CUSTODY|IN CUSTODY|TO FIX)", re.I)
-LIST_RE = re.compile(r"FAMILY|CHANCERY|COMMERCIAL|CRIMINAL|PERSONAL INJ|JUDICIAL REVIEW|PROBATE|"
-                     r"BANKRUPT|EXAMIN|APPEAL|MENTION|WARDS|EDUCATION|ASYLUM|INSOLVENCY|"
-                     r"COMPETITION|PLANNING|ADMIRALTY")
+STATUS_RE = re.compile(
+    r"^(FOR MENTION|FOR HEARING|AT HEARING|FOR RULING|FOR JUDGMENT|"
+    r"FOR DIRECTIONS|FOR CALL ?OVER|NOT IN CUSTODY|IN CUSTODY|TO FIX)",
+    re.I,
+)
+LIST_RE = re.compile(
+    r"FAMILY|CHANCERY|COMMERCIAL|CRIMINAL|PERSONAL INJ|JUDICIAL REVIEW|PROBATE|"
+    r"BANKRUPT|EXAMIN|APPEAL|MENTION|WARDS|EDUCATION|ASYLUM|INSOLVENCY|"
+    r"COMPETITION|PLANNING|ADMIRALTY"
+)
 PARTY_RE = re.compile(r"\b-?\s*v\s*-?\b", re.I)
 
 
 # ============================================================ privacy classifiers
 # statutory in-camera / vulnerable -> DROPPED entirely (not anonymised, not linked)
 PROTECTED_KEYS = [
-    "minor", "child and family", "tusla", "care order", "wards of court", "ward of court",
-    "special care", "special education", "family law", "in camera", "custody", "guardian",
-    "adoption", "childcare", "asylum", "immigration", "citizenship",
+    "minor",
+    "child and family",
+    "tusla",
+    "care order",
+    "wards of court",
+    "ward of court",
+    "special care",
+    "special education",
+    "family law",
+    "in camera",
+    "custody",
+    "guardian",
+    "adoption",
+    "childcare",
+    "asylum",
+    "immigration",
+    "citizenship",
 ]
 # tokens marking a party as an ORGANISATION / STATE body -> kept in clear
-ORG_KEYS = ["limited", " ltd", "d.a.c", " dac", " plc", "company", "bank", "insurance",
-            "minister", "ireland", "attorney general", "commissioner", "council", "authority",
-            "agency", "board", "revenue", " hse", "an garda", "designated activity",
-            "university", "college", "credit union", "society", "fund", "holdings",
-            "dpp", "director of public prosecutions", "people at the suit"]
+ORG_KEYS = [
+    "limited",
+    " ltd",
+    "d.a.c",
+    " dac",
+    " plc",
+    "company",
+    "bank",
+    "insurance",
+    "minister",
+    "ireland",
+    "attorney general",
+    "commissioner",
+    "council",
+    "authority",
+    "agency",
+    "board",
+    "revenue",
+    " hse",
+    "an garda",
+    "designated activity",
+    "university",
+    "college",
+    "credit union",
+    "society",
+    "fund",
+    "holdings",
+    "dpp",
+    "director of public prosecutions",
+    "people at the suit",
+]
 PROSECUTOR_KEYS = ["dpp", "director of public prosecutions", "people at the suit"]
-STATE_KEYS = ["minister", "attorney general", "ireland", "commissioner", "council",
-              "authority", "revenue", " hse", "an garda", "state"]
+STATE_KEYS = [
+    "minister",
+    "attorney general",
+    "ireland",
+    "commissioner",
+    "council",
+    "authority",
+    "revenue",
+    " hse",
+    "an garda",
+    "state",
+]
 
 # Plaintiff-side classifier — the "who is bringing the case" accountability signal.
 # Deliberately NOT the greedy category_of sets: company markers are tested BEFORE
@@ -148,15 +221,49 @@ STATE_KEYS = ["minister", "attorney general", "ireland", "commissioner", "counci
 # Capital Finance Ireland DAC") classifies as an organisation, not mis-tagged a State
 # body on the bare word "ireland".
 PLAINTIFF_ORG_MARKERS = [
-    " ltd", "limited", " dac", "d.a.c", " plc", "designated activity", "company",
-    "bank", "finance", "insurance", "holdings", " fund", "capital", "mortgage",
-    "credit union", "university", "college", "society", "ventures", "investments",
-    "properties", " homes", "real estate", "airlines", "services", " group",
+    " ltd",
+    "limited",
+    " dac",
+    "d.a.c",
+    " plc",
+    "designated activity",
+    "company",
+    "bank",
+    "finance",
+    "insurance",
+    "holdings",
+    " fund",
+    "capital",
+    "mortgage",
+    "credit union",
+    "university",
+    "college",
+    "society",
+    "ventures",
+    "investments",
+    "properties",
+    " homes",
+    "real estate",
+    "airlines",
+    "services",
+    " group",
 ]
 PLAINTIFF_STATE_MARKERS = [
-    "minister", "attorney general", "commissioner", "revenue", " hse", "an garda",
-    "the state", "county council", "city council", "local authority", " authority",
-    " agency", " board", "office of", "mental health review",
+    "minister",
+    "attorney general",
+    "commissioner",
+    "revenue",
+    " hse",
+    "an garda",
+    "the state",
+    "county council",
+    "city council",
+    "local authority",
+    " authority",
+    " agency",
+    " board",
+    "office of",
+    "mental health review",
 ]
 
 
@@ -196,28 +303,48 @@ def strip_refs(t: str) -> str:
     # family (H.COS commercial, H.CA, …); the trailing seq can glue to the next word
     # (H.COS.2025.0000177SOLFRENO), so eat optional trailing digits too.
     t = re.sub(r"\bH\.?[A-Z]{1,4}\.?\s*\d{4}\.?\d*", " ", t, flags=re.I)
-    t = re.sub(r"\([^)]*\)", " ", t)                         # solicitor / duration parens
-    t = re.sub(r":[A-Z]{2,}:[A-Z0-9:]+", " ", t)             # :LCA:OLCA:2026:000144
+    t = re.sub(r"\([^)]*\)", " ", t)  # solicitor / duration parens
+    t = re.sub(r":[A-Z]{2,}:[A-Z0-9:]+", " ", t)  # :LCA:OLCA:2026:000144
     t = re.sub(r"\b\d*\s*CCDP\d+/\d+", " ", t, flags=re.I)
     t = re.sub(r"\b\d*\s*CJA/\d+", " ", t, flags=re.I)
     t = re.sub(r"\bPI\s*\d+", " ", t, flags=re.I)
-    t = re.sub(r"\b\d{4}\s+\d+\s+[A-Z]\b", " ", t)           # 2022 3507 P
-    t = re.sub(r"\b\d+\s*/\s*\d+\b", " ", t)                 # 260/22, 174/25
-    t = re.sub(r"^\s*\d+\.\s+", " ", t)                      # leading list index "20. "
-    t = re.sub(r"^\s*\d{4}\s+\d+\s+", " ", t)                # leading "2026 134 " ref
-    t = re.sub(r"\d{3,}", " ", t)                            # long digit run / glued ref
-    t = re.sub(r"^\s*\d{1,3}\s+(?=[A-Za-z])", " ", t)        # short leading index "82 Filbeck"
-    t = re.sub(r"^[A-Z]{1,4}\d[\w./:]*", " ", t)             # leading glued alnum ref
+    t = re.sub(r"\b\d{4}\s+\d+\s+[A-Z]\b", " ", t)  # 2022 3507 P
+    t = re.sub(r"\b\d+\s*/\s*\d+\b", " ", t)  # 260/22, 174/25
+    t = re.sub(r"^\s*\d+\.\s+", " ", t)  # leading list index "20. "
+    t = re.sub(r"^\s*\d{4}\s+\d+\s+", " ", t)  # leading "2026 134 " ref
+    t = re.sub(r"\d{3,}", " ", t)  # long digit run / glued ref
+    t = re.sub(r"^\s*\d{1,3}\s+(?=[A-Za-z])", " ", t)  # short leading index "82 Filbeck"
+    t = re.sub(r"^[A-Z]{1,4}\d[\w./:]*", " ", t)  # leading glued alnum ref
     # leading court list-section codes, space-delimited only (SP / COS / COM / CHY) —
     # glued variants ("SPPROMONTORIA" vs "SPROMONTORIA") carry inconsistent prefix
     # lengths, so stripping them blind truncates the name; left intact instead.
     t = re.sub(r"^\s*(?:SP|COS|COM|CHY)\s+(?=[A-Z])", " ", t)
-    t = re.sub(r"^\s*-?\s*v\s*-\s*", " ", t, flags=re.I)     # dangling leading "v-" separator
+    t = re.sub(r"^\s*-?\s*v\s*-\s*", " ", t, flags=re.I)  # dangling leading "v-" separator
     return re.sub(r"\s+", " ", t).strip(" -:.,")
 
 
-_SKIP = {"the", "and", "of", "for", "mr", "mrs", "ms", "dr", "an", "na", "orse",
-         "through", "nf", "trading", "as", "formerly", "also", "known", "minor", "a"}
+_SKIP = {
+    "the",
+    "and",
+    "of",
+    "for",
+    "mr",
+    "mrs",
+    "ms",
+    "dr",
+    "an",
+    "na",
+    "orse",
+    "through",
+    "nf",
+    "trading",
+    "as",
+    "formerly",
+    "also",
+    "known",
+    "minor",
+    "a",
+}
 # trailing "& Ors" / "and Others" / "& Anor" / "and Another" -> collapsed to "& Ors"
 _TAIL = re.compile(r"(?:&|\band)\s*(ors|anor|another|others)\b", re.I)
 # EVERY "v" / "-v-" party separator (NOT maxsplit=1 — consolidated listings chain them)
@@ -230,8 +357,7 @@ _ANDSPLIT = re.compile(r"\s*(?:\band\b|&)\s*", re.I)
 def _initials(side: str) -> str:
     tail = " & Ors" if _TAIL.search(side) else ""
     core = _TAIL.sub("", side)
-    core = re.split(r"\b(through|orse|trading as|t/a|formerly|also known as|aka)\b",
-                    core, flags=re.I)[0]
+    core = re.split(r"\b(through|orse|trading as|t/a|formerly|also known as|aka)\b", core, flags=re.I)[0]
     toks = [w for w in re.findall(r"[A-Za-z']+", core) if w.lower() not in _SKIP]
     ini = ".".join(w[0].upper() for w in toks[:4])
     return (ini + "." if ini else "X") + tail
@@ -253,8 +379,7 @@ def _anonymise_party(side: str) -> str:
         return ""
     tail = " & Ors" if _TAIL.search(side) else ""
     core = _TAIL.sub("", side)
-    rendered = [c.strip() if _is_org(c.strip()) else _initials(c.strip())
-                for c in _ANDSPLIT.split(core) if c.strip()]
+    rendered = [c.strip() if _is_org(c.strip()) else _initials(c.strip()) for c in _ANDSPLIT.split(core) if c.strip()]
     joined = " and ".join(r for r in rendered if r)
     return (joined + tail) if joined else ("X" + tail)
 
@@ -317,8 +442,7 @@ def parse_day(lines: list[str], diary_date: str):
         return (court, room, judge, list_type, time_s)
 
     for ln in lines:
-        hit = next((full for kw, full in COURTS
-                    if ln.isupper() and ln.upper().strip().endswith(kw)), None)
+        hit = next((full for kw, full in COURTS if ln.isupper() and ln.upper().strip().endswith(kw)), None)
         if hit:
             court, judge, list_type, time_s, status = hit, None, None, None, None
             continue
@@ -338,21 +462,49 @@ def parse_day(lines: list[str], diary_date: str):
         if ln.isupper() and ("LIST" in ln or LIST_RE.search(ln)):
             list_type = ln.title()
             if judge:
-                schedule.setdefault(key(), {
-                    "diary_date": diary_date, "court": court, "courtroom": room,
-                    "judge": judge, "list_type": list_type, "time": time_s, "n_items": 0})
+                schedule.setdefault(
+                    key(),
+                    {
+                        "diary_date": diary_date,
+                        "court": court,
+                        "courtroom": room,
+                        "judge": judge,
+                        "list_type": list_type,
+                        "time": time_s,
+                        "n_items": 0,
+                    },
+                )
             continue
         if PARTY_RE.search(f" {ln} ") or ln.upper().startswith("IN THE MATTER"):
             prot = protected_reason(list_type or "", ln)
-            cases.append({
-                "diary_date": diary_date, "court": court, "courtroom": room, "judge": judge,
-                "list_type": list_type, "time": time_s, "status": status, "raw_case": ln,
-                "category": category_of(list_type or "", ln),
-                "protected": bool(prot), "protected_reason": prot})
+            cases.append(
+                {
+                    "diary_date": diary_date,
+                    "court": court,
+                    "courtroom": room,
+                    "judge": judge,
+                    "list_type": list_type,
+                    "time": time_s,
+                    "status": status,
+                    "raw_case": ln,
+                    "category": category_of(list_type or "", ln),
+                    "protected": bool(prot),
+                    "protected_reason": prot,
+                }
+            )
             if judge:
-                s = schedule.setdefault(key(), {
-                    "diary_date": diary_date, "court": court, "courtroom": room,
-                    "judge": judge, "list_type": list_type, "time": time_s, "n_items": 0})
+                s = schedule.setdefault(
+                    key(),
+                    {
+                        "diary_date": diary_date,
+                        "court": court,
+                        "courtroom": room,
+                        "judge": judge,
+                        "list_type": list_type,
+                        "time": time_s,
+                        "n_items": 0,
+                    },
+                )
                 s["n_items"] += 1
     return list(schedule.values()), cases
 
@@ -399,47 +551,76 @@ def run(args) -> int:
             c["source_sha256"] = sha[:16]
         all_sched += sched
         all_cases += cases
-        days.append({"file": path.name, "diary_date": ddate, "sha256": sha[:16],
-                     "sessions": len(sched), "cases": len(cases)})
-        logger.info("Parsed %s (%s): %d sessions, %d case lines", path.name, ddate,
-                    len(sched), len(cases))
+        days.append(
+            {"file": path.name, "diary_date": ddate, "sha256": sha[:16], "sessions": len(sched), "cases": len(cases)}
+        )
+        logger.info("Parsed %s (%s): %d sessions, %d case lines", path.name, ddate, len(sched), len(cases))
 
     if not all_cases and not all_sched:
-        logger.error("Parsed 0 sessions and 0 cases across %d file(s) — likely HTML/format "
-                     "drift. NOT writing gold (would clobber prior days).", len(inputs))
+        logger.error(
+            "Parsed 0 sessions and 0 cases across %d file(s) — likely HTML/format "
+            "drift. NOT writing gold (would clobber prior days).",
+            len(inputs),
+        )
         return 2
 
     # ---- Tier A: schedule (officials only) ----
-    sched_df = (pl.DataFrame(all_sched).filter(pl.col("judge").is_not_null()).unique()
-                .sort(["diary_date", "court", "courtroom", "judge"]))
-    sched_df.write_parquet(GOLD_PARQUET_DIR / "judicial_legal_diary_schedule.parquet", **PARQUET_KW)
+    sched_df = (
+        pl.DataFrame(all_sched)
+        .filter(pl.col("judge").is_not_null())
+        .unique()
+        .sort(["diary_date", "court", "courtroom", "judge"])
+    )
+    save_parquet(sched_df, GOLD_PARQUET_DIR / "judicial_legal_diary_schedule.parquet")
 
     # ---- Tier B: counts ----
-    counts_df = (sched_df.select(["diary_date", "court", "judge", "list_type", "n_items"])
-                 .filter(pl.col("n_items") > 0).sort(["diary_date", "n_items"], descending=[False, True]))
-    counts_df.write_parquet(GOLD_PARQUET_DIR / "judicial_legal_diary_counts.parquet", **PARQUET_KW)
+    counts_df = (
+        sched_df.select(["diary_date", "court", "judge", "list_type", "n_items"])
+        .filter(pl.col("n_items") > 0)
+        .sort(["diary_date", "n_items"], descending=[False, True])
+    )
+    save_parquet(counts_df, GOLD_PARQUET_DIR / "judicial_legal_diary_counts.parquet")
 
     # ---- audit (RAW, sandbox only) ----
     audit_df = pl.DataFrame(all_cases)
-    audit_df.write_parquet(SANDBOX_PARQUET_DIR / "judicial_legal_diary_audit.parquet", **PARQUET_KW)
+    save_parquet(audit_df, SANDBOX_PARQUET_DIR / "judicial_legal_diary_audit.parquet")
 
     # ---- Tier C: anonymised cases (GOLD) ----
     # parties() returns the joined title PLUS the split plaintiff / defendant / kind,
     # all from the same anonymised segments — unnest into columns.
-    _parties_dtype = pl.Struct([
-        pl.Field("case_anonymised", pl.Utf8), pl.Field("plaintiff", pl.Utf8),
-        pl.Field("defendant", pl.Utf8), pl.Field("plaintiff_kind", pl.Utf8)])
-    cases_df = (audit_df.filter(~pl.col("protected"))
-                .with_columns(pl.col("raw_case").map_elements(parties, return_dtype=_parties_dtype)
-                              .alias("_parties"))
-                .unnest("_parties")
-                .filter(pl.col("case_anonymised").str.len_chars() > 2)
-                .with_columns([pl.lit(SOURCE_NAME).alias("source"),
-                               pl.lit(SOURCE_URL).alias("source_url")])
-                .select(["diary_date", "court", "judge", "list_type", "status", "category",
-                         "case_anonymised", "plaintiff", "defendant", "plaintiff_kind",
-                         "source", "source_url", "source_sha256"])
-                .sort(["diary_date", "court", "judge"]))
+    _parties_dtype = pl.Struct(
+        [
+            pl.Field("case_anonymised", pl.Utf8),
+            pl.Field("plaintiff", pl.Utf8),
+            pl.Field("defendant", pl.Utf8),
+            pl.Field("plaintiff_kind", pl.Utf8),
+        ]
+    )
+    cases_df = (
+        audit_df.filter(~pl.col("protected"))
+        .with_columns(pl.col("raw_case").map_elements(parties, return_dtype=_parties_dtype).alias("_parties"))
+        .unnest("_parties")
+        .filter(pl.col("case_anonymised").str.len_chars() > 2)
+        .with_columns([pl.lit(SOURCE_NAME).alias("source"), pl.lit(SOURCE_URL).alias("source_url")])
+        .select(
+            [
+                "diary_date",
+                "court",
+                "judge",
+                "list_type",
+                "status",
+                "category",
+                "case_anonymised",
+                "plaintiff",
+                "defendant",
+                "plaintiff_kind",
+                "source",
+                "source_url",
+                "source_sha256",
+            ]
+        )
+        .sort(["diary_date", "court", "judge"])
+    )
 
     # ---- PRIVACY GATE (runtime, -O-proof; runs BEFORE any gold is written) ----
     # 1. structural: no raw-name column may reach the published set.
@@ -452,23 +633,35 @@ def run(args) -> int:
     #    future change to the split can never quietly leak). See anonymise() bugs fixed
     #    2026-06-05 (multi-`v` split + whole-side org classification).
     _name_cols = ["case_anonymised", "plaintiff", "defendant"]
-    offenders = [(f"{col}={r[col]!r}", toks)
-                 for r in cases_df.select(_name_cols).iter_rows(named=True)
-                 for col in _name_cols
-                 if (toks := residual_name_tokens(r[col] or ""))]
+    offenders = [
+        (f"{col}={r[col]!r}", toks)
+        for r in cases_df.select(_name_cols).iter_rows(named=True)
+        for col in _name_cols
+        if (toks := residual_name_tokens(r[col] or ""))
+    ]
     if offenders:
         sample = " | ".join(f"{c}->{t}" for c, t in offenders[:5])
         raise PrivacyInvariantError(
             f"{len(offenders)} gold case text-cells retain natural-person names "
-            f"after anonymisation; refusing to write gold. e.g. {sample}")
+            f"after anonymisation; refusing to write gold. e.g. {sample}"
+        )
 
-    cases_df.write_parquet(GOLD_PARQUET_DIR / "judicial_legal_diary_cases.parquet", **PARQUET_KW)
+    save_parquet(cases_df, GOLD_PARQUET_DIR / "judicial_legal_diary_cases.parquet")
 
     n_protected = audit_df.filter(pl.col("protected")).height
-    drop_reasons = {r[0]: r[1] for r in (audit_df.filter(pl.col("protected"))
-                    .group_by("protected_reason").len().sort("len", descending=True).iter_rows())}
-    plaintiff_kinds = {r[0]: r[1] for r in (cases_df.group_by("plaintiff_kind").len()
-                       .sort("len", descending=True).iter_rows())}
+    drop_reasons = {
+        r[0]: r[1]
+        for r in (
+            audit_df.filter(pl.col("protected"))
+            .group_by("protected_reason")
+            .len()
+            .sort("len", descending=True)
+            .iter_rows()
+        )
+    }
+    plaintiff_kinds = {
+        r[0]: r[1] for r in (cases_df.group_by("plaintiff_kind").len().sort("len", descending=True).iter_rows())
+    }
     coverage = {
         "parser_version": PARSER_VERSION,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -483,14 +676,21 @@ def run(args) -> int:
         "cases_kept_anonymised": cases_df.height,
         "drop_reasons": drop_reasons,
         "plaintiff_kinds": plaintiff_kinds,
-        "privacy_note": ("Tier C drops statutory in-camera categories entirely and reduces every "
-                         "natural person to initials; organisations/State bodies kept in clear; "
-                         "case refs stripped; provenance link + source_sha256 attached."),
+        "privacy_note": (
+            "Tier C drops statutory in-camera categories entirely and reduces every "
+            "natural person to initials; organisations/State bodies kept in clear; "
+            "case refs stripped; provenance link + source_sha256 attached."
+        ),
     }
     COVERAGE_PATH.write_text(json.dumps(coverage, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    logger.info("GOLD written: %d sessions, %d counts, %d anonymised cases (%d dropped in-camera).",
-                sched_df.height, counts_df.height, cases_df.height, n_protected)
+    logger.info(
+        "GOLD written: %d sessions, %d counts, %d anonymised cases (%d dropped in-camera).",
+        sched_df.height,
+        counts_df.height,
+        cases_df.height,
+        n_protected,
+    )
     logger.info("Coverage -> %s", COVERAGE_PATH)
     return 0
 

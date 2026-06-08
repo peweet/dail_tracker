@@ -12,6 +12,7 @@ Reads  : Eurostat-style JSON-stat from https://ws.cso.ie (REST)
 Writes : data/gold/parquet/cso_<table_id>.parquet (one per table; writes by
          default for any GREEN table — pass --dry-run to validate without writing)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,12 +29,20 @@ except Exception:
     pass
 
 _ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 _OUT = _ROOT / "data" / "gold" / "parquet"
 _API = "https://ws.cso.ie/public/api.restful/PxStat.Data.Cube_API.ReadDataset/{code}/CSV/1.0/en"
 
 TABLES = [
     # Original housing/HAP set
-    "HSA07", "HAP01", "HAP17", "HAP20", "HAP26", "HAP32",
+    "HSA07",
+    "HAP01",
+    "HAP17",
+    "HAP20",
+    "HAP26",
+    "HAP32",
     # Added 2026-05-31 — current population + dwelling + price data
     "PEA08",  # Population Estimates per County, Year, Age, Sex (1991-2025)
     "NDA01",  # New Dwelling Completions Annual (replaces dead HSA07 series)
@@ -48,14 +57,14 @@ TABLES = [
     "HPM07",  # Rolling 12-month purchases by RPPI region
     "HPM09",  # RPPI by type of residential property
     "F2021",  # Census 2022 Housing stock changes
-    "F2023B", # Census 2022 weekly rent by county and city
+    "F2023B",  # Census 2022 weekly rent by county and city
     # Added 2026-05-31 round 3 — constituency anchor + migration flows
     "FY005",  # Census 2022 Population per Dáil constituency (the only natively
-              # constituency-keyed PxStat table; constituency-axis anchor)
+    # constituency-keyed PxStat table; constituency-axis anchor)
     "PEA15",  # Estimated migration by Origin/Destination, Sex, Year (flow data
-              # complements PEA08's stock estimates)
+    # complements PEA08's stock estimates)
     "PEA01",  # Population estimates by Single Year of Age, Sex, Region
-              # (age-cohort detail at NUTS3 region level)
+    # (age-cohort detail at NUTS3 region level)
     # Added 2026-06-04 round 4 — general government finance (national denominators
     # for the public-money facts: turns isolated € figures into "share of" context).
     # National-only series: the categorical split is the "Item" column, not geo.
@@ -87,24 +96,47 @@ def fidelity_check(df: pl.DataFrame, code: str) -> dict:
     # Check 1 — Extraction (basic shape). Geographic + time dims vary widely
     # across PxStat tables — accept a broad set rather than hard-code.
     have = set(df.columns)
-    geo_cols = {"Local Authority", "County", "Eircode Routing Key", "Region",
-                "Province", "NUTS 3 Region", "NUTS 2 Region", "Local Electoral Area",
-                "Electoral Divisions", "RPPI Region", "County and City",
-                "Dáil Constituency", "Dail Constituency",
-                "Constituency 2017", "Constituency 2013", "Constituency",
-                "Country of Origin", "Country of Destination",
-                "Origin/Destination", "Origin and Destination",
-                "Type of Residential Property", "Dwelling Status",
-                "Family Type", "HAP Tenants", "Sex", "Age Group",
-                "Single Year of Age",
-                "Nature of Occupancy", "Type of Buyer", "Stamp Duty Event",
-                # National-only tables expose only categorical (non-geo) splits.
-                # Treat the component / event split as the de-facto "geo" so the
-                # extraction check passes on national time series.
-                "Component", "Vital Event", "Population Change Component",
-                # National general-government finance tables (GFA01/GFQ01/NA012)
-                # split only by transaction "Item" (revenue/expenditure/deficit lines).
-                "Item"}
+    geo_cols = {
+        "Local Authority",
+        "County",
+        "Eircode Routing Key",
+        "Region",
+        "Province",
+        "NUTS 3 Region",
+        "NUTS 2 Region",
+        "Local Electoral Area",
+        "Electoral Divisions",
+        "RPPI Region",
+        "County and City",
+        "Dáil Constituency",
+        "Dail Constituency",
+        "Constituency 2017",
+        "Constituency 2013",
+        "Constituency",
+        "Country of Origin",
+        "Country of Destination",
+        "Origin/Destination",
+        "Origin and Destination",
+        "Type of Residential Property",
+        "Dwelling Status",
+        "Family Type",
+        "HAP Tenants",
+        "Sex",
+        "Age Group",
+        "Single Year of Age",
+        "Nature of Occupancy",
+        "Type of Buyer",
+        "Stamp Duty Event",
+        # National-only tables expose only categorical (non-geo) splits.
+        # Treat the component / event split as the de-facto "geo" so the
+        # extraction check passes on national time series.
+        "Component",
+        "Vital Event",
+        "Population Change Component",
+        # National general-government finance tables (GFA01/GFQ01/NA012)
+        # split only by transaction "Item" (revenue/expenditure/deficit lines).
+        "Item",
+    }
     time_cols = {"Year", "Quarter", "Month", "CensusYear", "Census Year"}
     has_geo = any(c in have for c in geo_cols)
     has_time = any(c in have for c in time_cols)
@@ -150,13 +182,26 @@ def fidelity_check(df: pl.DataFrame, code: str) -> dict:
         is_change_table = False
         # CSO is inconsistent on this column's casing ("Statistic Label" vs
         # "STATISTIC Label" vs "Statistic"). Probe each.
-        label_col = next((c for c in ("Statistic Label", "STATISTIC Label", "Statistic")
-                          if c in have), None)
-        signal_terms = ("change", "movement", "growth", "annual", "rppi",
-                        "migration", "net", "balance", "emigrant", "exit",
-                        # General-government finance: deficit/financing/saving lines
-                        # are legitimately negative.
-                        "deficit", "surplus", "saving", "liabilities", "financing")
+        label_col = next((c for c in ("Statistic Label", "STATISTIC Label", "Statistic") if c in have), None)
+        signal_terms = (
+            "change",
+            "movement",
+            "growth",
+            "annual",
+            "rppi",
+            "migration",
+            "net",
+            "balance",
+            "emigrant",
+            "exit",
+            # General-government finance: deficit/financing/saving lines
+            # are legitimately negative.
+            "deficit",
+            "surplus",
+            "saving",
+            "liabilities",
+            "financing",
+        )
         if label_col:
             labels = " ".join(df[label_col].drop_nulls().unique().to_list()).lower()
             is_change_table = any(t in labels for t in signal_terms)
@@ -183,8 +228,7 @@ def fidelity_check(df: pl.DataFrame, code: str) -> dict:
 
 
 def _write_parquet(df: pl.DataFrame, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(path, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, path)
 
 
 def main() -> None:

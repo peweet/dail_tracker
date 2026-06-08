@@ -52,6 +52,7 @@ from afs_amalgamated_extract import parse_ie  # noqa: E402
 from procurement_la_seed import HREF_RE, fetch_bytes, fetch_text  # noqa: E402
 
 import config  # noqa: E402
+from services.parquet_io import save_parquet  # noqa: E402
 
 CACHE = config.BRONZE_PDF_DIR / "la_afs"
 OUT_PARQUET = config.SILVER_PARQUET_DIR / "la_afs_divisions.parquet"
@@ -728,7 +729,7 @@ def main() -> None:
         .sort(["council", "year", "division"])
     )
     OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, OUT_PARQUET)
 
     hr("DATA-QUALITY — per council")
     n_fitz = df.filter(pl.col("parser") == "fitz")["council"].n_unique()
