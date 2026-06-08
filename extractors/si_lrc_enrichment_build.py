@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
@@ -66,12 +65,15 @@ def build() -> pl.DataFrame:
     # rank leaves so a specific leaf beats a catch-all when picking "primary"
     lrc = lrc.with_columns(pl.col("lrc_subheading_leaf").is_in(list(CATCH_ALL_LEAVES)).alias("_is_catch_all"))
     by_si = (
-        lrc.sort(["_is_catch_all", "lrc_subheading_path_num"])  # specific leaves first
+        # Sort specific leaves first; the trailing keys are tie-breakers so the
+        # .first() picks below (primary subject/leaf) are deterministic across
+        # runs rather than depending on input/group iteration order.
+        lrc.sort(["_is_catch_all", "lrc_subheading_path_num", "lrc_subject_heading", "lrc_subheading_leaf"])
         .group_by("si_year", "si_number")
         .agg(
             pl.col("lrc_subject_heading").unique().sort().alias("lrc_subjects"),
-            pl.col("lrc_subheading_leaf").unique().alias("lrc_leaves"),
-            pl.col("lrc_subheading_path_name").unique().alias("lrc_paths"),
+            pl.col("lrc_subheading_leaf").unique().sort().alias("lrc_leaves"),
+            pl.col("lrc_subheading_path_name").unique().sort().alias("lrc_paths"),
             pl.col("lrc_subject_heading").first().alias("lrc_primary_subject"),
             # first leaf after the catch-all sort = most specific available
             pl.col("lrc_subheading_leaf").first().alias("lrc_primary_leaf"),
@@ -97,9 +99,12 @@ def build() -> pl.DataFrame:
         # the concrete data-quality win: SI had no topic, LRC supplies one
         (matched & pl.col("si_policy_domain").is_null()).alias("lrc_fills_empty_domain"),
         pl.when(matched).then(pl.lit(CAVEAT)).otherwise(None).alias("lrc_caveat"),
-        pl.lit(datetime.now(UTC).isoformat(timespec="seconds")).alias("source_built_at"),
     )
-    return summary
+    # Deterministic row order so the git-tracked gold parquet doesn't churn
+    # run-to-run. (A per-row build timestamp was removed for the same reason —
+    # build-time provenance lives in the run manifest + coverage JSON, not in
+    # every gold row; nothing read source_built_at.)
+    return summary.sort(["si_year", "si_number"])
 
 
 def main() -> None:

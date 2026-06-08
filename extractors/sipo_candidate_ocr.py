@@ -91,6 +91,7 @@ def ocr_document(ocr, key: str, pdf_path: Path) -> tuple[int, int]:
     """Cache raw OCR cells per page (cNNN.json) with a DPI retry ladder mirroring
     the party extractor. Returns (pages_ocrd_this_run, pages_total)."""
     doc = fitz.open(pdf_path)
+    total = doc.page_count  # capture before close — accessing it after raises in PyMuPDF
     ckpt = CKPT_ROOT / key
     ckpt.mkdir(parents=True, exist_ok=True)
     tmp_png = Path(tempfile.gettempdir()) / f"sipo_cand_{key}.png"
@@ -116,7 +117,7 @@ def ocr_document(ocr, key: str, pdf_path: Path) -> tuple[int, int]:
         attempt.unlink(missing_ok=True)
         did += 1
     doc.close()
-    return did, doc.page_count
+    return did, total
 
 
 def dump(key: str) -> None:

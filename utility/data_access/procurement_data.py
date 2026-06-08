@@ -149,6 +149,13 @@ def fetch_ted_corpus_stats_result() -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_ted_competition_stats_result() -> QueryResult:
+    """Notice-level competition-intensity summary for the TED tab (single-bid / uncompetitive
+    procedure / price-only counts) — factual signals, never a verdict."""
+    return _q.ted_competition_stats(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
 def fetch_ted_supplier_summary_result(limit: int | None = 60, order_by: str = "awards") -> QueryResult:
     return _q.ted_supplier_summary(get_procurement_conn(), limit=limit, order_by=order_by)
 
@@ -156,6 +163,18 @@ def fetch_ted_supplier_summary_result(limit: int | None = 60, order_by: str = "a
 @st.cache_data(ttl=300)
 def fetch_ted_for_supplier_result(join_norm: str) -> QueryResult:
     return _q.ted_for_supplier(get_procurement_conn(), join_norm)
+
+
+@st.cache_data(ttl=300)
+def fetch_ted_tenders_stats_result() -> QueryResult:
+    """TED tender-pipeline (cn-standard) corpus summary — notice count, span, still-open count."""
+    return _q.ted_tenders_stats(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
+def fetch_ted_tenders_result(only_open: bool = False, limit: int | None = 60) -> QueryResult:
+    """TED tender-pipeline listing (pre-award competition notices), most recent first."""
+    return _q.ted_tenders(get_procurement_conn(), limit=limit, only_open=only_open)
 
 
 @st.cache_data(ttl=300)

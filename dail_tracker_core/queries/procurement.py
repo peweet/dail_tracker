@@ -289,6 +289,29 @@ def ted_corpus_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
+def ted_competition_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """One-row competition-intensity summary for the TED tab, on a DISTINCT-NOTICE basis
+    (the awards view is notice x winner, so we dedup by publication_number first — the
+    competition fields are identical across a notice's winner rows). All neutral facts:
+    how many award notices received only one tender, ran without an open call, or were
+    awarded on lowest price alone. NEVER framed as a verdict in the UI."""
+    return _run(
+        conn,
+        "SELECT"
+        "  COUNT(*) AS n_notices,"
+        "  COUNT(*) FILTER (WHERE n_tenders_received IS NOT NULL) AS notices_with_tenders,"
+        "  COUNT(*) FILTER (WHERE is_single_bid) AS single_bid_notices,"
+        "  COUNT(*) FILTER (WHERE is_uncompetitive_procedure) AS uncompetitive_notices,"
+        "  COUNT(*) FILTER (WHERE is_price_only) AS price_only_notices"
+        " FROM ("
+        "   SELECT DISTINCT publication_number, n_tenders_received, is_single_bid,"
+        "          is_uncompetitive_procedure, is_price_only"
+        "   FROM v_procurement_ted_awards"
+        "   WHERE NOT is_pan_eu_outlier"
+        " )",
+    )
+
+
 def ted_supplier_summary(
     conn: duckdb.DuckDBPyConnection, *, limit: int | None = 60, order_by: str = "awards"
 ) -> QueryResult:
@@ -313,6 +336,45 @@ def ted_for_supplier(conn: duckdb.DuckDBPyConnection, join_norm: str) -> QueryRe
         "SELECT * FROM v_procurement_ted_supplier_summary WHERE winner_join_norm = ?",
         [join_norm],
     )
+
+
+# ── TED COMPETITION / TENDER notices (cn-standard) — a THIRD grain, the pre-award pipeline ──
+# estimated_value is a buyer estimate (value_safe_to_sum always FALSE); NEVER summed with awards
+# or payments. One row per notice.
+def ted_tenders_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """One-row summary of the TED tender pipeline for the tab headline + source-state gate:
+    notice count, year span, how many are still open by deadline, and how many ran without an
+    open competitive call. No euro total (estimates are never summed)."""
+    return _run(
+        conn,
+        "SELECT"
+        "  COUNT(*) AS n_notices,"
+        "  COUNT(DISTINCT buyer_name) AS n_buyers,"
+        "  MIN(year)::INT AS min_year, MAX(year)::INT AS max_year,"
+        "  COUNT(*) FILTER (WHERE is_still_open) AS n_still_open,"
+        "  COUNT(*) FILTER (WHERE is_uncompetitive_procedure) AS n_uncompetitive"
+        " FROM v_procurement_ted_tenders",
+    )
+
+
+def ted_tenders(conn: duckdb.DuckDBPyConnection, *, limit: int | None = 60, only_open: bool = False) -> QueryResult:
+    """The tender-pipeline listing (most recent first). ``only_open`` keeps notices whose
+    submission deadline has not yet passed. estimated_value_eur is a pre-award estimate shown
+    for context — never summed with award/payment figures."""
+    sql = (
+        "SELECT publication_number, notice_url, buyer_name, cpv_code, cpv_division, procedure_type,"
+        " is_uncompetitive_procedure, submission_deadline, is_still_open, estimated_value_eur, currency,"
+        " dispatch_date, year"
+        " FROM v_procurement_ted_tenders"
+    )
+    if only_open:
+        sql += " WHERE is_still_open"
+    sql += " ORDER BY dispatch_date DESC"
+    params: list = []
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
 
 
 # ── Public-body PAYMENTS (the SPENT / COMMITTED tiers) — a DIFFERENT grain from awards ──

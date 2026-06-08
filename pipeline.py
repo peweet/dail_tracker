@@ -83,6 +83,10 @@ CHAINS: list[tuple[str, str]] = [
     # exposed to the UI). Zero-auth API, caches raw to bronze, depends on the CRO silver
     # register (winner->CRO match), skips gracefully on an API outage. Headless-safe.
     ("ted", "extractors/ted_ireland_extract.py"),
+    # ted_tenders: TED Irish COMPETITION/tender notices (cn-standard) -> SILVER. The pre-award
+    # pipeline (what's out to tender), a THIRD grain never summed with awards or payments.
+    # Zero-auth API, caches raw to bronze, no deps, skips gracefully on an API outage.
+    ("ted_tenders", "extractors/ted_ireland_tenders_extract.py"),
     # public_body_payments: depts / semi-states / health / edu PO+payment disclosures over €20k
     # -> gold public_payments_fact (one row per source line). Self-fetches + caches per-publisher
     # files, no deps, headless-safe. Writes gold by default (--dry-run -> sandbox). Privacy
@@ -92,6 +96,13 @@ CHAINS: list[tuple[str, str]] = [
     # schema; unions behind v_public_payments). privacy_risk=high — same hard quarantine + write-
     # invariant. Uses cached FOI PDFs (falls back to fetch); per-year files layout-drift-gated.
     ("hse_tusla_payments", "extractors/procurement_hse_tusla_materialize.py"),
+    # la_payments: the 31 local authorities' Purchase-Orders/Payments-over-€20k (Circular
+    # 07/2012) -> silver la_payments_fact (20/31 councils parse clean; no OCR). Standalone,
+    # self-fetches + caches per-council files to bronze, headless-safe. Privacy-classed
+    # (sole-trader/id-code quarantined as metadata). Folded into the gold procurement_payments_fact
+    # by extractors/procurement_payments_consolidate.py (run after this — councils surface via
+    # v_procurement_payments as publisher_type='local_authority').
+    ("la_payments", "extractors/procurement_la_payments_extract.py"),
     # cso: CSO PxStat tables (housing/HAP + general-government finance GFA01/GFQ01/
     # NA012) -> gold cso_<table>.parquet (the national denominators behind
     # v_gov_finance_annual). Zero-auth REST, no deps; writes any GREEN table by
@@ -131,8 +142,10 @@ _CHAIN_BLURBS: dict[str, str] = {
     "procurement": "eTenders/OGP awards + supplier->CRO match (gold); value-is-not-spend flags",
     "procurement_lobbying": "supplier <-> lobbying registrant/client overlap xref (gold)",
     "ted": "TED EU award notices (Ireland) + winner->CRO match (silver); award-value-not-spend flags",
+    "ted_tenders": "TED Irish competition/tender notices (cn-standard) -> silver; pre-award estimates, never summed",
     "public_body_payments": "public-body PO/payment disclosures over €20k -> gold public_payments_fact (privacy-gated)",
     "hse_tusla_payments": "HSE + Tusla PO/payment PDFs -> gold hse_tusla_payments_fact (privacy-gated, high-risk)",
+    "la_payments": "31 local authorities' PO/payments-over-€20k -> silver la_payments_fact (folded into gold procurement_payments_fact)",
     "cso": "CSO PxStat housing/HAP + govt-finance (GFA01/GFQ01/NA012) -> gold denominators",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
     "source_health": "per-source health -> data/_meta/source_health.json (manual staleness; links opt-in)",

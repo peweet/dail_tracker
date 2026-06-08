@@ -34,5 +34,12 @@ SELECT
     cro_company_num,
     cro_company_status,
     cro_match_method,
-    privacy_status
+    privacy_status,
+    -- competition-intensity layer (eForms 2024+; factual signals, never verdicts)
+    procedure_type,
+    is_uncompetitive_procedure,
+    n_tenders_received,
+    is_single_bid,
+    award_criteria_kind,
+    is_price_only
 FROM read_parquet('data/silver/parquet/ted_ie_awards.parquet');

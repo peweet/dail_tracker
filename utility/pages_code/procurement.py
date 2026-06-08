@@ -53,9 +53,12 @@ from data_access.procurement_data import (
     fetch_payments_supplier_summary_result,
     fetch_supplier_concentration_result,
     fetch_supplier_summary_result,
+    fetch_ted_competition_stats_result,
     fetch_ted_corpus_stats_result,
     fetch_ted_for_supplier_result,
     fetch_ted_supplier_summary_result,
+    fetch_ted_tenders_result,
+    fetch_ted_tenders_stats_result,
 )
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 from ui.components import (
@@ -244,10 +247,12 @@ def _concentration_and_trend() -> None:
                 f"hold <strong>{float(share):g}%</strong> of all {total:,} contract awards — {verb}. "
                 "Rankings count awards (the trustworthy metric), not euro value.</p>"
             )
+    # Trend chart tucked into a collapsed expander so the supplier ranking is the first thing
+    # the reader sees on the Suppliers tab (declutter 2026-06-08); still one click away.
     tr = fetch_awards_by_year_result()
     if tr.ok and not tr.data.empty and len(tr.data) > 1:
-        st.caption("Contract awards per year (company-class)")
-        st.bar_chart(tr.data, x="year", y="n_awards", height=170, color="#9c5b2e")
+        with st.expander("Award activity over time"):
+            st.bar_chart(tr.data, x="year", y="n_awards", height=200, color="#9c5b2e")
 
 
 def _render_suppliers(year: int | None) -> None:
@@ -652,6 +657,38 @@ def _ted_value_pill(val) -> str:
     return f'<span class="pr-pill pr-pill-val">{_eur(val)} awarded (EU)</span>'
 
 
+def _ted_competition_strip() -> None:
+    """Neutral competition-intensity facts from the eForms award notices: how many received
+    only one tender, ran without an open call, or were awarded on lowest price alone. Framed
+    strictly as disclosure (no-inference rule) — never 'uncompetitive'/'rigged' as a verdict."""
+    res = fetch_ted_competition_stats_result()
+    if not res.ok or res.data.empty:
+        return
+    s = res.data.iloc[0]
+    with_t = _n(s.get("notices_with_tenders"))
+    single = _n(s.get("single_bid_notices"))
+    if not with_t and not _n(s.get("uncompetitive_notices")):
+        return
+    parts = []
+    if with_t:
+        parts.append(
+            f"<strong>{single:,}</strong> of {with_t:,} award notices that report a tender count "
+            f"received <strong>only one tender</strong> on at least one lot ({100 * single / with_t:.0f}%)"
+        )
+    unc = _n(s.get("uncompetitive_notices"))
+    if unc:
+        parts.append(f"<strong>{unc:,}</strong> were awarded without an open competitive call")
+    po = _n(s.get("price_only_notices"))
+    if po:
+        parts.append(f"<strong>{po:,}</strong> were awarded on lowest price alone")
+    st.html(
+        '<p class="pr-cap"><strong>Competition signals (eForms, 2024+):</strong> '
+        + "; ".join(parts)
+        + ". These are factual disclosures recorded in the notices themselves — a single tender or "
+        "a negotiated procedure is a matter of record, not evidence of wrongdoing.</p>"
+    )
+
+
 def _render_ted() -> None:
     stats_res = fetch_ted_corpus_stats_result()
     if not stats_res.ok or stats_res.data.empty:
@@ -686,6 +723,8 @@ def _render_ted() -> None:
     else:
         caption += f" {_n(s.get('n_pan_eu')):,} pan-EU research frameworks are excluded from totals."
     st.html(f'<p class="pr-cap">{caption}</p>')
+
+    _ted_competition_strip()
 
     res = fetch_ted_supplier_summary_result(limit=_TOP, order_by="awards")
     df = res.data if res.ok else pd.DataFrame()
@@ -736,6 +775,65 @@ def _render_ted_supplier_panel(supplier_norm: str) -> None:
         f'<div class="pr-ted-xref-b">This firm also won <strong>{n:,} EU Official Journal award '
         f"notice{'' if n == 1 else 's'}</strong>{val_clause}, from {_n(r.get('n_buyers')):,} buyers "
         "(2023–2026). A separate register — these are <em>not</em> added to the national total above.</div></div>"
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Tab: Tender pipeline (TED cn-standard) — a THIRD grain (pre-award), never summed.
+# ──────────────────────────────────────────────────────────────────────────────
+def _render_ted_tenders() -> None:
+    stats_res = fetch_ted_tenders_stats_result()
+    if not stats_res.ok or stats_res.data.empty:
+        empty_state(
+            "Tender-pipeline data isn't available right now",
+            "The TED competition-notice view couldn't be loaded — a source/pipeline issue, not an empty result.",
+        )
+        return
+    s = stats_res.data.iloc[0]
+    span = f"{_n(s.get('min_year'))}–{_n(s.get('max_year'))}"
+    st.html(
+        '<div class="pr-caveat"><strong>The tender pipeline — opportunities, not awards.</strong> '
+        f"{_n(s.get('n_notices')):,} EU-journal <em>competition</em> notices ({span}) from "
+        f"{_n(s.get('n_buyers')):,} Irish public buyers — what is being put out to tender. The estimated "
+        "value shown is a <em>buyer estimate recorded before any award</em>: never a contract value, never "
+        "a payment, and never added to the award or payment figures elsewhere on this page.</div>"
+    )
+    only_open = st.toggle(
+        "Only tenders still open by deadline",
+        value=False,
+        key="pr_ted_open",
+        help=f"{_n(s.get('n_still_open')):,} of {_n(s.get('n_notices')):,} have a submission deadline still in the future.",
+    )
+    res = fetch_ted_tenders_result(only_open=only_open, limit=_TOP)
+    df = res.data if res.ok else pd.DataFrame()
+    if df.empty:
+        empty_state("No tenders", "No still-open competition notice." if only_open else "The view returned no rows.")
+        return
+    st.caption(
+        f"{len(df):,} most-recent competition notices{' still open' if only_open else ''}. "
+        "Estimated value is a pre-award buyer estimate — not an award and not a payment."
+    )
+    cards = []
+    for r in df.head(_TOP).itertuples():
+        meta_parts = [_esc(_coalesce(getattr(r, "cpv_division", None))), _esc(_coalesce(getattr(r, "procedure_type", None)))]
+        dl = _coalesce(getattr(r, "submission_deadline", None))
+        if dl:
+            meta_parts.append(f"deadline {fmt_civic_date(dl)}")
+        meta = " · ".join(p for p in meta_parts if p)
+        pills = []
+        ev = _eur(getattr(r, "estimated_value_eur", None))
+        if ev != "—":
+            pills.append(f'<span class="pr-pill pr-pill-val">{ev} est. value</span>')
+        if _truthy(getattr(r, "is_still_open", None)):
+            pills.append('<span class="pr-pill pr-pill-lob">still open</span>')
+        if _truthy(getattr(r, "is_uncompetitive_procedure", None)):
+            pills.append('<span class="pr-pill pr-pill-lob">no open call</span>')
+        cards.append(_card(f"<span>{_esc(getattr(r, 'buyer_name', None))}</span>", meta, pills))
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html(
+        '<div class="pr-foot"><strong>Source:</strong> TED — Tenders Electronic Daily, EU Official Journal '
+        'competition notices (<a href="https://ted.europa.eu" target="_blank" rel="noopener">ted.europa.eu ↗</a>). '
+        "Pre-award opportunities; estimated values are buyer estimates — never awards or payments, and never summed.</div>"
     )
 
 
@@ -1049,14 +1147,19 @@ def procurement_page() -> None:
         "of influence or wrongdoing.</div>"
     )
     _stats_strip(stats, cov)
-    glossary_strip(
-        [
-            ("Award value", "the contract value at the point of award — not money actually paid out"),
-            ("Framework / DPS", "an agreement a buyer may draw down against — the ceiling is not a payment"),
-            ("CPV", "Common Procurement Vocabulary — the EU category code for what was bought"),
-            ("CRO", "Companies Registration Office — a matched company registration number"),
-        ]
-    )
+    # Glossary tucked into a collapsed expander (declutter 2026-06-08) — there for first-time
+    # readers, but no longer a permanent block between the hero and the rankings.
+    with st.expander("What these terms mean"):
+        glossary_strip(
+            [
+                ("Award value", "the contract value at the point of award — not money actually paid out"),
+                ("Framework / DPS", "an agreement a buyer may draw down against — the ceiling is not a payment"),
+                ("CPV", "Common Procurement Vocabulary — the EU category code for what was bought"),
+                ("CRO", "Companies Registration Office — a matched company registration number"),
+            ]
+        )
+
+    _data_completeness_note()
 
     if _n(stats.get("n_suppliers")) == 0:
         empty_state("No supplier records", "The procurement views are loaded but returned no rows.")
@@ -1078,6 +1181,7 @@ def procurement_page() -> None:
             "Lobbying overlap",
             "Charities",
             "EU-level awards (TED)",
+            "Tender pipeline (TED)",
         ]
     )
     with tabs[0]:
@@ -1094,6 +1198,8 @@ def procurement_page() -> None:
         _render_charity_overlap(charity_overlap.data if charity_overlap.ok else pd.DataFrame())
     with tabs[6]:
         _render_ted()
+    with tabs[7]:
+        _render_ted_tenders()
 
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> eTenders / national procurement open data '
