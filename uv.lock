@@ -531,7 +531,7 @@ provides-extras = ["pipeline", "ocr", "api", "all"]
 [package.metadata.requires-dev]
 dev = [
     { name = "basedpyright", specifier = ">=1.39" },
-    { name = "pandera", extras = ["polars"], specifier = ">=0.20" },
+    { name = "pandera", extras = ["polars"], specifier = ">=0.31.1" },
     { name = "pip-audit", specifier = ">=2.7" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-cov", specifier = ">=5.0" },
