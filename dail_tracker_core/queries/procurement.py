@@ -285,16 +285,20 @@ def ted_corpus_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
         "  COUNT(*) FILTER (WHERE is_pan_eu_outlier) AS n_pan_eu,"
         "  COALESCE(SUM(award_value_eur) FILTER (WHERE value_safe_to_sum), 0) AS value_safe_eur,"
         "  COALESCE(SUM(award_value_eur) FILTER (WHERE is_pan_eu_outlier), 0) AS pan_eu_ceiling_eur"
-        " FROM v_procurement_ted_awards",
+        " FROM v_procurement_ted_winner_history",  # full 2016-2026 history (api + per-notice-XML lanes)
     )
 
 
 def ted_competition_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """One-row competition-intensity summary for the TED tab, on a DISTINCT-NOTICE basis
-    (the awards view is notice x winner, so we dedup by publication_number first — the
+    (the history view is notice x winner, so we dedup by publication_number first — the
     competition fields are identical across a notice's winner rows). All neutral facts:
     how many award notices received only one tender, ran without an open call, or were
-    awarded on lowest price alone. NEVER framed as a verdict in the UI."""
+    awarded on lowest price alone. NEVER framed as a verdict in the UI.
+
+    Restricted to source_lane='api' (2024+ eForms): the competition fields only exist from
+    2024 — the 2016-2023 per-notice-XML backfill has none, so including it would silently
+    deflate every rate. The page labels this strip 'eForms, 2024+' to match."""
     return _run(
         conn,
         "SELECT"
@@ -306,9 +310,22 @@ def ted_competition_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
         " FROM ("
         "   SELECT DISTINCT publication_number, n_tenders_received, is_single_bid,"
         "          is_uncompetitive_procedure, is_price_only"
-        "   FROM v_procurement_ted_awards"
-        "   WHERE NOT is_pan_eu_outlier"
+        "   FROM v_procurement_ted_winner_history"
+        "   WHERE NOT is_pan_eu_outlier AND source_lane = 'api'"
         " )",
+    )
+
+
+def ted_awards_by_year(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """TED award NOTICES per year (2016-2026), pan-EU excluded — feeds the TED tab's
+    'EU awards over time' trend. DISTINCT publication_number so a multi-supplier framework
+    counts once (the notice, not its winner rows). Pre-aggregated here; the page only renders."""
+    return _run(
+        conn,
+        "SELECT year, COUNT(DISTINCT publication_number) AS n_awards"
+        " FROM v_procurement_ted_winner_history"
+        " WHERE NOT is_pan_eu_outlier AND year IS NOT NULL"
+        " GROUP BY year ORDER BY year",
     )
 
 
