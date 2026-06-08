@@ -454,6 +454,30 @@ def payments_for_publisher(
     )
 
 
+def payments_publisher_profile(conn: duckdb.DuckDBPyConnection, publisher_name: str) -> QueryResult:
+    """Single-row buyer dossier header for one public body (the per-council profile anchor).
+
+    Carries BOTH lifecycle tiers side by side so the page can show "€X ordered" and "€Y paid"
+    without ever summing them (they are different stages of public money). Also returns
+    publisher_type so the page can badge a local authority, and the supplier/line/year spans.
+    Sum-safe euro only (public_body transfers already excluded upstream by value_safe_to_sum)."""
+    return _run(
+        conn,
+        "SELECT mode(publisher_name) AS publisher_name, mode(publisher_type) AS publisher_type,"
+        " mode(sector) AS sector,"
+        " COUNT(DISTINCT supplier_normalised) AS n_suppliers,"
+        " MIN(year)::INT AS min_year, MAX(year)::INT AS max_year,"
+        " COUNT(*) FILTER (WHERE realisation_tier = 'SPENT')     AS n_paid_lines,"
+        " COUNT(*) FILTER (WHERE realisation_tier = 'COMMITTED') AS n_ordered_lines,"
+        " COALESCE(SUM(amount_eur) FILTER (WHERE value_safe_to_sum AND realisation_tier = 'SPENT'), 0)"
+        "   AS paid_safe_eur,"
+        " COALESCE(SUM(amount_eur) FILTER (WHERE value_safe_to_sum AND realisation_tier = 'COMMITTED'), 0)"
+        "   AS ordered_safe_eur"
+        " FROM v_procurement_payments WHERE publisher_name = ?",
+        [publisher_name],
+    )
+
+
 def payments_for_supplier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> QueryResult:
     """One firm's public-body payment footprint for the cross-reference on an eTenders supplier
     profile: paid (SPENT) and ordered (COMMITTED) totals + publisher count. Indicative floor

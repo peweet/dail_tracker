@@ -41,24 +41,21 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
-import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from extractors.ted_enrich import enrich_winner_rows  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
+from services.ted_search import fetch_ted_search  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from shared.name_norm import name_norm_expr  # noqa: E402
-
-CRO = ROOT / "data/silver/cro/companies.parquet"
 RAW_CACHE = ROOT / "data/bronze/ted/ted_ie_awards_raw.json"  # bronze: raw API capture (portable, headless-safe)
 OUT_SILVER = ROOT / "data/silver/parquet/ted_ie_awards.parquet"
 OUT_COV = ROOT / "data/_meta/ted_ie_awards_coverage.json"
 
 URL = "https://api.ted.europa.eu/v3/notices/search"
-H = {"User-Agent": "dail-tracker research probe", "Accept": "application/json"}
 FIELDS = [
     "publication-number",
     "buyer-name",
@@ -90,7 +87,6 @@ QUERY = "buyer-country=IRL AND notice-type=can-standard AND publication-date>=20
 TENDER_SUBMISSION_CODES = {"tenders", "t-esubm", "t-sme", "t-small", "t-med", "t-oth-eea", "t-non-eea", "t-eea"}
 # procedure types that ran WITHOUT an open competitive call (a factual signal, never a verdict).
 UNCOMPETITIVE_PROCEDURES = {"neg-wo-call", "oth-single"}
-PAGE_CAP = 40  # 250/page
 
 SOURCE = {
     "dataset": "TED — Tenders Electronic Daily (contract award notices, Ireland)",
@@ -125,17 +121,6 @@ CPV_DIV = {
     "70": "Real estate",
     "66": "Financial/Insurance",
 }
-COMPANY_SUFFIX = re.compile(
-    r"\b(limited|ltd|dac|plc|clg|uc|llp|teoranta|teo|unlimited company|t/a|group|company|holdings|services|solutions|consult|partners|associates|university|institute|board|council|&)\b",
-    re.I,
-)
-# TED winners skew FOREIGN (Bechtle AG, Proact IT Sweden AB, CloudFerro S.A., Vaisala Oyj) —
-# without this they fall through COMPANY_SUFFIX and get mislabelled sole_trader, inflating the
-# privacy flag. Mirrors the FOREIGN_FORM regex in procurement_etenders_extract.py.
-FOREIGN_FORM = re.compile(
-    r"\b(gmbh|ag|s\.?a\.?|n\.?v\.?|s\.?a\.?s|s\.?p\.?a|spa|inc|llc|\bpty\b|\bab\b|\bas\b|a/s|\bbv\b|\boy\b|oyj|srl|sl|sarl|aps|kft|ltda|s\.?r\.?o)\b",
-    re.I,
-)
 PAN_EU_HINT = re.compile(r"g[eé]ant|cloudferro|european dynamics|t-systems|softwareone|telecom italia", re.I)
 PAN_EU_VALUE = 100_000_000  # multi-winner notices above this are framework ceilings, not IE spend
 
@@ -176,26 +161,17 @@ def to_eur(v) -> float:
     return tot
 
 
-def pull(max_pages: int) -> list[dict]:
-    notices, page = [], 1
-    while page <= max_pages:
-        body = {"query": QUERY, "fields": FIELDS, "limit": 250, "page": page, "paginationMode": "PAGE_NUMBER"}
-        r = requests.post(URL, json=body, headers=H, timeout=120)
-        if r.status_code != 200:
-            print(f"  page {page} -> {r.status_code} {r.text[:140]}")
-            break
-        batch = r.json().get("notices", [])
-        if not batch:
-            break
-        notices += batch
-        print(f"  page {page}: +{len(batch)}  (total {len(notices)})")
-        if len(batch) < 250:
-            break
-        page += 1
-    return notices
+def pull(max_pages: int | None) -> list[dict]:
+    """Full Irish-awards scroll via the shared ITERATION paginator (services/ted_search.py).
+
+    Replaces the old PAGE_NUMBER loop, which the API caps at 15k notices and which capped
+    itself at 10k with no completeness check (silent truncation). ITERATION has no notice
+    limit and asserts against totalNoticeCount. max_pages is a smoke-test bound (None = all).
+    """
+    return fetch_ted_search(QUERY, FIELDS, label="ted-awards", max_pages=max_pages)
 
 
-def load_raw(max_pages: int, refresh: bool) -> list[dict]:
+def load_raw(max_pages: int | None, refresh: bool) -> list[dict]:
     if RAW_CACHE.exists() and not refresh:
         try:
             data = json.loads(RAW_CACHE.read_text(encoding="utf-8"))
@@ -308,7 +284,7 @@ def build_rows(raw: list[dict]) -> list[dict]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--max-pages", type=int, default=PAGE_CAP)
+    ap.add_argument("--max-pages", type=int, default=None, help="smoke-test bound; default None = ALL pages (ITERATION)")
     ap.add_argument("--refresh", action="store_true", help="ignore raw cache, re-pull API")
     args = ap.parse_args()
 
@@ -328,104 +304,9 @@ def main() -> None:
 
     df = pl.DataFrame(build_rows(raw), infer_schema_length=None)
 
-    # ---- winner classification + privacy (sole-trader quarantine flag, NOT dropped) ----
-    df = (
-        df.with_columns(
-            name_norm_expr("winner_name").alias("winner_name_norm"),
-            pl.col("winner_name")
-            .map_elements(lambda s: bool(COMPANY_SUFFIX.search(s or "")), return_dtype=pl.Boolean)
-            .alias("_co"),
-            pl.col("winner_name")
-            .map_elements(lambda s: bool(FOREIGN_FORM.search(s or "")), return_dtype=pl.Boolean)
-            .alias("_for"),
-        )
-        .with_columns(
-            pl.when(pl.col("winner_name").is_null())
-            .then(pl.lit("unknown"))
-            .when(pl.col("_co"))
-            .then(pl.lit("company"))
-            .when(pl.col("_for"))
-            .then(pl.lit("foreign_company"))
-            .otherwise(pl.lit("sole_trader_or_individual"))
-            .alias("supplier_class"),
-        )
-        .drop(["_co", "_for"])
-    )
-    # privacy_status deferred until AFTER the CRO join — a CRO match is decisive evidence the
-    # winner is a registered company, not an individual (see below).
-
-    # ---- CRO match: by winner-identifier (exact reg number) THEN by normalised name ----
-    cro = pl.read_parquet(CRO).select(["name_norm", "company_num", "company_status"])
-    cro_num = (
-        cro.select(
-            pl.col("company_num")
-            .cast(pl.Utf8)
-            .str.replace_all(r"\D", "")
-            .str.strip_chars_start("0")
-            .alias("num_digits"),
-            pl.col("company_num").alias("company_num_id"),
-            pl.col("company_status").alias("status_by_id"),
-        )
-        .filter(pl.col("num_digits").str.len_chars() >= 4)
-        .unique(subset=["num_digits"])
-    )
-    cro_name = cro.filter(pl.col("name_norm").str.len_chars() >= 4).unique(subset=["name_norm"])
-
-    df = (
-        df.join(cro_num, left_on="winner_identifier_digits", right_on="num_digits", how="left")
-        .join(cro_name, left_on="winner_name_norm", right_on="name_norm", how="left")
-        .with_columns(
-            pl.coalesce(["company_num_id", "company_num"]).alias("cro_company_num"),
-            pl.when(pl.col("company_num_id").is_not_null())
-            .then(pl.lit("identifier"))
-            .when(pl.col("company_num").is_not_null())
-            .then(pl.lit("name"))
-            .otherwise(pl.lit("none"))
-            .alias("cro_match_method"),
-            pl.coalesce(["status_by_id", "company_status"]).alias("cro_company_status"),
-        )
-        .drop(["company_num_id", "company_num", "status_by_id", "company_status"])
-    )
-
-    # CRO-evidence upgrade: a winner that joins the company register IS a registered company,
-    # even if its TED name dropped the suffix word (Sweeney Consultancy, Three Ireland, Savills,
-    # Cruinn Diagnostics...). Upgrade those from sole_trader_or_individual -> company so the
-    # privacy flag isn't inflated by real firms. privacy_status computed AFTER this.
-    df = df.with_columns(
-        pl.when((pl.col("supplier_class") == "sole_trader_or_individual") & (pl.col("cro_match_method") != "none"))
-        .then(pl.lit("company"))
-        .otherwise(pl.col("supplier_class"))
-        .alias("supplier_class"),
-    ).with_columns(
-        pl.when(pl.col("supplier_class") == "sole_trader_or_individual")
-        .then(pl.lit("review_personal_data"))
-        .otherwise(pl.lit("ok"))
-        .alias("privacy_status"),
-    )
-
-    # ---- value flags ----------------------------------------------------------------
-    # TED award values are ceiling/award-grade, not transactions. Even SINGLE-winner
-    # notices above EU thresholds are routinely multi-year framework/operating CEILINGS
-    # (e.g. Version1 €10.3bn IT framework for Education; NTA bus operating contracts €1-2bn).
-    # So a "single-winner" test is NOT enough — gate large awards out of value_safe_to_sum
-    # and flag them for review. The trustworthy metrics here are COUNT and MEDIAN, never a
-    # naive sum (per doc/PROCUREMENT_INVESTIGATION.md). Threshold is deliberately blunt and
-    # documented; a later view should refine it with TED's framework-agreement field.
-    LARGE_AWARD = 50_000_000
-    df = df.with_columns(
-        (pl.col("award_value_eur") >= LARGE_AWARD).alias("is_large_award_review"),
-    ).with_columns(
-        (
-            (pl.col("value_kind") == "contract_award_value")
-            & ~pl.col("is_multi_supplier_framework")
-            & ~pl.col("is_pan_eu_outlier")
-            & ~pl.col("is_large_award_review")  # likely multi-year ceiling, not a transaction
-            & pl.col("award_value_eur").is_not_null()
-            & (pl.col("award_value_eur") > 0)
-        ).alias("value_safe_to_sum"),
-        pl.lit("TED").alias("source"),
-        pl.lit(datetime.now(UTC).strftime("%Y-%m-%d")).alias("retrieved_utc"),
-    )
+    # Shared winner classification + CRO match + privacy + value flags (extractors/ted_enrich.py)
+    # — byte-identical with the legacy per-notice-XML lane so the two silvers UNION cleanly.
+    df = enrich_winner_rows(df)
 
     OUT_SILVER.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT_SILVER)

@@ -138,6 +138,11 @@ def fetch_payments_for_publisher_result(publisher_name: str, tier: str = "SPENT"
 
 
 @st.cache_data(ttl=300)
+def fetch_payments_publisher_profile_result(publisher_name: str) -> QueryResult:
+    return _q.payments_publisher_profile(get_procurement_conn(), publisher_name)
+
+
+@st.cache_data(ttl=300)
 def fetch_payments_for_supplier_result(supplier_norm: str) -> QueryResult:
     return _q.payments_for_supplier(get_procurement_conn(), supplier_norm)
 
