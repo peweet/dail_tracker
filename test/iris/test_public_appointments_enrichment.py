@@ -92,6 +92,30 @@ def test_extract_body_state_board_from_title():
     assert extract_body("Appointment to the Board of Acme Authority", "txt", "state_board") == "Acme Authority"
 
 
+def test_extract_body_irish_body_name_spanning_pipe_lines():
+    # The body name is split across the PDF's pipe-joined lines; the title-HEAD
+    # scan stitches it back and maps it to English.
+    title = "APPOINTMENT TO THE BOARD OF AN tÚDARÁS | NÁISIÚNTA UM UATHROLLÚ COIGILTIS SCOIR | In exercise of"
+    assert extract_body(title, "txt", "state_board") == "National Automatic Enrolment Retirement Savings Authority"
+    # OCR-transposed Water Forum body
+    assert extract_body("APPOINTMENT TO AN FORAM USICE | The Minister for Housing", "t", "state_board") == "The Water Forum"
+
+
+def test_extract_body_irish_a_cheapadh_order_uses_english_parenthetical():
+    # "<office> A CHEAPADH" Orders carry their English in an "(Appointment of …)"
+    # parenthetical — surface that, never the Gaeilge order-title.
+    title = "AIRÍ STÁIT A CHEAPADH | (Appointment of Ministers of State) | I bhfeidhmiú"
+    assert extract_body(title, "txt", "state_board") == "Appointment of Ministers of State"
+
+
+def test_extract_body_irish_fogra_notice_maps_or_drops():
+    # An Irish "FÓGRA" notice whose body is a curated commission maps to English…
+    title = "FÓGRA | (Notice) | Ceapachán chomhalta de | Choimisiún Ombudsman an Garda Síochána"
+    assert extract_body(title, "txt", "state_board") == "Garda Síochána Ombudsman Commission"
+    # …and an un-mappable Irish preamble surfaces NO body rather than leaking Gaeilge.
+    assert extract_body("Do rinne an Rialtas inniu Ordú | dar teideal thuas", "txt", "state_board") is None
+
+
 # ── extract_appointees ───────────────────────────────────────────────────────
 
 
