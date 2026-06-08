@@ -708,8 +708,7 @@
         "match_method",
         "match_confidence",
         "lrc_fills_empty_domain",
-        "lrc_caveat",
-        "source_built_at"
+        "lrc_caveat"
       ]
     },
     "sipo_donations.parquet": {

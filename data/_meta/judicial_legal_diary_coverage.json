@@ -1,6 +1,6 @@
 {
   "parser_version": "1.1.0",
-  "generated_at": "2026-06-08T07:44:39.837263+00:00",
+  "generated_at": "2026-06-08T16:05:06.690293+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -19,31 +19,31 @@
       "cases": 473
     },
     {
-      "file": "2026-06-05.r02.docx",
-      "diary_date": "2026-06-05",
-      "sha256": "fe98984405ab869f",
-      "sessions": 120,
-      "cases": 1345
+      "file": "2026-06-08.docx",
+      "diary_date": "2026-06-08",
+      "sha256": "b1c81524d5e4629f",
+      "sessions": 118,
+      "cases": 1346
     }
   ],
   "n_days": 3,
-  "tier_a_sessions": 254,
-  "tier_b_counts": 141,
-  "case_lines_parsed": 2177,
+  "tier_a_sessions": 253,
+  "tier_b_counts": 140,
+  "case_lines_parsed": 2178,
   "cases_dropped_protected": 366,
-  "cases_kept_anonymised": 1808,
+  "cases_kept_anonymised": 1809,
   "drop_reasons": {
     "asylum": 205,
     "minor": 87,
     "child and family": 47,
     "family law": 18,
-    "guardian": 3,
     "adoption": 3,
+    "guardian": 3,
     "ward of court": 2,
     "custody": 1
   },
   "plaintiff_kinds": {
-    "individual": 1177,
+    "individual": 1178,
     "organisation": 343,
     "state-prosecutor": 260,
     "state-body": 28
