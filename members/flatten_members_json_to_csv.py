@@ -5,6 +5,7 @@ from flatten_json import flatten
 
 from config import MEMBERS_DIR, SILVER_DIR
 from members.members_api_service import fetch_members, save_members_json
+from services.parquet_io import save_parquet
 from shared.select_drop_rename_cols_mappings import members_drop_cols, members_rename
 
 
@@ -45,12 +46,7 @@ def flatten_members_to_csv(house: str = "dail"):
     df["year_elected"] = df["unique_member_code"].str.extract(r"(\b\d{4}\b)", expand=False).astype("Int64")
     csv_path = SILVER_DIR / csv_name
     df.to_csv(csv_path, index=False, encoding="utf-8")
-    df.to_parquet(
-        SILVER_DIR / "parquet" / csv_name.replace(".csv", ".parquet"),
-        index=False,
-        compression="zstd",
-        compression_level=3,
-    )
+    save_parquet(df, SILVER_DIR / "parquet" / csv_name.replace(".csv", ".parquet"))
     print(f"Flattened {house} members saved to {csv_path}")
 
 

@@ -27,6 +27,7 @@ import sys
 import polars as pl
 
 from config import SILVER_DIR, SILVER_PARQUET_DIR
+from services.parquet_io import save_parquet
 
 RETURNS_CSV = SILVER_DIR / "lobbying" / "returns.csv"
 
@@ -116,7 +117,7 @@ def main() -> int:
 
     SILVER_PARQUET_DIR.mkdir(parents=True, exist_ok=True)
     target = SILVER_PARQUET_DIR / "lobbying_return_documents.parquet"
-    out.write_parquet(target, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(out, target)
 
     by_field = out.group_by("source_field").len().sort("len", descending=True)
     top_hosts = out.group_by("host").len().sort("len", descending=True).head(10)

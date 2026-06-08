@@ -16,6 +16,7 @@ from config import (
     PROJECT_ROOT,
     SILVER_PARQUET_DIR,
 )
+from services.parquet_io import save_parquet
 from shared.quarantine import quarantine
 from shared.select_drop_rename_cols_mappings import lobbying_rename
 
@@ -797,12 +798,7 @@ def save_output(df: pl.DataFrame, filename: str, overwrite: bool = True, write_c
         return
     if write_csv:
         df.write_csv(path)
-    df.write_parquet(
-        parquet_path,
-        compression="zstd",
-        compression_level=3,
-        statistics=True,
-    )
+    save_parquet(df, parquet_path)
     print(f"Saved {filename}" + ("" if write_csv else " (parquet only)"))
 
 
@@ -857,12 +853,7 @@ def save_gold_outputs(activities_df: pl.DataFrame, lobbying_df: pl.DataFrame) ->
         query = sql_file.read_text(encoding="utf-8")
         try:
             result = pl.from_arrow(con.execute(query).arrow())
-            result.write_parquet(
-                GOLD_PARQUET_DIR / f"{name}.parquet",
-                compression="zstd",
-                compression_level=3,
-                statistics=True,
-            )
+            save_parquet(result, GOLD_PARQUET_DIR / f"{name}.parquet")
             result.write_csv(GOLD_CSV_DIR / f"{name}.csv")
             print(f"  Gold: {name} ({result.height} rows)")
         except Exception as e:
