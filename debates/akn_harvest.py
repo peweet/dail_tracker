@@ -39,12 +39,65 @@ import logging
 import sys
 from pathlib import Path
 
-from config import AKN_DIR, DEBATES_LISTINGS_DIR
-from services.http_engine import fetch_all_text
+from config import AKN_DIR, API_BASE, DEBATES_LISTINGS_DIR
+from services.http_engine import fetch_all_text, fetch_json
 
 logger = logging.getLogger(__name__)
 
 _BRONZE = DEBATES_LISTINGS_DIR / "debates_listings_results.json"
+
+
+def _chamber_from_uri(xml_uri: str) -> str:
+    """Authoritative chamber from the transcript uri path (drops committees)."""
+    parts = xml_uri.split("/debateRecord/", 1)
+    return parts[1].split("/", 1)[0] if len(parts) == 2 else ""
+
+
+def _api_day_targets(
+    since: str,
+    until: str = "2099-01-01",
+    chambers: tuple[str, ...] = ("dail", "seanad"),
+) -> list[dict]:
+    """Enumerate (chamber, date, main.xml uri) from the LIVE /v1/debates API.
+
+    The authoritative, current worklist source — independent of the (stale)
+    listings bronze. Paginates a date-range query per chamber and keeps only
+    genuine chamber transcripts (committees, whose records share a house code,
+    are dropped by reading the chamber from the transcript uri path).
+    """
+    seen: set[tuple[str, str]] = set()
+    targets: list[dict] = []
+    for chamber in chambers:
+        skip, limit = 0, 500
+        while True:
+            url = (
+                f"{API_BASE}/debates?chamber={chamber}&date_start={since}"
+                f"&date_end={until}&limit={limit}&skip={skip}&lang=en"
+            )
+            payload, _ = fetch_json(url)
+            results = payload.get("results") or []
+            total = int((payload.get("head") or {}).get("counts", {}).get("resultCount", 0) or 0)
+            if not results:
+                break
+            for r in results:
+                rec = r.get("debateRecord") or {}
+                date = rec.get("date") or ""
+                xml_uri = ((rec.get("formats") or {}).get("xml") or {}).get("uri") or ""
+                if not date or not xml_uri:
+                    continue
+                ch = _chamber_from_uri(xml_uri)
+                if ch not in chambers:
+                    continue
+                key = (ch, date)
+                if key in seen:
+                    continue
+                seen.add(key)
+                targets.append({"chamber": ch, "date": date, "xml_uri": xml_uri})
+            skip += limit
+            if skip >= total:
+                break
+    logger.info("akn_harvest: API worklist since %s -> %d chamber sitting-days", since, len(targets))
+    return targets
 
 
 def _day_targets() -> list[dict]:
@@ -97,15 +150,22 @@ def run(
     since: str | None = None,
     chambers: tuple[str, ...] = ("dail", "seanad"),
     overwrite: bool = False,
+    api_since: str | None = None,
+    dry_run: bool = False,
 ) -> int:
     """Download day-level AKN transcripts into AKN_DIR. Returns files written.
 
+    Worklist source: the live /v1/debates API when ``api_since`` is given
+    (authoritative + current — the recommended path), else the listings bronze.
     ``since`` keeps days with date >= since (ISO string compares correctly).
-    Existing files are skipped unless ``overwrite``. ``limit`` caps the number
-    of NEW downloads (after the skip filter) — for smoke-tests.
+    Existing files are skipped unless ``overwrite``. ``limit`` caps NEW downloads
+    (after the skip filter). ``dry_run`` enumerates + reports without downloading.
     """
     AKN_DIR.mkdir(parents=True, exist_ok=True)
-    targets = [t for t in _day_targets() if t["chamber"] in chambers]
+    if api_since:
+        targets = _api_day_targets(api_since, chambers=chambers)
+    else:
+        targets = [t for t in _day_targets() if t["chamber"] in chambers]
     if since:
         targets = [t for t in targets if t["date"] >= since]
     targets.sort(key=lambda t: (t["date"], t["chamber"]), reverse=True)
@@ -114,6 +174,19 @@ def run(
     skipped = len(targets) - len(pending)
     if limit is not None:
         pending = pending[:limit]
+
+    if dry_run:
+        from collections import Counter
+
+        by_ch = Counter(t["chamber"] for t in targets)
+        logger.info(
+            "akn_harvest DRY-RUN: %d sitting-days total %s | %d already on disk | %d would download",
+            len(targets),
+            dict(by_ch),
+            skipped,
+            len(pending),
+        )
+        return len(pending)
 
     if not pending:
         logger.info("akn_harvest: nothing to fetch (%d already present)", skipped)
@@ -153,11 +226,25 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Harvest day-level AKN debate transcripts.")
     p.add_argument("--limit", type=int, default=None, help="Cap NEW downloads (smoke-test).")
     p.add_argument("--since", type=str, default=None, help="Keep days with date >= YYYY-MM-DD.")
+    p.add_argument(
+        "--api-since",
+        type=str,
+        default=None,
+        help="Source the worklist from the live /v1/debates API since this date (recommended; bronze is stale).",
+    )
     p.add_argument("--chamber", choices=("dail", "seanad"), default=None, help="Restrict to one chamber.")
     p.add_argument("--overwrite", action="store_true", help="Re-download days already on disk.")
+    p.add_argument("--dry-run", action="store_true", help="Enumerate + report counts without downloading.")
     args = p.parse_args(argv)
     chambers = (args.chamber,) if args.chamber else ("dail", "seanad")
-    run(limit=args.limit, since=args.since, chambers=chambers, overwrite=args.overwrite)
+    run(
+        limit=args.limit,
+        since=args.since,
+        chambers=chambers,
+        overwrite=args.overwrite,
+        api_since=args.api_since,
+        dry_run=args.dry_run,
+    )
     return 0
 
 

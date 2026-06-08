@@ -459,6 +459,44 @@ def list_procurement_lobbying_overlap(
     }
 
 
+_COMPETITION_CAVEAT = (
+    "single_bid_lot_pct = single-bid LOTS / lots-with-a-bid-count, from TED 2024+ award "
+    "notices — each contract PART counted once (the honest lot-level rate; an earlier "
+    "notice-level reading over-stated multi-lot buyers). A FACTUAL competition signal, NEVER "
+    "a verdict: a single bidder is often legitimate — a niche/specialist supplier, bespoke "
+    "research equipment, genuine urgency (research universities legitimately single-source a "
+    "lot). It is the EU Single Market Scoreboard's procurement-integrity indicator: a prompt "
+    "to look, not evidence of wrongdoing. Rank only buyers with a healthy n_lots_with_bidcount "
+    "(min_lots default 40); small samples are noisy. Coverage is 2024+ only (the eForms era "
+    "carries bid counts)."
+)
+
+
+def list_procurement_competition(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    min_lots: int = 40,
+    order_by: str = "single_bid",
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Per-buyer procurement competition quality (single-bidder rate at lot level) from
+    ``v_procurement_competition``. ``order_by`` is 'single_bid' (rate) or 'lots' (volume);
+    ``min_lots`` filters out noisy small samples. Carries the no-inference caveat."""
+    res = proc.competition(conn, min_lots=min_lots, order_by=order_by, limit=limit)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    buyers = serialize.to_records(res.data)
+    return {
+        "summary": {
+            "n_buyers": len(buyers),
+            "min_lots": min_lots,
+            "order_by": order_by if order_by in ("single_bid", "lots") else "single_bid",
+        },
+        "buyers": buyers,
+        "caveat": _COMPETITION_CAVEAT,
+    }
+
+
 # ── Committees ────────────────────────────────────────────────────────────────
 
 

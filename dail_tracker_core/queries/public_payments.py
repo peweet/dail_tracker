@@ -1,7 +1,7 @@
 """Public-body payments retrieval — Streamlit-free.
 
 Retrieval-only SQL against the registered ``public_payments`` views (defined in
-``sql_views/procurement_public_payments.sql``). The privacy gate (public_display)
+``sql_views/procurement/procurement_public_payments.sql``). The privacy gate (public_display)
 and the value-gating (value_safe_to_sum, excluding intergovernmental transfers)
 already live in those views — this layer only reads. DuckDB failures surface as
 ``unavailable`` QueryResults rather than silent empty frames.
@@ -10,6 +10,10 @@ Two registers are unioned behind ``v_public_payments``: the generic public-body
 fact and the HSE/Tusla fact. Rankings come from the rollup views
 (``v_public_payments_publisher_summary`` / ``v_public_payments_supplier_summary``);
 single-row corpus stats + drill-downs read the base view directly.
+
+Two registers note above is historical: the HSE/Tusla fact is already concatenated
+into procurement_payments_fact.parquet by the consolidate step, so v_public_payments
+reads that single gold fact.
 
 Build a connection with
 ``dail_tracker_core.db.connect_with_views(["procurement_public_payments.sql"])``.

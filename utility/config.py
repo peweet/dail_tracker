@@ -33,6 +33,13 @@ SILVER_MEMBERS_CSV: dict[str, Path] = {
 
 GOLD_VOTE_HISTORY_PARQUET = GOLD_PARQUET_DIR / "current_dail_vote_history.parquet"
 GOLD_SEANAD_VOTE_HISTORY_PARQUET = GOLD_PARQUET_DIR / "current_seanad_vote_history.parquet"
+# Debates: member-attributed floor speeches (both chambers). Mirrors the root
+# config.py constants — the Streamlit app imports THIS config (utility/ on sys.path),
+# so the speech-view registration in dail_tracker_core.connections needs them here.
+SILVER_SPEECHES_PARQUET = SILVER_PARQUET_DIR / "speeches.parquet"
+# Dual artifact (see root config.py): full = gitignored local/API; committed = lite Cloud slice.
+GOLD_SPEECHES_FACT_FULL_PARQUET = GOLD_PARQUET_DIR / "speeches_fact_full.parquet"
+GOLD_SPEECHES_FACT_PARQUET = GOLD_PARQUET_DIR / "speeches_fact.parquet"
 
 # ── Notable members ─────────────────────────────────────────────────────────────
 # Quick-select sidebar chips on member-level pages.

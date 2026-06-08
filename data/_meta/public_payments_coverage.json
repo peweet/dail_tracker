@@ -1,24 +1,24 @@
 {
-  "publishers_attempted": 29,
-  "publishers_with_rows": 29,
-  "rows_extracted": 74546,
-  "rows_deduped_within_file": 2980,
-  "rows_public_display": 49854,
-  "rows_review_personal_data": 24692,
-  "rows_quarantined": 24692,
+  "publishers_attempted": 31,
+  "publishers_with_rows": 31,
+  "rows_extracted": 71549,
+  "rows_deduped_within_file": 135,
+  "rows_public_display": 47256,
+  "rows_review_personal_data": 24293,
+  "rows_quarantined": 24293,
   "supplier_class_counts": {
-    "company": 40515,
-    "public_body": 2754,
-    "unknown": 5855,
-    "sole_trader_or_individual": 24692,
-    "foreign_company": 730
+    "public_body": 2712,
+    "company": 38489,
+    "unknown": 5346,
+    "foreign_company": 709,
+    "sole_trader_or_individual": 24293
   },
   "amount_semantics_counts": {
-    "po_committed": 32920,
-    "payment_actual": 41626
+    "payment_actual": 38376,
+    "po_committed": 33173
   },
-  "value_safe_to_sum_rows": 71788,
-  "value_safe_to_sum_total_eur": 11464934466.329983,
+  "value_safe_to_sum_rows": 68833,
+  "value_safe_to_sum_total_eur": 11499303437.769981,
   "by_publisher": [
     {
       "id": "ie_opw",
@@ -225,18 +225,6 @@
       "privacy_risk": "medium"
     },
     {
-      "id": "ie_enterprise_ireland",
-      "name": "Enterprise Ireland",
-      "tier": "C",
-      "files_seen": 9,
-      "files_parsed": 9,
-      "files_skipped": 0,
-      "files_with_rows": 9,
-      "rows": 926,
-      "amount_semantics": "po_committed",
-      "privacy_risk": "low"
-    },
-    {
       "id": "ie_ntma",
       "name": "National Treasury Management Agency (NTMA)",
       "tier": "D",
@@ -367,11 +355,47 @@
       "rows": 261,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
+    },
+    {
+      "id": "dept_dper",
+      "name": "Dept of Public Expenditure, Infrastructure, PSR and Digitalisation",
+      "tier": "A",
+      "files_seen": 9,
+      "files_parsed": 9,
+      "files_skipped": 0,
+      "files_with_rows": 8,
+      "rows": 387,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "dept_enterprise",
+      "name": "Department of Enterprise, Tourism and Employment",
+      "tier": "A",
+      "files_seen": 5,
+      "files_parsed": 5,
+      "files_skipped": 0,
+      "files_with_rows": 5,
+      "rows": 164,
+      "amount_semantics": "payment_actual",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "ie_enterprise_ireland",
+      "name": "Enterprise Ireland",
+      "tier": "C",
+      "files_seen": 9,
+      "files_parsed": 9,
+      "files_skipped": 0,
+      "files_with_rows": 9,
+      "rows": 926,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
     }
   ],
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-07T16:46:39+00:00",
-  "caveat": "Public-body PO/payment fact (gold). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
+  "generated_at": "2026-06-08T19:08:25+00:00",
+  "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }

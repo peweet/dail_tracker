@@ -38,11 +38,18 @@ import sys
 import pandas as pd
 
 from config import (
+    GOLD_SPEECHES_FACT_FULL_PARQUET,
     GOLD_SPEECHES_FACT_PARQUET,
     SILVER_PARQUET_DIR,
     SILVER_SPEECHES_PARQUET,
 )
 from services.parquet_io import save_parquet
+
+# Committed-slice policy (see config.GOLD_SPEECHES_FACT_PARQUET): the gitignored
+# full fact carries every year + full text; the committed Cloud slice is capped to
+# recent years and a truncated excerpt so it stays well under GitHub's 100MB limit.
+_COMMITTED_YEAR_FLOOR = 2020
+_EXCERPT_CHARS = 300
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +148,24 @@ def build_speeches_fact(speeches: pd.DataFrame, members: pd.DataFrame) -> pd.Dat
     return out.sort_values(sort_cols, ascending=[False, True, True][: len(sort_cols)]).reset_index(drop=True)
 
 
+def build_committed_slice(fact: pd.DataFrame) -> pd.DataFrame:
+    """The lite, Cloud-committable slice of the full fact.
+
+    Same schema (so views/UI are identical) but capped to recent years and with
+    `speech_text` truncated to an excerpt — speech_text is ~98% of the parquet,
+    so this is what keeps the committed file under GitHub's 100MB limit. Views
+    fall back to this slice only when the full (gitignored) fact is absent
+    (i.e. on a fresh Cloud clone); locally the full fact + full-text search win.
+    """
+    if fact.empty:
+        return fact.copy()
+    lite = fact[pd.to_numeric(fact["year"], errors="coerce") >= _COMMITTED_YEAR_FLOOR].copy()
+    txt = lite["speech_text"].fillna("")
+    truncated = txt.str.len() > _EXCERPT_CHARS
+    lite["speech_text"] = txt.where(~truncated, txt.str.slice(0, _EXCERPT_CHARS).str.rstrip() + "…")
+    return lite
+
+
 def run() -> int:
     if not SILVER_SPEECHES_PARQUET.exists():
         logger.warning("speeches_gold: silver %s missing — run debates.speech_parse first", SILVER_SPEECHES_PARQUET)
@@ -164,8 +189,19 @@ def run() -> int:
         fact["unique_member_code"].nunique(),
         fact["house"].value_counts().to_dict(),
     )
-    save_parquet(fact, GOLD_SPEECHES_FACT_PARQUET)
-    logger.info("speeches_gold: wrote %s (%d rows)", GOLD_SPEECHES_FACT_PARQUET, len(fact))
+    # Full fact (all years, full text) — gitignored; local + API + full-text search.
+    save_parquet(fact, GOLD_SPEECHES_FACT_FULL_PARQUET)
+    logger.info("speeches_gold: wrote FULL %s (%d rows)", GOLD_SPEECHES_FACT_FULL_PARQUET, len(fact))
+    # Lite slice (>= %d, excerpt) — committed for GitHub/Streamlit Cloud.
+    lite = build_committed_slice(fact)
+    save_parquet(lite, GOLD_SPEECHES_FACT_PARQUET)
+    logger.info(
+        "speeches_gold: wrote COMMITTED slice %s (%d rows, >=%d, %d-char excerpt)",
+        GOLD_SPEECHES_FACT_PARQUET,
+        len(lite),
+        _COMMITTED_YEAR_FLOOR,
+        _EXCERPT_CHARS,
+    )
     return len(fact)
 
 

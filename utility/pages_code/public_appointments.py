@@ -2,7 +2,7 @@
 Public Appointments — standalone browser page.
 
 Sources from the registered DuckDB view v_public_appointments
-(sql_views/appointments_public_appointments.sql), which reads
+(sql_views/appointments/appointments_public_appointments.sql), which reads
 data/gold/parquet/public_appointments.parquet — produced by
 public_appointments_enrichment.py (repo root).
 
@@ -946,7 +946,7 @@ def public_appointments_page() -> None:
             "Appointments data unavailable",
             "The view returned no rows. If this persists, check that "
             "data/gold/parquet/public_appointments.parquet is present and that "
-            "sql_views/appointments_public_appointments.sql registered cleanly.",
+            "sql_views/appointments/appointments_public_appointments.sql registered cleanly.",
         )
         return
 

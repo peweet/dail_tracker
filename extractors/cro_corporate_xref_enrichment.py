@@ -7,7 +7,7 @@ assumption was confirmed (usable-name 75.1%, clean 1:1 match 76.4%, ambiguous
 
 Output:
     data/gold/parquet/cro_xref_corporate_notices.parquet
-    PROMOTED — read by sql_views/corporate_cro_match.sql (v_corporate_cro_notice_match),
+    PROMOTED — read by sql_views/corporate/corporate_cro_match.sql (v_corporate_cro_notice_match),
     a display-only registration badge on the Corporate page (status / reg date /
     dissolved date for the wound-up entity named on the notice).
 

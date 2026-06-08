@@ -201,7 +201,13 @@ def competition_fields(n: dict) -> dict:
       * procedure_type: a scalar/first value.
       * n_tenders_received: the MIN tender count across the notice's lots (the least-competitive
         lot) — derived only from TENDER_SUBMISSION_CODES, never from 'part-req'. is_single_bid
-        means a lot received exactly one tender.
+        means that least-competitive lot received exactly one tender. ⚠️ KEPT for backward
+        compatibility, but it OVER-states single-bid for multi-lot notices (a 10-lot notice is
+        flagged single-bid if any ONE lot drew a single bidder). For an honest competition rate
+        use the LOT-LEVEL counts below and aggregate single-bid LOTS / total LOTS, not notices.
+      * n_lots_with_bidcount / n_single_bid_lots: the per-lot truth — how many of the notice's
+        lots reported a tender count, and how many of those had exactly one bidder. Summing these
+        across a buyer gives the real single-bid rate (each contract part counted once).
       * award_criteria_kind: the distinct price/cost/quality types used; is_price_only flags a
         lowest-price-only award (no quality criterion). All neutral facts, never verdicts.
     """
@@ -227,6 +233,9 @@ def competition_fields(n: dict) -> dict:
         "is_uncompetitive_procedure": (proc in UNCOMPETITIVE_PROCEDURES) if proc else None,
         "n_tenders_received": n_tenders,
         "is_single_bid": (n_tenders == 1) if n_tenders is not None else None,
+        # lot-level competition truth (count each contract part once, not the whole notice)
+        "n_lots_with_bidcount": len(tender_counts) if tender_counts else None,
+        "n_single_bid_lots": sum(1 for t in tender_counts if t == 1) if tender_counts else None,
         "award_criteria_kind": "+".join(crit_set) if crit_set else None,
         "is_price_only": (crit_set == ["price"]) if crit_set else None,
     }
