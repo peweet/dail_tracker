@@ -200,6 +200,42 @@ def test_gold_items_exclude_suspect_costs():
     assert df["cost_eur"].max() <= STATUTORY_MAX_EUR
 
 
+# ── roster_join: candidate -> sitting-TD linkage (pure, synthetic frames) ────
+
+
+def test_roster_join_links_elected_and_keeps_unmatched():
+    import polars as pl
+
+    sys.path.insert(0, str(_ROOT / "extractors"))
+    from sipo_candidate_expenses_aggregate import roster_join
+
+    head = pl.DataFrame({
+        "candidate_name": ["Grealish, Noel", "Codd, Jim", "Nobody, Random"],
+        "party": ["Non-Party", None, "Aontú"],          # OCR-declared canonical (Codd unknown)
+    })
+    members = pl.DataFrame({
+        "full_name": ["Noel Grealish", "Jim Codd"],
+        "unique_member_code": ["Noel-Grealish.D.2002-06-06", "Jim-Codd.D.2024-11-29"],
+        "member_party": ["Independent", "Aontú"],         # registry is authoritative
+    })
+    out = roster_join(head, members).sort("candidate_name")
+    by_name = {r["candidate_name"]: r for r in out.iter_rows(named=True)}
+
+    # elected: gets the member code + is_elected_td, and registry party (canonicalised:
+    # 'Independent' -> 'Non-Party') fills the unknown OCR party for Codd.
+    assert by_name["Codd, Jim"]["unique_member_code"] == "Jim-Codd.D.2024-11-29"
+    assert by_name["Codd, Jim"]["is_elected_td"] is True
+    assert by_name["Codd, Jim"]["party"] == "Aontú"
+    assert by_name["Grealish, Noel"]["unique_member_code"] == "Noel-Grealish.D.2002-06-06"
+    assert by_name["Grealish, Noel"]["party"] == "Non-Party"   # 'Independent' canon -> Non-Party
+    # unmatched: no code, keeps its declared party (never guessed)
+    assert by_name["Nobody, Random"]["unique_member_code"] is None
+    assert by_name["Nobody, Random"]["is_elected_td"] is False
+    assert by_name["Nobody, Random"]["party"] == "Aontú"
+    # 1:1 — no row explosion
+    assert out.height == 3
+
+
 # ── SQL views execute against real gold (registration smoke test) ────────────
 
 _VIEW_SQL = _ROOT / "sql_views/sipo/sipo_candidate_expenses.sql"

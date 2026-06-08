@@ -106,3 +106,89 @@ def party_candidates(conn: duckdb.DuckDBPyConnection, party: str) -> QueryResult
         " ORDER BY (flag = 'over_limit_verify'), expenditure_eur DESC",
         [party],
     )
+
+
+# ── Per-candidate election expenses (granular GE2024 tier) ──────────────────────
+# Reads the v_sipo_candidate_* views (extractors/sipo_candidate_expenses_*). Each
+# query just SELECTs a view — no aggregation here (rollups live in the views).
+
+
+def candidate_totals(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """One-row headline across all candidates currently loaded (OCR is incremental)."""
+    return _run(
+        conn,
+        "SELECT COUNT(*) AS candidate_count, SUM(total_spend_eur) AS total_spend,"
+        " MEDIAN(total_spend_eur) AS median_spend,"
+        " COUNT(unique_member_code) AS elected_count,"
+        " COUNT(DISTINCT constituency_name) AS constituencies,"
+        " SUM(CASE WHEN needs_verify THEN 1 ELSE 0 END) AS verify_count"
+        " FROM v_sipo_candidate_expenses",
+    )
+
+
+def candidate_ranked(conn: duckdb.DuckDBPyConnection, limit: int = 300) -> QueryResult:
+    """Candidates ranked by total spend — the primary league table."""
+    return _run(
+        conn,
+        "SELECT candidate_name, constituency_name, party, unique_member_code,"
+        " is_elected_td, total_spend_eur, needs_verify, source_pdf_url"
+        " FROM v_sipo_candidate_expenses"
+        " WHERE total_spend_eur IS NOT NULL"
+        " ORDER BY total_spend_eur DESC"
+        " LIMIT ?",
+        [limit],
+    )
+
+
+def candidate_by_party(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """One row per (canonical) party — candidate count + spend rollup."""
+    return _run(
+        conn,
+        "SELECT party, candidate_count, total_spend, mean_spend, median_spend,"
+        " max_spend, verify_count"
+        " FROM v_sipo_candidate_expenses_by_party"
+        " ORDER BY total_spend DESC",
+    )
+
+
+def candidate_by_category(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """The 8 statutory categories (5A–5H) with total spend across all candidates."""
+    return _run(
+        conn,
+        "SELECT category, category_label, total_spend, item_count, candidate_count"
+        " FROM v_sipo_candidate_expenses_by_category"
+        " ORDER BY category",
+    )
+
+
+def candidate_top_details(conn: duckdb.DuckDBPyConnection, limit: int = 25) -> QueryResult:
+    """Top spend 'detail' lines — a MIX of suppliers + item descriptions (not a vendor list)."""
+    return _run(
+        conn,
+        "SELECT detail, total_spend, item_count, candidate_count"
+        " FROM v_sipo_candidate_top_details"
+        " ORDER BY total_spend DESC"
+        " LIMIT ?",
+        [limit],
+    )
+
+
+def candidate_line_items(conn: duckdb.DuckDBPyConnection, candidate_name: str) -> QueryResult:
+    """One candidate's Part-5 line items — Ref, category, detail, cost (the drill-down)."""
+    return _run(
+        conn,
+        "SELECT category, category_label, ref, detail, cost_eur, item_confidence"
+        " FROM v_sipo_candidate_expense_items"
+        " WHERE candidate_name = ?"
+        " ORDER BY cost_eur DESC",
+        [candidate_name],
+    )
+
+
+def candidate_one(conn: duckdb.DuckDBPyConnection, candidate_name: str) -> QueryResult:
+    """One candidate's headline row (totals + category grid + verify/provenance)."""
+    return _run(
+        conn,
+        "SELECT * FROM v_sipo_candidate_expenses WHERE candidate_name = ? LIMIT 1",
+        [candidate_name],
+    )
