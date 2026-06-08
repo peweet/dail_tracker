@@ -32,6 +32,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 import config  # noqa: E402
+from services.parquet_io import save_parquet  # noqa: E402
 
 # medallion: raw PDFs -> bronze; reconciled conformed fact -> silver. (Gold = SQL views.)
 CACHE = config.BRONZE_PDF_DIR / "afs"
@@ -89,6 +90,7 @@ def download(year: int, url: str) -> Path | None:
     CACHE.mkdir(parents=True, exist_ok=True)
     try:
         import requests
+
         b = requests.get(url, headers=H, timeout=120).content
         if b[:4] != b"%PDF":
             raise ValueError("not pdf")
@@ -96,8 +98,11 @@ def download(year: int, url: str) -> Path | None:
         return dest
     except Exception:
         with contextlib.suppress(Exception):
-            subprocess.run(["curl", "-sS", "-L", "--max-time", "120", "-A", H["User-Agent"],
-                            "-o", str(dest), url], timeout=150, check=False)
+            subprocess.run(
+                ["curl", "-sS", "-L", "--max-time", "120", "-A", H["User-Agent"], "-o", str(dest), url],
+                timeout=150,
+                check=False,
+            )
             if dest.exists() and dest.read_bytes()[:4] == b"%PDF":
                 return dest
     return None
@@ -124,7 +129,7 @@ def parse_ie(page_text: str) -> tuple[dict[str, list[float]], tuple[float, float
         # printed total line (for reconciliation) — skip the note-ref column ("16"),
         # the real totals are the large (>€1m) figures that follow.
         if total is None and ("total expenditure" in low or "total income" in low):
-            nums = [to_num(x) for x in lines[i + 1:i + 6] if NUM.match(x) and to_num(x) > 1_000_000]
+            nums = [to_num(x) for x in lines[i + 1 : i + 6] if NUM.match(x) and to_num(x) > 1_000_000]
             if len(nums) >= 2:
                 total = (nums[0], nums[1])
         if len(ln) > 55:
@@ -170,24 +175,38 @@ def main() -> None:
         recon = "n/a"
         if total:
             diff = abs(gross_sum - total[0])
-            recon = "EXACT" if diff <= 2 else (f"≈ M-rounded (€{diff:,.0f})" if diff < 100_000 else f"diff €{diff:,.0f}")
+            recon = (
+                "EXACT" if diff <= 2 else (f"≈ M-rounded (€{diff:,.0f})" if diff < 100_000 else f"diff €{diff:,.0f}")
+            )
         for canon, v in ie.items():
-            all_rows.append({"year": year, "division": canon, "gross_expenditure": v[0],
-                             "income": v[1], "net_expenditure": v[2], "net_expenditure_prior_yr": v[3]})
+            all_rows.append(
+                {
+                    "year": year,
+                    "division": canon,
+                    "gross_expenditure": v[0],
+                    "income": v[1],
+                    "net_expenditure": v[2],
+                    "net_expenditure_prior_yr": v[3],
+                }
+            )
         dq.append((year, "OK" if len(ie) == 8 else f"{len(ie)}/8", len(ie), gross_sum, recon))
         print(f"  {year}: p{pg}  divisions {len(ie)}/8  Σgross €{gross_sum / 1e9:,.2f}bn  recon={recon}")
 
     if not all_rows:
         print("\nnothing extracted.")
         return
-    df = pl.DataFrame(all_rows).with_columns(
-        pl.lit("all-31-LAs (amalgamated)").alias("scope"),
-        pl.lit("SPENT").alias("realisation_tier"),
-        pl.lit("net_expenditure_actual").alias("value_kind"),
-        pl.lit("Dept Housing amalgamated AFS (gov.ie), audited").alias("source"),
-    ).sort(["year", "division"])
+    df = (
+        pl.DataFrame(all_rows)
+        .with_columns(
+            pl.lit("all-31-LAs (amalgamated)").alias("scope"),
+            pl.lit("SPENT").alias("realisation_tier"),
+            pl.lit("net_expenditure_actual").alias("value_kind"),
+            pl.lit("Dept Housing amalgamated AFS (gov.ie), audited").alias("source"),
+        )
+        .sort(["year", "division"])
+    )
     OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, OUT_PARQUET)
     with contextlib.suppress(Exception):  # debug CSV; c:/tmp may not exist headless
         OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
         df.write_csv(OUT_CSV)
@@ -201,10 +220,16 @@ def main() -> None:
     print(f"  rows: {df.height} ({df['year'].n_unique()} years × ~8 divisions)")
 
     hr("WHAT THE FULL SERIES SHOWS — net expenditure by division (€bn)")
-    piv = (df.filter(pl.col("net_expenditure").is_not_null())
-           .with_columns((pl.col("net_expenditure") / 1e9).round(2).alias("net_bn"))
-           .pivot(values="net_bn", index="division", on="year", aggregate_function="first"))
-    show = [c for c in piv.columns if c == "division" or c in {str(y) for y in (2014, 2017, 2020, 2023)} or c in (2014, 2017, 2020, 2023)]
+    piv = (
+        df.filter(pl.col("net_expenditure").is_not_null())
+        .with_columns((pl.col("net_expenditure") / 1e9).round(2).alias("net_bn"))
+        .pivot(values="net_bn", index="division", on="year", aggregate_function="first")
+    )
+    show = [
+        c
+        for c in piv.columns
+        if c == "division" or c in {str(y) for y in (2014, 2017, 2020, 2023)} or c in (2014, 2017, 2020, 2023)
+    ]
     with pl.Config(tbl_rows=10, tbl_cols=12, fmt_str_lengths=42):
         print(piv.select(show) if len(show) > 1 else piv)
 

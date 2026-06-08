@@ -38,13 +38,16 @@ import json
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
 from bs4 import BeautifulSoup
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
@@ -90,7 +93,7 @@ def fetch(cat: int, *, offline: bool, refresh: bool) -> tuple[str, dict]:
     txt = r.text
     meta = {
         "url": url,
-        "retrieved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "retrieved_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "status_code": r.status_code,
         "content_type": r.headers.get("content-type", ""),
         "sha256": hashlib.sha256(txt.encode("utf-8")).hexdigest(),
@@ -206,7 +209,7 @@ def main() -> None:
         .otherwise(None)
         .alias("si_number_year")
     )
-    df.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, OUT_PARQUET)
 
     hr("Summary")
     print(f"total SI entry rows (occurrences): {df.height}")

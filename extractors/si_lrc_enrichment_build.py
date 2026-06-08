@@ -33,6 +33,9 @@ from pathlib import Path
 import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
@@ -56,16 +59,12 @@ CAVEAT = (
 
 
 def build() -> pl.DataFrame:
-    lrc = pl.read_parquet(LRC).filter(
-        pl.col("si_number").is_not_null() & pl.col("si_year").is_not_null()
-    )
+    lrc = pl.read_parquet(LRC).filter(pl.col("si_number").is_not_null() & pl.col("si_year").is_not_null())
     # collapse exact-duplicate occurrences (same SI + subject + path)
     lrc = lrc.unique(subset=["si_year", "si_number", "lrc_subject_heading", "lrc_subheading_path_num"])
 
     # rank leaves so a specific leaf beats a catch-all when picking "primary"
-    lrc = lrc.with_columns(
-        pl.col("lrc_subheading_leaf").is_in(list(CATCH_ALL_LEAVES)).alias("_is_catch_all")
-    )
+    lrc = lrc.with_columns(pl.col("lrc_subheading_leaf").is_in(list(CATCH_ALL_LEAVES)).alias("_is_catch_all"))
     by_si = (
         lrc.sort(["_is_catch_all", "lrc_subheading_path_num"])  # specific leaves first
         .group_by("si_year", "si_number")
@@ -82,9 +81,7 @@ def build() -> pl.DataFrame:
         .with_columns(pl.col("lrc_subjects").list.len().alias("lrc_n_subjects"))
     )
 
-    gold = pl.read_parquet(GOLD).select(
-        "si_year", "si_number", "si_title", "si_policy_domain", "eisb_url"
-    )
+    gold = pl.read_parquet(GOLD).select("si_year", "si_number", "si_title", "si_policy_domain", "eisb_url")
     summary = gold.join(by_si, on=["si_year", "si_number"], how="left")
 
     matched = pl.col("lrc_subjects").is_not_null()
@@ -108,7 +105,7 @@ def build() -> pl.DataFrame:
 def main() -> None:
     df = build()
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(OUT, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, OUT)
 
     matched = df.filter(pl.col("has_lrc_classified_list_match"))
     cov = {
@@ -130,11 +127,7 @@ def main() -> None:
     print(f"wrote {OUT.relative_to(ROOT)}  rows={df.height}")
     print(json.dumps(cov, indent=2, ensure_ascii=False))
     print("\nsample matched rows:")
-    print(
-        matched.select(
-            "si_number_year", "lrc_primary_subject", "lrc_primary_leaf", "lrc_enrichment_status"
-        ).head(6)
-    )
+    print(matched.select("si_number_year", "lrc_primary_subject", "lrc_primary_leaf", "lrc_enrichment_status").head(6))
 
 
 if __name__ == "__main__":

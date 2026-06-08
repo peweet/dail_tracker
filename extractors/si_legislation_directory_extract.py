@@ -44,6 +44,9 @@ import requests
 from bs4 import BeautifulSoup
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
@@ -126,7 +129,7 @@ def derive_state(how: str) -> str:
     # iterate over "revoked"/"amended" occurrences, check what precedes each
     for m in re.finditer(r"\b(revoked|amended)\b", low):
         verb = m.group(1)
-        pre = low[max(0, m.start() - 18):m.start()]
+        pre = low[max(0, m.start() - 18) : m.start()]
         scoped = bool(PROVISION_MARKER.search(pre))
         if verb == "revoked":
             if scoped:
@@ -162,7 +165,7 @@ def affecting_sis(*texts: str) -> list[str]:
     for t in texts:
         for n, y in SI_CITE.findall(t or ""):
             found.add(f"{int(n)}/{int(y)}")
-    return sorted(found, key=lambda s: (int(s.split('/')[1]), int(s.split('/')[0])))
+    return sorted(found, key=lambda s: (int(s.split("/")[1]), int(s.split("/")[0])))
 
 
 def eli_url(si_year: int, si_number: int) -> str:
@@ -195,21 +198,23 @@ def parse_table(html: str, year: int, src_url: str, updated_to: str | None) -> l
             affecting = cells[3] if len(cells) > 3 else ""
             state = derive_state(how)
             aff = affecting_sis(how, affecting)
-            out.append({
-                "si_id": f"{year}-{si_no:03d}",
-                "si_year": year,
-                "si_number": si_no,
-                "directory_title": title[:160],
-                "current_state": state,
-                "affecting_sis": aff,
-                "affecting_si_urls": affecting_urls(aff),   # confirm: read the revoking/amending SI
-                "this_si_eli_url": eli_url(year, si_no),     # confirm: this SI's own made text
-                "how_affected_raw": (how + (" || " + affecting if affecting else ""))[:500],
-                "state_source": "eISB Legislation Directory",
-                "state_source_url": src_url,                 # confirm: the directory row itself
-                "directory_updated_to": updated_to,
-                "confidence": confidence_for(state, how),
-            })
+            out.append(
+                {
+                    "si_id": f"{year}-{si_no:03d}",
+                    "si_year": year,
+                    "si_number": si_no,
+                    "directory_title": title[:160],
+                    "current_state": state,
+                    "affecting_sis": aff,
+                    "affecting_si_urls": affecting_urls(aff),  # confirm: read the revoking/amending SI
+                    "this_si_eli_url": eli_url(year, si_no),  # confirm: this SI's own made text
+                    "how_affected_raw": (how + (" || " + affecting if affecting else ""))[:500],
+                    "state_source": "eISB Legislation Directory",
+                    "state_source_url": src_url,  # confirm: the directory row itself
+                    "directory_updated_to": updated_to,
+                    "confidence": confidence_for(state, how),
+                }
+            )
     return out
 
 
@@ -300,10 +305,9 @@ def main() -> None:
     new_df = pl.DataFrame(rows).unique(subset=["si_year", "si_number"], keep="first") if rows else pl.DataFrame()
     df = _merge_years(new_df, crawl_years)
     OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, OUT_PARQUET)
     hr("WROTE PARQUET (merged)")
-    print(f"{OUT_PARQUET}  ({df.height:,} rows; crawled {len(crawl_years)} year(s), "
-          f"{new_df.height:,} rows refreshed)")
+    print(f"{OUT_PARQUET}  ({df.height:,} rows; crawled {len(crawl_years)} year(s), {new_df.height:,} rows refreshed)")
 
     hr("STATE DISTRIBUTION (all years)")
     print(df.group_by("current_state").len().sort("len", descending=True))
@@ -322,8 +326,9 @@ def main() -> None:
         .sort("si_year")
     )
     print(by_year)
-    not_made = j.filter(pl.col("current_state").is_in(
-        ["revoked", "partially_revoked", "amended", "amended_and_partially_revoked"])).height
+    not_made = j.filter(
+        pl.col("current_state").is_in(["revoked", "partially_revoked", "amended", "amended_and_partially_revoked"])
+    ).height
     print(f"gold SIs with a non-'made' legal state: {not_made:,}  ({not_made / g.height:.1%})")
 
     # ---- coverage JSON ---------------------------------------------------
@@ -340,13 +345,15 @@ def main() -> None:
         "last_crawled_years": crawl_years,
         "directory_pages_updated_to": merged_updated,
         "rows": df.height,
-        "state_distribution": {r["current_state"]: r["len"] for r in df.group_by("current_state").len().iter_rows(named=True)},
+        "state_distribution": {
+            r["current_state"]: r["len"] for r in df.group_by("current_state").len().iter_rows(named=True)
+        },
         "gold_si_count": g.height,
         "gold_join_coverage_pct": round(100 * matched / g.height, 2),
         "gold_with_non_made_state": not_made,
         "source": "eISB Legislation Directory chronological tables (isbc/siYYYY_*.html)",
         "caveat": "Discovery/indexing only — verify the official eISB entry before legal reliance. "
-                  "Whole vs provision-level revocation is heuristic from the 'How Affected' column.",
+        "Whole vs provision-level revocation is heuristic from the 'How Affected' column.",
     }
     OUT_COVERAGE.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(f"\nwrote coverage: {OUT_COVERAGE}")

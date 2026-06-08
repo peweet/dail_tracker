@@ -44,6 +44,8 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -127,7 +129,7 @@ def main() -> None:
     )
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    overlap.write_parquet(OUT, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(overlap, OUT)
 
     proc_retrieved = None
     if PROC_COV.exists():
@@ -144,9 +146,9 @@ def main() -> None:
                 "procurement_retrieved_utc": proc_retrieved,
                 "sources": SOURCES,
                 "caveat": "Co-occurrence by ENTITY only: a company appears on BOTH the procurement and "
-                          "lobbying registers. NOT evidence that lobbying influenced any contract -- there "
-                          "is no shared key linking a specific lobby to a specific award. Exact-name match "
-                          "undercounts (subsidiary/trading-name variants are missed).",
+                "lobbying registers. NOT evidence that lobbying influenced any contract -- there "
+                "is no shared key linking a specific lobby to a specific award. Exact-name match "
+                "undercounts (subsidiary/trading-name variants are missed).",
             },
             indent=2,
         ),
