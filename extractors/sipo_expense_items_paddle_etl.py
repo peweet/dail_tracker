@@ -39,6 +39,9 @@ import fitz  # PyMuPDF
 import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
@@ -113,9 +116,7 @@ def ocr_page(ocr, page, tmp_png: Path, dpi: int = DPI) -> tuple[list[dict], int]
         boxes = d.get("rec_boxes")
         boxes = boxes.tolist() if hasattr(boxes, "tolist") else (boxes or [])
         for t, s, b in zip(texts, scores, boxes):
-            cells.append(
-                {"text": t, "score": float(s), "x0": b[0], "y0": b[1], "x1": b[2], "y1": b[3]}
-            )
+            cells.append({"text": t, "score": float(s), "x0": b[0], "y0": b[1], "x1": b[2], "y1": b[3]})
     return cells, pix.width
 
 
@@ -157,7 +158,7 @@ def parse_item_row(row, width) -> dict | None:
     if ref_cell is None:
         return None
     money = rightmost_money(row, width)
-    cost_cell, cost = (money if money else (None, None))
+    cost_cell, cost = money if money else (None, None)
     item_cells = [
         c["text"]
         for c in row
@@ -233,9 +234,7 @@ def process_party(ocr, key, pdf_path, party):
             continue
         # retry ladder: 2x@300 (transient segfaults), then 1x@200, then skip
         tries = json.loads(attempt.read_text(encoding="utf-8"))["tries"] if attempt.exists() else []
-        if not tries:
-            dpi = 300
-        elif tries == [300]:
+        if not tries or tries == [300]:
             dpi = 300
         elif tries == [300, 300]:
             dpi = 200
@@ -249,9 +248,7 @@ def process_party(ocr, key, pdf_path, party):
         cells, width = ocr_page(ocr, page, tmp_png, dpi)
         rows = cluster_rows(cells, y_tol)
         blob = " ".join(c["text"].lower() for c in cells)
-        is_summary = "expenses review" in blob or (
-            sum(1 for r in rows if parse_summary_row(r, width)) >= 5
-        )
+        is_summary = "expenses review" in blob or (sum(1 for r in rows if parse_summary_row(r, width)) >= 5)
         page_items: list[dict] = []
         page_cats: list[dict] = []
         for r in rows:
@@ -262,9 +259,7 @@ def process_party(ocr, key, pdf_path, party):
             it = parse_item_row(r, width)
             if it and (it["cost_eur"] is not None or it["item_description"]):
                 page_items.append({"party": party, **it, "source_pdf": pdf_path.name, "source_page": pno})
-        done.write_text(
-            json.dumps({"failed": False, "items": page_items, "cats": page_cats}), encoding="utf-8"
-        )
+        done.write_text(json.dumps({"failed": False, "items": page_items, "cats": page_cats}), encoding="utf-8")
         attempt.unlink(missing_ok=True)
         items += page_items
         cats += page_cats
@@ -282,13 +277,9 @@ def process_party(ocr, key, pdf_path, party):
     for c in cats:
         c["party"] = party
         if c["is_overall"]:
-            c["items_sum_eur"] = round(
-                sum(i["cost_eur"] or 0 for i in items), 2
-            )
+            c["items_sum_eur"] = round(sum(i["cost_eur"] or 0 for i in items), 2)
         else:
-            c["items_sum_eur"] = round(
-                sum(i["cost_eur"] or 0 for i in items if i["section"] == c["section"]), 2
-            )
+            c["items_sum_eur"] = round(sum(i["cost_eur"] or 0 for i in items if i["section"] == c["section"]), 2)
         tot = c["category_total_eur"]
         c["reconciles"] = bool(tot and abs(c["items_sum_eur"] - tot) <= max(1.0, tot * 0.01))
 
@@ -318,20 +309,11 @@ def main() -> None:
             continue
         items_df, cats_df = process_party(ocr, key, pdf_path, party)
         if items_df.height:
-            items_df.sort(["section", "ref"]).write_parquet(
-                BY_PARTY_DIR / f"{key}_items.parquet",
-                compression="zstd", compression_level=3, statistics=True,
-            )
+            save_parquet(items_df.sort(["section", "ref"]), BY_PARTY_DIR / f"{key}_items.parquet")
         if cats_df.height:
-            cats_df.write_parquet(
-                BY_PARTY_DIR / f"{key}_categories.parquet",
-                compression="zstd", compression_level=3, statistics=True,
-            )
+            save_parquet(cats_df, BY_PARTY_DIR / f"{key}_categories.parquet")
         n_cost = items_df.filter(pl.col("cost_eur").is_not_null()).height if items_df.height else 0
-        tot = (
-            cats_df.filter(pl.col("is_overall"))["category_total_eur"].sum()
-            if cats_df.height else 0
-        )
+        tot = cats_df.filter(pl.col("is_overall"))["category_total_eur"].sum() if cats_df.height else 0
         print(
             f"  {party}: {items_df.height} line items ({n_cost} with cost), "
             f"{cats_df.height} category rows, overall total €{tot:,.2f}"
@@ -346,16 +328,20 @@ def main() -> None:
     cat_parts = [pl.read_parquet(p) for p in sorted(BY_PARTY_DIR.glob("*_categories.parquet"))]
     if item_parts:
         combined = pl.concat(item_parts, how="vertical_relaxed").sort(["party", "section", "ref"])
-        combined.write_parquet(ITEMS_PARQUET, compression="zstd", compression_level=3, statistics=True)
+        save_parquet(combined, ITEMS_PARQUET)
         hr("COMBINED LINE ITEMS")
-        print(combined.group_by("party").agg(
-            pl.len().alias("items"),
-            pl.col("cost_eur").sum().alias("sum_eur"),
-        ).sort("party"))
+        print(
+            combined.group_by("party")
+            .agg(
+                pl.len().alias("items"),
+                pl.col("cost_eur").sum().alias("sum_eur"),
+            )
+            .sort("party")
+        )
         print(f"wrote {ITEMS_PARQUET.relative_to(ROOT)} ({combined.height} rows)")
     if cat_parts:
         combined_c = pl.concat(cat_parts, how="vertical_relaxed").sort(["party", "section"])
-        combined_c.write_parquet(CATS_PARQUET, compression="zstd", compression_level=3, statistics=True)
+        save_parquet(combined_c, CATS_PARQUET)
         print(f"wrote {CATS_PARQUET.relative_to(ROOT)} ({combined_c.height} rows)")
 
 

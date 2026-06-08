@@ -37,6 +37,9 @@ from pathlib import Path
 import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -54,13 +57,18 @@ def load_cro_map() -> pl.DataFrame:
     (dissolved+active duplicates) are dropped — a wrong merge is worse than a missed one.
     Relies on shared.name_norm.name_norm_expr dropping both '&' and the word 'and' so "X & Y" /
     "X And Y" already collapse before this join (the register's name_norm uses the SAME rule)."""
-    cro = (pl.read_parquet(CRO_REGISTER)
-           .select(["name_norm", "company_num", "company_status"])
-           .filter(pl.col("name_norm").is_not_null() & (pl.col("name_norm").str.len_chars() >= 4)))
+    cro = (
+        pl.read_parquet(CRO_REGISTER)
+        .select(["name_norm", "company_num", "company_status"])
+        .filter(pl.col("name_norm").is_not_null() & (pl.col("name_norm").str.len_chars() >= 4))
+    )
     counts = cro.group_by("name_norm").agg(pl.col("company_num").n_unique().alias("n"))
     unique_names = counts.filter(pl.col("n") == 1).select("name_norm")
-    return (cro.join(unique_names, on="name_norm", how="inner")
-            .unique("name_norm").select(["name_norm", "company_num", "company_status"]))
+    return (
+        cro.join(unique_names, on="name_norm", how="inner")
+        .unique("name_norm")
+        .select(["name_norm", "company_num", "company_status"])
+    )
 
 
 def attach_cro(df: pl.DataFrame, norm_col: str, cro_map: pl.DataFrame) -> pl.DataFrame:
@@ -84,14 +92,21 @@ def load_spend(cro_map: pl.DataFrame) -> pl.DataFrame:
         fp = ROOT / f"data/sandbox/parquet/{p}.parquet"
         if fp.exists():
             d = pl.read_parquet(fp)
-            keep = ["supplier_normalised", "supplier_raw", "supplier_class", "amount_eur",
-                    "value_safe_to_sum", "extraction_confidence", "publisher_id"]
+            keep = [
+                "supplier_normalised",
+                "supplier_raw",
+                "supplier_class",
+                "amount_eur",
+                "value_safe_to_sum",
+                "extraction_confidence",
+                "publisher_id",
+            ]
             parts.append(d.select([c for c in keep if c in d.columns]))
     pay = pl.concat(parts, how="vertical_relaxed")
     clean = pay.filter(
         pl.col("value_safe_to_sum")
-        & (pl.col("supplier_class") != "public_body")          # councils / inter-gov transfers
-        & (pl.col("extraction_confidence") != "low")           # blank-supplier flagged rows
+        & (pl.col("supplier_class") != "public_body")  # councils / inter-gov transfers
+        & (pl.col("extraction_confidence") != "low")  # blank-supplier flagged rows
         & pl.col("supplier_normalised").is_not_null()
         & (pl.col("supplier_normalised").str.strip_chars() != "")
     )
@@ -140,47 +155,77 @@ def main() -> None:
     print(f"CRO exact-unique name->company map: {cro_map.height:,} names")
     print(f"entities — spend {spend.height:,} | eTenders {et.height:,} | TED {ted.height:,}")
 
-    link = (spend.join(et, on="entity", how="full", coalesce=True)
-            .join(ted, on="entity", how="full", coalesce=True))
-    link = link.with_columns([
-        pl.col("realised_spend_eur").fill_null(0.0),
-        pl.col("etenders_award_eur").fill_null(0.0),
-        pl.col("ted_award_eur").fill_null(0.0),
-        (pl.col("spend_rows").fill_null(0) > 0).alias("in_spend"),
-        (pl.col("etenders_awards").fill_null(0) > 0).alias("in_etenders"),
-        (pl.col("ted_awards").fill_null(0) > 0).alias("in_ted"),
-        pl.coalesce(["spend_name", "etenders_name", "ted_name"]).alias("supplier_name"),
-        pl.col("entity").str.starts_with("CRO:").alias("keyed_by_cro"),
-    ]).with_columns(
-        (pl.col("etenders_award_eur") + pl.col("ted_award_eur")).alias("total_award_eur"),
-    ).with_columns(
-        (pl.col("in_spend") & (pl.col("in_etenders") | pl.col("in_ted"))).alias("award_and_spend"),
-        # realised/award ratio — only meaningful when both sides present and award>0
-        pl.when((pl.col("total_award_eur") > 0) & (pl.col("realised_spend_eur") > 0))
-        .then(pl.col("realised_spend_eur") / pl.col("total_award_eur"))
-        .otherwise(None).alias("spend_to_award_ratio"),
+    link = spend.join(et, on="entity", how="full", coalesce=True).join(ted, on="entity", how="full", coalesce=True)
+    link = (
+        link.with_columns(
+            [
+                pl.col("realised_spend_eur").fill_null(0.0),
+                pl.col("etenders_award_eur").fill_null(0.0),
+                pl.col("ted_award_eur").fill_null(0.0),
+                (pl.col("spend_rows").fill_null(0) > 0).alias("in_spend"),
+                (pl.col("etenders_awards").fill_null(0) > 0).alias("in_etenders"),
+                (pl.col("ted_awards").fill_null(0) > 0).alias("in_ted"),
+                pl.coalesce(["spend_name", "etenders_name", "ted_name"]).alias("supplier_name"),
+                pl.col("entity").str.starts_with("CRO:").alias("keyed_by_cro"),
+            ]
+        )
+        .with_columns(
+            (pl.col("etenders_award_eur") + pl.col("ted_award_eur")).alias("total_award_eur"),
+        )
+        .with_columns(
+            (pl.col("in_spend") & (pl.col("in_etenders") | pl.col("in_ted"))).alias("award_and_spend"),
+            # realised/award ratio — only meaningful when both sides present and award>0
+            pl.when((pl.col("total_award_eur") > 0) & (pl.col("realised_spend_eur") > 0))
+            .then(pl.col("realised_spend_eur") / pl.col("total_award_eur"))
+            .otherwise(None)
+            .alias("spend_to_award_ratio"),
+        )
     )
 
-    cols = ["entity", "supplier_name", "company_num", "company_status", "keyed_by_cro",
-            "in_spend", "in_etenders", "in_ted", "award_and_spend",
-            "realised_spend_eur", "total_award_eur", "etenders_award_eur", "ted_award_eur",
-            "spend_to_award_ratio", "spend_rows", "n_spend_publishers", "etenders_awards", "ted_awards",
-            "spend_norm"]
+    cols = [
+        "entity",
+        "supplier_name",
+        "company_num",
+        "company_status",
+        "keyed_by_cro",
+        "in_spend",
+        "in_etenders",
+        "in_ted",
+        "award_and_spend",
+        "realised_spend_eur",
+        "total_award_eur",
+        "etenders_award_eur",
+        "ted_award_eur",
+        "spend_to_award_ratio",
+        "spend_rows",
+        "n_spend_publishers",
+        "etenders_awards",
+        "ted_awards",
+        "spend_norm",
+    ]
     link = link.select([c for c in cols if c in link.columns]).sort("realised_spend_eur", descending=True)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    link.write_parquet(OUT, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(link, OUT)
 
     both = link.filter(pl.col("award_and_spend"))
     spend_only = link.filter(pl.col("in_spend") & ~pl.col("in_etenders") & ~pl.col("in_ted"))
     print(f"\nentities total: {link.height:,}")
-    print(f"  in spend: {int(link['in_spend'].sum()):,} | in eTenders: {int(link['in_etenders'].sum()):,} | in TED: {int(link['in_ted'].sum()):,}")
-    print(f"  AWARD+SPEND (linkable): {both.height:,}  -> realised €{both['realised_spend_eur'].sum():,.0f} vs awards €{both['total_award_eur'].sum():,.0f}")
-    print(f"  spend-only (no award, sub-threshold long tail): {spend_only.height:,} -> €{spend_only['realised_spend_eur'].sum():,.0f}")
+    print(
+        f"  in spend: {int(link['in_spend'].sum()):,} | in eTenders: {int(link['in_etenders'].sum()):,} | in TED: {int(link['in_ted'].sum()):,}"
+    )
+    print(
+        f"  AWARD+SPEND (linkable): {both.height:,}  -> realised €{both['realised_spend_eur'].sum():,.0f} vs awards €{both['total_award_eur'].sum():,.0f}"
+    )
+    print(
+        f"  spend-only (no award, sub-threshold long tail): {spend_only.height:,} -> €{spend_only['realised_spend_eur'].sum():,.0f}"
+    )
     print(f"  keyed by CRO number: {int(link['keyed_by_cro'].sum()):,} / {link.height:,}")
     print("\nTop award+spend suppliers (realised vs awarded):")
     for r in both.head(10).iter_rows(named=True):
-        print(f"  {str(r['supplier_name'])[:34]:<34} spend €{r['realised_spend_eur']:>13,.0f} | award €{r['total_award_eur']:>13,.0f} | x{r['spend_to_award_ratio'] or 0:.2f}")
+        print(
+            f"  {str(r['supplier_name'])[:34]:<34} spend €{r['realised_spend_eur']:>13,.0f} | award €{r['total_award_eur']:>13,.0f} | x{r['spend_to_award_ratio'] or 0:.2f}"
+        )
 
     summary = {
         "entities_total": link.height,
@@ -196,10 +241,10 @@ def main() -> None:
         "clean_spend_total_eur": float(link["realised_spend_eur"].sum()),
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "Award value and realised spend are DIFFERENT lifecycle stages (ceiling vs paid) — "
-                  "NEVER sum the value columns together. Spend side EXCLUDES public_body suppliers "
-                  "(councils / TII inter-gov transfers) and extraction_confidence=low rows. "
-                  "Entity key is CRO company_num where available else normalised name; CRO coverage "
-                  "is partial so name-keyed entities may still be the same firm under a variant spelling.",
+        "NEVER sum the value columns together. Spend side EXCLUDES public_body suppliers "
+        "(councils / TII inter-gov transfers) and extraction_confidence=low rows. "
+        "Entity key is CRO company_num where available else normalised name; CRO coverage "
+        "is partial so name-keyed entities may still be the same firm under a variant spelling.",
     }
     OUT_SUMMARY.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(f"\nwrote {OUT}\nwrote {OUT_SUMMARY}")

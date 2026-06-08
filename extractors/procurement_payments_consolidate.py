@@ -40,6 +40,8 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -84,9 +86,7 @@ def _load_facts() -> pl.DataFrame:
         if base_cols is None:
             base_cols = set(df.columns)
         elif set(df.columns) != base_cols:
-            raise SystemExit(
-                f"schema drift in {fname}: +{set(df.columns) - base_cols} -{base_cols - set(df.columns)}"
-            )
+            raise SystemExit(f"schema drift in {fname}: +{set(df.columns) - base_cols} -{base_cols - set(df.columns)}")
         frames.append(df)
         print(f"  + {fname:38} {df.height:>7,} rows")
     if not frames:
@@ -96,12 +96,8 @@ def _load_facts() -> pl.DataFrame:
 
 def _conform(df: pl.DataFrame) -> pl.DataFrame:
     # value_kind + realisation_tier from amount_semantics (canonical 2-axis taxonomy)
-    kind = pl.col("amount_semantics").replace_strict(
-        {k: v[0] for k, v in SEMANTICS_TO_KIND.items()}, default="unknown"
-    )
-    tier = pl.col("amount_semantics").replace_strict(
-        {k: v[1] for k, v in SEMANTICS_TO_KIND.items()}, default="UNKNOWN"
-    )
+    kind = pl.col("amount_semantics").replace_strict({k: v[0] for k, v in SEMANTICS_TO_KIND.items()}, default="unknown")
+    tier = pl.col("amount_semantics").replace_strict({k: v[1] for k, v in SEMANTICS_TO_KIND.items()}, default="UNKNOWN")
     vat = (
         pl.when(pl.col("publisher_name").is_in(list(VAT_INCLUSIVE_PUBLISHERS)))
         .then(pl.lit("incl_vat"))
@@ -151,7 +147,7 @@ def main() -> None:
     df = _attach_cro(df)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(OUT, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, OUT)
     print(f"\nwrote {df.height:,} rows / {df['publisher_name'].n_unique()} publishers -> {OUT}")
 
     safe = df.filter(pl.col("value_safe_to_sum"))

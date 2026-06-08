@@ -45,6 +45,9 @@ from pathlib import Path
 import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from services.parquet_io import save_parquet  # noqa: E402
+
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
@@ -73,8 +76,16 @@ def ocr_page(ocr, page, tmp_png: Path, dpi: int = DPI) -> list[dict]:
         boxes = d.get("rec_boxes")
         boxes = boxes.tolist() if hasattr(boxes, "tolist") else (boxes or [])
         for t, s, b in zip(texts, scores, boxes):
-            cells.append({"text": t, "score": round(float(s), 4),
-                          "x0": int(b[0]), "y0": int(b[1]), "x1": int(b[2]), "y1": int(b[3])})
+            cells.append(
+                {
+                    "text": t,
+                    "score": round(float(s), 4),
+                    "x0": int(b[0]),
+                    "y0": int(b[1]),
+                    "x1": int(b[2]),
+                    "y1": int(b[3]),
+                }
+            )
     return cells
 
 
@@ -102,9 +113,7 @@ def cache_stage() -> None:
         if done.exists():
             continue
         tries = json.loads(attempt.read_text(encoding="utf-8"))["tries"] if attempt.exists() else []
-        if not tries:
-            dpi = 300
-        elif tries == [300]:
+        if not tries or tries == [300]:
             dpi = 300
         elif tries == [300, 300]:
             dpi = 200
@@ -177,8 +186,7 @@ def field_value(cells: list[dict], label: dict | None, x_min: int = 900, ywin: i
     if label is None:
         return None
     ly = yc(label)
-    vcol = sorted((c for c in cells if c["x0"] > x_min and abs(yc(c) - ly) <= ywin),
-                  key=lambda c: abs(yc(c) - ly))
+    vcol = sorted((c for c in cells if c["x0"] > x_min and abs(yc(c) - ly) <= ywin), key=lambda c: abs(yc(c) - ly))
     if not vcol:
         return None
     row_y = yc(vcol[0])
@@ -270,11 +278,18 @@ def parse_stage() -> pl.DataFrame:
                 flag = "no_value"
             elif rec["min_confidence"] < LOW_CONF:
                 flag = "low_confidence_verify"
-            rows.append({
-                "party": party, "appropriate_officer": officer, **rec,
-                "flag": flag, "source_pdf": PDF.name, "source_page": pno,
-            })
+            rows.append(
+                {
+                    "party": party,
+                    "appropriate_officer": officer,
+                    **rec,
+                    "flag": flag,
+                    "source_pdf": PDF.name,
+                    "source_page": pno,
+                }
+            )
     from collections import Counter
+
     print("page kinds:", dict(Counter(page_kinds.values())))
     return pl.DataFrame(rows)
 
@@ -289,11 +304,15 @@ def main() -> None:
         print("=== PARSE stage ===", flush=True)
         df = parse_stage()
         if df.height:
-            df.write_parquet(OUT_PARQUET, compression="zstd", compression_level=3, statistics=True)
+            save_parquet(df, OUT_PARQUET)
             print(f"\n{df.height} donations parsed -> {OUT_PARQUET.relative_to(ROOT)}")
-            print("by party:", df.group_by("party").agg(
-                pl.len().alias("donations"), pl.col("value_eur").sum().alias("total_eur")
-            ).sort("party").to_dicts())
+            print(
+                "by party:",
+                df.group_by("party")
+                .agg(pl.len().alias("donations"), pl.col("value_eur").sum().alias("total_eur"))
+                .sort("party")
+                .to_dicts(),
+            )
             print("flags:", dict(zip(*df["flag"].value_counts().sort("flag").to_dict(as_series=False).values())))
         else:
             print("no donations parsed (run cache first, or refine the parser).")
