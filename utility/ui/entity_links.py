@@ -67,6 +67,7 @@ PAGES: dict[str, str] = {
     "votes": "rankings-votes",
     "interests": "rankings-interests",
     "payments": "rankings-payments",
+    "election_spending": "rankings-election-spending",
     "lobbying": "rankings-lobbying",
     "legislation": "rankings-legislation",
     "statutory_instruments": "rankings-statutory-instruments",
