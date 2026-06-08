@@ -206,12 +206,22 @@ value, highest matching/privacy care. Depends on 3.1 + 3.3 being solid first.
 
 ---
 
-## 6. Build spec — pre-2024 winner backfill via per-notice XML (scoped 2026-06-08)
+## 6. Pre-2024 winner backfill via per-notice XML — ✅ BUILT 2026-06-08
 
-**Goal:** recover the winner + winner-`NATIONALID` + per-contract value for Irish
-award notices **2016–2023**, which the Search API drops (§3.5), so the winner-centric
-silver (`ted_ie_awards.parquet`) can extend back from 2024+ to 2016+ at the *same
-(notice × winner) grain*.
+**Result:** `extractors/ted_ireland_winner_history_extract.py` →
+`data/silver/parquet/ted_ie_winner_history.parquet` — **23,263 winner rows across
+10,667 notices (2016–2023)**; company 16,572 / sole-trader 4,947 / unknown 1,261 /
+foreign 483; **CRO-matched 50%**; only 2/10,669 notices unrecovered (persistent 429).
+Combined with the 2024+ API silver (`ted_ie_awards.parquet`, 13,230 rows) this gives a
+**~36k-row winner history spanning 2016–2026**. Shares `extractors/ted_enrich.py` with
+the API lane (identical classification/CRO/value flags) and reuses the buyer layer for
+notice-level facts. **Next:** a `sql_views/ted_*.sql` view to `UNION` the two lanes
+(select shared columns; the API lane's eForms competition fields are null pre-2024).
+
+**Goal (original spec):** recover the winner + winner-`NATIONALID` + per-contract value
+for Irish award notices **2016–2023**, which the Search API drops (§3.5), so the
+winner-centric silver can extend back from 2024+ to 2016+ at the *same (notice × winner)
+grain*.
 
 **Why per-notice XML, not bulk packages.** Both carry the legacy `TED_EXPORT`
 envelope with the full winner roster. But bulk = all-EU (~14 GB, then filter to ~2–4
