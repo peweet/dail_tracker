@@ -66,11 +66,18 @@ independents are captured, and also holds per-candidate→vendor detail.
 Scoping notes:
 - New extractor + new anchors (candidate name / constituency / Part-3+Part-4 per
   candidate). Constituency is fixed per sub-page (free anchor).
-- OCR load is the risk: if each is ~5–15 scanned pp, that is **thousands of pages**
-  = many hours to days of OCR under the crash rules above. Must be chunked,
-  checkpointed, overnight, single-process.
-- Recommend a **scout step first**: scrape the 43 constituency pages, enumerate the
-  candidate PDFs (count, page sizes, text-layer vs scanned) before committing to OCR.
+- OCR load: ~7,840 expense pages + ~570 donation pages. On CPU this was ~2 weeks of
+  nights (~55 s/page); **on the machine's RTX 3060 GPU it's ~0.76 s/page → the whole
+  corpus in ~3 hours.** GPU validated 2026-06-08 (equivalent fidelity, 0 errors) — see
+  `doc/SIPO_CANDIDATE_OCR_HOWTO.md` "⚡ GPU fast path".
+
+**STATUS UPDATE 2026-06-08:** this tier is no longer "untouched" — the corpus is SOURCED
+(607 expense + 428 donation PDFs, `extractors/sipo_candidate_expenses_crawl.py`) and the
+**OCR is RUNNING on GPU** into `data/silver/sipo_candidate/_ckpt/`. The scout step is done
+(per-doc census in the manifest). Remaining work after OCR = the per-candidate **form
+parser** (cells → structured rows; the genuine-Independents payoff). Full how-to +
+GPU setup in `doc/SIPO_CANDIDATE_OCR_HOWTO.md`; corpus details in memory
+`project_sipo_candidate_expenses_corpus`.
 
 ## TIER 3 — corpus missed by the first pass (2022→2025), NOT yet downloaded
 

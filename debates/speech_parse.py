@@ -61,6 +61,7 @@ _SCHEMA = [
     "chamber",
     "debate_section_id",
     "section_heading",
+    "business",
     "contribution_type",
     "contribution_order",
     "akn_eid",
@@ -117,28 +118,36 @@ def _person_map(root: ET.Element) -> dict[str, str]:
     return out
 
 
-def _parent_sections(root: ET.Element) -> dict[ET.Element, ET.Element]:
-    """Map every element to its nearest enclosing <debateSection> ancestor.
+def _section_map(root: ET.Element) -> dict[ET.Element, tuple[ET.Element, ET.Element]]:
+    """Map each contribution to its (nearest, outermost) <debateSection> ancestors.
 
     ElementTree has no parent pointers, so we build a child->parent map once and
-    climb it. A contribution may sit in a nested subsection; we attribute it to
-    the closest section that has an eId.
+    climb it, collecting every enclosing eId'd debateSection. The nearest carries
+    the precise topic ("Litter Pollution"); the outermost carries the business
+    grouping ("Commencement Matters") — they coincide for un-nested items.
     """
     parent = {c: p for p in root.iter() for c in p}
-    nearest: dict[ET.Element, ET.Element] = {}
+    out: dict[ET.Element, tuple[ET.Element, ET.Element]] = {}
     for el in root.iter():
         if _local(el) in _CONTRIB_TAGS:
+            chain: list[ET.Element] = []
             cur = parent.get(el)
-            while cur is not None and not (_local(cur) == "debateSection" and cur.get("eId")):
+            while cur is not None:
+                if _local(cur) == "debateSection" and cur.get("eId"):
+                    chain.append(cur)
                 cur = parent.get(cur)
-            if cur is not None:
-                nearest[el] = cur
-    return nearest
+            if chain:
+                out[el] = (chain[0], chain[-1])  # nearest, outermost
+    return out
 
 
 def _section_heading(section: ET.Element) -> str:
-    """First <heading> text directly describing the debate section."""
-    for child in section.iter():
+    """The section's own <heading> text — a DIRECT child only.
+
+    Direct-child (not descendant) so an outermost section returns its own
+    grouping heading, not a nested subsection's topic heading.
+    """
+    for child in section:
         if _local(child) == "heading":
             return _text_of(child)
     return ""
@@ -182,16 +191,17 @@ def parse_akn(xml_text: str) -> pd.DataFrame:
 
     date, chamber = _frbr_date_chamber(root)
     people = _person_map(root)
-    sections = _parent_sections(root)
+    sections = _section_map(root)
 
     rows: list[dict] = []
     order = 0
     for el in root.iter():
         if _local(el) not in _CONTRIB_TAGS:
             continue
-        section = sections.get(el)
-        if section is None:
+        sec = sections.get(el)
+        if sec is None:
             continue
+        nearest, outermost = sec
         order += 1
         by = (el.get("by") or "").lstrip("#")
         speaker, recorded, body = _speaker_and_body(el)
@@ -199,8 +209,9 @@ def parse_akn(xml_text: str) -> pd.DataFrame:
             {
                 "date": date,
                 "chamber": chamber,
-                "debate_section_id": section.get("eId"),
-                "section_heading": _section_heading(section),
+                "debate_section_id": nearest.get("eId"),
+                "section_heading": _section_heading(nearest),
+                "business": _section_heading(outermost),
                 "contribution_type": _local(el),
                 "contribution_order": order,
                 "akn_eid": el.get("eId"),

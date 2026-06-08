@@ -44,19 +44,54 @@ results at the end.
 
 ### Phase 0 — Votes ✅ DONE (verified 2026-06-08)
 
-### Phase 1 — AKN speech harvest → bronze
-Fetch AKN XML for the 32,092 sections where `speech_count > 0`, driven by
-`akn_xml_url` in `debate_listings.parquet`. Both chambers, incremental by date.
-Reuse the poller/scenario framework (`services/oireachtas_api_main`). Polite
-rate-limit; delta-only refresh (mirror `seanad`/`debates` chains).
+### Phase 1 — AKN transcript harvest → bronze ✅ BUILT (2026-06-08)
+`debates/akn_harvest.py` + `services.http_engine.fetch_all_text` (text sibling of
+`fetch_all`, same session/retry). Harvests **day-level `main.xml`** (NOT per-section
+`dbsect_N.xml`) — worklist = distinct day-level `debateRecord.formats.xml.uri` read
+straight from the listings bronze; chamber taken from the transcript URI path so
+committees drop cleanly. Writes `data/bronze/debates/akn/<chamber>_<date>_main.xml`,
+incremental (skips existing). Flags: `--limit`, `--since`, `--chamber`, `--overwrite`.
+Validated: 4 Dáil days → 4 files, 0 failures. ~1,205 day-candidates in the current
+(stale-to-2018) bronze; refresh the `debates_listings` scenario for recent days.
 
-### Phase 2 — Parse speeches → silver (firewall-clean, structural)
-Parse `<speech>` → one row per speech:
-`(date, chamber, debate_section_id, parent_section_title, debate_type, speaker_raw,
-member_ref, recorded_time, speech_order, speech_text, akn_url)`. Deterministic XML
-extraction, no inference.
+### Phase 2 — Parse transcripts → silver ✅ BUILT (2026-06-08)
+`debates/speech_parse.py` — `parse_akn(xml)` pure transform → one row per
+contribution: `(date, chamber, debate_section_id, section_heading, contribution_type,
+contribution_order, akn_eid, unique_member_code, speaker_raw, recorded_time,
+speech_text)` → `data/silver/parquet/speeches.parquet`. Namespace-agnostic (handles
+`/CSD13`), multi-section attribution via child→parent climb, captures speech +
+question + answer. Deterministic member resolution via `<TLCPerson>` href tail.
+Firewall-clean (no inference). Tests: `test/debates/test_speech_parse.py` (5 cases).
+Validated: 4 Dáil days → 1,601 contributions / 45 sections / **99% resolved**;
+1 Seanad day → 65 speeches / 12 sections / **100% resolved**.
 
-### Phase 3 — Member resolution → gold `speeches_fact`
+### Phase 3 — Member resolution → gold `speeches_fact` ✅ BUILT (2026-06-08)
+`debates/speeches_gold.py` — `build_speeches_fact()` joins silver→member registries
+(Dáil+Seanad union) for member_name/party/constituency; adds `house`, `word_count`,
+`is_irish`/`irish_score`, `year`. Irish detector = fada + Irish-FUNCTION-WORD density
+(≥0.25, ≥2 function words, ≥10 words) — rejects fada proper nouns ("Dáil Éireann",
+"Ó Murchú") that a naive fada-only flag false-flagged. Parser also gained `business`
+(outermost debateSection heading) so Commencement Matters group correctly. Tests:
+`test/debates/test_speeches_gold.py`. Validated: Dáil 1601 + Seanad 432 contributions,
+99.4% identity-resolved, 70 Irish-flagged (precise), 59 Commencement Matters.
+
+### Phase 5/6 — Views + member-overview UI ✅ BUILT (2026-06-08)
+Single unified parquet (has `house`) → ONE placeholder `{SPEECH_FACT_PARQUET_PATH}`,
+not a 2-file union. Views: `sql_views/speech_base.sql` + `speech_member_detail.sql`
+(`v_member_speeches`) + `speech_member_summary.sql` + `speech_member_business.sql`,
+registered as Phase 5 in `dail_tracker_core/connections.py` (+ api_conn glob/subs).
+Core queries: `speech_summary/speech_years/speech_business/member_speeches` in
+`dail_tracker_core/queries/member_overview.py` (retrieval-only). UI: rewrote
+`_section_debates` in `utility/pages_code/member_overview.py` — was a question-derived
+proxy, now the real floor-contribution feed (stat_strip header w/ contributions·words·
+As-Gaeilge·Commencement, year pills + type segmented + As-Gaeilge toggle + business
+selectbox + full-text search; transcript cards w/ excerpt + "Read full" expander +
+As-Gaeilge green badge). Seanad Questions empty-state now cross-links to Debates.
+CSS `.signal-gaeilge`/`.mo-speech-*` in shared_css.py. Lint clean; firewall clean;
+debates+member-overview+sql_views tests green. NOT yet visually verified on a running
+server (do per [[feedback_validate_fresh_server]]). Original Phase 3 design below:
+
+### Phase 3 (design) — Member resolution → gold `speeches_fact`
 Resolve `by="#ErinMcGreehan"` → `unique_member_code` + `house`; `normalise_join_key`
 fallback ([[project_td_name_join_key]]). Key on `(member, chamber)` for the cross-house
 code collision (Kyne) — same pattern as the votes union. Add an **Irish-language flag**

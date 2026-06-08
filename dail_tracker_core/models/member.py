@@ -45,5 +45,6 @@ class MemberDossier(BaseModel):
     statutory_instruments_signed: list[dict[str, Any]] = Field(default_factory=list)
     revolving_door: list[dict[str, Any]] = Field(default_factory=list)
     questions_profile: dict[str, Any] | None = None
+    speeches_profile: dict[str, Any] | None = None
     external_links: dict[str, Any] = Field(default_factory=dict)
     constituency_context: dict[str, Any] | None = None
