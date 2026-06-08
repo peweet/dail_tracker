@@ -37,6 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from data_access.procurement_data import (
     fetch_authority_summary_result,
     fetch_available_years,
+    fetch_charity_overlap_result,
     fetch_awards_for_authority,
     fetch_awards_for_cpv,
     fetch_awards_for_supplier,
@@ -55,7 +56,6 @@ from data_access.procurement_data import (
     fetch_ted_corpus_stats_result,
     fetch_ted_for_supplier_result,
     fetch_ted_supplier_summary_result,
-    fetch_value_contrast_result,
 )
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 from ui.components import (
@@ -408,6 +408,70 @@ def _render_overlap(df: pd.DataFrame, year: int | None = None) -> None:
         else:
             cards.append(inner)
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Tab: Charities on the register (clickable → supplier profile)
+# Registered charities that also win public contracts — linked on the SHARED CRO
+# company number (a hard id, not a fuzzy name match). Co-occurrence disclosure
+# only, never a claim about the charity (same honesty rail as lobbying overlap).
+# ──────────────────────────────────────────────────────────────────────────────
+def _gov_share_pill(val) -> str:
+    """The charity's latest government-funded income share (0–1) as a neutral
+    context chip — its own annual-return figure, shown as context, not a judgement."""
+    try:
+        pct = float(val) * 100
+    except (TypeError, ValueError):
+        return ""
+    if pct <= 0:
+        return ""
+    return f'<span class="pr-pill pr-pill-lob">{pct:.0f}% government-funded</span>'
+
+
+def _render_charity_overlap(df: pd.DataFrame) -> None:
+    st.caption(
+        "Registered charities that also appear on the procurement award register, linked by a "
+        "shared Companies Registration Office number (a hard identifier — the charity's declared "
+        "company number equals the supplier's). This is a co-occurrence of public records only — "
+        "it is not a claim about the charity or any award. Government-funded share is the charity's "
+        "own latest annual-return figure. Shown across all years; click a card for the award history."
+    )
+    if df.empty:
+        empty_state(
+            "No charities on the register",
+            "No registered charity currently matches a procurement supplier by CRO number.",
+        )
+        return
+    cards = []
+    for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
+        name = _esc(_coalesce(getattr(r, "registered_charity_name", None))) or "—"
+        n_auth = _n(r.n_authorities)
+        meta = (
+            f"{_awards_word(_n(r.n_awards))} · "
+            f"{n_auth:,} authorit{'ies' if n_auth != 1 else 'y'} · registered charity"
+        )
+        pills = [_value_pill(r.awarded_value_safe_eur)]
+        pills += [p for p in (_gov_share_pill(getattr(r, "gov_funded_share_latest", None)),) if p]
+        inner = _card(f"<span>{name}</span>", meta, pills, rank=i)
+        norm = _coalesce(getattr(r, "supplier_norm", None))
+        if norm:
+            cards.append(
+                clickable_card_link(
+                    href=_supplier_href(norm),
+                    inner_html=inner,
+                    aria_label=f"View the award history of {name}",
+                )
+            )
+        else:
+            cards.append(inner)
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html(
+        '<div class="pr-foot"><strong>Source:</strong> Charities Regulator register, '
+        "cross-referenced to the eTenders procurement register on the shared Companies "
+        "Registration Office number. A charity shown here is the same registered company that "
+        "won the contract — a co-occurrence of public records, never an implication of "
+        "wrongdoing. Values are awarded value, not money paid.</div>"
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -904,63 +968,19 @@ def _render_cpv_profile(cpv_code: str) -> None:
     _render_award_list(awards, key=f"pr_cpv_{cpv_code}", row_fn=_award_row_cpv)
 
 
-def _value_contrast_panel(vc) -> None:
-    """The signature "€570bn that isn't" panel: show the naive total only to demolish it.
-
-    The vast naive Σ (every reported figure added up) is rendered struck-through next to
-    the only summable figure, with the multiplier and a one-line why. This is the page's
-    open-data-literacy hook AND its methodology — see PROCUREMENT_MASTER.md §5. All
-    figures come pre-computed from the view/core layer (no arithmetic here)."""
-    naive = _n(vc.get("naive_total_eur"))
-    safe = _n(vc.get("safe_total_eur"))
-    if naive <= 0 or safe <= 0:
-        return
-    mult = naive / safe
-    fw_naive = _eur_scale(vc.get("framework_naive_eur"))
-    fw_once = _eur_scale(vc.get("framework_once_eur"))
-    st.html(
-        '<div class="pr-contrast">'
-        '<div class="pr-contrast-row">'
-        '<div class="pr-contrast-cell pr-contrast-naive">'
-        f'<span class="pr-contrast-num pr-strike">{_esc(_eur_scale(naive))}</span>'
-        '<span class="pr-contrast-lbl">if you naïvely add up every figure</span></div>'
-        f'<div class="pr-contrast-mult">{mult:.0f}× smaller</div>'
-        '<div class="pr-contrast-cell pr-contrast-safe">'
-        f'<span class="pr-contrast-num">{_esc(_eur_scale(safe))}</span>'
-        '<span class="pr-contrast-lbl">actually summable awarded value</span></div>'
-        '</div>'
-        '<div class="pr-contrast-note"><strong>Why the big number is a mirage:</strong> '
-        f"{_esc(fw_naive)} of that headline is framework &amp; DPS <em>ceilings</em> — one "
-        "multi-year spending limit repeated across every supplier on the framework. Counted "
-        f"once, those ceilings are just {_esc(fw_once)}. Only the {_esc(_eur_scale(safe))} is "
-        "awarded value you can sum — and even that is value <em>at the point of award</em>, "
-        "not money actually paid.</div></div>"
-    )
-
-
 def _stats_strip(stats, cov: dict) -> None:
-    """Coverage / scale strip: corpus counts + what's in/out. The euro story lives ONLY in the
-    contrast panel above (the whole-corpus €23.5bn) — this strip is deliberately count-only, so
-    the page never shows two different sum-safe totals (the company-slice total used to sit here
-    and read as inconsistent with the panel's corpus total)."""
+    """Compact scale strip: just the plain-English corpus counts a reader can use. Decluttered
+    2026-06-08 — dropped the internal data-quality chips ("N carry a sum-safe value", "X% matched
+    to a CRO company") which were jargon, not public value; no euro figure here (awarded value is
+    labelled per row)."""
     min_y, max_y = _n(stats.get("min_year")), _n(stats.get("max_year"))
     span = f"{min_y}–{max_y}" if min_y and max_y else "—"
-    n_rows = _n(stats.get("n_award_rows"))
-    n_safe = _n(stats.get("n_safe_rows"))
     chips = [
-        (f"{_n(stats.get('n_suppliers')):,}", "company suppliers"),
-        (f"{_n(stats.get('n_authorities')):,}", "authorities"),
+        (f"{_n(stats.get('n_suppliers')):,}", "companies"),
+        (f"{_n(stats.get('n_authorities')):,}", "public bodies"),
         (f"{_n(stats.get('n_categories')):,}", "categories"),
         (span, "award years"),
-        (f"{n_rows:,}", "award records"),
-        (f"{n_safe:,}", "carry a sum-safe value"),
     ]
-    cro_pct = cov.get("cro_exact_unique_pct_of_company")
-    if cro_pct:
-        chips.append((f"{cro_pct:g}%", "matched to a CRO company"))
-    quarantined = _n(cov.get("sole_trader_quarantined"))
-    if quarantined:
-        chips.append((f"{quarantined:,}", "private names withheld"))
     items = "".join(
         f'<div class="pr-stat"><span class="pr-stat-num">{_esc(num)}</span>'
         f'<span class="pr-stat-lbl">{_esc(lbl)}</span></div>'
@@ -1017,19 +1037,17 @@ def procurement_page() -> None:
         "who was awarded public contracts, by which bodies, in which categories.",
     )
 
-    # Caveat is intentionally short: the "how much of the headline is a mirage" explanation
-    # lives in the contrast panel directly below (no duplication). This keeps the no-causation
-    # point — which the panel doesn't make — and trims above-the-fold height.
+    # One short caveat carries the honesty (awarded ≠ paid; ceilings aren't payments). The
+    # naive-vs-safe "€570bn" contrast panel was removed 2026-06-08 — it paraded a meaningless
+    # number and cluttered the top; the per-row ceiling labels + the "Money actually paid" tab
+    # make the point without it.
     st.html(
         '<div class="pr-caveat"><strong>Awarded value, not actual spend.</strong> '
         "These are contract <em>award</em> values reported on eTenders — the value at award, not "
-        "money actually paid (the figures below show how far that overstates real spend). A "
-        "contract award is a public record of a procurement decision, not evidence of influence "
-        "or wrongdoing.</div>"
+        "money actually paid. Framework / DPS ceilings (labelled on each row) are spending limits, "
+        "not payments. A contract award is a public record of a procurement decision, not evidence "
+        "of influence or wrongdoing.</div>"
     )
-    vc_res = fetch_value_contrast_result()
-    if vc_res.ok and not vc_res.data.empty:
-        _value_contrast_panel(vc_res.data.iloc[0])
     _stats_strip(stats, cov)
     glossary_strip(
         [
@@ -1050,6 +1068,7 @@ def procurement_page() -> None:
     year = _year_pills(fetch_available_years())
 
     overlap = fetch_lobbying_overlap_result()
+    charity_overlap = fetch_charity_overlap_result()
     tabs = st.tabs(
         [
             "Suppliers",
@@ -1057,6 +1076,7 @@ def procurement_page() -> None:
             "Categories",
             "Money actually paid",
             "Lobbying overlap",
+            "Charities",
             "EU-level awards (TED)",
         ]
     )
@@ -1071,6 +1091,8 @@ def procurement_page() -> None:
     with tabs[4]:
         _render_overlap(overlap.data if overlap.ok else pd.DataFrame(), year)
     with tabs[5]:
+        _render_charity_overlap(charity_overlap.data if charity_overlap.ok else pd.DataFrame())
+    with tabs[6]:
         _render_ted()
 
     st.html(

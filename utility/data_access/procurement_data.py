@@ -200,3 +200,10 @@ def fetch_lobbying_overlap() -> pd.DataFrame:
     """Companies on BOTH the procurement and lobbying registers (co-occurrence
     disclosure only — never causation; see the view header)."""
     return _q.lobbying_overlap(get_procurement_conn()).data
+
+
+@st.cache_data(ttl=300)
+def fetch_charity_overlap_result() -> QueryResult:
+    """Registered charities that also win public contracts (shared CRO company
+    number — co-occurrence disclosure only, never causation; see the view header)."""
+    return _q.charity_overlap(get_procurement_conn())

@@ -418,3 +418,22 @@ def lobbying_overlap(conn: duckdb.DuckDBPyConnection) -> QueryResult:
         " n_award_rows, n_authorities, awarded_value_safe_eur"
         " FROM v_procurement_lobbying_overlap ORDER BY n_award_rows DESC",
     )
+
+
+def charity_overlap(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Registered charities that ALSO appear on the procurement award register,
+    linked by a shared CRO company number (a hard identifier — the charity's
+    declared cro_number equals the supplier's CRO match). Co-occurrence disclosure
+    only: the same legal entity is on both registers — NOT a claim about either.
+    gov_funded_share_latest (0–1) is the charity's own latest-return figure, shown
+    as context. awarded_value_safe_eur is already the money-grain-safe sum (ceiling
+    notices excluded) inside the view — display only, never re-aggregated here."""
+    return _run(
+        conn,
+        "SELECT rcn, registered_charity_name, company_num, company_status,"
+        " charity_classification, state_adjacent_flag, funding_profile,"
+        " gov_funded_share_latest, gross_income_latest_eur,"
+        " supplier_norm, matched_supplier_name, n_awards, n_authorities,"
+        " awarded_value_safe_eur, n_value_safe_awards, n_ceiling_notices"
+        " FROM v_procurement_charity_overlap ORDER BY awarded_value_safe_eur DESC, n_awards DESC",
+    )

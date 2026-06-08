@@ -129,4 +129,58 @@ Adversarially verified (3-0 unless noted). **Confirmed:**
 
 ---
 
-*Provenance: codebase + planning-doc audit via explore agents; live `dail-tracker` MCP; deep-research workflow `wf_3fe97ffc-3b8` (27 primary sources, 23/25 claims confirmed). Source report could not read code or `PROCUREMENT_*.md`, which accounts for its redundancy.*
+## 7. Follow-up (2026-06-08): the 4 novel sources verified + the linkage shipped
+
+### 7a. Go/no-go on the genuinely-novel four (direct source fetch)
+A focused deep-research workflow on these four **failed in its synthesis phase** (subagent harness glitch — 103 agents fetched sources but none survived to structured output), so I verified them by **direct fetch** instead:
+
+| Source | Exists? | Format | Fields | Effort | Verdict |
+|---|---|---|---|---|---|
+| **CAP beneficiaries (DAFM)** | ✅ | **CKAN, CSV, row-level** (`all-capben-2023.csv`, annual, DAFM Open Data; dashboard `capben-ui.apps.services.agriculture.gov.ie`) | beneficiary, amount, scheme/measure, etc. (per-record) | **LOW** | **GO** — cheapest of the four; the report's "HTML/country lists" guess was pessimistic |
+| **EU State Aid Transparency** | ✅ | **Search-portal only** (no confirmed bulk/API; direct deep-link 403s) | beneficiary, amount, location, sector, objective, granting authority | **MED–HIGH** | CONDITIONAL — needs a portal-query harness; member-state filter exists |
+| **RRF recipients (Ireland)** | ✅ | **EU RRF Scoreboard** `disbursements?table=finalRecipientByCountry` is the real source — **eufunds.ie carries NO recipient data** (workflow marked it `unreliable`, 0 claims) | recipient, measure, amount (per EU Scoreboard) | **MED** | **GO via EU Scoreboard, not eufunds.ie** |
+| **Ministerial diaries** | ✅ | **PDF document corpus only** (per-department: DETE, DPER, Health…; quarterly; no CSV/API) | date + **free-text "Event"** field — *often lacks the counterparty*, plus minister/location | **HIGH** | LOWEST priority — highest extraction cost **and** weak fields (the meeting counterparty is free-text and frequently absent) |
+
+**Takeaway:** of the report's four truly-novel sources, **only CAP is low-effort**; ministerial diaries (the report's headline transparency idea) is the *highest*-cost (PDF corpus) **and** the lowest-yield — the resumed research verified (3-0) that the diary "Event" field is free-text and frequently omits who was met, so even after extraction the "who met the minister" question is poorly answered. This inverts the report's implied effort/value ordering.
+
+### 7a-bis. What the resumed deep-research run added (2026-06-08)
+The focused workflow was **resumed** (cached search/fetch + re-run verify): 21/25 claims confirmed. Its final synthesis agent corrupted the narrative output with placeholder text (`"test8"`, evidence `"b"`), but the verified-claim logs and source list are sound and refined three things:
+- **RRF** — real source is the **EU RRF Scoreboard** (`finalRecipientByCountry`), not eufunds.ie (confirmed empty). Pin this before any build.
+- **DPO** — confirmed **per-body HTML pages**, three fields each (**name, grade, role/position**), **no consolidated feed, no API/CSV**; `lobbying.ie` only lists *which bodies* have DPOs, not the people. → **MEDIUM** effort, genuinely net-new, modest scope.
+- **EU State Aid** — portal-only, but a **bulk-dataset FOI route exists** (`asktheeu.org/request/full_dataset_of_state_aid_awards`) as an alternative to scraping the TAM portal.
+
+### 7b. Linkage #1 shipped — `v_procurement_charity_overlap`
+Built and validated: `sql_views/procurement_charity_overlap.sql` (view `v_procurement_charity_overlap`), joining `charity_resolved.cro_number == procurement_supplier_cro_match.company_num` (a hard CRO id, not a fuzzy name match). Reads parquet directly to avoid the registration dependency-order tripwire. Surfaces 7 charities that also win public contracts (e.g. **FoodCloud** — €4.8m awards while 54% government-funded). Contract test added (`test_v_procurement_charity_overlap_grain_and_value_firewall`) locking the one-row-per-(rcn, supplier_norm) grain + the money-grain firewall; also covered by the `procurement` registration smoke test. **Remaining:** a UI surface (Procurement or Charity page) — separate task with its own contract/firewall.
+
+---
+
+## 8. TED deep-dive — "how big is the large TED data?" (live API probe, 2026-06-08)
+
+The report's strongest technical point was "go deeper on TED." I probed the live TED v3 Search API (`api.ted.europa.eu/v3/notices/search`, the same endpoint your extractor uses) to quantify exactly what you capture vs what exists for Ireland.
+
+**What you ingest today** (`extractors/ted_ireland_extract.py` → `data/silver/parquet/ted_ie_awards.parquet`, *not wired into pipeline.py*):
+- **13,126 rows / 8,614 award notices**, dispatch span **2023-12-29 → 2026-06-02**
+- Query scope: `buyer-country=IRL AND notice-type=can-standard AND publication-date>=20240101`
+- **9 fields** pulled, capped at 40 pages
+
+**What actually exists for Ireland (live API totals):**
+
+| Scope | Notices | vs today |
+|---|---:|---|
+| Your baseline (can-standard award notices, 2024+) | 8,684 | ✅ captured |
+| **can-standard award notices, all-time** | **19,352** | **+10,668 historical awards missed (2014–2023)** |
+| **cn-standard competition/tender notices (IRL)** | **28,309** | **entirely unexploited** — the "what's being tendered / who's bidding" pre-award stage |
+| ALL notices, any type, pre-2024 | 31,779 | — |
+| **ALL Irish TED notices, all-time, any type** | **55,868** | you hold **~15%** of the footprint |
+| **Fields available per notice (eForms vocabulary)** | **1,830** | you use **9** |
+
+**So the "large TED data" gap is real and large — but with honest caveats:**
+- **Historical awards (+10.7k)** are **pre-eForms** (legacy TED standard forms). They lack the structured award-value/winner fields the 2024+ eForms notices carry (your extractor's own docstring flags this) — so backfilling **doubles award coverage but at lower field quality**; value/winner would need messier parsing.
+- **Competition notices (cn-standard, 28k)** are **pre-award** — no winner, no final value. They're a *different grain* (a tender-pipeline table: what's being procured, procedure type, deadlines), useful for "what's coming" and competition-intensity signals, **never** summed with award values.
+- **The 1,830-field vocabulary** (procedure type, award criteria, **SME participation**, number of tenders received, place-of-performance, framework max values, lot-level detail) is mostly `BT-*` eForms business terms. High-value adds for you: `procedure-type`, received-tenders count (competition intensity), SME flags, and **place-of-performance** (a potential constituency-linkage key). Adding all 1,830 is wrong; a curated ~20-field expansion is the move.
+
+**Recommendation:** this validates the original report's TED point with numbers. The cheapest high-value step is **not** the historical backfill (low field quality) but (a) a **curated field expansion** on the existing 2024+ eForms pull (procedure type, tenders-received, SME, place-of-performance), and (b) optionally a **separate `cn-standard` competition-notice table** (28k, different grain) for the tender-pipeline view. The ODS/SPARQL service is the better transport for bulk/historical work if you do pursue the backfill.
+
+---
+
+*Provenance: codebase + planning-doc audit via explore agents; live `dail-tracker` MCP; deep-research workflow `wf_3fe97ffc-3b8` (27 primary sources, 23/25 claims confirmed); follow-up direct fetches + live TED v3 API probe 2026-06-08 (counts above are live `totalNoticeCount` values). Source report could not read code or `PROCUREMENT_*.md`, which accounts for its redundancy.*
