@@ -2,7 +2,7 @@
 Corporate — standalone browser page.
 
 Sources from the registered DuckDB view v_corporate_notices
-(sql_views/corporate_corporate_notices.sql), which reads
+(sql_views/corporate/corporate_corporate_notices.sql), which reads
 data/gold/parquet/corporate_notices.parquet — produced by
 corporate_notices_enrichment.py.
 
@@ -22,7 +22,7 @@ Sections (top → bottom):
   3. EXPERIMENTAL: regulated firms in repeat distress — CBI-authorised firms
      that appear in 2+ genuine-distress notices. Sourced from
      v_corporate_cbi_repeat_distress (sandbox), see
-     sql_views/corporate_cbi_distress.sql header for provenance.
+     sql_views/corporate/corporate_cbi_distress.sql header for provenance.
   4. Per-company search (entity_name primary, raw_text fallback flagged)
   5. Sectioned feed: tabbed by sub-type, month-grouped cards, paginated.
      Cards carry a CBI authorisation badge when notice_ref matches the
@@ -889,7 +889,7 @@ def _norm_entity(name) -> str:
 def load_cbi_badges() -> list[tuple[str, dict]]:
     """Sorted (entity_norm, badge_info) list for on-card CBI badge lookup.
 
-    Sandbox source — see sql_views/corporate_cbi_distress.sql header for
+    Sandbox source — see sql_views/corporate/corporate_cbi_distress.sql header for
     provenance. Returned as a list sorted by name-length descending so the
     badge resolver can take the *longest* matching CBI firm name appearing as
     a word-boundary substring of a notice's normalised entity_name. This is

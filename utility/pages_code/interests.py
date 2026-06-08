@@ -66,7 +66,7 @@ from data_access.interests_data import (
 # ── Data access ───────────────────────────────────────────────────────────────
 # All retrieval lives in data_access.interests_data and the two registered
 # views v_member_interests_detail + v_member_interests_index (sql_views/
-# member_interests_detail.sql, sql_views/member_zz_interests_index.sql).
+# member_interests_detail.sql, sql_views/member/member_zz_interests_index.sql).
 # This module is rendering only.
 
 
@@ -289,7 +289,7 @@ def interests_page() -> None:
     selected_year = year_selector(year_opts, key="int_year")
 
     # ── Leaderboard — one card per member, ranked by declarations ─────────────
-    # Data: v_member_interests_index (sql_views/member_zz_interests_index.sql).
+    # Data: v_member_interests_index (sql_views/member/member_zz_interests_index.sql).
     # The same rank, counts and flag rollup that used to live in the page's
     # _fetch_member_index_fallback now lives in that view.
     members_df = fetch_member_index(house, selected_year)

@@ -227,6 +227,35 @@ PUBLISHERS: list[dict] = [
         grain="purchase_order",
         caveat="contains very large NBI infrastructure POs; check outlier share before any total",
     ),
+    # ---- Cheap wins 2026-06-08: gov.ie / enterprise.gov.ie departments already published, files
+    # cached in c:/tmp but never wired. Both parse clean with the generic reader (offline-validated).
+    cfg(
+        "dept_dper",
+        "Dept of Public Expenditure, Infrastructure, PSR and Digitalisation",
+        "department",
+        "central_government",
+        listing="https://www.gov.ie/en/department-of-public-expenditure-infrastructure-public-service-reform-and-digitalisation/collections/dpendr-ogcio-and-ogp-purchase-order-payments-2024/",
+        semantics="po_committed",
+        grain="purchase_order",
+        caveat="DPENDR+OGCIO+OGP PO-over-20000 listing; note the SEPARATE pre-existing bug that the "
+        "Dept Climate gov.ie collection mis-serves a 'DPER_Payments_over_20K' file (filename/dept "
+        "mismatch) — that is payment-grain and ingested under dept_climate, distinct from these POs",
+    ),
+    cfg(
+        "dept_enterprise",
+        "Department of Enterprise, Tourism and Employment",
+        "department",
+        "central_government",
+        listing="https://enterprise.gov.ie/en/publications/payments-over-20k.html",
+        semantics="payment_actual",
+        grain="payment",
+        include=r"\.xlsx(\?|$)|\.csv(\?|$)",
+        caveat="DETE 'Payments over €20,000'; XLSX only (2024-2026 + 2017). Amount col is 'Total' (the "
+        "'Payment Number' ref matches the amount regex via 'payment' but is excluded by NON_AMOUNT_HDR). "
+        "The older quarterly PDFs (2016-2025) are DEFERRED: merged 'Supplier Name Total (€)' header + "
+        "inconsistent line-wrapping corrupt the supplier column under the generic word-geometry reader "
+        "(amount parses fine, supplier becomes 'DELL (IRELAND) 84,255') — would need a bespoke reading-order parser",
+    ),
     cfg(
         "ie_teagasc",
         "Teagasc",
@@ -513,7 +542,7 @@ PUBLISHERS: list[dict] = [
         tier="D",
         # Landing exposes 3 xlsx: two 'Payments Over €20k' (annual, payment grain, 2024+2025) and
         # one 'POs Greater than €20k' (PO grain). include= grabs ONLY the payment files to keep one
-        # grain. Header 'No. of Payments > €20,000' is a COUNT trap; COUNT_HDR routes amount to 'Value'.
+        # grain. Header 'No. of Payments > €20,000' is a COUNT trap; NON_AMOUNT_HDR routes amount to 'Value'.
         include=r"payments.*over",
         caveat="annual supplier payment totals (Value col), €20k threshold; the separate Q1-2026 PO file is excluded",
     ),
@@ -762,6 +791,11 @@ def assign_role(cols: list[dict]) -> dict[str, int]:
     roles: dict[str, int] = {}
     for role, rx in ROLE_RE.items():
         cands = [i for i, c in enumerate(cols) if rx.search(c["label"])]
+        if role == "amount":
+            # Drop identifier/count columns that carry a money keyword (DETE PDF "Payment No."
+            # holds PO refs ~60,002,179 that dwarf the real "Total" amount). Same guard as the
+            # tabular reader; see NON_AMOUNT_HDR.
+            cands = [i for i in cands if not NON_AMOUNT_HDR.search(cols[i]["label"])] or cands
         if cands:
             roles[role] = cands[-1] if role == "amount" else cands[0]
     return roles
@@ -792,6 +826,9 @@ def refine_roles(cols, roles, records):
         return sum(bool(MONEY_RE.search(str(v))) for v in vals) / len(vals) if vals else 0.0
 
     amt_cands = [i for i, c in enumerate(cols) if ROLE_RE["amount"].search(c["label"])]
+    # Exclude identifier/count columns before ranking by numeric density — a "Payment No." /
+    # "Order No." column is 100% numeric and would otherwise win the numfrac tie-break.
+    amt_cands = [i for i in amt_cands if not NON_AMOUNT_HDR.search(cols[i]["label"])] or amt_cands
     if amt_cands:
         roles["amount"] = max(amt_cands, key=numfrac)
     elif "amount" not in roles and cols:
@@ -890,7 +927,17 @@ def read_csv(b: bytes):
     return df.columns, [list(r) for r in df.iter_rows()], " ".join(df.columns)
 
 
-COUNT_HDR = re.compile(r"no\.?\s*of\b|number of|\bcount\b|\bqty\b|quantit", re.I)
+# A header that carries a money-ish KEYWORD but is really an identifier or a count, never the
+# amount: a COUNT column (Beaumont "No. of Payments > €20,000", values 1..300) OR an ID/reference
+# column (DETE "Payment Number" — matches the amount regex via 'payment', but holds PO refs like
+# 137014941 that look like €137m). Excluded from amount detection so the real money column
+# ("Total"/"Value"/"Amount") wins; a true amount column is never titled "...Number/Reference".
+NON_AMOUNT_HDR = re.compile(
+    r"no\.?\s*of\b|number\b|\bnumbers\b|\bcount\b|\bqty\b|quantit|reference\b|\bref\b|\bid\b|"
+    # an "<X> No." identifier column (DETE PDF "Payment No.", "PO No.", "Order No.", "Invoice No.")
+    r"(?:payment|order|invoice|po|p\.?o\.?|doc|transaction)\s*no\.?\b",
+    re.I,
+)
 
 
 def detect_roles_tab(header, rows):
@@ -900,9 +947,9 @@ def detect_roles_tab(header, rows):
         if not cands:
             continue
         if role == "amount":
-            # Avoid count-columns that carry money keywords in their label, e.g. Beaumont's
-            # "No. of Payments > €20,000" (a COUNT, values 1..300) vs the real "Value" column.
-            strong = [i for i in cands if not COUNT_HDR.search(header[i] or "")]
+            # Drop count/identifier columns that carry money keywords in their label (see
+            # NON_AMOUNT_HDR) before ranking by numeric density.
+            strong = [i for i in cands if not NON_AMOUNT_HDR.search(header[i] or "")]
             cands = strong or cands
             cands.sort(
                 key=lambda i: (
@@ -1218,8 +1265,17 @@ def main() -> None:
         "--max-files", type=int, default=None, help="cap files parsed per publisher (default: all — full history)"
     )
     ap.add_argument("--max-pages", type=int, default=None, help="cap pages per PDF")
+    ap.add_argument(
+        "--merge",
+        action="store_true",
+        help="with --only: update JUST those publishers inside the existing fact (all other "
+        "publishers kept) instead of overwriting the whole parquet — avoids re-downloading the "
+        "full ~600-file history and prevents the clobber-to-N-publishers footgun",
+    )
     args = ap.parse_args()
     only = {x.strip() for x in args.only.split(",") if x.strip()} or None
+    if args.merge and not only:
+        raise SystemExit("--merge requires --only (it updates the named publishers in place)")
 
     pubs = [p for p in PUBLISHERS if not only or p["id"] in only]
     print(f"{'=' * 80}\nPUBLIC-BODY EXTRACT{' (LIST MODE)' if args.list else ''} — {len(pubs)} publishers\n{'=' * 80}")
@@ -1329,6 +1385,28 @@ def main() -> None:
     df = flag_unidentifiable_suppliers(df)
     df = df.select([c for c in SCHEMA_COLS if c in df.columns])
 
+    # MERGE MODE: fold the freshly-parsed publishers into the existing fact instead of replacing
+    # it. Drop any prior rows for the publishers we just (re)parsed — idempotent — then concat the
+    # untouched publishers back on. The kept rows are already fully classified (same SCHEMA_COLS),
+    # so no re-classification is needed; we align dtypes defensively before concat.
+    merged_kept_pubs: list[dict] = []
+    if args.merge and OUT_FACT.exists():
+        existing = pl.read_parquet(OUT_FACT)
+        sel_ids = [p["id"] for p in pubs]
+        kept = existing.filter(~pl.col("publisher_id").is_in(sel_ids))
+        print(
+            f"\nMERGE: existing fact {existing.height:,} rows / {existing['publisher_id'].n_unique()} "
+            f"publishers; replacing {existing.height - kept.height:,} rows for {sel_ids}, "
+            f"keeping {kept.height:,} rows for {kept['publisher_id'].n_unique()} other publishers"
+        )
+        df = df.select(existing.columns).cast(dict(existing.schema))
+        df = pl.concat([kept, df], how="vertical")
+        # Preserve the by_publisher coverage entries for the publishers we did NOT reparse.
+        if OUT_COV.exists():
+            with contextlib.suppress(Exception):
+                old_cov = json.loads(OUT_COV.read_text(encoding="utf-8"))
+                merged_kept_pubs = [e for e in old_cov.get("by_publisher", []) if e.get("id") not in sel_ids]
+
     # PRIVACY INVARIANT (runtime, -O-proof): no displayable row may be a likely person.
     leaked = df.filter(pl.col("public_display") & (pl.col("supplier_class") == "sole_trader_or_individual"))
     if leaked.height:
@@ -1349,9 +1427,10 @@ def main() -> None:
         f"sum=€{(safe['amount_eur'].sum() or 0):,.0f} (po_committed+payment_actual only)"
     )
 
+    by_publisher = merged_kept_pubs + per_pub  # kept (merge mode) + freshly parsed this run
     cov = {
-        "publishers_attempted": len(per_pub),
-        "publishers_with_rows": sum(p["rows"] > 0 for p in per_pub if "rows" in p),
+        "publishers_attempted": len(by_publisher),
+        "publishers_with_rows": sum(p.get("rows", 0) > 0 for p in by_publisher),
         "rows_extracted": df.height,
         "rows_deduped_within_file": rows_deduped,
         "rows_public_display": int(df["public_display"].sum()),
@@ -1365,7 +1444,7 @@ def main() -> None:
         },
         "value_safe_to_sum_rows": safe.height,
         "value_safe_to_sum_total_eur": float(safe["amount_eur"].sum() or 0),
-        "by_publisher": per_pub,
+        "by_publisher": by_publisher,
         "privacy_quarantine_applied": True,
         "schema_version": 1,
         "parser_version": PARSER_VERSION,

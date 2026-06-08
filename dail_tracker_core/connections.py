@@ -121,13 +121,20 @@ def register_member_views(conn: duckdb.DuckDBPyConnection) -> None:
         _log.warning("member views: could not load vote views: %s", exc)
 
     # Phase 5 — speech views (unified gold parquet; speech_base precedes dependents).
+    # Prefer the FULL fact (all years + full text, gitignored) when present — local
+    # + API; fall back to the committed lite slice on a fresh Cloud clone.
     try:
-        from config import GOLD_SPEECHES_FACT_PARQUET
+        from config import GOLD_SPEECHES_FACT_FULL_PARQUET, GOLD_SPEECHES_FACT_PARQUET
 
+        speech_path = (
+            GOLD_SPEECHES_FACT_FULL_PARQUET
+            if GOLD_SPEECHES_FACT_FULL_PARQUET.exists()
+            else GOLD_SPEECHES_FACT_PARQUET
+        )
         register_views(
             conn,
             SPEECH_FILES,
-            substitutions={"{SPEECH_FACT_PARQUET_PATH}": GOLD_SPEECHES_FACT_PARQUET.as_posix()},
+            substitutions={"{SPEECH_FACT_PARQUET_PATH}": speech_path.as_posix()},
             swallow_errors=True,
         )
     except Exception as exc:  # noqa: BLE001
@@ -192,18 +199,24 @@ def api_conn() -> duckdb.DuckDBPyConnection:
     try:
         from config import (
             GOLD_SEANAD_VOTE_HISTORY_PARQUET,
+            GOLD_SPEECHES_FACT_FULL_PARQUET,
             GOLD_SPEECHES_FACT_PARQUET,
             GOLD_VOTE_HISTORY_PARQUET,
             SILVER_PARQUET_DIR,
         )
 
+        _speech_path = (
+            GOLD_SPEECHES_FACT_FULL_PARQUET
+            if GOLD_SPEECHES_FACT_FULL_PARQUET.exists()
+            else GOLD_SPEECHES_FACT_PARQUET
+        )
         subs = {
             "{MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_members.parquet").as_posix(),
             "{SEANAD_MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_seanad_members.parquet").as_posix(),
             "{EXTERNAL_LINKS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_external_links.parquet").as_posix(),
             "{PARQUET_PATH}": GOLD_VOTE_HISTORY_PARQUET.as_posix(),
             "{SEANAD_VOTE_PARQUET_PATH}": GOLD_SEANAD_VOTE_HISTORY_PARQUET.as_posix(),
-            "{SPEECH_FACT_PARQUET_PATH}": GOLD_SPEECHES_FACT_PARQUET.as_posix(),
+            "{SPEECH_FACT_PARQUET_PATH}": _speech_path.as_posix(),
         }
     except Exception as exc:  # noqa: BLE001
         _log.warning("api_conn: could not load config substitutions: %s", exc)

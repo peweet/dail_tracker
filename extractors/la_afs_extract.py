@@ -519,7 +519,11 @@ def best_ie_page(doc) -> tuple[int | None, dict, tuple | None]:
     stacked sub-tables never reconcile under a flat line parser)."""
     best_pg, best_ie, best_total, best_score = None, {}, None, (-1, -1, -1)
     for i in range(doc.page_count):
-        ie, total = parse_ie(doc[i].get_text("text"))
+        # a single malformed page must never abort a multi-year, multi-council run — skip it
+        try:
+            ie, total = parse_ie(doc[i].get_text("text"))
+        except Exception:
+            continue
         if len(ie) < 6:
             continue
         gross_sum = sum(v[0] for v in ie.values() if v[0])
@@ -562,11 +566,19 @@ def _parse_one_afs(cf: dict, picked: str) -> tuple[list[dict], dict]:
     council loop can run it once per year. Same safety gate (emit rows only if Σ gross matches
     the statement's own printed total)."""
     year = title_year(picked)
-    stat = {"council": cf["council"], "slug": cf["slug"], "picked": picked, "year": year}
     p = download(cf["slug"], picked, year)
     if not p:
-        stat["status"] = "download-fail(WAF?)"
-        return [], stat
+        return [], {"council": cf["council"], "slug": cf["slug"], "picked": picked, "year": year, "status": "download-fail(WAF?)"}
+    return _parse_pdf(cf, p, picked, year)
+
+
+def _parse_pdf(cf: dict, p: Path, source_url: str | None, year_guess: int) -> tuple[list[dict], dict]:
+    """Reconcile ONE already-on-disk AFS PDF → (rows, stat). Shared by the live path
+    (_parse_one_afs, source_url = the harvested URL) and the bronze last-resort
+    (source_url = None, p = a cached file). Emits rows only if Σ gross matches the
+    statement's own printed total."""
+    year = year_guess
+    stat = {"council": cf["council"], "slug": cf["slug"], "picked": source_url, "year": year}
     doc = fitz.open(p)
     npages = doc.page_count
     if npages < 30:  # AFS file-selector guard — a short doc is a summary, not the AFS
@@ -599,7 +611,7 @@ def _parse_one_afs(cf: dict, picked: str) -> tuple[list[dict], dict]:
             "income": v[1],
             "net_expenditure": v[2],
             "net_expenditure_prior_yr": v[3],
-            "source_file_url": picked,
+            "source_file_url": source_url,
             "source_page_number": pg,
             "printed_total_eur": (total[0] if total else None),
             "reconciled": reconciled,
@@ -612,10 +624,29 @@ def _parse_one_afs(cf: dict, picked: str) -> tuple[list[dict], dict]:
     return rows, stat
 
 
+def bronze_picks(slug: str) -> list[Path]:
+    """Cached AFS PDFs on disk for a council (named <year>.pdf by download()), years
+    >= MIN_AFS_YEAR, newest first. The PROVEN recovery path: councils keep their archive
+    and prior runs already cached many years — so a transient live-harvest failure should
+    not drop a council whose statements we already hold."""
+    d = CACHE / slug
+    if not d.is_dir():
+        return []
+    cached = [(int(p.stem), p) for p in d.glob("*.pdf") if p.stem.isdigit() and int(p.stem) >= MIN_AFS_YEAR]
+    return [p for _, p in sorted(cached, reverse=True)]
+
+
 def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
+    # Retry the live harvest: fetch_text/fetch_bytes do ONE requests + ONE curl attempt, so a
+    # single transient WAF/timeout returns no URLs and would silently drop the whole council
+    # (and corrupt the single-run coverage). Retrying recovers it; the bronze last-resort below
+    # is the final safety net if the site is down for the whole run.
     urls: list[str] = []
-    for landing in cf["landing"]:
-        urls = harvest_afs(landing)
+    for _ in range(3):
+        for landing in cf["landing"]:
+            urls = harvest_afs(landing)
+            if urls:
+                break
         if urls:
             break
     urls = urls + [u for u in cf.get("direct", []) if u not in urls]  # known-good fallback URLs
@@ -629,8 +660,8 @@ def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
         "years_available": avail,
         "year": title_year(picks[0]) if picks else None,
     }
-    if list_only or not picks:
-        stat["status"] = "no-afs" if not picks else "listed"
+    if list_only:
+        stat["status"] = "listed" if picks else "no-afs"
         return [], stat
     # Loop every post-2016 statement → the fact becomes a multi-year by-division series. Each
     # year passes its OWN reconcile gate independently (a layout-drifted old year is skipped, the
@@ -644,7 +675,40 @@ def ingest_council(cf: dict, list_only: bool) -> tuple[list[dict], dict]:
         if rows:
             all_rows.extend(rows)
             years_done.append(sub["year"])
+    # BRONZE GAP-FILL: many council landings only surface the latest one/few AFS, but prior runs
+    # already cached the whole archive (data/bronze/pdfs/la_afs/<slug>/<year>.pdf) — the proven
+    # recovery path. Parse every cached year NOT already covered by a live pick (keyed by the
+    # file's title-year = how download() names it, so live-covered files aren't re-parsed). Same
+    # reconcile gate; if live harvest failed entirely this also recovers the council outright.
+    picked_title_years = {title_year(u) for u in picks}
+    bronze_added = 0
+    for p in bronze_picks(cf["slug"]):
+        if int(p.stem) in picked_title_years:
+            continue
+        rows, sub = _parse_pdf(cf, p, None, int(p.stem))
+        last_status = sub.get("status", last_status)
+        if rows:
+            all_rows.extend(rows)
+            years_done.append(sub["year"])
+            bronze_added += 1
+    # Drop any (year, division) a bronze file duplicated from a live pick (filename year can lag
+    # the statement year — 'signed Dec 2020' = the 2019 AFS), preferring the live-URL row.
+    if all_rows:
+        seen: set[tuple[int, str]] = set()
+        deduped = []
+        for r in sorted(all_rows, key=lambda r: r["source_file_url"] is None):  # live (url) first
+            k = (r["year"], r["division"])
+            if k in seen:
+                continue
+            seen.add(k)
+            deduped.append(r)
+        all_rows = deduped
+        years_done = sorted({r["year"] for r in all_rows})
+    if not all_rows and not picks:
+        stat["status"] = "no-afs"
+        return [], stat
     stat["status"] = "ok" if all_rows else last_status  # 'ok' if ANY year landed → no camelot retry
+    stat["bronze_added"] = bronze_added
     stat["years"] = sorted(set(years_done))
     stat["n_years"] = len(set(years_done))
     return all_rows, stat

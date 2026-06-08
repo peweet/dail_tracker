@@ -49,15 +49,23 @@ def register_views(
 ) -> None:
     """Register SQL views onto ``conn``.
 
-    For each glob pattern (in order), every matching ``sql_views/*.sql`` file is
-    read in alphabetical order — preserving the implicit dependency ordering the
-    views rely on — then has its ``{KEY}`` substitutions applied, its data paths
-    absolutised, and is executed. A failing file is logged and skipped when
+    For each glob pattern (in order), every matching ``sql_views/**/*.sql`` file
+    is read in alphabetical order — preserving the implicit dependency ordering
+    the views rely on — then has its ``{KEY}`` substitutions applied, its data
+    paths absolutised, and is executed. A failing file is logged and skipped when
     ``swallow_errors`` is True, else the exception propagates.
+
+    Matching is RECURSIVE: ``sql_views/`` is organised into per-domain
+    subdirectories (``procurement/``, ``lobbying/``, …), and a bare pattern such
+    as ``"procurement_*.sql"`` is resolved as ``"**/procurement_*.sql"``. Pathlib's
+    ``**`` matches the root dir as well, so a file left directly under
+    ``sql_views/`` still loads. Because every file keeps its domain-prefixed name,
+    each single-domain glob still resolves to exactly one subdirectory, so the
+    within-domain alphabetical order the views depend on is unchanged.
     """
     subs = substitutions or {}
     for pattern in patterns:
-        for sql_file in sorted(SQL_VIEWS_DIR.glob(pattern)):
+        for sql_file in sorted(SQL_VIEWS_DIR.glob(f"**/{pattern}")):
             try:
                 sql = sql_file.read_text(encoding="utf-8")
                 for key, val in subs.items():

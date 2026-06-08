@@ -305,6 +305,11 @@ lobbyist/raw/
 !data/gold/
 !data/gold/parquet/
 !data/gold/parquet/*.parquet
+# EXCEPTION: the FULL debate-speeches fact (all years + full text, ~200MB) must NOT
+# be committed — it exceeds GitHub's 100MB limit. Only the committed lite slice
+# `speeches_fact.parquet` (recent years + excerpt, ~25MB) ships to Cloud; the full
+# fact is rebuilt locally by debates/speeches_gold.py. See [[feedback_dual_config_files]].
+data/gold/parquet/speeches_fact_full.parquet
 !data/silver/aggregated_td_tables.csv
 !data/silver/flattened_members.csv
 !data/silver/flattened_seanad_members.csv

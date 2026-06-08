@@ -1083,7 +1083,7 @@ def _render_legal_diary() -> None:
     st.divider()
     _render_ld_busiest(day_counts)
     st.divider()
-    _render_ld_cases(day_cases, labels[chosen])
+    _render_ld_cases(day_cases, _fmt_day(chosen))
 
     sha = ""
     if day_cases is not None and not day_cases.empty and "source_sha256" in day_cases.columns:
