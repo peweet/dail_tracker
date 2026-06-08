@@ -453,9 +453,14 @@ SCHEMA_MAP: list[dict] = [
         "dublin",
         fmt="-",
         status="NON-PUBLISHER",
-        listing="https://www.dublincity.ie/business/doing-business-council/public-procurement",
+        listing="https://www.dublincity.ie/council/budgets-and-finance/public-procurement",
         value_kind="po_committed",
-        caveat="only a stale ≤2014 aggregate prompt-payment return; wrong grain",
+        caveat="RE-CONFIRMED non-publisher 2026-06-08 (the biggest LA, but it does NOT publish a "
+        "supplier-level PO/payments-over-€20k SPEND list). Its procurement page carries only policy "
+        "PDFs + a stale 2018 'List_of_Contracts_Awarded_over_€25000.xls' (AWARD grain, ceilings — "
+        "belongs to the awards lane, never the payments fact). data.gov.ie has only the AGGREGATE "
+        "prompt-payment schedule (quarterly invoice TOTALS, not supplier-level). Real coverage gap, "
+        "structural — not a sourcing miss.",
     ),
     la(
         "dlr",

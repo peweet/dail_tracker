@@ -1,7 +1,7 @@
 """Enrich payments_full_psa.parquet with unique_member_code, party_name, constituency.
 
 Closes the bug where Member Overview's payments hero stat showed "Not on file"
-for every TD because v_payments_base (sql_views/payments_base.sql) projected
+for every TD because v_payments_base (sql_views/payments/payments_base.sql) projected
 unique_member_code as NULL — `SELECT SUM(amount_num) WHERE unique_member_code = ?`
 could never match.
 

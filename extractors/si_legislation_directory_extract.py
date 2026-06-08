@@ -2,7 +2,7 @@
 A full multi-year extractor that writes the gold parquet + coverage JSON and
 self-tests join coverage against gold. Lives in extractors/ (per the
 sandbox rule) but is now a SHIPPING extractor: it owns the gold table
-si_current_state.parquet, which sql_views/legislation_si_current_state.sql
+si_current_state.parquet, which sql_views/legislation/legislation_si_current_state.sql
 (v_si_current_state) reads and legislation_si_index.sql LEFT-JOINs into
 v_statutory_instruments. Wired into the iris chain as iris_refresh.step_si_legal_state
 (runs under `python pipeline.py --select iris`).

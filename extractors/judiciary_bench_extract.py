@@ -29,7 +29,7 @@ OUTPUTS (committed runtime set):
 META:
   data/_meta/judiciary_bench_coverage.json
 
-The SQL views (sql_views/judiciary_roster.sql / judiciary_appointments.sql /
+The SQL views (sql_views/judiciary/judiciary_roster.sql / judiciary_appointments.sql /
 judiciary_profile.sql) shape + classify off these; the Streamlit page reads the views only.
 
 PRIVACY / SCOPE: appointment, current office, court, rank, official assignment, and salary

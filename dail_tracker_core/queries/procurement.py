@@ -3,7 +3,7 @@
 Moved verbatim from ``utility/data_access/procurement_data.py`` (the exemplar
 thin wrapper). Every function is retrieval-only SQL against the registered
 ``procurement_*`` views; all aggregation/joins/value-gating already live in the
-views (see e.g. ``sql_views/procurement_supplier_summary.sql``). The SQL strings
+views (see e.g. ``sql_views/procurement/procurement_supplier_summary.sql``). The SQL strings
 are byte-for-byte the same as the old wrapper so output is unchanged — the only
 difference is the return type (``QueryResult`` instead of a bare DataFrame, with
 DuckDB failures surfaced as ``unavailable`` instead of a silent empty frame).
@@ -33,6 +33,10 @@ _SUPPLIER_ORDER = {
 _RANK_ORDER = {  # authority + cpv summaries share the same column shape
     "awards": "n_awards DESC",
     "value": "awarded_value_safe_eur DESC, n_awards DESC",
+}
+_COMPETITION_ORDER = {  # buyer competition ranking
+    "single_bid": "single_bid_lot_pct DESC NULLS LAST, n_lots_with_bidcount DESC",
+    "lots": "n_lots_with_bidcount DESC",
 }
 
 
@@ -134,6 +138,33 @@ def supplier_concentration(conn: duckdb.DuckDBPyConnection, *, top_n: int = 10) 
         "        / NULLIF(MAX(total_awards), 0), 1) AS top_n_share_pct"
         " FROM ranked",
     )
+
+
+def competition(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    min_lots: int = 0,
+    order_by: str = "single_bid",
+    limit: int | None = None,
+) -> QueryResult:
+    """Per-buyer procurement competition signals from ``v_procurement_competition`` (TED
+    2024+). ``single_bid_lot_pct`` = single-bid LOTS / lots-with-a-bid-count — each contract
+    part counted once (the honest lot-level rate, not the inflated notice-level one).
+    ``min_lots`` drops small, noisy samples; ``order_by`` is ``"single_bid"`` (rate, default)
+    or ``"lots"`` (volume). A factual competition signal, never a verdict — the dossier layer
+    attaches the caveat."""
+    order = _COMPETITION_ORDER.get(order_by, _COMPETITION_ORDER["single_bid"])
+    sql = (
+        "SELECT buyer_name, n_notices, n_lots_with_bidcount, n_single_bid_lots,"
+        " single_bid_lot_pct, n_uncompetitive_notices, n_price_only_notices, first_year, last_year"
+        " FROM v_procurement_competition WHERE n_lots_with_bidcount >= ?"
+        f" ORDER BY {order}"
+    )
+    params: list = [int(min_lots)]
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
 
 
 def awards_by_year(conn: duckdb.DuckDBPyConnection) -> QueryResult:

@@ -2,7 +2,7 @@
 
 Turns the raw classlist occurrences into a clean, deterministic, one-row-per-SI
 enrichment GOLD table over our SI gold. Read by v_si_lrc_enrichment
-(sql_views/legislation_si_lrc_enrichment.sql) and joined into
+(sql_views/legislation/legislation_si_lrc_enrichment.sql) and joined into
 v_statutory_instruments_classified for the SI page's subject chip + topic browse.
 Run after si_lrc_classlist_extract.py; wired into the iris chain as
 iris_refresh.step_si_lrc_enrichment ([8/8]).

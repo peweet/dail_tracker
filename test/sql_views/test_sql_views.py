@@ -34,6 +34,7 @@ from data_access._sql_registry import register_views
 from config import (
     DATA_DIR,
     GOLD_PARQUET_DIR,
+    GOLD_SPEECHES_FACT_PARQUET,
     GOLD_VOTE_HISTORY_PARQUET,
     LOBBY_PARQUET_DIR,
     SILVER_DIR,
@@ -96,9 +97,22 @@ def _con():
     return duckdb.connect()
 
 
+def _view_path(filename: str) -> Path:
+    """Resolve a bare view filename to its path under sql_views/.
+
+    sql_views/ is organised into per-domain subdirectories but every file keeps
+    its unique domain-prefixed name, so a recursive search by bare name finds
+    exactly one file — mirroring production's recursive ``glob('**/'+pattern)``.
+    """
+    matches = sorted(SQL_VIEWS_DIR.glob(f"**/{filename}"))
+    if not matches:
+        raise FileNotFoundError(f"No SQL view named {filename!r} under {SQL_VIEWS_DIR}")
+    return matches[0]
+
+
 def _load(filename: str, con=None) -> str:
     """Read a SQL view file and substitute known template paths."""
-    sql = (SQL_VIEWS_DIR / filename).read_text(encoding="utf-8")
+    sql = _view_path(filename).read_text(encoding="utf-8")
     sql = sql.replace("{MEMBER_PARQUET_PATH}", str(MEMBER_PARQUET).replace("\\", "/"))
     sql = sql.replace("{SEANAD_MEMBER_PARQUET_PATH}", str(SEANAD_MEMBER_PARQUET).replace("\\", "/"))
     sql = sql.replace("{PARQUET_PATH}", str(VOTE_PARQUET).replace("\\", "/"))
@@ -676,7 +690,7 @@ def test_v_si_amendments_inversion_contract(tmp_path):
     edge inversion, effect mapping, other_affected exclusion, no row inflation
     from multi-element lists, number/year parse, LEFT-JOIN title fill."""
     _write_si_amendments_fixture(tmp_path)
-    sql = (SQL_VIEWS_DIR / "legislation_si_amendments.sql").read_text(encoding="utf-8")
+    sql = _view_path("legislation_si_amendments.sql").read_text(encoding="utf-8")
     sql = sql.replace("'data/", f"'{tmp_path.as_posix()}/data/")  # mirror absolutize
     con = _con()
     con.execute(sql)
@@ -1079,13 +1093,27 @@ def test_vote_view_executes(filename, view_name, key_cols):
 _REGISTRATION_GROUPS = [
     ("appointments", ["appointments_*.sql"], {}),
     ("attendance", ["attendance_*.sql"], {}),
+    ("charity", ["charity_*.sql"], {}),  # api_conn glob; only one charity file is loaded via lobbying
     ("committees", ["committees_*.sql"], {}),
     ("corporate", ["corporate_*.sql"], {}),
     ("interests", ["member_interests_*.sql", "member_zz_interests_*.sql"], {}),
+    ("judiciary", ["judiciary_*.sql"], {}),  # judiciary_data.py glob (also covered by test_judiciary_bench)
     ("legislation", ["legislation_*.sql"], {}),
     ("lobbying", ["lobbying_*.sql"], {}),
     ("payments", ["payments_*.sql"], {}),
     ("procurement", ["procurement_*.sql"], {}),
+    # public_payments: the real public_payments_data.py call site loads only this one
+    # self-contained file (it is also swept into the procurement_*.sql glob above).
+    ("public_payments", ["procurement_public_payments.sql"], {}),
+    # publicfinance: v_gov_finance_annual is intentionally unwired (no page yet — the
+    # share-of-total denominator view is deferred), so no production connection loads
+    # it. Register it here so the orphan view is still proven to build (schema drift).
+    ("publicfinance", ["publicfinance_*.sql"], {}),
+    ("sipo", ["sipo_*.sql"], {}),  # sipo_{donations,expenses}_data.py glob (also covered by test_core_sipo_queries)
+    # speech: brand-new debates views, loaded by register_member_views with
+    # swallow_errors=True (a break renders the member Debates section silently
+    # empty). speech_base must precede its dependents — alphabetical order holds.
+    ("speech", ["speech_*.sql"], {"{SPEECH_FACT_PARQUET_PATH}": GOLD_SPEECHES_FACT_PARQUET.as_posix()}),
     (
         "votes",
         ["vote*.sql"],
@@ -2022,7 +2050,7 @@ _CREATE_VIEW_RE = re.compile(r"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(\w+)", re.IG
 def test_view_names_follow_v_prefix_convention():
     """Every view name should start with `v_`, except the documented legacy set."""
     unprefixed = set()
-    for sql_file in sorted(SQL_VIEWS_DIR.glob("*.sql")):
+    for sql_file in sorted(SQL_VIEWS_DIR.glob("**/*.sql")):
         text = sql_file.read_text(encoding="utf-8")
         for name in _CREATE_VIEW_RE.findall(text):
             if not name.startswith("v_"):

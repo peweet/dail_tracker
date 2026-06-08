@@ -12,7 +12,7 @@ Outputs:
 Promotion note (2026-06-02):
   Only the corporate-notices cross-ref is promoted to gold — it is load-bearing
   for the Corporate page (v_corporate_cbi_notice_match / _repeat_distress in
-  sql_views/corporate_cbi_distress.sql) and the panel/badges go blank without
+  sql_views/corporate/corporate_cbi_distress.sql) and the panel/badges go blank without
   it. It uses EXACT normalised-name matching (no substring), so it is not prone
   to the fragment false-positives the member-interests substring xref produces;
   that one + the lobbying xref + the raw firm table stay sandbox-grade.

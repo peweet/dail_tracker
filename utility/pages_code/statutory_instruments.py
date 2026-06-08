@@ -2,7 +2,7 @@
 Statutory Instruments — standalone browser page.
 
 Sources from the registered DuckDB view v_statutory_instruments
-(sql_views/legislation_si_index.sql), which reads
+(sql_views/legislation/legislation_si_index.sql), which reads
 data/gold/parquet/statutory_instruments.parquet — produced by
 si_entity_enrichment.py. The SI is treated as a first-class entity: the
 full ~5,900-SI corpus (2016+), NOT gated on a bill match. No raw parquet

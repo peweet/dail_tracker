@@ -56,6 +56,11 @@ SEANAD_ATTENDANCE_BY_YEAR_PARQUET = GOLD_PARQUET_DIR / "seanad_attendance_by_yea
 # Debates: member-attributed floor speeches (both chambers). Silver is the raw
 # parsed transcript; gold joins member identity + language/topic enrichment.
 SILVER_SPEECHES_PARQUET = SILVER_PARQUET_DIR / "speeches.parquet"
+# Dual artifact: the FULL fact (all years, full speech_text) is gitignored and
+# used locally + by the API; the committed `speeches_fact.parquet` is a lite
+# slice (recent years, truncated excerpt) small enough for GitHub/Streamlit Cloud
+# (which boot from a git clone with no ETL). Views prefer the full file when present.
+GOLD_SPEECHES_FACT_FULL_PARQUET = GOLD_PARQUET_DIR / "speeches_fact_full.parquet"
 GOLD_SPEECHES_FACT_PARQUET = GOLD_PARQUET_DIR / "speeches_fact.parquet"
 
 API_BASE = "https://api.oireachtas.ie/v1"

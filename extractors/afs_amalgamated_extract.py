@@ -79,7 +79,12 @@ def to_num(s: str) -> float:
     m = re.search(r"[\d,]+(?:\.\d+)?", s)
     if not m:
         return 0.0
-    v = float(m.group().replace(",", "")) * mult
+    digits = m.group().replace(",", "")
+    # comma-/dot-only cells (e.g. an empty bracket "(,)" that still satisfies NUM) strip to a
+    # non-number — treat as 0.0, the same contract as the no-match case (was a ValueError crash).
+    if not digits or digits in {".", "-"}:
+        return 0.0
+    v = float(digits) * mult
     return -v if neg else v
 
 
