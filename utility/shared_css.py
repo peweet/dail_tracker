@@ -4894,6 +4894,65 @@ def inject_css() -> None:
             color:var(--ink-muted); white-space:nowrap; }
         .don-rrow .don-vmark { grid-column:1 / -1; padding-top:0.1rem; }
 
+        /* ── Election 2024 hub (unified GE2024 political finance) ─────────────
+           Three SIPO returns under one roof: a tab strip, a "money map" flow of
+           three independent totals (never summed), and a per-party "full picture"
+           card showing all three streams as aligned proportional bars. */
+        .e24-tabs { display:flex; flex-wrap:wrap; gap:0.3rem; margin:0.2rem 0 1.1rem;
+            border-bottom:1px solid var(--border, oklch(88% 0.006 75)); padding-bottom:0.55rem; }
+        .e24-tab { font-size:0.86rem; font-weight:600; color:var(--ink-muted); text-decoration:none;
+            padding:0.4rem 0.85rem; border-radius:999px; border:1px solid transparent; white-space:nowrap;
+            transition:background .15s, color .15s, border-color .15s; }
+        .e24-tab:hover { color:var(--ink-strong); background:var(--surface-deep, oklch(96% 0.006 75)); }
+        .e24-tab.active { color:#ffffff; background:var(--accent); border-color:var(--accent); }
+
+        /* money map — three big totals connected by a directional flow. The
+           framing copy makes clear these are separate records, not a balance. */
+        .e24-map { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; align-items:stretch;
+            gap:0.4rem; margin:0.3rem 0 0.5rem; }
+        @media (max-width: 820px){ .e24-map { grid-template-columns:1fr; }
+            .e24-arrow { display:none; } }
+        .e24-tier { background:#ffffff; border:1px solid var(--border, oklch(88% 0.006 75)); border-radius:9px;
+            border-top:3px solid var(--e24-stripe, var(--ink-muted)); padding:0.85rem 1rem 0.9rem; display:flex;
+            flex-direction:column; gap:0.1rem; }
+        .e24-tier .lbl { font-size:0.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+            color:var(--ink-muted); }
+        .e24-tier .amt { font-size:1.85rem; font-weight:680; letter-spacing:-.02em; line-height:1.08;
+            font-variant-numeric:tabular-nums; color:var(--ink-strong); margin:0.15rem 0 0.05rem; }
+        .e24-tier .meta { font-size:0.78rem; color:var(--ink-muted); }
+        .e24-tier .grain { font-size:0.72rem; color:oklch(48% 0.01 75); margin-top:0.3rem; font-style:italic; }
+        .e24-arrow { display:flex; align-items:center; justify-content:center; color:var(--ink-muted);
+            font-size:1.3rem; font-weight:400; }
+        .e24-nosum { font-size:0.8rem; color:oklch(40% 0.03 60); background:oklch(96% 0.02 75);
+            border:1px solid oklch(88% 0.03 70); border-left:3px solid oklch(70% 0.08 60); border-radius:6px;
+            padding:0.55rem 0.8rem; margin:0.2rem 0 0.6rem; line-height:1.45; }
+
+        /* per-party "full picture" card — three aligned stream bars */
+        .e24-pcard { background:#ffffff; border:1px solid var(--border, oklch(88% 0.006 75));
+            border-left:3px solid var(--e24-stripe, var(--ink-muted)); border-radius:8px;
+            padding:0.85rem 1.05rem 0.9rem; }
+        .e24-pcard .phead { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.55rem; }
+        .e24-pcard .phead .sw { width:9px; height:9px; border-radius:2px; background:var(--e24-stripe); flex:none; }
+        .e24-pcard .phead h3 { font-size:1rem; font-weight:650; margin:0; color:var(--ink-strong); }
+        .e24-streams { display:flex; flex-direction:column; gap:0.5rem; }
+        .e24-stream { display:grid; grid-template-columns:9.5rem 1fr 6.5rem; align-items:center; gap:0.6rem; }
+        @media (max-width: 620px){ .e24-stream { grid-template-columns:1fr; gap:0.15rem; } }
+        .e24-stream-lbl { display:block; text-decoration:none; color:inherit; }
+        .e24-stream .sl { font-size:0.78rem; color:var(--ink-muted); }
+        .e24-stream-lbl:hover .sl { color:var(--accent); text-decoration:underline; }
+        .e24-track { background:oklch(94% 0.005 75); border-radius:4px; height:0.7rem; overflow:hidden; }
+        .e24-bar { display:block; height:100%; }
+        .e24-bar.in  { background:#2e7d6b; }
+        .e24-bar.agent { background:#3a6ea5; }
+        .e24-bar.cand { background:#8a5a9e; }
+        .e24-stream .sv { text-align:right; font-variant-numeric:tabular-nums; font-weight:600;
+            color:var(--ink-strong); font-size:0.9rem; }
+        .e24-stream .sv.none { color:var(--ink-muted); font-weight:400; }
+        .e24-legend { display:flex; flex-wrap:wrap; gap:0.9rem; margin:0.1rem 0 0.7rem; font-size:0.76rem;
+            color:var(--ink-muted); }
+        .e24-legend .lk { display:inline-flex; align-items:center; gap:0.35rem; }
+        .e24-legend .dot { width:9px; height:9px; border-radius:2px; flex:none; }
+
         /* ───────────────────────── Judiciary: The Bench & Courts ──────────
            Bench roster cards, career-arc timeline, appointing-authority chips
            and vacancy-lifecycle cards. Ink-on-paper restraint: white cards,

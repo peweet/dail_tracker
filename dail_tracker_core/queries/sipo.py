@@ -192,3 +192,20 @@ def candidate_one(conn: duckdb.DuckDBPyConnection, candidate_name: str) -> Query
         "SELECT * FROM v_sipo_candidate_expenses WHERE candidate_name = ? LIMIT 1",
         [candidate_name],
     )
+
+
+# ── Combined GE2024 party finance (Election 2024 overview) ──────────────────────
+# One wide row per party joining the three returns (donations in / national-agent
+# spend / candidate spend). The JOIN lives in v_sipo_ge2024_party_finance — this is
+# a plain SELECT. The three money columns are DIFFERENT grains: NEVER sum them.
+
+
+def ge2024_party_finance(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """One row per party — donations in, national-agent spend, candidate spend."""
+    return _run(
+        conn,
+        "SELECT party, donated_in_eur, donation_count, donation_verify_count,"
+        " agent_spend_eur, agent_candidate_count, agent_verify_count, agent_excluded_count,"
+        " candidate_spend_eur, candidate_count, candidate_verify_count"
+        " FROM v_sipo_ge2024_party_finance",
+    )
