@@ -14,6 +14,11 @@
 *.json
 *.xlsx
 *.pdf
+# Raw server-download artifacts (LA procurement portals hand back .aspx/.ashx blobs that
+# are really PDFs/HTML); these are regenerable downloads, never source — the *.pdf rule
+# above misses them. One .aspx leaked into data/bronze/pdfs/ before this rule existed.
+*.aspx
+*.ashx
 # DuckDB
 *.duckdb
 *.duckdb.wal
@@ -375,6 +380,15 @@ data/silver/sipo/
 # (judicial_legal_diary_cases.parquet, initials only) may ever leave this machine.
 # No *.docx rule exists above, so this dir would otherwise be committable. Guard it.
 data/bronze/legal_diary/
+
+# === Raw downloaded-source staging tree — only .gitkeep belongs ===
+# data/bronze/pdfs/ holds raw downloads (PDFs + LA-procurement .aspx/.ashx blobs).
+# The type rules above miss odd server extensions, so blanket-ignore the tree and keep
+# just the .gitkeep placeholders that preserve the directory layout.
+data/bronze/pdfs/**
+!data/bronze/pdfs/**/
+!data/bronze/pdfs/.gitkeep
+!data/bronze/pdfs/**/.gitkeep
 
 # === Member avatars (Wikidata portraits + manifest) — committed deliberately ===
 # wiki_data.py downloads CC-licensed TD + Senator portraits into avatar/wikidata/.

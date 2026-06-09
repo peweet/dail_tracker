@@ -561,6 +561,54 @@ def payments_for_supplier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -
     )
 
 
+# ── AFS (per-LA audited Annual Financial Statement) — the BUDGET/accounts grain ──────────
+# A SIBLING context fact for the local-authority dossier: the council's total audited revenue
+# spend by service division (the denominator the named-supplier PO/payment slice sits inside).
+# NEVER summed or unioned with PO/payment or award euros — different grain (see the view headers).
+def afs_total_by_year(conn: duckdb.DuckDBPyConnection, council: str) -> QueryResult:
+    """One council's audited REVENUE-account spend per year (2016–2025 where filed) — the
+    "council accounts, all spending" spine of the local-authority dossier. gross_expenditure_eur
+    is Σ operating expenditure by service (a budget actual, never the PO/award grain). Pre-
+    aggregated in the view; the page renders, never computes."""
+    return _run(
+        conn,
+        "SELECT year, gross_expenditure_eur, income_eur, net_expenditure_eur,"
+        " n_divisions, printed_total_eur, reconciled, parser"
+        " FROM v_procurement_afs_total_by_year WHERE council = ? ORDER BY year",
+        [council],
+    )
+
+
+def afs_by_division(conn: duckdb.DuckDBPyConnection, council: str, year: int) -> QueryResult:
+    """One council-year's revenue spending by service division (Housing / Roads / …), largest
+    gross first — the by-function breakdown panel. Display passthrough of the reconcile-gated
+    fact; gross is operating expenditure by division, never the council's headline total."""
+    return _run(
+        conn,
+        "SELECT division, gross_expenditure_eur, income_eur, net_expenditure_eur, reconciled"
+        " FROM v_procurement_afs_by_division WHERE council = ? AND year = ?"
+        " ORDER BY gross_expenditure_eur DESC",
+        [council, int(year)],
+    )
+
+
+def afs_vs_po_coverage(conn: duckdb.DuckDBPyConnection, council: str, *, year: int | None = None) -> QueryResult:
+    """Audited revenue spend (AFS) vs the slice traceable to named >€20k suppliers (POs), per
+    year. Carries both tiers' PO totals and both pct_* ratios (the page reads the tier the
+    council publishes). INDICATIVE ratio only — different thresholds/stages/grain, not a
+    reconciliation (see the view header). ``year=None`` returns every year for the council."""
+    sql = (
+        "SELECT year, afs_gross_eur, afs_net_eur, po_spent_safe_eur, po_committed_safe_eur,"
+        " n_spent_lines, n_committed_lines, n_named_suppliers, pct_spent_of_gross, pct_committed_of_gross"
+        " FROM v_procurement_afs_vs_po_coverage WHERE council = ?"
+    )
+    params: list = [council]
+    if year is not None:
+        sql += " AND year = ?"
+        params.append(int(year))
+    return _run(conn, sql + " ORDER BY year", params)
+
+
 def lobbying_overlap(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Companies on BOTH the procurement and lobbying registers (co-occurrence
     disclosure only — never causation; see the view header)."""

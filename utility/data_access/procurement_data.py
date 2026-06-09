@@ -153,6 +153,26 @@ def fetch_payments_for_supplier_result(supplier_norm: str) -> QueryResult:
     return _q.payments_for_supplier(get_procurement_conn(), supplier_norm)
 
 
+# ── AFS (per-LA audited accounts) — BUDGET grain; the council-spend denominator ───
+# Sibling context fact for the local-authority dossier, never summed with PO/award euros.
+@st.cache_data(ttl=300)
+def fetch_afs_total_by_year_result(council: str) -> QueryResult:
+    """One council's audited revenue-account spend per year (the 'all spending' chart)."""
+    return _q.afs_total_by_year(get_procurement_conn(), council)
+
+
+@st.cache_data(ttl=300)
+def fetch_afs_by_division_result(council: str, year: int) -> QueryResult:
+    """One council-year's revenue spending by service division (the by-function panel)."""
+    return _q.afs_by_division(get_procurement_conn(), council, year)
+
+
+@st.cache_data(ttl=300)
+def fetch_afs_vs_po_coverage_result(council: str, year: int | None = None) -> QueryResult:
+    """Audited spend vs the named-supplier (PO) traceable slice, per year (the traceability line)."""
+    return _q.afs_vs_po_coverage(get_procurement_conn(), council, year=year)
+
+
 # ── TED (EU-journal awards) — separate register ───────────────────────────────
 @st.cache_data(ttl=300)
 def fetch_ted_corpus_stats_result() -> QueryResult:

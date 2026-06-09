@@ -1,306 +1,122 @@
 [
   {
-    "slug": "monaghan",
-    "division": "Housing and Building",
-    "capital_expenditure": 35058962.0,
-    "capital_income": 32802340.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 58317848.0
-  },
-  {
-    "slug": "monaghan",
-    "division": "Roads, Transportation and Safety",
-    "capital_expenditure": 7968733.0,
-    "capital_income": 6523416.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 58317848.0
-  },
-  {
-    "slug": "monaghan",
-    "division": "Water Services",
-    "capital_expenditure": 205117.0,
-    "capital_income": 81960.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 58317848.0
-  },
-  {
-    "slug": "monaghan",
-    "division": "Development Management",
-    "capital_expenditure": 8679016.0,
-    "capital_income": 5635395.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 58317848.0
-  },
-  {
-    "slug": "monaghan",
-    "division": "Environmental Services",
-    "capital_expenditure": 2100236.0,
-    "capital_income": 1965969.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 58317848.0
-  },
-  {
-    "slug": "monaghan",
-    "division": "Recreation and Amenity",
-    "capital_expenditure": 1998428.0,
-    "capital_income": 7410307.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 58317848.0
-  },
-  {
-    "slug": "monaghan",
-    "division": "Miscellaneous Services",
-    "capital_expenditure": 2307356.0,
-    "capital_income": 1531085.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 58317848.0
-  },
-  {
-    "slug": "kildare",
-    "division": "Housing and Building",
-    "capital_expenditure": 127875462.0,
-    "capital_income": 116733773.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 189022523.0
-  },
-  {
-    "slug": "kildare",
-    "division": "Roads, Transportation and Safety",
-    "capital_expenditure": 25399827.0,
-    "capital_income": 20598983.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 189022523.0
-  },
-  {
-    "slug": "kildare",
-    "division": "Water Services",
-    "capital_expenditure": 224.0,
-    "capital_income": 65243.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 189022523.0
-  },
-  {
-    "slug": "kildare",
-    "division": "Development Management",
-    "capital_expenditure": 24209403.0,
-    "capital_income": 26139825.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 189022523.0
-  },
-  {
-    "slug": "kildare",
-    "division": "Environmental Services",
-    "capital_expenditure": 5184313.0,
-    "capital_income": 4687412.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 189022523.0
-  },
-  {
-    "slug": "kildare",
-    "division": "Recreation and Amenity",
-    "capital_expenditure": 2292253.0,
-    "capital_income": 1809938.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 189022523.0
-  },
-  {
-    "slug": "kildare",
-    "division": "Agriculture, Education, Health & Welfare",
-    "capital_expenditure": 2391502.0,
-    "capital_income": 1857610.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 189022523.0
-  },
-  {
-    "slug": "kildare",
-    "division": "Miscellaneous Services",
-    "capital_expenditure": 1669539.0,
-    "capital_income": 248920.0,
-    "source_page_number": 39,
-    "printed_total_expenditure": 189022523.0
-  },
-  {
-    "slug": "clare",
-    "division": "Housing and Building",
-    "capital_expenditure": 46263773.0,
-    "capital_income": 40221702.0,
-    "source_page_number": 58,
-    "printed_total_expenditure": 125269152.0
-  },
-  {
-    "slug": "clare",
-    "division": "Roads, Transportation and Safety",
-    "capital_expenditure": 34279732.0,
-    "capital_income": 29787932.0,
-    "source_page_number": 58,
-    "printed_total_expenditure": 125269152.0
-  },
-  {
-    "slug": "clare",
-    "division": "Water Services",
-    "capital_expenditure": 367296.0,
-    "capital_income": 363296.0,
-    "source_page_number": 58,
-    "printed_total_expenditure": 125269152.0
-  },
-  {
-    "slug": "clare",
-    "division": "Development Management",
-    "capital_expenditure": 32492105.0,
-    "capital_income": 14695722.0,
-    "source_page_number": 58,
-    "printed_total_expenditure": 125269152.0
-  },
-  {
-    "slug": "clare",
-    "division": "Environmental Services",
-    "capital_expenditure": 1600060.0,
-    "capital_income": 1456319.0,
-    "source_page_number": 58,
-    "printed_total_expenditure": 125269152.0
-  },
-  {
-    "slug": "clare",
-    "division": "Recreation and Amenity",
-    "capital_expenditure": 7142293.0,
-    "capital_income": 1894445.0,
-    "source_page_number": 58,
-    "printed_total_expenditure": 125269152.0
-  },
-  {
-    "slug": "clare",
-    "division": "Agriculture, Education, Health & Welfare",
-    "capital_expenditure": 22268.0,
-    "capital_income": 22268.0,
-    "source_page_number": 58,
-    "printed_total_expenditure": 125269152.0
-  },
-  {
-    "slug": "clare",
-    "division": "Miscellaneous Services",
-    "capital_expenditure": 3101625.0,
-    "capital_income": 37434.0,
-    "source_page_number": 58,
-    "printed_total_expenditure": 125269152.0
-  },
-  {
     "slug": "fingal",
     "division": "Housing and Building",
-    "capital_expenditure": 283941546.0,
-    "capital_income": 253052643.0,
+    "capital_expenditure": 54331739.0,
+    "capital_income": 5053498.0,
     "source_page_number": 43,
-    "printed_total_expenditure": 567688978.0
+    "printed_total_expenditure": 104790802.0
   },
   {
     "slug": "fingal",
     "division": "Roads, Transportation and Safety",
-    "capital_expenditure": 55898227.0,
-    "capital_income": 27643237.0,
+    "capital_expenditure": 5661537.0,
+    "capital_income": 378434.0,
     "source_page_number": 43,
-    "printed_total_expenditure": 567688978.0
+    "printed_total_expenditure": 104790802.0
   },
   {
     "slug": "fingal",
     "division": "Water Services",
-    "capital_expenditure": 1771195.0,
+    "capital_expenditure": 1247706.0,
+    "capital_income": 619729.0,
+    "source_page_number": 43,
+    "printed_total_expenditure": 104790802.0
+  },
+  {
+    "slug": "fingal",
+    "division": "Development Management",
+    "capital_expenditure": 34063751.0,
+    "capital_income": 64650131.0,
+    "source_page_number": 43,
+    "printed_total_expenditure": 104790802.0
+  },
+  {
+    "slug": "fingal",
+    "division": "Environmental Services",
+    "capital_expenditure": 1459777.0,
     "capital_income": null,
     "source_page_number": 43,
-    "printed_total_expenditure": 567688978.0
-  },
-  {
-    "slug": "fingal",
-    "division": "Development Management",
-    "capital_expenditure": 173363812.0,
-    "capital_income": 97278731.0,
-    "source_page_number": 43,
-    "printed_total_expenditure": 567688978.0
-  },
-  {
-    "slug": "fingal",
-    "division": "Environmental Services",
-    "capital_expenditure": 1752731.0,
-    "capital_income": 174388.0,
-    "source_page_number": 43,
-    "printed_total_expenditure": 567688978.0
+    "printed_total_expenditure": 104790802.0
   },
   {
     "slug": "fingal",
     "division": "Recreation and Amenity",
-    "capital_expenditure": 38885976.0,
-    "capital_income": 1206515.0,
+    "capital_expenditure": 7326788.0,
+    "capital_income": 1192667.0,
     "source_page_number": 43,
-    "printed_total_expenditure": 567688978.0
+    "printed_total_expenditure": 104790802.0
   },
   {
     "slug": "fingal",
     "division": "Miscellaneous Services",
-    "capital_expenditure": 12075491.0,
-    "capital_income": 55926.0,
+    "capital_expenditure": 699505.0,
+    "capital_income": -473526.0,
     "source_page_number": 43,
-    "printed_total_expenditure": 567688978.0
+    "printed_total_expenditure": 104790802.0
   },
   {
     "slug": "dlr",
     "division": "Housing and Building",
-    "capital_expenditure": 162162163.0,
-    "capital_income": 157508521.0,
-    "source_page_number": 38,
-    "printed_total_expenditure": 237169228.0
+    "capital_expenditure": 36528235.0,
+    "capital_income": 30532469.0,
+    "source_page_number": 39,
+    "printed_total_expenditure": 71812298.0
   },
   {
     "slug": "dlr",
     "division": "Roads, Transportation and Safety",
-    "capital_expenditure": 33523382.0,
-    "capital_income": 15919545.0,
-    "source_page_number": 38,
-    "printed_total_expenditure": 237169228.0
+    "capital_expenditure": 18811207.0,
+    "capital_income": 18716237.0,
+    "source_page_number": 39,
+    "printed_total_expenditure": 71812298.0
   },
   {
     "slug": "dlr",
     "division": "Water Services",
-    "capital_expenditure": 550500.0,
-    "capital_income": 834908.0,
-    "source_page_number": 38,
-    "printed_total_expenditure": 237169228.0
+    "capital_expenditure": 1208586.0,
+    "capital_income": 1121172.0,
+    "source_page_number": 39,
+    "printed_total_expenditure": 71812298.0
   },
   {
     "slug": "dlr",
     "division": "Development Management",
-    "capital_expenditure": 22513353.0,
-    "capital_income": 9462681.0,
-    "source_page_number": 38,
-    "printed_total_expenditure": 237169228.0
+    "capital_expenditure": 4393289.0,
+    "capital_income": 1641048.0,
+    "source_page_number": 39,
+    "printed_total_expenditure": 71812298.0
   },
   {
     "slug": "dlr",
     "division": "Environmental Services",
-    "capital_expenditure": 26105.0,
+    "capital_expenditure": 28591.0,
     "capital_income": null,
-    "source_page_number": 38,
-    "printed_total_expenditure": 237169228.0
+    "source_page_number": 39,
+    "printed_total_expenditure": 71812298.0
   },
   {
     "slug": "dlr",
     "division": "Recreation and Amenity",
-    "capital_expenditure": 12755071.0,
-    "capital_income": 2718951.0,
-    "source_page_number": 38,
-    "printed_total_expenditure": 237169228.0
+    "capital_expenditure": 9164737.0,
+    "capital_income": 220987.0,
+    "source_page_number": 39,
+    "printed_total_expenditure": 71812298.0
   },
   {
     "slug": "dlr",
     "division": "Agriculture, Education, Health & Welfare",
-    "capital_expenditure": 5193962.0,
-    "capital_income": 3882074.0,
-    "source_page_number": 38,
-    "printed_total_expenditure": 237169228.0
+    "capital_expenditure": -4672.0,
+    "capital_income": 3715.0,
+    "source_page_number": 39,
+    "printed_total_expenditure": 71812298.0
   },
   {
     "slug": "dlr",
     "division": "Miscellaneous Services",
-    "capital_expenditure": 444691.0,
-    "capital_income": null,
-    "source_page_number": 38,
-    "printed_total_expenditure": 237169228.0
+    "capital_expenditure": 1682324.0,
+    "capital_income": 613378.0,
+    "source_page_number": 39,
+    "printed_total_expenditure": 71812298.0
   }
 ]
