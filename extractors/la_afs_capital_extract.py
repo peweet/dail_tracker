@@ -310,12 +310,52 @@ def _income_col(totrow: list, exp_c: int = 1, open_c: int = 0) -> int | None:
 
 
 def ingest(slug: str, cf: dict) -> tuple[list[dict], dict]:
-    pdfs = sorted((rev.CACHE / slug).glob("*.pdf"))
+    """Parse EVERY cached AFS for this council → multi-year capital-by-division series (the
+    capital twin of the revenue multi-year lift). Each year is reconcile-gated independently;
+    a year that doesn't reconcile is skipped, the clean years still land. Dedup by year
+    (the cache holds one <year>.pdf per statement, so collisions are not expected)."""
+    pdfs = sorted((rev.CACHE / slug).glob("*.pdf"), reverse=True)  # newest first
     stat = {"council": cf["council"], "slug": slug}
     if not pdfs:
         stat["status"] = "no-cached-pdf"
         return [], stat
-    path = pdfs[0]
+    all_rows: list[dict] = []
+    years_done: list[int] = []
+    last_status = "no-capital-page"
+    for path in pdfs:
+        if not (path.stem.isdigit() and int(path.stem) >= rev.MIN_AFS_YEAR):
+            continue  # 'latest.pdf' / pre-2016 layout
+        rows, sub = _ingest_one(path, slug, cf)
+        last_status = sub.get("status", last_status)
+        if rows and sub["year"] not in years_done:
+            all_rows.extend(rows)
+            years_done.append(sub["year"])
+    if not all_rows:
+        stat.update(status=last_status)
+        return [], stat
+    # report the latest year's reconcile numbers (the headline figure shown in the run log)
+    latest = max(years_done)
+    latest_rows = [r for r in all_rows if r["year"] == latest]
+    div_sum = sum(r["capital_expenditure"] for r in latest_rows if r["capital_expenditure"] is not None)
+    exp_total = latest_rows[0]["printed_total_expenditure"]
+    stat.update(
+        status="ok",
+        year=latest,
+        years=sorted(years_done),
+        n_years=len(years_done),
+        method=latest_rows[0]["parse_method"],
+        page=latest_rows[0]["source_page_number"],
+        divisions=len(latest_rows),
+        capital_expenditure_total=round(div_sum, 0),
+        printed_total=round(exp_total, 0) if exp_total else None,
+        reconciled=abs(div_sum - (exp_total or 0)) < RECON_TOL,
+    )
+    return all_rows, stat
+
+
+def _ingest_one(path: Path, slug: str, cf: dict) -> tuple[list[dict], dict]:
+    """Parse ONE cached AFS PDF → capital-account rows for its statement year."""
+    stat = {"council": cf["council"], "slug": slug}
     doc = fitz.open(path)
     # authoritative year (same derivation as the revenue fact)
     pg_ie, _, _ = rev.best_ie_page(doc)
@@ -379,7 +419,9 @@ def _revenue_years() -> dict[str, int]:
     if not rev_pq.exists():
         return {}
     with contextlib.suppress(Exception):
-        d = pl.read_parquet(rev_pq, columns=["slug", "year"]).unique()
+        # LATEST year per slug — deterministic single-year tag for the camelot capital fallback
+        # (those layout-mismatch councils are not multi-year; revenue now has many years/slug).
+        d = pl.read_parquet(rev_pq, columns=["slug", "year"]).group_by("slug").agg(pl.col("year").max())
         return {r["slug"]: r["year"] for r in d.iter_rows(named=True)}
     return {}
 
@@ -517,9 +559,11 @@ def main() -> None:
     # a division row that parsed empty (reconciles → genuinely €0) should be 0, not null
     df = df.with_columns(pl.col("capital_expenditure").fill_null(0.0))
     # completeness flag: does Σ division expenditure tie to the printed total to the euro?
-    # (guards the "missing small division masked by the €100k tolerance" failure mode)
+    # (guards the "missing small division masked by the €100k tolerance" failure mode).
+    # Per (council, YEAR) now the fact is a multi-year series — a single per-council group
+    # would sum every year's expenditure against one year's printed total.
     comp = (
-        df.group_by("council")
+        df.group_by(["council", "year"])
         .agg(
             pl.col("division").n_unique().alias("division_count"),
             (pl.col("capital_expenditure").sum() - pl.col("printed_total_expenditure").first()).abs().alias("_delta"),
@@ -527,7 +571,7 @@ def main() -> None:
         .with_columns((pl.col("_delta") < 10).alias("complete"))
         .drop("_delta")
     )
-    df = df.join(comp, on="council", how="left").sort(["council", "division"])
+    df = df.join(comp, on=["council", "year"], how="left").sort(["council", "year", "division"])
     OUT_PARQUET.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT_PARQUET)
     incomplete = comp.filter(~pl.col("complete"))

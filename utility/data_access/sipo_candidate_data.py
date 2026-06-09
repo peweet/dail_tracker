@@ -93,3 +93,14 @@ def fetch_candidate(candidate_name: str) -> pd.Series | None:
     if not r.ok or r.is_empty:
         return None
     return r.data.iloc[0]
+
+
+@st.cache_data(ttl=300)
+def fetch_party_finance() -> pd.DataFrame:
+    """One row per party: donations in / national-agent spend / candidate spend.
+
+    Drives the Election-2024 overview "full picture" cards. The three money
+    columns are DIFFERENT grains (see v_sipo_ge2024_party_finance) — the UI shows
+    each on its own bar and NEVER sums them.
+    """
+    return _q.ge2024_party_finance(_conn()).data
