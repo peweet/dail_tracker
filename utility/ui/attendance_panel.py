@@ -174,7 +174,14 @@ def render_member_attendance(
 
     year_options = [str(int(y)) for y in member_years_df["year"].tolist()]
 
-    selected_year = year_selector(year_options, key=year_pill_key, skip_current=False)
+    # Default to the newest year that actually has plenary sitting records —
+    # opening on a year whose calendar is empty front-loaded the section with
+    # a "No sitting records" notice and two em-dash stats.
+    default_year = next(
+        (str(int(r["year"])) for _, r in member_years_df.iterrows() if int(r.get("sitting_days", 0) or 0) > 0),
+        year_options[0],
+    )
+    selected_year = year_selector(year_options, key=year_pill_key, skip_current=False, default=default_year)
 
     # ── Stats for selected year (from pipeline — no pandas aggregation) ──────────
     yr_row = member_years_df[member_years_df["year"] == selected_year]
@@ -184,25 +191,23 @@ def render_member_attendance(
 
     ts_df = _fetch_timeline_stats(td_name, selected_year)
     ts_row = ts_df.iloc[0] if not ts_df.empty else None
+
+    # First/Most-recent cells render only when there are dated sitting rows —
+    # a pair of bare em-dashes read as broken data rather than "no record".
+    stats: list[tuple[str, str, str] | tuple[str, str, str, str]] = [
+        (
+            str(n_attended),
+            f"Days recorded · {selected_year}",
+            "var(--text-primary)",
+            f"{n_sitting} plenary + {n_other} other",
+        ),
+    ]
     if ts_row is not None and pd.notna(ts_row.get("first_date")):
         first_d = pd.Timestamp(ts_row["first_date"]).strftime("%d %b %Y")
         last_d = pd.Timestamp(ts_row["last_date"]).strftime("%d %b %Y")
-    else:
-        first_d = "—"
-        last_d = "—"
-
-    stat_strip(
-        [
-            (
-                str(n_attended),
-                f"Days recorded · {selected_year}",
-                "var(--text-primary)",
-                f"{n_sitting} plenary + {n_other} other",
-            ),
-            (first_d, "First sitting", "var(--text-secondary)"),
-            (last_d, "Most recent", "var(--text-secondary)"),
-        ]
-    )
+        stats.append((first_d, "First sitting", "var(--text-secondary)"))
+        stats.append((last_d, "Most recent", "var(--text-secondary)"))
+    stat_strip(stats)
 
     # ── Sitting calendar ───────────────────────────────────────────────────────
     timeline = _fetch_timeline_for_year(td_name, selected_year)
@@ -277,7 +282,15 @@ def _render_year_breakdown(
         # bar stays in [0,1] even though the headline `days` figure
         # includes committee/other days.
         pct = sitting / total if total else None
-        rows.append({"Year": y, "Days": days, "Total": str(total) if total else "—", "Rate": pct})
+        rows.append(
+            {
+                "Year": y,
+                "Days": days,
+                "Sitting": sitting,
+                "Total": str(total) if total else "—",
+                "Rate": pct,
+            }
+        )
 
     cards_html: list[str] = []
     for row_d in rows:
@@ -287,7 +300,10 @@ def _render_year_breakdown(
         pct = row_d["Rate"]
         pct_pad = max(0.0, min(1.0, float(pct))) * 100 if pct is not None else 0.0
         pct_label = f"{pct * 100:.0f}%" if pct is not None else "—"
-        total_label = f"{days} / {total}" if total != "—" else f"{days}"
+        # Numerator must match the bar/percentage grain (plenary only) —
+        # "107 / 83 · 88%" mixed all recorded days with plenary sitting days
+        # and read as broken arithmetic.
+        total_label = f"{row_d['Sitting']} / {total}" if total != "—" else f"{days}"
         cards_html.append(
             f'<div class="att-year-row">'
             f'<span class="att-year-yr">{y}</span>'
@@ -303,7 +319,9 @@ def _render_year_breakdown(
     safe = td_name.replace(" ", "_")
     table_df = pd.DataFrame(rows)
     export_button(
-        table_df[["Year", "Days", "Total"]].rename(columns={"Total": "Sitting days"}),
+        table_df[["Year", "Days", "Sitting", "Total"]].rename(
+            columns={"Sitting": "Plenary days attended", "Total": "Sitting days"}
+        ),
         label=f"Export year breakdown · {td_name}",
         filename=f"dail_tracker_attendance_years_{safe}.csv",
         key=f"att_years_export{export_key_suffix}",

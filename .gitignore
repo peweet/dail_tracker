@@ -427,3 +427,6 @@ data/bronze/pdfs/**
 !test/fixtures/la_payments/*.parquet
 # per-LA AFS golden fact (test/fixtures/la_afs/_generate.py) for test/test_la_afs.py invariants
 !test/fixtures/la_afs/*.parquet
+
+# generated bulk-export snapshots (privacy-filtered copies cut by api/routers/exports.py)
+data/_export_cache/

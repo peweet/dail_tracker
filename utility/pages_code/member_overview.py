@@ -853,6 +853,20 @@ def _render_speech_card(row) -> None:
     crumb_html = f'<div class="mo-speech-crumb">{_h(crumb)}</div>' if crumb else ""
     meta_tail = ("&nbsp;·&nbsp;" + url_html) if url_html else ""
 
+    # Full text expands inline via <details> (same client-side pattern as the
+    # Questions cards) — the old full-width st.expander below each 600px card
+    # read as a separate, broken element.
+    if clamped:
+        excerpt_html = (
+            "<details>"
+            f'<summary><span class="mo-speech-excerpt mo-speech-truncated">{_h(excerpt)}</span> '
+            '<span class="mo-speech-read-more">Read full contribution</span></summary>'
+            f'<div class="mo-speech-excerpt">{_h(text)}</div>'
+            "</details>"
+        )
+    else:
+        excerpt_html = f'<div class="mo-speech-excerpt">{_h(text)}</div>'
+
     st.html(
         f'<div class="leg-bill-card mo-bill-card mo-speech-card">'
         f'<div class="leg-bill-card-header">'
@@ -861,13 +875,10 @@ def _render_speech_card(row) -> None:
         f"</div>"
         f"{crumb_html}"
         f'<div class="leg-bill-card-title">{_h(title)}</div>'
-        f'<div class="mo-speech-excerpt">{_h(excerpt)}</div>'
+        f"{excerpt_html}"
         f'<div class="mo-debate-card-meta">{words:,} word{"s" if words != 1 else ""}{meta_tail}</div>'
         f"</div>"
     )
-    if clamped:
-        with st.expander("Read full contribution"):
-            st.write(text)
 
 
 def _section_debates(conn, join_key: str, member_name: str) -> None:

@@ -166,11 +166,23 @@ def _conform(df: pl.DataFrame) -> pl.DataFrame:
         .then(pl.lit(False))
         .otherwise(pl.col("value_safe_to_sum"))
     )
+    # Privacy-flag invariant (re-derived, never trusted): public_display must be False for
+    # any likely natural person. The base extractor enforces this at write time, but bespoke
+    # sandbox parsers have drifted (nta/nphdb/seai reading_order parsers set
+    # privacy_status='review_personal_data' yet left public_display=True — 830 such rows
+    # reached gold before 2026-06-11, and the base view's public_display gate made them
+    # visible). The fold is the last common chokepoint, so the rule lives here too.
+    display = (
+        pl.col("public_display")
+        & (pl.col("supplier_class") != "sole_trader_or_individual")
+        & (pl.col("privacy_status") != "review_personal_data")
+    )
     return df.with_columns(
         kind.alias("value_kind"),
         tier.alias("realisation_tier"),
         vat.alias("vat_status"),
         safe.alias("value_safe_to_sum"),
+        display.alias("public_display"),
     )
 
 
@@ -211,6 +223,18 @@ def main() -> None:
     df = pl.concat([base, la], how="vertical") if la is not None else base
     df = _conform(df)
     df = _attach_cro(df)
+
+    # PRIVACY INVARIANT (runtime, -O-proof): mirrors procurement_public_body_extract.py —
+    # refuse to write gold if any likely-person row is left displayable.
+    leaked = df.filter(
+        pl.col("public_display")
+        & ((pl.col("supplier_class") == "sole_trader_or_individual") | (pl.col("privacy_status") == "review_personal_data"))
+    )
+    if leaked.height:
+        raise SystemExit(
+            f"privacy quarantine breached: {leaked.height} likely-person rows left "
+            "public_display=True; refusing to write procurement_payments_fact"
+        )
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT)

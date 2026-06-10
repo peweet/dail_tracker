@@ -946,8 +946,7 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
         )
     elif reg_cro_num:
         identity_clauses.append(
-            "On the lobbying register, lists Companies Registration Office no. "
-            f"<strong>{_h(reg_cro_num)}</strong>."
+            f"On the lobbying register, lists Companies Registration Office no. <strong>{_h(reg_cro_num)}</strong>."
         )
     if identity_clauses:
         st.html(f'<p class="lp3-prose">{" ".join(identity_clauses)}</p>')
@@ -2027,6 +2026,10 @@ def render_member_lobbying(
                 "source_url": "Return URL",
             }
         )
+        # Presentation-only date formatting: the raw column is a midnight
+        # timestamp ("2026-01-01 00:00:00") that read as data noise.
+        if "Period" in display.columns:
+            display["Period"] = pd.to_datetime(display["Period"], errors="coerce").dt.strftime("%b %Y").fillna("—")
         st.dataframe(
             display,
             column_config={
@@ -2040,8 +2043,13 @@ def render_member_lobbying(
         export_button(detail, "Export CSV", f"{name.replace(' ', '_')}_lobbying.csv", "lob_export_pol_detail")
 
     # ── Official source links ─────────────────────────────────────────────
+    # Label each chip with its return id — a wall of twenty identical
+    # "Source ↗" chips gave a reader nothing to choose between.
     evidence_heading("Official source links")
-    render_source_links(fetch_sources_for_politician(name))
+    src_df = fetch_sources_for_politician(name)
+    if not src_df.empty and "return_id" in src_df.columns:
+        src_df = src_df.assign(source_label="Return " + src_df["return_id"].astype(str))
+    render_source_links(src_df)
 
     if show_header:
         _provenance_footer(summary)

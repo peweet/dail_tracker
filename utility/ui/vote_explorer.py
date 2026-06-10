@@ -547,10 +547,13 @@ def render_td_panel(
                 )
             )
 
-        evidence_heading("Votes by year")
+        # When the per-year summary view has no rows yet, skip the whole
+        # sub-section — a heading + "Coming soon" box was pure noise on a
+        # profile this long (same demotion as interests P2-1).
         if year_df.empty:
-            todo_callout("td_vote_year_summary — per-TD per-year yes/no/abstained counts (view not yet built)")
+            st.caption("Votes by year: per-year breakdown will appear here when the pipeline view lands.")
         else:
+            evidence_heading("Votes by year")
             _yr_req = frozenset({"year", "yes_count", "no_count"})
             missing_y = sorted(c for c in _yr_req if c not in year_df.columns)
             if missing_y:

@@ -110,7 +110,13 @@ EXPORTS: dict[str, ExportSpec] = {
             "total. VAT basis varies by publisher and is unconfirmed for most: see the "
             "vat_matrix reference in this manifest before comparing across publishers."
         ),
-        privacy_filter="public_display = TRUE",
+        # public_display is the upstream gate, but parser drift has breached it before
+        # (830 person-rows reached gold displayable, repaired 2026-06-11) — so the
+        # person predicates ride along here as defense in depth.
+        privacy_filter=(
+            "public_display = TRUE AND supplier_class <> 'sole_trader_or_individual'"
+            " AND (privacy_status IS NULL OR privacy_status <> 'review_personal_data')"
+        ),
         privacy_note=_NO_PERSONS_NOTE,
         date_expr="MAX(year)",
     ),

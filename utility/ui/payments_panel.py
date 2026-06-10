@@ -39,7 +39,10 @@ def render_member_payments(
     that also violated ``feedback_dataframes_secondary_only``. Removed
     2026-05-27.
     """
-    selected_year = year_selector(year_options, key=year_pill_key, skip_current=False)
+    # Default to the most recent COMPLETED year (P1-1 pattern) — opening on
+    # the in-progress year showed a few hundred euro and a misleading low
+    # rank for every member from January to December.
+    selected_year = year_selector(year_options, key=year_pill_key)
 
     all_years = fetch_member_all_years(td_name, unique_member_code=unique_member_code)
 

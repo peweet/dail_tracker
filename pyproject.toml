@@ -81,12 +81,19 @@ api = [
     "uvicorn[standard]>=0.30",
 ]
 
+# MCP server (mcp_server/server.py) — stdio tools over the same Streamlit-free
+# core. Optional: neither the app nor the API imports it. Run with
+# `uv sync --extra mcp` then `./.venv/Scripts/python.exe mcp_server/server.py`.
+mcp = [
+    "mcp>=1.20,<2",
+]
+
 # Everything installable as an EXTRA — a full optional-runtime local setup.
 # Dev/test tooling is intentionally excluded (it's the dev group, not an extra).
 # Full local dev env (runtime + pipeline + tooling):
 #   uv sync --extra pipeline --extra ocr --extra api --group dev
 all = [
-    "dail-tracker[ocr,pipeline,api]",
+    "dail-tracker[ocr,pipeline,api,mcp]",
 ]
 
 # ── Dependency groups (PEP 735) ──────────────────────────────────────────────
