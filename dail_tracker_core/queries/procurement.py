@@ -206,12 +206,19 @@ def value_contrast(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 
 
 def awards_for_supplier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> QueryResult:
-    """Every award row for one supplier (detail view), most recent first."""
+    """Every award row for one supplier (detail view), most recent first.
+
+    Sole traders / natural persons are excluded here: row-level naming follows
+    the published source, but composing one person's full award history is
+    profile-building on an individual. Both the API supplier dossier and the
+    Streamlit drill-down call this query, so the quarantine lives in this one
+    place (rankings were already company-only in their views)."""
     return _run(
         conn,
         "SELECT tender_id, contracting_authority, cpv_code, cpv_description,"
         " competition_type, award_date, value_eur, value_kind, value_safe_to_sum"
         " FROM v_procurement_awards WHERE supplier_norm = ?"
+        " AND supplier_class <> 'sole_trader_or_individual'"
         " ORDER BY award_date DESC NULLS LAST",
         [supplier_norm],
     )

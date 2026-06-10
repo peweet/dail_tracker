@@ -1043,6 +1043,48 @@ def inject_css() -> None:
             font-weight: 650;
             font-variant-numeric: tabular-nums;
         }
+        /* ── Finding lede ───────────────────────────────────────────────
+           The page's opening findings (components.finding_lede). Replaces
+           stat strips app-wide: facts in prose, numbers earned in-sentence.
+           Editorial standfirst treatment — larger than body, measure-capped,
+           with the accent side-stripe signature. Tokens only. */
+        .dt-finding-lede {
+            border-left: 3px solid var(--accent);
+            padding: 0.15rem 0 0.15rem 0.85rem;
+            margin: 0.35rem 0 1.15rem;
+            max-width: 52rem;
+        }
+        .dt-finding-lede p {
+            font-size: 1.02rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+            margin: 0 0 0.45rem;
+        }
+        .dt-finding-lede p:last-of-type { margin-bottom: 0; }
+        .dt-finding-lede strong {
+            color: var(--ink-strong);
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        .dt-lede-source {
+            display: block;
+            margin-top: 0.4rem;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+        }
+        /* ── Card conduit row ───────────────────────────────────────────
+           Quiet official-source links in a card footer
+           (components.card_sources_html). Sits below card meta; the
+           .dt-source-link children already carry the ↗ glyph + focus ring. */
+        .dt-card-sources {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem 0.9rem;
+            margin-top: 0.45rem;
+            padding-top: 0.4rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.78rem;
+        }
         /* ── Main-panel search kicker ───────────────────────────────────
            Uppercase mini-label sitting above components.main_member_jump
            (and member_overview's inline search row). Same typographic

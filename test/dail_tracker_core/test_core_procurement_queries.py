@@ -105,6 +105,24 @@ def test_awards_for_supplier_returns_queryresult(conn):
     assert r.ok is True  # the supplier came from the same dataset, so it must resolve
 
 
+def test_awards_for_supplier_blocks_sole_traders(conn):
+    """A natural person's award history must never compose into a dossier:
+    awards_for_supplier is the single code path behind both the API supplier
+    dossier and the Streamlit drill-down, so the quarantine is asserted here."""
+    try:
+        df = conn.execute(
+            "SELECT supplier_norm FROM v_procurement_awards"
+            " WHERE supplier_class = 'sole_trader_or_individual' LIMIT 1"
+        ).df()
+    except Exception:
+        pytest.skip("procurement gold not available")
+    if df.empty:
+        pytest.skip("no sole-trader rows in the awards corpus")
+    r = q.awards_for_supplier(conn, df.iloc[0]["supplier_norm"])
+    assert r.ok is True
+    assert r.is_empty  # the rows exist in the view, but the drill-down refuses them
+
+
 def test_coverage_stats_columns_and_single_row(conn):
     r = _result_or_skip(q.coverage_stats(conn))
     assert _EXPECTED_COLUMNS["coverage_stats"].issubset(set(r.data.columns))
