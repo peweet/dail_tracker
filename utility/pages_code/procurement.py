@@ -940,30 +940,52 @@ def _render_ted_supplier_panel(supplier_norm: str) -> None:
     # The conduit: route the reader to the AUTHORITATIVE notice. The tracker stores a thin
     # slice of each award (winner, buyer, a value-kind tag); the full deliverable, the real
     # framework ceiling and the award criteria live in the EU Official Journal notice itself.
+    # The core query also rolls up CLOSELY-NAMED winners (shared brand stem) so a merged/
+    # renamed entity's notices surface here; we keep exact-name and variant rows in SEPARATE,
+    # labelled sections so a name match is never passed off as a verified same-company claim.
     # Display-only — every link points at the source; nothing here is computed or inferred.
     notices_res = fetch_ted_notices_for_supplier_result(supplier_norm)
     ndf = notices_res.data if notices_res.ok else pd.DataFrame()
-    links = []
-    for nr in ndf.itertuples():
+
+    def _notice_li(nr, *, show_name: bool) -> str:
         url = _coalesce(getattr(nr, "notice_url", None))
         if not url:
-            continue
+            return ""
         date = _coalesce(getattr(nr, "dispatch_date", None))[:10]
         buyer = _esc(_coalesce(getattr(nr, "buyer_name", None)) or "—")
         is_fw = _coalesce(getattr(nr, "value_kind", None)) == "framework_or_dps_ceiling"
         tag = "framework — shared ceiling, not a payment" if is_fw else "contract award"
-        links.append(
+        # On variant rows, lead with the winner's own published name so the reader sees the
+        # grouping is name-based, not a hidden identity assertion.
+        name_pre = f"<strong>{_esc(_coalesce(getattr(nr, 'winner_name', None)))}</strong> — " if show_name else ""
+        return (
             f'<li class="pr-notice"><a href="{_esc(url)}" target="_blank" rel="noopener">'
-            f"{buyer} · {date} ↗</a> <span class=\"pr-notice-tag\">{tag}</span></li>"
+            f"{name_pre}{buyer} · {date} ↗</a> <span class=\"pr-notice-tag\">{tag}</span></li>"
         )
-    if links:
-        with st.expander(f"Open the {len(links):,} authoritative EU notice{'' if len(links) == 1 else 's'} on TED ↗"):
+
+    exact_li = [li for nr in ndf.itertuples() if _truthy(getattr(nr, "is_exact_name", False))
+                for li in (_notice_li(nr, show_name=False),) if li]
+    variant_li = [li for nr in ndf.itertuples() if not _truthy(getattr(nr, "is_exact_name", False))
+                  for li in (_notice_li(nr, show_name=True),) if li]
+
+    if exact_li or variant_li:
+        total = len(exact_li) + len(variant_li)
+        with st.expander(f"Open the {total:,} authoritative EU notice{'' if total == 1 else 's'} on TED ↗"):
             st.html(
                 '<p class="pr-cap">The tracker stores a thin slice of each award. Each notice below opens '
                 "the full Official Journal record on TED — where the authority publishes what is actually "
                 "being built, the real framework ceiling and the award criteria. The source, not our summary.</p>"
-                f'<ul class="pr-notice-list">{"".join(links)}</ul>'
+                + (f'<ul class="pr-notice-list">{"".join(exact_li)}</ul>' if exact_li else "")
             )
+            if variant_li:
+                st.html(
+                    '<p class="pr-cap" style="margin-top:0.8rem"><strong>Closely-named winners.</strong> '
+                    f"{len(variant_li):,} further notice{'' if len(variant_li) == 1 else 's'} won under a "
+                    "<em>similar</em> name (shared name stem — e.g. a renamed or merged company). Grouped by "
+                    "name only; these <em>may be different legal entities</em> — confirm via the CRO number on "
+                    "each notice before treating them as one firm.</p>"
+                    f'<ul class="pr-notice-list">{"".join(variant_li)}</ul>'
+                )
 
 
 # ──────────────────────────────────────────────────────────────────────────────

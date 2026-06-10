@@ -369,6 +369,12 @@ data/silver/sipo_candidate/
 !data/silver/parquet/sponsors.parquet
 !data/silver/parquet/stages.parquet
 !data/silver/parquet/versions.parquet
+# TED Ireland silver layers (services/ted_search.py + extractors/ted_enrich.py) —
+# read at runtime by sql_views/procurement/procurement_ted_*.sql + procurement_competition.sql
+!data/silver/parquet/ted_ie_awards.parquet
+!data/silver/parquet/ted_ie_buyer_history.parquet
+!data/silver/parquet/ted_ie_tenders.parquet
+!data/silver/parquet/ted_ie_winner_history.parquet
 # SIPO GE2024 silver facts + per-party intermediates + OCR checkpoint cache
 # (extractors/sipo_*; all regenerable). The OCR cache enables --parse-only without
 # re-OCR. Gold (data/gold/parquet/sipo_donations.parquet, sipo_expenses_fact.parquet)

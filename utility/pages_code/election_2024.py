@@ -50,6 +50,9 @@ from data_access.sipo_expenses_data import (
     fetch_expenses_by_party,
     fetch_expenses_totals,
     fetch_party_candidates,
+    fetch_party_national_categories,
+    fetch_party_national_items,
+    fetch_party_national_overall,
 )
 from shared_css import inject_css
 from ui.components import (
@@ -397,16 +400,88 @@ def _exp_party_card(row: pd.Series) -> str:
     )
 
 
+def _national_category_bars(cats: pd.DataFrame) -> str:
+    """Proportional bars for the 8 Part-4 statutory headings. `category_total_eur` is
+    the printed official figure; a heading whose itemised lines don't sum to it carries
+    an 'items partial' mark (the total stays trustworthy, the line list under-captures)."""
+    if cats.empty:
+        return ""
+    mx = float(cats["category_total_eur"].max() or 1)
+    rows = []
+    for _, c in cats.iterrows():
+        sec = _h(str(c["section"]))
+        label = _h(str(c["category_label"]))
+        total = float(c["category_total_eur"] or 0)
+        pct = max(2.0, total / mx * 100) if mx else 0
+        mark = "" if bool(c["reconciles"]) else '<span class="don-vmark">items partial</span>'
+        rows.append(
+            f'<div class="esp-catrow"><span class="esp-catlabel">{sec} · {label} {mark}</span>'
+            f'<span class="esp-cattrack"><span class="esp-catbar" style="width:{pct:.0f}%"></span></span>'
+            f'<span class="esp-catval">€{total:,.0f}</span></div>'
+        )
+    return f'<div class="esp-cats">{"".join(rows)}</div>'
+
+
+def _render_party_national_spend(party: str) -> None:
+    """Part-4: the party's own itemised central campaign spend (category bars + line
+    items). Incremental coverage — shown only where the Part-4 pages have been OCR'd."""
+    overall = fetch_party_national_overall(party)
+    if overall is None:
+        st.caption(
+            "Itemised national-agent spend (Part 4 of the return) has not been processed "
+            f"for {party} yet — extraction is ongoing."
+        )
+        return
+
+    totals_strip([(f"€{overall:,.0f}", "national-agent spend · itemised (Part 4)")])
+    cats = fetch_party_national_categories(party)
+    if not cats.empty:
+        st.markdown("##### Where the party spent · by category")
+        st.html(_national_category_bars(cats))
+
+    items = fetch_party_national_items(party)
+    if not items.empty:
+        with st.expander(f"All {len(items)} national-agent line items"):
+            rows = []
+            for _, it in items.iterrows():
+                sec = _h(str(it["section"] or ""))
+                desc = _h(str(it["item_description"])) if pd.notna(it["item_description"]) else "—"
+                cost = float(it["cost_eur"] or 0)
+                vmark = "" if bool(it["is_verified"]) else '<span class="don-vmark">verify</span>'
+                rows.append(
+                    f'<div class="esp-irow"><span class="esp-icat">{sec}</span>'
+                    f'<span class="esp-ivendor">{desc} {vmark}</span>'
+                    f'<span class="esp-icost">€{cost:,.2f}</span></div>'
+                )
+            st.html(f'<div class="esp-items">{"".join(rows)}</div>')
+            st.caption(
+                "“Expenditure item” is the agent's free-text entry — a mix of supplier "
+                "names and item descriptions, not a verified vendor list."
+            )
+    st.caption(
+        "Part-4 itemised expenditure by the party's national agent (its central campaign "
+        "outlay), from the “Expenses Review” page of the SIPO return. Category totals are "
+        "the printed official figures; headings marked “items partial” are where the "
+        "itemised OCR under-captures the total."
+    )
+
+
 def _render_party_candidate_list(party: str) -> None:
     if back_button("← All parties", key="exp_back"):
         st.query_params.pop("eparty", None)
         st.rerun()
-    st.markdown(f"#### {_h(party)} · national-agent spend on candidates 2024")
+    st.markdown(f"#### {_h(party)} · 2024 election spending")
+
+    # Part 4 — what the party actually spent centrally, itemised (incremental coverage).
+    _render_party_national_spend(party)
+
+    # Part 3 — how the national agent apportioned a limit-bound amount to each candidate.
+    st.markdown("##### Apportioned to each candidate · Part 3")
     cands = fetch_party_candidates(party)
     if cands.empty:
         empty_state(
-            "No candidate expenses on record",
-            f"{party} has no national-agent candidate expenditure loaded.",
+            "No candidate apportionment on record",
+            f"{party} has no Part-3 per-candidate expenditure loaded.",
         )
         return
     stripe = party_colour(party)
@@ -416,34 +491,38 @@ def _render_party_candidate_list(party: str) -> None:
         name = _h(str(c["candidate_name"] or "—"))
         const = _h(str(c["constituency"] or "—"))
         page = int(c["source_page"]) if pd.notna(c["source_page"]) else 0
+        cap = float(c["statutory_limit_eur"]) if pd.notna(c["statutory_limit_eur"]) else None
         if flag in ("over_limit_verify", "no_amount"):
             # decimal-loss / missing amount — never show the bad magnitude
             amt_html = '<span class="da">—</span>'
-            vmark = f'<span class="don-vmark">verify · SIPO p.{page}</span>'
+            meta = f'<span class="don-vmark">verify · SIPO p.{page}</span>'
         else:
             amt = float(c["expenditure_eur"] or 0)
             amt_html = f'<span class="da">€{amt:,.0f}</span>'
-            vmark = (
-                f'<span class="don-vmark">verify · SIPO p.{page}</span>'
-                if not bool(c["is_verified"])
-                else ""
-            )
+            if not bool(c["is_verified"]):
+                meta = f'<span class="don-vmark">verify · SIPO p.{page}</span>'
+            elif cap and amt:
+                # Tier-1 context: how much of the statutory cap this candidate used.
+                meta = f'<span class="dt">{amt / cap * 100:.0f}% of €{cap:,.0f} cap</span>'
+            else:
+                meta = ""
         rows.append(
             f'<div class="don-rrow"><span class="dn">{name}</span>'
-            f'<span class="mt">{const}</span>{amt_html}{vmark}</div>'
+            f'<span class="mt">{const}</span>{amt_html}{meta}</div>'
         )
     st.html(f'<div class="don-receipts" style="--don-stripe:{stripe}">{"".join(rows)}</div>')
     st.caption(
-        "National-agent expenditure on each candidate (Part 3 of the SIPO return). "
-        "Amounts flagged “verify” are OCR reads to check against the source PDF."
+        "Part 3 apportions a limit-bound amount to each candidate (not the same as the "
+        "Part-4 central spend above — the two are different parts of one return and are "
+        "not added together). “% of cap” is spend against that candidate's statutory limit."
     )
 
 
 def _render_expenses_tab() -> None:
     st.caption(
-        "What each party's national agent spent on its candidates at the 2024 general "
-        "election (Part 3 of the SIPO return). This is per-candidate spend — parties also "
-        "spend centrally, which is not counted here."
+        "What each party's national agent spent at the 2024 general election. The card "
+        "total is the Part-3 amount apportioned across candidates; open a party to see its "
+        "Part-4 itemised central spend by category (Advertising, Posters, …) where loaded."
     )
     totals = fetch_expenses_totals()
     totals_strip([
@@ -650,7 +729,8 @@ def _render_provenance() -> None:
         sections=[
             "**What this is.** The complete 2024 general-election money picture from three "
             "separate SIPO records: party donation statements (money received), each party's "
-            "National-Agent election-expenses return (party-agent spend on candidates), and "
+            "National-Agent election-expenses return (Part 3 apportions a limit-bound amount to "
+            "each candidate; Part 4 itemises the agent's own central spend by category), and "
             "each candidate's own Election Expenses Statement (itemised to Part-5 lines).",
             "**Different grains — never summed.** Donations are receipts; agent spend and "
             "candidate spend are two views of campaign spending from different returns and "

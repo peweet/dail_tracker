@@ -70,85 +70,100 @@ def _home_page() -> None:
 # st.html, which DOMPurify rewrote to target="_blank" (it strips arbitrary
 # `target` attributes but specifically preserves "_blank" via a hook,
 # silently dropping "_self"). The native widget bypasses all of that.
+# Grouped into four labelled sections + Glossary (Phase-0 IA decision,
+# doc/APP_REDESIGN_PHASE0.md §3). st.navigation accepts a {section: [pages]}
+# dict; grouping is purely presentational, so every url_path below is
+# UNCHANGED and utility/ui/entity_links.PAGES stays valid. The hidden default
+# Home lives in the first group (visibility="hidden" keeps it off the bar).
 pg = st.navigation(
-    [
-        st.Page(
-            _home_page,
-            title="Home",
-            url_path="home",
-            default=True,
-            visibility="hidden",
-        ),
-        st.Page(
-            member_overview_page,
-            title="Member Overview",
-            icon=":material/person:",
-            url_path="member-overview",
-        ),
-        st.Page(
-            attendance_page,
-            title="Attendance",
-            icon=":material/calendar_today:",
-            url_path="rankings-attendance",
-        ),
-        st.Page(votes_page, title="Votes", icon=":material/how_to_vote:", url_path="rankings-votes"),
-        st.Page(interests_page, title="Interests", icon=":material/interests:", url_path="rankings-interests"),
-        st.Page(payments_page, title="Payments", icon=":material/payments:", url_path="rankings-payments"),
-        # url_path kept as "rankings-election-spending" so existing deep links and
-        # entity_links.PAGES["election_spending"] keep resolving; the page is now the
-        # unified GE2024 hub (donations + party spending + candidate spending).
-        st.Page(election_2024_page, title="Election 2024", icon=":material/savings:", url_path="rankings-election-spending"),
-        st.Page(lobbying_poc_page, title="Lobbying", icon=":material/groups:", url_path="rankings-lobbying"),
-        st.Page(
-            legislation_page,
-            title="Legislation",
-            icon=":material/gavel:",
-            url_path="rankings-legislation",
-        ),
-        st.Page(
-            statutory_instruments_page,
-            title="Statutory Instruments",
-            icon=":material/article:",
-            url_path="rankings-statutory-instruments",
-        ),
-        st.Page(
-            public_appointments_page,
-            title="Appointments",
-            icon=":material/assignment_ind:",
-            url_path="rankings-appointments",
-        ),
-        st.Page(
-            corporate_page,
-            title="Corporate Notices",
-            icon=":material/business_center:",
-            url_path="rankings-corporate",
-        ),
-        st.Page(
-            procurement_page,
-            title="Procurement",
-            icon=":material/request_quote:",
-            url_path="rankings-procurement",
-        ),
-        st.Page(
-            public_payments_page,
-            title="Public Payments",
-            icon=":material/account_balance_wallet:",
-            url_path="rankings-public-payments",
-        ),
-        st.Page(
-            committees_page,
-            title="Committees",
-            icon=":material/account_balance:",
-            url_path="rankings-committees",
-        ),
-        st.Page(
-            judiciary_page,
-            title="Courts & Judiciary",
-            icon=":material/balance:",
-            url_path="rankings-judiciary",
-        ),
-        st.Page(glossary_page, title="Glossary", icon=":material/menu_book:", url_path="glossary"),
-    ],
+    {
+        "Members & Parliament": [
+            st.Page(
+                _home_page,
+                title="Home",
+                url_path="home",
+                default=True,
+                visibility="hidden",
+            ),
+            st.Page(
+                member_overview_page,
+                title="Member Overview",
+                icon=":material/person:",
+                url_path="member-overview",
+            ),
+            st.Page(
+                attendance_page,
+                title="Attendance",
+                icon=":material/calendar_today:",
+                url_path="rankings-attendance",
+            ),
+            st.Page(votes_page, title="Votes", icon=":material/how_to_vote:", url_path="rankings-votes"),
+            st.Page(interests_page, title="Interests", icon=":material/interests:", url_path="rankings-interests"),
+            st.Page(
+                committees_page,
+                title="Committees",
+                icon=":material/account_balance:",
+                url_path="rankings-committees",
+            ),
+        ],
+        "The Money": [
+            st.Page(payments_page, title="Payments", icon=":material/payments:", url_path="rankings-payments"),
+            # url_path kept as "rankings-election-spending" so existing deep links and
+            # entity_links.PAGES["election_spending"] keep resolving; the page is now the
+            # unified GE2024 hub (donations + party spending + candidate spending).
+            st.Page(election_2024_page, title="Election 2024", icon=":material/savings:", url_path="rankings-election-spending"),
+            st.Page(
+                procurement_page,
+                title="Procurement",
+                icon=":material/request_quote:",
+                url_path="rankings-procurement",
+            ),
+            st.Page(
+                public_payments_page,
+                title="Public Payments",
+                icon=":material/account_balance_wallet:",
+                url_path="rankings-public-payments",
+            ),
+        ],
+        "Law & Records": [
+            st.Page(
+                legislation_page,
+                title="Legislation",
+                icon=":material/gavel:",
+                url_path="rankings-legislation",
+            ),
+            st.Page(
+                statutory_instruments_page,
+                title="Statutory Instruments",
+                icon=":material/article:",
+                url_path="rankings-statutory-instruments",
+            ),
+            st.Page(
+                corporate_page,
+                title="Corporate Notices",
+                icon=":material/business_center:",
+                url_path="rankings-corporate",
+            ),
+            st.Page(
+                judiciary_page,
+                title="Courts & Judiciary",
+                icon=":material/balance:",
+                url_path="rankings-judiciary",
+            ),
+        ],
+        "Influence": [
+            st.Page(lobbying_poc_page, title="Lobbying", icon=":material/groups:", url_path="rankings-lobbying"),
+            st.Page(
+                public_appointments_page,
+                title="Appointments",
+                icon=":material/assignment_ind:",
+                url_path="rankings-appointments",
+            ),
+        ],
+        "Glossary": [
+            st.Page(glossary_page, title="Glossary", icon=":material/menu_book:", url_path="glossary"),
+        ],
+    },
     position="top",
 )
 # Render the shared design system + banner once at app level, before the
