@@ -25,9 +25,15 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+# Insert repo-root *and* utility/ (root first, so utility ends up ahead of it).
+# Registering repo-root here means test_page_imports.py finds it already present
+# and won't re-insert it at the front — which would otherwise push repo-root ahead
+# of utility/ and make pages resolve the wrong (root) config.py. See the dual-config
+# note in test_page_imports.py.
 _ROOT = Path(__file__).resolve().parents[2]
-if str(_ROOT / "utility") not in sys.path:
-    sys.path.insert(0, str(_ROOT / "utility"))
+for _p in (str(_ROOT), str(_ROOT / "utility")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 import ui.vote_explorer as ve  # noqa: E402
 

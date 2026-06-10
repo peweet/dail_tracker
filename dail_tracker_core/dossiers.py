@@ -13,7 +13,7 @@ dossier — they all make the client fan a person id across resources.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import duckdb
 import pandas as pd
@@ -433,9 +433,13 @@ def list_procurement_lobbying_overlap(
         df = df.loc[df["lobby_side"] == side]
 
     suppliers: list[dict[str, Any]] = []
-    for norm, grp in df.groupby("supplier_norm"):
+    for norm, raw_grp in df.groupby("supplier_norm"):
+        grp = cast("pd.DataFrame", raw_grp)  # groupby yields DataFrame | Series to the stubs
         first = grp.iloc[0]  # award_rows / authorities / value are per-supplier constants
-        entities = grp[["lobby_name", "lobby_side", "n_lobby_returns"]].sort_values("n_lobby_returns", ascending=False)
+        # Serialize then sort the records (most lobby returns first) in plain Python —
+        # avoids a pandas-stubs sort_values overload false-positive on the groupby group.
+        entities = serialize.to_records(grp.loc[:, ["lobby_name", "lobby_side", "n_lobby_returns"]])
+        entities.sort(key=lambda r: r.get("n_lobby_returns") or 0, reverse=True)
         suppliers.append(
             {
                 "supplier": serialize.value(first["supplier"]),
@@ -444,7 +448,7 @@ def list_procurement_lobbying_overlap(
                 "authorities": int(first["n_authorities"]),
                 "awarded_value_safe_eur": float(first["awarded_value_safe_eur"]),
                 "lobby_returns_total": int(grp["n_lobby_returns"].sum()),
-                "lobby_entities": serialize.to_records(entities),
+                "lobby_entities": entities,
             }
         )
 
