@@ -1,4 +1,4 @@
-"""Watchdog driver for sipo_expenses_paddle_etl.py.
+"""Watchdog driver for the SIPO PaddleOCR ETLs.
 
 PaddleOCR on this paddle-3.3.1/Windows build is intermittently unstable — it both
 SEGFAULTS (process dies) and HANGS (process sits forever on a page). A plain
@@ -10,7 +10,16 @@ wasted 53 min on one stuck page). This driver bounds a hang:
   (the ETL resumes from checkpoints; its per-page retry ladder eventually skips a
   page that keeps hanging). Done when the party's parquet exists or exit 0.
 
-Run:  ./.venv/Scripts/python.exe extractors/_sipo_watchdog.py fg sf lab ...
+Two targets (same checkpoint/resume design, different ETL + ckpt dir + output):
+  * Part-3 candidate summary (default):  _sipo_watchdog.py fg sf lab ...
+  * Part-4 itemised expenses (--items):  _sipo_watchdog.py --items fg lab green ...
+
+⚠️ DO NOT RUN THIS ON THE LOCAL WINDOWS DEV BOX. PaddleOCR @300 DPI here pegs RAM and
+has HARD-CRASHED the machine twice (2026-06-10). ~64s/page, ~30 min/party. Run the
+Part-4 backfill (fg/lab/green/socdem/pbp) on a Linux box / CI runner / cloud GPU, copy
+the resulting data/silver/sipo/by_party/*_items.parquet + *_categories.parquet back,
+then `python extractors/sipo_promote_to_gold.py` to land them in gold. The pipeline +
+UI (v_sipo_party_national_*) already consume them — only the OCR must move off-box.
 """
 
 from __future__ import annotations
@@ -22,13 +31,23 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PY = ROOT / ".venv/Scripts/python.exe"
-ETL = ROOT / "extractors/sipo_expenses_paddle_etl.py"
-CKPT = ROOT / "data/silver/sipo/by_party/_ckpt"
 BY_PARTY = ROOT / "data/silver/sipo/by_party"
+
+# Per-target config: (ETL script, checkpoint dir, done-parquet suffix). Part-4 writes
+# <key>_items.parquet and <key>_categories.parquet — either is proof of a finished pass.
+TARGETS = {
+    "part3": (ROOT / "extractors/sipo_expenses_paddle_etl.py", BY_PARTY / "_ckpt", ".parquet"),
+    "items": (ROOT / "extractors/sipo_expense_items_paddle_etl.py", BY_PARTY / "_ckpt_items", "_categories.parquet"),
+}
 
 STALL = 200  # seconds with no new page checkpoint => assume hung, kill & restart
 POLL = 10
 MAX_RESTARTS = 120
+
+# bound to the selected target in main()
+ETL = TARGETS["part3"][0]
+CKPT = TARGETS["part3"][1]
+DONE_SUFFIX = TARGETS["part3"][2]
 
 
 def ckpt_count(key: str) -> int:
@@ -63,7 +82,7 @@ def run_party(key: str) -> bool:
                 killed_hung = True
                 break
         rc = proc.wait()
-        done_parquet = (BY_PARTY / f"{key}.parquet").exists()
+        done_parquet = (BY_PARTY / f"{key}{DONE_SUFFIX}").exists()
         print(f"[watchdog] {key}: launch #{restarts + 1} ended rc={rc} "
               f"hung={killed_hung} pages={ckpt_count(key)} parquet={done_parquet}", flush=True)
         if rc == 0 and done_parquet:
@@ -77,10 +96,17 @@ def run_party(key: str) -> bool:
 
 
 def main() -> None:
-    keys = sys.argv[1:]
+    global ETL, CKPT, DONE_SUFFIX
+    args = sys.argv[1:]
+    target = "part3"
+    if args and args[0] == "--items":
+        target, args = "items", args[1:]
+    ETL, CKPT, DONE_SUFFIX = TARGETS[target]
+    keys = args
     if not keys:
-        print("usage: _sipo_watchdog.py <party_key> [<party_key> ...]")
+        print("usage: _sipo_watchdog.py [--items] <party_key> [<party_key> ...]")
         return
+    print(f"[watchdog] target={target} ETL={ETL.name} ckpt={CKPT.name}", flush=True)
     results = {}
     for key in keys:
         print(f"\n########## WATCHDOG: {key} ##########", flush=True)

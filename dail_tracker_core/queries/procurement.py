@@ -390,15 +390,27 @@ def ted_notices_for_supplier(conn: duckdb.DuckDBPyConnection, join_norm: str) ->
     """One winner's individual TED award notices — the CONDUIT to the authoritative EU
     source. Each row carries the publication number, buyer, date, the value-kind tag and the
     ``notice_url`` that opens the full Official Journal notice (where the deliverable, the real
-    framework ceiling and the award criteria live — detail the thin gold slice omits). One row
-    per notice, newest first. Award notices, never summed."""
+    framework ceiling and the award criteria live — detail the thin gold slice omits).
+
+    Rolls up CLOSELY-NAMED winners that share the first-two-token brand STEM (e.g.
+    'Vision Built Manufacturing' + 'Vision Built Structures'; 'John Sisk & Son' / 'Sons' /
+    '… Holding') so a renamed or merged entity's notices surface on one profile — while
+    'John Sisk' stays separate from 'Sisk Healthcare' (different first token). ``is_exact_name``
+    flags the rows whose normalised name matches exactly; ``winner_name`` is carried so the UI
+    can show — never hide — which variant each notice belongs to. A name-similarity grouping,
+    NOT a verified corporate link: the consumer must label variants as "may be related". One
+    row per notice; exact names first, then newest. Award notices, never summed."""
+    tokens = (join_norm or "").split()
+    stem = " ".join(tokens[:2]) if len(tokens) >= 2 else (join_norm or "")
     return _run(
         conn,
         "SELECT publication_number, buyer_name, dispatch_date, value_kind,"
-        " is_multi_supplier_framework, n_winners, notice_url"
-        " FROM v_procurement_ted_winner_history WHERE winner_join_norm = ?"
-        " ORDER BY dispatch_date DESC NULLS LAST",
-        [join_norm],
+        " is_multi_supplier_framework, n_winners, notice_url, winner_name, winner_join_norm,"
+        " (winner_join_norm = ?) AS is_exact_name"
+        " FROM v_procurement_ted_winner_history"
+        " WHERE winner_join_norm = ? OR winner_join_norm = ? OR winner_join_norm LIKE ?"
+        " ORDER BY is_exact_name DESC, dispatch_date DESC NULLS LAST",
+        [join_norm, join_norm, stem, f"{stem} %"],
     )
 
 
