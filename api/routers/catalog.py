@@ -65,6 +65,34 @@ _RESOURCES = [
         "filters": ["name", "exclude_state_adjacent"],
         "count_view": "v_experimental_lobbying_org_index_enriched",
     },
+    {
+        "resource": "procurement",
+        "list": "/v1/procurement/suppliers",
+        "item": "/v1/procurement/suppliers/{supplier_norm}/dossier",
+        "description": "eTenders/TED suppliers (CRO + lobbying-overlap enriched); the dossier "
+        "composes the ranking summary with every award. Also /v1/procurement/competition "
+        "(per-buyer single-bidder rate, a signal not a verdict) and "
+        "/v1/procurement/lobbying-overlap (co-occurrence only, never causation).",
+        "filters": ["year", "order_by"],
+        "count_view": "v_procurement_supplier_summary",
+    },
+    {
+        "resource": "committees",
+        "list": "/v1/committees",
+        "item": "/v1/committees/{committee}",
+        "description": "Oireachtas committees per chamber; the item adds the long-format "
+        "party-seat breakdown.",
+        "filters": ["chamber"],
+        "count_view": "v_committee_member_detail",
+    },
+    {
+        "resource": "ministers",
+        "list": "/v1/ministers",
+        "item": None,
+        "description": "Who held a department on a given date (fuzzy department + ISO date).",
+        "filters": ["department", "on_date"],
+        "count_view": "v_member_ministerial_tenure",
+    },
 ]
 
 

@@ -1,0 +1,53 @@
+name: Lobbying freshness
+
+# Lobbying is the one chain NOT auto-fetched by the pipeline — lobbying.ie returns
+# are pulled manually in waves (see project_lobbying_automation). This canary asks
+# the live export API whether a NEWER reporting period exists upstream than the
+# latest period in our committed gold (lobbyist_persistence.parquet), and opens a
+# tracking issue if so. It does NOT ingest anything — refreshing means re-pulling
+# lobbying.ie and re-running the lobbying chain locally.
+#
+# Cadence: weekly on Mondays, PLUS daily during the SIPO release windows (the back
+# end of Jan / May / Sep, when each period's bulk filings land ~7 days after the
+# 21st deadline), so a missed wave is caught within a day during the months it
+# actually matters.
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"            # weekly: Monday 08:00 UTC
+    - cron: "0 8 22-31 1,5,9 *"    # daily 22nd-31st of Jan/May/Sep (SIPO release windows)
+  workflow_dispatch:
+    inputs:
+      slack_days:
+        description: "Allow upstream to be this many days ahead before flagging"
+        required: false
+        default: "14"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  lobbying-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      # Needs requests (pipeline extra) for the API + duckdb (core) to read the
+      # committed gold parquet. No silver/bronze needed — gold is un-gitignored.
+      - run: uv sync --frozen --extra pipeline
+      - name: Check lobbying freshness vs upstream
+        run: uv run python tools/lobbying_freshness_check.py --slack-days "${{ github.event.inputs.slack_days || '14' }}"
+      - name: Open issue on staleness (scheduled runs only)
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              ...context.repo,
+              title: `Lobbying data may be behind upstream (${new Date().toISOString().slice(0, 10)})`,
+              body: `\`tools/lobbying_freshness_check.py\` exited non-zero: either lobbying.ie has a newer reporting period than the committed gold ships (STALE), or the check could not run (network/schema).\n\nJob log: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nLobbying ingestion is manual (see project_lobbying_automation). To refresh: re-pull lobbying.ie returns and re-run the lobbying chain, then commit the updated gold.`,
+              labels: ["data", "lobbying"],
+            });

@@ -40,6 +40,11 @@ EUR = 1_000_000  # tolerance: 2019 reports in € millions (rounded to €0.01m 
     ("0", 0.0),
     ("-", 0.0),
     ("", 0.0),
+    # comma-/dot-only cells satisfy the NUM regex but strip to a non-number — these used to
+    # crash to_num with float('') (ValueError) and abort a whole multi-year AFS run.
+    ("(,)", 0.0),
+    (",", 0.0),
+    (".", 0.0),
 ])
 def test_to_num(raw: str, expected: float):
     assert to_num(raw) == pytest.approx(expected)
