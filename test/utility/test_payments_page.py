@@ -21,8 +21,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+# Insert repo-root first so utility/ ends up ahead of it (config resolution); also
+# registering repo-root keeps test_page_imports.py from re-inserting it at the front
+# and inverting the order. See the dual-config note in test_page_imports.py.
 _ROOT = Path(__file__).resolve().parents[2]
-for _p in (str(_ROOT / "utility"), str(_ROOT / "utility" / "pages_code")):
+for _p in (str(_ROOT), str(_ROOT / "utility"), str(_ROOT / "utility" / "pages_code")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 

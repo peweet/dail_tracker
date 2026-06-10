@@ -309,6 +309,49 @@ def context_line(inner_html: str) -> None:
     st.html(f'<p class="dt-context-line">{inner_html}</p>')
 
 
+def finding_lede(sentences: list[str], *, source_html: str = "") -> None:
+    """The page's opening findings — the app-wide replacement for stat strips.
+
+    Renders 1–3 plain-English sentences under the hero, each stating a fact the
+    page's data supports ("Deloitte Ireland has won more public contracts than
+    any other firm — <strong>329</strong> since 2013, from <strong>54</strong>
+    public bodies."). Numbers go inside ``<strong>`` for the tabular-figure
+    emphasis treatment; everything else reads as prose. This is the
+    findings-not-filters pattern from doc/APP_REDESIGN_SWEEP_2026_06_10.md:
+    the page opens by answering its own headline question, and the controls
+    come after the first facts.
+
+    DISPLAY-ONLY: every figure must arrive pre-computed from a registered view
+    via ``dail_tracker_core/queries``; this helper renders, it never derives.
+    Sentences are already-built HTML — escape free-text tokens with ``_h()``
+    at the call site before interpolating.
+
+    ``source_html``: optional pre-built anchor(s) from ``source_link_html()``;
+    rendered as a quiet trailing source attribution on the last line.
+    """
+    if not sentences:
+        return
+    body = "".join(f"<p>{s}</p>" for s in sentences if s)
+    src = f'<span class="dt-lede-source">{source_html}</span>' if source_html else ""
+    st.html(f'<div class="dt-finding-lede">{body}{src}</div>')
+
+
+def card_sources_html(links: list[str]) -> str:
+    """Quiet conduit row for a card footer — splice into card HTML.
+
+    Pass pre-built anchors from ``source_link_html()`` (which no-ops to ``""``
+    on missing/non-http URLs); empties are dropped here, and the whole row
+    collapses to ``""`` when nothing survives, so callers can interpolate the
+    result unconditionally. One consistent placement app-wide: the conduit
+    principle says every card that represents an official record links to that
+    record at its official source.
+    """
+    kept = [x for x in links if x]
+    if not kept:
+        return ""
+    return f'<div class="dt-card-sources">{"".join(kept)}</div>'
+
+
 def glossary_strip(terms: list[tuple[str, str]]) -> None:
     """Render a one-line glossary of acronyms under the hero.
 

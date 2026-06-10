@@ -7,8 +7,10 @@
 A civic-data pipeline for Irish parliamentary transparency.
 
 Dáil Tracker ingests, joins, and analyses public records about Irish elected
-representatives — attendance, legislation, questions, votes, payments, declared
-interests, and lobbying contacts — and presents them in one searchable dashboard.
+representatives and the state around them — attendance, legislation, questions,
+votes, payments, declared interests, lobbying contacts, procurement awards,
+political finance, and judicial appointments — and presents them in one
+searchable dashboard and a read-only JSON API.
 
 The point of difference is **cross-source linkage**: declared interests joined
 against the Companies Registration Office, the charities register, and Iris
@@ -37,7 +39,11 @@ Inspired by [TheyWorkForYou](https://github.com/mysociety/theyworkforyou),
 | [Charities Regulator](https://www.charitiesregulator.ie/) | Trustee cross-reference | XLSX |
 | [Iris Oifigiúil](https://www.irisoifigiuil.ie/) | Statutory instruments, appointments, official notices | PDF |
 | [eTenders / OGP](https://www.etenders.gov.ie/) | Public procurement awards (supplier → CRO match) | CSV |
-| [TED](https://ted.europa.eu/) | EU-journal Irish award notices (silver only) | API / JSON |
+| [TED](https://ted.europa.eu/) | EU-journal Irish award + tender notices (silver only) | API / JSON / XML |
+| [SIPO](https://www.sipo.ie/) | Party donations + GE2024 election spending | PDF (OCR) |
+| Public-body PO / payment disclosures | Payments over €20k — departments, agencies, HSE, Tusla, 31 local authorities | PDF / CSV / XLSX |
+| [Courts Service](https://www.courts.ie/) | Bench roster, Legal Diary, case clearance & waiting times | PDF / HTML |
+| [CSO PxStat](https://data.cso.ie/) | Government-finance & housing denominators | API / JSON |
 | [Central Bank of Ireland registers](https://registers.centralbank.ie/) | Regulated-entity cross-reference for corporate notices | PDF |
 | [Local Authority Annual Financial Statements](https://www.gov.ie/) | Council spend by service division | PDF |
 
@@ -81,11 +87,18 @@ The chains, in run order:
 - **Cross-reference & enrichment:** `afs` (LA financial statements → spend by
   division), `cbi` (Central Bank register ↔ corporate notices), `cro` (CRO
   company register ↔ corporate notices), `procurement` (eTenders awards +
-  supplier→CRO match), `procurement_lobbying` (supplier ↔ lobbying overlap), and
-  `ted` (EU award notices, silver only).
+  supplier→CRO match), `procurement_lobbying` (supplier ↔ lobbying overlap),
+  `ted` / `ted_tenders` (EU award and tender notices, silver only), and `cso`
+  (PxStat government-finance & housing denominators).
+- **Public payments (privacy-gated):** `public_body_payments` (departmental and
+  agency PO/payment disclosures over €20k → `public_payments_fact`),
+  `hse_tusla_payments`, and `la_payments` (31 local authorities) — three
+  schema-aligned fact tables folded into one gold payments fact.
 - **Monitoring (read-only, never mutate pipeline data):** `freshness`
-  (data-age signal per domain → `data/_meta/freshness.json`) and `source_health`
-  (per-source staleness / listing reachability → `data/_meta/source_health.json`).
+  (data-age signal per domain → `data/_meta/freshness.json`), `source_health`
+  (per-source staleness / listing reachability →
+  `data/_meta/source_health.json`), and `output_regressions` (gold row/column
+  drop vs baseline → `data/_meta/output_regressions.json`).
 
 Every chain assumes `bootstrap` has run first.
 
@@ -116,20 +129,40 @@ uv sync --extra pipeline --group dev          # full local dev: + ETL deps + tes
 streamlit run utility/app.py
 ```
 
-A Streamlit app (titled *Oireachtas Explorer*) with fourteen pages — a Home
+A Streamlit app (titled *Oireachtas Explorer*) with seventeen pages — a Home
 landing view, Member Overview (the canonical TheyWorkForYou-style profile),
-Attendance, Votes, Interests, Payments & Donations, Lobbying, Legislation,
-Statutory Instruments, Appointments, Corporate Notices, Committees, Courts &
-Judiciary, and a Glossary.
+Attendance, Votes, Interests, Committees, Payments, Election 2024 (SIPO
+donations + campaign spending), Procurement, Public Payments, Legislation,
+Statutory Instruments, Corporate Notices, Courts & Judiciary (bench roster,
+appointments, court performance, Legal Diary), Lobbying, Public Appointments,
+and a Glossary.
 
 Streamlit is a thin presentation layer: pages read **only** through registered
 DuckDB views and are restricted to `SELECT / WHERE / ORDER BY / LIMIT`. All
 transformation lives in the pipeline, SQL views (`sql_views/`), or gold layer.
-Each page has a YAML contract in
+Query and composition logic lives in `dail_tracker_core`, a Streamlit-free core
+that both the dashboard and the JSON API read through. Each page has a YAML
+contract in
 [`dail_tracker_bold_ui_contract_pack_v5/`](dail_tracker_bold_ui_contract_pack_v5/).
 
 **Stack:** DuckDB for the analytical layer, Polars for ETL, pandas in the
 Streamlit layer, SQL views for reviewable joins.
+
+## JSON API
+
+```bash
+uv sync --extra api
+uvicorn api.main:app
+```
+
+A read-only FastAPI app over the same data — open, no API key, versioned under
+`/v1`, interactive docs at `/docs`. Fifteen routers cover members, legislation,
+votes, payments, public payments, lobbying, procurement, committees,
+ministerial tenure, political finance, judiciary, charities, and appointments;
+`/v1/catalog` lists every served dataset. Routers are thin (parse → core →
+serialize) — all retrieval lives in `dail_tracker_core`. Data is served under
+CC-BY 4.0, mirroring the Oireachtas PSI licence. Design rationale in
+[`doc/API_LAYER_PLAN.md`](doc/API_LAYER_PLAN.md).
 
 ---
 
@@ -138,24 +171,19 @@ Streamlit layer, SQL views for reviewable joins.
 Active and planned work — data already lands in the pipeline ahead of the UI, so
 several datasets exist in gold/silver before they get a dedicated page.
 
-- **Procurement page** — the `procurement` chain (eTenders/OGP awards +
-  supplier→CRO match) and `ted` chain (EU award notices) already produce gold/
-  silver data (59k awards · 1.9k authorities · 16k suppliers). Today it surfaces
-  only via the Lobbying page's "also a state supplier" enrichment; a dedicated
-  Procurement tile is planned, built around the *awards-are-not-payments* caveat
-  (`value_safe_to_sum`) and the lobbying/CRO cross-source flags. Full IA in
-  [`doc/PROCUREMENT_BUILD_PLAN.md`](doc/PROCUREMENT_BUILD_PLAN.md).
-- **Courts & Judiciary** — the live tile today is the daily **Legal Diary**
-  (anonymised sittings, bench, case listings). A fuller section is planned over
-  the validated sandbox datasets: the **bench roster**, an **appointments &
-  government** spine (who appointed which judge, from Iris), **court-performance**
-  (clearance, waiting times, 94-courthouse map), and **aggregate conduct** stats.
-  Deliberately excluded: revolving-door name-matching (tested, removed — false
-  positives), the judgments corpus (copyright), and per-judge scoring. Sketch and
-  build contracts in
-  [`doc/judiciary_feature_sources_claude_plan.md`](doc/judiciary_feature_sources_claude_plan.md).
-- **LA Annual Financial Statements** — the `afs` chain produces council
-  spend-by-division silver data; a public-finance view over it is planned.
+- **Local-authority & government finance** — the `afs` chain produces council
+  revenue and capital spend-by-division data, and the `cso` chain lands
+  government-finance aggregates (`v_gov_finance_annual`); a public-finance page
+  over them is planned. Plan in
+  [`doc/PER_LA_AFS_BUILD_PLAN.md`](doc/PER_LA_AFS_BUILD_PLAN.md).
+- **GE2024 candidate expenses** — per-candidate election-expense PDFs are
+  sourced and queued (606 returns); OCR extraction is pending, after which they
+  join the Election 2024 page alongside party donations and spending.
+- **Bulk data exports** — parquet downloads of the gold layer via the API
+  (Phase 2 of [`doc/API_LAYER_PLAN.md`](doc/API_LAYER_PLAN.md)), demand-gated.
+- **Scheduled data refresh** — read-only canaries already run on GitHub Actions
+  (source health, freshness, a full pipeline probe); a fully automated cloud
+  refresh of the data itself is the remaining step.
 
 Candidate future datasets are catalogued in
 [`doc/ENRICHMENTS.md`](doc/ENRICHMENTS.md).
@@ -171,8 +199,13 @@ uv run ruff check .
 ```
 
 Tests cover join-key normalisation, silver/gold output shape, SQL view
-registration, and lightweight Streamlit smoke tests. Integration tests that need
-generated `data/silver/` or `data/gold/` outputs skip when those are missing.
+registration, API endpoints (FastAPI TestClient), and lightweight Streamlit
+smoke tests. Integration tests that need generated `data/silver/` or
+`data/gold/` outputs skip when those are missing.
+
+CI (GitHub Actions) runs lint, the logic-firewall check, typecheck, tests, and
+SQL-view contracts on every push; scheduled workflows act as canaries — source
+health, data freshness, lobbying-register freshness, and a full pipeline probe.
 
 ---
 
