@@ -1496,6 +1496,8 @@ def procurement_page() -> None:
     with tabs[1]:
         _render_payments()
 
+    _render_qs_valuation()
+
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> eTenders / national procurement open data '
         '(<a href="https://data.gov.ie/dataset/contract-notices-published-on-etenders" '
