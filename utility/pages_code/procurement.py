@@ -71,6 +71,7 @@ from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 from ui.components import (
     back_button,
     clickable_card_link,
+    context_line,
     empty_state,
     fmt_civic_date,
     glossary_strip,
@@ -1277,24 +1278,20 @@ def _render_cpv_profile(cpv_code: str) -> None:
 
 
 def _stats_strip(stats, cov: dict) -> None:
-    """Compact scale strip: just the plain-English corpus counts a reader can use. Decluttered
-    2026-06-08 — dropped the internal data-quality chips ("N carry a sum-safe value", "X% matched
-    to a CRO company") which were jargon, not public value; no euro figure here (awarded value is
-    labelled per row)."""
+    """Inline one-sentence scale context (S1 declutter 2026-06-10, replacing the
+    4-chip strip — doc/APP_REDESIGN_PHASE0.md). Display-only: the same
+    view-supplied corpus counts, phrased as a sentence so no stat block sits
+    between the hero and the rankings."""
     min_y, max_y = _n(stats.get("min_year")), _n(stats.get("max_year"))
-    span = f"{min_y}–{max_y}" if min_y and max_y else "—"
-    chips = [
-        (f"{_n(stats.get('n_suppliers')):,}", "companies"),
-        (f"{_n(stats.get('n_authorities')):,}", "public bodies"),
-        (f"{_n(stats.get('n_categories')):,}", "categories"),
-        (span, "award years"),
-    ]
-    items = "".join(
-        f'<div class="pr-stat"><span class="pr-stat-num">{_esc(num)}</span>'
-        f'<span class="pr-stat-lbl">{_esc(lbl)}</span></div>'
-        for num, lbl in chips
+    span = f"{min_y}–{max_y}" if min_y and max_y else "recent years"
+    n_sup = _n(stats.get("n_suppliers"))
+    n_auth = _n(stats.get("n_authorities"))
+    n_cat = _n(stats.get("n_categories"))
+    context_line(
+        f"<b>{n_sup:,}</b> companies have won public contracts from "
+        f"<b>{n_auth:,}</b> public bodies across <b>{n_cat:,}</b> categories, "
+        f"<b>{_esc(span)}</b>."
     )
-    st.html(f'<div class="pr-stats">{items}</div>')
 
 
 def _data_completeness_note() -> None:

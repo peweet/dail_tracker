@@ -54,6 +54,7 @@ from ui.entity_links import (
     social_icon_chip_html,
     source_link_html,
 )
+from ui.export_controls import export_button
 from ui.vote_explorer import render_member_votes
 from data_access.member_overview_data import get_member_overview_conn
 from dail_tracker_core.queries import member_overview as moq
@@ -386,14 +387,11 @@ def _section_legislation(conn, join_key: str, member_name: str) -> None:
             f"</div>"
         )
 
-    st.download_button(
+    export_button(
+        df,
         label="Export legislation (CSV)",
-        data=df.to_csv(index=False).encode("utf-8"),
-        file_name=f"legislation_{member_name.replace(' ', '_')}.csv",
-        mime="text/csv",
-        disabled=df.empty,
+        filename=f"legislation_{member_name.replace(' ', '_')}.csv",
         key="mo_leg_export",
-        width="stretch",
     )
 
 
@@ -519,13 +517,11 @@ def _section_statutory_instruments(conn, join_key: str) -> None:
             f"</div>"
         )
 
-    st.download_button(
+    export_button(
+        df,
         label="Export statutory instruments (CSV)",
-        data=df.to_csv(index=False).encode("utf-8"),
-        file_name=f"si_signed_{join_key}.csv",
-        mime="text/csv",
+        filename=f"si_signed_{join_key}.csv",
         key="mo_si_export",
-        width="stretch",
     )
 
 
@@ -810,13 +806,11 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
     )
 
     # Export
-    st.download_button(
+    export_button(
+        df,
         label="Export filtered questions (CSV)",
-        data=df.to_csv(index=False).encode("utf-8"),
-        file_name=f"questions_{member_name.replace(' ', '_')}.csv",
-        mime="text/csv",
+        filename=f"questions_{member_name.replace(' ', '_')}.csv",
         key=f"mo_q_export_{join_key}",
-        width="stretch",
     )
 
     st.caption("Source: oireachtas.ie/en/debates/questions/ · 2020 to present · complete history per TD.")
@@ -1068,7 +1062,7 @@ def _render_browse(conn) -> None:
     # coherent: a mixed 236-member list with a "TDs" heading would mislead.
     house = (
         st.segmented_control(
-            "House",
+            "Chamber",
             options=["Dáil", "Seanad"],
             default="Dáil",
             key="mo_browse_house",

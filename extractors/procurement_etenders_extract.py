@@ -98,14 +98,17 @@ def build_canonical_map(names: list[str]) -> dict[str, str]:
     """Deterministic first-character-truncation repair (approach 2).
 
     The OGP source drops the leading capital on a subset of supplier names
-    ('eloitte Ireland LLP' = Deloitte). For each lowercase-initial name, prepend
-    each A-Z and map to the matching correctly-spelled name that ALREADY exists in
-    the dataset. Conservative: no canonical match -> leave the name unchanged.
+    ('eloitte Ireland LLP' = Deloitte). The dropped capital also strands names on
+    a punctuation initial ("&L Goodbody" = A&L Goodbody, "'FLYNN EXHAMS" =
+    O'Flynn Exhams, ".M Morris" = ?.M Morris). For each lowercase- or
+    punctuation-initial name, prepend each A-Z and map to the matching
+    correctly-spelled name that ALREADY exists in the dataset. Conservative:
+    no canonical match -> leave the name unchanged.
     """
-    canon = {n.lower(): n for n in names if n and n[:1].isupper() or (n[:1].isdigit())}
+    canon = {n.lower(): n for n in names if n and (n[:1].isupper() or n[:1].isdigit())}
     mapping: dict[str, str] = {}
     for nm in names:
-        if nm and nm[:1].islower():
+        if nm and (nm[:1].islower() or nm[:1] in "&'."):
             for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
                 hit = canon.get((c + nm).lower())
                 if hit:
@@ -189,6 +192,16 @@ def main() -> None:
         .explode("sl")
         .with_columns(pl.col("sl").map_elements(tidy_name, return_dtype=pl.Utf8).alias("supplier_raw"))
         .filter(pl.col("supplier_raw").str.len_chars() >= 3)
+        # The source pads a subset of authority cells with ~220 trailing spaces, so the
+        # same body ranks as two distinct authorities ("The Office of Government
+        # Procurement" appeared twice). Strip + collapse whitespace; decode entities.
+        .with_columns(
+            pl.col(auth_col)
+            .map_elements(lambda s: html.unescape(s or ""), return_dtype=pl.Utf8)
+            .str.replace_all(r"\s+", " ")
+            .str.strip_chars()
+            .alias(auth_col)
+        )
     )
     # deterministic first-char-truncation repair -> supplier (canonical)
     cmap = build_canonical_map(aw.select("supplier_raw").unique().to_series().to_list())
@@ -207,10 +220,13 @@ def main() -> None:
     # Flag rather than guess: starts lowercase AND contains a later uppercase letter
     # (the Title-cased remainder is the truncation signature). Genuinely all-lowercase
     # trading names ('michael coughlan coach hire') have NO later uppercase -> not flagged.
+    # A punctuation initial ("&L Goodbody", "'FLYNN EXHAMS", ".M Morris") is the same
+    # dropped-capital defect stranded on the second character -> always flagged.
     aw = aw.with_columns(
-        (pl.col("supplier").str.contains(r"^[a-z]") & pl.col("supplier").str.contains(r"[A-Z]")).alias(
-            "name_truncated"
-        ),
+        (
+            (pl.col("supplier").str.contains(r"^[a-z]") & pl.col("supplier").str.contains(r"[A-Z]"))
+            | pl.col("supplier").str.contains(r"^[&'.]")
+        ).alias("name_truncated"),
     )
     print(f"  names flagged as unrecoverable source truncation: {aw['name_truncated'].sum():,} rows")
     aw = aw.with_columns(

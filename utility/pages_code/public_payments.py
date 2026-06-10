@@ -48,6 +48,7 @@ from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 from ui.components import (
     back_button,
     clickable_card_link,
+    context_line,
     empty_state,
     glossary_strip,
     hero_banner,
@@ -365,29 +366,31 @@ def _render_supplier_profile(supplier_norm: str) -> None:
 
 # ──────────────────────────────────────────────────────────────────────────────
 def _stats_strip(stats, cov: dict) -> None:
+    """Inline one-sentence scale context (S1 declutter 2026-06-10, replacing the
+    6–7 chip strip — doc/APP_REDESIGN_PHASE0.md). Display-only: the same
+    view-supplied figures, including the sum-safe euro total and the withheld
+    private-name count (kept for transparency), phrased as prose so no stat
+    block sits between the hero and the data."""
     safe_total = _eur_scale(stats.get("total_safe_eur"))
     first_y, last_y = _n(stats.get("first_year")), _n(stats.get("last_year"))
-    span = f"{first_y}–{last_y}" if first_y and last_y else "—"
-    chips = [
-        (f"{_n(stats.get('n_publishers')):,}", "public bodies"),
-        (f"{_n(stats.get('n_suppliers')):,}", "suppliers"),
-        (safe_total, "sum-safe value (ordered + paid)"),
-        (span, "years"),
-        (f"{_n(stats.get('n_lines')):,}", "payment / PO lines"),
-        (f"{_n(stats.get('n_safe_lines')):,}", "carry a sum-safe value"),
-    ]
+    span = f"{first_y}–{last_y}" if first_y and last_y else "recent years"
+    n_pub = _n(stats.get("n_publishers"))
+    n_sup = _n(stats.get("n_suppliers"))
+    n_lines = _n(stats.get("n_lines"))
+    n_safe = _n(stats.get("n_safe_lines"))
     # Withheld personal-data counts from both registers' coverage JSONs (transparency).
     withheld = _n((cov.get("public_payments") or {}).get("rows_quarantined")) + _n(
         (cov.get("hse_tusla_payments") or {}).get("rows_quarantined")
     )
-    if withheld:
-        chips.append((f"{withheld:,}", "private names withheld"))
-    items = "".join(
-        f'<div class="pr-stat"><span class="pr-stat-num">{_esc(num)}</span>'
-        f'<span class="pr-stat-lbl">{_esc(lbl)}</span></div>'
-        for num, lbl in chips
+    sentence = (
+        f"<b>{_esc(safe_total)}</b> in sum-safe payments (ordered + paid) from "
+        f"<b>{n_pub:,}</b> public bodies to <b>{n_sup:,}</b> suppliers, across "
+        f"<b>{n_lines:,}</b> payment / PO lines (<b>{n_safe:,}</b> carry a sum-safe value), "
+        f"<b>{_esc(span)}</b>."
     )
-    st.html(f'<div class="pr-stats">{items}</div>')
+    if withheld:
+        sentence += f" <b>{withheld:,}</b> private names withheld."
+    context_line(sentence)
 
 
 def _provenance_footer() -> None:

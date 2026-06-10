@@ -127,9 +127,7 @@ def register_member_views(conn: duckdb.DuckDBPyConnection) -> None:
         from config import GOLD_SPEECHES_FACT_FULL_PARQUET, GOLD_SPEECHES_FACT_PARQUET
 
         speech_path = (
-            GOLD_SPEECHES_FACT_FULL_PARQUET
-            if GOLD_SPEECHES_FACT_FULL_PARQUET.exists()
-            else GOLD_SPEECHES_FACT_PARQUET
+            GOLD_SPEECHES_FACT_FULL_PARQUET if GOLD_SPEECHES_FACT_FULL_PARQUET.exists() else GOLD_SPEECHES_FACT_PARQUET
         )
         register_views(
             conn,
@@ -182,6 +180,14 @@ _API_DOMAIN_GLOBS = [
     "member_zz_interests_*.sql",
     "vote_*.sql",
     "speech_*.sql",
+    # SIPO political finance / judiciary bench / public appointments. These views
+    # absolutize their own parquet paths (no substitution needed); the sipo glob's
+    # alphabetical order is dependency-safe (ge2024_party_finance reads the
+    # candidate/donations/expenses views, all earlier alphabetically). swallow_errors
+    # degrades a missing optional parquet to one unavailable domain, not a dead conn.
+    "sipo_*.sql",
+    "judiciary_*.sql",
+    "appointments_*.sql",
 ]
 
 
@@ -206,9 +212,7 @@ def api_conn() -> duckdb.DuckDBPyConnection:
         )
 
         _speech_path = (
-            GOLD_SPEECHES_FACT_FULL_PARQUET
-            if GOLD_SPEECHES_FACT_FULL_PARQUET.exists()
-            else GOLD_SPEECHES_FACT_PARQUET
+            GOLD_SPEECHES_FACT_FULL_PARQUET if GOLD_SPEECHES_FACT_FULL_PARQUET.exists() else GOLD_SPEECHES_FACT_PARQUET
         )
         subs = {
             "{MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_members.parquet").as_posix(),

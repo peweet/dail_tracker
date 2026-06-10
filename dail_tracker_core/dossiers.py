@@ -19,15 +19,20 @@ import duckdb
 import pandas as pd
 
 from dail_tracker_core import serialize
+from dail_tracker_core.queries import appointments as appt
+from dail_tracker_core.queries import charities as char
 from dail_tracker_core.queries import committees as cmte
 from dail_tracker_core.queries import cross_ref as xref
 from dail_tracker_core.queries import interests as intr
+from dail_tracker_core.queries import judiciary as jud
 from dail_tracker_core.queries import legislation as leg
 from dail_tracker_core.queries import lobbying as lb
 from dail_tracker_core.queries import member_overview as moq
 from dail_tracker_core.queries import ministerial as min_
 from dail_tracker_core.queries import payments as pay
 from dail_tracker_core.queries import procurement as proc
+from dail_tracker_core.queries import public_payments as pubpay
+from dail_tracker_core.queries import sipo
 from dail_tracker_core.queries import votes as vot
 
 
@@ -644,3 +649,267 @@ def list_payments_year_ranking(
     if df.empty:
         return [], 0, False
     return _page(df, skip, limit)
+
+
+# ── SIPO political finance (donations + GE2024 election expenses) ──────────────
+# Two DISTINCT money grains — donations and election expenses are NEVER added
+# together. Over-cap / under-threshold rows are the REAL disclosed figures (state
+# them, never "correct" them). Some figures are OCR-derived (carry a verify flag).
+
+
+def party_donations(conn: duckdb.DuckDBPyConnection, *, party: str | None = None) -> dict[str, Any]:
+    """Political donations disclosed to SIPO. With ``party`` (an exact label from the
+    ranking), that party's individual donor receipts; otherwise the per-party ranking +
+    all-party summary. Donor names+amounts are the public SIPO record; no donor-address field."""
+    if party:
+        res = sipo.party_donors(conn, party)
+        if not res.ok:
+            return {"error": res.unavailable_reason}
+        return {"party": party, "donations": serialize.to_records(res.data)}
+    by_party = sipo.donations_by_party(conn)
+    if not by_party.ok:
+        return {"error": by_party.unavailable_reason}
+    return {
+        "summary": serialize.first_record(sipo.donations_totals(conn).data),
+        "by_party": serialize.to_records(by_party.data),
+        "note": "call again with a party label for its individual donor receipts",
+    }
+
+
+def party_election_spend(conn: duckdb.DuckDBPyConnection, *, party: str | None = None) -> dict[str, Any]:
+    """GE2024 candidate election expenses disclosed to SIPO. With ``party``, that party's
+    per-candidate expenditure; otherwise the per-party ranking + summary. A flag of
+    'over_limit_verify' marks an OCR figure above the statutory limit to RE-CHECK — not a
+    confirmed breach. Distinct money grain from donations — never sum the two."""
+    if party:
+        res = sipo.party_candidates(conn, party)
+        if not res.ok:
+            return {"error": res.unavailable_reason}
+        return {"party": party, "candidates": serialize.to_records(res.data)}
+    by_party = sipo.expenses_by_party(conn)
+    if not by_party.ok:
+        return {"error": by_party.unavailable_reason}
+    return {
+        "summary": serialize.first_record(sipo.expenses_totals(conn).data),
+        "by_party": serialize.to_records(by_party.data),
+        "note": "call again with a party label for its per-candidate breakdown",
+    }
+
+
+# ── Judiciary (the bench + court-system health) ────────────────────────────────
+# Appointment / office / rank / assignment only — NO performance, conduct or ranking
+# data exists by design. courts_health names NO judge (system-capacity signals only).
+
+
+def judicial_appointments(conn: duckdb.DuckDBPyConnection, *, limit: int = 50) -> dict[str, Any]:
+    """Judicial appointment events + the elevation ladder + the current sitting-bench roster."""
+    res = jud.appointments(conn)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    appts = serialize.to_records(res.data)[:limit]
+    return {
+        "appointments": appts,
+        "elevation_ladder": serialize.to_records(jud.elevation_ladder(conn).data),
+        "roster": serialize.to_records(jud.roster(conn).data),
+    }
+
+
+def courts_health(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+    """Court-SYSTEM health: annual case clearance, published waiting times, and the
+    geocoded courthouse list. A long waiting time is a capacity signal, never a verdict."""
+    res = jud.courts_clearance(conn)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    return {
+        "clearance": serialize.to_records(res.data),
+        "waiting_times": serialize.to_records(jud.courts_waiting_times(conn).data),
+        "courthouses": serialize.to_records(jud.courthouses(conn).data),
+    }
+
+
+# ── Public appointments (state boards) ─────────────────────────────────────────
+
+
+def list_public_appointments(
+    conn: duckdb.DuckDBPyConnection, *, skip: int = 0, limit: int = 50
+) -> tuple[list[dict[str, Any]], int, bool]:
+    """Public-appointment notices (state-board and similar), one row per notice."""
+    df = appt.public_appointments(conn).data
+    if df.empty:
+        return [], 0, False
+    return _page(df, skip, limit)
+
+
+# ── Charity finances ───────────────────────────────────────────────────────────
+# Figures are AS FILED — some filers submit data-entry errors (implausible billions);
+# never read one charity's row as a sector fact.
+
+
+def charity_financials(conn: duckdb.DuckDBPyConnection, *, rcn: int | None = None) -> dict[str, Any]:
+    """With ``rcn`` (Registered Charity Number), one charity's full multi-year income/
+    expenditure/funding series; otherwise the register-wide totals per year."""
+    if rcn:
+        res = char.financials_by_year(conn, rcn)
+        if not res.ok:
+            return {"error": res.unavailable_reason}
+        return {"rcn": rcn, "by_year": serialize.to_records(res.data)}
+    totals = char.sector_totals_by_year(conn)
+    if not totals.ok:
+        return {"error": totals.unavailable_reason}
+    return {
+        "latest_year": serialize.first_record(char.latest_year(conn).data),
+        "sector_totals_by_year": serialize.to_records(totals.data),
+        "note": "call again with an rcn for one charity's full filed series",
+    }
+
+
+# ── Public-body payments (the realised-SPEND grain) ────────────────────────────
+# ⚠️ NEVER add this spend to eTenders/TED AWARD ceilings — different value_kind.
+
+_PUBPAY_CAVEAT = "sum-safe spend only; never add to procurement AWARD values (different grain)"
+
+
+def public_body_payments(
+    conn: duckdb.DuckDBPyConnection, *, side: str = "publisher", order_by: str = "value", limit: int = 25
+) -> dict[str, Any]:
+    """Public-body payments / POs over €20k (realised SPEND). ``side`` is 'publisher' (paying
+    body) or 'supplier' (who was paid); ``order_by`` is 'value' (sum-safe €) or 'lines'."""
+    res = (
+        pubpay.supplier_summary(conn, order_by=order_by, limit=limit)
+        if side == "supplier"
+        else (pubpay.publisher_summary(conn, order_by=order_by, limit=limit))
+    )
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    return {
+        "side": "supplier" if side == "supplier" else "publisher",
+        "coverage": serialize.first_record(pubpay.coverage_stats(conn).data),
+        "ranking": serialize.to_records(res.data),
+        "caveat": _PUBPAY_CAVEAT,
+    }
+
+
+# ── Procurement — deeper cuts (authority / CPV / live tenders) ──────────────────
+# Award CEILINGS, not realised spend — use public_body_payments for what was paid.
+
+
+def list_procurement_authorities(
+    conn: duckdb.DuckDBPyConnection, *, skip: int = 0, limit: int = 25
+) -> tuple[list[dict[str, Any]], int, bool]:
+    """eTenders AWARD activity by contracting authority (buyer): counts + sum-safe value."""
+    df = proc.authority_summary(conn, limit=None).data
+    if df.empty:
+        return [], 0, False
+    return _page(df, skip, limit)
+
+
+def list_procurement_cpv(
+    conn: duckdb.DuckDBPyConnection, *, skip: int = 0, limit: int = 25
+) -> tuple[list[dict[str, Any]], int, bool]:
+    """eTenders AWARD activity by CPV code (WHAT was bought): counts + sum-safe value."""
+    df = proc.cpv_summary(conn, limit=None).data
+    if df.empty:
+        return [], 0, False
+    return _page(df, skip, limit)
+
+
+def list_open_tenders(
+    conn: duckdb.DuckDBPyConnection, *, only_open: bool = True, skip: int = 0, limit: int = 40
+) -> tuple[list[dict[str, Any]], int, bool]:
+    """Current TED (EU Official Journal) Irish tender opportunities — the forward-looking
+    pipeline. ``only_open`` keeps notices whose submission deadline has not passed.
+    estimated_value is a buyer estimate, never summed with award/payment figures."""
+    df = proc.ted_tenders(conn, limit=None, only_open=only_open).data
+    if df.empty:
+        return [], 0, False
+    return _page(df, skip, limit)
+
+
+# ── Ministerial roll-up (current cabinet) ──────────────────────────────────────
+
+
+def current_cabinet(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+    """The current ministerial line-up (who holds which department now) + the department list.
+    For a PAST date use who_was_minister."""
+    res = min_.current_ministers(conn)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    return {
+        "current_ministers": serialize.to_records(res.data),
+        "departments": serialize.to_records(min_.departments(conn).data),
+    }
+
+
+# ── Lobbying — revolving-door individual (DPO) profile ─────────────────────────
+
+_DPO_CAVEAT = "Co-occurrence on the public lobbying register only — NOT evidence of improper influence."
+
+
+def dpo_lobbying_profile(conn: duckdb.DuckDBPyConnection, individual_name: str) -> dict[str, Any] | None:
+    """One designated public official's revolving-door footprint: the firms they lobby for,
+    their client breakdown, and which politicians/bodies they targeted. None if the name
+    matches no DPO on the register."""
+    summary_res = lb.dpo_one(conn, individual_name)
+    if not summary_res.ok:
+        return {"error": summary_res.unavailable_reason}
+    summary = serialize.first_record(summary_res.data)
+    if summary is None:
+        return None
+    return {
+        "individual": individual_name,
+        "summary": summary,
+        "firms": serialize.to_records(lb.dpo_firms(conn, individual_name).data),
+        "client_breakdown": serialize.to_records(lb.dpo_client_breakdown(conn, individual_name).data),
+        "politicians_targeted": serialize.to_records(lb.dpo_politicians_targeted(conn, individual_name).data),
+        "caveat": _DPO_CAVEAT,
+    }
+
+
+# ── Corpus search: divisions by topic ──────────────────────────────────────────
+
+
+def search_votes_by_topic(conn: duckdb.DuckDBPyConnection, topics: str, *, house: str = "Dáil") -> dict[str, Any]:
+    """How members voted on DEBATES matching topic keywords (comma-separated, OR-combined
+    substring match on the debate title). Returns a distinct-debate overview + the per-member
+    votes behind them (capped at 2000, newest first)."""
+    kws = [t.strip() for t in topics.split(",") if t.strip()]
+    if not kws:
+        return {"error": "pass one or more comma-separated topic keywords"}
+    patterns = tuple(f"%{k}%" for k in kws)
+    res = vot.topical_votes(conn, patterns, house)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    rows = serialize.to_records(res.data)
+    debates: dict[tuple, dict[str, Any]] = {}
+    for r in rows:
+        key = (r.get("debate_title"), r.get("vote_date"))
+        d = debates.setdefault(
+            key, {"debate_title": r.get("debate_title"), "vote_date": r.get("vote_date"), "yes": 0, "no": 0}
+        )
+        if r.get("vote_type") == "Voted Yes":
+            d["yes"] += 1
+        elif r.get("vote_type") == "Voted No":
+            d["no"] += 1
+    return {"topics": kws, "house": house, "debates": list(debates.values()), "votes": rows}
+
+
+# ── Data coverage (scope guard) ────────────────────────────────────────────────
+
+
+def data_coverage(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+    """What the tracker covers and how far back — the scope guard to consult before answering
+    a time- or completeness-sensitive question. Per-domain year ranges + corpus sizes + the
+    hard money-grain rules."""
+    return {
+        "procurement_awards": serialize.first_record(proc.coverage_stats(conn).data),
+        "ted_awards": serialize.first_record(proc.ted_corpus_stats(conn).data),
+        "public_body_payments": serialize.first_record(pubpay.coverage_stats(conn).data),
+        "sipo_donations": serialize.first_record(sipo.donations_totals(conn).data),
+        "sipo_election_expenses": serialize.first_record(sipo.expenses_totals(conn).data),
+        "charities_latest_year": serialize.first_record(char.latest_year(conn).data),
+        "caveats": {
+            "register_of_interests": "Register of Members' Interests covers 2020–2025 only — older divisions match no interests",
+            "ted_award_winners": "TED award WINNERS are 2024+ (pre-2024 notices carry buyer + CPV + total value but no winner)",
+            "money_grains": "procurement AWARDS, public-body PAYMENTS, and T&A allowances are three different value grains — NEVER sum across them",
+        },
+    }

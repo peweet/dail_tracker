@@ -40,6 +40,7 @@ from data_access.legislation_data import (
 from shared_css import inject_css
 from ui.components import (
     back_button,
+    context_line,
     empty_state,
     fmt_civic_date as _fmt_date,
     hero_banner,
@@ -463,75 +464,19 @@ def _apply_filters(
 # View 1 — KPI strip
 # ──────────────────────────────────────────────────────────────────────────────
 def _render_kpi_strip(df: pd.DataFrame) -> None:
-    """Four cells: total + year span, most active department, EU-derived
-    share, enabling-Act link rate. The previous version repeated 'Finance'
-    in two adjacent cells (policy-domain top almost always == dept top);
-    dropped the domain cell and added the enabling-Act stat — that's the
-    bridge to /legislation and the cleanest editorial fact about SI
-    provenance."""
+    """Inline one-sentence scale context (S1 declutter 2026-06-10 — was a 5-cell
+    KPI strip that mixed a count, a department name and two percentages;
+    doc/APP_REDESIGN_PHASE0.md). Lead-clean: just the scale anchor. The
+    most-active department, EU-derived share and enabling-Act link rate remain
+    reachable in the filters and ranked data below, where a reader acts on
+    them — they no longer sit as a hero-metric block above the data."""
     total = len(df)
     if total == 0:
         return
-    # logic_firewall: display_only — KPI strip operates on the active filter
-    # set (df is post-filter). View-side rollup would need the same filter
-    # parameters passed to a registered view; render-time aggregation on a
-    # ≤6k-row frame is the simpler call.
-    top_dept = df["si_department_label"].dropna().value_counts().head(1)
-    eu_count = int(df["si_is_eu"].fillna(False).astype(bool).sum())
-    eu_share = (eu_count / total * 100) if total else 0
-    bill_count = int(df["bill_id"].notna().sum()) if "bill_id" in df.columns else 0
-    bill_share = (bill_count / total * 100) if total else 0
+    # logic_firewall: display_only — a count + year span over the active filter set.
     yrs = sorted(int(y) for y in df["si_year"].dropna().unique())
-    yr_span = f"{yrs[0]}–{yrs[-1]}" if len(yrs) >= 2 else (str(yrs[0]) if yrs else "—")
-
-    tdep = top_dept.index[0] if not top_dept.empty else "—"
-    tdepc = int(top_dept.iloc[0]) if not top_dept.empty else 0
-
-    # Revoked-count cell — a factual count of eISB-recorded whole revocations
-    # over the active frame. Only shown when legal-state has been checked for at
-    # least some SIs in scope (else the cell would read a misleading "0").
-    revoked_cell = ""
-    if "current_state" in df.columns:
-        checked = int(df["current_state"].notna().sum())
-        if checked:
-            revoked = int((df["current_state"] == "revoked").sum())
-            # Suppress when the scope is already entirely revoked (e.g. the Legal
-            # status facet pinned to "Revoked") — the cell would just echo the
-            # "Statutory Instruments" total cell. Only informative as a fraction.
-            if revoked and revoked != total:
-                revoked_cell = (
-                    '<div class="si-stat">'
-                    f'<div class="si-stat-num">{revoked:,}</div>'
-                    '<div class="si-stat-label">Revoked (per eISB)</div>'
-                    f'<div class="si-stat-sub">of {checked:,} checked</div>'
-                    "</div>"
-                )
-
-    st.html(f"""
-    <div class="si-stat-grid">
-      <div class="si-stat">
-        <div class="si-stat-num">{total:,}</div>
-        <div class="si-stat-label">Statutory Instruments</div>
-        <div class="si-stat-sub">{html.escape(yr_span)}</div>
-      </div>
-      <div class="si-stat">
-        <div class="si-stat-num">{html.escape(_pretty_token(tdep))}</div>
-        <div class="si-stat-label">Most active department</div>
-        <div class="si-stat-sub">{tdepc:,} SIs</div>
-      </div>
-      <div class="si-stat">
-        <div class="si-stat-num">{eu_count:,}</div>
-        <div class="si-stat-label">EU-derived</div>
-        <div class="si-stat-sub">{eu_share:.0f}% of scope</div>
-      </div>
-      <div class="si-stat">
-        <div class="si-stat-num">{bill_share:.0f}%</div>
-        <div class="si-stat-label">Linked to enabling Act</div>
-        <div class="si-stat-sub">{bill_count:,} of {total:,} SIs</div>
-      </div>
-      {revoked_cell}
-    </div>
-    """)
+    yr_span = f"{yrs[0]}–{yrs[-1]}" if len(yrs) >= 2 else (str(yrs[0]) if yrs else "recent years")
+    context_line(f"<b>{total:,}</b> statutory instruments, <b>{html.escape(yr_span)}</b>.")
 
 
 # ──────────────────────────────────────────────────────────────────────────────

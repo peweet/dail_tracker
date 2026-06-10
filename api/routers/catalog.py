@@ -8,7 +8,11 @@ here. Live row counts are read from the registered views.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+import duckdb
+from fastapi import APIRouter, Depends, Request
+
+from api.deps import get_cursor
+from dail_tracker_core import dossiers
 
 router = APIRouter(tags=["meta"])
 
@@ -80,8 +84,7 @@ _RESOURCES = [
         "resource": "committees",
         "list": "/v1/committees",
         "item": "/v1/committees/{committee}",
-        "description": "Oireachtas committees per chamber; the item adds the long-format "
-        "party-seat breakdown.",
+        "description": "Oireachtas committees per chamber; the item adds the long-format party-seat breakdown.",
         "filters": ["chamber"],
         "count_view": "v_committee_member_detail",
     },
@@ -89,9 +92,55 @@ _RESOURCES = [
         "resource": "ministers",
         "list": "/v1/ministers",
         "item": None,
-        "description": "Who held a department on a given date (fuzzy department + ISO date).",
+        "description": "Who held a department on a given date (fuzzy department + ISO date); "
+        "/v1/cabinet returns the current line-up.",
         "filters": ["department", "on_date"],
         "count_view": "v_member_ministerial_tenure",
+    },
+    {
+        "resource": "political-finance",
+        "list": "/v1/political-finance/donations",
+        "item": None,
+        "description": "SIPO-disclosed party donations + GE2024 candidate election expenses "
+        "(/v1/political-finance/election-spend). Two distinct money grains — never summed. No "
+        "donor-address field is exposed.",
+        "filters": ["party"],
+        "count_view": "v_sipo_donations",
+    },
+    {
+        "resource": "judiciary",
+        "list": "/v1/judiciary/appointments",
+        "item": None,
+        "description": "Judicial appointments + elevation ladder + sitting-bench roster; "
+        "/v1/judiciary/courts-health gives system clearance/waiting times (names no judge).",
+        "filters": ["limit"],
+        "count_view": "v_judiciary_appointments",
+    },
+    {
+        "resource": "charities",
+        "list": "/v1/charities",
+        "item": None,
+        "description": "Charity finances — register-wide sector totals per year, or one charity's "
+        "filed series by RCN. Figures are AS FILED (some filer data-entry errors).",
+        "filters": ["rcn"],
+        "count_view": "v_charity_sector_totals_by_year",
+    },
+    {
+        "resource": "public-body-payments",
+        "list": "/v1/public-body-payments",
+        "item": None,
+        "description": "Public-body payments/POs over €20k — the realised-SPEND grain. NEVER add "
+        "to procurement AWARD ceilings (different value_kind).",
+        "filters": ["side", "order_by"],
+        "count_view": "v_public_payments",
+    },
+    {
+        "resource": "public-appointments",
+        "list": "/v1/public-appointments",
+        "item": None,
+        "description": "State-board and similar public-appointment notices, one row per notice.",
+        "filters": [],
+        "count_view": "v_public_appointments",
     },
 ]
 
@@ -120,3 +169,11 @@ def catalog(request: Request) -> dict:
         "source": "Built from api.oireachtas.ie + lobbying.ie + SIPO + Charities Regulator (see per-resource provenance).",
         "resources": resources,
     }
+
+
+@router.get("/coverage", summary="Per-domain scope guard: year ranges, corpus sizes, money-grain rules")
+def coverage(cur: duckdb.DuckDBPyConnection = Depends(get_cursor)) -> dict:
+    """What the tracker covers and how far back — consult before answering a time- or
+    completeness-sensitive question. States the hard money-grain rules so a client never
+    sums across procurement awards / public-body payments / T&A allowances."""
+    return dossiers.data_coverage(cur)
