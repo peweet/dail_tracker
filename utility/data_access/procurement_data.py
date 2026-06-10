@@ -203,6 +203,13 @@ def fetch_ted_for_supplier_result(join_norm: str) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_ted_notices_for_supplier_result(join_norm: str) -> QueryResult:
+    """One winner's individual TED award notices + the source notice_url (the conduit to the
+    authoritative EU Official Journal notice). One row per notice, newest first."""
+    return _q.ted_notices_for_supplier(get_procurement_conn(), join_norm)
+
+
+@st.cache_data(ttl=300)
 def fetch_ted_tenders_stats_result() -> QueryResult:
     """TED tender-pipeline (cn-standard) corpus summary — notice count, span, still-open count."""
     return _q.ted_tenders_stats(get_procurement_conn())

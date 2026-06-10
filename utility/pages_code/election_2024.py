@@ -70,6 +70,8 @@ from ui.source_pdfs import provenance_expander
 _CORPUS_TOTAL = 607
 
 _CAT_ORDER = ["5A", "5B", "5C", "5D", "5E", "5F", "5G", "5H"]
+_STAT_CAP = 58_350.0  # statutory 5-seat candidate limit — a per-candidate category cell
+# above this is an OCR decimal-loss artefact (only ever on non-reconciling statements).
 
 # Stream colours — also used by the .e24-bar.{in,agent,cand} CSS classes.
 _C_IN = "#2e7d6b"
@@ -518,15 +520,24 @@ def _render_candidate(name: str) -> None:
         st.markdown(f'<a class="dt-member-link" href="{_h(href)}" target="_self">View TD profile ↗</a>',
                     unsafe_allow_html=True)
 
-    # Category split from the candidate's own grid row.
-    cat_rows = []
-    for cat in _CAT_ORDER:
-        v = cand.get(f"cat_{cat}_eur")
-        if pd.notna(v) and v:
-            cat_rows.append({"category": cat, "category_label": cat, "total_spend": float(v)})
-    if cat_rows:
+    # Category split from the candidate's own grid row. ONLY shown when the statement
+    # reconciled — on a non-reconciling statement the per-category cells can carry an
+    # OCR decimal-loss value (e.g. a €29,544 "posters" cell on a €6,358 total), which
+    # would render a wildly misleading bar. We suppress rather than guess (no-inference).
+    reconciled = bool(cand["reconciles"])
+    cat_rows = [
+        {"category": cat, "category_label": cat, "total_spend": float(v)}
+        for cat in _CAT_ORDER
+        if (v := cand.get(f"cat_{cat}_eur")) is not None and pd.notna(v) and 0 < v <= _STAT_CAP
+    ]
+    if reconciled and cat_rows:
         st.markdown("#### Where the money went · by category")
         st.html(_category_bars(pd.DataFrame(cat_rows)))
+    elif cat_rows:
+        st.markdown("#### Where the money went · by category")
+        st.caption("Category breakdown omitted — this statement's figures did not reconcile "
+                   "on OCR, so the per-category split is unreliable. See the line items below "
+                   "and verify against the source PDF.")
 
     # Part-5 line items (the Grealish -> Galway Advertiser detail).
     items = fetch_line_items(name)
@@ -548,7 +559,9 @@ def _render_candidate(name: str) -> None:
         st.html(f'<div class="esp-items" style="border-left:3px solid {stripe};padding-left:0.5rem">'
                 f'{"".join(rows)}</div>')
         st.caption("“Detail” is the candidate's free-text entry — a mix of supplier names "
-                   "(e.g. Galway Advertiser) and item descriptions (e.g. Posters).")
+                   "(e.g. Galway Advertiser) and item descriptions (e.g. Posters), and is "
+                   "captured for only some lines. The items shown are an indicative, partial "
+                   "view and may not sum to the headline total — verify against the source PDF.")
 
     if bool(cand["needs_verify"]):
         st.caption("⚠ This statement's totals did not reconcile cleanly on OCR — verify against "
@@ -625,7 +638,8 @@ def _render_candidates_tab() -> None:
             )
         st.html(f'<div class="esp-items">{"".join(rows)}</div>')
         st.caption("A mix of supplier names and item descriptions as written on the returns — "
-                   "not a verified vendor list.")
+                   "not a verified vendor list, and a partial view (a free-text detail is "
+                   "captured for only some line items). Indicative, not exhaustive.")
 
 
 # ── provenance (whole-page) ───────────────────────────────────────────────────────

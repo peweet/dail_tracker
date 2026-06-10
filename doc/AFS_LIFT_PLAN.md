@@ -1,8 +1,16 @@
 # AFS multi-year lift — handoff (own context window)
 
-**Status 2026-06-08:** the multi-year extractor change is **written and in place**, recoverability
-is **proven**, but the deep run came back as a 1-year fact — an open bug to resolve in isolation
-(suspected concurrent-overwrite; see §4). This doc is self-contained so a fresh context can finish it.
+**✅ DONE 2026-06-10.** Revenue fact = **776 rows / 22 councils / 2016–2025** (all reconciled),
+capital fact = **782 rows / 22 councils / 2016–2025** (also made multi-year), and Phase B
+enrichment is **shipped + verified in-app** on the council dossier. The §4 "open bug" was NOT a
+concurrent overwrite — the multi-year run had simply never been executed in isolation; the real
+fixes were a harvest retry, a bronze gap-fill/last-resort, and a `to_num` crash on a comma-only
+cell (full write-up in [[project_la_afs_fact]]). Original handoff brief preserved below.
+
+**Status 2026-06-08 (original):** the multi-year extractor change is **written and in place**,
+recoverability is **proven**, but the deep run came back as a 1-year fact — an open bug to resolve
+in isolation (suspected concurrent-overwrite; see §4). This doc is self-contained so a fresh
+context can finish it.
 
 ## 1. Goal
 Turn the per-LA **Annual Financial Statements (AFS)** fact from a 1-year snapshot into a
