@@ -16,6 +16,12 @@ inconsistency**, not identity. Lead culprit already named: the **multi-stat top 
 - **Scope:** Visual consolidation **+ IA restructure** (group the flat 17-route nav).
 - **Sequencing:** **Plan first, then approve** — no edits until the Phase 0 plan is signed off.
 - **Auditing:** **Playwright screenshots** as the evidence base, not single-viewport inference.
+- **Phase 0 SIGNED OFF 2026-06-10.** Direction set:
+  - **S1 (stat strips):** replace all 8 with an **inline context sentence** (Lobbying-hero voice);
+    numbers move into the data section where they're earned. No stat strip above the data.
+  - **S3 (nav):** **grouped sections** — Members & Parliament / The Money / Law & Records /
+    Influence / Glossary, via `st.navigation({section: [pages]})`, slugs unchanged. Verify the
+    top-nav widget renders groups acceptably; reordered-flat is the fallback if not.
 
 ## Non-negotiable guardrails
 - `PRODUCT.md` — constitution: brand, **intentional rule overrides** (side-stripe / `#ffffff` /
