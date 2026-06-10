@@ -200,6 +200,20 @@ def test_gold_items_exclude_suspect_costs():
     assert df["cost_eur"].max() <= STATUTORY_MAX_EUR
 
 
+_SILVER_FACT = _ROOT / "data/silver/sipo_candidate/sipo_candidate_expenses.parquet"
+
+
+@pytest.mark.skipif(not _SILVER_FACT.exists(), reason="silver candidate fact not built")
+def test_no_same_constituency_double_filing():
+    """A candidate runs in only one constituency, so two statements for the same
+    (candidate, constituency) is a double-filing — the extractor must dedupe them."""
+    import polars as pl
+
+    df = pl.read_parquet(_SILVER_FACT)
+    dups = df.group_by(["candidate_slug", "constituency_slug"]).len().filter(pl.col("len") > 1)
+    assert dups.height == 0, f"same-constituency double-filings not deduped: {dups.to_dicts()}"
+
+
 # ── roster_join: candidate -> sitting-TD linkage (pure, synthetic frames) ────
 
 

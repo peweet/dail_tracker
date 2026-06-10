@@ -333,6 +333,8 @@ data/silver/sipo_candidate/
 # per-LA AFS revenue fact (la_afs_extract.py) — read by tests + future gold views/UI; commit
 # so it survives machine failure / is Cloud-readable even if a council removes its source PDF
 !data/silver/parquet/la_afs_divisions.parquet
+# per-LA AFS CAPITAL fact (la_afs_capital_extract.py) — sibling of the revenue fact, same reason
+!data/silver/parquet/la_afs_capital_divisions.parquet
 # Silver facts the deployed app's runtime SQL views read DIRECTLY and query live in
 # DuckDB (registered via utility/data_access/_sql_registry.py + member_overview_data.py).
 # Without these a fresh Cloud clone hard-crashes the Lobbying / Interests / Committees

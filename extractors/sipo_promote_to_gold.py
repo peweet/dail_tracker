@@ -5,7 +5,9 @@ Promotes BOTH tracks:
   * donations    — data/silver/sipo/sipo_donations_fact.parquet → sipo_donations.parquet
   * expenses     — data/silver/sipo/sipo_expenses_fact.parquet  → sipo_expenses_fact.parquet
                    (the Part-3 candidate-summary fact the v_sipo_expenses_base view reads)
-The Part-4 itemised/category facts stay silver-only until a view consumes them.
+  * categories   — data/silver/sipo/sipo_expense_categories_fact.parquet → sipo_expense_categories.parquet
+  * items        — data/silver/sipo/sipo_expense_items_fact.parquet → sipo_expense_items.parquet
+                   (Part-4 national-agent itemised spend, consumed by v_sipo_party_national_*)
 
 ⚠️ PRIVACY (non-negotiable): gold/parquet/ is COMMITTED to the public repo. Donor
 NAMES + AMOUNTS are the public SIPO record and may be promoted; donor HOME ADDRESSES
@@ -103,11 +105,54 @@ def promote_expenses() -> None:
     print("  parties:", sorted(df["party"].unique().to_list()))
 
 
+def promote_expense_categories() -> None:
+    """Part-4 national-agent CATEGORY TOTALS → gold. The 8 statutory headings
+    (4A–4H) + the Overall total, per party, off the return's "Expenses Review"
+    page. No PII (party-level figures only). `category_total_eur` is the printed
+    official figure; `items_sum_eur`/`reconciles` flag where our line-item
+    extraction is incomplete for a heading. Consumed by v_sipo_party_national_*."""
+    src = SILVER / "sipo_expense_categories_fact.parquet"
+    if not src.exists():
+        print(f"  !! no Part-4 categories fact at {src}")
+        return
+    df = pl.read_parquet(src).with_columns(
+        pl.col("party").map_elements(canon_party, return_dtype=pl.Utf8).alias("party"),
+        pl.lit("GE2024").alias("election_event"),
+    )
+    GOLD.mkdir(parents=True, exist_ok=True)
+    out = GOLD / "sipo_expense_categories.parquet"
+    save_parquet(df, out)
+    print(f"  categories-> {out.relative_to(ROOT)}  ({df.height} rows)")
+    print("  parties:", sorted(df["party"].unique().to_list()))
+
+
+def promote_expense_items() -> None:
+    """Part-4 national-agent LINE ITEMS → gold. One row per Ref (A1, A10, …):
+    section, category, ref, item_description, cost. No PII (these are the party's
+    own supplier/expense lines, the public SIPO record). `flag` marks OCR rows to
+    verify. Consumed by v_sipo_party_national_items."""
+    src = SILVER / "sipo_expense_items_fact.parquet"
+    if not src.exists():
+        print(f"  !! no Part-4 items fact at {src}")
+        return
+    df = pl.read_parquet(src).with_columns(
+        pl.col("party").map_elements(canon_party, return_dtype=pl.Utf8).alias("party"),
+        pl.lit("GE2024").alias("election_event"),
+    )
+    GOLD.mkdir(parents=True, exist_ok=True)
+    out = GOLD / "sipo_expense_items.parquet"
+    save_parquet(df, out)
+    print(f"  items     -> {out.relative_to(ROOT)}  ({df.height} rows)")
+    print("  parties:", sorted(df["party"].unique().to_list()))
+
+
 def main() -> None:
     print("=== PROMOTE SIPO silver -> gold ===")
     promote_donations()
     promote_expenses()
-    print("done. (Part-4 itemised/category facts stay silver until a view consumes them)")
+    promote_expense_categories()
+    promote_expense_items()
+    print("done.")
 
 
 if __name__ == "__main__":

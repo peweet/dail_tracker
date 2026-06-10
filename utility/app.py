@@ -2,7 +2,7 @@ import streamlit as st
 from pages_code.attendance import attendance_page
 from pages_code.committees import committees_page
 from pages_code.corporate import corporate_page
-from pages_code.election_spending import election_spending_page
+from pages_code.election_2024 import election_2024_page
 from pages_code.glossary import glossary_page
 from pages_code.interests import interests_page
 from pages_code.judiciary import judiciary_page
@@ -93,8 +93,11 @@ pg = st.navigation(
         ),
         st.Page(votes_page, title="Votes", icon=":material/how_to_vote:", url_path="rankings-votes"),
         st.Page(interests_page, title="Interests", icon=":material/interests:", url_path="rankings-interests"),
-        st.Page(payments_page, title="Payments & Donations", icon=":material/payments:", url_path="rankings-payments"),
-        st.Page(election_spending_page, title="Election Spending", icon=":material/savings:", url_path="rankings-election-spending"),
+        st.Page(payments_page, title="Payments", icon=":material/payments:", url_path="rankings-payments"),
+        # url_path kept as "rankings-election-spending" so existing deep links and
+        # entity_links.PAGES["election_spending"] keep resolving; the page is now the
+        # unified GE2024 hub (donations + party spending + candidate spending).
+        st.Page(election_2024_page, title="Election 2024", icon=":material/savings:", url_path="rankings-election-spending"),
         st.Page(lobbying_poc_page, title="Lobbying", icon=":material/groups:", url_path="rankings-lobbying"),
         st.Page(
             legislation_page,

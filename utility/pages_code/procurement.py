@@ -35,6 +35,9 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.procurement_data import (
+    fetch_afs_by_division_result,
+    fetch_afs_total_by_year_result,
+    fetch_afs_vs_po_coverage_result,
     fetch_authority_summary_result,
     fetch_available_years,
     fetch_charity_overlap_result,
@@ -59,6 +62,7 @@ from data_access.procurement_data import (
     fetch_ted_competition_stats_result,
     fetch_ted_corpus_stats_result,
     fetch_ted_for_supplier_result,
+    fetch_ted_notices_for_supplier_result,
     fetch_ted_supplier_summary_result,
     fetch_ted_tenders_result,
     fetch_ted_tenders_stats_result,
@@ -613,6 +617,71 @@ def _render_paid_publishers(tier: str) -> None:
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
 
 
+def _render_council_accounts_context(council: str, active_tier: str) -> None:
+    """AFS enrichment on a LOCAL-AUTHORITY dossier — the council's audited accounts as the
+    "complete spending" context the named-supplier PO/payment data sits inside.
+
+    ⚠️ BUDGET grain — a SIBLING fact, NEVER summed with the purchase-order euros above it.
+    Three additive pieces, all pre-aggregated in the views (the page selects + renders, never
+    computes a metric): (1) audited revenue spend per year; (2) the latest year's spending by
+    service division; (3) an indicative traceability line — how much of that audited spend is
+    tied to named suppliers in the >€20k purchase-order register. Silently omitted for a council
+    whose audited AFS isn't in the fact yet (so the dossier just shows the PO data, as before)."""
+    by_year = fetch_afs_total_by_year_result(council)
+    if not by_year.ok or by_year.data.empty:
+        return
+    ay = by_year.data
+    latest = int(ay["year"].max())
+    span = f"{int(ay['year'].min())}–{latest}" if len(ay) > 1 else str(latest)
+
+    st.html(
+        '<div class="pr-afs">'
+        '<div class="pr-afs-head">Council accounts — all spending (audited)</div>'
+        f'<p class="pr-cap" style="margin-top:0">From the council’s own audited Annual Financial '
+        f'Statement (revenue account, {_esc(span)}): spending by service. This is the council’s '
+        '<strong>whole</strong> operating spend — a broader, separate measure from the purchase-order '
+        'figures above, and <strong>never added to them</strong>.</p></div>'
+    )
+    # (1) revenue spend per year — a DISTINCT colour from the PO chart's brown to signal a different grain.
+    st.caption("Operating spending per year (revenue account, audited €)")
+    st.bar_chart(ay, x="year", y="gross_expenditure_eur", height=200, color="#3a6b7e")
+
+    # (3) traceability line — the latest year present in BOTH the accounts and the active PO tier.
+    cov = fetch_afs_vs_po_coverage_result(council)
+    if cov.ok and not cov.data.empty:
+        pct_col = "pct_spent_of_gross" if active_tier == "SPENT" else "pct_committed_of_gross"
+        po_col = "po_spent_safe_eur" if active_tier == "SPENT" else "po_committed_safe_eur"
+        usable = cov.data[cov.data[pct_col].notna()]
+        if not usable.empty:
+            crow = usable.sort_values("year").iloc[-1]
+            yr, gross, po, pct = (
+                _n(crow.get("year")), crow.get("afs_gross_eur"), crow.get(po_col), crow.get(pct_col),
+            )
+            verb = _paid_verb(active_tier)  # 'paid' / 'ordered'
+            st.html(
+                '<div class="pr-afs-trace">'
+                f'<div class="pr-afs-trace-fig"><strong>{_eur(gross)}</strong> spent (accounts, {yr})'
+                f' · <strong>{_eur(po)}</strong> traceable to named suppliers'
+                f' · <strong>{float(pct):g}%</strong></div>'
+                f'<div class="pr-afs-trace-cap">Indicative coverage only. The accounts figure is the '
+                f'council’s full audited operating spend; the supplier figure counts only purchases '
+                f'over the €20,000 publication threshold ({verb} via purchase orders). Different '
+                'thresholds and stages — a coverage signal, not a reconciliation.</div></div>'
+            )
+
+    # (2) latest-year by-division breakdown — compact cards, largest service first.
+    bd = fetch_afs_by_division_result(council, latest)
+    if bd.ok and not bd.data.empty:
+        st.caption(f"Where it went in {latest} — spending by service (revenue account)")
+        cards = []
+        for r in bd.data.itertuples():
+            net = getattr(r, "net_expenditure_eur", None)
+            meta = f"{_eur(net)} net cost after income & grants"
+            pill = f'<span class="pr-pill pr-pill-val">{_eur(getattr(r, "gross_expenditure_eur", None))} spent</span>'
+            cards.append(_card(f"<span>{_esc(r.division)}</span>", meta, [pill]))
+        st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+
+
 def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT") -> None:
     """Per-buyer dossier (the per-council profile): which tiers the body publishes, both totals
     shown side by side (never summed), and its top suppliers in the active tier. Councils mostly
@@ -675,6 +744,11 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
     if by_year.ok and len(by_year.data) > 1:
         st.caption(f"Money {_paid_verb(active)} per year (sum-safe)")
         st.bar_chart(by_year.data, x="year", y="total_safe_eur", height=200, color="#9c5b2e")
+
+    # Local-authority dossiers gain the audited-accounts context (the "complete spend" denominator
+    # the named-supplier PO data sits inside). BUDGET grain — a sibling, never summed with the above.
+    if is_la:
+        _render_council_accounts_context(publisher_name, active)
 
     res = fetch_payments_for_publisher_result(publisher_name, tier=active)
     df = res.data if res.ok else pd.DataFrame()
@@ -862,6 +936,34 @@ def _render_ted_supplier_panel(supplier_norm: str) -> None:
         f"notice{'' if n == 1 else 's'}</strong>{val_clause}, from {_n(r.get('n_buyers')):,} buyers "
         "(2016–2026). A separate register — these are <em>not</em> added to the national total above.</div></div>"
     )
+
+    # The conduit: route the reader to the AUTHORITATIVE notice. The tracker stores a thin
+    # slice of each award (winner, buyer, a value-kind tag); the full deliverable, the real
+    # framework ceiling and the award criteria live in the EU Official Journal notice itself.
+    # Display-only — every link points at the source; nothing here is computed or inferred.
+    notices_res = fetch_ted_notices_for_supplier_result(supplier_norm)
+    ndf = notices_res.data if notices_res.ok else pd.DataFrame()
+    links = []
+    for nr in ndf.itertuples():
+        url = _coalesce(getattr(nr, "notice_url", None))
+        if not url:
+            continue
+        date = _coalesce(getattr(nr, "dispatch_date", None))[:10]
+        buyer = _esc(_coalesce(getattr(nr, "buyer_name", None)) or "—")
+        is_fw = _coalesce(getattr(nr, "value_kind", None)) == "framework_or_dps_ceiling"
+        tag = "framework — shared ceiling, not a payment" if is_fw else "contract award"
+        links.append(
+            f'<li class="pr-notice"><a href="{_esc(url)}" target="_blank" rel="noopener">'
+            f"{buyer} · {date} ↗</a> <span class=\"pr-notice-tag\">{tag}</span></li>"
+        )
+    if links:
+        with st.expander(f"Open the {len(links):,} authoritative EU notice{'' if len(links) == 1 else 's'} on TED ↗"):
+            st.html(
+                '<p class="pr-cap">The tracker stores a thin slice of each award. Each notice below opens '
+                "the full Official Journal record on TED — where the authority publishes what is actually "
+                "being built, the real framework ceiling and the award criteria. The source, not our summary.</p>"
+                f'<ul class="pr-notice-list">{"".join(links)}</ul>'
+            )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
