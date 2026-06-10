@@ -37,7 +37,7 @@ jobs:
     # the timeout is dispatch-tunable. fromJSON coerces the string input to a number.
     timeout-minutes: ${{ fromJSON(github.event.inputs.timeout_minutes || '120') }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
