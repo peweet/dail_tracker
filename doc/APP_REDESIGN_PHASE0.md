@@ -54,7 +54,7 @@ Severity = redesign priority. ✅ = keep as a reference pattern, do not disturb.
 | 3 | Votes | 2 toggles + 2 dropdowns + year pills | 4 | **P1.** 4 control rows; stage-pill truncation; consolidate into one filter bar. |
 | 4 | Interests | hero + toggle + search + "Notable" pills + year pills + legend | 5 | **P1.** Most-politically-potent dataset, buried under 5 rows. Lift it up. |
 | 5 | Payments & Donations | hero + glossary strip + year pills + 2-up stat | 4 | **P1.** Stat strip (S1); otherwise good ranked cards. |
-| 6 | Election (label drift: "Election 2024" vs code "Election Spending") | hero + caveat + 3-up coloured stat | 3 | **P1.** Coloured-border stat trio = hero-metric tell (S1). |
+| 6 | Election 2024 (`election_2024_page`, unified GE2024 hub — NOT a drift; confirmed in app.py) | hero + caveat + 3-up coloured stat | 3 | **P1.** Coloured-border stat trio = hero-metric tell (S1). |
 | 7 | Lobbying | quiet prose hero + 3 entry cards + 3 topic cards | 0 stat strips | ✅ **Gold standard.** Progressive entry, no strip. Template for others. |
 | 8 | Legislation | hero + 3 filters + 3-up stat + stage-chip wall | 4–5 | **P1.** S1 + S2; bill cards half-empty (dead middle). |
 | 9 | Statutory Instruments | hero + 5-up mixed stat + search + year pills + dept-chip wall | 4 | **P0.** Mixed-type stat strip (worst S1); dept-chip wall (S2). |

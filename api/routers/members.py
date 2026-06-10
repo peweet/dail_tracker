@@ -45,6 +45,42 @@ def member_dossier(
 
 
 @router.get(
+    "/members/{name_or_code}/questions",
+    summary="A member's parliamentary-question feed, filterable",
+)
+def member_questions(
+    name_or_code: str,
+    year: int | None = Query(None, description="Calendar year filter"),
+    qtype: str | None = Query(None, description="Question type, e.g. 'Oral', 'Written'"),
+    ministry: str | None = Query(None, description="Addressed ministry/department"),
+    topic: str | None = Query(None, description="Topic label"),
+    text: str | None = Query(None, description="Free-text search of the question"),
+    limit: int = Query(200, ge=1, le=2000),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    data = dossiers.build_member_questions(
+        cur, name_or_code, year=year, qtype=qtype, ministry=ministry, topic=topic, text=text, limit=limit
+    )
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"member '{name_or_code}' not found")
+    return data
+
+
+@router.get(
+    "/members/{name_or_code}/interests",
+    summary="A member's declared Register of Members' Interests (per-year summary + every declaration)",
+)
+def member_interests(
+    name_or_code: str,
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    data = dossiers.build_member_interests(cur, name_or_code)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"member '{name_or_code}' not found")
+    return data
+
+
+@router.get(
     "/members/{name_or_code}/speeches",
     summary="A member's floor-contribution feed (speeches + oral questions) from the debate record",
 )

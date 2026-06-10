@@ -5,10 +5,10 @@ Two layers (mirrors test_afs_amalgamated.py):
      `title_year` (filename year, must unquote %20 so 'Statement%202018' does NOT yield a
      phantom 2020) and `statement_year` (authoritative modal year off the I&E page), plus
      `select_afs` (audited > unaudited). These run in CI (no data files).
-  2. Data-integrity invariants on the committed golden fact (19 councils): all rows
-     reconcile to the printed total, accounting identity (net = gross − income), 8 divisions
-     per council, sign sanity, taxonomy tags, parser provenance, printed-total == Σ gross.
-     Skips if the fixture isn't committed yet (gitignore negation deferred).
+  2. Data-integrity invariants on the committed golden fact (multi-year, 2016–2025, 22
+     councils): all rows reconcile to the printed total, accounting identity (net = gross −
+     income), 8 divisions per (council, YEAR), sign sanity, taxonomy tags, parser provenance,
+     printed-total == Σ gross. Skips if the fixture isn't committed.
 
 Regenerate the fixture: re-run la_afs_extract.py, then test/fixtures/la_afs/_generate.py.
 """

@@ -41,3 +41,38 @@ def division_dossier(
     if data is None:
         raise HTTPException(status_code=404, detail=f"division '{vote_id}' not found")
     return DivisionDossier(**data)
+
+
+@router.get(
+    "/votes/{vote_id}/interest-breakdown",
+    summary="A division's Yes/Níl/Abstain tally split by its voters' declared interests",
+)
+def division_interest_breakdown(
+    vote_id: str,
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    data = dossiers.build_division_interest_breakdown(cur, vote_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"division '{vote_id}' not found")
+    return data
+
+
+@router.get(
+    "/cross-reference/votes-interests",
+    tags=["cross-reference"],
+    summary="Members who voted a given way on a division AND declare a given interest",
+)
+def cross_reference_votes_interests(
+    vote_id: str | None = Query(None, description="Division id (or use keyword)"),
+    keyword: str | None = Query(None, description="Debate-title substring (or use vote_id)"),
+    vote_type: str = Query("Voted No", description="'Voted Yes' | 'Voted No' | 'Abstained'"),
+    interest: str = Query("landlord", description="landlord | property | director | shareholder"),
+    house: str = Query("Dáil", description="Dáil or Seanad"),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    data = dossiers.cross_reference_votes_interests(
+        cur, vote_id=vote_id, keyword=keyword, vote_type=vote_type, interest=interest, house=house
+    )
+    if "error" in data:
+        raise HTTPException(status_code=503, detail=data["error"])
+    return data
