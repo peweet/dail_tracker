@@ -28,6 +28,7 @@ WITH agg AS (
     WHERE supplier_class = 'company'
       AND NOT name_truncated
       AND length(supplier_norm) >= 4
+      AND supplier_norm <> 'NULL'  -- literal 'NULL' string (root-fixed in extractor 2026-06-11)
     GROUP BY supplier_norm
 ),
 ov AS (

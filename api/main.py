@@ -20,6 +20,7 @@ from api.routers import (
     catalog,
     charities,
     committees,
+    exports,
     health,
     judiciary,
     legislation,
@@ -74,6 +75,7 @@ app.include_router(judiciary.router, prefix="/v1")
 app.include_router(charities.router, prefix="/v1")
 app.include_router(public_payments.router, prefix="/v1")
 app.include_router(appointments.router, prefix="/v1")
+app.include_router(exports.router, prefix="/v1")
 
 
 @app.get("/", tags=["meta"])
@@ -126,5 +128,7 @@ def root() -> dict:
             "/v1/lobbying/dpo/{individual_name}",
             "/v1/search/votes-by-topic",
             "/v1/coverage",
+            "/v1/data",
+            "/v1/data/{resource}",
         ],
     }

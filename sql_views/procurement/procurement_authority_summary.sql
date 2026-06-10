@@ -9,7 +9,9 @@ SELECT
     COUNT(DISTINCT supplier_norm)                               AS n_suppliers,
     COALESCE(SUM(value_eur) FILTER (WHERE value_safe_to_sum), 0) AS awarded_value_safe_eur
 FROM read_parquet('data/gold/parquet/procurement_awards.parquet')
+-- Exclude the literal 'NULL' string the eTenders source writes for missing values
+-- (root-fixed in the extractor 2026-06-11; this guard covers data cut before that run).
 WHERE "Contracting Authority" IS NOT NULL
-  AND "Contracting Authority" <> ''
+  AND "Contracting Authority" NOT IN ('', 'NULL')
 GROUP BY contracting_authority
 ORDER BY n_awards DESC;

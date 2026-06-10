@@ -334,6 +334,24 @@ def main() -> None:
         f"safe-to-sum award rows: {aw['value_safe_to_sum'].sum():,}"
     )
 
+    # Root data-quality fix (2026-06-11): the source CSV stores the literal string "NULL"
+    # for missing values across MANY columns — not just Tender ID (handled above) but also
+    # Main Cpv Code (~71% of rows), Main Cpv Code Description, Contracting Authority, Parent
+    # Agreement ID and the raw value column. Left as a string it (a) forms a bogus "NULL"
+    # group in every CPV / authority / supplier rollup and (b) reads as a real value
+    # downstream. Coerce every "NULL" (trimmed) string column to an honest null, AFTER the
+    # value/flag derivations above have already consumed the raw values. This makes the
+    # per-view `WHERE ... <> 'NULL'` guards belt-and-suspenders rather than load-bearing.
+    _str_cols = [c for c, t in zip(aw.columns, aw.dtypes, strict=False) if t == pl.Utf8]
+    aw = aw.with_columns(
+        [
+            pl.when(pl.col(c).str.strip_chars() == "NULL").then(None).otherwise(pl.col(c)).alias(c)
+            for c in _str_cols
+        ]
+    )
+    n_cpv = aw["Main Cpv Code"].is_not_null().sum() if "Main Cpv Code" in aw.columns else 0
+    print(f"  coerced literal 'NULL' strings -> null across {len(_str_cols)} text cols; real CPV now: {n_cpv:,}")
+
     save_parquet(aw, OUT_AWARDS)
     hr("AWARD-SUPPLIER ROWS")
     print(f"rows: {aw.height:,}  ->  {OUT_AWARDS}")
