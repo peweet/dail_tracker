@@ -25,9 +25,7 @@ def list_suppliers(
     limit: int = Query(20, ge=1, le=500),
     cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
 ) -> dict:
-    records, total, truncated = dossiers.list_suppliers(
-        cur, year=year, order_by=order_by, skip=skip, limit=limit
-    )
+    records, total, truncated = dossiers.list_suppliers(cur, year=year, order_by=order_by, skip=skip, limit=limit)
     return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
 
 
@@ -75,3 +73,43 @@ def lobbying_overlap(
     if "error" in data:
         raise HTTPException(status_code=503, detail=data["error"])
     return data
+
+
+@router.get(
+    "/procurement/authorities",
+    summary="Award activity by contracting authority (buyer) — counts + sum-safe value (CEILINGS)",
+)
+def authorities(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=500),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    records, total, truncated = dossiers.list_procurement_authorities(cur, skip=skip, limit=limit)
+    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+
+
+@router.get(
+    "/procurement/cpv",
+    summary="Award activity by CPV code (what was bought) — counts + sum-safe value (CEILINGS)",
+)
+def cpv(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=500),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    records, total, truncated = dossiers.list_procurement_cpv(cur, skip=skip, limit=limit)
+    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+
+
+@router.get(
+    "/procurement/open-tenders",
+    summary="Live TED (EU OJ) Irish tender opportunities — the forward pipeline (estimates, never summed)",
+)
+def open_tenders(
+    only_open: bool = Query(True, description="Keep only notices still open for bids"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(40, ge=1, le=500),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    records, total, truncated = dossiers.list_open_tenders(cur, only_open=only_open, skip=skip, limit=limit)
+    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)

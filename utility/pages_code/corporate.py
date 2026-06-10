@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import datetime
 import html
-import io
 import re
 import sys
 import unicodedata
@@ -64,6 +63,7 @@ from ui.components import (
     sidebar_page_header,
     sidebar_subtitle,
 )
+from ui.export_controls import export_button
 from ui.source_pdfs import iris_archive_url
 
 PAGE_SIZE = 12
@@ -1726,13 +1726,10 @@ def _render_methodology_expander(aliases: pd.DataFrame) -> None:
         "Curated financial-institution list — every loan-book brand, its parent "
         "fund and type (vulture fund, credit servicer, Irish bank, state body)."
     )
-    buf = io.StringIO()
-    aliases.to_csv(buf, index=False)
-    st.download_button(
+    export_button(
+        aliases,
         label=f"Download financial-institution mapping ({len(aliases):,} brands, CSV)",
-        data=buf.getvalue(),
-        file_name="dail_tracker_loan_book_fund_aliases.csv",
-        mime="text/csv",
+        filename="dail_tracker_loan_book_fund_aliases.csv",
         key="corp_alias_csv_download",
     )
 
@@ -2474,13 +2471,10 @@ def corporate_page() -> None:
 
         for c in ("parent_fund_mentions", "brand_mentions"):
             export_df[c] = export_df[c].apply(_csv_join)
-        buf = io.StringIO()
-        export_df.to_csv(buf, index=False)
-        st.download_button(
+        export_button(
+            export_df,
             label=f"Download {len(filtered):,} notices (CSV)",
-            data=buf.getvalue(),
-            file_name="dail_tracker_corporate_notices.csv",
-            mime="text/csv",
+            filename="dail_tracker_corporate_notices.csv",
             key="corp_csv_download",
         )
 

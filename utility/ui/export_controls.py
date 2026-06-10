@@ -9,6 +9,11 @@ import streamlit as st
 def export_button(df: pd.DataFrame, label: str, filename: str, key: str) -> None:
     """Download button placed directly below its table; disabled when df is empty.
 
+    Width is pinned to ``content`` so export buttons render at a uniform,
+    label-sized width everywhere (shared_css makes them full-width on narrow
+    screens via the mobile breakpoint). Don't bypass this helper with a raw
+    ``st.download_button`` — that's how stretched one-off buttons crept in.
+
     The CSV encoding is deferred: ``data`` is a zero-arg callable that
     ``st.download_button`` invokes only when the user clicks, so every page
     rerun no longer serialises the full frame. For a 5000-row votes export
@@ -23,4 +28,5 @@ def export_button(df: pd.DataFrame, label: str, filename: str, key: str) -> None
         mime="text/csv",
         disabled=df.empty,
         key=key,
+        width="content",
     )

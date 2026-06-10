@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import datetime
 import html
-import io
 import sys
 from pathlib import Path
 
@@ -47,6 +46,7 @@ from ui.components import (
     sidebar_page_header,
     sidebar_subtitle,
 )
+from ui.export_controls import export_button
 from ui.source_pdfs import iris_archive_url
 
 PAGE_SIZE = 12
@@ -985,13 +985,10 @@ def public_appointments_page() -> None:
             "lang",
             "iris_source_pdf",
         ]
-        buf = io.StringIO()
-        filtered[csv_cols].to_csv(buf, index=False)
-        st.download_button(
+        export_button(
+            filtered[csv_cols],
             label=f"Download {len(filtered):,} appointments (CSV)",
-            data=buf.getvalue(),
-            file_name="dail_tracker_public_appointments.csv",
-            mime="text/csv",
+            filename="dail_tracker_public_appointments.csv",
             key="pa_csv_download",
         )
 

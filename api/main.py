@@ -16,15 +16,20 @@ from fastapi import FastAPI
 
 from api import __version__
 from api.routers import (
+    appointments,
     catalog,
+    charities,
     committees,
     health,
+    judiciary,
     legislation,
     lobbying,
     members,
     ministerial,
     payments,
+    political_finance,
     procurement,
+    public_payments,
     votes,
 )
 from dail_tracker_core.connections import api_conn
@@ -64,6 +69,11 @@ app.include_router(lobbying.router, prefix="/v1")
 app.include_router(procurement.router, prefix="/v1")
 app.include_router(committees.router, prefix="/v1")
 app.include_router(ministerial.router, prefix="/v1")
+app.include_router(political_finance.router, prefix="/v1")
+app.include_router(judiciary.router, prefix="/v1")
+app.include_router(charities.router, prefix="/v1")
+app.include_router(public_payments.router, prefix="/v1")
+app.include_router(appointments.router, prefix="/v1")
 
 
 @app.get("/", tags=["meta"])
@@ -99,8 +109,22 @@ def root() -> dict:
             "/v1/procurement/suppliers/{supplier_norm}/dossier",
             "/v1/procurement/competition",
             "/v1/procurement/lobbying-overlap",
+            "/v1/procurement/authorities",
+            "/v1/procurement/cpv",
+            "/v1/procurement/open-tenders",
             "/v1/committees",
             "/v1/committees/{committee}",
             "/v1/ministers",
+            "/v1/cabinet",
+            "/v1/political-finance/donations",
+            "/v1/political-finance/election-spend",
+            "/v1/judiciary/appointments",
+            "/v1/judiciary/courts-health",
+            "/v1/charities",
+            "/v1/public-body-payments",
+            "/v1/public-appointments",
+            "/v1/lobbying/dpo/{individual_name}",
+            "/v1/search/votes-by-topic",
+            "/v1/coverage",
         ],
     }

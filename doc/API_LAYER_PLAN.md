@@ -130,11 +130,28 @@ connection (`legislation_conn`, all 111 views are `CREATE OR REPLACE` so registr
 is idempotent). `dossiers.build_bill_dossier` composes detail + timeline + amendment
 intensity + sources + PDFs + debates + SIs-under-bill. `/v1/votes` (list + `{vote_id}` division dossier: vote + party
 breakdown + each member's vote + sources), `/v1/payments` (all-time TAA ranking),
-`/v1/lobbying/organisations` + `/v1/lobbying/revolving-door` ✅ BUILT. **All 12
+`/v1/lobbying/organisations` + `/v1/lobbying/revolving-door` ✅ BUILT. **All
 endpoints now run off a SINGLE union connection** (`api_conn()` — `register_member_views`
 + the other domain globs; only 3 files need substitution, all handled). The five
 per-domain connections collapsed to one; every router uses one `get_cursor`.
-Don't pre-expand to all 133 — remaining core fns can become endpoints on demand.
+
+**FastAPI↔core parity pass ✅ BUILT (2026-06-10).** Brought the HTTP surface up to
+the composition layer that the MCP server (`C:\tmp\dail_mcp`, out-of-repo) already
+consumed — the routers were the only gap (composition + serialize + caveats were
+all done in `dossiers.py`). Added: **procurement** router (`/v1/procurement/suppliers`
+list + `/{supplier_norm}/dossier` — the commercial wedge — plus `/competition` and
+`/lobbying-overlap`, both carrying the no-inference caveat from core and mapping
+`unavailable→503`); **committees** (`/v1/committees` + `/{committee}`); **ministers**
+(`/v1/ministers?department=&on_date=` — the who-held-X-when primitive); member
+sub-resources `/v1/members/{code}/questions` + `/interests` (speeches already
+existed); votes `/v1/votes/{vote_id}/interest-breakdown` + `/v1/cross-reference/votes-interests`;
+and `/v1/payments/{year}`. Surface is now **~25 routes** (was 12). `/v1/catalog` +
+the root resources list updated. New `test/api/test_api_extra.py` (16 TestClient
+tests, data-conditional skips). Verified: 211 core+api tests pass, firewall clean
+(37 files), basedpyright 0 on `api/`, ruff clean; every new endpoint returns live
+data (suppliers 7,530 / committees 61 / payments-2025 219 / Finance min 2023-06-01
+→ Michael McGrath). Still demand-gated, not pre-expanded: charities / public-body
+payments / SIPO / appointments nouns (core fns exist; add when a consumer asks).
 
 **Phase 4 — Hardening (only as traffic appears).**
 Pandera on published marts; Pydantic versioning policy; CDN + cache headers + ETags; CDN rate-limiting if abused.
