@@ -17,7 +17,7 @@ from data_access.payments_data import (
     fetch_member_payments,
     fetch_member_year_summary,
 )
-from ui.components import empty_state, year_selector
+from ui.components import empty_state, stat_strip, subsection_heading, year_selector
 from ui.export_controls import export_button
 
 
@@ -55,38 +55,73 @@ def render_member_payments(
     alltime_total = float(all_years.iloc[0]["member_alltime_total"])
     yr_df = fetch_member_year_summary(td_name, selected_year, unique_member_code=unique_member_code)
 
+    # Summary stats — same .stat-strip vocabulary as the hero and the other
+    # profile sections (the previous st.columns + st.metric row was the only
+    # default-Streamlit metric styling left on the profile page).
     if not yr_df.empty:
         yr = yr_df.iloc[0]
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total received", f"€{float(yr['total_paid']):,.0f}")
-        col2.metric("Payments", int(yr["payment_count"]))
-        col3.metric("Year rank", f"#{int(yr['rank_high'])}")
-        col4.metric("All-time total", f"€{alltime_total:,.0f}")
+        n_pay = int(yr["payment_count"])
+        stat_strip(
+            [
+                (
+                    f"€{float(yr['total_paid']):,.0f}",
+                    f"Received · {selected_year}",
+                    "var(--text-primary)",
+                    f"{n_pay} payment{'s' if n_pay != 1 else ''}",
+                ),
+                (
+                    f"#{int(yr['rank_high'])}",
+                    f"Year rank · {selected_year}",
+                    "var(--text-primary)",
+                    "1 = highest paid that year",
+                ),
+                (
+                    f"€{alltime_total:,.0f}",
+                    "All years on record",
+                    "var(--text-primary)",
+                    "",
+                ),
+            ]
+        )
     else:
         empty_state("No payment records", f"No payment records for {td_name} in {selected_year}.")
-        col1, col2 = st.columns(2)
-        col1.metric("TAA band", taa_label)
-        col2.metric("All-time total", f"€{alltime_total:,.0f}")
+        stat_strip(
+            [
+                (taa_label, "TAA band", "var(--text-primary)", ""),
+                (f"€{alltime_total:,.0f}", "All years on record", "var(--text-primary)", ""),
+            ]
+        )
 
-    # Yearly evolution chart — chronological, left-to-right
+    # Yearly evolution chart — chronological, left-to-right. The selected
+    # year's bar carries the ink-blue; other years recede so the chart and
+    # the year pills above read as one control.
     chart_df = all_years[["payment_year", "total_paid"]].sort_values("payment_year")
     bars = (
         alt.Chart(chart_df)
-        .mark_bar(color="#1e40af", cornerRadiusTopLeft=3, cornerRadiusTopRight=3)
+        .mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3)
         .encode(
-            x=alt.X("payment_year:O", title=None, axis=alt.Axis(labelAngle=0)),
-            y=alt.Y("total_paid:Q", title="Total received (€)", axis=alt.Axis(format=",.0f")),
+            x=alt.X("payment_year:O", title=None, axis=alt.Axis(labelAngle=0, domainColor="#d8d2c6")),
+            y=alt.Y(
+                "total_paid:Q",
+                title=None,
+                axis=alt.Axis(format=",.0f", tickCount=4, gridColor="#e8e2d6", domain=False),
+            ),
+            color=alt.condition(
+                alt.datum.payment_year == int(selected_year),
+                alt.value("#1e40af"),
+                alt.value("#a7b4d6"),
+            ),
             tooltip=[
                 alt.Tooltip("payment_year:O", title="Year"),
                 alt.Tooltip("total_paid:Q", title="Total received (€)", format=",.0f"),
             ],
         )
-        .properties(height=180)
+        .properties(height=160)
     )
     st.altair_chart(bars, width="stretch")
 
     # ── All-years summary (card-based per feedback_member_overview_no_dataframes) ──
-    st.markdown("**All years**")
+    subsection_heading("All years")
     rows_html: list[str] = []
     for _, row in all_years.iterrows():
         yr_num = int(row["payment_year"])
@@ -117,11 +152,8 @@ def render_member_payments(
             f"No individual records for {td_name} in {selected_year}.",
         )
     else:
-        st.html(
-            f"<p style='margin:0.75rem 0 0.4rem;'><strong>Payment records — {selected_year}</strong> "
-            f"<span style='font-size:0.8rem;color:var(--text-meta);font-weight:400;'>"
-            f"({len(payments)} transactions — add them up to verify the total above)</span></p>"
-        )
+        subsection_heading(f"Payment records · {selected_year}")
+        st.caption(f"{len(payments)} transactions — add them up to verify the total above.")
 
         # Card list. Truncate to first 50 to keep the expander body light;
         # the CSV export below ships the full set.

@@ -111,3 +111,53 @@ Routing per `doc/APP_REDESIGN_BRIEF.md`: contract-backed pages via `bold-redesig
 `shape` + `streamlit-frontend` + `civic-ui-review`.
 
 **Phase 3 — re-sweep + re-score on a fresh server; run CI; update APP_UI_SWEEP_AUDIT.md.**
+
+---
+
+## 5. Phase 1 progress log (2026-06-10)
+
+**S3 nav — SHIPPED + verified.** Flat 16-item bar → 5 grouped sections
+(Members & Parliament / The Money / Law & Records / Influence / Glossary) via
+`st.navigation({section:[pages]})`. Slugs unchanged. `app.py`.
+
+**S1 stat strips — reusable `context_line()` helper (`components.py`) +
+`.dt-context-line` token CSS (`shared_css.py`). Converted + verified:**
+- **Procurement** — 4-chip strip → "7,530 companies have won public contracts from 1,389 public bodies across 1,472 categories, 2013–2025."
+- **Public Payments** — 6–7 chip strip → one sentence; sum-safe euro total + "31,641 private names withheld" transparency count preserved.
+- **Committees** — register strip → sentence, AND the duplicate hero sub-line removed (S1 de-dup decision).
+- **Statutory Instruments** — mixed-type 5-up → "1,335 statutory instruments, 2024–2026." (dept / EU% / Act% now live in the filter tabs; lead-clean decision).
+
+**S1 — KEPT on inspection (NOT the anti-pattern; the visual sweep over-flagged these):**
+- **Election 2024** `_money_map()` is a money-FLOW diagram (donations received → party-agent spend → candidate spend, with arrows) carrying an explicit `e24-nosum` "never add them together" warning. It encodes the never-sum rule visually; flattening to a sentence would weaken that guard. KEEP (same class as the party-composition bars / judiciary clearance bars). *(This reverses the earlier "convert Election to a sentence" call, which was made on the mistaken premise that it was a vanity coloured 3-up.)*
+- **Legislation** "832 / 279 / 527" is a labelled legislative-flow **pipeline** (Dáil stages → Seanad stages → Enacted), not a flat hero-metric. KEEP; its only real defect is mobile overflow (audit P1-1), a responsive fix not an S1 conversion.
+
+**S1 — assessed, both KEPT (S1 now COMPLETE):**
+- **Corporate** "4-up" is `_render_this_year_callout` — a "Latest full year — {yr}" snapshot
+  carrying YoY ▲/▼ deltas. Analytical temporal context, not a vanity strip. KEEP. *(Minor Phase-2
+  nit: it uses `st.markdown(unsafe_allow_html=True)` — should migrate to `st.html` per API policy.)*
+- **Payments** opens straight into a view whose `totals_strip` is that view's own summary
+  (Total since 2020 / TDs with payments / Avg), i.e. an in-view summary — LEFT per the in-view decision.
+
+**S1 OUTCOME:** 4 genuine flat strips → inline sentences (Procurement, Public Payments, Committees,
+SI) + Committees hero de-dup; 3 meaningful viz kept (Election money-map, Legislation pipeline,
+Corporate this-year snapshot). The visual sweep over-flagged the latter three — corrected here.
+
+**Owner judgment calls locked (2026-06-10):** SI lead-clean · Election distinct
+non-additive · leave in-view strips · keep new sentence + drop duplicate hero lines.
+
+## 6. Reconciliation with the parallel signed-off sweep (2026-06-10)
+
+Discovered mid-session: a separate, signed-off effort `doc/APP_REDESIGN_SWEEP_2026_06_10.md`
+implements the same S1 goal via the canonical `finding_lede()` (2–3 view-computed findings
+sentences, side-stripe standfirst) and supersedes this doc's §4 Phase-2 ordering. Procurement and
+the new `/company` dossier were already done in that idiom.
+
+**Action taken (owner-directed):**
+- My throwaway `context_line()` helper + `.dt-context-line` CSS **retired**.
+- **Public Payments (#3), Statutory Instruments (#4), Committees (#9)** migrated from `context_line`
+  → `finding_lede`, view-backed: PubPay leads with the top publisher (HSE, €4.0bn) + never-blend
+  scale; SI restores the busiest-department finding (reverses the earlier "lead-clean" call); Committees
+  keeps its one-sentence lede. Verified on a clean single server.
+- **S3 nav grouping is the net-new contribution** (the sweep doc does not touch IA/nav) — retained.
+- **Lane going forward:** take assigned per-page work orders from the sweep doc in its
+  `finding_lede` / `control_bar` / conduit idiom, coordinating so the two efforts don't double-edit a file.

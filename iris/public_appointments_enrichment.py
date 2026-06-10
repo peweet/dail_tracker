@@ -118,6 +118,10 @@ BODIES = {
     # alongside the nominative because the body name is matched by substring.
     "COIMISIÚN OMBUDSMAN AN GHARDA SÍOCHÁNA": "Garda Síochána Ombudsman Commission",
     "OMBUDSMAN AN GHARDA SÍOCHÁNA": "Garda Síochána Ombudsman Commission",
+    # Non-lenited variants: some notices print "Garda" where the genitive takes
+    # "Gharda". Listed explicitly so the substring match catches both spellings.
+    "COIMISIÚN OMBUDSMAN AN GARDA SÍOCHÁNA": "Garda Síochána Ombudsman Commission",
+    "OMBUDSMAN AN GARDA SÍOCHÁNA": "Garda Síochána Ombudsman Commission",
     "COIMISIÚN NA hÉIREANN UM CHEARTA AN DUINE AGUS COMHIONANNAS": "Irish Human Rights and Equality Commission",
     "NA hÉIREANN UM CHEARTA AN DUINE": "Irish Human Rights and Equality Commission",  # lenited/truncated variant
     "AN CHOMHAIRLE STÁIT": "Council of State",
@@ -392,6 +396,22 @@ def extract_role(t: str, atype: str) -> str | None:
     return None
 
 
+def _match_body(text_u: str) -> str | None:
+    """Curated-body lookup that prefers the LONGEST matching key.
+
+    BODIES is substring-matched, so a specific compound name ("OMBUDSMAN AN
+    GARDA SÍOCHÁNA" -> GSOC) must win over a generic substring it contains ("AN
+    GARDA SÍOCHÁNA" -> the police force) regardless of dict insertion order.
+    `text_u` is expected already upper-cased; keys are upper-cased here because a
+    few carry a lower lenition/eclipsis letter (hÉIREANN, tÚDARÁS).
+    """
+    best_key: str | None = None
+    for ga in BODIES:
+        if ga.upper() in text_u and (best_key is None or len(ga) > len(best_key)):
+            best_key = ga
+    return BODIES[best_key] if best_key is not None else None
+
+
 def extract_body(title: str, t: str, atype: str) -> str | None:
     if atype == "judicial":
         u = t.upper()
@@ -406,9 +426,9 @@ def extract_body(title: str, t: str, atype: str) -> str | None:
     # wherever it falls in the head.
     head = _TITLE_HEAD_END.split(title)[0] if title else ""
     head_u = re.sub(r"\s*(?:\||//)\s*", " ", head).upper()
-    for ga, en in BODIES.items():
-        if ga.upper() in head_u:  # .upper() both sides: some keys carry a lower h/t (hÉIREANN, tÚDARÁS)
-            return en
+    head_match = _match_body(head_u)  # .upper() both sides: some keys carry a lower h/t (hÉIREANN, tÚDARÁS)
+    if head_match:
+        return head_match
     # Irish "<office> A CHEAPADH" appointment Orders are not a body being
     # appointed to; lift the English from their "(Appointment of …)" parenthetical
     # rather than leaking the Gaeilge order-title as the body.
@@ -439,19 +459,16 @@ def extract_body(title: str, t: str, atype: str) -> str | None:
     full_u = re.sub(r"\s*(?:\||//)\s*", " ", title).upper() if title else ""
 
     def _curated(text_u: str) -> str | None:
-        for ga, en in BODIES.items():
-            if ga.upper() in text_u:
-                return en
-        return None
+        return _match_body(text_u)
 
     def _curated_in_full() -> str | None:
         return _curated(full_u)
 
     if seg:
         su = seg.upper()
-        for ga, en in BODIES.items():
-            if ga.upper() in su:
-                return en
+        seg_match = _match_body(su)
+        if seg_match:
+            return seg_match
         # Raw-Irish header/order/preamble segment: prefer a curated body found
         # elsewhere in the title; otherwise surface no body rather than Gaeilge.
         if _IRISH_NONBODY.match(seg):

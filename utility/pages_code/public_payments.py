@@ -48,8 +48,8 @@ from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 from ui.components import (
     back_button,
     clickable_card_link,
-    context_line,
     empty_state,
+    finding_lede,
     glossary_strip,
     hero_banner,
     hide_sidebar,
@@ -366,31 +366,41 @@ def _render_supplier_profile(supplier_norm: str) -> None:
 
 # ──────────────────────────────────────────────────────────────────────────────
 def _stats_strip(stats, cov: dict) -> None:
-    """Inline one-sentence scale context (S1 declutter 2026-06-10, replacing the
-    6–7 chip strip — doc/APP_REDESIGN_PHASE0.md). Display-only: the same
-    view-supplied figures, including the sum-safe euro total and the withheld
-    private-name count (kept for transparency), phrased as prose so no stat
-    block sits between the hero and the data."""
+    """Opening findings lede — the canonical stat-strip replacement
+    (finding_lede; doc/APP_REDESIGN_SWEEP_2026_06_10.md S-1, work order #3).
+    Top publisher + register scale + the withheld-names transparency count, all
+    from registered views; ordered commitments and actual payments are never
+    blended. Display-only — renders pre-computed figures, never derives."""
     safe_total = _eur_scale(stats.get("total_safe_eur"))
     first_y, last_y = _n(stats.get("first_year")), _n(stats.get("last_year"))
     span = f"{first_y}–{last_y}" if first_y and last_y else "recent years"
     n_pub = _n(stats.get("n_publishers"))
     n_sup = _n(stats.get("n_suppliers"))
     n_lines = _n(stats.get("n_lines"))
-    n_safe = _n(stats.get("n_safe_lines"))
     # Withheld personal-data counts from both registers' coverage JSONs (transparency).
     withheld = _n((cov.get("public_payments") or {}).get("rows_quarantined")) + _n(
         (cov.get("hse_tusla_payments") or {}).get("rows_quarantined")
     )
-    sentence = (
-        f"<b>{_esc(safe_total)}</b> in sum-safe payments (ordered + paid) from "
-        f"<b>{n_pub:,}</b> public bodies to <b>{n_sup:,}</b> suppliers, across "
-        f"<b>{n_lines:,}</b> payment / PO lines (<b>{n_safe:,}</b> carry a sum-safe value), "
-        f"<b>{_esc(span)}</b>."
+    sentences: list[str] = []
+    top_pub = fetch_publisher_summary_result(order_by="value")
+    if top_pub.ok and not top_pub.data.empty:
+        p = top_pub.data.iloc[0]
+        sentences.append(
+            f"<strong>{_esc(str(p['publisher_name']))}</strong> has published the largest "
+            f"sum-safe total, <strong>{_eur_scale(p['total_safe_eur'])}</strong>."
+        )
+    sentences.append(
+        f"<strong>{n_pub:,}</strong> public bodies have published purchase orders and payments "
+        f"over €20,000, naming <strong>{n_sup:,}</strong> suppliers across "
+        f"<strong>{n_lines:,}</strong> records, {_esc(span)}. The sum-safe total — rows safe to "
+        f"add, excluding transfers between public bodies — is <strong>{_esc(safe_total)}</strong>; "
+        "ordered commitments and actual payments are never blended."
     )
     if withheld:
-        sentence += f" <b>{withheld:,}</b> private names withheld."
-    context_line(sentence)
+        sentences.append(
+            f"<strong>{withheld:,}</strong> likely-personal supplier names are withheld."
+        )
+    finding_lede(sentences)
 
 
 def _provenance_footer() -> None:

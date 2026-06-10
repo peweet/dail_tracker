@@ -32,8 +32,8 @@ from ui.components import (
     clickable_card_link,
     committee_identity_strip,
     committee_row_html,
-    context_line,
     empty_state,
+    finding_lede,
     evidence_heading,
     find_a_td_search,
     hide_sidebar,
@@ -209,10 +209,13 @@ def _stage_register(
         member_count = int(filtered["name"].nunique())
         active_memberships = int((filtered["status"] == "Active").sum())
         chair_total = int(filtered["is_chair"].sum())
-        context_line(
-            f"<b>{member_count:,}</b> {_h(member_label)} hold "
-            f"<b>{active_memberships:,}</b> current memberships across "
-            f"<b>{len(summary):,}</b> committees, with <b>{chair_total:,}</b> chairs held."
+        finding_lede(
+            [
+                f"<strong>{member_count:,}</strong> {_h(member_label)} hold "
+                f"<strong>{active_memberships:,}</strong> current memberships across "
+                f"<strong>{len(summary):,}</strong> committees, with "
+                f"<strong>{chair_total:,}</strong> chairs held."
+            ]
         )
 
     # ── Empty state ───────────────────────────────────────────────────
