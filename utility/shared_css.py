@@ -1960,7 +1960,19 @@ def inject_css() -> None:
         /* Debates section — floor-speech "transcript" cards (2026-06-08).
            A faithful upgrade of the old debate-section card: same evidence
            stripe, plus a spoken-word excerpt and an As-Gaeilge accent badge. */
-        .mo-speech-card { padding-bottom: 0.55rem; }
+        /* Full-width like the Questions cards below them — the inherited
+           600px .leg-bill-card width left these transcript cards floating
+           half-width beside full-width controls. */
+        .mo-speech-card { padding-bottom: 0.55rem; display: block; width: 100%; }
+        .mo-speech-card details summary { cursor: pointer; list-style: none; }
+        .mo-speech-card details summary::-webkit-details-marker { display: none; }
+        .mo-speech-card details[open] .mo-speech-truncated { display: none; }
+        .mo-speech-read-more {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        .mo-speech-card details[open] .mo-speech-read-more { display: none; }
         .mo-speech-badges { display: inline-flex; gap: 0.3rem; flex-wrap: wrap; }
         .mo-speech-crumb {
             font-size: 0.7rem;
