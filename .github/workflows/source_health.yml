@@ -31,7 +31,7 @@ jobs:
         run: python tools/source_health_report.py
       - name: Open issue on failed source (scheduled runs only)
         if: failure() && github.event_name == 'schedule'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             github.rest.issues.create({
