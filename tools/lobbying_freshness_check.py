@@ -141,9 +141,11 @@ def held_period_start(parquet_path: Path = _GOLD_PARQUET) -> date | None:
         return None
     import duckdb
 
-    row = duckdb.connect().execute(
-        f"SELECT max(last_return_date) FROM read_parquet('{parquet_path.as_posix()}')"
-    ).fetchone()
+    row = (
+        duckdb.connect()
+        .execute(f"SELECT max(last_return_date) FROM read_parquet('{parquet_path.as_posix()}')")
+        .fetchone()
+    )
     if not row or row[0] is None:
         return None
     val = row[0]
@@ -174,8 +176,10 @@ def main(argv: list[str] | None = None) -> int:
     upstream = latest_period_start(periods)
     held = held_period_start()
 
-    print(f"  upstream latest period start: {upstream.isoformat() if upstream else '--'}  "
-          f"(from {len(periods)} returns in last {args.window_days}d)")
+    print(
+        f"  upstream latest period start: {upstream.isoformat() if upstream else '--'}  "
+        f"(from {len(periods)} returns in last {args.window_days}d)"
+    )
     print(f"  shipped latest period start : {held.isoformat() if held else '--'}  ({_GOLD_PARQUET.name})")
 
     code, message = verdict(upstream, held, args.slack_days)
