@@ -249,7 +249,10 @@ def cpv_summary(
     """CPV categories ranked by number of awards (or sum-safe value).
     ``year`` scopes to one calendar year via the per-year view; ``None`` is all-time."""
     order = _RANK_ORDER.get(order_by, _RANK_ORDER["awards"])
-    cols = "cpv_code, cpv_description, n_awards, n_suppliers, awarded_value_safe_eur"
+    cols = (
+        "cpv_code, cpv_description, n_awards, n_suppliers, awarded_value_safe_eur, "
+        "n_awards_valued, median_award_eur, p25_award_eur, p75_award_eur"
+    )
     params: list = []
     if year is None:
         sql = f"SELECT {cols} FROM v_procurement_cpv_summary ORDER BY {order}"

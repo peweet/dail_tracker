@@ -12,7 +12,6 @@ Run only when NO other OCR process is active (one PaddleOCR at a time):
 from __future__ import annotations
 
 import subprocess
-import sys
 import time
 from pathlib import Path
 

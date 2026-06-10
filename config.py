@@ -63,6 +63,42 @@ SILVER_SPEECHES_PARQUET = SILVER_PARQUET_DIR / "speeches.parquet"
 GOLD_SPEECHES_FACT_FULL_PARQUET = GOLD_PARQUET_DIR / "speeches_fact_full.parquet"
 GOLD_SPEECHES_FACT_PARQUET = GOLD_PARQUET_DIR / "speeches_fact.parquet"
 
+# ── UI constants mirrored from utility/config.py ─────────────────────────────────
+# The repo has TWO config.py (root = paths/pipeline; utility/ = Streamlit UI). A
+# Streamlit page does `from config import NOTABLE_TDS`, but page-import order can
+# bind sys.modules['config'] to THIS root module (it's what dail_tracker_core
+# imports for GOLD_PARQUET_DIR etc.). Mirroring these two display constants here
+# makes the page import resolve regardless of which config wins — the documented
+# dual-config rule: a name a page imports must exist in BOTH or it breaks under
+# one resolution order while passing under the other. Keep in sync with
+# utility/config.py (these change at most once per year).
+NOTABLE_TDS: list[str] = [
+    "Mary Lou McDonald",
+    "Micheál Martin",
+    "Simon Harris",
+    "Leo Varadkar",
+    "Pearse Doherty",
+    "Eamon Ryan",
+    "Michael Healy-Rae",
+    "Danny Healy-Rae",
+    "Michael Collins",
+    "Michael Lowry",
+    "Marian Harkin",
+    "Holly Cairns",
+    "Robert Troy",
+    "Pauline Tully",
+]
+
+# Official plenary sitting-day counts (Houses of the Oireachtas Commission reports).
+SITTING_DAYS_BY_YEAR: dict[int, int] = {
+    2020: 82,
+    2021: 94,
+    2022: 106,
+    2023: 100,
+    2024: 83,
+    2025: 82,
+}
+
 API_BASE = "https://api.oireachtas.ie/v1"
 VOTES_DATE_START = "2016-01-01"  # cutoff for paginated vote fetch
 DATE_RANGE = ("2024-01-01", "2099-01-01")

@@ -19,7 +19,6 @@ import warnings
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 # Insert repo-root first so utility/ ends up ahead of it (config resolution); also
 # registering repo-root keeps test_page_imports.py from re-inserting it at the front
