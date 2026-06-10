@@ -1,9 +1,13 @@
 name: Pipeline probe (Linux, no publish)
 
-# Manual-only probe. Runs the pipeline on the real Linux runner to answer two
+# Manual-only probe. Runs the pipeline on the real Linux runner to answer three
 # questions WITHOUT touching your repo or live data:
 #   1. Does every selected chain COMPLETE on Linux (execution, not just import)?
-#   2. How thin is the gold when the runner starts from a clean checkout
+#   2. How LONG does it take? Leave the `chains` input BLANK to run the FULL
+#      pipeline end-to-end — the timed write-run that measures total runtime, the
+#      load-bearing unknown blocking Phase 6 cloud automation (see CI_CD.md §6 /
+#      project_freshness_architecture Unit B). The summary surfaces the elapsed time.
+#   3. How thin is the gold when the runner starts from a clean checkout
 #      (no bronze, no big silver) — i.e. how much does cold-start thin the data?
 #
 # SAFETY: `permissions: contents: read` — this workflow physically cannot write
@@ -15,9 +19,13 @@ on:
   workflow_dispatch:
     inputs:
       chains:
-        description: "pipeline.py --select value (comma-separated chains; e.g. iris or bootstrap,iris)"
+        description: "pipeline.py --select value (comma-separated chains). LEAVE BLANK to run the FULL pipeline end-to-end (every chain) — the timed write-run that proves headless execution + measures total runtime."
         required: false
         default: "iris"
+      timeout_minutes:
+        description: "Job timeout. Bump for a full run (unmeasured; could be long)."
+        required: false
+        default: "120"
 
 permissions:
   contents: read   # read-only — cannot push anything
@@ -25,7 +33,9 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # A subset (default "iris") finishes in minutes; a full run is unmeasured, so
+    # the timeout is dispatch-tunable. fromJSON coerces the string input to a number.
+    timeout-minutes: ${{ fromJSON(github.event.inputs.timeout_minutes || '120') }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
@@ -36,20 +46,31 @@ jobs:
       - name: Baseline — committed gold row counts (clean checkout)
         run: uv run python tools/gold_rowcounts.py | tee /tmp/gold_before.json
 
-      - name: Run pipeline subset (timed; chain failures are reported, not fatal)
+      - name: Run pipeline (timed write-run; chain failures are reported, not fatal)
         id: run
         run: |
-          echo "::group::pipeline.py --select ${{ github.event.inputs.chains }}"
+          chains="${{ github.event.inputs.chains }}"
+          # Blank input => omit --select entirely => pipeline.py runs EVERY chain
+          # (the full end-to-end write-run). A value runs just that subset.
+          if [ -z "$chains" ]; then
+            mode="FULL (all chains)"
+            set -- python pipeline.py
+          else
+            mode="subset: $chains"
+            set -- python pipeline.py --select "$chains"
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "::group::pipeline.py — $mode"
           start=$(date +%s)
           set +e
-          uv run python pipeline.py --select "${{ github.event.inputs.chains }}"
+          uv run "$@"
           code=$?
           set -e
           end=$(date +%s)
           echo "::endgroup::"
           echo "pipeline_exit=$code" >> "$GITHUB_OUTPUT"
           echo "elapsed_seconds=$((end - start))" >> "$GITHUB_OUTPUT"
-          echo "pipeline exit code: $code  (elapsed $((end - start))s)"
+          echo "pipeline exit code: $code  (mode: $mode; elapsed $((end - start))s)"
 
       - name: After — gold row counts (post-run, on the runner only)
         if: always()
@@ -65,9 +86,9 @@ jobs:
           {
             echo "### Pipeline probe — no publish"
             echo ""
-            echo "- chains: \`${{ github.event.inputs.chains }}\`"
+            echo "- mode: \`${{ steps.run.outputs.mode }}\`  (blank input ⇒ full end-to-end run)"
             echo "- pipeline exit: \`${{ steps.run.outputs.pipeline_exit }}\`  (0 = all selected chains OK)"
-            echo "- elapsed: \`${{ steps.run.outputs.elapsed_seconds }}s\`"
+            echo "- elapsed: \`${{ steps.run.outputs.elapsed_seconds }}s\`  ⟵ total runtime (the load-bearing unknown for Phase 6 cloud automation)"
             echo ""
             echo "See the **Report** step for per-table cold-start thinning."
             echo "A \`DROPPED >50%\` flag means the runner rebuilt that table from a thin slice —"

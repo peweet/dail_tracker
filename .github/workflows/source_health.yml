@@ -1,0 +1,42 @@
+name: Source health
+
+# Read-only source-health CANARY. Reads the committed data/_meta/source_health.json
+# (written at pipeline-end by tools/build_source_health.py) and opens a tracking
+# issue if any source is `failed` — i.e. a poller stopped or a manual drop went
+# past its staleness policy. It does NOT probe sources live or refresh anything.
+#
+# Companion to .github/workflows/freshness.yml: freshness asks "did the pipeline
+# stop running at all?" (generated_at age); this asks "did one of the ~107 sources
+# go stale while it ran?" (per-source `failed`). Schedule-only — never blocks a PR.
+
+on:
+  schedule:
+    - cron: "0 8 * * 1,4"   # Mon & Thu 08:00 UTC (matches freshness.yml cadence)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  source-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Pure stdlib — no dependency install needed; it only reads committed JSON.
+      - name: Report source health
+        run: python tools/source_health_report.py
+      - name: Open issue on failed source (scheduled runs only)
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              ...context.repo,
+              title: `Source health: a data source went stale (${new Date().toISOString().slice(0, 10)})`,
+              body: `The committed \`data/_meta/source_health.json\` shows one or more sources \`failed\` in the last pipeline run.\n\nJob log: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nA \`failed\` file_age source means the held data is older than its \`stale_after_days\` policy — an automated poller (e.g. cro_poller) stopped, or a manual drop (charities register) is overdue. Refresh that source and re-run \`pipeline.py\` so source_health.json regenerates.`,
+              labels: ["data", "sources"],
+            });

@@ -1,8 +1,8 @@
 """Regenerate the per-LA AFS test fixture.
 
-la_afs_divisions.parquet — the committed golden fact (19 councils × 8 divisions) that
-test/test_la_afs.py runs its data-integrity invariants against, so they execute without
-re-harvesting 31 council websites.
+la_afs_divisions.parquet — the committed golden fact (multi-year 2016–2025, 22 councils ×
+8 divisions) that test/extractors/test_la_afs.py runs its data-integrity invariants against,
+so they execute without re-harvesting 31 council websites.
 
 Run AFTER extractors/la_afs_extract.py (which writes the silver parquet). Then:
 

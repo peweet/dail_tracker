@@ -24,3 +24,17 @@ def list_payments(
 ) -> dict:
     records, total, truncated = dossiers.list_payments_ranking(cur, house=house, skip=skip, limit=limit)
     return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)
+
+
+@router.get("/payments/{year}", summary="TAA payment ranking for one calendar year")
+def list_payments_for_year(
+    year: int,
+    house: str = Query("Dáil", description="Dáil or Seanad"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=500),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    records, total, truncated = dossiers.list_payments_year_ranking(
+        cur, year=year, house=house, skip=skip, limit=limit
+    )
+    return serialize.envelope(records, limit=limit, offset=skip, total=total, truncated=truncated)

@@ -15,7 +15,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from api import __version__
-from api.routers import catalog, health, legislation, lobbying, members, payments, votes
+from api.routers import (
+    catalog,
+    committees,
+    health,
+    legislation,
+    lobbying,
+    members,
+    ministerial,
+    payments,
+    procurement,
+    votes,
+)
 from dail_tracker_core.connections import api_conn
 
 _DESCRIPTION = (
@@ -50,6 +61,9 @@ app.include_router(legislation.router, prefix="/v1")
 app.include_router(votes.router, prefix="/v1")
 app.include_router(payments.router, prefix="/v1")
 app.include_router(lobbying.router, prefix="/v1")
+app.include_router(procurement.router, prefix="/v1")
+app.include_router(committees.router, prefix="/v1")
+app.include_router(ministerial.router, prefix="/v1")
 
 
 @app.get("/", tags=["meta"])
@@ -67,13 +81,26 @@ def root() -> dict:
             "/v1/catalog",
             "/v1/members",
             "/v1/members/{code}/dossier",
+            "/v1/members/{code}/questions",
+            "/v1/members/{code}/interests",
+            "/v1/members/{code}/speeches",
             "/v1/legislation",
             "/v1/legislation/{bill_id}",
             "/v1/statutory-instruments",
             "/v1/votes",
             "/v1/votes/{vote_id}",
+            "/v1/votes/{vote_id}/interest-breakdown",
+            "/v1/cross-reference/votes-interests",
             "/v1/payments",
+            "/v1/payments/{year}",
             "/v1/lobbying/organisations",
             "/v1/lobbying/revolving-door",
+            "/v1/procurement/suppliers",
+            "/v1/procurement/suppliers/{supplier_norm}/dossier",
+            "/v1/procurement/competition",
+            "/v1/procurement/lobbying-overlap",
+            "/v1/committees",
+            "/v1/committees/{committee}",
+            "/v1/ministers",
         ],
     }
