@@ -32,6 +32,7 @@ from ui.components import (
     clickable_card_link,
     committee_identity_strip,
     committee_row_html,
+    context_line,
     empty_state,
     evidence_heading,
     find_a_td_search,
@@ -83,16 +84,15 @@ def _stage_register(
         "</h1>",
         unsafe_allow_html=True,
     )
-    # Register stat line (relocated from the old sidebar provenance slot).
-    st.html(
-        '<p class="page-provenance" style="margin:0 0 0.9rem">'
-        f"{df_long['committee'].nunique()} committees · "
-        f"{df_long['name'].nunique()} {member_label} · "
-        f"{int((df_long['status'] == 'Active').sum())} active memberships</p>"
-    )
+    # Register stat line removed 2026-06-10 (S1 de-dup): the post-filter context
+    # sentence below the filters now carries committees / members / memberships
+    # and reflects the active filter, so this static hero line was redundant.
 
+    # segmented_control, not st.pills — the Dáil/Seanad scope picker is a
+    # segmented control on every other page (attendance, payments, votes,
+    # interests, member browse); pills are reserved for filter facets.
     chosen_chamber = (
-        st.pills(
+        st.segmented_control(
             "Chamber",
             options=["Dáil", "Seanad"],
             default=chamber,
@@ -204,16 +204,15 @@ def _stage_register(
         summary = summary[summary["committee"].str.contains(search.strip(), case=False, na=False)]
     summary = summary.reset_index(drop=True)
 
-    # ── Register count strip ──────────────────────────────────────────
+    # ── Register count context line (S1 declutter 2026-06-10) ─────────
     if not summary.empty:
         member_count = int(filtered["name"].nunique())
         active_memberships = int((filtered["status"] == "Active").sum())
         chair_total = int(filtered["is_chair"].sum())
-        render_stat_strip(
-            stat_item(len(summary), "Committees"),
-            stat_item(member_count, member_label),
-            stat_item(active_memberships, "Current memberships"),
-            stat_item(chair_total, "Chairs held"),
+        context_line(
+            f"<b>{member_count:,}</b> {_h(member_label)} hold "
+            f"<b>{active_memberships:,}</b> current memberships across "
+            f"<b>{len(summary):,}</b> committees, with <b>{chair_total:,}</b> chairs held."
         )
 
     # ── Empty state ───────────────────────────────────────────────────

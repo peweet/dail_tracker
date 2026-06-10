@@ -296,6 +296,19 @@ def hero_banner(kicker: str, title: str, dek: str = "", badges: list[str] | None
     )
 
 
+def context_line(inner_html: str) -> None:
+    """Render a one-sentence inline context line that replaces a multi-stat top
+    strip (S1 declutter, doc/APP_REDESIGN_PHASE0.md). The numbers move into the
+    prose, where they're earned, instead of a hero-metric block above the data.
+
+    ``inner_html`` is the already-built sentence; wrap the figures in ``<b>…</b>``
+    for inline emphasis. DISPLAY-ONLY: build it from the same view-supplied
+    values the old strip used. Interpolate only safe formatted values (counts,
+    euro strings, year spans); escape any free-text token with ``_h()`` first.
+    """
+    st.html(f'<p class="dt-context-line">{inner_html}</p>')
+
+
 def glossary_strip(terms: list[tuple[str, str]]) -> None:
     """Render a one-line glossary of acronyms under the hero.
 

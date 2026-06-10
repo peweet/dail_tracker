@@ -58,6 +58,25 @@ def division_interest_breakdown(
 
 
 @router.get(
+    "/search/votes-by-topic",
+    summary="How members voted on debates matching topic keywords (corpus-wide search)",
+)
+def search_votes_by_topic(
+    topics: str = Query(
+        ..., description="Comma-separated keywords, OR-combined substring match (e.g. 'housing, rent, eviction')"
+    ),
+    house: str = Query("Dáil", description="Dáil or Seanad"),
+    cur: duckdb.DuckDBPyConnection = Depends(get_cursor),
+) -> dict:
+    data = dossiers.search_votes_by_topic(cur, topics, house=house)
+    if "error" in data:
+        # Empty-after-strip keywords is a client error; an unavailable view is a 503.
+        code = 400 if "topic keyword" in data["error"] else 503
+        raise HTTPException(status_code=code, detail=data["error"])
+    return data
+
+
+@router.get(
     "/cross-reference/votes-interests",
     tags=["cross-reference"],
     summary="Members who voted a given way on a division AND declare a given interest",

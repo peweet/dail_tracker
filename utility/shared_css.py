@@ -1026,6 +1026,23 @@ def inject_css() -> None:
             line-height: 1.5;
             margin: 0.3rem 0 0;
         }
+        /* ── Inline context line (S1 declutter, doc/APP_REDESIGN_PHASE0.md) ──
+           One-sentence scale/context that replaces a multi-stat top strip.
+           Numbers are bolded inline (tabular) instead of stacked in a
+           hero-metric block above the data. Shared by every page that used to
+           open with a stat strip. Tokens only — no hardcoded hex. */
+        .dt-context-line {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.55;
+            margin: 0 0 0.9rem;
+            max-width: 64rem;
+        }
+        .dt-context-line b {
+            color: var(--ink-strong);
+            font-weight: 650;
+            font-variant-numeric: tabular-nums;
+        }
         /* ── Main-panel search kicker ───────────────────────────────────
            Uppercase mini-label sitting above components.main_member_jump
            (and member_overview's inline search row). Same typographic
