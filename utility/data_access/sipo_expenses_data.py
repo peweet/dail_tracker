@@ -54,5 +54,31 @@ def fetch_expenses_by_party() -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def fetch_party_candidates(party: str) -> pd.DataFrame:
-    """Per-candidate expenditure for one party — name, constituency, amount, flag."""
+    """Per-candidate Part-3 row for one party — spend, assigned budget, statutory cap."""
     return _q.party_candidates(get_expenses_conn(), party).data
+
+
+# ── Part-4 national-agent itemised spend (the party's own central campaign outlay) ──
+# Incremental coverage (only OCR'd parties). NEVER sum with the Part-3 figures above.
+
+
+@st.cache_data(ttl=300)
+def fetch_party_national_categories(party: str) -> pd.DataFrame:
+    """The 8 statutory headings (4A–4H) for one party — printed totals + reconcile flag."""
+    return _q.party_national_categories(get_expenses_conn(), party).data
+
+
+@st.cache_data(ttl=300)
+def fetch_party_national_overall(party: str) -> float | None:
+    """One party's Overall national-agent total, or None if no Part-4 data is loaded."""
+    r = _q.party_national_overall(get_expenses_conn(), party)
+    if not r.ok or r.is_empty:
+        return None
+    v = r.data.iloc[0]["category_total_eur"]
+    return float(v) if pd.notna(v) else None
+
+
+@st.cache_data(ttl=300)
+def fetch_party_national_items(party: str) -> pd.DataFrame:
+    """One party's Part-4 line items — section, ref, description, cost, verify flag."""
+    return _q.party_national_items(get_expenses_conn(), party).data

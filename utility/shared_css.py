@@ -4858,7 +4858,9 @@ def inject_css() -> None:
             .lp3-recent-period { min-width: 0; }
         }
 
-        /* ── Party donations (Payments & Donations page) ─────────────────────
+        /* ── Party / candidate finance cards (Election 2024 page) ────────────
+           Shared .don-* card + receipt styling used by the donations, party-
+           spending and candidate tabs on the unified Election 2024 hub.
            Ink-on-paper ledger: money is one ink, party identity is the 3px
            editorial side-stripe (project signature), figures are tabular. */
         .don-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.9rem; margin:0.4rem 0 0.2rem; }
@@ -5146,6 +5148,14 @@ def inject_css() -> None:
         .pr-foot a { color: var(--accent); }
         .pr-cap { font-size: 0.86rem; color: var(--ink-700); line-height: 1.5; margin: 0.2rem 0 0.6rem; max-width: 60rem; }
         .pr-cap em { color: var(--text-meta); font-style: italic; }
+        /* Authoritative-source conduit: the list of TED notices that open the real record.
+           Each row is a doorway out to the Official Journal, with a quiet value-kind tag. */
+        .pr-notice-list { list-style: none; margin: 0.2rem 0 0; padding: 0; }
+        .pr-notice { padding: 0.3rem 0; border-top: 1px solid var(--border); font-size: 0.88rem; }
+        .pr-notice:first-child { border-top: none; }
+        .pr-notice a { color: var(--accent); font-weight: 600; text-decoration: none; }
+        .pr-notice a:hover { text-decoration: underline; }
+        .pr-notice-tag { color: var(--text-meta); font-size: 0.78rem; margin-left: 0.4rem; }
         /* TED cross-reference block on a supplier profile — a quiet, clearly-separate
            "other register" callout. Neutral surface, left rule in accent (informational,
            never alarm); the copy says "not added" so it can't read as a bigger total. */
@@ -5157,6 +5167,18 @@ def inject_css() -> None:
         .pr-ted-xref-h { font-weight: 700; color: var(--ink-strong); font-size: 0.84rem; }
         .pr-ted-xref-b { font-size: 0.82rem; color: var(--ink-700); line-height: 1.5; margin-top: 0.2rem; }
         .pr-ted-xref-b em { color: var(--text-meta); }
+        /* AFS (audited-accounts) context on a local-authority dossier — a SIBLING budget fact,
+           visually fenced off from the purchase-order section above so the two grains never read
+           as one total. Teal accents (vs the PO section's brown) reinforce "different measure". */
+        .pr-afs { margin: 1.4rem 0 0.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+        .pr-afs-head { font-weight: 800; color: var(--ink-strong); font-size: 1.02rem; letter-spacing: -0.01em; }
+        .pr-afs-trace {
+            background: #ffffff; border: 1px solid var(--border);
+            border-left: 3px solid #3a6b7e; border-radius: 8px;
+            padding: 0.6rem 0.85rem; margin: 0.5rem 0 0.7rem; max-width: 60rem;
+        }
+        .pr-afs-trace-fig { font-size: 0.95rem; color: var(--ink-strong); line-height: 1.5; }
+        .pr-afs-trace-cap { font-size: 0.8rem; color: var(--ink-700); line-height: 1.45; margin-top: 0.3rem; }
         @media (max-width: 640px) {
             .pr-grid { grid-template-columns: 1fr; }
         }

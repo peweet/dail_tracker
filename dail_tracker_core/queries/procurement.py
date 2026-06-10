@@ -386,6 +386,22 @@ def ted_for_supplier(conn: duckdb.DuckDBPyConnection, join_norm: str) -> QueryRe
     )
 
 
+def ted_notices_for_supplier(conn: duckdb.DuckDBPyConnection, join_norm: str) -> QueryResult:
+    """One winner's individual TED award notices — the CONDUIT to the authoritative EU
+    source. Each row carries the publication number, buyer, date, the value-kind tag and the
+    ``notice_url`` that opens the full Official Journal notice (where the deliverable, the real
+    framework ceiling and the award criteria live — detail the thin gold slice omits). One row
+    per notice, newest first. Award notices, never summed."""
+    return _run(
+        conn,
+        "SELECT publication_number, buyer_name, dispatch_date, value_kind,"
+        " is_multi_supplier_framework, n_winners, notice_url"
+        " FROM v_procurement_ted_winner_history WHERE winner_join_norm = ?"
+        " ORDER BY dispatch_date DESC NULLS LAST",
+        [join_norm],
+    )
+
+
 # ── TED COMPETITION / TENDER notices (cn-standard) — a THIRD grain, the pre-award pipeline ──
 # estimated_value is a buyer estimate (value_safe_to_sum always FALSE); NEVER summed with awards
 # or payments. One row per notice.

@@ -96,14 +96,59 @@ def expenses_by_party(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 
 
 def party_candidates(conn: duckdb.DuckDBPyConnection, party: str) -> QueryResult:
-    """Per-candidate expenditure for one party — name, constituency, amount, flag."""
+    """Per-candidate Part-3 row for one party — name, constituency, spend, the agent's
+    assigned budget and the statutory cap (so the UI can show % of limit used)."""
     return _run(
         conn,
-        "SELECT candidate_name, constituency, expenditure_eur, flag,"
-        " is_verified, source_page"
+        "SELECT candidate_name, constituency, expenditure_eur, amount_assigned_eur,"
+        " statutory_limit_eur, flag, is_verified, source_page"
         " FROM v_sipo_expenses_base"
         " WHERE party = ?"
         " ORDER BY (flag = 'over_limit_verify'), expenditure_eur DESC",
+        [party],
+    )
+
+
+# ── Part-4 national-agent itemised expenses (the party's central campaign spend) ────
+# Reads v_sipo_party_national_* (sipo_party_national_expenses.sql). Coverage is
+# incremental (only OCR'd parties). NEVER sum Part-4 with the Part-3 figures above.
+
+
+def party_national_categories(conn: duckdb.DuckDBPyConnection, party: str) -> QueryResult:
+    """The 8 statutory headings (4A–4H) for one party — printed category totals +
+    reconciliation flag. Excludes the Overall row (fetched separately)."""
+    return _run(
+        conn,
+        "SELECT section, category_label, category_total_eur, items_sum_eur,"
+        " reconciles, total_confidence, source_page"
+        " FROM v_sipo_party_national_categories"
+        " WHERE party = ? AND NOT is_overall"
+        " ORDER BY section",
+        [party],
+    )
+
+
+def party_national_overall(conn: duckdb.DuckDBPyConnection, party: str) -> QueryResult:
+    """The single Overall national-agent total row for one party (is_overall)."""
+    return _run(
+        conn,
+        "SELECT category_total_eur, source_page"
+        " FROM v_sipo_party_national_categories"
+        " WHERE party = ? AND is_overall"
+        " LIMIT 1",
+        [party],
+    )
+
+
+def party_national_items(conn: duckdb.DuckDBPyConnection, party: str) -> QueryResult:
+    """One party's Part-4 line items — section, ref, description, cost, verify flag."""
+    return _run(
+        conn,
+        "SELECT section, category_label, ref, item_description, cost_eur,"
+        " flag, is_verified, source_page"
+        " FROM v_sipo_party_national_items"
+        " WHERE party = ?"
+        " ORDER BY cost_eur DESC",
         [party],
     )
 

@@ -342,6 +342,20 @@ def main() -> None:
         canon_party_expr(),  # party_declared (raw, kept) -> party (canonical, may be NULL)
     )
 
+    # --- DEDUPE same-constituency double-filings. A candidate can run in only ONE
+    # constituency, so two statements for the same (candidate, constituency) is a
+    # double-filing (e.g. Daly-Finn, Roscommon-Galway ×2) that would double-count in
+    # totals/rankings. Keep the better copy: reconciling first, then most OCR'd pages,
+    # then higher total. The SAME name in DIFFERENT constituencies is left as-is (could
+    # be two real people or a misfile — not auto-resolved, no-inference). ---
+    n_before = head.height
+    head = head.sort(
+        ["reconciles", "n_pages", "total_spend_eur"], descending=True, nulls_last=True
+    ).unique(subset=["candidate_slug", "constituency_slug"], keep="first", maintain_order=True)
+    n_dropped = n_before - head.height
+    kept_ids = head["media_id"]
+    item_rows = [it for it in item_rows if it["media_id"] in set(kept_ids.to_list())]
+
     # --- line-item fact: all enrichment is VECTORISED (no UDF, no per-row loop) ---
     # 1. category_label  -> pl.col.replace (vectorised map), not a Python dict lookup
     # 2. identity columns -> a single join on media_id, not per-row stamping
@@ -366,7 +380,8 @@ def main() -> None:
     n_complete = head.filter(pl.col("ocr_complete")).height
     n_amt = head.filter(pl.col("total_spend_eur").is_not_null()).height
     head_clean = head.filter(pl.col("total_spend_eur").is_not_null() & ~pl.col("total_suspect"))
-    print(f"  candidate fact -> {OUT_HEAD.relative_to(ROOT)}  ({head.height} rows)")
+    print(f"  candidate fact -> {OUT_HEAD.relative_to(ROOT)}  ({head.height} rows, "
+          f"{n_dropped} same-constituency double-filing(s) deduped)")
     print(f"    {n_complete} OCR-complete, {n_amt} with a total, {n_recon} reconcile to the cent")
     print(f"    {head_clean.height} plausible (<= statutory cap), Σ €{head_clean['total_spend_eur'].sum():,.2f}; "
           f"{head['total_suspect'].sum()} total_suspect (decimal-lost page)")
