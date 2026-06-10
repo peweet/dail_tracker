@@ -16,14 +16,27 @@ Why it can NEVER push code
 * It aborts if any file to be published is 0 bytes (a failed/partial pipeline
   write) — better to ship nothing than ship a broken table to the live app.
 
+Pre-publish integrity gate (the cron safety net)
+------------------------------------------------
+Before it commits ANYTHING, it runs a gate that aborts on corrupt/incomplete
+data — so an unattended cron run that parsed without error but produced junk
+can never reach the live app:
+* every changed parquet must be READABLE and have > 0 rows (the byte guard
+  above misses a well-formed-but-empty or row-count-collapsed table);
+* the whole gold layer must pass the COMPLETENESS baseline
+  (``tools/check_output_regressions.py --strict``): no table MISSING, EMPTIED,
+  ROW_DROP (>tolerance), or COL_REMOVED vs the committed baseline.
+``--skip-validate`` bypasses the gate (emergencies / a deliberate re-baseline).
+
 Scope (PUBLISH_PATHS): the committed gold parquet + the freshness badge file.
 Tracked silver CSVs are deliberately NOT published by default — add
 ``"data/silver"`` to the list if the app's silver inputs need to ship too.
 
 Usage:
-    python tools/publish_data.py --dry-run     # preview only, change nothing
-    python tools/publish_data.py               # stage + commit, then push
-    python tools/publish_data.py --no-push     # commit locally, do not push
+    python tools/publish_data.py --dry-run     # preview + run the gate, change nothing
+    python tools/publish_data.py               # validate, then stage + commit + push
+    python tools/publish_data.py --no-push     # validate + commit locally, do not push
+    python tools/publish_data.py --skip-validate  # DANGER: bypass the integrity gate
     python tools/publish_data.py -m "..."      # override the commit message
 """
 
@@ -81,6 +94,49 @@ def _changed_paths(root: Path) -> list[str]:
     return files
 
 
+def _validate(root: Path, changed: list[str], *, tolerance: float) -> None:
+    """Pre-publish integrity gate. Raises SystemExit on any failure so a broken
+    pipeline run can never commit/push corrupt or incomplete data.
+
+    Two layers: (1) each changed parquet is readable and non-empty; (2) the gold
+    layer as a whole passes the committed completeness baseline.
+    """
+    import pyarrow.parquet as pq  # core runtime dep; lazy so --help stays light
+
+    parquets = [r for r in changed if r.endswith(".parquet")]
+    for rel in parquets:
+        p = root / rel
+        if not p.exists():
+            continue
+        try:
+            n_rows = pq.ParquetFile(p).metadata.num_rows
+        except Exception as e:  # noqa: BLE001 — an unreadable output must abort, not crash
+            raise SystemExit(f"publish: ABORT — {rel} is not a readable parquet ({type(e).__name__}). Nothing committed.")
+        if n_rows == 0:
+            raise SystemExit(f"publish: ABORT — {rel} has 0 rows (failed/partial write?). Nothing committed.")
+    print(f"publish: gate — {len(parquets)} parquet(s) readable + non-empty.")
+
+    # Whole-gold completeness vs the committed baseline. Run in-venv so polars +
+    # config resolve exactly as they do for the rest of the pipeline.
+    guard = root / "tools" / "check_output_regressions.py"
+    r = subprocess.run(
+        [sys.executable, str(guard), "--strict", "--tolerance", str(tolerance)],
+        cwd=root,
+        text=True,
+        capture_output=True,
+    )
+    if r.stdout:
+        sys.stdout.write(r.stdout)
+    if r.returncode != 0:
+        if r.stderr:
+            sys.stderr.write(r.stderr)
+        raise SystemExit(
+            "publish: ABORT — gold completeness regression vs baseline (see above). Nothing committed. "
+            "Re-baseline only if the change is intended: python tools/check_output_regressions.py --update-baseline"
+        )
+    print("publish: gate — completeness OK.")
+
+
 def _build_message(root: Path) -> str:
     """A dated commit message, enriched with latest dates from freshness.json."""
     stamp = datetime.now(UTC).strftime("%Y-%m-%d")
@@ -104,8 +160,15 @@ def _build_message(root: Path) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dry-run", action="store_true", help="preview only; change nothing")
+    parser.add_argument("--dry-run", action="store_true", help="preview + run the gate; change nothing")
     parser.add_argument("--no-push", action="store_true", help="commit locally; do not push")
+    parser.add_argument("--skip-validate", action="store_true", help="DANGER: bypass the pre-publish integrity gate")
+    parser.add_argument(
+        "--tolerance",
+        type=float,
+        default=0.5,
+        help="row-drop fraction the completeness gate tolerates (default 0.5)",
+    )
     parser.add_argument("-m", "--message", help="override the commit message")
     args = parser.parse_args(argv)
 
@@ -126,8 +189,14 @@ def main(argv: list[str] | None = None) -> int:
     for rel in changed:
         print(f"  {rel}")
 
+    # Integrity gate — runs for dry-run AND real publishes, before anything is staged.
+    if args.skip_validate:
+        print("publish: WARNING — integrity gate SKIPPED (--skip-validate).")
+    else:
+        _validate(root, changed, tolerance=args.tolerance)
+
     if args.dry_run:
-        print("publish: --dry-run — index untouched, nothing committed or pushed.")
+        print("publish: --dry-run — gate ran, index untouched, nothing committed or pushed.")
         return 0
 
     message = args.message or _build_message(root)
