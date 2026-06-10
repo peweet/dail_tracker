@@ -1,0 +1,21 @@
+# Wrangler config to deploy the dailtracker.ie -> *.streamlit.app reverse proxy.
+#
+# Deploy with:
+#   cd deploy/cloudflare
+#   npx wrangler login          # one-time, opens browser to authorise
+#   npx wrangler deploy
+#
+# Prereq: dailtracker.ie must already be a zone in your Cloudflare account
+# (nameservers switched to Cloudflare at your IEDR registrar) so the routes
+# below can attach. See CUSTOM_DOMAIN_CLOUDFLARE.md for the full walkthrough.
+
+name = "dailtracker-proxy"
+main = "dailtracker-proxy.worker.js"
+compatibility_date = "2025-06-01"
+
+# Attach the Worker to the apex and www. The dummy proxied DNS record
+# (see the doc) is what makes these hostnames resolve through Cloudflare.
+routes = [
+  { pattern = "dailtracker.ie/*", zone_name = "dailtracker.ie" },
+  { pattern = "www.dailtracker.ie/*", zone_name = "dailtracker.ie" },
+]
