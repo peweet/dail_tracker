@@ -44,7 +44,6 @@ from data_access.procurement_data import (
     fetch_awards_for_authority,
     fetch_awards_for_cpv,
     fetch_awards_for_supplier,
-    fetch_coverage,
     fetch_coverage_stats_result,
     fetch_cpv_summary_result,
     fetch_lobbying_overlap_result,
@@ -68,11 +67,12 @@ from data_access.procurement_data import (
     fetch_ted_tenders_stats_result,
 )
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
+from ui.entity_links import company_profile_url
 from ui.components import (
     back_button,
     clickable_card_link,
-    context_line,
     empty_state,
+    finding_lede,
     fmt_civic_date,
     glossary_strip,
     hero_banner,
@@ -165,7 +165,9 @@ def _eur_scale(val) -> str:
 
 
 def _supplier_href(supplier_norm) -> str:
-    return f"?supplier={urllib.parse.quote(str(supplier_norm))}"
+    # Supplier cards open the first-class /company dossier (entity-first flagship).
+    # The in-page ?supplier= profile below is kept so existing deep links still work.
+    return company_profile_url(str(supplier_norm))
 
 
 def _authority_href(authority) -> str:
@@ -240,23 +242,9 @@ def _lobby_pill(row) -> str:
 # Tab: Suppliers (search + pagination + clickable drill-down)
 # ──────────────────────────────────────────────────────────────────────────────
 def _concentration_and_trend() -> None:
-    """Market-shape context above the supplier ranking: how concentrated contract-winning is
-    (top-N share — answers 'do a few firms dominate?') and the award-count trend over time.
-    Both are pre-aggregated in the view/core layer; the page only renders them."""
-    con = fetch_supplier_concentration_result()
-    if con.ok and not con.data.empty:
-        c = con.data.iloc[0]
-        share = c.get("top_n_share_pct")
-        n_sup, total, topn = _n(c.get("n_suppliers")), _n(c.get("total_awards")), _n(c.get("top_n"))
-        if share is not None and n_sup and total:
-            verb = "a broad market" if float(share) < 25 else "a concentrated market"
-            st.html(
-                f'<p class="pr-cap">Across <strong>{n_sup:,}</strong> companies, the top {topn} firms '
-                f"hold <strong>{float(share):g}%</strong> of all {total:,} contract awards — {verb}. "
-                "Rankings count awards (the trustworthy metric), not euro value.</p>"
-            )
-    # Trend chart tucked into a collapsed expander so the supplier ranking is the first thing
-    # the reader sees on the Suppliers tab (declutter 2026-06-08); still one click away.
+    """Award-count trend over time, collapsed. The concentration sentence that used to
+    sit here moved into the page lede (_page_lede) — stating it twice on one page was
+    clutter, and the lede is where the market-shape finding belongs."""
     tr = fetch_awards_by_year_result()
     if tr.ok and not tr.data.empty and len(tr.data) > 1:
         with st.expander("Award activity over time"):
@@ -369,7 +357,12 @@ def _render_cpv(year: int | None) -> None:
         empty_state("No categories", f"No category has awards{_year_label(year)}.")
         return
     by = "sum-safe awarded value" if order == "value" else "number of awards"
-    st.caption(f"Top {len(df):,} procurement categories (CPV){_year_label(year)} by {by}. Click one for its awards.")
+    st.caption(
+        f"Top {len(df):,} procurement categories (CPV){_year_label(year)} by {by}. "
+        "“Typical award” is the middle 50% (p25–median–p75) of the real, sum-safe awarded "
+        "values in that category — a factual benchmark of what contracts here cost, not spend. "
+        "Click a category for its awards."
+    )
     cards = []
     for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
         title = _esc(r.cpv_description) or _esc(r.cpv_code) or "—"
@@ -377,6 +370,14 @@ def _render_cpv(year: int | None) -> None:
             f"CPV {_esc(r.cpv_code)} · {_awards_word(_n(r.n_awards))} · "
             f"{_n(r.n_suppliers):,} supplier{'s' if _n(r.n_suppliers) != 1 else ''}"
         )
+        # Factual award-value benchmark — only when enough awards carry a sum-safe value
+        # that a "typical" range is meaningful (a median over 2–3 awards would mislead).
+        valued = _n(getattr(r, "n_awards_valued", 0))
+        if valued >= 8 and getattr(r, "median_award_eur", None):
+            meta += (
+                f" · typical award {_eur_scale(r.p25_award_eur)}–{_eur_scale(r.p75_award_eur)} "
+                f"(median {_eur_scale(r.median_award_eur)}, {valued} valued)"
+            )
         inner = _card(f"<span>{title}</span>", meta, [_value_pill(r.awarded_value_safe_eur)], rank=i)
         cards.append(
             clickable_card_link(
@@ -1112,38 +1113,10 @@ def _award_row_cpv(r) -> str:
     )
 
 
-def _render_supplier_profile(supplier_norm: str) -> None:
-    if back_button("← Back to procurement", key="prsupprof"):
-        st.query_params.clear()
-        st.rerun()
-
-    sup = fetch_supplier_summary_result(limit=None)
-    if not sup.ok:
-        empty_state(
-            "Supplier data isn't available right now",
-            "The procurement views couldn't be loaded — a source/pipeline issue, not an empty result.",
-        )
-        return
-
-    match = sup.data[sup.data["supplier_norm"] == supplier_norm] if not sup.data.empty else sup.data
-    if match.empty:
-        empty_state(
-            "Supplier not found",
-            "That link didn't match a supplier in the ranking. Use Back to return to the register.",
-        )
-        return
-    row = match.iloc[0]
-
-    sub = f"{_awards_word(_n(row.get('n_awards')))} from {_n(row.get('n_authorities')):,} contracting authorities"
-    st.html(
-        f'<div class="pr-prof-head"><h1 class="pr-prof-name">{_esc(row.get("supplier"))}</h1>'
-        f'<div class="pr-prof-sub">{sub}</div></div>'
-    )
-
-    pills = [_value_pill(row.get("awarded_value_safe_eur"))]
-    pills += [p for p in (_cro_pill(row), _lobby_pill(row)) if p]
-    st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(pills)}</div>')
-
+def _supplier_awards_section(row, supplier_norm: str) -> None:
+    """Paginated eTenders award history for one firm, with the headline-reconciliation
+    caption. Shared by the in-page supplier profile here and the /company dossier page
+    (pages_code/company.py) so the honesty copy can never drift between the two."""
     awards = fetch_awards_for_supplier(supplier_norm)
     if awards is None or awards.empty:
         empty_state("No itemised awards", "The supplier is in the ranking but no award rows were returned.")
@@ -1179,6 +1152,41 @@ def _render_supplier_profile(supplier_norm: str) -> None:
         default_page_size=_AWARD_PAGE,
         label="awards",
     )
+
+
+def _render_supplier_profile(supplier_norm: str) -> None:
+    if back_button("← Back to procurement", key="prsupprof"):
+        st.query_params.clear()
+        st.rerun()
+
+    sup = fetch_supplier_summary_result(limit=None)
+    if not sup.ok:
+        empty_state(
+            "Supplier data isn't available right now",
+            "The procurement views couldn't be loaded — a source/pipeline issue, not an empty result.",
+        )
+        return
+
+    match = sup.data[sup.data["supplier_norm"] == supplier_norm] if not sup.data.empty else sup.data
+    if match.empty:
+        empty_state(
+            "Supplier not found",
+            "That link didn't match a supplier in the ranking. Use Back to return to the register.",
+        )
+        return
+    row = match.iloc[0]
+
+    sub = f"{_awards_word(_n(row.get('n_awards')))} from {_n(row.get('n_authorities')):,} contracting authorities"
+    st.html(
+        f'<div class="pr-prof-head"><h1 class="pr-prof-name">{_esc(row.get("supplier"))}</h1>'
+        f'<div class="pr-prof-sub">{sub}</div></div>'
+    )
+
+    pills = [_value_pill(row.get("awarded_value_safe_eur"))]
+    pills += [p for p in (_cro_pill(row), _lobby_pill(row)) if p]
+    st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(pills)}</div>')
+
+    _supplier_awards_section(row, supplier_norm)
 
     # Cross-references for the same firm — each a separate register/stage, never summed.
     _render_paid_supplier_panel(supplier_norm)
@@ -1277,21 +1285,43 @@ def _render_cpv_profile(cpv_code: str) -> None:
     _render_award_list(awards, key=f"pr_cpv_{cpv_code}", row_fn=_award_row_cpv)
 
 
-def _stats_strip(stats, cov: dict) -> None:
-    """Inline one-sentence scale context (S1 declutter 2026-06-10, replacing the
-    4-chip strip — doc/APP_REDESIGN_PHASE0.md). Display-only: the same
-    view-supplied corpus counts, phrased as a sentence so no stat block sits
-    between the hero and the rankings."""
+def _page_lede(stats) -> None:
+    """The page's opening findings (findings-not-filters,
+    doc/APP_REDESIGN_SWEEP_2026_06_10.md). DISPLAY-ONLY: the top-winner row,
+    the concentration row and the corpus counts all arrive pre-aggregated from
+    the registered views; this assembles sentences and renders."""
+    sentences: list[str] = []
+
+    top = fetch_supplier_summary_result(limit=1)
     min_y, max_y = _n(stats.get("min_year")), _n(stats.get("max_year"))
     span = f"{min_y}–{max_y}" if min_y and max_y else "recent years"
-    n_sup = _n(stats.get("n_suppliers"))
-    n_auth = _n(stats.get("n_authorities"))
-    n_cat = _n(stats.get("n_categories"))
-    context_line(
-        f"<b>{n_sup:,}</b> companies have won public contracts from "
-        f"<b>{n_auth:,}</b> public bodies across <b>{n_cat:,}</b> categories, "
-        f"<b>{_esc(span)}</b>."
+    if top.ok and not top.data.empty:
+        t = top.data.iloc[0]
+        sentences.append(
+            f"{_esc(t.get('supplier'))} has won more public contracts than any other firm — "
+            f"<strong>{_n(t.get('n_awards')):,}</strong> since {min_y or 'records began'}, "
+            f"from <strong>{_n(t.get('n_authorities')):,}</strong> public bodies."
+        )
+
+    con = fetch_supplier_concentration_result()
+    if con.ok and not con.data.empty:
+        c = con.data.iloc[0]
+        share, n_sup_c = c.get("top_n_share_pct"), _n(c.get("n_suppliers"))
+        if share is not None and n_sup_c:
+            shape = "a long tail, not a closed shop" if float(share) < 25 else "a concentrated market"
+            sentences.append(
+                f"Contract-winning is {shape}: across <strong>{n_sup_c:,}</strong> companies, "
+                f"the top {_n(c.get('top_n'))} firms hold <strong>{float(share):g}%</strong> "
+                f"of all {_n(c.get('total_awards')):,} awards."
+            )
+
+    sentences.append(
+        f"<strong>{_n(stats.get('n_suppliers')):,}</strong> suppliers and "
+        f"<strong>{_n(stats.get('n_authorities')):,}</strong> public bodies appear on the "
+        f"register, {_esc(span)}. Rankings count awards — the trustworthy metric — "
+        "never naive euro totals."
     )
+    finding_lede(sentences)
 
 
 def _data_completeness_note() -> None:
@@ -1361,11 +1391,10 @@ def procurement_page() -> None:
         return
 
     stats = stats_res.data.iloc[0]
-    cov = fetch_coverage()
 
-    # Hero carries no stat badges: the corpus counts + sum-safe total live in the
-    # single _stats_strip below, so the data isn't pushed off-screen by a second
-    # stat strip and the sum-safe total is shown exactly once (audit 2026-06-06).
+    # Hero carries no stat badges: the corpus counts + the top-winner / market-shape
+    # findings live in the single _page_lede below, so the data isn't pushed off-screen
+    # by a second stat block and the sum-safe total is shown exactly once.
     hero_banner(
         kicker="PUBLIC MONEY",
         title="Public Procurement",
@@ -1382,7 +1411,7 @@ def procurement_page() -> None:
         "payments. A contract award is a public record of a procurement decision, not evidence "
         "of influence or wrongdoing.</div>"
     )
-    _stats_strip(stats, cov)
+    _page_lede(stats)
     # Glossary tucked into a collapsed expander (declutter 2026-06-08) — there for first-time
     # readers, but no longer a permanent block between the hero and the rankings.
     with st.expander("What these terms mean"):
@@ -1401,63 +1430,71 @@ def procurement_page() -> None:
         empty_state("No supplier records", "The procurement views are loaded but returned no rows.")
         return
 
-    # Four top-level tabs (decluttered 2026-06-08 from eight). Each groups its related lenses
-    # behind a segmented control — the same in-tab pattern the "Money actually paid" tab already
-    # uses — so the page presents four clear doors, not a wrapping tab bar. Surfacing-only: every
-    # lens calls an existing _render_* function; no logic moves into this layer.
-    overlap = fetch_lobbying_overlap_result()
-    charity_overlap = fetch_charity_overlap_result()
-    tabs = st.tabs(["Contract awards", "Money actually paid", "EU awards (TED)", "Register overlaps"])
+    # Two top-level tabs, phrased as the two questions a reader actually brings
+    # (doc/APP_REDESIGN_SWEEP_2026_06_10.md §1: registers → questions). "Who wins
+    # contracts?" holds the award-stage registers (eTenders national / TED EU) plus the
+    # register-overlap disclosures behind one register picker; "Who actually gets paid?"
+    # is the payment stage. Surfacing-only: every lens calls an existing _render_*
+    # function; no logic moves into this layer.
+    tabs = st.tabs(["Who wins contracts?", "Who actually gets paid?"])
 
     with tabs[0]:
-        # Year pills + lens picker live with the rankings they scope (national eTenders register).
-        st.caption("Filter the rankings by award year:")
-        year = _year_pills(fetch_available_years())
-        awards_lens = st.segmented_control(
-            "View awards by",
-            ["By supplier", "By authority", "By category"],
-            default="By supplier",
-            key="pr_awards_lens",
+        register = st.segmented_control(
+            "Register",
+            ["National register (eTenders)", "EU register (TED)", "Register overlaps"],
+            default="National register (eTenders)",
+            key="pr_register",
             label_visibility="collapsed",
         )
-        if awards_lens == "By authority":
-            _render_authorities(year)
-        elif awards_lens == "By category":
-            _render_cpv(year)
+        if register == "EU register (TED)":
+            # Two TED grains behind one control: contract awards WON (2016–2026) vs the
+            # pre-award tender pipeline (opportunities). Different grains, never summed.
+            ted_lens = st.segmented_control(
+                "View",
+                ["Awards won", "Open tenders"],
+                default="Awards won",
+                key="pr_ted_lens",
+                label_visibility="collapsed",
+            )
+            if ted_lens == "Open tenders":
+                _render_ted_tenders()
+            else:
+                _render_ted()
+        elif register == "Register overlaps":
+            # Co-occurrence disclosures (same pattern, two registers). All-time scope.
+            ov_lens = st.segmented_control(
+                "View",
+                ["Lobbying", "Charities"],
+                default="Lobbying",
+                key="pr_overlap_lens",
+                label_visibility="collapsed",
+            )
+            if ov_lens == "Charities":
+                charity_overlap = fetch_charity_overlap_result()
+                _render_charity_overlap(charity_overlap.data if charity_overlap.ok else pd.DataFrame())
+            else:
+                overlap = fetch_lobbying_overlap_result()
+                _render_overlap(overlap.data if overlap.ok else pd.DataFrame(), None)
         else:
-            _render_suppliers(year)
+            # Year pills + lens picker live with the rankings they scope (national register).
+            st.caption("Filter the rankings by award year:")
+            year = _year_pills(fetch_available_years())
+            awards_lens = st.segmented_control(
+                "View awards by",
+                ["By supplier", "By authority", "By category"],
+                default="By supplier",
+                key="pr_awards_lens",
+                label_visibility="collapsed",
+            )
+            if awards_lens == "By authority":
+                _render_authorities(year)
+            elif awards_lens == "By category":
+                _render_cpv(year)
+            else:
+                _render_suppliers(year)
 
     with tabs[1]:
         _render_payments()
-
-    with tabs[2]:
-        # Two TED grains behind one control: contract awards WON (2016–2026) vs the pre-award
-        # tender pipeline (opportunities). Clearly different grains, never summed.
-        ted_lens = st.segmented_control(
-            "View",
-            ["Awards won", "Open tenders"],
-            default="Awards won",
-            key="pr_ted_lens",
-            label_visibility="collapsed",
-        )
-        if ted_lens == "Open tenders":
-            _render_ted_tenders()
-        else:
-            _render_ted()
-
-    with tabs[3]:
-        # Co-occurrence disclosures (same pattern, two registers). Both all-time (not year-scoped).
-        ov_lens = st.segmented_control(
-            "View",
-            ["Lobbying", "Charities"],
-            default="Lobbying",
-            key="pr_overlap_lens",
-            label_visibility="collapsed",
-        )
-        if ov_lens == "Charities":
-            _render_charity_overlap(charity_overlap.data if charity_overlap.ok else pd.DataFrame())
-        else:
-            _render_overlap(overlap.data if overlap.ok else pd.DataFrame(), None)
 
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> eTenders / national procurement open data '

@@ -72,6 +72,9 @@ PAGES: dict[str, str] = {
     "legislation": "rankings-legislation",
     "statutory_instruments": "rankings-statutory-instruments",
     "committees": "rankings-committees",
+    # /company is the supplier dossier (entity-first flagship, hidden from the nav
+    # bar like Home) — the canonical URL for one firm's public-money footprint.
+    "company": "company",
 }
 
 
@@ -115,6 +118,15 @@ def si_detail_url(si_id: str) -> str:
     """Canonical statutory-instrument detail URL:
     /rankings-statutory-instruments?si=<si_id>."""
     return f"/{PAGES['statutory_instruments']}?si={_q(si_id)}"
+
+
+def company_profile_url(supplier_norm: str) -> str:
+    """Canonical company dossier URL: /company?supplier=<supplier_norm>.
+
+    ``supplier_norm`` is the normalised join key from the ``v_procurement_*``
+    views (shared/name_norm form), NOT the display name.
+    """
+    return f"/{PAGES['company']}?supplier={_q(supplier_norm)}"
 
 
 # ── External profile builders ─────────────────────────────────────────────────

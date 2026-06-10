@@ -34,7 +34,11 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from sample_extract_procurement_pdf import (  # noqa: E402
-    MONEY_RE, TMP, cluster_word_rows, fetch, to_eur,
+    MONEY_RE,
+    TMP,
+    cluster_word_rows,
+    fetch,
+    to_eur,
 )
 
 PROBE = TMP / "procurement_publishers_probe.json"

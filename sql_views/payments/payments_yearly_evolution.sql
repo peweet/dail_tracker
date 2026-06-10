@@ -20,22 +20,34 @@
 -- ~60 Senators into the TD year rankings + per-year totals (and downstream
 -- into the all-time ranking/summary). Partitioning by (payment_year, house)
 -- gives each chamber its own rank_high #1 and its own year_total/avg.
+--
+-- Grain fix (2026-06-11): position and taa_band_raw/label used to be part of
+-- the GROUP BY, so a member whose position or TAA band changed mid-year split
+-- into TWO rows for that year (duplicate "All years" rows, overlapping chart
+-- bars, and a LIMIT-1 year summary that silently dropped the other row's
+-- total). Member identity is unique_member_code when enriched (the source
+-- PDFs spell the same member differently across years — e.g. an ASCII "-"
+-- vs a U+2010 hyphen in "Healy-Rae" — so raw member_name also split years),
+-- falling back to member_name for the handful of unenriched rows. The grain
+-- is now truly (member, house, payment_year); position/band/display-name
+-- collapse to the value on the year's most recent payment.
 CREATE OR REPLACE VIEW v_payments_yearly_evolution AS
 WITH per_member_year AS (
     SELECT
-        member_name,
-        position,
-        taa_band_raw,
-        taa_band_label,
+        COALESCE(NULLIF(unique_member_code, ''), member_name) AS member_key,
         payment_year,
         house,
+        arg_max(member_name,    date_paid)    AS member_name,
+        arg_max(position,       date_paid)    AS position,
+        arg_max(taa_band_raw,   date_paid)    AS taa_band_raw,
+        arg_max(taa_band_label, date_paid)    AS taa_band_label,
         MAX(COALESCE(unique_member_code, '')) AS unique_member_code,
         MAX(COALESCE(party_name,   ''))       AS party_name,
         MAX(COALESCE(constituency, ''))       AS constituency,
         SUM(amount_num)  AS total_paid,
         COUNT(*)         AS payment_count
     FROM v_payments_base
-    GROUP BY member_name, position, taa_band_raw, taa_band_label, payment_year, house
+    GROUP BY member_key, payment_year, house
 )
 SELECT
     member_name,
@@ -57,7 +69,7 @@ SELECT
         / NULLIF(COUNT(*) OVER (PARTITION BY payment_year, house), 0),
         2
     )                                                                           AS year_avg_per_td,
-    -- Member identity is (member_name, house): two names (Flaherty, Joe;
+    -- Member identity is (member_key, house): two names (Flaherty, Joe;
     -- Tully, Pauline) exist in both chambers' payment files.
-    SUM(total_paid) OVER (PARTITION BY member_name, house)                      AS member_alltime_total
+    SUM(total_paid) OVER (PARTITION BY member_key, house)                       AS member_alltime_total
 FROM per_member_year;

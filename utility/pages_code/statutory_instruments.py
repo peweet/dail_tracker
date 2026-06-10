@@ -40,8 +40,8 @@ from data_access.legislation_data import (
 from shared_css import inject_css
 from ui.components import (
     back_button,
-    context_line,
     empty_state,
+    finding_lede,
     fmt_civic_date as _fmt_date,
     hero_banner,
     hide_sidebar,
@@ -464,19 +464,25 @@ def _apply_filters(
 # View 1 — KPI strip
 # ──────────────────────────────────────────────────────────────────────────────
 def _render_kpi_strip(df: pd.DataFrame) -> None:
-    """Inline one-sentence scale context (S1 declutter 2026-06-10 — was a 5-cell
-    KPI strip that mixed a count, a department name and two percentages;
-    doc/APP_REDESIGN_PHASE0.md). Lead-clean: just the scale anchor. The
-    most-active department, EU-derived share and enabling-Act link rate remain
-    reachable in the filters and ranked data below, where a reader acts on
-    them — they no longer sit as a hero-metric block above the data."""
+    """Opening findings lede — the canonical stat-strip replacement
+    (finding_lede; doc/APP_REDESIGN_SWEEP_2026_06_10.md S-1, work order #4).
+    Two plain-English facts the active-filter data supports; the EU-derived
+    share and enabling-Act link rate live in the facets below.
+    logic_firewall: display_only — counts over the post-filter frame."""
     total = len(df)
     if total == 0:
         return
-    # logic_firewall: display_only — a count + year span over the active filter set.
     yrs = sorted(int(y) for y in df["si_year"].dropna().unique())
     yr_span = f"{yrs[0]}–{yrs[-1]}" if len(yrs) >= 2 else (str(yrs[0]) if yrs else "recent years")
-    context_line(f"<b>{total:,}</b> statutory instruments, <b>{html.escape(yr_span)}</b>.")
+    sentences = [f"<strong>{total:,}</strong> statutory instruments made in {html.escape(yr_span)}."]
+    # logic_firewall: display_only — top department by count over the post-filter frame
+    top_dept = df["si_department_label"].dropna().value_counts().head(1)
+    if not top_dept.empty:
+        sentences.append(
+            f"The <strong>{html.escape(_pretty_token(str(top_dept.index[0])))}</strong> "
+            f"made the most — <strong>{int(top_dept.iloc[0]):,}</strong> in this period."
+        )
+    finding_lede(sentences)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

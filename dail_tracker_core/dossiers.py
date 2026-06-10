@@ -770,7 +770,12 @@ def charity_financials(conn: duckdb.DuckDBPyConnection, *, rcn: int | None = Non
 # ── Public-body payments (the realised-SPEND grain) ────────────────────────────
 # ⚠️ NEVER add this spend to eTenders/TED AWARD ceilings — different value_kind.
 
-_PUBPAY_CAVEAT = "sum-safe spend only; never add to procurement AWARD values (different grain)"
+_PUBPAY_CAVEAT = (
+    "sum-safe spend only; never add to procurement AWARD values (different grain). "
+    "VAT basis varies by publisher and is unconfirmed for most (only HSE/Tusla are "
+    "documented incl-VAT), so cross-publisher totals mix VAT bases — see "
+    "data/_meta/procurement_payments_vat_matrix.json for the per-publisher basis."
+)
 
 
 def public_body_payments(

@@ -1,6 +1,7 @@
 import streamlit as st
 from pages_code.attendance import attendance_page
 from pages_code.committees import committees_page
+from pages_code.company import company_page
 from pages_code.corporate import corporate_page
 from pages_code.election_2024 import election_2024_page
 from pages_code.glossary import glossary_page
@@ -123,6 +124,15 @@ pg = st.navigation(
                 title="Public Payments",
                 icon=":material/account_balance_wallet:",
                 url_path="rankings-public-payments",
+            ),
+            # Company dossier (entity-first flagship): reached from supplier cards on
+            # Procurement / Public Payments, not from the nav bar — hidden like Home.
+            st.Page(
+                company_page,
+                title="Company",
+                icon=":material/domain:",
+                url_path="company",
+                visibility="hidden",
             ),
         ],
         "Law & Records": [

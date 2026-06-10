@@ -52,6 +52,25 @@ def test_supplier_dossier_roundtrip_and_404(client):
     assert client.get("/v1/procurement/suppliers/__no_such_supplier__/dossier").status_code == 404
 
 
+def test_supplier_dossier_sole_trader_404(client):
+    """Profile-building guard: a sole trader / natural person must 404, never
+    compose into a dossier (the rows exist in v_procurement_awards; the
+    quarantine is in awards_for_supplier)."""
+    from dail_tracker_core.connections import api_conn
+
+    try:
+        df = api_conn().execute(
+            "SELECT supplier_norm FROM v_procurement_awards"
+            " WHERE supplier_class = 'sole_trader_or_individual' LIMIT 1"
+        ).df()
+    except Exception:
+        pytest.skip("procurement gold not available")
+    if df.empty:
+        pytest.skip("no sole-trader rows in the awards corpus")
+    norm = df.iloc[0]["supplier_norm"]
+    assert client.get(f"/v1/procurement/suppliers/{norm}/dossier").status_code == 404
+
+
 def test_competition_carries_caveat(client):
     r = client.get("/v1/procurement/competition", params={"min_lots": 0, "limit": 5})
     if r.status_code == 503:

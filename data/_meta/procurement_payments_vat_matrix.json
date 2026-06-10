@@ -1,0 +1,746 @@
+{
+  "generated_at": "2026-06-10T23:19:11Z",
+  "source": "data/gold/parquet/procurement_payments_fact.parquet",
+  "note": "VAT basis per publisher as carried on the gold payments fact. 'unknown' means the publisher's payment list does not document whether amounts include VAT — totals summed across publishers with differing/unknown bases are NOT comparable. Treat per-publisher figures as internally consistent; treat cross-publisher totals as indicative only until the unknowns are closed.",
+  "summary": {
+    "n_publishers": 57,
+    "n_rows": 167190,
+    "n_rows_vat_unknown": 145528,
+    "pct_rows_vat_unknown": 87.0
+  },
+  "publishers": {
+    "dept_climate": {
+      "publisher_name": "Dept of Climate, Energy and the Environment",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 2930,
+          "safe_value_eur": 1428888284.08
+        }
+      },
+      "n_rows": 2930,
+      "safe_value_eur": 1428888284.08,
+      "min_year": 2012,
+      "max_year": 2026
+    },
+    "dept_culture": {
+      "publisher_name": "Department of Culture, Communications and Sport",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 829,
+          "safe_value_eur": 155190561.69
+        }
+      },
+      "n_rows": 829,
+      "safe_value_eur": 155190561.69,
+      "min_year": 2017,
+      "max_year": 2025
+    },
+    "dept_defence": {
+      "publisher_name": "Department of Defence",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 10292,
+          "safe_value_eur": 1526688828.28
+        }
+      },
+      "n_rows": 10292,
+      "safe_value_eur": 1526688828.28,
+      "min_year": 2014,
+      "max_year": 2025
+    },
+    "dept_dper": {
+      "publisher_name": "Dept of Public Expenditure, Infrastructure, PSR and Digitalisation",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 253,
+          "safe_value_eur": 3707896.83
+        }
+      },
+      "n_rows": 253,
+      "safe_value_eur": 3707896.83,
+      "min_year": 2024,
+      "max_year": 2024
+    },
+    "dept_enterprise": {
+      "publisher_name": "Department of Enterprise, Tourism and Employment",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 163,
+          "safe_value_eur": 10516419.75
+        }
+      },
+      "n_rows": 163,
+      "safe_value_eur": 10516419.75,
+      "min_year": 2017,
+      "max_year": 2026
+    },
+    "dept_housing": {
+      "publisher_name": "Department of Housing, Local Government and Heritage",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 243,
+          "safe_value_eur": 48230699.44
+        }
+      },
+      "n_rows": 243,
+      "safe_value_eur": 48230699.44
+    },
+    "ie_atu": {
+      "publisher_name": "Atlantic Technological University",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 1495,
+          "safe_value_eur": 229243892.5
+        }
+      },
+      "n_rows": 1495,
+      "safe_value_eur": 229243892.5,
+      "min_year": 2022,
+      "max_year": 2026
+    },
+    "ie_beaumont": {
+      "publisher_name": "Beaumont Hospital",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 414,
+          "safe_value_eur": 234183300.0
+        }
+      },
+      "n_rows": 414,
+      "safe_value_eur": 234183300.0
+    },
+    "ie_bim": {
+      "publisher_name": "Bord Iascaigh Mhara (BIM)",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 799,
+          "safe_value_eur": 40933020.34
+        }
+      },
+      "n_rows": 799,
+      "safe_value_eur": 40933020.34,
+      "min_year": 2020,
+      "max_year": 2025
+    },
+    "ie_bordbia": {
+      "publisher_name": "Bord Bia",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 5155,
+          "safe_value_eur": 337802724.42
+        }
+      },
+      "n_rows": 5155,
+      "safe_value_eur": 337802724.42,
+      "min_year": 2016,
+      "max_year": 2026
+    },
+    "ie_ccpc": {
+      "publisher_name": "Competition and Consumer Protection Commission (CCPC)",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 28,
+          "safe_value_eur": 3304336.96
+        }
+      },
+      "n_rows": 28,
+      "safe_value_eur": 3304336.96,
+      "min_year": 2026,
+      "max_year": 2026
+    },
+    "ie_cdetb": {
+      "publisher_name": "City of Dublin ETB",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 590,
+          "safe_value_eur": 91920206.05
+        }
+      },
+      "n_rows": 590,
+      "safe_value_eur": 91920206.05,
+      "min_year": 2020,
+      "max_year": 2026
+    },
+    "ie_chi": {
+      "publisher_name": "Children's Health Ireland (CHI)",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 259,
+          "safe_value_eur": 18438870.78
+        }
+      },
+      "n_rows": 259,
+      "safe_value_eur": 18438870.78,
+      "min_year": 2026,
+      "max_year": 2026
+    },
+    "ie_cib": {
+      "publisher_name": "Citizens Information Board",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 539,
+          "safe_value_eur": 51294501.24
+        }
+      },
+      "n_rows": 539,
+      "safe_value_eur": 51294501.24,
+      "min_year": 2019,
+      "max_year": 2026
+    },
+    "ie_courts": {
+      "publisher_name": "Courts Service of Ireland",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 4522,
+          "safe_value_eur": 1244245121.55
+        }
+      },
+      "n_rows": 4522,
+      "safe_value_eur": 1244245121.55,
+      "min_year": 2012,
+      "max_year": 2026
+    },
+    "ie_enterprise_ireland": {
+      "publisher_name": "Enterprise Ireland",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 926,
+          "safe_value_eur": 75394818.61
+        }
+      },
+      "n_rows": 926,
+      "safe_value_eur": 75394818.61,
+      "min_year": 2023,
+      "max_year": 2026
+    },
+    "ie_esbnetworks": {
+      "publisher_name": "ESB Networks DAC",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 10,
+          "safe_value_eur": 117650020.0
+        }
+      },
+      "n_rows": 10,
+      "safe_value_eur": 117650020.0,
+      "min_year": 2021,
+      "max_year": 2024
+    },
+    "ie_hea": {
+      "publisher_name": "Higher Education Authority",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 386,
+          "safe_value_eur": 17922635.7
+        }
+      },
+      "n_rows": 386,
+      "safe_value_eur": 17922635.7,
+      "min_year": 2012,
+      "max_year": 2026
+    },
+    "ie_hpra": {
+      "publisher_name": "Health Products Regulatory Authority (HPRA)",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 33,
+          "safe_value_eur": 1918069.0
+        }
+      },
+      "n_rows": 33,
+      "safe_value_eur": 1918069.0,
+      "min_year": 2024,
+      "max_year": 2025
+    },
+    "ie_hse": {
+      "publisher_name": "Health Service Executive",
+      "vat_status_mix": {
+        "incl_vat": {
+          "n_rows": 16972,
+          "safe_value_eur": 6273137121.0
+        }
+      },
+      "n_rows": 16972,
+      "safe_value_eur": 6273137121.0,
+      "min_year": 2021,
+      "max_year": 2025
+    },
+    "ie_la_clare": {
+      "publisher_name": "Clare",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 4338,
+          "safe_value_eur": 417623508.27
+        }
+      },
+      "n_rows": 4338,
+      "safe_value_eur": 417623508.27,
+      "min_year": 2018,
+      "max_year": 2026
+    },
+    "ie_la_cork_city": {
+      "publisher_name": "Cork City",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 5564,
+          "safe_value_eur": 943411894.06
+        }
+      },
+      "n_rows": 5564,
+      "safe_value_eur": 943411894.06,
+      "min_year": 2017,
+      "max_year": 2025
+    },
+    "ie_la_cork_county": {
+      "publisher_name": "Cork County",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 9790,
+          "safe_value_eur": 680752553.68
+        }
+      },
+      "n_rows": 9790,
+      "safe_value_eur": 680752553.68,
+      "min_year": 2017,
+      "max_year": 2026
+    },
+    "ie_la_donegal": {
+      "publisher_name": "Donegal",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 5664,
+          "safe_value_eur": 738193104.07
+        }
+      },
+      "n_rows": 5664,
+      "safe_value_eur": 738193104.07,
+      "min_year": 2019,
+      "max_year": 2026
+    },
+    "ie_la_galway_city": {
+      "publisher_name": "Galway City",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 1743,
+          "safe_value_eur": 96592497.12
+        }
+      },
+      "n_rows": 1743,
+      "safe_value_eur": 96592497.12,
+      "min_year": 2025,
+      "max_year": 2026
+    },
+    "ie_la_galway_county": {
+      "publisher_name": "Galway County",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 3793,
+          "safe_value_eur": 443312835.4
+        }
+      },
+      "n_rows": 3793,
+      "safe_value_eur": 443312835.4,
+      "min_year": 2016,
+      "max_year": 2025
+    },
+    "ie_la_kildare": {
+      "publisher_name": "Kildare",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 6987,
+          "safe_value_eur": 704752223.69
+        }
+      },
+      "n_rows": 6987,
+      "safe_value_eur": 704752223.69,
+      "min_year": 2016,
+      "max_year": 2025
+    },
+    "ie_la_kilkenny": {
+      "publisher_name": "Kilkenny",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 5154,
+          "safe_value_eur": 457417111.18
+        }
+      },
+      "n_rows": 5154,
+      "safe_value_eur": 457417111.18,
+      "min_year": 2016,
+      "max_year": 2026
+    },
+    "ie_la_leitrim": {
+      "publisher_name": "Leitrim",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 21,
+          "safe_value_eur": 4522206.0
+        }
+      },
+      "n_rows": 21,
+      "safe_value_eur": 4522206.0,
+      "min_year": 2023,
+      "max_year": 2023
+    },
+    "ie_la_limerick": {
+      "publisher_name": "Limerick",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 171,
+          "safe_value_eur": 49619636.86
+        }
+      },
+      "n_rows": 171,
+      "safe_value_eur": 49619636.86,
+      "min_year": 2026,
+      "max_year": 2026
+    },
+    "ie_la_longford": {
+      "publisher_name": "Longford",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 872,
+          "safe_value_eur": 73654321.11
+        }
+      },
+      "n_rows": 872,
+      "safe_value_eur": 73654321.11,
+      "min_year": 2023,
+      "max_year": 2025
+    },
+    "ie_la_mayo": {
+      "publisher_name": "Mayo",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 338,
+          "safe_value_eur": 58747218.35
+        }
+      },
+      "n_rows": 338,
+      "safe_value_eur": 58747218.35
+    },
+    "ie_la_meath": {
+      "publisher_name": "Meath",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 5766,
+          "safe_value_eur": 854181689.31
+        }
+      },
+      "n_rows": 5766,
+      "safe_value_eur": 854181689.31,
+      "min_year": 2016,
+      "max_year": 2025
+    },
+    "ie_la_monaghan": {
+      "publisher_name": "Monaghan",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 3030,
+          "safe_value_eur": 323634541.11
+        }
+      },
+      "n_rows": 3030,
+      "safe_value_eur": 323634541.11,
+      "min_year": 2016,
+      "max_year": 2026
+    },
+    "ie_la_offaly": {
+      "publisher_name": "Offaly",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 2093,
+          "safe_value_eur": 356550983.1
+        }
+      },
+      "n_rows": 2093,
+      "safe_value_eur": 356550983.1,
+      "min_year": 2022,
+      "max_year": 2025
+    },
+    "ie_la_sligo": {
+      "publisher_name": "Sligo",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 947,
+          "safe_value_eur": 70836293.34
+        }
+      },
+      "n_rows": 947,
+      "safe_value_eur": 70836293.34,
+      "min_year": 2016,
+      "max_year": 2018
+    },
+    "ie_la_south_dublin": {
+      "publisher_name": "South Dublin",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 6654,
+          "safe_value_eur": 738639585.78
+        }
+      },
+      "n_rows": 6654,
+      "safe_value_eur": 738639585.78,
+      "min_year": 2017,
+      "max_year": 2026
+    },
+    "ie_la_waterford": {
+      "publisher_name": "Waterford",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 3150,
+          "safe_value_eur": 486583741.09
+        }
+      },
+      "n_rows": 3150,
+      "safe_value_eur": 486583741.09,
+      "min_year": 2017,
+      "max_year": 2025
+    },
+    "ie_la_westmeath": {
+      "publisher_name": "Westmeath",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 3887,
+          "safe_value_eur": 317476454.84
+        }
+      },
+      "n_rows": 3887,
+      "safe_value_eur": 317476454.84,
+      "min_year": 2016,
+      "max_year": 2026
+    },
+    "ie_la_wexford": {
+      "publisher_name": "Wexford",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 858,
+          "safe_value_eur": 84866642.47
+        }
+      },
+      "n_rows": 858,
+      "safe_value_eur": 84866642.47,
+      "min_year": 2017,
+      "max_year": 2026
+    },
+    "ie_la_wicklow": {
+      "publisher_name": "Wicklow",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 410,
+          "safe_value_eur": 32116318.49
+        }
+      },
+      "n_rows": 410,
+      "safe_value_eur": 32116318.49,
+      "min_year": 2025,
+      "max_year": 2025
+    },
+    "ie_marine": {
+      "publisher_name": "Marine Institute",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 3271,
+          "safe_value_eur": 5981385.81
+        }
+      },
+      "n_rows": 3271,
+      "safe_value_eur": 5981385.81,
+      "min_year": 2012,
+      "max_year": 2024
+    },
+    "ie_mtu": {
+      "publisher_name": "Munster Technological University (MTU)",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 267,
+          "safe_value_eur": 24273549.28
+        }
+      },
+      "n_rows": 267,
+      "safe_value_eur": 24273549.28,
+      "min_year": 2025,
+      "max_year": 2025
+    },
+    "ie_nli": {
+      "publisher_name": "National Library of Ireland",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 261,
+          "safe_value_eur": 13792127.63
+        }
+      },
+      "n_rows": 261,
+      "safe_value_eur": 13792127.63,
+      "min_year": 2020,
+      "max_year": 2025
+    },
+    "ie_nphdb": {
+      "publisher_name": "National Paediatric Hospital Development Board",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 260,
+          "safe_value_eur": 190079338.8
+        }
+      },
+      "n_rows": 260,
+      "safe_value_eur": 190079338.8
+    },
+    "ie_nta": {
+      "publisher_name": "National Transport Authority",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 2278,
+          "safe_value_eur": 643588724.18
+        }
+      },
+      "n_rows": 2278,
+      "safe_value_eur": 643588724.18,
+      "min_year": 2024,
+      "max_year": 2026
+    },
+    "ie_ntma": {
+      "publisher_name": "National Treasury Management Agency (NTMA)",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 3647,
+          "safe_value_eur": 836846569.91
+        }
+      },
+      "n_rows": 3647,
+      "safe_value_eur": 836846569.91,
+      "min_year": 2016,
+      "max_year": 2026
+    },
+    "ie_opw": {
+      "publisher_name": "Office of Public Works",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 18647,
+          "safe_value_eur": 2817776731.68
+        }
+      },
+      "n_rows": 18647,
+      "safe_value_eur": 2817776731.68,
+      "min_year": 2015,
+      "max_year": 2026
+    },
+    "ie_pobal": {
+      "publisher_name": "Pobal",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 1000,
+          "safe_value_eur": 91933299.77
+        }
+      },
+      "n_rows": 1000,
+      "safe_value_eur": 91933299.77,
+      "min_year": 2020,
+      "max_year": 2026
+    },
+    "ie_revenue": {
+      "publisher_name": "Revenue Commissioners",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 3834,
+          "safe_value_eur": 592346554.19
+        }
+      },
+      "n_rows": 3834,
+      "safe_value_eur": 592346554.19,
+      "min_year": 2020,
+      "max_year": 2025
+    },
+    "ie_seai": {
+      "publisher_name": "Sustainable Energy Authority of Ireland (SEAI)",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 211,
+          "safe_value_eur": 65960864.39
+        }
+      },
+      "n_rows": 211,
+      "safe_value_eur": 65960864.39,
+      "min_year": 2025,
+      "max_year": 2025
+    },
+    "ie_sportireland": {
+      "publisher_name": "Sport Ireland",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 159,
+          "safe_value_eur": 11321338.46
+        }
+      },
+      "n_rows": 159,
+      "safe_value_eur": 11321338.46,
+      "min_year": 2023,
+      "max_year": 2023
+    },
+    "ie_tailte": {
+      "publisher_name": "Tailte Éireann",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 6,
+          "safe_value_eur": 4108.2
+        }
+      },
+      "n_rows": 6,
+      "safe_value_eur": 4108.2,
+      "min_year": 2025,
+      "max_year": 2026
+    },
+    "ie_teagasc": {
+      "publisher_name": "Teagasc",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 3489,
+          "safe_value_eur": 224582031.77
+        }
+      },
+      "n_rows": 3489,
+      "safe_value_eur": 224582031.77,
+      "min_year": 2013,
+      "max_year": 2025
+    },
+    "ie_tii": {
+      "publisher_name": "Transport Infrastructure Ireland",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 5520,
+          "safe_value_eur": 1098307462.41
+        }
+      },
+      "n_rows": 5520,
+      "safe_value_eur": 1098307462.41,
+      "min_year": 2021,
+      "max_year": 2025
+    },
+    "ie_tudublin": {
+      "publisher_name": "Technological University Dublin",
+      "vat_status_mix": {
+        "unknown": {
+          "n_rows": 1582,
+          "safe_value_eur": 144664071.44
+        }
+      },
+      "n_rows": 1582,
+      "safe_value_eur": 144664071.44,
+      "min_year": 2020,
+      "max_year": 2026
+    },
+    "ie_tusla": {
+      "publisher_name": "Tusla – Child and Family Agency",
+      "vat_status_mix": {
+        "incl_vat": {
+          "n_rows": 4690,
+          "safe_value_eur": 395547852.07
+        }
+      },
+      "n_rows": 4690,
+      "safe_value_eur": 395547852.07,
+      "min_year": 2021,
+      "max_year": 2023
+    }
+  }
+}

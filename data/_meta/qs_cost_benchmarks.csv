@@ -1,0 +1,54 @@
+source,category,subtype,region,unit,lo_eur,hi_eur,basis_period,vat,excludes,notes
+# Quantity-surveyor cost benchmarks for Irish construction, INGESTED 2026-06-11.
+# Hand-curated source-of-truth (data/_meta convention). Each rate is tied to a
+# basis_period so the QS valuation can bring it to a contract's award half-year via
+# the SCSI Tender Price Index (data/_meta/scsi_tender_price_index.csv):
+#   rate_at(award) = rate * tpi(award_period) / tpi(basis_period).
+# Sources: Buildcost Construction Cost Guide 2nd Half 2025 (buildcost.ie); SCSI House
+# Rebuilding Guide rates set Nov-2024 (scsi.ie/consumer/build/calculator); SelfBuild
+# Build Costs 2026 (selfbuild.ie). Buildcost rates EXCLUDE FF&E/VAT/siteworks/fees/
+# overheads/abnormals (a hard-construction floor). This is INFERENCE input — an
+# indicative range, never a disclosed contract value; surface only with that caveat.
+Buildcost,residential,terraced_house,national,per_m2,1800,2000,2025H1,excl,FF&E/VAT/siteworks/fees/overheads/abnormals,new-build hard cost
+Buildcost,residential,semi_detached_house,national,per_m2,2000,2200,2025H1,excl,FF&E/VAT/siteworks/fees/overheads/abnormals,new-build hard cost
+Buildcost,residential,apartment,national,per_m2,2500,3000,2025H1,excl,FF&E/VAT/siteworks/fees/overheads/abnormals,depends on typology / rise
+Buildcost,residential,creche_grey_box,national,per_m2,1300,1600,2025H1,excl,FF&E/VAT/siteworks/fees/overheads/abnormals,
+Buildcost,residential,student_shared_accommodation,national,per_unit,120000,135000,2025H1,excl,FF&E/VAT/siteworks/fees/overheads/abnormals,per bed-space
+Buildcost,education,primary_school,national,per_m2,2132,2132,2025H1,excl,FF&E + add 12.5% external + abnormals,DOE allowance basic building
+Buildcost,education,secondary_school,national,per_m2,2132,2132,2025H1,excl,FF&E + add 12.5% external + abnormals,DOE allowance basic building
+Buildcost,education,sports_hall,national,per_m2,2771,2771,2025H1,excl,FF&E + add 12.5% external + abnormals,DOE allowance
+Buildcost,education,third_level,national,per_m2,4000,5000,2025H1,excl,FF&E/VAT/siteworks/fees,
+Buildcost,health,primary_care_centre,national,per_m2,2800,3800,2025H1,excl,medical equipment + FF&E/VAT/siteworks/fees,
+Buildcost,health,hospital,national,per_m2,7000,10000,2025H1,excl,medical equipment + FF&E/VAT/siteworks/fees,
+Buildcost,office,suburban_shell_core,national,per_m2,2700,3200,2025H1,excl,FF&E/VAT/siteworks/fees/overheads/abnormals,
+Buildcost,office,city_centre_shell_core,national,per_m2,3400,4000,2025H1,excl,FF&E/VAT/siteworks/fees/overheads/abnormals,
+Buildcost,office,fitout_cat_a,national,per_m2,700,1000,2025H1,excl,FF&E/VAT,
+Buildcost,office,fitout_cat_b,national,per_m2,2200,3000,2025H1,excl,FF&E/VAT,
+Buildcost,retail,shopping_centre_anchor,national,per_m2,1500,1800,2025H1,excl,FF&E/VAT/siteworks/fees,
+Buildcost,retail,shopping_centre_unit,national,per_m2,1700,1900,2025H1,excl,FF&E/VAT/siteworks/fees,
+Buildcost,retail,covered_mall,national,per_m2,3300,4000,2025H1,excl,FF&E/VAT/siteworks/fees,
+Buildcost,logistics,warehouse_low_spec,national,per_m2,850,950,2025H1,excl,FF&E/VAT/siteworks/fees,no office
+Buildcost,logistics,warehouse_medium_spec,national,per_m2,900,1050,2025H1,excl,FF&E/VAT/siteworks/fees,10% office
+Buildcost,logistics,warehouse_high_spec,national,per_m2,1050,1250,2025H1,excl,FF&E/VAT/siteworks/fees,10% office
+Buildcost,refurbishment,minor_finishes,national,per_m2,800,1200,2025H1,excl,FF&E/VAT,
+Buildcost,refurbishment,finishes_and_m_and_e,national,per_m2,1200,2000,2025H1,excl,FF&E/VAT,
+Buildcost,refurbishment,finishes_m_and_e_facade,national,per_m2,2700,3300,2025H1,excl,FF&E/VAT,
+Buildcost,heritage,protected_georgian,national,per_m2,3500,5000,2025H1,excl,FF&E/VAT,
+Buildcost,hotel,three_star,national,per_key,160000,180000,2025H1,excl,FF&E/Pool/Spa,
+Buildcost,hotel,four_star,national,per_key,190000,210000,2025H1,excl,FF&E/Pool/Spa,
+Buildcost,hotel,five_star,national,per_key,220000,250000,2025H1,excl,FF&E/Pool/Spa,
+Buildcost,carpark,surface,national,per_space,4500,6000,2025H1,excl,siteworks/fees,
+Buildcost,carpark,multi_storey,national,per_space,19000,25000,2025H1,excl,siteworks/fees,
+Buildcost,carpark,undercroft,national,per_space,25000,30000,2025H1,excl,siteworks/fees,
+Buildcost,carpark,single_basement,national,per_space,50000,70000,2025H1,excl,siteworks/fees,
+Buildcost,carpark,double_basement,national,per_space,70000,85000,2025H1,excl,siteworks/fees,
+Buildcost,infrastructure,estate_roads,national,per_m,3000,3500,2025H1,excl,fees,linear metre
+Buildcost,infrastructure,roads_footpaths_services,national,per_m2,250,300,2025H1,excl,fees,
+Buildcost,infrastructure,civic_public_realm,national,per_m2,500,800,2025H1,excl,fees,
+SCSI_rebuild,residential,semi_detached_3bed,Dublin,per_m2,3190,3190,2024H2,incl,rebuild/reinstatement basis,98 sq.m; insurance reinstatement not new-build
+SCSI_rebuild,residential,semi_detached_3bed,NorthWest,per_m2,2528,2528,2024H2,incl,rebuild/reinstatement basis,98 sq.m; national low
+SCSI_rebuild,residential,detached_4bed,Dublin,per_m2,3300,3300,2024H2,incl,rebuild/reinstatement basis,119 sq.m
+SCSI_rebuild,residential,detached_4bed,NorthWest,per_m2,2639,2639,2024H2,incl,rebuild/reinstatement basis,119 sq.m
+SelfBuild,residential,one_off_house_basic,NorthWest,per_m2,3200,3200,2025H1,incl,one-off self-build incl VAT & finishes,basic design
+SelfBuild,residential,one_off_house_ambitious,NorthWest,per_m2,3800,3800,2025H1,incl,one-off self-build incl VAT & finishes,ambitious design
+SelfBuild,residential,one_off_house_range,national,per_m2,1100,6000,2025H1,incl,one-off self-build incl VAT,full survey spread; architects avg tender ~2100
