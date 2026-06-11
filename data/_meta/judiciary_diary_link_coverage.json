@@ -1,0 +1,46 @@
+{
+  "link_version": "1.0.0",
+  "generated_at": "2026-06-11T17:50:28.529266+00:00",
+  "judge_court_pairs": 72,
+  "matched_pairs": 68,
+  "match_methods": {
+    "surname-court": 19,
+    "no-candidate": 1,
+    "office-title": 1,
+    "exact": 49,
+    "honorific-conflict": 2
+  },
+  "unmatched": [
+    {
+      "judge": "Mr Justice Mcdonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Ms Justice Egan",
+      "court": "Court of Appeal",
+      "match_method": "no-candidate"
+    },
+    {
+      "judge": "Ms Justice Mcdonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "The President",
+      "court": "High Court",
+      "match_method": "office-title"
+    }
+  ],
+  "row_level": {
+    "cases": {
+      "rows_with_judge": 1736,
+      "rows_matched": 1720
+    },
+    "schedule": {
+      "rows_with_judge": 423,
+      "rows_matched": 406
+    }
+  },
+  "note": "Honest-or-nothing matching: ambiguous surnames, honorific conflicts and office titles are left unmatched rather than guessed."
+}
