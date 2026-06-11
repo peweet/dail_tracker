@@ -29,6 +29,7 @@ from legal_diary_extract import (  # noqa: E402
     anonymise,
     parties,
     plaintiff_kind,
+    protected_reason,
     residual_name_tokens,
     strip_refs,
 )
@@ -108,6 +109,20 @@ def test_empty_and_refs_are_safe():
     assert residual_name_tokens("") == []
     # a pure case-reference line strips to nothing publishable
     assert residual_name_tokens(anonymise("RECORD NO. 2022 3507 P")) == []
+
+
+# ----------------------------------------------------------------- in-camera drop keys
+@pytest.mark.parametrize("list_type,case,expect_key", [
+    # ampersand variants must hit the same in-camera keys as the spelled-out forms —
+    # "The Child & Family Agency" bypassed the drop until 2026-06-11 (3 gold rows)
+    ("", "14. 2026 159 The Child & Family Agency -v- D", "child and family"),
+    ("", "The Child and Family Agency -v- T", "child and family"),
+    ("", "K v TUSLA CHILD AND FAMILY AGENCY", "tusla"),
+    ("Wards Of Court List", "In the matter of J.M.", "wards of court"),
+    ("", "ACME LIMITED -v- BETA HOLDINGS DAC", None),  # ordinary commercial: kept
+])
+def test_protected_reason_catches_ampersand_variants(list_type, case, expect_key):
+    assert protected_reason(list_type, case) == expect_key
 
 
 # ----------------------------------------------------------------- live gold parquet

@@ -62,7 +62,7 @@ from services.parquet_io import save_parquet  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-PARSER_VERSION = "1.1.0"  # 1.1.0: plaintiff/defendant split + plaintiff_kind columns
+PARSER_VERSION = "1.1.1"  # 1.1.1: '&'->'and' in protected-key match (Child & Family Agency drop)
 SOURCE_NAME = "Courts Service Legal Diary"
 SOURCE_URL = "https://legaldiary.courts.ie/"
 
@@ -304,7 +304,10 @@ def plaintiff_kind(raw_side: str) -> str:
 
 
 def protected_reason(list_type: str, case: str) -> str | None:
-    blob = f"{list_type} || {case}".lower()
+    # "&" -> "and" BEFORE keyword matching: "The Child & Family Agency" must hit the
+    # "child and family" in-camera key exactly like the spelled-out form (3 Tusla
+    # rows bypassed the drop via the ampersand variant — found 2026-06-11).
+    blob = re.sub(r"\s+", " ", f"{list_type} || {case}".lower().replace("&", " and "))
     return next((k for k in PROTECTED_KEYS if k in blob), None)
 
 
