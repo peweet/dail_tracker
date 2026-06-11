@@ -40,6 +40,7 @@ from ui.components import (
     pagination_controls,
     render_stat_strip,
     stat_item,
+    year_selector,
 )
 from ui.entity_links import api_json_link, bill_detail_url, source_link_html
 from ui.export_controls import export_button
@@ -586,19 +587,9 @@ def _section_statutory_instruments(bill_id: str) -> None:
             f"EU-driven share: {eu_pct:.0f}%"
         )
 
-    # Year pills
+    # Year pills (shared year_selector — same control as every other year filter)
     years = fetch_si_years_for_bill(bill_id)
-    selected_year = (
-        st.pills(
-            "SI year",
-            options=["All years"] + [str(y) for y in years],
-            default="All years",
-            key=f"si_year_{bill_id}",
-            label_visibility="collapsed",
-        )
-        or "All years"
-    )
-    year_val = None if selected_year == "All years" else int(selected_year)
+    year_val = year_selector([str(y) for y in years], key=f"si_year_{bill_id}", include_all=True)
 
     # Operation pills (driven by the composition above)
     selected_op = (

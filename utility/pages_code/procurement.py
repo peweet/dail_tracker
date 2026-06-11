@@ -80,6 +80,7 @@ from ui.components import (
     hide_sidebar,
     paginate,
     pagination_controls,
+    year_selector,
 )
 
 _TOP = 60  # cards shown per non-paginated tab (views are pre-ordered DESC)
@@ -194,14 +195,7 @@ def _year_pills(years: list[int]) -> int | None:
     ``None`` for the all-time default. Renders nothing when no years are available."""
     if not years:
         return None
-    options = ["All years"] + [str(y) for y in years]
-    choice = st.pills("Filter by year", options, default="All years", key="pr_year", label_visibility="collapsed")
-    if not choice or choice == "All years":
-        return None
-    try:
-        return int(choice)
-    except (TypeError, ValueError):
-        return None
+    return year_selector([str(y) for y in years], key="pr_year", include_all=True)
 
 
 def _year_label(year: int | None) -> str:
@@ -462,8 +456,7 @@ def _render_charity_overlap(df: pd.DataFrame) -> None:
         name = _esc(_coalesce(getattr(r, "registered_charity_name", None))) or "—"
         n_auth = _n(r.n_authorities)
         meta = (
-            f"{_awards_word(_n(r.n_awards))} · "
-            f"{n_auth:,} authorit{'ies' if n_auth != 1 else 'y'} · registered charity"
+            f"{_awards_word(_n(r.n_awards))} · {n_auth:,} authorit{'ies' if n_auth != 1 else 'y'} · registered charity"
         )
         pills = [_value_pill(r.awarded_value_safe_eur)]
         pills += [p for p in (_gov_share_pill(getattr(r, "gov_funded_share_latest", None)),) if p]
@@ -496,7 +489,9 @@ def _render_charity_overlap(df: pd.DataFrame) -> None:
 def _tier_toggle(key: str) -> str:
     """'Paid' (SPENT) vs 'Ordered' (COMMITTED) — two lifecycle tiers, never blended."""
     labels = {"Paid (actual spend)": "SPENT", "Ordered (purchase orders)": "COMMITTED"}
-    choice = st.segmented_control("Tier", list(labels), default="Paid (actual spend)", key=key, label_visibility="collapsed")
+    choice = st.segmented_control(
+        "Tier", list(labels), default="Paid (actual spend)", key=key, label_visibility="collapsed"
+    )
     return labels.get(choice or "Paid (actual spend)", "SPENT")
 
 
@@ -543,7 +538,9 @@ def _render_payments() -> None:
     with c2:
         view_labels = {"Top suppliers": "supplier", "Top public bodies": "publisher"}
         view = view_labels.get(
-            st.segmented_control("View", list(view_labels), default="Top suppliers", key="pr_pay_view", label_visibility="collapsed")
+            st.segmented_control(
+                "View", list(view_labels), default="Top suppliers", key="pr_pay_view", label_visibility="collapsed"
+            )
             or "Top suppliers",
             "supplier",
         )
@@ -574,8 +571,14 @@ def _render_paid_suppliers(tier: str) -> None:
         meta = f"{_n(r.n_payments):,} payment{'s' if _n(r.n_payments) != 1 else ''} · {np_:,} public bod{'ies' if np_ != 1 else 'y'}"
         if _truthy(getattr(r, "vat_mixed", None)):
             meta += " · mixed VAT bases (floor)"
-        pills = [p for p in (_paid_pill(r.total_safe_eur, tier),
-                             _cro_pill_from(getattr(r, "cro_company_num", None), getattr(r, "cro_company_status", None))) if p]
+        pills = [
+            p
+            for p in (
+                _paid_pill(r.total_safe_eur, tier),
+                _cro_pill_from(getattr(r, "cro_company_num", None), getattr(r, "cro_company_status", None)),
+            )
+            if p
+        ]
         cards.append(_card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=i))
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
 
@@ -602,7 +605,9 @@ def _render_paid_publishers(tier: str) -> None:
     st.caption(f"Public bodies by money {_paid_verb(tier)} (sum-safe within each body). Click one for its suppliers.")
     cards = []
     for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
-        meta = f"{_n(r.n_suppliers):,} supplier{'s' if _n(r.n_suppliers) != 1 else ''} · {_n(r.min_year)}–{_n(r.max_year)}"
+        meta = (
+            f"{_n(r.n_suppliers):,} supplier{'s' if _n(r.n_suppliers) != 1 else ''} · {_n(r.min_year)}–{_n(r.max_year)}"
+        )
         vat = _coalesce(getattr(r, "vat_status", None))
         pills = [_paid_pill(r.total_safe_eur, tier)]
         if _coalesce(getattr(r, "publisher_type", None)) == "local_authority":
@@ -641,9 +646,9 @@ def _render_council_accounts_context(council: str, active_tier: str) -> None:
         '<div class="pr-afs">'
         '<div class="pr-afs-head">Council accounts — all spending (audited)</div>'
         f'<p class="pr-cap" style="margin-top:0">From the council’s own audited Annual Financial '
-        f'Statement (revenue account, {_esc(span)}): spending by service. This is the council’s '
-        '<strong>whole</strong> operating spend — a broader, separate measure from the purchase-order '
-        'figures above, and <strong>never added to them</strong>.</p></div>'
+        f"Statement (revenue account, {_esc(span)}): spending by service. This is the council’s "
+        "<strong>whole</strong> operating spend — a broader, separate measure from the purchase-order "
+        "figures above, and <strong>never added to them</strong>.</p></div>"
     )
     # (1) revenue spend per year — a DISTINCT colour from the PO chart's brown to signal a different grain.
     st.caption("Operating spending per year (revenue account, audited €)")
@@ -658,18 +663,21 @@ def _render_council_accounts_context(council: str, active_tier: str) -> None:
         if not usable.empty:
             crow = usable.sort_values("year").iloc[-1]
             yr, gross, po, pct = (
-                _n(crow.get("year")), crow.get("afs_gross_eur"), crow.get(po_col), crow.get(pct_col),
+                _n(crow.get("year")),
+                crow.get("afs_gross_eur"),
+                crow.get(po_col),
+                crow.get(pct_col),
             )
             verb = _paid_verb(active_tier)  # 'paid' / 'ordered'
             st.html(
                 '<div class="pr-afs-trace">'
                 f'<div class="pr-afs-trace-fig"><strong>{_eur(gross)}</strong> spent (accounts, {yr})'
-                f' · <strong>{_eur(po)}</strong> traceable to named suppliers'
-                f' · <strong>{float(pct):g}%</strong></div>'
+                f" · <strong>{_eur(po)}</strong> traceable to named suppliers"
+                f" · <strong>{float(pct):g}%</strong></div>"
                 f'<div class="pr-afs-trace-cap">Indicative coverage only. The accounts figure is the '
-                f'council’s full audited operating spend; the supplier figure counts only purchases '
-                f'over the €20,000 publication threshold ({verb} via purchase orders). Different '
-                'thresholds and stages — a coverage signal, not a reconciliation.</div></div>'
+                f"council’s full audited operating spend; the supplier figure counts only purchases "
+                f"over the €20,000 publication threshold ({verb} via purchase orders). Different "
+                "thresholds and stages — a coverage signal, not a reconciliation.</div></div>"
             )
 
     # (2) latest-year by-division breakdown — compact cards, largest service first.
@@ -766,8 +774,11 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
     cards = []
     for i, r in enumerate(df.itertuples(), start=1):
         meta = f"{_n(r.n_payments):,} {_paid_verb(active)} line{'s' if _n(r.n_payments) != 1 else ''} · {_n(r.min_year)}–{_n(r.max_year)}"
-        pills = [p for p in (_paid_pill(r.total_safe_eur, active),
-                             _cro_pill_from(getattr(r, "cro_company_num", None), None)) if p]
+        pills = [
+            p
+            for p in (_paid_pill(r.total_safe_eur, active), _cro_pill_from(getattr(r, "cro_company_num", None), None))
+            if p
+        ]
         cards.append(_card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=i))
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.html(_FOOT_HTML)
@@ -895,9 +906,7 @@ def _render_ted() -> None:
     st.caption(f"Top {len(df):,} firms by number of EU award notices won. Value is awarded value, not spend.")
     cards = []
     for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
-        meta = (
-            f"{_awards_word(_n(r.n_awards))} · {_n(r.n_buyers):,} buyer{'s' if _n(r.n_buyers) != 1 else ''}"
-        )
+        meta = f"{_awards_word(_n(r.n_awards))} · {_n(r.n_buyers):,} buyer{'s' if _n(r.n_buyers) != 1 else ''}"
         cro = _cro_pill_from(getattr(r, "cro_company_num", None), getattr(r, "cro_company_status", None))
         pills = [p for p in (_ted_value_pill(r.ted_value_safe_eur), cro) if p]
         cards.append(_card(f"<span>{_esc(r.winner_name)}</span>", meta, pills, rank=i))
@@ -963,13 +972,23 @@ def _render_ted_supplier_panel(supplier_norm: str) -> None:
         name_pre = f"<strong>{_esc(_coalesce(getattr(nr, 'winner_name', None)))}</strong> — " if show_name else ""
         return (
             f'<li class="pr-notice"><a href="{_esc(url)}" target="_blank" rel="noopener">'
-            f"{name_pre}{buyer} · {date} ↗</a> <span class=\"pr-notice-tag\">{tag}</span></li>"
+            f'{name_pre}{buyer} · {date} ↗</a> <span class="pr-notice-tag">{tag}</span></li>'
         )
 
-    exact_li = [li for nr in ndf.itertuples() if _truthy(getattr(nr, "is_exact_name", False))
-                for li in (_notice_li(nr, show_name=False),) if li]
-    variant_li = [li for nr in ndf.itertuples() if not _truthy(getattr(nr, "is_exact_name", False))
-                  for li in (_notice_li(nr, show_name=True),) if li]
+    exact_li = [
+        li
+        for nr in ndf.itertuples()
+        if _truthy(getattr(nr, "is_exact_name", False))
+        for li in (_notice_li(nr, show_name=False),)
+        if li
+    ]
+    variant_li = [
+        li
+        for nr in ndf.itertuples()
+        if not _truthy(getattr(nr, "is_exact_name", False))
+        for li in (_notice_li(nr, show_name=True),)
+        if li
+    ]
 
     if exact_li or variant_li:
         total = len(exact_li) + len(variant_li)
@@ -1028,7 +1047,10 @@ def _render_ted_tenders() -> None:
     )
     cards = []
     for r in df.head(_TOP).itertuples():
-        meta_parts = [_esc(_coalesce(getattr(r, "cpv_division", None))), _esc(_coalesce(getattr(r, "procedure_type", None)))]
+        meta_parts = [
+            _esc(_coalesce(getattr(r, "cpv_division", None))),
+            _esc(_coalesce(getattr(r, "procedure_type", None))),
+        ]
         dl = _coalesce(getattr(r, "submission_deadline", None))
         if dl:
             meta_parts.append(f"deadline {fmt_civic_date(dl)}")
@@ -1391,22 +1413,32 @@ def _render_qs_valuation() -> None:
         with c3:
             per_m2 = is_m2.get(subtype, False)
             area = st.number_input(
-                "Floor area each (m²)", min_value=0, value=95 if per_m2 else 0, step=5,
-                key="qs_area", disabled=not per_m2, help="Required for per-m² building types.",
+                "Floor area each (m²)",
+                min_value=0,
+                value=95 if per_m2 else 0,
+                step=5,
+                key="qs_area",
+                disabled=not per_m2,
+                help="Required for per-m² building types.",
             )
         c4, c5 = st.columns(2)
         with c4:
             yr = st.selectbox(
-                "Award year (optional)", [None, *range(2025, 2012, -1)],
-                format_func=lambda y: "current costs" if y is None else str(y), key="qs_year",
+                "Award year (optional)",
+                [None, *range(2025, 2012, -1)],
+                format_func=lambda y: "current costs" if y is None else str(y),
+                key="qs_year",
             )
         with c5:
             ceiling = st.number_input(
                 "Framework / DPS ceiling € (optional)", min_value=0, value=0, step=100_000, key="qs_ceiling"
             )
         est = qs.estimate(
-            subtype, units=int(units), area_m2=float(area) or None,
-            award_year=yr, framework_ceiling_eur=float(ceiling) or None,
+            subtype,
+            units=int(units),
+            area_m2=float(area) or None,
+            award_year=yr,
+            framework_ceiling_eur=float(ceiling) or None,
         )
         if not est.ok:
             st.caption(est.message)
@@ -1421,8 +1453,8 @@ def _render_qs_valuation() -> None:
             f'<div style="font-size:1.5rem;font-weight:750;color:var(--ink-strong);'
             f'font-variant-numeric:tabular-nums">{_esc(_eur_scale(v["low"]))} – {_esc(_eur_scale(v["high"]))}</div>'
             f'<div style="font-size:0.82rem;color:var(--text-secondary)">midpoint '
-            f'{_esc(_eur_scale(v["mid"]))} · {_esc(p["read_as"]["per_unit_basis"])} × {p["read_as"]["units"]} · '
-            f'{_esc(p["year_adjustment"])}</div></div>'
+            f"{_esc(_eur_scale(v['mid']))} · {_esc(p['read_as']['per_unit_basis'])} × {p['read_as']['units']} · "
+            f"{_esc(p['year_adjustment'])}</div></div>"
         )
         if "ceiling_reading" in p:
             st.html(f'<div class="pr-caveat">{_esc(p["ceiling_reading"])}</div>')
@@ -1431,6 +1463,8 @@ def _render_qs_valuation() -> None:
             f"Method: {p['method']}. Basis: {p['basis']['source']} {p['basis']['basis_period']}, "
             f"{p['basis']['vat']} (excludes {p['basis']['excludes']}). Sources: {', '.join(p['sources'])}."
         )
+
+
 # ╔══════════════════════════════════════════════════════════════════════════════════════╗
 # ║ END EXPERIMENTAL QS VALUATION FEATURE — delete up to the matching ╔ marker above.       ║
 # ╚══════════════════════════════════════════════════════════════════════════════════════╝

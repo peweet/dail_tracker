@@ -1,64 +1,386 @@
 {
-  "councils_attempted": 1,
-  "councils_with_rows": 1,
-  "rows_extracted": 6654,
-  "rows_public_display": 5539,
-  "rows_quarantined": 1115,
+  "councils_attempted": 24,
+  "councils_with_rows": 19,
+  "rows_extracted": 20404,
+  "rows_public_display": 16420,
+  "rows_quarantined": 3984,
   "supplier_class_counts": {
-    "public_body": 4,
-    "foreign_company": 1,
-    "company": 5534,
-    "sole_trader_or_individual": 1115
+    "public_body": 1386,
+    "sole_trader_or_individual": 3869,
+    "id_code": 115,
+    "foreign_company": 9,
+    "company": 15025
   },
   "value_kind_counts": {
-    "po_committed": 6654
+    "po_committed": 18210,
+    "payment_actual": 2194
   },
-  "public_safe_to_sum_rows": 5539,
-  "public_safe_to_sum_total_eur": 680701127.3,
+  "public_safe_to_sum_rows": 16420,
+  "public_safe_to_sum_total_eur": 2059390325.02,
   "by_council": [
     {
       "slug": "south_dublin",
       "council": "South Dublin",
       "region": "Dublin",
       "value_kind": "po_committed",
-      "files_parsed": 33,
-      "rows": 6654,
-      "total_eur": 738811935.78,
-      "cro_rate": 0.518,
+      "files_parsed": 6,
+      "rows": 1199,
+      "total_eur": 116225272.06,
+      "cro_rate": 0.658,
       "periods": [
-        "2017-Q4",
-        "2018-Q1",
-        "2018-Q2",
-        "2018-Q3",
-        "2018-Q4",
-        "2019-Q1",
-        "2019-Q2",
-        "2019-Q3",
-        "2019-Q4",
-        "2020-Q1",
-        "2020-Q2",
-        "2020-Q3",
-        "2020-Q4",
-        "2021-Q1",
-        "2021-Q2",
-        "2021-Q3",
-        "2021-Q4",
-        "2022-Q1",
-        "2022-Q2",
-        "2022-Q3",
-        "2022-Q4",
-        "2023-Q1",
-        "2023-Q2",
-        "2023-Q3",
-        "2024-Q1",
-        "2024-Q2",
-        "2024-Q3",
         "2024-Q4",
         "2025-Q1",
         "2025-Q2",
         "2025-Q3",
         "2025-Q4",
         "2026-Q1"
+      ]
+    },
+    {
+      "slug": "cork_city",
+      "council": "Cork City",
+      "region": "Munster",
+      "value_kind": "po_committed",
+      "files_parsed": 4,
+      "rows": 789,
+      "total_eur": 142790083.48,
+      "cro_rate": 0.635,
+      "periods": [
+        "2025-Q1",
+        "2025-Q2",
+        "2025-Q3",
+        "2025-Q4"
+      ]
+    },
+    {
+      "slug": "wicklow",
+      "council": "Wicklow",
+      "region": "Leinster",
+      "value_kind": "po_committed",
+      "files_parsed": 0,
+      "rows": 0,
+      "total_eur": 0,
+      "cro_rate": 0.0,
+      "periods": []
+    },
+    {
+      "slug": "monaghan",
+      "council": "Monaghan",
+      "region": "Ulster",
+      "value_kind": "po_committed",
+      "files_parsed": 5,
+      "rows": 492,
+      "total_eur": 68400835.66,
+      "cro_rate": 0.625,
+      "periods": [
+        "2025-Q1",
+        "2025-Q2",
+        "2025-Q3",
+        "2025-Q4",
+        "2026-Q1"
+      ]
+    },
+    {
+      "slug": "kilkenny",
+      "council": "Kilkenny",
+      "region": "Leinster",
+      "value_kind": "po_committed",
+      "files_parsed": 5,
+      "rows": 962,
+      "total_eur": 117734126.17,
+      "cro_rate": 0.311,
+      "periods": [
+        "2024-Q4",
+        "2025-Q1",
+        "2025-Q2",
+        "2025-Q3",
+        "2026-Q1"
+      ]
+    },
+    {
+      "slug": "wexford",
+      "council": "Wexford",
+      "region": "Leinster",
+      "value_kind": "po_committed",
+      "files_parsed": 4,
+      "rows": 755,
+      "total_eur": 79471765.60000001,
+      "cro_rate": 0.512,
+      "periods": [
+        "2025-Q2",
+        "2025-Q3",
+        "2025-Q4",
+        "2026-Q1"
+      ]
+    },
+    {
+      "slug": "cork_county",
+      "council": "Cork County",
+      "region": "Munster",
+      "value_kind": "po_committed",
+      "files_parsed": 6,
+      "rows": 1796,
+      "total_eur": 111847095.59,
+      "cro_rate": 0.342,
+      "periods": [
+        "2025-Q1",
+        "2025-Q2",
+        "2025-Q3",
+        "2025-Q4",
+        "2026-Q1"
+      ]
+    },
+    {
+      "slug": "kildare",
+      "council": "Kildare",
+      "region": "Leinster",
+      "value_kind": "po_committed",
+      "files_parsed": 6,
+      "rows": 1456,
+      "total_eur": 151949618.43,
+      "cro_rate": 0.675,
+      "periods": [
+        "2024-Q2",
+        "2024-Q3",
+        "2024-Q4",
+        "2025-Q1",
+        "2025-Q2",
+        "2025-Q3"
+      ]
+    },
+    {
+      "slug": "westmeath",
+      "council": "Westmeath",
+      "region": "Leinster",
+      "value_kind": "po_committed",
+      "files_parsed": 6,
+      "rows": 781,
+      "total_eur": 68497838.38,
+      "cro_rate": 0.088,
+      "periods": [
+        "2024-Q2",
+        "2025-Q1",
+        "2025-Q2",
+        "2025-Q3",
+        "2025-Q4",
+        "2026-Q1"
+      ]
+    },
+    {
+      "slug": "waterford",
+      "council": "Waterford",
+      "region": "Munster",
+      "value_kind": "po_committed",
+      "files_parsed": 6,
+      "rows": 606,
+      "total_eur": 113113888.47,
+      "cro_rate": 0.159,
+      "periods": [
+        "2024-Q3",
+        "2024-Q4",
+        "2025-Q1",
+        "2025-Q2",
+        "2025-Q3",
+        "2025-Q4"
+      ]
+    },
+    {
+      "slug": "limerick",
+      "council": "Limerick",
+      "region": "Munster",
+      "value_kind": "po_committed",
+      "files_parsed": 1,
+      "rows": 171,
+      "total_eur": 49619636.86,
+      "cro_rate": 0.638,
+      "periods": [
+        "2026-Q1"
+      ]
+    },
+    {
+      "slug": "offaly",
+      "council": "Offaly",
+      "region": "Leinster",
+      "value_kind": "payment_actual",
+      "files_parsed": 5,
+      "rows": 1592,
+      "total_eur": 226382269.62,
+      "cro_rate": 0.275,
+      "periods": [
+        "2024-Q3",
+        "2024-Q4",
+        "2025-Q2",
+        "2025-Q3",
+        "2025-Q4"
+      ]
+    },
+    {
+      "slug": "longford",
+      "council": "Longford",
+      "region": "Leinster",
+      "value_kind": "po_committed",
+      "files_parsed": 6,
+      "rows": 433,
+      "total_eur": 30008896.78,
+      "cro_rate": 0.537,
+      "periods": [
+        "2024-Q1",
+        "2024-Q3",
+        "2025-Q1",
+        "2025-Q2",
+        "2025-Q3",
+        "2025-Q4"
+      ]
+    },
+    {
+      "slug": "galway_city",
+      "council": "Galway City",
+      "region": "Connacht",
+      "value_kind": "po_committed",
+      "files_parsed": 6,
+      "rows": 1743,
+      "total_eur": 116568757.95,
+      "cro_rate": 0.093,
+      "periods": [
+        "2025-Q1",
+        "2025-Q2",
+        "2025-Q3",
+        "2025-Q4",
+        "2026",
+        "2026-Q1"
+      ]
+    },
+    {
+      "slug": "galway_county",
+      "council": "Galway County",
+      "region": "Connacht",
+      "value_kind": "po_committed",
+      "files_parsed": 5,
+      "rows": 1461,
+      "total_eur": 181062812.13,
+      "cro_rate": 0.606,
+      "periods": [
+        "2024",
+        "2025-Q2",
+        "2025-Q3",
+        "2025-Q4"
+      ]
+    },
+    {
+      "slug": "kerry",
+      "council": "Kerry",
+      "region": "Munster",
+      "value_kind": "po_committed",
+      "files_parsed": 0,
+      "rows": 0,
+      "total_eur": 0,
+      "cro_rate": 0.0,
+      "periods": []
+    },
+    {
+      "slug": "meath",
+      "council": "Meath",
+      "region": "Leinster",
+      "value_kind": "payment_actual",
+      "files_parsed": 3,
+      "rows": 602,
+      "total_eur": 139276525.06,
+      "cro_rate": 0.434,
+      "periods": [
+        "2025-Q1",
+        "2025-Q2",
+        "2025-Q3"
+      ]
+    },
+    {
+      "slug": "sligo",
+      "council": "Sligo",
+      "region": "Connacht",
+      "value_kind": "po_committed",
+      "files_parsed": 0,
+      "rows": 0,
+      "total_eur": 0,
+      "cro_rate": 0.0,
+      "periods": []
+    },
+    {
+      "slug": "clare",
+      "council": "Clare",
+      "region": "Munster",
+      "value_kind": "po_committed",
+      "files_parsed": 6,
+      "rows": 907,
+      "total_eur": 91510844.47,
+      "cro_rate": 0.526,
+      "periods": [
+        "2024",
+        "2025",
+        "2025-Q4",
+        "2026-Q1"
+      ]
+    },
+    {
+      "slug": "leitrim",
+      "council": "Leitrim",
+      "region": "Connacht",
+      "value_kind": "po_committed",
+      "files_parsed": 1,
+      "rows": 21,
+      "total_eur": 4522206.0,
+      "cro_rate": 0.25,
+      "periods": [
+        "2023"
+      ]
+    },
+    {
+      "slug": "laois",
+      "council": "Laois",
+      "region": "Leinster",
+      "value_kind": "po_committed",
+      "files_parsed": 0,
+      "rows": 0,
+      "total_eur": 0,
+      "cro_rate": 0.0,
+      "periods": []
+    },
+    {
+      "slug": "fingal",
+      "council": "Fingal",
+      "region": "Dublin",
+      "value_kind": "po_committed",
+      "files_parsed": 0,
+      "rows": 0,
+      "total_eur": 0,
+      "cro_rate": 0.0,
+      "periods": []
+    },
+    {
+      "slug": "mayo",
+      "council": "Mayo",
+      "region": "Connacht",
+      "value_kind": "po_committed",
+      "files_parsed": 1,
+      "rows": 338,
+      "total_eur": 60999266.91,
+      "cro_rate": 0.588,
+      "periods": []
+    },
+    {
+      "slug": "donegal",
+      "council": "Donegal",
+      "region": "Ulster",
+      "value_kind": "po_committed",
+      "files_parsed": 6,
+      "rows": 4300,
+      "total_eur": 597711151.4300001,
+      "cro_rate": 0.353,
+      "periods": [
+        "2021",
+        "2022",
+        "2023",
+        "2024",
+        "2025",
+        "2026"
       ]
     }
   ],
@@ -67,6 +389,6 @@
   "parser_version": "0.1.0",
   "taxonomy": "master value_kind + realisation_tier; unions with public_payments_fact (rename that fact's amount_semantics\u2192value_kind, derive realisation_tier).",
   "source": "Each LA's own website, Circular Fin 07/2012 publications (CC-BY / attribute).",
-  "generated_at": "2026-06-08T17:57:12+00:00",
+  "generated_at": "2026-06-11T06:28:43+00:00",
   "caveat": "One row = one published PO/payment line. value_kind distinguishes po_committed (ordered/COMMITTED) vs payment_actual (paid/SPENT); only value_safe_to_sum may be totalled, within a council+period, labelled 'ordered'/'paid', never mixed with award ceilings. Personal-data payees (sole_trader/id_code/unknown) are quarantined (public_display=False). A line is a purchase order or payment, NOT evidence of influence."
 }

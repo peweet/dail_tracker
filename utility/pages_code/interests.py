@@ -37,7 +37,6 @@ from ui.components import (
     clickable_card_link,
     empty_state,
     evidence_heading,
-    field_label,
     hero_banner,
     hide_sidebar,
     main_member_jump,
@@ -180,8 +179,8 @@ def interests_page() -> None:
         title="What has your TD declared?",
     )
 
-    # ── Chamber scope (was the sidebar) ────────────────────────────────────────
-    field_label("Chamber")
+    # ── Chamber scope (was the sidebar) — unlabelled segmented control under
+    # the hero, the same treatment as every other page's chamber picker.
     house: str = (
         st.segmented_control(
             "Chamber",

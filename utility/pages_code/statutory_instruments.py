@@ -32,6 +32,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from data_access.freshness_data import freshness_line
 from data_access.legislation_data import (
     fetch_si_amendments_made,
     fetch_si_entity_index,
@@ -51,6 +52,7 @@ from ui.components import (
     stat_item,
 )
 from ui.entity_links import member_profile_url, source_link_html
+from ui.source_pdfs import provenance_expander
 
 # ── Page config ────────────────────────────────────────────────────────────────
 PAGE_SIZE = 10
@@ -721,10 +723,12 @@ def _render_facets(full_df: pd.DataFrame) -> None:
     # The current year is necessarily year-to-date; tag it so readers don't
     # compare its partial count against full-year neighbours.
     _current_year = datetime.date.today().year
+    # Default = nothing selected = no year filter, matching the corporate and
+    # public-appointments feed pages (an empty multi-select reads as "All").
     st.pills(
         "Year",
         yrs,
-        default=yrs[:3] if len(yrs) >= 3 else yrs,
+        default=[],
         selection_mode="multi",
         key="si_year_filter",
         format_func=lambda y: (
@@ -1408,17 +1412,10 @@ def statutory_instruments_page() -> None:
     # KPI strip above the fold — anchors the headline numbers BEFORE the
     # facet machinery. Session-state values reflect the prior rerun's
     # widget state, so computing `filtered` here (pre-_render_facets)
-    # produces the same result as computing it after. On the very first
-    # render of a session, `si_year_filter` doesn't exist yet — fall back
-    # to the same default the year-pill widget will use (most recent 3
-    # years) so KPIs and the cards below show the same scope. .get() with
-    # no default distinguishes 'never set' (use default) from '[] = user
-    # cleared the filter' (don't re-seed).
-    if "si_year_filter" in st.session_state:
-        _year_filter = st.session_state["si_year_filter"] or []
-    else:
-        _yrs = sorted((int(y) for y in si_df["si_year"].dropna().unique()), reverse=True)
-        _year_filter = _yrs[:3] if len(_yrs) >= 3 else _yrs
+    # produces the same result as computing it after. The year-pill widget
+    # defaults to no selection (= no year filter), so first render and
+    # 'never set' collapse to the same empty list.
+    _year_filter = st.session_state.get("si_year_filter") or []
     filtered = _apply_filters(
         si_df,
         years=_year_filter,
@@ -1440,6 +1437,22 @@ def statutory_instruments_page() -> None:
     _render_facets(si_df)
 
     _render_si_index(filtered)
+
+    # ── Provenance ────────────────────────────────────────────────────────────
+    provenance_expander(
+        sections=[
+            "**Data source:** Iris Oifigiúil, the official State gazette, where every "
+            "statutory instrument is formally notified. Each SI links to its "
+            "authoritative text on irishstatutebook.ie (eISB), and in-force status "
+            "comes from the eISB Classified List of in-force legislation.",
+            "The Dáil Tracker SI corpus covers 2016 onwards — older instruments are "
+            "not yet ingested. Titles, departments and policy domains are parsed from "
+            "the gazette notices; the linked eISB text is always the authoritative "
+            "version.",
+        ],
+        source_caption="Source: Iris Oifigiúil · irishstatutebook.ie (eISB)",
+        freshness=freshness_line("statutory_instruments"),
+    )
 
 
 if __name__ == "__main__":

@@ -178,41 +178,46 @@ def _party_chart(df: pd.DataFrame) -> go.Figure | None:
 
 
 def _year_chart(df: pd.DataFrame) -> None:
-    """Stacked bar of votes by year from td_vote_year_summary rows."""
-    order = ["yes_count", "no_count", "abstained_count"]
-    labels = {"yes_count": "Yes ✓", "no_count": "No ✗", "abstained_count": "Abstained"}
-
-    years = sorted(df["year"].dropna().unique())
-    fig = go.Figure()
-
-    for col in order:
-        if col not in df.columns:
+    """Votes by year as house-style rows: a CSS yes/no/abstained split bar per
+    year plus the counts. Replaced the embedded Plotly stacked chart 2026-06-11
+    (chart iframes clashed with the page's ink-on-paper style). The split bar
+    is a per-row presentation ratio, same as the attendance year bars."""
+    rows_html: list[str] = []
+    for _, r in df.sort_values("year", ascending=False).iterrows():
+        year = int(r["year"])
+        yes_n = int(r.get("yes_count", 0) or 0)
+        no_n = int(r.get("no_count", 0) or 0)
+        abst_n = int(r.get("abstained_count", 0) or 0)
+        total = yes_n + no_n + abst_n
+        if total == 0:
             continue
-        y_vals = []
-        for yr in years:
-            yr_rows = df[df["year"] == yr]
-            y_vals.append(int(yr_rows[col].iloc[0]) if not yr_rows.empty else 0)
-        fig.add_trace(
-            go.Bar(
-                name=labels[col],
-                x=[int(y) for y in years],
-                y=y_vals,
-                marker_color=_VOTE_COLOURS.get(labels[col], "#adb5bd"),
-            )
+        yes_pct = yes_n / total * 100
+        no_pct = no_n / total * 100
+        abst_pct = max(0.0, 100.0 - yes_pct - no_pct)
+        counts = f"<strong>{yes_n}</strong> Yes · <strong>{no_n}</strong> No"
+        if abst_n:
+            counts += f" · <strong>{abst_n}</strong> Abstained"
+        rows_html.append(
+            f'<div class="att-year-row vote-year-row">'
+            f'<span class="att-year-yr">{year}</span>'
+            f'<div class="att-year-bar-track vote-year-track" role="img" '
+            f'aria-label="{year}: {yes_n} yes, {no_n} no, {abst_n} abstained">'
+            f'<div class="vote-year-seg vote-year-seg-yes" style="width:{yes_pct:.1f}%"></div>'
+            f'<div class="vote-year-seg vote-year-seg-no" style="width:{no_pct:.1f}%"></div>'
+            f'<div class="vote-year-seg vote-year-seg-abst" style="width:{abst_pct:.1f}%"></div>'
+            f"</div>"
+            f'<span class="att-year-days vote-year-counts">{counts}</span>'
+            f'<span class="att-year-pct">{total}</span>'
+            f"</div>"
         )
-
-    fig.update_layout(
-        barmode="stack",
-        height=200,
-        margin=dict(l=0, r=0, t=10, b=10),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Epilogue, sans-serif", size=12),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-        xaxis=dict(showgrid=False, tickmode="linear", dtick=1),
-        yaxis=dict(showgrid=True, gridcolor="rgba(0,0,0,0.08)"),
+    st.html(
+        '<div class="att-year-list">'
+        '<div class="vote-year-legend">'
+        '<span class="vote-year-key vote-year-key-yes"></span>Yes&nbsp;&nbsp;'
+        '<span class="vote-year-key vote-year-key-no"></span>No&nbsp;&nbsp;'
+        '<span class="vote-year-key vote-year-key-abst"></span>Abstained'
+        "</div>" + "".join(rows_html) + "</div>"
     )
-    st.plotly_chart(fig, width="stretch")
 
 
 def render_division_panel(

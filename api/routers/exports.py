@@ -40,9 +40,7 @@ router = APIRouter(tags=["data"])
 
 EXPORT_CACHE_DIR = PROJECT_ROOT / "data" / "_export_cache"
 
-_ETENDERS_ATTRIBUTION = (
-    "Contains Irish Public Sector Data (Office of Government Procurement) licensed under CC-BY 4.0."
-)
+_ETENDERS_ATTRIBUTION = "Contains Irish Public Sector Data (Office of Government Procurement) licensed under CC-BY 4.0."
 _TED_ATTRIBUTION = "Contains information from TED (© European Union), reused under Decision 2011/833/EU."
 _NO_PERSONS_NOTE = (
     "Rows naming natural persons (sole traders / individuals) are excluded from this export; "
@@ -230,7 +228,9 @@ def _manifest_entry(name: str, spec: ExportSpec) -> dict:
         n_rows = con.execute(f"SELECT count(*) FROM read_parquet('{spec.source.as_posix()}'){where}").fetchone()[0]
         latest: str | None = None
         if spec.date_expr:
-            val = con.execute(f"SELECT {spec.date_expr} FROM read_parquet('{spec.source.as_posix()}'){where}").fetchone()[0]
+            val = con.execute(
+                f"SELECT {spec.date_expr} FROM read_parquet('{spec.source.as_posix()}'){where}"
+            ).fetchone()[0]
             latest = str(val)[:10] if val is not None else None
     finally:
         con.close()
@@ -243,7 +243,9 @@ def _manifest_entry(name: str, spec: ExportSpec) -> dict:
     return entry
 
 
-@router.get("/data", summary="Bulk export manifest — every downloadable dataset with licence, caveats and data currency")
+@router.get(
+    "/data", summary="Bulk export manifest — every downloadable dataset with licence, caveats and data currency"
+)
 def data_manifest() -> dict:
     return {
         "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
