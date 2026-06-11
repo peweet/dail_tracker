@@ -39,6 +39,9 @@ from pages_code.procurement import (
     _lobby_pill,
     _n,
     _render_paid_supplier_panel,
+    _render_supplier_call_offs_panel,
+    _render_supplier_competition_panel,
+    _render_supplier_relationships_panel,
     _render_ted_supplier_panel,
     _supplier_awards_section,
     _truthy,
@@ -129,8 +132,11 @@ def _dossier(supplier_norm: str) -> None:
     finding_lede(sentences)
 
     _supplier_awards_section(row, supplier_norm)
+    _render_supplier_call_offs_panel(supplier_norm)
     _render_paid_supplier_panel(supplier_norm)
     _render_ted_supplier_panel(supplier_norm)
+    _render_supplier_competition_panel(supplier_norm)
+    _render_supplier_relationships_panel(supplier_norm)
     st.html(_DOSSIER_FOOT)
 
 

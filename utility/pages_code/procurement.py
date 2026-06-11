@@ -41,14 +41,22 @@ from data_access.procurement_data import (
     fetch_afs_vs_po_coverage_result,
     fetch_authority_summary_result,
     fetch_available_years,
+    fetch_call_offs_for_supplier_result,
     fetch_charity_overlap_result,
     fetch_awards_for_authority,
     fetch_awards_for_cpv,
     fetch_awards_for_supplier,
+    fetch_competition_by_cpv_result,
     fetch_coverage_stats_result,
     fetch_cpv_summary_result,
+    fetch_dependency_for_supplier_result,
+    fetch_dependency_top_result,
+    fetch_entity_search_result,
+    fetch_incumbency_for_supplier_result,
+    fetch_incumbency_top_result,
     fetch_lobbying_overlap_result,
     fetch_awards_by_year_result,
+    fetch_new_entrants_result,
     fetch_payments_corpus_stats_result,
     fetch_payments_for_publisher_result,
     fetch_payments_for_supplier_result,
@@ -56,7 +64,12 @@ from data_access.procurement_data import (
     fetch_payments_publisher_profile_result,
     fetch_payments_publisher_summary_result,
     fetch_payments_supplier_summary_result,
+    fetch_quarter_profile_top_result,
+    fetch_quarter_totals_result,
+    fetch_sector_breadth_top_result,
+    fetch_single_bid_baseline_result,
     fetch_supplier_concentration_result,
+    fetch_supplier_single_bid_result,
     fetch_supplier_summary_result,
     fetch_ted_awards_by_year_result,
     fetch_ted_competition_stats_result,
@@ -1011,6 +1024,142 @@ def _render_ted_supplier_panel(supplier_norm: str) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Supplier-profile context panels (shared by the in-page ?supplier= profile and the
+# /company dossier). All pre-aggregated in the registered views; factual structure
+# signals with their caveats — never verdicts (no-inference rule).
+# ──────────────────────────────────────────────────────────────────────────────
+def _render_supplier_competition_panel(supplier_norm: str) -> None:
+    """Lot-level single-bid context for one firm (TED 2024+, sole-winner notices only)
+    against the national baseline — OpenTender-style competition context on the profile.
+    Omitted below 5 bid-counted lots (a rate over 2 lots would mislead)."""
+    res = fetch_supplier_single_bid_result(supplier_norm)
+    if not res.ok or res.data.empty:
+        return
+    r = res.data.iloc[0]
+    lots, single = _n(r.get("n_lots_with_bidcount")), _n(r.get("n_single_bid_lots"))
+    if lots < 5:
+        return
+    pct = r.get("single_bid_lot_pct")
+    base_res = fetch_single_bid_baseline_result()
+    base_clause = ""
+    if base_res.ok and not base_res.data.empty:
+        b = base_res.data.iloc[0].get("single_bid_lot_pct")
+        if b is not None:
+            base_clause = f" The national rate across all EU-notice lots is <strong>{float(b):g}%</strong>."
+    excl = _n(r.get("n_multi_winner_notices_excluded"))
+    excl_clause = (
+        f" ({excl:,} multi-winner notice{'' if excl == 1 else 's'} excluded — their lot counts "
+        "can't be attributed to one winner.)"
+        if excl
+        else ""
+    )
+    st.html(
+        '<div class="pr-ted-xref"><div class="pr-ted-xref-h">Competition context (EU notices, 2024+)</div>'
+        f'<div class="pr-ted-xref-b">Of the <strong>{lots:,}</strong> contract lots this firm won outright '
+        f"that report a bid count, <strong>{single:,}</strong> drew a single bid "
+        f"(<strong>{float(pct):g}%</strong>).{base_clause} A single bid is recorded fact, often wholly "
+        f"legitimate (a niche specialism, genuine urgency) — context to look at, never evidence of "
+        f"wrongdoing.{excl_clause}</div></div>"
+    )
+
+
+def _render_supplier_relationships_panel(supplier_norm: str) -> None:
+    """The firm's repeat buyers (distinct-years spans) + its top-buyer share — structure
+    facts from the awards register. Central-purchasing buyers (OGP / EPS) are badged:
+    a streak with them is repeated central-framework success, not a bilateral relationship."""
+    inc = fetch_incumbency_for_supplier_result(supplier_norm)
+    idf = inc.data if inc.ok else pd.DataFrame()
+    idf = idf[idf["n_awards"] >= 2] if not idf.empty else idf
+    dep = fetch_dependency_for_supplier_result(supplier_norm)
+    drow = dep.data.iloc[0] if (dep.ok and not dep.data.empty) else None
+    if idf.empty and drow is None:
+        return
+
+    parts = []
+    if drow is not None and _n(drow.get("total_awards")) >= 5:
+        share = drow.get("top_authority_share_pct")
+        cp = (
+            " — the Office of Government Procurement buys on behalf of the whole public service, "
+            "so this reflects central frameworks, not one bilateral customer"
+            if _truthy(drow.get("top_authority_is_central_purchasing"))
+            else ""
+        )
+        parts.append(
+            f"<strong>{_n(drow.get('awards_from_top_authority')):,}</strong> of its "
+            f"<strong>{_n(drow.get('total_awards')):,}</strong> recorded awards "
+            f"({float(share):g}%) came from <strong>{_esc(drow.get('top_authority'))}</strong>{cp}."
+        )
+    if parts:
+        st.html(
+            '<div class="pr-ted-xref"><div class="pr-ted-xref-h">Buyer relationships</div>'
+            f'<div class="pr-ted-xref-b">{" ".join(parts)} A repeat relationship is a structure fact — '
+            "durable incumbency is often the procurement system working (framework renewals, "
+            "specialist capability).</div></div>"
+        )
+    if not idf.empty and len(idf) >= 1:
+        rows = []
+        for r in idf.itertuples():
+            yrs = _n(r.n_distinct_years)
+            span = f"{_n(r.first_year)}–{_n(r.last_year)}" if _n(r.first_year) != _n(r.last_year) else str(_n(r.first_year))
+            badge = (
+                ' <span class="pr-pill pr-pill-lob">central purchasing body</span>'
+                if _truthy(r.authority_is_central_purchasing)
+                else ""
+            )
+            rows.append(
+                f'<div class="pr-award"><div class="pr-award-body">'
+                f'<div class="pr-award-auth">{_esc(r.contracting_authority)}{badge}</div>'
+                f'<div class="pr-award-meta">{_awards_word(_n(r.n_awards))} across '
+                f"{yrs:,} year{'s' if yrs != 1 else ''} ({span})</div></div></div>"
+            )
+        with st.expander(f"Repeat buyers ({len(idf):,})"):
+            st.html("".join(rows))
+
+
+def _render_supplier_call_offs_panel(supplier_norm: str) -> None:
+    """The firm's call-off awards (drawdowns under a framework/DPS) with the parent
+    agreement named where its notice exists in the corpus — the framework nesting, made
+    visible. An unresolved parent is disclosed, never hidden; a parent ceiling is context,
+    never added to the call-off's own value."""
+    res = fetch_call_offs_for_supplier_result(supplier_norm)
+    df = res.data if res.ok else pd.DataFrame()
+    if df.empty:
+        return
+    resolved = df[df["parent_in_corpus"] == True]  # noqa: E712 — pandas mask
+    n_unresolved = len(df) - len(resolved)
+    with st.expander(f"Framework drawdowns ({len(df):,} call-offs)"):
+        st.html(
+            '<p class="pr-cap">These awards are <strong>call-offs</strong> — drawdowns under a '
+            "framework or dynamic purchasing system. Where the parent agreement's notice is in the "
+            "published corpus it is named below; its ceiling is the framework's spending limit, "
+            "never this call-off's value and never added to it.</p>"
+        )
+        rows = []
+        for r in resolved.head(15).itertuples():
+            parent_bits = [f"under agreement {_esc(r.parent_agreement_id)}"]
+            pv = _eur(getattr(r, "parent_value_eur", None))
+            if pv != "—" and _coalesce(getattr(r, "parent_value_kind", None)) == "framework_or_dps_ceiling":
+                parent_bits.append(f"ceiling {pv}")
+            n_ps = _n(getattr(r, "parent_n_suppliers", None))
+            if n_ps > 1:
+                parent_bits.append(f"{n_ps:,} suppliers on the framework")
+            rows.append(
+                f'<div class="pr-award"><div class="pr-award-body">'
+                f'<div class="pr-award-auth">{_esc(r.contracting_authority)}</div>'
+                f'<div class="pr-award-meta">{fmt_civic_date(getattr(r, "award_date", None))} · '
+                f'{" · ".join(parent_bits)}</div></div>{_award_value_html(r)}</div>'
+            )
+        if rows:
+            st.html("".join(rows))
+        if n_unresolved:
+            st.html(
+                f'<p class="pr-cap">{n_unresolved:,} further call-off{"" if n_unresolved == 1 else "s"} '
+                "name a parent agreement whose own notice is <strong>not in the published corpus</strong> — "
+                "a coverage gap in the source register, disclosed rather than hidden.</p>"
+            )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Tab: Tender pipeline (TED cn-standard) — a THIRD grain (pre-award), never summed.
 # ──────────────────────────────────────────────────────────────────────────────
 def _render_ted_tenders() -> None:
@@ -1096,13 +1245,13 @@ def _award_row(head: str, meta_parts: list[str], r) -> str:
 
 
 def _award_row_html(r) -> str:
-    """Supplier-profile award row — headlines the contracting authority."""
+    """Supplier-profile award row — headlines the contracting authority. Call-off rows are
+    tagged: a drawdown under a framework/DPS, the nesting the register otherwise hides."""
     cpv = _coalesce(getattr(r, "cpv_description", None)) or _coalesce(getattr(r, "cpv_code", None))
-    return _award_row(
-        _esc(r.contracting_authority) or "—",
-        [fmt_civic_date(getattr(r, "award_date", None)), _esc(cpv), _coalesce(getattr(r, "competition_type", None))],
-        r,
-    )
+    meta = [fmt_civic_date(getattr(r, "award_date", None)), _esc(cpv), _coalesce(getattr(r, "competition_type", None))]
+    if _truthy(getattr(r, "is_call_off", None)):
+        meta.append("framework call-off")
+    return _award_row(_esc(r.contracting_authority) or "—", meta, r)
 
 
 def _supplier_head(r) -> str:
@@ -1210,10 +1359,13 @@ def _render_supplier_profile(supplier_norm: str) -> None:
     st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(pills)}</div>')
 
     _supplier_awards_section(row, supplier_norm)
+    _render_supplier_call_offs_panel(supplier_norm)
 
     # Cross-references for the same firm — each a separate register/stage, never summed.
     _render_paid_supplier_panel(supplier_norm)
     _render_ted_supplier_panel(supplier_norm)
+    _render_supplier_competition_panel(supplier_norm)
+    _render_supplier_relationships_panel(supplier_norm)
 
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> eTenders / national procurement open data '
@@ -1306,6 +1458,232 @@ def _render_cpv_profile(cpv_code: str) -> None:
         empty_state("No itemised awards", "This category is in the ranking but no award rows were returned.")
         return
     _render_award_list(awards, key=f"pr_cpv_{cpv_code}", row_fn=_award_row_cpv)
+
+
+def _entity_search_hero() -> None:
+    """Search-first entry (USAspending lesson: people type a NAME first). One box over
+    suppliers + public bodies + categories — the reader never needs to know which register
+    answers their question. DISPLAY-ONLY name filter over the pre-built search corpus
+    (v_procurement_entity_search); renders nothing until the user types."""
+    res = fetch_entity_search_result()
+    if not res.ok or res.data.empty:
+        return
+    q = st.text_input(
+        "Search procurement",
+        placeholder="Search a company, public body or category…",
+        key="pr_hero_q",
+        label_visibility="collapsed",
+    )
+    qs = (q or "").strip()
+    if not qs:
+        return
+    df = res.data
+    hits = df[df["display_name"].str.contains(qs, case=False, na=False)].head(12)
+    if hits.empty:
+        empty_state("No matches", "Try a shorter term — names are matched as published.")
+        return
+    kind_label = {"supplier": "COMPANY", "authority": "PUBLIC BODY", "cpv": "CATEGORY"}
+    aria = {"supplier": "Open the public-money dossier of", "authority": "View the awards made by", "cpv": "View the awards in category"}
+    cards = []
+    for r in hits.itertuples():
+        kind = str(r.entity_kind)
+        meta = _awards_word(_n(r.n_records))
+        nc = _n(r.n_counterparties)
+        if kind == "supplier":
+            meta += f" · {nc:,} public bod{'ies' if nc != 1 else 'y'}"
+        else:
+            meta += f" · {nc:,} supplier{'s' if nc != 1 else ''}"
+        pills = [f'<span class="pr-pill pr-pill-lob">{kind_label.get(kind, kind)}</span>']
+        if _eur(r.awarded_value_safe_eur) != "—":
+            pills.append(_value_pill(r.awarded_value_safe_eur))
+        # Paid figure is a DIFFERENT grain (realised payments) — its own label, never merged.
+        if kind == "supplier" and _eur(getattr(r, "paid_safe_eur", None)) != "—":
+            pills.append(
+                f'<span class="pr-pill pr-pill-val">{_eur(r.paid_safe_eur)} paid (where published)</span>'
+            )
+        if _truthy(getattr(r, "on_lobbying_register", None)):
+            pills.append('<span class="pr-pill pr-pill-lob">also on lobbying register</span>')
+        href = {
+            "supplier": _supplier_href(r.url_key),
+            "authority": _authority_href(r.url_key),
+            "cpv": _cpv_href(r.url_key),
+        }[kind]
+        inner = _card(f"<span>{_esc(r.display_name)}</span>", meta, pills)
+        cards.append(
+            clickable_card_link(href=href, inner_html=inner, aria_label=f"{aria[kind]} {r.display_name}")
+        )
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.caption(
+        "Awarded values are contract ceilings at the point of award; a company's paid figure is a "
+        "separate, later stage (public bodies' own >€20k lists) — the two are never added together."
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Tab: Patterns — factual structure signals from the derived views
+# (doc/PROCUREMENT_NUGGETS.md). Every card is an observable shape in the public
+# record with its caveat attached; prompts to look, never verdicts (no-inference).
+# ──────────────────────────────────────────────────────────────────────────────
+def _render_patterns() -> None:
+    st.html(
+        '<div class="pr-caveat"><strong>Patterns are facts about the register, not findings about '
+        "anyone.</strong> Each panel below shows a structure in the published record — how often one "
+        "bid wins, how long the same firms keep winning, when orders are placed. Any of these shapes "
+        "can be wholly legitimate; they are starting points for a reader's own questions.</div>"
+    )
+
+    # 1. Single-bid by market (lot-level, TED 2024+)
+    comp = fetch_competition_by_cpv_result()
+    if comp.ok and not comp.data.empty:
+        base = fetch_single_bid_baseline_result()
+        base_pct = (
+            float(base.data.iloc[0].get("single_bid_lot_pct"))
+            if base.ok and not base.data.empty and base.data.iloc[0].get("single_bid_lot_pct") is not None
+            else None
+        )
+        st.html('<div class="pr-ted-xref-h" style="margin-top:0.4rem">How often does one bid win, by market?</div>')
+        cap = (
+            "Share of contract lots that drew a single bid, per category (EU award notices, 2024+; "
+            "lots with a reported bid count)."
+        )
+        if base_pct is not None:
+            cap += f" National rate: {base_pct:g}%."
+        cap += " A single bid is often legitimate — niche markets have few capable suppliers."
+        st.caption(cap)
+        cards = []
+        for r in comp.data.head(12).itertuples():
+            pct = r.single_bid_lot_pct
+            meta = (
+                f"{_n(r.n_single_bid_lots):,} of {_n(r.n_lots_with_bidcount):,} lots single-bid · "
+                f"{_n(r.n_buyers):,} buyers"
+            )
+            pill = f'<span class="pr-pill pr-pill-val">{float(pct):g}% single-bid</span>' if pct is not None else ""
+            cards.append(_card(f"<span>{_esc(r.cpv_division)}</span>", meta, [pill] if pill else []))
+        st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+
+    # 2. New entrants per year
+    ne = fetch_new_entrants_result()
+    if ne.ok and not ne.data.empty:
+        shown = ne.data[ne.data["is_left_censored"] == False]  # noqa: E712 — pandas mask
+        if len(shown) > 1:
+            st.html('<div class="pr-ted-xref-h" style="margin-top:1rem">Who gets in — first-time winners</div>')
+            first_y, last_y = _n(shown.iloc[0].get("year")), _n(shown.iloc[-1].get("year"))
+            first_pct, last_pct = shown.iloc[0].get("pct_awards_to_new_entrants"), shown.iloc[-1].get("pct_awards_to_new_entrants")
+            st.caption(
+                f"Share of each year's contract awards won by suppliers with no earlier award in the register: "
+                f"{float(first_pct):g}% in {first_y} → {float(last_pct):g}% in {last_y}. A falling entry rate is a "
+                "market shape — consistent with consolidation, central frameworks, or a maturing register; the "
+                "register only began in 2013, so earlier years are not comparable and are omitted."
+            )
+            st.bar_chart(shown, x="year", y="pct_awards_to_new_entrants", height=200, color="#9c5b2e")
+
+    # 3. Longest-running relationships
+    inc = fetch_incumbency_top_result()
+    if inc.ok and not inc.data.empty:
+        st.html('<div class="pr-ted-xref-h" style="margin-top:1rem">The longest-running winners</div>')
+        st.caption(
+            "Supplier–buyer pairs with awards in six or more different years. Durable incumbency is often "
+            "the system working (framework renewals, specialist capability) — a record of persistence, not "
+            "an accusation. Office of Government Procurement rows reflect central frameworks for the whole "
+            "public service."
+        )
+        cards = []
+        for r in inc.data.head(12).itertuples():
+            yrs = _n(r.n_distinct_years)
+            badge = (
+                '<span class="pr-pill pr-pill-lob">central purchasing body</span>'
+                if _truthy(r.authority_is_central_purchasing)
+                else ""
+            )
+            meta = f"{_awards_word(_n(r.n_awards))} from {_esc(r.contracting_authority)} · {_n(r.first_year)}–{_n(r.last_year)}"
+            pills = [f'<span class="pr-pill pr-pill-val">{yrs} winning years</span>'] + ([badge] if badge else [])
+            inner = _card(f"<span>{_esc(r.supplier)}</span>", meta, pills)
+            cards.append(
+                clickable_card_link(
+                    href=_supplier_href(r.supplier_norm),
+                    inner_html=inner,
+                    aria_label=f"Open the public-money dossier of {r.supplier}",
+                )
+            )
+        st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+
+    # 4. One-buyer suppliers (central purchasing excluded in the query)
+    dep = fetch_dependency_top_result()
+    if dep.ok and not dep.data.empty:
+        st.html('<div class="pr-ted-xref-h" style="margin-top:1rem">Suppliers with one main buyer</div>')
+        st.caption(
+            "Firms that won at least 80% of their recorded awards (10+) from a single public body. "
+            "A specialist serving the one body that buys its specialism is the market working — this is "
+            "a structure fact, not a risk score. Central purchasing bodies are excluded (winning via OGP "
+            "frameworks is how the system is designed)."
+        )
+        cards = []
+        for r in dep.data.head(12).itertuples():
+            meta = (
+                f"{_n(r.awards_from_top_authority):,} of {_n(r.total_awards):,} awards from "
+                f"{_esc(r.top_authority)}"
+            )
+            pills = [f'<span class="pr-pill pr-pill-val">{float(r.top_authority_share_pct):g}% one buyer</span>']
+            inner = _card(f"<span>{_esc(r.supplier)}</span>", meta, pills)
+            cards.append(
+                clickable_card_link(
+                    href=_supplier_href(r.supplier_norm),
+                    inner_html=inner,
+                    aria_label=f"Open the public-money dossier of {r.supplier}",
+                )
+            )
+        st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+
+    # 5. Year-end ordering shape (COMMITTED tier only)
+    qt = fetch_quarter_totals_result()
+    if qt.ok and len(qt.data) == 4:
+        st.html('<div class="pr-ted-xref-h" style="margin-top:1rem">When orders are placed</div>')
+        st.caption(
+            "Purchase-order lines by quarter across all publishing bodies (ordered tier only — never mixed "
+            "with payments). A year-end rise is a known public-finance seasonality; invoicing cycles, grant "
+            "schedules and works seasons all contribute. The shape is the fact; the reason is not asserted."
+        )
+        st.bar_chart(qt.data, x="quarter", y="n_lines", height=200, color="#9c5b2e")
+        skew = fetch_quarter_profile_top_result()
+        if skew.ok and not skew.data.empty:
+            cards = []
+            for r in skew.data.head(6).itertuples():
+                meta = f"{_n(r.n_lines):,} of its order lines fall in Q4"
+                pills = [f'<span class="pr-pill pr-pill-val">{float(r.pct_of_publisher_lines):g}% in Q4</span>']
+                inner = _card(f"<span>{_esc(r.publisher_name)}</span>", meta, pills)
+                cards.append(
+                    clickable_card_link(
+                        href=_paid_publisher_href(r.publisher_name, "COMMITTED"),
+                        inner_html=inner,
+                        aria_label=f"View the suppliers ordered by {r.publisher_name}",
+                    )
+                )
+            st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+
+    # 6. Sector breadth (paid corpus)
+    sb = fetch_sector_breadth_top_result()
+    if sb.ok and not sb.data.empty:
+        st.html('<div class="pr-ted-xref-h" style="margin-top:1rem">Firms paid across the most of the State</div>')
+        st.caption(
+            "Suppliers appearing in the published payment lists of bodies across the most public-service "
+            "sectors (health, councils, justice, …) — reach, as published. Grouped by the published name; "
+            "totals are the usual indicative floors, never audited sums."
+        )
+        cards = []
+        for r in sb.data.head(6).itertuples():
+            meta = f"{_n(r.n_sectors)} sectors · {_n(r.n_publishers):,} public bodies"
+            pills = []
+            if _eur(getattr(r, "paid_safe_eur", None)) != "—":
+                pills.append(f'<span class="pr-pill pr-pill-val">{_eur(r.paid_safe_eur)} paid (floor)</span>')
+            cards.append(_card(f"<span>{_esc(r.supplier_normalised)}</span>", meta, pills))
+        st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+
+    st.html(
+        '<div class="pr-foot"><strong>Method:</strong> every panel reads a registered, documented view '
+        "(doc/PROCUREMENT_NUGGETS.md) over the same published registers as the rest of this page — "
+        "eTenders awards, EU Official Journal notices, and public bodies' own payment lists. Counts and "
+        "shares only within one register and one grain; nothing here mixes award ceilings with payments.</div>"
+    )
 
 
 def _page_lede(stats) -> None:
@@ -1520,6 +1898,10 @@ def procurement_page() -> None:
         "who was awarded public contracts, by which bodies, in which categories.",
     )
 
+    # Search-first entry: one box across companies / public bodies / categories (renders
+    # results only when the user types; the lenses below are untouched otherwise).
+    _entity_search_hero()
+
     # Caveat trimmed to its two load-bearing honesty rails (awarded ≠ paid; no-inference). The
     # ceilings explanation moved to the "What these terms mean" expander (no duplication), and the
     # "€570bn" contrast panel was removed 2026-06-08 — both cut above-the-fold weight.
@@ -1548,13 +1930,15 @@ def procurement_page() -> None:
         empty_state("No supplier records", "The procurement views are loaded but returned no rows.")
         return
 
-    # Two top-level tabs, phrased as the two questions a reader actually brings
-    # (doc/APP_REDESIGN_SWEEP_2026_06_10.md §1: registers → questions). "Who wins
-    # contracts?" holds the award-stage registers (eTenders national / TED EU) plus the
-    # register-overlap disclosures behind one register picker; "Who actually gets paid?"
-    # is the payment stage. Surfacing-only: every lens calls an existing _render_*
-    # function; no logic moves into this layer.
-    tabs = st.tabs(["Who wins contracts?", "Who actually gets paid?"])
+    # Four top-level tabs, phrased as the questions a reader actually brings
+    # (doc/APP_REDESIGN_SWEEP_2026_06_10.md §1 + doc/PROCUREMENT_UI_BRIEF.md: registers →
+    # questions). "Who wins contracts?" holds the award-stage registers (eTenders national /
+    # TED EU) plus the register-overlap disclosures behind one register picker; "Who actually
+    # gets paid?" is the payment stage; "Open right now" promotes the pre-award tender
+    # pipeline to a first-class lens (the forward-looking view, no longer buried two pickers
+    # deep); "Patterns" is the factual signal feed. Surfacing-only: every lens calls a
+    # _render_* function; no logic moves into this layer.
+    tabs = st.tabs(["Who wins contracts?", "Who actually gets paid?", "Open right now", "Patterns"])
 
     with tabs[0]:
         register = st.segmented_control(
@@ -1565,19 +1949,9 @@ def procurement_page() -> None:
             label_visibility="collapsed",
         )
         if register == "EU register (TED)":
-            # Two TED grains behind one control: contract awards WON (2016–2026) vs the
-            # pre-award tender pipeline (opportunities). Different grains, never summed.
-            ted_lens = st.segmented_control(
-                "View",
-                ["Awards won", "Open tenders"],
-                default="Awards won",
-                key="pr_ted_lens",
-                label_visibility="collapsed",
-            )
-            if ted_lens == "Open tenders":
-                _render_ted_tenders()
-            else:
-                _render_ted()
+            # TED contract awards WON (2016–2026). The pre-award tender pipeline moved to
+            # the top-level "Open right now" tab (different grain, never summed).
+            _render_ted()
         elif register == "Register overlaps":
             # Co-occurrence disclosures (same pattern, two registers). All-time scope.
             ov_lens = st.segmented_control(
@@ -1613,6 +1987,12 @@ def procurement_page() -> None:
 
     with tabs[1]:
         _render_payments()
+
+    with tabs[2]:
+        _render_ted_tenders()
+
+    with tabs[3]:
+        _render_patterns()
 
     # ╔═══ EXPERIMENTAL QS VALUATION — REMOVE THIS LINE + the marked block below to delete ═══╗
     _render_qs_valuation()

@@ -72,6 +72,23 @@ def inject_css() -> None:
             line-height: 1;
             white-space: nowrap;
         }
+        /* The brand title doubles as the home link (standard masthead
+           affordance: logo/wordmark → landing page). Same full-reload
+           <a href> routing the rest of the app uses for cross-page links;
+           `/` is rooted on the hidden Home page in utility/app.py. */
+        a.site-banner-title,
+        a.site-banner-title:visited {
+            color: #ffffff;
+            text-decoration: none;
+        }
+        a.site-banner-title:hover,
+        a.site-banner-title:focus-visible {
+            color: #ffffff;
+            text-decoration: underline;
+            text-decoration-color: oklch(70% 0.130 62);
+            text-underline-offset: 0.35em;
+            text-decoration-thickness: 2px;
+        }
         .site-banner-sep {
             width: 1px;
             height: 1rem;
@@ -233,7 +250,12 @@ def inject_css() -> None:
             color: var(--text-secondary) !important;
             padding: 0.38rem 0.75rem !important;
             border-radius: 2px !important;
-            display: block !important;
+            /* flex (not block): keeps the Material icon on the same row as
+               the label — block stacked them and doubled each item's height
+               in the mobile nav drawer. */
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
             letter-spacing: 0.01em !important;
             text-decoration: none !important;
             transition: background 80ms ease, color 80ms ease !important;
@@ -5287,7 +5309,7 @@ def inject_css() -> None:
         """
         <div class="site-banner">
           <div class="site-banner-inner">
-            <span class="site-banner-title">Oireachtas Explorer</span>
+            <a class="site-banner-title" href="/" aria-label="Oireachtas Explorer — back to home">Oireachtas Explorer</a>
             <span class="site-banner-sep"></span>
             <span class="site-banner-sub">Irish parliamentary data, made searchable</span>
           </div>

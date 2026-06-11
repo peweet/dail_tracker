@@ -650,17 +650,24 @@ def hide_sidebar() -> None:
     """Hide the (empty) sidebar rail on a page whose filters have moved into a
     main-panel :func:`filter_bar`.
 
-    Hides the rail, the desktop collapse control, and the mobile expand
-    button, and reverts the dark brand band's 22rem sidebar-clearing gutter
-    to a normal main gutter. Every content page now calls this, so the sidebar
-    is effectively gone app-wide; ``app.py`` also sets
-    ``initial_sidebar_state="collapsed"`` so it never flashes on first paint.
+    Hides the rail and its collapse/expand controls, and reverts the dark
+    brand band's 22rem sidebar-clearing gutter to a normal main gutter. Every
+    content page now calls this, so the sidebar is effectively gone app-wide;
+    ``app.py`` also sets ``initial_sidebar_state="collapsed"`` so it never
+    flashes on first paint.
+
+    Desktop-only (min-width 768px): below Streamlit's md breakpoint the
+    top-nav widget is not rendered at all and st.navigation falls back to the
+    sidebar — hiding the sidebar + expand button there removed ALL cross-page
+    navigation on phones, trapping users on the landing page.
     """
     st.markdown(
         "<style>"
+        "@media (min-width: 768px){"
         '[data-testid="stSidebar"],'
         '[data-testid="stSidebarCollapsedControl"],'
         '[data-testid="stExpandSidebarButton"]{display:none !important;}'
+        "}"
         ".site-banner-inner{padding-left:2rem !important;}"
         "</style>",
         unsafe_allow_html=True,

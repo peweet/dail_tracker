@@ -38,7 +38,7 @@ FROM read_parquet('data/gold/parquet/procurement_awards.parquet')
 WHERE supplier_class = 'company'
   AND NOT name_truncated
   AND length(supplier_norm) >= 4
-  AND supplier_norm <> 'null'
+  AND supplier_norm NOT IN ('NULL', 'null')
   AND TRY_STRPTIME("Notice Published Date/Contract Created Date", '%d/%m/%Y') IS NOT NULL
 GROUP BY supplier_norm, "Contracting Authority"
 HAVING COUNT(*) >= 2

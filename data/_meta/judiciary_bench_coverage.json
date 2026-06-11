@@ -1,6 +1,6 @@
 {
   "parser_version": "1.0.0",
-  "generated_at": "2026-06-06T08:20:46.067214+00:00",
+  "generated_at": "2026-06-11T17:56:11.268376+00:00",
   "appointments_events": 154,
   "appointments_real_court_notices": 114,
   "appointments_junk_dropped": 20,
@@ -15,7 +15,7 @@
     2017,
     2024
   ],
-  "courts_waiting_rows": 45,
+  "courts_waiting_rows": 48,
   "courthouses": 94,
   "salary_bands_available": [
     "Chief Justice",

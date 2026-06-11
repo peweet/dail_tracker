@@ -71,6 +71,14 @@ FIELDS = [
     "received-submissions-type-code",  # 99.2% — submission-type taxonomy (see TENDER_SUBMISSION_CODES)
     "received-submissions-type-val",   # 99.2% — the per-lot submission COUNT (the single-bid signal)
     "award-criterion-type-lot",        # 95.6% — price / cost / quality
+    # ── contract-term layer (expiring-contracts signal; fill rates measured 2026-06-11 on
+    #    2025H2+ CANs — early-2024 eForms-transition notices are sparser) ──
+    "contract-conclusion-date",        # BT-145, ~50% — when the contract was signed
+    "contract-duration-period-lot",    # BT-36,  ~50% — [{unit: MONTH/YEAR/DAY, value: N}] per lot
+    "contract-duration-start-date-lot",  # BT-536, ~4% — explicit start
+    "contract-duration-end-date-lot",    # BT-537, ~2% — explicit end (rare but authoritative)
+    "renewal-maximum-lot",             # BT-58,  ~2% — max renewals advertised
+    "procedure-identifier",            # BT-04, 100% — future join to the CN tender lane
 ]
 # 2024+ is deliberate, NOT an API limit. The API reaches back to 2016, BUT for pre-2024 legacy
 # notices the WINNER is unavailable: verified 2026-06-08 winner-name / winner-identifier /
@@ -221,7 +229,13 @@ def competition_fields(n: dict) -> dict:
     for c, v in zip(codes, vals, strict=False):
         if c in TENDER_SUBMISSION_CODES:
             with contextlib.suppress(TypeError, ValueError):
-                tender_counts.append(int(str(v)))
+                count = int(str(v))
+                # A lot reporting 0 tenders on an AWARD notice is a cancelled/failed
+                # lot, not a bid count — an awarded lot has ≥1 by definition. Keeping
+                # the 0 made min() report nonsense (n_tenders_received=0, 539 rows)
+                # and deflated every single-bid denominator downstream.
+                if count >= 1:
+                    tender_counts.append(count)
     n_tenders = min(tender_counts) if tender_counts else None
 
     crit = n.get("award-criterion-type-lot") or []
@@ -241,10 +255,109 @@ def competition_fields(n: dict) -> dict:
     }
 
 
+# eForms duration units -> months. DAY/WEEK normalised on the average-month basis;
+# durations are advertised terms (whole months dominate), not accounting periods.
+_DURATION_UNIT_MONTHS = {"MONTH": 1.0, "YEAR": 12.0, "DAY": 1 / 30.44, "WEEK": 7 / 30.44, "QUARTER": 3.0}
+
+
+def _first_date(v) -> str | None:
+    """First ISO date from a TED list/scalar value ('2024-01-09Z' -> '2024-01-09')."""
+    if isinstance(v, list):
+        v = v[0] if v else None
+    if not v:
+        return None
+    s = str(v)[:10]
+    return s if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s) else None
+
+
+def _add_months_approx(iso_date: str, months: float) -> str | None:
+    """iso_date + months. Whole months move the calendar month (clamping the day);
+    any fractional remainder is added as average-month days."""
+    from datetime import date, timedelta
+
+    try:
+        d = date.fromisoformat(iso_date)
+    except ValueError:
+        return None
+    whole = int(months)
+    frac_days = round((months - whole) * 30.44)
+    y, m = divmod(d.month - 1 + whole, 12)
+    y += d.year
+    m += 1
+    # clamp day to the target month's length (Jan 31 + 1 month -> Feb 28/29)
+    for day in (d.day, 30, 29, 28):
+        try:
+            out = date(y, m, day)
+            break
+        except ValueError:
+            continue
+    else:
+        return None
+    return (out + timedelta(days=frac_days)).isoformat()
+
+
+def duration_fields(n: dict) -> dict:
+    """Notice-level contract-term facts + the derived estimated end date.
+
+    eForms duration arrives per lot; we take the LONGEST lot term (the latest a part of
+    the contract is advertised to run). The estimate anchors on, in order of preference:
+    explicit end date (BT-537) > explicit start (BT-536) + duration > conclusion date
+    (BT-145) + duration. contract_end_basis records which path produced the estimate so
+    the UI can present it as the advertised term it is — never a verified end date.
+    Renewal options (renewal_max) are surfaced, NOT folded into the estimate.
+    """
+    periods = n.get("contract-duration-period-lot") or []
+    periods = periods if isinstance(periods, list) else [periods]
+    months_vals = []
+    for p in periods:
+        if isinstance(p, dict) and p.get("value") is not None:
+            unit = _DURATION_UNIT_MONTHS.get(str(p.get("unit", "")).upper())
+            with contextlib.suppress(TypeError, ValueError):
+                if unit:
+                    months_vals.append(float(str(p["value"])) * unit)
+    duration_months = round(max(months_vals), 1) if months_vals else None
+
+    conclusion = _first_date(n.get("contract-conclusion-date"))
+    start = _first_date(n.get("contract-duration-start-date-lot"))
+    end_explicit = _first_date(n.get("contract-duration-end-date-lot"))
+
+    end_est, basis = None, None
+    if end_explicit:
+        end_est, basis = end_explicit, "explicit_end_date"
+    elif duration_months is not None and start:
+        end_est, basis = _add_months_approx(start, duration_months), "start_plus_duration"
+    elif duration_months is not None and conclusion:
+        end_est, basis = _add_months_approx(conclusion, duration_months), "conclusion_plus_duration"
+    if end_est is None:
+        basis = None
+
+    renewals = n.get("renewal-maximum-lot") or []
+    renewals = renewals if isinstance(renewals, list) else [renewals]
+    renewal_vals = []
+    for r in renewals:
+        with contextlib.suppress(TypeError, ValueError):
+            renewal_vals.append(int(str(r)))
+    proc_id = n.get("procedure-identifier")
+    if isinstance(proc_id, list):
+        proc_id = proc_id[0] if proc_id else None
+
+    return {
+        "procedure_id": str(proc_id) if proc_id else None,
+        "contract_conclusion_date": conclusion,
+        "contract_start_date": start,
+        "contract_end_date_explicit": end_explicit,
+        "contract_duration_months": duration_months,
+        "renewal_max": max(renewal_vals) if renewal_vals else None,
+        "contract_end_date_est": end_est,
+        "contract_end_basis": basis,
+    }
+
+
 def build_rows(raw: list[dict]) -> list[dict]:
     rows = []
     for n in raw:
         comp = competition_fields(n)
+        term = duration_fields(n)
         winners = names_list(n.get("organisation-name-tenderer")) or names_list(n.get("tendering-party-name"))
         ids = n.get("winner-identifier") or []
         ids = ids if isinstance(ids, list) else [ids]
@@ -269,6 +382,7 @@ def build_rows(raw: list[dict]) -> list[dict]:
             rows.append(
                 {
                     **comp,
+                    **term,
                     "publication_number": pub,
                     "notice_url": SOURCE["notice_url_template"].format(publication_number=pub) if pub else None,
                     "buyer_name": buyer,
@@ -367,6 +481,18 @@ def main() -> None:
             "note": "n_tenders_received = MIN tenders across the notice's lots (least-competitive "
             "lot); is_single_bid = that min is 1. Derived from tender-count submission codes only "
             "('part-req' excluded). A factual competition signal, never a verdict.",
+        },
+        "contract_term_signal": {
+            "rows_with_duration": int(df["contract_duration_months"].is_not_null().sum()),
+            "rows_with_end_estimate": int(df["contract_end_date_est"].is_not_null().sum()),
+            "end_basis_counts": {
+                r["contract_end_basis"]: r["len"]
+                for r in df.group_by("contract_end_basis").len().iter_rows(named=True)
+                if r["contract_end_basis"] is not None
+            },
+            "note": "contract_end_date_est = advertised term projected from the notice "
+            "(explicit end > start+duration > conclusion+duration). An advertised term, "
+            "never a verified end date; renewal options are NOT folded in.",
         },
         "date_span": [df["dispatch_date"].min(), df["dispatch_date"].max()],
         "layer": "silver",

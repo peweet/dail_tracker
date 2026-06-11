@@ -42,9 +42,10 @@ import json
 import re
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import quote, urljoin, urlparse
 
 import fitz  # PyMuPDF
 import polars as pl
@@ -610,6 +611,9 @@ def _curl(url: str) -> bytes | None:
 
 
 def fetch_bytes(url: str) -> bytes | None:
+    # some publishers emit hrefs with raw spaces — requests/curl reject them as malformed;
+    # '%' stays in the safe set so already-encoded hrefs don't double-encode.
+    url = quote(url, safe="!#$%&'()*+,/:;=?@[]~")
     try:
         r = requests.get(url, headers=H, timeout=90, allow_redirects=True)
         r.raise_for_status()
@@ -1301,7 +1305,11 @@ def main() -> None:
             fmt = {".pdf": "pdf", ".xlsx": "xlsx", ".xls": "xls", ".csv": "csv"}.get(ext)
             if not fmt:
                 continue
+            time.sleep(1.0)  # courts.ie WAF blocks rapid bursts after ~4 files
             b = fetch_bytes(u)
+            if not b:
+                time.sleep(30.0)  # cool off once before the single retry
+                b = fetch_bytes(u)
             if not b:
                 print(f"     ! download failed: {u.rsplit('/', 1)[-1][:50]}")
                 continue
