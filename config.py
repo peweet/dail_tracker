@@ -111,20 +111,6 @@ CHAMBER_DAIL = "chamber=dail"
 CHAMBER_SEANAD = "chamber=seanad"
 Y_M_D_format = "%Y-%m-%d"
 
-# Canonical committee type taxonomy used for filtering and display.
-# Duplicated in utility/config.py per the two-config convention: page modules
-# may resolve `config` to EITHER file depending on import order, so symbols
-# pages consume must exist in both (see test/utility/test_page_imports.py).
-COMMITTEE_TYPES: dict[str, str] = {
-    "Policy": "Policy",
-    "Oversight": "Oversight",
-    "Statutory": "Statutory",
-    "Shadow Department": "Shadow Department",
-    "Parliamentary Regulation and Reform": "Parl. Regulation & Reform",
-    "The Committee System and Parliamentary Administration": "Parl. Administration",
-    "Parliamentary Business and Committee Membership": "Parl. Business",
-}
-
 DIRS = [
     DATA_DIR,
     LOG_DIR,
@@ -161,3 +147,30 @@ def init_dirs() -> None:
 
 # Auto-create on import so scripts that write before any explicit setup don't crash.
 init_dirs()
+
+
+# ── UI-constant bridge (two-config trap mitigation, 2026-06-11) ─────────────────
+# The repo has TWO modules named `config` (this file and utility/config.py);
+# which one an import resolves to depends on sys.path order at import time.
+# Code under utility/ and dail_tracker_core/ runs in BOTH resolution contexts
+# (live Streamlit app vs pytest/pipeline), so every symbol it pulls from
+# `config` must exist in both modules. UI constants live in utility/config.py
+# as their single source; this block re-exports any public UPPERCASE symbol
+# not already defined above so both resolutions agree without hand-copying.
+# Guarded by test/test_config_parity.py. Kill this bridge when the reorg moves
+# config into a package (one import name, no ambiguity).
+def _bridge_ui_constants() -> None:
+    import importlib.util as _ilu
+
+    _ui_path = BASE_DIR / "utility" / "config.py"
+    _spec = _ilu.spec_from_file_location("_dail_tracker_ui_config", _ui_path)
+    if _spec is None or _spec.loader is None:  # pragma: no cover — repo layout broken
+        return
+    _ui = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(_ui)
+    for _name, _value in vars(_ui).items():
+        if _name.isupper() and not _name.startswith("_") and _name not in globals():
+            globals()[_name] = _value
+
+
+_bridge_ui_constants()
