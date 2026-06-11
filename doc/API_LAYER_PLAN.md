@@ -1,12 +1,19 @@
 # Dáil Tracker — API Layer Plan
 
-Status: **Phases 0–1 + a slice of 2–3 BUILT & validated (2026-06-06).** Behind the
-`[api]` extra (`uvicorn api.main:app`): scaffold, member dossier wedge, legislation +
-statutory-instruments resources, and `/v1/catalog`. **15 API TestClient tests + 187
-total green; firewall clean; basedpyright 0; existing Streamlit app unaffected.**
-Live counts: 236 members, 1,632 bills, 5,924 SIs. Remaining Phase 2 (bulk parquet
-downloads) + Phase 3 (votes/lobbying/payments resources) + Phase 4 (harden) are
-demand-gated (see §3). Prereq is DONE — the Streamlit-free core
+Status: **Phases 0–3 COMPLETE + Phase-2 bulk exports BUILT (2026-06-11).** Behind the
+`[api]` extra (`uvicorn api.main:app`): **41 `/v1` routes** spanning every domain the
+out-of-repo MCP server serves — members (+composed dossier), legislation, SIs, votes
+(+division dossier, interest-breakdown, votes×interests cross-ref), payments (all-time +
+per-year), lobbying (orgs, revolving-door, DPO profile), procurement (suppliers +dossier,
+competition, lobbying-overlap, authorities, CPV, open-tenders), committees, ministers
+(+current cabinet), SIPO political-finance (donations + election-spend), judiciary
+(appointments + courts-health), charities, public-body-payments, public-appointments,
+votes-by-topic search, a `/v1/coverage` scope-guard, `/v1/catalog`, and **bulk
+parquet/CSV exports** (`/v1/data` + `/v1/data/{resource}`, default-deny allow-list with
+privacy filters baked into the snapshot). **248 core+api TestClient tests green;
+firewall clean (39 files); basedpyright 0; ruff clean; existing Streamlit app
+unaffected.** Only Phase 4 (Pandera/CDN/ETag harden) remains, traffic-gated (see §3).
+Prereq is DONE — the Streamlit-free core
 (`dail_tracker_core`) is the seam an API consumes (152 query fns, 15/15 data
 modules routed through it, firewall-guarded). This doc designs the read-only
 JSON API over that core, informed by how comparable services actually do it.
@@ -118,10 +125,21 @@ dossier roundtrip (real data — Aengus Ó Snodaigh: €177k, 1607 votes, 22 bil
 unknown-code→404, auto-OpenAPI. **The serializer + conn model are now solved once;
 everything after is mechanical addition.**
 
-**Phase 2 — Bulk + catalog.** `/v1/catalog` ✅ BUILT (`api/routers/catalog.py`) —
+**Phase 2 — Bulk + catalog ✅ BUILT.** `/v1/catalog` (`api/routers/catalog.py`) —
 curated manifest (PII-safe: only reviewed endpoints, never a raw-parquet dump) with
-live counts. **Static parquet downloads still TODO** — needs a vetted allow-list
-(SIPO donor addresses / personal insolvency must never be exposed).
+live counts. **Bulk parquet/CSV downloads now BUILT** (`api/routers/exports.py`):
+`/v1/data` manifest + `/v1/data/{resource}?format=parquet|csv`. Security is
+DEFAULT-DENY via an `EXPORTS` allow-list of `ExportSpec`s — a resource that is not a
+dict key cannot be downloaded (no path component reaches the filesystem), and the
+**privacy filter is baked INTO the materialised snapshot, not just documented**: rows
+naming natural persons (`supplier_class='sole_trader_or_individual'`,
+`public_display=FALSE`, `privacy_status='review_personal_data'`) are excluded from the
+file. SIPO (donor addresses), member interests and judiciary have NO export entry and
+tests pin that. Snapshots materialise to `data/_export_cache/` (gitignored) and re-cut
+on source-parquet mtime advance. Each entry carries `data_currency` with TWO clocks
+(newest record date AND source fetch time — they differ legitimately for the quarterly
+eTenders feed). 7 datasets exposed (procurement awards / supplier-CRO / payments-fact /
+lobbying-overlap + TED awards / winner-history / buyer-history / tenders).
 
 **Phase 3 — Noun resources (mechanical, demand-ordered).**
 `/v1/legislation` (list + `{bill_id}` composed dossier) and `/v1/statutory-instruments`
@@ -150,8 +168,31 @@ the root resources list updated. New `test/api/test_api_extra.py` (16 TestClient
 tests, data-conditional skips). Verified: 211 core+api tests pass, firewall clean
 (37 files), basedpyright 0 on `api/`, ruff clean; every new endpoint returns live
 data (suppliers 7,530 / committees 61 / payments-2025 219 / Finance min 2023-06-01
-→ Michael McGrath). Still demand-gated, not pre-expanded: charities / public-body
-payments / SIPO / appointments nouns (core fns exist; add when a consumer asks).
+→ Michael McGrath).
+
+**Second parity wave — full MCP coverage ✅ BUILT (2026-06-11).** Closed the
+remaining FastAPI↔MCP gap so a JSON consumer (e.g. a journalist needing SIPO data)
+reaches every domain the MCP tools do. Required registering three view globs the
+API conn lacked — `api_conn()`'s `_API_DOMAIN_GLOBS` now also loads `sipo_*.sql`
+(alphabetical order is dependency-safe), `judiciary_*.sql`, `appointments_*.sql`
+(they absolutize their own parquet; no substitution) — which also makes the MCP's
+`_EXTRA_VIEW_GLOBS` redundant. New routers/endpoints, all over `dossiers.py` helpers
+mirroring the MCP tools verbatim (composition shared, one firewall): **political-finance**
+(`/v1/political-finance/donations` + `/election-spend` — SIPO, two distinct grains
+never summed, no donor-address field; Labour returns 18 itemised receipts),
+**judiciary** (`/appointments` + `/courts-health` — names no judge), **charities**
+(`/charities?rcn=`), **public-body-payments** (`/public-body-payments?side=`),
+**public-appointments**, procurement deep cuts (`/procurement/authorities|cpv|open-tenders`),
+**cabinet** (`/v1/cabinet`), DPO profile (`/v1/lobbying/dpo/{name}`),
+votes-by-topic (`/v1/search/votes-by-topic`), and the **coverage scope-guard**
+(`/v1/coverage`). New `test/api/test_api_domains.py` (16 tests). Surface is now
+**41 `/v1` routes** (12 → 25 → 41). Also fixed pre-existing latent CI errors surfaced
+by widening the lint/type scope: a pandas-stubs `sort_values`/`__getitem__` FP in
+`dossiers.list_procurement_lobbying_overlap` (now `.loc[:, cols]` + serialize-then-sort),
+a `zip()` B905 in `serialize.to_records` (`strict=True`), and two `.fetchone()[0]`
+optional-subscript errors in `exports.py`. **Verified: 248 core+api tests pass,
+firewall clean (39 files), basedpyright 0, ruff clean.** The honest remainder is now
+only Phase 4 (Pandera/CDN/ETag, traffic-gated) — the noun surface is complete.
 
 **Phase 4 — Hardening (only as traffic appears).**
 Pandera on published marts; Pydantic versioning policy; CDN + cache headers + ETags; CDN rate-limiting if abused.
