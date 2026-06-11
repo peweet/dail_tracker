@@ -99,8 +99,10 @@ def main() -> None:
     args = ap.parse_args()
     matrix = build_matrix()
     OUTPUT_PATH.write_bytes(orjson.dumps(matrix, option=orjson.OPT_INDENT_2))
-    print(f"wrote {OUTPUT_PATH} ({matrix['summary']['n_publishers']} publishers, "
-          f"{matrix['summary']['pct_rows_vat_unknown']}% rows vat-unknown)")
+    print(
+        f"wrote {OUTPUT_PATH} ({matrix['summary']['n_publishers']} publishers, "
+        f"{matrix['summary']['pct_rows_vat_unknown']}% rows vat-unknown)"
+    )
     if args.echo:
         print(orjson.dumps(matrix, option=orjson.OPT_INDENT_2).decode())
 

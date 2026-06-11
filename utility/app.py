@@ -18,12 +18,6 @@ from pages_code.statutory_instruments import statutory_instruments_page
 from pages_code.votes import votes_page
 from shared_css import inject_css
 
-# Pre-donations backup of the Payments page is kept untouched at
-# pages_code/payments_original.py. To restore the original page (without the
-# Party-donations lens), replace the `from pages_code.payments import
-# payments_page` line above with:
-#     from pages_code.payments_original import payments_page
-
 st.set_page_config(
     page_title="Oireachtas Explorer",
     page_icon=":material/account_balance:",

@@ -13,6 +13,10 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SILVER_DIR = PROJECT_ROOT / "data" / "silver"
+# Pipeline-end data-age signal (tools/check_freshness.py). The UI only ever
+# READS this committed JSON — never parquet — for "data updated" lines.
+# Mirrored in root config.py; keep both in sync (dual-config convention).
+FRESHNESS_JSON = PROJECT_ROOT / "data" / "_meta" / "freshness.json"
 SILVER_PARQUET_DIR = PROJECT_ROOT / "data" / "silver" / "parquet"
 GOLD_PARQUET_DIR = PROJECT_ROOT / "data" / "gold" / "parquet"
 

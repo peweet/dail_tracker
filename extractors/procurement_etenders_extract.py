@@ -82,6 +82,26 @@ PUBLIC_BODY = re.compile(
 )
 
 
+# The source CSV writes these literal strings for missing values (it mixes "NULL",
+# "Null" and "n/a"). Matched case-insensitively after trim — everywhere a sentinel
+# check happens (row filter, exploded-supplier filter, final column coercion) so the
+# three sites can't drift. Unit-tested in test/extractors/test_procurement_etenders_sentinels.py.
+NULL_SENTINELS = ("null", "n/a")
+
+
+def null_sentinel_expr(col: pl.Expr) -> pl.Expr:
+    """True where the string column holds a literal null-sentinel ("NULL"/"Null"/"n/a"/...)."""
+    return col.str.strip_chars().str.to_lowercase().is_in(list(NULL_SENTINELS))
+
+
+def coerce_null_sentinels(df: pl.DataFrame) -> pl.DataFrame:
+    """Replace literal null-sentinel strings with honest nulls across every Utf8 column."""
+    str_cols = [c for c, t in zip(df.columns, df.dtypes, strict=False) if t == pl.Utf8]
+    return df.with_columns(
+        [pl.when(null_sentinel_expr(pl.col(c))).then(None).otherwise(pl.col(c)).alias(c) for c in str_cols]
+    )
+
+
 def hr(t: str) -> None:
     print(f"\n{'=' * 70}\n{t}\n{'=' * 70}")
 
@@ -166,7 +186,9 @@ def main() -> None:
     parent_col = "Parent Agreement ID"  # present => call-off under a parent framework
 
     awards = df.filter(
-        pl.col(sup_col).is_not_null() & (pl.col(sup_col).str.strip_chars() != "") & (pl.col(sup_col) != "NULL")
+        pl.col(sup_col).is_not_null()
+        & (pl.col(sup_col).str.strip_chars() != "")
+        & ~null_sentinel_expr(pl.col(sup_col))
     )
     hr("INPUT")
     print(f"all notices: {df.height:,} | award notices: {awards.height:,} ({awards.height / df.height:.1%})")
@@ -191,7 +213,9 @@ def main() -> None:
         )
         .explode("sl")
         .with_columns(pl.col("sl").map_elements(tidy_name, return_dtype=pl.Utf8).alias("supplier_raw"))
-        .filter(pl.col("supplier_raw").str.len_chars() >= 3)
+        # length gate + null-sentinel gate: a multi-supplier cell can carry "Null"/"n/a"
+        # as one of its exploded entries even when the cell as a whole passed the row filter
+        .filter((pl.col("supplier_raw").str.len_chars() >= 3) & ~null_sentinel_expr(pl.col("supplier_raw")))
         # The source pads a subset of authority cells with ~220 trailing spaces, so the
         # same body ranks as two distinct authorities ("The Office of Government
         # Procurement" appeared twice). Strip + collapse whitespace; decode entities.
@@ -342,15 +366,10 @@ def main() -> None:
     # downstream. Coerce every "NULL" (trimmed) string column to an honest null, AFTER the
     # value/flag derivations above have already consumed the raw values. This makes the
     # per-view `WHERE ... <> 'NULL'` guards belt-and-suspenders rather than load-bearing.
-    _str_cols = [c for c, t in zip(aw.columns, aw.dtypes, strict=False) if t == pl.Utf8]
-    aw = aw.with_columns(
-        [
-            pl.when(pl.col(c).str.strip_chars() == "NULL").then(None).otherwise(pl.col(c)).alias(c)
-            for c in _str_cols
-        ]
-    )
+    # Matching is case-insensitive and also catches "n/a" — see NULL_SENTINELS.
+    aw = coerce_null_sentinels(aw)
     n_cpv = aw["Main Cpv Code"].is_not_null().sum() if "Main Cpv Code" in aw.columns else 0
-    print(f"  coerced literal 'NULL' strings -> null across {len(_str_cols)} text cols; real CPV now: {n_cpv:,}")
+    print(f"  coerced literal 'NULL' strings -> null across text cols; real CPV now: {n_cpv:,}")
 
     save_parquet(aw, OUT_AWARDS)
     hr("AWARD-SUPPLIER ROWS")

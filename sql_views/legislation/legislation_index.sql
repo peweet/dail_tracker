@@ -9,7 +9,9 @@ WITH ranked AS (
         COALESCE(short_title_en, '(Untitled)')           AS bill_title,
         COALESCE(status, '—')                            AS bill_status,
         COALESCE(bill_type, source, '—')                 AS bill_type,
-        COALESCE(sponsor_by_show_as, '—')                AS sponsor,
+        -- fall back to sponsor_as_show_as like v_legislation_detail does — 557 bills
+        -- have only that field populated and rendered '—' when it was skipped
+        COALESCE(sponsor_by_show_as, sponsor_as_show_as, '—') AS sponsor,
         unique_member_code                               AS sponsor_join_key,
         TRY_CAST(context_date AS DATE)                   AS introduced_date,
         most_recent_stage_event_show_as                  AS current_stage,

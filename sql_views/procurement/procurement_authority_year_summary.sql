@@ -12,7 +12,9 @@ SELECT
     COALESCE(SUM(value_eur) FILTER (WHERE value_safe_to_sum), 0) AS awarded_value_safe_eur
 FROM read_parquet('data/gold/parquet/procurement_awards.parquet')
 WHERE "Contracting Authority" IS NOT NULL
-  AND "Contracting Authority" <> ''
+  -- same belt-and-braces guard as v_procurement_authority_summary (gold is coerced
+  -- upstream; this only matters if a literal-NULL string ever regresses)
+  AND "Contracting Authority" NOT IN ('', 'NULL')
   AND TRY_STRPTIME("Notice Published Date/Contract Created Date", '%d/%m/%Y') IS NOT NULL
 GROUP BY contracting_authority, year
 ORDER BY n_awards DESC;

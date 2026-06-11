@@ -616,51 +616,9 @@ def inject_css() -> None:
         }
 
         /* ── Shared custom components ────────────── */
-        .page-kicker {
-            font-family: 'Epilogue', sans-serif;
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--accent);
-            margin-bottom: 0.3rem;
-        }
-        .page-title {
-            /* Audit fix (2026-05-26, sidebar P0-2): rendered as <h2> so
-               screen readers can navigate by heading. Reset user-agent
-               h2 margins (top + bottom) so the visual rendering stays
-               identical to the previous <p class="page-title"> styling. */
-            font-family: 'Zilla Slab', Georgia, serif;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            line-height: 1.15;
-            margin: 0 0 0.2rem;
-        }
-        .page-subtitle {
-            font-family: 'Epilogue', sans-serif;
-            font-size: 0.8rem;
-            color: var(--text-meta);
-            line-height: 1.5;
-            margin-bottom: 1.2rem;
-        }
-        /* P1-3 sidebar grammar: small provenance note, subdued vs subtitle. */
-        .page-provenance {
-            font-family: 'Epilogue', sans-serif;
-            font-size: 0.72rem;
-            color: var(--text-meta);
-            line-height: 1.45;
-            margin: -0.6rem 0 1.1rem;
-            font-style: italic;
-        }
-        /* P1-3 sidebar grammar: light rule between slot groups
-           (header band → filters → secondary). Lighter than st.divider so
-           it reads as a section boundary, not decoration. */
-        .sidebar-divider {
-            border: none;
-            border-top: 1px solid var(--border);
-            margin: 1rem 0 0.85rem;
-        }
+        /* (The sidebar-shell header/subtitle/provenance/divider classes were
+           removed with their helpers after the sidebar→filter-bar migration;
+           .sidebar-label stays — the member pickers still render it.) */
         .sidebar-label {
             font-family: 'Epilogue', sans-serif;
             font-size: 0.7rem;
@@ -2756,6 +2714,86 @@ def inject_css() -> None:
                 order: 99;
             }
         }
+
+        /* Sitting calendar — pure-CSS month grid replacing the Altair tick
+           strip (2026-06-11): each dot is one day recorded present, so recess
+           months read as empty cells. No chart iframe, house typography. */
+        .att-cal-strip {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 0.4rem;
+            margin: 0.4rem 0 0.6rem;
+        }
+        .att-cal-month {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            padding: 0.35rem 0.3rem 0.4rem;
+            text-align: center;
+        }
+        .att-cal-month-label {
+            font-size: 0.66rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+            margin-bottom: 0.3rem;
+        }
+        .att-cal-dots {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            justify-content: center;
+            align-content: flex-start;
+            min-height: 1.7rem;
+        }
+        .att-cal-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #2d7a52;
+        }
+        .att-cal-month-n {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            margin-top: 0.25rem;
+        }
+        .att-cal-month-zero .att-cal-month-n {
+            color: var(--text-meta);
+            font-weight: 400;
+        }
+        @media (max-width: 760px) {
+            .att-cal-strip { grid-template-columns: repeat(6, 1fr); }
+        }
+
+        /* Votes-by-year rows — same chassis as .att-year-row; the track holds
+           a yes/no/abstained split instead of a single fill (replaces the
+           embedded Plotly stacked chart, 2026-06-11). */
+        .vote-year-track { display: flex; }
+        .vote-year-seg { height: 100%; }
+        .vote-year-seg-yes  { background: #2d7a52; }
+        .vote-year-seg-no   { background: #bf4a1e; }
+        .vote-year-seg-abst { background: #8c8c80; }
+        .vote-year-counts strong { color: var(--text-primary); }
+        .vote-year-legend {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.15rem;
+        }
+        .vote-year-key {
+            display: inline-block;
+            width: 0.7rem;
+            height: 0.7rem;
+            border-radius: 2px;
+        }
+        .vote-year-key-yes  { background: #2d7a52; }
+        .vote-year-key-no   { background: #bf4a1e; }
+        .vote-year-key-abst { background: #8c8c80; }
 
         /* Total amount badge on payments ranked-list cards. Softer green
            replaces the prior bright-blue dt-name-card-badge-metric, with

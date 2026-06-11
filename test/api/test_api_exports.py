@@ -87,7 +87,10 @@ def test_bad_format_rejected(client):
         ("procurement_awards", "supplier_class = 'sole_trader_or_individual'"),
         ("procurement_payments_fact", "public_display = FALSE OR supplier_class = 'sole_trader_or_individual'"),
         ("ted_awards", "supplier_class = 'sole_trader_or_individual' OR privacy_status = 'review_personal_data'"),
-        ("ted_winner_history", "supplier_class = 'sole_trader_or_individual' OR privacy_status = 'review_personal_data'"),
+        (
+            "ted_winner_history",
+            "supplier_class = 'sole_trader_or_individual' OR privacy_status = 'review_personal_data'",
+        ),
     ],
 )
 def test_snapshot_contains_no_natural_persons(client, resource, person_predicate):

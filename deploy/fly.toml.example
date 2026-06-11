@@ -1,0 +1,33 @@
+# Fly.io config for the Dáil Tracker API.
+# Copy to the REPO ROOT as fly.toml (the build context must be the repo root so
+# .dockerignore's whitelist applies), then `fly launch --copy-config`.
+#
+# Front this with the existing Cloudflare zone (api.dailtracker.ie CNAME →
+# <app>.fly.dev) so rate limiting, CORS headers and edge caching live at the
+# CDN, per Decision D9 in doc/API_LAYER_PLAN.md — the app itself stays open
+# and unauthenticated.
+
+app = "dailtracker-api"
+primary_region = "lhr" # closest region to IE
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"   # scale-to-zero: free while idle, cold start ~2s
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "30s"
+  method = "GET"
+  path = "/v1/health"
+
+[[vm]]
+  memory = "1gb"   # DuckDB in-memory views over ~140MB parquet; 512mb is too tight
+  cpu_kind = "shared"
+  cpus = 1

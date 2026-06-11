@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from html import escape as _h
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 from data_access.payments_data import (
@@ -95,35 +94,10 @@ def render_member_payments(
             ]
         )
 
-    # Yearly evolution chart — chronological, left-to-right. The selected
-    # year's bar carries the ink-blue; other years recede so the chart and
-    # the year pills above read as one control.
-    chart_df = all_years[["payment_year", "total_paid"]].sort_values("payment_year")
-    bars = (
-        alt.Chart(chart_df)
-        .mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3)
-        .encode(
-            x=alt.X("payment_year:O", title=None, axis=alt.Axis(labelAngle=0, domainColor="#d8d2c6")),
-            y=alt.Y(
-                "total_paid:Q",
-                title=None,
-                axis=alt.Axis(format=",.0f", tickCount=4, gridColor="#e8e2d6", domain=False),
-            ),
-            color=alt.condition(
-                alt.datum.payment_year == int(selected_year),
-                alt.value("#1e40af"),
-                alt.value("#a7b4d6"),
-            ),
-            tooltip=[
-                alt.Tooltip("payment_year:O", title="Year"),
-                alt.Tooltip("total_paid:Q", title="Total received (€)", format=",.0f"),
-            ],
-        )
-        .properties(height=160)
-    )
-    st.altair_chart(bars, width="stretch")
-
     # ── All-years summary (card-based per feedback_member_overview_no_dataframes) ──
+    # The Altair year-evolution bar chart that used to sit here was removed
+    # 2026-06-11: embedded Vega charts clashed with the page's house style and
+    # duplicated this list one-for-one.
     subsection_heading("All years")
     rows_html: list[str] = []
     for _, row in all_years.iterrows():

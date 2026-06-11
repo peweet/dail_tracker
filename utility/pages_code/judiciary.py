@@ -60,6 +60,7 @@ from ui.components import (
     glossary_strip,
     hero_banner,
     hide_sidebar,
+    year_selector,
 )
 
 # Court display order — constitutional seniority, the natural reading order.
@@ -604,7 +605,9 @@ def _render_clearance(clr: pd.DataFrame) -> None:
     years = sorted(clr["year"].dropna().astype(int).unique(), reverse=True)
     if not years:
         return
-    sel = st.pills("Year", years, default=years[0], key="courts_clear_year", label_visibility="collapsed") or years[0]
+    # Shared year_selector — defaults to the most recent COMPLETED year, the
+    # app-wide convention (a partial YTD year would misread as a collapse).
+    sel = year_selector([str(y) for y in years], key="courts_clear_year")
     # Lowest clearance first — the courts under most pressure surface at the top.
     year_df = clr[clr["year"] == sel].sort_values("clearance_pct", na_position="last")
     st.caption(f"{int(sel)} · {len(year_df)} courts, ordered by clearance rate (lowest first).")
@@ -898,9 +901,9 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
         placeholder="A company, a State body, the DPP, or a judge's name…",
     ).strip()
     present_cats = [(k, lbl) for k, lbl, _ in _CATEGORIES if k in counts]
-    options = ["All"] + [lbl for _, lbl in present_cats]
-    pick = st.segmented_control("Filter by type", options, default="All", key="jd_cat_filter") or "All"
-    if pick != "All":
+    options = ["All types"] + [lbl for _, lbl in present_cats]
+    pick = st.segmented_control("Filter by type", options, default="All types", key="jd_cat_filter") or "All types"
+    if pick != "All types":
         chosen = next(k for k, lbl in present_cats if lbl == pick)
         view = day_cases[day_cases["category"] == chosen]
     else:

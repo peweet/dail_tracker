@@ -47,6 +47,7 @@ from data_access.public_payments_data import (
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
 from ui.components import (
     back_button,
+    card_sources_html,
     clickable_card_link,
     empty_state,
     finding_lede,
@@ -56,6 +57,7 @@ from ui.components import (
     paginate,
     pagination_controls,
 )
+from ui.entity_links import source_link_html
 
 _TOP = 60          # ranked cards per browse tab (views are pre-ordered DESC)
 _PUB_PAGE = 24     # publisher cards per page (multiple of 3 for the grid)
@@ -300,10 +302,16 @@ def _line_row_html(r) -> str:
     sem = _semantics_label(getattr(r, "amount_semantics", None))
     val_html = f'<span class="pr-pill pr-pill-val">{val} {sem}</span>' if val != "—" else ""
     meta = " · ".join(meta_parts) if meta_parts else ""
+    # Conduit (S-4): link the line to the actual published source PDF so a reader can
+    # verify the detail behind the number. source_file_url is on every line (100%
+    # coverage); source_link_html no-ops on a missing/non-http URL so this is safe.
+    src = card_sources_html(
+        [source_link_html(_coalesce(getattr(r, "source_file_url", None)), "View published source")]
+    )
     return (
         f'<div class="pr-card"><div class="pr-card-head"><div class="pr-name">{head}</div></div>'
         f'<div class="pr-meta">{meta}</div>'
-        f'<div class="pr-pills">{val_html}</div></div>'
+        f'<div class="pr-pills">{val_html}</div>{src}</div>'
     )
 
 

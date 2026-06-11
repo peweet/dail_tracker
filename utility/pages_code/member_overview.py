@@ -36,6 +36,7 @@ from ui.components import (
     subsection_heading,
     find_a_td_filter,
     field_label,
+    filter_bar,
     glossary_strip,
     hide_sidebar,
     member_card_html,
@@ -44,6 +45,7 @@ from ui.components import (
     pagination_controls,
     party_colour,
     stat_strip,
+    year_selector,
 )
 from ui.entity_links import (
     PAGES,
@@ -669,40 +671,34 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
     years = _q_years(conn, join_key)
     ministries = _q_ministries(conn, join_key)
 
-    # Year pills
-    year_opts = ["All years"] + [str(y) for y in years]
-    selected_year_str = (
-        st.pills(
-            "Question year",
-            options=year_opts,
-            default="All years",
-            key=f"mo_q_year_{join_key}",
-            label_visibility="collapsed",
-        )
-        or "All years"
+    # Year pills (shared year_selector — same control as every other year filter)
+    year_val: int | None = year_selector(
+        [str(y) for y in years], key=f"mo_q_year_{join_key}", include_all=True
     )
-    year_val: int | None = None if selected_year_str == "All years" else int(selected_year_str)
 
-    # Type segmented control + ministry selectbox side by side
-    c1, c2 = st.columns([1, 2])
-    with c1:
-        selected_type = st.segmented_control(
-            "Question type",
-            options=["All", "Written", "Oral"],
-            default="All",
-            key=f"mo_q_type_{join_key}",
-            label_visibility="collapsed",
-        )
-    with c2:
-        selected_ministry = st.selectbox(
-            "Ministry",
-            options=["All ministries"] + ministries,
-            index=0,
-            key=f"mo_q_min_{join_key}",
-            label_visibility="collapsed",
-        )
+    # Type + ministry side by side — filter_bar + field_label keeps the
+    # mixed-height widgets (segmented control vs selectbox) on one baseline.
+    with filter_bar([1, 2]) as cols:
+        with cols[0]:
+            field_label("Type")
+            selected_type = st.segmented_control(
+                "Question type",
+                options=["All types", "Written", "Oral"],
+                default="All types",
+                key=f"mo_q_type_{join_key}",
+                label_visibility="collapsed",
+            )
+        with cols[1]:
+            field_label("Ministry")
+            selected_ministry = st.selectbox(
+                "Ministry",
+                options=["All ministries"] + ministries,
+                index=0,
+                key=f"mo_q_min_{join_key}",
+                label_visibility="collapsed",
+            )
 
-    qtype_val = None if not selected_type or selected_type == "All" else selected_type.lower()
+    qtype_val = None if not selected_type or selected_type == "All types" else selected_type.lower()
     ministry_val = None if not selected_ministry or selected_ministry == "All ministries" else selected_ministry
     search_val = (search_text or "").strip() or None
 
@@ -924,32 +920,29 @@ def _section_debates(conn, join_key: str, member_name: str) -> None:
 
     # ── Filter bar ───────────────────────────────────────────────────────────
     years = _speech_years(conn, join_key)
-    year_opts = ["All years"] + [str(y) for y in years]
-    selected_year = (
-        st.pills("Year", options=year_opts, default="All years", key="mo_speech_year", label_visibility="collapsed")
-        or "All years"
-    )
-    year_val = None if selected_year == "All years" else int(selected_year)
+    year_val = year_selector([str(y) for y in years], key="mo_speech_year", include_all=True)
 
-    fcol1, fcol2 = st.columns([3, 1])
-    with fcol1:
-        type_label = (
-            st.segmented_control(
-                "Type",
-                options=["All", "Speeches", "Questions"],
-                default="All",
-                key="mo_speech_type",
-                label_visibility="collapsed",
+    with filter_bar([3, 1]) as fcols:
+        with fcols[0]:
+            field_label("Type")
+            type_label = (
+                st.segmented_control(
+                    "Type",
+                    options=["All types", "Speeches", "Questions"],
+                    default="All types",
+                    key="mo_speech_type",
+                    label_visibility="collapsed",
+                )
+                or "All types"
             )
-            or "All"
-        )
-    with fcol2:
-        irish_only = st.toggle(
-            "As Gaeilge",
-            key="mo_speech_irish",
-            help="Show only contributions identified as delivered in Irish.",
-        )
-    ctype = {"All": None, "Speeches": "speech", "Questions": "question"}.get(type_label)
+        with fcols[1]:
+            field_label("Language")
+            irish_only = st.toggle(
+                "As Gaeilge",
+                key="mo_speech_irish",
+                help="Show only contributions identified as delivered in Irish.",
+            )
+    ctype = {"All types": None, "Speeches": "speech", "Questions": "question"}.get(type_label)
 
     business_opts = _speech_business(conn, join_key)
     selected_business = (

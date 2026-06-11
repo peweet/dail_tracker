@@ -138,12 +138,12 @@ def _stage_register(
             status_filter = (
                 st.segmented_control(
                     "Status",
-                    ["All", "Active", "Ended"],
-                    default="All",
+                    ["All statuses", "Active", "Ended"],
+                    default="All statuses",
                     key="reg_status",
                     label_visibility="collapsed",
                 )
-                or "All"
+                or "All statuses"
             )
     with cmd_r:
         st.markdown(
@@ -190,13 +190,13 @@ def _stage_register(
     # status / type are committee-level (1:1 with summary rows), so applying
     # those filters post-rollup gives the same set as pre-rollup filtering.
     filtered = df_long.copy()
-    if status_filter != "All":
+    if status_filter != "All statuses":
         filtered = filtered[filtered["status"] == status_filter]
     if type_filter != "All types":
         filtered = filtered[filtered["type"] == type_filter]
 
     summary = fetch_committee_summary(chamber)
-    if status_filter != "All":
+    if status_filter != "All statuses":
         summary = summary[summary["status"] == status_filter]
     if type_filter != "All types":
         summary = summary[summary["type"] == type_filter]
@@ -549,13 +549,13 @@ def render_member_committees(
     status_tab = (
         st.segmented_control(
             "Show",
-            ["All", "Active", "Ended"],
-            default="All",
+            ["All statuses", "Active", "Ended"],
+            default="All statuses",
             key=status_filter_key,
         )
-        or "All"
+        or "All statuses"
     )
-    view = person if status_tab == "All" else person[person["status"] == status_tab]
+    view = person if status_tab == "All statuses" else person[person["status"] == status_tab]
     view = (
         view[["committee", "committee_url", "type", "role", "is_chair", "status", "start", "end"]]
         .sort_values(["status", "start"], ascending=[True, False], na_position="last")

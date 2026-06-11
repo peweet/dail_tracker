@@ -50,6 +50,7 @@ from data_access.corporate_data import (
     fetch_cbi_repeat_distress,
     fetch_corporate_notices,
 )
+from data_access.freshness_data import freshness_line
 from shared_css import inject_css
 from ui.components import (
     back_button,
@@ -60,11 +61,9 @@ from ui.components import (
     hide_sidebar,
     paginate,
     pagination_controls,
-    sidebar_page_header,
-    sidebar_subtitle,
 )
 from ui.export_controls import export_button
-from ui.source_pdfs import iris_archive_url
+from ui.source_pdfs import iris_archive_url, provenance_expander
 
 PAGE_SIZE = 12
 FEATURED_TOP_N = 8
@@ -2335,12 +2334,7 @@ def corporate_page() -> None:
         del st.query_params["q"]
         st.rerun()
 
-    # Sidebar
     selected = st.session_state.get("corp_selected_ref")
-    with st.sidebar:
-        sidebar_page_header("Corporate Notices")
-        if not selected:
-            sidebar_subtitle("Corporate notices · receiver / examinership / liquidation · Iris Oifigiúil")
 
     # Detail view
     if selected:
@@ -2480,6 +2474,22 @@ def corporate_page() -> None:
 
     fund_active = (st.session_state.get("corp_fund_filter") or "All") != "All"
     _render_feed(filtered, cbi_badges, group_by_year=fund_active)
+
+    # ── Provenance ────────────────────────────────────────────────────────
+    provenance_expander(
+        sections=[
+            "**Data source:** Iris Oifigiúil, the official State gazette, where "
+            "receiverships, examinerships, SCARP filings, liquidations and other "
+            "Companies Act notices are formally published. The corpus covers 2016 "
+            "onwards; every notice links back to its gazette issue.",
+            "Personal insolvency (individual bankruptcy notices) is excluded by "
+            "policy — companies only. Brand → parent-fund classification is "
+            "hand-curated; see the Sources & methodology block above for the full "
+            "mapping and its public sources.",
+        ],
+        source_caption="Source: Iris Oifigiúil (irisoifigiuil.ie) · Central Bank of Ireland registers",
+        freshness=freshness_line("corporate"),
+    )
 
 
 if __name__ == "__main__":

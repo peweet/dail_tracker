@@ -51,7 +51,6 @@ from dail_tracker_core.queries import procurement as proc  # noqa: E402
 from dail_tracker_core.queries import public_payments as pubpay  # noqa: E402
 from dail_tracker_core.queries import sipo  # noqa: E402
 from dail_tracker_core.queries import votes as vot  # noqa: E402
-
 from mcp_server import qs_valuation, ted_conduit  # noqa: E402
 
 mcp = FastMCP("dail-tracker")
@@ -206,9 +205,7 @@ def voting_vs_interests(
 def search_legislation(query: str = "", status: str = "", limit: int = 20) -> list[dict]:
     """Find bills by title substring and/or status (e.g. 'Current'). Returns bill
     summaries; pass a bill_id to get_bill for the full record."""
-    records, _total, _ = dossiers.list_bills(
-        _cur(), title_search=query or None, status=status or None, limit=limit
-    )
+    records, _total, _ = dossiers.list_bills(_cur(), title_search=query or None, status=status or None, limit=limit)
     return records
 
 
@@ -281,9 +278,7 @@ def procurement_lobbying_overlap(limit: int = 50, order_by: str = "award_value",
     NOT evidence that lobbying influenced any contract (no key links a lobby to an award),
     and exact-name matching undercounts. Surface the `caveat` field; never imply causation.
     Use get... / search for the underlying supplier or lobbying detail."""
-    return dossiers.list_procurement_lobbying_overlap(
-        _cur(), limit=limit, order_by=order_by, side=side or None
-    )
+    return dossiers.list_procurement_lobbying_overlap(_cur(), limit=limit, order_by=order_by, side=side or None)
 
 
 # ── Procurement ─────────────────────────────────────────────────────────────────
@@ -295,9 +290,7 @@ def search_suppliers(year: int = 0, order_by: str = "awards", limit: int = 20) -
     award counts, sum-safe awarded value, CRO match, and a lobbying-register overlap
     flag. order_by is 'awards' (default) or 'value'. year=0 means all-time; pass a
     calendar year to scope it. Pass supplier_norm to get_supplier for the full record."""
-    records, _total, _ = dossiers.list_suppliers(
-        _cur(), year=year or None, order_by=order_by, limit=limit
-    )
+    records, _total, _ = dossiers.list_suppliers(_cur(), year=year or None, order_by=order_by, limit=limit)
     return records
 
 
@@ -324,9 +317,7 @@ def procurement_competition(min_lots: int = 40, order_by: str = "single_bid", li
     ⚠️ FACTUAL SIGNAL, NEVER A VERDICT — a single bidder is often legitimate (niche/specialist
     supplier, bespoke research equipment, urgency; research universities single-source a lot).
     Surface the caveat; a high rate is a prompt to look, never proof of wrongdoing."""
-    return dossiers.list_procurement_competition(
-        _cur(), min_lots=min_lots, order_by=order_by, limit=limit
-    )
+    return dossiers.list_procurement_competition(_cur(), min_lots=min_lots, order_by=order_by, limit=limit)
 
 
 # ── Committees ──────────────────────────────────────────────────────────────────
@@ -404,9 +395,7 @@ def get_member_questions(
 def payments_by_year(year: int, house: str = "Dáil", limit: int = 20) -> list[dict]:
     """Travel & Accommodation Allowance ranking for ONE calendar year (use this for
     'who claimed most in 2023?'; top_payments gives the all-time ranking instead)."""
-    records, _total, _ = dossiers.list_payments_year_ranking(
-        _cur(), year=year, house=house, limit=limit
-    )
+    records, _total, _ = dossiers.list_payments_year_ranking(_cur(), year=year, house=house, limit=limit)
     return records
 
 
@@ -755,7 +744,7 @@ def procurement_notice(notice: str = "", supplier: str = "") -> dict:
             "discrepancy_count": len(discrepancies),
             "discrepancies": discrepancies,
             "note": "each discrepancy is a feedback-loop signal (gold thin/stale/mis-parsed vs "
-                    "authoritative TED); appended to the reconciliation QA log for the pipeline",
+            "authoritative TED); appended to the reconciliation QA log for the pipeline",
         },
         "value_chain": {
             "framework_ceiling_eur": fw_ceiling,
@@ -764,8 +753,8 @@ def procurement_notice(notice: str = "", supplier: str = "") -> dict:
             "realised_paid_eur": None,
             "delivered_seed": source.get("deliverable_seed") if source else None,
             "note": "four DISTINCT grains — ceiling (legal headroom) ≠ committed ≠ paid ≠ "
-                    "delivered; NEVER sum across them. Realised spend (if any) is a different "
-                    "register — see public_body_payments / get_supplier.",
+            "delivered; NEVER sum across them. Realised spend (if any) is a different "
+            "register — see public_body_payments / get_supplier.",
         },
     }
 

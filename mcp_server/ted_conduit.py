@@ -156,8 +156,15 @@ def reconcile(pn: str, gold_rows: list[dict], source: dict | None) -> list[dict]
     """
     out: list[dict] = []
     if source is None:
-        out.append({"pn": pn, "field": "notice", "gold": "present", "source": "unreachable",
-                    "issue": "authoritative notice could not be fetched — cannot verify gold"})
+        out.append(
+            {
+                "pn": pn,
+                "field": "notice",
+                "gold": "present",
+                "source": "unreachable",
+                "issue": "authoritative notice could not be fetched — cannot verify gold",
+            }
+        )
         return _emit(out)
 
     g = gold_rows[0] if gold_rows else {}
@@ -165,17 +172,31 @@ def reconcile(pn: str, gold_rows: list[dict], source: dict | None) -> list[dict]
     # 1. Tender count — gold routinely NULL where the source reports it.
     g_tend = g.get("n_tenders_received")
     if (g_tend is None or str(g_tend) in ("<NA>", "nan", "None")) and source.get("tenders_received"):
-        out.append({"pn": pn, "field": "n_tenders_received", "gold": None,
-                    "source": source["tenders_received"],
-                    "issue": "competition signal present at source but dropped in gold"})
+        out.append(
+            {
+                "pn": pn,
+                "field": "n_tenders_received",
+                "gold": None,
+                "source": source["tenders_received"],
+                "issue": "competition signal present at source but dropped in gold",
+            }
+        )
 
     # 2. Award-criteria weighting — gold keeps only an unweighted 'price+quality' tag.
     g_crit = g.get("award_criteria_kind")
     if source["award_criteria_raw"].get("numbers"):
-        out.append({"pn": pn, "field": "award_criteria_weights", "gold": g_crit,
-                    "source": {"types": source["award_criteria_raw"]["types"],
-                               "numbers": source["award_criteria_raw"]["numbers"]},
-                    "issue": "gold has the criteria KINDS but not the WEIGHTING (e.g. 70/30)"})
+        out.append(
+            {
+                "pn": pn,
+                "field": "award_criteria_weights",
+                "gold": g_crit,
+                "source": {
+                    "types": source["award_criteria_raw"]["types"],
+                    "numbers": source["award_criteria_raw"]["numbers"],
+                },
+                "issue": "gold has the criteria KINDS but not the WEIGHTING (e.g. 70/30)",
+            }
+        )
 
     # 3. Framework ceiling — gold nulls the value (value_kind tag only) or holds a figure
     #    that disagrees with the source's framework maximum.
@@ -183,21 +204,40 @@ def reconcile(pn: str, gold_rows: list[dict], source: dict | None) -> list[dict]
     g_val = g.get("award_value_eur")
     g_val = None if (g_val is None or str(g_val) in ("nan", "<NA>", "None")) else _num(g_val)
     if src_max is not None and (g_val is None or abs(g_val - src_max) > 1):
-        out.append({"pn": pn, "field": "framework_maximum_value_eur", "gold": g_val,
-                    "source": src_max,
-                    "issue": "framework ceiling missing or mismatched vs source (the €200m/€20m parse risk)"})
+        out.append(
+            {
+                "pn": pn,
+                "field": "framework_maximum_value_eur",
+                "gold": g_val,
+                "source": src_max,
+                "issue": "framework ceiling missing or mismatched vs source (the €200m/€20m parse risk)",
+            }
+        )
 
     # 4. The deliverable / scope — gold has no human-legible 'what is built'.
     if source.get("deliverable_seed") or source.get("title"):
-        out.append({"pn": pn, "field": "scope_text", "gold": None,
-                    "source": {"title": source.get("title"), "deliverable": source.get("deliverable_seed")},
-                    "issue": "gold carries no title/deliverable — the record is unreadable without the source"})
+        out.append(
+            {
+                "pn": pn,
+                "field": "scope_text",
+                "gold": None,
+                "source": {"title": source.get("title"), "deliverable": source.get("deliverable_seed")},
+                "issue": "gold carries no title/deliverable — the record is unreadable without the source",
+            }
+        )
 
     # 5. Roster size — gold winner-row count vs the source's winner-identifier count.
     src_n = len(source.get("winner_identifiers") or [])
     if gold_rows and src_n and len(gold_rows) != src_n:
-        out.append({"pn": pn, "field": "winner_roster_size", "gold": len(gold_rows), "source": src_n,
-                    "issue": "winner count differs between gold and source"})
+        out.append(
+            {
+                "pn": pn,
+                "field": "winner_roster_size",
+                "gold": len(gold_rows),
+                "source": src_n,
+                "issue": "winner count differs between gold and source",
+            }
+        )
 
     return _emit(out)
 
