@@ -1,0 +1,39 @@
+# Whitelist build context for the API image (see Dockerfile header).
+# Everything is excluded, then ONLY what the Dockerfile COPYs is re-included —
+# a local working tree carries multi-GB untracked artefacts (data/bronze 7GB+,
+# raw Iris/SIPO/CRO pulls) that must never reach the docker daemon.
+
+*
+
+# build inputs
+!pyproject.toml
+!uv.lock
+!paths.py
+!config.py
+
+# code + the SQL view firewall
+!api/
+!dail_tracker_core/
+!sql_views/
+
+# data: ONLY the directories the registered views read (kept in sync with
+# `grep -rhoE "data/[A-Za-z0-9_./-]+" sql_views/`). data/bronze and raw pull
+# dirs stay out; runtime-generated export snapshots are rebuilt in-container.
+!data/gold/parquet/
+!data/_meta/
+!data/silver/parquet/
+!data/silver/charities/
+!data/silver/committees/
+!data/silver/cro/
+!data/silver/lobbying/parquet/
+!data/silver/lobbying/client_company_returns_detail.csv
+!data/silver/aggregated_td_tables.csv
+!data/silver/seanad_aggregated_tables.csv
+!data/silver/flattened_members.csv
+!data/silver/flattened_seanad_members.csv
+!data/silver/ministerial_tenure.parquet
+
+# big untracked artefacts that live inside whitelisted dirs
+data/gold/parquet/speeches_fact_full.parquet
+data/_export_cache/
+**/__pycache__/

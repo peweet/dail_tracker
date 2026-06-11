@@ -176,9 +176,10 @@ several datasets exist in gold/silver before they get a dedicated page.
   government-finance aggregates (`v_gov_finance_annual`); a public-finance page
   over them is planned. Plan in
   [`doc/PER_LA_AFS_BUILD_PLAN.md`](doc/PER_LA_AFS_BUILD_PLAN.md).
-- **GE2024 candidate expenses** — per-candidate election-expense PDFs are
-  sourced and queued (606 returns); OCR extraction is pending, after which they
-  join the Election 2024 page alongside party donations and spending.
+- **GE2024 candidate expenses** — per-candidate expense statements already show
+  on the Election 2024 page, with 446 of the 607 sourced returns extracted so
+  far; OCR of the remainder is in progress and the coverage gap is shown
+  in-app, never implied complete.
 - **Bulk data exports** — parquet downloads of the gold layer via the API
   (Phase 2 of [`doc/API_LAYER_PLAN.md`](doc/API_LAYER_PLAN.md)), demand-gated.
 - **Scheduled data refresh** — read-only canaries already run on GitHub Actions

@@ -34,6 +34,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.appointments_data import fetch_public_appointments
+from data_access.freshness_data import freshness_line
 from shared_css import inject_css
 from ui.components import (
     back_button,
@@ -43,11 +44,9 @@ from ui.components import (
     hide_sidebar,
     paginate,
     pagination_controls,
-    sidebar_page_header,
-    sidebar_subtitle,
 )
 from ui.export_controls import export_button
-from ui.source_pdfs import iris_archive_url
+from ui.source_pdfs import iris_archive_url, provenance_expander
 
 PAGE_SIZE = 12
 FEATURED_TOP_N = 8  # ministers shown in the SpAd panel
@@ -593,7 +592,9 @@ def _render_facets(full_df: pd.DataFrame) -> None:
 
     with tabs[0]:
         ac = full_df["appointing_authority"].dropna().value_counts().to_dict()  # logic_firewall: display_only
-        opts = ["All"] + [a for a in _AUTH_ORDER if a in ac]
+        # Frequency-descending, like every other facet pill row (SI page,
+        # language tab below) — not the curated _AUTH_ORDER reading order.
+        opts = ["All"] + sorted(ac, key=ac.get, reverse=True)
         st.pills(
             "Appointing authority",
             opts,
@@ -605,7 +606,7 @@ def _render_facets(full_df: pd.DataFrame) -> None:
 
     with tabs[1]:
         tc = full_df["appointment_type"].dropna().value_counts().to_dict()  # logic_firewall: display_only
-        opts = ["All"] + [t for t in _PA_TYPES if t in tc]
+        opts = ["All"] + sorted(tc, key=tc.get, reverse=True)
         st.pills(
             "Type",
             opts,
@@ -886,12 +887,7 @@ def public_appointments_page() -> None:
         del st.query_params["spark"]
         st.rerun()
 
-    # ── Sidebar ───────────────────────────────────────────────────────────
     selected = st.session_state.get("pa_selected_ref")
-    with st.sidebar:
-        sidebar_page_header("Public Appointments")
-        if not selected:
-            sidebar_subtitle("State boards · special advisers · judicial · Iris Oifigiúil")
 
     # ── Detail view ───────────────────────────────────────────────────────
     if selected:
@@ -993,6 +989,22 @@ def public_appointments_page() -> None:
         )
 
     _render_feed(filtered)
+
+    # ── Provenance ────────────────────────────────────────────────────────
+    provenance_expander(
+        sections=[
+            "**Data source:** Iris Oifigiúil, the official State gazette, where "
+            "appointments to public office are formally notified — state-board and "
+            "agency members, judicial appointments, and ministers' special advisers. "
+            "The corpus covers 2016 onwards.",
+            "Acts of the President and Government are gazetted in Irish (Article 8); "
+            "ministerial appointments in English. Structured English summaries are "
+            "built from curated translations of the constitutional templates, and "
+            "every card links to the original gazette notice.",
+        ],
+        source_caption="Source: Iris Oifigiúil (irisoifigiuil.ie)",
+        freshness=freshness_line("iris"),
+    )
 
 
 if __name__ == "__main__":

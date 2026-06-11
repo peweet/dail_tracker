@@ -25,8 +25,7 @@ from typing import Any
 # (H2 2025); SelfBuild build-costs 2026. Ranges are deliberately wide — regional and
 # specification spread in Ireland is large (~€1,500–€6,000/m²).
 BENCHMARKS: dict[str, dict[str, Any]] = {
-    "social_housing": {"lo": 1900, "hi": 2600, "area_m2": 95,
-                       "label": "social / standard housing (semi-d / terrace)"},
+    "social_housing": {"lo": 1900, "hi": 2600, "area_m2": 95, "label": "social / standard housing (semi-d / terrace)"},
     "house": {"lo": 2000, "hi": 2800, "area_m2": 110, "label": "private house (typical)"},
     "apartment": {"lo": 3000, "hi": 4500, "area_m2": 75, "label": "apartment (2-bed GIA)"},
     "school": {"lo": 2500, "hi": 3600, "area_m2": 1200, "label": "school / education building"},
@@ -96,7 +95,7 @@ def estimate(
         ],
         "sources": SOURCES,
         "caveat": "Regional/spec spread is wide; excludes site works, fees, VAT, inflation to award date. "
-                  "Use as a sizing sanity-check, never as the project's actual cost.",
+        "Use as a sizing sanity-check, never as the project's actual cost.",
     }
     if framework_ceiling_eur:
         out["framework_ceiling_eur"] = framework_ceiling_eur

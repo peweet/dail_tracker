@@ -14,6 +14,11 @@ BASE_DIR = PROJECT_ROOT
 DATA_DIR = BASE_DIR / "data"
 LOG_DIR = BASE_DIR / "logs"
 
+# Pipeline-end data-age signal (tools/check_freshness.py writes it; CI canaries
+# and the Streamlit provenance lines read it). Mirrored in utility/config.py;
+# keep both in sync (dual-config convention).
+FRESHNESS_JSON = DATA_DIR / "_meta" / "freshness.json"
+
 # Medallion architecture layers
 BRONZE_DIR = DATA_DIR / "bronze"
 SILVER_DIR = DATA_DIR / "silver"
@@ -105,6 +110,20 @@ DATE_RANGE = ("2024-01-01", "2099-01-01")
 CHAMBER_DAIL = "chamber=dail"
 CHAMBER_SEANAD = "chamber=seanad"
 Y_M_D_format = "%Y-%m-%d"
+
+# Canonical committee type taxonomy used for filtering and display.
+# Duplicated in utility/config.py per the two-config convention: page modules
+# may resolve `config` to EITHER file depending on import order, so symbols
+# pages consume must exist in both (see test/utility/test_page_imports.py).
+COMMITTEE_TYPES: dict[str, str] = {
+    "Policy": "Policy",
+    "Oversight": "Oversight",
+    "Statutory": "Statutory",
+    "Shadow Department": "Shadow Department",
+    "Parliamentary Regulation and Reform": "Parl. Regulation & Reform",
+    "The Committee System and Parliamentary Administration": "Parl. Administration",
+    "Parliamentary Business and Committee Membership": "Parl. Business",
+}
 
 DIRS = [
     DATA_DIR,

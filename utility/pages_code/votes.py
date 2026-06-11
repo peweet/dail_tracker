@@ -22,6 +22,7 @@ from ui.components import (
     todo_callout,
     year_selector,
 )
+from data_access.freshness_data import freshness_line
 from ui.entity_links import api_json_link, division_url, member_profile_url
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
@@ -331,7 +332,7 @@ def _render_mode_a(date_from, date_to, outcome_filter, house: str = "Dáil") -> 
         if dc:
             sections.insert(0, f"{int(dc):,} total divisions on record · {int(mc or 0):,} {term}s recorded.")
     st.caption("Sourced from the Oireachtas Open Data API — as published in the official record.")
-    provenance_expander(sections=sections)
+    provenance_expander(sections=sections, freshness=freshness_line("votes"))
     # P2-6: removed the "Source link quality" todo_callout. The external
     # Oireachtas link on every card was the only thing it warned about,
     # and that link is now demoted to a quiet footer chip (P1-4/P2-2),

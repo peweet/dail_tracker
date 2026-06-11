@@ -2105,3 +2105,145 @@ def test_member_overview_connection_builds():
             pytest.skip(f"member_overview: source data not present for {fname}: {exc}")
         except Exception as exc:  # noqa: BLE001 — surface the offending file
             pytest.fail(f"member_overview: {fname} failed to register: {type(exc).__name__}: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# NULL / EMPTY-STRING REGRESSION GUARDS (2026-06-11 audit)
+# Synthetic tmp_path fixtures — no real pipeline data needed. Each test locks a
+# bug class found in the null/empty-string sweep: display sentinels papering
+# over recoverable data, and sibling views drifting on dirty-value filters.
+# ---------------------------------------------------------------------------
+
+
+def _write_sponsors_fixture(tmp_path):
+    """Minimal sponsors.parquet feeding BOTH v_legislation_index and v_legislation_detail."""
+    import polars as pl
+
+    pdir = tmp_path / "data" / "silver" / "parquet"
+    pdir.mkdir(parents=True)
+    n = 3
+    df = pl.DataFrame(
+        {
+            "bill_year": ["2024", "2024", "2023"],
+            "bill_no": ["10", "11", "12"],
+            "short_title_en": ["PMB Bill 2024", "Govt Bill 2024", "Orphan Bill 2023"],
+            "long_title_en": ["An Act A", "An Act B", "An Act C"],
+            "status": ["Current", "Enacted", "Lapsed"],
+            "bill_type": ["Private Member", "Government", "Government"],
+            "source": ["Private Member"] * n,
+            "origin_house": ["Dáil Éireann"] * n,
+            # The three sponsor shapes in the silver data:
+            #   PMB    -> sponsor_by_show_as set
+            #   Govt   -> ONLY sponsor_as_show_as set (the 557-bill em-dash regression)
+            #   Orphan -> both NULL (must be excluded by the WHERE, not shown as '—')
+            "sponsor_by_show_as": ["Jane Doe", None, None],
+            "sponsor_as_show_as": [None, "Minister for Health", None],
+            "sponsor_is_primary": [True, None, None],
+            "unique_member_code": ["JaneDoe.D.2020", None, None],
+            "context_date": ["2024-01-15", "2024-02-20", "2023-03-01"],
+            "last_updated": ["2024-06-01"] * n,
+            "method": ["api"] * n,
+            "most_recent_stage_event_show_as": ["Second Stage"] * n,
+            "most_recent_stage_event_progress_stage": ["3", "11", "2"],
+            "most_recent_stage_event_house_show_as": ["Dáil Éireann"] * n,
+            "most_recent_stage_event_stage_completed": ["false", "true", "false"],
+            "bill_url": ["u10", "u11", "u12"],
+        }
+    )
+    df.write_parquet(pdir / "sponsors.parquet")
+
+
+@pytest.mark.sql
+def test_legislation_index_sponsor_falls_back_like_detail(tmp_path):
+    """Government bills carry the sponsor ONLY in sponsor_as_show_as. The index
+    once coalesced sponsor_by_show_as straight to '—', so 557 bills (34%)
+    rendered an em-dash the detail panel resolved fine. Lock the fallback AND
+    index↔detail parity so the two COALESCE chains can't drift again."""
+    _write_sponsors_fixture(tmp_path)
+    con = _con()
+    for fname in ("legislation_index.sql", "legislation_detail.sql"):
+        sql = _view_path(fname).read_text(encoding="utf-8")
+        sql = sql.replace("'data/", f"'{tmp_path.as_posix()}/data/")  # mirror absolutize
+        con.execute(sql)
+
+    idx = con.execute("SELECT bill_id, sponsor FROM v_legislation_index").pl()
+    # Orphan (both sponsor fields NULL) is excluded by the WHERE — so a '—'
+    # sponsor can only mean a skipped fallback, never genuinely-missing data.
+    assert idx.height == 2
+    assert "2023_12" not in set(idx["bill_id"])
+    assert "—" not in set(idx["sponsor"]), "index dropped to '—' despite sponsor_as_show_as being populated"
+    by_id = dict(idx.iter_rows())
+    assert by_id["2024_10"] == "Jane Doe"
+    assert by_id["2024_11"] == "Minister for Health"
+
+    # Parity: every bill must show the SAME sponsor on index and detail.
+    mismatch = con.execute(
+        """
+        SELECT i.bill_id, i.sponsor, d.sponsor
+        FROM v_legislation_index i JOIN v_legislation_detail d USING (bill_id)
+        WHERE i.sponsor IS DISTINCT FROM d.sponsor
+        """
+    ).fetchall()
+    assert mismatch == [], f"index/detail sponsor drift: {mismatch}"
+
+
+def _write_dirty_awards_fixture(tmp_path):
+    """procurement_awards.parquet with the literal dirty authority values the
+    eTenders source emits ('NULL', ''), plus an undated row."""
+    import polars as pl
+
+    pdir = tmp_path / "data" / "gold" / "parquet"
+    pdir.mkdir(parents=True)
+    df = pl.DataFrame(
+        {
+            "Contracting Authority": [
+                "Dublin City Council",
+                "Dublin City Council",
+                "NULL",  # literal string — must be excluded by BOTH views
+                "",  # empty string — must be excluded by BOTH views
+                None,  # honest null — must be excluded by BOTH views
+                "Health Service Executive",  # undated — summary only
+            ],
+            "Notice Published Date/Contract Created Date": [
+                "01/02/2023",
+                "15/03/2024",
+                "01/02/2023",
+                "01/02/2023",
+                "01/02/2023",
+                None,
+            ],
+            "supplier_norm": ["acme", "beta", "ghost", "ghost2", "ghost3", "gamma"],
+            "value_eur": [100000.0, 50000.0, 1.0, 1.0, 1.0, 75000.0],
+            "value_safe_to_sum": [True, True, True, True, True, True],
+        }
+    )
+    df.write_parquet(pdir / "procurement_awards.parquet")
+
+
+@pytest.mark.sql
+def test_procurement_authority_views_agree_on_dirty_value_filters(tmp_path):
+    """v_procurement_authority_summary and its per-year sibling must exclude the
+    SAME dirty authority values ('', 'NULL', NULL). The year view once dropped
+    only '' — harmless while gold is coerced upstream, but a silent universe
+    split the moment a literal-NULL regresses. Dirty rows here make any future
+    one-sided filter edit fail loudly."""
+    _write_dirty_awards_fixture(tmp_path)
+    con = _con()
+    for fname in ("procurement_authority_summary.sql", "procurement_authority_year_summary.sql"):
+        sql = _view_path(fname).read_text(encoding="utf-8")
+        sql = sql.replace("'data/", f"'{tmp_path.as_posix()}/data/")  # mirror absolutize
+        con.execute(sql)
+
+    alltime = set(
+        con.execute("SELECT contracting_authority FROM v_procurement_authority_summary").pl()["contracting_authority"]
+    )
+    yearly = con.execute("SELECT contracting_authority, year FROM v_procurement_authority_year_summary").pl()
+
+    dirty = {"", "NULL", None}
+    assert not (alltime & dirty), f"all-time view leaked dirty authorities: {alltime & dirty}"
+    assert not (set(yearly["contracting_authority"]) & dirty), "year view leaked dirty authorities"
+
+    # Same universe, modulo the documented difference: undated rows only exist all-time.
+    assert alltime == {"Dublin City Council", "Health Service Executive"}
+    assert set(yearly["contracting_authority"]) == {"Dublin City Council"}
+    assert set(yearly["year"]) == {2023, 2024}

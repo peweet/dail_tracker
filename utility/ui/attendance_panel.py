@@ -7,14 +7,12 @@ retrieval, no business logic — mirrors ``ui/vote_explorer.py``.
 
 from __future__ import annotations
 
-import datetime
 from html import escape as _h
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 from data_access.attendance_data import fetch_chamber_sitting_days, get_attendance_conn
-from ui.components import empty_state, evidence_heading, stat_strip, todo_callout, year_selector
+from ui.components import empty_state, evidence_heading, stat_strip, year_selector
 from ui.export_controls import export_button
 
 from config import SITTING_DAYS_BY_YEAR
@@ -79,60 +77,37 @@ def _fetch_timeline_stats(td_name: str, year: int) -> pd.DataFrame:
     )
 
 
-# ── Attendance timeline strip (profile — one year at a time) ──────────────────
+# ── Sitting calendar (pure-CSS month grid) ─────────────────────────────────────
+
+_MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
-def _render_attendance_strip(timeline: pd.DataFrame, year: int) -> None:
-    """Timeline strip: one tick per sitting day attended, month labels on x-axis.
+def _render_month_calendar(timeline: pd.DataFrame) -> None:
+    """Twelve month cells; one dot per day recorded present (dot title = date).
 
-    Month grid lines span the full year so recess gaps are naturally visible.
-    Tooltip shows the exact date for each mark.
+    Pure presentation regrouping of the per-day timeline rows — no counting
+    beyond the per-month dot lists being displayed (same pattern as the
+    interests panel's present_by_cat reshaping).
     """
-    df = timeline.copy()
-    df["sitting_date"] = pd.to_datetime(df["sitting_date"], errors="coerce")
-    df = df.dropna(subset=["sitting_date"])
-    if df.empty:
-        return
+    dates = pd.to_datetime(timeline["sitting_date"], errors="coerce").dropna().sort_values()
+    days_by_month: dict[int, list[str]] = {}
+    for d in dates:
+        days_by_month.setdefault(int(d.month), []).append(d.strftime("%d %b"))
 
-    df["date_str"] = df["sitting_date"].dt.strftime("%d %b %Y")
-
-    today = datetime.date.today()
-    domain_end = today.isoformat() if year >= today.year else f"{year}-12-31"
-    domain_start = f"{year}-01-01"
-
-    chart = (
-        alt.Chart(df)
-        .mark_tick(size=120, thickness=7, opacity=0.9)
-        .encode(
-            x=alt.X(
-                "sitting_date:T",
-                title=None,
-                axis=alt.Axis(
-                    format="%b",
-                    tickCount="month",
-                    labelAngle=0,
-                    labelFontSize=14,
-                    labelFontWeight="bold",
-                    labelColor="#374151",
-                    grid=True,
-                    gridColor="#e5e7eb",
-                    gridDash=[3, 3],
-                    domain=True,
-                    domainColor="#d1d5db",
-                    tickSize=6,
-                    tickColor="#d1d5db",
-                    labelPadding=10,
-                ),
-                scale=alt.Scale(domain=[domain_start, domain_end], padding=12),
-            ),
-            color=alt.value("#16a34a"),
-            tooltip=[alt.Tooltip("date_str:N", title="Date attended")],
+    cells: list[str] = []
+    for m in range(1, 13):
+        days = days_by_month.get(m, [])
+        dots = "".join(f'<span class="att-cal-dot" title="{_h(day)}"></span>' for day in days)
+        zero_cls = "" if days else " att-cal-month-zero"
+        n_label = str(len(days)) if days else "·"
+        cells.append(
+            f'<div class="att-cal-month{zero_cls}">'
+            f'<div class="att-cal-month-label">{_MONTH_LABELS[m - 1]}</div>'
+            f'<div class="att-cal-dots">{dots}</div>'
+            f'<div class="att-cal-month-n">{n_label}</div>'
+            f"</div>"
         )
-        .properties(height=170)
-        .configure_view(strokeWidth=1, stroke="#d1d5db", fill="#ffffff")
-        .configure_axis(labelFont="sans-serif")
-    )
-    st.altair_chart(chart, width="stretch")
+    st.html(f'<div class="att-cal-strip">{"".join(cells)}</div>')
 
 
 # ── Member profile body (lifted into member-overview Attendance expander) ─────
@@ -209,37 +184,21 @@ def render_member_attendance(
         stats.append((last_d, "Most recent", "var(--text-secondary)"))
     stat_strip(stats)
 
-    # ── Sitting calendar ───────────────────────────────────────────────────────
+    # ── Sitting calendar — CSS month grid (replaced the Altair tick strip
+    #    2026-06-11; chart iframes clashed with the page's house style) ────────
     timeline = _fetch_timeline_for_year(td_name, selected_year)
-    _required_cols = {"sitting_date", "attendance_status"}
-    missing_cols = _required_cols - set(timeline.columns)
-
-    evidence_heading(f"Sitting calendar · {selected_year}")
-
-    if missing_cols:
-        todo_callout(f"v_attendance_timeline — missing columns: {', '.join(sorted(missing_cols))}")
-    elif timeline.empty:
-        empty_state(
-            f"No sitting records for {selected_year}",
-            "v_attendance_timeline returned no rows for this member and year.",
-        )
+    if timeline.empty or "sitting_date" not in timeline.columns:
+        st.caption(f"No dated sitting records for {selected_year}.")
     else:
+        evidence_heading(f"Sitting calendar · {selected_year}")
         st.caption(
-            f"{n_attended} days recorded in {selected_year} "
-            f"({n_sitting} plenary + {n_other} other). "
-            "Each mark below is a day the member was recorded present. "
-            f"Gaps between marks are {house} recess periods."
+            f"Each dot is a day {td_name} was recorded present. "
+            f"Empty months are {house} recess or no recorded attendance."
         )
-
-        tl_all = timeline.copy()
-        tl_all["sitting_date"] = pd.to_datetime(tl_all["sitting_date"], errors="coerce")
-        tl_all = tl_all.dropna(subset=["sitting_date"]).sort_values("sitting_date")
-
-        _render_attendance_strip(timeline, selected_year)
-
+        _render_month_calendar(timeline)
         export_button(
             timeline,
-            label=f"Export {td_name} · {selected_year} · {n_attended} rows",
+            label=f"Export sitting dates · {td_name} · {selected_year} · {n_attended} rows",
             filename=f"dail_tracker_attendance_{td_name.replace(' ', '_')}_{selected_year}.csv",
             key=f"att_td_export{export_key_suffix}",
         )

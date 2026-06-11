@@ -42,6 +42,14 @@ INTERESTS: dict[tuple[str, int], str] = {
 # Each PDF covers a specific date range (not a clean calendar year).
 ATTENDANCE: list[tuple[str, str]] = [
     (
+        "1 Jan 2026 – 30 Apr 2026",
+        f"{_TAA}/2026/2026-06-02_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2026-to-30-april-2026_en.pdf",
+    ),
+    (
+        "1 Jan 2026 – 31 Mar 2026",
+        f"{_TAA}/2026/2026-04-30_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2026-to-31-march-2026_en.pdf",
+    ),
+    (
         "1 Jan 2026 – 28 Feb 2026",
         f"{_TAA}/2026/2026-04-02_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2026-to-28-february-2026_en.pdf",
     ),
@@ -52,6 +60,14 @@ ATTENDANCE: list[tuple[str, str]] = [
     (
         "1 Feb 2025 – 30 Dec 2025",
         f"{_TAA}/2026/2026-02-16_deputies-verification-of-attendance-for-the-payment-of-taa-01-february-2025-to-30-december-2025_en.pdf",
+    ),
+    (
+        "1 Jan 2025 – 30 Nov 2025",
+        f"{_TAA}/2026/2026-01-16_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2025-to-30-november-2025_en.pdf",
+    ),
+    (
+        "1 Jan 2025 – 31 Mar 2025",
+        f"{_TAA}/2026/2026-02-03_deputies-verification-of-attendance-for-the-payment-of-taa-01-january-2025-to-31-march-2025_en.pdf",
     ),
     (
         "1 Jan 2025 – 31 Jan 2025",
@@ -74,6 +90,14 @@ ATTENDANCE: list[tuple[str, str]] = [
 # ── Payments ──────────────────────────────────────────────────────────────────
 # Reverse-chronological. (label, url)
 PAYMENTS: list[tuple[str, str]] = [
+    (
+        "Apr 2026",
+        f"{_PSA}/2026/2026-06-02_parliamentary-standard-allowance-payments-to-deputies-for-april-2026_en.pdf",
+    ),
+    (
+        "Mar 2026",
+        f"{_PSA}/2026/2026-04-30_parliamentary-standard-allowance-payments-to-deputies-for-march-2026_en.pdf",
+    ),
     (
         "Feb 2026",
         f"{_PSA}/2026/2026-04-02_parliamentary-standard-allowance-payments-to-deputies-for-february-2026_en.pdf",
@@ -102,6 +126,10 @@ PAYMENTS: list[tuple[str, str]] = [
     ("Jun 2025", f"{_PSA}/2025/2025-08-15_parliamentary-standard-allowance-payments-to-deputies-for-june-2025_en.pdf"),
     ("May 2025", f"{_PSA}/2025/2025-07-03_parliamentary-standard-allowance-payments-to-deputies-for-may-2025_en.pdf"),
     ("Apr 2025", f"{_PSA}/2025/2025-06-10_parliamentary-standard-allowance-payments-to-deputies-for-april-2025_en.pdf"),
+    (
+        "Mar 2025",
+        f"{_PSA}/2026/2026-02-03_parliamentary-standard-allowance-payments-to-deputies-for-march-2025_en.pdf",
+    ),
     (
         "Feb 2025",
         f"{_PSA}/2025/2025-04-22_parliamentary-standard-allowance-payments-to-deputies-for-february-2025_en.pdf",
@@ -303,19 +331,22 @@ def provenance_expander(
     sections: list[str],
     source_caption: str = "",
     pdf_links: list[tuple[str, str]] | None = None,
+    freshness: str = "",
 ) -> None:
     """Standard 'About & data provenance' expander used on all pages.
 
     sections       — markdown strings; a divider is inserted between each
     source_caption — public-facing data credit line (no internal paths)
     pdf_links      — optional list of (label, url) passed to render_pdf_source_links
+    freshness      — data-age line from data_access.freshness_data.freshness_line();
+                     empty string renders nothing
     """
     with st.expander("About & data provenance", expanded=False):
         for i, section in enumerate(sections):
             st.markdown(section)
             if i < len(sections) - 1:
                 st.divider()
-        if source_caption or pdf_links:
+        if source_caption or pdf_links or freshness:
             st.divider()
         if source_caption:
             st.caption(source_caption)
@@ -323,6 +354,8 @@ def provenance_expander(
             n = len(pdf_links)
             st.markdown(f"**Source documents:** {n} document{'s' if n != 1 else ''}")
             render_pdf_source_links(pdf_links)
+        if freshness:
+            st.caption(freshness)
 
 
 def interests_pdf_url(house: str, year: int) -> str | None:

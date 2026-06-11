@@ -51,7 +51,12 @@ REGISTRY_FILES = ["member_registry.sql"]
 EXTERNAL_LINKS_FILES = ["member_external_links.sql"]
 
 # {PARQUET_PATH} + {SEANAD_VOTE_PARQUET_PATH} — vote_base must precede its dependents.
-VOTE_FILES = ["vote_base.sql", "vote_td_summary.sql", "vote_member_detail.sql"]
+VOTE_FILES = [
+    "vote_base.sql",
+    "vote_td_summary.sql",
+    "vote_td_year_summary.sql",  # member-overview "Votes by year" chart
+    "vote_member_detail.sql",
+]
 
 # {SPEECH_FACT_PARQUET_PATH} — speech_base (single unified parquet, carries house)
 # must precede its dependents. Powers the member-overview Debates section.
