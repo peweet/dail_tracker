@@ -1,39 +1,49 @@
 {
-  "rows_notice_x_winner": 13230,
-  "distinct_notices": 8684,
-  "rows_with_value": 5537,
-  "multi_supplier_framework_rows": 5558,
-  "pan_eu_outlier_rows": 375,
-  "value_safe_to_sum_rows": 4059,
-  "value_safe_to_sum_total_eur": 5864288246.300001,
-  "value_naive_sum_eur_DO_NOT_USE": 624701376939.0698,
-  "large_award_review_rows_ge_50m": 345,
-  "median_award_eur": 340000.0,
+  "rows_notice_x_winner": 685,
+  "distinct_notices": 500,
+  "rows_with_value": 11,
+  "multi_supplier_framework_rows": 232,
+  "pan_eu_outlier_rows": 0,
+  "value_safe_to_sum_rows": 11,
+  "value_safe_to_sum_total_eur": 12879205.209999999,
+  "value_naive_sum_eur_DO_NOT_USE": 12879205.209999999,
+  "large_award_review_rows_ge_50m": 0,
+  "median_award_eur": 165000.0,
   "trustworthy_metrics": "COUNT of awards + MEDIAN award value; never the naive sum (ceiling/award-grade values, tail-dominated)",
   "supplier_class_counts": {
-    "company": 10003,
-    "sole_trader_or_individual": 1724,
-    "unknown": 951,
-    "foreign_company": 552
+    "foreign_company": 17,
+    "company": 439,
+    "unknown": 149,
+    "sole_trader_or_individual": 80
   },
   "cro_match_counts": {
-    "name": 1806,
-    "identifier": 6759,
-    "none": 4665
+    "none": 310,
+    "name": 96,
+    "identifier": 279
   },
-  "cro_match_rate": 0.647,
-  "rows_review_personal_data": 1724,
+  "cro_match_rate": 0.547,
+  "rows_review_personal_data": 80,
   "competition_signal": {
-    "rows_with_procedure_type": 13155,
-    "rows_with_tenders_received": 8720,
-    "single_bid_rows": 1919,
-    "uncompetitive_procedure_rows": 502,
-    "price_only_rows": 1079,
+    "rows_with_procedure_type": 682,
+    "rows_with_tenders_received": 10,
+    "single_bid_rows": 1,
+    "uncompetitive_procedure_rows": 16,
+    "price_only_rows": 46,
     "note": "n_tenders_received = MIN tenders across the notice's lots (least-competitive lot); is_single_bid = that min is 1. Derived from tender-count submission codes only ('part-req' excluded). A factual competition signal, never a verdict."
+  },
+  "contract_term_signal": {
+    "rows_with_duration": 9,
+    "rows_with_end_estimate": 87,
+    "end_basis_counts": {
+      "conclusion_plus_duration": 3,
+      "explicit_end_date": 78,
+      "start_plus_duration": 6
+    },
+    "note": "contract_end_date_est = advertised term projected from the notice (explicit end > start+duration > conclusion+duration). An advertised term, never a verified end date; renewal options are NOT folded in."
   },
   "date_span": [
     "2023-12-29",
-    "2026-06-05"
+    "2024-04-11"
   ],
   "layer": "silver",
   "next_step": "build sql_views/ted_*.sql (reconcile frameworks + CRO) before any gold/UI",
@@ -48,6 +58,6 @@
     "attribution": "Contains information from TED (\u00a9 European Union), reused under Decision 2011/833/EU."
   },
   "schema_version": 2,
-  "generated_at": "2026-06-11T17:55:53+00:00",
+  "generated_at": "2026-06-11T18:28:51+00:00",
   "caveat": "SILVER (cleaned, not frontend-exposed). One row per notice x winner. tender-value is a NOTICE-level figure: for multi-supplier frameworks it is the framework CEILING, never per-winner \u2014 only value_safe_to_sum (single-winner, non-framework, non-pan-EU) may be totalled, labelled 'awarded', not spend. winner-identifier matched to CRO company_num after digit-strip; bare personal-name winners flagged review_personal_data (quarantine deferred). A contract award is a fact, not evidence of influence."
 }
