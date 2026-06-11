@@ -69,6 +69,7 @@ PARSER_VERSION = "1.0.0"
 SANDBOX_DIR = DATA_DIR / "sandbox" / "judiciary"
 META_DIR = DATA_DIR / "_meta"
 ALIAS_CSV = META_DIR / "judiciary_name_aliases.csv"
+WAITING_CONTEXT_CSV = META_DIR / "courts_waiting_context.csv"  # hand-curated section headings
 COVERAGE_PATH = META_DIR / "judiciary_bench_coverage.json"
 
 ROSTER_SOURCE_URL = "https://www.courts.ie/judges"
@@ -365,7 +366,17 @@ def build_courts_waiting(wt: pd.DataFrame) -> pd.DataFrame:
     here — U+FFFD is ambiguous (apostrophe vs en-dash) and silently 'fixing' it would
     corrupt the text. The clean, headline rows are the named venues (Dublin…Limerick);
     the page curates to those, but gold keeps every published row faithfully. The
-    is_clean_label flag marks rows free of the known artefacts for that curation."""
+    is_clean_label flag marks rows free of the known artefacts for that curation.
+
+    SECTION CONTEXT (jurisdiction + list_context): the table extraction dropped the
+    report's section headings ("High Court: Possession", "Court of Appeal - Civil"…),
+    leaving labels like "Full hearing" 4x with no court attached. The headings are
+    restored from the hand-curated data/_meta/courts_waiting_context.csv (transcribed
+    from the Annual Report pp.135-140 — never inferred), keyed by (page, row order)
+    and VERIFIED against the published label so source drift fails loudly instead of
+    mislabelling a court. The CSV also carries the Central Criminal Court rows
+    (seq_in_page < 0) the regex extraction missed — that table publishes bare week
+    numbers ("44") rather than "44 weeks" strings."""
     w = wt.copy()
     label = w["matter_or_venue"].astype(str)
     is_clean = ~label.str.contains(r"[�]|fii|\bfi\s", regex=True, na=False)
@@ -380,6 +391,47 @@ def build_courts_waiting(wt: pd.DataFrame) -> pd.DataFrame:
             "source_url": WAITING_SOURCE_URL,
         }
     )
+    out["seq_in_page"] = out.groupby("page").cumcount()
+
+    ctx = pd.read_csv(WAITING_CONTEXT_CSV)
+    mapped = ctx[ctx["seq_in_page"] >= 0]
+    out = out.merge(
+        mapped[["page", "seq_in_page", "match_prefix", "jurisdiction", "list_context"]],
+        on=["page", "seq_in_page"],
+        how="left",
+    )
+    # drift guard: a context row must agree with the published label it claims to describe
+    bad = out[
+        out["match_prefix"].notna()
+        & ~out.apply(
+            lambda r: str(r["matter_or_venue"]).casefold().startswith(str(r["match_prefix"]).casefold()),
+            axis=1,
+        )
+    ]
+    if not bad.empty:
+        raise ValueError(
+            "courts_waiting_context.csv no longer matches the extracted waiting-time rows "
+            f"(re-curate it): {bad[['page', 'seq_in_page', 'matter_or_venue', 'match_prefix']].to_dict('records')}"
+        )
+    out = out.drop(columns=["match_prefix"])
+
+    supplements = ctx[ctx["seq_in_page"] < 0]
+    if not supplements.empty:
+        extra = pd.DataFrame(
+            {
+                "page": supplements["page"].astype(int),
+                "matter_or_venue": supplements["match_prefix"],
+                "wait_2024": supplements["wait_2024"],
+                "wait_2023": supplements["wait_2023"],
+                "is_clean_label": True,
+                "source_name": "Courts Service Annual Report 2024 (Waiting Times)",
+                "source_url": WAITING_SOURCE_URL,
+                "seq_in_page": supplements["seq_in_page"].astype(int),
+                "jurisdiction": supplements["jurisdiction"],
+                "list_context": supplements["list_context"],
+            }
+        )
+        out = pd.concat([out, extra], ignore_index=True)
     return out.reset_index(drop=True)
 
 

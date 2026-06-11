@@ -43,7 +43,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.parse import unquote, urljoin, urlparse
+from urllib.parse import quote, unquote, urljoin, urlparse
 
 import fitz  # PyMuPDF
 import polars as pl
@@ -507,6 +507,9 @@ def _curl(url: str) -> bytes | None:
 
 
 def fetch_bytes(url: str) -> bytes | None:
+    # Sligo publishes hrefs with raw spaces — requests/curl reject them as malformed;
+    # '%' stays in the safe set so already-encoded hrefs (Galway) don't double-encode.
+    url = quote(url, safe="!#$%&'()*+,/:;=?@[]~")
     try:
         r = requests.get(url, headers=H, timeout=90, allow_redirects=True)
         r.raise_for_status()

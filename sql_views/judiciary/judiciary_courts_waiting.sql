@@ -9,9 +9,16 @@
 -- leading number out of the published string so the UI can rank by longest wait.
 -- "Date immediately available" -> 0 weeks; an unparseable label -> NULL (kept, shown
 -- by its text). SCOPE: list throughput only — no judge named.
+--
+-- jurisdiction + list_context restore the report's section headings (which court and
+-- which list a row belongs to — "Full hearing" appears 4x without them). They come
+-- from the hand-curated data/_meta/courts_waiting_context.csv, transcribed from the
+-- Annual Report and label-verified at build time (extractors/judiciary_bench_extract.py).
 CREATE OR REPLACE VIEW v_courts_waiting_times AS
 SELECT
     page,
+    jurisdiction,
+    list_context,
     matter_or_venue,
     wait_2024,
     wait_2023,
@@ -23,4 +30,4 @@ SELECT
     source_name,
     source_url
 FROM read_parquet('data/gold/parquet/judiciary_courts_waiting.parquet')
-ORDER BY page, matter_or_venue;
+ORDER BY page, seq_in_page;

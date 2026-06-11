@@ -51,17 +51,33 @@ lines (120,751 public-display).
 
 ### 3. Single-bid rate by sector (OpenTender's flagship KPI, by market)
 **View: `v_procurement_competition_by_cpv`** — grain: one row per CPV division
-(TED 2024+, the eForms bid-count window). National baseline 17.5% (1,542 /
-8,835 awards with bid counts).
+(TED 2024+, the eForms bid-count window). THE RATE IS LOT-LEVEL: single-bid
+lots / lots-with-a-bid-count, deduped to one row per notice — the notice-level
+min-across-lots metric over-states single-bid on multi-lot notices (IT
+services: 46.7% notice-level vs 26.6% lot-level) and is not used.
+National lot-level baseline **22.8%** (1,773 / 7,773 bid-counted lots).
 
-- Highest: Hotel/Catering **33.6%**, Repair/Maintenance 32.3%,
-  Recreation/Culture 32.3%, Software 27.7%.
-- Lowest: Construction **9.4%**, Real estate 6.7%, Business/Consulting 13.2%.
-- The spread (6.7%→33.6%) is the story: competition health is a property of
-  the *market*, not just the buyer. Complements the existing per-buyer
-  `v_procurement_competition`.
-- Denominator honesty: rate uses only awards carrying `n_tenders_received`;
-  `n_awards_total` shown alongside.
+- Highest (≥100 lots): Recreation/Culture **41.9%**, Hotel/Catering 40.2%,
+  Repair/Maintenance 37.1%, R&D 36.6%.
+- Lowest: Construction **13.9%**, Architecture/Engineering 16.6%,
+  Medical equipment 19.4%.
+- The spread (13.9%→41.9%) is the story: competition health is a property of
+  the *market*, not just the buyer. Complements the per-buyer
+  `v_procurement_competition` (top buyers ≥40 lots: University of Galway
+  73.9%, University of Limerick 51.1%, Donegal County Council 40.0%).
+- Denominator honesty: lots without a reported bid count are excluded from the
+  rate; lot totals shown alongside.
+
+> 2026-06-11 follow-up, post-publication of the first draft of this doc:
+> (a) the 539 `n_tenders_received = 0` rows were a real extractor bug
+> (cancelled/no-bid lots polluting the notice min) — FIXED in
+> `extractors/ted_ireland_extract.py` and the silver rebuilt from bronze;
+> contract test green. (b) `v_procurement_competition` was found exposing an
+> OLD notice-level schema while `dail_tracker_core/queries/procurement.py`
+> (MCP + API) selects lot-level columns (`n_lots_with_bidcount`,
+> `single_bid_lot_pct`) — a live runtime break; the view now ships the
+> lot-level schema with notice dedup. All single-bid numbers in this doc are
+> the corrected lot-level figures.
 
 ### 4. Incumbency streaks (repeat winners, year after year)
 **View: `v_procurement_incumbency`** — grain: one row per supplier×authority

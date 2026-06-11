@@ -25,7 +25,7 @@ WITH pairs AS (
     WHERE supplier_class = 'company'
       AND NOT name_truncated
       AND length(supplier_norm) >= 4
-      AND supplier_norm <> 'null'
+      AND supplier_norm NOT IN ('NULL', 'null')
     GROUP BY supplier_norm, "Contracting Authority"
 ),
 ranked AS (

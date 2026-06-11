@@ -81,6 +81,28 @@ def elevation_ladder(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     return _run(conn, "SELECT * FROM v_judiciary_elevation_ladder")
 
 
+# ── Judge ↔ diary bridge (extractors/judiciary_diary_link.py) ───────────────
+# The diary names judges surname-only; the pipeline map resolves each diary
+# string to a roster judge_key (honest-or-nothing — ambiguous strings stay
+# unmatched). These power the profile's "Before the court" section. Listing
+# density is NOT a performance metric and the page must not frame it as one.
+def judge_diary(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Tier C anonymised listings keyed by roster judge (judge profile section)."""
+    return _run(conn, "SELECT * FROM v_judiciary_judge_diary")
+
+
+def judge_sittings(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Tier A sitting sessions keyed by roster judge (courtroom / time / list)."""
+    return _run(conn, "SELECT * FROM v_judiciary_judge_sittings")
+
+
+def plaintiff_league(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Repeat institutional applicants across the diary archive (orgs/State only;
+    individuals are never ranked). Grain: overall rollup + per-court rows —
+    the page filters on is_overall / court, it never re-sums."""
+    return _run(conn, "SELECT * FROM v_judiciary_plaintiff_league")
+
+
 # ── The Courts — system health (no named judges) ────────────────────────────
 # Aggregate court-throughput facts only; the clearance metric + week-parsing live
 # in the views (sql_views/judiciary_courts_*.sql). No row here names a judge.

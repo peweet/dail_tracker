@@ -586,7 +586,11 @@ def run(args) -> int:
             if prev is not None:
                 logger.info(
                     "Superseding earlier capture of %s (%s, %d cases) with %s (%d cases).",
-                    ddate, prev["file"], prev["n_cases"], path.name, len(cases),
+                    ddate,
+                    prev["file"],
+                    prev["n_cases"],
+                    path.name,
+                    len(cases),
                 )
             by_date[ddate] = {"file": path.name, "sha": sha[:16], "sched": sched, "cases": cases, "n_cases": len(cases)}
 

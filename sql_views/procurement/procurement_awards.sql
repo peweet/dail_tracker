@@ -25,5 +25,10 @@ SELECT
     value_kind,
     is_framework_or_dps,
     value_shared_across_suppliers,
-    value_safe_to_sum
+    value_safe_to_sum,
+    -- Framework nesting, made visible: a call-off is a drawdown under a framework/DPS
+    -- (its parent agreement). Carried so award histories can label call-off rows; the
+    -- parent-resolution join lives in v_procurement_call_off_links.
+    is_call_off,
+    "Parent Agreement ID"                        AS parent_agreement_id
 FROM read_parquet('data/gold/parquet/procurement_awards.parquet');

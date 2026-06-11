@@ -11,61 +11,51 @@
 --      aggregates).
 -- This view replaces both. The page does retrieval-only SELECT against it.
 --
--- The TAA band returned is the member's MOST RECENT band (highest
--- payment_year) so the card pill reflects current state — bands sometimes
--- change between years.
+-- The TAA band / position returned are the member's MOST RECENT (highest
+-- payment_year) — bands sometimes change between years.
 --
 -- party_name / constituency are still NULL upstream
 -- (payments_member_enrichment.py not yet built, per payments_base.sql).
 -- They are projected as empty strings here so downstream SELECTs compile.
 
 -- `house` is carried through so the all-time ranking is per-chamber: Senators
--- rank among Senators (rank_high partitioned by house), and identity is
--- (member_name, house) — two names appear in both chambers' payment files.
+-- rank among Senators (rank_high partitioned by house).
+--
+-- Grain fix (2026-06-11, mirrors v_payments_yearly_evolution): member identity
+-- is unique_member_code when enriched, falling back to member_name — the source
+-- PDFs spell the same member differently across years (ASCII "-" vs U+2010
+-- hyphen in "Healy-Rae"), so grouping by raw member_name split one member into
+-- two all-time entries. Display name/band/position collapse to the latest
+-- year's values via arg_max, which also retires the old latest_band CTE.
 CREATE OR REPLACE VIEW v_payments_alltime_ranking AS
 WITH per_member AS (
     SELECT
-        member_name,
+        COALESCE(NULLIF(unique_member_code, ''), member_name)    AS member_key,
         house,
-        -- unique_member_code is consistent per member_name in the yearly view
-        -- (NULLIF strips the empty-string COALESCE so MAX picks the real code
-        -- when any row has it). MAX over a single value is a no-op.
+        arg_max(member_name, payment_year)                       AS member_name,
         MAX(NULLIF(unique_member_code, ''))                      AS unique_member_code,
+        arg_max(position, payment_year)                          AS position_latest,
+        arg_max(taa_band_label, payment_year)                    AS taa_band_label_latest,
         SUM(total_paid)                                          AS total_paid_since_2020,
         SUM(payment_count)                                       AS payment_count_since_2020,
         MAX(payment_year)                                        AS latest_year,
         MIN(payment_year)                                        AS earliest_year
     FROM v_payments_yearly_evolution
     WHERE payment_year >= 2020
-    GROUP BY member_name, house
-),
-latest_band AS (
-    -- Pick the band label from the member's most-recent year. Joining back
-    -- to v_payments_yearly_evolution on (member_name, house, latest_year).
-    SELECT DISTINCT ON (y.member_name, y.house)
-        y.member_name,
-        y.house,
-        y.taa_band_label                                         AS taa_band_label_latest,
-        y.position                                               AS position_latest
-    FROM v_payments_yearly_evolution y
-    JOIN per_member pm
-      ON y.member_name = pm.member_name
-     AND y.house = pm.house
-     AND y.payment_year = pm.latest_year
+    GROUP BY member_key, house
 )
 SELECT
     pm.member_name,
     pm.house,
     COALESCE(pm.unique_member_code, '')                          AS unique_member_code,
-    COALESCE(lb.position_latest, 'Deputy')                       AS position,
+    COALESCE(pm.position_latest, 'Deputy')                       AS position,
     ''                                                           AS party_name,
     ''                                                           AS constituency,
-    COALESCE(lb.taa_band_label_latest, '')                       AS taa_band_label,
+    COALESCE(pm.taa_band_label_latest, '')                       AS taa_band_label,
     pm.total_paid_since_2020,
     pm.payment_count_since_2020,
     pm.earliest_year,
     pm.latest_year,
     RANK() OVER (PARTITION BY pm.house ORDER BY pm.total_paid_since_2020 DESC)  AS rank_high
 FROM per_member pm
-LEFT JOIN latest_band lb ON pm.member_name = lb.member_name AND pm.house = lb.house
 ORDER BY pm.house, rank_high ASC;

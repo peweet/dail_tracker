@@ -18,9 +18,13 @@ is_elevation, salary band, match confidence) lives in the SQL views
 (sql_views/judiciary_*.sql); this page reads them via data_access.judiciary_data and does
 presentation faceting only. Bench/appointments/profile read v_judiciary_roster /
 v_judiciary_appointments / v_judiciary_profile / v_judiciary_nominations; The Courts
-reads v_courts_clearance / v_courts_waiting_times / v_courthouses (clearance_pct and
-week-parsing computed in those views) — all from extractors/judiciary_bench_extract.py.
-The Legal Diary tab reads the v_judiciary_legal_diary_* views as before.
+reads v_courts_clearance / v_courts_waiting_times / v_courthouses (clearance_pct,
+week-parsing and the curated jurisdiction/list_context computed/joined in those views)
+— all from extractors/judiciary_bench_extract.py. The Legal Diary tab reads the
+v_judiciary_legal_diary_* views; the profile's "Before the court" section and the
+cross-day "Who is suing" league read v_judiciary_judge_sittings / v_judiciary_judge_diary
+/ v_judiciary_plaintiff_league (the diary→roster name join and the applicant ranking are
+pipeline-owned — extractors/judiciary_diary_link.py and the league view's GROUPING SETS).
 """
 
 from __future__ import annotations
@@ -45,10 +49,13 @@ from data_access.judiciary_data import (
     fetch_courts_clearance_by_area,
     fetch_courts_waiting_times,
     fetch_elevation_ladder,
+    fetch_judge_diary,
+    fetch_judge_sittings,
     fetch_legal_diary_cases,
     fetch_legal_diary_counts,
     fetch_legal_diary_schedule,
     fetch_nominations,
+    fetch_plaintiff_league,
     fetch_profile,
     fetch_roster,
 )
@@ -257,6 +264,20 @@ def _inject_jd_css() -> None:
         .jd-party-p { font-weight: 600; color: #1f2d33; }
         .jd-vs { color: #9aa7ad; font-style: italic; padding: 0 0.15rem; }
         .jd-party-d { color: #3a4a51; }
+        /* listing status ("For Mention" / "For Hearing" / "In Custody") — the
+           practitioner signal a bare party line was missing */
+        .jd-status { font-size: 0.64rem; font-weight: 600; color: #4a5a61; background: #eef2f3;
+            border-radius: 4px; padding: 0.05rem 0.4rem; white-space: nowrap; flex: none; }
+        /* judge-profile "Before the court" — one block per captured court day */
+        .jd-day-head { display: flex; align-items: baseline; gap: 0.6rem; margin: 1.1rem 0 0.4rem; }
+        .jd-day-date { font-size: 0.95rem; font-weight: 700; color: #14232b; }
+        .jd-day-meta { font-size: 0.76rem; color: #6b7b83; }
+        .jd-sitting-line { font-size: 0.8rem; color: #2c3e46; margin: 0.15rem 0 0.35rem; }
+        .jd-sitting-line b { color: #14232b; font-weight: 650; }
+        /* waiting-times court/list grouping */
+        .jd-wait-court { font-size: 1.0rem; font-weight: 700; color: #14232b; margin: 1.3rem 0 0.2rem; }
+        .jd-wait-ctx { font-size: 0.8rem; font-weight: 650; color: #4a5a61; margin: 0.7rem 0 0.3rem;
+            text-transform: none; letter-spacing: 0; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -287,10 +308,7 @@ def _bench_card_html(row) -> str:
     if row.get("requires_manual_review"):
         chips.append('<span class="jud-chip review">Needs review</span>')
     chiprow = f'<div class="jud-chiprow">{"".join(chips)}</div>' if chips else ""
-    return (
-        f'<div class="jud-card"><div class="jud-jn">{_esc(row.get("judge_name"))}</div>'
-        f"{appt}{chiprow}</div>"
-    )
+    return f'<div class="jud-card"><div class="jud-jn">{_esc(row.get("judge_name"))}</div>{appt}{chiprow}</div>'
 
 
 def _render_the_bench(roster: pd.DataFrame) -> None:
@@ -442,6 +460,8 @@ def _render_profile(judge_key: str) -> None:
             "Note: one appointment record for this judge is a low-confidence match and is flagged for manual review."
         )
 
+    _render_profile_diary(judge_key)
+
     # provenance
     links = []
     if isinstance(row.get("appt_source_url"), str) and row["appt_source_url"]:
@@ -460,6 +480,89 @@ def _render_profile(judge_key: str) -> None:
         + f". Roster snapshot {_esc(row.get('source_published_at'))}. This profile records "
         "appointment, office and assignment only — not performance, conduct or any ranking.</div>"
     )
+
+
+# ── judge profile: Before the court (Legal Diary bridge) ─────────────────────
+_PROFILE_DIARY_DAYS = 5  # most recent captured court days shown
+_PROFILE_DIARY_ROWS = 20  # matters rendered per day before an honest remainder count
+
+
+def _render_profile_diary(judge_key: str) -> None:
+    """What the Legal Diary lists before this judge — sittings (courtroom / time /
+    list) plus the anonymised matters, newest day first. The diary→roster name join
+    is PIPELINE-owned (v_judiciary_judge_sittings / v_judiciary_judge_diary via
+    judiciary_diary_judge_map); this section filters to one judge and renders.
+    A schedule, never a workload or performance measure."""
+    sittings = fetch_judge_sittings()
+    diary = fetch_judge_diary()
+    sittings = sittings[sittings["judge_key"] == judge_key] if sittings is not None and not sittings.empty else None
+    diary = diary[diary["judge_key"] == judge_key] if diary is not None and not diary.empty else None
+
+    st.html('<h2 class="jd-section-head">Before the court</h2>')
+    if (sittings is None or sittings.empty) and (diary is None or diary.empty):
+        st.html(
+            '<div class="jud-context">No sittings for this judge in our Legal Diary capture '
+            "(daily capture began 4 June 2026, and diary entries that can't be matched to the "
+            "roster with certainty are left out rather than guessed).</div>"
+        )
+        return
+    st.caption(
+        "From the daily Legal Diary: where and when this judge sat, and the anonymised "
+        "matters listed before them. People are shown by initials; organisations and the "
+        "State are named. This is a schedule of listings — not a workload or performance measure."
+    )
+
+    days: list[str] = sorted(
+        set([] if sittings is None or sittings.empty else sittings["diary_date"].dropna().tolist())
+        | set([] if diary is None or diary.empty else diary["diary_date"].dropna().tolist()),
+        reverse=True,
+    )
+    hidden_days = max(0, len(days) - _PROFILE_DIARY_DAYS)
+    for day in days[:_PROFILE_DIARY_DAYS]:
+        day_sit = sittings[sittings["diary_date"] == day] if sittings is not None and not sittings.empty else None
+        day_cases = diary[diary["diary_date"] == day] if diary is not None and not diary.empty else None
+        n_matters = 0 if day_cases is None else len(day_cases)
+        head_meta = f"{n_matters} listed matter{'s' if n_matters != 1 else ''}" if n_matters else "schedule only"
+        st.html(
+            f'<div class="jd-day-head"><span class="jd-day-date">{_esc(_fmt_day(day))}</span>'
+            f'<span class="jd-day-meta">{head_meta}</span></div>'
+        )
+        if day_sit is not None and not day_sit.empty:
+            lines = []
+            for s in day_sit.sort_values(["time", "list_type"], na_position="last").itertuples():
+                bits = " · ".join(p for p in (_esc(s.court), _esc(s.courtroom), _esc(s.time), _esc(s.list_type)) if p)
+                n = int(getattr(s, "n_items", 0) or 0)
+                tail = f" — {n} listed" if n else ""
+                lines.append(f'<div class="jd-sitting-line"><b>Sitting</b> {bits}{tail}</div>')
+            st.html("".join(lines))
+        if day_cases is not None and not day_cases.empty:
+            rows = []
+            for r in day_cases.head(_PROFILE_DIARY_ROWS).itertuples():
+                link = (
+                    f'<a class="jd-case-link" href="{_esc(r.source_url)}" target="_blank" '
+                    f'rel="noopener">official diary ↗</a>'
+                    if isinstance(r.source_url, str) and r.source_url
+                    else ""
+                )
+                rows.append(f'<div class="jd-case-row">{_case_party_html(r)}{link}</div>')
+            st.html("".join(rows))
+            if n_matters > _PROFILE_DIARY_ROWS:
+                st.caption(f"… and {n_matters - _PROFILE_DIARY_ROWS} more matters this day — see the Legal Diary tab.")
+    if hidden_days:
+        st.caption(
+            f"… and {hidden_days} earlier captured day{'s' if hidden_days != 1 else ''} — "
+            "the Legal Diary tab holds the full archive."
+        )
+    # transparency: say so when the diary names this judge by surname only
+    methods = set()
+    for frame in (sittings, diary):
+        if frame is not None and not frame.empty and "match_method" in frame.columns:
+            methods |= set(frame["match_method"].dropna())
+    if methods - {"exact"}:
+        st.caption(
+            "The diary names judges by surname; these listings are matched to this judge by "
+            "surname within their court. Ambiguous names are excluded rather than guessed."
+        )
 
 
 # ══════════════════════════════════════════════ ② APPOINTMENTS & GOVERNMENT
@@ -587,11 +690,7 @@ def _clearance_trend_chart(clr: pd.DataFrame) -> alt.LayerChart:
             ],
         )
     )
-    rule = (
-        alt.Chart(pd.DataFrame({"y": [100]}))
-        .mark_rule(color="#9aa8ad", strokeDash=[4, 4])
-        .encode(y="y:Q")
-    )
+    rule = alt.Chart(pd.DataFrame({"y": [100]})).mark_rule(color="#9aa8ad", strokeDash=[4, 4]).encode(y="y:Q")
     return (rule + lines).properties(height=320)
 
 
@@ -653,7 +752,7 @@ def _render_clearance_drilldown(sel_year: int, year_df: pd.DataFrame) -> None:
     st.html("".join(_clearance_bar(r._asdict(), label_key="area_of_law") for r in sub.itertuples()))
 
 
-def _wait_card(row) -> str:
+def _wait_card(row, label: str | None = None) -> str:
     w24, w23 = row.get("weeks_2024"), row.get("weeks_2023")
     # The big value comes from the PARSED weeks, not the raw wait_2024 text — that text can
     # be a phrase ("Date immediately available") that doesn't belong in a number slot. Zero
@@ -677,32 +776,64 @@ def _wait_card(row) -> str:
             delta = f'<div class="jd-delta {cls}">{arrow} {abs(d):g} wk vs 2023</div>'
     return (
         '<div class="jd-cat-card"><div class="jd-cat-label">'
-        f'{_esc(row.get("matter_or_venue"))}</div>'
+        f"{_esc(label if label is not None else row.get('matter_or_venue'))}</div>"
         f'<div class="jd-wait-n">{big}</div>'
         f"{delta}</div>"
     )
 
 
+# Court reading order for the waiting-times section (publication covers these three).
+_WAIT_COURT_ORDER = ["High Court", "Central Criminal Court", "Court of Appeal"]
+
+
 def _render_waiting(wt: pd.DataFrame) -> None:
-    st.html('<h2 class="jd-section-head">Waiting times</h2>')
+    st.html('<h2 class="jd-section-head">Waiting times — what to expect, by court and list</h2>')
     st.caption(
-        "Selected published waiting times from the Courts Service Annual Report 2024 — each is a "
-        "court's wait for a named venue or list type, longest first, with the change on 2023."
+        "Published waiting times from the Courts Service Annual Report 2024, grouped by the "
+        "court and list they were published under, with the change on 2023. A wait is the "
+        "time to a hearing date or first return date for that list — context for anyone "
+        "deciding where and how to issue proceedings."
     )
-    clean = wt[wt["is_clean_label"]].copy() if "is_clean_label" in wt.columns else wt.copy()
-    clean = clean.sort_values("weeks_2024", ascending=False, na_position="last")
+
+    has_ctx = "jurisdiction" in wt.columns and wt["jurisdiction"].notna().any()
+    if not has_ctx:
+        # context columns not built yet — fall back to the flat longest-first grid
+        clean = wt[wt["is_clean_label"]].copy() if "is_clean_label" in wt.columns else wt.copy()
+        clean = clean.sort_values("weeks_2024", ascending=False, na_position="last")
+        st.html(f'<div class="jd-catwrap">{"".join(_wait_card(r._asdict()) for r in clean.itertuples())}</div>')
+        return
 
     # The standout outlier — surfaced as a callout, not buried in the grid.
-    lim = clean[clean["matter_or_venue"].astype(str).str.fullmatch("Limerick")]
+    lim = wt[wt["matter_or_venue"].astype(str).str.fullmatch("Limerick")]
     if not lim.empty:
         r = lim.iloc[0]
         st.html(
-            f'<div class="jd-outlier"><strong>Limerick</strong> stands out among Circuit Court venues at '
-            f'<strong>{_esc(r["wait_2024"])}</strong>, against about four weeks elsewhere — though down from '
-            f'{_esc(r["wait_2023"])} the year before.</div>'
+            '<div class="jd-outlier"><strong>Limerick</strong> stands out among the High Court\'s '
+            f"personal-injury trial venues at <strong>{_esc(r['wait_2024'])}</strong>, against about "
+            f"four weeks elsewhere — though down from {_esc(r['wait_2023'])} the year before.</div>"
         )
-    cards = "".join(_wait_card(r._asdict()) for r in clean.itertuples())
-    st.html(f'<div class="jd-catwrap">{cards}</div>')
+
+    courts = [c for c in _WAIT_COURT_ORDER if c in set(wt["jurisdiction"].dropna())]
+    courts += sorted(set(wt["jurisdiction"].dropna()) - set(_WAIT_COURT_ORDER))
+    for court in courts:
+        sub = wt[wt["jurisdiction"] == court]
+        n_lists = sub["list_context"].nunique()
+        st.html(
+            f'<div class="jd-wait-court">{_esc(court)} '
+            f'<span class="jd-day-meta">· {n_lists} list{"s" if n_lists != 1 else ""}</span></div>'
+        )
+        # render in publication order (the view orders by report page + row);
+        # groupby(sort=False) preserves it. logic_firewall: display_only
+        for ctx, g in sub.groupby("list_context", sort=False):
+            st.html(f'<div class="jd-wait-ctx">{_esc(ctx)}</div>')
+            cards = []
+            for r in g.itertuples():
+                row = r._asdict()
+                # mojibake source labels (flagged upstream) read better as the curated
+                # list name; clean labels keep the published wording.
+                label = None if bool(getattr(r, "is_clean_label", True)) else str(ctx)
+                cards.append(_wait_card(row, label=label))
+            st.html(f'<div class="jd-catwrap">{"".join(cards)}</div>')
 
 
 def _render_courthouses(ch: pd.DataFrame) -> None:
@@ -719,8 +850,7 @@ def _render_courts() -> None:
     if (clr is None or clr.empty) and (wt is None or wt.empty) and (ch is None or ch.empty):
         empty_state(
             "Court statistics aren't loaded yet",
-            "Run extractors/judiciary_bench_extract.py to populate the clearance, waiting-time "
-            "and courthouse views.",
+            "Run extractors/judiciary_bench_extract.py to populate the clearance, waiting-time and courthouse views.",
         )
         return
 
@@ -798,7 +928,8 @@ def _render_ld_busiest(day_counts: pd.DataFrame) -> None:
 
 
 def _case_party_html(row) -> str:
-    """A case row as plaintiff -> defendant with a plaintiff-kind chip. Falls back to
+    """A case row as plaintiff -> defendant with a plaintiff-kind chip and the listing
+    status ("For Mention" / "For Hearing" …) when the diary recorded one. Falls back to
     the joined title for single-party matters (e.g. 'In the matter of … a bankrupt')."""
     cls, chip_label, _ = _PKIND.get(getattr(row, "plaintiff_kind", "") or "", ("individual", "—", ""))
     chip = f'<span class="jd-pchip {cls}">{_esc(chip_label)}</span>'
@@ -812,7 +943,9 @@ def _case_party_html(row) -> str:
         )
     else:
         party = f'<span class="jd-party-p">{_esc(row.case_anonymised)}</span>'
-    return chip + party
+    status = getattr(row, "status", None)
+    status_chip = f'<span class="jd-status">{_esc(status)}</span>' if isinstance(status, str) and status else ""
+    return chip + party + status_chip
 
 
 def _render_ld_plaintiffs(day_cases: pd.DataFrame) -> None:
@@ -835,8 +968,7 @@ def _render_ld_plaintiffs(day_cases: pd.DataFrame) -> None:
             continue
         cls, _row_label, plural = _PKIND[key]
         chips.append(
-            f'<div class="jd-pstat"><span class="jd-pdot {cls}"></span>'
-            f"<b>{n}</b><span>{_esc(plural)}</span></div>"
+            f'<div class="jd-pstat"><span class="jd-pdot {cls}"></span><b>{n}</b><span>{_esc(plural)}</span></div>'
         )
     if chips:
         st.html(f'<div class="jd-pstrip">{"".join(chips)}</div>')
@@ -975,6 +1107,58 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
             )
 
 
+def _render_plaintiff_league() -> None:
+    """Repeat institutional applicants across EVERY captured diary day — the
+    cross-day accountability signal the per-day breakdown can't show. The ranking
+    (canonicalised name, appearance + day counts, per-court split) is PIPELINE-owned
+    (v_judiciary_plaintiff_league, GROUPING SETS); this filters to one scope and
+    renders. Orgs and State bodies only — individuals are never ranked."""
+    league = fetch_plaintiff_league()
+    if league is None or league.empty:
+        return
+    st.html('<h2 class="jd-section-head">Who is suing — across all captured days</h2>')
+    st.caption(
+        "Named companies and State bodies appearing most often as the applicant across the "
+        "whole diary archive, not just the day above. Counts are list appearances (a matter "
+        "listed on three days counts three times) — they describe the court lists, not the "
+        "merits of any case."
+    )
+    courts_present = [c for c in _COURT_ORDER if c in set(league["court"].dropna())]
+    pick = (
+        st.pills(
+            "Court",
+            ["All courts", *courts_present],
+            default="All courts",
+            key="jd_league_court",
+            label_visibility="collapsed",
+        )
+        or "All courts"
+    )
+    # scope filter only — the view owns both grains; no re-summing here.
+    # logic_firewall: display_only
+    scoped = league[league["is_overall"]] if pick == "All courts" else league[league["court"] == pick]
+    top = scoped.sort_values("n_appearances", ascending=False).head(12)
+    if top.empty:
+        st.caption(f"No named institutional applicants captured for the {pick}.")
+        return
+    mx = int(top["n_appearances"].max()) or 1
+    rows = []
+    for r in top.itertuples():
+        n = int(r.n_appearances)
+        n_days = int(r.n_days)
+        pct = round(100 * n / mx)
+        kind_label = _PKIND.get(r.plaintiff_kind, ("", "", "Company"))[2]
+        sub = f"{kind_label} · listed on {n_days} day{'s' if n_days != 1 else ''}"
+        rows.append(
+            f'<div class="jd-rank"><div class="jd-rank-body">'
+            f'<div class="jd-rank-title">{_esc(r.display_name)}</div>'
+            f'<div class="jd-rank-sub">{_esc(sub)}</div>'
+            f'<div class="jd-bar-track"><div class="jd-bar-fill" style="width:{pct}%"></div></div>'
+            f'</div><div class="jd-rank-n">{n}</div></div>'
+        )
+    st.html("".join(rows))
+
+
 def _render_legal_diary() -> None:
     schedule = fetch_legal_diary_schedule()
     counts = fetch_legal_diary_counts()
@@ -1027,16 +1211,13 @@ def _render_legal_diary() -> None:
     else:
         months = sorted({d[:7] for d in days}, reverse=True)
         mlabels = {_fmt_month(m): m for m in months}
-        mpick = (
-            st.pills(
-                "Month",
-                list(mlabels),
-                default=_fmt_month(months[0]),
-                key="jd_month",
-                label_visibility="collapsed",
-            )
-            or _fmt_month(months[0])
-        )
+        mpick = st.pills(
+            "Month",
+            list(mlabels),
+            default=_fmt_month(months[0]),
+            key="jd_month",
+            label_visibility="collapsed",
+        ) or _fmt_month(months[0])
         mon = mlabels.get(mpick, months[0])
         mdays = [d for d in days if d.startswith(mon)]
         short = {d: _fmt_day_short(d) for d in mdays}
@@ -1087,6 +1268,8 @@ def _render_legal_diary() -> None:
     _render_ld_busiest(day_counts)
     st.divider()
     _render_ld_cases(day_cases, _fmt_day(chosen))
+    st.divider()
+    _render_plaintiff_league()
 
     sha = ""
     if day_cases is not None and not day_cases.empty and "source_sha256" in day_cases.columns:
