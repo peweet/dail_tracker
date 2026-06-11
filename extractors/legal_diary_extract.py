@@ -741,6 +741,16 @@ def run(args) -> int:
         n_protected,
     )
     logger.info("Coverage -> %s", COVERAGE_PATH)
+
+    # Refresh the diary-judge -> bench-roster map (judiciary_diary_judge_map.parquet)
+    # so the judge profile's diary section tracks each day's new judge strings. A
+    # link failure must never block the diary gold itself.
+    try:
+        from extractors.judiciary_diary_link import run as link_run
+
+        link_run()
+    except Exception:  # noqa: BLE001
+        logger.exception("diary-judge link refresh failed (diary gold unaffected)")
     return 0
 
 
