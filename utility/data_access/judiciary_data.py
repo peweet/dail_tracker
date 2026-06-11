@@ -80,6 +80,25 @@ def fetch_elevation_ladder() -> pd.DataFrame:
     return _q.elevation_ladder(get_judiciary_conn()).data
 
 
+# ── Judge ↔ diary bridge ─────────────────────────────────────────────────────
+@st.cache_data(ttl=300)
+def fetch_judge_diary() -> pd.DataFrame:
+    """Tier C anonymised listings keyed by roster judge (profile section)."""
+    return _q.judge_diary(get_judiciary_conn()).data
+
+
+@st.cache_data(ttl=300)
+def fetch_judge_sittings() -> pd.DataFrame:
+    """Tier A sitting sessions keyed by roster judge (courtroom / time / list)."""
+    return _q.judge_sittings(get_judiciary_conn()).data
+
+
+@st.cache_data(ttl=300)
+def fetch_plaintiff_league() -> pd.DataFrame:
+    """Repeat institutional applicants across the diary archive (orgs/State only)."""
+    return _q.plaintiff_league(get_judiciary_conn()).data
+
+
 # ── The Courts — system health (no named judges) ────────────────────────────
 @st.cache_data(ttl=600)
 def fetch_courts_clearance() -> pd.DataFrame:

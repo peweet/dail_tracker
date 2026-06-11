@@ -1,0 +1,9 @@
+{
+  "departments": 20,
+  "boards": 196,
+  "members": 2061,
+  "boards_without_members": 1,
+  "fetch_failures": [],
+  "retrieved_at": "2026-06-11",
+  "source": "https://membership.stateboards.ie/en/"
+}

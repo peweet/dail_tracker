@@ -62,9 +62,9 @@ notes estimates are never summable.
 
 ### Lens 3 — Patterns (the new-views payoff; Dozorro lesson, no-inference rules)
 A feed of factual signal cards, each linking to a filtered list:
-- "Single-bid rates range 9% (construction) to 34% (hotel/catering)"
+- "Single-bid rates range 14% (construction) to 42% (recreation/culture)"
   → `v_procurement_competition_by_cpv`, drill to `v_procurement_competition`
-    per buyer.
+    per buyer. (Lot-level rates, national baseline 22.8%.)
 - "17% of 2024 awards went to first-time suppliers, down from 51% in 2016"
   → `v_procurement_new_entrants` (left-censored years de-emphasised).
 - "207 supplier–buyer pairs have won in 6+ different years"
@@ -128,13 +128,14 @@ v_procurement_supplier_dependency, v_procurement_quarter_profile,
 v_procurement_supplier_sector_breadth, v_procurement_call_off_links.
 
 ### TODO_PIPELINE_VIEW_REQUIRED (do not compute in UI)
-1. **v_procurement_entity_search** — unified typeahead corpus. Columns:
-   entity_kind ('supplier'|'authority'|'cpv'), display_name, url_key,
-   n_records, hint_line (e.g. "121 awards · paid €155m where published").
-   UNION of the three summary views; UI must not union views itself.
-2. **v_procurement_supplier_single_bid** — per CRO-matched supplier: TED
-   awards with bidcount, n single-bid, share, vs national baseline columns
-   (for Profile A §4). Simple GROUP BY over ted_ie_awards.
+1. ~~**v_procurement_entity_search**~~ — SHIPPED 2026-06-11
+   (`procurement_zz_entity_search.sql`; zz_ prefix for dependency order).
+   Columns: entity_kind, display_name, url_key, n_records, n_counterparties,
+   awarded_value_safe_eur, paid_safe_eur (CRO-joined, suppliers only),
+   cro_company_num, on_lobbying_register.
+2. ~~**v_procurement_supplier_single_bid**~~ — SHIPPED 2026-06-11. Lot-level,
+   sole-winner notices only (multi-winner notices excluded and counted, since
+   notice-level lot counts can't be attributed to one winner).
 3. **v_procurement_supplier_velocity** — YoY paid growth restricted to
    publishers present in BOTH years (see NUGGETS Tier 2; naive version is
    forbidden — corpus expansion masquerades as growth).
@@ -145,11 +146,14 @@ v_procurement_supplier_sector_breadth, v_procurement_call_off_links.
    reconstruct from Tender ID if eTenders exposes a stable pattern; never
    fabricate links.
 
-### Known data bug to fix BEFORE shipping Patterns lens
-539 TED-silver rows have n_tenders_received = 0 (contract test
-test_v_procurement_ted_awards_competition_columns currently red). Fix in the
-TED extractor (0 → NULL or upstream parse fix); all single-bid denominators
-(existing + new views) heal automatically.
+### Known data bug — FIXED 2026-06-11
+~~539 TED-silver rows have n_tenders_received = 0~~ — extractor fixed
+(cancelled/no-bid lots no longer pollute the notice min), silver rebuilt from
+bronze, contract test green. Bonus find fixed in the same pass:
+`v_procurement_competition` exposed an old notice-level schema while the core
+query layer (MCP + API) selects lot-level columns — the view now ships the
+lot-level schema with notice dedup, restoring the MCP `procurement_competition`
+tool and `/procurement/competition` API route.
 
 ## 4. Deep-link compatibility
 

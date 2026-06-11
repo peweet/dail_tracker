@@ -270,3 +270,84 @@ def fetch_charity_overlap_result() -> QueryResult:
     """Registered charities that also win public contracts (shared CRO company
     number — co-occurrence disclosure only, never causation; see the view header)."""
     return _q.charity_overlap(get_procurement_conn())
+
+
+# ── Entity search + derived-signal panels (doc/PROCUREMENT_NUGGETS.md, 2026-06-11) ────
+# Factual structure signals; the page carries each one's no-inference caveat.
+@st.cache_data(ttl=600)
+def fetch_entity_search_result() -> QueryResult:
+    """Unified typeahead corpus (suppliers + authorities + CPV) for the search-first hero.
+    The page filters by name display-only, same pattern as the supplier search."""
+    return _q.entity_search(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
+def fetch_supplier_single_bid_result(join_norm: str) -> QueryResult:
+    """One firm's lot-level single-bid context (TED 2024+, sole-winner notices only)."""
+    return _q.supplier_single_bid(get_procurement_conn(), join_norm)
+
+
+@st.cache_data(ttl=600)
+def fetch_single_bid_baseline_result() -> QueryResult:
+    """The national lot-level single-bid baseline (one row) for the competition blocks."""
+    return _q.single_bid_baseline(get_procurement_conn())
+
+
+@st.cache_data(ttl=600)
+def fetch_competition_by_cpv_result(min_lots: int = 100) -> QueryResult:
+    """Lot-level single-bid rate per CPV division (the market-spread panel)."""
+    return _q.competition_by_cpv(get_procurement_conn(), min_lots=min_lots)
+
+
+@st.cache_data(ttl=600)
+def fetch_new_entrants_result() -> QueryResult:
+    """First-time-winner share of awards per year (left-censored years flagged)."""
+    return _q.new_entrants_by_year(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
+def fetch_incumbency_for_supplier_result(supplier_norm: str) -> QueryResult:
+    """One firm's top buyers with distinct-years spans (the relationships block)."""
+    return _q.incumbency_for_supplier(get_procurement_conn(), supplier_norm)
+
+
+@st.cache_data(ttl=600)
+def fetch_incumbency_top_result(min_years: int = 6, limit: int = 24) -> QueryResult:
+    """Longest-running supplier×buyer award relationships (the patterns panel)."""
+    return _q.incumbency_top(get_procurement_conn(), min_years=min_years, limit=limit)
+
+
+@st.cache_data(ttl=300)
+def fetch_dependency_for_supplier_result(supplier_norm: str) -> QueryResult:
+    """One firm's top-buyer share (present only when the firm has ≥5 awards)."""
+    return _q.dependency_for_supplier(get_procurement_conn(), supplier_norm)
+
+
+@st.cache_data(ttl=600)
+def fetch_dependency_top_result(min_awards: int = 10, min_share_pct: float = 80.0, limit: int = 24) -> QueryResult:
+    """Suppliers winning ≥80% of their awards from one buyer (central purchasing excluded)."""
+    return _q.dependency_top(get_procurement_conn(), min_awards=min_awards, min_share_pct=min_share_pct, limit=limit)
+
+
+@st.cache_data(ttl=600)
+def fetch_quarter_totals_result() -> QueryResult:
+    """Corpus-wide COMMITTED lines + sum-safe euros per quarter (the Q4-spike headline)."""
+    return _q.quarter_totals(get_procurement_conn())
+
+
+@st.cache_data(ttl=600)
+def fetch_quarter_profile_top_result(quarter: int = 4, limit: int = 12) -> QueryResult:
+    """Publishers most skewed toward one quarter, by share of their own COMMITTED lines."""
+    return _q.quarter_profile_top(get_procurement_conn(), quarter=quarter, limit=limit)
+
+
+@st.cache_data(ttl=600)
+def fetch_sector_breadth_top_result(min_sectors: int = 5, limit: int = 12) -> QueryResult:
+    """Paid suppliers reaching the most public-service sectors (collision-guarded)."""
+    return _q.sector_breadth_top(get_procurement_conn(), min_sectors=min_sectors, limit=limit)
+
+
+@st.cache_data(ttl=300)
+def fetch_call_offs_for_supplier_result(supplier_norm: str) -> QueryResult:
+    """One firm's call-off awards with the parent framework resolved where in-corpus."""
+    return _q.call_offs_for_supplier(get_procurement_conn(), supplier_norm)
