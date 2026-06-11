@@ -225,12 +225,14 @@ def _manifest_entry(name: str, spec: ExportSpec) -> dict:
     where = f" WHERE {spec.privacy_filter}" if spec.privacy_filter else ""
     con = _connect()
     try:
-        n_rows = con.execute(f"SELECT count(*) FROM read_parquet('{spec.source.as_posix()}'){where}").fetchone()[0]
+        count_row = con.execute(f"SELECT count(*) FROM read_parquet('{spec.source.as_posix()}'){where}").fetchone()
+        n_rows = count_row[0] if count_row else 0
         latest: str | None = None
         if spec.date_expr:
-            val = con.execute(
+            date_row = con.execute(
                 f"SELECT {spec.date_expr} FROM read_parquet('{spec.source.as_posix()}'){where}"
-            ).fetchone()[0]
+            ).fetchone()
+            val = date_row[0] if date_row else None
             latest = str(val)[:10] if val is not None else None
     finally:
         con.close()

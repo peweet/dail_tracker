@@ -72,7 +72,7 @@ def to_records(df: pd.DataFrame | None, *, drop_cols: list[str] | None = None) -
     keep = df[cols]
     out: list[dict[str, Any]] = []
     for row in keep.itertuples(index=False, name=None):
-        out.append({c: _coerce(v) for c, v in zip(cols, row)})
+        out.append({c: _coerce(v) for c, v in zip(cols, row, strict=True)})
     return out
 
 
