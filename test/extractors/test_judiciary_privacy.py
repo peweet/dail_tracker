@@ -117,7 +117,7 @@ def test_empty_and_refs_are_safe():
     # "The Child & Family Agency" bypassed the drop until 2026-06-11 (3 gold rows)
     ("", "14. 2026 159 The Child & Family Agency -v- D", "child and family"),
     ("", "The Child and Family Agency -v- T", "child and family"),
-    ("", "K v TUSLA CHILD AND FAMILY AGENCY", "tusla"),
+    ("", "K v TUSLA CHILD AND FAMILY AGENCY", "child and family"),  # list-order precedence
     ("Wards Of Court List", "In the matter of J.M.", "wards of court"),
     ("", "ACME LIMITED -v- BETA HOLDINGS DAC", None),  # ordinary commercial: kept
 ])
