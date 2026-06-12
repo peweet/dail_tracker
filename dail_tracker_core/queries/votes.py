@@ -133,7 +133,7 @@ def vote_by_id(conn: duckdb.DuckDBPyConnection, vote_id: str) -> QueryResult:
     return _run(
         conn,
         "SELECT vote_id, vote_date, debate_title, vote_outcome,"
-        " yes_count, no_count, abstained_count, margin"
+        " yes_count, no_count, abstained_count, margin, oireachtas_url"
         " FROM v_vote_index WHERE vote_id = ? LIMIT 1",
         [vote_id],
     )

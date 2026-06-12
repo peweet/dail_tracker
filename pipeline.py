@@ -108,6 +108,11 @@ CHAINS: list[tuple[str, str]] = [
     # v_gov_finance_annual). Zero-auth REST, no deps; writes any GREEN table by
     # default (--dry-run validates only). Headless-safe, fidelity-gated per table.
     ("cso", "extractors/cso_pxstat_extract.py"),
+    # stateboards: DPER state-boards register (membership.stateboards.ie, static HTML,
+    # ~250 boards / 20 depts) -> silver stateboards_roster + stateboards_boards, then the
+    # in-script Wikidata name->outside-role enrichment -> gold stateboards_roster.parquet.
+    # Wikidata step degrades gracefully (cache-only) when WDQS/API is throttled/offline.
+    ("stateboards", "extractors/stateboards_roster_extract.py"),
     # freshness runs last: it reads the silver + gold the chains above produced
     # and writes data/_meta/freshness.json (the data-age signal the Streamlit
     # badge + scheduled report read). Pure read — never mutates pipeline data.
@@ -147,6 +152,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "hse_tusla_payments": "HSE + Tusla PO/payment PDFs -> gold hse_tusla_payments_fact (privacy-gated, high-risk)",
     "la_payments": "31 local authorities' PO/payments-over-€20k -> silver la_payments_fact (folded into gold procurement_payments_fact)",
     "cso": "CSO PxStat housing/HAP + govt-finance (GFA01/GFQ01/NA012) -> gold denominators",
+    "stateboards": "DPER state-boards register: live roster + body universe + Wikidata outside-role enrichment (gold)",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
     "source_health": "per-source health -> data/_meta/source_health.json (manual staleness; links opt-in)",
     "output_regressions": "completeness guard: gold row/column drop vs baseline -> data/_meta/output_regressions.json",

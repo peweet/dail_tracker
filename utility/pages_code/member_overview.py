@@ -1121,22 +1121,30 @@ def _render_browse(conn) -> None:
             st.query_params["member"] = picked_jk
             st.rerun()
 
+    # Multi-select pills: pick any combination of parties (e.g. Fianna Fáil +
+    # Fine Gael). No selection = all parties, so the explicit "All parties"
+    # pill is gone — clearing the pills restores the full list.
     party_options = _party_pill_options(df)
-    selected_party = st.pills(
+    selected_parties = st.pills(
         "Party",
-        options=["All parties"] + party_options,
-        default="All parties",
+        options=party_options,
+        selection_mode="multi",
         key="mo_browse_party",
         label_visibility="collapsed",
+        help="Pick one or more parties; leave empty to show every party.",
     )
 
     sq = (search or "").strip().lower()
     filtered = df.copy()
-    if selected_party == _OTHER_PILL:
-        named_set = set(_named_parties(df))
-        filtered = filtered[filtered["party_name"].isna() | ~filtered["party_name"].isin(named_set)]
-    elif selected_party and selected_party != "All parties":
-        filtered = filtered[filtered["party_name"] == selected_party]
+    if selected_parties:
+        mask = pd.Series(False, index=filtered.index)
+        named_picks = [p for p in selected_parties if p != _OTHER_PILL]
+        if named_picks:
+            mask |= filtered["party_name"].isin(named_picks)
+        if _OTHER_PILL in selected_parties:
+            named_set = set(_named_parties(df))
+            mask |= filtered["party_name"].isna() | ~filtered["party_name"].isin(named_set)
+        filtered = filtered[mask]
     if sq:
         mask = (
             filtered["member_name"].astype(str).str.lower().str.contains(sq, na=False)

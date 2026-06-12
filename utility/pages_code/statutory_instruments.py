@@ -1375,6 +1375,21 @@ def statutory_instruments_page() -> None:
     # drops the now-empty rail and the brand band's sidebar-clearing gutter.
     hide_sidebar()
 
+    # Source-state guard. load_si() returns a bare (column-less) empty frame when
+    # the v_statutory_instruments view is missing or failed to register — both the
+    # detail path (si_df["si_id"]) and the index path (si_df["si_year"]) would then
+    # raise a KeyError, and this page has no error boundary, so the user would see a
+    # raw traceback. Render a calm civic empty-state instead (mirrors the guard on
+    # public_appointments_page).
+    if si_df.empty:
+        empty_state(
+            "Statutory Instruments data unavailable",
+            "The statutory-instruments view returned no rows — the gold parquet may be "
+            "missing or the view failed to register. This is a source/pipeline issue, "
+            "not an empty search. Re-run the pipeline if you expect data here.",
+        )
+        return
+
     # ── Detail view ───────────────────────────────────────────────────────────
     if selected:
         match = si_df[si_df["si_id"] == selected]

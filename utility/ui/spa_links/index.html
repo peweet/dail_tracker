@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  Frontend half of utility/ui/spa_links.py (single-load navigation for
+  in-page ?param links). This iframe renders nothing — it exists to run the
+  script below, which installs ONE delegated click listener on the parent
+  (app) document. Clicks on any `<a href="?...">` are intercepted and the
+  target query string is posted back to Python as the component value via
+  the streamlit-component-lib postMessage protocol (hand-rolled here so no
+  npm build step is needed). Python then writes st.query_params and the app
+  soft-reruns over the existing websocket instead of doing a full browser
+  navigation that reboots the whole session.
+-->
+<html>
+<head><meta charset="utf-8" /><title>dt_spa_links</title></head>
+<body>
+<script>
+"use strict";
+
+function toStreamlit(type, data) {
+  window.parent.postMessage(
+    Object.assign({ isStreamlitMessage: true, type: type }, data || {}),
+    "*"
+  );
+}
+
+var app = window.parent;
+var doc = app.document;
+
+function notify(href) {
+  // Monotonic sequence lives on the app window (not this iframe) so it
+  // survives component remounts; Python dedupes on it because component
+  // values are sticky across reruns.
+  var seq = (app.__dtSpaSeq || 0) + 1;
+  app.__dtSpaSeq = seq;
+  toStreamlit("streamlit:setComponentValue", {
+    value: { seq: seq, href: href },
+    dataType: "json",
+  });
+}
+
+// Always re-point the notifier at the newest iframe: if the component
+// remounts (websocket reconnect, dev hot-reload) the document-level
+// listener below keeps delegating to a live frame.
+app.__dtSpaNotify = notify;
+
+if (!app.__dtSpaInstalled) {
+  app.__dtSpaInstalled = true;
+  doc.addEventListener(
+    "click",
+    function (ev) {
+      // Leave modified clicks (new-tab etc.) and anything a page handler
+      // already claimed to the browser.
+      if (
+        ev.defaultPrevented ||
+        ev.button !== 0 ||
+        ev.metaKey ||
+        ev.ctrlKey ||
+        ev.shiftKey ||
+        ev.altKey
+      ) {
+        return;
+      }
+      var el = ev.target;
+      var a = el && el.closest ? el.closest('a[href^="?"]') : null;
+      if (!a) return;
+      if (a.target && a.target !== "_self") return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      // A real navigation landed at the top of the page; keep that.
+      var main = doc.querySelector('section[data-testid="stMain"]');
+      if (main) main.scrollTo(0, 0);
+      app.scrollTo(0, 0);
+      app.__dtSpaNotify(a.getAttribute("href"));
+    },
+    true
+  );
+}
+
+toStreamlit("streamlit:componentReady", { apiVersion: 1 });
+toStreamlit("streamlit:setFrameHeight", { height: 0 });
+</script>
+</body>
+</html>

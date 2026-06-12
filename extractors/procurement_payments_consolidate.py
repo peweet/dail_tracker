@@ -143,6 +143,19 @@ def _load_la_fact(base: pl.DataFrame) -> pl.DataFrame | None:
         raise SystemExit(f"LA fact cannot conform — missing base columns: {sorted(missing)}")
     la = la.select(base.columns).cast(dict(base.schema))
     print(f"  + la_payments_fact.parquet (silver)    {n:>7,} rows  [{n_la} local authorities]")
+    # Listing-rot guard: a council whose site newly blocks the harvester (bot-wall, moved
+    # listing) must not vanish from gold — its published over-€20k disclosures are immutable
+    # history (Waterford/Wicklow grew JS challenges 2026-06; Wicklow has no bronze cache to
+    # replay). Carry such a council's rows forward from the existing gold fact, loudly.
+    if OUT.exists():
+        gold = pl.read_parquet(OUT)
+        gone = set(gold.filter(pl.col("publisher_type") == "local_authority")["publisher_id"].unique()) - set(
+            la["publisher_id"].unique()
+        )
+        if gone:
+            carried = gold.filter(pl.col("publisher_id").is_in(sorted(gone))).select(base.columns).cast(dict(base.schema))
+            print(f"  ! listing-rot carry-forward: {sorted(gone)} absent from silver — kept {carried.height:,} gold rows")
+            la = pl.concat([la, carried], how="vertical")
     return la
 
 
