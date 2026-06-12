@@ -6,7 +6,7 @@ lifecycle stages (award ceiling vs realised spend) so this is a JOIN, never a su
 (see [[project_procurement_ted_overlap]] — never add the value columns together).
 
 Sides:
-  - realised SPEND  : data/sandbox/parquet/public_payments_fact.parquet (+ bespoke nphdb/seai/nta)
+  - realised SPEND  : data/silver/parquet/public_payments_fact.parquet (+ bespoke nphdb/seai/nta)
                       value_safe_to_sum rows only; EXCLUDES supplier_class==public_body (councils —
                       the €2.44bn TII "Road Grant" inter-governmental transfers) and the
                       extraction_confidence=='low' blank-supplier rows.
@@ -89,7 +89,7 @@ def _entity(cro_col: str, norm_col: str) -> pl.Expr:
 def load_spend(cro_map: pl.DataFrame) -> pl.DataFrame:
     parts = []
     for p in SPEND_PARQUETS:
-        fp = ROOT / f"data/sandbox/parquet/{p}.parquet"
+        fp = ROOT / f"data/silver/parquet/{p}.parquet"
         if fp.exists():
             d = pl.read_parquet(fp)
             keep = [

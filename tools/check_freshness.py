@@ -132,6 +132,15 @@ DATASETS: dict[str, dict] = {
         "column": "issue_date",
         "record_after_days": 14,
     },
+    "stateboards": {
+        "measure": "record_date",
+        # Live roster (no notice date). Newest first_appointed is the proxy: the
+        # register adds appointments continuously, so 120d with no new appointment
+        # across ~250 boards means our scrape (or upstream) has stalled.
+        "source": GOLD_PARQUET_DIR / "stateboards_roster.parquet",
+        "column": "first_appointed",
+        "record_after_days": 120,
+    },
     "statutory_instruments": {
         "measure": "record_date",
         "source": GOLD_PARQUET_DIR / "statutory_instruments.parquet",

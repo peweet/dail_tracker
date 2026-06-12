@@ -51,7 +51,7 @@ _spec = importlib.util.spec_from_file_location("pbe", str(ROOT / "extractors/pro
 pbe = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pbe)
 
-OUT_FACT = ROOT / "data/sandbox/parquet/seai_payments_fact.parquet"
+OUT_FACT = ROOT / "data/silver/parquet/seai_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/seai_payments_coverage.json"
 PARSER_VERSION = "0.1.0"
 
@@ -78,12 +78,12 @@ def _lines_with_pages(doc) -> list[tuple[str, int]]:
 def parse_records(doc) -> list[dict]:
     toks = _lines_with_pages(doc)
     lines = [t for t, _ in toks]
-    po_idx = [i for i, l in enumerate(lines) if PO_LINE.match(l)]
+    po_idx = [i for i, ln in enumerate(lines) if PO_LINE.match(ln)]
     recs: list[dict] = []
     for k, start in enumerate(po_idx):
         end = po_idx[k + 1] if k + 1 < len(po_idx) else len(lines)
         block = lines[start:end]
-        eur_pos = next((bi for bi, l in enumerate(block) if EUR_LINE.match(l)), None)
+        eur_pos = next((bi for bi, ln in enumerate(block) if EUR_LINE.match(ln)), None)
         if eur_pos is None:
             continue  # a PO# with no amount in its block — skip defensively
         amt_m = AMOUNT_NUM.search(block[eur_pos])

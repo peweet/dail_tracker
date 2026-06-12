@@ -35,7 +35,12 @@ def main() -> None:
                 wait_until="domcontentloaded",
                 timeout=60000,
             )
-            time.sleep(12)
+            # poll instead of a fixed sleep — the bigger drill-downs (1k+ rows) can take
+            # well past 12s on a cold cache before the award rows replace the skeleton
+            for _ in range(12):
+                time.sleep(5)
+                if page.evaluate("() => document.querySelectorAll('.pr-award-title').length") > 0:
+                    break
             info = page.evaluate(
                 """() => {
                     const titles = [...document.querySelectorAll('.pr-award-title')];

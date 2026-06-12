@@ -59,9 +59,14 @@ from ui.components import (
 )
 from ui.entity_links import source_link_html
 
-_TOP = 60          # ranked cards per browse tab (views are pre-ordered DESC)
-_PUB_PAGE = 24     # publisher cards per page (multiple of 3 for the grid)
-_LINE_PAGE = 25    # payment-line rows per page on a drill-down
+# Shared council audited-accounts (AFS by-division) context block. Cross-page
+# import mirrors member_overview → lobbying_3; the renderer and its fetches are
+# self-contained and silently no-op when a council has no AFS rows.
+from pages_code.procurement import _render_council_accounts_context as render_council_accounts_context
+
+_TOP = 60  # ranked cards per browse tab (views are pre-ordered DESC)
+_PUB_PAGE = 24  # publisher cards per page (multiple of 3 for the grid)
+_LINE_PAGE = 25  # payment-line rows per page on a drill-down
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -239,7 +244,9 @@ def _render_suppliers() -> None:
     ranks = {str(r.supplier_normalised): i for i, r in enumerate(df.itertuples(), start=1)}
 
     q = st.text_input(
-        "Search suppliers", placeholder="Search by company / body name…", key="pp_sup_q",
+        "Search suppliers",
+        placeholder="Search by company / body name…",
+        key="pp_sup_q",
         label_visibility="collapsed",
     )
     view = df
@@ -263,8 +270,7 @@ def _render_suppliers() -> None:
     cards = []
     for r in page.itertuples():
         meta = (
-            f"{_lines_word(_n(r.n_lines))} · {_n(r.n_publishers):,} "
-            f"publisher{'s' if _n(r.n_publishers) != 1 else ''}"
+            f"{_lines_word(_n(r.n_lines))} · {_n(r.n_publishers):,} publisher{'s' if _n(r.n_publishers) != 1 else ''}"
         )
         # supplier_summary blends ordered+paid across bodies, so the value pill is unlabelled-safe:
         # show the sum-safe euro with a neutral 'sum-safe' label rather than asserting ordered/paid.
@@ -274,9 +280,7 @@ def _render_suppliers() -> None:
         cls = _class_pill(getattr(r, "supplier_class", None))
         if cls:
             pills.append(cls)
-        inner = _card(
-            f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=ranks.get(str(r.supplier_normalised))
-        )
+        inner = _card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=ranks.get(str(r.supplier_normalised)))
         cards.append(
             clickable_card_link(
                 href=_supplier_href(r.supplier_normalised),
@@ -286,7 +290,9 @@ def _render_suppliers() -> None:
         )
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.html('<div style="height:1rem"></div>')
-    pagination_controls(total, key_prefix="pp_sup", page_sizes=(_PUB_PAGE,), default_page_size=_PUB_PAGE, label="suppliers")
+    pagination_controls(
+        total, key_prefix="pp_sup", page_sizes=(_PUB_PAGE,), default_page_size=_PUB_PAGE, label="suppliers"
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -305,9 +311,7 @@ def _line_row_html(r) -> str:
     # Conduit (S-4): link the line to the actual published source PDF so a reader can
     # verify the detail behind the number. source_file_url is on every line (100%
     # coverage); source_link_html no-ops on a missing/non-http URL so this is safe.
-    src = card_sources_html(
-        [source_link_html(_coalesce(getattr(r, "source_file_url", None)), "View published source")]
-    )
+    src = card_sources_html([source_link_html(_coalesce(getattr(r, "source_file_url", None)), "View published source")])
     return (
         f'<div class="pr-card"><div class="pr-card-head"><div class="pr-name">{head}</div></div>'
         f'<div class="pr-meta">{meta}</div>'
@@ -342,6 +346,18 @@ def _render_publisher_profile(publisher_id: str) -> None:
         dek=f"{len(df):,} purchase-order / payment lines over €20,000. "
         f"{safe_total} in sum-safe value (excludes transfers to other public bodies).",
     )
+
+    # Council dossiers gain the audited-accounts breakdown — where the
+    # council's whole operating spend goes, by service division (Housing,
+    # Roads, Environment…). BUDGET grain, pre-aggregated in the AFS views —
+    # a SIBLING fact to the per-line register below, never summed with it.
+    # Shared renderer with the Procurement council dossier; it silently
+    # no-ops for a body whose audited AFS isn't in the fact.
+    if sector == "local_authority":
+        sems = df["amount_semantics"].dropna().unique().tolist() if "amount_semantics" in df.columns else []
+        afs_tier = "SPENT" if "payment_actual" in sems else "COMMITTED"
+        render_council_accounts_context(str(_coalesce(df.iloc[0].get("publisher_name")) or publisher_id), afs_tier)
+
     st.caption("Lines shown highest-value first. Value is the body's reported amount per line — 'ordered' or 'paid'.")
     _render_line_list(df, key="pp_pub_lines")
     _provenance_footer()
@@ -405,9 +421,7 @@ def _stats_strip(stats, cov: dict) -> None:
         "ordered commitments and actual payments are never blended."
     )
     if withheld:
-        sentences.append(
-            f"<strong>{withheld:,}</strong> likely-personal supplier names are withheld."
-        )
+        sentences.append(f"<strong>{withheld:,}</strong> likely-personal supplier names are withheld.")
     finding_lede(sentences)
 
 

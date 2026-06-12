@@ -1,5 +1,5 @@
 """PHASE 4 (PRE-ETL, sandbox): MATERIALIZE the HSE + Tusla bespoke parse into the shared
-public_payments_fact schema -> data/sandbox/parquet/hse_tusla_payments_fact.parquet.
+public_payments_fact schema -> data/silver/parquet/hse_tusla_payments_fact.parquet.
 
 extractors/procurement_hse_tusla_parser.py owns the per-publisher column-x SPECS (the generic
 reader misparses these two) but only ever wrote a DQ report — its rows were never persisted in
@@ -54,7 +54,7 @@ hst = _load("hst", "extractors/procurement_hse_tusla_parser.py")
 from sample_extract_procurement_pdf import MONEY_RE, cluster_word_rows  # noqa: E402
 
 TMP = Path("c:/tmp/procurement_publishers")
-OUT_FACT = ROOT / "data/sandbox/parquet/hse_tusla_payments_fact.parquet"
+OUT_FACT = ROOT / "data/silver/parquet/hse_tusla_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/hse_tusla_payments_coverage.json"
 PARSER_VERSION = "0.1.0"
 
@@ -257,13 +257,16 @@ def main() -> None:
         "value_safe_to_sum_rows": safe.height,
         "value_safe_to_sum_total_eur": float(safe["amount_eur"].sum() or 0),
         "rows_review_personal_data": int((df["privacy_status"] == "review_personal_data").sum()),
-        "privacy_quarantine_applied": False,
+        # classify_and_flag (pbe) sets public_display=False for likely persons; the flag below
+        # asserts that and test_hse_tusla_privacy gates on it.
+        "privacy_quarantine_applied": True,
         "schema_version": 1,
         "parser_version": PARSER_VERSION,
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to "
         "public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. "
-        "Per-year files layout-gated. PRIVACY QUARANTINE DEFERRED (public_display=True).",
+        "Per-year files layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows "
+        "public_display=False).",
     }
     OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(f"wrote coverage {OUT_COV}")

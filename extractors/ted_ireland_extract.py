@@ -35,8 +35,10 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import re
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -55,6 +57,25 @@ RAW_CACHE = ROOT / "data/bronze/ted/ted_ie_awards_raw.json"  # bronze: raw API c
 OUT_SILVER = ROOT / "data/silver/parquet/ted_ie_awards.parquet"
 OUT_COV = ROOT / "data/_meta/ted_ie_awards_coverage.json"
 
+# Cache TTL: a bronze capture reused whenever it merely EXISTS makes a routine `ted` chain
+# run silently rebuild silver from a stale pull (the bug that left the sibling tenders lane
+# 10 weeks behind while looking freshly retrieved — fixed both lanes 2026-06-11/12; same
+# class as DAIL-160/162). Awards arrive steadily, so 7d is enough; --refresh ignores the
+# cache entirely. Override with TED_RAW_CACHE_MAX_AGE_DAYS.
+RAW_CACHE_MAX_AGE_DAYS: float = float(os.environ.get("TED_RAW_CACHE_MAX_AGE_DAYS", "7"))
+
+
+def _cache_is_fresh(refresh: bool, max_age_days: float = RAW_CACHE_MAX_AGE_DAYS) -> bool:
+    if refresh or not RAW_CACHE.exists():
+        return False
+    age_days = (time.time() - RAW_CACHE.stat().st_mtime) / 86400.0
+    if age_days > max_age_days:
+        print(f"TED awards raw cache {age_days:.1f}d old (> {max_age_days}d) — re-pulling.")
+        return False
+    print(f"TED awards raw cache {age_days:.1f}d old (<= {max_age_days}d) — reusing {RAW_CACHE}.")
+    return True
+
+
 URL = "https://api.ted.europa.eu/v3/notices/search"
 FIELDS = [
     "publication-number",
@@ -67,18 +88,18 @@ FIELDS = [
     "dispatch-date",
     "notice-type",
     # ── competition-intensity layer (eForms, 2024+; fill rates measured 2026-06-08) ──
-    "procedure-type",                  # 99.6% — open / restricted / negotiated / single-offer
+    "procedure-type",  # 99.6% — open / restricted / negotiated / single-offer
     "received-submissions-type-code",  # 99.2% — submission-type taxonomy (see TENDER_SUBMISSION_CODES)
-    "received-submissions-type-val",   # 99.2% — the per-lot submission COUNT (the single-bid signal)
-    "award-criterion-type-lot",        # 95.6% — price / cost / quality
+    "received-submissions-type-val",  # 99.2% — the per-lot submission COUNT (the single-bid signal)
+    "award-criterion-type-lot",  # 95.6% — price / cost / quality
     # ── contract-term layer (expiring-contracts signal; fill rates measured 2026-06-11 on
     #    2025H2+ CANs — early-2024 eForms-transition notices are sparser) ──
-    "contract-conclusion-date",        # BT-145, ~50% — when the contract was signed
-    "contract-duration-period-lot",    # BT-36,  ~50% — [{unit: MONTH/YEAR/DAY, value: N}] per lot
+    "contract-conclusion-date",  # BT-145, ~50% — when the contract was signed
+    "contract-duration-period-lot",  # BT-36,  ~50% — [{unit: MONTH/YEAR/DAY, value: N}] per lot
     "contract-duration-start-date-lot",  # BT-536, ~4% — explicit start
-    "contract-duration-end-date-lot",    # BT-537, ~2% — explicit end (rare but authoritative)
-    "renewal-maximum-lot",             # BT-58,  ~2% — max renewals advertised
-    "procedure-identifier",            # BT-04, 100% — future join to the CN tender lane
+    "contract-duration-end-date-lot",  # BT-537, ~2% — explicit end (rare but authoritative)
+    "renewal-maximum-lot",  # BT-58,  ~2% — max renewals advertised
+    "procedure-identifier",  # BT-04, 100% — future join to the CN tender lane
 ]
 # 2024+ is deliberate, NOT an API limit. The API reaches back to 2016, BUT for pre-2024 legacy
 # notices the WINNER is unavailable: verified 2026-06-08 winner-name / winner-identifier /
@@ -180,15 +201,24 @@ def pull(max_pages: int | None) -> list[dict]:
 
 
 def load_raw(max_pages: int | None, refresh: bool) -> list[dict]:
-    if RAW_CACHE.exists() and not refresh:
+    if _cache_is_fresh(refresh):
         try:
             data = json.loads(RAW_CACHE.read_text(encoding="utf-8"))
             if isinstance(data, list) and data:
-                print(f"using cached raw capture: {RAW_CACHE} ({len(data):,} notices)")
                 return data
         except Exception:
             pass
     raw = pull(max_pages)
+    if not raw:
+        # API outage: keep the existing capture (stale beats empty) rather than
+        # clobbering bronze with [] — downstream still rebuilds from it.
+        if RAW_CACHE.exists():
+            with contextlib.suppress(Exception):
+                data = json.loads(RAW_CACHE.read_text(encoding="utf-8"))
+                if isinstance(data, list) and data:
+                    print(f"API returned nothing — falling back to stale capture ({len(data):,} notices)")
+                    return data
+        return raw
     RAW_CACHE.parent.mkdir(parents=True, exist_ok=True)
     RAW_CACHE.write_text(json.dumps(raw), encoding="utf-8")
     print(f"wrote raw capture (bronze) -> {RAW_CACHE}")
@@ -407,7 +437,9 @@ def build_rows(raw: list[dict]) -> list[dict]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--max-pages", type=int, default=None, help="smoke-test bound; default None = ALL pages (ITERATION)")
+    ap.add_argument(
+        "--max-pages", type=int, default=None, help="smoke-test bound; default None = ALL pages (ITERATION)"
+    )
     ap.add_argument("--refresh", action="store_true", help="ignore raw cache, re-pull API")
     args = ap.parse_args()
 

@@ -19,6 +19,7 @@ doc/COMMERCIAL_UPLIFT_PLAN.md §5/§6).
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -676,6 +677,23 @@ def data_coverage() -> dict:
             "money_grains": "procurement AWARDS, public-body PAYMENTS, and T&A allowances are three different value grains — NEVER sum across them",
         },
     }
+
+
+@mcp.tool(annotations=_RO)
+def source_fetch_failures() -> dict:
+    """Which procurement source sites failed to download on the last extractor runs, and
+    what data is at stake — the research brief for finding ALTERNATIVE sources. Per failure:
+    publisher, URL, error_class (`bot_challenge` = site added a JS anti-bot wall and needs a
+    rendering fetch or a replacement source; `http_404` = file removed at the publisher;
+    `timeout`/`connection_error` = likely transient), plus rows_in_gold and
+    last_period_in_gold (what we stand to lose / how stale we go if the source stays broken).
+    `zero_harvest` publishers are the urgent ones: their listing page yields no files at all
+    (moved, emptied, or bot-walled). Good replacement hunting grounds: data.gov.ie, the
+    body's FOI publication-scheme page, and web.archive.org for the old listing."""
+    p = Path(__file__).resolve().parents[1] / "data/_meta/fetch_failures.json"
+    if not p.exists():
+        return {"error": "no fetch_failures.json yet — run the public_body_payments or la_payments chain first"}
+    return json.loads(p.read_text(encoding="utf-8"))
 
 
 # ── Procurement conduit (authoritative-source bridge + serve-vs-source reconcile) ─

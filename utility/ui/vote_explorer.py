@@ -244,7 +244,9 @@ def render_division_panel(
         safe_key = "div"
 
     oireachtas_url = str(vote_row.get("oireachtas_url") or "")
-    link_html = source_link_html(oireachtas_url, "View on oireachtas.ie", aria_label="Open this division on oireachtas.ie")
+    link_html = source_link_html(
+        oireachtas_url, "View on oireachtas.ie", aria_label="Open this division on oireachtas.ie"
+    )
 
     with st.container(border=True):
         st.html(

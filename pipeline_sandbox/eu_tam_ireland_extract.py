@@ -68,11 +68,25 @@ PAGE_SIZE = 100
 SLEEP_S = 0.4
 
 COLUMNS = [
-    "country", "aid_measure_title", "sa_number", "ref_no", "national_id",
-    "beneficiary_name", "beneficiary_type", "region", "sector_nace",
-    "aid_instrument", "objective", "nominal_amount_raw", "aid_element_raw",
-    "date_granted", "granting_authority", "entrusted_entity",
-    "financial_intermediary", "published_date", "other_beneficiary_ms",
+    "country",
+    "aid_measure_title",
+    "sa_number",
+    "ref_no",
+    "national_id",
+    "beneficiary_name",
+    "beneficiary_type",
+    "region",
+    "sector_nace",
+    "aid_instrument",
+    "objective",
+    "nominal_amount_raw",
+    "aid_element_raw",
+    "date_granted",
+    "granting_authority",
+    "entrusted_entity",
+    "financial_intermediary",
+    "published_date",
+    "other_beneficiary_ms",
     "third_country",
 ]
 
@@ -108,8 +122,12 @@ def open_session() -> requests.Session:
     r3 = s.post(
         f"{BASE}/public/search",
         data=[
-            ("CSRFTOKEN", csrf[0]), ("resetSearch", "true"), ("countries", "CountryIRL"),
-            ("_countries", ""), ("_selectAll", ""), ("_grantingAuthorityRegions", ""),
+            ("CSRFTOKEN", csrf[0]),
+            ("resetSearch", "true"),
+            ("countries", "CountryIRL"),
+            ("_countries", ""),
+            ("_selectAll", ""),
+            ("_grantingAuthorityRegions", ""),
         ],
         timeout=60,
     )
@@ -136,6 +154,7 @@ def cell_text(td) -> str:
         return title
     return text
 
+
 def parse_rows(html: str) -> list[dict]:
     soup = BeautifulSoup(html, "html.parser")
     table = soup.find("table", id="resultsTable")
@@ -146,7 +165,7 @@ def parse_rows(html: str) -> list[dict]:
         tds = tr.find_all("td")
         if len(tds) != len(COLUMNS):
             continue  # header / spacer rows
-        row = {col: cell_text(td) or None for col, td in zip(COLUMNS, tds)}
+        row = {col: cell_text(td) or None for col, td in zip(COLUMNS, tds, strict=True)}
         # the ref-no cell links to the award detail page — keep the id
         a = tds[3].find("a", href=True)
         row["award_detail_url"] = a["href"] if a else None
@@ -193,7 +212,9 @@ def main() -> int:
         log.error("Only %d rows (expected ~15,600) — incomplete crawl, not writing", len(rows))
         return 1
 
-    df = pl.DataFrame(rows)
+    # mostly-null columns (third_country, entrusted_entity) get their first
+    # value far beyond the default 100-row inference window
+    df = pl.DataFrame(rows, infer_schema_length=None)
 
     def split_amount(col: str, prefix: str) -> list[pl.Expr]:
         ext = pl.col(col).str.extract_groups(r"^([\d,]+(?:\.\d+)?)\s*([A-Z]{3})$")
@@ -224,10 +245,13 @@ def main() -> int:
     log.info(
         "rows=%d | date range %s -> %s | cro_num join candidates=%d (%.0f%%) | "
         "individual-suspected=%d | dup ref_no groups=%d",
-        len(df), df["date_granted"].min(), df["date_granted"].max(),
+        len(df),
+        df["date_granted"].min(),
+        df["date_granted"].max(),
         df["cro_company_num"].is_not_null().sum(),
         100 * df["cro_company_num"].is_not_null().sum() / len(df),
-        df["beneficiary_is_individual_suspected"].sum(), dup,
+        df["beneficiary_is_individual_suspected"].sum(),
+        dup,
     )
     log.info(
         "top granting authorities: %s",
