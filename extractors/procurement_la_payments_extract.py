@@ -999,7 +999,10 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true", help="harvest-only: print candidate files, no parse")
     ap.add_argument("--only", default="", help="comma-separated council slugs")
-    ap.add_argument("--max-files", type=int, default=6, help="cap files parsed per council (recent-first)")
+    # default must cover the full back-catalogue (Cork City publishes 66 files to 2016): the
+    # fact is OVERWRITTEN each run, so a low cap silently downgrades silver to a recent slice
+    # and the next consolidate would wipe gold history. Pass a low value for smoke tests only.
+    ap.add_argument("--max-files", type=int, default=99, help="cap files parsed per council (recent-first)")
     args = ap.parse_args()
     only = {x.strip() for x in args.only.split(",") if x.strip()} or None
 
