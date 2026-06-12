@@ -13,6 +13,7 @@ dail_tracker_core. The privacy gate (public_display) lives in the view.
 
 from __future__ import annotations
 
+import contextlib
 import json
 from pathlib import Path
 
@@ -38,12 +39,11 @@ def fetch_coverage() -> dict:
     coverage JSONs; returns {} if both absent (page degrades gracefully)."""
     out: dict = {}
     for name in ("public_payments_coverage.json", "hse_tusla_payments_coverage.json"):
-        try:
+        # missing/garbled metadata must not break the page
+        with contextlib.suppress(Exception):
             out[name.replace("_coverage.json", "")] = json.loads(
                 (_ROOT / "data" / "_meta" / name).read_text(encoding="utf-8")
             )
-        except Exception:  # noqa: BLE001 — missing/garbled metadata must not break the page
-            pass
     return out
 
 
