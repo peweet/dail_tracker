@@ -77,6 +77,8 @@ from data_access.procurement_data import (
     fetch_ted_for_supplier_result,
     fetch_ted_notices_for_supplier_result,
     fetch_ted_supplier_summary_result,
+    fetch_expiring_contracts_result,
+    fetch_expiring_contracts_stats_result,
     fetch_ted_tenders_result,
     fetch_ted_tenders_stats_result,
 )
@@ -1221,6 +1223,84 @@ def _render_ted_tenders() -> None:
     )
 
 
+# Human label for how the estimated end date was derived (carried from the view; the
+# basis is part of the fact being presented, not a UI judgement).
+_END_BASIS_LABEL = {
+    "explicit_end_date": "end date on the notice",
+    "start_plus_duration": "start date + advertised duration",
+    "conclusion_plus_duration": "signed date + advertised duration",
+}
+
+
+def _render_expiring_contracts() -> None:
+    stats_res = fetch_expiring_contracts_stats_result()
+    if not stats_res.ok or stats_res.data.empty:
+        empty_state(
+            "Contract-term data isn't available right now",
+            "The advertised-term view couldn't be loaded — a source/pipeline issue, not an empty result.",
+        )
+        return
+    s = stats_res.data.iloc[0]
+    st.html(
+        '<div class="pr-caveat"><strong>Advertised contract terms — when current contracts are due to end.</strong> '
+        f"{_n(s.get('n_with_estimate')):,} TED award notices state a contract term (an explicit end date on "
+        f"{_n(s.get('n_explicit')):,} of them; otherwise the signed/start date plus the advertised duration). "
+        "These are the terms <em>as advertised on the award notice</em> — a contract can end early or run "
+        "longer through renewal options, which are shown separately and never folded in.</div>"
+    )
+    window = st.segmented_control(
+        "Ending within",
+        ["6 months", "12 months", "24 months"],
+        default="12 months",
+        key="pr_expiring_window",
+        label_visibility="collapsed",
+    )
+    months = int((window or "12 months").split()[0])
+    res = fetch_expiring_contracts_result(months_ahead=months, limit=_TOP)
+    df = res.data if res.ok else pd.DataFrame()
+    if df.empty:
+        empty_state("No contracts in this window", "No advertised term ends in the selected period.")
+        return
+    st.caption(
+        f"{len(df):,} contracts whose advertised term ends within {months} months, soonest first. "
+        "Values are award/ceiling figures shown for context — never totals."
+    )
+    cards = []
+    for r in df.itertuples():
+        meta_parts = [_esc(_coalesce(getattr(r, "cpv_division", None)))]
+        winners = _coalesce(getattr(r, "winners_display", None))
+        if winners:
+            meta_parts.append(_esc(winners))
+        dur = getattr(r, "contract_duration_months", None)
+        if dur is not None and not pd.isna(dur):
+            dur_i = int(dur) if float(dur).is_integer() else dur
+            meta_parts.append(f"{dur_i}-month term")
+        meta = " · ".join(p for p in meta_parts if p)
+        pills = []
+        end = _coalesce(getattr(r, "contract_end_date_est", None))
+        if end:
+            pills.append(f'<span class="pr-pill pr-pill-val">ends {fmt_civic_date(end)}</span>')
+        ev = _eur(getattr(r, "award_value_eur", None))
+        if ev != "—":
+            kind = _coalesce(getattr(r, "value_kind", None))
+            pills.append(f"<span class=\"pr-pill\">{ev}{' ceiling' if kind == 'framework_or_dps_ceiling' else ''}</span>")
+        renew = getattr(r, "renewal_max", None)
+        if renew is not None and not pd.isna(renew) and int(renew) > 0:
+            pills.append(f'<span class="pr-pill pr-pill-lob">up to {int(renew)} renewals</span>')
+        basis = _END_BASIS_LABEL.get(_coalesce(getattr(r, "contract_end_basis", None)))
+        if basis:
+            pills.append(f'<span class="pr-pill">{basis}</span>')
+        cards.append(_card(f"<span>{_esc(getattr(r, 'buyer_name', None))}</span>", meta, pills))
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html(
+        '<div class="pr-foot"><strong>Source:</strong> TED — Tenders Electronic Daily, EU Official Journal award '
+        'notices (<a href="https://ted.europa.eu" target="_blank" rel="noopener">ted.europa.eu ↗</a>), eForms '
+        "contract-term fields (BT-36/BT-145/BT-536/BT-537). The end date is the advertised term, not a verified "
+        "event; ~36% of award notices state a term. Winner names follow the published notice; sole traders and "
+        "individuals are not shown.</div>"
+    )
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Drill-down: a single supplier's profile + full award history (?supplier=)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1237,18 +1317,50 @@ def _award_value_html(r) -> str:
 
 def _award_row(head: str, meta_parts: list[str], r) -> str:
     meta = " · ".join(p for p in meta_parts if p and p != "—")
+    # The published contract title (100% filled in the source) — without it a line item's
+    # only description is its generic CPV label ("IT services: consulting, …").
+    title = _esc(_coalesce(getattr(r, "tender_title", None)))
+    title_html = f'<div class="pr-award-title">{title}</div>' if title else ""
     return (
         f'<div class="pr-award"><div class="pr-award-body">'
-        f'<div class="pr-award-auth">{head or "—"}</div>'
+        f'<div class="pr-award-auth">{head or "—"}</div>{title_html}'
         f'<div class="pr-award-meta">{meta or "—"}</div></div>{_award_value_html(r)}</div>'
     )
+
+
+def _award_detail_meta(r) -> list[str]:
+    """Detail meta fragments shared by every award row: procedure, contract term, bid
+    count, and the deep link to the EU Official Journal notice (above-EU-threshold
+    subset only). All values come straight from the view — display formatting only."""
+    parts = [_esc(_coalesce(getattr(r, "procedure_type", None)))]
+    months = _n(getattr(r, "contract_duration_months", None))
+    if months > 0:
+        parts.append(f"{months}-month term")
+    bids = _n(getattr(r, "n_bids_received", None))
+    if bids > 0:
+        parts.append(f"{bids:,} bid{'' if bids == 1 else 's'} received")
+    ted_url = _coalesce(getattr(r, "ted_can_link", None)) or _coalesce(getattr(r, "ted_notice_link", None))
+    if ted_url.startswith("http"):
+        parts.append(f'<a href="{_esc(ted_url)}" target="_blank" rel="noopener">TED notice ↗</a>')
+    return parts
 
 
 def _award_row_html(r) -> str:
     """Supplier-profile award row — headlines the contracting authority. Call-off rows are
     tagged: a drawdown under a framework/DPS, the nesting the register otherwise hides."""
-    cpv = _coalesce(getattr(r, "cpv_description", None)) or _coalesce(getattr(r, "cpv_code", None))
-    meta = [fmt_civic_date(getattr(r, "award_date", None)), _esc(cpv), _coalesce(getattr(r, "competition_type", None))]
+    # category_label is the view's display fallback (CPV description, else OGP spend
+    # category) — Main CPV is filled on only ~30% of award rows.
+    cat = (
+        _coalesce(getattr(r, "category_label", None))
+        or _coalesce(getattr(r, "cpv_description", None))
+        or _coalesce(getattr(r, "cpv_code", None))
+    )
+    meta = [
+        fmt_civic_date(getattr(r, "award_date", None)),
+        _esc(cat),
+        _coalesce(getattr(r, "competition_type", None)),
+        *_award_detail_meta(r),
+    ]
     if _truthy(getattr(r, "is_call_off", None)):
         meta.append("framework call-off")
     return _award_row(_esc(r.contracting_authority) or "—", meta, r)
@@ -1264,22 +1376,33 @@ def _supplier_head(r) -> str:
 
 def _award_row_by_supplier(r) -> str:
     """Authority-profile award row — headlines the supplier who won it."""
-    cpv = _coalesce(getattr(r, "cpv_description", None)) or _coalesce(getattr(r, "cpv_code", None))
+    cat = (
+        _coalesce(getattr(r, "category_label", None))
+        or _coalesce(getattr(r, "cpv_description", None))
+        or _coalesce(getattr(r, "cpv_code", None))
+    )
     return _award_row(
         _supplier_head(r),
-        [fmt_civic_date(getattr(r, "award_date", None)), _esc(cpv), _coalesce(getattr(r, "competition_type", None))],
+        [
+            fmt_civic_date(getattr(r, "award_date", None)),
+            _esc(cat),
+            _coalesce(getattr(r, "competition_type", None)),
+            *_award_detail_meta(r),
+        ],
         r,
     )
 
 
 def _award_row_cpv(r) -> str:
-    """Category-profile award row — headlines the supplier, authority in the meta."""
+    """Category-profile award row — headlines the supplier, authority in the meta.
+    No category fragment: every row here is already inside one CPV category."""
     return _award_row(
         _supplier_head(r),
         [
             fmt_civic_date(getattr(r, "award_date", None)),
             _esc(_coalesce(getattr(r, "contracting_authority", None))),
             _coalesce(getattr(r, "competition_type", None)),
+            *_award_detail_meta(r),
         ],
         r,
     )
@@ -1989,7 +2112,20 @@ def procurement_page() -> None:
         _render_payments()
 
     with tabs[2]:
-        _render_ted_tenders()
+        # Two forward-looking lenses, same grain discipline: open competition notices
+        # (pre-award) and advertised contract terms due to end (post-award fact — when
+        # the contracted period runs out, as stated on the notice; never summed).
+        fwd_lens = st.segmented_control(
+            "View",
+            ["Open tenders", "Contract terms ending"],
+            default="Open tenders",
+            key="pr_forward_lens",
+            label_visibility="collapsed",
+        )
+        if fwd_lens == "Contract terms ending":
+            _render_expiring_contracts()
+        else:
+            _render_ted_tenders()
 
     with tabs[3]:
         _render_patterns()

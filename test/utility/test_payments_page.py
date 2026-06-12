@@ -115,6 +115,22 @@ def test_render_rankings(monkeypatch):
     assert payments._render_rankings(since, summary, "Dáil", "TD", "TDs") is None
 
 
+def test_render_rankings_small_cohort(monkeypatch):
+    # A ≤10-member cohort (sparse year / small chamber) leaves the next-10 column
+    # empty; without the st.html("") guard this raises StreamlitAPIException.
+    _silence_streamlit()
+    small = pd.DataFrame([{
+        "member_name": f"Surname{i}, Fore", "position": "Deputy", "party_name": "Ind",
+        "constituency": "Cork", "taa_band_label": "Band 5", "rank_high": i + 1,
+        "unique_member_code": f"TD-{i}", "total_paid_since_2020": 50_000.0 - i,
+        "payment_count_since_2020": 5,
+    } for i in range(4)])
+    monkeypatch.setattr(payments, "fetch_alltime_ranking", lambda *a, **k: small)
+    since = {"total": 200_000.0, "members": 4, "avg_per_td": 50_000.0}
+    summary = pd.Series({"first_year": 2020, "last_year": 2024})
+    assert payments._render_rankings(since, summary, "Seanad", "Senator", "Senators") is None
+
+
 def test_render_primary(monkeypatch):
     _silence_streamlit()
     monkeypatch.setattr(payments, "fetch_since_2020_summary",
@@ -125,6 +141,17 @@ def test_render_primary(monkeypatch):
     summary = pd.Series({"first_year": 2020, "last_year": 2024})
     # Default selected view (None → most-recent completed year) renders the year ranking.
     assert payments._render_primary(["2024", "2023"], summary, "Dáil", "TD", "TDs") is None
+
+
+def test_render_primary_small_cohort(monkeypatch):
+    # Same empty-column guard, year-ranking path: a 3-member year leaves next-10 empty.
+    _silence_streamlit()
+    small = _ranking_df(3)
+    monkeypatch.setattr(payments, "fetch_since_2020_summary",
+                        lambda *a, **k: {"total": 100_000.0, "members": 3, "avg_per_td": 33_000.0})
+    monkeypatch.setattr(payments, "fetch_year_ranking", lambda *a, **k: small)
+    summary = pd.Series({"first_year": 2020, "last_year": 2024})
+    assert payments._render_primary(["2024", "2023"], summary, "Seanad", "Senator", "Senators") is None
 
 
 def test_render_primary_empty_year(monkeypatch):

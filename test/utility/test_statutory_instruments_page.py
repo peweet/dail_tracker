@@ -338,3 +338,24 @@ def test_statutory_instruments_page_empty(monkeypatch):
     si.load_si.clear()
     assert si.statutory_instruments_page() is None
     si.load_si.clear()
+
+
+def test_statutory_instruments_page_columnless_empty(monkeypatch):
+    # When the view is missing/unregistered the data-access layer returns a bare
+    # (column-less) empty frame. Without the source-state guard, si_df["si_year"] /
+    # si_df["si_id"] would KeyError — and this page has no error boundary. The guard
+    # must render the unavailable empty-state and return cleanly, on both the index
+    # path and the detail path (?si=… selected).
+    _silence_streamlit()
+    import streamlit as st
+
+    monkeypatch.setattr(si, "fetch_si_entity_index_classified", lambda *a, **k: pd.DataFrame())
+    monkeypatch.setattr(si, "fetch_si_entity_index", lambda *a, **k: pd.DataFrame())
+    si.load_si.clear()
+    assert si.statutory_instruments_page() is None
+    st.session_state["si_selected_id"] = "2025-1"
+    try:
+        assert si.statutory_instruments_page() is None
+    finally:
+        st.session_state.pop("si_selected_id", None)
+        si.load_si.clear()

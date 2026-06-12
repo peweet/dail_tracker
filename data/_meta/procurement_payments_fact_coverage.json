@@ -1,28 +1,27 @@
 {
-  "generated_utc": "2026-06-08T19:09:32.792694+00:00",
+  "generated_utc": "2026-06-12T06:33:05.095439+00:00",
   "layer": "gold",
   "source": "extractors/procurement_payments_consolidate.py",
-  "n_rows": 167190,
-  "n_publishers": 57,
-  "n_suppliers": 21026,
-  "cro_matched_pct": 34.9,
+  "n_rows": 148055,
+  "n_publishers": 44,
+  "n_suppliers": 19236,
+  "cro_matched_pct": 35.9,
   "rows_by_publisher_type": {
-    "local_authority": 71230,
-    "state_body": 39791,
-    "agency": 26732,
-    "department": 14710,
+    "local_authority": 72325,
+    "state_body": 38482,
+    "agency": 21224,
     "semi_state": 10379,
-    "education_body": 3934,
-    "hospital": 414
+    "department": 3560,
+    "education_body": 2085
   },
   "n_local_authorities": 21,
   "safe_eur_by_tier": {
-    "SPENT": 15002612199.68,
-    "COMMITTED": 11998490497.85
+    "SPENT": 13232397334.5,
+    "COMMITTED": 9143600513.61
   },
   "vat_status_counts": {
     "incl_vat": 21662,
-    "unknown": 145528
+    "unknown": 126393
   },
   "privacy_note": "Suppliers named per published source PO/payments-over-\u20ac20k lists (Circular 07/2012 / FOI); no address/PII beyond the published figure.",
   "value_note": "po_committed (ordered) and payment_actual (paid) are different lifecycle tiers \u2014 never summed together; only value_safe_to_sum rows sum, and never across vat_status.",

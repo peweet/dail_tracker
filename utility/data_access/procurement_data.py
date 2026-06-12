@@ -222,6 +222,18 @@ def fetch_ted_tenders_result(only_open: bool = False, limit: int | None = 60) ->
 
 
 @st.cache_data(ttl=300)
+def fetch_expiring_contracts_stats_result() -> QueryResult:
+    """Advertised-term corpus summary (estimate counts, 12-month due count, basis mix)."""
+    return _q.expiring_contracts_stats(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
+def fetch_expiring_contracts_result(months_ahead: int = 12, limit: int | None = 60) -> QueryResult:
+    """Contracts whose advertised term ends within the window, soonest first."""
+    return _q.expiring_contracts(get_procurement_conn(), months_ahead=months_ahead, limit=limit)
+
+
+@st.cache_data(ttl=300)
 def fetch_awards_for_authority(contracting_authority: str, year: int | None = None) -> pd.DataFrame:
     """Every award made by one contracting authority (drill-down), most recent first."""
     return _q.awards_for_authority(get_procurement_conn(), contracting_authority, year=year).data

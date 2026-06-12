@@ -21,6 +21,15 @@ def inject_css() -> None:
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=Epilogue:ital,wght@0,400;0,500;0,600;1,400&family=Material+Symbols+Outlined&display=swap');
 
+        /* ── spa_links click interceptor (utility/ui/spa_links.py) ── */
+        /* Zero-height app-level component iframe; drop its element
+           container from flow so it adds no gap above the banner.
+           display:none iframes still load and run their script. */
+        .st-key-_dt_spa_links,
+        div[data-testid="stElementContainer"]:has(iframe[title*="dt_spa_links"]) {
+            display: none;
+        }
+
         /* ── Site banner ─────────────────────────── */
         /* Sits at the very top of every page, above Streamlit's native
            top nav (st.navigation(position="top") in utility/app.py).
@@ -5261,7 +5270,11 @@ def inject_css() -> None:
         }
         .pr-award-body { flex: 1; min-width: 0; }
         .pr-award-auth { font-weight: 600; color: var(--ink-700); font-size: 0.88rem; }
+        /* published contract title — the descriptive line between entity and meta */
+        .pr-award-title { font-size: 0.8rem; color: var(--ink-strong); line-height: 1.35; margin-top: 0.1rem; }
         .pr-award-meta { font-size: 0.76rem; color: var(--text-meta); margin-top: 0.1rem; }
+        .pr-award-meta a { color: var(--accent); text-decoration: none; white-space: nowrap; }
+        .pr-award-meta a:hover { text-decoration: underline; }
         .pr-award-val { font-weight: 700; color: var(--accent); font-size: 0.92rem;
             font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
         .pr-award-val small { display: block; font-weight: 500; color: var(--text-meta); font-size: 0.64rem; }

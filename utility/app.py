@@ -17,6 +17,7 @@ from pages_code.public_payments import public_payments_page
 from pages_code.statutory_instruments import statutory_instruments_page
 from pages_code.votes import votes_page
 from shared_css import inject_css
+from ui.spa_links import install_spa_links
 
 st.set_page_config(
     page_title="Oireachtas Explorer",
@@ -175,4 +176,9 @@ pg = st.navigation(
 # Streamlit keeps them mounted across navigations instead of tearing them
 # down with each page — eliminating the masthead/stylesheet flicker.
 inject_css()
+# Intercept in-page <a href="?param"> tile/chip/card clicks so they soft-rerun
+# over the live websocket instead of full-reloading the browser tab. App-level
+# (outside pg.run()) so the listener survives page navigations; before pg.run()
+# so the clicked query params are visible to the page body in the same run.
+install_spa_links()
 pg.run()

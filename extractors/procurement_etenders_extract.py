@@ -184,6 +184,35 @@ def main() -> None:
     cpv_desc_col = next((c for c in df.columns if c == "Main Cpv Code Description"), None)
     comp_col = "Competition Type"  # Framework / DPS / Standalone / Bespoke ...
     parent_col = "Parent Agreement ID"  # present => call-off under a parent framework
+    # Detail columns (2026-06-12): the source carries far more per-notice detail than the
+    # original 9-column select — most importantly "Tender/Contract Name" (the actual
+    # contract title, 100% filled on award rows) where the old feed left a line item with
+    # nothing but its generic CPV label. Fill rates on award rows: title 100%, awarded-SME
+    # count 100%, procedure 94%, additional CPVs 79%, spend category / contract type /
+    # bid counts 72%, duration 51%, TED links ~25% (above-EU-threshold subset only).
+    # "Spend Category" doubles as the classification fallback: Main Cpv Code is filled on
+    # only ~30% of award rows, and ~69% of the CPV-less rows carry a spend category.
+    # Carried verbatim (per-notice scalars — the supplier explode just repeats them);
+    # literal "NULL"/"n/a" strings become honest nulls in coerce_null_sentinels below.
+    title_col = "Tender/Contract Name"
+    DETAIL_COLS = [
+        title_col,
+        "Spend Category",
+        "Contract Type",
+        "Procedure",
+        "Contract Duration (Months)",
+        "No of Bids Received",
+        "No of SMEs Bids Received",
+        "No of Awarded SMEs",
+        "Additional CPV Codes on CFT",
+        "TED Notice Link",
+        "TED CAN Link",
+    ]
+    detail_cols = [c for c in DETAIL_COLS if c in df.columns]
+    # The estimated-value header embeds a '€' — find it by substring (same defence as the
+    # awarded-value column) and parse it to a float here so no downstream SQL has to quote
+    # a non-ASCII column name.
+    est_col = next((c for c in df.columns if "Estimated Value" in c), None)
 
     awards = df.filter(
         pl.col(sup_col).is_not_null()
@@ -199,6 +228,8 @@ def main() -> None:
             ["Tender ID", sup_col, auth_col, val_col, date_col, comp_col, parent_col]
             + ([cpv_col] if cpv_col else [])
             + ([cpv_desc_col] if cpv_desc_col else [])
+            + detail_cols
+            + ([est_col] if est_col else [])
         )
         # decode HTML entities FIRST: the source encodes '&' as '&amp;', whose literal
         # ';' would otherwise be turned into the '|' supplier delimiter below and split a
@@ -227,6 +258,17 @@ def main() -> None:
             .alias(auth_col)
         )
     )
+    # Contract titles carry the same source defects as authority cells: HTML entities
+    # ("&amp;") and padded/stray whitespace. Clean in place — the title is display copy
+    # downstream (null titles stay null; never coerced to "").
+    if title_col in detail_cols:
+        aw = aw.with_columns(
+            pl.col(title_col)
+            .map_elements(lambda s: html.unescape(s) if s else s, return_dtype=pl.Utf8)
+            .str.replace_all(r"\s+", " ")
+            .str.strip_chars()
+            .alias(title_col)
+        )
     # deterministic first-char-truncation repair -> supplier (canonical)
     cmap = build_canonical_map(aw.select("supplier_raw").unique().to_series().to_list())
     aw = aw.with_columns(
@@ -357,6 +399,15 @@ def main() -> None:
         f"large-award (>=€50m) review: {aw['is_large_award_review'].sum():,} | "
         f"safe-to-sum award rows: {aw['value_safe_to_sum'].sum():,}"
     )
+
+    # Pre-award estimate (notice header, ~27% filled): parsed exactly like value_eur but
+    # kept as a SEPARATE column — it is an estimate published before tendering, never
+    # summed and never substituted into value_eur. The raw column is dropped so the
+    # parquet never carries a '€' in a column name.
+    if est_col:
+        aw = aw.with_columns(
+            pl.col(est_col).str.replace_all(r"[^0-9.]", "").cast(pl.Float64, strict=False).alias("estimated_value_eur")
+        ).drop(est_col)
 
     # Root data-quality fix (2026-06-11): the source CSV stores the literal string "NULL"
     # for missing values across MANY columns — not just Tender ID (handled above) but also

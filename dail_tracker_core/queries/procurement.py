@@ -216,6 +216,8 @@ def awards_for_supplier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> 
     return _run(
         conn,
         "SELECT tender_id, contracting_authority, cpv_code, cpv_description,"
+        " tender_title, category_label, procedure_type, contract_duration_months,"
+        " n_bids_received, ted_can_link, ted_notice_link,"
         " competition_type, award_date, value_eur, value_kind, value_safe_to_sum,"
         " is_call_off"
         " FROM v_procurement_awards WHERE supplier_norm = ?"
@@ -276,7 +278,9 @@ def awards_for_authority(
     """Every award made BY one contracting authority, newest first."""
     sql = (
         "SELECT tender_id, supplier, supplier_norm, supplier_class, name_truncated,"
-        " cpv_code, cpv_description, competition_type, award_date, value_eur, value_kind, value_safe_to_sum"
+        " cpv_code, cpv_description, tender_title, category_label, procedure_type,"
+        " contract_duration_months, n_bids_received, ted_can_link, ted_notice_link,"
+        " competition_type, award_date, value_eur, value_kind, value_safe_to_sum"
         " FROM v_procurement_awards WHERE contracting_authority = ?"
     )
     params: list = [contracting_authority]
@@ -290,8 +294,9 @@ def awards_for_cpv(conn: duckdb.DuckDBPyConnection, cpv_code: str, *, year: int 
     """Every award in one CPV category, newest first."""
     sql = (
         "SELECT tender_id, supplier, supplier_norm, supplier_class, name_truncated,"
-        " contracting_authority, cpv_description, competition_type, award_date,"
-        " value_eur, value_kind, value_safe_to_sum"
+        " contracting_authority, cpv_description, tender_title, procedure_type,"
+        " contract_duration_months, n_bids_received, ted_can_link, ted_notice_link,"
+        " competition_type, award_date, value_eur, value_kind, value_safe_to_sum"
         " FROM v_procurement_awards WHERE cpv_code = ?"
     )
     params: list = [cpv_code]
@@ -458,6 +463,47 @@ def ted_tenders(conn: duckdb.DuckDBPyConnection, *, limit: int | None = 60, only
         sql += " WHERE is_still_open"
     sql += " ORDER BY dispatch_date DESC"
     params: list = []
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
+
+
+def expiring_contracts_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """One-row summary of the advertised-term corpus: how many notices carry an end
+    estimate, how many fall due in the next 12 months, and the basis mix (explicit end
+    date vs projected from duration). No euro total — award/ceiling values never sum."""
+    return _run(
+        conn,
+        "SELECT"
+        "  COUNT(*) AS n_with_estimate,"
+        "  COUNT(*) FILTER (WHERE contract_end_date_est BETWEEN CURRENT_DATE"
+        "    AND CURRENT_DATE + INTERVAL 12 MONTH) AS n_ending_12m,"
+        "  COUNT(*) FILTER (WHERE contract_end_basis = 'explicit_end_date') AS n_explicit,"
+        "  MIN(contract_end_date_est) AS earliest_end, MAX(contract_end_date_est) AS latest_end"
+        " FROM v_procurement_expiring_contracts",
+    )
+
+
+def expiring_contracts(
+    conn: duckdb.DuckDBPyConnection, *, months_ahead: int = 12, limit: int | None = 60
+) -> QueryResult:
+    """Contracts whose ADVERTISED term ends within the window (soonest first).
+
+    The end date is the term advertised on the award notice (explicit end date, or
+    start/conclusion date + duration) — an advertised term, never a verified end event;
+    renewals may extend it. award_value_eur is award/ceiling grade: display-only."""
+    sql = (
+        "SELECT publication_number, notice_url, buyer_name, winners_display, n_winners,"
+        " cpv_division, award_value_eur, value_kind, is_multi_supplier_framework,"
+        " contract_conclusion_date, contract_duration_months, renewal_max,"
+        " contract_end_date_est, contract_end_basis, year"
+        " FROM v_procurement_expiring_contracts"
+        " WHERE contract_end_date_est BETWEEN CURRENT_DATE"
+        "   AND CURRENT_DATE + (? * INTERVAL 1 MONTH)"
+        " ORDER BY contract_end_date_est ASC"
+    )
+    params: list = [int(months_ahead)]
     if limit is not None:
         sql += " LIMIT ?"
         params.append(int(limit))

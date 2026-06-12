@@ -19,6 +19,28 @@ SELECT
     "Contracting Authority"                      AS contracting_authority,
     "Main Cpv Code"                              AS cpv_code,
     "Main Cpv Code Description"                  AS cpv_description,
+    -- Detail fields (2026-06-12). tender_title is the actual contract name (100% filled
+    -- on award rows) — before this a line item's only description was its CPV label.
+    -- category_label is the display fallback: Main Cpv Code is filled on only ~30% of
+    -- award rows, but ~69% of CPV-less rows carry an OGP Spend Category. The fallback is
+    -- LABELLED-AS-IS display copy (two different taxonomies, never grouped together) —
+    -- per-CPV rollups keep using cpv_code/cpv_description only.
+    "Tender/Contract Name"                       AS tender_title,
+    "Spend Category"                             AS spend_category,
+    COALESCE("Main Cpv Code Description", "Spend Category") AS category_label,
+    "Contract Type"                              AS contract_type,
+    "Procedure"                                  AS procedure_type,
+    TRY_CAST("Contract Duration (Months)" AS INTEGER)  AS contract_duration_months,
+    TRY_CAST("No of Bids Received" AS INTEGER)         AS n_bids_received,
+    TRY_CAST("No of SMEs Bids Received" AS INTEGER)    AS n_sme_bids_received,
+    TRY_CAST("No of Awarded SMEs" AS INTEGER)          AS n_awarded_smes,
+    -- Pre-award ESTIMATE from the notice header (~27% filled): display-only context,
+    -- never summed, never a substitute for value_eur.
+    estimated_value_eur,
+    "Additional CPV Codes on CFT"                AS additional_cpv_codes,
+    -- Deep links to the EU Official Journal notice (above-EU-threshold subset, ~25%).
+    "TED Notice Link"                            AS ted_notice_link,
+    "TED CAN Link"                               AS ted_can_link,
     "Competition Type"                           AS competition_type,
     TRY_STRPTIME("Notice Published Date/Contract Created Date", '%d/%m/%Y')::DATE AS award_date,
     value_eur,

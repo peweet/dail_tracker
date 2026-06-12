@@ -228,7 +228,11 @@ def _render_rankings(since_2020: dict, summary: pd.Series, house: str, term: str
                     )
                 else:
                     cards.append(inner)
-            st.html("\n".join(cards))
+            # Guard the empty column: the ranking is split into top-10 / next-10
+            # columns, and st.html("") raises StreamlitAPIException. A cohort of
+            # ≤10 (sparse year / small chamber) leaves the second column empty.
+            if cards:
+                st.html("\n".join(cards))
 
     _render_provenance(summary, house=house)
 
@@ -311,7 +315,11 @@ def _render_primary(year_options: list[str], summary: pd.Series, house: str, ter
                 else:
                     # Member not in v_member_registry — render unwrapped.
                     cards.append(_pay_card_html(row))
-            st.html("\n".join(cards))
+            # Guard the empty column: the ranking is split into top-10 / next-10
+            # columns, and st.html("") raises StreamlitAPIException. A cohort of
+            # ≤10 (sparse year / small chamber) leaves the second column empty.
+            if cards:
+                st.html("\n".join(cards))
 
     export_df = ranking[
         ["rank_high", "member_name", "position", "taa_band_label", "total_paid", "payment_count"]

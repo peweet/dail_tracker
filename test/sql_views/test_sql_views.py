@@ -2247,3 +2247,88 @@ def test_procurement_authority_views_agree_on_dirty_value_filters(tmp_path):
     assert alltime == {"Dublin City Council", "Health Service Executive"}
     assert set(yearly["contracting_authority"]) == {"Dublin City Council"}
     assert set(yearly["year"]) == {2023, 2024}
+
+
+# --- v_procurement_expiring_contracts (TED advertised-term projection) ---
+
+
+def _write_ted_awards_term_fixture(tmp_path):
+    """Minimal ted_ie_awards.parquet rows covering every expiring-contracts rule."""
+    import polars as pl
+
+    pdir = tmp_path / "data" / "silver" / "parquet"
+    pdir.mkdir(parents=True)
+    base = {
+        "notice_url": "u",
+        "cpv_code": "45000000",
+        "cpv_division": "Construction",
+        "award_value_eur": 100000.0,
+        "value_kind": "contract_award_value",
+        "is_multi_supplier_framework": False,
+        "is_pan_eu_outlier": False,
+        "contract_conclusion_date": "2025-01-01",
+        "contract_duration_months": 24.0,
+        "renewal_max": None,
+        "contract_end_date_est": "2027-01-01",
+        "contract_end_basis": "conclusion_plus_duration",
+        "dispatch_date": "2025-01-10",
+        "year": 2025,
+        "n_winners": 1,
+        "supplier_class": "company",
+    }
+    rows = [
+        # 1. plain company award with an estimate
+        {**base, "publication_number": "1-2025", "buyer_name": "Dublin City Council_123", "winner_name": "Acme Ltd"},
+        # 2. two winner-rows of ONE notice -> must collapse to one view row, names joined
+        {**base, "publication_number": "2-2025", "buyer_name": "HSE", "winner_name": "Alpha Ltd", "n_winners": 2},
+        {**base, "publication_number": "2-2025", "buyer_name": "HSE", "winner_name": "Beta Ltd", "n_winners": 2},
+        # 3. sole-trader winner -> notice listed, name WITHHELD
+        {
+            **base,
+            "publication_number": "3-2025",
+            "buyer_name": "OPW",
+            "winner_name": "Jane Bloggs",
+            "supplier_class": "sole_trader_or_individual",
+        },
+        # 4. pan-EU outlier -> EXCLUDED entirely
+        {**base, "publication_number": "4-2025", "buyer_name": "GÉANT", "winner_name": "MegaCo", "is_pan_eu_outlier": True},
+        # 5. no end estimate -> EXCLUDED
+        {
+            **base,
+            "publication_number": "5-2025",
+            "buyer_name": "Revenue",
+            "winner_name": "NoTerm Ltd",
+            "contract_end_date_est": None,
+            "contract_end_basis": None,
+        },
+    ]
+    pl.DataFrame(rows).write_parquet(pdir / "ted_ie_awards.parquet")
+
+
+@pytest.mark.sql
+def test_v_procurement_expiring_contracts_contract(tmp_path):
+    """Locks the signal's honesty rules: notice grain (no winner-row inflation),
+    sole-trader names withheld but notice kept, pan-EU outliers and no-estimate
+    rows excluded, buyer-name artefact cleanup, basis carried for display."""
+    _write_ted_awards_term_fixture(tmp_path)
+    sql = _view_path("procurement_expiring_contracts.sql").read_text(encoding="utf-8")
+    sql = sql.replace("'data/", f"'{tmp_path.as_posix()}/data/")  # mirror absolutize
+    con = _con()
+    con.execute(sql)
+    df = con.execute("SELECT * FROM v_procurement_expiring_contracts ORDER BY publication_number").pl()
+
+    assert df.height == 3, "expected notices 1,2,3 only (pan-EU + no-estimate excluded)"
+    by = {r["publication_number"]: r for r in df.to_dicts()}
+    assert set(by) == {"1-2025", "2-2025", "3-2025"}
+
+    # buyer artefact suffix stripped; winners aggregated to one row per notice
+    assert by["1-2025"]["buyer_name"] == "Dublin City Council"
+    assert sorted(by["2-2025"]["winners_display"].split("; ")) == ["Alpha Ltd", "Beta Ltd"]
+
+    # privacy: the sole trader's name never appears; the notice itself survives
+    assert by["3-2025"]["winners_display"] is None
+    assert "Jane Bloggs" not in str(df.to_dicts())
+
+    # the estimate's provenance is carried for honest display
+    assert by["1-2025"]["contract_end_basis"] == "conclusion_plus_duration"
+    assert str(by["1-2025"]["contract_end_date_est"]) == "2027-01-01"
