@@ -472,7 +472,7 @@ def _render_profile(judge_key: str) -> None:
         links.append(f'<a href="{_esc(row["source_url"])}" target="_blank" rel="noopener">Courts Service roster ↗</a>')
     if isinstance(row.get("govie_source_url"), str) and row["govie_source_url"]:
         links.append(
-            f'<a href="{_esc(row["govie_source_url"])}" target="_blank" rel="noopener">gov.ie nomination ↗</a>'
+            f'<a href="{_esc(row["govie_source_url"])}" target="_blank" rel="noopener">gov.ie nomination (search) ↗</a>'
         )
     st.html(
         '<div class="jud-foot"><strong>Sources:</strong> '
@@ -627,7 +627,8 @@ def _render_appointments(appts: pd.DataFrame, noms: pd.DataFrame) -> None:
                 else f'<div class="jud-vac-nom">{_esc(r.nominee)}</div>'
             )
             link = (
-                f' <a href="{_esc(r.source_url)}" target="_blank" rel="noopener" style="font-size:0.72rem">gov.ie ↗</a>'
+                f' <a href="{_esc(r.source_url)}" target="_blank" rel="noopener" '
+                f'style="font-size:0.72rem">find announcement on gov.ie ↗</a>'
                 if isinstance(r.source_url, str) and r.source_url
                 else ""
             )

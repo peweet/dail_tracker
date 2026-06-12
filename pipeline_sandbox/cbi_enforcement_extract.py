@@ -198,7 +198,11 @@ def main() -> int:
     n_party = df["party_name"].is_not_null().sum()
     log.info(
         "rows=%d | party extracted=%d | fine parsed=%d | scanned/no-text=%d | individuals suspected=%d",
-        len(df), n_party, n_fine, n_scan, df["party_is_individual_suspected"].sum(),
+        len(df),
+        n_party,
+        n_fine,
+        n_scan,
+        df["party_is_individual_suspected"].sum(),
     )
 
     save_parquet(df, OUT_DIR / "cbi_enforcement_actions.parquet")

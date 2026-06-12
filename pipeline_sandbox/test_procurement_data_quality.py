@@ -2,7 +2,7 @@
 
 Covers the two tables produced this session:
   - data/silver/parquet/ted_ie_awards.parquet        (ted_ireland_extract.py)
-  - data/sandbox/parquet/public_payments_fact.parquet (procurement_public_body_extract.py)
+  - data/silver/parquet/public_payments_fact.parquet (procurement_public_body_extract.py)
 
 Two layers in one file:
   1. pytest invariant tests  — hard pass/fail data contracts (run: pytest -q this_file).
@@ -35,7 +35,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 TED_PATH = ROOT / "data/silver/parquet/ted_ie_awards.parquet"
-PUB_PATH = ROOT / "data/sandbox/parquet/public_payments_fact.parquet"
+PUB_PATH = ROOT / "data/silver/parquet/public_payments_fact.parquet"
 REPORT = Path("c:/tmp/procurement_dq_report.json")
 
 LARGE_AWARD = 50_000_000

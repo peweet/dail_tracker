@@ -50,6 +50,7 @@ import sys
 import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import quote_plus
 
 import pandas as pd
 
@@ -74,7 +75,12 @@ COVERAGE_PATH = META_DIR / "judiciary_bench_coverage.json"
 
 ROSTER_SOURCE_URL = "https://www.courts.ie/judges"
 ROSTER_SNAPSHOT_DATE = "2026-05-26"  # "Published at" on the cached Courts Service roster
-GOVIE_SOURCE_URL = "https://www.gov.ie/en/publication/judicial-appointments/"
+# The old gov.ie listing page (/en/publication/judicial-appointments/) 404s
+# since the 2025 gov.ie restructure; nomination rows now carry per-nominee
+# search URLs (see build_nominations) and the coverage manifest points at the
+# same search scoped to the topic.
+GOVIE_SEARCH_URL = "https://www.gov.ie/en/search/?q="
+GOVIE_SOURCE_URL = GOVIE_SEARCH_URL + "judicial+appointment"
 SALARY_SOURCE = "SI 323/2021 (Judicial remuneration)"
 
 # Constitutional seniority — the natural reading order for courts.
@@ -301,7 +307,14 @@ def build_nominations(nom: pd.DataFrame, aliases: dict[str, str]) -> pd.DataFram
     n = nom.copy()
     n["judge_key"] = n["nominee"].map(lambda x: normalise_key(x, aliases))
     n["source_name"] = "gov.ie nomination announcement"
-    n["source_url"] = GOVIE_SOURCE_URL
+    # gov.ie retired the single judicial-appointments listing page (the old
+    # /en/publication/judicial-appointments/ URL now 404s) and per-announcement
+    # URLs were never captured in the sandbox scrape. A nominee-scoped gov.ie
+    # search is the closest stable, per-row link to the announcement itself.
+    n["source_url"] = [
+        GOVIE_SEARCH_URL + quote_plus(f"{nominee} {court}")
+        for nominee, court in zip(n["nominee"].fillna(""), n["target_court"].fillna(""), strict=True)
+    ]
     cols = [
         "announce_date",
         "nominee",

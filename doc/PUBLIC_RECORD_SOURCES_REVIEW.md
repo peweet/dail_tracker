@@ -87,7 +87,7 @@ Everything else (board minutes, FOI logs, disclosure counts, annual-report PDFs,
 | Housing Adaptation Grants | **Build — via existing backlog** | med / low | zero-PII LA money-fact; belongs to Council-Finance surface (`IDEAS.md:115`) |
 | LA budget tables (planned-vs-actual) | **Build — via existing backlog** | med / low | 1:1 AFS division match; completes Council-Finance variance story |
 | **ERDF / EU-funds beneficiaries (NWRA + Southern + DPER)** | **Build (shortlist #1)** | high / low | probe-confirmed standardised XLSX; named beneficiary+contractor → supplier dim; new grant grain |
-| **State Boards register (current roster + body universe)** | **Build (shortlist #2, probe-first)** | high / med | completes the public-body universe behind every Public-Body-Profile join; complements Iris events |
+| **State Boards register (current roster + body universe)** | **✅ BUILT 2026-06-12** | high / med | `extractors/stateboards_roster_extract.py` + `wikidata/stateboards_wikidata_enrich.py` → `v_stateboards_roster` / `v_stateboards_boards`; `stateboards` pipeline chain |
 | NTA/TII/HSE/LDA/SBCI/MARA board minutes | **Reject** | low / high | free-text PDF, ~0% €, per-body drift, PII; award-in-minutes already = `board_approved_award` on NTA probe |
 | FOI / AIE disclosure logs (~20 bodies) | **Reject (keep as `foi_lead` only)** | low / high | records-exist, no extractable content; requester PII; never joins |
 | Protected-disclosure annual counts (Revenue/HSA/IDA/SBCI/…) | **Reject** | ~0 / med | one integer per body/year — not a dataset |

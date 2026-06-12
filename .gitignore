@@ -330,6 +330,14 @@ data/silver/sipo_candidate/
 !data/silver/parquet/afs_amalgamated_divisions.parquet
 # LA Purchase-Orders/Payments-over-€20k silver fact (procurement_la_payments_extract.py)
 !data/silver/parquet/la_payments_fact.parquet
+# payment-grain silver facts folded into gold procurement_payments_fact by the
+# procurement_consolidate chain (lifted out of data/sandbox/ 2026-06-12); commit so history
+# survives publisher-side source rot (courts/Waterford/Wicklow precedent) + machine failure
+!data/silver/parquet/public_payments_fact.parquet
+!data/silver/parquet/hse_tusla_payments_fact.parquet
+!data/silver/parquet/nta_payments_fact.parquet
+!data/silver/parquet/nphdb_payments_fact.parquet
+!data/silver/parquet/seai_payments_fact.parquet
 # per-LA AFS revenue fact (la_afs_extract.py) — read by tests + future gold views/UI; commit
 # so it survives machine failure / is Cloud-readable even if a council removes its source PDF
 !data/silver/parquet/la_afs_divisions.parquet

@@ -60,7 +60,7 @@ _spec = importlib.util.spec_from_file_location(
 pbe = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pbe)
 
-OUT_FACT = ROOT / "data/sandbox/parquet/nta_payments_fact.parquet"
+OUT_FACT = ROOT / "data/silver/parquet/nta_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/nta_payments_coverage.json"
 PARSER_VERSION = "0.1.0"
 

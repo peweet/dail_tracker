@@ -49,22 +49,22 @@
     }
   ],
   "supplier_class_counts": {
-    "sole_trader_or_individual": 7348,
-    "company": 13928,
-    "foreign_company": 82,
     "unknown": 52,
-    "public_body": 252
+    "company": 13928,
+    "public_body": 252,
+    "sole_trader_or_individual": 7348,
+    "foreign_company": 82
   },
   "amount_semantics_counts": {
-    "payment_actual": 16972,
-    "po_committed": 4690
+    "po_committed": 4690,
+    "payment_actual": 16972
   },
   "value_safe_to_sum_rows": 21410,
   "value_safe_to_sum_total_eur": 6668684973.070001,
   "rows_review_personal_data": 7348,
-  "privacy_quarantine_applied": false,
+  "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-11T06:26:39+00:00",
-  "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. Per-year files layout-gated. PRIVACY QUARANTINE DEFERRED (public_display=True)."
+  "generated_at": "2026-06-12T18:41:31+00:00",
+  "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. Per-year files layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows public_display=False)."
 }

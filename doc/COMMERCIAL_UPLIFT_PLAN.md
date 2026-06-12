@@ -149,27 +149,56 @@ The live surface is the eTenders platform itself (European Dynamics, migrated
 into a `etenders_live_notices` silver lane (PLANNED tier, estimate_advertised,
 never summed), reconcile against the quarterly CSV when it lands (the CSV
 remains the authoritative awards record). Respect robots.txt + polite-bot rules
-(single HTTP helper). TED tenders lane already covers above-threshold — but it
-is itself 10 weeks behind (latest dispatch 2026-03-25 vs retrieval 2026-06-08);
-diagnose the paginator/window in `extractors/ted_ireland_tenders_extract.py`
-first — that may be a quick win.
+(single HTTP helper).
 
-### 7.2 Contract end dates → expiring-contracts signal (the Stotles flagship)
-Verified: no duration/end-date columns in either gold. Sources that carry it:
-TED eForms duration fields (BT-36/BT-536/BT-537) via per-notice XML — the
-`winner_history` extractor already parses per-notice XML, so extend that parser
-to award notices 2024+ and emit `contract_start/end/duration_months`. Then a
-`v_procurement_expiring_contracts` view (contracts ending in next 6/12 months,
-by buyer/CPV) — pure fact presentation ("contract ends 2026-11"), no inference
-about re-tendering, consistent with the no-inference rule. eTenders CSV has no
-duration; live lane (§7.1) may add it for below-threshold later.
+**TED tenders lane staleness — DIAGNOSED + FIXED 2026-06-12.** Root cause was
+not the paginator: `load_raw` in BOTH TED extractors reused the bronze raw
+capture whenever it merely existed (the DAIL-160/162 silent-staleness class),
+so routine `ted`/`ted_tenders` chain runs rebuilt silver from a months-old pull
+while stamping a fresh `retrieved_utc`. Fixed with the same mtime-TTL pattern
+as the eTenders CSV cache (tenders 3d, awards 7d, `TED_RAW_CACHE_MAX_AGE_DAYS`
+override) plus a stale-beats-empty guard on API outage. Lane refreshed: newest
+dispatch 2026-03-25 → 2026-06-11; 12,658 notices (+1,408); 496 currently open.
+
+### 7.2 Contract end dates → expiring-contracts signal — **BUILDABLE FORWARD-LOOKING (verified 2026-06-12)**
+Probed against real data, three eras (1,000-notice samples per cell, search API
+— so no per-notice XML fetching is needed at all):
+
+| Field on Irish can-standard | 2024 (earliest) | 2025H2+ | 2026+ |
+|---|---|---|---|
+| contract-duration-period-lot (BT-36) | 1.0% | 51.8% | 63.1% |
+| contract-conclusion-date (BT-145, the anchor) | 76.5% | 88.7% | 90.7% |
+| contract-duration-end-date-lot (BT-537, explicit) | 6.6% | 2.8% | 1.2% |
+| **END-DATE DERIVABLE (explicit OR conclusion+duration)** | **7.6%** | **54.6%** | **64.3%** |
+
+Plus: legacy 2016–2023 per-notice XML carries essentially nothing (0.1% over an
+800-file scan of the cached corpus), and the eTenders open CSV has no duration.
+
+Reading: early-2024 eForms-transition notices are sparse (a first probe of that
+era alone wrongly suggested a dead end), but fill has matured and is trending
+up. So the signal is **forward-looking only** — no retrospective backfill exists,
+which means its value COMPOUNDS from the moment capture starts. Capture has
+started: the awards extractor's FIELDS now carry the contract-term layer
+(conclusion-date, BT-36, BT-536/537, renewal-maximum, procedure-identifier), so
+each weekly refresh accumulates coverage. Build next:
+`contract_end_estimate = conclusion_date (fallback dispatch_date) + duration`,
+then a `v_procurement_expiring_contracts` view (ending in next 6/12 months, by
+buyer/CPV) — pure fact presentation ("contract term ends 2026-11"), no
+re-tender inference. Complements, for the rows without duration and for the
+historical corpus:
+1. **Framework statutory-max expiry** — 4-year maximum (Dir. 2014/24 Art. 33; 8
+   for utilities) absent justified exception; `is_framework_or_dps` +
+   `award_date` already in gold. "Framework awarded 2022-09; standard 4-year
+   maximum reached 2026-09 unless extended." Folds into the §7.3 registry.
+2. **Buyer×CPV re-tender cadence** — periodicity inference: MCP/analyst layer
+   only, never the app.
 
 ### 7.3 Framework registry
 `Parent Agreement ID` + `is_framework_or_dps` + `is_call_off` already exist on
 the eTenders gold. Build a `v_procurement_frameworks` view: one row per
 framework (parent agreement) with member suppliers, call-off counts/values,
-first/last activity. Combined with §7.2 end dates this becomes framework-expiry
-intelligence — both comparators charge for exactly this.
+first/last activity, and the statutory-max-expiry column from §7.2 —
+framework-expiry intelligence is what both comparators charge for.
 
 ### 7.4 Buyer profiles
 Join existing assets per contracting authority: awards + single-bid rate +
@@ -196,9 +225,13 @@ forward pipeline for above-threshold buys ~6–12 months before tender.
 
 1. **Done in this pass**: §2 privacy guard, §3 VAT matrix, §4 exports, §5 MCP
    in-repo, §6 Dockerfile.
-2. **Next (days)**: deploy API container + Cloudflare front; fix TED tenders
-   lane recency (§7.1 quick win); TED award end-dates spike (§7.2, one notice
-   XML → confirm BT-36 presence).
-3. **Then (weeks)**: eTenders live lane (§7.1), expiring-contracts view (§7.2),
-   framework registry (§7.3), buyer dossiers (§7.4), PINs (§7.5).
-4. **Demand-gated**: keys, alerts, NC carve-out licensing, MCP remote transport.
+2. **Done 2026-06-12**: TED tenders/awards cache-TTL fix + lane refresh (§7.1);
+   duration-field spike — verdict in §7.2 (forward-looking, 54–64% derivable on
+   recent notices and rising; capture already wired into the awards extractor).
+3. **Next (days)**: deploy API container + Cloudflare front (needs Fly/CF
+   credentials — the only step an agent can't do alone); refresh the awards
+   lane so the contract-term fields start accumulating.
+4. **Then (weeks)**: expiring-contracts view (§7.2) + framework registry with
+   statutory-max expiry (§7.3), eTenders live lane (§7.1), buyer dossiers
+   (§7.4), PINs (§7.5).
+5. **Demand-gated**: keys, alerts, NC carve-out licensing, MCP remote transport.

@@ -12,7 +12,7 @@ DESIGN — a council is a ROW in SCHEMA_MAP, never a new parser:
                         prefixes); openpyxl header+content-fallback for XLSX; polars CSV
   - per-council QUIRKS  ≈1 flag each (neg-abs / supplier-is-ID / aggregate-guard / …)
 
-SCHEMA — emits the SAME row shape as data/sandbox/parquet/public_payments_fact.parquet
+SCHEMA — emits the SAME row shape as data/silver/parquet/public_payments_fact.parquet
 (the 17 central/semi-state publishers) so the two facts UNION at gold-view time, but on
 the MASTER taxonomy: `value_kind` (renamed from that fact's drifted `amount_semantics`)
 + `realisation_tier` + derived `value_safe_to_sum`. One fact, one vocab — option (a).
@@ -41,6 +41,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote, unquote, urljoin, urlparse
@@ -55,6 +56,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 import config  # noqa: E402
+from services.fetch_report import Breaker, FetchReport, classify_body, classify_exception, write_sentinel  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
 
@@ -494,6 +496,10 @@ def hr(t: str) -> None:
 
 
 # ============================================================================ fetch
+REPORT = FetchReport("la_payments")
+LAST_ERR: dict = {}  # set by fetch_bytes on failure, read by the download loop
+
+
 def _curl(url: str) -> bytes | None:
     try:
         p = subprocess.run(
@@ -510,12 +516,18 @@ def fetch_bytes(url: str) -> bytes | None:
     # Sligo publishes hrefs with raw spaces — requests/curl reject them as malformed;
     # '%' stays in the safe set so already-encoded hrefs (Galway) don't double-encode.
     url = quote(url, safe="!#$%&'()*+,/:;=?@[]~")
+    LAST_ERR.clear()
     try:
         r = requests.get(url, headers=H, timeout=90, allow_redirects=True)
         r.raise_for_status()
         return r.content
-    except Exception:
-        return _curl(url)
+    except Exception as e:
+        ec, status = classify_exception(e)
+        LAST_ERR.update({"error_class": ec, "http_status": status})
+        b = _curl(url)
+        if b:
+            LAST_ERR.clear()
+        return b
 
 
 def fetch_text(url: str) -> str | None:
@@ -531,6 +543,7 @@ def fetch_to_bronze(slug: str, url: str, ext: str) -> bytes | None:
         dest = dest.with_suffix(ext if ext in DATA_EXT else ".pdf")
     if dest.exists() and dest.stat().st_size > 1500:
         return dest.read_bytes()
+    time.sleep(1.0)  # politeness: only on a real network fetch, never on a cache hit
     b = fetch_bytes(url)
     if b and len(b) > 1500:
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -686,9 +699,7 @@ def _col_roles(header: list[str], data: list[list]) -> dict[str, int | None]:
     # never be mistaken for the amount even when it is the "most numeric" column — the bug
     # that made South Dublin's 2023/24 files read PO numbers (≈€400m) as the value.
     def money_score(j: int) -> int:
-        return sum(
-            1 for r in data[:300] if j < len(r) and (v := to_eur(r[j])) is not None and 100 <= v < 50_000_000
-        )
+        return sum(1 for r in data[:300] if j < len(r) and (v := to_eur(r[j])) is not None and 100 <= v < 50_000_000)
 
     roles: dict[str, int | None] = {}
     for role, rx in (
@@ -1021,6 +1032,10 @@ def main() -> None:
         files = harvest_files(cf)
         print(f"\n[{cf['slug']:<14}] {cf['council']}  ({cf['value_kind']} → {TIER[cf['value_kind']]})")
         print(f"   files harvested: {len(files)}")
+        if not files:
+            REPORT.record_zero_harvest(
+                publisher_id=cf["slug"], publisher_name=cf["council"], listing_url=cf["listing_url"]
+            )
         if args.list:
             for u in files[:10]:
                 print(f"     - {u.rsplit('/', 1)[-1][:72]}")
@@ -1029,7 +1044,9 @@ def main() -> None:
 
         c_rows: list[dict] = []
         file_stats: list[dict] = []
-        for u in files[: args.max_files]:
+        breaker = Breaker()
+        file_list = files[: args.max_files]
+        for i, u in enumerate(file_list):
             ext = next((e for e in DATA_EXT if u.lower().split("?")[0].endswith(e)), "")
             if ext == ".xls":
                 print(f"     ~ skip (.xls needs xlrd): {u.rsplit('/', 1)[-1][:48]}")
@@ -1037,12 +1054,33 @@ def main() -> None:
             if ext not in READERS and not u.endswith(".aspx"):
                 continue
             b = fetch_to_bronze(cf["slug"], u, ext)
-            if not b:
-                print(f"     ! download failed: {u.rsplit('/', 1)[-1][:48]}")
-                continue
             read_ext = ext if ext in READERS else ".pdf"  # Mayo getattachment.aspx serves a PDF
-            if read_ext == ".pdf" and b[:4] != b"%PDF":
+            bad = classify_body(b, b"%PDF" if read_ext == ".pdf" else None) if b else None
+            if not b or bad:
+                breaker.record(False)
+                err = bad or LAST_ERR.get("error_class", "unknown")
+                REPORT.record_failure(
+                    publisher_id=cf["slug"],
+                    publisher_name=cf["council"],
+                    url=u,
+                    listing_url=cf["listing_url"],
+                    error_class=err,
+                    http_status=LAST_ERR.get("http_status"),
+                    attempts=2 if not b else 1,
+                )
+                print(f"     ! download failed ({err}): {u.rsplit('/', 1)[-1][:48]}")
+                if breaker.tripped:
+                    rest = len(file_list) - i - 1
+                    REPORT.record_breaker_trip(
+                        publisher_id=cf["slug"], publisher_name=cf["council"], files_skipped=rest
+                    )
+                    print(
+                        f"     !! breaker tripped: {breaker.consecutive} consecutive failures — skipping {rest} remaining files"
+                    )
+                    break
                 continue
+            breaker.record(True)
+            write_sentinel("la_payments", cf["slug"], u)
             try:
                 rows, stat = emit_file(cf, u, b, read_ext)
             except Exception as e:
@@ -1104,6 +1142,9 @@ def main() -> None:
         return
     if not all_rows:
         print("\nno rows extracted")
+        REPORT.write()
+        for line in REPORT.summary_lines():
+            print(line)
         return
 
     df = pl.DataFrame(all_rows, infer_schema_length=None)
@@ -1151,6 +1192,13 @@ def main() -> None:
     }
     OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(f"wrote coverage {OUT_COV}")
+
+    report_path = REPORT.write()
+    lines = REPORT.summary_lines()
+    if lines:
+        print(f"\nfetch-failure report -> {report_path}")
+        for line in lines:
+            print(line)
 
 
 if __name__ == "__main__":

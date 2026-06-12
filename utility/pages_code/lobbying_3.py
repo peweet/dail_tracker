@@ -600,25 +600,29 @@ def _return_card_html(
     """Canonical return-record card. Used wherever a list of
     lobbying returns is displayed — topic Stage 2, org / area / DPO / Stage 3.
 
-    Header row: period chip, optional area pill, return-# on the right.
+    Header row: period chip, optional area pill, return-# and the lobbying.ie
+    source-link on the right. The link lives in the header (not a footer
+    actions row) so it is visible the moment the card is — on tall cards a
+    bottom link scrolled out of the reader's scanning path and was missed.
     Body: title in serif (the variable field — politician, org, or firm),
     optional second-line subtitle (client / "on behalf of …"), optional
     "Filed by …" meta line (person_primarily_responsible from the lobbying.ie
-    return), optional snippet of free-text details, styled `↗` source-link
-    in the actions row.
+    return), optional snippet of free-text details.
     """
-    head_bits = [f'<span class="lp3-return-period">{_h(period or "—")}</span>']
-    if area:
-        head_bits.append(f'<span class="lp3-return-area">{_h(area)}</span>')
-    if return_id:
-        head_bits.append(f'<span class="lp3-return-id">Return #{_h(return_id)}</span>')
-    head_html = "".join(head_bits)
-
     link_html = (
         source_link_html(url, "View on lobbying.ie", aria_label="Open this return on lobbying.ie")
         if url and url.startswith("http")
         else ""
     )
+
+    head_bits = [f'<span class="lp3-return-period">{_h(period or "—")}</span>']
+    if area:
+        head_bits.append(f'<span class="lp3-return-area">{_h(area)}</span>')
+    if return_id:
+        head_bits.append(f'<span class="lp3-return-id">Return #{_h(return_id)}</span>')
+    if link_html:
+        head_bits.append(link_html)
+    head_html = "".join(head_bits)
     sub_html = f'<p class="lp3-return-sub">{_h(subtitle)}</p>' if subtitle else ""
     filed_by_clean = (filed_by or "").strip()
     # The free-text source has rare paragraph-length entries (max seen: 334
@@ -630,13 +634,12 @@ def _return_card_html(
         f'<p class="lp3-return-filed-by"><strong>Filed by</strong> {_h(filed_by_clean)}</p>' if filed_by_clean else ""
     )
     snippet_html = f'<p class="lp3-return-snippet">{_h(snippet)}</p>' if snippet else ""
-    actions_html = f'<div class="lp3-return-actions">{link_html}</div>' if link_html else ""
 
     return (
         '<article class="lp3-return-card">'
         f'<header class="lp3-return-head">{head_html}</header>'
         f'<p class="lp3-return-org">{_h(title)}</p>'
-        f"{sub_html}{filed_html}{snippet_html}{actions_html}"
+        f"{sub_html}{filed_html}{snippet_html}"
         "</article>"
     )
 
@@ -671,7 +674,16 @@ def _datasette_table(detail: pd.DataFrame, columns: dict[str, str], height: int 
         if new in ("Period", "First filing", "Last filing"):
             col_config[new] = st.column_config.DateColumn(new, format="MMM YYYY")
         elif new == "Return URL":
-            col_config[new] = st.column_config.LinkColumn(new, display_text=r"https://www\.lobbying\.ie/return/(\d+)")
+            # Pinned left so the official-record link is always visible —
+            # as the rightmost column of a wide table it sat past the
+            # horizontal scroll and users never found it. Static display
+            # text reads as an action; the return number is in the URL.
+            col_config[new] = st.column_config.LinkColumn(
+                new,
+                display_text="View return ↗",
+                pinned=True,
+                width="small",
+            )
     kwargs: dict[str, object] = {
         "width": "stretch",
         "hide_index": True,
@@ -2034,7 +2046,10 @@ def render_member_lobbying(
             display,
             column_config={
                 "Return URL": st.column_config.LinkColumn(
-                    "Return URL", display_text=r"https://www\.lobbying\.ie/return/(\d+)"
+                    "Return URL",
+                    display_text="View return ↗",
+                    pinned=True,
+                    width="small",
                 )
             },
             width="stretch",

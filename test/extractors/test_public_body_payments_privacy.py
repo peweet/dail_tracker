@@ -2,7 +2,7 @@
 
 Locks ``extractors/procurement_public_body_extract.py:classify_and_flag()`` — the
 function that derives ``supplier_class`` / ``privacy_status`` / ``public_display`` for
-``data/sandbox/parquet/public_payments_fact.parquet``. This fact is a gold-CANDIDATE one
+``data/silver/parquet/public_payments_fact.parquet``. This fact is a gold-CANDIDATE one
 promotion away from a procurement UI; if a sole-trader / individual supplier (personal
 data) were left ``public_display=True`` it would be exposed on promotion (synthesis INC-4).
 

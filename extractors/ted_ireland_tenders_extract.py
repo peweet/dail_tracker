@@ -28,7 +28,9 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -45,6 +47,27 @@ with contextlib.suppress(Exception):
 RAW_CACHE = ROOT / "data/bronze/ted/ted_ie_tenders_raw.json"
 OUT_SILVER = ROOT / "data/silver/parquet/ted_ie_tenders.parquet"
 OUT_COV = ROOT / "data/_meta/ted_ie_tenders_coverage.json"
+
+# Cache TTL: the old code reused the bronze raw capture whenever it merely EXISTED, so a
+# routine `ted_tenders` chain run silently rebuilt silver from a months-old pull and stamped
+# a fresh retrieved_utc over stale notices (observed 2026-06-11: retrieved 06-08, newest
+# dispatch 03-25 — a ~10-week-stale forward pipeline that LOOKED fresh). Same silent-staleness
+# class as DAIL-160/162 and the old eTenders CSV cache; same fix. A cache older than this is
+# re-pulled; --refresh ignores it entirely. The tenders lane is the live opportunity feed, so
+# the TTL is short. Override with TED_RAW_CACHE_MAX_AGE_DAYS.
+RAW_CACHE_MAX_AGE_DAYS: float = float(os.environ.get("TED_RAW_CACHE_MAX_AGE_DAYS", "3"))
+
+
+def _cache_is_fresh(refresh: bool, max_age_days: float = RAW_CACHE_MAX_AGE_DAYS) -> bool:
+    if refresh or not RAW_CACHE.exists():
+        return False
+    age_days = (time.time() - RAW_CACHE.stat().st_mtime) / 86400.0
+    if age_days > max_age_days:
+        print(f"TED tenders raw cache {age_days:.1f}d old (> {max_age_days}d) — re-pulling.")
+        return False
+    print(f"TED tenders raw cache {age_days:.1f}d old (<= {max_age_days}d) — reusing {RAW_CACHE}.")
+    return True
+
 
 URL = "https://api.ted.europa.eu/v3/notices/search"
 H = {"User-Agent": "dail-tracker research probe", "Accept": "application/json"}
@@ -63,12 +86,26 @@ PAGE_CAP = 120  # 250/page; ~28k cn-standard notices all-time, ~recent slice whe
 
 # CPV division labels (kept in sync with ted_ireland_extract.py).
 CPV_DIV = {
-    "45": "Construction", "71": "Architecture/Engineering", "79": "Business/Consulting",
-    "72": "IT services", "85": "Health/Social", "80": "Education", "90": "Environment/Waste",
-    "50": "Repair/Maintenance", "48": "Software", "33": "Medical equipment",
-    "34": "Transport equipment", "09": "Energy/Fuel", "73": "R&D", "55": "Hotel/Catering",
-    "60": "Transport services", "92": "Recreation/Culture", "30": "Office/IT equipment",
-    "98": "Other services", "70": "Real estate", "66": "Financial/Insurance",
+    "45": "Construction",
+    "71": "Architecture/Engineering",
+    "79": "Business/Consulting",
+    "72": "IT services",
+    "85": "Health/Social",
+    "80": "Education",
+    "90": "Environment/Waste",
+    "50": "Repair/Maintenance",
+    "48": "Software",
+    "33": "Medical equipment",
+    "34": "Transport equipment",
+    "09": "Energy/Fuel",
+    "73": "R&D",
+    "55": "Hotel/Catering",
+    "60": "Transport services",
+    "92": "Recreation/Culture",
+    "30": "Office/IT equipment",
+    "98": "Other services",
+    "70": "Real estate",
+    "66": "Financial/Insurance",
 }
 UNCOMPETITIVE_PROCEDURES = {"neg-wo-call", "oth-single"}
 
@@ -125,13 +162,22 @@ def pull(max_pages: int) -> list[dict]:
 
 
 def load_raw(max_pages: int, refresh: bool) -> list[dict]:
-    if RAW_CACHE.exists() and not refresh:
+    if _cache_is_fresh(refresh):
         with contextlib.suppress(Exception):
             data = json.loads(RAW_CACHE.read_text(encoding="utf-8"))
             if isinstance(data, list) and data:
-                print(f"using cached raw capture: {RAW_CACHE} ({len(data):,} notices)")
                 return data
     raw = pull(max_pages)
+    if not raw:
+        # API outage: keep the existing capture (stale beats empty) — main() will still
+        # rebuild silver from it rather than clobbering bronze with [].
+        if RAW_CACHE.exists():
+            with contextlib.suppress(Exception):
+                data = json.loads(RAW_CACHE.read_text(encoding="utf-8"))
+                if isinstance(data, list) and data:
+                    print(f"API returned nothing — falling back to stale capture ({len(data):,} notices)")
+                    return data
+        return raw
     RAW_CACHE.parent.mkdir(parents=True, exist_ok=True)
     RAW_CACHE.write_text(json.dumps(raw), encoding="utf-8")
     print(f"wrote raw capture (bronze) -> {RAW_CACHE}")

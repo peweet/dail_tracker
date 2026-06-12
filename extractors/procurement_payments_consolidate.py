@@ -1,14 +1,14 @@
 """Consolidate the per-publisher payment-grain facts into one gold fact.
 
-The semistate/public-body lane produced several sandbox facts, all sharing an IDENTICAL
-28-column schema and NO publisher overlap:
+The semistate/public-body lane produced several silver facts (lifted out of data/sandbox/
+2026-06-12), all sharing an IDENTICAL 28-column schema and NO publisher overlap:
   public_payments_fact (28 publishers) + hse_tusla + nta + nphdb + seai  →  one gold fact.
 
 The 31 local authorities' Purchase-Orders/Payments-over-€20k fact (silver
 la_payments_fact, extractors/procurement_la_payments_extract.py) is ALSO folded in here, via a
-dedicated conformer (it lives in silver, not sandbox, and was already built on the canonical
-value_kind + realisation_tier taxonomy). Councils enter the gold fact as
-publisher_type='local_authority' and surface through v_procurement_payments automatically.
+dedicated conformer (it was already built on the canonical value_kind + realisation_tier
+taxonomy). Councils enter the gold fact as publisher_type='local_authority' and surface
+through v_procurement_payments automatically.
 
 ⚠️ TRIPLE-COUNT TRAP (do not let a consumer sum the whole fact blindly): TII "Road Grant"
 rows in public_payments_fact are central→council TRANSFERS (supplier is a council,
@@ -59,7 +59,6 @@ from services.parquet_io import save_parquet  # noqa: E402
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
-SANDBOX = ROOT / "data/sandbox/parquet"
 SILVER = ROOT / "data/silver/parquet"
 CRO = ROOT / "data/silver/cro/companies.parquet"
 OUT = ROOT / "data/gold/parquet/procurement_payments_fact.parquet"
@@ -97,7 +96,7 @@ def _load_facts() -> pl.DataFrame:
     frames: list[pl.DataFrame] = []
     base_cols: set[str] | None = None
     for fname in SOURCE_FACTS:
-        path = SANDBOX / fname
+        path = SILVER / fname
         if not path.exists():
             print(f"  WARN missing fact, skipped: {fname}")
             continue
@@ -109,12 +108,12 @@ def _load_facts() -> pl.DataFrame:
         frames.append(df)
         print(f"  + {fname:38} {df.height:>7,} rows")
     if not frames:
-        raise SystemExit("no payment facts found under data/sandbox/parquet/")
+        raise SystemExit("no payment facts found under data/silver/parquet/")
     return pl.concat(frames, how="vertical")
 
 
 def _load_la_fact(base: pl.DataFrame) -> pl.DataFrame | None:
-    """Conform the silver local-authority fact to the base (sandbox) 28-col schema so it can
+    """Conform the local-authority fact to the base 28-col schema so it can
     concat. The LA fact was built on the canonical taxonomy (value_kind ∈ {po_committed,
     payment_actual}); that vocabulary is identical to the base's legacy ``amount_semantics``, so
     the map is lossless and _conform then re-derives value_kind/realisation_tier consistently.

@@ -4937,14 +4937,18 @@ def inject_css() -> None:
             border-radius: 2px;
         }
 
-        /* Topic Stage 2 return card — narrative entry with prominent styled
-           .dt-source-link footer. Per-return, not row-in-table. */
+        /* Topic Stage 2 return card — narrative entry; the lobbying.ie
+           source-link rides the header row. Per-return, not row-in-table.
+           max-width keeps the card a readable column on wide screens —
+           full-bleed cards pushed the right-aligned header link out of the
+           reader's scanning path and it was routinely missed. */
         .lp3-return-card {
             background: #ffffff;
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 0.85rem 1rem 0.75rem;
             margin: 0.5rem 0;
+            max-width: 760px;
             transition: border-color 0.15s;
         }
         .lp3-return-card:hover { border-color: var(--text-meta); }
@@ -4975,10 +4979,20 @@ def inject_css() -> None:
             padding: 0.1rem 0.5rem;
             border-radius: 999px;
         }
+        /* Return-# + source link share the right edge of the header row.
+           Whichever of the two renders first takes the auto margin; when
+           both are present the link sits flush beside the id. */
         .lp3-return-id {
             font-size: 0.74rem;
             color: var(--text-meta);
             margin-left: auto;
+        }
+        .lp3-return-head .dt-source-link {
+            white-space: nowrap;
+            margin-left: auto;
+        }
+        .lp3-return-id + .dt-source-link {
+            margin-left: 0;
         }
         .lp3-return-org {
             margin: 0 0 0.2rem;
@@ -5014,11 +5028,6 @@ def inject_css() -> None:
             font-size: 0.88rem;
             line-height: 1.55;
             color: var(--text-meta);
-        }
-        .lp3-return-actions {
-            display: flex;
-            gap: 0.6rem;
-            font-size: 0.85rem;
         }
 
         .lp3-sidebar-label {

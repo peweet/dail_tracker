@@ -104,12 +104,6 @@ def _member_list(_conn) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def _join_key_by_name(_conn, name: str, house: str | None = None) -> str | None:
-    df = moq.join_key_by_name(_conn, name, house).data
-    return str(df.iloc[0]["unique_member_code"]) if not df.empty else None
-
-
-@st.cache_data(ttl=300)
 def _member_house(_conn, join_key: str) -> str:
     """House ('Dáil'/'Seanad') for a member code. Defaults to 'Dáil'. The one
     cross-house code collision (Seán Kyne) resolves to his current house via
@@ -672,9 +666,7 @@ def _section_questions(conn, join_key: str, member_name: str) -> None:
     ministries = _q_ministries(conn, join_key)
 
     # Year pills (shared year_selector — same control as every other year filter)
-    year_val: int | None = year_selector(
-        [str(y) for y in years], key=f"mo_q_year_{join_key}", include_all=True
-    )
+    year_val: int | None = year_selector([str(y) for y in years], key=f"mo_q_year_{join_key}", include_all=True)
 
     # Type + ministry side by side — filter_bar + field_label keeps the
     # mixed-height widgets (segmented control vs selectbox) on one baseline.
@@ -960,7 +952,6 @@ def _section_debates(conn, join_key: str, member_name: str) -> None:
     search = (
         st.text_input(
             "Search what they said",
-            value="",
             key="mo_speech_search",
             placeholder="Search the words they spoke…",
             label_visibility="collapsed",
@@ -1107,19 +1098,18 @@ def _render_browse(conn) -> None:
     # silver parquet: 176 rows / 176 distinct codes). The page-side
     # drop_duplicates that used to live here was defensive against a
     # historical pipeline gap that no longer exists.
+    # Search box only — no helper dropdown. The card grid below is the result
+    # list and every card is a link, so the dropdown duplicated navigation
+    # while its combobox read as a second, broken search box (typing or
+    # deleting text in it never changed the grid).
     member_names = df["member_name"].dropna().astype(str).tolist()
-    search, picked = find_a_td_filter(
+    search, _ = find_a_td_filter(
         member_names,
         key_prefix="mo_browse",
         label=f"Find a {term}",
         placeholder=f"Search by name, party or {place_word}…",
+        show_picker=False,
     )
-    if picked:
-        picked_jk = _join_key_by_name(conn, picked, house)
-        if picked_jk:
-            st.session_state[_STAGE_KEY] = picked_jk
-            st.query_params["member"] = picked_jk
-            st.rerun()
 
     # Multi-select pills: pick any combination of parties (e.g. Fianna Fáil +
     # Fine Gael). No selection = all parties, so the explicit "All parties"

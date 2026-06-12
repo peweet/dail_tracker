@@ -88,30 +88,40 @@ CHAINS: list[tuple[str, str]] = [
     # Zero-auth API, caches raw to bronze, no deps, skips gracefully on an API outage.
     ("ted_tenders", "extractors/ted_ireland_tenders_extract.py"),
     # public_body_payments: depts / semi-states / health / edu PO+payment disclosures over €20k
-    # -> gold public_payments_fact (one row per source line). Self-fetches + caches per-publisher
-    # files, no deps, headless-safe. Writes gold by default (--dry-run -> sandbox). Privacy
-    # quarantine enforced: likely-personal suppliers are public_display=False (refuses to write a leak).
+    # -> SANDBOX gold-candidate public_payments_fact (one row per source line; the consolidate
+    # chain below folds it to gold). Self-fetches + caches per-publisher files to bronze (steady-
+    # state runs only download newly published files), 1s/file politeness + per-publisher circuit
+    # breaker, failures classified into data/_meta/fetch_failures.json. Privacy quarantine
+    # enforced: likely-personal suppliers are public_display=False (refuses to write a leak).
     ("public_body_payments", "extractors/procurement_public_body_extract.py"),
-    # hse_tusla_payments: HSE + Tusla bespoke column-x parse -> gold hse_tusla_payments_fact (same
-    # schema; unions behind v_public_payments). privacy_risk=high — same hard quarantine + write-
-    # invariant. Uses cached FOI PDFs (falls back to fetch); per-year files layout-drift-gated.
+    # hse_tusla_payments: HSE + Tusla bespoke column-x parse -> SANDBOX gold-candidate
+    # hse_tusla_payments_fact (same schema; folded to gold by the consolidate chain below).
+    # privacy_risk=high — same hard quarantine. Uses cached FOI PDFs (falls back to fetch);
+    # per-year files layout-drift-gated.
     ("hse_tusla_payments", "extractors/procurement_hse_tusla_materialize.py"),
     # la_payments: the 31 local authorities' Purchase-Orders/Payments-over-€20k (Circular
     # 07/2012) -> silver la_payments_fact (20/31 councils parse clean; no OCR). Standalone,
     # self-fetches + caches per-council files to bronze, headless-safe. Privacy-classed
-    # (sole-trader/id-code quarantined as metadata). Folded into the gold procurement_payments_fact
-    # by extractors/procurement_payments_consolidate.py (run after this — councils surface via
-    # v_procurement_payments as publisher_type='local_authority').
+    # (sole-trader/id-code quarantined as metadata). Full back-catalogue by default — a low
+    # --max-files would downgrade silver to a recent slice and put gold history at risk.
     ("la_payments", "extractors/procurement_la_payments_extract.py"),
+    # procurement_consolidate: folds the three payment-grain facts above (public_body + hse_tusla
+    # sandbox gold-candidates + the LA silver) into the app-facing gold procurement_payments_fact.
+    # Runs IN the pipeline since 2026-06-12 (was manual): the silvers regenerate every run, so a
+    # manual fold left gold stale — and a fold after a degraded run nearly wiped LA history. Safe
+    # now: a listing-rot carry-forward guard keeps any council that vanished from silver (bot-wall,
+    # moved listing) at its existing gold rows instead of dropping it.
+    ("procurement_consolidate", "extractors/procurement_payments_consolidate.py"),
     # cso: CSO PxStat tables (housing/HAP + general-government finance GFA01/GFQ01/
     # NA012) -> gold cso_<table>.parquet (the national denominators behind
     # v_gov_finance_annual). Zero-auth REST, no deps; writes any GREEN table by
     # default (--dry-run validates only). Headless-safe, fidelity-gated per table.
     ("cso", "extractors/cso_pxstat_extract.py"),
     # stateboards: DPER state-boards register (membership.stateboards.ie, static HTML,
-    # ~250 boards / 20 depts) -> silver stateboards_roster + stateboards_boards, then the
-    # in-script Wikidata name->outside-role enrichment -> gold stateboards_roster.parquet.
-    # Wikidata step degrades gracefully (cache-only) when WDQS/API is throttled/offline.
+    # ~250 boards / 20 depts) -> silver stateboards_roster + stateboards_boards -> gold
+    # = silver + HAND-CURATED Wikidata identities (data/_meta/stateboards_wikidata_curated.csv).
+    # No network beyond the register itself; the Wikidata candidate generator is a separate
+    # un-wired tool (wikidata/stateboards_wikidata_enrich.py) whose output a human reviews.
     ("stateboards", "extractors/stateboards_roster_extract.py"),
     # freshness runs last: it reads the silver + gold the chains above produced
     # and writes data/_meta/freshness.json (the data-age signal the Streamlit
@@ -148,11 +158,12 @@ _CHAIN_BLURBS: dict[str, str] = {
     "procurement_lobbying": "supplier <-> lobbying registrant/client overlap xref (gold)",
     "ted": "TED EU award notices (Ireland) + winner->CRO match (silver); award-value-not-spend flags",
     "ted_tenders": "TED Irish competition/tender notices (cn-standard) -> silver; pre-award estimates, never summed",
-    "public_body_payments": "public-body PO/payment disclosures over €20k -> gold public_payments_fact (privacy-gated)",
-    "hse_tusla_payments": "HSE + Tusla PO/payment PDFs -> gold hse_tusla_payments_fact (privacy-gated, high-risk)",
-    "la_payments": "31 local authorities' PO/payments-over-€20k -> silver la_payments_fact (folded into gold procurement_payments_fact)",
+    "public_body_payments": "public-body PO/payment disclosures over €20k -> sandbox public_payments_fact (privacy-gated, bronze-cached)",
+    "hse_tusla_payments": "HSE + Tusla PO/payment PDFs -> sandbox hse_tusla_payments_fact (privacy-gated, high-risk)",
+    "la_payments": "31 local authorities' PO/payments-over-€20k -> silver la_payments_fact (full back-catalogue)",
+    "procurement_consolidate": "fold public_body + hse_tusla + LA facts -> gold procurement_payments_fact (listing-rot guarded)",
     "cso": "CSO PxStat housing/HAP + govt-finance (GFA01/GFQ01/NA012) -> gold denominators",
-    "stateboards": "DPER state-boards register: live roster + body universe + Wikidata outside-role enrichment (gold)",
+    "stateboards": "DPER state-boards register: live roster + body universe + hand-curated Wikidata identities (gold)",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
     "source_health": "per-source health -> data/_meta/source_health.json (manual staleness; links opt-in)",
     "output_regressions": "completeness guard: gold row/column drop vs baseline -> data/_meta/output_regressions.json",
