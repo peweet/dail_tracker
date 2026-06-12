@@ -75,7 +75,11 @@ def inject_css() -> None:
         /* The brand title doubles as the home link (standard masthead
            affordance: logo/wordmark → landing page). Same full-reload
            <a href> routing the rest of the app uses for cross-page links;
-           `/` is rooted on the hidden Home page in utility/app.py. */
+           `/` is rooted on the hidden Home page in utility/app.py.
+           href is "./" not "/": on Streamlit Cloud the app document lives
+           in an iframe under /~/+/<page>, so "/" escapes to the hosting
+           shell's root (click appears dead) while "./" resolves to the
+           app root in both environments (locally "/", on Cloud "/~/+/"). */
         a.site-banner-title,
         a.site-banner-title:visited {
             color: #ffffff;
@@ -4284,6 +4288,13 @@ def inject_css() -> None:
             gap: 0.75rem;
             margin-bottom: 0.3rem;
         }
+        /* Oireachtas source link rides the right edge of the division header
+           so the official record is one click away from the panel itself,
+           not only the sources footer. */
+        .vt-division-header .dt-source-link {
+            margin-left: auto;
+            white-space: nowrap;
+        }
         .vt-division-title {
             font-size: 0.95rem;
             font-weight: 600;
@@ -5309,7 +5320,7 @@ def inject_css() -> None:
         """
         <div class="site-banner">
           <div class="site-banner-inner">
-            <a class="site-banner-title" href="/" aria-label="Oireachtas Explorer — back to home">Oireachtas Explorer</a>
+            <a class="site-banner-title" href="./" aria-label="Oireachtas Explorer — back to home">Oireachtas Explorer</a>
             <span class="site-banner-sep"></span>
             <span class="site-banner-sub">Irish parliamentary data, made searchable</span>
           </div>

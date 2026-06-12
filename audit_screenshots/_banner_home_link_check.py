@@ -10,11 +10,12 @@ Run with the dev server already running at localhost:8631.
 
 from __future__ import annotations
 
+import sys
 import time
 
 from playwright.sync_api import sync_playwright
 
-BASE = "http://localhost:8631"
+BASE = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "http://localhost:8631"
 
 
 def main() -> None:
@@ -23,8 +24,8 @@ def main() -> None:
         context = browser.new_context(viewport={"width": 1440, "height": 900})
         page = context.new_page()
 
-        page.goto(f"{BASE}/rankings-votes", wait_until="domcontentloaded", timeout=60000)
-        time.sleep(6)
+        page.goto(f"{BASE}/rankings-procurement", wait_until="domcontentloaded", timeout=60000)
+        time.sleep(10)
 
         info = page.evaluate(
             """() => {
