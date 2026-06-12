@@ -353,7 +353,7 @@ def _render_publisher_profile(publisher_id: str) -> None:
     # a SIBLING fact to the per-line register below, never summed with it.
     # Shared renderer with the Procurement council dossier; it silently
     # no-ops for a body whose audited AFS isn't in the fact.
-    if sector == "local_authority":
+    if sector == "local_government":
         sems = df["amount_semantics"].dropna().unique().tolist() if "amount_semantics" in df.columns else []
         afs_tier = "SPENT" if "payment_actual" in sems else "COMMITTED"
         render_council_accounts_context(str(_coalesce(df.iloc[0].get("publisher_name")) or publisher_id), afs_tier)

@@ -70,4 +70,4 @@ def fetch_chamber_sitting_days(house: str) -> dict[int, int]:
     if not r.ok or r.is_empty:
         return {}
     df = r.data
-    return {int(y): int(s) for y, s in zip(df["year"], df["sitting_days"])}
+    return {int(y): int(s) for y, s in zip(df["year"], df["sitting_days"], strict=True)}

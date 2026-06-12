@@ -25,16 +25,28 @@ Known v1 gaps: `minister` is a filename-derived surname string (1,094 entries nu
 
 ## 1. Source landscape (probe-verified 2026-06-12)
 
-There is **no central hub**. Each department publishes on its own page with its own conventions. Confirmed publishers:
+There is **no central hub**. Each department publishes on its own page with its own conventions.
 
-| Dept | Where | Shape | Format verdict |
+**Full 18-department sweep completed 2026-06-12** (URL-pattern probes × 4 paths + 5-query × 12-page gov.ie search sweep; raw in `c:/tmp/enrich_probe/dept_diary_*.json`). Result: **13 of 18 departments publish.** The registry (§3.1) is **already seeded** with the findings: `data/_meta/ministerial_diaries_sources.csv` (131 rows: 19 collections, 8 listings, 2 hubs, 97 publication pages, 5 documented non-publishers).
+
+| Dept | Where | Scale | Format verdict |
 |---|---|---|---|
-| **DETE** | `enterprise.gov.ie/en/who-we-are/ministers/ministers-diaries/` | one page, ~150 per-minister-per-month PDFs, 2016→current | **born-digital** (≥4 layout generations, all but 16 parsed) |
-| **DPER** | gov.ie collections `ministerial-diaries-2017…2026` + 3 MoS collections | ~70 PDFs, quarterly/monthly | **image scans, 0-char text layer** (every sample incl. 2018 and 2025) → OCR queue |
-| **Finance** | gov.ie **per-month publication pages** (`ministers-diary-november-2025`), plus `minister-jack-chambers-tds-diary` collection, plus MoS Troy series | one PDF per page per month | format unverified — Phase 1 probes |
-| **Justice** | gov.ie collection `ministerial-diaries/` | unexplored | Phase 1 |
-| **Social Protection** | gov.ie publication pages (`diary-minister-dara-calleary-dsp`) | unexplored | Phase 1 |
-| Others (Health, DFA, Housing, Education, Transport, DCEDIY, Taoiseach…) | unknown | gov.ie search is capped at 12 result pages per query — search alone cannot enumerate | Phase 1 systematic sweep |
+| **DETE** | `enterprise.gov.ie` listing + gov.ie `collections/ministers-diaries/` mirror | ~150 PDFs, 2016→current | **born-digital**, ingested (≥4 layouts, all but 16 parsed) |
+| **Housing** | gov.ie `collections/ministers-diaries/` | **153 PDFs** (largest single collection) | Phase 1 format probe |
+| **Finance** | **97 per-month publication pages** (Donohoe back to 2018, MoS Troy series) + 4 collections (Jack Chambers etc.) | ~100 files | Phase 1 format probe |
+| **DPER** | org-info hub + 10 year collections + 3 MoS collections | ~70 PDFs | **image scans** (every sample) → OCR queue |
+| **Culture/Comms/Sport** | org-info `ministers-diaries/` | 48 PDFs | Phase 1 |
+| **Rural/Gaeltacht** | `collections/ministers-diaries/` | 46 PDFs | Phase 1 |
+| **Justice** | `collections/ministerial-diaries/` | 29 PDFs | Phase 1 |
+| **Transport** | org-info `ministers-diaries/` | 25 PDFs | Phase 1 |
+| **Climate/Energy/Env** | `collections/ministers-diaries/` | 21 PDFs | Phase 1 |
+| **Health** | `collections/department-of-health-ministers-diaries/` (**custom slug** — URL guessing missed it) | unknown | Phase 1 |
+| **Education** | `collections/department-of-education-ministers-diaries/` (custom slug) + publication pages from 2021 | unknown | Phase 1 |
+| **Social Protection** | publication pages (Calleary, Humphreys, **Varadkar back to May 2016**) | ≥3 series | Phase 1 |
+| **FHERIS** | org-info `ministers-diary/` | unknown | Phase 1 |
+| **Non-publishers** (documented in registry as `none_found`): Agriculture, Children/Disability/Equality, Defence, Foreign Affairs, Taoiseach | — | — | absence is a displayable finding |
+
+Corpus estimate revised: **~700–900 files** (≈3-4× the sandbox v1 corpus). Lesson encoded in the registry: Health/Education use custom slugs, so **hand-curated seeding from search, never URL templating**.
 
 **Publication conventions worth recording now:**
 - gov.ie asset URLs are non-templatable (`assets.gov.ie/static/documents/<hash?>/<name>.pdf`) — same as LGAS; crawl by href, never construct.
@@ -84,13 +96,8 @@ gazetteer_key
 
 Reuse the **`publishers_seed` pattern** from procurement: a hand-curated, git-tracked seed CSV is the source of truth; the crawler only follows it.
 
-1. **`data/_meta/ministerial_diaries_sources.csv`** (hand-curated, like `sipo_candidate_expenses_sources.csv`):
-   `department, dept_alias_key, page_kind ∈ {listing, collection, publication_series}, url, status, first_seen, notes`.
-   Seed with the 13 known + Finance/Justice/DSP pages above.
-2. **Systematic sweep to fill it** (one-off probe script, throwaway):
-   - For each current department (take the canonical list from the SI dept-aliases meta + gov.ie org index), fetch `gov.ie/en/<org-slug>/publications/?q=diary` and `…/?q=diaries` and grep collection/publication links.
-   - Also sweep `enterprise.gov.ie`-style standalone dept domains (DETE is already the only major one left after the gov.ie consolidation).
-   - Record **negative results too** (`status=none_found`) so the registry documents which departments simply don't publish — that absence is itself a finding the UI can state.
+1. **`data/_meta/ministerial_diaries_sources.csv`** — ✅ **DONE 2026-06-12** (131 rows from the full sweep, incl. 5 `none_found` departments; gitignore negation verified). Columns: `department, page_kind ∈ {listing, collection, hub, publication_page, none}, url, status, first_seen, notes`.
+2. ~~Systematic sweep~~ — ✅ done (results in §1). Residual sweep work: re-run quarterly to catch new collections (the canary, §10); per-org gov.ie publications search proved useless (client-side rendering) — the global-search + URL-probe combination is the working method.
 3. **Crawler generalisation** (`ministerial_diaries_extract.py` stays the single entrypoint):
    - Add page_kind ③ handling: publication page → asset link (one extra hop, gov.ie publication pages embed the asset `<a>` directly).
    - Per-source politeness unchanged (0.3s); cache-by-content-name in `C:/tmp/min_diaries_pdfs/` (already resumable).
