@@ -1152,6 +1152,7 @@ def find_a_td_filter(
     placeholder: str = "Search by name, party or constituency…",
     select_placeholder: str = "— select —",
     show_label: bool = True,
+    show_picker: bool = True,
     width_ratio: tuple[int, int, int] = (3, 2, 4),
 ) -> tuple[str, str | None]:
     """Compact Find-a-TD filter: search input + helper dropdown side-by-side.
@@ -1161,11 +1162,18 @@ def find_a_td_filter(
     full content column (last ratio slot is an empty spacer) so the filter
     doesn't dominate the page.
 
+    ``show_picker=False`` drops the helper dropdown and renders the search
+    input alone. Use it when the results below are themselves clickable (a
+    card grid): the dropdown duplicates that affordance, and users mistake
+    its combobox for the search box — text typed or deleted there filters
+    only the option list, never the page, which reads as a broken filter.
+
     Returns ``(query, picked)``:
         query   raw search text — caller filters the list/grid below by this
                 across whatever fields are relevant (name, party, constituency).
-        picked  name selected from the helper dropdown, or None. Caller should
-                treat ``picked is not None`` as a navigation event (set the
+        picked  name selected from the helper dropdown, or None (always None
+                with ``show_picker=False``). Caller should treat
+                ``picked is not None`` as a navigation event (set the
                 relevant session-state key + ``st.rerun()``).
     """
     if show_label:
@@ -1178,9 +1186,12 @@ def find_a_td_filter(
                 placeholder=placeholder,
                 key=f"{key_prefix}_filter_query",
                 label_visibility="collapsed",
+                icon=":material/search:",
             )
             or ""
         )
+    if not show_picker:
+        return query, None
     sq = query.strip().lower()
     filtered = [m for m in members if sq in m.lower()] if sq else members
     with cols[1]:

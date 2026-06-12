@@ -332,6 +332,31 @@ def adapt_cro_fs(meta: dict) -> list[dict]:
     ]
 
 
+def adapt_stateboards(index_url: str) -> list[dict]:
+    """DPER State Boards register (membership.stateboards.ie) — pipeline-wired
+    scrape (stateboards chain). Health = age of the silver roster parquet; the
+    register is continuously maintained, so a stale local copy means OUR chain
+    stopped, not upstream."""
+    return [
+        _record(
+            source_id="stateboards:register",
+            group="stateboards",
+            owner_module="stateboards_roster_extract",
+            name="Membership of State Boards (DPER register)",
+            check_type="file_age",
+            listing_url=index_url,
+            grain="board_member_seat",
+            status="automated",
+            pollable=True,
+            parser_wired=True,
+            refresh_mode="automated",
+            input_pattern="data/silver/parquet/stateboards_roster.parquet",
+            stale_after_days=60,
+            caveat="current roster only (no history); Wikidata identities are hand-curated (data/_meta/stateboards_wikidata_curated.csv)",
+        )
+    ]
+
+
 # Manual-source specs (no code config exists; the plan defines these) -----------
 MANUAL_SOURCES = [
     {
@@ -422,9 +447,15 @@ def build_records() -> list[dict]:
     _try("afs_amalgamated", _afs)
     _try("local_authority_afs", _la_afs)
     _try("hse_tusla_payments", _hse_tusla)
+    def _stateboards():
+        from stateboards_roster_extract import INDEX_URL
+
+        return adapt_stateboards(INDEX_URL)
+
     _try("file_sources:cro", _cro)
     _try("file_sources:cro_fs", _cro_fs)
     _try("file_sources:manual", lambda: adapt_manual(MANUAL_SOURCES))
+    _try("stateboards", _stateboards)
 
     records.sort(key=lambda r: r["source_id"])
     return records

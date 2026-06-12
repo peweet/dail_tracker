@@ -1,6 +1,6 @@
 {
   "parser_version": "1.0.0",
-  "generated_at": "2026-06-11T17:56:11.268376+00:00",
+  "generated_at": "2026-06-12T18:30:37.481750+00:00",
   "appointments_events": 154,
   "appointments_real_court_notices": 114,
   "appointments_junk_dropped": 20,
@@ -30,7 +30,7 @@
   "sources": {
     "appointments": "Iris Oifigiúil (public_appointments.parquet, appointment_type=='judicial')",
     "roster": "https://www.courts.ie/judges",
-    "nominations": "https://www.gov.ie/en/publication/judicial-appointments/",
+    "nominations": "https://www.gov.ie/en/search/?q=judicial+appointment",
     "salaries": "SI 323/2021 (Judicial remuneration)",
     "courts_clearance": "https://data.courts.ie",
     "courts_waiting": "https://www.courts.ie/annual-report",

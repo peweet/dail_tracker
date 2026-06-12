@@ -1,4 +1,4 @@
-"""PHASE 4-6 (PRE-ETL, sandbox): public-body PO/payment extractor -> public_payments_fact.
+"""Public-body PO/payment extractor -> silver public_payments_fact.
 
 Promotes the two PRE-ETL sample readers into ONE config-driven extractor:
   - PDF header-anchored reader  <- sample_extract_procurement_pdf.py
@@ -6,9 +6,10 @@ Promotes the two PRE-ETL sample readers into ONE config-driven extractor:
   - gold conventions (name_norm, supplier_class, value-safe-to-sum, coverage JSON,
     zstd parquet)                <- procurement_etenders_extract.py
 
-It is NOT wired into pipeline.py and writes a GOLD-CANDIDATE to data/sandbox/parquet/
-(LA precedent: promote to data/gold/parquet/ only on a separate go-ahead). One row per
-source line, with full provenance (plan PROCUREMENT_SEMISTATE_EXPANSION_PLAN.md Phase 5).
+Wired into pipeline.py as the ``public_body_payments`` chain. Writes the SILVER fact
+data/silver/parquet/public_payments_fact.parquet (lifted out of data/sandbox/ 2026-06-12);
+the ``procurement_consolidate`` chain folds it into gold procurement_payments_fact. One row
+per source line, with full provenance (plan PROCUREMENT_SEMISTATE_EXPANSION_PLAN.md Phase 5).
 
 SCOPE / OWNERSHIP (multi-context split, 2026-06-03): this extractor owns the publishers
 the GENERIC reader handles cleanly (Tier A + the corrected Tier C). HSE + Tusla are owned
@@ -45,7 +46,7 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.parse import quote, urljoin, urlparse
+from urllib.parse import quote, unquote, urljoin, urlparse
 
 import fitz  # PyMuPDF
 import polars as pl
@@ -53,6 +54,7 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from services.fetch_report import Breaker, FetchReport, classify_body, classify_exception, write_sentinel  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 
 with contextlib.suppress(Exception):
@@ -62,7 +64,10 @@ from shared.name_norm import name_norm_expr  # noqa: E402
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research probe)"}
 TMP = Path("c:/tmp/procurement_publishers")
-OUT_FACT = ROOT / "data/sandbox/parquet/public_payments_fact.parquet"
+BRONZE = ROOT / "data/bronze/pdfs/public_body_procurement"
+REPORT = FetchReport("public_body")
+LAST_ERR: dict = {}  # set by fetch_bytes on failure, read by the download loop
+OUT_FACT = ROOT / "data/silver/parquet/public_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/public_payments_coverage.json"
 PARSER_VERSION = "0.1.0"
 
@@ -614,17 +619,46 @@ def fetch_bytes(url: str) -> bytes | None:
     # some publishers emit hrefs with raw spaces — requests/curl reject them as malformed;
     # '%' stays in the safe set so already-encoded hrefs don't double-encode.
     url = quote(url, safe="!#$%&'()*+,/:;=?@[]~")
+    LAST_ERR.clear()
     try:
         r = requests.get(url, headers=H, timeout=90, allow_redirects=True)
         r.raise_for_status()
         return r.content
-    except Exception:
-        return _curl(url)
+    except Exception as e:
+        ec, status = classify_exception(e)
+        LAST_ERR.update({"error_class": ec, "http_status": status})
+        b = _curl(url)
+        if b:
+            LAST_ERR.clear()
+        return b
 
 
 def fetch_text(url: str) -> str | None:
     b = fetch_bytes(url)
     return b.decode("utf-8", "ignore") if b else None
+
+
+def fetch_to_bronze(pub_id: str, url: str, ext: str, refetch: bool = False) -> tuple[bytes | None, bool]:
+    """Self-fetch a source file to bronze/pdfs/public_body_procurement/<id>/ and reuse the
+    cached copy on re-runs — quarterly disclosures are immutable, so steady-state runs only
+    download newly published files (same shape as the LA extractor). Returns
+    ``(bytes, fresh_download)``. The DNN ``?sfvrsn=`` version param drops out of the cache
+    key deliberately: same filename = same historical document."""
+    dest = (
+        BRONZE
+        / pub_id
+        / (re.sub(r"[^A-Za-z0-9._-]", "_", unquote(url.split("?")[0].rsplit("/", 1)[-1]))[:80] or "file")
+    )
+    if not dest.suffix:
+        dest = dest.with_suffix(ext if ext in DATA_EXT else ".pdf")
+    if not refetch and dest.exists() and dest.stat().st_size > 1500:
+        return dest.read_bytes(), False
+    time.sleep(1.0)  # politeness: only on a real network fetch, never on a cache hit
+    b = fetch_bytes(url)
+    if b and len(b) > 1500:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b)
+    return b, True
 
 
 # ============================================================================ harvest
@@ -1276,6 +1310,7 @@ def main() -> None:
         "publishers kept) instead of overwriting the whole parquet — avoids re-downloading the "
         "full ~600-file history and prevents the clobber-to-N-publishers footgun",
     )
+    ap.add_argument("--refetch", action="store_true", help="bypass the bronze cache and re-download every file")
     args = ap.parse_args()
     only = {x.strip() for x in args.only.split(",") if x.strip()} or None
     if args.merge and not only:
@@ -1291,6 +1326,8 @@ def main() -> None:
         print(f"\n[{cf['id']:<22}] {cf['name']}  (tier {cf['tier']}, {cf['amount_semantics']})")
         print(f"   listing: {cf['listing_url']}")
         print(f"   files harvested: {len(files)}")
+        if not files:
+            REPORT.record_zero_harvest(publisher_id=cf["id"], publisher_name=cf["name"], listing_url=cf["listing_url"])
         for u in files[:8]:
             print(f"     - {u.rsplit('/', 1)[-1][:70]}")
         if len(files) > 8:
@@ -1300,21 +1337,41 @@ def main() -> None:
             continue
 
         pub_rows, parsed, ok_files, skipped = [], 0, 0, 0
-        for u in files[: args.max_files]:
+        breaker = Breaker()
+        file_list = files[: args.max_files]
+        for i, u in enumerate(file_list):
             ext = next((e for e in DATA_EXT if u.lower().split("?")[0].endswith(e)), "")
             fmt = {".pdf": "pdf", ".xlsx": "xlsx", ".xls": "xls", ".csv": "csv"}.get(ext)
             if not fmt:
                 continue
-            time.sleep(1.0)  # courts.ie WAF blocks rapid bursts after ~4 files
-            b = fetch_bytes(u)
-            if not b:
+            b, fresh = fetch_to_bronze(cf["id"], u, ext, refetch=args.refetch)
+            if not b and fresh:
                 time.sleep(30.0)  # cool off once before the single retry
-                b = fetch_bytes(u)
-            if not b:
-                print(f"     ! download failed: {u.rsplit('/', 1)[-1][:50]}")
+                b, fresh = fetch_to_bronze(cf["id"], u, ext, refetch=True)
+            bad = classify_body(b, b"%PDF" if fmt == "pdf" else None) if b else None
+            if not b or bad:
+                breaker.record(False)
+                err = bad or LAST_ERR.get("error_class", "unknown")
+                REPORT.record_failure(
+                    publisher_id=cf["id"],
+                    publisher_name=cf["name"],
+                    url=u,
+                    listing_url=cf["listing_url"],
+                    error_class=err,
+                    http_status=LAST_ERR.get("http_status"),
+                    attempts=4 if not b else 1,
+                )
+                print(f"     ! download failed ({err}): {u.rsplit('/', 1)[-1][:50]}")
+                if breaker.tripped:
+                    rest = len(file_list) - i - 1
+                    REPORT.record_breaker_trip(publisher_id=cf["id"], publisher_name=cf["name"], files_skipped=rest)
+                    print(
+                        f"     !! breaker tripped: {breaker.consecutive} consecutive failures — skipping {rest} remaining files"
+                    )
+                    break
                 continue
-            if fmt == "pdf" and b[:4] != b"%PDF":
-                continue
+            breaker.record(True)
+            write_sentinel("public_body", cf["id"], u)
             try:
                 rows, stat = emit_rows(cf, u, b, fmt, args.max_pages)
             except Exception as e:  # one malformed file must not abort the run
@@ -1351,6 +1408,9 @@ def main() -> None:
 
     if not all_rows:
         print("\nno rows extracted")
+        REPORT.write()
+        for line in REPORT.summary_lines():
+            print(line)
         return
 
     SCHEMA_COLS = [
@@ -1470,6 +1530,13 @@ def main() -> None:
     }
     OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(f"wrote coverage {OUT_COV}")
+
+    report_path = REPORT.write()
+    lines = REPORT.summary_lines()
+    if lines:
+        print(f"\nfetch-failure report -> {report_path}")
+        for line in lines:
+            print(line)
 
 
 if __name__ == "__main__":
