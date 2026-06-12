@@ -127,14 +127,19 @@ def _sparql_literal(s: str) -> str:
 
 
 def match_query(names: list[str]) -> str:
-    """One bulk match query: exact label/alias hits that are living humans,
+    """One bulk match query: exact PREFERRED-label hits that are living humans,
     with the Irish-signal ingredients attached. Indexed lookups only — no
-    regex/contains over the full label table."""
+    regex/contains over the full label table.
+
+    Deliberately NOT skos:altLabel: alias matching pulled in people primarily
+    known under a different name (caught live: register "Aidan Murphy" -> actor
+    Aidan Gillen via birth-name alias). The register lists the name a member
+    serves under; requiring the preferred label to equal it is the right bar."""
     values = " ".join(f"{_sparql_literal(n)}@{lang}" for n in names for lang in _LANGS)
     return f"""
 SELECT DISTINCT ?name ?item ?itemLabel ?desc ?irishCitizen WHERE {{
   VALUES ?name {{ {values} }}
-  ?item rdfs:label|skos:altLabel ?name .
+  ?item rdfs:label ?name .
   ?item wdt:P31 wd:Q5 .
   FILTER NOT EXISTS {{ ?item wdt:P570 [] }}
   BIND(EXISTS {{ ?item wdt:P27 wd:Q27 }} AS ?irishCitizen)

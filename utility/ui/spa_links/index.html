@@ -76,6 +76,34 @@ if (!app.__dtSpaInstalled) {
   );
 }
 
+// Mobile drawer auto-close: below 768px Streamlit renders no top nav and
+// st.navigation falls back to the sidebar drawer, but it leaves the drawer
+// open after a page link is tapped — covering the page the user just
+// navigated to. Close it for them. Desktop (>=768px) never sees the drawer
+// (ui.components.hide_sidebar), so the width guard keeps this mobile-only.
+if (!app.__dtDrawerCloseInstalled) {
+  app.__dtDrawerCloseInstalled = true;
+  doc.addEventListener(
+    "click",
+    function (ev) {
+      if (app.innerWidth >= 768) return;
+      var el = ev.target;
+      var a =
+        el && el.closest ? el.closest('[data-testid="stSidebarNav"] a') : null;
+      if (!a) return;
+      // Let Streamlit's own handler start the page change first, then
+      // collapse the drawer via its native close button.
+      setTimeout(function () {
+        var btn = doc.querySelector(
+          '[data-testid="stSidebarCollapseButton"] button'
+        );
+        if (btn) btn.click();
+      }, 150);
+    },
+    true
+  );
+}
+
 toStreamlit("streamlit:componentReady", { apiVersion: 1 });
 toStreamlit("streamlit:setFrameHeight", { height: 0 });
 </script>
