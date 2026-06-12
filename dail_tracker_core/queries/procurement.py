@@ -545,8 +545,7 @@ def payments_publisher_summary(
 ) -> QueryResult:
     """Public bodies ranked by sum-safe amount for one lifecycle tier (paid / ordered)."""
     sql = (
-        "SELECT * FROM v_procurement_payments_publisher_summary"
-        " WHERE realisation_tier = ? ORDER BY total_safe_eur DESC"
+        "SELECT * FROM v_procurement_payments_publisher_summary WHERE realisation_tier = ? ORDER BY total_safe_eur DESC"
     )
     params: list = [_tier(tier)]
     if limit is not None:
@@ -560,8 +559,7 @@ def payments_supplier_summary(
 ) -> QueryResult:
     """Suppliers ranked by sum-safe amount the State paid (SPENT) or ordered (COMMITTED)."""
     sql = (
-        "SELECT * FROM v_procurement_payments_supplier_summary"
-        " WHERE realisation_tier = ? ORDER BY total_safe_eur DESC"
+        "SELECT * FROM v_procurement_payments_supplier_summary WHERE realisation_tier = ? ORDER BY total_safe_eur DESC"
     )
     params: list = [_tier(tier)]
     if limit is not None:
@@ -587,9 +585,7 @@ def payments_for_publisher(
     )
 
 
-def payments_by_year(
-    conn: duckdb.DuckDBPyConnection, publisher_name: str, *, tier: str = "SPENT"
-) -> QueryResult:
+def payments_by_year(conn: duckdb.DuckDBPyConnection, publisher_name: str, *, tier: str = "SPENT") -> QueryResult:
     """One public body's sum-safe spend per calendar year, for ONE lifecycle tier (the body
     dossier's spend-over-time spine — now meaningful with the 2016–2026 council backfill).
     One tier only by design: ordered and paid are never charted on one stacked axis (that would
