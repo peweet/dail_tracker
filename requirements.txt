@@ -67,7 +67,7 @@ packaging==26.2
     #   altair
     #   plotly
     #   streamlit
-pandas==2.3.3
+pandas==3.0.3
     # via
     #   dail-tracker
     #   streamlit
