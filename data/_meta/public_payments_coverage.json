@@ -2,16 +2,16 @@
   "publishers_attempted": 31,
   "publishers_with_rows": 18,
   "rows_extracted": 51319,
-  "rows_deduped_within_file": 2195,
+  "rows_deduped_within_file": 11,
   "rows_public_display": 33000,
   "rows_review_personal_data": 18319,
   "rows_quarantined": 18319,
   "supplier_class_counts": {
-    "company": 25355,
+    "foreign_company": 221,
     "public_body": 2221,
     "sole_trader_or_individual": 18319,
-    "foreign_company": 221,
-    "unknown": 5203
+    "unknown": 5203,
+    "company": 25355
   },
   "amount_semantics_counts": {
     "po_committed": 14731,
@@ -113,18 +113,6 @@
       "files_skipped": 0,
       "files_with_rows": 41,
       "rows": 5216,
-      "amount_semantics": "po_committed",
-      "privacy_risk": "low"
-    },
-    {
-      "id": "ie_bim",
-      "name": "Bord Iascaigh Mhara (BIM)",
-      "tier": "A",
-      "files_seen": 24,
-      "files_parsed": 24,
-      "files_skipped": 0,
-      "files_with_rows": 21,
-      "rows": 810,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
     },
@@ -391,11 +379,23 @@
       "rows": 0,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
+    },
+    {
+      "id": "ie_bim",
+      "name": "Bord Iascaigh Mhara (BIM)",
+      "tier": "A",
+      "files_seen": 24,
+      "files_parsed": 24,
+      "files_skipped": 0,
+      "files_with_rows": 21,
+      "rows": 810,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
     }
   ],
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-11T06:26:28+00:00",
+  "generated_at": "2026-06-12T06:47:33+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }
