@@ -78,7 +78,7 @@ ocr = [
 # Cloud `uv sync`. Run the API with `uv sync --extra api` then `uvicorn api.main:app`.
 api = [
     "fastapi>=0.115,<1",
-    "uvicorn[standard]>=0.30",
+    "uvicorn[standard]>=0.49.0",
 ]
 
 # MCP server (mcp_server/server.py) — stdio tools over the same Streamlit-free
