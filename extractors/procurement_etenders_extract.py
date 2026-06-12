@@ -215,9 +215,7 @@ def main() -> None:
     est_col = next((c for c in df.columns if "Estimated Value" in c), None)
 
     awards = df.filter(
-        pl.col(sup_col).is_not_null()
-        & (pl.col(sup_col).str.strip_chars() != "")
-        & ~null_sentinel_expr(pl.col(sup_col))
+        pl.col(sup_col).is_not_null() & (pl.col(sup_col).str.strip_chars() != "") & ~null_sentinel_expr(pl.col(sup_col))
     )
     hr("INPUT")
     print(f"all notices: {df.height:,} | award notices: {awards.height:,} ({awards.height / df.height:.1%})")

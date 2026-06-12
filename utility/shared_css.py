@@ -201,6 +201,52 @@ def inject_css() -> None:
             white-space: nowrap !important;
         }
 
+        /* ── Mobile menu button ─────────────────────────────────── */
+        /* Below 768px Streamlit drops the top nav and the sidebar drawer
+           becomes the only navigation, opened by stExpandSidebarButton —
+           by default a bare 28px » chevron that nothing identifies as a
+           menu. Dress it as a labelled pill ("☰ Menu") with a ~44px touch
+           target so first-time phone users can actually find the nav.
+           Desktop never sees it (hide_sidebar hides it >=768px). */
+        @media (max-width: 767.98px) {
+            [data-testid="stExpandSidebarButton"] {
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 0.45rem !important;
+                width: auto !important;
+                min-height: 2.6rem !important;
+                padding: 0 1rem 0 0.8rem !important;
+                border: 1px solid rgba(255,255,255,0.35) !important;
+                border-radius: 999px !important;
+                background: rgba(255,255,255,0.07) !important;
+            }
+            [data-testid="stExpandSidebarButton"]::after {
+                content: "Menu";
+                font-family: 'Epilogue', sans-serif;
+                font-size: 0.85rem;
+                font-weight: 700;
+                letter-spacing: 0.05em;
+                color: rgba(255,255,255,0.92);
+            }
+            /* Swap the » glyph for the universal hamburger. The inner icon
+               span keeps the width:1em clip rule above, so zero out the
+               ligature text and draw the ☰ via ::before at its own size. */
+            [data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"] {
+                font-size: 0 !important;
+                width: auto !important;
+                overflow: visible !important;
+            }
+            [data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"]::before {
+                content: "menu";
+                font-family: 'Material Symbols Outlined';
+                font-size: 1.3rem;
+                line-height: 1;
+                font-feature-settings: 'liga';
+                -webkit-font-feature-settings: 'liga';
+                color: rgba(255,255,255,0.92);
+            }
+        }
+
         /* ── Native top-nav links ───────────────────────────────── */
         [data-testid="stTopNavLink"] {
             background: transparent !important;

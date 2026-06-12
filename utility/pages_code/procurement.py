@@ -1102,7 +1102,11 @@ def _render_supplier_relationships_panel(supplier_norm: str) -> None:
         rows = []
         for r in idf.itertuples():
             yrs = _n(r.n_distinct_years)
-            span = f"{_n(r.first_year)}–{_n(r.last_year)}" if _n(r.first_year) != _n(r.last_year) else str(_n(r.first_year))
+            span = (
+                f"{_n(r.first_year)}–{_n(r.last_year)}"
+                if _n(r.first_year) != _n(r.last_year)
+                else str(_n(r.first_year))
+            )
             badge = (
                 ' <span class="pr-pill pr-pill-lob">central purchasing body</span>'
                 if _truthy(r.authority_is_central_purchasing)
@@ -1149,7 +1153,7 @@ def _render_supplier_call_offs_panel(supplier_norm: str) -> None:
                 f'<div class="pr-award"><div class="pr-award-body">'
                 f'<div class="pr-award-auth">{_esc(r.contracting_authority)}</div>'
                 f'<div class="pr-award-meta">{fmt_civic_date(getattr(r, "award_date", None))} · '
-                f'{" · ".join(parent_bits)}</div></div>{_award_value_html(r)}</div>'
+                f"{' · '.join(parent_bits)}</div></div>{_award_value_html(r)}</div>"
             )
         if rows:
             st.html("".join(rows))
@@ -1283,7 +1287,7 @@ def _render_expiring_contracts() -> None:
         ev = _eur(getattr(r, "award_value_eur", None))
         if ev != "—":
             kind = _coalesce(getattr(r, "value_kind", None))
-            pills.append(f"<span class=\"pr-pill\">{ev}{' ceiling' if kind == 'framework_or_dps_ceiling' else ''}</span>")
+            pills.append(f'<span class="pr-pill">{ev}{" ceiling" if kind == "framework_or_dps_ceiling" else ""}</span>')
         renew = getattr(r, "renewal_max", None)
         if renew is not None and not pd.isna(renew) and int(renew) > 0:
             pills.append(f'<span class="pr-pill pr-pill-lob">up to {int(renew)} renewals</span>')
@@ -1606,7 +1610,11 @@ def _entity_search_hero() -> None:
         empty_state("No matches", "Try a shorter term — names are matched as published.")
         return
     kind_label = {"supplier": "COMPANY", "authority": "PUBLIC BODY", "cpv": "CATEGORY"}
-    aria = {"supplier": "Open the public-money dossier of", "authority": "View the awards made by", "cpv": "View the awards in category"}
+    aria = {
+        "supplier": "Open the public-money dossier of",
+        "authority": "View the awards made by",
+        "cpv": "View the awards in category",
+    }
     cards = []
     for r in hits.itertuples():
         kind = str(r.entity_kind)
@@ -1621,9 +1629,7 @@ def _entity_search_hero() -> None:
             pills.append(_value_pill(r.awarded_value_safe_eur))
         # Paid figure is a DIFFERENT grain (realised payments) — its own label, never merged.
         if kind == "supplier" and _eur(getattr(r, "paid_safe_eur", None)) != "—":
-            pills.append(
-                f'<span class="pr-pill pr-pill-val">{_eur(r.paid_safe_eur)} paid (where published)</span>'
-            )
+            pills.append(f'<span class="pr-pill pr-pill-val">{_eur(r.paid_safe_eur)} paid (where published)</span>')
         if _truthy(getattr(r, "on_lobbying_register", None)):
             pills.append('<span class="pr-pill pr-pill-lob">also on lobbying register</span>')
         href = {
@@ -1632,9 +1638,7 @@ def _entity_search_hero() -> None:
             "cpv": _cpv_href(r.url_key),
         }[kind]
         inner = _card(f"<span>{_esc(r.display_name)}</span>", meta, pills)
-        cards.append(
-            clickable_card_link(href=href, inner_html=inner, aria_label=f"{aria[kind]} {r.display_name}")
-        )
+        cards.append(clickable_card_link(href=href, inner_html=inner, aria_label=f"{aria[kind]} {r.display_name}"))
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.caption(
         "Awarded values are contract ceilings at the point of award; a company's paid figure is a "
@@ -1691,7 +1695,10 @@ def _render_patterns() -> None:
         if len(shown) > 1:
             st.html('<div class="pr-ted-xref-h" style="margin-top:1rem">Who gets in — first-time winners</div>')
             first_y, last_y = _n(shown.iloc[0].get("year")), _n(shown.iloc[-1].get("year"))
-            first_pct, last_pct = shown.iloc[0].get("pct_awards_to_new_entrants"), shown.iloc[-1].get("pct_awards_to_new_entrants")
+            first_pct, last_pct = (
+                shown.iloc[0].get("pct_awards_to_new_entrants"),
+                shown.iloc[-1].get("pct_awards_to_new_entrants"),
+            )
             st.caption(
                 f"Share of each year's contract awards won by suppliers with no earlier award in the register: "
                 f"{float(first_pct):g}% in {first_y} → {float(last_pct):g}% in {last_y}. A falling entry rate is a "
@@ -1742,10 +1749,7 @@ def _render_patterns() -> None:
         )
         cards = []
         for r in dep.data.head(12).itertuples():
-            meta = (
-                f"{_n(r.awards_from_top_authority):,} of {_n(r.total_awards):,} awards from "
-                f"{_esc(r.top_authority)}"
-            )
+            meta = f"{_n(r.awards_from_top_authority):,} of {_n(r.total_awards):,} awards from {_esc(r.top_authority)}"
             pills = [f'<span class="pr-pill pr-pill-val">{float(r.top_authority_share_pct):g}% one buyer</span>']
             inner = _card(f"<span>{_esc(r.supplier)}</span>", meta, pills)
             cards.append(

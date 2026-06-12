@@ -1733,6 +1733,13 @@ def test_v_procurement_awards_executes():
         "contracting_authority", "cpv_code", "cpv_description", "award_date",
         "value_eur", "value_kind", "is_framework_or_dps",
         "value_shared_across_suppliers", "value_safe_to_sum",
+        "is_call_off", "parent_agreement_id",
+        # 2026-06-12 detail widening: title, classification fallback, competition detail,
+        # pre-award estimate and the EU Official Journal deep links.
+        "tender_title", "spend_category", "category_label", "contract_type",
+        "procedure_type", "contract_duration_months", "n_bids_received",
+        "n_sme_bids_received", "n_awarded_smes", "estimated_value_eur",
+        "additional_cpv_codes", "ted_notice_link", "ted_can_link",
     )
     assert len(df) == 10  # raw passthrough — every award×supplier row, nothing filtered
 
@@ -1741,6 +1748,23 @@ def test_v_procurement_awards_executes():
     # DD/MM/YYYY parsed to a real DATE (TRY_STRPTIME)
     from datetime import date as _date
     assert by_supplier["Mason & Sons Ltd"]["award_date"] == _date(2023, 4, 4)
+
+    # Detail fields: source strings TRY_CAST to honest ints; title/links/estimate carried.
+    t001 = next(r for r in df.to_dicts() if r["tender_id"] == "T001")
+    assert t001["tender_title"] == "N4 Road Improvement Works – Phase 2"
+    assert t001["procedure_type"] == "Open Procedure"
+    assert t001["contract_duration_months"] == 24
+    assert t001["n_bids_received"] == 5
+    assert t001["n_sme_bids_received"] == 3
+    assert t001["n_awarded_smes"] == 1
+    assert t001["estimated_value_eur"] == 120000.0
+    assert t001["ted_can_link"].startswith("https://ted.europa.eu/")
+    # category_label: CPV description wins when present…
+    assert t001["category_label"] == "Construction work"
+    # …and falls back to the OGP Spend Category when the row has no CPV (~70% of corpus).
+    nullid = by_supplier["Nullid Co Ltd"]
+    assert nullid["cpv_code"] is None
+    assert nullid["category_label"] == "Information and Communication Technology"
 
     # Entity-split fix CONTRACT: a name with '&' survives whole — never fragmented
     # into "Mason" + "Sons Ltd". Guards against an ETL regression reaching gold.
@@ -1839,7 +1863,10 @@ def test_v_procurement_cpv_summary_value_semantics():
     df = con.execute("SELECT * FROM v_procurement_cpv_summary").pl()
     _assert_cols(df, "cpv_code", "cpv_description", "n_awards", "n_suppliers", "awarded_value_safe_eur")
     by = {r["cpv_code"]: r for r in df.to_dicts()}
-    assert len(df) == 5
+    # 4 real CPV groups; the CPV-less Nullid row (spend-category-only, like ~70% of the
+    # corpus) must NOT grow a null/"NULL" bucket here.
+    assert len(df) == 4
+    assert None not in by
 
     construction = by["45000000"]
     assert construction["cpv_description"] == "Construction work"
