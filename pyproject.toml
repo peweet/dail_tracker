@@ -113,7 +113,7 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.11",
     "responses>=0.25",        # HTTP mocking for tests of services/http_engine.py and API scrapers
-    "pandera[polars]>=0.20",  # DataFrameModel schema checks (import pandera.polars) in the silver/gold tests
+    "pandera[polars]>=0.31.1",  # DataFrameModel schema checks (import pandera.polars) in the silver/gold tests
     "basedpyright>=1.39",     # scoped static type-checking on the API/JSON boundary (see [tool.basedpyright])
     "pip-audit>=2.7",         # supply-chain CVE audit — run in .github/workflows/audit.yml
 ]
