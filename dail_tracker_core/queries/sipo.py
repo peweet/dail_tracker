@@ -171,18 +171,24 @@ def candidate_totals(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
-def candidate_ranked(conn: duckdb.DuckDBPyConnection, limit: int = 300) -> QueryResult:
-    """Candidates ranked by total spend — the primary league table."""
-    return _run(
-        conn,
+def candidate_ranked(
+    conn: duckdb.DuckDBPyConnection, limit: int | None = None
+) -> QueryResult:
+    """Candidates ranked by total spend — the primary league table.
+
+    ``limit=None`` (the default) returns EVERY loaded candidate so the page's
+    search box can find any of them; the page caps how many cards it renders.
+    """
+    sql = (
         "SELECT candidate_name, constituency_name, party, unique_member_code,"
         " is_elected_td, total_spend_eur, needs_verify, source_pdf_url"
         " FROM v_sipo_candidate_expenses"
         " WHERE total_spend_eur IS NOT NULL"
         " ORDER BY total_spend_eur DESC"
-        " LIMIT ?",
-        [limit],
     )
+    if limit is None:
+        return _run(conn, sql)
+    return _run(conn, sql + " LIMIT ?", [limit])
 
 
 def candidate_by_party(conn: duckdb.DuckDBPyConnection) -> QueryResult:

@@ -1,18 +1,33 @@
 {
   "link_version": "1.0.0",
-  "generated_at": "2026-06-11T17:50:28.529266+00:00",
-  "judge_court_pairs": 72,
-  "matched_pairs": 68,
+  "generated_at": "2026-06-13T06:32:12.730802+00:00",
+  "judge_court_pairs": 82,
+  "matched_pairs": 72,
   "match_methods": {
-    "surname-court": 19,
-    "no-candidate": 1,
+    "honorific-conflict": 6,
+    "exact": 53,
+    "no-candidate": 3,
     "office-title": 1,
-    "exact": 49,
-    "honorific-conflict": 2
+    "surname-court": 19
   },
   "unmatched": [
     {
+      "judge": "Mr Justice Burns",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "Mr Justice Mcdonald",
+      "court": "Court of Appeal",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice Sanfey",
+      "court": "Court of Appeal",
+      "match_method": "no-candidate"
+    },
+    {
+      "judge": "Ms Justice Burns",
       "court": "Court of Appeal",
       "match_method": "honorific-conflict"
     },
@@ -27,6 +42,21 @@
       "match_method": "honorific-conflict"
     },
     {
+      "judge": "Mr Justice Burns",
+      "court": "Court of Appeal (Criminal)",
+      "match_method": "honorific-conflict"
+    },
+    {
+      "judge": "Mr Justice O'Moore",
+      "court": "Court of Appeal (Criminal)",
+      "match_method": "no-candidate"
+    },
+    {
+      "judge": "Ms Justice Burns",
+      "court": "Court of Appeal (Criminal)",
+      "match_method": "honorific-conflict"
+    },
+    {
       "judge": "The President",
       "court": "High Court",
       "match_method": "office-title"
@@ -34,12 +64,12 @@
   ],
   "row_level": {
     "cases": {
-      "rows_with_judge": 1736,
-      "rows_matched": 1720
+      "rows_with_judge": 2720,
+      "rows_matched": 2558
     },
     "schedule": {
-      "rows_with_judge": 423,
-      "rows_matched": 406
+      "rows_with_judge": 565,
+      "rows_matched": 519
     }
   },
   "note": "Honest-or-nothing matching: ambiguous surnames, honorific conflicts and office titles are left unmatched rather than guessed."
