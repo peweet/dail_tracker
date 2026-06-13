@@ -98,17 +98,124 @@ def test_reclassifier_upgrades_firm_words_and_cro_but_not_people():
     out = _reclass([
         ("arup consulting engineers", None),    # activity stem (inflection) -> company
         ("alliance medical", None),             # activity word -> company
-        ("kpmg", "123456"),                     # no firm word but CRO match -> company
+        ("mazars", "123456"),                   # no firm word but CRO match (≥5 chars) -> company
         ("mary obrien", None),                  # bare person, no signal -> stays sole trader
     ]).sort("supplier_normalised")
     by = {r["supplier_normalised"]: r for r in out.iter_rows(named=True)}
     assert by["arup consulting engineers"]["supplier_class"] == "company"
     assert by["alliance medical"]["supplier_class"] == "company"
-    assert by["kpmg"]["supplier_class"] == "company"
+    assert by["mazars"]["supplier_class"] == "company"
     assert by["mary obrien"]["supplier_class"] == "sole_trader_or_individual"
     # upgraded rows become displayable; the person stays quarantined
     assert by["arup consulting engineers"]["public_display"] is True
     assert by["mary obrien"]["public_display"] is False
+
+
+@pytest.mark.parametrize("name,expect", [
+    # truncation-tolerant legal/activity forms (source column-width cut the word)
+    ("eamonn costello kerry limite", "company"),     # "LIMITED" cut to "LIMITE"
+    ("joseph mcmenamin son con l", "company"),       # "& SON" whole-word
+    ("ganson building civil engine", "company"),     # "ENGINEERING" cut to "ENGINE"
+    ("o sheas builders", "company"),                 # "BUILD" stem
+    ("stewart tracey joint venture", "company"),     # "VENTUR" stem
+    # foreign legal forms (END-anchored so "as"/"sa" can't match mid-name)
+    ("novavax cz as", "company"),                    # Norwegian/Czech AS
+    ("seqirus netherlands b v", "company"),          # Dutch B.V. -> "b v"
+    ("defence aerospace as", "company"),             # Kongsberg AS
+    # privacy: people / mid-name collisions must NOT upgrade
+    ("sonia murphy", "sole_trader_or_individual"),   # "son" must be whole-word, not a stem
+    ("mary obrien", "sole_trader_or_individual"),
+    ("as roofing limerick", "sole_trader_or_individual"),  # "as" only matches at END
+])
+def test_reclassifier_truncation_and_foreign_forms(name, expect):
+    out = _reclass([(name, None)])
+    assert out.row(0, named=True)["supplier_class"] == expect, name
+
+
+import re as _re  # noqa: E402
+
+from procurement_payments_consolidate import (  # noqa: E402
+    _JUNK_SUPPLIER_RE,
+    _classify_id_codes,
+    _conform,
+)
+
+
+def test_id_codes_become_id_code_class_hidden():
+    df = pl.DataFrame({
+        "supplier_normalised": ["JOH260ZZ", "DUG001ZZ", "ARUP", "MARY OBRIEN"],
+        "supplier_class": ["sole_trader_or_individual"] * 4,
+        "privacy_status": ["review_personal_data"] * 4,
+        "public_display": [False] * 4,
+    })
+    out = {r["supplier_normalised"]: r for r in _classify_id_codes(df).iter_rows(named=True)}
+    assert out["JOH260ZZ"]["supplier_class"] == "id_code"
+    assert out["JOH260ZZ"]["public_display"] is False        # anonymised code stays hidden
+    assert out["DUG001ZZ"]["supplier_class"] == "id_code"
+    assert out["ARUP"]["supplier_class"] == "sole_trader_or_individual"   # a real name is untouched
+    assert out["MARY OBRIEN"]["supplier_class"] == "sole_trader_or_individual"
+
+
+@pytest.mark.parametrize("name,is_junk", [
+    ("PURCHASE ORDERS OVER", True),
+    ("NOTICE ON PUBLICATION PURCHASE ORDERS OVER", True),
+    ("SLIGO CO COUNCIL PURCHASE ORDERS OVER 20000", True),
+    # NOT junk: real spend to an un-named/aggregate vendor must STAY summable (no understatement)
+    ("IT SERVICE PROVIDER", False),
+    ("SUNDRY SUPPLIER", False),
+    ("KILKENNY ABBEY QUARTER DEVELOPMENT PARTNERSHIP", False),   # "quarter" is a place, not a header
+    ("ARUP", False),
+])
+def test_junk_supplier_regex_is_page_furniture_only(name, is_junk):
+    assert bool(_re.search(_JUNK_SUPPLIER_RE, name)) is is_junk, name
+
+
+from procurement_payments_consolidate import _canonicalise_split_entities  # noqa: E402
+
+
+def test_split_entity_variants_merge_to_one_key():
+    # Airbus Defence & Space SAU is published 3 ways by Dept of Defence; all must collapse to one
+    # name so the firm stops fragmenting (and the merged name ends in the SAU foreign form).
+    df = pl.DataFrame({
+        "publisher_name": ["Department of Defence"] * 3 + ["Other Body"],
+        "supplier_raw": [
+            "AIRBUS DEFENCE & SPACE SAU SPAIN",
+            "DEFENCE & SPACE SAU SPAIN",
+            "& SPACE SAU SPAIN",
+            "Space Cadets Ltd",          # unrelated firm, different body -> untouched
+        ],
+    })
+    out = _canonicalise_split_entities(df)["supplier_raw"].to_list()
+    assert out[:3] == ["Airbus Defence and Space SAU"] * 3, out
+    assert out[3] == "Space Cadets Ltd"
+
+
+@pytest.mark.parametrize("name,expect", [
+    ("airbus defence space sau", "company"),          # ends in SAU
+    ("novartis pharma gmbh germany", "company"),      # foreign form + trailing country
+    ("carroceros s l", "company"),                    # Spanish SL
+    ("seqirus netherlands b v", "company"),
+    ("sasta builders portugal", "company"),           # "build" stem (not the country)
+    ("john sasportas", "sole_trader_or_individual"),  # "sa" must not match mid-name
+])
+def test_foreign_form_with_trailing_country(name, expect):
+    assert _reclass([(name, None)]).row(0, named=True)["supplier_class"] == expect, name
+
+
+def test_conform_desums_page_furniture_but_keeps_unnamed_vendor():
+    df = pl.DataFrame({
+        "amount_semantics": ["payment_actual"] * 3,
+        "publisher_name": ["X"] * 3,
+        "value_safe_to_sum": [True] * 3,
+        "supplier_class": ["sole_trader_or_individual"] * 3,
+        "supplier_normalised": ["PURCHASE ORDERS OVER 20000", "IT SERVICE PROVIDER", "ARUP"],
+        "public_display": [False, False, True],
+        "privacy_status": ["ok"] * 3,
+    })
+    out = {r["supplier_normalised"]: r for r in _conform(df).iter_rows(named=True)}
+    assert out["PURCHASE ORDERS OVER 20000"]["value_safe_to_sum"] is False   # page furniture excluded
+    assert out["IT SERVICE PROVIDER"]["value_safe_to_sum"] is True           # real spend, un-named: kept
+    assert out["ARUP"]["value_safe_to_sum"] is True
 
 
 def test_sole_trader_is_quarantined():

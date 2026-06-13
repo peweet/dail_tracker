@@ -1,0 +1,17 @@
+supplier_normalised,proposed_class,approx_eur,paying_body,category_evidence,basis,decision
+# REVIEW-ONLY candidate list — NOT loaded by any code yet. These are funding/transfer/grant or
+# intergovernmental bodies currently quarantined as sole_trader_or_individual. Reclassifying them to
+# public_body would EXCLUDE them from spend totals (the same intergovernmental-transfer rule that
+# already removes TII->council road grants), so this REDUCES the headline SPENT figure and must be
+# signed off before applying. Fill the `decision` column (public_body | company | leave) per row.
+# The category_evidence is the publisher's OWN published purpose text — the no-inference basis.
+higher education authority,public_body,225.8m,Dept of Education / HSE,"Higher Education Capital Projects; Upskilling Programmes",statutory agency allocating exchequer grants to HEIs (~EUR1.78bn/yr) — pass-through funding not procurement,
+efsf,public_body,119.1m,NTMA,"Programme Fee; Programme Fees",European Financial Stability Facility — Ireland EUR17.7bn bailout vehicle; programme fees are a debt/financial flow,
+esfm,public_body,6.1m,NTMA,Programme Fees,NTMA programme-fee counterparty (financial flow not procurement),
+sure loan,public_body,8.5m,NTMA,Programme Fees,NTMA funding-programme fee (financial flow),
+good shepherd,public_body,9.6m,Kilkenny/Longford,"Grant; Grants; Housing",housing charity grant — category literally 'Grant',
+educate together,public_body,21.4m,Dept of Education,"School Building Projects; School Rental",school patron body — building/rental grants,
+eurocontrol,public_body,13.3m,Dept of Transport,"Subscription; Contribution; Subscription to Eurocontrol",international membership contribution (not a purchase),
+etsi,public_body,5.9m,Dept Climate,National Contribution 2016,European standards body membership contribution,
+o i l d c sicap programme,public_body,5.9m,Offaly,Agency Services - Other,Offaly Local Development Co SICAP - grant-funded programme (verify),
+lgma,company,19.9m,Justice/councils,"Computer Software Support/maint; Agency Services","Local Government Management Agency — MIXED: shared-services charges look like purchases; 'Contributions to LGMA' lines look like transfers — split or leave",
