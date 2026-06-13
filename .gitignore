@@ -338,6 +338,10 @@ data/silver/sipo_candidate/
 !data/silver/parquet/nta_payments_fact.parquet
 !data/silver/parquet/nphdb_payments_fact.parquet
 !data/silver/parquet/seai_payments_fact.parquet
+# bespoke reading-order dept fact (DFAT/Justice/Transport single-column PDFs;
+# pipeline_sandbox/procurement_dept_readingorder_parser.py) — folded into gold
+# procurement_payments_fact by consolidate; commit so it survives source rot / machine loss
+!data/silver/parquet/dept_readingorder_payments_fact.parquet
 # per-LA AFS revenue fact (la_afs_extract.py) — read by tests + future gold views/UI; commit
 # so it survives machine failure / is Cloud-readable even if a council removes its source PDF
 !data/silver/parquet/la_afs_divisions.parquet

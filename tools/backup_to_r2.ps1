@@ -18,6 +18,7 @@ already backed up by `git push`.
 
 Prereqs (one-time): install rclone and create an `r2` remote - see doc/DATA_BACKUP.md.
 Register as a weekly scheduled task with:  tools/register_backup_task.ps1
+RESTORE after a laptop loss: see doc/DISASTER_RECOVERY.md
 
 Usage:
   tools/backup_to_r2.ps1                 # manifest + real copy
@@ -45,9 +46,18 @@ $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 
 Set-Location $root
 
-if (-not (Get-Command rclone -ErrorAction SilentlyContinue)) {
-    Add-Content $log "$stamp  ERROR rclone not on PATH - see doc/DATA_BACKUP.md"
-    Write-Error 'rclone is not installed / not on PATH. See doc/DATA_BACKUP.md.'
+# Resolve rclone: prefer PATH, else fall back to the winget install location. A
+# freshly-installed rclone only updates PATH for NEW shells, so a same-session run
+# (or a Task Scheduler env that predates the install) may not see it on PATH yet.
+$rclone = (Get-Command rclone -ErrorAction SilentlyContinue).Source
+if (-not $rclone) {
+    $rclone = (Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\WinGet\Packages" `
+        -Recurse -Filter 'rclone.exe' -ErrorAction SilentlyContinue |
+        Select-Object -First 1).FullName
+}
+if (-not $rclone) {
+    Add-Content $log "$stamp  ERROR rclone not found - see doc/DATA_BACKUP.md"
+    Write-Error 'rclone is not installed / not found. See doc/DATA_BACKUP.md.'
     exit 3
 }
 
@@ -73,7 +83,7 @@ $failed = 0
 foreach ($tree in 'bronze', 'silver') {
     $src = Join-Path $root "data\$tree"
     if (-not (Test-Path $src)) { continue }
-    & rclone copy $src "${remote}:${bucket}/$tree" @common
+    & $rclone copy $src "${remote}:${bucket}/$tree" @common
     if ($LASTEXITCODE -ne 0) { $failed = 1 }
 }
 

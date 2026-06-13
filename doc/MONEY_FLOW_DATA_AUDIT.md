@@ -34,13 +34,22 @@ Parse quality validated: blank-supplier "Sum:" rows correctly downgraded to low-
 totals; max legitimate single rows are real (NTA BusConnects €140.6m → Graham; NPHDB children's hospital
 €107.6m → BAM). Tier split holds: **paid €13.06bn / committed €8.41bn** (never blended).
 
-**Two follow-ups remain open:**
-1. **§2.1 is still open, now isolated to a *different* 12 bodies** — incl. **Dept Defence (~€1.08bn committed)
-   and Dept Climate (~€1.31bn paid)** — which dropped out of today's partial extractor run (22 of ~40
-   configured publishers). Recover via `procurement_public_body_extract.py --merge --only <12 ids>` then
-   re-consolidate. ~€2.4bn of the original €2.9bn is in these two departments alone.
-2. **DQ bug:** an OPW **€155.8m blank-supplier** `payment_actual` row (2022, empty description) leaked past
-   the blank-supplier guard into `value_safe_to_sum` — inflates paid spend ~1.2%. Fix the guard / exclude it.
+**RESOLVED (2026-06-13, later same day):**
+1. ✅ **§2.1 closed — 12 bodies recovered.** Re-parsed via `--merge --only` (Defence €1,129m, Climate
+   €1,321m, Culture €203m, Beaumont €202m, TU Dublin €120m, Pobal, MTU, CHI, NLI, Sport Ireland, HPRA, CCPC)
+   and re-consolidated. Gold is now **60 publishers / 193,221 rows** (was 48 / 158,893). **No body missing.**
+2. ✅ **DQ bugs fixed.** OPW €155.8m blank-supplier row removed by re-parsing OPW (stale pre-guard row, not
+   a code bug). A further **€702.5m of blank-supplier rows** across 14 kept publishers (NTMA, ATU, ESB, Courts,
+   Housing…) — stale rows carried through `--merge` since before the 2026-06-05 guard — were cleared by
+   re-parsing those publishers. **Defense-in-depth added:** `procurement_payments_consolidate.py` `_conform`
+   now enforces the sum-safe invariant at the fold (blank-supplier + public_body recipient → not summable),
+   so no source fact can ever leak again (no €-cap there — real €100m+ infra payments like NTA BusConnects
+   €140.6m / children's hospital €107.6m stay summable). Verified gold: **0 blank-supplier, 0 public_body,
+   0 UNKNOWN-tier sum-safe rows.** Clean tier split: **SPENT €13.99bn / COMMITTED €11.01bn** (public, never blended).
+3. ✅ **Uplift — keystone contract test shipped.** `test/extractors/test_procurement_payments_fact.py` +5
+   tests: sum-safe rows must have an identifiable supplier, be single known tier, positive amount, never a
+   public_body transfer; plus a regression guard that the core money-flow bodies (Defence/Climate/central
+   depts/Beaumont) stay present & displayable. **16/16 + 67 adjacent procurement tests green.**
 
 ---
 

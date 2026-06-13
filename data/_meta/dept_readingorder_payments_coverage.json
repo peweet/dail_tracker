@@ -118,6 +118,6 @@
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-13T14:09:35+00:00",
+  "generated_at": "2026-06-13T14:22:46+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox). Bespoke reading-order parse of single-column dept PDFs (DFAT payment / Justice + Transport PO). Unions with public_payments_fact at consolidate."
 }

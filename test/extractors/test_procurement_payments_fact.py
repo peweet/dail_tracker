@@ -123,6 +123,74 @@ def test_leading_ref_prefixes_mostly_stripped(con):
     assert bad <= 20  # a tiny residue of punctuation-separated markers is tolerated
 
 
+# --------------------------------------------------------------------------- #
+# Keystone sum-safe contract (2026-06-13). The project's #1 hazard is summing the
+# wrong euros. These assert the value_safe_to_sum flag means exactly what every view/page
+# relies on: an identifiable, single-tier, positive, non-transfer spend line. The
+# consolidation enforces these at the fold (defense-in-depth); if any regress, a view
+# total silently inflates — so they are hard ==0 assertions, not tolerances.
+# --------------------------------------------------------------------------- #
+def test_sum_safe_rows_have_identifiable_supplier(con):
+    # A row whose supplier normalised to empty (category/subtotal lines, "& COMPANY",
+    # "(IRELAND) LTD") is never identifiable spend and must not be summable. Caught the
+    # 53 stale LA rows / €8.7m and the OPW €155.8m blank-supplier total-row (DQ 2026-06-13).
+    bad = _q(
+        con,
+        "SELECT COUNT(*) FROM FACT WHERE value_safe_to_sum"
+        " AND (supplier_normalised IS NULL OR TRIM(supplier_normalised) = '')",
+    )[0][0]
+    assert bad == 0
+
+
+def test_no_public_body_recipient_is_sum_safe(con):
+    # Intergovernmental transfers (public_body recipient) are never summable — strict ==0
+    # at the fold (the broader <5% guard above documents the pre-fold source state).
+    bad = _q(con, "SELECT COUNT(*) FROM FACT WHERE value_safe_to_sum AND supplier_class='public_body'")[0][0]
+    assert bad == 0
+
+
+def test_sum_safe_rows_are_single_known_tier(con):
+    # Every summable row sits in exactly one summable lifecycle tier. A sum-safe row with an
+    # UNKNOWN/other tier would let a view blend lifecycle stages (the OCDS 'never sum across
+    # stages' rule). value_kind and realisation_tier must agree on a summable pair.
+    bad = _q(
+        con,
+        "SELECT COUNT(*) FROM FACT WHERE value_safe_to_sum AND ("
+        " realisation_tier NOT IN ('SPENT','COMMITTED')"
+        " OR value_kind NOT IN ('payment_actual','po_committed'))",
+    )[0][0]
+    assert bad == 0
+
+
+def test_sum_safe_rows_have_positive_amount(con):
+    bad = _q(con, "SELECT COUNT(*) FROM FACT WHERE value_safe_to_sum AND (amount_eur IS NULL OR amount_eur <= 0)")[0][0]
+    assert bad == 0
+
+
+def test_core_money_flow_bodies_present_and_visible(con):
+    # Regression guard for the 2026-06-13 ingest: a partial extractor run once silently dropped
+    # 12 bodies (incl. Dept Defence ~€1.1bn, Dept Climate ~€1.3bn) and omitted the central
+    # departments from gold. Each of these must be present AND have public-displayable summable
+    # spend, so a future partial run / listing-rot can never make them vanish from the citizen view.
+    required = [
+        "dept_defence",
+        "dept_climate",
+        "dept_culture",
+        "dept_social_protection",
+        "dept_health",
+        "dept_education",
+        "ie_beaumont",
+    ]
+    present = {
+        r[0]
+        for r in _q(
+            con, "SELECT publisher_id FROM FACT WHERE value_safe_to_sum AND public_display GROUP BY publisher_id"
+        )
+    }
+    missing = [p for p in required if p not in present]
+    assert not missing, f"core money-flow bodies absent or fully non-displayable in gold: {missing}"
+
+
 def test_strip_leading_ref_unit():
     # Pure-function contract: bled-in leading references are removed; fused number-brands and
     # whitespace-less names are preserved; a pure-number / empty residue is left untouched.
