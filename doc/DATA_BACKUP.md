@@ -95,6 +95,8 @@ transfer detail at `logs/standalone/backup_to_r2.rclone.log`.
 
 ## Restoring after a laptop loss
 
+> Full standalone runbook: **[DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)**. Quick version:
+
 On a fresh machine:
 
 ```powershell

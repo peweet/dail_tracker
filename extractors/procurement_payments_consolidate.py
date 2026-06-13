@@ -77,6 +77,12 @@ SOURCE_FACTS = [
     "nta_payments_fact.parquet",
     "nphdb_payments_fact.parquet",
     "seai_payments_fact.parquet",
+    # Bespoke reading-order parse of the 3 single-column dept PDFs the generic reader can't split
+    # (DFAT payment / Justice + Transport PO), built by
+    # pipeline_sandbox/procurement_dept_readingorder_parser.py. Identical 29-col schema, no
+    # publisher overlap with the above. Adds ~€2.35bn sum-safe (Justice €1.47bn, Transport €486m,
+    # DFAT €394m) — incl. BearingPoint/Accenture/Capita consultancy + asylum-accommodation providers.
+    "dept_readingorder_payments_fact.parquet",
 ]
 
 # Publishers known to publish VAT-INCLUSIVE figures (mixing bases would corrupt any
@@ -222,13 +228,24 @@ def _conform(df: pl.DataFrame) -> pl.DataFrame:
         .then(pl.lit("incl_vat"))
         .otherwise(pl.lit("unknown"))
     )
-    # Triple-count firewall (operationalised): a public_body RECIPIENT is an intergovernmental
-    # transfer / council-as-payee (TII Road Grants central→council; LA payments to Irish Water,
-    # ETBs, other councils), NOT summable procurement spend — summing it would double-count the
-    # same money against the council→contractor leg. Force value_safe_to_sum=False for them so the
-    # single value_safe_to_sum filter (used by every view/page) enforces the guard. Rows stay in
-    # the fact, visible; they are merely excluded from spend totals.
-    safe = pl.when(pl.col("supplier_class") == "public_body").then(pl.lit(False)).otherwise(pl.col("value_safe_to_sum"))
+    # Sum-safe invariant enforced at the fold (defense-in-depth — the last common chokepoint; never
+    # trust a source fact's flag blindly). A row is summable only if it was flagged safe AND:
+    #   • supplier_class != public_body — a public_body RECIPIENT is an intergovernmental transfer /
+    #     council-as-payee (TII Road Grants central→council; LA payments to Irish Water, ETBs, other
+    #     councils), NOT procurement spend; summing it double-counts the council→contractor leg.
+    #   • supplier_normalised is non-blank — a row whose supplier normalised to empty (e.g.
+    #     "& COMPANY", "(IRELAND) LTD", or a category/subtotal line) is never identifiable spend.
+    #     Catches pre-guard rows a source parser left flagged safe (e.g. 53 stale LA rows / €8.7m,
+    #     DQ 2026-06-13). NO €-cap here on purpose: NTA BusConnects (€140.6m) and the children's-
+    #     hospital payments (€107.6m) legitimately exceed €100m; the per-source extractors own that
+    #     cap for the bodies where a ≥€100m line can only be a parse error.
+    # Rows stay in the fact, visible; they are merely excluded from spend totals.
+    safe = (
+        pl.col("value_safe_to_sum")
+        & (pl.col("supplier_class") != "public_body")
+        & pl.col("supplier_normalised").is_not_null()
+        & (pl.col("supplier_normalised").str.strip_chars() != "")
+    )
     # Privacy-flag invariant (re-derived, never trusted): public_display must be False for
     # any likely natural person. The base extractor enforces this at write time, but bespoke
     # sandbox parsers have drifted (nta/nphdb/seai reading_order parsers set
