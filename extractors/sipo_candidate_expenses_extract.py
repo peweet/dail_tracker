@@ -304,9 +304,17 @@ def parse_candidate(key: str, mr: dict) -> tuple[dict, list[dict]]:
         elif pt == "public":
             rec["spend_public_eur"] = overall
 
-    np_ = rec["spend_not_public_eur"] or 0
-    pub = rec["spend_public_eur"] or 0
-    rec["total_spend_eur"] = round(np_ + pub, 2) if (np_ or pub) else None
+    # Distinguish a PARSED zero (the candidate declared a NIL return — "Overall Expense
+    # total: € 0.00" on the form) from an UNPARSED total (the value cell was blank or the
+    # number couldn't be read). A declared €0.00 is real, verifiable data, not inference,
+    # so it belongs in gold; only a genuinely unread total stays NULL (quarantined). The
+    # old `x or 0` collapsed both to NULL, silently dropping every nil return from gold.
+    np_ = rec["spend_not_public_eur"]
+    pub = rec["spend_public_eur"]
+    if np_ is None and pub is None:
+        rec["total_spend_eur"] = None
+    else:
+        rec["total_spend_eur"] = round((np_ or 0) + (pub or 0), 2)
     rec["min_confidence"] = round(grid_conf, 4) if grid_conf is not None else None
 
     items = parse_items(pages)

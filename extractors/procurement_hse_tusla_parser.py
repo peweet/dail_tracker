@@ -102,9 +102,30 @@ def tusla_row(cells: list[str], page: int, idx: int) -> dict | None:
     if amt is None:
         return None
     year = int(year_s) if re.fullmatch(r"\d{4}", year_s.strip()) else None
-    quarter = qtr_s.strip() if re.fullmatch(r"Q[1-4]", qtr_s.strip()) else None
+    # The quarter cell is "Q1" most years but "Q1-2024" in the 2024 file — match the Q digit
+    # anywhere in the cell rather than requiring a bare "Q1".
+    qm = re.search(r"Q\s?([1-4])", qtr_s)
+    quarter = f"Q{qm.group(1)}" if qm else None
     return {
         "publisher_id": "ie_tusla", "year": year, "quarter": quarter,
+        "supplier_raw": vendor, "supplier_norm": norm_name(vendor),
+        "amount_eur": amt, "amount_semantics": "invoice_payment",
+        "description": desc, "doc_ref": date_s.strip(),
+        "source_page": page + 1, "source_row": idx,
+    }
+
+
+def tusla_row_2025(cells: list[str], page: int, idx: int) -> dict | None:
+    # The 2025 file dropped the per-row Year column (year is only in the page title) and split the
+    # "€" symbol into its own token before the amount: columns are Qtr | Date | €Amount | Vendor |
+    # Description (5 buckets). Year is constant 2025.
+    qtr_s, date_s, amount_s, vendor, desc = (cells + [""] * 5)[:5]
+    amt = to_eur(amount_s)
+    if amt is None:
+        return None
+    qm = re.search(r"Q\s?([1-4])", qtr_s)
+    return {
+        "publisher_id": "ie_tusla", "year": 2025, "quarter": f"Q{qm.group(1)}" if qm else None,
         "supplier_raw": vendor, "supplier_norm": norm_name(vendor),
         "amount_eur": amt, "amount_semantics": "invoice_payment",
         "description": desc, "doc_ref": date_s.strip(),
@@ -116,6 +137,22 @@ SPECS = {
     "ie_hse": {"cuts": [180, 270, 450, 515], "build": hse_row, "name": "HSE"},
     "ie_tusla": {"cuts": [110, 160, 290, 375, 570], "build": tusla_row, "name": "Tusla"},
 }
+
+# Tusla changes its PDF column geometry year to year (the NTA lesson). Word-centre x-cuts measured
+# 2026-06-13 from each yearly file; the builder/bucket count differs for 2025 (no Year column).
+# Years not listed fall back to the 2021/2023 layout.
+TUSLA_CUTS_BY_YEAR: dict[int, tuple[list[float], object]] = {
+    2021: ([110, 160, 290, 375, 570], tusla_row),
+    2022: ([105, 145, 220, 320, 560], tusla_row),
+    2023: ([110, 160, 290, 375, 570], tusla_row),
+    2024: ([72, 120, 180, 225, 360], tusla_row),
+    2025: ([80, 140, 205, 410], tusla_row_2025),
+}
+
+
+def tusla_spec_for(year: int | None) -> tuple[list[float], object]:
+    """Return (x-cuts, row-builder) for a given Tusla file year (defaults to the 2021 layout)."""
+    return TUSLA_CUTS_BY_YEAR.get(year or 0, ([110, 160, 290, 375, 570], tusla_row))
 
 
 def parse(pid: str) -> pl.DataFrame:

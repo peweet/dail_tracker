@@ -20,20 +20,42 @@ from dail_tracker_core.results import QueryResult
 # The exact column contract each fetcher is responsible for (matches the SQL).
 _EXPECTED_COLUMNS = {
     "supplier_summary": {
-        "supplier", "supplier_norm", "n_awards", "n_authorities", "awarded_value_safe_eur",
-        "n_value_safe_awards", "n_ceiling_notices",
-        "company_num", "company_status", "cro_match_method",
-        "on_lobbying_register", "lobbying_returns", "is_lobbying_registrant", "is_lobbying_client",
+        "supplier",
+        "supplier_norm",
+        "n_awards",
+        "n_authorities",
+        "awarded_value_safe_eur",
+        "n_value_safe_awards",
+        "n_ceiling_notices",
+        "company_num",
+        "company_status",
+        "cro_match_method",
+        "on_lobbying_register",
+        "lobbying_returns",
+        "is_lobbying_registrant",
+        "is_lobbying_client",
     },
     "authority_summary": {"contracting_authority", "n_awards", "n_suppliers", "awarded_value_safe_eur"},
     "cpv_summary": {"cpv_code", "cpv_description", "n_awards", "n_suppliers", "awarded_value_safe_eur"},
     "lobbying_overlap": {
-        "lobby_name", "lobby_side", "supplier", "supplier_norm", "n_lobby_returns",
-        "n_award_rows", "n_authorities", "awarded_value_safe_eur",
+        "lobby_name",
+        "lobby_side",
+        "supplier",
+        "supplier_norm",
+        "n_lobby_returns",
+        "n_award_rows",
+        "n_authorities",
+        "awarded_value_safe_eur",
     },
     "coverage_stats": {
-        "min_year", "max_year", "n_award_rows", "n_safe_rows", "value_safe_total_eur",
-        "n_suppliers", "n_authorities", "n_categories",
+        "min_year",
+        "max_year",
+        "n_award_rows",
+        "n_safe_rows",
+        "value_safe_total_eur",
+        "n_suppliers",
+        "n_authorities",
+        "n_categories",
     },
 }
 
@@ -111,8 +133,7 @@ def test_awards_for_supplier_blocks_sole_traders(conn):
     dossier and the Streamlit drill-down, so the quarantine is asserted here."""
     try:
         df = conn.execute(
-            "SELECT supplier_norm FROM v_procurement_awards"
-            " WHERE supplier_class = 'sole_trader_or_individual' LIMIT 1"
+            "SELECT supplier_norm FROM v_procurement_awards WHERE supplier_class = 'sole_trader_or_individual' LIMIT 1"
         ).df()
     except Exception:
         pytest.skip("procurement gold not available")
@@ -137,8 +158,13 @@ def test_value_contrast_naive_dwarfs_safe(conn):
     assert len(r.data) == 1
     row = r.data.iloc[0]
     expected = {
-        "n_rows", "n_framework_rows", "n_safe_rows",
-        "naive_total_eur", "safe_total_eur", "framework_naive_eur", "framework_once_eur",
+        "n_rows",
+        "n_framework_rows",
+        "n_safe_rows",
+        "naive_total_eur",
+        "safe_total_eur",
+        "framework_naive_eur",
+        "framework_once_eur",
     }
     assert expected.issubset(set(r.data.columns))
     naive, safe = float(row["naive_total_eur"]), float(row["safe_total_eur"])
@@ -166,8 +192,15 @@ def test_payments_corpus_stats_tiers_separate(conn):
 
 def test_payments_supplier_summary_named_and_single_tier(conn):
     r = _result_or_skip(q.payments_supplier_summary(conn, tier="SPENT", limit=10))
-    assert {"supplier", "supplier_normalised", "realisation_tier", "n_publishers",
-            "total_safe_eur", "vat_mixed", "supplier_class"}.issubset(set(r.data.columns))
+    assert {
+        "supplier",
+        "supplier_normalised",
+        "realisation_tier",
+        "n_publishers",
+        "total_safe_eur",
+        "vat_mixed",
+        "supplier_class",
+    }.issubset(set(r.data.columns))
     # The view is filtered to a single tier; the ranking is by money, descending.
     assert set(r.data["realisation_tier"].unique()) <= {"SPENT"}
     vals = r.data["total_safe_eur"].tolist()
@@ -203,13 +236,61 @@ def test_payments_for_supplier_roundtrip(conn):
     assert r.ok is True and not r.is_empty
 
 
+def test_payments_supplier_header_single_row_both_tiers(conn):
+    top = q.payments_supplier_summary(conn, tier="SPENT", limit=1)
+    if not top.ok or top.is_empty:
+        pytest.skip("no payment rows")
+    norm = top.data.iloc[0]["supplier_normalised"]
+    r = q.payments_supplier_header(conn, norm)
+    assert r.ok is True and len(r.data) == 1
+    row = r.data.iloc[0]
+    assert {
+        "supplier",
+        "supplier_class",
+        "n_publishers",
+        "n_paid_lines",
+        "n_ordered_lines",
+        "paid_safe_eur",
+        "ordered_safe_eur",
+        "vat_mixed",
+        "cro_company_num",
+    }.issubset(set(r.data.columns))
+    # Paid and ordered are carried side by side, never one blended total.
+    assert float(row["paid_safe_eur"]) >= 0 and float(row["ordered_safe_eur"]) >= 0
+
+
+def test_payments_publishers_for_supplier_mirrors_publisher_drill(conn):
+    """The reverse drill (a supplier's payers) must agree with the forward drill (a body's
+    suppliers): the body's total for the supplier equals the supplier's total for the body."""
+    top = q.payments_supplier_summary(conn, tier="SPENT", limit=1)
+    if not top.ok or top.is_empty:
+        pytest.skip("no payment rows")
+    norm = top.data.iloc[0]["supplier_normalised"]
+    rev = q.payments_publishers_for_supplier(conn, norm, tier="SPENT")
+    assert rev.ok is True and not rev.is_empty
+    assert {"publisher_name", "publisher_type", "n_payments", "total_safe_eur"}.issubset(set(rev.data.columns))
+    # Descending by money (the ranking the drill-down renders).
+    vals = rev.data["total_safe_eur"].tolist()
+    assert vals == sorted(vals, reverse=True)
+    # Cross-check the top body against the forward per-publisher drill.
+    body = rev.data.iloc[0]["publisher_name"]
+    fwd = q.payments_for_publisher(conn, body, tier="SPENT")
+    match = fwd.data[fwd.data["supplier_normalised"] == norm]
+    if not match.empty:
+        assert abs(float(match.iloc[0]["total_safe_eur"]) - float(rev.data.iloc[0]["total_safe_eur"])) < 1.0
+
+
+def test_payments_publishers_for_supplier_tier_whitelist(conn):
+    # An injection-shaped tier falls back to SPENT (no raw string reaches SQL).
+    r = q.payments_publishers_for_supplier(conn, "JOHN SISK SON", tier="'; DROP TABLE x; --")
+    assert r.ok is True  # query ran (didn't error on a bad tier string)
+
+
 def test_supplier_concentration_share_is_sane(conn):
     r = _result_or_skip(q.supplier_concentration(conn, top_n=10))
     assert len(r.data) == 1
     row = r.data.iloc[0]
-    assert {"top_n", "n_suppliers", "total_awards", "top_n_awards", "top_n_share_pct"}.issubset(
-        set(r.data.columns)
-    )
+    assert {"top_n", "n_suppliers", "total_awards", "top_n_awards", "top_n_share_pct"}.issubset(set(r.data.columns))
     share = float(row["top_n_share_pct"])
     assert 0 < share <= 100  # a real share
     assert int(row["top_n_awards"]) <= int(row["total_awards"])  # subset never exceeds whole
@@ -226,8 +307,15 @@ def test_ted_corpus_stats_single_row(conn):
     r = _result_or_skip(q.ted_corpus_stats(conn))
     assert len(r.data) == 1
     expected = {
-        "n_notices", "n_notices_ex_pan_eu", "min_year", "max_year", "n_winners",
-        "n_buyers", "n_pan_eu", "value_safe_eur", "pan_eu_ceiling_eur",
+        "n_notices",
+        "n_notices_ex_pan_eu",
+        "min_year",
+        "max_year",
+        "n_winners",
+        "n_buyers",
+        "n_pan_eu",
+        "value_safe_eur",
+        "pan_eu_ceiling_eur",
     }
     assert expected.issubset(set(r.data.columns))
     row = r.data.iloc[0]
@@ -240,8 +328,15 @@ def test_ted_corpus_stats_single_row(conn):
 
 def test_ted_supplier_summary_company_class_and_order(conn):
     r = _result_or_skip(q.ted_supplier_summary(conn, limit=15, order_by="awards"))
-    assert {"winner_name", "winner_join_norm", "n_awards", "n_buyers",
-            "ted_value_safe_eur", "ted_value_safe_incl_eu_eur", "has_pan_eu"}.issubset(set(r.data.columns))
+    assert {
+        "winner_name",
+        "winner_join_norm",
+        "n_awards",
+        "n_buyers",
+        "ted_value_safe_eur",
+        "ted_value_safe_incl_eu_eur",
+        "has_pan_eu",
+    }.issubset(set(r.data.columns))
     counts = r.data["n_awards"].tolist()
     assert counts == sorted(counts, reverse=True)  # count-led ranking
 

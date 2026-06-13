@@ -191,6 +191,21 @@ def candidate_ranked(
     return _run(conn, sql + " LIMIT ?", [limit])
 
 
+def candidate_filed_unquantified(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Candidates who filed a 2024 expenses statement with no trustworthy total to show.
+
+    No amount column by design (see v_sipo_candidate_expenses_filed_unquantified) — these
+    keep the candidate searchable and link to the official PDF, never a fabricated figure.
+    """
+    return _run(
+        conn,
+        "SELECT candidate_name, constituency_name, party, unique_member_code,"
+        " is_elected_td, filed_status, source_pdf_url"
+        " FROM v_sipo_candidate_expenses_filed_unquantified"
+        " ORDER BY constituency_name, candidate_name",
+    )
+
+
 def candidate_by_party(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """One row per (canonical) party — candidate count + spend rollup."""
     return _run(
