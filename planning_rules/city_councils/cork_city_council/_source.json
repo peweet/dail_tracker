@@ -1,0 +1,14 @@
+{
+  "authority": "Cork City Council",
+  "authority_type": "city_council",
+  "plan_name": "Cork City Development Plan 2022-2028",
+  "plan_status": "adopted; draft-plan chapter captured from Cork's own consultation portal",
+  "dm_standards_chapter": "Chapter 11 - Placemaking and Managing Development",
+  "source_url": "https://consult.corkcity.ie/en/consultation/draft-cork-city-development-plan-2022-2028/chapter/11-placemaking-and-managing-development",
+  "portal": "consult.corkcity.ie (Cork runs its own portal, separate from the shared consult.* service)",
+  "fetch_method": "WebFetch on consult.corkcity.ie chapter (clean markdown) + curl.exe raw HTML saved to raw/dm_standards.html",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.html", "dm_standards.md", "required_assessments.md", "_source.json"],
+  "status": "complete",
+  "notes": "Cork has no chapter literally named 'Development Management Standards'; the DM standards live in Chapter 11 'Placemaking and Managing Development'. Captured numeric standards: density by area (dwellings/ha), dwelling size mix, open space 15%/10%, private amenity 48 sqm, separation ~22m, apartment glazing 20%, daylight assessment >50 units, RIA >1000 sqm. Rural one-off site area NOT quantified (Cork City is urban). Numeric car-parking ratios, plot ratio, site coverage, EV and bin standards were not present as tables in the captured chapter text. Captured text is from the draft-plan chapter on Cork's portal (adopted plan content is materially the same)."
+}

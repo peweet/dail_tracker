@@ -1,0 +1,72 @@
+supplier_normalised,override_class,basis
+# Curated supplier-class overrides for procurement_payments_consolidate.py (_apply_class_overrides).
+# Hand-curated source of truth for suppliers the name-suffix regex + exact CRO match cannot
+# resolve: well-known firms whose published name carries NO legal-form word (ARUP, KPMG, EIR),
+# foreign companies, and commercial semi-states (An Post, ESB, Bus Eireann) whose payments are
+# PURCHASES of goods/services (NOT intergovernmental transfers). All classes here are summable
+# (company/foreign_company), so applying them is SUM-NEUTRAL vs the sole_trader default — it only
+# makes the row displayable. Transfer/grant BODIES (HEA, EFSF, councils) are NOT here: they belong
+# in procurement_publicbody_candidates.csv (public_body = excluded from spend) pending sign-off.
+# keys are supplier_normalised (lowercased, NFD, punctuation-stripped) — a wrong key silently no-ops
+# (fail-safe: never surfaces a row that shouldn't be). Validated against CRO/news where non-obvious.
+de la rue smurfit,company,Irish passport printer to DFAT (secureidnews.com)
+energia,company,electricity/gas supplier (commercial)
+glaxo smith kline,foreign_company,GSK pharmaceuticals (vaccines)
+wilker auto conversions,company,ambulance vehicle converter
+bearing point,company,management/technology consultancy ex-KPMG Consulting
+cbre dublin landings rent,company,CBRE-managed property rental
+kpmg,company,Big-4 professional services firm
+atkinsrealis,company,global engineering firm (ex SNC-Lavalin)
+accenture esc,company,Accenture (Digital Covid Cert call centre)
+eir,company,telecommunications operator
+bdp,company,BDP architects (children's hospital design)
+ergo,company,IT services firm
+evros,company,IT services firm
+daon,company,biometrics software firm
+uniphar,company,pharmaceutical distributor
+united drug,company,pharmaceutical wholesaler
+sgs,company,inspection/testing firm
+arup,company,engineering consultancy
+efacec,foreign_company,Portuguese power-systems firm
+caredoc,company,GP out-of-hours co-operative
+real nation,company,marketing agency (Bord Bia Food Dudes)
+ipsos mrbi,company,market-research firm
+capita business support,company,Capita business-process firm
+bidvest noonan,company,facilities-management firm
+sigmar recruitment,company,recruitment agency
+microsoft miol,company,Microsoft Ireland Operations Ltd
+sagem identification,foreign_company,French biometric-passport supplier (Idemia/Morpho)
+jp morgan,foreign_company,investment bank (NTMA bond fees)
+bofa,foreign_company,Bank of America (NTMA bond fees)
+irish life investment managers,company,investment manager
+envecon,company,environmental-economics consultancy
+pmd soultions,company,PMD Solutions medical devices (source typo retained)
+chc shannon,company,CHC Ireland SAR helicopter operator
+an post,company,commercial semi-state - postal services purchased (not a transfer)
+an post mails revenue,company,An Post postal services (commercial semi-state)
+an post sales accounting,company,An Post postal services (commercial semi-state)
+bus eireann,company,commercial semi-state - transport services purchased
+iarnrod eireann,company,commercial semi-state - rail capital works/services
+bord gais energy,company,energy supplier (commercial)
+gais energy,company,Bord Gais Energy (commercial)
+prize bonds,company,State Savings Prize Bond operator (An Post/Fexco JV)
+sh24 cic,company,Community Interest Company (lab/pathology)
+comyn kelleher tobin,company,solicitors firm
+a l goodbody,company,law firm
+mccann fitzgerald,company,law firm
+pricewaterhouse coopers,company,PwC professional services
+ernst young business,company,EY professional services
+royal dublin society,company,RDS - venue/events organisation (not an individual)
+roughan odonovan,company,engineering consultants
+irish tar bitumen,company,bitumen supplier
+servisource ie,company,healthcare staffing firm
+sar security,company,security services firm
+momentum support,company,facilities/cleaning firm
+airbus defence space sau,foreign_company,Airbus Defence & Space SAU (Spain) - C295 maritime patrol aircraft for Air Corps (~EUR235m largest-ever DF equipment project); merged from 3 published name variants (norm drops 'and')
+auxiliar naval,foreign_company,Spanish shipyard (Revenue customs cutter)
+seqirus netherlands b v,foreign_company,Seqirus vaccines (Dutch BV)
+novavax cz as,foreign_company,Novavax (Czech AS) pandemic vaccines
+infrastructure investment fund,company,property/lease investment fund
+cronin s homevalue hardware,company,builders-providers hardware store
+vodafone ecs,company,Vodafone telecommunications
+uniphar,company,pharmaceutical distributor

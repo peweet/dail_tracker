@@ -1,0 +1,14 @@
+{
+  "authority": "Fingal County Council",
+  "authority_type": "county_council",
+  "plan_name": "Fingal Development Plan 2023-2029",
+  "plan_status": "adopted (made 22 Feb 2023, effective 5 Apr 2023)",
+  "dm_standards_chapter": "Chapter 14 - Development Management Standards",
+  "source_url": "https://consult.fingal.ie/en/consultation/draft-fingal-county-development-plan-2023-2029/chapter/chapter-14-development-management-standards",
+  "portal": "consult.fingal.ie",
+  "fetch_method": "curl chapter HTML (full chapter text) + local tag-strip extraction; also archived chapter PDF",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.html", "raw/dm_standards.pdf", "dm_standards.md", "required_assessments.md"],
+  "status": "complete",
+  "notes": "Portal consultation URL retains the 'draft' slug but serves the adopted chapter text. The system/files Chapter 14 PDF is an Illustrator/image-based layout (not text-extractable); standards were extracted from the HTML chapter page which contains the full text including Table 14.19 car parking, Table 14.16 bicycle, DMSO objectives. Bicycle per-use ratios sit in Table 14.16 (referenced). Density and plot ratio are policy-led, not fixed numeric thresholds in this chapter."
+}

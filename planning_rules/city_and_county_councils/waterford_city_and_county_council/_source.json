@@ -1,0 +1,14 @@
+{
+  "authority": "Waterford City & County Council",
+  "authority_type": "city_and_county_council",
+  "plan_name": "Waterford City & County Development Plan 2022-2028",
+  "plan_status": "adopted (effective 19 July 2022); Volume 2 PDF reissued November 2025",
+  "dm_standards_chapter": "Volume 2 - Development Management Standards (whole volume)",
+  "source_url": "https://waterfordcouncil.ie/app/uploads/2025/11/Waterford-City-and-County-Development-Plan-2022-2028-Vol-2-241125.pdf",
+  "portal": "consult.waterfordcouncil.ie (draft); adopted Volume 2 PDF on waterfordcouncil.ie",
+  "fetch_method": "curl.exe of adopted Volume 2 PDF (6MB, 107pp) saved to raw/dm_standards.pdf; text extracted locally with pypdf and grepped. WebFetch was 403-blocked on waterfordcouncil.ie and the consult.* chapter URL 307-redirected.",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.pdf", "dm_standards.md", "required_assessments.md", "_source.json"],
+  "status": "complete",
+  "notes": "Volume 2 is the DM-standards volume. Captured: plot ratio 1:2, site coverage 75%, separation 22m, private open space min 50 sqm, public open space 15%/25%, building lines 15m/18m/25m/30m, sightline Table 8.1 (Y=215/160/90/70/55m; X=4.5m/2.4m; cul-de-sac 30m), EV 1 per 5 spaces, parking-bay dimensions, non-residential parking ratios. Residential density and the formal Appropriate Assessment / statutory EIA thresholds are carried in Volume 1 / the SEA-AA documents, not Volume 2; rural one-off minimum site area is not stated as a single figure (governed by setbacks + wastewater suitability + Chapter 7 rural-housing-need test)."
+}

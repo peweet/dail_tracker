@@ -1,0 +1,14 @@
+{
+  "authority": "Tipperary County Council",
+  "authority_type": "county_council",
+  "plan_name": "Tipperary County Development Plan 2022-2028",
+  "plan_status": "adopted (made 11 July 2022; effective 22 August 2022)",
+  "dm_standards_chapter": "Volume 3, Appendix 6 - Development Management Standards",
+  "source_url": "https://www.tipperarycoco.ie/sites/default/files/2022-09/Volume%203%20Development%20Management%20Standards.pdf",
+  "portal": "www.tipperarycoco.ie",
+  "fetch_method": "curl (raw PDF) + pdftotext extraction",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.pdf", "dm_standards.md", "required_assessments.md", "_source.json"],
+  "status": "complete",
+  "notes": "Dedicated DM Standards volume with full quantitative tables (car parking Table 6.4, bicycle Table 6.5, EV Table 6.6, X/Y sightline Tables 6.1/6.2, private open space 48/60/75 sqm, 22m separation, 15% public open space). Residential density is deferred to per-settlement plans in Volume 2; rural one-off minimum site area is not a numeric standard here (governed by the Rural Housing Design Guideline + EPA wastewater CoP)."
+}

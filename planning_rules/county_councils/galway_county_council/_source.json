@@ -1,0 +1,14 @@
+{
+  "authority": "Galway County Council",
+  "authority_type": "county_council",
+  "plan_name": "Galway County Development Plan 2022-2028",
+  "plan_status": "Adopted (Variation No.1 adopted)",
+  "dm_standards_chapter": "Chapter 15 - Development Management Standards",
+  "source_url": "https://consult.galway.ie/en/consultation/draft-galway-county-development-plan-2022-2028/chapter/chapter-15-development-management-standards",
+  "portal": "consult.galway.ie (shared LA consultation portal)",
+  "fetch_method": "HTML scrape",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md"],
+  "status": "complete",
+  "notes": "Reference exemplar - extracted in earlier scoping pass (doc/galway_ch15_dm_standards_FULL.md). 71 DM Standards + 7 tables; 26 triggered assessments."
+}

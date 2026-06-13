@@ -1,0 +1,14 @@
+{
+  "authority": "Mayo County Council",
+  "authority_type": "county_council",
+  "plan_name": "Mayo County Development Plan 2022-2028",
+  "plan_status": "adopted (interim plan effective 10 August 2022, following Ministerial Direction)",
+  "dm_standards_chapter": "Volume 2 - Development Management Standards",
+  "source_url": "https://consult.mayo.ie/en/consultation/notice-draft-ministerial-direction-matter-section-31-planning-development-act-2000-amended-mayo/chapter/volume-2-development-management-standards",
+  "portal": "consult.mayo.ie (HTML chapter); direct PDF https://www.mayo.ie/getmedia/b8a9428e-ef09-4c5e-8780-e06eff7e6516/Vol-2-Development-Management-Standards-Mayo-CDP-22-28.pdf",
+  "fetch_method": "curl.exe raw PDF download + WebFetch of consult.mayo.ie HTML chapter for extraction",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.pdf", "dm_standards.md", "required_assessments.md"],
+  "status": "complete",
+  "notes": "Dedicated Volume 2 DM Standards chapter. Rich quantitative extract via the HTML chapter on consult.mayo.ie: density (35/20/5 du/ha), rural one-off site 2000m2 (3000m2 coastal), 22m/35m separation, X/Y/Z visibility, road setbacks 40/20/10m, full parking + EV (10%/20%) + bicycle + bin standards. AA/EIA/heritage triggers are partial in Volume 2 (operational FRA/TTA/site-suitability triggers captured)."
+}
