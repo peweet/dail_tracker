@@ -1,10 +1,10 @@
 {
-  "generated_utc": "2026-06-13T19:47:24.121547+00:00",
+  "generated_utc": "2026-06-13T22:49:24.935539+00:00",
   "layer": "gold",
   "source": "extractors/procurement_payments_consolidate.py",
   "n_rows": 207504,
   "n_publishers": 63,
-  "n_suppliers": 22110,
+  "n_suppliers": 22108,
   "cro_matched_pct": 44.4,
   "rows_by_publisher_type": {
     "local_authority": 72325,
@@ -17,8 +17,8 @@
   },
   "n_local_authorities": 21,
   "safe_eur_by_tier": {
-    "SPENT": 18052922310.31,
-    "COMMITTED": 14588806476.8
+    "SPENT": 18052842309.31,
+    "COMMITTED": 14581806476.8
   },
   "vat_status_counts": {
     "incl_vat": 31963,
