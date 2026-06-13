@@ -65,6 +65,9 @@ SILVER = ROOT / "data/silver/parquet"
 CRO = ROOT / "data/silver/cro/companies.parquet"
 OUT = ROOT / "data/gold/parquet/procurement_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/procurement_payments_fact_coverage.json"
+# Hand-curated supplier-class overrides (firms/foreign/semi-states the regex+CRO can't resolve).
+# Only sum-neutral classes (company/foreign_company); transfer bodies live in a separate review CSV.
+CLASS_OVERRIDES = ROOT / "data/_meta/procurement_supplier_class_overrides.csv"
 
 # The 31 local authorities' PO/Payments-over-€20k fact (silver, canonical taxonomy already) —
 # folded in via _load_la_fact() rather than SOURCE_FACTS (different layer + native value_kind).
@@ -114,6 +117,7 @@ _LEAD_REF_RE = re.compile(
     r"|\d+(?:[.,]\d+)?[eE][+\-]?\d+"  # Excel sci-notation (2.4E+08)
     r"|#+"  # masked digits (####)
     r"|\d{1,6}(?:[-/]\d+)*"  # row index / dash-joined ref (36, 03-607)
+    r"|[A-Za-z]{3,4}\d{3}"  # Pobal scheme code (CMO005, CER002, CBN001) prefixing the real vendor
     r")\s+)+",
     re.I,
 )
@@ -130,6 +134,36 @@ def _strip_leading_ref(name: str | None) -> str | None:
         return name
     rest = name[m.end() :]
     return rest if re.search(r"[A-Za-z]{2,}", rest) else name
+
+
+# Evidence-based merges of ONE legal entity that a publisher splits across several published name
+# forms (same philosophy as the NBI rule in procurement_public_body_extract.py: no name fabrication —
+# only collapses strings already in the data, guarded by the paying body). Each rule = (publisher
+# substring, name regex, canonical name). Add a row when a high-value entity is found fragmented.
+# AIRBUS: the Dept of Defence publishes the C295 maritime-patrol-aircraft supplier (Ireland's
+# largest-ever DF equipment project, ~€235m) as "AIRBUS DEFENCE & SPACE SAU SPAIN", "DEFENCE & SPACE
+# SAU SPAIN" AND "& SPACE SAU SPAIN" — 3 keys for one firm. All share "SPACE SAU"; the "&" drops in
+# normalisation and the leading words vary. Collapse to the registered form (ends in the SAU legal
+# form, so the foreign-form classifier then recognises it). SAS (the French Airbus entity) is left
+# separate — a different legal person, already classed foreign_company.
+_ENTITY_MERGES = [
+    ("Defence", r"(?i)\bspace\s*&?\s*sau\b", "Airbus Defence and Space SAU"),
+]
+
+
+def _canonicalise_split_entities(df: pl.DataFrame) -> pl.DataFrame:
+    """Collapse the curated split-entity name variants (``_ENTITY_MERGES``) BEFORE normalisation, so
+    one firm stops fragmenting across keys. Guarded by the paying body to avoid an over-broad merge."""
+    if df.is_empty() or "publisher_name" not in df.columns:
+        return df
+    expr = pl.col("supplier_raw")
+    for body, rx, canon in _ENTITY_MERGES:
+        expr = (
+            pl.when(pl.col("publisher_name").str.contains(body) & pl.col("supplier_raw").str.contains(rx))
+            .then(pl.lit(canon))
+            .otherwise(expr)
+        )
+    return df.with_columns(expr.alias("supplier_raw"))
 
 
 def _clean_supplier_names(df: pl.DataFrame) -> pl.DataFrame:
@@ -219,6 +253,21 @@ def _load_la_fact(base: pl.DataFrame) -> pl.DataFrame | None:
     return la
 
 
+# PAGE-FURNITURE rows: a publisher's page heading ("Purchase Orders over €20,000", "Notice on
+# publication of Purchase Orders…") misparsed as a SUPPLIER row carrying the literal threshold as
+# its amount — a fake payment that inflates the total. Excluded from value_safe_to_sum. Deliberately
+# NARROW: it does NOT catch pure-number names or anonymised/aggregate labels ("IT Service Provider",
+# "Sundry Supplier") — those are REAL spend to a real (un-named) vendor, and de-summing them would
+# UNDERSTATE the total (the opposite error). They stay summable; they are merely un-rankable.
+# Matched on the lowercased, punctuation-stripped supplier_normalised. NOT a bare "quarter"
+# ("Abbey Quarter Development" is a real place); the header rows always carry "20 000"/"over 20"/
+# "purchase order" too, so they are still caught.
+_JUNK_SUPPLIER_RE = (
+    r"(?i)\b20 ?000\b|\bover 20\b|purchase order|payments (over|greater)"
+    r"|publication purchase|notice on publication|council herewith publishes|in terms circular"
+)
+
+
 def _conform(df: pl.DataFrame) -> pl.DataFrame:
     # value_kind + realisation_tier from amount_semantics (canonical 2-axis taxonomy)
     kind = pl.col("amount_semantics").replace_strict({k: v[0] for k, v in SEMANTICS_TO_KIND.items()}, default="unknown")
@@ -239,12 +288,17 @@ def _conform(df: pl.DataFrame) -> pl.DataFrame:
     #     DQ 2026-06-13). NO €-cap here on purpose: NTA BusConnects (€140.6m) and the children's-
     #     hospital payments (€107.6m) legitimately exceed €100m; the per-source extractors own that
     #     cap for the bodies where a ≥€100m line can only be a parse error.
+    #   • supplier is not a JUNK / aggregate placeholder — a cell that is just a number (an amount
+    #     leaked into the supplier column), a page-header/threshold fragment ("… over €20,000 -
+    #     Quarter"), or an un-named bucket ("Sundry/External/Various Supplier") is not identifiable
+    #     spend. These are RETAINED + hidden but excluded from totals (DQ 2026-06-13b, ~€49m).
     # Rows stay in the fact, visible; they are merely excluded from spend totals.
     safe = (
         pl.col("value_safe_to_sum")
         & (pl.col("supplier_class") != "public_body")
         & pl.col("supplier_normalised").is_not_null()
         & (pl.col("supplier_normalised").str.strip_chars() != "")
+        & ~pl.col("supplier_normalised").fill_null("").str.contains(_JUNK_SUPPLIER_RE)
     )
     # Privacy-flag invariant (re-derived, never trusted): public_display must be False for
     # any likely natural person. The base extractor enforces this at write time, but bespoke
@@ -310,15 +364,38 @@ def _attach_cro(df: pl.DataFrame) -> pl.DataFrame:
 _CRO_UPGRADE_MIN_LEN = 5
 # Whole-word legal/plurality forms (need both boundaries so short tokens don't over-match inside
 # a surname) | business-activity stems (leading boundary only → inflection-safe).
-_FIRM_WORDS = "ltd|limited|dac|plc|clg|llp|teo|teoranta|gmbh|inc|llc|srl|sarl|bros|brothers|sons|group|cuideachta"
-_FIRM_STEMS = (
-    "consult|engineer|architect|surveyor|solicitor|barrister|accountant|advis|contract|construct|"
-    "develop|enterprise|industr|technolog|system|software|servic|solution|logistic|distribut|"
-    "manufactur|pharma|diagnostic|laborator|healthcare|medical|insuranc|assuranc|management|"
-    "communicat|telecom|propert|holding|internation|institut|foundation|partner|associat|"
-    "incorporat|corporat"
+_FIRM_WORDS = (
+    "ltd|limited|dac|plc|clg|llp|teo|teoranta|gmbh|inc|llc|srl|sarl|bros|brothers|son|sons|group|"
+    "cuideachta|co|jv|ppp"  # co = truncated "& Co"; jv = joint venture; ppp = PPP project vehicle;
+    # son (whole-word) = "& Son" — NOT a stem, so it can't match "Sonia"/"Sonny" inside a forename
 )
-_ORG_FORM_RE = r"(?i)(?:\b(?:" + _FIRM_WORDS + r")\b|\b(?:" + _FIRM_STEMS + r"))"
+_FIRM_STEMS = (
+    "consult|engineer|engine|architect|surveyor|solicitor|solrs|barrister|accountant|advis|"
+    "contract|construct|develop|enterprise|industr|technolog|system|software|servic|solution|"
+    "logistic|distribut|manufactur|pharma|biotech|diagnostic|laborator|healthcare|medical|"
+    "insuranc|assuranc|management|communicat|telecom|propert|holding|internation|institut|"
+    "foundation|partner|associat|incorporat|corporat|"
+    # truncation-tolerant: source column-width cuts a legal/activity word mid-string
+    # ("...LIMITE[D]", "...BUILDER[S]", "...ENGINE[ERING]"). "limit" covers limited/limite/limit;
+    # "build" covers builders/building; "ventur" covers (joint) venture(s); "solrs" = solicitors.
+    "limit|build|ventur"
+)
+# Foreign legal forms — anchored at the END (or before a trailing country word, since defence/EU
+# suppliers publish as "… SAU SPAIN", "… B.V. NETHERLANDS"), because the abbreviations collide with
+# English words ("as"/"sa"/"ab") mid-name. supplier_normalised has punctuation stripped, so
+# "B.V."→"b v", "S.A."→"s a", "SP.J"→"sp j". AS=Norwegian Aksjeselskap, BV/NV=Dutch, OY=Finnish,
+# SAU/SA/SL=Spanish, GMBH=German, SARL=French.
+_FOREIGN_COUNTRY = (
+    r"spain|france|germany|deutschland|deutchland|netherlands|italy|belgium|norway|sweden|denmark|"
+    r"finland|portugal|austria|poland|czech|switzerland|luxembourg"
+)
+_FOREIGN_FORM_RE = (
+    r"(?:\b(?:as|asa|oy|oyj|ab|bv|nv|sau|sarl|srl|spa|sl|gmbh|aps|sa|b v|n v|s a|s l|sp j))"
+    r"(?:\s+(?:" + _FOREIGN_COUNTRY + r"))?\s*$"
+)
+_ORG_FORM_RE = (
+    r"(?i)(?:\b(?:" + _FIRM_WORDS + r")\b|\b(?:" + _FIRM_STEMS + r")|" + _FOREIGN_FORM_RE + r")"
+)
 
 
 def _reclassify_missed_companies(df: pl.DataFrame) -> pl.DataFrame:
@@ -355,6 +432,57 @@ def _reclassify_missed_companies(df: pl.DataFrame) -> pl.DataFrame:
         pl.when(is_company).then(pl.col("cro_company_num")).otherwise(None).alias("cro_company_num"),
         pl.when(is_company).then(pl.col("cro_company_status")).otherwise(None).alias("cro_company_status"),
     )
+
+
+# Anonymised payee CODE (OPW pseudonymises some contractors as "JOH260ZZ"/"DUG001ZZ"): a hard ID,
+# never a natural person's name. Classed id_code → hidden (anonymised on purpose) but kept summable
+# (it IS a real payment). Mirrors the existing id_code class in procurement_la_payments_extract.py.
+_ID_CODE_RE = r"(?i)^[a-z]{2,4}\d{2,}[a-z]{0,3}$"
+
+
+def _classify_id_codes(df: pl.DataFrame) -> pl.DataFrame:
+    """Reclassify still-quarantined rows whose supplier is an anonymised id-code to ``id_code``
+    (distinct from a natural person), hidden but summable. Runs AFTER the firm reclassifier so a
+    code never reaches it; never touches an already-identified company."""
+    is_sole = pl.col("supplier_class") == "sole_trader_or_individual"
+    is_code = pl.col("supplier_normalised").fill_null("").str.contains(_ID_CODE_RE)
+    hit = is_sole & is_code
+    n = df.filter(hit).height
+    if n:
+        print(f"  classified {n:,} rows ({df.filter(hit)['supplier_normalised'].n_unique():,} codes) as id_code (anonymised payee)")
+    return df.with_columns(
+        pl.when(hit).then(pl.lit("id_code")).otherwise(pl.col("supplier_class")).alias("supplier_class"),
+        pl.when(hit).then(pl.lit("ok")).otherwise(pl.col("privacy_status")).alias("privacy_status"),
+        # id_code stays hidden: an anonymised code is not a useful public identity.
+        pl.when(hit).then(pl.lit(False)).otherwise(pl.col("public_display")).alias("public_display"),
+    )
+
+
+def _apply_class_overrides(df: pl.DataFrame) -> pl.DataFrame:
+    """Apply the hand-curated supplier-class overrides (CLASS_OVERRIDES): firms / foreign companies /
+    commercial semi-states the regex+CRO can't resolve but a human has verified. All override classes
+    are summable, so this is SUM-NEUTRAL — it only flips display. A wrong/typo'd key silently no-ops
+    (fail-safe). Skipped cleanly if the file is absent."""
+    if not CLASS_OVERRIDES.exists():
+        return df
+    # supplier_normalised is upper-case; the CSV keys are lower-case — join on a case-folded key.
+    ov = pl.read_csv(CLASS_OVERRIDES, comment_prefix="#").select(
+        pl.col("supplier_normalised").str.strip_chars().str.to_lowercase().alias("_ovkey"),
+        pl.col("override_class").str.strip_chars(),
+    ).filter(pl.col("_ovkey").str.len_chars() > 0).unique(subset=["_ovkey"])
+    df = df.with_columns(pl.col("supplier_normalised").str.to_lowercase().alias("_ovkey")).join(
+        ov, on="_ovkey", how="left"
+    )
+    hit = pl.col("override_class").is_not_null()
+    n = df.filter(hit).height
+    if n:
+        print(f"  applied {ov.height:,} curated overrides -> {n:,} rows ({df.filter(hit)['supplier_normalised'].n_unique():,} suppliers) reclassified")
+    out = df.with_columns(
+        pl.when(hit).then(pl.col("override_class")).otherwise(pl.col("supplier_class")).alias("supplier_class"),
+        pl.when(hit).then(pl.lit("ok")).otherwise(pl.col("privacy_status")).alias("privacy_status"),
+        pl.when(hit).then(pl.lit(True)).otherwise(pl.col("public_display")).alias("public_display"),
+    ).drop(["override_class", "_ovkey"])
+    return out
 
 
 # --------------------------------------------------------------------------- spend_category
@@ -426,10 +554,13 @@ def main() -> None:
     base = _load_facts()
     la = _load_la_fact(base)
     df = pl.concat([base, la], how="vertical") if la is not None else base
+    df = _canonicalise_split_entities(df)
     df = _clean_supplier_names(df)
     df = _conform(df)
     df = _attach_cro(df)
     df = _reclassify_missed_companies(df)
+    df = _classify_id_codes(df)
+    df = _apply_class_overrides(df)
     df = _derive_spend_category(df)
 
     # PRIVACY INVARIANT (runtime, -O-proof): mirrors procurement_public_body_extract.py —

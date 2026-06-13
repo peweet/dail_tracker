@@ -1,0 +1,14 @@
+{
+  "authority": "Limerick City and County Council",
+  "authority_type": "city_and_county_council",
+  "plan_name": "Limerick Development Plan 2022-2028",
+  "plan_status": "adopted (as varied)",
+  "dm_standards_chapter": "Chapter 11 - Development Management Standards",
+  "source_url": "https://mypoint.limerick.ie/en/consultation/draft-limerick-development-plan-2022-2028/chapter/chapter-11-development-management-standards",
+  "portal": "mypoint.limerick.ie (also published as per-chapter PDF on limerick.ie)",
+  "fetch_method": "WebFetch on mypoint.limerick.ie chapter (clean markdown) + curl.exe of the limerick.ie Chapter 11 PDF saved to raw/dm_standards.pdf (1.8MB)",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.pdf", "dm_standards.md", "required_assessments.md", "_source.json"],
+  "status": "complete",
+  "notes": "Strongly quantified: apartment floor areas, private/public open space, rural one-off site min 0.2ha + 30m frontage + 4.5m gate recess, petrol-station sightlines 160m/215m, separation 22m/3m, SuDS (1-in-100yr +30%), site-coverage/plot-ratio for enterprise. Full assessment-trigger list incl. flood justification test, percolation/EPA 2021 site suitability, sustainability-statement thresholds. Car/cycle parking ratios are in DM Table 8a/8b (Section 11.8.4) which did not render in the captured WebFetch excerpt; the full table is in the raw PDF. Raw saved is the published-draft Chapter 11 PDF (2021-06); content carried into the adopted plan."
+}

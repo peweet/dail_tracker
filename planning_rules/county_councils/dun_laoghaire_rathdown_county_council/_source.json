@@ -1,0 +1,14 @@
+{
+  "authority": "Dún Laoghaire-Rathdown County Council",
+  "authority_type": "county_council",
+  "plan_name": "Dún Laoghaire-Rathdown County Development Plan 2022-2028",
+  "plan_status": "adopted (effective 21 April 2022)",
+  "dm_standards_chapter": "Chapter 12 - Development Management",
+  "source_url": "https://www.dlrcoco.ie/sites/default/files/atoms/files/written_statement.pdf",
+  "portal": "consult.dlrcoco.ie / dlrcoco.ie",
+  "fetch_method": "curl adopted Written Statement PDF + pdftotext -layout extraction",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.pdf", "dm_standards.md", "required_assessments.md"],
+  "status": "complete",
+  "notes": "DM standards are Chapter 12 of the adopted Written Statement (single combined PDF for the whole plan, ~6.4MB, text-based). The PDF uses a TWO-COLUMN layout, so pdftotext interleaves adjacent columns - narrative figures (35/50 units/ha density, 22m separation, 15%/25%/20% open space, 3.5m driveway entrance, four parking zones) were located reliably, but the car parking Table 12.4 and open space Table 12.8 cell-by-cell values are partially scrambled and should be read from the PDF for exact alignment. No fixed plot ratio / site coverage numeric threshold and no rural one-off minimum site area (urban/suburban authority - one-off housing treated as urban-generated)."
+}

@@ -1,0 +1,14 @@
+{
+  "authority": "Kerry County Council",
+  "authority_type": "county_council",
+  "plan_name": "Kerry County Development Plan 2022-2028",
+  "plan_status": "adopted",
+  "dm_standards_chapter": "Volume 6, Chapter 1 - Development Management Standards & Guidelines",
+  "source_url": "https://consult.kerrycoco.ie/en/consultation/draft-kerry-county-development-plan-2022-2028/chapter/1-development-management-standards-guidelines",
+  "portal": "consult.kerrycoco.ie",
+  "fetch_method": "curl chapter PDF (1 Development Management Standards.pdf) + pdftotext -layout extraction",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.pdf", "dm_standards.md", "required_assessments.md"],
+  "status": "complete",
+  "notes": "DM standards are Volume 6 Chapter 1. The portal HTML chapter page is a navigation/submissions shell with a PDF link; PDF (~512KB) is text-based and was the source. Rich numeric content: 85%/65% site coverage, 22m separation, private open space Table 1, apartment floor areas Table 2, parking Table 4 (3 area zones), 215m visibility at 80km/h+, 4.5m gate recess, 45-deg splays. Car parking Table 4 plain-text alignment imperfect (multi-column) but values captured. No fixed residential density figure and no fixed rural one-off minimum site area (performance-based on EPA WWTS separation)."
+}

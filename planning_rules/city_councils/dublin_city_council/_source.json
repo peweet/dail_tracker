@@ -1,0 +1,14 @@
+{
+  "authority": "Dublin City Council",
+  "authority_type": "city_council",
+  "plan_name": "Dublin City Development Plan 2022-2028",
+  "plan_status": "adopted (effective 14 December 2022)",
+  "dm_standards_chapter": "Chapter 15 - Development Standards",
+  "source_url": "https://www.dublincity.ie/dublin-city-development-plan-2022-2028/written-statement/chapter-15-development-standards",
+  "portal": "dublincity.ie (adopted plan HTML); consult.dublincity.ie hosted the draft",
+  "fetch_method": "curl.exe of adopted plan chapter index + 6 sub-section HTML pages (158, 1511, 159, 1516, 153, 155); tag-stripped and extracted. WebFetch was 403-blocked on dublincity.ie.",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.html", "dm_standards.md", "required_assessments.md", "_source.json"],
+  "status": "complete",
+  "notes": "Chapter 15 states residential open-space (10%/25%), private open space (10 sqm/bedspace), apartment floor areas (37/45/73/90 sqm), unit mix, childcare (1 facility per 75 dwellings), play-space sizes, separation (~22m), and EIA/AA/EcIA triggers inline. Density, building height, plot ratio, site coverage are DEFERRED to Appendix 3; car/cycle parking, road widths and traffic-assessment thresholds DEFERRED to Appendix 5 (not captured here). raw/dm_standards.html is the chapter index page; the substantive standards live on the sub-section pages which were fetched into c:/tmp during extraction."
+}

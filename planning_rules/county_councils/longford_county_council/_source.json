@@ -1,0 +1,14 @@
+{
+  "authority": "Longford County Council",
+  "authority_type": "county_council",
+  "plan_name": "Longford County Development Plan 2021-2027",
+  "plan_status": "adopted 19 October 2021, effective 30 November 2021",
+  "dm_standards_chapter": "Chapter 16 - Development Management Standards (Volume 1 Written Statement, p.403+)",
+  "source_url": "https://www.longfordcoco.ie/services/planning/longford-county-development-plan-2021-2027/volume-1-written-statement.pdf",
+  "portal": "longfordcoco.ie (PDF-only; no per-chapter HTML portal)",
+  "fetch_method": "curl.exe raw PDF download (Volume 1, 11.9MB) + local pdftotext extraction",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.pdf", "dm_standards.md", "required_assessments.md"],
+  "status": "complete",
+  "notes": "DM chapter is Chapter 16 within Volume 1 Written Statement (raw file is full Volume 1, 22.5k text lines). Standards numbered DMS16.x. Captured density (30/12 u/ha), site coverage 50/60/75/80%, plot ratio, private OS (48/55/60/75 m2), house+apartment floor areas, 22m/35m overlooking, full parking Table 16.1, rural one-off minimum site 0.2ha + sightlines (90/150/230m), AA + EIAR + other-assessment triggers (16.2)."
+}

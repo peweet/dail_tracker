@@ -1,0 +1,14 @@
+{
+  "authority": "South Dublin County Council",
+  "authority_type": "county_council",
+  "plan_name": "South Dublin County Development Plan 2022-2028",
+  "plan_status": "adopted (made 22 June 2022; effective 3 August 2022)",
+  "dm_standards_chapter": "Chapter 5 Quality Design and Healthy Placemaking (qualitative) + Chapter 12 Implementation and Monitoring (quantitative standards tables) + Appendix 10 Building Height and Density Guide 2022",
+  "source_url": "https://www.sdcc.ie/en/devplan2022/adopted-plan/chapter-12-implementation-and-monitoring/chapter-12-implementation-and-monitoring.pdf",
+  "portal": "www.sdcc.ie (adopted plan; note consult.sdublincoco.ie is the consultation portal)",
+  "fetch_method": "curl (raw PDFs: Ch5, Ch7, Ch12, Appendix 10) + pdftotext extraction",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.pdf (Chapter 5)", "raw/chapter7_sustainable_movement.pdf", "raw/chapter12_implementation.pdf", "raw/appendix10_height_density.pdf", "dm_standards.md", "required_assessments.md", "_source.json"],
+  "status": "complete",
+  "notes": "SDCC has no single 'DM Standards' chapter. Chapter 5 (saved as raw/dm_standards.pdf) is qualitative/performance-based. The numeric standards (private/public open space, 22m separation, MAXIMUM car parking Tables 12.25/12.26, bicycle Table 12.23, EV 20% min, dual-aspect 33/50%) live in Chapter 12 Implementation and Monitoring (also captured raw). Building height/density use a deliberate performance/contextual framework with NO numerical limits (Appendix 10). No rural one-off-house minimum site area (urban county). Parking standards are MAXIMUMS, not minimums."
+}

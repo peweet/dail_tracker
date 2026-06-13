@@ -442,3 +442,11 @@ data/bronze/pdfs/**
 
 # generated bulk-export snapshots (privacy-filtered copies cut by api/routers/exports.py)
 data/_export_cache/
+
+# === planning_rules — per-authority Development Management Standards collection ===
+# Each council dir holds markdown extracts (tracked by default) + a _source.json
+# provenance file + a raw/ archive of the original HTML/PDF. The blanket *.json rule
+# above swallows _source.json, so negate it (last match wins). The raw/ downloads are
+# regenerable source documents — keep them ignored per the *.pdf/*.html convention.
+!planning_rules/**/_source.json
+planning_rules/**/raw/

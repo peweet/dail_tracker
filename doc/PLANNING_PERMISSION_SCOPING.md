@@ -555,3 +555,346 @@ RFI/refusal **reasons** [PDF] → cite **DM Standards** [SCRAPABLE, §12.3] → 
 [adopted by councillors, §10.6]. So even though the *reason text* is PDF-locked per application, the
 **rulebook it cites is fully ingestible** — meaning we can contextualise any decision against the
 quantitative standard that governed it, and flag material contraventions, without scraping the file PDFs.
+
+---
+
+## 13. GALWAY CASE STUDY — live data join, application points × SAC designation (2026-06-13)
+
+First end-to-end join of two open feeds, proving the obligation-set concept reflects in real outcomes.
+
+> ⚠️ **CORRECTED 2026-06-13 (re-validated against live feeds).** The original INSIDE-SAC figures
+> (24.8%, 319 points) **did not reproduce** on a clean re-run and are now known to be wrong — almost
+> certainly near-band leakage (degree-buffer, no pyproj) and/or join double-counting in the first-pass
+> script. The verified result is **35.9% inside vs 15.2% elsewhere** from a **geometry-repaired,
+> deduped, exact point-in-polygon** join. The effect is **real and stronger** than first reported;
+> only the precise numbers changed. Full validation log in §13.6.
+
+### Data pulled (all live, no scraping) — ✅ all re-confirmed
+- **Galway County applications:** 18,406 (Galway City: 3,355) from the IrishPlanningApplications feed,
+  **100% point geometry (18,406/18,406)**. **8,085 are one-off houses (44%).** Decision mix:
+  CONDITIONAL 13,271 / REFUSED 2,478 / N/A 2,320 / UNCONDITIONAL 337 -> **county refusal rate 15.4%**
+  (2,478/16,086 decided) — *all exact on re-run.*
+- **SAC polygons:** from the **NPWS Designated Areas FeatureServer**
+  (`services-eu1.arcgis.com/Jhij7i46ouO8Cc0N/.../NPWSDesignatedAreas/FeatureServer`, **layer 3 =
+  "Special Area of Conservation"** confirmed; 0=SPA, 1=pNHA, 2=NHA; fields SITECODE, SITE_NAME, COUNTY).
+  **185** SACs intersect a generous Galway bbox (the count is **bbox-sensitive** — the original "119"
+  used a tighter extent). **⚠️ 25 of the 185 polygons are geometrically invalid** (self-intersections;
+  one SAC has 472,977 vertices) — `make_valid()` before the join is mandatory or points inside those
+  25 are silently misclassified.
+- **Join:** shapely exact point-in-polygon (STRtree + `make_valid` + `covers()`), 18,406 unique points,
+  zero missing geometry.
+
+### Result — refusal rate is far higher INSIDE a SAC (decided apps) — ✅ verified
+| Band | Refused / Decided | Refusal rate |
+|------|-------------------|--------------|
+| **INSIDE a SAC** (exact, repaired geom) | **52 / 145** | **35.9%** ✅ |
+| everything else | 2,426 / 15,941 | **15.2%** ✅ |
+| ALL Galway County | 2,478 / 16,086 | 15.4% ✅ |
+| ~~within ~500 m~~ | ~~799 / 4,512~~ | ~~17.7%~~ ⚠️ **UNVERIFIED** |
+
+⚠️ The middle **~500 m near-band is NOT reproduced** — it needs metric reprojection (pyproj/ITM, not
+installed locally) to compute a true 500 m buffer; the first-pass degree-approximation is unreliable
+and is the likely source of the original contaminated "inside" figure. Treat the near-band as TODO,
+not fact. **~180 applications fall strictly inside a SAC** (not 319).
+
+### What this proves
+A real **dose-response**: applications **inside a SAC are refused at ~2.4× the baseline** (35.9% vs
+15.2% elsewhere). The **AA obligation** (triggered by SAC proximity, checklist #12/#13) is visible in
+the actual decision record — exactly the obligation-set hypothesis of §12. Built entirely from **two
+open ArcGIS feeds + a local spatial join**; no per-council PDF needed.
+- **Caveat (no-inference):** correlation, not causation — SAC areas are also wetter/scenic/constrained,
+  so multiple refusal reasons co-occur. The product states the *association*, never imputes the reason.
+- **Caveat (no hardcoded rates):** the exact percentage is method-fragile (polygon vintage, bbox,
+  containment predicate all move it). The app must compute it **live from a version-stamped polygon
+  set with exact containment** and publish the *direction*, never a frozen "35.9%".
+
+### Pipeline validated
+`IrishPlanningApplications (points)` -> `NPWS designation layers (polygons)` -> `make_valid` ->
+`shapely exact containment` -> `obligation + outcome cross-tab`. The same pattern extends to **flood
+zones (OPW), ACA/RPS, landscape sensitivity**. Reusable artifacts saved under `c:/tmp/`
+(galway_points.geojson, galway_sac.geojson; validation scripts `c:/tmp/validate_*.py`).
+
+### 13.6 Validation log — assumptions checked against live feeds (2026-06-13)
+Every load-bearing assumption behind Phase 0 (§8) and the obligation-set model was re-probed live.
+**14 of 15 validated exactly; 1 (the SAC headline rate) was corrected as above.**
+
+| Assumption | Live result | Verdict |
+|---|---|---|
+| Total register ~495,632 | `returnCountOnly` = **495,632** | ✅ exact |
+| 31 LAs; group counts sum to total | 31 authorities, Σ = 495,632 | ✅ |
+| Galway Co. 18,406 / City 3,355 | exact both (groupBy stats) | ✅ |
+| Point geometry 100% populated | 18,406/18,406 | ✅ |
+| ITMEasting/Northing are dead columns | **0 / 495,632** populated (national) | ✅ dead |
+| Eircode sparse | `DevelopmentPostcode` = **2,523 / 495,632** | ✅ exact |
+| Dates = epoch-ms UTC | `1492992000000` → 2017-04-24 | ✅ |
+| NPWS layer 3 = SAC (0/1/2 = SPA/pNHA/NHA) | exact | ✅ |
+| maxRecordCount 2000; pagination; `Query,Extract` | confirmed (standardMax 16,000) | ✅ |
+| Decision mix 13271/2478/2320/337 | exact | ✅ |
+| **SAC inside refusal 24.8% / 319 pts** | **35.9% / ~180 pts** | ❌ **corrected** |
+
+**Ingestion gotchas surfaced empirically (not from vendor docs):**
+1. **`returnDistinctValues` is silently ignored** by this hosted FeatureServer (even with
+   `orderByFields`) — it returns raw rows. Use `groupByFieldsForStatistics` + `outStatistics` (count)
+   for domains/per-key counts; that query also gives the reconciliation Σ(groups) == total.
+2. **Polygon geometry must be repaired** — 25/185 SAC polygons invalid; `make_valid()` is a required DQ
+   gate before any spatial join, else `contains()/covers()` silently drops points.
+3. **Reconcile before trusting a pull** — assert `Σ(groupBy counts) == returnCountOnly` so a truncated
+   paginated sweep fails loudly. `exceededTransferLimit` was `None` here (no truncation), but check it.
+4. **Location is geometry-only** — `returnGeometry=true&outSR=4326`; ITM attribute columns are 0/495,632.
+5. **Metric ops need a CRS** — any distance/buffer (the near-band) requires pyproj/ITM reprojection;
+   degree approximations are unreliable and were the likely source of the original bad "inside" figure.
+
+---
+
+## 14. NEXT STEPS (roadmap)
+
+**Immediate (data, no spend-cap risk — direct probes):**
+1. **Add OPW flood zones** to the Galway join → test the §12 Justification-Test trigger (does
+   "inappropriate flood-zone use" correlate with refusal like SAC does?). Endpoint discovery = TODO (§15).
+2. **Add ACA + RPS (protected structures)** designation layers → completes the heritage trigger (#16/#61).
+3. **Layer the Development-Plan zoning composite** → enables a *material-contravention* flag (application
+   land-use vs zoned use).
+4. **Generalise the DM-standards scrape** to a 2nd/3rd council (Fingal, Mayo) off the shared `consult.*`
+   portal → prove the cross-council standards dataset; start a normalised schema.
+
+**Then (modelling):**
+5. Build the **obligation-set reconstructor**: for each application point, compute which assessments it was
+   obliged to carry (from designation joins) + which numeric standards governed it (from scraped plan).
+6. Wire the **appeals join** (§ Angle 4 recipe: 6-digit core of `AppealRefNumber` → ACP `ABPCASEID`),
+   and the **Board-vs-inspector overturn** scrape (via `LINKABPWEB` PDFs) for the accountability metric.
+7. **CSO PxStat** aggregate series as an independent reconciliation check (re-verify §9 facts).
+
+**Then (Phase 0 ingest, when greenlit):** the locked plan in §8 (national applications → silver parquet).
+
+**Decisions still needed:** privacy line on site addresses (low, per §1); whether to ingest Dublin
+Tier1/Tier2A as a complementary housing-pipeline layer (§9); national vs Galway-first build scope.
+
+---
+
+## 15. RESOURCE REGISTER (all sources, for later review)
+
+> ⚙️ = **directly linked to internal planning DECISION logic** (the rules/triggers a planner applies).
+> ✅ = probed live this session · 🔎 = surfaced but not yet probed · 📄 = saved local artifact.
+
+### 15.1 ⚙️ Internal decision-logic sources (PRIORITY — the rulebook & its triggers)
+| Resource | URL / locator | Notes |
+|---|---|---|
+| ⚙️✅ **Galway Co. DP Ch.15 — Development Management Standards** | `consult.galway.ie/en/consultation/draft-galway-county-development-plan-2022-2028/chapter/chapter-15-development-management-standards` | 71 DM Standards + 7 tables; HTML-scrapable |
+| ⚙️📄 Galway Ch.15 full extract | `doc/galway_ch15_dm_standards_FULL.md` | verbatim numeric standards |
+| ⚙️📄 Galway required-assessments checklist | `doc/galway_required_assessments_checklist.md` | 26 triggered reports + trigger conditions |
+| ⚙️ **Shared council consultation portal** (DM standards across LAs) | `consult.galway.ie`, `consult.fingal.ie`, `consult.dublincity.ie`, `consult.kilkenny.ie`, `consult.wexfordcoco.ie`, `consult.waterfordcouncil.ie` | same platform → uniform scrape (Cork City excepted) |
+| ⚙️ Development-Plan (Land-Use) Zoning composite | `data.gov.ie/dataset/development-plan-land-use-zoning-ireland1` | national zoning → material-contravention flag |
+| ⚙️ OPR practice notes / guide | PN01 (AA screening) `publications.opr.ie`; PN03 (Conditions); `opr.ie/.../The-OPRs-Guide-to-the-Planning-Process.pdf` | how authorities decide |
+| ⚙️ Statutory core | Act 2000 §33 (FI), §34 (decision test), §140, §247 (pre-planning), §157(4) (7-yr); Regs 2001 **Art 33** (FI), **Art 35** (SFI notice), **Sch 5** (EIA), **Sch 2** (exempted dev); **Act 2024** | `irishstatutebook.ie`, `revisedacts.lawreform.ie` |
+| ⚙️ TII road/sightline standards | `cdn.tii.ie/publications/DN-GEO-03031` (rural road link), `DN-GEO-03043` (junctions); DMURS | sightline 'x/y' rules |
+| ⚙️ Flood Risk Mgmt Guidelines 2009 + Circular PL2/2014 | gov.ie | Justification Test basis |
+| ⚙️ EPA Code of Practice — on-site wastewater | `epa.ie` | percolation/trial-hole site suitability |
+| ⚙️ Habitats Directive + Birds & Natural Habitats Regs 2011 | `npws.ie`, EUR-Lex | AA/NIS legal trigger |
+| ⚙️ Sustainable Rural Housing Guidelines 2005 / NPF 2018 / **National Planning Statement on Rural Housing (2026, forthcoming)** | `npf.ie` | one-off-house policy |
+
+### 15.2 ⚙️ Designation layers (decision TRIGGERS — spatial joins to application points)
+| Layer | Endpoint | Status |
+|---|---|---|
+| ⚙️✅ **NPWS Designated Areas** (SPA 0 / pNHA 1 / NHA 2 / SAC 3) | `services-eu1.arcgis.com/Jhij7i46ouO8Cc0N/arcgis/rest/services/NPWSDesignatedAreas/FeatureServer` | live; SITECODE/SITE_NAME/COUNTY/HA |
+| ⚙️ NPWS (alt mirror / habitats) | `services-eu1.arcgis.com/HyjXgkV6KGMSF3jt/.../NPWSDesignatedAreas/FeatureServer`; `webservices.npws.ie/arcgis/rest/services/NPWS/SscoSACHabitats/MapServer` | 🔎 |
+| ⚙️ NPWS boundary downloads (shapefile, ITM) | `npws.ie/maps-and-data/designated-site-data/download-boundary-data` | 🔎 |
+| ⚙️ NPWS species derogation licences (bat surveys) | `npws.ie` derogation pages | 🔎 scrapable PDFs |
+| ⚙️ **OPW flood zones / CFRAM** | `floodinfo.ie` (ArcGIS endpoint = **TODO discover**) | 🔎 next probe |
+| ⚙️ ACA / Record of Protected Structures | council GIS + `localgov.ie/services/heritage-and-architectural-conservation` | 🔎 |
+| ⚙️ EPA SAC metadata | `gis.epa.ie/geonetwork/...d86f3a31...` | 🔎 |
+
+### 15.3 ✅ Core application & appeal feeds
+| Feed | Endpoint |
+|---|---|
+| ✅ National Planning Applications (points L0 / sites L1) | `services.arcgis.com/NzlPQPKn5QF9v2US/arcgis/rest/services/IrishPlanningApplications/FeatureServer` · `data.gov.ie/dataset/national-planning-applications` |
+| ✅ ACP appeals Cases_2016_Onwards (layer **3**) | `services-eu1.arcgis.com/o56BSnENmD5mYs3j/arcgis/rest/services/Cases_2016_Onwards/FeatureServer` · CC-BY |
+| ✅ ⚙️ ACP per-case page (inspector report + board direction PDFs) | `pleanala.ie/en-ie/case/{ABPCASEID}` (= `LINKABPWEB`) — **Board-vs-inspector accountability** |
+| ACP case search / pre-2016 archive | `pleanala.ie/en-ie/case-search` · `archive.pleanala.ie` |
+| Per-application council file | `LinkAppDetails` field (e.g. `eplanning.ie/{LA}/AppFileRefDetails/{ref}/0`) — ⚙️ PDF decision docs |
+| GeoHive National Planning Hub | `planning.geohive.ie` |
+| Tier1/Tier2A (Dublin housing-supply monitoring) | `data.gov.ie/dataset/tier1-planning-permissions1` · `…/Q1_2024/FeatureServer/28` |
+
+### 15.4 Statistics & reconciliation
+| Source | Locator |
+|---|---|
+| CSO Planning Permissions (PxStat, BHQ tables, CC-BY) | `cso.ie/en/statistics/buildingandconstruction/planningpermissions` · `data.cso.ie` product "PP" · `csodata` R pkg |
+| BCMS commencement notices | `data.nbco.gov.ie` · `data.gov.ie/dataset/bcms-commencement-notices-2020` |
+
+### 15.5 Influence / accountability (cross-ref to existing Dáil Tracker data)
+lobbying.ie returns on planning · TD/councillor declared interests · **Mahon/Flood Tribunal** · **2022 ABP/Paul Hyde report** (`jurist.org`) · material-contravention votes (Act §34(6)) · §140 directions. ⚙️ where influence is documentable.
+
+### 15.6 Comparator products (for product design)
+PlanningAlerts.org.au (+ `/api/developer`, github `openaustralia/planningalerts`, ATDIS) · PlanIt `planit.org.uk` (+ `/api/applics/{fmt}`) · Symbium · BuildZoom · Shovels · **planningalerts.ie** (pre-existing — check before any build).
+
+---
+
+## 16. CONCEPTUAL MODEL — the rulebook is the axioms (2026-06-13)
+
+This is the framing that governs the whole build. **The Development Management Standards ARE the
+axioms** from which everything else is derived. Read them here:
+- Live: `consult.galway.ie/.../chapter-15-development-management-standards`
+- Verbatim numeric axioms: `doc/galway_ch15_dm_standards_FULL.md` (71 DM Standards + 7 tables)
+- Conditional (trigger) axioms: `doc/galway_required_assessments_checklist.md` (26 triggered assessments)
+
+### Three kinds of axiom
+1. **Numeric** — a value to compare (e.g. rural site ≥ 2,000 m²; 22 m window separation; 1.5 parking
+   spaces/dwelling; sight 'Y' = 215 m @100 km/h). → needs a **measurement**.
+2. **Spatial-conditional** — "IF site ∈ designated area THEN obligation". → needs a **layer join**.
+3. **Always-on** — applies to every application (native-planting schedule, AA screening, energy cert).
+   → no trigger logic.
+
+### Why spatial joins are derived from the rulebook (not arbitrary)
+Many axioms have a **spatial predicate** as their antecedent. A polygon join is simply *how you
+evaluate that predicate* for a given application. Each join maps 1:1 to a named axiom:
+
+| Axiom (from the rulebook) | Spatial predicate | Join that evaluates it |
+|---|---|---|
+| DM Std 51 / checklist #12-13: near a Natura 2000 site → Appropriate Assessment | `point ∈ SAC/SPA` | point × NPWS SAC/SPA layer |
+| DM Std 69 / #21: use inappropriate to Flood Zone → Justification Test | `point ∈ Flood Zone A/B` | point × OPW flood layer |
+| DM Std 59-61 / #16: works to Protected Structure → heritage assessment | `point ∈ RPS / ACA` | point × RPS/ACA layer |
+| DM Std 47 / #10: sensitive landscape → Visual Impact Assessment | `point ∈ Landscape Class 2/3` | point × landscape-sensitivity |
+| material contravention (§10.6) | `land-use ≠ zoned use` | point × zoning composite |
+
+### Two distinct uses of the same join — do NOT conflate
+- **(a) Evaluate an axiom** — per-site: "is THIS site in a SAC → does it trigger an AA?" This is the
+  core operation (and what the decision-tree front-end calls at runtime).
+- **(b) Measure a correlation** — bulk/historical: "do SAC sites get refused more?" (§13: **35.9% vs
+  15.2%**, verified). A legitimate *side-validation* that the axioms bite in the real record, but a different
+  purpose. The §13 SAC join already proved this; it need not be repeated per layer.
+
+### The decision tree is a FRONT-END, not the substance
+The "guide a user through the opaque process" decision tree (app idea) is just a friendly walk through
+these same axioms: location → which designation layers it hits → development type → triggered
+assessments (conditional axioms) + governing numeric standards → likely pitfalls. It demystifies; it
+does not add logic. **All logic lives in the rulebook.**
+
+### Implication for the build
+Formalise the axiom set once (mark each DM Standard as numeric / spatial / always-on), attach each
+spatial axiom to its designation layer, and both the analytics (correlation) and the app (decision
+tree, per-site obligation lookup) fall out of the same source of truth. **Derive everything from the
+rulebook.**
+
+---
+
+## 17. PRIOR ART — what other countries built ("Rules as Code") (2026-06-13)
+
+Our "rulebook as axioms" approach is an established international movement: **Rules as Code (RaC)** —
+translating planning/building rules into machine-consumable logic. Validates the approach AND confirms
+the Irish gap (none of the below exist for Ireland). Maturity spectrum, closest-to-our-idea first:
+
+### Tier 1 — Citizen self-triage "do I need permission?" (= our decision-tree idea, already built)
+- 🇬🇧 **PlanX / Open Digital Planning** — `planx.uk` · `opendigitalplanning.org` — by **Open Systems Lab**
+  (non-profit), backed by MHCLG Digital Planning. Councils build **flowcharts** ("flows") that let a
+  homeowner self-triage: *"Find out if you need planning permission."* **Open-source, ~18+ councils**
+  (Lambeth, Southwark, Camden, Buckinghamshire). Explicitly **NOT AI** — accountable flowcharts authored
+  by the planning authority. **This is almost exactly our decision-tree concept — and it's reusable.**
+- 🇳🇿 **Wellington City Council — Resource Consent Checker** — guided Q&A telling residents the planning
+  requirements for *their* property. A clean RaC citizen example.
+
+### Tier 2 — Parcel "what can I build?" zoning lookup
+- 🇺🇸 **Symbium** (`symbium.com`) — "computational law"; real-time zoning/building/energy compliance as you
+  scope a project; partnered with **UpCodes** (6M+ code sections as code).
+- 🇺🇸 **Gridics** (`gridics.com`) — MuniMap / ZoneCheck: click any parcel → allowed uses, setbacks, density,
+  overlays, 3D buildable envelope. Adopted by US cities (e.g. Fort Lauderdale).
+
+### Tier 3 — Automated compliance checking (heavy / BIM-based) — ⛔ OUT OF SCOPE for this app
+> **Decision (2026-06-13): too much for our purpose.** These are national, government-operated,
+> BIM/IFC-model regulatory platforms — they require 3D model submission, multi-agency integration and
+> statutory authority. Not relevant to a civic-data demystification tool. Recorded for completeness only.
+- 🇸🇬 **CORENET X** (`info.corenet.gov.sg`) — national platform; automated checks on 3D **BIM (IFC+SG)**
+  models across architectural/structural/M&E; multi-agency review in 20 working days. World-first.
+- 🇪🇪 **Estonia EHR BIM building-permit** — **47 automatic code checks** against the Building Code; live.
+  (EU **ACCORD** project extends this across EE/FI/DE/UK/ES.)
+
+### What this tells us
+1. **The pain point is real and globally tackled** — but along a spectrum from *citizen triage* (cheap,
+   flowchart) to *full BIM auto-checking* (heavy, model-based).
+2. **Ireland has none of these** — confirms the gap (consistent with §10.7 / §15.6 findings).
+3. **Our level = Tier 1** (citizen triage / demystify), which is the **cheapest and highest-impact** entry,
+   and **PlanX is open-source** — potential to adapt rather than build from scratch.
+4. **RaC = our framing.** "Rulebook as axioms" (§16) is literally the Rules-as-Code thesis; the difference
+   is we *derive ours by scraping the existing plan* (the DM Standards) rather than hand-authoring flows —
+   a faster path to coverage, at the cost of needing the scrape-to-logic step.
+5. **Caveat seen across RaC literature:** converting NL rules → machine logic is the hard part (CODE-ACCORD
+   corpus, Urban Institute zoning automation) — which is exactly why our pre-structured, table-heavy
+   **DM Standards scrape is an advantage**: much of the Irish rulebook is already semi-structured.
+
+**Resources:** `planx.uk` · `opendigitalplanning.org` (open-source flows) · Wellington Resource Consent
+Checker · `symbium.com` · `gridics.com` · `info.corenet.gov.sg` · Estonia e-ehitus / ACCORD (`accordproject.eu`).
+
+### 17.1 PlanX deep-dive (the Tier-1 reference to study)
+The closest precedent to our idea. Funded by the UK **Planning Software Improvement Fund**, built by
+**Open Systems Lab** under the **Open Digital Planning (ODP)** programme.
+
+**Repo:** `github.com/theopensystemslab/planx-new` (+ `planx-core`, `planx-api`, `planx-docker`).
+- **Licence: MPL-2.0** (Mozilla Public Licence) — file-level copyleft, **permissive enough to fork/adapt**.
+- **Stack: TypeScript (93.9%)** monorepo — **React** editor+preview (Material UI, **GOV.UK** patterns);
+  **Node/Express** REST API (`apps/api.planx.uk`); **Hasura GraphQL** over **PostgreSQL**; **ShareDB**
+  (JSON Operational Transformation) for realtime collaborative flow editing; **Pulumi/AWS** IaC.
+- **Activity:** ~6,066 commits on main, actively maintained — but only **18 stars / 4 forks** (it's a
+  gov-internal product, not a big OSS community; expect to lean on OSL directly, not a forum).
+
+**How it works (the rules-as-code model):**
+- Service designers build a **flow** = a flowchart in a drag-and-drop visual editor — **no code**.
+- **Node types:** questions, checklists, text inputs, file uploads, notices, calculations, etc.
+- As an applicant answers, state accumulates in a **"passport"** (the collected answer/data object) which
+  drives branching/routing through the flow and is reused across services.
+- Output is **structured machine-readable data, NOT a PDF** — directly automatable downstream.
+- **Explicitly NOT AI** — accountable flowcharts authored & owned by the planning authority.
+
+**Proven impact (UK):** ~**60% fewer invalid applications**, ~**45% lower processing time**; **16–18 LPAs**
+(Lambeth, Southwark, Camden, Buckinghamshire, Tewkesbury). Independent **JUMPSEC** security assessment positive.
+
+**Relevance / reuse verdict for Ireland:**
+- ✅ The **flow + passport model is exactly our decision-tree**, and MPL-2.0 lets us adapt it.
+- ✅ Validates the *citizen-triage* product shape and its measurable benefit.
+- ⚠️ **UK-coupled:** GOV.UK design system, UK LPA integrations, UK legislation in the flow content — so
+  reuse = **adopt the engine/model, replace the content** (our scraped Irish DM Standards become the flows).
+- ⚠️ It is **operator-authored** (councils hand-build flows); our edge is **deriving flows from the scraped
+  rulebook** (§16) rather than hand-authoring — faster coverage, but needs the scrape→flow compiler.
+- **Open question to resolve next:** can the Galway DM Standards (numeric + triggered-assessment axioms)
+  be expressed directly in PlanX's flow/passport schema, i.e. reuse their engine fed by our rulebook?
+
+---
+
+## 18. THE LEGISLATIVE SPINE — Planning Act 2024 commencement via SIs (2026-06-13)
+
+Probed the Tracker's existing **Statutory Instruments** data (MCP `search_statutory_instruments`). It
+**already contains the planning commencement orders** — connecting the legislation layer to our rulebook.
+
+### ⚠️ Two different "commencements" — do not conflate
+1. **SI Commencement *Orders*** (IN the SI data) — bring an **Act into legal force**. They switch on the
+   *rulebook itself*. ← what this section is about.
+2. **BCMS Commencement *Notices*** (NOT in SI; separate ops feed `data.nbco.gov.ie`, §15.4) — a builder's
+   pre-construction notice to Building Control on one project. A step in an individual project's lifecycle.
+
+### What's in the SI data — Planning & Development Act 2024, commenced in stages
+| Date | SI | Order |
+|------|-----|-------|
+| 2025-06-10 | 2025/239 | Planning & Development Act 2024 (Commencement) Order |
+| 2025-06-20 | 2025/256 | …(No.2) |
+| 2025-08-01 | 2025/379 | …(No.3) |
+| 2025-10-03 | 2025/452 | …(No.4) |
+| 2025-10-10 | 2025/470 | Historic & Archaeological Heritage Act 2023 (Commencement) |
+| 2025-11-28 | 2025/555 | Historic & Archaeological Heritage Act 2023 (Commencement) |
+
+All tagged policy domain `housing_planning_local_gov`. (DQ note: bill-match mislabels these to the
+"An Taisce Bill 2024" and truncates parent to "Development Act 2024" — cosmetic, the SIs are correct.)
+
+### How they fit the bigger picture — the TEMPORAL / VERSION layer of the rulebook
+The **Planning & Development Act 2024** is the biggest overhaul of Irish planning law since the 2000 Act
+(which underpins our whole rulebook). It is being switched on **piece by piece** — these orders are the
+authoritative record of **which rules are in force on which date**:
+- An Bord Pleanála → **An Coimisiún Pleanála**; Section 28 Guidelines → **National Planning Statements**;
+  new **10-year** Development Plan cycle; revised timelines and consent classes.
+
+**Implication for the axioms (§16):** an application decided in early 2025 sits under the *2000 Act*
+regime; one in 2026 may be under parts of the *2024 Act*. To derive the correct **obligation-set** for any
+application you must know **which rulebook was live on its decision date** — and the SI commencement
+timeline IS that index. The axioms are therefore **version-stamped**, and the SI feed supplies the stamps.
+
+### Strategic differentiator
+The Tracker already ingests the **legislation/SI** layer AND is now scoping the **planning-operations**
+layer. So it can connect *the law being switched on* (SIs) to *the decisions made under it* (applications)
+— a cross-domain link planning-only tools (PlanX, Symbium) structurally cannot make. Ties to existing
+MCP tools `search_statutory_instruments` / `get_bill` (the Planning & Development Bill 2023 → its SIs).
