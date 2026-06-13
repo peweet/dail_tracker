@@ -116,15 +116,15 @@ CAVEAT_RE = re.compile(r"\bvat\b|exclud|inclus|indicativ|not (a )?payment|net of
 _CO_WORDS = (
     "ltd", "limited", "dac", "plc", "clg", "llp", "teo", "teoranta", "t/a", "uc", "inc", "llc",
     "gmbh", "co", "company", "companies", "group", "sons", "bros", "university", "college",
-    "council", "hse", "board", "media", "hotel", "ireland",
+    "council", "hse", "board", "media", "hotel", "ireland", "jv", "ppp",
 )
 _CO_STEMS = (
     "servic", "solution", "consult", "engineer", "architect", "surveyor", "solicitor", "barrister",
     "accountant", "advis", "contract", "construct", "develop", "enterprise", "industr", "technolog",
-    "system", "software", "logistic", "distribut", "manufactur", "pharma", "diagnostic", "laborator",
-    "healthcare", "medical", "insuranc", "assuranc", "management", "communicat", "telecom", "propert",
-    "holding", "internation", "institut", "foundation", "partner", "associat", "incorporat", "corporat",
-    "centre",
+    "system", "software", "logistic", "distribut", "manufactur", "pharma", "biotech", "diagnostic",
+    "laborator", "healthcare", "medical", "insuranc", "assuranc", "management", "communicat", "telecom",
+    "propert", "holding", "internation", "institut", "foundation", "partner", "associat", "incorporat",
+    "corporat", "centre",
 )
 COMPANY_SUFFIX = re.compile(
     r"\b(?:" + "|".join(_CO_WORDS) + r")\b|&|\b(?:" + "|".join(_CO_STEMS) + r")",
