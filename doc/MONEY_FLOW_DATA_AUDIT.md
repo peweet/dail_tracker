@@ -16,6 +16,34 @@ actual-vs-target against it), `doc/PROCUREMENT_MASTER.md` (verified procurement 
 
 ---
 
+## 0a. STATUS UPDATE — central-department ingest (2026-06-13, verified 14:46 gold)
+
+**The central-department ingest (win #11) is DONE.** `procurement_payments_fact` was re-consolidated
+today (file stamped 14:46) and now carries **48 publishers / 158,893 rows** (was 44 / 148k at audit time).
+The previously-absent central departments are in gold and **public-displayable** (they will surface in
+`v_public_payments`):
+
+| Dept | Rows | Sum-safe | Tier | Top vendors (the consultancy/IT spend the media flagged) |
+|---|---:|---:|---|---|
+| Education & Youth | 5,815 | €2,563m | paid | Rhatigan, BAM/JJ Rhatigan (school building), HEA |
+| Social Protection | 3,589 | €428m | committed | **Deloitte €67m, PFH €57m, Micromail €53m, Accenture €40m** |
+| Health | 1,325 | €80m | paid | TIFCO, Accenture, PHD Media |
+| Agriculture | 109 | €7m | committed | Grant Thornton, Rothschild, ESRI (thin — partial harvest) |
+
+Parse quality validated: blank-supplier "Sum:" rows correctly downgraded to low-conf and excluded from
+totals; max legitimate single rows are real (NTA BusConnects €140.6m → Graham; NPHDB children's hospital
+€107.6m → BAM). Tier split holds: **paid €13.06bn / committed €8.41bn** (never blended).
+
+**Two follow-ups remain open:**
+1. **§2.1 is still open, now isolated to a *different* 12 bodies** — incl. **Dept Defence (~€1.08bn committed)
+   and Dept Climate (~€1.31bn paid)** — which dropped out of today's partial extractor run (22 of ~40
+   configured publishers). Recover via `procurement_public_body_extract.py --merge --only <12 ids>` then
+   re-consolidate. ~€2.4bn of the original €2.9bn is in these two departments alone.
+2. **DQ bug:** an OPW **€155.8m blank-supplier** `payment_actual` row (2022, empty description) leaked past
+   the blank-supplier guard into `value_safe_to_sum` — inflates paid spend ~1.2%. Fix the guard / exclude it.
+
+---
+
 ## 0. How to read this doc
 
 - **§1** — the data-trust scorecard (per dataset: grain, tier, is-it-trustworthy).

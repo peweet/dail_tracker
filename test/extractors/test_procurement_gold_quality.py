@@ -28,8 +28,17 @@ OVERLAP = ROOT / "data" / "gold" / "parquet" / "procurement_lobbying_overlap.par
 # Bare company suffixes that only appear when a name with '&' was wrongly split on
 # the ';' inside '&amp;' (the entity-split bug). If any survive, the fix regressed.
 _FRAGMENT_SUFFIXES = {
-    "Sons Ltd", "Sons", "Sons Limited", "Son Ltd", "Son Solicitors",
-    "Company", "Co Ltd", "Co. Ltd", "Co. Limited", "Associates", "Partners",
+    "Sons Ltd",
+    "Sons",
+    "Sons Limited",
+    "Son Ltd",
+    "Son Solicitors",
+    "Company",
+    "Co Ltd",
+    "Co. Ltd",
+    "Co. Limited",
+    "Associates",
+    "Partners",
 }
 
 _SUPPLIER_CLASSES = {"company", "sole_trader_or_individual", "foreign_company", "public_body"}
@@ -71,6 +80,21 @@ def test_supplier_class_and_value_kind_in_known_sets():
     aw = _load(AWARDS)
     assert set(aw["supplier_class"].unique().to_list()) <= _SUPPLIER_CLASSES
     assert set(aw["value_kind"].unique().to_list()) <= _VALUE_KINDS
+
+
+def test_org_form_firms_reclassified_to_company():
+    """Suffix-less firms carrying an organisation-form word (Bros / & Sons / Solicitors / Partners /
+    Contractors …) are reclassified out of sole_trader_or_individual — they are firms, not lone
+    individuals, so they must be matchable, rankable and drillable like any company (mirrors the
+    payments consolidation). None may remain a sole trader."""
+    aw = _load(AWARDS)
+    org = r"(?i)\b(bros|brothers|sons|solicitors|partners|contractors|associates|developments|enterprises|industries)\b"
+    stragglers = aw.filter(
+        (pl.col("supplier_class") == "sole_trader_or_individual") & pl.col("supplier").str.contains(org)
+    )
+    assert stragglers.height == 0, (
+        f"org-form firms left as sole traders: {sorted(set(stragglers['supplier'].to_list()))[:10]}"
+    )
 
 
 def test_value_safe_to_sum_is_a_strict_clean_subset():
