@@ -1,8 +1,8 @@
 {
-  "generated_utc": "2026-06-13T13:41:50+00:00",
+  "generated_utc": "2026-06-13T14:13:48+00:00",
   "extractors": {
     "public_body": {
-      "run_utc": "2026-06-13T13:41:50+00:00",
+      "run_utc": "2026-06-13T14:13:48+00:00",
       "n_failures": 0,
       "failures": [],
       "zero_harvest": [],

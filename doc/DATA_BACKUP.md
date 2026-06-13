@@ -19,8 +19,15 @@ copy is gone for good. The silver OCR layer is reproducible in theory but
 PaddleOCR hard-crashes this box, so regenerating it is genuinely painful.
 
 This setup mirrors `data/bronze` + `data/silver` to **Cloudflare R2** — first 10 GB
-free, zero egress fees, S3-compatible — with **object versioning on**, so a
-re-published PDF keeps its old bytes instead of silently overwriting them.
+free, zero egress fees, S3-compatible.
+
+The backup is **append-only**: `rclone copy --ignore-existing` uploads anything not
+already in the bucket and never overwrites or deletes what is. Our captures are
+date/run-stamped (e.g. `companies_20260504.csv`), so when a council re-publishes a
+PDF it arrives under a new filename and lands as a new object next to the old one —
+nothing is lost, and we don't need object versioning (which R2 lacks anyway:
+`PutBucketVersioning` is [unimplemented](https://developers.cloudflare.com/r2/api/s3/api/)).
+Leave **Bucket Lock Rules** off.
 
 ## One-time setup
 
@@ -32,12 +39,12 @@ winget install Rclone.Rclone
 rclone version   # confirm it's on PATH
 ```
 
-### 2. Create the R2 bucket (with versioning)
+### 2. Create the R2 bucket
 
 1. Cloudflare dashboard → **R2** → *Create bucket* → name it **`dail-tracker-backup`**
    (must match `$bucket` in [tools/backup_to_r2.ps1](../tools/backup_to_r2.ps1)).
-2. Open the bucket → **Settings** → **Object versioning** → **Enable**.
-   *This is the part that protects against in-place PDF rewrites — do not skip it.*
+2. That's it — no toggles to set. Leave **Object versioning** (R2 has none) and
+   **Bucket Lock Rules** alone; the append-only `copy` model needs neither.
 
 ### 3. Create an S3 API token
 
@@ -66,7 +73,7 @@ Verify: `rclone lsd r2:dail-tracker-backup` should return cleanly (empty is fine
 
 ```powershell
 tools\backup_to_r2.ps1 -DryRun     # see what would upload, no transfer
-tools\backup_to_r2.ps1             # the real first sync (~9 GB, one-off)
+tools\backup_to_r2.ps1             # the real first copy (~9 GB, one-off)
 tools\register_backup_task.ps1     # weekly Sun 02:00 thereafter
 ```
 
@@ -76,11 +83,12 @@ tools\register_backup_task.ps1     # weekly Sun 02:00 thereafter
 
 1. **`python tools/data_manifest.py`** — rewrites the git-tracked
    `data/_meta/backup_manifest.tsv` (one `sha256<TAB>size<TAB>relpath` line per
-   bronze/silver file) and logs a drift summary. Because the manifest is committed,
-   `git diff` on it is a precise log of *which source files changed* — a mutated
-   council PDF shows up as a changed sha line, not a silent overwrite. Commit it
-   periodically so the change history persists.
-2. **`rclone sync`** of `data/bronze` and `data/silver` to `r2:dail-tracker-backup/`.
+   bronze/silver file). It's the restore-verification record and a change log:
+   `git diff` on it shows exactly which files were added or changed since last run.
+   Optional — skip with `-SkipManifest` if you want the leanest possible backup.
+2. **`rclone copy --ignore-existing`** of `data/bronze` and `data/silver` into
+   `r2:dail-tracker-backup/`. Additive only: new files go up, existing objects are
+   never touched, nothing is deleted.
 
 Logs: a one-line run summary at `logs/standalone/backup_to_r2.log`; full rclone
 transfer detail at `logs/standalone/backup_to_r2.rclone.log`.
@@ -93,30 +101,25 @@ On a fresh machine:
 git clone https://github.com/peweet/dail_tracker.git
 cd dail_tracker
 # ... recreate the venv (uv sync), reinstall + reconfigure rclone (steps 1 & 4) ...
-rclone sync r2:dail-tracker-backup/bronze data\bronze
-rclone sync r2:dail-tracker-backup/silver data\silver
+rclone copy r2:dail-tracker-backup/bronze data\bronze
+rclone copy r2:dail-tracker-backup/silver data\silver
 python tools\data_manifest.py --check   # exit 0 == every file matches the committed hashes
 ```
 
 The `--check` step is the proof of a clean restore: it re-hashes the restored
 trees and fails if any file differs from the committed manifest.
 
-### Recovering a specific old version of a mutated PDF
-
-Because versioning is on, R2 still holds prior bytes after an overwrite:
-
-```powershell
-rclone --s3-versions ls r2:dail-tracker-backup/bronze/pdfs/la_procurement/cork_city/
-# copy a specific dated version back:
-rclone --s3-versions copy "r2:dail-tracker-backup/bronze/pdfs/.../file-v2026-05-01-....pdf" .\restore\
-```
+Because the backup is append-only, **every version of a file you ever captured is
+already in the bucket under its own (date-stamped) name** — recovering an old
+council PDF is just copying that specific object back; there is no separate archive
+to dig through.
 
 ## Cost
 
 ~9 GB sits at or just over R2's free 10 GB tier; beyond that it is **$0.015/GB-month**
-(≈ $0.15/mo per extra 10 GB) with **zero egress fees**. Versioned history adds a
-little as PDFs churn — trim old versions with a bucket lifecycle rule (e.g. expire
-non-current versions after 365 days) if it ever grows.
+(approx $0.15/mo per extra 10 GB) with **zero egress fees**. The bucket only grows
+as new captures accumulate (old objects are never overwritten); if it ever gets
+large, add an R2 **Object Lifecycle** rule to expire objects older than N days.
 
 ## Scope notes
 
@@ -124,6 +127,6 @@ non-current versions after 365 days) if it ever grows.
   to rebuild from code + bronze. The runtime gold slice and curated `_meta` are
   already in git. If you'd rather have a fully self-contained restore without git,
   add `_meta` and `gold` as extra `foreach` trees in `backup_to_r2.ps1`.
-- This is a **mirror + version history**, not a snapshot archive. For a true
-  point-in-time archive of the irreplaceable raw PDFs, a second cold bucket with
-  `rclone copy` (never deletes) is the next step up — not needed yet at this scale.
+- This is an **append-only mirror**: it accumulates every capture and never deletes.
+  Combined with the date-stamped capture names, that gives you full history for free
+  without object versioning.

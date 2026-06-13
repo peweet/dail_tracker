@@ -93,8 +93,7 @@ def test_cro_matched_rows_are_company_class(con):
     # sole_trader_or_individual row may carry a cro_company_num.
     leaked = _q(
         con,
-        "SELECT COUNT(*) FROM FACT WHERE cro_company_num IS NOT NULL"
-        " AND supplier_class='sole_trader_or_individual'",
+        "SELECT COUNT(*) FROM FACT WHERE cro_company_num IS NOT NULL AND supplier_class='sole_trader_or_individual'",
     )[0][0]
     assert leaked == 0
 
@@ -108,3 +107,38 @@ def test_reclassified_companies_are_displayable(con):
         " AND (NOT public_display OR privacy_status='review_personal_data')",
     )[0][0]
     assert bad == 0
+
+
+def test_leading_ref_prefixes_mostly_stripped(con):
+    # The council parsers bled a row index / date / PO number into the supplier name
+    # ("36 Ward Bros Plant Hire"), fragmenting one firm across many keys. The cleaner strips them,
+    # so a normalised key beginning with a plain row-index-then-name is gone (only fused
+    # number-brands like "2CQR" / pure-number junk rows may still start with a digit).
+    bad = _q(
+        con,
+        # a digit-run followed by a SPACE then a letter = an un-stripped row-index prefix
+        r"SELECT COUNT(DISTINCT supplier_normalised) FROM FACT"
+        r" WHERE regexp_matches(supplier_normalised, '^[0-9]{1,4} [A-Z]')",
+    )[0][0]
+    assert bad <= 20  # a tiny residue of punctuation-separated markers is tolerated
+
+
+def test_strip_leading_ref_unit():
+    # Pure-function contract: bled-in leading references are removed; fused number-brands and
+    # whitespace-less names are preserved; a pure-number / empty residue is left untouched.
+    from extractors.procurement_payments_consolidate import _strip_leading_ref as s
+
+    assert s("36 Ward Bros Plant Hire") == "Ward Bros Plant Hire"
+    assert s("03-607 O'Shaugnessy and Associates") == "O'Shaugnessy and Associates"
+    assert s("2.4E+08 349849 Patrick Mc Caffrey & Sons Ltd") == "Patrick Mc Caffrey & Sons Ltd"
+    assert s("02/08/2023 Martin Heffernan & Associates") == "Martin Heffernan & Associates"
+    assert s("#### M H Associates Ltd") == "M H Associates Ltd"
+    # Preserved: fused number-brands (no whitespace after the digits) and clean names.
+    assert s("3M Ireland") == "3M Ireland"
+    assert s("247meeting (Ireland) Ltd") == "247meeting (Ireland) Ltd"
+    assert s("2CQR Limited") == "2CQR Limited"
+    assert s("AECOM Ireland Ltd") == "AECOM Ireland Ltd"
+    # Untouched: a pure-number / no-name residue is not emptied out.
+    assert s("100") == "100"
+    assert s("56,143.35") == "56,143.35"
+    assert s(None) is None

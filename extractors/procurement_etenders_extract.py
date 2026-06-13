@@ -72,6 +72,15 @@ OUT_MATCH = ROOT / "data/gold/parquet/procurement_supplier_cro_match.parquet"
 OUT_COV = ROOT / "data/_meta/procurement_coverage.json"
 
 COMPANY_SUFFIX = re.compile(r"\b(limited|ltd|dac|plc|clg|uc|llp|teoranta|teo|unlimited company|t/a)\b", re.I)
+# Organisation-form words that denote a firm/plurality and can NEVER be a lone private individual —
+# the same conservative set the payments consolidation uses (extractors/procurement_payments_consolidate
+# .py `_ORG_FORM_RE`). A sole-trader-classed supplier carrying one of these (or an exact CRO match) is
+# reclassified to a company below, so the suffix-less firms the COMPANY_SUFFIX regex misses are still
+# matched, ranked and surfaced. Kept in sync with the payments sibling.
+ORG_FORM = r"(?i)\b(bros|brothers|sons|solicitors|barristers|partners|associates|contractors|developments|enterprises|industries)\b"
+# A CRO exact name match below this normalised length is treated as a coincidental short-name
+# collision, not evidence of a company (mirrors the payments floor).
+_CRO_UPGRADE_MIN_LEN = 5
 FOREIGN_FORM = re.compile(
     r"\b(gmbh|s\.?a\.?|n\.?v\.?|s\.?a\.?s|s\.?p\.?a|inc|llc|\bpty\b|\bab\b|\bas\b|\bbv\b|\boy\b|srl|sl|sarl|aps|kft|ltda)\b",
     re.I,
@@ -316,6 +325,28 @@ def main() -> None:
         .otherwise(pl.lit("sole_trader_or_individual"))
         .alias("supplier_class")
     )
+
+    # Reclassify suffix-less firms the COMPANY_SUFFIX regex mis-binned as sole traders — the same
+    # two conservative signals the payments consolidation uses, neither of which can be a lone
+    # private individual: (1) an exact CRO name_norm match (a hard registration identifier, length-
+    # floored against short collisions, never on a source-truncated name that would mis-join), or
+    # (2) an organisation-form word (ORG_FORM). Upgraded firms then flow into the awards drill-down,
+    # the rankings, and the CRO match table below (which re-filters on supplier_class=='company').
+    _cro_names = pl.read_parquet(CRO).select("name_norm").unique().with_columns(pl.lit(True).alias("_cro_hit"))
+    aw = aw.join(_cro_names, left_on="supplier_norm", right_on="name_norm", how="left")
+    _upgrade = (pl.col("supplier_class") == "sole_trader_or_individual") & (
+        (
+            pl.col("_cro_hit").fill_null(False)  # noqa: FBT003 — polars fill, not a bool positional
+            & (pl.col("supplier_norm").str.len_chars() >= _CRO_UPGRADE_MIN_LEN)
+            & ~pl.col("name_truncated")
+        )
+        | pl.col("supplier").fill_null("").str.contains(ORG_FORM)
+    )
+    _n_up = int(aw.select(_upgrade.sum()).item())
+    aw = aw.with_columns(
+        pl.when(_upgrade).then(pl.lit("company")).otherwise(pl.col("supplier_class")).alias("supplier_class")
+    ).drop("_cro_hit")
+    print(f"  reclassified {_n_up:,} award rows sole_trader_or_individual -> company (CRO exact match / org-form word)")
 
     # ---- VALUE SEMANTICS: the published 'Awarded Value' is NOT actual spend ----
     # Two distinct over-counting traps, both flagged so totals can't be taken naively:
