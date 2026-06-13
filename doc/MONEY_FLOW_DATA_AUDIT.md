@@ -59,6 +59,27 @@ totals; max legitimate single rows are real (NTA BusConnects €140.6m → Graha
      BearingPoint €51.3m, An Post €47.5m) are classed `sole_trader_or_individual` → hidden from the public
      view (DFAT loses 65% / €256.9m of displayable spend). Data is captured & correct; fix = better supplier
      classification (CRO fuzzy / known-entity), NOT a privacy relaxation.
+5. ✅ **Spend-CATEGORY lens (source-grounded, no inference).** New pipeline-owned `spend_category` column on
+   the gold payment fact (`canon_spend_category` in `procurement_payments_consolidate.py`) = the publisher's
+   OWN published `description`, canonicalised ONLY for truncation + casing (leaked amounts/€ stripped,
+   dangling connectors trimmed, acronyms preserved) — **never an invented taxonomy** ("department's exact
+   words", owner decision). 84.5% coverage; nulls surface honestly as "Uncategorised". Registered views
+   **`v_payments_by_category`** + **`v_payments_by_category_publisher`** (`sql_views/procurement/
+   procurement_payments_by_category.sql`) — tier-separated, public+safe. Lifts asylum/direct-provision
+   spend front-and-centre, unambiguously, in the department's words:
+   **Justice → IP Accommodation €578m · Asylum Seeker Accommodation €208m · Ukraine Accommodation €149m.**
+   Other source categories: School Building €2.13bn, IRCG/SAR Helicopter €228m, NBP Subsidy €803m,
+   Pandemic Vaccine €213m. +6 contract/unit tests (88 total green).
+   - **Category → vendor drill (full transparency):** `v_payments_category_suppliers` exposes every
+     category's named vendors + amounts + tier, with `cro_company_num` surfaced. Reconciles to the euro
+     against the category rollup (test guards no vendor dropped). Examples: *IP/Asylum Accommodation* →
+     Cape Wrath Hotel €34m, Mosney €24m, Bridgestock, Millstreet Equestrian, Holiday Inn; *School Building*
+     → Rhatigan ABM €426m, BAM, JJ Rhatigan; *SAR Helicopter* → Bristow €192m, CHC; *Pandemic Vaccine* →
+     Pfizer €169m, Janssen, AstraZeneca. ⚠️ Vendor names are NOT operator-merged: "Bridgestock" (CRO
+     342894) vs "Bridgestock Care" (587776) are different registrations, "Mosney" (CRO 11917) vs "Mosney
+     Holidays" (no CRO) can't be verified as one — so each published name stays distinct (no guessing);
+     the CRO column enables a downstream roll-up only where a match exists. True operator-merge = the
+     deferred `dim_supplier` work.
 
 ---
 

@@ -27,9 +27,45 @@ from procurement_public_body_extract import (  # noqa: E402
     canonicalise_supplier_raw,
     classify_and_flag,
     dedup_source_repeats,
+    detect_roles_tab,
     flag_unidentifiable_suppliers,
     period_from_url,
 )
+
+
+# ----------------------------------------------------------------------------------------
+# detect_roles_tab: a "Payment Type"/"Order Type" category column is claimed by the `paid`
+# role (its regex includes "payment type") while `description` — which has no "type" keyword —
+# is left empty, discarding the published category text. When that column holds free-text
+# categories (not a Y/N flag), promote it to description (regression for 2026-06-13 fix).
+# ----------------------------------------------------------------------------------------
+def test_payment_type_category_column_maps_to_description():
+    header = ["TRANSACTION", "SUPPLIER", "PAYMENT TYPE", "PAYMENT TOTAL"]
+    rows = [
+        ["0040007232", "PJ Hegarty", "Building Maintenance", "23836.36"],
+        ["0040007234", "Acme Ltd", "Roofworks", "24970"],
+        ["0040007240", "Beta Ltd", "Surveying Services", "28335.82"],
+        ["0040007252", "Gamma Ltd", "Software", "74953.2"],
+    ]
+    roles = detect_roles_tab(header, rows)
+    assert roles["description"] == 2, "PAYMENT TYPE category column must become description"
+    assert roles["amount"] == 3
+    assert roles["supplier"] == 1
+    assert roles["po"] == 0
+    assert roles["paid"] is None, "category text must not be left in the paid-flag role"
+
+
+def test_genuine_paid_flag_is_not_promoted_to_description():
+    # A real Paid Y/N flag (≤2 distinct values) must stay a paid flag, not become description.
+    header = ["Reference", "Payee Name", "Tran Value", "Paid Y/N"]
+    rows = [
+        ["R1", "Acme Ltd", "21000", "Y"],
+        ["R2", "Beta Ltd", "33000", "N"],
+        ["R3", "Gamma Ltd", "45000", "Y"],
+    ]
+    roles = detect_roles_tab(header, rows)
+    assert roles["paid"] == 3
+    assert roles["description"] is None
 
 
 def _flag(suppliers):
@@ -39,6 +75,40 @@ def _flag(suppliers):
         "amount_semantics": ["payment_actual"] * len(suppliers),
     })
     return classify_and_flag(df)
+
+
+# The consolidate reclassifier is the uniform last-gate net (catches inflections the source
+# may miss, and folds the LA fact through the same rules). Unit-test its firm-indicator regex.
+from procurement_payments_consolidate import _reclassify_missed_companies  # noqa: E402
+
+
+def _reclass(specs):
+    """specs: list of (supplier_normalised, cro_company_num) -> a frame starting all-sole-trader."""
+    return _reclassify_missed_companies(pl.DataFrame({
+        "supplier_normalised": [s for s, _ in specs],
+        "cro_company_num": [c for _, c in specs],
+        "cro_company_status": [None] * len(specs),
+        "supplier_class": ["sole_trader_or_individual"] * len(specs),
+        "privacy_status": ["review_personal_data"] * len(specs),
+        "public_display": [False] * len(specs),
+    }))
+
+
+def test_reclassifier_upgrades_firm_words_and_cro_but_not_people():
+    out = _reclass([
+        ("arup consulting engineers", None),    # activity stem (inflection) -> company
+        ("alliance medical", None),             # activity word -> company
+        ("kpmg", "123456"),                     # no firm word but CRO match -> company
+        ("mary obrien", None),                  # bare person, no signal -> stays sole trader
+    ]).sort("supplier_normalised")
+    by = {r["supplier_normalised"]: r for r in out.iter_rows(named=True)}
+    assert by["arup consulting engineers"]["supplier_class"] == "company"
+    assert by["alliance medical"]["supplier_class"] == "company"
+    assert by["kpmg"]["supplier_class"] == "company"
+    assert by["mary obrien"]["supplier_class"] == "sole_trader_or_individual"
+    # upgraded rows become displayable; the person stays quarantined
+    assert by["arup consulting engineers"]["public_display"] is True
+    assert by["mary obrien"]["public_display"] is False
 
 
 def test_sole_trader_is_quarantined():
@@ -59,6 +129,42 @@ def test_company_is_displayable(name):
     assert row["supplier_class"] == "company"
     assert row["privacy_status"] == "ok"
     assert row["public_display"] is True
+
+
+@pytest.mark.parametrize("name", [
+    # Suffix-less firms that the OLD trailing-\b stem pattern misclassed as sole traders (regression
+    # for the 2026-06-13 over-quarantine fix): the activity word is an INFLECTION of a stem
+    # (engineerS / consultING / technologY / propertIES) that \b(stem)\b could never match.
+    "Arup Consulting Engineers",
+    "RPS Consulting Engineers",
+    "Ganson Building and Civil Engineering",
+    "Creative Technology Audio",
+    "Version 1 Software",
+    "Alliance Medical",
+    "Willis Towers Watson Insurance",
+    "Goldman Sachs Asset Management",
+    "United Drug Distributors Ireland",
+    "Primary Health Properties ICAV",
+    "Vector Workplace & Facility",       # ampersand firm
+    "McCullough Mulvin Architects",
+])
+def test_suffixless_activity_firm_is_company(name):
+    row = _flag([name]).row(0, named=True)
+    assert row["supplier_class"] == "company", f"{name} misclassed as {row['supplier_class']}"
+    assert row["public_display"] is True
+
+
+@pytest.mark.parametrize("name", [
+    # The fix must NOT sweep bare personal names in: no legal form, no activity word.
+    "Mary O'Brien",
+    "Sean Kelly",
+    "M Fitzgibbon",
+    "David Slattery",
+])
+def test_bare_personal_name_still_quarantined(name):
+    row = _flag([name]).row(0, named=True)
+    assert row["supplier_class"] == "sole_trader_or_individual", f"{name} should stay quarantined"
+    assert row["public_display"] is False
 
 
 def test_public_body_is_displayable():

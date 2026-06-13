@@ -191,6 +191,89 @@ def test_core_money_flow_bodies_present_and_visible(con):
     assert not missing, f"core money-flow bodies absent or fully non-displayable in gold: {missing}"
 
 
+# --------------------------------------------------------------------------- #
+# spend_category contract (2026-06-13). A source-grounded category derived ONLY from the
+# publisher's published `description` (canonicalised for truncation/casing) — never invented.
+# Guards that it stays verifiable: every category traces to a published description, carries no
+# leaked amounts, and the canonicaliser is a stable pure function.
+# --------------------------------------------------------------------------- #
+def test_spend_category_present(con):
+    cols = {r[0] for r in _q(con, "DESCRIBE SELECT * FROM FACT")}
+    assert "spend_category" in cols
+
+
+def test_spend_category_only_from_published_description(con):
+    # No-inference guard: a category may NEVER exist on a row with no source description — it is the
+    # department's own words, not a derived label.
+    invented = _q(
+        con,
+        "SELECT COUNT(*) FROM FACT WHERE spend_category IS NOT NULL AND (description IS NULL OR TRIM(description)='')",
+    )[0][0]
+    assert invented == 0
+
+
+def test_spend_category_has_no_leaked_amounts(con):
+    # The canonicaliser strips amounts/€ that some publishers (Education, councils) bled into the
+    # description column. A tiny residue of legitimate digit-leading names ("24/7", "3D") is tolerated.
+    money = _q(
+        con,
+        r"SELECT COUNT(DISTINCT spend_category) FROM FACT"
+        r" WHERE spend_category IS NOT NULL AND regexp_matches(spend_category, '^€|^[0-9][0-9.,]*([ €]|$)')",
+    )[0][0]
+    assert money <= 20
+
+
+def test_spend_category_is_letters_only_when_present(con):
+    # Every non-null category contains at least one letter (a pure-number/symbol residue is nulled).
+    bad = _q(con, r"SELECT COUNT(*) FROM FACT WHERE spend_category IS NOT NULL AND NOT regexp_matches(spend_category, '[A-Za-z]')")[0][0]
+    assert bad == 0
+
+
+def test_category_supplier_drill_reconciles(con):
+    # The transparent drill v_payments_category_suppliers must account for EVERY euro the category
+    # rollup v_payments_by_category reports — i.e. summing the vendor rows per (category × tier)
+    # equals the category total. A gap would mean a vendor (and its money) silently dropped.
+    from dail_tracker_core.db import connect_with_views
+
+    c = connect_with_views(["procurement_payments_by_category.sql"])
+    gap = c.execute(
+        """
+        WITH cat AS (SELECT spend_category, realisation_tier, total_safe_eur FROM v_payments_by_category),
+             sup AS (SELECT spend_category, realisation_tier, SUM(total_safe_eur) AS t
+                     FROM v_payments_category_suppliers GROUP BY 1, 2)
+        SELECT COUNT(*) FROM cat JOIN sup USING (spend_category, realisation_tier)
+        WHERE abs(cat.total_safe_eur - sup.t) > 1.0
+        """
+    ).fetchone()[0]
+    # Categories where the two differ should only be those with NO named-supplier rows excluded by the
+    # supplier view's non-blank filter; in practice the rollup also excludes blank suppliers from the
+    # safe sum, so they must reconcile to the euro.
+    assert gap == 0
+
+
+def test_canon_spend_category_unit():
+    # Pure-function contract: department's exact words, canonicalised ONLY for truncation + casing.
+    from extractors.procurement_payments_consolidate import canon_spend_category as c
+
+    # leaked leading amount / bare € dropped:
+    assert c("€80,000,000.00 Third Level Building and Infrastructure") == "Third Level Building and Infrastructure"
+    assert c("€ Construction Costs") == "Construction Costs"
+    # trailing dangling truncation tail dropped (connectors/punctuation only — never content words):
+    assert c("Ukraine Accommodation and/or") == "Ukraine Accommodation"
+    assert c("Asylum Seeker Accommodation,") == "Asylum Seeker Accommodation"
+    # casing normalised but acronyms preserved (so "IT software"/"IT Software" merge):
+    assert c("IT software") == "IT Software"
+    assert c("IM&T Maintenance and Support") == "IM&T Maintenance and Support"
+    assert c("SUPPORT AND MAINTENANCE (I.T.)") == "Support and Maintenance (I.T.)"
+    assert c("PASSPORT BOOKLETS") == "Passport Booklets"
+    # content words are NEVER stripped (no semantic re-grouping):
+    assert c("ICT Services") == "ICT Services"
+    # no-letter residue / empty -> None (not a purpose label):
+    assert c("0 0 0") is None
+    assert c("") is None
+    assert c(None) is None
+
+
 def test_strip_leading_ref_unit():
     # Pure-function contract: bled-in leading references are removed; fused number-brands and
     # whitespace-less names are preserved; a pure-number / empty residue is left untouched.

@@ -103,10 +103,31 @@ ROLE_RE = {
     "paid": re.compile(r"\bpaid\b|payment type|status|no\.? of payments|íoctha", re.I),
 }
 CAVEAT_RE = re.compile(r"\bvat\b|exclud|inclus|indicativ|not (a )?payment|net of|estimate|note:|please note", re.I)
+# A company / organisation indicator: a legal form, a plurality word, or a business-activity
+# stem that a lone private individual's name never carries. Two arms because the matching differs:
+#   • WHOLE words (\b…\b) for short tokens that would over-match as prefixes ("uc" inside "UCD",
+#     "co" inside "Connolly"): the legal forms and bare plurality words.
+#   • STEMS (leading \b only, NO trailing \b) so an inflection matches: "engineer" must catch
+#     "engineerING"/"engineerS", "consult" → "consultING/consultANTS/consultANCY", "technolog" →
+#     "technologY/technologIES". The old single \b(…)\b pattern silently failed on every such
+#     inflection (the trailing \b needs a word→non-word edge, which "engineerS" doesn't have), so
+#     ARUP CONSULTING ENGINEERS / CREATIVE TECHNOLOGY etc. were misclassed sole-trader. Fixed
+#     2026-06-13; the reclassifier in procurement_payments_consolidate.py carries the same vocab.
+_CO_WORDS = (
+    "ltd", "limited", "dac", "plc", "clg", "llp", "teo", "teoranta", "t/a", "uc", "inc", "llc",
+    "gmbh", "co", "company", "companies", "group", "sons", "bros", "university", "college",
+    "council", "hse", "board", "media", "hotel", "ireland",
+)
+_CO_STEMS = (
+    "servic", "solution", "consult", "engineer", "architect", "surveyor", "solicitor", "barrister",
+    "accountant", "advis", "contract", "construct", "develop", "enterprise", "industr", "technolog",
+    "system", "software", "logistic", "distribut", "manufactur", "pharma", "diagnostic", "laborator",
+    "healthcare", "medical", "insuranc", "assuranc", "management", "communicat", "telecom", "propert",
+    "holding", "internation", "institut", "foundation", "partner", "associat", "incorporat", "corporat",
+    "centre",
+)
 COMPANY_SUFFIX = re.compile(
-    r"\b(ltd|limited|dac|plc|clg|llp|teo|teoranta|t/a|uc|inc|llc|gmbh|company|co\.|group|"
-    r"services|solutions|consult|engineer|partners|associates|holdings|university|college|"
-    r"council|hse|board|institute|ireland|technolog|systems|media|hotel|centre|&)\b",
+    r"\b(?:" + "|".join(_CO_WORDS) + r")\b|&|\b(?:" + "|".join(_CO_STEMS) + r")",
     re.I,
 )
 FOREIGN_FORM = re.compile(
@@ -1097,6 +1118,26 @@ def detect_roles_tab(header, rows):
                 )
             )
         roles[role] = cands[0]
+
+    # A category/description column is often headed "Payment Type" / "Order Type" (OPW, several
+    # gov.ie bodies): the `paid` regex claims it (its pattern includes "payment type") and the
+    # `description` regex — which has no "type" keyword — leaves description empty, so the useful
+    # category text (Software, Roofworks, Building Maintenance) is discarded. When the column the
+    # `paid` role grabbed actually holds free-text categories rather than a Y/N flag or a payment
+    # count, promote it to description (and clear `paid`, so "Software" never lands in paid_flag).
+    def _looks_descriptive(i: int) -> bool:
+        vals = [str(r[i]).strip() for r in rows[:200] if i < len(r) and r[i] not in (None, "")]
+        if len(vals) < 3:
+            return False
+        if sum(to_eur(v) is not None for v in vals) / len(vals) > 0.3:  # a numeric flag/count, not text
+            return False
+        has_letters = sum(any(c.isalpha() for c in v) for v in vals) / len(vals)
+        distinct = len({v.lower() for v in vals})
+        # free-text categories vary (Software/Roofworks/…); a Paid/Not-Paid flag has ≤2 values.
+        return has_letters > 0.7 and distinct > 2
+
+    if roles["description"] is None and roles["paid"] is not None and _looks_descriptive(roles["paid"]):
+        roles["description"], roles["paid"] = roles["paid"], None
     return roles
 
 

@@ -297,12 +297,28 @@ def _attach_cro(df: pl.DataFrame) -> pl.DataFrame:
 #      identifier the regex lacks). Length-floored to skip 4-char parsing fragments ("& BOYD"
 #      -> "BOYD"); a genuine individual would have to share a normalised name with a registered
 #      company to flip, which is rare and, even then, the over-€20k lists already publish the name.
-#   2. Organisation-form word — Bros / Brothers / & Sons / Solicitors / Partners / Contractors /
-#      Developments / Enterprises / Industries: a firm/plurality indicator, never a bare personal
-#      name (the same philosophy as the source COMPANY_SUFFIX, applied across every fact).
-# value_safe_to_sum is unaffected (it never depended on sole-trader class). DQ fix 2026-06-13.
+#   2. Firm-indicator word — a legal form, a plurality word, or a business-activity STEM that a
+#      lone private individual's name never carries (Consulting Engineers / Architects / Software /
+#      Medical / Insurance / Asset Management / Distributors …). Mirrors the source COMPANY_SUFFIX
+#      vocabulary, applied uniformly across every folded fact. STEMS match inflections (leading
+#      \b only, no trailing \b) so "engineerS"/"consultING"/"technologY" all hit — the original
+#      whole-word-only list ("contractors", "developments") missed the singular/other inflections
+#      and left ~€5.8bn of obvious firms (Arup Consulting Engineers, RPS, Version 1 Software,
+#      Alliance Medical, …) quarantined as sole traders. Expanded 2026-06-13.
+# value_safe_to_sum is unaffected (it never depended on sole-trader class: both sole_trader and
+# company are summable — this only flips the privacy/display flag, never a spend total).
 _CRO_UPGRADE_MIN_LEN = 5
-_ORG_FORM_RE = r"(?i)\b(bros|brothers|sons|solicitors|barristers|partners|associates|contractors|developments|enterprises|industries)\b"
+# Whole-word legal/plurality forms (need both boundaries so short tokens don't over-match inside
+# a surname) | business-activity stems (leading boundary only → inflection-safe).
+_FIRM_WORDS = "ltd|limited|dac|plc|clg|llp|teo|teoranta|gmbh|inc|llc|srl|sarl|bros|brothers|sons|group|cuideachta"
+_FIRM_STEMS = (
+    "consult|engineer|architect|surveyor|solicitor|barrister|accountant|advis|contract|construct|"
+    "develop|enterprise|industr|technolog|system|software|servic|solution|logistic|distribut|"
+    "manufactur|pharma|diagnostic|laborator|healthcare|medical|insuranc|assuranc|management|"
+    "communicat|telecom|propert|holding|internation|institut|foundation|partner|associat|"
+    "incorporat|corporat"
+)
+_ORG_FORM_RE = r"(?i)(?:\b(?:" + _FIRM_WORDS + r")\b|\b(?:" + _FIRM_STEMS + r"))"
 
 
 def _reclassify_missed_companies(df: pl.DataFrame) -> pl.DataFrame:
@@ -341,6 +357,70 @@ def _reclassify_missed_companies(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
+# --------------------------------------------------------------------------- spend_category
+# A source-grounded spend category: the publisher's OWN published purpose text (the `description`
+# field), canonicalised ONLY for truncation + casing — never re-grouped into an invented taxonomy
+# (owner decision 2026-06-13: "department's exact words"). This keeps the category verifiable
+# (it IS the published label) and inference-free: "IP Accommodation", "School Building Projects",
+# "Passport Booklets" are the department's words, merely de-noised. Canonicalisation does only:
+#   1. drop a leaked LEADING amount ("€80,000,000.00 Third Level Building…" — Education prefixes the
+#      amount into the description column);
+#   2. strip a TRAILING run of dangling truncation tails (punctuation + bare connectors a mid-phrase
+#      parser cut left hanging: "Ukraine Accommodation and/or" → "Ukraine Accommodation"); NEVER a
+#      content word (services/support/maintenance/accommodation are kept);
+#   3. smart-case: keep short ALL-CAPS / mixed-caps acronyms verbatim (IP, ICT, IM&T, IRCG, I.T.),
+#      title-case ordinary words, keep connectors lowercase — so "IT software"/"IT Software" merge.
+# Rows whose description is null/blank get spend_category = NULL (surfaced as "Uncategorised").
+# Leading noise to drop: a bare/amount-bearing € sign and any run of number-groups a council parser
+# bled into the description column ("€80,000,000.00 Third Level…", "€ Construction Costs", "0 0 0").
+_CAT_LEAD_MONEY = re.compile(r"^\s*(?:€\s*)?(?:\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?\s*)*")
+_CAT_TAIL = re.compile(r"(?:[\s,;:./&-]+|\b(?:and/or|and|or)\b)+$", re.I)
+_CAT_SMALL = {"and", "or", "of", "the", "for", "to", "a", "an", "in", "on", "with", "and/or"}
+
+
+def _cat_is_acronym(w: str) -> bool:
+    letters = re.sub(r"[^A-Za-z]", "", w)
+    return bool((w.upper() == w and letters and len(letters) <= 4) or re.search(r"[a-z][A-Z]", w))
+
+
+def _cat_case_word(w: str, first: bool) -> str:
+    lw = w.lower()
+    if lw in _CAT_SMALL:
+        return lw if not first else lw[:1].upper() + lw[1:]
+    if _cat_is_acronym(w):
+        return w
+    return lw[:1].upper() + lw[1:]
+
+
+def canon_spend_category(s: str | None) -> str | None:
+    """Canonicalise a published description into a source-grounded spend category (see block above).
+    Pure function — unit-tested. Returns None for empty/blank input."""
+    if not s:
+        return None
+    s = re.sub(r"\s+", " ", str(s)).strip().strip("\"'")
+    s = _CAT_LEAD_MONEY.sub("", s).strip()
+    prev = None
+    while prev != s:
+        prev = s
+        s = _CAT_TAIL.sub("", s).strip()
+    # A residue with no letters (e.g. "0 0 0", a lone "€", a stray code) is not a purpose label.
+    if not re.search(r"[A-Za-z]", s):
+        return None
+    return " ".join(_cat_case_word(w, i == 0) for i, w in enumerate(s.split()))
+
+
+def _derive_spend_category(df: pl.DataFrame) -> pl.DataFrame:
+    if df.is_empty() or "description" not in df.columns:
+        return df.with_columns(pl.lit(None, dtype=pl.Utf8).alias("spend_category"))
+    out = df.with_columns(
+        pl.col("description").map_elements(canon_spend_category, return_dtype=pl.Utf8).alias("spend_category")
+    )
+    n_cat = out.filter(pl.col("spend_category").is_not_null())["spend_category"].n_unique()
+    cov = round(100.0 * out["spend_category"].is_not_null().sum() / out.height, 1)
+    print(f"  derived spend_category: {n_cat:,} distinct categories, {cov}% of rows covered (source: published description)")
+    return out
+
+
 def main() -> None:
     print("Consolidating payment-grain facts → gold:")
     base = _load_facts()
@@ -350,6 +430,7 @@ def main() -> None:
     df = _conform(df)
     df = _attach_cro(df)
     df = _reclassify_missed_companies(df)
+    df = _derive_spend_category(df)
 
     # PRIVACY INVARIANT (runtime, -O-proof): mirrors procurement_public_body_extract.py —
     # refuse to write gold if any likely-person row is left displayable.
