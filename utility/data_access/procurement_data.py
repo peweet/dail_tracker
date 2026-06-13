@@ -153,6 +153,18 @@ def fetch_payments_for_supplier_result(supplier_norm: str) -> QueryResult:
     return _q.payments_for_supplier(get_procurement_conn(), supplier_norm)
 
 
+@st.cache_data(ttl=300)
+def fetch_payments_supplier_header_result(supplier_norm: str) -> QueryResult:
+    """Single-row header for the paid-supplier drill-down (display name + both tier totals)."""
+    return _q.payments_supplier_header(get_procurement_conn(), supplier_norm)
+
+
+@st.cache_data(ttl=300)
+def fetch_payments_publishers_for_supplier_result(supplier_norm: str, tier: str = "SPENT") -> QueryResult:
+    """The public bodies that paid/ordered from one supplier (the drill-down line items)."""
+    return _q.payments_publishers_for_supplier(get_procurement_conn(), supplier_norm, tier=tier)
+
+
 # ── AFS (per-LA audited accounts) — BUDGET grain; the council-spend denominator ───
 # Sibling context fact for the local-authority dossier, never summed with PO/award euros.
 @st.cache_data(ttl=300)

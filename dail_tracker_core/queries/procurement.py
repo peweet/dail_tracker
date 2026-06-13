@@ -642,6 +642,49 @@ def payments_for_supplier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -
     )
 
 
+def payments_supplier_header(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> QueryResult:
+    """Single-row header for a paid-supplier drill-down (the mirror of
+    ``payments_publisher_profile``): the firm's published display name, both lifecycle
+    tiers' sum-safe totals side by side (never summed), its distinct-publisher / line / year
+    spans and its CRO match. Sum-safe euro only; mixed vat_status flagged so the page can
+    label the totals indicative floors."""
+    return _run(
+        conn,
+        "SELECT mode(supplier) AS supplier, supplier_normalised, mode(supplier_class) AS supplier_class,"
+        " COUNT(DISTINCT publisher_name) AS n_publishers,"
+        " MIN(year)::INT AS min_year, MAX(year)::INT AS max_year,"
+        " COUNT(*) FILTER (WHERE realisation_tier = 'SPENT')     AS n_paid_lines,"
+        " COUNT(*) FILTER (WHERE realisation_tier = 'COMMITTED') AS n_ordered_lines,"
+        " COALESCE(SUM(amount_eur) FILTER (WHERE value_safe_to_sum AND realisation_tier = 'SPENT'), 0)"
+        "   AS paid_safe_eur,"
+        " COALESCE(SUM(amount_eur) FILTER (WHERE value_safe_to_sum AND realisation_tier = 'COMMITTED'), 0)"
+        "   AS ordered_safe_eur,"
+        " (COUNT(DISTINCT vat_status) > 1) AS vat_mixed,"
+        " mode(cro_company_num) AS cro_company_num, mode(cro_company_status) AS cro_company_status"
+        " FROM v_procurement_payments WHERE supplier_normalised = ?"
+        " GROUP BY supplier_normalised",
+        [supplier_norm],
+    )
+
+
+def payments_publishers_for_supplier(
+    conn: duckdb.DuckDBPyConnection, supplier_norm: str, *, tier: str = "SPENT", limit: int = 200
+) -> QueryResult:
+    """The public bodies that paid (SPENT) or ordered (COMMITTED) from one supplier — the
+    drill-down line items behind a paid-supplier card, and the exact mirror of
+    ``payments_for_publisher`` (which lists a body's suppliers). Sum-safe within each body;
+    bodies named per their own published lists. One row per publisher, biggest first."""
+    return _run(
+        conn,
+        "SELECT publisher_name, mode(publisher_type) AS publisher_type, mode(sector) AS sector,"
+        " COUNT(*) AS n_payments, MIN(year)::INT AS min_year, MAX(year)::INT AS max_year,"
+        " COALESCE(SUM(amount_eur) FILTER (WHERE value_safe_to_sum), 0) AS total_safe_eur"
+        " FROM v_procurement_payments WHERE supplier_normalised = ? AND realisation_tier = ?"
+        " GROUP BY publisher_name ORDER BY total_safe_eur DESC LIMIT ?",
+        [supplier_norm, _tier(tier), int(limit)],
+    )
+
+
 # ── AFS (per-LA audited Annual Financial Statement) — the BUDGET/accounts grain ──────────
 # A SIBLING context fact for the local-authority dossier: the council's total audited revenue
 # spend by service division (the denominator the named-supplier PO/payment slice sits inside).

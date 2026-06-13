@@ -63,6 +63,8 @@ from data_access.procurement_data import (
     fetch_payments_by_year_result,
     fetch_payments_publisher_profile_result,
     fetch_payments_publisher_summary_result,
+    fetch_payments_publishers_for_supplier_result,
+    fetch_payments_supplier_header_result,
     fetch_payments_supplier_summary_result,
     fetch_quarter_profile_top_result,
     fetch_quarter_totals_result,
@@ -193,6 +195,14 @@ def _authority_href(authority) -> str:
 
 def _cpv_href(cpv_code) -> str:
     return f"?cpv={urllib.parse.quote(str(cpv_code))}"
+
+
+def _ted_winner_href(join_norm) -> str:
+    return f"?ted_winner={urllib.parse.quote(str(join_norm))}"
+
+
+def _paid_supplier_href(supplier_norm, tier: str = "SPENT") -> str:
+    return f"?paid_supplier={urllib.parse.quote(str(supplier_norm))}&paid_tier={urllib.parse.quote(tier)}"
 
 
 def _sort_toggle(key: str) -> str:
@@ -579,7 +589,10 @@ def _render_paid_suppliers(tier: str) -> None:
     if df.empty:
         empty_state("No payments", f"No supplier has {_paid_verb(tier)} records in this tier.")
         return
-    st.caption(f"Top {len(df):,} suppliers by money {_paid_verb(tier)} (sum-safe). Names as published by the body.")
+    st.caption(
+        f"Top {len(df):,} suppliers by money {_paid_verb(tier)} (sum-safe). Names as published by the body. "
+        "Click a company for the public bodies that paid it."
+    )
     cards = []
     for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
         np_ = _n(r.n_publishers)
@@ -594,7 +607,20 @@ def _render_paid_suppliers(tier: str) -> None:
             )
             if p
         ]
-        cards.append(_card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=i))
+        inner = _card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=i)
+        # Company-class only: composing one individual / sole trader's cross-body payment footprint is
+        # profile-building (same quarantine as the awards drill-down). Their card stays non-clickable —
+        # the single published line is already public, but the cross-register roll-up is not surfaced.
+        if _coalesce(getattr(r, "supplier_class", None)) == "company":
+            cards.append(
+                clickable_card_link(
+                    href=_paid_supplier_href(r.supplier_normalised, tier),
+                    inner_html=inner,
+                    aria_label=f"View the public bodies that {_paid_verb(tier)} {r.supplier}",
+                )
+            )
+        else:
+            cards.append(inner)
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
 
 
@@ -799,6 +825,112 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
     st.html(_FOOT_HTML)
 
 
+_PAY_FOOT_HTML = (
+    '<div class="pr-foot"><strong>Source:</strong> each public body\'s own published '
+    "purchase-order / payments-over-€20,000 disclosures (Circular 07/2012 / FOI), consolidated and "
+    "matched to the Companies Registration Office. Suppliers and bodies are named as published. "
+    "Paid (actual spend) and ordered (purchase orders) are different stages and are never summed "
+    "together; totals are never summed across bodies with different VAT bases; never added to award values.</div>"
+)
+
+
+def _render_payments_supplier_profile(supplier_norm: str, tier: str = "SPENT") -> None:
+    """Paid-supplier drill-down — the public bodies that paid (SPENT) or ordered (COMMITTED)
+    from one firm: the exact mirror of the per-body dossier (which lists a body's suppliers).
+    A later lifecycle stage than awards (never added to award totals) and the two payment tiers
+    are shown side by side, never blended. Company-class only (cross-body footprints of an
+    individual are profile-building — the same quarantine as the awards drill-down)."""
+    if back_button("← Back to procurement", key="prpaysup"):
+        st.query_params.clear()
+        st.rerun()
+
+    hdr = fetch_payments_supplier_header_result(supplier_norm)
+    hrow = hdr.data.iloc[0] if (hdr.ok and not hdr.data.empty) else None
+    if hrow is None:
+        if not hdr.ok:
+            empty_state("Payment data isn't available right now", "A source/pipeline issue, not an empty result.")
+        else:
+            empty_state("Supplier not found", "That link didn't match a paid supplier. Use Back to return.")
+        return
+    if _coalesce(hrow.get("supplier_class")) != "company":
+        empty_state(
+            "Not available",
+            "Cross-body payment footprints are shown for companies only — composing one individual's is "
+            "profile-building. Use Back to return.",
+        )
+        return
+
+    name = _esc(_coalesce(hrow.get("supplier"))) or "—"
+    n_paid, n_ordered = _n(hrow.get("n_paid_lines")), _n(hrow.get("n_ordered_lines"))
+    tiers_present = [t for t, c in (("SPENT", n_paid), ("COMMITTED", n_ordered)) if c]
+    np_ = _n(hrow.get("n_publishers"))
+    span = f"{_n(hrow.get('min_year'))}–{_n(hrow.get('max_year'))}" if _n(hrow.get("min_year")) else ""
+    sub_parts = [f"{np_:,} public bod{'ies' if np_ != 1 else 'y'} (over €20,000)"]
+    if span:
+        sub_parts.append(span)
+    st.html(
+        f'<div class="pr-prof-head"><div class="pr-prof-kicker">MONEY ACTUALLY PAID</div>'
+        f'<h1 class="pr-prof-name">{name}</h1>'
+        f'<div class="pr-prof-sub">{_esc(" · ".join(sub_parts))}</div></div>'
+    )
+    # Both lifecycle tiers side by side — distinct stages of public money, NEVER summed.
+    tier_pills = []
+    if n_ordered:
+        tier_pills.append(_paid_pill(hrow.get("ordered_safe_eur"), "COMMITTED"))
+    if n_paid:
+        tier_pills.append(_paid_pill(hrow.get("paid_safe_eur"), "SPENT"))
+    if _truthy(hrow.get("vat_mixed")):
+        tier_pills.append('<span class="pr-pill pr-pill-lob">mixed VAT bases (floor)</span>')
+    cro = _cro_pill_from(hrow.get("cro_company_num"), hrow.get("cro_company_status"))
+    pills = [p for p in (*tier_pills, cro) if p]
+    if pills:
+        st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(pills)}</div>')
+
+    if not tiers_present:
+        empty_state("No payments found", "This firm has no sum-safe payment records.")
+        st.html(_PAY_FOOT_HTML)
+        return
+
+    active = tier if tier in tiers_present else tiers_present[0]
+    if len(tiers_present) > 1:
+        labels = {"Paid (actual spend)": "SPENT", "Ordered (purchase orders)": "COMMITTED"}
+        default = next(k for k, v in labels.items() if v == active)
+        choice = st.segmented_control(
+            "Tier", list(labels), default=default, key="pr_paysup_tier", label_visibility="collapsed"
+        )
+        active = labels.get(choice or default, active)
+
+    res = fetch_payments_publishers_for_supplier_result(supplier_norm, tier=active)
+    df = res.data if res.ok else pd.DataFrame()
+    if df.empty:
+        empty_state("No bodies in this tier", f"No public body has {_paid_verb(active)} records for this firm.")
+        st.html(_PAY_FOOT_HTML)
+        return
+    st.caption(
+        f"Public bodies that {_paid_verb(active)} this firm (sum-safe within each body). Names and amounts "
+        "as the body published them, not award ceilings. Click a body for its own supplier list."
+    )
+    cards = []
+    for i, r in enumerate(df.itertuples(), start=1):
+        meta = (
+            f"{_n(r.n_payments):,} {_paid_verb(active)} line{'s' if _n(r.n_payments) != 1 else ''} · "
+            f"{_n(r.min_year)}–{_n(r.max_year)}"
+        )
+        row_pills = [_paid_pill(r.total_safe_eur, active)]
+        if _coalesce(getattr(r, "publisher_type", None)) == "local_authority":
+            row_pills.append('<span class="pr-pill pr-pill-lob">local authority</span>')
+        inner = _card(f"<span>{_esc(r.publisher_name)}</span>", meta, [p for p in row_pills if p], rank=i)
+        cards.append(
+            clickable_card_link(
+                href=_paid_publisher_href(r.publisher_name, active),
+                inner_html=inner,
+                aria_label=f"View the suppliers {_paid_verb(active)} by {r.publisher_name}",
+            )
+        )
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html(_PAY_FOOT_HTML)
+
+
 def _render_paid_supplier_panel(supplier_norm: str) -> None:
     """Cross-reference on an eTenders supplier profile: what public bodies actually PAID this
     firm (a later lifecycle stage than the awards above — never added to them)."""
@@ -918,13 +1050,23 @@ def _render_ted() -> None:
     if df.empty:
         empty_state("No TED winners", "The EU register loaded but returned no company-class winners.")
         return
-    st.caption(f"Top {len(df):,} firms by number of EU award notices won. Value is awarded value, not spend.")
+    st.caption(
+        f"Top {len(df):,} firms by number of EU award notices won. Value is awarded value, not spend. "
+        "Click a firm to open its individual EU notices."
+    )
     cards = []
     for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
         meta = f"{_awards_word(_n(r.n_awards))} · {_n(r.n_buyers):,} buyer{'s' if _n(r.n_buyers) != 1 else ''}"
         cro = _cro_pill_from(getattr(r, "cro_company_num", None), getattr(r, "cro_company_status", None))
         pills = [p for p in (_ted_value_pill(r.ted_value_safe_eur), cro) if p]
-        cards.append(_card(f"<span>{_esc(r.winner_name)}</span>", meta, pills, rank=i))
+        inner = _card(f"<span>{_esc(r.winner_name)}</span>", meta, pills, rank=i)
+        cards.append(
+            clickable_card_link(
+                href=_ted_winner_href(r.winner_join_norm),
+                inner_html=inner,
+                aria_label=f"View the EU award notices won by {r.winner_name}",
+            )
+        )
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> TED — Tenders Electronic Daily, the EU '
@@ -971,58 +1113,144 @@ def _render_ted_supplier_panel(supplier_norm: str) -> None:
     # renamed entity's notices surface here; we keep exact-name and variant rows in SEPARATE,
     # labelled sections so a name match is never passed off as a verified same-company claim.
     # Display-only — every link points at the source; nothing here is computed or inferred.
+    exact_html, variant_html, total = _ted_notices_sections(supplier_norm)
+    if total:
+        with st.expander(f"Open the {total:,} authoritative EU notice{'' if total == 1 else 's'} on TED ↗"):
+            st.html(_TED_NOTICES_INTRO + exact_html)
+            if variant_html:
+                st.html(variant_html)
+
+
+def _ted_notice_li(nr, *, show_name: bool) -> str:
+    """One TED notice as a source-linked list item. ``show_name`` leads with the winner's own
+    published name (used on variant rows so a name-based grouping is never hidden)."""
+    url = _coalesce(getattr(nr, "notice_url", None))
+    if not url:
+        return ""
+    date = _coalesce(getattr(nr, "dispatch_date", None))[:10]
+    buyer = _esc(_coalesce(getattr(nr, "buyer_name", None)) or "—")
+    is_fw = _coalesce(getattr(nr, "value_kind", None)) == "framework_or_dps_ceiling"
+    tag = "framework — shared ceiling, not a payment" if is_fw else "contract award"
+    name_pre = f"<strong>{_esc(_coalesce(getattr(nr, 'winner_name', None)))}</strong> — " if show_name else ""
+    return (
+        f'<li class="pr-notice"><a href="{_esc(url)}" target="_blank" rel="noopener">'
+        f'{name_pre}{buyer} · {date} ↗</a> <span class="pr-notice-tag">{tag}</span></li>'
+    )
+
+
+_TED_NOTICES_INTRO = (
+    '<p class="pr-cap">The tracker stores a thin slice of each award. Each notice below opens '
+    "the full Official Journal record on TED — where the authority publishes what is actually "
+    "being built, the real framework ceiling and the award criteria. The source, not our summary.</p>"
+)
+
+
+def _ted_notices_sections(supplier_norm: str) -> tuple[str, str, int]:
+    """Build one winner's TED notice list, split into an exact-name ``<ul>`` and a labelled
+    closely-named-variant section. Returns ``(exact_html, variant_html, total_count)`` —
+    both blocks empty and total 0 when the firm has no linkable notices. Shared by the
+    supplier-profile cross-reference panel and the EU-register winner drill-down so the
+    name-match honesty copy can never drift between them."""
     notices_res = fetch_ted_notices_for_supplier_result(supplier_norm)
     ndf = notices_res.data if notices_res.ok else pd.DataFrame()
-
-    def _notice_li(nr, *, show_name: bool) -> str:
-        url = _coalesce(getattr(nr, "notice_url", None))
-        if not url:
-            return ""
-        date = _coalesce(getattr(nr, "dispatch_date", None))[:10]
-        buyer = _esc(_coalesce(getattr(nr, "buyer_name", None)) or "—")
-        is_fw = _coalesce(getattr(nr, "value_kind", None)) == "framework_or_dps_ceiling"
-        tag = "framework — shared ceiling, not a payment" if is_fw else "contract award"
-        # On variant rows, lead with the winner's own published name so the reader sees the
-        # grouping is name-based, not a hidden identity assertion.
-        name_pre = f"<strong>{_esc(_coalesce(getattr(nr, 'winner_name', None)))}</strong> — " if show_name else ""
-        return (
-            f'<li class="pr-notice"><a href="{_esc(url)}" target="_blank" rel="noopener">'
-            f'{name_pre}{buyer} · {date} ↗</a> <span class="pr-notice-tag">{tag}</span></li>'
-        )
-
     exact_li = [
         li
         for nr in ndf.itertuples()
         if _truthy(getattr(nr, "is_exact_name", False))
-        for li in (_notice_li(nr, show_name=False),)
+        for li in (_ted_notice_li(nr, show_name=False),)
         if li
     ]
     variant_li = [
         li
         for nr in ndf.itertuples()
         if not _truthy(getattr(nr, "is_exact_name", False))
-        for li in (_notice_li(nr, show_name=True),)
+        for li in (_ted_notice_li(nr, show_name=True),)
         if li
     ]
+    exact_html = f'<ul class="pr-notice-list">{"".join(exact_li)}</ul>' if exact_li else ""
+    variant_html = ""
+    if variant_li:
+        variant_html = (
+            '<p class="pr-cap" style="margin-top:0.8rem"><strong>Closely-named winners.</strong> '
+            f"{len(variant_li):,} further notice{'' if len(variant_li) == 1 else 's'} won under a "
+            "<em>similar</em> name (shared name stem — e.g. a renamed or merged company). Grouped by "
+            "name only; these <em>may be different legal entities</em> — confirm via the CRO number on "
+            "each notice before treating them as one firm.</p>"
+            f'<ul class="pr-notice-list">{"".join(variant_li)}</ul>'
+        )
+    return exact_html, variant_html, len(exact_li) + len(variant_li)
 
-    if exact_li or variant_li:
-        total = len(exact_li) + len(variant_li)
-        with st.expander(f"Open the {total:,} authoritative EU notice{'' if total == 1 else 's'} on TED ↗"):
-            st.html(
-                '<p class="pr-cap">The tracker stores a thin slice of each award. Each notice below opens '
-                "the full Official Journal record on TED — where the authority publishes what is actually "
-                "being built, the real framework ceiling and the award criteria. The source, not our summary.</p>"
-                + (f'<ul class="pr-notice-list">{"".join(exact_li)}</ul>' if exact_li else "")
+
+def _render_ted_winner_profile(join_norm: str) -> None:
+    """Drill-down for one EU-register (TED) winner: the firm's individual Official Journal
+    award notices as line items, each linking to the authoritative source. The EU register's
+    counterpart to the national supplier profile — reached from the TED winner ranking, and
+    NOT gated on the firm appearing in the national eTenders register (most TED-only winners
+    don't). A separate register, never summed with the national award totals."""
+    if back_button("← Back to procurement", key="prtedwin"):
+        st.query_params.clear()
+        st.rerun()
+
+    res = fetch_ted_for_supplier_result(join_norm)
+    row = res.data.iloc[0] if (res.ok and not res.data.empty) else None
+    if row is None:
+        if not res.ok:
+            empty_state(
+                "EU register isn't available right now",
+                "The TED views couldn't be loaded — a source/pipeline issue, not an empty result.",
             )
-            if variant_li:
-                st.html(
-                    '<p class="pr-cap" style="margin-top:0.8rem"><strong>Closely-named winners.</strong> '
-                    f"{len(variant_li):,} further notice{'' if len(variant_li) == 1 else 's'} won under a "
-                    "<em>similar</em> name (shared name stem — e.g. a renamed or merged company). Grouped by "
-                    "name only; these <em>may be different legal entities</em> — confirm via the CRO number on "
-                    "each notice before treating them as one firm.</p>"
-                    f'<ul class="pr-notice-list">{"".join(variant_li)}</ul>'
-                )
+        else:
+            empty_state("EU winner not found", "That link didn't match a firm in the EU register. Use Back to return.")
+        return
+
+    name = _esc(_coalesce(row.get("winner_name"))) or "—"
+    n_awards, n_buyers = _n(row.get("n_awards")), _n(row.get("n_buyers"))
+    sub = f"{_awards_word(n_awards)} from {n_buyers:,} EU public buyer{'s' if n_buyers != 1 else ''} · 2016–2026"
+    st.html(
+        f'<div class="pr-prof-head"><div class="pr-prof-kicker">EU REGISTER · TED</div>'
+        f'<h1 class="pr-prof-name">{name}</h1><div class="pr-prof-sub">{sub}</div></div>'
+    )
+    pills = [
+        p
+        for p in (
+            _ted_value_pill(row.get("ted_value_safe_eur")),
+            _cro_pill_from(row.get("cro_company_num"), row.get("cro_company_status")),
+        )
+        if p
+    ]
+    if pills:
+        st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(pills)}</div>')
+
+    st.caption(
+        "EU Official Journal (TED) award notices won by this firm — a separate register from the national "
+        "eTenders data, and never summed with it. Award notices, not payments; framework rows are shared "
+        "ceilings, not money paid."
+    )
+    exact_html, variant_html, total = _ted_notices_sections(join_norm)
+    if not total:
+        empty_state("No linkable notices", "This firm is in the EU ranking but none of its notices carry a source link.")
+    else:
+        st.html(_TED_NOTICES_INTRO + exact_html)
+        if variant_html:
+            st.html(variant_html)
+
+    # Same firm's lot-level competition context (TED 2024+), shown with its no-inference caveat.
+    _render_supplier_competition_panel(join_norm)
+
+    # If the firm is ALSO on the national register, route to its full cross-register dossier.
+    sup = fetch_supplier_summary_result(limit=None)
+    if sup.ok and not sup.data.empty and bool((sup.data["supplier_norm"] == join_norm).any()):
+        st.html(
+            f'<div style="margin:1rem 0"><a class="dt-entity-cta" href="{_esc(company_profile_url(join_norm))}" '
+            'target="_self">See this firm’s full public-money dossier (national awards + payments) →</a></div>'
+        )
+
+    st.html(
+        '<div class="pr-foot"><strong>Source:</strong> TED — Tenders Electronic Daily, the EU '
+        'Official Journal of public procurement (<a href="https://ted.europa.eu" target="_blank" '
+        'rel="noopener">ted.europa.eu ↗</a>), winners matched to the Companies Registration Office. '
+        "Award notices, not payments; a separate register from the national eTenders data — never summed.</div>"
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1198,7 +1426,8 @@ def _render_ted_tenders() -> None:
         return
     st.caption(
         f"{len(df):,} most-recent competition notices{' still open' if only_open else ''}. "
-        "Estimated value is a pre-award buyer estimate — not an award and not a payment."
+        "Estimated value is a pre-award buyer estimate — not an award and not a payment. "
+        "Click a notice to open the full tender on TED."
     )
     cards = []
     for r in df.head(_TOP).itertuples():
@@ -1218,7 +1447,22 @@ def _render_ted_tenders() -> None:
             pills.append('<span class="pr-pill pr-pill-lob">still open</span>')
         if _truthy(getattr(r, "is_uncompetitive_procedure", None)):
             pills.append('<span class="pr-pill pr-pill-lob">no open call</span>')
-        cards.append(_card(f"<span>{_esc(getattr(r, 'buyer_name', None))}</span>", meta, pills))
+        buyer = _coalesce(getattr(r, "buyer_name", None))
+        inner = _card(f"<span>{_esc(buyer) or '—'}</span>", meta, pills)
+        # Each card IS one line item (a single notice) — make the whole card open the
+        # authoritative EU Official Journal record, the closest thing to a pre-award detail page.
+        url = _coalesce(getattr(r, "notice_url", None))
+        if url.startswith("http"):
+            cards.append(
+                clickable_card_link(
+                    href=url,
+                    inner_html=inner,
+                    aria_label=f"Open the EU tender notice from {buyer or 'this buyer'} on TED",
+                    target="_blank",
+                )
+            )
+        else:
+            cards.append(inner)
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> TED — Tenders Electronic Daily, EU Official Journal '
@@ -1267,7 +1511,8 @@ def _render_expiring_contracts() -> None:
         return
     st.caption(
         f"{len(df):,} contracts whose advertised term ends within {months} months, soonest first. "
-        "Values are award/ceiling figures shown for context — never totals."
+        "Values are award/ceiling figures shown for context — never totals. "
+        "Click a contract to open its award notice on TED."
     )
     cards = []
     for r in df.itertuples():

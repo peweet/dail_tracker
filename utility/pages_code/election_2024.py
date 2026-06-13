@@ -676,23 +676,32 @@ def _render_candidates_tab() -> None:
     )
     fcol, scol = st.columns([1, 2])
     sel_party = fcol.selectbox("Party", parties, key="esp_party")
-    search = scol.text_input("Search candidate", key="esp_search",
-                             placeholder="e.g. Grealish").strip().lower()
+    search = scol.text_input(
+        "Search candidate", key="esp_search", placeholder="e.g. Grealish",
+        help=f"Searches all {len(ranked)} loaded candidate statements by name.",
+    ).strip().lower()
 
+    # Filters select rows from the FULL loaded set (fetch_ranked has no row cap),
+    # so any loaded candidate is findable by name — the 120 cap below is display-only.
     view = ranked
+    filtered = False
     if sel_party != "All parties":
         view = view[view["party"] == sel_party]
+        filtered = True
     if search:
         view = view[view["candidate_name"].str.lower().str.contains(search, na=False)]
+        filtered = True
 
-    st.markdown(f"#### Top campaign spenders · {len(view)} candidate{'' if len(view) == 1 else 's'}")
+    n = len(view)
+    heading = "Matching candidates" if filtered else "Top campaign spenders"
+    st.markdown(f"#### {heading} · {n} candidate{'' if n == 1 else 's'}")
     if view.empty:
         empty_state("No matches", "No candidates match the current filters.")
     else:
         cards = "".join(_cand_card(r, i + 1) for i, (_, r) in enumerate(view.head(120).iterrows()))
         st.html(f'<div class="don-grid">{cards}</div>')
-        if len(view) > 120:
-            st.caption(f"Showing the top 120 of {len(view)}. Use the filters to narrow.")
+        if n > 120:
+            st.caption(f"Showing the top 120 of {n} by spend. Use the filters above to narrow.")
     st.caption(_CAND_CAVEAT)
 
     # Category breakdown across all loaded candidates.
