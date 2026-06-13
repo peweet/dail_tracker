@@ -134,7 +134,13 @@ CATEGORY_WORD = re.compile(
 # it. These rows carry the literal threshold as their amount; the phrasing is never a real
 # supplier name. Checked in addition to CATEGORY_WORD.
 TITLE_ROW = re.compile(
-    r"(purchase orders?|payments?)\b.{0,30}(over|greater than)\s*€?\s*20[,.]?000|payments?\s+(and|or)\s+purchase orders?",
+    r"(purchase orders?|payments?)\b.{0,30}(over|greater than)\s*€?\s*20[,.]?000"
+    r"|payments?\s+(and|or)\s+purchase orders?"
+    # gov.ie department banners phrase the threshold as "Payments for/of €20,000 or above/over"
+    # (DFAT, Health, Education) — the literal €20,000 in the banner otherwise leaks as a fake
+    # supplier row with amount 20,000. "or above/over/more" only ever appears in a heading.
+    r"|payments?\s+(for|of)\s+€?\s*20[,.]?000"
+    r"|€?\s*20[,.]?000\s+or\s+(above|over|more)",
     re.I,
 )
 # exclude policy/guidance/privacy/contract docs when harvesting period data files
@@ -309,6 +315,72 @@ PUBLISHERS: list[dict] = [
         grain="payment",
         privacy="low",
     ),
+    # ---- Tier F: government departments (gov.ie collections) — discovery sweep 2026-06-13.
+    # All seven publish quarterly PO/payment-over-€20k lists as digital PDFs linked DIRECTLY on
+    # the collection page (WebFetch-confirmed) — the proven Defence/Culture pattern the generic
+    # header-anchored PDF reader already handles. grain per the page title (Purchase Orders ->
+    # po_committed, Payments -> payment_actual). --list-verify before a full --merge run.
+    cfg(
+        "dept_agriculture",
+        "Department of Agriculture, Food and the Marine",
+        "department",
+        "central_government",
+        listing="https://www.gov.ie/en/collection/903f95-purchase-orders/",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="F",
+    ),
+    cfg(
+        "dept_social_protection",
+        "Department of Social Protection",
+        "department",
+        "central_government",
+        listing="https://www.gov.ie/en/department-of-social-protection/collections/purchase-orders-for-20000-or-above/",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="F",
+        caveat="PO-over-20000 quarterly, 2012-present",
+    ),
+    # dept_foreign_affairs (DFAT) DE-SCOPED 2026-06-13 — every "Payments over €20,000" PDF is a
+    # single-column READING-ORDER layout ("<GL category> <SUPPLIER> <amount>" on one line), not a
+    # column-geometry table, so the generic word-row reader cannot split supplier from category
+    # (supplier comes out as "POSTAGE & OTHER COURIER COSTS AN POST"). Amounts ARE recoverable.
+    # This is the NTA/SEAI/NPHDB bespoke family — needs a reading-order parser anchored on the
+    # trailing amount. Listing (files-directly-linked, 2012-present):
+    # https://www.gov.ie/en/department-of-foreign-affairs/organisation-information/payments-over-20000/
+    # dept_justice DE-SCOPED 2026-06-13 — the "Purchase Orders Issued over €20,000" PDF is also a
+    # single-column reading-order layout ("<PO#> <SUPPLIER> €<amount> <desc> <Y/N>"); the generic
+    # reader scores a NOTES paragraph as the header and reads the 6-digit PO number as the amount
+    # (€30bn+ garbage). The companion xlsx buries its real header under a 7-row notes preamble that
+    # _tabular_from_raw's 8-row window misses. Both need bespoke handling (line-regex on the pdf, or
+    # a deeper xlsx header search). Listing (annual, may lag a year):
+    # https://www.gov.ie/en/department-of-justice-home-affairs-and-migration/collections/department-of-justice-purchase-orders-issued-over-20000-in-value/
+    cfg(
+        "dept_health",
+        "Department of Health",
+        "department",
+        "central_government",
+        listing="https://www.gov.ie/en/department-of-health/collections/department-of-health-payments-over-20000/",
+        semantics="payment_actual",
+        grain="payment",
+        tier="F",
+    ),
+    cfg(
+        "dept_education",
+        "Department of Education and Youth",
+        "department",
+        "central_government",
+        listing="https://www.gov.ie/en/department-of-education/collections/department-of-education-payments-greater-than-20000/",
+        semantics="payment_actual",
+        grain="payment",
+        tier="F",
+        caveat="Payments-of-20000-or-over quarterly PDFs, 2013-present (one 2023 quarter also offers xlsx)",
+    ),
+    # dept_transport DE-SCOPED 2026-06-13 — its PO-over-20000 PDFs (esp. the 2025
+    # "Q#_Purchase_Order_20k_or_over.pdf" series) are reading-order, not column-geometry: 73% of
+    # rows came out with a null supplier and the total inflated to €15.7bn (PO/value-column bleed).
+    # Same bespoke reading-order family as DFAT/Justice. Listing (files directly linked, 2018-):
+    # https://www.gov.ie/en/department-of-transport/organisation-information/departmental-purchase-orders-greater-than-20000/
     # ---- Tier B: OWNED BY A SEPARATE CONTEXT (procurement_hse_tusla_parser.py) -----
     # HSE + Tusla need bespoke per-publisher column-x specs (the generic header-anchored
     # reader misparses them: HSE fuses amount+quarter+date, Tusla's vendor bleeds into the
@@ -728,7 +800,25 @@ def harvest_files(cf: dict, crawl_cap: int = 12) -> list[str]:
             order.append(s)
         elif fmt_pref.get(e, 9) < fmt_pref.get(stem_ext(best[s])[1], 9):
             best[s] = u  # keep the more reliable format for the same report
-    return [best[s] for s in order]
+    result = [best[s] for s in order]
+
+    # Cross-format same-period dedup: some publishers post the SAME quarter as BOTH a tabular file
+    # (csv/xlsx) AND a pdf under DIFFERENT filenames (e.g. dept_agriculture Q4-2025 as
+    # "Q4_2025_Purchase_Orders_over_20k.pdf" + "Payments_to_Suppliers…_Q4_2025.csv"). Different
+    # stems slip past the stem-dedup above and the quarter is counted twice. When a period carries
+    # BOTH a tabular and a pdf, drop the pdf (the tabular has cleaner columns). Crucially this only
+    # fires across DIFFERENT formats — same-format repeats in one period are untouched, so NTMA's
+    # 6 per-business-unit pdfs/quarter and any genuinely split quarter survive.
+    def _is_tab(u: str) -> bool:
+        return stem_ext(u)[1] in (".csv", ".xlsx", ".xls")
+
+    period_fmts: dict[str | None, set[bool]] = {}
+    for u in result:
+        per = period_from_url(u)[0]
+        if per:
+            period_fmts.setdefault(per, set()).add(_is_tab(u))
+    drop_pdf_periods = {p for p, fmts in period_fmts.items() if True in fmts and False in fmts}
+    return [u for u in result if _is_tab(u) or period_from_url(u)[0] not in drop_pdf_periods]
 
 
 # ============================================================================ readers
@@ -959,10 +1049,22 @@ def read_xls(b: bytes):
 
 
 def read_csv(b: bytes):
+    # gov.ie CSVs frequently carry a TITLE + blank preamble before the real header row, e.g. Social
+    # Protection "Purchase Orders over €20,000 - Quarter 1, 2026" / blank / "Supplier name,Order
+    # type,Order No,Order amount", or Health "Payments €20,000 or above…" / blank / blank /
+    # "Reference,Payee Name,Tran Value,Description,Paid Y/N". polars' default has_header=True takes
+    # the title as the header and the real columns get lost. Read header-less and reuse the shared
+    # title-skipping header detector (same as xlsx/xls).
     df = pl.read_csv(
-        io.BytesIO(b), infer_schema_length=0, truncate_ragged_lines=True, ignore_errors=True, encoding="utf8-lossy"
+        io.BytesIO(b),
+        has_header=False,
+        infer_schema_length=0,
+        truncate_ragged_lines=True,
+        ignore_errors=True,
+        encoding="utf8-lossy",
     )
-    return df.columns, [list(r) for r in df.iter_rows()], " ".join(df.columns)
+    raw = [list(r) for r in df.iter_rows()]
+    return _tabular_from_raw(raw)
 
 
 # A header that carries a money-ish KEYWORD but is really an identifier or a count, never the
@@ -1286,6 +1388,21 @@ def classify_and_flag(df: pl.DataFrame) -> pl.DataFrame:
                 pl.col("amount_semantics").is_in(["po_committed", "payment_actual"])
                 & pl.col("amount_eur").is_not_null()
                 & (pl.col("amount_eur") > 0)
+                # Belt-and-braces against an order/PO number read as an amount (the recurring
+                # €30bn/€400m bug on reading-order PDFs, e.g. dept_justice's "109245 …" lines): no
+                # single public-body PO/payment line is ≥ €100m, so such a value is a parse error,
+                # never summable. Mirrors the LA extractor's post-guard. The row is RETAINED (low
+                # confidence) for audit but excluded from any total.
+                & (pl.col("amount_eur") < 100_000_000)
+                # A row with NO identifiable supplier is never summable spend: it is either a
+                # category/quarterly SUBTOTAL (e.g. dept_social_protection PDFs emit 4 blank-supplier
+                # 'Sum:' rows/year worth €428m that would DOUBLE-COUNT the per-supplier rows) or a
+                # parse gap. CATEGORY_WORD misses these because the total label sits in the
+                # description, not the blank supplier cell. Rows kept (low-conf) for audit, never
+                # totalled. GENERIC_SUPPLIER_NAME single-word firms keep a non-empty normalised name
+                # and stay summable — only a TRULY empty supplier_normalised is excluded here.
+                & pl.col("supplier_normalised").is_not_null()
+                & (pl.col("supplier_normalised").str.strip_chars() != "")
                 & (pl.col("supplier_class") != "public_body")
             ).alias("value_safe_to_sum"),
         )

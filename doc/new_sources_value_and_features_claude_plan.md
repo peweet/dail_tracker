@@ -7,7 +7,7 @@
 - `doc/current_source_health_coverage_gaps_claude_plan.md` — source-HEALTH monitoring for *existing* sources (separate concern).
 - Scoping verdicts + concrete endpoints/schemas/gotchas: memory `project_new_sources_scoping_2026_06_04.md`. Raw probe data cached transiently in `c:\tmp\tier1_scoping\` and `c:\tmp\tier2_scoping\`.
 
-**Discipline (carried from existing rules):** never union different money-meanings (voted budget vs grant-allocated vs grant-paid vs award vs payment vs project-cost-band vs non-money signal); preserve value_kind + realisation_tier (PROCUREMENT_BUILD_PLAN §4b); every public fact links to source and preserves caveats; inference welcome in planning, forbidden in app UI copy.
+**Discipline (carried from existing rules):** never union different money-meanings (voted budget vs grant-allocated vs grant-paid vs award vs payment vs project-cost-band vs non-money signal); preserve value_kind + realisation_tier (PROCUREMENT_MASTER §8); every public fact links to source and preserves caveats; inference welcome in planning, forbidden in app UI copy.
 
 ---
 

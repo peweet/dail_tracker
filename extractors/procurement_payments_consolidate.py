@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -55,6 +56,7 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from services.parquet_io import save_parquet  # noqa: E402
+from shared.name_norm import name_norm_expr  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -90,6 +92,55 @@ SEMANTICS_TO_KIND = {
     "payment_actual": ("payment_actual", "SPENT"),
     "po_committed": ("po_committed", "COMMITTED"),
 }
+
+
+# Leading reference tokens that bled into the supplier column from certain council parsers — a
+# published row index, a date, a PO/reference number, an Excel sci-notation of a big number, or a
+# "####" mask — e.g. "36 Ward Bros Plant Hire", "03-607 O'Shaughnessy and Associates",
+# "2.4E+08 349849 Patrick Mc Caffrey & Sons Ltd". They fragment one firm across dozens of distinct
+# normalised keys and break the CRO match. ⚠️ APPLIED ONLY IN THIS PAYMENTS LANE, never in shared
+# name_norm: eTenders / TED leading-number names are real brands ("3M", "53 Degrees Design",
+# "247meeting") that are either FUSED or never carry a row index, so a blanket strip would corrupt
+# them — but no such space-separated number-brand exists in the council payment data (verified).
+_LEAD_REF_RE = re.compile(
+    r"^(?:\s*(?:"
+    r"\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}"  # date (02/08/2023)
+    r"|\d+(?:[.,]\d+)?[eE][+\-]?\d+"  # Excel sci-notation (2.4E+08)
+    r"|#+"  # masked digits (####)
+    r"|\d{1,6}(?:[-/]\d+)*"  # row index / dash-joined ref (36, 03-607)
+    r")\s+)+",
+    re.I,
+)
+
+
+def _strip_leading_ref(name: str | None) -> str | None:
+    """Remove a leading run of bled-in reference tokens (see ``_LEAD_REF_RE``). Conservative: the
+    strip is taken only when a real alphabetic name (≥2 letters) remains — otherwise the value was
+    a pure-number / footnote junk row, left untouched for the existing junk filters."""
+    if not name:
+        return name
+    m = _LEAD_REF_RE.match(name)
+    if not m:
+        return name
+    rest = name[m.end() :]
+    return rest if re.search(r"[A-Za-z]{2,}", rest) else name
+
+
+def _clean_supplier_names(df: pl.DataFrame) -> pl.DataFrame:
+    """Strip the bled-in leading reference tokens from the published supplier name and recompute the
+    normalised join key, so one firm stops fragmenting across many keys (and so the cleaned key now
+    also matches the same firm's eTenders/CRO form). Runs before the CRO match + reclassification so
+    both benefit from the de-fragmented key."""
+    if df.is_empty():
+        return df
+    before = df["supplier_normalised"].n_unique()
+    df = df.with_columns(
+        pl.col("supplier_raw").map_elements(_strip_leading_ref, return_dtype=pl.Utf8).alias("supplier_raw")
+    ).with_columns(name_norm_expr("supplier_raw").alias("supplier_normalised"))
+    after = df["supplier_normalised"].n_unique()
+    if after < before:
+        print(f"  cleaned leading row-index/ref prefixes: {before - after:,} fewer distinct supplier keys")
+    return df
 
 
 def _load_facts() -> pl.DataFrame:
@@ -152,8 +203,12 @@ def _load_la_fact(base: pl.DataFrame) -> pl.DataFrame | None:
             la["publisher_id"].unique()
         )
         if gone:
-            carried = gold.filter(pl.col("publisher_id").is_in(sorted(gone))).select(base.columns).cast(dict(base.schema))
-            print(f"  ! listing-rot carry-forward: {sorted(gone)} absent from silver — kept {carried.height:,} gold rows")
+            carried = (
+                gold.filter(pl.col("publisher_id").is_in(sorted(gone))).select(base.columns).cast(dict(base.schema))
+            )
+            print(
+                f"  ! listing-rot carry-forward: {sorted(gone)} absent from silver — kept {carried.height:,} gold rows"
+            )
             la = pl.concat([la, carried], how="vertical")
     return la
 
@@ -173,11 +228,7 @@ def _conform(df: pl.DataFrame) -> pl.DataFrame:
     # same money against the council→contractor leg. Force value_safe_to_sum=False for them so the
     # single value_safe_to_sum filter (used by every view/page) enforces the guard. Rows stay in
     # the fact, visible; they are merely excluded from spend totals.
-    safe = (
-        pl.when(pl.col("supplier_class") == "public_body")
-        .then(pl.lit(False))
-        .otherwise(pl.col("value_safe_to_sum"))
-    )
+    safe = pl.when(pl.col("supplier_class") == "public_body").then(pl.lit(False)).otherwise(pl.col("value_safe_to_sum"))
     # Privacy-flag invariant (re-derived, never trusted): public_display must be False for
     # any likely natural person. The base extractor enforces this at write time, but bespoke
     # sandbox parsers have drifted (nta/nphdb/seai reading_order parsers set
@@ -211,20 +262,65 @@ def _attach_cro(df: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("name_norm").str.len_chars() >= 4)
         .unique(subset=["name_norm"])
     )
-    # Only company-class suppliers are matched (individuals are not CRO-registered).
-    return (
-        df.join(cro, left_on="supplier_normalised", right_on="name_norm", how="left")
-        .with_columns(
-            pl.when(pl.col("supplier_class") == "company")
-            .then(pl.col("company_num"))
-            .otherwise(None)
-            .alias("cro_company_num"),
-            pl.when(pl.col("supplier_class") == "company")
-            .then(pl.col("company_status"))
-            .otherwise(None)
-            .alias("cro_company_status"),
+    # Match EVERY row on the normalised name (not only regex-classed companies). An exact
+    # name_norm match to a CRO registration is a hard identifier the name-suffix regex lacks —
+    # _upgrade_class_from_cro uses it to reclassify suffix-less companies (e.g. "Duggan Bros",
+    # "Byrne Wallace Solicitors") the regex mis-binned as sole traders. The match is carried for
+    # any row; the reclassification + privacy re-derivation happen in the next step.
+    return df.join(cro, left_on="supplier_normalised", right_on="name_norm", how="left").rename(
+        {"company_num": "cro_company_num", "company_status": "cro_company_status"}
+    )
+
+
+# A suffix-less company name is mis-binned as a sole trader by the name-suffix regex in the
+# source parsers (which only catch "Ltd"/"Limited"/… and a few keywords, and differ between the
+# folded facts). The consolidation is the last common chokepoint, so a UNIFORM reclassification
+# lives here, on two signals that cannot be a lone private individual:
+#   1. CRO exact match — the normalised name equals a registered company's name_norm (a hard
+#      identifier the regex lacks). Length-floored to skip 4-char parsing fragments ("& BOYD"
+#      -> "BOYD"); a genuine individual would have to share a normalised name with a registered
+#      company to flip, which is rare and, even then, the over-€20k lists already publish the name.
+#   2. Organisation-form word — Bros / Brothers / & Sons / Solicitors / Partners / Contractors /
+#      Developments / Enterprises / Industries: a firm/plurality indicator, never a bare personal
+#      name (the same philosophy as the source COMPANY_SUFFIX, applied across every fact).
+# value_safe_to_sum is unaffected (it never depended on sole-trader class). DQ fix 2026-06-13.
+_CRO_UPGRADE_MIN_LEN = 5
+_ORG_FORM_RE = r"(?i)\b(bros|brothers|sons|solicitors|barristers|partners|associates|contractors|developments|enterprises|industries)\b"
+
+
+def _reclassify_missed_companies(df: pl.DataFrame) -> pl.DataFrame:
+    """Reclassify sole_trader_or_individual rows that are demonstrably firms (exact CRO match, or
+    an organisation-form word in the name) to ``company``, re-deriving the privacy flags so the
+    upgraded rows become displayable. Conservative by design: only signals that cannot denote a
+    lone private individual flip a row."""
+    if "cro_company_num" not in df.columns:
+        return df
+    is_sole = pl.col("supplier_class") == "sole_trader_or_individual"
+    cro_match = pl.col("cro_company_num").is_not_null() & (
+        pl.col("supplier_normalised").str.len_chars() >= _CRO_UPGRADE_MIN_LEN
+    )
+    org_form = pl.col("supplier_normalised").fill_null("").str.contains(_ORG_FORM_RE)
+    upgrade = is_sole & (cro_match | org_form)
+    n_cro = df.filter(is_sole & cro_match).height
+    n_org = df.filter(is_sole & org_form & ~cro_match).height
+    n_sup = df.filter(upgrade)["supplier_normalised"].n_unique()
+    if n_cro or n_org:
+        print(
+            f"  reclassified {df.filter(upgrade).height:,} rows ({n_sup:,} suppliers) "
+            f"sole_trader_or_individual -> company [{n_cro:,} CRO-match, {n_org:,} org-form word]"
         )
-        .drop(["company_num", "company_status"])
+    # Final class after the upgrade; the CRO number is only ever carried on a company-class row
+    # (invariant: a CRO match implies company). A below-floor sole-trader that coincidentally hit a
+    # short company name is NOT upgraded, so its speculative match is dropped rather than left as a
+    # contradictory "sole trader with a company number".
+    new_class = pl.when(upgrade).then(pl.lit("company")).otherwise(pl.col("supplier_class"))
+    is_company = new_class == "company"
+    return df.with_columns(
+        new_class.alias("supplier_class"),
+        pl.when(upgrade).then(pl.lit("ok")).otherwise(pl.col("privacy_status")).alias("privacy_status"),
+        pl.when(upgrade).then(pl.lit(True)).otherwise(pl.col("public_display")).alias("public_display"),
+        pl.when(is_company).then(pl.col("cro_company_num")).otherwise(None).alias("cro_company_num"),
+        pl.when(is_company).then(pl.col("cro_company_status")).otherwise(None).alias("cro_company_status"),
     )
 
 
@@ -233,14 +329,19 @@ def main() -> None:
     base = _load_facts()
     la = _load_la_fact(base)
     df = pl.concat([base, la], how="vertical") if la is not None else base
+    df = _clean_supplier_names(df)
     df = _conform(df)
     df = _attach_cro(df)
+    df = _reclassify_missed_companies(df)
 
     # PRIVACY INVARIANT (runtime, -O-proof): mirrors procurement_public_body_extract.py —
     # refuse to write gold if any likely-person row is left displayable.
     leaked = df.filter(
         pl.col("public_display")
-        & ((pl.col("supplier_class") == "sole_trader_or_individual") | (pl.col("privacy_status") == "review_personal_data"))
+        & (
+            (pl.col("supplier_class") == "sole_trader_or_individual")
+            | (pl.col("privacy_status") == "review_personal_data")
+        )
     )
     if leaked.height:
         raise SystemExit(

@@ -177,6 +177,7 @@ def test_canon_party_canonicalises_and_nulls_unknown():
 _GOLD = _ROOT / "data/gold/parquet"
 _FACT = _GOLD / "sipo_candidate_expenses_fact.parquet"
 _ITEMS = _GOLD / "sipo_candidate_expense_items.parquet"
+_UNQUANT = _GOLD / "sipo_candidate_expenses_unquantified.parquet"
 
 
 @pytest.mark.skipif(not _FACT.exists(), reason="gold candidate fact not built")
@@ -189,6 +190,27 @@ def test_gold_fact_within_statutory_cap_and_no_pii():
     assert df.filter(pl.col("total_suspect")).height == 0
     # no address/PII column ever reaches committed gold
     assert [c for c in df.columns if "address" in c.lower()] == []
+
+
+@pytest.mark.skipif(not (_UNQUANT.exists() and _FACT.exists()), reason="gold not built")
+def test_filed_unquantified_carries_no_amount_and_partitions_the_fact():
+    """The filed-but-unquantified fact must (a) never leak a spend figure (showing a
+    corrupt/blank total would be a fabricated number), and (b) be DISJOINT from the
+    quantified fact — together they are every filed candidate, counted once."""
+    import polars as pl
+
+    uq = pl.read_parquet(_UNQUANT)
+    fact = pl.read_parquet(_FACT)
+    # (a) no monetary / amount / address column escapes into this fact
+    leak = [c for c in uq.columns
+            if any(t in c.lower() for t in ("eur", "spend", "amount", "total", "address"))]
+    assert leak == [], f"unquantified fact must carry no figure, found {leak}"
+    # status is one of the two documented reasons, never blank
+    assert set(uq["filed_status"].unique()) <= {"no_total_declared", "figures_unreadable"}
+    # (b) disjoint from the served fact, on the candidate+constituency identity
+    key = ["candidate_name", "constituency_name"]
+    overlap = uq.select(key).join(fact.select(key), on=key, how="inner")
+    assert overlap.height == 0, f"a candidate is in BOTH facts: {overlap.to_dicts()}"
 
 
 @pytest.mark.skipif(not _ITEMS.exists(), reason="gold line items not built")
@@ -255,6 +277,7 @@ def test_roster_join_links_elected_and_keeps_unmatched():
 _VIEW_SQL = _ROOT / "sql_views/sipo/sipo_candidate_expenses.sql"
 _VIEWS = [
     "v_sipo_candidate_expenses",
+    "v_sipo_candidate_expenses_filed_unquantified",
     "v_sipo_candidate_expense_items",
     "v_sipo_candidate_expenses_by_party",
     "v_sipo_candidate_expenses_by_category",

@@ -41,6 +41,29 @@ FROM read_parquet('data/gold/parquet/sipo_candidate_expenses_fact.parquet')
 ORDER BY total_spend_eur DESC;
 
 
+-- v_sipo_candidate_expenses_filed_unquantified — candidates who FILED a 2024 expenses
+-- statement but for whom no trustworthy total can be shown: either the form's total cell
+-- was blank/unreadable (`no_total_declared`), or the only figure is an OCR decimal-loss
+-- artefact above the statutory cap (`figures_unreadable`). Carries NO amount by design —
+-- showing the corrupt magnitude would be a fabricated number, and a blank total is never
+-- asserted to be €0 (a genuine €0 nil-return parses cleanly and appears in the main view).
+-- The page lists these as searchable "also filed" entries that link to the official PDF.
+CREATE OR REPLACE VIEW v_sipo_candidate_expenses_filed_unquantified AS
+SELECT
+    election_event,
+    candidate_name,
+    constituency_name,
+    party,
+    party_declared,
+    unique_member_code,
+    is_elected_td,
+    filed_status,        -- 'no_total_declared' | 'figures_unreadable'
+    ocr_complete,
+    source_pdf_url
+FROM read_parquet('data/gold/parquet/sipo_candidate_expenses_unquantified.parquet')
+ORDER BY constituency_name, candidate_name;
+
+
 -- v_sipo_candidate_expense_items — line-item grain. `detail` is the SIPO form's free-text
 -- "Details of item" column: a MIX of supplier names ("Galway Advertiser") and item
 -- descriptions ("Posters", "Meta ads"). It is NOT a clean vendor field — never present

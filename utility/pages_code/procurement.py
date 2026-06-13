@@ -1228,7 +1228,9 @@ def _render_ted_winner_profile(join_norm: str) -> None:
     )
     exact_html, variant_html, total = _ted_notices_sections(join_norm)
     if not total:
-        empty_state("No linkable notices", "This firm is in the EU ranking but none of its notices carry a source link.")
+        empty_state(
+            "No linkable notices", "This firm is in the EU ranking but none of its notices carry a source link."
+        )
     else:
         st.html(_TED_NOTICES_INTRO + exact_html)
         if variant_html:
@@ -1539,7 +1541,20 @@ def _render_expiring_contracts() -> None:
         basis = _END_BASIS_LABEL.get(_coalesce(getattr(r, "contract_end_basis", None)))
         if basis:
             pills.append(f'<span class="pr-pill">{basis}</span>')
-        cards.append(_card(f"<span>{_esc(getattr(r, 'buyer_name', None))}</span>", meta, pills))
+        buyer = _coalesce(getattr(r, "buyer_name", None))
+        inner = _card(f"<span>{_esc(buyer) or '—'}</span>", meta, pills)
+        url = _coalesce(getattr(r, "notice_url", None))
+        if url.startswith("http"):
+            cards.append(
+                clickable_card_link(
+                    href=url,
+                    inner_html=inner,
+                    aria_label=f"Open the EU award notice from {buyer or 'this buyer'} on TED",
+                    target="_blank",
+                )
+            )
+        else:
+            cards.append(inner)
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> TED — Tenders Electronic Daily, EU Official Journal award '
@@ -2240,6 +2255,15 @@ def procurement_page() -> None:
         _render_payments_publisher_profile(
             params.get("paid_publisher"), req_tier if req_tier in ("SPENT", "COMMITTED") else "SPENT"
         )
+        return
+    if params.get("paid_supplier"):
+        req_tier = (params.get("paid_tier") or "SPENT").upper()
+        _render_payments_supplier_profile(
+            params.get("paid_supplier"), req_tier if req_tier in ("SPENT", "COMMITTED") else "SPENT"
+        )
+        return
+    if params.get("ted_winner"):
+        _render_ted_winner_profile(params.get("ted_winner"))
         return
 
     # coverage_stats is the source-state gate AND the scale anchor: a missing view /

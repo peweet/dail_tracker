@@ -15,9 +15,9 @@
 > already shipped (`pipeline_sandbox/afs_amalgamated_extract.py` →
 > `data/silver/parquet/afs_amalgamated_divisions.parquet`, 64 rows, **all-31-summed,
 > zero per-council rows**). The per-LA layer is item #2 in the procurement ingestion
-> backlog (`PROCUREMENT_BUILD_PLAN.md` §8c) — the per-constituency prize.
+> backlog (`PROCUREMENT_MASTER.md`) — the per-constituency prize.
 >
-> **Why this doc is separate:** `PROCUREMENT_BUILD_PLAN.md` is being edited by another
+> **Why this doc is separate:** `PROCUREMENT_MASTER.md` is being edited by another
 > context concurrently; this is filed separately to avoid an edit collision.
 
 ## The question it settles

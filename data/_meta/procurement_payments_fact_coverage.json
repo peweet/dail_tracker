@@ -1,27 +1,27 @@
 {
-  "generated_utc": "2026-06-12T18:54:47.201181+00:00",
+  "generated_utc": "2026-06-13T13:46:53.763897+00:00",
   "layer": "gold",
   "source": "extractors/procurement_payments_consolidate.py",
-  "n_rows": 148055,
-  "n_publishers": 44,
-  "n_suppliers": 19236,
-  "cro_matched_pct": 35.9,
+  "n_rows": 158893,
+  "n_publishers": 48,
+  "n_suppliers": 17549,
+  "cro_matched_pct": 45.4,
   "rows_by_publisher_type": {
     "local_authority": 72325,
     "state_body": 38482,
     "agency": 21224,
+    "department": 14398,
     "semi_state": 10379,
-    "department": 3560,
     "education_body": 2085
   },
   "n_local_authorities": 21,
   "safe_eur_by_tier": {
-    "SPENT": 13232397334.5,
-    "COMMITTED": 9143600513.61
+    "SPENT": 16583478192.76,
+    "COMMITTED": 9612040302.68
   },
   "vat_status_counts": {
-    "unknown": 126393,
-    "incl_vat": 21662
+    "incl_vat": 21662,
+    "unknown": 137231
   },
   "privacy_note": "Suppliers named per published source PO/payments-over-\u20ac20k lists (Circular 07/2012 / FOI); no address/PII beyond the published figure.",
   "value_note": "po_committed (ordered) and payment_actual (paid) are different lifecycle tiers \u2014 never summed together; only value_safe_to_sum rows sum, and never across vat_status.",

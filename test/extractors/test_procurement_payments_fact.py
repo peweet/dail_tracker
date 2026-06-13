@@ -73,3 +73,38 @@ def test_public_body_transfers_mostly_excluded_from_sum(con):
     )[0]
     assert total > 0
     assert safe / total < 0.05  # <5% leak (the rest correctly non-summable)
+
+
+def test_org_form_firms_reclassified_to_company(con):
+    # The consolidation reclassifies suffix-less firms (Bros / & Sons / Solicitors / Partners …)
+    # that the source name-suffix regex mis-binned as sole traders. None of those org-form names
+    # may remain a sole trader (they are firms, not private individuals).
+    stragglers = _q(
+        con,
+        r"SELECT COUNT(*) FROM FACT WHERE supplier_class='sole_trader_or_individual'"
+        r" AND regexp_matches(supplier_normalised, '\b(BROS|BROTHERS|SOLICITORS|PARTNERS|CONTRACTORS)\b')",
+    )[0][0]
+    assert stragglers == 0
+
+
+def test_cro_matched_rows_are_company_class(con):
+    # A CRO company-number match is only ever attached to a company-class row: the reclassifier
+    # upgrades any sole-trader with an exact CRO match BEFORE the fact is written, so no
+    # sole_trader_or_individual row may carry a cro_company_num.
+    leaked = _q(
+        con,
+        "SELECT COUNT(*) FROM FACT WHERE cro_company_num IS NOT NULL"
+        " AND supplier_class='sole_trader_or_individual'",
+    )[0][0]
+    assert leaked == 0
+
+
+def test_reclassified_companies_are_displayable(con):
+    # Privacy invariant after reclassification: every row that is now company-class is displayable
+    # and never carries the personal-data review flag (the upgrade re-derives both).
+    bad = _q(
+        con,
+        "SELECT COUNT(*) FROM FACT WHERE supplier_class='company'"
+        " AND (NOT public_display OR privacy_status='review_personal_data')",
+    )[0][0]
+    assert bad == 0

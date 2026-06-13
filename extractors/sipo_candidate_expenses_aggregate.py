@@ -114,11 +114,38 @@ def build() -> None:
     items = pl.scan_parquet(ITEMS_SRC)
 
     # --- GOLD candidate fact: keep the plausible, with-a-total rows for serving; the
-    # suspect/no-total rows stay in silver for audit. ---
+    # suspect/no-total rows go to the SEPARATE "filed-unquantified" fact below. ---
+    is_quantified = pl.col("total_spend_eur").is_not_null() & ~pl.col("total_suspect")
     fact = (
         head.lazy()
-        .filter(pl.col("total_spend_eur").is_not_null() & ~pl.col("total_suspect"))
+        .filter(is_quantified)
         .with_columns(pl.lit("GE2024").alias("election_event"))
+        .collect()
+    )
+
+    # --- GOLD filed-but-UNQUANTIFIED fact: every OTHER filed statement (the complement of
+    # the quantified fact). These candidates DID file a return, but we cannot show a
+    # trustworthy spend figure — either no total was readable on the form, or the only
+    # number is an OCR decimal-loss artefact above the statutory cap. We therefore carry
+    # NO amount at all here (showing the suspect magnitude would be a fabricated number),
+    # only identity + a status reason + the official PDF so the candidate stays searchable
+    # and the user can read the real figure on the source. No-inference: a blank total is
+    # NOT asserted to be €0 (a genuine €0 nil-return parses to 0.0 and lands in `fact`).
+    unquantified = (
+        head.lazy()
+        .filter(~is_quantified)
+        .with_columns(
+            pl.lit("GE2024").alias("election_event"),
+            pl.when(pl.col("total_suspect"))
+            .then(pl.lit("figures_unreadable"))   # a number exists but is OCR-corrupt (> cap)
+            .otherwise(pl.lit("no_total_declared"))  # the form's total cell was blank/unreadable
+            .alias("filed_status"),
+        )
+        .select(
+            "election_event", "candidate_name", "constituency_name", "party",
+            "party_declared", "unique_member_code", "is_elected_td", "filed_status",
+            "ocr_complete", "source_pdf_url",
+        )
         .collect()
     )
 
@@ -174,6 +201,7 @@ def build() -> None:
 
     GOLD.mkdir(parents=True, exist_ok=True)
     save_parquet(_no_address(fact), GOLD / "sipo_candidate_expenses_fact.parquet")
+    save_parquet(_no_address(unquantified), GOLD / "sipo_candidate_expenses_unquantified.parquet")
     save_parquet(_no_address(items_clean), GOLD / "sipo_candidate_expense_items.parquet")
     save_parquet(by_detail, GOLD / "sipo_campaign_spend_by_detail.parquet")
     save_parquet(by_category, GOLD / "sipo_campaign_spend_by_category.parquet")
@@ -183,6 +211,9 @@ def build() -> None:
     elected = fact.filter(pl.col("is_elected_td")).height
     print(f"  candidate fact      : {fact.height} rows, Σ €{fact['total_spend_eur'].sum():,.2f}")
     print(f"    {elected} linked to a sitting TD (unique_member_code), {fact.filter(pl.col('party').is_null()).height} still unknown-party")
+    nq = unquantified.group_by("filed_status").len().sort("filed_status")
+    print(f"  filed-unquantified  : {unquantified.height} rows (searchable, NO amount shown) — "
+          + ", ".join(f"{r['filed_status']}={r['len']}" for r in nq.iter_rows(named=True)))
     print(f"  clean line items    : {items_clean.height} rows, Σ €{items_clean['cost_eur'].sum():,.2f}")
     print(f"  spend by detail     : {by_detail.height} distinct detail strings")
     print(f"  spend by category   : {by_category.height} categories")

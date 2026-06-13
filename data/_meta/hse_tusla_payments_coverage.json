@@ -3,7 +3,7 @@
     "ie_hse",
     "ie_tusla"
   ],
-  "rows_extracted": 21662,
+  "rows_extracted": 31963,
   "by_file": [
     {
       "publisher": "ie_hse",
@@ -22,9 +22,9 @@
     {
       "publisher": "ie_tusla",
       "file": "2022_Tusla_POs_over_20k_Final.pdf",
-      "status": "excluded",
-      "reason": "implausible median \u20ac24",
-      "rows": 26
+      "status": "ok",
+      "rows": 2377,
+      "sum_eur": 206627959.75
     },
     {
       "publisher": "ie_tusla",
@@ -36,35 +36,35 @@
     {
       "publisher": "ie_tusla",
       "file": "2024_Tusla_POs_over_20K_Final.pdf",
-      "status": "excluded",
-      "reason": "implausible median \u20ac1",
-      "rows": 1
+      "status": "ok",
+      "rows": 3162,
+      "sum_eur": 283724377.0
     },
     {
       "publisher": "ie_tusla",
       "file": "Tusla_Purchase_Orders_over_20k_-_2025.pdf",
-      "status": "excluded",
-      "reason": "0 rows",
-      "rows": 0
+      "status": "ok",
+      "rows": 4762,
+      "sum_eur": 388846038.65
     }
   ],
   "supplier_class_counts": {
+    "public_body": 333,
+    "sole_trader_or_individual": 9118,
+    "foreign_company": 95,
     "unknown": 52,
-    "company": 13928,
-    "public_body": 252,
-    "sole_trader_or_individual": 7348,
-    "foreign_company": 82
+    "company": 22365
   },
   "amount_semantics_counts": {
-    "po_committed": 4690,
-    "payment_actual": 16972
+    "payment_actual": 16972,
+    "po_committed": 14991
   },
-  "value_safe_to_sum_rows": 21410,
-  "value_safe_to_sum_total_eur": 6668684973.070001,
-  "rows_review_personal_data": 7348,
+  "value_safe_to_sum_rows": 31527,
+  "value_safe_to_sum_total_eur": 7529328528.870001,
+  "rows_review_personal_data": 9118,
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-12T18:41:31+00:00",
+  "generated_at": "2026-06-13T13:47:15+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. Per-year files layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows public_display=False)."
 }

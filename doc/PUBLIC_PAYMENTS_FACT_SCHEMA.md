@@ -5,10 +5,10 @@
 gold + `ted_ie_awards` silver + per-LA AFS + `la_payments_fact` + `public_payments_fact`
 sandbox all exist as *separate* tables today — this doc is the target model to conform them to.)
 **Created:** 2026-06-03 · **Unified-model pass:** 2026-06-04
-**Companion to:** `doc/PROCUREMENT_BUILD_PLAN.md` (master + value taxonomy §4b),
+**Companion to:** `doc/PROCUREMENT_MASTER.md` (master + value taxonomy §8),
 `doc/PROCUREMENT_SEMISTATE_EXPANSION_PLAN.md`, `doc/DATA_MAP.md` (status board + grains).
 
-> **Subordinate to the master plan `doc/PROCUREMENT_BUILD_PLAN.md`.** Implements the master's
+> **Subordinate to the master plan `doc/PROCUREMENT_MASTER.md`.** Implements the master's
 > **VALUE TAXONOMY (§4b): `value_kind` + `realisation_tier`**, `value_safe_to_sum` derived from
 > `value_kind`. Where Part B below still says `amount_semantics`, that is the LEGACY column on
 > the current sandbox parquet — it is **renamed to `value_kind` (+ a new `realisation_tier`)** in
@@ -384,7 +384,7 @@ tiers above are the whole intended surface, and only Tiers 1–2 ever run in CI.
 
 > Planning only — **no page is being built yet.** This fixes *how the multifaceted model is
 > organised for a reader* so the IA is agreed alongside the data model. Supersedes the
-> eTenders-only page sketch in `PROCUREMENT_BUILD_PLAN.md` §6.
+> eTenders-only page sketch in `PROCUREMENT_MASTER.md` §5.
 
 ## C.1 Organise by ENTITY, with the lifecycle *inside* — not by source
 

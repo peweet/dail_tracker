@@ -35,6 +35,7 @@ import streamlit as st
 from data_access.sipo_candidate_data import (
     fetch_by_category,
     fetch_candidate,
+    fetch_filed_unquantified,
     fetch_line_items,
     fetch_party_finance,
     fetch_ranked,
@@ -568,6 +569,40 @@ def _cand_card(row: pd.Series, rank: int) -> str:
     )
 
 
+_UNQUANT_NOTE = {
+    "no_total_declared": "no total on form",
+    "figures_unreadable": "scan unreadable",
+}
+
+
+def _unquantified_card(row: pd.Series) -> str:
+    """A FILED candidate with no trustworthy total — searchable, links to the official PDF,
+    and shows NO amount (a corrupt magnitude is never displayed; a blank is never asserted
+    to be €0). Whole card is the PDF link where we have one, else a plain card."""
+    name = str(row["candidate_name"] or "—")
+    const = str(row["constituency_name"] or "—")
+    party = row["party"]
+    stripe = party_colour(str(party)) if pd.notna(party) and party else "rgba(0,0,0,0.14)"
+    ptxt = _h(str(party)) if pd.notna(party) and party else "Unknown party"
+    note = _UNQUANT_NOTE.get(str(row["filed_status"]), "amount not available")
+    td = ('<span class="don-vmark" style="background:#eef;color:#224">TD</span>'
+          if bool(row["is_elected_td"]) else "")
+    pdf = row["source_pdf_url"]
+    inner = (
+        f'<span class="don-dir">filed · amount not available</span>'
+        f'<div class="don-ptitle"><span class="don-swatch"></span><h3>{_h(name)}</h3></div>'
+        f'<div class="don-amount" style="font-size:1rem;color:var(--text-meta)">—</div>'
+        f'<div class="don-sub">{_h(const)} · {ptxt}</div>'
+        f'<div class="don-cardfoot"><span class="go">'
+        + ("Open statement (PDF) ↗" if pd.notna(pdf) and pdf else "Statement on file")
+        + f'</span><span class="don-vmark">{_h(note)}</span>{td}</div>'
+    )
+    if pd.notna(pdf) and pdf:
+        return (f'<a class="don-card" href="{_h(str(pdf))}" target="_blank" rel="noopener" '
+                f'style="--don-stripe:{stripe}">{inner}</a>')
+    return f'<div class="don-card" style="--don-stripe:{stripe}">{inner}</div>'
+
+
 def _render_candidate(name: str) -> None:
     if back_button("← All candidates", key="esp_back"):
         st.query_params.pop("cand", None)
@@ -653,56 +688,76 @@ def _render_candidate(name: str) -> None:
 def _render_candidates_tab() -> None:
     totals = fetch_totals()
     loaded = totals["candidates"]
+    unq = fetch_filed_unquantified()
+    filed = loaded + len(unq)
     totals_strip([
-        (f"{loaded}", f"of {_CORPUS_TOTAL} statements"),
+        (f"{filed}", f"of {_CORPUS_TOTAL} filed"),
+        (f"{loaded}", "with a usable total"),
         (f"€{totals['total']:,.0f}", "total spend"),
         (f"€{totals['median']:,.0f}", "median candidate"),
         (str(totals["elected"]), "elected TDs"),
-        (str(totals["constituencies"]), "constituencies"),
     ])
-    if loaded < _CORPUS_TOTAL:
-        st.caption(f"Coverage: {loaded} of {_CORPUS_TOTAL} candidate statements processed so far "
+    if filed < _CORPUS_TOTAL:
+        st.caption(f"Coverage: {filed} of {_CORPUS_TOTAL} candidate statements processed "
                    "(extraction is ongoing).")
 
     ranked = fetch_ranked()
-    if ranked.empty:
+    if ranked.empty and unq.empty:
         empty_state("No candidate expenses loaded",
                     "No per-candidate election-expense statements are available yet.")
         return
 
-    # Display-only filters (row selection, not aggregation).
+    # Display-only filters (row selection, not aggregation) — applied to BOTH the ranked
+    # spenders and the filed-without-a-total list, so a search finds any filed candidate.
     parties = ["All parties"] + sorted(
-        {str(p) for p in ranked["party"].dropna().tolist() if str(p).strip()}
+        {str(p) for df in (ranked, unq) for p in df["party"].dropna().tolist() if str(p).strip()}
     )
     fcol, scol = st.columns([1, 2])
     sel_party = fcol.selectbox("Party", parties, key="esp_party")
     search = scol.text_input(
         "Search candidate", key="esp_search", placeholder="e.g. Grealish",
-        help=f"Searches all {len(ranked)} loaded candidate statements by name.",
+        help=f"Searches all {len(ranked) + len(unq)} filed candidate statements by name.",
     ).strip().lower()
 
-    # Filters select rows from the FULL loaded set (fetch_ranked has no row cap),
-    # so any loaded candidate is findable by name — the 120 cap below is display-only.
-    view = ranked
-    filtered = False
-    if sel_party != "All parties":
-        view = view[view["party"] == sel_party]
-        filtered = True
-    if search:
-        view = view[view["candidate_name"].str.lower().str.contains(search, na=False)]
-        filtered = True
+    def _apply(df: pd.DataFrame) -> pd.DataFrame:
+        if sel_party != "All parties":
+            df = df[df["party"] == sel_party]
+        if search:
+            df = df[df["candidate_name"].str.lower().str.contains(search, na=False)]
+        return df
 
+    filtered = sel_party != "All parties" or bool(search)
+
+    # Ranked spenders (the rows with a trustworthy total). fetch_ranked has no row cap,
+    # so any of them is findable by name — the 120 cap below is display-only.
+    view = _apply(ranked)
     n = len(view)
     heading = "Matching candidates" if filtered else "Top campaign spenders"
     st.markdown(f"#### {heading} · {n} candidate{'' if n == 1 else 's'}")
     if view.empty:
-        empty_state("No matches", "No candidates match the current filters.")
+        st.caption("No candidates with a usable total match — see the “also filed” list below."
+                   if filtered else "No ranked candidates loaded yet.")
     else:
         cards = "".join(_cand_card(r, i + 1) for i, (_, r) in enumerate(view.head(120).iterrows()))
         st.html(f'<div class="don-grid">{cards}</div>')
         if n > 120:
             st.caption(f"Showing the top 120 of {n} by spend. Use the filters above to narrow.")
     st.caption(_CAND_CAVEAT)
+
+    # Filed-but-unquantified: searchable, no amount shown, each links to the official PDF.
+    uq_view = _apply(unq)
+    if not uq_view.empty:
+        st.markdown(f"#### Also filed · no usable total · {len(uq_view)} candidate"
+                    f"{'' if len(uq_view) == 1 else 's'}")
+        with st.expander("Show these candidates", expanded=filtered):
+            cards = "".join(_unquantified_card(r) for _, r in uq_view.head(150).iterrows())
+            st.html(f'<div class="don-grid">{cards}</div>')
+            st.caption(
+                "These candidates filed a 2024 Election Expenses Statement, but its total "
+                "could not be read reliably from the scan (the total cell was blank, or the "
+                "only figure was a corrupt OCR magnitude). No amount is shown rather than a "
+                "guessed one — open the official SIPO statement to read the real figures."
+            )
 
     # Category breakdown across all loaded candidates.
     by_cat = fetch_by_category()

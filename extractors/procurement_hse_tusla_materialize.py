@@ -26,6 +26,7 @@ import contextlib
 import hashlib
 import importlib.util
 import json
+import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -97,16 +98,21 @@ PUBS = {
 }
 
 
-def parse_pdf(pid: str, b: bytes) -> list[dict]:
-    """Run the owning parser's column-x SPEC over one PDF -> its native row dicts."""
-    spec = hst.SPECS[pid]
+def parse_pdf(pid: str, b: bytes, year: int | None = None) -> list[dict]:
+    """Run the owning parser's column-x SPEC over one PDF -> its native row dicts. Tusla changes
+    its layout year to year, so its cuts/builder are selected per-file-year (the NTA lesson)."""
+    if pid == "ie_tusla":
+        cuts, build = hst.tusla_spec_for(year)
+    else:
+        spec = hst.SPECS[pid]
+        cuts, build = spec["cuts"], spec["build"]
     doc = fitz.open(stream=b, filetype="pdf")
     rows: list[dict] = []
     for pi in range(doc.page_count):
         for wrow in cluster_word_rows(doc[pi]):
             if not any(MONEY_RE.search(w[4]) for w in wrow):
                 continue
-            rec = spec["build"](hst.cols_by_xcuts(wrow, spec["cuts"]), pi, len(rows))
+            rec = build(hst.cols_by_xcuts(wrow, cuts), pi, len(rows))
             if rec:
                 rows.append(rec)
     doc.close()
@@ -174,7 +180,8 @@ def main() -> None:
                 print(f"  ! {pid}: download/format failed: {url.rsplit('/', 1)[-1]}")
                 per_file.append({"publisher": pid, "file": url.rsplit("/", 1)[-1], "status": "fetch_failed"})
                 continue
-            native = parse_pdf(pid, b)
+            ym = re.search(r"20\d\d", url.rsplit("/", 1)[-1])
+            native = parse_pdf(pid, b, int(ym.group()) if ym else None)
             ok, why = sanity(pid, native)
             tag = url.rsplit("/", 1)[-1]
             if not ok:
