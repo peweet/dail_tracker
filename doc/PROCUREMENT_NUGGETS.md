@@ -5,7 +5,7 @@ committed parquets (queries preserved in `c:/tmp/proc_nuggets*.py`). Numbers are
 real, from the corpus as of 2026-06-11. Ranking = story value × data coverage ×
 implementation cost.
 
-**Invariants respected throughout** (see `doc/PROCUREMENT_BUILD_PLAN.md` §4b and
+**Invariants respected throughout** (see `doc/PROCUREMENT_MASTER.md` §8 and
 `doc/DATA_MAP.md`): the three money grains — payments (realised), eTenders/TED
 awards (ceilings), TED tender estimates — are never summed or compared as
 totals; only `value_safe_to_sum` rows enter aggregates; overlap signals are

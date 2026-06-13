@@ -1,24 +1,24 @@
 {
-  "publishers_attempted": 31,
-  "publishers_with_rows": 18,
-  "rows_extracted": 51319,
-  "rows_deduped_within_file": 11,
-  "rows_public_display": 33000,
-  "rows_review_personal_data": 18319,
-  "rows_quarantined": 18319,
+  "publishers_attempted": 35,
+  "publishers_with_rows": 22,
+  "rows_extracted": 62157,
+  "rows_deduped_within_file": 269,
+  "rows_public_display": 39498,
+  "rows_review_personal_data": 22659,
+  "rows_quarantined": 22659,
   "supplier_class_counts": {
-    "foreign_company": 221,
-    "public_body": 2221,
-    "sole_trader_or_individual": 18319,
-    "unknown": 5203,
-    "company": 25355
+    "sole_trader_or_individual": 22659,
+    "foreign_company": 246,
+    "unknown": 5333,
+    "public_body": 2568,
+    "company": 31351
   },
   "amount_semantics_counts": {
-    "po_committed": 14731,
-    "payment_actual": 36588
+    "payment_actual": 43728,
+    "po_committed": 18429
   },
-  "value_safe_to_sum_rows": 49095,
-  "value_safe_to_sum_total_eur": 6666086738.21098,
+  "value_safe_to_sum_rows": 59401,
+  "value_safe_to_sum_total_eur": 10485607385.54298,
   "by_publisher": [
     {
       "id": "ie_opw",
@@ -391,11 +391,59 @@
       "rows": 810,
       "amount_semantics": "po_committed",
       "privacy_risk": "low"
+    },
+    {
+      "id": "dept_agriculture",
+      "name": "Department of Agriculture, Food and the Marine",
+      "tier": "F",
+      "files_seen": 10,
+      "files_parsed": 10,
+      "files_skipped": 0,
+      "files_with_rows": 10,
+      "rows": 113,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "dept_social_protection",
+      "name": "Department of Social Protection",
+      "tier": "F",
+      "files_seen": 55,
+      "files_parsed": 55,
+      "files_skipped": 0,
+      "files_with_rows": 55,
+      "rows": 3595,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "dept_health",
+      "name": "Department of Health",
+      "tier": "F",
+      "files_seen": 57,
+      "files_parsed": 57,
+      "files_skipped": 0,
+      "files_with_rows": 57,
+      "rows": 1325,
+      "amount_semantics": "payment_actual",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "dept_education",
+      "name": "Department of Education and Youth",
+      "tier": "F",
+      "files_seen": 53,
+      "files_parsed": 53,
+      "files_skipped": 0,
+      "files_with_rows": 52,
+      "rows": 6074,
+      "amount_semantics": "payment_actual",
+      "privacy_risk": "low"
     }
   ],
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-12T06:47:33+00:00",
+  "generated_at": "2026-06-13T13:41:50+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }

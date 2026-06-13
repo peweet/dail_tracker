@@ -9,7 +9,7 @@
 >    means *the tier you intended*, not "a script exists".
 > 2. **The 3 money-grains never sum across each other** (§ Money grains).
 >
-> Companion docs: `PROCUREMENT_BUILD_PLAN.md` (procurement + value taxonomy §4b),
+> Companion docs: `PROCUREMENT_MASTER.md` (procurement + value taxonomy §4b),
 > `PER_LA_AFS_BUILD_PLAN.md`, `PUBLIC_PAYMENTS_FACT_SCHEMA.md`,
 > `new_public_money_legal_sources_claude_backlog.md` (tier-⓪ new sources),
 > `new_sources_value_and_features_claude_plan.md` (feature ideas).
@@ -115,7 +115,7 @@ AWARD / CONTRACT-CEILING         →  contracts advertised/awarded — NOT money
 PAYMENT / SPENT (supplier-level) →  actual € to a NAMED supplier
 ```
 
-The 2-axis taxonomy (`realisation_tier` + `value_kind`) in `PROCUREMENT_BUILD_PLAN.md` §4b is
+The 2-axis taxonomy (`realisation_tier` + `value_kind`) in `PROCUREMENT_MASTER.md` §8 is
 the controlled vocab; lock it before any cross-source merge.
 
 **⚠️ The figures are EXTRACTION-DERIVED — there is no single authoritative total.** Almost every
@@ -213,7 +213,7 @@ Lead Pack.
 Still the **ingestion phase**; **wholesale consolidation NOT begun** (premature merges corrupt
 the data). When it starts: only **payment-grain** sources union (public_payments + LA payments
 + HSE/Tusla, after taxonomy conformance); **award-grain** (eTenders/TED) and **budget-grain**
-(AFS family) stay as separate sibling facts. See `PROCUREMENT_BUILD_PLAN.md` §8c/§8d.
+(AFS family) stay as separate sibling facts. See `PROCUREMENT_MASTER.md`.
 
 **The target model is now specified (`PUBLIC_PAYMENTS_FACT_SCHEMA.md` Part A, 2026-06-04),
 following established practice rather than a house scheme:**
