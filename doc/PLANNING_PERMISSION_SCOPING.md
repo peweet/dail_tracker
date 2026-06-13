@@ -245,3 +245,313 @@ and it's the prerequisite every later feature (map, alerts, constituency rollup)
 - `planning_applications_silver.parquet`, ~495k rows.
 - `decision_normalised` ≥95% non-`Other`; zero future dates; lon/lat 100% in-bbox.
 - Row-count assertion passing; 10-row sample eyeballed against council eplanning URLs.
+
+---
+
+## 9. Open questions — RESOLVED (research pass 2, 2026-06-13)
+
+### Angle 1 — Tier 1 / Tier 2A dedup → **RESOLVED. DO NOT MERGE into the register.**
+Tier1/Tier2A are **Dublin Housing Supply Coordination Task Force** monitoring tiers (origin: Action 2
+of *Construction 2020*, May 2014), NOT subsets of the 495k application register. Verified 3-0:
+- **Tier 1** = sites with a final grant of permission implementable immediately (incl. commenced-not-
+  completed; excl. completed; excl. phasing). **Tier 2A** = application lodged / within 4-week appeal
+  window / under ACP appeal.
+- **Geography: 4 Dublin LAs only** (DCC, DLR, SDCC, Fingal) — not national.
+- **Methodology filter:** only schemes **≥10 units**; **excludes** social housing, Part 8, and
+  student/shared-living. → does NOT reconcile 1:1 with the register.
+- **Grain:** site/unit level (unit-delivery counts + build status), row-per-SITE not per-application.
+- **Endpoint:** quarterly ArcGIS services, e.g. `…/Q1_2024/FeatureServer/28` (Tier1 layer, ~482 records);
+  carries `Tier`, `Planning_Reference`, `ABP_Reference`, `Units_Permitted`, `Units_Under_Construction`,
+  `Units_Completed`, `Activity_On_Site`. data.gov.ie open licence.
+- **VERDICT:** parallel, Dublin-only, large-scheme **monitoring** series. Not a dedup target, but
+  **complementary** — it adds build-status / unit-delivery the register lacks. Optional later
+  enrichment for Dublin housing pipeline; NOT part of Phase 0.
+
+### Angle 4 — Appeals ↔ applications join → **RESOLVED (direct-probe verified).**
+- `ABPCASEID` = bare 6-digit; `AppealRefNumber` has 3 formats (`ABP-301245-18`, `301741-18`, `300219`).
+- **Join recipe:** regex first 6-digit run from `AppealRefNumber` → match `ABPCASEID`, validate on
+  planning authority. Probe-confirmed: `301245` → ACP case Carlow / "Refuse Permission".
+- **Corroboration:** the Tier1 monitoring layer independently stores BOTH `Planning_Reference` and
+  `ABP_Reference` — confirms (council-ref + ABP-ref) is the canonical join pair.
+
+### Angle 2 — CSO PxStat planning stats → **PARTIAL (found, not vote-verified — budget cut-off).**
+Aggregate, no-PII companion series. Unverified-but-primary-sourced facts:
+- CSO "Planning Permissions", **quarterly**, **BHQ-series** PxStat tables (BHQ03/04/13/14/15/16/17),
+  product code "PP" at `data.cso.ie`.
+- **PxStat JSON-stat API**; formats JSON-stat / PX / XLSX / CSV; `csodata` R package hits `data.cso.ie`.
+- Dimensions: planning region/county, development type (multi-dev houses, **one-off houses**, apartments),
+  SHD vs non-SHD, units + floor area; ~Q1 2022 → current.
+- Licence **CC-BY 4.0**.
+- **Use:** independent reconciliation check against counts derived from the 495k register. RE-VERIFY when budget returns.
+
+### Angle 3 — Citizen planning-alerts product → **PARTIAL (found, not vote-verified — budget cut-off).**
+- **PlanningAlerts.org.au:** `applications.json?lat&lng&radius(m)` = the core "near you" geometry;
+  does NOT crawl — aggregates community scrapers on morph.io (`@planningalerts-scrapers`); each authority
+  record has name/short-name/**contact email** for sending comments; ATDIS standard (`openaustralia/atdis`).
+- **PlanIt (UK):** `/api/applics/{fmt}` (csv/geojson/georss/json/tsv); circular (lat/lng/krad or pcode),
+  bbox, polygon. Fields: `name,uid,altid,area_name,area_id,start_date,address,description,location,link,last_scraped`.
+- **mySociety PlanningAlerts** died from per-council **scraper-maintenance** burden — the exact pain
+  Ireland's single national feed removes.
+- **Feature-set gap analysis:** a "developments near you" feature needs geo-point + radius, address,
+  description, decision/status, dates, source link — the Irish feed **already supplies ALL of these**
+  (lon/lat 100%, address, description, decision, dates, `LinkAppDetails`). Only missing piece is a
+  comment/objection workflow, which is council-side, not data.
+- **NB:** a `planningalerts.ie` already exists (industry/alerts site) — check before any build.
+
+---
+
+## 10. Planning-process & regulatory map (wide-net scoping, 2026-06-13)
+
+> Inline web-research pass (NOT 3-vote verified — the workflow hit the account spend cap, so this
+> was done with direct searches). Purpose: understand the *regulatory reasons* behind decisions and
+> map where each datum lives. **Legend per item:** [S]=structured field in a feed · [PDF]=lives as a
+> PDF attachment in the council file · [TXT]=free-text in DevelopmentDescription/conditions ·
+> [EXT]=separate external register.
+
+### 10.1 The eplanning file — where the deep data actually lives
+- Most LAs lodge/search via the **Local Government Online Planning portal** (`planning.localgov.ie`),
+  covering **all councils except Cork City**; older files vary (e.g. Limerick online from 2008).
+  Cork County runs its own `planning.corkcoco.ie/ePlan`.
+- A council file holds: application form, **site notice** + newspaper notice, drawings, the technical
+  reports (below), **planner's report**, conditions, and the **Chief Executive's Order** (the decision).
+  All public except confidential info.
+- **Ingestibility wall:** the *summary* (ref, address, decision, dates) is in the national 495k feed [S];
+  the *documents themselves* are **[PDF] per-council**, no bulk API, session/portal-bound — this is the
+  hard scrape the national feed deliberately spares us. **Verdict: deep document content = BLOCKED/scrape-only.**
+
+### 10.2 Environmental assessment layer
+- **Appropriate Assessment (AA)** — Habitats Directive Art 6(3), transposed by the **Birds & Natural
+  Habitats Regs 2011**. *Screening* runs on **every** application; if a likely significant effect on a
+  **Natura 2000 site (SAC/SPA)** can't be excluded, a **Natura Impact Statement (NIS)** is required and
+  permission can't be granted unless site integrity is assured. ([NPWS](https://www.npws.ie/protected-sites/guidance-appropriate-assessment-planning-authorities), [OPR PN01](https://publications.opr.ie/)) → outcome [PDF]+[TXT]; trigger is the **SAC/SPA boundary** [EXT, ingestible — NPWS spatial].
+- **EIA / EIAR** — thresholds in **Schedule 5, Parts 1 & 2** of the Planning & Development Regs 2001.
+  Part 1 over-threshold = mandatory EIA; Part 2 + **sub-threshold** = screening determination. Gov is
+  currently **reviewing screening thresholds** (2026). ([EPA](https://www.epa.ie/our-services/monitoring--assessment/assessment/environmental-impact-assessment/)) → [PDF]; whether EIA applied is sometimes [TXT].
+- **Ecological / bat survey** — **lesser horseshoe bat** is **Annex II** (all bats Annex IV) Habitats
+  Directive. Disturbing a roost needs an **NPWS derogation licence** (Regs 51/54 of the 2011 Regs).
+  **NPWS publishes the derogation licence applications + bat survey PDFs** on npws.ie → **[EXT, scrapable]**.
+- **Hydrology / flood** — handled via OPW flood data + council assessment [PDF].
+
+### 10.3 Site-technical layer (one-off rural house)
+- **Sight lines / visibility splays** — expressed as **'x' and 'y' distances** + forward visibility
+  (stopping sight distance); assessed against **TII** Rural Road Link Design & junction-geometry
+  standards + DMURS. A **Traffic & Transport Assessment (TTA)** is required above category thresholds.
+  Common refusal reason: inadequate sightlines / hedgerow removal to achieve them. ([TII DN-GEO-03031](https://cdn.tii.ie/publications/DN-GEO-03031-10.pdf)) → [PDF]/[TXT].
+- **Site suitability assessment** (septic/on-site wastewater) = desk study + **trial hole** (1.2–2.1m,
+  checks subsoil + water table + rock) + **percolation test** (EPA Code of Practice) → system rec.
+  Mandatory wherever a septic tank/on-site treatment is proposed. ([Clare CoCo](https://clarecoco.ie/services/planning/applications/before-you-apply/site-suitability-assessment/), [EPA CoP]) → [PDF].
+
+### 10.4 Process & actors
+- **Further Information (RFI)** vs **Significant FI** — SFI re-triggers public notice/re-advertising;
+  miss the deadline → application **deemed withdrawn**. → dates partly [S] (FIRequestDate/FIRecDate in feed).
+- **Retention permission** — after-the-fact permission for unauthorised works; refusal → demolition. → [S] ApplicationType.
+- **Conditions** — grants are typically **CONDITIONAL** (the 235k-row modal value we found) → [TXT]/[PDF].
+- **Planning consultant** — packages the application, reads local policy, marshals specialist reports
+  (architect, ecologist, traffic engineer), drafts the planning rationale and FI responses. → not data, an actor.
+- **Objections / observations** — anyone may submit; **€20 fee**, within **5 weeks** of lodgement;
+  paying makes you a "participant" with appeal standing. → **[EXT] submitter identities are in the
+  council file, NOT the national feed** (privacy-relevant).
+
+### 10.5 Heritage & conservation constraints
+- **Protected Structure (RPS)** — any work *materially affecting character* needs permission, incl.
+  interior, **curtilage**, and **boundary treatments** (this is the "can't touch the old wall" rule).
+  Applications must include an **Architectural Heritage Impact Assessment (AHIA)**. → [PDF]; RPS list [EXT].
+- **Architectural Conservation Area (ACA)** — external works (roofs, windows, **boundary walls**, new
+  features) need permission. → [EXT] ACA boundaries (council GIS).
+- **No compensation** for refusal/conditions on architectural/heritage/archaeological grounds. ([DLR](https://www.dlrcoco.ie/conservation/protected-structures), [DCC plan](https://www.dublincity.ie/dublin-city-development-plan-2022-2028/written-statement/chapter-11-built-heritage-and-archaeology/115-policies-and-objectives))
+
+### 10.6 The legal machinery of a decision
+- Statutory test = **"proper planning and sustainable development."**
+- **Material contravention** of the Development Plan can only be granted if **≥¾ (two-thirds+) of all
+  councillors vote** for it after public notice (Sec 34(6)). → the formal lever for elected-member influence.
+- **Section 28 Ministerial Guidelines / Specific Planning Policy Requirements** override the Development
+  Plan where they conflict — now being **replaced by National Planning Statements** (Planning & Dev Act 2024).
+- **Statutory consultees / prescribed bodies** (TII, Uisce Éireann, OPW, **An Taisce**, NPWS, EPA, MARA,
+  Arts Council…) must be notified for relevant cases; their submissions shape conditions/refusals. → [PDF].
+
+### 10.7 Political influence & integrity (the opaque part)
+- **Where influence is *lawful & documentable*:** the **Sec 34 material-contravention vote** (named
+  councillor votes) and the **Sec 140** power (councillors directing the executive). Section 28/National
+  Planning Statements = ministerial steer.
+- **Integrity history:** the **Mahon/Flood Tribunal** (1997–2012) found **endemic corruption** in
+  Dublin-area rezoning/planning payments to politicians. ([Mahon](https://en.wikipedia.org/wiki/Mahon_Tribunal), [An Taisce](https://www.antaisce.org/news/independent-planning-regulator-required-guard-against-endemic-corruption-mahon-found-heart))
+- **2022 An Bord Pleanála scandal:** the **Remy Farrell SC report** into deputy chair **Paul Hyde**'s
+  undisclosed conflicts (incl. a refusal near a site he part-owned) → referred to the DPP; triggered the
+  reorganisation into **An Coimisiún Pleanála** (Planning Commissioners + separated governance) and JR reforms. ([JURIST](https://www.jurist.org/news/2022/08/irish-authorities-refer-report-on-corruption-in-planning-body-to-prosecutors-for-review/))
+- **Project tie-in:** this is exactly where Dáil Tracker's **lobbying.ie + TD declared-interests** data
+  could surface *documentable* influence (councillor votes, lobbying returns on planning matters,
+  landowner interests) — vs the merely alleged. Strong cross-feature opportunity; no-inference caveat applies.
+
+### 10.8 Policy: one-off houses vs compact growth
+- **2005 Sustainable Rural Housing Guidelines** + **National Planning Framework (2018)**: "urban-generated"
+  rural housing (no local ties) steered to settlements; **compact growth** disfavours dispersed one-offs.
+  This is why ~half the feed's records are **one-off houses** flagged & often conditioned/refused.
+- **Change incoming:** Government confirms a **new National Planning Statement on Rural Housing in 2026**
+  to *support* one-off housing for those with local connections. ([RTÉ](https://www.rte.ie/brainstorm/2026/0421/1569148-ireland-one-off-rural-housing-planning-laws/), [NPF](https://www.npf.ie/nss/publications/reports-guidelines/)) → watch for 2026 regs change.
+
+### 10.9 NEW ingestible datasets surfaced (bonus)
+- **Development Plan (Land-Use) Zoning, Ireland** — a **standardised national composite** of all LA
+  zoning from individual Development Plans, on **data.gov.ie**. → enables "what's the zoning here / is this
+  a material contravention" context. **[EXT, ingestible geospatial] — strong future enrichment.**
+- **NPWS derogation licence register** (bat/species) — published applications + survey PDFs on npws.ie. **[EXT, scrapable].**
+- **SAC/SPA + ACA + RPS boundaries** — council/NPWS GIS layers, joinable to application points for
+  "this application sits in a designated area" flags. **[EXT, ingestible].**
+
+### 10.10 Bottom line on depth
+The national 495k feed gives the **skeleton** (who/where/what/decision/dates) [S]. Everything that
+explains *why* a decision went the way it did — AA/EIA, ecology, sightlines, percolation, heritage,
+consultee + third-party submissions — lives as **[PDF] inside per-council files** (BLOCKED for bulk)
+or as **[EXT] designation layers** (mostly ingestible). The *influence* story is partly **[S/EXT]**
+(councillor material-contravention votes, lobbying returns, interests) and partly un-documentable.
+**Realistic depth ceiling without scraping council PDFs: the skeleton + designation-layer context +
+the influence cross-reference — which is already a substantial, novel civic product.**
+
+---
+
+## 11. Chain of custody — the full planning lifecycle (deep dive, 2026-06-13)
+
+> Inline web-research (not 3-vote verified). The **statutory clocks** here are the spine — every clock
+> is a date field we can derive or already have, which makes the *process* itself measurable.
+
+### 11.1 Stage-by-stage with the statutory clocks  ⏱️
+| # | Stage | Clock / rule | In our data? |
+|---|-------|--------------|--------------|
+| 0 | **Pre-planning consultation** (Sec 247) | meeting capped **4 weeks**; ~6–8 wks typical | ❌ not public |
+| 1 | **Public notice** — newspaper + **site notice** erected | app must be lodged **within 2 weeks** of newspaper notice; site notice must stay up **5 weeks** | partial (ReceivedDate) |
+| 2 | **Validation** | invalid → **returned, fee refunded** | ApplicationStatus [S] |
+| 3 | **Public participation** — observations/objections | **€20 fee**, within **5 weeks** of lodgement; paying = "participant" w/ appeal standing | ❌ submitters not in feed |
+| 4 | **Assessment + (optional) RFI** | RFI **stops the clock**; no reply in **6 months** → **deemed withdrawn** | FIRequestDate/FIRecDate [S] |
+| 5 | **Decision** = **Chief Executive's Order** (signed) | target **8 weeks** from valid lodgement; no decision + no RFI → **default permission** | DecisionDate/Decision [S] |
+| 6 | **Appeal window** to ACP | **4 weeks** from CE order | derivable |
+| 7 | **Grant issues** (if no appeal) | after the 4-week window | GrantDate [S] |
+| 8 | **Commencement / compliance** | conditions, Part V (social housing on ≥10 units) | ❌ (BCMS commencement notices = separate feed) |
+
+**Key insight:** stages 1–7 are all **date-stamped** and most are already in the 495k feed — so we can
+measure **decision latency, RFI rate, withdrawal rate, default-permission incidence, and appeal rate
+per council** without any PDF scraping. That's a strong analytics spine on its own.
+
+### 11.2 The An Coimisiún Pleanála appeal chain of custody
+1. **Lodge appeal** — **4 weeks** from the CE order date (strict).
+2. **Standing** — third-party appeal requires you **made an observation** (paid the €20) at stage 3;
+   otherwise only an **adjoining landowner** can seek **"leave to appeal"** (Art 37(6)).
+3. **Validity check** → acknowledgement letter.
+4. **Comment period** — participants **4 weeks** from the Board's letter.
+5. **Inspector** — site visit, photos, **report + recommendation**.
+6. **Board/Commission decision** — statutory objective **18 weeks** (inclusive of any request periods).
+7. **de novo** — ACP **re-decides the whole application**: can grant what the council refused, **refuse
+   what the council granted**, or rewrite conditions. (This is why a third-party appeal puts the *entire*
+   permission at risk.)
+- **ACCOUNTABILITY HOTSPOT:** where the **Board rejects the inspector's recommendation it must state
+  reasons.** Board-vs-inspector divergence is the single most scrutinised signal in Irish planning
+  (it was central to the 2022 Paul Hyde controversy). The inspector report + board direction are
+  **PDFs on pleanala.ie per case** (reachable via the `LINKABPWEB` field we already have) → **[scrapable,
+  high-value]** — a "how often does the Board overrule its own inspector, by member" metric would be novel.
+- **SID (Strategic Infrastructure):** applied **directly to the Board**, oral hearings common, and the
+  Board decision **cannot be appealed** — single-stage. Only route to challenge = judicial review.
+
+### 11.3 Common pitfalls (the process failure modes)
+- **Invalidation** (returned + fee refunded): lodged >2 weeks after newspaper notice; permission **type
+  not shown on site notice**; **protected structure not declared** in both notices; missing fee/plans;
+  site notice removed/not up the full 5 weeks. ([Clare CoCo common errors](https://www.clarecoco.ie/planning-and-building/make-planning-application/what-include-your-planning-application/common-errors-lead-invalid-applications))
+- **Deemed withdrawn** — no FI response within **6 months**.
+- **de novo risk** — appealing (or being appealed) re-opens the whole decision; a granted permission can
+  be lost on a third-party appeal.
+- **"Unauthorised but immune"** — the **7-year rule** (Sec 157(4)) bars *enforcement* after ~7 yrs+119
+  days, but does **NOT** legalise the development; condition breaches re land use are **never** time-barred.
+  ([Law Society](https://www.lawsociety.ie/gazette/in-depth/unauthorised-but-immune/))
+
+### 11.4 City Council vs County Council
+- **Same legal status**; both are planning authorities. The pre-2014 system had **88** (29 county, 5 city,
+  49 **town** councils — town councils **abolished** by the Local Government Reform Act 2014); now **31 LAs**.
+- **Cities:** Dublin City, Cork City, Galway City standalone; **Limerick** and **Waterford** are merged
+  **City-and-County**. Counties cover broad **rural** areas; cities are dense **urban**.
+- **The Development Plan is the core instrument**, and **adopting it is a *reserved function* of the
+  elected councillors** — i.e. the political layer sets the rulebook each authority's officials then apply.
+- **Why outcomes differ by authority (and why our `Decision` field is so messy):** each LA has its **own
+  Development Plan + Local Area Plans/SDZs + house style**, so the same proposal can pass in one county and
+  fail next door, and each council labels decisions differently. City plans emphasise density/LAPs/SDZs;
+  county plans carry the **one-off rural housing** policy that drives most refusals.
+- **Municipal districts** exist in all LAs **except** the Dublin authorities, Cork City and Galway City.
+
+### 11.5 Mitigation strategies (how applicants de-risk)
+- **Section 247 pre-planning consultation** (capped 4 wks) to agree the *principle* + design parameters.
+- Submit **design alternatives + policy rationale**; pre-empt likely objections in the design.
+- **Track the statutory clocks**; answer RFI well inside 6 months.
+- For ≥10 units, plan **Part V** social-housing provision up front.
+- Engage specialist consultants (ecologist for AA/bat, traffic engineer for sightlines, conservation
+  architect for RPS) **before** lodgement so the reports are in the first submission, not forced by RFI.
+
+### 11.6 Planning rules — the gating concepts
+- **Exempted development** — minor works (small extensions etc.) need **no permission**; thresholds
+  (size/height) in **Schedule 2** of the 2001 Regs; exceed them and exemption falls away.
+- **Section 5 declaration** — formal binding ruling on whether something **is/isn't exempt** (**€80,
+  4-week** decision). → these are themselves a **separate decision dataset** some councils publish.
+- **Default permission** — the 8-week clock's teeth (decision-by-inaction).
+- **Enforcement** — warning letter → **enforcement notice** → prosecution; bounded by the 7-year rule above.
+
+### 11.7 What this unlocks for the project
+The **process is measurable from dates alone** (§11.1) — decision latency, RFI/withdrawal/default rates,
+appeal rates, and **Board-overturns-inspector** (§11.2, via `LINKABPWEB` PDFs) are all derivable without
+the per-council document wall. Combined with the **influence cross-reference** (§10.7) and **designation
+layers** (§10.9), the realistic build is a *planning-accountability* product, not just an application map.
+
+---
+
+## 12. RFI mechanics + the discoverable decision rules + Galway probe (2026-06-13)
+
+### 12.1 The Further Information (RFI) process — requirements & internal rules
+- **Statutory basis:** Section 33 of the Planning & Development Act 2000 + **Article 33** of the
+  Planning & Development Regs 2001; significant-FI public-notice format is set by **Article 35**.
+- **Two tiers:**
+  - **Regular FI** = clarifications / filling gaps; does **not** fundamentally change the proposal.
+  - **Significant Further Information (SFI)** = info that could **significantly change the perceived
+    impact** (environment / infrastructure / community) → **triggers fresh public notice** (new site +
+    newspaper notice, re-opening the objection window).
+- **Clock effects:** an RFI **stops the 8-week decision clock** (this is what prevents a default
+  permission issuing); no response within **6 months** → application **deemed withdrawn**.
+- **What can be requested:** "any further information" incl. estate/interest in land and environmental
+  effects — broad discretion, but an authority **cannot** use FI to fish indefinitely; one FI request is
+  standard, a second needs the response to the first to have raised new issues.
+- **Why it matters analytically:** the RFI is the single clearest signal of *what the planner was not
+  satisfied with* — i.e. the de-facto deciding issues. FIRequestDate/FIRecDate are **[S] in our feed**;
+  the *content* of the request is **[PDF]** in the council file (scrape-only).
+
+### 12.2 The deciding rules ARE discoverable — they live in the Development Plan
+The "internal rules" that decide applications are **not secret** — they are the **Development Plan's
+"Development Management Standards" chapter** (typically Ch.14/15), adopted by councillors as a reserved
+function. Planners apply these quantitative standards and **cite them in RFIs and refusal reasons**.
+Granting *against* them = a **material contravention** (needs the ¾ councillor vote, §10.6).
+
+### 12.3 PROBE — Galway County Development Plan 2022-2028, Chapter 15  ✅ SCRAPABLE
+Fetched `consult.galway.ie/.../chapter-15-development-management-standards`. **Verdict: clean HTML,
+machine-scrapable** — numbered sections (15.x), named "DM Standard N", embedded tables, `<h2/h3/h4>`
+hierarchy, plus a downloadable PDF. Extracted concrete, quantitative deciding rules, e.g.:
+
+| Rule | Galway standard |
+|------|-----------------|
+| Residential density | 35–50 (med/high), 15–35 (low/med), 5–12 (low) **dwellings/ha**; default 35 DPH |
+| Car parking | **1.5** spaces (1–3 bed) / **2** spaces (4+ bed) per dwelling; retail/office/school scales |
+| Separation | **22 m** back-to-back & opposing first-floor windows; **2 m** to side boundary |
+| Sight distance ('Y') | 215 m @100 km/h … 35 m @30 km/h (Table 15.3); 'x' = 2.4 m from carriageway |
+| Building setbacks | 90 m motorway / 35 m national / 25 m regional / 15 m local road |
+| **Rural one-off site** | **min 2,000 m²** (on-site wastewater); +10 m² per 1 m² of house >200 m² |
+| **Linear development** | **5+ houses per 250 m** of road frontage = "linear", generally refused |
+| Site coverage / plot ratio | industrial ≤75% / 1:2; commercial 75/60/50% by height |
+| EV / bicycle / bin standards | 20% EV-equipped; bike 0.8×1.8 m, 1/bedspace; 3×240 L bins/10 apts |
+
+### 12.4 The big finding — a shared, cross-council platform
+The development plans sit on a **common "Online Consultation Portal" platform** — `consult.galway.ie`,
+`consult.fingal.ie`, `consult.dublincity.ie`, etc. all share the same per-chapter HTML structure. So the
+**Development Management Standards are scrapable in a *uniform* way across many of the 31 LAs.**
+- **NEW DATASET CANDIDATE:** a machine-readable **cross-council DM-standards comparison** (car-parking
+  ratios, density, rural site minimums, setbacks per authority). **Nobody publishes this** — it would let
+  you say "Galway demands 2,000 m² for a rural house; Mayo demands X" and tie decisions to the actual rule
+  applied. **[SCRAPABLE, novel, high-value].**
+- **Caveat:** not every LA is on the shared portal (Cork City runs its own), and "adopted" vs "draft" +
+  **variations** must be version-tracked (Galway already has Adopted Variation No.1).
+
+### 12.5 How it all fits
+RFI/refusal **reasons** [PDF] → cite **DM Standards** [SCRAPABLE, §12.3] → set in the **Development Plan**
+[adopted by councillors, §10.6]. So even though the *reason text* is PDF-locked per application, the
+**rulebook it cites is fully ingestible** — meaning we can contextualise any decision against the
+quantitative standard that governed it, and flag material contraventions, without scraping the file PDFs.

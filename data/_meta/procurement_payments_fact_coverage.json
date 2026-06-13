@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-06-13T14:24:08.179515+00:00",
+  "generated_utc": "2026-06-13T19:47:24.121547+00:00",
   "layer": "gold",
   "source": "extractors/procurement_payments_consolidate.py",
   "n_rows": 207504,
@@ -21,8 +21,8 @@
     "COMMITTED": 14588806476.8
   },
   "vat_status_counts": {
-    "unknown": 175541,
-    "incl_vat": 31963
+    "incl_vat": 31963,
+    "unknown": 175541
   },
   "privacy_note": "Suppliers named per published source PO/payments-over-\u20ac20k lists (Circular 07/2012 / FOI); no address/PII beyond the published figure.",
   "value_note": "po_committed (ordered) and payment_actual (paid) are different lifecycle tiers \u2014 never summed together; only value_safe_to_sum rows sum, and never across vat_status.",
