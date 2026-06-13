@@ -57,8 +57,12 @@ def fetch_totals() -> dict[str, float | int]:
 
 
 @st.cache_data(ttl=300)
-def fetch_ranked(limit: int = 300) -> pd.DataFrame:
-    """Candidates ranked by total spend — the primary league table."""
+def fetch_ranked(limit: int | None = None) -> pd.DataFrame:
+    """Candidates ranked by total spend — the primary league table.
+
+    Defaults to ALL loaded candidates (no limit) so the page's search box can
+    surface any of them; the page itself caps how many cards it renders.
+    """
     return _q.candidate_ranked(_conn(), limit).data
 
 
