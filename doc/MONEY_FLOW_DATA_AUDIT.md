@@ -50,6 +50,15 @@ totals; max legitimate single rows are real (NTA BusConnects €140.6m → Graha
    tests: sum-safe rows must have an identifiable supplier, be single known tier, positive amount, never a
    public_body transfer; plus a regression guard that the core money-flow bodies (Defence/Climate/central
    depts/Beaumont) stay present & displayable. **16/16 + 67 adjacent procurement tests green.**
+4. ✅ **Reading-order departments ingested (DFAT/Justice/Transport).** Bespoke
+   `pipeline_sandbox/procurement_dept_readingorder_parser.py` wired into `SOURCE_FACTS`. Gold = **63
+   publishers / 207,504 rows**; +€2.35bn raw sum-safe (Justice €1.47bn / Transport €486m / DFAT €394m), clean
+   parse (0 blank-supplier, 0 ≥€100m garbage). Newly visible: asylum-accommodation (Mosney, Millstreet),
+   De La Rue (passports), BearingPoint, Bristow/CHC (SAR helicopters). **83 tests green.**
+   - ⚠️ **Over-quarantine (display-side):** companies published without a legal suffix (De La Rue €101.5m,
+     BearingPoint €51.3m, An Post €47.5m) are classed `sole_trader_or_individual` → hidden from the public
+     view (DFAT loses 65% / €256.9m of displayable spend). Data is captured & correct; fix = better supplier
+     classification (CRO fuzzy / known-entity), NOT a privacy relaxation.
 
 ---
 
