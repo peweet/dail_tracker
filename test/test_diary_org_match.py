@@ -81,3 +81,34 @@ def test_placename_guard() -> None:
     idx = build_token_index(gaz)
     hits = match_subject("Visit to Limerick", None, gaz, idx)
     assert hits == []
+
+
+def test_member_name_excluded_from_gazetteer() -> None:
+    # a TD/Senator name must not enter the org gazetteer
+    gaz = build_gazetteer(["Patrick Costello"], [], person_names={norm("Patrick Costello")})
+    assert "patrick costello" not in gaz
+
+
+def test_person_title_guard_multi_token() -> None:
+    # "Prof Eamonn Murphy" is the person; "Meeting with Eamonn Murphy" (no title)
+    # still matches — the guard keys on the preceding title, not the name.
+    gaz = build_gazetteer(["Eamonn Murphy"], [])
+    idx = build_token_index(gaz)
+    assert match_subject("Prof Eamonn Murphy keynote", None, gaz, idx) == []
+    assert {m["matched_org_name"] for m in match_subject("Meeting with Eamonn Murphy", None, gaz, idx)} == {
+        "Eamonn Murphy"
+    }
+
+
+def test_ceo_does_not_drop_org() -> None:
+    # "CEO" is org-ambiguous and must NOT trigger the person-title guard
+    gaz = build_gazetteer(["Wind Energy Ireland"], [])
+    idx = build_token_index(gaz)
+    hits = {m["matched_org_name"] for m in match_subject("Meeting with CEO Wind Energy Ireland", None, gaz, idx)}
+    assert hits == {"Wind Energy Ireland"}
+
+
+def test_generic_topic_demoted_to_medium() -> None:
+    # a generic industry phrase is demoted out of the HIGH display tier
+    gaz = build_gazetteer(["Renewable Energy Ireland"], [])
+    assert gaz["renewable energy"][2] == "medium"

@@ -24,8 +24,21 @@ Two confidence tiers (Build Plan §7.2): HIGH = a ≥2-token normalised org name
 found contiguously in the subject (display tier); MEDIUM = a single distinctive
 token (len≥6, non-stopword) co-occurring with an engagement cue (export/research
 tier only). Recall is deliberately poor — say so downstream: matches are
-indicative, not exhaustive. A hand-scored ≥90% precision gate on the HIGH tier
-is required before any display (Build Plan §7.2.4) — not done here.
+indicative, not exhaustive.
+
+PRECISION (Build Plan §7.2.4 display gate) — MEASURED 2026-06-13 on a full
+census of the HIGH tier (382 mentions), adjudicated under explicit rules:
+**96.3% precision (14 FP), clearing the 90% gate.** Residual FP classes, all
+small: generic industry events ("Wind Energy Expo" vs Wind Energy Ireland, ×4),
+a near-name collision (British Chamber vs British-Irish Chamber, ×2), and
+historical persons not in the current-Dáil member file (Costello/Quinn/Coleman/
+O'Connor/O'Regan, ×5). MEDIUM tier is research-only and unmeasured. Surface the
+measured precision in provenance; frame matches as co-occurrence ("organisation
+named in the diary"), never "the minister met X".
+
+Known follow-ups to lift precision further: a HISTORICAL member-name list (the
+current file is 176 current TDs only) kills the residual persons; a curated
+event-phrase stoplist would catch the generic-industry tail.
 
 Output -> data/sandbox/enrichment/diary_org_mentions.parquet (+ entry_id stamped
 back onto ministerial_diary_entries.parquet so the two tables join).

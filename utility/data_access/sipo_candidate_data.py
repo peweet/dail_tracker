@@ -67,6 +67,16 @@ def fetch_ranked(limit: int | None = None) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
+def fetch_filed_unquantified() -> pd.DataFrame:
+    """Candidates who filed a statement with no trustworthy total — searchable, NO amount.
+
+    These are listed alongside the ranked spenders so every filed candidate is findable;
+    the page shows them without a figure and links each to the official SIPO PDF.
+    """
+    return _q.candidate_filed_unquantified(_conn()).data
+
+
+@st.cache_data(ttl=300)
 def fetch_by_party() -> pd.DataFrame:
     """One row per canonical party."""
     return _q.candidate_by_party(_conn()).data
