@@ -35,7 +35,7 @@ dependencies = [
     "altair>=6.0,<7",
     "plotly>=6.0,<7",
     "duckdb>=1.4,<2",
-    "pandas>=2.2,<3.0",  # capped <3.0 for launch: pandas 3.0 + plotly 6.7 has an import-order pd.Series bug; revisit post-launch
+    "pandas>=3.0.3,<4.0",  # capped <3.0 for launch: pandas 3.0 + plotly 6.7 has an import-order pd.Series bug; revisit post-launch
     "numpy>=2.0",
     "pyarrow>=14",       # duckdb/pandas parquet I/O for the gold/silver reads
 ]
