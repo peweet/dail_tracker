@@ -148,6 +148,11 @@ def _strip_leading_ref(name: str | None) -> str | None:
 # separate — a different legal person, already classed foreign_company.
 _ENTITY_MERGES = [
     ("Defence", r"(?i)\bspace\s*&?\s*sau\b", "Airbus Defence and Space SAU"),
+    # Ernst & Young: published as "Ernst & Young Business Advisory", "Ernst and Young Business
+    # Advisory" AND the orphaned tail "& Young"/"and Young" (the "Ernst &" cut at the column edge).
+    # Body-agnostic (EY is paid by many depts). The orphan is matched only as the WHOLE name so a
+    # firm legitimately containing "young" mid-string is untouched.
+    ("", r"(?i)ernst.{0,8}young|^\s*(?:and|&)\s+young\s*$", "Ernst and Young"),
 ]
 
 
@@ -158,8 +163,9 @@ def _canonicalise_split_entities(df: pl.DataFrame) -> pl.DataFrame:
         return df
     expr = pl.col("supplier_raw")
     for body, rx, canon in _ENTITY_MERGES:
+        body_ok = pl.lit(True) if body == "" else pl.col("publisher_name").str.contains(body)
         expr = (
-            pl.when(pl.col("publisher_name").str.contains(body) & pl.col("supplier_raw").str.contains(rx))
+            pl.when(body_ok & pl.col("supplier_raw").str.contains(rx))
             .then(pl.lit(canon))
             .otherwise(expr)
         )
@@ -366,15 +372,16 @@ _CRO_UPGRADE_MIN_LEN = 5
 # a surname) | business-activity stems (leading boundary only → inflection-safe).
 _FIRM_WORDS = (
     "ltd|limited|dac|plc|clg|llp|teo|teoranta|gmbh|inc|llc|srl|sarl|bros|brothers|son|sons|group|"
-    "cuideachta|co|jv|ppp"  # co = truncated "& Co"; jv = joint venture; ppp = PPP project vehicle;
-    # son (whole-word) = "& Son" — NOT a stem, so it can't match "Sonia"/"Sonny" inside a forename
+    "cuideachta|co|jv|ppp|ulc"  # co = truncated "& Co"; jv = joint venture; ppp = PPP vehicle;
+    # ulc = Irish Unlimited Company (Harrington Concrete & Quarries ULC); son (whole-word) = "& Son"
+    # — NOT a stem, so it can't match "Sonia"/"Sonny" inside a forename
 )
 _FIRM_STEMS = (
     "consult|engineer|engine|architect|surveyor|solicitor|solrs|barrister|accountant|advis|"
     "contract|construct|develop|enterprise|industr|technolog|system|software|servic|solution|"
     "logistic|distribut|manufactur|pharma|biotech|diagnostic|laborator|healthcare|medical|"
     "insuranc|assuranc|management|communicat|telecom|propert|holding|internation|institut|"
-    "foundation|partner|associat|incorporat|corporat|"
+    "foundation|partner|associat|incorporat|corporat|recruit|"
     # truncation-tolerant: source column-width cuts a legal/activity word mid-string
     # ("...LIMITE[D]", "...BUILDER[S]", "...ENGINE[ERING]"). "limit" covers limited/limite/limit;
     # "build" covers builders/building; "ventur" covers (joint) venture(s); "solrs" = solicitors.
@@ -390,8 +397,8 @@ _FOREIGN_COUNTRY = (
     r"finland|portugal|austria|poland|czech|switzerland|luxembourg"
 )
 _FOREIGN_FORM_RE = (
-    r"(?:\b(?:as|asa|oy|oyj|ab|bv|nv|sau|sarl|srl|spa|sl|gmbh|aps|sa|b v|n v|s a|s l|sp j))"
-    r"(?:\s+(?:" + _FOREIGN_COUNTRY + r"))?\s*$"
+    r"(?:\b(?:as|asa|oy|oyj|ab|bv|nv|sau|sarl|srl|spa|sl|gmbh|aps|sa|b v|n v|s a|s l|a s|sp j))"
+    r"(?:\s+(?:" + _FOREIGN_COUNTRY + r"))?\s*$"  # "a s" = Danish A/S (Bavarian Nordic A/S)
 )
 _ORG_FORM_RE = (
     r"(?i)(?:\b(?:" + _FIRM_WORDS + r")\b|\b(?:" + _FIRM_STEMS + r")|" + _FOREIGN_FORM_RE + r")"
@@ -434,6 +441,61 @@ def _reclassify_missed_companies(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
+# ── Sole-trader contractors (owner decision 2026-06-13e) ─────────────────────────────────────────
+# A named individual the State pays >€20k for GOODS/SERVICES is a sole-trader BUSINESS, published by
+# the State under the over-€20k transparency regime — hiding them is a transparency gap (a Ltd
+# builder's council contracts are visible but a sole-trader builder's identical ones are not). So a
+# still-quarantined supplier is surfaced as a displayable ``sole_trader`` IFF (supplier-level):
+#   • at least one payment carries a COMMERCIAL purpose (construction / maintenance / professional /
+#     trade services / materials / supply), AND
+#   • NO payment touches a PRIVATE matter — land/CPO/property purchase, rent to a private landlord,
+#     or a personal grant/care/allowance. Any single private-category row keeps the WHOLE supplier
+#     hidden (a person who is both a contractor AND sold land under CPO must not be exposed).
+# Source-grounded + no-inference: the gate reads the publisher's OWN published purpose text only.
+# Uncategorised-only suppliers stay hidden (can't confirm commercial). value_safe_to_sum unchanged.
+_PRIVATE_CAT_RE = (
+    r"(?i)\bland\b|\bcpo\b|compulsory|dwelling|\bpropert|house purchase|site purchase|land purchase|"
+    r"acquisition|roadwidening|\brent\b|leasehold|operating lease|"
+    r"\bgrant|aftercare|res care|residential care|\ballowance|refund|compensation|section 58|"
+    r"lodging|fostering|bursary|scholarship|mileage|expenses claim|croi conaithe|top up|"
+    r"counsel|own solicitor"  # the State paying a PRIVATE party's own legal costs (CPO/claims)
+)
+_COMMERCIAL_CAT_RE = (
+    r"(?i)construct|maintenance|\bcontract|\bworks\b|materials|professional fee|\bservices?\b|supply|"
+    r"roof|electric|plumb|\bheat|clean|civil|road|bitumen|bitmac|tarmac|plant|fitout|refurb|survey|"
+    r"architect|engineer|consult|medical|clinical|nursing|\bgp\b|ict|equipment|hardware|software|"
+    r"fencing|painting|sandblast|trade services|haulage|catering|\bsecurity|landscap|forestry"
+)
+
+
+def _surface_sole_trader_contractors(df: pl.DataFrame) -> pl.DataFrame:
+    """Reclassify still-quarantined commercial contractors to the displayable ``sole_trader`` class
+    (see block above). Supplier-level gate: surface only if some payment is commercial AND none is
+    private. Runs after spend_category is derived; never touches company/public_body/id_code rows."""
+    if df.is_empty() or "spend_category" not in df.columns:
+        return df
+    cat = pl.coalesce([pl.col("spend_category"), pl.col("description")]).fill_null("")
+    is_sole = pl.col("supplier_class") == "sole_trader_or_individual"
+    flags = df.with_columns(
+        (is_sole & cat.str.contains(_PRIVATE_CAT_RE)).alias("_priv"),
+        (is_sole & cat.str.contains(_COMMERCIAL_CAT_RE)).alias("_comm"),
+    ).group_by("supplier_normalised").agg(
+        pl.col("_priv").any().alias("_any_priv"), pl.col("_comm").any().alias("_any_comm")
+    )
+    surface_keys = flags.filter(pl.col("_any_comm") & ~pl.col("_any_priv"))["supplier_normalised"]
+    surface = is_sole & pl.col("supplier_normalised").is_in(surface_keys)
+    n = df.filter(surface).height
+    if n:
+        nsup = df.filter(surface)["supplier_normalised"].n_unique()
+        val = df.filter(surface)["amount_eur"].sum()
+        print(f"  surfaced {n:,} rows ({nsup:,} suppliers, €{val / 1e6:.1f}m) sole_trader_or_individual -> sole_trader (commercial contractors)")
+    return df.with_columns(
+        pl.when(surface).then(pl.lit("sole_trader")).otherwise(pl.col("supplier_class")).alias("supplier_class"),
+        pl.when(surface).then(pl.lit("ok")).otherwise(pl.col("privacy_status")).alias("privacy_status"),
+        pl.when(surface).then(pl.lit(True)).otherwise(pl.col("public_display")).alias("public_display"),
+    )
+
+
 # Anonymised payee CODE (OPW pseudonymises some contractors as "JOH260ZZ"/"DUG001ZZ"): a hard ID,
 # never a natural person's name. Classed id_code → hidden (anonymised on purpose) but kept summable
 # (it IS a real payment). Mirrors the existing id_code class in procurement_la_payments_extract.py.
@@ -466,7 +528,9 @@ def _apply_class_overrides(df: pl.DataFrame) -> pl.DataFrame:
     if not CLASS_OVERRIDES.exists():
         return df
     # supplier_normalised is upper-case; the CSV keys are lower-case — join on a case-folded key.
-    ov = pl.read_csv(CLASS_OVERRIDES, comment_prefix="#").select(
+    # truncate_ragged_lines: the free-text `basis` column may contain commas; only the first two
+    # columns (key, class) are used, so extra split fields are harmless to drop.
+    ov = pl.read_csv(CLASS_OVERRIDES, comment_prefix="#", truncate_ragged_lines=True).select(
         pl.col("supplier_normalised").str.strip_chars().str.to_lowercase().alias("_ovkey"),
         pl.col("override_class").str.strip_chars(),
     ).filter(pl.col("_ovkey").str.len_chars() > 0).unique(subset=["_ovkey"])
@@ -562,6 +626,7 @@ def main() -> None:
     df = _classify_id_codes(df)
     df = _apply_class_overrides(df)
     df = _derive_spend_category(df)
+    df = _surface_sole_trader_contractors(df)
 
     # PRIVACY INVARIANT (runtime, -O-proof): mirrors procurement_public_body_extract.py —
     # refuse to write gold if any likely-person row is left displayable.
