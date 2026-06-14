@@ -1410,3 +1410,155 @@ The worded grant confirms the blind reconstruction almost line-for-line:
 Net: the only material miss in the blind run was quoting **County** rather than **City** numeric thresholds;
 every substantive obligation (wastewater design, ecology/bat/NIS, landscaping/materials, single-storey, RFI,
 enurement, contribution) was predicted from the ingested standards + designation join before reading the file.
+
+---
+
+## 23. CITIZEN SITING-CHECK FEATURE — design + scope (2026-06-14)
+
+**Concept.** A user enters an **address / Eircode / XY** for a prospective site; the app returns a
+**decision tree of the planning issues that site triggers** (ecology/bats, archaeology, flood, septic
+viability, road/sightlines, heritage, landscape/siting), each annotated with **the governing DM Standard
+quoted verbatim** and **which report they'd have to submit**. It is the §16 obligation-set reconstructor
+with a citizen front-end — the Tier-1 "do I need permission / what applies here" pattern of PlanX/Symbium
+(§17). **Feasibility: high** — ~80% of the data backbone is already located (registry); the engine is
+spatial joins + the rulebook; the new build is a join service + UI.
+
+### 23.1 Pipeline
+```
+address / Eircode / XY  →  geocode to a point (ITM + WGS84)
+   → spatial join against every SOURCE_REGISTRY layer  (point-in-polygon / nearest)
+   → emit triggered obligations  + quote the governing DM Standard verbatim
+   → DEM lookup (elevation, slope, skyline/prominence) for the siting factors
+   → render as a checklist / decision tree, with the no-advice caveat
+```
+Each tree node = one **axiom we already hold**, evaluated by a join we already have the source for. The
+front-end adds **no logic** (§16): all logic lives in the rulebook.
+
+### 23.2 What's computable now vs the one gap
+| User-visible issue | Derivation | Source | Status |
+|---|---|---|---|
+| Bats / ecology | `point ∈/near SAC/SPA/NHA` → EcIA/AA likely (#12-13) | NPWS Designated Areas | ✅ live |
+| Archaeology | `point ∈ SMR Zone of Notification` (#17) | NMS SMRZone | ✅ live |
+| Flood | `point ∈ flood extent` (#21) | OPW NIFM / GSI | ✅ located (Zone A/B 🔎) |
+| Septic viability | `point ∉ sewer agglomeration` **and** groundwater vulnerability/karst class (#25) | EPA UWWT + GSI | ✅ located |
+| Road / sightlines | nearest `highway=` + `maxspeed` on the **local** road (#6-8) | **OSM (pre-ingested)** | ✅ verified |
+| Heritage | near RPS/ACA/NIAH (#16) | NIAH national + per-LA RPS | ✅ / 🔎 per-LA |
+| Landscape / siting | `point ∈ landscape Class 2/3` (#10) → VIA + DM Std 8 siting/materials | per-council LCA | 🔎 per-LA |
+| **Elevation / exposed-hill siting** | **DEM** lookup → elevation + slope + skyline/prominence | ⚠️ **DEM not yet in registry** | **gap** |
+
+**The one new source the elevation example needs = a national Digital Terrain Model.** Candidates:
+**Copernicus DEM** (10–30 m, free, EU) or **Tailte Éireann national DTM** (confirm licence/endpoint).
+Add as a registry row before this feature can answer "41 m on an exposed hill."
+
+### 23.3 Overpass / OSM — prototype on the API, ship on a local extract
+- Verified useful (§18.4): returns the local roads + `maxspeed` that TII's national-roads data omits — the
+  level at which one-off sightline/access refusals (#6-8) bite.
+- **Do NOT call public `overpass-api.de` per user request** in production — its ToS/rate limits are for
+  interactive/research use. **Pre-ingest the Ireland OSM extract** (Geofabrik, weekly refresh) into the
+  pipeline DB, or self-host an Overpass instance. Overpass-turbo stays the tool to *design* the queries.
+- OSM `historic`/heritage tags are **context only** — NMS SMR/SMRZone remain authoritative.
+- Limits to surface honestly: `maxspeed` is sparsely tagged; OSM gives road **centrelines, not visibility
+  splays** — it locates/classifies the road, it does not compute sightlines (a site survey still does).
+
+### 23.4 The advice / liability boundary — the load-bearing design rule
+Two very different outputs; the product does the first, never the second:
+- ✅ **Surface + quote the rule and its trigger.** *"Your site is on a skyline in Landscape Class 3, so a
+  Visual Impact Assessment is likely (#10). DM Standard 8: 'new buildings should respect the landscape
+  context and not impinge scenic views or skylines… materials reflective of traditional vernacular.'"*
+- ⛔ **Prescribe the design** ("you need a grey dormer bungalow"). That is the **professional judgment** an
+  architect/planning consultant is paid and insured to give; stating it as a requirement is both inaccurate
+  (the rule says *integrate*, not *be grey*) and a liability if a user builds to it and is refused.
+
+This is exactly where PlanX (§17) stops — accountable flowcharts that surface the authority's rules, **not**
+AI design verdicts — and it aligns with the project's no-inference principle (memory
+`feedback_no_inference_in_app`). UI framing: **"issues your site triggers + what each report is + what the
+Development Plan says about siting here,"** with a visible *"not professional planning advice"* caveat.
+
+### 23.5 Risk framing — "likely", never "will"
+Decisions are discretionary ("proper planning and sustainable development"). The §13 SAC finding showed
+designation **raises refusal odds** (35.9% vs 15.2%) — a signal, not a verdict. The tool reports
+**triggered obligations + elevated risk**, never "you will be refused/granted."
+
+### 23.6 Hard edges to plan around
+- **Eircode / address geocoding is licensed** (ECAD/ECAF is not open data). MVP: a **map-click / coordinate
+  picker** (+ accept XY) sidesteps the licence; add Eircode later via a licensed geocoder or An Post/Tailte.
+- **Per-council layers** (RPS, ACA, landscape sensitivity) need the 31-LA assembly (same pattern as the
+  rulebook) before national coverage; ship Galway-first, matching the existing scope.
+- **Plan vintage / temporal layer** (§18 legislative spine): standards change per Development-Plan cycle and
+  per National Planning Statement — the quoted rule must be version-stamped to the plan in force.
+
+### 23.7 Build order
+1. **Join service** over the national layers already located (SAC/SPA, SMR, flood, GSI septic, NIAH,
+   MyPlan/GZT zoning) → triggered-obligation list + verbatim standards. (Reuses the §13 shapely+`make_valid`
+   spatial stack and the §13.8 pyesridump ingest gate.)
+2. **Add the DEM** (Copernicus/Tailte) — the only new source the siting example needs.
+3. **Pre-ingest OSM** (Geofabrik Ireland) for local roads/sightlines.
+4. **Decision-tree front-end** (PlanX-style), stopping at *rules + triggers + caveat*, not prescriptions.
+5. Galway-first; generalise per-council layers on the rulebook cadence.
+
+### 23.8 Decision-tree content spec → `doc/PLANNING_SITING_DECISION_TREE.md`
+The **content** of the tree (issue nodes, mitigation branches, ACP-precedent links, commercial scope) is
+specified separately. It is a **hand-authored issue catalogue** (NOT PlanX-style drag-drop flow-authoring
+or auto-generated code — overkill). Key shape:
+- **Three layers:** universal gates → location triggers (spatial joins) → type & siting (inputs + DEM).
+- **Each issue node** = trigger → source → plain flag → *engage [specialist]* → **mitigation class
+  (Procedural / Mitigable-by-design / Often-fatal)** → **linked real ACP decision** (the "ultimate
+  arbiter" — the Board's own words settle severity, sidestepping the inference line).
+- Worked examples in the spec: bats → ecologist + lighting specialist; SAC/karst (Burren/Corrib) →
+  effluent often the dealbreaker; floodplain → Justification Test; monument → archaeologist + monitoring;
+  rural-need/zoning → the dominant non-mitigable refusal.
+- **Commercial scope:** free triage funnel → paid pre-purchase site-report PDF → B2B API; opt-in specialist
+  referral marketplace (kept separate from the neutral assessment); positioned as **planning-risk
+  due-diligence, not planning advice**.
+
+---
+
+## 22. NATIONAL DECISION-PROFILE PASS — §13 generalised to the whole 495k corpus (BUILT, 2026-06-14)
+
+The Galway SAC case study (§13) extended to the **entire country**. For every one of the 495,632
+applications, attach (a) the structured **decision-function** fields and (b) the spatial **obligation
+triggers** (which NPWS designations the site sits in), then measure the national **dose-response**.
+
+**Build:** `pipeline_sandbox/planning_decision_profiles.py` →
+`pipeline_sandbox/_planning_output/planning_decision_profiles.parquet` (495,632 per-decision profiles)
++ `data/_meta/planning_decision_profiles_coverage.json`. Sources: PC01 applications × PC09 SAC / PC10
+SPA / PC11 NHA+pNHA. Method: shapely STRtree, NPWS polygons fetched **generalised (~55 m,
+`maxAllowableOffset`)** so the 472k-vertex Lough Corrib SAC can't truncate the pull (§13.6), `make_valid`
++ Ireland-bbox guard. **This is a national CORRELATION pass** — generalised geometry undercounts
+boundary containment slightly; the app must use exact containment + live polygons (the §13 no-frozen-rate
+caveat still holds; never publish a frozen %).
+
+**Profile fields:** decided / granted / refused, `decision_latency_days`, `had_rfi`, `appealed`,
+`is_one_off_house`, `application_type_normalised`, units, lon/lat, and `in_sac / in_spa / in_nha /
+in_pnha / in_natura2000`.
+
+**National dose-response (decided apps; baseline refusal 13.0%, n=386,033):**
+| Trigger | Refusal | Lift |
+|---|---|---|
+| in_NHA | 30.5% | ×2.35 (n=59, small) |
+| **in_SAC** | **19.6%** | **×1.51** |
+| in_Natura2000 (SAC∪SPA) | 19.0% | ×1.46 |
+| in_SPA | 18.1% | ×1.39 |
+| in_pNHA | 17.8% | ×1.37 |
+| one-off house | 14.0% | ×1.07 |
+
+The §13 SAC dose-response **holds nationally but is more moderate** (×1.51 vs Galway's ×2.4 — Galway is
+unusually SAC-/rural-constrained). The decisive read is the **compound effect**: a **one-off house
+inside a Natura site is refused 22.7%** vs 13.9% outside (×1.6 within that cohort), and at the
+**principle stage (Outline) inside Natura → 55.4%** vs 44.4% outside. So designations bite hardest on
+exactly the cohorts the §10/§16 rulebook predicts (rural housing + nature constraints), and hardest when
+the *principle* is tested — empirical support for the mitigation-profile taxonomy (§21): the spatial,
+fixed-fact triggers (SAC/SPA boundary) are the **hard** ones.
+
+**Lifecycle profile (national):** median decision latency **55 days**, **23.8%** carry an RFI, **4.9%**
+appealed. (⚠️ `AppealDecision` is an *empty string* not null on most rows — guard on trimmed length, or
+the appeal rate inflates to 96%; per-council appeal semantics also vary, so the trustworthy appeal metric
+needs the PC02 ACP-feed join, not this self-reported field.)
+
+**Not yet joined (next obligation layers, all in the registry):** OPW flood (PC14 — CC-BY-**NC**-ND, no
+clean FeatureServer), RPS/ACA heritage (PC15/16), SMR archaeology zones (PC28), zoning composite (PC07,
+for material-contravention). Each adds another trigger column to the same profile.
+
+**Registry:** added PC33 (CSO Agricultural Land Prices), PC34 (SCSI/Teagasc Land Market Review), PC35
+(Property Arbitration — CPO compensation, blocked/no register) to
+`planning_rules/_corpus_registry/planning_corpus_seed.csv`.
