@@ -1,0 +1,289 @@
+# Citizen Siting-Check — Issue Catalogue (build-ready config)
+#
+# One block per issue node (= "one row per node"). The decision-tree engine loads this, evaluates each
+# node's trigger against the joined layers, and renders the nodes that fire.
+#
+# COUNCIL-PARAMETERISED: a node is defined ONCE here, council-agnostically. `rule_ref` points into the
+# per-council rulebook (planning_rules/<la>/dm_standards.md + required_assessments.md); the engine
+# substitutes the VERBATIM standard for the council in force. `council_overrides` below carries the few
+# per-council specifics (DM-standard numbers, zoning codes, landscape tables) that genuinely differ.
+#
+# Design rules (see doc/PLANNING_SITING_DECISION_TREE.md):
+#   - Issues + rules + precedent, never design prescriptions or refuse/grant verdicts.
+#   - flag_template uses {placeholders} resolved per-council/site at runtime; quote the real DM Standard.
+#   - mitigation_class: P = procedural | D = mitigable by design/condition | F = often fatal. Ranges ok.
+#   - precedents: ONLY verified real cases. `curate: true` = curation-queue stub (search `keywords`).
+#   - source_layers: keys into `source_layers` glossary (which maps to planning_rules/SOURCE_REGISTRY.md).
+
+meta:
+  version: 0.1
+  status: SCOPE/DESIGN — not built
+  updated: 2026-06-14
+  rule_resolution: "rule_ref.{checklist|dm_std} → verbatim text in planning_rules/<la_slug>/{required_assessments,dm_standards}.md"
+  disclaimer: "Planning-risk triage, not professional planning advice. Decisions are discretionary."
+
+# ---- layer glossary -------------------------------------------------------------------------------
+layers:
+  A: "Universal gate — applies to every application (always shown)"
+  B: "Location trigger — fires on a spatial join to a designation/condition"
+  C: "Type & siting — fires on development type + terrain (DEM)"
+
+# ---- source-layer glossary (keys → SOURCE_REGISTRY.md rows) ----------------------------------------
+source_layers:
+  npws_designated_areas: { kind: polygon, status: live, ref: "SAC/SPA/NHA/pNHA — NPWSDesignatedAreas/FeatureServer" }
+  smr_zone:              { kind: polygon, status: live, ref: "NMS SMRZoneOpenData/FeatureServer/0" }
+  smr_points:            { kind: point,   status: live, ref: "NMS SMROpenData/FeatureServer/0" }
+  opw_flood:             { kind: polygon, status: located, ref: "OPW NIFM extents / CFRAM AFA; statutory Zone A/B floodinfo.ie (TBD)" }
+  gsi_vulnerability:     { kind: polygon, status: located, ref: "GSI Groundwater Vulnerability + Karst + Subsoil Permeability 1:40,000" }
+  epa_agglomeration:     { kind: polygon, status: located, ref: "EPA Urban Waste Water Agglomeration Boundaries (sewered extent)" }
+  epa_subsoils:          { kind: polygon, status: located, ref: "EPA National Subsoils/Soils (peat detection)" }
+  niah:                  { kind: point,   status: located, ref: "NIAH national dataset" }
+  rps_aca:               { kind: mixed,   status: per_la,  ref: "RPS + ACA — per-council on data.gov.ie" }
+  landscape_lca:         { kind: polygon, status: per_la,  ref: "Landscape Character / sensitivity — per-council" }
+  tii_roads:             { kind: line,    status: located, ref: "TII National + RMO Regional road network" }
+  osm_roads:             { kind: line,    status: live,    ref: "OSM via pre-ingested Geofabrik extract (NOT live Overpass in prod)" }
+  zoning_gzt:            { kind: polygon, status: live,    ref: "MyPlan GZT_Current_Plan/FeatureServer/0" }
+  dem:                   { kind: raster,  status: gap,     ref: "national DEM — Copernicus 10-30m / Tailte DTM (TO ADD)" }
+
+# ---- issue nodes ----------------------------------------------------------------------------------
+nodes:
+
+  - id: aa_screening
+    title: Appropriate Assessment screening
+    layer: A
+    applies_to: [all]
+    trigger: { description: "every application", predicate: "always", source_layers: [] }
+    flag_template: "AA screening applies to all applications. {aa_extra}"
+    engage: []
+    rule_ref: { checklist: [12] }
+    mitigation_class: P
+    mitigates: "Screening report; escalates to NIS only if a likely significant effect on a European site can't be excluded."
+    precedents: []
+    risk_note: "Universal, low-cost unless escalated by the SAC/SPA node."
+
+  - id: bats
+    title: Bats / protected species
+    layer: B
+    applies_to: [one_off_house, extension, multi_unit, commercial]
+    trigger:
+      description: "near SAC/SPA, mature trees, watercourse, or works to an old/derelict structure"
+      predicate: "near(npws_designated_areas) OR old_structure OR near_trees_or_water"
+      source_layers: [npws_designated_areas]
+    flag_template: >
+      Likely a bat issue (Lesser Horseshoe bat = Annex II). A bat survey will be required; if a roost is
+      present you'll also need an NPWS derogation licence and a sensitive lighting design.
+    engage: [ecologist, "lighting specialist (if roost present)"]
+    rule_ref: { checklist: [13], dm_std: [51, 52], regs: "Birds & Natural Habitats Regs 2011 (regs 51/54)" }
+    mitigation_class: D
+    mitigates: "Bat survey + NIS mitigation chapter + ecologist-supervised works + dark-corridor / lux-capped lighting."
+    precedents:
+      - ref: "council:GalwayCity 22/207 (Order 76012, 23 May 2023)"
+        outcome: granted_with_conditions
+        type: council_order
+        note: "Cond 12 — mitigation in NIS Ch.6 + Bat Survey Ch.8 implemented under ecologist supervision."
+    risk_note: "Usually mitigable; bats are survey-season-bound (≈May–Sep), so plan timing."
+
+  - id: european_site
+    title: European site (SAC / SPA) — incl. Lough Corrib, the Burren
+    layer: B
+    applies_to: [all]
+    trigger:
+      description: "site in or near a SAC/SPA, especially with a water/effluent pathway"
+      predicate: "within_or_near(npws_designated_areas)"
+      source_layers: [npws_designated_areas]
+    flag_template: >
+      Appropriate Assessment applies ({site_name}). If there is a water or effluent pathway to the European
+      site, this is hard to grant — the Board must be satisfied of no adverse effect on site integrity.
+    engage: [ecologist (NIS author)]
+    rule_ref: { checklist: [12, 13, 14], dm_std: [51] }
+    mitigation_class: "D->F"
+    mitigates: "NIS proving no adverse effect on integrity. On karst near a SAC, effluent disposal is often NOT mitigable."
+    precedents:
+      - ref: "PL61.249409 (Galway City, 17/217, Menlo)"
+        outcome: refused
+        type: acp
+        note: "Refused in part: effluent cannot be safely disposed of — fissured limestone, proximity to Lough Corrib SAC, public-health/Habitats risk."
+    risk_note: "Evidence: SAC sites refused ~2.4x baseline (scoping §13). Karst + septic = the crux near the Burren/Corrib."
+
+  - id: peat_bog
+    title: Bog / peat soils
+    layer: B
+    applies_to: [one_off_house, multi_unit, commercial]
+    trigger:
+      description: "site on peat subsoil or raised/blanket-bog NHA"
+      predicate: "soil_is_peat(epa_subsoils) OR within(npws_designated_areas, class='NHA bog')"
+      source_layers: [epa_subsoils, npws_designated_areas]
+    flag_template: >
+      Peat soils here: foundation stability, peat-disturbance/carbon, and septic-percolation problems;
+      possible peatland designation.
+    engage: ["geotechnical engineer", "ecologist (if NHA)"]
+    rule_ref: { checklist: [25], dm_std: [9] }
+    mitigation_class: "D->F"
+    mitigates: "Engineered foundations (cost). Percolation on peat frequently fails → wastewater can be the dealbreaker."
+    precedents: [ { curate: true, keywords: ["peat", "blanket bog", "percolation"] } ]
+    risk_note: "Foundation cost + septic failure are the two killers; confirm with site investigation early."
+
+  - id: monument
+    title: Recorded monument (archaeology)
+    layer: B
+    applies_to: [all]
+    trigger:
+      description: "site within an SMR Zone of Notification (NOT mere proximity to a point)"
+      predicate: "within(smr_zone)"
+      source_layers: [smr_zone, smr_points]
+    flag_template: >
+      A recorded monument is nearby ({monument_class}, {townland}). An archaeological assessment and likely
+      monitoring will be required.
+    engage: ["licensed archaeologist"]
+    rule_ref: { checklist: [17], dm_std: [62] }
+    mitigation_class: "P->D"
+    mitigates: "Archaeological assessment + monitoring condition (usual outcome). Only fatal if the monument itself is directly impacted."
+    precedents:
+      - ref: "ABP-318465-23 (Galway City, Rahoon LRD)"
+        outcome: granted_with_conditions
+        type: acp
+        note: "'Low archaeological potential' → granted with an archaeological monitoring condition; not a refusal driver."
+    risk_note: "Granularity rule: the constraint is the ZONE polygon, not distance to a monument point."
+
+  - id: floodplain
+    title: Floodplain / flood zone
+    layer: B
+    applies_to: [all]
+    trigger:
+      description: "site in Flood Zone A or B"
+      predicate: "within(opw_flood, zone in ['A','B'])"
+      source_layers: [opw_flood]
+    flag_template: >
+      Your site is in a flood zone ({flood_zone}). A house is a 'highly vulnerable' use → a Justification
+      Test is required, and in Zone A this is usually inappropriate.
+    engage: ["flood-risk / hydrology consultant"]
+    rule_ref: { checklist: [21], dm_std: [69], guidance: "Flood Risk Mgmt Guidelines 2009 + Circular PL2/2014" }
+    mitigation_class: "F (Zone A) / D (Zone B)"
+    mitigates: "Justification Test (rarely passes for a one-off in Zone A) + finished-floor raising. Often not mitigable in Zone A."
+    precedents: [ { curate: true, keywords: ["flood zone", "justification test", "highly vulnerable"] } ]
+    risk_note: "NIFM extents are the national stand-in until the statutory Zone A/B layer is wired (floodinfo.ie)."
+
+  - id: septic_groundwater
+    title: Septic / on-site wastewater viability
+    layer: B
+    applies_to: [one_off_house]
+    trigger:
+      description: "no public sewer AND high groundwater vulnerability or karst"
+      predicate: "outside(epa_agglomeration) AND vulnerability_high(gsi_vulnerability)"
+      source_layers: [epa_agglomeration, gsi_vulnerability]
+    flag_template: >
+      No public sewer here — on-site wastewater needed. High groundwater vulnerability/karst ({vuln_class})
+      means the percolation test may fail.
+    engage: ["site-suitability assessor (EPA Code of Practice)"]
+    rule_ref: { checklist: [25], dm_std: [9], guidance: "EPA CoP for on-site wastewater (single houses)" }
+    mitigation_class: "D->F"
+    mitigates: "Trial hole + percolation test; proprietary treatment system. If the site fails the EPA test it is NOT mitigable."
+    precedents:
+      - ref: "PL61.249409 (Galway City, Menlo)"
+        outcome: refused
+        type: acp
+        note: "Effluent could not be safely disposed of on fissured limestone near a public water supply."
+    risk_note: "The sewered-vs-unsewered flag (EPA agglomeration) is the antecedent; vulnerability/karst is the severity."
+
+  - id: road_sightlines
+    title: Road access / sightlines
+    layer: B
+    applies_to: [one_off_house, multi_unit, commercial]
+    trigger:
+      description: "access onto a public road; severity by road class + speed; national road = TII control"
+      predicate: "nearest_road(osm_roads, tii_roads); maxspeed; is_national_road"
+      source_layers: [osm_roads, tii_roads]
+    flag_template: >
+      Entrance sightlines must meet the standard for this road's speed ({maxspeed}); the visibility-splay
+      land must be in your control. On a national road outside the 50–60 km/h zone, new houses are
+      restricted to farm families.
+    engage: ["transport / civil engineer"]
+    rule_ref: { checklist: [6, 7, 8], dm_std: [27, 29], guidance: "TII DN-GEO-03031 / DMURS" }
+    mitigation_class: "D->F"
+    mitigates: "Achieve x/y sightlines (control frontage, remove hedgerow). Fatal if you can't control the splay land or it's a restricted national road."
+    precedents:
+      - ref: "ABP-321385-24 (Galway County, Coill Uachtair)"
+        outcome: refused
+        type: acp
+        note: "Refused solely on traffic hazard — substandard local road, inadequate sightlines."
+      - ref: "ABP-301453-18 (Galway County, Kilroghter)"
+        outcome: refused
+        type: acp
+        note: "Traffic hazard at the N84 junction + no legal interest to provide sightlines."
+    risk_note: "OSM gives the local road + maxspeed TII omits, but centrelines not splays — sightlines still need a survey."
+
+  - id: landscape_siting
+    title: Landscape sensitivity / exposed siting
+    layer: C
+    applies_to: [one_off_house, multi_unit]
+    trigger:
+      description: "sensitive landscape class, scenic route/protected view, or elevated/exposed/skyline terrain"
+      predicate: "within(landscape_lca, class in [2,3]) OR elevation_or_skyline(dem)"
+      source_layers: [landscape_lca, dem]
+    flag_template: >
+      Sensitive/exposed landscape ({lca_class}; elevation {elevation_m} m). A Visual Impact Assessment is
+      likely. Siting/design will be constrained — the plan requires development to integrate with the
+      landscape and not break the skyline.
+    engage: ["architect", "landscape architect (if VIA)"]
+    rule_ref: { checklist: [10], dm_std: [8, 47] }
+    mitigation_class: D
+    mitigates: "Low/stepped siting, single-storey or dormer form, planting, recessive materials. QUOTE DM Std 8 — do NOT prescribe the design."
+    precedents:
+      - ref: "PL61.249409 (Galway City, Menlo)"
+        outcome: refused
+        type: acp
+        note: "Refused in part: elevated site over Lough Corrib in an area of outstanding natural beauty would diminish the landscape."
+    risk_note: "Needs the DEM (the one missing source). Surface the rule + factors; never output a prescribed house."
+
+  - id: rural_need_zoning
+    title: Rural housing need / zoning
+    layer: B
+    applies_to: [one_off_house]
+    trigger:
+      description: "agricultural zoning, 'strong urban pressure' area, or Tier-6 settlement"
+      predicate: "zoned_agricultural(zoning_gzt) OR strong_urban_pressure OR tier6"
+      source_layers: [zoning_gzt]
+    flag_template: >
+      This area restricts houses to people with a demonstrated local/functional need — urban-generated
+      rural housing is steered to settlements. {local_need_test}
+    engage: ["planning consultant"]
+    rule_ref: { checklist: [], dm_std: [7], guidance: "Sustainable Rural Housing Guidelines 2005; NPF; (NPS Rural Housing 2026 forthcoming)" }
+    mitigation_class: F
+    mitigates: "Demonstrate local connection / functional need. If you don't qualify, this is the single most common refusal and is NOT design-mitigable."
+    precedents:
+      - ref: "ABP-301453-18 (Galway County, Kilroghter)"
+        outcome: refused
+        type: acp
+        note: "Refused: urban-generated rural housing in a 'strong urban pressure' area; applicant outside the local-need criteria (RHO 1)."
+      - ref: "PL61.249409 (Galway City, Menlo)"
+        outcome: refused
+        type: acp
+        note: "Refused: zoning 'A' agricultural; failed to demonstrate established local housing need."
+    risk_note: "Watch the 2026 National Planning Statement on Rural Housing — may relax this gate."
+
+  - id: protected_structure
+    title: Protected structure / Architectural Conservation Area
+    layer: B
+    applies_to: [all]
+    trigger:
+      description: "site is/near a Protected Structure (RPS), ACA, or NIAH-listed building"
+      predicate: "within_or_near(rps_aca) OR near(niah)"
+      source_layers: [rps_aca, niah]
+    flag_template: >
+      A protected structure or conservation area is involved. An Architectural Heritage Impact Assessment
+      is required and design will be constrained (incl. curtilage and boundary treatments).
+    engage: ["conservation architect"]
+    rule_ref: { checklist: [16], dm_std: [60] }
+    mitigation_class: D
+    mitigates: "Conservation-led design + AHIA. Demolition / material change of character is harder. No compensation for heritage-ground refusal."
+    precedents: [ { curate: true, keywords: ["protected structure", "curtilage", "ACA"] } ]
+    risk_note: "RPS/ACA are per-council layers — needs the 31-LA assembly for national coverage."
+
+# ---- per-council overrides (only where the rulebook genuinely differs) ------------------------------
+council_overrides:
+  galway_county_council:
+    road_sightlines:   { dm_std: [27, 29], note: "Order ABP-321385-24 cited 'DM Std 28' for sightlines; rulebook puts sightlines at DM 29 — verify numbering vs adopted plan." }
+    rural_need_zoning: { policy: "RHO 1 (Galway County DP 2015-2021 / 2022-2028)", term: "strong urban pressure" }
+  galway_city_council:
+    rural_need_zoning: { zoning_codes: { agricultural: "G", high_amenity: "A" }, plan: "Galway City DP 2023-2029", section: "11.2.4" }
+    landscape_siting:  { note: "Zoning 'A' = high amenity; 'G' = agriculture/visual protection." }

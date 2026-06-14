@@ -1,0 +1,53 @@
+{
+  "generated_utc": "2026-06-14T12:59:54.416470+00:00",
+  "layer": "sandbox",
+  "n_applications": 495632,
+  "n_decided": 386033,
+  "national_refusal_pct": 13.0,
+  "designation_counts": {
+    "in_sac": 2050,
+    "in_spa": 1712,
+    "in_nha": 79,
+    "in_pnha": 2801,
+    "in_natura2000": 3520
+  },
+  "dose_response": {
+    "in_sac": {
+      "n_decided": 1370,
+      "refusal_pct": 19.6,
+      "lift_vs_baseline": 1.51
+    },
+    "in_spa": {
+      "n_decided": 1144,
+      "refusal_pct": 18.1,
+      "lift_vs_baseline": 1.39
+    },
+    "in_nha": {
+      "n_decided": 59,
+      "refusal_pct": 30.5,
+      "lift_vs_baseline": 2.35
+    },
+    "in_pnha": {
+      "n_decided": 1947,
+      "refusal_pct": 17.8,
+      "lift_vs_baseline": 1.37
+    },
+    "in_natura2000": {
+      "n_decided": 2369,
+      "refusal_pct": 19.0,
+      "lift_vs_baseline": 1.46
+    },
+    "is_one_off_house": {
+      "n_decided": 61772,
+      "refusal_pct": 14.0,
+      "lift_vs_baseline": 1.07
+    }
+  },
+  "method": "shapely STRtree, NPWS generalised (~55m) polygons, make_valid + Ireland-bbox guard; correlation not causation",
+  "sources": [
+    "PC01 IrishPlanningApplications",
+    "PC09 SAC",
+    "PC10 SPA",
+    "PC11 NHA/pNHA"
+  ]
+}
