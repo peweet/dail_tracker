@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-06-14T12:59:54.416470+00:00",
+  "generated_utc": "2026-06-14T17:47:58.228705+00:00",
   "layer": "sandbox",
   "n_applications": 495632,
   "n_decided": 386033,
@@ -9,7 +9,8 @@
     "in_spa": 1712,
     "in_nha": 79,
     "in_pnha": 2801,
-    "in_natura2000": 3520
+    "in_natura2000": 3520,
+    "in_smr_zone": 17184
   },
   "dose_response": {
     "in_sac": {
@@ -37,17 +38,23 @@
       "refusal_pct": 19.0,
       "lift_vs_baseline": 1.46
     },
+    "in_smr_zone": {
+      "n_decided": 12547,
+      "refusal_pct": 14.0,
+      "lift_vs_baseline": 1.08
+    },
     "is_one_off_house": {
       "n_decided": 61772,
       "refusal_pct": 14.0,
       "lift_vs_baseline": 1.07
     }
   },
-  "method": "shapely STRtree, NPWS generalised (~55m) polygons, make_valid + Ireland-bbox guard; correlation not causation",
+  "method": "shapely STRtree, generalised (~55m) polygons, make_valid + Ireland-bbox guard; correlation not causation",
   "sources": [
     "PC01 IrishPlanningApplications",
     "PC09 SAC",
     "PC10 SPA",
-    "PC11 NHA/pNHA"
+    "PC11 NHA/pNHA",
+    "PC28 SMR archaeology zone"
   ]
 }
