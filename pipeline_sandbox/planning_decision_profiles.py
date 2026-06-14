@@ -62,11 +62,16 @@ def _fetch_polys(layer_url: str) -> list:
     while True:
         r = requests.get(
             f"{layer_url}/query",
-            params={"where": "1=1", "outFields": "SITECODE", "returnGeometry": "true", "outSR": "4326",
+            # outFields="*" not a named field — layers differ (NPWS has SITECODE, SMR does not; a
+            # missing named field errors to empty). Geometry is all we need for containment anyway.
+            params={"where": "1=1", "outFields": "*", "returnGeometry": "true", "outSR": "4326",
                     "maxAllowableOffset": OFFSET, "resultOffset": offset, "resultRecordCount": 2000, "f": "geojson"},
             timeout=180,
         )
-        feats = r.json().get("features", [])
+        j = r.json()
+        if "error" in j:
+            raise SystemExit(f"ArcGIS error fetching {layer_url}: {j['error']}")
+        feats = j.get("features", [])
         if not feats:
             break
         for f in feats:
@@ -77,7 +82,7 @@ def _fetch_polys(layer_url: str) -> list:
             if IRL[0] <= b[0] and IRL[1] <= b[1] and b[2] <= IRL[2] and b[3] <= IRL[3]:
                 polys.append(g)
             else:
-                LOG.warning("dropped out-of-bounds polygon (corrupt geom) in layer %s: bounds=%s", layer_id, b)
+                LOG.warning("dropped out-of-bounds polygon (corrupt geom) in %s: bounds=%s", layer_url, b)
         offset += len(feats)
         if len(feats) < 2000:
             break

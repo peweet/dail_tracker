@@ -1562,3 +1562,41 @@ for material-contravention). Each adds another trigger column to the same profil
 **Registry:** added PC33 (CSO Agricultural Land Prices), PC34 (SCSI/Teagasc Land Market Review), PC35
 (Property Arbitration — CPO compensation, blocked/no register) to
 `planning_rules/_corpus_registry/planning_corpus_seed.csv`.
+
+---
+
+## 23. ARCHAEOLOGY TRIGGER + AUTHORITATIVE OVERTURN METRIC (BUILT, 2026-06-14)
+
+Two extensions to §22, both OCR-free.
+
+### 23.1 SMR archaeology zone added — and it VALIDATES the §21 hard-vs-mitigatable taxonomy
+Added `in_smr_zone` (NMS SMR Zone of Notification, registry **PC28**, 81,408 zones) to
+`planning_decision_profiles.py`. National result (decided, baseline 13.0%):
+
+| Trigger | Refusal | Lift | §21 class |
+|---|---|---|---|
+| in_SAC | 19.6% | **×1.51** | HARD (fixed site fact) |
+| in_SMR_zone (archaeology) | 14.0% | **×1.08** | MITIGATABLE (testing / preservation-by-record) |
+
+**12,547 decided applications sit in an archaeology zone** yet refusal barely moves (×1.08) — whereas
+sitting in a SAC lifts it ~1.5×. That is direct empirical support for the mitigation-profile axis: a
+**mitigatable** obligation (do the archaeological report) is near-neutral on the outcome; a **hard**
+spatial constraint (SAC integrity) materially raises refusal. The taxonomy isn't just theory — the
+corpus shows it.
+
+### 23.2 Authoritative council-overturn metric — fixes the §22 caveat
+`planning_appeal_outcomes.py` → `_planning_output/planning_appeal_outcomes.parquet`. Joins the **ACP's
+own decision** (PC02, 26,079 cases, CC-BY) to applications via the §Angle-4 recipe (6-digit core of
+`AppealRefNumber` → `ABPCASEID`) — replacing the unreliable self-reported `AppealDecision`.
+
+- 15,182 appeals joined (of 20,923 with a ref); **13,053 clear grant/refuse both sides**.
+- **ABP overturned the council 26.4%** (matches the known ~⅓), split **grant→refuse 1,342** vs
+  **refuse→grant 2,100** → councils are *net more restrictive* than ABP on appealed cases (applicant
+  appeals succeed more often than third-party ones).
+- Per-council (min 25 appeals): **Donegal 44.2%**, Mayo 33.8%, Wexford **33.2%**, Cavan 33.1%, Galway
+  32.2%. These are now CREDIBLE — the self-reported field had manufactured fake 100%s for Westmeath /
+  Wexford (empty-string default + vendor quirks). Use THIS (the ACP feed), not the applications field.
+- Caveat: ACP appeals are *de novo*; "overturn" = outcome flipped. A record, not a quality judgement.
+
+Tests: `test_planning_decision_profiles.py`, `test_planning_appeal_outcomes.py` (incl. a guard that no
+council shows ≥95% overturn — the artifact tripwire). Coverage JSONs in `data/_meta/`.
