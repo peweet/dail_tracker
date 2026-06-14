@@ -77,6 +77,31 @@ The core domain chains are also standalone scripts (`<domain>_refresh.py`) you
 can run directly — e.g. `python iris_refresh.py`. Use `--help` for chain-specific
 flags.
 
+#### Running a refresh yourself (Windows)
+
+From the repo root, use the project venv's interpreter directly — a full run
+hits ~30 network sources and takes a while, so let it run to completion:
+
+```powershell
+.venv\Scripts\python.exe pipeline.py            # full refresh
+.venv\Scripts\python.exe pipeline.py --list     # see chains without running
+.venv\Scripts\python.exe pipeline.py --select procurement,ted   # just a subset
+```
+
+Watch progress (or diagnose a failure) in the per-run logs — each run gets its
+own timestamped directory under `logs/runs/`, with one log per chain:
+
+```powershell
+# newest run dir:
+Get-ChildItem logs\runs | Sort-Object LastWriteTime -Desc | Select-Object -First 1
+# then tail a chain, e.g.:
+Get-Content logs\runs\<run-id>\steps\01_bootstrap.log -Tail 30 -Wait
+```
+
+The end-of-run summary lists which chains succeeded and which failed; a single
+failed chain doesn't abort the rest. `manifest.json` in the run dir records the
+exit code, summary line, and error for every chain.
+
 The chains, in run order:
 
 - **Core domains:** `bootstrap` (PDF/API polling + member & debate flattening),
