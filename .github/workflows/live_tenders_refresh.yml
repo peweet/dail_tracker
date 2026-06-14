@@ -1,0 +1,74 @@
+name: Live tenders refresh (daily)
+
+# Keeps the LIVE national tender snapshot current on the deployed site.
+#
+# Why this is the one money-flow source that is safe to auto-refresh on a clean cloud
+# runner: extractors/etenders_live_tenders_extract.py is STATELESS — it rebuilds the whole
+# snapshot from etenders.gov.ie every run, so there is no "cold-start thinning" (the gitignored
+# bronze/silver state problem that blocks the full pipeline). The scrape produces a small (<1MB)
+# silver parquet the Procurement page reads directly, and ships it to the live app via the same
+# gated publish the gold parquet uses (tools/publish_data.py).
+#
+# Safety: publish_data.py can ONLY stage/commit the allow-listed data paths (never code, never
+# `git add .`) and runs the completeness gate before committing — a failed/partial scrape, or any
+# gold regression, aborts the publish and nothing ships. Replaces the harness-blocked local
+# scheduled task (tools/poll_live_tenders.ps1) with a cloud one.
+
+on:
+  schedule:
+    - cron: "30 6 * * *"   # 06:30 UTC daily — matches the old local poll cadence
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: "Page cap per feed (politeness; newest-first)."
+        required: false
+        default: "120"
+
+permissions:
+  contents: write   # publish_data.py commits + pushes the refreshed snapshot to main
+  issues: write     # open a tracking issue if a scheduled run fails
+
+concurrency:
+  group: live-tenders-refresh
+  cancel-in-progress: false   # let an in-flight publish finish rather than racing the next run
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30   # the scrape + publish finishes in minutes; this is a watchdog
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      # pipeline = polars (the extractor) + the parquet/gate deps; scrape = playwright.
+      - name: Install deps
+        run: uv sync --frozen --extra pipeline --extra scrape
+
+      - name: Install Chromium for Playwright
+        run: uv run python -m playwright install --with-deps chromium
+
+      - name: Scrape live tenders -> silver snapshot
+        run: uv run python extractors/etenders_live_tenders_extract.py --max-pages "${{ github.event.inputs.max_pages || '120' }}"
+
+      # Gated publish: commits ONLY the allow-listed data paths (the snapshot + any changed gold)
+      # and aborts on any 0-row / unreadable / gold-regression. Pushes to main -> Cloud redeploys.
+      - name: Publish refreshed snapshot
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          uv run python tools/publish_data.py -m "data: daily live-tenders refresh ($(date -u +%F))"
+
+      - name: Open issue on failure (scheduled runs only)
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              ...context.repo,
+              title: `Live-tenders refresh failed (${new Date().toISOString().slice(0, 10)})`,
+              body: `The daily etenders.gov.ie scrape or its publish step failed.\n\nRun: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nLikely causes: the eTenders grid layout shifted (parser), a Playwright/browser install issue, or the publish gate aborted on a data regression. The live site keeps the last good snapshot and the Procurement page's own staleness line will flag it if it ages past 3 days.`,
+              labels: ["data", "procurement", "automation"],
+            });

@@ -1,0 +1,37 @@
+{
+  "council": "Donegal County Council",
+  "slug": "donegal_county_council",
+  "authority_type": "county_council",
+  "plan_name": "County Donegal Development Plan 2024-2030 (DRAFT)",
+  "dm_location": "Chapter 16 — Technical Standards (p.249); plus rural-housing chapter and Rural Location, Siting & Design Guide 2024-2030",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": "5 houses on any one side of 250 m of road frontage",
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": "Per relevant national vision lines and stopping sight distances",
+  "wastewater_standard": "Catchment-specific controls on single-house effluent treatment systems (RH-P-10)",
+
+  "residential_density_dph": "35 units per hectare (planning/zoning assumption)",
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": null,
+  "private_open_space": null,
+  "public_open_space_pct": "15% greenfield; 10% infill/certain sites; 20% sites with substantial open lands",
+  "car_parking_dwelling": null,
+  "building_height": null,
+
+  "trigger_AA": "Assessment of plans/projects likely to affect Natura 2000 habitats/species; Natura Impact Statement may be required",
+  "trigger_EIA": "EU EIA Directive thresholds; Council carries out EIA as necessary; EIS/EIAR may be required",
+  "trigger_FRA": "Strategic Flood Risk Assessments required; Justification Test in flood zones",
+  "trigger_AHIA": "Architectural heritage non-renewable resource; AHIA expectation for works affecting protected structures",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": null,
+
+  "notes": "DRAFT plan — figures can change at adoption; re-verify. Residential parking ratios and separation distances not cleanly tabulated in extracted Chapter 16 — see raw/ PDFs. Caravan/camping parks max 50 caravans/ha. Car parking bay 5 m × 2.5 m."
+}

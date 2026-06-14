@@ -1,0 +1,139 @@
+name: Money-flow pipeline refresh (daily, R2-backed)
+
+# The full continuous-refresh lane for the money-flow data (payments, procurement, TED,
+# LA/HSE/Tusla, CRO, CBI, AFS, CSO) and everything they depend on. This is the project's
+# long-deferred "Phase 6" cloud automation — now safe to wire because two rails de-risk it:
+#
+#   1. STATE via R2. bronze/silver are gitignored, so a clean runner would cold-rebuild
+#      incremental sources from a thin slice ("cold-start thinning"). We restore the 9 GB
+#      bronze+silver backup from Cloudflare R2 first, so the pipeline runs INCREMENTALLY
+#      (accrete a delta), not cold — then back the refreshed state up again.
+#   2. A PUBLISH GATE that cannot ship bad data. tools/publish_data.py commits ONLY an
+#      allow-listed set of data paths (never code) and runs the completeness baseline first;
+#      ANY table that went MISSING/EMPTIED/ROW_DROP vs the committed baseline aborts the whole
+#      publish. So even a degraded/cold run can never regress the live app — it just no-ops
+#      and opens an issue.
+#
+# ⚠️ RUNTIME IS UNMEASURED. The full pipeline's end-to-end time on a Linux runner is the
+# load-bearing unknown that deferred this (see .github/workflows/pipeline_probe.yml and
+# doc/CONTINUOUS_REFRESH.md). Run the probe ONCE (blank chains) to confirm it fits the
+# timeout below and the 6 h GitHub job ceiling BEFORE relying on the schedule. Until R2
+# secrets are set, a scheduled run will restore nothing, likely thin some tables, and the
+# publish gate will (correctly) abort — safe, but it will open a failure issue each day, so
+# keep this on workflow_dispatch until the secrets + probe are done (see the doc).
+
+on:
+  schedule:
+    - cron: "0 4 * * *"   # 04:00 UTC daily — well before the live-tenders 06:30 run
+  workflow_dispatch:
+    inputs:
+      chains:
+        description: "pipeline.py --select value (comma-separated). LEAVE BLANK for the full pipeline (the only run order that satisfies cross-chain deps — money-flow chains depend on members/iris/lobbying upstream)."
+        required: false
+        default: ""
+      skip_publish:
+        description: "true = run + back up to R2 but do NOT commit/push (a dry validation run)."
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: money-flow-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350   # just under the 6 h GitHub ceiling; tighten once the probe measures the real time
+    env:
+      # rclone reads an "r2" remote entirely from these env vars — no config file needed.
+      # All four are repository secrets; absent => the restore/backup steps self-skip (cold run).
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      RCLONE_CONFIG_R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET: dail-tracker-backup
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install deps
+        run: uv sync --frozen --extra pipeline --extra scrape
+
+      - name: Install Chromium for Playwright (lobbying fallback)
+        run: uv run python -m playwright install --with-deps chromium
+
+      - name: Restore bronze + silver state from R2
+        run: |
+          if [ -z "${RCLONE_CONFIG_R2_ACCESS_KEY_ID}" ]; then
+            echo "::warning::R2 secrets absent — running COLD. Incremental sources may thin; the publish gate will block any regression."
+            exit 0
+          fi
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+          echo "Restoring bronze + silver from r2:${R2_BUCKET} ..."
+          rclone copy "r2:${R2_BUCKET}/bronze" data/bronze --ignore-existing --transfers 16 --fast-list -q
+          rclone copy "r2:${R2_BUCKET}/silver" data/silver --ignore-existing --transfers 16 --fast-list -q
+          du -sh data/bronze data/silver 2>/dev/null || true
+
+      - name: Run pipeline (timed; chain failures are reported, not fatal here)
+        id: run
+        run: |
+          chains="${{ github.event.inputs.chains }}"
+          if [ -z "$chains" ]; then
+            echo "mode=FULL (all chains, dependency order)" >> "$GITHUB_OUTPUT"
+            set -- python pipeline.py
+          else
+            echo "mode=subset: $chains" >> "$GITHUB_OUTPUT"
+            set -- python pipeline.py --select "$chains"
+          fi
+          start=$(date +%s)
+          set +e; uv run "$@"; code=$?; set -e
+          echo "elapsed_seconds=$(( $(date +%s) - start ))" >> "$GITHUB_OUTPUT"
+          echo "pipeline_exit=$code" >> "$GITHUB_OUTPUT"
+          echo "pipeline exit $code (elapsed $(( $(date +%s) - start ))s)"
+
+      # Gate + publish. Skipped on a dry validation run. The gate aborts (non-zero) on any
+      # gold regression, which fails the job and opens the issue below — nothing ships.
+      - name: Publish refreshed gold (gated allow-list)
+        if: ${{ github.event.inputs.skip_publish != 'true' }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          uv run python tools/publish_data.py -m "data: daily money-flow refresh ($(date -u +%F))"
+
+      - name: Back up refreshed bronze + silver to R2
+        if: ${{ always() && env.RCLONE_CONFIG_R2_ACCESS_KEY_ID != '' }}
+        run: |
+          command -v rclone >/dev/null || { curl -fsSL https://rclone.org/install.sh | sudo bash; }
+          rclone copy data/bronze "r2:${R2_BUCKET}/bronze" --ignore-existing --transfers 16 --fast-list -q
+          rclone copy data/silver "r2:${R2_BUCKET}/silver" --ignore-existing --transfers 16 --fast-list -q
+          echo "R2 backup complete."
+
+      - name: Runtime summary
+        if: always()
+        run: |
+          {
+            echo "### Money-flow refresh"
+            echo "- mode: \`${{ steps.run.outputs.mode }}\`"
+            echo "- pipeline exit: \`${{ steps.run.outputs.pipeline_exit }}\`"
+            echo "- elapsed: \`${{ steps.run.outputs.elapsed_seconds }}s\`  ⟵ compare against the 350-min timeout / 6 h ceiling"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open issue on failure (scheduled runs only)
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              ...context.repo,
+              title: `Money-flow refresh failed (${new Date().toISOString().slice(0, 10)})`,
+              body: `The daily money-flow pipeline refresh failed.\n\nRun: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nMost likely the publish gate aborted on a data regression (a chain thinned a table — often a cold run with no R2 restore, or a source outage). The live app is unaffected — the gate ships nothing on regression. Check the run log for the chain that thinned, and confirm R2 restore ran (the "Restore" step warns if secrets are absent).`,
+              labels: ["data", "pipeline", "automation"],
+            });

@@ -1,0 +1,37 @@
+{
+  "council": "Longford County Council",
+  "slug": "longford_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Longford County Development Plan 2021-2027",
+  "dm_location": "Chapter 16 — Development Management Standards (Volume 1)",
+  "extract_status": "complete",
+
+  "rural_min_site_area": "0.2 ha (individual treatment system)",
+  "rural_site_scaling": "Increased where adjacent systems exist or percolation tests borderline (upper/lower 20% of permitted limits)",
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": "Local Roads 90 m; Regional Roads 150 m; National Roads 230 m (sight distances from rural entrances)",
+  "wastewater_standard": "Individual treatment system (septic tank & percolation area or equivalent); EPA wastewater treatment manual; maintenance agreement min 5 years",
+
+  "residential_density_dph": "DMS16.17: 30 units/ha Longford town centre; DMS16.18: 12 units/ha other towns/settlements; DMS16.19 rural villages take cognisance of prevailing scale",
+  "plot_ratio": "Town Centre/Brownfield 1.0-2.0; Inner Suburban 0.5-1.0; Outer Suburban 0.35-0.5 (DMS16.24)",
+  "site_coverage_pct": "Residential 50%; Retail 60%; Industrial & Commercial 75%; Town Centre 80%; generally not to exceed 80%",
+  "separation_distance_m": "22 m between directly opposing rear windows at first floor (DMS16.32); 35 m for overlooking living-room windows/balconies at upper floors (DMS16.33)",
+  "private_open_space": "1 bed 48 m²; 2 bed 55 m²; 3 bed 60 m²; 4+ bed 75 m² (DMS16.25)",
+  "public_open_space_pct": "Greenfield minimum 15% of total site area (relaxation possible where density <8 dwellings/ha)",
+  "car_parking_dwelling": "Apartments/Flats 2 per dwelling (houses not separately listed)",
+  "building_height": "Greater-than-prevailing heights need strong urban design rationale (Design Statement); determined by prevailing height/streetscape/protected structures/ACAs",
+
+  "trigger_AA": "Required for all plans/projects under Habitats Directive Art 6(3); Natura Impact Statement (Stage 2) where AA Screening concludes AA required (§16.2.3)",
+  "trigger_EIA": "Schedule 5 of PD Regs 2001 lists mandatory thresholds for EIAR; sub-threshold discretionary EIAR by notice (§16.2.4)",
+  "trigger_FRA": "Flood Risk Assessment may be required (§16.2.5)",
+  "trigger_AHIA": "Architectural Assessment may be required (§16.2.5)",
+  "trigger_EcIA": "Ecological / Biodiversity Assessment may be required (§16.2.5)",
+  "trigger_VIA": "Landscape Appraisal and Visual Assessment may be required (§16.2.5)",
+  "trigger_TTA": "Traffic and Transport Assessment (TTA) & Road Safety Audits may be required (§16.2.5)",
+
+  "notes": "DMS16.x = numbered standards. Min house floor areas DMS16.43 (1 bed 55 m² to 4+ bed 110 m²). Apartment standards DMS16.58. Infrastructure Assessments particularly for developments over 50 units. Ground-floor window not less than 1 m from boundary it faces (DMS16.35). All one-off housing to install min 1 EV home charge point (A5.2). No trees within 7 m of public light column."
+}

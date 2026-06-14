@@ -1,0 +1,21 @@
+{
+  "generated_utc": "2026-06-14T11:42:12.588095+00:00",
+  "layer": "silver",
+  "source": {
+    "dataset": "eTenders current opportunities (Calls for Tender + Notices)",
+    "publisher": "Office of Government Procurement (OGP)",
+    "platform": "etenders.gov.ie (European Dynamics EPPS)",
+    "landing_page": "https://www.etenders.gov.ie/epps/prepareCurrentOpportunities.do?currentType=cft",
+    "access": "Playwright (public tender list is JS-rendered)",
+    "license": "Public procurement record; OGP open data is CC-BY 4.0. Live-portal ToU unconfirmed \u2014 research use."
+  },
+  "n_rows": 2175,
+  "by_feed": {
+    "notice": 1075,
+    "cft": 1100
+  },
+  "rows_with_estimated_value": 716,
+  "value_note": "estimated_value_eur is a BUYER ESTIMATE at PLANNED stage (value_kind=estimate_advertised, realisation_tier=PLANNED, value_safe_to_sum=FALSE) \u2014 a NEW lifecycle tier before AWARDED; NEVER summed.",
+  "caveat": "Live national pipeline (incl. sub-EU-threshold). The cft feed also lists already-closed + DPS/Qualification-System records back to 2023; the consuming view filters to genuinely-open. Snapshot at retrieved_utc \u2014 refresh via tools/poll_live_tenders.ps1. ToU unconfirmed \u2014 research use.",
+  "parser_version": "0.1.0"
+}

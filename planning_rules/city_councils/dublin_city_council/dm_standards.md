@@ -10,7 +10,7 @@
 | Source URL | https://www.dublincity.ie/dublin-city-development-plan-2022-2028/written-statement/chapter-15-development-standards |
 | Fetch date | 2026-06-13 |
 
-> Note on scope: Dublin's Chapter 15 (Written Statement) states the residential/qualitative standards inline but **defers several quantitative standards to Appendices**: density, building height, plot ratio and site coverage to **Appendix 3**; car/cycle parking, road widths, traffic assessment thresholds to **Appendix 5**. The numbers below are those stated directly in Chapter 15 sub-sections. Items deferred to appendices are flagged.
+> Note on scope: Dublin splits its standards between **Chapter 15** (Written Statement — residential/qualitative standards, captured below) and **Volume 2 Appendices** — density/height/plot ratio/site coverage in **Appendix 3** and car/cycle parking in **Appendix 5**. Both appendices have now been pulled from the adopted Volume 2 (`raw/volume2_appendices.pdf`) and are included in the relevant sections below.
 
 ## Residential — open space
 
@@ -61,14 +61,43 @@ Unit mix:
 
 - Architectural Design Statement required for **50+ residential units** (Table 15-2 sets information requirements); may also be required for large-scale commercial development.
 
-## Density, height, plot ratio, site coverage
+## Density, height, plot ratio, site coverage — Appendix 3 (Achieving Sustainable Compact Growth)
 
-- **Deferred to Appendix 3.** Chapter 15 (15.5.4–15.5.6) states the policy approach (higher density at high-quality public-transport locations; brownfield/infill greater densities) but gives no in-chapter numeric figures.
+*(Captured from Volume 2 Appendix 3, p.209 — `raw/volume2_appendices.pdf`.)*
 
-## Car parking / cycle parking / road widths
+- **Residential density:** sustainable neighbourhood schemes achieve **200–250 units per hectare**; up to **~300 uph** in defined schemes (e.g. Poolbeg West Planning Scheme), via buildings typically **5–8 storeys** with landmark elements. **General presumption against schemes in excess of 300 uph.**
+- **Building height:** mid-rise typologies of **4–8 storeys** for street scale/enclosure; height increases promoted at brownfield/infill, docklands, SDRAs, key urban villages and high-quality public-transport corridors, subject to performance criteria.
+- **Plot ratio & site coverage (Appendix 3, Table 2 — indicative):**
 
-- **Deferred to Appendix 5** (Access and Design Standards; Cycle and Car Parking Standards and Management; road/footpath design). No numeric ratios stated within Chapter 15 itself.
+| Area | Indicative plot ratio | Indicative site coverage |
+|---|---|---|
+| Central Area | 2.5–3.0 | 60–90% |
+| Regeneration Area | 1.5–3.0 | 50–60% |
+| Conservation Area | 1.5–2.0 | 45–50% |
+| Outer Employment / other | 1.0–2.5 | 45–60% |
+
+- Any development with a **plot ratio over 3.0 must be accompanied by a compelling case.**
+
+## Car parking — Appendix 5 (Transport & Mobility), zonal MAXIMUM standards
+
+*(Captured from Volume 2 Appendix 5, Table 2, p.257. The city is split into Parking Zone 1 (most central/restrictive) → Zone 3 (remainder of city). Standards are **maxima**.)*
+
+| Land use | Zone 1 | Zone 2 | Zone 3 |
+|---|---|---|---|
+| Housing | 1 per 4 dwellings | 1 per 2 dwellings | 1 per 2 dwellings |
+| Apartments / duplexes | 0.5 per dwelling | 1 per dwelling | 1 per dwelling |
+| Hotel | None | 1 per 3 rooms | 1 per room |
+| Nursing home | 1 per 3 residents | 1 per 2 residents | 1 per 2 residents |
+| Student accommodation | None | 1 per 20 bed | 1 per 10 bed |
+| Office | — | — | 1 per 75 m² |
+
+- Boundary sites between zones: level of car parking at the Planning Authority's discretion. Car-Parking Management Plan / rationale required for the quantum proposed.
+
+## Cycle parking — Appendix 5 (Table 1)
+
+- Residential apartments: **1 secure cycle space per bedroom** + **1 visitor space per 2 units** (per the 2020 Apartment Guidelines).
+- Bicycle Parking Management Plan required for stores over 100 spaces; long-term stands protected from weather.
 
 ## EV charging / bin storage
 
-- Not enumerated numerically in Chapter 15; addressed via national apartment standards and Appendix 5. No in-chapter figures captured.
+- Bin/waste storage standards in Appendix 7 (Waste Storage Facilities); EV provision per national apartment standards + Appendix 5. Not enumerated numerically in Chapter 15 itself.

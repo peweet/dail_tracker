@@ -321,6 +321,13 @@ data/gold/parquet/speeches_fact_full.parquet
 !data/silver/seanad_aggregated_tables.csv
 !data/silver/lobbying/
 !data/silver/lobbying/client_company_returns_detail.csv
+# Live national tender snapshot — a small (<1MB) silver parquet the Procurement page reads
+# directly (sql_views/procurement/procurement_live_tenders.sql). Refreshed daily by
+# .github/workflows/live_tenders_refresh.yml and shipped to Cloud via publish_data.py, exactly
+# like the gold parquet (Cloud boots from a clean clone with no ETL). The blanket *.parquet rule
+# above swallows it; re-include just this one file (other silver parquet stays ignored).
+!data/silver/parquet/
+!data/silver/parquet/etenders_live_tenders.parquet
 # SIPO per-candidate OCR working state (cells .json / .attempt files / logs) — transient,
 # regenerable from the bronze PDFs, thousands of files; NEVER commit. Explicit ignore so
 # the .attempt/.txt files (not caught by the *.json type rule) can't leak in either.
@@ -450,3 +457,10 @@ data/_export_cache/
 # regenerable source documents — keep them ignored per the *.pdf/*.html convention.
 !planning_rules/**/_source.json
 planning_rules/**/raw/
+
+# planning_rules cross-council criteria map (normalized rule values) — track these
+!planning_rules/_criteria_map/*.json
+!planning_rules/_criteria_map/*.csv
+
+# planning_rules corpus seed registry (curated tracking of datasets to ingest) — track it
+!planning_rules/_corpus_registry/*.csv

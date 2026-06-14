@@ -1,0 +1,37 @@
+{
+  "council": "Sligo County Council",
+  "slug": "sligo_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Sligo County Development Plan 2024-2030",
+  "dm_location": "Volume 3, Chapter 33 — Development Management Standards",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": "215/160/120/90/70/50 m by design speed (100/85/70/60/50/42 km/h)",
+  "wastewater_standard": "EPA 2021 CoP Domestic Waste Water Treatment Systems (PE ≤10) + S.R. 66:2015; site assessment required",
+
+  "residential_density_dph": null,
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": "16 m between opposing habitable-room windows above ground floor; 2.3 m between side walls",
+  "private_open_space": "Houses 20/30/40/50 m² by beds (1/2/3/4+); apartments 4-9 m²",
+  "public_open_space_pct": "10% min - 15% max of net site area",
+  "car_parking_dwelling": "House 1-1.5 (TC) / 1-2 per unit; Apartment 0.5-1 (TC) / 1-1.5 per unit",
+  "building_height": null,
+
+  "trigger_AA": "Not enumerated in Chapter 33 (in environmental chapters/statutory AA)",
+  "trigger_EIA": "Not enumerated in Chapter 33 (in environmental chapters/statutory SEA)",
+  "trigger_FRA": "Sequential approach; site-specific FRA may be required; Justification Test in exceptional circumstances",
+  "trigger_AHIA": "Built-heritage chapter (not in Chapter 33); guide to development in historic streetscapes",
+  "trigger_EcIA": "Biodiversity Net Gain on sites 0.5 ha and over (ecological surveys)",
+  "trigger_VIA": null,
+  "trigger_TTA": "TTA per 2014 Guidelines + Road Safety Audit; TTA may be required for retail over 1,000 sq.m",
+
+  "notes": "DM Standards chapter sets no numeric rural site area or density (governed by Compact Settlements Guidelines 2024). Family flat ≤70 sqm. Daylight/sunlight assessment per BRE Guide 209 (2022). Design Statement required for all single rural houses + multi-unit housing."
+}

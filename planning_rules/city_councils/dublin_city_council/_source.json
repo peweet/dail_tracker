@@ -3,12 +3,13 @@
   "authority_type": "city_council",
   "plan_name": "Dublin City Development Plan 2022-2028",
   "plan_status": "adopted (effective 14 December 2022)",
-  "dm_standards_chapter": "Chapter 15 - Development Standards",
+  "dm_standards_chapter": "Chapter 15 - Development Standards (+ Volume 2 Appendix 3 density/height, Appendix 5 parking)",
   "source_url": "https://www.dublincity.ie/dublin-city-development-plan-2022-2028/written-statement/chapter-15-development-standards",
-  "portal": "dublincity.ie (adopted plan HTML); consult.dublincity.ie hosted the draft",
-  "fetch_method": "curl.exe of adopted plan chapter index + 6 sub-section HTML pages (158, 1511, 159, 1516, 153, 155); tag-stripped and extracted. WebFetch was 403-blocked on dublincity.ie.",
-  "fetch_date": "2026-06-13",
-  "captured": ["raw/dm_standards.html", "dm_standards.md", "required_assessments.md", "_source.json"],
+  "appendices_url": "https://www.dublincity.ie/sites/default/files/2022-12/Final%20Vol%202-Appendices.pdf",
+  "portal": "dublincity.ie (adopted plan HTML + Volume 2 Appendices PDF); consult.dublincity.ie hosted the draft",
+  "fetch_method": "curl.exe of adopted Ch.15 sub-section HTML pages + Volume 2 Appendices PDF (pdftotext). WebFetch was 403-blocked on dublincity.ie.",
+  "fetch_date": "2026-06-13 (Ch.15); 2026-06-14 (Appendices 3 & 5)",
+  "captured": ["raw/dm_standards.html", "raw/volume2_appendices.pdf", "dm_standards.md", "required_assessments.md", "_source.json"],
   "status": "complete",
-  "notes": "Chapter 15 states residential open-space (10%/25%), private open space (10 sqm/bedspace), apartment floor areas (37/45/73/90 sqm), unit mix, childcare (1 facility per 75 dwellings), play-space sizes, separation (~22m), and EIA/AA/EcIA triggers inline. Density, building height, plot ratio, site coverage are DEFERRED to Appendix 3; car/cycle parking, road widths and traffic-assessment thresholds DEFERRED to Appendix 5 (not captured here). raw/dm_standards.html is the chapter index page; the substantive standards live on the sub-section pages which were fetched into c:/tmp during extraction."
+  "notes": "Chapter 15 (Written Statement) gives residential open-space (10%/25%), private open space (10 sqm/bedspace), apartment floor areas (37/45/73/90 sqm), unit mix, childcare (1 per 75 dwellings), play sizes, separation (~22m), EIA/AA/EcIA triggers. Density/height/plot-ratio/site-coverage (Appendix 3) and zonal MAX car parking + cycle parking (Appendix 5) were SUBSEQUENTLY pulled from the adopted Volume 2 Appendices PDF and added 2026-06-14 - Dublin now fully captured. Appendix 3: 200-300 uph, 4-8 storeys, plot ratio 1.0-3.0 by area; Appendix 5: Parking Zones 1-3, housing 1 per 4 / 1 per 2 dwellings."
 }

@@ -1,0 +1,37 @@
+{
+  "council": "Offaly County Council",
+  "slug": "offaly_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Offaly County Development Plan 2021-2027",
+  "dm_location": "Chapter 13 — Development Management Standards",
+  "extract_status": "partial",
+
+  "rural_min_site_area": "0.2 hectares (0.5 acres) (DMS-45); 0.202 hectares (0.5 acres) rural infill (DMS-54)",
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": "2.4 m from road edge (DMS-97)",
+  "sightline_y": "60 m local tertiary; 90 m local secondary; 120 m local primary; 150 m regional; 230 m national (DMS-97)",
+  "wastewater_standard": "EPA Code of Practice on Wastewater Treatment and Disposal Systems serving Single Houses (October 2009) (DMS-44/51)",
+
+  "residential_density_dph": "Determined with reference to Sustainable Residential Development Guidelines 2009 and prevailing scale/pattern (no fixed uph table)",
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": "22 m between directly opposing rear first floor windows (DMS-13); 2.5 m single storey / 3 m two-storey between side walls (DMS-14)",
+  "private_open_space": "48 m² (1 bed); 55 m² (2 bed); 60 m² (3 bed); 75 m² (4+ bed) (DMS-18)",
+  "public_open_space_pct": "15% greenfield; 10% brownfield/large infill (DMS-21); within 150 m walking distance",
+  "car_parking_dwelling": "House (outside town centre): 2 per unit; House (town/village centre): 1 per unit; Apartment: 1 per unit + 1 visitor per 4 (DMS-102)",
+  "building_height": null,
+
+  "trigger_AA": "All plans/projects subject to screening for Appropriate Assessment; full AA (NIS) unless screening establishes no likely significant effect on Natura 2000 site",
+  "trigger_EIA": "Mandatory thresholds per Planning and Development Regulations 2001; sub-threshold EIAR where likely significant effects",
+  "trigger_FRA": "Site-specific FRA for areas at moderate to high flood risk; Development Management Justification Test applied (DMS-106)",
+  "trigger_AHIA": "Protected Structures (DMS-93); Architectural Heritage Assessment report (DMS-94); ACAs (DMS-95)",
+  "trigger_EcIA": "Ecological Impact Assessment among non-exhaustive list of other assessments",
+  "trigger_VIA": "Visual Impact Assessment / Landscape Character Assessment among other assessments",
+  "trigger_TTA": "Detailed TTA where significant effect on travel demand/capacity per TII TTA Guidelines 2014 thresholds (DMS-105)",
+
+  "notes": "DMS-46 road frontage min 30 m; DMS-98 junction distances 50/100/150 m local/regional/national. No plot ratio, site coverage or building height tabulated. EV: min 10% spaces with EV charging (DMS-104)."
+}

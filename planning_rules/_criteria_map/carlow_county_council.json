@@ -1,0 +1,37 @@
+{
+  "council": "Carlow County Council",
+  "slug": "carlow_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Carlow County Development Plan 2022-2028",
+  "dm_location": "Chapter 16 — Development Management Standards",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": "4.5 m (national/regional 100 km/h); 2.5 m (regional 80/60 and local)",
+  "sightline_y": "210 m national & regional 100 km/h; 150 m regional 80/60; 90 m local 80/60",
+  "wastewater_standard": "EPA Code of Practice for Domestic Waste Water Treatment (2021); site investigation + percolation/water-table tests",
+
+  "residential_density_dph": ">35 Carlow Town centre; 25-30 edge; 20-30 Tullow/Muine Bheag; villages 10-25",
+  "plot_ratio": "1.0-2.0 town centre/brownfield; 0.5-1.0 inner suburban; 0.35-0.5 outer suburban",
+  "site_coverage_pct": "50% residential; 75% industrial; 60% other employment; 66% retail; 80% town centre",
+  "separation_distance_m": "22 m opposing first-floor habitable rooms; 2.5 m between dwellings",
+  "private_open_space": "55 m² 1-2 bed; 60 m² 3 bed; 75 m² 4+ bed (houses)",
+  "public_open_space_pct": "15% greenfield; 10% large infill/brownfield; 20% institutional",
+  "car_parking_dwelling": "2 spaces/unit max (house); 1.5 spaces/unit max (apartment)",
+  "building_height": null,
+
+  "trigger_AA": "All projects screened under Art.6 Habitats Directive; AA where significant adverse effects on SAC/SPA cannot be ruled out",
+  "trigger_EIA": "Part 1/Part 2 Planning and Development Regulations 2001 thresholds; sub-threshold screening",
+  "trigger_FRA": "Site-Specific Flood Risk Assessment where flooding may be an issue",
+  "trigger_AHIA": "Not explicitly enumerated as a trigger in Chapter 16",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "Traffic and Transport Assessment where significant car-trip generation (TII Guidelines 2014)",
+
+  "notes": "Rural one-off house minimum site area NOT in Chapter 16 — directed to Rural Design Guide (Chapter 13). Entrance min distance from junctions: 150 m national primary, 100 m national secondary/regional, 40 m local primary."
+}

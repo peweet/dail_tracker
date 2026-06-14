@@ -1,0 +1,21 @@
+{
+  "generated_utc": "2026-06-14T08:33:54.739314+00:00",
+  "layer": "sandbox",
+  "source": "data/gold/parquet/procurement_payments_fact.parquet",
+  "purpose": "anonymized land-acquisition / CPO compensation by area (council) x year, for the planning feature",
+  "privacy": "payee identity dropped; figures aggregated; strictly more private than the council's own published >\u20ac20k list",
+  "n_cells": 68,
+  "n_acquiring_bodies": 11,
+  "year_min": 2016,
+  "year_max": 2026,
+  "total_compensation_eur": 63803800.59,
+  "n_payments_total": 211,
+  "low_count_cells": 50,
+  "by_acquisition_type": {
+    "dwelling": 29657465.59,
+    "land_general": 17188740.35,
+    "road_land": 3138942.75,
+    "land_bank": 9246250.0,
+    "cpo": 4572401.9
+  }
+}

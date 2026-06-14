@@ -73,6 +73,14 @@ ocr = [
     "ocrmypdf>=17.0",
 ]
 
+# Headless-browser scraping for JS-rendered sources that curl/RSS can't reach:
+# the live national tender pipeline (extractors/etenders_live_tenders_extract.py) and
+# the lobbying.ie fallback. Kept out of `pipeline` so the standard ETL run stays
+# browser-free; the daily live-tenders GitHub Action installs this + the chromium binary.
+scrape = [
+    "playwright>=1.40",
+]
+
 # Read-only JSON API over the Streamlit-free core (dail_tracker_core). Optional:
 # the deployed Streamlit app does NOT import these, so they stay out of the lean
 # Cloud `uv sync`. Run the API with `uv sync --extra api` then `uvicorn api.main:app`.
@@ -93,7 +101,7 @@ mcp = [
 # Full local dev env (runtime + pipeline + tooling):
 #   uv sync --extra pipeline --extra ocr --extra api --group dev
 all = [
-    "dail-tracker[ocr,pipeline,api,mcp]",
+    "dail-tracker[ocr,pipeline,scrape,api,mcp]",
 ]
 
 # ── Dependency groups (PEP 735) ──────────────────────────────────────────────

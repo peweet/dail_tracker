@@ -1,0 +1,37 @@
+{
+  "council": "Meath County Council",
+  "slug": "meath_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Consolidated Meath County Development Plan 2021-2027 (as varied)",
+  "dm_location": "Chapter 11 — Development Management Standards and Land Use Zoning Objectives",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": null,
+
+  "residential_density_dph": "Per Sustainable Residential Development and Compact Settlements Guidelines 2024; at/above mid-density at central/accessible, below mid-range at peripheral (no fixed uph table)",
+  "plot_ratio": "1.0 indicative max at edge of town; 2.0 indicative max in town centre/core",
+  "site_coverage_pct": "Shall generally not exceed 80%",
+  "separation_distance_m": "16 m between directly opposing rear/side windows above ground floor; 2.3 m between dwellings for full length of flanks",
+  "private_open_space": "20 m² (1 bed); 30 m² (2 bed); 40 m² (3 bed); 50 m² (4 bed)",
+  "public_open_space_pct": "15% of total site area (reducible to 10% net site area in exceptional circumstances)",
+  "car_parking_dwelling": "Max 1.5 per dwelling at accessible locations; max 2 per dwelling at intermediate/peripheral locations",
+  "building_height": "Increased height at identified locations; proposals over 6 storeys require statement per Urban Development and Building Heights Guidelines 2018",
+
+  "trigger_AA": "Required where development could impact integrity of a Natura 2000 site; four phases (Screening, NIS, alternatives, IROPI)",
+  "trigger_EIA": "EIAR required for Schedule 5 development exceeding threshold; EIA screening for certain proposals",
+  "trigger_FRA": "Hydrology Appraisal/FRA among assessments for relevant proposals",
+  "trigger_AHIA": "Architectural Assessment; controls on/near Protected Structures and within ACAs",
+  "trigger_EcIA": "Ecology/Biodiversity Assessment (e.g. bat surveys), case-by-case at pre-application",
+  "trigger_VIA": "Landscape Impact Assessment, case-by-case at pre-application",
+  "trigger_TTA": "TTA where traffic exceeds 10% of flow (5% if congested); residential >100 dwellings; retail/leisure >1,000 sq.m; industrial >5,000 sq.m",
+
+  "notes": "Rural one-off house standards, sightlines and wastewater NOT in Chapter 11 — cross-referenced to Chapter 9 (Rural Development Strategy) and TII. Pre-application consultation required for residential or non-residential >1,000 sq.m."
+}

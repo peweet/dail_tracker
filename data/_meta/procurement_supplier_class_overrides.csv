@@ -70,3 +70,39 @@ infrastructure investment fund,company,property/lease investment fund
 cronin s homevalue hardware,company,builders-providers hardware store
 vodafone ecs,company,Vodafone telecommunications
 uniphar,company,pharmaceutical distributor
+# --- batch 2 (2026-06-13e): top remaining quarantined firms, validated by name+category+volume ---
+direct route tuam,company,DirectRoute (Tuam) Ltd - M17/M18 PPP motorway SPV (TII availability payments)
+direct route limerick,company,DirectRoute (Limerick) Ltd - N18 Limerick Tunnel PPP SPV
+asiera,company,merged HEAnet+EduCampus education-network company (Dec 2025)
+barry transportation,company,transport/engineering consultancy (TII professional fees)
+dell computer department,company,Dell Computer (Irl) - IT equipment
+nugent workwear safety,company,workwear/safety equipment supplier
+iese universidad de navarra,foreign_company,IESE Business School (Spain) - leadership programme
+woodcraft display,company,exhibition stand construction (Bord Bia)
+jons civil,company,Jons Civil Engineering - Luas civil works
+atkins,company,Atkins/AtkinsRealis engineering consultancy
+lablink biomnis,company,Biomnis/Eurofins clinical laboratory
+sopexa,foreign_company,Sopexa - French food/drink marketing agency (Bord Bia)
+bdo simpson xavier,company,BDO accountancy firm
+newbridge credit union,company,credit union (OPW)
+elavon,company,Elavon card-payment processor
+savills,company,Savills property agency (TII rent)
+mazars,company,Mazars accountancy/audit firm
+global vision,company,ophthalmic services provider (HSE)
+grosvenor cleaning,company,Grosvenor contract-cleaning firm
+coughlan heating plumbing,company,Coughlan Heating & Plumbing - M&E contractor (Cork City, 145 payments)
+walden electrical contr,company,Walden Electrical Contractors - M&E firm (OPW)
+western health social,company,Western Health & Social Care Trust (NI) - cross-border treatment (HSE)
+road recycling,company,road-surfacing/recycling contractor (Offaly)
+carlow emergency doctors on ca,company,Carlow Emergency Doctors on Call - GP out-of-hours co-op
+bord gais,company,Bord Gais Energy (commercial)
+united drug wholesale dublin 1,company,United Drug pharmaceutical wholesaler
+vodafonecircu,company,Vodafone (private circuits) - normalised fragment
+ernst young,company,Ernst & Young professional services (merged variants)
+pricewaterhousecoopers other,company,PwC professional services
+bavarian nordic a s,foreign_company,Bavarian Nordic A/S (Denmark) - vaccines
+woodcraft display,company,exhibition stand builder (Bord Bia)
+complete highway maintenance,company,road-maintenance contractor (Wexford)
+harrington concrete quarries ulc,company,Harrington Concrete & Quarries (Irish ULC)
+logicalis,company,Logicalis IT services (Pobal, leading scheme-code stripped)
+bnp paribas real estate,foreign_company,BNP Paribas Real Estate (office rent, Pobal)

@@ -54,6 +54,10 @@ from pathlib import Path
 # config, every doc — is impossible for this script to commit.
 PUBLISH_PATHS: list[str] = [
     "data/gold/parquet",  # the gold parquet the app reads
+    # The live national tender snapshot (silver). It is an app-read artifact like the gold
+    # parquet — the Procurement page reads it directly — and is refreshed on its own daily
+    # cadence (the live-tenders GitHub Action), so it ships through the same gated publish.
+    "data/silver/parquet/etenders_live_tenders.parquet",
     "data/_meta/freshness.json",  # data-age badge file (data, not code)
 ]
 

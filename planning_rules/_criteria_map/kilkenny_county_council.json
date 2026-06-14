@@ -1,0 +1,37 @@
+{
+  "council": "Kilkenny County Council",
+  "slug": "kilkenny_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Kilkenny City and County Development Plan 2021-2027 (Volume 1, County)",
+  "dm_location": "Chapter 13 — Requirements for Development",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": "4 houses on any one side of a given 250 m of road frontage",
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": null,
+
+  "residential_density_dph": "rural settlements up to 10 dwellings per hectare; otherwise responds to settlement character",
+  "plot_ratio": "2.0 urban / 1.0 all other areas",
+  "site_coverage_pct": "65% normal; up to 85% in urban areas",
+  "separation_distance_m": "22 m between two-storey dwellings / opposing upper-floor windows; 7.5 m rear setback in backland",
+  "private_open_space": "25 m² consolidated usable private open space per unit",
+  "public_open_space_pct": "not below 10% of site area; 25+ units min 0.25 ha; 10 m² playable space per unit",
+  "car_parking_dwelling": null,
+  "building_height": null,
+
+  "trigger_AA": "screened for any plan/project not connected to Natura 2000 management; AA where likely significant effect not excludable (Habitats Directive Art 6(3)/6(4))",
+  "trigger_EIA": "Schedule 5 thresholds (national regulations)",
+  "trigger_FRA": "Strategic FRA done; site-specific FRA per 2009 Guidelines; Plan-Making Justification Test",
+  "trigger_AHIA": "works affecting protected structures, curtilage and ACAs (§9.3)",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "TTA above threshold (Policy 11)",
+
+  "notes": "Car-parking standards in Chapter 12 (§12.12), not transcribed. Rural one-off-house siting in Chapter 7 (County Kilkenny Rural Design Guide); no fixed minimum site area in Chapter 13. Vehicular entrance max 3 m or 50% of front boundary; hardstanding 2.5 m x 5 m. Sightlines per DMRB. Wetland >0.1 ha drainage needs permission."
+}

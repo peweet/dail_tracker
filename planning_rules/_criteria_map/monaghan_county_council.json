@@ -1,0 +1,37 @@
+{
+  "council": "Monaghan County Council",
+  "slug": "monaghan_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Monaghan County Development Plan 2025-2031",
+  "dm_location": "Chapter 15 — Development Management Standards (Written Statement, Volume 1)",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": "3.0 m (national/regional upgraded); 2.4 m (regional not upgraded/local)",
+  "sightline_y": "215 m (national 100 km/h); 160 m (regional 85 km/h); 120 m (local primary); 90 m (local secondary/tertiary); 70/50/35 m at 70/60/42 km/h",
+  "wastewater_standard": "EPA Code of Practice — Wastewater Treatment and Disposal Systems Serving Single Houses (PE10) 2021",
+
+  "residential_density_dph": "Per Sustainable Residential Development and Compact Settlements Guidelines 2024 (no fixed table); max 15 units/ha on 'Proposed Residential B' lands",
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": null,
+  "private_open_space": null,
+  "public_open_space_pct": null,
+  "car_parking_dwelling": "Dwelling: 2 per unit; Apartment (1-2 bed): 1.5 per unit; Apartment (3-4 bed): 2 per unit (maxima)",
+  "building_height": null,
+
+  "trigger_AA": "Required when proposal could impact qualifying interest of a European (Natura 2000) site; NIS where screening cannot rule out significant adverse impact",
+  "trigger_EIA": "EIAR for development exceeding mandatory Schedule 5 thresholds; sub-threshold EIAR where determined necessary",
+  "trigger_FRA": "Site-specific FRA in flood risk areas; sequential approach + Justification Test (Highly vulnerable: JT in Zone A and B; Less vulnerable: JT in Zone A)",
+  "trigger_AHIA": "Architectural Impact Assessment; works to/in vicinity of protected structures per PSP 1 (15.3.1)",
+  "trigger_EcIA": "Ecological/Biodiversity Impact Assessment among additional assessments",
+  "trigger_VIA": "Visual Impact Assessment among additional assessments",
+  "trigger_TTA": "Traffic and Transport Assessment, Quality Audit, Road Safety Audit among additional assessments",
+
+  "notes": "No numeric rural minimum site area, separation distance, private open space %, plot ratio, site coverage or building height tabulated in Chapter 15. Sightline eye/object height 1.05m-2.0m. Childcare: 1 facility (min 20 places) for 75+ units."
+}

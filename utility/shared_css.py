@@ -5297,7 +5297,17 @@ def inject_css() -> None:
             font-variant-numeric: tabular-nums; flex: none;
         }
         .pr-name { font-weight: 650; color: var(--ink-strong); font-size: 0.93rem; line-height: 1.3; }
+        /* secondary line inside a card name — the published tender/contract title under the buyer */
+        .pr-sub { display: block; font-weight: 500; color: var(--text-meta); font-size: 0.8rem;
+            line-height: 1.3; margin-top: 0.12rem; }
         .pr-meta { font-size: 0.78rem; color: var(--text-meta); }
+        /* labelled divider between two procurement registers (national eTenders vs EU-journal TED),
+           rendered as a hairline with a centred caption so neither register's values read as one list */
+        .pr-register-rule { display: flex; align-items: center; gap: 0.6rem; margin: 1.6rem 0 0.9rem;
+            color: var(--text-meta); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;
+            text-transform: uppercase; }
+        .pr-register-rule::before, .pr-register-rule::after {
+            content: ""; flex: 1; height: 1px; background: var(--border); }
         .pr-pills { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: auto; padding-top: 0.15rem; }
         .pr-pill {
             font-size: 0.72rem; font-weight: 600; padding: 0.08rem 0.5rem; border-radius: 999px;
@@ -5341,6 +5351,9 @@ def inject_css() -> None:
         .pr-foot a { color: var(--accent); }
         .pr-cap { font-size: 0.86rem; color: var(--ink-700); line-height: 1.5; margin: 0.2rem 0 0.6rem; max-width: 60rem; }
         .pr-cap em { color: var(--text-meta); font-style: italic; }
+        /* stale-snapshot warning — rust (signal-bad), NEVER true red: this is a freshness
+           caution, not an alarm, and red would imply wrongdoing (honesty rail). */
+        .pr-cap-stale { color: var(--signal-bad-deep); font-weight: 700; }
         /* Authoritative-source conduit: the list of TED notices that open the real record.
            Each row is a doorway out to the Official Journal, with a quiet value-kind tag. */
         .pr-notice-list { list-style: none; margin: 0.2rem 0 0; padding: 0; }
@@ -5372,6 +5385,42 @@ def inject_css() -> None:
         }
         .pr-afs-trace-fig { font-size: 0.95rem; color: var(--ink-strong); line-height: 1.5; }
         .pr-afs-trace-cap { font-size: 0.8rem; color: var(--ink-700); line-height: 1.45; margin-top: 0.3rem; }
+        /* "Your council" index — province bands + lifecycle-tier pills.
+           Province band header is a SEMANTIC <h3> (heading-navigable for screen
+           readers); geography is encoded by the fixed N->S band order, never colour. */
+        .pr-region-head {
+            display: flex; align-items: baseline; justify-content: space-between;
+            gap: 0.75rem; margin: 1.6rem 0 0.5rem; padding-bottom: 0.3rem;
+            border-bottom: 1px solid var(--border-strong);
+        }
+        .pr-region-head:first-of-type { margin-top: 0.4rem; }
+        .pr-region-name {
+            font-size: 0.82rem; font-weight: 700; letter-spacing: 0.08em;
+            text-transform: uppercase; color: var(--ink-strong); line-height: 1.2;
+        }
+        .pr-region-count { font-size: 0.78rem; font-weight: 500; color: var(--text-meta);
+            font-variant-numeric: tabular-nums; white-space: nowrap; }
+        /* Two STAGES of public money, NEVER a sum. solid pill = realised ('paid'),
+           dashed pill = committed ('ordered', provisional). The dashed/solid contrast plus
+           the verb baked into each chip make summing them obviously wrong; no glyph ever
+           joins them. The verb is also the non-colour accessibility carrier.
+           Pills sit in _card's standard .pr-pills wrapper (bottom-aligned, wrapping). */
+        .pr-pill-paid {     /* realised — the firmest fact, strongest ink */
+            background: var(--accent-subtle); color: var(--accent); border: 1px solid var(--accent-dim); }
+        .pr-pill-ordered {  /* committed — provisional, hollow, dashed */
+            background: #ffffff; color: var(--ink-700); border: 1px dashed var(--border-strong); }
+
+        /* Section heading inside a tab (semantic <h2> under the page <h1> hero, so the
+           page is heading-navigable). Visual size set here, not by the UA default. */
+        .pr-section-h {
+            margin: 1.1rem 0 0.4rem; font-weight: 700; color: var(--ink-strong);
+            font-size: 0.92rem; line-height: 1.3;
+        }
+        /* Spacing utilities (replace ad-hoc inline height divs). */
+        .pr-sp-md { height: 1rem; }
+        .pr-sp-sm { height: 0.6rem; }
+        .pr-cap-flush { margin-top: 0; }
+
         @media (max-width: 640px) {
             .pr-grid { grid-template-columns: 1fr; }
         }

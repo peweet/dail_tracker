@@ -1,0 +1,37 @@
+{
+  "council": "Westmeath County Council",
+  "slug": "westmeath_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Westmeath County Development Plan 2021-2027",
+  "dm_location": "Volume 1 Written Statement, Chapter 16 — Development Management Standards",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": null,
+
+  "residential_density_dph": "Site-by-site; higher densities encouraged at accessible locations; no fixed countywide uph table",
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": "22 m separation between opposing rear first-floor windows; ground-floor window not less than 1 m from boundary (CPO 16.14)",
+  "private_open_space": "Inner urban infill dwellings 25 m²; rear private garden not less than 11 m in depth (CPO 16.20)",
+  "public_open_space_pct": "in general 15% of gross site area for multifunctional open space",
+  "car_parking_dwelling": "Residential 1.00 per dwelling (countywide & town centre); visitor 1 per 3 dwellings",
+  "building_height": null,
+
+  "trigger_AA": "Habitats Directive: plans/projects likely to affect Natura 2000 screened for AA; plan-level AA carried out",
+  "trigger_EIA": "Applied per national thresholds; EIA Sub-Threshold Development Guidelines (2003) for screening",
+  "trigger_FRA": "SFRA required; site-specific FRA; Justification Test per 2009 Guidelines",
+  "trigger_AHIA": "Protected structures/conservation areas in built-heritage chapter; AHIA expectation for affecting works",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "TTA required for larger developments per the plan's transport policies",
+
+  "notes": "Standards expressed as CPO 16.x policy objectives. CPO 16.24 increased density in Athlone Regional Centre & Mullingar (compact sites ~0.5 ha). Larger houses (>200 m²) require specific design solutions. Most AA/EIA/SFRA detail in environment/core-strategy chapters."
+}

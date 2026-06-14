@@ -43,6 +43,7 @@ from data_access.procurement_data import (
     fetch_available_years,
     fetch_call_offs_for_supplier_result,
     fetch_charity_overlap_result,
+    fetch_council_summary_result,
     fetch_awards_for_authority,
     fetch_awards_for_cpv,
     fetch_awards_for_supplier,
@@ -81,6 +82,9 @@ from data_access.procurement_data import (
     fetch_ted_supplier_summary_result,
     fetch_expiring_contracts_result,
     fetch_expiring_contracts_stats_result,
+    fetch_expiring_etenders_result,
+    fetch_live_tenders_result,
+    fetch_live_tenders_stats_result,
     fetch_ted_tenders_result,
     fetch_ted_tenders_stats_result,
 )
@@ -268,7 +272,7 @@ def _concentration_and_trend() -> None:
     tr = fetch_awards_by_year_result()
     if tr.ok and not tr.data.empty and len(tr.data) > 1:
         with st.expander("Award activity over time"):
-            st.bar_chart(tr.data, x="year", y="n_awards", height=200, color="#9c5b2e")
+            st.bar_chart(tr.data, x="year", y="n_awards", x_label="Year", y_label="Awards", height=200, color="#9c5b2e")
 
 
 def _render_suppliers(year: int | None) -> None:
@@ -330,7 +334,7 @@ def _render_suppliers(year: int | None) -> None:
             )
         )
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
-    st.html('<div style="height:1rem"></div>')
+    st.html('<div class="pr-sp-md"></div>')
     pagination_controls(
         total,
         key_prefix="pr_sup",
@@ -666,6 +670,84 @@ def _render_paid_publishers(tier: str) -> None:
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
 
 
+def _council_tier_pills(row) -> list[str]:
+    """The lifecycle pill(s) a council carries: solid 'paid' (actual payments, the firmest
+    fact) and/or dashed 'ordered' (purchase-order commitments, provisional). Different stages
+    of public money — shown side by side, NEVER summed. The verb is the accessible carrier
+    (colour-/border-independent); the dashed/solid contrast is the visual one. In this corpus
+    a council has exactly one, but both are handled so the view stays honest if that changes."""
+    pills = []
+    if _n(getattr(row, "n_paid", 0)) > 0:
+        pills.append(f'<span class="pr-pill pr-pill-paid">{_eur(row.paid_safe_eur)} paid</span>')
+    if _n(getattr(row, "n_ordered", 0)) > 0:
+        pills.append(f'<span class="pr-pill pr-pill-ordered">{_eur(row.ordered_safe_eur)} ordered</span>')
+    return pills
+
+
+def _render_councils() -> None:
+    """The "Your council" index — Ireland's publishing local authorities as a civic directory,
+    grouped North->South by province, each card linking to its existing per-council dossier
+    (?paid_publisher=). Surfacing-only: v_procurement_council_summary is pre-aggregated and
+    pre-ordered; this selects and renders, computing nothing. No rank chips — a directory
+    ("find your council"), not a league table. 'ordered' and 'paid' are different lifecycle
+    stages and are never added together."""
+    res = fetch_council_summary_result()
+    if not res.ok:
+        empty_state(
+            "Council spending isn't available right now",
+            "The public-body payment views couldn't be loaded — a source/pipeline issue, not an empty result.",
+        )
+        return
+    df = res.data
+    if df.empty:
+        empty_state("No councils", "No local authority has published payment records yet.")
+        return
+
+    n_councils = len(df)
+    span = f"{_n(df['min_year'].min())}–{_n(df['max_year'].max())}"
+    st.html(
+        '<div class="pr-caveat"><strong>What your county and city councils spend.</strong> '
+        f"The {n_councils} local authorities that publish their purchase orders and payments "
+        f"over €20,000 ({span}), grouped by province. Each council shows money <em>ordered</em> "
+        "(purchase-order commitments) or <em>paid</em> (actual payments) — different stages of "
+        "public money, shown per council and <strong>never added together</strong>. Click a "
+        "council for its suppliers and audited-accounts context.</div>"
+    )
+
+    # Province bands, North->South via province_order; councils pre-ordered by scale within
+    # each band. The band header is a semantic <h3> (heading-navigable). Geography is the
+    # fixed band order, not colour.
+    for prov_order in sorted(df["province_order"].unique()):
+        band = df[df["province_order"] == prov_order]
+        prov = _esc(band.iloc[0]["province"])
+        n = len(band)
+        # <h2>: direct section heading under the page <h1> hero (no h2→h3 skip), so the
+        # province bands are screen-reader heading-navigable. CSS sets the visual size.
+        st.html(
+            f'<h2 class="pr-region-head"><span class="pr-region-name">{prov}</span>'
+            f'<span class="pr-region-count">{n} council{"s" if n != 1 else ""} publishing</span></h2>'
+        )
+        cards = []
+        for r in band.itertuples():
+            n_sup = _n(r.n_suppliers)
+            # Guard the year span: a council whose source carries no usable year (e.g. Mayo)
+            # would otherwise render "0–0". Drop the span rather than show a sentinel.
+            yr_span = f" · {_n(r.min_year)}–{_n(r.max_year)}" if _n(r.min_year) and _n(r.max_year) else ""
+            meta = f"{n_sup:,} supplier{'s' if n_sup != 1 else ''}{yr_span}"
+            # Land the dossier on the tier the council actually publishes, so it opens populated.
+            tier = "SPENT" if _n(r.n_paid) > 0 else "COMMITTED"
+            inner = _card(f"<span>{_esc(r.council)}</span>", meta, _council_tier_pills(r))
+            cards.append(
+                clickable_card_link(
+                    href=_paid_publisher_href(r.council, tier),
+                    inner_html=inner,
+                    aria_label=f"View {r.council} council's suppliers and audited accounts",
+                )
+            )
+        st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html(_PAY_FOOT_HTML)
+
+
 def _render_council_accounts_context(council: str, active_tier: str) -> None:
     """AFS enrichment on a LOCAL-AUTHORITY dossier — the council's audited accounts as the
     "complete spending" context the named-supplier PO/payment data sits inside.
@@ -686,14 +768,14 @@ def _render_council_accounts_context(council: str, active_tier: str) -> None:
     st.html(
         '<div class="pr-afs">'
         '<div class="pr-afs-head">Council accounts — all spending (audited)</div>'
-        f'<p class="pr-cap" style="margin-top:0">From the council’s own audited Annual Financial '
+        f'<p class="pr-cap pr-cap-flush">From the council’s own audited Annual Financial '
         f"Statement (revenue account, {_esc(span)}): spending by service. This is the council’s "
         "<strong>whole</strong> operating spend — a broader, separate measure from the purchase-order "
         "figures above, and <strong>never added to them</strong>.</p></div>"
     )
     # (1) revenue spend per year — a DISTINCT colour from the PO chart's brown to signal a different grain.
     st.caption("Operating spending per year (revenue account, audited €)")
-    st.bar_chart(ay, x="year", y="gross_expenditure_eur", height=200, color="#3a6b7e")
+    st.bar_chart(ay, x="year", y="gross_expenditure_eur", x_label="Year", y_label="Audited € spent", height=200, color="#3a6b7e")
 
     # (3) traceability line — the latest year present in BOTH the accounts and the active PO tier.
     cov = fetch_afs_vs_po_coverage_result(council)
@@ -795,7 +877,7 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
     by_year = fetch_payments_by_year_result(publisher_name, tier=active)
     if by_year.ok and len(by_year.data) > 1:
         st.caption(f"Money {_paid_verb(active)} per year (sum-safe)")
-        st.bar_chart(by_year.data, x="year", y="total_safe_eur", height=200, color="#9c5b2e")
+        st.bar_chart(by_year.data, x="year", y="total_safe_eur", x_label="Year", y_label="€ (sum-safe)", height=200, color="#9c5b2e")
 
     # Local-authority dossiers gain the audited-accounts context (the "complete spend" denominator
     # the named-supplier PO data sits inside). BUDGET grain — a sibling, never summed with the above.
@@ -1043,7 +1125,7 @@ def _render_ted() -> None:
     tr = fetch_ted_awards_by_year_result()
     if tr.ok and not tr.data.empty and len(tr.data) > 1:
         with st.expander("EU awards over time"):
-            st.bar_chart(tr.data, x="year", y="n_awards", height=200, color="#9c5b2e")
+            st.bar_chart(tr.data, x="year", y="n_awards", x_label="Year", y_label="Awards", height=200, color="#9c5b2e")
 
     res = fetch_ted_supplier_summary_result(limit=_TOP, order_by="awards")
     df = res.data if res.ok else pd.DataFrame()
@@ -1566,6 +1648,165 @@ def _render_expiring_contracts() -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# National (eTenders) forward lenses — the sub-EU-threshold mass TED can't see.
+# Rendered ABOVE the TED lens in each "Open right now" segment as its own register,
+# never value-merged with TED (two registers, never summed). Snapshot-based, so it
+# carries an explicit freshness line + staleness guard.
+# ──────────────────────────────────────────────────────────────────────────────
+def _national_freshness_html(retrieved) -> str:
+    """Point-in-time freshness line for the live national snapshot. Display-only — formats
+    the snapshot stamp and flags it when older than 3 days (a stale open-tenders list whose
+    deadlines have passed would mislead; this is the one real risk of a scraped snapshot)."""
+    ts = pd.to_datetime(retrieved, errors="coerce", utc=True)
+    if pd.isna(ts):
+        return ""
+    age_days = (pd.Timestamp.now(tz="UTC") - ts).days
+    stale = (
+        ' <strong class="pr-cap-stale">— this snapshot may be out of date; '
+        "some deadlines below may already have passed.</strong>"
+        if age_days > 3
+        else ""
+    )
+    return f'<p class="pr-cap">National opportunities as of {fmt_civic_date(ts)}.{stale}</p>'
+
+
+def _render_national_open_tenders() -> None:
+    """Open NATIONAL tenders (etenders.gov.ie), PLANNED tier, soonest-closing first. A separate
+    register from TED above — sub-EU-threshold opportunities (schools, councils, water schemes)."""
+    stats_res = fetch_live_tenders_stats_result()
+    if not stats_res.ok or stats_res.data.empty or _n(stats_res.data.iloc[0].get("n_open")) == 0:
+        # Silent absence is honest here: the snapshot may simply not be polled yet. Show a quiet
+        # note rather than an error so the TED lens below still reads as the primary content.
+        st.html(
+            '<div class="pr-foot"><strong>National (eTenders) live tenders:</strong> no current snapshot '
+            "loaded. The national opportunities feed is refreshed separately from the EU-journal data above.</div>"
+        )
+        return
+    s = stats_res.data.iloc[0]
+    st.html(
+        '<div class="pr-caveat"><strong>National opportunities — open right now on eTenders.</strong> '
+        f"{_n(s.get('n_open')):,} tenders currently accepting bids from {_n(s.get('n_buyers')):,} Irish public "
+        f"buyers ({_n(s.get('closing_within_14d')):,} close within 14 days) — the sub-EU-threshold national "
+        "picture the EU-journal feed above cannot show. The estimated value shown is a <em>buyer estimate "
+        "recorded before any award</em>: never a contract value, never a payment, and never summed.</div>"
+    )
+    st.html(_national_freshness_html(s.get("retrieved_utc")))
+    res = fetch_live_tenders_result(limit=_TOP)
+    df = res.data if res.ok else pd.DataFrame()
+    if df.empty:
+        empty_state("No open national tenders", "The national live-tender view returned no rows.")
+        return
+    st.caption(
+        f"{len(df):,} soonest-closing national tenders. Estimated value is a pre-award buyer estimate — "
+        "not an award and not a payment. Click a tender to open it on eTenders."
+    )
+    cards = []
+    for r in df.head(_TOP).itertuples():
+        meta_parts = [_esc(_coalesce(getattr(r, "procedure", None)))]
+        dl = _coalesce(getattr(r, "submission_deadline", None))
+        if dl:
+            meta_parts.append(f"closes {fmt_civic_date(dl)}")
+        meta = " · ".join(p for p in meta_parts if p)
+        pills = []
+        days = getattr(r, "days_to_deadline", None)
+        if days is not None and not pd.isna(days):
+            d = int(days)
+            label = "closes today" if d == 0 else f"{d} day{'s' if d != 1 else ''} left"
+            cls = "pr-pill pr-pill-lob" if d <= 14 else "pr-pill"
+            pills.append(f'<span class="{cls}">{label}</span>')
+        ev = _eur(getattr(r, "estimated_value_eur", None))
+        if ev != "—":
+            pills.append(f'<span class="pr-pill pr-pill-val">{ev} est. value</span>')
+        buyer = _coalesce(getattr(r, "buyer", None))
+        title = _coalesce(getattr(r, "title", None))
+        name_html = f"<span>{_esc(buyer) or '—'}</span>"
+        if title:
+            name_html += f'<span class="pr-sub">{_esc(title)}</span>'
+        inner = _card(name_html, meta, pills)
+        url = _coalesce(getattr(r, "detail_url", None))
+        if url.startswith("http"):
+            cards.append(
+                clickable_card_link(
+                    href=url,
+                    inner_html=inner,
+                    aria_label=f"Open the national tender from {buyer or 'this buyer'} on eTenders",
+                    target="_blank",
+                )
+            )
+        else:
+            cards.append(inner)
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html(
+        '<div class="pr-foot"><strong>Source:</strong> eTenders — the national public-procurement platform '
+        '(<a href="https://www.etenders.gov.ie" target="_blank" rel="noopener">etenders.gov.ie ↗</a>), live '
+        "request-for-tender notices captured as a point-in-time snapshot. Open opportunities only; estimated "
+        "values are pre-award buyer estimates — never awards or payments, and never summed.</div>"
+    )
+
+
+def _render_national_expiring() -> None:
+    """NATIONAL (eTenders) contracts whose advertised term is due to end — the re-tender pipeline,
+    reconstructed from award date + advertised duration. A term, never a verified end event."""
+    window = st.segmented_control(
+        "National contracts ending within",
+        ["12 months", "24 months", "36 months"],
+        default="24 months",
+        key="pr_expiring_etenders_window",
+        label_visibility="collapsed",
+    )
+    months = int((window or "24 months").split()[0])
+    res = fetch_expiring_etenders_result(months_ahead=months, limit=_TOP)
+    df = res.data if res.ok else pd.DataFrame()
+    if df.empty:
+        st.html(
+            '<div class="pr-foot"><strong>National (eTenders) contract terms:</strong> no national contracts '
+            "with an advertised term ending in this window, or the award corpus isn't loaded.</div>"
+        )
+        return
+    st.html(
+        '<div class="pr-caveat"><strong>National contract terms due to end — the re-tender pipeline.</strong> '
+        "Reconstructed from each national award's date plus its <em>advertised duration</em> — the term as "
+        "stated, not a verified end event; contracts can end early or run longer through renewals (not folded "
+        "in). Frameworks are excluded. The value shown is an award/ceiling figure for context — never summed.</div>"
+    )
+    st.caption(
+        f"{len(df):,} national contracts whose advertised term ends within {months} months, soonest first. "
+        "Advertised terms only; values are award/ceiling figures, never totals."
+    )
+    cards = []
+    for r in df.itertuples():
+        meta_parts = [_esc(_coalesce(getattr(r, "spend_category", None), getattr(r, "cpv_code", None)))]
+        winner = _coalesce(getattr(r, "winner_display", None))
+        if winner:
+            meta_parts.append(_esc(winner))
+        dur = getattr(r, "duration_months", None)
+        if dur is not None and not pd.isna(dur):
+            meta_parts.append(f"{int(dur)}-month term")
+        meta = " · ".join(p for p in meta_parts if p)
+        pills = []
+        end = _coalesce(getattr(r, "est_end_date", None))
+        if end:
+            pills.append(f'<span class="pr-pill pr-pill-val">ends {fmt_civic_date(end)}</span>')
+        ev = _eur(getattr(r, "award_value_eur", None))
+        if ev != "—":
+            pills.append(f'<span class="pr-pill">{ev} award value</span>')
+        buyer = _coalesce(getattr(r, "buyer_name", None))
+        contract = _coalesce(getattr(r, "contract_name", None))
+        name_html = f"<span>{_esc(buyer) or '—'}</span>"
+        if contract:
+            name_html += f'<span class="pr-sub">{_esc(contract)}</span>'
+        cards.append(_card(name_html, meta, pills))
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html(
+        '<div class="pr-foot"><strong>Source:</strong> eTenders national award notices (estimated end = award '
+        "date + advertised contract duration). The end date is the advertised term, not a verified event; ~43% "
+        "of national awards state a duration, and frameworks / dynamic purchasing systems (DPS) are excluded. "
+        "Sole-trader and individual winner "
+        "names are not shown; the contract itself stays listed as public record.</div>"
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Drill-down: a single supplier's profile + full award history (?supplier=)
 # ──────────────────────────────────────────────────────────────────────────────
 def _award_value_html(r) -> str:
@@ -1703,7 +1944,7 @@ def _supplier_awards_section(row, supplier_norm: str) -> None:
     page_idx = paginate(total, key_prefix=f"pr_aw_{supplier_norm}", page_size=_AWARD_PAGE)
     page = awards.iloc[page_idx * _AWARD_PAGE : (page_idx + 1) * _AWARD_PAGE]
     st.html("".join(_award_row_html(r) for r in page.itertuples()))
-    st.html('<div style="height:0.6rem"></div>')
+    st.html('<div class="pr-sp-sm"></div>')
     pagination_controls(
         total,
         key_prefix=f"pr_aw_{supplier_norm}",
@@ -1781,7 +2022,7 @@ def _render_award_list(awards: pd.DataFrame, *, key: str, row_fn) -> None:
     page_idx = paginate(total, key_prefix=key, page_size=_AWARD_PAGE)
     page = awards.iloc[page_idx * _AWARD_PAGE : (page_idx + 1) * _AWARD_PAGE]
     st.html("".join(row_fn(r) for r in page.itertuples()))
-    st.html('<div style="height:0.6rem"></div>')
+    st.html('<div class="pr-sp-sm"></div>')
     pagination_controls(total, key_prefix=key, page_sizes=(_AWARD_PAGE,), default_page_size=_AWARD_PAGE, label="awards")
     st.html(_FOOT_HTML)
 
@@ -1928,7 +2169,7 @@ def _render_patterns() -> None:
             if base.ok and not base.data.empty and base.data.iloc[0].get("single_bid_lot_pct") is not None
             else None
         )
-        st.html('<div class="pr-ted-xref-h" style="margin-top:0.4rem">How often does one bid win, by market?</div>')
+        st.html('<h2 class="pr-section-h">How often does one bid win, by market?</h2>')
         cap = (
             "Share of contract lots that drew a single bid, per category (EU award notices, 2024+; "
             "lots with a reported bid count)."
@@ -1953,7 +2194,7 @@ def _render_patterns() -> None:
     if ne.ok and not ne.data.empty:
         shown = ne.data[ne.data["is_left_censored"] == False]  # noqa: E712 — pandas mask
         if len(shown) > 1:
-            st.html('<div class="pr-ted-xref-h" style="margin-top:1rem">Who gets in — first-time winners</div>')
+            st.html('<h2 class="pr-section-h">Who gets in — first-time winners</h2>')
             first_y, last_y = _n(shown.iloc[0].get("year")), _n(shown.iloc[-1].get("year"))
             first_pct, last_pct = (
                 shown.iloc[0].get("pct_awards_to_new_entrants"),
@@ -1965,12 +2206,20 @@ def _render_patterns() -> None:
                 "market shape — consistent with consolidation, central frameworks, or a maturing register; the "
                 "register only began in 2013, so earlier years are not comparable and are omitted."
             )
-            st.bar_chart(shown, x="year", y="pct_awards_to_new_entrants", height=200, color="#9c5b2e")
+            st.bar_chart(
+                shown,
+                x="year",
+                y="pct_awards_to_new_entrants",
+                x_label="Year",
+                y_label="New-entrant share (%)",
+                height=200,
+                color="#9c5b2e",
+            )
 
     # 3. Longest-running relationships
     inc = fetch_incumbency_top_result()
     if inc.ok and not inc.data.empty:
-        st.html('<div class="pr-ted-xref-h" style="margin-top:1rem">The longest-running winners</div>')
+        st.html('<h2 class="pr-section-h">The longest-running winners</h2>')
         st.caption(
             "Supplier–buyer pairs with awards in six or more different years. Durable incumbency is often "
             "the system working (framework renewals, specialist capability) — a record of persistence, not "
@@ -2000,7 +2249,7 @@ def _render_patterns() -> None:
     # 4. One-buyer suppliers (central purchasing excluded in the query)
     dep = fetch_dependency_top_result()
     if dep.ok and not dep.data.empty:
-        st.html('<div class="pr-ted-xref-h" style="margin-top:1rem">Suppliers with one main buyer</div>')
+        st.html('<h2 class="pr-section-h">Suppliers with one main buyer</h2>')
         st.caption(
             "Firms that won at least 80% of their recorded awards (10+) from a single public body. "
             "A specialist serving the one body that buys its specialism is the market working — this is "
@@ -2024,13 +2273,13 @@ def _render_patterns() -> None:
     # 5. Year-end ordering shape (COMMITTED tier only)
     qt = fetch_quarter_totals_result()
     if qt.ok and len(qt.data) == 4:
-        st.html('<div class="pr-ted-xref-h" style="margin-top:1rem">When orders are placed</div>')
+        st.html('<h2 class="pr-section-h">When orders are placed</h2>')
         st.caption(
             "Purchase-order lines by quarter across all publishing bodies (ordered tier only — never mixed "
             "with payments). A year-end rise is a known public-finance seasonality; invoicing cycles, grant "
             "schedules and works seasons all contribute. The shape is the fact; the reason is not asserted."
         )
-        st.bar_chart(qt.data, x="quarter", y="n_lines", height=200, color="#9c5b2e")
+        st.bar_chart(qt.data, x="quarter", y="n_lines", x_label="Quarter", y_label="Order lines", height=200, color="#9c5b2e")
         skew = fetch_quarter_profile_top_result()
         if skew.ok and not skew.data.empty:
             cards = []
@@ -2050,7 +2299,7 @@ def _render_patterns() -> None:
     # 6. Sector breadth (paid corpus)
     sb = fetch_sector_breadth_top_result()
     if sb.ok and not sb.data.empty:
-        st.html('<div class="pr-ted-xref-h" style="margin-top:1rem">Firms paid across the most of the State</div>')
+        st.html('<h2 class="pr-section-h">Firms paid across the most of the State</h2>')
         st.caption(
             "Suppliers appearing in the published payment lists of bodies across the most public-service "
             "sectors (health, councils, justice, …) — reach, as published. Grouped by the published name; "
@@ -2157,7 +2406,7 @@ def _render_qs_valuation() -> None:
         from dail_tracker_core import qs_valuation as qs  # lazy: keeps the feature self-contained
     except Exception:
         return  # if the module/data is absent, the page renders without this experimental panel
-    with st.expander("🧪 Indicative construction valuation (experimental)"):
+    with st.expander("Indicative construction valuation (experimental)"):
         st.html(
             '<div class="pr-caveat"><strong>Experimental — an estimate, not a disclosed figure.</strong> '
             "This applies published Irish €/m² cost benchmarks to a deliverable you describe — the way a "
@@ -2395,9 +2644,15 @@ def procurement_page() -> None:
             key="pr_forward_lens",
             label_visibility="collapsed",
         )
+        # Two registers, rendered as separate sections (never value-merged): the national
+        # eTenders feed (the sub-EU-threshold mass) first, then the EU-journal (TED) feed.
         if fwd_lens == "Contract terms ending":
+            _render_national_expiring()
+            st.html('<div class="pr-register-rule"><span>EU Official Journal (TED)</span></div>')
             _render_expiring_contracts()
         else:
+            _render_national_open_tenders()
+            st.html('<div class="pr-register-rule"><span>EU Official Journal (TED)</span></div>')
             _render_ted_tenders()
 
     with tabs[3]:

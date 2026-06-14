@@ -1,0 +1,37 @@
+{
+  "council": "Kildare County Council",
+  "slug": "kildare_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Kildare County Development Plan 2023-2029",
+  "dm_location": "Chapter 15 — Development Management Standards",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": "91 m (National Primary/Secondary; also Motorways 91 m)",
+  "road_setback_regional_m": "31 m",
+  "road_setback_local_m": "18.5 m (Urban/County Road; Distributor 18.5 m)",
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": null,
+
+  "residential_density_dph": null,
+  "plot_ratio": "1.0-2.0 town centre/brownfield; 0.5-1.0 inner suburban; 0.35-0.5 / 0.25-0.35 outer suburban",
+  "site_coverage_pct": "50% residential; 75% industrial; 66% retail and commercial",
+  "separation_distance_m": "22 m between opposing above-ground-floor windows; 11 m min rear garden depth",
+  "private_open_space": "per-bedroom minimums in table (e.g. 48 m² / 85 m² / 6 m²)",
+  "public_open_space_pct": "15% of total site area (minimum); <500 sqm not taken in charge",
+  "car_parking_dwelling": "House (<=3 bed): 1 space + 0.5 visitor for 4+ bed; Apartment: 1.5 per unit + 1 visitor per 4",
+  "building_height": null,
+
+  "trigger_AA": "Screening for AA for all plans/projects unless directly connected to Natura 2000 management; full AA/NIS where indicated (15.1.6)",
+  "trigger_EIA": "EIA Directive (2011/92/EU as amended); significant effects on environment (15.1.5)",
+  "trigger_FRA": "SuDS/surface water management (15.8.1); flood risk via SFRA + sequential approach (no separate Justification Test trigger in chapter)",
+  "trigger_AHIA": "Development affecting protected structures / ACAs per Architectural Heritage Protection Guidelines (2011)",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "TTA for larger developments per Table 15.7; trigger e.g. traffic exceeds 10% of adjoining road flow (TII 2014)",
+
+  "notes": "Density cross-referenced to Table 3.1 of Chapter 3, not fixed in Ch.15. Rural housing per Kildare Rural House Design Guide (Appendix 4); no fixed min site area. Social infrastructure audit for >20 units or >2,000 m². Justification Test/percolation not enumerated verbatim. Setbacks measured from nearest edge of road surface."
+}

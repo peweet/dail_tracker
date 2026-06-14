@@ -138,7 +138,56 @@ from procurement_payments_consolidate import (  # noqa: E402
     _JUNK_SUPPLIER_RE,
     _classify_id_codes,
     _conform,
+    _surface_sole_trader_contractors,
 )
+
+
+def _surface(rows):
+    """rows: list of (supplier_normalised, spend_category) -> all start hidden sole_trader_or_individual."""
+    df = pl.DataFrame({
+        "supplier_normalised": [s for s, _ in rows],
+        "spend_category": [c for _, c in rows],
+        "description": [c for _, c in rows],
+        "amount_eur": [50_000.0] * len(rows),
+        "supplier_class": ["sole_trader_or_individual"] * len(rows),
+        "privacy_status": ["review_personal_data"] * len(rows),
+        "public_display": [False] * len(rows),
+    })
+    return {r["supplier_normalised"]: r for r in
+            _surface_sole_trader_contractors(df).unique(subset=["supplier_normalised"]).iter_rows(named=True)}
+
+
+def test_commercial_sole_trader_is_surfaced_private_stays_hidden():
+    out = _surface([
+        ("terry rea", "Minor Contracts Trade Services"),       # commercial -> surface
+        ("noel cunningham", "Roofworks"),                      # commercial -> surface
+        ("enda ocarroll", "House Purchase"),                   # property -> hidden
+        ("aoife buckley", "Croi Conaithe Top Up Grant"),       # grant -> hidden
+        ("stephen lambe", "Land Purchase Compensation"),       # CPO -> hidden
+        ("john noname", None),                                 # uncategorised -> hidden
+    ])
+    assert out["terry rea"]["supplier_class"] == "sole_trader"
+    assert out["terry rea"]["public_display"] is True
+    assert out["noel cunningham"]["supplier_class"] == "sole_trader"
+    for hidden in ("enda ocarroll", "aoife buckley", "stephen lambe", "john noname"):
+        assert out[hidden]["supplier_class"] == "sole_trader_or_individual", hidden
+        assert out[hidden]["public_display"] is False
+
+
+def test_any_private_payment_keeps_whole_supplier_hidden():
+    # A contractor who ALSO sold land under CPO must stay hidden — any private row vetoes surfacing.
+    df = pl.DataFrame({
+        "supplier_normalised": ["sean moore", "sean moore"],
+        "spend_category": ["Road Construction", "Rent Johns Green House"],
+        "description": ["Road Construction", "Rent"],
+        "amount_eur": [50_000.0, 50_000.0],
+        "supplier_class": ["sole_trader_or_individual"] * 2,
+        "privacy_status": ["review_personal_data"] * 2,
+        "public_display": [False] * 2,
+    })
+    out = _surface_sole_trader_contractors(df)
+    assert out["supplier_class"].unique().to_list() == ["sole_trader_or_individual"]
+    assert not out["public_display"].any()
 
 
 def test_id_codes_become_id_code_class_hidden():
@@ -170,7 +219,10 @@ def test_junk_supplier_regex_is_page_furniture_only(name, is_junk):
     assert bool(_re.search(_JUNK_SUPPLIER_RE, name)) is is_junk, name
 
 
-from procurement_payments_consolidate import _canonicalise_split_entities  # noqa: E402
+from procurement_payments_consolidate import (  # noqa: E402
+    _canonicalise_split_entities,
+    _clean_supplier_names,
+)
 
 
 def test_split_entity_variants_merge_to_one_key():
@@ -195,11 +247,45 @@ def test_split_entity_variants_merge_to_one_key():
     ("novartis pharma gmbh germany", "company"),      # foreign form + trailing country
     ("carroceros s l", "company"),                    # Spanish SL
     ("seqirus netherlands b v", "company"),
+    ("bavarian nordic a s", "company"),               # Danish A/S -> "a s"
     ("sasta builders portugal", "company"),           # "build" stem (not the country)
     ("john sasportas", "sole_trader_or_individual"),  # "sa" must not match mid-name
 ])
 def test_foreign_form_with_trailing_country(name, expect):
     assert _reclass([(name, None)]).row(0, named=True)["supplier_class"] == expect, name
+
+
+@pytest.mark.parametrize("name,expect", [
+    ("premier recruitment int", "company"),               # "recruit" stem
+    ("harrington concrete quarries ulc", "company"),      # Irish Unlimited Company
+    ("noel cunningham", "sole_trader_or_individual"),     # bare person stays hidden
+])
+def test_recruit_stem_and_ulc(name, expect):
+    assert _reclass([(name, None)]).row(0, named=True)["supplier_class"] == expect, name
+
+
+def test_ernst_young_variants_merge_to_one_key():
+    df = pl.DataFrame({
+        "publisher_name": ["Revenue Commissioners"] * 4,
+        "supplier_raw": [
+            "ERNST & YOUNG BUSINESS ADVISORY",
+            "Ernst and Young",
+            "& Young",                # orphaned tail (the "Ernst &" was cut at the column edge)
+            "Young Brothers Plant",   # NOT EY — "young" mid-name must be untouched
+        ],
+    })
+    out = _canonicalise_split_entities(df)["supplier_raw"].to_list()
+    assert out[:3] == ["Ernst and Young"] * 3, out
+    assert out[3] == "Young Brothers Plant"
+
+
+def test_pobal_scheme_code_prefix_is_stripped():
+    # Pobal prefixes a "LLL###" scheme code that fragments the real vendor across keys.
+    df = pl.DataFrame({"supplier_raw": ["CMO005 Logicalis", "CER002 Ergo", "Acme Ltd"],
+                       "po_number": [None, None, None],
+                       "supplier_normalised": ["", "", ""]})
+    out = _clean_supplier_names(df)["supplier_raw"].to_list()
+    assert out == ["Logicalis", "Ergo", "Acme Ltd"]
 
 
 def test_conform_desums_page_furniture_but_keeps_unnamed_vendor():
