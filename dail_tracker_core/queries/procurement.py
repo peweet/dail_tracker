@@ -510,6 +510,71 @@ def expiring_contracts(
     return _run(conn, sql, params)
 
 
+# ── NATIONAL live tender pipeline (etenders.gov.ie) — the PLANNED tier, open NOW ──
+# Forward end of the pipeline TED (EU-threshold only) and the OGP quarterly CSV cannot give us:
+# sub-threshold national opportunities (schools, councils, water schemes). estimated_value_eur is a
+# buyer estimate at the PLANNED stage — value_kind='estimate_advertised', NEVER summed with awards or
+# payments. The view already keeps only the genuinely-open set (deadline in the future) and orders
+# soonest-closing first; this wrapper is retrieval-only.
+
+
+def live_tenders(conn: duckdb.DuckDBPyConnection, *, limit: int | None = 80) -> QueryResult:
+    """Open national tenders accepting bids now (soonest-closing first). estimated_value_eur is a
+    PLANNED-tier buyer estimate shown for context — never summed with award/payment figures."""
+    sql = (
+        "SELECT title, buyer, published_date, submission_deadline, days_to_deadline,"
+        " procedure, status, estimated_value_eur, realisation_tier, value_kind,"
+        " resource_id, detail_url, retrieved_utc"
+        " FROM v_procurement_live_tenders"
+    )
+    params: list = []
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
+
+
+def live_tenders_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """One-row summary of the open national pipeline for the section headline + freshness gate:
+    open count, distinct buyers, how many close within 14 days, the next closing date, and the
+    snapshot timestamp (retrieved_utc) so the page can show 'as of …' and guard staleness. No euro
+    total beyond an indicative PLANNED-tier estimate floor — never presented as committed/paid."""
+    return _run(
+        conn,
+        "SELECT"
+        "  COUNT(*) AS n_open,"
+        "  COUNT(DISTINCT buyer) AS n_buyers,"
+        "  COUNT(*) FILTER (WHERE days_to_deadline <= 14) AS closing_within_14d,"
+        "  MIN(submission_deadline) AS next_closing,"
+        "  MAX(retrieved_utc) AS retrieved_utc"
+        " FROM v_procurement_live_tenders",
+    )
+
+
+def expiring_contracts_etenders(
+    conn: duckdb.DuckDBPyConnection, *, months_ahead: int = 24, limit: int | None = 60
+) -> QueryResult:
+    """NATIONAL (eTenders) contracts whose ADVERTISED term ends within the window (soonest first).
+
+    The end date is award/created date + advertised duration — a term, never a verified event;
+    renewals are deliberately not folded in. Frameworks/DPS are excluded by the view. award_value_eur
+    is award/ceiling grade: display-only, never summed. Likely-personal winner names are withheld by
+    the view (the contract itself stays listed — public record)."""
+    sql = (
+        "SELECT buyer_name, contract_name, cpv_code, spend_category, winner_display,"
+        " supplier_norm, supplier_class, award_date, duration_months, est_end_date,"
+        " est_end_basis, award_value_eur, value_kind"
+        " FROM v_procurement_expiring_contracts_etenders"
+        " WHERE est_end_date BETWEEN CURRENT_DATE AND CURRENT_DATE + (? * INTERVAL 1 MONTH)"
+        " ORDER BY est_end_date ASC"
+    )
+    params: list = [int(months_ahead)]
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    return _run(conn, sql, params)
+
+
 # ── Public-body PAYMENTS (the SPENT / COMMITTED tiers) — a DIFFERENT grain from awards ──
 # Never summed with eTenders/TED. One lifecycle tier at a time; only value_safe_to_sum sums,
 # never across vat_status. Suppliers named per published source (see the view headers).
@@ -599,6 +664,17 @@ def payments_by_year(conn: duckdb.DuckDBPyConnection, publisher_name: str, *, ti
         " GROUP BY year ORDER BY year",
         [publisher_name, _tier(tier)],
     )
+
+
+def council_summary(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Publishing local authorities for the "Your council" index — one row per council,
+    pre-grouped North->South by province (province_order) then by scale within province.
+
+    Carries BOTH lifecycle totals as separate columns (ordered_safe_eur / paid_safe_eur)
+    so the page renders one labelled pill per council WITHOUT pivoting or summing — paid
+    (SPENT) and ordered (COMMITTED) are different stages and never added. The view already
+    orders the rows; the page selects and renders, computing nothing."""
+    return _run(conn, "SELECT * FROM v_procurement_council_summary")
 
 
 def payments_publisher_profile(conn: duckdb.DuckDBPyConnection, publisher_name: str) -> QueryResult:

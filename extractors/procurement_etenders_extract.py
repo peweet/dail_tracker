@@ -158,12 +158,35 @@ def _cache_is_fresh(force: bool, max_age_days: float) -> bool:
     return True
 
 
+# The OGP rotates the asset-hash in the CSV URL on every (quarterly) update, so a PINNED URL goes
+# stale — observed 2026-06: pinned 7ba65f1b served data only to 2025-12-30 while the live resource
+# (resolved below) covered to 2026-03-31. Resolve the current download URL from the data.gov.ie CKAN
+# package at runtime; fall back to the pinned URL if the API is unreachable so a blip never breaks the run.
+CKAN_PACKAGE_URL = "https://data.gov.ie/api/3/action/package_show?id=contract-notices-published-on-etenders"
+
+
+def resolve_download_url(fallback: str = URL) -> str:
+    try:
+        r = requests.get(CKAN_PACKAGE_URL, headers={"User-Agent": "dail-tracker research probe"}, timeout=30)
+        r.raise_for_status()
+        for res in r.json().get("result", {}).get("resources", []):
+            u = (res.get("url") or "").strip()
+            if u.lower().endswith(".csv"):
+                if u != fallback:
+                    print(f"  resolved current OGP CSV URL (pinned was stale): {u}")
+                return u
+    except Exception as e:  # noqa: BLE001
+        print(f"  CKAN URL resolve failed ({type(e).__name__}); using pinned fallback URL")
+    return fallback
+
+
 def ensure_csv(force: bool = False, max_age_days: float = CACHE_MAX_AGE_DAYS) -> Path:
     if _cache_is_fresh(force, max_age_days):
         return CACHE
     CACHE.parent.mkdir(parents=True, exist_ok=True)
     print("downloading eTenders CSV…")
-    with requests.get(URL, headers={"User-Agent": "dail-tracker research probe"}, timeout=180, stream=True) as r:
+    src_url = resolve_download_url()
+    with requests.get(src_url, headers={"User-Agent": "dail-tracker research probe"}, timeout=180, stream=True) as r:
         r.raise_for_status()
         with open(CACHE, "wb") as f:
             for ch in r.iter_content(1 << 16):

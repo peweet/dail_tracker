@@ -1,5 +1,5 @@
 # data backup manifest — sha256<TAB>size<TAB>relpath (relative to data/)
-# generated 2026-06-13T19:57:12+00:00 | 29492 files | 9.68 GB
+# generated 2026-06-14T05:48:58+00:00 | 29492 files | 9.68 GB
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	0	bronze/.gitkeep
 6191ee9bc5a5b9d38413d06b4aa0dc8b23033e821d26be3991e613705ff2d996	37865889	bronze/charities/public_register_20260426.xlsx
 21d6e835442bd940167108337023d81c079ba9da89e9c63bf0e706888ea2d5cb	192409128	bronze/cro/companies_20260504.csv
@@ -20571,7 +20571,7 @@ a3856588137e6fe13780a1ce790f481f03d5c3a701b9e23428d77e3a0b61d1f7	332294	silver/p
 7e847969d6cb4c075f3d6821297caf4770d534aceaa06aa59e7e2b2636bac0b5	230596	silver/parquet/most_recent_stage_event_dates.parquet
 4d38e539d2d4c3f4254f3d738abbc5cef52e137cdd7a3ad99d5a6a927c89876c	22233	silver/parquet/nphdb_payments_fact.parquet
 be522f268c3584d1e388f41b304d00eac63f7dee229fdb57403b3ef6e8a58873	44704	silver/parquet/nta_payments_fact.parquet
-57cd7fc8d3fe7c99b1697e15a24eb3772ad5eed5b2fcd72a2d5999132a4e1c78	1583795	silver/parquet/public_payments_fact.parquet
+a6eb1f6d8b528ac948f2a3687ec4b9e9d6a3985398e1a96a67830ca02800d5cf	1575736	silver/parquet/public_payments_fact.parquet
 4b255239357fd9060b2aa9b3804e4e568a780bfd56ee1eda99888838993af999	920132	silver/parquet/public_payments_fact.parquet.bak_20260613
 017d75b09cb4a1ebeb28296e2c77e85f83ba90ff715ad8e71238707ce856f811	18945803	silver/parquet/questions.parquet
 0ac868fb368eea16681b26b4c3ad1a56bcdfac41cb53c1b2c9620ef4feb14757	216140	silver/parquet/related_docs.parquet
