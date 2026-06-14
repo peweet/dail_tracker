@@ -40,6 +40,7 @@ import requests
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from services.parquet_io import save_parquet  # noqa: E402
+from shared.buyer_clean import clean_buyer_display  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -242,6 +243,8 @@ def main() -> None:
         return
 
     df = pl.DataFrame(build_rows(raw), infer_schema_length=None)
+    # Strip the OGP org-id / school-roll debris off buyer_name (shared with the eTenders lane).
+    df = clean_buyer_display(df, "buyer_name")
     OUT_SILVER.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT_SILVER)
 

@@ -48,6 +48,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from extractors.ted_enrich import enrich_winner_rows  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
+from shared.buyer_clean import clean_buyer_display  # noqa: E402
 from services.ted_search import fetch_ted_search  # noqa: E402
 
 with contextlib.suppress(Exception):
@@ -458,6 +459,8 @@ def main() -> None:
         return
 
     df = pl.DataFrame(build_rows(raw), infer_schema_length=None)
+    # Strip the OGP org-id / school-roll debris off buyer_name (shared with the eTenders lane).
+    df = clean_buyer_display(df, "buyer_name")
 
     # Shared winner classification + CRO match + privacy + value flags (extractors/ted_enrich.py)
     # — byte-identical with the legacy per-notice-XML lane so the two silvers UNION cleanly.

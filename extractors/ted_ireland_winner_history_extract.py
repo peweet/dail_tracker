@@ -48,6 +48,7 @@ from extractors.ted_ireland_extract import (  # noqa: E402
 )
 from services.parquet_io import save_parquet  # noqa: E402
 from services.ted_search import fetch_notice_xml  # noqa: E402
+from shared.buyer_clean import clean_buyer_display  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -219,6 +220,9 @@ def main() -> None:
         return
 
     df = enrich_winner_rows(df).with_columns(pl.lit("per_notice_xml").alias("source_lane"))
+    # buyer_name is inherited from the (now-cleaned) buyer-history parquet, but clean defensively
+    # so a stray id suffix can never reach the UNION with the API award lane.
+    df = clean_buyer_display(df, "buyer_name")
 
     OUT_SILVER.parent.mkdir(parents=True, exist_ok=True)
     save_parquet(df, OUT_SILVER)
