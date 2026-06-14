@@ -1,0 +1,14 @@
+{
+  "authority": "Galway City Council",
+  "authority_type": "city_council",
+  "plan_name": "Galway City Development Plan 2023-2029",
+  "plan_status": "adopted (effective 4 January 2023); draft-plan chapter captured from consultation portal",
+  "dm_standards_chapter": "Chapter 11 - Land Use Zoning Objectives and Development Standards and Guidelines (Part B - Development Standards)",
+  "source_url": "https://consult.galwaycity.ie/en/consultation/draft-galway-city-development-plan-2023-2029/chapter/part-b-development-standards",
+  "portal": "consult.galwaycity.ie",
+  "fetch_method": "WebFetch on consult.galwaycity.ie Part B chapter (clean markdown, very detailed) + curl.exe raw HTML saved to raw/dm_standards.html",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.html", "dm_standards.md", "required_assessments.md", "_source.json"],
+  "status": "complete",
+  "notes": "Richly quantified chapter: plot ratios by zone, site coverage 80%, open space %, car-parking Table 11.6 and residential options, cycle Table 11.3, separation 11m/1.5m, rural one-off site min 0.2ha, fuel-station sightline/setbacks, EV (1 per 5 spaces), bin storage, road/footpath widths, childcare 55% play area. Full assessment-trigger list present (AA, EIA, FRA, TTA thresholds, heritage, EcIA, sustainability statement). Captured from draft-plan chapter; adopted plan content materially the same."
+}

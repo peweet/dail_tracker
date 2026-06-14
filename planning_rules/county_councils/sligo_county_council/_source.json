@@ -1,0 +1,14 @@
+{
+  "authority": "Sligo County Council",
+  "authority_type": "county_council",
+  "plan_name": "Sligo County Development Plan 2024-2030",
+  "plan_status": "Made 30 September 2024; effective 11 November 2024 (interim consolidated version)",
+  "dm_standards_chapter": "Volume 3, Chapter 33 - Development Management Standards",
+  "source_url": "https://www.sligococo.ie/cdp/Volume3GeneralPolicies/Chapter 33 - Development management standards.pdf",
+  "portal": "sligococo.ie (standalone chapter PDF; not on shared consult.* portal)",
+  "fetch_method": "PDF (pdftotext)",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/dm_standards.pdf"],
+  "status": "complete",
+  "notes": "[PA-xxx] tags in the text are the council's retained Proposed Amendment references. 16m opposing-window separation (lower than the typical 22m)."
+}

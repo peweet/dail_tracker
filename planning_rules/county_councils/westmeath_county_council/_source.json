@@ -1,0 +1,14 @@
+{
+  "authority": "Westmeath County Council",
+  "authority_type": "county_council",
+  "plan_name": "Westmeath County Development Plan 2021-2027 - Volume 1 Written Statement",
+  "plan_status": "Adopted (current)",
+  "dm_standards_chapter": "Chapter 16 - Development Management Standards (pp.457-495)",
+  "source_url": "https://www.westmeathcoco.ie/ (Westmeath CDP 2021-2027, Volume 1 Written Statement)",
+  "portal": "westmeathcoco.ie (single Written Statement PDF)",
+  "fetch_method": "PDF (pdftotext)",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/volume1_written_statement.pdf"],
+  "status": "complete",
+  "notes": "Chapter 16 = DM standards (pp.457-495 of the 62MB Written Statement). Standards as 'CPO 16.x' objectives. Clean car-parking table captured; 22m separation; 15% open space; density guideline/context-based (no fixed uph table). Rural one-off criteria in core/settlement strategy."
+}

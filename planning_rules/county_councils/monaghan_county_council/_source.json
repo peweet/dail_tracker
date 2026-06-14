@@ -1,0 +1,14 @@
+{
+  "authority": "Monaghan County Council",
+  "authority_type": "county_council",
+  "plan_name": "Monaghan County Development Plan 2025-2031",
+  "plan_status": "Adopted 26 May 2025",
+  "dm_standards_chapter": "Chapter 15 - Development Management Standards (Written Statement, Volume 1)",
+  "source_url": "https://monaghan.ie/planning/wp-content/uploads/sites/4/2025/11/Written-Statement.pdf",
+  "portal": "monaghan.ie (single Written Statement PDF; not on shared consult.* portal)",
+  "fetch_method": "PDF (pdftotext)",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/dm_standards.pdf"],
+  "status": "complete",
+  "notes": "Chapter 15 occupies roughly pp.291-345 of the single Written Statement PDF. Density is guideline-referenced (no fixed uph table); low-density 'Proposed Residential B' capped at 15 units/ha."
+}

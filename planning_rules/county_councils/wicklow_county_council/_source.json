@@ -1,0 +1,14 @@
+{
+  "authority": "Wicklow County Council",
+  "authority_type": "county_council",
+  "plan_name": "Wicklow County Development Plan 2021-2027",
+  "plan_status": "Adopted (current)",
+  "dm_standards_chapter": "Appendix 1 - Development & Design Standards (Volume 1)",
+  "source_url": "https://www.wicklow.ie/ (Wicklow CDP 2021-2027, Appendix 1 - Development & Design Standards)",
+  "portal": "wicklow.ie (standalone appendix PDF; not on shared consult.* portal)",
+  "fetch_method": "PDF (pdftotext) - two-column layout",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/dm_standards.pdf"],
+  "status": "partial",
+  "notes": "Standards live in Appendix 1 (not a numbered DM chapter). Source PDF is two-column, which scrambles some per-use parking cells on text extraction - headline figures captured, full tables preserved in raw/. Rural one-off minimum site area not tabulated in Appendix 1 (rural housing policy in Volume 1)."
+}
