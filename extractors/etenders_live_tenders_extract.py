@@ -46,6 +46,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 from services.logging_setup import setup_standalone_logging  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
+from shared import buyer_clean  # noqa: E402
 
 log = logging.getLogger(__name__)
 
@@ -81,30 +82,17 @@ COLMAP = [
 ]
 _MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
 
-# eTenders appends an internal organisation ID to the buyer name ("Cork County Council_424") and,
-# for schools, a roll number ("Scoil Ailbhe - (18030I)"). Both are identifiers, NOT part of the
-# display name. We lift the org ID into its own column (a stable per-buyer join key) and strip both
-# off the name. A parenthetical that does NOT start with a digit ("…Authority (HIQA)", "School
-# (Navan)") is a real acronym/place-name and is preserved — the digit-leading test is what tells an
-# ID apart from a name.
-_BUYER_ORG_ID_RX = r"_(\d+)$"  # trailing _<digits> = the eTenders org id
-_BUYER_ROLL_RX = r"\s*[-–]\s*\(\d[0-9A-Za-z]*\)$"  # trailing " - (<roll-number>)"
-
 
 def _clean_buyer(df: pl.DataFrame) -> pl.DataFrame:
     """Split the eTenders org-id suffix off the buyer name into ``buyer_org_id`` and strip
-    identifier debris (org id + school roll number) from the display ``buyer``. Idempotent —
-    safe to re-run on an already-cleaned snapshot (the patterns simply no longer match)."""
+    identifier debris (org id + school roll number) from the display ``buyer``. Idempotent.
+    The id/roll rules live in shared.buyer_clean — one source of truth, shared with the TED lane."""
     if "buyer" not in df.columns:
         return df
     return df.with_columns(
-        pl.col("buyer").str.extract(_BUYER_ORG_ID_RX, 1).alias("buyer_org_id"),
+        buyer_clean.org_id_expr("buyer").alias("buyer_org_id"),
     ).with_columns(
-        pl.col("buyer")
-        .str.replace(_BUYER_ORG_ID_RX, "")
-        .str.replace(_BUYER_ROLL_RX, "")
-        .str.strip_chars()
-        .alias("buyer"),
+        buyer_clean.clean_name_expr("buyer").alias("buyer"),
     )
 
 
