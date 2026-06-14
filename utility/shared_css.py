@@ -5425,6 +5425,52 @@ def inject_css() -> None:
             .pr-grid { grid-template-columns: 1fr; }
         }
 
+        /* ── Tab strip (st.tabs) ──────────────────────────────────────────────
+           Streamlit's default tabs are a faint label + a thin sliding underline,
+           which wash out against the warm-neutral page background — users were
+           missing them entirely. Render the strip as a row of clear pill-buttons:
+           inactive = light surface with readable secondary ink; active = filled
+           brand accent so the current section is unmistakable. Applies app-wide
+           (the cross-page top nav is st.navigation, not .stTabs, so it is
+           unaffected). */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0.3rem;
+            border-bottom: 2px solid var(--border-strong) !important;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: auto;
+            padding: 0.45rem 1rem !important;
+            border-radius: 8px 8px 0 0;
+            background: var(--surface-deep);
+            color: var(--text-secondary) !important;
+            border: 1px solid var(--border-strong) !important;
+            border-bottom: none !important;
+            margin-bottom: -2px;            /* overlap the list's bottom border */
+            transition: background 0.12s ease, color 0.12s ease;
+        }
+        .stTabs [data-baseweb="tab"] p {
+            font-weight: 600 !important;
+            font-size: 0.92rem !important;
+        }
+        .stTabs [data-baseweb="tab"]:hover {
+            background: var(--accent-subtle);
+            color: var(--accent) !important;
+        }
+        .stTabs [data-baseweb="tab"]:hover p { color: var(--accent) !important; }
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            background: var(--accent);
+            border-color: var(--accent) !important;
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"] p {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+        }
+        /* The filled active pill now carries selection state; neutralise the
+           default sliding highlight bar (it mis-aligns under the padded pills)
+           and keep the base border subtle. */
+        .stTabs [data-baseweb="tab-highlight"] { background: transparent !important; }
+        .stTabs [data-baseweb="tab-border"]    { background: transparent !important; }
+
         </style>
         """,
         unsafe_allow_html=True,
