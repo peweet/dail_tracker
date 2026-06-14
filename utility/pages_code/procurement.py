@@ -85,6 +85,7 @@ from data_access.procurement_data import (
     fetch_expiring_etenders_result,
     fetch_live_tenders_result,
     fetch_live_tenders_stats_result,
+    fetch_ted_tender_sectors_result,
     fetch_ted_tenders_result,
     fetch_ted_tenders_stats_result,
 )
@@ -1497,19 +1498,42 @@ def _render_ted_tenders() -> None:
         "value shown is a <em>buyer estimate recorded before any award</em>: never a contract value, never "
         "a payment, and never added to the award or payment figures elsewhere on this page.</div>"
     )
-    only_open = st.toggle(
-        "Only tenders still open by deadline",
-        value=False,
-        key="pr_ted_open",
-        help=f"{_n(s.get('n_still_open')):,} of {_n(s.get('n_notices')):,} have a submission deadline still in the future.",
-    )
-    res = fetch_ted_tenders_result(only_open=only_open, limit=_TOP)
+    # Two facets, side by side: an open-by-deadline DATE gate, and a SECTOR (CPV division) filter.
+    # Unlike the national feed above, TED notices carry a CPV code, so sector filtering is possible here.
+    fcol1, fcol2 = st.columns([1, 1])
+    with fcol1:
+        only_open = st.toggle(
+            "Only tenders still open by deadline",
+            value=False,
+            key="pr_ted_open",
+            help=f"{_n(s.get('n_still_open')):,} of {_n(s.get('n_notices')):,} have a submission deadline still in the future.",
+        )
+    sector = None
+    with fcol2:
+        # Sector option list carries a per-division count (the "facet counts in parentheses"
+        # convention); counts track the open toggle so they match the list below.
+        sectors_res = fetch_ted_tender_sectors_result(only_open=only_open)
+        sec_df = sectors_res.data if sectors_res.ok else pd.DataFrame()
+        if not sec_df.empty:
+            label_to_sector = {f"{r.sector} ({int(r.n):,})": r.sector for r in sec_df.itertuples()}
+            choice = st.selectbox(
+                "Sector (CPV division)",
+                ["All sectors", *label_to_sector.keys()],
+                index=0,
+                key="pr_ted_sector",
+            )
+            sector = label_to_sector.get(choice)
+    res = fetch_ted_tenders_result(only_open=only_open, limit=_TOP, sector=sector)
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
-        empty_state("No tenders", "No still-open competition notice." if only_open else "The view returned no rows.")
+        if sector:
+            empty_state("No tenders in that sector", f"No competition notice in “{sector}” for this filter.")
+        else:
+            empty_state("No tenders", "No still-open competition notice." if only_open else "The view returned no rows.")
         return
+    sector_label = f" in {sector}" if sector else ""
     st.caption(
-        f"{len(df):,} most-recent competition notices{' still open' if only_open else ''}. "
+        f"{len(df):,} most-recent competition notices{' still open' if only_open else ''}{sector_label}. "
         "Estimated value is a pre-award buyer estimate — not an award and not a payment. "
         "Click a notice to open the full tender on TED."
     )
@@ -1691,13 +1715,32 @@ def _render_national_open_tenders() -> None:
         "recorded before any award</em>: never a contract value, never a payment, and never summed.</div>"
     )
     st.html(_national_freshness_html(s.get("retrieved_utc")))
-    res = fetch_live_tenders_result(limit=_TOP)
+    # Forward DATE facet: narrow to soonest-closing windows. The national eTenders feed carries no
+    # CPV/sector, so closing-date is the only forward filter available on this register (sector
+    # filtering lives on the TED lens below, which does carry a CPV division).
+    window = st.segmented_control(
+        "Closing within",
+        ["All open", "7 days", "14 days", "30 days"],
+        default="All open",
+        key="pr_live_window",
+        label_visibility="collapsed",
+    )
+    sel = window or "All open"
+    within_days = None if sel == "All open" else int(sel.split()[0])
+    res = fetch_live_tenders_result(limit=_TOP, within_days=within_days)
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
-        empty_state("No open national tenders", "The national live-tender view returned no rows.")
+        if within_days is not None:
+            empty_state(
+                "No national tenders closing that soon",
+                f"No open national tender closes within {within_days} days. Try a wider window.",
+            )
+        else:
+            empty_state("No open national tenders", "The national live-tender view returned no rows.")
         return
+    window_label = "soonest-closing" if within_days is None else f"closing within {within_days} days"
     st.caption(
-        f"{len(df):,} soonest-closing national tenders. Estimated value is a pre-award buyer estimate — "
+        f"{len(df):,} {window_label} national tenders. Estimated value is a pre-award buyer estimate — "
         "not an award and not a payment. Click a tender to open it on eTenders."
     )
     cards = []

@@ -449,24 +449,53 @@ def ted_tenders_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
-def ted_tenders(conn: duckdb.DuckDBPyConnection, *, limit: int | None = 60, only_open: bool = False) -> QueryResult:
+def ted_tenders(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    limit: int | None = 60,
+    only_open: bool = False,
+    sector: str | None = None,
+) -> QueryResult:
     """The tender-pipeline listing (most recent first). ``only_open`` keeps notices whose
-    submission deadline has not yet passed. estimated_value_eur is a pre-award estimate shown
-    for context — never summed with award/payment figures."""
+    submission deadline has not yet passed. ``sector`` narrows to one CPV division (the TED
+    feed's sector facet — unlike the national eTenders feed, TED notices carry a CPV code).
+    estimated_value_eur is a pre-award estimate shown for context — never summed with
+    award/payment figures."""
     sql = (
         "SELECT publication_number, notice_url, buyer_name, cpv_code, cpv_division, procedure_type,"
         " is_uncompetitive_procedure, submission_deadline, is_still_open, estimated_value_eur, currency,"
         " dispatch_date, year"
         " FROM v_procurement_ted_tenders"
     )
-    if only_open:
-        sql += " WHERE is_still_open"
-    sql += " ORDER BY dispatch_date DESC"
+    where: list[str] = []
     params: list = []
+    if only_open:
+        where.append("is_still_open")
+    if sector:
+        where.append("cpv_division = ?")
+        params.append(sector)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY dispatch_date DESC"
     if limit is not None:
         sql += " LIMIT ?"
         params.append(int(limit))
     return _run(conn, sql, params)
+
+
+def ted_tender_sectors(conn: duckdb.DuckDBPyConnection, *, only_open: bool = False) -> QueryResult:
+    """Distinct CPV divisions in the TED tender pipeline with a per-division notice count, busiest
+    first — the option list (with counts) for the sector facet. ``only_open`` matches the listing's
+    open-by-deadline toggle so the facet counts agree with what the filtered list will show."""
+    sql = (
+        "SELECT cpv_division AS sector, COUNT(*) AS n"
+        " FROM v_procurement_ted_tenders"
+        " WHERE cpv_division IS NOT NULL AND cpv_division <> ''"
+    )
+    if only_open:
+        sql += " AND is_still_open"
+    sql += " GROUP BY cpv_division ORDER BY n DESC, sector ASC"
+    return _run(conn, sql, [])
 
 
 def expiring_contracts_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
@@ -518,9 +547,15 @@ def expiring_contracts(
 # soonest-closing first; this wrapper is retrieval-only.
 
 
-def live_tenders(conn: duckdb.DuckDBPyConnection, *, limit: int | None = 80) -> QueryResult:
+def live_tenders(
+    conn: duckdb.DuckDBPyConnection, *, limit: int | None = 80, within_days: int | None = None
+) -> QueryResult:
     """Open national tenders accepting bids now (soonest-closing first). estimated_value_eur is a
-    PLANNED-tier buyer estimate shown for context — never summed with award/payment figures."""
+    PLANNED-tier buyer estimate shown for context — never summed with award/payment figures.
+
+    ``within_days`` narrows to opportunities closing within that many days (a forward date facet over
+    the view's pre-computed days_to_deadline); None keeps the full open set. The national eTenders feed
+    carries no CPV/sector, so date is the only forward facet available on this register."""
     sql = (
         "SELECT title, buyer, published_date, submission_deadline, days_to_deadline,"
         " procedure, status, estimated_value_eur, realisation_tier, value_kind,"
@@ -528,6 +563,9 @@ def live_tenders(conn: duckdb.DuckDBPyConnection, *, limit: int | None = 80) -> 
         " FROM v_procurement_live_tenders"
     )
     params: list = []
+    if within_days is not None:
+        sql += " WHERE days_to_deadline <= ?"
+        params.append(int(within_days))
     if limit is not None:
         sql += " LIMIT ?"
         params.append(int(limit))
