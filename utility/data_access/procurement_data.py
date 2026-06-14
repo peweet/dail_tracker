@@ -234,9 +234,19 @@ def fetch_ted_tenders_stats_result() -> QueryResult:
 
 
 @st.cache_data(ttl=300)
-def fetch_ted_tenders_result(only_open: bool = False, limit: int | None = 60) -> QueryResult:
-    """TED tender-pipeline listing (pre-award competition notices), most recent first."""
-    return _q.ted_tenders(get_procurement_conn(), limit=limit, only_open=only_open)
+def fetch_ted_tenders_result(
+    only_open: bool = False, limit: int | None = 60, sector: str | None = None
+) -> QueryResult:
+    """TED tender-pipeline listing (pre-award competition notices), most recent first. ``sector``
+    narrows to one CPV division (the TED feed's sector facet)."""
+    return _q.ted_tenders(get_procurement_conn(), limit=limit, only_open=only_open, sector=sector)
+
+
+@st.cache_data(ttl=300)
+def fetch_ted_tender_sectors_result(only_open: bool = False) -> QueryResult:
+    """Distinct CPV divisions in the TED tender pipeline with per-division counts — the sector
+    facet's option list. ``only_open`` keeps the counts in step with the listing's open toggle."""
+    return _q.ted_tender_sectors(get_procurement_conn(), only_open=only_open)
 
 
 @st.cache_data(ttl=300)
@@ -252,10 +262,12 @@ def fetch_expiring_contracts_result(months_ahead: int = 12, limit: int | None = 
 
 
 @st.cache_data(ttl=300)
-def fetch_live_tenders_result(limit: int | None = 80) -> QueryResult:
+def fetch_live_tenders_result(limit: int | None = 80, within_days: int | None = None) -> QueryResult:
     """Open NATIONAL tenders (etenders.gov.ie) accepting bids now, soonest-closing first.
-    PLANNED tier — estimated_value_eur is a buyer estimate, never summed."""
-    return _q.live_tenders(get_procurement_conn(), limit=limit)
+    PLANNED tier — estimated_value_eur is a buyer estimate, never summed. ``within_days`` narrows
+    to opportunities closing within that many days (the national feed's only forward facet — it
+    carries no CPV/sector)."""
+    return _q.live_tenders(get_procurement_conn(), limit=limit, within_days=within_days)
 
 
 @st.cache_data(ttl=300)
