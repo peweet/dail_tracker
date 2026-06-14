@@ -1,0 +1,14 @@
+{
+  "authority": "Roscommon County Council",
+  "authority_type": "county_council",
+  "plan_name": "Roscommon County Development Plan 2022-2028",
+  "plan_status": "Adopted 8 March 2022; effective 19 April 2022",
+  "dm_standards_chapter": "Chapter 12 - Development Management Standards (Volume I, Written Statement)",
+  "source_url": "https://www.rosdevplan.ie/rccdevpdfs/final/RCC-Dev-Plan-2022-2028-Volume-I.pdf",
+  "portal": "rosdevplan.ie (single ~32MB Volume I PDF; not on shared consult.* portal)",
+  "fetch_method": "PDF (pdftotext)",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/dm_standards.pdf"],
+  "status": "complete",
+  "notes": "Chapter 12 occupies roughly pp.169-200 of Volume I. Open space 15% greenfield / 10% brownfield; density guideline-referenced (no fixed uph table)."
+}

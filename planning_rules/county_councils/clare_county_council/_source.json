@@ -1,0 +1,14 @@
+{
+  "authority": "Clare County Council",
+  "authority_type": "county_council",
+  "plan_name": "Clare County Development Plan 2023-2029",
+  "plan_status": "adopted, in effect from 20 April 2023 (incorporating Ministerial Direction)",
+  "dm_standards_chapter": "Appendix 1 - Development Management Guidelines (Volume 1 Written Statement); DM standards are an Appendix, not a numbered chapter",
+  "source_url": "https://clarecdp2023-2029.clarecoco.ie/stage3-amendments/adoption/volume-1-written-statement-clare-county-development-plan-2023-2029-51406.pdf",
+  "portal": "clarecdp2023-2029.clarecoco.ie",
+  "fetch_method": "curl raw PDF (28MB) + pdftotext local text extraction (no per-chapter HTML available)",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/volume-1-written-statement.pdf"],
+  "status": "complete",
+  "notes": "Appendix 1 extracted cleanly: rural one-off minimum site area 0.2ha/0.5ac; sight distances X=2.4m + Y-table by design speed (50-120 km/h); road/cul-de-sac widths; 1m side separation; 11m rear garden; parking standards incl 5% disabled / 10% parent-child; EIA Schedule5 / AA / FRA triggers. Parking Table A3 car/bicycle columns are interleaved in PDF text - per-use car ratios partly ambiguous; flagged in dm_standards.md to consult source Table A3. Density follows national guidelines (no local dwellings/ha table)."
+}

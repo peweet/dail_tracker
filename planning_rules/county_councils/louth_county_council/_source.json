@@ -1,0 +1,14 @@
+{
+  "authority": "Louth County Council",
+  "authority_type": "county_council",
+  "plan_name": "Louth County Development Plan 2021-2027",
+  "plan_status": "adopted 30 September 2021, effective 11 November 2021 (Variations No.1-3 since)",
+  "dm_standards_chapter": "Chapter 13 - Development Management Guidelines",
+  "source_url": "https://www.louthcoco.ie/en/publications/development-plans/louth-county-development-plan-2021-2027/chapter-13-web-.pdf",
+  "portal": "louthcoco.ie / consult.louthcoco.ie",
+  "fetch_method": "curl.exe raw PDF download + local pdftotext extraction (WebFetch could not parse the PDF binary)",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.pdf", "dm_standards.md", "required_assessments.md"],
+  "status": "complete",
+  "notes": "Standalone Chapter 13 PDF (2.5MB). Two-column layout extracted cleanly via pdftotext -layout. Captured density+plot (Table 13.3), private OS (Table 13.4), 15% public OS, 22m separation, parking standards (Table 13.11, 3-area), parking dimensions (Table 13.9), EV 20%, sightlines (Table 13.13, Y up to 215m). Rural one-off uses Rural Policy Zone criteria (Chapter 3) rather than a fixed minimum site area; ribbon = 5 houses / 250m frontage."
+}

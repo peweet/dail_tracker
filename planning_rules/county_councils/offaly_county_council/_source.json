@@ -1,0 +1,14 @@
+{
+  "authority": "Offaly County Council",
+  "authority_type": "county_council",
+  "plan_name": "Offaly County Development Plan 2021-2027",
+  "plan_status": "Adopted 10 September 2021; effective 22 October 2021",
+  "dm_standards_chapter": "Chapter 13 - Development Management Standards",
+  "source_url": "https://www.offaly.ie/app/uploads/Council/Council_Services_A-Z/Planning_Building/Chapter-13-Development-Management-Standards.pdf",
+  "portal": "offaly.ie (standalone chapter PDF; not on shared consult.* portal)",
+  "fetch_method": "PDF (pdftotext)",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/dm_standards.pdf"],
+  "status": "complete",
+  "notes": "DMS-coded standards. 22m rear-window separation; density guideline-referenced (no uph table in chapter)."
+}

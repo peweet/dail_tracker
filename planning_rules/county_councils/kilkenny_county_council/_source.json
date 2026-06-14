@@ -1,0 +1,14 @@
+{
+  "authority": "Kilkenny County Council",
+  "authority_type": "county_council",
+  "plan_name": "Kilkenny City and County Development Plan 2021-2027 (Volume 1, County)",
+  "plan_status": "Adopted 3 September 2021; effective 15 October 2021",
+  "dm_standards_chapter": "Chapter 13 - Requirements for Development",
+  "source_url": "https://consult.kilkenny.ie/ (Kilkenny City & County Development Plan 2021-2027, Volume 1)",
+  "portal": "consult.kilkenny.ie (shared LA consultation portal) + kilkennycoco.ie PDF",
+  "fetch_method": "PDF (pdftotext) of Volume 1; HTML chapter also archived",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/dm_standards.pdf", "raw/dm_standards.html"],
+  "status": "complete",
+  "notes": "Chapter 13 is the DM-standards chapter. Car-parking standards are in Chapter 12 (not transcribed - in raw); rural one-off-house siting in Chapter 7 (County Kilkenny Rural Design Guide). Plot ratio max 2.0 urban / 1.0 elsewhere; site coverage 65% (85% urban)."
+}

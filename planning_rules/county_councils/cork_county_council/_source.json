@@ -1,0 +1,14 @@
+{
+  "authority": "Cork County Council",
+  "authority_type": "county_council",
+  "plan_name": "Cork County Development Plan 2022 (2022-2028)",
+  "plan_status": "adopted 25 April 2022, in effect from 6 June 2022 (multi-volume plan)",
+  "dm_standards_chapter": "No single DM chapter; standards distributed across Chapter 4 Housing (density/height/open space), Chapter 12 Transport & Mobility (parking Section 12.24 / Table 12.6, EV, TTA), Chapter 3 Settlements & Placemaking, Chapter 5 Rural",
+  "source_url": "https://www.corkcoco.ie/sites/default/files/2022-06/volume-1-main-policy-material.pdf",
+  "portal": "corkcoco.ie (PDF-only; multi-volume plan, no per-chapter HTML)",
+  "fetch_method": "curl raw PDF (18MB Volume One) + pdftotext local text extraction",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/volume-1-main-policy-material.pdf"],
+  "status": "complete",
+  "notes": "Cork is a large multi-volume plan; only Volume One Main Policy Material captured (contains the quantitative standards). Net-density Table 4.1 (HOU 4-7) High50+/MedA30-50/MedB20-35/MedC5-20; full car parking Table 12.6 incl 5% disabled, 10% parent-child, 1 motorcycle/10 spaces, EV >10-space rule; building height >4 storeys trigger; open space 10-20%; archaeology trigger >=0.5ha or >=1km; flood Justification Test; TTA & Mobility Plan triggers (50 employees / 100 units). Cork sets NO fixed numeric rural one-off minimum site area (NPO19 need-based) and sightline x/y values reference national road design standards (not tabulated in Vol 1) - recorded honestly. Table 12.7 parking-bay dimensions exists in source but not transcribed."
+}

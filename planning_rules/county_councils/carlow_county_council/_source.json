@@ -1,0 +1,14 @@
+{
+  "authority": "Carlow County Council",
+  "authority_type": "county_council",
+  "plan_name": "Carlow County Development Plan 2022-2028",
+  "plan_status": "adopted, in effect",
+  "dm_standards_chapter": "Chapter 16 - Development Management Standards",
+  "source_url": "https://consult.carlow.ie/en/consultation/carlow-county-development-plan-2022-2028/chapter/chapter-16-development-management-standards",
+  "portal": "consult.carlow.ie",
+  "fetch_method": "curl raw HTML + WebFetch extraction",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/dm_standards.html"],
+  "status": "complete",
+  "notes": "Chapter 16 HTML portal page extracted cleanly with full quantitative tables (density, parking, sightlines, separation, open space, plot ratio, site coverage). Rural one-off house minimum site area is NOT in Chapter 16 - directed to Rural Design Guide (Chapter 13), not captured here."
+}

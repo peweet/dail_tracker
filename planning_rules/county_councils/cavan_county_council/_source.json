@@ -1,0 +1,14 @@
+{
+  "authority": "Cavan County Council",
+  "authority_type": "county_council",
+  "plan_name": "Cavan County Development Plan (incorporating Local Area Plan for Cavan Town) 2022-2028",
+  "plan_status": "adopted 30 May 2022, in effect from 11 July 2022",
+  "dm_standards_chapter": "Chapter 13 - Development Management (parking standards in Chapter 7 Table 7.4; rural siting/sightlines in Chapter 12)",
+  "source_url": "https://www.cavancoco.ie/file-library/planning/development-plans/development-plan-2022-2028/written-statement/cdp-written-statement.pdf",
+  "portal": "cavancoco.ie file library (PDF only; consult.cavancoco.ie is consultation portal but plan is published as PDF)",
+  "fetch_method": "curl raw PDF (49MB) + pdftotext local text extraction (no per-chapter HTML available)",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/cdp-written-statement.pdf"],
+  "status": "partial",
+  "notes": "Density, separation, private open space, building height, EV, waste storage extracted from Chapter 13; full car+bicycle parking standards from Chapter 7 Table 7.4; flood/AA/EIA triggers extracted. GAPS: sightline x/y visibility distances are in a separate Appendix 4 document (not in written statement PDF) - not captured. Cavan sets NO fixed numeric rural one-off-house minimum site area, plot ratio or site coverage figure (performance-based per NPF NPO 13) - recorded honestly."
+}

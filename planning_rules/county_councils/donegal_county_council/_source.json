@@ -1,0 +1,14 @@
+{
+  "authority": "Donegal County Council",
+  "authority_type": "county_council",
+  "plan_name": "County Donegal Development Plan 2024-2030 (DRAFT)",
+  "plan_status": "DRAFT as downloaded - superseded the 2018-2024 plan; verify adopted status and re-pull if adopted",
+  "dm_standards_chapter": "Chapter 16 - Technical Standards (p.249) + dispersed rural-housing chapter + Rural Location, Siting & Design Guide 2024-2030",
+  "source_url": "https://www.donegalcoco.ie/ (Draft County Donegal Development Plan 2024-2030)",
+  "portal": "donegalcoco.ie (PDF)",
+  "fetch_method": "PDF (pdftotext)",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/draft-county-donegal-development-plan-2024-2030.pdf", "raw/rural-location-siting-design-guide-2024-2030.pdf"],
+  "status": "partial",
+  "notes": "DRAFT plan (re-verify adoption). Donegal does not use a single consolidated DM-standards chapter - standards dispersed across Ch.16 Technical Standards, rural-housing chapter, and a separate design guide. Reliable headline figures captured (35 uph assumption, open space 15/10/20%, ribbon 5/250m, parking bay 5x2.5m, selected non-residential parking ratios); residential dwelling parking ratios + separation distances are in raw/ but not cleanly tabulated in the extracted Ch.16 text."
+}

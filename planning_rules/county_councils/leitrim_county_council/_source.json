@@ -1,0 +1,14 @@
+{
+  "authority": "Leitrim County Council",
+  "authority_type": "county_council",
+  "plan_name": "Leitrim County Development Plan 2023-2029",
+  "plan_status": "adopted (Proposed Variation No.1 in progress)",
+  "dm_standards_chapter": "Chapter 13 - Development Management Standards (Volume I Written Statement, p.316+)",
+  "source_url": "https://www.leitrim.ie/council/services/planning-building/forward-planning-development/leitrim-county-development-plan/accessible-documents-leitrim-county-development-plan/vol-i-adopted-plan-accessible-version.pdf",
+  "portal": "leitrim.ie (PDF-only; no per-chapter HTML portal)",
+  "fetch_method": "curl.exe raw PDF download (adopted Volume I accessible version, 25.1MB) + local pdftotext extraction",
+  "fetch_date": "2026-06-13",
+  "captured": ["raw/dm_standards.pdf", "dm_standards.md", "required_assessments.md"],
+  "status": "complete",
+  "notes": "Dedicated Chapter 13 within Volume I (raw is full Volume I, 18k text lines). Captured site coverage 50/75/60/66/80%, plot ratio (Table 13.1), 22m + 2.0-2.5m separation, private OS Table 13.3 (55/60/75 m2), public OS 15/10/20%, sightlines Table 13.5 (up to 215m), junction setbacks, car(max)/cycle(min) Table 13.6, shower standards, full AA/EIA/FRA/EcIA triggers (13.2). No single numeric one-off site area in Ch13 (rural criteria in Chapter 3 + per-site percolation/design guide)."
+}

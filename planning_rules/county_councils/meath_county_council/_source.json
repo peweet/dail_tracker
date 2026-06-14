@@ -1,0 +1,14 @@
+{
+  "authority": "Meath County Council",
+  "authority_type": "county_council",
+  "plan_name": "Consolidated Meath County Development Plan 2021-2027 (as varied)",
+  "plan_status": "Adopted/consolidated; Variations 1 & 2 adopted 13 May 2024, Variation 3 adopted 27 January 2025",
+  "dm_standards_chapter": "Chapter 11 - Development Management Standards and Land Use Zoning Objectives",
+  "source_url": "https://consult.meath.ie/en/consultation/consolidated-meath-county-development-plan-2021-2027-varied/chapter/11-development-management-standards-and-land-use-zoning-objectives",
+  "portal": "consult.meath.ie (shared LA consultation portal, per-chapter HTML)",
+  "fetch_method": "HTML scrape",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/dm_standards.html"],
+  "status": "complete",
+  "notes": "Rural one-off house standards are NOT in Ch.11 (chapter defers them to Ch.9 Rural Development Strategy); parking standards are in Ch.11 Section 9 (captured). Density is guideline-referenced, no fixed uph table."
+}

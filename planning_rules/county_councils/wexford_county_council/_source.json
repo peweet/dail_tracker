@@ -1,0 +1,14 @@
+{
+  "authority": "Wexford County Council",
+  "authority_type": "county_council",
+  "plan_name": "Wexford County Development Plan 2022-2028 - Volume 2: Development Management Manual",
+  "plan_status": "Adopted (current)",
+  "dm_standards_chapter": "Volume 2 - Development Management Manual (whole volume)",
+  "source_url": "https://consult.wexfordcoco.ie/ (Wexford CDP 2022-2028, Volume 2 Development Management Manual)",
+  "portal": "consult.wexfordcoco.ie (shared LA consultation portal) + PDF",
+  "fetch_method": "PDF (pdftotext)",
+  "fetch_date": "2026-06-13",
+  "captured": ["dm_standards.md", "required_assessments.md", "raw/dm_standards.pdf"],
+  "status": "complete",
+  "notes": "Dedicated DM Manual (Volume 2). Clean extraction: Table 3-4 (floor area + private open space), Table 3-3 (rural site size by floor area: 0.2/0.2/0.4/1.0 ha), 22m separation, 30-50 uph, explicit AA/EIA/TTA triggers with numeric TTA threshold tables (6-1/6-2/6-3)."
+}
