@@ -328,13 +328,7 @@ data/gold/parquet/speeches_fact_full.parquet
 # above swallows it; re-include just this one file (other silver parquet stays ignored).
 !data/silver/parquet/
 !data/silver/parquet/etenders_live_tenders.parquet
-# TED (EU-journal) silver the procurement views read directly at runtime — the tender pipeline,
-# the EU-award lens, and the 2016-2023 winner backfill (~1.8MB total). Same Cloud-ships-no-ETL
-# reason as above. ted_ie_buyer_history.parquet is a pipeline-only intermediate (no view reads it)
-# so it stays ignored.
-!data/silver/parquet/ted_ie_tenders.parquet
-!data/silver/parquet/ted_ie_awards.parquet
-!data/silver/parquet/ted_ie_winner_history.parquet
+# (TED ted_ie_*.parquet are already re-included further down — see the "TED Ireland silver layers" block.)
 # SIPO per-candidate OCR working state (cells .json / .attempt files / logs) — transient,
 # regenerable from the bronze PDFs, thousands of files; NEVER commit. Explicit ignore so
 # the .attempt/.txt files (not caught by the *.json type rule) can't leak in either.

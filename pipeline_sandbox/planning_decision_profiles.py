@@ -44,17 +44,24 @@ OUT = ROOT / "pipeline_sandbox/_planning_output/planning_decision_profiles.parqu
 OUT_COV = ROOT / "data/_meta/planning_decision_profiles_coverage.json"
 
 NPWS = "https://services-eu1.arcgis.com/Jhij7i46ouO8Cc0N/arcgis/rest/services/NPWSDesignatedAreas/FeatureServer"
-LAYERS = {"in_sac": 3, "in_spa": 0, "in_nha": 2, "in_pnha": 1}  # registry PC09/PC10/PC11
+NMS = "https://services-eu1.arcgis.com/HyjXgkV6KGMSF3jt/arcgis/rest/services"
+# col -> FeatureServer layer URL. NPWS nature designations (PC09/10/11) + NMS archaeology zone (PC28).
+# in_smr_zone is a MITIGATABLE trigger (testing/preservation-by-record) vs the HARD SAC/SPA — its
+# refusal-lift vs SAC's is the empirical test of the §21 hard-vs-mitigatable taxonomy.
+LAYERS = {
+    "in_sac": f"{NPWS}/3", "in_spa": f"{NPWS}/0", "in_nha": f"{NPWS}/2", "in_pnha": f"{NPWS}/1",
+    "in_smr_zone": f"{NMS}/SMRZoneOpenData/FeatureServer/0",
+}
 IRL = (-11.0, 51.0, -5.0, 56.0)  # lon/lat envelope; a polygon escaping it is corrupt (§13.6)
 OFFSET = 0.0005  # ~55 m generalisation — shrinks giant polygons, keeps containment honest enough
 
 
-def _fetch_polys(layer_id: int) -> list:
+def _fetch_polys(layer_url: str) -> list:
     """Paginated generalised geometry pull → list of valid, in-bounds shapely polygons."""
     polys, offset = [], 0
     while True:
         r = requests.get(
-            f"{NPWS}/{layer_id}/query",
+            f"{layer_url}/query",
             params={"where": "1=1", "outFields": "SITECODE", "returnGeometry": "true", "outSR": "4326",
                     "maxAllowableOffset": OFFSET, "resultOffset": offset, "resultRecordCount": 2000, "f": "geojson"},
             timeout=180,
@@ -113,9 +120,9 @@ def main() -> None:
     lons = df["lon"].to_list()
     lats = df["lat"].to_list()
     pts = shp_points(lons, lats)
-    for col, lid in LAYERS.items():
-        polys = _fetch_polys(lid)
-        LOG.info("layer %s -> %s: %d valid polygons", lid, col, len(polys))
+    for col, url in LAYERS.items():
+        polys = _fetch_polys(url)
+        LOG.info("%s: %d valid polygons", col, len(polys))
         df = df.with_columns(pl.Series(col, _flag(pts, polys)))
     df = df.with_columns((pl.col("in_sac") | pl.col("in_spa")).alias("in_natura2000"))
 
@@ -124,7 +131,7 @@ def main() -> None:
         "ApplicationNumber", "PlanningAuthority", "ApplicationType", "application_type_normalised",
         "decision_normalised", "decided", "granted", "refused", "decision_latency_days", "had_rfi",
         "appealed", "is_one_off_house", "NumResidentialUnits", "lon", "lat",
-        "in_sac", "in_spa", "in_nha", "in_pnha", "in_natura2000", "DecisionDate",
+        "in_sac", "in_spa", "in_nha", "in_pnha", "in_natura2000", "in_smr_zone", "DecisionDate",
     )
     save_parquet(profile, OUT)
     LOG.info("wrote %d decision profiles -> %s", profile.height, OUT)
@@ -134,7 +141,7 @@ def main() -> None:
     base = 100 * dec["refused"].sum() / dec.height
     LOG.info("NATIONAL baseline refusal rate: %.1f%% (n=%d decided)", base, dec.height)
     dose = {}
-    for flag in ("in_sac", "in_spa", "in_nha", "in_pnha", "in_natura2000", "is_one_off_house"):
+    for flag in ("in_sac", "in_spa", "in_nha", "in_pnha", "in_natura2000", "in_smr_zone", "is_one_off_house"):
         sub = dec.filter(pl.col(flag))
         if sub.height:
             r = 100 * sub["refused"].sum() / sub.height
@@ -147,10 +154,10 @@ def main() -> None:
         "n_applications": profile.height,
         "n_decided": dec.height,
         "national_refusal_pct": round(base, 1),
-        "designation_counts": {c: int(profile[c].sum()) for c in ("in_sac", "in_spa", "in_nha", "in_pnha", "in_natura2000")},
+        "designation_counts": {c: int(profile[c].sum()) for c in ("in_sac", "in_spa", "in_nha", "in_pnha", "in_natura2000", "in_smr_zone")},
         "dose_response": dose,
-        "method": "shapely STRtree, NPWS generalised (~55m) polygons, make_valid + Ireland-bbox guard; correlation not causation",
-        "sources": ["PC01 IrishPlanningApplications", "PC09 SAC", "PC10 SPA", "PC11 NHA/pNHA"],
+        "method": "shapely STRtree, generalised (~55m) polygons, make_valid + Ireland-bbox guard; correlation not causation",
+        "sources": ["PC01 IrishPlanningApplications", "PC09 SAC", "PC10 SPA", "PC11 NHA/pNHA", "PC28 SMR archaeology zone"],
     }
     OUT_COV.write_text(json.dumps(cov, indent=2))
     LOG.info("coverage -> %s", OUT_COV)

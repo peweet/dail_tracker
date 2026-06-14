@@ -58,6 +58,12 @@ PUBLISH_PATHS: list[str] = [
     # parquet — the Procurement page reads it directly — and is refreshed on its own daily
     # cadence (the live-tenders GitHub Action), so it ships through the same gated publish.
     "data/silver/parquet/etenders_live_tenders.parquet",
+    # TED (EU-journal) silver the procurement views read directly at runtime: the tender pipeline,
+    # the EU-award lens, and the 2016-2023 winner backfill. (buyer_history is a pipeline-only
+    # intermediate — no view reads it — so it is NOT shipped.)
+    "data/silver/parquet/ted_ie_tenders.parquet",
+    "data/silver/parquet/ted_ie_awards.parquet",
+    "data/silver/parquet/ted_ie_winner_history.parquet",
     "data/_meta/freshness.json",  # data-age badge file (data, not code)
 ]
 
