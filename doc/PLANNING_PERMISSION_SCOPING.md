@@ -1511,6 +1511,75 @@ or auto-generated code — overkill). Key shape:
   referral marketplace (kept separate from the neutral assessment); positioned as **planning-risk
   due-diligence, not planning advice**.
 
+### 23.9 Storage & data format — the layers are SMALL (measured, 2026-06-13)
+The siting-check holds the **boundary layers**, not per-location answers (§ the precompute reframe), so
+the data footprint is modest. Worst-case layer measured (`c:/tmp/test_layer_size.py`): the Galway SAC
+set including the 488k-vertex Lough Corrib polygon.
+
+| Stored as | Vertices | Size | join answer |
+|---|---|---|---|
+| GeoJSON (source) | 684,634 | **34.3 MB** | 173 |
+| GeoParquet+zstd, no simplify | 684,634 | **11.7 MB** | 173 ✅ |
+| GeoParquet+zstd, ~5 m simplify | 93,951 | **1.9 MB** | 172 ✅ |
+| **GeoParquet+zstd, ~10 m simplify** | 64,273 | **1.3 MB** | 171 ✅ |
+| GeoParquet+zstd, ~50 m simplify | 23,022 | 0.48 MB | **218 ❌ broken** |
+
+**Decisions:**
+- **Format = GeoParquet + zstd** (matches `services/parquet_io` convention; DuckDB-spatial reads it
+  natively; most compact vector format). Reformatting alone is 3× smaller, lossless.
+- **Simplify to ~10 m, but VALIDATE the tolerance against the full-precision join answer** — 5–10 m is
+  the sweet spot (~27× smaller, ±1 drift); **50 m BREAKS containment** (inside jumped 173→218). Same
+  "verify against ground truth" discipline as the −9e12 fix. Ship a tiny test asserting simplified ==
+  full-precision count.
+- **Vectors fit git easily:** worst layer = **1.3 MB**; most layers (flood/SMR/zoning) far simpler; the
+  full ~15–20-layer national stack ≈ tens of MB total, each file single-digit MB → **nowhere near the
+  100 MB/file GitHub limit**. Git-track like `data/_meta`, or R2 per the data-policy split.
+- **Raster (DEM) does NOT go in git** — a national DTM is hundreds of MB–GB. Host as a **Cloud-Optimized
+  GeoTIFF (COG) on Cloudflare R2** (existing backup infra, [[project_data_backup_r2]]) and HTTP
+  range-read the cells under the user's point; or precompute only the derived elevation/slope values.
+  **Split: vectors in git (small, versioned), raster in R2 (big, range-read live).**
+
+### 23.10 SOURCE VERIFICATION — all siting-check layers probed LIVE (2026-06-13)
+Every layer the feature needs was probed live (not assumed). Tripwire test:
+`pipeline_sandbox/test_planning_siting_layers.py` (18 passing). Field names below are the REAL schema
+names discovered, not the plan's assumptions.
+
+**National GIS — verified, build-ready (7 layers):**
+| Layer | Endpoint (org) | geom / CRS | count | required field | freshness |
+|---|---|---|---|---|---|
+| NPWS SAC | `Jhij7i46…/NPWSDesignatedAreas/FS/3` | poly / **2157** | 433 | `SITE_NAME` | 2026-04-01 |
+| GSI Groundwater Vuln | `gsi.geodata.gov.ie/.../IE_GSI_Groundwater_Vulnerability_40K…/FS/0` | poly / 2157 | **221,148** | **`VUL_CAT`** (X/E/H/M/L) | no lastEdit → poll/hash |
+| NMS SMR points | `HyjXgkV6…/SMROpenData/FS/0` | point / 2157 | 151,308 | `MONUMENT_CLASS` | 2026-06-04 |
+| NMS SMRZone | `HyjXgkV6…/SMRZoneOpenData/FS/0` | poly / 2157 | 81,409 | `ZONE_ID` (→join SMR) | 2026-06-04 |
+| **MyPlan zoning** | `NzlPQPKn…/GZT_Current_Plan/FS/0` | poly / 2157 | 82,664 | `ZONE_GZT/ORIG/DESC` + `PLAN_FROM/TO` | 2026-05-13 |
+| NIAH (heritage) | `HyjXgkV6…/NIAHBuildingsOpenData/FS/0` | point / 2157 | 48,327 | `REG_NO/NAME` | 2025-04-03 |
+| Planning apps | `NzlPQPKn…/IrishPlanningApplications/FS/0` | point / **3857** | 495,632 | `Decision` | 2026-06-09 |
+
+⚠️ **CRS is mixed** (most = 2157 ITM, apps = 3857) → reprojection mandatory before any join.
+⚠️ **MyPlan on-prem hosts are DEAD** (`maps.housing.gov.ie`, `maps.environ.ie`) — use the ArcGIS
+Online twin `GZT_Current_Plan` above. ⚠️ GSI field is `VUL_CAT` (NOT `Vulnerability`).
+
+**Raster:** DEM = **Copernicus GLO-30** (30 m, FREE/open, Cloud-Optimized GeoTIFF on AWS Open Data →
+host/range-read as COG per §23.9). Tailte Éireann 10 m DTM is LICENSED (proprietary) — only if precision needed.
+
+**Link-only (NOT ingestible):** OPW flood (CFRAM / NIFM / National Coastal Flood Extents) is
+**CC-BY-NC-ND 4.0** — NonCommercial + NoDerivatives. Confirmed via floodinfo.ie open-spatial-data-portal.
+**Design rule: DEEP-LINK to floodinfo.ie at the user's coordinates; do NOT overlay/ingest OPW geometry.**
+
+**Per-LA layers — the Heritage Council org is the aggregator (one org, not 31 councils):**
+`services-eu1.arcgis.com/v5dOXTEOb7ZHdNyQ` (heritagemaps.ie) hosts **build-ready** FeatureServers:
+**26 RPS** (`{County}_RPS/FS`, points, 2157, e.g. Cavan=592), **~14 county landscape-character**
+(`{County}_Landscape_Categories/Character_Types`, polygons; ⚠️ filter out national thematic noise —
+`Biologically Sensitive Area`, `Margaritifera`, `BirdWatch` are NOT landscape-character), **4 ACA**
+(Dublin City, Galway City, Kildare, Kilkenny). Full 55-URL list: `c:/tmp/per_la_sources_heritage_council.csv`.
+- **Corrected coverage (earlier "landscape is overwhelmingly PDF" was WRONG — undersampled):**
+  RPS ~**24/31** GIS + NIAH national fallback; **landscape ~14/31** as GIS character/sensitivity (NOT mostly
+  PDF); **ACA the patchiest ~8–12/31** (rest in council-own orgs or development-plan PDFs).
+- **The remaining per-LA work is SCHEMA HARMONISATION, not discovery** — 26 RPS schemas differ per county
+  (Cavan = `Name_Struc/Address_St/Townland/Special_In/Building_T`; others vary) → a per-county column
+  crosswalk (same pattern as the §12 DM-standards rulebook). Statutory: every LA HAS an RPS, so a missing
+  GIS row = it's in the plan PDF, not absent.
+
 ---
 
 ## 22. NATIONAL DECISION-PROFILE PASS — §13 generalised to the whole 495k corpus (BUILT, 2026-06-14)
