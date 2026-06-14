@@ -1,0 +1,37 @@
+{
+  "council": "Waterford City & County Council",
+  "slug": "waterford_city_and_county_council",
+  "authority_type": "city_and_county_council",
+  "plan_name": "Waterford City & County Development Plan 2022–2028",
+  "dm_location": "Volume 2 — Development Management Standards",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": "Preferably not less than 25 m from public-road boundary (specified protected routes); in any event not less than 18 m",
+  "road_setback_local_m": "General set-back 18 m from road fence on all County roads",
+  "sightline_x_m": "4.5 m (housing estates/commercial/industrial) or 2.4 m (single dwellings)",
+  "sightline_y": "215 m (100 km/h); 160 m (80 km/h); 90 m (60 km/h); 70 m (50 km/h); 55 m (80 km/h local roads); cul-de-sac ≤3 dwellings 30 m",
+  "wastewater_standard": "Rural dwellings require site assessment / percolation suitability (EPA Code of Practice; Sustainable Rural Housing Guidelines 2005)",
+
+  "residential_density_dph": "Criteria-based, location-dependent (Section 3.2); fixed dwellings/ha figures carried in Volume 1 Core Strategy / Table 3.2",
+  "plot_ratio": "Shall not generally exceed 1:2 (2.0); higher (incl. ~2.0) for General Business/enterprise/employment and Opportunity zones",
+  "site_coverage_pct": "Shall not normally exceed 75%",
+  "separation_distance_m": "22 m between directly opposing above-ground-floor windows (reciprocal overlooking)",
+  "private_open_space": "Per Table 3.2 by dwelling type; not less than 50 sq.m",
+  "public_open_space_pct": "Min 15% of total site area; institutional lands min 25% (Policy H21)",
+  "car_parking_dwelling": null,
+  "building_height": null,
+
+  "trigger_AA": null,
+  "trigger_EIA": null,
+  "trigger_FRA": "Flood-risk mitigation requirements (Section 9.8); flood-zone-based controls; Justification Test in Volume 1 / SFRA",
+  "trigger_AHIA": "Controls for Protected Structures and settings; works assessed against Architectural Heritage Protection Guidelines (Ch 11 of Vol 2)",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "Road Safety Audits for new/altered access onto National Primary/National roads; TTA per NRA/TII 2014 Guidelines (Section 8.5)",
+
+  "notes": "Principal road frontages (business parks): building line not less than 15 m + min 5 m planted strip; Tramore/Waterford Road not less than 30 m. Rural min site area not stated as single figure. AA and statutory EIA/EIAR thresholds in Volume 1 / SEA-AA documentation, not Volume 2."
+}

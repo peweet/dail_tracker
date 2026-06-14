@@ -3,6 +3,11 @@
 **31 / 31 Irish local authorities captured** (28 ✅ complete · 3 🟡 partial). Each council dir holds
 `dm_standards.md`, `required_assessments.md`, `_source.json`, and a gitignored `raw/` archive.
 
+> **Companion: [`SOURCE_REGISTRY.md`](SOURCE_REGISTRY.md)** — the axiom→external-dataset seed registry
+> (one source per obligation axiom: NPWS SAC/SPA, NMS SMR zones, OPW flood, RPS/ACA/NIAH, TII/OSM roads,
+> GSI/Teagasc soils, zoning composite, ACP reason-text PDFs). Drives the consolidated planning feature.
+> Narrative in `doc/PLANNING_PERMISSION_SCOPING.md` §18.
+
 Status legend: ✅ captured · 🟡 partial (draft plan / standards dispersed / two-column extraction) ·
 ❌ not found.
 
@@ -21,7 +26,7 @@ rulebook is per-authority and non-standardised.
 
 | Authority | Slug | Plan | DM-standards location | Status |
 |---|---|---|---|---|
-| Dublin City | `dublin_city_council` | Dublin City Development Plan 2022-2028 | Ch.15 Development Standards (density/parking in Appendices 3 & 5) | ✅ |
+| Dublin City | `dublin_city_council` | Dublin City Development Plan 2022-2028 | Ch.15 Development Standards + Appendix 3 (density/height/plot ratio) + Appendix 5 (zonal parking) — appendices added 2026-06-14 | ✅ |
 | Cork City | `cork_city_council` | Cork City Development Plan 2022-2028 | Ch.11 Placemaking & Managing Development (own portal) | ✅ |
 | Galway City | `galway_city_council` | Galway City Development Plan 2023-2029 | Ch.11 Part B Development Standards | ✅ |
 

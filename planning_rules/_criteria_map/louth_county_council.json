@@ -1,0 +1,37 @@
+{
+  "council": "Louth County Council",
+  "slug": "louth_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Louth County Development Plan 2021-2027",
+  "dm_location": "Chapter 13 — Development Management Guidelines",
+  "extract_status": "complete",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": "five or more houses on one side of any given 250 m of road frontage",
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": "3.0 m (1-6 houses) / 4.5 m (7+/non-domestic); 2.4 m allowed in certain circumstances",
+  "sightline_y": "National & Protected Routes 215 m; Regional Routes 125 m (75 m variants); 3.0 m setback allowed in certain circumstances (Table 13.13)",
+  "wastewater_standard": "EPA Code of Practice: Domestic Waste Water Treatment Systems (p.e. 10)",
+
+  "residential_density_dph": "Regional Growth Centres (Dundalk, Drogheda) 50/ha centre, 35 edge; Self-Sustaining Growth Towns (Ardee, Dunleer) 35 centre, 25 edge (Table 13.3)",
+  "plot_ratio": "Regional Growth Centres 2 (centre)/1 (edge); Self-Sustaining Growth Towns 1/0.5 (Table 13.3); employment buildings 2:1 offices, 1.5:1 manufacturing/warehousing",
+  "site_coverage_pct": "Offices 60%; Manufacturing 60%; Distribution/Warehousing 60% (employment buildings, Table 13.8)",
+  "separation_distance_m": "22 m between directly opposing first-floor habitable room windows",
+  "private_open_space": "1-2 bed: 50 m² (town centre/infill) / 60 m² (greenfield); 3+ bed: 60 m² / 80 m² (Table 13.4)",
+  "public_open_space_pct": "normally 15% of total site area; up to 5 units with high-quality private open space: none required",
+  "car_parking_dwelling": "Residential dwelling 1/1/2 per unit by Area (1=centre, 2=high transit, 3=other)",
+  "building_height": "case-by-case; design statement required; per Urban Development and Building Height Guidelines (2018)",
+
+  "trigger_AA": "Birds and Habitats Directives referenced; Appropriate Assessment screening under plan's environmental framework (partial)",
+  "trigger_EIA": "EIA/EIAR thresholds distributed across plan (partial)",
+  "trigger_FRA": null,
+  "trigger_AHIA": "AHIA/ACA/protected structure procedures distributed across plan (Chapters 3, 9) (partial)",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "Workplace Travel Plan / Mobility Management Plan for new schools or developments >100 employees; Transport Mobility Management Plan to support parking reduction (13.16.13)",
+
+  "notes": "Rural one-off qualifying criteria by Rural Policy Zone (Chapter 3 §3.17.4); no single fixed minimum site area. Backland only in Zones 1 & 2 (family-owned >=15 yrs, landholding >=1.5 ha, one dwelling per landowner). Parking dims: perpendicular 5.0x2.5 m. EV charging min 20% of spaces. School Demand Report >200 units. Design Statement >10 units. Tree replacement 5:1 Drogheda/Dundalk, 10:1 county. Road gradient max 1:50 first 5 m."
+}

@@ -1,0 +1,37 @@
+{
+  "council": "Cork County Council",
+  "slug": "cork_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Cork County Development Plan 2022(-2028)",
+  "dm_location": "No single DM chapter; distributed across Ch.4 Housing, Ch.12 Transport, Ch.3 Placemaking, Ch.5 Rural",
+  "extract_status": "partial",
+
+  "rural_min_site_area": "No fixed numeric minimum site area in Volume 1 (NPF NPO19 need/siting/design tests)",
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": "Site suitability + wastewater per Chapter 5 §5.6; no development within 100 m of WWTW or 25 m of pumping station",
+
+  "residential_density_dph": "High 50+ (no upper); Medium A 30-50; Medium B 20-35; Medium C 5-20; village infill up to 30",
+  "plot_ratio": "Applied as density tool in specific mixed-use areas; no single county-wide numeric value in Volume 1",
+  "site_coverage_pct": null,
+  "separation_distance_m": null,
+  "private_open_space": null,
+  "public_open_space_pct": "10% minimum (high density); 20% public open space former institutional lands (Medium A)",
+  "car_parking_dwelling": "2 spaces/dwelling unit; 1.25 spaces/apartment unit (maximum)",
+  "building_height": "Urban generally 2-4 storeys; >4 storeys per para 3.2 Building Heights Guidelines 2018; redevelopment >2 ha needs master plan",
+
+  "trigger_AA": "Screening for plans/projects affecting European sites (SAC/SPA); NIS where significant negative effects cannot be screened out (s.177 PDA 2010)",
+  "trigger_EIA": "EIAR where EIA determined necessary per Regulations thresholds/screening; sub-threshold where significant effects likely",
+  "trigger_FRA": "FRA/drainage impact for all applications (§11.11); site-specific FRA in Flood Zone A/B; DM Justification Test in flood zones; minor works exempt",
+  "trigger_AHIA": "Archaeological assessment for development area ≥0.5 ha or length ≥1 km; protected structures/ACA in Chapter 16",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "TTA + Road Safety Audit where material impact on traffic; Mobility Management Plans for 50+ employees / 100+ residential units / education-community-health",
+
+  "notes": "Sightline x/y referenced to national road design standards, not tabulated in Volume 1. Motorcycle 1 bay per 10 car spaces. EV: 1 recharge point for non-residential >10 spaces by 1 Jan 2025."
+}

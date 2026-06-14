@@ -1,0 +1,37 @@
+{
+  "council": "Dún Laoghaire-Rathdown County Council",
+  "slug": "dun_laoghaire_rathdown_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Dún Laoghaire-Rathdown County Development Plan 2022-2028",
+  "dm_location": "Chapter 12 — Development Management",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": null,
+
+  "residential_density_dph": "35 units/ha min (net); 50 units/ha encouraged in appropriate locations",
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": "circa 22 m between opposing windows",
+  "private_open_space": null,
+  "public_open_space_pct": "15% public open space of site (general); 25% on Institutional lands",
+  "car_parking_dwelling": "four parking zones (Section 12.4.5); per-use ratios in source table",
+  "building_height": null,
+
+  "trigger_AA": "AA / Habitats Directive screening; Stage 2 AA referenced",
+  "trigger_EIA": "EIA per Planning and Development Regulations thresholds",
+  "trigger_FRA": "Flood Risk Assessment; SFRA + sequential approach",
+  "trigger_AHIA": "Architectural Heritage Impact Assessment for works to protected structures / within ACAs",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "Traffic and Transport Assessment (2014 TTA Guidelines)",
+
+  "notes": "Predominantly urban/suburban authority; no rural one-off minimum site-area standard set (one-off housing regarded as urban-generated). Site coverage/plot ratio qualitative only. Source PDF two-column layout; some table values not cleanly extractable. Justification Test not named as separate term."
+}

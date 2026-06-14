@@ -1,0 +1,37 @@
+{
+  "council": "Cork City Council",
+  "slug": "cork_city_council",
+  "authority_type": "city_council",
+  "plan_name": "Cork City Development Plan 2022–2028",
+  "dm_location": "Chapter 11 — Placemaking and Managing Development",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": "5 or more houses on one side of any 250 m of road frontage treated as problematic ribbon development",
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": null,
+
+  "residential_density_dph": "Targets by area, e.g. City Centre 100; Outer Suburbs 35–60 dph",
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": "22 m between rear elevations (traditional minimum); lesser often appropriate in urban context",
+  "private_open_space": "At least 48 sq.m (houses); smaller acceptable with quality justification",
+  "public_open_space_pct": "15% greenfield; 10% general provision",
+  "car_parking_dwelling": null,
+  "building_height": "City Centre target 4–6 storeys; South Docks up to 10 storeys for exceptional tall buildings",
+
+  "trigger_AA": "All applications screened in respect of European Sites (Natura 2000)",
+  "trigger_EIA": "All applications screened; may be required below thresholds where significant effects likely",
+  "trigger_FRA": "Referenced (e.g. Traveller accommodation excludes Flood Zones A/B); detailed policy elsewhere in plan",
+  "trigger_AHIA": "Built-heritage statements may be required (protected structures / ACAs)",
+  "trigger_EcIA": "Ecological reports may be required for environmentally sensitive areas",
+  "trigger_VIA": "For developments affecting protected views or breaking the city skyline",
+  "trigger_TTA": "Required where excessive impact on road/transport network likely; mandatory for access to national road network",
+
+  "notes": "Cork City predominantly urban; rural one-off minimum site area not explicitly quantified. No numeric parking/plot ratio/site coverage/EV/bin figures in captured Chapter 11. Daylight/sunlight for 50+ units; RIA for retail over 1,000 sq.m net."
+}

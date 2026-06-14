@@ -1,0 +1,37 @@
+{
+  "council": "Leitrim County Council",
+  "slug": "leitrim_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Leitrim County Development Plan 2023-2029",
+  "dm_location": "Chapter 13 — Development Management Standards (Volume I)",
+  "extract_status": "complete",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": "Larger houses (e.g. in excess of 200 m²) should sub-divide mass into smaller elements",
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": "3.0 m back from edge of carriageway",
+  "sightline_y": "National Primary & R280 215/215/80 m; Regionally & Locally Important 215/160/80 m; Other Regional N-A/160/80 m; County Roads N-A/120*/70 m (100/80/60 km/h)",
+  "wastewater_standard": "EPA Code of Practice for Domestic Waste Water Treatment Systems (p.e. <10) (2021)",
+
+  "residential_density_dph": "infill ~15 units/ha, edge of centre ~30, outer suburban ~25; Tier 2A Growth Towns 20; Key Villages 15; lower-density settlements 5-10 (Table 2.6)",
+  "plot_ratio": "Town Centre/Brownfield 1.0-2.0; Suburban/Edge 0.5-1.0; Outer Edge 0.35-0.5 (Table 13.1)",
+  "site_coverage_pct": "Residential 50%; Industrial 75%; Other employment 60%; Retail & commercial 66%; Town centre up to 80%",
+  "separation_distance_m": "22 m between opposing above-ground-floor / first-floor habitable room windows; 2.0-2.5 m between detached and semi-detached dwellings",
+  "private_open_space": "1/2 bed: 55 m²; 3 bed: 60 m²; 4+ bed: 75 m² (Table 13.3)",
+  "public_open_space_pct": "Greenfield min 15%; large infill/brownfield min 10%; institutional lands 20%",
+  "car_parking_dwelling": "2 per unit (car) / 1 per unit (cycle)",
+  "building_height": "Outside Carrick-on-Shannon limited to 3-4 storeys; greater-than-prevailing needs urban design rationale",
+
+  "trigger_AA": "Habitats Directive Art 6(3); Natura Impact Statement where AA Screening concludes AA required (§13.2.5)",
+  "trigger_EIA": "EIA Directive transposed Section 5 Parts 1 & 2 PD Regs 2001; EIA where threshold met or screening sub-threshold; culminates in EIAR (§13.2.6)",
+  "trigger_FRA": "Site-specific FRA where flooding may be an issue, per Planning System and Flood Risk Management Guidelines (2009) (§13.2.7)",
+  "trigger_AHIA": "Architectural Heritage Assessment may be required (§13.2.9)",
+  "trigger_EcIA": "EcIA where development likely to significantly impact flora/fauna/habitats; per CIEEM (2019) (§13.2.8)",
+  "trigger_VIA": "Visual Impact Assessment / Landscape Character Impact Assessment may be required (§13.2.9)",
+  "trigger_TTA": "Traffic and Transport Assessment may be required (§13.2.9)",
+
+  "notes": "Chapter 13 sets no single numeric minimum site area for one-off houses (rural eligibility in Chapter 3; site-specific design/percolation governs area). Entrances from junctions: National Primary 150 m, National Secondary 100 m, Regional 100 m, Local Primary 40 m. Sightline measured at 1.05 m above ground to point 260 mm over road surface. Private open space enclosure 1.8-2 m wall. Cycle shower standards (§13.16.7)."
+}

@@ -1,0 +1,37 @@
+{
+  "council": "Clare County Council",
+  "slug": "clare_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Clare County Development Plan 2023-2029",
+  "dm_location": "Appendix 1 — Development Management Guidelines (Volume 1 Written Statement)",
+  "extract_status": "partial",
+
+  "rural_min_site_area": "0.2 ha (0.5 acres)",
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": "2.4 m (relaxation to 2 m on very lightly trafficked roads)",
+  "sightline_y": "295/215/160/120/90/70 m at 120/100/85/70/60/50 km/h design speed",
+  "wastewater_standard": "EPA Code of Practice: Domestic Waste Water Treatment Systems (p.e. <10) 2021; site suitability/percolation for unsewered single houses",
+
+  "residential_density_dph": "No dwellings/ha table; per Sustainable Residential Development Guidelines 2009; low-density max 20% of stock per settlement",
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": "1 m minimum between side walls of adjacent buildings; 11 m minimum rear garden depth",
+  "private_open_space": null,
+  "public_open_space_pct": "No single local % table (per national Sustainable Residential Development guidelines)",
+  "car_parking_dwelling": "With garage none additional, without 1 space/unit; town centres 1/unit; other areas 1 (1-2 bed)/2 (3 bed)",
+  "building_height": "Per Urban Development and Building Height Guidelines (2018); no local override numbers",
+
+  "trigger_AA": "Screening for any plan/project that may impact a European site (SAC/SPA); NIS/NIR if likely significant effect; IROPI for priority habitat impacts",
+  "trigger_EIA": "EIAR where Schedule 5 thresholds exceeded; sub-threshold per Schedule 7 where significant effects likely",
+  "trigger_FRA": "Per SFRA (Vol 10c) and 2009 Guidelines/Circular PL2/2014; sequential approach and Justification Test apply",
+  "trigger_AHIA": "Not a discrete numeric trigger in Appendix 1; qualitative consideration (Chapter 16)",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "Transport and Mobility Statement for housing developments of 10 units or more; TIA/RSA/RSIA per TII",
+
+  "notes": "DM standards are an Appendix, not a numbered chapter. Design Statement required for >3 dwellings or >300 m². Cul-de-sac generally max 35 dwellings; access road may not serve >80 dwellings. Archaeological/tourism EIA-AA-SFRA where required."
+}

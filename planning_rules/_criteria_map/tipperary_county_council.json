@@ -1,0 +1,37 @@
+{
+  "council": "Tipperary County Council",
+  "slug": "tipperary_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Tipperary County Development Plan 2022-2028",
+  "dm_location": "Volume 3, Appendix 6 — Development Management Standards",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": "2.4 m (national, stop control); 3.0 m (regional/local stop); 4.5 m (yield); 2.0 m (lightly trafficked single residence)",
+  "sightline_y": "Rural non-national: 70/90/120/215 m (50/60/80/100 km/h); urban 33/45/59/72 m (30-60 km/h)",
+  "wastewater_standard": "EPA 2021 CoP Domestic Wastewater Treatment Systems; site assessor report; commercial PE>10 per EPA 1999 manual",
+
+  "residential_density_dph": "Refer to relevant settlement plan (Volume 2); no fixed table in DM Standards volume",
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": "22 m between directly opposing windows at first floor level",
+  "private_open_space": "48 sqm (1-2 bed), 60 sqm (3-5 bed), 75 sqm (5+ bed) rear garden",
+  "public_open_space_pct": "at least 15% of total site area",
+  "car_parking_dwelling": "1 space (up to 2 bed); 2 spaces (3+ bed); multi-residential +2 visitor per 5 units",
+  "building_height": "Per Urban Development and Building Heights Guidelines (DHPLG 2018) + Chapter 5; no fixed numeric table",
+
+  "trigger_AA": "HDA/AA screening; full AA unless no significant effect; Art.6(3)/6(4) per DEHLG 2009 guidance",
+  "trigger_EIA": "EIAR for Schedule 5 classes above thresholds (PDR 2001); sub-threshold where significant effects likely",
+  "trigger_FRA": "Site-specific FRA in Flood Zones A or B; 2009 Guidelines; structural/non-structural measures",
+  "trigger_AHIA": "RPS / ACA / NIAH / PRA consideration; AHP Guidelines (DAHG 2011); built heritage in Vol 1 Ch 13",
+  "trigger_EcIA": "AA/HDA for Natura 2000; CEMP on sites > 0.5 ha or 5+ residential units; SUDS with all apps",
+  "trigger_VIA": "Landscape and Visual Impact Assessment for quarries/extractive development",
+  "trigger_TTA": "TTIA: residential >200 dwellings, retail/leisure >1,000 sqm, industrial >5,000 sqm, office/hospital/edu >2,500 sqm, distribution >10,000 sqm, 10% traffic increase (5% congested); RSA for 20+ units",
+
+  "notes": "Sightlines: new accesses not within 90 m of roundabout exit on national road / 50 m non-national. Riparian buffer 10 m. Sustainability Statement: 10+ residential units. Noise Impact Assessment near roads >3 million vehicles/annum."
+}

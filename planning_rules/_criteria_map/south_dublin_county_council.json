@@ -1,0 +1,37 @@
+{
+  "council": "South Dublin County Council",
+  "slug": "south_dublin_county_council",
+  "authority_type": "county_council",
+  "plan_name": "South Dublin County Development Plan 2022-2028",
+  "dm_location": "Chapter 5 (Quality Design) + Chapter 12 (Implementation/quantitative tables) + Appendix 10 (Height & Density Guide)",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": "EPA Code of Practice where relevant (predominantly mains-serviced; not a standalone trigger)",
+
+  "residential_density_dph": "No numerical density limit; contextual/performance framework (Appendix 10)",
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": "circa 22 m between opposing windows (incl. apartments up to three storeys)",
+  "private_open_space": "Houses 48/55/60/70/92/110 sq m by tier; apartments 4-9 sq m + communal",
+  "public_open_space_pct": "2.4 ha per 1,000 pop; 15% (RES-N), 10% (other), 20% (institutional/windfall)",
+  "car_parking_dwelling": "MAXIMUM rates; House 1 bed 1, 2 bed 1.5/1.25, 3 bed+ 2/1.5 (Zone1/Zone2); Apartment 0.75-1.5",
+  "building_height": "No numerical height limit; context-based per Appendix 10 / SPPR1 Building Heights Guidelines 2018",
+
+  "trigger_AA": "Screened for AA; Natura Impact Statement if required; referred to NPWS (Art.6(3) Habitats Directive)",
+  "trigger_EIA": "EIAR above mandatory thresholds (PDR 2001 as amended); sub-threshold discretionary; all apps screened",
+  "trigger_FRA": "Site-specific FRA by Chartered Engineer on lands at flood risk; 2009 Guidelines; SFRA 2021",
+  "trigger_AHIA": "Works materially affecting character of a Protected Structure require permission (Section 12.3.7)",
+  "trigger_EcIA": "EcIA for proposals affecting environmentally sensitive sites/protected species/watercourses",
+  "trigger_VIA": null,
+  "trigger_TTA": "Traffic Impact Statements for all major traffic-generating development (TTA Guidelines 2014)",
+
+  "notes": "Maximum (not minimum) parking standards. No numeric rural one-off house site area in this urban plan. Dual aspect min 33% (central) / 50% (other). Design Statement for 30+ residential units or commercial over 1,000 sq m. EV: 20% of parking spaces."
+}

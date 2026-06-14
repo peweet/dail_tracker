@@ -1,0 +1,37 @@
+{
+  "council": "Kerry County Council",
+  "slug": "kerry_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Kerry County Development Plan 2022-2028",
+  "dm_location": "Volume 6, Chapter 1 — Development Management Standards & Guidelines",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": "215 m min visibility distance where road speed limit 80 km/h or greater",
+  "wastewater_standard": "EPA Code of Practice: Domestic Waste Water Treatment Systems (2021)",
+
+  "residential_density_dph": null,
+  "plot_ratio": null,
+  "site_coverage_pct": "85% urban (or up to existing on brownfield); 65% rural (one-off housing)",
+  "separation_distance_m": "22 m between directly opposing above-ground-floor windows",
+  "private_open_space": "50 sqm (1-2 bed); 60 sqm (3 bed); 75 sqm (4+ bed)",
+  "public_open_space_pct": "15% of total site area (residential); 20% + 15 sqm per resident for certain care facilities",
+  "car_parking_dwelling": "Housing estate per dwelling: 0/1/2 (Area 1/2/3); Apartment: 0/0/2; 1 bike space each",
+  "building_height": "per Urban Development and Building Heights Guidelines (2018)",
+
+  "trigger_AA": "AA Screening Report + Natura Impact Statement where applicable",
+  "trigger_EIA": "Environmental Impact Assessment Report (EIAR)",
+  "trigger_FRA": "Flood Risk Assessment (case-by-case with Planning Authority)",
+  "trigger_AHIA": "Architectural Heritage Assessment report by conservation architect where deemed necessary",
+  "trigger_EcIA": "Ecological Impact Assessment (case-by-case; incl. bat surveys)",
+  "trigger_VIA": "Landscape Impact Assessment (case-by-case)",
+  "trigger_TTA": null,
+
+  "notes": "Density design-led, no dph figure. Rural site area performance-based (driven by WWTS capacity + EPA separation), no fixed min. Entrance gates recessed 4.5 m behind hedgerow, side boundaries splayed 45 degrees. Apartment min floor areas in Table 2. AA bird survey 2 yrs prior for relevant developments. Justification Test/percolation not named verbatim."
+}

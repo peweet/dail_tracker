@@ -138,6 +138,12 @@ def fetch_payments_for_publisher_result(publisher_name: str, tier: str = "SPENT"
 
 
 @st.cache_data(ttl=300)
+def fetch_council_summary_result() -> QueryResult:
+    """Publishing local authorities for the 'Your council' index — pre-grouped by province."""
+    return _q.council_summary(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
 def fetch_payments_publisher_profile_result(publisher_name: str) -> QueryResult:
     return _q.payments_publisher_profile(get_procurement_conn(), publisher_name)
 
@@ -243,6 +249,27 @@ def fetch_expiring_contracts_stats_result() -> QueryResult:
 def fetch_expiring_contracts_result(months_ahead: int = 12, limit: int | None = 60) -> QueryResult:
     """Contracts whose advertised term ends within the window, soonest first."""
     return _q.expiring_contracts(get_procurement_conn(), months_ahead=months_ahead, limit=limit)
+
+
+@st.cache_data(ttl=300)
+def fetch_live_tenders_result(limit: int | None = 80) -> QueryResult:
+    """Open NATIONAL tenders (etenders.gov.ie) accepting bids now, soonest-closing first.
+    PLANNED tier — estimated_value_eur is a buyer estimate, never summed."""
+    return _q.live_tenders(get_procurement_conn(), limit=limit)
+
+
+@st.cache_data(ttl=300)
+def fetch_live_tenders_stats_result() -> QueryResult:
+    """Open national pipeline summary — open count, distinct buyers, closing-within-14d,
+    next closing date, and the snapshot timestamp (retrieved_utc) for the freshness line."""
+    return _q.live_tenders_stats(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
+def fetch_expiring_etenders_result(months_ahead: int = 24, limit: int | None = 60) -> QueryResult:
+    """NATIONAL (eTenders) contracts whose advertised term ends within the window, soonest first.
+    Advertised term, not a verified event; award_value_eur is display-only, never summed."""
+    return _q.expiring_contracts_etenders(get_procurement_conn(), months_ahead=months_ahead, limit=limit)
 
 
 @st.cache_data(ttl=300)

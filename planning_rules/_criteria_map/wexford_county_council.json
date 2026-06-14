@@ -1,0 +1,37 @@
+{
+  "council": "Wexford County Council",
+  "slug": "wexford_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Wexford County Development Plan 2022-2028",
+  "dm_location": "Volume 2 — Development Management Manual",
+  "extract_status": "partial",
+
+  "rural_min_site_area": "0.2 ha (<100 m² & 100-200 m²); 0.4 ha (>200-300 m²); 1.0 ha (>300 m²) per Table 3-3",
+  "rural_site_scaling": "Biodiversity: boundary reinforcement (<100 m²); 20% set aside (100-300 m²); 50% set aside (>300 m²)",
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": null,
+
+  "residential_density_dph": "typically 30-50 units per hectare",
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": "Minimum 22 m between opposing first-floor windows at rear; 22 m between dwellings and schools/childcare",
+  "private_open_space": "48/55/60/70 m² by beds (1/2/3/4+) per Table 3-4",
+  "public_open_space_pct": null,
+  "car_parking_dwelling": null,
+  "building_height": "Addressed via DM process (§2.4) applying national Building Heights Guidelines / SPPRs",
+
+  "trigger_AA": "AA screening for no likely significant effects on Natura 2000 sites; full AA where effects not excluded (§1.5.1)",
+  "trigger_EIA": "EIA above thresholds; sub-threshold EIA where warranted; EIAR required where EIA applies (§1.5.2)",
+  "trigger_FRA": "Flood-risk management per 2009 Guidelines; Justification Test for development in flood zones",
+  "trigger_AHIA": "Protected Structures (§7.2) / ACAs (§7.3); AHIA expectation for works affecting protected structures/curtilage",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "TTA above tabulated thresholds: Tables 6-1 (mandatory), 6-2 (advisory national roads), 6-3 (sub-threshold)",
+
+  "notes": "Rural site sizes are tabulated (Table 3-3) — one of few councils with explicit numeric rural minimums. Dual-aspect min 33% (objective generally 50%). Min 20% of dwellings to be a defined unit type. Apartments per New Apartments 2020 Design Standards."
+}

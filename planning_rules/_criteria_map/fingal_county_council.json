@@ -1,0 +1,37 @@
+{
+  "council": "Fingal County Council",
+  "slug": "fingal_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Fingal Development Plan 2023-2029",
+  "dm_location": "Chapter 14 — Development Management Standards",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": "EPA Code of Practice (Wastewater Treatment Systems Serving Single Houses)",
+
+  "residential_density_dph": null,
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": "22 m min between opposing rear first-floor windows (DMSO23); ~11 m rear garden depth",
+  "private_open_space": "60 sq.m (3 bed or less); 75 sq.m (4+ bed); 48 sq.m min (1-2 bed townhouses, infill/corner)",
+  "public_open_space_pct": "exceed 10% of site area; 2.5 hectares per 1,000 population (DMSO51)",
+  "car_parking_dwelling": "Zone 1: 0.5 max (1-2 bed) / 1 max (3+ bed); Zone 2: 1 + visitor (1-2 bed) / 2 + visitor (3+ bed)",
+  "building_height": null,
+
+  "trigger_AA": "Screening for AA (DMSO1); NIS where AA required",
+  "trigger_EIA": "Mandatory thresholds in Planning and Development Regulations 2001; EIAR where required",
+  "trigger_FRA": "Site-specific FRA; SFRA (2021) + sequential approach",
+  "trigger_AHIA": "Protected structure / within curtilage; within ACA boundary",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "TTA for new residential/commercial/mixed/industrial/educational (DMSO116; TII 2014 Guidelines)",
+
+  "notes": "No fixed dph; building density site-by-site per NPF/RSES/Section 28. Plot ratio/site coverage are design-assessment criteria, no fixed numbers. Pumping station buffer 35-50 m. Rural housing via demonstrated need; no fixed min site area in chapter. Assessment list 'not exhaustive'."
+}

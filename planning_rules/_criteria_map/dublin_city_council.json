@@ -1,0 +1,37 @@
+{
+  "council": "Dublin City Council",
+  "slug": "dublin_city_council",
+  "authority_type": "city_council",
+  "plan_name": "Dublin City Development Plan 2022–2028",
+  "dm_location": "Chapter 15 — Development Standards (with Vol 2 Appendix 3 & 5)",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": null,
+
+  "residential_density_dph": "200–250 units per hectare; up to ~300 uph; general presumption against >300 uph",
+  "plot_ratio": "Central 2.5–3.0; Regeneration 1.5–3.0; Conservation 1.5–2.0; Outer 1.0–2.5; over 3.0 needs compelling case",
+  "site_coverage_pct": "Central 60–90%; Regeneration 50–60%; Conservation 45–50%; Outer 45–60%",
+  "separation_distance_m": "~22 m back-to-back rear first-floor windows",
+  "private_open_space": "10 sq.m per bedspace (houses); 5–8 sq.m per bedspace inner city",
+  "public_open_space_pct": "10% of site area (most zones); 25% (Z12, Z15)",
+  "car_parking_dwelling": "Housing: 1 per 4 dwellings (Zone 1) to 1 per 2 (Zones 2/3); apartments 0.5–1 per dwelling (maxima)",
+  "building_height": "Mid-rise 4–8 storeys for street scale; height increases at brownfield/infill/SDRAs/transit corridors",
+
+  "trigger_AA": "All applications screened for AA; Stage 2 AA + NIS where significant effects likely",
+  "trigger_EIA": "All applications EIA-screened; mandatory thresholds per P&D Regulations 2001; sub-threshold where significant effects likely",
+  "trigger_FRA": null,
+  "trigger_AHIA": "Built Heritage and Archaeology standards (Section 15.15); protected structures/ACAs",
+  "trigger_EcIA": "Required for development within or adjacent to sensitive habitat/ecological corridor/protected habitats or species",
+  "trigger_VIA": null,
+  "trigger_TTA": "Traffic and Transport Assessment via Section 15.16 / Appendix 5; may be required for childcare vehicular drop-off",
+
+  "notes": "Standards split between Chapter 15 (written statement) and Vol 2 Appendices 3 (density/height/plot ratio/site coverage) & 5 (parking). Predominantly urban; rural/ribbon/sightline criteria not enumerated. Flood risk in Chapter 9, not Chapter 15."
+}

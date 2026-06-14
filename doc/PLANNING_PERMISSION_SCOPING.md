@@ -211,12 +211,22 @@ and it's the prerequisite every later feature (map, alerts, constituency rollup)
 
 ### Steps
 
-1. **Paginated geometry pull** (ArcGIS REST, Layer 0)
-   - Loop `resultOffset` in 2000-row pages (`maxRecordCount` cap), `where=1=1`.
-   - **`returnGeometry=true&outSR=4326`** → persist `lon`/`lat` per row. *(CORRECTION: the
-     `ITMEasting`/`ITMNorthing` columns are empty — coordinates come ONLY via geometry.)*
+1. **Geometry pull (ArcGIS REST, Layer 0) — use `pyesridump`, NOT a hand-rolled loop**
+   *(DECIDED 2026-06-13, verified §13.8: a hand-rolled `resultOffset` loop is what truncated the
+   giant polygon → corrupted the SAC data. The dedicated puller gives OID-chunking, dedup,
+   `geometryPrecision=7`, and retries for free, and pulled the pathological layer 433/433 clean.)*
+   - `EsriDumper(layer_url, outSR=4326, timeout=180, max_page_size=…)` — **tune `timeout`/`max_page_size`
+     down for any layer with giant polygons** (the 30 s default timed out on the 488k-vertex SAC).
+     *(Applications Layer 0 is points — far lighter than the SAC polygons; default settings likely fine,
+     but keep the tuning lever.)*
+   - **`returnGeometry=true&outSR=4326`** → persist `lon`/`lat` per row. *(The `ITMEasting`/`ITMNorthing`
+     columns are empty — coordinates come ONLY via geometry.)*
    - Drop dead columns `ITMEasting`/`ITMNorthing` and the empty `Applicant*` PII columns.
-   - Smoke-test one council first (`PlanningAuthority='Carlow County Council'`) before full ~248-page sweep.
+   - Smoke-test one council first (`PlanningAuthority='Carlow County Council'`) before the full sweep.
+   - **Run every geometry through the §13.6/§13.8 quarantine gate** (null → bounds-escape →
+     vertex-overflow → OGC-validity), reconcile `Σ(pulled) == returnCountOnly`. The puller prevents
+     truncation-corruption; the gate catches anything that still slips through. `esridump` is a
+     light pure-Python dep (`requests`+`click`, no GDAL) — add via `uv` if promoted from sandbox.
 
 2. **Decision normalisation crosswalk** *(the real work)*
    - Hand-curated `data/_meta/planning_decision_map.csv`: raw free-text →
@@ -245,6 +255,21 @@ and it's the prerequisite every later feature (map, alerts, constituency rollup)
 - `planning_applications_silver.parquet`, ~495k rows.
 - `decision_normalised` ≥95% non-`Other`; zero future dates; lon/lat 100% in-bbox.
 - Row-count assertion passing; 10-row sample eyeballed against council eplanning URLs.
+
+### ✅ BUILT & VALIDATED 2026-06-14
+`pipeline_sandbox/planning_applications_ingest.py` → `pipeline_sandbox/_planning_output/planning_applications_silver.parquet`.
+- **495,632 rows = exact live count** (row-count assertion passed). 38 cols. Smoke-tested on Carlow first (`--authority`).
+- **`decision_normalised`** (keyword normaliser, raw preserved, no-inference; 99.5% mapped, `Other`=2,266/0.46%):
+  Granted-Conditional 249,012 · Undecided/None (N/A/blank) 92,555 · Granted 86,902 · Refused 50,119 ·
+  Invalid 11,875 · Withdrawn 2,903 · Other 2,266. **National refusal rate ≈ 10.1% of decided.**
+- **`application_type_normalised`** (99.3% mapped): Permission 407,516 · Retention 64,227 · Outline 10,806 ·
+  Extension of Duration 9,669 · Other 3,413.
+- **one-off houses 77,516 (15.6%)** · **geo_in_bounds 495,632/495,632 (100%)**.
+- Date hygiene: out-of-range dates nulled + `dq_flags` audit (33 garbage dates: ExpiryDate 15, GrantDate 11,
+  DecisionDueDate 4, DecisionDate 3, + FI/appeal). PII (`Applicant*`) and dead ITM columns dropped.
+- TRAP fixed in build: `UNCONDITIONAL` must map to `Granted` (not `Granted-Conditional`) — it literally
+  contains "CONDITIONAL", so the UNCONDITION branch must precede the CONDITION branch.
+- **Still sandbox** (`pipeline_sandbox/_planning_output/`); promotion to a registered gold view is the next step.
 
 ---
 
@@ -562,12 +587,16 @@ quantitative standard that governed it, and flag material contraventions, withou
 
 First end-to-end join of two open feeds, proving the obligation-set concept reflects in real outcomes.
 
-> ⚠️ **CORRECTED 2026-06-13 (re-validated against live feeds).** The original INSIDE-SAC figures
-> (24.8%, 319 points) **did not reproduce** on a clean re-run and are now known to be wrong — almost
-> certainly near-band leakage (degree-buffer, no pyproj) and/or join double-counting in the first-pass
-> script. The verified result is **35.9% inside vs 15.2% elsewhere** from a **geometry-repaired,
-> deduped, exact point-in-polygon** join. The effect is **real and stronger** than first reported;
-> only the precise numbers changed. Full validation log in §13.6.
+> ⚠️ **CORRECTED 2026-06-13 (root cause confirmed).** The original INSIDE-SAC figures (24.8%, 319
+> points) are **WRONG — caused by a single corrupt polygon.** The 472k-vertex SAC (Lough Corrib) was
+> truncated/mis-serialised when the first session saved its GeoJSON, producing a garbage longitude
+> coordinate (**−8,992,822,267,307**). `make_valid()` silently laundered that into a thin latitude
+> band (53.12–53.28°) that spuriously "contained" ~140 extra Galway points — inflating inside
+> 179→317 and diluting the rate 35.9%→24.6%. The verified result is **35.9% inside (52/145) vs 15.2%
+> elsewhere**, confirmed by **three independent methods** (bulk wide-bbox pull; per-SAC individual
+> full-precision fetch; cached set with the corrupt polygon removed → 173) — all ≈179 inside, ~35.9%.
+> The effect is **real and stronger** than first reported. Full validation log + the defensive
+> bbox-sanity assert in §13.6.
 
 ### Data pulled (all live, no scraping) — ✅ all re-confirmed
 - **Galway County applications:** 18,406 (Galway City: 3,355) from the IrishPlanningApplications feed,
@@ -638,11 +667,76 @@ Every load-bearing assumption behind Phase 0 (§8) and the obligation-set model 
    for domains/per-key counts; that query also gives the reconciliation Σ(groups) == total.
 2. **Polygon geometry must be repaired** — 25/185 SAC polygons invalid; `make_valid()` is a required DQ
    gate before any spatial join, else `contains()/covers()` silently drops points.
-3. **Reconcile before trusting a pull** — assert `Σ(groupBy counts) == returnCountOnly` so a truncated
+3. **`make_valid()` LAUNDERS corrupt geometry — add a bbox-sanity assert.** This is what produced the
+   bad 24.8% (see §13 banner): a truncated giant polygon (longitude −9e12) survived `make_valid()` as a
+   plausible-looking band that swallowed ~140 spurious points. **Defense:** after repair, assert every
+   polygon's `bounds` fall inside the data's expected envelope (Ireland: lon −11..−5, lat 51..56) — a
+   polygon escaping it is corrupt → drop or refetch. Also **fetch pathological high-vertex geometries
+   individually** (per-OBJECTID, full precision) so one giant feature can't truncate a bulk response
+   (the 472k-vertex SAC produced a ~23 MB GeoJSON that truncated mid-stream → JSONDecodeError).
+4. **Reconcile before trusting a pull** — assert `Σ(groupBy counts) == returnCountOnly` so a truncated
    paginated sweep fails loudly. `exceededTransferLimit` was `None` here (no truncation), but check it.
-4. **Location is geometry-only** — `returnGeometry=true&outSR=4326`; ITM attribute columns are 0/495,632.
-5. **Metric ops need a CRS** — any distance/buffer (the near-band) requires pyproj/ITM reprojection;
-   degree approximations are unreliable and were the likely source of the original bad "inside" figure.
+5. **Location is geometry-only** — `returnGeometry=true&outSR=4326`; ITM attribute columns are 0/495,632.
+6. **Metric ops need a CRS** — distance/buffer (the near-band) needs ITM reprojection; degree
+   approximations are unreliable. DuckDB-spatial's `ST_Transform` bundles PROJ (no pyproj install) but
+   hit the **axis-order trap** (returned garbage without `always_xy=true`); pyproj is the safer route.
+
+### 13.7 Spatial-tooling benchmark (this workload, this Windows box, 2026-06-13)
+18,406 points × ~118–185 SAC polygons, point-in-polygon → count. Verdict: **geopandas is NOT the
+best fit here.**
+| Tool | Result | Speed | Memory | Dep weight |
+|---|---|---|---|---|
+| **shapely 2.x STRtree** | ✅ 179 | join **4.6 s** (+~11 s `make_valid` on giant) | trivial | shapely only (installed) |
+| **DuckDB spatial** | ✅ 173 | **24 s** tuned (`threads=1`) | **OOM'd 5.5–12.5 GB** untuned | duckdb+ext (installed); no `ST_Subdivide` in 1.5.3 |
+| **geopandas** | — | not run | — | **GDAL stack — not installed; a blocker (ENRICHMENTS.md)** |
+- **Ingest/validation → shapely + requests** (what we used): lean, robust, fast; `sjoin` in geopandas
+  is shapely+pandas under the hood, so geopandas adds GDAL weight for no engine gain.
+- **Analytical layer → DuckDB spatial** *only* for its architectural fit (SQL, parquet-native, matches
+  the views layer) — but it is **memory-fragile on high-vertex polygons** here; needs vertex management.
+- **geopandas**: ecosystem default, but its only edge is interactive ergonomics; don't take the GDAL
+  dependency into the pipeline on this box.
+
+### 13.8 ArcGIS-dedicated puller libraries — USE ONE, don't hand-roll the loop
+Surveyed the OSS projects built specifically for dumping ArcGIS REST services (2026-06-13). The
+hand-rolled `requests` loop is what let the giant polygon truncate → corrupt the data; the dedicated
+tools are engineered around exactly that failure. **Recommendation: pull the planning layer with
+`pyesridump` (or the GDAL ESRIJSON driver), then run our bounds/validity quarantine gate on top.**
+
+| Project | What it is | Relevance |
+|---|---|---|
+| **[pyesridump](https://github.com/openaddresses/pyesridump)** (openaddresses) | de-facto Python ArcGIS→GeoJSON dumper (powers OpenAddresses) | the gold-standard recipe — use this |
+| esri-dump | Node.js sibling, same strategy | — |
+| GDAL **ESRIJSON / FeatureService driver** (`gdal.org/.../esrijson.html`) | OGR built-in `ogr2ogr`/geopandas use | auto-pages (`FEATURE_SERVER_PAGING=YES`), **needs `orderByFields=OBJECTID`**; but **reads all into memory** (limit on huge layers) |
+| [arcgis2geojson](https://github.com/chris48s/arcgis2geojson) (chris48s) | EsriJSON→GeoJSON converter | 11M-vertex ring issue [#3] → pre-simplify upstream |
+| Esri/arcgis-python-api (`arcgis`) | Esri's official Python API | `FeatureLayer.query` chokes / returns `exceededTransferLimit` on large pulls [#2450] |
+| koopjs/koop | Esri-sponsored GeoServices translation server | serving layer, not an ingest validator |
+
+**pyesridump's battle-tested recipe** (read from `dumper.py`) — a 4-tier fallback because servers
+cap/lie/refuse to paginate: (1) `resultOffset` pagination if `supportsPagination`; (2) **OBJECTID
+min/max range chunking** (`WHERE oid > a AND oid <= b`); (3) full OID enumeration → fixed slices;
+(4) **recursive geographic envelope splitting** when a tile returns too many. Plus the parts that map
+straight onto our bug:
+- **`geometryPrecision=7` on every query** → caps payload size; **would have prevented the 23 MB
+  giant-polygon truncation** (hence the −9e12 corruption, which came from a truncated save).
+- **dedup via a `saved` set of OBJECTIDs** → the exact guard against the double-count inflation (317→179).
+- **never trusts `exceededTransferLimit`** — sidesteps the "server lies about counts" problem by
+  chunking on OBJECTID instead of relying on one bulk response. Retries + backoff + rate-limit pauses.
+
+**The honest limit:** NONE of these (pyesridump, GDAL, arcgis2geojson, Esri API) validate that
+coordinates are *sane* — they assume server geometry is good and just transport it. The −9e12
+"is this even on Earth" check is still ours to add (the open GeoPandas bounds gap, issue #1915). So:
+**dedicated puller prevents the truncation that creates corruption; the bounds-assert catches corruption
+if it slips through anyway — use both.** (Sources recorded in §15.7 + memory
+`reference_geometry_validation_sources`.)
+
+**✅ VERIFIED on the NPWS SAC layer (2026-06-13)** — `c:/tmp/test_pyesridump_sac.py`, `esridump 1.13.0`:
+pyesridump pulled **433/433** features (reconciles with server count, **no truncation** where our
+hand-rolled `f=geojson` pull threw JSONDecodeError mid-stream). The pathological giant (**488,665
+vertices**) came through **intact with sane bounds** `(−7.59,52.18,−6.77,53.19)`; **0 polygons escape
+the Ireland envelope** (vs the −9e12 corruption from the hand-saved file); coordinate precision capped
+at **7 decimals** as advertised; the Galway join lands on the correct **179 inside / 35.9%**.
+**Caveat — needs tuning:** the 30 s default read-timeout FAILED on the giant; required `timeout=180`
++ `max_page_size=25` (smaller pages isolate the giant into its own OID chunk). Pull took ~99 s.
 
 ---
 
@@ -699,9 +793,19 @@ Tier1/Tier2A as a complementary housing-pipeline layer (§9); national vs Galway
 | ⚙️ NPWS (alt mirror / habitats) | `services-eu1.arcgis.com/HyjXgkV6KGMSF3jt/.../NPWSDesignatedAreas/FeatureServer`; `webservices.npws.ie/arcgis/rest/services/NPWS/SscoSACHabitats/MapServer` | 🔎 |
 | ⚙️ NPWS boundary downloads (shapefile, ITM) | `npws.ie/maps-and-data/designated-site-data/download-boundary-data` | 🔎 |
 | ⚙️ NPWS species derogation licences (bat surveys) | `npws.ie` derogation pages | 🔎 scrapable PDFs |
-| ⚙️ **OPW flood zones / CFRAM** | `floodinfo.ie` (ArcGIS endpoint = **TODO discover**) | 🔎 next probe |
-| ⚙️ ACA / Record of Protected Structures | council GIS + `localgov.ie/services/heritage-and-architectural-conservation` | 🔎 |
+| ⚙️ **OPW flood — national** (NIFM extents + CFRAM AFA/UoM) | `data.gov.ie/dataset/nifm-river-flood-extents-current-scenario` (SHP); `…/cfram-areas-for-further-assessment-afa-boundaries` (SHP); statutory **Zone A/B** still on `floodinfo.ie` (ArcGIS endpoint = TODO) | ✅ located 2026-06-14 (SHP); Zone A/B endpoint 🔎 |
+| ⚙️ GSI flood — pluvial/groundwater | `data.gov.ie/dataset/20152016-surface-water-flood-map-120000-ireland-roi-itm`; `…/historic-groundwater-flood-map-120000-ireland-roi-itm` | ✅ located (ESRI REST/SHP) |
+| ⚙️✅ **GSI site-suitability pack** (#25 septic) | Groundwater Vulnerability 1:40,000 `…/groundwater-vulnerability-140000-ireland-roi-itm`; Subsoil Permeability `…/groundwater-subsoil-permeability-140000-ireland-roi-itm`; Karst `…/groundwater-karst-data-ireland-roini-itm` | ✅ located 2026-06-14 (ESRI REST/SHP/WMS, national) |
+| ⚙️ EPA — sewered extent + soils | `data.gov.ie/dataset/urban-waste-water-treatment-agglomeration-boundaries` (the unsewered=on-site-WW antecedent for #25); `…/national-soils-map`, `…/national-subsoils-map` | ✅ located |
+| ⚙️ **NIAH national** (#16 heritage; basis of RPS) | `data.gov.ie/dataset/national-inventory-of-architectural-heritage-niah-national-dataset` (CSV + ESRI REST) | ✅ located 2026-06-14 (national) |
+| ⚙️ ACA / Record of Protected Structures (per-council, no national) | per-council on data.gov.ie (e.g. Galway City `…/record-of-protected-structures2`); `localgov.ie/services/heritage-and-architectural-conservation` | 🔎 per-LA |
+| ⚙️ Landscape sensitivity (#10 VIA, per-council, no national) | per-council on data.gov.ie (Monaghan `…/landscape-character-types`, Cork, Galway/Heritage Council) | 🔎 per-LA |
+| ⚙️ Road network — national/regional | TII `data.gov.ie/dataset/national-road-network-2013` (KML); RMO `…/regional-road` (ArcGIS) | ✅ located (local roads → OSM, §15.2 below) |
 | ⚙️ EPA SAC metadata | `gis.epa.ie/geonetwork/...d86f3a31...` | 🔎 |
+| ⚙️✅ **NMS Sites & Monuments Record — SMR points** (archaeology trigger #17 / DM Std 62) | `services-eu1.arcgis.com/HyjXgkV6KGMSF3jt/arcgis/rest/services/SMROpenData/FeatureServer/0`; CSV/SHP bulk via `archaeology.ie` open data; `data.gov.ie/dataset/national-monuments-service-archaeological-survey-of-ireland` | **probed 2026-06-14**; point geom; fields `ENTITY_ID/MONUMENT_CLASS/TOWNLAND/ZONE_ID_1/WEBSITE_LINK`; `distance`+`units` buffer query works |
+| ⚙️✅ **NMS SMR *Zone of Notification* (polygons)** — the **operative** archaeology constraint | `services-eu1.arcgis.com/HyjXgkV6KGMSF3jt/arcgis/rest/services/SMRZoneOpenData/FeatureServer/0` | **probed 2026-06-14**; `point ∈ zone` is the AA-equivalent trigger. **Proximity to a point alone is NOT a constraint** — the zone polygon is (verified: a site 173 m from a ringfort but outside its zone drew zero archaeology objection). |
+| ⚙️✅ **An Coimisiún Pleanála decision PDFs** (the *only* public reason text — see §18) | Board order `pleanala.ie/anbordpleanala/media/abp/cases/orders/{ddd}/d{case}.pdf`; inspector report `…/reports/{ddd}/r{case}.pdf` (`{ddd}` = first 3 digits of case no.) | **probed 2026-06-14**; orders are scanned (OCR); inspector reports are usually text-extractable |
+| ⚙️ **OSM via Overpass API** — road network (sightline/access triggers #6-8) + built/heritage context | `overpass-api.de/api/interpreter` · `overpass-turbo.eu` | 🔎 free, no key; roads/monuments/buildings; complements TII for *local* roads (where one-off refusals actually bite) |
 
 ### 15.3 ✅ Core application & appeal feeds
 | Feed | Endpoint |
@@ -725,6 +829,19 @@ lobbying.ie returns on planning · TD/councillor declared interests · **Mahon/F
 
 ### 15.6 Comparator products (for product design)
 PlanningAlerts.org.au (+ `/api/developer`, github `openaustralia/planningalerts`, ATDIS) · PlanIt `planit.org.uk` (+ `/api/applics/{fmt}`) · Symbium · BuildZoom · Shovels · **planningalerts.ie** (pre-existing — check before any build).
+
+### 15.7 Geometry-validation references (for the §13.6 DQ gate)
+Backing the two-axis gate: topology (REPAIRABLE via `make_valid`) vs out-of-bounds coordinates
+(detect-only — the −9e12 trillion case). See memory `reference_geometry_validation_sources`.
+- ArcGIS Pro **Check Geometry** `pro.arcgis.com/.../check-geometry.htm` — `SE_COORD_OUT_OF_BOUNDS` is a distinct error class.
+- ArcGIS Pro **Repair Geometry** `pro.arcgis.com/.../repair-geometry.htm` — confirms out-of-bounds coords are **"will not be repaired"** (detect+quarantine only).
+- PostGIS geometry quality (vertex-threshold + single-SRID + CHECK constraints) `dev.to/philip_mcclarence_2ef9475/...-4i0f`
+- PostGIS validity workshop `postgis.net/workshops/postgis-intro/validity.html` · pgEdge geometry validation `docs.pgedge.com/postgis/development/data-management/geometry-validation/`
+
+### 15.8 ArcGIS-dedicated puller libraries (use one instead of a hand-rolled loop — see §13.8)
+- **pyesridump** `github.com/openaddresses/pyesridump` (Python; OID-chunking + envelope-split + `geometryPrecision=7` + OID dedup) · **esri-dump** `github.com/openaddresses/esri-dump` (Node sibling)
+- **GDAL ESRIJSON/FeatureService driver** `gdal.org/en/stable/drivers/vector/esrijson.html` (needs `orderByFields=OBJECTID`; reads all to memory)
+- **arcgis2geojson** `github.com/chris48s/arcgis2geojson` (converter; 11M-ring issue #3) · **Esri/arcgis-python-api** (`arcgis` pkg; large-query `exceededTransferLimit` #2450) · **koopjs/koop** `github.com/koopjs/koop` (serving, not validation)
 
 ---
 
@@ -815,6 +932,97 @@ the Irish gap (none of the below exist for Ireland). Maturity spectrum, closest-
 4. **RaC = our framing.** "Rulebook as axioms" (§16) is literally the Rules-as-Code thesis; the difference
    is we *derive ours by scraping the existing plan* (the DM Standards) rather than hand-authoring flows —
    a faster path to coverage, at the cost of needing the scrape-to-logic step.
+
+---
+
+## 18. AXIOM-DRIVEN SOURCE REGISTRY (SEED) — substantiating *why* a decision went the way it did (2026-06-14)
+
+Operationalises §16: each **conditional axiom** in the required-assessments checklist
+(`planning_rules/<la>/required_assessments.md`, the Galway exemplar = 26 triggered reports) names a
+**designation/data layer** as its antecedent. That layer is an **external dataset we must ingest** to
+evaluate the axiom per-site. So the obligation checklist *is* the source shopping-list: "environmental →
+NPWS SAC/SPA + OPW flood", "archaeology → NMS SMR zones", "access → TII/OSM roads", and so on. The
+machine-readable seed lives at **`planning_rules/SOURCE_REGISTRY.md`** (one row per axiom→source); this
+section is its narrative.
+
+### 18.1 Empirical reason-source findings (this investigation, 2026-06-14)
+Tested against ~30 live refusals (Galway City + County, near the N6 GCRR corridor) across one-off houses,
+a 44-unit scheme, a 148-unit LRD, and a retention:
+- **eplanning.ie publishes NO reason text.** Confirmed via raw HTML, WebFetch, **and** a full JS render
+  (Playwright): the portal exposes only the outcome and a **"Number of Conditions: N"** count — the reason
+  wording lives solely in the unlinked Chief Executive's Order PDF. This **hardens the §10.1 "[PDF]
+  BLOCKED" verdict with direct evidence**, for both the County (`GalwayCC`) and City (`GalwayCity`) instances.
+- **The only public reason text is the ABP/ACP decision PDF** (appealed cases only). Direct media-path
+  pattern (no portal session): order `…/cases/orders/{ddd}/d{case}.pdf`, inspector report
+  `…/cases/reports/{ddd}/r{case}.pdf`. Orders are scanned images (OCR); inspector reports carry text.
+- **Archaeology axiom (#17) granularity matters.** The constraint is `point ∈ SMR *Zone of Notification*`
+  (polygon), **not** distance to a monument point. Verified: a site 173 m from a ringfort but **outside**
+  its zone attracted zero archaeology objection and was refused on traffic grounds; where a monument *was*
+  relevant (148-unit LRD), archaeology resolved to a **monitoring condition** ("low archaeological
+  potential"), never a refusal. The §13 SAC dose-response pattern is the model to replicate here.
+- **N6 route-safeguarding rarely refuses one-offs** — across the sampled refusals the dominant grounds were
+  settlement/zoning (urban-generated rural housing, Tier-6, zoning "G"), local-road traffic/sightlines, and
+  wastewater/SAC. The one scheme abutting the GCRR reservation was **granted** on appeal. (Detail in the
+  conversation log; relevant to the CPO "no-scheme" question.)
+
+### 18.2 The seed registry — one external source per obligation axiom
+Each row = a conditional axiom from the checklist → the dataset that evaluates its spatial/site predicate
+→ ingest status → join key. ✅ = endpoint probed live · 🔎 = located, not probed · ❌ = endpoint TBD.
+
+| Axiom (checklist #) | Obligation it triggers | Source needed | Endpoint / locator | Status | Join |
+|---|---|---|---|---|---|
+| #12 / #13 / #14 | Appropriate Assessment / NIS / EcIA / Habitats screening | **NPWS Designated Areas** (SAC/SPA/NHA/pNHA) | `services-eu1.arcgis.com/Jhij7i46ouO8Cc0N/.../NPWSDesignatedAreas/FeatureServer` (L3=SAC) | ✅ §13 | `point ∈ polygon` |
+| #21 | Flood Risk Assessment + Justification Test | **OPW NIFM extents + CFRAM AFA** (national, SHP) + GSI pluvial/groundwater | `data.gov.ie/dataset/nifm-river-flood-extents-current-scenario`; CFRAM `…/cfram-areas-for-further-assessment-afa-boundaries`; statutory **Zone A/B** still `floodinfo.ie` (endpoint TODO) | ✅ located (Zone A/B 🔎) | `point ∈ flood extent` |
+| #17 | Archaeological assessment | **NMS SMR Zone of Notification** (+ SMR points) | `…/SMRZoneOpenData/FeatureServer/0` · `…/SMROpenData/FeatureServer/0` | ✅ §15.2 | `point ∈ zone` |
+| #16 | Architectural Heritage Assessment | **NIAH national** (CSV+REST); RPS/ACA per-council | `data.gov.ie/dataset/national-inventory-of-architectural-heritage-niah-national-dataset`; RPS e.g. `…/record-of-protected-structures2` | ✅ NIAH national; RPS/ACA 🔎 per-LA | `point ∈ / near RPS·ACA` |
+| #10 | Visual Impact Assessment | **Landscape sensitivity** (LCA Class 2/3) — per-council, no national | per-council on data.gov.ie (Monaghan `…/landscape-character-types`, Cork, Galway) | 🔎 per-LA | `point ∈ class` |
+| #6 / #7 / #8 | Road Safety Audit / RSIA / TTA; sightlines | TII+RMO national/regional roads + **OSM/Overpass (local roads)** ✅ verified | `data.gov.ie/dataset/national-road-network-2013`; `…/regional-road`; `overpass-api.de/api/interpreter` | ✅ (OSM probed; local-road `maxspeed`) | nearest road class / junction |
+| #25 | Site Suitability (septic / on-site wastewater) | **GSI Vulnerability + Subsoil Permeability + Karst** (national, ESRI REST); EPA soils + agglomeration boundaries (sewered extent) | `data.gov.ie/dataset/groundwater-vulnerability-140000-ireland-roi-itm` (+ subsoil/karst); `…/urban-waste-water-treatment-agglomeration-boundaries` | ✅ located (national) | `point ∈ vuln/karst class; ∉ agglomeration` |
+| (material contravention, §10.6) | zoning conflict | **Development-Plan Zoning composite (national)** | `data.gov.ie/dataset/development-plan-land-use-zoning-ireland1` | 🔎 | `land-use ≠ zoned use` |
+| #15 | EIA / EIAR | EPA EIA portal / Schedule 5 thresholds (attribute, not spatial) | `epa.ie` | 🔎 | by type/scale |
+| (always-on #4/#18, scale #1-3/#5/#9/#19/#20/#22-24/#26) | universal or scale-gated reports | **no external layer** — derive from feed attributes (type, units, floor area) | the 495k feed [S] | ✅ | n/a |
+| (reason text, all) | *why* refused/conditioned | **ACP decision PDFs** (appealed only) + council file PDF (blocked) | `…/cases/orders/d{case}.pdf`, `…/reports/r{case}.pdf`; `LinkAppDetails` (no reasons) | ✅ §18.1 | `AppealRefNumber 6-digit → ABPCASEID` |
+
+### 18.3 Priority for a consolidated planning feature (revised after data.gov.ie sweep)
+1. **Already in hand:** NPWS SAC/SPA (✅), NMS SMR zones (✅), zoning composite, NIAH national, GSI
+   site-suitability pack, OPW NIFM flood extents — **all located as national ESRI-REST/SHP** layers.
+2. **Quick national pulls:** GSI vulnerability/subsoil/karst (#25), NIAH (#16), OPW/GSI flood (#21),
+   Tailte land-cover/buildings/Small-Areas (context) → one ingest each, no scrape.
+3. **Remaining endpoint discovery:** statutory **Flood Zone A/B** on floodinfo.ie (the precise
+   Justification-Test trigger; NIFM extents are the national stand-in until then).
+4. **Per-council assembly (31-LA pattern):** RPS, ACA, landscape sensitivity, derelict/vacant registers.
+5. **Local-road access (#6-8):** OSM/Overpass — verified to carry the local roads + `maxspeed` that TII omits.
+
+Built this way, the consolidated feature is the §16 obligation-set reconstructor: for any application
+point, join the designation layers → emit the obligation set (which assessments it owed) → cross with the
+numeric standards → and, for appealed cases, attach the ACP-PDF reason text. **No per-council PDF scrape
+required for the skeleton + obligation context.**
+
+### 18.4 data.gov.ie / Open Data Ireland sweep (2026-06-14) — gaps filled
+Systematic CKAN `package_search` against every axiom gap. **Open Data Ireland fills nearly all of them,
+mostly with national ESRI-REST/SHP layers.** Full endpoints in `planning_rules/SOURCE_REGISTRY.md`.
+- **Flood (#21):** OPW NIFM extents/depth (national), CFRAM AFA/UoM, Community-Scale Coastal extents; GSI
+  surface-water + historic-groundwater flood maps. (Statutory Zone A/B still floodinfo.ie.)
+- **Site suitability (#25):** GSI Groundwater Vulnerability + Subsoil Permeability + Karst + Protection
+  Scheme (national 1:40,000, ESRI REST); EPA National Soils/Subsoils; **EPA Urban Waste Water Agglomeration
+  Boundaries** = the sewered-vs-unsewered antecedent. (Karst + high vulnerability ≈ the Menlo "effluent
+  can't be safely disposed" refusal.)
+- **Heritage (#16):** NIAH National Dataset (DHLGH, national CSV+REST); RPS/ACA per-council only.
+- **Roads (#6-8):** TII National + RMO Regional (national); **local roads → OSM** (below).
+- **Supplementary / cross-feature:** Tailte HVD National Land Cover 2018 / Buildings / CSO Small Areas 2022;
+  NMS thematic monument sets; **Derelict + Vacant Sites registers** (vacancy/activation angle); **DAFM
+  Anonymous LPIS** (agricultural parcels — the one-off-rural / CPO land context); CSO PxStat + Residential
+  Commencement Notices (reconciliation/build-out). Per the curated-meta convention, version-stamp on pull.
+
+**Overpass / OSM (`overpass-turbo.eu`) — PROBED & USEFUL (2026-06-14).** Live query around the
+Menlo/Castlegar study point returned **78 road segments within 800 m**, classified
+(`tertiary/residential/track/unclassified/service` + 1 `proposed` = likely the GCRR/N59 corridor) with
+`maxspeed` tags (50/30/20) and street names — exactly the **local-road layer TII's national-roads data
+omits**, and the level at which one-off sightline/access refusals (#6-8) actually bite. Also 12 `historic`
+features within 1.5 km (archaeological_site/ruins/mass_rock/castle) — useful *context* only; **NMS SMR
+stays authoritative**. Limits: `maxspeed` sparse (~18/78); OSM gives road centrelines, **not visibility
+splays** (sightlines still need a survey). Call note: POST raw QL with `Content-Type: text/plain` + a
+descriptive `User-Agent` (default UA → HTTP 406); mirror `overpass.kumi.systems/api/interpreter`.
 5. **Caveat seen across RaC literature:** converting NL rules → machine logic is the hard part (CODE-ACCORD
    corpus, Urban Institute zoning automation) — which is exactly why our pre-structured, table-heavy
    **DM Standards scrape is an advantage**: much of the Irish rulebook is already semi-structured.
@@ -898,3 +1106,307 @@ The Tracker already ingests the **legislation/SI** layer AND is now scoping the 
 layer. So it can connect *the law being switched on* (SIs) to *the decisions made under it* (applications)
 — a cross-domain link planning-only tools (PlanX, Symbium) structurally cannot make. Ties to existing
 MCP tools `search_statutory_instruments` / `get_bill` (the Planning & Development Bill 2023 → its SIs).
+
+---
+
+## 19. DEVELOPMENT CONTRIBUTIONS — the "tax paid to the council" on a grant (scan, 2026-06-14)
+
+> User-prompted scan: the per-floor-area charge a council levies when it grants permission (≈"€9 per
+> square foot for a dwelling"), and "the government had a specific exemption for it until 2024." **Both
+> confirmed.** This is the **financial sibling of the §16 rulebook** — and it was entirely absent from the
+> `planning_rules` collection (only one incidental Galway "Special Contribution" line existed). Verified
+> against the **NOAC LA Performance Indicator Report 2024** (`doc/source_pdfs/NOAC_LA_PerfInd_2024.txt`,
+> already in-repo) + council scheme pages + DHLGH circular.
+
+### 19.1 What it is — Section 48 Development Contributions
+- **Legal basis:** **Section 48** of the Planning & Development Act 2000 = the *general* Development
+  Contribution Scheme. Also **Section 49** (*supplementary* contributions for a specific infrastructure
+  service, e.g. Luas/Metro/rail) and **Section 48(2)(c)** *special* contributions (one-off, project-specific
+  — this is the lone existing mention, in `galway_county_council/dm_standards.md:351`, re quarry road works).
+- **Who sets it:** each local authority **adopts its own scheme as a reserved function of the elected
+  councillors** — exactly like the Development Plan / DM standards (§10.6, §16). So it is **per-authority,
+  non-uniform, and version-dated** (typical scheme runs ~3–6 years; e.g. DCC 2023-2026, Meath 2024-2029,
+  SDCC 2021-2025→2026-2028). Same "not universal, not static" property as the rulebook.
+- **How it's charged:** a money condition on the **grant of permission**, calculated **per square metre of
+  gross floor area**, at rates the scheme sets, **differentiated by class** (residential / commercial /
+  industrial / retail / etc.). Funds public infrastructure (roads, water, amenities, community facilities).
+
+### 19.2 The "€9 per square foot" figure — grounded
+- Dublin City Council **residential** rate ≈ **€86.40/m²** (2020-2023 scheme), indexed up (+2.93% from
+  1 Apr 2025) → ~€89/m². SDCC applied **+6.18%** to residential from 01/01/2024 (SCSI Tender Price Index).
+- The user's **"€9/sq ft" = €96.9/m²** (×10.764) — i.e. the **upper / Dublin end** of council residential
+  rates; rural counties are materially lower. A sound rule-of-thumb, **not a national constant**: rates
+  vary by authority and are **re-indexed annually**, so any figure the app shows must be **per-council,
+  per-scheme-year, sourced** (no hardcoded national rate — same no-inference discipline as the SAC %).
+- **Exemptions** are scheme-specific but commonly include social/affordable housing, the first ~40 m² of a
+  domestic extension, certain agricultural/community/not-for-profit/sports buildings. Capture per council.
+
+### 19.3 The waiver — the "specific exemption until 2024" (CONFIRMED)
+A **Housing for All** temporary, time-limited measure: **waiver of section 48 development contributions**
++ **Uisce Éireann** water/wastewater **connection-charge refund**, to activate housing supply and cut
+build cost.
+- **Original window (Govt Decision 25 Apr 2023):** waiver for permitted **residential development that
+  commenced on site 25 Apr 2023 → 24 Apr 2024**, completed by 31 Dec 2025. *(NOAC quotes this verbatim.)*
+- **Extension (Govt 23 Apr 2024 — DHLGH Circular PL 02/2024):** §48 waiver for residential **commenced not
+  later than 31 Dec 2024**; UÉ connection refund for connections **commenced ≤ 30 Sep 2024** (refund
+  requests to UÉ by 31 Dec 2024); **completion deadline pushed 31 Dec 2025 → 31 Dec 2026**.
+- **Documented effect (NOAC 2024):** a **huge surge of commencement notices**, many lodged right at the
+  year-end deadline so developers could qualify — which **depressed council building-inspection rates in
+  2024** (NOAC flags this as the cause of the dip under the inspection indicators). This is a **measurable
+  fingerprint of the waiver in the data** (BCMS commencement-notice spike, §15.4) — a real analytics hook.
+
+### 19.4 Where the data lives & ingestibility
+| Datum | Location | Verdict |
+|---|---|---|
+| **Scheme rates + exemptions** (per LA, per class, per scheme-year) | each council's "Development Contribution Scheme" page/PDF | 🟡 **scrape — the DM-standards pattern (§12.4) extends directly**; a cross-council rate table is **novel, nobody publishes it** |
+| **Income actually collected / owed** (€) | each LA **Annual Financial Statements (AFS)** + **NOAC** indicators | 🟡 ties to existing `project_new_sources_scoping` LA-budget→AFS lead — the "how much €" companion |
+| **Waiver legal switches** | DHLGH **Circular PL 02/2024** + the §18 SI/legislation layer | ✅ documentable; cross-links to existing SI data |
+| **Waiver behavioural effect** | **BCMS commencement notices** spike late-2024 (`data.nbco.gov.ie`, §15.4) | ✅ ingestible aggregate, no PII |
+
+### 19.5 Recommendation (not yet executed)
+Add a **`development_contributions` dimension to the `planning_rules` collection** — per council, capture
+{scheme name + years, residential €/m², commercial/industrial €/m², key exemptions, indexation basis,
+source URL}. It is the **cost axis** that pairs with the DM-standards **rule axis**: the rulebook says
+*what you may build*; the contribution scheme says *what that permission costs you*. Same 31-LA scrape
+shape, same version-tracking caveat. **Scope note:** the rates are mostly in per-council **PDFs** (the
+HTML `consult.*` portal carries the plan, not always the contribution scheme), so this is a 31-PDF
+extraction pass — flagged as the actionable next step, not done in this scan.
+
+> **UPDATE 2026-06-14 — cross-council rate scan DONE (28/31).** The per-council residential rate scan
+> was executed → **`doc/PLANNING_DEVELOPMENT_CONTRIBUTIONS.md`**: a national comparison + a worked
+> "240 m² house" cost per council. **Headline: a >13× spread** (~€1,900 Monaghan-rural base →
+> ~€25,550 Fingal for the same house); Galway County one-off rural = **€2,200** (the "€9/sq ft"≈€23k
+> rule of thumb is a **Dublin/city-tier** rate, e.g. Galway City €21,600 — it does NOT hold for rural
+> counties). 5 structure types identified (flat/unit · flat/m² · banded/m² · hybrid · banded/dwelling).
+> **3 gaps:** Laois + Longford (sites hard-block bots) and Wicklow S.48 residential (unpublished).
+> Rates are scheme **base** figures — most index annually (WPI Building & Construction), so use live.
+> The doc also covers the **relevant-documents chain** (scheme → s.28 guidance → grant condition →
+> s.49 supplementary → commencement-notice payment trigger → indexation order), **retention** (no
+> waiver, often a multiplier — Wexford 3×, Cavan 1.5×; substitute-consent/EIA caveat), and **change of
+> house plans** (no statutory non-material route; charged on **net additional floor area** only — pure
+> design changes with no extra m² generally nil, e.g. Leitrim exempts them).
+
+**Sources:** NOAC LA Performance Indicator Report 2024 (in-repo) · DHLGH Circular PL 02/2024
+(`gov.ie/en/circular/08374-...`) · Mason Hayes & Curran "Development Levy Waiver…" (`mhc.ie`) · CIF
+extension note (`cif.ie/2024/05/03/...`) · Dublin City Council §48 scheme 2023-2026 (`dublincity.ie`) ·
+SDCC / Meath / DLR / Fingal scheme pages · Uisce Éireann refund scheme (`water.ie/connections`).
+
+---
+
+## 20. LAND-ACQUISITION / CPO COMPENSATION — the inverse money layer (BUILT, sandbox, 2026-06-14)
+
+The **third money layer**, and the mirror of §19. Development contributions = what a *developer pays
+the council* for a grant. This = what the *State pays a landowner* to acquire land — compulsory
+purchase orders, dwelling / land-bank purchases, road-scheme land. It is the cost the public bears to
+assemble sites for housing/roads/infrastructure, by area and year.
+
+**Source:** the consolidated public-body payment fact (`data/gold/parquet/procurement_payments_fact.parquet`),
+NOT a new feed — the councils' own published "Payments over €20,000" lists already carry these.
+
+**PRIVACY — the whole design point.** Those source lists publish payee **name + amount + year**, and
+many CPO/land payees are **private individuals** (they sit quarantined, `public_display=False`, in the
+gold fact and never surface in the app — see `project_procurement_drilldowns_2026_06_13`). The new
+extractor keeps that quarantine intact and lifts out only the **non-identifying** facts the planning
+feature needs — the **figure × year × location (council)** — with the **payee identity dropped**. Output
+carries **no name column** (runtime invariant refuses to write otherwise), so it is **strictly more
+private than the council's own published list** (name removed, figures aggregated). This is the safe way
+to surface the public-interest cost data the §13 SAC work and §19 contributions layer pair with.
+
+**Build:** `pipeline_sandbox/planning_cpo_compensation.py` → `pipeline_sandbox/_planning_output/cpo_land_acquisition_by_area_year.parquet`
+(+ `data/_meta/cpo_land_acquisition_coverage.json`). Tests: `pipeline_sandbox/test_planning_cpo_compensation.py`.
+
+**Validated 2026-06-14:** 211 land-acquisition rows → **68 anonymized cells, €63.8m, 11 bodies, 2016–2026.**
+- Grain: `acquiring_body (council/dept) × year × acquisition_type × payee_type` → `n_payments`,
+  `n_distinct_payees` (count only — no names), `total_compensation_eur`, `low_count` flag.
+- `acquisition_type` (source-grounded from the published description, no-inference): dwelling €29.7m ·
+  land_general €17.2m · land_bank €9.3m · cpo €4.6m · road_land €3.1m.
+- `payee_type` (a CLASS, not a name): **individual €35.75m** (the anonymized private/CPO set) · company
+  €27.9m · public_body €0.2m.
+- **Donegal dominates** (~€47m — it publishes structured "Purchase of Dwelling Asset" / "Land Bank Asset
+  Purchase" / "CPO Interest" lines); Meath, HSE, Offaly, Kilkenny, Wexford follow.
+
+**Caveats / honest limits:**
+- **Location = council-level only.** The descriptions rarely carry a townland/road (mostly just
+  "Purchase of Dwelling Asset" / "Compulsory Purchase Order"), so this is a council×year cost layer, NOT
+  point-level. The feature's fine (lon/lat) location comes from the §1 ArcGIS applications feed; the two
+  **join at council level** ("this council spent €X assembling land in year Y").
+- **`low_count` cells** (single payee/payment) re-state a single already-published figure with the name
+  removed — flagged so the UI can band/caveat if a stricter line is wanted; NOT suppressed (it is strictly
+  more private than the source).
+- Coverage is only the councils whose >€20k lists are in the payment fact; not a national CPO register.
+
+**NO €/hectare from this layer (price-only — do NOT infer).** Probed 2026-06-14: **0 / 211** land
+descriptions carry any area unit (ha/acre/m²), and ~half the spend (€29.7m) is *dwellings* (houses, where
+€/ha is meaningless). We have the price but not the area, so a €/ha would require guessing the hectares —
+the exact inference §13/§19 forbid. The CORRECT €/ha is **external & already published**: **CSO Agricultural
+Land Prices** (regional median €/acre & €/ha, arable vs grassland, annual — 2024 national median ≈
+€9,988/acre, Dublin ≈ €24,125; methodology bands €10k–€62k/ha) and the **SCSI/Teagasc Agricultural Land
+Market Review** (€/acre by region/quality). Ingest/cite those as a separate, clearly-labelled *context*
+layer — **with the caveat that CPO road/housing land is often DEVELOPMENT land (valued far above
+agricultural) and CPO compensation includes disturbance/severance/injurious-affection premiums**, so the ag
+benchmark contextualises but never equals CPO value. A genuine per-parcel €/ha would need an AREA source
+(Tailte Éireann / Land Registry folio area, or the CPO award docs) joined to the payment — future
+enrichment, not derivable today. Sources:
+[CSO Agricultural Land Prices](https://www.cso.ie/en/releasesandpublications/ep/p-alp/agriculturallandprices2024/keyfindings) ·
+[SCSI/Teagasc Land Market Review 2025](https://scsi.ie/press-release-scsi-teagasc-agricultural-land-market-review-and-outlook-report-2025/).
+
+---
+
+## 21. RETENTION & AMENDMENT — the two "after the fact" branches (process scan, 2026-06-14)
+
+The contributions doc (`doc/PLANNING_DEVELOPMENT_CONTRIBUTIONS.md`) covers the *levy* treatment of
+retention and plan-changes; this section covers the **processes** themselves and **where they live in our
+data**. Both are deviations from the clean lodge→decide→grant lifecycle of §11 — and one of them
+(**retention**) is **already a structured field we hold**, so it is measurable today.
+
+### 21.1 Retention — regularising what's already built
+- **Statutory basis:** application under **s.34** PD Act 2000 (same process as a normal application — site
+  + newspaper notice, planner's report, EIA/heritage reports if triggered). It is **retrospective**: the
+  development already exists.
+- **Why people apply:** (1) **selling** a property (solicitor/title requires it), (2) a **mortgage/loan**
+  drawdown, (3) a council **enforcement warning letter**. (Warning letter → ~4 weeks to respond;
+  lodging a retention application usually **suspends enforcement** until the decision.)
+- **Cost penalties (two distinct 3×/multiplier hits — don't conflate):**
+  - **Application FEE** = **3× the normal planning fee** (statutory, Planning & Development Regs fee schedule).
+  - **Development CONTRIBUTION** = no waiver, often a multiplier (Wexford 3×, Cavan 1.5×) — see contributions doc.
+- **Outcome:** if granted, the development is authorised; if **refused**, enforcement can follow
+  (alteration/**demolition** order). Retention does **not** absolve prosecution already commenced, and does
+  **not** by itself defeat the **7-year enforcement rule** question (§11.3).
+- **The EIA/AA bar:** unauthorised development that *required* EIA or Appropriate Assessment **cannot** use
+  ordinary retention → the route is **substitute consent (s.177)**, and post-**PD(M&V)(Amendment) Act 2022 /
+  s.34(12)** both *past and present* EIA/AA positions must be satisfied or the application is **deemed
+  withdrawn**. (Version-stamp: the **2024 Act** is reforming this regularisation regime as it commences.)
+- **Grant rate (selfbuild.ie hard data, beats the "85%" industry claim):** **~55% at LA level
+  (6,075 granted / 11,064 applications)** and **~32% on appeal to An Coimisiún Pleanála (176 / 545)**.
+  Most retentions are granted, but **not** the ~85% retention-specialist sites assert (bayt.ie /
+  retentionpermission.ie — treat as marketing). Mix ≈ **60-70% minor works** (extensions, garden rooms,
+  boundary walls) vs 30-40% major (houses, large extensions, ag sheds).
+- **Volume surging:** **~5,500 retention applications/yr (2024-25)** vs **~2,200/yr (2019-23)** — a ~150%
+  jump (selfbuild.ie), **independently matching our feed** (§21.3): ~5,500/yr ≈ the
+  `GRANT PERMISSION FOR RETENTION` (5,473) + RETENTION-type volume we already hold.
+
+### 21.2 Change of house plans — Ireland has NO non-material-amendment route
+Unlike the UK's **s.73** "minor material amendment", **Irish law has no general statutory non-material
+amendment process** (verified — *the alteration & extension of planning permission*, M. Furminger; the
+"Section 73" seen in some Irish advisory content is **UK practice bleeding in**). The actual levers:
+- **s.146A** — the deciding authority may amend a permission **only** to correct clerical errors, to
+  facilitate works "reasonably regarded as contemplated by" the permission, or to "otherwise facilitate the
+  operation" of it — and **`s.146A(2)` expressly prohibits any amendment that is a *material alteration* of
+  the terms of the development.** So: non-material only.
+- **Fresh application** — for anything material there is **no direct statutory mechanism**; the courts
+  recognise an **implied power** requiring a **new planning application** (*South-West Regional Shopping
+  Centre Promotion Association v An Bord Pleanála* [2016] — without it "the planning system would be
+  burdensome and unworkable").
+- **In practice** minor construction-stage changes are handled by **agreement of revised drawings with the
+  planner under condition compliance** (no new application) — the day-to-day reality, sitting beneath the
+  s.146A / fresh-application formal frame.
+- **Contribution effect** follows the **net-additional-floor-area** rule (contributions doc §"Change of
+  house plans"): extra m² → pay on the excess; no extra m² → generally nil (Leitrim explicitly exempts a
+  change-of-house-plan with no floor-area change).
+- **(Separate, don't confuse):** **s.42** = *extension of duration* of an un-commenced/part-built
+  permission, and the **PD(Amendment) Act 2025** added a further extension power + a JR clock-pause — these
+  extend *time*, they do **not** alter the *design*.
+
+### 21.3 Where this lives in our data — retention is measurable NOW
+- **Retention is a structured value in the national feed (§1):** `ApplicationType` carries
+  **RETENTION ≈ 55k** rows (+ mixed-case "Permission for Retention"), and `Decision` carries
+  **"GRANT PERMISSION FOR RETENTION" 5,473**. So **retention frequency and grant-rate *per council* are
+  derivable from the feed alone** — no PDFs — and our `application_type_normalised` crosswalk (Phase 0,
+  §8) already folds the spelling variants into a single `Retention` class. A "which councils have the most
+  retrospective/unauthorised-build activity" metric is a **near-free analytics win**.
+- **Amendments are NOT cleanly in the feed:** a fresh application for a revised design is just *another
+  application* (a new `ApplicationNumber`) with no structured link to the one it modifies; s.146A
+  corrections live **[PDF]** in the council file. So plan-change *chains* are **not** reconstructable
+  without the document layer — a known ceiling, consistent with §10.1.
+- **The honest pairing:** retention = a strong, ingestible signal (structured, national); amendment =
+  PDF-locked (skeleton only). Both fold into the §16 axiom model as *lifecycle branches* off the main
+  lodge→decide→grant spine.
+
+**Sources:** **selfbuild.ie** ("Thousands build first and ask for forgiveness later" — the 55%/32%
+grant rates + 5,500/yr volume; "Planning application process" — the 5-week/8-week/6-month/4-week
+clocks, all corroborated) · bayt.ie / retentionpermission.ie / jearchitecture.ie (retention process +
+the overstated 85% claim, industry) · Planning & Development Act 2000 ss.34, 146A, 177, 42 (`irishstatutebook.ie` /
+`revisedacts.lawreform.ie`) · PD(Maritime & Valuation)(Amendment) Act 2022 (`mhc.ie`) · M. Furminger,
+"The alteration and extension of planning" (Irish planning-law substack) · *South-West Regional Shopping
+Centre Promotion Assoc. v ABP* [2016] · PD(Amendment) Act 2025 commencement (`gov.ie`).
+
+---
+
+## 22. WORKED CASE STUDY — blind obligation-set reconstruction vs the real file (2026-06-14)
+
+**Purpose.** End-to-end validation of the ingestion model (§12 numeric standards + the triggered-assessment
+checklist + designation-layer joins): reconstruct, **without looking at the application**, what a one-off
+house at a given point would have to satisfy, then reconcile against the **actual granted file**.
+
+**Subject.** Galway **City** Council reg. **22/207**, single dwelling at **Menlo** (≈53.3062, −9.0520),
+granted **23 May 2023**, commenced **29 Dec 2024**. Development contribution **€21,420 waived** (Housing
+for All §48 waiver — commenced inside the 31 Dec 2024 window; see §19). Source: public eplanning register.
+
+**Method.** (a) Coords → live **NPWS Designated Areas FeatureServer** query → Lough Corrib **SAC (000297)**
++ **SPA (004042)** within 3 km. (b) Ingested Galway DM standards (`planning_rules/`) + the assessment-trigger
+checklist. (c) **eplanning PDF extraction** — see recipe below. Documents are **scanned (DjVu-origin), image-only**;
+`pdftotext` yields only the "Inspection Purposes Only" watermark, and **local OCR is barred** (box-crash rule,
+`feedback_paddleocr_crashes_local_box`), so pages were rasterised with **PyMuPDF (fitz)** and read **visually**.
+
+### Reconciliation scorecard
+
+| Predicted blind (from ingested standards) | Actual file | Verdict |
+|---|---|---|
+| Location = Menlo / Corrib, elevated | Menlo; FFL 52.70, rock 48.7 (≈50 m AOD) | ✅ (open-elevation said 41 m — ~10 m low) |
+| Enhanced wastewater, **not a bare septic tank** (karst + SAC) | **Molloy Chieftain packaged secondary treatment system** | ✅ exact |
+| Shallow rock → **raised / imported-soil polishing filter** per EPA CoP | Raised filterbed; "imported soil tested as per EPA CoP"; rock ~1 m down | ✅ exact |
+| **NIS** required (SAC qualifying species/water pathway) | NIS prepared; referenced on drawings | ✅ |
+| **Lesser Horseshoe Bat** → dark-corridor lighting mitigation | "lighting … maintained in line with the dark corridor / NIS attenuation measures" | ✅ exact |
+| **Single-storey / dormer** (elevation + scenic Corrib) | Single-storey, long low profile | ✅ |
+| Vernacular: **simple long plan, traditional materials** | Long linear plan; natural stone + plaster; slate/tile roof | ✅ |
+| Floor area >200 m² → site-size scaling engaged | Drawing label ~**226 m²** (recalled 240) | ✅ (both trigger scaling) |
+| Detached, ancillary domestic garage (DM Std 6) | Detached domestic garage | ✅ |
+| **RFI** likely | "Reply to Further Information", 10 Mar 2023 | ✅ |
+| Regional-road access restriction (DM Std 28) a risk | Resolved via an **existing Right-of-Way** (owner's letter), not a new road entrance | ✅ (resolution differed) |
+
+### Key learnings
+1. **The national framework drove every substantive outcome** — EPA CoP (treatment/imported-soil filter),
+   Habitats Directive/NIS + NPWS bat protection (dark-corridor lighting), Sustainable Rural Housing
+   Guidelines (single-storey vernacular). These apply **regardless of council**, which is why a blind
+   reconstruction matched the real file.
+2. **CORRECTION — wrong council's *numbers*:** the blind run quoted Galway **County** Ch.15 thresholds
+   (2,000 m² site rule, 90/35/25/15 setbacks, sightline table). The site is **Galway City** (extended
+   boundary includes Menlo), and a May-2023 grant was assessed under the then-current **Galway City**
+   plan. The *conclusions* held; the *exact numeric thresholds* must come from the right authority +
+   the plan in force at decision date. Reinforces that the rulebook is per-council AND time-versioned.
+3. The **obligation-set reconstruction is real**: designation join + ingested standards predicted the
+   actual report/assessment set (NIS, bat lighting, EPA-CoP treatment, RFI) without reading the PDFs.
+
+### eplanning extraction recipe (reusable; for the audit toolkit)
+`galwaycity.eplanning.ie/idocsweb` (LGMA iDocs): `listFiles.aspx?catalog=planning&id=<n>` lists docs as
+`docid`s. Per doc: GET `ViewFiles.aspx?docid=<id>&format=pdf` **with a cookie jar** (server stages a
+session copy; may need a 2nd hit) → parse the `ViewPdf.aspx?...&file=<GUID>.pdf` iframe → GET
+`/idocsweb/files/<GUID>.pdf`. Files are scanned/image-only → render with `fitz` (`get_pixmap(dpi=130)`),
+read visually; **do not** local-OCR. The big "Correspondence" doc (86 MB, **363 pages** scanned) holds
+the planner's report/decision/conditions/NIS/bat survey — pulled and read selectively (front pages =
+decision + conditions; a contact-sheet montage at ~42 dpi located the sections).
+
+### Decision conditions — VERIFIED from the Chief Executive's Order (reg 22/207, Order 76012, 23 May 2023)
+The worded grant confirms the blind reconstruction almost line-for-line:
+- **Site area = 5,600 m²** (NOT the 0.52 ac recalled) → the DM site-size rule passes by >2×; 45 m² filter bed.
+- Full description: *"a single storey dwelling house, sewerage treatment plant, percolation area, Domestic
+  shed, access roadway"* at Menlo.
+- **Cond. 6 (wastewater):** packaged plant to **EPA CoP (PE ≤ 10) + I.S. EN 12566**; commissioning report
+  by a qualified person pre-occupation; **maintenance contract**; **land retained (not sold separately) to
+  meet the EPA CoP separation distances** — the DM-Std-9 site-size-for-effluent logic written in as a
+  condition. (= the hydrology analysis.)
+- **Cond. 9–11 (design):** retain boundary **hedgerows/trees/stone walls**; **additional native
+  tree/hedgerow planting**; **front wall in local unplastered stone**; **roof blue/black**. (= the
+  landscaping gap-fill + vernacular/muted-materials prediction.)
+- **Cond. 12 (ecology keystone):** *"All mitigation measures … in Chapter 6 of the updated Natura Impact
+  Statement (NIS) and Chapter 8 of the submitted Bat Survey Report shall be implemented in full under the
+  supervision of a suitably qualified ecologist."* (= Lesser Horseshoe Bat + dark-corridor lighting + AA/NIS.)
+- **Cond. 13 (occupancy):** **Section 47 enurement** — first occupied by the applicant/family, **7-year**
+  occupancy; reason: *"to comply with agricultural land use-zoning objectives in the Galway City Development
+  Plan 2023-2029."* → confirms the **City plan 2023-2029 + agricultural zoning** (the County→City correction)
+  and the local-need gate.
+- **Cond. 14:** €21,420 contribution (s.48) — later **waived** (commenced 29 Dec 2024, Housing for All).
+
+Net: the only material miss in the blind run was quoting **County** rather than **City** numeric thresholds;
+every substantive obligation (wastewater design, ecology/bat/NIS, landscaping/materials, single-storey, RFI,
+enurement, contribution) was predicted from the ingested standards + designation join before reading the file.

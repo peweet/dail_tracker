@@ -1,0 +1,37 @@
+{
+  "council": "Laois County Council",
+  "slug": "laois_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Laois County Development Plan 2021-2027",
+  "dm_location": "Chapter 13 (Design/Density), parking in Chapter 10; DM standards across Written Statement",
+  "extract_status": "partial",
+
+  "rural_min_site_area": "0.202 hectares (0.5 acres)",
+  "rural_site_scaling": null,
+  "ribbon_development_rule": "5 or more houses on any one side of a given 250 m of road frontage",
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": "EPA Code of Practice for single houses (2009) + County Laois Groundwater Protection Scheme",
+
+  "residential_density_dph": "Key Town 35; Self-Sustaining/Growth 30; Towns 25; Small Towns & Villages 15 (centre); Rural Settlements ~10-12 units/ha (per Table 13.4)",
+  "plot_ratio": null,
+  "site_coverage_pct": null,
+  "separation_distance_m": "22 m between opposing first-floor windows at rear",
+  "private_open_space": "1-2 bed: 60 sq m; 3,4,5 bed: 75 sq m (houses); apartments studio 4 sq m / 1-bed 5 sq m",
+  "public_open_space_pct": "minimum 10% of total site area",
+  "car_parking_dwelling": "2 per dwelling (houses); apartments 1.25-2 per unit",
+  "building_height": null,
+
+  "trigger_AA": "Habitats Directive applies; detail in environment/heritage chapters (partial)",
+  "trigger_EIA": "Schedule 5 thresholds (in plan's environment chapters; partial)",
+  "trigger_FRA": "Development in flood zones A and B must pass DM Justification Test (DEHLG 2009)",
+  "trigger_AHIA": "vernacular structures DM standards; heritage chapter (partial)",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": null,
+
+  "notes": "Standard codes DM HS, DM RH, DN, TRANS. Rural site requires 30 m road frontage (DM RH 1) unless considerable set-back; sightlines per Chapter 10 within site boundary. Surface water per Greater Dublin Strategic Drainage Study (2005). Apartment balcony min depth 1.5 m. Density determined per SRDUA 2009, Apartment 2020, Building Heights 2018."
+}

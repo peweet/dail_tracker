@@ -1,0 +1,37 @@
+{
+  "council": "Galway City Council",
+  "slug": "galway_city_council",
+  "authority_type": "city_council",
+  "plan_name": "Galway City Development Plan 2023–2029",
+  "dm_location": "Chapter 11 / Part B — Development Standards",
+  "extract_status": "partial",
+
+  "rural_min_site_area": "Shall not normally be less than 0.2 hectares (Zoned A — Agricultural)",
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": null,
+  "wastewater_standard": null,
+
+  "residential_density_dph": null,
+  "plot_ratio": "City Centre 2:1; Outer Suburbs (residential) 0.46:1; CI 1.25:1; I 1.00:1; Salthill (CI) 1.75:1",
+  "site_coverage_pct": "CI zone max 0.80 (80%); I zone max 0.80 (80%)",
+  "separation_distance_m": "Min 11 m between units and private open space/development-potential land above ground floor; min 1.5 m side gable to boundary",
+  "private_open_space": "Min 50% of gross floor area per unit (excl. car spaces)",
+  "public_open_space_pct": "Communal open space 15% of gross site area (min 10% public open space on small infill)",
+  "car_parking_dwelling": "Outer Suburbs 2 on-site + 1 visitor per 3 dwellings (or 1+1 per dwelling); Inner Residential max 1 per dwelling; 3 spaces for dwellings >200 m²",
+  "building_height": null,
+
+  "trigger_AA": "Required where plan/project may have significant adverse effects on European Sites; screening determines Stage 2 AA / NIS",
+  "trigger_EIA": "Mandatory thresholds per P&D Regulations 2001–2015; sub-threshold discretionary where significant effect likely; required for major quarry/extractive operations",
+  "trigger_FRA": "Site-specific FRA for development in Flood Zones A or B; must demonstrate no increased risk; climate change and residual risk incorporated",
+  "trigger_AHIA": "Built Heritage Impact Assessment for Protected Structures and development in ACAs",
+  "trigger_EcIA": "For developments in areas supporting protected species/biodiversity features",
+  "trigger_VIA": null,
+  "trigger_TTA": "Required for significant trip-generation; threshold >100 employees, all schools, residential 100+ dwellings",
+
+  "notes": "Fuel filling stations: access not within 35 m of road junction; frontage min 20 m; pumps min 5 m setback. Also Noise Assessment, Scheme Sustainability Statement (25+ homes/>500 m²/>1,000 m²), Design Statement (sites over 1 ha)."
+}

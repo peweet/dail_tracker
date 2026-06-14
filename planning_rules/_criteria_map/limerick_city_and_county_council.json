@@ -1,0 +1,37 @@
+{
+  "council": "Limerick City and County Council",
+  "slug": "limerick_city_and_county_council",
+  "authority_type": "city_and_county_council",
+  "plan_name": "Limerick Development Plan 2022–2028",
+  "dm_location": "Chapter 11 — Development Management Standards",
+  "extract_status": "partial",
+
+  "rural_min_site_area": "0.2 hectares (0.5 acres)",
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": null,
+  "sightline_y": "Petrol stations: <80 km/h 160 m min; ≥80 km/h 215 m min",
+  "wastewater_standard": "Rural one-off housing per EPA 2021 Code of Practice; site assessment by registered site assessor",
+
+  "residential_density_dph": "Serviced sites: generally 10 housing units per hectare",
+  "plot_ratio": "Urban-centre locations: plot ratio 1:5",
+  "site_coverage_pct": "Enterprise/employment (greenfield) 40–50%; urban-centre 70% expected",
+  "separation_distance_m": "22 m between opposing windows (apartments up to 3 storeys); 22 m between opposing rear first-floor windows (houses); 3 m side separation",
+  "private_open_space": "1–2 bedroom 48 m²; 3–5 bedroom 60–75 m²; inner urban/mews 25 m²",
+  "public_open_space_pct": "Greenfield 15%; brownfield/infill 10% min",
+  "car_parking_dwelling": "Referenced to DM Table 8a/8b (Section 11.8.4); numeric ratios not in captured text",
+  "building_height": null,
+
+  "trigger_AA": "European sites / protected areas screening required, especially for rural development and heritage-sensitive locations",
+  "trigger_EIA": "Referenced; thresholds per Schedule 1 of P&D Regulations 2001",
+  "trigger_FRA": "Flood Risk Justification Test for development in flood-prone areas (Guidelines Nov 2009)",
+  "trigger_AHIA": "Design Statement for sensitive sites; archaeological clearance / curtilage of Protected Structures assessment",
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "RIA & TIA for retail; Mobility Management Plan for significant trip-generation and enterprise >1,000 m²; School Travel Plan for schools",
+
+  "notes": "Min road frontage 30 m; gates recessed 4.5 m behind hedgerow with 45-degree splay; petrol-station pump island ≥7 m from roadside boundary. SuDS: 1-in-100-year +30% climate change, 10% urban creep, DN225 min pipe. Phasing required >30 units. Also Tree/Arboricultural, Noise, Odour assessments."
+}

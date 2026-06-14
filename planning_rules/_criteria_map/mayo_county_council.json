@@ -1,0 +1,37 @@
+{
+  "council": "Mayo County Council",
+  "slug": "mayo_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Mayo County Development Plan 2022-2028",
+  "dm_location": "Volume 2 — Development Management Standards",
+  "extract_status": "partial",
+
+  "rural_min_site_area": "2000 m² (Rural Countryside/Transition); 3000 m² Coastal/Lakeshore (min 40 m width); 1500 m² replacement dwelling",
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": "40 m",
+  "road_setback_regional_m": "20 m",
+  "road_setback_local_m": "10 m",
+  "sightline_x_m": "2.4 m (urban 30 km/h); 3 m (regional/national)",
+  "sightline_y": "23 m (urban 30 km/h); 90 m (regional 70 km/h); 100 m (national 80 km/h)",
+  "wastewater_standard": "EPA Code of Practice (EPA FETAC certified person); unserviced rural areas",
+
+  "residential_density_dph": "35 dph town centre/adjacent; 20 dph inner urban suburbs; 5 dph urban periphery/rural settlements",
+  "plot_ratio": "1.5 commercial in town centre; 1.0 commercial outside; 0.5/1.0 industrial",
+  "site_coverage_pct": "Shall not normally exceed 60%",
+  "separation_distance_m": "22 m opposing first-floor windows; 35 m living-room windows; 3 m side walls",
+  "private_open_space": "55 m² (1-2 bed); 75 m² (3 bed); 100 m² (4+ bed)",
+  "public_open_space_pct": "15% greenfield; 10% brownfield/infill",
+  "car_parking_dwelling": "2-bed: 1 space + 1 visitor; 3-bed: 2 spaces + 1 visitor; 1-bed apartment: 1 + 1 visitor",
+  "building_height": null,
+
+  "trigger_AA": null,
+  "trigger_EIA": null,
+  "trigger_FRA": "Required where lands liable to flooding; Justification Test per Flood Risk Management Guidelines",
+  "trigger_AHIA": null,
+  "trigger_EcIA": null,
+  "trigger_VIA": null,
+  "trigger_TTA": "TIA where traffic exceeds 10% of existing level (5% if congested); Road Safety Audit for 40+ movements/day",
+
+  "notes": "Volume 2 emphasises operational triggers; AA/EIA/heritage referenced in wider plan but not captured (partial). Effluent/site-suitability required for unserviced rural areas per EPA Code of Practice."
+}

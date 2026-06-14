@@ -1,0 +1,37 @@
+{
+  "council": "Roscommon County Council",
+  "slug": "roscommon_county_council",
+  "authority_type": "county_council",
+  "plan_name": "Roscommon County Development Plan 2022-2028",
+  "dm_location": "Chapter 12 — Development Management Standards (Volume I, Written Statement)",
+  "extract_status": "partial",
+
+  "rural_min_site_area": null,
+  "rural_site_scaling": null,
+  "ribbon_development_rule": null,
+  "road_setback_national_m": null,
+  "road_setback_regional_m": null,
+  "road_setback_local_m": null,
+  "sightline_x_m": "3 m (national/regional); 2.4 m (local)",
+  "sightline_y": "215 m national; 160 m regional; 90 m local (Figure 12.4)",
+  "wastewater_standard": "Individual systems (septic tank + percolation area or patent treatment system); site-specific analysis required for non-serviced lands (12.12)",
+
+  "residential_density_dph": "Determined with reference to Sustainable Residential Development in Urban Areas Guidelines; authority discretion in varying maximum density standards (no fixed uph table)",
+  "plot_ratio": null,
+  "site_coverage_pct": "Should not exceed 75% for industrial or retail; 80% may be permissible in town centre locations",
+  "separation_distance_m": null,
+  "private_open_space": null,
+  "public_open_space_pct": "15% of gross site area greenfield; 10% brownfield",
+  "car_parking_dwelling": "Residential (1-3 bed): 1.5 per unit; Residential (4+ bed): 2 per unit; visitor: 1 per 3 dwelling units (minimum spaces)",
+  "building_height": null,
+
+  "trigger_AA": "Natura Impact Statement may be required to inform AA process where proposal could affect a European Site",
+  "trigger_EIA": "EIAR among assessments required; submitted where development exceeds relevant thresholds (extractive/larger development)",
+  "trigger_FRA": "Site Specific FRA may be required where lands liable to flooding, per Flood Risk Management Guidelines 2009 (12.14)",
+  "trigger_AHIA": "Architectural Assessment listed; controls for works to/change of use of protected structures",
+  "trigger_EcIA": "Ecological Assessment listed among assessments required (12.5)",
+  "trigger_VIA": "Landscape Appraisal and Visual Impact Assessment listed among assessments required (12.5)",
+  "trigger_TTA": "Traffic and Transport Assessment listed among assessments required (12.5)",
+
+  "notes": "No numeric rural minimum site area, private open space, separation distance, plot ratio or building height in Chapter 12. New rural entrance junction distances: 150 m national primary; 100 m national secondary/regional; 40 m local primary. Childcare: 1 facility per 75 units."
+}
