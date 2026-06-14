@@ -297,6 +297,18 @@ def main() -> int:
     ap.add_argument("--exclude", metavar="CHAINS", help="comma-separated chains to skip")
     args = ap.parse_args()
 
+    # The orchestrator tees each child chain's combined stdout (which contains
+    # non-ASCII progress: →, é, Σ, …) to its own stdout. When this process'
+    # stdout is a pipe or file on Windows, Python picks the cp1252 ("charmap")
+    # locale codec and sys.stdout.write() raises UnicodeEncodeError on the first
+    # such line — crashing the parent and marking every chain "failed" with
+    # exit_code=None. Force UTF-8 on our own stdio so the tee survives. (Child
+    # processes already get PYTHONIOENCODING=utf-8 in _run_subprocess.)
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
     if args.list:
         _print_chain_list()
         return 0
