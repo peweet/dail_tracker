@@ -21,7 +21,7 @@ Classes (Build Plan §7.1):
   other           nothing matched
 
 Run (idempotent — re-derives entry_class in place on the sandbox parquet):
-  .venv/Scripts/python.exe pipeline_sandbox/diary_entry_classify.py
+  .venv/Scripts/python.exe extractors/diary_entry_classify.py
 """
 
 from __future__ import annotations

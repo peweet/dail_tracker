@@ -1271,7 +1271,7 @@ def _render_stateboards_tab(roster: pd.DataFrame, boards: pd.DataFrame) -> None:
             "roles.",
         ],
         source_caption="Source: membership.stateboards.ie (DPER) · gender balance and legal basis as published",
-        freshness=freshness_line("stateboards_roster"),
+        freshness=freshness_line("stateboards"),
     )
 
 
@@ -1343,10 +1343,20 @@ def public_appointments_page() -> None:
         dek=(
             "Who the State puts into public office: state-board and agency members, "
             "judicial appointments, and the special advisers who serve in ministers' "
-            "offices. Browse the full record since 2016."
+            "offices. Browse the gazette record since 2016, or the live register of "
+            "who sits on the State's boards today."
         ),
     )
 
+    tab_notices, tab_boards = st.tabs(["Appointment notices", "State Boards register"])
+    with tab_notices:
+        _render_notices_tab(df)
+    with tab_boards:
+        roster, boards = load_stateboards()
+        _render_stateboards_tab(roster, boards)
+
+
+def _render_notices_tab(df: pd.DataFrame) -> None:
     # Quiet civic-context line about the constitutional Irish/English split.
     st.html(
         '<p class="pa-context">'
