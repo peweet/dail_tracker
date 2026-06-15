@@ -55,6 +55,19 @@ Exercise & Fitness"), professional bodies (Law Society "...NTMA PC 2025" — emb
 commercial semi-states (daa plc, IAA, Shannon Airport), and parser bleed (amounts/dates in the
 name field: "Airport Authority PLC 40,416.40"). So a token rule would mis-flag — needs a CURATED
 allowlist CSV (like the overrides), seeded from the clean top, NOT a blanket supplier_class patch.
+**DONE 2026-06-15:** curated `data/_meta/procurement_public_body_payees.csv` (27 rows / €334m,
+hand-verified; charities/semi-states/bleed EXCLUDED) + wired into `load_spend()` exclusion → these
+drop from the link spend side (spend-only €9.38bn→€9.04bn, honest denominator). NOTE: this only
+fixes the LINK extractor; removing them from the actual rankings page needs the same CSV applied in
+the payments-consolidation `supplier_class` step (still TODO, page-facing change).
+
+**NDFA/PPP source SCOPED:** `doc/NDFA_PPP_SCOPING.md` — the €9bn unlinked residual (NBI €1.34bn,
+BAM/MPFI/Inspired school bundles, M50/road concessions) needs a CURATED PPP project registry, not
+a scraper: ~30-40 projects, sources = DPER gov.ie PPP projects (spine) + C&AG PPP chapters (values,
+PDF) + NDFA project pages (SPV→consortium map, the join key) + TII (15 road PPPs). Deliverable =
+`data/_meta/ppp_project_registry.csv` (spv_payee_norm→project/consortium/parent_cro/capital/term).
+Unitary payment = own value_kind (25-yr availability commitment), NEVER sum with award OR realised
+spend. NBI = separate (NBP/DECC, not NDFA). Verdict: HIGH value, LOW-MED effort, curation. PII-free.
 
 **BAM/PPP answer (user asked re HSE/Tusla):** BAM school bundles are paid by DEPT OF EDUCATION (not
 HSE/Tusla — 0 BAM rows there; those are health/child-welfare). They ARE in our payment data. They

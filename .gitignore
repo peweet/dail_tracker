@@ -19,6 +19,11 @@
 # above misses them. One .aspx leaked into data/bronze/pdfs/ before this rule existed.
 *.aspx
 *.ashx
+# Ad-hoc dated backup copies of data files (e.g. foo.parquet.bak_20260613) — manual
+# safety copies taken before a risky rewrite; regenerable, never source. Two leaked into
+# data/silver/parquet/ before this rule existed. Covers .bak and .bak_<date> suffixes.
+*.bak
+*.bak_*
 # DuckDB
 *.duckdb
 *.duckdb.wal
@@ -410,13 +415,19 @@ data/silver/sipo/
 data/bronze/legal_diary/
 
 # === Raw downloaded-source staging tree — only .gitkeep belongs ===
-# data/bronze/pdfs/ holds raw downloads (PDFs + LA-procurement .aspx/.ashx blobs).
-# The type rules above miss odd server extensions, so blanket-ignore the tree and keep
-# just the .gitkeep placeholders that preserve the directory layout.
-data/bronze/pdfs/**
-!data/bronze/pdfs/**/
-!data/bronze/pdfs/.gitkeep
-!data/bronze/pdfs/**/.gitkeep
+# data/bronze/ is the raw-download staging tree for every ETL: PDFs + LA-procurement
+# .aspx/.ashx blobs, scraped portal HTML (stateboards / eisb_directory SI listings /
+# lrc_classlist), debate probe XML, etc. ALL of it is regenerable by re-running the
+# extractors and is mirrored off-box to Cloudflare R2 (tools/backup_to_r2.ps1 +
+# data/_meta/backup_manifest.tsv drift detector — see [[project_data_backup_r2]]).
+# The runtime Streamlit app reads ONLY the committed gold/silver parquets, never bronze,
+# so none of it needs to ship to GitHub. The type rules above miss .html and odd server
+# extensions, so blanket-ignore the whole tree and keep just the .gitkeep placeholders
+# that preserve the directory layout. (~25 MB of scraped HTML lived here before this rule.)
+data/bronze/**
+!data/bronze/**/
+!data/bronze/.gitkeep
+!data/bronze/**/.gitkeep
 
 # === Member avatars (Wikidata portraits + manifest) — committed deliberately ===
 # wiki_data.py downloads CC-licensed TD + Senator portraits into avatar/wikidata/.
