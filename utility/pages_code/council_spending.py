@@ -23,7 +23,11 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.freshness_data import freshness_line
-from pages_code.procurement import _render_councils, _render_payments_publisher_profile
+from pages_code.procurement import (
+    _render_councils,
+    _render_payments_publisher_profile,
+    _render_payments_supplier_profile,
+)
 from ui.components import hero_banner, hide_sidebar
 
 
@@ -40,6 +44,15 @@ def council_spending_page() -> None:
         req_tier = (params.get("paid_tier") or "COMMITTED").upper()
         _render_payments_publisher_profile(
             params.get("paid_publisher"), req_tier if req_tier in ("SPENT", "COMMITTED") else "COMMITTED"
+        )
+        return
+    # A supplier tile inside a council dossier links here: drill into the firm's cross-body
+    # footprint (which other public bodies paid it). Same renderer as Procurement's paid-supplier
+    # profile; company-class only (the renderer quarantines individuals).
+    if params.get("paid_supplier"):
+        req_tier = (params.get("paid_tier") or "COMMITTED").upper()
+        _render_payments_supplier_profile(
+            params.get("paid_supplier"), req_tier if req_tier in ("SPENT", "COMMITTED") else "COMMITTED"
         )
         return
 
