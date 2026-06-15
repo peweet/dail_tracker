@@ -267,6 +267,27 @@ Now attached per row as `store_link`. Layered link strategy:
 | Which EU law a standard supports | EU per-legislation harmonised-standards **.xls summary lists** + EUR-Lex CELEX/ELI | ✅ free crosswalk |
 | Who is authorised to certify a standard | **NANDO** notified-bodies register (NSAI = NB 0050) | ✅ public |
 
+### NSAI → CRO join — gated fuzzy match (experiment, 2026-06-15)
+Joined the 2,358 NSAI-certified firms to the 817k-row CRO master (`data/silver/cro/companies.parquet`).
+Precision-first, mirroring `pipeline_sandbox/fuzzy_cro_match_probe.py`. Fuzzy accepted ONLY when
+extremely likely, validated **column-by-column** (name similarity AND `location` vs CRO address):
+
+| Tier | Rule | Matches |
+|---|---|---|
+| exact | suffix-stripped core equal | 1,315 |
+| despace | de-spaced core equal | 61 |
+| fuzzy_name | name_score ≥ 98 (near-identical) | 13 |
+| fuzzy_name_loc | 92 ≤ score < 98 AND location agrees | 24 |
+| **total** | | **1,413 (60%)** |
+
+The location compare **caught real false positives** the name score alone would have passed:
+`C&C Sand & Gravel`→`C&P Sand & Gravel` (96), `Patrick Donegan`→`Patrick Doogan` (95),
+`Clancy Construction`→`Clanry Construction` (95) — all correctly rejected (no location corroboration).
+849 near-misses logged to `nsai_cro_REJECTED_review.csv`; matches in `nsai_cro_matched_gated.csv`
+(sandbox `c:/tmp/nsai_certs/`, nothing written to repo). Residual unmatched = public bodies/semi-states
+(legitimately not in CRO), foreign firms, and the scrape's UTF-8 mojibake (fixable). Realistic clean
+ceiling ≈ 65–70% among matchable private firms — the matcher is not the bottleneck.
+
 ### Why "the law" is paywalled — and the US vs EU split (context for the page's framing)
 Standards cited in law are written by **private, self-funding bodies** (CEN/CENELEC/ETSI/ISO/NSAI),
 to whom governments deliberately **delegated** the technical detail of legislation (EU "New Approach",
