@@ -102,3 +102,54 @@ under a €Y, 25-year PPP unitary commitment."*
 **Recommendation:** worth doing as the next enrichment after the linkage work plateaus. Build the
 registry CSV by hand (high precision, small N), join in a labelling pass, keep PPP unitary payments
 on a separate tier. Add a pointer in `doc/IDEAS.md` (the master idea map).
+
+---
+
+## 6. WHAT WAS PULLED & WHAT IS USABLE (2026-06-15 first pass)
+
+Built **`data/_meta/ppp_project_registry.csv`** — 25 rows, keyed on `spv_payee_norm`
+(= name_norm of the payee, so it joins straight to the payments fact). Sources verified live: the
+[TII PPP page](https://www.tii.ie/en/roads-tolling/projects-and-improvements/ppp/) (8 toll +
+5 DBFOM + 2 MSA road schemes) and NDFA / World-Bank PPP pages (Bundle 1 = MPFI/Macquarie,
+Bundle 2 = Pymble, Bundle 5 = Inspiredspaces).
+
+**Coverage — €2.83bn of the ~€9.0bn unlinked (≈31%) is now labellable:**
+
+| group | rows | € observed | confidence |
+|---|---|---|---|
+| group | rows | PAID (payment_actual) | COMMITTED (po_committed) | confidence |
+|---|---|---|---|---|
+| NBI / National Broadband (DECC, **not** NDFA) | 1 SPV | €1.17bn | €0.17bn | high |
+| Schools bundles (NDFA, Dept of Education) | 9 | ≈€0.66bn | €0 | high (B1/2/3/4/5) · med (Glasgiven/OHLA/CSM) |
+| Roads / Luas (TII) | 11 | ≈€0.50bn | €0 | high (named schemes) · med (Egis/Globalvia O&M) |
+| Courts bundle (NDFA, Courts Service) | 4 | €0 | ≈€0.16bn | high (BAM Courts) · low (CCC GP1 stubs) |
+| **TOTAL** | 25 | **€2.50bn** | **€0.33bn** | — |
+
+### ⚠️ The sums are NOT a clean €2.83bn — three corrections (do not over-state)
+
+1. **PAID ≠ COMMITTED — never add them.** €2.50bn is `payment_actual` (money out); €0.33bn is
+   `po_committed` (orders raised, not disbursed). They are different `realisation_tier`s — the
+   project's never-sum rule. The **entire Courts bundle is commitment, not spend**, and €0.17bn of
+   NBI is too. The registry now carries `paid_eur` / `committed_eur` as **separate columns** so they
+   can't be re-merged.
+2. **It's a ~14-year cumulative, not a figure.** The PAID total spans **2012–2026**; the annual
+   run-rate climbs from €7m (2012) → ~€500–590m (2024–25). State it as *"at least €2.5bn paid to
+   these SPVs across 2012–2026, as extracted, ~€500m/yr recently"* — never a single bare number.
+3. **NBI is €1.17bn paid + €0.17bn committed, across 2 publishers.** Broadband policy moved from
+   DCEEnv to the new **Dept of Culture, Communications** in 2025; the €0.17bn committed sits under
+   the new dept (2025–26). Watch the 2025 boundary for continuity/overlap before any annual figure.
+
+**Data-quality caveat:** **€0.26bn of the PAID total has NO year** (`year` null) — ~10%; it can be
+totalled but not placed in time. (No single-row outliers though — max single row is 1–15% of an
+SPV total, so no bogus total-row inflation.)
+
+**Usable now:** the **label** (project · sector · procurer · consortium · paid-vs-committed ·
+year-range) per SPV — converting the biggest "unlinked" gap into an explained *PPP track* tied to
+the consortium/parent that wins competitive tenders. Left-join as `value_kind = ppp_unitary`, but
+**keep paid and committed on separate lines and show the year span** — do not headline a blended €.
+
+**NOT pulled (the gap):** per-project **capital values / unitary-payment schedules** — C&AG PPP
+tables are image/compressed PDFs WebFetch can't parse (off-box OCR follow-up, the SIPO route).
+
+**Low-confidence rows to firm up by hand:** `CSM PPP SERVICES` (which bundle?), `CCC GP1` /
+`IPP CCC GP1` (Courts holding-co structure), the exact `Globalvia`/`Egis` road each O&M attaches to.
