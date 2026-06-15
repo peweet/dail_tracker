@@ -1,7 +1,7 @@
 # Judiciary exploration data — provenance & findings
 
 Sandbox datasets from the judiciary-feature data exploration, **pulled & validated 2026-06-04**.
-Not pipeline output. Reproduce via `pipeline_sandbox/persist_judiciary_data.py` (+ the
+Not pipeline output. Reproduce via `extractors/persist_judiciary_data.py` (+ the
 `probe_judiciary_*.py` probes). Feature plan: `doc/judiciary_feature_sources_claude_plan.md`.
 Memory: `project_judiciary_feature_validation`. Each file is written as both `.parquet`
 (zstd/level-3/statistics) and `.csv`.

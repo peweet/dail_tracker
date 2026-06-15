@@ -45,7 +45,7 @@ LOG = logging.getLogger("planning_cpo_compensation")
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "data/gold/parquet/procurement_payments_fact.parquet"
-OUT_DIR = ROOT / "pipeline_sandbox/_planning_output"
+OUT_DIR = ROOT / "data/silver/parquet"
 OUT = OUT_DIR / "cpo_land_acquisition_by_area_year.parquet"
 OUT_COV = ROOT / "data/_meta/cpo_land_acquisition_coverage.json"
 

@@ -1,6 +1,6 @@
 """Persist the validated judiciary exploration datasets (2026-06-04) to CSV + Parquet.
 THROWAWAY/sandbox persistence — NOT pipeline ETL. Outputs -> data/sandbox/judiciary/.
-Run: .venv/Scripts/python.exe pipeline_sandbox/persist_judiciary_data.py
+Run: .venv/Scripts/python.exe extractors/persist_judiciary_data.py
 Sources: data/gold/parquet/public_appointments.parquet (spine), C:/tmp cached PDFs/CSVs,
 ROSTER literal in probe_judiciary_join.py, and values captured during the 2026-06-04 pulls.
 """

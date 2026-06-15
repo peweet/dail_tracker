@@ -12,7 +12,7 @@ import pytest
 
 pl = pytest.importorskip("polars")
 
-OUT = Path(__file__).resolve().parents[1] / "pipeline_sandbox/_planning_output/planning_appeal_outcomes.parquet"
+OUT = Path(__file__).resolve().parents[2] / "data/silver/parquet/planning_appeal_outcomes.parquet"
 PII = {"ApplicantForename", "ApplicantSurname", "ApplicantAddress", "applicant"}
 
 pytestmark = pytest.mark.skipif(not OUT.exists(), reason="appeal-outcomes parquet not built")

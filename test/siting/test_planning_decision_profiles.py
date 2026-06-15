@@ -13,7 +13,7 @@ import pytest
 
 pl = pytest.importorskip("polars")
 
-OUT = Path(__file__).resolve().parents[1] / "pipeline_sandbox/_planning_output/planning_decision_profiles.parquet"
+OUT = Path(__file__).resolve().parents[2] / "data/silver/parquet/planning_decision_profiles.parquet"
 PII = {"ApplicantForename", "ApplicantSurname", "ApplicantAddress", "applicant", "ApplicantName"}
 FLAGS = ["in_sac", "in_spa", "in_nha", "in_pnha", "in_natura2000"]
 
