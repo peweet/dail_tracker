@@ -1,0 +1,26 @@
+spv_payee_norm,spv_example,project_name,sector,procurer,consortium,paid_eur,committed_eur,null_year_eur,n_rows,year_min,year_max,n_publishers,financial_close_year,source_url,confidence
+NBI INFRASTRUCTURE,NBI Infrastructure DAC,National Broadband Plan,broadband,DECC (NOT NDFA),National Broadband Ireland (Granahan McCourt),1166621984.0,172275619.0,0.0,347,2020,2026,2,2019,https://www.gov.ie/en/campaigns/3b34a-national-broadband-plan/,high
+BAM SCHOOLS BUNDLE THREE,BAM SCHOOLS BUNDLE THREE LTD,Schools Bundle 3,education,NDFA,BAM PPP,174169094.0,0.0,42758327.0,38,2013,2026,1,2014,https://www.ndfa.ie/,high
+SCHOOLS PUBLIC PRIVATE PARTNERSHIP,SCHOOLS PUBLIC PRIVATE PARTNERSHIP IRELAND,Schools PPP (bundle holding co),education,NDFA,unknown,125868015.0,0.0,33693777.0,53,2012,2026,1,,https://www.ndfa.ie/,medium
+PYMBLE SCHOOLS,PYMBLE SCHOOLS LIMITED,Schools Bundle 2,education,NDFA,Macquarie / John Sisk / Sodexo,119345878.0,0.0,35249038.0,38,2013,2026,1,2010,https://www.ndfa.ie/,high
+MPFI SCHOOLS,MPFI SCHOOLS LTD,Schools Bundle 1,education,NDFA,Macquarie (MPFI) / John Sisk / Sodexo,109698258.0,0.0,25846123.0,47,2012,2026,1,2009,https://www.ndfa.ie/,high
+BAM GLASGIVEN JV,BAM GLASGIVEN JV LIMITED,Schools PPP (BAM/Glasgiven),education,NDFA,BAM / Glasgiven JV,109428338.0,0.0,71401986.0,14,2025,2026,1,,https://www.ndfa.ie/,medium
+TRANSDEV,Transdev,Luas light-rail operation,public_transport,TII/TfI,Transdev,92500270.0,0.0,0.0,114,2021,2025,1,,https://www.tii.ie/en/roads-tolling/projects-and-improvements/ppp/,high
+DIRECT ROUTE TUAM,Direct Route Tuam,N17/N18 Gort-Tuam,roads,TII,Direct Route (Sisk/Lagan/Roadbridge/Strabag),75560843.0,0.0,0.0,51,2021,2025,1,2014,https://www.tii.ie/en/roads-tolling/projects-and-improvements/ppp/,high
+EGIS ROAD TUNNEL OPERATION IRE,Egis Road &Tunnel Operation Ire,Road/tunnel O&M (Egis),roads,TII,Egis,71645871.0,0.0,0.0,60,2021,2025,1,,https://www.tii.ie/en/roads-tolling/projects-and-improvements/ppp/,medium
+CSM PPP SERVICES,CSM PPP SERVICES LTD,Schools PPP (CSM),education,NDFA,unknown,68566064.0,0.0,3518785.0,35,2012,2020,1,,https://www.ndfa.ie/,low
+BAM SCHOOL BUNDLE 4,BAM SCHOOL BUNDLE 4 LTD,Schools Bundle 4,education,NDFA,BAM PPP,68352204.0,0.0,21139024.0,36,2013,2026,1,2016,https://www.ndfa.ie/,high
+INSPIRED SPACES BUNDLE 5,INSPIRED SPACES BUNDLE 5 IRELAND LTD,Schools Bundle 5,education,NDFA,Inspiredspaces (DIF) / Sammon,64064996.0,0.0,27130884.0,34,2013,2026,1,2016,https://www.ndfa.ie/,high
+M50 CONCESSION,M50 Concession,M50 Upgrade,roads,TII,M50 (Concession) - Ferrovial/Macquarie,58266018.0,0.0,0.0,66,2021,2025,1,2007,https://www.tii.ie/en/roads-tolling/projects-and-improvements/ppp/,high
+GLOBALVIA JONS,Globalvia Jons,Toll road concession (Globalvia operated),roads,TII,Globalvia,54471988.0,0.0,0.0,72,2021,2025,1,,https://www.tii.ie/en/roads-tolling/projects-and-improvements/ppp/,medium
+EGIS LAGAN SERVICES,Egis Lagan Services,Road O&M (Egis Lagan),roads,TII,Egis / Lagan,40359092.0,0.0,0.0,56,2021,2025,1,,https://www.tii.ie/en/roads-tolling/projects-and-improvements/ppp/,medium
+N11 ARKLOW RATHNEW PPP,N11 Arklow Rathnew PPP,N7/N11 Arklow-Rathnew & Newlands Cross,roads,TII,BAM PPP,35614832.0,0.0,0.0,55,2021,2025,1,2013,https://www.tii.ie/en/roads-tolling/projects-and-improvements/ppp/,high
+GOREY TO ENNISCORTHY PPP CO,Gorey To Enniscorthy PPP Co,M11 Gorey-Enniscorthy,roads,TII,BAM/Bouygues consortium,30165150.0,0.0,0.0,49,2021,2025,1,2015,https://www.tii.ie/en/roads-tolling/projects-and-improvements/ppp/,high
+NEW ROSS N25 BY PASS CO,New Ross N25 By-Pass Co,N25 New Ross Bypass,roads,TII,BAM/Dragados consortium,21425305.0,0.0,0.0,52,2021,2025,1,2016,https://www.tii.ie/en/roads-tolling/projects-and-improvements/ppp/,high
+DIRECT ROUTE LIMERICK,Direct Route Limerick,N18 Limerick Tunnel,roads,TII,DirectRoute (Limerick Tunnel concession),8834312.0,0.0,0.0,5,2023,2025,1,2006,https://www.tii.ie/en/roads-tolling/projects-and-improvements/ppp/,high
+GLASGIVEN MCAVOY JV,GLASGIVEN MCAVOY JV LIMITED,Schools PPP (Glasgiven/McAvoy),education,NDFA,Glasgiven / McAvoy JV,4227752.0,0.0,0.0,3,2014,2017,1,,https://www.ndfa.ie/,medium
+MPFI SCHOOLS1,MPFI SCHOOLS1 LIMITED,Schools Bundle 1,education,NDFA,Macquarie (MPFI) / John Sisk / Sodexo,759585.0,0.0,0.0,1,2013,2013,1,2009,https://www.ndfa.ie/,high
+IPP CCC GP1,IPP CCC GP1 LTD,Courts Bundle PPP,justice,NDFA,BAM PPP,0.0,79410469.0,0.0,88,2013,2019,1,2015,https://www.ndfa.ie/,medium
+COURTS BUNDLE,COURTS BUNDLE LIMITED,Courts Bundle PPP,justice,NDFA,BAM PPP,0.0,32270488.0,0.0,35,2017,2025,1,2015,https://www.ndfa.ie/,medium
+CCC GP1,CCC GP1 LTD,Courts Bundle PPP,justice,NDFA,BAM PPP,0.0,27391887.0,0.0,33,2012,2022,1,2015,https://www.ndfa.ie/,low
+BAM COURTS BUNDLE,BAM COURTS BUNDLE LIMITED,Courts Bundle PPP,justice,NDFA,BAM PPP,0.0,16651399.0,0.0,32,2018,2019,1,2015,https://www.ndfa.ie/,high

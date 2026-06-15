@@ -69,6 +69,22 @@ PDF) + NDFA project pages (SPV→consortium map, the join key) + TII (15 road PP
 Unitary payment = own value_kind (25-yr availability commitment), NEVER sum with award OR realised
 spend. NBI = separate (NBP/DECC, not NDFA). Verdict: HIGH value, LOW-MED effort, curation. PII-free.
 
+**2026-06-15 — B3 consolidation patch was REVERTED.** I wired `_apply_public_body_payees()` into
+`procurement_payments_consolidate.py` (reclassify 25 payees → public_body in GOLD) and re-ran it,
+but the owner pulled it: a production-pipeline change applied too loosely. Reverted code + gold
+parquet + coverage JSON to committed state. The curated `procurement_public_body_payees.csv` STILL
+EXISTS and is used by the (sandbox) link extractor; re-applying to the page = a future deliberate,
+validated promotion, NOT done. See [[feedback_pipeline_changes_data_anchored_promotion]].
+
+**PPP = SCOPING/RESEARCH ONLY, NOT wired.** `data/_meta/ppp_project_registry.csv` (25 SPV rows) +
+`doc/NDFA_PPP_SCOPING.md`. Nothing reads the CSV. ⚠️ I was OVER-CONFIDENT on the sums (owner caught
+it): "€2.83bn labelled" mixed TIERS — it's €2.50bn PAID (payment_actual) + €0.33bn COMMITTED
+(po_committed = orders incl. ALL of Courts bundle + €172m NBI), and it's a 14-yr cumulative
+(2012-26, run-rate €7m→€500m/yr), with €260m null-year. NBI = €1.17bn paid + €0.17bn committed
+across 2 publishers (broadband moved DCEEnv→Dept Culture/Communications 2025), NOT €1.34bn paid.
+Registry now carries paid_eur/committed_eur/year range as SEPARATE columns so it can't be mis-summed.
+Capital values NOT pulled (C&AG = unparseable PDF). NEVER sum payment_actual + po_committed.
+
 **BAM/PPP answer (user asked re HSE/Tusla):** BAM school bundles are paid by DEPT OF EDUCATION (not
 HSE/Tusla — 0 BAM rows there; those are health/child-welfare). They ARE in our payment data. They
 don't link because the payee is a ring-fenced PPP SPV ("BAM SCHOOLS BUNDLE THREE LTD" #distinct
