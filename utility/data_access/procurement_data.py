@@ -198,6 +198,19 @@ def fetch_afs_vs_po_coverage_result(council: str, year: int | None = None) -> Qu
     return _q.afs_vs_po_coverage(get_procurement_conn(), council, year=year)
 
 
+@st.cache_data(ttl=300)
+def fetch_afs_capital_by_year_result(council: str) -> QueryResult:
+    """One council's audited capital-account investment per year (the BUILDING-lane spine).
+    A distinct grain — never summed with the revenue or PO/award euros."""
+    return _q.afs_capital_by_year(get_procurement_conn(), council)
+
+
+@st.cache_data(ttl=300)
+def fetch_afs_capital_by_division_result(council: str, year: int) -> QueryResult:
+    """One council-year's capital investment by service division (the build/acquire breakdown)."""
+    return _q.afs_capital_by_division(get_procurement_conn(), council, year)
+
+
 # ── TED (EU-journal awards) — separate register ───────────────────────────────
 @st.cache_data(ttl=300)
 def fetch_ted_corpus_stats_result() -> QueryResult:

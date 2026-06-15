@@ -33,7 +33,11 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from data_access.appointments_data import fetch_public_appointments
+from data_access.appointments_data import (
+    fetch_public_appointments,
+    fetch_stateboards_boards,
+    fetch_stateboards_roster,
+)
 from data_access.freshness_data import freshness_line
 from shared_css import inject_css
 from ui.components import (
@@ -288,6 +292,103 @@ def _inject_pa_css() -> None:
             color: #7a5a00; margin-bottom: 0.4rem;
         }
 
+        /* ── STATE BOARDS register tab ─────────────────────────────────── */
+        .sb-intro {
+            font-size: 0.9rem; color: #5b6b73; line-height: 1.6;
+            max-width: 62rem; margin: 0.3rem 0 1.2rem;
+        }
+        .sb-intro strong { color: #14232b; font-weight: 600; }
+
+        .sb-summary {
+            display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0 0 1.3rem;
+        }
+        .sb-stat {
+            background: #ffffff; border: 1px solid #e5e2db; border-radius: 8px;
+            padding: 0.65rem 1rem; flex: 1 1 0; min-width: 8.5rem;
+        }
+        .sb-stat-n {
+            font-family: ui-serif, Georgia, serif; font-size: 1.5rem;
+            color: #14232b; font-variant-numeric: tabular-nums; line-height: 1.1;
+        }
+        .sb-stat-l {
+            font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+            color: #5b6b73; margin-top: 0.2rem;
+        }
+        /* shared gender split bar */
+        .sb-gbar {
+            display: flex; height: 0.55rem; border-radius: 3px; overflow: hidden;
+            margin-top: 0.45rem; background: #efe6cf;
+        }
+        .sb-gbar-f { background: #6b3f00; }
+        .sb-gbar-m { background: #c8b787; }
+        .sb-glegend {
+            font-size: 0.7rem; color: #5b6b73; margin-top: 0.25rem;
+            display: flex; gap: 0.65rem; font-variant-numeric: tabular-nums;
+        }
+        .sb-glegend .f::before { content: ""; display: inline-block; width: 0.6rem; height: 0.6rem;
+            background: #6b3f00; border-radius: 2px; margin-right: 0.25rem; vertical-align: middle; }
+        .sb-glegend .m::before { content: ""; display: inline-block; width: 0.6rem; height: 0.6rem;
+            background: #c8b787; border-radius: 2px; margin-right: 0.25rem; vertical-align: middle; }
+
+        .sb-count-line { margin: 0.4rem 0 0.6rem; font-size: 0.85rem; color: #5b6b73; }
+
+        .sb-board {
+            background: #ffffff; border: 1px solid #e5e2db; border-radius: 10px;
+            padding: 1.05rem 1.25rem 0.6rem; margin-bottom: 0.9rem;
+        }
+        .sb-board-head {
+            display: grid; grid-template-columns: minmax(0,1fr) 13rem;
+            gap: 1rem; align-items: start;
+            padding-bottom: 0.7rem; border-bottom: 1px solid #f0ece5;
+        }
+        @media (max-width: 700px) {
+            .sb-board-head { grid-template-columns: 1fr; gap: 0.55rem; }
+        }
+        .sb-board-dept {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
+            color: #7a5a00; font-weight: 600;
+        }
+        .sb-board-name {
+            font-family: ui-serif, Georgia, serif; font-size: 1.12rem; line-height: 1.3;
+            color: #14232b; margin: 0.2rem 0 0.3rem;
+        }
+        .sb-board-basis { font-size: 0.78rem; color: #5b6b73; line-height: 1.5; }
+        .sb-board-basis a { color: #1f4757; text-decoration: none; border-bottom: 1px solid #b9d0dc; }
+        .sb-board-stats { font-size: 0.78rem; color: #5b6b73; }
+        .sb-board-seats { font-variant-numeric: tabular-nums; }
+        .sb-board-seats strong { color: #14232b; font-size: 1rem; font-family: ui-serif, Georgia, serif; }
+
+        .sb-members { padding-top: 0.5rem; }
+        .sb-member {
+            display: grid; grid-template-columns: minmax(0,1fr) auto;
+            gap: 0.5rem 1rem; align-items: baseline;
+            padding: 0.5rem 0; border-top: 1px solid #f6f3ec;
+        }
+        .sb-member:first-child { border-top: none; }
+        .sb-member-name { font-weight: 600; color: #14232b; font-size: 0.92rem; }
+        .sb-member-pos {
+            display: inline-block; margin-left: 0.5rem; padding: 0.08rem 0.5rem;
+            border-radius: 999px; font-size: 0.68rem; background: #f5f1ea;
+            border: 1px solid #e5e2db; color: #5b6b73; white-space: nowrap;
+            vertical-align: middle;
+        }
+        .sb-member-pos.is-chair { background: #fff7e6; border-color: #f0d99b; color: #7a5a00; }
+        .sb-member-meta {
+            font-size: 0.78rem; color: #5b6b73; text-align: right;
+            font-variant-numeric: tabular-nums; white-space: nowrap;
+        }
+        .sb-member-roles {
+            grid-column: 1 / -1; font-size: 0.8rem; color: #41306a;
+            background: #f6f2fb; border: 1px solid #e3d9f2; border-radius: 6px;
+            padding: 0.4rem 0.6rem; margin-top: 0.1rem; line-height: 1.5;
+        }
+        .sb-member-roles a { color: #41306a; font-weight: 600; text-decoration: none;
+            border-bottom: 1px solid #c9b8e6; }
+        .sb-roles-tag {
+            font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em;
+            color: #6b4fa0; font-weight: 700; margin-right: 0.35rem;
+        }
+
         /* mobile hero tightening (same pattern as SI page audit P1-2) */
         @media (max-width: 640px) {
             .dt-hero .dt-kicker { display: none; }
@@ -322,6 +423,13 @@ def load_appointments() -> pd.DataFrame:
     has_ref = df["notice_ref"].notna() & (df["notice_ref"].astype(str).str.strip() != "")
     df["display_ref"] = df["notice_ref"].where(has_ref, fallback_ref)
     return df
+
+
+@st.cache_data(show_spinner="Loading State Boards register…")
+def load_stateboards() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Live DPER membership roster (seat grain) + the board universe (board
+    grain). Two registered views; the tab facets/groups in pandas off them."""
+    return fetch_stateboards_roster(), fetch_stateboards_boards()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -825,7 +933,7 @@ def _render_detail(row: pd.Series) -> None:
                 f"Iris Oifigiúil — {html.escape(date_str)} ↗</a>"
                 f'<div style="font-family:ui-monospace,Menlo,monospace;font-size:0.78rem;'
                 f'color:#8a8a8a;margin-top:0.2rem;">{html.escape(src_pdf)} '
-                f"· opens the issue's PDF list</div>"
+                f"· opens the issue PDF</div>"
             )
         else:
             val_html = (
@@ -850,6 +958,321 @@ def _render_detail(row: pd.Series) -> None:
             f"{html.escape(irish_pretty)}"
             "</div>"
         )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# State Boards register tab
+# ──────────────────────────────────────────────────────────────────────────────
+SB_BOARDS_PER_PAGE = 8
+
+
+def _role_group(pos: str) -> str:
+    p = (pos or "").lower()
+    if "chair" in p:
+        return "Chairs"
+    if "member" in p:
+        return "Members"
+    return "Other"
+
+
+def _term(first, expiry) -> str:
+    def _yr(v) -> str:
+        s = _safe(v).strip()
+        return s[:4] if len(s) >= 4 and s[:4].isdigit() else ""
+
+    a, b = _yr(first), _yr(expiry)
+    if a and b:
+        return f"{a}–{b}"
+    if a:
+        return f"from {a}"
+    if b:
+        return f"until {b}"
+    return ""
+
+
+def _gender_bar(fpct, mpct) -> str:
+    """logic_firewall: display_only — renders the published per-board gender
+    split (already computed in v_stateboards_boards) as a bar. No math."""
+    try:
+        f = float(fpct)
+        m = float(mpct)
+    except (TypeError, ValueError):
+        return ""
+    if f <= 0 and m <= 0:
+        return ""
+    return (
+        f'<div class="sb-gbar"><span class="sb-gbar-f" style="width:{f:.0f}%"></span>'
+        f'<span class="sb-gbar-m" style="width:{m:.0f}%"></span></div>'
+        f'<div class="sb-glegend"><span class="f">{f:.0f}% women</span>'
+        f'<span class="m">{m:.0f}% men</span></div>'
+    )
+
+
+def _filter_roster(
+    roster: pd.DataFrame, dept: str, role_grp: str, outside_only: bool, search: str
+) -> pd.DataFrame:
+    out = roster
+    if dept and dept != "All":
+        out = out[out["department"] == dept]
+    if role_grp and role_grp != "All":
+        out = out[out["position_type"].fillna("").map(_role_group) == role_grp]
+    if outside_only:
+        out = out[out["wikidata_qid"].notna()]
+    if search:
+        s = search.strip().lower()
+        if s:
+            mask = (
+                out["member_name"].fillna("").astype(str).str.lower().str.contains(s, na=False)
+                | out["body"].fillna("").astype(str).str.lower().str.contains(s, na=False)
+                | out["body_full"].fillna("").astype(str).str.lower().str.contains(s, na=False)
+                | out["department"].fillna("").astype(str).str.lower().str.contains(s, na=False)
+            )
+            out = out[mask]
+    return out
+
+
+def _render_member(row: pd.Series) -> str:
+    name = html.escape(_safe(row.get("member_name")) or "—")
+    pos = _safe(row.get("position_type"))
+    pos_cls = " is-chair" if "chair" in pos.lower() else ""
+    pos_html = f'<span class="sb-member-pos{pos_cls}">{html.escape(pos)}</span>' if pos else ""
+    basis = _safe(row.get("basis_of_appointment"))
+    term = _term(row.get("first_appointed"), row.get("expiry_date"))
+    meta_bits = [b for b in (basis, term) if b]
+    meta_html = html.escape(" · ".join(meta_bits)) if meta_bits else ""
+
+    roles_html = ""
+    if _safe(row.get("wikidata_qid")):
+        desc = _safe(row.get("wikidata_description"))
+        occ = _safe(row.get("wikidata_occupations"))
+        url = _safe(row.get("wikidata_url"))
+        label = _safe(row.get("wikidata_label")) or _safe(row.get("member_name"))
+        detail = desc or occ
+        if len(detail) > 140:
+            detail = detail[:139].rstrip() + "…"
+        link = (
+            f'<a href="{html.escape(url, quote=True)}" target="_blank" rel="noopener">{html.escape(label)} ↗</a>'
+            if url
+            else html.escape(label)
+        )
+        roles_html = (
+            f'<div class="sb-member-roles"><span class="sb-roles-tag">Public record</span>'
+            f"{link}{(' — ' + html.escape(detail)) if detail else ''}</div>"
+        )
+
+    return (
+        '<div class="sb-member">'
+        f'<div class="sb-member-main"><span class="sb-member-name">{name}</span>{pos_html}</div>'
+        f'<div class="sb-member-meta">{meta_html}</div>'
+        f"{roles_html}"
+        "</div>"
+    )
+
+
+def _render_board_card(body: str, members: pd.DataFrame, meta: dict | None) -> str:
+    meta = meta or {}
+    dept = html.escape(_safe(members.iloc[0].get("department")))
+    body_full = _safe(members.iloc[0].get("body_full")) or body
+    name = html.escape(body_full)
+
+    basis_html = ""
+    legal = _safe(meta.get("legal_basis"))
+    legal_url = _safe(meta.get("legal_basis_url"))
+    if legal:
+        if legal_url:
+            basis_html = (
+                f'<div class="sb-board-basis">Statutory basis: '
+                f'<a href="{html.escape(legal_url, quote=True)}" target="_blank" rel="noopener">'
+                f"{html.escape(legal)} ↗</a></div>"
+            )
+        else:
+            basis_html = f'<div class="sb-board-basis">Statutory basis: {html.escape(legal)}</div>'
+
+    listed = len(members)
+    max_pos = meta.get("max_positions")
+    if isinstance(max_pos, (int, float)) and not pd.isna(max_pos) and int(max_pos) > 0:
+        seats_html = f'<div class="sb-board-seats"><strong>{listed}</strong> of {int(max_pos)} seats shown</div>'
+    else:
+        seats_html = f'<div class="sb-board-seats"><strong>{listed}</strong> member{"s" if listed != 1 else ""}</div>'
+
+    gender_html = _gender_bar(meta.get("gender_female_pct"), meta.get("gender_male_pct"))
+
+    members_html = "".join(_render_member(r) for _, r in members.iterrows())
+
+    return (
+        '<section class="sb-board">'
+        '<div class="sb-board-head">'
+        f'<div><div class="sb-board-dept">{dept}</div>'
+        f'<h3 class="sb-board-name">{name}</h3>{basis_html}</div>'
+        f'<div class="sb-board-stats">{seats_html}{gender_html}</div>'
+        "</div>"
+        f'<div class="sb-members">{members_html}</div>'
+        "</section>"
+    )
+
+
+def _render_stateboards_tab(roster: pd.DataFrame, boards: pd.DataFrame) -> None:
+    if roster.empty:
+        empty_state(
+            "State Boards register unavailable",
+            "The view returned no rows. Check that data/gold/parquet/stateboards_roster.parquet "
+            "is present and that sql_views/appointments/appointments_stateboards_roster.sql "
+            "registered cleanly.",
+        )
+        return
+
+    st.html(
+        '<p class="sb-intro">'
+        "A live snapshot of <strong>who currently sits on Ireland's State boards</strong> — the "
+        "membership register maintained by the Department of Public Expenditure. Unlike the "
+        "appointment notices, which record individual gazette <em>events</em>, this is the "
+        "standing roster: every named seat, its basis of appointment, and term. Where a member's "
+        "identity has been hand-verified, their public-record roles are linked."
+        "</p>"
+    )
+
+    # ── Summary strip (full register; the editorial frame, not a filtered slice).
+    n_boards = roster["body"].nunique()
+    n_seats = len(roster)
+    n_depts = roster["department"].nunique()
+    # Overall gender balance from the board universe (bare Series sums, not a
+    # groupby rollup). logic_firewall: display_only
+    f_n = int(boards["gender_female_n"].sum()) if not boards.empty else 0
+    m_n = int(boards["gender_male_n"].sum()) if not boards.empty else 0
+    tot = f_n + m_n
+    f_pct = round(100 * f_n / tot) if tot else 0
+    m_pct = 100 - f_pct if tot else 0
+    gender_block = (
+        f'<div class="sb-stat"><div class="sb-stat-n">{f_pct}% / {m_pct}%</div>'
+        f'<div class="sb-stat-l">Women / men</div>'
+        f"{_gender_bar(f_pct, m_pct)}</div>"
+        if tot
+        else ""
+    )
+    st.html(
+        '<div class="sb-summary">'
+        f'<div class="sb-stat"><div class="sb-stat-n">{n_boards:,}</div><div class="sb-stat-l">State boards</div></div>'
+        f'<div class="sb-stat"><div class="sb-stat-n">{n_seats:,}</div><div class="sb-stat-l">Board seats</div></div>'
+        f'<div class="sb-stat"><div class="sb-stat-n">{n_depts:,}</div><div class="sb-stat-l">Departments</div></div>'
+        f"{gender_block}"
+        "</div>"
+    )
+
+    # ── Facets.
+    st.text_input(
+        "Search the register",
+        placeholder="Search by member name, board, or department.",
+        key="sb_search",
+        label_visibility="collapsed",
+    )
+
+    c1, c2, c3 = st.columns([2, 1.4, 1.6])
+    with c1:
+        dc = roster["department"].dropna().value_counts()  # logic_firewall: display_only
+        dept_opts = ["All"] + dc.index.tolist()
+        st.selectbox(
+            "Department",
+            dept_opts,
+            index=0,
+            key="sb_dept",
+            format_func=lambda x: "All departments" if x == "All" else f"{x} · {int(dc.get(x, 0)):,}",
+        )
+    with c2:
+        st.selectbox(
+            "Role",
+            ["All", "Chairs", "Members", "Other"],
+            index=0,
+            key="sb_role",
+            format_func=lambda x: "All roles" if x == "All" else x,
+        )
+    with c3:
+        st.checkbox(
+            "Members with a public record only",
+            key="sb_outside_only",
+            help="Show only seats held by people whose identity has been hand-verified against the public record.",
+        )
+
+    filtered = _filter_roster(
+        roster,
+        dept=st.session_state.get("sb_dept", "All"),
+        role_grp=st.session_state.get("sb_role", "All"),
+        outside_only=st.session_state.get("sb_outside_only", False),
+        search=st.session_state.get("sb_search", ""),
+    )
+
+    if filtered.empty:
+        empty_state(
+            "No board members match these filters",
+            "Try clearing the search, widening the role, or turning off the public-record filter.",
+        )
+        return
+
+    # Board universe metadata, keyed by board name for display-time lookup
+    # (a dict lookup, not a pandas merge — keeps the join in the pipeline view).
+    board_meta = {str(r["body"]): r for r in boards.to_dict("records")}
+
+    # Boards in published order (the view is ORDER BY department, body), paginated.
+    ordered_bodies = filtered["body"].dropna().drop_duplicates().tolist()
+    total_boards = len(ordered_bodies)
+
+    st.html(
+        f'<div class="sb-count-line"><strong>{len(filtered):,}</strong> '
+        f"board seat{'s' if len(filtered) != 1 else ''} across "
+        f"<strong>{total_boards:,}</strong> board{'s' if total_boards != 1 else ''} "
+        f"match the current filters.</div>"
+    )
+
+    page_idx = paginate(total_boards, key_prefix="sb_feed", page_size=SB_BOARDS_PER_PAGE)
+    page_bodies = ordered_bodies[page_idx * SB_BOARDS_PER_PAGE : (page_idx + 1) * SB_BOARDS_PER_PAGE]
+
+    cards = [
+        _render_board_card(b, filtered[filtered["body"] == b], board_meta.get(str(b)))
+        for b in page_bodies
+    ]
+    st.html("".join(cards))
+
+    pagination_controls(
+        total_boards,
+        key_prefix="sb_feed",
+        page_sizes=(SB_BOARDS_PER_PAGE,),
+        default_page_size=SB_BOARDS_PER_PAGE,
+        label="boards",
+    )
+
+    # CSV export of the filtered roster.
+    csv_cols = [
+        "department",
+        "body",
+        "member_name",
+        "position_type",
+        "basis_of_appointment",
+        "first_appointed",
+        "expiry_date",
+        "wikidata_url",
+        "source_url",
+    ]
+    export_button(
+        filtered[csv_cols],
+        label=f"Download {len(filtered):,} board seats (CSV)",
+        filename="dail_tracker_state_boards_register.csv",
+        key="sb_csv_download",
+    )
+
+    provenance_expander(
+        sections=[
+            "**Data source:** the State Boards membership register published at "
+            "membership.stateboards.ie by the Department of Public Expenditure — the standing "
+            "roster of board members across ~250 State bodies and 19 departments. This is a "
+            "current snapshot, not a history of appointment events.",
+            "Where a member's identity has been **hand-verified**, their public-record roles "
+            "(from Wikidata) are shown. Automated name-matching was removed because roughly one "
+            "in four auto-matches was the wrong same-named person — so a member with no public-"
+            "record line simply has not been curated, which does not imply they hold no outside "
+            "roles.",
+        ],
+        source_caption="Source: membership.stateboards.ie (DPER) · gender balance and legal basis as published",
+        freshness=freshness_line("stateboards_roster"),
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
