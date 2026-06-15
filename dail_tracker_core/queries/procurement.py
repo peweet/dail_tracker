@@ -799,6 +799,26 @@ def payments_publishers_for_supplier(
     )
 
 
+def entity_chain_for_company(conn: duckdb.DuckDBPyConnection, company_num: str) -> QueryResult:
+    """One CRO-matched firm's cross-register footprint: which of the three public-money
+    registers it appears in (eTenders awards, TED awards, public-body payments) and each
+    register's own headline number, side by side. Hard CRO company-number match only.
+
+    ⚠️ The money columns are DIFFERENT GRAINS (award ceilings vs realised payments) and the
+    page MUST label them separately and NEVER sum them. Absence from a register is coverage,
+    not missing money (only ~7% of State spend is in the payments corpus). Single-row select
+    over the pre-joined view — the page renders, never computes."""
+    return _run(
+        conn,
+        "SELECT company_num, display_name, in_etenders, in_ted, in_payments, n_registers,"
+        " etenders_award_rows, etenders_n_authorities, etenders_awarded_value_safe_eur,"
+        " ted_awards, ted_n_buyers, ted_value_safe_eur,"
+        " payment_lines, payments_n_publishers, paid_safe_eur, committed_safe_eur"
+        " FROM v_procurement_entity_chain WHERE company_num = ?",
+        [company_num],
+    )
+
+
 # ── AFS (per-LA audited Annual Financial Statement) — the BUDGET/accounts grain ──────────
 # A SIBLING context fact for the local-authority dossier: the council's total audited revenue
 # spend by service division (the denominator the named-supplier PO/payment slice sits inside).

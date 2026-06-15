@@ -1,22 +1,22 @@
 {
   "councils_attempted": 24,
-  "councils_with_rows": 19,
-  "rows_extracted": 68765,
-  "rows_public_display": 55286,
-  "rows_quarantined": 13479,
+  "councils_with_rows": 20,
+  "rows_extracted": 72018,
+  "rows_public_display": 57750,
+  "rows_quarantined": 14268,
   "supplier_class_counts": {
-    "sole_trader_or_individual": 13325,
+    "sole_trader_or_individual": 14114,
+    "public_body": 1730,
     "foreign_company": 15,
-    "id_code": 154,
-    "public_body": 1700,
-    "company": 53571
+    "company": 56005,
+    "id_code": 154
   },
   "value_kind_counts": {
     "payment_actual": 7859,
-    "po_committed": 60906
+    "po_committed": 64159
   },
-  "public_safe_to_sum_rows": 55286,
-  "public_safe_to_sum_total_eur": 6396822576.389999,
+  "public_safe_to_sum_rows": 57750,
+  "public_safe_to_sum_total_eur": 6951084858.749999,
   "by_council": [
     {
       "slug": "south_dublin",
@@ -71,7 +71,7 @@
       "files_parsed": 38,
       "rows": 5564,
       "total_eur": 944738334.08,
-      "cro_rate": 0.442,
+      "cro_rate": 0.444,
       "periods": [
         "2017",
         "2017-Q1",
@@ -245,7 +245,7 @@
       "files_parsed": 38,
       "rows": 9790,
       "total_eur": 683906557.36,
-      "cro_rate": 0.307,
+      "cro_rate": 0.308,
       "periods": [
         "2017-Q1",
         "2017-Q2",
@@ -395,11 +395,48 @@
       "council": "Waterford",
       "region": "Munster",
       "value_kind": "po_committed",
-      "files_parsed": 0,
-      "rows": 0,
-      "total_eur": 0,
-      "cro_rate": 0.0,
-      "periods": []
+      "files_parsed": 36,
+      "rows": 3253,
+      "total_eur": 629087393.43,
+      "cro_rate": 0.192,
+      "periods": [
+        "2017-Q2",
+        "2017-Q3",
+        "2017-Q4",
+        "2018-Q1",
+        "2018-Q2",
+        "2018-Q3",
+        "2018-Q4",
+        "2019-Q1",
+        "2019-Q2",
+        "2019-Q3",
+        "2019-Q4",
+        "2020-Q1",
+        "2020-Q2",
+        "2020-Q3",
+        "2020-Q4",
+        "2021-Q1",
+        "2021-Q2",
+        "2021-Q3",
+        "2021-Q4",
+        "2022-Q1",
+        "2022-Q2",
+        "2022-Q3",
+        "2022-Q4",
+        "2023-Q1",
+        "2023-Q2",
+        "2023-Q3",
+        "2023-Q4",
+        "2024-Q1",
+        "2024-Q2",
+        "2024-Q3",
+        "2024-Q4",
+        "2025-Q1",
+        "2025-Q2",
+        "2025-Q3",
+        "2025-Q4",
+        "2026-Q1"
+      ]
     },
     {
       "slug": "limerick",
@@ -694,6 +731,6 @@
   "parser_version": "0.1.0",
   "taxonomy": "master value_kind + realisation_tier; unions with public_payments_fact (rename that fact's amount_semantics\u2192value_kind, derive realisation_tier).",
   "source": "Each LA's own website, Circular Fin 07/2012 publications (CC-BY / attribute).",
-  "generated_at": "2026-06-12T06:27:58+00:00",
+  "generated_at": "2026-06-14T18:56:54+00:00",
   "caveat": "One row = one published PO/payment line. value_kind distinguishes po_committed (ordered/COMMITTED) vs payment_actual (paid/SPENT); only value_safe_to_sum may be totalled, within a council+period, labelled 'ordered'/'paid', never mixed with award ceilings. Personal-data payees (sole_trader/id_code/unknown) are quarantined (public_display=False). A line is a purchase order or payment, NOT evidence of influence."
 }

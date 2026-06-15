@@ -5,17 +5,15 @@
   "plan_name": "Wicklow County Development Plan 2021-2027",
   "dm_location": "Volume 1, Appendix 1 — Development & Design Standards",
   "extract_status": "partial",
-
   "rural_min_site_area": null,
   "rural_site_scaling": null,
   "ribbon_development_rule": null,
-  "road_setback_national_m": null,
-  "road_setback_regional_m": null,
-  "road_setback_local_m": null,
+  "road_setback_national_m": "100 m (all development); 20 m (employment development) — Motorway & National Road [Table 2.5]",
+  "road_setback_regional_m": "40 m (all development); 20 m (employment development) — Rural Regional [Table 2.5]",
+  "road_setback_local_m": "20 m (Rural Local Roads); 10 m (Arterial Road); 6 m (Link Road); Urban Local = min for footpaths/buffer [Table 2.5]",
   "sightline_x_m": null,
   "sightline_y": "Forward sight distance maintained for first 6 m from carriageway edge, increasing to 10 m or more for larger housing developments",
   "wastewater_standard": "EPA Code of Practice on Wastewater Treatment and Disposal Systems Serving Single Houses 2010 (percolation)",
-
   "residential_density_dph": "Min 50 uph within 500 m of larger town centres; 35-50 dph medium towns; 40+ uph higher-order; <30 dph smaller/rural",
   "plot_ratio": null,
   "site_coverage_pct": null,
@@ -24,7 +22,6 @@
   "public_open_space_pct": "0.6 ha casual play spaces (parks) + 0.2 ha equipped play space (playgrounds)",
   "car_parking_dwelling": "Dwelling 3-4 bedrooms: 1 space per bedroom; smaller units 1.5 per bed/unit in apartment contexts",
   "building_height": null,
-
   "trigger_AA": "Natura/AA screening applies (statutory, handled in Volume 1); not a numeric trigger table in Appendix 1",
   "trigger_EIA": "EIA/EIAR screening/determination governed by Volume 1 and national regulations (not in Appendix 1)",
   "trigger_FRA": "FRA required with all development in flood-risk areas; 2009 Guidelines / Justification Test (§1.5)",
@@ -32,6 +29,5 @@
   "trigger_EcIA": "Proposals affecting natural features/water quality must demonstrate no deterioration (§1.3)",
   "trigger_VIA": null,
   "trigger_TTA": "Sightline/road standards reference TTA Guidelines 2014 (TTA above threshold)",
-
-  "notes": "Rural one-off housing under Sustainable Rural Housing Guidelines 2005; no fixed minimum-site-area in Appendix 1 (rural policy in Volume 1). Two-column source PDF scrambles some table cells; raw/dm_standards.pdf is authoritative. EV charging 1 per 5 / 1 per 10 spaces."
+  "notes": "Rural one-off housing under Sustainable Rural Housing Guidelines 2005; no fixed minimum-site-area in Appendix 1 (rural policy in Volume 1). Two-column source PDF scrambles some table cells; raw/dm_standards.pdf is authoritative. EV charging 1 per 5 / 1 per 10 spaces. | 2026-06-15: added road_setback_national_m, road_setback_regional_m, road_setback_local_m from Appendix 1 Table 2.5 (raw/dm_standards.pdf, fitz table-extract 2026-06-15)."
 }

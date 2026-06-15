@@ -1580,6 +1580,36 @@ host/range-read as COG per §23.9). Tailte Éireann 10 m DTM is LICENSED (propri
   crosswalk (same pattern as the §12 DM-standards rulebook). Statutory: every LA HAS an RPS, so a missing
   GIS row = it's in the plan PDF, not absent.
 
+### 23.11 RULEBOOK COMPLETENESS — extraction pass result (2026-06-15)
+Ran a verbatim promotion pass over all 31 `planning_rules/_criteria_map/*.json` vs their
+`dm_standards.md` (4 read-only agents, strict no-inference). **Result: ZERO values qualified for
+promotion.** The sparse structured fields (rural_min_site_area 10/31, road setbacks 3–4/31, sightline_x
+11/31, ribbon 7/31) are **mostly CORRECTLY NULL, not extraction gaps** — confirmed per-council:
+- Values that exist verbatim are **already captured** (e.g. Mayo setbacks 40/20/10 m, Galway full set).
+- Most nulls are **genuine**: the plan either sets no numeric standard (handled qualitatively), or states
+  it in a **non-mapping form** the no-inference rule rejects (junction-distance ≠ road setback; gate-recess
+  / entrance-width ≠ sightline-X; business-park building-line ≠ general road setback).
+- This **echoes the §12.4 thesis**: the rulebook is non-uniform — many councils simply don't tabulate
+  rural numerics. So the null-count OVERSTATED the gap; the rulebook is more complete than it implied.
+- **Small bounded residue** (~4–6 councils) DO have the value in the plan but in a chapter/appendix NOT in
+  the DM-standards extract: Cavan (sightlines App.4), Wicklow (setbacks §2.1.11), Wexford (sightlines §6),
+  Laois (sightlines Ch.10 Roads). Filling these = a targeted extract of those *named* sections from the
+  `raw/` PDFs — the only genuine remaining rulebook work, and it's tiny.
+- **Feature implication:** where a council sets a numeric standard we quote it; where it's null the tool
+  truthfully shows the qualitative rule / "no fixed numeric standard" — accurate, not a gap to paper over.
+- **RESIDUE FOLDED IN (2026-06-15):** chased the residue via LOCAL `pdftotext`/`fitz` on the `raw/` PDFs
+  (web search locates docs but can't extract numbers; the raw PDFs were already on disk). Found+committed
+  5 net-new verbatim values with provenance: **Wexford** sightline X/Y (Vol 2 §6 portal — were in the
+  Transport section, not the captured DM Manual), **Wicklow** road setbacks (App.1 Table 2.5, two-column
+  → `fitz` table-extract: National/Motorway 100 m, Rural Regional 40 m, Rural Local 20 m, Arterial 10 m,
+  Link 6 m). KEY: most "gaps" were **already populated** (Roscommon sightlines, Wexford rural site area) —
+  the null-count overstated again; and the no-overwrite guard preserved existing curated values (Roscommon's
+  existing sight-distance ladder was better than the column-mangled re-read). **Cork County** confirmed:
+  docs present (`raw/volume-1-main-policy-material.pdf`) but genuinely **no fixed rural site area** (6
+  rural-area-types + occupancy conditions). Method proven: finish any remaining partials via local raw-PDF
+  extraction, not web. ⚠️ Wexford sightlines are WebFetch-portal-sourced (one verification step short of
+  the fitz/pdftotext direct reads) — tagged as such in its `notes`/`dm_standards.md` for audit.
+
 ---
 
 ## 22. NATIONAL DECISION-PROFILE PASS — §13 generalised to the whole 495k corpus (BUILT, 2026-06-14)
