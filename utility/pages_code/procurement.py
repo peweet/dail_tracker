@@ -37,6 +37,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from data_access.freshness_data import freshness_line
 from data_access.procurement_data import (
     fetch_afs_by_division_result,
+    fetch_afs_capital_by_division_result,
+    fetch_afs_capital_by_year_result,
     fetch_afs_total_by_year_result,
     fetch_afs_vs_po_coverage_result,
     fetch_authority_summary_result,
@@ -249,6 +251,27 @@ def _card(name_html: str, meta: str, pills: list[str], *, rank: int | None = Non
 
 def _value_pill(val) -> str:
     return f'<span class="pr-pill pr-pill-val">{_eur(val)} awarded</span>'
+
+
+def _afs_bar_row(label: str, amount, max_amount: float, *, fig_html: str, note: str, accent: str) -> str:
+    """One horizontal labelled bar for the AFS lanes (net cost / capital by service).
+
+    Width is a pure DISPLAY scaling of ``amount`` against the lane's own max (no aggregation —
+    the rows arrive pre-summed and pre-ordered from the view). ``fig_html`` is the right-aligned
+    figure, ``note`` the muted sub-label (e.g. self-funding), ``accent`` the bar fill colour."""
+    try:
+        frac = max(0.0, min(1.0, float(amount) / max_amount)) if max_amount > 0 else 0.0
+    except (TypeError, ValueError):
+        frac = 0.0
+    pct = max(2.0, frac * 100) if frac > 0 else 0.0  # 2% floor so a tiny non-zero bar stays visible
+    note_html = f'<span class="pr-afsbar-note">{_esc(note)}</span>' if note else ""
+    return (
+        '<div class="pr-afsbar">'
+        f'<div class="pr-afsbar-top"><span class="pr-afsbar-label">{_esc(label)}</span>'
+        f'<span class="pr-afsbar-fig">{fig_html}</span></div>'
+        f'<div class="pr-afsbar-track"><div class="pr-afsbar-fill" style="width:{pct:.1f}%;background:{accent}"></div></div>'
+        f"{note_html}</div>"
+    )
 
 
 def _cro_pill(row) -> str:
@@ -750,59 +773,123 @@ def _render_councils() -> None:
     st.html(_PAY_FOOT_HTML)
 
 
-def _render_council_accounts_context(council: str, active_tier: str, *, po_max_year: int | None = None) -> None:
-    """AFS enrichment on a LOCAL-AUTHORITY dossier — the council's audited accounts as the
-    "complete spending" context the named-supplier PO/payment data sits inside.
+def _lane_header(tag: str, head: str, dek_html: str) -> str:
+    """A bold lane band that opens one of the dossier's three honest grains (Running / Building /
+    Paying). ``tag`` is the small caps stratum, ``head`` the section <h2>, ``dek_html`` the prose."""
+    return (
+        '<div class="pr-lane">'
+        f'<div class="pr-lane-tag">{_esc(tag)}</div>'
+        f'<h2 class="pr-lane-head">{_esc(head)}</h2>'
+        f'<p class="pr-lane-dek">{dek_html}</p></div>'
+    )
 
-    ⚠️ BUDGET grain — a SIBLING fact, NEVER summed with the purchase-order euros above it.
-    Three additive pieces, all pre-aggregated in the views (the page selects + renders, never
-    computes a metric): (1) audited revenue spend per year; (2) the latest year's spending by
-    service division; (3) an indicative traceability line — how much of that audited spend is
-    tied to named suppliers in the >€20k purchase-order register. Silently omitted for a council
-    whose audited AFS isn't in the fact yet (so the dossier just shows the PO data, as before).
 
-    ``po_max_year`` is the latest year present in the purchase-order data above; when the audited
-    accounts end before it, the section flags the lag (councils file the audited AFS in arrears)."""
+def _net_cost_label(net) -> str:
+    """Net cost of a service to the local taxpayer. A non-positive net means the service's own
+    income/grants cover it (housing rents, water recoupment) — say so rather than print '—'."""
+    try:
+        n = float(net)
+    except (TypeError, ValueError):
+        return "—"
+    return f"{_eur(n)} net cost" if n > 0 else "covered by its own income"
+
+
+def _self_funded_note(pct, division: str) -> str:
+    """Muted sub-label: the share of a service the council recovers itself vs. funds from rates/LPT."""
+    try:
+        p = float(pct)
+    except (TypeError, ValueError):
+        return ""
+    if division == "Miscellaneous Services":
+        return "carries the rates / Local Property Tax allocation — not a like-for-like service"
+    if p >= 100:
+        return "fully covered by its own income & grants"
+    return f"{p:.0f}% funded by its own charges & grants — the rest by you (rates, LPT, State grant)"
+
+
+def _render_council_running_lane(council: str, active_tier: str, *, po_max_year: int | None) -> int | None:
+    """LANE 1 — RUNNING THE SERVICES (audited revenue account). Leads with NET COST by service
+    (what the local taxpayer actually funds, the strongest civic figure), then the spend-over-time
+    spine and the indicative named-supplier traceability bridge to the PAYING lane below.
+
+    ⚠️ BUDGET grain — a SIBLING fact, NEVER summed with the purchase-order euros. All figures are
+    pre-aggregated/pre-ordered in the views; the page selects and renders, computing no metric.
+    Returns the latest accounts year (so the BUILDING lane can align its coverage note), or None
+    when this council has no audited AFS in the fact yet."""
     by_year = fetch_afs_total_by_year_result(council)
     if not by_year.ok or by_year.data.empty:
-        return
+        return None
     ay = by_year.data
     years_present = {int(y) for y in ay["year"].dropna()}
     earliest, latest = min(years_present), max(years_present)
     span = f"{earliest}–{latest}" if len(years_present) > 1 else str(latest)
 
     st.html(
-        '<div class="pr-afs">'
-        '<div class="pr-afs-head">Council accounts — all spending (audited)</div>'
-        f'<p class="pr-cap pr-cap-flush">Every council must publish an <strong>Annual Financial '
-        "Statement (AFS)</strong> — its audited end-of-year accounts, showing what it spent running "
-        f"each service (housing, roads, environment…). Below is {_esc(council)}’s revenue-account "
-        f"spending by service ({_esc(span)}): the council’s <strong>whole</strong> operating spend, a "
-        "broader, separate measure from the over-€20,000 purchase-order figures above, and "
-        "<strong>never added to them</strong>.</p></div>"
+        _lane_header(
+            "RUNNING THE SERVICES · revenue account, audited",
+            "Where your money goes",
+            "Every council publishes an audited <strong>Annual Financial Statement</strong> — its "
+            "end-of-year accounts for running each service. Below is the <strong>net cost</strong> of "
+            f"each service to {_esc(council)} ({_esc(span)}): what’s left for the local taxpayer "
+            "(rates, Local Property Tax, State grant) to fund <em>after</em> the service’s own income "
+            "and grants. This is the council’s <strong>whole operating spend</strong> — a separate, "
+            "broader measure from the over-€20,000 purchase orders, and <strong>never added to them</strong>.",
+        )
     )
 
     # Coverage flag — the audited AFS is filed in arrears (and the odd year can be missing from a
-    # council's own publication run), so be explicit about what's present rather than letting a
-    # short or gapped series read as "the council stopped spending".
+    # council's own publication run), so be explicit rather than let a gap read as "stopped spending".
     flag_bits: list[str] = []
     if po_max_year and latest < po_max_year:
         flag_bits.append(
-            f"audited accounts run to <strong>{latest}</strong>, but the purchase orders above reach "
+            f"audited accounts run to <strong>{latest}</strong>, but the purchase orders below reach "
             f"<strong>{po_max_year}</strong> — councils publish their audited AFS in arrears, so the "
-            "most recent year or two of total spending isn’t available yet"
+            "most recent year or two isn’t available yet"
         )
     missing = [y for y in range(earliest, latest + 1) if y not in years_present]
     if missing:
-        yrs = ", ".join(str(y) for y in missing)
-        flag_bits.append(f"no published statement for {yrs} in this series")
+        flag_bits.append(f"no published statement for {', '.join(str(y) for y in missing)} in this series")
     if flag_bits:
         st.html(f'<div class="pr-caveat"><strong>Coverage:</strong> {"; ".join(flag_bits)}.</div>')
-    # (1) revenue spend per year — a DISTINCT colour from the PO chart's brown to signal a different grain.
-    st.caption("Operating spending per year (revenue account, audited €)")
-    st.bar_chart(ay, x="year", y="gross_expenditure_eur", x_label="Year", y_label="Audited € spent", height=200, color="#3a6b7e")
 
-    # (3) traceability line — the latest year present in BOTH the accounts and the active PO tier.
+    # HERO — net cost by service (largest first; the view pre-orders by net DESC). Bar width is a
+    # display scaling against the lane's own largest net cost (no aggregation here).
+    bd = fetch_afs_by_division_result(council, latest)
+    if bd.ok and not bd.data.empty:
+        st.caption(f"Net cost to the local taxpayer by service, {latest} — bar width = net cost")
+        nets = [float(r.net_expenditure_eur) for r in bd.data.itertuples() if _truthy(r.net_expenditure_eur)]
+        max_net = max([n for n in nets if n > 0], default=0.0)
+        has_misc = False
+        rows = []
+        for r in bd.data.itertuples():
+            net = getattr(r, "net_expenditure_eur", None)
+            pct = getattr(r, "pct_self_funded", None)
+            if r.division == "Miscellaneous Services":
+                has_misc = True
+            fig = f'<strong>{_eur(net)}</strong>' if _truthy(net) and float(net) > 0 else '<span class="pr-afsbar-zero">income covers it</span>'
+            rows.append(
+                _afs_bar_row(
+                    r.division,
+                    net if _truthy(net) and float(net) > 0 else 0,
+                    max_net,
+                    fig_html=fig,
+                    note=_self_funded_note(pct, r.division),
+                    accent="#3a6b7e",
+                )
+            )
+        st.html(f'<div class="pr-afsbars">{"".join(rows)}</div>')
+        if has_misc:
+            st.caption(
+                "“Miscellaneous Services” carries the council’s rates / Local Property Tax income, so it "
+                "can show as fully covered — it isn’t a single service."
+            )
+
+    # Spend-over-time spine — distinct teal from the PO chart's brown (a different grain).
+    if len(ay) > 1:
+        st.caption("Total operating spending per year (revenue account, audited gross €)")
+        st.bar_chart(ay, x="year", y="gross_expenditure_eur", x_label="Year", y_label="Audited € spent", height=180, color="#3a6b7e")
+
+    # Traceability bridge to the PAYING lane — the latest year present in both accounts + active PO tier.
     cov = fetch_afs_vs_po_coverage_result(council)
     if cov.ok and not cov.data.empty:
         pct_col = "pct_spent_of_gross" if active_tier == "SPENT" else "pct_committed_of_gross"
@@ -810,12 +897,7 @@ def _render_council_accounts_context(council: str, active_tier: str, *, po_max_y
         usable = cov.data[cov.data[pct_col].notna()]
         if not usable.empty:
             crow = usable.sort_values("year").iloc[-1]
-            yr, gross, po, pct = (
-                _n(crow.get("year")),
-                crow.get("afs_gross_eur"),
-                crow.get(po_col),
-                crow.get(pct_col),
-            )
+            yr, gross, po, pct = (_n(crow.get("year")), crow.get("afs_gross_eur"), crow.get(po_col), crow.get(pct_col))
             verb = _paid_verb(active_tier)  # 'paid' / 'ordered'
             st.html(
                 '<div class="pr-afs-trace">'
@@ -823,22 +905,78 @@ def _render_council_accounts_context(council: str, active_tier: str, *, po_max_y
                 f" · <strong>{_eur(po)}</strong> traceable to named suppliers"
                 f" · <strong>{float(pct):g}%</strong></div>"
                 f'<div class="pr-afs-trace-cap">Indicative coverage only. The accounts figure is the '
-                f"council’s full audited operating spend; the supplier figure counts only purchases "
-                f"over the €20,000 publication threshold ({verb} via purchase orders). Different "
-                "thresholds and stages — a coverage signal, not a reconciliation.</div></div>"
+                "council’s full audited operating spend; the supplier figure counts only purchases over "
+                f"the €20,000 publication threshold ({verb} via purchase orders). Different thresholds and "
+                "stages — a coverage signal, not a reconciliation.</div></div>"
             )
+    return latest
 
-    # (2) latest-year by-division breakdown — compact cards, largest service first.
-    bd = fetch_afs_by_division_result(council, latest)
+
+def _render_council_building_lane(council: str, *, accounts_latest: int | None) -> None:
+    """LANE 2 — BUILDING (audited capital account). What the council is investing in / acquiring —
+    the homes, roads and facilities being built. A THIRD, DISTINCT grain: the revenue account shows
+    housing netting to ~€0 (rents/HAP recoupment pass through), so the real housing investment only
+    shows up here. NEVER summed with the revenue net cost or the purchase-order euros.
+
+    Silently omitted for a council whose capital appendix isn't in the fact yet."""
+    by_year = fetch_afs_capital_by_year_result(council)
+    if not by_year.ok or by_year.data.empty:
+        return
+    cy = by_year.data
+    cap_years = {int(y) for y in cy["year"].dropna()}
+    cap_latest = max(cap_years)
+    span = f"{min(cap_years)}–{cap_latest}" if len(cap_years) > 1 else str(cap_latest)
+
+    st.html(
+        _lane_header(
+            "BUILDING · capital account, audited",
+            "What your council is building",
+            f"Beyond running services day to day, {_esc(council)} invests in <strong>building and "
+            "acquiring</strong> — housing, roads, libraries, water infrastructure. This is the audited "
+            f"<strong>capital programme</strong> ({_esc(span)}), funded largely by central-government "
+            "grants and loans. It is a <strong>different kind of money</strong> from the running costs "
+            "above — investment, not operating spend — and the two are <strong>never added together</strong>.",
+        )
+    )
+    if accounts_latest and cap_latest < accounts_latest:
+        st.html(
+            f'<div class="pr-caveat"><strong>Coverage:</strong> the capital appendix runs to '
+            f"<strong>{cap_latest}</strong> here.</div>"
+        )
+
+    # Capital invested per year — a DISTINCT green (a third grain after brown PO + teal revenue).
+    if len(cy) > 1:
+        st.caption("Capital invested per year (audited €)")
+        st.bar_chart(cy, x="year", y="capital_expenditure_eur", x_label="Year", y_label="€ invested", height=180, color="#2f7d5b")
+
+    # Capital by service in the latest year — bars, largest investment first (view pre-orders).
+    bd = fetch_afs_capital_by_division_result(council, cap_latest)
     if bd.ok and not bd.data.empty:
-        st.caption(f"Where it went in {latest} — spending by service (revenue account)")
-        cards = []
-        for r in bd.data.itertuples():
-            net = getattr(r, "net_expenditure_eur", None)
-            meta = f"{_eur(net)} net cost after income & grants"
-            pill = f'<span class="pr-pill pr-pill-val">{_eur(getattr(r, "gross_expenditure_eur", None))} spent</span>'
-            cards.append(_card(f"<span>{_esc(r.division)}</span>", meta, [pill]))
-        st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+        st.caption(f"What it built in {cap_latest} — capital investment by service")
+        capex = [float(r.capital_expenditure_eur) for r in bd.data.itertuples() if _truthy(r.capital_expenditure_eur)]
+        max_cap = max(capex, default=0.0)
+        rows = [
+            _afs_bar_row(
+                r.division,
+                getattr(r, "capital_expenditure_eur", None),
+                max_cap,
+                fig_html=f'<strong>{_eur(getattr(r, "capital_expenditure_eur", None))}</strong>',
+                note="",
+                accent="#2f7d5b",
+            )
+            for r in bd.data.itertuples()
+        ]
+        st.html(f'<div class="pr-afsbars">{"".join(rows)}</div>')
+
+
+def _render_council_accounts_context(council: str, active_tier: str, *, po_max_year: int | None = None) -> None:
+    """The two AUDITED-ACCOUNTS lanes of a local-authority dossier, in civic reading order:
+    RUNNING THE SERVICES (revenue net cost) then BUILDING (capital investment). Both are BUDGET
+    grain — sibling facts, each pre-aggregated in its view, NEVER summed with each other or with the
+    purchase-order euros in the PAYING lane. ``po_max_year`` lets the running lane flag the AFS
+    arrears lag against the PO data."""
+    accounts_latest = _render_council_running_lane(council, active_tier, po_max_year=po_max_year)
+    _render_council_building_lane(council, accounts_latest=accounts_latest)
 
 
 def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT") -> None:
@@ -897,19 +1035,32 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
         )
         active = labels.get(choice or default, active)
 
+    # Local-authority dossiers lead with the two AUDITED-ACCOUNTS lanes — RUNNING THE SERVICES
+    # (revenue net cost) then BUILDING (capital investment) — the council's whole-budget context.
+    # BUDGET grain: siblings, never summed with each other or with the purchase-order euros below.
+    # Pass the PO data's max year so the running lane can flag the AFS arrears lag.
+    if is_la:
+        _render_council_accounts_context(publisher_name, active, po_max_year=_n(prow.get("max_year")))
+        # LANE 3 — PAYING: the named suppliers over €20,000. The narrowest, most granular slice of
+        # council money (most spend never passes through a tendered PO), but the only one named to a
+        # firm. A DIFFERENT grain again — never added to the audited-accounts lanes above.
+        st.html(
+            _lane_header(
+                "PAYING · purchase orders over €20,000",
+                "Who it pays",
+                "The suppliers the council reports paying or ordering more than €20,000 (Circular "
+                "07/2012 / FOI disclosures). This is the <strong>named-supplier</strong> slice — most "
+                "council money never passes through a tendered purchase order, so it is far narrower "
+                "than the audited accounts above, and <strong>never added to them</strong>.",
+            )
+        )
+
     # Spend-over-time spine — one tier only (never stack ordered+paid, which would read as a sum).
     # Meaningful now the council payment data is a decade deep (2016–2026).
     by_year = fetch_payments_by_year_result(publisher_name, tier=active)
     if by_year.ok and len(by_year.data) > 1:
         st.caption(f"Money {_paid_verb(active)} per year (sum-safe)")
         st.bar_chart(by_year.data, x="year", y="total_safe_eur", x_label="Year", y_label="€ (sum-safe)", height=200, color="#9c5b2e")
-
-    # Local-authority dossiers gain the audited-accounts context (the "complete spend" denominator
-    # the named-supplier PO data sits inside). BUDGET grain — a sibling, never summed with the above.
-    # Pass the PO data's max year so the accounts section can flag the lag (audited AFS is filed
-    # in arrears, so it usually ends a year or two behind the purchase-order figures).
-    if is_la:
-        _render_council_accounts_context(publisher_name, active, po_max_year=_n(prow.get("max_year")))
 
     res = fetch_payments_for_publisher_result(publisher_name, tier=active)
     df = res.data if res.ok else pd.DataFrame()

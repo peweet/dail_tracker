@@ -5385,6 +5385,31 @@ def inject_css() -> None:
         }
         .pr-afs-trace-fig { font-size: 0.95rem; color: var(--ink-strong); line-height: 1.5; }
         .pr-afs-trace-cap { font-size: 0.8rem; color: var(--ink-700); line-height: 1.45; margin-top: 0.3rem; }
+        /* Dossier LANES — the three honest grains of council money (Running / Building / Paying),
+           each opened by its own band. The tag is the small-caps stratum; the <h2> is the section
+           heading; the dek carries the never-sum framing. A coloured left rule keys each lane to its
+           chart/bar colour (teal=revenue, green=capital, brown=PO) so the grains stay visually distinct. */
+        .pr-lane { margin: 1.8rem 0 0.7rem; padding: 0.75rem 0 0.2rem; border-top: 2px solid var(--border-strong); }
+        .pr-lane:first-of-type { margin-top: 1rem; }
+        .pr-lane-tag { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+            color: var(--text-meta); margin-bottom: 0.15rem; }
+        .pr-lane-head { font-size: 1.32rem; font-weight: 800; color: var(--ink-strong);
+            letter-spacing: -0.02em; line-height: 1.15; margin: 0 0 0.3rem; }
+        .pr-lane-dek { font-size: 0.86rem; color: var(--ink-700); line-height: 1.5; max-width: 60rem; margin: 0; }
+        /* Horizontal labelled bars for the audited lanes (net cost by service / capital by service).
+           Bar width is a display scaling against the lane's own max — the figure is the truth, the bar
+           is a glance. tabular-nums keeps the right-aligned euros in a clean column. */
+        .pr-afsbars { margin: 0.3rem 0 0.6rem; max-width: 60rem; }
+        .pr-afsbar { margin: 0.55rem 0; }
+        .pr-afsbar-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+        .pr-afsbar-label { font-size: 0.9rem; font-weight: 600; color: var(--ink-strong); }
+        .pr-afsbar-fig { font-size: 0.92rem; color: var(--ink-strong); white-space: nowrap;
+            font-variant-numeric: tabular-nums; }
+        .pr-afsbar-zero { font-size: 0.82rem; font-weight: 500; color: var(--text-meta); font-style: italic; }
+        .pr-afsbar-track { height: 9px; background: var(--surface-2, #eee7dc); border-radius: 5px;
+            overflow: hidden; margin: 0.22rem 0 0.1rem; }
+        .pr-afsbar-fill { height: 100%; border-radius: 5px; min-width: 2px; }
+        .pr-afsbar-note { font-size: 0.76rem; color: var(--text-meta); line-height: 1.4; }
         /* "Your council" index — province bands + lifecycle-tier pills.
            Province band header is a SEMANTIC <h3> (heading-navigable for screen
            readers); geography is encoded by the fixed N->S band order, never colour. */

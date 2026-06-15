@@ -288,6 +288,17 @@ The location compare **caught real false positives** the name score alone would 
 (legitimately not in CRO), foreign firms, and the scrape's UTF-8 mojibake (fixable). Realistic clean
 ceiling ≈ 65–70% among matchable private firms — the matcher is not the bottleneck.
 
+### EXPERIMENTAL dataset built — `nsai_capability_register` (2026-06-15, sandbox)
+End-to-end PoC built in `c:/tmp/nsai_certs/` (see `DATASET_README.md`; NOT in repo/pipeline):
+NSAI certs → CRO identity+health → public payments, one row per CRO firm.
+- **1,289 firms matched to a live CRO entity**; **304** received public money totalling **€2.41bn**
+  (safe-to-sum, deduped per company_num).
+- **31 live-but-overdue certified firms with public money** = investigable leads (€397M); **37**
+  dissolved-shell matches flagged `match_review_needed` and excluded from the headline.
+- Matching hardened: conservative normalisation (no geo-collapse — fixed Toyota Ireland↔Holdings),
+  live-entity preference, junk filter, name-variant dedup, dissolved-match flag + confidence penalty,
+  and a column-by-column (name+location) fuzzy gate. Findings are leads, not conclusions.
+
 ### Why "the law" is paywalled — and the US vs EU split (context for the page's framing)
 Standards cited in law are written by **private, self-funding bodies** (CEN/CENELEC/ETSI/ISO/NSAI),
 to whom governments deliberately **delegated** the technical detail of legislation (EU "New Approach",
