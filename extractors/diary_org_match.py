@@ -43,7 +43,7 @@ event-phrase stoplist would catch the generic-industry tail.
 Output -> data/sandbox/enrichment/diary_org_mentions.parquet (+ entry_id stamped
 back onto ministerial_diary_entries.parquet so the two tables join).
 
-Run: .venv/Scripts/python.exe pipeline_sandbox/diary_org_match.py
+Run: .venv/Scripts/python.exe extractors/diary_org_match.py
 """
 
 from __future__ import annotations

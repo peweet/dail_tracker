@@ -82,7 +82,7 @@ SOURCE_FACTS = [
     "seai_payments_fact.parquet",
     # Bespoke reading-order parse of the 3 single-column dept PDFs the generic reader can't split
     # (DFAT payment / Justice + Transport PO), built by
-    # pipeline_sandbox/procurement_dept_readingorder_parser.py. Identical 29-col schema, no
+    # extractors/procurement_dept_readingorder_parser.py. Identical 29-col schema, no
     # publisher overlap with the above. Adds ~€2.35bn sum-safe (Justice €1.47bn, Transport €486m,
     # DFAT €394m) — incl. BearingPoint/Accenture/Capita consultancy + asylum-accommodation providers.
     "dept_readingorder_payments_fact.parquet",

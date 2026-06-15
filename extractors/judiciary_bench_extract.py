@@ -3,7 +3,7 @@
 The "green core" of the Judiciary feature (plan: doc/judiciary_feature_sources_claude_plan.md;
 memory: project_judiciary_feature_validation). Reads the validated sandbox datasets in
 ``data/sandbox/judiciary/`` (pulled + pressure-tested 2026-06-04 by
-pipeline_sandbox/persist_judiciary_data.py) and emits three analysis-ready GOLD tables.
+extractors/persist_judiciary_data.py) and emits three analysis-ready GOLD tables.
 
 This is the PRE-PROMOTION CLEANUP the plan calls for:
   * drop the ``body=='Courts'`` junk bucket (kept upstream as ``is_real_court=False``);

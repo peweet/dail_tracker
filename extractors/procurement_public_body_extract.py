@@ -445,7 +445,7 @@ PUBLISHERS: list[dict] = [
         direct=["https://www.atu.ie/app/uploads/2026/03/atu-payments-purchase-orders-q1-2025.pdf"],
         caveat="supplier published with a leading numeric supplier-ID; stripped on read",
     ),
-    # ie_nta DE-SCOPED to pipeline_sandbox/procurement_nta_parser.py — every NTA PO PDF is
+    # ie_nta DE-SCOPED to extractors/procurement_nta_parser.py — every NTA PO PDF is
     # 90deg-rotated (and the layout/date format varies by year), so the generic word-geometry
     # reader clusters a whole €-column into one row and yields 0. The bespoke reading-order
     # parser owns it (9 quarters, ~2.3k rows) and emits THIS schema. Do not re-add here.

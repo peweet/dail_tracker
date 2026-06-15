@@ -37,7 +37,7 @@ LOG = logging.getLogger("planning_applications_ingest")
 L0 = ("https://services.arcgis.com/NzlPQPKn5QF9v2US/arcgis/rest/services/"
       "IrishPlanningApplications/FeatureServer/0")
 PAGE = 2000
-OUT = Path("pipeline_sandbox/_planning_output")
+OUT = Path(__file__).resolve().parents[1] / "data/silver/parquet"
 IRELAND_BBOX = (-11.0, 51.0, -5.0, 56.0)  # (min_lon, min_lat, max_lon, max_lat)
 
 # Columns to DROP: ArcGIS internals, empty ITM attrs (coords come from geometry),
@@ -98,21 +98,132 @@ def fetch(where: str, max_pages: int | None) -> list[dict]:
     return rows
 
 
-def _norm_decision(col: str) -> pl.Expr:
-    d = pl.col(col).cast(pl.Utf8).str.to_uppercase().str.strip_chars()
-    # Order matters: invalid/withdraw/refuse BEFORE grant (REFUSE PERMISSION contains
-    # PERMISSION); conditional BEFORE plain grant.
+def _has_any(col: pl.Expr, terms: list[str]) -> pl.Expr:
+    """OR of literal (non-regex) substring matches — safe for '(' , '.' , 'F.I.' etc."""
+    out: pl.Expr | None = None
+    for t in terms:
+        c = col.str.contains(t, literal=True)
+        out = c if out is None else (out | c)
+    assert out is not None
+    return out
+
+
+# Back-compat map: rich decision_category -> the original 7-value decision_normalised
+# contract that downstream sandbox scripts depend on (planning_decision_profiles.py uses
+# the whitelist {Granted, Granted-Conditional, Refused} for `decided`). The decided
+# whitelist values are preserved EXACTLY; everything else folds to the legacy buckets.
+_CATEGORY_TO_NORMALISED = {
+    "granted": "Granted",
+    "granted_conditional": "Granted-Conditional",
+    "refused": "Refused",
+    "invalid": "Invalid",
+    "withdrawn": "Withdrawn",
+    "in_progress": "Undecided/None",
+    "incomplete": "Undecided/None",
+    "no_decision": "Undecided/None",
+    "section_5_exemption": "Other",
+    "local_authority_development": "Other",
+    "split_decision": "Other",
+    "court_action": "Other",
+    "referral": "Other",
+    "compliance": "Other",
+    "other": "Other",
+}
+
+
+def _decision_category(decision_col: str, status_col: str) -> pl.Expr:
+    """Iris-style ordered classifier: each branch wins first, never overridden.
+
+    PRIMARY pass = the real-world outcome statement in `Decision`. RESIDUAL reducer =
+    where `Decision` is blank/N/A, consult the secondary real-world fact `ApplicationStatus`
+    (a status, not an inference). NO outcome is ever inferred: a finalised app with no
+    decision text stays `no_decision`, never guessed as granted/refused.
+    Ordering traps: invalid/withdraw/refuse BEFORE grant ("REFUSE PERMISSION" contains
+    PERMISSION); UNCONDITIONAL BEFORE CONDITIONAL (it contains "CONDITIONAL"); Section-5
+    and Part-8 BEFORE the generic grant/approve catch ("PART 8 APPROVED" contains APPROVED;
+    "DECLARED NOT EXEMPT" contains EXEMPT)."""
+    d = pl.col(decision_col).cast(pl.Utf8).str.to_uppercase().str.strip_chars()
+    s = pl.col(status_col).cast(pl.Utf8).str.to_uppercase().str.strip_chars()
+    d_blank = d.is_null() | (d == "") | (d == "N/A")
     return (
-        pl.when(d.is_null() | (d == "") | (d == "N/A")).then(pl.lit("Undecided/None"))
-        .when(d.str.contains("WITHDRAW")).then(pl.lit("Withdrawn"))
-        .when(d.str.contains("INVALID") | d.str.contains("INVA")).then(pl.lit("Invalid"))
-        .when(d.str.contains("REFUS")).then(pl.lit("Refused"))
-        # UNCONDITIONAL (granted with NO conditions) must be checked BEFORE the generic
-        # CONDITION match, since "UNCONDITIONAL" literally contains "CONDITIONAL".
-        .when(d.str.contains("UNCONDITION")).then(pl.lit("Granted"))
-        .when(d.str.contains("CONDITION")).then(pl.lit("Granted-Conditional"))
-        .when(d.str.contains("GRANT") | d.str.contains("PERMISSION")).then(pl.lit("Granted"))
-        .otherwise(pl.lit("Other"))
+        # ---- primary: explicit outcome / process in the Decision text ----
+        pl.when(_has_any(d, ["WITHDRAW"])).then(pl.lit("withdrawn"))
+        .when(_has_any(d, ["INVALID", "INVA"])).then(pl.lit("invalid"))
+        # Section 5 declaration of exemption (a distinct decision dataset, §11.6)
+        .when(_has_any(d, ["S5 ", "SECTION 5", "EXEMPT"])).then(pl.lit("section_5_exemption"))
+        # Part 8 / s.179A = local-authority own development approval
+        .when(_has_any(d, ["PART 8", "S179A", "PROPOSAL TO PROCEED"]))
+        .then(pl.lit("local_authority_development"))
+        .when(_has_any(d, ["SPLIT DECISION"])).then(pl.lit("split_decision"))
+        .when(_has_any(d, ["QUASH", "HIGH COURT"])).then(pl.lit("court_action"))
+        .when(_has_any(d, ["REFER", "DETERMINATION", "OTHER BODY", "SECTION 37(5)", "FILE CLOSED"]))
+        .then(pl.lit("referral"))
+        .when(_has_any(d, ["COMPLIANCE"])).then(pl.lit("compliance"))
+        # in-process states masquerading as a "decision" — NOT a final outcome
+        .when(_has_any(d, [
+            "ADDITIONAL INFORMATION", "CLARIFICATION", "REQUEST", "EXT OF TIME",
+            "TIME EXTENSION", "EXTENSION OF TIME", "REVISED PUBLIC NOTICE",
+            "REVISED NEWSPAPER NOTICE",
+        ])).then(pl.lit("in_progress"))
+        .when(_has_any(d, ["CANNOT DETERMINE", "CANNOT BE CONSIDERED"])).then(pl.lit("no_decision"))
+        .when(_has_any(d, ["REFUS"])).then(pl.lit("refused"))
+        .when(_has_any(d, ["UNCONDITION"])).then(pl.lit("granted"))
+        .when(_has_any(d, ["CONDITION"])).then(pl.lit("granted_conditional"))
+        .when(_has_any(d, ["GRANT", "PERMISSION", "APPROVE"])).then(pl.lit("granted"))
+        # ---- residual reducer: Decision blank/N/A -> use ApplicationStatus ----
+        .when(d_blank & _has_any(s, ["WITHDRAW"])).then(pl.lit("withdrawn"))
+        .when(d_blank & _has_any(s, ["INVALID"])).then(pl.lit("invalid"))
+        .when(d_blank & _has_any(s, ["INCOMPLET", "PRE_VALIDATION", "VALIDATION",
+                                     "UNREGISTERED", "REGISTRATION", "REGISTERED"]))
+        .then(pl.lit("incomplete"))
+        .when(d_blank & _has_any(s, ["FURTHER INFORMATION", "F.I.", "AWAITING", "ASSESSMENT",
+                                     "NEW APPLICATION", "PLANNERS REPORT", "RECOMMENDATION",
+                                     "PUBLICATION", "OFFICER ALLOCATION", "35 DAY"]))
+        .then(pl.lit("in_progress"))
+        .when(d_blank & _has_any(s, ["REFERRAL"])).then(pl.lit("referral"))
+        # status says decided/closed but the outcome text is absent -> DO NOT infer it
+        .when(d_blank & _has_any(s, ["FINALISED", "DECISION", "FINAL GRANT", "APPEAL", "CLOSED"]))
+        .then(pl.lit("no_decision"))
+        .when(d_blank).then(pl.lit("no_decision"))
+        .otherwise(pl.lit("other"))
+    )
+
+
+def _decision_subtype(decision_col: str, status_col: str) -> pl.Expr:
+    """Finer detail under decision_category (references the just-computed category)."""
+    d = pl.col(decision_col).cast(pl.Utf8).str.to_uppercase().str.strip_chars()
+    s = pl.col(status_col).cast(pl.Utf8).str.to_uppercase().str.strip_chars()
+    cat = pl.col("decision_category")
+    return (
+        pl.when(cat == "withdrawn")
+        .then(pl.when(_has_any(d, ["DEEMED"]) | _has_any(s, ["DEEMED"]))
+              .then(pl.lit("deemed_withdrawn")).otherwise(pl.lit("withdrawn")))
+        .when(cat == "section_5_exemption")
+        .then(pl.when(_has_any(d, ["NOT EXEMPT"])).then(pl.lit("not_exempt"))
+              .when(_has_any(d, ["SPLIT"])).then(pl.lit("split"))
+              .when(_has_any(d, ["REQ", "AI"])).then(pl.lit("further_information"))
+              .otherwise(pl.lit("exempt")))
+        .when(cat == "local_authority_development")
+        .then(pl.when(_has_any(d, ["REJECT"])).then(pl.lit("rejected")).otherwise(pl.lit("approved")))
+        .when(cat == "compliance")
+        .then(pl.when(_has_any(d, ["DISAPPROVE"])).then(pl.lit("disapproved")).otherwise(pl.lit("approved")))
+        .when(cat == "in_progress")
+        .then(pl.when(_has_any(d, ["CLARIFICATION"])).then(pl.lit("clarification"))
+              .when(_has_any(d, ["ADDITIONAL INFORMATION", "FURTHER INFORMATION"]) | _has_any(s, ["FURTHER INFORMATION", "F.I."])).then(pl.lit("further_information"))
+              .when(_has_any(d, ["TIME"])).then(pl.lit("time_extension"))
+              .when(_has_any(d, ["NOTICE"])).then(pl.lit("revised_notice"))
+              .when(_has_any(s, ["NEW APPLICATION"])).then(pl.lit("new_application"))
+              .otherwise(pl.lit("in_assessment")))
+        .when(cat == "granted")
+        .then(pl.when(_has_any(d, ["UNCONDITION"])).then(pl.lit("unconditional"))
+              .when(_has_any(d, ["RETENTION"])).then(pl.lit("retention"))
+              .otherwise(pl.lit("grant")))
+        .when(cat == "granted_conditional").then(pl.lit("conditional"))
+        .when(cat == "no_decision")
+        .then(pl.when(_has_any(d, ["CANNOT"])).then(pl.lit("cannot_determine"))
+              .when(d.is_null() | (d == "") | (d == "N/A")).then(pl.lit("outcome_unstated"))
+              .otherwise(pl.lit("unknown")))
+        .otherwise(cat)  # refused/invalid/split_decision/court_action/referral/incomplete/other
     )
 
 
@@ -143,7 +254,7 @@ def transform(rows: list[dict]) -> pl.DataFrame:
     minlon, minlat, maxlon, maxlat = IRELAND_BBOX
 
     df = df.with_columns(
-        _norm_decision("Decision").alias("decision_normalised"),
+        _decision_category("Decision", "ApplicationStatus").alias("decision_category"),
         pl.col("Decision").alias("decision_raw"),
         _norm_apptype("ApplicationType").alias("application_type_normalised"),
         # one-off reconcile (two inconsistent source flags)
@@ -155,6 +266,14 @@ def transform(rows: list[dict]) -> pl.DataFrame:
         (
             pl.col("lon").is_between(minlon, maxlon) & pl.col("lat").is_between(minlat, maxlat)
         ).fill_null(False).alias("geo_in_bounds"),
+    )
+
+    # second pass: subtype + back-compat decision_normalised (both reference decision_category)
+    df = df.with_columns(
+        _decision_subtype("Decision", "ApplicationStatus").alias("decision_subtype"),
+        pl.col("decision_category")
+        .replace_strict(_CATEGORY_TO_NORMALISED, default="Other")
+        .alias("decision_normalised"),
     )
 
     # --- date hygiene: null out-of-range dates AND record the flag, both computed
