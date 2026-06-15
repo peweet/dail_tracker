@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-06-11T06:29:27Z",
+  "generated_at": "2026-06-14T18:58:46Z",
   "links_checked": false,
   "summary": {
-    "sources_checked": 109,
-    "sources_ok": 3,
+    "sources_checked": 114,
+    "sources_ok": 4,
     "sources_warning": 0,
     "sources_failed": 0,
-    "sources_skipped": 106,
+    "sources_skipped": 110,
     "stale_sources": 0
   },
   "sources": [
@@ -71,10 +71,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "41d old (<= 180d)",
+      "detail": "44d old (<= 180d)",
       "input_pattern": "data/bronze/charities/public_register_*.xlsx",
       "latest_file": "data/bronze/charities/public_register_20260426.xlsx",
-      "days_old": 41,
+      "days_old": 44,
       "stale_after_days": 180
     },
     {
@@ -84,7 +84,7 @@
       "status": "ok",
       "detail": "0d old (<= 7d)",
       "input_pattern": "data/bronze/cro/companies_*.csv",
-      "latest_file": "data/bronze/cro/companies_20260610.csv",
+      "latest_file": "data/bronze/cro/companies_20260614.csv",
       "days_old": 0,
       "stale_after_days": 7
     },
@@ -93,10 +93,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "6d old (<= 200d)",
+      "detail": "10d old (<= 200d)",
       "input_pattern": "data/silver/cro/financial_statements.parquet",
       "latest_file": "data/silver/cro/financial_statements.parquet",
-      "days_old": 6,
+      "days_old": 10,
       "stale_after_days": 200
     },
     {
@@ -569,6 +569,13 @@
       "detail": "link check disabled"
     },
     {
+      "source_id": "public_body_payments:dept_agriculture",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
       "source_id": "public_body_payments:dept_climate",
       "group": "public_body_payments",
       "check_type": "index_poll",
@@ -597,6 +604,13 @@
       "detail": "link check disabled"
     },
     {
+      "source_id": "public_body_payments:dept_education",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
       "source_id": "public_body_payments:dept_enterprise",
       "group": "public_body_payments",
       "check_type": "index_poll",
@@ -604,7 +618,21 @@
       "detail": "link check disabled"
     },
     {
+      "source_id": "public_body_payments:dept_health",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
       "source_id": "public_body_payments:dept_housing",
+      "group": "public_body_payments",
+      "check_type": "index_poll",
+      "status": "skipped",
+      "detail": "link check disabled"
+    },
+    {
+      "source_id": "public_body_payments:dept_social_protection",
       "group": "public_body_payments",
       "check_type": "index_poll",
       "status": "skipped",
@@ -784,6 +812,17 @@
       "check_type": "index_poll",
       "status": "skipped",
       "detail": "link check disabled"
+    },
+    {
+      "source_id": "stateboards:register",
+      "group": "stateboards",
+      "check_type": "file_age",
+      "status": "ok",
+      "detail": "0d old (<= 60d)",
+      "input_pattern": "data/silver/parquet/stateboards_roster.parquet",
+      "latest_file": "data/silver/parquet/stateboards_roster.parquet",
+      "days_old": 0,
+      "stale_after_days": 60
     }
   ]
 }

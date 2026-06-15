@@ -1,14 +1,14 @@
 {
   "link_version": "1.0.0",
-  "generated_at": "2026-06-14T06:00:05.735448+00:00",
+  "generated_at": "2026-06-15T05:59:24.679687+00:00",
   "judge_court_pairs": 82,
   "matched_pairs": 72,
   "match_methods": {
-    "exact": 53,
-    "office-title": 1,
     "no-candidate": 3,
-    "honorific-conflict": 6,
-    "surname-court": 19
+    "surname-court": 19,
+    "office-title": 1,
+    "exact": 53,
+    "honorific-conflict": 6
   },
   "unmatched": [
     {

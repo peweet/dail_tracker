@@ -1,11 +1,11 @@
 {
-  "overlap_rows": 297,
-  "distinct_suppliers_in_overlap": 220,
-  "registrant_matches": 181,
-  "client_matches": 116,
-  "procurement_suppliers_matched_against": 9583,
+  "overlap_rows": 316,
+  "distinct_suppliers_in_overlap": 235,
+  "registrant_matches": 191,
+  "client_matches": 125,
+  "procurement_suppliers_matched_against": 10004,
   "match_method": "exact normalised-name (name_norm_expr) on company-class, non-truncated suppliers",
-  "procurement_retrieved_utc": "2026-06-06",
+  "procurement_retrieved_utc": "2026-06-14",
   "sources": {
     "procurement": "see data/_meta/procurement_coverage.json (Office of Government Procurement, CC-BY 4.0)",
     "lobbying": {

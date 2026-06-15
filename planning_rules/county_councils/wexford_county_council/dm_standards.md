@@ -45,3 +45,10 @@
 
 ## Building Heights
 - Building heights addressed via the Development Management process (§2.4), applying the national Building Heights Guidelines / SPPRs.
+
+
+## Supplement — added 2026-06-15
+**Source:** Vol 2 Section 6 (Transport & Mobility), online consultation portal consult.wexfordcoco.ie — NOT the captured Volume 2 DM Manual. No inference.
+- **Visibility splay (sightline) X:** measured 3 m back from edge of public road (2 m for a single dwelling access).
+- **Visibility splay (sightline) Y (>60 kph):** National Roads 230 m; Class 1 Regional Roads 220 m; Class 2 Regional Roads 135 m; Local/County Roads 65 m.
+- Building setbacks from roads: stated qualitatively only ("proportionate to road width") — no fixed metric.

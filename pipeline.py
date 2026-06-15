@@ -58,6 +58,15 @@ CHAINS: list[tuple[str, str]] = [
     ("lobbying", "lobbying_refresh.py"),
     ("iris", "iris_refresh.py"),
     ("legislation", "legislation_refresh.py"),
+    # legal_diary: the Courts Service daily Legal Diary is FORWARD-ACCUMULATING — the site
+    # exposes only the current court day's .docx (no historical URL), so a missed day is lost
+    # forever. The poller archives one .docx per diary date (returns 0 on "already held", so a
+    # weekend/no-change run is a clean no-op), the extract rebuilds the privacy-tiered gold from
+    # the full archive, and the link step maps surname-only diary judges to the bench roster.
+    # Standalone — no deps beyond the static bench gold the link reads. Run daily to build history.
+    ("legal_diary_poller", "pdf_infra/legal_diary_poller.py"),
+    ("legal_diary_extract", "extractors/legal_diary_extract.py"),
+    ("judiciary_diary_link", "extractors/judiciary_diary_link.py"),
     # afs: amalgamated LA Annual Financial Statements (gov.ie PDFs) -> silver
     # spend-by-service-division fact (BUDGET/SPENT-tier macro context). Standalone —
     # self-fetches + caches PDFs to bronze, no deps, headless-safe.
@@ -151,6 +160,9 @@ _CHAIN_BLURBS: dict[str, str] = {
     "lobbying": "lobbying.ie YTD + CRO + charities Tier-A + gold enrichment",
     "iris": "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
     "legislation": "bills + questions + amendments + votes + cross-dataset enrich",
+    "legal_diary_poller": "archive the Courts Service daily Legal Diary .docx (forward-accumulating, day-or-lost)",
+    "legal_diary_extract": "Legal Diary archive -> privacy-tiered judiciary gold (schedule/counts/cases)",
+    "judiciary_diary_link": "map surname-only diary judges to the bench roster (pipeline-owned mapping)",
     "afs": "amalgamated LA Annual Financial Statements: spend by service division (silver)",
     "cbi": "CBI register extract + corporate-notices xref (gold)",
     "cro": "CRO company register <-> corporate-notices exact-name xref (gold)",

@@ -278,6 +278,44 @@ def _inject_jd_css() -> None:
         .jd-wait-court { font-size: 1.0rem; font-weight: 700; color: #14232b; margin: 1.3rem 0 0.2rem; }
         .jd-wait-ctx { font-size: 0.8rem; font-weight: 650; color: #4a5a61; margin: 0.7rem 0 0.3rem;
             text-transform: none; letter-spacing: 0; }
+        .jd-court-link { color: #2c5f6b; text-decoration: none; }
+        .jd-court-link:hover { text-decoration: underline; }
+        /* Legal Diary — sitting cards and case rows expand client-side (native
+           <details>, no Streamlit rerun — same pattern as the questions cards).
+           Everything revealed is the already-anonymised Tier C layer: people are
+           initials and in-camera matters were dropped upstream, so the expanded
+           view is safe by construction. */
+        .jd-sit { background: #ffffff; border: 1px solid #e4e9ec; border-radius: 10px; overflow: hidden; }
+        .jd-sit > summary { list-style: none; cursor: pointer; padding: 0.75rem 0.85rem;
+            display: flex; flex-direction: column; gap: 0.2rem; }
+        .jd-sit > summary::-webkit-details-marker { display: none; }
+        .jd-sit > summary:hover { background: #f7fafb; }
+        .jd-sit[open] > summary { border-bottom: 1px solid #eef2f3; }
+        .jd-sit-matters { padding: 0.35rem 0.85rem 0.55rem; }
+        .jd-expand-hint { align-self: flex-start; font-size: 0.7rem; font-weight: 600;
+            color: #2c5f6b; margin-top: 0.15rem; }
+        .jd-sit[open] .jd-expand-hint { display: none; }
+        .jd-case { border-bottom: 1px solid #f0f3f4; }
+        .jd-case:last-child { border-bottom: none; }
+        .jd-case > summary { list-style: none; cursor: pointer; display: flex;
+            align-items: baseline; gap: 0.5rem; padding: 0.32rem 0; font-size: 0.86rem; color: #1f2d33; }
+        .jd-case > summary::-webkit-details-marker { display: none; }
+        .jd-case > summary:hover { color: #14232b; }
+        .jd-case-detail { padding: 0.1rem 0 0.55rem 0.9rem; display: flex; flex-wrap: wrap;
+            gap: 0.25rem 1.1rem; font-size: 0.78rem; color: #5b6b73; line-height: 1.5; }
+        .jd-case-detail b { color: #14232b; font-weight: 600; }
+        .jd-case-detail .jd-case-link { margin-left: 0; }
+        /* Courthouses — expandable register cards (address / eircode / circuit). */
+        .jd-ch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.6rem; }
+        .jd-ch { background: #ffffff; border: 1px solid #e4e9ec; border-radius: 10px; overflow: hidden; }
+        .jd-ch > summary { list-style: none; cursor: pointer; padding: 0.6rem 0.8rem; font-weight: 650;
+            color: #14232b; font-size: 0.86rem; display: flex; justify-content: space-between; gap: 0.5rem; }
+        .jd-ch > summary::-webkit-details-marker { display: none; }
+        .jd-ch > summary:hover { background: #f7fafb; }
+        .jd-ch-county { font-weight: 500; color: #8a9aa1; font-size: 0.76rem; white-space: nowrap; }
+        .jd-ch-detail { padding: 0.2rem 0.8rem 0.7rem; font-size: 0.78rem; color: #5b6b73; line-height: 1.55; }
+        .jd-ch-detail b { color: #14232b; font-weight: 600; }
+        .jd-ch-detail a { color: #2c5f6b; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -710,10 +748,21 @@ def _render_clearance(clr: pd.DataFrame) -> None:
     sel = year_selector([str(y) for y in years], key="courts_clear_year")
     # Lowest clearance first — the courts under most pressure surface at the top.
     year_df = clr[clr["year"] == sel].sort_values("clearance_pct", na_position="last")
-    st.caption(f"{int(sel)} · {len(year_df)} courts, ordered by clearance rate (lowest first).")
-    st.html("".join(_clearance_bar(r._asdict()) for r in year_df.itertuples()))
-
-    _render_clearance_drilldown(sel, year_df)
+    st.caption(
+        f"{int(sel)} · {len(year_df)} courts, ordered by clearance rate (lowest first). "
+        "Select a court for its full breakdown — area of law, trend and waiting times."
+    )
+    # Each bar is a clickable tile → ?court= per-court detail page (soft-nav).
+    st.html(
+        "".join(
+            clickable_card_link(
+                href=f"?court={urllib.parse.quote(str(r.jurisdiction))}",
+                inner_html=_clearance_bar(r._asdict()),
+                aria_label=f"See full court statistics for the {r.jurisdiction}",
+            )
+            for r in year_df.itertuples()
+        )
+    )
 
     # The time dimension — every court's trajectory across the whole 2017–2024 window.
     st.html('<h2 class="jd-section-head" style="margin-top:1.4rem">Clearance over time</h2>')
@@ -721,36 +770,108 @@ def _render_clearance(clr: pd.DataFrame) -> None:
     st.altair_chart(_clearance_trend_chart(clr), width="stretch")
 
 
-def _render_clearance_drilldown(sel_year: int, year_df: pd.DataFrame) -> None:
-    """Break one court down by area of law (Civil / Criminal / Family / …) for the
-    selected year, reading the finer-grain v_courts_clearance_by_area view."""
-    area = fetch_courts_clearance_by_area()
-    if area is None or area.empty:
-        return
-    courts = [c for c in _COURT_ORDER if c in set(year_df["jurisdiction"])]
-    if not courts:
-        return
-    # Default to the court under most pressure (lowest clearance) — the one worth opening.
-    default_court = str(year_df.iloc[0]["jurisdiction"]) if not year_df.empty else courts[0]
-    st.html('<h2 class="jd-section-head" style="margin-top:1.2rem">Break a court down by area</h2>')
-    pick = (
-        st.pills(
-            "Court",
-            courts,
-            default=default_court if default_court in courts else courts[0],
-            key="courts_area_court",
-            label_visibility="collapsed",
+def _court_clearance_chart(df: pd.DataFrame) -> alt.LayerChart:
+    """One court's clearance trajectory across the window, with the 100% break-even
+    rule. A single teal line (no per-court colour legend — there is only one court)."""
+    d = df[["year", "clearance_pct", "incoming", "resolved"]].dropna(subset=["clearance_pct"])
+    line = (
+        alt.Chart(d)
+        .mark_line(point=alt.OverlayMarkDef(size=46, filled=True), strokeWidth=2.4, color="#3d7c8a")
+        .encode(
+            x=alt.X("year:O", title=None, axis=alt.Axis(labelAngle=0)),
+            y=alt.Y("clearance_pct:Q", title="Clearance %", scale=alt.Scale(zero=False)),
+            tooltip=[
+                alt.Tooltip("year:O", title="Year"),
+                alt.Tooltip("clearance_pct:Q", title="Clearance %", format=".0f"),
+                alt.Tooltip("incoming:Q", title="Received", format=","),
+                alt.Tooltip("resolved:Q", title="Resolved", format=","),
+            ],
         )
-        or default_court
     )
-    sub = area[(area["jurisdiction"] == pick) & (area["year"] == sel_year)].sort_values(
-        "clearance_pct", na_position="last"
-    )
-    if sub.empty:
-        st.caption(f"No area breakdown recorded for the {pick} in {int(sel_year)}.")
+    rule = alt.Chart(pd.DataFrame({"y": [100]})).mark_rule(color="#9aa8ad", strokeDash=[4, 4]).encode(y="y:Q")
+    return (rule + line).properties(height=300)
+
+
+def _stat_card(value: str, label: str) -> str:
+    return f'<div class="jd-cat-card"><div class="jd-cat-n">{_esc(value)}</div><div class="jd-cat-label">{_esc(label)}</div></div>'
+
+
+def _render_court_detail(court: str) -> None:
+    """Full-page drill-down for one court (?court=…): its clearance headline + trend,
+    the latest-year area-of-law breakdown, and the waiting lists published under it.
+    All system-throughput aggregates — never attributed to a named judge. Every frame
+    is read straight from the views and filtered to this court (display_only)."""
+    clr = fetch_courts_clearance()
+    area = fetch_courts_clearance_by_area()
+    wt = fetch_courts_waiting_times()
+    if back_button("← Back to The Courts", key="court_detail"):
+        st.query_params.clear()
+        st.rerun()
+
+    court_clr = clr[clr["jurisdiction"] == court].copy() if clr is not None and not clr.empty else pd.DataFrame()
+    has_wait_ctx = wt is not None and not wt.empty and "jurisdiction" in wt.columns
+    court_wt = wt[wt["jurisdiction"] == court].copy() if has_wait_ctx else pd.DataFrame()
+
+    if court_clr.empty and court_wt.empty:
+        empty_state(
+            "Court not found",
+            "That court link didn't match a court in the statistics. Use Back to return to The Courts.",
+        )
         return
-    st.caption(f"{pick} · {int(sel_year)} · clearance by area of law (lowest first).")
-    st.html("".join(_clearance_bar(r._asdict(), label_key="area_of_law") for r in sub.itertuples()))
+
+    st.html(
+        f'<div class="jud-prof-head"><h1 class="jud-prof-name">{_esc(court)}</h1>'
+        '<div class="jud-prof-sub">System throughput — case clearance and waiting times. '
+        "Never attributed to a named judge.</div></div>"
+    )
+
+    if not court_clr.empty:
+        latest = court_clr.sort_values("year").iloc[-1]
+        st.html('<h2 class="jd-section-head">Case clearance over time</h2>')
+        st.caption(
+            "Cases resolved as a share of cases received each year. Below 100% means the backlog "
+            f"grew that year; at or above 100% the {court} kept pace or cut into it."
+        )
+        cells = []
+        if pd.notna(latest.get("clearance_pct")):
+            cells.append(_stat_card(f"{float(latest['clearance_pct']):.0f}%", f"clearance {int(latest['year'])}"))
+        if pd.notna(latest.get("incoming")):
+            cells.append(_stat_card(f"{int(latest['incoming']):,}", f"cases received {int(latest['year'])}"))
+        if pd.notna(latest.get("resolved")):
+            cells.append(_stat_card(f"{int(latest['resolved']):,}", f"cases resolved {int(latest['year'])}"))
+        if cells:
+            st.html(f'<div class="jd-catwrap">{"".join(cells)}</div>')
+        st.altair_chart(_court_clearance_chart(court_clr), width="stretch")
+
+        # Area-of-law breakdown for a chosen year (the finer-grain view, filtered here).
+        court_area = area[area["jurisdiction"] == court] if area is not None and not area.empty else pd.DataFrame()
+        if not court_area.empty:
+            ayears = sorted(court_area["year"].dropna().astype(int).unique(), reverse=True)
+            st.html('<h2 class="jd-section-head" style="margin-top:1.4rem">By area of law</h2>')
+            sel = year_selector([str(y) for y in ayears], key="court_detail_area_year")
+            sub = court_area[court_area["year"] == sel].sort_values("clearance_pct", na_position="last")
+            if sub.empty:
+                st.caption(f"No area breakdown recorded for the {court} in {int(sel)}.")
+            else:
+                st.caption(f"{court} · {int(sel)} · clearance by area of law (lowest first).")
+                st.html("".join(_clearance_bar(r._asdict(), label_key="area_of_law") for r in sub.itertuples()))
+
+    if not court_wt.empty:
+        st.html('<h2 class="jd-section-head" style="margin-top:1.4rem">Waiting times</h2>')
+        st.caption(
+            "Published waiting times from the Courts Service Annual Report 2024, with the change on "
+            "2023 — the time to a hearing or first return date for each list."
+        )
+        _render_waiting_groups(court_wt)
+
+    st.html(
+        '<div class="jd-foot"><strong>Sources:</strong> '
+        '<a href="https://data.courts.ie" target="_blank" rel="noopener">Courts Service annual statistics ↗</a> '
+        "(clearance, CC-BY 4.0) · "
+        '<a href="https://www.courts.ie/annual-report" target="_blank" rel="noopener">'
+        "Courts Service Annual Report 2024 ↗</a> (waiting times). System-level throughput only — "
+        "no judge is named, ranked, or assessed. Clearance above 100% reflects backlog reduction, not error.</div>"
+    )
 
 
 def _wait_card(row, label: str | None = None) -> str:
@@ -819,28 +940,76 @@ def _render_waiting(wt: pd.DataFrame) -> None:
     for court in courts:
         sub = wt[wt["jurisdiction"] == court]
         n_lists = sub["list_context"].nunique()
+        # Court name links to the full per-court detail page (clearance + waiting).
         st.html(
-            f'<div class="jd-wait-court">{_esc(court)} '
+            f'<div class="jd-wait-court">'
+            f'<a class="jd-court-link" href="?court={urllib.parse.quote(str(court))}">{_esc(court)}</a> '
             f'<span class="jd-day-meta">· {n_lists} list{"s" if n_lists != 1 else ""}</span></div>'
         )
-        # render in publication order (the view orders by report page + row);
-        # groupby(sort=False) preserves it. logic_firewall: display_only
-        for ctx, g in sub.groupby("list_context", sort=False):
-            st.html(f'<div class="jd-wait-ctx">{_esc(ctx)}</div>')
-            cards = []
-            for r in g.itertuples():
-                row = r._asdict()
-                # mojibake source labels (flagged upstream) read better as the curated
-                # list name; clean labels keep the published wording.
-                label = None if bool(getattr(r, "is_clean_label", True)) else str(ctx)
-                cards.append(_wait_card(row, label=label))
-            st.html(f'<div class="jd-catwrap">{"".join(cards)}</div>')
+        _render_waiting_groups(sub)
+
+
+def _render_waiting_groups(sub: pd.DataFrame) -> None:
+    """Render one court's waiting lists — a card grid per list_context, in publication
+    order (the view orders by report page + row; groupby(sort=False) preserves it).
+    Shared by the overview waiting section and the per-court detail page.
+    logic_firewall: display_only."""
+    for ctx, g in sub.groupby("list_context", sort=False):
+        st.html(f'<div class="jd-wait-ctx">{_esc(ctx)}</div>')
+        cards = []
+        for r in g.itertuples():
+            row = r._asdict()
+            # mojibake source labels (flagged upstream) read better as the curated
+            # list name; clean labels keep the published wording.
+            label = None if bool(getattr(r, "is_clean_label", True)) else str(ctx)
+            cards.append(_wait_card(row, label=label))
+        st.html(f'<div class="jd-catwrap">{"".join(cards)}</div>')
 
 
 def _render_courthouses(ch: pd.DataFrame) -> None:
     st.html('<h2 class="jd-section-head">Where the courts sit</h2>')
-    st.caption(f"{len(ch)} active courthouses across {ch['county'].nunique()} counties (Courts Service register).")
+    st.caption(
+        f"{len(ch)} active courthouses across {ch['county'].nunique()} counties (Courts Service "
+        "register). Filter by county and open a courthouse for its address and circuit."
+    )
     st.map(ch[["latitude", "longitude"]], color="#2c5f6b")
+
+    counties = sorted(ch["county"].dropna().unique())
+    pick = (
+        st.pills(
+            "County",
+            ["All counties", *counties],
+            default="All counties",
+            key="courts_ch_county",
+            label_visibility="collapsed",
+        )
+        or "All counties"
+    )
+    sub = ch if pick == "All counties" else ch[ch["county"] == pick]
+    cards = []
+    for r in sub.sort_values("court_house").itertuples():
+        bits = []
+        for field, lbl in (
+            ("address", "Address"),
+            ("eircode", "Eircode"),
+            ("circuit", "Circuit"),
+            ("region", "Region"),
+        ):
+            val = getattr(r, field, None)
+            if isinstance(val, str) and val:
+                bits.append(f"<b>{_esc(lbl)}</b> {_esc(val)}")
+        src = (
+            f'<a href="{_esc(r.source_url)}" target="_blank" rel="noopener">Courts Service register ↗</a>'
+            if isinstance(getattr(r, "source_url", None), str) and r.source_url
+            else ""
+        )
+        detail = "<br>".join(bits) + (f"<br>{src}" if src else "")
+        cards.append(
+            f'<details class="jd-ch"><summary>{_esc(r.court_house)}'
+            f'<span class="jd-ch-county">{_esc(r.county)}</span></summary>'
+            f'<div class="jd-ch-detail">{detail}</div></details>'
+        )
+    st.html(f'<div class="jd-ch-grid">{"".join(cards)}</div>')
 
 
 def _render_courts() -> None:
@@ -876,16 +1045,41 @@ def _render_courts() -> None:
 
 
 # ══════════════════════════════════════════════════════════ ④ LEGAL DIARY
-def _render_ld_schedule(day_sched: pd.DataFrame) -> None:
+def _session_matters(court_cases: pd.DataFrame | None, sitting) -> list[str]:
+    """The anonymised Tier C matters listed before one sitting — a DISPLAY-ONLY
+    filter of the already-published cases set by (court, judge, list_type). The
+    judge↔diary attribution is the same surname-within-court parse that produced
+    both frames; an unmatched sitting (no certain attribution, or a private list)
+    simply returns nothing and the card stays a plain schedule tile.
+    logic_firewall: display_only."""
+    if court_cases is None or court_cases.empty:
+        return []
+    judge = getattr(sitting, "judge", None)
+    if not (isinstance(judge, str) and judge):
+        return []
+    by_judge = court_cases[court_cases["judge"] == judge]
+    if by_judge.empty:
+        return []
+    list_type = getattr(sitting, "list_type", None)
+    sub = by_judge[by_judge["list_type"] == list_type] if isinstance(list_type, str) and list_type else by_judge
+    if sub.empty:  # list label drifted between schedule + cases — keep the judge match
+        sub = by_judge
+    return [_case_row_html(r) for r in sub.head(TIER_C_PAGE).itertuples()]
+
+
+def _render_ld_schedule(day_sched: pd.DataFrame, day_cases: pd.DataFrame | None) -> None:
     st.html('<h2 class="jd-section-head">Today on the bench</h2>')
     st.caption(
-        "Each card is a judge's sitting session — court, list and start time. "
-        "Item count is how many matters were listed for that session."
+        "Each card is a judge's sitting session — court, list and start time. Open a card "
+        "with listed matters to see them, shown anonymised: people by initials, organisations "
+        "and the State named. Private hearings are excluded; this is a schedule, not a workload."
     )
+    has_cases = day_cases is not None and not day_cases.empty
     present = [c for c in _COURT_ORDER if c in set(day_sched["court"].dropna())]
     extra = sorted(set(day_sched["court"].dropna()) - set(_COURT_ORDER))
     for court in present + extra:
         rows = day_sched[day_sched["court"] == court]
+        court_cases = day_cases[day_cases["court"] == court] if has_cases else None
         cards = []
         for r in rows.sort_values(["courtroom", "judge"], na_position="last").itertuples():
             n = int(getattr(r, "n_items", 0) or 0)
@@ -893,11 +1087,21 @@ def _render_ld_schedule(day_sched: pd.DataFrame) -> None:
                 f'<span class="jd-items">{n} listed</span>' if n else '<span class="jd-items zero">schedule only</span>'
             )
             meta = " · ".join(p for p in (_esc(r.courtroom), _esc(r.time)) if p)
-            cards.append(
-                f'<div class="jd-card"><div class="jd-judge">{_esc(r.judge)}</div>'
+            face = (
+                f'<div class="jd-judge">{_esc(r.judge)}</div>'
                 f'<div class="jd-meta">{meta}</div>'
-                f'<div class="jd-list">{_esc(r.list_type) or "—"}</div>{items}</div>'
+                f'<div class="jd-list">{_esc(r.list_type) or "—"}</div>{items}'
             )
+            matters = _session_matters(court_cases, r)
+            if matters:
+                plural = "s" if len(matters) != 1 else ""
+                cards.append(
+                    f'<details class="jd-sit"><summary>{face}'
+                    f'<span class="jd-expand-hint">Show {len(matters)} matter{plural} ↓</span>'
+                    f'</summary><div class="jd-sit-matters">{"".join(matters)}</div></details>'
+                )
+            else:
+                cards.append(f'<div class="jd-card">{face}</div>')
         st.html(
             f'<div class="jd-court-head">{_esc(court)} '
             f"<span>· {len(rows)} sitting{'s' if len(rows) != 1 else ''}</span></div>"
@@ -947,6 +1151,42 @@ def _case_party_html(row) -> str:
     status = getattr(row, "status", None)
     status_chip = f'<span class="jd-status">{_esc(status)}</span>' if isinstance(status, str) and status else ""
     return chip + party + status_chip
+
+
+_CAT_LABEL = {key: label for key, label, _desc in _CATEGORIES}
+
+
+def _case_row_html(r) -> str:
+    """One listed matter as a client-side expander (<details>): the anonymised
+    party line is the summary; opening it reveals the full anonymised detail
+    (court / judge / list / status / type) and the official-diary link. There is
+    no un-anonymised layer to reveal — people are reduced to initials and the
+    statutory in-camera categories (minors, family, wards, childcare, asylum)
+    were dropped at the extractor — so the expanded view is safe by construction.
+    """
+    link = (
+        f'<a class="jd-case-link" href="{_esc(r.source_url)}" target="_blank" rel="noopener">official diary ↗</a>'
+        if isinstance(getattr(r, "source_url", None), str) and r.source_url
+        else ""
+    )
+    bits = []
+    for field, lbl, mapper in (
+        ("court", "Court", None),
+        ("judge", "Judge", None),
+        ("list_type", "List", None),
+        ("status", "Status", None),
+        ("category", "Type", _CAT_LABEL.get),
+    ):
+        val = getattr(r, field, None)
+        if mapper is not None:
+            val = mapper(val or "", "")
+        if isinstance(val, str) and val:
+            bits.append(f"<span><b>{lbl}</b> {_esc(val)}</span>")
+    detail = "".join(bits) + link
+    return (
+        f'<details class="jd-case"><summary>{_case_party_html(r)}</summary>'
+        f'<div class="jd-case-detail">{detail}</div></details>'
+    )
 
 
 def _render_ld_plaintiffs(day_cases: pd.DataFrame) -> None:
@@ -1088,16 +1328,8 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
             jlabel = judge if isinstance(judge, str) and judge else "Court"
             llabel = list_type if isinstance(list_type, str) and list_type else "List"
             with st.expander(f"{jlabel} — {llabel}  ({len(g)})", expanded=bool(search)):
-                rows = []
-                for r in g.head(TIER_C_PAGE).itertuples():
-                    link = (
-                        f'<a class="jd-case-link" href="{_esc(r.source_url)}" target="_blank" '
-                        f'rel="noopener">official diary ↗</a>'
-                        if r.source_url
-                        else ""
-                    )
-                    rows.append(f'<div class="jd-case-row">{_case_party_html(r)}{link}</div>')
-                st.html("".join(rows))
+                st.caption("Tap any matter to see its court, list, status and a link to the official diary.")
+                st.html("".join(_case_row_html(r) for r in g.head(TIER_C_PAGE).itertuples()))
                 if len(g) > TIER_C_PAGE:
                     st.caption(f"… and {len(g) - TIER_C_PAGE} more in this list — open the official diary.")
         if hidden_groups:
@@ -1264,7 +1496,7 @@ def _render_legal_diary() -> None:
         empty_state("No sittings listed for this day", "Courts may not have sat (vacation or a non-court day).")
         return
 
-    _render_ld_schedule(day_sched)
+    _render_ld_schedule(day_sched, day_cases)
     st.divider()
     _render_ld_busiest(day_counts)
     st.divider()
@@ -1296,6 +1528,12 @@ def judiciary_page() -> None:
     judge_key = st.query_params.get("judge")
     if judge_key:
         _render_profile(judge_key)
+        return
+
+    # Court drill-down — one court's clearance, area breakdown and waiting times.
+    court_key = st.query_params.get("court")
+    if court_key:
+        _render_court_detail(court_key)
         return
 
     roster = fetch_roster()

@@ -43,3 +43,12 @@
 
 ## Rural / One-off Housing
 - Assessed under the **Sustainable Rural Housing Guidelines 2005** and the **EPA Code of Practice on Wastewater Treatment and Disposal Systems Serving Single Houses 2010** (on-site wastewater treatment + percolation). No single fixed minimum-site-area figure is tabulated in Appendix 1 (rural housing policy is in Volume 1).
+
+
+## Supplement — added 2026-06-15
+**Source:** Appendix 1, Table 2.5 (Set backs), adopted plan raw PDF — table-aware extraction (two-column). No inference.
+- **Building setback from edge of hard-paved surface of public road (Table 2.5):**
+  - Motorway / National Road: 100 m (all development); 20 m (employment development)
+  - Rural Regional: 40 m (all development); 20 m (employment development)
+  - Rural Local Roads: 20 m · Arterial Road: 10 m · Link Road: 6 m · Urban Local Road: minimum required for footpaths + buffer
+- Sightlines (§2.1.9): qualitative — calculated per the applicable road design manual (no fixed X/Y).

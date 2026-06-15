@@ -171,6 +171,13 @@ def fetch_payments_publishers_for_supplier_result(supplier_norm: str, tier: str 
     return _q.payments_publishers_for_supplier(get_procurement_conn(), supplier_norm, tier=tier)
 
 
+@st.cache_data(ttl=300)
+def fetch_entity_chain_for_company_result(company_num: str) -> QueryResult:
+    """One CRO-matched firm's cross-register footprint (eTenders / TED / payments), each
+    register's own headline number side by side — never summed (different grains)."""
+    return _q.entity_chain_for_company(get_procurement_conn(), company_num)
+
+
 # ── AFS (per-LA audited accounts) — BUDGET grain; the council-spend denominator ───
 # Sibling context fact for the local-authority dossier, never summed with PO/award euros.
 @st.cache_data(ttl=300)

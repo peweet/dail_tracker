@@ -207,7 +207,17 @@ def main() -> None:
     args = ap.parse_args()
 
     csv_path = ensure_csv(force=args.force, max_age_days=args.cache_max_age_days)
-    df = pl.read_csv(csv_path, infer_schema_length=0, truncate_ragged_lines=True, ignore_errors=True)
+    # encoding="utf8-lossy": the OGP/eTenders export is Windows-encoded and periodically
+    # carries a stray non-UTF-8 byte (a smart-quote / accented supplier name). Plain utf8
+    # makes Polars raise ComputeError("invalid utf-8 sequence") at the byte level —
+    # ignore_errors=True does NOT cover that — so decode lossily, replacing bad bytes.
+    df = pl.read_csv(
+        csv_path,
+        infer_schema_length=0,
+        truncate_ragged_lines=True,
+        ignore_errors=True,
+        encoding="utf8-lossy",
+    )
     df = df.rename({c: c.replace("﻿", "").strip() for c in df.columns})
     sup_col, auth_col = "Awarded Suppliers", "Contracting Authority"
     val_col = next(c for c in df.columns if "Awarded Value" in c)
