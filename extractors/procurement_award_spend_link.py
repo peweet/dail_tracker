@@ -43,6 +43,7 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from services.parquet_io import save_parquet  # noqa: E402
+from shared.name_norm import name_norm_expr  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -54,6 +55,17 @@ TED = ROOT / "data/silver/parquet/ted_ie_awards.parquet"
 TED_WINNER_HISTORY = ROOT / "data/silver/parquet/ted_ie_winner_history.parquet"
 OUT = ROOT / "data/sandbox/parquet/procurement_award_spend_link.parquet"
 OUT_SUMMARY = ROOT / "data/_meta/procurement_award_spend_link_summary.json"
+# Hand-vetted payee-name -> CRO company_num overrides (high-confidence CRO-anchor recoveries from
+# pipeline_sandbox/procurement_payee_cro_anchor_probe.py). Each row's company independently won a
+# tender, so applying it MERGES an entity-variant payee onto the firm it actually is — recovering
+# links the exact-name map misses (digit-bleed "13-13 Glanmore Foods", "JH Fitzpatrick" vs
+# "J. H. Fitzpatrick"). Keyed on name_norm_expr(supplier_raw). Curated CSV — edit/extend by review.
+PAYEE_CRO_OVERRIDES = ROOT / "data/_meta/procurement_payee_cro_overrides.csv"
+# Hand-vetted public-body / inter-gov-transfer payees (HEA, EFSF, Teagasc, Pobal, Comptroller…) that
+# the source mislabels as ordinary suppliers — excluded from the spend side like supplier_class=
+# public_body. Curated FROM the bucket-3 probe with charities/professional-bodies/commercial semi-
+# states (daa, IAA) and parser-bleed deliberately left OUT. Keyed on name_norm_expr(supplier_raw).
+PUBLIC_BODY_PAYEES = ROOT / "data/_meta/procurement_public_body_payees.csv"
 
 
 def load_cro_map() -> pl.DataFrame:
@@ -91,6 +103,25 @@ def _entity(cro_col: str, norm_col: str) -> pl.Expr:
     )
 
 
+def load_overrides() -> pl.DataFrame:
+    """Hand-vetted payee-name -> CRO company_num map (see PAYEE_CRO_OVERRIDES). Empty if absent."""
+    if not PAYEE_CRO_OVERRIDES.exists():
+        return pl.DataFrame(schema={"_ovr_key": pl.Utf8, "_ovr_num": pl.Int64})
+    return (
+        pl.read_csv(PAYEE_CRO_OVERRIDES)
+        .select(_ovr_key=pl.col("payee_norm"), _ovr_num=pl.col("company_num").cast(pl.Int64))
+        .drop_nulls()
+        .unique("_ovr_key")
+    )
+
+
+def load_public_body_payee_keys() -> set[str]:
+    """Hand-vetted normalised payee names that are public bodies / transfers (see PUBLIC_BODY_PAYEES)."""
+    if not PUBLIC_BODY_PAYEES.exists():
+        return set()
+    return set(pl.read_csv(PUBLIC_BODY_PAYEES)["payee_norm"].drop_nulls().to_list())
+
+
 def load_spend(cro_map: pl.DataFrame) -> pl.DataFrame:
     parts = []
     for p in SPEND_PARQUETS:
@@ -116,6 +147,19 @@ def load_spend(cro_map: pl.DataFrame) -> pl.DataFrame:
         & (pl.col("supplier_normalised").str.strip_chars() != "")
     )
     clean = attach_cro(clean, "supplier_normalised", cro_map)
+    # Drop hand-vetted public-body / transfer payees the source mislabels as suppliers (HEA, EFSF,
+    # Teagasc…), then apply the vetted CRO overrides: fill a company_num for entity-variant payees
+    # the exact-name map missed (keyed on a fresh name_norm of supplier_raw). coalesce keeps any
+    # existing exact match, so an override never overrides a firm that already resolved.
+    pub_keys = load_public_body_payee_keys()
+    ovr = load_overrides()
+    clean = (
+        clean.with_columns(name_norm_expr("supplier_raw").alias("_ovr_key"))
+        .filter(~pl.col("_ovr_key").is_in(list(pub_keys)))
+        .join(ovr, on="_ovr_key", how="left")
+        .with_columns(pl.coalesce(["company_num", "_ovr_num"]).alias("company_num"))
+        .drop(["_ovr_key", "_ovr_num"])
+    )
     clean = clean.with_columns(_entity("company_num", "supplier_normalised"))
     return clean.group_by("entity").agg(
         pl.col("supplier_raw").drop_nulls().first().alias("spend_name"),
