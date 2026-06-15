@@ -219,6 +219,20 @@ def main() -> None:
         encoding="utf8-lossy",
     )
     df = df.rename({c: c.replace("﻿", "").strip() for c in df.columns})
+    # eTenders periodically reshapes its export headers. 2026-06: the pass-through DETAIL columns
+    # gained a "Sum of " prefix and the date column gained spaces around the slash — which silently
+    # dropped them (DETAIL_COLS matches names exactly) and broke v_procurement_awards registration.
+    # Normalise the drift-prone PASS-THROUGH headers back to their canonical names so the gold
+    # parquet's schema — the SQL views' stable contract — never chases an upstream rename. (Value /
+    # estimate are already substring-matched and parsed to floats below, so they need no entry here.)
+    _CANON_HEADERS = {
+        "Notice Published Date / Contract Created Date": "Notice Published Date/Contract Created Date",
+        "Sum of Contract Duration (Months)": "Contract Duration (Months)",
+        "Sum of No of Bids Received": "No of Bids Received",
+        "Sum of No of SMEs Bids Received": "No of SMEs Bids Received",
+        "Sum of No of Awarded SMEs": "No of Awarded SMEs",
+    }
+    df = df.rename({c: _CANON_HEADERS[c] for c in df.columns if c in _CANON_HEADERS})
     sup_col, auth_col = "Awarded Suppliers", "Contracting Authority"
     val_col = next(c for c in df.columns if "Awarded Value" in c)
     date_col = next(c for c in df.columns if "Published" in c and "Date" in c)

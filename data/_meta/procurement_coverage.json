@@ -3,10 +3,10 @@
   "award_notices": 43255,
   "award_supplier_rows": 62763,
   "supplier_class_counts": {
+    "public_body": 289,
     "sole_trader_or_individual": 16728,
-    "company": 44834,
     "foreign_company": 912,
-    "public_body": 289
+    "company": 44834
   },
   "distinct_suppliers": 15810,
   "company_class_suppliers": 9979,
