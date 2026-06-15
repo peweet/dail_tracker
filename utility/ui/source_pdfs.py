@@ -364,15 +364,22 @@ def interests_pdf_url(house: str, year: int) -> str | None:
 
 
 def iris_archive_url(issue_date) -> str:
-    """Iris Oifigiúil archive *month* URL for a notice's issue date.
+    """Direct URL to the specific Iris Oifigiúil issue PDF for its issue date.
 
-    The archive's per-PDF filename casing (IR vs Ir) is inconsistent and not
-    derivable from the date, but the month-directory listing always resolves —
-    and the dated PDF sits one click inside it (a month has ~8 issues). This
-    keeps the link live with zero pipeline work. Empty string when undated.
+    The site serves issues from two stores, both with consistent
+    ``IR{ddmmyy}.pdf`` filenames (verified live 2026-06-15):
+      • recent issues (current month, not yet archived) live under
+        ``/currentissues/`` and 404 in the dated archive folder;
+      • older issues live under ``/archive/{year}/{month}/`` and eventually
+        drop out of ``/currentissues/``.
+    The two windows overlap by many months, so any boundary between ~1 and ~24
+    months routes every issue to a store that resolves. We send the last ~45
+    days to ``currentissues`` and everything older to the dated archive folder.
+    Legacy lowercase ``Ir`` casing no longer resolves and is not emitted.
+    Empty string when undated.
 
     Shared by the two Iris-sourced pages (corporate, public_appointments) so the
-    archive-URL formula lives in one place.
+    issue-URL formula lives in one place.
     """
     if issue_date is None or pd.isna(issue_date):
         return ""
@@ -380,7 +387,11 @@ def iris_archive_url(issue_date) -> str:
         d = pd.Timestamp(issue_date)
     except (ValueError, TypeError):
         return ""
-    return f"https://irisoifigiuil.ie/archive/{d.year}/{d.strftime('%B').lower()}/"
+    fname = f"IR{d.strftime('%d%m%y')}.pdf"
+    age_days = (pd.Timestamp.today().normalize() - d.normalize()).days
+    if age_days <= 45:
+        return f"https://www.irisoifigiuil.ie/currentissues/{fname}"
+    return f"https://irisoifigiuil.ie/archive/{d.year}/{d.strftime('%B').lower()}/{fname}"
 
 
 def interests_pdf_links(house: str) -> list[tuple[str, str]]:
