@@ -2254,7 +2254,7 @@ def _render_detail(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = N
                 f"Iris Oifigiúil — {html.escape(date_str)} ↗</a>"
                 f'<div style="font-family:ui-monospace,Menlo,monospace;font-size:0.78rem;'
                 f'color:#8a8a8a;margin-top:0.2rem;">{html.escape(src_pdf)} '
-                f"· opens the issue's PDF list</div>"
+                f"· opens the issue PDF</div>"
             )
         else:
             val_html = (

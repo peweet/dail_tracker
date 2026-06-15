@@ -839,13 +839,42 @@ def afs_total_by_year(conn: duckdb.DuckDBPyConnection, council: str) -> QueryRes
 
 def afs_by_division(conn: duckdb.DuckDBPyConnection, council: str, year: int) -> QueryResult:
     """One council-year's revenue spending by service division (Housing / Roads / …), largest
-    gross first — the by-function breakdown panel. Display passthrough of the reconcile-gated
+    NET COST first — the "where your money goes" breakdown. Net cost (gross minus the service's
+    own income/grants) is what the local taxpayer actually funds, so it leads; gross + the
+    pipeline-computed pct_self_funded ride alongside. Display passthrough of the reconcile-gated
     fact; gross is operating expenditure by division, never the council's headline total."""
     return _run(
         conn,
-        "SELECT division, gross_expenditure_eur, income_eur, net_expenditure_eur, reconciled"
+        "SELECT division, gross_expenditure_eur, income_eur, net_expenditure_eur,"
+        " pct_self_funded, reconciled"
         " FROM v_procurement_afs_by_division WHERE council = ? AND year = ?"
-        " ORDER BY gross_expenditure_eur DESC",
+        " ORDER BY net_expenditure_eur DESC",
+        [council, int(year)],
+    )
+
+
+def afs_capital_by_year(conn: duckdb.DuckDBPyConnection, council: str) -> QueryResult:
+    """One council's audited CAPITAL-account investment per year — the "what your council is
+    building / acquiring" spine of the dossier's BUILDING lane. capital_expenditure_eur is Σ
+    investment by service that year (a distinct fact: never summed with revenue net cost, PO/
+    payment or award euros). Pre-aggregated in the view; the page renders, never computes."""
+    return _run(
+        conn,
+        "SELECT year, capital_expenditure_eur, capital_income_eur, n_divisions, reconciled, parser"
+        " FROM v_procurement_afs_capital_by_year WHERE council = ? ORDER BY year",
+        [council],
+    )
+
+
+def afs_capital_by_division(conn: duckdb.DuckDBPyConnection, council: str, year: int) -> QueryResult:
+    """One council-year's CAPITAL investment by service division (largest first) — the build/
+    acquire programme, dominated by central housing grants. Display passthrough of the reconcile-
+    gated fact; a distinct grain, never summed with the revenue or PO/award euros."""
+    return _run(
+        conn,
+        "SELECT division, capital_expenditure_eur, capital_income_eur, reconciled"
+        " FROM v_procurement_afs_capital_by_division WHERE council = ? AND year = ?"
+        " ORDER BY capital_expenditure_eur DESC",
         [council, int(year)],
     )
 
