@@ -17,9 +17,9 @@ Emits the public_payments_fact schema (via pbe.classify_and_flag) -> its own sil
 with public_payments_fact + the bespoke nta/seai/nphdb/hse_tusla facts at gold consolidate time.
 
 NOT wired into pipeline.py. Run:
-  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_dept_readingorder_parser.py
-  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_dept_readingorder_parser.py --only dept_justice --max-files 2
-  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_dept_readingorder_parser.py --validate   # no write, parse 1 file each
+  ./.venv/Scripts/python.exe extractors/procurement_dept_readingorder_parser.py
+  ./.venv/Scripts/python.exe extractors/procurement_dept_readingorder_parser.py --only dept_justice --max-files 2
+  ./.venv/Scripts/python.exe extractors/procurement_dept_readingorder_parser.py --validate   # no write, parse 1 file each
 """
 
 from __future__ import annotations

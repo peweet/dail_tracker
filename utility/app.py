@@ -15,6 +15,7 @@ from pages_code.payments import payments_page
 from pages_code.procurement import procurement_page
 from pages_code.public_appointments import public_appointments_page
 from pages_code.public_payments import public_payments_page
+from pages_code.siting_check import siting_check_page
 from pages_code.statutory_instruments import statutory_instruments_page
 from pages_code.votes import votes_page
 from shared_css import inject_css
@@ -170,6 +171,14 @@ pg = st.navigation(
                 title="Appointments",
                 icon=":material/assignment_ind:",
                 url_path="rankings-appointments",
+            ),
+        ],
+        "Planning": [
+            st.Page(
+                siting_check_page,
+                title="Siting Check",
+                icon=":material/travel_explore:",
+                url_path="planning-siting-check",
             ),
         ],
         "Glossary": [

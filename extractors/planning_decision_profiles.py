@@ -39,8 +39,8 @@ from services.parquet_io import save_parquet
 
 LOG = logging.getLogger("planning_decision_profiles")
 ROOT = Path(__file__).resolve().parents[1]
-SILVER = ROOT / "pipeline_sandbox/_planning_output/planning_applications_silver.parquet"
-OUT = ROOT / "pipeline_sandbox/_planning_output/planning_decision_profiles.parquet"
+SILVER = ROOT / "data/silver/parquet/planning_applications_silver.parquet"
+OUT = ROOT / "data/silver/parquet/planning_decision_profiles.parquet"
 OUT_COV = ROOT / "data/_meta/planning_decision_profiles_coverage.json"
 
 NPWS = "https://services-eu1.arcgis.com/Jhij7i46ouO8Cc0N/arcgis/rest/services/NPWSDesignatedAreas/FeatureServer"

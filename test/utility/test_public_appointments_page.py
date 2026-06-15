@@ -187,6 +187,133 @@ def test_active_filter_chips_empty():
     assert pa._active_filter_chips(_appt_df()) == []
 
 
+# ── State Boards register tab ────────────────────────────────────────────────────
+def _roster_df() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "department": "Department of Health", "body": "HIQA", "body_full": "Health Information and Quality Authority",
+                "member_name": "Anne Daly", "position_type": "Chairperson",
+                "basis_of_appointment": "PAS Process", "first_appointed": "2022-01-10",
+                "expiry_date": "2027-01-09", "source_url": "https://x",
+                "wikidata_qid": "Q1", "wikidata_url": "https://www.wikidata.org/wiki/Q1",
+                "wikidata_label": "Anne Daly", "wikidata_description": "Irish academic",
+                "wikidata_occupations": "academic; economist", "wikidata_employers": "",
+                "wikidata_positions_held": "", "wikidata_curation_note": "verified",
+            },
+            {
+                "department": "Department of Health", "body": "HIQA", "body_full": "Health Information and Quality Authority",
+                "member_name": "Brian Nolan", "position_type": "Board Member",
+                "basis_of_appointment": "Appointed by the Minister", "first_appointed": "2023-05-01",
+                "expiry_date": "2028-04-30", "source_url": "https://x",
+                "wikidata_qid": None, "wikidata_url": None, "wikidata_label": None,
+                "wikidata_description": None, "wikidata_occupations": None, "wikidata_employers": None,
+                "wikidata_positions_held": None, "wikidata_curation_note": None,
+            },
+            {
+                "department": "Department of Finance", "body": "NTMA", "body_full": "National Treasury Management Agency",
+                "member_name": "Cara Walsh", "position_type": "Ordinary Member",
+                "basis_of_appointment": "Ministerial Appointment", "first_appointed": "2021-09-15",
+                "expiry_date": "2026-09-14", "source_url": "https://x",
+                "wikidata_qid": None, "wikidata_url": None, "wikidata_label": None,
+                "wikidata_description": None, "wikidata_occupations": None, "wikidata_employers": None,
+                "wikidata_positions_held": None, "wikidata_curation_note": None,
+            },
+        ]
+    )
+
+
+def _boards_df() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "department": "Department of Health", "body": "HIQA", "body_full": "Health Information and Quality Authority",
+                "legal_basis": "Health Act 2007", "legal_basis_url": "https://law", "max_positions": 12,
+                "gender_female_n": 6, "gender_male_n": 6, "gender_female_pct": 50.0, "gender_male_pct": 50.0,
+                "members_listed": 12, "source_url": "https://x",
+            },
+            {
+                "department": "Department of Finance", "body": "NTMA", "body_full": "National Treasury Management Agency",
+                "legal_basis": None, "legal_basis_url": None, "max_positions": 9,
+                "gender_female_n": 3, "gender_male_n": 6, "gender_female_pct": 33.0, "gender_male_pct": 67.0,
+                "members_listed": 9, "source_url": "https://x",
+            },
+        ]
+    )
+
+
+def test_role_group():
+    assert pa._role_group("Chairperson") == "Chairs"
+    assert pa._role_group("Chair") == "Chairs"
+    assert pa._role_group("Board Member") == "Members"
+    assert pa._role_group("Ordinary Member") == "Members"
+    assert pa._role_group("Director") == "Other"
+    assert pa._role_group("") == "Other"
+
+
+def test_term():
+    assert pa._term("2022-01-10", "2027-01-09") == "2022–2027"
+    assert pa._term("2022-01-10", None) == "from 2022"
+    assert pa._term(None, "2027-01-09") == "until 2027"
+    assert pa._term(None, None) == ""
+
+
+def test_gender_bar():
+    bar = pa._gender_bar(50.0, 50.0)
+    assert "sb-gbar" in bar and "50% women" in bar and "50% men" in bar
+    assert pa._gender_bar(None, None) == ""
+    assert pa._gender_bar(0, 0) == ""
+
+
+def test_filter_roster_each_facet():
+    r = _roster_df()
+    assert len(pa._filter_roster(r, "All", "All", False, "")) == 3
+    assert len(pa._filter_roster(r, "Department of Health", "All", False, "")) == 2
+    assert len(pa._filter_roster(r, "All", "Chairs", False, "")) == 1
+    assert len(pa._filter_roster(r, "All", "Members", False, "")) == 2
+    assert len(pa._filter_roster(r, "All", "All", True, "")) == 1  # only the curated row
+    assert len(pa._filter_roster(r, "All", "All", False, "ntma")) == 1  # body match
+    assert len(pa._filter_roster(r, "All", "All", False, "cara")) == 1  # member name match
+    assert len(pa._filter_roster(r, "All", "All", False, "zzz")) == 0
+
+
+def test_render_member_with_and_without_public_record():
+    _silence_streamlit()
+    r = _roster_df()
+    curated = pa._render_member(r.iloc[0])
+    assert "Anne Daly" in curated
+    assert "is-chair" in curated  # Chairperson pill highlighted
+    assert "Public record" in curated and "Irish academic" in curated
+    assert "2022–2027" in curated
+    plain = pa._render_member(r.iloc[1])
+    assert "Brian Nolan" in plain
+    assert "Public record" not in plain
+
+
+def test_render_board_card_with_metadata():
+    _silence_streamlit()
+    r = _roster_df()
+    hiqa = r[r["body"] == "HIQA"]
+    meta = {row["body"]: row for row in _boards_df().to_dict("records")}["HIQA"]
+    html = pa._render_board_card("HIQA", hiqa, meta)
+    assert "Health Information and Quality Authority" in html
+    assert "Statutory basis" in html and "Health Act 2007" in html
+    assert "of 12 seats shown" in html
+    assert "sb-gbar" in html
+    # board with no legal basis still renders cleanly
+    ntma = r[r["body"] == "NTMA"]
+    meta2 = {row["body"]: row for row in _boards_df().to_dict("records")}["NTMA"]
+    html2 = pa._render_board_card("NTMA", ntma, meta2)
+    assert "Statutory basis" not in html2
+
+
+def test_render_stateboards_tab(monkeypatch):
+    _silence_streamlit()
+    assert pa._render_stateboards_tab(_roster_df(), _boards_df()) is None
+    # empty roster → empty_state, no crash
+    assert pa._render_stateboards_tab(pd.DataFrame(), pd.DataFrame()) is None
+
+
 # ── page entry (bare mode, monkeypatched loader) ─────────────────────────────────
 def test_public_appointments_page_index(monkeypatch):
     _silence_streamlit()
@@ -195,6 +322,7 @@ def test_public_appointments_page_index(monkeypatch):
          "appointee", "appointee_count", "role", "portfolio", "english_summary", "lang",
          "title", "iris_source_pdf"]
     ])
+    monkeypatch.setattr(pa, "load_stateboards", lambda *a, **k: (_roster_df(), _boards_df()))
     pa.load_appointments.clear()
     assert pa.public_appointments_page() is None
     pa.load_appointments.clear()
@@ -203,6 +331,7 @@ def test_public_appointments_page_index(monkeypatch):
 def test_public_appointments_page_empty(monkeypatch):
     _silence_streamlit()
     monkeypatch.setattr(pa, "fetch_public_appointments", lambda *a, **k: pd.DataFrame())
+    monkeypatch.setattr(pa, "load_stateboards", lambda *a, **k: (pd.DataFrame(), pd.DataFrame()))
     pa.load_appointments.clear()
     assert pa.public_appointments_page() is None
     pa.load_appointments.clear()

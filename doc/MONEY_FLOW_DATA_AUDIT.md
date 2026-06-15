@@ -51,7 +51,7 @@ totals; max legitimate single rows are real (NTA BusConnects €140.6m → Graha
    public_body transfer; plus a regression guard that the core money-flow bodies (Defence/Climate/central
    depts/Beaumont) stay present & displayable. **16/16 + 67 adjacent procurement tests green.**
 4. ✅ **Reading-order departments ingested (DFAT/Justice/Transport).** Bespoke
-   `pipeline_sandbox/procurement_dept_readingorder_parser.py` wired into `SOURCE_FACTS`. Gold = **63
+   `extractors/procurement_dept_readingorder_parser.py` wired into `SOURCE_FACTS`. Gold = **63
    publishers / 207,504 rows**; +€2.35bn raw sum-safe (Justice €1.47bn / Transport €486m / DFAT €394m), clean
    parse (0 blank-supplier, 0 ≥€100m garbage). Newly visible: asylum-accommodation (Mosney, Millstreet),
    De La Rue (passports), BearingPoint, Bristow/CHC (SAR helicopters). **83 tests green.**

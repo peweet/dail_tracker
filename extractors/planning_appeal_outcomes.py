@@ -30,8 +30,8 @@ from services.parquet_io import save_parquet
 
 LOG = logging.getLogger("planning_appeal_outcomes")
 ROOT = Path(__file__).resolve().parents[1]
-SILVER = ROOT / "pipeline_sandbox/_planning_output/planning_applications_silver.parquet"
-OUT = ROOT / "pipeline_sandbox/_planning_output/planning_appeal_outcomes.parquet"
+SILVER = ROOT / "data/silver/parquet/planning_applications_silver.parquet"
+OUT = ROOT / "data/silver/parquet/planning_appeal_outcomes.parquet"
 OUT_COV = ROOT / "data/_meta/planning_appeal_outcomes_coverage.json"
 ACP = "https://services-eu1.arcgis.com/o56BSnENmD5mYs3j/arcgis/rest/services/Cases_2016_Onwards/FeatureServer/3/query"
 

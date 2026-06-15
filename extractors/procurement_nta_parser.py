@@ -29,8 +29,8 @@ NOT wired into pipeline.py. Writes a GOLD-CANDIDATE to data/sandbox/parquet/ (LA
 promote only on a separate go-ahead).
 
 Run:
-  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_nta_parser.py
-  ./.venv/Scripts/python.exe pipeline_sandbox/procurement_nta_parser.py --pdf c:/tmp/some.pdf
+  ./.venv/Scripts/python.exe extractors/procurement_nta_parser.py
+  ./.venv/Scripts/python.exe extractors/procurement_nta_parser.py --pdf c:/tmp/some.pdf
 """
 
 from __future__ import annotations

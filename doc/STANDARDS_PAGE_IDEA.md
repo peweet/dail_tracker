@@ -288,16 +288,27 @@ The location compare **caught real false positives** the name score alone would 
 (legitimately not in CRO), foreign firms, and the scrape's UTF-8 mojibake (fixable). Realistic clean
 ceiling ≈ 65–70% among matchable private firms — the matcher is not the bottleneck.
 
-### EXPERIMENTAL dataset built — `nsai_capability_register` (2026-06-15, sandbox)
-End-to-end PoC built in `c:/tmp/nsai_certs/` (see `DATASET_README.md`; NOT in repo/pipeline):
-NSAI certs → CRO identity+health → public payments, one row per CRO firm.
-- **1,289 firms matched to a live CRO entity**; **304** received public money totalling **€2.41bn**
-  (safe-to-sum, deduped per company_num).
-- **31 live-but-overdue certified firms with public money** = investigable leads (€397M); **37**
-  dissolved-shell matches flagged `match_review_needed` and excluded from the headline.
-- Matching hardened: conservative normalisation (no geo-collapse — fixed Toyota Ireland↔Holdings),
-  live-entity preference, junk filter, name-variant dedup, dissolved-match flag + confidence penalty,
-  and a column-by-column (name+location) fuzzy gate. Findings are leads, not conclusions.
+### EXPERIMENTAL feature PROMOTED to repo — `nsai_capability_register` (2026-06-15)
+Promoted out of the c:/tmp sandbox into tracked code (data stays in the gitignored `data/sandbox/`):
+- `pipeline_sandbox/nsai_certified_companies_scrape.py` — the NSAI scrape, now with **explicit UTF-8**
+  (`resp.encoding="utf-8"`) so fadas survive (`Iarnród Éireann`, `Branca Bunús`); atomic `save_parquet`,
+  `setup_standalone_logging`. → `data/sandbox/parquet/nsai_certified_companies.parquet`
+  (6,102 certs / 2,357 firms / 132 standards).
+- `pipeline_sandbox/nsai_capability_register.py` — the join → CRO identity+health → public payments.
+  → `data/sandbox/parquet/nsai_capability_register.parquet` + `..._summary.json`. ruff-clean.
+
+Final numbers (one row per CRO firm; `public_eur` safe-to-sum):
+- **1,381 firms matched** (1,215 high-confidence live; 42 dissolved-shell flagged `match_review_needed`).
+- **295 received public money → €2.52bn**; **31 live-but-overdue leads** (€358M).
+- Match key = the project-canonical `name_norm` (`shared.name_norm`), so it stays consistent with the
+  other ~18 join sites. The geo/legal-filler collapse it causes (Toyota Ireland ↔ Holdings → TOYOTA)
+  is handled by **ambiguity-aware live-preference**: pick the live entity, flag `ambiguous_name`,
+  lower confidence — never silently assert. (Toyota Ireland now resolves to the live *Toyota Ireland
+  Unlimited Company*, flagged, not the dead Holdings shell.)
+- Plus: junk filter, name-variant dedup (safe sums), dissolved-match flag + confidence halving, and the
+  column-by-column (name+location) fuzzy gate. Findings are leads, not conclusions.
+- TODO before any gold promotion: join eTenders/TED awards (payments fact understates total public
+  money); per-cert grain table; a real currency/refresh cadence.
 
 ### Why "the law" is paywalled — and the US vs EU split (context for the page's framing)
 Standards cited in law are written by **private, self-funding bodies** (CEN/CENELEC/ETSI/ISO/NSAI),

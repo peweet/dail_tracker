@@ -30,7 +30,7 @@ Outputs -> data/sandbox/enrichment/
   ministerial_diary_entries.parquet / .csv    one row per parsed engagement (DETE)
 PDF cache -> C:/tmp/min_diaries_pdfs/ (transient)
 
-Run: .venv/Scripts/python.exe pipeline_sandbox/ministerial_diaries_extract.py
+Run: .venv/Scripts/python.exe extractors/ministerial_diaries_extract.py
 """
 
 from __future__ import annotations
