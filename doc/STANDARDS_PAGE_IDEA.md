@@ -176,7 +176,7 @@ leave a **public, firm-keyed trail** joinable to CRO.
 | **CRO Auditor Register** — search.cro.ie/auditors | **CRO no. + ARN** | Only one natively CRO-keyed — the join spine, no fuzzy-match |
 | **Central Bank Register of Authorised Firms** — registers.centralbank.ie | C-number | One consolidated, bulk-downloadable register for all regulated finance |
 | **EudraGMDP** (EU) — eudragmdp.ema.europa.eu | authorisation/cert no. | Every pharma MIA/WDA/GMP/GDP site, EU-wide, no login |
-| **NSAI Certified Company search** — nsai.ie | company name | ~7,520 active certs (ISO 9001/14001/45001/13485…) — see §6 |
+| **NSAI Certified Company search** ✅ **PULLED** | company name + `store_link` | **6,103 certs / 2,358 firms** — the Type-B keystone, now a dataset (§6b) |
 | **NSAI Agrément** (products + registered installers) | cert no. | Building products/systems + approved installers |
 | **Repak members** — repak.ie/members/list | membership no. + **Excel export** | ~9,400 firms, literally downloadable |
 | **EPA Licence Search** — epa.ie | licensee name + licence no. | IE/IPC/waste-water, back to 2004/07 |
@@ -199,8 +199,9 @@ RIAI / ACCA / CPA / Irish Tax Institute (mostly **individual**-level — link to
 named employee); CAI/CPA firm directories (weak search).
 
 ### Tier C — exists but no usable public trail (record, don't chase)
-- **ISO 9001 / 14001 / 45001 / 27001** — *self-declared*; no central register (IAF CertSearch is
-  voluntary + partial). Only NSAI-*issued* certs are searchable (via §5 NSAI).
+- **ISO 9001 / 14001 / 45001 / 27001** — *self-declared* globally (IAF CertSearch is voluntary +
+  partial), BUT NSAI-*issued* Irish certs are **fully enumerable and now pulled** → these moved to
+  Tier A (§5/§6b). Only certs issued by *other* bodies remain Tier C.
 - **SOC 1 / SOC 2** — NDA-gated audit reports, zero register.
 - **Achilles / Constructionline / EcoVadis / deep CHAS/SafeContractor** — buyer-portal paywall.
 - **IiP / Q-Mark / KeepWell / Investors in Diversity** — logo galleries, not registers.
@@ -222,6 +223,65 @@ named employee); CAI/CPA firm directories (weak search).
 (devices, SRN), **EMAS**, **ECHA/REACH**. A standard becomes binding the moment it is a harmonised
 standard cited in EU law or transposed by an SI — which is exactly what §4's 1,868 transposition SIs
 are doing.
+
+---
+
+## 6b. EXECUTED — NSAI register pulled + standards-source/linking layer (2026-06-15)
+
+### The keystone register is now a dataset (#1 — done)
+The NSAI certified-company search was reverse-engineered and pulled. It is a plain EE form POST to
+`https://www.nsai.ie/certification/results/` with a per-form `XID` CSRF token + `standard_number` /
+`standard_title` / `company_name` fields (no pagination — all matches in one response). Scraper:
+`c:/tmp/nsai_certs/scrape_register.py`; output `nsai_certified_companies.parquet`/`.csv`.
+
+- **6,103 certificates · 2,358 companies · 133 standards** (~81% of the ~7,520 NSAI claims; gap = cert
+  schemes not in the query list + dedup — closeable by adding the missing `standard_title` areas).
+- Each row: `project_file_number, company, location, standard_number, standard_code, standard_title,
+  scope, store_link`.
+- Top credentials: **I.S. EN ISO 9001:2015 ×1,822, ISO 45001 ×972, ISO 14001 ×931, ISO 50001 ×262,
+  ISO/IEC 27001 ×165**, plus product certs (EN 206 concrete, EN 1090 steel, EN 771 masonry) and
+  MDR 2017/745 ×74, FSSC 22000 ×58.
+- Multi-cert firms = capability signal (Roadstone 321, An Post 113, Iarnród Éireann 76, Kilsaran 50).
+- **This overturns the earlier Tier-C assumption:** Irish ISO management-system certs are NOT just
+  self-declared — the NSAI-issued ones are **fully enumerable**. NSAI certified-company register is
+  hereby **upgraded Tier C → Tier A** (see §5). It is the firm-linkage half of the supplier register.
+- Cleanup TODO: set response encoding to UTF-8 (mojibake on fadas, e.g. "Iarnród Éireann").
+
+### Making a standard code clickable (#2 — done)
+The NSAI standards store is `shop.standards.ie` (Intertek-hosted; `infostore.nsai.ie` is dead). A
+standard code is made clickable via the **search URL** (the canonical per-standard product page needs
+internal doc/rec IDs not derivable from the code):
+
+```
+https://shop.standards.ie/en-ie/search/standard/?searchTerm=<CODE>&publisher=NSAI
+```
+
+Now attached per row as `store_link`. Layered link strategy:
+
+| Link target | Source | Status |
+|---|---|---|
+| SI body (where a standard is cited / a register is mandated) | `eisb_url` | ✅ in data |
+| Standard's catalogue entry (Irish) | `shop.standards.ie/...?searchTerm=<code>&publisher=NSAI` | ✅ working |
+| Standard identity (international) | `iso.org/standard/{csnumber}.html` (needs ISO Open Data code→csnumber map); flagship topic pages `iso.org/iso-50001-energy-management.html` | partial |
+| Standard full text | NSAI/ISO/CEN paywalled PDF; **ETSI is the exception — free PDFs** | ❌ (paid) / ✅ ETSI only |
+| Which EU law a standard supports | EU per-legislation harmonised-standards **.xls summary lists** + EUR-Lex CELEX/ELI | ✅ free crosswalk |
+| Who is authorised to certify a standard | **NANDO** notified-bodies register (NSAI = NB 0050) | ✅ public |
+
+### Why "the law" is paywalled — and the US vs EU split (context for the page's framing)
+Standards cited in law are written by **private, self-funding bodies** (CEN/CENELEC/ETSI/ISO/NSAI),
+to whom governments deliberately **delegated** the technical detail of legislation (EU "New Approach",
+1985). The paywall is their funding model; they hold copyright. This collides with the rule-of-law
+principle that the law must be freely knowable — and is being litigated:
+- **EU/IE:** CJEU *Public.Resource.Org v Commission* (C‑588/21 P, 2024 — "Malamud") — harmonised
+  standards are **part of EU law and must be free**. Anchored by the Irish case *James Elliott
+  Construction v Irish Asphalt* (C‑613/14, 2016 — a harmonised standard "forms part of EU law").
+- **US:** *ASTM v. Public.Resource.Org* (D.C. Cir. 2023) — incorporated standards stay copyrighted
+  but are **freely republishable as fair use**; *Veeck v. SBCCI* (5th Cir. 2002) — enacted codes lose
+  copyright. The US also has a public index of which standards are law (**NIST SIBR**, sibr.nist.gov)
+  that the EU lacks — the very artefact the SI mining reconstructs for Ireland.
+- Two standard types matter differently: **harmonised/product standards** (Type A, EN 12676 — cited
+  in law, *product* conformity, weak firm-linkage) vs **management-system standards** (Type B, ISO
+  9001/14001/45001/50001/27001 — *companies* certify, strong firm-linkage via the NSAI register).
 
 ---
 
