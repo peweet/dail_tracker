@@ -52,6 +52,7 @@ from data_access.procurement_data import (
     fetch_cpv_summary_result,
     fetch_dependency_for_supplier_result,
     fetch_dependency_top_result,
+    fetch_entity_chain_for_company_result,
     fetch_entity_search_result,
     fetch_incumbency_for_supplier_result,
     fetch_incumbency_top_result,
@@ -749,7 +750,7 @@ def _render_councils() -> None:
     st.html(_PAY_FOOT_HTML)
 
 
-def _render_council_accounts_context(council: str, active_tier: str) -> None:
+def _render_council_accounts_context(council: str, active_tier: str, *, po_max_year: int | None = None) -> None:
     """AFS enrichment on a LOCAL-AUTHORITY dossier — the council's audited accounts as the
     "complete spending" context the named-supplier PO/payment data sits inside.
 
@@ -758,22 +759,45 @@ def _render_council_accounts_context(council: str, active_tier: str) -> None:
     computes a metric): (1) audited revenue spend per year; (2) the latest year's spending by
     service division; (3) an indicative traceability line — how much of that audited spend is
     tied to named suppliers in the >€20k purchase-order register. Silently omitted for a council
-    whose audited AFS isn't in the fact yet (so the dossier just shows the PO data, as before)."""
+    whose audited AFS isn't in the fact yet (so the dossier just shows the PO data, as before).
+
+    ``po_max_year`` is the latest year present in the purchase-order data above; when the audited
+    accounts end before it, the section flags the lag (councils file the audited AFS in arrears)."""
     by_year = fetch_afs_total_by_year_result(council)
     if not by_year.ok or by_year.data.empty:
         return
     ay = by_year.data
-    latest = int(ay["year"].max())
-    span = f"{int(ay['year'].min())}–{latest}" if len(ay) > 1 else str(latest)
+    years_present = {int(y) for y in ay["year"].dropna()}
+    earliest, latest = min(years_present), max(years_present)
+    span = f"{earliest}–{latest}" if len(years_present) > 1 else str(latest)
 
     st.html(
         '<div class="pr-afs">'
         '<div class="pr-afs-head">Council accounts — all spending (audited)</div>'
-        f'<p class="pr-cap pr-cap-flush">From the council’s own audited Annual Financial '
-        f"Statement (revenue account, {_esc(span)}): spending by service. This is the council’s "
-        "<strong>whole</strong> operating spend — a broader, separate measure from the purchase-order "
-        "figures above, and <strong>never added to them</strong>.</p></div>"
+        f'<p class="pr-cap pr-cap-flush">Every council must publish an <strong>Annual Financial '
+        "Statement (AFS)</strong> — its audited end-of-year accounts, showing what it spent running "
+        f"each service (housing, roads, environment…). Below is {_esc(council)}’s revenue-account "
+        f"spending by service ({_esc(span)}): the council’s <strong>whole</strong> operating spend, a "
+        "broader, separate measure from the over-€20,000 purchase-order figures above, and "
+        "<strong>never added to them</strong>.</p></div>"
     )
+
+    # Coverage flag — the audited AFS is filed in arrears (and the odd year can be missing from a
+    # council's own publication run), so be explicit about what's present rather than letting a
+    # short or gapped series read as "the council stopped spending".
+    flag_bits: list[str] = []
+    if po_max_year and latest < po_max_year:
+        flag_bits.append(
+            f"audited accounts run to <strong>{latest}</strong>, but the purchase orders above reach "
+            f"<strong>{po_max_year}</strong> — councils publish their audited AFS in arrears, so the "
+            "most recent year or two of total spending isn’t available yet"
+        )
+    missing = [y for y in range(earliest, latest + 1) if y not in years_present]
+    if missing:
+        yrs = ", ".join(str(y) for y in missing)
+        flag_bits.append(f"no published statement for {yrs} in this series")
+    if flag_bits:
+        st.html(f'<div class="pr-caveat"><strong>Coverage:</strong> {"; ".join(flag_bits)}.</div>')
     # (1) revenue spend per year — a DISTINCT colour from the PO chart's brown to signal a different grain.
     st.caption("Operating spending per year (revenue account, audited €)")
     st.bar_chart(ay, x="year", y="gross_expenditure_eur", x_label="Year", y_label="Audited € spent", height=200, color="#3a6b7e")
@@ -882,8 +906,10 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
 
     # Local-authority dossiers gain the audited-accounts context (the "complete spend" denominator
     # the named-supplier PO data sits inside). BUDGET grain — a sibling, never summed with the above.
+    # Pass the PO data's max year so the accounts section can flag the lag (audited AFS is filed
+    # in arrears, so it usually ends a year or two behind the purchase-order figures).
     if is_la:
-        _render_council_accounts_context(publisher_name, active)
+        _render_council_accounts_context(publisher_name, active, po_max_year=_n(prow.get("max_year")))
 
     res = fetch_payments_for_publisher_result(publisher_name, tier=active)
     df = res.data if res.ok else pd.DataFrame()
@@ -893,7 +919,8 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
         return
     st.caption(
         f"Top {len(df):,} suppliers by money {_paid_verb(active)} (sum-safe). Names as published by the body; "
-        "amounts are the body's own reported figures, not award ceilings."
+        "amounts are the body's own reported figures, not award ceilings. Click a company to see every public "
+        "body that paid it."
     )
     cards = []
     for i, r in enumerate(df.itertuples(), start=1):
@@ -903,7 +930,20 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
             for p in (_paid_pill(r.total_safe_eur, active), _cro_pill_from(getattr(r, "cro_company_num", None), None))
             if p
         ]
-        cards.append(_card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=i))
+        inner = _card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=i)
+        # Only company-class suppliers drill down: the supplier dossier composes a firm's
+        # cross-body footprint, which for an individual / sole trader would be profile-building
+        # (the same privacy quarantine the dossier itself enforces). Individuals stay static.
+        if _coalesce(getattr(r, "supplier_class", None)) == "company":
+            cards.append(
+                clickable_card_link(
+                    href=_paid_supplier_href(r.supplier_normalised, active),
+                    inner_html=inner,
+                    aria_label=f"See every public body that {_paid_verb(active)} {r.supplier}",
+                )
+            )
+        else:
+            cards.append(inner)
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.html(_FOOT_HTML)
 
@@ -1012,6 +1052,68 @@ def _render_payments_supplier_profile(supplier_norm: str, tier: str = "SPENT") -
         )
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.html(_PAY_FOOT_HTML)
+
+
+def _render_supplier_register_footprint(company_num) -> None:
+    """Cross-register footprint for a CRO-matched firm: which of the three public-money
+    registers (eTenders / TED / public-body payments) the same legal entity appears in, with
+    each register's own headline figure side by side. The unified backbone over
+    ``v_procurement_entity_chain`` — hard CRO company-number match only (no fuzzy name joins).
+
+    ⚠️ The figures are DIFFERENT GRAINS (award ceilings vs realised payments): shown labelled,
+    side by side, and NEVER summed. Absence from a register is coverage, not missing money (only
+    a fraction of State spend is published in the payments lists). Skipped when the firm has no
+    CRO match or appears in only one register (the rest of the profile already covers that)."""
+    if not _truthy(company_num):
+        return
+    res = fetch_entity_chain_for_company_result(str(company_num))
+    if not res.ok or res.data.empty:
+        return
+    r = res.data.iloc[0]
+    n_reg = _n(r.get("n_registers"))
+    if n_reg < 2:
+        return  # eTenders only — nothing here the awards section above doesn't already show
+
+    items: list[str] = []
+    if _truthy(r.get("in_etenders")):
+        v = _eur(r.get("etenders_awarded_value_safe_eur"))
+        auth = _n(r.get("etenders_n_authorities"))
+        val_pre = f"{v} awarded across " if v != "—" else ""
+        items.append(
+            f"<li><strong>eTenders (national)</strong> — {val_pre}{auth:,} contracting "
+            f"authorit{'y' if auth == 1 else 'ies'} "
+            '<span class="pr-notice-tag">award ceiling</span></li>'
+        )
+    if _truthy(r.get("in_ted")):
+        v = _eur(r.get("ted_value_safe_eur"))
+        nb = _n(r.get("ted_awards"))
+        val_pre = f"{v} awarded across " if v != "—" else ""
+        items.append(
+            f"<li><strong>TED (EU Official Journal)</strong> — {val_pre}{nb:,} award "
+            f"notice{'' if nb == 1 else 's'} "
+            '<span class="pr-notice-tag">award ceiling</span></li>'
+        )
+    if _truthy(r.get("in_payments")):
+        paid, comm = _eur(r.get("paid_safe_eur")), _eur(r.get("committed_safe_eur"))
+        npub = _n(r.get("payments_n_publishers"))
+        money = " · ".join(x for x in (f"{paid} paid" if paid != "—" else "", f"{comm} ordered" if comm != "—" else "") if x)
+        money = money or "present"
+        items.append(
+            f"<li><strong>Public-body payments</strong> — {money} by {npub:,} "
+            f"bod{'y' if npub == 1 else 'ies'} "
+            '<span class="pr-notice-tag">realised spend</span></li>'
+        )
+    st.html(
+        '<div class="pr-ted-xref">'
+        '<div class="pr-ted-xref-h">Register footprint — the same firm across public money</div>'
+        '<div class="pr-ted-xref-b">Matched by Companies Registration Office number, this firm appears '
+        f"in <strong>{n_reg} of 3</strong> public-money registers:"
+        f'<ul class="pr-notice-list">{"".join(items)}</ul>'
+        "These are <strong>different stages</strong> — an award ceiling is what a contract <em>could</em> "
+        "be worth; realised spend is what a body <em>reported paying</em>. They are shown separately and "
+        "<strong>never added together</strong>. Absence from a register is coverage, not missing money "
+        "(only a fraction of State spend is published in the payments lists).</div></div>"
+    )
 
 
 def _render_paid_supplier_panel(supplier_norm: str) -> None:
@@ -2033,6 +2135,9 @@ def _render_supplier_profile(supplier_norm: str) -> None:
     _render_supplier_call_offs_panel(supplier_norm)
 
     # Cross-references for the same firm — each a separate register/stage, never summed.
+    # The footprint leads: a CRO-unified one-glance summary of which registers it's in, framing
+    # the per-register detail panels that follow (rendered only when CRO-matched + multi-register).
+    _render_supplier_register_footprint(row.get("company_num"))
     _render_paid_supplier_panel(supplier_norm)
     _render_ted_supplier_panel(supplier_norm)
     _render_supplier_competition_panel(supplier_norm)

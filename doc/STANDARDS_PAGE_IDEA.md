@@ -117,6 +117,52 @@ Script: `c:/tmp/mine_si_standards.py`.
 
 ---
 
+## 4b. SI BODY-level mining — results (2026-06-14/15)
+
+Phase 1 executed. Fetched **471 SI bodies** (of 474 attempted, 3 failed) from `eisb_url`,
+priority-ordered (register-signalling + EU/technical first) plus a targeted sweep of the 102-SI
+CE-marking / conformity / product-safety / type-approval **standards seam**. Read-only; results in
+`c:/tmp/si_body_mining/results.jsonl`. Scripts: `fetch_bodies.py`, `fetch_seam.py`.
+
+**Finding 1 — standard citations are a thin, concentrated seam.** Only **~2% of SIs cite a standard**,
+even in this technical-first ordering. **12 SIs** carry citations; **32 distinct standard codes**.
+They cluster almost entirely in EU *product/conformity* law:
+
+| Standard cluster | Citing SIs | Codes |
+|---|---|---|
+| Construction products | 2025/669, 2023/217 | EN 12352, EN 12676-1, EN 12899-2/3, EN 13055-1/2, EN 13139, EN 13383-1, EN 13450, EN 14188-1/2/3, EN 1423, EN 14695, EN 15322 (16 EN codes) |
+| Vehicle type-approval / roadworthiness | 2022/475, 2020/556, 2017/414, 2017/280 | IS 500, IS 250, IS 100, ISO 9001, ISO 7638, ISO 10542 |
+| Private security (alarms / safes / CIT) | 2023/140, 2022/299, 2018/322, 2016/343 | EN 50131-1:2006, EN 1143-1/2, IS 998:2006 |
+| Dangerous goods inspection | 2017/555 | ISO/IEC 17020:2004 |
+
+> **Implication for the build:** do NOT brute-crawl all 5,936 SIs to harvest standards — the yield is
+> ~2%. The targeted seam sweep (102 SIs) captures essentially all of them. A periodic seam re-crawl is
+> the right maintenance pattern.
+
+**Finding 2 — the credential-mandate map is broad and rich.** **74% of mined SIs** carry mandate
+language. Totals across 471 SIs: `approval` ×1,472, `designated_body` ×986, `shall be registered`
+×289, `competent_authority` ×224, `notified_body` ×190, `conformity_assessment` ×118, `accredit` ×77,
+`CE marking` ×54. **168 SIs** strongly stand up a register/designation (e.g. Nurses & Midwives
+Registration Rules, Optical Registration Board, EU Basic Safety Standards (radiation), AI Act
+designation, Rail Interoperability designated bodies). They reference **95 distinct EU directives** and
+**174 EU regulations** — the legal backbone of the credential universe.
+
+**Finding 3 — URL construction (answer to "can we link to the standard?").**
+
+| Link target | Status | Pattern |
+|---|---|---|
+| **SI body (citation location)** | ✅ verified, already in data | `eisb_url` = `…/eli/{year}/si/{number}/made/en/html` |
+| Standard's own NSAI catalogue page | ⚠ endpoint TBD | NSAI Infostore exists but `shop.standards.ie/...?q=` 404s; needs a DevTools check of the real NSAI standards-store search endpoint |
+| Standard full text | ❌ not free | Paywalled NSAI/ISO PDF — purchase only, no deep link |
+
+So we can deep-link a citation straight to the enabling SI body today; linking to the standard's
+catalogue entry needs the correct NSAI Infostore endpoint (small follow-up).
+
+**3 fetch failures** to retry (transient). Caveat: minor whitespace artifacts in extracted codes
+(`ISO7638`, `EN50131-1:2006`) need normalisation before use.
+
+---
+
 ## 5. The register map — tiered by ingestibility
 
 Researched across six sectors (construction/engineering, pharma/health, food/agri, IT/infosec,

@@ -11,7 +11,11 @@ Sides:
                       the €2.44bn TII "Road Grant" inter-governmental transfers) and the
                       extraction_confidence=='low' blank-supplier rows.
   - eTenders AWARDS : data/gold/parquet/procurement_awards.parquet (value_safe_to_sum)
-  - TED AWARDS      : data/silver/parquet/ted_ie_awards.parquet (value_safe_to_sum)
+  - TED AWARDS      : data/silver/parquet/ted_ie_awards.parquet (2023+, API winners) UNION
+                      data/silver/parquet/ted_ie_winner_history.parquet (2016-2023, per-notice
+                      XML — the "old tenders" the API carries no winners for). Without this second
+                      layer ~⅔ of pre-2024 TED award winners are invisible and payments to them
+                      look unlinked (money-linkage was ~30%, this lifts it to ~42%).
 
 Entity key is HYBRID: CRO company_num when available (most reliable, merges name variants),
 else the normalised name. ALL THREE sides resolve to CRO the SAME way — an exact-unique join of
@@ -47,6 +51,7 @@ SPEND_PARQUETS = ["public_payments_fact", "nphdb_payments_fact", "seai_payments_
 CRO_REGISTER = ROOT / "data/silver/cro/companies.parquet"
 ETENDERS = ROOT / "data/gold/parquet/procurement_awards.parquet"
 TED = ROOT / "data/silver/parquet/ted_ie_awards.parquet"
+TED_WINNER_HISTORY = ROOT / "data/silver/parquet/ted_ie_winner_history.parquet"
 OUT = ROOT / "data/sandbox/parquet/procurement_award_spend_link.parquet"
 OUT_SUMMARY = ROOT / "data/_meta/procurement_award_spend_link_summary.json"
 
@@ -134,7 +139,21 @@ def load_etenders(cro_map: pl.DataFrame) -> pl.DataFrame:
 
 
 def load_ted(cro_map: pl.DataFrame) -> pl.DataFrame:
-    ted = pl.read_parquet(TED).filter(pl.col("value_safe_to_sum") & pl.col("winner_name_norm").is_not_null())
+    # Union BOTH TED winner layers: ted_ie_awards (2023+, API) and ted_ie_winner_history
+    # (2016-2023, per-notice XML). The API returns NO winner for pre-2024 notices, so without the
+    # history layer most "old tender" winners are missing and their payments look unlinked. The two
+    # layers share the (publication_number, winner_name_norm) grain and overlap on ~1 notice (the
+    # 2023 boundary) — dedupe so a notice-winner is never counted twice.
+    keep = ["publication_number", "winner_name", "winner_name_norm", "award_value_eur", "value_safe_to_sum"]
+    frames = []
+    for fp in (TED, TED_WINNER_HISTORY):
+        if fp.exists():
+            d = pl.read_parquet(fp)
+            frames.append(d.select([c for c in keep if c in d.columns]))
+    ted = pl.concat(frames, how="vertical_relaxed")
+    ted = ted.filter(pl.col("value_safe_to_sum") & pl.col("winner_name_norm").is_not_null()).unique(
+        subset=["publication_number", "winner_name_norm"]
+    )
     # re-derive CRO from the shared map (not ted's own cro_company_num) so the key matches the
     # other two sides exactly.
     ted = attach_cro(ted.drop("company_num", strict=False), "winner_name_norm", cro_map)
