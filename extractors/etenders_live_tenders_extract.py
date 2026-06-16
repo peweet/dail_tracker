@@ -184,9 +184,18 @@ def _rows(page) -> list[dict]:
     )
 
 
+def _grid_goto(page, url: str, settle_ms: int) -> None:
+    """Navigate to a grid page robustly. The portal holds long-lived connections open, so
+    ``networkidle`` can hang indefinitely; wait for DOM + the rendered table instead, with a
+    short settle for the JS grid to populate."""
+    page.goto(url, wait_until="domcontentloaded")
+    with contextlib.suppress(Exception):
+        page.wait_for_selector("table tr", state="attached", timeout=20_000)
+    page.wait_for_timeout(settle_ms)
+
+
 def _scrape_feed(page, feed: str, max_pages: int, delay_ms: int) -> list[dict]:
-    page.goto(BASE + FEEDS[feed], wait_until="networkidle")
-    page.wait_for_timeout(2500)
+    _grid_goto(page, BASE + FEEDS[feed], 2500)
     idx = _header_index(page)
     out: list[dict] = []
     p = 1
@@ -234,8 +243,7 @@ def _scrape_feed(page, feed: str, max_pages: int, delay_ms: int) -> list[dict]:
         nxt = page.query_selector(f"a[href*='-p={p + 1}&']")
         if not nxt or got == 0:
             break
-        page.goto(urljoin(page.url, nxt.get_attribute("href")), wait_until="networkidle")
-        page.wait_for_timeout(delay_ms)
+        _grid_goto(page, urljoin(page.url, nxt.get_attribute("href")), max(delay_ms, 1200))
         p += 1
     return out
 

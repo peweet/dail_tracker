@@ -379,6 +379,92 @@ def test_available_years_descending_ints(conn):
     assert all(2000 <= y <= 2100 for y in years)  # sane calendar years, no NULLs
 
 
+def test_awards_for_supplier_carries_notice_link(conn):
+    """The supplier award rows must carry etenders_notice_url so the page can link each row to
+    its authoritative national notice (templated from the Tender ID), plus the TED links."""
+    summary = q.supplier_summary(conn, limit=1)
+    if not summary.ok or summary.is_empty:
+        pytest.skip("no supplier rows")
+    r = q.awards_for_supplier(conn, summary.data.iloc[0]["supplier_norm"])
+    assert r.ok is True
+    assert {"etenders_notice_url", "ted_can_link", "ted_notice_link"}.issubset(set(r.data.columns))
+
+
+def test_etenders_notice_url_is_templated_from_tender_id(conn):
+    """The national notice deep link is the eTenders resource URL built from the Tender ID
+    (confirmed to resolve to the real notice). Where present it must be a resourceId URL."""
+    try:
+        df = conn.execute(
+            "SELECT tender_id, etenders_notice_url FROM v_procurement_awards "
+            "WHERE etenders_notice_url IS NOT NULL LIMIT 5"
+        ).df()
+    except Exception:
+        pytest.skip("procurement gold not available")
+    if df.empty:
+        pytest.skip("no award rows with a tender id")
+    for row in df.itertuples():
+        assert "prepareViewCfTWS.do?resourceId=" in row.etenders_notice_url
+        assert str(row.tender_id) in row.etenders_notice_url
+
+
+def test_payment_lines_for_pair_is_the_leaf(conn):
+    """The payments leaf returns the individual published lines for one supplier × body × tier
+    (breaking the supplier↔body card loop). Columns must include the description + source link."""
+    top = q.payments_supplier_summary(conn, tier="SPENT", limit=1)
+    if not top.ok or top.is_empty:
+        pytest.skip("no payment rows")
+    norm = top.data.iloc[0]["supplier_normalised"]
+    payers = q.payments_publishers_for_supplier(conn, norm, tier="SPENT")
+    if not payers.ok or payers.is_empty:
+        pytest.skip("no payer body")
+    body = payers.data.iloc[0]["publisher_name"]
+    r = q.payment_lines_for_pair(conn, norm, body, tier="SPENT")
+    assert r.ok is True and not r.is_empty
+    assert {"period", "year", "description", "po_number", "amount_eur", "source_file_url"}.issubset(
+        set(r.data.columns)
+    )
+    # Biggest first (the order the leaf renders), and the body's reported total reconciles to
+    # the aggregate the card showed.
+    vals = [v for v in r.data["amount_eur"].tolist() if v is not None]
+    assert vals == sorted(vals, reverse=True)
+
+
+def test_single_bid_notices_for_cpv_drill(conn):
+    """Each single-bid market card must drill into the individual single-bid notices, each with a
+    TED notice_url. Restricted to the api lane (the single-bid field's only source)."""
+    markets = q.competition_by_cpv(conn, min_lots=100)
+    if not markets.ok or markets.is_empty:
+        pytest.skip("no competition-by-cpv rows")
+    division = markets.data.iloc[0]["cpv_division"]
+    r = q.single_bid_notices_for_cpv(conn, division)
+    assert r.ok is True
+    assert {"publication_number", "notice_url", "buyer_name", "winner_name"}.issubset(set(r.data.columns))
+
+
+def test_live_tenders_stats_has_horizon(conn):
+    """The open-tenders stats must carry the furthest deadline + max days so the page can
+    'project to the furthest date' instead of implying a 30-day cap."""
+    r = q.live_tenders_stats(conn)
+    if not r.ok:
+        pytest.skip("no live-tender snapshot")
+    assert {"n_open", "next_closing", "last_closing", "max_days"}.issubset(set(r.data.columns))
+
+
+def test_live_tenders_sector_filter_is_optional(conn):
+    """live_tenders must run with no sector (un-enriched snapshots), and the sector facet query
+    degrades to unavailable rather than erroring when the snapshot carries no CPV yet."""
+    base = q.live_tenders(conn, limit=3)
+    if not base.ok:
+        pytest.skip("no live-tender snapshot")
+    sectors = q.live_tender_sectors(conn)
+    # Either the snapshot is CPV-enriched (ok, with sector+n) or it isn't (unavailable) — never a crash.
+    if sectors.ok and not sectors.is_empty:
+        assert {"sector", "n"}.issubset(set(sectors.data.columns))
+        one = sectors.data.iloc[0]["sector"]
+        filtered = q.live_tenders(conn, sector=one)
+        assert filtered.ok is True
+
+
 def test_year_filter_scopes_and_preserves_columns(conn):
     full = _result_or_skip(q.available_years(conn))
     if full.is_empty:

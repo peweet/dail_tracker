@@ -826,6 +826,10 @@ def _inject_corp_css() -> None:
             }
             .dt-hero { padding: 0.7rem 0.95rem 0.65rem !important; }
             .dt-hero h1 { font-size: 1.2rem !important; }
+            /* The fixed 170px detail label eats ~44% of a phone row; stack
+               label over value so the value gets the full width. */
+            .corp-detail-row { flex-direction: column; gap: 0.15rem; }
+            .corp-detail-label { width: auto; padding-top: 0; }
         }
         </style>
         """,

@@ -254,6 +254,10 @@ def _inject_si_css() -> None:
                value stays inside its card. */
             .si-stat-grid { grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); }
             .si-stat-num { font-size: 1.25rem; overflow-wrap: anywhere; }
+            /* The fixed 170px detail label eats ~44% of a phone row; stack
+               label over value so the value gets the full width. */
+            .si-detail-row { flex-direction: column; gap: 0.15rem; }
+            .si-detail-label { width: auto; padding-top: 0; }
         }
 
         </style>

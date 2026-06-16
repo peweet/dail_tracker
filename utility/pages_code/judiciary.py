@@ -498,7 +498,7 @@ def _render_profile(judge_key: str) -> None:
             "Note: one appointment record for this judge is a low-confidence match and is flagged for manual review."
         )
 
-    _render_profile_diary(judge_key)
+    _render_profile_diary(judge_key, row.get("current_court"))
 
     # provenance
     links = []
@@ -525,7 +525,7 @@ _PROFILE_DIARY_DAYS = 5  # most recent captured court days shown
 _PROFILE_DIARY_ROWS = 20  # matters rendered per day before an honest remainder count
 
 
-def _render_profile_diary(judge_key: str) -> None:
+def _render_profile_diary(judge_key: str, current_court: str | None = None) -> None:
     """What the Legal Diary lists before this judge — sittings (courtroom / time /
     list) plus the anonymised matters, newest day first. The diary→roster name join
     is PIPELINE-owned (v_judiciary_judge_sittings / v_judiciary_judge_diary via
@@ -538,11 +538,22 @@ def _render_profile_diary(judge_key: str) -> None:
 
     st.html('<h2 class="jd-section-head">Before the court</h2>')
     if (sittings is None or sittings.empty) and (diary is None or diary.empty):
-        st.html(
-            '<div class="jud-context">No sittings for this judge in our Legal Diary capture '
-            "(daily capture began 4 June 2026, and diary entries that can't be matched to the "
-            "roster with certainty are left out rather than guessed).</div>"
-        )
+        # District Court is a SOURCE gap, not a match failure: the Courts Service Legal
+        # Diary publishes a District Court sittings schedule only (no party-level lists),
+        # so there is nothing to list here — say so honestly rather than implying the
+        # judge simply wasn't matched. (Circuit + the higher courts ARE covered.)
+        if isinstance(current_court, str) and current_court == "District Court":
+            st.html(
+                '<div class="jud-context">The Courts Service Legal Diary does not publish '
+                "party-level lists for the District Court — only its sittings schedule — so "
+                "there are no listed matters to show for District Court judges here.</div>"
+            )
+        else:
+            st.html(
+                '<div class="jud-context">No sittings for this judge in our Legal Diary capture '
+                "(diary entries that can't be matched to the roster with certainty are left out "
+                "rather than guessed).</div>"
+            )
         return
     st.caption(
         "From the daily Legal Diary: where and when this judge sat, and the anonymised "
@@ -568,10 +579,18 @@ def _render_profile_diary(judge_key: str) -> None:
         if day_sit is not None and not day_sit.empty:
             lines = []
             for s in day_sit.sort_values(["time", "list_type"], na_position="last").itertuples():
-                bits = " · ".join(p for p in (_esc(s.court), _esc(s.courtroom), _esc(s.time), _esc(s.list_type)) if p)
+                # Circuit Court sittings carry a venue (Galway, Ennis …); the Dublin courts
+                # don't. A panel sitting (Supreme / Court of Appeal, 3–5 judges) is chipped so
+                # it's clear this judge heard the matter on a bench, not alone.
+                venue = _esc(getattr(s, "venue", "") or "")
+                bits = " · ".join(
+                    p for p in (_esc(s.court), venue, _esc(s.courtroom), _esc(s.time), _esc(s.list_type)) if p
+                )
                 n = int(getattr(s, "n_items", 0) or 0)
                 tail = f" — {n} listed" if n else ""
-                lines.append(f'<div class="jd-sitting-line"><b>Sitting</b> {bits}{tail}</div>')
+                psize = int(getattr(s, "panel_size", 1) or 1)
+                panel = f' <span class="jd-status">panel of {psize}</span>' if psize > 1 else ""
+                lines.append(f'<div class="jd-sitting-line"><b>Sitting</b> {bits}{tail}{panel}</div>')
             st.html("".join(lines))
         if day_cases is not None and not day_cases.empty:
             rows = []
@@ -1172,6 +1191,7 @@ def _case_row_html(r) -> str:
     bits = []
     for field, lbl, mapper in (
         ("court", "Court", None),
+        ("venue", "Venue", None),
         ("judge", "Judge", None),
         ("list_type", "List", None),
         ("status", "Status", None),

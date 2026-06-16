@@ -5084,6 +5084,19 @@ def inject_css() -> None:
         .don-vmark { font-size:0.64rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
             color:var(--ink-muted); white-space:nowrap; }
         .don-rrow .don-vmark { grid-column:1 / -1; padding-top:0.1rem; }
+        /* Mobile: the 4-track donor/party-spend row (name · date · method ·
+           amount) has no room on a ~390px phone — the name is crushed and the
+           amount can overflow its 5.3rem min-width. Reflow to: name on its own
+           row (full width), then date + amount on a second row, method chip on
+           a third. CSS grids do not auto-stack the way st.columns does, so this
+           explicit fallback is required. */
+        @media (max-width: 620px) {
+            .don-rrow { grid-template-columns: 1fr auto; gap: 0.1rem 0.6rem; }
+            .don-rrow .dn { grid-column: 1 / -1; }
+            .don-rrow .dt { grid-column: 1; grid-row: 2; }
+            .don-rrow .da { grid-column: 2; grid-row: 2; min-width: 0; }
+            .don-rrow .mt { grid-column: 1 / -1; grid-row: 3; justify-self: start; }
+        }
 
         /* ── Election 2024 hub (unified GE2024 political finance) ─────────────
            Three SIPO returns under one roof: a tab strip, a "money map" flow of
