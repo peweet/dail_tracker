@@ -414,6 +414,13 @@ data/silver/sipo/
 # No *.docx rule exists above, so this dir would otherwise be committable. Guard it.
 data/bronze/legal_diary/
 
+# === Legal Diary OpenView raw HTML archive — NEVER commit ===
+# pdf_infra/legal_diary_openview_poller.py archives one OpenDocument HTML per sitting
+# under data/bronze/legal_diary_openview/<slug>/<UNID>.html. Like the .docx archive,
+# the raw HTML names PRIVATE parties AND solicitors in full — only the ANONYMISED gold
+# parquet (judicial_legal_diary_openview_cases.parquet, initials only) may leave this box.
+data/bronze/legal_diary_openview/
+
 # === Raw downloaded-source staging tree — only .gitkeep belongs ===
 # data/bronze/ is the raw-download staging tree for every ETL: PDFs + LA-procurement
 # .aspx/.ashx blobs, scraped portal HTML (stateboards / eisb_directory SI listings /

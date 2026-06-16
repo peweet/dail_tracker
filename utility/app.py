@@ -194,7 +194,7 @@ pg = st.navigation(
         "Planning": [
             st.Page(
                 siting_check_page,
-                title="Siting Check",
+                title="Siting Check (experimental)",
                 icon=":material/travel_explore:",
                 url_path="planning-siting-check",
             ),

@@ -1,0 +1,23 @@
+{
+  "parser_version": "1.0.0",
+  "generated_at": "2026-06-16T19:08:26.709547+00:00",
+  "source_name": "Courts Service Legal Diary (OpenView)",
+  "docs_parsed": 1020,
+  "case_lines_parsed": 79100,
+  "cases_dropped_protected": 746,
+  "cases_kept_anonymised": 77487,
+  "sittings": 13307,
+  "by_court": {
+    "Court of Appeal": 30158,
+    "Court of Appeal (Criminal)": 23415,
+    "Central Criminal Court": 10450,
+    "Supreme Court": 9022,
+    "Circuit Court": 4442
+  },
+  "judges_seen": 573,
+  "date_range": [
+    "2025-02-14",
+    "2026-11-17"
+  ],
+  "privacy_gate": "PASSED — no natural-person name survived anonymisation"
+}

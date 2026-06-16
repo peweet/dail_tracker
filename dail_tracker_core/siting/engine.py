@@ -143,7 +143,7 @@ def _bats(store, lon, lat, dev, slug):
 def _peat_bog(store, lon, lat, dev, slug):
     avail = store.available()
     # preferred: GSI Quaternary Sediments carry the subsoil TYPE (incl. peat / blanket bog)
-    if "gsi_quaternary" in avail:
+    if "gsi_quaternary" in avail and store.in_extent("gsi_quaternary", lon, lat):
         cov = store.covering("gsi_quaternary", lon, lat)
         if cov:
             desc = " ".join(str(cov[0].get(k, "")) for k in ("QSED_TYPE", "LEGENDDESC")).strip()
@@ -163,9 +163,10 @@ def _monument(store, lon, lat, dev, slug):
     hit = store.covering("smr_zone", lon, lat)
     if not hit:
         return False, {}, "ok"
-    # name the monument from the nearest SMR point (if that layer is ingested)
+    # name the monument from the nearest SMR point — only if that layer COVERS this point
+    # (else we'd name a far-away Galway monument for, e.g., a Cork site)
     mclass, townland = "a recorded monument", ""
-    if "smr_points" in store.available():
+    if "smr_points" in store.available() and store.in_extent("smr_points", lon, lat):
         n = store.nearest("smr_points", lon, lat)
         if n:
             mclass = n[0].get("MONUMENT_CLASS") or mclass
@@ -196,32 +197,27 @@ def _septic(store, lon, lat, dev, slug):
     # antecedent (no public sewer) is approximated by "rural one-off" until the EPA
     # agglomeration layer (WMS-only, not yet ingested) lands; severity = GSI vulnerability
     # category at the point (+ nearby karst). VUL_CAT: X/E=Extreme, H=High, M/L lower.
-    avail = store.available()
-    if "gsi_vulnerability" not in avail:
+    # A one-off house needs on-site wastewater UNLESS a public sewer is available. We have no
+    # reliable sewer-extent layer — EPA UWWT agglomeration is WMS-only, and zoning proved an
+    # unsound proxy (the GZT codes are inconsistent: N1.1="transport bypass", M5="greenbelt";
+    # and free-text matched "town" inside "greenbelts around the main towns"). So we do NOT guess
+    # sewered vs not (no-inference): we flag the on-site-wastewater consideration on poor ground
+    # and STATE the assumption. severity = GSI vulnerability (X/E/H) + nearby karst.
+    if "gsi_vulnerability" not in store.available() or not store.in_extent("gsi_vulnerability", lon, lat):
         return False, {}, "layer_missing"
-    # sewered-proxy: if the point sits in a settlement/residential zone, a public sewer is likely
-    # available, so on-site wastewater usually doesn't arise. The authoritative sewered layer is
-    # the EPA UWWT agglomeration boundary, but it is WMS-only (not ingestable as vectors) — zoning
-    # is the deterministic stand-in that fixes the town-centre false positive.
-    z = store.covering("zoning_gzt", lon, lat) if "zoning_gzt" in avail else []
-    if z:
-        zd = " ".join(str(z[0].get(k, "")) for k in ("ZONE_DESC", "ZONE_ORIG", "ZONE_GZT")).lower()
-        if any(w in zd for w in ("residential", "town", "village", "settlement",
-                                 "city centre", "mixed use", "urban", "commercial core")):
-            return False, {}, "ok"  # likely sewered -> on-site wastewater not applicable
     cov = store.covering("gsi_vulnerability", lon, lat)
     if not cov:
-        return False, {}, "ok"  # outside the (Galway-bbox) GSI coverage
+        return False, {}, "ok"  # mapped here, just not a high-vulnerability polygon
     vul = (cov[0].get("VUL_CAT") or "").upper()
     vdesc = cov[0].get("VUL_DESC") or vul
-    karst = store.near("gsi_karst", lon, lat, 1000) if "gsi_karst" in avail else []
+    karst = store.near("gsi_karst", lon, lat, 1000) if store.in_extent("gsi_karst", lon, lat) else []
     fired = vul in {"X", "E", "H"} or bool(karst)
     detail = {"vuln_class": vdesc + (" (karst nearby)" if karst else "")}
     return fired, detail, "ok"
 
 
 def _road(store, lon, lat, dev, slug):
-    if "osm_roads" not in store.available():
+    if "osm_roads" not in store.available() or not store.in_extent("osm_roads", lon, lat):
         return False, {}, "layer_missing"
     n = store.nearest("osm_roads", lon, lat)
     if not n:

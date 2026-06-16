@@ -131,8 +131,7 @@ def _get(sess: requests.Session, url: str, attempts: int = 4) -> requests.Respon
 # ───────────────────────────────────────────────────────── index parse
 def _open_view_url(slug: str) -> str:
     return (
-        f"{BASE}/legaldiary.nsf/{slug}?OpenView&Jurisdiction={slug}"
-        "&area=&type=&dateType=Date&dateFrom=&dateTo=&text="
+        f"{BASE}/legaldiary.nsf/{slug}?OpenView&Jurisdiction={slug}&area=&type=&dateType=Date&dateFrom=&dateTo=&text="
     )
 
 

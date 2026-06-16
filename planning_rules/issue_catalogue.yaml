@@ -223,8 +223,9 @@ nodes:
       predicate: "outside(epa_agglomeration) AND vulnerability_high(gsi_vulnerability)"
       source_layers: [epa_agglomeration, gsi_vulnerability]
     flag_template: >
-      No public sewer here — on-site wastewater needed. High groundwater vulnerability/karst ({vuln_class})
-      means the percolation test may fail.
+      Unless a public sewer connection is available here (confirm with Uisce Éireann), on-site
+      wastewater will be needed. High groundwater vulnerability/karst ({vuln_class}) means the
+      percolation test may fail.
     engage: ["site-suitability assessor (EPA Code of Practice)"]
     rule_ref: { checklist: [25], dm_std: [9], guidance: "EPA CoP for on-site wastewater (single houses)" }
     mitigation_class: "D->F"

@@ -72,8 +72,11 @@ def main() -> None:
 
     df = pl.DataFrame(rows)
     dest = save_parquet(df, OUT / "osm_roads.parquet")
+    s, w, n, e = BBOX  # Overpass bbox is (S,W,N,E)
     cov = {"layer": "osm_roads", "source": "OpenStreetMap via Overpass",
            "licence": "ODbL — © OpenStreetMap contributors", "bbox_S_W_N_E": list(BBOX),
+           # standard (minlon,minlat,maxlon,maxlat) so LayerStore.in_extent works uniformly
+           "bbox_subset": [w, s, e, n],
            "ways": len(ways), "kept": df.height, "skipped": skipped,
            "keep_fields": list(KEEP), "crs": "EPSG:4326"}
     (OUT / "osm_roads_coverage.json").write_text(json.dumps(cov, indent=2), encoding="utf-8")

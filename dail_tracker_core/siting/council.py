@@ -94,22 +94,51 @@ def _app_points():
     return STRtree(pts), lons, lats, auth
 
 
-def _plan_name_to_slug(plan_name: str) -> str | None:
-    """Map a zoning polygon's PLAN_NAME to a council slug.
+# generic tokens carried by every council/plan name — useless for identifying the council
+_GENERIC_TOKENS = frozenset({
+    "council", "the", "of", "and", "development", "plan", "county", "city",
+    "local", "area", "joint", "urban", "settlement", "plans", "environs",
+})
 
-    A plan name carries the council's identity ("Galway City Development Plan 2023-2029" ->
-    galway_city_council). Match by requiring every distinctive token of a known council name
-    (i.e. dropping the generic "council") to appear in the normalised plan name — so "Galway
-    City" matches the city plan but not the county plan, and vice versa.
+
+def _plan_name_to_slug(plan_name: str) -> str | None:
+    """Map a zoning polygon's PLAN_NAME to a council slug (national zoning_gzt is messy).
+
+    PLAN_NAMEs vary wildly ("Galway City Development Plan 2023-2029", "The Fingal Development
+    Plan 2023 – 2029", "South Dublin County Development Plan 2022-2028", abbreviations like
+    "WCCC", and bare "Development Plan 2022-2028"). Strategy: a council is a CANDIDATE when
+    all its distinctive PLACE tokens (its name minus generic words and the city/county type)
+    appear in the plan name; disambiguate same-place city-vs-county by the type keyword in the
+    plan name (e.g. "South Dublin County …" beats "Dublin City" on both token-count and the
+    "county" keyword). Returns None when nothing matches or the top two tie — so an ambiguous
+    or unrecognised plan name falls back to nearest-application rather than mis-resolving.
     """
     norm = _norm(plan_name)
     if not norm:
         return None
+    plan_toks = set(norm.split("_"))
+    has_city, has_county = "city" in plan_toks, "county" in plan_toks
+
+    scored: list[tuple[int, str]] = []
     for slug, (name, _plan) in _council_names().items():
-        key_toks = [t for t in _norm(name).split("_") if t and t != "council"]
-        if key_toks and all(t in norm for t in key_toks):
-            return slug
-    return None
+        name_toks = _norm(name).split("_")
+        place = [t for t in name_toks if t and t not in _GENERIC_TOKENS]
+        if not place or not all(t in plan_toks for t in place):
+            continue
+        is_city, is_county = "city" in name_toks, "county" in name_toks
+        score = 10 * len(place)                       # specificity: more place tokens wins
+        if has_city and is_city or has_county and is_county:
+            score += 5                                # type keyword agrees
+        if has_city and is_county and not is_city or has_county and is_city and not is_county:
+            score -= 5                                # type keyword disagrees (city vs county)
+        scored.append((score, slug))
+
+    if not scored:
+        return None
+    scored.sort(reverse=True)
+    if len(scored) > 1 and scored[0][0] == scored[1][0]:
+        return None                                   # ambiguous -> let nearest-application decide
+    return scored[0][1]
 
 
 def _zoning_council(lon: float, lat: float):
