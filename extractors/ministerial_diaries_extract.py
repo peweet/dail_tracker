@@ -67,6 +67,14 @@ DEPT_SOURCES: list[tuple[str, str]] = [
     ("DPER", f"{_DPER}minister-of-state-higgins-diaries/"),
     ("DPER", f"{_DPER}minister-of-state-smyths-diaries/"),
     ("DPER", f"{_DPER}minister-of-states-diaries/"),
+    # gov.ie collection pages that link the diary PDFs DIRECTLY (assets.gov.ie),
+    # same flat-listing shape as DETE — verified 2026-06-16. Born-digital PDFs are
+    # parsed; any image-only scans fall through to the OCR queue (no OCR on-box).
+    ("HEALTH", "https://www.gov.ie/en/department-of-health/collections/department-of-health-ministers-diaries/"),
+    ("JUSTICE", "https://www.gov.ie/en/department-of-justice-home-affairs-and-migration/collections/ministerial-diaries/"),
+    ("HOUSING", "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/collections/ministers-diaries/"),
+    ("TRANSPORT", "https://www.gov.ie/en/department-of-transport/organisation-information/ministers-diaries/"),
+    ("DCCS", "https://www.gov.ie/en/department-of-culture-communications-and-sport/organisation-information/ministers-diaries/"),
 ]
 
 MONTHS = [
@@ -112,11 +120,17 @@ _ALL_DAY_RE = re.compile(r"^All\s*Day\s*(\S.*)?$", re.IGNORECASE)
 _NOISE_RE = re.compile(r"^(Time|Subject|Details|Date|Minister .{0,60}(Diary|Calendar).*)$", re.IGNORECASE)
 
 
-def discover_files() -> list[dict]:
-    """Crawl every dept listing page for diary PDF links."""
+def discover_files(only_depts: set[str] | None = None) -> list[dict]:
+    """Crawl every dept listing page for diary PDF links.
+
+    ``only_depts`` (upper-case department labels) restricts the crawl — used by
+    the ``--depts`` smoke-test flag so a single source can be validated without
+    crawling all of them.
+    """
     rows: list[dict] = []
     seen: set[str] = set()
-    for dept, listing in DEPT_SOURCES:
+    sources = [(d, u) for d, u in DEPT_SOURCES if only_depts is None or d in only_depts]
+    for dept, listing in sources:
         try:
             r = requests.get(listing, headers=HEADERS, timeout=60)
             r.raise_for_status()
@@ -229,13 +243,19 @@ def parse_entries(text: str, default_year: int | None, default_month: int | None
     return entries
 
 
-def main() -> int:
+def main(only_depts: set[str] | None = None, max_files: int | None = None, min_files: int = 100) -> int:
     setup_standalone_logging("ministerial_diaries_extract")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     PDF_CACHE.mkdir(parents=True, exist_ok=True)
 
-    files = discover_files()
-    if len(files) < 100:
+    # A restricted/capped run is a smoke test — write to a *_smoke sidecar so it
+    # never clobbers the canonical full-corpus parquet.
+    tag = "_smoke" if (only_depts or max_files is not None) else ""
+
+    files = discover_files(only_depts=only_depts)
+    if max_files is not None:
+        files = files[:max_files]
+    if len(files) < min_files:
         log.error("Only %d diary files discovered (expected ~270) — listing drift?", len(files))
         return 1
 
@@ -274,8 +294,8 @@ def main() -> int:
         all_entries.extend(entries)
 
     idx = pl.DataFrame(files, infer_schema_length=None).with_columns(pl.lit(date.today()).alias("ingested_date"))
-    save_parquet(idx, OUT_DIR / "ministerial_diaries_index.parquet")
-    idx.write_csv(OUT_DIR / "ministerial_diaries_index.csv")
+    save_parquet(idx, OUT_DIR / f"ministerial_diaries_index{tag}.parquet")
+    idx.write_csv(OUT_DIR / f"ministerial_diaries_index{tag}.csv")
     log.info(
         "INDEX: %d files | text-layer=%d | scanned(OCR queue)=%d | parsed=%d | layout-unrecognised=%d",
         len(idx),
@@ -289,8 +309,8 @@ def main() -> int:
         ent = pl.DataFrame(all_entries, infer_schema_length=None).with_columns(
             pl.lit(date.today()).alias("ingested_date")
         )
-        save_parquet(ent, OUT_DIR / "ministerial_diary_entries.parquet")
-        ent.write_csv(OUT_DIR / "ministerial_diary_entries.csv")
+        save_parquet(ent, OUT_DIR / f"ministerial_diary_entries{tag}.parquet")
+        ent.write_csv(OUT_DIR / f"ministerial_diary_entries{tag}.csv")
         log.info(
             "ENTRIES: %d rows | %s -> %s | by minister: %s",
             len(ent),
@@ -304,4 +324,14 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Ministerial diaries ingestion (index + DETE/gov.ie entry parse).")
+    ap.add_argument("--depts", help="comma-separated dept labels to restrict the crawl (e.g. DETE,HEALTH) — smoke test")
+    ap.add_argument("--max-files", type=int, default=None, help="cap total diary files processed (smoke test)")
+    ap.add_argument("--min-files", type=int, default=100, help="min discovered files before the drift guard trips")
+    a = ap.parse_args()
+    depts = {d.strip().upper() for d in a.depts.split(",")} if a.depts else None
+    # a restricted/capped run is a smoke test — relax the full-corpus drift guard
+    min_files = 1 if (depts or a.max_files is not None) else a.min_files
+    raise SystemExit(main(only_depts=depts, max_files=a.max_files, min_files=min_files))
