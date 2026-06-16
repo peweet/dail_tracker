@@ -46,9 +46,65 @@ class Terrain:
     note: str = ""
 
 
+# Persistent DEM cache: makes terrain() fully deterministic and OFFLINE-capable. The COG is
+# fixed, so a cached value is the canonical value; we only ever cache successful reads (never
+# a transient offline/nodata failure), keyed on the point rounded to a ~0.1 m grid + radius.
+from .catalogue import REPO_ROOT  # noqa: E402
+
+DEM_CACHE = REPO_ROOT / "data" / "silver" / "parquet" / "planning_layers" / "dem_cache.parquet"
+_CACHE_PRECISION = 6
+
+
+def _cache_key(lon: float, lat: float, radius_m: float) -> tuple[float, float, float]:
+    return (round(lon, _CACHE_PRECISION), round(lat, _CACHE_PRECISION), float(radius_m))
+
+
+@lru_cache(maxsize=1)
+def _load_cache() -> dict[tuple[float, float, float], Terrain]:
+    if not DEM_CACHE.exists():
+        return {}
+    import polars as pl
+
+    out: dict[tuple[float, float, float], Terrain] = {}
+    for r in pl.read_parquet(DEM_CACHE).iter_rows(named=True):
+        out[(r["lon_key"], r["lat_key"], r["radius_m"])] = Terrain(
+            r["elevation_m"], r["slope_deg"], r["relative_height_m"],
+            r["exposed"], r["ok"], r["note"] or "")
+    return out
+
+
+def _persist(key: tuple[float, float, float], t: Terrain) -> None:
+    import polars as pl
+
+    cache = _load_cache()
+    cache[key] = t  # mutate the lru-cached dict so it stays warm in-process
+    rows = [{"lon_key": k[0], "lat_key": k[1], "radius_m": k[2], "elevation_m": v.elevation_m,
+             "slope_deg": v.slope_deg, "relative_height_m": v.relative_height_m,
+             "exposed": v.exposed, "ok": v.ok, "note": v.note} for k, v in cache.items()]
+    DEM_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    pl.DataFrame(rows).write_parquet(DEM_CACHE)
+
+
 @lru_cache(maxsize=2048)
 def terrain(lon: float, lat: float, radius_m: float = 2000.0) -> Terrain:
-    """Elevation, slope and local prominence at (lon, lat). Cached per point."""
+    """Elevation/slope/prominence at (lon, lat) — disk-cached for offline determinism.
+
+    Disk cache first (the COG is fixed, so a cached value is canonical); on a miss, compute
+    live and persist ONLY a successful read (a transient offline failure is not cached, so it
+    retries next time online). In-process lru_cache on top for speed.
+    """
+    key = _cache_key(lon, lat, radius_m)
+    cached = _load_cache().get(key)
+    if cached is not None:
+        return cached
+    t = _compute_terrain(lon, lat, radius_m)
+    if t.ok:
+        _persist(key, t)
+    return t
+
+
+def _compute_terrain(lon: float, lat: float, radius_m: float = 2000.0) -> Terrain:
+    """Elevation, slope and local prominence at (lon, lat) — the live range-read."""
     try:
         import numpy as np
         import rasterio

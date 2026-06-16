@@ -27,6 +27,7 @@ layers:
   A: "Universal gate — applies to every application (always shown)"
   B: "Location trigger — fires on a spatial join to a designation/condition"
   C: "Type & siting — fires on development type + terrain (DEM)"
+  D: "Application attribute / scale gate — fires on development type, unit count or floor area"
 
 # ---- source-layer glossary (keys → SOURCE_REGISTRY.md rows) ----------------------------------------
 source_layers:
@@ -37,6 +38,8 @@ source_layers:
   gsi_vulnerability:     { kind: polygon, status: located, ref: "GSI Groundwater Vulnerability + Karst + Subsoil Permeability 1:40,000" }
   epa_agglomeration:     { kind: polygon, status: located, ref: "EPA Urban Waste Water Agglomeration Boundaries (sewered extent)" }
   epa_subsoils:          { kind: polygon, status: located, ref: "EPA National Subsoils/Soils (peat detection)" }
+  gsi_quaternary:        { kind: polygon, status: live, ref: "GSI Quaternary Sediments 1:50,000 (subsoil type incl. peat)" }
+  national_parks:        { kind: polygon, status: live, ref: "NPWS NationalParkBoundaries/FeatureServer/0 (6 parks)" }
   niah:                  { kind: point,   status: located, ref: "NIAH national dataset" }
   rps_aca:               { kind: mixed,   status: per_la,  ref: "RPS + ACA — per-council on data.gov.ie" }
   landscape_lca:         { kind: polygon, status: per_la,  ref: "Landscape Character / sensitivity — per-council" }
@@ -76,6 +79,23 @@ nodes:
     rule_ref: { checklist: [13], dm_std: [51, 52], regs: "Birds & Natural Habitats Regs 2011 (regs 51/54)" }
     mitigation_class: D
     mitigates: "Bat survey + NIS mitigation chapter + ecologist-supervised works + dark-corridor / lux-capped lighting."
+    # mitigation_path: static if/then cascade (survey -> finding -> follow-on). Leaf `outcome`
+    # reuses the P/D/F vocabulary as clear | mitigable | fatal. Rendered by brief.py.
+    mitigation_path:
+      - do: "Bat survey (activity + emergence; season ≈ May–Sep)"
+        who: ecologist
+        findings:
+          - if: "no roost found"
+            outcome: clear
+            then:
+              - do: "Standard sensitive lighting; no derogation needed"
+          - if: "roost present"
+            outcome: mitigable
+            then:
+              - do: "NPWS derogation licence (Birds & Natural Habitats Regs 2011, reg. 54)"
+                who: ecologist
+              - do: "Dark-corridor / lux-capped lighting design"
+                who: "lighting specialist"
     precedents:
       - ref: "council:GalwayCity 22/207 (Order 76012, 23 May 2023)"
         outcome: granted_with_conditions
@@ -105,17 +125,36 @@ nodes:
         note: "Refused in part: effluent cannot be safely disposed of — fissured limestone, proximity to Lough Corrib SAC, public-health/Habitats risk."
     risk_note: "Evidence: SAC sites refused ~2.4x baseline (scoping §13). Karst + septic = the crux near the Burren/Corrib."
 
+  - id: national_park
+    title: National Park / high-amenity designation
+    layer: B
+    applies_to: [all]
+    trigger:
+      description: "site in or adjacent to a National Park (NPWS) — the strongest amenity/nature protection"
+      predicate: "within_or_near(national_parks)"
+      source_layers: [national_parks]
+    flag_template: >
+      The site is {relation} {park_name} (National Park) — among the strongest amenity and nature
+      designations in the State. Development is heavily restricted; Appropriate Assessment and
+      visual/ecological scrutiny are near-certain, and most non-park uses are not permitted.
+    engage: ["ecologist", "landscape architect", "planning consultant"]
+    rule_ref: { checklist: [10, 12], dm_std: [47, 51] }
+    mitigation_class: F
+    mitigates: "Inside a National Park, development beyond park-related uses is generally not permitted; adjacent to one, expect a Visual Impact Assessment + Appropriate Assessment. Often not mitigable."
+    precedents: [ { curate: true, keywords: ["national park", "amenity", "visual"] } ]
+    risk_note: "6 National Parks nationally (Connemara + the Burren near Galway). NPWS-owned/managed — the highest landscape/nature protection; an Irish equivalent of an Area of Outstanding Natural Beauty."
+
   - id: peat_bog
     title: Bog / peat soils
     layer: B
     applies_to: [one_off_house, multi_unit, commercial]
     trigger:
-      description: "site on peat subsoil or raised/blanket-bog NHA"
-      predicate: "soil_is_peat(epa_subsoils) OR within(npws_designated_areas, class='NHA bog')"
-      source_layers: [epa_subsoils, npws_designated_areas]
+      description: "site on peat subsoil (GSI Quaternary type = peat/bog) or raised/blanket-bog NHA"
+      predicate: "soil_is_peat(gsi_quaternary) OR within(npws_designated_areas, class='NHA bog')"
+      source_layers: [gsi_quaternary, npws_designated_areas]
     flag_template: >
-      Peat soils here: foundation stability, peat-disturbance/carbon, and septic-percolation problems;
-      possible peatland designation.
+      Peat subsoil here ({peat_type}): foundation stability, peat-disturbance/carbon, and
+      septic-percolation problems; possible peatland designation.
     engage: ["geotechnical engineer", "ecologist (if NHA)"]
     rule_ref: { checklist: [25], dm_std: [9] }
     mitigation_class: "D->F"
@@ -160,6 +199,18 @@ nodes:
     rule_ref: { checklist: [21], dm_std: [69], guidance: "Flood Risk Mgmt Guidelines 2009 + Circular PL2/2014" }
     mitigation_class: "F (Zone A) / D (Zone B)"
     mitigates: "Justification Test (rarely passes for a one-off in Zone A) + finished-floor raising. Often not mitigable in Zone A."
+    mitigation_path:
+      - do: "Confirm the flood zone on floodinfo.ie, then a Flood Risk Assessment"
+        who: "flood-risk / hydrology consultant"
+        findings:
+          - if: "Zone B (moderate)"
+            outcome: mitigable
+            then:
+              - do: "Justification Test + raise the finished-floor level"
+          - if: "Zone A (high)"
+            outcome: fatal
+            then:
+              - do: "Justification Test rarely passes for a one-off house in Zone A — usually refused"
     precedents: [ { curate: true, keywords: ["flood zone", "justification test", "highly vulnerable"] } ]
     risk_note: "NIFM extents are the national stand-in until the statutory Zone A/B layer is wired (floodinfo.ie)."
 
@@ -178,6 +229,18 @@ nodes:
     rule_ref: { checklist: [25], dm_std: [9], guidance: "EPA CoP for on-site wastewater (single houses)" }
     mitigation_class: "D->F"
     mitigates: "Trial hole + percolation test; proprietary treatment system. If the site fails the EPA test it is NOT mitigable."
+    mitigation_path:
+      - do: "Trial hole + percolation test (EPA Code of Practice for single houses)"
+        who: "site-suitability assessor"
+        findings:
+          - if: "percolation passes (T-value within the EPA range)"
+            outcome: mitigable
+            then:
+              - do: "Proprietary treatment system sized to the test result"
+          - if: "percolation fails on karst / rock-at-surface"
+            outcome: fatal
+            then:
+              - do: "No on-site disposal possible — not mitigable; the common refusal ground near the Corrib/Burren"
     precedents:
       - ref: "PL61.249409 (Galway City, Menlo)"
         outcome: refused
@@ -196,11 +259,30 @@ nodes:
     flag_template: >
       Entrance sightlines must meet the standard for this road's speed ({maxspeed}); the visibility-splay
       land must be in your control. On a national road outside the 50–60 km/h zone, new houses are
-      restricted to farm families.
-    engage: ["transport / civil engineer"]
+      restricted to farm families.{junction_note}
+    engage: ["transport / civil engineer", "road safety auditor (junction)"]
     rule_ref: { checklist: [6, 7, 8], dm_std: [27, 29], guidance: "TII DN-GEO-03031 / DMURS" }
     mitigation_class: "D->F"
-    mitigates: "Achieve x/y sightlines (control frontage, remove hedgerow). Fatal if you can't control the splay land or it's a restricted national road."
+    mitigates: >
+      Concrete steps: (1) a visibility-splay survey proving the x/y sightlines for the road's speed
+      can be achieved AND that you hold the LEGAL INTEREST to provide and keep them; (2) where the
+      access serves traffic onto a busy/national road, a Traffic & Transport Assessment (TTA, #8) and
+      a Road Safety Audit / RSIA (#6/#7) on the junction. Often fatal if you can't control the splay
+      land, the access is a substandard local road to a national road, or a protected boundary/wall
+      cannot be opened for the entrance.
+    mitigation_path:
+      - do: "Visibility-splay survey — prove the x/y sightline for this road's speed AND that you hold the legal interest to provide and keep the splay land"
+        who: "transport / civil engineer"
+        findings:
+          - if: "splay achievable on land you control"
+            outcome: mitigable
+            then:
+              - do: "Road Safety Audit on the junction; set the entrance back / stagger it (never directly opposite)"
+                who: "road safety auditor"
+          - if: "splay land outside your control / substandard local road to a national road"
+            outcome: fatal
+            then:
+              - do: "Access cannot be made safe — refusal on traffic-hazard grounds"
     precedents:
       - ref: "ABP-321385-24 (Galway County, Coill Uachtair)"
         outcome: refused
@@ -276,8 +358,138 @@ nodes:
     rule_ref: { checklist: [16], dm_std: [60] }
     mitigation_class: D
     mitigates: "Conservation-led design + AHIA. Demolition / material change of character is harder. No compensation for heritage-ground refusal."
-    precedents: [ { curate: true, keywords: ["protected structure", "curtilage", "ACA"] } ]
+    precedents:
+      - ref: "ABP-500560 (Galway County, Esker Redemptorist Monastery)"
+        outcome: refused
+        type: acp
+        note: "Refused — ancillary works within the curtilage of protected structures (verified in the inspector report)."
+        case: "https://www.pleanala.ie/en-ie/case/500560"
+      - { curate: true, keywords: ["ACA", "Architectural Conservation Area", "grant with conditions"] }
     risk_note: "RPS/ACA are per-council layers — needs the 31-LA assembly for national coverage."
+
+  - id: surface_water
+    title: Surface water / drainage (run-off)
+    layer: C
+    applies_to: [one_off_house, extension, multi_unit, commercial]
+    trigger:
+      description: "sloping site where run-off would flow off-site/downhill, esp. toward a watercourse or European site"
+      predicate: "slope(dem) >= threshold OR downslope_receptor"
+      source_layers: [dem]
+    flag_template: >
+      The site slopes ({slope_deg} deg): surface-water run-off will flow downhill and must be managed
+      on-site. A SuDS / drainage design (attenuation, soakaway, swales, re-grading of levels) is required
+      so the run-off rate and quality are controlled and the site retains its own water{receptor_note}.
+    engage: ["civil / drainage engineer"]
+    rule_ref: { checklist: [20], dm_std: [68] }
+    mitigation_class: D
+    mitigates: "SuDS assessment + re-grading / attenuation (swales, soakaway, attenuation area) controlling run-off rate & quality; on a slope draining to a European site this is more onerous (rate + quality)."
+    precedents: []
+    risk_note: "Mitigable by design/groundworks, but a sloping site draining toward a SAC can drive significant site modification (re-grading the levels to retain water on-site)."
+
+  # ---- attribute / scale-gated axioms (no spatial layer — fire on type/units/floor area) ----
+  - id: landscaping
+    title: Landscaping & native planting
+    layer: A
+    applies_to: [all]
+    trigger: { description: "every application", predicate: "always", source_layers: [] }
+    flag_template: "A landscaping plan with an indigenous native-species schedule is required (all applications)."
+    engage: ["landscape architect"]
+    rule_ref: { checklist: [4] }
+    mitigation_class: P
+    mitigates: "Submit a landscaping plan + native-planting schedule; retain existing hedgerows/trees."
+    precedents: []
+    risk_note: "Universal, low-cost."
+
+  - id: energy_cert
+    title: Energy rating / Part L compliance
+    layer: A
+    applies_to: [all]
+    trigger: { description: "every application", predicate: "always", source_layers: [] }
+    flag_template: "An energy-rating / Part L conformance statement is required (all applications)."
+    engage: []
+    rule_ref: { checklist: [18] }
+    mitigation_class: P
+    mitigates: "Part L / BER-compliant design + certification statement."
+    precedents: []
+    risk_note: "Universal, procedural."
+
+  - id: design_statement
+    title: Design statement / masterplan / phasing
+    layer: D
+    applies_to: [multi_unit, commercial]
+    trigger: { description: "significant development / housing schemes (by scale)", predicate: "dev in {multi_unit,commercial} OR units>=5", source_layers: [] }
+    flag_template: "A design statement (and possibly a masterplan / phasing plan) is required for a scheme of this scale."
+    engage: ["architect"]
+    rule_ref: { checklist: [1, 2, 3] }
+    mitigation_class: P
+    mitigates: "Design statement + masterplan / phasing plan where the authority requires it."
+    precedents: []
+    risk_note: "Scale-gated; procedural."
+
+  - id: mobility_plan
+    title: Mobility / transport management
+    layer: D
+    applies_to: [multi_unit, commercial]
+    trigger: { description: "medium-large residential / commercial", predicate: "dev in {multi_unit,commercial} OR units>=10", source_layers: [] }
+    flag_template: "A Mobility Management Plan (and likely a Traffic & Transport Assessment) is required at this scale."
+    engage: ["transport planner"]
+    rule_ref: { checklist: [9] }
+    mitigation_class: P
+    mitigates: "Mobility management plan + TTA."
+    precedents: []
+    risk_note: "Scale-gated."
+
+  - id: climate_statement
+    title: Energy efficiency & climate adaptation
+    layer: D
+    applies_to: [multi_unit, commercial]
+    trigger: { description: "residential >10 units; retail >1,000 m²", predicate: "units>10 OR (commercial AND floor_area>1000)", source_layers: [] }
+    flag_template: "An Energy Efficiency & Climate Change Adaptation design statement is required at this scale."
+    engage: []
+    rule_ref: { checklist: [19] }
+    mitigation_class: P
+    mitigates: "Climate-adaptation design statement."
+    precedents: []
+    risk_note: "Scale-gated (>10 units / >1,000 m² retail)."
+
+  - id: waste_management
+    title: Construction & demolition waste
+    layer: D
+    applies_to: [multi_unit, commercial]
+    trigger: { description: "significant C&D waste arising", predicate: "dev in {multi_unit,commercial}", source_layers: [] }
+    flag_template: "A Construction & Demolition Waste Management Plan (and construction-phase plan) is required for significant works."
+    engage: []
+    rule_ref: { checklist: [22, 23] }
+    mitigation_class: P
+    mitigates: "C&D + construction-phase waste management plans."
+    precedents: []
+    risk_note: "Scale-gated."
+
+  - id: noise_assessment
+    title: Noise assessment
+    layer: D
+    applies_to: [commercial]
+    trigger: { description: "significant development / industrial", predicate: "dev == commercial", source_layers: [] }
+    flag_template: "A noise assessment may be required (significant / industrial development)."
+    engage: ["acoustic consultant"]
+    rule_ref: { checklist: [24] }
+    mitigation_class: P
+    mitigates: "Noise assessment + mitigation."
+    precedents: []
+    risk_note: "Type-gated."
+
+  - id: eia
+    title: EIA / EIAR screening
+    layer: D
+    applies_to: [multi_unit, commercial]
+    trigger: { description: "over Schedule 5 thresholds (e.g. 500+ dwellings, 10 ha)", predicate: "units>=500 OR very large floor area", source_layers: [] }
+    flag_template: "The project may exceed EIA Schedule 5 thresholds — an EIA screening determination (and EIAR if over threshold) may be required."
+    engage: ["EIA coordinator"]
+    rule_ref: { checklist: [15] }
+    mitigation_class: P
+    mitigates: "EIA screening determination; EIAR if over threshold."
+    precedents: []
+    risk_note: "Large projects only; one-off houses are well below the threshold."
 
 # ---- per-council overrides (only where the rulebook genuinely differs) ------------------------------
 council_overrides:

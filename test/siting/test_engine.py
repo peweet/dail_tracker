@@ -36,10 +36,20 @@ def test_evaluate_returns_all_applicable_nodes_with_disclaimer():
     assert {i.node_id for i in r.issues} >= {"european_site", "rural_need_zoning", "floodplain"}
 
 
+def _flatten_path(steps) -> str:
+    parts: list[str] = []
+    for step in steps or ():
+        parts.append(str(step.get("do", "")))
+        for br in step.get("findings") or ():
+            parts.append(str(br.get("if", "")))
+            parts.append(_flatten_path(br.get("then")))
+    return " ".join(parts)
+
+
 def test_no_inference_no_verdict_or_prescription_in_any_output():
     r = _result()
     for i in r.issues:
-        blob = " ".join([i.flag, i.mitigates, i.risk_note])
+        blob = " ".join([i.flag, i.mitigates, i.risk_note, _flatten_path(i.mitigation_path)])
         assert not _FORBIDDEN.search(blob), f"{i.node_id}: forbidden language in {blob!r}"
 
 
@@ -79,6 +89,135 @@ def test_to_3857_galway_sane():
     assert 7_000_000 < y < 7_080_000
 
 
+def test_engine_is_deterministic():
+    """Same input -> identical output, every run (no memory/session/randomness in the loop)."""
+    kw = dict(dev_type="one_off_house", council_slug=GALWAY_CO)
+    a = evaluate(-9.0376579, 53.3150837, **kw)
+    b = evaluate(-9.0376579, 53.3150837, **kw)
+    sig = lambda r: [(i.node_id, i.fired, i.data_status, i.flag) for i in r.issues]
+    assert sig(a) == sig(b)
+    assert a.likely_rfi_reports == b.likely_rfi_reports
+    from dail_tracker_core.siting.brief import brief_text
+    assert brief_text(a) == brief_text(b)
+
+
+def test_mitigation_paths_authored_and_valid():
+    """The four cascade nodes carry a well-formed mitigation_path (validated at load time)."""
+    from dail_tracker_core.siting.catalogue import load_catalogue
+    cat = load_catalogue()
+    for nid in ("bats", "septic_groundwater", "floodplain", "road_sightlines"):
+        assert cat.node(nid).mitigation_path, f"{nid} has no mitigation_path"
+    # nodes without a cascade stay empty (unchanged behaviour)
+    assert cat.node("energy_cert").mitigation_path == ()
+
+
+def test_brief_renders_cascade_tree_with_outcomes():
+    """The renderer emits a numbered spine, if/then branches, and the P/D/F-style leaf tags."""
+    from dail_tracker_core.siting.brief import _render_path
+    from dail_tracker_core.siting.catalogue import load_catalogue
+    cat = load_catalogue()
+    lines: list[str] = []
+    _render_path(list(cat.node("septic_groundwater").mitigation_path), lines)
+    text = "\n".join(lines)
+    assert "1. Trial hole" in text                 # numbered spine step
+    assert "if percolation passes" in text.lower() # branch
+    assert "[often fatal]" in text                 # the karst-fail leaf carries the F-class tag
+    assert "[mitigable]" in text
+
+
+def test_road_sightline_is_one_key_number():
+    """One assumed/posted speed -> one visibility figure, derived from the OSM road class."""
+    from dail_tracker_core.siting.brief import road_sightline_line
+    assert "~70 m" in road_sightline_line({"road_class": "track", "maxspeed": "unposted"})
+    assert "~160 m" in road_sightline_line({"road_class": "tertiary", "maxspeed": "unposted"})
+    assert "~90 m" in road_sightline_line({"road_class": "tertiary", "maxspeed": "60"})  # posted wins
+    nat = road_sightline_line({"is_national": "national road", "road_class": "primary"})
+    assert "farm families" in nat
+
+
+@pytest.mark.skipif(not (LAYERS_DIR / "osm_roads.parquet").exists(),
+                    reason="osm_roads layer not built")
+def test_brief_access_section_carries_junction():
+    from dail_tracker_core.siting.brief import build_brief
+    r = evaluate(-9.0376579, 53.3150837, dev_type="one_off_house", council_slug=GALWAY_CO)
+    b = build_brief(r)
+    assert b.access["applies"]
+    assert "STAGGERED" in b.access["junction_note"]
+    assert 0 < b.access["junction_m"] <= 100
+
+
+def test_attribute_always_on_for_one_off():
+    r = _result()  # one_off_house
+    ids = {i.node_id for i in r.fired}
+    assert {"landscaping", "energy_cert"} <= ids          # universal #4/#18 fire
+    all_ids = {i.node_id for i in r.issues}
+    assert "design_statement" not in all_ids               # scale node doesn't apply to a one-off
+    assert "mobility_plan" not in all_ids
+
+
+def test_attribute_scale_gated_for_multi_unit():
+    r = evaluate(-9.10, 53.20, dev_type="multi_unit", num_units=20, council_slug=GALWAY_CO)
+    ids = {i.node_id for i in r.fired}
+    assert {"design_statement", "mobility_plan", "climate_statement", "waste_management"} <= ids
+    assert "eia" not in ids                                 # 20 units is below the Schedule-5 threshold
+
+
+def test_eia_fires_only_at_large_scale():
+    r = evaluate(-9.10, 53.20, dev_type="multi_unit", num_units=600, council_slug=GALWAY_CO)
+    assert "eia" in {i.node_id for i in r.fired}
+
+
+# ── 2026-06-16 polish batch: national parks, monument identity, peat, septic sewered-check ──
+
+@pytest.mark.skipif(not (LAYERS_DIR / "national_parks.parquet").exists(),
+                    reason="national_parks layer not built")
+def test_national_park_fires_inside_park():
+    import polars as pl, shapely
+    df = pl.read_parquet(LAYERS_DIR / "national_parks.parquet")
+    pt = shapely.from_wkb(df["wkb"][0]).representative_point()  # any park interior
+    r = evaluate(pt.x, pt.y, dev_type="one_off_house", council_slug=GALWAY_CO)
+    npk = next(i for i in r.issues if i.node_id == "national_park")
+    assert npk.fired and "F" in npk.mitigation_classes
+    assert "National Park" in npk.flag
+
+
+@pytest.mark.skipif(not (LAYERS_DIR / "smr_points.parquet").exists(),
+                    reason="smr_points layer not built")
+def test_monument_names_class_inside_zone():
+    import polars as pl, shapely
+    zdf = pl.read_parquet(LAYERS_DIR / "smr_zone.parquet")
+    pt = None
+    for w in zdf["wkb"].to_list():
+        rp = shapely.from_wkb(w).representative_point()
+        if -9.25 < rp.x < -8.90 and 53.20 < rp.y < 53.42:  # within the Galway smr_points bbox
+            pt = rp
+            break
+    assert pt is not None
+    r = evaluate(pt.x, pt.y, dev_type="one_off_house", council_slug=GALWAY_CO)
+    mon = next(i for i in r.issues if i.node_id == "monument")
+    assert mon.fired
+    assert mon.detail.get("monument_class") and mon.detail["monument_class"] != "a recorded monument"
+
+
+@pytest.mark.skipif(not (LAYERS_DIR / "gsi_quaternary.parquet").exists(),
+                    reason="gsi_quaternary layer not built")
+def test_peat_fires_on_blanket_bog():
+    r = evaluate(-9.8812, 53.5309, dev_type="one_off_house", council_slug=GALWAY_CO)  # Connemara
+    pb = next(i for i in r.issues if i.node_id == "peat_bog")
+    assert pb.fired and pb.data_status == "ok"
+    assert "peat" in pb.detail.get("peat_type", "").lower()
+
+
+@pytest.mark.skipif(not (LAYERS_DIR / "gsi_vulnerability.parquet").exists(),
+                    reason="gsi_vulnerability layer not built")
+def test_septic_gated_in_settlement_zone():
+    # Eyre Square (urban, sewered) must NOT fire septic; a rural karst point must.
+    urban = evaluate(-9.0528, 53.2737, dev_type="one_off_house", council_slug="galway_city_council")
+    assert next(i for i in urban.issues if i.node_id == "septic_groundwater").fired is False
+    rural = evaluate(-9.0376579, 53.3150837, dev_type="one_off_house", council_slug=GALWAY_CO)
+    assert next(i for i in rural.issues if i.node_id == "septic_groundwater").fired is True
+
+
 def test_rule_resolution_wired_to_council():
     r = _result()
     es = next(i for i in r.issues if i.node_id == "european_site")
@@ -110,6 +249,51 @@ def test_integration_council_resolver_dublin():
 
 _HAVE_GALWAY_LAYERS = (LAYERS_DIR / "gsi_vulnerability.parquet").exists() and \
     (LAYERS_DIR / "zoning_gzt.parquet").exists()
+
+
+@pytest.mark.skipif(not (LAYERS_DIR / "osm_roads.parquet").exists(),
+                    reason="osm_roads layer not built")
+def test_junction_proximity_flag_killoughter():
+    """The road node flags a near junction (crossroads / entrance-setback) at Killoughter."""
+    r = evaluate(-9.0376579, 53.3150837, dev_type="one_off_house", council_slug=GALWAY_CO)
+    road = next(i for i in r.issues if i.node_id == "road_sightlines")
+    assert road.fired
+    jm = road.detail.get("junction_m")
+    assert isinstance(jm, (int, float)) and 0 < jm <= 100      # a junction within 100 m
+    assert "STAGGERED" in road.flag and "Road Safety Audit" in road.flag
+
+
+def test_plan_name_to_slug_distinguishes_city_and_county():
+    from dail_tracker_core.siting.council import _plan_name_to_slug
+    assert _plan_name_to_slug("Galway City Development Plan 2023 - 2029") == "galway_city_council"
+    assert _plan_name_to_slug("Galway County Development Plan 2022-2028") == "galway_county_council"
+
+
+@pytest.mark.skipif(not _HAVE_GALWAY_LAYERS, reason="Galway zoning layer not built")
+def test_rural_need_does_not_fire_in_residential_zone():
+    """The amenity-substring false-positive fix: a zoned RESIDENTIAL site is not rural-need."""
+    from dail_tracker_core.siting.engine import _rural_need
+    s = LayerStore()
+    fired, _detail, status = _rural_need(s, -9.0857, 53.2607, "one_off_house", "galway_city_council")
+    assert status == "ok" and fired is False     # Salthill = R3 Residential
+
+
+@pytest.mark.skipif(not _HAVE_GALWAY_LAYERS, reason="Galway zoning layer not built")
+def test_rural_need_fires_on_agricultural_zone():
+    from dail_tracker_core.siting.engine import _rural_need
+    s = LayerStore()
+    fired, _detail, _status = _rural_need(s, -9.0520, 53.3062, "one_off_house", "galway_city_council")
+    assert fired is True                          # Menlo = Zoned Agriculture
+
+
+@pytest.mark.skipif(not _HAVE_GALWAY_LAYERS, reason="Galway zoning layer not built")
+def test_council_resolved_via_zoning_gets_city_county_line_right():
+    from dail_tracker_core.siting.council import resolve_council
+    city = resolve_council(-9.0520, 53.3062)            # Menlo -> City
+    assert city.slug == "galway_city_council"
+    assert city.resolved_via == "zoning" and city.on_boundary is False
+    county = resolve_council(-9.3200, 53.4258)          # Oughterard -> County
+    assert county.slug == "galway_county_council" and county.resolved_via == "zoning"
 
 
 @pytest.mark.skipif(not (HAVE_SPINE and _HAVE_GALWAY_LAYERS),

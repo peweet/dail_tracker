@@ -119,3 +119,48 @@ def test_resolve_unknown_council_degrades_gracefully():
     r = rulebook.resolve("not_a_real_council", "european_site")
     assert r.checklist == () and r.dm_standards == ()
     assert r.missing  # records what could not be resolved, never raises
+
+
+# ── hardened DM-heading parsing (markdown/bold prefixes, : . – separators) ──────
+
+def test_dm_heading_tolerates_markdown_and_separators():
+    for line in ["DM Standard 51: T", "## DM Standard 8 – T",
+                 "**DM Standard 5** - T", "DM Std 9. T"]:
+        assert rulebook._DM_HEADING.match(line), f"should match: {line!r}"
+
+
+def test_hardening_did_not_regress_galway_county():
+    # the exemplar must still parse fully (70 standards, 26 checklist rows)
+    assert len(rulebook.parse_dm_standards(GALWAY_CO)) == 70
+    assert len(rulebook.parse_required_assessments(GALWAY_CO)) == 26
+    assert rulebook.parse_dm_concepts(GALWAY_CO) == {}        # county is numbered, not concept-keyed
+
+
+# ── concept-keyed councils (plans that don't use "DM Standard N") ───────────────
+
+def test_concept_keyed_dm_resolution_galway_city():
+    r = rulebook.resolve(GALWAY_CITY, "rural_need_zoning")
+    assert r.dm_standards, "Galway City rural_need should resolve a concept-keyed standard"
+    d = r.dm_standards[0]
+    assert d.number == 0 and d.source_ref          # concept-keyed marker + the plan citation
+    assert "0.2 hectares" in d.text                # VERBATIM Galway City text, not a paraphrase
+
+
+def test_concept_keyed_checklist_galway_city():
+    r = rulebook.resolve(GALWAY_CITY, "european_site")
+    docs = " ".join(c.document for c in r.checklist)
+    assert "Appropriate Assessment" in docs
+
+
+def test_concept_checklist_skips_table_header_row():
+    chk = rulebook.parse_checklist_concepts(GALWAY_CITY)
+    assert "node" not in chk           # the "| node | … |" header must not become a fake node
+    assert "aa_screening" in chk
+
+
+def test_city_honest_about_uncaptured_chapters():
+    # archaeology / septic standards live in city-plan chapters that were not captured ->
+    # reported as missing, never fabricated (no-inference contract)
+    r = rulebook.resolve(GALWAY_CITY, "monument")
+    assert not r.dm_standards
+    assert r.missing

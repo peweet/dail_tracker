@@ -21,6 +21,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # utility/ on path
 
+from dail_tracker_core.siting.brief import cascade_text, road_sightline_line  # noqa: E402
 from data_access.siting_data import evaluate_site  # noqa: E402
 from shared_css import inject_css  # noqa: E402
 from ui.components import hide_sidebar  # noqa: E402
@@ -82,6 +83,9 @@ def _render_card(issue) -> None:
     ]
     if issue.flag:
         parts.append(f'<p class="sc-flag">{_h(issue.flag)}</p>')
+    # road node: one key sightline number derived from the OSM road class/speed
+    if issue.node_id == "road_sightlines":
+        parts.append(f'<p class="sc-note"><b>Sightline:</b> {_h(road_sightline_line(issue.detail))}</p>')
     if engage:
         parts.append(f'<p class="sc-engage"><b>Engage:</b> {_h(engage)}</p>')
     if issue.mitigates:
@@ -110,10 +114,23 @@ def _render_card(issue) -> None:
             if rule.plan_name:
                 st.caption(f"{rule.council_name} — {rule.plan_name}")
             for d in rule.dm_standards:
-                st.markdown(f"**DM Standard {d.number}: {d.title}**")
+                # numbered plans (e.g. Galway County) cite "DM Standard N"; concept-keyed
+                # plans (number 0) carry the council's own section citation instead.
+                if d.number:
+                    st.markdown(f"**DM Standard {d.number}: {d.title}**")
+                else:
+                    st.markdown(f"**{d.title}**")
+                    if getattr(d, "source_ref", ""):
+                        st.caption(d.source_ref)
                 st.write(d.text[:1200] + ("…" if len(d.text) > 1200 else ""))
             for c in rule.checklist:
                 st.markdown(f"**Required: {c.document}** — *trigger:* {c.trigger}")
+
+    # static if/then mitigation cascade (the "what happens if it passes/fails" tree)
+    if issue.mitigation_path:
+        with st.expander("Mitigation pathway (if / then)"):
+            st.code(cascade_text(issue.mitigation_path), language=None)
+            st.caption("Indicative process, not advice — outcomes are discretionary.")
 
 
 def siting_check_page() -> None:
@@ -141,6 +158,18 @@ def siting_check_page() -> None:
     with c3:
         dev = st.selectbox("What do you want to build?", list(_DEV_TYPES),
                            format_func=lambda k: _DEV_TYPES[k], key="sc_dev")
+
+    # scale inputs only matter for housing schemes / commercial — they drive the
+    # scale-gated obligations (design statement, mobility, climate, EIA …)
+    num_units = floor_area = None
+    if dev in ("multi_unit", "commercial"):
+        s1, s2 = st.columns(2)
+        with s1:
+            num_units = st.number_input("Number of units (if known)", min_value=0, value=0,
+                                        step=1, key="sc_units") or None
+        with s2:
+            floor_area = st.number_input("Gross floor area m² (if known)", min_value=0, value=0,
+                                         step=100, key="sc_fa") or None
     go = st.button("Check this site", type="primary")
 
     if not go:
@@ -152,12 +181,22 @@ def siting_check_page() -> None:
         return
 
     with st.spinner("Evaluating the site against the designation layers and the rulebook…"):
-        res = evaluate_site(float(lon), float(lat), dev)
+        res = evaluate_site(float(lon), float(lat), dev,
+                            num_units=int(num_units) if num_units else None,
+                            floor_area_m2=float(floor_area) if floor_area else None)
 
     st.map({"lat": [lat], "lon": [lon]}, zoom=12, size=60)
 
     council = res.council.council_name or res.council.authority or "Unknown council"
-    bnd = " (near a council boundary — verify the authority)" if res.council.on_boundary else ""
+    # be honest about HOW the council was resolved: zoning containment is authoritative;
+    # nearest-application is a proxy that can snap across a boundary (on_boundary = the
+    # nearest application is far away, i.e. low confidence — not "near an admin boundary").
+    if getattr(res.council, "resolved_via", "") == "zoning":
+        bnd = " (confirmed by the zoning map)"
+    elif res.council.on_boundary:
+        bnd = " (inferred from the nearest planning application, which is some distance away — verify the authority)"
+    else:
+        bnd = " (inferred from the nearest planning application)"
     from data_access.siting_data import site_terrain
     t = site_terrain(float(lon), float(lat))
     elev = f"{t.elevation_m} m" if t.ok else "n/a"

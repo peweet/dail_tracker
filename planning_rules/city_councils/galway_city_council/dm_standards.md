@@ -95,3 +95,28 @@ Recreation provision in residential schemes scales with unit count (0–10, 11�
 
 ## Childcare outdoor play area
 - Full day care: 55% of gross floor area (minimum).
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts).   -->
+<!-- Galway City's plan does NOT use "DM Standard N" numbering, so each block is keyed   -->
+<!-- by the siting-catalogue node id it answers. Bodies are VERBATIM Galway City DP text -->
+<!-- (Ch.11, Part B — Development Standards). Nodes not covered by Ch.11 (archaeology,   -->
+<!-- septic-percolation, the SAC/SPA standard itself) are intentionally ABSENT — they    -->
+<!-- live in other chapters that were not captured; the resolver reports them as missing -->
+<!-- rather than inventing text (no-inference contract).                                 -->
+
+### node: rural_need_zoning — Rural one-off housing (Zoned A — Agricultural)
+ref: Galway City Development Plan 2023–2029, Ch.11 — Development Standards (Rural one-off housing, Zoned A)
+- Dwelling sites shall not normally be less than 0.2 hectares.
+- Access shall not be located directly onto national or regional routes.
+- On high ground, dwellings generally single storey, set into the landscape.
+
+### node: landscape_siting — Siting on high / exposed ground
+ref: Galway City Development Plan 2023–2029, Ch.11 — Development Standards
+On high ground, dwellings generally single storey, set into the landscape.
+
+### node: road_sightlines — Vehicular access
+ref: Galway City Development Plan 2023–2029, Ch.11 — Development Standards (access & street design)
+- Access shall not be located directly onto national or regional routes.
+- Vehicular entrance no more than 3 m wide.
+- Design speed for local streets 10–30 km/h (30 km/h maximum per DMURS).

@@ -33,3 +33,28 @@ URL: https://www.dublincity.ie/dublin-city-development-plan-2022-2028/written-st
 - Community & Social Audit (50+ units); school-demand report (50+ dwellings).
 
 Note: Dublin's Chapter 15 enumerates EIA, AA and EcIA triggers clearly; flood-risk and detailed traffic/transport triggers are located in other chapters/appendices of the plan and were not the focus of this Chapter 15 capture.
+
+## Machine-readable concept checklist (parsed by rulebook.parse_checklist_concepts)
+
+Maps each siting-catalogue node id to the assessment Dublin's Chapter 15 names for it, with the
+plan's own trigger wording. Rows derived from **Table 15-1 (Reports & Thresholds)** of the Ch.15
+written statement (`raw/chapter15_written_statement_DRAFT.pdf`). The node id is the key (Dublin numbers
+by Section/Table, not "DM Standard N"). septic_groundwater / rural_need_zoning are intentionally
+absent — Dublin City is fully sewered and has no rural one-off-housing policy.
+
+| node | Required document | Trigger condition | Ref |
+|------|-------------------|-------------------|-----|
+| aa_screening | Appropriate Assessment Screening + Natura Impact Statement | An AA Screening is required for all developments; a Stage 2 AA / NIS where likely significant effects on a European Site cannot be excluded | Dublin City DP 2022–2028, Ch.15 §15.3.2 / Table 15-1 |
+| european_site | Appropriate Assessment Screening / NIS + Ecological Impact Assessment | Development affecting, or within/adjacent to, a European Site (SAC/SPA) | Dublin City DP 2022–2028, Ch.15 §15.3.2–15.3.3 |
+| bats | Ecological Impact Assessment | All developments within or adjacent to any sensitive habitat, ecological corridor or landscape character area, or with potential to contain protected habitats/species | Dublin City DP 2022–2028, Ch.15 §15.3.3 / Table 15-1 |
+| eia | Environmental Impact Assessment | All developments within the thresholds of the Planning and Development Act 2000 (as amended) / Regulations; sub-threshold where significant effects likely | Dublin City DP 2022–2028, Ch.15 §15.3.1 / Table 15-1 |
+| floodplain | Site-Specific Flood Risk Assessment | Any development within Flood Risk Zones A and B | Dublin City DP 2022–2028, Ch.15 §15.18.14 / Table 15-1 |
+| surface_water | Surface Water Management Plan (Appendix 13) | 2 or more residential units / 100 sq.m or more | Dublin City DP 2022–2028, Ch.15 §15.6.2 / Table 15-1 |
+| road_sightlines | Traffic and Transport Assessment + Road Safety Audit | TTA: 50+ residential units, or any development constructing new roads / materially affecting vulnerable road users; RSA: any new roads | Dublin City DP 2022–2028, Ch.15 / Table 15-1 |
+| mobility_plan | Mobility Management Plan / Travel Plan | 20+ residential units, over 100 employees, or any development with zero/reduced car parking | Dublin City DP 2022–2028, Ch.15 / Table 15-1 |
+| protected_structure | Conservation Report | Any development relating to a protected structure, within the curtilage of a protected structure, and/or affecting an Architectural Conservation Area | Dublin City DP 2022–2028, Ch.15 §15.15.2 / Table 15-1 |
+| landscape_siting | Landscape and Visual Impact Assessment + Landscape Design Report | Site-specific circumstances; Landscape Design Report at 30+ residential units / 1,000 sq.m or more | Dublin City DP 2022–2028, Ch.15 §15.6.7 / Table 15-1 |
+| waste_management | Construction & Demolition Waste Management Plan + Operational Waste Management Plan | 30+ residential units / 1,000 sq.m or more | Dublin City DP 2022–2028, Ch.15 / Table 15-1 |
+| noise_assessment | Noise Assessment | Any noise-generating use and/or any development within designated noise zones on the development-plan zoning maps | Dublin City DP 2022–2028, Ch.15 / Table 15-1 |
+| design_statement | Architectural Design Report | 30+ residential units (or site-specific commercial circumstances) | Dublin City DP 2022–2028, Ch.15 §15.5.8 / Table 15-1 |
+| climate_statement | Climate Action and Energy Statement (incl. District Heating) | 30+ residential units / 1,000 sq.m or more | Dublin City DP 2022–2028, Ch.15 §15.7.3 / Table 15-1 |

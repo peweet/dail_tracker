@@ -31,6 +31,20 @@ def test_terrain_galway_city_is_low_and_not_exposed():
     assert t.slope_deg is not None
 
 
+def test_terrain_disk_cache_round_trips():
+    from dail_tracker_core.siting import dem
+
+    t1 = terrain(-9.0376579, 53.3150837)
+    if not t1.ok:
+        pytest.skip("DEM unreachable — cannot warm cache")
+    assert dem.DEM_CACHE.exists()
+    # clear in-process caches; the value must now come from disk and be identical (offline-safe)
+    dem._load_cache.cache_clear()
+    dem.terrain.cache_clear()
+    t2 = terrain(-9.0376579, 53.3150837)
+    assert t2 == t1
+
+
 def test_terrain_degrades_gracefully_offline_shape():
     # whatever the network state, terrain() returns a Terrain and never raises
     t = terrain(-9.049, 53.272)

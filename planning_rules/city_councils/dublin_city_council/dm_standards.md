@@ -101,3 +101,82 @@ Unit mix:
 ## EV charging / bin storage
 
 - Bin/waste storage standards in Appendix 7 (Waste Storage Facilities); EV provision per national apartment standards + Appendix 5. Not enumerated numerically in Chapter 15 itself.
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Dublin's plan numbers by Section (15.x) + Table + SPPR, NOT "DM Standard N", so   -->
+<!-- each block is keyed by the siting-catalogue node id it answers. Bodies are VERBATIM -->
+<!-- Dublin City DP 2022–2028, Chapter 15 (Development Standards). Source text taken from -->
+<!-- raw/chapter15_written_statement_DRAFT.pdf — the only full capture of Ch.15 we hold    -->
+<!-- (the dublincity.ie adopted HTML is a landing page only; WebFetch was 403-blocked).    -->
+<!-- These DM standards carried unchanged into the adopted plan (effective 14 Dec 2022);   -->
+<!-- re-verify wording against adopted Ch.15 before any citizen-facing publication.        -->
+<!-- septic_groundwater and rural_need_zoning are intentionally ABSENT — Dublin City is   -->
+<!-- fully sewered and has no rural one-off-housing policy; the resolver reports them      -->
+<!-- missing rather than inventing text (no-inference contract).                          -->
+
+### node: european_site — Appropriate Assessment (European Sites / Natura 2000)
+ref: Dublin City Development Plan 2022–2028, Ch.15 §15.3.2 (Appropriate Assessment)
+Appropriate Assessment (AA) under Article 6 of the Habitats Directive considers whether or not
+a proposed plan or project would adversely affect the integrity of a European Site. In Ireland,
+the Natura 2000 network of European sites comprises Special Areas of Conservation (including
+candidate SACs) and Special Protection Areas (including proposed SPAs). All applications are
+screened for AA by the Council; where significant effects are likely, a Stage 2 Appropriate
+Assessment including a Natura Impact Statement is required.
+
+### node: eia — Environmental Impact Assessment
+ref: Dublin City Development Plan 2022–2028, Ch.15 §15.3.1 (Environmental Impact Assessment)
+Environmental Impact Assessments (EIA) consider whether development projects either alone or in
+combination are likely to have significant effects on the environment. The Planning and
+Development Regulations 2001, as amended, set out the mandatory thresholds for specified classes
+of development. An EIA may need to be carried out even if the development is below the mandatory
+thresholds, based on the potential impact on the environment.
+
+### node: bats — Ecological Impact Assessment (protected habitats / species)
+ref: Dublin City Development Plan 2022–2028, Ch.15 §15.3.3 (Ecological Impact Assessment)
+An Ecological Impact Assessment should be carried out for all developments within or adjacent to
+any sensitive habitat, ecological corridor, specific landscape character area or which has the
+potential to contain protected habitats or species. The Planning Authority may request an
+Ecological Impact Assessment for any other development considered ecologically sensitive.
+
+### node: surface_water — Surface Water Management and SuDS
+ref: Dublin City Development Plan 2022–2028, Ch.15 §15.6.2 (Surface Water Management and SuDS)
+All new developments will be required to prepare a Surface Water Management Plan in accordance
+with the Council's Surface Water Management Guidance (Appendix 13). All new developments will
+also be required to utilise SuDS measures in accordance with Policy SI22; the SuDS measures shall
+be set out clearly in an assessment of the drainage details prepared by a qualified Engineer.
+
+### node: landscape_siting — Landscape Design Rationale
+ref: Dublin City Development Plan 2022–2028, Ch.15 §15.6.7 (Landscape Design Rationale)
+Landscape design and maintenance plans will be regarded as an integral part of all development
+applications. The incorporation of landscape features to protect and support biodiversity and to
+ensure existing landscaping and environments are protected will be required as part of all
+applications. A Landscape and Visual Impact Assessment may be required in site-specific
+circumstances (Table 15-1, Reports & Thresholds).
+
+### node: monument — Archaeology
+ref: Dublin City Development Plan 2022–2028, Ch.15 §15.15.1 (Archaeology)
+Dublin City Centre and its suburbs comprise a number of areas that fall within zones of
+archaeological interest. It is essential that new development in these historic and distinct
+areas respects the existing character, safeguards the historic setting of the streets and spaces
+and addresses built heritage and archaeology. A series of development management standards are
+provided to guide new development in these areas and to ensure built heritage and archaeology
+are protected.
+
+### node: protected_structure — Protected Structures & Architectural Conservation Areas
+ref: Dublin City Development Plan 2022–2028, Ch.15 §15.15.2 (Built Heritage)
+There are almost 8,500 protected structures in the city, as identified on the Record of Protected
+Structures (Volume 2). The impact of any proposed development must not adversely affect the
+character of the Protected Structure and its setting; conservation is the careful and sensitive
+management of change. There are 24 Architectural Conservation Areas (ACAs); development in these
+zones must respect the existing character of the area and protect and enhance the setting and
+appearance of the streetscape and/or protected features (Policies BHA 07 / BHA 08, Chapter 11).
+
+### node: floodplain — Flood Risk Management
+ref: Dublin City Development Plan 2022–2028, Ch.15 §15.18.14 (Flood Risk Management)
+All applications for developments in flood risk areas shall have regard to the Strategic Flood
+Risk Assessment of this plan. All applications within Flood Zones A and B will be required to
+submit a Site-Specific Flood Risk Assessment to an appropriate level of detail (Policies SI15 and
+SI16). Applicants should consider residual risk without regard to any existing flood protection
+structures; the Council assesses applications with regard to the vulnerability classes of land-use
+and development types in accordance with the national guidelines.
