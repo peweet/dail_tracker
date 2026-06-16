@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import pytest
 
-from pipeline_sandbox.diary_entry_classify import classify
+from extractors.diary_entry_classify import classify
 
 # (subject, expected_class) — hand-labelled from the real DETE corpus.
 GOLDEN: list[tuple[str, str]] = [

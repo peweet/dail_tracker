@@ -15,11 +15,29 @@ from pages_code.payments import payments_page
 from pages_code.procurement import procurement_page
 from pages_code.public_appointments import public_appointments_page
 from pages_code.public_payments import public_payments_page
-from pages_code.siting_check import siting_check_page
 from pages_code.statutory_instruments import statutory_instruments_page
 from pages_code.votes import votes_page
 from shared_css import inject_css
 from ui.spa_links import install_spa_links
+
+# Siting Check runs a live geospatial engine (shapely/rasterio/pyyaml) over local
+# designation layers that are NOT shipped to Streamlit Cloud (291 MB, gitignored —
+# still in Phase-0 battle-testing locally). Those deps live in the `siting` extra, so
+# the Cloud install does not have them. Import defensively: if the deps (or data) are
+# absent, register a stub instead of letting one failed import crash the whole app.
+try:
+    from pages_code.siting_check import siting_check_page
+except ImportError as _siting_import_error:  # pragma: no cover - env-dependent
+
+    def siting_check_page() -> None:
+        st.title("Siting Check")
+        st.info(
+            "Siting Check is a live planning-risk triage tool that runs a geospatial "
+            "engine over local designation layers. It is currently available in the "
+            "local / development build only and is not enabled in this deployment."
+        )
+        st.caption(f"(unavailable here: {_siting_import_error})")
+
 
 st.set_page_config(
     page_title="Oireachtas Explorer",

@@ -4,7 +4,7 @@ Axis 1 (topology, e.g. self-intersection) is REPAIRABLE via make_valid; axis 2
 (out-of-bounds coordinates, the -9e12 case) is NOT — make_valid LAUNDERS it, so we
 bounds-check before AND after the repair. These tests guard that contract.
 
-    python -m pytest pipeline_sandbox/test_planning_layers_gate.py -q
+    python -m pytest test/siting/test_planning_layers_gate.py -q
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 import shapely
 from shapely.geometry import Polygon
 
-from pipeline_sandbox.planning_layers_ingest import gate
+from extractors.planning_layers_ingest import gate
 
 
 def _box(cx, cy, d=0.01):

@@ -5,15 +5,19 @@ Sources: data/gold/parquet/public_appointments.parquet (spine), C:/tmp cached PD
 ROSTER literal in probe_judiciary_join.py, and values captured during the 2026-06-04 pulls.
 """
 
-import ast
 import re
+import sys
 import unicodedata
 import warnings
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # repo root, for first-party imports
+
 warnings.filterwarnings("ignore")
 import polars as pl
 import fitz  # PyMuPDF (in .venv)
+
+from extractors._judiciary_roster import ROSTER
 
 OUT = Path("data/sandbox/judiciary")
 OUT.mkdir(parents=True, exist_ok=True)
@@ -66,10 +70,7 @@ for r in jud.filter(pl.col("body").is_in(REAL)).iter_rows(named=True):
 spine_ex = pl.DataFrame(ex_rows)
 write_both(spine_ex, "judicial_appointments_exploded")
 
-# ============ 2. current roster (from probe ROSTER literal) ============
-probe = Path("pipeline_sandbox/probe_judiciary_join.py").read_text(encoding="utf-8")
-block = "{" + probe.split("ROSTER = {", 1)[1].split("\n}", 1)[0] + "\n}"
-ROSTER = ast.literal_eval(block)
+# ============ 2. current roster (curated data module extractors/_judiciary_roster.py) ============
 rows = [{"judge_name": nm, "court": court} for court, names in ROSTER.items() for nm in names]
 roster = pl.DataFrame(rows)
 # ex-officio = same name listed under >1 court
