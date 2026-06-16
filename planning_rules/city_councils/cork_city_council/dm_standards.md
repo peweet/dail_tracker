@@ -57,3 +57,19 @@
 
 ## Car parking / cycle parking / plot ratio / site coverage / EV / bin storage
 - Not enumerated as numeric tables within the captured Chapter 11 text; the chapter references national standards. No specific Cork numeric parking ratios, plot ratio, site coverage, EV or bin-storage figures captured.
+
+---
+
+## Concept-keyed standards (parsed by rulebook.parse_dm_concepts)
+
+### node: landscape_siting — Visual amenity / city skyline
+ref: Cork City Development Plan 2022–2028, Chapter 11 — Placemaking and Managing Development
+A Visual Impact Assessment is required for developments affecting protected views or breaking the city skyline. Building heights vary by location (City Centre target 4–6 storeys; South Docks permits up to 10 storeys for exceptional tall buildings).
+
+### node: rural_need_zoning — Rural / ribbon development
+ref: Cork City Development Plan 2022–2028, Chapter 11
+Cork City is predominantly urban, so a rural one-off-house minimum site area is not explicitly quantified in the chapter. Ribbon development — five or more houses on one side of any 250 m of road frontage — is treated as problematic ribbon development.
+
+### node: road_sightlines — Vehicular access
+ref: Cork City Development Plan 2022–2028, Chapter 11
+A Traffic & Transport Assessment is required where excessive impact on the road/transport network is likely, and is mandatory for access to the national road network.

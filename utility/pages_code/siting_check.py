@@ -13,6 +13,7 @@ CSS namespace: sc-*.
 
 from __future__ import annotations
 
+import re
 import sys
 from html import escape as _h
 from pathlib import Path
@@ -38,6 +39,59 @@ _DEV_TYPES = {
     "multi_unit": "Multiple houses / apartments",
     "commercial": "Commercial",
 }
+
+# --- Google-Maps coordinate extraction ----------------------------------------------------
+# A pasted Maps URL carries the point in several places. Preference order:
+#   1. !3d<lat>!4d<lon>  — the dropped pin / Street-View target (most precise)
+#   2. @<lat>,<lon>      — the map centre / where the pegman ("little man") is standing
+#   3. ?q= / ll= / query= / center= / sll=  — query-parameter forms
+# A bare "53.349, -6.260" paste (right-click → copy coordinates) is also accepted.
+# No network: short share links (maps.app.goo.gl, goo.gl/maps) carry NO coordinates and
+# must be opened first so the address-bar URL gains the @lat,lon segment.
+_LL = r"(-?\d{1,3}\.\d+)"
+_RE_PIN = re.compile(rf"!3d{_LL}!4d{_LL}")
+_RE_AT = re.compile(rf"@{_LL},{_LL}")
+_RE_Q = re.compile(rf"[?&](?:q|ll|query|center|sll)=\s*{_LL},\s*{_LL}")
+_RE_BARE = re.compile(rf"^{_LL},\s*{_LL}$")
+
+
+def parse_latlon_from_maps(text: str) -> tuple[float, float] | None:
+    """Pull (lat, lon) out of a pasted Google-Maps URL or a bare 'lat, lon' string.
+
+    Returns None when no coordinate can be found (e.g. an unresolved short share link).
+    """
+    text = (text or "").strip()
+    if not text:
+        return None
+    for rx in (_RE_PIN, _RE_AT, _RE_Q, _RE_BARE):
+        m = rx.search(text)
+        if m:
+            return float(m.group(1)), float(m.group(2))
+    return None
+
+
+def _is_short_link(text: str) -> bool:
+    return any(h in (text or "") for h in ("maps.app.goo.gl", "goo.gl/maps"))
+
+
+def _apply_maps_url() -> None:
+    """on_change handler: parse the pasted link and pre-fill the lat/lon widgets.
+
+    Runs before the widgets are instantiated this rerun, so writing their session_state
+    keys is safe. Stashes a status tuple for the body to render.
+    """
+    raw = st.session_state.get("sc_url", "")
+    parsed = parse_latlon_from_maps(raw)
+    if parsed:
+        st.session_state["sc_lat"] = round(parsed[0], 5)
+        st.session_state["sc_lon"] = round(parsed[1], 5)
+        st.session_state["sc_url_msg"] = ("ok", parsed)
+    elif _is_short_link(raw):
+        st.session_state["sc_url_msg"] = ("short", None)
+    elif raw.strip():
+        st.session_state["sc_url_msg"] = ("err", None)
+    else:
+        st.session_state.pop("sc_url_msg", None)
 
 
 def _headline_class(classes: frozenset[str]) -> str:
@@ -150,11 +204,35 @@ def siting_check_page() -> None:
         "the level of risk; it never tells you a decision outcome or how to design.</div>"
     )
 
+    # Seed the coordinate widgets once. A pasted link overwrites these (via _apply_maps_url)
+    # before the number_input widgets below are instantiated, so no default-vs-state warning.
+    st.session_state.setdefault("sc_lat", 53.3500)
+    st.session_state.setdefault("sc_lon", -6.2600)
+
+    st.text_input(
+        "Paste a Google Maps link",
+        key="sc_url",
+        on_change=_apply_maps_url,
+        placeholder="https://www.google.com/maps/@53.34980,-6.26030,18z …",
+        help="In Google Maps, drag the orange figure (the 'little man', bottom-right) onto "
+             "your site, then copy the URL from the address bar and paste it here. The "
+             "coordinates after the @ are exactly where you dropped it.",
+    )
+    msg = st.session_state.get("sc_url_msg")
+    if msg and msg[0] == "ok":
+        st.success(f"Located {msg[1][0]:.5f}, {msg[1][1]:.5f} — adjust below if needed.")
+    elif msg and msg[0] == "short":
+        st.warning("That's a short share link, which doesn't contain the coordinates. Open "
+                   "it in Google Maps first, then copy the URL from the address bar.")
+    elif msg and msg[0] == "err":
+        st.warning("Couldn't find coordinates in that text. Paste a Google Maps URL or "
+                   "coordinates like 53.34980, -6.26030.")
+
     c1, c2, c3 = st.columns([1, 1, 1.2])
     with c1:
-        lat = st.number_input("Latitude", value=53.3500, format="%.5f", key="sc_lat")
+        lat = st.number_input("Latitude", format="%.5f", key="sc_lat")
     with c2:
-        lon = st.number_input("Longitude", value=-6.2600, format="%.5f", key="sc_lon")
+        lon = st.number_input("Longitude", format="%.5f", key="sc_lon")
     with c3:
         dev = st.selectbox("What do you want to build?", list(_DEV_TYPES),
                            format_func=lambda k: _DEV_TYPES[k], key="sc_dev")
@@ -173,7 +251,8 @@ def siting_check_page() -> None:
     go = st.button("Check this site", type="primary")
 
     if not go:
-        st.caption("Tip: paste coordinates from Google Maps (right-click → the first two numbers).")
+        st.caption("Tip: in Google Maps, drag the orange 'little man' (bottom-right) onto your "
+                   "exact site, then paste the address-bar link above — the point fills in for you.")
         return
 
     if not (51.0 <= lat <= 56.0 and -11.0 <= lon <= -5.0):

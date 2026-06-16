@@ -1,0 +1,44 @@
+name: Legal Diary OpenView health
+
+# Live source-health CANARY for the Legal Diary OpenView ingest
+# (pdf_infra/legal_diary_openview_poller.py + extractors/legal_diary_openview_extract.py).
+#
+# The OpenView ingest is an HTML scrape of the Courts Service IBM Domino (.nsf) app. This
+# probes the LIVE source structure (index rows + detail body + metadata cells + the parser)
+# and opens a tracking issue if the site drifted, so a redesign is caught before coverage
+# quietly staleens. Read-only: archives nothing, writes no gold. Schedule-only — never
+# blocks a PR. Companion to source_health.yml (which reads committed staleness JSON; this
+# probes the live HTML structure).
+
+on:
+  schedule:
+    - cron: "30 7 * * 1,4"   # Mon & Thu 07:30 UTC (just before the source-health canary)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  openview-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install requests (only dep the canary needs)
+        run: pip install requests
+      - name: Probe the OpenView source structure
+        run: python tools/legal_diary_openview_health.py
+      - name: Open issue on source drift (scheduled runs only)
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              ...context.repo,
+              title: `Legal Diary OpenView: source structure drifted (${new Date().toISOString().slice(0, 10)})`,
+              body: `The live OpenView health canary failed — the Courts Service Legal Diary site structure may have changed (OpenView index rows, the \`ld-content\` detail body, or the alfresco metadata cells), which would silently stop the Circuit Court + higher-court diary ingest.\n\nJob log: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nFix: inspect a detail doc against tools/legal_diary_openview_health.py, update the parser in extractors/legal_diary_openview_extract.py (and the poller's index regex if the index changed), then re-run the poller + extractor. See doc/LEGAL_DIARY_OPENVIEW_BUILD_PLAN.md.`,
+              labels: ["data", "sources"],
+            });

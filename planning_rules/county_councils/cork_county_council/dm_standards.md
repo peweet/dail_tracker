@@ -84,3 +84,21 @@ Rural one-off housing follows NPF NPO19 (areas under urban influence: demonstrab
 
 ## Wastewater Treatment Plant buffers
 Development not generally permitted within 100 m of a wastewater treatment works or 25 m of a pumping station (may increase for environmental reasons; buffer may count toward open space).
+
+---
+
+## Concept-keyed standards (parsed by rulebook.parse_dm_concepts)
+Each block maps a siting-catalogue node id to the governing Cork County standard, quoted from
+Volume 1. Nodes the plan sets no fixed standard for are intentionally absent (no-inference).
+
+### node: rural_need_zoning — Rural one-off housing (NPF NPO19)
+ref: Cork County Development Plan 2022, Chapter 5 — Rural
+Rural one-off housing follows NPF NPO19: in areas under urban influence a demonstrable economic or social need to live in the rural area must be shown, together with siting and design; in areas not under urban influence, siting and design and settlement viability apply (per the Sustainable Rural Housing Guidelines 2005). No fixed numeric minimum site area is set in Volume 1.
+
+### node: septic_groundwater — Site suitability & on-site wastewater
+ref: Cork County Development Plan 2022, Chapter 5 §5.6 (Environmental and Site Suitability Requirements)
+Site suitability (including wastewater) is assessed per Chapter 5 §5.6. Development is not generally permitted within 100 m of a wastewater treatment works or 25 m of a pumping station (the buffer may increase for environmental reasons and may count toward open space).
+
+### node: road_sightlines — Vehicular access & visibility
+ref: Cork County Development Plan 2022, Chapter 12 §12.11 / §12.24
+New vehicular accesses must be designed to appropriate standards of visibility for safety; numeric sightline x/y values are referenced to national road design standards rather than tabulated in Volume 1. Residential parking standard: 2 spaces per dwelling house (Table 12.6, maximum).
