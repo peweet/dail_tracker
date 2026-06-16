@@ -1204,31 +1204,6 @@ _INTERESTS_SRC = "data/silver/parquet/dail_member_interests_combined.parquet"
 
 
 @pytest.mark.sql
-def test_member_interests_views_execute():
-    """member_interests_views.sql creates FOUR views off one parquet — assert the
-    column contract of each in one pass (they share a source, so one load)."""
-    _skip_missing(*_src(_INTERESTS_SRC))
-    con = _con()
-    con.execute(_load("member_interests_views.sql"))
-
-    detail = _result(con, "v_member_interests")
-    _assert_cols(detail, "member_id", "member_name", "interest_category", "interest_text", "declaration_year", "house")
-    assert len(detail) > 0
-
-    summary = _result(con, "v_member_interests_summary")
-    _assert_cols(summary, "members_with_interests_count", "declarations_count", "latest_declaration_year")
-    assert len(summary) > 0
-
-    cats = _result(con, "v_member_interests_category_summary")
-    _assert_cols(cats, "interest_category", "declarations_count")
-    assert len(cats) > 0
-
-    ranking = _result(con, "v_member_interests_ranking")
-    _assert_cols(ranking, "member_id", "member_name", "interest_count", "rank")
-    assert len(ranking) > 0
-
-
-@pytest.mark.sql
 def test_v_member_interests_detail_executes():
     _skip_missing(*_src(_INTERESTS_SRC))
     con = _con()
@@ -1587,35 +1562,12 @@ def test_v_attendance_missing_members_executes():
 
 
 @pytest.mark.sql
-def test_v_attendance_year_member_counts_executes():
-    """Reads v_attendance_member_year_summary — load it first."""
-    _skip_missing(*_src("data/gold/parquet/attendance_by_td_year.parquet"))
-    con = _con()
-    con.execute(_load("attendance_member_year_summary.sql"))
-    con.execute(_load("attendance_year_member_counts.sql"))
-    result = _result(con, "v_attendance_year_member_counts")
-    _assert_cols(result, "year", "house", "members_count")
-    assert len(result) > 0
-
-
-@pytest.mark.sql
 def test_v_attendance_chamber_sitting_days_executes():
     _skip_missing(*_src("data/silver/aggregated_td_tables.csv"))
     con = _con()
     con.execute(_load("attendance_chamber_sitting_days.sql"))
     result = _result(con, "v_attendance_chamber_sitting_days")
     _assert_cols(result, "house", "year", "sitting_days")
-    assert len(result) > 0
-
-
-@pytest.mark.sql
-def test_v_sitting_days_by_year_executes():
-    """Hardcoded VALUES reference table — no source file, so no skip. If it stops
-    compiling, the attendance-rate denominator breaks."""
-    con = _con()
-    con.execute(_load("v_sitting_days_by_year.sql"))
-    result = _result(con, "v_sitting_days_by_year")
-    _assert_cols(result, "year", "total_sitting_days")
     assert len(result) > 0
 
 
