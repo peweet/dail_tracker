@@ -31,3 +31,22 @@ An EIAR is required where EIA is determined necessary (per the Planning and Deve
 
 ## Site Suitability (one-off rural houses)
 Site suitability and wastewater assessment per Chapter 5 §5.6 (Environmental and Site Suitability Requirements); rural housing also subject to NPF NPO19 need/siting/design tests. (No fixed numeric minimum site area in Volume 1.)
+
+## Machine-readable concept checklist (parsed by rulebook.parse_checklist_concepts)
+
+Maps each siting-catalogue node id to the assessment Cork County's plan names for it, with the
+plan's own trigger wording. The node id is the key (Cork County does not number its checklist).
+
+| node | Required document | Trigger condition | Ref |
+|------|-------------------|-------------------|-----|
+| aa_screening | Appropriate Assessment screening / Natura Impact Statement | Plans/projects affecting European sites (SAC/SPA); NIS required where significant negative effects cannot be screened out | Cork County DP 2022, Ch.1 |
+| european_site | Appropriate Assessment / Natura Impact Statement | Development affecting, or near, a European Site (SAC/SPA) | Cork County DP 2022, Ch.1 |
+| eia | Environmental Impact Assessment (EIA / EIAR) | Per Planning and Development Regulations thresholds/screening; below threshold where significant environmental effects are likely | Cork County DP 2022, Ch.15 |
+| monument | Archaeological Assessment | Any development whose area is 0.5 ha or more, OR whose length is 1 km or more (incl. large infrastructure); preservation in-situ is the presumed preferred option | Cork County DP 2022, Ch.16 |
+| protected_structure | Architectural Heritage Impact Assessment | Works to a Protected Structure / development in an Architectural Conservation Area | Cork County DP 2022, Ch.16 |
+| floodplain | Flood Risk Assessment + Development Management Justification Test | Sites within Flood Zone A or B; minor works (extension/renovation/small infill/change of use) are exempt from the Justification Test but still need a flood assessment | Cork County DP 2022, Ch.11 §11.11 |
+| surface_water | Flood Risk / Drainage Impact Assessment | Required to support ALL planning applications (§11.11) | Cork County DP 2022, Ch.11 |
+| road_sightlines | Traffic & Transport Assessment + Road Safety Audit | Where traffic movements may materially impact the safety/free flow of traffic on National, Regional or Local routes | Cork County DP 2022, Ch.12 (TM 12-8) |
+| mobility_plan | Mobility Management Plan | Developments of 50+ employees; residential over 100 units; all education, community and health facilities | Cork County DP 2022, Ch.12 |
+| septic_groundwater | Site Suitability & Wastewater Assessment | Where on-site wastewater proposed (Chapter 5 §5.6); rural housing also subject to NPF NPO19 | Cork County DP 2022, Ch.5 §5.6 |
+| rural_need_zoning | Rural housing need / siting & design justification | One-off rural housing (NPF NPO19 need / siting / design tests) | Cork County DP 2022, Ch.5 |

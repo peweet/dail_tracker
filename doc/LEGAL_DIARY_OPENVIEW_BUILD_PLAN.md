@@ -3,7 +3,11 @@
 **Status:** PROMOTED 2026-06-16 (Phases 1+2 built & tested). Decisions taken: docx→High-Court-only,
 panels show on every member (capped at 9 — larger strings are roster notices). A `--limit 250`
 backfill (1,000 docs) produced 77,487 anonymised cases (Circuit 4,442); judge profiles now populate
-(Circuit 1,723 rows / 29 judges). Remaining: run the full backfill (~5,750 more docs) at leisure.
+(Circuit 1,723 rows / 29 judges). Source span (live): higher courts back to **2018**, Circuit to
+**2022**, plus forward scheduling to Dec 2026 — OpenView queries the persistent Domino document DB,
+not the daily-overwritten `.docx` snapshot. Source-health CANARY added
+(tools/legal_diary_openview_health.py + .github/workflows/legal_diary_openview_health.yml). Full
+backfill (~5,750 docs) run 2026-06-16.
 **Probe:** `pipeline_sandbox/legal_diary_openview_probe.py` · report `data/_meta/legal_diary_openview_probe.json`
 **Origin:** "the cases for circuit court judges are missing" — they were never in the source we ingest.
 
