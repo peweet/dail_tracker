@@ -27,7 +27,10 @@ from ui.spa_links import install_spa_links
 # absent, register a stub instead of letting one failed import crash the whole app.
 try:
     from pages_code.siting_check import siting_check_page
-except ImportError as _siting_import_error:  # pragma: no cover - env-dependent
+except ImportError as _err:  # pragma: no cover - env-dependent
+    # NB: the `as _err` name is deleted when this except block exits, so capture the message
+    # into a normal module-level string for the stub closure to reference at call time.
+    _siting_import_error = str(_err)
 
     def siting_check_page() -> None:
         st.title("Siting Check")
