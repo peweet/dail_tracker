@@ -34,3 +34,26 @@ def evaluate_site(
 @st.cache_data(ttl=3600, show_spinner=False)
 def site_terrain(lon: float, lat: float):
     return _terrain(lon, lat)
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def resolve_maps_short_link(url: str) -> str | None:
+    """Follow a Google Maps short share-link (maps.app.goo.gl / goo.gl/maps) to its destination.
+
+    Short links carry NO coordinates themselves; the redirect target (and page body) does. We
+    return the final URL + page text so the page's parser can pull the @lat,lon / !3d!4d out.
+    Network call, cached a day. Returns None on any failure (caller falls back to the old hint).
+    """
+    import urllib.request
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (siting-check)"})
+        with urllib.request.urlopen(req, timeout=10) as resp:  # urlopen follows redirects
+            final = resp.geturl() or ""
+            try:
+                body = resp.read(150_000).decode("utf-8", "ignore")
+            except Exception:
+                body = ""
+        return f"{final}\n{body}"
+    except Exception:
+        return None
