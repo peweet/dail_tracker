@@ -82,12 +82,19 @@ def _apply_maps_url() -> None:
     """
     raw = st.session_state.get("sc_url", "")
     parsed = parse_latlon_from_maps(raw)
+    if not parsed and _is_short_link(raw):
+        # Short share link: no coords in the text. Follow the redirect on the backend (cached
+        # network call) to the full destination, then parse the @lat,lon / !3d!4d out of that.
+        from data_access.siting_data import resolve_maps_short_link
+
+        resolved = resolve_maps_short_link(raw.strip())
+        parsed = parse_latlon_from_maps(resolved) if resolved else None
     if parsed:
         st.session_state["sc_lat"] = round(parsed[0], 5)
         st.session_state["sc_lon"] = round(parsed[1], 5)
         st.session_state["sc_url_msg"] = ("ok", parsed)
     elif _is_short_link(raw):
-        st.session_state["sc_url_msg"] = ("short", None)
+        st.session_state["sc_url_msg"] = ("short", None)  # resolution failed → old hint
     elif raw.strip():
         st.session_state["sc_url_msg"] = ("err", None)
     else:
@@ -213,17 +220,18 @@ def siting_check_page() -> None:
         "Paste a Google Maps link",
         key="sc_url",
         on_change=_apply_maps_url,
-        placeholder="https://www.google.com/maps/@53.34980,-6.26030,18z …",
-        help="In Google Maps, drag the orange figure (the 'little man', bottom-right) onto "
-             "your site, then copy the URL from the address bar and paste it here. The "
-             "coordinates after the @ are exactly where you dropped it.",
+        placeholder="paste any Maps link — full URL or a maps.app.goo.gl share link",
+        help="Paste a Google Maps URL (the @lat,lon kind), a short share link "
+             "(maps.app.goo.gl/…) which we resolve for you, or bare coordinates like "
+             "53.34980, -6.26030. Tip: drag the orange figure onto your exact site first.",
     )
     msg = st.session_state.get("sc_url_msg")
     if msg and msg[0] == "ok":
         st.success(f"Located {msg[1][0]:.5f}, {msg[1][1]:.5f} — adjust below if needed.")
     elif msg and msg[0] == "short":
-        st.warning("That's a short share link, which doesn't contain the coordinates. Open "
-                   "it in Google Maps first, then copy the URL from the address bar.")
+        st.warning("Couldn't resolve that short share link (network issue or it had no "
+                   "coordinates). Open it in Google Maps and copy the full URL, or paste "
+                   "coordinates like 53.34980, -6.26030.")
     elif msg and msg[0] == "err":
         st.warning("Couldn't find coordinates in that text. Paste a Google Maps URL or "
                    "coordinates like 53.34980, -6.26030.")
