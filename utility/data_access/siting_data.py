@@ -13,8 +13,11 @@ from dail_tracker_core.siting.engine import SitingResult, evaluate as _evaluate
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def evaluate_site(lon: float, lat: float, dev_type: str) -> SitingResult:
-    return _evaluate(lon, lat, dev_type)
+def evaluate_site(
+    lon: float, lat: float, dev_type: str,
+    num_units: int | None = None, floor_area_m2: float | None = None,
+) -> SitingResult:
+    return _evaluate(lon, lat, dev_type, num_units=num_units, floor_area_m2=floor_area_m2)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)

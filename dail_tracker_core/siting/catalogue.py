@@ -8,7 +8,7 @@ and validates the config — no spatial work, no network — so it is cheap to u
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -23,6 +23,8 @@ CATALOGUE_PATH = REPO_ROOT / "planning_rules" / "issue_catalogue.yaml"
 # "D->F" / "F (Zone A) / D (Zone B)" are allowed — we keep the raw string and expose the
 # set of base classes it mentions.
 _VALID_CLASS_CHARS = {"P", "D", "F"}
+# leaf outcomes a mitigation_path branch may declare (mirror the P/D/F vocabulary)
+_VALID_OUTCOMES = {"clear", "mitigable", "fatal"}
 
 
 @dataclass(frozen=True)
@@ -39,6 +41,9 @@ class Node:
     mitigates: str
     precedents: tuple[dict[str, Any], ...]
     risk_note: str
+    # optional static if/then mitigation cascade (survey -> finding -> follow-on); empty for
+    # nodes that keep the flat `mitigates` line. Rendered by brief.py.
+    mitigation_path: tuple[dict[str, Any], ...] = ()
 
     @property
     def source_layers(self) -> tuple[str, ...]:
@@ -76,6 +81,20 @@ class Catalogue:
         return (self.council_overrides.get(council_slug, {}) or {}).get(node_id, {}) or {}
 
 
+def _validate_path_step(step: dict[str, Any], node_id: str) -> None:
+    """A mitigation_path step needs a `do`; each branch needs an `if` + a valid `outcome`."""
+    assert isinstance(step, dict) and step.get("do"), (
+        f"node {node_id}: mitigation_path step missing 'do'"
+    )
+    for br in step.get("findings") or ():
+        assert br.get("if"), f"node {node_id}: mitigation_path branch missing 'if'"
+        assert br.get("outcome") in _VALID_OUTCOMES, (
+            f"node {node_id}: bad branch outcome {br.get('outcome')!r}"
+        )
+        for child in br.get("then") or ():
+            _validate_path_step(child, node_id)
+
+
 def _validate(cat: Catalogue) -> None:
     seen: set[str] = set()
     for n in cat.nodes:
@@ -88,6 +107,8 @@ def _validate(cat: Catalogue) -> None:
         )
         for sl in n.source_layers:
             assert sl in cat.source_layers, f"node {n.id}: unknown source_layer {sl!r}"
+        for step in n.mitigation_path:
+            _validate_path_step(step, n.id)
     # council_overrides must reference real node ids
     for slug, ov in cat.council_overrides.items():
         for nid in ov:
@@ -112,6 +133,7 @@ def load_catalogue(path: str | None = None) -> Catalogue:
             mitigates=str(n.get("mitigates", "")),
             precedents=tuple(n.get("precedents") or ()),
             risk_note=str(n.get("risk_note", "")),
+            mitigation_path=tuple(n.get("mitigation_path") or ()),
         )
         for n in (raw.get("nodes") or [])
     )

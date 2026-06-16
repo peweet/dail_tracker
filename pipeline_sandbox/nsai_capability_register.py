@@ -21,8 +21,16 @@ than a miss):
   * DEDUP: collapsed to one row per ``company_num`` (name variants merged) so ``public_eur`` is safe
     to sum.
 
-Findings are LEADS TO INVESTIGATE, not conclusions (no-inference rule). Payments fact is council/
-public-body payments only (no eTenders/TED awards yet), so spend understates total public money.
+Findings are LEADS TO INVESTIGATE, not conclusions (no-inference rule).
+
+PUBLIC-MONEY TRACK RECORD — two tiers, NEVER summed together (the procurement honesty rail):
+  * SPENT (``public_eur``) — money actually paid/committed, from ``procurement_payments_fact``
+    (council + public-body payment/PO lines, safe-to-sum only).
+  * AWARDED (``total_award_eur`` = ``etenders_award_eur`` + ``ted_award_eur``) — contract awards won,
+    from the ``procurement_award_spend_link`` per-CRO spine (eTenders + TED, safe-to-sum only).
+  These are DIFFERENT business processes (a ceiling won vs euros out the door). They are reported
+  side-by-side and the ``spend_to_award_ratio`` relates them, but the two € columns are NEVER added.
+  This closes the earlier gap where the register saw only the SPENT side and understated reach.
 
 Outputs (gitignored):
   data/sandbox/parquet/nsai_capability_register.parquet
@@ -58,6 +66,8 @@ log = logging.getLogger(__name__)
 CERTS = ROOT / "data/sandbox/parquet/nsai_certified_companies.parquet"
 CRO = ROOT / "data/silver/cro/companies.parquet"
 PAYMENTS = ROOT / "data/gold/parquet/procurement_payments_fact.parquet"
+# per-CRO award+spend spine (eTenders + TED awards already CRO-keyed); see extractors/procurement_award_spend_link.py
+AWARD_LINK = ROOT / "data/sandbox/parquet/procurement_award_spend_link.parquet"
 OUT = ROOT / "data/sandbox/parquet/nsai_capability_register.parquet"
 OUT_SUMMARY = ROOT / "data/sandbox/nsai_capability_register_summary.json"
 
@@ -126,6 +136,48 @@ def _load_cro() -> pd.DataFrame:
 def _location_agrees(nsai_loc: str, cro_addr: str) -> bool:
     words = [w for w in re.sub(r"[^a-z ]", " ", str(nsai_loc).lower()).split() if len(w) >= 4]
     return any(w in cro_addr for w in words) if words else False
+
+
+def _load_award_spine() -> pd.DataFrame:
+    """eTenders + TED contract awards per CRO firm (AWARDED tier — safe-to-sum, kept distinct from SPENT).
+
+    The award_spend_link spine is keyed by a hybrid ``entity``; we keep only the CRO-keyed rows and
+    re-key on ``cro_company_num`` (float, matching the register) so it joins the NSAI firms directly.
+    """
+    if not AWARD_LINK.exists():
+        log.warning("award spine %s missing — awards columns will be empty", AWARD_LINK)
+        return pd.DataFrame(columns=["cro_company_num"])
+    asl = pd.read_parquet(
+        AWARD_LINK,
+        columns=[
+            "company_num",
+            "keyed_by_cro",
+            "in_etenders",
+            "in_ted",
+            "total_award_eur",
+            "etenders_award_eur",
+            "ted_award_eur",
+            "etenders_awards",
+            "ted_awards",
+            "spend_to_award_ratio",
+        ],
+    )
+    asl = asl[asl["keyed_by_cro"].eq(True) & asl["company_num"].notna()].copy()
+    asl["cro_company_num"] = asl["company_num"].astype("float64")
+    asl = (
+        asl.drop(columns=["company_num", "keyed_by_cro"])
+        .sort_values("total_award_eur", ascending=False)
+        .drop_duplicates("cro_company_num", keep="first")
+        .rename(
+            columns={
+                "in_etenders": "won_etenders",
+                "in_ted": "won_ted",
+                "etenders_awards": "n_etenders_awards",
+                "ted_awards": "n_ted_awards",
+            }
+        )
+    )
+    return asl
 
 
 def build() -> pd.DataFrame:
@@ -261,11 +313,23 @@ def build() -> pd.DataFrame:
     unmatched["name_variants"] = 1
     df = pd.concat([collapsed, unmatched], ignore_index=True)
 
+    # AWARDED tier — eTenders + TED contract awards won, joined per CRO firm (NEVER summed into SPENT)
+    df = df.merge(_load_award_spine(), on="cro_company_num", how="left")
+    for col in ("won_etenders", "won_ted"):
+        df[col] = df[col].eq(True) if col in df else False
+    df["won_public_tender"] = df["won_etenders"] | df["won_ted"]
+    for col in ("total_award_eur", "etenders_award_eur", "ted_award_eur"):
+        if col not in df:
+            df[col] = pd.NA
+
     # derived flags + dissolved-match handling (.eq(True) treats NaN as False without dtype downcast)
     active = df["cro_active"].eq(True)
     overdue = df[HEALTH_FLAGS].eq(True).any(axis=1)
     df["not_good_standing"] = df["cro_company_num"].notna() & ((~active) | overdue)
+    # public-money track record across BOTH tiers (paid OR won a tender), each tier kept separate
     df["received_public_money"] = df["public_eur"].notna()
+    df["won_public_award"] = df["total_award_eur"].fillna(0).gt(0)
+    df["has_public_track_record"] = df["received_public_money"] | df["won_public_award"]
     df["match_review_needed"] = df["cro_company_num"].notna() & (~active)
     df.loc[df["match_review_needed"], "match_confidence"] = (
         df.loc[df["match_review_needed"], "match_confidence"] * 0.5
@@ -284,6 +348,8 @@ def _summary(df: pd.DataFrame) -> dict:
     matched = df[df["cro_company_num"].notna()]
     hi = matched[~matched["match_review_needed"] & (matched["match_confidence"] >= 0.85)]
     paid = hi[hi["received_public_money"]]
+    won = hi[hi["won_public_award"]]
+    track = hi[hi["has_public_track_record"]]
     leads = paid[paid["not_good_standing"]]
     return {
         "nsai_firms": int(len(df)),
@@ -291,13 +357,25 @@ def _summary(df: pd.DataFrame) -> dict:
         "high_confidence_live": int(len(hi)),
         "review_needed_dissolved": int(matched["match_review_needed"].sum()),
         "match_methods": {k: int(v) for k, v in matched["match_method"].value_counts().items()},
+        # SPENT tier (payments fact)
         "high_conf_received_public_money": int(len(paid)),
         "high_conf_public_eur_safe_sum": float(round(paid["public_eur"].sum(), 2)),
+        # AWARDED tier (eTenders + TED) — reported separately, NEVER summed with SPENT
+        "high_conf_won_public_award": int(len(won)),
+        "high_conf_won_etenders": int(hi["won_etenders"].sum()),
+        "high_conf_won_ted": int(hi["won_ted"].sum()),
+        "high_conf_total_awarded_eur_safe_sum": float(round(won["total_award_eur"].sum(), 2)),
+        "high_conf_etenders_awarded_eur": float(round(hi["etenders_award_eur"].fillna(0).sum(), 2)),
+        "high_conf_ted_awarded_eur": float(round(hi["ted_award_eur"].fillna(0).sum(), 2)),
+        # certified AND has any public track record (paid or won) — the keystone capability signal
+        "high_conf_with_public_track_record": int(len(track)),
         "live_but_overdue_with_public_money": int(len(leads)),
         "live_but_overdue_public_eur": float(round(leads["public_eur"].sum(), 2)),
         "caveats": [
             "Findings are leads to investigate, not conclusions.",
-            "Payments fact = council/public-body payments only (no eTenders/TED awards joined).",
+            "SPENT (public_eur) and AWARDED (total_award_eur) are different tiers — NEVER add them.",
+            "AWARDED = eTenders + TED contract awards (safe-to-sum); payments understate as before but "
+            "awards now show tendered reach the payments fact misses.",
             "CRO status is point-in-time; dissolution after a legitimate payment is not wrongdoing.",
             "fuzzy_name_loc can admit rare false positives where name+county coincide (review bucket).",
         ],
@@ -312,11 +390,15 @@ def main() -> None:
     OUT_SUMMARY.parent.mkdir(parents=True, exist_ok=True)
     OUT_SUMMARY.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     log.info(
-        "WROTE %s — %d firms | matched %d | high-conf-paid €%.0f",
+        "WROTE %s — %d firms | matched %d | SPENT €%.0f (%d firms) | AWARDED €%.0f (%d firms) | track-record %d",
         OUT,
         len(df),
         summary["matched_to_cro"],
         summary["high_conf_public_eur_safe_sum"],
+        summary["high_conf_received_public_money"],
+        summary["high_conf_total_awarded_eur_safe_sum"],
+        summary["high_conf_won_public_award"],
+        summary["high_conf_with_public_track_record"],
     )
     log.info("summary: %s", json.dumps(summary["match_methods"]))
 

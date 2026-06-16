@@ -217,7 +217,7 @@ def awards_for_supplier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> 
         conn,
         "SELECT tender_id, contracting_authority, cpv_code, cpv_description,"
         " tender_title, category_label, procedure_type, contract_duration_months,"
-        " n_bids_received, ted_can_link, ted_notice_link,"
+        " n_bids_received, ted_can_link, ted_notice_link, etenders_notice_url,"
         " competition_type, award_date, value_eur, value_kind, value_safe_to_sum,"
         " is_call_off"
         " FROM v_procurement_awards WHERE supplier_norm = ?"
@@ -279,7 +279,7 @@ def awards_for_authority(
     sql = (
         "SELECT tender_id, supplier, supplier_norm, supplier_class, name_truncated,"
         " cpv_code, cpv_description, tender_title, category_label, procedure_type,"
-        " contract_duration_months, n_bids_received, ted_can_link, ted_notice_link,"
+        " contract_duration_months, n_bids_received, ted_can_link, ted_notice_link, etenders_notice_url,"
         " competition_type, award_date, value_eur, value_kind, value_safe_to_sum"
         " FROM v_procurement_awards WHERE contracting_authority = ?"
     )
@@ -295,7 +295,7 @@ def awards_for_cpv(conn: duckdb.DuckDBPyConnection, cpv_code: str, *, year: int 
     sql = (
         "SELECT tender_id, supplier, supplier_norm, supplier_class, name_truncated,"
         " contracting_authority, cpv_description, tender_title, procedure_type,"
-        " contract_duration_months, n_bids_received, ted_can_link, ted_notice_link,"
+        " contract_duration_months, n_bids_received, ted_can_link, ted_notice_link, etenders_notice_url,"
         " competition_type, award_date, value_eur, value_kind, value_safe_to_sum"
         " FROM v_procurement_awards WHERE cpv_code = ?"
     )
@@ -548,27 +548,56 @@ def expiring_contracts(
 
 
 def live_tenders(
-    conn: duckdb.DuckDBPyConnection, *, limit: int | None = 80, within_days: int | None = None
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    limit: int | None = 80,
+    within_days: int | None = None,
+    sector: str | None = None,
 ) -> QueryResult:
     """Open national tenders accepting bids now (soonest-closing first). estimated_value_eur is a
     PLANNED-tier buyer estimate shown for context — never summed with award/payment figures.
 
     ``within_days`` narrows to opportunities closing within that many days (a forward date facet over
-    the view's pre-computed days_to_deadline); None keeps the full open set. The national eTenders feed
-    carries no CPV/sector, so date is the only forward facet available on this register."""
+    the view's pre-computed days_to_deadline); None keeps the full open set. ``sector`` narrows to one
+    CPV division — available only once the snapshot has been enriched with a CPV from the detail page
+    (cpv_division is referenced ONLY when a sector is passed, so an un-enriched snapshot is unaffected)."""
     sql = (
         "SELECT title, buyer, published_date, submission_deadline, days_to_deadline,"
         " procedure, status, estimated_value_eur, realisation_tier, value_kind,"
         " resource_id, detail_url, retrieved_utc"
         " FROM v_procurement_live_tenders"
     )
+    where: list[str] = []
     params: list = []
     if within_days is not None:
-        sql += " WHERE days_to_deadline <= ?"
+        where.append("days_to_deadline <= ?")
         params.append(int(within_days))
+    if sector:
+        where.append("cpv_division = ?")
+        params.append(sector)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
     if limit is not None:
         sql += " LIMIT ?"
         params.append(int(limit))
+    return _run(conn, sql, params)
+
+
+def live_tender_sectors(conn: duckdb.DuckDBPyConnection, *, within_days: int | None = None) -> QueryResult:
+    """Distinct CPV divisions in the open national pipeline with a per-division count — the sector
+    facet's option list. Returns ``unavailable`` (so the page simply omits the facet) until the
+    snapshot has been enriched with a CPV division from the detail page. ``within_days`` keeps the
+    facet counts in step with the listing's closing-date window."""
+    sql = (
+        "SELECT cpv_division AS sector, COUNT(*) AS n"
+        " FROM v_procurement_live_tenders"
+        " WHERE cpv_division IS NOT NULL AND cpv_division <> ''"
+    )
+    params: list = []
+    if within_days is not None:
+        sql += " AND days_to_deadline <= ?"
+        params.append(int(within_days))
+    sql += " GROUP BY cpv_division ORDER BY n DESC, sector ASC"
     return _run(conn, sql, params)
 
 
@@ -584,6 +613,8 @@ def live_tenders_stats(conn: duckdb.DuckDBPyConnection) -> QueryResult:
         "  COUNT(DISTINCT buyer) AS n_buyers,"
         "  COUNT(*) FILTER (WHERE days_to_deadline <= 14) AS closing_within_14d,"
         "  MIN(submission_deadline) AS next_closing,"
+        "  MAX(submission_deadline) AS last_closing,"  # furthest deadline in the open set (the data's horizon)
+        "  MAX(days_to_deadline)::INT AS max_days,"
         "  MAX(retrieved_utc) AS retrieved_utc"
         " FROM v_procurement_live_tenders",
     )
@@ -799,6 +830,26 @@ def payments_publishers_for_supplier(
     )
 
 
+def payment_lines_for_pair(
+    conn: duckdb.DuckDBPyConnection, supplier_norm: str, publisher_name: str, *, tier: str = "SPENT", limit: int = 500
+) -> QueryResult:
+    """The actual published payment LINE ITEMS for one (supplier × public body × tier) pair —
+    the LEAF of the payments drill-down. The supplier↔body cards above are aggregates that
+    link to each other; this is the terminus that finally shows the individual records a body
+    published (period, description, PO number, amount), with a link to the body's own source
+    file. One row per published line, biggest first. Sum-safe euro flag rides along so the page
+    can mark a line that is not safe to total; never summed across vat_status."""
+    return _run(
+        conn,
+        "SELECT period, year, description, po_number, amount_eur, value_kind,"
+        " value_safe_to_sum, vat_status, source_file_url"
+        " FROM v_procurement_payments"
+        " WHERE supplier_normalised = ? AND publisher_name = ? AND realisation_tier = ?"
+        " ORDER BY amount_eur DESC NULLS LAST LIMIT ?",
+        [supplier_norm, publisher_name, _tier(tier), int(limit)],
+    )
+
+
 def entity_chain_for_company(conn: duckdb.DuckDBPyConnection, company_num: str) -> QueryResult:
     """One CRO-matched firm's cross-register footprint: which of the three public-money
     registers it appears in (eTenders awards, TED awards, public-body payments) and each
@@ -977,6 +1028,27 @@ def competition_by_cpv(conn: duckdb.DuckDBPyConnection, *, min_lots: int = 100) 
         " FROM v_procurement_competition_by_cpv WHERE n_lots_with_bidcount >= ?"
         " ORDER BY single_bid_lot_pct DESC NULLS LAST",
         [int(min_lots)],
+    )
+
+
+def single_bid_notices_for_cpv(
+    conn: duckdb.DuckDBPyConnection, cpv_division: str, *, limit: int = 80
+) -> QueryResult:
+    """The individual single-bid award NOTICES within one CPV division (market) — the drill-down
+    behind a single-bid market card. Each row opens the authoritative EU Official Journal notice
+    (notice_url). Restricted to source_lane='api' (the single-bid field only exists for 2024+
+    eForms, matching the market panel's denominator) and pan-EU outliers excluded. DISTINCT by
+    publication number so a notice counts once. A single bid is a recorded fact, often wholly
+    legitimate — the page carries that caveat; this query only surfaces the notices, never a verdict."""
+    return _run(
+        conn,
+        "SELECT DISTINCT publication_number, notice_url, buyer_name, winner_name,"
+        " dispatch_date, year, n_tenders_received, value_kind, cpv_code"
+        " FROM v_procurement_ted_winner_history"
+        " WHERE cpv_division = ? AND is_single_bid AND NOT is_pan_eu_outlier AND source_lane = 'api'"
+        " ORDER BY dispatch_date DESC NULLS LAST"
+        " LIMIT ?",
+        [cpv_division, int(limit)],
     )
 
 

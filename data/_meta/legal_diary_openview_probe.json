@@ -1,0 +1,43 @@
+{
+  "source_name": "Courts Service Legal Diary (OpenView)",
+  "jurisdictions": {
+    "supreme-court": {
+      "index_rows": 1512,
+      "docs_fetched": 3,
+      "case_lines": 112
+    },
+    "court-of-appeal": {
+      "index_rows": 2939,
+      "docs_fetched": 3,
+      "case_lines": 722
+    },
+    "central-criminal-court": {
+      "index_rows": 1607,
+      "docs_fetched": 3,
+      "case_lines": 112
+    },
+    "circuit-court": {
+      "index_rows": 697,
+      "docs_fetched": 3,
+      "case_lines": 15
+    }
+  },
+  "case_lines_parsed": 961,
+  "cases_dropped_protected": 12,
+  "cases_kept_anonymised": 943,
+  "by_court_kept": {
+    "Court of Appeal": 458,
+    "Court of Appeal (Criminal)": 246,
+    "Central Criminal Court": 112,
+    "Supreme Court": 112,
+    "Circuit Court": 15
+  },
+  "judges_seen": 77,
+  "plaintiff_kinds": {
+    "individual": 420,
+    "state-prosecutor": 384,
+    "organisation": 95,
+    "state-body": 44
+  },
+  "privacy_gate": "PASSED — no natural-person name survived anonymisation"
+}

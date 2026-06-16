@@ -63,6 +63,8 @@ class LayerSpec:
 GALWAY_BBOX = (-10.2, 53.0, -8.4, 53.8)
 _HC = "https://services-eu1.arcgis.com/v5dOXTEOb7ZHdNyQ/arcgis/rest/services"  # Heritage Council
 _GSI = "https://gsi.geodata.gov.ie/server/rest/services/Groundwater"
+_GSI_Q = "https://gsi.geodata.gov.ie/server/rest/services/Quaternary"
+_NPWS_ORG = "https://services-eu1.arcgis.com/Jhij7i46ouO8Cc0N/arcgis/rest/services"  # NPWS org
 
 
 SPECS: dict[str, LayerSpec] = {
@@ -74,7 +76,7 @@ SPECS: dict[str, LayerSpec] = {
     # NMS archaeology: the OPERATIVE constraint is the Zone of Notification polygon (§18.1)
     "smr_zone":   LayerSpec("smr_zone",   f"{_NMS}/SMRZoneOpenData/FeatureServer/0", "polygon", ("ZONE_ID",)),
     "smr_points": LayerSpec("smr_points", f"{_NMS}/SMROpenData/FeatureServer/0", "point",
-                            ("ENTITY_ID", "MONUMENT_CLASS", "TOWNLAND", "ZONE_ID_1")),
+                            ("ENTITY_ID", "MONUMENT_CLASS", "TOWNLAND", "ZONE_ID_1"), bbox=GALWAY_BBOX),
     # MyPlan zoning composite (material-contravention context)
     "zoning_gzt": LayerSpec("zoning_gzt", f"{_DHLGH}/GZT_Current_Plan/FeatureServer/0", "polygon",
                             ("ZONE_GZT", "ZONE_ORIG", "ZONE_DESC", "PLAN_FROM", "PLAN_TO", "PLAN_NAME")),
@@ -97,6 +99,16 @@ SPECS: dict[str, LayerSpec] = {
     "galway_county_landscape": LayerSpec(
         "galway_county_landscape", f"{_HC}/Galway_County_Landscape_Categories/FeatureServer/0",
         "polygon", ("NAME",)),
+    # NPWS National Parks — the strongest amenity/nature designation (6 nationally; incl. Connemara
+    # + Burren near Galway). National pull (tiny). DESIG/SITE_NAME.
+    "national_parks": LayerSpec(
+        "national_parks", f"{_NPWS_ORG}/NationalParkBoundaries/FeatureServer/0", "polygon",
+        ("DESIG", "SITE_NAME")),
+    # GSI Quaternary Sediments = subsoil TYPE incl. peat/blanket-bog (for the peat_bog node).
+    # Galway-bbox; QSED_TYPE / LEGENDDESC carry the peat label.
+    "gsi_quaternary": LayerSpec(
+        "gsi_quaternary", f"{_GSI_Q}/IE_GSI_Quaternary_Sediments_50K_IE26_ITM/FeatureServer/0",
+        "polygon", ("QSED_TYPE", "LEGENDDESC"), max_page_size=1000, timeout=180, bbox=GALWAY_BBOX),
 }
 
 

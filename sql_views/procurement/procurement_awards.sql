@@ -41,6 +41,15 @@ SELECT
     -- Deep links to the EU Official Journal notice (above-EU-threshold subset, ~25%).
     "TED Notice Link"                            AS ted_notice_link,
     "TED CAN Link"                               AS ted_can_link,
+    -- Deep link to the AUTHORITATIVE national notice on eTenders. The OGP "Tender ID" is the
+    -- eTenders (European Dynamics EPPS) resource id — confirmed: it templates straight into the
+    -- public notice URL the live-tender scraper also captures (.../prepareViewCfTWS.do?resourceId=<id>),
+    -- and resolves to the real notice (a garbage id falls back to the CAS login page). This gives
+    -- the sub-EU-threshold mass (the ~75% with no TED link) a path to its source notice. NULL where
+    -- the source dropped the Tender ID (~7%), so the page links only when a real notice exists.
+    CASE WHEN "Tender ID" IS NOT NULL AND TRIM("Tender ID") NOT IN ('', 'NULL')
+         THEN 'https://www.etenders.gov.ie/epps/cft/prepareViewCfTWS.do?resourceId=' || TRIM("Tender ID")
+    END                                          AS etenders_notice_url,
     "Competition Type"                           AS competition_type,
     TRY_STRPTIME("Notice Published Date/Contract Created Date", '%d/%m/%Y')::DATE AS award_date,
     value_eur,

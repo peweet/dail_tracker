@@ -172,6 +172,13 @@ def fetch_payments_publishers_for_supplier_result(supplier_norm: str, tier: str 
 
 
 @st.cache_data(ttl=300)
+def fetch_payment_lines_for_pair_result(supplier_norm: str, publisher_name: str, tier: str = "SPENT") -> QueryResult:
+    """The published payment line items for one (supplier × public body × tier) pair — the leaf
+    of the payments drill-down (breaks the supplier↔body card loop by finally showing records)."""
+    return _q.payment_lines_for_pair(get_procurement_conn(), supplier_norm, publisher_name, tier=tier)
+
+
+@st.cache_data(ttl=300)
 def fetch_entity_chain_for_company_result(company_num: str) -> QueryResult:
     """One CRO-matched firm's cross-register footprint (eTenders / TED / payments), each
     register's own headline number side by side — never summed (different grains)."""
@@ -282,12 +289,21 @@ def fetch_expiring_contracts_result(months_ahead: int = 12, limit: int | None = 
 
 
 @st.cache_data(ttl=300)
-def fetch_live_tenders_result(limit: int | None = 80, within_days: int | None = None) -> QueryResult:
+def fetch_live_tenders_result(
+    limit: int | None = 80, within_days: int | None = None, sector: str | None = None
+) -> QueryResult:
     """Open NATIONAL tenders (etenders.gov.ie) accepting bids now, soonest-closing first.
     PLANNED tier — estimated_value_eur is a buyer estimate, never summed. ``within_days`` narrows
-    to opportunities closing within that many days (the national feed's only forward facet — it
-    carries no CPV/sector)."""
-    return _q.live_tenders(get_procurement_conn(), limit=limit, within_days=within_days)
+    by closing date; ``sector`` narrows to one CPV division (available once the snapshot carries
+    an enriched CPV — referenced only when a sector is passed, so un-enriched snapshots are unaffected)."""
+    return _q.live_tenders(get_procurement_conn(), limit=limit, within_days=within_days, sector=sector)
+
+
+@st.cache_data(ttl=300)
+def fetch_live_tender_sectors_result(within_days: int | None = None) -> QueryResult:
+    """Distinct CPV divisions in the open national pipeline + counts (the sector facet's option
+    list). Unavailable — so the page omits the facet — until the snapshot is CPV-enriched."""
+    return _q.live_tender_sectors(get_procurement_conn(), within_days=within_days)
 
 
 @st.cache_data(ttl=300)
@@ -380,6 +396,13 @@ def fetch_single_bid_baseline_result() -> QueryResult:
 def fetch_competition_by_cpv_result(min_lots: int = 100) -> QueryResult:
     """Lot-level single-bid rate per CPV division (the market-spread panel)."""
     return _q.competition_by_cpv(get_procurement_conn(), min_lots=min_lots)
+
+
+@st.cache_data(ttl=600)
+def fetch_single_bid_notices_for_cpv_result(cpv_division: str) -> QueryResult:
+    """The individual single-bid award notices within one CPV division (the drill-down behind a
+    single-bid market card), each linking to its authoritative EU Official Journal notice."""
+    return _q.single_bid_notices_for_cpv(get_procurement_conn(), cpv_division)
 
 
 @st.cache_data(ttl=600)

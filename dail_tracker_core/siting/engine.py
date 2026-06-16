@@ -25,6 +25,8 @@ from .layers import LayerStore
 
 # how close (m) counts as "near" a designation for the bats / heritage proximity triggers
 NEAR_M = {"european_site": 2000, "bats": 1500, "protected_structure": 250}
+# an access within this of a road junction raises the crossroads / entrance-setback flag
+JUNCTION_NEAR_M = 100.0
 
 
 @dataclass
@@ -44,6 +46,7 @@ class IssueResult:
     rule: rulebook.ResolvedRule | None
     detail: dict[str, Any] = field(default_factory=dict)
     extra: dict[str, Any] = field(default_factory=dict)  # e.g. {"flood_link": ...}
+    mitigation_path: tuple[dict[str, Any], ...] = ()     # static if/then cascade (from catalogue)
 
 
 @dataclass
@@ -62,6 +65,33 @@ class SitingResult:
     @property
     def missing_layers(self) -> list[str]:
         return sorted({i.node_id for i in self.issues if i.data_status == "layer_missing"})
+
+    @property
+    def likely_rfi_reports(self) -> list[str]:
+        """The reports the authority will likely seek via a Request for Further Information.
+
+        Process axiom (§11/§12): the required assessments tied to the FIRED obligations. If
+        they are not in the first submission, the authority issues an RFI listing them — the
+        decision clock stops, and no response within 6 months = deemed withdrawn.
+        """
+        seen: set[str] = set()
+        out: list[str] = []
+        for i in self.fired:
+            if not i.rule:
+                continue
+            for c in i.rule.checklist:
+                if c.document not in seen:
+                    seen.add(c.document)
+                    out.append(c.document)
+        return out
+
+
+RFI_NOTE = (
+    "If these reports are not in the first submission, the authority typically issues a Request "
+    "for Further Information (RFI; s.33 PDA 2000 / Art.33 Regs): the decision clock stops until you "
+    "respond, and no response within 6 months means the application is deemed withdrawn. Significant "
+    "FI re-triggers public notice."
+)
 
 
 class _SafeDict(dict):
@@ -111,13 +141,20 @@ def _bats(store, lon, lat, dev, slug):
 
 
 def _peat_bog(store, lon, lat, dev, slug):
-    if "epa_subsoils" not in store.available():
-        # soils layer not ingested; weak NHA-bog signal only
-        nha = store.covering("npws_nha", lon, lat) if "npws_nha" in store.available() else []
-        if nha:
-            return True, {}, "partial"
-        return False, {}, "layer_missing"
-    return False, {}, "ok"
+    avail = store.available()
+    # preferred: GSI Quaternary Sediments carry the subsoil TYPE (incl. peat / blanket bog)
+    if "gsi_quaternary" in avail:
+        cov = store.covering("gsi_quaternary", lon, lat)
+        if cov:
+            desc = " ".join(str(cov[0].get(k, "")) for k in ("QSED_TYPE", "LEGENDDESC")).strip()
+            if "peat" in desc.lower() or "bog" in desc.lower():
+                return True, {"peat_type": desc}, "ok"
+        return False, {}, "ok"  # quaternary mapped here, point is not on peat
+    # fallback: weak designated-bog signal only
+    nha = store.covering("npws_nha", lon, lat) if "npws_nha" in avail else []
+    if nha:
+        return True, {"peat_type": "designated bog (NHA)"}, "partial"
+    return False, {}, "layer_missing"
 
 
 def _monument(store, lon, lat, dev, slug):
@@ -126,7 +163,26 @@ def _monument(store, lon, lat, dev, slug):
     hit = store.covering("smr_zone", lon, lat)
     if not hit:
         return False, {}, "ok"
-    return True, {"monument_class": "a recorded monument", "townland": ""}, "ok"
+    # name the monument from the nearest SMR point (if that layer is ingested)
+    mclass, townland = "a recorded monument", ""
+    if "smr_points" in store.available():
+        n = store.nearest("smr_points", lon, lat)
+        if n:
+            mclass = n[0].get("MONUMENT_CLASS") or mclass
+            townland = n[0].get("TOWNLAND") or ""
+    return True, {"monument_class": mclass, "townland": townland}, "ok"
+
+
+def _national_park(store, lon, lat, dev, slug):
+    if "national_parks" not in store.available():
+        return False, {}, "layer_missing"
+    inside = store.covering("national_parks", lon, lat)
+    near = store.near("national_parks", lon, lat, 1000)
+    hit = inside or near
+    if not hit:
+        return False, {}, "ok"
+    name = next((h.get("SITE_NAME") for h in hit if h.get("SITE_NAME")), "a National Park")
+    return True, {"park_name": name, "relation": "inside" if inside else "adjacent to"}, "ok"
 
 
 def _floodplain(store, lon, lat, dev, slug):
@@ -143,6 +199,16 @@ def _septic(store, lon, lat, dev, slug):
     avail = store.available()
     if "gsi_vulnerability" not in avail:
         return False, {}, "layer_missing"
+    # sewered-proxy: if the point sits in a settlement/residential zone, a public sewer is likely
+    # available, so on-site wastewater usually doesn't arise. The authoritative sewered layer is
+    # the EPA UWWT agglomeration boundary, but it is WMS-only (not ingestable as vectors) — zoning
+    # is the deterministic stand-in that fixes the town-centre false positive.
+    z = store.covering("zoning_gzt", lon, lat) if "zoning_gzt" in avail else []
+    if z:
+        zd = " ".join(str(z[0].get(k, "")) for k in ("ZONE_DESC", "ZONE_ORIG", "ZONE_GZT")).lower()
+        if any(w in zd for w in ("residential", "town", "village", "settlement",
+                                 "city centre", "mixed use", "urban", "commercial core")):
+            return False, {}, "ok"  # likely sewered -> on-site wastewater not applicable
     cov = store.covering("gsi_vulnerability", lon, lat)
     if not cov:
         return False, {}, "ok"  # outside the (Galway-bbox) GSI coverage
@@ -165,11 +231,23 @@ def _road(store, lon, lat, dev, slug):
     hw = (attrs.get("highway") or "road").replace("_", " ")
     ref = str(attrs.get("ref") or "")
     is_national = ref[:1].upper() in {"M", "N"}
+    # junction-proximity sub-check: an entrance opposite/near a junction forms a crossroads
+    # (a traffic hazard) and must be set back / staggered (TII DN-GEO-03060). Detect the
+    # nearest OSM road junction and flag if within JUNCTION_NEAR_M.
+    jnote, jm = "", ""
+    jn = store.nearest_junction("osm_roads", lon, lat, search_m=400)
+    if jn and jn[0] <= JUNCTION_NEAR_M:
+        jm = round(jn[0])
+        shape = "road junction (possible crossroads)" if jn[1] >= 4 else "road junction"
+        jnote = (f" A {shape} is ~{jm} m away: a new entrance must be SET BACK / STAGGERED from it "
+                 "(not directly opposite — that forms a crossroads), with the sight-triangle land in "
+                 "your control; a Road Safety Audit (#6) will assess the junction.")
     # any new vehicular access has an entrance-sightline standard; fire when a road is within
     # ~150 m (i.e. the site fronts/accesses it). Detail carries the speed for the rule text.
     fired = dist <= 150
     detail = {"maxspeed": ms, "road_class": hw, "road_ref": ref,
-              "is_national": "national road" if is_national else ""}
+              "is_national": "national road" if is_national else "",
+              "junction_note": jnote, "junction_m": jm}
     return fired, detail, "ok"
 
 
@@ -193,6 +271,25 @@ def _landscape(store, lon, lat, dev, slug):
     return fired, detail, status
 
 
+# Zone families for the rural-housing-need test. Settlement/serviced zones are land the plan
+# has already zoned FOR development, so the "urban-generated rural housing" local-need policy
+# does not bite there (a house may face other issues, but not rural need). Restricted rural
+# zones (agricultural / high-amenity / open countryside) are where the policy applies.
+_SETTLEMENT_ZONE_WORDS = (
+    "residential", "city centre", "town centre", "village centre", "mixed use", "mixed-use",
+    "commercial", "retail", "enterprise", "employment", "industrial", "business", "office",
+    "institution", "community", "education", "tourism", "transport", "utilit", "regeneration",
+)
+# NB deliberately NOT a bare "amenity" — that substring appears in R-zone descriptions
+# ("protection of existing residential amenity") AND in urban "Recreation and Amenity"
+# (parkland, e.g. Eyre Square); both previously mis-fired this node. Rural-housing-need is
+# about agricultural / countryside / high-amenity-rural land, so match those specifically.
+_RURAL_ZONE_WORDS = (
+    "agricult", "high amenity", "open countryside", "countryside", "rural",
+    "green belt", "greenbelt", "greenfield", "landscape",
+)
+
+
 def _rural_need(store, lon, lat, dev, slug):
     if "zoning_gzt" not in store.available():
         return False, {}, "layer_missing"
@@ -202,9 +299,15 @@ def _rural_need(store, lon, lat, dev, slug):
         return True, {"local_need_test": "This appears to be unzoned open countryside.",
                       "zone": "unzoned countryside"}, "ok"
     zone = cov[0]
-    desc = " ".join(str(zone.get(k, "")) for k in ("ZONE_DESC", "ZONE_ORIG", "ZONE_GZT")).lower()
-    agri = any(w in desc for w in ("agricult", "rural", "amenity", "open space", "green"))
-    return agri, {"local_need_test": "", "zone": zone.get("ZONE_DESC") or zone.get("ZONE_GZT") or "zoned"}, "ok"
+    orig = str(zone.get("ZONE_ORIG", "")).lower()
+    blob = " ".join(str(zone.get(k, "")) for k in ("ZONE_ORIG", "ZONE_DESC", "ZONE_GZT")).lower()
+    label = zone.get("ZONE_ORIG") or zone.get("ZONE_DESC") or zone.get("ZONE_GZT") or "zoned"
+    # settlement/serviced land first: the local-need policy does not apply -> do not fire
+    if any(w in orig for w in _SETTLEMENT_ZONE_WORDS):
+        return False, {"local_need_test": "", "zone": label}, "ok"
+    # restricted rural zoning (or agricultural/high-amenity) -> local-need policy applies
+    rural = any(w in blob for w in _RURAL_ZONE_WORDS)
+    return rural, {"local_need_test": "", "zone": label}, "ok"
 
 
 def _protected_structure(store, lon, lat, dev, slug):
@@ -222,6 +325,28 @@ def _protected_structure(store, lon, lat, dev, slug):
     return bool(near), {}, status
 
 
+SLOPE_FIRE_DEG = 3.0  # above this, run-off must be actively managed (SuDS / re-grading)
+
+
+def _surface_water(store, lon, lat, dev, slug):
+    """Surface-water / drainage axiom (checklist #20, DM Std 68) — driven by DEM slope.
+
+    A sloping site sheds run-off downhill; it must be retained/attenuated on-site. Escalates
+    where the slope drains toward a European site (run-off rate AND quality must be controlled).
+    """
+    from .dem import terrain
+
+    t = terrain(lon, lat)
+    if not t.ok or t.slope_deg is None:
+        return False, {}, "layer_missing"
+    near_eur = store.near("npws_sac", lon, lat, 1000) + store.near("npws_spa", lon, lat, 1000)
+    receptor = (" — and it drains toward a European site, so run-off RATE and QUALITY must be "
+                "controlled to protect it") if near_eur else ""
+    fired = t.slope_deg >= SLOPE_FIRE_DEG
+    detail = {"slope_deg": t.slope_deg, "receptor_note": receptor}
+    return fired, detail, "ok"
+
+
 def _to_3857(lon: float, lat: float) -> tuple[float, float]:
     """WGS84 -> Web Mercator (easting, northing). Pure math, no pyproj."""
     import math
@@ -237,12 +362,35 @@ TRIGGERS: dict[str, Callable] = {
     "european_site": _european_site,
     "peat_bog": _peat_bog,
     "monument": _monument,
+    "national_park": _national_park,
     "floodplain": _floodplain,
     "septic_groundwater": _septic,
     "road_sightlines": _road,
     "landscape_siting": _landscape,
     "rural_need_zoning": _rural_need,
     "protected_structure": _protected_structure,
+    "surface_water": _surface_water,
+}
+
+
+def _ge(v, n) -> bool:
+    return (v or 0) >= n
+
+
+# Attribute / scale-gated axioms (§16 "always-on" + scale-gated): no spatial layer — they
+# fire on development type, unit count and floor area. Returns (fired, detail). Thresholds
+# from the required-assessments checklist (e.g. climate #19 = >10 units / >1,000 m² retail;
+# EIA #15 ≈ Schedule 5, 500 dwellings). One-off houses clear every scale gate, so only the
+# universal #4/#18 fire for them.
+ATTRIBUTE_RULES: dict[str, Callable] = {
+    "landscaping": lambda dev, u, fa: (True, {}),
+    "energy_cert": lambda dev, u, fa: (True, {}),
+    "design_statement": lambda dev, u, fa: (dev in ("multi_unit", "commercial") or _ge(u, 5), {}),
+    "mobility_plan": lambda dev, u, fa: (dev in ("multi_unit", "commercial") or _ge(u, 10), {}),
+    "climate_statement": lambda dev, u, fa: (_ge(u, 11) or (dev == "commercial" and _ge(fa, 1000)), {}),
+    "waste_management": lambda dev, u, fa: (dev in ("multi_unit", "commercial"), {}),
+    "noise_assessment": lambda dev, u, fa: (dev == "commercial", {}),
+    "eia": lambda dev, u, fa: (_ge(u, 500) or _ge(fa, 50_000), {}),
 }
 
 
@@ -251,6 +399,8 @@ def evaluate(
     lat: float,
     dev_type: str = "one_off_house",
     *,
+    num_units: int | None = None,
+    floor_area_m2: float | None = None,
     store: LayerStore | None = None,
     council_slug: str | None = None,
     catalogue_path: str | None = None,
@@ -266,10 +416,14 @@ def evaluate(
         if not node.applies(dev_type):
             continue
         trig = TRIGGERS.get(node.id)
-        if trig is None:
-            fired, detail, status = False, {}, "layer_missing"
-        else:
+        attr = ATTRIBUTE_RULES.get(node.id)
+        if trig is not None:
             fired, detail, status = trig(store, lon, lat, dev_type, slug)
+        elif attr is not None:
+            fired, detail = attr(dev_type, num_units, floor_area_m2)
+            status = "ok"
+        else:
+            fired, detail, status = False, {}, "layer_missing"
 
         extra: dict[str, Any] = {}
         if node.id == "floodplain":
@@ -284,6 +438,7 @@ def evaluate(
             flag=_fmt(node.flag_template, detail), engage=node.engage,
             mitigates=node.mitigates, risk_note=node.risk_note,
             precedents=node.precedents, rule=rule, detail=detail, extra=extra,
+            mitigation_path=node.mitigation_path,
         ))
 
     return SitingResult(lon=lon, lat=lat, dev_type=dev_type, council=council,

@@ -2,15 +2,29 @@
 
 The rulebook is per-council and time-versioned (memory project_planning_rules_collection):
   planning_rules/<subdir>/<slug>/required_assessments.md  — the checklist table
-                                /dm_standards.md            — the numeric "DM Standard N" text
+                                /dm_standards.md            — the standards text
 A node's rule_ref names checklist row numbers and/or DM-Standard numbers; this module
 returns the actual published wording so the UI can quote it (never paraphrase, never infer).
 
+Two authoring shapes are supported (a council may use either, per its plan's structure):
+
+  1. NUMBERED (the Galway County exemplar) — the plan numbers its standards "DM Standard N",
+     so the catalogue's rule_ref `dm_std`/`checklist` numbers index straight into them. Parsed
+     by parse_dm_standards() (DM headings) + parse_required_assessments() (a numbered pipe table).
+
+  2. CONCEPT-KEYED — most councils' plans do NOT use "DM Standard N" numbering; their standards
+     live in named chapter sections whose numbering doesn't line up with the catalogue. Those
+     councils author each block tagged with the catalogue node id it answers:
+         ### node: landscape_siting — Landscape & visual amenity
+         ref: Galway City DP 2023–2029, Ch.11
+         <verbatim text…>
+     and a concept checklist table keyed by node id (first column = node id, not a digit).
+     Parsed by parse_dm_concepts() / parse_checklist_concepts(). resolve() prefers a
+     concept-keyed hit for a node, falling back to the numbered path.
+
 No-inference contract: if a council does not publish a value/standard, we return nothing
-for it and the caller must show "no fixed standard published" — we do not synthesise one.
-Format note: parsing is validated against the Galway exemplar; other councils' markdown
-shapes vary (the rulebook is non-uniform) — resolve() degrades gracefully (returns the
-checklist row even if the DM-standard heading can't be located).
+for it and the caller shows "no fixed standard published" — we never synthesise one. Where a
+ref cannot be resolved at all, it is recorded in `missing` rather than raising.
 """
 
 from __future__ import annotations
@@ -25,8 +39,18 @@ from .catalogue import REPO_ROOT, load_catalogue
 PLANNING_RULES = REPO_ROOT / "planning_rules"
 COUNCIL_SUBDIRS = ("county_councils", "city_councils", "city_and_county_councils")
 
-# "DM Standard 51: Title" / "DM Standard 8 – Title" / "DM Standard 5 - Title"
-_DM_HEADING = re.compile(r"^\s*DM Standard\s+(\d+)\s*[:–-]\s*(.*)$", re.IGNORECASE)
+# "DM Standard 51: Title" / "## DM Standard 8 – Title" / "**DM Standard 5** - Title" /
+# "DM Std 9. Title" — tolerant of leading #/* markdown and :/–/-/. separators.
+_DM_HEADING = re.compile(
+    r"^\s*#{0,6}\s*\*{0,2}\s*DM\s+(?:Standard|Std)\s+(\d+)\s*\*{0,2}\s*[:.–—-]\s*(.*)$",
+    re.IGNORECASE,
+)
+# concept-keyed heading: "### node: landscape_siting — Title" / "## node:bats - Title"
+_CONCEPT_HEADING = re.compile(
+    r"^\s*#{1,6}\s*node:\s*([a-z][a-z0-9_]+)\s*[:.–—-]\s*(.*)$", re.IGNORECASE
+)
+# an optional source-citation line directly under a concept heading: "ref: …" / "> ref: …"
+_REF_LINE = re.compile(r"^\s*>?\s*ref:\s*(.*)$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -40,9 +64,10 @@ class ChecklistItem:
 
 @dataclass(frozen=True)
 class DMStandard:
-    number: int
+    number: int          # the plan's "DM Standard N" number, or 0 for a concept-keyed section
     title: str
     text: str
+    source_ref: str = ""  # the council's own plan citation (concept-keyed councils); else ""
 
 
 @dataclass(frozen=True)
@@ -122,6 +147,85 @@ def parse_dm_standards(slug: str) -> dict[int, DMStandard]:
     return out
 
 
+@lru_cache(maxsize=64)
+def parse_dm_concepts(slug: str) -> dict[str, DMStandard]:
+    """Concept-keyed standards: node_id -> DMStandard, for plans that don't use DM numbers.
+
+    Reads `### node: <node_id> — <Title>` blocks (optional `ref:` citation line first), body
+    running to the next concept heading or EOF. number=0 marks it concept-keyed (the UI shows
+    the council's own `source_ref` instead of a fabricated "DM Standard N").
+    """
+    d = find_council_dir(slug)
+    if not d:
+        return {}
+    p = d / "dm_standards.md"
+    if not p.exists():
+        return {}
+    lines = p.read_text(encoding="utf-8").splitlines()
+    heads: list[tuple[int, str, str]] = []  # (line_idx, node_id, title)
+    for i, line in enumerate(lines):
+        m = _CONCEPT_HEADING.match(line)
+        if m:
+            heads.append((i, m.group(1).lower(), m.group(2).strip()))
+    out: dict[str, DMStandard] = {}
+    for j, (idx, node_id, title) in enumerate(heads):
+        end = heads[j + 1][0] if j + 1 < len(heads) else len(lines)
+        body_lines = lines[idx + 1 : end]
+        source_ref = ""
+        # pull a leading ref: line (skipping blank lines) out of the body
+        for k, bl in enumerate(body_lines):
+            if not bl.strip():
+                continue
+            rm = _REF_LINE.match(bl)
+            if rm:
+                source_ref = rm.group(1).strip()
+                body_lines = body_lines[:k] + body_lines[k + 1 :]
+            break
+        body = "\n".join(body_lines).strip()
+        if node_id not in out:  # first wins (later dupes = TOC/noise)
+            out[node_id] = DMStandard(number=0, title=title, text=body, source_ref=source_ref)
+    return out
+
+
+@lru_cache(maxsize=64)
+def parse_checklist_concepts(slug: str) -> dict[str, tuple[ChecklistItem, ...]]:
+    """Concept-keyed checklist: node_id -> required documents, for non-numbered councils.
+
+    Reads a pipe table whose first column is a node id (not a digit):
+        | node | Required document | Trigger condition | Ref |
+    Multiple rows may share a node id (a node can require several documents).
+    """
+    d = find_council_dir(slug)
+    if not d:
+        return {}
+    p = d / "required_assessments.md"
+    if not p.exists():
+        return {}
+    grouped: dict[str, list[ChecklistItem]] = {}
+    for line in p.read_text(encoding="utf-8").splitlines():
+        if not line.lstrip().startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 3:
+            continue
+        node_id = cells[0].lower()
+        # a concept row's key is a node id (letters/underscore), never a digit or separator
+        if not re.fullmatch(r"[a-z][a-z0-9_]+", node_id):
+            continue
+        if node_id == "node":  # the table header row (| node | Required document | … |)
+            continue
+        ref = _strip_md(cells[3]) if len(cells) > 3 else ""
+        item = ChecklistItem(
+            number=0,
+            document=_strip_md(cells[1]),
+            trigger=_strip_md(cells[2]),
+            dm_std=ref,
+            layer=_strip_md(cells[4]) if len(cells) > 4 else "",
+        )
+        grouped.setdefault(node_id, []).append(item)
+    return {k: tuple(v) for k, v in grouped.items()}
+
+
 @lru_cache(maxsize=1)
 def _council_names() -> dict[str, tuple[str, str]]:
     """slug -> (council_name, plan_name) from the _criteria_map JSONs."""
@@ -156,22 +260,34 @@ def resolve(council_slug: str, node_id: str, catalogue_path: str | None = None) 
 
     checklist_map = parse_required_assessments(council_slug)
     dm_map = parse_dm_standards(council_slug)
+    dm_concepts = parse_dm_concepts(council_slug)
+    chk_concepts = parse_checklist_concepts(council_slug)
 
     missing: list[str] = []
-    checklist = []
-    for n in chk_nums:
-        item = checklist_map.get(int(n))
-        if item:
-            checklist.append(item)
-        else:
-            missing.append(f"checklist #{n}")
-    dm_standards = []
-    for n in dm_nums:
-        std = dm_map.get(int(n))
-        if std:
-            dm_standards.append(std)
-        else:
-            missing.append(f"DM Standard {n}")
+
+    # DM standards: a concept-keyed block for this node wins; else index by number.
+    if node_id in dm_concepts:
+        dm_standards = [dm_concepts[node_id]]
+    else:
+        dm_standards = []
+        for n in dm_nums:
+            std = dm_map.get(int(n))
+            if std:
+                dm_standards.append(std)
+            else:
+                missing.append(f"DM Standard {n}")
+
+    # Checklist: concept-keyed rows for this node win; else index by number.
+    if node_id in chk_concepts:
+        checklist = list(chk_concepts[node_id])
+    else:
+        checklist = []
+        for n in chk_nums:
+            item = checklist_map.get(int(n))
+            if item:
+                checklist.append(item)
+            else:
+                missing.append(f"checklist #{n}")
 
     return ResolvedRule(
         council_slug=council_slug,

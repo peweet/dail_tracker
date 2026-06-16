@@ -763,6 +763,17 @@ at **7 decimals** as advertised; the Galway join lands on the correct **179 insi
 **Decisions still needed:** privacy line on site addresses (low, per §1); whether to ingest Dublin
 Tier1/Tier2A as a complementary housing-pipeline layer (§9); national vs Galway-first build scope.
 
+**TODO (added 2026-06-16) — promote `site_m2` into the silver pipeline as a derived column.** The
+per-council `AreaofSite` unit-normalisation built in `pipeline_sandbox/planning_areaofsite_normalise.py`
+(26 councils = hectares, 4 Dublin LAs = m², Cork County = none; reusable map at
+`pipeline_sandbox/_planning_output/areaofsite_unit_map.json`; plausibility quarantine 10 m²–500 ha) is
+currently SANDBOX-only. Fold it into `planning_applications_ingest.py` as a first-class `site_area_m2`
+column (+ a `site_area_unit_source` provenance/flag) so every downstream consumer (Part V area limb,
+scale-gated EIA/urban thresholds, density derivations) reads a clean normalised area instead of the raw
+unit-inconsistent field. Bake the `assert 26 ha / 4 m² / 1 none` split as a pipeline tripwire so a data
+refresh can't silently drift. Was option (a) alongside the scale-gated-triggers work (B, done 2026-06-16
+in `planning_scale_gated_triggers.py`).
+
 ---
 
 ## 15. RESOURCE REGISTER (all sources, for later review)
@@ -1699,3 +1710,42 @@ own decision** (PC02, 26,079 cases, CC-BY) to applications via the §Angle-4 rec
 
 Tests: `test_planning_decision_profiles.py`, `test_planning_appeal_outcomes.py` (incl. a guard that no
 council shows ≥95% overturn — the artifact tripwire). Coverage JSONs in `data/_meta/`.
+
+---
+
+## 24. TODO — GENERALISE THE SITING-CHECK BEYOND GALWAY (DEFERRED, 2026-06-16)
+
+The siting-check engine (`dail_tracker_core/siting/`) is **built and validated Galway-first**.
+Rolling it out to the other 30 local authorities is **deferred** and must be done **per-council with
+data testing**, NOT as a blanket switch. The engine is already council-parameterised (it runs for any
+council via `rulebook.resolve` + `council_overrides`), so this is **data + validation labour, not new
+logic** — but the quality is uneven and easy to get wrong silently.
+
+**Why caution (Galway is not representative):**
+- Galway County DP 2022-2028 was **unusually rule-rich** — 71 tabulated DM Standards, clean HTML. That
+  is *why* the engine reads so well there. Most councils publish **less, and in different shapes**
+  (chapter vs whole Volume vs Appendix; HTML vs PDF — see memory `project_planning_rules_collection`).
+- The §23.11 finding: most missing numeric standards are **GENUINE NULLS, not extraction gaps** — many
+  councils simply don't set a fixed number. The tool must then show *"no fixed standard published"*,
+  **never fabricate a Galway-style number to fill the gap** (no-inference, `feedback_no_inference_in_app`).
+- `rulebook.py`'s markdown parser (`parse_dm_standards` / `parse_required_assessments`) is **validated
+  only against Galway's file format** — other councils' `dm_standards.md` / `required_assessments.md`
+  will parse unevenly; the DM-Standard heading regex and the checklist-table shape need per-council checks.
+
+**What generalises for free vs needs work:**
+- ✅ FREE: the axiom *logic* + the **national** spatial layers (NPWS, SMR, zoning GZT, NIAH, GSI, DEM)
+  — same code, no rework, national coverage.
+- 🟡 PER-COUNCIL LABOUR: (a) the **per-LA layers** — RPS / ACA / landscape-sensitivity — need the 31-LA
+  assembly + schema harmonisation (Heritage Council org has ~24-26 RPS / ~14 landscape; rest PDF-only);
+  (b) **verify the rulebook parse** for each council (heading/table format); (c) **`council_overrides`**
+  for DM-standard numbering / zoning codes that differ; (d) widen the **GSI/OSM bbox** pulls beyond the
+  Galway envelope (currently `GALWAY_BBOX`).
+
+**Process to add a council (treat each like Galway was — a prototype to validate):**
+1. Confirm `rulebook.resolve(<slug>, <node>)` returns sane verbatim text for a few nodes (heading/table parse).
+2. Pull/extend the national layers' bbox + add the council's RPS/ACA/landscape layers.
+3. Blind-test 2-3 known sites in that council; eyeball the brief vs reality before claiming coverage.
+4. Where a standard is absent, render "no fixed numeric standard" — do not borrow Galway's.
+
+**Data to test/check first** (the gate before any rollout): per-council rulebook parse fidelity +
+the per-LA layer availability/schema. Until that's done per council, keep the page Galway-scoped.
