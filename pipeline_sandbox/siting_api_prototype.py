@@ -23,18 +23,28 @@ sys.path.insert(0, str(REPO / "utility"))
 from fastapi import FastAPI, Query  # noqa: E402
 
 from dail_tracker_core.siting.engine import evaluate  # noqa: E402
+from dail_tracker_core.siting.layers import LayerStore  # noqa: E402
 
 _WARM_PT = (-9.0264, 53.2987)  # Menlo, Galway — touches many layers
+
+# ONE shared store, built once and reused for every request. Critical: engine.evaluate() does
+# `store = store or LayerStore()`, so calling it WITHOUT a store builds a fresh store per request
+# and rebuilds every layer's STRtree from scratch — that reload was most of the per-request cost.
+# Optional SITING_LAYERS_DIR points at a simplified layer set (e.g. c:/tmp/siting_simplify_final).
+import os  # noqa: E402
+
+_LAYERS_DIR = os.environ.get("SITING_LAYERS_DIR")
+_STORE = LayerStore(_LAYERS_DIR) if _LAYERS_DIR else LayerStore()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Warm the engine ONCE at startup: loads the council spine (495k pts -> STRtree) and the
-    # designation layers' STRtrees into memory, so the first real request isn't cold. This is
-    # the cost a decoupled service pays at boot (and keeps paid for, unlike a scale-to-zero fn).
+    # Warm the SHARED store once at startup: loads the council spine (495k pts -> STRtree) and the
+    # designation layers' STRtrees into memory, so every request reuses them (no per-request reload).
     t0 = time.time()
-    evaluate(*_WARM_PT)
+    evaluate(*_WARM_PT, store=_STORE)
     app.state.warm_s = time.time() - t0
+    app.state.layers_dir = _LAYERS_DIR or "(default full-precision)"
     yield
 
 
@@ -77,7 +87,7 @@ def evaluate_endpoint(
     dev: str = Query("one_off_house"),
 ) -> dict:
     t0 = time.time()
-    res = evaluate(lon, lat, dev)
+    res = evaluate(lon, lat, dev, store=_STORE)  # reuse the shared, pre-warmed store
     out = _serialize(res)
     out["_server_ms"] = round((time.time() - t0) * 1000, 1)
     return out

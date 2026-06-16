@@ -1,5 +1,9 @@
 # Siting Check — deployment architecture plan
 
+> ⚠️ **EXPERIMENTAL.** The whole planning-permission / siting-check feature (Product B) is a
+> prototype — not production. On Streamlit Cloud the page is import-guarded to a stub; locally it
+> runs on full data. Labelled "Siting Check (experimental)" in the app nav. Nothing here is promoted.
+
 **Status:** planning / prototype-measured (2026-06-16). The siting engine
 (`dail_tracker_core.siting`) is in active development; this doc captures the
 **deployment** decision (how to ship Product B to users) independent of engine churn.
@@ -148,7 +152,22 @@ time-to-ship**; Model A wins on **scale and cost**.
 serialize; (2) per-eval **regressed to 5–11 s** (urban) — mostly the in-flux `nearest_junction` O(n²)
 road-intersection sub-check, plus the exact `nearest()`; (3) **3.9 GB RAM per worker** (full-precision
 layers + 495 k council tree) blocks the obvious fix of adding workers (can't run 2 on a 16 GB box
-beside Streamlit + MCP). Scaling levers, by impact: ~~fix `nearest_junction` O(n²)~~ **DONE** — STRtree self-join
+beside Streamlit + MCP).
+
+**After optimizing (shared pre-warmed store + simplified layers + junction fix), single worker:**
+
+| Users | Completed | Throughput | p50 latency | Errors | vs full-precision |
+|---|---|---|---|---|---|
+| 20 | 20 | **0.43 req/s** | **42 s** | 0 | was 0.10 req/s, 107 s, 8 errs |
+| 50 | 0 | 0 | — | 50 timeouts | (also all timed out) |
+
+Per-eval **7 s → ~1.1 s**, worker RAM **3.9 GB → 1.96 GB**, 20-user p50 **107 s → 42 s, 0 errors**.
+Big wins — but **42 s at 20 users is still unusable and 50 still collapses**, because throughput is
+capped at **~0.43 req/s on one core**. The single biggest hidden cost was that the prototype called
+`evaluate()` with **no shared store**, so every request rebuilt all layer STRtrees; a module-level
+pre-warmed store (passed as `evaluate(..., store=_STORE)`) fixed that. **Conclusion: per-request
+optimizations cut latency/RAM but cannot beat the core limit — concurrency needs multi-worker (now
+affordable at ~2 GB/worker) + result caching, or Model A (grid, zero per-request CPU).** Scaling levers, by impact: ~~fix `nearest_junction` O(n²)~~ **DONE** — STRtree self-join
 (`tree.query(geoms, predicate="intersects")`) replaced the all-pairs loop; measured **32× on a dense
 urban point** (n=814 segments: 3.06 s → 0.096 s, identical result, suite green) → per-eval back toward
 ~1.7 s; **simplify layers** (done) → few-hundred-ms eval AND RAM to hundreds of MB; **memoise

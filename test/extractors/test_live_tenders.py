@@ -83,3 +83,33 @@ def test_buyer_org_id_is_preserved(con):
         "WHERE buyer_org_id IS NOT NULL AND NOT regexp_matches(buyer_org_id, '^[0-9]+$')",
     )
     assert bad == 0
+
+
+# ── CPV detail-page parser (pure unit; no snapshot / no browser needed) ─────────────
+@pytest.mark.parametrize(
+    ("text", "code", "division"),
+    [
+        ("CPV Codes: 45000000 - Construction work", "45000000", "Construction"),
+        ("Common Procurement Vocabulary (CPV): 72000000 IT", "72000000", "IT services"),
+        ("CPV Codes:\n  48000000 - Software package", "48000000", "Software"),
+        ("no cpv anywhere here", None, None),
+        ("CPV 03000000 farm products", "03000000", "Other/Unknown"),  # unknown division → labelled, not dropped
+    ],
+)
+def test_cpv_parser(text, code, division):
+    from extractors.etenders_live_tenders_extract import _cpv_from_text
+
+    assert _cpv_from_text(text) == (code, division)
+
+
+def test_live_tenders_cpv_division_valid_when_present(con):
+    """Once the snapshot is CPV-enriched, every non-null cpv_division must be a real label (never
+    an empty string); skips cleanly on an un-enriched snapshot that has no such column/values."""
+    try:
+        bad = _q(
+            con,
+            "SELECT COUNT(*) FROM v_procurement_live_tenders WHERE cpv_division IS NOT NULL AND cpv_division = ''",
+        )
+    except duckdb.Error:
+        pytest.skip("snapshot not CPV-enriched yet (no cpv_division column)")
+    assert bad == 0

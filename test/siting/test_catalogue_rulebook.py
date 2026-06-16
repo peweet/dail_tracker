@@ -164,3 +164,36 @@ def test_city_honest_about_uncaptured_chapters():
     r = rulebook.resolve(GALWAY_CITY, "monument")
     assert not r.dm_standards
     assert r.missing
+
+
+# ── Dublin region: all four LAs concept-keyed and resolving verbatim ─────────────
+
+DUBLIN_LAS = [
+    "dublin_city_council",
+    "fingal_county_council",
+    "south_dublin_county_council",
+    "dun_laoghaire_rathdown_county_council",
+]
+
+
+@pytest.mark.parametrize("slug", DUBLIN_LAS)
+def test_dublin_la_concept_keyed_and_clean(slug):
+    dm = rulebook.parse_dm_concepts(slug)
+    chk = rulebook.parse_checklist_concepts(slug)
+    assert dm, f"{slug} has no concept DM standards"
+    assert chk, f"{slug} has no concept checklist"
+    assert "node" not in dm and "node" not in chk   # header row never leaks as a node
+    # the core environmental node every Dublin plan covers must resolve verbatim + cited
+    r = rulebook.resolve(slug, "european_site")
+    assert r.dm_standards or r.checklist
+    if r.dm_standards:
+        d = r.dm_standards[0]
+        assert d.number == 0 and d.source_ref       # concept-keyed marker + plan citation
+
+
+def test_dublin_city_urban_gaps_are_honest():
+    # Dublin City is fully sewered + has no rural one-off policy -> these stay missing, not faked
+    for nid in ("septic_groundwater", "rural_need_zoning"):
+        r = rulebook.resolve("dublin_city_council", nid)
+        assert not r.dm_standards and not r.checklist
+        assert r.missing

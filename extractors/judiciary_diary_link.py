@@ -59,7 +59,10 @@ from services.parquet_io import save_parquet  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-LINK_VERSION = "1.0.0"
+LINK_VERSION = "1.1.0"  # 1.1.0: OpenView sources + panel-member explosion (capped)
+# A judge string with more members than a full court is a term-roster / callover notice,
+# not a sitting panel — the Supreme Court sits at most 7, so 9 is a safe panel ceiling.
+_PANEL_CAP = 9
 MAP_PATH = GOLD_PARQUET_DIR / "judiciary_diary_judge_map.parquet"
 COVERAGE_PATH = DATA_DIR / "_meta" / "judiciary_diary_link_coverage.json"
 
@@ -117,52 +120,74 @@ def build_map() -> pl.DataFrame:
             return [r for r in roster if r["surname"] == surname and r["bench_court"] == scope]
         return [r for r in roster if r["surname"] == surname]
 
-    # distinct (judge string, court) pairs across both diary gold sets
+    # distinct (judge string, court) pairs across BOTH diary pipelines: the .docx gold
+    # and the OpenView gold (extractors/legal_diary_openview_extract.py — Circuit + the
+    # higher courts' history). The string formats overlap, so the same map serves both.
     pairs: set[tuple[str, str | None]] = set()
-    for fname in ("judicial_legal_diary_schedule.parquet", "judicial_legal_diary_cases.parquet"):
+    for fname in (
+        "judicial_legal_diary_schedule.parquet",
+        "judicial_legal_diary_cases.parquet",
+        "judicial_legal_diary_openview_schedule.parquet",
+        "judicial_legal_diary_openview_cases.parquet",
+    ):
         path = GOLD_PARQUET_DIR / fname
         if not path.exists():
             continue
         df = pl.read_parquet(path).select(["judge", "court"]).unique()
         pairs |= {(j, c) for j, c in df.iter_rows() if j is not None}
 
-    rows: list[dict] = []
-    for judge, court in sorted(pairs, key=lambda p: (str(p[1]), p[0])):
-        cleaned = _clean(judge)
-        rec = {
-            "judge": judge,
-            "court": court,
-            "judge_key": None,
-            "judge_name": None,
-            "bench_court": None,
-            "match_method": "no-candidate",
-        }
+    def _resolve(member: str, court: str | None) -> tuple[dict | None, str]:
+        """One judge substring -> (roster hit | None, match_method)."""
+        cleaned = _clean(member)
         if _OFFICE_RE.match(cleaned):
-            rec["match_method"] = "office-title"
-            rows.append(rec)
-            continue
+            return None, "office-title"
         key = normalise_key(cleaned, aliases)
         if not key:
-            rows.append(rec)
-            continue
+            return None, "no-candidate"
         if key in by_key:
-            hit, method = by_key[key], "exact"
-        else:
-            cands = _candidates(key.split()[-1], court)
-            if len(cands) == 1:
-                hit, method = cands[0], ("surname-court" if court else "surname-unique")
-            else:
-                hit, method = None, ("ambiguous" if len(cands) > 1 else "no-candidate")
-        if hit:
-            rec.update(
-                judge_key=hit["judge_key"],
-                judge_name=hit["judge_name"],
-                bench_court=hit["bench_court"],
-                match_method=method,
+            return by_key[key], "exact"
+        cands = _candidates(key.split()[-1], court)
+        if len(cands) == 1:
+            return cands[0], ("surname-court" if court else "surname-unique")
+        return None, ("ambiguous" if len(cands) > 1 else "no-candidate")
+
+    rows: list[dict] = []
+    for judge, court in sorted(pairs, key=lambda p: (str(p[1]), p[0])):
+        # Supreme / Court of Appeal sit as PANELS, joined "A & B & C" in the gold judge
+        # string. Per the panel-attribution decision, a panel matter belongs to EVERY
+        # member, so we emit one map row per member (same diary string + court, distinct
+        # judge_key). The judge_diary/sittings views JOIN on (judge, court), so the matter
+        # fans out to each member's profile. A single-judge string yields exactly one row.
+        # BUT a string naming MORE than a full court (cap = 9; the Supreme Court sits at
+        # most 7) is a term-roster / callover NOTICE, not a panel — fanning its matters to
+        # 28 judges would be wrong, so it is left unmatched rather than exploded.
+        members = [m.strip() for m in judge.split(" & ")] if " & " in judge else [judge]
+        if len(members) > _PANEL_CAP:
+            rows.append(
+                {
+                    "judge": judge,
+                    "court": court,
+                    "judge_key": None,
+                    "judge_name": None,
+                    "bench_court": None,
+                    "match_method": "roster-notice",
+                    "_member": judge,
+                }
             )
-        else:
-            rec["match_method"] = method
-        rows.append(rec)
+            continue
+        for member in members:
+            hit, method = _resolve(member, court)
+            rows.append(
+                {
+                    "judge": judge,  # the ORIGINAL (possibly panel) string — the join key
+                    "court": court,
+                    "judge_key": hit["judge_key"] if hit else None,
+                    "judge_name": hit["judge_name"] if hit else None,
+                    "bench_court": hit["bench_court"] if hit else None,
+                    "match_method": method,
+                    "_member": member,  # for the gender guard below; dropped before output
+                }
+            )
 
     # honorific-conflict guard: "Mr Justice X" and "Ms Justice X" resolving to the
     # SAME roster judge means the roster covers only one of two real people —
@@ -170,7 +195,7 @@ def build_map() -> pl.DataFrame:
     genders_by_key: dict[str, set[str]] = {}
     for r in rows:
         if r["judge_key"]:
-            g = _gender(r["judge"])
+            g = _gender(r["_member"])  # the matched substring, not the whole panel string
             if g:
                 genders_by_key.setdefault(r["judge_key"], set()).add(g)
     conflicted = {k for k, gs in genders_by_key.items() if len(gs) > 1}
@@ -182,6 +207,8 @@ def build_map() -> pl.DataFrame:
     if n_conflict:
         logger.warning("honorific-conflict guard withdrew %d surname matches", n_conflict)
 
+    for r in rows:
+        del r["_member"]
     return pl.DataFrame(
         rows,
         schema={

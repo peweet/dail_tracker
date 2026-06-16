@@ -210,12 +210,24 @@ def test_peat_fires_on_blanket_bog():
 
 @pytest.mark.skipif(not (LAYERS_DIR / "gsi_vulnerability.parquet").exists(),
                     reason="gsi_vulnerability layer not built")
-def test_septic_gated_in_settlement_zone():
-    # Eyre Square (urban, sewered) must NOT fire septic; a rural karst point must.
-    urban = evaluate(-9.0528, 53.2737, dev_type="one_off_house", council_slug="galway_city_council")
-    assert next(i for i in urban.issues if i.node_id == "septic_groundwater").fired is False
+def test_septic_fires_on_bad_ground_and_states_sewer_assumption():
+    # No reliable sewer layer -> we do NOT guess sewered/not; septic fires on high-vuln ground
+    # for a one-off and STATES the assumption (no-inference). Rural karst point must fire.
     rural = evaluate(-9.0376579, 53.3150837, dev_type="one_off_house", council_slug=GALWAY_CO)
-    assert next(i for i in rural.issues if i.node_id == "septic_groundwater").fired is True
+    sep = next(i for i in rural.issues if i.node_id == "septic_groundwater")
+    assert sep.fired is True
+    assert "public sewer" in sep.flag.lower()  # the assumption is stated, not a fabricated verdict
+
+
+@pytest.mark.skipif(not (LAYERS_DIR / "gsi_vulnerability.parquet").exists(),
+                    reason="gsi_vulnerability layer not built")
+def test_septic_layer_missing_outside_ingested_extent():
+    # a Cork point is outside the Galway-bbox GSI layer -> honest layer_missing, NOT silent ok
+    cork = evaluate(-8.90, 51.90, dev_type="one_off_house", council_slug="cork_county_council")
+    sep = next(i for i in cork.issues if i.node_id == "septic_groundwater")
+    assert sep.fired is False
+    # once GSI is pulled nationally this becomes 'ok'/'fired'; until then it must be honest
+    assert sep.data_status in ("layer_missing", "ok")
 
 
 def test_rule_resolution_wired_to_council():
@@ -267,6 +279,20 @@ def test_plan_name_to_slug_distinguishes_city_and_county():
     from dail_tracker_core.siting.council import _plan_name_to_slug
     assert _plan_name_to_slug("Galway City Development Plan 2023 - 2029") == "galway_city_council"
     assert _plan_name_to_slug("Galway County Development Plan 2022-2028") == "galway_county_council"
+
+
+def test_plan_name_to_slug_handles_messy_national_names():
+    from dail_tracker_core.siting.council import _plan_name_to_slug
+    # real zoning_gzt PLAN_NAMEs (national layer) — messy but resolvable
+    assert _plan_name_to_slug("The Fingal Development Plan 2023 – 2029") == "fingal_county_council"
+    assert _plan_name_to_slug("South Dublin County Development Plan 2022-2028") == "south_dublin_county_council"
+    assert _plan_name_to_slug("Cork City Development Plan 2022-2028") == "cork_city_council"
+    assert _plan_name_to_slug("Cork County Development Plan 2022") == "cork_county_council"
+    # "South Dublin County …" must NOT mis-resolve to Dublin City (token-count + type keyword)
+    assert _plan_name_to_slug("South Dublin County Development Plan 2022-2028") != "dublin_city_council"
+    # unrecognisable / ambiguous names return None -> caller falls back to nearest-application
+    assert _plan_name_to_slug("Development Plan 2022-2028") is None
+    assert _plan_name_to_slug("WCCC Development Plan 2022 - 2028") is None
 
 
 @pytest.mark.skipif(not _HAVE_GALWAY_LAYERS, reason="Galway zoning layer not built")

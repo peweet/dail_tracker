@@ -3,41 +3,41 @@
   "jurisdictions": {
     "supreme-court": {
       "index_rows": 1512,
-      "docs_fetched": 3,
-      "case_lines": 112
+      "docs_fetched": 25,
+      "case_lines": 913
     },
     "court-of-appeal": {
       "index_rows": 2939,
-      "docs_fetched": 3,
-      "case_lines": 722
+      "docs_fetched": 25,
+      "case_lines": 5951
     },
     "central-criminal-court": {
       "index_rows": 1607,
-      "docs_fetched": 3,
-      "case_lines": 112
+      "docs_fetched": 25,
+      "case_lines": 1007
     },
     "circuit-court": {
-      "index_rows": 697,
-      "docs_fetched": 3,
-      "case_lines": 15
+      "index_rows": 696,
+      "docs_fetched": 25,
+      "case_lines": 186
     }
   },
-  "case_lines_parsed": 961,
-  "cases_dropped_protected": 12,
-  "cases_kept_anonymised": 943,
+  "case_lines_parsed": 8057,
+  "cases_dropped_protected": 100,
+  "cases_kept_anonymised": 7910,
   "by_court_kept": {
-    "Court of Appeal": 458,
-    "Court of Appeal (Criminal)": 246,
-    "Central Criminal Court": 112,
-    "Supreme Court": 112,
-    "Circuit Court": 15
+    "Court of Appeal": 3491,
+    "Court of Appeal (Criminal)": 2316,
+    "Central Criminal Court": 1007,
+    "Supreme Court": 913,
+    "Circuit Court": 183
   },
-  "judges_seen": 77,
+  "judges_seen": 139,
   "plaintiff_kinds": {
-    "individual": 420,
-    "state-prosecutor": 384,
-    "organisation": 95,
-    "state-body": 44
+    "state-prosecutor": 3617,
+    "individual": 3213,
+    "organisation": 726,
+    "state-body": 354
   },
   "privacy_gate": "PASSED — no natural-person name survived anonymisation"
 }

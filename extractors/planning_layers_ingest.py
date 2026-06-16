@@ -61,6 +61,15 @@ class LayerSpec:
 
 # Galway county + city + Menlo envelope, for the big national layers we ship Galway-first
 GALWAY_BBOX = (-10.2, 53.0, -8.4, 53.8)
+# Greater Dublin envelope (the 4 Dublin LAs: Fingal N, City, South Dublin W, DLR S)
+DUBLIN_BBOX = (-6.55, 53.15, -5.95, 53.65)
+# named regions for extending a bbox-limited layer's coverage WITHOUT re-pulling the rest.
+# The engine reads one same-named parquet, so merging a region just widens coverage; outside
+# every ingested region a layer honestly returns nothing (the gate + reconcile run per region).
+REGIONS: dict[str, tuple[float, float, float, float]] = {
+    "galway": GALWAY_BBOX,
+    "dublin": DUBLIN_BBOX,
+}
 _HC = "https://services-eu1.arcgis.com/v5dOXTEOb7ZHdNyQ/arcgis/rest/services"  # Heritage Council
 _GSI = "https://gsi.geodata.gov.ie/server/rest/services/Groundwater"
 _GSI_Q = "https://gsi.geodata.gov.ie/server/rest/services/Quaternary"
@@ -82,10 +91,11 @@ SPECS: dict[str, LayerSpec] = {
                             ("ZONE_GZT", "ZONE_ORIG", "ZONE_DESC", "PLAN_FROM", "PLAN_TO", "PLAN_NAME")),
     # NIAH architectural heritage (points)
     "niah": LayerSpec("niah", f"{_NMS}/NIAHBuildingsOpenData/FeatureServer/0", "point", ("REG_NO", "NAME")),
-    # GSI septic site-suitability (Galway-bbox subset — national is 221k polys). VUL_CAT X/E/H/M/L.
+    # GSI septic site-suitability — NATIONAL (covers all councils for the septic node; ~221k polys,
+    # one-time slow pull). VUL_CAT X/E/H/M/L. (Was Galway-bbox; national-ised for generalisation.)
     "gsi_vulnerability": LayerSpec(
         "gsi_vulnerability", f"{_GSI}/IE_GSI_Groundwater_Vulnerability_40K_IE26_ITM/FeatureServer/0",
-        "polygon", ("VUL_CAT", "VUL_DESC"), max_page_size=1000, timeout=180, bbox=GALWAY_BBOX),
+        "polygon", ("VUL_CAT", "VUL_DESC"), max_page_size=1000, timeout=180),
     "gsi_karst": LayerSpec(
         "gsi_karst", f"{_GSI}/IE_GSI_Karst_Datasets_40K_IE32_ITM/FeatureServer/0",
         "point", ("KARST_TYPE", "KARST_NAME"), bbox=GALWAY_BBOX),
@@ -218,16 +228,90 @@ def ingest(spec: LayerSpec) -> Path:
     return dest
 
 
+def add_region(spec: LayerSpec, region: str) -> Path:
+    """Pull ONE region's bbox and MERGE it into the layer's existing parquet (dedup by wkb).
+
+    Widens a bbox-limited layer (e.g. Galway-only GSI/SMR) to a new region (e.g. Dublin)
+    without the heavy full re-pull. The region pull runs the same two-axis gate + a per-region
+    reconcile; coverage JSON records the region under `regions_added`. The engine reads the
+    one same-named parquet, so the new region's polygons just widen what containment finds.
+    """
+    bbox = REGIONS[region]
+    dest = OUT / f"{spec.name}.parquet"
+    if not dest.exists():
+        raise SystemExit(f"[{spec.name}] no existing parquet to extend; run a full ingest first")
+    existing = pl.read_parquet(dest)
+    have = set(existing["wkb"].to_list())
+
+    expected = server_count(spec.url, bbox)
+    LOG.info("[%s] +region=%s bbox=%s | server count=%s (have %d rows)",
+             spec.name, region, bbox, expected, existing.height)
+    dumper = EsriDumper(
+        spec.url, outSR=4326, geometry_precision=7, timeout=spec.timeout,
+        max_page_size=spec.max_page_size, extra_query_args=_bbox_args(bbox) or None,
+    )
+    rows: list[dict] = []
+    reasons: dict[str, int] = {}
+    pulled = added = 0
+    for feat in dumper:
+        pulled += 1
+        clean, reason = gate(shape(feat["geometry"]) if feat.get("geometry") else None)
+        reasons[reason] = reasons.get(reason, 0) + 1
+        if clean is None:
+            continue
+        wkb = shapely.to_wkb(clean)
+        if wkb in have:  # region overlap with already-ingested coverage -> skip the duplicate
+            continue
+        props = feat.get("properties") or {}
+        rec = {k: props.get(k) for k in spec.keep}
+        rec["wkb"] = wkb
+        rows.append(rec)
+        have.add(wkb)
+        added += 1
+
+    if expected is not None:  # per-region reconcile (bbox edge handling differs)
+        # edge drift = polygons straddling the region envelope, counted by the intersects count
+        # query but paged slightly differently by esridump. It scales with the boundary, not the
+        # subset size, so a small regional pull needs a higher ABSOLUTE floor than a % alone
+        # (e.g. ~66 boundary polys on a ~2,800-poly Dublin subset = 2.4%, real not truncation).
+        drift = abs(pulled - int(expected))
+        tol = max(100, int(expected) * 0.03)
+        assert drift <= tol, (
+            f"[{spec.name}] region={region} count drift pulled={pulled} server={expected} "
+            f"(>tol={tol}; likely a truncated pull, not edge drift)"
+        )
+    LOG.info("[%s] region=%s pulled=%d added=%d (new) reasons=%s", spec.name, region, pulled, added, reasons)
+
+    merged = pl.concat([existing, pl.DataFrame(rows)], how="vertical") if rows else existing
+    save_parquet(merged, dest)
+    cov_path = OUT / f"{spec.name}_coverage.json"
+    cov = json.loads(cov_path.read_text(encoding="utf-8")) if cov_path.exists() else {"layer": spec.name}
+    cov["kept"] = merged.height
+    cov.setdefault("regions_added", [])
+    cov["regions_added"] = sorted(set(cov["regions_added"]) | {region})
+    cov[f"region_{region}"] = {"bbox": list(bbox), "server_count": expected,
+                               "pulled": pulled, "added": added, "gate_reasons": reasons}
+    cov_path.write_text(json.dumps(cov, indent=2), encoding="utf-8")
+    LOG.info("[%s] merged -> %s (%d rows, +%d from %s)", spec.name, dest, merged.height, added, region)
+    print(f"OK {spec.name} +{region}: {merged.height} rows (+{added} new) {reasons}")
+    return dest
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--layer", required=True, help="layer name or 'all'")
+    ap.add_argument("--add-region", choices=sorted(REGIONS),
+                    help="pull this region's bbox and MERGE into the existing parquet (no full re-pull)")
     args = ap.parse_args()
     setup_standalone_logging("planning_layers_ingest")
     names = list(SPECS) if args.layer == "all" else [args.layer]
     for n in names:
         if n not in SPECS:
             raise SystemExit(f"unknown layer {n!r}; choices: {', '.join(SPECS)} or 'all'")
-        ingest(SPECS[n])
+        if args.add_region:
+            add_region(SPECS[n], args.add_region)
+        else:
+            ingest(SPECS[n])
 
 
 if __name__ == "__main__":

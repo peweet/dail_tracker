@@ -68,6 +68,42 @@ class LayerStore:
         """
         return sorted(n for n in self.available() if substr in n)
 
+    @lru_cache(maxsize=64)
+    def _ingest_extents(self, name: str):
+        """The bboxes a layer covers — base `bbox_subset` PLUS every region merged via
+        add_region (`regions_added` -> `region_<r>.bbox`). Returns None if national (no bbox).
+        """
+        import json
+
+        cf = self.dir / f"{name}_coverage.json"
+        if not cf.exists():
+            return None
+        c = json.loads(cf.read_text(encoding="utf-8"))
+        boxes: list[tuple] = []
+        if c.get("bbox_subset"):
+            boxes.append(tuple(c["bbox_subset"]))
+        for r in c.get("regions_added", []) or []:
+            rb = (c.get(f"region_{r}") or {}).get("bbox")
+            if rb:
+                boxes.append(tuple(rb))
+        return boxes or None  # None = national (no bbox restriction)
+
+    def in_extent(self, name: str, lon: float, lat: float, margin: float = 0.02) -> bool:
+        """Is the point within this layer's INGESTED extent (any base/region bbox)?
+
+        National layers (no bbox in coverage) cover all Ireland. A bbox/region-limited layer
+        covers only its box(es) — a point outside ALL of them has NO data here, so callers MUST
+        treat that as 'layer_missing', never 'no issue' (the core honesty rule). As a layer is
+        re-pulled nationally or add_region-extended, coverage opens up here for free.
+        """
+        if name not in self.available():
+            return False
+        boxes = self._ingest_extents(name)
+        if boxes is None:
+            return True
+        return any((b[0] - margin) <= lon <= (b[2] + margin) and (b[1] - margin) <= lat <= (b[3] + margin)
+                   for b in boxes)
+
     @lru_cache(maxsize=32)
     def load(self, name: str) -> Layer | None:
         import polars as pl
