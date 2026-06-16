@@ -61,6 +61,7 @@ from data_access.procurement_data import (
     fetch_lobbying_overlap_result,
     fetch_awards_by_year_result,
     fetch_new_entrants_result,
+    fetch_payment_lines_for_pair_result,
     fetch_payments_corpus_stats_result,
     fetch_payments_for_publisher_result,
     fetch_payments_for_supplier_result,
@@ -74,6 +75,7 @@ from data_access.procurement_data import (
     fetch_quarter_totals_result,
     fetch_sector_breadth_top_result,
     fetch_single_bid_baseline_result,
+    fetch_single_bid_notices_for_cpv_result,
     fetch_supplier_concentration_result,
     fetch_supplier_single_bid_result,
     fetch_supplier_summary_result,
@@ -86,6 +88,7 @@ from data_access.procurement_data import (
     fetch_expiring_contracts_result,
     fetch_expiring_contracts_stats_result,
     fetch_expiring_etenders_result,
+    fetch_live_tender_sectors_result,
     fetch_live_tenders_result,
     fetch_live_tenders_stats_result,
     fetch_ted_tender_sectors_result,
@@ -209,8 +212,23 @@ def _ted_winner_href(join_norm) -> str:
     return f"?ted_winner={urllib.parse.quote(str(join_norm))}"
 
 
+def _single_bid_cpv_href(cpv_division) -> str:
+    return f"?single_bid_cpv={urllib.parse.quote(str(cpv_division))}"
+
+
 def _paid_supplier_href(supplier_norm, tier: str = "SPENT") -> str:
     return f"?paid_supplier={urllib.parse.quote(str(supplier_norm))}&paid_tier={urllib.parse.quote(tier)}"
+
+
+def _paid_pair_href(supplier_norm, publisher_name, tier: str = "SPENT") -> str:
+    """Leaf link: the published line items for ONE supplier × public body × tier. Carrying
+    BOTH keys is what breaks the old supplier↔body card loop — the router lands on the
+    line-item terminus instead of bouncing to another aggregate."""
+    return (
+        f"?paid_supplier={urllib.parse.quote(str(supplier_norm))}"
+        f"&paid_publisher={urllib.parse.quote(str(publisher_name))}"
+        f"&paid_tier={urllib.parse.quote(tier)}"
+    )
 
 
 def _sort_toggle(key: str) -> str:
@@ -233,6 +251,74 @@ def _year_pills(years: list[int]) -> int | None:
 
 def _year_label(year: int | None) -> str:
     return f" in {year}" if year else ""
+
+
+def _award_year_pills(awards: pd.DataFrame, key: str) -> int | None:
+    """Year-pill filter for an award-history list. DISPLAY-ONLY (same posture as the supplier
+    search and pagination slice): it derives the distinct award years present in the
+    already-fetched frame — no aggregation, no rollup — and returns the chosen year, or None for
+    the all-time default. Renders nothing when the history spans a single year or has no dates."""
+    if "award_date" not in awards.columns:
+        return None
+    years = sorted({d.year for d in pd.to_datetime(awards["award_date"], errors="coerce").dropna()}, reverse=True)
+    if len(years) <= 1:
+        return None
+    return year_selector([str(y) for y in years], key=key, include_all=True)
+
+
+def _filter_awards_by_year(awards: pd.DataFrame, year: int | None) -> pd.DataFrame:
+    """Display-only row filter — keep awards dated in ``year`` (None = keep all). Mirrors the
+    page's existing name-search filter; no aggregation."""
+    if year is None:
+        return awards
+    return awards[pd.to_datetime(awards["award_date"], errors="coerce").dt.year == year]
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Top-level section navigation — synced to ?tab= so the chosen section survives a
+# drill-down Back, a refresh, and a round-trip to another page. The old st.tabs
+# reset to the first tab on every rerun (the cause of "my selection disappeared
+# when I came back from a drill-down"); a URL-backed segmented control does not.
+# ──────────────────────────────────────────────────────────────────────────────
+_SECTION_LABELS = {
+    "Who wins contracts?": "wins",
+    "Who actually gets paid?": "paid",
+    "Open right now": "open",
+    "Patterns": "patterns",
+}
+
+
+def _section_picker() -> str:
+    """Render the section bar and return the active section key. URL is the source of truth on
+    entry (Back / deep link / cross-page return); a click writes it back via the on_change
+    callback. Keeps the URL authoritative even when a child widget triggers the rerun."""
+    rev = {v: k for k, v in _SECTION_LABELS.items()}
+    url_tab = st.query_params.get("tab")
+    want = url_tab if url_tab in _SECTION_LABELS.values() else "wins"
+    want_label = rev[want]
+
+    def _sync() -> None:
+        st.query_params["tab"] = _SECTION_LABELS[st.session_state["pr_section"]]
+
+    if "pr_section" not in st.session_state:
+        st.session_state["pr_section"] = want_label
+    elif url_tab in _SECTION_LABELS.values() and st.session_state["pr_section"] != want_label:
+        # Arrived with an explicit ?tab (Back / deep link) that differs from the widget — URL wins.
+        st.session_state["pr_section"] = want_label
+    st.segmented_control(
+        "Section", list(_SECTION_LABELS), key="pr_section", on_change=_sync, label_visibility="collapsed"
+    )
+    chosen = _SECTION_LABELS[st.session_state["pr_section"]]
+    st.query_params["tab"] = chosen  # authoritative even on child-widget reruns
+    return chosen
+
+
+def _return_to_browse(section: str) -> None:
+    """Back-button action for every drill-down: clear the drill keys but land on the section the
+    drill came from (so the reader returns to context, not to the first section)."""
+    st.query_params.clear()
+    st.query_params["tab"] = section
+    st.rerun()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -984,8 +1070,7 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
     shown side by side (never summed), and its top suppliers in the active tier. Councils mostly
     publish purchase ORDERS, so this falls back to whichever tier the body actually has."""
     if back_button("← Back to procurement", key="prpaypub"):
-        st.query_params.clear()
-        st.rerun()
+        _return_to_browse("paid")
 
     prof = fetch_payments_publisher_profile_result(publisher_name)
     prow = prof.data.iloc[0] if (prof.ok and not prof.data.empty) else None
@@ -1086,11 +1171,13 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
         # cross-body footprint, which for an individual / sole trader would be profile-building
         # (the same privacy quarantine the dossier itself enforces). Individuals stay static.
         if _coalesce(getattr(r, "supplier_class", None)) == "company":
+            # Drill to the LEAF (this body's published line items naming this firm), not to the
+            # firm's own aggregate profile — the mutual linking is what made the drill-down loop.
             cards.append(
                 clickable_card_link(
-                    href=_paid_supplier_href(r.supplier_normalised, active),
+                    href=_paid_pair_href(r.supplier_normalised, publisher_name, active),
                     inner_html=inner,
-                    aria_label=f"See every public body that {_paid_verb(active)} {r.supplier}",
+                    aria_label=f"See the published {_paid_verb(active)} line items from {publisher_name} to {r.supplier}",
                 )
             )
         else:
@@ -1115,8 +1202,7 @@ def _render_payments_supplier_profile(supplier_norm: str, tier: str = "SPENT") -
     are shown side by side, never blended. Company-class only (cross-body footprints of an
     individual are profile-building — the same quarantine as the awards drill-down)."""
     if back_button("← Back to procurement", key="prpaysup"):
-        st.query_params.clear()
-        st.rerun()
+        _return_to_browse("paid")
 
     hdr = fetch_payments_supplier_header_result(supplier_norm)
     hrow = hdr.data.iloc[0] if (hdr.ok and not hdr.data.empty) else None
@@ -1194,14 +1280,89 @@ def _render_payments_supplier_profile(supplier_norm: str, tier: str = "SPENT") -
         if _coalesce(getattr(r, "publisher_type", None)) == "local_authority":
             row_pills.append('<span class="pr-pill pr-pill-lob">local authority</span>')
         inner = _card(f"<span>{_esc(r.publisher_name)}</span>", meta, [p for p in row_pills if p], rank=i)
+        # Drill to the LEAF (this body's published line items naming this firm), not to the body's
+        # own aggregate profile — that mutual linking is what made the drill-down loop endlessly
+        # without ever showing a record.
         cards.append(
             clickable_card_link(
-                href=_paid_publisher_href(r.publisher_name, active),
+                href=_paid_pair_href(supplier_norm, r.publisher_name, active),
                 inner_html=inner,
-                aria_label=f"View the suppliers {_paid_verb(active)} by {r.publisher_name}",
+                aria_label=f"See the published {_paid_verb(active)} line items from {r.publisher_name} to this firm",
             )
         )
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html(_PAY_FOOT_HTML)
+
+
+def _payment_line_row(r, tier: str) -> str:
+    """One published payment line as a list row (the leaf of the payments drill-down): the
+    period, the body's own description, PO number, and the amount — with a link to the body's
+    source file where it published one. Display-only; the amount is the body's reported figure."""
+    period = _esc(_coalesce(getattr(r, "period", None))) or _esc(_n(getattr(r, "year", None)) or "")
+    desc = _esc(_coalesce(getattr(r, "description", None)))
+    title_html = f'<div class="pr-award-title">{desc}</div>' if desc else ""
+    meta_parts = []
+    po = _coalesce(getattr(r, "po_number", None))
+    if po:
+        meta_parts.append(f"PO {_esc(po)}")
+    if not _truthy(getattr(r, "value_safe_to_sum", None)):
+        meta_parts.append("not sum-safe")
+    src = _coalesce(getattr(r, "source_file_url", None))
+    if src.startswith("http"):
+        meta_parts.append(f'<a href="{_esc(src)}" target="_blank" rel="noopener">source ↗</a>')
+    meta = " · ".join(p for p in meta_parts if p)
+    val = _eur(getattr(r, "amount_eur", None))
+    val_html = (
+        f'<div class="pr-award-val">{val}<small>{_paid_verb(tier)}</small></div>' if val != "—" else ""
+    )
+    return (
+        f'<div class="pr-award"><div class="pr-award-body">'
+        f'<div class="pr-award-auth">{period or "—"}</div>{title_html}'
+        f'<div class="pr-award-meta">{meta or "—"}</div></div>{val_html}</div>'
+    )
+
+
+def _render_payment_lines(supplier_norm: str, publisher_name: str, tier: str = "SPENT") -> None:
+    """LEAF view — the published payment line items for one supplier × public body × tier.
+    The terminus that ends the old supplier↔body loop: instead of bouncing between aggregate
+    cards, the reader lands here on the individual records the body published (period,
+    description, PO number, amount), each linked to the body's own source file. Company-class
+    entry points only (same privacy quarantine as the rest of the payments drill-down)."""
+    if back_button("← Back", key="prpayline"):
+        # Return to the supplier's payers list (the natural parent), preserving the tier.
+        st.query_params.clear()
+        st.query_params["paid_supplier"] = supplier_norm
+        st.query_params["paid_tier"] = tier
+        st.rerun()
+
+    hdr = fetch_payments_supplier_header_result(supplier_norm)
+    hrow = hdr.data.iloc[0] if (hdr.ok and not hdr.data.empty) else None
+    sup_name = _esc(_coalesce(hrow.get("supplier"))) if hrow is not None else _esc(supplier_norm)
+
+    st.html(
+        f'<div class="pr-prof-head"><div class="pr-prof-kicker">PUBLISHED PAYMENT RECORDS · '
+        f'{_esc(_paid_verb(tier).upper())}</div>'
+        f'<h1 class="pr-prof-name">{sup_name or "—"}</h1>'
+        f'<div class="pr-prof-sub">as {_esc(_paid_verb(tier))} by {_esc(publisher_name)}</div></div>'
+    )
+
+    res = fetch_payment_lines_for_pair_result(supplier_norm, publisher_name, tier)
+    if not res.ok:
+        empty_state("Payment data isn't available right now", "A source/pipeline issue, not an empty result.")
+        return
+    df = res.data
+    if df.empty:
+        empty_state(
+            "No line items in this tier",
+            f"This body published no {_paid_verb(tier)} lines naming this firm, or the link didn't match.",
+        )
+        return
+    st.caption(
+        f"{len(df):,} published {_paid_verb(tier)} line{'s' if len(df) != 1 else ''} naming this firm, biggest first. "
+        "Each is the body's own reported figure (over €20,000), not an award ceiling — never summed across "
+        "bodies with different VAT bases. Open a line's source ↗ for the body's published disclosure."
+    )
+    st.html("".join(_payment_line_row(r, tier) for r in df.itertuples()))
     st.html(_PAY_FOOT_HTML)
 
 
@@ -1524,8 +1685,7 @@ def _render_ted_winner_profile(join_norm: str) -> None:
     NOT gated on the firm appearing in the national eTenders register (most TED-only winners
     don't). A separate register, never summed with the national award totals."""
     if back_button("← Back to procurement", key="prtedwin"):
-        st.query_params.clear()
-        st.rerun()
+        _return_to_browse("wins")
 
     res = fetch_ted_for_supplier_result(join_norm)
     row = res.data.iloc[0] if (res.ok and not res.data.empty) else None
@@ -1947,6 +2107,23 @@ def _national_freshness_html(retrieved) -> str:
     return f'<p class="pr-cap">National opportunities as of {fmt_civic_date(ts)}.{stale}</p>'
 
 
+def _national_sector_facet(within_days: int | None) -> str | None:
+    """Sector (CPV division) facet for the national open-tenders list. Returns the chosen sector,
+    or None when 'All sectors' is picked OR the snapshot has no CPV yet (the sectors query is
+    unavailable pre-enrichment, so the facet is simply omitted — the date filter still works)."""
+    res = fetch_live_tender_sectors_result(within_days)
+    if not res.ok or res.data.empty:
+        return None
+    label_to_sector = {f"{r.sector} ({int(r.n):,})": r.sector for r in res.data.itertuples()}
+    choice = st.selectbox(
+        "Sector (CPV division)",
+        ["All sectors", *label_to_sector.keys()],
+        index=0,
+        key="pr_live_sector",
+    )
+    return label_to_sector.get(choice)
+
+
 def _render_national_open_tenders() -> None:
     """Open NATIONAL tenders (etenders.gov.ie), PLANNED tier, soonest-closing first. A separate
     register from TED above — sub-EU-threshold opportunities (schools, councils, water schemes)."""
@@ -1960,30 +2137,46 @@ def _render_national_open_tenders() -> None:
         )
         return
     s = stats_res.data.iloc[0]
+    # The data's horizon: the furthest submission deadline in the open set. Surfacing it (and
+    # making "All open" the default + reachable window) answers "project to the furthest date" —
+    # the list was never capped at 30 days, but the largest pill was, which read as a cap.
+    last_closing = s.get("last_closing")
+    horizon = ""
+    if not pd.isna(last_closing):
+        horizon = f" The furthest deadline currently open is <strong>{fmt_civic_date(last_closing)}</strong>."
     st.html(
         '<div class="pr-caveat"><strong>National opportunities — open right now on eTenders.</strong> '
         f"{_n(s.get('n_open')):,} tenders currently accepting bids from {_n(s.get('n_buyers')):,} Irish public "
-        f"buyers ({_n(s.get('closing_within_14d')):,} close within 14 days) — the sub-EU-threshold national "
+        f"buyers ({_n(s.get('closing_within_14d')):,} close within 14 days).{horizon} The sub-EU-threshold national "
         "picture the EU-journal feed above cannot show. The estimated value shown is a <em>buyer estimate "
         "recorded before any award</em>: never a contract value, never a payment, and never summed.</div>"
     )
     st.html(_national_freshness_html(s.get("retrieved_utc")))
-    # Forward DATE facet: narrow to soonest-closing windows. The national eTenders feed carries no
-    # CPV/sector, so closing-date is the only forward filter available on this register (sector
-    # filtering lives on the TED lens below, which does carry a CPV division).
+    # Forward DATE facet: narrow to soonest-closing windows, or "All open" to project to the
+    # furthest deadline in the data. The national eTenders snapshot carries a CPV division only
+    # after the detail-page enrichment (added below when present); the TED lens always has one.
+    max_days = _n(s.get("max_days"))
+    windows = ["All open", "7 days", "14 days", "30 days", "90 days"]
+    if max_days > 90:
+        windows.append("180 days")
     window = st.segmented_control(
         "Closing within",
-        ["All open", "7 days", "14 days", "30 days"],
+        windows,
         default="All open",
         key="pr_live_window",
         label_visibility="collapsed",
     )
     sel = window or "All open"
     within_days = None if sel == "All open" else int(sel.split()[0])
-    res = fetch_live_tenders_result(limit=_TOP, within_days=within_days)
+    # Sector facet — only when the snapshot carries a CPV division (post-enrichment). Degrades
+    # silently to date-only on an un-enriched snapshot (the column is simply absent).
+    sector = _national_sector_facet(within_days)
+    res = fetch_live_tenders_result(limit=_TOP, within_days=within_days, sector=sector)
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
-        if within_days is not None:
+        if sector:
+            empty_state("No national tenders in that sector", f"No open national tender in “{sector}” for this window.")
+        elif within_days is not None:
             empty_state(
                 "No national tenders closing that soon",
                 f"No open national tender closes within {within_days} days. Try a wider window.",
@@ -1992,8 +2185,9 @@ def _render_national_open_tenders() -> None:
             empty_state("No open national tenders", "The national live-tender view returned no rows.")
         return
     window_label = "soonest-closing" if within_days is None else f"closing within {within_days} days"
+    sector_label = f" in {sector}" if sector else ""
     st.caption(
-        f"{len(df):,} {window_label} national tenders. Estimated value is a pre-award buyer estimate — "
+        f"{len(df):,} {window_label} national tenders{sector_label}. Estimated value is a pre-award buyer estimate — "
         "not an award and not a payment. Click a tender to open it on eTenders."
     )
     cards = []
@@ -2116,23 +2310,51 @@ def _award_value_html(r) -> str:
     return f'<div class="{cls}">{val}<small>{sub}</small></div>'
 
 
+def _award_notice_url(r) -> str:
+    """The best path to the AUTHORITATIVE notice for one award row, in preference order:
+    the EU Official Journal contract-award notice (TED CAN), then the TED contract notice,
+    then the national eTenders notice (templated from the Tender ID). Empty when none
+    resolve — the row then renders un-clickable rather than linking to a dead page."""
+    for cand in (
+        _coalesce(getattr(r, "ted_can_link", None)),
+        _coalesce(getattr(r, "ted_notice_link", None)),
+        _coalesce(getattr(r, "etenders_notice_url", None)),
+    ):
+        if cand.startswith("http"):
+            return cand
+    return ""
+
+
 def _award_row(head: str, meta_parts: list[str], r) -> str:
     meta = " · ".join(p for p in meta_parts if p and p != "—")
     # The published contract title (100% filled in the source) — without it a line item's
     # only description is its generic CPV label ("IT services: consulting, …").
     title = _esc(_coalesce(getattr(r, "tender_title", None)))
     title_html = f'<div class="pr-award-title">{title}</div>' if title else ""
-    return (
+    inner = (
         f'<div class="pr-award"><div class="pr-award-body">'
         f'<div class="pr-award-auth">{head or "—"}</div>{title_html}'
         f'<div class="pr-award-meta">{meta or "—"}</div></div>{_award_value_html(r)}</div>'
     )
+    # The guiding rail: every line item is a click away from its authoritative notice. Where a
+    # link resolves, the whole row opens it (new tab — it's an external source); otherwise the
+    # row stays static rather than pointing at a dead URL.
+    url = _award_notice_url(r)
+    if url:
+        return clickable_card_link(
+            href=url,
+            inner_html=inner,
+            aria_label=f"Open the source notice for this award to {head or 'this supplier'} ↗",
+            target="_blank",
+        )
+    return inner
 
 
 def _award_detail_meta(r) -> list[str]:
     """Detail meta fragments shared by every award row: procedure, contract term, bid
-    count, and the deep link to the EU Official Journal notice (above-EU-threshold
-    subset only). All values come straight from the view — display formatting only."""
+    count. The notice deep link is no longer inlined here — the whole award row is now a
+    link to its authoritative notice (see _award_row / _award_notice_url). All values come
+    straight from the view — display formatting only."""
     parts = [_esc(_coalesce(getattr(r, "procedure_type", None)))]
     months = _n(getattr(r, "contract_duration_months", None))
     if months > 0:
@@ -2140,9 +2362,6 @@ def _award_detail_meta(r) -> list[str]:
     bids = _n(getattr(r, "n_bids_received", None))
     if bids > 0:
         parts.append(f"{bids:,} bid{'' if bids == 1 else 's'} received")
-    ted_url = _coalesce(getattr(r, "ted_can_link", None)) or _coalesce(getattr(r, "ted_notice_link", None))
-    if ted_url.startswith("http"):
-        parts.append(f'<a href="{_esc(ted_url)}" target="_blank" rel="noopener">TED notice ↗</a>')
     return parts
 
 
@@ -2223,12 +2442,17 @@ def _supplier_awards_section(row, supplier_norm: str) -> None:
     # rows are often framework/DPS ceilings shown in rust — so a user can read "€134.6m
     # awarded" then scroll past a screen of "not a payment" rows and wonder where the
     # money is. The split counts (from the view, not computed here) close that gap.
+    all_total = len(awards)
+    # Year pills — jump to one year's awards (the contract-history-over-time ask). Display-only
+    # filter + slice; the years come from the already-fetched frame.
+    year = _award_year_pills(awards, key=f"pr_awyr_{supplier_norm}")
+    awards = _filter_awards_by_year(awards, year)
     total = len(awards)
     n_safe = _n(row.get("n_value_safe_awards"))
     n_ceil = _n(row.get("n_ceiling_notices"))
     recon = (
         f"The {_eur(row.get('awarded_value_safe_eur'))} headline is the sum of {n_safe:,} contract "
-        f"award{'' if n_safe == 1 else 's'} that carry a sum-safe value."
+        f"award{'' if n_safe == 1 else 's'} that carry a sum-safe value (all years)."
     )
     if n_ceil:
         recon += (
@@ -2236,14 +2460,24 @@ def _supplier_awards_section(row, supplier_norm: str) -> None:
             "are listed below in rust — spending limits a buyer may draw down against, not payments, "
             "and never added to the headline."
         )
-    st.caption(f"Every recorded contract award to this supplier ({total:,} in total), most recent first. " + recon)
-    page_idx = paginate(total, key_prefix=f"pr_aw_{supplier_norm}", page_size=_AWARD_PAGE)
+    if year is None:
+        st.caption(f"Every recorded contract award to this supplier ({total:,} in total), most recent first. " + recon)
+    else:
+        st.caption(
+            f"{total:,} award{'' if total == 1 else 's'} dated {year} "
+            f"(of {all_total:,} all-time), most recent first. " + recon
+        )
+    if total == 0:
+        empty_state("No awards in this year", f"This supplier has no recorded award dated {year}.")
+        return
+    key = f"pr_aw_{supplier_norm}_{year or 'all'}"
+    page_idx = paginate(total, key_prefix=key, page_size=_AWARD_PAGE)
     page = awards.iloc[page_idx * _AWARD_PAGE : (page_idx + 1) * _AWARD_PAGE]
     st.html("".join(_award_row_html(r) for r in page.itertuples()))
     st.html('<div class="pr-sp-sm"></div>')
     pagination_controls(
         total,
-        key_prefix=f"pr_aw_{supplier_norm}",
+        key_prefix=key,
         page_sizes=(_AWARD_PAGE,),
         default_page_size=_AWARD_PAGE,
         label="awards",
@@ -2252,8 +2486,7 @@ def _supplier_awards_section(row, supplier_norm: str) -> None:
 
 def _render_supplier_profile(supplier_norm: str) -> None:
     if back_button("← Back to procurement", key="prsupprof"):
-        st.query_params.clear()
-        st.rerun()
+        _return_to_browse("wins")
 
     sup = fetch_supplier_summary_result(limit=None)
     if not sup.ok:
@@ -2312,24 +2545,38 @@ _FOOT_HTML = (
 
 
 def _render_award_list(awards: pd.DataFrame, *, key: str, row_fn) -> None:
-    """Paginated award-row list shared by the supplier / authority / category profiles."""
+    """Paginated award-row list shared by the supplier / authority / category profiles, with a
+    display-only year-pill filter (the contract-history-over-time ask)."""
+    all_total = len(awards)
+    year = _award_year_pills(awards, key=f"{key}_yr")
+    awards = _filter_awards_by_year(awards, year)
     total = len(awards)
-    st.caption(
-        f"Every recorded contract award ({total:,} in total), most recent first. "
-        "Framework / DPS ceilings are shown in rust and are not actual payments."
-    )
-    page_idx = paginate(total, key_prefix=key, page_size=_AWARD_PAGE)
+    if year is None:
+        st.caption(
+            f"Every recorded contract award ({total:,} in total), most recent first. "
+            "Framework / DPS ceilings are shown in rust and are not actual payments."
+        )
+    else:
+        st.caption(
+            f"{total:,} award{'' if total == 1 else 's'} dated {year} (of {all_total:,} all-time), most recent first. "
+            "Framework / DPS ceilings are shown in rust and are not actual payments."
+        )
+    if total == 0:
+        empty_state("No awards in this year", f"Nothing dated {year} here.")
+        st.html(_FOOT_HTML)
+        return
+    pkey = f"{key}_{year or 'all'}"
+    page_idx = paginate(total, key_prefix=pkey, page_size=_AWARD_PAGE)
     page = awards.iloc[page_idx * _AWARD_PAGE : (page_idx + 1) * _AWARD_PAGE]
     st.html("".join(row_fn(r) for r in page.itertuples()))
     st.html('<div class="pr-sp-sm"></div>')
-    pagination_controls(total, key_prefix=key, page_sizes=(_AWARD_PAGE,), default_page_size=_AWARD_PAGE, label="awards")
+    pagination_controls(total, key_prefix=pkey, page_sizes=(_AWARD_PAGE,), default_page_size=_AWARD_PAGE, label="awards")
     st.html(_FOOT_HTML)
 
 
 def _render_authority_profile(authority: str) -> None:
     if back_button("← Back to procurement", key="prauthprof"):
-        st.query_params.clear()
-        st.rerun()
+        _return_to_browse("wins")
 
     res = fetch_authority_summary_result(limit=None)
     if not res.ok:
@@ -2358,8 +2605,7 @@ def _render_authority_profile(authority: str) -> None:
 
 def _render_cpv_profile(cpv_code: str) -> None:
     if back_button("← Back to procurement", key="prcpvprof"):
-        st.query_params.clear()
-        st.rerun()
+        _return_to_browse("wins")
 
     res = fetch_cpv_summary_result(limit=None)
     if not res.ok:
@@ -2451,6 +2697,69 @@ def _entity_search_hero() -> None:
 # (doc/PROCUREMENT_NUGGETS.md). Every card is an observable shape in the public
 # record with its caveat attached; prompts to look, never verdicts (no-inference).
 # ──────────────────────────────────────────────────────────────────────────────
+def _render_single_bid_cpv(cpv_division: str) -> None:
+    """Drill-down for one market's single-bid award notices (reached from the Patterns single-bid
+    card). Each notice opens the authoritative EU Official Journal record. A single bid is a
+    recorded fact — often wholly legitimate (a niche market with few capable suppliers) — never
+    presented as evidence of wrongdoing (no-inference rail)."""
+    if back_button("← Back to procurement", key="prsbcpv"):
+        _return_to_browse("patterns")
+
+    st.html(
+        f'<div class="pr-prof-head"><div class="pr-prof-kicker">SINGLE-BID NOTICES · EU NOTICES 2024+</div>'
+        f'<h1 class="pr-prof-name">{_esc(cpv_division)}</h1>'
+        '<div class="pr-prof-sub">Contract-award notices in this market that drew a single tender</div></div>'
+    )
+
+    res = fetch_single_bid_notices_for_cpv_result(cpv_division)
+    if not res.ok:
+        empty_state("Competition data isn't available right now", "A source/pipeline issue, not an empty result.")
+        return
+    df = res.data
+    if df.empty:
+        empty_state(
+            "No single-bid notices in this market",
+            "No 2024+ EU award notice in this CPV division recorded a single tender.",
+        )
+        return
+    st.caption(
+        f"{len(df):,} EU Official Journal award notice{'s' if len(df) != 1 else ''} in “{_esc(cpv_division)}” that "
+        "received a single tender (2024+ eForms, soonest first). A single bid is a matter of record — niche "
+        "markets often have few capable suppliers — and is never, on its own, evidence of wrongdoing. "
+        "Click a notice to open the authoritative record on TED."
+    )
+    cards = []
+    for r in df.itertuples():
+        date = _coalesce(getattr(r, "dispatch_date", None))[:10]
+        winner = _esc(_coalesce(getattr(r, "winner_name", None))) or "—"
+        meta_parts = [_esc(_coalesce(getattr(r, "buyer_name", None)))]
+        if date:
+            meta_parts.append(date)
+        meta = " · ".join(p for p in meta_parts if p)
+        pills = ['<span class="pr-pill pr-pill-lob">single bid</span>']
+        if _coalesce(getattr(r, "value_kind", None)) == "framework_or_dps_ceiling":
+            pills.append('<span class="pr-pill">framework ceiling</span>')
+        inner = _card(f"<span>{winner}</span>", meta, pills)
+        url = _coalesce(getattr(r, "notice_url", None))
+        if url.startswith("http"):
+            cards.append(
+                clickable_card_link(
+                    href=url,
+                    inner_html=inner,
+                    aria_label=f"Open the EU award notice won by {winner} on TED",
+                    target="_blank",
+                )
+            )
+        else:
+            cards.append(inner)
+    st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html(
+        '<div class="pr-foot"><strong>Source:</strong> TED — Tenders Electronic Daily, EU Official Journal award '
+        'notices (<a href="https://ted.europa.eu" target="_blank" rel="noopener">ted.europa.eu ↗</a>), eForms '
+        "single-tender field (2024+). A single bid is recorded fact, not a verdict.</div>"
+    )
+
+
 def _render_patterns() -> None:
     st.html(
         '<div class="pr-caveat"><strong>Patterns are facts about the register, not findings about '
@@ -2476,6 +2785,7 @@ def _render_patterns() -> None:
         if base_pct is not None:
             cap += f" National rate: {base_pct:g}%."
         cap += " A single bid is often legitimate — niche markets have few capable suppliers."
+        cap += " Click a market to see the individual single-bid notices inside it."
         st.caption(cap)
         cards = []
         for r in comp.data.head(12).itertuples():
@@ -2485,7 +2795,14 @@ def _render_patterns() -> None:
                 f"{_n(r.n_buyers):,} buyers"
             )
             pill = f'<span class="pr-pill pr-pill-val">{float(pct):g}% single-bid</span>' if pct is not None else ""
-            cards.append(_card(f"<span>{_esc(r.cpv_division)}</span>", meta, [pill] if pill else []))
+            inner = _card(f"<span>{_esc(r.cpv_division)}</span>", meta, [pill] if pill else [])
+            cards.append(
+                clickable_card_link(
+                    href=_single_bid_cpv_href(r.cpv_division),
+                    inner_html=inner,
+                    aria_label=f"See the single-bid award notices in {r.cpv_division}",
+                )
+            )
         st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
 
     # 2. New entrants per year
@@ -2798,6 +3115,16 @@ def procurement_page() -> None:
     if params.get("cpv"):
         _render_cpv_profile(params.get("cpv"))
         return
+    if params.get("paid_supplier") and params.get("paid_publisher"):
+        # LEAF: both keys present → the published line items for that supplier × body pair (the
+        # terminus that breaks the supplier↔body card loop). Checked before the single-key branches.
+        req_tier = (params.get("paid_tier") or "SPENT").upper()
+        _render_payment_lines(
+            params.get("paid_supplier"),
+            params.get("paid_publisher"),
+            req_tier if req_tier in ("SPENT", "COMMITTED") else "SPENT",
+        )
+        return
     if params.get("paid_publisher"):
         req_tier = (params.get("paid_tier") or "SPENT").upper()
         _render_payments_publisher_profile(
@@ -2812,6 +3139,9 @@ def procurement_page() -> None:
         return
     if params.get("ted_winner"):
         _render_ted_winner_profile(params.get("ted_winner"))
+        return
+    if params.get("single_bid_cpv"):
+        _render_single_bid_cpv(params.get("single_bid_cpv"))
         return
 
     # coverage_stats is the source-state gate AND the scale anchor: a missing view /
@@ -2874,17 +3204,19 @@ def procurement_page() -> None:
         empty_state("No supplier records", "The procurement views are loaded but returned no rows.")
         return
 
-    # Four top-level tabs, phrased as the questions a reader actually brings
+    # Four top-level sections, phrased as the questions a reader actually brings
     # (doc/APP_REDESIGN_SWEEP_2026_06_10.md §1 + doc/PROCUREMENT_UI_BRIEF.md: registers →
     # questions). "Who wins contracts?" holds the award-stage registers (eTenders national /
     # TED EU) plus the register-overlap disclosures behind one register picker; "Who actually
     # gets paid?" is the payment stage; "Open right now" promotes the pre-award tender
     # pipeline to a first-class lens (the forward-looking view, no longer buried two pickers
-    # deep); "Patterns" is the factual signal feed. Surfacing-only: every lens calls a
+    # deep); "Patterns" is the factual signal feed. The section bar is a ?tab=-synced segmented
+    # control (NOT st.tabs, which reset to the first tab on every rerun — losing the reader's
+    # place on a drill-down Back or a cross-page round-trip). Surfacing-only: every lens calls a
     # _render_* function; no logic moves into this layer.
-    tabs = st.tabs(["Who wins contracts?", "Who actually gets paid?", "Open right now", "Patterns"])
+    section = _section_picker()
 
-    with tabs[0]:
+    if section == "wins":
         register = st.segmented_control(
             "Register",
             ["National register (eTenders)", "EU register (TED)", "Register overlaps"],
@@ -2894,7 +3226,7 @@ def procurement_page() -> None:
         )
         if register == "EU register (TED)":
             # TED contract awards WON (2016–2026). The pre-award tender pipeline moved to
-            # the top-level "Open right now" tab (different grain, never summed).
+            # the top-level "Open right now" section (different grain, never summed).
             _render_ted()
         elif register == "Register overlaps":
             # Co-occurrence disclosures (same pattern, two registers). All-time scope.
@@ -2929,10 +3261,10 @@ def procurement_page() -> None:
             else:
                 _render_suppliers(year)
 
-    with tabs[1]:
+    elif section == "paid":
         _render_payments()
 
-    with tabs[2]:
+    elif section == "open":
         # Two forward-looking lenses, same grain discipline: open competition notices
         # (pre-award) and advertised contract terms due to end (post-award fact — when
         # the contracted period runs out, as stated on the notice; never summed).
@@ -2954,7 +3286,7 @@ def procurement_page() -> None:
             st.html('<div class="pr-register-rule"><span>EU Official Journal (TED)</span></div>')
             _render_ted_tenders()
 
-    with tabs[3]:
+    else:  # "patterns"
         _render_patterns()
 
     # ╔═══ EXPERIMENTAL QS VALUATION — REMOVE THIS LINE + the marked block below to delete ═══╗
