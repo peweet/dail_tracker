@@ -73,6 +73,19 @@ ocr = [
     "ocrmypdf>=17.0",
 ]
 
+# Siting Check (Product B) — the live geospatial planning-risk engine in
+# dail_tracker_core.siting. NOT in core: the deployed Streamlit app guards its
+# import (utility/app.py) and the 291 MB designation layers + DEM are local-only
+# (gitignored), so Cloud runs without these. Battle-tested locally via
+# `uv sync --extra siting`. shapely = point-in-polygon joins; rasterio = DEM
+# range-read; pyyaml = issue catalogue; polars = layer parquet reads.
+siting = [
+    "shapely>=2.0",
+    "rasterio>=1.3",
+    "pyyaml>=6.0",
+    "polars>=1.39,!=1.41.0",
+]
+
 # Headless-browser scraping for JS-rendered sources that curl/RSS can't reach:
 # the live national tender pipeline (extractors/etenders_live_tenders_extract.py) and
 # the lobbying.ie fallback. Kept out of `pipeline` so the standard ETL run stays

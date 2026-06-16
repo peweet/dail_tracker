@@ -1,13 +1,13 @@
-"""THROWAWAY PROBE: test whether the Iris judicial-appointment spine joins to the
-live Courts Service roster. Not pipeline code. Run: python pipeline_sandbox/probe_judiciary_join.py
-Measures name-normalisation join rate and detects elevation (court differs Iris->roster).
+"""Curated current judiciary roster — name -> court (Courts Service, courts.ie/judges).
+
+Extracted verbatim from the former pipeline_sandbox/probe_judiciary_join.py so the
+throwaway probe could be deleted. This is hand-curated reference DATA (fetched
+2026-06-04), the source of truth for extractors/persist_judiciary_data.py's current
+roster + spine-to-roster elevation join. Re-curate by re-fetching courts.ie/judges.
 """
 
-import unicodedata
-import re
-import polars as pl
+from __future__ import annotations
 
-# --- live roster (courts.ie/judges, fetched 2026-06-04), name -> court ---
 ROSTER = {
     "Supreme Court": [
         "Donal O'Donnell", "Iseult O'Malley", "Seamus Woulfe", "Gerard Hogan",
@@ -71,92 +71,3 @@ ROSTER = {
         "Tom MacSharry", "Mary McAveety", "Darach McCarthy",
     ],
 }
-
-HONORIFICS = {"mr", "mrs", "ms", "dr", "judge", "justice", "the", "hon", "honourable"}
-JUNK_TOKENS = {"as", "proxy", "by", "the", "to", "of", "limited", "ltd", "llp",
-               "company", "box", "po", "scheme", "name", "type", "abhcoide", "sinsearach"}
-
-
-def norm_tokens(name: str) -> frozenset:
-    """lowercase, strip diacritics, drop honorifics/punct -> token set."""
-    if not name:
-        return frozenset()
-    n = unicodedata.normalize("NFD", name)
-    n = "".join(c for c in n if unicodedata.category(c) != "Mn")  # strip accents
-    n = n.lower().replace("'", " ").replace(".", " ").replace(",", " ")
-    toks = [t for t in re.split(r"\s+", n) if len(t) > 1 and t not in HONORIFICS]
-    return frozenset(toks)
-
-
-# build roster token-sets
-roster_norm = {}  # frozenset(name tokens) -> (display, court)
-for court, names in ROSTER.items():
-    for nm in names:
-        roster_norm.setdefault(norm_tokens(nm), (nm, court))
-
-# roster name lookup that also allows subset matching (Iris "Sean Gillane" vs roster "Sean Gillane")
-roster_list = [(norm_tokens(nm), nm, court) for court, names in ROSTER.items() for nm in names]
-
-
-def match_roster(tokset):
-    """exact, else best subset/superset overlap (>=2 shared surname-ish tokens)."""
-    if tokset in roster_norm:
-        return roster_norm[tokset]
-    best = None
-    for rset, rnm, rcourt in roster_list:
-        shared = tokset & rset
-        if len(shared) >= 2 and (tokset <= rset or rset <= tokset):
-            best = (rnm, rcourt)
-            break
-    return best
-
-
-df = pl.read_parquet("data/gold/parquet/public_appointments.parquet")
-jud = df.filter(pl.col("appointment_type") == "judicial")
-
-REAL_COURTS = ["High Court", "District Court", "Circuit Court", "Supreme Court", "Court of Appeal"]
-
-# explode multi-name rows
-rows = []
-for appointee, court, date in jud.select(["appointee", "body", "issue_date"]).iter_rows():
-    if appointee is None:
-        continue
-    for piece in appointee.split(";"):
-        piece = piece.strip()
-        toks = norm_tokens(piece)
-        if not toks or len(toks & JUNK_TOKENS) >= max(1, len(toks) - 1):
-            continue  # junk fragment
-        rows.append((piece, court, date, toks))
-
-print(f"Iris judicial notices: {len(jud)}  | exploded clean name-fragments: {len(rows)}")
-real = [r for r in rows if r[1] in REAL_COURTS]
-junk = [r for r in rows if r[1] not in REAL_COURTS]
-print(f"  on a REAL court: {len(real)}   | in 'Courts' junk bucket: {len(junk)}")
-
-matched, elevated, unmatched = [], [], []
-for piece, court, date, toks in real:
-    m = match_roster(toks)
-    if m is None:
-        unmatched.append((piece, court, date))
-    else:
-        rnm, rcourt = m
-        if rcourt != court:
-            elevated.append((piece, court, rcourt, date))
-        else:
-            matched.append((piece, court, date))
-
-total = len(real)
-hit = len(matched) + len(elevated)
-print(f"\n=== JOIN to live roster (Iris real-court appointments, n={total}) ===")
-print(f"  matched same court : {len(matched)}")
-print(f"  matched, ELEVATED  : {len(elevated)}  (appointed to X, now sits higher)")
-print(f"  no roster match    : {len(unmatched)}  (pre-2016 N/A, retired, or norm-fail)")
-print(f"  >>> JOIN HIT RATE  : {hit}/{total} = {hit/total:.0%}")
-
-print("\n=== ELEVATIONS detected (the killer feature) ===")
-for piece, ic, rc, date in elevated:
-    print(f"  {piece:28} {ic:15} ({date}) ->  now {rc}")
-
-print("\n=== sample UNMATCHED (expected: retired / appointed pre-2016 / since-departed) ===")
-for piece, court, date in unmatched[:15]:
-    print(f"  {piece:30} {court:15} {date}")

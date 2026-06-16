@@ -17,7 +17,7 @@ known false-positive class silently re-enters the display tier.
 
 from __future__ import annotations
 
-from pipeline_sandbox.diary_org_match import (
+from extractors.diary_org_match import (
     anchor_tier,
     build_gazetteer,
     build_token_index,
