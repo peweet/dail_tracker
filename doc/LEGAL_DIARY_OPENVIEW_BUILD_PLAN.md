@@ -26,8 +26,44 @@ Appeal / Central Criminal / High). Consequences:
 
 ## 2. Discovery — the OpenView source
 
-The same site exposes a Domino **OpenView** index per jurisdiction with the **full party-level
-archive**, one HTML detail document per sitting:
+### 2a. How it was found (so it can be re-derived if the site changes)
+
+The history was a side-discovery — the goal was *Circuit Court* data; the archive fell out of
+*how* the source turned out to work. The trail, reproducible:
+
+1. **Confirmed the gap is source-side, not ours.** Querying the gold parquet showed 0 Circuit
+   rows even in the raw audit; grepping the archived `.docx` files showed "Circuit" only ever as a
+   *list-type inside the High Court*, never its own court section. So the `.docx` genuinely omits it.
+2. **Read the site's own links.** Fetching the `legaldiary.courts.ie` landing page and listing every
+   `href` surfaced per-jurisdiction pages (`/circuit-court`, `/supreme-court`, …) that the `.docx`
+   poller never follows — it only ever takes the `/download` link.
+3. **Followed the JavaScript.** Those pages are JS-rendered (no document links in the HTML). The
+   loader `legaldiary.nsf/JavaScript/legal-diary.min.js` contained the tell: the fragment
+   `?OpenView&Jurisdiction=`. Its `doSearch()` assembles
+   `dbPath + '/' + searchView + '?OpenView&Jurisdiction=' + searchView + '&dateType=…&dateFrom=…&dateTo=…&text=…'`,
+   and the page HTML defines `dbPath = "/legaldiary.nsf"` and `searchView = "circuit-court"`.
+4. **Recognised the technology.** Three signatures point to an **IBM Domino** (Lotus Notes) backend:
+   the **`.nsf`** database file, the **`?OpenView`** command (Domino's built-in "list every document
+   in this view"), and **`?OpenDocument`** ("fetch one document"). A Domino `.nsf` is a *document
+   database*, so `OpenView` lists the whole persistent store — not a daily file. The presence of
+   **`dateFrom`/`dateTo`** range fields was the clincher: you only build a date-range search over
+   data you actually keep.
+5. **Tested it directly.** Hand-built the `OpenView` URL → got the index table (`<tr
+   class="clickable-row" data-url="…/<UNID>?OpenDocument">`); fetched one `OpenDocument` → a real
+   case list (judge, parties, record number).
+6. **Measured the age.** Each index row carries a sortable `data-text="YYYYMMDD"` on its Date cell.
+   Parsing those across all jurisdictions returned the span below — the history was simply every
+   document still held in the Domino DB, which the daily `.docx` snapshot never exposes.
+
+**Re-derivation recipe if the ingest breaks:** open a jurisdiction page in DevTools, find the
+`searchView` / `dbPath` vars and the `?OpenView` call in `legal-diary.min.js`, rebuild the index
+URL, and read `data-url` for the `?OpenDocument` detail links. The poller/extractor encode exactly
+this; the canary (`tools/legal_diary_openview_health.py`) asserts each step still holds.
+
+### 2b. The source structure
+
+The site exposes a Domino **OpenView** index per jurisdiction with the **full party-level archive**,
+one HTML detail document per sitting:
 
 - Index: `https://legaldiary.courts.ie/legaldiary.nsf/<slug>?OpenView&Jurisdiction=<slug>&area=&type=&dateType=Date&dateFrom=&dateTo=&text=`
   → rows `<tr class="clickable-row" data-url="/legaldiary.nsf/<slug>/<UNID>?OpenDocument">`.
@@ -43,8 +79,10 @@ archive**, one HTML detail document per sitting:
 | `district-court` | no case view (schedule page only) | source gap — honest note in UI |
 | Circuit Court – Family | in-camera | **never fetch** |
 
-Index dates span **past and future** (sample 2026-05-05 → 2026-12-07): real history **and**
-forward-scheduled sittings (which may not yet carry final lists).
+Index dates span **deep past and near future** (verified live across all four indexes): higher
+courts back to **2018-07/08**, Circuit Court to **2022-01**, forward to **2026-12** — real history
+**and** forward-scheduled sittings (which may not yet carry final lists). This is the persistent
+Domino document store, not the daily-overwritten `.docx`, which is why old records exist at all.
 
 ## 3. What the probe proved
 
