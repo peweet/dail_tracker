@@ -238,6 +238,19 @@ def test_rule_resolution_wired_to_council():
     assert any(d.number == 51 for d in es.rule.dm_standards)
 
 
+@pytest.mark.skipif(not (LAYERS_DIR / "gsi_vulnerability.parquet").exists(),
+                    reason="GSI layer not built")
+def test_cork_generalisation_concept_rulebook_and_rfi():
+    """Cork (2nd council) resolves its concept-keyed rulebook verbatim + populates the RFI list."""
+    r = evaluate(-8.90, 51.90, dev_type="one_off_house", council_slug="cork_county_council")
+    rn = next(i for i in r.issues if i.node_id == "rural_need_zoning")
+    assert rn.rule and rn.rule.dm_standards  # concept-keyed Cork rule resolves
+    d = rn.rule.dm_standards[0]
+    assert d.number == 0 and d.source_ref and "Cork" in d.source_ref  # council's own citation
+    assert "NPO19" in d.text                                          # verbatim Cork text
+    assert len(r.likely_rfi_reports) >= 3                             # RFI populates (was the empty bug)
+
+
 @pytest.mark.skipif(not HAVE_NPWS, reason="NPWS layers not ingested")
 def test_integration_european_site_fires_inside_sac():
     # Lough Corrib SAC area (Galway) — a point inside the SAC must fire european_site

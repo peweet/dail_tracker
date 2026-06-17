@@ -27,6 +27,9 @@ from .layers import LayerStore
 NEAR_M = {"european_site": 2000, "bats": 1500, "protected_structure": 250}
 # an access within this of a road junction raises the crossroads / entrance-setback flag
 JUNCTION_NEAR_M = 100.0
+# within this of a recorded-monument POINT counts as "on" the monument — fires even where the
+# monument carries no zone-of-notification polygon (the smr_point is a generalised location).
+MONUMENT_ON_M = 50.0
 
 
 @dataclass
@@ -49,6 +52,18 @@ class IssueResult:
     mitigation_path: tuple[dict[str, Any], ...] = ()     # static if/then cascade (from catalogue)
 
 
+@dataclass(frozen=True)
+class Exclusion:
+    """A statutory land designation whose polygon COVERS the point.
+
+    This is a verifiable FACT about the land (the designation contains the point), surfaced as a
+    hard exclusion — NOT a prediction of the planning decision (which stays the council's/ABP's).
+    """
+    layer: str          # the source layer (e.g. "npws_sac")
+    designation: str    # human label (e.g. "Special Area of Conservation (SAC)")
+    site_name: str      # the specific designated site (e.g. "Lough Corrib SAC")
+
+
 @dataclass
 class SitingResult:
     lon: float
@@ -57,10 +72,16 @@ class SitingResult:
     council: CouncilResult
     issues: list[IssueResult]
     disclaimer: str
+    exclusions: list[Exclusion] = field(default_factory=list)
 
     @property
     def fired(self) -> list[IssueResult]:
         return [i for i in self.issues if i.fired]
+
+    @property
+    def excluded(self) -> bool:
+        """True when the point lies inside a development-excluding statutory designation."""
+        return bool(self.exclusions)
 
     @property
     def missing_layers(self) -> list[str]:
@@ -158,19 +179,24 @@ def _peat_bog(store, lon, lat, dev, slug):
 
 
 def _monument(store, lon, lat, dev, slug):
-    if "smr_zone" not in store.available():
+    avail = store.available()
+    # honesty: smr_zone/smr_points are ingested per-region (Galway+Dublin today). Outside that
+    # ingested extent we have NO data here, so this must be layer_missing — never a silent "ok".
+    # (Without the in_extent guard a point in, e.g., Mayo returned "ok"=clear, masking a monument.)
+    if "smr_zone" not in avail or not store.in_extent("smr_zone", lon, lat):
         return False, {}, "layer_missing"
-    hit = store.covering("smr_zone", lon, lat)
-    if not hit:
-        return False, {}, "ok"
-    # name the monument from the nearest SMR point — only if that layer COVERS this point
-    # (else we'd name a far-away Galway monument for, e.g., a Cork site)
-    mclass, townland = "a recorded monument", ""
-    if "smr_points" in store.available() and store.in_extent("smr_points", lon, lat):
+    in_zone = bool(store.covering("smr_zone", lon, lat))
+    # ALSO fire when the point sits ON a recorded-monument POINT (within MONUMENT_ON_M): not every
+    # monument carries a zone-of-notification polygon, so a point placed directly on the monument
+    # must still fire. The nearest point also names the monument's class/townland.
+    n = None
+    if "smr_points" in avail and store.in_extent("smr_points", lon, lat):
         n = store.nearest("smr_points", lon, lat)
-        if n:
-            mclass = n[0].get("MONUMENT_CLASS") or mclass
-            townland = n[0].get("TOWNLAND") or ""
+    on_point = bool(n and n[1] <= MONUMENT_ON_M)
+    if not in_zone and not on_point:
+        return False, {}, "ok"
+    mclass = (n[0].get("MONUMENT_CLASS") if n else "") or "a recorded monument"
+    townland = (n[0].get("TOWNLAND") if n else "") or ""
     return True, {"monument_class": mclass, "townland": townland}, "ok"
 
 
@@ -259,7 +285,10 @@ def _landscape(store, lon, lat, dev, slug):
         return False, {}, "layer_missing"  # no landscape layer AND DEM unavailable
     fired = bool(lca_hit) or (t.ok and t.exposed)
     detail = {
-        "lca_class": (lca_hit[0].get("NAME") if lca_hit else "open countryside"),
+        # per-council landscape schemas differ (Galway=NAME, Cork=TYPE, others vary)
+        "lca_class": (next((lca_hit[0].get(k) for k in ("NAME", "TYPE", "CATEGORY")
+                            if lca_hit[0].get(k)), "designated landscape")
+                      if lca_hit else "open countryside"),
         "elevation_m": t.elevation_m if t.ok else "",
     }
     # full coverage needs the per-LA landscape-sensitivity layer; DEM-only exposure is partial
@@ -367,6 +396,40 @@ TRIGGERS: dict[str, Callable] = {
     "protected_structure": _protected_structure,
     "surface_water": _surface_water,
 }
+
+
+# ── hard-exclusion mask ─────────────────────────────────────────────────────────────────────
+# Statutory designations whose CONTAINMENT excludes ordinary development. Each is national (or
+# national+region) and carries a SITE_NAME, so the mask names the specific protected site. The
+# mask reports a FACT about the land (the designation polygon covers the point); it does not
+# assert the planning OUTCOME (a council/ABP can still grant in rare cases — IROPI etc.). NB peat
+# *subsoil* alone (gsi_quaternary) is an engineering constraint, not a statutory exclusion — only
+# DESIGNATED bog (inside an NHA/SAC) excludes, which is why peat_bog stays a hard constraint, not
+# an exclusion here.
+EXCLUSION_DESIGNATIONS: tuple[tuple[str, str], ...] = (
+    ("npws_sac", "Special Area of Conservation (SAC)"),
+    ("npws_spa", "Special Protection Area (SPA)"),
+    ("npws_nha", "Natural Heritage Area (NHA) — incl. raised/blanket bog"),
+    ("national_parks", "National Park"),
+)
+
+
+def hard_exclusions(store: LayerStore, lon: float, lat: float) -> list[Exclusion]:
+    """Statutory designations whose polygon COVERS the point (ordinary development excluded).
+
+    Fact-based, not a verdict. An empty list means no excluding designation was found in the
+    ingested layers — which is NOT proof the land is developable (other constraints still apply,
+    and a layer may not cover this extent). One entry per designation type.
+    """
+    out: list[Exclusion] = []
+    for layer, label in EXCLUSION_DESIGNATIONS:
+        if layer not in store.available() or not store.in_extent(layer, lon, lat):
+            continue
+        hits = store.covering(layer, lon, lat)
+        if hits:
+            name = hits[0].get("SITE_NAME") or hits[0].get("DESIG") or "a designated site"
+            out.append(Exclusion(layer=layer, designation=label, site_name=str(name)))
+    return out
 
 
 def _ge(v, n) -> bool:
