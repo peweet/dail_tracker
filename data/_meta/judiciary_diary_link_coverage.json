@@ -1,17 +1,17 @@
 {
   "link_version": "1.1.0",
-  "generated_at": "2026-06-16T20:36:47.591181+00:00",
+  "generated_at": "2026-06-17T06:10:07.508225+00:00",
   "judge_court_pairs": 9706,
   "matched_pairs": 4869,
   "match_methods": {
     "no-candidate": 3938,
-    "surname-court": 4721,
     "exact": 148,
-    "roster-notice": 4,
     "honorific-other-person": 73,
+    "surname-court": 4721,
+    "office-title": 668,
     "honorific-conflict": 140,
-    "ambiguous": 14,
-    "office-title": 668
+    "roster-notice": 4,
+    "ambiguous": 14
   },
   "unmatched": [
     {
