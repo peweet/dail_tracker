@@ -1,25 +1,25 @@
 {
-  "as_of": "2026-06-14T19:48:06",
+  "as_of": "2026-06-17T07:07:53",
   "source": "data\\silver\\iris_oifigiuil\\iris_notice_events_clean.csv",
-  "rows_in_scope_before_exclusion": 36776,
+  "rows_in_scope_before_exclusion": 36832,
   "rows_excluded_personal_insolvency": 297,
   "rows_excluded_limited_partnership": 48,
-  "rows_in_final_parquet": 36431,
+  "rows_in_final_parquet": 36487,
   "category_counts": {
-    "corporate_insolvency": 31574,
-    "corporate_notice": 3968,
+    "corporate_insolvency": 31614,
+    "corporate_notice": 3984,
     "investment_vehicle_register_notice": 649,
     "corporate_rescue": 240
   },
   "subtype_counts": {
-    "members_voluntary_liquidation": 14237,
-    "voluntary_liquidation_unspecified": 7386,
-    "creditors_voluntary_liquidation": 4147,
-    "companies_act_notice": 3968,
-    "liquidation_unspecified": 2685,
+    "members_voluntary_liquidation": 14252,
+    "voluntary_liquidation_unspecified": 7392,
+    "creditors_voluntary_liquidation": 4149,
+    "companies_act_notice": 3984,
+    "liquidation_unspecified": 2699,
     "receivership": 2605,
     "icav_voluntary_strike_off": 649,
-    "court_winding_up": 514,
+    "court_winding_up": 517,
     "scarp_process_adviser": 131,
     "examinership": 109
   },
@@ -31,7 +31,7 @@
   },
   "entity_name_quality": {
     "null_or_empty": 2,
-    "junk_pattern_count": 8706
+    "junk_pattern_count": 8716
   },
   "personal_insolvency_exclusion_rule": "notice_category == 'bankruptcy' (excluded upstream) PLUS personal-bankruptcy text patterns: A BANKRUPT, ADJUDICATED BANKRUPT, BANKRUPT IN MAIN PROCEEDINGS, PERSONAL INSOLVENCY, DEBT SETTLEMENT ARRANGEMENT, DEBT RELIEF NOTICE, PROTECTIVE CERTIFICATE."
 }
