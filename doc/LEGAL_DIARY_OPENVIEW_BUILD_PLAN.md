@@ -6,8 +6,14 @@ backfill (1,000 docs) produced 77,487 anonymised cases (Circuit 4,442); judge pr
 (Circuit 1,723 rows / 29 judges). Source span (live): higher courts back to **2018**, Circuit to
 **2022**, plus forward scheduling to Dec 2026 — OpenView queries the persistent Domino document DB,
 not the daily-overwritten `.docx` snapshot. Source-health CANARY added
-(tools/legal_diary_openview_health.py + .github/workflows/legal_diary_openview_health.yml). Full
-backfill (~5,750 docs) run 2026-06-16.
+(tools/legal_diary_openview_health.py + .github/workflows/legal_diary_openview_health.yml). FULL
+backfill done 2026-06-16: 6,755 docs → **786,090 anonymised cases**, gate PASSED. Final current-roster
+diary coverage: High Court 51/51, Court of Appeal 16/16, Supreme 10/11, Circuit 36/46, District 0/70
+(source gap). The honorific-conflict guard was upgraded to **recency-disambiguate same-surname
+judges** (the diary names higher courts surname-only; over 8 years two judges share a surname with
+different genders — the current one holds the latest/forward dates, so we keep that gender and drop
+the departed namesake): conflicts 3,247→140, CoA coverage 8→16. Helper `_current_gender_by_recency`
+unit-tested.
 **Probe:** `pipeline_sandbox/legal_diary_openview_probe.py` · report `data/_meta/legal_diary_openview_probe.json`
 **Origin:** "the cases for circuit court judges are missing" — they were never in the source we ingest.
 

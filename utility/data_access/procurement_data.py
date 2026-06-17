@@ -90,6 +90,20 @@ def fetch_supplier_summary_result(
 
 
 @st.cache_data(ttl=300)
+def fetch_supplier_year_trend_result(supplier_norm: str) -> QueryResult:
+    """One firm's public-sector work secured per year (award count + sum-safe awarded value) —
+    the 'how is this firm's public order book trending' panel. Public register only, not turnover."""
+    return _q.supplier_year_trend(get_procurement_conn(), supplier_norm)
+
+
+@st.cache_data(ttl=300)
+def fetch_supplier_payments_by_year_result(supplier_norm: str) -> QueryResult:
+    """One firm's public-body payments received per year (paid + ordered as separate tiers) — the
+    supplier-side mirror of the council spend-over-time spine. Different grain from awards; never summed."""
+    return _q.supplier_payments_by_year(get_procurement_conn(), supplier_norm)
+
+
+@st.cache_data(ttl=300)
 def fetch_authority_summary_result(
     limit: int | None = 50, order_by: str = "awards", year: int | None = None
 ) -> QueryResult:

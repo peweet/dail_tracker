@@ -1,23 +1,23 @@
 {
   "parser_version": "1.0.0",
-  "generated_at": "2026-06-16T19:08:26.709547+00:00",
+  "generated_at": "2026-06-16T20:29:26.884810+00:00",
   "source_name": "Courts Service Legal Diary (OpenView)",
-  "docs_parsed": 1020,
-  "case_lines_parsed": 79100,
-  "cases_dropped_protected": 746,
-  "cases_kept_anonymised": 77487,
-  "sittings": 13307,
+  "docs_parsed": 6755,
+  "case_lines_parsed": 806248,
+  "cases_dropped_protected": 12348,
+  "cases_kept_anonymised": 786090,
+  "sittings": 95102,
   "by_court": {
-    "Court of Appeal": 30158,
-    "Court of Appeal (Criminal)": 23415,
-    "Central Criminal Court": 10450,
-    "Supreme Court": 9022,
-    "Circuit Court": 4442
+    "Court of Appeal": 501491,
+    "Court of Appeal (Criminal)": 191512,
+    "Supreme Court": 45573,
+    "Central Criminal Court": 37235,
+    "Circuit Court": 10279
   },
-  "judges_seen": 573,
+  "judges_seen": 2753,
   "date_range": [
-    "2025-02-14",
-    "2026-11-17"
+    "2018-08-01",
+    "2026-12-07"
   ],
   "privacy_gate": "PASSED — no natural-person name survived anonymisation"
 }

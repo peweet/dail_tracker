@@ -99,6 +99,17 @@ def _gender(judge: str) -> str | None:
     return None
 
 
+def _current_gender_by_recency(latest_by_gender: dict[str, str]) -> str | None:
+    """Given {gender: latest_diary_date} for one judge_key carrying BOTH genders (two
+    same-surname people), return the gender of the CURRENT roster judge — the one whose
+    matches reach the later date (the sitting judge holds the most recent / forward-
+    scheduled dates; the departed namesake only old ones). Returns None when the two
+    latest dates TIE — we then can't tell them apart, so the caller withdraws both
+    (honest-or-nothing). Dates are ISO 'YYYY-MM-DD' strings, lexically comparable."""
+    (g_a, d_a), (g_b, d_b) = sorted(latest_by_gender.items(), key=lambda kv: kv[1], reverse=True)[:2]
+    return g_a if d_a > d_b else None
+
+
 def build_map() -> pl.DataFrame:
     bench = pl.read_parquet(GOLD_PARQUET_DIR / "judiciary_bench.parquet")
     aliases = _load_aliases()
@@ -123,7 +134,12 @@ def build_map() -> pl.DataFrame:
     # distinct (judge string, court) pairs across BOTH diary pipelines: the .docx gold
     # and the OpenView gold (extractors/legal_diary_openview_extract.py — Circuit + the
     # higher courts' history). The string formats overlap, so the same map serves both.
+    # Also track the LATEST diary_date each (judge string, court) appears on — the recency
+    # signal that disambiguates two same-surname judges of different genders (the current
+    # judge holds the most recent / forward-scheduled sittings; the departed one only old
+    # ones). See the honorific guard below.
     pairs: set[tuple[str, str | None]] = set()
+    pair_maxdate: dict[tuple[str, str | None], str] = {}
     for fname in (
         "judicial_legal_diary_schedule.parquet",
         "judicial_legal_diary_cases.parquet",
@@ -133,8 +149,18 @@ def build_map() -> pl.DataFrame:
         path = GOLD_PARQUET_DIR / fname
         if not path.exists():
             continue
-        df = pl.read_parquet(path).select(["judge", "court"]).unique()
-        pairs |= {(j, c) for j, c in df.iter_rows() if j is not None}
+        df = (
+            pl.read_parquet(path)
+            .select(["judge", "court", "diary_date"])
+            .group_by(["judge", "court"])
+            .agg(pl.col("diary_date").max().alias("maxd"))
+        )
+        for j, c, d in df.iter_rows():
+            if j is None:
+                continue
+            pairs.add((j, c))
+            if d and d > pair_maxdate.get((j, c), ""):
+                pair_maxdate[(j, c)] = d
 
     def _resolve(member: str, court: str | None) -> tuple[dict | None, str]:
         """One judge substring -> (roster hit | None, match_method)."""
@@ -172,6 +198,8 @@ def build_map() -> pl.DataFrame:
                     "bench_court": None,
                     "match_method": "roster-notice",
                     "_member": judge,
+                    "_gender": None,
+                    "_maxd": pair_maxdate.get((judge, court), ""),
                 }
             )
             continue
@@ -186,29 +214,55 @@ def build_map() -> pl.DataFrame:
                     "bench_court": hit["bench_court"] if hit else None,
                     "match_method": method,
                     "_member": member,  # for the gender guard below; dropped before output
+                    "_gender": _gender(member),
+                    "_maxd": pair_maxdate.get((judge, court), ""),
                 }
             )
 
-    # honorific-conflict guard: "Mr Justice X" and "Ms Justice X" resolving to the
-    # SAME roster judge means the roster covers only one of two real people —
-    # withdraw every surname-based match for that judge_key (exacts stay).
-    genders_by_key: dict[str, set[str]] = {}
+    # honorific-conflict guard, gender-disambiguated by recency.
+    # The diary names higher-court judges SURNAME-ONLY, so a surname that the roster has
+    # once ("Butler" -> Ms Justice Nuala Butler) but the diary carries under BOTH genders
+    # ("Mr Justice Butler" AND "Ms Justice Butler", over an 8-year history) is really TWO
+    # people — the current roster judge plus a departed namesake. The honorific tells them
+    # apart, and RECENCY says which is current: the sitting judge holds the latest (and
+    # forward-scheduled) dates; the departed one only old ones. So per conflicted judge_key
+    # we keep the gender whose matches reach the LATEST diary_date (the current judge) and
+    # withdraw the other gender's strings as a different, off-roster person. Only when the
+    # two genders' latest dates TIE (can't tell which is current) do we fall back to the
+    # old all-or-nothing withdrawal. Exact (full-name) matches are always kept.
+    latest_by_key_gender: dict[str, dict[str, str]] = {}
     for r in rows:
-        if r["judge_key"]:
-            g = _gender(r["_member"])  # the matched substring, not the whole panel string
-            if g:
-                genders_by_key.setdefault(r["judge_key"], set()).add(g)
-    conflicted = {k for k, gs in genders_by_key.items() if len(gs) > 1}
-    n_conflict = 0
+        if r["judge_key"] and r["_gender"]:
+            g2d = latest_by_key_gender.setdefault(r["judge_key"], {})
+            if r["_maxd"] > g2d.get(r["_gender"], ""):
+                g2d[r["_gender"]] = r["_maxd"]
+    # per conflicted key: the current gender (strictly-latest), or None if tied/ambiguous
+    current_gender: dict[str, str | None] = {}
+    for k, g2d in latest_by_key_gender.items():
+        if len(g2d) >= 2:
+            current_gender[k] = _current_gender_by_recency(g2d)
+
+    n_disambig = n_conflict = 0
     for r in rows:
-        if r["judge_key"] in conflicted and r["match_method"] != "exact":
+        cur = current_gender.get(r["judge_key"]) if r["judge_key"] else "__no_conflict__"
+        if r["judge_key"] not in current_gender or r["match_method"] == "exact":
+            continue  # no conflict for this key (or an unambiguous full-name match)
+        if cur is None:  # tied recency — fall back to conservative all-or-nothing
             r.update(judge_key=None, judge_name=None, bench_court=None, match_method="honorific-conflict")
             n_conflict += 1
-    if n_conflict:
-        logger.warning("honorific-conflict guard withdrew %d surname matches", n_conflict)
+        elif r["_gender"] and r["_gender"] != cur:  # the departed namesake's strings
+            r.update(judge_key=None, judge_name=None, bench_court=None, match_method="honorific-other-person")
+            n_disambig += 1
+    if n_conflict or n_disambig:
+        logger.warning(
+            "honorific guard: kept current-gender by recency (%d off-roster-namesake withdrawn), "
+            "%d withdrawn on tied recency",
+            n_disambig,
+            n_conflict,
+        )
 
     for r in rows:
-        del r["_member"]
+        del r["_member"], r["_gender"], r["_maxd"]
     return pl.DataFrame(
         rows,
         schema={

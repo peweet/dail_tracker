@@ -1,0 +1,99 @@
+name: Legal Diary OpenView refresh (daily)
+
+# Keeps the Circuit Court + higher-court diary gold current on the deployed site.
+#
+# Unlike the live-tenders lane (stateless, rebuilds from scratch each run), the OpenView
+# ingest is STATEFUL: extractors/legal_diary_openview_extract.py parses the RAW bronze HTML
+# archive that pdf_infra/legal_diary_openview_poller.py accumulates, and the poller is
+# incremental (only re-fetches sittings whose index `Updated` stamp changed). The bronze is
+# gitignored (it names private parties), so it cannot live in the repo — we persist it
+# between runs with actions/cache instead.
+#
+# Self-healing: the bronze archive AND the poller manifest share one cache entry. On a cache
+# HIT the daily run fetches only the handful of changed/new sittings (seconds). On a cache
+# MISS (eviction / >7-day gap) the manifest is gone too, so the poller simply re-fetches the
+# whole archive (~6,755 docs, ~50 min) and rebuilds identical gold — hence the 90-min
+# watchdog. Either way the gold is correct.
+#
+# Safety: publish_data.py commits ONLY the allow-listed data paths (data/gold/parquet covers
+# the OpenView cases/schedule + the diary→roster map) and runs the completeness gate first —
+# a partial scrape (flaky Domino server) or any gold regression ABORTS the publish, so a
+# thinned archive can never ship. The privacy gate in the extractor independently refuses to
+# write gold if any natural-person name survived anonymisation.
+
+on:
+  schedule:
+    - cron: "0 7 * * *"   # 07:00 UTC daily (after the diary's morning publish)
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Ignore the manifest and re-fetch every sitting (full rebuild)."
+        required: false
+        default: "false"
+
+permissions:
+  contents: write   # publish_data.py commits + pushes refreshed gold to main
+  issues: write     # open a tracking issue if a scheduled run fails
+
+concurrency:
+  group: legal-diary-openview-refresh
+  cancel-in-progress: false   # let an in-flight publish finish rather than racing the next run
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90   # watchdog: covers a cold-start full re-fetch of the whole archive
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install deps (polars + parquet + requests)
+        run: uv sync --frozen --extra pipeline
+
+      # Persist the RAW bronze HTML archive + the incremental manifest between runs. The
+      # rolling key (run_id) writes a fresh entry each run; restore-keys pulls the newest
+      # prior one. Bronze is gitignored — it lives ONLY in this cache, never in the repo.
+      - name: Restore bronze archive + manifest
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/bronze/legal_diary_openview
+            data/_meta/legal_diary_openview_manifest.json
+          key: openview-bronze-${{ github.run_id }}
+          restore-keys: |
+            openview-bronze-
+
+      - name: Poll OpenView (incremental, or full on demand)
+        run: |
+          uv run python -m pdf_infra.legal_diary_openview_poller \
+            ${{ github.event.inputs.full == 'true' && '--full' || '' }}
+
+      - name: Rebuild OpenView gold
+        run: uv run python extractors/legal_diary_openview_extract.py
+
+      - name: Rebuild diary→roster judge map
+        run: uv run python extractors/judiciary_diary_link.py
+
+      # Gated publish: stages ONLY data/gold/parquet (+ the other allow-listed paths), aborts
+      # on any unreadable/0-row parquet or a gold completeness regression, then pushes to main
+      # -> Cloud redeploys. A thinned archive (partial scrape) fails the gate and ships nothing.
+      - name: Publish refreshed gold
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          uv run python tools/publish_data.py -m "data: daily legal-diary OpenView refresh ($(date -u +%F))"
+
+      - name: Open issue on failure (scheduled runs only)
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              ...context.repo,
+              title: `Legal Diary OpenView refresh failed (${new Date().toISOString().slice(0, 10)})`,
+              body: `The daily OpenView poll / extract / publish failed.\n\nRun: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nLikely causes: the Courts Service site structure drifted (the legal_diary_openview_health canary will pinpoint which step), the Domino server dropped too many connections during a cold-start full re-fetch, or the publish gate aborted on a gold regression. The live site keeps the last good gold; the source-health canary tracks structural drift separately.`,
+              labels: ["data", "judiciary", "automation"],
+            });
