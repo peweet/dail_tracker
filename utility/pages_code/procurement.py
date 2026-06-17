@@ -2141,14 +2141,22 @@ def _national_sector_facet(within_days: int | None) -> str | None:
     res = fetch_live_tender_sectors_result(within_days)
     if not res.ok or res.data.empty:
         return None
-    label_to_sector = {f"{r.sector} ({int(r.n):,})": r.sector for r in res.data.itertuples()}
+    counts = {str(r.sector): int(r.n) for r in res.data.itertuples()}
+    options = ["All sectors", *counts.keys()]
+    # The OPTION VALUE is the raw sector (stable); the count is shown via format_func only. Storing
+    # the count in the value broke things: the counts change with the date window, so a previously
+    # chosen "Construction (45)" was no longer in the new options and Streamlit raised on an
+    # out-of-range selectbox value — blanking the page. Also guard a sector that vanishes entirely
+    # from the new window by resetting the stored value before the widget reads it.
+    if st.session_state.get("pr_live_sector") not in options:
+        st.session_state["pr_live_sector"] = "All sectors"
     choice = st.selectbox(
         "Sector (CPV division)",
-        ["All sectors", *label_to_sector.keys()],
-        index=0,
+        options,
         key="pr_live_sector",
+        format_func=lambda s: s if s == "All sectors" else f"{s} ({counts.get(s, 0):,})",
     )
-    return label_to_sector.get(choice)
+    return None if choice == "All sectors" else choice
 
 
 def _render_national_open_tenders() -> None:
@@ -2224,7 +2232,10 @@ def _render_national_open_tenders() -> None:
     )
     # Same paginate + pagination_controls "click bar" the supplier and award lists use, so the
     # reader can page through every open tender instead of the list ending at an arbitrary date.
-    page_idx = paginate(total, key_prefix="pr_live", page_size=_LIVE_PAGE)
+    # The page counter is namespaced by the active filter so changing the window/sector starts at
+    # page 1 (instead of stranding the reader on a page that no longer exists in the smaller set).
+    pg_key = f"pr_live_{within_days if within_days is not None else 'all'}_{sector or 'all'}"
+    page_idx = paginate(total, key_prefix=pg_key, page_size=_LIVE_PAGE)
     page = df.iloc[page_idx * _LIVE_PAGE : (page_idx + 1) * _LIVE_PAGE]
     cards = []
     for offset, r in enumerate(page.itertuples()):
@@ -2266,7 +2277,7 @@ def _render_national_open_tenders() -> None:
     st.html('<div class="pr-sp-md"></div>')
     pagination_controls(
         total,
-        key_prefix="pr_live",
+        key_prefix=pg_key,
         page_sizes=(_LIVE_PAGE,),
         default_page_size=_LIVE_PAGE,
         label="tenders",
