@@ -51,6 +51,10 @@ def test_no_inference_no_verdict_or_prescription_in_any_output():
     for i in r.issues:
         blob = " ".join([i.flag, i.mitigates, i.risk_note, _flatten_path(i.mitigation_path)])
         assert not _FORBIDDEN.search(blob), f"{i.node_id}: forbidden language in {blob!r}"
+    # the exclusion mask is fact-based too: it must not assert a refusal/grant verdict
+    for e in r.exclusions:
+        blob = " ".join([e.designation, e.site_name, e.mitigation])
+        assert not _FORBIDDEN.search(blob), f"exclusion {e.layer}: forbidden language in {blob!r}"
 
 
 def test_risk_language_is_likely_not_will():
@@ -172,7 +176,8 @@ def test_eia_fires_only_at_large_scale():
 @pytest.mark.skipif(not (LAYERS_DIR / "national_parks.parquet").exists(),
                     reason="national_parks layer not built")
 def test_national_park_fires_inside_park():
-    import polars as pl, shapely
+    import polars as pl
+    import shapely
     df = pl.read_parquet(LAYERS_DIR / "national_parks.parquet")
     pt = shapely.from_wkb(df["wkb"][0]).representative_point()  # any park interior
     r = evaluate(pt.x, pt.y, dev_type="one_off_house", council_slug=GALWAY_CO)
@@ -184,7 +189,8 @@ def test_national_park_fires_inside_park():
 @pytest.mark.skipif(not (LAYERS_DIR / "smr_points.parquet").exists(),
                     reason="smr_points layer not built")
 def test_monument_names_class_inside_zone():
-    import polars as pl, shapely
+    import polars as pl
+    import shapely
     zdf = pl.read_parquet(LAYERS_DIR / "smr_zone.parquet")
     pt = None
     for w in zdf["wkb"].to_list():
@@ -221,13 +227,71 @@ def test_septic_fires_on_bad_ground_and_states_sewer_assumption():
 
 @pytest.mark.skipif(not (LAYERS_DIR / "gsi_vulnerability.parquet").exists(),
                     reason="gsi_vulnerability layer not built")
-def test_septic_layer_missing_outside_ingested_extent():
-    # a Cork point is outside the Galway-bbox GSI layer -> honest layer_missing, NOT silent ok
+def test_septic_honest_status_outside_galway():
+    # GSI vulnerability is now ingested NATIONALLY (bbox_subset=null), so a Cork point is in-extent
+    # and gets a real assessment (ok/fired), never a silent layer_missing. The honesty contract is
+    # the SAME either way: status is never a fabricated "no issue" — it is layer_missing only when
+    # the point is genuinely outside every ingested extent.
     cork = evaluate(-8.90, 51.90, dev_type="one_off_house", council_slug="cork_county_council")
     sep = next(i for i in cork.issues if i.node_id == "septic_groundwater")
-    assert sep.fired is False
-    # once GSI is pulled nationally this becomes 'ok'/'fired'; until then it must be honest
     assert sep.data_status in ("layer_missing", "ok")
+    if sep.data_status == "layer_missing":
+        assert sep.fired is False
+
+
+# ── hard-exclusion mask + monument-on-point + flood-is-a-check (this session) ──
+
+@pytest.mark.skipif(not HAVE_NPWS, reason="NPWS layers not ingested")
+def test_exclusion_mask_fires_inside_sac_with_mitigation_route():
+    """A point inside an SAC polygon is EXCLUDED — fact-based, with the narrow Art.6 route shown."""
+    import polars as pl
+    import shapely
+    df = pl.read_parquet(LAYERS_DIR / "npws_sac.parquet")
+    pt = shapely.from_wkb(df["wkb"][0]).representative_point()
+    r = evaluate(pt.x, pt.y, council_slug=GALWAY_CO)
+    assert r.excluded and r.exclusions
+    e = r.exclusions[0]
+    assert "SAC" in e.designation and e.site_name
+    assert "Appropriate Assessment" in e.mitigation        # not an absolute "cannot build"
+    assert "Art. 6" in e.mitigation
+
+
+@pytest.mark.skipif(not HAVE_NPWS, reason="NPWS layers not ingested")
+def test_exclusion_mask_empty_when_not_in_a_designation():
+    # Menlo is NEAR (european_site fires) but NOT inside a designation polygon -> not excluded
+    r = evaluate(-9.0520, 53.3062, dev_type="one_off_house")
+    assert r.excluded is False and r.exclusions == []
+
+
+@pytest.mark.skipif(not (LAYERS_DIR / "smr_points.parquet").exists(),
+                    reason="smr_points layer not built")
+def test_monument_fires_when_point_is_on_a_recorded_monument():
+    """The user's scenario: an XY placed ON a monument must fire (zone OR the ~60 m point fallback)."""
+    import polars as pl
+    import shapely
+    pdf = pl.read_parquet(LAYERS_DIR / "smr_points.parquet")
+    g = shapely.from_wkb(pdf["wkb"][0])  # a recorded-monument point in the Galway extent
+    fired, detail, status = engine._monument(LayerStore(), g.x, g.y, "one_off_house", GALWAY_CO)
+    assert fired is True and status == "ok"
+    assert detail.get("monument_class") and detail["monument_class"] != "a recorded monument"
+
+
+def test_monument_zone_radius_is_data_derived_not_invented():
+    # the fallback radius is the measured modal Zone-of-Notification radius (~60 m), not a guess
+    assert engine.MONUMENT_ZONE_RADIUS_M == 60.0
+
+
+def test_flood_is_a_check_not_a_hard_constraint():
+    """Flood is deep_link_only (we can't read OPW) -> a 'verify yourself' item, never a hard
+    constraint asserted on every site (the over-flagging the user reported)."""
+    from dail_tracker_core.siting.brief import build_brief
+    r = evaluate(-9.0520, 53.3062, dev_type="one_off_house", council_slug=GALWAY_CO)
+    b = build_brief(r)
+    assert any(i.title.lower().startswith("flood") for i in b.to_verify)
+    assert not any("flood" in it.title.lower() for it in b.hard_constraints)
+    flood = next(i for i in r.issues if i.node_id == "floodplain")
+    assert flood.data_status == "deep_link_only"
+    assert "check" in flood.flag.lower()  # framed as a check, not "your site IS in a flood zone"
 
 
 def test_rule_resolution_wired_to_council():
