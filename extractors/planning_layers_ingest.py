@@ -63,12 +63,15 @@ class LayerSpec:
 GALWAY_BBOX = (-10.2, 53.0, -8.4, 53.8)
 # Greater Dublin envelope (the 4 Dublin LAs: Fingal N, City, South Dublin W, DLR S)
 DUBLIN_BBOX = (-6.55, 53.15, -5.95, 53.65)
+# Cork County (largest county) + Cork City — Mizen Head (W) to the Waterford border (E)
+CORK_BBOX = (-10.3, 51.4, -7.8, 52.4)
 # named regions for extending a bbox-limited layer's coverage WITHOUT re-pulling the rest.
 # The engine reads one same-named parquet, so merging a region just widens coverage; outside
 # every ingested region a layer honestly returns nothing (the gate + reconcile run per region).
 REGIONS: dict[str, tuple[float, float, float, float]] = {
     "galway": GALWAY_BBOX,
     "dublin": DUBLIN_BBOX,
+    "cork": CORK_BBOX,
 }
 _HC = "https://services-eu1.arcgis.com/v5dOXTEOb7ZHdNyQ/arcgis/rest/services"  # Heritage Council
 _GSI = "https://gsi.geodata.gov.ie/server/rest/services/Groundwater"
@@ -109,6 +112,17 @@ SPECS: dict[str, LayerSpec] = {
     "galway_county_landscape": LayerSpec(
         "galway_county_landscape", f"{_HC}/Galway_County_Landscape_Categories/FeatureServer/0",
         "polygon", ("NAME",)),
+    # per-LA Cork heritage / landscape (Heritage Council org; CC-BY 4.0). Per-county schema
+    # variance: County RPS = STRUCTURE/TOWNLAND, City RPS = Building_Name, landscape = TYPE.
+    "cork_county_rps": LayerSpec(
+        "cork_county_rps", f"{_HC}/Cork_County_RPS/FeatureServer/0", "point",
+        ("STRUCTURE", "TOWNLAND", "DED")),
+    "cork_city_rps": LayerSpec(
+        "cork_city_rps", f"{_HC}/Cork_City_RPS/FeatureServer/0", "point",
+        ("Building_Name", "Address_1", "Address_2")),
+    "cork_county_landscape": LayerSpec(
+        "cork_county_landscape", f"{_HC}/Cork_County_Landscape_Categories/FeatureServer/0",
+        "polygon", ("TYPE",)),
     # NPWS National Parks — the strongest amenity/nature designation (6 nationally; incl. Connemara
     # + Burren near Galway). National pull (tiny). DESIG/SITE_NAME.
     "national_parks": LayerSpec(

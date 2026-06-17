@@ -67,6 +67,9 @@ def _serialize(res) -> dict:
                 "title": i.title,
                 "mitigation_class": i.mitigation_class,
                 "flag": i.flag,
+                "engage": list(i.engage) if i.engage else [],
+                "mitigates": i.mitigates,
+                "risk_note": i.risk_note,
             }
             for i in res.fired
         ],

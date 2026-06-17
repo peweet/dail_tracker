@@ -227,6 +227,52 @@ def awards_for_supplier(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> 
     )
 
 
+def supplier_year_trend(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> QueryResult:
+    """One firm's public-sector work SECURED per calendar year — award count + sum-safe
+    awarded value — straight from the per-(supplier, year) view (same company-class, non-
+    truncated gate as the rankings; only value_safe_to_sum is summed).
+
+    ⚠️ This is the PUBLIC procurement register only (eTenders national awards): contracts the
+    firm *won*, NOT its turnover, and an *awarded* contract value, never money paid. A private
+    company may earn most of its income outside the public sector — none of that appears here.
+    Pre-aggregated/value-gated in the view; the consumer renders the trend, computing nothing.
+    Oldest year first so a time axis reads left-to-right."""
+    return _run(
+        conn,
+        "SELECT year, n_awards, awarded_value_safe_eur, n_value_safe_awards"
+        " FROM v_procurement_supplier_year_summary"
+        " WHERE supplier_norm = ? AND year IS NOT NULL"
+        " ORDER BY year",
+        [supplier_norm],
+    )
+
+
+def supplier_payments_by_year(conn: duckdb.DuckDBPyConnection, supplier_norm: str) -> QueryResult:
+    """One firm's public-body PAYMENTS RECEIVED per year — the supplier-side mirror of
+    ``payments_by_year`` (which is per publisher). Paid (SPENT) and ordered (COMMITTED) come back
+    as SEPARATE sum-safe columns so the consumer charts them on their own axes.
+
+    ⚠️ Three never-cross rules ride on the column split: paid and ordered are different lifecycle
+    stages (never added to each other, never stacked — that reads as a sum), and BOTH are a
+    different grain from the award totals (realised/committed spend vs an award ceiling — never
+    added to the awards trend either). Indicative floor only: amounts span mixed VAT bases.
+    Sum-safe euro only (public-body transfers already excluded upstream). Oldest year first."""
+    return _run(
+        conn,
+        "SELECT year,"
+        " COALESCE(SUM(amount_eur) FILTER (WHERE value_safe_to_sum AND realisation_tier = 'SPENT'), 0)"
+        "   AS paid_safe_eur,"
+        " COALESCE(SUM(amount_eur) FILTER (WHERE value_safe_to_sum AND realisation_tier = 'COMMITTED'), 0)"
+        "   AS ordered_safe_eur,"
+        " COUNT(*) FILTER (WHERE realisation_tier = 'SPENT')     AS n_paid_lines,"
+        " COUNT(*) FILTER (WHERE realisation_tier = 'COMMITTED') AS n_ordered_lines"
+        " FROM v_procurement_payments"
+        " WHERE supplier_normalised = ? AND year IS NOT NULL"
+        " GROUP BY year ORDER BY year",
+        [supplier_norm],
+    )
+
+
 def authority_summary(
     conn: duckdb.DuckDBPyConnection, *, limit: int | None = 50, order_by: str = "awards", year: int | None = None
 ) -> QueryResult:

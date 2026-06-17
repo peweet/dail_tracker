@@ -77,8 +77,10 @@ from data_access.procurement_data import (
     fetch_single_bid_baseline_result,
     fetch_single_bid_notices_for_cpv_result,
     fetch_supplier_concentration_result,
+    fetch_supplier_payments_by_year_result,
     fetch_supplier_single_bid_result,
     fetch_supplier_summary_result,
+    fetch_supplier_year_trend_result,
     fetch_ted_awards_by_year_result,
     fetch_ted_competition_stats_result,
     fetch_ted_corpus_stats_result,
@@ -1453,6 +1455,30 @@ def _render_paid_supplier_panel(supplier_norm: str) -> None:
         "A later stage than the awards above — these are <em>not</em> added to the award totals.</div></div>"
     )
 
+    # Payments-received-per-year trend — the supplier-side mirror of the council spend-over-time
+    # spine. Paid and ordered are charted on SEPARATE axes (never stacked — that reads as a sum)
+    # and are a different grain from the awards-secured trend higher up (never added to it either).
+    # The per-tier .sum() gate is a display decision on the already-fetched frame (no groupby).
+    yr = fetch_supplier_payments_by_year_result(supplier_norm)
+    if yr.ok and not yr.data.empty and len(yr.data) > 1:
+        ydf = yr.data
+        if float(ydf["paid_safe_eur"].sum()) > 0:
+            st.caption("Money actually paid to this firm per year (sum-safe €) — a later stage than an award")
+            st.bar_chart(
+                ydf, x="year", y="paid_safe_eur",
+                x_label="Year", y_label="€ paid", height=180, color="#2f7d5b",
+            )
+        if float(ydf["ordered_safe_eur"].sum()) > 0:
+            st.caption("Money ordered from this firm per year (sum-safe €) — purchase-order commitments, not yet paid")
+            st.bar_chart(
+                ydf, x="year", y="ordered_safe_eur",
+                x_label="Year", y_label="€ ordered", height=180, color="#3a6b7e",
+            )
+        st.caption(
+            "Paid and ordered are different stages of public money — shown on separate axes, never added "
+            "together, and never added to the contracts-won figures above (an award is a different measure again)."
+        )
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Tab: EU-level awards (TED) — a SEPARATE register, never summed with eTenders.
@@ -2428,6 +2454,35 @@ def _award_row_cpv(r) -> str:
     )
 
 
+def _supplier_secured_trend(supplier_norm: str) -> None:
+    """Public-sector work SECURED per year — the firm's public order-book trend (the market-
+    intelligence ask: 'is this competitor's public workload rising or thinning?'). DISPLAY-ONLY:
+    the per-(supplier, year) rows arrive pre-aggregated and value-gated from
+    v_procurement_supplier_year_summary; the page charts them, computing no metric (no groupby
+    here — the logic firewall forbids it).
+
+    The public-only framing is the non-negotiable honesty rail: this is contracts won on the
+    public procurement register, NEVER the company's turnover. A single year is not a trend, so the
+    panel is shown only for firms with awards in ≥2 years (the award list below still shows the rest)."""
+    res = fetch_supplier_year_trend_result(supplier_norm)
+    if not res.ok or res.data.empty or len(res.data) < 2:
+        return
+    df = res.data
+    st.html(
+        '<div class="pr-caveat"><strong>Public-sector work secured, year by year.</strong> '
+        "The value of public contracts this firm <em>won</em> on the national procurement register "
+        "each year — <strong>not its turnover</strong>. It shows only the public-sector slice of the "
+        "business: a private company may earn most of its income from private clients, which never "
+        "appears here. Figures are <em>awarded</em> contract value (sum-safe — framework/DPS ceilings "
+        "excluded), not money paid.</div>"
+    )
+    st.caption("Sum-safe awarded value secured per year (€)")
+    st.bar_chart(
+        df, x="year", y="awarded_value_safe_eur",
+        x_label="Year", y_label="€ awarded (sum-safe)", height=200, color="#9c5b2e",
+    )
+
+
 def _supplier_awards_section(row, supplier_norm: str) -> None:
     """Paginated eTenders award history for one firm, with the headline-reconciliation
     caption. Shared by the in-page supplier profile here and the /company dossier page
@@ -2436,6 +2491,11 @@ def _supplier_awards_section(row, supplier_norm: str) -> None:
     if awards is None or awards.empty:
         empty_state("No itemised awards", "The supplier is in the ranking but no award rows were returned.")
         return
+
+    # Public-work-secured-per-year trend + the public-only framing banner, ABOVE the itemised
+    # rows (both the procurement profile and the /company dossier inherit it through this shared
+    # component, so the "not turnover" honesty copy can never drift between the two surfaces).
+    _supplier_secured_trend(supplier_norm)
 
     # Reconcile the headline with the rows the user is about to see: the sum-safe total
     # is composed ONLY of contract-award rows (never a ceiling), but the most recent

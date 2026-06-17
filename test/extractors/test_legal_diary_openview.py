@@ -16,6 +16,7 @@ import pytest
 _ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_ROOT))
 
+from extractors.judiciary_diary_link import _current_gender_by_recency  # noqa: E402
 from extractors.legal_diary_extract import anonymise, residual_name_tokens  # noqa: E402
 from extractors.legal_diary_openview_extract import (  # noqa: E402
     court_and_meta,
@@ -132,6 +133,18 @@ def test_panel_joined_and_sized():
     r = rows[0]
     assert r["judge"] == "Mr. Justice Aardvark & Ms. Justice Beewell"
     assert r["panel_size"] == 2
+
+
+# ─────────────────────────────── honorific recency disambiguation (same-surname judges)
+def test_recency_keeps_current_judge_gender():
+    # a current female judge (latest/forward-scheduled dates) + a departed male namesake
+    assert _current_gender_by_recency({"f": "2026-12-07", "m": "2021-03-01"}) == "f"
+    assert _current_gender_by_recency({"m": "2026-11-30", "f": "2019-06-01"}) == "m"
+
+
+def test_recency_tie_returns_none_for_safe_withdrawal():
+    # identical latest dates → can't tell which is current → caller withdraws both
+    assert _current_gender_by_recency({"f": "2025-05-01", "m": "2025-05-01"}) is None
 
 
 # ───────────────────────────────────────────────── live gold parquet (integration)
