@@ -28,18 +28,22 @@ from ui.spa_links import install_spa_links
 try:
     from pages_code.siting_check import siting_check_page
 except ImportError as _err:  # pragma: no cover - env-dependent
-    # NB: the `as _err` name is deleted when this except block exits, so capture the message
-    # into a normal module-level string for the stub closure to reference at call time.
+    # Cloud has no geo stack, so the full local page can't import. Fall back to the thin REMOTE
+    # client (engine-free): it takes a Google-Maps link and calls a local siting engine exposed at
+    # SITING_API_URL (a tunnel), so Cloud serves the UI while the compute runs on a connected box.
+    # NB: capture the message — the `as _err` name is deleted when this except block exits.
     _siting_import_error = str(_err)
+    try:
+        from pages_code.siting_remote import siting_remote_page as siting_check_page
+    except Exception:  # noqa: BLE001 — last-resort stub if even the thin client can't import
 
-    def siting_check_page() -> None:
-        st.title("Siting Check")
-        st.info(
-            "Siting Check is a live planning-risk triage tool that runs a geospatial "
-            "engine over local designation layers. It is currently available in the "
-            "local / development build only and is not enabled in this deployment."
-        )
-        st.caption(f"(unavailable here: {_siting_import_error})")
+        def siting_check_page() -> None:
+            st.title("Siting Check")
+            st.info(
+                "Siting Check runs a geospatial engine over local designation layers; it is "
+                "available in the local / development build only and not enabled here."
+            )
+            st.caption(f"(unavailable here: {_siting_import_error})")
 
 
 st.set_page_config(

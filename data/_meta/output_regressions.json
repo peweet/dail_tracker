@@ -1,5 +1,13 @@
 {
   "tolerance": 0.5,
   "n_baseline": 49,
-  "regressions": []
+  "regressions": [
+    {
+      "output": "procurement_awards.parquet",
+      "kind": "COL_REMOVED",
+      "columns": [
+        "Awarded Value (€)"
+      ]
+    }
+  ]
 }
