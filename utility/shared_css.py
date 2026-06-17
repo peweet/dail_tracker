@@ -5523,7 +5523,7 @@ def inject_css() -> None:
           <div class="site-banner-inner">
             <a class="site-banner-title" href="./" aria-label="Oireachtas Explorer — back to home">Oireachtas Explorer</a>
             <span class="site-banner-sep"></span>
-            <span class="site-banner-sub">Irish parliamentary data, made searchable</span>
+            <span class="site-banner-sub">Irish public data, made searchable</span>
           </div>
         </div>
         """

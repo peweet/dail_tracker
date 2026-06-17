@@ -116,6 +116,7 @@ from ui.components import (
 _TOP = 60  # cards shown per non-paginated tab (views are pre-ordered DESC)
 _SUP_PAGE = 24  # supplier cards per page (multiple of 3 for the grid)
 _AWARD_PAGE = 25  # award rows per page on a supplier profile
+_LIVE_PAGE = 24  # open-tender cards per page (multiple of 3 for the grid)
 
 
 def _esc(val) -> str:
@@ -2197,7 +2198,10 @@ def _render_national_open_tenders() -> None:
     # Sector facet — only when the snapshot carries a CPV division (post-enrichment). Degrades
     # silently to date-only on an un-enriched snapshot (the column is simply absent).
     sector = _national_sector_facet(within_days)
-    res = fetch_live_tenders_result(limit=_TOP, within_days=within_days, sector=sector)
+    # Fetch the FULL open set (limit=None), not a 60-row cap — the cap made the list read as if it
+    # "stopped" at whatever date the 60th soonest-closing tender happened to close (≈ July 2026).
+    # The view is already ordered soonest-closing first; pagination below walks the whole horizon.
+    res = fetch_live_tenders_result(limit=None, within_days=within_days, sector=sector)
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
         if sector:
@@ -2212,12 +2216,19 @@ def _render_national_open_tenders() -> None:
         return
     window_label = "soonest-closing" if within_days is None else f"closing within {within_days} days"
     sector_label = f" in {sector}" if sector else ""
+    total = len(df)
     st.caption(
-        f"{len(df):,} {window_label} national tenders{sector_label}. Estimated value is a pre-award buyer estimate — "
-        "not an award and not a payment. Click a tender to open it on eTenders."
+        f"{total:,} {window_label} national tenders{sector_label}, numbered by how soon they close. "
+        "Estimated value is a pre-award buyer estimate — not an award and not a payment. "
+        "Click a tender to open it on eTenders."
     )
+    # Same paginate + pagination_controls "click bar" the supplier and award lists use, so the
+    # reader can page through every open tender instead of the list ending at an arbitrary date.
+    page_idx = paginate(total, key_prefix="pr_live", page_size=_LIVE_PAGE)
+    page = df.iloc[page_idx * _LIVE_PAGE : (page_idx + 1) * _LIVE_PAGE]
     cards = []
-    for r in df.head(_TOP).itertuples():
+    for offset, r in enumerate(page.itertuples()):
+        rank = page_idx * _LIVE_PAGE + offset + 1  # global rank (soonest-closing first) — the numbered list
         meta_parts = [_esc(_coalesce(getattr(r, "procedure", None)))]
         dl = _coalesce(getattr(r, "submission_deadline", None))
         if dl:
@@ -2238,7 +2249,7 @@ def _render_national_open_tenders() -> None:
         name_html = f"<span>{_esc(buyer) or '—'}</span>"
         if title:
             name_html += f'<span class="pr-sub">{_esc(title)}</span>'
-        inner = _card(name_html, meta, pills)
+        inner = _card(name_html, meta, pills, rank=rank)
         url = _coalesce(getattr(r, "detail_url", None))
         if url.startswith("http"):
             cards.append(
@@ -2252,6 +2263,14 @@ def _render_national_open_tenders() -> None:
         else:
             cards.append(inner)
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html('<div class="pr-sp-md"></div>')
+    pagination_controls(
+        total,
+        key_prefix="pr_live",
+        page_sizes=(_LIVE_PAGE,),
+        default_page_size=_LIVE_PAGE,
+        label="tenders",
+    )
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> eTenders — the national public-procurement platform '
         '(<a href="https://www.etenders.gov.ie" target="_blank" rel="noopener">etenders.gov.ie ↗</a>), live '
