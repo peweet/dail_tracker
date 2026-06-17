@@ -1,6 +1,6 @@
 {
   "parser_version": "1.1.1",
-  "generated_at": "2026-06-16T19:00:14.168808+00:00",
+  "generated_at": "2026-06-17T06:10:02.327529+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -75,8 +75,8 @@
     "custody": 8,
     "guardian": 7,
     "ward of court": 6,
-    "childcare": 3,
     "adoption": 3,
+    "childcare": 3,
     "special education": 1
   },
   "plaintiff_kinds": {
