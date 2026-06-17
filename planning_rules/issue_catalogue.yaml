@@ -193,8 +193,10 @@ nodes:
       predicate: "within(opw_flood, zone in ['A','B'])"
       source_layers: [opw_flood]
     flag_template: >
-      Your site is in a flood zone ({flood_zone}). A house is a 'highly vulnerable' use → a Justification
-      Test is required, and in Zone A this is usually inappropriate.
+      We can't read the statutory OPW flood zone for this exact point (the maps are licensed and
+      not embeddable), so this is a CHECK, not a finding — open floodinfo.ie for this spot. If it
+      falls in Flood Zone A or B, a house is a 'highly vulnerable' use → a Justification Test is
+      required, and Zone A is usually inappropriate.
     engage: ["flood-risk / hydrology consultant"]
     rule_ref: { checklist: [21], dm_std: [69], guidance: "Flood Risk Mgmt Guidelines 2009 + Circular PL2/2014" }
     mitigation_class: "F (Zone A) / D (Zone B)"

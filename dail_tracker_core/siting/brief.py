@@ -103,14 +103,20 @@ class BriefItem:
 class Brief:
     site: dict[str, Any]
     headline: str
+    exclusions: list[Any]                 # statutory designations that exclude development (facts)
     hard_constraints: list[BriefItem]
     shaping_constraints: list[BriefItem]
     access: dict[str, Any]
     obligations: list[BriefItem]          # universal + scale-gated (procedural)
+    to_verify: list[BriefItem]            # checks we can't read (e.g. flood) — verify yourself
     required_reports: list[str]
     rfi_note: str
     not_assessed: list[str]
     disclaimer: str
+
+    @property
+    def excluded(self) -> bool:
+        return bool(self.exclusions)
 
 
 def _item(i) -> BriefItem:
@@ -121,12 +127,15 @@ def _item(i) -> BriefItem:
 
 def build_brief(result: SitingResult, terrain=None) -> Brief:
     fired = result.fired  # catalogue order -> deterministic
-    hard = [_item(i) for i in fired if "F" in i.mitigation_classes and i.node_id != "road_sightlines"]
-    shaping = [_item(i) for i in fired
-               if "F" not in i.mitigation_classes and "D" in i.mitigation_classes
-               and i.node_id != "road_sightlines"]
-    obligations = [_item(i) for i in fired
-                   if i.mitigation_classes == frozenset({"P"}) and i.node_id != "road_sightlines"]
+    # issues whose layer we can't read (deep_link_only, e.g. flood) are CHECKS the user must do
+    # themselves, not findings — never present them as confirmed hard constraints (the over-flag bug).
+    verify = [i for i in fired if i.data_status == "deep_link_only"]
+    findings = [i for i in fired if i.data_status != "deep_link_only" and i.node_id != "road_sightlines"]
+    hard = [_item(i) for i in findings if "F" in i.mitigation_classes]
+    shaping = [_item(i) for i in findings
+               if "F" not in i.mitigation_classes and "D" in i.mitigation_classes]
+    obligations = [_item(i) for i in findings if i.mitigation_classes == frozenset({"P"})]
+    to_verify = [_item(i) for i in verify]
 
     # dedicated ACCESS & ENTRANCE section (road node, incl. the junction/crossroads finding)
     access: dict[str, Any] = {"applies": False}
@@ -148,11 +157,18 @@ def build_brief(result: SitingResult, terrain=None) -> Brief:
             "engage": list(road.engage),
         }
 
-    nF = sum(1 for i in fired if "F" in i.mitigation_classes)
-    tightness = ("tight — several hard constraints stack" if nF >= 3
-                 else "moderate" if nF >= 1 else "few hard constraints")
-    headline = (f"{len(fired)} planning issue(s) fire here ({nF} hard / pass-fail); "
-                f"the constraint box is {tightness}.")
+    nF = sum(1 for i in findings if "F" in i.mitigation_classes)
+    if result.excluded:
+        sites = "; ".join(f"{e.site_name} ({e.designation})" for e in result.exclusions)
+        headline = (f"EXCLUDED — this point lies inside {sites}. Ordinary development is presumed "
+                    "against on this statutorily protected land; it may still be possible only via "
+                    "the narrow statutory route below. (A fact about the designation, not the "
+                    "planning decision, which remains the authority's.)")
+    else:
+        tightness = ("tight — several hard constraints stack" if nF >= 3
+                     else "moderate" if nF >= 1 else "few hard constraints")
+        headline = (f"{len(fired)} planning issue(s) fire here ({nF} hard / pass-fail); "
+                    f"the constraint box is {tightness}.")
 
     site = {
         "lat": result.lat, "lon": result.lon, "dev_type": result.dev_type,
@@ -166,10 +182,12 @@ def build_brief(result: SitingResult, terrain=None) -> Brief:
     return Brief(
         site=site,
         headline=headline,
+        exclusions=list(result.exclusions),
         hard_constraints=hard,
         shaping_constraints=shaping,
         access=access,
         obligations=obligations,
+        to_verify=to_verify,
         required_reports=result.likely_rfi_reports,
         rfi_note=RFI_NOTE,
         not_assessed=result.missing_layers,
@@ -182,6 +200,13 @@ def brief_text(result: SitingResult, terrain=None) -> str:
     b = build_brief(result, terrain)
     out = [f"SITE BRIEF — {b.site['council']} | {b.site['lat']},{b.site['lon']} | {b.site['dev_type']}",
            b.headline, ""]
+    if b.exclusions:
+        out.append("⛔ EXCLUDED — STATUTORY PROTECTED LAND (presumption against development):")
+        for e in b.exclusions:
+            out.append(f"  - inside {e.site_name} ({e.designation})")
+            if getattr(e, "mitigation", ""):
+                out.append(f"      possible route: {e.mitigation}")
+        out.append("")
     if b.hard_constraints:
         out.append("HARD CONSTRAINTS (pass/fail):")
         for it in b.hard_constraints:
@@ -207,6 +232,10 @@ def brief_text(result: SitingResult, terrain=None) -> str:
     if b.obligations:
         out += ["", "STANDARD OBLIGATIONS:"]
         out += [f"  - {it.title}" for it in b.obligations]
+    if b.to_verify:
+        out += ["", "CHECK YOURSELF (we can't read this layer):"]
+        for it in b.to_verify:
+            out.append(f"  - {it.title}: {it.why}")
     out += ["", "REQUIRED REPORTS (likely RFI):"]
     out += [f"  - {r}" for r in b.required_reports]
     out += ["", b.rfi_note]

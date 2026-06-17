@@ -128,12 +128,59 @@ def _css() -> None:
         .sc-note { font-size:.8rem; color:#777; margin-top:.35rem; }
         .sc-prec { font-size:.82rem; color:#444; background:#f7f7f9; border-radius:6px;
                    padding:.35rem .55rem; margin-top:.4rem; }
+        .sc-excl { background:#fff0f0; border:1px solid #e6b3b3; border-left:6px solid #b3261e;
+                   border-radius:10px; padding:.85rem 1rem; margin:.6rem 0 1rem 0; }
+        .sc-excl h2 { margin:0 0 .35rem 0; font-size:1.15rem; color:#8a1c16; }
+        .sc-excl .sc-site { font-weight:600; color:#333; }
+        .sc-excl .sc-route { font-size:.85rem; color:#555; margin:.2rem 0 .1rem 0; }
+        .sc-verify { background:#eef4fb; border:1px solid #c3d6ee; border-left:5px solid #2c6cb0; }
         </style>
         """
     )
 
 
+def _render_exclusion_banner(exclusions) -> None:
+    """Top-of-page hard-exclusion banner: the point is inside a statutory protected designation.
+
+    States the FACT (the designation covers the point) and the narrow real route that could still
+    permit development — never an absolute 'cannot build' verdict (it may be possible to mitigate).
+    """
+    rows = ['<div class="sc-excl"><h2>⛔ Excluded — statutory protected land</h2>'
+            '<p class="sc-flag">This point lies inside a protected designation, where ordinary '
+            "development is presumed against. This is a fact about the land, not the planning "
+            "decision — and it may still be possible via the narrow statutory route below.</p>"]
+    for e in exclusions:
+        rows.append(f'<p class="sc-site">Inside {_h(e.site_name)} — {_h(e.designation)}</p>')
+        if getattr(e, "mitigation", ""):
+            rows.append(f'<p class="sc-route"><b>Possible route:</b> {_h(e.mitigation)}</p>')
+    rows.append("</div>")
+    st.html("".join(rows))
+
+
+def _render_verify_card(issue) -> None:
+    """A 'check this yourself' card for layers we can't read (e.g. the licensed OPW flood maps)."""
+    parts = [
+        '<div class="sc-card sc-verify">',
+        f"<h3>🔎 {_h(issue.title)}</h3>",
+        '<span class="sc-tag" style="background:#2c6cb01a;color:#2c6cb0">Check this yourself</span>',
+    ]
+    if issue.flag:
+        parts.append(f'<p class="sc-flag">{_h(issue.flag)}</p>')
+    if issue.extra.get("flood_link"):
+        link = issue.extra["flood_link"]
+        parts.append(f'<p class="sc-note">↗ <a href="{_h(link)}" target="_blank">'
+                     f"Open the statutory flood maps for this exact point (floodinfo.ie)</a></p>")
+    parts.append("</div>")
+    st.html("".join(parts))
+
+
 def _render_card(issue) -> None:
+    # issues whose layer we can't read (deep_link_only, e.g. flood) are CHECKS the user must run
+    # themselves, not confirmed findings — render them in a neutral "verify yourself" style so they
+    # don't read as a confirmed hard constraint on every site.
+    if issue.data_status == "deep_link_only":
+        _render_verify_card(issue)
+        return
     cls = _headline_class(issue.mitigation_classes)
     colour, label, dot = _CLASS_META[cls]
     engage = ", ".join(issue.engage) if issue.engage else ""
@@ -293,6 +340,11 @@ def siting_check_page() -> None:
         f"<b>Terrain:</b> elevation {_h(elev)}{_h(exp)} "
         f'<span class="sc-note">(Copernicus DEM, ±30 m — a coarse signal, not a survey)</span></div>'
     )
+
+    # hard-exclusion mask first: if the point is inside a statutory protected designation, that is
+    # the headline (presumption against development, with the narrow real route shown).
+    if getattr(res, "excluded", False):
+        _render_exclusion_banner(res.exclusions)
 
     fired = sorted(res.fired, key=lambda i: "FDP".index(_headline_class(i.mitigation_classes)))
     if fired:

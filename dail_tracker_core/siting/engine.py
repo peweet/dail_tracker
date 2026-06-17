@@ -27,9 +27,13 @@ from .layers import LayerStore
 NEAR_M = {"european_site": 2000, "bats": 1500, "protected_structure": 250}
 # an access within this of a road junction raises the crossroads / entrance-setback flag
 JUNCTION_NEAR_M = 100.0
-# within this of a recorded-monument POINT counts as "on" the monument — fires even where the
-# monument carries no zone-of-notification polygon (the smr_point is a generalised location).
-MONUMENT_ON_M = 50.0
+# The monument trigger is "within a Zone of Archaeological Notification" — the rule councils state
+# verbatim (Fingal DP §14.19.2 / DMSO169) and the others defer to via the National Monuments Acts
+# / RMP (Galway DM Std 62, Cork County Ch.16). No council states a metre radius; the geometry is the
+# NMS smr_zone polygon, which we test by containment. This constant is ONLY a fallback for the ~8%
+# of monument POINTS with no digitised zone: it is the modal zone radius MEASURED from smr_zone
+# itself — sqrt(area/π) clusters at ~60 m (p50 60.3 m, p75 60.6 m) — reconstructing the absent zone.
+MONUMENT_ZONE_RADIUS_M = 60.0
 
 
 @dataclass
@@ -58,10 +62,13 @@ class Exclusion:
 
     This is a verifiable FACT about the land (the designation contains the point), surfaced as a
     hard exclusion — NOT a prediction of the planning decision (which stays the council's/ABP's).
+    `mitigation` records the narrow, real legal route by which development can still be permitted:
+    the exclusion is a presumption-against, not an absolute impossibility.
     """
     layer: str          # the source layer (e.g. "npws_sac")
     designation: str    # human label (e.g. "Special Area of Conservation (SAC)")
     site_name: str      # the specific designated site (e.g. "Lough Corrib SAC")
+    mitigation: str = ""  # the narrow statutory route that could still permit development
 
 
 @dataclass
@@ -192,7 +199,7 @@ def _monument(store, lon, lat, dev, slug):
     n = None
     if "smr_points" in avail and store.in_extent("smr_points", lon, lat):
         n = store.nearest("smr_points", lon, lat)
-    on_point = bool(n and n[1] <= MONUMENT_ON_M)
+    on_point = bool(n and n[1] <= MONUMENT_ZONE_RADIUS_M)
     if not in_zone and not on_point:
         return False, {}, "ok"
     mclass = (n[0].get("MONUMENT_CLASS") if n else "") or "a recorded monument"
@@ -213,9 +220,10 @@ def _national_park(store, lon, lat, dev, slug):
 
 
 def _floodplain(store, lon, lat, dev, slug):
-    # OPW flood is CC-BY-NC-ND -> never ingested; always surface the floodinfo.ie deep-link
-    e3857 = _to_3857(lon, lat)
-    link = f"https://www.floodinfo.ie/map/floodmaps/?X={round(e3857[1])}&Y={round(e3857[0])}&Z=14"
+    # OPW flood is CC-BY-NC-ND -> never ingested. We can't READ the zone, so this is a CHECK, not a
+    # finding: deep_link_only status routes it to the "verify yourself" lane (the floodinfo.ie link
+    # is built in evaluate()). Firing here just means "surface the check", never "you are in a flood
+    # zone" — that false assertion on every site was the over-flagging bug.
     return True, {"flood_zone": "see floodinfo.ie"}, "deep_link_only"
 
 
@@ -406,29 +414,44 @@ TRIGGERS: dict[str, Callable] = {
 # *subsoil* alone (gsi_quaternary) is an engineering constraint, not a statutory exclusion — only
 # DESIGNATED bog (inside an NHA/SAC) excludes, which is why peat_bog stays a hard constraint, not
 # an exclusion here.
-EXCLUSION_DESIGNATIONS: tuple[tuple[str, str], ...] = (
-    ("npws_sac", "Special Area of Conservation (SAC)"),
-    ("npws_spa", "Special Protection Area (SPA)"),
-    ("npws_nha", "Natural Heritage Area (NHA) — incl. raised/blanket bog"),
-    ("national_parks", "National Park"),
+# Each row: (layer, label, mitigation route). The mitigation text is NOT invented — for European
+# sites it is the EU Habitats Directive Art. 6 mechanism (transposed by the Birds & Natural Habitats
+# Regs 2011, which the rulebook already cites): Art. 6(3) a development can proceed only where an
+# Appropriate Assessment concludes no adverse effect on site integrity; failing that, Art. 6(4)
+# IROPI + compensatory measures. These routes are exceptional and rarely open to a private house.
+_AA_ROUTE = ("Only permissible where an Appropriate Assessment concludes no adverse effect on the "
+             "site's integrity (Habitats Directive Art. 6(3)); failing that, only via imperative "
+             "reasons of overriding public interest with compensatory measures (Art. 6(4)) — "
+             "exceptional and rarely available for a private dwelling. Confirm with NPWS.")
+EXCLUSION_DESIGNATIONS: tuple[tuple[str, str, str], ...] = (
+    ("npws_sac", "Special Area of Conservation (SAC)", _AA_ROUTE),
+    ("npws_spa", "Special Protection Area (SPA)", _AA_ROUTE),
+    ("npws_nha", "Natural Heritage Area (NHA) — incl. raised/blanket bog",
+     "Activities Requiring Consent apply; some development can be consented by NPWS where it does "
+     "not damage the conservation interest. Confirm with NPWS before relying on this."),
+    ("national_parks", "National Park",
+     "Generally only park-related / designation-compatible uses are permitted (NPWS-managed land); "
+     "confirm any proposal with NPWS and the planning authority."),
 )
 
 
 def hard_exclusions(store: LayerStore, lon: float, lat: float) -> list[Exclusion]:
     """Statutory designations whose polygon COVERS the point (ordinary development excluded).
 
-    Fact-based, not a verdict. An empty list means no excluding designation was found in the
-    ingested layers — which is NOT proof the land is developable (other constraints still apply,
-    and a layer may not cover this extent). One entry per designation type.
+    Fact-based, not a verdict, and NOT an absolute: each carries the narrow real route by which
+    development could still be permitted (it may be possible to mitigate — the user must check it).
+    An empty list means no excluding designation was found in the ingested layers — which is NOT
+    proof the land is developable. One entry per designation type.
     """
     out: list[Exclusion] = []
-    for layer, label in EXCLUSION_DESIGNATIONS:
+    for layer, label, mitigation in EXCLUSION_DESIGNATIONS:
         if layer not in store.available() or not store.in_extent(layer, lon, lat):
             continue
         hits = store.covering(layer, lon, lat)
         if hits:
             name = hits[0].get("SITE_NAME") or hits[0].get("DESIG") or "a designated site"
-            out.append(Exclusion(layer=layer, designation=label, site_name=str(name)))
+            out.append(Exclusion(layer=layer, designation=label, site_name=str(name),
+                                 mitigation=mitigation))
     return out
 
 
@@ -501,4 +524,5 @@ def evaluate(
         ))
 
     return SitingResult(lon=lon, lat=lat, dev_type=dev_type, council=council,
-                        issues=issues, disclaimer=cat.disclaimer)
+                        issues=issues, disclaimer=cat.disclaimer,
+                        exclusions=hard_exclusions(store, lon, lat))
