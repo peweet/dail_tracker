@@ -223,7 +223,14 @@ def transform_lobby_orgs(lobby_org: pl.DataFrame) -> pl.DataFrame:
 
 
 def parse_lobbying_period(df: pl.DataFrame) -> pl.DataFrame:
-    """Split the 'DD MMM, YYYY to DD MMM, YYYY' period string into typed start/end datetimes."""
+    """Split the 'DD MMM, YYYY to DD MMM, YYYY' period string into typed start/end datetimes.
+
+    lobbying.ie publishes the abbreviated month with two punctuation styles that
+    coexist once the historical exports and the current YTD file are stacked:
+    'Apr, 2026' (older exports) and 'Apr. 2026' (current export, as of 2026-06).
+    Parse both, then hard-fail if any non-null period string matched neither — so
+    a genuine new format drift is still caught instead of silently nulled.
+    """
     df = df.with_columns(pl.col("lobbying_period").str.split(" to ").alias("lobbying_period_dates"))
     df = df.with_columns(
         pl.col("lobbying_period_dates")
@@ -231,11 +238,33 @@ def parse_lobbying_period(df: pl.DataFrame) -> pl.DataFrame:
         .alias("lobbying_period_struct")
     )
     df = df.unnest("lobbying_period_struct")
+
+    def _to_date(col: str) -> pl.Expr:
+        return pl.coalesce(
+            pl.col(col).str.to_date("%e %b, %Y", strict=False),
+            pl.col(col).str.to_date("%e %b. %Y", strict=False),
+        )
+
     df = df.with_columns(
-        pl.col("lobbying_period_start_date").str.to_date("%e %b, %Y").cast(pl.Datetime),
-        pl.col("lobbying_period_end_date").str.to_date("%e %b, %Y").cast(pl.Datetime),
+        _to_date("lobbying_period_start_date").alias("_start_d"),
+        _to_date("lobbying_period_end_date").alias("_end_d"),
     )
-    df = df.drop("lobbying_period", "lobbying_period_dates")
+    # Drift guard: a non-null raw period date that matched neither known format.
+    bad = df.filter(
+        (pl.col("lobbying_period_start_date").is_not_null() & pl.col("_start_d").is_null())
+        | (pl.col("lobbying_period_end_date").is_not_null() & pl.col("_end_d").is_null())
+    )
+    if bad.height:
+        sample = bad.select("lobbying_period").unique().head(5).to_series().to_list()
+        raise ValueError(
+            f"parse_lobbying_period: {bad.height} rows have an unrecognised period date "
+            f"format; add the new pattern to _to_date. Examples: {sample}"
+        )
+    df = df.with_columns(
+        pl.col("_start_d").cast(pl.Datetime).alias("lobbying_period_start_date"),
+        pl.col("_end_d").cast(pl.Datetime).alias("lobbying_period_end_date"),
+    )
+    df = df.drop("_start_d", "_end_d", "lobbying_period", "lobbying_period_dates")
     return df
 
 
