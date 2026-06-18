@@ -1,6 +1,6 @@
 {
   "parser_version": "1.1.1",
-  "generated_at": "2026-06-17T06:10:02.327529+00:00",
+  "generated_at": "2026-06-17T22:09:22.955101+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -59,31 +59,39 @@
       "sha256": "f40eed77f723d827",
       "sessions": 99,
       "cases": 373
+    },
+    {
+      "file": "2026-06-18.docx",
+      "diary_date": "2026-06-18",
+      "sha256": "3f4d03e6a4f52709",
+      "sessions": 87,
+      "cases": 294
     }
   ],
-  "n_days": 8,
-  "tier_a_sessions": 815,
-  "tier_b_counts": 477,
-  "case_lines_parsed": 5936,
-  "cases_dropped_protected": 943,
-  "cases_kept_anonymised": 4986,
+  "n_days": 9,
+  "tier_a_sessions": 902,
+  "tier_b_counts": 529,
+  "case_lines_parsed": 6230,
+  "cases_dropped_protected": 991,
+  "cases_kept_anonymised": 5232,
   "drop_reasons": {
-    "asylum": 526,
-    "minor": 211,
-    "child and family": 160,
+    "asylum": 530,
+    "minor": 216,
+    "child and family": 198,
     "family law": 18,
     "custody": 8,
     "guardian": 7,
     "ward of court": 6,
-    "adoption": 3,
     "childcare": 3,
-    "special education": 1
+    "adoption": 3,
+    "special education": 1,
+    "tusla": 1
   },
   "plaintiff_kinds": {
-    "individual": 3108,
-    "state-prosecutor": 1046,
-    "organisation": 759,
-    "state-body": 73
+    "individual": 3248,
+    "state-prosecutor": 1085,
+    "organisation": 824,
+    "state-body": 75
   },
   "privacy_note": "Tier C drops statutory in-camera categories entirely and reduces every natural person to initials; organisations/State bodies kept in clear; case refs stripped; provenance link + source_sha256 attached."
 }
