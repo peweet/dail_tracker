@@ -94,6 +94,7 @@ from ui.components import (
     period_year_pills as _year_pills,
     pill,
     ranked_member_card,
+    text_search_mask,
     totals_strip,
 )
 from data_access.identity_resolver import resolve_member_code
@@ -759,9 +760,7 @@ def _render_org_index(summary: pd.DataFrame) -> None:
         income_trend=(trend_choice.lower() if trend_choice and trend_choice != "All" else None),
     )
     if search and search.strip():
-        filtered = filtered[
-            filtered["lobbyist_name"].astype(str).str.contains(search.strip(), case=False, na=False, regex=False)
-        ]
+        filtered = filtered[text_search_mask(filtered, search, ["lobbyist_name"])]
 
     st.caption(f"Showing {len(filtered):,} of {len(orgs):,} organisations.")
     if filtered.empty:
