@@ -52,3 +52,27 @@
 - **Visibility splay (sightline) X:** measured 3 m back from edge of public road (2 m for a single dwelling access).
 - **Visibility splay (sightline) Y (>60 kph):** National Roads 230 m; Class 1 Regional Roads 220 m; Class 2 Regional Roads 135 m; Local/County Roads 65 m.
 - Building setbacks from roads: stated qualitatively only ("proportionate to road width") — no fixed metric.
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies VERBATIM from Wexford CDP 2022-2028 Volume 2 (Development Management       -->
+<!-- Manual) text quoted above. Nodes the Manual sets no fixed standard for            -->
+<!-- (septic_groundwater, landscape_siting, peat_bog, protected_structure) are         -->
+<!-- intentionally absent (no-inference contract).                                     -->
+
+### node: rural_need_zoning — Rural one-off housing (Table 3-3, site size)
+ref: Wexford CDP 2022-2028, Volume 2 — Development Management Manual, Table 3-3
+Rural One-off Housing — Table 3-3 (Site Size / Floor Area / Biodiversity):
+- Dwelling floor area < 100 m²: minimum site size 0.2 ha; biodiversity requirement boundary reinforcement.
+- Dwelling floor area 100–200 m²: minimum site size 0.2 ha; 20% of site set aside.
+- Dwelling floor area > 200–300 m²: minimum site size 0.4 ha; 20% of site set aside.
+- Dwelling floor area > 300 m²: minimum site size 1.0 ha; 50% of site set aside (tree planting / biodiversity).
+- Setback of the dwelling from the roadside boundary assessed case-by-case.
+- Sightlines for the relevant road category must be achievable within the red-line site (§3.1.1 rural house design).
+
+### node: road_sightlines — Sightlines & access (Section 6)
+ref: Wexford CDP 2022-2028, Volume 2 — Section 6 (Transport & Mobility)
+- Forward visibility splays required; sightlines measured per Section 6 (Figures 6-6 to 6-8).
+- Removal of the full length of a roadside boundary to achieve sightlines should be avoided.
+- Visibility splay (sightline) X: measured 3 m back from edge of public road (2 m for a single dwelling access).
+- Visibility splay (sightline) Y (>60 kph): National Roads 230 m; Class 1 Regional Roads 220 m; Class 2 Regional Roads 135 m; Local/County Roads 65 m.

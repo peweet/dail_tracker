@@ -49,15 +49,15 @@
     }
   ],
   "supplier_class_counts": {
+    "public_body": 333,
     "sole_trader_or_individual": 4698,
-    "company": 26823,
-    "unknown": 52,
     "foreign_company": 57,
-    "public_body": 333
+    "unknown": 52,
+    "company": 26823
   },
   "amount_semantics_counts": {
-    "po_committed": 14991,
-    "payment_actual": 16972
+    "payment_actual": 16972,
+    "po_committed": 14991
   },
   "value_safe_to_sum_rows": 31527,
   "value_safe_to_sum_total_eur": 7529328528.870001,
@@ -65,6 +65,6 @@
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-17T18:27:45+00:00",
+  "generated_at": "2026-06-18T17:59:28+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox). HSE+Tusla via bespoke column-x parse, mapped to public_payments_fact. HSE=payment_actual (incl-VAT), Tusla=po_committed. Per-year files layout-gated. PRIVACY QUARANTINE APPLIED (likely-person rows public_display=False)."
 }

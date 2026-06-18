@@ -80,3 +80,29 @@ A flexible approach may be applied where substantiated and no traffic-safety iss
 - Standards apply to residential development in **non-serviced areas** (no public wastewater/water).
 - **Site curtilage** required to accommodate/renovate dwellings should reflect the size and scale of the development, integration into landscape, proximity to public roads and adjoining dwellings, and must accommodate a **wastewater treatment system with designed minimum separation distance in accordance with the EPA Code of Practice: Domestic Waste Water Treatment Systems (2021)**.
 - No single fixed minimum site-area figure is set — it is performance-based (driven by WWTS capacity and EPA separation distances).
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts).   -->
+<!-- Bodies are VERBATIM Kerry County DP 2022-2028 Vol.6 Ch.1 text. peat_bog and         -->
+<!-- protected_structure are not set as site/design standards in this chapter and ABSENT. -->
+
+### node: road_sightlines — Sightlines & access (rural)
+ref: Kerry County DP 2022-2028, Vol.6 Ch.1 (Sightlines / access)
+- Comprehensive details of adequate sightlines and stopping distances required per road category. Where road has 80 km/h or greater speed limit, a 215 m minimum visibility distance is required.
+- Entrance gates shall be recessed 4.5 m behind the line of roadside hedgerow, with side boundaries splayed at 45 degrees to the public road carriageway.
+- Where satisfactory sightlines can only be achieved by removing extensive hedgerows/trees/ditches/stone walls, an alternative site should be sought.
+
+### node: landscape_siting — Building lines / roadside boundary setbacks
+ref: Kerry County DP 2022-2028, Vol.6 Ch.1 (Building lines / setbacks)
+Existing roadside boundaries (hedges, sod banks, stone walls) retained where possible subject to traffic safety; where a setback is required the area between new and old boundary shall be levelled, drained and surfaced. Where satisfactory sightlines can only be achieved by removing extensive hedgerows/trees/ditches/stone walls, an alternative site should be sought.
+
+### node: rural_need_zoning — Rural housing site area (non-serviced areas)
+ref: Kerry County DP 2022-2028, Vol.6 Ch.1 (1.5.10.1)
+- Standards apply to residential development in non-serviced areas (no public wastewater/water).
+- Site curtilage required to accommodate/renovate dwellings should reflect the size and scale of the development, integration into landscape, proximity to public roads and adjoining dwellings, and must accommodate a wastewater treatment system with designed minimum separation distance in accordance with the EPA Code of Practice: Domestic Waste Water Treatment Systems (2021).
+- No single fixed minimum site-area figure is set — it is performance-based (driven by WWTS capacity and EPA separation distances).
+- Maximum 65% site coverage in rural areas ("one-off" housing) (1.5.4.8).
+
+### node: septic_groundwater — On-site wastewater (non-serviced rural sites)
+ref: Kerry County DP 2022-2028, Vol.6 Ch.1 (1.5.10.1)
+For non-serviced rural sites, the site must accommodate a wastewater treatment system with designed minimum separation distance in accordance with the EPA Code of Practice: Domestic Waste Water Treatment Systems (2021).

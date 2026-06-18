@@ -45,3 +45,19 @@ Triggers enumerated verbatim in the chapter:
 
 ## Site Suitability / Wastewater (rural)
 - On-site wastewater treatment per EPA Code of Practice on Wastewater Treatment and Disposal Systems serving Single Houses (October 2009) — DMS-44, DMS-51 (implies site-suitability/percolation testing to EPA Code).
+
+## Machine-readable concept checklist (parsed by rulebook.parse_checklist_concepts)
+
+| node | Required document | Trigger condition | Ref |
+|------|-------------------|-------------------|-----|
+| aa_screening | Appropriate Assessment screening / Natura Impact Statement | All plans or projects (including Part 8) unless directly connected with/necessary to the management of a Natura 2000 site are required to be subject to screening for Appropriate Assessment; full AA (NIS) required unless screening establishes no likely significant effect | Offaly County DP 2021-2027, Ch.13 |
+| eia | Environmental Impact Assessment (EIA / EIAR) | Mandatory thresholds per Planning and Development Regulations 2001 (as amended); sub-threshold EIAR required where the Planning Authority considers a sub-threshold proposal likely to have significant environmental effects | Offaly County DP 2021-2027, Ch.13 |
+| floodplain | Flood Risk Assessment + Development Management Justification Test | All development proposals within or incorporating areas at moderate to high risk of flooding require site-specific FRAs and application of the Development Management Justification Test | Offaly County DP 2021-2027, Ch.13 (DMS-106) |
+| road_sightlines | Traffic and Transport Assessment + Road Safety Audit | Where new developments have a significant effect on travel demand / capacity of surrounding transport links, per thresholds in Tables 2.1, 2.2, 2.3 of TII Traffic and Transport Assessment Guidelines (2014) | Offaly County DP 2021-2027, Ch.13 (DMS-105) |
+| protected_structure | Architectural Heritage Assessment | Protected Structures (including development within view of / within the curtilage, attendant grounds and setting), and Architectural Conservation Areas (ACA) | Offaly County DP 2021-2027, Ch.13 (DMS-93/94/95) |
+| monument | Archaeological Assessment | Archaeological Sites (DMS-96); Archaeological Assessment among required assessments | Offaly County DP 2021-2027, Ch.13 (DMS-96) |
+| landscape_siting | Landscape Character Assessment / Visual Impact Assessment | Among assessments listed (chapter list is "not exhaustive") | Offaly County DP 2021-2027, Ch.13 |
+| bats | Ecological Impact Assessment | Among assessments listed (chapter list is "not exhaustive") | Offaly County DP 2021-2027, Ch.13 |
+| climate_statement | Energy Efficiency and Climate Change Adaptation Design Statement | Residential developments in excess of 10 units (DMS-31); retail/industrial/warehousing/business-park developments in excess of 1,000 m² (DMS-60, DMS-74) | Offaly County DP 2021-2027, Ch.13 |
+| design_statement | Design Statement | Residential developments in excess of 10 units (urban) | Offaly County DP 2021-2027, Ch.13 (DMS-07) |
+| septic_groundwater | Site Suitability / Percolation testing (EPA Code of Practice) | On-site wastewater treatment per EPA Code of Practice on Wastewater Treatment and Disposal Systems serving Single Houses (October 2009) | Offaly County DP 2021-2027, Ch.13 (DMS-44/51) |

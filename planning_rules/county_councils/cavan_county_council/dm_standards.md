@@ -93,3 +93,17 @@ Ribbon = 5 or more houses on any one side of a given 250 m of road frontage (per
 
 ## Rural — Access & Sightlines (§12.13.2.6)
 New access points generally subject to sightline visibility standards in Appendix 4 ("Sightline Visibility Requirements for Junctions and Direct Accesses"). Additional access points to national roads with speed limit >60 km/h restricted. (Numeric x/y values are in Appendix 4 — not in written statement, not captured here.)
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts).   -->
+<!-- Bodies are VERBATIM Cavan County DP 2022-2028 text. Sightline numeric x/y values    -->
+<!-- live in Appendix 4 (not captured); septic numeric site area, landscape, peat and    -->
+<!-- protected_structure are not set as standards in the captured text and are ABSENT.    -->
+
+### node: rural_need_zoning — Rural ribbon development
+ref: Cavan County DP 2022-2028, §12.13.2.9
+Ribbon = 5 or more houses on any one side of a given 250 m of road frontage (per DEHLG Sustainable Rural Housing Guidelines). New/extended ribbon development discouraged.
+
+### node: road_sightlines — Rural access & sightlines
+ref: Cavan County DP 2022-2028, §12.13.2.6
+New access points generally subject to sightline visibility standards in Appendix 4 ("Sightline Visibility Requirements for Junctions and Direct Accesses"). Additional access points to national roads with speed limit >60 km/h restricted. (Numeric x/y values are in Appendix 4 — not in written statement, not captured here.)

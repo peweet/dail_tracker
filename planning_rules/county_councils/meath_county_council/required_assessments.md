@@ -44,3 +44,16 @@ Triggers enumerated verbatim in the chapter:
 
 ## Site Suitability / Percolation (rural)
 - Rural one-off house site-suitability and on-site wastewater (percolation) standards are addressed in Chapter 9 Rural Development Strategy (cross-referenced), not within Chapter 11.
+
+## Machine-readable concept checklist (parsed by rulebook.parse_checklist_concepts)
+
+| node | Required document | Trigger condition | Ref |
+|------|-------------------|-------------------|-----|
+| eia | Environmental Impact Assessment (EIA / EIAR) | Development of a class set out in Schedule 5 of the Planning and Development Regulations 2001 (as amended) which exceeds a limit, quantity or threshold for that class; EIA Screening for certain proposals | Meath County DP 2021-2027 (varied), Ch.11 (11.1.3) |
+| aa_screening | Appropriate Assessment screening / Natura Impact Statement | Plan/project (alone and in combination) on the integrity of a Natura 2000 site; Screening Report (Stage 1), then Natura Impact Statement (Stage 2) if further assessment required | Meath County DP 2021-2027 (varied), Ch.11 (11.1.4) |
+| floodplain | Flood Risk Assessment | Hydrology Appraisal / Flood Risk Assessment listed among assessments for relevant proposals; surface water management and flood risk minimisation required for larger developments | Meath County DP 2021-2027 (varied), Ch.11 |
+| road_sightlines | Traffic & Transport Assessment + Road Safety Audit | Major developments with significant potential to generate traffic or create a significant hazard; indicative TTA thresholds: traffic exceeds 10% of adjoining road flow (5% where congestion exists), residential over 100 dwellings, retail/leisure over 1,000 sq.m, industrial over 5,000 sq.m | Meath County DP 2021-2027 (varied), Ch.11 |
+| landscape_siting | Landscape Impact Assessment | May be deemed necessary on a case-by-case basis at pre-application stage | Meath County DP 2021-2027 (varied), Ch.11 |
+| monument | Archaeological Assessment | May be deemed necessary on a case-by-case basis at pre-application stage | Meath County DP 2021-2027 (varied), Ch.11 |
+| protected_structure | Architectural Assessment | Development on/near Protected Structures and within Architectural Conservation Areas (Architectural Assessment among required assessments) | Meath County DP 2021-2027 (varied), Ch.11 |
+| bats | Ecology/Biodiversity Assessment (including bat surveys) | May be deemed necessary on a case-by-case basis at pre-application stage | Meath County DP 2021-2027 (varied), Ch.11 |

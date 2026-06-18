@@ -31,3 +31,17 @@ Assessment triggers enumerated in Chapter 15 (quoted, no inference):
 - On-site wastewater treatment addressed; rural dwelling layout per Kildare Rural House Design Guide (Appendix 4). Explicit "percolation/site-suitability test" wording not located in the captured chapter text.
 
 Note: Justification Test and percolation/site-suitability are not explicitly enumerated under those exact terms in the captured Chapter 15 text.
+
+## Machine-readable concept checklist (parsed by rulebook.parse_checklist_concepts)
+
+Maps each siting-catalogue node id to the assessment Kildare's Chapter 15 names for it, with the
+plan's own trigger wording. Nodes Chapter 15 does not enumerate (e.g. flood Justification Test,
+percolation/site-suitability) are intentionally absent.
+
+| node | Required document | Trigger condition | Ref |
+|------|-------------------|-------------------|-----|
+| aa_screening | Screening for Appropriate Assessment / Natura Impact Statement | All plans/projects (incl. Part 8 proposals), unless directly connected with the management of a Natura 2000 site, must be screened to determine likely significant effect on a Natura 2000 site; full AA / NIS required where screening indicates | Kildare CDP 2023-2029, §15.1.6 |
+| eia | Environmental Impact Assessment (EIA / EIAR) | Public and private projects likely to have significant effects on the environment are granted permission only after assessment (EIA Directive 2011/92/EU as amended by 2014/52/EU) | Kildare CDP 2023-2029, §15.1.5 |
+| protected_structure | Architectural Heritage assessment | Development affecting protected structures / ACAs (per Architectural Heritage Protection Guidelines for Planning Authorities 2011) | Kildare CDP 2023-2029, Ch.15 |
+| road_sightlines | Traffic and Transport Assessment (TTA) | Larger developments per Table 15.7; trigger example: traffic to and from the development exceeds 10% of the traffic flow on the adjoining road | Kildare CDP 2023-2029, §15.7 |
+| surface_water | Surface Water Management / SuDS measures | Required per §15.8.1 | Kildare CDP 2023-2029, §15.8.1 |

@@ -125,3 +125,28 @@ Sight distances from vehicular entrances:
 - Sráid (village street) residential (DMS-35): site size of 0.5 acres; max 4 houses; tree replacement ratio 2:1.
 - Business/Tech Park unit building line (DMS-73): generally not less than 15 metres from road + 5 metre planted strip.
 - Green Roof (DMS-72): minimum 60% of roof area for roofs greater than 300 m².
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Offaly CDP 2021-2027 Chapter 13 text. Nodes the chapter sets no -->
+<!-- standard for (septic_groundwater, landscape_siting, peat_bog, protected_structure) -->
+<!-- are intentionally ABSENT. -->
+
+### node: rural_need_zoning — Rural One-Off House Standards (Open Countryside)
+ref: Offaly County Development Plan 2021-2027, Chapter 13 (DMS-45, DMS-46, DMS-54, DMS-57)
+- DMS-45 Site Size: "A minimum site size of 0.2 hectares (0.5 acres) is required to accommodate a dwelling in the open countryside."
+- DMS-46 Road Frontage: "minimum of 30 metres road frontage" (case-by-case relaxation).
+- DMS-54 Rural Infill: site area minimum 0.202 hectares (0.5 acres).
+- DMS-57 Domestic Garages/Stores: max floor area 100 m², max height 5 metres in open countryside.
+
+### node: road_sightlines — Sightlines / Safe Sight Distances (DMS-97, DMS-98)
+ref: Offaly County Development Plan 2021-2027, Chapter 13 (DMS-97, DMS-98)
+Sight distances from vehicular entrances:
+- Local Tertiary Roads: 60 metres
+- Local Secondary Roads: 90 metres
+- Local Primary Roads: 120 metres
+- Regional Roads: 150 metres
+- National Roads: 230 metres
+- Measured "from a point 2.4 metres from the road edge at the proposed access to a point at the near edge of the approaching carriageway."
+Distance from Junctions (DMS-98) — new rural entrances:
+- Local Road junction: 50 metres; Regional Road junction: 100 metres; National Road junction: 150 metres.

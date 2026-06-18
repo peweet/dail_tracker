@@ -84,3 +84,22 @@ Open space hierarchy: play lot/pocket park 400 m²–0.2 ha (100 m walk); small 
 ## Other
 - Landscaping maintenance: minimum 18 months; tree establishment 5 years.
 - Phasing schedule required for residential developments exceeding 30 units.
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies VERBATIM from Limerick Development Plan 2022-2028, Chapter 11             -->
+<!-- (Development Management Standards) quoted above. Nodes Ch.11 sets no fixed        -->
+<!-- standard for (septic_groundwater, landscape_siting, peat_bog,                     -->
+<!-- protected_structure) are intentionally absent (no-inference contract).            -->
+
+### node: rural_need_zoning — Rural one-off housing
+ref: Limerick Development Plan 2022–2028, Chapter 11 — Development Management Standards
+- Minimum site area: 0.2 hectares (0.5 acres).
+- Minimum road frontage: 30 m.
+- Gates recessed 4.5 m behind hedgerow line; 45-degree splay to road.
+
+### node: road_sightlines — Sightline visibility distances
+ref: Limerick Development Plan 2022–2028, Chapter 11 — Development Management Standards
+- Petrol stations: road speed <80 km/h — 160 m minimum; ≥80 km/h — 215 m minimum.
+- Rural dwelling entrances: per TII road geometric standards by road category (specific x/y not quantified in chapter).
+- Petrol-station pump island: ≥7 m from roadside boundary.

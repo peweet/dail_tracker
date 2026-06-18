@@ -67,3 +67,26 @@
 
 ## Residential density
 - Volume 2 (Section 3.2) sets out general density advice (criteria-based, location-dependent) rather than fixed dwellings/ha figures; density targets are carried in Volume 1 Core Strategy / Table 3.2.
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies VERBATIM from Waterford City & County DP 2022-2028, Volume 2              -->
+<!-- (Development Management Standards) quoted above. Nodes Vol 2 sets no fixed        -->
+<!-- standard for (rural_need_zoning site area, septic_groundwater, landscape_siting,  -->
+<!-- peat_bog, protected_structure) are intentionally absent (no-inference contract).  -->
+
+### node: road_sightlines — Sightline requirements & building lines/setbacks
+ref: Waterford City & County DP 2022–2028, Volume 2 — Table 8.1 / building lines
+Sightline requirements (Table 8.1 — Minimum Sight (Y) Distance):
+- Category A: speed limit 100 km/h — min sight (Y) distance 215 m.
+- Category B: speed limit 80 km/h — 160 m.
+- Category C: 60 km/h (built-up) — 90 m.
+- Category D: 50 km/h (built-up) — 70 m.
+- Category E: 80 km/h (local roads) — 55 m.
+- Cul-de-sac (≤3 dwellings): 30 m sightlines.
+- Set-back (X) point from nearside edge of roadway: 4.5 m (housing estates/commercial/industrial) or 2.4 m (single dwellings).
+- Eye heights 1.05 m and 2.0 m; object heights 0.26 m and 2.0 m.
+Building lines / setbacks:
+- Principal road frontages (business parks etc.): building line generally not less than 15 m from the road, with a minimum planted strip of 5 m.
+- New development along specified protected routes: preferably not less than 25 m from the public-road boundary fence, and in any event not less than 18 m; along the Tramore/Waterford Road not less than 30 m.
+- On all County roads: general set-back 18 m from the road fence.

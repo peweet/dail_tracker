@@ -248,10 +248,30 @@ def _scrape_feed(page, feed: str, max_pages: int, delay_ms: int) -> list[dict]:
     return out
 
 
+def _snapshot_age_hours() -> float | None:
+    """Hours since the last successful snapshot, read from the coverage JSON's generated_utc.
+    None if no prior snapshot exists (or its timestamp is unreadable)."""
+    if not OUT_COV.exists():
+        return None
+    try:
+        gen = json.loads(OUT_COV.read_text(encoding="utf-8")).get("generated_utc")
+        return (datetime.now(UTC) - datetime.fromisoformat(gen)).total_seconds() / 3600.0
+    except Exception:  # noqa: BLE001 — a malformed/missing timestamp must not block a refresh
+        return None
+
+
 def main() -> None:
     setup_standalone_logging("etenders_live_tenders_extract")
     ap = argparse.ArgumentParser()
     ap.add_argument("--max-pages", type=int, default=120, help="page cap per feed (politeness)")
+    ap.add_argument(
+        "--min-age-hours",
+        type=float,
+        default=20.0,
+        help="refuse to re-scrape if the existing snapshot is younger than this (guards against a "
+        "redundant same-day pull of data we already have). Override with --force.",
+    )
+    ap.add_argument("--force", action="store_true", help="scrape even if a fresh snapshot already exists")
     ap.add_argument("--only", default="", help="cft | notice (default both)")
     ap.add_argument("--delay-ms", type=int, default=1000)
     ap.add_argument(
@@ -273,6 +293,25 @@ def main() -> None:
     )
     args = ap.parse_args()
     feeds = [args.only] if args.only in FEEDS else list(FEEDS)
+
+    # Freshness guard: this is a tracked silver fact refreshed daily — don't re-scrape (and don't
+    # build a one-off scraper) when a recent snapshot already exists. --dry-run is exempt (it never
+    # writes), as is --force.
+    if not args.dry_run and not args.force:
+        age = _snapshot_age_hours()
+        if age is not None and age < args.min_age_hours:
+            log.info(
+                "Snapshot is %.1fh old (< --min-age-hours=%.0f) at %s — already have this; skipping. "
+                "Use --force to scrape anyway.",
+                age,
+                args.min_age_hours,
+                OUT_SILVER,
+            )
+            print(
+                f"SKIP: existing snapshot is {age:.1f}h old (< {args.min_age_hours:.0f}h). "
+                f"Already have it at {OUT_SILVER}. Re-run with --force to override."
+            )
+            return
 
     rows: list[dict] = []
     with sync_playwright() as pw:

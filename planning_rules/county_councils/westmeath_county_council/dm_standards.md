@@ -40,3 +40,16 @@
 
 ## Rural Housing (§16.3.7)
 - Rural one-off housing assessed against the rural-housing criteria (set in the Core/Settlement strategy) + careful design consideration. No single fixed minimum-site-area figure in Chapter 16; larger houses (>200 m²) must incorporate specific design solutions.
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Westmeath CDP 2021-2027 Ch.16 text. Nodes for which the       -->
+<!-- chapter sets no standard are intentionally ABSENT (no-inference contract).         -->
+
+### node: rural_need_zoning — Rural Housing
+ref: Westmeath County Development Plan 2021-2027, Chapter 16 — Development Management Standards (§16.3.7)
+Rural one-off housing assessed against the rural-housing criteria (set in the Core/Settlement strategy) + careful design consideration. No single fixed minimum-site-area figure in Chapter 16; larger houses (>200 m²) must incorporate specific design solutions.
+
+### node: road_sightlines — Sightlines & Access
+ref: Westmeath County Development Plan 2021-2027, Chapter 16 — Development Management Standards (§16.3.x)
+Safe unobstructed sight distances provided and maintained; where hedgerow removal is required to achieve sightlines, a new native-species hedgerow must be planted inside the line of visibility.

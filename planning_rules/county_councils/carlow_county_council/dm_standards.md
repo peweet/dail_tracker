@@ -217,3 +217,24 @@ Visibility measured at driver eye height 1.05 m, object height 0.6 m.
 ## Waste Storage (16.8.5)
 
 - Residential: 3 wheelie bins per dwelling
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts).   -->
+<!-- Bodies are VERBATIM Carlow County DP 2022-2028 Ch.16 text. Nodes Chapter 16 sets    -->
+<!-- no standard for (rural_need_zoning is directed to the Rural Design Guide Ch.13;      -->
+<!-- septic/landscape/peat/protected_structure not stated in Ch.16) are ABSENT.          -->
+
+### node: road_sightlines — Sightline visibility & entrance distance from junctions
+ref: Carlow County DP 2022-2028, Ch.16 (16.10.7 Table 16.5, 16.10.8)
+Sightline Visibility — Site Entrances (16.10.7, Table 16.5):
+- National Roads (100/80 km/h): Y 210 m, X 4.5 m
+- Regional Roads (100 km/h): Y 210 m, X 4.5 m
+- Regional Roads (80/60 km/h): Y 150 m, X 2.5 m
+- Local Roads (80/60 km/h): Y 90 m, X 2.5 m
+Visibility measured at driver eye height 1.05 m, object height 0.6 m.
+
+Entrance Minimum Distance from Junctions (16.10.8):
+- National Primary Roads: 150 m
+- National Secondary Roads: 100 m
+- Regional Roads: 100 m
+- Local Primary Roads: 40 m

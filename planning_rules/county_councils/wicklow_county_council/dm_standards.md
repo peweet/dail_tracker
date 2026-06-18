@@ -52,3 +52,25 @@
   - Rural Regional: 40 m (all development); 20 m (employment development)
   - Rural Local Roads: 20 m · Arterial Road: 10 m · Link Road: 6 m · Urban Local Road: minimum required for footpaths + buffer
 - Sightlines (§2.1.9): qualitative — calculated per the applicable road design manual (no fixed X/Y).
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies VERBATIM from Wicklow CDP 2021-2027 Appendix 1 (Development & Design       -->
+<!-- Standards) quoted above. Nodes Appendix 1 sets no fixed standard for              -->
+<!-- (rural_need_zoning site area, landscape_siting, peat_bog, protected_structure)    -->
+<!-- are intentionally absent (no-inference contract).                                 -->
+
+### node: septic_groundwater — Rural / one-off housing wastewater
+ref: Wicklow CDP 2021-2027, Appendix 1 — Development & Design Standards
+Assessed under the Sustainable Rural Housing Guidelines 2005 and the EPA Code of Practice on Wastewater Treatment and Disposal Systems Serving Single Houses 2010 (on-site wastewater treatment + percolation). No single fixed minimum-site-area figure is tabulated in Appendix 1 (rural housing policy is in Volume 1).
+
+### node: road_sightlines — Sightlines & setbacks (2.1.9–2.1.11)
+ref: Wicklow CDP 2021-2027, Appendix 1 §2.1.9–2.1.11 / Table 2.5
+- Clear sightlines required at entrances; sight distance calculated per road speed/standards.
+- Forward sight distance maintained for the first 6 m from the public-road carriageway edge, increasing to 10 m or more for larger housing developments.
+- §2.1.11 sets out setbacks from public roads.
+- Building setback from edge of hard-paved surface of public road (Table 2.5):
+  - Motorway / National Road: 100 m (all development); 20 m (employment development)
+  - Rural Regional: 40 m (all development); 20 m (employment development)
+  - Rural Local Roads: 20 m · Arterial Road: 10 m · Link Road: 6 m · Urban Local Road: minimum required for footpaths + buffer
+- Sightlines (§2.1.9): calculated per the applicable road design manual (no fixed X/Y).

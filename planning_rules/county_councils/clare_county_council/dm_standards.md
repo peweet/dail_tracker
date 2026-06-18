@@ -85,3 +85,28 @@ All new developments (including extensions) required to incorporate Sustainable 
 
 ## Open Space — public
 Each green space in residential developments must integrate at least one native oak (or equivalent large indigenous deciduous) tree in the planting/landscaping scheme. (Quantitative % open-space figures are governed by the national Sustainable Residential Development guidelines; no single local % table in Appendix 1.)
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts).   -->
+<!-- Bodies are VERBATIM Clare County DP 2023-2029 Appendix 1 text. landscape_siting,    -->
+<!-- peat_bog and protected_structure are not set as standards in Appendix 1 and ABSENT. -->
+
+### node: rural_need_zoning — Rural one-off house minimum site area
+ref: Clare County DP 2023-2029, Appendix 1 (A1.4.1)
+- Minimum site area: 0.2 ha (0.5 acres) required to accommodate a rural dwelling.
+- On-site wastewater assessed per EPA Code of Practice: Domestic Waste Water Treatment Systems (p.e. <10) 2021.
+
+### node: septic_groundwater — On-site wastewater (rural dwelling)
+ref: Clare County DP 2023-2029, Appendix 1 (A1.4.1)
+On-site wastewater assessed per EPA Code of Practice: Domestic Waste Water Treatment Systems (p.e. <10) 2021. Minimum site area 0.2 ha (0.5 acres) required to accommodate a rural dwelling.
+
+### node: road_sightlines — Sight distances / entrance visibility
+ref: Clare County DP 2023-2029, Appendix 1 (A1.6.2, Table A2)
+- X distance (setback): 2.4 m from edge of hard-surfaced roadway (relaxation to 2 m on very lightly trafficked roads).
+- Y distance measured along near edge of roadway, per Table A2:
+  - Design speed 120 km/h: 295 m
+  - Design speed 100 km/h: 215 m
+  - Design speed 85 km/h: 160 m
+  - Design speed 70 km/h: 120 m
+  - Design speed 60 km/h: 90 m
+  - Design speed 50 km/h: 70 m

@@ -31,3 +31,20 @@ On-site effluent treatment assessed per EPA Code of Practice: Domestic Waste Wat
 ## Other
 - Tourism infrastructure outside settlements: must include assessment of environmental sensitivities — EIA, AA and SFRA if required.
 - Petrol filling station associated shops >100 m² net: sequential approach applies.
+
+## Machine-readable concept checklist (parsed by rulebook.parse_checklist_concepts)
+
+Maps each siting-catalogue node id to the assessment Clare's plan names for it, with the plan's
+own trigger wording. Architectural Heritage Impact Assessment is intentionally absent — Appendix 1
+sets no discrete numeric trigger (a qualitative consideration only).
+
+| node | Required document | Trigger condition | Ref |
+|------|-------------------|-------------------|-----|
+| aa_screening | Appropriate Assessment screening / Natura Impact Statement (NIS/NIR) | Any plan or project with potential to impact the integrity of a European site (SAC/SPA); NIS/NIR where screening indicates a likely significant effect (alone or in-combination) | Clare County DP 2023-2029, Appendix 1 (A1.3) |
+| european_site | Appropriate Assessment / Natura Impact Statement | On or near a European site (SAC/SPA); priority habitat/species adverse impacts only under IROPI (Article 6(4)) with compensatory measures | Clare County DP 2023-2029, Appendix 1 |
+| eia | Environmental Impact Assessment Report (EIAR) | Schedule 5 thresholds exceeded; sub-threshold EIAR where (per Schedule 7) significant environmental effects are likely | Clare County DP 2023-2029, Appendix 1 (A1.3) |
+| floodplain | Flood Risk Assessment + Justification Test | Development in flood-risk zones (sequential approach and Justification Test per the Guidelines); FRA must consider climate-change impacts | Clare County DP 2023-2029 |
+| road_sightlines | Traffic Impact Assessment (TIA) / Road Safety Audit / Road Safety Impact Assessment (RSIA) | Relevant developments, per TII publications | Clare County DP 2023-2029, Appendix 1 (A1.6.2) |
+| mobility_plan | Transport and Mobility Statement | Housing developments of 10 units or more | Clare County DP 2023-2029, Appendix 1 (A1.6.1) |
+| septic_groundwater | Site suitability / percolation assessment | Unsewered single-house proposals; on-site effluent treatment per EPA Code of Practice 2021 | Clare County DP 2023-2029, Appendix 1 |
+| rural_need_zoning | Site suitability assessment (rural dwelling) | Rural dwelling; minimum site area 0.2 ha (0.5 acres) | Clare County DP 2023-2029, Appendix 1 |

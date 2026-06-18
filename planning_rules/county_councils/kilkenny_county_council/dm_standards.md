@@ -44,3 +44,16 @@
 
 ## Other
 - Drainage/reclamation of a **wetland greater than 0.1 ha** needs planning permission.
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Kilkenny City & County DP 2021-2027 Chapter 13 text. Nodes    -->
+<!-- the chapter sets no fixed standard for are intentionally ABSENT (no-inference).    -->
+
+### node: rural_need_zoning — Rural / one-off housing (§13.22)
+ref: Kilkenny City and County Development Plan 2021-2027, Volume 1, Chapter 13 §13.22
+Rural settlement policy and one-off-house siting criteria are set in Chapter 7 (County Kilkenny Rural Design Guide applies). No single fixed minimum-site-area figure in Chapter 13. Ribbon-development guard: 4 houses on any one side of a given 250 m of road frontage indicates likely ribbon development.
+
+### node: road_sightlines — Sightlines & access (§13.22.1)
+ref: Kilkenny City and County Development Plan 2021-2027, Volume 1, Chapter 13 §13.22.1
+Visibility assessed from the proposed entrance and for impact on road traffic, in accordance with DMRB requirements. Excessive hedgerow removal resisted; hedgerows removed to achieve sightlines must be reinstated behind the sightlines and maintained. Vehicular entrance not wider than 3 m or 50% of the front boundary; hardstanding parking space 2.5 m × 5 m.

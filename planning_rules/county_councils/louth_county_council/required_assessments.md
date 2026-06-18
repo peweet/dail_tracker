@@ -26,3 +26,12 @@
 
 ## Note
 Chapter 13 is the Development Management Guidelines chapter; full enumerations of Appropriate Assessment, EIA/EIAR thresholds and Architectural Heritage Impact Assessment / ACA / protected structure procedures are distributed across the plan (Chapters 3, 9 heritage, and environmental volumes). The captured chapter explicitly states the operational triggers above. Treat AA/EIA/AHIA detail as partial.
+
+## Machine-readable concept checklist (parsed by rulebook.parse_checklist_concepts)
+
+| node | Required document | Trigger condition | Ref |
+|------|-------------------|-------------------|-----|
+| septic_groundwater | Site Suitability / Wastewater Assessment (EPA Code of Practice, p.e. 10) | One-off rural houses on individual on-site wastewater treatment systems; system must have capacity to accommodate additional loading; may require upgrade of existing systems | Louth County DP 2021-2027, Ch.13 |
+| mobility_plan | Workplace Travel Plan / Mobility Management Plan | Developments generating significant trip demand — new schools or developments with in excess of 100 employees; Transport Mobility Management Plan also required to support any reduction in car parking | Louth County DP 2021-2027, Ch.13 (13.16.13) |
+| design_statement | Design Statement | Any development in excess of 10 residential units | Louth County DP 2021-2027, Ch.13 (13.8.8) |
+| aa_screening | Appropriate Assessment screening | Birds and Habitats Directives referenced in development assessment; Appropriate Assessment screening applies under the plan's environmental framework | Louth County DP 2021-2027, Ch.13 |

@@ -10,3 +10,17 @@
 - **Single-house effluent (rural)** — catchment-specific controls (RH-P-10) on single-house treatment-system effluent, with environmental considerations.
 
 > Triggers sit mainly in the environment/heritage and rural-housing chapters; recorded as referenced in the draft, without inference on thresholds. Re-verify on adoption.
+
+## Machine-readable concept checklist (parsed by rulebook.parse_checklist_concepts)
+
+Maps each siting-catalogue node id to the assessment the DRAFT plan names for it, with the plan's
+own (often non-numeric) trigger wording. Re-verify thresholds on adoption.
+
+| node | Required document | Trigger condition | Ref |
+|------|-------------------|-------------------|-----|
+| aa_screening | Appropriate Assessment / Natura Impact Statement | Plans/projects likely to affect protected habitats/species (Natura 2000); a Natura Impact Statement may be required (e.g. for roads) | County Donegal DP 2024-2030 (DRAFT) |
+| european_site | Appropriate Assessment / Natura Impact Statement | Plans/projects likely to affect protected habitats/species (Natura 2000) | County Donegal DP 2024-2030 (DRAFT) |
+| eia | Environmental Impact Assessment (EIS / EIAR) | Projects above thresholds (EU EIA Directive); Council will carry out EIA as necessary | County Donegal DP 2024-2030 (DRAFT) |
+| floodplain | Strategic / site Flood Risk Assessment + Justification Test | Development must comply with the plan's Flood Risk Objectives and Policies (Justification Test in flood zones) | County Donegal DP 2024-2030 (DRAFT) |
+| protected_structure | Architectural Heritage Impact Assessment | Works affecting protected structures (AHIA expectation for affecting works) | County Donegal DP 2024-2030 (DRAFT) |
+| septic_groundwater | Single-house effluent treatment controls | Catchment-specific controls (RH-P-10) on single-house treatment-system effluent | County Donegal DP 2024-2030 (DRAFT) |

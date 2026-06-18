@@ -42,3 +42,17 @@ Triggers enumerated verbatim in the chapter:
 
 ## Plan-level statutory assessments
 - The plan itself was subject to Strategic Environmental Assessment (SEA) and Appropriate Assessment as part of the review process (referenced in Chapter 1, sections 1.14 AA and 1.15 SFRA).
+
+## Machine-readable concept checklist (parsed by rulebook.parse_checklist_concepts)
+
+| node | Required document | Trigger condition | Ref |
+|------|-------------------|-------------------|-----|
+| eia | Environmental Impact Assessment (EIA / EIAR) | Development proposals that exceed the mandatory thresholds set out in Schedule 5 of the Planning and Development Regulations 2001 (as amended); sub-threshold EIAR may be required where the Planning Authority determines the type/scale would require it | Monaghan County DP 2025-2031, Ch.15 (15.1.3) |
+| aa_screening | Appropriate Assessment screening / Natura Impact Statement | Where a development proposal has the potential to impact upon the qualifying interest of a European Site (Natura 2000); where AA screening cannot rule out significant adverse impact, a Natura Impact Statement (Stage 2) by a suitably qualified competent professional is required | Monaghan County DP 2025-2031, Ch.15 (15.1.3) |
+| floodplain | Flood Risk Assessment + Justification Test | All development proposals in flood risk areas; sequential approach + Justification Test per the vulnerability-vs-flood-zone matrix (highly vulnerable: Justification Test in Flood Zone A and B; less vulnerable: Justification Test in Zone A) | Monaghan County DP 2025-2031, Ch.15 (15.22) |
+| road_sightlines | Traffic and Transport Assessment, Quality Audit, Road Safety Audit | Among assessments which may be required (15.1.3, "may include, but are not limited to") | Monaghan County DP 2025-2031, Ch.15 (15.1.3) |
+| protected_structure | Architectural Impact Assessment | Proposals for development works to protected structures or within the vicinity of a protected structure (Section 15.3.1, PSP 1) | Monaghan County DP 2025-2031, Ch.15 (15.3.1) |
+| monument | Archaeological Impact Assessment | Among assessments which may be required (15.1.3, "may include, but are not limited to") | Monaghan County DP 2025-2031, Ch.15 (15.1.3) |
+| landscape_siting | Visual Impact Assessment | Among assessments which may be required (15.1.3, "may include, but are not limited to") | Monaghan County DP 2025-2031, Ch.15 (15.1.3) |
+| bats | Ecological/Biodiversity Impact Assessment | Among assessments which may be required (15.1.3, "may include, but are not limited to") | Monaghan County DP 2025-2031, Ch.15 (15.1.3) |
+| septic_groundwater | Site Assessment / Percolation testing (EPA Code of Practice PE10) | Where on-site wastewater treatment and disposal is proposed; must comply with the EPA Code of Practice — Wastewater Treatment and Disposal Systems Serving Single Houses (PE10) (2021) | Monaghan County DP 2025-2031, Ch.15 (15.9/15.10) |
