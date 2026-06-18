@@ -46,6 +46,7 @@ from ui.components import (
     pagination_controls,
     party_colour,
     stat_strip,
+    text_search_mask,
     year_selector,
 )
 from ui.entity_links import (
@@ -1125,21 +1126,6 @@ def _render_browse(conn) -> None:
         help="Pick one or more parties; leave empty to show every party.",
     )
 
-    # Treat hyphens and spaces as equivalent so "Dublin South West" matches the
-    # stored "Dublin South-West" (and vice versa). Collapse runs of whitespace
-    # too, so a stray double space doesn't break the match.
-    def _norm(s: pd.Series | str):
-        if isinstance(s, str):
-            return re.sub(r"\s+", " ", s.replace("-", " ")).strip().lower()
-        return (
-            s.astype(str)
-            .str.replace("-", " ", regex=False)
-            .str.replace(r"\s+", " ", regex=True)
-            .str.strip()
-            .str.lower()
-        )
-
-    sq = _norm(search or "")
     filtered = df.copy()
     if selected_parties:
         mask = pd.Series(False, index=filtered.index)
