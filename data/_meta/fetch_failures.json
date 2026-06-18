@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-06-18T17:59:20+00:00",
+  "generated_utc": "2026-06-18T18:01:50+00:00",
   "extractors": {
     "public_body": {
       "run_utc": "2026-06-18T17:59:20+00:00",
@@ -16,52 +16,63 @@
       "breaker_trips": []
     },
     "la_payments": {
-      "run_utc": "2026-06-18T17:54:49+00:00",
-      "n_failures": 3,
+      "run_utc": "2026-06-18T18:01:50+00:00",
+      "n_failures": 4,
       "failures": [
         {
-          "ts_utc": "2026-06-18T17:54:27+00:00",
-          "publisher_id": "limerick",
-          "publisher_name": "Limerick",
+          "ts_utc": "2026-06-18T17:59:52+00:00",
+          "publisher_id": "kilkenny",
+          "publisher_name": "Kilkenny",
           "stage": "file",
-          "url": "https://web.archive.org/web/20171025144900id_/https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20000_quarter_2_2016.pdf",
-          "listing_url": "https://www.limerick.ie/council/services/business-and-economy/revenue-collection/accounts-payable",
-          "error_class": "connection_error",
+          "url": "https://kilkennycoco.ie/eng/Services/Finance/Purchase-Orders-Over-€20-000/Download-Purchase-Orders-over-€20-000-Quarter-2-2020-KCC.xlsx",
+          "listing_url": "https://kilkennycoco.ie/eng/services/finance/purchase-orders-over-%E2%82%AC20-000/",
+          "error_class": "http_404",
+          "http_status": 404,
+          "attempts": 2
+        },
+        {
+          "ts_utc": "2026-06-18T18:01:06+00:00",
+          "publisher_id": "galway_county",
+          "publisher_name": "Galway County",
+          "stage": "file",
+          "url": "https://www.galwaycoco.ie/sites/default/files/2026-01/Quarter%201%202025%20%28ENG%29.pdf",
+          "listing_url": "https://www.gaillimh.ie/en/finance/financial-publications/purchase-orders",
+          "error_class": "timeout",
           "http_status": null,
           "attempts": 2
         },
         {
-          "ts_utc": "2026-06-18T17:54:35+00:00",
-          "publisher_id": "limerick",
-          "publisher_name": "Limerick",
+          "ts_utc": "2026-06-18T18:01:15+00:00",
+          "publisher_id": "sligo",
+          "publisher_name": "Sligo",
           "stage": "file",
-          "url": "https://web.archive.org/web/20171025144857id_/https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_eu20000_-_quarter_3_2016.pdf",
-          "listing_url": "https://www.limerick.ie/council/services/business-and-economy/revenue-collection/accounts-payable",
-          "error_class": "connection_error",
+          "url": "https://www.sligococo.ie/YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/SCC PO over 20K Q3 2024.pdf",
+          "listing_url": "https://www.sligococo.ie/YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/",
+          "error_class": "not_expected_filetype",
           "http_status": null,
-          "attempts": 2
+          "attempts": 1
         },
         {
-          "ts_utc": "2026-06-18T17:54:41+00:00",
-          "publisher_id": "limerick",
-          "publisher_name": "Limerick",
+          "ts_utc": "2026-06-18T18:01:16+00:00",
+          "publisher_id": "sligo",
+          "publisher_name": "Sligo",
           "stage": "file",
-          "url": "https://web.archive.org/web/20171025144855id_/https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20k_q4_2016.pdf",
-          "listing_url": "https://www.limerick.ie/council/services/business-and-economy/revenue-collection/accounts-payable",
-          "error_class": "connection_error",
+          "url": "https://www.sligococo.ie/YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/SCC PO over 20K Q2 2024.pdf",
+          "listing_url": "https://www.sligococo.ie/YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/",
+          "error_class": "not_expected_filetype",
           "http_status": null,
-          "attempts": 2
+          "attempts": 1
         }
       ],
-      "zero_harvest": [],
-      "breaker_trips": [
+      "zero_harvest": [
         {
-          "ts_utc": "2026-06-18T17:54:41+00:00",
-          "publisher_id": "limerick",
-          "publisher_name": "Limerick",
-          "files_skipped": 0
+          "ts_utc": "2026-06-18T17:59:44+00:00",
+          "publisher_id": "wicklow",
+          "publisher_name": "Wicklow",
+          "listing_url": "https://www.wicklow.ie/Living/Your-Council/Finance/Procurement/Purchase-Orders-Over-20-000"
         }
-      ]
+      ],
+      "breaker_trips": []
     }
   }
 }

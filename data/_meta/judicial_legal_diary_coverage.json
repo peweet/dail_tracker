@@ -1,6 +1,6 @@
 {
   "parser_version": "1.1.1",
-  "generated_at": "2026-06-18T17:57:27.212589+00:00",
+  "generated_at": "2026-06-18T19:45:08.879119+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -87,10 +87,10 @@
     "child and family": 199,
     "family law": 84,
     "custody": 8,
-    "guardian": 7,
     "ward of court": 7,
-    "adoption": 3,
+    "guardian": 7,
     "childcare": 3,
+    "adoption": 3,
     "special education": 1,
     "tusla": 1
   },

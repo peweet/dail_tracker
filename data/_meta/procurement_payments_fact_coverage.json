@@ -1,25 +1,27 @@
 {
-  "generated_utc": "2026-06-18T17:56:05.593884+00:00",
+  "generated_utc": "2026-06-18T18:01:55.305011+00:00",
   "layer": "gold",
   "source": "extractors/procurement_payments_consolidate.py",
-  "n_rows": 162430,
-  "n_publishers": 45,
-  "n_suppliers": 16322,
-  "cro_matched_pct": 49.7,
+  "n_rows": 216900,
+  "n_publishers": 65,
+  "n_suppliers": 22287,
+  "cro_matched_pct": 46.0,
   "rows_by_publisher_type": {
-    "local_authority": 84118,
-    "state_body": 36138,
-    "agency": 23004,
-    "department": 17213,
-    "education_body": 1957
+    "local_authority": 85116,
+    "department": 40379,
+    "state_body": 39791,
+    "agency": 36887,
+    "semi_state": 10379,
+    "education_body": 3934,
+    "hospital": 414
   },
   "n_local_authorities": 23,
   "safe_eur_by_tier": {
-    "COMMITTED": 13133203322.17,
-    "SPENT": 12160104348.02
+    "SPENT": 18069402669.9,
+    "COMMITTED": 16027082723.72
   },
   "vat_status_counts": {
-    "unknown": 130467,
+    "unknown": 184937,
     "incl_vat": 31963
   },
   "privacy_note": "Suppliers named per published source PO/payments-over-\u20ac20k lists (Circular 07/2012 / FOI); no address/PII beyond the published figure.",

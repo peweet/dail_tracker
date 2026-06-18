@@ -18,6 +18,7 @@ from pages_code.public_payments import public_payments_page
 from pages_code.statutory_instruments import statutory_instruments_page
 from pages_code.votes import votes_page
 from shared_css import inject_css
+from ui.page_analytics import log_page_view
 from ui.spa_links import install_spa_links
 
 # Siting Check runs a live geospatial engine (shapely/rasterio/pyyaml) over local
@@ -222,4 +223,8 @@ inject_css()
 # (outside pg.run()) so the listener survives page navigations; before pg.run()
 # so the clicked query params are visible to the page body in the same run.
 install_spa_links()
+# Cookieless page-view count: records only {timestamp, url_path} to
+# logs/page_views.jsonl — no session id, no IP, no per-person data. Best-effort
+# (never raises). See ui/page_analytics.py.
+log_page_view(pg.url_path)
 pg.run()

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-18T17:37:18Z",
+  "generated_at": "2026-06-18T18:12:36Z",
   "as_of_utc_date": "2026-06-18",
   "note": "Age of the data already held — a canary for 'did the pipeline stop running'. NOT proof that no newer upstream data exists; only the source pollers can confirm that. Generated at pipeline-end (sees silver + gold) and read-only thereafter (Streamlit badge + scheduled report).",
   "stale_datasets": [],
@@ -80,8 +80,8 @@
       "source": "data/gold/parquet/procurement_awards.parquet",
       "status": "ok",
       "latest_record_date": "2026-03-31",
-      "fetched_at": "2026-06-17T06:11:12Z",
-      "fetch_age_days": 1,
+      "fetched_at": "2026-06-18T17:57:52Z",
+      "fetch_age_days": 0,
       "stale_after_days": 120
     }
   }
