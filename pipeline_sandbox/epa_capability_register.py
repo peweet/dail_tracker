@@ -45,6 +45,7 @@ from services.parquet_io import save_parquet  # noqa: E402
 log = logging.getLogger(__name__)
 
 LICENCES = ROOT / "data/sandbox/parquet/epa_licensed_facilities.parquet"
+OPERATORS = ROOT / "data/sandbox/parquet/epa_licence_operators.parquet"  # corporate operator per licence
 OUT = ROOT / "data/sandbox/parquet/epa_capability_register.parquet"
 OUT_SUMMARY = ROOT / "data/sandbox/epa_capability_register_summary.json"
 
@@ -60,19 +61,33 @@ def _looks_individual(name: str) -> bool:
 
 
 def _licensees() -> pd.DataFrame:
-    """One row per EPA licensee: licence portfolio + a single (modal) location."""
+    """One row per EPA OPERATOR (corporate entity): licence portfolio + a single (modal) location.
+
+    Keyed on the LEAP ``operator_name`` ([[epa_operator_enrich]]) rather than the WFS facility Name —
+    it is the operating company (cleaner CRO key, +13.6pp match rate) and correctly collapses a firm's
+    multiple sites into one row. Falls back to the facility name where no operator is known.
+    """
     lic = pd.read_parquet(LICENCES)
+    if OPERATORS.exists():
+        op = pd.read_parquet(OPERATORS)[["profile_number", "operator_name", "operator_id"]]
+        lic = lic.merge(op, left_on="reg_code", right_on="profile_number", how="left")
+    else:
+        lic["operator_name"], lic["operator_id"] = None, None
+    lic["entity_name"] = lic["operator_name"].fillna(lic["licensee_name"]).astype(str).str.strip()
     lic["is_active_licence"] = lic["licence_status"].astype(str).str.fullmatch("Licensed", case=False)
     firms = (
-        lic.groupby("licensee_name")
+        lic.groupby("entity_name")
         .agg(
             location=("location", lambda x: x.mode().iloc[0] if len(x.mode()) else ""),
+            facility_names=("licensee_name", lambda x: sorted(set(x.dropna()))),
             licences=("licence_number", lambda x: sorted(set(x.dropna()))),
             licence_classes=("licence_class", lambda x: sorted(set(x.dropna()))),
             licence_statuses=("licence_status", lambda x: sorted(set(x.dropna()))),
             any_active_licence=("is_active_licence", "any"),
+            operator_id=("operator_id", lambda x: x.dropna().iloc[0] if x.notna().any() else None),
         )
         .reset_index()
+        .rename(columns={"entity_name": "licensee_name"})  # display/match key = the corporate operator
     )
     firms["n_licences"] = firms["licences"].map(len)
     firms["is_public_body"] = firms["licensee_name"].map(lambda n: bool(PUBLIC_BODY.search(str(n))))
@@ -86,7 +101,7 @@ def build() -> pd.DataFrame:
     df = attach_award_and_spend(df)
     df = collapse_by_cro(
         df,
-        list_cols=("licences", "licence_classes", "licence_statuses"),
+        list_cols=("licences", "licence_classes", "licence_statuses", "facility_names"),
         name_col="licensee_name",
     )
     # recompute portfolio size after name-variant merge so it stays consistent with the unioned list

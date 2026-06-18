@@ -16,7 +16,6 @@ from __future__ import annotations
 import datetime
 from html import escape as _h
 from pathlib import Path
-import re
 import sys
 
 import pandas as pd
@@ -1136,13 +1135,12 @@ def _render_browse(conn) -> None:
             named_set = set(_named_parties(df))
             mask |= filtered["party_name"].isna() | ~filtered["party_name"].isin(named_set)
         filtered = filtered[mask]
-    if sq:
-        mask = (
-            _norm(filtered["member_name"]).str.contains(sq, na=False, regex=False)
-            | _norm(filtered["party_name"]).str.contains(sq, na=False, regex=False)
-            | _norm(filtered["constituency"]).str.contains(sq, na=False, regex=False)
-        )
-        filtered = filtered[mask]
+    if search and search.strip():
+        # Hyphen/space/case-tolerant + regex-safe: "Dublin South West" matches
+        # the stored "Dublin South-West" and a "(" never crashes the search.
+        filtered = filtered[
+            text_search_mask(filtered, search, ["member_name", "party_name", "constituency"])
+        ]
 
     filtered = filtered.sort_values("member_name", kind="stable").reset_index(drop=True)
 

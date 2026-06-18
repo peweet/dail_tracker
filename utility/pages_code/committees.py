@@ -45,6 +45,7 @@ from ui.components import (
     party_colour,
     render_stat_strip,
     stat_item,
+    text_search_mask,
     todo_callout,
 )
 from data_access.committees_data import (
@@ -201,7 +202,7 @@ def _stage_register(
     if type_filter != "All types":
         summary = summary[summary["type"] == type_filter]
     if search.strip():
-        summary = summary[summary["committee"].str.contains(search.strip(), case=False, na=False)]
+        summary = summary[text_search_mask(summary, search, ["committee"])]
     summary = summary.reset_index(drop=True)
 
     # ── Register count context line (S1 declutter 2026-06-10) ─────────
