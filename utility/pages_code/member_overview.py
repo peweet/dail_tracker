@@ -16,6 +16,7 @@ from __future__ import annotations
 import datetime
 from html import escape as _h
 from pathlib import Path
+import re
 import sys
 
 import pandas as pd
@@ -1124,7 +1125,21 @@ def _render_browse(conn) -> None:
         help="Pick one or more parties; leave empty to show every party.",
     )
 
-    sq = (search or "").strip().lower()
+    # Treat hyphens and spaces as equivalent so "Dublin South West" matches the
+    # stored "Dublin South-West" (and vice versa). Collapse runs of whitespace
+    # too, so a stray double space doesn't break the match.
+    def _norm(s: pd.Series | str):
+        if isinstance(s, str):
+            return re.sub(r"\s+", " ", s.replace("-", " ")).strip().lower()
+        return (
+            s.astype(str)
+            .str.replace("-", " ", regex=False)
+            .str.replace(r"\s+", " ", regex=True)
+            .str.strip()
+            .str.lower()
+        )
+
+    sq = _norm(search or "")
     filtered = df.copy()
     if selected_parties:
         mask = pd.Series(False, index=filtered.index)
@@ -1137,9 +1152,9 @@ def _render_browse(conn) -> None:
         filtered = filtered[mask]
     if sq:
         mask = (
-            filtered["member_name"].astype(str).str.lower().str.contains(sq, na=False)
-            | filtered["party_name"].astype(str).str.lower().str.contains(sq, na=False)
-            | filtered["constituency"].astype(str).str.lower().str.contains(sq, na=False)
+            _norm(filtered["member_name"]).str.contains(sq, na=False, regex=False)
+            | _norm(filtered["party_name"]).str.contains(sq, na=False, regex=False)
+            | _norm(filtered["constituency"]).str.contains(sq, na=False, regex=False)
         )
         filtered = filtered[mask]
 
