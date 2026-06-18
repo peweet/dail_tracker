@@ -61,6 +61,7 @@ from ui.components import (
     hide_sidebar,
     paginate,
     pagination_controls,
+    text_search_mask,
 )
 from ui.export_controls import export_button
 from ui.source_pdfs import iris_archive_url, provenance_expander
@@ -998,16 +999,9 @@ def _apply_filters(
     if subtypes:
         out = out[out["notice_subtype"].isin(subtypes)]
     if fund and fund != "All":
-        out = out[out["_parent_mentions_str"].astype(str).str.contains(fund, case=False, na=False)]
-    if search:
-        s = search.strip().lower()
-        if s:
-            mask = (
-                out["entity_name"].fillna("").astype(str).str.lower().str.contains(s, na=False)
-                | out["display_title"].fillna("").astype(str).str.lower().str.contains(s, na=False)
-                | out["raw_text"].fillna("").astype(str).str.lower().str.contains(s, na=False)
-            )
-            out = out[mask]
+        out = out[out["_parent_mentions_str"].astype(str).str.contains(fund, case=False, na=False, regex=False)]
+    if search and search.strip():
+        out = out[text_search_mask(out, search, ["entity_name", "display_title", "raw_text"])]
     # type_label tracked in chips even though it's the same as subtypes set
     return out
 

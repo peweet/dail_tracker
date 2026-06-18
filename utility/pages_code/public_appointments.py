@@ -48,6 +48,7 @@ from ui.components import (
     hide_sidebar,
     paginate,
     pagination_controls,
+    text_search_mask,
 )
 from ui.export_controls import export_button
 from ui.source_pdfs import iris_archive_url, provenance_expander
@@ -489,16 +490,8 @@ def _apply_filters(
         out = out[out["portfolio"] == minister]
     if lang_filter and lang_filter != "All":
         out = out[out["lang"] == lang_filter]
-    if search:
-        s = search.strip().lower()
-        if s:
-            mask = (
-                out["appointee"].fillna("").astype(str).str.lower().str.contains(s, na=False)
-                | out["body"].fillna("").astype(str).str.lower().str.contains(s, na=False)
-                | out["portfolio"].fillna("").astype(str).str.lower().str.contains(s, na=False)
-                | out["english_summary"].fillna("").astype(str).str.lower().str.contains(s, na=False)
-            )
-            out = out[mask]
+    if search and search.strip():
+        out = out[text_search_mask(out, search, ["appointee", "body", "portfolio", "english_summary"])]
     return out
 
 
@@ -1022,16 +1015,8 @@ def _filter_roster(
         out = out[out["position_type"].fillna("").map(_role_group) == role_grp]
     if outside_only:
         out = out[out["wikidata_qid"].notna()]
-    if search:
-        s = search.strip().lower()
-        if s:
-            mask = (
-                out["member_name"].fillna("").astype(str).str.lower().str.contains(s, na=False)
-                | out["body"].fillna("").astype(str).str.lower().str.contains(s, na=False)
-                | out["body_full"].fillna("").astype(str).str.lower().str.contains(s, na=False)
-                | out["department"].fillna("").astype(str).str.lower().str.contains(s, na=False)
-            )
-            out = out[mask]
+    if search and search.strip():
+        out = out[text_search_mask(out, search, ["member_name", "body", "body_full", "department"])]
     return out
 
 

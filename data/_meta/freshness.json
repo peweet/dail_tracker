@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-18T17:31:50Z",
+  "generated_at": "2026-06-18T17:37:18Z",
   "as_of_utc_date": "2026-06-18",
   "note": "Age of the data already held — a canary for 'did the pipeline stop running'. NOT proof that no newer upstream data exists; only the source pollers can confirm that. Generated at pipeline-end (sees silver + gold) and read-only thereafter (Streamlit badge + scheduled report).",
   "stale_datasets": [],
@@ -7,8 +7,8 @@
     "members": {
       "measure": "fetch_mtime",
       "source": "data/bronze/members/members.json",
-      "latest_fetch_at": "2026-06-17T05:55:34Z",
-      "age_days": 1,
+      "latest_fetch_at": "2026-06-18T17:33:20Z",
+      "age_days": 0,
       "stale_after_days": 14,
       "status": "ok"
     },
@@ -16,18 +16,18 @@
       "measure": "record_date",
       "source": "data/gold/parquet/current_dail_vote_history.parquet",
       "status": "ok",
-      "latest_record_date": "2026-06-16",
-      "fetched_at": "2026-06-17T05:57:03Z",
-      "fetch_age_days": 1,
+      "latest_record_date": "2026-06-17",
+      "fetched_at": "2026-06-18T17:34:34Z",
+      "fetch_age_days": 0,
       "stale_after_days": 14
     },
     "questions": {
       "measure": "record_date",
       "source": "data/silver/parquet/questions.parquet",
       "status": "ok",
-      "latest_record_date": "2026-06-16",
-      "fetched_at": "2026-06-17T05:56:46Z",
-      "fetch_age_days": 1,
+      "latest_record_date": "2026-06-18",
+      "fetched_at": "2026-06-18T17:34:21Z",
+      "fetch_age_days": 0,
       "stale_after_days": 14
     },
     "lobbying": {

@@ -32,10 +32,10 @@
   "rows": 7379,
   "state_distribution": {
     "amended": 161,
-    "partially_revoked": 10,
-    "revoked": 1346,
     "other_affected": 428,
-    "in_force_as_made": 5434
+    "partially_revoked": 10,
+    "in_force_as_made": 5434,
+    "revoked": 1346
   },
   "gold_si_count": 5963,
   "gold_join_coverage_pct": 99.21,

@@ -3,7 +3,7 @@
   "distinct_notices": 12731,
   "rows_with_estimated_value": 10428,
   "rows_with_deadline": 11909,
-  "still_open_by_deadline": 470,
+  "still_open_by_deadline": 451,
   "uncompetitive_procedure_rows": 2,
   "date_span": [
     "2023-12-29",
@@ -21,6 +21,6 @@
     "attribution": "Contains information from TED (\u00a9 European Union), reused under Decision 2011/833/EU."
   },
   "schema_version": 1,
-  "generated_at": "2026-06-17T06:12:15+00:00",
+  "generated_at": "2026-06-18T17:37:10+00:00",
   "caveat": "PRE-AWARD competition notices. estimated_value_eur is a BUYER ESTIMATE \u2014 never an award value and never a payment; value_safe_to_sum is always FALSE. NEVER sum with award or payment figures (three-grain firewall). A tender notice is a procurement opportunity, not a contract."
 }
