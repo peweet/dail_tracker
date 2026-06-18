@@ -143,6 +143,43 @@ def la(
     }
 
 
+# Limerick deletes each prior quarter's PDF on re-upload (live site keeps only the current
+# quarter; all older URLs 404), so the back-catalogue exists ONLY in the Internet Archive.
+# These are permanent Wayback snapshots (`web/{ts}id_/{original}` returns the raw PDF). Sourced
+# via the CDX API (url=limerick.ie&filter=mimetype:application/pdf&filter=original:.*urchase.*rders.*);
+# baked in as a deterministic seed so extraction has no live-CDX dependency (CDX 504s often).
+# pre-2016 quarters are auto-dropped by harvest's <2016 gate (consistent with the rest of the corpus).
+_WB = "https://web.archive.org/web/{}id_/{}"
+LIMERICK_WAYBACK: list[str] = [
+    _WB.format(ts, u)
+    for ts, u in [
+        ("20171025144903", "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20000_quarter_1_2016_new.pdf"),
+        ("20171025144900", "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20000_quarter_2_2016.pdf"),
+        ("20171025144855", "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20k_q4_2016.pdf"),
+        ("20171025144857", "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_eu20000_-_quarter_3_2016.pdf"),
+        ("20171025144849", "https://www.limerick.ie/sites/default/files/media/documents/2017-08/Purchase%20Orders%20over%20%E2%82%AC20%2C000%20Quarter%202%2C%202017_0.pdf"),
+        ("20190526073200", "https://www.limerick.ie/sites/default/files/media/documents/2018-12/Purchase%20Orders%20over%20%E2%82%AC20000%20Q3%202018%20v2.pdf"),
+        ("20190526073154", "https://www.limerick.ie/sites/default/files/media/documents/2019-02/Purchase%20Orders%20over%20%E2%82%AC20000%20Quarter%204%202018.pdf"),
+        ("20200917233827", "https://www.limerick.ie/sites/default/files/media/documents/2019-09/Purchase-Orders-over-20000-Q2-2019.pdf"),
+        ("20200917233836", "https://www.limerick.ie/sites/default/files/media/documents/2019-09/Purchase-Orders-over-20000-Quarter1-2019.pdf"),
+        ("20200917233821", "https://www.limerick.ie/sites/default/files/media/documents/2020-01/Purchase-Orders-over-20000-Quarter-3-2019.pdf"),
+        ("20200917233817", "https://www.limerick.ie/sites/default/files/media/documents/2020-04/purchase-orders-over-20000-q4-2019.pdf"),
+        ("20210607110505", "https://www.limerick.ie/sites/default/files/media/documents/2020-10/purchase-orders-over-eu20000-quarter-2-2020.pdf"),
+        ("20210607110501", "https://www.limerick.ie/sites/default/files/media/documents/2021-01/purchase-orders-over-eu20000-quarter-3-2020.pdf"),
+        ("20210607110457", "https://www.limerick.ie/sites/default/files/media/documents/2021-04/purchase-orders-over-eu20000-q4-2020.pdf"),
+        ("20220613103544", "https://www.limerick.ie/sites/default/files/media/documents/2022-02/purchase-orders-over-eu20000-q1-2021.pdf"),
+        ("20220613103540", "https://www.limerick.ie/sites/default/files/media/documents/2022-02/purchase-orders-over-eu20000-q2-2021.pdf"),
+        ("20230710100906", "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-3-2021.pdf"),
+        ("20230710100848", "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-4-2021.pdf"),
+        ("20230710100831", "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-1-2022.pdf"),
+        ("20230710100805", "https://www.limerick.ie/sites/default/files/media/documents/2023-01/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-2-2022.pdf"),
+        ("20230710100759", "https://www.limerick.ie/sites/default/files/media/documents/2023-01/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-3-2022.pdf"),
+        ("20230710100752", "https://www.limerick.ie/sites/default/files/media/documents/2023-02/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-4-2022.pdf"),
+        ("20230710100742", "https://www.limerick.ie/sites/default/files/media/documents/2023-06/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-1-2023.pdf"),
+    ]
+]
+
+
 # Routes merged from procurement_la_registry.py (best file-list / direct URLs). value_kind
 # is set from the council's publication TYPE: "Purchase Orders over 20k" → po_committed
 # (COMMITTED); "Payments greater than 20k" → payment_actual (SPENT).
@@ -205,7 +242,7 @@ SCHEMA_MAP: list[dict] = [
         fmt="xlsx",
         listing="https://www.wexfordcoco.ie/council-and-democracy/procurement-finance-and-credit-control/council-spend",
         value_kind="po_committed",
-        caveat="legacy .xls (~9%) skipped (needs xlrd)",
+        caveat="recent quarters .xlsx; 2016-2024 history is legacy .xls (read via xlrd 2.x)",
     ),
     # ---- digital PDF (fitz largest-x-gap; NO OCR) ----
     la(
@@ -259,9 +296,11 @@ SCHEMA_MAP: list[dict] = [
         listing="https://www.limerick.ie/council/services/business-and-economy/revenue-collection/accounts-payable",
         value_kind="po_committed",
         direct=[
-            "https://www.limerick.ie/sites/default/files/media/documents/2026-05/purchase-orders-over-eu20-000-quarter-1-2026.pdf"
+            "https://www.limerick.ie/sites/default/files/media/documents/2026-05/purchase-orders-over-eu20-000-quarter-1-2026.pdf",
+            *LIMERICK_WAYBACK,
         ],
-        caveat="row carries a Paid column",
+        caveat="row carries a Paid column. Live site keeps ONLY the current quarter (prunes the rest) "
+        "→ 2016-2023 back-catalogue seeded from Internet Archive snapshots (LIMERICK_WAYBACK)",
     ),
     la(
         "offaly",
@@ -391,7 +430,6 @@ SCHEMA_MAP: list[dict] = [
         fmt="pdf",
         listing="https://www.fingal.ie/council/service/procurement",
         value_kind="po_committed",
-        supplier_is_id=True,
         include=r"(?i)(pos?-over-20k|purchase.?orders?.?over.?20k)",
         direct=[
             # the procurement landing links ZERO PO files (only policy PDFs); a crawl drifts into
@@ -401,8 +439,9 @@ SCHEMA_MAP: list[dict] = [
             "https://www.fingal.ie/sites/default/files/2024-09/q2-pos-over-20k-2023.pdf",
             "https://www.fingal.ie/sites/default/files/2024-08/q3-2022-purchase-orders-over-20k.pdf",
         ],
-        caveat="supplier published as a bare SupplierID code, not a name → flagged + quarantined "
-        "(CRO impossible); cols SupplierID(T)|Acc element(T)|Amount(C); landing links no PO files",
+        caveat="cols SupplierID(T)|Acc element(T)|Amount(C); landing links no PO files. "
+        "Current files publish supplier NAMES (BUSHELL INTERIORS LTD, ENERGIA…), not bare codes — "
+        "supplier_is_id left False so names classify normally (per-row ID_CODE_RE still catches stray codes)",
     ),
     # ---- NEEDS-RENDER to enumerate, but file URLs are known → fetch direct (no Playwright needed) ----
     la(
@@ -763,6 +802,16 @@ def read_xlsx(b: bytes) -> tuple[list[dict], int]:
     return _tabular_rows([[c for c in row] for row in raw])
 
 
+def read_xls(b: bytes) -> tuple[list[dict], int]:
+    """Legacy .xls (Wexford's 2016-2024 quarters). xlrd 2.x reads .xls only."""
+    import xlrd
+
+    book = xlrd.open_workbook(file_contents=b)
+    sh = book.sheet_by_index(0)
+    grid = [[sh.cell_value(r, c) for c in range(sh.ncols)] for r in range(sh.nrows)]
+    return _tabular_rows([[("" if c == "" else c) for c in row] for row in grid])
+
+
 def read_csv(b: bytes) -> tuple[list[dict], int]:
     df = pl.read_csv(
         io.BytesIO(b), infer_schema_length=0, truncate_ragged_lines=True, ignore_errors=True, encoding="utf8-lossy"
@@ -823,7 +872,7 @@ def _tabular_rows(grid: list[list]) -> tuple[list[dict], int]:
     return out, len(data)
 
 
-READERS = {".pdf": read_pdf, ".xlsx": read_xlsx, ".csv": read_csv}
+READERS = {".pdf": read_pdf, ".xlsx": read_xlsx, ".xls": read_xls, ".csv": read_csv}
 
 
 # ============================================================================ period
@@ -1070,9 +1119,6 @@ def main() -> None:
         file_list = files[: args.max_files]
         for i, u in enumerate(file_list):
             ext = next((e for e in DATA_EXT if u.lower().split("?")[0].endswith(e)), "")
-            if ext == ".xls":
-                print(f"     ~ skip (.xls needs xlrd): {u.rsplit('/', 1)[-1][:48]}")
-                continue
             if ext not in READERS and not u.endswith(".aspx"):
                 continue
             b = fetch_to_bronze(cf["slug"], u, ext)

@@ -45,6 +45,7 @@ from dail_tracker_core.connections import api_conn  # noqa: E402
 from dail_tracker_core.db import register_views  # noqa: E402
 from dail_tracker_core.queries import appointments as appt  # noqa: E402
 from dail_tracker_core.queries import charities as char  # noqa: E402
+from dail_tracker_core.queries import corporate as corp  # noqa: E402
 from dail_tracker_core.queries import judiciary as jud  # noqa: E402
 from dail_tracker_core.queries import lobbying as lb  # noqa: E402
 from dail_tracker_core.queries import ministerial as min_  # noqa: E402
@@ -72,7 +73,7 @@ _CONN = None
 # additive glob registration is enough. swallow_errors so a missing optional
 # parquet degrades that one domain to an "unavailable" tool result, not a dead
 # server.
-_EXTRA_VIEW_GLOBS = ["sipo_*.sql", "judiciary_*.sql", "appointments_*.sql"]
+_EXTRA_VIEW_GLOBS = ["sipo_*.sql", "judiciary_*.sql", "appointments_*.sql", "corporate_*.sql"]
 
 
 def _cur():
@@ -534,6 +535,70 @@ def charity_financials(rcn: int = 0) -> dict:
     }
 
 
+# ── Corporate distress notices (Iris Oifigiúil — companies only, NO individuals) ─
+
+
+def _trim_notice(rec: dict) -> dict:
+    """Drop the bulky raw_text / title scratch columns from a corporate-notice row —
+    display_title is the clean human label; raw_text is the whole OCR'd paragraph."""
+    return {k: v for k, v in rec.items() if k not in ("raw_text", "title")}
+
+
+@mcp.tool(annotations=_RO)
+def corporate_distress_notices(query: str = "", subtype: str = "", year: int = 0, limit: int = 50) -> dict:
+    """Corporate distress / register notices from Iris Oifigiúil (the State gazette) — receiverships,
+    court & voluntary wind-ups, examinerships, SCARP rescues, and investment-vehicle register notices.
+    CORPORATE ONLY: personal/individual insolvency is excluded by policy upstream, so no person is named
+    here. Filters AND together — `query` (entity-name substring), `subtype` (e.g. 'receivership',
+    'court_winding_up', 'examinership', 'creditors_voluntary_liquidation', 'members_voluntary_liquidation'),
+    `year` (issue year; 0 = all). Returns matched notices (newest first) + a `caveat`.
+
+    ⚠️ A wind-up/receivership notice is a FACT about a company's legal status on a date — not a judgment on
+    any director or a verdict of wrongdoing. Members' Voluntary Liquidation is a SOLVENT wind-up (routine
+    fund/company lifecycle), NOT distress — don't read it as failure."""
+    qr = corp.corporate_notices(_cur())
+    if not qr.ok:
+        return {"error": qr.unavailable_reason}
+    rows = serialize.to_records(qr.data)
+    q = query.strip().lower()
+    st = subtype.strip().lower()
+    out = []
+    for r in rows:
+        if q and q not in str(r.get("entity_name", "")).lower():
+            continue
+        if st and st != str(r.get("notice_subtype", "")).lower():
+            continue
+        if year and not str(r.get("issue_date", "")).startswith(str(year)):
+            continue
+        out.append(_trim_notice(r))
+        if len(out) >= limit:
+            break
+    return {
+        "count": len(out),
+        "notices": out,
+        "caveat": "corporate notices only (no individuals); a wind-up/receivership is a legal-status fact, "
+        "not a verdict — and Members' Voluntary Liquidation is a SOLVENT wind-up, not distress",
+    }
+
+
+@mcp.tool(annotations=_RO)
+def corporate_repeat_distress(limit: int = 50) -> dict:
+    """CBI-AUTHORISED firms that appear in REPEAT corporate-distress notices — regulated entities
+    (per the Central Bank registers) with ≥2 genuine-distress events, or 3+ notices including at least one
+    distress event. Each row carries per-subtype counts (n_receivership, n_court_winding_up, n_examinership,
+    n_scarp, n_creditors_vl), the distress vs routine split (n_distress / n_routine), the date span, and the
+    primary CBI register + reference. The watchlist cut: regulated firms in recurring distress.
+
+    ⚠️ This surfaces the REGULATORY PROVENANCE of the entity on a notice (it is/was CBI-authorised under
+    register X) — it does NOT claim the receiver/liquidator action is itself a regulatory matter, nor imply
+    wrongdoing. Solvent Members' Voluntary Liquidations are suppressed from the distress count by design."""
+    firms = _rows(corp.cbi_repeat_distress(_cur()))
+    if isinstance(firms, list):
+        firms = firms[:limit]
+    return {"firms": firms, "caveat": "regulatory provenance only — not a verdict; "
+            "exact normalised name match (may miss aliases); solvent MVLs excluded from distress count"}
+
+
 # ── Public-body payments (the realised-SPEND grain) ─────────────────────────────
 
 
@@ -802,6 +867,88 @@ def project_value_estimate(
     )
 
 
+# ── Siting check (planning-constraint triage for a point — the citizen engine) ───
+
+
+def _brief_item(it) -> dict:
+    """One BriefItem (hard/shaping/obligation/verify) as JSON — drops empty fields."""
+    out: dict = {"title": it.title, "why": it.why, "action": it.action}
+    if it.reports:
+        out["reports"] = list(it.reports)
+    if it.path:
+        out["mitigation_path"] = list(it.path)
+    return out
+
+
+@mcp.tool(annotations=_RO)
+def siting_check(
+    lat: float,
+    lon: float,
+    dev_type: str = "one_off_house",
+    num_units: int = 0,
+    floor_area_m2: float = 0.0,
+) -> dict:
+    """Planning-constraint TRIAGE for a single point in Ireland: which planning ISSUES a proposed
+    development triggers at (lat, lon), each with the governing rule quoted verbatim from the
+    per-council rulebook and the likely required reports. `dev_type` is 'one_off_house' (default),
+    'multi_unit', or 'commercial'; `num_units` / `floor_area_m2` drive the scale-gated obligations
+    (climate statement, EIA, etc.). Returns the council in force, a headline, statutory EXCLUSIONS
+    (designations whose polygon covers the point — each with the narrow real route that could still
+    permit development), hard (pass/fail) and shaping constraints, an access/entrance section,
+    standard obligations, CHECK-YOURSELF items (layers we can't read, e.g. flood), the likely-RFI
+    report list, and `not_assessed` (layers not yet ingested at this point).
+
+    ⚠️ TRIAGE, NOT A VERDICT — it NEVER outputs grant/refuse or a design prescription; the decision
+    stays the council's/ABP's. An empty constraint list is NOT proof the land is developable, and a
+    point outside ingested layer coverage (see `not_assessed` + `available_layers`) means we have NO
+    data there — never read that as 'no issue'. Layer coverage is currently strongest in
+    Galway/Cork/Dublin; elsewhere expect `not_assessed` entries. Risk language is 'likely', never
+    'will'. Surface the `disclaimer`."""
+    try:
+        from dail_tracker_core.siting import brief as _brief
+        from dail_tracker_core.siting import engine as _engine
+        from dail_tracker_core.siting.layers import LayerStore
+    except Exception as exc:  # noqa: BLE001 — optional 'siting' extra not installed
+        return {"error": f"siting engine unavailable (optional 'siting' extra not installed): {exc}"}
+
+    store = LayerStore()
+    available = sorted(store.available())
+    if not available:
+        return {"error": "no planning-designation layers are ingested — siting check cannot run here"}
+
+    dt = (dev_type or "one_off_house").strip()
+    result = _engine.evaluate(
+        lon,
+        lat,
+        dt,
+        num_units=num_units or None,
+        floor_area_m2=floor_area_m2 or None,
+        store=store,
+    )
+    b = _brief.build_brief(result)
+    return {
+        "site": b.site,
+        "headline": b.headline,
+        "excluded": b.excluded,
+        "exclusions": [
+            {"designation": e.designation, "site_name": e.site_name, "layer": e.layer, "mitigation": e.mitigation}
+            for e in b.exclusions
+        ],
+        "hard_constraints": [_brief_item(i) for i in b.hard_constraints],
+        "shaping_constraints": [_brief_item(i) for i in b.shaping_constraints],
+        "access": b.access,
+        "obligations": [_brief_item(i) for i in b.obligations],
+        "check_yourself": [_brief_item(i) for i in b.to_verify],
+        "required_reports": list(b.required_reports),
+        "rfi_note": b.rfi_note,
+        "not_assessed": list(b.not_assessed),
+        "available_layers": available,
+        "disclaimer": b.disclaimer,
+        "caveat": "planning-risk TRIAGE, never a grant/refuse verdict; an empty list is not proof the "
+        "site is developable, and a point outside ingested layer coverage has NO data (not 'no issue')",
+    }
+
+
 # ── Prompts (audit templates surfaced as client slash-commands) ─────────────────
 
 
@@ -875,6 +1022,21 @@ def assess_procurement_award(supplier: str) -> str:
         "build-value range, clearly labelled as a benchmark estimate (inference), and contrast it with the "
         "framework ceiling. Keep the four money grains separate (ceiling ≠ committed ≠ paid ≠ delivered) "
         "and link to the TED source notice."
+    )
+
+
+@mcp.prompt()
+def siting_brief(location: str) -> str:
+    """Triage the planning constraints at a location, honestly bounded by data coverage."""
+    return (
+        f"Triage the planning constraints for a proposed one-off house at '{location}'. First resolve "
+        "the location to lat/lon, then call siting_check with them. Report the council in force, any "
+        "statutory EXCLUSIONS (with the narrow route that could still permit development), the hard "
+        "(pass/fail) and shaping constraints, the access/entrance findings, and the likely required "
+        "reports — each grounded in the rule text the tool returns. Present the `check_yourself` items "
+        "as user-verifiable checks, not findings. Be explicit about `not_assessed` layers and the "
+        "coverage caveat: this is planning-risk TRIAGE, never a grant/refuse verdict, and an empty list "
+        "is not proof the site is developable. Always surface the disclaimer."
     )
 
 
