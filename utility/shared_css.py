@@ -578,10 +578,21 @@ def inject_css() -> None:
             display: inline-block;
             text-align: center;
         }
-        /* Tighten the row that holds a breadcrumb so it reads as one line. */
+        /* Tighten the row that holds a breadcrumb so it reads as one line.
+           flex-direction:row !important overrides the blanket mobile breakpoint
+           (≤640px flips every stHorizontalBlock to column) which otherwise
+           stacks each crumb segment + › separator vertically on phones. */
         div[data-testid="stHorizontalBlock"]:has(> div .dt-crumb-row-marker) {
+            flex-direction: row !important;
+            flex-wrap: wrap;
             margin-bottom: 0.6rem;
             align-items: center;
+        }
+        div[data-testid="stHorizontalBlock"]:has(> div .dt-crumb-row-marker)
+            > [data-testid="stColumn"] {
+            width: auto !important;
+            min-width: 0 !important;
+            flex: 0 0 auto !important;
         }
 
         /* ── Promoted CTA button (st-key-dt_cta_*) ─────────────────────
@@ -4530,6 +4541,10 @@ def inject_css() -> None:
         /* Tight chip row: collapse the equal-width column layout that
            Streamlit applies to st.columns() so chips sit next to each other. */
         [data-testid="stColumn"]:has(> div .dt-pager) [data-testid="stHorizontalBlock"] {
+            /* flex-direction:row !important overrides Streamlit's mobile
+               breakpoint, which otherwise flips the chip row to column and
+               stacks pages 1,2,3…N vertically on phones. */
+            flex-direction: row !important;
             gap: 0.18rem !important;
             justify-content: flex-start !important;
             flex-wrap: wrap;
