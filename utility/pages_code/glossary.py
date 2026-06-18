@@ -17,7 +17,7 @@ if str(_UTIL) not in sys.path:
 import streamlit as st
 
 from shared_css import inject_css
-from ui.components import hero_banner, hide_sidebar, page_error_boundary
+from ui.components import hero_banner, hide_sidebar, page_error_boundary, search_matches
 
 
 # Single source of truth. `pages_code/*.py` import GLOSSARY_TERMS and pass
@@ -224,7 +224,7 @@ def glossary_page() -> None:
     )
 
     if query:
-        terms = [(k, v) for k, v in GLOSSARY_TERMS.items() if query in k.lower() or query in v.lower()]
+        terms = [(k, v) for k, v in GLOSSARY_TERMS.items() if search_matches(query, k, v)]
     else:
         terms = list(GLOSSARY_TERMS.items())
 

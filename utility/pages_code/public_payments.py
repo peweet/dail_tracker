@@ -56,6 +56,7 @@ from ui.components import (
     hide_sidebar,
     paginate,
     pagination_controls,
+    text_search_mask,
 )
 from ui.entity_links import source_link_html
 
@@ -252,7 +253,7 @@ def _render_suppliers() -> None:
     view = df
     qs = (q or "").strip()
     if qs:
-        view = df[df["supplier"].str.contains(qs, case=False, na=False)]
+        view = df[text_search_mask(df, qs, ["supplier"])]
 
     total = len(view)
     by = "sum-safe value" if order == "value" else "number of records"

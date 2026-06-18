@@ -64,6 +64,7 @@ from ui.components import (
     hide_sidebar,
     page_error_boundary,
     party_colour,
+    text_search_mask,
     totals_strip,
 )
 from ui.entity_links import member_profile_url
@@ -723,7 +724,7 @@ def _render_candidates_tab() -> None:
         if sel_party != "All parties":
             df = df[df["party"] == sel_party]
         if search:
-            df = df[df["candidate_name"].str.lower().str.contains(search, na=False)]
+            df = df[text_search_mask(df, search, ["candidate_name"])]
         return df
 
     filtered = sel_party != "All parties" or bool(search)

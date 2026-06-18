@@ -369,7 +369,19 @@ SCHEMA_MAP: list[dict] = [
         listing="https://laois.ie/finance/business-and-enterprise-support/procurement-information-and-advice",
         value_kind="po_committed",
         aggregate_guard=True,
-        caveat="'Procurement Report' grain; guard drops total-row mis-grabs (€397m artefact)",
+        direct=[
+            # files exist on the server but are UNLINKED from any laois.ie HTML page (orphaned);
+            # the listing crawl finds nothing, so seed them directly. Upload-month folder + period
+            # separator (–/-) are both irregular → not patternable. Verified HTTP 200, application/pdf.
+            "https://laois.ie/sites/default/files/2024-06/Procurement%20Report%202023%20Oct%E2%80%93Dec.pdf",
+            "https://laois.ie/sites/default/files/2024-06/Procurement Report 2023 Jul–Sept.pdf",
+            "https://laois.ie/sites/default/files/2024-06/Procurement Report 2023 Apr–Jun.pdf",
+            "https://laois.ie/sites/default/files/2024-10/Procurement Report 2022 Jan-Mar.pdf",
+            "https://laois.ie/sites/default/files/2024-10/Procurement Report 2022 Jul-Sept.pdf",
+            "https://laois.ie/sites/default/files/2024-10/Procurement Report 2022 Oct-Dec.pdf",
+        ],
+        caveat="'Procurement Report' grain; guard drops total-row mis-grabs (€397m artefact). "
+        "Files orphaned (unlinked) → direct= seeds; cols Supplier|Description|Total",
     ),
     la(
         "fingal",
@@ -380,7 +392,17 @@ SCHEMA_MAP: list[dict] = [
         listing="https://www.fingal.ie/council/service/procurement",
         value_kind="po_committed",
         supplier_is_id=True,
-        caveat="supplier published as a bare SupplierID code, not a name → flagged + quarantined (CRO impossible)",
+        include=r"(?i)(pos?-over-20k|purchase.?orders?.?over.?20k)",
+        direct=[
+            # the procurement landing links ZERO PO files (only policy PDFs); a crawl drifts into
+            # heritage docs. Files live at sites/default/files/{upload-month}/...; seed directly +
+            # include= filters the listing noise. Verified HTTP 200, born-digital PDF.
+            "https://www.fingal.ie/sites/default/files/2025-07/q1-2025-pos-over-20k.pdf",
+            "https://www.fingal.ie/sites/default/files/2024-09/q2-pos-over-20k-2023.pdf",
+            "https://www.fingal.ie/sites/default/files/2024-08/q3-2022-purchase-orders-over-20k.pdf",
+        ],
+        caveat="supplier published as a bare SupplierID code, not a name → flagged + quarantined "
+        "(CRO impossible); cols SupplierID(T)|Acc element(T)|Amount(C); landing links no PO files",
     ),
     # ---- NEEDS-RENDER to enumerate, but file URLs are known → fetch direct (no Playwright needed) ----
     la(

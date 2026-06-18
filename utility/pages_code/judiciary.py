@@ -67,6 +67,7 @@ from ui.components import (
     glossary_strip,
     hero_banner,
     hide_sidebar,
+    text_search_mask,
     year_selector,
 )
 
@@ -1304,11 +1305,7 @@ def _render_ld_cases(day_cases: pd.DataFrame, day_label: str) -> None:
     if search:
         # display-only text filter over the anonymised title (which carries plaintiff +
         # defendant) and the judge. logic_firewall: display_only
-        q = search.lower()
-        view = view[
-            view["case_anonymised"].str.lower().str.contains(q, na=False, regex=False)
-            | view["judge"].astype(str).str.lower().str.contains(q, na=False, regex=False)
-        ]
+        view = view[text_search_mask(view, search, ["case_anonymised", "judge"])]
 
     if view.empty:
         st.caption(f'No listed matter matches "{search}" on {day_label}.' if search else f"No matters · {day_label}")

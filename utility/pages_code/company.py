@@ -56,6 +56,7 @@ from ui.components import (
     hide_sidebar,
     paginate,
     pagination_controls,
+    text_search_mask,
 )
 
 _LAND_PAGE = 24  # landing cards per page (multiple of 3 for the pr-grid)
@@ -166,7 +167,7 @@ def _landing() -> None:
     view = df
     qs = (q or "").strip()
     if qs:
-        view = df[df["supplier"].str.contains(qs, case=False, na=False)]
+        view = df[text_search_mask(df, qs, ["supplier"])]
     total = len(view)
     st.caption(
         f"{total:,} companies"

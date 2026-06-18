@@ -110,6 +110,7 @@ from ui.components import (
     hide_sidebar,
     paginate,
     pagination_controls,
+    text_search_mask,
     year_selector,
 )
 
@@ -412,7 +413,7 @@ def _render_suppliers(year: int | None) -> None:
     view = df
     qs = (q or "").strip()
     if qs:
-        view = df[df["supplier"].str.contains(qs, case=False, na=False)]
+        view = df[text_search_mask(df, qs, ["supplier"])]
 
     total = len(view)
     ranked_by = "sum-safe awarded value" if order == "value" else "number of contract awards"
@@ -2741,7 +2742,7 @@ def _entity_search_hero() -> None:
     if not qs:
         return
     df = res.data
-    hits = df[df["display_name"].str.contains(qs, case=False, na=False)].head(12)
+    hits = df[text_search_mask(df, qs, ["display_name"])].head(12)
     if hits.empty:
         empty_state("No matches", "Try a shorter term — names are matched as published.")
         return

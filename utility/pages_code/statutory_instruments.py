@@ -50,6 +50,7 @@ from ui.components import (
     pagination_controls,
     render_stat_strip,
     stat_item,
+    text_search_mask,
 )
 from ui.entity_links import member_profile_url, source_link_html
 from ui.source_pdfs import provenance_expander
@@ -460,9 +461,8 @@ def _apply_filters(
     if post_committee:
         signed = pd.to_datetime(out["si_signed_date"], errors="coerce")
         out = out[signed >= _COMMITTEE_FORMED]
-    if search:
-        s = search.strip().lower()
-        out = out[out["si_title"].astype(str).str.lower().str.contains(s, na=False)]
+    if search and search.strip():
+        out = out[text_search_mask(out, search, ["si_title"])]
     return out
 
 
