@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-18T17:37:19Z",
+  "generated_at": "2026-06-18T18:12:36Z",
   "links_checked": false,
   "summary": {
     "sources_checked": 114,
@@ -82,10 +82,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "1d old (<= 7d)",
+      "detail": "0d old (<= 7d)",
       "input_pattern": "data/bronze/cro/companies_*.csv",
-      "latest_file": "data/bronze/cro/companies_20260617.csv",
-      "days_old": 1,
+      "latest_file": "data/bronze/cro/companies_20260618.csv",
+      "days_old": 0,
       "stale_after_days": 7
     },
     {

@@ -265,6 +265,8 @@ CLAUDE.md
 # Generated logs
 pipeline.log
 *.log
+# Cookieless page-view counter — runtime, ephemeral, grows per page load.
+logs/page_views.jsonl
 
 # Screenshots / temp images
 *.png

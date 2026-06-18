@@ -39,11 +39,44 @@ lookup**, which folds siting back into the read-bound tier that Layers 1/2 alrea
 The approach is standard: **grid/raster approximation of vector polygons** + a **hybrid
 prefilter** (cheap cell lookup, exact GEOS check only on boundary cells).
 
-- **GeoBlocks** (arXiv [1908.07753](https://arxiv.org/abs/1908.07753), EDBT 2021): grid-cell
-  polygon approximation with **error bounded by cell size**; **up to 1000× over on-the-fly**.
+**Canonical architecture = the two-step "filter-and-refine" paradigm** (Orenstein 1986;
+Brinkhoff/Kriegel/Schneider, *Multi-Step Processing of Spatial Joins*, SIGMOD 1993): a cheap
+*filter* on an approximation (MBR/grid/index) yields candidates with **no false dismissals**
+(conservative — may admit false hits, never drops a true hit), then an exact-geometry *refine*
+removes false hits; an intermediate filter can mark candidates sure-hit / sure-miss / indecisive
+so only indecisive ones hit exact geometry. Mapping:
+- The engine ALREADY does this per-query: `LayerStore` STRtree = MBR filter; exact `covered_by` = refine.
+- The grid precompute = **materialise the filter** (scale-independence via incrementally-maintained
+  materialised views — Armbrust et al., SIGMOD 2013); grid cell classifies a point sure-in /
+  sure-out / boundary-indecisive. **NB the modern approximation papers (GeoBlocks, distance-bounded)
+  DROP the refine step** and answer from the grid alone — fine for analytics/viz, NOT for our
+  exclusion mask. So we KEEP the exact refine on boundary cells = the **classical** Brinkhoff
+  multi-step, deliberately *more* conservative than the grid-only papers.
+- **Invariant #1 (exclusion never under-reports) == the filter's no-false-dismissals law.** The
+  guarantee comes from building the exclusion grid **CONSERVATIVELY** (any cell *touching* the
+  polygon = inside-candidate → only false positives, never false negatives; distance-bounded). The
+  exact-on-boundary refine is for **precision** (removing the over-report), NOT for the safety itself.
+- **Caveat (CONFIRMED vs paper):** materialisation is sound here ONLY because this is point-vs-static-layer containment.
+  Fully materialising a true spatial *conjunctive* query (join + spatial) costs ~result-size space
+  (quadratic/cubic; index beats it) — arXiv [2509.10050](https://arxiv.org/abs/2509.10050). Don't
+  generalise the grid to spatial joins.
+
+- **GeoBlocks** (arXiv [1908.07753](https://arxiv.org/abs/1908.07753), EDBT 2021): binary
+  **cell-covering** (every cell touching the outline is "in" — NOT distances/fractions), error
+  bounded by the **cell diagonal √(ε₁²+ε₂²)**, **NO refine step**, + a workload-adaptive trie cache
+  of hot regions (≈ our CDN tier). The ~1000× is over on-the-fly **aggregation**. CAVEAT: it is an
+  **aggregation-over-query-polygons** system (fixed points; polygon = query) — the *inverse* of our
+  point-vs-fixed-polygon case, so it is a partial analogy, not a template. Transferable: the
+  cell-diagonal error bound, the resolution/storage data (**level 17 ≈ 100 m balances; level 21
+  ≈ 6 m → exponential overhead; 5–50 % storage**), and the hot-region cache. The *representation*
+  does NOT transfer.
 - **Distance-bounded spatial approximations** (arXiv [2010.12548](https://arxiv.org/abs/2010.12548)):
-  formal guarantee — quantisation error ≤ a metric distance. Basis for storing
-  **continuous distance-to-nearest per cell** and applying thresholds live.
+  raster approximation with **Hausdorff error dH(g,g′) ≤ ε**; a CONSERVATIVE raster yields **only
+  false positives, never false negatives**. They DROP exact refine ("answers solely on the
+  approximate geometries"), explicitly for viz/interactive where **exact is not required** — so our
+  exclusion mask keeps refine. (8.5× at a 10 m bound, 0.15 % median error; 1 m too fine for GPU.)
+  This (not GeoBlocks) backs the distance-per-cell idea — but distance-per-cell is OUR synthesis,
+  to keep thresholds tunable and avoid the ultra-fine binary grid GeoBlocks shows is exponentially costly.
 - **H3 at billion-scale** (Databricks): ~50× faster / ~90× cheaper; pure-grid under-counts
   ~0.1% at boundaries → **hybrid (grid + exact-on-boundary) recovers precision** at ~2× cost.
 - **Batch grid-builder engine — UNDECIDED, and the obvious choice is contradicted locally.**
@@ -57,9 +90,12 @@ prefilter** (cheap cell lookup, exact GEOS check only on boundary cells).
 ## Hard invariants (must hold in EVERY phase — these are correctness, not preference)
 
 1. **The hard-exclusion mask must NEVER under-report.** A point inside an SAC/SPA/NHA/National
-   Park must always surface. → exclusion layers get an **exact GEOS check on boundary cells**;
-   grid is trusted only for clear interior/exterior. (0.1% boundary error is fine for taxis,
-   not for statutory exclusions.) See [engine.py](../dail_tracker_core/siting/engine.py) `hard_exclusions`.
+   Park must always surface. → build the exclusion grid **CONSERVATIVELY** (any cell *touching* the
+   polygon = inside-candidate) so it structurally yields only false positives, never false negatives
+   (distance-bounded, arXiv 2010.12548) — **that** is what guarantees no under-report; then an
+   **exact GEOS check on boundary cells** removes the over-report (precision). (0.1% boundary error
+   is fine for taxis, not for statutory exclusions.) See
+   [engine.py](../dail_tracker_core/siting/engine.py) `hard_exclusions`.
 2. **`layer_missing` semantics preserved.** "Not computed" must stay distinct from "computed,
    no issue" — the grid must encode missing/out-of-extent, never silently return "ok".
 3. **No inference, no verdict** (memory: `feedback_no_inference_in_app`,
@@ -180,6 +216,14 @@ prefilter** (cheap cell lookup, exact GEOS check only on boundary cells).
 
 - 2026-06-18 — Plan created. Prior art validated (GeoBlocks/H3/distance-bounded). `tools/siting_loadtest.py`
   promoted + tested. Phase 0 not yet run — **next action: run the bench + loadtest to get warm `server_ms`.**
+- 2026-06-18 — Papers checked AGAINST the plan (full text via ar5iv). GeoBlocks = binary
+  cell-covering + aggregation-over-query-polygons (NOT point queries) and DROPS refine → partial
+  analogy only; distance-bounded uses Hausdorff ε, also DROPS refine (viz/"exact not required").
+  So our grid+exact-refine hybrid is CLASSICAL Brinkhoff, deliberately more conservative than the
+  modern approx papers. KEY correction: a CONSERVATIVE exclusion grid alone guarantees no-under-report
+  (only false positives) — refine is for precision, not safety. Space-time 2509.10050 blowup CONFIRMED
+  join-only (not our containment). Resolution: GeoBlocks level17≈100m / level21≈6m exponential →
+  60m threshold favours distance-per-cell over fine binary.
 - 2026-06-18 — Unverified claims TESTED (`c:/tmp/siting_microbench.py`, infer-nothing): warm
   `evaluate` ≈ **577 ms p50** (NOT ~5–30 ms — ~20–100× off); geometry only ~10 ms of it (~98 %
   non-geometry → `cProfile` next); threads **2.14×** (partially GIL-bound, not processes-only);
