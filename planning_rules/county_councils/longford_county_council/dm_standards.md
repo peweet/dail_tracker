@@ -89,3 +89,20 @@
 ## EV (Apartments, DMS16.61 / Annex A5)
 - Car, EV charging points and bicycle parking to be addressed for apartment schemes.
 - A5.2 (Climate Action annex): all one-off housing to install a minimum of 1 EV home charge point.
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Longford CDP 2021-2027 Chapter 16 text. Nodes the chapter sets -->
+<!-- no fixed standard for are intentionally ABSENT (no-inference contract).             -->
+
+### node: rural_need_zoning — Rural housing site & access (16.4.x rural)
+ref: Longford County Development Plan 2021-2027, Chapter 16 §16.4.x (Rural Housing)
+Minimum acceptable site size for a dwelling using an individual treatment system (septic tank & percolation area or equivalent): 0.2 ha. Increased where adjacent systems exist or percolation tests borderline (upper/lower 20% of permitted limits). Maintenance agreements (min. 5 years) for treatment systems before first occupancy.
+
+### node: septic_groundwater — Individual treatment system site (16.4.x rural)
+ref: Longford County Development Plan 2021-2027, Chapter 16 §16.4.x (Rural Housing)
+Minimum acceptable site size for a dwelling using an individual treatment system (septic tank & percolation area or equivalent): 0.2 ha. Increased where adjacent systems exist or percolation tests borderline (upper/lower 20% of permitted limits). Maintenance agreements (min. 5 years) for treatment systems before first occupancy.
+
+### node: road_sightlines — Sight distances from rural entrances (16.4.x rural)
+ref: Longford County Development Plan 2021-2027, Chapter 16 §16.4.x (Rural Housing)
+Sight distances from rural vehicular entrances: Local Roads 90 m; Regional Roads 150 m; National Roads 230 m.

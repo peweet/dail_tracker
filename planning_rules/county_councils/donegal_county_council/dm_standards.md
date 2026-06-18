@@ -36,3 +36,22 @@
 > rural-housing chapter, and a separate design guide, rather than a single consolidated DM-standards
 > chapter. The headline numbers above are reliably extracted; residential parking ratios and
 > separation distances should be read from the archived `raw/` PDFs.
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts).   -->
+<!-- DRAFT 2024-2030 plan — figures quoted as drafted, no inference. Bodies VERBATIM     -->
+<!-- from the rural-housing chapter. landscape_siting/peat_bog/protected_structure are    -->
+<!-- not cleanly stated as standards in the extracted text and are ABSENT.               -->
+
+### node: rural_need_zoning — Rural / one-off housing & ribbon development
+ref: County Donegal DP 2024-2030 (DRAFT), rural-housing chapter (RH-P-x)
+- Ribbon-development guard: in general 5 houses on any one side of 250 m of road frontage.
+- One-off rural housing assessed under the rural-housing policies (RH-P-x) and the companion Rural Location, Siting & Design Guide 2024-2030. Catchment-specific controls apply to single-house effluent treatment systems (RH-P-10).
+
+### node: septic_groundwater — Single-house effluent (catchment controls)
+ref: County Donegal DP 2024-2030 (DRAFT), RH-P-10
+Catchment-specific controls apply to single-house effluent treatment systems (RH-P-10).
+
+### node: road_sightlines — Rural sightlines
+ref: County Donegal DP 2024-2030 (DRAFT), rural-housing chapter
+Sightlines assessed per relevant national vision lines and stopping sight distances.

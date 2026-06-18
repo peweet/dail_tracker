@@ -100,3 +100,22 @@ Sight distances for access onto national primary and secondary roads, measured f
 - Larger rural houses (e.g. in excess of 200 m²) should be sub-divided into smaller elements.
 - Advertising sign (specified type) maximum area 0.7 sq.m.
 - Density: governed by reference to the Sustainable Residential Development and Compact Settlements Guidelines (2024); no fixed uph table in this chapter.
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Sligo CDP 2024-2030 Ch.33 text. Nodes for which the chapter   -->
+<!-- sets no standard are intentionally ABSENT (no-inference contract).                -->
+
+### node: rural_need_zoning — Rural One-Off Housing
+ref: Sligo County Development Plan 2024-2030, Volume 3, Chapter 33 — Development Management Standards (33.4)
+The chapter sets qualitative siting/design standards (vernacular design, boundaries, screening) and requires a Design Statement for every single rural house (except outline applications). No numeric minimum rural site area is specified in this chapter — rural site suitability is governed by EPA wastewater site assessment and the rural housing settlement policy in other volumes.
+
+### node: septic_groundwater — On-Site Wastewater (rural site suitability)
+ref: Sligo County Development Plan 2024-2030, Volume 3, Chapter 33 — Development Management Standards (33.2.7)
+- Compliance with EPA 2021 Code of Practice Domestic Waste Water Treatment Systems (PE ≤10) and S.R. 66:2015.
+- "a site assessment must be carried out for all planning applications involving provision of a new or retention of an existing on-site wastewater treatment system," by a suitably qualified professional, per the EPA Code of Practice (i.e. percolation/site-suitability testing).
+- Discharge of domestic wastewater from single houses to surface water bodies not permitted.
+
+### node: road_sightlines — Sight Distances (National Roads)
+ref: Sligo County Development Plan 2024-2030, Volume 3, Chapter 33 — Development Management Standards (Table 33.8)
+Sight distances for access onto national primary and secondary roads, measured from the access point to the near-side edge of the carriageway; driver eye height 1.05 m to object height 1.15 m. Design speed 100 km/h → 215 m; 85 km/h → 160 m; 70 km/h → 120 m; 60 km/h → 90 m; 50 km/h → 70 m; 42 km/h → 50 m.

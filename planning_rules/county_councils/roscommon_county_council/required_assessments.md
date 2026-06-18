@@ -38,3 +38,23 @@ Triggers enumerated verbatim in the chapter:
 
 ## Site Suitability / Wastewater (rural — 12.12)
 - For non-serviced lands, "Site specific analysis for new systems and operating capacity of existing" on-site effluent treatment systems is required (septic tank + percolation area or patent treatment system), i.e. site-suitability / percolation assessment.
+
+## Machine-readable concept checklist (parsed by rulebook.parse_checklist_concepts)
+
+Maps each siting-catalogue node id to the assessment Roscommon's Chapter 12 names for it, with the
+plan's own trigger wording. The node id is the key.
+
+| node | Required document | Trigger condition | Ref |
+|------|-------------------|-------------------|-----|
+| aa_screening | Natura Impact Statement (to inform the Appropriate Assessment process) | Where a proposal could affect a European Site | Roscommon CDP 2022-2028, Ch.12 (12.5) |
+| european_site | Natura Impact Statement (to inform the Appropriate Assessment process) | Where a proposal could affect a European Site | Roscommon CDP 2022-2028, Ch.12 (12.5) |
+| eia | Environmental Impact Assessment Report (EIAR) | For extractive/larger development an EIAR shall be submitted where the development exceeds relevant thresholds | Roscommon CDP 2022-2028, Ch.12 (12.5) |
+| floodplain | Site Specific Flood Risk Assessment | Some lands are liable to flooding or development proposals may give rise to flooding in other areas; a Site Specific Flood Risk Assessment may, as appropriate, be required | Roscommon CDP 2022-2028, Ch.12 (12.14) |
+| road_sightlines | Traffic and Transport Assessment | Listed among assessments required (12.5) | Roscommon CDP 2022-2028, Ch.12 (12.5) |
+| mobility_plan | Sustainable mobility plan | Larger developments required to prepare a sustainable mobility plan (may lessen car parking requirement) | Roscommon CDP 2022-2028, Ch.12 |
+| protected_structure | Architectural Assessment | Works to or change of use of protected structures (per Architectural Heritage Protection — Guidelines for Planning Authorities) | Roscommon CDP 2022-2028, Ch.12 (12.5) |
+| monument | Archaeological Assessment | Listed among required assessments; Areas of Archaeological Potential | Roscommon CDP 2022-2028, Ch.12 (12.5) |
+| landscape_siting | Landscape Appraisal and Visual Impact Assessment | Listed among assessments required (12.5) | Roscommon CDP 2022-2028, Ch.12 (12.5) |
+| bats | Ecological Assessment | Listed among assessments required (12.5) | Roscommon CDP 2022-2028, Ch.12 (12.5) |
+| design_statement | Design Statement | Listed among assessments required (12.5); also required dependent on scale/siting of residential development | Roscommon CDP 2022-2028, Ch.12 (12.5) |
+| septic_groundwater | Site-suitability / percolation assessment | Non-serviced lands: site specific analysis for new systems and operating capacity of existing on-site effluent treatment systems | Roscommon CDP 2022-2028, Ch.12 (12.12) |

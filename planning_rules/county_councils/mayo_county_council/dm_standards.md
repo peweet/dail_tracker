@@ -88,3 +88,22 @@ Commercial:
 ## Petrol Filling Station (Table 10 — Section 7.13), National/Regional Road
 - Frontage width: 80 m; access width: 6 m; distance between access points: 30 m
 - Front wall to pump island: 10 m; pump island width: 1.2 m; between pump islands: 6 m
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Mayo CDP 2022-2028 Volume 2 text. Nodes the volume sets no -->
+<!-- standard for (septic_groundwater, peat_bog, protected_structure) are intentionally ABSENT. -->
+
+### node: rural_need_zoning — Rural One-Off Housing — Minimum Site Size (Section 2.3)
+ref: Mayo County Development Plan 2022-2028, Volume 2 — Development Management Standards (Section 2.3)
+- Rural Countryside / Rural Transition Zones: 2000 m²
+- Coastal / Lakeshore / Beaches: 3000 m², minimum 40 m width
+- Replacement dwellings (exception): minimum 1500 m²
+
+### node: road_sightlines — Access Visibility (Table 4 — Section 7.6)
+ref: Mayo County Development Plan 2022-2028, Volume 2 (Table 4 — Section 7.6; Building Setbacks 7.11; Access Gradients 7.9)
+- Urban 30 km/h: X = 2.4 m, Y = 23 m, Z = 23 m
+- Regional 70 km/h: X = 3 m, Y = 90 m, Z = 120 m
+- National 80 km/h: X = 3 m, Y = 100 m, Z = 160 m
+- Building setbacks from roads: National Roads 40 m; Regional Roads 20 m; Local Roads 10 m.
+- Access gradients: Single houses dwelling area +/- 2.5% over 10 m length; Direct access +/- 8% (absolute maximum +/- 10%).

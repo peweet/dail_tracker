@@ -281,10 +281,25 @@ def _road(store, lon, lat, dev, slug):
     return fired, detail, "ok"
 
 
+def _council_layers(store, slug, kind):
+    """Per-LA layers (RPS/ACA/landscape) scoped to THIS council only.
+
+    `layers_matching(kind)` returns every council's per-LA layer (they carry no bbox), so an
+    unscoped match would let a Kerry point 'see' the Cork RPS layer and report status='ok' as if
+    Kerry's statutory list had been checked. We only count a layer whose name stems from this
+    council's slug (cork_county_council -> cork_county*); absent -> [] -> honest 'partial'/missing.
+    """
+    layers = store.layers_matching(kind)
+    if not slug:
+        return layers
+    stem = slug.replace("_council", "")
+    return [ln for ln in layers if ln.startswith(stem)]
+
+
 def _landscape(store, lon, lat, dev, slug):
     from .dem import terrain
 
-    landscape_layers = store.layers_matching("landscape")
+    landscape_layers = _council_layers(store, slug, "landscape")
     lca_hit: list[dict] = []
     for ln in landscape_layers:
         lca_hit += store.covering(ln, lon, lat)
@@ -345,7 +360,7 @@ def _rural_need(store, lon, lat, dev, slug):
 
 def _protected_structure(store, lon, lat, dev, slug):
     avail = store.available()
-    rps_aca = store.layers_matching("rps") + store.layers_matching("aca")
+    rps_aca = _council_layers(store, slug, "rps") + _council_layers(store, slug, "aca")
     if "niah" not in avail and not rps_aca:
         return False, {}, "layer_missing"
     near: list[dict] = []

@@ -14,3 +14,16 @@ Assessment triggers referenced in Volume 2 (note: Volume 2 is the DM-standards v
 - **Tree Bonds / arboricultural protection:** may be required to protect trees during construction.
 
 Note: Volume 2 enumerates the operational/transport/heritage/site-suitability triggers above. Appropriate Assessment (Natura 2000) and statutory EIA/EIAR thresholds are addressed in Volume 1 and the accompanying SEA/AA Natura Impact Report rather than in the Volume 2 DM-standards text captured here.
+
+## Machine-readable concept checklist (parsed by rulebook.parse_checklist_concepts)
+
+Maps each siting-catalogue node id to the assessment Waterford's Volume 2 names for it, with the
+plan's own trigger wording. The node id is the key. Statutory AA / EIA are NOT in the captured
+Volume 2 text (they sit in Volume 1 / SEA-AA) and are therefore intentionally absent.
+
+| node | Required document | Trigger condition | Ref |
+|------|-------------------|-------------------|-----|
+| road_sightlines | Road Safety Audit & Traffic Impact Assessment | Development requiring a new vehicular access, or alteration of an existing access, onto National Primary/National roads; TTA per Traffic Management Guidelines (DoT 2003) and NRA/TII TTA Guidelines (2014) | Waterford City & County DP 2022–2028, Vol 2 §8.5 |
+| floodplain | Flood Risk Mitigation | Flood-zone-based controls for developments (detailed flood-risk policy and Justification Test sit in Volume 1 / SFRA) | Waterford City & County DP 2022–2028, Vol 2 §9.8 |
+| protected_structure | Architectural Heritage Protection assessment | Works to protected structures and their settings, assessed against the Architectural Heritage Protection Guidelines | Waterford City & County DP 2022–2028, Vol 2 Ch.11 (incl. 11.7) |
+| septic_groundwater | Site assessment / percolation suitability | Rural dwellings require safe access and acceptable wastewater provision; site assessment / percolation suitability (EPA Code of Practice; Sustainable Rural Housing Guidelines 2005) | Waterford City & County DP 2022–2028, Vol 2 Ch.4 |

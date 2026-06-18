@@ -77,3 +77,23 @@
 - Non-residential with >10 private spaces (e.g. office): at least 1 recharging point; min 1 space per five equipped with a functional EV charging point.
 - Publicly accessible spaces (e.g. supermarket, cinema): at least 1 recharging point; min 1 per five equipped.
 - Rapid charging points should be in proximity to building entrance points.
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Roscommon CDP 2022-2028 Ch.12 text. Nodes for which the      -->
+<!-- chapter sets no standard are intentionally ABSENT (no-inference contract).        -->
+
+### node: rural_need_zoning — Rural One-Off Housing
+ref: Roscommon County Development Plan 2022-2028, Chapter 12 — Development Management Standards (12.7)
+Rural house design per the County Roscommon Rural Housing Design guidance and rural clusters configured to reflect traditional patterns of rural development. No numeric minimum rural site area stated in this chapter — rural site viability governed by wastewater site assessment.
+
+### node: septic_groundwater — Wastewater (rural site suitability)
+ref: Roscommon County Development Plan 2022-2028, Chapter 12 — Development Management Standards (12.12)
+- Serviced lands: connect to mains foul sewer where available; CCTV analysis of new sewer lines before taking in charge.
+- Non-serviced lands: individual systems (septic tank + percolation area, or patent effluent treatment system); "Site specific analysis for new systems and operating capacity of existing" systems required (i.e. percolation / site-suitability testing).
+- Granny flats: required separation distances from wastewater treatment systems must be achieved.
+
+### node: road_sightlines — Sight Distances & New Rural Entrances
+ref: Roscommon County Development Plan 2022-2028, Chapter 12 — Development Management Standards (Figure 12.4, 12.13)
+Sight distances ('x' setback / 'y' sight distance): National Road x 3 m, y 215 m; Regional Road x 3 m, y 160 m; Local Road x 2.4 m, y 90 m. (Visibility splays for Local Roads determined site-specifically; safety audit required where reductions sought.)
+New Rural Entrances — distance from junctions: National Primary Roads 150 metres; National Secondary Roads 100 metres; Regional Roads 100 metres; Local Primary Roads 40 m.

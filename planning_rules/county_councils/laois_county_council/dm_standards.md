@@ -70,3 +70,20 @@
 
 ## Density determination (DN 1)
 - Determined with reference to SRDUA Guidelines (2009)/Urban Design Manual, Apartment Design Standards 2020, Building Heights Guidelines 2018, Core Strategy Table 2.16 & Table 13.4, prevailing scale/pattern.
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Laois CDP 2021-2027 Written Statement text. Nodes the plan     -->
+<!-- sets no fixed standard for are intentionally ABSENT (no-inference contract).        -->
+
+### node: rural_need_zoning — Rural one-off housing (DM RH 1)
+ref: Laois County Development Plan 2021-2027, DM RH 1
+Minimum 0.202 hectares (0.5 acres) of site area. 30 metres of road frontage (unless considerable set-back exists). Compliance with Planning System and Flood Risk Management Guidelines (DEHLG 2009). Ribbon development: defined as 5 or more houses on any one side of a given 250 m of road frontage.
+
+### node: septic_groundwater — On-site wastewater & groundwater (DM RH 1)
+ref: Laois County Development Plan 2021-2027, DM RH 1
+On-site wastewater per EPA Code of Practice for single houses (2009) and County Laois Groundwater Protection Scheme. Surface water per Greater Dublin Strategic Drainage Study (2005).
+
+### node: road_sightlines — Sightlines at rural entrance (DM RH 1)
+ref: Laois County Development Plan 2021-2027, DM RH 1
+Sightlines at entrance must comply with Laois County Council Parking and Roads Standards (Chapter 10) and be achieved within the site boundary only; excessive hedgerow removal unacceptable.

@@ -99,3 +99,18 @@ The Council reserves the right to alter requirements on a case-by-case basis.
 
 ## Rural housing
 - Layout and boundary treatment for rural dwellings governed by the **Kildare Rural House Design Guide (Appendix 4)**. On-site wastewater addressed under transport/utilities standards. No single fixed minimum site-area figure stated in Chapter 15 (deferred to Rural House Design Guide).
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Kildare CDP 2023-2029 Chapter 15 text. Nodes Chapter 15 sets   -->
+<!-- no fixed standard for are intentionally ABSENT (no-inference contract).             -->
+
+### node: rural_need_zoning — Rural housing (Kildare Rural House Design Guide)
+ref: Kildare County Development Plan 2023-2029, Chapter 15 — Development Management Standards
+Layout and boundary treatment for rural dwellings governed by the Kildare Rural House Design Guide (Appendix 4). On-site wastewater addressed under transport/utilities standards. No single fixed minimum site-area figure stated in Chapter 15 (deferred to Rural House Design Guide).
+
+### node: road_sightlines — Sightlines, building lines & rural setbacks
+ref: Kildare County Development Plan 2023-2029, Chapter 15 §15.7.5 / Table 15.8
+Sightline requirements determined by the Council on a case-by-case basis (type, speed limit and condition of road considered). Where inadequate and giving rise to traffic hazard, development not permitted. No fixed x/y figures stated in chapter — referred to relevant NRA/TII standards. Hedgerow removal minimised.
+
+Building lines / setbacks from public roads in rural areas (Table 15.8, measured from the nearest edge of the road surface): Motorways 91 m; National Primary 91 m; National Secondary 91 m; Regional Road 31 m; Urban / County Road 18.5 m; Distributor 18.5 m. In developed/urban areas building lines are determined by historic urban grain and established building line.

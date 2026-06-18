@@ -84,3 +84,27 @@
 - Ribbon development defined as five or more houses on one side of any given 250 m of road frontage.
 - Backland development only in Rural Policy Zones 1 & 2 where site family-owned ≥15 years and landholding ≥1.5 hectares; only one dwelling per landowner.
 - On-site wastewater systems must meet EPA Code of Practice (p.e. 10).
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Louth CDP 2021-2027 Chapter 13 text. Nodes the chapter sets no -->
+<!-- standard for (landscape_siting, peat_bog, protected_structure) are intentionally ABSENT. -->
+
+### node: rural_need_zoning — Rural One-Off Housing
+ref: Louth County Development Plan 2021-2027, Chapter 13 — Development Management Guidelines
+- Chapter 13 sets qualifying criteria by Rural Policy Zone (criteria in Chapter 3 'Housing', §3.17.4) rather than a single fixed minimum site area.
+- Ribbon development defined as five or more houses on one side of any given 250 m of road frontage.
+- Backland development only in Rural Policy Zones 1 & 2 where site family-owned ≥15 years and landholding ≥1.5 hectares; only one dwelling per landowner.
+- On-site wastewater systems must meet EPA Code of Practice (p.e. 10).
+
+### node: septic_groundwater — On-site wastewater (rural housing)
+ref: Louth County Development Plan 2021-2027, Chapter 13 — Development Management Guidelines
+- On-site wastewater systems must meet EPA Code of Practice (p.e. 10).
+
+### node: road_sightlines — Entrances and Sightlines (Table 13.13)
+ref: Louth County Development Plan 2021-2027, Chapter 13 (Table 13.13; Road Gradients 13.16.19)
+- National & Protected Routes: Y (sight distance) 215 m; X 3.0 m (1-6 houses), 4.5 m (7+/non-domestic); ground 0.6-1.05 m
+- Regional Routes: Y 125 m; Regional Road / 75 m variants; X 3.0 m / 4.5 m
+- Local Road / Cul-de-sac: X 4.5 m
+- In certain circumstances X setback of 2.4 m allowed; Y setback of 3.0 m allowed (DMURS may modify).
+- Flat gradient no more than 1:50 (2%) at new junctions/entrances for first 5 m from edge of public road.

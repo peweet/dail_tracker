@@ -111,3 +111,23 @@
 - Sustainability Statement required: residential **10+** units; non-residential > **1,000 m²** GFA or **20+** employees.
 - Public art: encouraged for residential developments over **100 units**.
 - Noise Impact Assessment for development near major roads (traffic > **3 million vehicles per annum**).
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Tipperary CDP 2022-2028 Vol.3 Appendix 6 text. Nodes for     -->
+<!-- which the volume sets no standard are intentionally ABSENT (no-inference).         -->
+
+### node: rural_need_zoning — Rural One-Off House
+ref: Tipperary County Development Plan 2022-2028, Volume 3 Appendix 6 — Development Management Standards
+Not specified as a numeric minimum site area in this volume. Rural one-off house design is governed by the "Rural Housing Design Guideline" (Volume 3, separate appendix) and on-site wastewater per EPA Code of Practice for Domestic Wastewater Treatment Systems (EPA, 2021); a site assessor report is required.
+
+### node: septic_groundwater — On-Site Wastewater (rural site suitability)
+ref: Tipperary County Development Plan 2022-2028, Volume 3 Appendix 6 — Development Management Standards
+On-site wastewater per EPA Code of Practice for Domestic Wastewater Treatment Systems (EPA, 2021); a site assessor report is required. Commercial onsite wastewater with Population Equivalent > 10: EPA Wastewater Treatment Manual for Small Communities (EPA, 1999).
+
+### node: road_sightlines — Sightlines / Visibility
+ref: Tipperary County Development Plan 2022-2028, Volume 3 Appendix 6 — Development Management Standards (Section 6.1, Tables 6.1 & 6.2)
+- New direct accesses not permitted within 90 m of a roundabout exit on a national road, or within 50 m on a non-national road.
+- Y-Distance measured to object height 1.05 m above road surface.
+- Table 6.1 X-Distance: National roads (simple junction, stop control) 2.4 m; Regional & Local roads (stop control) 3.0 m; Regional & Local (yield control) 4.5 m; lightly trafficked single residence access 2.0 m.
+- Table 6.2 Y-Distance (rural non-national road): 50 km/h limit → 70 m; 60 → 90 m; 80 → 120 m; 100 (limit) → 215 m (urban Y-distances 33/45/59/72 m for 30-60 km/h). Minimum design speed: rural non-national 50 kph, urban non-national 40 kph.

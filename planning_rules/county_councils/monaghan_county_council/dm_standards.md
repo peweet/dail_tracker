@@ -76,3 +76,34 @@
 
 ## Plot Ratio / Site Coverage / Building Heights
 - Not tabulated numerically in Chapter 15 (the 'Proposed Residential B' serviced-site provision requires a Design Concept Statement specifying a maximum house-to-plot ratio, but no figure given). Building heights addressed via national guidelines elsewhere in the plan.
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Monaghan CDP 2025-2031 Chapter 15 (Written Statement) text. -->
+<!-- Nodes the chapter sets no standard for (peat_bog, protected_structure) are intentionally ABSENT. -->
+
+### node: rural_need_zoning — Rural One-Off Housing (15.9)
+ref: Monaghan County Development Plan 2025-2031, Chapter 15 (15.9)
+- Site Selection & Design Guidelines (15.9.2, Table 15.3): qualitative vernacular-style siting/design (shelter, established boundaries, minimum of one natural existing boundary in addition to roadside, not breaking ridgeline/shoreline, set back from road). No numeric minimum rural site area stated — rural site viability governed by EPA wastewater compliance.
+- Wastewater (15.9.3/15.9.4/15.10): on-site treatment to comply with EPA Code of Practice — Wastewater Treatment and Disposal Systems Serving Single Houses (PE10) (2021).
+
+### node: landscape_siting — Rural Site Selection & Design (15.9.2, Table 15.3)
+ref: Monaghan County Development Plan 2025-2031, Chapter 15 (15.9.2, Table 15.3)
+Qualitative vernacular-style siting/design (shelter, established boundaries, minimum of one natural existing boundary in addition to roadside, not breaking ridgeline/shoreline, set back from road).
+
+### node: septic_groundwater — On-site wastewater (15.9.3/15.9.4/15.10)
+ref: Monaghan County Development Plan 2025-2031, Chapter 15 (15.9.3/15.9.4/15.10)
+On-site treatment to comply with EPA Code of Practice — Wastewater Treatment and Disposal Systems Serving Single Houses (PE10) (2021).
+
+### node: road_sightlines — Minimum Visibility Standards, Non-Urban Roads (Table 15.4, 15.23.2)
+ref: Monaghan County Development Plan 2025-2031, Chapter 15 (Table 15.4, 15.23.2)
+'X' distance = set-back from edge of minor road into the access; 'Y' distance = sight distance along the major road from that set-back. Measured to near-side edge of carriageway, eye/object height 1.05m – 2.0m, set-back point 2.4m / 3.0m.
+
+| Road Category | Design speed (km/h) | Y distance (m) | X setback (m) |
+|---|---|---|---|
+| National (upgraded to TII std) | 100 | 215 | 3.0 |
+| Regional (upgraded) | 85 | 160 | 3.0 |
+| Regional (not upgraded) | 85 | 160 | 2.4 |
+| Local Primary (80 km/h) | 85 | 120 | 2.4 |
+| Local Primary (60 km/h) | 85 | 120 | 2.4 |
+| Local Secondary / Tertiary | 85 | 90 | 2.4 |

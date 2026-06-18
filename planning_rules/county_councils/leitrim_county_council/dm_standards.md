@@ -84,3 +84,26 @@
 
 ## EV Charging
 - Service stations / forecourt developments: EV charging point(s) to be provided and clearly demarcated (13.x petrol-station standards).
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- MACHINE-READABLE concept-keyed standards (parsed by rulebook.parse_dm_concepts). -->
+<!-- Bodies are VERBATIM Leitrim CDP 2023-2029 Chapter 13 text. Nodes the chapter sets  -->
+<!-- no fixed standard for are intentionally ABSENT (no-inference contract).             -->
+
+### node: rural_need_zoning — Rural housing (13.11)
+ref: Leitrim County Development Plan 2023-2029, Chapter 13 §13.11
+Design per "Design Guide for the Siting and Design of Single Houses within the Leitrim Countryside". Larger houses (e.g. in excess of 200 m²) should sub-divide mass into smaller elements. Application sites should ideally be flanked by minimum of two established natural boundaries. Chapter 13 does not set a single numeric minimum site area for one-off houses; rural housing eligibility criteria are in Chapter 3, with site-specific design/percolation tests governing area.
+
+### node: landscape_siting — Siting in the countryside (13.11)
+ref: Leitrim County Development Plan 2023-2029, Chapter 13 §13.11
+Larger houses (e.g. in excess of 200 m²) should sub-divide mass into smaller elements. Application sites should ideally be flanked by minimum of two established natural boundaries. Hedgerow removal to achieve sightlines: minimum amount; new native hedgerow planted inside line of visibility.
+
+### node: septic_groundwater — On-site wastewater (13.11)
+ref: Leitrim County Development Plan 2023-2029, Chapter 13 §13.11
+On-site wastewater per EPA Code of Practice for Domestic Waste Water Treatment Systems (p.e. <10) (2021).
+
+### node: road_sightlines — Entrance distances & sightlines (13.16.5 / Table 13.5)
+ref: Leitrim County Development Plan 2023-2029, Chapter 13 §13.16.5 / Table 13.5
+Distance of entrances from road junctions: National Primary Roads 150 m; National Secondary Roads 100 m; Regional Roads 100 m; Local Primary Roads 40 m.
+
+Minimum sightline requirements (Table 13.5) by road status and speed (100/80/60 km/h): National Primary Roads & R280: 215 m / 215 m / 80 m; Regionally & Locally Important Roads: 215 m / 160 m / 80 m; Other Regional Roads: N/A / 160 m / 80 m; County Roads: N/A / 120 m* / 70 m (*90 m may be acceptable where operational speed ≤60 km/h). Measured at 1.05 m above ground from a point 3.0 m back from the edge of the carriageway to a point 260 mm over the road surface.
