@@ -74,6 +74,18 @@ def _is_short_link(text: str) -> bool:
     return any(h in (text or "") for h in ("maps.app.goo.gl", "goo.gl/maps"))
 
 
+def coords_from_resolved(resolved: str) -> tuple[float, float] | None:
+    """Pull (lat, lon) out of a resolved short-link blob: "<final-url>\\n<page-body>".
+
+    The redirected URL is authoritative for the SHARED point, so parse it in full first. Only
+    fall back to the page body if the URL carries no coordinate at all — the body holds dozens of
+    unrelated pins (nearby POIs, viewport corners) and a global !3d!4d search there returns the
+    wrong one, so the point would bear no relation to what the user shared.
+    """
+    final_url, _, body = (resolved or "").partition("\n")
+    return parse_latlon_from_maps(final_url) or parse_latlon_from_maps(body)
+
+
 def _apply_maps_url() -> None:
     """on_change handler: parse the pasted link and pre-fill the lat/lon widgets.
 
@@ -88,7 +100,7 @@ def _apply_maps_url() -> None:
         from data_access.siting_data import resolve_maps_short_link
 
         resolved = resolve_maps_short_link(raw.strip())
-        parsed = parse_latlon_from_maps(resolved) if resolved else None
+        parsed = coords_from_resolved(resolved) if resolved else None
     if parsed:
         st.session_state["sc_lat"] = round(parsed[0], 5)
         st.session_state["sc_lon"] = round(parsed[1], 5)
@@ -346,13 +358,28 @@ def siting_check_page() -> None:
     if getattr(res, "excluded", False):
         _render_exclusion_banner(res.exclusions)
 
-    fired = sorted(res.fired, key=lambda i: "FDP".index(_headline_class(i.mitigation_classes)))
-    if fired:
-        st.subheader(f"{len(fired)} issue(s) your site triggers")
-        for issue in fired:
+    # Split genuine, layer-backed findings from "verify yourself" checks. The latter are layers
+    # we can't read for ANY site (the licensed OPW flood maps), so they fire on every point —
+    # listing them as "issues your site triggers" made every site read as a floodplain. They get
+    # their own section below, framed as verification steps, not findings.
+    verify = [i for i in res.fired if i.data_status == "deep_link_only"]
+    findings = sorted((i for i in res.fired if i.data_status != "deep_link_only"),
+                      key=lambda i: "FDP".index(_headline_class(i.mitigation_classes)))
+    if findings:
+        st.subheader(f"{len(findings)} issue(s) your site triggers")
+        for issue in findings:
             _render_card(issue)
     else:
         st.success("No mapped designation issues fired for this point from the layers loaded.")
+
+    # Standing checks we cannot assess for any location (licensed layers, e.g. the statutory OPW
+    # flood maps) — always a verify-yourself step, never a per-site finding.
+    if verify:
+        st.subheader("Checks to run yourself")
+        st.caption("These layers are licensed and can't be read for any site, so they're "
+                   "verification steps — not issues this specific point triggered.")
+        for issue in verify:
+            _render_card(issue)
 
     if res.missing_layers:
         pretty = ", ".join(m.replace("_", " ") for m in res.missing_layers)

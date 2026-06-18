@@ -183,7 +183,7 @@ def pull() -> None:
 
 
 def build_parquet() -> pd.DataFrame:
-    rows = [json.loads(l) for l in CHECKPOINT.read_text(encoding="utf-8").splitlines() if l.strip()]
+    rows = [json.loads(ln) for ln in CHECKPOINT.read_text(encoding="utf-8").splitlines() if ln.strip()]
     df = pd.DataFrame(rows).drop_duplicates("licence_number", keep="last")
     cnt_cols = [c for c in df.columns if c.startswith("n_")]
     df[cnt_cols] = df[cnt_cols].fillna(0).astype("int64")
