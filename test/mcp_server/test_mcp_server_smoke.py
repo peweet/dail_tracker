@@ -23,15 +23,23 @@ from mcp_server import server  # noqa: E402
 
 def test_tool_registry_loads():
     tools = asyncio.run(server.mcp.list_tools())
-    assert len(tools) >= 39
+    assert len(tools) >= 42
     names = {t.name for t in tools}
-    # spot-check the surface across domains (members / money / cross-register)
-    assert {"search_members", "procurement_lobbying_overlap", "public_body_payments", "data_coverage"} <= names
+    # spot-check the surface across domains (members / money / cross-register / corporate / siting)
+    assert {
+        "search_members",
+        "procurement_lobbying_overlap",
+        "public_body_payments",
+        "data_coverage",
+        "corporate_distress_notices",
+        "corporate_repeat_distress",
+        "siting_check",
+    } <= names
 
 
 def test_prompts_and_read_only_annotations():
     prompts = asyncio.run(server.mcp.list_prompts())
-    assert len(prompts) >= 6
+    assert len(prompts) >= 7
     tools = asyncio.run(server.mcp.list_tools())
     # every annotated tool must advertise read-only (no destructive surface exists)
     for t in tools:

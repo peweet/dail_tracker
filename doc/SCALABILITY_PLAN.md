@@ -62,6 +62,11 @@ Move off Community Cloud onto a host that supports `replicas = N` — **Fly.io**
 
 This is the fastest "just more users now."
 
+> **Note — the siting/planning engine is a SEPARATE, compute-bound track.** It does not fit
+> the read-only model below (live geometry per request). Its scaling plan is
+> [SITING_PRECOMPUTE_PLAN.md](SITING_PRECOMPUTE_PLAN.md): precompute geometry to a grid →
+> cheap lookup → folds back into Layers 1/2.
+
 ### Layer 2 — CDN-cache the API + thin static frontend (biggest leverage)
 
 The real fix, and ~80% built. The API is **stateless HTTP over static data**, so
