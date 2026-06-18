@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-17T18:33:03Z",
+  "generated_at": "2026-06-18T17:31:50Z",
   "links_checked": false,
   "summary": {
     "sources_checked": 114,
@@ -71,10 +71,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "47d old (<= 180d)",
+      "detail": "48d old (<= 180d)",
       "input_pattern": "data/bronze/charities/public_register_*.xlsx",
       "latest_file": "data/bronze/charities/public_register_20260426.xlsx",
-      "days_old": 47,
+      "days_old": 48,
       "stale_after_days": 180
     },
     {
@@ -82,10 +82,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "0d old (<= 7d)",
+      "detail": "1d old (<= 7d)",
       "input_pattern": "data/bronze/cro/companies_*.csv",
       "latest_file": "data/bronze/cro/companies_20260617.csv",
-      "days_old": 0,
+      "days_old": 1,
       "stale_after_days": 7
     },
     {
@@ -93,10 +93,10 @@
       "group": "file_sources",
       "check_type": "file_age",
       "status": "ok",
-      "detail": "13d old (<= 200d)",
+      "detail": "14d old (<= 200d)",
       "input_pattern": "data/silver/cro/financial_statements.parquet",
       "latest_file": "data/silver/cro/financial_statements.parquet",
-      "days_old": 13,
+      "days_old": 14,
       "stale_after_days": 200
     },
     {
