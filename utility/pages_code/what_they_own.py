@@ -32,6 +32,7 @@ from data_access.identity_resolver import resolve_member_code
 from data_access.interests_data import (
     fetch_interests_availability,
     fetch_interests_filter_options,
+    fetch_member_index,
     fetch_member_index_alltime,
 )
 from shared_css import inject_css
@@ -117,7 +118,10 @@ def _render_leaderboard(df: pd.DataFrame, *, show_rank: bool) -> None:
     cards: list[str] = []
     for _, row in visible.iterrows():
         name = str(row["member_name"])
-        code = resolve_member_code(name)
+        # Prefer the canonical code the view now carries (works for FORMER members
+        # like Seán Haughey, who are absent from the current-roster registry the
+        # name resolver reads). Fall back to the name lookup only when it is null.
+        code = str(row.get("member_id") or "").strip() or resolve_member_code(name)
         inner = _own_card_html(row, show_rank=show_rank)
         if code:
             cards.append(
@@ -157,9 +161,11 @@ def _redirect_to_profile(name: str) -> None:
 def _render_provenance(house: str) -> None:
     provenance_expander(
         sections=[
-            "This page pools every published year of the Register of Members' Interests "
-            "on record — sitting and former TDs/senators alike — and ranks members by "
-            "their lifetime number of declarations. "
+            "This page draws on every published year of the Register of Members' Interests "
+            "on record — sitting and former TDs/senators alike. The register is restated "
+            "in full each year, so figures are shown for a single declaration year (the "
+            "member's most recent by default, or the year you pick) and are never summed "
+            "across years. Members are ranked by their declaration count in that year. "
             "Flags (landlord, property owner, shareholder) are pipeline navigation aids, "
             "not legal conclusions. Office holders (Ministers, Ceann Comhairle) may be "
             "exempt from filing, so records can be incomplete. A high count reflects "
@@ -195,7 +201,7 @@ def what_they_own_page() -> None:
         or "Dáil"
     )
     if st.session_state.get("_wto_last_house") != house:
-        for k in ("wto_page", "wto_member_sel", "wto_member_q", "wto_selected"):
+        for k in ("wto_page", "wto_member_sel", "wto_member_q", "wto_selected", "wto_year"):
             st.session_state.pop(k, None)
         st.session_state["_wto_last_house"] = house
 
@@ -244,7 +250,29 @@ def what_they_own_page() -> None:
         or "Everyone"
     )
 
-    members_df = fetch_member_index_alltime(house)
+    # ── Historic year picker ────────────────────────────────────────────────────
+    # "Most recent on file" shows each member at their latest declaration year
+    # (the all-time snapshot view). Picking a year shows that year's register —
+    # surfacing whoever sat then, including members who have since left.
+    _LATEST = "Most recent on file"
+    years = [int(y) for y in opts.get("years", [])]
+    year_choice = (
+        st.selectbox(
+            "Declaration year",
+            [_LATEST, *[str(y) for y in years]],
+            index=0,
+            key="wto_year",
+            label_visibility="collapsed",
+        )
+        or _LATEST
+    )
+    selected_year: int | None = None if year_choice == _LATEST else int(year_choice)
+
+    members_df = (
+        fetch_member_index_alltime(house)
+        if selected_year is None
+        else fetch_member_index(house, selected_year)
+    )
     if members_df.empty:
         empty_state(
             "No declarations on record",
@@ -258,21 +286,28 @@ def what_they_own_page() -> None:
         members_df = members_df[predicate(members_df)].reset_index(drop=True)
 
     member_label = "TDs and senators" if house == "Dáil" else "senators"
-    if category == "Everyone":
-        evidence_heading(f"Every member on record · {len(members_df)} {member_label}")
-        st.caption(
-            "Ranked by **lifetime declarations** across every year on record "
-            "(includes former members recovered by the historic backfill). "
-            "Pill colours: **landlord** (orange) · **property owner** (green) · "
-            "**shareholder** (purple) · **declarations** (blue)."
+    # Scope phrase shared by every caption — makes clear the count is a single
+    # year's snapshot, never a running total across years.
+    if selected_year is None:
+        scope = (
+            "each member's **most recent declaration year** on file "
+            "(includes former members at their last year)"
         )
+        year_tag = "most recent year"
     else:
-        evidence_heading(f"{category} · {len(members_df)} members")
-        st.caption(
-            f"Members whose lifetime declarations include **{category.lower()}**. "
-            "Pill colours: **landlord** (orange) · **property owner** (green) · "
-            "**shareholder** (purple) · **declarations** (blue)."
-        )
+        scope = f"the **{selected_year}** register"
+        year_tag = str(selected_year)
+    pill_legend = (
+        "Pill colours: **landlord** (orange) · **property owner** (green) · "
+        "**shareholder** (purple) · **declarations** (blue). Counts are for that "
+        "year only — not summed across years."
+    )
+    if category == "Everyone":
+        evidence_heading(f"Every member · {year_tag} · {len(members_df)} {member_label}")
+        st.caption(f"Ranked by declarations in {scope}. {pill_legend}")
+    else:
+        evidence_heading(f"{category} · {year_tag} · {len(members_df)} members")
+        st.caption(f"Members declaring **{category.lower()}** in {scope}. {pill_legend}")
 
     if members_df.empty:
         empty_state(

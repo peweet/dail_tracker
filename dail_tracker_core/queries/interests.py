@@ -123,7 +123,8 @@ def member_index(conn: duckdb.DuckDBPyConnection, house: str, year: int) -> Quer
     """Ranked member index for a house × year (rank/counts/flags from the view)."""
     return _run(
         conn,
-        "SELECT rank, member_name, party_name, constituency,"
+        "SELECT rank, member_name, member_id, party_name, constituency,"
+        " declaration_year,"
         " total_declarations, directorship_count, property_count, share_count,"
         " is_landlord, is_property_owner"
         " FROM v_member_interests_index"
@@ -134,12 +135,14 @@ def member_index(conn: duckdb.DuckDBPyConnection, house: str, year: int) -> Quer
 
 
 def member_index_alltime(conn: duckdb.DuckDBPyConnection, house: str) -> QueryResult:
-    """All-time ranked member index for a house: every declaration year pooled
-    into one lifetime total per member, ranked within the chamber. Same column
-    contract as ``member_index`` (no year). Surfaces historic/former members."""
+    """Latest-snapshot ranked member index for a house: each member shown at their
+    MOST RECENT declaration year (NOT summed across years — the register restates
+    in full annually). Same column contract as ``member_index``. Surfaces
+    historic/former members at their last year on file."""
     return _run(
         conn,
-        "SELECT rank, member_name, party_name, constituency,"
+        "SELECT rank, member_name, member_id, party_name, constituency,"
+        " declaration_year,"
         " total_declarations, directorship_count, property_count, share_count,"
         " is_landlord, is_property_owner"
         " FROM v_member_interests_index_alltime"

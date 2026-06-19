@@ -103,7 +103,7 @@ def fetch_member_index(house: str, year: int) -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def fetch_member_index_alltime(house: str) -> pd.DataFrame:
-    """All-time ranked member index for a house — every declaration year pooled
-    into one lifetime total per member (retrieval-only over the all-time index
-    view). Drives the /interests historic toggle."""
+    """Latest-snapshot ranked member index for a house — each member shown at their
+    most recent declaration year, NOT summed across years (retrieval-only over the
+    all-time index view). Drives the What They Own 'Most recent on file' view."""
     return _q.member_index_alltime(get_interests_conn(), house).data
