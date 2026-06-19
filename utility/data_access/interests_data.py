@@ -99,3 +99,11 @@ def fetch_td_interest_year_summary(house: str, td_name: str) -> pd.DataFrame:
 def fetch_member_index(house: str, year: int) -> pd.DataFrame:
     """Ranked member index for a house × year (retrieval-only over the index view)."""
     return _q.member_index(get_interests_conn(), house, year).data
+
+
+@st.cache_data(ttl=300)
+def fetch_member_index_alltime(house: str) -> pd.DataFrame:
+    """All-time ranked member index for a house — every declaration year pooled
+    into one lifetime total per member (retrieval-only over the all-time index
+    view). Drives the /interests historic toggle."""
+    return _q.member_index_alltime(get_interests_conn(), house).data

@@ -1693,13 +1693,13 @@ def _render_epa_credentials_panel(company_num) -> None:
             last = _esc(str(r.get("last_record_date") or "")[:10])
             last_clause = f", most recent {last}" if last else ""
             body += (
-                f"The EPA has logged <strong>{ev:,} compliance record{'' if ev == 1 else 's'}</strong> "
-                f"against {'this licence' if n_lic == 1 else 'these licences'}: {inc:,} incident"
-                f"{'' if inc == 1 else 's'}, {comp:,} complaint{'' if comp == 1 else 's'} and {nc:,} "
-                f"non-compliance{'' if nc == 1 else 's'}, of which <strong>{op:,} remain open</strong>"
-                f"{last_clause}. These are entries in the EPA's regulatory record — a separate public "
-                "register — <em>not</em> findings of wrongdoing, and they partly reflect a site's scale "
-                "and how often it is inspected."
+                f"The EPA's enforcement record for {'this licence' if n_lic == 1 else 'these licences'} "
+                f"shows <strong>{inc:,} incident{'' if inc == 1 else 's'}, {comp:,} complaint"
+                f"{'' if comp == 1 else 's'} and {nc:,} non-compliance{'' if nc == 1 else 's'}</strong>, "
+                f"of which <strong>{op:,} {'is' if op == 1 else 'are'} still open</strong>{last_clause}. "
+                "These are entries in the EPA's regulatory record (incidents, complaints and "
+                "non-compliances — a subset of all compliance activity) — <em>not</em> findings of "
+                "wrongdoing, and they partly reflect a site's scale and how often it is inspected."
             )
         else:
             body += (
@@ -3171,101 +3171,6 @@ def _data_completeness_note() -> None:
         )
 
 
-# ╔══════════════════════════════════════════════════════════════════════════════════════╗
-# ║ EXPERIMENTAL QS VALUATION FEATURE — self-contained & easily removable.                ║
-# ║ To delete: remove this whole marked block (down to the matching ╚ marker) AND the      ║
-# ║ `_render_qs_valuation()` call marked in procurement_page(). Nothing else depends on it. ║
-# ║ The only non-UI parts it uses (dail_tracker_core/qs_valuation.py, the two data/_meta    ║
-# ║ benchmark CSVs, test/dail_tracker_core/test_qs_valuation.py) are likewise standalone.   ║
-# ║ Owner-greenlit 2026-06-11 as the ONE place inference is surfaced in the citizen app;    ║
-# ║ it NEVER reports a disclosed figure (always wrapped in "estimate, not disclosed").      ║
-# ╚══════════════════════════════════════════════════════════════════════════════════════╝
-def _render_qs_valuation() -> None:
-    """Quantity-surveyor style indicative construction valuation, year-adjusted via the
-    SCSI Tender Price Index. Inference, display-only; logic in dail_tracker_core.qs_valuation.
-    doc/PROCUREMENT_SURFACING_PLAN.md."""
-    try:
-        from dail_tracker_core import qs_valuation as qs  # lazy: keeps the feature self-contained
-    except Exception:
-        return  # if the module/data is absent, the page renders without this experimental panel
-    with st.expander("Indicative construction valuation (experimental)"):
-        st.html(
-            '<div class="pr-caveat"><strong>Experimental — an estimate, not a disclosed figure.</strong> '
-            "This applies published Irish €/m² cost benchmarks to a deliverable you describe — the way a "
-            "quantity surveyor sizes a project before bills of quantities exist — and adjusts to the award "
-            "year via the SCSI Tender Price Index. It is inference, shown with its method and sources; never "
-            "read it as a contract’s actual value.</div>"
-        )
-        subs = qs.list_subtypes()
-        labels = {s["subtype"]: s["label"] for s in subs}
-        is_m2 = {s["subtype"]: s["unit"] == "per_m2" for s in subs}
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            subtype = st.selectbox(
-                "Building type", [s["subtype"] for s in subs], format_func=lambda x: labels[x], key="qs_subtype"
-            )
-        with c2:
-            units = st.number_input("How many?", min_value=1, value=1, step=1, key="qs_units")
-        with c3:
-            per_m2 = is_m2.get(subtype, False)
-            area = st.number_input(
-                "Floor area each (m²)",
-                min_value=0,
-                value=95 if per_m2 else 0,
-                step=5,
-                key="qs_area",
-                disabled=not per_m2,
-                help="Required for per-m² building types.",
-            )
-        c4, c5 = st.columns(2)
-        with c4:
-            yr = st.selectbox(
-                "Award year (optional)",
-                [None, *range(2025, 2012, -1)],
-                format_func=lambda y: "current costs" if y is None else str(y),
-                key="qs_year",
-            )
-        with c5:
-            ceiling = st.number_input(
-                "Framework / DPS ceiling € (optional)", min_value=0, value=0, step=100_000, key="qs_ceiling"
-            )
-        est = qs.estimate(
-            subtype,
-            units=int(units),
-            area_m2=float(area) or None,
-            award_year=yr,
-            framework_ceiling_eur=float(ceiling) or None,
-        )
-        if not est.ok:
-            st.caption(est.message)
-            return
-        p = est.payload
-        v = p["value_eur"]
-        st.html(
-            '<div style="background:#ffffff;border:1px solid var(--border);border-radius:10px;'
-            'padding:0.8rem 1rem;margin:0.6rem 0;max-width:48rem">'
-            '<div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;'
-            'color:var(--text-meta)">Indicative build value · inference</div>'
-            f'<div style="font-size:1.5rem;font-weight:750;color:var(--ink-strong);'
-            f'font-variant-numeric:tabular-nums">{_esc(_eur_scale(v["low"]))} – {_esc(_eur_scale(v["high"]))}</div>'
-            f'<div style="font-size:0.82rem;color:var(--text-secondary)">midpoint '
-            f"{_esc(_eur_scale(v['mid']))} · {_esc(p['read_as']['per_unit_basis'])} × {p['read_as']['units']} · "
-            f"{_esc(p['year_adjustment'])}</div></div>"
-        )
-        if "ceiling_reading" in p:
-            st.html(f'<div class="pr-caveat">{_esc(p["ceiling_reading"])}</div>')
-        st.caption(p["caveat"])
-        st.caption(
-            f"Method: {p['method']}. Basis: {p['basis']['source']} {p['basis']['basis_period']}, "
-            f"{p['basis']['vat']} (excludes {p['basis']['excludes']}). Sources: {', '.join(p['sources'])}."
-        )
-
-
-# ╔══════════════════════════════════════════════════════════════════════════════════════╗
-# ║ END EXPERIMENTAL QS VALUATION FEATURE — delete up to the matching ╔ marker above.       ║
-# ╚══════════════════════════════════════════════════════════════════════════════════════╝
-
-
 # ──────────────────────────────────────────────────────────────────────────────
 def procurement_page() -> None:
     hide_sidebar()
@@ -3454,10 +3359,6 @@ def procurement_page() -> None:
 
     else:  # "patterns"
         _render_patterns()
-
-    # ╔═══ EXPERIMENTAL QS VALUATION — REMOVE THIS LINE + the marked block below to delete ═══╗
-    _render_qs_valuation()
-    # ╚════════════════════════════════════════════════════════════════════════════════════╝
 
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> eTenders / national procurement open data '

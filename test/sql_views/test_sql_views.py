@@ -56,6 +56,7 @@ if _USE_REAL_PATHS:
     SEANAD_MEMBER_PARQUET = SILVER_PARQUET_DIR / "flattened_seanad_members.parquet"
     VOTE_PARQUET = GOLD_PARQUET_DIR / "pretty_votes.parquet"
     EXTERNAL_LINKS_PARQUET = SILVER_PARQUET_DIR / "member_external_links.parquet"
+    CONTACT_DETAILS_PARQUET = SILVER_PARQUET_DIR / "member_contact_details.parquet"
 else:
     MEMBER_PARQUET = _FIXTURES_DIR / "silver" / "parquet" / "flattened_members.parquet"
     # The Seanad members parquet shares the Dáil schema, so the committed Dáil
@@ -63,6 +64,7 @@ else:
     SEANAD_MEMBER_PARQUET = MEMBER_PARQUET
     VOTE_PARQUET = _FIXTURES_DIR / "gold" / "parquet" / "pretty_votes.parquet"
     EXTERNAL_LINKS_PARQUET = _FIXTURES_DIR / "silver" / "parquet" / "member_external_links.parquet"
+    CONTACT_DETAILS_PARQUET = _FIXTURES_DIR / "silver" / "parquet" / "member_contact_details.parquet"
 
 # Base for resolving views' hardcoded read_parquet('data/...') literals. Many
 # views embed 'data/...' paths with no template hook, so _load rewrites them to
@@ -120,6 +122,20 @@ def _load(filename: str, con=None) -> str:
     # doubles as the Seanad source for v_vote_base's chamber-union template.
     sql = sql.replace("{SEANAD_VOTE_PARQUET_PATH}", str(VOTE_PARQUET).replace("\\", "/"))
     sql = sql.replace("{EXTERNAL_LINKS_PARQUET_PATH}", str(EXTERNAL_LINKS_PARQUET).replace("\\", "/"))
+    sql = sql.replace("{CONTACT_DETAILS_PARQUET_PATH}", str(CONTACT_DETAILS_PARQUET).replace("\\", "/"))
+    # Historic-members backfill (former-member rosters + member×term sidecar) for
+    # v_member_registry_all. Resolve against SILVER_PARQUET_DIR like the others —
+    # absent in the CI fixture tree, so member_registry_all-dependent tests skip there.
+    sql = sql.replace(
+        "{HISTORIC_DAIL_PARQUET_PATH}", str(SILVER_PARQUET_DIR / "historic_members_dail.parquet").replace("\\", "/")
+    )
+    sql = sql.replace(
+        "{HISTORIC_SEANAD_PARQUET_PATH}",
+        str(SILVER_PARQUET_DIR / "historic_members_seanad.parquet").replace("\\", "/"),
+    )
+    sql = sql.replace(
+        "{MEMBER_TERMS_PARQUET_PATH}", str(SILVER_PARQUET_DIR / "member_terms.parquet").replace("\\", "/")
+    )
     # Rewrite hardcoded read_parquet/read_csv('data/...') literals to an absolute
     # base (mirrors production absolutize_data_paths). CWD-independent, and in CI
     # it points at the committed fixture tree.
@@ -235,6 +251,35 @@ def test_v_member_registry_executes():
     assert "member_name" in result.columns
     assert "house" in result.columns  # Dáil/Seanad union column
     assert len(result) > 0
+
+
+def test_v_member_registry_all_executes():
+    """Historic-inclusive registry: current + former members with is_current /
+    dails_served / served-year span. Skips in CI (no historic fixtures); runs on
+    real pipeline output (DAIL_INTEGRATION_TESTS=1 or a dev box with the parquets).
+    """
+    historic_dail = SILVER_PARQUET_DIR / "historic_members_dail.parquet"
+    historic_seanad = SILVER_PARQUET_DIR / "historic_members_seanad.parquet"
+    member_terms = SILVER_PARQUET_DIR / "member_terms.parquet"
+    _skip_missing(MEMBER_PARQUET, historic_dail, historic_seanad, member_terms)
+    con = _con()
+    con.execute(_load("member_registry.sql"))  # v_member_registry_all builds on it
+    con.execute(_load("member_registry_all.sql"))
+    result = _result(con, "v_member_registry_all")
+    _assert_cols(
+        result,
+        "unique_member_code", "member_name", "house",
+        "is_current", "dails_served", "served_from_year", "served_to_year",
+    )
+    # Must carry BOTH sitting and former members…
+    counts = con.execute(
+        "SELECT COUNT(*) FILTER (WHERE is_current) AS cur,"
+        " COUNT(*) FILTER (WHERE NOT is_current) AS former FROM v_member_registry_all"
+    ).fetchone()
+    assert counts[0] > 0 and counts[1] > 0, "expected both current and former members"
+    # …and be strictly ADDITIVE: the sitting set must equal v_member_registry exactly.
+    reg_n = con.execute("SELECT COUNT(*) FROM v_member_registry").fetchone()[0]
+    assert counts[0] == reg_n, "current-member count must equal v_member_registry (additive only)"
 
 
 def test_v_member_ministerial_tenure_executes():
@@ -361,6 +406,30 @@ def test_v_member_external_links_executes():
         "instagram_handle",
         "instagram_url",
         "website_url",
+    }
+    assert expected.issubset(set(result.columns))
+    assert len(result) > 0
+
+
+def test_v_member_contact_details_executes():
+    """Official contact details scraped from oireachtas.ie member profiles.
+    The column set is the contract the Member Overview "Contact" block relies
+    on — a rename here is a UI break, surface it loudly. Every field except the
+    join key is nullable (sparse coverage is expected and surfaced honestly)."""
+    _skip_missing(CONTACT_DETAILS_PARQUET)
+    con = _con()
+    con.execute(_load("member_contact_details.sql"))
+    result = _result(con, "v_member_contact_details")
+    expected = {
+        "unique_member_code",
+        "address",
+        "phone_primary",
+        "phone_all",
+        "email",
+        "website_url",
+        "profile_url",
+        "source_url",
+        "scraped_date",
     }
     assert expected.issubset(set(result.columns))
     assert len(result) > 0
@@ -1269,6 +1338,44 @@ def test_v_member_interests_index_executes():
     assert len(result) > 0
 
 
+@pytest.mark.sql
+def test_v_member_interests_index_alltime_executes():
+    """All-time ranking pools every year per member and ranks within each house.
+    Reads v_member_interests_detail — load detail first. Rank must restart at 1
+    per house and each member appears at most once per house."""
+    _skip_missing(*_src(_INTERESTS_SRC))
+    con = _con()
+    con.execute(_load("member_interests_detail.sql"))
+    con.execute(_load("member_zz_interests_index_alltime.sql"))
+    result = _result(con, "v_member_interests_index_alltime")
+    _assert_cols(
+        result,
+        "rank",
+        "house",
+        "member_name",
+        "total_declarations",
+        "directorship_count",
+        "property_count",
+        "is_landlord",
+    )
+    assert len(result) > 0
+    # Invariants over the FULL view (not the LIMIT-5 sample _result returns).
+    # One row per (house, member) — the year is collapsed.
+    dupes = con.execute(
+        "SELECT COUNT(*) FROM ("
+        " SELECT house, member_name FROM v_member_interests_index_alltime"
+        " GROUP BY house, member_name HAVING COUNT(*) > 1)"
+    ).fetchone()[0]
+    assert dupes == 0
+    # Rank is chamber-scoped: each house starts at rank 1.
+    bad_houses = con.execute(
+        "SELECT COUNT(*) FROM ("
+        " SELECT house FROM v_member_interests_index_alltime"
+        " GROUP BY house HAVING MIN(rank) <> 1)"
+    ).fetchone()[0]
+    assert bad_houses == 0
+
+
 # ---------------------------------------------------------------------------
 # MEMBER QUESTIONS / DEBATE / CONSTITUENCY VIEWS
 # ---------------------------------------------------------------------------
@@ -2099,6 +2206,7 @@ def test_view_names_follow_v_prefix_convention():
 def test_member_overview_connection_builds():
     try:
         from data_access.member_overview_data import (
+            _CONTACT_DETAILS_FILES,
             _DOMAIN_FILES,
             _EXTERNAL_LINKS_FILES,
             _REGISTRY_FILES,
@@ -2108,8 +2216,15 @@ def test_member_overview_connection_builds():
         pytest.skip(f"member_overview_data not importable in this env: {exc}")
 
     # _load() already substitutes {MEMBER_PARQUET_PATH}, {SEANAD_MEMBER_PARQUET_PATH},
-    # {EXTERNAL_LINKS_PARQUET_PATH} and {PARQUET_PATH} — the full set these files use.
-    ordered_files = [*_DOMAIN_FILES, *_REGISTRY_FILES, *_EXTERNAL_LINKS_FILES, *_VOTE_FILES]
+    # {EXTERNAL_LINKS_PARQUET_PATH}, {CONTACT_DETAILS_PARQUET_PATH} and {PARQUET_PATH}
+    # — the full set these files use.
+    ordered_files = [
+        *_DOMAIN_FILES,
+        *_REGISTRY_FILES,
+        *_EXTERNAL_LINKS_FILES,
+        *_CONTACT_DETAILS_FILES,
+        *_VOTE_FILES,
+    ]
 
     con = _con()
     for fname in ordered_files:

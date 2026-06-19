@@ -9,9 +9,10 @@ Three pieces:
   * ``match_to_cro(firms, name_col, location_col)`` — exact ``name_norm`` join (the project-canonical
     company key, [[name_norm]]), ambiguity-aware live-preference, and a gated fuzzy fallback that only
     fires when a name is near-identical OR is corroborated column-by-column by the location field.
-  * ``attach_award_and_spend(df)`` — joins the SPENT side (``procurement_payments_fact``) and the
-    AWARDED side (``procurement_award_spend_link``: eTenders + TED), kept in SEPARATE € columns that
-    are NEVER added together, plus the standing/dissolved flags.
+  * ``attach_award_and_spend(df)`` — joins public money from ``procurement_payments_fact`` SPLIT into
+    SPENT (``public_paid_eur``) vs COMMITTED (``public_committed_eur``), and the AWARDED side
+    (``procurement_award_spend_link``: eTenders + TED) — three tiers in SEPARATE € columns that are
+    NEVER added together, plus the standing/dissolved flags.
   * ``collapse_by_cro(df, list_cols)`` — merge name-variant rows to one row per CRO firm so the € is
     safe to sum.
 
@@ -190,20 +191,30 @@ def match_to_cro(firms: pd.DataFrame, name_col: str, location_col: str) -> pd.Da
 
 
 def attach_award_and_spend(df: pd.DataFrame) -> pd.DataFrame:
-    """Join SPENT (payments fact) + AWARDED (eTenders/TED spine) per CRO firm; the two € tiers stay
-    in separate columns and are NEVER summed. Adds standing/dissolved flags + confidence handling."""
+    """Join the firm's public money + AWARDED (eTenders/TED) per CRO firm. THREE tiers, each in its own
+    column and NEVER summed (the procurement honesty rail):
+      SPENT     = ``public_paid_eur``      — payment_actual, money actually paid out
+      COMMITTED = ``public_committed_eur`` — po_committed, purchase orders raised (not confirmed paid)
+      AWARDED   = ``total_award_eur``      — eTenders + TED contract awards won
+    Adds standing/dissolved flags + confidence handling."""
     df = df.copy()
 
-    # SPENT — money actually paid/committed (safe-to-sum only)
+    # public money from payments fact — split by amount_semantics into SPENT vs COMMITTED (never summed;
+    # a po_committed order is not money out the door — conflating the two over-states real spend ~5x).
     pay = pd.read_parquet(
-        PAYMENTS, columns=["cro_company_num", "amount_eur", "value_safe_to_sum", "publisher_name", "year"]
+        PAYMENTS,
+        columns=["cro_company_num", "amount_eur", "amount_semantics", "value_safe_to_sum", "publisher_name", "year"],
     )
     p = pay[pay["value_safe_to_sum"] & pay["cro_company_num"].notna()].copy()
     p["cro_company_num"] = p["cro_company_num"].astype("int64")
+    is_paid = p["amount_semantics"].eq("payment_actual")
+    p["paid_eur"] = p["amount_eur"].where(is_paid, 0.0)
+    p["committed_eur"] = p["amount_eur"].where(~is_paid, 0.0)
     spend = (
         p.groupby("cro_company_num")
         .agg(
-            public_eur=("amount_eur", "sum"),
+            public_paid_eur=("paid_eur", "sum"),
+            public_committed_eur=("committed_eur", "sum"),
             n_payments=("amount_eur", "size"),
             n_publishers=("publisher_name", "nunique"),
             first_paid_year=("year", "min"),
@@ -211,6 +222,9 @@ def attach_award_and_spend(df: pd.DataFrame) -> pd.DataFrame:
         )
         .reset_index()
     )
+    # 0 → NA so "no money of this tier" reads as absent, not a real €0
+    for col in ("public_paid_eur", "public_committed_eur"):
+        spend[col] = spend[col].where(spend[col] > 0)
     spend["cro_company_num"] = spend["cro_company_num"].astype("float64")
     df = df.merge(spend, on="cro_company_num", how="left")
 
@@ -228,7 +242,7 @@ def attach_award_and_spend(df: pd.DataFrame) -> pd.DataFrame:
     overdue = df[HEALTH_FLAGS].eq(True).any(axis=1) if set(HEALTH_FLAGS) <= set(df.columns) else False
     has_cro = df["cro_company_num"].notna()
     df["not_good_standing"] = has_cro & ((~active) | overdue)
-    df["received_public_money"] = df["public_eur"].notna()
+    df["received_public_money"] = df["public_paid_eur"].notna() | df["public_committed_eur"].notna()
     df["won_public_award"] = df["total_award_eur"].fillna(0).gt(0)
     df["has_public_track_record"] = df["received_public_money"] | df["won_public_award"]
     df["match_review_needed"] = has_cro & (~active)

@@ -48,5 +48,15 @@ def fetch_constituency_party_breakdown_result(constituency: str) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_constituency_house_work_result(constituency: str) -> QueryResult:
+    return _q.constituency_house_work(get_constituency_conn(), constituency)
+
+
+@st.cache_data(ttl=300)
+def fetch_constituency_housing_context_result(constituency: str) -> QueryResult:
+    return _q.constituency_housing_context(get_constituency_conn(), constituency)
+
+
+@st.cache_data(ttl=300)
 def fetch_constituency_council_context_result(constituency: str) -> QueryResult:
     return _q.constituency_council_context(get_constituency_conn(), constituency)

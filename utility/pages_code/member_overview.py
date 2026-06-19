@@ -16,6 +16,7 @@ from __future__ import annotations
 import datetime
 from html import escape as _h
 from pathlib import Path
+import re
 import sys
 
 import pandas as pd
@@ -105,6 +106,22 @@ def _member_list(_conn) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
+def _member_list_all(_conn) -> pd.DataFrame:
+    """Current + historic members (for the 'Include historic TDs' toggle). Falls
+    back to the current-only list (tagged is_current) if the historic view is
+    unavailable, so the browse page degrades gracefully."""
+    df = moq.member_list_all(_conn).data
+    if df.empty:
+        df = moq.member_list(_conn).data.copy()
+        if not df.empty:
+            df["is_current"] = True
+            df["dails_served"] = ""
+            df["served_from_year"] = pd.NA
+            df["served_to_year"] = pd.NA
+    return df
+
+
+@st.cache_data(ttl=300)
 def _member_house(_conn, join_key: str) -> str:
     """House ('Dáil'/'Seanad') for a member code. Defaults to 'Dáil'. The one
     cross-house code collision (Seán Kyne) resolves to his current house via
@@ -121,6 +138,10 @@ def _identity(_conn, join_key: str) -> dict:
     if not df.empty:
         return df.iloc[0].to_dict()
     df = moq.identity_registry(_conn, join_key).data
+    if not df.empty:
+        return df.iloc[0].to_dict()
+    # Former member (not in the current roster) — resolve from the historic view.
+    df = moq.identity_registry_all(_conn, join_key).data
     return df.iloc[0].to_dict() if not df.empty else {}
 
 
@@ -150,6 +171,18 @@ def _external_links(_conn, join_key: str) -> dict:
     UI just renders fewer chips). Nulls dropped so the hero only iterates over
     populated platforms."""
     df = moq.external_links(_conn, join_key).data
+    if df.empty:
+        return {}
+    row = df.iloc[0].to_dict()
+    return {k: v for k, v in row.items() if isinstance(v, str) and v.strip()}
+
+
+@st.cache_data(ttl=300)
+def _contact_details(_conn, join_key: str) -> dict:
+    """Official office contact details (address / phone / email / website) from
+    the member's oireachtas.ie profile. Empty dict when there's no row or the
+    view is missing; nulls dropped so the hero only iterates populated fields."""
+    df = moq.contact_details(_conn, join_key).data
     if df.empty:
         return {}
     row = df.iloc[0].to_dict()
@@ -1116,8 +1149,22 @@ def _party_pill_options(df: pd.DataFrame) -> list[str]:
     return named + ([_OTHER_PILL] if has_other else [])
 
 
+_CURRENT_YEAR = datetime.date.today().year  # for the historic "year served" filter ceiling
+
+
+def _dail_filter_options(df: pd.DataFrame) -> list[str]:
+    """['All', '34', '33', …] from the dails_served comma lists, highest first."""
+    nums: set[int] = set()
+    for s in df.get("dails_served", pd.Series(dtype=str)).dropna().astype(str):
+        for tok in s.split(","):
+            tok = tok.strip()
+            if tok.isdigit():
+                nums.add(int(tok))
+    return ["All"] + [str(n) for n in sorted(nums, reverse=True)]
+
+
 def _render_browse(conn) -> None:
-    df = _member_list(conn)
+    df = _member_list_all(conn)
 
     # House scope — Dáil (default) or Seanad. Keeps the list, labels and glossary
     # coherent: a mixed 236-member list with a "TDs" heading would mislead.
@@ -1159,6 +1206,58 @@ def _render_browse(conn) -> None:
         return
 
     df = df[df["house"] == house].reset_index(drop=True)
+
+    # ── Historic members ──────────────────────────────────────────────────────
+    # Default OFF → only sitting members (the page's original behaviour). When on,
+    # former TDs/Senators (back as far as the registers parse cleanly) join the
+    # list and the Dáil + year filters appear.
+    has_current_flag = "is_current" in df.columns
+    has_historic = has_current_flag and (~df["is_current"].astype(bool)).any()
+    include_historic = False
+    if has_historic:
+        include_historic = st.toggle(
+            f"Include former {terms}",
+            value=False,
+            key="mo_browse_historic",
+            help=f"Show {terms} from past terms. Interest declarations go back to the "
+            "earliest cleanly-parsed register; scanned years are omitted.",
+        )
+    if has_current_flag and not include_historic:
+        df = df[df["is_current"].astype(bool)].reset_index(drop=True)
+    elif include_historic and {"dails_served", "served_from_year"} <= set(df.columns):
+        fcol1, fcol2 = st.columns(2)
+        with fcol1:
+            dail_opts = _dail_filter_options(df)
+            dail_pick = (
+                st.pills(
+                    f"{'Seanad' if is_seanad else 'Dáil'} term",
+                    options=dail_opts,
+                    default="All",
+                    key="mo_browse_dail",
+                    label_visibility="collapsed",
+                    help="Filter to members who served in a given term.",
+                )
+                or "All"
+            )
+        with fcol2:
+            yr_lo = int(pd.to_numeric(df["served_from_year"], errors="coerce").min() or 2011)
+            yr_hi = _CURRENT_YEAR
+            year_choices = ["All years"] + [str(y) for y in range(yr_hi, yr_lo - 1, -1)]
+            year_sel = st.selectbox(
+                "Year served",
+                options=year_choices,
+                index=0,
+                key="mo_browse_year",
+                label_visibility="collapsed",
+            )
+        if dail_pick != "All":
+            df = df[df["dails_served"].fillna("").apply(lambda s: dail_pick in str(s).split(","))]
+        if year_sel != "All years":
+            y = int(year_sel)
+            frm = pd.to_numeric(df["served_from_year"], errors="coerce")
+            to = pd.to_numeric(df["served_to_year"], errors="coerce").fillna(_CURRENT_YEAR)
+            df = df[(frm <= y) & (to >= y)]
+        df = df.reset_index(drop=True)
 
     # v_member_registry is unique on unique_member_code (verified on the
     # silver parquet: 176 rows / 176 distinct codes). The page-side
@@ -1236,6 +1335,16 @@ def _render_browse(conn) -> None:
         constit = str(row.get("constituency", "") or "")
         code = str(row["unique_member_code"])
         meta = clean_meta(party, constit)
+        # Mark former members so they aren't mistaken for sitting ones. The served
+        # span (e.g. "Former · 2011–2016") comes from the registry view.
+        if "is_current" in row and not bool(row.get("is_current", True)):
+            frm = row.get("served_from_year")
+            to = row.get("served_to_year")
+            span = ""
+            if pd.notna(frm):
+                span = f" · {int(frm)}–{int(to)}" if pd.notna(to) else f" · from {int(frm)}"
+            former = f"Former {term}{span}"
+            meta = f"{former} — {meta}" if meta else former
         # Audit P2-3: same party-swatch as the profile hero.
         swatch_html = (
             f'<span class="mo-party-swatch" style="background:{party_colour(party)};" aria-hidden="true"></span>'
@@ -1346,6 +1455,97 @@ def _render_constituency_context(constituency: str, ctx: dict) -> None:
         f'<span class="mo-cc-source-body">CSO Census 2022, via Electoral Commission Constituency Review 2023 · {_h(boundary_caption)}</span>'
         f'<span class="mo-cc-source-link"> · {source_chip or ""}</span>'
         f"</div>"
+    )
+
+
+def _tel_href(display: str) -> str:
+    """Build a `tel:` href from a display phone string. Keeps a leading '+' and
+    digits only — '(01) 230 3020' → 'tel:012303020'. Presentation only."""
+    digits = re.sub(r"[^\d+]", "", display or "")
+    return f"tel:{digits}" if digits else ""
+
+
+def _render_contact_block(contact: dict, member_name: str, profile_href: str | None) -> None:
+    """Official office contact details card: address, phone(s), email — each a
+    real `tel:` / `mailto:` link where present — with a verification link to the
+    member's oireachtas.ie profile (the source). Renders nothing only when there
+    is genuinely no contact data AND no profile link; otherwise it always shows
+    the profile link so a reader is never dead-ended.
+
+    Every field is data-anchored to the scraped profile page — nothing is
+    imputed. Missing fields are simply omitted (no em-dashes).
+    """
+    address = str(contact.get("address", "") or "").strip()
+    phone_all = str(contact.get("phone_all", "") or "").strip()
+    email = str(contact.get("email", "") or "").strip()
+
+    rows: list[str] = []
+    if address:
+        rows.append(
+            '<div class="mo-contact-row">'
+            '<span class="mo-contact-ico" aria-hidden="true">📍</span>'
+            f'<span class="mo-contact-val">{_h(address)}</span>'
+            "</div>"
+        )
+    if phone_all:
+        phones = [p.strip() for p in phone_all.split("/") if p.strip()]
+        phone_links = []
+        for p in phones:
+            href = _tel_href(p)
+            phone_links.append(
+                f'<a class="mo-contact-link" href="{_h(href)}">{_h(p)}</a>' if href else _h(p)
+            )
+        rows.append(
+            '<div class="mo-contact-row">'
+            '<span class="mo-contact-ico" aria-hidden="true">📞</span>'
+            f'<span class="mo-contact-val">{" &nbsp;·&nbsp; ".join(phone_links)}</span>'
+            "</div>"
+        )
+    if email:
+        rows.append(
+            '<div class="mo-contact-row">'
+            '<span class="mo-contact-ico" aria-hidden="true">✉️</span>'
+            f'<span class="mo-contact-val">'
+            f'<a class="mo-contact-link" href="mailto:{_h(email)}">{_h(email)}</a>'
+            "</span></div>"
+        )
+
+    # Nothing useful to show and no profile to point at → render nothing.
+    if not rows and not profile_href:
+        return
+
+    source_chip = (
+        source_link_html(
+            profile_href,
+            "View on Oireachtas.ie",
+            aria_label=f"Open {member_name}'s official Oireachtas profile (source of these contact details) in a new tab",
+        )
+        if profile_href
+        else ""
+    )
+
+    if rows:
+        body = "".join(rows)
+        footer = (
+            f'<div class="mo-contact-source">Source · oireachtas.ie member profile · {source_chip}</div>'
+            if source_chip
+            else ""
+        )
+    else:
+        # No scraped fields — be transparent and still offer the official page.
+        body = (
+            '<div class="mo-contact-row mo-contact-empty">'
+            "No office address, phone or email is published for this member on "
+            "their Oireachtas profile.</div>"
+        )
+        footer = f'<div class="mo-contact-source">{source_chip}</div>' if source_chip else ""
+
+    st.html(
+        '<div class="mo-contact-card">'
+        '<div class="mo-contact-title">Contact</div>'
+        f"{body}"
+        f"{footer}"
+        "</div>"
     )
 
 
@@ -1563,6 +1763,12 @@ def _render_stage2(
         f"  </div>"
         f"</div>"
     )
+
+    # ── Official contact details (scraped from the oireachtas.ie profile) ─────
+    # Office address, phone(s) and @oireachtas.ie email, each a real tel:/mailto:
+    # link. Sits directly under the identity hero — how a citizen reaches their
+    # representative is identity-level information, not buried in a section.
+    _render_contact_block(_contact_details(conn, join_key), member_name, profile_href)
 
     # ── Headline stats — single source of truth, no duplication ──────────────
     att_df = _att_all_years(conn, join_key)
