@@ -21,6 +21,7 @@ housing (CSO completions / vacancy) in Phase 3.
 
 from __future__ import annotations
 
+import base64
 import sys
 from html import escape as _h
 from pathlib import Path
@@ -38,7 +39,10 @@ from data_access.constituency_data import (
     fetch_constituency_housing_context_result,
     fetch_constituency_list_result,
     fetch_constituency_members_result,
+    fetch_constituency_outlines,
     fetch_constituency_party_breakdown_result,
+    fetch_council_capital_divisions_result,
+    fetch_council_revenue_divisions_result,
 )
 from ui.components import (
     back_button,
@@ -159,18 +163,48 @@ def _render_index() -> None:
 
 
 # ── DOSSIER ───────────────────────────────────────────────────────────────────
+def _locator_svg(name: str) -> str:
+    """A discreet Ireland thumbnail with this constituency highlighted, returned as an
+    <img> with an inline SVG data-URI (st.html strips bare <svg>, but allows <img>).
+    '' if no map data."""
+    outlines = fetch_constituency_outlines()
+    paths = outlines.get("constituencies", {})
+    if name not in paths:
+        return ""
+    vb = outlines.get("viewbox", "0 0 621 1000")
+    others = "".join(
+        f'<path d="{paths[c]}" fill="#e3ddd1" stroke="#fbf8f2" stroke-width="1.2"/>'
+        for c in paths
+        if c != name
+    )
+    here = f'<path d="{paths[name]}" fill="#b04a26" stroke="#fbf8f2" stroke-width="1.2"/>'
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{vb}">{others}{here}</svg>'
+    )
+    b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    return (
+        f'<img class="con-locator" src="data:image/svg+xml;base64,{b64}" '
+        f'alt="Location of {_h(name)} within Ireland" loading="lazy">'
+    )
+
+
 def _render_header(name: str, header_row) -> None:
     pop = _int(header_row.get("population_2022"))
     per_td = _int(header_row.get("population_per_td"))
     seats = _int(header_row.get("td_seats"))
     n_tds = _int(header_row.get("n_tds_current"))
+    locator = _locator_svg(name)
+    map_html = f'<div class="con-hero-map">{locator}</div>' if locator else ""
     st.html(
         f'<div class="con-hero">'
+        f'<div class="con-hero-text">'
         f'<p class="dt-kicker">CONSTITUENCY</p>'
         f'<h1 class="con-hero-title">{_h(name)}</h1>'
         f'<p class="con-hero-meta">{seats} seats · {n_tds} TDs · '
         f"Population <strong>{pop}</strong> · <strong>{per_td}</strong> per TD "
         f"(Census 2022)</p>"
+        f"</div>"
+        f"{map_html}"
         f"</div>"
     )
 
@@ -289,18 +323,22 @@ def _render_housing(name: str) -> None:
         st.caption(src)
 
 
-def _council_card(row) -> str:
-    council = _h(str(row["local_authority"]))
+def _council_card(row, constituency: str) -> str:
+    council = str(row["local_authority"])
+    council_h = _h(council)
     partial = str(row.get("link_type")) == "partial"
     shared = bool(row.get("la_serves_multiple_constituencies"))
 
     pills: list[str] = []
+    has_afs = False
     rev = row.get("afs_revenue_gross_eur")
     if rev is not None and not pd.isna(rev):
+        has_afs = True
         yr = _yr(row.get("afs_revenue_year"))
         pills.append(f'<span class="con-grain con-grain-rev">Revenue account {_eur(rev)} <em>({yr})</em></span>')
     cap = row.get("capital_expenditure_eur")
     if cap is not None and not pd.isna(cap):
+        has_afs = True
         yr = _yr(row.get("capital_year"))
         pills.append(f'<span class="con-grain con-grain-cap">Capital invested {_eur(cap)} <em>({yr})</em></span>')
     ordered = row.get("ordered_safe_eur")
@@ -320,14 +358,82 @@ def _council_card(row) -> str:
         notes.append("covers part of this constituency")
     if shared:
         notes.append("this council also serves other constituencies")
+    # A by-division drill-down is available only where we have audited (AFS) accounts.
+    if has_afs:
+        notes.append("see spending by service →")
     note_html = f'<div class="con-council-note">{_h(" · ".join(notes))}</div>' if notes else ""
 
     flag = ' <span class="con-council-partial">partial</span>' if partial else ""
-    return (
+    inner = (
         f'<div class="con-council-card{" con-council-card-partial" if partial else ""}">'
-        f'<div class="con-council-name">{council}{flag}</div>'
+        f'<div class="con-council-name">{council_h}{flag}</div>'
         f"{body}{note_html}"
         f"</div>"
+    )
+    if not has_afs:
+        return inner  # nothing more to drill into — leave it non-clickable
+    href = f"?constituency={quote(constituency)}&council={quote(council)}"
+    return clickable_card_link(
+        href=href,
+        inner_html=inner,
+        aria_label=f"See {council} spending by service division",
+    )
+
+
+def _div_bar_rows(rows, value_key: str, label: str) -> str:
+    """Horizontal value bars for a council's by-division spend (display-only scaling)."""
+    vals = [(str(r["division"]), float(r[value_key])) for _, r in rows.iterrows()
+            if r.get(value_key) is not None and not pd.isna(r.get(value_key)) and float(r[value_key]) > 0]
+    if not vals:
+        return ""
+    top = max(v for _, v in vals) or 1
+    out = []
+    for div, v in vals:
+        pct = max(2.0, v / top * 100)
+        out.append(
+            f'<div class="con-div-row">'
+            f'<div class="con-div-name">{_h(div)}</div>'
+            f'<div class="con-div-track"><div class="con-div-bar" style="width:{pct:.1f}%"></div></div>'
+            f'<div class="con-div-val">{_eur(v)}</div>'
+            f"</div>"
+        )
+    return f'<div class="con-div-block"><div class="con-div-head">{_h(label)}</div>{"".join(out)}</div>'
+
+
+def _render_council_detail(constituency: str, council: str) -> None:
+    rev = fetch_council_revenue_divisions_result(council)
+    cap = fetch_council_capital_divisions_result(council)
+    if back_button(f"← All councils serving {constituency}", key="con_council_back"):
+        st.query_params.pop("council", None)
+        st.rerun()
+    rev_year = _yr(rev.data["year"].iloc[0]) if rev.ok and not rev.data.empty else ""
+    cap_year = _yr(cap.data["year"].iloc[0]) if cap.ok and not cap.data.empty else ""
+    subsection_heading(f"{council} — spending by service")
+    st.html(
+        '<p class="con-section-note">The council\'s audited Annual Financial Statement, broken down '
+        "by service division — its <strong>whole council area</strong>, not just this constituency. "
+        "Revenue (running services) and capital (building/acquiring) are separate accounts, "
+        "<strong>never summed</strong>.</p>"
+    )
+    blocks = ""
+    if rev.ok and not rev.data.empty:
+        blocks += _div_bar_rows(rev.data, "gross_expenditure_eur", f"Revenue account, gross by service ({rev_year})")
+    if cap.ok and not cap.data.empty:
+        blocks += _div_bar_rows(cap.data, "capital_expenditure_eur", f"Capital invested by service ({cap_year})")
+    if blocks:
+        st.html(f'<div class="con-div-wrap">{blocks}</div>')
+    else:
+        empty_state("No by-division detail", "This council's audited accounts aren't parsed by service yet.")
+    # conduit to the source document + the fuller council dossier
+    src = ""
+    if rev.ok and not rev.data.empty:
+        url = rev.data["source_file_url"].iloc[0]
+        if isinstance(url, str) and url.startswith("http"):
+            src = f'<a class="dt-source-link" href="{_h(url)}" target="_blank" rel="noopener">Audited accounts (PDF)</a> · '
+    st.html(
+        f'<p class="con-section-note" style="margin-top:0.6rem">{src}'
+        f'<a class="dt-source-link" href="/rankings-council-spending?paid_publisher={quote(council)}&paid_tier=COMMITTED" '
+        f'target="_self">Full {_h(council)} dossier (suppliers, multi-year)</a></p>'
     )
 
 
@@ -337,22 +443,31 @@ def _render_council_context(name: str) -> None:
     if not res.ok or res.data.empty:
         empty_state("No council mapping", "No serving local authority is mapped for this constituency.")
         return
+
+    # Drill-down: a council card sets ?council=. Render that council's by-division detail in
+    # place of the grid (only if the council actually serves this constituency).
+    sel = st.query_params.get("council")
+    if sel and sel in set(res.data["local_authority"]):
+        _render_council_detail(name, sel)
+        return
+
     st.html(
         '<p class="con-section-note">The local authority(ies) serving this area, each with its '
         "<strong>own</strong> published money. These are <strong>council-area</strong> figures — "
         "the council area is not the constituency, and the totals are <strong>never apportioned</strong> "
         "to it. Revenue (running services), capital (building), and orders/payments are different "
-        "stages of council money and are <strong>never added together</strong>.</p>"
+        "stages of council money and are <strong>never added together</strong>. Click a council with "
+        "audited accounts to see its spending by service.</p>"
     )
     df = res.data
     primary = df[df["link_type"] == "primary"]
     partial = df[df["link_type"] == "partial"]
-    cards = [_council_card(r) for _, r in primary.iterrows()]
+    cards = [_council_card(r, name) for _, r in primary.iterrows()]
     if cards:
         st.html(f'<div class="con-council-grid">{"".join(cards)}</div>')
     if not partial.empty:
         st.caption("Also partly covered by:")
-        pcards = [_council_card(r) for _, r in partial.iterrows()]
+        pcards = [_council_card(r, name) for _, r in partial.iterrows()]
         st.html(f'<div class="con-council-grid">{"".join(pcards)}</div>')
 
 

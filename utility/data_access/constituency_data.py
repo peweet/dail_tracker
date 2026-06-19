@@ -12,6 +12,9 @@ definitions.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import duckdb
 import streamlit as st
 
@@ -24,6 +27,18 @@ from dail_tracker_core.results import QueryResult
 def get_constituency_conn() -> duckdb.DuckDBPyConnection:
     """One connection per session: member + procurement + constituency views."""
     return constituency_conn()
+
+
+@st.cache_data(ttl=3600)
+def fetch_constituency_outlines() -> dict:
+    """Static simplified SVG outlines (43 constituencies + shared viewbox) for the
+    locator thumbnail — built by reference/constituency_boundaries_extract.py.
+    Display-only reference; returns {} if absent so the page just omits the map."""
+    path = Path(__file__).resolve().parents[2] / "data" / "_meta" / "constituency_outlines.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 — missing/garbled map data must not break the page
+        return {}
 
 
 @st.cache_data(ttl=600)
@@ -55,6 +70,16 @@ def fetch_constituency_house_work_result(constituency: str) -> QueryResult:
 @st.cache_data(ttl=300)
 def fetch_constituency_housing_context_result(constituency: str) -> QueryResult:
     return _q.constituency_housing_context(get_constituency_conn(), constituency)
+
+
+@st.cache_data(ttl=300)
+def fetch_council_revenue_divisions_result(council: str) -> QueryResult:
+    return _q.council_revenue_divisions(get_constituency_conn(), council)
+
+
+@st.cache_data(ttl=300)
+def fetch_council_capital_divisions_result(council: str) -> QueryResult:
+    return _q.council_capital_divisions(get_constituency_conn(), council)
 
 
 @st.cache_data(ttl=300)

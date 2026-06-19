@@ -42,7 +42,8 @@ _CACHE = Path("c:/tmp/constituency_boundaries_2023.geojson")  # 54 MB, NOT commi
 _OUT = _ROOT / "data" / "_meta" / "constituency_outlines.json"
 
 _VIEW = 1000.0  # SVG viewbox is 0..1000 on the long axis
-_SIMPLIFY_DEG = 0.004  # ~400 m — plenty for a thumbnail locator
+_SIMPLIFY_DEG = 0.02  # ~2 km — a coarse thumbnail locator, not a precise map
+_MIN_PART_DEG2 = 0.0015  # drop polygon parts smaller than this (tiny islands)
 _NAME_RE = re.compile(r"\s*\(\d+\)\s*$")  # strip the trailing " (5)" seat count
 
 _NAME_FIXUPS = {  # ENG_NAME spelling -> canonical registry spelling, where they differ
@@ -64,7 +65,6 @@ def _canon(eng_name: str) -> str:
 
 
 def build_outlines(geojson_path: Path) -> dict:
-    import shapely
     from shapely.geometry import shape
     from shapely.ops import unary_union
 
@@ -95,14 +95,19 @@ def build_outlines(geojson_path: Path) -> dict:
     vb_w = round(w * scale, 1)
     vb_h = round(h * scale, 1)
 
-    def project(x: float, y: float) -> tuple[float, float]:
+    def project(x: float, y: float) -> tuple[int, int]:
         px = (x - minx) * cos * scale
         py = (maxy - y) * scale  # flip Y (SVG origin top-left)
-        return round(px, 1), round(py, 1)
+        return round(px), round(py)
 
     def ring_to_path(coords) -> str:
-        pts = [project(x, y) for x, y in coords]
-        if not pts:
+        # de-dupe consecutive identical integer points after rounding
+        pts: list[tuple[int, int]] = []
+        for x, y in coords:
+            p = project(x, y)
+            if not pts or pts[-1] != p:
+                pts.append(p)
+        if len(pts) < 3:
             return ""
         d = f"M{pts[0][0]},{pts[0][1]}"
         d += "".join(f"L{px},{py}" for px, py in pts[1:])
@@ -112,7 +117,7 @@ def build_outlines(geojson_path: Path) -> dict:
         polys = geom.geoms if geom.geom_type == "MultiPolygon" else [geom]
         out = []
         for poly in polys:
-            if poly.is_empty:
+            if poly.is_empty or poly.area < _MIN_PART_DEG2:  # drop tiny islands
                 continue
             out.append(ring_to_path(poly.exterior.coords))  # exterior only — thumbnail
         return "".join(out)
