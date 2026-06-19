@@ -40,6 +40,7 @@ from data_access.constituency_data import (
     fetch_constituency_housing_context_result,
     fetch_constituency_ssha_waiting_list_result,
     fetch_constituency_list_result,
+    fetch_constituency_map_layers_result,
     fetch_constituency_members_result,
     fetch_constituency_outlines,
     fetch_constituency_party_breakdown_result,
@@ -94,6 +95,26 @@ def _int(v) -> str:
         return "—"
 
 
+def _pct(v) -> str:
+    """Whole-number percent label: 23% (display only)."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "—"
+    try:
+        return f"{float(v):.0f}%"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _num1(v) -> str:
+    """One-decimal number label: 12.4 (display only)."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "—"
+    try:
+        return f"{float(v):,.1f}"
+    except (TypeError, ValueError):
+        return "—"
+
+
 def _yr(v) -> str:
     """Year with no thousands separator."""
     if v is None or (isinstance(v, float) and pd.isna(v)):
@@ -102,6 +123,94 @@ def _yr(v) -> str:
         return str(int(v))
     except (TypeError, ValueError):
         return "—"
+
+
+# ── NATIONAL CHOROPLETH ───────────────────────────────────────────────────────
+# A "colour every constituency by one measure" overview on the index. Display only:
+# v_constituency_map_layers ships the value AND a precomputed NTILE(5) quintile per
+# layer; this code only maps quintile → palette colour (no derivation). Rendered as a
+# single <img> data-URI (st.html strips bare <svg>) — the searchable card grid below
+# is the reliable selector, mirroring "colour the map, or search below".
+
+# 5-step warm sequential ramp (light beige → brand terracotta). Index 0 = lowest fifth.
+_CHORO_PALETTE = ["#f3ead9", "#e4c39c", "#d29a64", "#bd6e3e", "#a5431c"]
+_CHORO_NODATA = "#e9e2d4"
+
+# label → (quintile column, raw-value column, value formatter, caption phrase)
+_MAP_LAYERS: dict[str, tuple[str, str, object, str]] = {
+    "Population": ("q_population", "population_2022", _int, "residents (Census 2022)"),
+    "People per TD": ("q_population_per_td", "population_per_td", _int, "people per TD"),
+    "% of TDs who are landlords": (
+        "q_pct_landlord_tds",
+        "pct_landlord_tds",
+        _pct,
+        "of current TDs declared as landlords (latest register)",
+    ),
+    "Dáil questions per TD": (
+        "q_questions_per_td",
+        "questions_per_td",
+        _num1,
+        "parliamentary questions per TD (34th Dáil, since 29 Nov 2024)",
+    ),
+}
+
+
+def _choropleth_svg(quintile_by_name: dict, alt: str) -> str:
+    """All 43 constituencies filled by quintile bucket, as an <img> data-URI. '' if no
+    map geometry (page then just shows the grid)."""
+    outlines = fetch_constituency_outlines()
+    paths = outlines.get("constituencies", {})
+    if not paths:
+        return ""
+    vb = outlines.get("viewbox", "0 0 621 1000")
+    body = []
+    for name, d in paths.items():
+        q = quintile_by_name.get(name)
+        try:
+            fill = _CHORO_PALETTE[int(q) - 1] if q is not None and 1 <= int(q) <= 5 else _CHORO_NODATA
+        except (TypeError, ValueError):
+            fill = _CHORO_NODATA
+        body.append(f'<path d="{d}" fill="{fill}" stroke="#fbf8f2" stroke-width="1.2"/>')
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{vb}">{"".join(body)}</svg>'
+    b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    return (
+        f'<img class="con-choropleth" src="data:image/svg+xml;base64,{b64}" '
+        f'alt="{_h(alt)}" loading="lazy">'
+    )
+
+
+def _choro_legend() -> str:
+    swatches = "".join(f'<span class="con-choro-sw" style="background:{c}"></span>' for c in _CHORO_PALETTE)
+    return (
+        f'<div class="con-choro-legend">'
+        f'<span class="con-choro-end">Lower</span>{swatches}'
+        f'<span class="con-choro-end">Higher</span>'
+        f"</div>"
+    )
+
+
+def _render_choropleth() -> None:
+    res = fetch_constituency_map_layers_result()
+    if not res.ok or res.data.empty:
+        return  # silent — the searchable grid below remains the reliable selector
+    df = res.data
+    subsection_heading("Compare every constituency")
+    choice = st.radio(
+        "Colour the map by",
+        list(_MAP_LAYERS.keys()),
+        horizontal=True,
+        key="con_map_layer",
+    )
+    qcol, _vcol, _fmt, phrase = _MAP_LAYERS[choice]
+    quint = {str(r["constituency_name"]): r[qcol] for _, r in df.iterrows() if pd.notna(r[qcol])}
+    svg = _choropleth_svg(quint, alt=f"Map of the 43 Dáil constituencies shaded by {choice}")
+    if not svg:
+        return
+    st.html(f'<div class="con-choro">{svg}{_choro_legend()}</div>')
+    st.caption(
+        f"Each of the 43 constituencies shaded into fifths by {phrase}. "
+        "Boundaries: 2023 Electoral Commission review (Census 2022). Pick a card below to open a dossier."
+    )
 
 
 # ── INDEX ─────────────────────────────────────────────────────────────────────
@@ -136,6 +245,8 @@ def _render_index() -> None:
         )
         return
     df = res.data
+
+    _render_choropleth()
 
     query, _ = find_a_td_filter(
         df["constituency_name"].tolist(),
@@ -304,7 +415,9 @@ def _housing_card(row) -> str:
         pills.append(f'<span class="con-grain con-grain-ssha">{_int(waiting)} on housing list{yoy_txt}</span>')
     long_wait = row.get("long_wait_pct")
     if long_wait is not None and not pd.isna(long_wait):
-        pills.append(f'<span class="con-grain con-grain-wait">{long_wait:.0f}% waiting 4 yrs+</span>')
+        over7 = row.get("over_7yr_pct")
+        o7 = f" <em>({over7:.0f}% over 7 yrs)</em>" if over7 is not None and not pd.isna(over7) else ""
+        pills.append(f'<span class="con-grain con-grain-wait">{long_wait:.0f}% waiting 4 yrs+{o7}</span>')
     if not pills:
         return ""
     flag = ' <span class="con-council-partial">partial</span>' if partial else ""
