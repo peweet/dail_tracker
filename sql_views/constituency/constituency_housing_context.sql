@@ -76,6 +76,21 @@ med_ranked AS (
 ),
 med AS (
     SELECT hpm03_region, med_period, median_price_eur FROM med_ranked WHERE rn = 1
+),
+-- New dwelling completions (CSO NDQ09, by Local Electoral Area). The LEA label embeds its
+-- council after the last comma ("Balbriggan, Fingal"), so we roll up to council; the "State"
+-- national total is excluded and the fada spelling is conformed to the fact vocabulary.
+comp AS (
+    SELECT
+        CASE WHEN trim(regexp_replace("Local Electoral Area", '^.*,\s*', '')) = 'Dún Laoghaire-Rathdown'
+             THEN 'Dun Laoghaire-Rathdown'
+             ELSE trim(regexp_replace("Local Electoral Area", '^.*,\s*', '')) END AS la,
+        MAX(Quarter)               AS comp_period,
+        SUM(CAST(VALUE AS DOUBLE)) AS completions
+    FROM read_parquet('data/gold/parquet/cso_ndq09.parquet')
+    WHERE Quarter = (SELECT MAX(Quarter) FROM read_parquet('data/gold/parquet/cso_ndq09.parquet'))
+      AND trim(regexp_replace("Local Electoral Area", '^.*,\s*', '')) <> 'State'
+    GROUP BY 1
 )
 SELECT
     x.constituency_name,
@@ -85,9 +100,12 @@ SELECT
     v.vacancy_rate,
     v.vac_period,
     m.median_price_eur,
-    m.med_period
+    m.med_period,
+    cp.completions,
+    cp.comp_period
 FROM v_constituency_la_crosswalk x
 JOIN la_map  lm ON lm.local_authority = x.local_authority
 LEFT JOIN vac v  ON v.vac14_la = lm.vac14_la
 LEFT JOIN med m  ON m.hpm03_region = lm.hpm03_region
+LEFT JOIN comp cp ON cp.la = x.local_authority
 ORDER BY x.constituency_name, (x.link_type = 'primary') DESC, x.local_authority;

@@ -73,6 +73,16 @@ def fetch_constituency_housing_context_result(constituency: str) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_constituency_ssha_waiting_list_result(constituency: str) -> QueryResult:
+    return _q.constituency_ssha_waiting_list(get_constituency_conn(), constituency)
+
+
+@st.cache_data(ttl=300)
+def fetch_constituency_council_housing_performance_result(constituency: str) -> QueryResult:
+    return _q.constituency_council_housing_performance(get_constituency_conn(), constituency)
+
+
+@st.cache_data(ttl=300)
 def fetch_council_revenue_divisions_result(council: str) -> QueryResult:
     return _q.council_revenue_divisions(get_constituency_conn(), council)
 

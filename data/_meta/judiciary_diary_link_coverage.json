@@ -1,16 +1,16 @@
 {
   "link_version": "1.1.0",
-  "generated_at": "2026-06-18T19:45:12.426783+00:00",
-  "judge_court_pairs": 9708,
+  "generated_at": "2026-06-19T19:45:35.654014+00:00",
+  "judge_court_pairs": 9709,
   "matched_pairs": 5000,
   "match_methods": {
+    "office-title": 668,
+    "no-candidate": 3939,
+    "honorific-other-person": 84,
+    "roster-notice": 4,
     "exact": 150,
     "surname-court": 4850,
-    "office-title": 668,
-    "honorific-other-person": 84,
-    "no-candidate": 3938,
-    "ambiguous": 14,
-    "roster-notice": 4
+    "ambiguous": 14
   },
   "unmatched": [
     {
@@ -16704,6 +16704,11 @@
       "match_method": "office-title"
     },
     {
+      "judge": "Judge Tbc",
+      "court": "High Court",
+      "match_method": "no-candidate"
+    },
+    {
       "judge": "Mr Justice Rory Mulchay",
       "court": "High Court",
       "match_method": "no-candidate"
@@ -23556,12 +23561,12 @@
   ],
   "row_level": {
     "cases": {
-      "rows_with_judge": 4300,
-      "rows_matched": 4092
+      "rows_with_judge": 4876,
+      "rows_matched": 4666
     },
     "schedule": {
-      "rows_with_judge": 993,
-      "rows_matched": 944
+      "rows_with_judge": 1096,
+      "rows_matched": 1043
     }
   },
   "note": "Honest-or-nothing matching: ambiguous surnames, honorific conflicts and office titles are left unmatched rather than guessed."
