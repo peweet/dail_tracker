@@ -62,10 +62,14 @@ def name_join_key(name: str) -> str:
 # are discovery / league tables that funnel into the canonical profile.
 # Hyphens not slashes: st.Page rejects nested url_path values.
 PAGES: dict[str, str] = {
+    "what_they_own": "what-they-own",
     "member_overview": "member-overview",
     "attendance": "rankings-attendance",
     "votes": "rankings-votes",
-    "interests": "rankings-interests",
+    # "Interests" league table was replaced by the "What They Own" page; the
+    # legacy key is kept as a back-compat alias pointing at the new slug so any
+    # internal link built via PAGES["interests"] resolves instead of 404-ing.
+    "interests": "what-they-own",
     "payments": "rankings-payments",
     "election_spending": "rankings-election-spending",
     "lobbying": "rankings-lobbying",

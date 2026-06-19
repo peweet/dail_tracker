@@ -68,5 +68,12 @@
     "bytes": 118302,
     "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary June 19th .docx",
     "revisions": 1
+  },
+  "2026-06-22": {
+    "sha256": "fb625860ea22c83f67e8652ba9e1c9bb0572291b72647faa632dcdae27c8c69b",
+    "filename": "2026-06-22.docx",
+    "bytes": 132366,
+    "source_url": "https://legaldiary.courts.ie/legaldiary.nsf/page/download/$File/Downloadable Diary June 22nd.docx",
+    "revisions": 1
   }
 }
