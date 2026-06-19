@@ -60,6 +60,7 @@ from data_access.interests_data import (
     fetch_interests_availability,
     fetch_interests_filter_options,
     fetch_member_index,
+    fetch_member_index_alltime,
 )
 
 # ── Data access ───────────────────────────────────────────────────────────────
@@ -285,18 +286,46 @@ def interests_page() -> None:
         _render_provenance(house)
         return
 
-    selected_year = year_selector(year_opts, key="int_year")
+    # ── Historic / all-time toggle ────────────────────────────────────────────
+    # When on, the leaderboard pools every declaration year on record for this
+    # chamber and ranks members by their lifetime total declarations — surfacing
+    # former TDs / senators from the historic backfill alongside sitting ones.
+    # The year pills are hidden because the ranking spans all years at once; the
+    # Dáil/Seanad selector still applies (chamber-scoped, by design).
+    member_label = "TDs" if house == "Dáil" else "senators"
+    historic = st.toggle(
+        f"Rank all {member_label} historically (every year on record)",
+        key="int_historic",
+        help=(
+            "Pool every year a member has declared and rank by their lifetime "
+            "total. Includes former members recovered by the historic backfill. "
+            "Turn off to rank within a single year."
+        ),
+    )
 
     # ── Leaderboard — one card per member, ranked by declarations ─────────────
-    # Data: v_member_interests_index (sql_views/member/member_zz_interests_index.sql).
-    # The same rank, counts and flag rollup that used to live in the page's
-    # _fetch_member_index_fallback now lives in that view.
-    members_df = fetch_member_index(house, selected_year)
-    if members_df.empty:
-        empty_state(
-            f"No declarations for {selected_year}",
-            "No interest declarations on record for this year and chamber.",
+    # Data: v_member_interests_index / v_member_interests_index_alltime
+    # (sql_views/member/member_zz_interests_index*.sql). The rank, counts and flag
+    # rollup live in those views, not here.
+    if historic:
+        members_df = fetch_member_index_alltime(house)
+        period_heading = f"All-time declarations · {len(members_df)} members"
+        period_caption = (
+            "Ranked by **lifetime total declarations** across every year on record "
+            "(includes former members). "
         )
+        empty_title = "No declarations on record"
+        empty_body = "No interest declarations on record for this chamber."
+    else:
+        selected_year = year_selector(year_opts, key="int_year")
+        members_df = fetch_member_index(house, selected_year)
+        period_heading = f"Declarations for {selected_year} · {len(members_df)} members"
+        period_caption = ""
+        empty_title = f"No declarations for {selected_year}"
+        empty_body = "No interest declarations on record for this year and chamber."
+
+    if members_df.empty:
+        empty_state(empty_title, empty_body)
         _render_provenance(house)
         return
 
@@ -305,14 +334,14 @@ def interests_page() -> None:
     # was showing or that switching the year pill above changed it.
     # Rephrase to verbalise the year context so a year-pill switch
     # has visible textual feedback.
-    evidence_heading(f"Declarations for {selected_year} · {len(members_df)} members")
-    # P2-1: demoted "Coming soon" callout to a single caption so the
-    # data isn't preceded by a heavy notice; P2-3: pill colour legend
-    # — declarations (blue), landlord (orange), property (green),
-    # shareholder (purple) — so the encoding is documented inline.
+    evidence_heading(period_heading)
+    # P2-3: pill colour legend — declarations (blue), landlord (orange),
+    # property (green), shareholder (purple) — so the encoding is documented
+    # inline. period_caption prepends the all-time framing when the historic
+    # toggle is on.
     st.caption(
-        "Ranked leaderboard coming when the pipeline view lands — "
-        "showing all members in name order for now.   "
+        f"{period_caption}"
+        "Members are ranked by declaration count, most first.   "
         "Pill colours: "
         "**declarations** (blue) · "
         "**landlord** (orange) · "

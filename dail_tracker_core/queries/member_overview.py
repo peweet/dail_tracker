@@ -52,6 +52,19 @@ def member_list(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
+def member_list_all(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Current + historic members for the browse page's 'Include historic TDs'
+    toggle. Carries is_current / dails_served / served-year span for the Dáil and
+    year filters. Reads v_member_registry_all (degrades to unavailable if the
+    historic parquets aren't built — the page then falls back to member_list)."""
+    return _run(
+        conn,
+        "SELECT unique_member_code, member_name, party_name, constituency, house,"
+        " is_current, dails_served, served_from_year, served_to_year"
+        " FROM v_member_registry_all ORDER BY is_current DESC, member_name",
+    )
+
+
 def join_key_by_name(conn: duckdb.DuckDBPyConnection, name: str, house: str | None = None) -> QueryResult:
     if house:
         return _run(
@@ -96,6 +109,18 @@ def identity_registry(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryRe
     )
 
 
+def identity_registry_all(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
+    """Identity for FORMER members (not in v_member_registry). Tried only after
+    the current-roster lookups miss, so a missing historic view never regresses a
+    sitting member's profile. Carries is_current so the profile can flag 'Former'."""
+    return _run(
+        conn,
+        "SELECT member_name, party_name, constituency, is_minister, is_current, dails_served"
+        " FROM v_member_registry_all WHERE unique_member_code = ? LIMIT 1",
+        [join_key],
+    )
+
+
 # ── Attendance ────────────────────────────────────────────────────────────────
 
 
@@ -136,6 +161,19 @@ def external_links(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResul
         "SELECT wikipedia_url, twitter_url, bluesky_url, facebook_url,"
         " instagram_url, website_url"
         " FROM v_member_external_links WHERE unique_member_code = ? LIMIT 1",
+        [join_key],
+    )
+
+
+def contact_details(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
+    """Official office contact details (address / phone / email / website) scraped
+    from the member's oireachtas.ie profile page. One row, every field nullable;
+    empty when the member has no contact block on file."""
+    return _run(
+        conn,
+        "SELECT address, phone_primary, phone_all, email, website_url,"
+        " profile_url, source_url"
+        " FROM v_member_contact_details WHERE unique_member_code = ? LIMIT 1",
         [join_key],
     )
 

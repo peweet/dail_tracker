@@ -15,6 +15,9 @@ isolated so a transient Wikidata outage can't poison the others.
                                   constituency boundaries (Electoral Commission
                                   Review 2023, App. 2); integrity-gated --write
                                   → consumed by member_constituency_demographics
+    5. member_contact_extract     office address / phone / email scraped from
+                                  each member's oireachtas.ie profile page
+                                  → consumed by Member Overview "Contact" block
 
 Run AFTER bootstrap (the first three steps need flattened_members.parquet) and
 BEFORE iris (iris consumes ministerial_tenure for SI signatory attribution).
@@ -59,23 +62,28 @@ def _module(mod: str, *args: str) -> bool:
 
 
 def step_wikidata_socials() -> bool:
-    _hr("[1/4] wikidata_socials_etl — member external links")
+    _hr("[1/5] wikidata_socials_etl — member external links")
     return _module("wikidata.wikidata_socials_etl")
 
 
 def step_ministerial_tenure() -> bool:
-    _hr("[2/4] ministerial_tenure_build — Wikidata minister-of-the-day table")
+    _hr("[2/5] ministerial_tenure_build — Wikidata minister-of-the-day table")
     return _module("wikidata.ministerial_tenure_build")
 
 
 def step_committees_long_format() -> bool:
-    _hr("[3/4] committees_long_format_etl — committee_N_* / office_N_* unpivot")
+    _hr("[3/5] committees_long_format_etl — committee_N_* / office_N_* unpivot")
     return _module("committees.committees_long_format_etl")
 
 
 def step_constituency_pop() -> bool:
-    _hr("[4/4] ec_constituency_pop_extract — Census 2022 constituency population")
+    _hr("[4/5] ec_constituency_pop_extract — Census 2022 constituency population")
     return _module("reference.ec_constituency_pop_extract", "--write")
+
+
+def step_member_contact() -> bool:
+    _hr("[5/5] member_contact_extract — office address / phone / email per member")
+    return _module("extractors.member_contact_extract")
 
 
 def main() -> int:
@@ -90,6 +98,7 @@ def main() -> int:
         ("ministerial_tenure", step_ministerial_tenure),
         ("committees_long_format", step_committees_long_format),
         ("constituency_pop", step_constituency_pop),
+        ("member_contact", step_member_contact),
     ]:
         if not fn():
             failures.append(name)

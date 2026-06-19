@@ -155,6 +155,45 @@ PRETTY_VOTES = pl.DataFrame(_rows)
 # enough variation to exercise the "skip-null" branch in the UI chip loop.
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# member_contact_details.parquet — drives v_member_contact_details
+# Output of extractors/member_contact_extract.py; columns mirror that schema.
+# Mary has full contact (constituency office + 2 phones + email), Sean has only
+# the Leinster House address + 1 phone + email, Aoife has nothing on file —
+# enough variation to exercise the "skip-null" / "empty" branches in the UI.
+# ---------------------------------------------------------------------------
+
+MEMBER_CONTACT_DETAILS = pl.DataFrame(
+    {
+        "unique_member_code": [
+            "Mary-Murphy.D.2020-02-08",
+            "Sean-OBrien.D.2016-02-26",
+            "Aoife-NiBhroin.D.2024-11-29",
+        ],
+        "address": [
+            "1 Main Street, Athlone, Co. Westmeath",
+            "Leinster House, Kildare Street, Dublin 2",
+            None,
+        ],
+        "phone_primary": ["(090) 649 0000", "(01) 618 3000", None],
+        "phone_all": ["(090) 649 0000 / (01) 618 3001", "(01) 618 3000", None],
+        "email": ["mary.murphy@oireachtas.ie", "sean.obrien@oireachtas.ie", None],
+        "website_url": ["https://marymurphytd.ie", None, None],
+        "profile_url": [
+            "https://www.oireachtas.ie/en/members/member/Mary-Murphy.D.2020-02-08/",
+            "https://www.oireachtas.ie/en/members/member/Sean-OBrien.D.2016-02-26/",
+            "https://www.oireachtas.ie/en/members/member/Aoife-NiBhroin.D.2024-11-29/",
+        ],
+        "source_url": [
+            "https://www.oireachtas.ie/en/members/member/Mary-Murphy.D.2020-02-08/",
+            "https://www.oireachtas.ie/en/members/member/Sean-OBrien.D.2016-02-26/",
+            "https://www.oireachtas.ie/en/members/member/Aoife-NiBhroin.D.2024-11-29/",
+        ],
+        "scraped_date": ["2026-06-19", "2026-06-19", "2026-06-19"],
+    }
+)
+
+
 MEMBER_EXTERNAL_LINKS = pl.DataFrame(
     {
         "unique_member_code": [
@@ -1038,14 +1077,17 @@ def main() -> None:
     members_path = SILVER_PQ / "flattened_members.parquet"
     votes_path = GOLD_PQ / "pretty_votes.parquet"
     ext_links_path = SILVER_PQ / "member_external_links.parquet"
+    contact_path = SILVER_PQ / "member_contact_details.parquet"
 
     FLATTENED_MEMBERS.write_parquet(members_path, compression="zstd", compression_level=3, statistics=True)
     PRETTY_VOTES.write_parquet(votes_path, compression="zstd", compression_level=3, statistics=True)
     MEMBER_EXTERNAL_LINKS.write_parquet(ext_links_path, compression="zstd", compression_level=3, statistics=True)
+    MEMBER_CONTACT_DETAILS.write_parquet(contact_path, compression="zstd", compression_level=3, statistics=True)
 
     print(f"Wrote {members_path} ({FLATTENED_MEMBERS.height} rows)")
     print(f"Wrote {votes_path} ({PRETTY_VOTES.height} rows)")
     print(f"Wrote {ext_links_path} ({MEMBER_EXTERNAL_LINKS.height} rows)")
+    print(f"Wrote {contact_path} ({MEMBER_CONTACT_DETAILS.height} rows)")
 
     # Hardcoded-'data/'-path view fixtures, mirroring the real project layout.
     questions = _build_questions()

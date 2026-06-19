@@ -29,6 +29,7 @@ import duckdb  # noqa: E402
 import streamlit as st  # noqa: E402
 
 from dail_tracker_core.connections import (  # noqa: E402
+    CONTACT_DETAILS_FILES,
     DOMAIN_FILES,
     EXTERNAL_LINKS_FILES,
     REGISTRY_FILES,
@@ -40,6 +41,7 @@ from dail_tracker_core.connections import (  # noqa: E402
 _DOMAIN_FILES = DOMAIN_FILES
 _REGISTRY_FILES = REGISTRY_FILES
 _EXTERNAL_LINKS_FILES = EXTERNAL_LINKS_FILES
+_CONTACT_DETAILS_FILES = CONTACT_DETAILS_FILES
 _VOTE_FILES = VOTE_FILES
 
 

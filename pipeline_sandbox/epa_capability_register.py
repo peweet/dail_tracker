@@ -9,8 +9,9 @@ public contracts" — the supply-side loop the Standards & Credentials page is b
 
 It reuses the shared join discipline in [[_capability_join]] (the same one behind
 [[nsai_capability_register]]): canonical ``name_norm`` exact match, ambiguity-aware live-preference,
-and a location-corroborated fuzzy gate. Public money is reported in TWO tiers that are NEVER summed —
-SPENT (``public_eur``) vs AWARDED (``total_award_eur`` = eTenders + TED).
+and a location-corroborated fuzzy gate. Public money is reported in THREE tiers that are NEVER summed —
+SPENT (``public_paid_eur``) / COMMITTED (``public_committed_eur``, purchase orders) / AWARDED
+(``total_award_eur`` = eTenders + TED).
 
 Findings are LEADS TO INVESTIGATE, not conclusions (no-inference rule).
 
@@ -123,10 +124,10 @@ def _summary(df: pd.DataFrame) -> dict:
         "high_confidence_live": int(len(hi)),
         "review_needed_dissolved": int(matched["match_review_needed"].sum()),
         "match_methods": {k: int(v) for k, v in matched["match_method"].value_counts().items()},
-        # SPENT tier (payments fact)
+        # PUBLIC MONEY — three never-summed tiers: SPENT (paid) / COMMITTED (PO) / AWARDED (eTenders+TED)
         "high_conf_received_public_money": int(len(paid)),
-        "high_conf_public_eur_safe_sum": float(round(paid["public_eur"].sum(), 2)),
-        # AWARDED tier (eTenders + TED) — reported separately, NEVER summed with SPENT
+        "high_conf_public_paid_eur_safe_sum": float(round(paid["public_paid_eur"].fillna(0).sum(), 2)),
+        "high_conf_public_committed_eur_safe_sum": float(round(paid["public_committed_eur"].fillna(0).sum(), 2)),
         "high_conf_won_public_award": int(len(won)),
         "high_conf_won_etenders": int(hi["won_etenders"].sum()),
         "high_conf_won_ted": int(hi["won_ted"].sum()),
@@ -134,10 +135,11 @@ def _summary(df: pd.DataFrame) -> dict:
         # certified/licensed AND any public track record — the keystone capability signal
         "high_conf_with_public_track_record": int(len(track)),
         "live_but_overdue_with_public_money": int(len(leads)),
-        "live_but_overdue_public_eur": float(round(leads["public_eur"].sum(), 2)),
+        "live_but_overdue_public_paid_eur": float(round(leads["public_paid_eur"].fillna(0).sum(), 2)),
         "caveats": [
             "Findings are leads to investigate, not conclusions.",
-            "SPENT (public_eur) and AWARDED (total_award_eur) are different tiers — NEVER add them.",
+            "Public money is THREE tiers — SPENT (public_paid_eur) / COMMITTED (public_committed_eur) / "
+            "AWARDED (total_award_eur) — NEVER added together; po_committed is an order, not money out.",
             "EPA 'Name' is the facility/licensee name; for waste/industrial it is usually the operating "
             "company, but some site-named waste facilities will legitimately not match CRO.",
             "looks_individual flags sole-trader licence holders (personal data) — handle per privacy rules.",
@@ -154,11 +156,12 @@ def main() -> None:
     OUT_SUMMARY.parent.mkdir(parents=True, exist_ok=True)
     OUT_SUMMARY.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     log.info(
-        "WROTE %s — %d licensees | matched %d | SPENT €%.0f (%d) | AWARDED €%.0f (%d) | track-record %d",
+        "WROTE %s — %d licensees | matched %d | PAID €%.0f / COMMITTED €%.0f (%d) | AWARDED €%.0f (%d) | track %d",
         OUT,
         len(df),
         summary["matched_to_cro"],
-        summary["high_conf_public_eur_safe_sum"],
+        summary["high_conf_public_paid_eur_safe_sum"],
+        summary["high_conf_public_committed_eur_safe_sum"],
         summary["high_conf_received_public_money"],
         summary["high_conf_total_awarded_eur_safe_sum"],
         summary["high_conf_won_public_award"],

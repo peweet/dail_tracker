@@ -400,6 +400,10 @@ data/silver/sipo_candidate/
 !data/silver/parquet/member_terms.parquet
 !data/silver/parquet/lobbying_return_documents.parquet
 !data/silver/parquet/member_external_links.parquet
+# Official member contact details scraped from oireachtas.ie profiles
+# (extractors/member_contact_extract.py) — read live by v_member_contact_details
+# on the Member Overview page; commit so a fresh Cloud clone has it without ETL.
+!data/silver/parquet/member_contact_details.parquet
 !data/silver/parquet/questions.parquet
 !data/silver/parquet/related_docs.parquet
 !data/silver/parquet/seanad_member_interests_combined.parquet

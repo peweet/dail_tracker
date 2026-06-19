@@ -34,6 +34,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from data_access.constituency_data import (
     fetch_constituency_council_context_result,
     fetch_constituency_header_result,
+    fetch_constituency_house_work_result,
+    fetch_constituency_housing_context_result,
     fetch_constituency_list_result,
     fetch_constituency_members_result,
     fetch_constituency_party_breakdown_result,
@@ -51,6 +53,7 @@ from ui.components import (
     ranked_member_card,
     search_matches,
     subsection_heading,
+    totals_strip,
 )
 from ui.entity_links import member_profile_url
 
@@ -204,6 +207,88 @@ def _render_roster(name: str) -> None:
             st.html(card)
 
 
+def _render_house_work(name: str) -> None:
+    res = fetch_constituency_house_work_result(name)
+    if not res.ok or res.data.empty:
+        return
+    r = res.data.iloc[0]
+    evidence_heading("What its TDs do in the Dáil")
+    st.html(
+        '<p class="con-section-note">Work by this constituency’s current TDs since the '
+        "2024 general election — a count of activity, not a quality judgement. Open any TD "
+        "above for the detail behind these totals.</p>"
+    )
+    items = [
+        (_int(r.get("n_questions")), "Parliamentary questions"),
+        (_int(r.get("n_speeches")), "Floor contributions"),
+        (_int(r.get("n_votes_cast")), "Votes cast"),
+        (_int(r.get("n_words")), "Words spoken"),
+    ]
+    totals_strip(items)
+    landlords = int(r.get("n_landlords") or 0)
+    owners = int(r.get("n_property_owners") or 0)
+    if landlords or owners:
+        bits = []
+        if owners:
+            bits.append(f"<strong>{owners}</strong> declared property")
+        if landlords:
+            bits.append(f"<strong>{landlords}</strong> declared as a landlord")
+        st.html(
+            '<p class="con-section-note" style="margin-top:0.5rem">Register of interests: '
+            + " · ".join(bits)
+            + " (latest declarations).</p>"
+        )
+
+
+def _housing_card(row) -> str:
+    council = _h(str(row["local_authority"]))
+    partial = str(row.get("link_type")) == "partial"
+    vac = row.get("vacant_dwellings")
+    rate = row.get("vacancy_rate")
+    price = row.get("median_price_eur")
+    pills: list[str] = []
+    if vac is not None and not pd.isna(vac):
+        rate_txt = f" ({rate:.1f}%)" if rate is not None and not pd.isna(rate) else ""
+        pills.append(f'<span class="con-grain con-grain-vac">{_int(vac)} vacant homes{rate_txt}</span>')
+    if price is not None and not pd.isna(price):
+        pills.append(f'<span class="con-grain con-grain-price">Median price {_eur(price)}</span>')
+    if not pills:
+        return ""
+    flag = ' <span class="con-council-partial">partial</span>' if partial else ""
+    return (
+        f'<div class="con-council-card{" con-council-card-partial" if partial else ""}">'
+        f'<div class="con-council-name">{council}{flag}</div>'
+        f'<div class="con-grain-row">{"".join(pills)}</div>'
+        f"</div>"
+    )
+
+
+def _render_housing(name: str) -> None:
+    res = fetch_constituency_housing_context_result(name)
+    if not res.ok or res.data.empty:
+        return
+    df = res.data
+    evidence_heading("Housing in this area")
+    vac_period = next((str(p) for p in df["vac_period"] if p), "")
+    med_period = next((str(p) for p in df["med_period"] if p), "")
+    st.html(
+        '<p class="con-section-note">Residential vacancy and median house price for the '
+        "local-authority area(s) serving this constituency — <strong>council-area</strong> "
+        "figures (the area is not the constituency).</p>"
+    )
+    cards = [c for c in (_housing_card(r) for _, r in df.iterrows()) if c]
+    if cards:
+        st.html(f'<div class="con-council-grid">{"".join(cards)}</div>')
+    src = " · ".join(
+        x for x in [
+            f"Vacancy: CSO metered-electricity vacancy {vac_period}" if vac_period else "",
+            f"Median price: CSO RPPI {med_period}" if med_period else "",
+        ] if x
+    )
+    if src:
+        st.caption(src)
+
+
 def _council_card(row) -> str:
     council = _h(str(row["local_authority"]))
     partial = str(row.get("link_type")) == "partial"
@@ -288,6 +373,8 @@ def _render_dossier(name: str) -> None:
     _render_header(name, header_row)
     _render_party_bar(name)
     _render_roster(name)
+    _render_house_work(name)
+    _render_housing(name)
     _render_council_context(name)
 
     st.caption(

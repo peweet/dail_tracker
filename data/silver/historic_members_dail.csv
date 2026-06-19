@@ -26,7 +26,7 @@ Alex-White.S.2007-07-23,Alex,White,Dublin South,Alex White,Labour Party,true,200
 Emmet-Stagg.D.1987-03-10,Emmet,Stagg,Kildare North,Emmet Stagg,Labour Party,false,1987,31,31,False
 Arthur-Spring.D.2011-03-09,Arthur,Spring,Kerry North-West Limerick,Arthur Spring,Labour Party,false,2011,31,31,False
 John-O'Mahony.D.2007-06-14,John,O'Mahony,Mayo,John O'Mahony,Fine Gael,false,2007,31,"25,31",False
-Joe-O'Reilly.S.1989-10-01,Joe,O'Reilly,Cavan-Monaghan,Joe O'Reilly,Fine Gael,false,1989,31,"25,27,31",False
+Joe-O'Reilly.S.1989-10-01,Joe,O'Reilly,Cavan-Monaghan,Joe O'Reilly,Fine Gael,false,1989,31,"25,26,27,31",False
 John-Perry.D.1997-06-26,John,Perry,Sligo-North Leitrim,John Perry,Fine Gael,false,1997,31,31,False
 Ann-Phelan.D.2011-03-09,Ann,Phelan,Carlow-Kilkenny,Ann Phelan,Labour Party,false,2011,31,31,False
 Seán-Kenny.D.1992-12-14,Seán,Kenny,Dublin North-East,Seán Kenny,Labour Party,false,1992,31,31,False
@@ -72,7 +72,7 @@ Margaret-Murphy-O'Mahony.D.2016-10-03,Margaret,Murphy O'Mahony,Cork South-West,M
 Mary-Mitchell-O'Connor.D.2011-03-09,Mary,Mitchell O'Connor,Dún Laoghaire,Mary Mitchell O'Connor,Fine Gael,true,2011,32,"31,32",False
 Tom-Neville.D.2016-10-03,Tom,Neville,Limerick County,Tom Neville,Fine Gael,false,2016,32,32,False
 Michael-Noonan.D.1981-06-30,Michael,Noonan,Limerick City,Michael Noonan,Fine Gael,true,1981,32,"31,32",False
-Eugene-Murphy.D.2016-10-03,Eugene,Murphy,Roscommon-Galway,Eugene Murphy,Fianna Fáil,false,2016,32,32,False
+Eugene-Murphy.D.2016-10-03,Eugene,Murphy,Roscommon-Galway,Eugene Murphy,Fianna Fáil,false,2016,32,"26,32",False
 Tony-McLoughlin.D.2011-03-09,Tony,McLoughlin,Sligo-Leitrim,Tony McLoughlin,Fine Gael,false,2011,32,"31,32",False
 Jonathan-O'Brien.D.2011-03-09,Jonathan,O'Brien,Cork North-Central,Jonathan O'Brien,Sinn Féin,false,2011,32,"31,32",False
 Finian-McGrath.D.2002-06-06,Finian,McGrath,Dublin Bay North,Finian McGrath,Independent,true,2002,32,"31,32",False
@@ -80,7 +80,7 @@ Mick-Wallace.D.2011-03-09,Mick,Wallace,Wexford,Mick Wallace,Independents 4 Chang
 Caoimhghín-Ó-Caoláin.D.1997-06-26,Caoimhghín,Ó Caoláin,Cavan-Monaghan,Caoimhghín Ó Caoláin,Sinn Féin,false,1997,32,"31,32",False
 Katherine-Zappone.S.2011-05-25,Katherine,Zappone,Dublin South-West,Katherine Zappone,Independent,true,2011,32,"24,32",False
 Kevin-O'Keeffe.D.2016-10-03,Kevin,O'Keeffe,Cork East,Kevin O'Keeffe,Fianna Fáil,false,2016,32,32,False
-Fiona-O'Loughlin.D.2016-10-03,Fiona,O'Loughlin,Kildare South,Fiona O'Loughlin,Fianna Fáil,false,2016,32,"27,32",False
+Fiona-O'Loughlin.D.2016-10-03,Fiona,O'Loughlin,Kildare South,Fiona O'Loughlin,Fianna Fáil,false,2016,32,"26,27,32",False
 Frank-O'Rourke.D.2016-10-03,Frank,O'Rourke,Kildare North,Frank O'Rourke,Fianna Fáil,false,2016,32,32,False
 Jan-O'Sullivan.S.1993-02-17,Jan,O'Sullivan,Limerick City,Jan O'Sullivan,Labour Party,false,1993,32,"31,32",False
 Maureen-O'Sullivan.D.2009-06-05,Maureen,O'Sullivan,Dublin Central,Maureen O'Sullivan,Independent,false,2009,32,"31,32",False
@@ -91,10 +91,10 @@ Brendan-Ryan.S.2007-07-23,Brendan,Ryan,Dublin Fingal,Brendan Ryan,Labour Party,f
 Kate-O'Connell.D.2016-10-03,Kate,O'Connell,Dublin Bay South,Kate O'Connell,Fine Gael,false,2016,32,32,False
 Enda-Kenny.D.1975-11-12,Enda,Kenny,Mayo,Enda Kenny,Fine Gael,false,1975,32,"31,32",False
 Billy-Kelleher.S.1993-02-17,Billy,Kelleher,Cork North-Central,Billy Kelleher,Fianna Fáil,false,1993,32,"31,32",False
-Pat-Casey.D.2016-10-03,Pat,Casey,Wicklow,Pat Casey,Fianna Fáil,false,2016,32,"27,32",False
-Shane-Cassells.D.2016-10-03,Shane,Cassells,Meath West,Shane Cassells,Fianna Fáil,false,2016,32,32,False
+Pat-Casey.D.2016-10-03,Pat,Casey,Wicklow,Pat Casey,Fianna Fáil,false,2016,32,"26,27,32",False
+Shane-Cassells.D.2016-10-03,Shane,Cassells,Meath West,Shane Cassells,Fianna Fáil,false,2016,32,"26,32",False
 Marcella-Corcoran-Kennedy.D.2011-03-09,Marcella,Corcoran Kennedy,Offaly,Marcella Corcoran Kennedy,Fine Gael,false,2011,32,"31,32",False
-Lisa-Chambers.D.2016-10-03,Lisa,Chambers,Mayo,Lisa Chambers,Fianna Fáil,false,2016,32,32,False
+Lisa-Chambers.D.2016-10-03,Lisa,Chambers,Mayo,Lisa Chambers,Fianna Fáil,false,2016,32,"26,32",False
 Catherine-Byrne.D.2007-06-14,Catherine,Byrne,Dublin South-Central,Catherine Byrne,Fine Gael,true,2007,32,"31,32",False
 Joan-Burton.D.1992-12-14,Joan,Burton,Dublin West,Joan Burton,Labour Party,false,1992,32,"31,32",False
 Gerry-Adams.D.2011-03-09,Gerry,Adams,Louth,Gerry Adams,Sinn Féin,false,2011,32,"31,32",False
@@ -110,7 +110,7 @@ Michael-Harty.D.2016-10-03,Michael,Harty,Clare,Michael Harty,Independent,false,2
 Frances-Fitzgerald.D.1992-12-14,Frances,Fitzgerald,Dublin Mid-West,Frances Fitzgerald,Fine Gael,true,1992,32,"31,32",False
 Martin-Ferris.D.2002-06-06,Martin,Ferris,Kerry,Martin Ferris,Sinn Féin,false,2002,32,"31,32",False
 John-Curran.D.2002-06-06,John,Curran,Dublin Mid-West,John Curran,Fianna Fáil,false,2002,32,32,False
-Michael-D'Arcy.D.2007-06-14,Michael,D'Arcy,Wexford,Michael D'Arcy,Fine Gael,true,2007,32,"24,32",False
+Michael-D'Arcy.D.2007-06-14,Michael,D'Arcy,Wexford,Michael D'Arcy,Fine Gael,true,2007,32,"24,26,32",False
 Clare-Daly.D.2011-03-09,Clare,Daly,Dublin Fingal,Clare Daly,Independents 4 Change,false,2011,32,"31,32",False
 Jim-Daly.D.2011-03-09,Jim,Daly,Cork South-West,Jim Daly,Fine Gael,true,2011,32,"31,32",False
 John-Deasy.D.2002-06-06,John,Deasy,Waterford,John Deasy,Fine Gael,false,2002,32,"31,32",False

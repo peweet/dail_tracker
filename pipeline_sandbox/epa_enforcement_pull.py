@@ -56,9 +56,15 @@ UA = "dail-tracker-research/1.0 (civic data project; EPA LEAP open data CC-BY-4.
 DELAY_S = 0.3
 
 LICENCES = ROOT / "data/sandbox/parquet/epa_licensed_facilities.parquet"
+OPERATORS = ROOT / "data/sandbox/parquet/epa_licence_operators.parquet"
 REGISTER = ROOT / "data/sandbox/parquet/epa_capability_register.parquet"
 CHECKPOINT = ROOT / "data/sandbox/epa_enforcement_checkpoint.jsonl"
 OUT = ROOT / "data/sandbox/parquet/epa_enforcement.parquet"
+
+# the adverse/enforcement record types (the EPA ComplianceList also carries routine monitoring returns,
+# annual reports, site visits, correspondence, meetings — those are NOT enforcement and are excluded
+# from the event/open/last-date tallies).
+ENFORCEMENT_BUCKETS = {"incident", "complaint", "non_compliance"}
 
 # compliance-record type -> bucket. The "bad" signals are incident/complaint/non_compliance; site_visit
 # and returns are routine regulatory activity, counted separately so they don't inflate the burden.
@@ -84,10 +90,20 @@ def _new_session() -> requests.Session:
 
 
 def _crawl_set() -> pd.DataFrame:
-    """Unique (licence_number) for waste-sector licences ∪ licences of public-money firms."""
-    lic = pd.read_parquet(LICENCES)[["licence_number", "licensee_name", "licence_class"]].copy()
+    """Unique (licence_number) for waste-sector licences ∪ ALL licences of public-money firms.
+
+    The public-money match must key on the corporate OPERATOR (same as the register), not the WFS
+    facility name — otherwise a public-money firm's INDUSTRIAL licences (whose facility name differs
+    from the operator) are dropped and its enforcement record is undercounted."""
+    lic = pd.read_parquet(LICENCES)[["licence_number", "licensee_name", "reg_code", "licence_class"]].copy()
     lic = lic[lic["licence_number"].notna()].drop_duplicates("licence_number")
-    lic["nkey"] = name_norm(lic["licensee_name"])
+    if OPERATORS.exists():
+        op = pd.read_parquet(OPERATORS)[["profile_number", "operator_name"]]
+        lic = lic.merge(op, left_on="reg_code", right_on="profile_number", how="left")
+        lic["entity_name"] = lic["operator_name"].fillna(lic["licensee_name"])
+    else:
+        lic["entity_name"] = lic["licensee_name"]
+    lic["nkey"] = name_norm(lic["entity_name"])
     reg = pd.read_parquet(REGISTER)
     paid = reg[reg["cro_company_num"].notna() & reg["has_public_track_record"]]
     paid_keys = set(name_norm(paid["licensee_name"]))
@@ -130,17 +146,19 @@ def _pull_one(session: requests.Session, licence_number: str) -> dict:
     cl = _get(session, "/api/v1/ComplianceList/compliancelist", licence_profile_id=pid, per_page=2000)
     records = cl.get("list", []) if isinstance(cl, dict) else []
     buckets = {"incident": 0, "complaint": 0, "non_compliance": 0, "site_visit": 0, "investigation": 0, "other": 0}
-    n_open = 0
-    last_date = None
+    n_open = 0  # open ENFORCEMENT records only (incidents/complaints/non-compliances), not routine returns
+    last_date = None  # most recent ENFORCEMENT record
     for r in records:
-        buckets[_bucket(r.get("type"))] += 1
-        if str(r.get("status", "")).strip().lower() not in ("closed", "complete", "completed"):
-            n_open += 1
-        d = r.get("date")
-        if d and (last_date is None or d > last_date):
-            last_date = d
+        b = _bucket(r.get("type"))
+        buckets[b] += 1
+        if b in ENFORCEMENT_BUCKETS:
+            if str(r.get("status", "")).strip().lower() not in ("closed", "complete", "completed"):
+                n_open += 1
+            d = r.get("date")
+            if d and (last_date is None or d > last_date):
+                last_date = d
     rec.update(
-        n_compliance_records=len(records),
+        n_full_compliance_list=len(records),  # the EPA's whole ComplianceList (incl routine, non-adverse)
         n_open=n_open,
         last_record_date=(last_date or "")[:10],
         **{f"n_{k}": v for k, v in buckets.items()},

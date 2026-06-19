@@ -59,6 +59,26 @@ def constituency_party_breakdown(conn: duckdb.DuckDBPyConnection, constituency: 
     )
 
 
+def constituency_house_work(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
+    """Single-row summary of the Dáil work done by this constituency's current TDs
+    since the 2024 general election (questions, speeches, votes, declared interests)."""
+    return _run(
+        conn,
+        "SELECT * FROM v_constituency_house_work WHERE constituency_name = ?",
+        [constituency],
+    )
+
+
+def constituency_housing_context(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
+    """Residential vacancy (CSO VAC14, 2024Q4) and median house price (CSO RPPI/HPM03)
+    for the local-authority area(s) serving this constituency — council-area context."""
+    return _run(
+        conn,
+        "SELECT * FROM v_constituency_housing_context WHERE constituency_name = ?",
+        [constituency],
+    )
+
+
 def constituency_council_context(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
     """The local authority(ies) serving this area, each with its OWN money side by
     side (revenue / capital / PO / payment — never summed, never apportioned)."""

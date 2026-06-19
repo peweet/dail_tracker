@@ -91,7 +91,7 @@ def build() -> pd.DataFrame:
 def _leads(df: pd.DataFrame) -> pd.DataFrame:
     cols = [
         "licensee_name", "cro_name", "is_public_body", "licence_classes",
-        "public_eur", "total_award_eur", "n_enforcement_events",
+        "public_paid_eur", "public_committed_eur", "total_award_eur", "n_enforcement_events",
         "n_incident", "n_complaint", "n_non_compliance", "n_open", "last_record_date", "match_caveat",
     ]
     leads = df[df["public_money_and_enforcement"]].copy()
@@ -108,14 +108,16 @@ def _summary(df: pd.DataFrame, leads: pd.DataFrame) -> dict:
         "LEADS_public_money_and_enforcement": int(len(leads)),
         "  of_which_private_firms": int(len(priv)),
         "  of_which_public_bodies": int(len(pub)),
-        "private_leads_public_eur_safe_sum": float(round(priv["public_eur"].fillna(0).sum(), 2)),
+        "private_leads_public_paid_eur_safe_sum": float(round(priv["public_paid_eur"].fillna(0).sum(), 2)),
+        "private_leads_public_committed_eur_safe_sum": float(round(priv["public_committed_eur"].fillna(0).sum(), 2)),
         "private_leads_total_award_eur_safe_sum": float(round(priv["total_award_eur"].fillna(0).sum(), 2)),
         "private_leads_enforcement_events": int(priv["n_enforcement_events"].sum()),
         "caveats": [
             "Findings are LEADS TO INVESTIGATE, not conclusions or proven wrongdoing.",
             "An enforcement event (incident/complaint/non-compliance) is EPA workload, not guilt; an "
             "open record is unresolved, not adverse-confirmed.",
-            "Public money is two never-summed tiers: SPENT (public_eur) vs AWARDED (total_award_eur).",
+            "Public money is THREE never-summed tiers: SPENT (public_paid_eur) / COMMITTED "
+            "(public_committed_eur, purchase orders, not money out) / AWARDED (total_award_eur).",
             "Enforcement crawl is scoped to the waste sector + public-money firms, not all licensees.",
             "Public bodies (councils running their own landfills) are a separate story from private "
             "contractors on the public payroll — split by is_public_body.",
@@ -136,11 +138,12 @@ def main() -> None:
     priv = leads[~leads["is_public_body"]]
     for r in priv.itertuples():
         log.info(
-            "  %-42s paid €%-12s awarded €%-12s | events %d (inc %d / comp %d / nc %d, open %d) last %s",
-            str(r.cro_name)[:42],
-            f"{(r.public_eur or 0):,.0f}",
+            "  %-40s paid €%-11s committed €%-12s awarded €%-11s | events %d (nc %d, open %d) last %s",
+            str(r.cro_name)[:40],
+            f"{(r.public_paid_eur or 0):,.0f}",
+            f"{(r.public_committed_eur or 0):,.0f}",
             f"{(r.total_award_eur or 0):,.0f}",
-            r.n_enforcement_events, r.n_incident, r.n_complaint, r.n_non_compliance, r.n_open, r.last_record_date,
+            r.n_enforcement_events, r.n_non_compliance, r.n_open, r.last_record_date,
         )
 
 
