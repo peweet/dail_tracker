@@ -762,6 +762,12 @@ PUBLISHERS: list[dict] = [
         privacy="medium",
         tier="C",
         include=r"po[s]?[-_ ]?(greater|over)|purchase|20k|e20k|20[,]?000",
+        # Listing harvested 0 (files not linked from the procurement page); pin the known annual PDFs.
+        direct=[
+            "https://www.irishprisons.ie/wp-content/uploads/documents_pdf/POs-greater-than-E20k-2024.pdf",
+            "https://www.irishprisons.ie/wp-content/uploads/documents_pdf/POs-greater-than-E20k-2023.pdf",
+            "https://www.irishprisons.ie/wp-content/uploads/documents_pdf/POs-greater-than-E20k-2022.pdf",
+        ],
         caveat="Annual (not quarterly) PO list, incl-VAT; security redactions possible.",
     ),
     cfg(

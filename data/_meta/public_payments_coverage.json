@@ -1,24 +1,24 @@
 {
-  "publishers_attempted": 36,
-  "publishers_with_rows": 35,
-  "rows_extracted": 82796,
-  "rows_deduped_within_file": 0,
-  "rows_public_display": 65320,
-  "rows_review_personal_data": 17476,
-  "rows_quarantined": 17476,
+  "publishers_attempted": 42,
+  "publishers_with_rows": 39,
+  "rows_extracted": 84002,
+  "rows_deduped_within_file": 30,
+  "rows_public_display": 66256,
+  "rows_review_personal_data": 17746,
+  "rows_quarantined": 17746,
   "supplier_class_counts": {
-    "unknown": 5104,
-    "public_body": 3037,
-    "sole_trader_or_individual": 17476,
-    "foreign_company": 712,
-    "company": 56467
+    "company": 57303,
+    "unknown": 5141,
+    "public_body": 3095,
+    "sole_trader_or_individual": 17746,
+    "foreign_company": 717
   },
   "amount_semantics_counts": {
-    "po_committed": 37526,
+    "po_committed": 38732,
     "payment_actual": 45270
   },
-  "value_safe_to_sum_rows": 72205,
-  "value_safe_to_sum_total_eur": 13717879165.84598,
+  "value_safe_to_sum_rows": 73316,
+  "value_safe_to_sum_total_eur": 13819793557.59598,
   "by_publisher": [
     {
       "id": "ie_opw",
@@ -451,11 +451,83 @@
       "rows": 7,
       "amount_semantics": "po_committed",
       "privacy_risk": "medium"
+    },
+    {
+      "id": "dept_finance",
+      "name": "Department of Finance",
+      "tier": "A",
+      "files_seen": 11,
+      "files_parsed": 11,
+      "files_skipped": 0,
+      "files_with_rows": 8,
+      "rows": 99,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "dept_children",
+      "name": "Department of Children, Disability and Equality",
+      "tier": "A",
+      "files_seen": 0,
+      "files_parsed": 0,
+      "files_skipped": 0,
+      "files_with_rows": 0,
+      "rows": 0,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "medium"
+    },
+    {
+      "id": "ie_hsa",
+      "name": "Health and Safety Authority",
+      "tier": "C",
+      "files_seen": 0,
+      "files_parsed": 0,
+      "files_skipped": 0,
+      "files_with_rows": 0,
+      "rows": 0,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "ie_cnam",
+      "name": "Coimisi\u00fan na Me\u00e1n",
+      "tier": "C",
+      "files_seen": 13,
+      "files_parsed": 13,
+      "files_skipped": 0,
+      "files_with_rows": 12,
+      "rows": 365,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "low"
+    },
+    {
+      "id": "ie_screen",
+      "name": "Screen Ireland",
+      "tier": "D",
+      "files_seen": 1,
+      "files_parsed": 1,
+      "files_skipped": 0,
+      "files_with_rows": 1,
+      "rows": 6,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "medium"
+    },
+    {
+      "id": "ie_prisons",
+      "name": "Irish Prison Service",
+      "tier": "C",
+      "files_seen": 3,
+      "files_parsed": 1,
+      "files_skipped": 0,
+      "files_with_rows": 1,
+      "rows": 777,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "medium"
     }
   ],
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-19T17:54:28+00:00",
+  "generated_at": "2026-06-19T18:03:54+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }
