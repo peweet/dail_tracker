@@ -44,11 +44,93 @@ _FRAGMENT_SUFFIXES = {
 _SUPPLIER_CLASSES = {"company", "sole_trader_or_individual", "foreign_company", "public_body"}
 _VALUE_KINDS = {"contract_award_value", "framework_or_dps_ceiling", "framework_call_off"}
 
+# Schema contract: every column the base view v_procurement_awards selects from the
+# parquet (sql_views/procurement/procurement_awards.sql). _load_sql swallows a
+# CatalogException SILENTLY, so a renamed/dropped source header would not raise here —
+# it would make the view (and every procurement view built on it) quietly return
+# nothing. This set turns that silent failure into a named, pre-view assertion. Raw OGP
+# headers are kept verbatim by the extractor (it canonicalises only the upstream
+# "Sum of " prefixes) precisely so this contract stays stable across an upstream rename.
+_REQUIRED_AWARD_COLUMNS = {
+    # Raw OGP headers passed straight through to the parquet.
+    "Tender ID",
+    "Contracting Authority",
+    "Main Cpv Code",
+    "Main Cpv Code Description",
+    "Tender/Contract Name",
+    "Spend Category",
+    "Contract Type",
+    "Procedure",
+    "Contract Duration (Months)",
+    "No of Bids Received",
+    "No of SMEs Bids Received",
+    "No of Awarded SMEs",
+    "Additional CPV Codes on CFT",
+    "TED Notice Link",
+    "TED CAN Link",
+    "Competition Type",
+    "Notice Published Date/Contract Created Date",
+    "Parent Agreement ID",
+    # Extractor-derived columns the view and downstream rollups rely on.
+    "supplier",
+    "supplier_norm",
+    "supplier_class",
+    "name_truncated",
+    "estimated_value_eur",
+    "value_eur",
+    "value_kind",
+    "is_framework_or_dps",
+    "value_shared_across_suppliers",
+    "value_safe_to_sum",
+    "is_call_off",
+}
+
 
 def _load(path: Path) -> pl.DataFrame:
     if not path.exists():
         pytest.skip(f"{path.name} not present — run pipeline.py (procurement chain) first")
     return pl.read_parquet(path)
+
+
+# ---------------------------------------------------------------------------
+# SCHEMA CONTRACT
+#
+# The 2026-06-17 refresh shipped a silent upstream rename ("Awarded Value (€)" ->
+# "Sum of Awarded Value (€)"). It was caught only by the output-baseline diff after
+# the fact — no test asserted the awards column set. These lock that contract so a
+# future header rename/drop fails loudly at the test, not silently at a blank view.
+# ---------------------------------------------------------------------------
+
+
+def test_awards_schema_contract():
+    """Every column the base view v_procurement_awards selects must exist in gold.
+
+    A renamed/dropped source header makes the view silently return nothing (the
+    loader swallows the CatalogException), thinning every procurement page without
+    an error. Assert the contract here instead.
+    """
+    aw = _load(AWARDS)
+    missing = _REQUIRED_AWARD_COLUMNS - set(aw.columns)
+    assert not missing, f"procurement_awards is missing required column(s): {sorted(missing)}"
+
+
+def test_exactly_one_awarded_value_column():
+    """The extractor locates the value column by ``next(c for c if 'Awarded Value' in c)``
+    so it absorbs an upstream prefix rename ("Sum of Awarded Value (€)"). That assumption
+    breaks if zero columns match (StopIteration → no value_eur) or if two do (ambiguous
+    pick). Lock it: exactly one awarded-value source column."""
+    aw = _load(AWARDS)
+    matches = [c for c in aw.columns if "Awarded Value" in c]
+    assert len(matches) == 1, f"expected exactly one 'Awarded Value' source column, found: {matches}"
+
+
+def test_value_eur_is_populated():
+    """value_eur is parsed from the awarded-value column; the views read it, never the raw
+    header. A rename that slipped past the extractor would null it out wholesale, so guard a
+    healthy fill floor (≈59% at build time) — well below normal, but a collapse to ~0 fails."""
+    aw = _load(AWARDS)
+    fill = aw["value_eur"].is_not_null().sum() / aw.height
+    assert fill > 0.40, f"value_eur fill rate {fill:.1%} — awarded-value parse likely broke on a rename"
 
 
 # ---------------------------------------------------------------------------

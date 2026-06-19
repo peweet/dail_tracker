@@ -12,7 +12,11 @@ import streamlit as st
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = Path(__file__).resolve().parent / "news_mentions_sandbox.parquet"
-MEMBERS = ROOT / "data/silver/parquet/flattened_members.parquet"
+# Prefer the historic roster (current + former) so ex-TDs/Senators matched in the
+# feed are pickable here too; fall back to the live sitting-only roster.
+HISTORIC_ROSTER = ROOT / "pipeline_sandbox/historic_members/_out/member_roster_wide.parquet"
+MEMBERS = HISTORIC_ROSTER if HISTORIC_ROSTER.exists() else \
+    ROOT / "data/silver/parquet/flattened_members.parquet"
 
 PAGE_SIZE = 6
 TIER_STYLE = {
