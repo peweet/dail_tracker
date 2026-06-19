@@ -109,6 +109,39 @@ def member_aliases(m: dict) -> set[str]:
     return {a for a in al if a and len(a.split()) >= 2}
 
 
+def build_alias_map(members: list[dict]) -> dict[str, dict]:
+    """alias (normalised 'first last') -> member. First writer wins on collision."""
+    amap: dict[str, dict] = {}
+    for m in members:
+        for a in member_aliases(m):
+            amap.setdefault(a, m)
+    return amap
+
+
+def match_members(title: str, desc: str, aliases: list[str], amap: dict[str, dict]):
+    """Members named in title/desc by the CONSERVATIVE rule. Pure -> unit-tested.
+
+    Rule: full first+last must appear as a whitespace-bounded run (no surname-only
+    matches), accent-insensitive (norm strips fadas). Dedups per member. `aliases`
+    must be sorted longest-first so the most specific name claims the article.
+
+    Returns a list of ``(member_dict, match_in_title)`` tuples.
+    """
+    body = f" {norm(title + ' ' + desc)} "
+    head = f" {norm(title)} "
+    seen: set = set()
+    hits = []
+    for a in aliases:
+        if f" {a} " in body:
+            m = amap[a]
+            code = m["unique_member_code"]
+            if code in seen:
+                continue
+            seen.add(code)
+            hits.append((m, f" {a} " in head))
+    return hits
+
+
 # ----------------------------- feeds --------------------------------------
 ITEM_RE = re.compile(r"<(item|entry)\b.*?</\1>", re.S | re.I)
 TAG_RE = {t: re.compile(rf"<{t}\b[^>]*>(.*?)</{t}>", re.S | re.I) for t in ("title", "description", "link", "pubDate")}
@@ -174,10 +207,7 @@ def fetch_items(url: str):
 def main():
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     members = load_members()
-    amap: dict[str, dict] = {}
-    for m in members:
-        for a in member_aliases(m):
-            amap.setdefault(a, m)
+    amap = build_alias_map(members)
     aliases = sorted(amap, key=lambda a: -len(a))
     print(f"Members: {len(members)} | aliases: {len(amap)}")
 
@@ -196,31 +226,24 @@ def main():
             print(f"  FAIL  {f['name']}: {type(e).__name__}")
             continue
         for title, desc, link, raw_date in items:
-            nt, nb = norm(title), norm(title + " " + desc)
-            bt, bb = " " + nt + " ", " " + nb + " "
             dt = _parse_date(raw_date)
-            seen = set()
-            for a in aliases:
-                if " " + a + " " in bb:
-                    m = amap[a]
-                    if m["unique_member_code"] in seen:
-                        continue
-                    seen.add(m["unique_member_code"])
-                    rows.append({
-                        "article_id": hashlib.sha1((link or title).encode("utf-8")).hexdigest()[:16],
-                        "unique_member_code": m["unique_member_code"],
-                        "matched_name": m.get("full_name") or a,
-                        "party": m.get("party"),
-                        "constituency": m.get("constituency_name"),
-                        "house": m["house"],
-                        "outlet": f["name"],
-                        "outlet_tier": f["tier"],
-                        "article_title": title,
-                        "article_url": link,
-                        "published_at": dt.astimezone(timezone.utc).replace(tzinfo=None) if dt else None,
-                        "match_in_title": (" " + a + " ") in bt,
-                        "fetched_at": fetched_at.replace(tzinfo=None),
-                    })
+            for m, in_title in match_members(title, desc, aliases, amap):
+                rows.append({
+                    "article_id": hashlib.sha1((link or title).encode("utf-8")).hexdigest()[:16],
+                    "unique_member_code": m["unique_member_code"],
+                    "matched_name": m.get("full_name") or m["unique_member_code"],
+                    "party": m.get("party"),
+                    "constituency": m.get("constituency_name"),
+                    "house": m["house"],
+                    "is_current": m.get("is_current", True),
+                    "outlet": f["name"],
+                    "outlet_tier": f["tier"],
+                    "article_title": title,
+                    "article_url": link,
+                    "published_at": dt.astimezone(timezone.utc).replace(tzinfo=None) if dt else None,
+                    "match_in_title": in_title,
+                    "fetched_at": fetched_at.replace(tzinfo=None),
+                })
 
     df = pl.DataFrame(rows)
     if df.height:

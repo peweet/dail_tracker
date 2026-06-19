@@ -11,6 +11,7 @@ from pages_code.interests import interests_page
 from pages_code.judiciary import judiciary_page
 from pages_code.legislation import legislation_page
 from pages_code.lobbying_3 import lobbying_poc_page
+from pages_code.media_mentions_experimental import media_mentions_experimental_page
 from pages_code.member_overview import member_overview_page
 from pages_code.payments import payments_page
 from pages_code.procurement import procurement_page
@@ -212,6 +213,16 @@ pg = st.navigation(
                 title="Siting Check (experimental)",
                 icon=":material/travel_explore:",
                 url_path="planning-siting-check",
+            ),
+        ],
+        # EXPERIMENTAL sandbox preview — safe to delete (remove this group, the import
+        # above, pages_code/media_mentions_experimental.py and ui/media_mentions_experimental.py).
+        "Experimental": [
+            st.Page(
+                media_mentions_experimental_page,
+                title="Media Mentions (experimental)",
+                icon=":material/newspaper:",
+                url_path="experimental-media-mentions",
             ),
         ],
         "Glossary": [

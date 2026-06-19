@@ -58,6 +58,16 @@ CHAINS: list[tuple[str, str]] = [
     ("lobbying", "lobbying_refresh.py"),
     ("iris", "iris_refresh.py"),
     ("legislation", "legislation_refresh.py"),
+    # judiciary_bench: promote the validated judiciary sandbox (data/sandbox/judiciary/, pulled +
+    # pressure-tested once by extractors/persist_judiciary_data.py — a manual one-off that reads
+    # scratch PDFs, NOT a pipeline chain) into the gold bench/appointments/nominations/clearance/
+    # waiting/courthouses tables the Judiciary page reads. Pure deterministic transform — reads the
+    # committed sandbox + _meta CSVs only, no network, headless-safe. MUST run before
+    # judiciary_diary_link below: that chain consumes judiciary_bench.parquet (and imports this
+    # module), so without this chain the link ran against gold no chain produced. NOTE: this
+    # regenerates gold from the STATIC 2026-06-04 sandbox; pulling NEW appointments still needs the
+    # sandbox refreshed from Iris (out of scope here).
+    ("judiciary_bench", "extractors/judiciary_bench_extract.py"),
     # legal_diary: the Courts Service daily Legal Diary is FORWARD-ACCUMULATING — the site
     # exposes only the current court day's .docx (no historical URL), so a missed day is lost
     # forever. The poller archives one .docx per diary date (returns 0 on "already held", so a
@@ -160,6 +170,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "lobbying": "lobbying.ie YTD + CRO + charities Tier-A + gold enrichment",
     "iris": "Iris Oifigiúil: poller + silver + SI/appointments/notices gold",
     "legislation": "bills + questions + amendments + votes + cross-dataset enrich",
+    "judiciary_bench": "promote validated judiciary sandbox -> gold bench/appointments/clearance/waiting/courthouses (transform, no network)",
     "legal_diary_poller": "archive the Courts Service daily Legal Diary .docx (forward-accumulating, day-or-lost)",
     "legal_diary_extract": "Legal Diary archive -> privacy-tiered judiciary gold (schedule/counts/cases)",
     "judiciary_diary_link": "map surname-only diary judges to the bench roster (pipeline-owned mapping)",
