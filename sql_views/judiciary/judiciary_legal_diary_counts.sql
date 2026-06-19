@@ -9,12 +9,18 @@
 -- separate counts file, so its density is rolled up from its Tier A schedule. Safe by
 -- construction.
 CREATE OR REPLACE VIEW v_judiciary_legal_diary_counts AS
-SELECT diary_date, court, judge, list_type, n_items
-FROM read_parquet('data/gold/parquet/judicial_legal_diary_counts.parquet')
-WHERE court = 'High Court'
-UNION ALL
-SELECT diary_date, court, judge, list_type, SUM(n_items) AS n_items
-FROM read_parquet('data/gold/parquet/judicial_legal_diary_openview_schedule.parquet')
-GROUP BY diary_date, court, judge, list_type
-HAVING SUM(n_items) > 0
+WITH unioned AS (
+    SELECT diary_date, court, judge, list_type, n_items
+    FROM read_parquet('data/gold/parquet/judicial_legal_diary_counts.parquet')
+    WHERE court = 'High Court'
+    UNION ALL
+    SELECT diary_date, court, judge, list_type, SUM(n_items) AS n_items
+    FROM read_parquet('data/gold/parquet/judicial_legal_diary_openview_schedule.parquet')
+    GROUP BY diary_date, court, judge, list_type
+    HAVING SUM(n_items) > 0
+)
+SELECT * FROM unioned
+-- RECENT-WINDOW CAP (temporary, added 2026-06-19) — see judiciary_legal_diary_schedule.sql for
+-- the rationale. Keep the window identical across the three legal-diary views.
+WHERE CAST(diary_date AS DATE) BETWEEN current_date - 14 AND current_date + 7
 ORDER BY diary_date DESC, n_items DESC;

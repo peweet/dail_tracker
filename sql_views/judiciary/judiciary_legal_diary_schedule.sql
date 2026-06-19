@@ -9,14 +9,23 @@
 -- NO party data here, so no anonymisation is involved. n_items = case lines attributed to
 -- that session. venue (Circuit town) and panel_size are OpenView-only (NULL / 1 for .docx).
 CREATE OR REPLACE VIEW v_judiciary_legal_diary_schedule AS
-SELECT
-    diary_date, court, courtroom, judge, list_type, time, n_items,
-    NULL AS venue, 1 AS panel_size
-FROM read_parquet('data/gold/parquet/judicial_legal_diary_schedule.parquet')
-WHERE court = 'High Court'
-UNION ALL
-SELECT
-    diary_date, court, courtroom, judge, list_type, time, n_items,
-    venue, panel_size
-FROM read_parquet('data/gold/parquet/judicial_legal_diary_openview_schedule.parquet')
+WITH unioned AS (
+    SELECT
+        diary_date, court, courtroom, judge, list_type, time, n_items,
+        NULL AS venue, 1 AS panel_size
+    FROM read_parquet('data/gold/parquet/judicial_legal_diary_schedule.parquet')
+    WHERE court = 'High Court'
+    UNION ALL
+    SELECT
+        diary_date, court, courtroom, judge, list_type, time, n_items,
+        venue, panel_size
+    FROM read_parquet('data/gold/parquet/judicial_legal_diary_openview_schedule.parquet')
+)
+SELECT * FROM unioned
+-- RECENT-WINDOW CAP (temporary, added 2026-06-19). The diary archive is ~1,833 days /
+-- ~790k case rows; loading it whole made Courts & Judiciary the heaviest page in the app
+-- and OOM-prone under Windows process pile-up. Until the page paginates by day server-side,
+-- scope every legal-diary view to a rolling window (two weeks back, one week forward),
+-- anchored on current_date so it auto-rolls. Drop this WHERE to restore the full history.
+WHERE CAST(diary_date AS DATE) BETWEEN current_date - 14 AND current_date + 7
 ORDER BY diary_date DESC, court, courtroom, judge;
