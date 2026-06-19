@@ -53,6 +53,12 @@ jobs:
       - name: Scrape live tenders -> silver snapshot
         run: uv run python extractors/etenders_live_tenders_extract.py --max-pages "${{ github.event.inputs.max_pages || '120' }}"
 
+      # Per-lane freshness beat — before publish so it ships in the same gated commit, and
+      # only after a successful scrape. tools/freshness_status.py reads this to confirm the
+      # lane ran on time; a healthy run therefore always lands a commit (a stall stops beating).
+      - name: Record freshness heartbeat
+        run: uv run python tools/freshness_heartbeat.py live_tenders --runner cloud --cadence-hours 24
+
       # Gated publish: commits ONLY the allow-listed data paths (the snapshot + any changed gold)
       # and aborts on any 0-row / unreadable / gold-regression. Pushes to main -> Cloud redeploys.
       - name: Publish refreshed snapshot

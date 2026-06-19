@@ -114,6 +114,14 @@ foreach ($chain in @('freshness', 'source_health')) {
     }
 }
 
+# Per-lane freshness beat: record that the LOCAL daily bundle's legal-diary lane ran
+# (poll current/archived AND the gold rebuild succeeded). LOCAL-only — this task never
+# publishes, so the beat reflects local gold; the DEPLOYED app's freshness still needs a
+# publish (a cloud Action or a manual push). tools/freshness_status.py reads this beat.
+if ($pollExit -eq 0 -and $results['legal_diary_extract'] -eq 0) {
+    & $py 'tools\freshness_heartbeat.py' 'legal_diary_docx' '--runner' 'local' '--cadence-hours' '24' | Out-Host
+}
+
 # One-line run summary, e.g.  bootstrap=0  members=0  ...  legal_diary_poller=0  ...
 $summary = ($results.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join '  '
 Add-Content $log "$stamp  $summary"
