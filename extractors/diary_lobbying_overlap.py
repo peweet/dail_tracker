@@ -84,6 +84,53 @@ PERSON_DENYLIST = {
     "Niall O'Connor", "bryan lynam",
 }
 
+# Heuristic sector tag, applied to a FOLDED org name (NFKD-ASCII + "&"→"and" + lowercase, via
+# _fold below — so "Uisce Éireann", "Bus Éireann", "Banking & Payments Federation" match plain
+# ASCII patterns). First pattern wins → ORDER MATTERS: specific industries first, broad civic
+# buckets (sport/arts/education/professional/business-reps/charity) last so e.g. "Special
+# Olympics"→sport not charity, "King's Inns"→professional not charity. NOT authoritative — a
+# keyword map for slicing the overlap, not classification of record. Unmatched → "other".
+SECTOR_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    ("us-tech", re.compile(r"(google|meta platform|facebook|whatsapp|instagram|\bapple\b|amazon|microsoft|\bintel\b|salesforce|linkedin|nvidia|oracle|cisco|hewlett|workday|huawei|tiktok|\bdell\b|stripe|paypal|mastercard|\bvisa\b|airbnb|taoglas|general electric)")),
+    ("medical-devices", re.compile(r"(medtech|medtronic|boston scientific|stryker|\babbott\b|becton|cook medical|edwards lifesci|teleflex|integer|depuy)")),
+    ("pharma", re.compile(r"(pharma|\bipha\b|pfizer|\bmsd\b|novartis|abbvie|eli lilly|\broche\b|gilead|takeda|astellas|jazz pharma|pharmacy union|sanofi)")),
+    ("insurance", re.compile(r"(insurance|aviva|zurich|allianz|\baxa\b|\bfbd\b|irish life|\bvhi\b|laya)")),
+    ("banking-finance", re.compile(r"(bank of ireland|\baib\b|allied irish|permanent tsb|ptsb|ulster bank|banking and payments|bpfi|credit union|finance ireland|\bdavy\b|goodbody|revolut|financial services union|euronext|stock exchange)")),
+    ("funds-leasing", re.compile(r"(irish funds|hedge|blackrock|private equity|alternative invest|avolon|aercap|gecas|aircraft leas|\bkkr\b|carlyle)")),
+    ("energy-utilities", re.compile(r"(wind energy|\besb\b|bord gais|bord na mona|uisce eireann|gas networks|\bsse\b|energia|renewable|hydrogen|offshore wind|nephin energy|electricity|\bcoillte\b)")),
+    ("telecoms-media", re.compile(r"(vodafone|\beir\b|three ireland|virgin media|sky ireland|comreg|broadcast|newsbrands|\brte\b|bauer media)")),
+    ("transport-aviation", re.compile(r"(aer lingus|ryanair|\bdaa\b|dublin airport|shannon airport|cork airport|dublin port|port of cork|bus eireann|dublin bus|iarnrod|\bcie\b|national transport|irish ferries|dublin aerospace|aviation)")),
+    ("mining-industrial", re.compile(r"(tara mines|aughinish|alumina|boliden|cement|\bquarr|smurfit|kingspan)")),
+    ("property-construction", re.compile(r"(construction industry|\bcif\b|\bproperty\b|cairn|glenveagh|land development|housing alliance|estate agents|auctioneers|breffni group|kinsealy)")),
+    ("drinks-hospitality", re.compile(r"(vintner|\blva\b|\bvfi\b|drinks ireland|diageo|heineken|guinness|whiskey|alcohol beverage|publican|restaurants association|hotels federation|self catering|hospitality|event industry)")),
+    ("farming-agri", re.compile(r"(farmers|\bifa\b|icmsa|macra|\bicsa\b|teagasc|bord bia|ornua|kerry group|glanbia|tirlan|dairygold|lakeland|dairy industry|meat industry|\bmii\b|keelings|devenish|horticultur|\bagri)")),
+    ("food-consumer-goods", re.compile(r"(danone|musgrave|keelings|nestle|kerry foods|food and drink ireland|\bfdii\b|primark|brown thomas|dunnes|tesco|\blidl\b|\baldi\b|supervalu)")),
+    ("retail-trade", re.compile(r"(retail|\brgdata\b|grocer|hardware association|shopping|consumer)")),
+    ("sport", re.compile(r"(cricket|rowing ireland|cycling ireland|federation of irish sport|horse racing|special olympics|\bgaa\b|rugby|\bfai\b|olympic|sport ireland|athletics|ireland active)")),
+    ("arts-culture-heritage", re.compile(r"(theatre|gallery|museum|screen producers|business to arts|piobairi|conradh na gaeilge|gaeilge|gaeltacht|udaras|waterways|airfield|\bzoo\b|heritage|arts council|\bfilm\b)")),
+    ("education-research", re.compile(r"(universit|\bucd\b|\bdcu\b|trinity college|maynooth|institute of technology|educate together|skillnet|\biiea\b|international and european affairs|\beducation\b|colleges|\bresearch\b)")),
+    ("professional-services", re.compile(r"(chartered accountants|\bmazars\b|\bkpmg\b|\bpwc\b|deloitte|grant thornton|engineers ireland|planning institute|kings inns|king s inns|law society|bar council|architects|surveyors|solicitors)")),
+    ("business-reps-chambers", re.compile(r"(chamber|\bibec\b|\bisme\b|\bsfa\b|guaranteed irish|exporters|business association|european movement|asia matters|sme recovery|business in the community|workforce ireland|small firms|employers|ireland canada|ibec)")),
+    ("charity-ngo", re.compile(r"(foundation|charit|\bngo\b|inclusion|threshold|\brespond\b|carers|crosscare|barnardos|hospice|rape crisis|cancer society|mental health|disabilit|down syndrome|simon community|depaul|st vincent|social justice|women s council|womens council|women s link|youth work|victim support|advocacy|thalidomide|coalition 2030|co-operation ireland|friends of the earth|environmental|ruhama|prosper|refugee|migrant|neurological|special needs|st michael)")),
+]
+
+
+def _fold(name: str) -> str:
+    """Fold for sector matching: NFKD→ASCII, '&'→'and', collapse spaces, lowercase."""
+    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    return re.sub(r"\s+", " ", s.replace("&", " and ")).strip().lower()
+
+
+def sector_for(org_name: str | None) -> str:
+    """First-matching SECTOR_PATTERNS label for an org name, else 'other' (heuristic)."""
+    if not org_name:
+        return "other"
+    folded = _fold(org_name)
+    for label, rx in SECTOR_PATTERNS:
+        if rx.search(folded):
+            return label
+    return "other"
+
 
 def surname_key(name: str | None) -> str:
     """Crude surname key: ASCII-folded last token, trailing possessive 's' stripped.
@@ -124,6 +171,7 @@ def main() -> int:
         .with_columns([
             pl.col("matched_org_name").map_elements(norm, return_dtype=pl.Utf8).alias("org_nk"),
             pl.col("minister").map_elements(surname_key, return_dtype=pl.Utf8).alias("min_sk"),
+            pl.col("matched_org_name").map_elements(sector_for, return_dtype=pl.Utf8).alias("sector"),
         ])
     )
     if overlap.is_empty():
@@ -154,7 +202,9 @@ def main() -> int:
     ranked = (
         overlap.group_by("matched_org_name")
         .agg([
+            pl.col("sector").first().alias("sector"),
             pl.col("entry_id").n_unique().alias("meetings"),
+            pl.col("entry_id").filter(pl.col("match_confidence") == "high").n_unique().alias("high_conf_meetings"),
             pl.col("min_sk").filter(pl.col("min_sk") != "").n_unique().alias("ministers_met"),
             pl.col("min_sk").filter(pl.col("lobbied_same_minister")).n_unique().alias("ministers_lobbied_and_met"),
             pl.col("total_lobbying_returns").max().alias("total_lobbying_returns"),
@@ -173,6 +223,19 @@ def main() -> int:
         overlap.filter(pl.col("min_sk") != "")["min_sk"].n_unique(),
         overlap.filter(pl.col("lobbied_same_minister")).height,
     )
+    sector_summary = (
+        overlap.group_by("sector")
+        .agg([
+            pl.col("entry_id").n_unique().alias("meetings"),
+            pl.col("matched_org_name").n_unique().alias("orgs"),
+            pl.col("entry_id").filter(pl.col("lobbied_same_minister")).n_unique().alias("corroborated"),
+        ])
+        .sort("meetings", descending=True)
+    )
+    log.info("By sector (heuristic tag):")
+    for r in sector_summary.iter_rows(named=True):
+        log.info("  %-22s %5d meetings  %4d orgs  %4d corroborated", r["sector"], r["meetings"], r["orgs"], r["corroborated"])
+
     log.info("Top 25 organisations by minister meetings:")
     log.info("  %-42s %8s %5s %12s %8s", "organisation", "meetings", "mins", "lobbied&met", "returns")
     for r in ranked.head(25).iter_rows(named=True):

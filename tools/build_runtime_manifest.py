@@ -143,22 +143,38 @@ def runtime_reads() -> tuple[dict[str, list[str]], list[str]]:
     """
     readers: dict[str, list[str]] = {}
     unresolved: set[str] = set()
+
+    def _add(rel: str, label: str) -> None:
+        readers.setdefault(rel, [])
+        if label not in readers[rel]:
+            readers[rel].append(label)
+
     for sql_file in sorted(SQL_VIEWS_DIR.glob("**/*.sql")):
         text = sql_file.read_text(encoding="utf-8")
         label = sql_file.relative_to(SQL_VIEWS_DIR).as_posix()
         for rel in _LITERAL_RE.findall(text):
-            readers.setdefault(rel, [])
-            if label not in readers[rel]:
-                readers[rel].append(label)
+            _add(rel, label)
         for placeholder in _PLACEHOLDER_RE.findall(text):
             target = PLACEHOLDER_TO_PATH.get(placeholder)
             if target is None:
                 unresolved.add(placeholder)
                 continue
-            readers.setdefault(target, [])
-            tag = f"{label} {placeholder}"
-            if tag not in readers[target]:
-                readers[target].append(tag)
+            _add(target, f"{label} {placeholder}")
+
+    # The /v1/data export catalog serves parquet by Path constant (not a 'data/...' literal the SQL
+    # scan would catch) — e.g. ted_ie_buyer_history is exported but read by no view. Import the
+    # source of truth directly so it can never drift from the manifest.
+    try:
+        from api.routers.exports import EXPORTS
+
+        for name, spec in EXPORTS.items():
+            try:
+                _add("data/" + Path(spec.source).relative_to(DATA_DIR).as_posix(), f"api export: {name}")
+            except ValueError:
+                continue  # an export whose source lives outside data/ (none today) is not our concern
+    except Exception as exc:  # noqa: BLE001 — never let an api-import hiccup silently drop the catalog
+        _log.warning("could not import api.routers.exports EXPORTS (%s); export-served parquet not counted", exc)
+
     return readers, sorted(unresolved)
 
 

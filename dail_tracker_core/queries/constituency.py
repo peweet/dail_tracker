@@ -126,6 +126,18 @@ def constituency_ssha_waiting_list(conn: duckdb.DuckDBPyConnection, constituency
     )
 
 
+def constituency_waiting_composition(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
+    """The social-housing waiting-list composition (time / tenure / employment /
+    household / citizenship) for the council(s) serving this constituency — the
+    "who's waiting here" expander. Council-area grain."""
+    return _run(
+        conn,
+        "SELECT local_authority, link_type, dimension, category, ord, count, pct "
+        "FROM v_constituency_waiting_composition WHERE constituency_name = ?",
+        [constituency],
+    )
+
+
 def constituency_council_housing_performance(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
     """How the local authority(ies) serving this constituency PERFORM on managing their
     social-housing stock (NOAC 2024) — each metric beside the national median benchmark.

@@ -5712,7 +5712,9 @@ def inject_css() -> None:
             display: flex; flex-direction: column; align-items: center;
             gap: 0.5rem; margin: 0.3rem 0 0.2rem;
         }
-        .con-choropleth { width: 100%; max-width: 360px; height: auto; display: block; }
+        /* Fixed size: image-map <area> coords are in image pixels and do NOT
+           rescale with CSS, so the <img> must render at its natural size. */
+        .con-choropleth { display: block; height: auto; cursor: pointer; }
         .con-choro-legend {
             display: flex; align-items: center; gap: 0.18rem;
             font-size: 0.74rem; color: var(--text-meta);

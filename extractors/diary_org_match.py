@@ -40,6 +40,17 @@ Known follow-ups to lift precision further: a HISTORICAL member-name list (the
 current file is 176 current TDs only) kills the residual persons; a curated
 event-phrase stoplist would catch the generic-industry tail.
 
+UPDATE 2026-06-19 (after the EDUCATION/DECC source extension grew the corpus to
+~739 files): a new dominant FP class surfaced — the DCCS/Housing diaries append a
+trailing attendee/adviser tag in ``<subject> - <official name>`` form, and those
+official names sit in the lobbying register's ``person_primarily_responsible``
+field, so e.g. 'Dónall Geoghegan' matched 178 internal Pre-Cab/Cab-Debrief lines.
+FIX: ``load_responsible_persons`` now excludes those individuals from the gazetteer
+(see its docstring), GUARDED by ORG_TOKENS + the client set so real orgs mistyped
+into the person field survive. Measured effect: −11 person keys / −206 mention rows
+(178 Geoghegan + 15 David Kelly + a small tail), zero real-org loss. Re-census the
+HIGH-tier precision once the EDUCATION backfill completes.
+
 Output -> data/sandbox/enrichment/diary_org_mentions.parquet (+ entry_id stamped
 back onto ministerial_diary_entries.parquet so the two tables join).
 
@@ -117,6 +128,19 @@ _PERSON_TITLE = (
 # tier; they remain in the research/export tier. (NOT "wind energy" — Wind
 # Energy Ireland is named directly often enough to stay high.)
 GENERIC_TOPIC = {"renewable energy", "mental health", "european movement"}
+
+# Tokens that betray an ORGANISATION even when its name slipped into the lobbying
+# register's free-text person field — used to RESCUE real orgs from the person
+# exclusion below (people mistype "Limerick Chamber" / "Macra na Feirme" into the
+# person_primarily_responsible field, but those carry an org-indicator token).
+ORG_TOKENS = {
+    "chamber", "society", "association", "federation", "coalition", "council", "institute",
+    "union", "company", "bank", "port", "bus", "rail", "airport", "school", "college",
+    "university", "centre", "center", "network", "alliance", "forum", "trust", "foundation",
+    "club", "agency", "authority", "board", "office", "partnership", "services", "solutions",
+    "media", "energy", "technology", "systems", "group", "holdings", "consulting", "consultants",
+    "feirme", "mhuire", "gaeilge", "eireann", "teoranta", "dhl", "four", "ltd", "plc", "clg",
+}
 
 
 def norm(s: str) -> str:
@@ -245,6 +269,48 @@ def load_member_names() -> set[str]:
     return {n for raw in names if len(n := norm(raw)) >= 4}
 
 
+def load_responsible_persons(client_keys: set[str]) -> set[str]:
+    """Normalised INDIVIDUAL names from returns_master.person_primarily_responsible.
+
+    These are the people who actually did the lobbying — not organisations. Their
+    names collide with diary subjects that append an attendee/adviser tag in a
+    trailing ``<subject> - <official>`` form (the DCCS/Housing diaries do this):
+    e.g. 178 'Dónall Geoghegan' hits on internal Pre-Cab/Cab-Debrief lines. Excluding
+    them is the same principle as the TD-name exclusion (a person's name is not an org).
+
+    GUARDED so a real org mistyped into the person field survives: a name is treated
+    as a person ONLY if it is two tokens, carries no ORG_TOKENS indicator, and is not
+    itself a known client org (Limerick Chamber, Macra na Feirme, One in Four, ...).
+    """
+    p = LOB / "returns_master.parquet"
+    if not p.exists():
+        return set()
+    raw = pl.scan_parquet(p).select("person_primarily_responsible").unique().collect()[
+        "person_primarily_responsible"
+    ].drop_nulls().to_list()
+    out: set[str] = set()
+    for value in raw:
+        n = norm(re.split(r"[(,/]", value)[0])  # drop trailing "(title)" / ", role" noise
+        if is_personal_name(n, client_keys):
+            out.add(n)
+    return out
+
+
+def is_personal_name(name_norm: str, client_keys: set[str]) -> bool:
+    """True if a normalised name (drawn from the person field) reads as an INDIVIDUAL.
+
+    Person ⇔ exactly two tokens, carries no ORG_TOKENS indicator, and is not itself a
+    known client org. The org-token + client guards are what rescue real organisations
+    that were mistyped into the person field (Limerick Chamber, Macra na Feirme, ...)."""
+    toks = name_norm.split()
+    return (
+        len(toks) == 2
+        and 4 <= len(name_norm) <= 40
+        and name_norm not in client_keys
+        and not (set(toks) & ORG_TOKENS)
+    )
+
+
 def main() -> int:
     setup_standalone_logging("diary_org_match")
     if not ENTRIES.exists():
@@ -280,11 +346,17 @@ def main() -> int:
         .drop_nulls()
         .to_list()
     )
-    persons = load_member_names()
+    # Person exclusions: TD/Senator names + the individuals who did the lobbying
+    # (person_primarily_responsible), the latter guarded so real orgs survive.
+    client_keys = {norm(c) for c in clients if len(c) <= 120}
+    members = load_member_names()
+    responsible = load_responsible_persons(client_keys)
+    persons = members | responsible
     gaz = build_gazetteer(lobbyists, clients, person_names=persons)
     token_index = build_token_index(gaz)
-    log.info("gazetteer: %d orgs (%d tokens) from %d lobbyists + %d clients (%d member names excluded)",
-             len(gaz), len(token_index), len(lobbyists), len(clients), len(persons))
+    log.info("gazetteer: %d orgs (%d tokens) from %d lobbyists + %d clients "
+             "(%d member + %d lobbying-person names excluded)",
+             len(gaz), len(token_index), len(lobbyists), len(clients), len(members), len(responsible))
 
     rows: list[dict] = []
     for r in e.iter_rows(named=True):
