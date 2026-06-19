@@ -1055,6 +1055,59 @@ def party_stripe_html(parties: list[tuple[str, int]], *, show_legend: bool = Tru
     return f'<div class="cmt-stripe">{segs}</div>{legend}'
 
 
+# Non-party distribution palettes. Sequential = single-hue light→dark for ORDERED
+# scales (e.g. time-on-list, so the long-wait tail reads as "heavy"). Categorical =
+# distinct neutral hues for nominal dimensions (tenure/employment/…). Deliberately
+# NOT party colours and NOT red/green (no good/bad encoding).
+_SEQ_RAMP = [
+    "#e9eff5", "#cfe0ec", "#aecbdf", "#86afcd", "#5d8fb6", "#3d719c", "#275680", "#173e5e",
+]
+_CAT_PALETTE = [
+    "#4c78a8", "#72b7b2", "#dba43c", "#b07aa1", "#9c755f", "#83b26f", "#a3acb9", "#5b9bd5",
+]
+
+
+def proportion_stripe_html(
+    segments: list[tuple[str, float]],
+    *,
+    palette: str = "categorical",
+    show_legend: bool = True,
+    unit: str = "",
+) -> str:
+    """Generic stacked proportion stripe — the non-party sibling of party_stripe_html.
+
+    segments — ordered list of (label, value). Caller controls order.
+    palette  — 'sequential' (ordered single-hue ramp) | 'categorical' (distinct hues).
+    Reuses the .cmt-stripe* CSS. Zero/None values are skipped; legend shows % shares.
+    """
+    cleaned = [(str(lbl), float(v)) for lbl, v in segments if v and float(v) > 0]
+    if not cleaned:
+        return ""
+    total = sum(v for _, v in cleaned) or 1.0
+    ramp = _SEQ_RAMP if palette == "sequential" else _CAT_PALETTE
+    n = len(cleaned)
+
+    def colour(i: int) -> str:
+        if palette == "sequential":
+            return ramp[round(i * (len(ramp) - 1) / max(n - 1, 1))]
+        return ramp[i % len(ramp)]
+
+    segs = "".join(
+        f'<div class="cmt-stripe-seg" style="width:{(v / total) * 100:.2f}%;'
+        f'background:{colour(i)}" title="{_h(lbl)}: {v:,.0f}{_h(unit)} ({v / total * 100:.0f}%)"></div>'
+        for i, (lbl, v) in enumerate(cleaned)
+    )
+    legend = ""
+    if show_legend:
+        chips = "".join(
+            f'<span><span class="cmt-stripe-legend-dot" style="background:{colour(i)}"></span>'
+            f"<strong>{_h(lbl)}</strong> {v / total * 100:.0f}%</span>"
+            for i, (lbl, v) in enumerate(cleaned)
+        )
+        legend = f'<div class="cmt-stripe-legend">{chips}</div>'
+    return f'<div class="cmt-stripe">{segs}</div>{legend}'
+
+
 def committee_row_html(
     name: str,
     *,

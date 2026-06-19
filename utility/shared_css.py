@@ -5707,6 +5707,20 @@ def inject_css() -> None:
             font-variant-numeric: tabular-nums;
         }
         .con-party-bar { margin: 0.2rem 0 1.1rem; }
+        /* national choropleth (index "Compare every constituency") */
+        .con-choro {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 0.5rem; margin: 0.3rem 0 0.2rem;
+        }
+        .con-choropleth { width: 100%; max-width: 360px; height: auto; display: block; }
+        .con-choro-legend {
+            display: flex; align-items: center; gap: 0.18rem;
+            font-size: 0.74rem; color: var(--text-meta);
+        }
+        .con-choro-sw {
+            width: 1.5rem; height: 0.6rem; display: inline-block; border-radius: 1px;
+        }
+        .con-choro-end { padding: 0 0.25rem; }
         .con-section-note {
             font-size: 0.86rem; color: var(--text-secondary); line-height: 1.55;
             margin: 0.1rem 0 0.7rem; max-width: 60rem;

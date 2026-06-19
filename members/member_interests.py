@@ -43,14 +43,18 @@ PDF_PATHS: dict[str, pathlib.Path] = {
     "2023_seanad": INTERESTS_PDF_DIR / "2024-02-27_register-of-members-interests-seanad-eireann-2023_en.pdf",
     "2024_seanad": INTERESTS_PDF_DIR / "2025-02-27_register-of-member-s-interests-seanad-eireann-2024_en.pdf",
     "2025_seanad": INTERESTS_PDF_DIR / "2026-03-10_register-of-member-s-interests-seanad-eireann-2025_en.pdf",
-    # DAIL — historic (born-digital, parse clean ~96%). The 2012 & 2016 registers
-    # are scanned/OCR'd (digit→letter rot, glued category lines) and are
-    # DELIBERATELY OMITTED — they parse to garbage; see the quality gate below and
-    # pipeline_sandbox/historic_members/probe_register_parse_quality.py.
+    # DAIL — historic (born-digital, parse clean ~96%). The 2016 register
+    # (published 2017-03-10) rots the category-1 marker '1.'→'l.' but is otherwise
+    # clean text — repair_ocr_category_markers() recovers it (~98% roster match).
+    # The 2012 register (published 2013-02-28) is a true scanned image: 0 lines of
+    # extractable text, so it parses to nothing and the quality gate skips it. It
+    # needs OCR to ingest (off-box — see project_sipo_ocr). See the quality gate
+    # below and pipeline_sandbox/historic_members/probe_register_parse_quality.py.
     "2011_dail": INTERESTS_PDF_DIR / "2012-03-30_register-of-members-interests-dail-eireann_en.pdf",
     "2013_dail": INTERESTS_PDF_DIR / "2014-03-25_register-of-members-interests-dail-eireann_en.pdf",
     "2014_dail": INTERESTS_PDF_DIR / "2015-03-11_register-of-members-interests-dail-eireann_en.pdf",
     "2015_dail": INTERESTS_PDF_DIR / "2016-03-01_register-of-members-interests-dail-eireann_en.pdf",
+    "2016_dail": INTERESTS_PDF_DIR / "2017-03-10_register-of-members-interests-dail-eireann_en.pdf",
     "2017_dail": INTERESTS_PDF_DIR / "2018-02-14_register-of-members-interests-dail-eireann_en.pdf",
     "2018_dail": INTERESTS_PDF_DIR / "2019-02-13_register-of-members-interests-dail-eireann_en.pdf",
     "2019_dail": INTERESTS_PDF_DIR / "2020-03-03_register-of-members-interests-dail-eireann_en.pdf",
@@ -184,6 +188,30 @@ def split_embedded_names(lines: list[str]) -> list[str]:
     return result
 
 
+# Some older born-digital registers (e.g. the 2016 register, published 2017-03-10)
+# rot the numeral '1' of the first category heading to a letter look-alike — the
+# Occupations line reads 'l. Occupations' / 'I. Occupations' / 'i. Occupations'
+# instead of '1. Occupations'. Because CATEGORIES_PATTERN only matches an ASCII
+# digit, that line is NOT seen as a category boundary, so group_lines glues the
+# entire Occupations block onto the member's NAME line — corrupting the name and
+# collapsing the year's roster match-rate to 0 (the whole year then fails the
+# quality gate). Repairing the leading marker to '1.' fixes the grouping AND the
+# downstream interest_code (which is split off the same '.'). Only ever matches a
+# rotted Occupations heading, so it is a no-op on registers that already read '1.'.
+# The leading '1' rots to several look-alikes in the 2016 scan: l / I / i / ! / J.
+# Gated on a following 'Occupations' so it can never fire on real body text.
+_OCR_CATEGORY1_ROT_RE = regex.compile(r"^[lIi!J]\.(\s+Occupations)")
+
+
+def repair_ocr_category_markers(lines: list[str]) -> list[str]:
+    """Repair OCR rot of the category-1 ('Occupations') marker '1.' → 'l.'/'I.'/'i.'.
+
+    Requires: flat list[str] (post split_embedded_names).
+    Produces: same list with any rotted Occupations heading normalised back to '1.'.
+    """
+    return [_OCR_CATEGORY1_ROT_RE.sub(r"1.\1", line) for line in lines]
+
+
 # ---------------------------------------------------------------------------
 # Group
 # ---------------------------------------------------------------------------
@@ -253,6 +281,12 @@ def clean_interests(df: pl.DataFrame, year: int) -> pl.DataFrame:
     declared' rows are never dropped.
     """
     df = df.explode("interests")
+    # Some registers (e.g. 2016) put only ONE space before the trailing
+    # '(Constituency)', so the \s{2,} split below would leave it stuck to the
+    # first name (e.g. 'Gerry (Louth)') and break the roster join. Normalise a
+    # single-space-before-trailing-paren up to two spaces first. No-op when it is
+    # already two spaces; also repairs the odd same-shaped case in clean years.
+    df = df.with_columns(pl.col("name").str.replace(r"\s+(\([^)]+\))\s*$", r"  ${1}"))
     df = df.with_columns(pl.col("name").str.split(by=r"\s{2,}", literal=False).alias("name_and_constituency"))
     df = df.with_columns(
         pl.col("name_and_constituency").list.get(0).alias("name"),
@@ -558,6 +592,10 @@ def main() -> None:
 
         # 1b. Split any lines where a member name is embedded mid-line
         lines = split_embedded_names(lines)
+
+        # 1c. Repair OCR rot of the category-1 'Occupations' marker ('l./I./i.' → '1.')
+        # so older registers (e.g. 2016) group correctly instead of failing the gate.
+        lines = repair_ocr_category_markers(lines)
 
         # 2. Group
         grouped = group_lines(lines, CATEGORIES_PATTERN, MEMBER_NAME_PATTERN)
