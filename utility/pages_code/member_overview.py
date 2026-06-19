@@ -59,6 +59,7 @@ from ui.entity_links import (
     source_link_html,
 )
 from ui.export_controls import export_button
+from ui.source_pdfs import provenance_expander
 from ui.vote_explorer import render_member_votes
 from data_access.member_overview_data import get_member_overview_conn
 from dail_tracker_core.queries import member_overview as moq
@@ -187,6 +188,13 @@ def _contact_details(_conn, join_key: str) -> dict:
         return {}
     row = df.iloc[0].to_dict()
     return {k: v for k, v in row.items() if isinstance(v, str) and v.strip()}
+
+
+@st.cache_data(ttl=300)
+def _news_mentions(_conn, join_key: str) -> pd.DataFrame:
+    """Recent news mentions (per-member Google-News search), most-recent first. Empty when the
+    member has no recent coverage or the view is missing."""
+    return moq.news_mentions(_conn, join_key).data
 
 
 @st.cache_data(ttl=300)
@@ -1465,6 +1473,57 @@ def _tel_href(display: str) -> str:
     return f"tel:{digits}" if digits else ""
 
 
+_NEWS_TIER = {
+    "national": ("#1d4ed8", "National"),
+    "specialist": ("#0f766e", "Specialist"),
+    "local_paper": ("#b45309", "Local paper"),
+    "local_radio": ("#7c3aed", "Local radio"),
+    "partisan": ("#9f1239", "Partisan"),
+}
+
+
+def _render_news_mentions_block(df: pd.DataFrame, member_name: str) -> None:
+    """Collapsible 'Recent media mentions' section: headline → publisher link, outlet + date +
+    tier badge, most-recent first. Pure presentation — the rows (incl. the name match) are produced
+    by the extractor/view; this only renders them. A mention is not an assertion by this site."""
+    n = 0 if df is None or df.empty else len(df)
+    with st.expander(f"📰 Recent media mentions ({n})", expanded=False):
+        if n == 0:
+            st.caption(
+                f"No recent media mentions matched {_h(member_name)} in the last 30 days of Irish "
+                "news searched. Coverage is name-matched and skews to higher-profile members."
+            )
+            return
+        cards = []
+        for r in df.itertuples(index=False):
+            colour, label = _NEWS_TIER.get(getattr(r, "outlet_tier", ""), ("#6b7280", "News"))
+            dt = getattr(r, "published_at", None)
+            date_str = dt.strftime("%d %b %Y") if dt is not None and pd.notna(dt) else ""
+            body_note = (
+                "" if getattr(r, "match_in_title", False)
+                else "<span style='color:#9ca3af;font-style:italic'>· named in article body</span>"
+            )
+            url = _h(str(getattr(r, "article_url", "") or "#"))
+            cards.append(
+                "<div style='background:#ffffff;border:1px solid #e7e2d8;border-radius:10px;"
+                "padding:12px 14px;margin-bottom:9px'>"
+                f"<a href='{url}' target='_blank' rel='noopener' "
+                "style='color:#111827;text-decoration:none;font-weight:600;line-height:1.35'>"
+                f"{_h(str(getattr(r, 'article_title', '')))}</a>"
+                "<div style='margin-top:6px;font-size:0.82rem;color:#6b7280;display:flex;gap:8px;"
+                "align-items:center;flex-wrap:wrap'>"
+                f"<span style='color:#fff;border-radius:999px;padding:1px 9px;font-size:0.7rem;"
+                f"font-weight:600;background:{colour}'>{label}</span>"
+                f"<span>{_h(str(getattr(r, 'outlet', '') or ''))}</span>"
+                f"<span>· {date_str}</span>{body_note}</div></div>"
+            )
+        st.html("".join(cards))
+        st.caption(
+            "Name-matched from a public news search. A mention is not an assertion by this site "
+            "and does not imply involvement; headlines link to the publisher."
+        )
+
+
 def _render_contact_block(contact: dict, member_name: str, profile_href: str | None) -> None:
     """Official office contact details card: address, phone(s), email — each a
     real `tel:` / `mailto:` link where present — with a verification link to the
@@ -1769,6 +1828,11 @@ def _render_stage2(
     # link. Sits directly under the identity hero — how a citizen reaches their
     # representative is identity-level information, not buried in a section.
     _render_contact_block(_contact_details(conn, join_key), member_name, profile_href)
+
+    # ── Recent media mentions (per-member news search, collapsed) ────────────
+    # Name-matched recent coverage from a Google-News search per member. Collapsed
+    # so it never dominates the profile; honest empty state for low-profile members.
+    _render_news_mentions_block(_news_mentions(conn, join_key), member_name)
 
     # ── Headline stats — single source of truth, no duplication ──────────────
     att_df = _att_all_years(conn, join_key)
@@ -2093,6 +2157,36 @@ def _render_stage2(
             _section_statutory_instruments(conn, join_key)
         elif sid == "committees":
             _section_committees(member_name, join_key)
+
+    # ── Unified provenance footer ────────────────────────────────────────────
+    # The flagship dossier fuses ~10 public sources; each section above carries
+    # its own per-record source ↗ link (Layer B). This expander is the page-level
+    # roll-up (Layer A) — one place that names every source the profile draws on.
+    provenance_expander(
+        sections=[
+            "**A profile built from the public record.** This dossier fuses the "
+            "Houses of the Oireachtas open data — the member's official profile, "
+            "**votes**, **debates & speeches**, **parliamentary questions**, "
+            "**bills & committee** membership, **Register of Interests** declarations, "
+            "and **Parliamentary Standard Allowance** expense figures — with the "
+            "**Register of Lobbying** (lobbying.ie), the published salary set rate, and "
+            "constituency context from the **CSO Census 2022** and **Electoral "
+            "Commission 2023** boundary review.",
+            "**Validate any figure at source.** Every section carries its own "
+            "**source ↗** links straight to the underlying record (the division on "
+            "oireachtas.ie, the bill, the lobbying return, the register entry). The hero "
+            "links to the member's official Oireachtas profile and Wikipedia.",
+            "**A record, not a judgement.** Figures are the bodies' own published "
+            "values; expense allowances (PSA/TAA) are reimbursed costs of doing the job, "
+            "**not** salary or income, and are never added to it. Appearing on a "
+            "lobbying return or in a payment record is a public-record fact, not "
+            "evidence of influence or wrongdoing.",
+        ],
+        source_caption=(
+            "Data: Houses of the Oireachtas open data · Register of Lobbying "
+            "(lobbying.ie) · CSO Census 2022 · Electoral Commission 2023."
+        ),
+    )
 
     # Quiet developer affordance: this whole dossier as JSON on the open-data API.
     # Renders nothing until DAIL_API_BASE_URL is configured (config-gated).
