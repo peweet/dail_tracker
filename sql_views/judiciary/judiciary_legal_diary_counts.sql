@@ -22,5 +22,5 @@ WITH unioned AS (
 SELECT * FROM unioned
 -- RECENT-WINDOW CAP (temporary, added 2026-06-19) — see judiciary_legal_diary_schedule.sql for
 -- the rationale. Keep the window identical across the three legal-diary views.
-WHERE CAST(diary_date AS DATE) BETWEEN current_date - 14 AND current_date + 7
+WHERE CAST(diary_date AS DATE) BETWEEN current_date - 7 AND current_date
 ORDER BY diary_date DESC, n_items DESC;

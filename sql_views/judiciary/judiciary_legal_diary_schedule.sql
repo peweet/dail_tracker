@@ -25,7 +25,7 @@ SELECT * FROM unioned
 -- RECENT-WINDOW CAP (temporary, added 2026-06-19). The diary archive is ~1,833 days /
 -- ~790k case rows; loading it whole made Courts & Judiciary the heaviest page in the app
 -- and OOM-prone under Windows process pile-up. Until the page paginates by day server-side,
--- scope every legal-diary view to a rolling window (two weeks back, one week forward),
+-- scope every legal-diary view to a rolling one-week window (seven days back through today),
 -- anchored on current_date so it auto-rolls. Drop this WHERE to restore the full history.
-WHERE CAST(diary_date AS DATE) BETWEEN current_date - 14 AND current_date + 7
+WHERE CAST(diary_date AS DATE) BETWEEN current_date - 7 AND current_date
 ORDER BY diary_date DESC, court, courtroom, judge;
