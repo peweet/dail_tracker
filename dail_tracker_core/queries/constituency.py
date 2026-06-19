@@ -69,6 +69,35 @@ def constituency_house_work(conn: duckdb.DuckDBPyConnection, constituency: str) 
     )
 
 
+def council_revenue_divisions(conn: duckdb.DuckDBPyConnection, council: str) -> QueryResult:
+    """One council's latest-year revenue-account spend BY SERVICE DIVISION (the drill-down
+    behind a council card's 'Revenue account' figure). Gross + income + net per division."""
+    return _run(
+        conn,
+        "SELECT division, gross_expenditure_eur, income_eur, net_expenditure_eur, year, "
+        "       source_file_url "
+        "FROM v_procurement_afs_by_division "
+        "WHERE council = ? AND year = "
+        "      (SELECT MAX(year) FROM v_procurement_afs_by_division WHERE council = ?) "
+        "ORDER BY gross_expenditure_eur DESC",
+        [council, council],
+    )
+
+
+def council_capital_divisions(conn: duckdb.DuckDBPyConnection, council: str) -> QueryResult:
+    """One council's latest-year CAPITAL investment BY SERVICE DIVISION (the drill-down behind
+    a council card's 'Capital invested' figure)."""
+    return _run(
+        conn,
+        "SELECT division, capital_expenditure_eur, year, source_file_url "
+        "FROM v_procurement_afs_capital_by_division "
+        "WHERE council = ? AND year = "
+        "      (SELECT MAX(year) FROM v_procurement_afs_capital_by_division WHERE council = ?) "
+        "ORDER BY capital_expenditure_eur DESC",
+        [council, council],
+    )
+
+
 def constituency_housing_context(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
     """Residential vacancy (CSO VAC14, 2024Q4) and median house price (CSO RPPI/HPM03)
     for the local-authority area(s) serving this constituency — council-area context."""

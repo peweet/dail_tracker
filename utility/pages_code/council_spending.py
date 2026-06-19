@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from data_access.freshness_data import freshness_line
 from pages_code.procurement import (
     _render_councils,
+    _render_payment_lines,
     _render_payments_publisher_profile,
     _render_payments_supplier_profile,
 )
@@ -40,6 +41,19 @@ def council_spending_page() -> None:
     # ORDERS, so the default tier is COMMITTED (actual payments are the exception: only a
     # couple of councils publish them).
     params = st.query_params
+    # Leaf FIRST: a supplier tile inside a council dossier links with BOTH ?paid_supplier=
+    # and ?paid_publisher= — that pair means "show the published line items from this council
+    # to this supplier". It must be checked before the publisher-only branch, otherwise the
+    # paid_publisher match below shadows it and the click just re-renders the council dossier
+    # (mirrors the routing order in procurement.py).
+    if params.get("paid_supplier") and params.get("paid_publisher"):
+        req_tier = (params.get("paid_tier") or "COMMITTED").upper()
+        _render_payment_lines(
+            params.get("paid_supplier"),
+            params.get("paid_publisher"),
+            req_tier if req_tier in ("SPENT", "COMMITTED") else "COMMITTED",
+        )
+        return
     if params.get("paid_publisher"):
         req_tier = (params.get("paid_tier") or "COMMITTED").upper()
         _render_payments_publisher_profile(
