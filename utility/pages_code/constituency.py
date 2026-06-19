@@ -36,7 +36,9 @@ from data_access.constituency_data import (
     fetch_constituency_council_context_result,
     fetch_constituency_header_result,
     fetch_constituency_house_work_result,
+    fetch_constituency_council_housing_performance_result,
     fetch_constituency_housing_context_result,
+    fetch_constituency_ssha_waiting_list_result,
     fetch_constituency_list_result,
     fetch_constituency_members_result,
     fetch_constituency_outlines,
@@ -280,12 +282,29 @@ def _housing_card(row) -> str:
     vac = row.get("vacant_dwellings")
     rate = row.get("vacancy_rate")
     price = row.get("median_price_eur")
+    comp = row.get("completions")
+    comp_period = row.get("comp_period")
     pills: list[str] = []
+    if comp is not None and not pd.isna(comp):
+        per = f" <em>({_h(str(comp_period))})</em>" if comp_period is not None and not pd.isna(comp_period) else ""
+        pills.append(f'<span class="con-grain con-grain-comp">{_int(comp)} new homes{per}</span>')
     if vac is not None and not pd.isna(vac):
         rate_txt = f" ({rate:.1f}%)" if rate is not None and not pd.isna(rate) else ""
         pills.append(f'<span class="con-grain con-grain-vac">{_int(vac)} vacant homes{rate_txt}</span>')
     if price is not None and not pd.isna(price):
         pills.append(f'<span class="con-grain con-grain-price">Median price {_eur(price)}</span>')
+    # Demand side — social-housing waiting list (SSHA), merged in by local_authority.
+    waiting = row.get("waiting_total_2025")
+    if waiting is not None and not pd.isna(waiting):
+        yoy = row.get("waiting_yoy_pct")
+        yoy_txt = ""
+        if yoy is not None and not pd.isna(yoy):
+            arrow = "↑" if yoy > 0 else ("↓" if yoy < 0 else "→")
+            yoy_txt = f" <em>({arrow}{abs(yoy):.1f}%)</em>"
+        pills.append(f'<span class="con-grain con-grain-ssha">{_int(waiting)} on housing list{yoy_txt}</span>')
+    long_wait = row.get("long_wait_pct")
+    if long_wait is not None and not pd.isna(long_wait):
+        pills.append(f'<span class="con-grain con-grain-wait">{long_wait:.0f}% waiting 4 yrs+</span>')
     if not pills:
         return ""
     flag = ' <span class="con-council-partial">partial</span>' if partial else ""
@@ -302,25 +321,95 @@ def _render_housing(name: str) -> None:
     if not res.ok or res.data.empty:
         return
     df = res.data
+    # Merge in the social-housing waiting list (SSHA) by serving council, so each
+    # council card shows supply (new homes/vacancy/price) AND demand (waiting list)
+    # side by side. Degrades silently if the SSHA fact is unavailable.
+    ssha_res = fetch_constituency_ssha_waiting_list_result(name)
+    has_ssha = ssha_res.ok and not ssha_res.data.empty
+    if has_ssha:
+        ssha_cols = ["local_authority", "link_type", "waiting_total_2025",
+                     "waiting_yoy_pct", "long_wait_pct", "over_7yr_pct"]
+        df = df.merge(
+            ssha_res.data[ssha_cols], on=["local_authority", "link_type"], how="left"
+        )
     evidence_heading("Housing in this area")
     vac_period = next((str(p) for p in df["vac_period"] if p), "")
     med_period = next((str(p) for p in df["med_period"] if p), "")
+    comp_period = next((str(p) for p in df["comp_period"] if p), "")
     st.html(
-        '<p class="con-section-note">Residential vacancy and median house price for the '
-        "local-authority area(s) serving this constituency — <strong>council-area</strong> "
-        "figures (the area is not the constituency).</p>"
+        '<p class="con-section-note">New homes completed, residential vacancy, median house '
+        "price and the social-housing waiting list for the local-authority area(s) serving "
+        "this constituency — <strong>council-area</strong> figures (the area is not the "
+        "constituency).</p>"
     )
     cards = [c for c in (_housing_card(r) for _, r in df.iterrows()) if c]
     if cards:
         st.html(f'<div class="con-council-grid">{"".join(cards)}</div>')
     src = " · ".join(
         x for x in [
+            f"New homes: CSO new dwelling completions {comp_period}" if comp_period else "",
             f"Vacancy: CSO metered-electricity vacancy {vac_period}" if vac_period else "",
             f"Median price: CSO RPPI {med_period}" if med_period else "",
+            "Waiting list: Housing Agency SSHA 2025" if has_ssha else "",
         ] if x
     )
     if src:
         st.caption(src)
+
+
+def _perf_pill(value, fmt: str, label: str, national, nat_fmt: str | None = None) -> str:
+    """One council-performance pill: the LA value + the national-median benchmark,
+    presented factually (no good/bad framing — direction-of-good varies by metric)."""
+    if value is None or pd.isna(value):
+        return ""
+    nat_txt = ""
+    if national is not None and not pd.isna(national):
+        nat_txt = f" <em>(median {(nat_fmt or fmt).format(national)})</em>"
+    return f'<span class="con-grain con-grain-perf">{fmt.format(value)} {label}{nat_txt}</span>'
+
+
+def _council_perf_card(row) -> str:
+    council = _h(str(row["local_authority"]))
+    partial = str(row.get("link_type")) == "partial"
+    pills = [
+        _perf_pill(row.get("vacancy_pct"), "{:.1f}%", "stock vacant", row.get("nat_vacancy_pct")),
+        _perf_pill(row.get("reletting_weeks"), "{:.0f}", "wks to re-let", row.get("nat_reletting_weeks")),
+        _perf_pill(row.get("maintenance_eur_per_dwelling"), "€{:,.0f}", "upkeep/home",
+                   row.get("nat_maintenance_eur_per_dwelling")),
+        _perf_pill(row.get("retrofit_pct_of_stock"), "{:.1f}%", "of stock retrofitted",
+                   row.get("nat_retrofit_pct_of_stock")),
+        _perf_pill(row.get("longterm_homeless_pct"), "{:.0f}%", "homeless adults long-term",
+                   row.get("nat_longterm_homeless_pct")),
+    ]
+    pills = [p for p in pills if p]
+    if not pills:
+        return ""
+    flag = ' <span class="con-council-partial">partial</span>' if partial else ""
+    return (
+        f'<div class="con-council-card{" con-council-card-partial" if partial else ""}">'
+        f'<div class="con-council-name">{council}{flag}</div>'
+        f'<div class="con-grain-row">{"".join(pills)}</div>'
+        f"</div>"
+    )
+
+
+def _render_council_housing_performance(name: str) -> None:
+    res = fetch_constituency_council_housing_performance_result(name)
+    if not res.ok or res.data.empty:
+        return
+    df = res.data
+    cards = [c for c in (_council_perf_card(r) for _, r in df.iterrows()) if c]
+    if not cards:
+        return
+    evidence_heading("Council housing performance")
+    st.html(
+        '<p class="con-section-note">How the local-authority area(s) serving this constituency '
+        "manage their social housing — each figure beside the <strong>national median</strong> "
+        "across all 31 councils. <strong>Council-area</strong> figures (the area is not the "
+        "constituency).</p>"
+    )
+    st.html(f'<div class="con-council-grid">{"".join(cards)}</div>')
+    st.caption("Source: NOAC Local Authority Performance Indicator Report 2024")
 
 
 def _council_card(row, constituency: str) -> str:
@@ -490,6 +579,7 @@ def _render_dossier(name: str) -> None:
     _render_roster(name)
     _render_house_work(name)
     _render_housing(name)
+    _render_council_housing_performance(name)
     _render_council_context(name)
 
     st.caption(

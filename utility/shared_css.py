@@ -5742,6 +5742,10 @@ def inject_css() -> None:
         .con-grain-po  { background: #f5efe9; color: #7a5b43; }
         .con-grain-vac { background: #fdf0ed; color: #9a4a35; }
         .con-grain-price { background: #eef1f7; color: #3a4d73; }
+        .con-grain-comp { background: #edf5ee; color: #356b3a; }
+        .con-grain-ssha { background: #f0f3f8; color: #344b73; }
+        .con-grain-wait { background: #f7f1ec; color: #7a4f2f; }
+        .con-grain-perf { background: #f1f2f4; color: #3d4654; }
         .con-council-note {
             margin-top: 0.4rem; font-size: 0.74rem; color: var(--text-meta);
             font-style: italic;

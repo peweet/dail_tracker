@@ -195,6 +195,8 @@ CONSTITUENCY_FILES = [
     "constituency_registry.sql",
     "constituency_house_work.sql",
     "constituency_housing_context.sql",
+    "constituency_ssha_waiting_list.sql",
+    "constituency_council_housing_performance.sql",
     "constituency_council_context.sql",
 ]
 

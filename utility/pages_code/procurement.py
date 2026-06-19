@@ -707,17 +707,22 @@ def _render_payments() -> None:
 
 
 def _render_paid_suppliers(tier: str) -> None:
-    res = fetch_payments_supplier_summary_result(tier=tier, limit=_TOP)
+    res = fetch_payments_supplier_summary_result(tier=tier, limit=None)
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
         empty_state("No payments", f"No supplier has {_paid_verb(tier)} records in this tier.")
         return
+    total = len(df)
     st.caption(
-        f"Top {len(df):,} suppliers by money {_paid_verb(tier)} (sum-safe). Names as published by the body. "
+        f"{total:,} suppliers by money {_paid_verb(tier)} (sum-safe), biggest first. Names as published by the body. "
         "Click a company for the public bodies that paid it."
     )
+    pg_key = f"pr_pay_sup_{tier}"
+    page_idx = paginate(total, key_prefix=pg_key, page_size=_SUP_PAGE)
+    page = df.iloc[page_idx * _SUP_PAGE : (page_idx + 1) * _SUP_PAGE]
     cards = []
-    for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
+    for offset, r in enumerate(page.itertuples()):
+        i = page_idx * _SUP_PAGE + offset + 1
         np_ = _n(r.n_publishers)
         meta = f"{_n(r.n_payments):,} payment{'s' if _n(r.n_payments) != 1 else ''} · {np_:,} public bod{'ies' if np_ != 1 else 'y'}"
         if _truthy(getattr(r, "vat_mixed", None)):
@@ -745,6 +750,14 @@ def _render_paid_suppliers(tier: str) -> None:
         else:
             cards.append(inner)
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html('<div class="pr-sp-md"></div>')
+    pagination_controls(
+        total,
+        key_prefix=pg_key,
+        page_sizes=(_SUP_PAGE,),
+        default_page_size=_SUP_PAGE,
+        label="suppliers",
+    )
 
 
 def _render_paid_publishers(tier: str) -> None:
@@ -766,9 +779,15 @@ def _render_paid_publishers(tier: str) -> None:
         )
         if only_la:
             df = df[df["publisher_type"] == "local_authority"]
+    total = len(df)
     st.caption(f"Public bodies by money {_paid_verb(tier)} (sum-safe within each body). Click one for its suppliers.")
+    # Keyed by the LA toggle too: filtering changes total, so the page index must not carry over.
+    pg_key = f"pr_pay_pub_{tier}_{'la' if (n_la and only_la) else 'all'}"
+    page_idx = paginate(total, key_prefix=pg_key, page_size=_SUP_PAGE)
+    page = df.iloc[page_idx * _SUP_PAGE : (page_idx + 1) * _SUP_PAGE]
     cards = []
-    for i, r in enumerate(df.head(_TOP).itertuples(), start=1):
+    for offset, r in enumerate(page.itertuples()):
+        i = page_idx * _SUP_PAGE + offset + 1
         meta = (
             f"{_n(r.n_suppliers):,} supplier{'s' if _n(r.n_suppliers) != 1 else ''} · {_n(r.min_year)}–{_n(r.max_year)}"
         )
@@ -787,6 +806,14 @@ def _render_paid_publishers(tier: str) -> None:
             )
         )
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
+    st.html('<div class="pr-sp-md"></div>')
+    pagination_controls(
+        total,
+        key_prefix=pg_key,
+        page_sizes=(_SUP_PAGE,),
+        default_page_size=_SUP_PAGE,
+        label="public bodies",
+    )
 
 
 def _council_tier_pills(row) -> list[str]:

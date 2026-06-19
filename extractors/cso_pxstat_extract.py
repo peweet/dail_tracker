@@ -47,6 +47,8 @@ TABLES = [
     "PEA08",  # Population Estimates per County, Year, Age, Sex (1991-2025)
     "NDA01",  # New Dwelling Completions Annual (replaces dead HSA07 series)
     "NDQ07",  # New Dwelling Completions Quarterly (by Eircode Routing Key)
+    "NDQ09",  # New Dwelling Completions Quarterly (by Local Electoral Area; LEA embeds
+    # its council after a comma, so it rolls up cleanly to local authority)
     "HPM03",  # Market-based Household Purchases by RPPI Region (monthly)
     "HAP05",  # Additional HAP table
     # Added 2026-05-31 round 2 — vacancy + RPPI + Census housing
