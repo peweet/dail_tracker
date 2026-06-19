@@ -274,6 +274,62 @@ def test_canon_spend_category_unit():
     assert c(None) is None
 
 
+# --------------------------------------------------------------------------- #
+# Disclosure-regime contract (2026-06-19). The corpus mixes publishers under DIFFERENT
+# publication obligations / thresholds; treating it as one "€20,000 / Circular 07/2012 /
+# contracting authority" regime is misleading. These assert every row is self-describing
+# (basis + threshold + VAT + legal class) so the page can render each body's real regime.
+# --------------------------------------------------------------------------- #
+def test_disclosure_regime_columns_present(con):
+    cols = {r[0] for r in _q(con, "DESCRIBE SELECT * FROM FACT")}
+    assert {
+        "disclosure_basis",
+        "disclosure_threshold_eur",
+        "threshold_vat",
+        "body_procurement_class",
+    }.issubset(cols)
+
+
+def test_every_row_has_a_regime(con):
+    # No row may be missing its basis / threshold / class — the whole point is self-description.
+    bad = _q(
+        con,
+        "SELECT COUNT(*) FROM FACT WHERE disclosure_basis IS NULL"
+        " OR disclosure_threshold_eur IS NULL OR body_procurement_class IS NULL",
+    )[0][0]
+    assert bad == 0
+
+
+def test_regime_values_are_in_vocab(con):
+    from extractors._publisher_regime import BODY_PROCUREMENT_CLASS, DISCLOSURE_BASIS
+
+    bases = {r[0] for r in _q(con, "SELECT DISTINCT disclosure_basis FROM FACT")}
+    classes = {r[0] for r in _q(con, "SELECT DISTINCT body_procurement_class FROM FACT")}
+    thresholds = {r[0] for r in _q(con, "SELECT DISTINCT disclosure_threshold_eur FROM FACT")}
+    assert bases.issubset(DISCLOSURE_BASIS), f"unknown basis: {bases - DISCLOSURE_BASIS}"
+    assert classes.issubset(BODY_PROCUREMENT_CLASS), f"unknown class: {classes - BODY_PROCUREMENT_CLASS}"
+    assert thresholds.issubset({20000, 25000, 100000}), f"unexpected threshold: {thresholds}"
+
+
+def test_utilities_are_not_labelled_contracting_authorities(con):
+    # The original misleading conflation: a utility (ESB Networks, a "contracting ENTITY" under the
+    # EU Utilities Directive, outside the €20k FOI scheme) must NEVER be class contracting_authority.
+    bad = _q(
+        con,
+        "SELECT COUNT(*) FROM FACT WHERE disclosure_basis='utilities_regime'"
+        " AND body_procurement_class<>'contracting_entity_utility'",
+    )[0][0]
+    assert bad == 0
+
+
+def test_per_body_thresholds_are_honoured(con):
+    # CHI publishes over €25,000 (not €20k); guards that a real per-body threshold survives to gold
+    # rather than being flattened to a blanket €20,000.
+    chi = _q(con, "SELECT DISTINCT disclosure_threshold_eur FROM FACT WHERE publisher_id='ie_chi'")
+    if chi:  # only assert when CHI is in the build
+        assert chi == [(25000,)]
+
+
 def test_strip_leading_ref_unit():
     # Pure-function contract: bled-in leading references are removed; fused number-brands and
     # whitespace-less names are preserved; a pure-number / empty residue is left untouched.

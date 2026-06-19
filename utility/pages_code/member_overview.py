@@ -79,7 +79,7 @@ _STAGE_KEY = "mo_join_key"
 _PROFILE_SECTIONS: list[tuple[str, str, str]] = [
     ("interests", "Interests", "interests"),
     ("lobbying", "Lobbying", "lobbying"),
-    ("payments", "Payments", "payments"),
+    ("payments", "Salary & expenses", "payments"),
     ("attendance", "Attendance", "attendance"),
     ("votes", "Votes", "votes"),
     ("debates", "Debates", "votes"),  # promoted out of Votes 2026-05-31 — was buried
@@ -174,6 +174,71 @@ def _pay_grand_total(_conn, join_key: str) -> float:
     if df.empty or pd.isna(df.iloc[0]["total"]):
         return 0.0
     return float(df.iloc[0]["total"])
+
+
+@st.cache_data(ttl=300)
+def _salary(_conn, join_key: str, house: str) -> pd.DataFrame:
+    """Statutory salary RATE row (basic + highest current office allowance)."""
+    return moq.salary(_conn, join_key, house).data
+
+
+def _render_member_salary(sal_df: pd.DataFrame) -> None:
+    """Salary card — the published STATUTORY RATE (basic + highest current office
+    allowance), kept visually distinct from the PSA expense allowances rendered
+    by render_member_payments below. Display-only: every figure and the
+    basic+office split come straight from v_member_salary.
+    """
+    if sal_df.empty:
+        return
+    r = sal_df.iloc[0]
+    basic = float(r.get("basic_rate") or 0)
+    if not basic:
+        return
+    total = float(r.get("total_statutory_rate_eur") or basic)
+    is_office = bool(r.get("is_office_holder"))
+    office_label = str(r.get("office_label") or "").strip()
+    current_office = str(r.get("current_office") or "").strip()
+    office_allow = r.get("office_allowance")
+    src_doc = str(r.get("source_doc") or "").strip()
+    src_url = str(r.get("source_url") or "").strip()
+
+    lines = [
+        f'<div class="mo-salary-line"><span>{_h(str(r.get("basic_label") or "Basic salary"))}</span>'
+        f"<span>€{basic:,.0f}</span></div>"
+    ]
+    if is_office and pd.notna(office_allow):
+        # Show the specific portfolio held, attributed to its rate band.
+        band = _h(office_label or "Office allowance")
+        portfolio = f" · {_h(current_office)}" if current_office and current_office != office_label else ""
+        lines.append(
+            f'<div class="mo-salary-line"><span>{band}{portfolio}</span>'
+            f"<span>+ €{float(office_allow):,.0f}</span></div>"
+        )
+
+    if is_office and current_office:
+        sub = f"Set statutory rate while serving as {_h(office_label or current_office)} — not earned or take-home pay."
+    else:
+        sub = "Set statutory rate for every member of this House — not earned or take-home pay."
+
+    src_html = (
+        f' <a href="{_h(src_url)}" target="_blank" rel="noopener">{_h(src_doc)}</a>' if src_url else f" {_h(src_doc)}"
+    )
+    caveat = (
+        "Office-holder allowances for the Tánaiste, committee chairs, party whips and Seanad chair "
+        "roles are set out in the same guide but are not separately identified here."
+    )
+
+    st.html(
+        f'<div class="mo-salary-card">'
+        f'<div class="mo-salary-head">'
+        f'<span class="mo-salary-eyebrow">Salary · statutory rate</span>'
+        f'<span class="mo-salary-total">€{total:,.0f}<span class="mo-salary-per">/ yr</span></span>'
+        f"</div>"
+        f'<div class="mo-salary-breakdown">{"".join(lines)}</div>'
+        f'<p class="mo-salary-note">{sub} Source:{src_html}.</p>'
+        f'<p class="mo-salary-caveat">{caveat}</p>'
+        f"</div>"
+    )
 
 
 @st.cache_data(ttl=300)
@@ -1583,18 +1648,24 @@ def _render_stage2(
         # mirrors the round-3 P1-F cabinet-member fallback pattern.
         if pay_total:
             pay_val = f"€{pay_total:,.0f}"
-            # Expand TAA on first use (it appears unexpanded nowhere else above
-            # the fold); the Payments section below repeats it once known.
-            pay_sub = "Travel & Accommodation Allowance (TAA), all years on record"
+            # Make the framing honest above the fold: this is reimbursed expense
+            # money (the PSA / TAA travel allowance), not salary or income. The
+            # Salary & expenses section below breaks both out in full.
+            pay_sub = "Expense allowances (PSA/TAA) — not salary · all years on record"
         else:
             pay_val = "Not on file"
-            pay_sub = "Travel & Accommodation Allowance (TAA) not tracked for this member"
+            pay_sub = "Expense allowances (PSA/TAA) not tracked for this member"
 
         stat_strip(
             [
                 (att_val, att_lbl, "var(--text-primary)", att_sub),
                 (cast_val, "Votes cast", "var(--signal-good)", cast_sub),
-                (pay_val, "Payments received", "var(--text-meta)" if not pay_total else "var(--text-primary)", pay_sub),
+                (
+                    pay_val,
+                    "Expenses & allowances",
+                    "var(--text-meta)" if not pay_total else "var(--text-primary)",
+                    pay_sub,
+                ),
             ]
         )
 
@@ -1714,6 +1785,18 @@ def _render_stage2(
                 year_pill_key=f"mo_lob_year_{join_key}",
             )
         elif sid == "payments":
+            # Salary FIRST (the statutory set rate), then the PSA expense
+            # allowances — two genuinely different things citizens routinely
+            # conflate. The salary card states the published rate; the
+            # allowances body below is reimbursed cost-of-duties money.
+            _render_member_salary(_salary(conn, join_key, house))
+            st.html(
+                '<div class="mo-pay-divider"></div>'
+                '<p class="mo-pay-lead"><strong>Expenses &amp; allowances</strong> — the figures below are the '
+                "Parliamentary Standard Allowance (PSA): money to cover the cost of doing the job "
+                "(travel, accommodation and office/representation costs). They are reimbursed expenses, "
+                "<strong>not</strong> salary or income.</p>"
+            )
             # Phase 5 lift: full payments body (year metrics + Altair
             # evolution chart + card-based all-years summary + card-based
             # payment records) without the per-page identity strip,

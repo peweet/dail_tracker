@@ -75,12 +75,17 @@ def step_members_api() -> bool:
 
 
 def step_flatten_members() -> bool:
-    _hr("[4/5] flatten_members_json_to_csv — silver flattened members")
+    _hr("[4/6] flatten_members_json_to_csv — silver flattened members")
     return _module("members.flatten_members_json_to_csv")
 
 
+def step_historic_members() -> bool:
+    _hr("[5/6] historic_members_build — former-member roster + member_terms")
+    return _module("members.historic_members_build")
+
+
 def step_flatten_debates() -> bool:
-    _hr("[5/5] dbsect_listings_flatten — silver debate-section listings")
+    _hr("[6/6] dbsect_listings_flatten — silver debate-section listings")
     return _module("debates.dbsect_listings_flatten")
 
 
@@ -96,6 +101,7 @@ def main() -> int:
         ("pdf_downloader", step_pdf_downloader),
         ("members_api", step_members_api),
         ("flatten_members", step_flatten_members),
+        ("historic_members", step_historic_members),
         ("flatten_debates", step_flatten_debates),
     ]:
         if not fn():
