@@ -265,6 +265,41 @@ def test_v_member_ministerial_tenure_executes():
     assert nulls == 0
 
 
+def test_v_member_salary_executes():
+    """Statutory salary RATE view — basic (by House) + highest current office
+    allowance, joined to the curated data/_meta/oireachtas_salary_rates.csv. The
+    total must reconcile exactly to basic + office allowance, and basic must be
+    one of the two published House rates.
+    """
+    _skip_missing(MEMBER_PARQUET, *_src("data/_meta/oireachtas_salary_rates.csv"))
+    con = _con()
+    con.execute(_load("member_registry.sql"))  # v_member_salary JOINs v_member_registry
+    con.execute(_load("member_salary.sql"))
+    result = _result(con, "v_member_salary")
+    _assert_cols(
+        result, "unique_member_code", "house", "basic_rate", "current_office",
+        "office_allowance", "total_statutory_rate_eur", "is_office_holder",
+        "source_doc", "source_url",
+    )
+    assert len(result) > 0
+    # Total reconciles to basic + office allowance (no stray arithmetic).
+    bad = con.execute(
+        "SELECT COUNT(*) FROM v_member_salary"
+        " WHERE total_statutory_rate_eur <> basic_rate + COALESCE(office_allowance, 0)"
+    ).fetchone()[0]
+    assert bad == 0, "total_statutory_rate_eur must equal basic_rate + office_allowance"
+    # Basic salary is always one of the two published House rates — never NULL.
+    off_house = con.execute(
+        "SELECT COUNT(*) FROM v_member_salary WHERE basic_rate NOT IN (113679, 79614) OR basic_rate IS NULL"
+    ).fetchone()[0]
+    assert off_house == 0, "basic_rate must be a published TD/Senator rate"
+    # Office allowance only ever attaches to a Dáil row (Seanad offices unmapped).
+    seanad_oh = con.execute(
+        "SELECT COUNT(*) FROM v_member_salary WHERE house = 'Seanad' AND is_office_holder"
+    ).fetchone()[0]
+    assert seanad_oh == 0, "Seanad office allowances are not mapped — should never flag is_office_holder"
+
+
 def test_v_charity_financials_by_year_executes():
     """Per-charity annual financial series — reads charities/annual_reports.parquet.
     Must be strictly one row per (rcn, period_year); the source has up to 3.

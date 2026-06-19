@@ -1,9 +1,9 @@
 {
-  "generated_utc": "2026-06-18T18:01:55.305011+00:00",
+  "generated_utc": "2026-06-19T17:55:06.837402+00:00",
   "layer": "gold",
   "source": "extractors/procurement_payments_consolidate.py",
-  "n_rows": 216900,
-  "n_publishers": 65,
+  "n_rows": 216907,
+  "n_publishers": 66,
   "n_suppliers": 22287,
   "cro_matched_pct": 46.0,
   "rows_by_publisher_type": {
@@ -12,7 +12,7 @@
     "state_body": 39791,
     "agency": 36887,
     "semi_state": 10379,
-    "education_body": 3934,
+    "education_body": 3941,
     "hospital": 414
   },
   "n_local_authorities": 23,
@@ -21,10 +21,23 @@
     "COMMITTED": 16027082723.72
   },
   "vat_status_counts": {
-    "unknown": 184937,
-    "incl_vat": 31963
+    "incl_vat": 31963,
+    "unknown": 184944
   },
-  "privacy_note": "Suppliers named per published source PO/payments-over-\u20ac20k lists (Circular 07/2012 / FOI); no address/PII beyond the published figure.",
+  "disclosure_basis_counts": {
+    "foi_s8_model_scheme": 216897,
+    "utilities_regime": 10
+  },
+  "disclosure_threshold_counts": {
+    "20000": 216648,
+    "25000": 259
+  },
+  "body_class_counts": {
+    "contracting_authority": 216897,
+    "contracting_entity_utility": 10
+  },
+  "regime_note": "Publishers fall under DIFFERENT disclosure regimes/thresholds (carried per row in disclosure_basis / disclosure_threshold_eur / threshold_vat / body_procurement_class). Most publish over \u20ac20,000 under the FOI Act 2014 s.8 model scheme (origin Circular FIN 07/12); CHI publishes over \u20ac25,000 incl-VAT; utilities (ESB/EirGrid/Uisce \u00c9ireann) are contracting ENTITIES outside that scheme. Do NOT describe the corpus as a single '\u20ac20,000 / Circular 07/2012' regime.",
+  "privacy_note": "Suppliers named per each body's own published PO/payments disclosures (see disclosure_basis); no address/PII beyond the published figure.",
   "value_note": "po_committed (ordered) and payment_actual (paid) are different lifecycle tiers \u2014 never summed together; only value_safe_to_sum rows sum, and never across vat_status.",
   "triple_count_note": "Includes both central\u2192council transfers (TII Road Grants, supplier_class='public_body') and council\u2192contractor LA payments. To avoid double-counting the same money across those two legs, exclude supplier_class='public_body' from spend totals at the consuming view/page."
 }

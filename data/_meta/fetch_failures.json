@@ -1,18 +1,11 @@
 {
-  "generated_utc": "2026-06-18T18:01:50+00:00",
+  "generated_utc": "2026-06-19T17:54:28+00:00",
   "extractors": {
     "public_body": {
-      "run_utc": "2026-06-18T17:59:20+00:00",
+      "run_utc": "2026-06-19T17:54:28+00:00",
       "n_failures": 0,
       "failures": [],
-      "zero_harvest": [
-        {
-          "ts_utc": "2026-06-18T17:58:40+00:00",
-          "publisher_id": "dept_housing",
-          "publisher_name": "Department of Housing, Local Government and Heritage",
-          "listing_url": "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/collections/procurement-related-payments-over-20000-euro/"
-        }
-      ],
+      "zero_harvest": [],
       "breaker_trips": []
     },
     "la_payments": {

@@ -60,6 +60,7 @@ from data_access.procurement_data import (
     fetch_incumbency_top_result,
     fetch_lobbying_overlap_result,
     fetch_awards_by_year_result,
+    fetch_epa_compliance_result,
     fetch_new_entrants_result,
     fetch_payment_lines_for_pair_result,
     fetch_payments_corpus_stats_result,
@@ -668,7 +669,8 @@ def _render_payments() -> None:
     st.html(
         '<div class="pr-caveat"><strong>Money actually paid — a different thing from awards.</strong> '
         f"These are payments and purchase orders {_n(s.get('n_publishers')):,} public bodies "
-        f"<em>published themselves</em> (their over-€20,000 lists, {span}), to "
+        f"<em>published themselves</em> (mostly their over-€20,000 lists — some bodies use a different "
+        f"threshold, e.g. €25,000; {span}), to "
         f"{_n(s.get('n_suppliers')):,} suppliers. At least <strong>{_eur_scale(s.get('spent_safe_eur'))} "
         f"paid</strong> and {_eur_scale(s.get('committed_safe_eur'))} ordered — an indicative floor, "
         "not an audited total (bodies use different VAT bases, so totals are never summed across them, "
@@ -695,8 +697,10 @@ def _render_payments() -> None:
         _render_paid_publishers(tier)
     st.html(
         '<div class="pr-foot"><strong>Source:</strong> each public body\'s own published '
-        "purchase-order / payments-over-€20,000 disclosures (Circular 07/2012 / FOI), consolidated and "
-        "matched to the Companies Registration Office. Suppliers are named as published. "
+        "purchase-order / payments disclosures — most under the FOI Act 2014 s.8 model publication "
+        "scheme (origin: Circular FIN 07/12), some published voluntarily; consolidated and "
+        "matched to the Companies Registration Office. Not every public body has this obligation, and "
+        "thresholds differ by body. Suppliers are named as published. "
         "Paid (actual spend) and ordered (purchase orders) are different stages and are never summed "
         "together; totals are never summed across bodies with different VAT bases; never added to award values.</div>"
     )
@@ -1137,8 +1141,8 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
             _lane_header(
                 "PAYING · purchase orders over €20,000",
                 "Who it pays",
-                "The suppliers the council reports paying or ordering more than €20,000 (Circular "
-                "07/2012 / FOI disclosures). This is the <strong>named-supplier</strong> slice — most "
+                "The suppliers the council reports paying or ordering more than €20,000 (FOI Act 2014 "
+                "s.8 model publication scheme; origin Circular FIN 07/12). This is the <strong>named-supplier</strong> slice — most "
                 "council money never passes through a tendered purchase order, so it is far narrower "
                 "than the audited accounts above, and <strong>never added to them</strong>.",
             )
@@ -1192,8 +1196,10 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
 
 _PAY_FOOT_HTML = (
     '<div class="pr-foot"><strong>Source:</strong> each public body\'s own published '
-    "purchase-order / payments-over-€20,000 disclosures (Circular 07/2012 / FOI), consolidated and "
-    "matched to the Companies Registration Office. Suppliers and bodies are named as published. "
+    "purchase-order / payments disclosures — most under the FOI Act 2014 s.8 model publication scheme "
+    "(origin: Circular FIN 07/12), some published voluntarily; consolidated and "
+    "matched to the Companies Registration Office. Not every public body has this obligation, and "
+    "thresholds differ by body. Suppliers and bodies are named as published. "
     "Paid (actual spend) and ordered (purchase orders) are different stages and are never summed "
     "together; totals are never summed across bodies with different VAT bases; never added to award values.</div>"
 )
@@ -1644,6 +1650,73 @@ def _render_ted_supplier_panel(supplier_norm: str) -> None:
             st.html(_TED_NOTICES_INTRO + exact_html)
             if variant_html:
                 st.html(variant_html)
+
+
+def _render_epa_credentials_panel(company_num) -> None:
+    """Cross-register block on a company dossier: the firm's EPA environmental-licence portfolio and
+    its EPA enforcement record (matched on CRO company_num). A SEPARATE public register — licences +
+    compliance counts only, never juxtaposed with or added to the firm's money figures above.
+
+    No-inference rails: counts are EPA regulatory records, not findings of wrongdoing; the panel says so
+    inline, and an un-sampled firm is shown as 'not assessed' so a zero is never read as a clean record."""
+    if not _truthy(company_num):
+        return
+    try:
+        cnum = int(float(company_num))
+    except (TypeError, ValueError):
+        return
+    res = fetch_epa_compliance_result(cnum)
+    if not res.ok or res.data.empty:
+        return  # firm holds no EPA licence (or isn't CRO-matched in the register) — silent absence
+    r = res.data.iloc[0]
+    n_lic = _n(r.get("n_licences"))
+    if n_lic <= 0:
+        return
+    classes = _esc(r.get("licence_classes") or "")
+    cls_clause = f" ({classes})" if classes else ""
+    active_clause = (
+        " — at least one currently active" if _truthy(r.get("any_active_licence")) else " — none currently active"
+    )
+    body = (
+        f"This firm holds <strong>{n_lic:,} EPA environmental licence{'' if n_lic == 1 else 's'}</strong>"
+        f"{cls_clause}{active_clause}. "
+    )
+    if _truthy(r.get("enforcement_crawled")):
+        ev = _n(r.get("n_enforcement_events"))
+        if ev > 0:
+            inc, comp, nc, op = (
+                _n(r.get("n_incident")),
+                _n(r.get("n_complaint")),
+                _n(r.get("n_non_compliance")),
+                _n(r.get("n_open")),
+            )
+            last = _esc(str(r.get("last_record_date") or "")[:10])
+            last_clause = f", most recent {last}" if last else ""
+            body += (
+                f"The EPA has logged <strong>{ev:,} compliance record{'' if ev == 1 else 's'}</strong> "
+                f"against {'this licence' if n_lic == 1 else 'these licences'}: {inc:,} incident"
+                f"{'' if inc == 1 else 's'}, {comp:,} complaint{'' if comp == 1 else 's'} and {nc:,} "
+                f"non-compliance{'' if nc == 1 else 's'}, of which <strong>{op:,} remain open</strong>"
+                f"{last_clause}. These are entries in the EPA's regulatory record — a separate public "
+                "register — <em>not</em> findings of wrongdoing, and they partly reflect a site's scale "
+                "and how often it is inspected."
+            )
+        else:
+            body += (
+                "The EPA's enforcement record shows no logged incidents, complaints or non-compliances "
+                "against these licences."
+            )
+    else:
+        body += (
+            "This firm's EPA enforcement record is <em>not assessed</em> here (its licences fall outside "
+            "the compliance sample) — absence of counts does not mean a clean record."
+        )
+    st.html(
+        '<div class="pr-ted-xref"><div class="pr-ted-xref-h">Environmental licences (EPA)</div>'
+        f'<div class="pr-ted-xref-b">{body} '
+        '<a href="https://www.epa.ie/our-services/licensing/licencesearch/" target="_blank" '
+        'rel="noopener">Check the EPA licence register ↗</a></div></div>'
+    )
 
 
 def _ted_notice_li(nr, *, show_name: bool) -> str:
@@ -3081,7 +3154,9 @@ def _data_completeness_note() -> None:
             "- **Awards** (eTenders, TED) name almost every public buyer (~1,950 bodies), but only a "
             "fraction of the euro value can be summed — most contracts fall below the publication "
             "threshold or run through frameworks whose ceilings aren't real spend.\n"
-            "- **Money actually paid** comes from the over-€20,000 lists bodies publish themselves — and "
+            "- **Money actually paid** comes from the lists bodies publish themselves (mostly over "
+            "€20,000, under the FOI Act 2014 s.8 model publication scheme — origin Circular FIN 07/12 — "
+            "though some bodies use a different threshold and others publish voluntarily) — and "
             "only about **1 in 40 public buyers (~3%)** does so. Against the State's estimated "
             "**€15–22 billion a year** of procurement, what's traceable here works out at roughly "
             "**7% of the money spent overall** — rising to the **mid-teens (%) in recent years** as more "

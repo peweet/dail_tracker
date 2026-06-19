@@ -38,6 +38,7 @@ from pages_code.procurement import (
     _eur,
     _lobby_pill,
     _n,
+    _render_epa_credentials_panel,
     _render_paid_supplier_panel,
     _render_supplier_call_offs_panel,
     _render_supplier_competition_panel,
@@ -66,7 +67,8 @@ _DOSSIER_FOOT = (
     '(<a href="https://data.gov.ie/dataset/contract-notices-published-on-etenders" '
     'target="_blank" rel="noopener">data.gov.ie ↗</a>), the EU Official Journal (TED — each EU '
     "notice above links to the official record), public bodies' own published payment lists, the "
-    "Companies Registration Office and the Register of Lobbying. Awards, payments and EU notices "
+    "Companies Registration Office, the Register of Lobbying and the EPA licence &amp; enforcement "
+    "register (LEAP). Awards, payments and EU notices "
     "are separate registers at different lifecycle stages — never added together. Appearing in any "
     "register is a public record of procurement or lobbying activity, not evidence of wrongdoing.</div>"
 )
@@ -138,6 +140,7 @@ def _dossier(supplier_norm: str) -> None:
     _render_ted_supplier_panel(supplier_norm)
     _render_supplier_competition_panel(supplier_norm)
     _render_supplier_relationships_panel(supplier_norm)
+    _render_epa_credentials_panel(row.get("company_num"))
     st.html(_DOSSIER_FOOT)
 
 

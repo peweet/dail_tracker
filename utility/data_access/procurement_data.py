@@ -104,6 +104,14 @@ def fetch_supplier_payments_by_year_result(supplier_norm: str) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_epa_compliance_result(company_num: int) -> QueryResult:
+    """One CRO company's EPA environmental-licence + enforcement record for the dossier's EPA panel
+    (matched on CRO company_num). A separate public register — licences + compliance counts only, never
+    summed with the firm's award/payment figures."""
+    return _q.epa_compliance_for_supplier(get_procurement_conn(), company_num)
+
+
+@st.cache_data(ttl=300)
 def fetch_authority_summary_result(
     limit: int | None = 50, order_by: str = "awards", year: int | None = None
 ) -> QueryResult:
