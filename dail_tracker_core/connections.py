@@ -26,6 +26,11 @@ _log = logging.getLogger(__name__)
 # must precede legislation_si_index (LEFT JOIN dependency). The order is load-bearing.
 DOMAIN_FILES = [
     "attendance_member_year_summary.sql",
+    # v_attendance_year_rank ranks members within (year, house); it reads ONLY
+    # v_attendance_member_year_summary (registered immediately above), so it must
+    # follow it. Member-overview's hero stat-strip uses it for the "Rank X of Y
+    # TDs" sub-label — omitting it silently blanked that line on every profile.
+    "attendance_year_rank.sql",
     "payments_base.sql",
     "payments_member_detail.sql",
     "payments_yearly_evolution.sql",
@@ -194,6 +199,7 @@ CONSTITUENCY_FILES = [
     "constituency_party_breakdown.sql",
     "constituency_registry.sql",
     "constituency_house_work.sql",
+    "constituency_map_layers.sql",  # choropleth layers; JOINs registry + house_work
     "constituency_housing_context.sql",
     "constituency_ssha_waiting_list.sql",
     "constituency_council_housing_performance.sql",
@@ -228,6 +234,16 @@ def legislation_conn() -> duckdb.DuckDBPyConnection:
     """
     conn = duckdb.connect()
     register_views(conn, ["legislation_*.sql"], swallow_errors=True)
+    return conn
+
+
+def housing_conn() -> duckdb.DuckDBPyConnection:
+    """A fresh connection for the national Housing screen — the SSHA waiting-list
+    composition + totals views (self-contained: each reads gold parquet directly,
+    no inter-view deps), so a plain glob in any order is safe.
+    """
+    conn = duckdb.connect()
+    register_views(conn, ["housing_*.sql"], swallow_errors=True)
     return conn
 
 

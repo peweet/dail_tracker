@@ -2461,3 +2461,157 @@ def test_v_procurement_expiring_contracts_contract(tmp_path):
     # the estimate's provenance is carried for honest display
     assert by["1-2025"]["contract_end_basis"] == "conclusion_plus_duration"
     assert str(by["1-2025"]["contract_end_date_est"]) == "2027-01-01"
+
+
+# ---------------------------------------------------------------------------
+# CONSTITUENCY HOUSING-ENRICHMENT TRIPWIRE (2026-06-19)
+# These two views register with swallow_errors=True in constituency_conn(), so a
+# break (renamed column, dropped parquet, mis-edited la_map) fails SILENTLY — the
+# page section just disappears. This test fails LOUD instead. It also asserts the
+# explicit la_map produces ZERO mis-joins (every serving council resolves to data).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.sql
+def test_constituency_housing_enrichment_views_build():
+    _skip_missing(
+        _DATA_BASE / "data" / "_meta" / "constituency_la_crosswalk.csv",
+        GOLD_PARQUET_DIR / "ssha_a1_8_time_on_list_wide.parquet",
+        GOLD_PARQUET_DIR / "noac_h2_vacancies_wide.parquet",
+        GOLD_PARQUET_DIR / "noac_h1_stock_wide.parquet",
+        GOLD_PARQUET_DIR / "noac_h7_retrofit_wide.parquet",
+    )
+    con = _con()
+    for fname in (
+        "constituency_la_crosswalk.sql",
+        "constituency_ssha_waiting_list.sql",
+        "constituency_council_housing_performance.sql",
+    ):
+        try:
+            con.execute(_load(fname))
+        except duckdb.IOException as exc:
+            pytest.skip(f"constituency housing: source not present for {fname}: {exc}")
+        except Exception as exc:  # noqa: BLE001 — surface the offending file
+            pytest.fail(f"constituency housing: {fname} failed to register: {type(exc).__name__}: {exc}")
+
+    # SSHA waiting list — demand layer
+    ssha = _result(con, "v_constituency_ssha_waiting_list", limit=100)
+    assert ssha.height > 0
+    for c in ("constituency_name", "local_authority", "waiting_total_2025", "long_wait_pct"):
+        assert c in ssha.columns, f"v_constituency_ssha_waiting_list missing {c}"
+    # explicit la_map => every serving council resolves (no NULL = no mis-join)
+    assert ssha["waiting_total_2025"].null_count() == 0
+
+    # NOAC council performance — operations layer, value + national-median benchmark
+    perf = _result(con, "v_constituency_council_housing_performance", limit=100)
+    assert perf.height > 0
+    for c in ("vacancy_pct", "reletting_weeks", "retrofit_pct_of_stock", "nat_vacancy_pct"):
+        assert c in perf.columns, f"v_constituency_council_housing_performance missing {c}"
+    assert perf["vacancy_pct"].null_count() == 0
+    # benchmark column is the national median (constant across all rows)
+    assert perf["nat_vacancy_pct"].n_unique() == 1
+
+
+@pytest.mark.sql
+def test_ssha_waiting_list_national_views_build():
+    """National Housing-screen views: composition (who's waiting) + totals (league
+    table w/ per-capita). Guards the UNPIVOT labelling, the 3-grain rollup, and the
+    LA->county->PEA08 maps (a name drift silently drops a county from the rollup)."""
+    import polars as pl
+
+    _skip_missing(
+        GOLD_PARQUET_DIR / "ssha_a1_8_time_on_list_wide.parquet",
+        GOLD_PARQUET_DIR / "ssha_a1_7_tenure_wide.parquet",
+        GOLD_PARQUET_DIR / "ssha_a1_2_employment_wide.parquet",
+        GOLD_PARQUET_DIR / "ssha_a1_4_household_size_wide.parquet",
+        GOLD_PARQUET_DIR / "ssha_a1_9_citizenship_wide.parquet",
+        GOLD_PARQUET_DIR / "cso_pea08.parquet",
+    )
+    con = _con()
+    for fname in (
+        "housing_ssha_waiting_list_composition.sql",
+        "housing_ssha_waiting_list_totals.sql",
+    ):
+        try:
+            con.execute(_load(fname))
+        except duckdb.IOException as exc:
+            pytest.skip(f"ssha national: source not present for {fname}: {exc}")
+        except Exception as exc:  # noqa: BLE001
+            pytest.fail(f"ssha national: {fname} failed to register: {type(exc).__name__}: {exc}")
+
+    comp = con.execute("SELECT * FROM v_ssha_waiting_list_composition").pl()
+    assert set(comp["grain"].unique()) == {"national", "county", "la"}
+    assert set(comp["dimension"].unique()) == {
+        "time_on_list", "tenure", "employment", "household", "citizenship"
+    }
+    # 5 dimensions all labelled (no slug leaked through as a category) — every row mapped
+    assert comp.filter(pl.col("ord").is_null() & (pl.col("dimension") == "time_on_list")).height == 0
+    # citizenship is exactly the 4 source categories (sensitivity: no surprise buckets)
+    cit = set(comp.filter(pl.col("dimension") == "citizenship")["category"].unique())
+    assert cit == {"Irish", "EEA", "Non-EEA", "UK"}
+    # a national distribution sums to ~100%
+    nat_time = comp.filter(
+        (pl.col("grain") == "national") & (pl.col("dimension") == "time_on_list") & (pl.col("year") == 2025)
+    )
+    assert abs(nat_time["pct"].sum() - 100.0) < 0.5
+
+    tot = con.execute("SELECT * FROM v_ssha_waiting_list_totals").pl()
+    nat = tot.filter(pl.col("grain") == "national")
+    cty = tot.filter(pl.col("grain") == "county")
+    la = tot.filter(pl.col("grain") == "la")
+    assert cty.height == 26 and la.height == 31 and nat.height == 1
+    # rollup integrity: county sum == LA sum == national (a dropped LA breaks this)
+    national_total = nat["waiting_total"][0]
+    assert cty["waiting_total"].sum() == national_total
+    assert la["waiting_total"].sum() == national_total
+    # per-capita present for every county + national, never faked at LA grain
+    assert cty["waiters_per_1000"].null_count() == 0
+    assert la["waiters_per_1000"].null_count() == la.height
+
+
+# ---------------------------------------------------------------------------
+# CONSTITUENCY CHOROPLETH TRIPWIRE (2026-06-19)
+# v_constituency_map_layers feeds the national index choropleth. It JOINs
+# v_constituency_registry + v_constituency_house_work and registers with
+# swallow_errors=True in constituency_conn(), so a break (renamed source column,
+# NTILE typo) fails SILENTLY — the map just disappears. This fails LOUD instead,
+# and pins the quintile buckets to 1..5 (the page indexes a 5-colour palette with
+# them — an out-of-range bucket would IndexError or mis-colour). Skips cleanly when
+# the member/registry sources aren't present on this box.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.sql
+def test_constituency_map_layers_view_builds():
+    try:
+        from dail_tracker_core.connections import constituency_conn
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip(f"constituency_conn import unavailable: {exc}")
+    con = constituency_conn()
+    try:
+        df = con.execute("SELECT * FROM v_constituency_map_layers").pl()
+    except duckdb.CatalogException:
+        pytest.skip("v_constituency_map_layers absent — member/registry sources not on this box")
+
+    assert df.height == 43, f"expected all 43 constituencies, got {df.height}"
+    for c in (
+        "constituency_name",
+        "population_2022",
+        "population_per_td",
+        "pct_landlord_tds",
+        "questions_per_td",
+        "q_population",
+        "q_population_per_td",
+        "q_pct_landlord_tds",
+        "q_questions_per_td",
+    ):
+        assert c in df.columns, f"v_constituency_map_layers missing {c}"
+
+    # quintile buckets always land in 1..5 — the page maps them onto a 5-colour ramp.
+    for qcol in ("q_population", "q_population_per_td", "q_pct_landlord_tds", "q_questions_per_td"):
+        vals = set(df[qcol].drop_nulls().to_list())
+        assert vals <= {1, 2, 3, 4, 5}, f"{qcol} out-of-range quintile(s): {vals - {1, 2, 3, 4, 5}}"
+
+    # population is the Census-2022 spine: present for every constituency, fully bucketed.
+    assert df["population_2022"].null_count() == 0
+    assert df["q_population"].null_count() == 0

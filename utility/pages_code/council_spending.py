@@ -30,6 +30,7 @@ from pages_code.procurement import (
     _render_payments_supplier_profile,
 )
 from ui.components import hero_banner, hide_sidebar
+from ui.source_pdfs import provenance_expander
 
 
 def council_spending_page() -> None:
@@ -78,6 +79,25 @@ def council_spending_page() -> None:
     )
     _render_councils()
 
-    _fresh = freshness_line("procurement")
-    if _fresh:
-        st.caption(f"{_fresh} Councils publish their over-€20,000 lists at their own cadence.")
+    provenance_expander(
+        sections=[
+            "**What this shows.** Each council's published **purchase orders and payments "
+            "over €20,000** — the supplier, the council's own description, PO number and "
+            "amount — alongside its audited **Annual Financial Statement** for whole-budget "
+            "context (housing, roads, environment …). Most council spend never passes through "
+            "a tendered purchase order, so the AFS is the broader picture.",
+            "**Validate any figure at source.** Drill into a council, then a supplier, to reach "
+            "the individual published lines; each line carries a **source ↗** link to the "
+            "council's own published disclosure where it provided one.",
+            "**Different grains — never summed.** A line is the body's own reported figure "
+            "(a purchase-order *commitment* or an actual *payment*), not an award ceiling, and "
+            "is never added across councils with different VAT bases. A record is a procurement "
+            "disclosure, not evidence of influence or wrongdoing.",
+        ],
+        source_caption=(
+            "Data: each local authority's over-€20,000 purchase-order / payment lists "
+            "(published under Circular 07/2012) and audited Annual Financial Statements. "
+            "Councils publish at their own cadence."
+        ),
+        freshness=freshness_line("procurement"),
+    )

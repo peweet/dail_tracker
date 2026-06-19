@@ -31,6 +31,13 @@ def constituency_list(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     return _run(conn, "SELECT * FROM v_constituency_registry ORDER BY constituency_name")
 
 
+def constituency_map_layers(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """All 43 constituencies with the choropleth layer values + precomputed quintile
+    buckets (population, per-TD ratio, % landlord TDs, Dáil questions per TD). The page
+    only maps bucket→colour — the quantile split lives in v_constituency_map_layers."""
+    return _run(conn, "SELECT * FROM v_constituency_map_layers ORDER BY constituency_name")
+
+
 def constituency_header(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
     """Single-row header (population, per-TD ratio, seats, TD count) for one dossier."""
     return _run(
