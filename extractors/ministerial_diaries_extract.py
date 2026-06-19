@@ -75,6 +75,18 @@ DEPT_SOURCES: list[tuple[str, str]] = [
     ("HOUSING", "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/collections/ministers-diaries/"),
     ("TRANSPORT", "https://www.gov.ie/en/department-of-transport/organisation-information/ministers-diaries/"),
     ("DCCS", "https://www.gov.ie/en/department-of-culture-communications-and-sport/organisation-information/ministers-diaries/"),
+    # Added 2026-06-19 (coverage audit): departments confirmed to publish via gov.ie search but
+    # previously absent from this list. Same flat-listing shape (collection/org-info page → diary
+    # PDFs). FINANCE publishes PER-MINISTER collections (no single parent page) so each minister's
+    # collection is listed separately — ADD the incumbent's collection when the portfolio rotates.
+    # McGrath validated (19 PDFs, born-digital); DFHERIS validated (5 calendar PDFs).
+    ("FINANCE", "https://www.gov.ie/en/department-of-finance/collections/minister-michael-mcgrath-tds-diary/"),
+    ("FINANCE", "https://www.gov.ie/en/department-of-finance/collections/minister-jack-chambers-tds-diary/"),
+    ("DFHERIS", "https://www.gov.ie/en/department-of-further-and-higher-education-research-innovation-and-science/organisation-information/ministers-diary/"),
+    # TODO (audit 2026-06-19, unresolved — gov.ie search rate-limited the probe): Social Protection
+    # publishes (Calleary diary surfaced in search) but its listing slug wasn't pinned down; Taoiseach
+    # (collection page exists, 0 PDFs at guessed URL), Foreign Affairs, Education, Agriculture, Defence,
+    # Children not yet confirmed. Re-probe gov.ie search for the real slugs and add here.
 ]
 
 MONTHS = [

@@ -31,9 +31,11 @@ from members.member_interests import (
     CATEGORIES_PATTERN,
     INTEREST_CODE_MAP,
     MEMBER_NAME_PATTERN,
+    QUALITY_MATCH_THRESHOLD,
     clean_interests,
     group_lines,
     parse_members,
+    passes_quality_gate,
     split_embedded_names,
 )
 
@@ -292,6 +294,37 @@ def test_clean_interests_emits_join_key():
     df = clean_interests(_interests_input_df(), year=2026)
     assert "join_key" in df.columns
     assert df["join_key"].null_count() == 0
+
+
+# ---------------------------------------------------------------------------
+# passes_quality_gate — the scanned/OCR'd-register guard
+# ---------------------------------------------------------------------------
+
+
+def test_quality_gate_passes_clean_born_digital_year():
+    """A born-digital register matches the roster ~96% — must pass."""
+    assert passes_quality_gate(n_registered=159, n_parsed=166) is True
+
+
+def test_quality_gate_rejects_scanned_garbage_year():
+    """A scanned/OCR'd register mangles names → ~0% match — must be skipped.
+    Mirrors the real 2016 register (150 parsed, 0 matched).
+    """
+    assert passes_quality_gate(n_registered=0, n_parsed=150) is False
+
+
+def test_quality_gate_threshold_boundary():
+    """Exactly at the threshold passes; just below fails."""
+    n = 100
+    assert passes_quality_gate(int(n * QUALITY_MATCH_THRESHOLD), n) is True
+    assert passes_quality_gate(int(n * QUALITY_MATCH_THRESHOLD) - 1, n) is False
+
+
+def test_quality_gate_handles_zero_parsed():
+    """A PDF that parsed nothing (e.g. a scanned image with no text layer, the
+    real 2012 case) must not divide-by-zero and must fail the gate.
+    """
+    assert passes_quality_gate(n_registered=0, n_parsed=0) is False
 
 
 @pytest.mark.parametrize(

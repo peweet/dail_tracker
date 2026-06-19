@@ -11,7 +11,6 @@ from pages_code.interests import interests_page
 from pages_code.judiciary import judiciary_page
 from pages_code.legislation import legislation_page
 from pages_code.lobbying_3 import lobbying_poc_page
-from pages_code.media_mentions_experimental import media_mentions_experimental_page
 from pages_code.member_overview import member_overview_page
 from pages_code.payments import payments_page
 from pages_code.procurement import procurement_page
@@ -22,32 +21,6 @@ from pages_code.votes import votes_page
 from shared_css import inject_css
 from ui.page_analytics import log_page_view
 from ui.spa_links import install_spa_links
-
-# Siting Check runs a live geospatial engine (shapely/rasterio/pyyaml) over local
-# designation layers that are NOT shipped to Streamlit Cloud (291 MB, gitignored —
-# still in Phase-0 battle-testing locally). Those deps live in the `siting` extra, so
-# the Cloud install does not have them. Import defensively: if the deps (or data) are
-# absent, register a stub instead of letting one failed import crash the whole app.
-try:
-    from pages_code.siting_check import siting_check_page
-except ImportError as _err:  # pragma: no cover - env-dependent
-    # Cloud has no geo stack, so the full local page can't import. Fall back to the thin REMOTE
-    # client (engine-free): it takes a Google-Maps link and calls a local siting engine exposed at
-    # SITING_API_URL (a tunnel), so Cloud serves the UI while the compute runs on a connected box.
-    # NB: capture the message — the `as _err` name is deleted when this except block exits.
-    _siting_import_error = str(_err)
-    try:
-        from pages_code.siting_remote import siting_remote_page as siting_check_page
-    except Exception:  # noqa: BLE001 — last-resort stub if even the thin client can't import
-
-        def siting_check_page() -> None:
-            st.title("Siting Check")
-            st.info(
-                "Siting Check runs a geospatial engine over local designation layers; it is "
-                "available in the local / development build only and not enabled here."
-            )
-            st.caption(f"(unavailable here: {_siting_import_error})")
-
 
 st.set_page_config(
     page_title="Oireachtas Explorer",
@@ -205,24 +178,6 @@ pg = st.navigation(
                 title="Appointments",
                 icon=":material/assignment_ind:",
                 url_path="rankings-appointments",
-            ),
-        ],
-        "Planning": [
-            st.Page(
-                siting_check_page,
-                title="Siting Check (experimental)",
-                icon=":material/travel_explore:",
-                url_path="planning-siting-check",
-            ),
-        ],
-        # EXPERIMENTAL sandbox preview — safe to delete (remove this group, the import
-        # above, pages_code/media_mentions_experimental.py and ui/media_mentions_experimental.py).
-        "Experimental": [
-            st.Page(
-                media_mentions_experimental_page,
-                title="Media Mentions (experimental)",
-                icon=":material/newspaper:",
-                url_path="experimental-media-mentions",
             ),
         ],
         "Glossary": [

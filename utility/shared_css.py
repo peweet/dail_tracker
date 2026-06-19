@@ -2112,6 +2112,57 @@ def inject_css() -> None:
             border-bottom-style: solid;
         }
 
+        /* Official contact-details card (address / phone / email scraped from
+           the member's oireachtas.ie profile). Sits directly under the hero. */
+        .mo-contact-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: 2px;
+            padding: 0.85rem 1.1rem;
+            margin: 0 0 1.1rem;
+        }
+        .mo-contact-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-meta);
+            margin-bottom: 0.5rem;
+        }
+        .mo-contact-row {
+            display: flex;
+            align-items: baseline;
+            gap: 0.55rem;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: var(--text-primary);
+            margin: 0.18rem 0;
+        }
+        .mo-contact-ico {
+            flex: 0 0 auto;
+            width: 1.1rem;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        .mo-contact-val { min-width: 0; word-break: break-word; }
+        .mo-contact-link {
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--accent);
+        }
+        .mo-contact-link:hover,
+        .mo-contact-link:focus-visible { border-bottom-style: solid; }
+        .mo-contact-empty {
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+        }
+        .mo-contact-source {
+            margin-top: 0.55rem;
+            font-size: 0.78rem;
+            color: var(--text-meta);
+        }
+
         /* P1-2: civic-voice not-found callout (replaces the dt-callout
            with raw inline `color:var(--text-meta)` body + inline CTA). */
         .mo-not-found-callout {
@@ -2363,6 +2414,15 @@ def inject_css() -> None:
             min-height: 2.6rem !important;
         }
         [data-testid="stMain"] [data-testid="stSelectbox"] [data-baseweb="select"] > div:focus-within {
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 3px var(--accent-subtle) !important;
+        }
+        [data-testid="stMain"] [data-testid="stMultiSelect"] [data-baseweb="select"] > div {
+            background: #ffffff !important;
+            border: 1.5px solid var(--border-strong) !important;
+            border-radius: 8px !important;
+        }
+        [data-testid="stMain"] [data-testid="stMultiSelect"] [data-baseweb="select"] > div:focus-within {
             border-color: var(--accent) !important;
             box-shadow: 0 0 0 3px var(--accent-subtle) !important;
         }
@@ -5674,6 +5734,8 @@ def inject_css() -> None:
         .con-grain-rev { background: #eef4f3; color: #2f5d57; }
         .con-grain-cap { background: #f0f7f0; color: #356b3a; }
         .con-grain-po  { background: #f5efe9; color: #7a5b43; }
+        .con-grain-vac { background: #fdf0ed; color: #9a4a35; }
+        .con-grain-price { background: #eef1f7; color: #3a4d73; }
         .con-council-note {
             margin-top: 0.4rem; font-size: 0.74rem; color: var(--text-meta);
             font-style: italic;

@@ -43,7 +43,18 @@ PDF_PATHS: dict[str, pathlib.Path] = {
     "2023_seanad": INTERESTS_PDF_DIR / "2024-02-27_register-of-members-interests-seanad-eireann-2023_en.pdf",
     "2024_seanad": INTERESTS_PDF_DIR / "2025-02-27_register-of-member-s-interests-seanad-eireann-2024_en.pdf",
     "2025_seanad": INTERESTS_PDF_DIR / "2026-03-10_register-of-member-s-interests-seanad-eireann-2025_en.pdf",
-    # DAIL
+    # DAIL — historic (born-digital, parse clean ~96%). The 2012 & 2016 registers
+    # are scanned/OCR'd (digit→letter rot, glued category lines) and are
+    # DELIBERATELY OMITTED — they parse to garbage; see the quality gate below and
+    # pipeline_sandbox/historic_members/probe_register_parse_quality.py.
+    "2011_dail": INTERESTS_PDF_DIR / "2012-03-30_register-of-members-interests-dail-eireann_en.pdf",
+    "2013_dail": INTERESTS_PDF_DIR / "2014-03-25_register-of-members-interests-dail-eireann_en.pdf",
+    "2014_dail": INTERESTS_PDF_DIR / "2015-03-11_register-of-members-interests-dail-eireann_en.pdf",
+    "2015_dail": INTERESTS_PDF_DIR / "2016-03-01_register-of-members-interests-dail-eireann_en.pdf",
+    "2017_dail": INTERESTS_PDF_DIR / "2018-02-14_register-of-members-interests-dail-eireann_en.pdf",
+    "2018_dail": INTERESTS_PDF_DIR / "2019-02-13_register-of-members-interests-dail-eireann_en.pdf",
+    "2019_dail": INTERESTS_PDF_DIR / "2020-03-03_register-of-members-interests-dail-eireann_en.pdf",
+    # DAIL — current convention (published Feb of year+1)
     "2020_dail": INTERESTS_PDF_DIR / "2021-02-25_register-of-members-interests-dail-eireann_en.pdf",
     "2021_dail": INTERESTS_PDF_DIR / "2022-02-16_register-of-members-interests-dail-eireann_en.pdf",
     "2022_dail": INTERESTS_PDF_DIR / "2023-02-22_register-of-member-s-interests-dail-eireann-2022_en.pdf",
@@ -68,6 +79,23 @@ INTEREST_CODE_MAP = {
 }
 
 SPLIT_INTEREST_CODES = {"1", "2", "3", "4", "9"}
+
+# Per-year parse-quality gate. A born-digital register matches the master roster
+# at ~0.9+; a scanned/OCR'd one (digit→letter rot mangles names) collapses toward
+# 0. Below this, the year is SKIPPED with a loud log rather than emitting garbage.
+# Tune via probe_register_parse_quality.py before lowering.
+QUALITY_MATCH_THRESHOLD = 0.5
+
+
+def quality_match_rate(n_registered: int, n_parsed: int) -> float:
+    """Share of parsed declarers that matched the master roster (0..1)."""
+    return n_registered / max(n_parsed, 1)
+
+
+def passes_quality_gate(n_registered: int, n_parsed: int) -> bool:
+    """A year's parse is clean enough to ingest. Scanned/OCR'd registers mangle
+    names and collapse the match rate toward 0 — they fail and are skipped."""
+    return quality_match_rate(n_registered, n_parsed) >= QUALITY_MATCH_THRESHOLD
 
 MASTER_TD_PATH = SILVER_DIR / "flattened_members.csv"
 MASTER_SEANAD_PATH = SILVER_DIR / "flattened_seanad_members.csv"
@@ -552,9 +580,24 @@ def main() -> None:
         # 6. Join
         if case == "DAIL":
             df = join_master_list(df, MASTER_TD_PATH, MINISTER_PATH, HISTORIC_TD_PATH)
-            dail_years.append(year_key)
         else:
             df = join_master_list(df, MASTER_SEANAD_PATH, historic_path=HISTORIC_SEANAD_PATH)
+
+        # 6b. Parse-quality gate — a scanned/OCR'd register mangles names and
+        # matches the roster at ~0%. Skip (loudly) rather than emit garbage that
+        # pollutes the year filter. Born-digital years clear this easily (~0.9+).
+        n_registered = df.filter(pl.col("registration_status") == "registered").select("unique_member_code").n_unique()
+        match_rate = quality_match_rate(n_registered, len(members))
+        if not passes_quality_gate(n_registered, len(members)):
+            print(
+                f"  SKIP {year_key}: roster match {match_rate:.0%} < {QUALITY_MATCH_THRESHOLD:.0%}"
+                f" — likely scanned/OCR'd ({n_registered}/{len(members)} matched), not ingesting"
+            )
+            continue
+        print(f"  roster match {match_rate:.0%} ({n_registered}/{len(members)})")
+        if case == "DAIL":
+            dail_years.append(year_key)
+        else:
             seanad_years.append(year_key)
 
         # 7. Save per-year CSV — consistent name used by combine_years

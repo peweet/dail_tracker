@@ -13,14 +13,20 @@ live sitting-only rosters if that roster hasn't been built yet.
 Run:  python pipeline_sandbox/news_mentions/extract.py
 """
 from __future__ import annotations
-import sys, io, re, html, hashlib, unicodedata
+
+import hashlib
+import html
+import io
+import re
+import sys
+import unicodedata
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
-import requests
 import polars as pl
+import requests
 from dateutil import parser as dateparser
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -70,7 +76,7 @@ def _house_map() -> dict[str, str]:
                    .group_by("unique_member_code")
                    .agg(pl.col("house_tag").last()))
     return {c: ("Seanad" if h == "seanad" else "Dail")
-            for c, h in zip(latest["unique_member_code"], latest["house_tag"])}
+            for c, h in zip(latest["unique_member_code"], latest["house_tag"], strict=True)}
 
 
 def load_members() -> list[dict]:
@@ -211,7 +217,7 @@ def main():
     aliases = sorted(amap, key=lambda a: -len(a))
     print(f"Members: {len(members)} | aliases: {len(amap)}")
 
-    fetched_at = datetime.now(timezone.utc)
+    fetched_at = datetime.now(UTC)
     rows, live, dead = [], 0, 0
     for f in FEEDS:
         try:
@@ -240,7 +246,7 @@ def main():
                     "outlet_tier": f["tier"],
                     "article_title": title,
                     "article_url": link,
-                    "published_at": dt.astimezone(timezone.utc).replace(tzinfo=None) if dt else None,
+                    "published_at": dt.astimezone(UTC).replace(tzinfo=None) if dt else None,
                     "match_in_title": in_title,
                     "fetched_at": fetched_at.replace(tzinfo=None),
                 })
