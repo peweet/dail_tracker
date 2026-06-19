@@ -169,6 +169,20 @@ def pay_grand_total(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResu
     )
 
 
+def salary(conn: duckdb.DuckDBPyConnection, join_key: str, house: str) -> QueryResult:
+    """Statutory salary RATE row for a member (basic + highest current office
+    allowance). Keyed on (code, house) — codes are not globally unique across
+    houses. This is a published set rate, NOT earned pay nor the PSA expense
+    allowances (see v_member_salary header)."""
+    return _run(
+        conn,
+        "SELECT basic_label, basic_rate, current_office, office_label, office_allowance,"
+        " total_statutory_rate_eur, is_office_holder, effective_from, source_doc, source_url"
+        " FROM v_member_salary WHERE unique_member_code = ? AND house = ? LIMIT 1",
+        [join_key, house],
+    )
+
+
 def lobbying_rd(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
     return _run(
         conn,

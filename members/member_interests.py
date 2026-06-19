@@ -73,6 +73,24 @@ MASTER_TD_PATH = SILVER_DIR / "flattened_members.csv"
 MASTER_SEANAD_PATH = SILVER_DIR / "flattened_seanad_members.csv"
 MINISTER_PATH = GOLD_DIR / "enriched_td_attendance.csv"
 
+# Former members (past terms, not in the current roster) — built by
+# members/historic_members_build.py. Unioned into the master below so historic
+# declarers stop being dropped. Optional: if absent, the join falls back to the
+# current-roster-only behaviour exactly as before.
+HISTORIC_TD_PATH = SILVER_DIR / "historic_members_dail.csv"
+HISTORIC_SEANAD_PATH = SILVER_DIR / "historic_members_seanad.csv"
+
+_MASTER_SELECT = [
+    "unique_member_code",
+    "first_name",
+    "last_name",
+    "constituency_name",
+    "full_name",
+    "party",
+    "ministerial_office",
+    "year_elected",
+]
+
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
@@ -406,28 +424,26 @@ def join_master_list(
     df: pl.DataFrame,
     master_path: pathlib.Path,
     minister_path: pathlib.Path | None = None,
+    historic_path: pathlib.Path | None = None,
 ) -> pl.DataFrame:
-    """Join cleaned interests against the master member list and optional ministerial office lookup."""
+    """Join cleaned interests against the master member list and optional ministerial office lookup.
+
+    When ``historic_path`` points at a former-members roster, it is unioned onto
+    the current master before the join so declarers from past terms are retained
+    rather than dropped. Returning members (same stable memberCode) are deduped on
+    the normalised join_key with the current row kept, so no member is doubled.
+    """
     df = normalise_join_key.normalise_df_td_name(df, "join_key")
 
-    master = (
-        pl.read_csv(master_path)
-        .select(
-            [
-                "unique_member_code",
-                "first_name",
-                "last_name",
-                "constituency_name",
-                "full_name",
-                "party",
-                "ministerial_office",
-                "year_elected",
-            ]
-        )
-        .unique()
-    )
+    master = pl.read_csv(master_path).select(_MASTER_SELECT)
+    if historic_path is not None and historic_path.exists():
+        historic = pl.read_csv(historic_path).select(_MASTER_SELECT)
+        master = pl.concat([master, historic], how="vertical_relaxed")
     master = master.with_columns(pl.concat_str(pl.col(["first_name", "last_name"])).alias("join_key"))
     master = normalise_join_key.normalise_df_td_name(master, "join_key")
+    # Current rows were concatenated first → keep="first" lets a sitting member win
+    # any name collision with a former member of the same normalised name.
+    master = master.unique(subset=["join_key"], keep="first", maintain_order=True)
 
     result = (
         master.join(df, on="join_key", how="left")
@@ -535,10 +551,10 @@ def main() -> None:
 
         # 6. Join
         if case == "DAIL":
-            df = join_master_list(df, MASTER_TD_PATH, MINISTER_PATH)
+            df = join_master_list(df, MASTER_TD_PATH, MINISTER_PATH, HISTORIC_TD_PATH)
             dail_years.append(year_key)
         else:
-            df = join_master_list(df, MASTER_SEANAD_PATH)
+            df = join_master_list(df, MASTER_SEANAD_PATH, historic_path=HISTORIC_SEANAD_PATH)
             seanad_years.append(year_key)
 
         # 7. Save per-year CSV — consistent name used by combine_years

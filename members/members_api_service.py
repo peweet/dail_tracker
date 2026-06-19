@@ -30,22 +30,36 @@ logger = logging.getLogger(__name__)
 session = requests.Session()
 
 
-def fetch_members(house: str) -> dict:
-    """Load member data for all TDs from the Oireachtas API.
+def fetch_members(
+    house: str,
+    house_no: int | None = None,
+    date_start: str = "2024-01-01",
+    date_end: str = "2099-01-01",
+) -> dict:
+    """Load member data for a house from the Oireachtas API.
+
+    Defaults reproduce the original behaviour exactly (current term: 34th Dáil /
+    27th Seanad, from 2024-01-01). Pass ``house_no`` + a wider ``date_start`` to
+    scope the pull to a historic term — the lever the historic-members backfill
+    needs (see members/historic_members_build.py).
 
     Args:
-        house: The house identifier (e.g., "dail" or "seanad")
+        house: The house identifier ("dail" or "seanad")
+        house_no: House number to scope to (e.g. 33 for the 33rd Dáil). Defaults
+            to the current term when omitted.
+        date_start: Membership window start (inclusive).
+        date_end: Membership window end.
 
     Returns:
-        dict: API response containing all TD member data
+        dict: API response containing the matching members
     """
     if house.lower() == "dail":
-        chamber_id = "%2Fie%2Foireachtas%2Fhouse%2Fdail%2F34"
+        chamber_id = f"%2Fie%2Foireachtas%2Fhouse%2Fdail%2F{house_no or 34}"
     elif house.lower() == "seanad":
-        chamber_id = "%2Fie%2Foireachtas%2Fhouse%2Fseanad%2F27"
+        chamber_id = f"%2Fie%2Foireachtas%2Fhouse%2Fseanad%2F{house_no or 27}"
     else:
         raise ValueError("Invalid house specified. Use 'dail' or 'seanad'.")
-    url = f"{API_BASE}/members?chamber_id={chamber_id}&date_start=2024-01-01&date_end=2099-01-01&limit=200"
+    url = f"{API_BASE}/members?chamber_id={chamber_id}&date_start={date_start}&date_end={date_end}&limit=600"
     logger.info(f"Fetching members from: {url}")
     response = session.get(url, timeout=60)
     response.raise_for_status()  # Raise on 4xx/5xx

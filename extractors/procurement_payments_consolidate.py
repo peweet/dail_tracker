@@ -55,6 +55,9 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "extractors"))
+from _publisher_regime import regime_for  # noqa: E402
+
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
 
@@ -324,6 +327,26 @@ def _conform(df: pl.DataFrame) -> pl.DataFrame:
         safe.alias("value_safe_to_sum"),
         display.alias("public_display"),
     )
+
+
+def _attach_regime(df: pl.DataFrame) -> pl.DataFrame:
+    """Attach the publisher's DISCLOSURE REGIME (see extractors/_publisher_regime.py): the legal
+    basis, threshold, threshold-VAT and procurement legal-class. Keyed by (publisher_id,
+    publisher_type), so it backfills the gold fact WITHOUT re-running any source extractor. This
+    is what lets the UI render each body's real basis/threshold instead of one hard-coded label —
+    e.g. CHI €25k incl-VAT, ESB Networks as a utility/contracting-entity outside the €20k scheme."""
+    keys = df.select("publisher_id", "publisher_type").unique()
+    rows = [
+        {"publisher_id": k["publisher_id"], "publisher_type": k["publisher_type"],
+         **regime_for(k["publisher_id"], k["publisher_type"])}
+        for k in keys.to_dicts()
+    ]
+    reg = pl.DataFrame(rows).with_columns(pl.col("disclosure_threshold_eur").cast(pl.Int64))
+    out = df.join(reg, on=["publisher_id", "publisher_type"], how="left")
+    n_basis = out["disclosure_basis"].n_unique()
+    n_thr = out["disclosure_threshold_eur"].n_unique()
+    print(f"  attached disclosure regime: {n_basis} distinct bases, {n_thr} distinct thresholds")
+    return out
 
 
 def _attach_cro(df: pl.DataFrame) -> pl.DataFrame:
@@ -621,6 +644,7 @@ def main() -> None:
     df = _canonicalise_split_entities(df)
     df = _clean_supplier_names(df)
     df = _conform(df)
+    df = _attach_regime(df)
     df = _attach_cro(df)
     df = _reclassify_missed_companies(df)
     df = _classify_id_codes(df)
@@ -667,8 +691,18 @@ def main() -> None:
         ),
         "safe_eur_by_tier": {r["realisation_tier"]: round(r["safe_eur"], 2) for r in by_tier.to_dicts()},
         "vat_status_counts": dict(df["vat_status"].value_counts().iter_rows()),
-        "privacy_note": "Suppliers named per published source PO/payments-over-€20k lists "
-        "(Circular 07/2012 / FOI); no address/PII beyond the published figure.",
+        "disclosure_basis_counts": dict(df["disclosure_basis"].value_counts(sort=True).iter_rows()),
+        "disclosure_threshold_counts": {
+            str(k): v for k, v in df["disclosure_threshold_eur"].value_counts(sort=True).iter_rows()
+        },
+        "body_class_counts": dict(df["body_procurement_class"].value_counts(sort=True).iter_rows()),
+        "regime_note": "Publishers fall under DIFFERENT disclosure regimes/thresholds (carried per row in "
+        "disclosure_basis / disclosure_threshold_eur / threshold_vat / body_procurement_class). Most publish "
+        "over €20,000 under the FOI Act 2014 s.8 model scheme (origin Circular FIN 07/12); CHI publishes over "
+        "€25,000 incl-VAT; utilities (ESB/EirGrid/Uisce Éireann) are contracting ENTITIES outside that scheme. "
+        "Do NOT describe the corpus as a single '€20,000 / Circular 07/2012' regime.",
+        "privacy_note": "Suppliers named per each body's own published PO/payments disclosures "
+        "(see disclosure_basis); no address/PII beyond the published figure.",
         "value_note": "po_committed (ordered) and payment_actual (paid) are different lifecycle "
         "tiers — never summed together; only value_safe_to_sum rows sum, and never across vat_status.",
         "triple_count_note": "Includes both central→council transfers (TII Road Grants, "

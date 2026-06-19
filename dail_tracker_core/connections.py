@@ -45,7 +45,9 @@ DOMAIN_FILES = [
 ]
 
 # {MEMBER_PARQUET_PATH} + {SEANAD_MEMBER_PARQUET_PATH} substituted from config.
-REGISTRY_FILES = ["member_registry.sql"]
+# member_salary.sql joins v_member_registry and unpivots the office_N_name fields
+# from {MEMBER_PARQUET_PATH}, so it must register AFTER member_registry.sql.
+REGISTRY_FILES = ["member_registry.sql", "member_salary.sql"]
 
 # {EXTERNAL_LINKS_PARQUET_PATH} — optional (parquet may be absent on a fresh run).
 EXTERNAL_LINKS_FILES = ["member_external_links.sql"]
@@ -152,6 +154,35 @@ def member_overview_conn() -> duckdb.DuckDBPyConnection:
     """
     conn = duckdb.connect()
     register_member_views(conn)
+    return conn
+
+
+# Per-constituency dossier views. Explicit order (not a glob) because
+# constituency_council_context JOINs constituency_la_crosswalk, and the registry/
+# members views JOIN the member + demographics views — all registered first.
+CONSTITUENCY_FILES = [
+    "constituency_la_crosswalk.sql",
+    "constituency_members.sql",
+    "constituency_party_breakdown.sql",
+    "constituency_registry.sql",
+    "constituency_council_context.sql",
+]
+
+
+def constituency_conn() -> duckdb.DuckDBPyConnection:
+    """A fresh connection for the per-constituency dossier page.
+
+    Layers three view sets, in order: (1) the member set (registry +
+    constituency demographics + votes/speeches, with their substitutions) via
+    register_member_views; (2) the procurement glob (council summary + AFS
+    revenue/capital views the council-context view joins); (3) the constituency
+    views themselves, in explicit dependency order. swallow_errors throughout so a
+    missing optional fact degrades one section, not the whole page.
+    """
+    conn = duckdb.connect()
+    register_member_views(conn)
+    register_views(conn, ["procurement_*.sql"], swallow_errors=True)
+    register_views(conn, CONSTITUENCY_FILES, swallow_errors=True)
     return conn
 
 
