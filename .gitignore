@@ -277,6 +277,9 @@ logs/page_views.jsonl
 members/
 # ...but the test mirror dir test/members/ holds tracked tests, not pipeline output.
 !test/members/
+# NB: members/*.py source modules can't be re-included via negation (git won't
+# descend into an excluded dir) — they are tracked via `git add -f`, as are the
+# other source modules here (member_interests.py, members_api_service.py, ...).
 scan_pdf/output/
 scan_pdf/target/
 lobbyist/raw/
@@ -325,6 +328,9 @@ data/gold/parquet/speeches_fact_full.parquet
 !data/silver/aggregated_td_tables.csv
 !data/silver/flattened_members.csv
 !data/silver/flattened_seanad_members.csv
+# Former-member rosters (historic backfill) — read by the interests join at runtime.
+!data/silver/historic_members_dail.csv
+!data/silver/historic_members_seanad.csv
 !data/silver/seanad_aggregated_tables.csv
 !data/silver/lobbying/
 !data/silver/lobbying/client_company_returns_detail.csv
@@ -388,6 +394,10 @@ data/silver/sipo_candidate/
 !data/silver/parquet/debates.parquet
 !data/silver/parquet/flattened_members.parquet
 !data/silver/parquet/flattened_seanad_members.parquet
+# Historic backfill: former-member rosters + per-term sidecar (member×term).
+!data/silver/parquet/historic_members_dail.parquet
+!data/silver/parquet/historic_members_seanad.parquet
+!data/silver/parquet/member_terms.parquet
 !data/silver/parquet/lobbying_return_documents.parquet
 !data/silver/parquet/member_external_links.parquet
 !data/silver/parquet/questions.parquet
