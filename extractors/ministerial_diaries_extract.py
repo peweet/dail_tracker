@@ -55,7 +55,7 @@ log = logging.getLogger(__name__)
 HEADERS = {"User-Agent": "Mozilla/5.0 (dail-tracker civic-data ingestion; contact p.glynn18@gmail.com)"}
 OUT_DIR = Path("data/sandbox/enrichment")
 PDF_CACHE = Path("C:/tmp/min_diaries_pdfs")
-SLEEP_S = 0.3
+SLEEP_S = 0.5  # polite inter-request pace; bumped from 0.3 to ease off the gov.ie WAF
 
 _DPER = (
     "https://www.gov.ie/en/department-of-public-expenditure-infrastructure-"
@@ -83,10 +83,23 @@ DEPT_SOURCES: list[tuple[str, str]] = [
     ("FINANCE", "https://www.gov.ie/en/department-of-finance/collections/minister-michael-mcgrath-tds-diary/"),
     ("FINANCE", "https://www.gov.ie/en/department-of-finance/collections/minister-jack-chambers-tds-diary/"),
     ("DFHERIS", "https://www.gov.ie/en/department-of-further-and-higher-education-research-innovation-and-science/organisation-information/ministers-diary/"),
-    # TODO (audit 2026-06-19, unresolved — gov.ie search rate-limited the probe): Social Protection
-    # publishes (Calleary diary surfaced in search) but its listing slug wasn't pinned down; Taoiseach
-    # (collection page exists, 0 PDFs at guessed URL), Foreign Affairs, Education, Agriculture, Defence,
-    # Children not yet confirmed. Re-probe gov.ie search for the real slugs and add here.
+    # Added 2026-06-19 (round 2 — gov.ie search re-probed from a fresh session, crawler-confirmed
+    # PDF counts, not just a 200 on the listing page):
+    #   EDUCATION  — single collection page, 172 born-digital diary PDFs (current + former ministers).
+    #   TAOISEACH  — the Taoiseach's OWN diary, published quarterly per-year (2022-2024 pages, 4 PDFs each).
+    #   DECC       — the Environment/Climate/Communications lineage (Ryan/Bruton/O'Brien/Canney). The
+    #                legacy /en/collection/89b20- URL is this dept's diary hub, NOT Social Protection
+    #                (the filenames disambiguate it — do not relabel without re-checking the ministers).
+    ("EDUCATION", "https://www.gov.ie/en/department-of-education/collections/department-of-education-ministers-diaries/"),
+    ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2024/"),
+    ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2023/"),
+    ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2022/"),
+    ("DECC", "https://www.gov.ie/en/collection/89b20-ministers-diaries/"),
+    # TODO (still unresolved after the 2026-06-19 re-probe): Social Protection (the generic
+    # "ministers-diaries" search result resolved to DECC above, not DSP — DSP's own slug is still
+    # unpinned), Foreign Affairs (only ministerial-briefs, no diary collection found), Agriculture,
+    # Defence, Children (no dedicated diary collection surfaced — may not publish on gov.ie). A 404 /
+    # "no diary collection" on a search ≠ proof of absence; re-probe each from a fresh session.
 ]
 
 MONTHS = [
@@ -184,19 +197,37 @@ def discover_files(only_depts: set[str] | None = None) -> list[dict]:
     return rows
 
 
-def download(url: str, fname: str) -> Path | None:
+# gov.ie / assets.gov.ie front a WAF that 405/429-throttles a BURST of rapid
+# downloads (observed 2026-06-19: a full run 405'd ~160 new Education PDFs at
+# SLEEP_S pacing). These are transient — the same URL serves fine after a short
+# pause — so back off and retry rather than dropping the file to the OCR/retry
+# queue. Only a real 404 (or exhausted retries) gives up.
+_RETRY_STATUS = {403, 405, 429, 500, 502, 503}
+
+
+def download(url: str, fname: str, *, retries: int = 4) -> Path | None:
     cache = PDF_CACHE / re.sub(r"[^A-Za-z0-9._-]", "_", fname)[-100:]
     if cache.exists():
         return cache
-    try:
-        r = requests.get(url, headers=HEADERS, timeout=90)
-        r.raise_for_status()
-        cache.write_bytes(r.content)
-        time.sleep(SLEEP_S)
-        return cache
-    except Exception as e:
-        log.warning("download failed %s: %s", url, e)
-        return None
+    for attempt in range(1, retries + 1):
+        try:
+            r = requests.get(url, headers=HEADERS, timeout=90)
+            if r.status_code in _RETRY_STATUS and attempt < retries:
+                wait = min(30, 2**attempt)  # 2s, 4s, 8s — let the WAF window reset
+                log.info("download %s -> HTTP %d; backoff %ds (attempt %d/%d)", fname, r.status_code, wait, attempt, retries)
+                time.sleep(wait)
+                continue
+            r.raise_for_status()
+            cache.write_bytes(r.content)
+            time.sleep(SLEEP_S)
+            return cache
+        except requests.RequestException as e:
+            if attempt < retries:
+                time.sleep(min(30, 2**attempt))
+                continue
+            log.warning("download failed %s: %s", url, e)
+            return None
+    return None
 
 
 def parse_entries(text: str, default_year: int | None, default_month: int | None) -> list[dict]:

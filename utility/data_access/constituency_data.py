@@ -47,6 +47,12 @@ def fetch_constituency_list_result() -> QueryResult:
     return _q.constituency_list(get_constituency_conn())
 
 
+@st.cache_data(ttl=600)
+def fetch_constituency_map_layers_result() -> QueryResult:
+    """All 43 constituencies with choropleth layer values + quintile buckets."""
+    return _q.constituency_map_layers(get_constituency_conn())
+
+
 @st.cache_data(ttl=300)
 def fetch_constituency_header_result(constituency: str) -> QueryResult:
     return _q.constituency_header(get_constituency_conn(), constituency)
