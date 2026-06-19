@@ -2,6 +2,7 @@ import streamlit as st
 from pages_code.attendance import attendance_page
 from pages_code.committees import committees_page
 from pages_code.company import company_page
+from pages_code.constituency import constituency_page
 from pages_code.corporate import corporate_page
 from pages_code.council_spending import council_spending_page
 from pages_code.election_2024 import election_2024_page
@@ -114,6 +115,12 @@ pg = st.navigation(
                 title="Member Overview",
                 icon=":material/person:",
                 url_path="member-overview",
+            ),
+            st.Page(
+                constituency_page,
+                title="Constituencies",
+                icon=":material/map:",
+                url_path="constituencies",
             ),
             st.Page(
                 attendance_page,

@@ -448,6 +448,18 @@ def ted_for_supplier(conn: duckdb.DuckDBPyConnection, join_norm: str) -> QueryRe
     )
 
 
+def epa_compliance_for_supplier(conn: duckdb.DuckDBPyConnection, company_num: int) -> QueryResult:
+    """One CRO company's EPA environmental-licence + enforcement record for the dossier panel,
+    matched on CRO ``company_num``. Returns the single summary row, or empty if the firm holds no EPA
+    licence. Licence portfolio + compliance counts only (a separate public register) — carries no money
+    and is never summed with the firm's award/payment figures."""
+    return _run(
+        conn,
+        "SELECT * FROM v_procurement_epa_compliance WHERE company_num = ?",
+        [company_num],
+    )
+
+
 def ted_notices_for_supplier(conn: duckdb.DuckDBPyConnection, join_norm: str) -> QueryResult:
     """One winner's individual TED award notices — the CONDUIT to the authoritative EU
     source. Each row carries the publication number, buyer, date, the value-kind tag and the

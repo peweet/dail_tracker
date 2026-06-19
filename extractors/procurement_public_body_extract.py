@@ -575,6 +575,19 @@ PUBLISHERS: list[dict] = [
         include=r"po-report|purchase-order|over-?20k",
     ),
     cfg(
+        "ie_tus",
+        "Technological University of the Shannon (TUS)",
+        "education_body",
+        "education",
+        listing="https://tus.ie/privacy/freedom-of-information/publications/financial-reports/",
+        semantics="po_committed",
+        grain="purchase_order",
+        privacy="medium",
+        tier="C",
+        # One rolling xlsx holding all quarters 2021Q4→2026Q1 (pinned: the listing is a JS widget).
+        direct=["https://tus.ie/app/uploads/ProfessionalServices/FOI/TUS_POs_over_20k_2021QTR4_2022_2023_2024_2025_Q1.2026.xlsx"],
+    ),
+    cfg(
         "ie_mtu",
         "Munster Technological University (MTU)",
         "education_body",
@@ -691,6 +704,78 @@ PUBLISHERS: list[dict] = [
         tier="E",
         direct=["https://www.nli.ie/sites/default/files/2025-05/payments-over-eu20000-q1-2025.pdf"],
         caveat="Drupal /sites/default/files PDFs; some files bundle Q1-Q4 annually",
+    ),
+    # ---- Batch A 2026-06-19: clean candidates from the seed (procurement_publishers_seed.py) ----
+    # gov.ie department collections (these crawl reliably, like the depts already above).
+    cfg(
+        "dept_finance",
+        "Department of Finance",
+        "department",
+        "central_government",
+        listing="https://www.gov.ie/en/department-of-finance/collections/purchase-orders/",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="A",
+    ),
+    cfg(
+        "dept_children",
+        "Department of Children, Disability and Equality",
+        "department",
+        "central_government",
+        listing="https://www.gov.ie/en/department-of-children-disability-and-equality/collections/department-of-children-equality-disability-integration-and-youth-purchase-orders-for-20000-or-above/",
+        semantics="po_committed",
+        grain="purchase_order",
+        privacy="medium",
+        tier="A",
+    ),
+    # agencies / regulators publishing a dedicated PO-over-20k page.
+    cfg(
+        "ie_hsa",
+        "Health and Safety Authority",
+        "agency",
+        "regulator",
+        listing="https://www.hsa.ie/eng/about_us/public_sector_information/purchase_orders_in_excess_of_-20_000/",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="C",
+        include=r"purchase|po[s]?[-_ ]?over|20[,]?000|quarter|q[1-4]",
+    ),
+    cfg(
+        "ie_cnam",
+        "Coimisiún na Meán",
+        "agency",
+        "media_culture",
+        listing="https://www.cnam.ie/about/reports-finances/procurement/",
+        semantics="po_committed",
+        grain="purchase_order",
+        tier="C",
+        include=r"po[-_ ]?report|purchase|20[,]?000|quarter|q[1-4]",
+    ),
+    cfg(
+        "ie_prisons",
+        "Irish Prison Service",
+        "agency",
+        "justice",
+        listing="https://www.irishprisons.ie/information-centre/procurement/",
+        semantics="po_committed",
+        grain="purchase_order",
+        privacy="medium",
+        tier="C",
+        include=r"po[s]?[-_ ]?(greater|over)|purchase|20k|e20k|20[,]?000",
+        caveat="Annual (not quarterly) PO list, incl-VAT; security redactions possible.",
+    ),
+    cfg(
+        "ie_screen",
+        "Screen Ireland",
+        "agency",
+        "media_culture",
+        listing="https://www.screenireland.ie/about/policies/purchase-orders-for-20000-or-above/2025",
+        semantics="po_committed",
+        grain="purchase_order",
+        privacy="medium",
+        tier="D",
+        include=r"purchase|po[s]?[-_ ]?over|20[,]?000|quarter|q[1-4]",
+        caveat="Film-funding body; payees may be individuals/production cos — privacy gate applies.",
     ),
 ]
 
@@ -1352,6 +1437,10 @@ def canonicalise_supplier_raw(df: pl.DataFrame) -> pl.DataFrame:
     DQ audit 2026-06-05 (A2)."""
     if df.is_empty() or "supplier_raw" not in df.columns or "po_number" not in df.columns:
         return df
+    # Defensive dtype cast: a body whose parse yielded an all-null supplier column comes through as
+    # dtype Null (not Utf8), and the str ops below then raise "expected String type, got: null".
+    # Casting makes the merge a no-op on such rows instead of crashing the whole run.
+    df = df.with_columns(pl.col("supplier_raw").cast(pl.Utf8))
     is_nbi = (pl.col("po_number").cast(pl.Utf8).str.to_uppercase().str.strip_chars() == "NBI") & (
         pl.col("supplier_raw").str.contains(r"(?i)\binfrastructure dac\b")
     )

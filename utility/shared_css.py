@@ -2744,6 +2744,96 @@ def inject_css() -> None:
             color: var(--text-secondary);
         }
 
+        /* Salary card (top of the Salary & expenses section on member-overview).
+           Statutory SET RATE — visually distinct from the PSA expense allowances
+           below so citizens don't conflate the two. Display-only: figures + the
+           basic/office split come straight from v_member_salary. */
+        .mo-salary-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--text-primary);
+            border-radius: 2px;
+            padding: 0.7rem 0.95rem 0.8rem;
+            margin: 0.35rem 0 0.5rem;
+        }
+        .mo-salary-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .mo-salary-eyebrow {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-meta);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .mo-salary-total {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-size: 1.45rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.1;
+        }
+        .mo-salary-per {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-meta);
+            margin-left: 0.25rem;
+        }
+        .mo-salary-breakdown {
+            display: grid;
+            gap: 0.2rem;
+            margin: 0.55rem 0 0.5rem;
+        }
+        .mo-salary-line {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: baseline;
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.87rem;
+            color: var(--text-secondary);
+            padding: 0.25rem 0;
+            border-bottom: 1px dotted var(--border);
+        }
+        .mo-salary-line span:last-child {
+            font-family: 'Zilla Slab', Georgia, serif;
+            font-weight: 700;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+        .mo-salary-note {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.8rem;
+            line-height: 1.45;
+            color: var(--text-secondary);
+            margin: 0.4rem 0 0.25rem;
+        }
+        .mo-salary-note a { color: var(--text-primary); }
+        .mo-salary-caveat {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.74rem;
+            line-height: 1.4;
+            color: var(--text-meta);
+            margin: 0;
+        }
+        .mo-pay-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 1rem 0 0.75rem;
+        }
+        .mo-pay-lead {
+            font-family: 'Epilogue', sans-serif;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            margin: 0 0 0.6rem;
+        }
+
         /* Embedded Attendance body (inside the Attendance expander on
            member-overview). Year breakdown replaces st.dataframe's
            ProgressColumn with a CSS-width bar — same information density,
@@ -5523,6 +5613,72 @@ def inject_css() -> None:
            and keep the base border subtle. */
         .stTabs [data-baseweb="tab-highlight"] { background: transparent !important; }
         .stTabs [data-baseweb="tab-border"]    { background: transparent !important; }
+
+        /* ── Constituencies page (Your Area) ───────────────────────────────── */
+        .con-card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 0.6rem;
+            margin: 0.4rem 0 0.6rem;
+        }
+        .con-card-inner { padding: 0.65rem 0.85rem; }
+        .con-card-name {
+            font-weight: 700; font-size: 1.02rem; color: var(--text-primary);
+            line-height: 1.25;
+        }
+        .con-card-meta {
+            margin-top: 0.25rem; font-size: 0.84rem; color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+        .con-card-sub {
+            margin-top: 0.15rem; font-size: 0.76rem; color: var(--text-meta);
+            font-variant-numeric: tabular-nums;
+        }
+        .con-hero { margin: 0.2rem 0 0.5rem; }
+        .con-hero-title { margin: 0.1rem 0 0.2rem; font-size: 1.7rem; font-weight: 700; }
+        .con-hero-meta {
+            margin: 0; color: var(--text-secondary); font-size: 0.95rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .con-party-bar { margin: 0.2rem 0 1.1rem; }
+        .con-section-note {
+            font-size: 0.86rem; color: var(--text-secondary); line-height: 1.55;
+            margin: 0.1rem 0 0.7rem; max-width: 60rem;
+        }
+        .con-council-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 0.6rem; margin: 0.2rem 0 0.6rem;
+        }
+        .con-council-card {
+            background: #ffffff; border: 1px solid rgba(0,0,0,0.08);
+            border-left: 3px solid #8d6e63; border-radius: 6px;
+            padding: 0.6rem 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .con-council-card-partial { border-left-color: rgba(0,0,0,0.14); opacity: 0.9; }
+        .con-council-name {
+            font-weight: 700; font-size: 0.98rem; color: var(--text-primary);
+            margin-bottom: 0.35rem;
+        }
+        .con-council-partial {
+            font-size: 0.66rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.04em; color: var(--text-meta);
+            background: rgba(0,0,0,0.05); border-radius: 3px; padding: 0.05rem 0.3rem;
+        }
+        .con-grain-row { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .con-grain {
+            font-size: 0.78rem; border-radius: 4px; padding: 0.12rem 0.45rem;
+            font-variant-numeric: tabular-nums; white-space: nowrap;
+        }
+        .con-grain em { font-style: normal; color: var(--text-meta); }
+        .con-grain-rev { background: #eef4f3; color: #2f5d57; }
+        .con-grain-cap { background: #f0f7f0; color: #356b3a; }
+        .con-grain-po  { background: #f5efe9; color: #7a5b43; }
+        .con-council-note {
+            margin-top: 0.4rem; font-size: 0.74rem; color: var(--text-meta);
+            font-style: italic;
+        }
+        .con-council-empty { font-size: 0.82rem; color: var(--text-meta); }
 
         </style>
         """,

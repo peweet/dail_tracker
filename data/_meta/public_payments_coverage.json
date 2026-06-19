@@ -1,20 +1,20 @@
 {
-  "publishers_attempted": 35,
-  "publishers_with_rows": 34,
-  "rows_extracted": 82789,
-  "rows_deduped_within_file": 3261,
-  "rows_public_display": 65313,
+  "publishers_attempted": 36,
+  "publishers_with_rows": 35,
+  "rows_extracted": 82796,
+  "rows_deduped_within_file": 0,
+  "rows_public_display": 65320,
   "rows_review_personal_data": 17476,
   "rows_quarantined": 17476,
   "supplier_class_counts": {
-    "foreign_company": 712,
-    "unknown": 5097,
-    "sole_trader_or_individual": 17476,
+    "unknown": 5104,
     "public_body": 3037,
+    "sole_trader_or_individual": 17476,
+    "foreign_company": 712,
     "company": 56467
   },
   "amount_semantics_counts": {
-    "po_committed": 37519,
+    "po_committed": 37526,
     "payment_actual": 45270
   },
   "value_safe_to_sum_rows": 72205,
@@ -439,11 +439,23 @@
       "rows": 261,
       "amount_semantics": "payment_actual",
       "privacy_risk": "low"
+    },
+    {
+      "id": "ie_tus",
+      "name": "Technological University of the Shannon (TUS)",
+      "tier": "C",
+      "files_seen": 5,
+      "files_parsed": 4,
+      "files_skipped": 1,
+      "files_with_rows": 1,
+      "rows": 7,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "medium"
     }
   ],
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-18T17:59:20+00:00",
+  "generated_at": "2026-06-19T17:54:28+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }
