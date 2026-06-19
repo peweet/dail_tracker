@@ -5694,7 +5694,13 @@ def inject_css() -> None:
             margin-top: 0.15rem; font-size: 0.76rem; color: var(--text-meta);
             font-variant-numeric: tabular-nums;
         }
-        .con-hero { margin: 0.2rem 0 0.5rem; }
+        .con-hero {
+            margin: 0.2rem 0 0.5rem; display: flex; gap: 1rem;
+            justify-content: space-between; align-items: flex-start;
+        }
+        .con-hero-text { flex: 1 1 auto; min-width: 0; }
+        .con-hero-map { flex: 0 0 auto; }
+        .con-locator { width: 92px; height: auto; max-height: 150px; display: block; }
         .con-hero-title { margin: 0.1rem 0 0.2rem; font-size: 1.7rem; font-weight: 700; }
         .con-hero-meta {
             margin: 0; color: var(--text-secondary); font-size: 0.95rem;
@@ -5741,6 +5747,29 @@ def inject_css() -> None:
             font-style: italic;
         }
         .con-council-empty { font-size: 0.82rem; color: var(--text-meta); }
+        /* council card -> by-division drill-down */
+        .con-div-wrap { display: flex; flex-direction: column; gap: 1.1rem; margin: 0.3rem 0 0.4rem; }
+        .con-div-head {
+            font-weight: 700; font-size: 0.9rem; color: var(--text-secondary);
+            margin-bottom: 0.45rem;
+        }
+        .con-div-row {
+            display: grid; grid-template-columns: 13rem 1fr 6.5rem; align-items: center;
+            gap: 0.65rem; padding: 0.16rem 0; font-size: 0.85rem;
+        }
+        .con-div-name {
+            color: var(--text-primary); white-space: nowrap; overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .con-div-track { background: #efeae0; border-radius: 3px; height: 0.72rem; overflow: hidden; }
+        .con-div-bar { height: 100%; background: #8d6e63; border-radius: 3px; }
+        .con-div-block:nth-child(2) .con-div-bar { background: #5a8f5e; }  /* capital lane = green */
+        .con-div-val {
+            text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary);
+        }
+        @media (max-width: 640px) {
+            .con-div-row { grid-template-columns: 8rem 1fr 5rem; font-size: 0.78rem; }
+        }
 
         </style>
         """,
