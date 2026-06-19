@@ -7,8 +7,15 @@ minister". This is the table a front-end "Ministers met these registered interes
 feature should sit on — NOT the raw mentions, which are too noisy to ship.
 
 Strictness (each filter removes a measured noise class — see project_ministerial_diaries):
-  1. HIGH tier only        — the display tier (96.3% measured precision); MEDIUM is
-                             research-only and unmeasured.
+  1. KEEP both tiers,      — the ``match_confidence`` column (high|medium) is carried through
+     carry confidence        so the front-end can lead with HIGH (≥2-token name found verbatim,
+                             96.3% measured precision) and mark MEDIUM as lower-confidence.
+                             DO NOT drop MEDIUM: a single distinctive token + an engagement cue
+                             is exactly how every single-word GLOBAL BRAND lands here — "Google",
+                             "Insurance" (Insurance Ireland), "Vodafone", "Pfizer" all normalise
+                             to one token, so a HIGH-only filter silently deletes the marquee
+                             names. (Generic single tokens are already gated upstream by the
+                             STOP list + length floor + engagement-cue requirement.)
   2. drop entry_class      — travel + media. "Return flight from Brussels Aer Lingus" and
      {travel, media}        "Virgin Media Tonight Show" are the org name appearing in a
                              flight/photocall line, not a meeting. This is the single
@@ -110,8 +117,7 @@ def main() -> int:
 
     mentions = pl.read_parquet(MENTIONS)
     overlap = (
-        mentions.filter(pl.col("match_confidence") == "high")
-        .filter(~pl.col("matched_org_name").is_in(list(PERSON_DENYLIST)))
+        mentions.filter(~pl.col("matched_org_name").is_in(list(PERSON_DENYLIST)))
         .filter(~pl.col("matched_org_name").str.contains("(?i)" + _GOV_BODY_RE.pattern))
         .join(entries.select(["entry_id", "entry_class", "department"]), on="entry_id", how="left")
         .filter(~pl.col("entry_class").is_in(list(EXCLUDE_CLASSES)))

@@ -62,6 +62,9 @@ EXTERNAL_LINKS_FILES = ["member_external_links.sql"]
 # {CONTACT_DETAILS_PARQUET_PATH} — optional (parquet may be absent on a fresh run).
 CONTACT_DETAILS_FILES = ["member_contact_details.sql"]
 
+# {NEWS_MENTIONS_PARQUET_PATH} — optional (parquet may be absent on a fresh run).
+NEWS_MENTIONS_FILES = ["member_news_mentions.sql"]
+
 # {PARQUET_PATH} + {SEANAD_VOTE_PARQUET_PATH} — vote_base must precede its dependents.
 VOTE_FILES = [
     "vote_base.sql",
@@ -143,6 +146,21 @@ def register_member_views(conn: duckdb.DuckDBPyConnection) -> None:
         )
     except Exception as exc:  # noqa: BLE001
         _log.warning("member views: could not load contact-details: %s", exc)
+
+    # Phase 3c — recent news mentions, per-member Google-News search (optional parquet).
+    try:
+        from config import SILVER_PARQUET_DIR
+
+        register_views(
+            conn,
+            NEWS_MENTIONS_FILES,
+            substitutions={
+                "{NEWS_MENTIONS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "news_mentions.parquet").as_posix()
+            },
+            swallow_errors=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("member views: could not load news-mentions: %s", exc)
 
     # Phase 4 — vote views (both houses, explicit two-parquet union in vote_base).
     try:

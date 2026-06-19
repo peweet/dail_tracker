@@ -5760,6 +5760,9 @@ def inject_css() -> None:
         .con-grain-ssha { background: #f0f3f8; color: #344b73; }
         .con-grain-wait { background: #f7f1ec; color: #7a4f2f; }
         .con-grain-perf { background: #f1f2f4; color: #3d4654; }
+        .hou-dim-title { font-weight: 600; font-size: 0.9rem; margin: 0.2rem 0 0.4rem; }
+        .hou-crumb { font-size: 0.85rem; color: var(--text-meta); margin: 0 0 0.5rem; }
+        .hou-crumb a { color: var(--text-meta); text-decoration: underline; }
         .con-council-note {
             margin-top: 0.4rem; font-size: 0.74rem; color: var(--text-meta);
             font-style: italic;
