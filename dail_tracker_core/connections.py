@@ -220,6 +220,7 @@ CONSTITUENCY_FILES = [
     "constituency_map_layers.sql",  # choropleth layers; JOINs registry + house_work
     "constituency_housing_context.sql",
     "constituency_ssha_waiting_list.sql",
+    "constituency_waiting_composition.sql",  # JOINs v_ssha_waiting_list_composition (registered below)
     "constituency_council_housing_performance.sql",
     "constituency_council_context.sql",
 ]
@@ -240,6 +241,8 @@ def constituency_conn() -> duckdb.DuckDBPyConnection:
     register_member_views(conn)
     register_views(conn, ["member_interests_*.sql", "member_zz_interests_*.sql"], swallow_errors=True)
     register_views(conn, ["procurement_*.sql"], swallow_errors=True)
+    # The national SSHA composition view — constituency_waiting_composition JOINs it.
+    register_views(conn, ["housing_ssha_waiting_list_composition.sql"], swallow_errors=True)
     register_views(conn, CONSTITUENCY_FILES, swallow_errors=True)
     return conn
 
