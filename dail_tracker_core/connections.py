@@ -47,10 +47,15 @@ DOMAIN_FILES = [
 # {MEMBER_PARQUET_PATH} + {SEANAD_MEMBER_PARQUET_PATH} substituted from config.
 # member_salary.sql joins v_member_registry and unpivots the office_N_name fields
 # from {MEMBER_PARQUET_PATH}, so it must register AFTER member_registry.sql.
-REGISTRY_FILES = ["member_registry.sql", "member_salary.sql"]
+# member_registry_all.sql joins v_member_registry + the historic rosters, so it
+# must also register AFTER member_registry.sql.
+REGISTRY_FILES = ["member_registry.sql", "member_registry_all.sql", "member_salary.sql"]
 
 # {EXTERNAL_LINKS_PARQUET_PATH} — optional (parquet may be absent on a fresh run).
 EXTERNAL_LINKS_FILES = ["member_external_links.sql"]
+
+# {CONTACT_DETAILS_PARQUET_PATH} — optional (parquet may be absent on a fresh run).
+CONTACT_DETAILS_FILES = ["member_contact_details.sql"]
 
 # {PARQUET_PATH} + {SEANAD_VOTE_PARQUET_PATH} — vote_base must precede its dependents.
 VOTE_FILES = [
@@ -90,6 +95,12 @@ def register_member_views(conn: duckdb.DuckDBPyConnection) -> None:
             substitutions={
                 "{MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_members.parquet").as_posix(),
                 "{SEANAD_MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_seanad_members.parquet").as_posix(),
+                # Historic backfill (former members + member×term sidecar) for
+                # v_member_registry_all. Extra keys are harmless to the other
+                # REGISTRY_FILES, which don't reference them.
+                "{HISTORIC_DAIL_PARQUET_PATH}": (SILVER_PARQUET_DIR / "historic_members_dail.parquet").as_posix(),
+                "{HISTORIC_SEANAD_PARQUET_PATH}": (SILVER_PARQUET_DIR / "historic_members_seanad.parquet").as_posix(),
+                "{MEMBER_TERMS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_terms.parquet").as_posix(),
             },
             swallow_errors=True,
         )
@@ -110,6 +121,23 @@ def register_member_views(conn: duckdb.DuckDBPyConnection) -> None:
         )
     except Exception as exc:  # noqa: BLE001
         _log.warning("member views: could not load external-links: %s", exc)
+
+    # Phase 3b — official contact details scraped from oireachtas.ie (optional parquet).
+    try:
+        from config import SILVER_PARQUET_DIR
+
+        register_views(
+            conn,
+            CONTACT_DETAILS_FILES,
+            substitutions={
+                "{CONTACT_DETAILS_PARQUET_PATH}": (
+                    SILVER_PARQUET_DIR / "member_contact_details.parquet"
+                ).as_posix()
+            },
+            swallow_errors=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("member views: could not load contact-details: %s", exc)
 
     # Phase 4 — vote views (both houses, explicit two-parquet union in vote_base).
     try:
@@ -165,6 +193,8 @@ CONSTITUENCY_FILES = [
     "constituency_members.sql",
     "constituency_party_breakdown.sql",
     "constituency_registry.sql",
+    "constituency_house_work.sql",
+    "constituency_housing_context.sql",
     "constituency_council_context.sql",
 ]
 
@@ -172,15 +202,17 @@ CONSTITUENCY_FILES = [
 def constituency_conn() -> duckdb.DuckDBPyConnection:
     """A fresh connection for the per-constituency dossier page.
 
-    Layers three view sets, in order: (1) the member set (registry +
-    constituency demographics + votes/speeches, with their substitutions) via
-    register_member_views; (2) the procurement glob (council summary + AFS
-    revenue/capital views the council-context view joins); (3) the constituency
+    Layers four view sets, in order: (1) the member set (registry + constituency
+    demographics + questions/votes/speeches/attendance, with substitutions) via
+    register_member_views; (2) the interests views the house-work view aggregates
+    (landlord/property flags); (3) the procurement glob (council summary + AFS
+    revenue/capital views the council-context view joins); (4) the constituency
     views themselves, in explicit dependency order. swallow_errors throughout so a
     missing optional fact degrades one section, not the whole page.
     """
     conn = duckdb.connect()
     register_member_views(conn)
+    register_views(conn, ["member_interests_*.sql", "member_zz_interests_*.sql"], swallow_errors=True)
     register_views(conn, ["procurement_*.sql"], swallow_errors=True)
     register_views(conn, CONSTITUENCY_FILES, swallow_errors=True)
     return conn
