@@ -65,6 +65,7 @@ PUBLISH_PATHS: list[str] = [
     "data/silver/parquet/ted_ie_awards.parquet",
     "data/silver/parquet/ted_ie_winner_history.parquet",
     "data/_meta/freshness.json",  # data-age badge file (data, not code)
+    "data/_meta/heartbeats",  # per-lane freshness heartbeats (one tiny JSON per refresh lane)
 ]
 
 

@@ -295,6 +295,11 @@ lobbyist/raw/
 # a subdir, so the *.csv negation above (top-level only) does not reach it.
 !data/_meta/procurement_publishers/
 !data/_meta/procurement_publishers/*.csv
+# per-lane freshness heartbeats (tools/freshness_heartbeat.py) — a subdir, so the
+# *.json negation above (top-level only) does not reach it. These tiny beats are the
+# refresh ledger the cloud Actions ship via publish_data.py, so they MUST be tracked.
+!data/_meta/heartbeats/
+!data/_meta/heartbeats/*.json
 
 # basedpyright baseline — snapshots known/false-positive type findings so CI
 # fails only on NEW errors. Must be tracked or CI re-flags the baselined items.
