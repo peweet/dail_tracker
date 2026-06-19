@@ -67,15 +67,20 @@ class Term:
 # Current terms (34th Dáil / 27th Seanad) are pulled too so member_terms is
 # complete and is_current is derivable, but they are dropped from the historic
 # roster (they already live in flattened_members).
+#
+# date_start MUST precede the term's first membership: the API filters members by
+# membership_start >= date_start, so a late start silently drops early-sworn
+# members (Seanad 26 returned 19/68 with a 2020-06-29 start — fixed to 2020-01-01).
+# Use a generous window per term (well before the election → well after dissolution).
 TERMS: list[Term] = [
-    Term("dail", 31, "2011-03-09", "2016-03-09"),
-    Term("dail", 32, "2016-03-10", "2020-02-07"),
-    Term("dail", 33, "2020-02-08", "2024-11-28"),
-    Term("dail", 34, "2024-11-29", "2099-01-01"),
-    Term("seanad", 24, "2011-04-25", "2016-04-24"),
-    Term("seanad", 25, "2016-04-25", "2020-06-28"),
-    Term("seanad", 26, "2020-06-29", "2025-01-22"),
-    Term("seanad", 27, "2025-01-23", "2099-01-01"),
+    Term("dail", 31, "2011-01-01", "2016-06-01"),
+    Term("dail", 32, "2016-01-01", "2020-06-01"),
+    Term("dail", 33, "2020-01-01", "2024-12-31"),
+    Term("dail", 34, "2024-09-01", "2099-01-01"),
+    Term("seanad", 24, "2011-01-01", "2016-12-31"),
+    Term("seanad", 25, "2016-01-01", "2020-12-31"),
+    Term("seanad", 26, "2020-01-01", "2025-12-31"),
+    Term("seanad", 27, "2025-01-01", "2099-01-01"),
 ]
 
 
