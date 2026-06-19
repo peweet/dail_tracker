@@ -7,7 +7,6 @@ from pages_code.corporate import corporate_page
 from pages_code.council_spending import council_spending_page
 from pages_code.election_2024 import election_2024_page
 from pages_code.glossary import glossary_page
-from pages_code.interests import interests_page
 from pages_code.judiciary import judiciary_page
 from pages_code.legislation import legislation_page
 from pages_code.lobbying_3 import lobbying_poc_page
@@ -18,6 +17,7 @@ from pages_code.public_appointments import public_appointments_page
 from pages_code.public_payments import public_payments_page
 from pages_code.statutory_instruments import statutory_instruments_page
 from pages_code.votes import votes_page
+from pages_code.what_they_own import what_they_own_page
 from shared_css import inject_css
 from ui.page_analytics import log_page_view
 from ui.spa_links import install_spa_links
@@ -54,6 +54,22 @@ def _home_page() -> None:
     member_overview_page()
 
 
+def _interests_redirect_page() -> None:
+    """Back-compat redirect: the old ``/rankings-interests`` league table was
+    replaced by ``/what-they-own``. Bookmarks and external deep links to the
+    old route land here (a hidden page that keeps the URL alive) and are
+    forwarded on. ``st.markdown`` not ``st.html`` — an st.html iframe would
+    redirect the iframe rather than the parent tab (same reason the interests
+    member-jump used a meta-refresh)."""
+    import streamlit as _st
+
+    _st.markdown(
+        '<meta http-equiv="refresh" content="0;url=/what-they-own">',
+        unsafe_allow_html=True,
+    )
+    _st.stop()
+
+
 # url_path is pinned explicitly so cross-page <a href> links don't break if a
 # title is renamed. Slugs must match utility/ui/entity_links.PAGES.
 #
@@ -76,6 +92,33 @@ def _home_page() -> None:
 # Home lives in the first group (visibility="hidden" keeps it off the bar).
 pg = st.navigation(
     {
+        # "What They Own" leads the entire bar (far-left, first slot): the
+        # plain-language front door to the Register of Members' Interests —
+        # what property/shares/companies the people who govern us own, across
+        # the whole record (sitting + former members, historic backfill). It is
+        # expected to be the highest-traffic feature, so it gets the prime slot
+        # ahead of even "Your Area". The existing /interests page stays put as
+        # the year-by-year league table under Members & Parliament.
+        "What They Own": [
+            st.Page(
+                what_they_own_page,
+                title="What They Own",
+                icon=":material/real_estate_agent:",
+                url_path="what-they-own",
+            ),
+        ],
+        # "Your Area" leads the bar: the constituency-first dossier (who represents you,
+        # what they do in the Dáil, housing + council money where you live) is the citizen
+        # entry point, so it gets a prominent top-level slot rather than nesting under
+        # Members & Parliament.
+        "Your Area": [
+            st.Page(
+                constituency_page,
+                title="Constituencies",
+                icon=":material/map:",
+                url_path="constituencies",
+            ),
+        ],
         "Members & Parliament": [
             st.Page(
                 _home_page,
@@ -91,19 +134,24 @@ pg = st.navigation(
                 url_path="member-overview",
             ),
             st.Page(
-                constituency_page,
-                title="Constituencies",
-                icon=":material/map:",
-                url_path="constituencies",
-            ),
-            st.Page(
                 attendance_page,
                 title="Attendance",
                 icon=":material/calendar_today:",
                 url_path="rankings-attendance",
             ),
             st.Page(votes_page, title="Votes", icon=":material/how_to_vote:", url_path="rankings-votes"),
-            st.Page(interests_page, title="Interests", icon=":material/interests:", url_path="rankings-interests"),
+            # The year-by-year Interests league table was REPLACED by the
+            # left-most "What They Own" page (the all-time, citizen-first front
+            # door to the Register of Members' Interests). entity_links.PAGES
+            # keeps "interests" → "what-they-own" so internal links resolve, and
+            # the hidden redirect page below keeps the old /rankings-interests
+            # route alive for external bookmarks (forwards to /what-they-own).
+            st.Page(
+                _interests_redirect_page,
+                title="Interests",
+                url_path="rankings-interests",
+                visibility="hidden",
+            ),
             st.Page(
                 committees_page,
                 title="Committees",

@@ -108,6 +108,28 @@ def constituency_housing_context(conn: duckdb.DuckDBPyConnection, constituency: 
     )
 
 
+def constituency_ssha_waiting_list(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
+    """Social-housing waiting list (Housing Agency SSHA 2025) for the local-authority
+    area(s) serving this constituency — council-area context, demand-side companion to
+    constituency_housing_context."""
+    return _run(
+        conn,
+        "SELECT * FROM v_constituency_ssha_waiting_list WHERE constituency_name = ?",
+        [constituency],
+    )
+
+
+def constituency_council_housing_performance(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
+    """How the local authority(ies) serving this constituency PERFORM on managing their
+    social-housing stock (NOAC 2024) — each metric beside the national median benchmark.
+    Council-area context, operations layer (distinct from need and supply)."""
+    return _run(
+        conn,
+        "SELECT * FROM v_constituency_council_housing_performance WHERE constituency_name = ?",
+        [constituency],
+    )
+
+
 def constituency_council_context(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
     """The local authority(ies) serving this area, each with its OWN money side by
     side (revenue / capital / PO / payment — never summed, never apportioned)."""
