@@ -39,6 +39,7 @@ from data_access.constituency_data import (
     fetch_constituency_council_housing_performance_result,
     fetch_constituency_housing_context_result,
     fetch_constituency_ssha_waiting_list_result,
+    fetch_constituency_waiting_composition_result,
     fetch_constituency_list_result,
     fetch_constituency_map_layers_result,
     fetch_constituency_members_result,
@@ -57,6 +58,7 @@ from ui.components import (
     hide_sidebar,
     page_error_boundary,
     party_stripe_html,
+    proportion_stripe_html,
     ranked_member_card,
     search_matches,
     subsection_heading,
@@ -135,6 +137,10 @@ def _yr(v) -> str:
 # 5-step warm sequential ramp (light beige → brand terracotta). Index 0 = lowest fifth.
 _CHORO_PALETTE = ["#f3ead9", "#e4c39c", "#d29a64", "#bd6e3e", "#a5431c"]
 _CHORO_NODATA = "#e9e2d4"
+# Fixed pixel height for the rendered map. Image-map <area> coords are in image
+# pixels and DON'T rescale when the <img> is CSS-resized, so the image is rendered
+# at a fixed size (CSS must not stretch it) and the coords are scaled to match.
+_CHORO_PX_H = 460
 
 # label → (quintile column, raw-value column, value formatter, caption phrase)
 _MAP_LAYERS: dict[str, tuple[str, str, object, str]] = {
@@ -155,15 +161,70 @@ _MAP_LAYERS: dict[str, tuple[str, str, object, str]] = {
 }
 
 
-def _choropleth_svg(quintile_by_name: dict, alt: str) -> str:
-    """All 43 constituencies filled by quintile bucket, as an <img> data-URI. '' if no
-    map geometry (page then just shows the grid)."""
+def _path_subpaths(d: str) -> list[list[tuple[float, float]]]:
+    """Parse an M/L/Z-only path 'd' into its subpath polygons (point lists)."""
+    subs: list[list[tuple[float, float]]] = []
+    for chunk in d.split("M"):
+        chunk = chunk.strip().replace("Z", "").replace("z", "")
+        if not chunk:
+            continue
+        pts: list[tuple[float, float]] = []
+        for tok in chunk.split("L"):
+            tok = tok.strip()
+            if not tok:
+                continue
+            try:
+                xs, ys = tok.split(",")
+                pts.append((float(xs), float(ys)))
+            except ValueError:
+                continue
+        if len(pts) >= 3:
+            subs.append(pts)
+    return subs
+
+
+def _poly_area(pts: list[tuple[float, float]]) -> float:
+    """Absolute shoelace area — used to pick the mainland (largest subpath)."""
+    s = 0.0
+    n = len(pts)
+    for i in range(n):
+        x1, y1 = pts[i]
+        x2, y2 = pts[(i + 1) % n]
+        s += x1 * y2 - x2 * y1
+    return abs(s) / 2.0
+
+
+def _area_coords(d: str, scale: float) -> str:
+    """The largest subpath of a constituency, as a scaled image-map 'coords' string.
+    Mapping only the mainland keeps each constituency to ONE clickable polygon (some
+    have 150+ island subpaths); the islands stay coloured but aren't click targets."""
+    subs = _path_subpaths(d)
+    if not subs:
+        return ""
+    best = max(subs, key=_poly_area)
+    nums: list[str] = []
+    for x, y in best:
+        nums.append(f"{x * scale:.1f}")
+        nums.append(f"{y * scale:.1f}")
+    return ",".join(nums)
+
+
+def _choropleth_html(quintile_by_name: dict, alt: str) -> str:
+    """All 43 constituencies filled by quintile, as a FIXED-SIZE <img> data-URI with a
+    clickable <map> overlay (each mainland → ?constituency= soft-nav via spa_links).
+    '' if no map geometry (page then just shows the grid)."""
     outlines = fetch_constituency_outlines()
     paths = outlines.get("constituencies", {})
     if not paths:
         return ""
     vb = outlines.get("viewbox", "0 0 621 1000")
-    body = []
+    try:
+        _, _, vw, vh = (float(t) for t in vb.split())
+    except ValueError:
+        vw, vh = 621.1, 1000.0
+    scale = _CHORO_PX_H / vh
+    px_w = round(vw * scale)
+    body, areas = [], []
     for name, d in paths.items():
         q = quintile_by_name.get(name)
         try:
@@ -171,11 +232,19 @@ def _choropleth_svg(quintile_by_name: dict, alt: str) -> str:
         except (TypeError, ValueError):
             fill = _CHORO_NODATA
         body.append(f'<path d="{d}" fill="{fill}" stroke="#fbf8f2" stroke-width="1.2"/>')
+        coords = _area_coords(d, scale)
+        if coords:
+            areas.append(
+                f'<area shape="poly" coords="{coords}" '
+                f'href="?constituency={quote(name)}" alt="{_h(name)}" title="{_h(name)}">'
+            )
     svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{vb}">{"".join(body)}</svg>'
     b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
     return (
-        f'<img class="con-choropleth" src="data:image/svg+xml;base64,{b64}" '
+        f'<img class="con-choropleth" width="{px_w}" height="{_CHORO_PX_H}" '
+        f'usemap="#con-choro-map" src="data:image/svg+xml;base64,{b64}" '
         f'alt="{_h(alt)}" loading="lazy">'
+        f'<map name="con-choro-map">{"".join(areas)}</map>'
     )
 
 
@@ -203,13 +272,14 @@ def _render_choropleth() -> None:
     )
     qcol, _vcol, _fmt, phrase = _MAP_LAYERS[choice]
     quint = {str(r["constituency_name"]): r[qcol] for _, r in df.iterrows() if pd.notna(r[qcol])}
-    svg = _choropleth_svg(quint, alt=f"Map of the 43 Dáil constituencies shaded by {choice}")
-    if not svg:
+    map_html = _choropleth_html(quint, alt=f"Map of the 43 Dáil constituencies shaded by {choice}")
+    if not map_html:
         return
-    st.html(f'<div class="con-choro">{svg}{_choro_legend()}</div>')
+    st.html(f'<div class="con-choro">{map_html}{_choro_legend()}</div>')
     st.caption(
         f"Each of the 43 constituencies shaded into fifths by {phrase}. "
-        "Boundaries: 2023 Electoral Commission review (Census 2022). Pick a card below to open a dossier."
+        "Click a constituency to open its dossier, or pick a card below. "
+        "Boundaries: 2023 Electoral Commission review (Census 2022)."
     )
 
 
@@ -468,6 +538,40 @@ def _render_housing(name: str) -> None:
     )
     if src:
         st.caption(src)
+    _render_waiting_breakdown(name)
+
+
+# Dimensions shown in the "who's waiting here" expander (sequential time stripe first).
+_WAIT_DIMS = [
+    ("time_on_list", "How long they’ve waited", "sequential"),
+    ("tenure", "Where they live now", "categorical"),
+    ("employment", "Employment", "categorical"),
+]
+
+
+def _render_waiting_breakdown(name: str) -> None:
+    """Expander: the social-housing waiting-list composition for the serving council(s),
+    reusing the national composition view (grain='la'). Collapsed by default."""
+    res = fetch_constituency_waiting_composition_result(name)
+    if not res.ok or res.data.empty:
+        return
+    df = res.data
+    with st.expander("Who’s waiting here — breakdown by serving council"):
+        for council in df["local_authority"].drop_duplicates():
+            sub = df[df["local_authority"] == council]
+            st.html(f'<p class="hou-dim-title" style="font-size:0.95rem">{_h(str(council))}</p>')
+            for dim, title, palette in _WAIT_DIMS:
+                d = sub[sub["dimension"] == dim].sort_values(
+                    ["ord", "count"], ascending=[True, False], na_position="last"
+                )
+                if d.empty:
+                    continue
+                segs = [(str(r["category"]), float(r["count"])) for _, r in d.iterrows()]
+                st.html(
+                    f'<p class="con-section-note" style="margin:0.3rem 0 0.2rem">{title}</p>'
+                    + proportion_stripe_html(segs, palette=palette)
+                )
+        st.caption("Housing Agency SSHA 2025 · council-area figures (the area is not the constituency).")
 
 
 def _perf_pill(value, fmt: str, label: str, national, nat_fmt: str | None = None) -> str:

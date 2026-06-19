@@ -21,6 +21,7 @@ from extractors.diary_org_match import (
     anchor_tier,
     build_gazetteer,
     build_token_index,
+    is_personal_name,
     match_subject,
     norm,
 )
@@ -112,3 +113,35 @@ def test_generic_topic_demoted_to_medium() -> None:
     # a generic industry phrase is demoted out of the HIGH display tier
     gaz = build_gazetteer(["Renewable Energy Ireland"], [])
     assert gaz["renewable energy"][2] == "medium"
+
+
+# --- person_primarily_responsible exclusion (2026-06-19: the 'Dónall Geoghegan'
+# trailing-attendee-tag FP class). is_personal_name decides which names drawn from
+# the lobbying register's person field are INDIVIDUALS (excluded from the gazetteer)
+# vs orgs that were mistyped into that field (rescued).
+def test_personal_name_excludes_individuals() -> None:
+    # the FP names that polluted the diary match — two-token person names
+    assert is_personal_name("donall geoghegan", set())
+    assert is_personal_name("david kelly", set())
+
+
+def test_personal_name_rescues_org_token_names() -> None:
+    # real orgs mistyped into the person field keep an org-indicator token → survive
+    assert not is_personal_name("limerick chamber", set())
+    assert not is_personal_name("irish hairdressers federation", set())  # 3 tokens anyway
+    assert not is_personal_name("coalition 2030", set())
+
+
+def test_personal_name_rescues_known_client_org() -> None:
+    # a two-token org with no org-token survives if it is a known client
+    assert is_personal_name("dave fallon", set())                  # person
+    assert not is_personal_name("dave fallon", {"dave fallon"})    # but not if it's a client org
+
+
+def test_responsible_person_excluded_from_gazetteer() -> None:
+    # end-to-end: a person name passed via person_names never enters the gazetteer,
+    # so the diary subject that names them yields no org mention
+    gaz = build_gazetteer(["Dónall Geoghegan"], [], person_names={norm("Dónall Geoghegan")})
+    idx = build_token_index(gaz)
+    assert "donall geoghegan" not in gaz
+    assert match_subject("Pre-Cab - Donall Geoghegan", "Ryan", gaz, idx) == []

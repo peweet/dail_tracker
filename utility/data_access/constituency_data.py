@@ -84,6 +84,11 @@ def fetch_constituency_ssha_waiting_list_result(constituency: str) -> QueryResul
 
 
 @st.cache_data(ttl=300)
+def fetch_constituency_waiting_composition_result(constituency: str) -> QueryResult:
+    return _q.constituency_waiting_composition(get_constituency_conn(), constituency)
+
+
+@st.cache_data(ttl=300)
 def fetch_constituency_council_housing_performance_result(constituency: str) -> QueryResult:
     return _q.constituency_council_housing_performance(get_constituency_conn(), constituency)
 
