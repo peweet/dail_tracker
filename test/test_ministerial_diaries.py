@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from extractors._diary_minister import resolve_minister
 from extractors.ministerial_diaries_extract import parse_entries
 
 
@@ -74,3 +75,56 @@ def test_label_and_blank_noise_lines_ignored():
     out = parse_entries(text, default_year=None, default_month=None)
     assert len(out) == 1
     assert out[0]["subject"] == "Meeting with ISME"
+
+
+def test_inline_ddmmyyyy_layout():
+    # Early DETE (Breen/Halligan 2016-18) ship one engagement per line: "DD/MM/YYYY HH:MM subject".
+    text = "\n".join(
+        [
+            "Meeting Time",
+            "Subject",
+            "09/01/2017 11:00 Enterprise Ireland End of year Results",
+            "13/01/2017 14:15 Meeting with the Taoiseach",
+        ]
+    )
+    out = parse_entries(text, default_year=None, default_month=None)
+    assert len(out) == 2
+    assert out[0]["entry_date"] == date(2017, 1, 9)  # day-first
+    assert out[0]["time_slot"] == "11:00"
+    assert out[0]["subject"] == "Enterprise Ireland End of year Results"
+    assert out[1]["entry_date"] == date(2017, 1, 13)
+
+
+def test_bare_timestamp_without_subject_is_not_an_entry():
+    # A Finance print-timestamp line with nothing after the time must NOT become an engagement.
+    text = "\n".join(["14/04/2025 11:35"])
+    assert parse_entries(text, default_year=None, default_month=None) == []
+
+
+def test_multiyear_weekday_list_uses_section_year():
+    # HEALTH "April 23 to Jan 25" list: yearless "Sat 1 Apr" headers dated by the running
+    # "Month YYYY" section header, so a multi-year document is not stamped with one inferred year.
+    text = "\n".join(
+        [
+            "April 2023",
+            "Sat 1 Apr",
+            "17:00 – 19:00",
+            "Good Friday Agreement event",
+            "January 2025",
+            "Wed 1 Jan",
+            "All Day",
+            "Bank Holiday",
+        ]
+    )
+    out = parse_entries(text, default_year=None, default_month=None)
+    assert len(out) == 2
+    assert out[0]["entry_date"] == date(2023, 4, 1)
+    assert out[1]["entry_date"] == date(2025, 1, 1)  # year rolled forward by the section header
+
+
+def test_taoiseach_attributed_by_date_across_rotation():
+    # The Taoiseach's own (surname-less) diary attributes to the holder on the entry date.
+    f = "taoiseachs-diary-2023_q2.pdf"
+    assert resolve_minister(f, "TAOISEACH", date(2022, 6, 1)) == "Martin"
+    assert resolve_minister(f, "TAOISEACH", date(2023, 5, 1)) == "Varadkar"
+    assert resolve_minister(f, "TAOISEACH", date(2024, 9, 1)) == "Harris"

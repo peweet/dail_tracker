@@ -49,6 +49,11 @@ from data_access.corporate_data import (
     fetch_cbi_notice_matches,
     fetch_cbi_repeat_distress,
     fetch_corporate_notices,
+    fetch_receiver_appointers,
+    fetch_receiver_bucket_mix,
+    fetch_receiver_firms,
+    fetch_receiver_summary,
+    fetch_receiver_year_counts,
 )
 from data_access.freshness_data import freshness_line
 from shared_css import inject_css
@@ -867,73 +872,16 @@ def load_corporate() -> pd.DataFrame:
     return df
 
 
-# Same legal-form strip as extractors/cbi_registers_extract._norm_firm —
-# inlined here so the page can normalise entity_name → entity_norm at row time
-# (the corporate_notices parquet has no stable per-row primary key we can use
-# to pre-join; notice_ref is sparse and shared across many rows).
-_NORM_SUFFIX_RE = re.compile(
-    r"\b(public limited company|limited liability partnership|limited|ltd\.?|"
-    r"plc|llp|sa|nv|gmbh|inc\.?)\b\.?",
-    re.I,
-)
-
-
-def _norm_entity(name) -> str:
-    if name is None or (isinstance(name, float) and pd.isna(name)):
-        return ""
-    s = str(name)
-    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii").lower()
-    s = re.sub(r"\bt/?a\b.*$", "", s)
-    s = _NORM_SUFFIX_RE.sub(" ", s)
-    s = re.sub(r"[^a-z0-9 ]+", " ", s)
-    return re.sub(r"\s+", " ", s).strip()
-
-
-@st.cache_data(show_spinner=False)
-def load_cbi_badges() -> list[tuple[str, dict]]:
-    """Sorted (entity_norm, badge_info) list for on-card CBI badge lookup.
-
-    Sandbox source — see sql_views/corporate/corporate_cbi_distress.sql header for
-    provenance. Returned as a list sorted by name-length descending so the
-    badge resolver can take the *longest* matching CBI firm name appearing as
-    a word-boundary substring of a notice's normalised entity_name. This is
-    needed because corporate_notices entity_name often carries notice-text
-    prefixes ('presented to the High Court by ...', '... in its capacity as
-    trustee') that exact-match-equality misses but substring matching
-    correctly handles. The CBI side already requires corporate keywords +
-    ≥6 chars in the firm name, so substring matching is safe from noise.
-    """
-    df = fetch_cbi_notice_matches()
-    if df.empty:
-        return []
-    seen: dict[str, dict] = {}
-    for _, r in df.iterrows():
-        norm = r.get("entity_norm")
-        if not norm or len(str(norm)) < 6:
-            continue
-        if norm not in seen:
-            seen[str(norm)] = {
-                "register": str(r.get("primary_register") or ""),
-                "ref_no": str(r.get("primary_ref_no") or ""),
-            }
-    # Longest-first ordering so longest match wins (avoids "wealth" eating
-    # "wealth options trustees").
-    return sorted(seen.items(), key=lambda kv: -len(kv[0]))
-
-
-def _resolve_cbi_badge(entity_name, badges: list[tuple[str, dict]]) -> dict | None:
-    """Find the longest CBI firm name appearing as a delimited substring of
-    the given notice's normalised entity_name. Returns None when no match."""
-    if not badges:
+def _row_cbi_badge(row: pd.Series) -> dict | None:
+    """CBI authorisation badge for a notice, read from the PRECOMPUTED
+    cbi_register / cbi_ref_no columns on v_corporate_notices (graduated out of a
+    row-time substring join — extractors/corporate_receiver_enrich.py, method B2:
+    exact entity-norm match plus >=2-token longest-substring, which drops the
+    single-token false positives the old resolver shipped). None when unmatched."""
+    reg = _safe(row.get("cbi_register"))
+    if not reg:
         return None
-    ent_norm = _norm_entity(entity_name)
-    if not ent_norm or len(ent_norm) < 6:
-        return None
-    padded = f" {ent_norm} "
-    for cand_norm, info in badges:
-        if f" {cand_norm} " in padded:
-            return info
-    return None
+    return {"register": reg, "ref_no": _safe(row.get("cbi_ref_no"))}
 
 
 @st.cache_data(show_spinner=False)
@@ -1029,43 +977,25 @@ def _clear_facet(key: str) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 # Featured panel — receiver-appointer ranking + year sparkline
 # ──────────────────────────────────────────────────────────────────────────────
-def _render_featured(df: pd.DataFrame) -> None:
-    """logic_firewall: display_only — ranks by parent fund + a small yearly
-    trend. All aggregation here is presentation, not modelling."""
-    # Receivership-shaped subset, same definition as the enrichment uses.
-    recv = df[
-        (df["notice_subtype"] == "receivership")
-        | df["raw_text"]
-        .fillna("")
-        .astype(str)
-        .str.contains(
-            "APPOINTMENT OF (?:STATUTORY )?RECEIVER|NOTICE OF APPOINTMENT OF RECEIVER",
-            case=False,
-            regex=True,
-            na=False,
-        )
-    ]
-    n_recv = len(recv)
+def _render_featured() -> None:
+    """Receiver-appointer ranking + a small yearly trend. The ranking, the
+    dominant-fund-type classification, the SPV/coverage stats and the year series
+    are PRECOMPUTED in v_corporate_receiver_* (extractors/corporate_receiver_enrich.py)
+    — this panel describes the full corpus, independent of the page filters, so the
+    aggregation is pipeline-owned. This function only formats + renders."""
+    summary = fetch_receiver_summary()
+    if summary.empty:
+        return
+    n_recv = int(summary["n_recv"].iloc[0])
     if n_recv == 0:
         return
+    n_spv = int(summary["n_spv"].iloc[0])
+    n_tagged = int(summary["n_tagged"].iloc[0])
+    spv_pct = round(100 * n_spv / max(n_recv, 1))
+    coverage_pct = round(100 * n_tagged / max(n_recv, 1))
 
-    # Explode parent_fund_mentions and count per parent (each notice counted once
-    # per distinct parent).
-    parent_rows: list[dict] = []
-    for _, r in recv.iterrows():
-        parents = r.get("parent_fund_mentions")
-        parents = list(parents) if parents is not None and hasattr(parents, "__iter__") else []
-        ftypes = r.get("fund_type_mentions")
-        ftypes = list(ftypes) if ftypes is not None and hasattr(ftypes, "__iter__") else []
-        for i, p in enumerate(parents):
-            if p:
-                parent_rows.append(
-                    {
-                        "parent": p,
-                        "ftype": (ftypes[i] if i < len(ftypes) else "") or "",
-                    }
-                )
-    if not parent_rows:
+    appointers = fetch_receiver_appointers()
+    if appointers.empty:
         st.html(
             '<section class="corp-featured" aria-label="Featured receiver-appointer panel">'
             '<div><div class="corp-featured-kicker">Receiver-appointers</div>'
@@ -1076,77 +1006,23 @@ def _render_featured(df: pd.DataFrame) -> None:
         )
         return
 
-    # SPV-shape detector — entity_name ending in / containing DAC, ICAV, or
-    # the long form "DESIGNATED ACTIVITY COMPANY". These are Section 110 SPVs
-    # or fund vehicles used by vulture funds / banks to hold loan books.
-    _SPV_RE = re.compile(r"\b(DAC|DESIGNATED ACTIVITY COMPANY|ICAV)\b", re.I)
-    n_spv = int(recv["entity_name"].fillna("").astype(str).str.contains(_SPV_RE, regex=True, na=False).sum())
-    spv_pct = round(100 * n_spv / max(n_recv, 1))
-
-    pdf = pd.DataFrame(parent_rows)
-    # Dominant type per parent — mode, not "first" (the old picker mislabelled
-    # Cerberus as 'credit servicer' even though its dominant role across
-    # receivership notices is 'vulture fund'). Ties broken by canonical priority.
-    _TYPE_PRIORITY = {
-        "vulture fund": 0,
-        "credit servicer": 1,
-        "Irish bank": 2,
-        "Irish bank (winding down)": 2,
-        "Irish bank (exited)": 2,
-        "state asset manager": 3,
-        "state agency": 3,
-    }
-
-    def _dominant_ftype(s: pd.Series) -> str:
-        counts = s.value_counts()  # logic_firewall: display_only
-        if counts.empty:
-            return ""
-        top_n = counts.iloc[0]
-        winners = counts[counts == top_n].index.tolist()
-        # Priority tiebreak so canonical role (vulture > servicer > bank > state) wins
-        winners.sort(key=lambda x: (_TYPE_PRIORITY.get(x, 99), x))
-        return winners[0]
-
-    parent_to_ftype: dict[str, str] = pdf.groupby("parent")["ftype"].agg(_dominant_ftype).to_dict()
-
+    # Top-N appointer rows — shape matches the old in-page frame (index=parent,
+    # columns n / ftype / bucket) so the rendering below is unchanged.
     top = (
-        pdf.groupby("parent")
-        .size()
-        .rename("n")
-        .reset_index()
-        .assign(ftype=lambda d: d["parent"].map(parent_to_ftype))
-        .sort_values("n", ascending=False)
-        .head(FEATURED_TOP_N)
+        appointers.head(FEATURED_TOP_N)
+        .rename(columns={"n_notices": "n", "dominant_fund_type": "ftype", "type_bucket": "bucket"})
         .set_index("parent")
     )
-    n_tagged = int(
-        recv["parent_fund_mentions"]
-        .apply(lambda x: bool(x is not None and hasattr(x, "__iter__") and len(list(x)) > 0))
-        .sum()
-    )
-    coverage_pct = round(100 * n_tagged / max(n_recv, 1))
 
-    # Type-mix breakdown across ALL tagged parent mentions (not just top-N).
-    # Bucket the fine-grained Irish-bank variants + state variants for the
-    # headline stat.
-    def _type_bucket(ft: str) -> str:
-        if not ft:
-            return "other"
-        ft_low = ft.lower()
-        if "vulture" in ft_low:
-            return "vulture"
-        if "servicer" in ft_low:
-            return "servicer"
-        if "irish bank" in ft_low or ft_low.startswith("bank"):
-            return "bank"
-        if "state" in ft_low or "nama" in ft_low or "revenue" in ft_low:
-            return "state"
-        return "other"
+    # Receivership-by-year series for the sparkline (precomputed, same parse as
+    # the page used; index=year, values=count).
+    _yc = fetch_receiver_year_counts()
+    yc = _yc.set_index("year")["n"].sort_index() if not _yc.empty else pd.Series(dtype=int)
 
-    pdf["bucket"] = pdf["parent"].map(parent_to_ftype).map(_type_bucket)
-    bucket_counts = pdf["bucket"].value_counts()  # logic_firewall: display_only
-    bucket_total = int(bucket_counts.sum()) or 1
-    bucket_pct = {k: round(100 * v / bucket_total) for k, v in bucket_counts.items()}
+    # Type-mix breakdown across ALL tagged parent mentions (precomputed, mention-weighted).
+    bucket_mix = fetch_receiver_bucket_mix()
+    bucket_total = int(bucket_mix["n"].sum()) or 1
+    bucket_pct = {r["type_bucket"]: round(100 * int(r["n"]) / bucket_total) for _, r in bucket_mix.iterrows()}
     _BUCKET_LABEL = {
         "vulture": "vulture funds",
         "servicer": "credit servicers",
@@ -1183,7 +1059,7 @@ def _render_featured(df: pd.DataFrame) -> None:
     for parent, row in top.iterrows():
         width = max(8, int(round(100 * (int(row["n"]) / max_n))))
         ftype = row.get("ftype") or ""
-        bucket = _type_bucket(ftype)
+        bucket = row.get("bucket") or "other"
         chip_html = (
             (
                 f'<span class="corp-rank-typechip {bucket}" title="{html.escape(ftype)}">'
@@ -1208,7 +1084,7 @@ def _render_featured(df: pd.DataFrame) -> None:
 
     # Year sparkline of the receiver wave. Pure-data note (peak / low /
     # latest-full-year + counts) — no causal framing per the no-inference rule.
-    yc = recv["year"].dropna().astype(int).value_counts().sort_index()  # logic_firewall: display_only
+    # yc is precomputed above from v_corporate_receiver_year_counts.
     if yc.empty:
         spark_html = ""
     else:
@@ -1347,106 +1223,33 @@ def _render_this_year_callout(df: pd.DataFrame, cbi_repeat: pd.DataFrame | None)
 # Operator-side: which professional firms are appointed AS receiver. This is
 # the counterpart to the appointer panel — the latter shows the funds calling
 # in loans; this strip shows the accountancy / boutique firms doing the work.
-# logic_firewall: display_only. Single-pass regex over raw_text of the
-# receivership-shaped subset; cached via @st.cache_data.
+# The firm tagging (regex over raw_text), the per-firm notice-presence counts and
+# the Big-6 set are PRECOMPUTED in v_corporate_receiver_firms / receiver_summary
+# (extractors/corporate_receiver_enrich.py). This strip only formats + renders.
 # ──────────────────────────────────────────────────────────────────────────────
-_OPERATOR_PATTERNS_WORD = [
-    ("Deloitte", re.compile(r"\bDeloitte\b")),
-    ("Grant Thornton", re.compile(r"\bGrant Thornton\b")),
-    ("Mazars", re.compile(r"\bMazars\b")),
-    ("Kroll", re.compile(r"\bKroll\b")),
-    ("Crowe", re.compile(r"\bCrowe\b")),
-    ("Friel Stafford", re.compile(r"\bFriel Stafford\b")),
-    ("McKeogh Gallagher Ryan", re.compile(r"\bMcKeogh Gallagher Ryan\b")),
-    ("McStay Luby", re.compile(r"\bMcStay Luby\b")),
-    ("Hughes Blake", re.compile(r"\bHughes Blake\b")),
-    ("Baker Tilly", re.compile(r"\bBaker Tilly\b")),
-    ("Cooney Carey", re.compile(r"\bCooney Carey\b")),
-    ("FTI Consulting", re.compile(r"\bFTI Consulting\b")),
-    ("Interpath", re.compile(r"\bInterpath\b")),
-    ("Teneo", re.compile(r"\bTeneo\b")),
-]
-# Case-sensitive uppercase abbreviation matches — lowercase variants are too
-# noisy ('ey' matched inside many unrelated words during probing).
-_OPERATOR_PATTERNS_CASE = [
-    ("EY", re.compile(r"\bEY\b")),
-    ("KPMG", re.compile(r"\bKPMG\b")),
-    ("BDO", re.compile(r"\bBDO\b")),
-    ("RBK", re.compile(r"\bRBK\b")),
-    ("OCKT", re.compile(r"\bOCKT\b")),
-]
-_OPERATOR_PWC = re.compile(r"\b(?:PwC|PWC|PricewaterhouseCoopers|PriceWaterhouseCoopers)\b")
-
-
-@st.cache_data(show_spinner=False)
-def _receiver_firm_concentration(raw_texts: tuple[str, ...]) -> list[tuple[str, int]]:
-    """Count distinct receivership notices mentioning each professional firm.
-    Each firm is counted at most ONCE per notice — so the number reflects
-    notice presence, not raw mention frequency."""
-    if not raw_texts:
-        return []
-    counts: dict[str, int] = {}
-    for raw in raw_texts:
-        if not raw:
-            continue
-        present: set[str] = set()
-        for name, pat in _OPERATOR_PATTERNS_WORD:
-            if pat.search(raw):
-                present.add(name)
-        for name, pat in _OPERATOR_PATTERNS_CASE:
-            if pat.search(raw):
-                present.add(name)
-        if _OPERATOR_PWC.search(raw):
-            present.add("PwC")
-        for name in present:
-            counts[name] = counts.get(name, 0) + 1
-    return sorted(counts.items(), key=lambda kv: -kv[1])
-
-
-def _render_operator_strip(df: pd.DataFrame) -> None:
+def _render_operator_strip() -> None:
     """Thin sub-strip below the appointer panel listing receiver firms by
-    notice presence. Each chip links to ?q=<firm> to filter the feed."""
-    if df is None or df.empty:
+    notice presence. Each chip links to ?firm=<firm> to open the firm view."""
+    firms = fetch_receiver_firms()
+    if firms.empty:
         return
-    recv = df[
-        (df["notice_subtype"] == "receivership")
-        | df["raw_text"]
-        .fillna("")
-        .astype(str)
-        .str.contains(
-            "APPOINTMENT OF (?:STATUTORY )?RECEIVER|NOTICE OF APPOINTMENT OF RECEIVER",
-            case=False,
-            regex=True,
-            na=False,
-        )
-    ]
-    if recv.empty:
+    summary = fetch_receiver_summary()
+    if summary.empty:
         return
-    raw_texts = tuple(recv["raw_text"].fillna("").astype(str).tolist())
-    top = _receiver_firm_concentration(raw_texts)[:10]
-    if not top:
+    n_recv = int(summary["n_recv"].iloc[0])
+    n_any_tagged = int(summary["n_any_tagged"].iloc[0])
+    if n_recv == 0 or n_any_tagged == 0:
         return
 
-    n_recv = len(recv)
-    # Distinct notices mentioning at least one operator firm — recompute cheaply
-    # via a single combined regex pass (only used for the headline %).
-    combined_pat = re.compile(
-        r"\bDeloitte\b|\bGrant Thornton\b|\bMazars\b|\bKroll\b|\bCrowe\b|"
-        r"\bFriel Stafford\b|\bMcKeogh Gallagher Ryan\b|\bMcStay Luby\b|"
-        r"\bHughes Blake\b|\bBaker Tilly\b|\bCooney Carey\b|\bFTI Consulting\b|"
-        r"\bInterpath\b|\bTeneo\b|\bEY\b|\bKPMG\b|\bBDO\b|\bRBK\b|\bOCKT\b|"
-        r"\b(?:PwC|PWC|PricewaterhouseCoopers|PriceWaterhouseCoopers)\b"
-    )
-    n_any_tagged = sum(1 for t in raw_texts if combined_pat.search(t or ""))
+    top = firms.head(10)
     cov_pct = round(100 * n_any_tagged / max(n_recv, 1))
-
-    # Big 6 share of those tagged (the concentration story)
-    big6 = {"Deloitte", "EY", "PwC", "KPMG", "Grant Thornton", "BDO", "Mazars"}
-    n_big6 = sum(n for name, n in top if name in big6)
+    # Big 6 share of those tagged (the concentration story) — matches the original
+    # which summed Big-6 presence across the displayed top-10 only.
+    n_big6 = int(top.loc[top["is_big6"], "n_notices"].sum())
     big6_pct_of_tagged = round(100 * n_big6 / max(n_any_tagged, 1))
 
     chip_html: list[str] = []
-    for name, n in top:
+    for name, n in zip(top["firm"], top["n_notices"], strict=True):
         chip_html.append(
             f'<a class="corp-operator-chip" href="?firm={html.escape(name, quote=True)}" '
             f'target="_self" aria-label="Open the {html.escape(name, quote=True)} firm view">'
@@ -1479,21 +1282,25 @@ def _render_operator_strip(df: pd.DataFrame) -> None:
 #      often named alongside) — the insight unique to this dataset,
 #   2. the role mix (which notice types the firm shows up in), then
 #   3. the case list, year-grouped, with Iris links (reuses _render_feed).
-# Honesty: matching is regex notice-presence over raw_text (same as the strip),
-# so copy says "named in", never "was receiver in". logic_firewall: display_only.
+# Honesty: matching is notice-presence (precomputed receiver_firms tag — same
+# regex the strip counts with), so copy says "named in", never "was receiver in".
 # ──────────────────────────────────────────────────────────────────────────────
-_OPERATOR_PATTERN_BY_NAME: dict[str, re.Pattern[str]] = {
-    **{name: pat for name, pat in _OPERATOR_PATTERNS_WORD},
-    **{name: pat for name, pat in _OPERATOR_PATTERNS_CASE},
-    "PwC": _OPERATOR_PWC,
-}
-
-
 def _firm_notice_mask(df: pd.DataFrame, firm: str) -> pd.Series:
-    """Boolean mask of notices whose raw_text names the firm, using the same
-    pattern the operator strip counts with (literal word-boundary fallback for
-    any firm not in the curated list)."""
-    pat = _OPERATOR_PATTERN_BY_NAME.get(firm) or re.compile(r"\b" + re.escape(firm) + r"\b")
+    """Boolean mask of notices naming the firm. Curated firms are matched via the
+    precomputed receiver_firms tag column (filter on an approved column). A
+    free-text firm not in the curated tag set falls back to a literal
+    word-boundary search over raw_text."""
+
+    def _tagged(fs) -> bool:
+        try:
+            return firm in fs
+        except TypeError:
+            return False
+
+    by_tag = df["receiver_firms"].apply(_tagged)
+    if bool(by_tag.any()):
+        return by_tag
+    pat = re.compile(r"\b" + re.escape(firm) + r"\b")
     return df["raw_text"].fillna("").astype(str).apply(lambda t: bool(pat.search(t)))
 
 
@@ -1537,7 +1344,7 @@ def _firm_ranked_rows(items: list[tuple[str, int]], link_fund: bool = False) -> 
     return "".join(rows)
 
 
-def _render_firm_view(df: pd.DataFrame, firm: str, cbi_badges: list[tuple[str, dict]] | None = None) -> None:
+def _render_firm_view(df: pd.DataFrame, firm: str) -> None:
     if back_button("← Back to corporate notices", key="corp_firm"):
         st.session_state.pop("corp_firm_view", None)
         st.query_params.clear()
@@ -2071,21 +1878,20 @@ def _render_card(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = Non
         pills.append(f'<span class="corp-pill corp-pill-fund">+{len(parents) - 2}</span>')
 
     # Experimental: CBI authorisation badge, when the notice's entity is on
-    # a Central Bank register. Substring-resolved so notice-text prefixes
-    # ("presented to the High Court by …") don't break the match.
-    if cbi_badges:
-        info = _resolve_cbi_badge(row.get("entity_name"), cbi_badges)
-        if info:
-            short_reg = _shorten_register(info.get("register", ""))
-            refno = info.get("ref_no") or ""
-            tip = f"CBI-authorised: {info.get('register', '')}" + (f" · {refno}" if refno else "")
-            label = "CBI · " + short_reg if short_reg else "CBI-authorised"
-            pills.append(
-                f'<span class="corp-pill corp-pill-cbi" title="{html.escape(tip)}">'
-                f"{html.escape(label)}"
-                + (f' <span class="corp-pill-cbi-ref">{html.escape(refno)}</span>' if refno else "")
-                + "</span>"
-            )
+    # a Central Bank register. Precomputed (exact + >=2-token substring) so
+    # notice-text prefixes ("presented to the High Court by …") still resolve.
+    info = _row_cbi_badge(row)
+    if info:
+        short_reg = _shorten_register(info.get("register", ""))
+        refno = info.get("ref_no") or ""
+        tip = f"CBI-authorised: {info.get('register', '')}" + (f" · {refno}" if refno else "")
+        label = "CBI · " + short_reg if short_reg else "CBI-authorised"
+        pills.append(
+            f'<span class="corp-pill corp-pill-cbi" title="{html.escape(tip)}">'
+            f"{html.escape(label)}"
+            + (f' <span class="corp-pill-cbi-ref">{html.escape(refno)}</span>' if refno else "")
+            + "</span>"
+        )
 
     return (
         f'<a class="corp-card-link" href="?ref={ref}" target="_self">'
@@ -2196,21 +2002,20 @@ def _render_detail(row: pd.Series, cbi_badges: list[tuple[str, dict]] | None = N
     name, is_missing = _card_name(row)
     headline = name if not is_missing else (display_title or "—")
 
-    # Detail-header CBI badge (experimental).
+    # Detail-header CBI badge (experimental, precomputed).
     cbi_badge_html = ""
-    if cbi_badges:
-        info = _resolve_cbi_badge(row.get("entity_name"), cbi_badges)
-        if info:
-            short_reg = _shorten_register(info.get("register", ""))
-            refno = info.get("ref_no") or ""
-            tip = f"CBI-authorised: {info.get('register', '')}" + (f" · {refno}" if refno else "")
-            label = "CBI · " + short_reg if short_reg else "CBI-authorised"
-            cbi_badge_html = (
-                f'<span class="corp-pill corp-pill-cbi" title="{html.escape(tip)}">'
-                f"{html.escape(label)}"
-                + (f' <span class="corp-pill-cbi-ref">{html.escape(refno)}</span>' if refno else "")
-                + "</span> "
-            )
+    info = _row_cbi_badge(row)
+    if info:
+        short_reg = _shorten_register(info.get("register", ""))
+        refno = info.get("ref_no") or ""
+        tip = f"CBI-authorised: {info.get('register', '')}" + (f" · {refno}" if refno else "")
+        label = "CBI · " + short_reg if short_reg else "CBI-authorised"
+        cbi_badge_html = (
+            f'<span class="corp-pill corp-pill-cbi" title="{html.escape(tip)}">'
+            f"{html.escape(label)}"
+            + (f' <span class="corp-pill-cbi-ref">{html.escape(refno)}</span>' if refno else "")
+            + "</span> "
+        )
 
     st.html(
         '<div class="corp-detail">'
@@ -2416,8 +2221,8 @@ def corporate_page() -> None:
         return
 
     # Featured panel — receiver-appointer ranking, independent of filters.
-    _render_featured(df)
-    _render_operator_strip(df)
+    _render_featured()
+    _render_operator_strip()
     _render_methodology_expander(brand_aliases)
 
     # Experimental — regulated firms in repeat distress (CBI x corporate cross-ref).

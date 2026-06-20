@@ -20,6 +20,7 @@ from api.routers import (
     catalog,
     charities,
     committees,
+    corporate,
     exports,
     health,
     judiciary,
@@ -75,6 +76,7 @@ app.include_router(judiciary.router, prefix="/v1")
 app.include_router(charities.router, prefix="/v1")
 app.include_router(public_payments.router, prefix="/v1")
 app.include_router(appointments.router, prefix="/v1")
+app.include_router(corporate.router, prefix="/v1")
 app.include_router(exports.router, prefix="/v1")
 
 
@@ -118,11 +120,17 @@ def root() -> dict:
             "/v1/committees/{committee}",
             "/v1/ministers",
             "/v1/cabinet",
+            "/v1/ministerial/diary/organisations",
+            "/v1/ministerial/diary/organisations/{name}",
+            "/v1/ministerial/diary/meetings",
             "/v1/political-finance/donations",
             "/v1/political-finance/election-spend",
             "/v1/judiciary/appointments",
             "/v1/judiciary/courts-health",
             "/v1/charities",
+            "/v1/corporate/notices",
+            "/v1/corporate/repeat-distress",
+            "/v1/corporate/receivers",
             "/v1/public-body-payments",
             "/v1/public-appointments",
             "/v1/lobbying/dpo/{individual_name}",
