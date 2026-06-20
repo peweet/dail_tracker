@@ -24,9 +24,11 @@ Run: .venv/Scripts/python.exe extractors/diary_merge_depts.py --depts FINANCE,DE
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import unicodedata
 from datetime import date
+from pathlib import Path
 
 import fitz
 import polars as pl
@@ -94,7 +96,17 @@ def parse_dept_entries(depts: set[str]) -> pl.DataFrame:
     return pl.DataFrame(rows).select(_RAW_COLS) if rows else pl.DataFrame(schema={c: pl.Object for c in _RAW_COLS})
 
 
-def main(depts: set[str]) -> int:
+def _ocr_entries(json_path: str) -> pl.DataFrame:
+    """Load entries recovered by extractors/diary_ocr.py (the GPU OCR runner) into raw rows.
+    Minister is already resolved in the OCR step; just normalise columns + stamp ingest date."""
+    recs = json.loads(Path(json_path).read_text(encoding="utf-8"))
+    for r in recs:
+        r.setdefault("time_slot", "")
+        r["ingested_date"] = date.today()
+    return pl.DataFrame(recs).select(_RAW_COLS)
+
+
+def main(depts: set[str], ocr_json: str | None = None) -> int:
     setup_standalone_logging("diary_merge_depts")
     if not ENTRIES.exists():
         log.error("canonical entries missing: %s", ENTRIES)
@@ -102,7 +114,8 @@ def main(depts: set[str]) -> int:
 
     canon = pl.read_parquet(ENTRIES).select(_RAW_COLS)
     keep = canon.filter(~pl.col("department").is_in(list(depts)))  # everything except the depts we re-parse
-    incoming = parse_dept_entries(depts).with_columns(pl.col("entry_date").cast(keep["entry_date"].dtype))
+    src = _ocr_entries(ocr_json) if ocr_json else parse_dept_entries(depts)
+    incoming = src.with_columns(pl.col("entry_date").cast(keep["entry_date"].dtype))
 
     # normalised surname key on both sides for the dedup join
     mk = pl.col("minister").map_elements(_surname_key, return_dtype=pl.Utf8).alias("_mk")
@@ -136,5 +149,6 @@ def main(depts: set[str]) -> int:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Merge re-parsed departments into the canonical diary sandbox.")
     ap.add_argument("--depts", required=True, help="comma-separated dept labels, e.g. FINANCE,DECC")
+    ap.add_argument("--ocr-json", help="merge entries from extractors/diary_ocr.py output JSON instead of re-parsing PDFs")
     a = ap.parse_args()
-    raise SystemExit(main({d.strip().upper() for d in a.depts.split(",")}))
+    raise SystemExit(main({d.strip().upper() for d in a.depts.split(",")}, a.ocr_json))
