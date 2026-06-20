@@ -34,6 +34,7 @@ from data_access.local_government_data import (
     fetch_chief_executive_result,
     fetch_chief_executives_result,
     fetch_collection_rates_result,
+    fetch_council_money_result,
     fetch_derelict_sites_levy_result,
     fetch_housing_performance_result,
     fetch_national_summary_result,
@@ -319,12 +320,33 @@ def _card_planning(name: str) -> str:
     return _stat_card("Planning decisions", rows, "An Bord Pleanála appeal outcomes")
 
 
+def _card_council_money(name: str) -> str:
+    m = fetch_council_money_result(name)
+    if not m.ok or m.data.empty:
+        return ""
+    r = m.data.iloc[0]
+    rows = []
+    ordered = r.get("ordered_safe_eur")
+    if ordered is not None and not pd.isna(ordered) and float(ordered) > 0:
+        rows.append(_metric(_eur(ordered), "Ordered — purchase orders over €20k"))
+    paid = r.get("paid_safe_eur")
+    if paid is not None and not pd.isna(paid) and float(paid) > 0:
+        rows.append(_metric(_eur(paid), "Paid — actual payments over €20k"))
+    rows.append(_metric(_int(r.get("n_suppliers")), "Suppliers paid"))
+    yr = f"{_int(r.get('min_year'))}–{_int(r.get('max_year'))}"
+    return _stat_card(
+        "Council money (executive-signed)", rows,
+        f"Council purchase-order / payment disclosures, {yr}. Councillors sign none of this.",
+    )
+
+
 def _render_performance(name: str) -> None:
     cards = [
         _card_money_collected(name),
         _card_housing(name),
         _card_derelict(name),
         _card_planning(name),
+        _card_council_money(name),
     ]
     cards = [c for c in cards if c]
 
