@@ -93,18 +93,14 @@ def _write(current: dict[str, tuple[str, int]]) -> None:
         f"# generated {datetime.now(UTC).isoformat(timespec='seconds')} | "
         f"{len(current)} files | {total / 1e9:.2f} GB\n"
     )
-    body = "".join(
-        f"{sha}\t{size}\t{rel}\n" for rel, (sha, size) in sorted(current.items())
-    )
+    body = "".join(f"{sha}\t{size}\t{rel}\n" for rel, (sha, size) in sorted(current.items()))
     MANIFEST_PATH.write_text(header + body, encoding="utf-8")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--print", dest="verbose", action="store_true",
-                        help="list every added/removed/changed path")
-    parser.add_argument("--check", action="store_true",
-                        help="exit 1 if anything drifted since the committed manifest")
+    parser.add_argument("--print", dest="verbose", action="store_true", help="list every added/removed/changed path")
+    parser.add_argument("--check", action="store_true", help="exit 1 if anything drifted since the committed manifest")
     args = parser.parse_args()
 
     setup_standalone_logging("data_manifest")
@@ -115,9 +111,7 @@ def main() -> int:
     prior_keys, cur_keys = set(prior), set(current)
     added = sorted(cur_keys - prior_keys)
     removed = sorted(prior_keys - cur_keys)
-    changed = sorted(
-        k for k in prior_keys & cur_keys if prior[k] != current[k][0]
-    )
+    changed = sorted(k for k in prior_keys & cur_keys if prior[k] != current[k][0])
     # A changed PDF means a source file was re-published in place — the case the
     # whole exercise exists to catch. Surface it separately from ordinary churn.
     changed_pdfs = [k for k in changed if k.lower().endswith(".pdf")]
@@ -126,8 +120,13 @@ def main() -> int:
 
     total_gb = sum(size for _sha, size in current.values()) / 1e9
     log.info("manifest: %d files, %.2f GB -> %s", len(current), total_gb, MANIFEST_PATH)
-    log.info("drift since last manifest: +%d added  -%d removed  ~%d changed (%d PDFs)",
-             len(added), len(removed), len(changed), len(changed_pdfs))
+    log.info(
+        "drift since last manifest: +%d added  -%d removed  ~%d changed (%d PDFs)",
+        len(added),
+        len(removed),
+        len(changed),
+        len(changed_pdfs),
+    )
 
     if args.verbose:
         for tag, items in (("ADDED", added), ("REMOVED", removed), ("CHANGED", changed)):

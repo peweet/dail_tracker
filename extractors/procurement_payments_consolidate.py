@@ -58,6 +58,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "extractors"))
 from _publisher_regime import regime_for  # noqa: E402
 
+from services.data_contracts import guard_payment_fact, reconciliation_violations  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
 
@@ -68,6 +69,11 @@ SILVER = ROOT / "data/silver/parquet"
 CRO = ROOT / "data/silver/cro/companies.parquet"
 OUT = ROOT / "data/gold/parquet/procurement_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/procurement_payments_fact_coverage.json"
+# Row floor for the consolidated gold fact (219,713 rows 2026-06-20). Consolidate
+# unions the upstream silver facts; if one came in truncated (its own floor was
+# bypassed, or a non-floored source emptied), gold should not be rebuilt smaller.
+# ~30% headroom; force a deliberate small rebuild with DAIL_SKIP_ROW_FLOOR=1.
+MIN_FACT_ROWS = 150_000
 # Hand-curated supplier-class overrides (firms/foreign/semi-states the regex+CRO can't resolve).
 # Only sum-neutral classes (company/foreign_company); transfer bodies live in a separate review CSV.
 CLASS_OVERRIDES = ROOT / "data/_meta/procurement_supplier_class_overrides.csv"
@@ -121,6 +127,8 @@ _LEAD_REF_RE = re.compile(
     r"|#+"  # masked digits (####)
     r"|\d{1,6}(?:[-/]\d+)*"  # row index / dash-joined ref (36, 03-607)
     r"|[A-Za-z]{3,4}\d{3}"  # Pobal scheme code (CMO005, CER002, CBN001) prefixing the real vendor
+    r"|\d{3}[A-Za-z]{2}(?:-\d+)?"  # ETB accounting code (LOETB '020OF', '143AP', '020IT-213'); 3
+    # digits exactly so a real 2-digit-prefixed name ('24HR CARE SERVICES') is never stripped
     r")\s+)+",
     re.I,
 )
@@ -167,11 +175,7 @@ def _canonicalise_split_entities(df: pl.DataFrame) -> pl.DataFrame:
     expr = pl.col("supplier_raw")
     for body, rx, canon in _ENTITY_MERGES:
         body_ok = pl.lit(True) if body == "" else pl.col("publisher_name").str.contains(body)
-        expr = (
-            pl.when(body_ok & pl.col("supplier_raw").str.contains(rx))
-            .then(pl.lit(canon))
-            .otherwise(expr)
-        )
+        expr = pl.when(body_ok & pl.col("supplier_raw").str.contains(rx)).then(pl.lit(canon)).otherwise(expr)
     return df.with_columns(expr.alias("supplier_raw"))
 
 
@@ -192,6 +196,20 @@ def _clean_supplier_names(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
+# Per-source (publisher set, rows, summed €) captured at LOAD time, so the consolidation
+# can AUDIT (reconcile) its own output before publishing — see _reconcile() in main().
+# {source_label: {"publishers": frozenset, "rows": int, "eur": float}}
+_SOURCE_STATS: dict[str, dict] = {}
+
+
+def _capture_stats(label: str, df: pl.DataFrame) -> None:
+    _SOURCE_STATS[label] = {
+        "publishers": frozenset(df["publisher_id"].unique().to_list()),
+        "rows": df.height,
+        "eur": float(df["amount_eur"].sum() or 0.0),
+    }
+
+
 def _load_facts() -> pl.DataFrame:
     frames: list[pl.DataFrame] = []
     base_cols: set[str] | None = None
@@ -206,6 +224,7 @@ def _load_facts() -> pl.DataFrame:
         elif set(df.columns) != base_cols:
             raise SystemExit(f"schema drift in {fname}: +{set(df.columns) - base_cols} -{base_cols - set(df.columns)}")
         frames.append(df)
+        _capture_stats(fname, df)
         print(f"  + {fname:38} {df.height:>7,} rows")
     if not frames:
         raise SystemExit("no payment facts found under data/silver/parquet/")
@@ -241,6 +260,10 @@ def _load_la_fact(base: pl.DataFrame) -> pl.DataFrame | None:
     if missing:
         raise SystemExit(f"LA fact cannot conform — missing base columns: {sorted(missing)}")
     la = la.select(base.columns).cast(dict(base.schema))
+    # Capture BEFORE the carry-forward append, keyed by the silver LA publisher set — the
+    # carried rows belong to a council ABSENT from silver, so reconciling gold by this set is
+    # exact and needs no carry-forward fudge (the carried rows are verbatim copies anyway).
+    _capture_stats("la_payments_fact.parquet", la)
     print(f"  + la_payments_fact.parquet (silver)    {n:>7,} rows  [{n_la} local authorities]")
     # Listing-rot guard: a council whose site newly blocks the harvester (bot-wall, moved
     # listing) must not vanish from gold — its published over-€20k disclosures are immutable
@@ -337,8 +360,11 @@ def _attach_regime(df: pl.DataFrame) -> pl.DataFrame:
     e.g. CHI €25k incl-VAT, ESB Networks as a utility/contracting-entity outside the €20k scheme."""
     keys = df.select("publisher_id", "publisher_type").unique()
     rows = [
-        {"publisher_id": k["publisher_id"], "publisher_type": k["publisher_type"],
-         **regime_for(k["publisher_id"], k["publisher_type"])}
+        {
+            "publisher_id": k["publisher_id"],
+            "publisher_type": k["publisher_type"],
+            **regime_for(k["publisher_id"], k["publisher_type"]),
+        }
         for k in keys.to_dicts()
     ]
     reg = pl.DataFrame(rows).with_columns(pl.col("disclosure_threshold_eur").cast(pl.Int64))
@@ -423,9 +449,7 @@ _FOREIGN_FORM_RE = (
     r"(?:\b(?:as|asa|oy|oyj|ab|bv|nv|sau|sarl|srl|spa|sl|gmbh|aps|sa|b v|n v|s a|s l|a s|sp j))"
     r"(?:\s+(?:" + _FOREIGN_COUNTRY + r"))?\s*$"  # "a s" = Danish A/S (Bavarian Nordic A/S)
 )
-_ORG_FORM_RE = (
-    r"(?i)(?:\b(?:" + _FIRM_WORDS + r")\b|\b(?:" + _FIRM_STEMS + r")|" + _FOREIGN_FORM_RE + r")"
-)
+_ORG_FORM_RE = r"(?i)(?:\b(?:" + _FIRM_WORDS + r")\b|\b(?:" + _FIRM_STEMS + r")|" + _FOREIGN_FORM_RE + r")"
 
 
 def _reclassify_missed_companies(df: pl.DataFrame) -> pl.DataFrame:
@@ -499,11 +523,13 @@ def _surface_sole_trader_contractors(df: pl.DataFrame) -> pl.DataFrame:
         return df
     cat = pl.coalesce([pl.col("spend_category"), pl.col("description")]).fill_null("")
     is_sole = pl.col("supplier_class") == "sole_trader_or_individual"
-    flags = df.with_columns(
-        (is_sole & cat.str.contains(_PRIVATE_CAT_RE)).alias("_priv"),
-        (is_sole & cat.str.contains(_COMMERCIAL_CAT_RE)).alias("_comm"),
-    ).group_by("supplier_normalised").agg(
-        pl.col("_priv").any().alias("_any_priv"), pl.col("_comm").any().alias("_any_comm")
+    flags = (
+        df.with_columns(
+            (is_sole & cat.str.contains(_PRIVATE_CAT_RE)).alias("_priv"),
+            (is_sole & cat.str.contains(_COMMERCIAL_CAT_RE)).alias("_comm"),
+        )
+        .group_by("supplier_normalised")
+        .agg(pl.col("_priv").any().alias("_any_priv"), pl.col("_comm").any().alias("_any_comm"))
     )
     surface_keys = flags.filter(pl.col("_any_comm") & ~pl.col("_any_priv"))["supplier_normalised"]
     surface = is_sole & pl.col("supplier_normalised").is_in(surface_keys)
@@ -511,7 +537,9 @@ def _surface_sole_trader_contractors(df: pl.DataFrame) -> pl.DataFrame:
     if n:
         nsup = df.filter(surface)["supplier_normalised"].n_unique()
         val = df.filter(surface)["amount_eur"].sum()
-        print(f"  surfaced {n:,} rows ({nsup:,} suppliers, €{val / 1e6:.1f}m) sole_trader_or_individual -> sole_trader (commercial contractors)")
+        print(
+            f"  surfaced {n:,} rows ({nsup:,} suppliers, €{val / 1e6:.1f}m) sole_trader_or_individual -> sole_trader (commercial contractors)"
+        )
     return df.with_columns(
         pl.when(surface).then(pl.lit("sole_trader")).otherwise(pl.col("supplier_class")).alias("supplier_class"),
         pl.when(surface).then(pl.lit("ok")).otherwise(pl.col("privacy_status")).alias("privacy_status"),
@@ -534,7 +562,9 @@ def _classify_id_codes(df: pl.DataFrame) -> pl.DataFrame:
     hit = is_sole & is_code
     n = df.filter(hit).height
     if n:
-        print(f"  classified {n:,} rows ({df.filter(hit)['supplier_normalised'].n_unique():,} codes) as id_code (anonymised payee)")
+        print(
+            f"  classified {n:,} rows ({df.filter(hit)['supplier_normalised'].n_unique():,} codes) as id_code (anonymised payee)"
+        )
     return df.with_columns(
         pl.when(hit).then(pl.lit("id_code")).otherwise(pl.col("supplier_class")).alias("supplier_class"),
         pl.when(hit).then(pl.lit("ok")).otherwise(pl.col("privacy_status")).alias("privacy_status"),
@@ -553,17 +583,24 @@ def _apply_class_overrides(df: pl.DataFrame) -> pl.DataFrame:
     # supplier_normalised is upper-case; the CSV keys are lower-case — join on a case-folded key.
     # truncate_ragged_lines: the free-text `basis` column may contain commas; only the first two
     # columns (key, class) are used, so extra split fields are harmless to drop.
-    ov = pl.read_csv(CLASS_OVERRIDES, comment_prefix="#", truncate_ragged_lines=True).select(
-        pl.col("supplier_normalised").str.strip_chars().str.to_lowercase().alias("_ovkey"),
-        pl.col("override_class").str.strip_chars(),
-    ).filter(pl.col("_ovkey").str.len_chars() > 0).unique(subset=["_ovkey"])
+    ov = (
+        pl.read_csv(CLASS_OVERRIDES, comment_prefix="#", truncate_ragged_lines=True)
+        .select(
+            pl.col("supplier_normalised").str.strip_chars().str.to_lowercase().alias("_ovkey"),
+            pl.col("override_class").str.strip_chars(),
+        )
+        .filter(pl.col("_ovkey").str.len_chars() > 0)
+        .unique(subset=["_ovkey"])
+    )
     df = df.with_columns(pl.col("supplier_normalised").str.to_lowercase().alias("_ovkey")).join(
         ov, on="_ovkey", how="left"
     )
     hit = pl.col("override_class").is_not_null()
     n = df.filter(hit).height
     if n:
-        print(f"  applied {ov.height:,} curated overrides -> {n:,} rows ({df.filter(hit)['supplier_normalised'].n_unique():,} suppliers) reclassified")
+        print(
+            f"  applied {ov.height:,} curated overrides -> {n:,} rows ({df.filter(hit)['supplier_normalised'].n_unique():,} suppliers) reclassified"
+        )
     out = df.with_columns(
         pl.when(hit).then(pl.col("override_class")).otherwise(pl.col("supplier_class")).alias("supplier_class"),
         pl.when(hit).then(pl.lit("ok")).otherwise(pl.col("privacy_status")).alias("privacy_status"),
@@ -632,7 +669,9 @@ def _derive_spend_category(df: pl.DataFrame) -> pl.DataFrame:
     )
     n_cat = out.filter(pl.col("spend_category").is_not_null())["spend_category"].n_unique()
     cov = round(100.0 * out["spend_category"].is_not_null().sum() / out.height, 1)
-    print(f"  derived spend_category: {n_cat:,} distinct categories, {cov}% of rows covered (source: published description)")
+    print(
+        f"  derived spend_category: {n_cat:,} distinct categories, {cov}% of rows covered (source: published description)"
+    )
     return out
 
 
@@ -652,6 +691,34 @@ def main() -> None:
     df = _derive_spend_category(df)
     df = _surface_sole_trader_contractors(df)
 
+    # AUDIT (write-audit-publish): this fold maps silver→gold WITHOUT re-parsing, so every
+    # source's rows and € MUST survive exactly. Reconcile the output against the per-source
+    # totals captured at load time, keyed by each source's (disjoint) publisher set. A non-zero
+    # unexplained delta means a concat/dedup/join bug dropped or duplicated rows — the silent
+    # partial-data failure the >50% row-count baseline can't see. Halt before publishing.
+    actual = {
+        label: (
+            df.filter(pl.col("publisher_id").is_in(list(stats["publishers"]))).height,
+            float(df.filter(pl.col("publisher_id").is_in(list(stats["publishers"])))["amount_eur"].sum() or 0.0),
+        )
+        for label, stats in _SOURCE_STATS.items()
+    }
+    expected = {label: (stats["rows"], stats["eur"]) for label, stats in _SOURCE_STATS.items()}
+    recon = reconciliation_violations(expected, actual)
+    if recon:
+        raise SystemExit("RECONCILIATION FAILED — gold does not preserve the source facts:\n  " + "\n  ".join(recon))
+    print(f"  reconciled {len(expected)} source facts: rows + € preserved exactly")
+
+    # DATA CONTRACT (runtime drift gate, see services/data_contracts.py): this is the last
+    # common chokepoint before gold, so it is where we refuse to ship drift. Any closed-vocab
+    # classification column carrying an unrecognised value (a new amount_semantics the map left
+    # as value_kind='unknown', a supplier_class the parsers never emit, …) HALTS the run; the
+    # offending rows — plus the known paid_flag column-misalignment leakage — are written to
+    # data/_meta/quarantine/ for investigation either way. It also re-asserts the cross-column
+    # invariants (no summable public-body transfer, CRO⇒company, privacy …). hard=True so a
+    # green run guarantees a classified, internally-consistent fact.
+    guard_payment_fact(df, name="procurement_payments_fact", hard=True)
+
     # PRIVACY INVARIANT (runtime, -O-proof): mirrors procurement_public_body_extract.py —
     # refuse to write gold if any likely-person row is left displayable.
     leaked = df.filter(
@@ -668,7 +735,7 @@ def main() -> None:
         )
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    save_parquet(df, OUT)
+    save_parquet(df, OUT, min_rows=MIN_FACT_ROWS)
     print(f"\nwrote {df.height:,} rows / {df['publisher_name'].n_unique()} publishers -> {OUT}")
 
     safe = df.filter(pl.col("value_safe_to_sum"))

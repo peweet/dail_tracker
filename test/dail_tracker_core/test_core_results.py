@@ -6,6 +6,8 @@ type — it exists so interfaces stop conflating "source down" with "no results"
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
+
 import pandas as pd
 import pytest
 
@@ -48,5 +50,5 @@ def test_unavailable_result_must_carry_reason():
 
 def test_frozen_cannot_rebind():
     r = QueryResult.success(pd.DataFrame())
-    with pytest.raises(Exception):  # FrozenInstanceError
+    with pytest.raises(FrozenInstanceError):
         r.ok = False  # type: ignore[misc]

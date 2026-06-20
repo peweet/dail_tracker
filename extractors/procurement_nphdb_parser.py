@@ -49,8 +49,7 @@ with contextlib.suppress(Exception):
 
 # Reuse, don't rebuild: the gold-schema classification + safe-to-sum + coverage caveat all
 # live in the generic extractor (graduated to extractors/). Import it by path.
-_spec = importlib.util.spec_from_file_location(
-    "pbe", str(ROOT / "extractors/procurement_public_body_extract.py"))
+_spec = importlib.util.spec_from_file_location("pbe", str(ROOT / "extractors/procurement_public_body_extract.py"))
 pbe = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pbe)
 
@@ -60,8 +59,10 @@ OUT_COV = ROOT / "data/_meta/nphdb_payments_coverage.json"
 PARSER_VERSION = "0.1.0"
 
 LISTING_URL = "https://newchildrenshospital.ie/freedom-of-information/procurement/"
-DEFAULT_FILE_URL = ("https://newchildrenshospital.ie/wp-content/uploads/2025/10/"
-                    "NPHDB-Quarterly-PO-Listing-Q1-2024-to-Q2-2025-ID-182108.pdf")
+DEFAULT_FILE_URL = (
+    "https://newchildrenshospital.ie/wp-content/uploads/2025/10/"
+    "NPHDB-Quarterly-PO-Listing-Q1-2024-to-Q2-2025-ID-182108.pdf"
+)
 DEFAULT_PDF = TMP / "NPHDB-Quarterly-PO-Listing-Q1-2024-to-Q2-2025.pdf"
 
 # This file spans Q1 2024 .. Q2 2025; rows carry no per-line quarter, so period is the span.
@@ -96,54 +97,60 @@ def parse_records(doc) -> list[dict]:
         supplier = lines[j - 1]
         if k + 1 < len(money_idx):
             next_supplier_idx = money_idx[k + 1] - 1  # token right before next money = its supplier
-            desc = " ".join(lines[j + 1:next_supplier_idx])
+            desc = " ".join(lines[j + 1 : next_supplier_idx])
         else:
-            desc = " ".join(lines[j + 1:])  # last record runs to EOF
+            desc = " ".join(lines[j + 1 :])  # last record runs to EOF
         amount = float(lines[j].replace(",", ""))
-        recs.append({
-            "supplier_raw": supplier,
-            "amount_eur": amount,
-            "description": desc or None,
-            "source_row_number": k,
-            "source_page_number": toks[j][1],
-        })
+        recs.append(
+            {
+                "supplier_raw": supplier,
+                "amount_eur": amount,
+                "description": desc or None,
+                "source_row_number": k,
+                "source_page_number": toks[j][1],
+            }
+        )
     return recs
 
 
 def build_rows(recs: list[dict], file_url: str, fhash: str) -> list[dict]:
     conf = "high" if len(recs) > 20 else ("medium" if len(recs) > 3 else "low")
-    caveat = ("PO listing spans Q1 2024-Q2 2025 (no per-row quarter). Contains BAM Building "
-              "conciliator/adjudicator AWARD rows that are disputed/under Notice of "
-              "Dissatisfaction, not ordinary purchase orders — one row (~€107.6m) exceeds "
-              "50% of the file; never headline a raw sum without the outlier flag.")
+    caveat = (
+        "PO listing spans Q1 2024-Q2 2025 (no per-row quarter). Contains BAM Building "
+        "conciliator/adjudicator AWARD rows that are disputed/under Notice of "
+        "Dissatisfaction, not ordinary purchase orders — one row (~€107.6m) exceeds "
+        "50% of the file; never headline a raw sum without the outlier flag."
+    )
     out = []
     for r in recs:
-        out.append({
-            "publisher_id": "ie_nphdb",
-            "publisher_name": "National Paediatric Hospital Development Board",
-            "publisher_type": "state_body",
-            "sector": "health",
-            "source_landing_url": LISTING_URL,
-            "source_file_url": file_url,
-            "source_file_hash": fhash,
-            "period": PERIOD_SPAN,
-            "year": None,
-            "quarter": None,
-            "supplier_raw": r["supplier_raw"],
-            "amount_eur": r["amount_eur"],
-            "amount_semantics": "po_committed",
-            "description": r["description"],
-            "po_number": None,
-            "paid_flag": None,
-            "source_row_number": r["source_row_number"],
-            "source_page_number": r["source_page_number"],
-            "parser_name": "nphdb_reading_order",
-            "parser_version": PARSER_VERSION,
-            "extraction_status": "extracted",
-            "extraction_confidence": conf,
-            "caveat_text_detected": True,
-            "source_caveat": caveat,
-        })
+        out.append(
+            {
+                "publisher_id": "ie_nphdb",
+                "publisher_name": "National Paediatric Hospital Development Board",
+                "publisher_type": "state_body",
+                "sector": "health",
+                "source_landing_url": LISTING_URL,
+                "source_file_url": file_url,
+                "source_file_hash": fhash,
+                "period": PERIOD_SPAN,
+                "year": None,
+                "quarter": None,
+                "supplier_raw": r["supplier_raw"],
+                "amount_eur": r["amount_eur"],
+                "amount_semantics": "po_committed",
+                "description": r["description"],
+                "po_number": None,
+                "paid_flag": None,
+                "source_row_number": r["source_row_number"],
+                "source_page_number": r["source_page_number"],
+                "parser_name": "nphdb_reading_order",
+                "parser_version": PARSER_VERSION,
+                "extraction_status": "extracted",
+                "extraction_confidence": conf,
+                "caveat_text_detected": True,
+                "source_caveat": caveat,
+            }
+        )
     return out
 
 
@@ -175,13 +182,34 @@ def main() -> None:
     df = pbe.classify_and_flag(df)
 
     SCHEMA_COLS = [
-        "publisher_id", "publisher_name", "publisher_type", "sector",
-        "source_landing_url", "source_file_url", "source_file_hash",
-        "period", "year", "quarter", "supplier_raw", "supplier_normalised",
-        "amount_eur", "amount_semantics", "value_safe_to_sum", "description",
-        "po_number", "paid_flag", "source_row_number", "source_page_number",
-        "parser_name", "parser_version", "extraction_status", "extraction_confidence",
-        "caveat_text_detected", "supplier_class", "privacy_status", "public_display",
+        "publisher_id",
+        "publisher_name",
+        "publisher_type",
+        "sector",
+        "source_landing_url",
+        "source_file_url",
+        "source_file_hash",
+        "period",
+        "year",
+        "quarter",
+        "supplier_raw",
+        "supplier_normalised",
+        "amount_eur",
+        "amount_semantics",
+        "value_safe_to_sum",
+        "description",
+        "po_number",
+        "paid_flag",
+        "source_row_number",
+        "source_page_number",
+        "parser_name",
+        "parser_version",
+        "extraction_status",
+        "extraction_confidence",
+        "caveat_text_detected",
+        "supplier_class",
+        "privacy_status",
+        "public_display",
         "source_caveat",
     ]
     df = df.select([c for c in SCHEMA_COLS if c in df.columns])
@@ -207,8 +235,9 @@ def main() -> None:
         "source_file_hash": fhash,
         "period_span": PERIOD_SPAN,
         "rows_extracted": df.height,
-        "supplier_class_counts": {r["supplier_class"]: r["len"]
-                                  for r in df.group_by("supplier_class").len().iter_rows(named=True)},
+        "supplier_class_counts": {
+            r["supplier_class"]: r["len"] for r in df.group_by("supplier_class").len().iter_rows(named=True)
+        },
         "amount_total_eur": total,
         "largest_amount_eur": mx,
         "largest_amount_share_of_total": round(outlier_share, 4),
@@ -219,11 +248,11 @@ def main() -> None:
         "parser_version": PARSER_VERSION,
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). NPHDB quarterly PO listing for the "
-                  "New Children's Hospital. One row per source line. amount_semantics=po_committed. "
-                  "BAM Building rows are disputed conciliator/adjudicator awards (Notice of "
-                  "Dissatisfaction) — a single ~€107.6m row dominates >50% of the file: "
-                  "outlier_warning=true, never headline a raw sum. Unions with public_payments_fact "
-                  "at promotion. PRIVACY QUARANTINE DEFERRED (public_display=True for all rows).",
+        "New Children's Hospital. One row per source line. amount_semantics=po_committed. "
+        "BAM Building rows are disputed conciliator/adjudicator awards (Notice of "
+        "Dissatisfaction) — a single ~€107.6m row dominates >50% of the file: "
+        "outlier_warning=true, never headline a raw sum. Unions with public_payments_fact "
+        "at promotion. PRIVACY QUARANTINE DEFERRED (public_display=True for all rows).",
     }
     OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(f"\nwrote coverage {OUT_COV}")

@@ -45,72 +45,196 @@ TMP = Path("c:/tmp/procurement_la")
 # fan out by area. "kind" is the expected publication shape (confirmed where noted).
 SEEDS: list[dict] = [
     # --- Dublin (confirmed in probe_procurement_dublin_la.py) ---
-    {"council": "South Dublin", "region": "Dublin",
-     "url": "https://www.sdcc.ie/en/services/business/payments/", "kind": "xlsx-template"},
+    {
+        "council": "South Dublin",
+        "region": "Dublin",
+        "url": "https://www.sdcc.ie/en/services/business/payments/",
+        "kind": "xlsx-template",
+    },
     # Fingal: the procurement page only carries POLICY pdfs; the actual quarterly PO
     # files live elsewhere (…/sites/default/files/…) with no clean listing page → scrape-hard.
-    {"council": "Fingal", "region": "Dublin",
-     "url": "https://www.fingal.ie/council/service/procurement", "kind": "pdf-subpage(scattered)"},
-    {"council": "Dublin City", "region": "Dublin",
-     "url": "https://www.dublincity.ie/business/doing-business-council/public-procurement", "kind": "stale-aggregate(CKAN<=2014)"},
-    {"council": "Dun Laoghaire-Rathdown", "region": "Dublin",
-     "url": "https://www.dlrcoco.ie/governance/procurement", "kind": "none-found"},
+    {
+        "council": "Fingal",
+        "region": "Dublin",
+        "url": "https://www.fingal.ie/council/service/procurement",
+        "kind": "pdf-subpage(scattered)",
+    },
+    {
+        "council": "Dublin City",
+        "region": "Dublin",
+        "url": "https://www.dublincity.ie/business/doing-business-council/public-procurement",
+        "kind": "stale-aggregate(CKAN<=2014)",
+    },
+    {
+        "council": "Dun Laoghaire-Rathdown",
+        "region": "Dublin",
+        "url": "https://www.dlrcoco.ie/governance/procurement",
+        "kind": "none-found",
+    },
     # --- the rest of the country (confirmed by the scrape test below) ---
-    {"council": "Cork County", "region": "Munster",
-     "url": "https://www.corkcoco.ie/en/council/accessibility-maps-and-publications/purchase-orders-in-excess-of-eu20000", "kind": "pdf-digital(107 files; Supplier·Total·Description·Paid)"},
-    {"council": "Cork City", "region": "Munster",
-     "url": "https://www.corkcity.ie/en/council-services/public-info/spending-and-revenue/", "kind": "xlsx(Supplier·Gross·Description)"},
-    {"council": "Waterford", "region": "Munster",
-     "url": "https://waterfordcouncil.ie/openness-transparency/governance-related-financial-information/procurement/purchase-orders-e20000/", "kind": "pdf-digital(OrderNo·Supplier·…)"},
-    {"council": "Limerick", "region": "Munster",
-     "url": "https://www.limerick.ie/council/services/business-and-economy/revenue-collection/accounts-payable", "kind": "pdf-digital(Supplier·Paid·Description)"},
-    {"council": "Meath", "region": "Leinster",
-     "url": "https://www.meath.ie/council/your-council/finance-and-procurement/tenders-and-contracts/payments-over-eu20000", "kind": "tabular+pdf(curl fallback; TLS was our stack, not a block)"},
-    {"council": "Wicklow", "region": "Leinster",
-     "url": "https://www.wicklow.ie/Living/Your-Council/Finance/Procurement/Purchase-Orders-Over-20-000", "kind": "xlsx+csv+pdf(Supplier·EURO·Description)"},
-    {"council": "Westmeath", "region": "Leinster",
-     "url": "https://www.westmeathcoco.ie/en/ourservices/finance/procurement/purchaseorders/", "kind": "pdf-digital(55 files)"},
-    {"council": "Monaghan", "region": "Ulster",
-     "url": "https://monaghan.ie/finance/publication-of-purchase-orders/", "kind": "xlsx+pdf(Supplier·Amount·Description)"},
+    {
+        "council": "Cork County",
+        "region": "Munster",
+        "url": "https://www.corkcoco.ie/en/council/accessibility-maps-and-publications/purchase-orders-in-excess-of-eu20000",
+        "kind": "pdf-digital(107 files; Supplier·Total·Description·Paid)",
+    },
+    {
+        "council": "Cork City",
+        "region": "Munster",
+        "url": "https://www.corkcity.ie/en/council-services/public-info/spending-and-revenue/",
+        "kind": "xlsx(Supplier·Gross·Description)",
+    },
+    {
+        "council": "Waterford",
+        "region": "Munster",
+        "url": "https://waterfordcouncil.ie/openness-transparency/governance-related-financial-information/procurement/purchase-orders-e20000/",
+        "kind": "pdf-digital(OrderNo·Supplier·…)",
+    },
+    {
+        "council": "Limerick",
+        "region": "Munster",
+        "url": "https://www.limerick.ie/council/services/business-and-economy/revenue-collection/accounts-payable",
+        "kind": "pdf-digital(Supplier·Paid·Description)",
+    },
+    {
+        "council": "Meath",
+        "region": "Leinster",
+        "url": "https://www.meath.ie/council/your-council/finance-and-procurement/tenders-and-contracts/payments-over-eu20000",
+        "kind": "tabular+pdf(curl fallback; TLS was our stack, not a block)",
+    },
+    {
+        "council": "Wicklow",
+        "region": "Leinster",
+        "url": "https://www.wicklow.ie/Living/Your-Council/Finance/Procurement/Purchase-Orders-Over-20-000",
+        "kind": "xlsx+csv+pdf(Supplier·EURO·Description)",
+    },
+    {
+        "council": "Westmeath",
+        "region": "Leinster",
+        "url": "https://www.westmeathcoco.ie/en/ourservices/finance/procurement/purchaseorders/",
+        "kind": "pdf-digital(55 files)",
+    },
+    {
+        "council": "Monaghan",
+        "region": "Ulster",
+        "url": "https://monaghan.ie/finance/publication-of-purchase-orders/",
+        "kind": "xlsx+pdf(Supplier·Amount·Description)",
+    },
     # --- remaining LAs to complete all 31 (kind = scrape-test result 2026-06-03) ---
-    {"council": "Carlow", "region": "Leinster",
-     "url": "https://carlow.ie/information-technology/statistics-and-reports/financial-statistical-reports", "kind": "PLAYWRIGHT(JS-rendered SPA)"},
-    {"council": "Cavan", "region": "Ulster",
-     "url": "https://www.cavancoco.ie/file-library/business/procurement/over-20k/", "kind": "PLAYWRIGHT(JS-rendered file list)"},
-    {"council": "Clare", "region": "Munster",
-     "url": "https://www.clarecoco.ie/business-licensing-and-economy/procurement-and-tenders", "kind": "pdf-digital(via one-hop crawl; sampler may grab a neighbour doc)"},
-    {"council": "Donegal", "region": "Ulster",
-     "url": "https://www.donegalcoco.ie/en/services/other-services/finance/procurement", "kind": "PUBLISHER(yearly PDFs at /media/{code}/YYYY.pdf; 1,221 rows digital per counties probe; this landing only shows >=10m)"},
-    {"council": "Galway City", "region": "Connacht",
-     "url": "https://www.galwaycity.ie/services/finance-services/budgets-and-financial-publications", "kind": "pdf-digital(PO PDFs; budgets page mixes prompt-pay)"},
-    {"council": "Galway County", "region": "Connacht",
-     "url": "https://www.gaillimh.ie/en/finance/financial-publications/purchase-orders", "kind": "pdf-digital(SUPPLIER·PRODUCT·€; gaillimh.ie UNBLOCKS galwaycoco WAF)"},
-    {"council": "Kerry", "region": "Munster",
-     "url": "https://www.kerrycoco.ie/finance/financial-documents/", "kind": "pdf-digital(16 files; transient fetch err)"},
-    {"council": "Kildare", "region": "Leinster",
-     "url": "https://kildarecoco.ie/YourCouncil/Publications/Finance/PurchaseOrdersover20000/", "kind": "pdf-digital(Supplier·Total·Description; 52 files)"},
-    {"council": "Kilkenny", "region": "Leinster",
-     "url": "https://kilkennycoco.ie/eng/services/finance/purchase-orders-over-%E2%82%AC20-000/", "kind": "xlsx(Ap/Ar·Period·EURO·DESCRIPTION; 67; also CKAN)"},
-    {"council": "Laois", "region": "Leinster",
-     "url": "https://laois.ie/finance/business-and-enterprise-support/procurement-information-and-advice", "kind": "pdf(Procurement Report; via crawl)"},
-    {"council": "Leitrim", "region": "Connacht",
-     "url": "https://www.leitrim.ie/council/services/finance/procurement/purchase-orders-greater-thank-20k/", "kind": "pdf(via one-hop crawl; 33 files)"},
-    {"council": "Longford", "region": "Leinster",
-     "url": "https://www.longfordcoco.ie/services/finance/finance-documents/large-purchase-orders/", "kind": "pdf-digital(SUPPLIER·EURO·DESCRIPTION)"},
-    {"council": "Louth", "region": "Leinster",
-     "url": "https://www.louthcoco.ie/en/publications/finance_reports/", "kind": "crawl reaches finance sub-pages (target the right PO file)"},
-    {"council": "Mayo", "region": "Connacht",
-     "url": "https://www.mayo.ie/financial-documents/purchase-orders", "kind": "PUBLISHER(837 rows digital per counties probe); files = getattachment/{guid} behind JS list → render to ENUMERATE"},
-    {"council": "Offaly", "region": "Leinster",
-     "url": "https://www.offaly.ie/financial-reports/", "kind": "pdf-digital(GL30 Payments>€20k; 19pp)"},
-    {"council": "Roscommon", "region": "Connacht",
-     "url": "https://www.roscommoncoco.ie/en/Download-It/Finance-Publications/", "kind": "PLAYWRIGHT(JS-rendered file list)"},
-    {"council": "Sligo", "region": "Connacht",
-     "url": "https://www.sligococo.ie/YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/", "kind": "pdf(curl fallback; TLS was our stack, not a block)"},
-    {"council": "Tipperary", "region": "Munster",
-     "url": "https://www.tipperarycoco.ie/finance/financial-reports", "kind": "UNCERTAIN(sample=scanned contracts doc; check PO file)"},
-    {"council": "Wexford", "region": "Leinster",
-     "url": "https://www.wexfordcoco.ie/council-and-democracy/procurement-finance-and-credit-control/council-spend", "kind": "xls+xlsx(tabular; old .xls needs xlrd)"},
+    {
+        "council": "Carlow",
+        "region": "Leinster",
+        "url": "https://carlow.ie/information-technology/statistics-and-reports/financial-statistical-reports",
+        "kind": "PLAYWRIGHT(JS-rendered SPA)",
+    },
+    {
+        "council": "Cavan",
+        "region": "Ulster",
+        "url": "https://www.cavancoco.ie/file-library/business/procurement/over-20k/",
+        "kind": "PLAYWRIGHT(JS-rendered file list)",
+    },
+    {
+        "council": "Clare",
+        "region": "Munster",
+        "url": "https://www.clarecoco.ie/business-licensing-and-economy/procurement-and-tenders",
+        "kind": "pdf-digital(via one-hop crawl; sampler may grab a neighbour doc)",
+    },
+    {
+        "council": "Donegal",
+        "region": "Ulster",
+        "url": "https://www.donegalcoco.ie/en/services/other-services/finance/procurement",
+        "kind": "PUBLISHER(yearly PDFs at /media/{code}/YYYY.pdf; 1,221 rows digital per counties probe; this landing only shows >=10m)",
+    },
+    {
+        "council": "Galway City",
+        "region": "Connacht",
+        "url": "https://www.galwaycity.ie/services/finance-services/budgets-and-financial-publications",
+        "kind": "pdf-digital(PO PDFs; budgets page mixes prompt-pay)",
+    },
+    {
+        "council": "Galway County",
+        "region": "Connacht",
+        "url": "https://www.gaillimh.ie/en/finance/financial-publications/purchase-orders",
+        "kind": "pdf-digital(SUPPLIER·PRODUCT·€; gaillimh.ie UNBLOCKS galwaycoco WAF)",
+    },
+    {
+        "council": "Kerry",
+        "region": "Munster",
+        "url": "https://www.kerrycoco.ie/finance/financial-documents/",
+        "kind": "pdf-digital(16 files; transient fetch err)",
+    },
+    {
+        "council": "Kildare",
+        "region": "Leinster",
+        "url": "https://kildarecoco.ie/YourCouncil/Publications/Finance/PurchaseOrdersover20000/",
+        "kind": "pdf-digital(Supplier·Total·Description; 52 files)",
+    },
+    {
+        "council": "Kilkenny",
+        "region": "Leinster",
+        "url": "https://kilkennycoco.ie/eng/services/finance/purchase-orders-over-%E2%82%AC20-000/",
+        "kind": "xlsx(Ap/Ar·Period·EURO·DESCRIPTION; 67; also CKAN)",
+    },
+    {
+        "council": "Laois",
+        "region": "Leinster",
+        "url": "https://laois.ie/finance/business-and-enterprise-support/procurement-information-and-advice",
+        "kind": "pdf(Procurement Report; via crawl)",
+    },
+    {
+        "council": "Leitrim",
+        "region": "Connacht",
+        "url": "https://www.leitrim.ie/council/services/finance/procurement/purchase-orders-greater-thank-20k/",
+        "kind": "pdf(via one-hop crawl; 33 files)",
+    },
+    {
+        "council": "Longford",
+        "region": "Leinster",
+        "url": "https://www.longfordcoco.ie/services/finance/finance-documents/large-purchase-orders/",
+        "kind": "pdf-digital(SUPPLIER·EURO·DESCRIPTION)",
+    },
+    {
+        "council": "Louth",
+        "region": "Leinster",
+        "url": "https://www.louthcoco.ie/en/publications/finance_reports/",
+        "kind": "crawl reaches finance sub-pages (target the right PO file)",
+    },
+    {
+        "council": "Mayo",
+        "region": "Connacht",
+        "url": "https://www.mayo.ie/financial-documents/purchase-orders",
+        "kind": "PUBLISHER(837 rows digital per counties probe); files = getattachment/{guid} behind JS list → render to ENUMERATE",
+    },
+    {
+        "council": "Offaly",
+        "region": "Leinster",
+        "url": "https://www.offaly.ie/financial-reports/",
+        "kind": "pdf-digital(GL30 Payments>€20k; 19pp)",
+    },
+    {
+        "council": "Roscommon",
+        "region": "Connacht",
+        "url": "https://www.roscommoncoco.ie/en/Download-It/Finance-Publications/",
+        "kind": "PLAYWRIGHT(JS-rendered file list)",
+    },
+    {
+        "council": "Sligo",
+        "region": "Connacht",
+        "url": "https://www.sligococo.ie/YourCouncil/Finance/ProcurementPurchasing/PurchasingActivity/",
+        "kind": "pdf(curl fallback; TLS was our stack, not a block)",
+    },
+    {
+        "council": "Tipperary",
+        "region": "Munster",
+        "url": "https://www.tipperarycoco.ie/finance/financial-reports",
+        "kind": "UNCERTAIN(sample=scanned contracts doc; check PO file)",
+    },
+    {
+        "council": "Wexford",
+        "region": "Leinster",
+        "url": "https://www.wexfordcoco.ie/council-and-democracy/procurement-finance-and-credit-control/council-spend",
+        "kind": "xls+xlsx(tabular; old .xls needs xlrd)",
+    },
 ]
 
 HREF_RE = re.compile(r"""href\s*=\s*["']([^"']+)["']""", re.I)
@@ -141,7 +265,8 @@ def _curl(url: str) -> bytes | None:
     try:
         p = subprocess.run(
             ["curl", "-sS", "-k", "-L", "--max-time", "40", "-A", H["User-Agent"], url],
-            capture_output=True, timeout=60,
+            capture_output=True,
+            timeout=60,
         )
         return p.stdout if p.returncode == 0 and p.stdout else None
     except Exception:
@@ -176,6 +301,7 @@ def pick_sample(hits: dict[str, list[str]]) -> str | None:
     def best(urls: list[str]) -> str | None:
         good = [u for u in urls if DATA_FILE_RE.search(u) and not POLICY_RE.search(u)]
         return (good or urls)[0] if urls else None
+
     for e in (".xlsx", ".csv", ".xls", ".pdf"):  # prefer a tabular sample, else pdf
         if hits.get(e):
             return best(hits[e])
@@ -211,8 +337,13 @@ def harvest_links(landing: str) -> dict:
                 hits.setdefault(e, []).extend(v)
             if hits and via == "landing":
                 via = f"crawl:{s.rsplit('/', 1)[-1][:28] or urlparse(s).path[:28]}"
-    return {"ok": True, "error": None, "formats": {e: len(v) for e, v in hits.items()},
-            "sample": pick_sample(hits), "via": via}
+    return {
+        "ok": True,
+        "error": None,
+        "formats": {e: len(v) for e, v in hits.items()},
+        "sample": pick_sample(hits),
+        "via": via,
+    }
 
 
 def classify(url: str) -> str:
@@ -229,6 +360,7 @@ def classify(url: str) -> str:
     try:
         if ext == ".pdf":
             import fitz
+
             d = fitz.open(dest)
             npages = d.page_count
             txt = d[0].get_text("text")
@@ -238,18 +370,26 @@ def classify(url: str) -> str:
             return f"PDF {npages}pp {kind} | {first[:60]}"
         if ext in (".xlsx", ".xls"):
             import openpyxl
+
             ws = openpyxl.load_workbook(dest, read_only=True, data_only=True).active
             rows = [r for r in ws.iter_rows(values_only=True)][:10]
             # header = the early row with the most non-empty string cells
-            hdr = max(rows[:6], default=(),
-                      key=lambda r: sum(isinstance(c, str) and c.strip() != "" for c in (r or ())))
+            hdr = max(
+                rows[:6], default=(), key=lambda r: sum(isinstance(c, str) and c.strip() != "" for c in (r or ()))
+            )
             return f"XLSX header≈ {tuple(str(c)[:18] for c in hdr if c is not None)}"
         if ext == ".csv":
             import io
 
             import polars as pl
-            df = pl.read_csv(io.BytesIO(b), infer_schema_length=0, truncate_ragged_lines=True,
-                             ignore_errors=True, encoding="utf8-lossy")
+
+            df = pl.read_csv(
+                io.BytesIO(b),
+                infer_schema_length=0,
+                truncate_ragged_lines=True,
+                ignore_errors=True,
+                encoding="utf8-lossy",
+            )
             return f"CSV {df.height}rows cols={df.columns[:6]}"
     except Exception as e:
         return f"parse ERR {e!r}"[:90]
@@ -261,8 +401,14 @@ def main() -> None:
     report = []
     for s in SEEDS:
         h = harvest_links(s["url"])
-        line = {"council": s["council"], "region": s["region"], "url": s["url"],
-                "kind": s["kind"], **h, "sample_classify": None}
+        line = {
+            "council": s["council"],
+            "region": s["region"],
+            "url": s["url"],
+            "kind": s["kind"],
+            **h,
+            "sample_classify": None,
+        }
         tag = "OK " if h["ok"] else "ERR"
         fmt = h["formats"] or {}
         print(f"\n[{tag}] {s['council']} ({s['region']})  kind={s['kind']}")

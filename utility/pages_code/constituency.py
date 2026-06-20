@@ -37,15 +37,17 @@ from data_access.constituency_data import (
     fetch_constituency_header_result,
     fetch_constituency_house_work_result,
     fetch_constituency_council_housing_performance_result,
-    fetch_constituency_housing_context_result,
-    fetch_constituency_ssha_waiting_list_result,
+    fetch_constituency_housing_with_ssha_result,
+    fetch_constituency_waiting_composition_result,
     fetch_constituency_list_result,
+    fetch_constituency_map_layers_result,
     fetch_constituency_members_result,
     fetch_constituency_outlines,
     fetch_constituency_party_breakdown_result,
     fetch_council_capital_divisions_result,
     fetch_council_revenue_divisions_result,
 )
+from ui.entity_links import council_accountability_url
 from ui.components import (
     back_button,
     clickable_card_link,
@@ -56,6 +58,7 @@ from ui.components import (
     hide_sidebar,
     page_error_boundary,
     party_stripe_html,
+    proportion_stripe_html,
     ranked_member_card,
     search_matches,
     subsection_heading,
@@ -64,6 +67,14 @@ from ui.components import (
 from ui.entity_links import member_profile_url
 
 _EC_REVIEW_URL = "https://www.electoralcommission.ie/constituency-reviews/"
+
+# Housing-section source links (verified live).
+_SRC_SSHA = "https://www.housingagency.ie/housing-information/summary-social-housing-assessments-ssha"
+_SRC_NOAC = "https://noac.ie/"
+_SRC_DERELICT = (
+    "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/publications/"
+    "annual-returns-for-2024-received-from-local-authorities-under-the-derelict-sites-act-1990/"
+)
 
 
 # ── display-only formatting (no derivation) ───────────────────────────────────
@@ -94,6 +105,26 @@ def _int(v) -> str:
         return "—"
 
 
+def _pct(v) -> str:
+    """Whole-number percent label: 23% (display only)."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "—"
+    try:
+        return f"{float(v):.0f}%"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _num1(v) -> str:
+    """One-decimal number label: 12.4 (display only)."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "—"
+    try:
+        return f"{float(v):,.1f}"
+    except (TypeError, ValueError):
+        return "—"
+
+
 def _yr(v) -> str:
     """Year with no thousands separator."""
     if v is None or (isinstance(v, float) and pd.isna(v)):
@@ -102,6 +133,162 @@ def _yr(v) -> str:
         return str(int(v))
     except (TypeError, ValueError):
         return "—"
+
+
+# ── NATIONAL CHOROPLETH ───────────────────────────────────────────────────────
+# A "colour every constituency by one measure" overview on the index. Display only:
+# v_constituency_map_layers ships the value AND a precomputed NTILE(5) quintile per
+# layer; this code only maps quintile → palette colour (no derivation). Rendered as a
+# single <img> data-URI (st.html strips bare <svg>) — the searchable card grid below
+# is the reliable selector, mirroring "colour the map, or search below".
+
+# 5-step warm sequential ramp (light beige → brand terracotta). Index 0 = lowest fifth.
+_CHORO_PALETTE = ["#f3ead9", "#e4c39c", "#d29a64", "#bd6e3e", "#a5431c"]
+_CHORO_NODATA = "#e9e2d4"
+# Fixed pixel height for the rendered map. Image-map <area> coords are in image
+# pixels and DON'T rescale when the <img> is CSS-resized, so the image is rendered
+# at a fixed size (CSS must not stretch it) and the coords are scaled to match.
+_CHORO_PX_H = 460
+
+# label → (quintile column, raw-value column, value formatter, caption phrase)
+_MAP_LAYERS: dict[str, tuple[str, str, object, str]] = {
+    "Population": ("q_population", "population_2022", _int, "residents (Census 2022)"),
+    "People per TD": ("q_population_per_td", "population_per_td", _int, "people per TD"),
+    "% of TDs who are landlords": (
+        "q_pct_landlord_tds",
+        "pct_landlord_tds",
+        _pct,
+        "of current TDs declared as landlords (latest register)",
+    ),
+    "Dáil questions per TD": (
+        "q_questions_per_td",
+        "questions_per_td",
+        _num1,
+        "parliamentary questions per TD (34th Dáil, since 29 Nov 2024)",
+    ),
+}
+
+
+def _path_subpaths(d: str) -> list[list[tuple[float, float]]]:
+    """Parse an M/L/Z-only path 'd' into its subpath polygons (point lists)."""
+    subs: list[list[tuple[float, float]]] = []
+    for chunk in d.split("M"):
+        chunk = chunk.strip().replace("Z", "").replace("z", "")
+        if not chunk:
+            continue
+        pts: list[tuple[float, float]] = []
+        for tok in chunk.split("L"):
+            tok = tok.strip()
+            if not tok:
+                continue
+            try:
+                xs, ys = tok.split(",")
+                pts.append((float(xs), float(ys)))
+            except ValueError:
+                continue
+        if len(pts) >= 3:
+            subs.append(pts)
+    return subs
+
+
+def _poly_area(pts: list[tuple[float, float]]) -> float:
+    """Absolute shoelace area — used to pick the mainland (largest subpath)."""
+    s = 0.0
+    n = len(pts)
+    for i in range(n):
+        x1, y1 = pts[i]
+        x2, y2 = pts[(i + 1) % n]
+        s += x1 * y2 - x2 * y1
+    return abs(s) / 2.0
+
+
+def _area_coords(d: str, scale: float) -> str:
+    """The largest subpath of a constituency, as a scaled image-map 'coords' string.
+    Mapping only the mainland keeps each constituency to ONE clickable polygon (some
+    have 150+ island subpaths); the islands stay coloured but aren't click targets."""
+    subs = _path_subpaths(d)
+    if not subs:
+        return ""
+    best = max(subs, key=_poly_area)
+    nums: list[str] = []
+    for x, y in best:
+        nums.append(f"{x * scale:.1f}")
+        nums.append(f"{y * scale:.1f}")
+    return ",".join(nums)
+
+
+def _choropleth_html(quintile_by_name: dict, alt: str) -> str:
+    """All 43 constituencies filled by quintile, as a FIXED-SIZE <img> data-URI with a
+    clickable <map> overlay (each mainland → ?constituency= soft-nav via spa_links).
+    '' if no map geometry (page then just shows the grid)."""
+    outlines = fetch_constituency_outlines()
+    paths = outlines.get("constituencies", {})
+    if not paths:
+        return ""
+    vb = outlines.get("viewbox", "0 0 621 1000")
+    try:
+        _, _, vw, vh = (float(t) for t in vb.split())
+    except ValueError:
+        vw, vh = 621.1, 1000.0
+    scale = _CHORO_PX_H / vh
+    px_w = round(vw * scale)
+    body, areas = [], []
+    for name, d in paths.items():
+        q = quintile_by_name.get(name)
+        try:
+            fill = _CHORO_PALETTE[int(q) - 1] if q is not None and 1 <= int(q) <= 5 else _CHORO_NODATA
+        except (TypeError, ValueError):
+            fill = _CHORO_NODATA
+        body.append(f'<path d="{d}" fill="{fill}" stroke="#fbf8f2" stroke-width="1.2"/>')
+        coords = _area_coords(d, scale)
+        if coords:
+            areas.append(
+                f'<area shape="poly" coords="{coords}" '
+                f'href="?constituency={quote(name)}" alt="{_h(name)}" title="{_h(name)}">'
+            )
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{vb}">{"".join(body)}</svg>'
+    b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    return (
+        f'<img class="con-choropleth" width="{px_w}" height="{_CHORO_PX_H}" '
+        f'usemap="#con-choro-map" src="data:image/svg+xml;base64,{b64}" '
+        f'alt="{_h(alt)}" loading="lazy">'
+        f'<map name="con-choro-map">{"".join(areas)}</map>'
+    )
+
+
+def _choro_legend() -> str:
+    swatches = "".join(f'<span class="con-choro-sw" style="background:{c}"></span>' for c in _CHORO_PALETTE)
+    return (
+        f'<div class="con-choro-legend">'
+        f'<span class="con-choro-end">Lower</span>{swatches}'
+        f'<span class="con-choro-end">Higher</span>'
+        f"</div>"
+    )
+
+
+def _render_choropleth() -> None:
+    res = fetch_constituency_map_layers_result()
+    if not res.ok or res.data.empty:
+        return  # silent — the searchable grid below remains the reliable selector
+    df = res.data
+    subsection_heading("Compare every constituency")
+    choice = st.radio(
+        "Colour the map by",
+        list(_MAP_LAYERS.keys()),
+        horizontal=True,
+        key="con_map_layer",
+    )
+    qcol, _vcol, _fmt, phrase = _MAP_LAYERS[choice]
+    quint = {str(r["constituency_name"]): r[qcol] for _, r in df.iterrows() if pd.notna(r[qcol])}
+    map_html = _choropleth_html(quint, alt=f"Map of the 43 Dáil constituencies shaded by {choice}")
+    if not map_html:
+        return
+    st.html(f'<div class="con-choro">{map_html}{_choro_legend()}</div>')
+    st.caption(
+        f"Each of the 43 constituencies shaded into fifths by {phrase}. "
+        "Click a constituency to open its dossier, or pick a card below. "
+        "Boundaries: 2023 Electoral Commission review (Census 2022)."
+    )
 
 
 # ── INDEX ─────────────────────────────────────────────────────────────────────
@@ -136,6 +323,8 @@ def _render_index() -> None:
         )
         return
     df = res.data
+
+    _render_choropleth()
 
     query, _ = find_a_td_filter(
         df["constituency_name"].tolist(),
@@ -175,14 +364,10 @@ def _locator_svg(name: str) -> str:
         return ""
     vb = outlines.get("viewbox", "0 0 621 1000")
     others = "".join(
-        f'<path d="{paths[c]}" fill="#e3ddd1" stroke="#fbf8f2" stroke-width="1.2"/>'
-        for c in paths
-        if c != name
+        f'<path d="{paths[c]}" fill="#e3ddd1" stroke="#fbf8f2" stroke-width="1.2"/>' for c in paths if c != name
     )
     here = f'<path d="{paths[name]}" fill="#b04a26" stroke="#fbf8f2" stroke-width="1.2"/>'
-    svg = (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{vb}">{others}{here}</svg>'
-    )
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{vb}">{others}{here}</svg>'
     b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
     return (
         f'<img class="con-locator" src="data:image/svg+xml;base64,{b64}" '
@@ -304,7 +489,9 @@ def _housing_card(row) -> str:
         pills.append(f'<span class="con-grain con-grain-ssha">{_int(waiting)} on housing list{yoy_txt}</span>')
     long_wait = row.get("long_wait_pct")
     if long_wait is not None and not pd.isna(long_wait):
-        pills.append(f'<span class="con-grain con-grain-wait">{long_wait:.0f}% waiting 4 yrs+</span>')
+        over7 = row.get("over_7yr_pct")
+        o7 = f" <em>({over7:.0f}% over 7 yrs)</em>" if over7 is not None and not pd.isna(over7) else ""
+        pills.append(f'<span class="con-grain con-grain-wait">{long_wait:.0f}% waiting 4 yrs+{o7}</span>')
     if not pills:
         return ""
     flag = ' <span class="con-council-partial">partial</span>' if partial else ""
@@ -317,21 +504,13 @@ def _housing_card(row) -> str:
 
 
 def _render_housing(name: str) -> None:
-    res = fetch_constituency_housing_context_result(name)
+    # Supply (vacancy / price / completions) LEFT-joined with demand (SSHA waiting list) in the
+    # core query, so each council card shows both from ONE result; supply-only if SSHA is absent.
+    res = fetch_constituency_housing_with_ssha_result(name)
     if not res.ok or res.data.empty:
         return
     df = res.data
-    # Merge in the social-housing waiting list (SSHA) by serving council, so each
-    # council card shows supply (new homes/vacancy/price) AND demand (waiting list)
-    # side by side. Degrades silently if the SSHA fact is unavailable.
-    ssha_res = fetch_constituency_ssha_waiting_list_result(name)
-    has_ssha = ssha_res.ok and not ssha_res.data.empty
-    if has_ssha:
-        ssha_cols = ["local_authority", "link_type", "waiting_total_2025",
-                     "waiting_yoy_pct", "long_wait_pct", "over_7yr_pct"]
-        df = df.merge(
-            ssha_res.data[ssha_cols], on=["local_authority", "link_type"], how="left"
-        )
+    has_ssha = "waiting_total_2025" in df.columns
     evidence_heading("Housing in this area")
     vac_period = next((str(p) for p in df["vac_period"] if p), "")
     med_period = next((str(p) for p in df["med_period"] if p), "")
@@ -346,15 +525,53 @@ def _render_housing(name: str) -> None:
     if cards:
         st.html(f'<div class="con-council-grid">{"".join(cards)}</div>')
     src = " · ".join(
-        x for x in [
+        x
+        for x in [
             f"New homes: CSO new dwelling completions {comp_period}" if comp_period else "",
             f"Vacancy: CSO metered-electricity vacancy {vac_period}" if vac_period else "",
             f"Median price: CSO RPPI {med_period}" if med_period else "",
             "Waiting list: Housing Agency SSHA 2025" if has_ssha else "",
-        ] if x
+        ]
+        if x
     )
     if src:
         st.caption(src)
+    _render_waiting_breakdown(name)
+
+
+# Dimensions shown in the "who's waiting here" expander (sequential time stripe first).
+_WAIT_DIMS = [
+    ("time_on_list", "How long they’ve waited", "sequential"),
+    ("tenure", "Where they live now", "categorical"),
+    ("employment", "Employment", "categorical"),
+]
+
+
+def _render_waiting_breakdown(name: str) -> None:
+    """Expander: the social-housing waiting-list composition for the serving council(s),
+    reusing the national composition view (grain='la'). Collapsed by default."""
+    res = fetch_constituency_waiting_composition_result(name)
+    if not res.ok or res.data.empty:
+        return
+    df = res.data
+    with st.expander("Who’s waiting here — breakdown by serving council"):
+        for council in df["local_authority"].drop_duplicates():
+            sub = df[df["local_authority"] == council]
+            st.html(f'<p class="hou-dim-title" style="font-size:0.95rem">{_h(str(council))}</p>')
+            for dim, title, palette in _WAIT_DIMS:
+                d = sub[sub["dimension"] == dim].sort_values(
+                    ["ord", "count"], ascending=[True, False], na_position="last"
+                )
+                if d.empty:
+                    continue
+                segs = [(str(r["category"]), float(r["count"])) for _, r in d.iterrows()]
+                st.html(
+                    f'<p class="con-section-note" style="margin:0.3rem 0 0.2rem">{title}</p>'
+                    + proportion_stripe_html(segs, palette=palette)
+                )
+        st.caption(
+            f"[Housing Agency SSHA 2025]({_SRC_SSHA}) · council-area figures (the area is not the constituency)."
+        )
 
 
 def _perf_pill(value, fmt: str, label: str, national, nat_fmt: str | None = None) -> str:
@@ -374,13 +591,33 @@ def _council_perf_card(row) -> str:
     pills = [
         _perf_pill(row.get("vacancy_pct"), "{:.1f}%", "stock vacant", row.get("nat_vacancy_pct")),
         _perf_pill(row.get("reletting_weeks"), "{:.0f}", "wks to re-let", row.get("nat_reletting_weeks")),
-        _perf_pill(row.get("maintenance_eur_per_dwelling"), "€{:,.0f}", "upkeep/home",
-                   row.get("nat_maintenance_eur_per_dwelling")),
-        _perf_pill(row.get("retrofit_pct_of_stock"), "{:.1f}%", "of stock retrofitted",
-                   row.get("nat_retrofit_pct_of_stock")),
-        _perf_pill(row.get("longterm_homeless_pct"), "{:.0f}%", "homeless adults long-term",
-                   row.get("nat_longterm_homeless_pct")),
+        _perf_pill(
+            row.get("maintenance_eur_per_dwelling"),
+            "€{:,.0f}",
+            "upkeep/home",
+            row.get("nat_maintenance_eur_per_dwelling"),
+        ),
+        _perf_pill(
+            row.get("retrofit_pct_of_stock"), "{:.1f}%", "of stock retrofitted", row.get("nat_retrofit_pct_of_stock")
+        ),
+        _perf_pill(
+            row.get("longterm_homeless_pct"),
+            "{:.0f}%",
+            "homeless adults long-term",
+            row.get("nat_longterm_homeless_pct"),
+        ),
+        _perf_pill(
+            row.get("rent_collection_pct"), "{:.0f}%", "rent collected", row.get("nat_rent_collection_pct")
+        ),
     ]
+    # Derelict Sites Levy enforcement gap — the cumulative amount still uncollected.
+    der_out = row.get("derelict_outstanding_eur")
+    if der_out is not None and not pd.isna(der_out) and der_out > 0:
+        lev = row.get("derelict_levied_eur")
+        lev_txt = f" <em>({_eur(lev)} levied 2024)</em>" if lev is not None and not pd.isna(lev) else ""
+        pills.append(
+            f'<span class="con-grain con-grain-wait">{_eur(der_out)} derelict levy outstanding{lev_txt}</span>'
+        )
     pills = [p for p in pills if p]
     if not pills:
         return ""
@@ -404,12 +641,16 @@ def _render_council_housing_performance(name: str) -> None:
     evidence_heading("Council housing performance")
     st.html(
         '<p class="con-section-note">How the local-authority area(s) serving this constituency '
-        "manage their social housing — each figure beside the <strong>national median</strong> "
-        "across all 31 councils. <strong>Council-area</strong> figures (the area is not the "
-        "constituency).</p>"
+        "manage their social housing, collect what they’re owed, and enforce dereliction — most "
+        "figures beside the <strong>national median</strong> across all 31 councils. "
+        "<strong>Council-area</strong> figures (the area is not the constituency).</p>"
     )
     st.html(f'<div class="con-council-grid">{"".join(cards)}</div>')
-    st.caption("Source: NOAC Local Authority Performance Indicator Report 2024")
+    st.caption(
+        f"**Sources:** [NOAC Local Authority Performance Indicator Report 2024]({_SRC_NOAC}) "
+        f"(performance + rent collection) · [Dept of Housing Derelict Sites annual return 2024]"
+        f"({_SRC_DERELICT}) (levy outstanding)."
+    )
 
 
 def _council_card(row, constituency: str) -> str:
@@ -471,8 +712,11 @@ def _council_card(row, constituency: str) -> str:
 
 def _div_bar_rows(rows, value_key: str, label: str) -> str:
     """Horizontal value bars for a council's by-division spend (display-only scaling)."""
-    vals = [(str(r["division"]), float(r[value_key])) for _, r in rows.iterrows()
-            if r.get(value_key) is not None and not pd.isna(r.get(value_key)) and float(r[value_key]) > 0]
+    vals = [
+        (str(r["division"]), float(r[value_key]))
+        for _, r in rows.iterrows()
+        if r.get(value_key) is not None and not pd.isna(r.get(value_key)) and float(r[value_key]) > 0
+    ]
     if not vals:
         return ""
     top = max(v for _, v in vals) or 1
@@ -522,7 +766,9 @@ def _render_council_detail(constituency: str, council: str) -> None:
     st.html(
         f'<p class="con-section-note" style="margin-top:0.6rem">{src}'
         f'<a class="dt-source-link" href="/rankings-council-spending?paid_publisher={quote(council)}&paid_tier=COMMITTED" '
-        f'target="_self">Full {_h(council)} dossier (suppliers, multi-year)</a></p>'
+        f'target="_self">Full {_h(council)} dossier (suppliers, multi-year)</a> · '
+        f'<a class="dt-source-link" href="{_h(council_accountability_url(council))}" '
+        f'target="_self">Who runs {_h(council)} →</a></p>'
     )
 
 
@@ -558,6 +804,24 @@ def _render_council_context(name: str) -> None:
         st.caption("Also partly covered by:")
         pcards = [_council_card(r, name) for _, r in partial.iterrows()]
         st.html(f'<div class="con-council-grid">{"".join(pcards)}</div>')
+
+    # Contextual edge → the "Who runs your county" dossier per serving council (the
+    # appointed Chief Executive + accountability indicators). Rendered as standalone
+    # links: the spend cards above are themselves anchors, so this can't nest inside
+    # them. Carries the council entity instead of dropping the user on a generic index.
+    councils = list(dict.fromkeys(str(la) for la in df["local_authority"]))
+    if councils:
+        links = " · ".join(
+            f'<a class="dt-source-link" href="{_h(council_accountability_url(la))}" '
+            f'target="_self">{_h(la)}</a>'
+            for la in councils
+        )
+        whose = "these councils" if len(councils) > 1 else "this council"
+        st.html(
+            f'<p class="con-section-note" style="margin-top:0.6rem">'
+            f"<strong>Who runs {whose}?</strong> See the appointed Chief Executive "
+            f"and how the council performs: {links}</p>"
+        )
 
 
 def _render_dossier(name: str) -> None:

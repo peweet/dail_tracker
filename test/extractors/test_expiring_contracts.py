@@ -31,7 +31,13 @@ def _q(con, sql):
 
 def test_no_framework_rows(con):
     # A framework's "duration" is a ceiling window, not a single contract — must be excluded.
-    assert _q(con, "SELECT COUNT(*) FROM v_procurement_expiring_contracts_etenders WHERE value_kind='framework_or_dps_ceiling'") == 0
+    assert (
+        _q(
+            con,
+            "SELECT COUNT(*) FROM v_procurement_expiring_contracts_etenders WHERE value_kind='framework_or_dps_ceiling'",
+        )
+        == 0
+    )
 
 
 def test_value_is_award_grade_display_only(con):
@@ -52,7 +58,10 @@ def test_estimated_end_after_award(con):
 
 
 def test_duration_within_guard(con):
-    bad = _q(con, "SELECT COUNT(*) FROM v_procurement_expiring_contracts_etenders WHERE duration_months NOT BETWEEN 1 AND 240")
+    bad = _q(
+        con,
+        "SELECT COUNT(*) FROM v_procurement_expiring_contracts_etenders WHERE duration_months NOT BETWEEN 1 AND 240",
+    )
     assert bad == 0
 
 

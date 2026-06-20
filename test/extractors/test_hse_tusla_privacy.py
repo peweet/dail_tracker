@@ -45,11 +45,13 @@ mat = _load_materialize()
 
 # --------------------------------------------------------------------------- privacy gate
 def _flag(suppliers, semantics="payment_actual"):
-    df = pl.DataFrame({
-        "supplier_raw": suppliers,
-        "amount_eur": [100_000.0] * len(suppliers),
-        "amount_semantics": [semantics] * len(suppliers),
-    })
+    df = pl.DataFrame(
+        {
+            "supplier_raw": suppliers,
+            "amount_eur": [100_000.0] * len(suppliers),
+            "amount_semantics": [semantics] * len(suppliers),
+        }
+    )
     return mat.pbe.classify_and_flag(df)
 
 
@@ -69,16 +71,16 @@ def test_company_supplier_is_displayable():
 
 def test_invariant_no_personal_row_is_displayable():
     """The exact runtime invariant from main(): no displayable row may be a likely person."""
-    df = _flag([
-        "Dr Saoirse Lenihan",          # individual -> quarantined
-        "Medtronic Ireland Ltd",       # company -> ok
-        "Beaumont Hospital",           # public body -> ok
-        "Aoife Treacy",                # individual -> quarantined
-        "Fresenius Medical Care Ltd",  # company -> ok
-    ])
-    leaked = df.filter(
-        pl.col("public_display") & (pl.col("supplier_class") == "sole_trader_or_individual")
+    df = _flag(
+        [
+            "Dr Saoirse Lenihan",  # individual -> quarantined
+            "Medtronic Ireland Ltd",  # company -> ok
+            "Beaumont Hospital",  # public body -> ok
+            "Aoife Treacy",  # individual -> quarantined
+            "Fresenius Medical Care Ltd",  # company -> ok
+        ]
     )
+    leaked = df.filter(pl.col("public_display") & (pl.col("supplier_class") == "sole_trader_or_individual"))
     assert leaked.height == 0, f"{leaked.height} personal rows left displayable"
     assert df.filter(~pl.col("public_display")).height == 2  # the two invented individuals
 
@@ -113,18 +115,24 @@ def test_sanity_passes_plausible():
 # --------------------------------------------------------------------------- value semantics
 def test_to_schema_semantics_and_period():
     meta = mat.PUBS["ie_hse"]
-    native = {"supplier_raw": "Medtronic Ireland Ltd", "amount_eur": 120_000.0,
-              "year": 2024, "quarter": "Q2", "description": "Devices",
-              "doc_ref": "PO123", "source_row": 1, "source_page": 1}
+    native = {
+        "supplier_raw": "Medtronic Ireland Ltd",
+        "amount_eur": 120_000.0,
+        "year": 2024,
+        "quarter": "Q2",
+        "description": "Devices",
+        "doc_ref": "PO123",
+        "source_row": 1,
+        "source_page": 1,
+    }
     row = mat.to_schema("ie_hse", native, "http://x/f.pdf", "deadbeef", meta["semantics"], meta)
-    assert row["amount_semantics"] == "payment_actual"   # HSE = payments
+    assert row["amount_semantics"] == "payment_actual"  # HSE = payments
     assert row["period"] == "2024-Q2" and row["quarter"] == 2
     assert row["publisher_id"] == "ie_hse"
 
     tmeta = mat.PUBS["ie_tusla"]
-    trow = mat.to_schema("ie_tusla", {**native, "quarter": "Q3"}, "http://x/t.pdf", "f00d",
-                         tmeta["semantics"], tmeta)
-    assert trow["amount_semantics"] == "po_committed"     # Tusla = purchase orders
+    trow = mat.to_schema("ie_tusla", {**native, "quarter": "Q3"}, "http://x/t.pdf", "f00d", tmeta["semantics"], tmeta)
+    assert trow["amount_semantics"] == "po_committed"  # Tusla = purchase orders
 
 
 @pytest.mark.integration
@@ -132,6 +140,7 @@ def test_coverage_flag_is_applied():
     """The on-disk coverage JSON must record the quarantine as applied. A stale pre-fix
     artifact fails this — the intended signal to regenerate the fact."""
     import json
+
     cov = _ROOT / "data" / "_meta" / "hse_tusla_payments_coverage.json"
     if not cov.exists():
         pytest.skip("coverage not generated; run the materialiser first")

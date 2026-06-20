@@ -283,9 +283,7 @@ def fetch_ted_tenders_stats_result() -> QueryResult:
 
 
 @st.cache_data(ttl=300)
-def fetch_ted_tenders_result(
-    only_open: bool = False, limit: int | None = 60, sector: str | None = None
-) -> QueryResult:
+def fetch_ted_tenders_result(only_open: bool = False, limit: int | None = 60, sector: str | None = None) -> QueryResult:
     """TED tender-pipeline listing (pre-award competition notices), most recent first. ``sector``
     narrows to one CPV division (the TED feed's sector facet)."""
     return _q.ted_tenders(get_procurement_conn(), limit=limit, only_open=only_open, sector=sector)

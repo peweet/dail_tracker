@@ -3,16 +3,16 @@
   "award_notices": 43255,
   "award_supplier_rows": 62763,
   "supplier_class_counts": {
+    "sole_trader_or_individual": 16729,
     "company": 44834,
-    "sole_trader_or_individual": 16728,
-    "foreign_company": 912,
-    "public_body": 289
+    "public_body": 289,
+    "foreign_company": 911
   },
   "distinct_suppliers": 15810,
   "company_class_suppliers": 9979,
   "cro_exact_unique": 6047,
   "cro_exact_unique_pct_of_company": 60.6,
-  "sole_trader_quarantined": 5127,
+  "sole_trader_quarantined": 5128,
   "name_truncated_rows": 651,
   "name_truncated_distinct": 125,
   "value_rows": 36760,
