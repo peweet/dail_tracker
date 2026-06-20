@@ -15,7 +15,11 @@ from data_access.attendance_data import fetch_chamber_sitting_days, get_attendan
 from ui.components import empty_state, evidence_heading, stat_strip, year_selector
 from ui.export_controls import export_button
 
-from config import SITTING_DAYS_BY_YEAR
+from dail_tracker_core.attendance import (
+    meets_taa_minimum,
+    plenary_attendance_rate,
+    statutory_attendance_minimum,
+)
 
 
 @st.cache_data(ttl=300)
@@ -225,32 +229,37 @@ def _render_year_breakdown(
         empty_state("No year data available", "v_attendance_member_year_summary returned no rows.")
         return
 
-    # Bar denominator = the chamber's official sitting days that year. Dáil uses
-    # the curated config figures; Seanad uses the data-derived per-year count
-    # (the two chambers sit on different days).
-    denom_map = SITTING_DAYS_BY_YEAR if house == "Dáil" else fetch_chamber_sitting_days("Seanad")
+    # Bar denominator = the chamber's distinct sitting dates that year, DERIVED
+    # FROM THE DATA for both chambers (the two chambers sit on different days, and
+    # the data-derived count can never be smaller than a member's own sitting
+    # days — the old curated config figure could be, e.g. 82 vs 94 recorded).
+    denom_map = fetch_chamber_sitting_days(house)
 
     rows = []
     for _, r in years_df.iterrows():
         y = int(r["year"])
         days = int(r["attended_count"])
         sitting = int(r["sitting_days"]) if "sitting_days" in years_df.columns else days
+        other = int(r["other_days"]) if "other_days" in years_df.columns else max(0, days - sitting)
         total = denom_map.get(y)
-        # Rate uses sitting_days (chamber only) over the official chamber
-        # sitting-day count — both sides of the ratio are plenary, so the
-        # bar stays in [0,1] even though the headline `days` figure
-        # includes committee/other days.
-        pct = sitting / total if total else None
+        # Rate uses sitting_days (chamber only) over the data-derived chamber
+        # sitting-day count — both sides of the ratio are plenary, so the bar
+        # stays in [0,1] even though the headline `days` figure includes
+        # committee/other days. Derivation lives in the unit-tested core helper.
+        pct = plenary_attendance_rate(sitting, total)
         rows.append(
             {
                 "Year": y,
                 "Days": days,
                 "Sitting": sitting,
+                "Other": other,
                 "Total": str(total) if total else "—",
                 "Rate": pct,
+                "MeetsMin": meets_taa_minimum(days, y),
             }
         )
 
+    minimum = statutory_attendance_minimum()
     cards_html: list[str] = []
     for row_d in rows:
         y = row_d["Year"]
@@ -263,23 +272,42 @@ def _render_year_breakdown(
         # "107 / 83 · 88%" mixed all recorded days with plenary sitting days
         # and read as broken arithmetic.
         total_label = f"{row_d['Sitting']} / {total}" if total != "—" else f"{days}"
+        # 120-day TAA marker: the combined total (sitting + other) is the figure
+        # the statutory minimum applies to. Convey it via a non-layout-shifting
+        # row tooltip + a colour tint on the % when below the minimum (CSS grid
+        # stays four columns — no new element).
+        meets = bool(row_d["MeetsMin"])
+        status = f"met {minimum}-day minimum" if meets else f"below {minimum}-day minimum"
+        row_title = f"{days} days recorded ({row_d['Sitting']} plenary + {row_d['Other']} other) — {status}"
+        pct_style = "" if meets else ' style="color:#b3261e"'
         cards_html.append(
-            f'<div class="att-year-row">'
+            f'<div class="att-year-row" title="{_h(row_title)}">'
             f'<span class="att-year-yr">{y}</span>'
             f'<div class="att-year-bar-track">'
             f'<div class="att-year-bar-fill" style="width:{pct_pad:.1f}%"></div>'
             f"</div>"
             f'<span class="att-year-days">{_h(total_label)}</span>'
-            f'<span class="att-year-pct">{_h(pct_label)}</span>'
+            f'<span class="att-year-pct"{pct_style}>{_h(pct_label)}</span>'
             f"</div>"
         )
     st.html(f'<div class="att-year-list">{"".join(cards_html)}</div>')
+    st.caption(
+        f"Bar = plenary attendance rate (sitting days ÷ {house} sitting days that year). "
+        f"Hover a row for the combined total and whether it met the {minimum}-day "
+        "Travel & Accommodation Allowance minimum."
+    )
 
     safe = td_name.replace(" ", "_")
     table_df = pd.DataFrame(rows)
     export_button(
-        table_df[["Year", "Days", "Sitting", "Total"]].rename(
-            columns={"Sitting": "Plenary days attended", "Total": "Sitting days"}
+        table_df[["Year", "Days", "Sitting", "Other", "Total", "MeetsMin"]].rename(
+            columns={
+                "Days": "Total days (sitting + other)",
+                "Sitting": "Plenary days attended",
+                "Other": "Other days attended",
+                "Total": "Chamber sitting days",
+                "MeetsMin": f"Met {minimum}-day TAA minimum",
+            }
         ),
         label=f"Export year breakdown · {td_name}",
         filename=f"dail_tracker_attendance_years_{safe}.csv",

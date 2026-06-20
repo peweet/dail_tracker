@@ -80,12 +80,13 @@ def test_dossier_signals_for_donegal(conn):
     assert len(q.derelict_sites_levy(conn, "Donegal").data) == 1
 
 
-def test_cork_county_planning_gap_is_empty(conn):
-    """Cork County is absent from the appeals source — the query returns 0 rows
-    (not an error), which the page degrades gracefully."""
+def test_cork_county_planning_recovered(conn):
+    """Cork County publishes no AppealRefNumber, so it has no exact-ref matches; the
+    extractor's validated spatial_temporal fallback recovers it, so the query now returns
+    exactly one row with a plausible overturn rate (was a documented gap before)."""
     res = q.planning_overturn(conn, "Cork County")
-    assert res.ok and res.data.empty
-    # but it IS a real council elsewhere
+    assert res.ok and len(res.data) == 1
+    assert 10 <= float(res.data.iloc[0]["overturn_rate_pct"]) <= 45
     assert len(q.chief_executive(conn, "Cork County").data) == 1
 
 

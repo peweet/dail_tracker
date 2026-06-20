@@ -2658,9 +2658,16 @@ def test_ssha_waiting_list_national_views_build():
 
     comp = con.execute("SELECT * FROM v_ssha_waiting_list_composition").pl()
     assert set(comp["grain"].unique()) == {"national", "county", "la"}
-    assert set(comp["dimension"].unique()) == {"time_on_list", "tenure", "employment", "household", "citizenship"}
-    # 5 dimensions all labelled (no slug leaked through as a category) — every row mapped
-    assert comp.filter(pl.col("ord").is_null() & (pl.col("dimension") == "time_on_list")).height == 0
+    assert set(comp["dimension"].unique()) == {
+        "time_on_list", "tenure", "employment", "household", "citizenship",
+        "age", "income", "main_need", "accom_need",
+    }
+    # every category is labelled — no SSHA column-slug leaked through as a category in ANY
+    # dimension (a slug looks like lowercase_with_underscores; labels are Title Case)
+    leaked = comp.filter(pl.col("category").str.contains("^[a-z0-9_]+$"))
+    assert leaked.height == 0, f"unlabelled slugs leaked: {set(leaked['category'].unique())}"
+    # ord set on every row (drives bar ordering)
+    assert comp.filter(pl.col("ord").is_null()).height == 0
     # citizenship is exactly the 4 source categories (sensitivity: no surprise buckets)
     cit = set(comp.filter(pl.col("dimension") == "citizenship")["category"].unique())
     assert cit == {"Irish", "EEA", "Non-EEA", "UK"}
