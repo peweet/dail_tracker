@@ -50,6 +50,11 @@ _DIM_CARDS = [
     ("citizenship", "Citizenship of main applicant"),
 ]
 
+# Source links (verified live).
+_SRC_SSHA = "https://www.housingagency.ie/housing-information/summary-social-housing-assessments-ssha"
+_SRC_CSO = "https://data.cso.ie/"
+_SRC_PEA08 = "https://data.cso.ie/table/PEA08"
+
 
 def _int(v) -> str:
     if v is None or (isinstance(v, float) and pd.isna(v)):
@@ -197,7 +202,8 @@ def _render_county_table() -> None:
     show = pd.DataFrame(
         {
             ("County" if grain == "county" else "Local authority"): df["area"],
-            "On the list": df["waiting_total"],
+            # comma-delimited (rows already ranked by size in the query)
+            "On the list": [f"{int(v):,}" if pd.notna(v) else "—" for v in df["waiting_total"]],
             "Per 1,000": df["waiters_per_1000"],
             "% 7yr+": df["over_7yr_pct"],
             "YoY %": df["waiting_yoy_pct"],
@@ -208,7 +214,6 @@ def _render_county_table() -> None:
         hide_index=True,
         width="stretch",
         column_config={
-            "On the list": st.column_config.NumberColumn(format="%d"),
             "Per 1,000": st.column_config.NumberColumn(
                 format="%.1f", help="Households on the list per 1,000 people (CSO PEA08 population)"
             ),
@@ -281,7 +286,8 @@ def housing_page() -> None:
         _render_county_table()
 
     st.caption(
-        "Source: Housing Agency, Summary of Social Housing Assessments 2025 (per local "
-        "authority; counties roll up the city/county authorities). Population: CSO PEA08. "
-        "Council-area figures — the area is not a constituency."
+        f"**Sources:** [Housing Agency — Summary of Social Housing Assessments 2025]({_SRC_SSHA}) "
+        f"(waiting list, per local authority; counties roll up the city/county authorities) · "
+        f"[CSO PxStat]({_SRC_CSO}) (population [PEA08]({_SRC_PEA08}), completions NDQ09, vacancy "
+        "VAC14, rent F2023B, HAP). Council-area figures — the area is not a constituency."
     )

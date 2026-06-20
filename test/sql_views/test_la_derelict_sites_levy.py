@@ -1,7 +1,7 @@
 """Tripwire for v_la_derelict_sites_levy (council enforcement signal).
 
 Reads the real gold parquet (data/gold/parquet/derelict_sites_levy_wide.parquet,
-built by pipeline_sandbox/housing/derelict_sites_levy_extract_experimental.py).
+built by extractors/derelict_sites_levy_extract.py).
 The parquet is gitignored, so these SKIP in CI and run on a dev box / integration.
 
 Guards: all 31 councils present and joining the CE roster (the City-and-County

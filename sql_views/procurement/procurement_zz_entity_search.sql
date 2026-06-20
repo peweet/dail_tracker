@@ -7,14 +7,30 @@
 -- dependencies exist first (same convention as member_zz_*.sql; see
 -- feedback_sql_view_dependency_order).
 --
--- ⚠️ THE TWO MONEY HINT COLUMNS ARE DIFFERENT GRAINS: awarded_value_safe_eur is an
--- award-ceiling sum (eTenders), paid_safe_eur is realised SPENT payments — they are
--- carried so a result row can show each with its own label, NEVER added or compared
--- as totals. Suppliers' paid figures join via hard CRO company_num only.
+-- TWO REGISTERS, NEVER CONFLATED. The corpus spans the AWARDS register (eTenders/TED:
+-- entity_kind 'supplier'/'authority'/'cpv') AND the realised-PAYMENTS register (public
+-- bodies' own >€20k lists: entity_kind 'paid_supplier'/'paid_body'). A firm paid by the
+-- State but never an eTenders award-winner (e.g. a council/OPW contractor) lived ONLY in
+-- the awards-side corpus before and so was unsearchable; the paid_* branches fix that.
+-- The two registers use DIFFERENT published name forms and are linked by NO key here, so a
+-- firm can legitimately appear under both an awards card and a paid card — that is correct,
+-- not a duplicate: they are different lifecycle stages of public money.
 --
--- Grain: one row per entity. entity_kind ∈ ('supplier','authority','cpv'); url_key is
--- the existing deep-link query-param value for that kind (?supplier= / ?authority= /
--- ?cpv=). n_records = the kind's own trustworthy count (awards for all three kinds).
+-- ⚠️ THE TWO MONEY HINT COLUMNS ARE DIFFERENT GRAINS: awarded_value_safe_eur is an
+-- award-ceiling sum (eTenders), paid_safe_eur is realised SPENT/COMMITTED payments — they are
+-- carried so a result row can show each with its own label, NEVER added or compared
+-- as totals. On 'supplier' rows the paid figure joins via hard CRO company_num only; on
+-- 'paid_supplier'/'paid_body' rows it is the row's own payments total.
+--
+-- PRIVACY: the paid_supplier branch is restricted to supplier_class='company' — the same gate
+-- that makes a paid supplier's card CLICKABLE in the payments tab. Sole traders / individuals /
+-- bare id-codes are NEVER added to the search corpus (no person typeahead / profile-building),
+-- mirroring the quarantine the rest of the payments drill-down enforces.
+--
+-- Grain: one row per entity (paid_* are one row per entity × lifecycle tier). url_key is the
+-- existing deep-link query-param value for that kind (?supplier= / ?authority= / ?cpv= /
+-- ?paid_supplier= / ?paid_publisher=); paid_tier carries SPENT/COMMITTED for the paid_* kinds
+-- so the page can build the tier-correct paid-dossier link (NULL for the award kinds).
 CREATE OR REPLACE VIEW v_procurement_entity_search AS
 SELECT
     'supplier'                                   AS entity_kind,
@@ -25,7 +41,8 @@ SELECT
     s.awarded_value_safe_eur,
     c.paid_safe_eur,
     s.company_num                                AS cro_company_num,
-    s.on_lobbying_register
+    s.on_lobbying_register,
+    NULL::VARCHAR                                AS paid_tier
 FROM v_procurement_supplier_summary s
 LEFT JOIN v_procurement_entity_chain c ON s.company_num = c.company_num
 UNION ALL
@@ -38,7 +55,8 @@ SELECT
     a.awarded_value_safe_eur,
     NULL::DOUBLE                                 AS paid_safe_eur,
     NULL::BIGINT                                 AS cro_company_num,
-    FALSE                                        AS on_lobbying_register
+    FALSE                                        AS on_lobbying_register,
+    NULL::VARCHAR                                AS paid_tier
 FROM v_procurement_authority_summary a
 UNION ALL
 SELECT
@@ -50,6 +68,41 @@ SELECT
     p.awarded_value_safe_eur,
     NULL::DOUBLE                                 AS paid_safe_eur,
     NULL::BIGINT                                 AS cro_company_num,
-    FALSE                                        AS on_lobbying_register
+    FALSE                                        AS on_lobbying_register,
+    NULL::VARCHAR                                AS paid_tier
 FROM v_procurement_cpv_summary p
+UNION ALL
+-- Realised-PAYMENTS suppliers (the contractors the State actually PAID / ORDERED FROM). One
+-- row per (company × tier). Company-class only (privacy gate above). n_records = the firm's
+-- published payment lines; the money hint is the realised paid/ordered total, never an award.
+SELECT
+    'paid_supplier'                              AS entity_kind,
+    ps.supplier                                  AS display_name,
+    ps.supplier_normalised                       AS url_key,
+    ps.n_payments                                AS n_records,
+    ps.n_publishers                              AS n_counterparties,
+    NULL::DOUBLE                                 AS awarded_value_safe_eur,
+    ps.total_safe_eur                            AS paid_safe_eur,
+    NULL::BIGINT                                 AS cro_company_num,
+    FALSE                                        AS on_lobbying_register,
+    ps.realisation_tier                          AS paid_tier
+FROM v_procurement_payments_supplier_summary ps
+WHERE ps.supplier_class = 'company' AND ps.total_safe_eur > 0
+UNION ALL
+-- Realised-PAYMENTS public bodies (the councils / state bodies that publish >€20k lists). One
+-- row per (body × tier) so a council reachable only through the payments register — not the
+-- eTenders contracting-authority list — is searchable by name.
+SELECT
+    'paid_body'                                  AS entity_kind,
+    pb.publisher_name                            AS display_name,
+    pb.publisher_name                            AS url_key,
+    pb.n_payments                                AS n_records,
+    pb.n_suppliers                               AS n_counterparties,
+    NULL::DOUBLE                                 AS awarded_value_safe_eur,
+    pb.total_safe_eur                            AS paid_safe_eur,
+    NULL::BIGINT                                 AS cro_company_num,
+    FALSE                                        AS on_lobbying_register,
+    pb.realisation_tier                          AS paid_tier
+FROM v_procurement_payments_publisher_summary pb
+WHERE pb.total_safe_eur > 0
 ORDER BY n_records DESC;

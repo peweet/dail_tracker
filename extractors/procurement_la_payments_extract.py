@@ -59,6 +59,7 @@ import config  # noqa: E402
 from services.fetch_report import Breaker, FetchReport, classify_body, classify_exception, write_sentinel  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
+from shared.text_encoding import decode_table_bytes  # noqa: E402
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research)"}
 BRONZE = config.BRONZE_PDF_DIR / "la_procurement"
@@ -888,8 +889,14 @@ def read_xls(b: bytes) -> tuple[list[dict], int]:
 
 
 def read_csv(b: bytes) -> tuple[list[dict], int]:
+    # Robust cp1252/UTF-8 decode before parsing (see shared.text_encoding): the old
+    # utf8-lossy mangled council exports' cp1252 apostrophes/fadas into '�' (e.g. Meath
+    # "O'Mahony Pike Architects", "Navan O'Mahonys CLG").
     df = pl.read_csv(
-        io.BytesIO(b), infer_schema_length=0, truncate_ragged_lines=True, ignore_errors=True, encoding="utf8-lossy"
+        io.BytesIO(decode_table_bytes(b).encode("utf-8")),
+        infer_schema_length=0,
+        truncate_ragged_lines=True,
+        ignore_errors=True,
     )
     df = df.rename({c: c.replace("﻿", "").strip() for c in df.columns})
     return _tabular_rows([df.columns] + [list(r) for r in df.iter_rows()])

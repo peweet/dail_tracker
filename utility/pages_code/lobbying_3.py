@@ -100,6 +100,7 @@ from ui.components import (
 from data_access.identity_resolver import resolve_member_code
 from ui.entity_links import (
     entity_cta_html,
+    member_link_html,
     member_profile_url,
     name_join_key,
     normalise_external_url,
@@ -597,6 +598,7 @@ def _return_card_html(
     snippet: str = "",
     url: str = "",
     filed_by: str = "",
+    title_html: str = "",
 ) -> str:
     """Canonical return-record card. Used wherever a list of
     lobbying returns is displayed — topic Stage 2, org / area / DPO / Stage 3.
@@ -609,6 +611,13 @@ def _return_card_html(
     optional second-line subtitle (client / "on behalf of …"), optional
     "Filed by …" meta line (person_primarily_responsible from the lobbying.ie
     return), optional snippet of free-text details.
+
+    ``title_html`` overrides the plain escaped ``title`` with a pre-built,
+    already-escaped HTML fragment — used to render a politician title as a
+    ``member_link_html`` anchor to their member-overview profile. Callers
+    passing ``title_html`` are responsible for their own escaping (graceful
+    by construction: ``member_link_html`` returns the plain escaped name when
+    the politician does not resolve to a registered TD, never a dead link).
     """
     link_html = (
         source_link_html(url, "View on lobbying.ie", aria_label="Open this return on lobbying.ie")
@@ -636,10 +645,11 @@ def _return_card_html(
     )
     snippet_html = f'<p class="lp3-return-snippet">{_h(snippet)}</p>' if snippet else ""
 
+    title_inner = title_html if title_html else _h(title)
     return (
         '<article class="lp3-return-card">'
         f'<header class="lp3-return-head">{head_html}</header>'
-        f'<p class="lp3-return-org">{_h(title)}</p>'
+        f'<p class="lp3-return-org">{title_inner}</p>'
         f"{sub_html}{filed_html}{snippet_html}"
         "</article>"
     )
@@ -1105,10 +1115,12 @@ def _render_org(org_name: str, summary: pd.DataFrame) -> None:
         for _, row in page_slice.iterrows():
             wanted = str(row.get("intended_results", "") or "").strip()
             snippet = (wanted[:260] + "…") if len(wanted) > 260 else wanted
+            pol = str(row.get("member_name", "") or "—")
             cards.append(
                 _return_card_html(
                     period=_fmt_mmm(row.get("period_start_date")),
-                    title=str(row.get("member_name", "") or "—"),
+                    title=pol,
+                    title_html=member_link_html(resolve_member_code(pol), pol),
                     area=str(row.get("public_policy_area", "") or ""),
                     snippet=snippet,
                     url=str(row.get("source_url", "") or ""),
@@ -1317,6 +1329,7 @@ def _render_area(area: str, summary: pd.DataFrame) -> None:
                 _return_card_html(
                     period=_fmt_mmm(row.get("period_start_date")),
                     title=pol,
+                    title_html=member_link_html(resolve_member_code(pol), pol),
                     subtitle=f"lobbied by {org}" if org else "",
                     url=str(row.get("source_url", "") or ""),
                     filed_by=str(row.get("person_primarily_responsible", "") or ""),

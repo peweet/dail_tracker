@@ -1,22 +1,22 @@
 {
   "councils_attempted": 24,
   "councils_with_rows": 22,
-  "rows_extracted": 84706,
-  "rows_public_display": 67701,
-  "rows_quarantined": 17005,
+  "rows_extracted": 84700,
+  "rows_public_display": 67696,
+  "rows_quarantined": 17004,
   "supplier_class_counts": {
-    "sole_trader_or_individual": 16851,
-    "id_code": 154,
-    "company": 65753,
+    "company": 65748,
+    "public_body": 1920,
+    "sole_trader_or_individual": 16850,
     "foreign_company": 28,
-    "public_body": 1920
+    "id_code": 154
   },
   "value_kind_counts": {
-    "payment_actual": 8068,
-    "po_committed": 76638
+    "po_committed": 76638,
+    "payment_actual": 8062
   },
-  "public_safe_to_sum_rows": 67701,
-  "public_safe_to_sum_total_eur": 7997782250.93,
+  "public_safe_to_sum_rows": 67696,
+  "public_safe_to_sum_total_eur": 7997520813.129998,
   "by_council": [
     {
       "slug": "south_dublin",
@@ -626,8 +626,8 @@
       "region": "Leinster",
       "value_kind": "payment_actual",
       "files_parsed": 42,
-      "rows": 5975,
-      "total_eur": 888700133.66,
+      "rows": 5969,
+      "total_eur": 888395358.75,
       "cro_rate": 0.309,
       "periods": [
         "2016-Q1",
@@ -803,6 +803,6 @@
   "parser_version": "0.1.0",
   "taxonomy": "master value_kind + realisation_tier; unions with public_payments_fact (rename that fact's amount_semantics\u2192value_kind, derive realisation_tier).",
   "source": "Each LA's own website, Circular Fin 07/2012 publications (CC-BY / attribute).",
-  "generated_at": "2026-06-18T18:01:50+00:00",
+  "generated_at": "2026-06-20T13:10:56+00:00",
   "caveat": "One row = one published PO/payment line. value_kind distinguishes po_committed (ordered/COMMITTED) vs payment_actual (paid/SPENT); only value_safe_to_sum may be totalled, within a council+period, labelled 'ordered'/'paid', never mixed with award ceilings. Personal-data payees (sole_trader/id_code/unknown) are quarantined (public_display=False). A line is a purchase order or payment, NOT evidence of influence."
 }
