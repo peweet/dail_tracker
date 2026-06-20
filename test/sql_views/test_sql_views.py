@@ -1952,6 +1952,7 @@ def test_v_procurement_supplier_summary_value_semantics():
         "lobbying_returns",
         "is_lobbying_registrant",
         "is_lobbying_client",
+        "has_epa_licence",
     )
     by = {r["supplier_norm"]: r for r in df.to_dicts()}
 
@@ -1968,6 +1969,10 @@ def test_v_procurement_supplier_summary_value_semantics():
     assert acme["company_num"] == 123456
     assert acme["company_status"] == "Normal"
     assert acme["on_lobbying_register"] is False
+    # EPA flag (PR 4): the EPA fixture licenses ONLY company_num 123456 (acme), with
+    # a second row at n_licences=0 that must NOT count. So exactly acme is flagged.
+    assert acme["has_epa_licence"] is True, "CRO-matched EPA-licensed company must be flagged"
+    assert sum(1 for r in df.to_dicts() if r["has_epa_licence"]) == 1, "only the n_licences>0 company is flagged"
 
     # KEY: a framework CEILING is counted but contributes ZERO to the value sum.
     bigco = by["bigcoservicesltd"]

@@ -9,10 +9,12 @@ surname key and that the dedup actually drops cross-published rows while keeping
 
 from __future__ import annotations
 
+import json
+
 import polars as pl
 import pytest
 
-from extractors.diary_merge_depts import _DEDUP_KEY, _surname_key
+from extractors.diary_merge_depts import _DEDUP_KEY, _ocr_entries, _surname_key
 
 
 @pytest.mark.parametrize(
@@ -20,7 +22,7 @@ from extractors.diary_merge_depts import _DEDUP_KEY, _surname_key
     [
         ("Ryans", "ryan"),  # possessive filename guess
         ("Ryan", "ryan"),  # canonical — must collapse to the same key
-        ("O'Brien", "obrien"),
+        ("O'Brien", "o'brien"),  # apostrophe kept (ASCII) — consistent both sides, so dedup still works
         ("McGrath", "mcgrath"),
         ("Ross", "ross"),  # len 4, trailing 's' is NOT a possessive → kept
         ("", ""),
@@ -65,3 +67,32 @@ def test_cross_published_ryan_entry_is_deduped():
     assert "Meeting with EirGrid" not in subjects  # cross-published → dropped
     assert "Offshore wind briefing" in subjects  # unique → kept
     assert len(deduped) == 1
+
+
+def test_none_then_named_minister_does_not_break_schema(tmp_path):
+    # Regression: a leading minister=None (a generic denylisted file like "Minister_DFHERIS_Calendar")
+    # followed by a real name must NOT make polars infer the column as Null and then fail to append
+    # "O'Donovan" — the bug that SILENTLY floored the DFHERIS re-merge. infer_schema_length=None fixes it.
+    recs = [
+        {
+            "entry_date": "2025-06-01",
+            "time_slot": "10:00",
+            "subject": "A",
+            "department": "DFHERIS",
+            "minister": None,
+            "source_pdf_url": "x",
+        },
+        {
+            "entry_date": "2024-09-01",
+            "time_slot": "11:00",
+            "subject": "B",
+            "department": "DFHERIS",
+            "minister": "O'Donovan",
+            "source_pdf_url": "y",
+        },
+    ]
+    path = tmp_path / "ocr.json"
+    path.write_text(json.dumps(recs), encoding="utf-8")
+    df = _ocr_entries(str(path))  # must not raise ComputeError
+    assert df["minister"].to_list() == [None, "O'Donovan"]
+    assert df.schema["minister"] == pl.Utf8

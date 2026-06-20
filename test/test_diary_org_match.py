@@ -244,7 +244,7 @@ def test_curated_central_bank_is_not_bank_of_ireland() -> None:
 def test_curated_cisco_matches_but_not_san_francisco() -> None:
     # Cisco was added; the word-boundary guard must keep "san francisco" from matching it
     assert {m["matched_org_name"] for m in _matches("Meeting w/Cisco re jobs")} == {"Cisco"}
-    assert _matches("Aer Lingus flight to San Francisco") == []
+    assert _matches("Travel to San Francisco for a tech mission") == []  # 'cisco' inside 'francisco' is guarded
 
 
 def test_curated_merck_and_coca_cola_match() -> None:
