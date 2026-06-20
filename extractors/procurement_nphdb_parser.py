@@ -91,6 +91,7 @@ FILES = [
         "year": None,
         "quarter": None,
         "caveat": _BAM_CAVEAT,
+        "layout": "tabular",  # 5-column non-rotated table — needs parse_records_tabular()
     },
     {
         "url": "https://newchildrenshospital.ie/wp-content/uploads/2025/10/"
@@ -166,6 +167,76 @@ def parse_records(doc) -> list[dict]:
     return recs
 
 
+# The 2020–2023 backfill file uses a DIFFERENT layout: a non-rotated 5-column table
+# (P.O. Number / Supplier / Date / Net Amount / Description) that PyMuPDF emits as a
+# repeating 3-line record — "<PO#> <Supplier>" / "<DD/MM/YYYY>" / "<amount> <description…>".
+# The money-anchor parser above finds 0 records here (amount is glued to the description,
+# never alone on a line), so this layout gets its own date-anchored reader.
+_DATE_LINE = re.compile(r"^\d{2}/\d{2}/\d{4}$")
+_SUPPLIER_LINE = re.compile(r"^(\d+)\s+(.+)$")  # leading PO number + supplier name
+_AMOUNT_DESC = re.compile(r"^([\d,]+\.\d{2})\s*(.*)$")  # amount glued to the description
+_TABULAR_SKIP = {"p.o. number", "supplier", "date", "net amount", "description"}
+
+
+def _year_quarter(date_str: str) -> tuple[int | None, int | None, str | None]:
+    """Map an Irish DD/MM/YYYY PO date to (year, quarter, period). Unlike the rotated quarterly
+    files (which carry no per-line date), the tabular backfill prints one, so each row can be
+    faceted by its own quarter instead of the file's whole span. Returns (None, None, None) for an
+    out-of-range month so a malformed line falls back to the spec rather than producing a bad year."""
+    dd, mm, yyyy = date_str.split("/")
+    mo = int(mm)
+    if not 1 <= mo <= 12:
+        return None, None, None
+    yr, q = int(yyyy), (mo - 1) // 3 + 1
+    return yr, q, f"{yr}-Q{q}"
+
+
+def parse_records_tabular(doc) -> list[dict]:
+    """Date-anchored parse for the 5-column tabular listing. Each DD/MM/YYYY line is a record:
+    the line before it is "<PO#> <supplier>", the line after is "<amount> <description>", and any
+    lines up to the next record's supplier line are description continuations. The per-line date
+    also yields each row's own year/quarter (the rotated quarterly files lack one — see build_rows)."""
+    toks: list[tuple[str, int]] = []
+    for i in range(doc.page_count):
+        for ln in doc[i].get_text().splitlines():
+            s = ln.strip()
+            if not s or s.lower() in _TABULAR_SKIP or s.lower().startswith("po listing"):
+                continue
+            toks.append((s, i + 1))
+    lines = [t for t, _ in toks]
+    date_idx = [i for i, t in enumerate(lines) if _DATE_LINE.match(t)]
+    recs: list[dict] = []
+    for k, i in enumerate(date_idx):
+        if i == 0 or i + 1 >= len(lines):
+            continue
+        sm = _SUPPLIER_LINE.match(lines[i - 1])
+        am = _AMOUNT_DESC.match(lines[i + 1])
+        if not sm or not am:
+            continue  # not a well-formed record (page furniture / split row) — skip defensively
+        po_number, supplier = sm.group(1), sm.group(2).strip()
+        amount = float(am.group(1).replace(",", ""))
+        year, quarter, period = _year_quarter(lines[i])
+        next_date = date_idx[k + 1] if k + 1 < len(date_idx) else len(lines)
+        # description = remainder of the amount line + any continuation up to the NEXT record's
+        # supplier line (the token immediately before the next date).
+        desc_parts = [am.group(2), *lines[i + 2 : max(i + 2, next_date - 1)]]
+        desc = " ".join(p for p in desc_parts if p).strip()
+        recs.append(
+            {
+                "supplier_raw": supplier,
+                "amount_eur": amount,
+                "description": desc or None,
+                "po_number": po_number,
+                "period": period,
+                "year": year,
+                "quarter": quarter,
+                "source_row_number": k,
+                "source_page_number": toks[i][1],
+            }
+        )
+    return recs
+
+
 def build_rows(recs: list[dict], spec: dict, fhash: str) -> list[dict]:
     conf = "high" if len(recs) > 20 else ("medium" if len(recs) > 3 else "low")
     caveat = spec["caveat"]
@@ -180,14 +251,16 @@ def build_rows(recs: list[dict], spec: dict, fhash: str) -> list[dict]:
                 "source_landing_url": LISTING_URL,
                 "source_file_url": spec["url"],
                 "source_file_hash": fhash,
-                "period": spec["period"],
-                "year": spec["year"],
-                "quarter": spec["quarter"],
+                # Per-record date (tabular backfill) wins; rotated quarterly files have no per-line
+                # date so they fall back to the file's spec period/year/quarter.
+                "period": r.get("period") or spec["period"],
+                "year": r.get("year") if r.get("year") is not None else spec["year"],
+                "quarter": r.get("quarter") if r.get("quarter") is not None else spec["quarter"],
                 "supplier_raw": r["supplier_raw"],
                 "amount_eur": r["amount_eur"],
                 "amount_semantics": "po_committed",
                 "description": r["description"],
-                "po_number": None,
+                "po_number": r.get("po_number"),
                 "paid_flag": None,
                 "source_row_number": r["source_row_number"],
                 "source_page_number": r["source_page_number"],
@@ -241,7 +314,7 @@ def main() -> None:
             continue
         fhash = hashlib.sha256(b).hexdigest()[:16]
         doc = fitz.open(stream=b, filetype="pdf")
-        recs = parse_records(doc)
+        recs = parse_records_tabular(doc) if spec.get("layout") == "tabular" else parse_records(doc)
         pages = doc.page_count
         doc.close()
         rows = build_rows(recs, spec, fhash)
