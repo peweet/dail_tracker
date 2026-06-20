@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-06-20T23:36:40.725317+00:00",
+  "generated_utc": "2026-06-20T23:40:48.715990+00:00",
   "layer": "gold",
   "source": "extractors/procurement_payments_consolidate.py",
   "n_rows": 220099,

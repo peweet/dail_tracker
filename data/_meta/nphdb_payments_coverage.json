@@ -43,10 +43,10 @@
   ],
   "rows_extracted": 652,
   "supplier_class_counts": {
-    "sole_trader_or_individual": 316,
-    "company": 297,
     "public_body": 33,
-    "foreign_company": 6
+    "sole_trader_or_individual": 316,
+    "foreign_company": 6,
+    "company": 297
   },
   "amount_total_eur": 367686700.46999997,
   "largest_amount_eur": 107637334.0,
@@ -56,6 +56,6 @@
   "privacy_quarantine_applied": false,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-20T23:36:24+00:00",
+  "generated_at": "2026-06-20T23:40:36+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). NPHDB quarterly PO listings for the New Children's Hospital, unioned across published files (2024-Q1..2025-Q4). One row per source line. amount_semantics=po_committed. BAM Building rows are disputed conciliator/adjudicator awards (Notice of Dissatisfaction) \u2014 the ~\u20ac107.6m row is ~49% of the corpus: never headline a raw sum. Unions with public_payments_fact at promotion. PRIVACY QUARANTINE DEFERRED (public_display=True for all rows)."
 }

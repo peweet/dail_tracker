@@ -66,6 +66,15 @@ OUT_FACT = ROOT / "data/silver/parquet/nta_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/nta_payments_coverage.json"
 PARSER_VERSION = "0.1.0"
 
+# Min-rows floor for the FULL harvest. The corpus is ~2,280 rows across 9 quarterly
+# files (~200-330 rows each), so a healthy harvest can never fall this low. A value
+# under it means the DATE-anchored parse collapsed on most files (a rotated-PDF
+# relayout that still matched a few stray lines, slipping past the zero-row guard
+# below) — refuse to clobber the good fact. The ad-hoc single-file --pdf path writes
+# one file's rows, so it skips the floor; force a small full write with
+# DAIL_SKIP_ROW_FLOOR=1.
+FULL_HARVEST_MIN_ROWS = 800
+
 LISTING_URLS = [
     "https://www.nationaltransport.ie/publications/2024-purchase-orders-e20000-and-over/",
     "https://www.nationaltransport.ie/publications/2025-purchase-orders-e20000-and-over/",
@@ -267,7 +276,8 @@ def main() -> None:
     ]
     df = df.select([c for c in SCHEMA_COLS if c in df.columns])
 
-    save_parquet(df, OUT_FACT)
+    # Floor only the full harvest; a single-file --pdf run is legitimately partial.
+    save_parquet(df, OUT_FACT, min_rows=None if args.pdf else FULL_HARVEST_MIN_ROWS)
 
     total = float(df["amount_eur"].sum() or 0)
     mx = float(df["amount_eur"].max() or 0)
