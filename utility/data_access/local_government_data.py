@@ -52,3 +52,8 @@ def fetch_derelict_sites_levy_result(la: str) -> QueryResult:
 @st.cache_data(ttl=300)
 def fetch_housing_performance_result(la: str) -> QueryResult:
     return _q.housing_performance(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=300)
+def fetch_council_money_result(la: str) -> QueryResult:
+    return _q.council_money(get_constituency_conn(), la)
