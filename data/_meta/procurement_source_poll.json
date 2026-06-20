@@ -1,0 +1,153 @@
+{
+  "generated_at": "2026-06-20T23:07:40Z",
+  "fresh_sources": [
+    "nphdb"
+  ],
+  "problem_sources": [
+    "nphdb"
+  ],
+  "sources": [
+    {
+      "id": "nphdb",
+      "name": "National Paediatric Hospital Development Board",
+      "grain": "quarterly",
+      "check": "auto",
+      "held_through": [
+        2025,
+        2
+      ],
+      "parser": "extractors/procurement_nphdb_parser.py",
+      "upstream_newest": [
+        2025,
+        4
+      ],
+      "new_periods": [
+        [
+          2025,
+          3
+        ],
+        [
+          2025,
+          4
+        ]
+      ],
+      "error": null,
+      "status": "FRESH",
+      "pdf_links_seen": 4
+    },
+    {
+      "id": "nta",
+      "name": "National Transport Authority",
+      "grain": "quarterly",
+      "check": "auto",
+      "held_through": [
+        2026,
+        1
+      ],
+      "parser": "extractors/procurement_nta_parser.py",
+      "upstream_newest": [
+        2026,
+        1
+      ],
+      "new_periods": [],
+      "error": null,
+      "status": "CURRENT",
+      "pdf_links_seen": 5
+    },
+    {
+      "id": "seai",
+      "name": "Sustainable Energy Authority of Ireland",
+      "grain": "quarterly",
+      "check": "manual",
+      "held_through": [
+        2025,
+        2
+      ],
+      "parser": "extractors/procurement_seai_parser.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "MANUAL",
+      "note": "/publications is a JS-rendered/WAF stub (link-less to a static fetch) \u2014 needs a browser or pinned PDF URLs."
+    },
+    {
+      "id": "tusla",
+      "name": "Tusla \u2013 Child and Family Agency",
+      "grain": "annual",
+      "check": "manual",
+      "held_through": [
+        2025
+      ],
+      "parser": "extractors/procurement_hse_tusla_materialize.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "MANUAL",
+      "note": "FOI page is a JS-rendered/WAF stub (link-less to a static fetch) \u2014 needs a browser or pinned PDF URLs."
+    },
+    {
+      "id": "hse",
+      "name": "Health Service Executive",
+      "grain": "quarterly",
+      "check": "manual",
+      "held_through": [
+        2025,
+        3
+      ],
+      "parser": "extractors/procurement_hse_tusla_materialize.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "MANUAL",
+      "note": "single cumulative FOI export; deep-links rotted in the 2026 site rebuild \u2014 verify landing page by hand."
+    },
+    {
+      "id": "dept_justice",
+      "name": "Department of Justice, Home Affairs and Migration",
+      "grain": "quarterly",
+      "check": "manual",
+      "held_through": [
+        2026,
+        1
+      ],
+      "parser": "extractors/procurement_dept_readingorder_parser.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "MANUAL",
+      "note": "gov.ie collection links to landing pages, not direct PDFs \u2014 needs the public-body crawler."
+    },
+    {
+      "id": "dept_foreign_affairs",
+      "name": "Department of Foreign Affairs and Trade",
+      "grain": "quarterly",
+      "check": "manual",
+      "held_through": [
+        2026,
+        1
+      ],
+      "parser": "extractors/procurement_dept_readingorder_parser.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "MANUAL",
+      "note": "gov.ie collection links to landing pages, not direct PDFs \u2014 needs the public-body crawler."
+    },
+    {
+      "id": "dept_transport",
+      "name": "Department of Transport",
+      "grain": "quarterly",
+      "check": "manual",
+      "held_through": [
+        2026,
+        1
+      ],
+      "parser": "extractors/procurement_dept_readingorder_parser.py",
+      "upstream_newest": null,
+      "new_periods": [],
+      "error": null,
+      "status": "MANUAL",
+      "note": "gov.ie collection links to landing pages, not direct PDFs \u2014 needs the public-body crawler."
+    }
+  ]
+}
