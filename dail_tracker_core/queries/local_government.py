@@ -1,0 +1,56 @@
+"""Local-government ("Who runs your county") retrieval — Streamlit-free.
+
+Retrieval-only SQL against the registered council-grain views (built by
+``dail_tracker_core.connections.constituency_conn``):
+  v_la_chief_executives · v_la_collection_rates · v_la_planning_overturn ·
+  v_la_derelict_sites_levy · v_la_accountability_summary
+
+All aggregation / joins / grain-guards live in ``sql_views/constituency/*`` — this
+layer only SELECTs and filters by local_authority, returning a ``QueryResult`` so
+the page can tell "source unavailable" from "no rows".
+"""
+
+from __future__ import annotations
+
+import logging
+
+import duckdb
+
+from dail_tracker_core.results import QueryResult
+
+_log = logging.getLogger(__name__)
+
+
+def _run(conn: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> QueryResult:
+    try:
+        return QueryResult.success(conn.execute(sql, params or []).df())
+    except Exception as exc:  # noqa: BLE001 — any DuckDB failure is "source unavailable"
+        _log.exception("local_government query failed")
+        return QueryResult.unavailable(f"local government query failed: {exc}")
+
+
+def chief_executives(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """All 31 council Chief Executives — the index grid."""
+    return _run(conn, "SELECT * FROM v_la_chief_executives ORDER BY local_authority")
+
+
+def chief_executive(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Single-row CE for one council dossier."""
+    return _run(conn, "SELECT * FROM v_la_chief_executives WHERE local_authority = ?", [la])
+
+
+def collection_rates(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    return _run(conn, "SELECT * FROM v_la_collection_rates WHERE local_authority = ?", [la])
+
+
+def planning_overturn(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    return _run(conn, "SELECT * FROM v_la_planning_overturn WHERE local_authority = ?", [la])
+
+
+def derelict_sites_levy(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    return _run(conn, "SELECT * FROM v_la_derelict_sites_levy WHERE local_authority = ?", [la])
+
+
+def national_summary(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """One-row national headline for the landing page."""
+    return _run(conn, "SELECT * FROM v_la_accountability_summary")

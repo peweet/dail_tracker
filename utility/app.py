@@ -12,6 +12,7 @@ from pages_code.housing import housing_page
 from pages_code.judiciary import judiciary_page
 from pages_code.legislation import legislation_page
 from pages_code.lobbying_3 import lobbying_poc_page
+from pages_code.ministerial_diaries import ministerial_diaries_page
 from pages_code.member_overview import member_overview_page
 from pages_code.payments import payments_page
 from pages_code.procurement import procurement_page

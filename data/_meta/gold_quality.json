@@ -54,10 +54,6 @@
         "dup_rows": 64,
         "rows": 741
       },
-      "judiciary_diary_judge_map.parquet": {
-        "dup_rows": 2971,
-        "rows": 9709
-      },
       "ministerial_diary_engagements.parquet": {
         "dup_rows": 208,
         "rows": 43239
@@ -76,15 +72,6 @@
       }
     },
     "tables_with_encoding_artifacts": {
-      "procurement_awards.parquet": {
-        "Awarded Suppliers": 2097,
-        "Contracting Authority": 4828,
-        "Tender/Contract Name": 4384,
-        "Procedure": 9393,
-        "sl": 373,
-        "supplier_raw": 373,
-        "supplier": 373
-      },
       "procurement_lobbying_overlap.parquet": {
         "supplier": 1
       },
@@ -92,9 +79,6 @@
         "supplier_raw": 3,
         "description": 4,
         "spend_category": 4
-      },
-      "procurement_supplier_cro_match.parquet": {
-        "supplier": 29
       },
       "public_payments_fact.parquet": {
         "supplier_raw": 1,

@@ -1,0 +1,49 @@
+"""Local-government ("Who runs your county") data access — thin Streamlit wrapper.
+
+Owns only Streamlit caching. All retrieval SQL lives in
+``dail_tracker_core.queries.local_government``; all aggregation/joins/grain-guards
+live in ``sql_views/constituency/*``. The council-grain views are registered on the
+SAME connection the constituency dossier uses, so we reuse that one cached resource
+rather than building a second heavy connection.
+
+Forbidden here (same contract as the other data-access modules): JOIN / GROUP BY /
+WINDOW in SQL, CREATE VIEW, read_parquet, pandas merge/pivot, business-metric defs.
+"""
+
+from __future__ import annotations
+
+import streamlit as st
+
+from dail_tracker_core.queries import local_government as _q
+from dail_tracker_core.results import QueryResult
+from data_access.constituency_data import get_constituency_conn
+
+
+@st.cache_data(ttl=600)
+def fetch_chief_executives_result() -> QueryResult:
+    return _q.chief_executives(get_constituency_conn())
+
+
+@st.cache_data(ttl=600)
+def fetch_national_summary_result() -> QueryResult:
+    return _q.national_summary(get_constituency_conn())
+
+
+@st.cache_data(ttl=300)
+def fetch_chief_executive_result(la: str) -> QueryResult:
+    return _q.chief_executive(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=300)
+def fetch_collection_rates_result(la: str) -> QueryResult:
+    return _q.collection_rates(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=300)
+def fetch_planning_overturn_result(la: str) -> QueryResult:
+    return _q.planning_overturn(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=300)
+def fetch_derelict_sites_levy_result(la: str) -> QueryResult:
+    return _q.derelict_sites_levy(get_constituency_conn(), la)
