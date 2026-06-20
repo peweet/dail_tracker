@@ -7,10 +7,13 @@ tables, applies the two promotion-time data-quality fixes the outlier audit foun
 and writes the gold parquet the SQL views (and therefore the page) read.
 
 Promotion-time fixes (NOT done in the sandbox tables — they keep raw provenance):
-  1. MINISTER DE-FRAGMENTATION. The sandbox `minister` is a filename guess, so the
-     same person appears as "Ryans"/"Ryan", "Martins"/"Martin". `minister_display`
-     strips the trailing possessive 's' and title-cases, merging the duplicates
-     (same rule the overlap's surname_key uses for the lobbying join).
+  1. MINISTER RESOLUTION. The sandbox `minister` is a fragile filename guess that
+     missed multi-token names (O'Brien), "…-Calendar" files (Browne) and generic
+     "Ministers Diary"/month-only files (Health/Justice/Education) entirely. We
+     re-derive `minister_display` here from the authoritative source filename
+     (+ department + date fallback) via extractors._diary_minister.resolve_minister,
+     which recovers ~3,150 previously-unattributed meetings and corrects the names
+     it did catch (Humphreys, Cummins, McGrath, McEntee, O'Callaghan).
   2. STATE-vs-OUTSIDE-INTEREST split. `is_state_body` is carried on the overlap so
      the page can separate government-agency access (IDA/HSE — expected, 0 returns)
      from outside-interest access (the real lobbying-overlap signal).
@@ -36,6 +39,7 @@ from pathlib import Path
 
 import polars as pl
 
+from extractors._diary_minister import resolve_minister
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
@@ -44,19 +48,6 @@ log = logging.getLogger(__name__)
 ENR = Path("data/sandbox/enrichment")
 GOLD = Path("data/gold/parquet")
 STATE_SECTOR = "state-semi-state"
-
-
-def minister_display(name: str | None) -> str | None:
-    """Canonical display name from the filename-guess surname token.
-
-    Strips a trailing possessive 's' (len>4 so "Ross"/"Burke" are untouched) and
-    title-cases, so "Ryans"->"Ryan", "Martins"->"Martin" collapse to one person."""
-    if not name:
-        return None
-    n = name.strip()
-    if len(n) > 4 and n.lower().endswith("s") and not n.lower().endswith("ss"):
-        n = n[:-1]
-    return n[:1].upper() + n[1:]
 
 
 def _read(name: str) -> pl.DataFrame:
@@ -71,10 +62,20 @@ def main() -> int:
     GOLD.mkdir(parents=True, exist_ok=True)
 
     engagements = _read("ministerial_diary_entries.parquet").with_columns(
-        pl.col("minister").map_elements(minister_display, return_dtype=pl.String).alias("minister_display")
+        pl.struct(["source_pdf_url", "department", "entry_date"])
+        .map_elements(
+            lambda r: resolve_minister(r["source_pdf_url"], r["department"], r["entry_date"]),
+            return_dtype=pl.String,
+        )
+        .alias("minister_display")
     )
-    mentions = _read("diary_org_mentions.parquet").with_columns(
-        pl.col("minister").map_elements(minister_display, return_dtype=pl.String).alias("minister_display")
+    # mentions has no source_pdf_url/department of its own — carry the resolved name across
+    # on entry_id so the org drill-down (which reads engagements.minister_display anyway) and
+    # mentions stay consistent.
+    mentions = _read("diary_org_mentions.parquet").join(
+        engagements.select("entry_id", "minister_display").unique(subset="entry_id"),
+        on="entry_id",
+        how="left",
     )
     overlap = _read("diary_lobbying_overlap_ranked.parquet").with_columns(
         (pl.col("sector") == STATE_SECTOR).alias("is_state_body")

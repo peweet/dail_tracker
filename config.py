@@ -94,14 +94,24 @@ NOTABLE_TDS: list[str] = [
     "Pauline Tully",
 ]
 
-# Official plenary sitting-day counts (Houses of the Oireachtas Commission reports).
+# Official plenary sitting-day counts (Houses of the Oireachtas Commission
+# reports). Used ONLY as a cross-check against the data-derived count — the UI
+# denominator now comes from v_attendance_chamber_sitting_days (distinct sitting
+# dates actually in the TAA record) for BOTH chambers, so a member can never show
+# more sitting days than the denominator. test_attendance_data_consistency.py
+# reconciles this dict against the data and would have caught the old 2025 entry.
+#
+# 2025 is intentionally ABSENT: the prior value (82, copied from 2020) was a
+# stale placeholder, while the record holds 94 distinct sitting dates — the exact
+# "82 scheduled days vs 94 recorded" contradiction this rework fixes. Add 2025
+# here only once the official Commission figure for 2025 is published, and only
+# if it is >= the data-derived count. Keep in sync with utility/config.py.
 SITTING_DAYS_BY_YEAR: dict[int, int] = {
     2020: 82,
     2021: 94,
     2022: 106,
     2023: 100,
     2024: 83,
-    2025: 82,
 }
 
 API_BASE = "https://api.oireachtas.ie/v1"

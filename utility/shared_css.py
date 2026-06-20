@@ -5594,6 +5594,9 @@ def inject_css() -> None:
         .pr-pill-val { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent-dim); }
         .pr-pill-cro { background: var(--signal-good-subtle); color: var(--signal-good-deep);
             border-color: var(--signal-good-border); }
+        /* EPA environmental-licence holder — factual register membership (earthy green,
+           distinct from the CRO good-standing green); NOT an enforcement/alarm signal. */
+        .pr-pill-epa { background: #eef3ec; color: #2c4a23; border-color: #cfe0c8; }
         /* lobbying co-occurrence is informational, NOT an alarm — neutral chip,
            never red, so the colour never implies wrongdoing (honesty rail). */
         .pr-pill-lob { background: var(--surface-deep); color: var(--ink-700); border-color: var(--border-strong); }
