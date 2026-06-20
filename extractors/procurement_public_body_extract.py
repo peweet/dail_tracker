@@ -70,6 +70,12 @@ LAST_ERR: dict = {}  # set by fetch_bytes on failure, read by the download loop
 OUT_FACT = ROOT / "data/silver/parquet/public_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/public_payments_coverage.json"
 PARSER_VERSION = "0.1.0"
+# Row floor for the overwrite-each-run fact (85,602 rows 2026-06-20). A SAFE
+# `--only X --merge` keeps total ~85k (kept + reparsed), so it passes; a plain
+# `--only` without --merge wipes the fact to one publisher's slice — the floor
+# refuses that write rather than silently downgrading silver. ~30% headroom; a
+# deliberate scoped rebuild uses DAIL_SKIP_ROW_FLOOR=1.
+MIN_FACT_ROWS = 60_000
 
 DATA_EXT = (".pdf", ".xlsx", ".xls", ".csv")
 
@@ -1821,7 +1827,7 @@ def main() -> None:
         )
 
     OUT_FACT.parent.mkdir(parents=True, exist_ok=True)
-    save_parquet(df, OUT_FACT)
+    save_parquet(df, OUT_FACT, min_rows=MIN_FACT_ROWS)
 
     print(f"\n{'=' * 80}\nGOLD-CANDIDATE WRITTEN\n{'=' * 80}")
     print(f"rows: {df.height:,}  ->  {OUT_FACT}")

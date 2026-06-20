@@ -17,6 +17,11 @@ Gazetteer tiers:
      diaries speak in acronyms (IBEC/IDA/IFA) the full-name register can't match;
      auto-generating them is precision-poison, so this is a hand-curated map matched
      case-sensitively whole-word against the raw subject (gaz_origin='acronym').
+  ⑥ CURATED FULL-NAME ORGS (added 2026-06-19) — see CURATED_ORGS. Well-known orgs the
+     register never carries AND norm() defeats ("Enterprise Ireland"→stopword "enterprise",
+     432 misses; "Bank of Ireland"→stub). Matched as whole phrases on an accent-folded raw
+     subject (gaz_origin='curated_org'), with substring guards (Microsoft Teams≠Microsoft,
+     Central Bank of Ireland≠Bank of Ireland).
 Tiers ②CRO ④alias remain deferred (CRO is huge — false-positive heavy; see the plan).
 MEASURED 2026-06-19: adding ③+⑤ lifted mentions 1524 → 2687 (distinct diary entries
 matched 3.3% → 5.8%); the acronym tier alone added 991 high-precision hits.
@@ -333,6 +338,10 @@ ACRONYMS: dict[str, str] = {
     "NWCI": "National Women's Council of Ireland",
     "SVP": "Society of Saint Vincent de Paul",
     "ICCL": "Irish Council for Civil Liberties",
+    "NCSE": "National Council for Special Education",
+    "CCPC": "Competition and Consumer Protection Commission",
+    "AIB": "AIB",
+    "DAA": "DAA",
     # multinationals / professional-services brand initialisms (safe whole-word)
     "AWS": "Amazon Web Services",
     "MSD": "MSD Ireland",
@@ -344,6 +353,42 @@ ACRONYMS: dict[str, str] = {
 # shorter prefix. \b is unsafe (matches at digit/underscore joins), so use explicit
 # ASCII-letter look-arounds.
 _ACR_RE = re.compile(r"(?<![A-Za-z])(" + "|".join(sorted(ACRONYMS, key=len, reverse=True)) + r")(?![A-Za-z])")
+
+# Curated full-name org map (Tier ⑥, added 2026-06-19). Well-known orgs/companies that
+# recur in the diaries but the lobbying register never matches — either they don't lobby
+# under that name, OR norm() defeats them: "Enterprise Ireland"→"enterprise" (a STOP word,
+# 432 misses!), "Bank of Ireland"→"bank of" (rejected stub). So these are matched on a
+# light ACCENT-FOLDED subject (no suffix strip) as whole phrases — bypassing both traps.
+# Hand-vetted from a coverage scan of the unmatched entries; keys are ascii-lower phrases,
+# values the canonical display. Single-token keys only where distinctive (no "meta"/"three").
+CURATED_ORGS: dict[str, str] = {
+    "microsoft": "Microsoft",
+    "enterprise ireland": "Enterprise Ireland",
+    "an post": "An Post",
+    "bank of ireland": "Bank of Ireland",
+    "dublin chamber": "Dublin Chamber",
+    "tesco": "Tesco",
+    "aldi": "Aldi",
+    "lidl": "Lidl",
+    "apple": "Apple",
+    "eli lilly": "Eli Lilly",
+    "irving oil": "Irving Oil",
+    "combilift": "Combilift",
+    "salesforce": "Salesforce",
+    "linkedin": "LinkedIn",
+    "nestle": "Nestlé",
+    "boston scientific": "Boston Scientific",
+}
+_CURATED_RE = re.compile(
+    r"(?<![a-z0-9])(" + "|".join(sorted(CURATED_ORGS, key=len, reverse=True)) + r")(?![a-z0-9])"
+)
+
+
+def _fold_subject(s: str) -> str:
+    """Lowercase + NFKD→ASCII + keep [a-z0-9 ] — accent-fold WITHOUT stripping suffixes, so
+    "Nestlé"→"nestle" and "Enterprise Ireland" stays intact for curated-phrase matching."""
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", s)).strip()
 
 
 def norm(s: str) -> str:
@@ -486,6 +531,34 @@ def match_subject(
                 "gaz_origin": "acronym",
             }
         )
+
+    # Curated full-name tier: whole-phrase hits in the accent-folded subject. Recovers the
+    # well-known orgs the register + norm() miss (Microsoft/Enterprise Ireland/An Post/...).
+    # Two substring guards first: "Microsoft Teams" rides venue lines ("(Microsoft Teams
+    # Meeting)") and is NOT Microsoft the company (~220 false hits); and "Central Bank of
+    # Ireland" (the regulator) must not match the curated "Bank of Ireland" — gluing "central
+    # bank" into one token removes the word boundary before "bank".
+    folded = (
+        _fold_subject(subject)
+        .replace("microsoft teams", "teams")
+        .replace("ms teams", "teams")
+        .replace("central bank", "centralbank")
+    )
+    for m in _CURATED_RE.finditer(folded):
+        display = CURATED_ORGS[m.group(1)]
+        if norm(display) in already:
+            continue
+        already.add(norm(display))
+        out.append(
+            {
+                "matched_org_name": display,
+                "match_source": "curated_org",
+                "match_method": "curated",
+                "match_confidence": "high",
+                "gazetteer_key": m.group(1),
+                "gaz_origin": "curated_org",
+            }
+        )
     return out
 
 
@@ -623,14 +696,15 @@ def main() -> int:
     gaz = build_gazetteer(lobbyists, clients, person_names=persons, stateboards=stateboards)
     token_index = build_token_index(gaz)
     log.info(
-        "gazetteer: %d orgs (%d tokens) from %d lobbyists + %d clients + %d stateboards + %d curated acronyms "
-        "(%d member + %d lobbying-person names excluded)",
+        "gazetteer: %d orgs (%d tokens) from %d lobbyists + %d clients + %d stateboards + %d acronyms "
+        "+ %d curated orgs (%d member + %d lobbying-person names excluded)",
         len(gaz),
         len(token_index),
         len(lobbyists),
         len(clients),
         len(stateboards),
         len(ACRONYMS),
+        len(CURATED_ORGS),
         len(members),
         len(responsible),
     )

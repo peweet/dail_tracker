@@ -300,6 +300,12 @@ lobbyist/raw/
 # refresh ledger the cloud Actions ship via publish_data.py, so they MUST be tracked.
 !data/_meta/heartbeats/
 !data/_meta/heartbeats/*.json
+# data-contract quarantine summaries (services/data_contracts.py) — a subdir, so the
+# *.json negation above (top-level only) does not reach it. Track the small JSON
+# summaries (the investigation ledger for drift / mis-aligned values); the sibling
+# *_quarantine.parquet full-row dumps stay local (swallowed by the blanket *.parquet rule).
+!data/_meta/quarantine/
+!data/_meta/quarantine/*.json
 
 # basedpyright baseline — snapshots known/false-positive type findings so CI
 # fails only on NEW errors. Must be tracked or CI re-flags the baselined items.

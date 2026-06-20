@@ -42,6 +42,21 @@ def supply_national(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     return _run(conn, "SELECT * FROM v_housing_supply_national")
 
 
+def accommodation_spend_by_year(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """State asylum (international-protection) + Ukraine accommodation spend per year,
+    split by stream — from the published over-€20k purchase-order registers."""
+    return _run(conn, "SELECT * FROM v_accommodation_spend_by_year ORDER BY year")
+
+
+def accommodation_spend_providers(conn: duckdb.DuckDBPyConnection, limit: int = 40) -> QueryResult:
+    """Providers ranked by total committed asylum/Ukraine accommodation spend."""
+    return _run(
+        conn,
+        "SELECT * FROM v_accommodation_spend_providers ORDER BY total_eur DESC LIMIT ?",
+        [limit],
+    )
+
+
 def hap_national(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """National HAP profile: households, % working, rent burden, years to social housing."""
     return _run(conn, "SELECT * FROM v_housing_hap_national")
