@@ -208,6 +208,20 @@ def fetch_payment_lines_for_pair_result(supplier_norm: str, publisher_name: str,
 
 
 @st.cache_data(ttl=300)
+def fetch_payment_group_header_result(group_slug: str) -> QueryResult:
+    """Single-row header for a corporate-group node (Follow-the-money): the group's structure
+    (entity / PPP-SPV / JV / no-CRO counts) and both lifecycle-tier sum-safe totals, never summed."""
+    return _q.payment_group_header(get_procurement_conn(), group_slug)
+
+
+@st.cache_data(ttl=300)
+def fetch_payment_group_members_result(group_slug: str, tier: str = "SPENT") -> QueryResult:
+    """The member entities of a corporate group in one tier, biggest first — each drills into its
+    own paid-supplier profile."""
+    return _q.payment_group_members(get_procurement_conn(), group_slug, tier=tier)
+
+
+@st.cache_data(ttl=300)
 def fetch_entity_chain_for_company_result(company_num: str) -> QueryResult:
     """One CRO-matched firm's cross-register footprint (eTenders / TED / payments), each
     register's own headline number side by side — never summed (different grains)."""

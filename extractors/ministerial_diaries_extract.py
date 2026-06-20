@@ -38,6 +38,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections import Counter
 from datetime import date
 from pathlib import Path
 from urllib.parse import urljoin
@@ -158,6 +159,28 @@ _DATE_SHORT_RE = re.compile(
 _TIME_RE = re.compile(r"^(?:Time\s+)?(\d{1,2}[:.]\d{2})\s*[–—-]\s*(\d{1,2}[:.]\d{2})\s*(\S.*)?$", re.IGNORECASE)
 _ALL_DAY_RE = re.compile(r"^All\s*Day\s*(\S.*)?$", re.IGNORECASE)
 _NOISE_RE = re.compile(r"^(Time|Subject|Details|Date|Minister .{0,60}(Diary|Calendar).*)$", re.IGNORECASE)
+# Calendar-EXPORT layout noise (the DFIN/Finance "DFIN Diary" Outlook-export generation:
+# repeating page header + two mini-calendars per page). Dropping these stops the per-page
+# header from being glued onto the previous entry's subject. Tight patterns so they cannot
+# match a real engagement line in the other (working) departments' layouts.
+_CAL_NOISE_RE = re.compile(
+    r"^(?:"
+    r"(?-i:[A-Z]{2,6})\s+Diary"  # "DFIN Diary" department-code header (all-caps code, case-sensitive)
+    r"|\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}"  # "14/04/2025 11:35" print timestamp
+    r"|Mo\s*Tu\s*We\s*Th\s*Fr\s*Sa\s*Su"  # weekday grid header
+    r"|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}"  # "April 2024" mini-cal title
+    r"|[\d\s]{1,40}"  # bare mini-calendar number rows
+    r")$",
+    re.IGNORECASE,
+)
+
+
+def _infer_default_year(text: str) -> int | None:
+    """Most-frequent plausible year in the document text — used when the filename carries no
+    year (e.g. the Finance "April.pdf" calendar exports), so the date state machine isn't
+    forced to drop every weekday header for lack of a year."""
+    yrs = [int(y) for y in re.findall(r"\b(20\d\d)\b", text) if 2015 <= int(y) <= 2035]
+    return Counter(yrs).most_common(1)[0][0] if yrs else None
 
 
 def discover_files(only_depts: set[str] | None = None) -> list[dict]:
@@ -297,7 +320,7 @@ def parse_entries(text: str, default_year: int | None, default_month: int | None
             if am.group(1):
                 subject_parts.append(am.group(1).strip())
             continue
-        if _NOISE_RE.match(line):
+        if _NOISE_RE.match(line) or _CAL_NOISE_RE.match(line):
             continue
         if cur_time is not None:
             subject_parts.append(line)
@@ -342,7 +365,10 @@ def main(only_depts: set[str] | None = None, max_files: int | None = None, min_f
         if not has_text:
             f.update({"n_entries_parsed": 0, "parse_status": "scanned_needs_offbox_ocr"})
             continue
-        entries = parse_entries(text, f["period_year_guess"], f["period_month_guess"])
+        # fall back to the year inferred from the document body when the filename has none
+        # (the Finance/DFIN calendar exports) — otherwise the date state machine drops every entry
+        year_for_parse = f["period_year_guess"] or _infer_default_year(text)
+        entries = parse_entries(text, year_for_parse, f["period_month_guess"])
         f["n_entries_parsed"] = len(entries)
         f["parse_status"] = "parsed" if entries else "text_layout_unrecognised"
         for e in entries:

@@ -1133,12 +1133,18 @@ def _render_council_accounts_context(council: str, active_tier: str, *, po_max_y
     _render_council_building_lane(council, accounts_latest=accounts_latest)
 
 
-def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT") -> None:
+def _render_payments_publisher_profile(
+    publisher_name: str, tier: str = "SPENT", *, on_back=None, back_label: str = "← Back to procurement"
+) -> None:
     """Per-buyer dossier (the per-council profile): which tiers the body publishes, both totals
     shown side by side (never summed), and its top suppliers in the active tier. Councils mostly
-    publish purchase ORDERS, so this falls back to whichever tier the body actually has."""
-    if back_button("← Back to procurement", key="prpaypub"):
-        _return_to_browse("paid")
+    publish purchase ORDERS, so this falls back to whichever tier the body actually has.
+
+    ``on_back`` overrides the Back action (default: return to the procurement 'paid' section) so a
+    reusing page — e.g. the Follow-the-money trail — can step back through its own breadcrumb
+    instead. ``None`` preserves the exact original behaviour for the procurement / council pages."""
+    if back_button(back_label, key="prpaypub"):
+        (on_back or (lambda: _return_to_browse("paid")))()
 
     prof = fetch_payments_publisher_profile_result(publisher_name)
     prow = prof.data.iloc[0] if (prof.ok and not prof.data.empty) else None
@@ -1273,14 +1279,18 @@ _PAY_FOOT_HTML = (
 )
 
 
-def _render_payments_supplier_profile(supplier_norm: str, tier: str = "SPENT") -> None:
+def _render_payments_supplier_profile(
+    supplier_norm: str, tier: str = "SPENT", *, on_back=None, back_label: str = "← Back to procurement"
+) -> None:
     """Paid-supplier drill-down — the public bodies that paid (SPENT) or ordered (COMMITTED)
     from one firm: the exact mirror of the per-body dossier (which lists a body's suppliers).
     A later lifecycle stage than awards (never added to award totals) and the two payment tiers
     are shown side by side, never blended. Company-class only (cross-body footprints of an
-    individual are profile-building — the same quarantine as the awards drill-down)."""
-    if back_button("← Back to procurement", key="prpaysup"):
-        _return_to_browse("paid")
+    individual are profile-building — the same quarantine as the awards drill-down).
+
+    ``on_back`` overrides the Back action (see ``_render_payments_publisher_profile``)."""
+    if back_button(back_label, key="prpaysup"):
+        (on_back or (lambda: _return_to_browse("paid")))()
 
     hdr = fetch_payments_supplier_header_result(supplier_norm)
     hrow = hdr.data.iloc[0] if (hdr.ok and not hdr.data.empty) else None
@@ -1408,18 +1418,26 @@ def _payment_line_row(r, tier: str) -> str:
     )
 
 
-def _render_payment_lines(supplier_norm: str, publisher_name: str, tier: str = "SPENT") -> None:
+def _render_payment_lines(
+    supplier_norm: str, publisher_name: str, tier: str = "SPENT", *, on_back=None, back_label: str = "← Back"
+) -> None:
     """LEAF view — the published payment line items for one supplier × public body × tier.
     The terminus that ends the old supplier↔body loop: instead of bouncing between aggregate
     cards, the reader lands here on the individual records the body published (period,
     description, PO number, amount), each linked to the body's own source file. Company-class
-    entry points only (same privacy quarantine as the rest of the payments drill-down)."""
-    if back_button("← Back", key="prpayline"):
-        # Return to the supplier's payers list (the natural parent), preserving the tier.
+    entry points only (same privacy quarantine as the rest of the payments drill-down).
+
+    ``on_back`` overrides the Back action; the default returns to the supplier's payers list
+    (the natural parent), preserving the tier."""
+
+    def _default_back() -> None:
         st.query_params.clear()
         st.query_params["paid_supplier"] = supplier_norm
         st.query_params["paid_tier"] = tier
         st.rerun()
+
+    if back_button(back_label, key="prpayline"):
+        (on_back or _default_back)()
 
     hdr = fetch_payments_supplier_header_result(supplier_norm)
     hrow = hdr.data.iloc[0] if (hdr.ok and not hdr.data.empty) else None

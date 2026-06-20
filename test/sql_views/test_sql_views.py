@@ -2671,6 +2671,10 @@ def test_ssha_waiting_list_national_views_build():
     # citizenship is exactly the 4 source categories (sensitivity: no surprise buckets)
     cit = set(comp.filter(pl.col("dimension") == "citizenship")["category"].unique())
     assert cit == {"Irish", "EEA", "Non-EEA", "UK"}
+    # main_need: the 5 disability sub-types are rolled into one "Disability (any)" (legibility)
+    needs = set(comp.filter(pl.col("dimension") == "main_need")["category"].unique())
+    assert "Disability (any)" in needs
+    assert not any("disability" in n.lower() and n != "Disability (any)" for n in needs)
     # a national distribution sums to ~100%
     nat_time = comp.filter(
         (pl.col("grain") == "national") & (pl.col("dimension") == "time_on_list") & (pl.col("year") == 2025)

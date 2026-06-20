@@ -60,8 +60,12 @@ OUT_COV = ROOT / "data/_meta/hse_tusla_payments_coverage.json"
 PARSER_VERSION = "0.1.0"
 
 # Per-publisher: shared-schema metadata + the list of (source_file_url, cached_path) to parse.
-# HSE uses the cached FOI cumulative (Q4-2021..Q3-2025, no longer on the listing); Tusla pulls
-# every yearly "POs over 20k" file the listing exposes (2021-2025).
+# HSE uses the cached FOI cumulative (Q4-2021..Q3-2025). NOTE: HSE REMOVED this €20k-cumulative
+# file in their 2026 site rebuild and the original deep-link is dead — it now 302-redirects to a
+# generic placeholder. HSE now publishes a €100k-cumulative file plus a €20k-from-Q4-2025 file (see
+# the `landing` page), so the exact source below is no longer re-fetchable. tools/patch_hse_dead_source_url.py
+# repointed the materialised rows' source_file_url to the live landing page. Tusla pulls every yearly
+# "POs over 20k" file the listing exposes (2021-2025).
 PUBS = {
     "ie_hse": {
         "name": "Health Service Executive",

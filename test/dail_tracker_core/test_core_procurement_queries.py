@@ -476,3 +476,66 @@ def test_year_filter_scopes_and_preserves_columns(conn):
     all_time = q.supplier_summary(conn, limit=None)
     if all_time.ok and not all_time.is_empty and not scoped.is_empty:
         assert scoped.data["n_awards"].max() <= all_time.data["n_awards"].max()
+
+
+# ---------------------------------------------------------------------------
+# Corporate-group rollup (Follow-the-money "BAM" node)
+# ---------------------------------------------------------------------------
+def test_supplier_groups_view_excludes_lookalikes(conn):
+    """The curated BAM group must NOT sweep in name-lookalikes (BAMFORD BUS / BAMOS …) — the whole
+    reason the map is curated rather than a 'bam%' prefix match."""
+    try:
+        rows = conn.execute(
+            "SELECT supplier_normalised FROM v_procurement_supplier_groups WHERE group_slug = 'bam'"
+        ).df()
+    except Exception:
+        pytest.skip("supplier-groups view not available")
+    norms = set(rows["supplier_normalised"])
+    assert "BAM BUILDING" in norms and "BAM CIVIL" in norms
+    assert not any("BAMFORD" in n or "BAMOS" in n for n in norms)
+
+
+def test_payment_group_header_structure(conn):
+    r = q.payment_group_header(conn, "bam")
+    if not r.ok or r.is_empty:
+        pytest.skip("payments gold / supplier-groups not available")
+    row = r.data.iloc[0]
+    assert {
+        "group_label",
+        "n_entities",
+        "n_ppp_spv",
+        "n_jv",
+        "n_no_cro",
+        "n_publishers",
+        "n_paid_lines",
+        "n_ordered_lines",
+        "paid_safe_eur",
+        "ordered_safe_eur",
+        "vat_mixed",
+    }.issubset(set(r.data.columns))
+    # The structure the disclosure line reports.
+    assert int(row["n_entities"]) >= int(row["n_ppp_spv"]) + int(row["n_jv"])
+    assert int(row["n_no_cro"]) <= int(row["n_entities"])
+    # Paid and ordered are carried separately, never blended into one total.
+    assert float(row["paid_safe_eur"]) >= 0 and float(row["ordered_safe_eur"]) >= 0
+
+
+def test_payment_group_members_one_row_per_entity(conn):
+    """Members collapse to one row per entity even when an entity's lines split across
+    supplier_class (the BAM COURTS BUNDLE company/individual split would otherwise double it)."""
+    r = q.payment_group_members(conn, "bam", tier="COMMITTED")
+    if not r.ok or r.is_empty:
+        pytest.skip("payments gold / supplier-groups not available")
+    norms = list(r.data["supplier_normalised"])
+    assert len(norms) == len(set(norms))  # no entity appears twice
+    assert {"supplier", "supplier_normalised", "supplier_class", "total_safe_eur", "entity_kind"}.issubset(
+        set(r.data.columns)
+    )
+    vals = r.data["total_safe_eur"].tolist()
+    assert vals == sorted(vals, reverse=True)  # biggest first (the card order)
+
+
+def test_payment_group_members_tier_whitelist(conn):
+    # An injection-shaped tier falls back to SPENT (no raw string reaches SQL).
+    r = q.payment_group_members(conn, "bam", tier="'; DROP TABLE x; --")
+    assert r.ok is True

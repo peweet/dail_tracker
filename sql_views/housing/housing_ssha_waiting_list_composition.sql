@@ -137,14 +137,16 @@ meta(dimension, slug, label, ord) AS (
     ('main_need','requirement_for_separate_accommodation','Needs separate accommodation',3),
     ('main_need','homeless_institution_emergency_accommodation','Homeless / emergency accom.',4),
     ('main_need','overcrowded_accommodation','Overcrowded',5),
-    ('main_need','unfit_accommodation','Unfit accommodation',6),
-    ('main_need','unsustainable_mortgage','Unsustainable mortgage',7),
-    ('main_need','intellectual_disability','Intellectual disability',8),
-    ('main_need','physical_disability','Physical disability',9),
-    ('main_need','mental_health_disability','Mental-health disability',10),
-    ('main_need','sensory_disability','Sensory disability',11),
-    ('main_need','other_form_of_disability','Other disability',12),
-    ('main_need','medical_or_compassionate_grounds','Medical / compassionate',13),
+    -- the 5 disability sub-types collapse to one "Disability (any)" slice (each is 0.1-3%;
+    -- the combined ~10% is the legible civic figure; sub-types kept in the hover title).
+    ('main_need','intellectual_disability','Disability (any)',6),
+    ('main_need','physical_disability','Disability (any)',6),
+    ('main_need','mental_health_disability','Disability (any)',6),
+    ('main_need','sensory_disability','Disability (any)',6),
+    ('main_need','other_form_of_disability','Disability (any)',6),
+    ('main_need','unfit_accommodation','Unfit accommodation',7),
+    ('main_need','unsustainable_mortgage','Unsustainable mortgage',8),
+    ('main_need','medical_or_compassionate_grounds','Medical / compassionate',9),
     -- specific accommodation requirement
     ('accom_need','no_specific_accommodation_requirement','No specific requirement',1),
     ('accom_need','household_member_s_is_homeless','Household member homeless',2),
@@ -173,7 +175,11 @@ la_county(la, county) AS (
     ('Wexford County','Wexford'), ('Wicklow County','Wicklow')
 ),
 la_grain AS (
-    SELECT 'la' AS grain, la AS area, year, dimension, category, ord, count FROM la_lab
+    -- GROUP BY (not a bare select) so the collapsed main_need "Disability (any)" rows
+    -- sum at LA grain too (county/national grains already aggregate by category).
+    SELECT 'la' AS grain, la AS area, year, dimension, category, ord, SUM(count) AS count
+    FROM la_lab
+    GROUP BY la, year, dimension, category, ord
 ),
 county_grain AS (
     SELECT 'county' AS grain, c.county AS area, l.year, l.dimension, l.category, l.ord,
