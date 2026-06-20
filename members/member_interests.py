@@ -18,6 +18,7 @@ Cleaning steps:
 The result is a structured dataset of members and their declared interests, suitable for downstream analysis..
 """
 
+import json
 import os
 import pathlib
 import re
@@ -47,10 +48,12 @@ PDF_PATHS: dict[str, pathlib.Path] = {
     # (published 2017-03-10) rots the category-1 marker '1.'→'l.' but is otherwise
     # clean text — repair_ocr_category_markers() recovers it (~98% roster match).
     # The 2012 register (published 2013-02-28) is a true scanned image: 0 lines of
-    # extractable text, so it parses to nothing and the quality gate skips it. It
-    # needs OCR to ingest (off-box — see project_sipo_ocr). See the quality gate
-    # below and pipeline_sandbox/historic_members/probe_register_parse_quality.py.
+    # extractable text. It is OCR'd (PaddleOCR, ~0.96 conf) to a reusable line
+    # artifact and sourced via OCR_LINE_SOURCES below instead of extract_raw_lines;
+    # the rest of the pipeline is identical. See
+    # pipeline_sandbox/historic_members/ocr_2012_register.py.
     "2011_dail": INTERESTS_PDF_DIR / "2012-03-30_register-of-members-interests-dail-eireann_en.pdf",
+    "2012_dail": INTERESTS_PDF_DIR / "2013-02-28_register-of-members-interests-dail-eireann_en.pdf",
     "2013_dail": INTERESTS_PDF_DIR / "2014-03-25_register-of-members-interests-dail-eireann_en.pdf",
     "2014_dail": INTERESTS_PDF_DIR / "2015-03-11_register-of-members-interests-dail-eireann_en.pdf",
     "2015_dail": INTERESTS_PDF_DIR / "2016-03-01_register-of-members-interests-dail-eireann_en.pdf",
@@ -65,6 +68,13 @@ PDF_PATHS: dict[str, pathlib.Path] = {
     "2023_dail": INTERESTS_PDF_DIR / "2024-02-21_register-of-member-s-interests-dail-eireann-2023_en.pdf",
     "2024_dail": INTERESTS_PDF_DIR / "2025-02-27_register-of-member-s-interests-dail-eireann-2024_en.pdf",
     "2025_dail": INTERESTS_PDF_DIR / "2026-02-25_register-of-member-s-interests-dail-eireann-2025_en.pdf",
+}
+
+# Years whose register is a scanned image with no text layer: lines come from a
+# pre-built OCR artifact (a flat reading-order list[str], same shape as
+# extract_raw_lines) instead of the PDF. Built by ocr_2012_register.py.
+OCR_LINE_SOURCES: dict[str, pathlib.Path] = {
+    "2012_dail": SILVER_DIR / "interests_ocr" / "2012_dail_lines.json",
 }
 
 CATEGORIES_PATTERN = re.compile(r"^\d+\.\s")
@@ -160,6 +170,21 @@ def extract_raw_lines(pdf_path: pathlib.Path, header_skip: int = 8, footer_skip:
     return flat[header_skip : len(flat) - footer_skip]
 
 
+def load_ocr_lines(artifact: pathlib.Path) -> list[str] | None:
+    """Load the flat reading-order line list produced by OCR for a scanned year.
+
+    Mirrors extract_raw_lines' output (footers already dropped during OCR
+    reconstruction). Returns None if the artifact is absent so the caller can
+    skip the year exactly as a missing PDF would be skipped.
+    """
+    if not artifact.exists():
+        return None
+    data = json.loads(artifact.read_text(encoding="utf-8"))
+    lines = [ln for ln in data.get("lines", []) if ln.strip() and not PAGE_FOOTER_RE.search(ln)]
+    print(f"Loaded OCR lines: {artifact.name} ({len(lines)} lines, mean conf {data.get('mean_conf')})")
+    return lines
+
+
 # ---------------------------------------------------------------------------
 # Split embedded names
 # ---------------------------------------------------------------------------
@@ -210,6 +235,27 @@ def repair_ocr_category_markers(lines: list[str]) -> list[str]:
     Produces: same list with any rotted Occupations heading normalised back to '1.'.
     """
     return [_OCR_CATEGORY1_ROT_RE.sub(r"1.\1", line) for line in lines]
+
+
+# In a scanned register (e.g. 2012) the '.' after a category number can OCR-rot to
+# ',' or ';' (e.g. '9. Contracts' -> '9, Contracts'), so CATEGORIES_PATTERN (which
+# needs 'N.') misses the boundary and the category glues onto the previous block.
+# Gated on the known category lead-words (incl. common OCR misreads) so it can
+# NEVER fire on body text like an address '9, Main Street'. Idempotent + a no-op
+# on clean years (they already read 'N.').
+_OCR_CATEGORY_NUM_ROT_RE = regex.compile(
+    r"^([1-9])[,.;:]?\s+(?=Occupation|Share|Director|Land\b|Gift|Propert|Travel|"
+    r"Remunerat|Renunerat|Contract|Cnr|Contraet)"
+)
+
+
+def repair_ocr_category_numbers(lines: list[str]) -> list[str]:
+    """Normalise an OCR-rotted category-number marker ('9,'/'9;' → '9. ').
+
+    Requires: flat list[str] (post split_embedded_names).
+    Produces: same list with category-heading number markers restored to 'N. '.
+    """
+    return [_OCR_CATEGORY_NUM_ROT_RE.sub(r"\1. ", line) for line in lines]
 
 
 # ---------------------------------------------------------------------------
@@ -587,8 +633,19 @@ def main() -> None:
         numeric_year = int(year_key.split("_")[0])
         case = "DAIL" if "dail" in year_key else "SEANAD"
 
-        # 1. Extract
-        lines = extract_raw_lines(pdf_path)
+        # 1. Extract. Scanned years (no text layer) read from a pre-built OCR
+        # artifact instead of the PDF; everything downstream is identical.
+        is_ocr = year_key in OCR_LINE_SOURCES
+        if is_ocr:
+            lines = load_ocr_lines(OCR_LINE_SOURCES[year_key])
+            if lines is None:
+                print(
+                    f"  SKIP {year_key}: OCR artifact missing ({OCR_LINE_SOURCES[year_key].name})"
+                    f" — run pipeline_sandbox/historic_members/ocr_2012_register.py"
+                )
+                continue
+        else:
+            lines = extract_raw_lines(pdf_path)
 
         # 1b. Split any lines where a member name is embedded mid-line
         lines = split_embedded_names(lines)
@@ -596,6 +653,12 @@ def main() -> None:
         # 1c. Repair OCR rot of the category-1 'Occupations' marker ('l./I./i.' → '1.')
         # so older registers (e.g. 2016) group correctly instead of failing the gate.
         lines = repair_ocr_category_markers(lines)
+
+        # 1d. OCR-only: repair a category-number marker whose '.' rotted to ',/;/:'
+        # ('9, Contracts' → '9. Contracts'). Gated to OCR years so clean years can't
+        # regress on body text that happens to start with a digit + category word.
+        if is_ocr:
+            lines = repair_ocr_category_numbers(lines)
 
         # 2. Group
         grouped = group_lines(lines, CATEGORIES_PATTERN, MEMBER_NAME_PATTERN)

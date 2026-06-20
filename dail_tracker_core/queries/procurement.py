@@ -922,6 +922,71 @@ def payment_lines_for_pair(
     )
 
 
+# ── Corporate-group rollup (Follow-the-money "BAM" node) ────────────────────────────────
+# A curated group (v_procurement_supplier_groups) gathers a parent's many published payment
+# entities — operating companies, PPP special-purpose vehicles, joint ventures — under one node.
+# Aggregation lives here (the page renders only); the join key is the uppercase supplier_normalised.
+def payment_group_header(conn: duckdb.DuckDBPyConnection, group_slug: str) -> QueryResult:
+    """Single-row header for a corporate-group node: the group's structure (how many legal
+    entities, how many are PPP SPVs / JVs, how many carry no CRO) and BOTH lifecycle tiers'
+    sum-safe totals side by side — NEVER summed across tiers, and an indicative FLOOR within a
+    tier (members' euros may mix VAT bases across the bodies that paid them; vat_mixed flags it)."""
+    return _run(
+        conn,
+        "SELECT any_value(g.group_label) AS group_label,"
+        " COUNT(DISTINCT p.supplier_normalised) AS n_entities,"
+        " COUNT(DISTINCT p.supplier_normalised) FILTER (WHERE g.entity_kind = 'ppp_spv') AS n_ppp_spv,"
+        " COUNT(DISTINCT p.supplier_normalised) FILTER (WHERE g.entity_kind = 'jv')      AS n_jv,"
+        " COUNT(DISTINCT p.supplier_normalised) FILTER (WHERE g.cro_company_num IS NULL) AS n_no_cro,"
+        " COUNT(DISTINCT p.publisher_name) AS n_publishers,"
+        " MIN(p.year)::INT AS min_year, MAX(p.year)::INT AS max_year,"
+        " COUNT(*) FILTER (WHERE p.realisation_tier = 'SPENT')     AS n_paid_lines,"
+        " COUNT(*) FILTER (WHERE p.realisation_tier = 'COMMITTED') AS n_ordered_lines,"
+        " COALESCE(SUM(p.amount_eur) FILTER (WHERE p.value_safe_to_sum AND p.realisation_tier = 'SPENT'), 0)"
+        "   AS paid_safe_eur,"
+        " COALESCE(SUM(p.amount_eur) FILTER (WHERE p.value_safe_to_sum AND p.realisation_tier = 'COMMITTED'), 0)"
+        "   AS ordered_safe_eur,"
+        " (COUNT(DISTINCT p.vat_status) > 1) AS vat_mixed"
+        " FROM v_procurement_payments p"
+        " JOIN v_procurement_supplier_groups g"
+        "   ON upper(trim(p.supplier_normalised)) = g.supplier_normalised"
+        " WHERE g.group_slug = ?",
+        [group_slug],
+    )
+
+
+def payment_group_members(
+    conn: duckdb.DuckDBPyConnection, group_slug: str, *, tier: str = "SPENT"
+) -> QueryResult:
+    """The member entities of a corporate group in one lifecycle tier, biggest first — each a
+    row the Follow-the-money node renders as a card that drills into that entity's own
+    paid-supplier profile (?paid_supplier=). entity_kind/note ride along so the card can badge a
+    PPP SPV or JV. Sum-safe within each member; ordered/paid never blended (one tier per call).
+
+    One row per entity: grouped on supplier_normalised over the payment feed (NOT the per-class
+    supplier summary), so an entity whose lines split across supplier_class — e.g. a bundle SPV
+    classed partly company, partly individual — collapses to a single card with its majority
+    class (mode), the same drill key the supplier node resolves."""
+    return _run(
+        conn,
+        "SELECT mode(p.supplier) AS supplier, p.supplier_normalised,"
+        " mode(p.supplier_class) AS supplier_class,"
+        " COUNT(*) AS n_payments, COUNT(DISTINCT p.publisher_name) AS n_publishers,"
+        " MIN(p.year)::INT AS min_year, MAX(p.year)::INT AS max_year,"
+        " COALESCE(SUM(p.amount_eur) FILTER (WHERE p.value_safe_to_sum), 0) AS total_safe_eur,"
+        " (COUNT(DISTINCT p.vat_status) > 1) AS vat_mixed,"
+        " mode(p.cro_company_num) AS cro_company_num, mode(p.cro_company_status) AS cro_company_status,"
+        " any_value(g.entity_kind) AS entity_kind, any_value(g.note) AS note"
+        " FROM v_procurement_payments p"
+        " JOIN v_procurement_supplier_groups g"
+        "   ON upper(trim(p.supplier_normalised)) = g.supplier_normalised"
+        " WHERE g.group_slug = ? AND p.realisation_tier = ?"
+        " GROUP BY p.supplier_normalised"
+        " ORDER BY total_safe_eur DESC",
+        [group_slug, _tier(tier)],
+    )
+
+
 def entity_chain_for_company(conn: duckdb.DuckDBPyConnection, company_num: str) -> QueryResult:
     """One CRO-matched firm's cross-register footprint: which of the three public-money
     registers it appears in (eTenders awards, TED awards, public-body payments) and each
