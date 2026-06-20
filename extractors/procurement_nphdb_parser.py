@@ -44,6 +44,9 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+from services.parquet_io import save_parquet  # noqa: E402
+
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -80,6 +83,16 @@ _GENERIC_CAVEAT = (
 # Discovered via tools/procurement_source_poller.py (NPHDB == FRESH, 2026-06-20).
 FILES = [
     {
+        # Historical backfill: the board's full 2020–2023 listing (uploaded 2026/03), older
+        # than the poller's held_through so it is not flagged FRESH — added by hand 2026-06-21.
+        "url": "https://newchildrenshospital.ie/wp-content/uploads/2026/03/"
+        "PO-Listing-Q1-2020-to-Q4-2023.pdf",
+        "period": "2020-Q1..2023-Q4",
+        "year": None,
+        "quarter": None,
+        "caveat": _BAM_CAVEAT,
+    },
+    {
         "url": "https://newchildrenshospital.ie/wp-content/uploads/2025/10/"
         "NPHDB-Quarterly-PO-Listing-Q1-2024-to-Q2-2025-ID-182108.pdf",
         "period": "2024-Q1..2025-Q2",
@@ -106,7 +119,7 @@ FILES = [
 ]
 
 # The overall span the unioned fact now covers (min..max across FILES above).
-OVERALL_SPAN = "2024-Q1..2025-Q4"
+OVERALL_SPAN = "2020-Q1..2025-Q4"
 
 MONEY_LINE = re.compile(r"^\s*\d{1,3}(?:,\d{3})*\.\d{2}\s*$")
 HEADER_LINES = {"supplier", "net amount", "description", "net", "amount"}
@@ -279,8 +292,7 @@ def main() -> None:
     ]
     df = df.select([c for c in SCHEMA_COLS if c in df.columns])
 
-    OUT_FACT.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(OUT_FACT, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, OUT_FACT)
 
     total = float(df["amount_eur"].sum() or 0)
     mx = float(df["amount_eur"].max() or 0)

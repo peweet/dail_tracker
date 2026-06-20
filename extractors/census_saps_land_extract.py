@@ -23,19 +23,17 @@ except Exception:
     pass
 
 _ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_ROOT))  # repo root, for first-party imports
 _SAMPLES = _ROOT / "doc" / "source_pdfs" / "_samples"
 _OUT = _ROOT / "data" / "gold" / "parquet"
+
+from services.parquet_io import save_parquet  # noqa: E402
 
 LEVELS = {
     "small_area": "SAPS_2022_SA.csv",
     "lea": "SAPS_2022_LEA.csv",
     "county": "SAPS_2022_county.csv",
 }
-
-
-def _write_parquet(df: pl.DataFrame, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(path, compression="zstd", compression_level=3, statistics=True)
 
 
 def main() -> None:
@@ -65,7 +63,7 @@ def main() -> None:
         print(f"=== census_saps_{level} — {len(df):,} rows × {len(df.columns)} cols ===")
         if args.write:
             out = _OUT / f"census_saps_{level}.parquet"
-            _write_parquet(df, out)
+            save_parquet(df, out)
             print(f"  Wrote {out.relative_to(_ROOT)} ({out.stat().st_size:,} bytes)")
 
 

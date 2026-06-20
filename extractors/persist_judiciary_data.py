@@ -18,6 +18,7 @@ import fitz  # PyMuPDF (in .venv)  # noqa: E402
 import polars as pl  # noqa: E402
 
 from extractors._judiciary_roster import ROSTER  # noqa: E402
+from services.parquet_io import save_parquet  # noqa: E402
 
 OUT = Path("data/sandbox/judiciary")
 OUT.mkdir(parents=True, exist_ok=True)
@@ -25,7 +26,7 @@ TMP = Path("C:/tmp")
 
 
 def write_both(df: pl.DataFrame, name: str):
-    df.write_parquet(OUT / f"{name}.parquet", compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, OUT / f"{name}.parquet")
     df.write_csv(OUT / f"{name}.csv")
     print(f"  wrote {name:38} {df.shape[0]:>4} rows x {df.shape[1]} cols")
 

@@ -83,8 +83,64 @@ SPEECH_FILES = [
 ]
 
 
+def _member_view_substitutions() -> dict[str, str]:
+    """Absolute parquet-path substitutions for the member view set.
+
+    One source of truth shared by ``register_member_views`` (per phase) and
+    ``api_conn`` (re-applied to the domain globs). Extra keys are harmless:
+    ``register_views`` only substitutes the placeholders a given ``.sql`` actually
+    references, so passing the full dict to every phase is safe. Returns ``{}`` if
+    ``config`` can't be imported (e.g. a fresh Cloud clone); every caller passes
+    ``swallow_errors=True``, so a missing path degrades its section to an empty
+    state rather than taking the connection down.
+    """
+    try:
+        from config import (
+            GOLD_SEANAD_VOTE_HISTORY_PARQUET,
+            GOLD_SPEECHES_FACT_FULL_PARQUET,
+            GOLD_SPEECHES_FACT_PARQUET,
+            GOLD_VOTE_HISTORY_PARQUET,
+            SILVER_PARQUET_DIR,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("member views: could not import config substitutions: %s", exc)
+        return {}
+
+    # Prefer the FULL speech fact (all years + full text, gitignored) when present —
+    # local + API; fall back to the committed lite slice on a fresh Cloud clone.
+    speech_path = (
+        GOLD_SPEECHES_FACT_FULL_PARQUET if GOLD_SPEECHES_FACT_FULL_PARQUET.exists() else GOLD_SPEECHES_FACT_PARQUET
+    )
+    return {
+        "{MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_members.parquet").as_posix(),
+        "{SEANAD_MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_seanad_members.parquet").as_posix(),
+        # Historic backfill (former members + member×term sidecar) for v_member_registry_all.
+        "{HISTORIC_DAIL_PARQUET_PATH}": (SILVER_PARQUET_DIR / "historic_members_dail.parquet").as_posix(),
+        "{HISTORIC_SEANAD_PARQUET_PATH}": (SILVER_PARQUET_DIR / "historic_members_seanad.parquet").as_posix(),
+        "{MEMBER_TERMS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_terms.parquet").as_posix(),
+        "{EXTERNAL_LINKS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_external_links.parquet").as_posix(),
+        "{CONTACT_DETAILS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_contact_details.parquet").as_posix(),
+        "{NEWS_MENTIONS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "news_mentions.parquet").as_posix(),
+        "{PARQUET_PATH}": GOLD_VOTE_HISTORY_PARQUET.as_posix(),
+        "{SEANAD_VOTE_PARQUET_PATH}": GOLD_SEANAD_VOTE_HISTORY_PARQUET.as_posix(),
+        "{SPEECH_FACT_PARQUET_PATH}": speech_path.as_posix(),
+    }
+
+
+def _register_phase(conn: duckdb.DuckDBPyConnection, name: str, files: list[str], subs: dict[str, str]) -> None:
+    """Register one ordered phase of the member view set, degrading on error.
+
+    ``swallow_errors=True`` keeps a missing optional view from taking the whole
+    connection down; an outright registration failure is logged and skipped.
+    """
+    try:
+        register_views(conn, files, substitutions=subs, swallow_errors=True)
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("member views: could not load %s: %s", name, exc)
+
+
 def register_member_views(conn: duckdb.DuckDBPyConnection) -> None:
-    """Register the full member-overview view set onto ``conn`` (4 phases).
+    """Register the full member-overview view set onto ``conn``.
 
     swallow_errors=True throughout: a missing optional view degrades its section
     to an empty state rather than taking the whole connection down — the prior
@@ -93,104 +149,18 @@ def register_member_views(conn: duckdb.DuckDBPyConnection) -> None:
     # Phase 1 — domain views, no substitution, exact-filename "patterns" keep order.
     register_views(conn, DOMAIN_FILES, swallow_errors=True)
 
-    # Phase 2 — member registry (absolute parquet paths from config).
-    try:
-        from config import SILVER_PARQUET_DIR
-
-        register_views(
-            conn,
-            REGISTRY_FILES,
-            substitutions={
-                "{MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_members.parquet").as_posix(),
-                "{SEANAD_MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_seanad_members.parquet").as_posix(),
-                # Historic backfill (former members + member×term sidecar) for
-                # v_member_registry_all. Extra keys are harmless to the other
-                # REGISTRY_FILES, which don't reference them.
-                "{HISTORIC_DAIL_PARQUET_PATH}": (SILVER_PARQUET_DIR / "historic_members_dail.parquet").as_posix(),
-                "{HISTORIC_SEANAD_PARQUET_PATH}": (SILVER_PARQUET_DIR / "historic_members_seanad.parquet").as_posix(),
-                "{MEMBER_TERMS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_terms.parquet").as_posix(),
-            },
-            swallow_errors=True,
-        )
-    except Exception as exc:  # noqa: BLE001
-        _log.warning("member views: could not load registry: %s", exc)
-
-    # Phase 3 — Wikidata external links (optional parquet).
-    try:
-        from config import SILVER_PARQUET_DIR
-
-        register_views(
-            conn,
-            EXTERNAL_LINKS_FILES,
-            substitutions={
-                "{EXTERNAL_LINKS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_external_links.parquet").as_posix()
-            },
-            swallow_errors=True,
-        )
-    except Exception as exc:  # noqa: BLE001
-        _log.warning("member views: could not load external-links: %s", exc)
-
-    # Phase 3b — official contact details scraped from oireachtas.ie (optional parquet).
-    try:
-        from config import SILVER_PARQUET_DIR
-
-        register_views(
-            conn,
-            CONTACT_DETAILS_FILES,
-            substitutions={
-                "{CONTACT_DETAILS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_contact_details.parquet").as_posix()
-            },
-            swallow_errors=True,
-        )
-    except Exception as exc:  # noqa: BLE001
-        _log.warning("member views: could not load contact-details: %s", exc)
-
-    # Phase 3c — recent news mentions, per-member Google-News search (optional parquet).
-    try:
-        from config import SILVER_PARQUET_DIR
-
-        register_views(
-            conn,
-            NEWS_MENTIONS_FILES,
-            substitutions={"{NEWS_MENTIONS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "news_mentions.parquet").as_posix()},
-            swallow_errors=True,
-        )
-    except Exception as exc:  # noqa: BLE001
-        _log.warning("member views: could not load news-mentions: %s", exc)
-
-    # Phase 4 — vote views (both houses, explicit two-parquet union in vote_base).
-    try:
-        from config import GOLD_SEANAD_VOTE_HISTORY_PARQUET, GOLD_VOTE_HISTORY_PARQUET
-
-        register_views(
-            conn,
-            VOTE_FILES,
-            substitutions={
-                "{PARQUET_PATH}": GOLD_VOTE_HISTORY_PARQUET.as_posix(),
-                "{SEANAD_VOTE_PARQUET_PATH}": GOLD_SEANAD_VOTE_HISTORY_PARQUET.as_posix(),
-            },
-            swallow_errors=True,
-        )
-    except Exception as exc:  # noqa: BLE001
-        _log.warning("member views: could not load vote views: %s", exc)
-
-    # Phase 5 — speech views (unified gold parquet; speech_base precedes dependents).
-    # Prefer the FULL fact (all years + full text, gitignored) when present — local
-    # + API; fall back to the committed lite slice on a fresh Cloud clone.
-    try:
-        from config import GOLD_SPEECHES_FACT_FULL_PARQUET, GOLD_SPEECHES_FACT_PARQUET
-
-        speech_path = (
-            GOLD_SPEECHES_FACT_FULL_PARQUET if GOLD_SPEECHES_FACT_FULL_PARQUET.exists() else GOLD_SPEECHES_FACT_PARQUET
-        )
-        register_views(
-            conn,
-            SPEECH_FILES,
-            substitutions={"{SPEECH_FACT_PARQUET_PATH}": speech_path.as_posix()},
-            swallow_errors=True,
-        )
-    except Exception as exc:  # noqa: BLE001
-        _log.warning("member views: could not load speech views: %s", exc)
+    # Phases 2-5 — registry / external-links / contact / news / votes / speeches,
+    # each injecting absolute parquet paths from config. Order is load-bearing:
+    # registry precedes member_salary + registry_all; vote_base / speech_base
+    # precede their dependents. The shared subs dict carries every placeholder;
+    # each .sql consumes only the keys it references.
+    subs = _member_view_substitutions()
+    _register_phase(conn, "registry", REGISTRY_FILES, subs)
+    _register_phase(conn, "external-links", EXTERNAL_LINKS_FILES, subs)
+    _register_phase(conn, "contact-details", CONTACT_DETAILS_FILES, subs)
+    _register_phase(conn, "news-mentions", NEWS_MENTIONS_FILES, subs)
+    _register_phase(conn, "vote views", VOTE_FILES, subs)
+    _register_phase(conn, "speech views", SPEECH_FILES, subs)
 
 
 def member_overview_conn() -> duckdb.DuckDBPyConnection:
@@ -320,29 +290,8 @@ def api_conn() -> duckdb.DuckDBPyConnection:
     conn = duckdb.connect()
     register_member_views(conn)  # member/registry/external/vote views + substitutions, explicit order
 
-    subs: dict[str, str] = {}
-    try:
-        from config import (
-            GOLD_SEANAD_VOTE_HISTORY_PARQUET,
-            GOLD_SPEECHES_FACT_FULL_PARQUET,
-            GOLD_SPEECHES_FACT_PARQUET,
-            GOLD_VOTE_HISTORY_PARQUET,
-            SILVER_PARQUET_DIR,
-        )
-
-        _speech_path = (
-            GOLD_SPEECHES_FACT_FULL_PARQUET if GOLD_SPEECHES_FACT_FULL_PARQUET.exists() else GOLD_SPEECHES_FACT_PARQUET
-        )
-        subs = {
-            "{MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_members.parquet").as_posix(),
-            "{SEANAD_MEMBER_PARQUET_PATH}": (SILVER_PARQUET_DIR / "flattened_seanad_members.parquet").as_posix(),
-            "{EXTERNAL_LINKS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_external_links.parquet").as_posix(),
-            "{PARQUET_PATH}": GOLD_VOTE_HISTORY_PARQUET.as_posix(),
-            "{SEANAD_VOTE_PARQUET_PATH}": GOLD_SEANAD_VOTE_HISTORY_PARQUET.as_posix(),
-            "{SPEECH_FACT_PARQUET_PATH}": _speech_path.as_posix(),
-        }
-    except Exception as exc:  # noqa: BLE001
-        _log.warning("api_conn: could not load config substitutions: %s", exc)
-
-    register_views(conn, _API_DOMAIN_GLOBS, substitutions=subs, swallow_errors=True)
+    # Re-apply the same substitutions to the domain globs: their idempotent
+    # CREATE OR REPLACE of vote_base / member_registry must re-inject the paths
+    # rather than register a literal-placeholder view.
+    register_views(conn, _API_DOMAIN_GLOBS, substitutions=_member_view_substitutions(), swallow_errors=True)
     return conn

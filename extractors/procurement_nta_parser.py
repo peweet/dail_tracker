@@ -50,6 +50,9 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+from services.parquet_io import save_parquet  # noqa: E402
+
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -264,8 +267,7 @@ def main() -> None:
     ]
     df = df.select([c for c in SCHEMA_COLS if c in df.columns])
 
-    OUT_FACT.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(OUT_FACT, compression="zstd", compression_level=3, statistics=True)
+    save_parquet(df, OUT_FACT)
 
     total = float(df["amount_eur"].sum() or 0)
     mx = float(df["amount_eur"].max() or 0)
