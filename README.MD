@@ -154,7 +154,7 @@ uv sync --extra pipeline --group dev          # full local dev: + ETL deps + tes
 streamlit run utility/app.py
 ```
 
-A Streamlit app (titled *Oireachtas Explorer*) with seventeen pages — a Home
+A Streamlit app (titled *Dáil Tracker*) with seventeen pages — a Home
 landing view, Member Overview (the canonical TheyWorkForYou-style profile),
 Attendance, Votes, Interests, Committees, Payments, Election 2024 (SIPO
 donations + campaign spending), Procurement, Public Payments, Legislation,
