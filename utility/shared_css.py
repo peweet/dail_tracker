@@ -5639,6 +5639,44 @@ def inject_css() -> None:
             margin-top: 1.4rem; padding-top: 0.7rem; border-top: 1px solid var(--border); max-width: 64rem;
         }
         .pr-foot a { color: var(--accent); }
+        /* ── Follow the Money (mf-*) — the trail breadcrumb + landing entries ───────────
+           Reuses the pr-* card/award grammar for node bodies; mf-* covers only the rail and
+           the landing's featured trail / data-wall note. */
+        .mf-rail {
+            background: #ffffff; border: 1px solid var(--border); border-left: 4px solid var(--accent);
+            border-radius: 8px; padding: 0.5rem 0.85rem; margin: 0 0 0.9rem;
+            display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.7rem;
+        }
+        .mf-rail-lede { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-meta); white-space: nowrap; }
+        .mf-rail-path { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.45rem;
+            font-size: 0.9rem; min-width: 0; }
+        .mf-rail-step { color: var(--accent); text-decoration: none; font-weight: 600; }
+        .mf-rail-step:hover { text-decoration: underline; }
+        .mf-rail-step:focus-visible { outline: 2px solid var(--ink-strong); outline-offset: 1px; border-radius: 2px; }
+        .mf-rail-here { color: var(--ink-strong); font-weight: 700; }
+        .mf-rail-sep { color: var(--text-meta); }
+        .mf-rail-gap { color: var(--text-meta); font-weight: 700; }
+        .mf-rail-reset { margin-left: 0.5rem; font-size: 0.78rem; color: var(--text-meta);
+            text-decoration: none; border-bottom: 1px dashed var(--border); }
+        .mf-rail-reset:hover { color: var(--accent); }
+        /* featured ready-made trail on the landing — a bold whole-card link */
+        .mf-featured {
+            display: block; background: #ffffff; border: 1px solid var(--border);
+            border-left: 4px solid var(--accent); border-radius: 10px; padding: 0.9rem 1.1rem;
+            margin: 0.2rem 0 0.8rem; text-decoration: none; transition: border-color 0.12s, box-shadow 0.12s;
+        }
+        .mf-featured:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+        .mf-featured:focus-visible { outline: 2px solid var(--ink-strong); outline-offset: 2px; }
+        .mf-featured-kick { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em;
+            text-transform: uppercase; color: var(--accent); }
+        .mf-featured-name { font-size: 1.15rem; font-weight: 700; color: var(--ink-strong); margin: 0.1rem 0; }
+        .mf-featured-blurb { font-size: 0.86rem; color: var(--ink-700); line-height: 1.45; }
+        /* the data-wall note — where the trail stops (direct contractor only) */
+        .mf-wall { font-size: 0.84rem; color: var(--ink-700); line-height: 1.5;
+            background: var(--surface); border: 1px dashed var(--border); border-radius: 8px;
+            padding: 0.6rem 0.85rem; margin: 0 0 1.1rem; max-width: 60rem; }
+        .mf-wall strong { color: var(--ink-strong); }
         .pr-cap { font-size: 0.86rem; color: var(--ink-700); line-height: 1.5; margin: 0.2rem 0 0.6rem; max-width: 60rem; }
         .pr-cap em { color: var(--text-meta); font-style: italic; }
         /* stale-snapshot warning — rust (signal-bad), NEVER true red: this is a freshness
@@ -5893,7 +5931,13 @@ def inject_css() -> None:
         .con-grain-ssha { background: #f0f3f8; color: #344b73; }
         .con-grain-wait { background: #f7f1ec; color: #7a4f2f; }
         .con-grain-perf { background: #f1f2f4; color: #3d4654; }
-        .hou-dim-title { font-weight: 600; font-size: 0.9rem; margin: 0.2rem 0 0.4rem; }
+        /* rendered as <h3> for screen-reader heading nav; reset the default h3 box so it
+           reads as a compact card label, not a section heading. */
+        h3.hou-dim-title { font-weight: 600; font-size: 0.9rem; line-height: 1.3;
+            margin: 0.2rem 0 0.4rem; padding: 0; color: var(--text-body); }
+        h3.hou-chart-label { margin-top: 0.8rem; }
+        .hou-lead { font-size: 1.02rem; line-height: 1.5; margin: 0.9rem 0 0.2rem;
+            color: var(--text-body); max-width: 62ch; }
         .hou-crumb { font-size: 0.85rem; color: var(--text-meta); margin: 0 0 0.5rem; }
         .hou-crumb a { color: var(--text-meta); text-decoration: underline; }
         .con-council-note {

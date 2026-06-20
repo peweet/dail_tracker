@@ -7,6 +7,7 @@ from pages_code.constituency import constituency_page
 from pages_code.corporate import corporate_page
 from pages_code.council_spending import council_spending_page
 from pages_code.election_2024 import election_2024_page
+from pages_code.follow_the_money import follow_the_money_page
 from pages_code.glossary import glossary_page
 from pages_code.housing import housing_page
 from pages_code.judiciary import judiciary_page
@@ -191,6 +192,15 @@ pg = st.navigation(
                 title="Procurement",
                 icon=":material/request_quote:",
                 url_path="rankings-procurement",
+            ),
+            # A guided trail through the published payment graph (body → companies it pays →
+            # the individual records), with a bounded breadcrumb. Reuses Procurement's payment
+            # renderers; the value here is the navigation. See pages_code/follow_the_money.py.
+            st.Page(
+                follow_the_money_page,
+                title="Follow the Money",
+                icon=":material/conversion_path:",
+                url_path="follow-the-money",
             ),
             st.Page(
                 council_spending_page,

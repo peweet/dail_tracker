@@ -1,0 +1,24 @@
+beneficiary_name,kind,note
+Abbott Ireland,company,pharma/diagnostics multinational (registered business name; no legal-suffix token in TAM name)
+Monaghan Mushrooms Ireland,company,large mushroom producer (business name registration)
+Mergon International,company,plastics manufacturer
+Energia Customer Solutions,company,energy supplier
+Wallace Travel Group,company,travel company
+Edenderry Supply Co,company,builders' merchant
+Ballywater Wind Farms,company,wind energy developer
+Touch Press Inc,company,publisher (foreign incorporation)
+An Post,state_company,national postal operator
+ESB,state_company,Electricity Supply Board
+Bord Gais ROI,state_company,gas/energy (now Centrica-owned)
+Bord Bia,state_agency,Irish Food Board
+Teagasc,state_agency,agriculture & food development authority
+Shannon Airport,state_company,airport operator (Shannon Group)
+Horse Sport Ireland,governing_body,national governing body for equestrian sport (ABER-registered)
+Foodcloud,social_enterprise,food-redistribution social enterprise
+Talamh Beo,ngo,farmer/land-rights organisation
+Spraoi agus Sport,community_org,community sport organisation
+Green Skibbereen,community_org,community sustainability organisation
+Transition Town Kinsale,community_org,community sustainability organisation
+Cloughjordan Community Farm,community_org,community-supported agriculture organisation
+Derrybeg Farm CSA,community_org,community-supported agriculture organisation
+Bia Dingle,community_org,Corca Dhuibhne food network
