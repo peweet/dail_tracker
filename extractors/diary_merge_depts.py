@@ -93,7 +93,14 @@ def parse_dept_entries(depts: set[str]) -> pl.DataFrame:
             )
             rows.append(e)
     log.info("re-parsed %d entries from %s (%d scans skipped for OCR)", len(rows), sorted(depts), skipped_scan)
-    return pl.DataFrame(rows).select(_RAW_COLS) if rows else pl.DataFrame(schema={c: pl.Object for c in _RAW_COLS})
+    # infer_schema_length=None: scan ALL rows so a leading run of minister=None (generic files whose
+    # surname is denylisted, e.g. "Minister_DFHERIS_Calendar") doesn't infer the column as Null and
+    # then fail to append a later real name ("O'Donovan").
+    return (
+        pl.DataFrame(rows, infer_schema_length=None).select(_RAW_COLS)
+        if rows
+        else pl.DataFrame(schema={c: pl.Object for c in _RAW_COLS})
+    )
 
 
 def _ocr_entries(json_path: str) -> pl.DataFrame:
@@ -103,7 +110,7 @@ def _ocr_entries(json_path: str) -> pl.DataFrame:
     for r in recs:
         r.setdefault("time_slot", "")
         r["ingested_date"] = date.today()
-    return pl.DataFrame(recs).select(_RAW_COLS)
+    return pl.DataFrame(recs, infer_schema_length=None).select(_RAW_COLS)
 
 
 def main(depts: set[str], ocr_json: str | None = None) -> int:

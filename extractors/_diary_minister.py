@@ -99,6 +99,9 @@ SURNAME_CANON: dict[str, str] = {
     "donohoes": "Donohoe",
     "smyth": "Smyth",
     "smyths": "Smyth",
+    "odonovan": "O'Donovan",  # Patrick O'Donovan — DFHERIS Apr-Dec 2024
+    "odonovans": "O'Donovan",
+    "lawless": "Lawless",  # James Lawless — DFHERIS from 2025-01-23
 }
 
 # Tokens that are role words / noise, never a surname.
@@ -157,6 +160,7 @@ _DEPT_WORDS = {
     "sport",
     "office",
     "service",
+    "dfheris",  # dept acronym in generic "Minister_DFHERIS_Calendar" files — not a surname ("Dfheri")
 }
 # Minister-of-State files without a surname must NOT inherit the SENIOR minister's date rule.
 _MOS_RE = re.compile(r"\bmos\b|minister[-_ ]of[-_ ]state|of[-_ ]state", re.IGNORECASE)
@@ -216,6 +220,13 @@ DEPT_DATE_RULES: list[tuple[str, str, date, date | None]] = [
     ("TAOISEACH", "Varadkar", date(2022, 12, 17), date(2024, 4, 9)),
     ("TAOISEACH", "Harris", date(2024, 4, 9), date(2025, 1, 23)),
     ("TAOISEACH", "Martin", date(2025, 1, 23), None),
+    # Further & Higher Education generic "Minister_DFHERIS_Calendar" / "ministers-diary" files carry
+    # no surname → attribute by date. Harris held it from the dept's 2020 creation until he became
+    # Taoiseach (2024-04-09), O'Donovan to the 2025 government, then Lawless (who_was_minister-verified
+    # current from 2025-01-23).
+    ("DFHERIS", "Harris", date(2020, 6, 27), date(2024, 4, 9)),
+    ("DFHERIS", "O'Donovan", date(2024, 4, 9), date(2025, 1, 23)),
+    ("DFHERIS", "Lawless", date(2025, 1, 23), None),
 ]
 
 

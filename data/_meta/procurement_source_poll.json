@@ -1,11 +1,7 @@
 {
-  "generated_at": "2026-06-20T23:07:40Z",
-  "fresh_sources": [
-    "nphdb"
-  ],
-  "problem_sources": [
-    "nphdb"
-  ],
+  "generated_at": "2026-06-20T23:15:29Z",
+  "fresh_sources": [],
+  "problem_sources": [],
   "sources": [
     {
       "id": "nphdb",
@@ -14,25 +10,16 @@
       "check": "auto",
       "held_through": [
         2025,
-        2
+        4
       ],
       "parser": "extractors/procurement_nphdb_parser.py",
       "upstream_newest": [
         2025,
         4
       ],
-      "new_periods": [
-        [
-          2025,
-          3
-        ],
-        [
-          2025,
-          4
-        ]
-      ],
+      "new_periods": [],
       "error": null,
-      "status": "FRESH",
+      "status": "CURRENT",
       "pdf_links_seen": 4
     },
     {

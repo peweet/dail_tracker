@@ -52,10 +52,14 @@ def test_ampersand_and_word_and_collapse_identically():
     assert _norm("Black and Decker") == "BLACK DECKER"
 
 
-def test_accents_and_symbols_dropped_lossily():
-    # non-[A-Z0-9 ] chars (accents, '#') become spaces — documents the lossy
-    # behaviour (it does NOT transliterate É -> E).
-    assert _norm("Café & Bar #1") == "CAF BAR 1"
+def test_accents_folded_to_ascii():
+    # accents are NFD-folded to their base letter (é -> E) so an accented name and
+    # its ASCII spelling land on ONE key — both sides of the CRO join must agree
+    # regardless of fada usage ("Tirlán" awards vs "TIRLAN" payments). Other
+    # symbols ('#') still become spaces.
+    assert _norm("Café & Bar #1") == "CAFE BAR 1"
+    assert _norm("Tirlán Ltd") == _norm("TIRLAN") == "TIRLAN"
+    assert _norm("Telefónica") == "TELEFONICA"
 
 
 def test_empty_string():
