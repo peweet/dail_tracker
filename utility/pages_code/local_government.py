@@ -237,27 +237,35 @@ def _choropleth_html(quintile_by_name: dict, alt: str, zoom: str = "Ireland") ->
     scale = min(_ZOOM_W / cw, _CHORO_PX_H / ch)
     px_w, px_h = round(cw * scale), round(ch * scale)
 
-    body, areas = [], []
+    # Two cities are ENCLAVES inside their county (Cork City ⊂ Cork County, Galway City ⊂
+    # Galway County) — exterior-only outlines mean the county polygon overlaps the city. So
+    # order by polygon size: draw largest-first (the small city paints ON TOP, its colour
+    # shows), and list click <area>s smallest-first (the enclave city wins the overlapping
+    # click instead of resolving to the surrounding county).
+    items = []  # (poly_area, path_html, area_html | None)
     for name, d in paths.items():
         q = quintile_by_name.get(name)
         try:
             fill = _CHORO_PALETTE[int(q) - 1] if q is not None and 1 <= int(q) <= 5 else _CHORO_NODATA
         except (TypeError, ValueError):
             fill = _CHORO_NODATA
-        body.append(f'<path d="{d}" fill="{fill}" stroke="#fbf8f2" stroke-width="1.2"/>')
+        path_html = f'<path d="{d}" fill="{fill}" stroke="#fbf8f2" stroke-width="1.2"/>'
         subs = _path_subpaths(d)
-        if not subs:
-            continue
-        best = max(subs, key=_poly_area)
-        bxs = [x for x, _ in best]
-        bys = [y for _, y in best]
-        if max(bxs) < cx0 or min(bxs) > cx1 or max(bys) < cy0 or min(bys) > cy1:
-            continue  # largest part is outside the crop — not a click target at this zoom
-        coords = ",".join(f"{(x - cx0) * scale:.1f},{(y - cy0) * scale:.1f}" for x, y in best)
-        areas.append(
-            f'<area shape="poly" coords="{coords}" '
-            f'href="?la={quote(name)}" alt="{_h(name)}" title="{_h(name)}">'
-        )
+        best = max(subs, key=_poly_area) if subs else None
+        size = _poly_area(best) if best else 0.0
+        area_html = None
+        if best:
+            bxs = [x for x, _ in best]
+            bys = [y for _, y in best]
+            if not (max(bxs) < cx0 or min(bxs) > cx1 or max(bys) < cy0 or min(bys) > cy1):
+                coords = ",".join(f"{(x - cx0) * scale:.1f},{(y - cy0) * scale:.1f}" for x, y in best)
+                area_html = (
+                    f'<area shape="poly" coords="{coords}" '
+                    f'href="?la={quote(name)}" alt="{_h(name)}" title="{_h(name)}">'
+                )
+        items.append((size, path_html, area_html))
+    body = [p for _, p, _ in sorted(items, key=lambda t: -t[0])]  # big first → enclave on top
+    areas = [a for _, _, a in sorted(items, key=lambda t: t[0]) if a]  # small first → enclave wins click
     svg = (
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="{cx0:.1f} {cy0:.1f} {cw:.1f} {ch:.1f}">{"".join(body)}</svg>'
