@@ -297,8 +297,19 @@ def what_they_own_page() -> None:
         return
 
     predicate = _CATEGORIES[category]
+    none_declared = 0
     if predicate is not None:
         members_df = members_df[predicate(members_df)].reset_index(drop=True)
+    else:
+        # "Everyone": the register restates every category yearly, so a member who
+        # owns/earns nothing still files a full set of 'No interests declared'
+        # rows. total_declarations now counts only REAL declarations (Nil excluded
+        # at the view), so those members read 0 — drop them from a list "ranked by
+        # declarations" rather than show a tail of empty cards, but report how many
+        # there were so the absence is explicit, not silent.
+        declared = members_df["total_declarations"].fillna(0).astype(int) > 0
+        none_declared = int((~declared).sum())
+        members_df = members_df[declared].reset_index(drop=True)
 
     member_label = "TDs and senators" if house == "Dáil" else "senators"
     # Scope phrase shared by every caption — makes clear the count is a single
@@ -315,8 +326,11 @@ def what_they_own_page() -> None:
         "year only — not summed across years."
     )
     if category == "Everyone":
-        evidence_heading(f"Every member · {year_tag} · {len(members_df)} {member_label}")
-        st.caption(f"Ranked by declarations in {scope}. {pill_legend}")
+        evidence_heading(f"Members with declared interests · {year_tag} · {len(members_df)} {member_label}")
+        none_note = (
+            f" A further **{none_declared}** declared no interests in {year_tag}." if none_declared else ""
+        )
+        st.caption(f"Ranked by declarations in {scope}.{none_note} {pill_legend}")
     else:
         evidence_heading(f"{category} · {year_tag} · {len(members_df)} members")
         st.caption(f"Members declaring **{category.lower()}** in {scope}. {pill_legend}")

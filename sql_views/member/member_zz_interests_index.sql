@@ -21,7 +21,16 @@ WITH agg AS (
         MAX(member_id)                  AS member_id,
         MAX(party_name)                 AS party_name,
         MAX(constituency)               AS constituency,
-        COUNT(*)                        AS total_declarations,
+        -- A "declaration" is an actual declared interest, NOT a 'No interests
+        -- declared' placeholder. The register restates every category each year,
+        -- so ~71% of rows are Nil boilerplate; counting them padded each member's
+        -- tally (and the leaderboard rank) by their blank categories. Exclude Nil
+        -- (matches the property/share filters below + the summary view's `real`).
+        COUNT(*) FILTER (
+            WHERE interest_text IS NOT NULL
+              AND TRIM(interest_text) <> ''
+              AND LOWER(TRIM(interest_text)) NOT IN ('no interests declared', 'nan')
+        )                               AS total_declarations,
         0                               AS directorship_count,
         COUNT(DISTINCT CASE
                 WHEN interest_category = 'Land (including property)'

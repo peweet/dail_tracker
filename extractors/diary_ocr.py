@@ -31,6 +31,7 @@ import duckdb
 import fitz
 
 from extractors._diary_minister import resolve_minister
+from extractors.diary_grid_parse import parse_grid
 from extractors.ministerial_diaries_extract import _infer_default_year, parse_entries
 from services.logging_setup import setup_standalone_logging
 
@@ -61,41 +62,50 @@ def make_ocr():
     )
 
 
-def _page_cells(ocr, page, tmp_png: Path) -> list[tuple[int, int, str]]:
+CELLS = OCR_TXT / "cells"  # per-file OCR cell cache (geometry preserved → re-parse w/o re-OCR)
+
+
+def _page_cells(ocr, page, tmp_png: Path) -> list[dict]:
     pix = page.get_pixmap(matrix=fitz.Matrix(DPI / 72, DPI / 72))
     pix.save(tmp_png)
-    out: list[tuple[int, int, str]] = []
+    out: list[dict] = []
     for r in ocr.predict(input=str(tmp_png)):
         d = r if isinstance(r, dict) else {}
-        texts = d.get("rec_texts") or []
         boxes = d.get("rec_boxes")
         boxes = boxes.tolist() if hasattr(boxes, "tolist") else (boxes or [])
-        for t, b in zip(texts, boxes, strict=False):
+        for t, b in zip(d.get("rec_texts") or [], boxes, strict=False):
             if t and t.strip():
-                out.append((int(b[1]), int(b[0]), t.strip()))  # (y0, x0, text)
+                out.append({"t": t.strip(), "x0": int(b[0]), "y0": int(b[1]), "x1": int(b[2]), "y1": int(b[3])})
     return out
 
 
-def ocr_pdf_to_text(ocr, pdf_path: Path, max_pages: int | None = None) -> str:
-    """Render -> OCR -> reconstruct reading order (top-to-bottom, then left-to-right within a
-    y-band) into newline-joined text the diary state machine can parse."""
-    OCR_TXT.mkdir(parents=True, exist_ok=True)
+def ocr_file_cells(ocr, pdf_path: Path, cache_key: str, max_pages: int | None = None) -> list[list[dict]]:
+    """Per-page OCR cells (with geometry), CACHED to JSON. A cached file is loaded without
+    re-OCR so the parser can be re-run/fixed for free ([[project_sipo_ocr]] crash+cost lesson)."""
+    CELLS.mkdir(parents=True, exist_ok=True)
+    cache = CELLS / f"{cache_key}.json"
+    if cache.exists():
+        return json.loads(cache.read_text(encoding="utf-8"))
     tmp_png = OCR_TXT / "_page.png"
     doc = fitz.open(pdf_path)
+    pages = [_page_cells(ocr, page, tmp_png) for i, page in enumerate(doc) if max_pages is None or i < max_pages]
+    cache.write_text(json.dumps(pages), encoding="utf-8")
+    return pages
+
+
+def cells_to_text(pages: list[list[dict]]) -> str:
+    """Linear fallback: reconstruct reading order (top-to-bottom, left-to-right within a y-band)
+    for the daily-list scans that are NOT week grids."""
     lines: list[str] = []
-    for i, page in enumerate(doc):
-        if max_pages is not None and i >= max_pages:
-            break
-        cells = _page_cells(ocr, page, tmp_png)
-        # group into rows by y-band so a split time/subject on one visual row stays together
-        cells.sort(key=lambda c: (c[0], c[1]))
+    for cells in pages:
+        cells = sorted(cells, key=lambda c: (c["y0"], c["x0"]))
         row_y = None
-        for y0, _x0, t in cells:
-            if row_y is None or y0 - row_y > _Y_BAND:
-                lines.append(t)
-                row_y = y0
+        for c in cells:
+            if row_y is None or c["y0"] - row_y > _Y_BAND:
+                lines.append(c["t"])
+                row_y = c["y0"]
             else:
-                lines[-1] = f"{lines[-1]} {t}"
+                lines[-1] = f"{lines[-1]} {c['t']}"
     return "\n".join(lines)
 
 
@@ -120,6 +130,7 @@ def run(depts: set[str] | None, only_file: str | None, max_files: int | None, ma
         log.error("no matching scanned files (depts=%s file=%s)", depts, only_file)
         return 1
 
+    OCR_TXT.mkdir(parents=True, exist_ok=True)
     ocr = make_ocr()
     all_entries: list[dict] = []
     for f in files:
@@ -127,10 +138,14 @@ def run(depts: set[str] | None, only_file: str | None, max_files: int | None, ma
         if not pdf.exists():
             log.warning("not cached (skip, would need download): %s", f["file_name"])
             continue
-        text = ocr_pdf_to_text(ocr, pdf, max_pages=max_pages)
-        (OCR_TXT / (f["file_name"] + ".txt")).write_text(text, encoding="utf-8")
+        pages = ocr_file_cells(ocr, pdf, _cache_name(f["file_name"]), max_pages=max_pages)
+        text = cells_to_text(pages)
         year = f["year"] or _infer_default_year(text)
-        entries = parse_entries(text, year, f["month"])
+        # week-grid first (DPER/Taoiseach/older-DCCS Outlook exports); else linear daily-list
+        entries = parse_grid(pages, year)
+        mode = "grid"
+        if not entries:
+            entries, mode = parse_entries(text, year, f["month"]), "linear"
         for e in entries:
             e.update(
                 department=f["department"],
@@ -138,7 +153,7 @@ def run(depts: set[str] | None, only_file: str | None, max_files: int | None, ma
                 source_pdf_url=f["file_url"],
             )
         all_entries.extend(entries)
-        log.info("OCR %-44s %3d entries (%d chars)", f["file_name"][:44], len(entries), len(text))
+        log.info("OCR %-40s %4d entries [%s]", f["file_name"][:40], len(entries), mode)
 
     log.info("TOTAL OCR'd: %d files -> %d parsed entries", len(files), len(all_entries))
     # save a JSON sidecar of recovered entries for inspection before any merge
