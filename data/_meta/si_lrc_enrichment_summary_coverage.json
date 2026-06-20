@@ -5,12 +5,12 @@
     "https://revisedacts.lawreform.ie/classlist/intro"
   ],
   "lrc_list_updated_to": "1 June 2026",
-  "row_count": 5963,
-  "matched_si_count": 5338,
-  "match_rate": 0.8952,
-  "fills_empty_domain_count": 817,
+  "row_count": 7655,
+  "matched_si_count": 6676,
+  "match_rate": 0.8721,
+  "fills_empty_domain_count": 1082,
   "distinct_subjects": 36,
-  "distinct_leaves": 251,
+  "distinct_leaves": 281,
   "coverage_note": "Source-linked research aid; may be incomplete or out of date.",
   "legal_caveat": "Not legal advice. 'Not matched' does not mean 'not in force'."
 }

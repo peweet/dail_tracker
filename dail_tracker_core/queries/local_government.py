@@ -51,6 +51,10 @@ def derelict_sites_levy(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult
     return _run(conn, "SELECT * FROM v_la_derelict_sites_levy WHERE local_authority = ?", [la])
 
 
+def housing_performance(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    return _run(conn, "SELECT * FROM v_la_housing_performance WHERE local_authority = ?", [la])
+
+
 def national_summary(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """One-row national headline for the landing page."""
     return _run(conn, "SELECT * FROM v_la_accountability_summary")

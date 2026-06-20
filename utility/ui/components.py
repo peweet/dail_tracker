@@ -1182,11 +1182,17 @@ def committee_identity_strip(
     status: str = "",
     chair: str | None = None,
     chair_party: str | None = None,
+    chair_html: str | None = None,
     member_count: int = 0,
     oireachtas_url: str | None = None,
     source_document_url: str | None = None,
 ) -> None:
-    """Stage-2 identity strip for a single committee."""
+    """Stage-2 identity strip for a single committee.
+
+    Pass ``chair_html`` to render the chair name as an already-safe HTML
+    fragment (e.g. a ``member_link_html`` anchor) instead of the default
+    escaped ``chair`` text — the caller is then responsible for escaping.
+    """
     # P2-3 audit fix: Active / Ended was rendered as inline text inside the
     # meta line, despite the register cards rendering the same value as a
     # coloured chip. Lift status out of the meta line and emit it with the
@@ -1196,15 +1202,22 @@ def committee_identity_strip(
     if status:
         status_cls = "cmt-row-status-active" if status == "Active" else "cmt-row-status-ended"
         status_html = f'<span class="cmt-row-status {status_cls}">{_h(status)}</span>'
+    # Plain parts are escaped here; the chair part may carry already-safe HTML
+    # (a member-profile anchor) so it is assembled separately and spliced in
+    # unescaped after the others are escaped.
     meta_parts: list[str] = []
     if type_:
         meta_parts.append(type_)
     if member_count:
         meta_parts.append(f"{member_count} members")
-    if chair:
+    safe_parts = [_h(p) for p in meta_parts]
+    if chair_html:
+        party_suffix = f" ({_h(chair_party)})" if chair_party else ""
+        safe_parts.append(f"Chair: {chair_html}{party_suffix}")
+    elif chair:
         chair_text = chair if not chair_party else f"{chair} ({chair_party})"
-        meta_parts.append(f"Chair: {chair_text}")
-    meta_html = " · ".join(_h(p) for p in meta_parts)
+        safe_parts.append(_h(f"Chair: {chair_text}"))
+    meta_html = " · ".join(safe_parts)
     links: list[str] = []
     if oireachtas_url or source_document_url:
         from ui.entity_links import source_link_html  # local — avoids any future circular risk

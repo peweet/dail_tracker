@@ -36,3 +36,9 @@ def fetch_org_overlap() -> pd.DataFrame:
 def fetch_engagements() -> pd.DataFrame:
     """Per-(engagement x org) rows for org/minister drill-down."""
     return _q.engagements(get_diary_conn()).data
+
+
+@st.cache_data(ttl=600)
+def fetch_meetings() -> pd.DataFrame:
+    """The broad landscape — every external meeting (one row each, no org match needed)."""
+    return _q.meetings(get_diary_conn()).data

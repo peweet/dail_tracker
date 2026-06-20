@@ -10,18 +10,21 @@
 --   asylum* · 'IP Accommodation%' · 'Ukraine Accommodation' · 'Separated Children…Protection'
 --
 -- amount_semantics = po_committed (purchase-order committed, NOT confirmed cash).
--- COVERAGE: strong 2016-2019 (Dept of Justice/Reception & Integration) + 2025-2026
--- (Dept of Justice, IPAS). The 2020-2024 surge sat under the Dept of Children (DCEDIY),
--- whose register is not yet harvested — so those years are UNDER-COUNTED here. The page
--- states this and shows the C&AG 2024 denominator (~€978m commercial / €1.1bn total).
+--
+-- Two complementary sources, NO overlap: the published payments fact never contained the
+-- Dept of Children (DCEDIY), so the DCEDIY 2023-2024 legacy extract
+-- (dceidy_ipas_legacy_spend.parquet — the years IPAS sat under DCEDIY) is purely additive.
+-- DCEDIY 2025+ is EXCLUDED (the Dept of Justice register already covers 2025+ in the fact,
+-- and IPAS transferred to Justice in 2025 — including both would double-count that year).
+-- 2020-2022 remain thin (pre-surge; not separately published in a parsable register).
 CREATE OR REPLACE VIEW v_accommodation_spend_by_year AS
-WITH acc AS (
+WITH fact AS (
     SELECT
         year,
         CASE WHEN lower(spend_category) LIKE '%ukraine%' THEN 'Ukraine'
              ELSE 'International Protection' END AS stream,
         CAST(amount_eur AS DOUBLE) AS amount_eur,
-        supplier_normalised
+        supplier_normalised AS provider
     FROM read_parquet('data/gold/parquet/procurement_payments_fact.parquet')
     WHERE value_safe_to_sum = TRUE
       AND (
@@ -30,13 +33,19 @@ WITH acc AS (
         OR lower(spend_category) LIKE '%ukraine accommodation%'
         OR lower(spend_category) LIKE '%separated children%'
       )
-)
+),
+dceidy AS (
+    SELECT year, stream, CAST(amount_eur AS DOUBLE) AS amount_eur, provider
+    FROM read_parquet('data/gold/parquet/dceidy_ipas_legacy_spend.parquet')
+    WHERE year IN (2023, 2024)
+),
+acc AS (SELECT * FROM fact UNION ALL SELECT * FROM dceidy)
 SELECT
     year,
     ROUND(SUM(amount_eur) FILTER (WHERE stream = 'International Protection'), 0) AS ip_eur,
     ROUND(SUM(amount_eur) FILTER (WHERE stream = 'Ukraine'), 0) AS ukraine_eur,
     ROUND(SUM(amount_eur), 0) AS total_eur,
-    COUNT(DISTINCT supplier_normalised) AS n_providers
+    COUNT(DISTINCT provider) AS n_providers
 FROM acc
 GROUP BY year
 ORDER BY year;

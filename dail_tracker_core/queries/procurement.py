@@ -896,11 +896,13 @@ def payment_lines_for_pair(
     link to each other; this is the terminus that finally shows the individual records a body
     published (period, description, PO number, amount), with a link to the body's own source
     file. One row per published line, biggest first. Sum-safe euro flag rides along so the page
-    can mark a line that is not safe to total; never summed across vat_status."""
+    can mark a line that is not safe to total; never summed across vat_status. paid_status carries
+    the body's own per-line payment status (Paid / Part paid / Not paid) where it published one —
+    canonicalised in the view from a strict allowlist; NULL for the majority that publish none."""
     return _run(
         conn,
         "SELECT period, year, description, po_number, amount_eur, value_kind,"
-        " value_safe_to_sum, vat_status, source_file_url"
+        " value_safe_to_sum, vat_status, paid_status, source_file_url"
         " FROM v_procurement_payments"
         " WHERE supplier_normalised = ? AND publisher_name = ? AND realisation_tier = ?"
         " ORDER BY amount_eur DESC NULLS LAST LIMIT ?",
@@ -1039,14 +1041,16 @@ def charity_overlap(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 # All factual structure signals — the consuming page must keep the no-inference posture
 # (every view header states its caveat family). Pre-aggregated in the views; retrieval only.
 def entity_search(conn: duckdb.DuckDBPyConnection) -> QueryResult:
-    """The unified typeahead corpus (suppliers + authorities + CPV categories in one list)
-    for the page's search-first hero. The page applies a DISPLAY-ONLY name filter over this
-    frame (same pattern as the supplier search). The two money hint columns are different
-    grains (award ceilings vs realised payments) — shown with their own labels, never added."""
+    """The unified typeahead corpus (awards suppliers/authorities/CPV categories AND realised-
+    payments contractors/bodies in one list) for the page's search-first hero. The page applies a
+    DISPLAY-ONLY name filter over this frame (same pattern as the supplier search). The two money
+    hint columns are different grains (award ceilings vs realised payments) — shown with their own
+    labels, never added. paid_tier (SPENT/COMMITTED) rides the paid_* rows so the page builds the
+    tier-correct paid-dossier deep-link; it is NULL for the award kinds."""
     return _run(
         conn,
         "SELECT entity_kind, display_name, url_key, n_records, n_counterparties,"
-        " awarded_value_safe_eur, paid_safe_eur, cro_company_num, on_lobbying_register"
+        " awarded_value_safe_eur, paid_safe_eur, cro_company_num, on_lobbying_register, paid_tier"
         " FROM v_procurement_entity_search",
     )
 

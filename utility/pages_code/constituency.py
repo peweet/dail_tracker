@@ -47,6 +47,7 @@ from data_access.constituency_data import (
     fetch_council_capital_divisions_result,
     fetch_council_revenue_divisions_result,
 )
+from ui.entity_links import council_accountability_url
 from ui.components import (
     back_button,
     clickable_card_link,
@@ -66,6 +67,14 @@ from ui.components import (
 from ui.entity_links import member_profile_url
 
 _EC_REVIEW_URL = "https://www.electoralcommission.ie/constituency-reviews/"
+
+# Housing-section source links (verified live).
+_SRC_SSHA = "https://www.housingagency.ie/housing-information/summary-social-housing-assessments-ssha"
+_SRC_NOAC = "https://noac.ie/"
+_SRC_DERELICT = (
+    "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/publications/"
+    "annual-returns-for-2024-received-from-local-authorities-under-the-derelict-sites-act-1990/"
+)
 
 
 # ── display-only formatting (no derivation) ───────────────────────────────────
@@ -560,7 +569,9 @@ def _render_waiting_breakdown(name: str) -> None:
                     f'<p class="con-section-note" style="margin:0.3rem 0 0.2rem">{title}</p>'
                     + proportion_stripe_html(segs, palette=palette)
                 )
-        st.caption("Housing Agency SSHA 2025 · council-area figures (the area is not the constituency).")
+        st.caption(
+            f"[Housing Agency SSHA 2025]({_SRC_SSHA}) · council-area figures (the area is not the constituency)."
+        )
 
 
 def _perf_pill(value, fmt: str, label: str, national, nat_fmt: str | None = None) -> str:
@@ -636,8 +647,9 @@ def _render_council_housing_performance(name: str) -> None:
     )
     st.html(f'<div class="con-council-grid">{"".join(cards)}</div>')
     st.caption(
-        "Sources: NOAC Local Authority Performance Indicator Report 2024 (performance + rent "
-        "collection); Dept of Housing Derelict Sites annual return 2024 (levy outstanding)."
+        f"**Sources:** [NOAC Local Authority Performance Indicator Report 2024]({_SRC_NOAC}) "
+        f"(performance + rent collection) · [Dept of Housing Derelict Sites annual return 2024]"
+        f"({_SRC_DERELICT}) (levy outstanding)."
     )
 
 
@@ -754,7 +766,9 @@ def _render_council_detail(constituency: str, council: str) -> None:
     st.html(
         f'<p class="con-section-note" style="margin-top:0.6rem">{src}'
         f'<a class="dt-source-link" href="/rankings-council-spending?paid_publisher={quote(council)}&paid_tier=COMMITTED" '
-        f'target="_self">Full {_h(council)} dossier (suppliers, multi-year)</a></p>'
+        f'target="_self">Full {_h(council)} dossier (suppliers, multi-year)</a> · '
+        f'<a class="dt-source-link" href="{_h(council_accountability_url(council))}" '
+        f'target="_self">Who runs {_h(council)} →</a></p>'
     )
 
 
@@ -790,6 +804,24 @@ def _render_council_context(name: str) -> None:
         st.caption("Also partly covered by:")
         pcards = [_council_card(r, name) for _, r in partial.iterrows()]
         st.html(f'<div class="con-council-grid">{"".join(pcards)}</div>')
+
+    # Contextual edge → the "Who runs your county" dossier per serving council (the
+    # appointed Chief Executive + accountability indicators). Rendered as standalone
+    # links: the spend cards above are themselves anchors, so this can't nest inside
+    # them. Carries the council entity instead of dropping the user on a generic index.
+    councils = list(dict.fromkeys(str(la) for la in df["local_authority"]))
+    if councils:
+        links = " · ".join(
+            f'<a class="dt-source-link" href="{_h(council_accountability_url(la))}" '
+            f'target="_self">{_h(la)}</a>'
+            for la in councils
+        )
+        whose = "these councils" if len(councils) > 1 else "this council"
+        st.html(
+            f'<p class="con-section-note" style="margin-top:0.6rem">'
+            f"<strong>Who runs {whose}?</strong> See the appointed Chief Executive "
+            f"and how the council performs: {links}</p>"
+        )
 
 
 def _render_dossier(name: str) -> None:

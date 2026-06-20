@@ -28,6 +28,18 @@ SELECT
     value_safe_to_sum,
     description,
     po_number,
+    -- Per-line PAYMENT STATUS where the body published one (some councils/depts carry a
+    -- "Paid? Y/N", "Part Paid" or "Not Paid" column alongside the PO line). The raw paid_flag
+    -- is a free-text column that suffered column-misalignment leakage in several source parsers
+    -- (description text / dates bled in), so it is NEVER rendered raw — only a STRICT allowlist of
+    -- recognised status tokens is canonicalised here, in the view's display layer; every other
+    -- value (incl. leaked junk and ambiguous 'P'/'1') collapses to NULL = "no status published".
+    -- Display-only context, not summed; absence of a status is the norm (most bodies don't publish one).
+    CASE lower(trim(paid_flag))
+        WHEN 'paid' THEN 'Paid' WHEN 'y' THEN 'Paid' WHEN 'yes' THEN 'Paid'
+        WHEN 'part paid' THEN 'Part paid'
+        WHEN 'not paid' THEN 'Not paid' WHEN 'n' THEN 'Not paid' WHEN 'no' THEN 'Not paid'
+    END                                       AS paid_status,
     cro_company_num,
     cro_company_status,
     source_file_url

@@ -30,7 +30,8 @@ DERIVES:
                           member_code is null for ministers no longer in the
                           Oireachtas.
 
-COVERAGE FLOOR: si_year >= 2016 (the taxonomy thins sharply below this).
+COVERAGE FLOOR: si_year >= 2012 (full-coverage years post-backfill; the
+taxonomy thins to citation noise below this — see SI_YEAR_FLOOR).
 """
 
 from __future__ import annotations
@@ -51,7 +52,10 @@ _ALIASES = DATA_DIR / "_meta" / "si_department_aliases.csv"
 _TENURE = SILVER_DIR / "ministerial_tenure.parquet"
 _OUT = GOLD_PARQUET_DIR / "statutory_instruments.parquet"
 
-SI_YEAR_FLOOR = 2016
+# 2012 is the earliest full-coverage year after the 2026-06 bronze backfill
+# (2012-2015 each carry ~500 SIs). Below 2012 the taxonomy thins to citation
+# noise (2011≈65, sparse before), so the floor still trims that long tail.
+SI_YEAR_FLOOR = 2012
 MIN_TAXO_CONFIDENCE = 0.5
 
 # si_eu_relationship values that carry no EU dimension.
@@ -473,7 +477,8 @@ def _tidy_parent_legislation(raw: object) -> object:
 
 def load_si() -> pd.DataFrame:
     """Clean SI universe from the taxonomy — same filters as the bill matcher
-    except the year floor is 2016 (vs 2018), recovering ~1,500 SIs."""
+    except the year floor is 2012 (vs 2018), covering the full post-backfill
+    corpus."""
     df = pd.read_csv(_SI_CSV, low_memory=False)
     df = df[df["notice_category"] == "statutory_instrument"]
     df = df[~df["is_quarantined"].fillna(False).astype(bool)]

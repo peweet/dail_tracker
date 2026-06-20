@@ -131,13 +131,13 @@ SECTOR_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (
         "medical-devices",
         re.compile(
-            r"(medtech|medtronic|boston scientific|stryker|\babbott\b|becton|cook medical|edwards lifesci|edwards life sci|teleflex|integer|depuy|dexcom|veonet|bausch|\blomb\b|solventum)"
+            r"(medtech|medtronic|boston scientific|stryker|\babbott\b|becton|cook medical|edwards lifesci|edwards life sci|teleflex|integer|depuy|dexcom|veonet|bausch|\blomb\b|solventum|johnson and johnson)"
         ),
     ),
     (
         "pharma",
         re.compile(
-            r"(pharma|\bipha\b|pfizer|\bmsd\b|novartis|abbvie|eli lilly|\broche\b|gilead|takeda|astellas|jazz pharma|pharmacy union|sanofi|biomarin|janssen|zoetis|novo nordisk|horizon therapeutics|therapeutics)"
+            r"(pharma|\bipha\b|pfizer|\bmsd\b|novartis|abbvie|eli lilly|\broche\b|gilead|takeda|astrazeneca|regeneron|astellas|jazz pharma|pharmacy union|sanofi|biomarin|janssen|zoetis|novo nordisk|horizon therapeutics|therapeutics)"
         ),
     ),
     ("insurance", re.compile(r"(insurance|aviva|zurich|allianz|\baxa\b|\bfbd\b|irish life|\bvhi\b|laya)")),
