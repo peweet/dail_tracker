@@ -85,6 +85,34 @@ h1 AS (
     SELECT la, CAST("dwellings_la_ownership_31_12_2024_count" AS DOUBLE) AS stock_end
     FROM read_parquet('data/gold/parquet/noac_h1_stock_wide.parquet')
 ),
+-- NOAC M2 collection rates (shares the NOAC LA naming, so it joins on noac_la directly).
+m2 AS (
+    SELECT la, CAST("rent_annuities_collection_pct" AS DOUBLE) AS rent_collection_pct
+    FROM read_parquet('data/gold/parquet/noac_m2_collection_wide.parquet')
+    WHERE year = 2024
+),
+-- Derelict Sites Levy (gov.ie) uses its own LA naming → explicit map to noac_la.
+der_map(noac_la, der_la) AS (
+    VALUES
+    ('Carlow County','Carlow'), ('Cavan County','Cavan'), ('Clare County','Clare'),
+    ('Cork City','Cork City'), ('Cork County','Cork County'), ('Donegal County','Donegal'),
+    ('Dublin City','Dublin City'), ('Dun Laoghaire-Rathdown','Dun Laoghaire-Rathdown'),
+    ('Fingal County','Fingal'), ('Galway City','Galway City'), ('Galway County','Galway County'),
+    ('Kerry County','Kerry'), ('Kildare County','Kildare'), ('Kilkenny County','Kilkenny'),
+    ('Laois County','Laois'), ('Leitrim County','Leitrim'), ('Limerick City and County','Limerick City and County'),
+    ('Longford County','Longford'), ('Louth County','Louth'), ('Mayo County','Mayo'),
+    ('Meath County','Meath'), ('Monaghan County','Monaghan'), ('Offaly County','Offaly'),
+    ('Roscommon County','Roscommon'), ('Sligo County','Sligo'), ('South Dublin County','South Dublin'),
+    ('Tipperary County','Tipperary'), ('Waterford City and County','Waterford City and County'),
+    ('Westmeath County','Westmeath'), ('Wexford County','Wexford'), ('Wicklow County','Wicklow')
+),
+der AS (
+    SELECT dm.noac_la,
+        CAST(d."amount_levied_eur" AS DOUBLE) AS derelict_levied_eur,
+        CAST(d."cumulative_outstanding_eur" AS DOUBLE) AS derelict_outstanding_eur
+    FROM der_map dm
+    JOIN read_parquet('data/gold/parquet/derelict_sites_levy_wide.parquet') d ON d.la = dm.der_la
+),
 m AS (
     SELECT
         lm.noac_la,
@@ -94,7 +122,10 @@ m AS (
         h4.maintenance_eur_per_dwelling,
         h6.longterm_homeless_pct,
         CASE WHEN h1.stock_end > 0
-             THEN ROUND(100.0 * h7.retrofit_count / h1.stock_end, 2) END AS retrofit_pct_of_stock
+             THEN ROUND(100.0 * h7.retrofit_count / h1.stock_end, 2) END AS retrofit_pct_of_stock,
+        m2.rent_collection_pct,
+        der.derelict_levied_eur,
+        der.derelict_outstanding_eur
     FROM la_map lm
     LEFT JOIN h2 ON h2.la = lm.noac_la
     LEFT JOIN h3 ON h3.la = lm.noac_la
@@ -102,6 +133,8 @@ m AS (
     LEFT JOIN h6 ON h6.la = lm.noac_la
     LEFT JOIN h7 ON h7.la = lm.noac_la
     LEFT JOIN h1 ON h1.la = lm.noac_la
+    LEFT JOIN m2 ON m2.la = lm.noac_la
+    LEFT JOIN der ON der.noac_la = lm.noac_la
 ),
 nat AS (
     SELECT
@@ -110,7 +143,8 @@ nat AS (
         ROUND(MEDIAN(reletting_cost_eur), 0)           AS nat_reletting_cost_eur,
         ROUND(MEDIAN(maintenance_eur_per_dwelling), 0) AS nat_maintenance_eur_per_dwelling,
         ROUND(MEDIAN(longterm_homeless_pct), 1)        AS nat_longterm_homeless_pct,
-        ROUND(MEDIAN(retrofit_pct_of_stock), 2)        AS nat_retrofit_pct_of_stock
+        ROUND(MEDIAN(retrofit_pct_of_stock), 2)        AS nat_retrofit_pct_of_stock,
+        ROUND(MEDIAN(rent_collection_pct), 1)          AS nat_rent_collection_pct
     FROM m
 )
 SELECT
@@ -123,12 +157,16 @@ SELECT
     m.maintenance_eur_per_dwelling,
     m.longterm_homeless_pct,
     m.retrofit_pct_of_stock,
+    m.rent_collection_pct,
+    m.derelict_levied_eur,
+    m.derelict_outstanding_eur,
     nat.nat_vacancy_pct,
     nat.nat_reletting_weeks,
     nat.nat_reletting_cost_eur,
     nat.nat_maintenance_eur_per_dwelling,
     nat.nat_longterm_homeless_pct,
     nat.nat_retrofit_pct_of_stock,
+    nat.nat_rent_collection_pct,
     2024 AS noac_period
 FROM v_constituency_la_crosswalk x
 JOIN la_map lm ON lm.local_authority = x.local_authority

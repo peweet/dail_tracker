@@ -14,6 +14,7 @@ starting anything, so it can be queued behind the in-flight FG run.
 
 from __future__ import annotations
 
+import contextlib
 import subprocess
 import sys
 import time
@@ -23,20 +24,19 @@ ROOT = Path(__file__).resolve().parents[1]
 PY = str(ROOT / ".venv/Scripts/python.exe")
 WD_CAND = str(ROOT / "extractors/_sipo_watchdog.py")
 WD_ITEMS = str(ROOT / "extractors/_sipo_items_watchdog.py")
-try:
+with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
-except Exception:
-    pass
 
 # count python workers running a given ETL script (matches the ETL filename, NOT the
 # *_watchdog drivers — so the watchdogs themselves don't count as "OCR busy").
-_PS = ("@(Get-CimInstance Win32_Process -Filter \"name='python.exe'\" | "
-       "Where-Object {{ $_.CommandLine -match '{pat}' }}).Count")
+_PS = (
+    "@(Get-CimInstance Win32_Process -Filter \"name='python.exe'\" | "
+    "Where-Object {{ $_.CommandLine -match '{pat}' }}).Count"
+)
 
 
 def _count(pat: str) -> int:
-    r = subprocess.run(["powershell", "-NoProfile", "-Command", _PS.format(pat=pat)],
-                       capture_output=True, text=True)
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", _PS.format(pat=pat)], capture_output=True, text=True)
     try:
         return int((r.stdout or "").strip().splitlines()[-1])
     except Exception:

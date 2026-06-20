@@ -162,6 +162,27 @@ DATASETS: dict[str, dict] = {
         "fetch_file": GOLD_PARQUET_DIR / "procurement_awards.parquet",
         "fetch_after_days": 120,  # re-pull the OGP CSV at least quarterly
     },
+    "ssha_waiting_list": {
+        # Annual PDF report (Housing Agency SSHA) — no record-date column; freshness =
+        # when we last downloaded the source PDF. Annual cadence, so a long threshold:
+        # flag only if we've gone >13 months without ingesting a newer edition.
+        "measure": "fetch_mtime",
+        "source": PROJECT_ROOT / "doc" / "source_pdfs" / "SSHA_2025_FINAL.pdf",
+        "fetch_after_days": 400,
+    },
+    "noac_council_performance": {
+        # Annual PDF report (NOAC Local Authority Performance Indicators) — same shape.
+        "measure": "fetch_mtime",
+        "source": PROJECT_ROOT / "doc" / "source_pdfs" / "NOAC_LA_PerfInd_2024.pdf",
+        "fetch_after_days": 400,
+    },
+    "derelict_sites_levy": {
+        # Annual gov.ie XLSX (Derelict Sites Act returns) — one file per year, fetched
+        # with --download. Freshness = when we last pulled the source spreadsheet.
+        "measure": "fetch_mtime",
+        "source": PROJECT_ROOT / "doc" / "source_pdfs" / "2024_Derelict_Sites_Statistics.xlsx",
+        "fetch_after_days": 400,
+    },
 }
 
 

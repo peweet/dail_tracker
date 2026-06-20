@@ -153,29 +153,98 @@ _WB = "https://web.archive.org/web/{}id_/{}"
 LIMERICK_WAYBACK: list[str] = [
     _WB.format(ts, u)
     for ts, u in [
-        ("20171025144903", "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20000_quarter_1_2016_new.pdf"),
-        ("20171025144900", "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20000_quarter_2_2016.pdf"),
-        ("20171025144855", "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20k_q4_2016.pdf"),
-        ("20171025144857", "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_eu20000_-_quarter_3_2016.pdf"),
-        ("20171025144849", "https://www.limerick.ie/sites/default/files/media/documents/2017-08/Purchase%20Orders%20over%20%E2%82%AC20%2C000%20Quarter%202%2C%202017_0.pdf"),
-        ("20190526073200", "https://www.limerick.ie/sites/default/files/media/documents/2018-12/Purchase%20Orders%20over%20%E2%82%AC20000%20Q3%202018%20v2.pdf"),
-        ("20190526073154", "https://www.limerick.ie/sites/default/files/media/documents/2019-02/Purchase%20Orders%20over%20%E2%82%AC20000%20Quarter%204%202018.pdf"),
-        ("20200917233827", "https://www.limerick.ie/sites/default/files/media/documents/2019-09/Purchase-Orders-over-20000-Q2-2019.pdf"),
-        ("20200917233836", "https://www.limerick.ie/sites/default/files/media/documents/2019-09/Purchase-Orders-over-20000-Quarter1-2019.pdf"),
-        ("20200917233821", "https://www.limerick.ie/sites/default/files/media/documents/2020-01/Purchase-Orders-over-20000-Quarter-3-2019.pdf"),
-        ("20200917233817", "https://www.limerick.ie/sites/default/files/media/documents/2020-04/purchase-orders-over-20000-q4-2019.pdf"),
-        ("20210607110505", "https://www.limerick.ie/sites/default/files/media/documents/2020-10/purchase-orders-over-eu20000-quarter-2-2020.pdf"),
-        ("20210607110501", "https://www.limerick.ie/sites/default/files/media/documents/2021-01/purchase-orders-over-eu20000-quarter-3-2020.pdf"),
-        ("20210607110457", "https://www.limerick.ie/sites/default/files/media/documents/2021-04/purchase-orders-over-eu20000-q4-2020.pdf"),
-        ("20220613103544", "https://www.limerick.ie/sites/default/files/media/documents/2022-02/purchase-orders-over-eu20000-q1-2021.pdf"),
-        ("20220613103540", "https://www.limerick.ie/sites/default/files/media/documents/2022-02/purchase-orders-over-eu20000-q2-2021.pdf"),
-        ("20230710100906", "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-3-2021.pdf"),
-        ("20230710100848", "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-4-2021.pdf"),
-        ("20230710100831", "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-1-2022.pdf"),
-        ("20230710100805", "https://www.limerick.ie/sites/default/files/media/documents/2023-01/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-2-2022.pdf"),
-        ("20230710100759", "https://www.limerick.ie/sites/default/files/media/documents/2023-01/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-3-2022.pdf"),
-        ("20230710100752", "https://www.limerick.ie/sites/default/files/media/documents/2023-02/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-4-2022.pdf"),
-        ("20230710100742", "https://www.limerick.ie/sites/default/files/media/documents/2023-06/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-1-2023.pdf"),
+        (
+            "20171025144903",
+            "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20000_quarter_1_2016_new.pdf",
+        ),
+        (
+            "20171025144900",
+            "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20000_quarter_2_2016.pdf",
+        ),
+        (
+            "20171025144855",
+            "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20k_q4_2016.pdf",
+        ),
+        (
+            "20171025144857",
+            "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_eu20000_-_quarter_3_2016.pdf",
+        ),
+        (
+            "20171025144849",
+            "https://www.limerick.ie/sites/default/files/media/documents/2017-08/Purchase%20Orders%20over%20%E2%82%AC20%2C000%20Quarter%202%2C%202017_0.pdf",
+        ),
+        (
+            "20190526073200",
+            "https://www.limerick.ie/sites/default/files/media/documents/2018-12/Purchase%20Orders%20over%20%E2%82%AC20000%20Q3%202018%20v2.pdf",
+        ),
+        (
+            "20190526073154",
+            "https://www.limerick.ie/sites/default/files/media/documents/2019-02/Purchase%20Orders%20over%20%E2%82%AC20000%20Quarter%204%202018.pdf",
+        ),
+        (
+            "20200917233827",
+            "https://www.limerick.ie/sites/default/files/media/documents/2019-09/Purchase-Orders-over-20000-Q2-2019.pdf",
+        ),
+        (
+            "20200917233836",
+            "https://www.limerick.ie/sites/default/files/media/documents/2019-09/Purchase-Orders-over-20000-Quarter1-2019.pdf",
+        ),
+        (
+            "20200917233821",
+            "https://www.limerick.ie/sites/default/files/media/documents/2020-01/Purchase-Orders-over-20000-Quarter-3-2019.pdf",
+        ),
+        (
+            "20200917233817",
+            "https://www.limerick.ie/sites/default/files/media/documents/2020-04/purchase-orders-over-20000-q4-2019.pdf",
+        ),
+        (
+            "20210607110505",
+            "https://www.limerick.ie/sites/default/files/media/documents/2020-10/purchase-orders-over-eu20000-quarter-2-2020.pdf",
+        ),
+        (
+            "20210607110501",
+            "https://www.limerick.ie/sites/default/files/media/documents/2021-01/purchase-orders-over-eu20000-quarter-3-2020.pdf",
+        ),
+        (
+            "20210607110457",
+            "https://www.limerick.ie/sites/default/files/media/documents/2021-04/purchase-orders-over-eu20000-q4-2020.pdf",
+        ),
+        (
+            "20220613103544",
+            "https://www.limerick.ie/sites/default/files/media/documents/2022-02/purchase-orders-over-eu20000-q1-2021.pdf",
+        ),
+        (
+            "20220613103540",
+            "https://www.limerick.ie/sites/default/files/media/documents/2022-02/purchase-orders-over-eu20000-q2-2021.pdf",
+        ),
+        (
+            "20230710100906",
+            "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-3-2021.pdf",
+        ),
+        (
+            "20230710100848",
+            "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-4-2021.pdf",
+        ),
+        (
+            "20230710100831",
+            "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-1-2022.pdf",
+        ),
+        (
+            "20230710100805",
+            "https://www.limerick.ie/sites/default/files/media/documents/2023-01/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-2-2022.pdf",
+        ),
+        (
+            "20230710100759",
+            "https://www.limerick.ie/sites/default/files/media/documents/2023-01/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-3-2022.pdf",
+        ),
+        (
+            "20230710100752",
+            "https://www.limerick.ie/sites/default/files/media/documents/2023-02/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-4-2022.pdf",
+        ),
+        (
+            "20230710100742",
+            "https://www.limerick.ie/sites/default/files/media/documents/2023-06/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-1-2023.pdf",
+        ),
     ]
 ]
 

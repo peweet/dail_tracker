@@ -40,12 +40,12 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+import contextlib  # noqa: E402
+
 from services.parquet_io import save_parquet  # noqa: E402
 
-try:
+with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
-except Exception:
-    pass
 
 OUT_DIR = ROOT / "data/silver/sipo"
 BY_PARTY_DIR = OUT_DIR / "by_party"
@@ -115,7 +115,7 @@ def ocr_page(ocr, page, tmp_png: Path, dpi: int = DPI) -> tuple[list[dict], int]
         scores = d.get("rec_scores") or []
         boxes = d.get("rec_boxes")
         boxes = boxes.tolist() if hasattr(boxes, "tolist") else (boxes or [])
-        for t, s, b in zip(texts, scores, boxes):
+        for t, s, b in zip(texts, scores, boxes, strict=False):
             cells.append({"text": t, "score": float(s), "x0": b[0], "y0": b[1], "x1": b[2], "y1": b[3]})
     return cells, pix.width
 

@@ -59,7 +59,9 @@ CAVEAT_RE = re.compile(r"\bvat\b|exclud|inclus|indicativ|not (a )?payment|net of
 COMPANY_SUFFIX = re.compile(
     r"\b(ltd|limited|dac|plc|clg|llp|teo|teoranta|t/a|uc|inc|llc|gmbh|company|co\.|group|"
     r"services|solutions|consult|engineer|partners|associates|holdings|university|college|"
-    r"council|hse|board|institute|ireland|technolog|systems|media|hotel|centre|&)\b", re.I)
+    r"council|hse|board|institute|ireland|technolog|systems|media|hotel|centre|&)\b",
+    re.I,
+)
 CATEGORY_WORD = re.compile(r"^\s*(total|category total|sum|subtotal|grand total|all suppliers|various)\b", re.I)
 MERGE_GAP = 22.0  # px: header words closer than this fuse into one column label
 # LA fix (Mayo/Donegal): an adjacent PO/vendor-ID column bleeds a leading digit run into
@@ -82,8 +84,11 @@ def to_eur(token: str) -> float | None:
 
 def _curl(url: str) -> bytes | None:
     try:
-        p = subprocess.run(["curl", "-sS", "-k", "-L", "--max-time", "90", "-A", H["User-Agent"], url],
-                           capture_output=True, timeout=120)
+        p = subprocess.run(
+            ["curl", "-sS", "-k", "-L", "--max-time", "90", "-A", H["User-Agent"], url],
+            capture_output=True,
+            timeout=120,
+        )
         return p.stdout if p.returncode == 0 and p.stdout else None
     except Exception:
         return None
@@ -92,6 +97,7 @@ def _curl(url: str) -> bytes | None:
 def fetch(url: str) -> bytes | None:
     # disk cache: these PDFs (HSE 159pp etc.) don't change run-to-run; stop re-downloading.
     import hashlib
+
     cache = TMP / "_pdf_cache" / (hashlib.md5(url.encode()).hexdigest() + ".pdf")
     if cache.exists() and cache.stat().st_size > 2000:
         return cache.read_bytes()
@@ -168,15 +174,17 @@ def assign_role(cols: list[dict]) -> dict[str, int]:
 
 def refine_roles(cols: list[dict], roles: dict[str, int], records: list[list[str]]) -> dict[str, int]:
     """Evidence-based fix for header-only role guesses:
-      - amount   = the amount-labelled column whose cells are MOST numeric (skips a 'Paid'
-                   Y/N flag column that merely contains the word 'paid' — e.g. Revenue).
-      - supplier = the supplier-labelled column that is LEAST numeric (a real name column,
-                   not an adjacent 'Supplier ID' number column — e.g. ATU/Bord Bia)."""
+    - amount   = the amount-labelled column whose cells are MOST numeric (skips a 'Paid'
+                 Y/N flag column that merely contains the word 'paid' — e.g. Revenue).
+    - supplier = the supplier-labelled column that is LEAST numeric (a real name column,
+                 not an adjacent 'Supplier ID' number column — e.g. ATU/Bord Bia)."""
     if not records:
         return roles
+
     def numfrac(i: int) -> float:
         vals = [r[i] for r in records if i < len(r) and r[i]]
         return sum(to_eur(v) is not None for v in vals) / len(vals) if vals else 0.0
+
     amt_cands = [i for i, c in enumerate(cols) if ROLE_RE["amount"].search(c["label"])]
     if amt_cands:
         roles["amount"] = max(amt_cands, key=numfrac)
@@ -237,9 +245,16 @@ def parse_pdf(b: bytes, max_pages: int | None) -> dict:
             records.append(rec)
     doc.close()
     roles = refine_roles(cols, roles, records) if cols else roles
-    return {"pages": npages, "pages_parsed": limit, "digital": digital_chars > 200,
-            "header_label": header_label, "cols": cols, "roles": roles,
-            "records": records, "page0_text": page0_text}
+    return {
+        "pages": npages,
+        "pages_parsed": limit,
+        "digital": digital_chars > 200,
+        "header_label": header_label,
+        "cols": cols,
+        "roles": roles,
+        "records": records,
+        "page0_text": page0_text,
+    }
 
 
 def battery(records, roles, page0_text, header_label) -> dict:
@@ -272,7 +287,8 @@ def battery(records, roles, page0_text, header_label) -> dict:
     caveat = bool(CAVEAT_RE.search(page0_text)) or bool(CAVEAT_RE.search(header_label))
     return {
         "rows_extracted": len(records),
-        "supplier_column_idx": sup_i, "amount_column_idx": amt_i,
+        "supplier_column_idx": sup_i,
+        "amount_column_idx": amt_i,
         "amount_safe_to_sum_eur": round(total, 2) if amts_ok else None,
         "personal_name_risk_frac": round(len(indiv) / len(suppliers), 3) if suppliers else None,
         "sample_suppliers": [s for s in suppliers if s][:5],
@@ -301,8 +317,14 @@ def load_pdf_targets() -> list[dict]:
     for p in d["publishers"]:
         s = p.get("sample") or ""
         if s.lower().split("?")[0].endswith(".pdf"):
-            out.append({"publisher_id": p["publisher_id"], "publisher_name": p["publisher_name"],
-                        "url": s, "privacy_risk": p.get("privacy_risk")})
+            out.append(
+                {
+                    "publisher_id": p["publisher_id"],
+                    "publisher_name": p["publisher_name"],
+                    "url": s,
+                    "privacy_risk": p.get("privacy_risk"),
+                }
+            )
     return out
 
 
@@ -312,8 +334,11 @@ def main() -> None:
     args = ap.parse_args()
 
     targets = load_pdf_targets()
-    print(f"{'=' * 78}\nPHASE-3b PDF SAMPLE EXTRACTION — {len(targets)} digital-PDF leads"
-          + (f" (first {args.max_pages}pp each)" if args.max_pages else " (all pages)") + f"\n{'=' * 78}")
+    print(
+        f"{'=' * 78}\nPHASE-3b PDF SAMPLE EXTRACTION — {len(targets)} digital-PDF leads"
+        + (f" (first {args.max_pages}pp each)" if args.max_pages else " (all pages)")
+        + f"\n{'=' * 78}"
+    )
     report = []
     for t in targets:
         print(f"\n[{t['publisher_id']}] {t['publisher_name']}")
@@ -325,32 +350,55 @@ def main() -> None:
         info = parse_pdf(b, args.max_pages)
         if not info["digital"]:
             print(f"  SCANNED ({info['pages']}pp) -> OCR territory, deferred")
-            report.append({**t, "format": "PDF_SCANNED", "pages": info["pages"],
-                           "header_label": None, "rows_extracted": 0, "parser_confidence": "low"})
+            report.append(
+                {
+                    **t,
+                    "format": "PDF_SCANNED",
+                    "pages": info["pages"],
+                    "header_label": None,
+                    "rows_extracted": 0,
+                    "parser_confidence": "low",
+                }
+            )
             continue
         if not info["cols"]:
             print(f"  DIGITAL {info['pages']}pp but NO header row detected — needs custom anchor")
-            report.append({**t, "format": "PDF_DIGITAL", "pages": info["pages"],
-                           "header_label": None, "rows_extracted": 0, "parser_confidence": "low",
-                           "note": "header not auto-detected"})
+            report.append(
+                {
+                    **t,
+                    "format": "PDF_DIGITAL",
+                    "pages": info["pages"],
+                    "header_label": None,
+                    "rows_extracted": 0,
+                    "parser_confidence": "low",
+                    "note": "header not auto-detected",
+                }
+            )
             continue
         bat = battery(info["records"], info["roles"], info["page0_text"], info["header_label"])
         conf = confidence(info, b)
-        rec = {**t, "format": "PDF_DIGITAL", "pages": info["pages"], "pages_parsed": info["pages_parsed"],
-               "header_label": info["header_label"],
-               "roles": {k: info["cols"][v]["label"] for k, v in info["roles"].items()},
-               "parser_confidence": conf, **bat}
+        rec = {
+            **t,
+            "format": "PDF_DIGITAL",
+            "pages": info["pages"],
+            "pages_parsed": info["pages_parsed"],
+            "header_label": info["header_label"],
+            "roles": {k: info["cols"][v]["label"] for k, v in info["roles"].items()},
+            "parser_confidence": conf,
+            **bat,
+        }
         report.append(rec)
         print(f"  {info['pages']}pp (parsed {info['pages_parsed']})  rows={bat['rows_extracted']}  conf={conf}")
         print(f"  header: {info['header_label']}")
         print(f"  roles:  {rec['roles']}")
         if bat["amount_safe_to_sum_eur"]:
-            print(f"  sum(parsed)=€{bat['amount_safe_to_sum_eur']:,}  "
-                  f"max=€{bat['strange_values']['max_amount']:,}")
+            print(f"  sum(parsed)=€{bat['amount_safe_to_sum_eur']:,}  max=€{bat['strange_values']['max_amount']:,}")
         s = bat["strange_values"]
-        print(f"  strange: neg={s['negative_amounts']} zero={s['zero_amounts']} >10m={s['very_large_amounts_gt_10m']} "
-              f"miss_sup={s['missing_supplier']} dup={s['duplicate_full_rows']} cat_total={s['category_total_masquerade']} "
-              f"repeat={s['most_repeated_amount']}")
+        print(
+            f"  strange: neg={s['negative_amounts']} zero={s['zero_amounts']} >10m={s['very_large_amounts_gt_10m']} "
+            f"miss_sup={s['missing_supplier']} dup={s['duplicate_full_rows']} cat_total={s['category_total_masquerade']} "
+            f"repeat={s['most_repeated_amount']}"
+        )
         if s.get("outlier_warning"):
             print(f"  !! OUTLIER: top row = {s['largest_amount_share_of_total']:.0%} of parsed sum")
         print(f"  caveat_text={bat['caveat_text_detected']}  personal_name_risk={bat['personal_name_risk_frac']}")

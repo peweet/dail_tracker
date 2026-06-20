@@ -1089,9 +1089,7 @@ def competition_by_cpv(conn: duckdb.DuckDBPyConnection, *, min_lots: int = 100) 
     )
 
 
-def single_bid_notices_for_cpv(
-    conn: duckdb.DuckDBPyConnection, cpv_division: str, *, limit: int = 80
-) -> QueryResult:
+def single_bid_notices_for_cpv(conn: duckdb.DuckDBPyConnection, cpv_division: str, *, limit: int = 80) -> QueryResult:
     """The individual single-bid award NOTICES within one CPV division (market) — the drill-down
     behind a single-bid market card. Each row opens the authoritative EU Official Journal notice
     (notice_url). Restricted to source_lane='api' (the single-bid field only exists for 2024+

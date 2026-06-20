@@ -75,7 +75,9 @@ def promote_supplier_compliance() -> None:
 
     # PRIVACY INVARIANT (runtime, -O-proof; BEFORE the write): no named-individual licence holder and no
     # address/location/town/name column may reach committed gold. company_num is the only identity that ships.
-    leaked = [c for c in out.columns if any(t in c.lower() for t in ("address", "location", "town", "name", "facility"))]
+    leaked = [
+        c for c in out.columns if any(t in c.lower() for t in ("address", "location", "town", "name", "facility"))
+    ]
     if leaked:
         raise RuntimeError(f"PII leak: column(s) {leaked} must not reach gold")
 

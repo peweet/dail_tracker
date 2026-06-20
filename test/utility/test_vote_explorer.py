@@ -174,10 +174,20 @@ def test_render_td_history_html():
 def test_render_member_list_html_with_and_without_id():
     df = pd.DataFrame(
         [
-            {"member_name": "Jane Doe", "member_id": "m1", "party_name": "PartyA",
-             "constituency": "Dublin", "vote_type": "Voted No"},
-            {"member_name": "John Roe", "member_id": "", "party_name": "PartyB",
-             "constituency": "Cork", "vote_type": "Voted Yes"},
+            {
+                "member_name": "Jane Doe",
+                "member_id": "m1",
+                "party_name": "PartyA",
+                "constituency": "Dublin",
+                "vote_type": "Voted No",
+            },
+            {
+                "member_name": "John Roe",
+                "member_id": "",
+                "party_name": "PartyB",
+                "constituency": "Cork",
+                "vote_type": "Voted Yes",
+            },
         ]
     )
     html = ve._render_member_list_html(df)
@@ -229,12 +239,17 @@ def test_render_division_panel_full(monkeypatch):
         }
     )
     members = pd.DataFrame(
-        [{"member_name": "Jane Doe", "party_name": "PartyA", "constituency": "Dublin",
-          "vote_type": "Voted Yes", "member_id": "m1"}]
+        [
+            {
+                "member_name": "Jane Doe",
+                "party_name": "PartyA",
+                "constituency": "Dublin",
+                "vote_type": "Voted Yes",
+                "member_id": "m1",
+            }
+        ]
     )
-    breakdown = pd.DataFrame(
-        [{"party_name": "PartyA", "vote_type": "Voted Yes", "member_count": 70}]
-    )
+    breakdown = pd.DataFrame([{"party_name": "PartyA", "vote_type": "Voted Yes", "member_count": 70}])
     sources = pd.DataFrame([{"source_url": "https://oireachtas.ie/z"}])
     # Must not raise.
     assert ve.render_division_panel(vote_row, members, sources, breakdown) is None

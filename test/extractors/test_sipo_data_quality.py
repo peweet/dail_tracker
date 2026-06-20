@@ -39,13 +39,25 @@ REPORT = Path("c:/tmp/sipo_dq_report.json")
 STATUTORY_LIMIT = {3: 38900, 4: 48600, 5: 58350}
 
 REQUIRED_COLS = {
-    "party", "candidate_name_raw", "constituency", "constituency_match_score",
-    "amount_assigned_eur", "expenditure_eur", "expenditure_confidence",
-    "row_min_confidence", "flag", "source_pdf", "source_page",
+    "party",
+    "candidate_name_raw",
+    "constituency",
+    "constituency_match_score",
+    "amount_assigned_eur",
+    "expenditure_eur",
+    "expenditure_confidence",
+    "row_min_confidence",
+    "flag",
+    "source_pdf",
+    "source_page",
 }
 ALLOWED_FLAGS = {
-    "ok", "no_amount", "over_limit_verify", "assigned_over_limit_verify",
-    "spend_gt_assigned_verify", "low_confidence_verify",
+    "ok",
+    "no_amount",
+    "over_limit_verify",
+    "assigned_over_limit_verify",
+    "spend_gt_assigned_verify",
+    "low_confidence_verify",
 }
 # a party realistically runs at most ~3 candidates in one constituency; >5 (the max
 # seat count) signals an OCR constituency mis-snap (the FF "Dublin Bay South"=5 bug).
@@ -60,7 +72,7 @@ def _load() -> pl.DataFrame | None:
 
 def _seats() -> dict[str, int]:
     c = pl.read_parquet(CONSTIT)
-    return dict(zip(c["constituency_name"], c["td_seats_2024"]))
+    return dict(zip(c["constituency_name"], c["td_seats_2024"], strict=False))
 
 
 def _valid_constituencies() -> set[str]:
@@ -170,20 +182,13 @@ def test_expenditure_not_misread_assigned(df):
 
 
 def test_no_duplicate_candidate_rows(df):
-    dups = (
-        df.group_by(["party", "candidate_name_raw", "constituency"])
-        .len()
-        .filter(pl.col("len") > 1)
-    )
+    dups = df.group_by(["party", "candidate_name_raw", "constituency"]).len().filter(pl.col("len") > 1)
     assert dups.height == 0, f"{dups.height} duplicate (party,candidate,constituency) groups"
 
 
 def test_candidates_per_constituency_plausible(df):
     """A party with > max-seats candidates in one constituency = constituency mis-snap."""
-    over = (
-        df.group_by(["party", "constituency"]).len()
-        .filter(pl.col("len") > MAX_CANDIDATES_PER_CONSTIT)
-    )
+    over = df.group_by(["party", "constituency"]).len().filter(pl.col("len") > MAX_CANDIDATES_PER_CONSTIT)
     assert over.height == 0, f"implausible candidate counts (OCR mis-snap?): {over.to_dicts()}"
 
 
@@ -248,7 +253,9 @@ def test_part4_born_digital_fully_reconciles(cats):
         & (pl.col("items_sum_eur") > 0)  # Aontú has totals-only (no Ref'd items) -> skip
     )
     bad = bd.filter(~pl.col("reconciles"))
-    assert bad.height == 0, f"born-digital headings that don't reconcile: {bad.select(['party','section','category_total_eur','items_sum_eur']).to_dicts()}"
+    assert bad.height == 0, (
+        f"born-digital headings that don't reconcile: {bad.select(['party', 'section', 'category_total_eur', 'items_sum_eur']).to_dicts()}"
+    )
 
 
 def test_part4_item_costs_non_negative(items):
@@ -261,7 +268,7 @@ def scorecard() -> None:
     if df is None or df.height == 0:
         print("no sipo_expenses_fact.parquet yet — nothing to score")
         return
-    seats = _seats()
+    _seats()
     valid = _valid_constituencies()
 
     checks: dict[str, bool] = {}
@@ -279,7 +286,7 @@ def scorecard() -> None:
         & (pl.col("expenditure_eur") == pl.col("expenditure_eur").round(0))
     )
     checks["no_assigned_misread_as_expenditure"] = suspect.height == 0
-    over = (df.group_by(["party", "constituency"]).len().filter(pl.col("len") > MAX_CANDIDATES_PER_CONSTIT))
+    over = df.group_by(["party", "constituency"]).len().filter(pl.col("len") > MAX_CANDIDATES_PER_CONSTIT)
     checks["constit_counts_plausible"] = over.height == 0
     dups = df.group_by(["party", "candidate_name_raw", "constituency"]).len().filter(pl.col("len") > 1)
     checks["no_duplicate_rows"] = dups.height == 0
@@ -290,18 +297,26 @@ def scorecard() -> None:
     print("=" * 64)
     print("SIPO GE2024 candidate-expenses — DATA-QUALITY SCORECARD")
     print("=" * 64)
-    print(f"rows: {df.height}   parties: {df['party'].n_unique()}   "
-          f"with amount: {wa.height} ({wa.height/df.height:.0%})")
-    print(f"Σ expenditure: €{wa['expenditure_eur'].sum():,.2f}   "
-          f"median: €{wa['expenditure_eur'].median():,.2f}   max: €{wa['expenditure_eur'].max():,.2f}")
+    print(
+        f"rows: {df.height}   parties: {df['party'].n_unique()}   "
+        f"with amount: {wa.height} ({wa.height / df.height:.0%})"
+    )
+    print(
+        f"Σ expenditure: €{wa['expenditure_eur'].sum():,.2f}   "
+        f"median: €{wa['expenditure_eur'].median():,.2f}   max: €{wa['expenditure_eur'].max():,.2f}"
+    )
     print(f"constituencies covered: {df['constituency'].n_unique()}/43")
     print()
     print("per-party:")
-    pp = (df.group_by("party").agg(
-        pl.len().alias("rows"),
-        pl.col("expenditure_eur").is_not_null().sum().alias("with_amt"),
-        pl.col("expenditure_eur").sum().round(2).alias("total_eur"),
-    ).sort("party"))
+    pp = (
+        df.group_by("party")
+        .agg(
+            pl.len().alias("rows"),
+            pl.col("expenditure_eur").is_not_null().sum().alias("with_amt"),
+            pl.col("expenditure_eur").sum().round(2).alias("total_eur"),
+        )
+        .sort("party")
+    )
     for r in pp.to_dicts():
         print(f"  {r['party']:<32} {r['rows']:>3} rows  {r['with_amt']:>3} w/amt  €{r['total_eur'] or 0:>12,.2f}")
     print()
@@ -319,10 +334,21 @@ def scorecard() -> None:
     print("\n--- anomalies / things to verify vs official PDF ---")
     fl = df.filter(pl.col("flag") != "ok")
     if fl.height:
-        for r in fl.select(["party", "candidate_name_raw", "constituency", "expenditure_eur",
-                            "amount_assigned_eur", "flag", "source_page"]).to_dicts():
-            print(f"  [{r['flag']}] {r['party']} / {r['candidate_name_raw']} / {r['constituency']} "
-                  f"spend=€{r['expenditure_eur']} assigned=€{r['amount_assigned_eur']} (p{r['source_page']})")
+        for r in fl.select(
+            [
+                "party",
+                "candidate_name_raw",
+                "constituency",
+                "expenditure_eur",
+                "amount_assigned_eur",
+                "flag",
+                "source_page",
+            ]
+        ).to_dicts():
+            print(
+                f"  [{r['flag']}] {r['party']} / {r['candidate_name_raw']} / {r['constituency']} "
+                f"spend=€{r['expenditure_eur']} assigned=€{r['amount_assigned_eur']} (p{r['source_page']})"
+            )
     else:
         print("  (none — all rows flagged ok)")
 
@@ -331,12 +357,22 @@ def scorecard() -> None:
         for r in over.to_dicts():
             print(f"    {r['party']} / {r['constituency']}: {r['len']} candidates")
 
-    REPORT.write_text(json.dumps({
-        "rows": df.height, "parties": df["party"].n_unique(),
-        "with_amount": wa.height, "total_eur": float(wa["expenditure_eur"].sum()),
-        "constituencies": df["constituency"].n_unique(),
-        "checks": checks, "score": score, "grade": grade,
-    }, indent=2), encoding="utf-8")
+    REPORT.write_text(
+        json.dumps(
+            {
+                "rows": df.height,
+                "parties": df["party"].n_unique(),
+                "with_amount": wa.height,
+                "total_eur": float(wa["expenditure_eur"].sum()),
+                "constituencies": df["constituency"].n_unique(),
+                "checks": checks,
+                "score": score,
+                "grade": grade,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     print(f"\nwrote {REPORT}")
 
 

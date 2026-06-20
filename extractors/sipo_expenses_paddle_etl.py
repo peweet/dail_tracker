@@ -40,12 +40,12 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+import contextlib  # noqa: E402
+
 from services.parquet_io import save_parquet  # noqa: E402
 
-try:
+with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
-except Exception:
-    pass
 
 CONSTIT_PARQUET = ROOT / "data/gold/parquet/ec_constituency_pop_2022.parquet"
 OUT_DIR = ROOT / "data/silver/sipo"
@@ -161,7 +161,7 @@ def ocr_page(ocr, page, tmp_png: Path, dpi: int = DPI) -> list[dict]:
         scores = d.get("rec_scores") or []
         boxes = d.get("rec_boxes")
         boxes = boxes.tolist() if hasattr(boxes, "tolist") else (boxes or [])
-        for t, s, b in zip(texts, scores, boxes):
+        for t, s, b in zip(texts, scores, boxes, strict=False):
             cells.append(
                 {
                     "text": t,
@@ -277,7 +277,7 @@ def parse_page(cells: list[dict], pno: int, norm_keys, norm_to_name, name_to_sea
     if len(base) < 3 or len(money) < 3:  # not a candidate-summary page
         return []
     ays = sorted(yc(a[0]) for a in base)
-    diffs = [b - a for a, b in zip(ays, ays[1:]) if b - a > 5]
+    diffs = [b - a for a, b in zip(ays, ays[1:], strict=False) if b - a > 5]
     row_h = statistics.median(diffs) if diffs else 40.0
     split_x = column_split([c for c, _ in money])
 
@@ -337,7 +337,7 @@ def parse_page(cells: list[dict], pno: int, norm_keys, norm_to_name, name_to_sea
 
         # candidate name: non-money, non-numeric cells left of constituency, on the
         # SAME row (tight name_tol — avoids merging the adjacent row's name fragment)
-        def name_in(tol):
+        def name_in(tol, ax=ax, ay=ay):
             return sorted(
                 (
                     c
@@ -548,7 +548,7 @@ def main() -> None:
     constit = pl.read_parquet(CONSTIT_PARQUET)
     norm_to_name = {norm(n): n for n in constit["constituency_name"].to_list()}
     norm_keys = list(norm_to_name)
-    name_to_seats = dict(zip(constit["constituency_name"], constit["td_seats_2024"]))
+    name_to_seats = dict(zip(constit["constituency_name"], constit["td_seats_2024"], strict=False))
     BY_PARTY_DIR.mkdir(parents=True, exist_ok=True)
 
     ocr = None

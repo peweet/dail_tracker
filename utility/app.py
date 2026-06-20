@@ -171,7 +171,12 @@ pg = st.navigation(
             # url_path kept as "rankings-election-spending" so existing deep links and
             # entity_links.PAGES["election_spending"] keep resolving; the page is now the
             # unified GE2024 hub (donations + party spending + candidate spending).
-            st.Page(election_2024_page, title="Election 2024", icon=":material/savings:", url_path="rankings-election-spending"),
+            st.Page(
+                election_2024_page,
+                title="Election 2024",
+                icon=":material/savings:",
+                url_path="rankings-election-spending",
+            ),
             st.Page(
                 procurement_page,
                 title="Procurement",
@@ -190,14 +195,14 @@ pg = st.navigation(
                 icon=":material/account_balance_wallet:",
                 url_path="rankings-public-payments",
             ),
-            # Company dossier (entity-first flagship): reached from supplier cards on
-            # Procurement / Public Payments, not from the nav bar — hidden like Home.
+            # Company dossier (entity-first flagship): the org-first front door.
+            # Visible in the nav so users can browse/search every firm directly;
+            # also reached from supplier cards on Procurement / Public Payments.
             st.Page(
                 company_page,
-                title="Company",
+                title="Companies",
                 icon=":material/domain:",
                 url_path="company",
-                visibility="hidden",
             ),
         ],
         "Law & Records": [
