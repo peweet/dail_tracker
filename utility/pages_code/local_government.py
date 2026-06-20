@@ -20,6 +20,7 @@ Index → dossier is a soft ``?la=`` rerun.
 
 from __future__ import annotations
 
+import base64
 import sys
 from html import escape as _h
 from pathlib import Path
@@ -37,6 +38,8 @@ from data_access.local_government_data import (
     fetch_council_money_result,
     fetch_derelict_sites_levy_result,
     fetch_housing_performance_result,
+    fetch_la_map_layers_result,
+    fetch_la_outlines,
     fetch_national_summary_result,
     fetch_planning_overturn_result,
 )
@@ -123,6 +126,187 @@ def _stat_card(title: str, rows: list[str], source: str, extra: str = "") -> str
     )
 
 
+# ── NATIONAL CHOROPLETH (index "Every council, compared") ─────────────────────
+# Same technique as the constituency index map: one fixed-size <img> data-URI (st.html
+# strips bare <svg>) with a clickable <map> overlay. The view ships the value AND a
+# precomputed NTILE(5) quintile per layer; this code only maps quintile → palette colour.
+_CHORO_PALETTE = ["#f3ead9", "#e4c39c", "#d29a64", "#bd6e3e", "#a5431c"]  # low → high fifth
+_CHORO_NODATA = "#e9e2d4"
+_CHORO_PX_H = 540  # image-map <area> coords are in image pixels and DON'T rescale with CSS
+
+# label → (quintile column, caption phrase). All four are executive-function signals,
+# reused from the dossier views so the map and the per-council cards never disagree.
+_MAP_LAYERS: dict[str, tuple[str, str]] = {
+    "Commercial rates collected": ("q_commercial_rates", "of commercial rates collected (NOAC 2024)"),
+    "Derelict-levy uncollected": (
+        "q_derelict_outstanding",
+        "in derelict-site levies left uncollected (cumulative, 2024)",
+    ),
+    "Planning overturned on appeal": (
+        "q_planning_overturn",
+        "of planning decisions overturned by An Bord Pleanála (2016 on)",
+    ),
+    "Council homes vacant": ("q_housing_vacancy", "of council homes lying vacant (NOAC 2024)"),
+}
+
+
+def _path_subpaths(d: str) -> list[list[tuple[float, float]]]:
+    """Parse an M/L/Z-only path 'd' into its subpath polygons (point lists)."""
+    subs: list[list[tuple[float, float]]] = []
+    for chunk in d.split("M"):
+        chunk = chunk.strip().replace("Z", "").replace("z", "")
+        if not chunk:
+            continue
+        pts: list[tuple[float, float]] = []
+        for tok in chunk.split("L"):
+            tok = tok.strip()
+            if not tok:
+                continue
+            try:
+                xs, ys = tok.split(",")
+                pts.append((float(xs), float(ys)))
+            except ValueError:
+                continue
+        if len(pts) >= 3:
+            subs.append(pts)
+    return subs
+
+
+def _poly_area(pts: list[tuple[float, float]]) -> float:
+    """Absolute shoelace area — used to pick the mainland (largest subpath)."""
+    s = 0.0
+    n = len(pts)
+    for i in range(n):
+        x1, y1 = pts[i]
+        x2, y2 = pts[(i + 1) % n]
+        s += x1 * y2 - x2 * y1
+    return abs(s) / 2.0
+
+
+# Discrete zoom regions: the small urban authorities are unclickable at national scale
+# (Galway City ≈15×9px, the Dublin cluster ≈15–25px), and image-map <area> coords are
+# fixed pixels that DON'T rescale with CSS — so a scroll/CSS zoom would misalign every
+# target. Instead each region re-renders the map CROPPED to its bounds at full size, so
+# the same ?la= click targets become large. label → (member LAs defining the crop, pad).
+_ZOOM_W = 520  # max width budget for a zoomed (cropped) render
+_ZOOMS: dict[str, tuple[set[str] | None, float]] = {
+    "Ireland": (None, 0.0),
+    "Dublin": ({"Dublin City", "Fingal", "South Dublin", "Dun Laoghaire-Rathdown"}, 0.12),
+    "Cork city": ({"Cork City"}, 0.9),
+    "Galway city": ({"Galway City"}, 1.3),
+}
+
+
+def _paths_bbox(paths: dict, names: set[str]) -> tuple[float, float, float, float] | None:
+    xs: list[float] = []
+    ys: list[float] = []
+    for n in names:
+        for sub in _path_subpaths(paths.get(n, "")):
+            for x, y in sub:
+                xs.append(x)
+                ys.append(y)
+    if not xs:
+        return None
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _choropleth_html(quintile_by_name: dict, alt: str, zoom: str = "Ireland") -> str:
+    """All 31 authorities filled by quintile, as a FIXED-SIZE <img> data-URI with a
+    clickable <map> overlay (each → ?la= soft-nav). When ``zoom`` names a region the
+    SVG viewBox is cropped to that region's bounds and the image re-scaled to fill,
+    enlarging otherwise-unclickable city targets. '' if no map geometry."""
+    outlines = fetch_la_outlines()
+    paths = outlines.get("local_authorities", {})
+    if not paths:
+        return ""
+    try:
+        _, _, vw, vh = (float(t) for t in outlines.get("viewbox", "0 0 689 1000").split())
+    except ValueError:
+        vw, vh = 688.7, 1000.0
+
+    names, pad_frac = _ZOOMS.get(zoom, (None, 0.0))
+    bb = _paths_bbox(paths, names) if names else None
+    if bb:
+        x0, y0, x1, y1 = bb
+        pad = pad_frac * max(x1 - x0, y1 - y0)
+        cx0, cy0 = max(0.0, x0 - pad), max(0.0, y0 - pad)
+        cx1, cy1 = min(vw, x1 + pad), min(vh, y1 + pad)
+    else:
+        cx0, cy0, cx1, cy1 = 0.0, 0.0, vw, vh
+    cw, ch = cx1 - cx0, cy1 - cy0
+    scale = min(_ZOOM_W / cw, _CHORO_PX_H / ch)
+    px_w, px_h = round(cw * scale), round(ch * scale)
+
+    body, areas = [], []
+    for name, d in paths.items():
+        q = quintile_by_name.get(name)
+        try:
+            fill = _CHORO_PALETTE[int(q) - 1] if q is not None and 1 <= int(q) <= 5 else _CHORO_NODATA
+        except (TypeError, ValueError):
+            fill = _CHORO_NODATA
+        body.append(f'<path d="{d}" fill="{fill}" stroke="#fbf8f2" stroke-width="1.2"/>')
+        subs = _path_subpaths(d)
+        if not subs:
+            continue
+        best = max(subs, key=_poly_area)
+        bxs = [x for x, _ in best]
+        bys = [y for _, y in best]
+        if max(bxs) < cx0 or min(bxs) > cx1 or max(bys) < cy0 or min(bys) > cy1:
+            continue  # largest part is outside the crop — not a click target at this zoom
+        coords = ",".join(f"{(x - cx0) * scale:.1f},{(y - cy0) * scale:.1f}" for x, y in best)
+        areas.append(
+            f'<area shape="poly" coords="{coords}" '
+            f'href="?la={quote(name)}" alt="{_h(name)}" title="{_h(name)}">'
+        )
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'viewBox="{cx0:.1f} {cy0:.1f} {cw:.1f} {ch:.1f}">{"".join(body)}</svg>'
+    )
+    b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    return (
+        f'<img class="con-choropleth" width="{px_w}" height="{px_h}" '
+        f'usemap="#lg-choro-map" src="data:image/svg+xml;base64,{b64}" '
+        f'alt="{_h(alt)}" loading="lazy">'
+        f'<map name="lg-choro-map">{"".join(areas)}</map>'
+    )
+
+
+def _choro_legend() -> str:
+    swatches = "".join(f'<span class="con-choro-sw" style="background:{c}"></span>' for c in _CHORO_PALETTE)
+    return (
+        f'<div class="con-choro-legend">'
+        f'<span class="con-choro-end">Lower</span>{swatches}'
+        f'<span class="con-choro-end">Higher</span>'
+        f"</div>"
+    )
+
+
+def _render_choropleth() -> None:
+    res = fetch_la_map_layers_result()
+    if not res.ok or res.data.empty:
+        return  # silent — the searchable grid below remains the reliable selector
+    df = res.data
+    subsection_heading("Every council, compared")
+    c_layer, c_zoom = st.columns([3, 2])
+    with c_layer:
+        choice = st.radio("Shade the map by", list(_MAP_LAYERS.keys()), horizontal=True, key="lg_map_layer")
+    with c_zoom:
+        zoom = st.radio("Zoom in on", list(_ZOOMS.keys()), horizontal=True, key="lg_map_zoom")
+    qcol, phrase = _MAP_LAYERS[choice]
+    quint = {str(r["local_authority"]): r[qcol] for _, r in df.iterrows() if pd.notna(r[qcol])}
+    map_html = _choropleth_html(quint, alt=f"Map of the 31 local authorities shaded by {choice}", zoom=zoom)
+    if not map_html:
+        return
+    st.html(f'<div class="con-choro">{map_html}{_choro_legend()}</div>')
+    zoom_note = "" if zoom == "Ireland" else f"Zoomed to {zoom} — pick “Ireland” to zoom back out. "
+    st.caption(
+        f"Each of the 31 local authorities shaded into fifths by {phrase}. These are "
+        "executive (Chief Executive) responsibilities, not the elected councillors'. "
+        f"{zoom_note}Click a council to open its dossier, or pick a card below. "
+        "Boundaries: Tailte Éireann / OSi (2026). Lightest fill = no published figure."
+    )
+
+
 # ── INDEX ─────────────────────────────────────────────────────────────────────
 def _council_card_inner(row) -> str:
     council = _h(str(row["council_name"]))
@@ -164,6 +348,7 @@ def _render_index() -> None:
         "not by the councillors you elect. Pick a council to see who runs it and how it performs.",
     )
     _render_national_summary()
+    _render_choropleth()
 
     res = fetch_chief_executives_result()
     if not res.ok or res.data.empty:
