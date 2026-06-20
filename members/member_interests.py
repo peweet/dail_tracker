@@ -224,8 +224,10 @@ def split_embedded_names(lines: list[str]) -> list[str]:
 # downstream interest_code (which is split off the same '.'). Only ever matches a
 # rotted Occupations heading, so it is a no-op on registers that already read '1.'.
 # The leading '1' rots to several look-alikes in the 2016 scan: l / I / i / ! / J.
-# Gated on a following 'Occupations' so it can never fire on real body text.
-_OCR_CATEGORY1_ROT_RE = regex.compile(r"^[lIi!J]\.(\s+Occupations)")
+# Gated on a following 'Occupation' so it can never fire on real body text. The
+# stem 'Occupation' (not 'Occupations') covers BOTH the 2016 register's
+# 'Occupations' heading and the 2012 register's 'Occupational Income' heading.
+_OCR_CATEGORY1_ROT_RE = regex.compile(r"^[lIi!J]\.(\s+Occupation)")
 
 
 def repair_ocr_category_markers(lines: list[str]) -> list[str]:
