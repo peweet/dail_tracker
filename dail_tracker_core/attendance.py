@@ -27,6 +27,147 @@ import pandas as pd
 _MINISTER_TRUE = "true"
 
 
+# ── Statutory TAA attendance thresholds ───────────────────────────────────────
+# The source PDFs are the Travel & Accommodation Allowance (TAA) verification
+# records. A TD (NOT the Taoiseach or Ministers — they are excluded, which is
+# why is_minister rows are dropped from the lowest list and from the source
+# entirely) must personally attend Leinster House on at least 120 days in a year
+# to retain the FULL TAA; the allowance is calculated on a 150-day basis, with a
+# 1% deduction for each day attended below 120. BOTH the "sitting days" and the
+# "other days" columns are days physically present at Leinster House, so both
+# count toward the 120-day total — which is exactly why so many members cluster
+# at total_days == 120 (they attend to the threshold).
+#
+# Source: Houses of the Oireachtas — Salaries & Allowances / Travel and
+# Accommodation Allowance (oireachtas.ie/en/members/salaries-and-allowances/).
+# Corroborated by the RTÉ Investigations Unit attendance analysis (2019).
+#
+# These are NOT the same as the number of plenary SITTING DAYS the Dáil sat in a
+# year (config.SITTING_DAYS_BY_YEAR / the data-derived chamber count) — that is a
+# separate denominator used for the plenary-attendance *rate*. Conflating the two
+# (showing a sitting+other total against a sitting-only denominator) is the bug
+# this module's metrics exist to prevent.
+TAA_FULL_ATTENDANCE_MINIMUM_DAYS = 120
+TAA_ATTENDANCE_BASIS_DAYS = 150
+
+# Per-year overrides for the statutory minimum, should it ever change. Empty
+# today (120 has applied across every year in the dataset); structured so a
+# future change is a one-line edit rather than a refactor. The user flagged that
+# the mark "varies over time" — this is where a changed year goes.
+_STATUTORY_MINIMUM_OVERRIDES: dict[int, int] = {}
+
+
+def statutory_attendance_minimum(year: int | None = None) -> int:
+    """Minimum days a TD must attend Leinster House to keep the FULL TAA.
+
+    120 for every year in the dataset (see module-level citation). ``year`` is
+    accepted so a future per-year change is local to ``_STATUTORY_MINIMUM_OVERRIDES``.
+    """
+    if year is None:
+        return TAA_FULL_ATTENDANCE_MINIMUM_DAYS
+    return _STATUTORY_MINIMUM_OVERRIDES.get(int(year), TAA_FULL_ATTENDANCE_MINIMUM_DAYS)
+
+
+def meets_taa_minimum(total_days: float | int | None, year: int | None = None) -> bool:
+    """True iff total recorded attendance (sitting + other) meets the statutory
+    minimum. ``None``/``NaN`` total_days reads as 0 (not met), never raises."""
+    if total_days is None or (isinstance(total_days, float) and pd.isna(total_days)):
+        return False
+    return int(total_days) >= statutory_attendance_minimum(year)
+
+
+def days_below_minimum(total_days: float | int | None, year: int | None = None) -> int:
+    """Days short of the statutory minimum (0 if met). ``None``/``NaN`` -> full
+    shortfall. Each day here is a 1% TAA deduction under the regulations."""
+    minimum = statutory_attendance_minimum(year)
+    if total_days is None or (isinstance(total_days, float) and pd.isna(total_days)):
+        return minimum
+    return max(0, minimum - int(total_days))
+
+
+def plenary_attendance_rate(
+    sitting_days: float | int | None,
+    chamber_sitting_days: float | int | None,
+) -> float | None:
+    """Fraction of the year's plenary sitting days the member was recorded present.
+
+    Numerator and denominator are BOTH plenary-only (chamber sitting days), so the
+    result is in [0, 1] even though a member's headline ``total_days`` includes
+    committee/other days. Returns ``None`` when the denominator is missing or
+    non-positive (the page renders an em-dash rather than a divide-by-zero).
+
+    Critically, the denominator must be the data-derived count of distinct sitting
+    dates (or an official figure that is >= it). A denominator SMALLER than the
+    member's own sitting_days (the historic "82 scheduled days vs 94 recorded"
+    bug) would push the rate above 100% — guarded by the data-consistency tests.
+    """
+    if sitting_days is None or chamber_sitting_days is None:
+        return None
+    if isinstance(sitting_days, float) and pd.isna(sitting_days):
+        return None
+    if isinstance(chamber_sitting_days, float) and pd.isna(chamber_sitting_days):
+        return None
+    denom = int(chamber_sitting_days)
+    if denom <= 0:
+        return None
+    return int(sitting_days) / denom
+
+
+@dataclass(frozen=True)
+class AttendanceYearMetrics:
+    """All derived attendance figures for one (member, year), ready to render.
+
+    Bundles the two distinct day-types kept separate (``sitting_days`` plenary vs
+    ``other_days`` committee/other) plus the two distinct denominators they map to
+    (the plenary ``chamber_sitting_days`` for the rate, and the statutory
+    ``statutory_minimum`` for TAA compliance). Pure data — no Streamlit, no IO.
+    """
+
+    year: int
+    sitting_days: int
+    other_days: int
+    total_days: int
+    chamber_sitting_days: int | None
+    plenary_rate: float | None
+    statutory_minimum: int
+    meets_minimum: bool
+    days_below_minimum: int
+
+
+def attendance_year_metrics(
+    *,
+    year: int,
+    sitting_days: float | int | None,
+    other_days: float | int | None,
+    chamber_sitting_days: float | int | None = None,
+) -> AttendanceYearMetrics:
+    """Derive the full per-(member, year) attendance metric set.
+
+    ``total_days = sitting_days + other_days`` (the figure the 120-day statutory
+    minimum applies to). The plenary rate uses ``sitting_days`` against
+    ``chamber_sitting_days`` only. None/NaN day counts coerce to 0.
+    """
+    s = 0 if sitting_days is None or (isinstance(sitting_days, float) and pd.isna(sitting_days)) else int(sitting_days)
+    o = 0 if other_days is None or (isinstance(other_days, float) and pd.isna(other_days)) else int(other_days)
+    total = s + o
+    denom = (
+        None
+        if chamber_sitting_days is None or (isinstance(chamber_sitting_days, float) and pd.isna(chamber_sitting_days))
+        else int(chamber_sitting_days)
+    )
+    return AttendanceYearMetrics(
+        year=int(year),
+        sitting_days=s,
+        other_days=o,
+        total_days=total,
+        chamber_sitting_days=denom,
+        plenary_rate=plenary_attendance_rate(s, denom),
+        statutory_minimum=statutory_attendance_minimum(year),
+        meets_minimum=meets_taa_minimum(total, year),
+        days_below_minimum=days_below_minimum(total, year),
+    )
+
+
 def is_minister_mask(col: pd.Series) -> pd.Series:
     """Boolean mask: ``True`` where the row is a cabinet / junior minister.
 

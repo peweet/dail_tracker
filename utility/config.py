@@ -71,8 +71,15 @@ NOTABLE_SENATORS: list[str] = []
 
 # ── Attendance ──────────────────────────────────────────────────────────────────
 # Official plenary sitting-day counts from the Houses of the Oireachtas Commission
-# annual reports. The se are fixed historical facts; pipeline routing is
-# disproportionate for values that change at most once per year.
+# annual reports. Cross-check ONLY — the UI denominator now comes from the
+# data-derived v_attendance_chamber_sitting_days (distinct sitting dates in the
+# TAA record) for both chambers, so a member can never show more sitting days than
+# the denominator. See root config.py for the full rationale; keep the two in sync
+# (test_config_parity.py tripwire).
+#
+# 2025 is intentionally ABSENT: the old value (82, copied from 2020) was a stale
+# placeholder while the record holds 94 distinct sitting dates — the "82 vs 94"
+# contradiction this rework fixes.
 
 SITTING_DAYS_BY_YEAR: dict[int, int] = {
     2020: 82,
@@ -80,7 +87,6 @@ SITTING_DAYS_BY_YEAR: dict[int, int] = {
     2022: 106,
     2023: 100,
     2024: 83,
-    2025: 82,
 }
 
 # ── Payments / TAA ──────────────────────────────────────────────────────────────

@@ -6,8 +6,8 @@ where it is absent and run on a dev box / integration where it is present.
 
 Guards: the authority->local_authority normalisation keeps joining the CE roster
 (a vendor renaming PlanningAuthority would orphan a council and silently drop it
-from the page), rates stay in [0,100], and the known Cork-County source gap is
-asserted so a future fix is noticed.
+from the page), rates stay in [0,100], and Cork County — recovered via the extractor's
+spatial_temporal fallback since it publishes no AppealRefNumber — stays present.
 """
 
 from pathlib import Path
@@ -74,10 +74,12 @@ def test_national_benchmark_is_constant(con):
     assert n == 1, "national_overturn_rate_pct should be the same on all rows"
 
 
-def test_cork_county_gap_documented(con):
-    """Cork County is absent from the appeals source — assert the documented gap so
-    a future source fix (or a regression) is noticed."""
-    present = con.execute(
-        "SELECT count(*) FROM v_la_planning_overturn WHERE local_authority = 'Cork County'"
-    ).fetchone()[0]
-    assert present == 0, "Cork County now HAS overturn data — update the view/doc comment"
+def test_cork_county_recovered(con):
+    """Cork County publishes no AppealRefNumber, so the extractor recovers its appeals via the
+    validated spatial_temporal fallback — it must now appear with a plausible rate. Also guards
+    the view's name mapping ('Cork County Council' -> 'Cork County', the easily-missed split)."""
+    row = con.execute(
+        "SELECT n_appeals, overturn_rate_pct FROM v_la_planning_overturn WHERE local_authority = 'Cork County'"
+    ).fetchone()
+    assert row is not None, "Cork County dropped out — check the view CASE mapping / extractor fallback"
+    assert row[0] >= 25 and 10 <= row[1] <= 45

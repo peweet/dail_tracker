@@ -8,12 +8,18 @@
 -- Ranks are partitioned by (year, house) so TDs rank only against TDs and
 -- Senators only against Senators — a plain PARTITION BY year would mix the two
 -- chambers' pools once the Seanad rows joined v_attendance_member_year_summary.
+-- sitting_days / other_days are carried through (in addition to the combined
+-- attended_count) so the ranking cards can show the plenary-vs-other breakdown
+-- and the 120-day statutory marker without a second query. Ranking stays on
+-- attended_count (the sitting + other total the TAA minimum applies to).
 CREATE OR REPLACE VIEW v_attendance_year_rank AS
 SELECT
     COALESCE(unique_member_code, '') AS unique_member_code,
     member_name,
     year,
     attended_count,
+    sitting_days,
+    other_days,
     party_name,
     constituency,
     is_minister,

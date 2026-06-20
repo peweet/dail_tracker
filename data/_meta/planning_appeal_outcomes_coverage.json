@@ -1,13 +1,15 @@
 {
-  "generated_utc": "2026-06-20T13:11:46.168828+00:00",
+  "generated_utc": "2026-06-20T17:51:03.006160+00:00",
   "layer": "silver",
-  "source": "PC02 ACP Cases_2016_Onwards joined to PC01 applications via AppealRefNumber 6-digit -> ABPCASEID",
+  "source": "PC02 ACP Cases_2016_Onwards x PC01 applications. Primary: AppealRefNumber 6-digit -> ABPCASEID. Fallback (match_method=spatial_temporal): nearest same-authority application (ACP centroid <=55m) whose decision pre-dates the appeal; validated 98.4% vs Kerry ground truth.",
   "acp_cases": 26131,
-  "appeals_joined": 15205,
-  "clear_vs_clear": 13026,
-  "abp_overturned_council": 3425,
-  "overturn_pct": 26.3,
-  "council_grant_to_abp_refuse": 1328,
-  "council_refuse_to_abp_grant": 2097,
+  "appeals_joined": 22615,
+  "matches_appeal_ref": 13026,
+  "matches_spatial_temporal": 2961,
+  "clear_vs_clear": 15987,
+  "abp_overturned_council": 4347,
+  "overturn_pct": 27.2,
+  "council_grant_to_abp_refuse": 1968,
+  "council_refuse_to_abp_grant": 2379,
   "caveat": "ABP appeals are de novo; overturn = outcome flipped. ACP feed 2016+. Correlation/record, not a quality judgement."
 }

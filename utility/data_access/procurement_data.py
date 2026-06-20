@@ -112,6 +112,13 @@ def fetch_epa_compliance_result(company_num: int) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_epa_supplier_index_result() -> QueryResult:
+    """Every CRO company holding an EPA licence (company_num + licence/enforcement counts) —
+    the index behind the Companies landing's EPA badge + filter. Display-only membership lookup."""
+    return _q.epa_supplier_index(get_procurement_conn())
+
+
+@st.cache_data(ttl=300)
 def fetch_authority_summary_result(
     limit: int | None = 50, order_by: str = "awards", year: int | None = None
 ) -> QueryResult:

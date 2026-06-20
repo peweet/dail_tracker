@@ -47,6 +47,7 @@ import polars as pl
 import requests
 from bs4 import BeautifulSoup
 
+from extractors._diary_minister import minister_from_filename
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
@@ -134,8 +135,7 @@ MONTHS = [
 _MONTH_NUM = {m: i + 1 for i, m in enumerate(MONTHS)}
 _MONTH_NUM.update({m[:3]: i + 1 for i, m in enumerate(MONTHS)})
 
-# filename → minister / period guesses
-_FN_MINISTER_RE = re.compile(r"minister[-_ ]+(?:of[-_ ]state[-_ ]+)?([a-z]+)[-_ ]+diary", re.IGNORECASE)
+# filename → period guesses (minister now resolved via _diary_minister.minister_from_filename)
 _FN_PERIOD_RE = re.compile(
     r"(january|february|march|april|may|june|july|august|september|october|november|december)"
     r"[-_ ]*(\d{4})?",
@@ -192,7 +192,6 @@ def discover_files(only_depts: set[str] | None = None) -> list[dict]:
                 continue
             seen.add(url)
             fname = Path(url.split("?")[0]).name
-            mm = _FN_MINISTER_RE.search(fname)
             pm = _FN_PERIOD_RE.search(fname)
             ym = _YEAR_RE.search(fname) or _YEAR_RE.search(listing)
             rows.append(
@@ -202,7 +201,10 @@ def discover_files(only_depts: set[str] | None = None) -> list[dict]:
                     "file_url": url,
                     "file_name": fname,
                     "link_text": re.sub(r"\s+", " ", a.get_text(" ", strip=True))[:160] or None,
-                    "minister_guess": (mm.group(1).title() if mm else None),
+                    # canonical surname from the filename (multi-token names, "…-Calendar"
+                    # files and possessives handled in extractors._diary_minister); the gold
+                    # promotion adds the dept+date fallback for name-less generic files.
+                    "minister_guess": minister_from_filename(fname),
                     "period_month_guess": (_MONTH_NUM.get(pm.group(1).lower()) if pm else None),
                     "period_year_guess": (int(ym.group(1)) if ym else None),
                 }

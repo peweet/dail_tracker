@@ -460,6 +460,18 @@ def epa_compliance_for_supplier(conn: duckdb.DuckDBPyConnection, company_num: in
     )
 
 
+def epa_supplier_index(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """All CRO companies that hold at least one EPA environmental licence, keyed on
+    ``company_num`` — the discovery index behind the Companies landing's EPA badge/filter.
+    Retrieval only (the n_* counts are pre-computed in the view); the page does a
+    display-only membership lookup against supplier rows by company_num."""
+    return _run(
+        conn,
+        "SELECT company_num, n_licences, n_enforcement_events"
+        " FROM v_procurement_epa_compliance WHERE n_licences > 0",
+    )
+
+
 def ted_notices_for_supplier(conn: duckdb.DuckDBPyConnection, join_norm: str) -> QueryResult:
     """One winner's individual TED award notices — the CONDUIT to the authoritative EU
     source. Each row carries the publication number, buyer, date, the value-kind tag and the

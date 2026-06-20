@@ -31,12 +31,16 @@ def conn():
     c.close()
 
 
-def test_both_views_build(conn) -> None:
+def test_all_views_build(conn) -> None:
     views = {
         r[0]
         for r in conn.execute("select view_name from duckdb_views() where view_name like 'v_ministerial%'").fetchall()
     }
-    assert views == {"v_ministerial_diary_org_overlap", "v_ministerial_diary_engagements"}
+    assert views == {
+        "v_ministerial_diary_org_overlap",
+        "v_ministerial_diary_engagements",
+        "v_ministerial_diary_meetings",
+    }
 
 
 def test_overlap_has_expected_columns(conn) -> None:
@@ -80,12 +84,25 @@ def test_engagements_excludes_travel_and_media(conn) -> None:
     assert leaked == 0
 
 
-def test_minister_defragmentation() -> None:
-    # the promotion-time fix that merges the Ryans/Ryan filename-guess split
-    from extractors.diary_promote_gold import minister_display
+def test_minister_resolution_from_filename() -> None:
+    # the promotion-time fix: canonical minister from the source filename, covering the
+    # cases the old single-token regex missed (multi-token names, "…-Calendar", possessives)
+    from datetime import date
 
-    assert minister_display("Ryans") == "Ryan"
-    assert minister_display("Martins") == "Martin"
-    assert minister_display("Burke") == "Burke"  # 'e' ending — untouched
-    assert minister_display("Ross") == "Ross"  # short — untouched
-    assert minister_display(None) is None
+    from extractors._diary_minister import minister_from_filename, resolve_minister
+
+    # multi-token names + apostrophes (the 1,968-Housing-meeting bug)
+    assert minister_from_filename("minister-darragh-obriens-diary-may-to-june-2022.pdf") == "O'Brien"
+    assert minister_from_filename("minister-of-state-peter-burkes-diary-2021.pdf") == "Burke"
+    # "…-Calendar" files (not the literal "diary")
+    assert minister_from_filename("Minister_Brownes_Calendar_-_June_2025.pdf") == "Browne"
+    # split possessive token "…-s-diary"
+    assert minister_from_filename("minister-breen-s-diary-q1-2018.pdf") == "Breen"
+    # genuine trailing-'s' surnames must NOT be truncated
+    assert minister_from_filename("minister-cummins-diary-may-2025.pdf") == "Cummins"
+    assert minister_from_filename("Ministers_Diary_-_October_2022.pdf") is None  # no surname in name
+
+    # dept+date fallback for name-less generic files (verified via who_was_minister)
+    assert resolve_minister("ministers-diary-may-december-2021.pdf", "HEALTH", date(2022, 1, 1)) == "Donnelly"
+    assert resolve_minister("April_2025.pdf", "EDUCATION", date(2025, 4, 1)) == "McEntee"
+    assert resolve_minister("Q4_2025_MoS_Diary_2.pdf", "DCCS", date(2025, 11, 1)) is None  # un-named MoS — stays None

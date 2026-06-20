@@ -47,9 +47,31 @@ cit AS (
     FROM (UNPIVOT read_parquet('data/gold/parquet/ssha_a1_9_citizenship_wide.parquet')
           ON COLUMNS(* EXCLUDE (la, year, total)) INTO NAME slug VALUE cnt)
 ),
+age AS (
+    SELECT la, year, 'age' AS dimension, slug, CAST(cnt AS BIGINT) AS count
+    FROM (UNPIVOT read_parquet('data/gold/parquet/ssha_a1_1_age_wide.parquet')
+          ON COLUMNS(* EXCLUDE (la, year, total)) INTO NAME slug VALUE cnt)
+),
+income AS (
+    SELECT la, year, 'income' AS dimension, slug, CAST(cnt AS BIGINT) AS count
+    FROM (UNPIVOT read_parquet('data/gold/parquet/ssha_a1_3_income_wide.parquet')
+          ON COLUMNS(* EXCLUDE (la, year, total)) INTO NAME slug VALUE cnt)
+),
+need AS (
+    SELECT la, year, 'main_need' AS dimension, slug, CAST(cnt AS BIGINT) AS count
+    FROM (UNPIVOT read_parquet('data/gold/parquet/ssha_a1_5_main_need_wide.parquet')
+          ON COLUMNS(* EXCLUDE (la, year, total)) INTO NAME slug VALUE cnt)
+),
+accom AS (
+    SELECT la, year, 'accom_need' AS dimension, slug, CAST(cnt AS BIGINT) AS count
+    FROM (UNPIVOT read_parquet('data/gold/parquet/ssha_a1_6_accom_req_wide.parquet')
+          ON COLUMNS(* EXCLUDE (la, year, total)) INTO NAME slug VALUE cnt)
+),
 la_long AS (
     SELECT * FROM tol UNION ALL SELECT * FROM ten UNION ALL SELECT * FROM emp
     UNION ALL SELECT * FROM hh UNION ALL SELECT * FROM cit
+    UNION ALL SELECT * FROM age UNION ALL SELECT * FROM income
+    UNION ALL SELECT * FROM need UNION ALL SELECT * FROM accom
 ),
 meta(dimension, slug, label, ord) AS (
     VALUES
@@ -95,7 +117,40 @@ meta(dimension, slug, label, ord) AS (
     ('citizenship','irish_citizen','Irish',1),
     ('citizenship','eea_citizen','EEA',2),
     ('citizenship','non_eea_citizen','Non-EEA',3),
-    ('citizenship','uk_citizen','UK',4)
+    ('citizenship','uk_citizen','UK',4),
+    -- age (main applicant)
+    ('age','less_than_25_years_old','Under 25',1),
+    ('age','25_29_years_old','25–29',2),
+    ('age','30_39_years_old','30–39',3),
+    ('age','40_49_years_old','40–49',4),
+    ('age','50_59_years_old','50–59',5),
+    ('age','60_69_years_old','60–69',6),
+    ('age','70_years_old_or_more','70 or older',7),
+    -- income source
+    ('income','social_welfare_only','Social welfare only',1),
+    ('income','employment_only','Employment only',2),
+    ('income','combination_of_employment_and_social_welfare','Employment + social welfare',3),
+    ('income','other','Other',4),
+    -- main need for social housing (the reason)
+    ('main_need','unsuitable_particular_household_circumstance','Unsuitable circumstances',1),
+    ('main_need','requires_rent_supplement','Needs rent supplement',2),
+    ('main_need','requirement_for_separate_accommodation','Needs separate accommodation',3),
+    ('main_need','homeless_institution_emergency_accommodation','Homeless / emergency accom.',4),
+    ('main_need','overcrowded_accommodation','Overcrowded',5),
+    ('main_need','unfit_accommodation','Unfit accommodation',6),
+    ('main_need','unsustainable_mortgage','Unsustainable mortgage',7),
+    ('main_need','intellectual_disability','Intellectual disability',8),
+    ('main_need','physical_disability','Physical disability',9),
+    ('main_need','mental_health_disability','Mental-health disability',10),
+    ('main_need','sensory_disability','Sensory disability',11),
+    ('main_need','other_form_of_disability','Other disability',12),
+    ('main_need','medical_or_compassionate_grounds','Medical / compassionate',13),
+    -- specific accommodation requirement
+    ('accom_need','no_specific_accommodation_requirement','No specific requirement',1),
+    ('accom_need','household_member_s_is_homeless','Household member homeless',2),
+    ('accom_need','physical_sensory_mental_or_intellectual_impairment','Member with impairment',3),
+    ('accom_need','household_member_s_is_aged_65_years_or_more','Member aged 65+',4),
+    ('accom_need','household_member_s_is_a_traveller','Traveller household',5)
 ),
 la_lab AS (
     SELECT l.la, l.year, l.dimension, COALESCE(m.label, l.slug) AS category, m.ord, l.count

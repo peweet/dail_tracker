@@ -44,7 +44,7 @@ from ui.entity_links import member_profile_url
 from ui.export_controls import export_button
 from ui.source_pdfs import ATTENDANCE, provenance_expander
 
-from config import NOTABLE_TDS, SITTING_DAYS_BY_YEAR
+from config import NOTABLE_TDS
 from data_access.attendance_data import (
     fetch_chamber_sitting_days as _fetch_chamber_sitting_days,
     fetch_filter_options as _fetch_filter_options,
@@ -52,7 +52,12 @@ from data_access.attendance_data import (
     fetch_year_ranking as _fetch_year_ranking,
     views_ready as _views_ready,
 )
-from dail_tracker_core.attendance import split_attendance_hall
+from dail_tracker_core.attendance import (
+    TAA_FULL_ATTENDANCE_MINIMUM_DAYS,
+    meets_taa_minimum,
+    split_attendance_hall,
+    statutory_attendance_minimum,
+)
 
 _CAVEAT = (
     "Attendance figures combine days a member was recorded present in the {chamber} chamber "
@@ -62,6 +67,19 @@ _CAVEAT = (
     "or constituency work. Low figures have many legitimate explanations that are not visible "
     "in this data. This page presents the official record — it does not make a judgement "
     "about the reasons behind it."
+)
+
+_STATUTORY_NOTE = (
+    "**What is the 120-day mark?** "
+    "Travel & Accommodation Allowance (TAA) is paid to TDs — other than the "
+    "Taoiseach and Ministers — on the basis that they personally attend Leinster "
+    "House on at least **120 days** a year. The allowance is calculated on a "
+    "150-day basis, and a 1% deduction applies for each day attended below 120. "
+    "Both the *sitting days* and *other days* columns in the source PDFs are days "
+    "present at Leinster House, so both count toward the 120, which is why the "
+    "combined total is the figure measured against the threshold. "
+    "Source: [Houses of the Oireachtas — Salaries & Allowances]"
+    "(https://www.oireachtas.ie/en/members/salaries-and-allowances/)."
 )
 
 _MINISTER_NOTE = (
@@ -83,28 +101,53 @@ _MINISTER_NOTE = (
 _HALL_SIZE = 15
 
 
-def _hall_card(row: pd.Series, side: str, rank: int = 1) -> str:
+def _hall_card(row: pd.Series, side: str, rank: int = 1, *, year: int | None = None) -> str:
     name = _h(str(row["member_name"]))
     party = str(row.get("party_name", "") or "")
     const = str(row.get("constituency", "") or "")
     meta = _h(clean_meta(party, const))
     days = int(row["attended_count"])
+
+    # Split the headline total into its two published day-types (sitting =
+    # plenary chamber; other = committee / other recorded business). Both count
+    # toward the 120-day statutory TAA minimum, which is why the total — not the
+    # sitting count — is what the minimum is measured against.
+    sitting = row.get("sitting_days")
+    other = row.get("other_days")
+    breakdown_html = ""
+    if pd.notna(sitting) and pd.notna(other):
+        breakdown_html = (
+            f'<p class="att-hall-meta" style="margin-top:2px;opacity:.78">'
+            f"{int(sitting)} plenary · {int(other)} other</p>"
+        )
+
+    # Statutory marker: TDs below the 120-day minimum face a 1% TAA deduction per
+    # day short. Flag it only on the lowest-attendance side, where it is the point.
+    statutory_html = ""
+    if side == "bad" and not meets_taa_minimum(days, year):
+        statutory_html = (
+            f'<span class="att-hall-badge-label" style="color:#b3261e">'
+            f"below {statutory_attendance_minimum(year)}-day min</span>"
+        )
+
     return (
         f'<div class="att-hall-card-{side}">'
         f'<span class="att-hall-rank">#{rank}</span>'
         f'<div class="att-hall-body">'
         f'<p class="att-hall-name">{name}</p>'
         f'<p class="att-hall-meta">{meta}</p>'
+        f"{breakdown_html}"
         f"</div>"
         f'<div class="att-hall-badge-{side}">'
         f'<span class="att-hall-badge-num">{days}</span>'
         f'<span class="att-hall-badge-label">days</span>'
+        f"{statutory_html}"
         f"</div>"
         f"</div>"
     )
 
 
-def _att_card_link(row: pd.Series, *, side: str, rank: int) -> str:
+def _att_card_link(row: pd.Series, *, side: str, rank: int, year: int | None = None) -> str:
     """Full-card-clickable hall card linking to the canonical profile.
 
     Cross-page jump: every card on /rankings-attendance lands on
@@ -114,7 +157,7 @@ def _att_card_link(row: pd.Series, *, side: str, rank: int) -> str:
     """
     name = str(row["member_name"])
     code = resolve_member_code(name)
-    inner = _hall_card(row, side, rank=rank)
+    inner = _hall_card(row, side, rank=rank, year=year)
     if not code:
         return inner
     return clickable_card_link(
@@ -160,13 +203,17 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int, house: str = "Dáil") 
     col_good, col_bad = st.columns(2, gap="medium")
     with col_good:
         st.html('<h2 class="att-hall-heading-good">Highest recorded attendance</h2>')
-        good_cards = [_att_card_link(row, side="good", rank=i + 1) for i, (_, row) in enumerate(top.iterrows())]
+        good_cards = [
+            _att_card_link(row, side="good", rank=i + 1, year=year) for i, (_, row) in enumerate(top.iterrows())
+        ]
         st.html("\n".join(good_cards))
 
     with col_bad:
         bad_label = "Lowest recorded attendance (so far)" if is_partial else "Lowest recorded attendance"
         st.html(f'<h2 class="att-hall-heading-bad">{bad_label}</h2>')
-        bad_cards = [_att_card_link(row, side="bad", rank=i + 1) for i, (_, row) in enumerate(bottom.iterrows())]
+        bad_cards = [
+            _att_card_link(row, side="bad", rank=i + 1, year=year) for i, (_, row) in enumerate(bottom.iterrows())
+        ]
         st.html("\n".join(bad_cards))
 
 
@@ -233,7 +280,7 @@ def _render_provenance(year: int | None = None, house: str = "Dáil") -> None:
     # Senator view. TODO: add a SEANAD attendance-PDF list to ui/source_pdfs.
     pdf_links = [] if house == "Seanad" else list(ATTENDANCE)
     provenance_expander(
-        sections=[_CAVEAT.format(chamber=house), _MINISTER_NOTE],
+        sections=[_CAVEAT.format(chamber=house), _STATUTORY_NOTE, _MINISTER_NOTE],
         source_caption=(
             "Data: Oireachtas TAA verification records (data.oireachtas.ie)" + (f" · {year}" if year else "")
         ),
@@ -360,24 +407,27 @@ def attendance_page() -> None:
         _render_provenance(selected_year, house)
         return
 
-    # Dáil keeps the curated SITTING_DAYS_BY_YEAR scheduled-day lookup; the
-    # Seanad sitting calendar isn't in config, so derive it from the data via
-    # the per-house chamber-sitting-days view (already house-aware).
-    if is_seanad:
-        total_days = _fetch_chamber_sitting_days("Seanad").get(selected_year)
-    else:
-        total_days = SITTING_DAYS_BY_YEAR.get(selected_year)
+    # Denominator = the chamber's distinct sitting dates that year, DERIVED FROM
+    # THE DATA for both chambers (v_attendance_chamber_sitting_days). Using the
+    # data-derived count rather than the curated config figure makes the headline
+    # self-consistent: a member can never show more sitting days than the
+    # denominator (the old config 2025=82 read as "82 sitting days" while members
+    # had 94 recorded — the contradiction this fixes).
+    sitting_days_in_year = _fetch_chamber_sitting_days(house).get(int(selected_year))
     n_members = len(ranking_df)
-    rate_note = f" · {total_days} scheduled sitting days" if total_days else ""
+    sitting_note = f" · {sitting_days_in_year} {house} sitting days in {selected_year}" if sitting_days_in_year else ""
 
     st.caption(
-        f"{n_members} members on record{rate_note}. "
-        "Days recorded include both plenary chamber sittings and other "
-        "recorded business (committee days etc.) as published in the "
-        "official member-attendance PDFs. Ministerial duties, illness, "
-        "and constituency work are still outside the record, so low "
-        "figures are not evidence of poor engagement (full caveat in "
-        "About & data provenance below)."
+        f"{n_members} members on record{sitting_note}. "
+        "The headline figure combines **plenary** sitting days with **other** "
+        "recorded business (committee days etc.), exactly as published in the "
+        "official member-attendance (TAA) PDFs — each card shows the split. "
+        f"A TD must attend on at least **{TAA_FULL_ATTENDANCE_MINIMUM_DAYS} days** "
+        "to retain the full Travel & Accommodation Allowance, so the combined "
+        "total — not plenary days alone — is the figure that matters for that "
+        "threshold. Ministerial duties, illness, and constituency work are "
+        "outside the record, so low figures are not evidence of poor engagement "
+        "(full caveat in About & data provenance below)."
     )
 
     _render_good_bad(ranking_df, selected_year, house)

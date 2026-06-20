@@ -41,13 +41,27 @@ from ui.components import (
     totals_strip,
 )
 
-# Dimensions rendered as "who is waiting" cards (time-on-list is rendered separately
-# above, with the sequential ramp). Citizenship carries the sensitivity caption.
-_DIM_CARDS = [
+# "Who is waiting" demographic stripes, split for progressive disclosure: the three
+# highest-signal show by default; the rest sit behind a "More" expander (citizenship
+# stays in there with its sensitivity caption).
+_LEAD_DIMS = [
+    ("main_need", "Main need for housing"),
+    ("tenure", "Where they live now"),
+    ("employment", "Employment"),
+]
+_MORE_DIMS = [
+    ("age", "Age of main applicant"),
+    ("household", "Household"),
+    ("income", "Household income"),
+    ("accom_need", "Specific accommodation needs"),
+    ("citizenship", "Citizenship of main applicant"),
+]
+# County-detail view shows a compact subset (keeps the drill light).
+_COUNTY_DIMS = [
+    ("main_need", "Main need for housing"),
     ("tenure", "Where they live now"),
     ("employment", "Employment"),
     ("household", "Household"),
-    ("citizenship", "Citizenship of main applicant"),
 ]
 
 # Source links (verified live).
@@ -93,22 +107,25 @@ def _render_hero_stats(row) -> None:
     totals_strip(items)
 
 
-def _render_composition(grain: str, area: str) -> None:
+def _fetch_cdf(grain: str, area: str):
+    """The composition rows for one area, or None."""
     res = fetch_waiting_list_composition_result(grain, area)
-    if not res.ok or res.data.empty:
-        return
-    cdf = res.data
+    return res.data if res.ok and not res.data.empty else None
 
-    # How long people wait — single ordered stripe, sequential ramp (long tail = dark)
+
+def _render_time_bar(cdf) -> None:
+    """How long people wait — the single ordered stripe (sequential ramp, long tail dark)."""
     time_segs = _dim_segments(cdf, "time_on_list")
-    if time_segs:
-        evidence_heading("How long people wait")
-        st.html(proportion_stripe_html(time_segs, palette="sequential"))
-        st.caption("Length of time on the Record of Qualified Households · SSHA 2025")
+    if not time_segs:
+        return
+    evidence_heading("How long people wait")
+    st.html(proportion_stripe_html(time_segs, palette="sequential"))
+    st.caption("Length of time on the Record of Qualified Households · SSHA 2025.")
 
-    # Who is waiting — demographic stripes, two per row
-    evidence_heading("Who is waiting")
-    cards = [(dim, title, _dim_segments(cdf, dim)) for dim, title in _DIM_CARDS]
+
+def _render_demo_grid(cdf, dims) -> None:
+    """A 2-per-row grid of demographic proportion stripes for the given dimensions."""
+    cards = [(dim, title, _dim_segments(cdf, dim)) for dim, title in dims]
     cards = [c for c in cards if c[2]]
     for i in range(0, len(cards), 2):
         cols = st.columns(2)
@@ -118,8 +135,20 @@ def _render_composition(grain: str, area: str) -> None:
                 if dim == "citizenship":
                     st.caption(
                         "Citizenship of the main applicant, as a share of qualified "
-                        "households — not a measure of who is housed. SSHA 2025."
+                        "households — not a measure of who is housed."
                     )
+
+
+def _lead_sentence(cdf) -> str:
+    """One plain-language line of the sharpest facts for the lead section."""
+
+    def top(dim: str) -> str:
+        d = cdf[cdf["dimension"] == dim].sort_values("count", ascending=False)
+        return str(d.iloc[0]["category"]).lower() if not d.empty else ""
+
+    age, emp, need = top("age"), top("employment"), top("main_need")
+    bits = [b for b in (f"aged {age}" if age else "", emp, f"needing housing because: {need}" if need else "") if b]
+    return "Most applicants are " + ", ".join(bits) + "." if bits else ""
 
 
 def _render_supply() -> None:
