@@ -123,7 +123,7 @@ def inject_css() -> None:
         /* st.navigation(position="top") renders the cross-page nav inside
            the header toolbar, which Streamlit pins absolute at top:0. We
            paint it #111827 and push it down by the brand-band height so
-           the "Oireachtas Explorer" .site-banner reads as the top row and
+           the "Dáil Tracker" .site-banner reads as the top row and
            the nav row sits directly under it — one dark masthead. Routing
            stays Streamlit's; this is pure presentation. */
         header[data-testid="stHeader"],
@@ -5787,7 +5787,7 @@ def inject_css() -> None:
         """
         <div class="site-banner">
           <div class="site-banner-inner">
-            <a class="site-banner-title" href="./" aria-label="Oireachtas Explorer — back to home">Oireachtas Explorer</a>
+            <a class="site-banner-title" href="./" aria-label="Dáil Tracker — back to home">Dáil Tracker</a>
             <span class="site-banner-sep"></span>
             <span class="site-banner-sub">Irish public data, made searchable</span>
           </div>
