@@ -99,7 +99,7 @@ from data_access.procurement_data import (
     fetch_ted_tenders_stats_result,
 )
 from shared_css import inject_css  # noqa: F401  (kept parallel to other pages)
-from ui.entity_links import company_profile_url
+from ui.entity_links import authority_profile_url, company_profile_url
 from ui.components import (
     back_button,
     clickable_card_link,
@@ -205,8 +205,27 @@ def _supplier_href(supplier_norm) -> str:
     return company_profile_url(str(supplier_norm))
 
 
-def _authority_href(authority) -> str:
+def _authority_href(authority, *, cross_page: bool = False) -> str:
+    """Link to a contracting authority's buyer dossier. ``cross_page=True`` returns the
+    absolute /rankings-procurement?authority= form for callers on OTHER pages (the company
+    dossier, where the panels below are reused) — a full cross-page nav. The default
+    relative ``?authority=`` form is intercepted by spa_links for a soft rerun when the
+    click happens on the Procurement page itself (no reload, state preserved)."""
+    if cross_page:
+        return authority_profile_url(str(authority))
     return f"?authority={urllib.parse.quote(str(authority))}"
+
+
+def _authority_link(authority, *, cross_page: bool = False) -> str:
+    """The authority name as a clickable buyer-dossier link (escaped). Used inside plain
+    award rows (NOT rows already wrapped in clickable_card_link — no nested anchors)."""
+    name = _esc(authority)
+    if not name:
+        return "—"
+    return (
+        f'<a class="pr-auth-link" href="{_esc(_authority_href(authority, cross_page=cross_page))}" '
+        f'target="_self">{name}</a>'
+    )
 
 
 def _cpv_href(cpv_code) -> str:
@@ -1359,7 +1378,17 @@ def _payment_line_row(r, tier: str) -> str:
     source file where it published one. Display-only; the amount is the body's reported figure."""
     period = _esc(_coalesce(getattr(r, "period", None))) or _esc(_n(getattr(r, "year", None)) or "")
     desc = _esc(_coalesce(getattr(r, "description", None)))
-    title_html = f'<div class="pr-award-title">{desc}</div>' if desc else ""
+    # Per-line payment status, where the body published one (canonicalised in the view from a
+    # strict allowlist: 'Paid' / 'Part paid' / 'Not paid'; NULL for the majority that publish
+    # none). A factual disclosure tag, never a verdict — shown beside the line description.
+    paid_status = _coalesce(getattr(r, "paid_status", None))
+    _PAID_CLASS = {"Paid": "is-paid", "Not paid": "is-notpaid", "Part paid": "is-partpaid"}
+    status_html = (
+        f'<span class="pr-paid-tag {_PAID_CLASS.get(paid_status, "")}">{_esc(paid_status)}</span>'
+        if paid_status in _PAID_CLASS
+        else ""
+    )
+    title_html = f'<div class="pr-award-title">{desc}{status_html}</div>' if (desc or status_html) else ""
     meta_parts = []
     po = _coalesce(getattr(r, "po_number", None))
     if po:
@@ -1951,10 +1980,14 @@ def _render_supplier_competition_panel(supplier_norm: str) -> None:
     )
 
 
-def _render_supplier_relationships_panel(supplier_norm: str) -> None:
+def _render_supplier_relationships_panel(supplier_norm: str, *, cross_page: bool = False) -> None:
     """The firm's repeat buyers (distinct-years spans) + its top-buyer share — structure
     facts from the awards register. Central-purchasing buyers (OGP / EPS) are badged:
-    a streak with them is repeated central-framework success, not a bilateral relationship."""
+    a streak with them is repeated central-framework success, not a bilateral relationship.
+
+    ``cross_page=True`` (the company dossier) makes each buyer name a cross-page link to
+    its procurement dossier — closing the supplier↔buyer loop; on the Procurement page
+    itself the links stay relative for a soft rerun."""
     inc = fetch_incumbency_for_supplier_result(supplier_norm)
     idf = inc.data if inc.ok else pd.DataFrame()
     idf = idf[idf["n_awards"] >= 2] if not idf.empty else idf
@@ -1975,7 +2008,8 @@ def _render_supplier_relationships_panel(supplier_norm: str) -> None:
         parts.append(
             f"<strong>{_n(drow.get('awards_from_top_authority')):,}</strong> of its "
             f"<strong>{_n(drow.get('total_awards')):,}</strong> recorded awards "
-            f"({float(share):g}%) came from <strong>{_esc(drow.get('top_authority'))}</strong>{cp}."
+            f"({float(share):g}%) came from "
+            f"<strong>{_authority_link(drow.get('top_authority'), cross_page=cross_page)}</strong>{cp}."
         )
     if parts:
         st.html(
@@ -2000,7 +2034,7 @@ def _render_supplier_relationships_panel(supplier_norm: str) -> None:
             )
             rows.append(
                 f'<div class="pr-award"><div class="pr-award-body">'
-                f'<div class="pr-award-auth">{_esc(r.contracting_authority)}{badge}</div>'
+                f'<div class="pr-award-auth">{_authority_link(r.contracting_authority, cross_page=cross_page)}{badge}</div>'
                 f'<div class="pr-award-meta">{_awards_word(_n(r.n_awards))} across '
                 f"{yrs:,} year{'s' if yrs != 1 else ''} ({span})</div></div></div>"
             )
@@ -2008,11 +2042,12 @@ def _render_supplier_relationships_panel(supplier_norm: str) -> None:
             st.html("".join(rows))
 
 
-def _render_supplier_call_offs_panel(supplier_norm: str) -> None:
+def _render_supplier_call_offs_panel(supplier_norm: str, *, cross_page: bool = False) -> None:
     """The firm's call-off awards (drawdowns under a framework/DPS) with the parent
     agreement named where its notice exists in the corpus — the framework nesting, made
     visible. An unresolved parent is disclosed, never hidden; a parent ceiling is context,
-    never added to the call-off's own value."""
+    never added to the call-off's own value. ``cross_page=True`` links each buyer name to
+    its procurement dossier (company-dossier reuse)."""
     res = fetch_call_offs_for_supplier_result(supplier_norm)
     df = res.data if res.ok else pd.DataFrame()
     if df.empty:
@@ -2037,7 +2072,7 @@ def _render_supplier_call_offs_panel(supplier_norm: str) -> None:
                 parent_bits.append(f"{n_ps:,} suppliers on the framework")
             rows.append(
                 f'<div class="pr-award"><div class="pr-award-body">'
-                f'<div class="pr-award-auth">{_esc(r.contracting_authority)}</div>'
+                f'<div class="pr-award-auth">{_authority_link(r.contracting_authority, cross_page=cross_page)}</div>'
                 f'<div class="pr-award-meta">{fmt_civic_date(getattr(r, "award_date", None))} · '
                 f"{' · '.join(parent_bits)}</div></div>{_award_value_html(r)}</div>"
             )
@@ -2887,40 +2922,72 @@ def _entity_search_hero() -> None:
     if hits.empty:
         empty_state("No matches", "Try a shorter term — names are matched as published.")
         return
-    kind_label = {"supplier": "COMPANY", "authority": "PUBLIC BODY", "cpv": "CATEGORY"}
+    # The two registers carry distinct kind labels so a reader can tell an award-ceiling result
+    # (eTenders) from a realised-payment result (a body's own >€20k list) at a glance.
+    kind_label = {
+        "supplier": "COMPANY",
+        "authority": "PUBLIC BODY",
+        "cpv": "CATEGORY",
+        "paid_supplier": "PAID CONTRACTOR",
+        "paid_body": "PUBLIC BODY · PAYMENTS",
+    }
     aria = {
         "supplier": "Open the public-money dossier of",
         "authority": "View the awards made by",
         "cpv": "View the awards in category",
+        "paid_supplier": "Open the published payments of",
+        "paid_body": "View the published payments of",
     }
     cards = []
     for r in hits.itertuples():
         kind = str(r.entity_kind)
-        meta = _awards_word(_n(r.n_records))
         nc = _n(r.n_counterparties)
-        if kind == "supplier":
-            meta += f" · {nc:,} public bod{'ies' if nc != 1 else 'y'}"
+        is_paid = kind in ("paid_supplier", "paid_body")
+        if is_paid:
+            # Payments grain: lines, not awards. Tier (SPENT/COMMITTED) rides the row so the
+            # money pill + deep-link are tier-correct (paid vs ordered, the right dossier).
+            tier = (_coalesce(getattr(r, "paid_tier", None)) or "SPENT").upper()
+            n = _n(r.n_records)
+            meta = f"{n:,} published line{'s' if n != 1 else ''}"
+            meta += (
+                f" · {nc:,} public bod{'ies' if nc != 1 else 'y'}"
+                if kind == "paid_supplier"
+                else f" · {nc:,} supplier{'s' if nc != 1 else ''}"
+            )
         else:
-            meta += f" · {nc:,} supplier{'s' if nc != 1 else ''}"
+            meta = _awards_word(_n(r.n_records))
+            meta += (
+                f" · {nc:,} public bod{'ies' if nc != 1 else 'y'}"
+                if kind == "supplier"
+                else f" · {nc:,} supplier{'s' if nc != 1 else ''}"
+            )
         pills = [f'<span class="pr-pill pr-pill-lob">{kind_label.get(kind, kind)}</span>']
         if _eur(r.awarded_value_safe_eur) != "—":
             pills.append(_value_pill(r.awarded_value_safe_eur))
         # Paid figure is a DIFFERENT grain (realised payments) — its own label, never merged.
-        if kind == "supplier" and _eur(getattr(r, "paid_safe_eur", None)) != "—":
+        if is_paid and _eur(getattr(r, "paid_safe_eur", None)) != "—":
+            pills.append(_paid_pill(r.paid_safe_eur, tier))
+        elif kind == "supplier" and _eur(getattr(r, "paid_safe_eur", None)) != "—":
             pills.append(f'<span class="pr-pill pr-pill-val">{_eur(r.paid_safe_eur)} paid (where published)</span>')
         if _truthy(getattr(r, "on_lobbying_register", None)):
             pills.append('<span class="pr-pill pr-pill-lob">also on lobbying register</span>')
-        href = {
-            "supplier": _supplier_href(r.url_key),
-            "authority": _authority_href(r.url_key),
-            "cpv": _cpv_href(r.url_key),
-        }[kind]
+        if kind == "paid_supplier":
+            href = _paid_supplier_href(r.url_key, tier)
+        elif kind == "paid_body":
+            href = _paid_publisher_href(r.url_key, tier)
+        elif kind == "authority":
+            href = _authority_href(r.url_key)
+        elif kind == "cpv":
+            href = _cpv_href(r.url_key)
+        else:
+            href = _supplier_href(r.url_key)
         inner = _card(f"<span>{_esc(r.display_name)}</span>", meta, pills)
         cards.append(clickable_card_link(href=href, inner_html=inner, aria_label=f"{aria[kind]} {r.display_name}"))
     st.html(f'<div class="pr-grid">{"".join(cards)}</div>')
     st.caption(
-        "Awarded values are contract ceilings at the point of award; a company's paid figure is a "
-        "separate, later stage (public bodies' own >€20k lists) — the two are never added together."
+        "Two registers in one search: an **award** (eTenders/TED) is a contract ceiling at the point "
+        "of award; a **paid** result is a separate, later stage (a public body's own >€20k payment "
+        "list). The same firm can appear under both — they are different stages and never added together."
     )
 
 

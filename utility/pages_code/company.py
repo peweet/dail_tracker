@@ -28,7 +28,9 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_access.corporate_data import fetch_corporate_notices_for_company_result
+from data_access.lobbying_data import fetch_all_org_names
 from data_access.procurement_data import (
+    fetch_lobbying_overlap_result,
     fetch_payments_for_supplier_result,
     fetch_supplier_summary_result,
 )
@@ -61,7 +63,7 @@ from ui.components import (
     pagination_controls,
     text_search_mask,
 )
-from ui.entity_links import corporate_notices_url
+from ui.entity_links import corporate_notices_url, lobbying_org_url
 
 _LAND_PAGE = 24  # landing cards per page (multiple of 3 for the pr-grid)
 
@@ -152,6 +154,42 @@ def _render_corporate_distress_panel(company_num) -> None:
     )
 
 
+def _resolved_lobby_url(supplier_norm: str) -> str:
+    """The lobbying-record URL for a supplier IF its overlap name exactly resolves on the
+    Lobbying page, else "". The procurement↔lobbying overlap is a fuzzy name co-occurrence
+    and the Lobbying page validates org names exactly (~64% match), so this membership-checks
+    against the register's org-name set — the link can never dead-end."""
+    ov = fetch_lobbying_overlap_result()
+    if not ov.ok or ov.data.empty:
+        return ""
+    m = ov.data[ov.data["supplier_norm"] == supplier_norm]
+    if m.empty:
+        return ""
+    # A supplier can carry several overlap name variants (e.g. "Grant Thornton" vs
+    # "GRANT THORNTON LIMITED"); return the first that resolves on the register, not iloc[0].
+    org_names = set(fetch_all_org_names())
+    for lobby_name in m["lobby_name"].dropna().astype(str):
+        if lobby_name in org_names:
+            return lobbying_org_url(lobby_name)
+    return ""
+
+
+def _lobby_pill_for(row, supplier_norm: str) -> str:
+    """Lobbying chip for the dossier hero: a cross-page link to the firm's lobbying record
+    when its register name resolves, else the shared plain badge (on the register but the
+    fuzzy-matched name doesn't resolve) — never a dead link. Empty when not on the register.
+    Only for the hero pills row, which is NOT inside a clickable card (no nested anchors)."""
+    if not _truthy(getattr(row, "on_lobbying_register", None)):
+        return ""
+    url = _resolved_lobby_url(supplier_norm)
+    if not url:
+        return _lobby_pill(row)
+    return (
+        f'<a class="pr-pill pr-pill-lob" href="{_esc(url)}" target="_self">'
+        "also on lobbying register ↗</a>"
+    )
+
+
 def _dossier(supplier_norm: str) -> None:
     if back_button("← All companies", key="co_back"):
         st.query_params.clear()
@@ -179,7 +217,7 @@ def _dossier(supplier_norm: str) -> None:
         f'<div class="pr-prof-sub">Public-money dossier — three registers, never summed</div></div>'
     )
     pills = [_value_pill(row.get("awarded_value_safe_eur"))]
-    pills += [p for p in (_cro_pill(row), _lobby_pill(row)) if p]
+    pills += [p for p in (_cro_pill(row), _lobby_pill_for(row, supplier_norm)) if p]
     st.html(f'<div class="pr-pills" style="margin:0.1rem 0 0.6rem">{"".join(pills)}</div>')
 
     # Finding lede — the dossier's own facts, every figure straight off the view rows.
@@ -212,11 +250,13 @@ def _dossier(supplier_norm: str) -> None:
     finding_lede(sentences)
 
     _supplier_awards_section(row, supplier_norm)
-    _render_supplier_call_offs_panel(supplier_norm)
+    # cross_page=True: buyer names link to /rankings-procurement?authority=… (a full
+    # cross-page nav from this dossier), closing the supplier↔buyer loop.
+    _render_supplier_call_offs_panel(supplier_norm, cross_page=True)
     _render_paid_supplier_panel(supplier_norm)
     _render_ted_supplier_panel(supplier_norm)
     _render_supplier_competition_panel(supplier_norm)
-    _render_supplier_relationships_panel(supplier_norm)
+    _render_supplier_relationships_panel(supplier_norm, cross_page=True)
     _render_epa_credentials_panel(row.get("company_num"))
     _render_corporate_distress_panel(row.get("company_num"))
     st.html(_DOSSIER_FOOT)

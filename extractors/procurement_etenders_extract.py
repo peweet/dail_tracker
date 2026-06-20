@@ -44,6 +44,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from shared.name_norm import name_norm_expr  # noqa: E402
+from shared.text_encoding import decode_table_bytes  # noqa: E402
 
 URL = "https://assets.gov.ie/static/documents/7ba65f1b/Public_Procurement_Opendata_Dataset.csv"
 # Provenance: the citable record of where this data came from. Emitted into the
@@ -216,9 +217,8 @@ def main() -> None:
     # read_csv only speaks utf8/utf8-lossy, so decode the bytes as cp1252 ourselves and hand
     # Polars clean UTF-8. errors="replace" only bites cp1252's 5 undefined slots
     # (0x81/8D/8F/90/9D), which are not real data. This recovers the text losslessly.
-    raw = csv_path.read_bytes()
     df = pl.read_csv(
-        io.BytesIO(raw.decode("cp1252", errors="replace").encode("utf-8")),
+        io.BytesIO(decode_table_bytes(csv_path.read_bytes()).encode("utf-8")),
         infer_schema_length=0,
         truncate_ragged_lines=True,
         ignore_errors=True,

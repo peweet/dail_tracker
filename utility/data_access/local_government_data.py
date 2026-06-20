@@ -13,10 +13,10 @@ WINDOW in SQL, CREATE VIEW, read_parquet, pandas merge/pivot, business-metric de
 from __future__ import annotations
 
 import streamlit as st
+from data_access.constituency_data import get_constituency_conn
 
 from dail_tracker_core.queries import local_government as _q
 from dail_tracker_core.results import QueryResult
-from data_access.constituency_data import get_constituency_conn
 
 
 @st.cache_data(ttl=600)
@@ -47,3 +47,8 @@ def fetch_planning_overturn_result(la: str) -> QueryResult:
 @st.cache_data(ttl=300)
 def fetch_derelict_sites_levy_result(la: str) -> QueryResult:
     return _q.derelict_sites_levy(get_constituency_conn(), la)
+
+
+@st.cache_data(ttl=300)
+def fetch_housing_performance_result(la: str) -> QueryResult:
+    return _q.housing_performance(get_constituency_conn(), la)

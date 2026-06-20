@@ -41,9 +41,9 @@
       }
     },
     "corporate_notices.parquet": {
-      "rows": 36487,
+      "rows": 50723,
       "all_null_cols": [],
-      "dup_rows": 889,
+      "dup_rows": 1157,
       "encoding": {},
       "sentinels": {}
     },
@@ -243,6 +243,13 @@
       "encoding": {},
       "sentinels": {}
     },
+    "dceidy_ipas_legacy_spend.parquet": {
+      "rows": 18010,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
     "debate_summary.parquet": {
       "rows": 885,
       "all_null_cols": [],
@@ -290,15 +297,6 @@
     "grassroots_campaigns.parquet": {
       "rows": 455,
       "all_null_cols": [],
-      "dup_rows": 0,
-      "encoding": {},
-      "sentinels": {}
-    },
-    "hse_tusla_payments_fact.parquet": {
-      "rows": 21662,
-      "all_null_cols": [
-        "paid_flag"
-      ],
       "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
@@ -377,9 +375,9 @@
       "sentinels": {}
     },
     "judiciary_diary_judge_map.parquet": {
-      "rows": 9709,
+      "rows": 7949,
       "all_null_cols": [],
-      "dup_rows": 2971,
+      "dup_rows": 0,
       "encoding": {},
       "sentinels": {}
     },
@@ -399,6 +397,27 @@
     },
     "member_interest_leaderboard.parquet": {
       "rows": 173,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "ministerial_diary_engagements.parquet": {
+      "rows": 43239,
+      "all_null_cols": [],
+      "dup_rows": 208,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "ministerial_diary_org_mentions.parquet": {
+      "rows": 3044,
+      "all_null_cols": [],
+      "dup_rows": 170,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "ministerial_diary_org_overlap.parquet": {
+      "rows": 522,
       "all_null_cols": [],
       "dup_rows": 0,
       "encoding": {},
@@ -503,35 +522,21 @@
       "rows": 62763,
       "all_null_cols": [],
       "dup_rows": 0,
-      "encoding": {
-        "Awarded Suppliers": 2097,
-        "Contracting Authority": 4828,
-        "Tender/Contract Name": 4384,
-        "Procedure": 9393,
-        "sl": 373,
-        "supplier_raw": 373,
-        "supplier": 373
-      },
+      "encoding": {},
       "sentinels": {}
     },
     "procurement_lobbying_overlap.parquet": {
       "rows": 316,
       "all_null_cols": [],
       "dup_rows": 0,
-      "encoding": {
-        "supplier": 1
-      },
+      "encoding": {},
       "sentinels": {}
     },
     "procurement_payments_fact.parquet": {
-      "rows": 219713,
+      "rows": 219707,
       "all_null_cols": [],
       "dup_rows": 0,
-      "encoding": {
-        "supplier_raw": 3,
-        "description": 4,
-        "spend_category": 4
-      },
+      "encoding": {},
       "sentinels": {
         "po_number": 3
       }
@@ -540,29 +545,15 @@
       "rows": 9979,
       "all_null_cols": [],
       "dup_rows": 0,
-      "encoding": {
-        "supplier": 29
-      },
-      "sentinels": {}
-    },
-    "public_appointments.parquet": {
-      "rows": 1063,
-      "all_null_cols": [],
-      "dup_rows": 2,
       "encoding": {},
       "sentinels": {}
     },
-    "public_payments_fact.parquet": {
-      "rows": 74546,
+    "public_appointments.parquet": {
+      "rows": 1147,
       "all_null_cols": [],
-      "dup_rows": 0,
-      "encoding": {
-        "supplier_raw": 1,
-        "description": 4
-      },
-      "sentinels": {
-        "po_number": 3
-      }
+      "dup_rows": 4,
+      "encoding": {},
+      "sentinels": {}
     },
     "revolving_door_dpos.parquet": {
       "rows": 1042,

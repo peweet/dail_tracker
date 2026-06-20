@@ -1,11 +1,8 @@
 {
-  "n_baseline": 107,
+  "n_baseline": 109,
   "regressions": [],
   "summary": {
     "tables_with_all_null_cols": {
-      "hse_tusla_payments_fact.parquet": [
-        "paid_flag"
-      ],
       "judiciary_bench.parquet": [
         "assignment",
         "assignment_term"
@@ -31,8 +28,8 @@
         "rows": 228
       },
       "corporate_notices.parquet": {
-        "dup_rows": 889,
-        "rows": 36487
+        "dup_rows": 1157,
+        "rows": 50723
       },
       "cro_xref_corporate_notices.parquet": {
         "dup_rows": 602,
@@ -63,28 +60,15 @@
         "rows": 3044
       },
       "public_appointments.parquet": {
-        "dup_rows": 2,
-        "rows": 1063
+        "dup_rows": 4,
+        "rows": 1147
       },
       "stateboards_roster.parquet": {
         "dup_rows": 12,
         "rows": 2070
       }
     },
-    "tables_with_encoding_artifacts": {
-      "procurement_lobbying_overlap.parquet": {
-        "supplier": 1
-      },
-      "procurement_payments_fact.parquet": {
-        "supplier_raw": 3,
-        "description": 4,
-        "spend_category": 4
-      },
-      "public_payments_fact.parquet": {
-        "supplier_raw": 1,
-        "description": 4
-      }
-    },
+    "tables_with_encoding_artifacts": {},
     "tables_with_sentinels": {
       "charities_enriched.parquet": {
         "also_known_as": 3,
@@ -102,9 +86,6 @@
         "full_name": 1
       },
       "procurement_payments_fact.parquet": {
-        "po_number": 3
-      },
-      "public_payments_fact.parquet": {
         "po_number": 3
       },
       "sipo_campaign_spend_by_detail.parquet": {

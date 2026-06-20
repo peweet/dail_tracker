@@ -5,8 +5,8 @@
 -- is an administration (Chief Executive) signal, not an elected-member one.
 --
 -- Source: data/gold/parquet/noac_m2_collection_wide.parquet — FULL per-LA grid
--- (31 LAs x 2020-2024), extracted from NOAC's PDF tables via Camelot by
--- pipeline_sandbox/housing/noac_collection_wide_extract_experimental.py. (The same
+-- (31 LAs x 2020-2024), extracted from NOAC's PDF tables via fitz by the pipeline
+-- chain extractors/noac_collection_rates_extract.py (noac_collection). (The same
 -- gold table powers v_constituency_council_housing_performance's rent figure.)
 --
 -- Grain: one row per council (2024). la is mapped from NOAC's naming ("Carlow

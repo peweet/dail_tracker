@@ -2710,7 +2710,10 @@ def test_accommodation_spend_views_build():
     the Ukraine stream only appears once it exists in the data (2025+)."""
     import polars as pl
 
-    _skip_missing(GOLD_PARQUET_DIR / "procurement_payments_fact.parquet")
+    _skip_missing(
+        GOLD_PARQUET_DIR / "procurement_payments_fact.parquet",
+        GOLD_PARQUET_DIR / "dceidy_ipas_legacy_spend.parquet",
+    )
     con = _con()
     for fname in ("housing_accommodation_spend_by_year.sql", "housing_accommodation_spend_providers.sql"):
         try:
@@ -2723,11 +2726,12 @@ def test_accommodation_spend_views_build():
     yr = con.execute("SELECT * FROM v_accommodation_spend_by_year").pl()
     assert yr.height > 0
     assert (yr["total_eur"] > 0).all()
-    # category filter is tight: no homeless/student/coastal leakage (a leak would balloon
-    # the total well past the C&AG ~€1.1bn/yr commercial denominator for a single year).
-    assert yr["total_eur"].max() < 1_100_000_000
-    # Ukraine stream only from 2025+ (didn't exist before)
-    pre = yr.filter(pl.col("year") < 2022)
+    # category filter is tight: no homeless/student/coastal leakage. A single year (IP +
+    # Ukraine combined, incl. the 2023-2024 DCEDIY surge) tops out ~€1.8bn; a leak would
+    # balloon it past ~€2.5bn (well over the C&AG IP+Ukraine envelope).
+    assert yr["total_eur"].max() < 2_500_000_000
+    # Ukraine stream only from 2023+ (the war began 2022; no Ukraine accommodation before)
+    pre = yr.filter(pl.col("year") < 2023)
     assert pre["ukraine_eur"].fill_null(0).sum() == 0
 
     prov = con.execute("SELECT * FROM v_accommodation_spend_providers").pl()

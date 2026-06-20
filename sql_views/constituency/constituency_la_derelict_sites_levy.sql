@@ -7,9 +7,9 @@
 -- "is this council doing its job?" signal (nationally ~€26m sits uncollected).
 --
 -- Source: DHLGH annual return (gov.ie), 2024 — one consolidated XLSX, per-LA, CC-BY.
--- Parsed by pipeline_sandbox/housing/derelict_sites_levy_extract_experimental.py
+-- Parsed by the pipeline chain extractors/derelict_sites_levy_extract.py (derelict_sites)
 -- into data/gold/parquet/derelict_sites_levy_wide.parquet (fidelity GREEN: 31 LAs,
--- per-LA sums reconcile to the file's own Total row). ⚠️ experimental/sandbox source.
+-- per-LA sums reconcile to the file's own Total row).
 --
 -- Grain: one row per council. la is normalised to the local_authority join key used
 -- by v_la_chief_executives (collapsing "Limerick/Waterford City and County" to the

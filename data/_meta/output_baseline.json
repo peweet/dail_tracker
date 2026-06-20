@@ -155,7 +155,7 @@
       ]
     },
     "corporate_notices.parquet": {
-      "rows": 36487,
+      "rows": 50723,
       "columns": [
         "notice_ref",
         "issue_date",
@@ -579,6 +579,19 @@
         "total_amount_paid_since_2020"
       ]
     },
+    "dceidy_ipas_legacy_spend.parquet": {
+      "rows": 18010,
+      "columns": [
+        "ref",
+        "provider",
+        "amount_eur",
+        "category",
+        "stream",
+        "year",
+        "pay_date",
+        "source_file"
+      ]
+    },
     "debate_summary.parquet": {
       "rows": 885,
       "columns": [
@@ -660,40 +673,6 @@
       "columns": [
         "lobbyist_name",
         "grassroots_returns_count"
-      ]
-    },
-    "hse_tusla_payments_fact.parquet": {
-      "rows": 21662,
-      "columns": [
-        "publisher_id",
-        "publisher_name",
-        "publisher_type",
-        "sector",
-        "source_landing_url",
-        "source_file_url",
-        "source_file_hash",
-        "period",
-        "year",
-        "quarter",
-        "supplier_raw",
-        "supplier_normalised",
-        "amount_eur",
-        "amount_semantics",
-        "value_safe_to_sum",
-        "description",
-        "po_number",
-        "paid_flag",
-        "source_row_number",
-        "source_page_number",
-        "parser_name",
-        "parser_version",
-        "extraction_status",
-        "extraction_confidence",
-        "caveat_text_detected",
-        "supplier_class",
-        "privacy_status",
-        "public_display",
-        "source_caveat"
       ]
     },
     "judicial_legal_diary_cases.parquet": {
@@ -860,7 +839,7 @@
       ]
     },
     "judiciary_diary_judge_map.parquet": {
-      "rows": 9709,
+      "rows": 7949,
       "columns": [
         "judge",
         "court",
@@ -905,6 +884,52 @@
         "latest_year",
         "ever_landlord",
         "ever_property_owner"
+      ]
+    },
+    "ministerial_diary_engagements.parquet": {
+      "rows": 43239,
+      "columns": [
+        "entry_date",
+        "time_slot",
+        "subject",
+        "department",
+        "minister",
+        "source_pdf_url",
+        "ingested_date",
+        "entry_id",
+        "entry_class",
+        "minister_display"
+      ]
+    },
+    "ministerial_diary_org_mentions.parquet": {
+      "rows": 3044,
+      "columns": [
+        "entry_id",
+        "entry_date",
+        "minister",
+        "subject",
+        "matched_org_name",
+        "match_source",
+        "match_method",
+        "match_confidence",
+        "gazetteer_key",
+        "gaz_origin",
+        "minister_display"
+      ]
+    },
+    "ministerial_diary_org_overlap.parquet": {
+      "rows": 522,
+      "columns": [
+        "matched_org_name",
+        "sector",
+        "meetings",
+        "high_conf_meetings",
+        "ministers_met",
+        "ministers_lobbied_and_met",
+        "total_lobbying_returns",
+        "first_meeting",
+        "last_meeting",
+        "is_state_body"
       ]
     },
     "most_lobbied_politicians.parquet": {
@@ -1052,7 +1077,7 @@
         "Tender ID",
         "Awarded Suppliers",
         "Contracting Authority",
-        "Sum of Awarded Value (�)",
+        "Sum of Awarded Value (€)",
         "Notice Published Date/Contract Created Date",
         "Competition Type",
         "Parent Agreement ID",
@@ -1103,7 +1128,7 @@
       ]
     },
     "procurement_payments_fact.parquet": {
-      "rows": 219713,
+      "rows": 219707,
       "columns": [
         "publisher_id",
         "publisher_name",
@@ -1160,7 +1185,7 @@
       ]
     },
     "public_appointments.parquet": {
-      "rows": 1063,
+      "rows": 1147,
       "columns": [
         "notice_ref",
         "issue_date",
@@ -1175,40 +1200,6 @@
         "lang",
         "title",
         "iris_source_pdf"
-      ]
-    },
-    "public_payments_fact.parquet": {
-      "rows": 74546,
-      "columns": [
-        "publisher_id",
-        "publisher_name",
-        "publisher_type",
-        "sector",
-        "source_landing_url",
-        "source_file_url",
-        "source_file_hash",
-        "period",
-        "year",
-        "quarter",
-        "supplier_raw",
-        "supplier_normalised",
-        "amount_eur",
-        "amount_semantics",
-        "value_safe_to_sum",
-        "description",
-        "po_number",
-        "paid_flag",
-        "source_row_number",
-        "source_page_number",
-        "parser_name",
-        "parser_version",
-        "extraction_status",
-        "extraction_confidence",
-        "caveat_text_detected",
-        "supplier_class",
-        "privacy_status",
-        "public_display",
-        "source_caveat"
       ]
     },
     "revolving_door_dpos.parquet": {

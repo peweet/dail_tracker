@@ -41,3 +41,8 @@ def org_overlap(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 def engagements(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Per-(engagement x org) drill-down rows (minister, dept, date, subject, source)."""
     return _run(conn, "SELECT * FROM v_ministerial_diary_engagements")
+
+
+def meetings(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """The BROAD landscape — every external meeting (one row each, NO org-match required)."""
+    return _run(conn, "SELECT * FROM v_ministerial_diary_meetings")

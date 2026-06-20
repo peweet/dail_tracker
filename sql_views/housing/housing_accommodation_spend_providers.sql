@@ -1,11 +1,12 @@
 -- v_accommodation_spend_providers — providers paid for international-protection (asylum)
 -- and Ukraine accommodation, ranked by total committed spend. The "who collects the
--- money" list. One row per provider (supplier_normalised).
+-- money" list. One row per provider.
 --
--- Same source / filter / caveats as v_accommodation_spend_by_year. amount = PO-committed.
--- Provider names are as normalised in the payments fact; some entities still fragment
--- (e.g. "MOSNEY" vs "MOSNEY HOLIDAYS") — a known supplier-spine limitation, so treat
--- ranks as indicative, not a definitive single-entity league.
+-- UNION of the published payments fact + the DCEDIY 2023-2024 legacy extract (the years
+-- IPAS sat under the Dept of Children). Disjoint publishers => additive, no double-count;
+-- DCEDIY 2025+ excluded (Dept of Justice covers 2025+ in the fact). amount = PO-committed.
+-- Provider names are as published; some entities still fragment (e.g. "MOSNEY" vs
+-- "MOSNEY HOLIDAYS") — a known supplier-spine limitation, so treat ranks as indicative.
 CREATE OR REPLACE VIEW v_accommodation_spend_providers AS
 WITH acc AS (
     SELECT
@@ -23,6 +24,10 @@ WITH acc AS (
         OR lower(spend_category) LIKE '%ukraine accommodation%'
         OR lower(spend_category) LIKE '%separated children%'
       )
+    UNION ALL
+    SELECT provider, stream, CAST(amount_eur AS DOUBLE) AS amount_eur, year
+    FROM read_parquet('data/gold/parquet/dceidy_ipas_legacy_spend.parquet')
+    WHERE year IN (2023, 2024) AND provider IS NOT NULL
 )
 SELECT
     provider,

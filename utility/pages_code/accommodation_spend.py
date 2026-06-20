@@ -29,9 +29,31 @@ from data_access.housing_data import (
 from ui.components import empty_state, evidence_heading, hero_banner, hide_sidebar, page_error_boundary, totals_strip
 
 # Authoritative denominator (C&AG 2024, Ch.10) — so our register-based figure is never
-# read as the full spend. https://www.audit.gov.ie (Management of IP Accommodation Contracts).
+# read as the full spend.
 _CAG_2024_COMMERCIAL_EUR = 978_000_000
 _CAG_2024_TOTAL_EUR = 1_100_000_000
+
+# Source links (shown under the page, and the C&AG benchmark inline).
+_SRC_CAG = (
+    "https://www.audit.gov.ie/en/find-report/publications/2025/"
+    "10-management-of-international-protection-accommodation-contracts.pdf"
+)
+_SRC_DCEDIY = (
+    "https://www.gov.ie/en/department-of-children-disability-and-equality/collections/"
+    "department-of-children-equality-disability-integration-and-youth-purchase-orders-for-20000-or-above/"
+)
+_SRC_JUSTICE = (
+    "https://www.gov.ie/en/department-of-justice-home-affairs-and-migration/collections/"
+    "department-of-justice-purchase-orders-issued-over-20000-in-value/"
+)
+_SRC_IPAS = "https://www.gov.ie/en/international-protection-accommodation-services-ipas/"
+
+
+def _eur_full(v) -> str:
+    """Full comma-delimited euro: €113,863,982. — for none/zero."""
+    if v is None or (isinstance(v, float) and pd.isna(v)) or float(v) == 0:
+        return "—"
+    return f"€{float(v):,.0f}"
 
 
 def _eur(v) -> str:
@@ -59,17 +81,32 @@ def _render_by_year(df) -> None:
         ]
     )
     st.caption(
-        "Committed = purchase-order amounts from the published over-€20k registers "
-        "(PO-committed, not confirmed cash). For 2024 the Comptroller & Auditor General "
-        f"put IP accommodation at ~{_eur(_CAG_2024_COMMERCIAL_EUR)} paid to commercial "
-        f"providers (~{_eur(_CAG_2024_TOTAL_EUR)} total) — far above what the registers "
-        "capture, so the 2020–2024 figures here are UNDER-COUNTED (that spend sat under "
-        "the Dept of Children, whose register is not yet ingested)."
+        "Committed = purchase-order amounts (PO-committed, not confirmed cash) from the "
+        "published over-€20,000 registers — including the Dept of Children (DCEDIY) register "
+        "for 2023–2024, the years IPAS sat under that department. For 2024 the "
+        f"[Comptroller & Auditor General]({_SRC_CAG}) put IP accommodation at "
+        f"~{_eur(_CAG_2024_COMMERCIAL_EUR)} paid to commercial providers "
+        f"(~{_eur(_CAG_2024_TOTAL_EUR)} total incl. capital) — our 2024 IP figure is now in "
+        "that range. 2020–2022 remain thin (pre-surge; not separately published in a "
+        "parsable register)."
     )
     chart = df.set_index("year")[["ip_eur", "ukraine_eur"]].rename(
         columns={"ip_eur": "International protection", "ukraine_eur": "Ukraine"}
     )
-    st.bar_chart(chart, color=["#3d719c", "#dba43c"], height=300)
+    st.bar_chart(chart, color=["#3d719c", "#dba43c"], height=300, x_label="Year", y_label="€ committed")
+
+    # Exact figures per year (the bars can't show values) — comma-delimited €, latest first.
+    yt = df.sort_values("year", ascending=False)
+    table = pd.DataFrame(
+        {
+            "Year": [str(int(y)) for y in yt["year"]],
+            "Intl. protection": [_eur_full(v) for v in yt["ip_eur"]],
+            "Ukraine": [_eur_full(v) for v in yt["ukraine_eur"]],
+            "Total committed": [_eur_full(v) for v in yt["total_eur"]],
+            "Providers": [f"{int(v):,}" if pd.notna(v) else "—" for v in yt["n_providers"]],
+        }
+    )
+    st.dataframe(table, hide_index=True, width="stretch")
 
 
 def _render_providers(df) -> None:
@@ -79,25 +116,17 @@ def _render_providers(df) -> None:
         "spend across the covered years. Names are as published; some single operators "
         "still appear under more than one spelling, so treat the order as indicative.</p>"
     )
+    # Comma-delimited € strings (rows already ranked by total in the view).
     show = pd.DataFrame(
         {
             "Provider": df["provider"],
-            "Total committed": df["total_eur"],
-            "Intl. protection": df["ip_eur"],
-            "Ukraine": df["ukraine_eur"],
+            "Total committed": [_eur_full(v) for v in df["total_eur"]],
+            "Intl. protection": [_eur_full(v) for v in df["ip_eur"]],
+            "Ukraine": [_eur_full(v) for v in df["ukraine_eur"]],
             "Years": [f"{int(a)}–{int(b)}" if a != b else f"{int(a)}" for a, b in zip(df["first_year"], df["last_year"])],
         }
     )
-    st.dataframe(
-        show,
-        hide_index=True,
-        width="stretch",
-        column_config={
-            "Total committed": st.column_config.NumberColumn(format="€%d"),
-            "Intl. protection": st.column_config.NumberColumn(format="€%d"),
-            "Ukraine": st.column_config.NumberColumn(format="€%d"),
-        },
-    )
+    st.dataframe(show, hide_index=True, width="stretch")
 
 
 @page_error_boundary
@@ -127,8 +156,9 @@ def accommodation_spend_page() -> None:
         _render_providers(prov.data)
 
     st.caption(
-        "Source: departmental & agency purchase-orders-over-€20,000 registers (gov.ie), "
-        "via the project's payments dataset. Scale benchmark: C&AG 2024 Report, Ch.10. "
-        "Most accommodation is procured by direct/emergency award, so it does NOT appear "
-        "on eTenders/TED. Figures are committed purchase orders, not audited final cash."
+        f"**Sources:** [Dept of Children (DCEDIY) purchase orders over €20k]({_SRC_DCEDIY}) · "
+        f"[Dept of Justice purchase orders over €20k]({_SRC_JUSTICE}) · "
+        f"[C&AG 2024 Report, Ch.10]({_SRC_CAG}) · [IPAS]({_SRC_IPAS}). "
+        "Most accommodation is procured by direct/emergency award, so it does NOT appear on "
+        "eTenders/TED. Figures are committed purchase orders (PO-committed), not audited final cash."
     )

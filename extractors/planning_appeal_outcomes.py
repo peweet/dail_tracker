@@ -1,4 +1,4 @@
-"""Sandbox: authoritative council-overturn metric — applications x ACP appeal decisions.
+"""Authoritative council-overturn metric — applications x ACP appeal decisions.
 
 Fixes the data-quality trap in the national profile (planning_decision_profiles.py): the applications
 feed's self-reported `AppealDecision` is unreliable (empty-string default; per-council vendor quirks —
@@ -7,10 +7,16 @@ TRUSTWORTHY source is An Coimisiún Pleanála's OWN decision (registry PC02, CC-
 council decision via the §Angle-4 recipe (6-digit core of AppealRefNumber -> ABPCASEID).
 
 Output: per matched appeal — council decision vs ABP decision -> overturned/upheld; + a per-council
-ranking of how often ABP overturns the council. OCR-free.
+ranking of how often ABP overturns the council. OCR-free. Powers v_la_planning_overturn ("Who runs
+your county") and the per-council overturn signal.
+
+Promoted out of pipeline_sandbox/ 2026-06-20 — runs in pipeline.py as the planning_appeal_outcomes
+chain. FETCHES the ACP ArcGIS FeatureServer; reads the COMMITTED planning_applications_silver (the
+national planning ingest is NOT yet a pipeline chain, so that silver is a static input here). The
+save_parquet min_rows floor refuses to overwrite the silver with a degraded/partial ArcGIS pull.
 
 Inputs:  ACP Cases_2016_Onwards FeatureServer layer 3 (PC02); planning_applications_silver.parquet (PC01)
-Output:  pipeline_sandbox/_planning_output/planning_appeal_outcomes.parquet
+Output:  data/silver/parquet/planning_appeal_outcomes.parquet
          data/_meta/planning_appeal_outcomes_coverage.json
 """
 
@@ -128,7 +134,10 @@ def main() -> None:
 
     clear = j.filter((pl.col("council_decision") != "OTHER") & (pl.col("abp_decision") != "OTHER"))
     clear = clear.with_columns((pl.col("council_decision") != pl.col("abp_decision")).alias("overturned"))
-    save_parquet(clear, OUT)
+    # Row floor: the clear-vs-clear set is ~13k and only grows as ABP adds cases. A partial
+    # ArcGIS pull (outage mid-pagination, schema drift) would thin it; refuse to overwrite the
+    # silver below this floor rather than ship a truncated overturn metric to the LA page.
+    save_parquet(clear, OUT, min_rows=10_000)
 
     n = clear.height
     rev = clear.filter(pl.col("overturned")).height
@@ -156,7 +165,7 @@ def main() -> None:
 
     cov = {
         "generated_utc": dt.datetime.now(dt.UTC).isoformat(),
-        "layer": "sandbox",
+        "layer": "silver",
         "source": "PC02 ACP Cases_2016_Onwards joined to PC01 applications via AppealRefNumber 6-digit -> ABPCASEID",
         "acp_cases": acp.height,
         "appeals_joined": j.height,

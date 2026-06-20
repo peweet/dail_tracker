@@ -124,8 +124,6 @@ LINEAGE_ALLOWLIST: dict[str, str] = {
     "data/silver/parquet/seai_payments_fact.parquet": "ETL input folded into gold procurement_payments_fact (consolidate chain)",
     "data/silver/parquet/dept_readingorder_payments_fact.parquet": "ETL input folded into gold procurement_payments_fact (consolidate chain)",
     "data/silver/parquet/la_payments_fact.parquet": "ETL input folded into gold procurement_payments_fact (consolidate chain)",
-    "data/gold/parquet/public_payments_fact.parquet": "gold pre-union copy superseded by consolidated procurement_payments_fact",
-    "data/gold/parquet/hse_tusla_payments_fact.parquet": "gold pre-union copy superseded by consolidated procurement_payments_fact",
 }
 
 
