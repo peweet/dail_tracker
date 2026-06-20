@@ -115,6 +115,7 @@ _STOP = {
     "the",
     "and",
     "to",
+    "for",
     "diary",
     "calendar",
     "q",
@@ -126,6 +127,39 @@ _STOP = {
     "tds",
     "td",
 }
+# Department/role-description words that appear in a filename in place of a surname
+# ("minister-for-public-expenditure-and-reform-diary") — never a person, so don't coin a
+# name from them (drop to the dept+date fallback instead).
+_DEPT_WORDS = {
+    "public",
+    "expenditure",
+    "reform",
+    "ndp",
+    "delivery",
+    "infrastructure",
+    "digitalisation",
+    "finance",
+    "health",
+    "justice",
+    "housing",
+    "transport",
+    "education",
+    "agriculture",
+    "defence",
+    "foreign",
+    "affairs",
+    "communications",
+    "environment",
+    "climate",
+    "energy",
+    "enterprise",
+    "culture",
+    "sport",
+    "office",
+    "service",
+}
+# Minister-of-State files without a surname must NOT inherit the SENIOR minister's date rule.
+_MOS_RE = re.compile(r"\bmos\b|minister[-_ ]of[-_ ]state|of[-_ ]state", re.IGNORECASE)
 _MONTHS = {
     "january",
     "february",
@@ -166,6 +200,13 @@ DEPT_DATE_RULES: list[tuple[str, str, date, date | None]] = [
     ("FINANCE", "Chambers", date(2024, 6, 26), date(2025, 1, 23)),
     ("FINANCE", "Donohoe", date(2025, 1, 23), date(2025, 11, 18)),
     ("FINANCE", "Harris", date(2025, 11, 18), None),
+    # DPER senior diaries are mostly descriptive-named ("...-public-expenditure-and-reform-diary")
+    # or generic month files → attribute the SENIOR minister by date. (MoS files — Smyth/Higgins /
+    # "...-mos" — are guarded out in resolve_minister so they don't inherit the senior name.)
+    ("DPER", "Donohoe", date(2016, 5, 6), date(2020, 6, 27)),
+    ("DPER", "McGrath", date(2020, 6, 27), date(2022, 12, 17)),
+    ("DPER", "Donohoe", date(2022, 12, 17), date(2025, 1, 23)),
+    ("DPER", "Chambers", date(2025, 1, 23), None),
 ]
 
 
@@ -186,14 +227,26 @@ def minister_from_filename(file_url_or_name: str | None) -> str | None:
     name = Path(str(file_url_or_name).split("?")[0]).name.lower()
     name = re.sub(r"\.pdf$", "", name)
     tokens = [t for t in re.split(r"[^a-z]+", name) if t]
-    # locate the diary/calendar keyword; the surname is the last real name token before it
-    idx = next((tokens.index(k) for k in ("diary", "calendar") if k in tokens), None)
-    candidates = tokens[:idx] if idx is not None else tokens
-    names = [t for t in candidates if t not in _STOP and t not in _MONTHS]
-    if not names:
+    names = [t for t in tokens if t not in _STOP and t not in _MONTHS and t not in _DEPT_WORDS]
+    # WITHOUT a diary/calendar anchor the trailing token is unreliable (UUID hex fragments,
+    # date ordinals "th"/"st") — only trust an explicit known surname.
+    if not any(k in tokens for k in ("diary", "calendar")):
+        for t in names:
+            if t in SURNAME_CANON:
+                return SURNAME_CANON[t]
         return None
-    key = names[-1]
-    return SURNAME_CANON.get(key) or _normalise_token(key)
+    # WITH an anchor, the surname is the last real name token before it
+    idx = next(tokens.index(k) for k in ("diary", "calendar") if k in tokens)
+    before = [t for t in tokens[:idx] if t not in _STOP and t not in _MONTHS and t not in _DEPT_WORDS]
+    if not before:
+        return None
+    key = before[-1]
+    if key in SURNAME_CANON:
+        return SURNAME_CANON[key]
+    # plausible surname only: alphabetic, >=4 chars, contains a vowel (kills "th"/hex like "bfbd")
+    if len(key) >= 4 and re.fullmatch(r"[a-z]+", key) and re.search(r"[aeiou]", key):
+        return _normalise_token(key)
+    return None
 
 
 def _coerce_date(value: object) -> date | None:
@@ -221,5 +274,13 @@ def minister_from_dept_date(department: str | None, entry_date: object) -> str |
 
 
 def resolve_minister(file_url_or_name: str | None, department: str | None, entry_date: object) -> str | None:
-    """The single entry point: filename surname first, then department+date fallback."""
-    return minister_from_filename(file_url_or_name) or minister_from_dept_date(department, entry_date)
+    """The single entry point: filename surname first, then department+date fallback.
+
+    A Minister-of-State file with no surname in its name is NOT given the senior minister's
+    date rule (it isn't the senior minister) — it stays unattributed for later digging."""
+    name = minister_from_filename(file_url_or_name)
+    if name:
+        return name
+    if file_url_or_name and _MOS_RE.search(str(file_url_or_name)):
+        return None
+    return minister_from_dept_date(department, entry_date)
