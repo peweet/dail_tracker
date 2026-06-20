@@ -54,9 +54,19 @@ SELECT
     (o.supplier_norm IS NOT NULL)             AS on_lobbying_register,
     COALESCE(o.lobbying_returns, 0)           AS lobbying_returns,
     COALESCE(o.is_lobbying_registrant, FALSE) AS is_lobbying_registrant,
-    COALESCE(o.is_lobbying_client, FALSE)     AS is_lobbying_client
+    COALESCE(o.is_lobbying_client, FALSE)     AS is_lobbying_client,
+    -- EPA environmental-licence membership, folded in here (same pattern as the CRO /
+    -- lobbying flags) so the Companies landing filters/counts on a column instead of
+    -- intersecting the EPA index against the supplier list in pandas. Matches the page's
+    -- prior definition: a CRO-matched company holding >=1 EPA licence.
+    (epa.company_num IS NOT NULL)             AS has_epa_licence
 FROM agg a
 LEFT JOIN read_parquet('data/gold/parquet/procurement_supplier_cro_match.parquet') c
     ON a.supplier_norm = c.supplier_norm
 LEFT JOIN ov o ON a.supplier_norm = o.supplier_norm
+LEFT JOIN (
+    SELECT DISTINCT company_num
+    FROM read_parquet('data/gold/parquet/epa_supplier_compliance.parquet')
+    WHERE company_num IS NOT NULL AND n_licences > 0
+) epa ON c.company_num = epa.company_num
 ORDER BY a.n_awards DESC;
