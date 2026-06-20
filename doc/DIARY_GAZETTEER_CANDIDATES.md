@@ -1,5 +1,12 @@
 # Ministerial-diary gazetteer — company add-list (candidates)
 
+> **APPLIED 2026-06-21.** 11 added to `CURATED_ORGS` + chain re-run (company_influence 568→600):
+> Merck, Amgen, Cisco (boundary guard blocks "San Francisco"), Oracle, Coca-Cola, Kerry Group,
+> Teva, Becton Dickinson, Alexion, Thermo Fisher, Anthropic. **DROPPED on verification (false
+> positives):** Roche ("Stephen Roche" / "Rochestown Park Hotel"), Baxter ("Peter Baxter" person),
+> Bayer (OCR noise), bare Kerry (the county / Radio Kerry). The table below is the original scan.
+
+
 Read-only scan (2026-06-21) of the diary engagements for pharma / tech / multinational brands
 that ministers met but the diary org gazetteer does NOT yet capture — so they're invisible to
 `v_ministerial_diary_org_overlap` and the `company_influence` cross-reference.

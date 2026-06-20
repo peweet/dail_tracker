@@ -1,24 +1,53 @@
 {
   "publisher_id": "ie_nphdb",
   "publisher_name": "National Paediatric Hospital Development Board",
-  "source_file_url": "https://newchildrenshospital.ie/wp-content/uploads/2025/10/NPHDB-Quarterly-PO-Listing-Q1-2024-to-Q2-2025-ID-182108.pdf",
-  "source_file_hash": "7d28af3f7f855e4d",
-  "period_span": "2024-Q1..2025-Q2",
-  "rows_extracted": 260,
+  "source_landing_url": "https://newchildrenshospital.ie/freedom-of-information/procurement/",
+  "files_parsed": [
+    {
+      "period": "2024-Q1..2025-Q2",
+      "url": "https://newchildrenshospital.ie/wp-content/uploads/2025/10/NPHDB-Quarterly-PO-Listing-Q1-2024-to-Q2-2025-ID-182108.pdf",
+      "hash": "7d28af3f7f855e4d",
+      "rows": 260,
+      "sum_eur": 193779131.7,
+      "status": "ok"
+    },
+    {
+      "period": "2025-Q3",
+      "url": "https://newchildrenshospital.ie/wp-content/uploads/2026/01/Quarterly-PO-Listing-Q3-2025-ID-183186.pdf",
+      "hash": "1867827a4f08e888",
+      "rows": 43,
+      "sum_eur": 15766635.69,
+      "status": "ok"
+    },
+    {
+      "period": "2025-Q4",
+      "url": "https://newchildrenshospital.ie/wp-content/uploads/2026/06/Quarterly-PO-Listing-Q4-2025-ID-195073.pdf",
+      "hash": "6fb142771aeedf5e",
+      "rows": 65,
+      "sum_eur": 9916191.27,
+      "status": "ok"
+    }
+  ],
+  "period_span": "2024-Q1..2025-Q4",
+  "single_quarters_covered": [
+    "2025-Q3",
+    "2025-Q4"
+  ],
+  "rows_extracted": 368,
   "supplier_class_counts": {
-    "sole_trader_or_individual": 145,
-    "company": 98,
-    "public_body": 14,
-    "foreign_company": 3
+    "company": 182,
+    "sole_trader_or_individual": 161,
+    "foreign_company": 4,
+    "public_body": 21
   },
-  "amount_total_eur": 193779131.7,
+  "amount_total_eur": 219461958.66000003,
   "largest_amount_eur": 107637334.0,
-  "largest_amount_share_of_total": 0.5555,
-  "outlier_warning": true,
-  "value_safe_to_sum_rows": 260,
+  "largest_amount_share_of_total": 0.4905,
+  "outlier_warning": false,
+  "value_safe_to_sum_rows": 346,
   "privacy_quarantine_applied": false,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-04T13:57:04+00:00",
-  "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). NPHDB quarterly PO listing for the New Children's Hospital. One row per source line. amount_semantics=po_committed. BAM Building rows are disputed conciliator/adjudicator awards (Notice of Dissatisfaction) \u2014 a single ~\u20ac107.6m row dominates >50% of the file: outlier_warning=true, never headline a raw sum. Unions with public_payments_fact at promotion. PRIVACY QUARANTINE DEFERRED (public_display=True for all rows)."
+  "generated_at": "2026-06-20T23:13:42+00:00",
+  "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). NPHDB quarterly PO listings for the New Children's Hospital, unioned across published files (2024-Q1..2025-Q4). One row per source line. amount_semantics=po_committed. BAM Building rows are disputed conciliator/adjudicator awards (Notice of Dissatisfaction) \u2014 the ~\u20ac107.6m row is ~49% of the corpus: never headline a raw sum. Unions with public_payments_fact at promotion. PRIVACY QUARANTINE DEFERRED (public_display=True for all rows)."
 }

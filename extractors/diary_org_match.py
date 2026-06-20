@@ -386,6 +386,23 @@ CURATED_ORGS: dict[str, str] = {
     "takeda": "Takeda",
     "regeneron": "Regeneron",
     "johnson and johnson": "Johnson & Johnson",
+    # Added 2026-06-21 from a vetted scan of the OCR-expanded `other` bucket (doc/
+    # DIARY_GAZETTEER_CANDIDATES.md). Each verified against real diary subjects before adding;
+    # COLLISION-PRONE candidates DROPPED on inspection: "roche" (Stephen Roche / Rochestown Park
+    # Hotel), "baxter" (Peter Baxter, a person), "bayer" (OCR noise), bare "kerry" (the county /
+    # Radio Kerry — use the "kerry group" phrase instead). "cisco" is safe: the boundary guard
+    # blocks "san francisco". Keys are distinctive (no common person/place collision) or phrases.
+    "merck": "Merck",  # met Taoiseach Martin (expansion) + Calleary; distinct from MSD group entry
+    "amgen": "Amgen",
+    "cisco": "Cisco",
+    "oracle": "Oracle",
+    "coca cola": "Coca-Cola",
+    "kerry group": "Kerry Group",
+    "teva": "Teva Pharmaceuticals",
+    "becton": "Becton Dickinson",
+    "alexion": "Alexion",
+    "thermo fisher": "Thermo Fisher Scientific",
+    "anthropic": "Anthropic",
 }
 _CURATED_RE = re.compile(
     r"(?<![a-z0-9])(" + "|".join(sorted(CURATED_ORGS, key=len, reverse=True)) + r")(?![a-z0-9])"
