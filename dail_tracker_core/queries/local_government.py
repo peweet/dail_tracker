@@ -55,6 +55,12 @@ def housing_performance(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult
     return _run(conn, "SELECT * FROM v_la_housing_performance WHERE local_authority = ?", [la])
 
 
+def council_money(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
+    """Council procurement scale (purchase orders / payments over €20k) — context for
+    the size of money the executive signs off. Only ~23/31 councils publish."""
+    return _run(conn, "SELECT * FROM v_procurement_council_summary WHERE council = ?", [la])
+
+
 def national_summary(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """One-row national headline for the landing page."""
     return _run(conn, "SELECT * FROM v_la_accountability_summary")
