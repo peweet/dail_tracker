@@ -50,8 +50,8 @@ from extractors.ted_ireland_extract import (  # noqa: E402
     to_eur,
 )
 from services.parquet_io import save_parquet  # noqa: E402
-from shared.buyer_clean import clean_buyer_display  # noqa: E402
 from services.ted_search import fetch_ted_search  # noqa: E402
+from shared.buyer_clean import clean_buyer_display  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
 
 with contextlib.suppress(Exception):
@@ -157,7 +157,9 @@ def build_rows(raw: list[dict]) -> list[dict]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--max-pages", type=int, default=None, help="smoke-test bound; default None = ALL pages (ITERATION)")
+    ap.add_argument(
+        "--max-pages", type=int, default=None, help="smoke-test bound; default None = ALL pages (ITERATION)"
+    )
     ap.add_argument("--refresh", action="store_true", help="ignore raw cache, re-pull API")
     args = ap.parse_args()
 
@@ -174,9 +176,7 @@ def main() -> None:
 
     # Clean buyer_name (strip OGP org-id / school-roll debris) BEFORE deriving the norm, so the
     # join key groups the same authority together rather than splitting it by org id.
-    df = clean_buyer_display(
-        pl.DataFrame(build_rows(raw), infer_schema_length=None), "buyer_name"
-    ).with_columns(
+    df = clean_buyer_display(pl.DataFrame(build_rows(raw), infer_schema_length=None), "buyer_name").with_columns(
         name_norm_expr("buyer_name").alias("buyer_name_norm"),
     )
     # Conservative sum-safe gate: value present, single-grade (not large), not pan-EU. Framework
@@ -199,7 +199,9 @@ def main() -> None:
 
     hr("SILVER WRITTEN (buyer-side)")
     print(f"rows (one per notice): {df.height:,}  ->  {OUT_SILVER}")
-    print(f"distinct notices: {df['publication_number'].n_unique():,}  distinct buyers: {df['buyer_name_norm'].n_unique():,}")
+    print(
+        f"distinct notices: {df['publication_number'].n_unique():,}  distinct buyers: {df['buyer_name_norm'].n_unique():,}"
+    )
     print(df.group_by("year").len().sort("year"))
     safe = df.filter(pl.col("value_safe_to_sum"))
     has_val = df.filter(pl.col("total_value_eur").is_not_null())

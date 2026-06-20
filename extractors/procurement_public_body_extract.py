@@ -114,17 +114,79 @@ CAVEAT_RE = re.compile(r"\bvat\b|exclud|inclus|indicativ|not (a )?payment|net of
 #     ARUP CONSULTING ENGINEERS / CREATIVE TECHNOLOGY etc. were misclassed sole-trader. Fixed
 #     2026-06-13; the reclassifier in procurement_payments_consolidate.py carries the same vocab.
 _CO_WORDS = (
-    "ltd", "limited", "dac", "plc", "clg", "llp", "teo", "teoranta", "t/a", "uc", "inc", "llc",
-    "gmbh", "co", "company", "companies", "group", "sons", "bros", "university", "college",
-    "council", "hse", "board", "media", "hotel", "ireland", "jv", "ppp",
+    "ltd",
+    "limited",
+    "dac",
+    "plc",
+    "clg",
+    "llp",
+    "teo",
+    "teoranta",
+    "t/a",
+    "uc",
+    "inc",
+    "llc",
+    "gmbh",
+    "co",
+    "company",
+    "companies",
+    "group",
+    "sons",
+    "bros",
+    "university",
+    "college",
+    "council",
+    "hse",
+    "board",
+    "media",
+    "hotel",
+    "ireland",
+    "jv",
+    "ppp",
 )
 _CO_STEMS = (
-    "servic", "solution", "consult", "engineer", "architect", "surveyor", "solicitor", "barrister",
-    "accountant", "advis", "contract", "construct", "develop", "enterprise", "industr", "technolog",
-    "system", "software", "logistic", "distribut", "manufactur", "pharma", "biotech", "diagnostic",
-    "laborator", "healthcare", "medical", "insuranc", "assuranc", "management", "communicat", "telecom",
-    "propert", "holding", "internation", "institut", "foundation", "partner", "associat", "incorporat",
-    "corporat", "centre",
+    "servic",
+    "solution",
+    "consult",
+    "engineer",
+    "architect",
+    "surveyor",
+    "solicitor",
+    "barrister",
+    "accountant",
+    "advis",
+    "contract",
+    "construct",
+    "develop",
+    "enterprise",
+    "industr",
+    "technolog",
+    "system",
+    "software",
+    "logistic",
+    "distribut",
+    "manufactur",
+    "pharma",
+    "biotech",
+    "diagnostic",
+    "laborator",
+    "healthcare",
+    "medical",
+    "insuranc",
+    "assuranc",
+    "management",
+    "communicat",
+    "telecom",
+    "propert",
+    "holding",
+    "internation",
+    "institut",
+    "foundation",
+    "partner",
+    "associat",
+    "incorporat",
+    "corporat",
+    "centre",
 )
 COMPANY_SUFFIX = re.compile(
     r"\b(?:" + "|".join(_CO_WORDS) + r")\b|&|\b(?:" + "|".join(_CO_STEMS) + r")",
@@ -585,7 +647,9 @@ PUBLISHERS: list[dict] = [
         privacy="medium",
         tier="C",
         # One rolling xlsx holding all quarters 2021Q4→2026Q1 (pinned: the listing is a JS widget).
-        direct=["https://tus.ie/app/uploads/ProfessionalServices/FOI/TUS_POs_over_20k_2021QTR4_2022_2023_2024_2025_Q1.2026.xlsx"],
+        direct=[
+            "https://tus.ie/app/uploads/ProfessionalServices/FOI/TUS_POs_over_20k_2021QTR4_2022_2023_2024_2025_Q1.2026.xlsx"
+        ],
     ),
     cfg(
         "ie_mtu",
@@ -783,6 +847,26 @@ PUBLISHERS: list[dict] = [
         include=r"purchase|po[s]?[-_ ]?over|20[,]?000|quarter|q[1-4]",
         caveat="Film-funding body; payees may be individuals/production cos — privacy gate applies.",
     ),
+    # ---- Batch B 2026-06-20: PROBE-FIRST (test parse quality before promoting to gold) ----
+    cfg(
+        "ie_loetb",
+        "Laois & Offaly ETB",
+        "education_body",
+        "education",
+        listing="https://loetb.ie/organisation-support-development/finance/purchase-orders-over-20000/",
+        semantics="po_committed",
+        grain="purchase_order",
+        privacy="medium",
+        tier="D",
+        include=r"purchase|po[s]?[-_ ]?over|20[,]?000|quarter|q[1-4]",
+    ),
+    # ie_lmetb: DEFERRED 2026-06-20 — parse-quality probe FAILED. The 9 "payments-over-E20k" PDFs
+    # parse (63-90 rows each) but the generic reader captures NO supplier (all 662 rows supplier=null,
+    # min amount €2 = column misalignment). Its PDF layout needs a bespoke column-x spec (HSE/Tusla
+    # pattern) before it can be ingested — shipping it would inject 662 nameless rows. Listing:
+    # https://www.lmetb.ie/category/finance/purchase-orders-over-e20000/ (payment_actual grain).
+    # ie_rsa: list-probe harvested 0 files (the /about/reporting page links no PO/payment files) —
+    # deferred to the Playwright/direct-URL tail rather than shipped empty.
 ]
 
 

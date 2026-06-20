@@ -86,8 +86,15 @@ def _or_skip(result: QueryResult) -> QueryResult:
 def test_voting_vs_interests_columns_and_landlord_flag(conn):
     r = _or_skip(q.voting_vs_interests(conn, keyword="housing", vote_type="Voted No", interest="landlord"))
     expected = {
-        "vote_id", "vote_date", "debate_title", "member_id", "member_name",
-        "party_name", "constituency", "vote_type", "held_in_vote_year",
+        "vote_id",
+        "vote_date",
+        "debate_title",
+        "member_id",
+        "member_name",
+        "party_name",
+        "constituency",
+        "vote_type",
+        "held_in_vote_year",
     }
     assert expected.issubset(set(r.data.columns))
     if not r.data.empty:

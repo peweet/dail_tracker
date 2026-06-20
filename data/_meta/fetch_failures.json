@@ -1,33 +1,10 @@
 {
-  "generated_utc": "2026-06-19T18:03:54+00:00",
+  "generated_utc": "2026-06-20T08:00:57+00:00",
   "extractors": {
     "public_body": {
-      "run_utc": "2026-06-19T18:03:54+00:00",
-      "n_failures": 2,
-      "failures": [
-        {
-          "ts_utc": "2026-06-19T18:03:52+00:00",
-          "publisher_id": "ie_prisons",
-          "publisher_name": "Irish Prison Service",
-          "stage": "file",
-          "url": "https://www.irishprisons.ie/wp-content/uploads/documents_pdf/POs-greater-than-E20k-2023.pdf",
-          "listing_url": "https://www.irishprisons.ie/information-centre/procurement/",
-          "error_class": "not_expected_filetype",
-          "http_status": null,
-          "attempts": 1
-        },
-        {
-          "ts_utc": "2026-06-19T18:03:54+00:00",
-          "publisher_id": "ie_prisons",
-          "publisher_name": "Irish Prison Service",
-          "stage": "file",
-          "url": "https://www.irishprisons.ie/wp-content/uploads/documents_pdf/POs-greater-than-E20k-2022.pdf",
-          "listing_url": "https://www.irishprisons.ie/information-centre/procurement/",
-          "error_class": "not_expected_filetype",
-          "http_status": null,
-          "attempts": 1
-        }
-      ],
+      "run_utc": "2026-06-20T08:00:57+00:00",
+      "n_failures": 0,
+      "failures": [],
       "zero_harvest": [],
       "breaker_trips": []
     },

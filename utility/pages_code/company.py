@@ -22,10 +22,12 @@ import sys
 import urllib.parse
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from data_access.corporate_data import fetch_corporate_notices_for_company_result
 from data_access.procurement_data import (
     fetch_payments_for_supplier_result,
     fetch_supplier_summary_result,
@@ -74,6 +76,70 @@ _DOSSIER_FOOT = (
 )
 
 
+def _render_corporate_distress_panel(company_num) -> None:
+    """Cross-register block on the company dossier: the firm's CRO registration status and
+    its corporate notices in Iris Oifigiúil (insolvency / liquidation / receivership /
+    register changes), matched on the hard CRO ``company_num``. A SEPARATE public register —
+    statutory notices only, never juxtaposed with or added to the firm's money figures above.
+
+    No-inference rails: appearing on a notice is a public record, not a finding of wrongdoing;
+    a firm may be the SUBJECT of a notice or a named insolvency practitioner, so the firm's own
+    company_status leads (the hard fact about THIS legal entity) and a firm with no CRO-matched
+    notice is silently absent — a zero is never implied as a clean record."""
+    if not _truthy(company_num):
+        return
+    try:
+        cnum = int(float(company_num))
+    except (TypeError, ValueError):
+        return
+    res = fetch_corporate_notices_for_company_result(cnum)
+    if not res.ok or res.data.empty:
+        return  # firm holds no CRO-matched corporate notice — silent absence
+    df = res.data
+    r0 = df.iloc[0]
+    n = len(df)
+
+    status_raw = str(r0.get("company_status") or "").strip()
+    status_human = "Normal — in good standing" if status_raw == "Normal" else status_raw
+    reg_v, diss_v = r0.get("company_reg_date"), r0.get("comp_dissolved_date")
+    reg = str(reg_v)[:10] if pd.notna(reg_v) else ""  # str(pd.NaT)[:10] == "NaT" — guard explicitly
+    diss = str(diss_v)[:10] if pd.notna(diss_v) else ""
+
+    # Identity lead — the hard fact about THIS legal entity (whether it is itself in distress).
+    ident = f"CRO company {cnum}"
+    if reg:
+        ident += f", registered {_esc(reg)}"
+    if status_raw:
+        if diss:
+            ident += f"; the entity was <strong>{_esc(status_human)}</strong> on {_esc(diss)}"
+        else:
+            ident += f"; the entity is recorded as <strong>{_esc(status_human)}</strong>"
+    ident += "."
+
+    # Display-only breakdown by subtype (small per-firm frame — counts only, no business logic).
+    counts = df["notice_subtype"].fillna("unspecified").value_counts()
+    parts = [f"{int(cnt)}× {_esc(str(sub).replace('_', ' '))}" for sub, cnt in counts.items()]
+    dates = df["issue_date"].dropna().astype(str).str.slice(0, 10)
+    span = ""
+    if not dates.empty:
+        lo, hi = dates.min(), dates.max()
+        span = f" between {_esc(lo)} and {_esc(hi)}" if lo != hi else f" ({_esc(lo)})"
+
+    body = (
+        f"{ident} This entity appears on <strong>{n:,} corporate notice{'' if n == 1 else 's'}</strong> "
+        f"in Iris Oifigiúil{span}: {'; '.join(parts)}. "
+        "These are statutory public notices (insolvency, liquidation, receivership or register "
+        "changes) — a firm may appear as the <em>subject</em> of a notice or as a named "
+        "practitioner, so this is a public record, not a finding of wrongdoing."
+    )
+    st.html(
+        '<div class="pr-ted-xref"><div class="pr-ted-xref-h">Corporate register notices (CRO / Iris Oifigiúil)</div>'
+        f'<div class="pr-ted-xref-b">{body} '
+        '<a href="https://core.cro.ie/search" target="_blank" rel="noopener">'
+        "Check the CRO register ↗</a></div></div>"
+    )
+
+
 def _dossier(supplier_norm: str) -> None:
     if back_button("← All companies", key="co_back"):
         st.query_params.clear()
@@ -90,8 +156,7 @@ def _dossier(supplier_norm: str) -> None:
     if match.empty:
         empty_state(
             "Company not found",
-            "That link didn't match a company on the procurement register. "
-            "Use Back to search all companies.",
+            "That link didn't match a company on the procurement register. Use Back to search all companies.",
         )
         return
     row = match.iloc[0]
@@ -141,6 +206,7 @@ def _dossier(supplier_norm: str) -> None:
     _render_supplier_competition_panel(supplier_norm)
     _render_supplier_relationships_panel(supplier_norm)
     _render_epa_credentials_panel(row.get("company_num"))
+    _render_corporate_distress_panel(row.get("company_num"))
     st.html(_DOSSIER_FOOT)
 
 

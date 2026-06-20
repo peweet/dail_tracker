@@ -36,9 +36,11 @@ def _bbox_args(bbox) -> dict:
 
 def live_count(url: str, bbox) -> int | None:
     try:
-        r = requests.get(url + "/query",
-                         params={"where": "1=1", "returnCountOnly": "true", "f": "json", **_bbox_args(bbox)},
-                         timeout=60)
+        r = requests.get(
+            url + "/query",
+            params={"where": "1=1", "returnCountOnly": "true", "f": "json", **_bbox_args(bbox)},
+            timeout=60,
+        )
         return r.json().get("count")
     except Exception:  # noqa: BLE001 — a transient source error is "unknown", not "drift"
         return None
@@ -49,7 +51,7 @@ def last_edit(url: str) -> str | None:
         j = requests.get(url, params={"f": "json"}, timeout=30).json()
         ms = (j.get("editingInfo") or {}).get("lastEditDate")
         if ms:
-            return dt.datetime.fromtimestamp(ms / 1000, dt.timezone.utc).date().isoformat()
+            return dt.datetime.fromtimestamp(ms / 1000, dt.UTC).date().isoformat()
     except Exception:  # noqa: BLE001
         pass
     return None
@@ -69,13 +71,13 @@ def main() -> int:
         name = c.get("layer", cf.stem.replace("_coverage", ""))
         url = c.get("url")
         if not url:  # e.g. osm_roads (Overpass, no ArcGIS count endpoint)
-            print(f"{name:26s} {'-':>9s} {'-':>9s} {'skip':>8s}  (non-ArcGIS source: {c.get('source','?')})")
+            print(f"{name:26s} {'-':>9s} {'-':>9s} {'skip':>8s}  (non-ArcGIS source: {c.get('source', '?')})")
             continue
         bbox = c.get("bbox_subset")
         recorded = c.get("server_count")
         live = live_count(url, bbox)
         le = last_edit(url)
-        ingested = dt.datetime.fromtimestamp(cf.stat().st_mtime, dt.timezone.utc).date().isoformat()
+        ingested = dt.datetime.fromtimestamp(cf.stat().st_mtime, dt.UTC).date().isoformat()
         status = "ok"
         if live is None or recorded is None:
             status = "unknown"

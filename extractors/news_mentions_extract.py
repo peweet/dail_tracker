@@ -23,6 +23,7 @@ Run:
   ./.venv/Scripts/python.exe extractors/news_mentions_extract.py --current-only    # sitting members
   ./.venv/Scripts/python.exe extractors/news_mentions_extract.py --days 30         # full, 30-day window
 """
+
 from __future__ import annotations
 
 import argparse
@@ -47,8 +48,7 @@ from services.parquet_io import save_parquet  # noqa: E402
 
 SILVER = ROOT / "data/silver/parquet"
 OUT = SILVER / "news_mentions.parquet"
-ROSTERS = [(SILVER / "historic_members_dail.parquet", "Dail"),
-           (SILVER / "historic_members_seanad.parquet", "Seanad")]
+ROSTERS = [(SILVER / "historic_members_dail.parquet", "Dail"), (SILVER / "historic_members_seanad.parquet", "Seanad")]
 
 GN_BASE = "https://news.google.com/rss/search"
 GN_PARAMS = {"hl": "en-IE", "gl": "IE", "ceid": "IE:en"}
@@ -62,16 +62,70 @@ HEADERS = {
 # Map a publisher (Google-News <source>) to the UI tier palette; default 'national'. Matched on a
 # case-insensitive substring, so "The Irish Times" → national.
 _TIER_BY_SOURCE = {
-    "national": ("rté", "rte", "irish times", "irish independent", "independent.ie", "the journal",
-                 "thejournal", "breakingnews", "irish examiner", "business post", "newstalk",
-                 "rte.ie", "extra.ie", "irish mirror", "irish daily", "gript"),
-    "specialist": ("agriland", "thedetail", "thecurrency", "the currency", "law society", "silicon",
-                   "farmers journal", "construction"),
-    "local_radio": ("fm", "radio", "highland", "midwest", "ocean fm", "tipp fm", "kfm", "c103",
-                    "live 95", "red fm", "shannonside", "northern sound"),
-    "local_paper": ("echo", "nationalist", "leader", "post", "people", "advertiser", "champion",
-                    "star", "herald", "chronicle", "observer", "gazette", "journal", "tribune",
-                    "democrat", "courier", "today", "connaught", "mayo", "kerryman"),
+    "national": (
+        "rté",
+        "rte",
+        "irish times",
+        "irish independent",
+        "independent.ie",
+        "the journal",
+        "thejournal",
+        "breakingnews",
+        "irish examiner",
+        "business post",
+        "newstalk",
+        "rte.ie",
+        "extra.ie",
+        "irish mirror",
+        "irish daily",
+        "gript",
+    ),
+    "specialist": (
+        "agriland",
+        "thedetail",
+        "thecurrency",
+        "the currency",
+        "law society",
+        "silicon",
+        "farmers journal",
+        "construction",
+    ),
+    "local_radio": (
+        "fm",
+        "radio",
+        "highland",
+        "midwest",
+        "ocean fm",
+        "tipp fm",
+        "kfm",
+        "c103",
+        "live 95",
+        "red fm",
+        "shannonside",
+        "northern sound",
+    ),
+    "local_paper": (
+        "echo",
+        "nationalist",
+        "leader",
+        "post",
+        "people",
+        "advertiser",
+        "champion",
+        "star",
+        "herald",
+        "chronicle",
+        "observer",
+        "gazette",
+        "journal",
+        "tribune",
+        "democrat",
+        "courier",
+        "today",
+        "connaught",
+        "mayo",
+        "kerryman",
+    ),
 }
 
 
@@ -105,8 +159,7 @@ def _parse_date(raw: str):
 def load_members() -> list[dict]:
     """Current + former members from the silver historic rosters (no sandbox dependency)."""
     rows: list[dict] = []
-    cols = ["unique_member_code", "first_name", "last_name", "full_name", "party",
-            "constituency_name", "is_current"]
+    cols = ["unique_member_code", "first_name", "last_name", "full_name", "party", "constituency_name", "is_current"]
     for path, house in ROSTERS:
         if not path.exists():
             continue
@@ -160,8 +213,7 @@ def parse_gn_items(content: bytes) -> list[dict]:
         if outlet and title.endswith(f" - {outlet}"):
             title = title[: -(len(outlet) + 3)].strip()
         if title:
-            out.append({"title": title, "link": d.get("link", ""), "outlet": outlet,
-                        "pubDate": d.get("pubDate", "")})
+            out.append({"title": title, "link": d.get("link", ""), "outlet": outlet, "pubDate": d.get("pubDate", "")})
     return out
 
 
@@ -184,22 +236,24 @@ def rows_for_member(m: dict, items: list[dict], fetched_at: datetime) -> list[di
         if not in_title and surname and f" {surname} " not in ntitle and not it.get("link"):
             continue
         link = it.get("link", "")
-        out.append({
-            "article_id": hashlib.sha1((link or it["title"]).encode("utf-8")).hexdigest()[:16],
-            "unique_member_code": m["unique_member_code"],
-            "matched_name": m.get("full_name") or m["unique_member_code"],
-            "party": m.get("party"),
-            "constituency": m.get("constituency_name"),
-            "house": m.get("house", "Dail"),
-            "is_current": bool(m.get("is_current", True)),
-            "outlet": it.get("outlet") or "Google News",
-            "outlet_tier": source_tier(it.get("outlet", "")),
-            "article_title": it["title"],
-            "article_url": link,
-            "published_at": (_parse_date(it.get("pubDate", "")) or fetched_at).astimezone(UTC).replace(tzinfo=None),
-            "match_in_title": in_title,
-            "fetched_at": fetched_at.replace(tzinfo=None),
-        })
+        out.append(
+            {
+                "article_id": hashlib.sha1((link or it["title"]).encode("utf-8")).hexdigest()[:16],
+                "unique_member_code": m["unique_member_code"],
+                "matched_name": m.get("full_name") or m["unique_member_code"],
+                "party": m.get("party"),
+                "constituency": m.get("constituency_name"),
+                "house": m.get("house", "Dail"),
+                "is_current": bool(m.get("is_current", True)),
+                "outlet": it.get("outlet") or "Google News",
+                "outlet_tier": source_tier(it.get("outlet", "")),
+                "article_title": it["title"],
+                "article_url": link,
+                "published_at": (_parse_date(it.get("pubDate", "")) or fetched_at).astimezone(UTC).replace(tzinfo=None),
+                "match_in_title": in_title,
+                "fetched_at": fetched_at.replace(tzinfo=None),
+            }
+        )
     return out
 
 
@@ -264,8 +318,10 @@ def main() -> None:
     nm = new["unique_member_code"].n_unique() if new.height else 0
     tot = merged["unique_member_code"].n_unique() if merged.height else 0
     print(f"\nthis run: {new.height} rows / {nm} members (searched {len(uniq)}, {empty} empty, {fail} failed)")
-    print(f"accumulated: {merged.height} rows / {tot} members / "
-          f"{merged['article_id'].n_unique() if merged.height else 0} articles -> {OUT}")
+    print(
+        f"accumulated: {merged.height} rows / {tot} members / "
+        f"{merged['article_id'].n_unique() if merged.height else 0} articles -> {OUT}"
+    )
 
 
 if __name__ == "__main__":

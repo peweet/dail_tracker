@@ -23,13 +23,13 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+import contextlib  # noqa: E402
+
 from services.parquet_io import save_parquet  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "extractors"))
-try:
+with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
-except Exception:
-    pass
 
 import sipo_expense_items_paddle_etl as E  # noqa: E402  (PaddleOCR import is lazy)
 

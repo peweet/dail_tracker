@@ -164,10 +164,7 @@ def _print_table(rollup: dict) -> None:
         cad = "--" if r["cadence_hours"] is None else f"{r['cadence_hours']:g}h"
         note = r.get("note") or ""
         pub = "" if r.get("publishes") else " (local-only)"
-        print(
-            f"  {r['lane']:<22} {r['status']:<8} {r['runner']:<7} "
-            f"{_fmt_age(r['age_hours']):<7} {cad:<9} {note}{pub}"
-        )
+        print(f"  {r['lane']:<22} {r['status']:<8} {r['runner']:<7} {_fmt_age(r['age_hours']):<7} {cad:<9} {note}{pub}")
     problems = rollup["problem_lanes"]
     if problems:
         print(f"\n[ATTENTION] {len(problems)} lane(s) LATE/MISSING: {', '.join(problems)}")

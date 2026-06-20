@@ -121,6 +121,8 @@ _LEAD_REF_RE = re.compile(
     r"|#+"  # masked digits (####)
     r"|\d{1,6}(?:[-/]\d+)*"  # row index / dash-joined ref (36, 03-607)
     r"|[A-Za-z]{3,4}\d{3}"  # Pobal scheme code (CMO005, CER002, CBN001) prefixing the real vendor
+    r"|\d{3}[A-Za-z]{2}(?:-\d+)?"  # ETB accounting code (LOETB '020OF', '143AP', '020IT-213'); 3
+    # digits exactly so a real 2-digit-prefixed name ('24HR CARE SERVICES') is never stripped
     r")\s+)+",
     re.I,
 )
@@ -167,11 +169,7 @@ def _canonicalise_split_entities(df: pl.DataFrame) -> pl.DataFrame:
     expr = pl.col("supplier_raw")
     for body, rx, canon in _ENTITY_MERGES:
         body_ok = pl.lit(True) if body == "" else pl.col("publisher_name").str.contains(body)
-        expr = (
-            pl.when(body_ok & pl.col("supplier_raw").str.contains(rx))
-            .then(pl.lit(canon))
-            .otherwise(expr)
-        )
+        expr = pl.when(body_ok & pl.col("supplier_raw").str.contains(rx)).then(pl.lit(canon)).otherwise(expr)
     return df.with_columns(expr.alias("supplier_raw"))
 
 
@@ -337,8 +335,11 @@ def _attach_regime(df: pl.DataFrame) -> pl.DataFrame:
     e.g. CHI €25k incl-VAT, ESB Networks as a utility/contracting-entity outside the €20k scheme."""
     keys = df.select("publisher_id", "publisher_type").unique()
     rows = [
-        {"publisher_id": k["publisher_id"], "publisher_type": k["publisher_type"],
-         **regime_for(k["publisher_id"], k["publisher_type"])}
+        {
+            "publisher_id": k["publisher_id"],
+            "publisher_type": k["publisher_type"],
+            **regime_for(k["publisher_id"], k["publisher_type"]),
+        }
         for k in keys.to_dicts()
     ]
     reg = pl.DataFrame(rows).with_columns(pl.col("disclosure_threshold_eur").cast(pl.Int64))
@@ -423,9 +424,7 @@ _FOREIGN_FORM_RE = (
     r"(?:\b(?:as|asa|oy|oyj|ab|bv|nv|sau|sarl|srl|spa|sl|gmbh|aps|sa|b v|n v|s a|s l|a s|sp j))"
     r"(?:\s+(?:" + _FOREIGN_COUNTRY + r"))?\s*$"  # "a s" = Danish A/S (Bavarian Nordic A/S)
 )
-_ORG_FORM_RE = (
-    r"(?i)(?:\b(?:" + _FIRM_WORDS + r")\b|\b(?:" + _FIRM_STEMS + r")|" + _FOREIGN_FORM_RE + r")"
-)
+_ORG_FORM_RE = r"(?i)(?:\b(?:" + _FIRM_WORDS + r")\b|\b(?:" + _FIRM_STEMS + r")|" + _FOREIGN_FORM_RE + r")"
 
 
 def _reclassify_missed_companies(df: pl.DataFrame) -> pl.DataFrame:
@@ -499,11 +498,13 @@ def _surface_sole_trader_contractors(df: pl.DataFrame) -> pl.DataFrame:
         return df
     cat = pl.coalesce([pl.col("spend_category"), pl.col("description")]).fill_null("")
     is_sole = pl.col("supplier_class") == "sole_trader_or_individual"
-    flags = df.with_columns(
-        (is_sole & cat.str.contains(_PRIVATE_CAT_RE)).alias("_priv"),
-        (is_sole & cat.str.contains(_COMMERCIAL_CAT_RE)).alias("_comm"),
-    ).group_by("supplier_normalised").agg(
-        pl.col("_priv").any().alias("_any_priv"), pl.col("_comm").any().alias("_any_comm")
+    flags = (
+        df.with_columns(
+            (is_sole & cat.str.contains(_PRIVATE_CAT_RE)).alias("_priv"),
+            (is_sole & cat.str.contains(_COMMERCIAL_CAT_RE)).alias("_comm"),
+        )
+        .group_by("supplier_normalised")
+        .agg(pl.col("_priv").any().alias("_any_priv"), pl.col("_comm").any().alias("_any_comm"))
     )
     surface_keys = flags.filter(pl.col("_any_comm") & ~pl.col("_any_priv"))["supplier_normalised"]
     surface = is_sole & pl.col("supplier_normalised").is_in(surface_keys)
@@ -511,7 +512,9 @@ def _surface_sole_trader_contractors(df: pl.DataFrame) -> pl.DataFrame:
     if n:
         nsup = df.filter(surface)["supplier_normalised"].n_unique()
         val = df.filter(surface)["amount_eur"].sum()
-        print(f"  surfaced {n:,} rows ({nsup:,} suppliers, €{val / 1e6:.1f}m) sole_trader_or_individual -> sole_trader (commercial contractors)")
+        print(
+            f"  surfaced {n:,} rows ({nsup:,} suppliers, €{val / 1e6:.1f}m) sole_trader_or_individual -> sole_trader (commercial contractors)"
+        )
     return df.with_columns(
         pl.when(surface).then(pl.lit("sole_trader")).otherwise(pl.col("supplier_class")).alias("supplier_class"),
         pl.when(surface).then(pl.lit("ok")).otherwise(pl.col("privacy_status")).alias("privacy_status"),
@@ -534,7 +537,9 @@ def _classify_id_codes(df: pl.DataFrame) -> pl.DataFrame:
     hit = is_sole & is_code
     n = df.filter(hit).height
     if n:
-        print(f"  classified {n:,} rows ({df.filter(hit)['supplier_normalised'].n_unique():,} codes) as id_code (anonymised payee)")
+        print(
+            f"  classified {n:,} rows ({df.filter(hit)['supplier_normalised'].n_unique():,} codes) as id_code (anonymised payee)"
+        )
     return df.with_columns(
         pl.when(hit).then(pl.lit("id_code")).otherwise(pl.col("supplier_class")).alias("supplier_class"),
         pl.when(hit).then(pl.lit("ok")).otherwise(pl.col("privacy_status")).alias("privacy_status"),
@@ -553,17 +558,24 @@ def _apply_class_overrides(df: pl.DataFrame) -> pl.DataFrame:
     # supplier_normalised is upper-case; the CSV keys are lower-case — join on a case-folded key.
     # truncate_ragged_lines: the free-text `basis` column may contain commas; only the first two
     # columns (key, class) are used, so extra split fields are harmless to drop.
-    ov = pl.read_csv(CLASS_OVERRIDES, comment_prefix="#", truncate_ragged_lines=True).select(
-        pl.col("supplier_normalised").str.strip_chars().str.to_lowercase().alias("_ovkey"),
-        pl.col("override_class").str.strip_chars(),
-    ).filter(pl.col("_ovkey").str.len_chars() > 0).unique(subset=["_ovkey"])
+    ov = (
+        pl.read_csv(CLASS_OVERRIDES, comment_prefix="#", truncate_ragged_lines=True)
+        .select(
+            pl.col("supplier_normalised").str.strip_chars().str.to_lowercase().alias("_ovkey"),
+            pl.col("override_class").str.strip_chars(),
+        )
+        .filter(pl.col("_ovkey").str.len_chars() > 0)
+        .unique(subset=["_ovkey"])
+    )
     df = df.with_columns(pl.col("supplier_normalised").str.to_lowercase().alias("_ovkey")).join(
         ov, on="_ovkey", how="left"
     )
     hit = pl.col("override_class").is_not_null()
     n = df.filter(hit).height
     if n:
-        print(f"  applied {ov.height:,} curated overrides -> {n:,} rows ({df.filter(hit)['supplier_normalised'].n_unique():,} suppliers) reclassified")
+        print(
+            f"  applied {ov.height:,} curated overrides -> {n:,} rows ({df.filter(hit)['supplier_normalised'].n_unique():,} suppliers) reclassified"
+        )
     out = df.with_columns(
         pl.when(hit).then(pl.col("override_class")).otherwise(pl.col("supplier_class")).alias("supplier_class"),
         pl.when(hit).then(pl.lit("ok")).otherwise(pl.col("privacy_status")).alias("privacy_status"),
@@ -632,7 +644,9 @@ def _derive_spend_category(df: pl.DataFrame) -> pl.DataFrame:
     )
     n_cat = out.filter(pl.col("spend_category").is_not_null())["spend_category"].n_unique()
     cov = round(100.0 * out["spend_category"].is_not_null().sum() / out.height, 1)
-    print(f"  derived spend_category: {n_cat:,} distinct categories, {cov}% of rows covered (source: published description)")
+    print(
+        f"  derived spend_category: {n_cat:,} distinct categories, {cov}% of rows covered (source: published description)"
+    )
     return out
 
 

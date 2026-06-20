@@ -447,6 +447,7 @@ def build_records() -> list[dict]:
     _try("afs_amalgamated", _afs)
     _try("local_authority_afs", _la_afs)
     _try("hse_tusla_payments", _hse_tusla)
+
     def _stateboards():
         from stateboards_roster_extract import INDEX_URL
 

@@ -146,7 +146,7 @@ def parse_money(s: str) -> float | None:
     seps = [i for i, ch in enumerate(s) if ch in _SEPS]
     if seps:
         last = seps[-1]
-        dec = s[last + 1:]
+        dec = s[last + 1 :]
         if len(dec) == 2:  # noqa: SIM108 — genuine 2dp decimal; everything left = thousands
             s = re.sub(r"[.,\-]", "", s[:last]) + "." + dec
         else:  # last separator was a thousands sep -> strip all
@@ -156,8 +156,7 @@ def parse_money(s: str) -> float | None:
 
 def load_pages(key: str) -> dict[str, list[dict]]:
     d = CKPT / key
-    return {pj.stem: json.loads(pj.read_text(encoding="utf-8")).get("cells", [])
-            for pj in sorted(d.glob("c*.json"))}
+    return {pj.stem: json.loads(pj.read_text(encoding="utf-8")).get("cells", []) for pj in sorted(d.glob("c*.json"))}
 
 
 def page_type(cells: list[dict]) -> str | None:
@@ -186,12 +185,14 @@ def parse_grid(cells: list[dict]) -> tuple[dict[str, float | None], float | None
                 labels[cat] = c
         if c["text"].strip().startswith("Overall Expense total"):
             labels["OVERALL"] = c
-    vals = [c for c in cells
-            if c["x0"] > 600 and (("€" in c["text"]) or re.search(r"\d", c["text"]))]
+    vals = [c for c in cells if c["x0"] > 600 and (("€" in c["text"]) or re.search(r"\d", c["text"]))]
 
     def value_for(label_cell: dict, prefer: float | None = None) -> tuple[float | None, float]:
-        cands = [(c, parse_money(c["text"])) for c in vals
-                 if c["x0"] > label_cell["x0"] + 400 and abs(c["y0"] - label_cell["y0"]) < 60]
+        cands = [
+            (c, parse_money(c["text"]))
+            for c in vals
+            if c["x0"] > label_cell["x0"] + 400 and abs(c["y0"] - label_cell["y0"]) < 60
+        ]
         cands = [(c, v) for c, v in cands if v is not None]
         if not cands:
             return None, 0.0
@@ -235,26 +236,32 @@ def parse_items(pages: dict[str, list[dict]]) -> list[dict]:
         costs = [c for c in cells if c["x0"] > 1550 and parse_money(c["text"]) is not None]
         names = [c for c in cells if 400 < c["x0"] < 1500 and len(c["text"].strip()) > 2]
         for rc in refs:
+
             def row(c: dict, _rc: dict = rc) -> bool:
                 return abs(c["y0"] - _rc["y0"]) < 45
-            cost_c = min((c for c in costs if row(c)),
-                         key=lambda c: abs(c["y0"] - rc["y0"]), default=None)
+
+            cost_c = min((c for c in costs if row(c)), key=lambda c: abs(c["y0"] - rc["y0"]), default=None)
             cost = parse_money(cost_c["text"]) if cost_c else None
             if cost is None:
                 continue
-            nm = min((c for c in names if row(c) and c["x0"] > rc["x0"]),
-                     key=lambda c: abs(c["y0"] - rc["y0"]), default=None)
+            nm = min(
+                (c for c in names if row(c) and c["x0"] > rc["x0"]), key=lambda c: abs(c["y0"] - rc["y0"]), default=None
+            )
             ref = rc["text"].strip()
             conf = min(float(rc.get("score", 0.0)), float(cost_c.get("score", 0.0)))
             # Identity (media_id, candidate, …) and category_label are NOT stamped here
             # per-row — they are added once, vectorised, after the DataFrame is built
             # (a join + replace, not a Python loop / UDF).
-            items.append({
-                "ref": ref, "category": "5" + ref[0],
-                "detail": nm["text"].strip() if nm else None,
-                "cost_eur": cost, "source_page": page,
-                "item_confidence": round(conf, 4),
-            })
+            items.append(
+                {
+                    "ref": ref,
+                    "category": "5" + ref[0],
+                    "detail": nm["text"].strip() if nm else None,
+                    "cost_eur": cost,
+                    "source_page": page,
+                    "item_confidence": round(conf, 4),
+                }
+            )
     return items
 
 
@@ -300,7 +307,7 @@ def parse_candidate(key: str, mr: dict) -> tuple[dict, list[dict]]:
             for cat in CATS:
                 rec[f"cat_{cat}_eur"] = grid.get(cat)
             scat = sum(v for v in grid.values() if isinstance(v, (int, float)))
-            rec["reconciles"] = (overall is not None and abs((scat or 0) - overall) < 1.0)
+            rec["reconciles"] = overall is not None and abs((scat or 0) - overall) < 1.0
         elif pt == "public":
             rec["spend_public_eur"] = overall
 
@@ -327,11 +334,9 @@ def main() -> None:
     rows = list(csv.DictReader(MANIFEST.open(encoding="utf-8")))
     # Only expense statements have the 5A-5H spend grid; donation statements are a
     # separate corpus/track. Key the manifest by <slug>__<media_id> like the cache dirs.
-    mrow = {f"{r['candidate_slug']}__{r['media_id']}": r
-            for r in rows if r.get("doc_type") == "expense_statement"}
+    mrow = {f"{r['candidate_slug']}__{r['media_id']}": r for r in rows if r.get("doc_type") == "expense_statement"}
 
-    keys = [d.name for d in sorted(CKPT.glob("*"))
-            if d.is_dir() and d.name in mrow and any(d.glob("c*.json"))]
+    keys = [d.name for d in sorted(CKPT.glob("*")) if d.is_dir() and d.name in mrow and any(d.glob("c*.json"))]
     print(f"=== PARSE SIPO candidate expenses (silver) — {len(keys)} cached statements ===")
 
     head_rows: list[dict] = []
@@ -357,9 +362,9 @@ def main() -> None:
     # then higher total. The SAME name in DIFFERENT constituencies is left as-is (could
     # be two real people or a misfile — not auto-resolved, no-inference). ---
     n_before = head.height
-    head = head.sort(
-        ["reconciles", "n_pages", "total_spend_eur"], descending=True, nulls_last=True
-    ).unique(subset=["candidate_slug", "constituency_slug"], keep="first", maintain_order=True)
+    head = head.sort(["reconciles", "n_pages", "total_spend_eur"], descending=True, nulls_last=True).unique(
+        subset=["candidate_slug", "constituency_slug"], keep="first", maintain_order=True
+    )
     n_dropped = n_before - head.height
     kept_ids = head["media_id"]
     item_rows = [it for it in item_rows if it["media_id"] in set(kept_ids.to_list())]
@@ -369,7 +374,12 @@ def main() -> None:
     # 2. identity columns -> a single join on media_id, not per-row stamping
     # 3. cost_suspect     -> a boolean expression bounding each item by the statutory cap
     identity = head.select(
-        "media_id", "candidate_slug", "candidate_name", "constituency_name", "party_declared", "party",
+        "media_id",
+        "candidate_slug",
+        "candidate_name",
+        "constituency_name",
+        "party_declared",
+        "party",
     )
     items = (
         pl.DataFrame(item_rows)
@@ -388,16 +398,22 @@ def main() -> None:
     n_complete = head.filter(pl.col("ocr_complete")).height
     n_amt = head.filter(pl.col("total_spend_eur").is_not_null()).height
     head_clean = head.filter(pl.col("total_spend_eur").is_not_null() & ~pl.col("total_suspect"))
-    print(f"  candidate fact -> {OUT_HEAD.relative_to(ROOT)}  ({head.height} rows, "
-          f"{n_dropped} same-constituency double-filing(s) deduped)")
+    print(
+        f"  candidate fact -> {OUT_HEAD.relative_to(ROOT)}  ({head.height} rows, "
+        f"{n_dropped} same-constituency double-filing(s) deduped)"
+    )
     print(f"    {n_complete} OCR-complete, {n_amt} with a total, {n_recon} reconcile to the cent")
-    print(f"    {head_clean.height} plausible (<= statutory cap), Σ €{head_clean['total_spend_eur'].sum():,.2f}; "
-          f"{head['total_suspect'].sum()} total_suspect (decimal-lost page)")
+    print(
+        f"    {head_clean.height} plausible (<= statutory cap), Σ €{head_clean['total_spend_eur'].sum():,.2f}; "
+        f"{head['total_suspect'].sum()} total_suspect (decimal-lost page)"
+    )
     clean = items.filter(~pl.col("cost_suspect"))
     print(f"  line-item fact -> {OUT_ITEMS.relative_to(ROOT)}  ({items.height} rows)")
-    print(f"    {clean.height} within statutory cap (Σ €{clean['cost_eur'].sum():,.2f}), "
-          f"{items['cost_suspect'].sum()} flagged cost_suspect (OCR decimal-loss), "
-          f"{items.filter(pl.col('detail').is_not_null()).height} with a detail")
+    print(
+        f"    {clean.height} within statutory cap (Σ €{clean['cost_eur'].sum():,.2f}), "
+        f"{items['cost_suspect'].sum()} flagged cost_suspect (OCR decimal-loss), "
+        f"{items.filter(pl.col('detail').is_not_null()).height} with a detail"
+    )
 
 
 if __name__ == "__main__":

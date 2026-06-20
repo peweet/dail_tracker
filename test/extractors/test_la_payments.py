@@ -36,33 +36,44 @@ def _word(x0, x1, text):
 
 
 # ---- 1. pure-function units -------------------------------------------------
-@pytest.mark.parametrize(("raw", "expected"), [
-    ("€1,234.56", 1234.56),
-    ("1,234.56", 1234.56),
-    ("-61594.33", -61594.33),     # Limerick/Kilkenny debit sign
-    ("(20,000.00)", -20000.0),    # parenthesised negative
-    ("139,850.00", 139850.0),
-    (22088.34, 22088.34),         # already numeric (xlsx cell)
-    ("", None),
-    ("n/a", None),
-])
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("€1,234.56", 1234.56),
+        ("1,234.56", 1234.56),
+        ("-61594.33", -61594.33),  # Limerick/Kilkenny debit sign
+        ("(20,000.00)", -20000.0),  # parenthesised negative
+        ("139,850.00", 139850.0),
+        (22088.34, 22088.34),  # already numeric (xlsx cell)
+        ("", None),
+        ("n/a", None),
+    ],
+)
 def test_to_eur(raw, expected):
     assert m.to_eur(raw) == (pytest.approx(expected) if expected is not None else None)
 
 
-@pytest.mark.parametrize(("raw", "expected"), [
-    ("539106 A HORTON LTD", "A HORTON LTD"),          # single ID prefix (Mayo/Donegal)
-    ("400173 12 KEVIN THORPE LIMITED", "KEVIN THORPE LIMITED"),  # PO# + vendor ID (two runs)
-    ("AECOM Ireland Limited", "AECOM Ireland Limited"),  # clean name unchanged
-])
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("539106 A HORTON LTD", "A HORTON LTD"),  # single ID prefix (Mayo/Donegal)
+        ("400173 12 KEVIN THORPE LIMITED", "KEVIN THORPE LIMITED"),  # PO# + vendor ID (two runs)
+        ("AECOM Ireland Limited", "AECOM Ireland Limited"),  # clean name unchanged
+    ],
+)
 def test_strip_id_prefix(raw, expected):
     assert m.strip_id_prefix(raw) == expected
 
 
 def test_split_row_largest_gap_amount_last():
     # "LAWLER BUILDERS LTD   <gap>   Construction   139,850.00"  (amount last = Galway shape)
-    words = [_word(10, 40, "LAWLER"), _word(42, 70, "BUILDERS"), _word(72, 90, "LTD"),
-             _word(200, 260, "Construction"), _word(400, 460, "139,850.00")]
+    words = [
+        _word(10, 40, "LAWLER"),
+        _word(42, 70, "BUILDERS"),
+        _word(72, 90, "LTD"),
+        _word(200, 260, "Construction"),
+        _word(400, 460, "139,850.00"),
+    ]
     rec = m.split_row(words)
     assert rec is not None
     assert rec["supplier"] == "LAWLER BUILDERS LTD"
@@ -89,12 +100,15 @@ def test_tabular_header_beats_title_row():
     assert m.to_eur(rows[0]["eur"]) == pytest.approx(-21188.82)
 
 
-@pytest.mark.parametrize(("url", "year", "quarter"), [
-    ("https://x/purchase-orders-quarter-1-2026.pdf", 2026, 1),
-    ("https://x/Qtr%204%202025%20%28ENG%29.pdf", 2025, 4),     # %20 must not read as "2020"
-    ("https://x/purchase-order-over-20-000-quarter-4-20251.xlsx", 2025, 4),  # CMS dedup suffix
-    ("https://x/2024.pdf", 2024, None),                         # Donegal yearly
-])
+@pytest.mark.parametrize(
+    ("url", "year", "quarter"),
+    [
+        ("https://x/purchase-orders-quarter-1-2026.pdf", 2026, 1),
+        ("https://x/Qtr%204%202025%20%28ENG%29.pdf", 2025, 4),  # %20 must not read as "2020"
+        ("https://x/purchase-order-over-20-000-quarter-4-20251.xlsx", 2025, 4),  # CMS dedup suffix
+        ("https://x/2024.pdf", 2024, None),  # Donegal yearly
+    ],
+)
 def test_period_from_url(url, year, quarter):
     period, y, q = m.period_from_url(url)
     assert y == year
@@ -104,6 +118,7 @@ def test_period_from_url(url, year, quarter):
 # ---- 2. reader round-trip on a synthesised xlsx ----------------------------
 def _build_xlsx(headers, rows) -> bytes:
     import openpyxl
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.append(headers)
@@ -119,17 +134,18 @@ def test_read_xlsx_roundtrip_and_debit_sign():
     # realistic PO-list size; a sub-8-row file is correctly rejected as a stray doc.
     b = _build_xlsx(
         ["Order No", "Supplier", "EURO", "Description"],
-        [["400171680", "DAVID WALSH CIVIL ENGINEERING LTD", -21188.82, "Engineering"],
-         ["400171809", "CARROLL QUARRIES LTD", -40000.0, "Materials"],
-         ["400171999", "ENERGIA LTD", -25035.56, "Utilities"],
-         ["400172040", "MURPHY CONCRETE LTD", -18750.00, "Materials"],
-         ["400172112", "KELLY PLANT HIRE LTD", -33200.45, "Plant Hire"],
-         ["400172233", "BYRNE ELECTRICAL LIMITED", -27600.10, "Electrical"],
-         ["400172301", "WALSH ROOFING LTD", -45120.00, "Construction"],
-         ["400172388", "DOYLE LANDSCAPING LTD", -21000.00, "Grounds"]],
+        [
+            ["400171680", "DAVID WALSH CIVIL ENGINEERING LTD", -21188.82, "Engineering"],
+            ["400171809", "CARROLL QUARRIES LTD", -40000.0, "Materials"],
+            ["400171999", "ENERGIA LTD", -25035.56, "Utilities"],
+            ["400172040", "MURPHY CONCRETE LTD", -18750.00, "Materials"],
+            ["400172112", "KELLY PLANT HIRE LTD", -33200.45, "Plant Hire"],
+            ["400172233", "BYRNE ELECTRICAL LIMITED", -27600.10, "Electrical"],
+            ["400172301", "WALSH ROOFING LTD", -45120.00, "Construction"],
+            ["400172388", "DOYLE LANDSCAPING LTD", -21000.00, "Grounds"],
+        ],
     )
-    cf = m.la("synthetic", "Synthetic", "Test", "county", fmt="xlsx",
-              listing="https://x", value_kind="po_committed")
+    cf = m.la("synthetic", "Synthetic", "Test", "county", fmt="xlsx", listing="https://x", value_kind="po_committed")
     rows, stat = m.emit_file(cf, "https://x/pos-q1-2025.xlsx", b, ".xlsx")
     assert stat["valid"] and len(rows) == 8
     # debit-sign auto-detected → amounts abs'd to positive
@@ -141,12 +157,14 @@ def test_read_xlsx_roundtrip_and_debit_sign():
 
 # ---- 3. privacy classification ---------------------------------------------
 def test_classify_quarantines_personal_data():
-    df = pl.DataFrame({
-        "supplier_raw": ["AECOM IRELAND LIMITED", "JOHN MURPHY", "539106", "Cork County Council"],
-        "supplier_is_id_code": [False, False, True, False],
-        "amount_eur": [50000.0, 30000.0, 25000.0, 22000.0],
-        "value_kind": ["po_committed"] * 4,
-    })
+    df = pl.DataFrame(
+        {
+            "supplier_raw": ["AECOM IRELAND LIMITED", "JOHN MURPHY", "539106", "Cork County Council"],
+            "supplier_is_id_code": [False, False, True, False],
+            "amount_eur": [50000.0, 30000.0, 25000.0, 22000.0],
+            "value_kind": ["po_committed"] * 4,
+        }
+    )
     out = m.classify_and_flag(df)
     by = {r["supplier_raw"]: r for r in out.iter_rows(named=True)}
     assert by["AECOM IRELAND LIMITED"]["supplier_class"] == "company"
@@ -173,8 +191,14 @@ def golden() -> pl.DataFrame:
 
 
 def test_schema_has_master_taxonomy(golden: pl.DataFrame):
-    for col in ("value_kind", "realisation_tier", "value_safe_to_sum",
-                "supplier_class", "privacy_status", "public_display"):
+    for col in (
+        "value_kind",
+        "realisation_tier",
+        "value_safe_to_sum",
+        "supplier_class",
+        "privacy_status",
+        "public_display",
+    ):
         assert col in golden.columns
 
 
@@ -185,8 +209,7 @@ def test_realisation_tier_matches_value_kind(golden: pl.DataFrame):
 
 def test_safe_to_sum_gate(golden: pl.DataFrame):
     # value_safe_to_sum ⟺ value_kind ∈ {po_committed, payment_actual} AND amount > 0
-    expected = (golden["value_kind"].is_in(["po_committed", "payment_actual"])
-                & (golden["amount_eur"] > 0))
+    expected = golden["value_kind"].is_in(["po_committed", "payment_actual"]) & (golden["amount_eur"] > 0)
     assert (golden["value_safe_to_sum"] == expected).all()
 
 
@@ -208,8 +231,11 @@ def test_cro_band_for_companies(golden: pl.DataFrame):
     # company-class suppliers should match CRO in the validated 30–75% band; a collapse to
     # ~0% means the supplier column drifted (the Fingal/Laois failure mode).
     cro = pl.read_parquet(ROOT / "data/silver/cro/companies.parquet").select(["name_norm", "company_num"])
-    co = (golden.filter(pl.col("supplier_class") == "company")
-          .select(pl.col("supplier_normalised").alias("name_norm")).unique())
+    co = (
+        golden.filter(pl.col("supplier_class") == "company")
+        .select(pl.col("supplier_normalised").alias("name_norm"))
+        .unique()
+    )
     if co.height < 20:
         pytest.skip("too few company suppliers in the slice for a stable rate")
     hit = co.join(cro, on="name_norm", how="inner").height / co.height

@@ -79,6 +79,13 @@ def fetch_constituency_housing_context_result(constituency: str) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_constituency_housing_with_ssha_result(constituency: str) -> QueryResult:
+    """Supply-side housing context already LEFT-joined with the SSHA waiting list in the core
+    (the join lives in the pipeline, not the page)."""
+    return _q.constituency_housing_context_with_ssha(get_constituency_conn(), constituency)
+
+
+@st.cache_data(ttl=300)
 def fetch_constituency_ssha_waiting_list_result(constituency: str) -> QueryResult:
     return _q.constituency_ssha_waiting_list(get_constituency_conn(), constituency)
 

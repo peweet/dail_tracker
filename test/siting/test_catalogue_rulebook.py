@@ -13,6 +13,7 @@ GALWAY_CITY = "galway_city_council"
 
 # ── catalogue ─────────────────────────────────────────────────────────────────
 
+
 def test_catalogue_loads_and_validates():
     cat = load_catalogue()
     assert len(cat.nodes) >= 10
@@ -51,6 +52,7 @@ def test_disclaimer_present():
 
 # ── council directory resolution ───────────────────────────────────────────────
 
+
 def test_find_council_dir_across_subdirs():
     assert rulebook.find_council_dir(GALWAY_CO) is not None  # county_councils/
     assert rulebook.find_council_dir(GALWAY_CITY) is not None  # city_councils/
@@ -59,6 +61,7 @@ def test_find_council_dir_across_subdirs():
 
 
 # ── required_assessments.md parsing ────────────────────────────────────────────
+
 
 def test_parse_checklist_galway_county():
     chk = rulebook.parse_required_assessments(GALWAY_CO)
@@ -72,6 +75,7 @@ def test_parse_checklist_galway_county():
 
 
 # ── dm_standards.md verbatim extraction ────────────────────────────────────────
+
 
 def test_parse_dm_standard_verbatim_galway_county():
     dm = rulebook.parse_dm_standards(GALWAY_CO)
@@ -90,6 +94,7 @@ def test_dm_standard_bodies_do_not_bleed_into_next():
 
 
 # ── resolve(): node -> verbatim rule for the council in force ───────────────────
+
 
 def test_resolve_european_site_galway_county():
     r = rulebook.resolve(GALWAY_CO, "european_site")
@@ -123,9 +128,9 @@ def test_resolve_unknown_council_degrades_gracefully():
 
 # ── hardened DM-heading parsing (markdown/bold prefixes, : . – separators) ──────
 
+
 def test_dm_heading_tolerates_markdown_and_separators():
-    for line in ["DM Standard 51: T", "## DM Standard 8 – T",
-                 "**DM Standard 5** - T", "DM Std 9. T"]:
+    for line in ["DM Standard 51: T", "## DM Standard 8 – T", "**DM Standard 5** - T", "DM Std 9. T"]:
         assert rulebook._DM_HEADING.match(line), f"should match: {line!r}"
 
 
@@ -133,17 +138,18 @@ def test_hardening_did_not_regress_galway_county():
     # the exemplar must still parse fully (70 standards, 26 checklist rows)
     assert len(rulebook.parse_dm_standards(GALWAY_CO)) == 70
     assert len(rulebook.parse_required_assessments(GALWAY_CO)) == 26
-    assert rulebook.parse_dm_concepts(GALWAY_CO) == {}        # county is numbered, not concept-keyed
+    assert rulebook.parse_dm_concepts(GALWAY_CO) == {}  # county is numbered, not concept-keyed
 
 
 # ── concept-keyed councils (plans that don't use "DM Standard N") ───────────────
+
 
 def test_concept_keyed_dm_resolution_galway_city():
     r = rulebook.resolve(GALWAY_CITY, "rural_need_zoning")
     assert r.dm_standards, "Galway City rural_need should resolve a concept-keyed standard"
     d = r.dm_standards[0]
-    assert d.number == 0 and d.source_ref          # concept-keyed marker + the plan citation
-    assert "0.2 hectares" in d.text                # VERBATIM Galway City text, not a paraphrase
+    assert d.number == 0 and d.source_ref  # concept-keyed marker + the plan citation
+    assert "0.2 hectares" in d.text  # VERBATIM Galway City text, not a paraphrase
 
 
 def test_concept_keyed_checklist_galway_city():
@@ -154,7 +160,7 @@ def test_concept_keyed_checklist_galway_city():
 
 def test_concept_checklist_skips_table_header_row():
     chk = rulebook.parse_checklist_concepts(GALWAY_CITY)
-    assert "node" not in chk           # the "| node | … |" header must not become a fake node
+    assert "node" not in chk  # the "| node | … |" header must not become a fake node
     assert "aa_screening" in chk
 
 
@@ -182,13 +188,13 @@ def test_dublin_la_concept_keyed_and_clean(slug):
     chk = rulebook.parse_checklist_concepts(slug)
     assert dm, f"{slug} has no concept DM standards"
     assert chk, f"{slug} has no concept checklist"
-    assert "node" not in dm and "node" not in chk   # header row never leaks as a node
+    assert "node" not in dm and "node" not in chk  # header row never leaks as a node
     # the core environmental node every Dublin plan covers must resolve verbatim + cited
     r = rulebook.resolve(slug, "european_site")
     assert r.dm_standards or r.checklist
     if r.dm_standards:
         d = r.dm_standards[0]
-        assert d.number == 0 and d.source_ref       # concept-keyed marker + plan citation
+        assert d.number == 0 and d.source_ref  # concept-keyed marker + plan citation
 
 
 def test_dublin_city_urban_gaps_are_honest():

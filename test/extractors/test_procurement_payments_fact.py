@@ -225,7 +225,10 @@ def test_spend_category_has_no_leaked_amounts(con):
 
 def test_spend_category_is_letters_only_when_present(con):
     # Every non-null category contains at least one letter (a pure-number/symbol residue is nulled).
-    bad = _q(con, r"SELECT COUNT(*) FROM FACT WHERE spend_category IS NOT NULL AND NOT regexp_matches(spend_category, '[A-Za-z]')")[0][0]
+    bad = _q(
+        con,
+        r"SELECT COUNT(*) FROM FACT WHERE spend_category IS NOT NULL AND NOT regexp_matches(spend_category, '[A-Za-z]')",
+    )[0][0]
     assert bad == 0
 
 
@@ -345,6 +348,13 @@ def test_strip_leading_ref_unit():
     assert s("247meeting (Ireland) Ltd") == "247meeting (Ireland) Ltd"
     assert s("2CQR Limited") == "2CQR Limited"
     assert s("AECOM Ireland Ltd") == "AECOM Ireland Ltd"
+    # ETB accounting-code prefix (LOETB: 3 digits + 2 letters, optional -seq) IS stripped …
+    assert s("020OF 348 DOWNEYS AUTO STOP") == "DOWNEYS AUTO STOP"
+    assert s("143AP 39 MIDLAND ENERGY") == "MIDLAND ENERGY"
+    assert s("020IT-213 PFH Technology") == "PFH Technology"
+    # … but a real 2-digit-prefixed NAME is never mistaken for that code (regression: 24HR was
+    # over-stripped to "CARE SERVICES" and wrongly merged with other CARE SERVICES suppliers).
+    assert s("24HR CARE SERVICES") == "24HR CARE SERVICES"
     # Untouched: a pure-number / no-name residue is not emptied out.
     assert s("100") == "100"
     assert s("56,143.35") == "56,143.35"

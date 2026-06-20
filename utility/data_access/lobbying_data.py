@@ -170,9 +170,7 @@ def fetch_policy_area_summary() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def fetch_topic_returns(
-    keywords: tuple[str, ...], start: str | None = None, end: str | None = None
-) -> pd.DataFrame:
+def fetch_topic_returns(keywords: tuple[str, ...], start: str | None = None, end: str | None = None) -> pd.DataFrame:
     """Returns whose free-text description matches any keyword (case-insensitive
     substrings, no tokenisation). ``keywords`` is a tuple so the result caches."""
     return _q.topic_returns(get_lobbying_conn(), keywords, start, end).data

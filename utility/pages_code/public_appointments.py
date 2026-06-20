@@ -1005,9 +1005,7 @@ def _gender_bar(fpct, mpct) -> str:
     )
 
 
-def _filter_roster(
-    roster: pd.DataFrame, dept: str, role_grp: str, outside_only: bool, search: str
-) -> pd.DataFrame:
+def _filter_roster(roster: pd.DataFrame, dept: str, role_grp: str, outside_only: bool, search: str) -> pd.DataFrame:
     out = roster
     if dept and dept != "All":
         out = out[out["department"] == dept]
@@ -1214,10 +1212,7 @@ def _render_stateboards_tab(roster: pd.DataFrame, boards: pd.DataFrame) -> None:
     page_idx = paginate(total_boards, key_prefix="sb_feed", page_size=SB_BOARDS_PER_PAGE)
     page_bodies = ordered_bodies[page_idx * SB_BOARDS_PER_PAGE : (page_idx + 1) * SB_BOARDS_PER_PAGE]
 
-    cards = [
-        _render_board_card(b, filtered[filtered["body"] == b], board_meta.get(str(b)))
-        for b in page_bodies
-    ]
+    cards = [_render_board_card(b, filtered[filtered["body"] == b], board_meta.get(str(b))) for b in page_bodies]
     st.html("".join(cards))
 
     pagination_controls(

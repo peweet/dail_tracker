@@ -156,8 +156,9 @@ def poll(force: bool = False, check_only: bool = False) -> int:
 
     docx_url = resolve_docx_url(sess, r.text, LANDING_URL)
     if not docx_url:
-        logger.error("No .docx link found via %s (or its /download chooser) — page structure "
-                     "may have drifted.", LANDING_URL)
+        logger.error(
+            "No .docx link found via %s (or its /download chooser) — page structure may have drifted.", LANDING_URL
+        )
         return 2
     logger.info("Resolved diary docx: %s", docx_url)
 
@@ -208,8 +209,7 @@ def poll(force: bool = False, check_only: bool = False) -> int:
         "revisions": held.get("revisions", 1) + (1 if held and held.get("sha256") != sha else 0),
     }
     _save_index(idx)
-    logger.info("Archived diary %s -> %s (%d bytes, sha %s).",
-                diary_date, target.name, len(blob), sha[:16])
+    logger.info("Archived diary %s -> %s (%d bytes, sha %s).", diary_date, target.name, len(blob), sha[:16])
     logger.info("Next: ./.venv/Scripts/python.exe extractors/legal_diary_extract.py")
     return 0
 

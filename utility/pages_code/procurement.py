@@ -987,7 +987,11 @@ def _render_council_running_lane(council: str, active_tier: str, *, po_max_year:
             pct = getattr(r, "pct_self_funded", None)
             if r.division == "Miscellaneous Services":
                 has_misc = True
-            fig = f'<strong>{_eur(net)}</strong>' if _truthy(net) and float(net) > 0 else '<span class="pr-afsbar-zero">income covers it</span>'
+            fig = (
+                f"<strong>{_eur(net)}</strong>"
+                if _truthy(net) and float(net) > 0
+                else '<span class="pr-afsbar-zero">income covers it</span>'
+            )
             rows.append(
                 _afs_bar_row(
                     r.division,
@@ -1008,7 +1012,15 @@ def _render_council_running_lane(council: str, active_tier: str, *, po_max_year:
     # Spend-over-time spine — distinct teal from the PO chart's brown (a different grain).
     if len(ay) > 1:
         st.caption("Total operating spending per year (revenue account, audited gross €)")
-        st.bar_chart(ay, x="year", y="gross_expenditure_eur", x_label="Year", y_label="Audited € spent", height=180, color="#3a6b7e")
+        st.bar_chart(
+            ay,
+            x="year",
+            y="gross_expenditure_eur",
+            x_label="Year",
+            y_label="Audited € spent",
+            height=180,
+            color="#3a6b7e",
+        )
 
     # Traceability bridge to the PAYING lane — the latest year present in both accounts + active PO tier.
     cov = fetch_afs_vs_po_coverage_result(council)
@@ -1068,7 +1080,9 @@ def _render_council_building_lane(council: str, *, accounts_latest: int | None) 
     # Capital invested per year — a DISTINCT green (a third grain after brown PO + teal revenue).
     if len(cy) > 1:
         st.caption("Capital invested per year (audited €)")
-        st.bar_chart(cy, x="year", y="capital_expenditure_eur", x_label="Year", y_label="€ invested", height=180, color="#2f7d5b")
+        st.bar_chart(
+            cy, x="year", y="capital_expenditure_eur", x_label="Year", y_label="€ invested", height=180, color="#2f7d5b"
+        )
 
     # Capital by service in the latest year — bars, largest investment first (view pre-orders).
     bd = fetch_afs_capital_by_division_result(council, cap_latest)
@@ -1081,7 +1095,7 @@ def _render_council_building_lane(council: str, *, accounts_latest: int | None) 
                 r.division,
                 getattr(r, "capital_expenditure_eur", None),
                 max_cap,
-                fig_html=f'<strong>{_eur(getattr(r, "capital_expenditure_eur", None))}</strong>',
+                fig_html=f"<strong>{_eur(getattr(r, 'capital_expenditure_eur', None))}</strong>",
                 note="",
                 accent="#2f7d5b",
             )
@@ -1180,7 +1194,15 @@ def _render_payments_publisher_profile(publisher_name: str, tier: str = "SPENT")
     by_year = fetch_payments_by_year_result(publisher_name, tier=active)
     if by_year.ok and len(by_year.data) > 1:
         st.caption(f"Money {_paid_verb(active)} per year (sum-safe)")
-        st.bar_chart(by_year.data, x="year", y="total_safe_eur", x_label="Year", y_label="€ (sum-safe)", height=200, color="#9c5b2e")
+        st.bar_chart(
+            by_year.data,
+            x="year",
+            y="total_safe_eur",
+            x_label="Year",
+            y_label="€ (sum-safe)",
+            height=200,
+            color="#9c5b2e",
+        )
 
     res = fetch_payments_for_publisher_result(publisher_name, tier=active)
     df = res.data if res.ok else pd.DataFrame()
@@ -1349,9 +1371,7 @@ def _payment_line_row(r, tier: str) -> str:
         meta_parts.append(f'<a href="{_esc(src)}" target="_blank" rel="noopener">source ↗</a>')
     meta = " · ".join(p for p in meta_parts if p)
     val = _eur(getattr(r, "amount_eur", None))
-    val_html = (
-        f'<div class="pr-award-val">{val}<small>{_paid_verb(tier)}</small></div>' if val != "—" else ""
-    )
+    val_html = f'<div class="pr-award-val">{val}<small>{_paid_verb(tier)}</small></div>' if val != "—" else ""
     return (
         f'<div class="pr-award"><div class="pr-award-body">'
         f'<div class="pr-award-auth">{period or "—"}</div>{title_html}'
@@ -1378,7 +1398,7 @@ def _render_payment_lines(supplier_norm: str, publisher_name: str, tier: str = "
 
     st.html(
         f'<div class="pr-prof-head"><div class="pr-prof-kicker">PUBLISHED PAYMENT RECORDS · '
-        f'{_esc(_paid_verb(tier).upper())}</div>'
+        f"{_esc(_paid_verb(tier).upper())}</div>"
         f'<h1 class="pr-prof-name">{sup_name or "—"}</h1>'
         f'<div class="pr-prof-sub">as {_esc(_paid_verb(tier))} by {_esc(publisher_name)}</div></div>'
     )
@@ -1445,7 +1465,9 @@ def _render_supplier_register_footprint(company_num) -> None:
     if _truthy(r.get("in_payments")):
         paid, comm = _eur(r.get("paid_safe_eur")), _eur(r.get("committed_safe_eur"))
         npub = _n(r.get("payments_n_publishers"))
-        money = " · ".join(x for x in (f"{paid} paid" if paid != "—" else "", f"{comm} ordered" if comm != "—" else "") if x)
+        money = " · ".join(
+            x for x in (f"{paid} paid" if paid != "—" else "", f"{comm} ordered" if comm != "—" else "") if x
+        )
         money = money or "present"
         items.append(
             f"<li><strong>Public-body payments</strong> — {money} by {npub:,} "
@@ -1500,14 +1522,24 @@ def _render_paid_supplier_panel(supplier_norm: str) -> None:
         if float(ydf["paid_safe_eur"].sum()) > 0:
             st.caption("Money actually paid to this firm per year (sum-safe €) — a later stage than an award")
             st.bar_chart(
-                ydf, x="year", y="paid_safe_eur",
-                x_label="Year", y_label="€ paid", height=180, color="#2f7d5b",
+                ydf,
+                x="year",
+                y="paid_safe_eur",
+                x_label="Year",
+                y_label="€ paid",
+                height=180,
+                color="#2f7d5b",
             )
         if float(ydf["ordered_safe_eur"].sum()) > 0:
             st.caption("Money ordered from this firm per year (sum-safe €) — purchase-order commitments, not yet paid")
             st.bar_chart(
-                ydf, x="year", y="ordered_safe_eur",
-                x_label="Year", y_label="€ ordered", height=180, color="#3a6b7e",
+                ydf,
+                x="year",
+                y="ordered_safe_eur",
+                x_label="Year",
+                y_label="€ ordered",
+                height=180,
+                color="#3a6b7e",
             )
         st.caption(
             "Paid and ordered are different stages of public money — shown on separate axes, never added "
@@ -2070,7 +2102,9 @@ def _render_ted_tenders() -> None:
         if sector:
             empty_state("No tenders in that sector", f"No competition notice in “{sector}” for this filter.")
         else:
-            empty_state("No tenders", "No still-open competition notice." if only_open else "The view returned no rows.")
+            empty_state(
+                "No tenders", "No still-open competition notice." if only_open else "The view returned no rows."
+            )
         return
     sector_label = f" in {sector}" if sector else ""
     st.caption(
@@ -2609,8 +2643,13 @@ def _supplier_secured_trend(supplier_norm: str) -> None:
     )
     st.caption("Sum-safe awarded value secured per year (€)")
     st.bar_chart(
-        df, x="year", y="awarded_value_safe_eur",
-        x_label="Year", y_label="€ awarded (sum-safe)", height=200, color="#9c5b2e",
+        df,
+        x="year",
+        y="awarded_value_safe_eur",
+        x_label="Year",
+        y_label="€ awarded (sum-safe)",
+        height=200,
+        color="#9c5b2e",
     )
 
 
@@ -2761,7 +2800,9 @@ def _render_award_list(awards: pd.DataFrame, *, key: str, row_fn) -> None:
     page = awards.iloc[page_idx * _AWARD_PAGE : (page_idx + 1) * _AWARD_PAGE]
     st.html("".join(row_fn(r) for r in page.itertuples()))
     st.html('<div class="pr-sp-sm"></div>')
-    pagination_controls(total, key_prefix=pkey, page_sizes=(_AWARD_PAGE,), default_page_size=_AWARD_PAGE, label="awards")
+    pagination_controls(
+        total, key_prefix=pkey, page_sizes=(_AWARD_PAGE,), default_page_size=_AWARD_PAGE, label="awards"
+    )
     st.html(_FOOT_HTML)
 
 
@@ -3086,7 +3127,9 @@ def _render_patterns() -> None:
             "with payments). A year-end rise is a known public-finance seasonality; invoicing cycles, grant "
             "schedules and works seasons all contribute. The shape is the fact; the reason is not asserted."
         )
-        st.bar_chart(qt.data, x="quarter", y="n_lines", x_label="Quarter", y_label="Order lines", height=200, color="#9c5b2e")
+        st.bar_chart(
+            qt.data, x="quarter", y="n_lines", x_label="Quarter", y_label="Order lines", height=200, color="#9c5b2e"
+        )
         skew = fetch_quarter_profile_top_result()
         if skew.ok and not skew.data.empty:
             cards = []

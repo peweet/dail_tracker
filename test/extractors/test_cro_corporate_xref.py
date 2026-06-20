@@ -58,7 +58,9 @@ def _cro(rows: list[dict]) -> pl.DataFrame:
 
 def test_clean_one_to_one_match_is_kept_with_cro_fields():
     notices = _notices([{"entity_name": "ACME WIDGETS LIMITED", "notice_ref": "N1"}])
-    cro = _cro([{"name_norm": "ACME WIDGETS", "company_num": 111, "company_status": "Normal", "status_pill_value": "active"}])
+    cro = _cro(
+        [{"name_norm": "ACME WIDGETS", "company_num": 111, "company_status": "Normal", "status_pill_value": "active"}]
+    )
     out = build_cro_xref(notices, cro)
     assert out.height == 1
     row = out.row(0, named=True)

@@ -1310,9 +1310,7 @@ def _render_browse(conn) -> None:
     if search and search.strip():
         # Hyphen/space/case-tolerant + regex-safe: "Dublin South West" matches
         # the stored "Dublin South-West" and a "(" never crashes the search.
-        filtered = filtered[
-            text_search_mask(filtered, search, ["member_name", "party_name", "constituency"])
-        ]
+        filtered = filtered[text_search_mask(filtered, search, ["member_name", "party_name", "constituency"])]
 
     filtered = filtered.sort_values("member_name", kind="stable").reset_index(drop=True)
 
@@ -1500,7 +1498,8 @@ def _render_news_mentions_block(df: pd.DataFrame, member_name: str) -> None:
             dt = getattr(r, "published_at", None)
             date_str = dt.strftime("%d %b %Y") if dt is not None and pd.notna(dt) else ""
             body_note = (
-                "" if getattr(r, "match_in_title", False)
+                ""
+                if getattr(r, "match_in_title", False)
                 else "<span style='color:#9ca3af;font-style:italic'>· named in article body</span>"
             )
             url = _h(str(getattr(r, "article_url", "") or "#"))
@@ -1551,9 +1550,7 @@ def _render_contact_block(contact: dict, member_name: str, profile_href: str | N
         phone_links = []
         for p in phones:
             href = _tel_href(p)
-            phone_links.append(
-                f'<a class="mo-contact-link" href="{_h(href)}">{_h(p)}</a>' if href else _h(p)
-            )
+            phone_links.append(f'<a class="mo-contact-link" href="{_h(href)}">{_h(p)}</a>' if href else _h(p))
         rows.append(
             '<div class="mo-contact-row">'
             '<span class="mo-contact-ico" aria-hidden="true">📞</span>'
@@ -1599,13 +1596,7 @@ def _render_contact_block(contact: dict, member_name: str, profile_href: str | N
         )
         footer = f'<div class="mo-contact-source">{source_chip}</div>' if source_chip else ""
 
-    st.html(
-        '<div class="mo-contact-card">'
-        '<div class="mo-contact-title">Contact</div>'
-        f"{body}"
-        f"{footer}"
-        "</div>"
-    )
+    st.html(f'<div class="mo-contact-card"><div class="mo-contact-title">Contact</div>{body}{footer}</div>')
 
 
 # ── Profile ─────────────────────────────────────────────────────────────────────

@@ -23,7 +23,7 @@ for durable cross-deploy counts the log would need flushing to external storage
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from config import PROJECT_ROOT
@@ -38,7 +38,7 @@ def log_page_view(url_path: str) -> None:
         PAGE_VIEWS_LOG.parent.mkdir(parents=True, exist_ok=True)
         # Streamlit's hidden default Home page has an empty url_path; label it.
         page = url_path or "home"
-        ts = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+        ts = datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
         line = json.dumps({"ts": ts, "page": page}, ensure_ascii=False)
         with PAGE_VIEWS_LOG.open("a", encoding="utf-8") as fh:
             fh.write(line + "\n")

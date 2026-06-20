@@ -69,11 +69,13 @@ def test_genuine_paid_flag_is_not_promoted_to_description():
 
 
 def _flag(suppliers):
-    df = pl.DataFrame({
-        "supplier_raw": suppliers,
-        "amount_eur": [100_000.0] * len(suppliers),
-        "amount_semantics": ["payment_actual"] * len(suppliers),
-    })
+    df = pl.DataFrame(
+        {
+            "supplier_raw": suppliers,
+            "amount_eur": [100_000.0] * len(suppliers),
+            "amount_semantics": ["payment_actual"] * len(suppliers),
+        }
+    )
     return classify_and_flag(df)
 
 
@@ -84,23 +86,29 @@ from procurement_payments_consolidate import _reclassify_missed_companies  # noq
 
 def _reclass(specs):
     """specs: list of (supplier_normalised, cro_company_num) -> a frame starting all-sole-trader."""
-    return _reclassify_missed_companies(pl.DataFrame({
-        "supplier_normalised": [s for s, _ in specs],
-        "cro_company_num": [c for _, c in specs],
-        "cro_company_status": [None] * len(specs),
-        "supplier_class": ["sole_trader_or_individual"] * len(specs),
-        "privacy_status": ["review_personal_data"] * len(specs),
-        "public_display": [False] * len(specs),
-    }))
+    return _reclassify_missed_companies(
+        pl.DataFrame(
+            {
+                "supplier_normalised": [s for s, _ in specs],
+                "cro_company_num": [c for _, c in specs],
+                "cro_company_status": [None] * len(specs),
+                "supplier_class": ["sole_trader_or_individual"] * len(specs),
+                "privacy_status": ["review_personal_data"] * len(specs),
+                "public_display": [False] * len(specs),
+            }
+        )
+    )
 
 
 def test_reclassifier_upgrades_firm_words_and_cro_but_not_people():
-    out = _reclass([
-        ("arup consulting engineers", None),    # activity stem (inflection) -> company
-        ("alliance medical", None),             # activity word -> company
-        ("mazars", "123456"),                   # no firm word but CRO match (≥5 chars) -> company
-        ("mary obrien", None),                  # bare person, no signal -> stays sole trader
-    ]).sort("supplier_normalised")
+    out = _reclass(
+        [
+            ("arup consulting engineers", None),  # activity stem (inflection) -> company
+            ("alliance medical", None),  # activity word -> company
+            ("mazars", "123456"),  # no firm word but CRO match (≥5 chars) -> company
+            ("mary obrien", None),  # bare person, no signal -> stays sole trader
+        ]
+    ).sort("supplier_normalised")
     by = {r["supplier_normalised"]: r for r in out.iter_rows(named=True)}
     assert by["arup consulting engineers"]["supplier_class"] == "company"
     assert by["alliance medical"]["supplier_class"] == "company"
@@ -111,22 +119,25 @@ def test_reclassifier_upgrades_firm_words_and_cro_but_not_people():
     assert by["mary obrien"]["public_display"] is False
 
 
-@pytest.mark.parametrize("name,expect", [
-    # truncation-tolerant legal/activity forms (source column-width cut the word)
-    ("eamonn costello kerry limite", "company"),     # "LIMITED" cut to "LIMITE"
-    ("joseph mcmenamin son con l", "company"),       # "& SON" whole-word
-    ("ganson building civil engine", "company"),     # "ENGINEERING" cut to "ENGINE"
-    ("o sheas builders", "company"),                 # "BUILD" stem
-    ("stewart tracey joint venture", "company"),     # "VENTUR" stem
-    # foreign legal forms (END-anchored so "as"/"sa" can't match mid-name)
-    ("novavax cz as", "company"),                    # Norwegian/Czech AS
-    ("seqirus netherlands b v", "company"),          # Dutch B.V. -> "b v"
-    ("defence aerospace as", "company"),             # Kongsberg AS
-    # privacy: people / mid-name collisions must NOT upgrade
-    ("sonia murphy", "sole_trader_or_individual"),   # "son" must be whole-word, not a stem
-    ("mary obrien", "sole_trader_or_individual"),
-    ("as roofing limerick", "sole_trader_or_individual"),  # "as" only matches at END
-])
+@pytest.mark.parametrize(
+    "name,expect",
+    [
+        # truncation-tolerant legal/activity forms (source column-width cut the word)
+        ("eamonn costello kerry limite", "company"),  # "LIMITED" cut to "LIMITE"
+        ("joseph mcmenamin son con l", "company"),  # "& SON" whole-word
+        ("ganson building civil engine", "company"),  # "ENGINEERING" cut to "ENGINE"
+        ("o sheas builders", "company"),  # "BUILD" stem
+        ("stewart tracey joint venture", "company"),  # "VENTUR" stem
+        # foreign legal forms (END-anchored so "as"/"sa" can't match mid-name)
+        ("novavax cz as", "company"),  # Norwegian/Czech AS
+        ("seqirus netherlands b v", "company"),  # Dutch B.V. -> "b v"
+        ("defence aerospace as", "company"),  # Kongsberg AS
+        # privacy: people / mid-name collisions must NOT upgrade
+        ("sonia murphy", "sole_trader_or_individual"),  # "son" must be whole-word, not a stem
+        ("mary obrien", "sole_trader_or_individual"),
+        ("as roofing limerick", "sole_trader_or_individual"),  # "as" only matches at END
+    ],
+)
 def test_reclassifier_truncation_and_foreign_forms(name, expect):
     out = _reclass([(name, None)])
     assert out.row(0, named=True)["supplier_class"] == expect, name
@@ -144,28 +155,34 @@ from procurement_payments_consolidate import (  # noqa: E402
 
 def _surface(rows):
     """rows: list of (supplier_normalised, spend_category) -> all start hidden sole_trader_or_individual."""
-    df = pl.DataFrame({
-        "supplier_normalised": [s for s, _ in rows],
-        "spend_category": [c for _, c in rows],
-        "description": [c for _, c in rows],
-        "amount_eur": [50_000.0] * len(rows),
-        "supplier_class": ["sole_trader_or_individual"] * len(rows),
-        "privacy_status": ["review_personal_data"] * len(rows),
-        "public_display": [False] * len(rows),
-    })
-    return {r["supplier_normalised"]: r for r in
-            _surface_sole_trader_contractors(df).unique(subset=["supplier_normalised"]).iter_rows(named=True)}
+    df = pl.DataFrame(
+        {
+            "supplier_normalised": [s for s, _ in rows],
+            "spend_category": [c for _, c in rows],
+            "description": [c for _, c in rows],
+            "amount_eur": [50_000.0] * len(rows),
+            "supplier_class": ["sole_trader_or_individual"] * len(rows),
+            "privacy_status": ["review_personal_data"] * len(rows),
+            "public_display": [False] * len(rows),
+        }
+    )
+    return {
+        r["supplier_normalised"]: r
+        for r in _surface_sole_trader_contractors(df).unique(subset=["supplier_normalised"]).iter_rows(named=True)
+    }
 
 
 def test_commercial_sole_trader_is_surfaced_private_stays_hidden():
-    out = _surface([
-        ("terry rea", "Minor Contracts Trade Services"),       # commercial -> surface
-        ("noel cunningham", "Roofworks"),                      # commercial -> surface
-        ("enda ocarroll", "House Purchase"),                   # property -> hidden
-        ("aoife buckley", "Croi Conaithe Top Up Grant"),       # grant -> hidden
-        ("stephen lambe", "Land Purchase Compensation"),       # CPO -> hidden
-        ("john noname", None),                                 # uncategorised -> hidden
-    ])
+    out = _surface(
+        [
+            ("terry rea", "Minor Contracts Trade Services"),  # commercial -> surface
+            ("noel cunningham", "Roofworks"),  # commercial -> surface
+            ("enda ocarroll", "House Purchase"),  # property -> hidden
+            ("aoife buckley", "Croi Conaithe Top Up Grant"),  # grant -> hidden
+            ("stephen lambe", "Land Purchase Compensation"),  # CPO -> hidden
+            ("john noname", None),  # uncategorised -> hidden
+        ]
+    )
     assert out["terry rea"]["supplier_class"] == "sole_trader"
     assert out["terry rea"]["public_display"] is True
     assert out["noel cunningham"]["supplier_class"] == "sole_trader"
@@ -176,45 +193,52 @@ def test_commercial_sole_trader_is_surfaced_private_stays_hidden():
 
 def test_any_private_payment_keeps_whole_supplier_hidden():
     # A contractor who ALSO sold land under CPO must stay hidden — any private row vetoes surfacing.
-    df = pl.DataFrame({
-        "supplier_normalised": ["sean moore", "sean moore"],
-        "spend_category": ["Road Construction", "Rent Johns Green House"],
-        "description": ["Road Construction", "Rent"],
-        "amount_eur": [50_000.0, 50_000.0],
-        "supplier_class": ["sole_trader_or_individual"] * 2,
-        "privacy_status": ["review_personal_data"] * 2,
-        "public_display": [False] * 2,
-    })
+    df = pl.DataFrame(
+        {
+            "supplier_normalised": ["sean moore", "sean moore"],
+            "spend_category": ["Road Construction", "Rent Johns Green House"],
+            "description": ["Road Construction", "Rent"],
+            "amount_eur": [50_000.0, 50_000.0],
+            "supplier_class": ["sole_trader_or_individual"] * 2,
+            "privacy_status": ["review_personal_data"] * 2,
+            "public_display": [False] * 2,
+        }
+    )
     out = _surface_sole_trader_contractors(df)
     assert out["supplier_class"].unique().to_list() == ["sole_trader_or_individual"]
     assert not out["public_display"].any()
 
 
 def test_id_codes_become_id_code_class_hidden():
-    df = pl.DataFrame({
-        "supplier_normalised": ["JOH260ZZ", "DUG001ZZ", "ARUP", "MARY OBRIEN"],
-        "supplier_class": ["sole_trader_or_individual"] * 4,
-        "privacy_status": ["review_personal_data"] * 4,
-        "public_display": [False] * 4,
-    })
+    df = pl.DataFrame(
+        {
+            "supplier_normalised": ["JOH260ZZ", "DUG001ZZ", "ARUP", "MARY OBRIEN"],
+            "supplier_class": ["sole_trader_or_individual"] * 4,
+            "privacy_status": ["review_personal_data"] * 4,
+            "public_display": [False] * 4,
+        }
+    )
     out = {r["supplier_normalised"]: r for r in _classify_id_codes(df).iter_rows(named=True)}
     assert out["JOH260ZZ"]["supplier_class"] == "id_code"
-    assert out["JOH260ZZ"]["public_display"] is False        # anonymised code stays hidden
+    assert out["JOH260ZZ"]["public_display"] is False  # anonymised code stays hidden
     assert out["DUG001ZZ"]["supplier_class"] == "id_code"
-    assert out["ARUP"]["supplier_class"] == "sole_trader_or_individual"   # a real name is untouched
+    assert out["ARUP"]["supplier_class"] == "sole_trader_or_individual"  # a real name is untouched
     assert out["MARY OBRIEN"]["supplier_class"] == "sole_trader_or_individual"
 
 
-@pytest.mark.parametrize("name,is_junk", [
-    ("PURCHASE ORDERS OVER", True),
-    ("NOTICE ON PUBLICATION PURCHASE ORDERS OVER", True),
-    ("SLIGO CO COUNCIL PURCHASE ORDERS OVER 20000", True),
-    # NOT junk: real spend to an un-named/aggregate vendor must STAY summable (no understatement)
-    ("IT SERVICE PROVIDER", False),
-    ("SUNDRY SUPPLIER", False),
-    ("KILKENNY ABBEY QUARTER DEVELOPMENT PARTNERSHIP", False),   # "quarter" is a place, not a header
-    ("ARUP", False),
-])
+@pytest.mark.parametrize(
+    "name,is_junk",
+    [
+        ("PURCHASE ORDERS OVER", True),
+        ("NOTICE ON PUBLICATION PURCHASE ORDERS OVER", True),
+        ("SLIGO CO COUNCIL PURCHASE ORDERS OVER 20000", True),
+        # NOT junk: real spend to an un-named/aggregate vendor must STAY summable (no understatement)
+        ("IT SERVICE PROVIDER", False),
+        ("SUNDRY SUPPLIER", False),
+        ("KILKENNY ABBEY QUARTER DEVELOPMENT PARTNERSHIP", False),  # "quarter" is a place, not a header
+        ("ARUP", False),
+    ],
+)
 def test_junk_supplier_regex_is_page_furniture_only(name, is_junk):
     assert bool(_re.search(_JUNK_SUPPLIER_RE, name)) is is_junk, name
 
@@ -228,52 +252,62 @@ from procurement_payments_consolidate import (  # noqa: E402
 def test_split_entity_variants_merge_to_one_key():
     # Airbus Defence & Space SAU is published 3 ways by Dept of Defence; all must collapse to one
     # name so the firm stops fragmenting (and the merged name ends in the SAU foreign form).
-    df = pl.DataFrame({
-        "publisher_name": ["Department of Defence"] * 3 + ["Other Body"],
-        "supplier_raw": [
-            "AIRBUS DEFENCE & SPACE SAU SPAIN",
-            "DEFENCE & SPACE SAU SPAIN",
-            "& SPACE SAU SPAIN",
-            "Space Cadets Ltd",          # unrelated firm, different body -> untouched
-        ],
-    })
+    df = pl.DataFrame(
+        {
+            "publisher_name": ["Department of Defence"] * 3 + ["Other Body"],
+            "supplier_raw": [
+                "AIRBUS DEFENCE & SPACE SAU SPAIN",
+                "DEFENCE & SPACE SAU SPAIN",
+                "& SPACE SAU SPAIN",
+                "Space Cadets Ltd",  # unrelated firm, different body -> untouched
+            ],
+        }
+    )
     out = _canonicalise_split_entities(df)["supplier_raw"].to_list()
     assert out[:3] == ["Airbus Defence and Space SAU"] * 3, out
     assert out[3] == "Space Cadets Ltd"
 
 
-@pytest.mark.parametrize("name,expect", [
-    ("airbus defence space sau", "company"),          # ends in SAU
-    ("novartis pharma gmbh germany", "company"),      # foreign form + trailing country
-    ("carroceros s l", "company"),                    # Spanish SL
-    ("seqirus netherlands b v", "company"),
-    ("bavarian nordic a s", "company"),               # Danish A/S -> "a s"
-    ("sasta builders portugal", "company"),           # "build" stem (not the country)
-    ("john sasportas", "sole_trader_or_individual"),  # "sa" must not match mid-name
-])
+@pytest.mark.parametrize(
+    "name,expect",
+    [
+        ("airbus defence space sau", "company"),  # ends in SAU
+        ("novartis pharma gmbh germany", "company"),  # foreign form + trailing country
+        ("carroceros s l", "company"),  # Spanish SL
+        ("seqirus netherlands b v", "company"),
+        ("bavarian nordic a s", "company"),  # Danish A/S -> "a s"
+        ("sasta builders portugal", "company"),  # "build" stem (not the country)
+        ("john sasportas", "sole_trader_or_individual"),  # "sa" must not match mid-name
+    ],
+)
 def test_foreign_form_with_trailing_country(name, expect):
     assert _reclass([(name, None)]).row(0, named=True)["supplier_class"] == expect, name
 
 
-@pytest.mark.parametrize("name,expect", [
-    ("premier recruitment int", "company"),               # "recruit" stem
-    ("harrington concrete quarries ulc", "company"),      # Irish Unlimited Company
-    ("noel cunningham", "sole_trader_or_individual"),     # bare person stays hidden
-])
+@pytest.mark.parametrize(
+    "name,expect",
+    [
+        ("premier recruitment int", "company"),  # "recruit" stem
+        ("harrington concrete quarries ulc", "company"),  # Irish Unlimited Company
+        ("noel cunningham", "sole_trader_or_individual"),  # bare person stays hidden
+    ],
+)
 def test_recruit_stem_and_ulc(name, expect):
     assert _reclass([(name, None)]).row(0, named=True)["supplier_class"] == expect, name
 
 
 def test_ernst_young_variants_merge_to_one_key():
-    df = pl.DataFrame({
-        "publisher_name": ["Revenue Commissioners"] * 4,
-        "supplier_raw": [
-            "ERNST & YOUNG BUSINESS ADVISORY",
-            "Ernst and Young",
-            "& Young",                # orphaned tail (the "Ernst &" was cut at the column edge)
-            "Young Brothers Plant",   # NOT EY — "young" mid-name must be untouched
-        ],
-    })
+    df = pl.DataFrame(
+        {
+            "publisher_name": ["Revenue Commissioners"] * 4,
+            "supplier_raw": [
+                "ERNST & YOUNG BUSINESS ADVISORY",
+                "Ernst and Young",
+                "& Young",  # orphaned tail (the "Ernst &" was cut at the column edge)
+                "Young Brothers Plant",  # NOT EY — "young" mid-name must be untouched
+            ],
+        }
+    )
     out = _canonicalise_split_entities(df)["supplier_raw"].to_list()
     assert out[:3] == ["Ernst and Young"] * 3, out
     assert out[3] == "Young Brothers Plant"
@@ -281,26 +315,32 @@ def test_ernst_young_variants_merge_to_one_key():
 
 def test_pobal_scheme_code_prefix_is_stripped():
     # Pobal prefixes a "LLL###" scheme code that fragments the real vendor across keys.
-    df = pl.DataFrame({"supplier_raw": ["CMO005 Logicalis", "CER002 Ergo", "Acme Ltd"],
-                       "po_number": [None, None, None],
-                       "supplier_normalised": ["", "", ""]})
+    df = pl.DataFrame(
+        {
+            "supplier_raw": ["CMO005 Logicalis", "CER002 Ergo", "Acme Ltd"],
+            "po_number": [None, None, None],
+            "supplier_normalised": ["", "", ""],
+        }
+    )
     out = _clean_supplier_names(df)["supplier_raw"].to_list()
     assert out == ["Logicalis", "Ergo", "Acme Ltd"]
 
 
 def test_conform_desums_page_furniture_but_keeps_unnamed_vendor():
-    df = pl.DataFrame({
-        "amount_semantics": ["payment_actual"] * 3,
-        "publisher_name": ["X"] * 3,
-        "value_safe_to_sum": [True] * 3,
-        "supplier_class": ["sole_trader_or_individual"] * 3,
-        "supplier_normalised": ["PURCHASE ORDERS OVER 20000", "IT SERVICE PROVIDER", "ARUP"],
-        "public_display": [False, False, True],
-        "privacy_status": ["ok"] * 3,
-    })
+    df = pl.DataFrame(
+        {
+            "amount_semantics": ["payment_actual"] * 3,
+            "publisher_name": ["X"] * 3,
+            "value_safe_to_sum": [True] * 3,
+            "supplier_class": ["sole_trader_or_individual"] * 3,
+            "supplier_normalised": ["PURCHASE ORDERS OVER 20000", "IT SERVICE PROVIDER", "ARUP"],
+            "public_display": [False, False, True],
+            "privacy_status": ["ok"] * 3,
+        }
+    )
     out = {r["supplier_normalised"]: r for r in _conform(df).iter_rows(named=True)}
-    assert out["PURCHASE ORDERS OVER 20000"]["value_safe_to_sum"] is False   # page furniture excluded
-    assert out["IT SERVICE PROVIDER"]["value_safe_to_sum"] is True           # real spend, un-named: kept
+    assert out["PURCHASE ORDERS OVER 20000"]["value_safe_to_sum"] is False  # page furniture excluded
+    assert out["IT SERVICE PROVIDER"]["value_safe_to_sum"] is True  # real spend, un-named: kept
     assert out["ARUP"]["value_safe_to_sum"] is True
 
 
@@ -312,11 +352,14 @@ def test_sole_trader_is_quarantined():
     assert row["public_display"] is False
 
 
-@pytest.mark.parametrize("name", [
-    "Brightwater Solutions Limited",
-    "Acme Engineering Ltd",
-    "Northgate Holdings DAC",
-])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Brightwater Solutions Limited",
+        "Acme Engineering Ltd",
+        "Northgate Holdings DAC",
+    ],
+)
 def test_company_is_displayable(name):
     row = _flag([name]).row(0, named=True)
     assert row["supplier_class"] == "company"
@@ -324,36 +367,42 @@ def test_company_is_displayable(name):
     assert row["public_display"] is True
 
 
-@pytest.mark.parametrize("name", [
-    # Suffix-less firms that the OLD trailing-\b stem pattern misclassed as sole traders (regression
-    # for the 2026-06-13 over-quarantine fix): the activity word is an INFLECTION of a stem
-    # (engineerS / consultING / technologY / propertIES) that \b(stem)\b could never match.
-    "Arup Consulting Engineers",
-    "RPS Consulting Engineers",
-    "Ganson Building and Civil Engineering",
-    "Creative Technology Audio",
-    "Version 1 Software",
-    "Alliance Medical",
-    "Willis Towers Watson Insurance",
-    "Goldman Sachs Asset Management",
-    "United Drug Distributors Ireland",
-    "Primary Health Properties ICAV",
-    "Vector Workplace & Facility",       # ampersand firm
-    "McCullough Mulvin Architects",
-])
+@pytest.mark.parametrize(
+    "name",
+    [
+        # Suffix-less firms that the OLD trailing-\b stem pattern misclassed as sole traders (regression
+        # for the 2026-06-13 over-quarantine fix): the activity word is an INFLECTION of a stem
+        # (engineerS / consultING / technologY / propertIES) that \b(stem)\b could never match.
+        "Arup Consulting Engineers",
+        "RPS Consulting Engineers",
+        "Ganson Building and Civil Engineering",
+        "Creative Technology Audio",
+        "Version 1 Software",
+        "Alliance Medical",
+        "Willis Towers Watson Insurance",
+        "Goldman Sachs Asset Management",
+        "United Drug Distributors Ireland",
+        "Primary Health Properties ICAV",
+        "Vector Workplace & Facility",  # ampersand firm
+        "McCullough Mulvin Architects",
+    ],
+)
 def test_suffixless_activity_firm_is_company(name):
     row = _flag([name]).row(0, named=True)
     assert row["supplier_class"] == "company", f"{name} misclassed as {row['supplier_class']}"
     assert row["public_display"] is True
 
 
-@pytest.mark.parametrize("name", [
-    # The fix must NOT sweep bare personal names in: no legal form, no activity word.
-    "Mary O'Brien",
-    "Sean Kelly",
-    "M Fitzgibbon",
-    "David Slattery",
-])
+@pytest.mark.parametrize(
+    "name",
+    [
+        # The fix must NOT sweep bare personal names in: no legal form, no activity word.
+        "Mary O'Brien",
+        "Sean Kelly",
+        "M Fitzgibbon",
+        "David Slattery",
+    ],
+)
 def test_bare_personal_name_still_quarantined(name):
     row = _flag([name]).row(0, named=True)
     assert row["supplier_class"] == "sole_trader_or_individual", f"{name} should stay quarantined"
@@ -377,7 +426,7 @@ def test_public_body_recipient_is_not_summable():
     row = _flag(["Cork County Council"]).row(0, named=True)
     assert row["supplier_class"] == "public_body"
     assert row["value_safe_to_sum"] is False  # transfer, not procurement
-    assert row["public_display"] is True       # but still retained/displayable
+    assert row["public_display"] is True  # but still retained/displayable
 
 
 def test_company_payment_is_summable():
@@ -386,12 +435,15 @@ def test_company_payment_is_summable():
     assert row["value_safe_to_sum"] is True
 
 
-@pytest.mark.parametrize("name", [
-    "Transport Infrastructure Ireland",   # "...Ireland" — COMPANY_SUFFIX 'ireland' would mis-hit
-    "Uisce Éireann",
-    "Irish Water",
-    "Tailte Éireann",
-])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Transport Infrastructure Ireland",  # "...Ireland" — COMPANY_SUFFIX 'ireland' would mis-hit
+        "Uisce Éireann",
+        "Irish Water",
+        "Tailte Éireann",
+    ],
+)
 def test_named_state_agency_is_public_body_not_summable(name):
     # State agencies named "X Ireland"/"X Éireann" must classify public_body (tested before the
     # company check) so their intergovernmental transfers never leak into value_safe_to_sum.
@@ -403,30 +455,30 @@ def test_named_state_agency_is_public_body_not_summable(name):
 def test_no_public_body_row_is_summable_in_mix():
     # Mirrors the real transfer pattern: TII pays county councils (recipient = public body),
     # which is the €2.5bn of intergovernmental transfers the fix excludes from summing.
-    df = _flag([
-        "Cork County Council",                # public body -> transfer, not summable
-        "Donegal County Council",             # public body -> transfer, not summable
-        "Acme Engineering Ltd",               # company -> summable
-        "Brightwater Solutions Limited",      # company -> summable
-    ])
-    leaked = df.filter(
-        pl.col("value_safe_to_sum") & (pl.col("supplier_class") == "public_body")
+    df = _flag(
+        [
+            "Cork County Council",  # public body -> transfer, not summable
+            "Donegal County Council",  # public body -> transfer, not summable
+            "Acme Engineering Ltd",  # company -> summable
+            "Brightwater Solutions Limited",  # company -> summable
+        ]
     )
+    leaked = df.filter(pl.col("value_safe_to_sum") & (pl.col("supplier_class") == "public_body"))
     assert leaked.height == 0, f"{leaked.height} public_body transfer rows left summable"
     assert df.filter(pl.col("value_safe_to_sum")).height == 2  # only the two companies
 
 
 def test_invariant_no_personal_row_is_displayable():
-    df = _flag([
-        "Jonathan Oakfield",            # personal -> quarantined
-        "Acme Engineering Ltd",         # company -> ok
-        "Cork County Council",          # public body -> ok
-        "Mary Quillfeather",            # personal -> quarantined
-        "Brightwater Solutions Limited",
-    ])
-    leaked = df.filter(
-        pl.col("public_display") & (pl.col("supplier_class") == "sole_trader_or_individual")
+    df = _flag(
+        [
+            "Jonathan Oakfield",  # personal -> quarantined
+            "Acme Engineering Ltd",  # company -> ok
+            "Cork County Council",  # public body -> ok
+            "Mary Quillfeather",  # personal -> quarantined
+            "Brightwater Solutions Limited",
+        ]
     )
+    leaked = df.filter(pl.col("public_display") & (pl.col("supplier_class") == "sole_trader_or_individual"))
     assert leaked.height == 0, f"{leaked.height} personal rows left displayable"
     # and the quarantine actually suppressed the two invented individuals
     assert df.filter(~pl.col("public_display")).height == 2
@@ -441,11 +493,19 @@ def _rows(specs):
     """specs: list of (supplier, amount, description, po, page) -> a fact-shaped frame.
     All share one source_file_hash/period so dedup is judged within-file."""
     base = {"source_file_hash": "h1", "period": "2024-Q1", "paid_flag": None}
-    return pl.DataFrame([
-        {**base, "supplier_raw": s, "amount_eur": float(a),
-         "description": d, "po_number": po, "source_page_number": pg}
-        for (s, a, d, po, pg) in specs
-    ])
+    return pl.DataFrame(
+        [
+            {
+                **base,
+                "supplier_raw": s,
+                "amount_eur": float(a),
+                "description": d,
+                "po_number": po,
+                "source_page_number": pg,
+            }
+            for (s, a, d, po, pg) in specs
+        ]
+    )
 
 
 def test_identical_rows_are_collapsed():
@@ -458,24 +518,28 @@ def test_identical_rows_are_collapsed():
 def test_distinct_description_is_preserved():
     # The Courts pattern: same mis-parsed amount + same (truncated) supplier, but 3 DIFFERENT
     # descriptions = 3 real payment lines. None may be dropped.
-    df = _rows([
-        ("Ireland Ltd", 21613, "Court A repairs", None, 2),
-        ("Ireland Ltd", 21613, "Court B IT",      None, 2),
-        ("Ireland Ltd", 21613, "Court C legal",   None, 2),
-    ])
+    df = _rows(
+        [
+            ("Ireland Ltd", 21613, "Court A repairs", None, 2),
+            ("Ireland Ltd", 21613, "Court B IT", None, 2),
+            ("Ireland Ltd", 21613, "Court C legal", None, 2),
+        ]
+    )
     out, dropped = dedup_source_repeats(df)
     assert dropped == 0
     assert out.height == 3
 
 
 def test_differing_any_field_preserves_row():
-    df = _rows([
-        ("Acme Ltd", 1000, "X", "PO1", 1),
-        ("Acme Ltd", 1000, "X", "PO2", 1),   # different PO -> kept
-        ("Acme Ltd", 1000, "X", "PO1", 2),   # different page -> kept
-        ("Acme Ltd", 2000, "X", "PO1", 1),   # different amount -> kept
-        ("Acme Ltd", 1000, "X", "PO1", 1),   # exact repeat of row 0 -> dropped
-    ])
+    df = _rows(
+        [
+            ("Acme Ltd", 1000, "X", "PO1", 1),
+            ("Acme Ltd", 1000, "X", "PO2", 1),  # different PO -> kept
+            ("Acme Ltd", 1000, "X", "PO1", 2),  # different page -> kept
+            ("Acme Ltd", 2000, "X", "PO1", 1),  # different amount -> kept
+            ("Acme Ltd", 1000, "X", "PO1", 1),  # exact repeat of row 0 -> dropped
+        ]
+    )
     out, dropped = dedup_source_repeats(df)
     assert dropped == 1
     assert out.height == 4
@@ -484,10 +548,12 @@ def test_differing_any_field_preserves_row():
 def test_same_payment_in_two_files_is_not_collapsed():
     # Different source files (different hash) are NOT deduped here — that is the small,
     # separately-handled cross-file republish case, not a within-file parser repeat.
-    df = pl.concat([
-        _rows([("Acme Ltd", 1000, "X", "PO1", 1)]).with_columns(pl.lit("hA").alias("source_file_hash")),
-        _rows([("Acme Ltd", 1000, "X", "PO1", 1)]).with_columns(pl.lit("hB").alias("source_file_hash")),
-    ])
+    df = pl.concat(
+        [
+            _rows([("Acme Ltd", 1000, "X", "PO1", 1)]).with_columns(pl.lit("hA").alias("source_file_hash")),
+            _rows([("Acme Ltd", 1000, "X", "PO1", 1)]).with_columns(pl.lit("hB").alias("source_file_hash")),
+        ]
+    )
     out, dropped = dedup_source_repeats(df)
     assert dropped == 0
     assert out.height == 2
@@ -505,10 +571,14 @@ def test_dedup_sig_excludes_volatile_provenance():
 # ----------------------------------------------------------------------------------------
 def _norm_conf(suppliers, conf="high"):
     """Frame with supplier_normalised + extraction_confidence for flag_unidentifiable_suppliers."""
-    df = pl.DataFrame({"supplier_raw": suppliers,
-                       "amount_eur": [1000.0] * len(suppliers),
-                       "amount_semantics": ["payment_actual"] * len(suppliers),
-                       "extraction_confidence": [conf] * len(suppliers)})
+    df = pl.DataFrame(
+        {
+            "supplier_raw": suppliers,
+            "amount_eur": [1000.0] * len(suppliers),
+            "amount_semantics": ["payment_actual"] * len(suppliers),
+            "extraction_confidence": [conf] * len(suppliers),
+        }
+    )
     return classify_and_flag(df)
 
 
@@ -519,16 +589,27 @@ def test_empty_normalised_name_downgraded_to_low():
 
 
 def test_generic_word_name_downgraded_to_low():
-    out = flag_unidentifiable_suppliers(_norm_conf(
-        ["Construction Ltd", "Aircraft Ltd", "Ireland Energy Ltd", "Shipping Group"]))
+    out = flag_unidentifiable_suppliers(
+        _norm_conf(["Construction Ltd", "Aircraft Ltd", "Ireland Energy Ltd", "Shipping Group"])
+    )
     assert set(out["extraction_confidence"].to_list()) == {"low"}
 
 
 def test_real_oneword_firm_not_downgraded():
     # Distinctive token survives normalisation -> must STAY high-confidence.
-    out = flag_unidentifiable_suppliers(_norm_conf(
-        ["Sodexo Ireland Ltd", "Fujitsu Ireland Ltd", "Adston Ltd", "Accenture Limited",
-         "Atkins Ltd", "Marsh Ireland Ltd", "Capgemini Ireland Ltd"]))
+    out = flag_unidentifiable_suppliers(
+        _norm_conf(
+            [
+                "Sodexo Ireland Ltd",
+                "Fujitsu Ireland Ltd",
+                "Adston Ltd",
+                "Accenture Limited",
+                "Atkins Ltd",
+                "Marsh Ireland Ltd",
+                "Capgemini Ireland Ltd",
+            ]
+        )
+    )
     assert set(out["extraction_confidence"].to_list()) == {"high"}
 
 
@@ -545,34 +626,46 @@ def test_suffix_and_geographic_remnants_downgraded():
 
 def test_unidentifiable_rows_stay_summable():
     # The money is real; only attribution confidence drops. value_safe_to_sum must be untouched.
-    df = classify_and_flag(pl.DataFrame({
-        "supplier_raw": ["Construction Ltd"], "amount_eur": [1000.0],
-        "amount_semantics": ["payment_actual"], "extraction_confidence": ["high"]}))
+    df = classify_and_flag(
+        pl.DataFrame(
+            {
+                "supplier_raw": ["Construction Ltd"],
+                "amount_eur": [1000.0],
+                "amount_semantics": ["payment_actual"],
+                "extraction_confidence": ["high"],
+            }
+        )
+    )
     out = flag_unidentifiable_suppliers(df)
     assert out.row(0, named=True)["value_safe_to_sum"] is True
     assert out.row(0, named=True)["extraction_confidence"] == "low"
 
 
 def test_nbi_split_is_merged_to_identifiable_name():
-    df = pl.DataFrame({
-        "supplier_raw": ["Infrastructure DAC", "Infrastructure DAC NBP",
-                         "NBI Infrastructure DAC", "Infrastructure DAC"],
-        "po_number": ["NBI", "NBI", None, "12345"],   # last one: not NBI -> left alone
-        "amount_eur": [1.0, 2.0, 3.0, 4.0],
-    })
+    df = pl.DataFrame(
+        {
+            "supplier_raw": [
+                "Infrastructure DAC",
+                "Infrastructure DAC NBP",
+                "NBI Infrastructure DAC",
+                "Infrastructure DAC",
+            ],
+            "po_number": ["NBI", "NBI", None, "12345"],  # last one: not NBI -> left alone
+            "amount_eur": [1.0, 2.0, 3.0, 4.0],
+        }
+    )
     out = canonicalise_supplier_raw(df)
     raws = out["supplier_raw"].to_list()
-    assert raws[0] == "NBI Infrastructure DAC"   # po=NBI rewritten
-    assert raws[1] == "NBI Infrastructure DAC"   # 'Infrastructure DAC NBP' po=NBI rewritten
-    assert raws[2] == "NBI Infrastructure DAC"   # already canonical
-    assert raws[3] == "Infrastructure DAC"       # po != NBI -> untouched (no over-merge)
+    assert raws[0] == "NBI Infrastructure DAC"  # po=NBI rewritten
+    assert raws[1] == "NBI Infrastructure DAC"  # 'Infrastructure DAC NBP' po=NBI rewritten
+    assert raws[2] == "NBI Infrastructure DAC"  # already canonical
+    assert raws[3] == "Infrastructure DAC"  # po != NBI -> untouched (no over-merge)
     # and after normalisation the NBI rows share ONE identifiable id (not generic 'INFRASTRUCTURE')
     normed = classify_and_flag(out.with_columns(pl.lit("payment_actual").alias("amount_semantics")))
     nbi_norm = normed.filter(pl.col("po_number") == "NBI")["supplier_normalised"].unique().to_list()
     assert nbi_norm == ["NBI INFRASTRUCTURE"], nbi_norm
     # the canonical NBI name is NOT swept up by the generic-word downgrade
-    flagged = flag_unidentifiable_suppliers(
-        normed.with_columns(pl.lit("high").alias("extraction_confidence")))
+    flagged = flag_unidentifiable_suppliers(normed.with_columns(pl.lit("high").alias("extraction_confidence")))
     assert flagged.filter(pl.col("po_number") == "NBI")["extraction_confidence"].to_list() == ["high", "high"]
 
 
@@ -581,14 +674,17 @@ def test_nbi_split_is_merged_to_identifiable_name():
 # 2026-06-06). Without this, recurring quarterly payments share a year-only period and look
 # like cross-file duplicates.
 # ----------------------------------------------------------------------------------------
-@pytest.mark.parametrize("fname,expected", [
-    ("https://x.ie/jan-mar-2016.pdf", ("2016-Q1", 2016, 1)),
-    ("https://x.ie/apr-jun-2018.pdf", ("2018-Q2", 2018, 2)),
-    ("https://x.ie/jul-sep-2016.pdf", ("2016-Q3", 2016, 3)),
-    ("https://x.ie/oct-dec-2016.pdf", ("2016-Q4", 2016, 4)),
-    ("https://x.ie/Q3_2023.pdf", ("2023-Q3", 2023, 3)),        # existing Q-pattern still works
-    ("https://x.ie/payments-2024.pdf", ("2024", 2024, None)),  # no quarter -> year only
-])
+@pytest.mark.parametrize(
+    "fname,expected",
+    [
+        ("https://x.ie/jan-mar-2016.pdf", ("2016-Q1", 2016, 1)),
+        ("https://x.ie/apr-jun-2018.pdf", ("2018-Q2", 2018, 2)),
+        ("https://x.ie/jul-sep-2016.pdf", ("2016-Q3", 2016, 3)),
+        ("https://x.ie/oct-dec-2016.pdf", ("2016-Q4", 2016, 4)),
+        ("https://x.ie/Q3_2023.pdf", ("2023-Q3", 2023, 3)),  # existing Q-pattern still works
+        ("https://x.ie/payments-2024.pdf", ("2024", 2024, None)),  # no quarter -> year only
+    ],
+)
 def test_period_from_url_parses_month_ranges(fname, expected):
     assert period_from_url(fname) == expected
 
@@ -599,6 +695,7 @@ def test_coverage_flag_is_applied():
     requires a fresh extractor run (network crawl) — a stale pre-fix sandbox fails this,
     which is the intended signal to regenerate `public_payments_fact.parquet`."""
     import json
+
     cov = _ROOT / "data" / "_meta" / "public_payments_coverage.json"
     if not cov.exists():
         pytest.skip("coverage not generated; run the extractor first")

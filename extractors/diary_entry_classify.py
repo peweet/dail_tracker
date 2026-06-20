@@ -11,10 +11,13 @@ matter for the org-match + lobbying-corroboration work); everything ahead of it
 in the order peels off the procedural/known categories first.
 
 Classes (Build Plan §7.1):
-  govt_business   Cabinet / Government meetings / Cabinet Committees
+  govt_business   Cabinet / Government meetings / Cabinet Committees; inter-ministerial
+                  (with the Taoiseach/Tánaiste, cabinet colleagues)
   oireachtas      Dáil/Seanad business: LQ, Topical Issues, stages, PQs, divisions, PP
   media           interviews, radio/TV, photocalls, recordings, press events
-  internal_dept   officials' briefings, divisional/management-board, dept updates
+  internal_dept   officials' briefings, divisional/management-board, dept updates; the
+                  minister's own office/team (advisers, private secretary, press office,
+                  chief of staff, "diary meeting")
   travel          travel/flights to engagements
   constituency    constituency days/clinics
   external_meeting meetings/visits/launches/receptions with outside bodies (residual)
@@ -51,10 +54,16 @@ RULES: list[tuple[str, re.Pattern[str]]] = [
         re.compile(
             r"\bcabinet\b|\bgovernment meeting\b|\bpre[-\s]?government\b|\bpre[-\s]?cabinet\b"
             r"|\bgovernment business\b|\bmemo to government\b|\bincorporeal\b|\bcabinet committee\b"
-            r"|\bpre[-\s]?c\.?c\.?\b|\bcabinet cttee\b",
+            r"|\bpre[-\s]?c\.?c\.?\b|\bcabinet cttee\b"
+            # inter-ministerial coordination — meeting the Taoiseach/Tánaiste or cabinet
+            # colleagues is government business, not an outside-interest engagement. (Uniquely
+            # Irish titles, so no foreign-minister collision; an external org named alongside
+            # still gets matched + flows to the overlap — govt_business is not excluded there.)
+            r"|\bwith (?:the )?t[áa]naiste\b|\bwith (?:the )?taoiseach\b"
+            r"|\b(?:ministerial|cabinet|government) colleagues?\b",
             re.IGNORECASE,
         ),
-    ),  # Cabinet, Government Meeting, Cabinet Committee, pre-Cabinet/pre-Government/pre-CC, incorporeal
+    ),  # Cabinet, Government Meeting, Cabinet Committee, pre-Cabinet/pre-CC, with Taoiseach/Tánaiste, colleagues
     (
         "oireachtas",
         re.compile(
@@ -84,10 +93,16 @@ RULES: list[tuple[str, re.Pattern[str]]] = [
             r"\bbriefing\b|\bpre[-\s]?brief\b|\bbrief(?:ed|ing)? (?:by|with|on)\b|\bofficials\b"
             r"|\bdivisional\b|\b(?:management|departmental) board\b|\bdepartmental\b"
             r"|\bdept\.? (?:update|meeting)\b|\bweekly (?:update|meeting|division)"
-            r"|\binternal meeting\b|\bsecretary general\b|\bsec gen\b|\bupdate with\b|\bcatch[-\s]?up\b",
+            r"|\binternal meeting\b|\bsecretary general\b|\bsec gen\b|\bupdate with\b|\bcatch[-\s]?up\b"
+            # internal counterparties — the minister's own office/team, not an outside body.
+            # These dominated the "external_meeting" residual (advisers ×76, private sec ×41,
+            # press office ×31) and inflated the org-match denominator; they name internal ROLES,
+            # not activities, so they don't swallow genuine external prep.
+            r"|\badvis[eo]rs?\b|\bspad\b|\bspecial advis[eo]r\b|\bprivate secretary\b|\bpriv\.? sec\b"
+            r"|\bchief of staff\b|\bpress office\b|\bcomms team\b|\bassistant secretary\b|\bdiary meeting\b",
             re.IGNORECASE,
         ),
-    ),  # briefing, pre-brief, officials, divisional/management board, dept update, sec gen
+    ),  # briefing, officials, board, dept update, sec gen + advisers/private-sec/press-office/diary-meeting
     (
         "travel",
         re.compile(
@@ -134,9 +149,7 @@ def main() -> int:
     e = pl.read_parquet(ENTRIES)
     if "entry_class" in e.columns:  # idempotent re-derive
         e = e.drop("entry_class")
-    e = e.with_columns(
-        pl.col("subject").map_elements(classify, return_dtype=pl.String).alias("entry_class")
-    )
+    e = e.with_columns(pl.col("subject").map_elements(classify, return_dtype=pl.String).alias("entry_class"))
     save_parquet(e, ENTRIES)
     e.write_csv(ENTRIES.with_suffix(".csv"))
 

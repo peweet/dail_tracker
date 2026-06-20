@@ -34,3 +34,23 @@ def fetch_waiting_list_totals_result(grain: str) -> QueryResult:
 @st.cache_data(ttl=600)
 def fetch_waiting_list_composition_result(grain: str, area: str) -> QueryResult:
     return _q.waiting_list_composition(get_housing_conn(), grain, area)
+
+
+@st.cache_data(ttl=600)
+def fetch_housing_supply_national_result() -> QueryResult:
+    return _q.supply_national(get_housing_conn())
+
+
+@st.cache_data(ttl=600)
+def fetch_housing_hap_national_result() -> QueryResult:
+    return _q.hap_national(get_housing_conn())
+
+
+@st.cache_data(ttl=600)
+def fetch_housing_completions_trend_result() -> QueryResult:
+    return _q.completions_trend(get_housing_conn())
+
+
+@st.cache_data(ttl=600)
+def fetch_housing_rent_by_county_result(county: str) -> QueryResult:
+    return _q.rent_by_county(get_housing_conn(), county)

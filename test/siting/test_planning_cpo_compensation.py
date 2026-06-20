@@ -20,30 +20,42 @@ from extractors.planning_cpo_compensation import _ACQ_MATCH, OUT, _acq_type, bui
 _NAME_COLS = {"supplier", "supplier_raw", "supplier_normalised", "payee", "name"}
 
 
-@pytest.mark.parametrize("desc,expect", [
-    ("PURCHASE OF DWELLING ASSET", "dwelling"),
-    ("LAND BANK ASSET PURCHASE", "land_bank"),
-    ("LAND PURCHASE-NEW ROAD WORKS", "road_land"),
-    ("COMPULSORY PURCHASE ORDER", "cpo"),
-    ("LAND PURCHASE - CPO INTEREST", "cpo"),
-    ("Land - purchase", "land_general"),
-])
+@pytest.mark.parametrize(
+    "desc,expect",
+    [
+        ("PURCHASE OF DWELLING ASSET", "dwelling"),
+        ("LAND BANK ASSET PURCHASE", "land_bank"),
+        ("LAND PURCHASE-NEW ROAD WORKS", "road_land"),
+        ("COMPULSORY PURCHASE ORDER", "cpo"),
+        ("LAND PURCHASE - CPO INTEREST", "cpo"),
+        ("Land - purchase", "land_general"),
+    ],
+)
 def test_acquisition_type_is_source_grounded(desc, expect):
     out = pl.DataFrame({"d": [desc]}).select(_acq_type(pl.col("d")).alias("t"))
     assert out["t"][0] == expect, desc
 
 
 def test_match_pattern_catches_land_excludes_rent():
-    df = pl.DataFrame({"d": [
-        "Purchase of dwelling asset", "Compulsory Purchase Order", "Land bank asset purchase",
-        "Rent of office building", "Operating lease of buildings", "Cleaning services",
-    ]})
+    df = pl.DataFrame(
+        {
+            "d": [
+                "Purchase of dwelling asset",
+                "Compulsory Purchase Order",
+                "Land bank asset purchase",
+                "Rent of office building",
+                "Operating lease of buildings",
+                "Cleaning services",
+            ]
+        }
+    )
     hit = df.select(pl.col("d").str.to_lowercase().str.contains(_ACQ_MATCH).alias("m"))["m"].to_list()
     assert hit == [True, True, True, False, False, False]
 
 
-@pytest.mark.skipif(not (ROOT / "data/gold/parquet/procurement_payments_fact.parquet").exists(),
-                    reason="gold fact not built")
+@pytest.mark.skipif(
+    not (ROOT / "data/gold/parquet/procurement_payments_fact.parquet").exists(), reason="gold fact not built"
+)
 def test_output_carries_no_payee_identity():
     agg = build()
     assert _NAME_COLS.isdisjoint(set(agg.columns)), f"identity leak: {_NAME_COLS & set(agg.columns)}"

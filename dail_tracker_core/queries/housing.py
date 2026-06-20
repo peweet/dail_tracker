@@ -36,6 +36,32 @@ def waiting_list_totals(conn: duckdb.DuckDBPyConnection, grain: str) -> QueryRes
     )
 
 
+def supply_national(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """National supply & affordability headline (vacancy, avg private rent, HAP) — the
+    counterpart to the demand-side waiting list. Single row; each metric self-periods."""
+    return _run(conn, "SELECT * FROM v_housing_supply_national")
+
+
+def hap_national(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """National HAP profile: households, % working, rent burden, years to social housing."""
+    return _run(conn, "SELECT * FROM v_housing_hap_national")
+
+
+def completions_trend(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """National new-dwelling completions per complete year (CSO NDQ09 'State' row)."""
+    return _run(conn, "SELECT year, completions FROM v_housing_completions_trend ORDER BY year")
+
+
+def rent_by_county(conn: duckdb.DuckDBPyConnection, county: str) -> QueryResult:
+    """Average weekly private rent for one county (Census 2022). Empty for Dublin /
+    Galway (F2023B splits them with no single total)."""
+    return _run(
+        conn,
+        "SELECT county, avg_weekly_private_rent, rent_period FROM v_housing_rent_by_county WHERE county = ?",
+        [county],
+    )
+
+
 def waiting_list_composition(conn: duckdb.DuckDBPyConnection, grain: str, area: str) -> QueryResult:
     """The five demographic breakdowns for one area (the distribution stripes).
     ord-then-count ordering is applied in the view."""

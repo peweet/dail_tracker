@@ -80,7 +80,7 @@ COLMAP = [
     ("estimated_value_eur", re.compile(r"estimat|value", re.I)),
     ("award_date", re.compile(r"award", re.I)),
 ]
-_MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
+_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 # CPV division labels — leading 2 digits of the 8-digit CPV code -> a market label. COPIED from
 # extractors/ted_ireland_extract.py (CPV_DIV) and kept in sync, so the national open-tender sector

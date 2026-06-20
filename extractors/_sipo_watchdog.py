@@ -56,8 +56,7 @@ def ckpt_count(key: str) -> int:
 
 
 def kill_tree(pid: int) -> None:
-    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)],
-                   capture_output=True, text=True)
+    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, text=True)
 
 
 def run_party(key: str) -> bool:
@@ -83,8 +82,11 @@ def run_party(key: str) -> bool:
                 break
         rc = proc.wait()
         done_parquet = (BY_PARTY / f"{key}{DONE_SUFFIX}").exists()
-        print(f"[watchdog] {key}: launch #{restarts + 1} ended rc={rc} "
-              f"hung={killed_hung} pages={ckpt_count(key)} parquet={done_parquet}", flush=True)
+        print(
+            f"[watchdog] {key}: launch #{restarts + 1} ended rc={rc} "
+            f"hung={killed_hung} pages={ckpt_count(key)} parquet={done_parquet}",
+            flush=True,
+        )
         if rc == 0 and done_parquet:
             return True
         if rc == 0 and not done_parquet:

@@ -268,8 +268,13 @@ def test_v_member_registry_all_executes():
     result = _result(con, "v_member_registry_all")
     _assert_cols(
         result,
-        "unique_member_code", "member_name", "house",
-        "is_current", "dails_served", "served_from_year", "served_to_year",
+        "unique_member_code",
+        "member_name",
+        "house",
+        "is_current",
+        "dails_served",
+        "served_from_year",
+        "served_to_year",
     )
     # Must carry BOTH sitting and former members…
     counts = con.execute(
@@ -291,22 +296,26 @@ def test_v_member_ministerial_tenure_executes():
     con.execute(_load("member_ministerial_tenure.sql"))
     result = _result(con, "v_member_ministerial_tenure")
     expected = {
-        "department_key", "department_label", "minister_name", "unique_member_code",
-        "start_date", "end_date", "is_current", "tenure_days",
-        "wikidata_person", "wikidata_position",
+        "department_key",
+        "department_label",
+        "minister_name",
+        "unique_member_code",
+        "start_date",
+        "end_date",
+        "is_current",
+        "tenure_days",
+        "wikidata_person",
+        "wikidata_position",
     }
     _assert_cols(result, *expected)
     assert len(result) > 0
     # is_current must be a real boolean and at least one post should be filled.
     full = con.execute(
-        "SELECT COUNT(*) FILTER (WHERE is_current) AS cur, COUNT(*) AS n"
-        " FROM v_member_ministerial_tenure"
+        "SELECT COUNT(*) FILTER (WHERE is_current) AS cur, COUNT(*) AS n FROM v_member_ministerial_tenure"
     ).fetchone()
     assert full[0] >= 1, "no sitting minister flagged is_current"
     # minister_name is the display field — never null.
-    nulls = con.execute(
-        "SELECT COUNT(*) FROM v_member_ministerial_tenure WHERE minister_name IS NULL"
-    ).fetchone()[0]
+    nulls = con.execute("SELECT COUNT(*) FROM v_member_ministerial_tenure WHERE minister_name IS NULL").fetchone()[0]
     assert nulls == 0
 
 
@@ -322,9 +331,16 @@ def test_v_member_salary_executes():
     con.execute(_load("member_salary.sql"))
     result = _result(con, "v_member_salary")
     _assert_cols(
-        result, "unique_member_code", "house", "basic_rate", "current_office",
-        "office_allowance", "total_statutory_rate_eur", "is_office_holder",
-        "source_doc", "source_url",
+        result,
+        "unique_member_code",
+        "house",
+        "basic_rate",
+        "current_office",
+        "office_allowance",
+        "total_statutory_rate_eur",
+        "is_office_holder",
+        "source_doc",
+        "source_url",
     )
     assert len(result) > 0
     # Total reconciles to basic + office allowance (no stray arithmetic).
@@ -741,10 +757,10 @@ def _write_si_amendments_fixture(root: Path) -> None:
             "si_year": [2020, 2020, 2020, 2020, 2020],
             "si_number": [100, 101, 102, 103, 104],
             "current_state": [
-                "revoked",            # -> 1 edge, effect 'revokes'
-                "amended",            # -> 1 edge, effect 'amends', provision parsed
-                "other_affected",     # EXCLUDED (indirect refs)
-                "in_force_as_made",   # EXCLUDED (no affecting edge)
+                "revoked",  # -> 1 edge, effect 'revokes'
+                "amended",  # -> 1 edge, effect 'amends', provision parsed
+                "other_affected",  # EXCLUDED (indirect refs)
+                "in_force_as_made",  # EXCLUDED (no affecting edge)
                 "partially_revoked",  # -> 1 edge, effect 'partially revokes', amender out-of-gold
             ],
             "this_si_eli_url": ["eli100", "eli101", "eli102", "eli103", "eli104"],
@@ -781,8 +797,12 @@ def _write_si_amendments_fixture(root: Path) -> None:
             "si_year": [2020, 2020, 2020, 2020, 2021, 2022],
             "si_number": [100, 101, 102, 104, 200, 201],
             "si_title": [
-                "Base A Regs 2020", "Base B Regs 2020", "Base C Regs 2020",
-                "Base E Regs 2020", "Revoker Regs 2021", "Amender Regs 2022",
+                "Base A Regs 2020",
+                "Base B Regs 2020",
+                "Base C Regs 2020",
+                "Base E Regs 2020",
+                "Revoker Regs 2021",
+                "Amender Regs 2022",
             ],
         }
     )
@@ -842,9 +862,14 @@ def test_v_si_lrc_enrichment_executes():
     con.execute(_load("legislation_si_lrc_enrichment.sql"))
     result = _result(con, "v_si_lrc_enrichment")
     for col in (
-        "si_year", "si_number", "has_lrc_classified_list_match",
-        "lrc_primary_subject", "lrc_primary_leaf", "lrc_enrichment_status",
-        "lrc_caveat", "lrc_list_updated_to",
+        "si_year",
+        "si_number",
+        "has_lrc_classified_list_match",
+        "lrc_primary_subject",
+        "lrc_primary_leaf",
+        "lrc_enrichment_status",
+        "lrc_caveat",
+        "lrc_list_updated_to",
     ):
         assert col in result.columns, f"Expected column '{col}' in v_si_lrc_enrichment"
 
@@ -903,9 +928,18 @@ def test_v_si_amendments_executes():
     con.execute(_load("legislation_si_amendments.sql"))
     result = _result(con, "v_si_amendments")
     for col in (
-        "amender_number", "amender_year", "amender_title", "amender_eli_url",
-        "effect", "current_state", "provision_note", "confidence",
-        "affected_number", "affected_year", "affected_title", "affected_eli_url",
+        "amender_number",
+        "amender_year",
+        "amender_title",
+        "amender_eli_url",
+        "effect",
+        "current_state",
+        "provision_note",
+        "confidence",
+        "affected_number",
+        "affected_year",
+        "affected_title",
+        "affected_eli_url",
     ):
         assert col in result.columns, f"Expected column '{col}' in v_si_amendments"
 
@@ -1823,17 +1857,38 @@ def test_v_procurement_awards_executes():
     con.execute(_load("procurement_awards.sql"))
     df = con.execute("SELECT * FROM v_procurement_awards").pl()
     _assert_cols(
-        df, "tender_id", "supplier", "supplier_norm", "supplier_class", "name_truncated",
-        "contracting_authority", "cpv_code", "cpv_description", "award_date",
-        "value_eur", "value_kind", "is_framework_or_dps",
-        "value_shared_across_suppliers", "value_safe_to_sum",
-        "is_call_off", "parent_agreement_id",
+        df,
+        "tender_id",
+        "supplier",
+        "supplier_norm",
+        "supplier_class",
+        "name_truncated",
+        "contracting_authority",
+        "cpv_code",
+        "cpv_description",
+        "award_date",
+        "value_eur",
+        "value_kind",
+        "is_framework_or_dps",
+        "value_shared_across_suppliers",
+        "value_safe_to_sum",
+        "is_call_off",
+        "parent_agreement_id",
         # 2026-06-12 detail widening: title, classification fallback, competition detail,
         # pre-award estimate and the EU Official Journal deep links.
-        "tender_title", "spend_category", "category_label", "contract_type",
-        "procedure_type", "contract_duration_months", "n_bids_received",
-        "n_sme_bids_received", "n_awarded_smes", "estimated_value_eur",
-        "additional_cpv_codes", "ted_notice_link", "ted_can_link",
+        "tender_title",
+        "spend_category",
+        "category_label",
+        "contract_type",
+        "procedure_type",
+        "contract_duration_months",
+        "n_bids_received",
+        "n_sme_bids_received",
+        "n_awarded_smes",
+        "estimated_value_eur",
+        "additional_cpv_codes",
+        "ted_notice_link",
+        "ted_can_link",
     )
     assert len(df) == 10  # raw passthrough — every award×supplier row, nothing filtered
 
@@ -1841,6 +1896,7 @@ def test_v_procurement_awards_executes():
 
     # DD/MM/YYYY parsed to a real DATE (TRY_STRPTIME)
     from datetime import date as _date
+
     assert by_supplier["Mason & Sons Ltd"]["award_date"] == _date(2023, 4, 4)
 
     # Detail fields: source strings TRY_CAST to honest ints; title/links/estimate carried.
@@ -1883,9 +1939,19 @@ def test_v_procurement_supplier_summary_value_semantics():
     con.execute(_load("procurement_supplier_summary.sql"))
     df = con.execute("SELECT * FROM v_procurement_supplier_summary").pl()
     _assert_cols(
-        df, "supplier", "supplier_norm", "n_awards", "n_authorities", "awarded_value_safe_eur",
-        "company_num", "company_status", "cro_match_method",
-        "on_lobbying_register", "lobbying_returns", "is_lobbying_registrant", "is_lobbying_client",
+        df,
+        "supplier",
+        "supplier_norm",
+        "n_awards",
+        "n_authorities",
+        "awarded_value_safe_eur",
+        "company_num",
+        "company_status",
+        "cro_match_method",
+        "on_lobbying_register",
+        "lobbying_returns",
+        "is_lobbying_registrant",
+        "is_lobbying_client",
     )
     by = {r["supplier_norm"]: r for r in df.to_dicts()}
 
@@ -1979,8 +2045,15 @@ def test_v_procurement_lobbying_overlap_executes():
     con.execute(_load("procurement_lobbying_overlap.sql"))
     df = con.execute("SELECT * FROM v_procurement_lobbying_overlap").pl()
     _assert_cols(
-        df, "lobby_name", "lobby_side", "supplier", "supplier_norm",
-        "n_lobby_returns", "n_award_rows", "n_authorities", "awarded_value_safe_eur",
+        df,
+        "lobby_name",
+        "lobby_side",
+        "supplier",
+        "supplier_norm",
+        "n_lobby_returns",
+        "n_award_rows",
+        "n_authorities",
+        "awarded_value_safe_eur",
     )
     # Passthrough: one row per matched lobbying entity (registrant + client variant).
     assert len(df) == 2
@@ -2029,9 +2102,18 @@ def test_v_procurement_charity_overlap_grain_and_value_firewall():
     con.execute(_load("procurement_charity_overlap.sql"))
     df = con.execute("SELECT * FROM v_procurement_charity_overlap").pl()
     _assert_cols(
-        df, "rcn", "registered_charity_name", "company_num", "supplier_norm",
-        "matched_supplier_name", "n_awards", "n_authorities", "awarded_value_safe_eur",
-        "n_value_safe_awards", "n_ceiling_notices", "gov_funded_share_latest",
+        df,
+        "rcn",
+        "registered_charity_name",
+        "company_num",
+        "supplier_norm",
+        "matched_supplier_name",
+        "n_awards",
+        "n_authorities",
+        "awarded_value_safe_eur",
+        "n_value_safe_awards",
+        "n_ceiling_notices",
+        "gov_funded_share_latest",
         "state_adjacent_flag",
     )
 
@@ -2072,8 +2154,13 @@ def test_v_procurement_ted_awards_competition_columns():
     con.execute(_load("procurement_ted_awards.sql"))
     df = con.execute("SELECT * FROM v_procurement_ted_awards LIMIT 5").pl()
     _assert_cols(
-        df, "procedure_type", "is_uncompetitive_procedure", "n_tenders_received",
-        "is_single_bid", "award_criteria_kind", "is_price_only",
+        df,
+        "procedure_type",
+        "is_uncompetitive_procedure",
+        "n_tenders_received",
+        "is_single_bid",
+        "award_criteria_kind",
+        "is_price_only",
     )
     # no nonsensical tender counts
     bad = con.execute(
@@ -2133,14 +2220,19 @@ def test_v_procurement_ted_tenders_pre_award_grain():
     con.execute(_load("procurement_ted_tenders.sql"))
     df = con.execute("SELECT * FROM v_procurement_ted_tenders LIMIT 5").pl()
     _assert_cols(
-        df, "publication_number", "buyer_name", "cpv_division", "procedure_type",
-        "submission_deadline", "is_still_open", "estimated_value_eur", "value_safe_to_sum",
+        df,
+        "publication_number",
+        "buyer_name",
+        "cpv_division",
+        "procedure_type",
+        "submission_deadline",
+        "is_still_open",
+        "estimated_value_eur",
+        "value_safe_to_sum",
     )
     assert con.execute("SELECT count(*) FROM v_procurement_ted_tenders").fetchone()[0] > 0
     # FIREWALL: a pre-award estimate is never summable — not one row may be value_safe_to_sum.
-    summable = con.execute(
-        "SELECT count(*) FROM v_procurement_ted_tenders WHERE value_safe_to_sum"
-    ).fetchone()[0]
+    summable = con.execute("SELECT count(*) FROM v_procurement_ted_tenders WHERE value_safe_to_sum").fetchone()[0]
     assert summable == 0, "a tender estimate was marked value_safe_to_sum — three-grain firewall breach"
     # one row per notice (no fan-out)
     n, distinct = con.execute(
@@ -2420,7 +2512,13 @@ def _write_ted_awards_term_fixture(tmp_path):
             "supplier_class": "sole_trader_or_individual",
         },
         # 4. pan-EU outlier -> EXCLUDED entirely
-        {**base, "publication_number": "4-2025", "buyer_name": "GÉANT", "winner_name": "MegaCo", "is_pan_eu_outlier": True},
+        {
+            **base,
+            "publication_number": "4-2025",
+            "buyer_name": "GÉANT",
+            "winner_name": "MegaCo",
+            "is_pan_eu_outlier": True,
+        },
         # 5. no end estimate -> EXCLUDED
         {
             **base,
@@ -2480,6 +2578,8 @@ def test_constituency_housing_enrichment_views_build():
         GOLD_PARQUET_DIR / "noac_h2_vacancies_wide.parquet",
         GOLD_PARQUET_DIR / "noac_h1_stock_wide.parquet",
         GOLD_PARQUET_DIR / "noac_h7_retrofit_wide.parquet",
+        GOLD_PARQUET_DIR / "noac_m2_collection_wide.parquet",
+        GOLD_PARQUET_DIR / "derelict_sites_levy_wide.parquet",
     )
     con = _con()
     for fname in (
@@ -2510,6 +2610,12 @@ def test_constituency_housing_enrichment_views_build():
     assert perf["vacancy_pct"].null_count() == 0
     # benchmark column is the national median (constant across all rows)
     assert perf["nat_vacancy_pct"].n_unique() == 1
+    # collection + enforcement layer (NOAC M2 + Derelict Sites Levy) joins cleanly —
+    # M2 shares NOAC naming, derelict has its own explicit map; both must resolve.
+    for c in ("rent_collection_pct", "derelict_outstanding_eur", "nat_rent_collection_pct"):
+        assert c in perf.columns, f"v_constituency_council_housing_performance missing {c}"
+    assert perf["rent_collection_pct"].null_count() == 0
+    assert perf["derelict_outstanding_eur"].null_count() == 0
 
 
 @pytest.mark.sql
@@ -2526,11 +2632,22 @@ def test_ssha_waiting_list_national_views_build():
         GOLD_PARQUET_DIR / "ssha_a1_4_household_size_wide.parquet",
         GOLD_PARQUET_DIR / "ssha_a1_9_citizenship_wide.parquet",
         GOLD_PARQUET_DIR / "cso_pea08.parquet",
+        GOLD_PARQUET_DIR / "cso_vac14.parquet",
+        GOLD_PARQUET_DIR / "cso_f2023b.parquet",
+        GOLD_PARQUET_DIR / "cso_hap01.parquet",
+        GOLD_PARQUET_DIR / "cso_ndq09.parquet",
+        GOLD_PARQUET_DIR / "cso_hap17.parquet",
+        GOLD_PARQUET_DIR / "cso_hap20.parquet",
+        GOLD_PARQUET_DIR / "cso_hap32.parquet",
     )
     con = _con()
     for fname in (
         "housing_ssha_waiting_list_composition.sql",
         "housing_ssha_waiting_list_totals.sql",
+        "housing_supply_national.sql",
+        "housing_completions_trend.sql",
+        "housing_rent_by_county.sql",
+        "housing_hap_national.sql",
     ):
         try:
             con.execute(_load(fname))
@@ -2541,9 +2658,7 @@ def test_ssha_waiting_list_national_views_build():
 
     comp = con.execute("SELECT * FROM v_ssha_waiting_list_composition").pl()
     assert set(comp["grain"].unique()) == {"national", "county", "la"}
-    assert set(comp["dimension"].unique()) == {
-        "time_on_list", "tenure", "employment", "household", "citizenship"
-    }
+    assert set(comp["dimension"].unique()) == {"time_on_list", "tenure", "employment", "household", "citizenship"}
     # 5 dimensions all labelled (no slug leaked through as a category) — every row mapped
     assert comp.filter(pl.col("ord").is_null() & (pl.col("dimension") == "time_on_list")).height == 0
     # citizenship is exactly the 4 source categories (sensitivity: no surprise buckets)
@@ -2567,6 +2682,25 @@ def test_ssha_waiting_list_national_views_build():
     # per-capita present for every county + national, never faked at LA grain
     assert cty["waiters_per_1000"].null_count() == 0
     assert la["waiters_per_1000"].null_count() == la.height
+
+    # supply & affordability — single national row, the three CSO metrics present
+    sup = con.execute("SELECT * FROM v_housing_supply_national").pl()
+    assert sup.height == 1
+    s = sup.row(0, named=True)
+    assert (s["vacant_dwellings"] or 0) > 0 and 0 < (s["vacancy_rate"] or 0) < 100
+    assert (s["avg_weekly_private_rent"] or 0) > 0
+    assert (s["hap_households"] or 0) > 0
+
+    # completions trend — only complete years (no part-reported "drop"); ascending
+    ct = con.execute("SELECT * FROM v_housing_completions_trend ORDER BY year").pl()
+    assert ct.height >= 5 and (ct["completions"] > 0).all()
+    assert ct["year"].is_sorted()
+
+    # rent by county — 24 of 26 (Dublin + Galway split in F2023B, deliberately absent)
+    rent = con.execute("SELECT * FROM v_housing_rent_by_county").pl()
+    assert rent.height == 24
+    assert "Dublin" not in rent["county"].to_list() and "Galway" not in rent["county"].to_list()
+    assert (rent["avg_weekly_private_rent"] > 0).all()
 
 
 # ---------------------------------------------------------------------------

@@ -30,6 +30,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import hashlib
 import html
@@ -54,9 +55,17 @@ CKPT_DIR = OUT_DIR / "_ckpt"
 # Slim, git-tracked source list (data/_meta/*.csv is kept via a .gitignore negation
 # rule). The bronze _manifest.csv is gitignored; this is the durable, retrievable copy.
 SOURCES_META = DATA_DIR / "_meta" / "sipo_candidate_expenses_sources.csv"
-SOURCE_FIELDS = ["constituency_slug", "constituency_name", "candidate_slug",
-                 "candidate_name", "candidate_page_url", "doc_type", "doc_label",
-                 "pdf_url", "media_id"]
+SOURCE_FIELDS = [
+    "constituency_slug",
+    "constituency_name",
+    "candidate_slug",
+    "candidate_name",
+    "candidate_page_url",
+    "doc_type",
+    "doc_label",
+    "pdf_url",
+    "media_id",
+]
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (dail-tracker civic-data crawler; +contact via repo)"}
 SLEEP_S = 0.4  # politeness between requests
@@ -134,8 +143,7 @@ def _candidate_documents(page_html: str) -> list[dict]:
     for m in RE_DOC.finditer(page_html):
         label = re.sub(r"<[^>]+>", " ", m.group("label"))
         label = re.sub(r"\s+", " ", html.unescape(label)).strip()
-        docs.append(dict(doc_label=label, doc_type=_classify(label),
-                         pdf_url=m.group("url"), media_id=m.group("mid")))
+        docs.append(dict(doc_label=label, doc_type=_classify(label), pdf_url=m.group("url"), media_id=m.group("mid")))
     return docs
 
 
@@ -153,18 +161,28 @@ def _discover_constituency(session: requests.Session, c_slug: str) -> list[dict]
         time.sleep(SLEEP_S)
         cand_name = _page_title(cand_html)
         docs = _candidate_documents(cand_html)
-        base = dict(constituency_slug=c_slug, constituency_name=c_name,
-                    candidate_slug=cand_slug, candidate_name=cand_name,
-                    candidate_page_url=_slug_url(cand_slug))
+        base = dict(
+            constituency_slug=c_slug,
+            constituency_name=c_name,
+            candidate_slug=cand_slug,
+            candidate_name=cand_name,
+            candidate_page_url=_slug_url(cand_slug),
+        )
         if not docs:
             log.warning("    no documents on candidate page %s (%s)", cand_slug, cand_name)
-            rows.append({**base, "doc_label": "", "doc_type": "", "pdf_url": "",
-                         "media_id": "", "status": "NO_PDF"})
+            rows.append({**base, "doc_label": "", "doc_type": "", "pdf_url": "", "media_id": "", "status": "NO_PDF"})
             continue
         for d in docs:
-            rows.append({**base, "doc_label": d["doc_label"], "doc_type": d["doc_type"],
-                         "pdf_url": d["pdf_url"], "media_id": d["media_id"],
-                         "status": "FOUND"})
+            rows.append(
+                {
+                    **base,
+                    "doc_label": d["doc_label"],
+                    "doc_type": d["doc_type"],
+                    "pdf_url": d["pdf_url"],
+                    "media_id": d["media_id"],
+                    "status": "FOUND",
+                }
+            )
     return rows
 
 
@@ -203,8 +221,7 @@ def download(session: requests.Session, rows: list[dict], doc_types: set[str]) -
     are flagged ``duplicate_of`` (the first-seen media_id) so the OCR pass can
     ingest one and skip byte-identical re-uploads.
     """
-    to_get = [r for r in rows if r["status"] == "FOUND" and r["pdf_url"]
-              and r["doc_type"] in doc_types]
+    to_get = [r for r in rows if r["status"] == "FOUND" and r["pdf_url"] and r["doc_type"] in doc_types]
     log.info("downloading %d PDFs (doc_types=%s)", len(to_get), sorted(doc_types))
     for i, r in enumerate(to_get, 1):
         dest_dir = OUT_DIR / r["constituency_slug"]
@@ -225,8 +242,7 @@ def download(session: requests.Session, rows: list[dict], doc_types: set[str]) -
             r["bytes"] = len(data)
             r["sha256"] = hashlib.sha256(data).hexdigest()
             r["status"] = "DOWNLOADED"
-            log.info("  [%d/%d] %s -> %s (%d bytes)",
-                     i, len(to_get), r["candidate_name"], dest.name, len(data))
+            log.info("  [%d/%d] %s -> %s (%d bytes)", i, len(to_get), r["candidate_name"], dest.name, len(data))
         except Exception as exc:  # noqa: BLE001
             r["status"] = "DOWNLOAD_FAILED"
             log.error("  [%d/%d] FAILED %s: %s", i, len(to_get), r["pdf_url"], exc)
@@ -241,17 +257,33 @@ def download(session: requests.Session, rows: list[dict], doc_types: set[str]) -
         key = (r["constituency_slug"], r["candidate_slug"])
         if first_sha.get(key) == sha:
             r["duplicate_of"] = next(
-                o["media_id"] for o in rows
+                o["media_id"]
+                for o in rows
                 if o["candidate_slug"] == r["candidate_slug"]
-                and o.get("sha256") == sha and o["media_id"] != r["media_id"])
+                and o.get("sha256") == sha
+                and o["media_id"] != r["media_id"]
+            )
         else:
             first_sha.setdefault(key, sha)
             r["duplicate_of"] = ""
 
 
-FIELDS = ["constituency_slug", "constituency_name", "candidate_slug", "candidate_name",
-          "candidate_page_url", "doc_type", "doc_label", "pdf_url", "media_id",
-          "local_path", "bytes", "sha256", "duplicate_of", "status"]
+FIELDS = [
+    "constituency_slug",
+    "constituency_name",
+    "candidate_slug",
+    "candidate_name",
+    "candidate_page_url",
+    "doc_type",
+    "doc_label",
+    "pdf_url",
+    "media_id",
+    "local_path",
+    "bytes",
+    "sha256",
+    "duplicate_of",
+    "status",
+]
 
 
 def write_manifest(rows: list[dict]) -> None:
@@ -267,8 +299,9 @@ def write_manifest(rows: list[dict]) -> None:
 def write_sources_meta(rows: list[dict]) -> None:
     """Write the slim, git-tracked source list (no run-specific size/sha/status)."""
     SOURCES_META.parent.mkdir(parents=True, exist_ok=True)
-    src = sorted((r for r in rows if r["pdf_url"]),
-                 key=lambda r: (r["constituency_slug"], r["candidate_slug"], r["doc_type"]))
+    src = sorted(
+        (r for r in rows if r["pdf_url"]), key=lambda r: (r["constituency_slug"], r["candidate_slug"], r["doc_type"])
+    )
     with SOURCES_META.open("w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=SOURCE_FIELDS, extrasaction="ignore")
         w.writeheader()
@@ -279,13 +312,18 @@ def write_sources_meta(rows: list[dict]) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--index-only", action="store_true",
-                    help="discover candidate→PDF URLs and write the manifest, no download")
-    ap.add_argument("--limit-constituencies", type=int, default=None,
-                    help="only crawl the first N constituencies (smoke test)")
-    ap.add_argument("--doc-types", default="expense_statement",
-                    help="comma-separated doc types to DOWNLOAD (manifest always lists "
-                         "all). Options: expense_statement, donation_statement, other, all")
+    ap.add_argument(
+        "--index-only", action="store_true", help="discover candidate→PDF URLs and write the manifest, no download"
+    )
+    ap.add_argument(
+        "--limit-constituencies", type=int, default=None, help="only crawl the first N constituencies (smoke test)"
+    )
+    ap.add_argument(
+        "--doc-types",
+        default="expense_statement",
+        help="comma-separated doc types to DOWNLOAD (manifest always lists "
+        "all). Options: expense_statement, donation_statement, other, all",
+    )
     args = ap.parse_args()
     if args.doc_types.strip().lower() == "all":
         doc_types = {"expense_statement", "donation_statement", "other"}
@@ -302,8 +340,7 @@ def main() -> None:
     for r in rows:
         if r["status"] == "FOUND":
             by_type[r["doc_type"]] = by_type.get(r["doc_type"], 0) + 1
-    log.info("discovered %d rows: %d docs (%s), %d candidates with no docs",
-             len(rows), found, by_type, no_pdf)
+    log.info("discovered %d rows: %d docs (%s), %d candidates with no docs", len(rows), found, by_type, no_pdf)
 
     if not args.index_only:
         download(session, rows, doc_types)
@@ -318,8 +355,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
+    with contextlib.suppress(Exception):
         sys.stdout.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
     main()

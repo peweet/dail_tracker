@@ -78,10 +78,23 @@ _GOV_BODY_RE = re.compile(
 # gazetteer's current-TD exclusion. Match on the verbatim display name. Stopgap — a
 # historical-member + adviser name list would generalise this.
 PERSON_DENYLIST = {
-    "Dónall Geoghegan", "David Kelly", "Harry McGee", "Dave Fallon", "Patrick Costello",
-    "Tony O'Brien", "Brian Carroll", "Tara Farrell", "Brendan Griffin", "John O'Neill",
-    "Marc Coleman", "Seamus Quinn", "Pat Fitzpatrick", "Conor Kelly", "John Lynch",
-    "Niall O'Connor", "bryan lynam",
+    "Dónall Geoghegan",
+    "David Kelly",
+    "Harry McGee",
+    "Dave Fallon",
+    "Patrick Costello",
+    "Tony O'Brien",
+    "Brian Carroll",
+    "Tara Farrell",
+    "Brendan Griffin",
+    "John O'Neill",
+    "Marc Coleman",
+    "Seamus Quinn",
+    "Pat Fitzpatrick",
+    "Conor Kelly",
+    "John Lynch",
+    "Niall O'Connor",
+    "bryan lynam",
 }
 
 # Heuristic sector tag, applied to a FOLDED org name (NFKD-ASCII + "&"→"and" + lowercase, via
@@ -91,33 +104,170 @@ PERSON_DENYLIST = {
 # Olympics"→sport not charity, "King's Inns"→professional not charity. NOT authoritative — a
 # keyword map for slicing the overlap, not classification of record. Unmatched → "other".
 SECTOR_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("us-tech", re.compile(r"(google|meta platform|facebook|whatsapp|instagram|\bapple\b|amazon|microsoft|\bintel\b|salesforce|linkedin|nvidia|oracle|cisco|hewlett|workday|huawei|tiktok|\bdell\b|stripe|paypal|mastercard|\bvisa\b|airbnb|taoglas|general electric)")),
-    ("medical-devices", re.compile(r"(medtech|medtronic|boston scientific|stryker|\babbott\b|becton|cook medical|edwards lifesci|teleflex|integer|depuy)")),
-    ("pharma", re.compile(r"(pharma|\bipha\b|pfizer|\bmsd\b|novartis|abbvie|eli lilly|\broche\b|gilead|takeda|astellas|jazz pharma|pharmacy union|sanofi)")),
+    # STATE bodies / non-commercial semi-states / regulators / agencies — placed FIRST so a state
+    # agency is never mis-tagged into an industry (e.g. SEAI≠energy company, NSAI≠standards firm).
+    # A minister meeting these is government business, not an outside interest lobbying — the
+    # front-end should treat this bucket separately from private-interest sectors. (Commercial
+    # semi-states that trade like firms — ESB, Bord na Móna, Uisce Éireann, Coillte — deliberately
+    # stay in their industry sector; the line here is non-commercial agency/regulator vs trading utility.)
+    (
+        "state-semi-state",
+        re.compile(
+            r"(ida ireland|enterprise ireland|health service executive|\bhse\b|transport infrastructure|sustainable energy authority|\bseai\b|eirgrid|commission for regulation|standards authority|\bnsai\b|tailte|strategic banking|low pay commission|human rights and equality|legal aid board|treasury management|\bntma\b|housing finance agency|inland fisheries|legal services regulat|health information and quality|\bhiqa\b|parole board|coimisiun pleanala|western development|injuries resolution|injuries board|digital hub|valuation tribunal|residential tenancies|marine institute|private security authority|road safety authority|oversight and audit|\bgaisce\b|failte ireland)"
+        ),
+    ),
+    (
+        "us-tech",
+        re.compile(
+            r"(google|meta platform|facebook|whatsapp|instagram|\bapple\b|amazon|microsoft|\bintel\b|\bibm\b|salesforce|linkedin|nvidia|oracle|cisco|hewlett|workday|huawei|tiktok|\bdell\b|stripe|paypal|mastercard|\bvisa\b|airbnb|taoglas|general electric|openai|accenture|schneider electric|clunetech|deliveroo|\bsap\b|adobe|activision|coinbase|\bindeed\b|explorium|firebird|too good to go)"
+        ),
+    ),
+    (
+        "data-centres-digital-infra",
+        re.compile(
+            r"(data centre|data center|echelon|equinix|digital infrastructure|cloud infrastructure|hyperscale|colocation)"
+        ),
+    ),
+    (
+        "medical-devices",
+        re.compile(
+            r"(medtech|medtronic|boston scientific|stryker|\babbott\b|becton|cook medical|edwards lifesci|edwards life sci|teleflex|integer|depuy|dexcom|veonet|bausch|\blomb\b|solventum)"
+        ),
+    ),
+    (
+        "pharma",
+        re.compile(
+            r"(pharma|\bipha\b|pfizer|\bmsd\b|novartis|abbvie|eli lilly|\broche\b|gilead|takeda|astellas|jazz pharma|pharmacy union|sanofi|biomarin|janssen|zoetis|novo nordisk|horizon therapeutics|therapeutics)"
+        ),
+    ),
     ("insurance", re.compile(r"(insurance|aviva|zurich|allianz|\baxa\b|\bfbd\b|irish life|\bvhi\b|laya)")),
-    ("banking-finance", re.compile(r"(bank of ireland|\baib\b|allied irish|permanent tsb|ptsb|ulster bank|banking and payments|bpfi|credit union|finance ireland|\bdavy\b|goodbody|revolut|financial services union|euronext|stock exchange)")),
-    ("funds-leasing", re.compile(r"(irish funds|hedge|blackrock|private equity|alternative invest|avolon|aercap|gecas|aircraft leas|\bkkr\b|carlyle)")),
-    ("energy-utilities", re.compile(r"(wind energy|\besb\b|bord gais|bord na mona|uisce eireann|gas networks|\bsse\b|energia|renewable|hydrogen|offshore wind|nephin energy|electricity|\bcoillte\b)")),
-    ("telecoms-media", re.compile(r"(vodafone|\beir\b|three ireland|virgin media|sky ireland|comreg|broadcast|newsbrands|\brte\b|bauer media)")),
-    ("transport-aviation", re.compile(r"(aer lingus|ryanair|\bdaa\b|dublin airport|shannon airport|cork airport|dublin port|port of cork|bus eireann|dublin bus|iarnrod|\bcie\b|national transport|irish ferries|dublin aerospace|aviation)")),
-    ("mining-industrial", re.compile(r"(tara mines|aughinish|alumina|boliden|cement|\bquarr|smurfit|kingspan)")),
-    ("property-construction", re.compile(r"(construction industry|\bcif\b|\bproperty\b|cairn|glenveagh|land development|housing alliance|estate agents|auctioneers|breffni group|kinsealy)")),
-    ("drinks-hospitality", re.compile(r"(vintner|\blva\b|\bvfi\b|drinks ireland|diageo|heineken|guinness|whiskey|alcohol beverage|publican|restaurants association|hotels federation|self catering|hospitality|event industry)")),
-    ("farming-agri", re.compile(r"(farmers|\bifa\b|icmsa|macra|\bicsa\b|teagasc|bord bia|ornua|kerry group|glanbia|tirlan|dairygold|lakeland|dairy industry|meat industry|\bmii\b|keelings|devenish|horticultur|\bagri)")),
-    ("food-consumer-goods", re.compile(r"(danone|musgrave|keelings|nestle|kerry foods|food and drink ireland|\bfdii\b|primark|brown thomas|dunnes|tesco|\blidl\b|\baldi\b|supervalu)")),
+    (
+        "banking-finance",
+        re.compile(
+            r"(bank of ireland|\baib\b|allied irish|permanent tsb|ptsb|ulster bank|banking and payments|bpfi|credit union|finance ireland|\bdavy\b|goodbody|revolut|financial services union|euronext|stock exchange|payments europe)"
+        ),
+    ),
+    (
+        "funds-leasing",
+        re.compile(
+            r"(irish funds|hedge|blackrock|private equity|alternative invest|avolon|aercap|gecas|aircraft leas|\bkkr\b|carlyle|amundi)"
+        ),
+    ),
+    ("gambling-betting", re.compile(r"(entain|flutter|bookmaker|paddy power|\bbetting\b|gambling)")),
+    (
+        "energy-utilities",
+        re.compile(
+            r"(wind energy|\besb\b|bord gais|bord na mona|uisce eireann|gas networks|\bsse\b|energia|renewable|hydrogen|offshore wind|nephin energy|electricity|\bcoillte\b|statkraft|pinergy|solar energy|heatgrid|energy co-?operative|supernode|solid fuel|flotation energy|form energy|futurenergy|greenlink|interconnector|bioenergy|district energy|liquid gas|new fortress|ocean winds|pardus energy|tipperary energy|community power|demand response|glen dimplex)"
+        ),
+    ),
+    (
+        "telecoms-media",
+        re.compile(
+            r"(vodafone|\beir\b|three ireland|virgin media|sky ireland|comreg|broadcast|newsbrands|\brte\b|bauer media|verizon|netflix|lens media)"
+        ),
+    ),
+    (
+        "transport-aviation",
+        re.compile(
+            r"(aer lingus|ryanair|\bdaa\b|dublin airport|shannon airport|cork airport|dublin port|port of cork|shannon foynes|bus eireann|dublin bus|iarnrod|\bcie\b|national transport|irish ferries|dublin aerospace|aviation|airlines for america|aer rianta|coach tourism|harbour company|\biata\b|international air transport|ireland west airport|\bknock\b|lufthansa|manna drone|mobility partnership|taxis for ireland|tier mobility|zipp mobility|motor industry|\bsimi\b|nissan)"
+        ),
+    ),
+    (
+        "mining-industrial",
+        re.compile(
+            r"(tara mines|aughinish|alumina|boliden|cement|\bquarr|smurfit|kingspan|ecocem|plant contractors|\bplastics\b)"
+        ),
+    ),
+    (
+        "property-construction",
+        re.compile(
+            r"(construction industry|\bcif\b|\bproperty\b|cairn|glenveagh|land development|housing alliance|estate agents|auctioneers|breffni group|kinsealy|cluid|social housing|approved housing|green building|hammerson|concrete|construction defects|oaklee|local development)"
+        ),
+    ),
+    # CLINICAL / PROVIDER / professional health bodies only — patient & disease ADVOCACY
+    # charities (cancer, heart, diabetes, parkinson's…) live in charity-ngo for consistency.
+    (
+        "healthcare-health-bodies",
+        re.compile(
+            r"(nursing homes|\bhospital\b|rotunda|royal college|college of physicians|college of ophthalm|nurses and midwives|social care|care alliance|equine centre|\binmo\b|irish medical organisation|\bimo\b|childrens health|private hospitals)"
+        ),
+    ),
+    (
+        "hospitality-tourism-events",
+        re.compile(
+            r"(vintner|\blva\b|\bvfi\b|drinks ireland|drinks industry|diageo|heineken|guinness|whiskey|distiller|sazerac|alcohol beverage|publican|restaurants association|hotels federation|\bhotel\b|self catering|hospitality|event industry|venue operators|visitor experiences|amusement trades|travel agents|center parcs|staycity|westbury|westport house|caravan and camping|capital entertainment|entertainment and leisure)"
+        ),
+    ),
+    (
+        "farming-agri",
+        re.compile(
+            r"(farmers|\bifa\b|icmsa|macra|\bicsa\b|teagasc|bord bia|ornua|kerry group|glanbia|tirlan|dairygold|lakeland|dairy industry|meat industry|\bmii\b|keelings|devenish|horticultur|\bagri|forest|grain and feed|national stud|atlantic dawn|marine harvest|seafood|fishing|gurteen|co-operative organisation)"
+        ),
+    ),
+    (
+        "food-consumer-goods",
+        re.compile(
+            r"(danone|musgrave|nestle|kerry foods|food and drink ireland|\bfdii\b|primark|brown thomas|dunnes|tesco|\blidl\b|\baldi\b|supervalu|pepsico|supermac|kellanova)"
+        ),
+    ),
     ("retail-trade", re.compile(r"(retail|\brgdata\b|grocer|hardware association|shopping|consumer)")),
-    ("sport", re.compile(r"(cricket|rowing ireland|cycling ireland|federation of irish sport|horse racing|special olympics|\bgaa\b|rugby|\bfai\b|olympic|sport ireland|athletics|ireland active)")),
-    ("arts-culture-heritage", re.compile(r"(theatre|gallery|museum|screen producers|business to arts|piobairi|conradh na gaeilge|gaeilge|gaeltacht|udaras|waterways|airfield|\bzoo\b|heritage|arts council|\bfilm\b)")),
-    ("education-research", re.compile(r"(universit|\bucd\b|\bdcu\b|trinity college|maynooth|institute of technology|educate together|skillnet|\biiea\b|international and european affairs|\beducation\b|colleges|\bresearch\b)")),
-    ("professional-services", re.compile(r"(chartered accountants|\bmazars\b|\bkpmg\b|\bpwc\b|deloitte|grant thornton|engineers ireland|planning institute|kings inns|king s inns|law society|bar council|architects|surveyors|solicitors)")),
-    ("business-reps-chambers", re.compile(r"(chamber|\bibec\b|\bisme\b|\bsfa\b|guaranteed irish|exporters|business association|european movement|asia matters|sme recovery|business in the community|workforce ireland|small firms|employers|ireland canada|ibec)")),
-    ("charity-ngo", re.compile(r"(foundation|charit|\bngo\b|inclusion|threshold|\brespond\b|carers|crosscare|barnardos|hospice|rape crisis|cancer society|mental health|disabilit|down syndrome|simon community|depaul|st vincent|social justice|women s council|womens council|women s link|youth work|victim support|advocacy|thalidomide|coalition 2030|co-operation ireland|friends of the earth|environmental|ruhama|prosper|refugee|migrant|neurological|special needs|st michael)")),
+    ("field-sports-game", re.compile(r"(game council|\bnargc\b)")),
+    (
+        "sport",
+        re.compile(
+            r"(cricket|rowing ireland|cycling ireland|federation of irish sport|horse racing|greyhound|special olympics|\bgaa\b|gaelic athletic|rugby|\bfai\b|football association|olympic|sport ireland|athletics|ireland active|basketball|tennis|physical activity|little fitness)"
+        ),
+    ),
+    (
+        "arts-culture-heritage",
+        re.compile(
+            r"(theatre|gallery|museum|concert hall|national library|screen producers|business to arts|piobairi|conradh na gaeilge|gaeilge|gaeloideachas|gaeltacht|udaras|waterways|airfield|\bzoo\b|heritage|arts council|\bfilm\b|poetry|project arts|music generation|bookselling|writers centre|troy studios|omniplex)"
+        ),
+    ),
+    (
+        "education-research",
+        re.compile(
+            r"(universit|\bucd\b|\bdcu\b|trinity college|maynooth|institute of technology|educate together|skillnet|\biiea\b|international and european affairs|\beducation\b|colleges|\bresearch\b|alexandra college)"
+        ),
+    ),
+    (
+        "professional-services",
+        re.compile(
+            r"(chartered accountants|\bmazars\b|\bkpmg\b|\bpwc\b|deloitte|grant thornton|engineers ireland|planning institute|kings inns|law society|bar council|architects|surveyors|solicitors|recruitment federation|eversheds|william fry|\bturley\b|consulting|institute of directors|medical protection)"
+        ),
+    ),
+    (
+        "unions-labour",
+        re.compile(
+            r"(trade union|\bictu\b|congress of trade|postmasters|\bsiptu\b|\bforsa\b|\btui\b|teachers union|national teachers organisation|secondary teachers|workers union|garda representative|garda sergeants|sergeants and inspectors|national union of journalists|union of students|students in ireland)"
+        ),
+    ),
+    ("local-government", re.compile(r"(county council|city council|county and city|local authorit)")),
+    (
+        "business-reps-chambers",
+        re.compile(
+            r"(chamber|\bibec\b|\bisme\b|small and medium enterprises|\bsfa\b|guaranteed irish|exporters|business association|european movement|asia matters|sme recovery|business in the community|workforce ireland|small firms|employers|ireland canada|business district)"
+        ),
+    ),
+    # patient & disease advocacy charities included here (NOT healthcare-health-bodies) so all
+    # health NGOs sit in one bucket alongside cancer/heart: diabetes, parkinson, endometriosis, etc.
+    (
+        "charity-ngo",
+        re.compile(
+            r"(foundation|charit|\bngo\b|inclusion|threshold|\brespond\b|carers|crosscare|barnardos|hospice|rape crisis|\bcancer\b|mental health|disabilit|down syndrome|diabetes|parkinson|endometriosis|family planning|simon communit|depaul|st vincent|social justice|womens council|women for election|national women|womens link|youth work|victim support|advocacy|thalidomide|coalition 2030|co-operation ireland|friends of the earth|environmental|ruhama|prosper|refugee|migrant|neurological|special needs|st michael|grow remote|age action|merchants quay|extern|open doors|dignity ireland|family resource|community development|acquired brain injury|aoibhneas|blossom|cope galway|climate and health|crime victims|cuan mhuire|cystic fibrosis|early childhood|\bempower\b|glencree|inner city|civil liberties|mens sheds|penal reform|traveller|pavee|mcverry|\bpieta\b|rare diseases|sadaka|see change|sex workers|sexual violence|alzheimer|red door|trocaire|uplift|womens aid|\bymca\b|one family|one in four|natural capital|rediscovery|avista|st joseph|vincent de paul|peace and reconciliation)"
+        ),
+    ),
 ]
 
 
 def _fold(name: str) -> str:
-    """Fold for sector matching: NFKD→ASCII, '&'→'and', collapse spaces, lowercase."""
-    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    """Fold for sector matching: drop apostrophes, NFKD→ASCII, '&'→'and', collapse, lowercase.
+
+    Apostrophes are stripped (not spaced) so "Women's"→"womens", "King's Inns"→"kings inns"
+    match plain tokens regardless of straight (') vs curly (’) form.
+    """
+    s = name.replace("'", "").replace("’", "").replace("‘", "")
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
     return re.sub(r"\s+", " ", s.replace("&", " and ")).strip().lower()
 
 
@@ -168,26 +318,30 @@ def main() -> int:
         .filter(~pl.col("matched_org_name").str.contains("(?i)" + _GOV_BODY_RE.pattern))
         .join(entries.select(["entry_id", "entry_class", "department"]), on="entry_id", how="left")
         .filter(~pl.col("entry_class").is_in(list(EXCLUDE_CLASSES)))
-        .with_columns([
-            pl.col("matched_org_name").map_elements(norm, return_dtype=pl.Utf8).alias("org_nk"),
-            pl.col("minister").map_elements(surname_key, return_dtype=pl.Utf8).alias("min_sk"),
-            pl.col("matched_org_name").map_elements(sector_for, return_dtype=pl.Utf8).alias("sector"),
-        ])
+        .with_columns(
+            [
+                pl.col("matched_org_name").map_elements(norm, return_dtype=pl.Utf8).alias("org_nk"),
+                pl.col("minister").map_elements(surname_key, return_dtype=pl.Utf8).alias("min_sk"),
+                pl.col("matched_org_name").map_elements(sector_for, return_dtype=pl.Utf8).alias("sector"),
+            ]
+        )
     )
     if overlap.is_empty():
         log.error("no overlap rows survived the strict filters — check inputs")
         return 1
 
     # corroboration: (org_nk, minister surname) pairs the register says were lobbied as a Minister
-    pol = pl.read_parquet(POL).with_columns([
-        pl.col("lobbyist_name").map_elements(norm, return_dtype=pl.Utf8).alias("org_nk"),
-        pl.col("full_name").map_elements(surname_key, return_dtype=pl.Utf8).alias("min_sk"),
-    ])
-    pol_min = pol.filter(pl.col("position").fill_null("").str.contains("Minister"))
-    lobbied_pairs = pol_min.select(["org_nk", "min_sk"]).unique().with_columns(pl.lit(True).alias("lobbied_same_minister"))
-    returns_per_org = (
-        pol.group_by("org_nk").agg(pl.col("lobby_url").n_unique().alias("total_lobbying_returns"))
+    pol = pl.read_parquet(POL).with_columns(
+        [
+            pl.col("lobbyist_name").map_elements(norm, return_dtype=pl.Utf8).alias("org_nk"),
+            pl.col("full_name").map_elements(surname_key, return_dtype=pl.Utf8).alias("min_sk"),
+        ]
     )
+    pol_min = pol.filter(pl.col("position").fill_null("").str.contains("Minister"))
+    lobbied_pairs = (
+        pol_min.select(["org_nk", "min_sk"]).unique().with_columns(pl.lit(True).alias("lobbied_same_minister"))
+    )
+    returns_per_org = pol.group_by("org_nk").agg(pl.col("lobby_url").n_unique().alias("total_lobbying_returns"))
 
     overlap = (
         overlap.join(lobbied_pairs, on=["org_nk", "min_sk"], how="left")
@@ -201,16 +355,18 @@ def main() -> int:
     # org-level ranking: who met ministers most (DISTINCT meetings — explosion-safe)
     ranked = (
         overlap.group_by("matched_org_name")
-        .agg([
-            pl.col("sector").first().alias("sector"),
-            pl.col("entry_id").n_unique().alias("meetings"),
-            pl.col("entry_id").filter(pl.col("match_confidence") == "high").n_unique().alias("high_conf_meetings"),
-            pl.col("min_sk").filter(pl.col("min_sk") != "").n_unique().alias("ministers_met"),
-            pl.col("min_sk").filter(pl.col("lobbied_same_minister")).n_unique().alias("ministers_lobbied_and_met"),
-            pl.col("total_lobbying_returns").max().alias("total_lobbying_returns"),
-            pl.col("entry_date").min().alias("first_meeting"),
-            pl.col("entry_date").max().alias("last_meeting"),
-        ])
+        .agg(
+            [
+                pl.col("sector").first().alias("sector"),
+                pl.col("entry_id").n_unique().alias("meetings"),
+                pl.col("entry_id").filter(pl.col("match_confidence") == "high").n_unique().alias("high_conf_meetings"),
+                pl.col("min_sk").filter(pl.col("min_sk") != "").n_unique().alias("ministers_met"),
+                pl.col("min_sk").filter(pl.col("lobbied_same_minister")).n_unique().alias("ministers_lobbied_and_met"),
+                pl.col("total_lobbying_returns").max().alias("total_lobbying_returns"),
+                pl.col("entry_date").min().alias("first_meeting"),
+                pl.col("entry_date").max().alias("last_meeting"),
+            ]
+        )
         .sort(["meetings", "ministers_met"], descending=True)
     )
     save_parquet(ranked, OUT_RANKED)
@@ -225,24 +381,31 @@ def main() -> int:
     )
     sector_summary = (
         overlap.group_by("sector")
-        .agg([
-            pl.col("entry_id").n_unique().alias("meetings"),
-            pl.col("matched_org_name").n_unique().alias("orgs"),
-            pl.col("entry_id").filter(pl.col("lobbied_same_minister")).n_unique().alias("corroborated"),
-        ])
+        .agg(
+            [
+                pl.col("entry_id").n_unique().alias("meetings"),
+                pl.col("matched_org_name").n_unique().alias("orgs"),
+                pl.col("entry_id").filter(pl.col("lobbied_same_minister")).n_unique().alias("corroborated"),
+            ]
+        )
         .sort("meetings", descending=True)
     )
     log.info("By sector (heuristic tag):")
     for r in sector_summary.iter_rows(named=True):
-        log.info("  %-22s %5d meetings  %4d orgs  %4d corroborated", r["sector"], r["meetings"], r["orgs"], r["corroborated"])
+        log.info(
+            "  %-22s %5d meetings  %4d orgs  %4d corroborated", r["sector"], r["meetings"], r["orgs"], r["corroborated"]
+        )
 
     log.info("Top 25 organisations by minister meetings:")
     log.info("  %-42s %8s %5s %12s %8s", "organisation", "meetings", "mins", "lobbied&met", "returns")
     for r in ranked.head(25).iter_rows(named=True):
         log.info(
             "  %-42s %8d %5d %12d %8d",
-            r["matched_org_name"][:42], r["meetings"], r["ministers_met"],
-            r["ministers_lobbied_and_met"], r["total_lobbying_returns"],
+            r["matched_org_name"][:42],
+            r["meetings"],
+            r["ministers_met"],
+            r["ministers_lobbied_and_met"],
+            r["total_lobbying_returns"],
         )
     return 0
 

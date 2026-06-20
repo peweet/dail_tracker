@@ -50,8 +50,8 @@ if str(_REPO_ROOT) not in sys.path:
 from config import (  # noqa: E402 — sys.path shim must precede project imports
     BASE_DIR,
     DATA_DIR,
-    GOLD_SPEECHES_FACT_PARQUET,
     GOLD_SEANAD_VOTE_HISTORY_PARQUET,
+    GOLD_SPEECHES_FACT_PARQUET,
     GOLD_VOTE_HISTORY_PARQUET,
     SILVER_PARQUET_DIR,
 )
@@ -63,8 +63,20 @@ _log = logging.getLogger("build_runtime_manifest")
 SQL_VIEWS_DIR = _REPO_ROOT / "sql_views"
 MANIFEST_PATH = DATA_DIR / "_meta" / "runtime_data_manifest.json"
 
-_LITERAL_RE = re.compile(r"read_parquet\('(data/[^']+\.parquet)'\)")
-_PLACEHOLDER_RE = re.compile(r"read_parquet\('(\{[A-Z_]+\})'\)")
+# Capture every quoted data-parquet literal / {KEY} placeholder anywhere in the (de-commented) SQL.
+# Not anchored to ``read_parquet('…')`` because DuckDB also reads the LIST form
+# ``read_parquet(['data/a.parquet','data/b.parquet'], union_by_name=true)`` and multi-line calls —
+# a quoted ``'data/….parquet'`` in a view is always a file being read, so matching the literal
+# itself is both simpler and complete. Comments are stripped first so a path mentioned in a ``--``
+# note is never miscounted as a read.
+_LITERAL_RE = re.compile(r"'(data/[^']+\.parquet)'")
+_PLACEHOLDER_RE = re.compile(r"'(\{[A-Z_]+\})'")
+_LINE_COMMENT_RE = re.compile(r"--[^\n]*")
+_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+
+
+def _strip_sql_comments(sql: str) -> str:
+    return _LINE_COMMENT_RE.sub("", _BLOCK_COMMENT_RE.sub("", sql))
 
 
 def _rel(path: Path) -> str:
@@ -150,7 +162,7 @@ def runtime_reads() -> tuple[dict[str, list[str]], list[str]]:
             readers[rel].append(label)
 
     for sql_file in sorted(SQL_VIEWS_DIR.glob("**/*.sql")):
-        text = sql_file.read_text(encoding="utf-8")
+        text = _strip_sql_comments(sql_file.read_text(encoding="utf-8"))
         label = sql_file.relative_to(SQL_VIEWS_DIR).as_posix()
         for rel in _LITERAL_RE.findall(text):
             _add(rel, label)
@@ -223,9 +235,7 @@ def build() -> dict:
     referenced_but_untracked = [
         {"path": rel, "readers": readers[rel]} for rel in untracked if rel not in KNOWN_OPTIONAL
     ]
-    optional_untracked = [
-        {"path": rel, "readers": readers[rel]} for rel in untracked if rel in KNOWN_OPTIONAL
-    ]
+    optional_untracked = [{"path": rel, "readers": readers[rel]} for rel in untracked if rel in KNOWN_OPTIONAL]
 
     return {
         "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -280,13 +290,19 @@ def main(argv: list[str] | None = None) -> int:
     s = manifest["summary"]
     _log.info(
         "runtime=%d lineage=%d dead=%d (tracked=%d, %.1f MB runtime)",
-        s["runtime"], s["lineage"], s["dead"], s["tracked_total"], s["bytes_runtime"] / 1e6,
+        s["runtime"],
+        s["lineage"],
+        s["dead"],
+        s["tracked_total"],
+        s["bytes_runtime"] / 1e6,
     )
     if manifest["unresolved_placeholders"]:
         _log.warning("UNRESOLVED placeholders (add to PLACEHOLDER_TO_PATH): %s", manifest["unresolved_placeholders"])
     if manifest["referenced_but_untracked"]:
         for entry in manifest["referenced_but_untracked"]:
-            _log.warning("SHIP GAP — runtime-read but NOT git-tracked: %s (read by %s)", entry["path"], entry["readers"])
+            _log.warning(
+                "SHIP GAP — runtime-read but NOT git-tracked: %s (read by %s)", entry["path"], entry["readers"]
+            )
 
     if args.check:
         if not MANIFEST_PATH.exists():

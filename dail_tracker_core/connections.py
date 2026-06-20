@@ -138,9 +138,7 @@ def register_member_views(conn: duckdb.DuckDBPyConnection) -> None:
             conn,
             CONTACT_DETAILS_FILES,
             substitutions={
-                "{CONTACT_DETAILS_PARQUET_PATH}": (
-                    SILVER_PARQUET_DIR / "member_contact_details.parquet"
-                ).as_posix()
+                "{CONTACT_DETAILS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_contact_details.parquet").as_posix()
             },
             swallow_errors=True,
         )
@@ -154,9 +152,7 @@ def register_member_views(conn: duckdb.DuckDBPyConnection) -> None:
         register_views(
             conn,
             NEWS_MENTIONS_FILES,
-            substitutions={
-                "{NEWS_MENTIONS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "news_mentions.parquet").as_posix()
-            },
+            substitutions={"{NEWS_MENTIONS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "news_mentions.parquet").as_posix()},
             swallow_errors=True,
         )
     except Exception as exc:  # noqa: BLE001

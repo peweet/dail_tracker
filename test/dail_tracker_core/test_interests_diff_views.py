@@ -18,9 +18,18 @@ from dail_tracker_core.queries import interests as q
 
 _DECL_COLUMNS = {"declaration_year", "interest_category", "interest_text", "change_status"}
 _SUMMARY_COLUMNS = {
-    "declaration_year", "party_name", "constituency", "total_declarations",
-    "category_count", "new_count", "removed_count", "has_prior_year",
-    "is_landlord", "is_property_owner", "property_count", "share_count",
+    "declaration_year",
+    "party_name",
+    "constituency",
+    "total_declarations",
+    "category_count",
+    "new_count",
+    "removed_count",
+    "has_prior_year",
+    "is_landlord",
+    "is_property_owner",
+    "property_count",
+    "share_count",
 }
 
 
@@ -86,9 +95,7 @@ def test_change_status_domain(conn):
 
 def test_summary_matches_python(conn):
     detail = _detail_or_skip(conn)
-    summ = conn.execute(
-        "SELECT * FROM v_member_interests_member_year_summary WHERE house = 'Dáil'"
-    ).df()
+    summ = conn.execute("SELECT * FROM v_member_interests_member_year_summary WHERE house = 'Dáil'").df()
     s_idx = {(r.member_name, int(r.declaration_year)): r for r in summ.itertuples()}
 
     mism = 0
@@ -109,12 +116,27 @@ def test_summary_matches_python(conn):
             row = s_idx.get((name, y))
             assert row is not None, f"missing summary row for {name} {y}"
             got = (
-                int(row.total_declarations), int(row.category_count), int(row.new_count),
-                int(row.removed_count), bool(row.has_prior_year), int(row.property_count),
-                int(row.share_count), bool(row.is_landlord), bool(row.is_property_owner),
+                int(row.total_declarations),
+                int(row.category_count),
+                int(row.new_count),
+                int(row.removed_count),
+                bool(row.has_prior_year),
+                int(row.property_count),
+                int(row.share_count),
+                bool(row.is_landlord),
+                bool(row.is_property_owner),
             )
-            exp = (n_entries, n_cats, n_new, n_removed, has_prior, prop, shar,
-                   bool(ydf["landlord_flag"].any()), bool(ydf["property_flag"].any()))
+            exp = (
+                n_entries,
+                n_cats,
+                n_new,
+                n_removed,
+                has_prior,
+                prop,
+                shar,
+                bool(ydf["landlord_flag"].any()),
+                bool(ydf["property_flag"].any()),
+            )
             if got != exp:
                 mism += 1
     assert mism == 0, f"{mism} member-year summary rows diverged from the former Python logic"

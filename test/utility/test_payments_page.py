@@ -67,11 +67,18 @@ def test_clean_taa_label():
 
 # ── _pay_card_html ───────────────────────────────────────────────────────────
 def test_pay_card_html():
-    row = pd.Series({
-        "member_name": "Collins, Michael", "position": "Deputy", "party_name": "Independent",
-        "constituency": "Cork South-West", "taa_band_label": "Band 5 (unmapped)",
-        "payment_count": 12, "total_paid": 123_456.0, "rank_high": 1,
-    })
+    row = pd.Series(
+        {
+            "member_name": "Collins, Michael",
+            "position": "Deputy",
+            "party_name": "Independent",
+            "constituency": "Cork South-West",
+            "taa_band_label": "Band 5 (unmapped)",
+            "payment_count": 12,
+            "total_paid": 123_456.0,
+            "rank_high": 1,
+        }
+    )
     html = payments._pay_card_html(row)
     assert "Michael Collins" in html  # flipped
     assert "€123,456" in html
@@ -83,12 +90,25 @@ def test_pay_card_html():
 def _ranking_df(n: int = 20):
     # Ranked views always return the full cohort; the page splits head(10)/iloc[10:20]
     # into two columns and st.html() rejects an empty column, so fixtures need ≥11 rows.
-    return pd.DataFrame([{
-        "member_name": f"Surname{i}, Fore", "position": "Deputy", "party_name": "Independent",
-        "constituency": "Cork South-West", "taa_band_label": "Band 5", "total_paid": 100_000.0 - i,
-        "payment_count": 10, "rank_high": i + 1, "unique_member_code": f"TD-{i}",
-        "year_total_paid": 5_000_000.0, "year_member_count": 160, "year_avg_per_td": 31_250.0,
-    } for i in range(n)])
+    return pd.DataFrame(
+        [
+            {
+                "member_name": f"Surname{i}, Fore",
+                "position": "Deputy",
+                "party_name": "Independent",
+                "constituency": "Cork South-West",
+                "taa_band_label": "Band 5",
+                "total_paid": 100_000.0 - i,
+                "payment_count": 10,
+                "rank_high": i + 1,
+                "unique_member_code": f"TD-{i}",
+                "year_total_paid": 5_000_000.0,
+                "year_member_count": 160,
+                "year_avg_per_td": 31_250.0,
+            }
+            for i in range(n)
+        ]
+    )
 
 
 def test_render_provenance():
@@ -100,12 +120,22 @@ def test_render_provenance():
 
 def test_render_rankings(monkeypatch):
     _silence_streamlit()
-    alltime = pd.DataFrame([{
-        "member_name": f"Surname{i}, Fore", "position": "Deputy", "party_name": "Ind",
-        "constituency": "Cork", "taa_band_label": "Band 5", "rank_high": i + 1,
-        "unique_member_code": f"TD-{i}", "total_paid_since_2020": 200_000.0 - i,
-        "payment_count_since_2020": 20,
-    } for i in range(20)])
+    alltime = pd.DataFrame(
+        [
+            {
+                "member_name": f"Surname{i}, Fore",
+                "position": "Deputy",
+                "party_name": "Ind",
+                "constituency": "Cork",
+                "taa_band_label": "Band 5",
+                "rank_high": i + 1,
+                "unique_member_code": f"TD-{i}",
+                "total_paid_since_2020": 200_000.0 - i,
+                "payment_count_since_2020": 20,
+            }
+            for i in range(20)
+        ]
+    )
     monkeypatch.setattr(payments, "fetch_alltime_ranking", lambda *a, **k: alltime)
     since = {"total": 1_000_000.0, "members": 160, "avg_per_td": 6_250.0}
     summary = pd.Series({"first_year": 2020, "last_year": 2024})
@@ -119,12 +149,22 @@ def test_render_rankings_small_cohort(monkeypatch):
     # A ≤10-member cohort (sparse year / small chamber) leaves the next-10 column
     # empty; without the st.html("") guard this raises StreamlitAPIException.
     _silence_streamlit()
-    small = pd.DataFrame([{
-        "member_name": f"Surname{i}, Fore", "position": "Deputy", "party_name": "Ind",
-        "constituency": "Cork", "taa_band_label": "Band 5", "rank_high": i + 1,
-        "unique_member_code": f"TD-{i}", "total_paid_since_2020": 50_000.0 - i,
-        "payment_count_since_2020": 5,
-    } for i in range(4)])
+    small = pd.DataFrame(
+        [
+            {
+                "member_name": f"Surname{i}, Fore",
+                "position": "Deputy",
+                "party_name": "Ind",
+                "constituency": "Cork",
+                "taa_band_label": "Band 5",
+                "rank_high": i + 1,
+                "unique_member_code": f"TD-{i}",
+                "total_paid_since_2020": 50_000.0 - i,
+                "payment_count_since_2020": 5,
+            }
+            for i in range(4)
+        ]
+    )
     monkeypatch.setattr(payments, "fetch_alltime_ranking", lambda *a, **k: small)
     since = {"total": 200_000.0, "members": 4, "avg_per_td": 50_000.0}
     summary = pd.Series({"first_year": 2020, "last_year": 2024})
@@ -133,11 +173,17 @@ def test_render_rankings_small_cohort(monkeypatch):
 
 def test_render_primary(monkeypatch):
     _silence_streamlit()
-    monkeypatch.setattr(payments, "fetch_since_2020_summary",
-                        lambda *a, **k: {"total": 1_000_000.0, "members": 160, "avg_per_td": 6_250.0})
+    monkeypatch.setattr(
+        payments,
+        "fetch_since_2020_summary",
+        lambda *a, **k: {"total": 1_000_000.0, "members": 160, "avg_per_td": 6_250.0},
+    )
     monkeypatch.setattr(payments, "fetch_year_ranking", lambda *a, **k: _ranking_df())
-    monkeypatch.setattr(payments, "fetch_alltime_ranking", lambda *a, **k: _ranking_df().assign(
-        total_paid_since_2020=100_000.0, payment_count_since_2020=10))
+    monkeypatch.setattr(
+        payments,
+        "fetch_alltime_ranking",
+        lambda *a, **k: _ranking_df().assign(total_paid_since_2020=100_000.0, payment_count_since_2020=10),
+    )
     summary = pd.Series({"first_year": 2020, "last_year": 2024})
     # Default selected view (None → most-recent completed year) renders the year ranking.
     assert payments._render_primary(["2024", "2023"], summary, "Dáil", "TD", "TDs") is None
@@ -147,8 +193,9 @@ def test_render_primary_small_cohort(monkeypatch):
     # Same empty-column guard, year-ranking path: a 3-member year leaves next-10 empty.
     _silence_streamlit()
     small = _ranking_df(3)
-    monkeypatch.setattr(payments, "fetch_since_2020_summary",
-                        lambda *a, **k: {"total": 100_000.0, "members": 3, "avg_per_td": 33_000.0})
+    monkeypatch.setattr(
+        payments, "fetch_since_2020_summary", lambda *a, **k: {"total": 100_000.0, "members": 3, "avg_per_td": 33_000.0}
+    )
     monkeypatch.setattr(payments, "fetch_year_ranking", lambda *a, **k: small)
     summary = pd.Series({"first_year": 2020, "last_year": 2024})
     assert payments._render_primary(["2024", "2023"], summary, "Seanad", "Senator", "Senators") is None
@@ -156,8 +203,9 @@ def test_render_primary_small_cohort(monkeypatch):
 
 def test_render_primary_empty_year(monkeypatch):
     _silence_streamlit()
-    monkeypatch.setattr(payments, "fetch_since_2020_summary",
-                        lambda *a, **k: {"total": 0, "members": 0, "avg_per_td": 0})
+    monkeypatch.setattr(
+        payments, "fetch_since_2020_summary", lambda *a, **k: {"total": 0, "members": 0, "avg_per_td": 0}
+    )
     monkeypatch.setattr(payments, "fetch_year_ranking", lambda *a, **k: pd.DataFrame())
     summary = pd.Series({"first_year": 2020, "last_year": 2024})
     assert payments._render_primary(["2024", "2023"], summary, "Dáil", "TD", "TDs") is None
@@ -166,22 +214,31 @@ def test_render_primary_empty_year(monkeypatch):
 # ── page entry (bare mode) ───────────────────────────────────────────────────
 def test_payments_page_full(monkeypatch):
     _silence_streamlit()
-    monkeypatch.setattr(payments, "fetch_payments_summary",
-                        lambda *a, **k: pd.Series({"first_year": 2020, "last_year": 2024}))
-    monkeypatch.setattr(payments, "fetch_filter_options",
-                        lambda *a, **k: {"years": ["2024", "2023"], "members": ["Collins, Michael"]})
-    monkeypatch.setattr(payments, "fetch_since_2020_summary",
-                        lambda *a, **k: {"total": 1_000_000.0, "members": 160, "avg_per_td": 6_250.0})
+    monkeypatch.setattr(
+        payments, "fetch_payments_summary", lambda *a, **k: pd.Series({"first_year": 2020, "last_year": 2024})
+    )
+    monkeypatch.setattr(
+        payments, "fetch_filter_options", lambda *a, **k: {"years": ["2024", "2023"], "members": ["Collins, Michael"]}
+    )
+    monkeypatch.setattr(
+        payments,
+        "fetch_since_2020_summary",
+        lambda *a, **k: {"total": 1_000_000.0, "members": 160, "avg_per_td": 6_250.0},
+    )
     monkeypatch.setattr(payments, "fetch_year_ranking", lambda *a, **k: _ranking_df())
-    monkeypatch.setattr(payments, "fetch_alltime_ranking", lambda *a, **k: _ranking_df().assign(
-        total_paid_since_2020=100_000.0, payment_count_since_2020=10))
+    monkeypatch.setattr(
+        payments,
+        "fetch_alltime_ranking",
+        lambda *a, **k: _ranking_df().assign(total_paid_since_2020=100_000.0, payment_count_since_2020=10),
+    )
     assert payments.payments_page() is None
 
 
 def test_payments_page_no_years(monkeypatch):
     _silence_streamlit()
-    monkeypatch.setattr(payments, "fetch_payments_summary",
-                        lambda *a, **k: pd.Series({"first_year": 2020, "last_year": 2024}))
+    monkeypatch.setattr(
+        payments, "fetch_payments_summary", lambda *a, **k: pd.Series({"first_year": 2020, "last_year": 2024})
+    )
     monkeypatch.setattr(payments, "fetch_filter_options", lambda *a, **k: {"years": [], "members": []})
     # No years → st.error + early return (still None).
     assert payments.payments_page() is None

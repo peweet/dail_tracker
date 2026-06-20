@@ -49,8 +49,7 @@ def distinct_members(conn: duckdb.DuckDBPyConnection, house: str = "Dáil") -> Q
     """Distinct member names for a house — the page's member dropdown options."""
     return _run(
         conn,
-        "SELECT DISTINCT member_name FROM v_attendance_member_summary"
-        " WHERE house = ? ORDER BY member_name LIMIT 2000",
+        "SELECT DISTINCT member_name FROM v_attendance_member_summary WHERE house = ? ORDER BY member_name LIMIT 2000",
         [house],
     )
 
@@ -59,8 +58,7 @@ def distinct_years(conn: duckdb.DuckDBPyConnection, house: str = "Dáil") -> Que
     """Distinct reporting years for a house, most-recent first — the year filter."""
     return _run(
         conn,
-        "SELECT DISTINCT year FROM v_attendance_member_year_summary"
-        " WHERE house = ? ORDER BY year DESC LIMIT 100",
+        "SELECT DISTINCT year FROM v_attendance_member_year_summary WHERE house = ? ORDER BY year DESC LIMIT 100",
         [house],
     )
 

@@ -45,7 +45,7 @@ def test_strips_school_roll_number():
     [
         "Health Information and Quality Authority (HIQA)",  # acronym
         "Transport Infrastructure Ireland (TII)",
-        "Loreto Secondary School (Navan)",                  # place-name
+        "Loreto Secondary School (Navan)",  # place-name
         "Scoil Mhuire (Howth)",
     ],
 )

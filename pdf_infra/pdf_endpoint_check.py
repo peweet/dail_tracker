@@ -385,7 +385,6 @@ manual_endpoints = [
 ]
 
 
-
 def endpoint_checker(manual_urls=manual_endpoints, urls=urls, session=session, timeout=10):
 
     broken = []
@@ -499,10 +498,21 @@ def canary_lobbying(session=None) -> dict:
     s = session or requests
     stamp = date.today().strftime("%d-%m-%Y")
     params = {
-        "currentPage": 0, "pageSize": 1, "queryText": "", "subjectMatters": "",
-        "subjectMatterAreas": "", "publicBodys": "", "jobTitles": "",
-        "returnDateFrom": stamp, "returnDateTo": stamp, "period": "", "dpo": "",
-        "client": "", "responsible": "", "lobbyist": "", "lobbyistId": "",
+        "currentPage": 0,
+        "pageSize": 1,
+        "queryText": "",
+        "subjectMatters": "",
+        "subjectMatterAreas": "",
+        "publicBodys": "",
+        "jobTitles": "",
+        "returnDateFrom": stamp,
+        "returnDateTo": stamp,
+        "period": "",
+        "dpo": "",
+        "client": "",
+        "responsible": "",
+        "lobbyist": "",
+        "lobbyistId": "",
     }
     try:
         r = s.get(
@@ -529,7 +539,10 @@ def canary_ted(session=None) -> dict:
     s = session or requests
     body = {
         "query": "buyer-country=IRL AND notice-type=can-standard AND publication-date>=20240101",
-        "fields": ["publication-number"], "limit": 1, "page": 1, "paginationMode": "PAGE_NUMBER",
+        "fields": ["publication-number"],
+        "limit": 1,
+        "page": 1,
+        "paginationMode": "PAGE_NUMBER",
     }
     try:
         r = s.post(

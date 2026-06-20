@@ -20,13 +20,27 @@ from dail_tracker_core.results import QueryResult
 
 _EXPECTED_COLUMNS = {
     "politician_index": {
-        "rank", "member_name", "unique_member_code", "chamber", "position",
-        "return_count", "distinct_orgs", "distinct_policy_areas", "first_period", "last_period",
+        "rank",
+        "member_name",
+        "unique_member_code",
+        "chamber",
+        "position",
+        "return_count",
+        "distinct_orgs",
+        "distinct_policy_areas",
+        "first_period",
+        "last_period",
     },
     "org_index": {"lobbyist_name", "sector", "return_count", "rcn", "state_adjacent_flag"},
     "revolving_door": {
-        "individual_name", "former_position", "former_chamber", "chamber_display",
-        "return_count", "distinct_firms", "distinct_policy_areas", "distinct_politicians_targeted",
+        "individual_name",
+        "former_position",
+        "former_chamber",
+        "chamber_display",
+        "return_count",
+        "distinct_firms",
+        "distinct_policy_areas",
+        "distinct_politicians_targeted",
     },
     "policy_area_summary": {"public_policy_area", "return_count", "distinct_orgs", "distinct_politicians"},
 }

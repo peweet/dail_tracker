@@ -37,8 +37,8 @@ def test_canonicalise_supplier_raw_still_merges_nbi():
     out = canonicalise_supplier_raw(df)
     assert out["supplier_raw"].to_list() == [
         "NBI Infrastructure DAC",  # po=NBI + Infrastructure DAC → rewritten
-        "Some Other Ltd",          # po=NBI but not Infrastructure DAC → untouched
-        "Infrastructure DAC",      # Infrastructure DAC but po≠NBI → untouched
+        "Some Other Ltd",  # po=NBI but not Infrastructure DAC → untouched
+        "Infrastructure DAC",  # Infrastructure DAC but po≠NBI → untouched
     ]
 
 
