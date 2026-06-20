@@ -212,6 +212,9 @@ CONSTITUENCY_FILES = [
     "constituency_la_chief_executives.sql",  # council-grain CE roster (reads _meta CSV; no deps)
     "constituency_la_planning_overturn.sql",  # council ABP-overturn rate (reads silver parquet; no deps)
     "constituency_la_derelict_sites_levy.sql",  # council Derelict Sites Levy enforcement (reads gold parquet; no deps)
+    "constituency_la_collection_rates.sql",  # council NOAC M2 collection rates (reads gold parquet; no deps)
+    "constituency_la_accountability_summary.sql",  # 1-row national headline; MUST follow the 3 LA views above
+
     "constituency_members.sql",
     "constituency_party_breakdown.sql",
     "constituency_registry.sql",

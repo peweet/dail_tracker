@@ -1,12 +1,12 @@
 {
-  "generated_utc": "2026-06-20T10:26:53+00:00",
+  "generated_utc": "2026-06-20T12:41:51+00:00",
   "extractors": {
     "public_body": {
-      "run_utc": "2026-06-20T10:26:53+00:00",
+      "run_utc": "2026-06-20T12:41:51+00:00",
       "n_failures": 3,
       "failures": [
         {
-          "ts_utc": "2026-06-20T10:26:50+00:00",
+          "ts_utc": "2026-06-20T12:41:50+00:00",
           "publisher_id": "dept_children",
           "publisher_name": "Department of Children, Disability and Equality",
           "stage": "file",
@@ -17,7 +17,7 @@
           "attempts": 1
         },
         {
-          "ts_utc": "2026-06-20T10:26:51+00:00",
+          "ts_utc": "2026-06-20T12:41:50+00:00",
           "publisher_id": "dept_children",
           "publisher_name": "Department of Children, Disability and Equality",
           "stage": "file",
@@ -28,7 +28,7 @@
           "attempts": 1
         },
         {
-          "ts_utc": "2026-06-20T10:26:53+00:00",
+          "ts_utc": "2026-06-20T12:41:50+00:00",
           "publisher_id": "dept_children",
           "publisher_name": "Department of Children, Disability and Equality",
           "stage": "file",
@@ -42,7 +42,7 @@
       "zero_harvest": [],
       "breaker_trips": [
         {
-          "ts_utc": "2026-06-20T10:26:53+00:00",
+          "ts_utc": "2026-06-20T12:41:50+00:00",
           "publisher_id": "dept_children",
           "publisher_name": "Department of Children, Disability and Equality",
           "files_skipped": 9

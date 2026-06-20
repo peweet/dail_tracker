@@ -11,6 +11,13 @@
 --     outside-interest access — the page leads with outside interests;
 --   * diaries are self-curated, non-exhaustive, published quarterly-in-arrears;
 --   * meeting COUNTS are coverage-driven (more departments ingested over time), never a trend.
+-- `corroborated` is the ONLY register-cross-ref flag exposed, and deliberately so: it is a
+-- POSITIVE join (true = the org both met AND filed a return naming that minister — reliable).
+-- The NEGATIVE ("met but never lobbied") is NOT exposed — `total_lobbying_returns = 0` is
+-- contaminated by name-join misses (an org matched via the acronym/curated tier as e.g. "Irish
+-- Business and Employers Confederation" never joins the register's "IBEC"), so a 0 means
+-- "unknown", not "did not lobby". Surfacing it would defame heavy lobbyists. Re-introduce only
+-- after org-identity resolution (diary org name <-> register name alias map).
 CREATE OR REPLACE VIEW v_ministerial_diary_org_overlap AS
 SELECT
     matched_org_name AS organisation,
@@ -21,9 +28,7 @@ SELECT
     ministers_met,
     ministers_lobbied_and_met,
     total_lobbying_returns,
-    -- derived display flags
-    (ministers_lobbied_and_met > 0)                                   AS corroborated,
-    (NOT is_state_body AND meetings >= 6 AND total_lobbying_returns = 0) AS access_without_return,
+    (ministers_lobbied_and_met > 0) AS corroborated,
     first_meeting,
     last_meeting
 FROM read_parquet('data/gold/parquet/ministerial_diary_org_overlap.parquet')
