@@ -156,6 +156,8 @@ def main(depts: set[str], ocr_json: str | None = None) -> int:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Merge re-parsed departments into the canonical diary sandbox.")
     ap.add_argument("--depts", required=True, help="comma-separated dept labels, e.g. FINANCE,DECC")
-    ap.add_argument("--ocr-json", help="merge entries from extractors/diary_ocr.py output JSON instead of re-parsing PDFs")
+    ap.add_argument(
+        "--ocr-json", help="merge entries from extractors/diary_ocr.py output JSON instead of re-parsing PDFs"
+    )
     a = ap.parse_args()
     raise SystemExit(main({d.strip().upper() for d in a.depts.split(",")}, a.ocr_json))
