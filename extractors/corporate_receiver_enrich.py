@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 import pandas as pd
@@ -58,6 +59,7 @@ except Exception:
 from services.parquet_io import save_parquet  # noqa: E402
 
 NOTICES_PARQUET = ROOT / "data" / "gold" / "parquet" / "corporate_notices.parquet"
+CBI_XREF_PARQUET = ROOT / "data" / "gold" / "parquet" / "cbi_xref_corporate_notices.parquet"
 ENRICHED_PARQUET = ROOT / "data" / "gold" / "parquet" / "corporate_notices_enriched.parquet"
 APPOINTERS_PARQUET = ROOT / "data" / "gold" / "parquet" / "corporate_receiver_appointers.parquet"
 FIRMS_PARQUET = ROOT / "data" / "gold" / "parquet" / "corporate_receiver_firms.parquet"
@@ -66,7 +68,9 @@ FEATURED_TOP_N = 8  # mirrors corporate.FEATURED_TOP_N (display cap lives in the
 
 # ── Verbatim matchers from corporate.py ───────────────────────────────────────
 _RECEIVERSHIP_RE = "APPOINTMENT OF (?:STATUTORY )?RECEIVER|NOTICE OF APPOINTMENT OF RECEIVER"
-_SPV_RE = re.compile(r"\b(DAC|DESIGNATED ACTIVITY COMPANY|ICAV)\b", re.I)
+# Non-capturing group — identical match set to corporate.py's _SPV_RE, without
+# the pandas "pattern has match groups" warning on str.contains.
+_SPV_RE = re.compile(r"\b(?:DAC|DESIGNATED ACTIVITY COMPANY|ICAV)\b", re.I)
 
 # Dominant-type-per-parent tiebreak (canonical role wins) — corporate.py _TYPE_PRIORITY.
 _TYPE_PRIORITY = {
@@ -135,6 +139,70 @@ def _firms_in(raw: str) -> list[str]:
     return present
 
 
+# ── CBI authorisation badge (entity-norm match) ───────────────────────────────
+# _norm_entity is VERBATIM from corporate.py (same legal-form strip as
+# extractors/cbi_registers_extract._norm_firm) so a notice's normalised entity
+# reproduces the xref's entity_norm for exact matches.
+_NORM_SUFFIX_RE = re.compile(
+    r"\b(public limited company|limited liability partnership|limited|ltd\.?|"
+    r"plc|llp|sa|nv|gmbh|inc\.?)\b\.?",
+    re.I,
+)
+_CBI_MIN_NORM_CHARS = 6  # corporate.py gate — shorter norms over-match
+
+
+def _norm_entity(name) -> str:
+    if name is None or (isinstance(name, float) and pd.isna(name)):
+        return ""
+    s = str(name)
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii").lower()
+    s = re.sub(r"\bt/?a\b.*$", "", s)
+    s = _NORM_SUFFIX_RE.sub(" ", s)
+    s = re.sub(r"[^a-z0-9 ]+", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def build_cbi_badge_resolver(xref: pd.DataFrame):
+    """Return resolve(entity_name) -> (register, ref_no).
+
+    Method B2 (validated 2026-06-20 as the accuracy/truthfulness optimum):
+      * EXACT entity-norm match (any token count) — zero false positives; PLUS
+      * longest delimited-substring match, but ONLY for firm norms with >= 2
+        tokens. The >=2-token gate drops the single-token false positives the
+        old page shipped (e.g. 'donnybrook' matching a street address,
+        'allianz' matching a different Allianz legal entity) while keeping the
+        genuine recoveries where a notice carries text prefixes/suffixes around
+        the real entity name (Havbell No.2 DAC, M&F Finance Ireland, …).
+    """
+    reg_map: dict[str, tuple[str, str]] = {}
+    for _, r in xref.iterrows():
+        en = r.get("entity_norm")
+        if not en or len(str(en)) < _CBI_MIN_NORM_CHARS:
+            continue
+        en = str(en)
+        if en in reg_map:
+            continue
+        regs = _as_list(r.get("registers"))
+        refs = _as_list(r.get("ref_nos"))
+        reg_map[en] = (str(regs[0]) if regs else "", str(refs[0]) if refs else "")
+    multi = sorted((c for c in reg_map if len(c.split()) >= 2), key=lambda x: -len(x))
+
+    def resolve(entity_name) -> tuple[str, str]:
+        en = _norm_entity(entity_name)
+        if not en or len(en) < _CBI_MIN_NORM_CHARS:
+            return ("", "")
+        hit = reg_map.get(en)  # exact, any token count
+        if hit:
+            return hit
+        padded = f" {en} "
+        for cand in multi:
+            if f" {cand} " in padded:
+                return reg_map[cand]
+        return ("", "")
+
+    return resolve
+
+
 def _type_bucket(ft: str) -> str:
     """corporate.py _type_bucket — fine-grained fund_type → headline bucket."""
     if not ft:
@@ -163,8 +231,8 @@ def _dominant_ftype(s: pd.Series) -> str:
     return winners[0]
 
 
-def enrich_notices(notices: pd.DataFrame) -> pd.DataFrame:
-    """Return the notices superset with the per-notice receiver flags appended."""
+def enrich_notices(notices: pd.DataFrame, cbi_xref: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Return the notices superset with the per-notice receiver flags + CBI badge."""
     df = notices.copy()
     # Year — identical parse to corporate.load_corporate (L849-850) so the
     # precomputed sparkline counts match what the page derived at render time.
@@ -178,6 +246,16 @@ def enrich_notices(notices: pd.DataFrame) -> pd.DataFrame:
     df["has_parent_mention"] = df["parent_fund_mentions"].apply(lambda x: len(_as_list(x)) > 0)
     df["receiver_firms"] = raw.apply(_firms_in)
     df["has_receiver_firm"] = df["receiver_firms"].apply(lambda fs: len(fs) > 0)
+
+    # CBI authorisation badge — precomputed (was a row-time substring join in the page).
+    if cbi_xref is not None and not cbi_xref.empty:
+        resolve = build_cbi_badge_resolver(cbi_xref)
+        badges = df["entity_name"].map(resolve)
+        df["cbi_register"] = badges.map(lambda t: t[0])
+        df["cbi_ref_no"] = badges.map(lambda t: t[1])
+    else:
+        df["cbi_register"] = ""
+        df["cbi_ref_no"] = ""
     return df
 
 
@@ -260,7 +338,8 @@ def main() -> int:
         raise SystemExit(f"corporate notices gold not found: {NOTICES_PARQUET} (run the iris chain first)")
 
     notices = pd.read_parquet(NOTICES_PARQUET)
-    enriched = enrich_notices(notices)
+    cbi_xref = pd.read_parquet(CBI_XREF_PARQUET) if CBI_XREF_PARQUET.exists() else None
+    enriched = enrich_notices(notices, cbi_xref)
     appointers = build_appointers(enriched)
     firms = build_firms(enriched)
 
@@ -281,11 +360,13 @@ def main() -> int:
 
     n_spv = int((enriched["is_receivership"] & enriched["is_spv"]).sum())
     n_any_firm = int((enriched["is_receivership"] & enriched["has_receiver_firm"]).sum())
+    n_cbi = int((enriched["cbi_register"].astype(str) != "").sum())
     print(f"[corporate_receiver] wrote {ENRICHED_PARQUET.name}, {APPOINTERS_PARQUET.name}, {FIRMS_PARQUET.name}")
     print(f"  notices in            : {len(notices):,}")
     print(f"  receivership notices  : {n_recv_gold:,}  (spv-shaped {n_spv:,}, parent-tagged {n_tagged_gold:,})")
     print(f"  distinct appointers   : {len(appointers):,}")
     print(f"  distinct firms        : {len(firms):,}  (firm-tagged notices {n_any_firm:,})")
+    print(f"  CBI-badged notices    : {n_cbi:,}  (exact + >=2-token substring; B2)")
     print(f"  parity                : OK (top-{FEATURED_TOP_N}, buckets, scalar counts agree with page logic)")
     return 0
 
