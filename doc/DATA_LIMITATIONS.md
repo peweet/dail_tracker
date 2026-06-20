@@ -10,13 +10,25 @@ The upstream source remains authoritative in every case.
 
 ## 1. Current scope
 
-### 1.1 Sitting members only
+### 1.1 Member-level focus on sitting members (with one historic exception)
 
-The project is focused on currently sitting members of the current Dáil and Seanad where supported by the pipeline.
+The member-level pipeline is focused on currently sitting members of the current Dáil and Seanad where supported by the pipeline.
 
-Former TDs and Senators are not the primary target of the live dataset.
+Former TDs and Senators are not the primary target of the live dataset, with one deliberate exception: the **Register of Members' Interests** ("What They Own" page) backfills historic declarations so the property/shares/company record spans former members too, recovering declarers that drop out of the year-scoped members API.
 
-**Reason:** the project is intended to support current democratic accountability. Historical data remains available from upstream sources, but joining every historical member would add complexity, privacy weight, and name-resolution risk.
+**Reason:** the project is intended to support current democratic accountability. Historical data remains available from upstream sources, but joining every historical member for every dataset would add complexity, privacy weight, and name-resolution risk.
+
+### 1.1a State-level datasets are not member-scoped
+
+The project has expanded well beyond individual-member data. Several major datasets describe the state rather than named TDs/Senators and have their own scope and time windows:
+
+- Procurement awards and public-body payments (departments, agencies, HSE/Tusla, 31 local authorities)
+- Corporate notices and regulated-entity cross-references (Iris Oifigiúil, CRO, Central Bank registers)
+- Courts and judiciary (bench roster, appointments, court performance, Legal Diary)
+- Local-authority accountability (annual financial statements, NOAC collection rates, derelict-sites levy, planning-appeal overturn rates)
+- Political finance (SIPO donations and GE2024 election spending)
+
+These carry the limitations documented in their own sections below and do not inherit the "sitting members only" scope.
 
 ### 1.2 Current Dáil focus
 
@@ -469,20 +481,24 @@ Known risks:
 
 For a clean rebuild, delete generated outputs and rerun the pipeline from the start.
 
-### 12.1 Cron-staleness traps (audit 2026-05-05)
+### 12.1 Cron-staleness traps (audit 2026-05-05; status updated 2026-06-20)
 
-The current pipeline was designed for interactive runs. Several behaviours become silent staleness bugs once it is moved onto a recurring schedule:
+The pipeline was originally designed for interactive runs, and a 2026-05-05 audit catalogued behaviours that become silent staleness bugs once it is moved onto a recurring schedule. Several have since been addressed; the remainder are still open. Status is noted per item.
 
-- **Oireachtas API steps no-op after first run.** `services/oireachtas_api_main.py` short-circuits members, legislation, questions, and votes with an `output_exists` check (overwrite flags hard-coded `False`). On a daily cron the second and subsequent runs fetch zero new data, but the run itself reports success. New TDs, new bills, new questions, and new votes do not land until the flag is flipped manually. Tracked in `DAIL-160`.
-- **PSA payments / attendance / member-interests URLs are hard-coded.** `pdf_endpoint_check.py` lists every monthly payment PDF and every annual register/attendance PDF as a Python literal. The discovery probe in `pipeline_sandbox/payment_pdf_url_probe.py` is unwired; `pdf_backfill_scraper.py` is a stub. New publications are only ingested after a human edits the URL list. Tracked in `DAIL-161`.
-- **PDF re-issues at the same URL are invisible.** `pdf_downloader.py` skips on `destination.exists()`. If the publisher corrects a PDF in place (same URL, new bytes), the new version is never downloaded. The gold layer can drift permanently from the source. Tracked in `DAIL-162`.
-- **`pipeline.py` halts on first failure.** A `break` after a single failed step skips every downstream source for the remainder of the run. One transient lobbying-CSV parse error nukes attendance, payments, votes, and enrichment. Tracked in `DAIL-163`.
-- **Endpoint-check signal is not gated.** `pdf_endpoint_check.endpoint_checker` returns a list of broken URLs but `pipeline.py` never reads it. A run where every URL 4xx's still exits successfully. Tracked in `DAIL-164`.
-- **Iris ETL re-extracts every PDF on every run.** ~1k PDFs × full PyMuPDF + regex pass on each invocation. Sandbox-staged shard caching exists in `pipeline_sandbox/iris_incremental_shards.py` but is not wired into the active script. Tracked in `DAIL-165`.
-- **No per-source freshness manifest at gold.** `manifest.py` records run start/end only. There is no per-dataset "last upstream fetch" timestamp, so neither the UI nor a monitoring job can answer "is this data fresh?" without reading file mtimes. Tracked in `DAIL-166`.
+**Resolved or substantially mitigated:**
+
+- **`pipeline.py` halts on first failure → RESOLVED.** `pipeline.py` is now a thin dispatcher that wraps each domain chain in its own try/except and writes a per-chain manifest. One flaky source no longer poisons the rest of the run; the end-of-run summary lists which chains failed. (was `DAIL-163`.)
+- **No per-source freshness manifest → RESOLVED.** The `freshness` chain writes `data/_meta/freshness.json` (data-age per domain) and the `source_health` chain writes `data/_meta/source_health.json` (per-source staleness / reachability). The UI and monitoring jobs can now answer "is this data fresh?" without reading file mtimes. (was `DAIL-166` / `DAIL-164`.)
+- **Oireachtas API steps no-op after first run → FIXED.** The members / legislation / questions / votes overwrite path no longer short-circuits on a daily cron. (was `DAIL-160`.)
+- **PDF re-issues at the same URL are invisible → FIXED.** The downloader no longer skips purely on `destination.exists()`. (was `DAIL-162`.)
+
+**Still open:**
+
+- **PSA payments / attendance / member-interests URLs are hard-coded.** `pdf_endpoint_check.py` lists every monthly payment PDF and every annual register/attendance PDF as a Python literal. New publications are only ingested after a human edits the URL list. Tracked in `DAIL-161`.
+- **Iris ETL re-extracts every PDF on every run.** ~1k PDFs × full PyMuPDF + regex pass on each invocation. Sandbox-staged shard caching exists in `pipeline_sandbox/iris_incremental_shards.py` but is not yet wired into the active script. Tracked in `DAIL-165`.
 - **Lobbying acquisition is fully manual.** The lobbying.ie ingestion path expects a human to log in, export the CSV, and drop it into `LOBBYING_RAW_DIR`. There is no scheduled component. Tracked in `DAIL-167` and the existing `DAIL-116`–`DAIL-119` lobbying-export track.
 
-Until these are addressed, treat any "data as of <date>" claim derived from a cron run with caution. The run-finished timestamp does not imply that any of the upstream sources were re-pulled on that run.
+The read-only monitoring chains (`freshness`, `source_health`, `output_regressions`) and the scheduled GitHub Actions canaries now surface most staleness, but a fully automated cloud refresh of the data itself is still pending. Until that lands, treat any "data as of <date>" claim derived from a cron run with caution: the run-finished timestamp does not by itself guarantee every upstream source was re-pulled on that run.
 
 ### 12.2 Deltas not currently watched
 

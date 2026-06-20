@@ -41,6 +41,7 @@ def _classify(decision: str | None, status: str | None = None) -> dict:
 
 # ── ordering traps (the bugs that motivated keyword ordering) ──────────────────
 
+
 def test_refuse_permission_is_refused_not_granted():
     assert _classify("REFUSE PERMISSION")["category"] == "refused"
 
@@ -110,6 +111,7 @@ def test_grant_permission_for_retention():
 
 # ── residual reducer (Decision blank -> ApplicationStatus) ────────────────────
 
+
 def test_blank_decision_withdrawn_status_rescued_to_withdrawn():
     for blank in (None, "", "N/A", "n/a"):
         r = _classify(blank, "WITHDRAWN")
@@ -141,6 +143,7 @@ def test_blank_decision_further_information_status_is_in_progress():
 
 # ── the no-inference rule (load-bearing) ──────────────────────────────────────
 
+
 def test_finalised_but_blank_decision_is_never_guessed():
     # status says finalised/decided but there is NO outcome text -> do NOT infer grant/refuse
     for status in ("APPLICATION FINALISED", "Decision Made", "Decision Notice Issued"):
@@ -156,6 +159,7 @@ def test_totally_blank_is_no_decision():
 
 
 # ── back-compat: the decided whitelist is preserved exactly ───────────────────
+
 
 def test_decided_whitelist_values_unchanged():
     # planning_decision_profiles.py keys on exactly these strings

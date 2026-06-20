@@ -23,7 +23,7 @@ from pathlib import Path
 import polars as pl
 import requests
 
-try:
+try:  # noqa: SIM105
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 except Exception:
     pass

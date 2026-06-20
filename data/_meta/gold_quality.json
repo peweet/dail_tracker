@@ -1,0 +1,107 @@
+{
+  "n_baseline": 109,
+  "regressions": [],
+  "summary": {
+    "tables_with_all_null_cols": {
+      "judiciary_bench.parquet": [
+        "assignment",
+        "assignment_term"
+      ],
+      "seanad_payments_full_psa_quarantine.parquet": [
+        "house",
+        "member_name",
+        "narrative",
+        "payment_kind",
+        "position",
+        "schema",
+        "source_pdf",
+        "taa_band_label",
+        "taa_band_raw"
+      ],
+      "sipo_donations.parquet": [
+        "donor_irish_citizen"
+      ]
+    },
+    "tables_with_dup_rows": {
+      "cbi_xref_corporate_notices.parquet": {
+        "dup_rows": 4,
+        "rows": 228
+      },
+      "corporate_notices.parquet": {
+        "dup_rows": 1157,
+        "rows": 50723
+      },
+      "cro_xref_corporate_notices.parquet": {
+        "dup_rows": 602,
+        "rows": 19746
+      },
+      "judicial_legal_diary_cases.parquet": {
+        "dup_rows": 1493,
+        "rows": 6368
+      },
+      "judicial_legal_diary_counts.parquet": {
+        "dup_rows": 74,
+        "rows": 624
+      },
+      "judicial_legal_diary_openview_cases.parquet": {
+        "dup_rows": 228111,
+        "rows": 786090
+      },
+      "judiciary_courts_clearance.parquet": {
+        "dup_rows": 64,
+        "rows": 741
+      },
+      "ministerial_diary_engagements.parquet": {
+        "dup_rows": 208,
+        "rows": 43239
+      },
+      "ministerial_diary_org_mentions.parquet": {
+        "dup_rows": 170,
+        "rows": 3044
+      },
+      "public_appointments.parquet": {
+        "dup_rows": 4,
+        "rows": 1147
+      },
+      "stateboards_roster.parquet": {
+        "dup_rows": 12,
+        "rows": 2070
+      }
+    },
+    "tables_with_encoding_artifacts": {},
+    "tables_with_sentinels": {
+      "charities_enriched.parquet": {
+        "also_known_as": 3,
+        "aka_norm": 3,
+        "employees_band_latest": 229,
+        "volunteers_band_latest": 1752
+      },
+      "distinct_orgs_per_politician.parquet": {
+        "full_name": 1
+      },
+      "most_lobbied_politicians.parquet": {
+        "full_name": 1
+      },
+      "politician_policy_exposure.parquet": {
+        "full_name": 1
+      },
+      "procurement_payments_fact.parquet": {
+        "po_number": 3
+      },
+      "sipo_campaign_spend_by_detail.parquet": {
+        "detail": 6
+      },
+      "sipo_candidate_expense_items.parquet": {
+        "detail": 126
+      },
+      "sipo_candidate_expenses_fact.parquet": {
+        "party_declared": 3
+      },
+      "top_lobbyist_organisations.parquet": {
+        "website": 13,
+        "company_registration_number": 1,
+        "company_registered_name": 4
+      }
+    }
+  }
+}

@@ -104,7 +104,11 @@ def test_nested_section_business_grouping():
 
 def test_flat_section_business_equals_heading():
     refs = '<TLCPerson eId="A" href="/ie/oireachtas/member/id/Aoife-A.S.2020-01-01"/>'
-    sections = '<debateSection eId="dbsect_1"><heading>Order of Business</heading>' + _speech("A", "Senator A", "A point.") + "</debateSection>"
+    sections = (
+        '<debateSection eId="dbsect_1"><heading>Order of Business</heading>'
+        + _speech("A", "Senator A", "A point.")
+        + "</debateSection>"
+    )
     df = parse_akn(_doc("seanad", "2025-06-25", sections, refs))
     assert df.iloc[0]["section_heading"] == "Order of Business"
     assert df.iloc[0]["business"] == "Order of Business"  # un-nested: coincide

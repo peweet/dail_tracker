@@ -568,7 +568,13 @@ def _parse_one_afs(cf: dict, picked: str) -> tuple[list[dict], dict]:
     year = title_year(picked)
     p = download(cf["slug"], picked, year)
     if not p:
-        return [], {"council": cf["council"], "slug": cf["slug"], "picked": picked, "year": year, "status": "download-fail(WAF?)"}
+        return [], {
+            "council": cf["council"],
+            "slug": cf["slug"],
+            "picked": picked,
+            "year": year,
+            "status": "download-fail(WAF?)",
+        }
     return _parse_pdf(cf, p, picked, year)
 
 
@@ -597,7 +603,9 @@ def _parse_pdf(cf: dict, p: Path, source_url: str | None, year_guess: int) -> tu
     gross_sum = sum(v[0] for v in ie.values() if v[0])
     reconciled = bool(total and abs(gross_sum - total[0]) < 100_000)
     if not reconciled:
-        stat.update(status="no-reconcile", divisions=len(ie), gross_sum=gross_sum, reconciled=False, pages=npages, ie_page=pg)
+        stat.update(
+            status="no-reconcile", divisions=len(ie), gross_sum=gross_sum, reconciled=False, pages=npages, ie_page=pg
+        )
         return [], stat
     rows = [
         {
@@ -619,8 +627,14 @@ def _parse_pdf(cf: dict, p: Path, source_url: str | None, year_guess: int) -> tu
         }
         for canon, v in ie.items()
     ]
-    stat.update(status="ok" if len(ie) == 8 else f"{len(ie)}/8", divisions=len(ie),
-                gross_sum=gross_sum, reconciled=reconciled, pages=npages, ie_page=pg)
+    stat.update(
+        status="ok" if len(ie) == 8 else f"{len(ie)}/8",
+        divisions=len(ie),
+        gross_sum=gross_sum,
+        reconciled=reconciled,
+        pages=npages,
+        ie_page=pg,
+    )
     return rows, stat
 
 

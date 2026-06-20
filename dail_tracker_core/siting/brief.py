@@ -58,13 +58,13 @@ def cascade_text(path) -> str:
 # DM standard (the road node's risk_note already says OSM gives the road, not the splay).
 ROAD_SPEED_MAP: dict[str, tuple[str, str]] = {
     "living street": ("~30 km/h", "~45 m"),
-    "track":         ("~50 km/h", "~70 m"),
-    "service":       ("~50 km/h", "~70 m"),
-    "residential":   ("~50 km/h", "~70 m"),
-    "unclassified":  ("80 km/h (unposted rural default)", "~160 m"),
-    "tertiary":      ("80 km/h (unposted rural default)", "~160 m"),
-    "secondary":     ("~80 km/h", "~160 m"),
-    "primary":       ("~80 km/h", "~160 m"),
+    "track": ("~50 km/h", "~70 m"),
+    "service": ("~50 km/h", "~70 m"),
+    "residential": ("~50 km/h", "~70 m"),
+    "unclassified": ("80 km/h (unposted rural default)", "~160 m"),
+    "tertiary": ("80 km/h (unposted rural default)", "~160 m"),
+    "secondary": ("~80 km/h", "~160 m"),
+    "primary": ("~80 km/h", "~160 m"),
 }
 # posted speed (km/h) -> sight distance, nearest band
 SPEED_SIGHT = {30: "~45 m", 50: "~70 m", 60: "~90 m", 80: "~160 m", 100: "~215 m", 120: "~285 m"}
@@ -78,8 +78,9 @@ def _posted_kmh(maxspeed: Any) -> int | None:
 def road_sightline_line(detail: dict[str, Any]) -> str:
     """One human line: the road, an assumed/posted speed, and the single key visibility figure."""
     if detail.get("is_national"):
-        return ("national road — a new house is generally restricted to farm families and direct "
-                "access is usually refused")
+        return (
+            "national road — a new house is generally restricted to farm families and direct access is usually refused"
+        )
     road_class = (detail.get("road_class") or "road").strip()
     posted = _posted_kmh(detail.get("maxspeed", ""))
     if posted is not None:
@@ -96,19 +97,19 @@ class BriefItem:
     why: str
     action: str
     reports: tuple[str, ...] = ()
-    path: tuple[dict[str, Any], ...] = ()   # static if/then cascade (may be empty)
+    path: tuple[dict[str, Any], ...] = ()  # static if/then cascade (may be empty)
 
 
 @dataclass
 class Brief:
     site: dict[str, Any]
     headline: str
-    exclusions: list[Any]                 # statutory designations that exclude development (facts)
+    exclusions: list[Any]  # statutory designations that exclude development (facts)
     hard_constraints: list[BriefItem]
     shaping_constraints: list[BriefItem]
     access: dict[str, Any]
-    obligations: list[BriefItem]          # universal + scale-gated (procedural)
-    to_verify: list[BriefItem]            # checks we can't read (e.g. flood) — verify yourself
+    obligations: list[BriefItem]  # universal + scale-gated (procedural)
+    to_verify: list[BriefItem]  # checks we can't read (e.g. flood) — verify yourself
     required_reports: list[str]
     rfi_note: str
     not_assessed: list[str]
@@ -121,8 +122,7 @@ class Brief:
 
 def _item(i) -> BriefItem:
     reports = tuple(c.document for c in i.rule.checklist) if i.rule else ()
-    return BriefItem(title=i.title, why=i.flag, action=i.mitigates, reports=reports,
-                     path=tuple(i.mitigation_path))
+    return BriefItem(title=i.title, why=i.flag, action=i.mitigates, reports=reports, path=tuple(i.mitigation_path))
 
 
 def build_brief(result: SitingResult, terrain=None) -> Brief:
@@ -132,8 +132,7 @@ def build_brief(result: SitingResult, terrain=None) -> Brief:
     verify = [i for i in fired if i.data_status == "deep_link_only"]
     findings = [i for i in fired if i.data_status != "deep_link_only" and i.node_id != "road_sightlines"]
     hard = [_item(i) for i in findings if "F" in i.mitigation_classes]
-    shaping = [_item(i) for i in findings
-               if "F" not in i.mitigation_classes and "D" in i.mitigation_classes]
+    shaping = [_item(i) for i in findings if "F" not in i.mitigation_classes and "D" in i.mitigation_classes]
     obligations = [_item(i) for i in findings if i.mitigation_classes == frozenset({"P"})]
     to_verify = [_item(i) for i in verify]
 
@@ -160,18 +159,24 @@ def build_brief(result: SitingResult, terrain=None) -> Brief:
     nF = sum(1 for i in findings if "F" in i.mitigation_classes)
     if result.excluded:
         sites = "; ".join(f"{e.site_name} ({e.designation})" for e in result.exclusions)
-        headline = (f"EXCLUDED — this point lies inside {sites}. Ordinary development is presumed "
-                    "against on this statutorily protected land; it may still be possible only via "
-                    "the narrow statutory route below. (A fact about the designation, not the "
-                    "planning decision, which remains the authority's.)")
+        headline = (
+            f"EXCLUDED — this point lies inside {sites}. Ordinary development is presumed "
+            "against on this statutorily protected land; it may still be possible only via "
+            "the narrow statutory route below. (A fact about the designation, not the "
+            "planning decision, which remains the authority's.)"
+        )
     else:
-        tightness = ("tight — several hard constraints stack" if nF >= 3
-                     else "moderate" if nF >= 1 else "few hard constraints")
-        headline = (f"{len(fired)} planning issue(s) fire here ({nF} hard / pass-fail); "
-                    f"the constraint box is {tightness}.")
+        tightness = (
+            "tight — several hard constraints stack" if nF >= 3 else "moderate" if nF >= 1 else "few hard constraints"
+        )
+        headline = (
+            f"{len(fired)} planning issue(s) fire here ({nF} hard / pass-fail); the constraint box is {tightness}."
+        )
 
     site = {
-        "lat": result.lat, "lon": result.lon, "dev_type": result.dev_type,
+        "lat": result.lat,
+        "lon": result.lon,
+        "dev_type": result.dev_type,
         "council": result.council.council_name or result.council.authority,
         "council_slug": result.council.slug,
     }
@@ -198,8 +203,7 @@ def build_brief(result: SitingResult, terrain=None) -> Brief:
 def brief_text(result: SitingResult, terrain=None) -> str:
     """Plain-text rendering of the brief (deterministic)."""
     b = build_brief(result, terrain)
-    out = [f"SITE BRIEF — {b.site['council']} | {b.site['lat']},{b.site['lon']} | {b.site['dev_type']}",
-           b.headline, ""]
+    out = [f"SITE BRIEF — {b.site['council']} | {b.site['lat']},{b.site['lon']} | {b.site['dev_type']}", b.headline, ""]
     if b.exclusions:
         out.append("⛔ EXCLUDED — STATUTORY PROTECTED LAND (presumption against development):")
         for e in b.exclusions:
@@ -214,8 +218,7 @@ def brief_text(result: SitingResult, terrain=None) -> str:
             if it.path:
                 _render_path(list(it.path), out, indent="      ")
     if b.access.get("applies"):
-        out += ["", "ACCESS & ENTRANCE:",
-                f"  road: {b.access['road_class']} (speed {b.access['maxspeed']})"]
+        out += ["", "ACCESS & ENTRANCE:", f"  road: {b.access['road_class']} (speed {b.access['maxspeed']})"]
         if b.access.get("sightline"):
             out.append(f"  sightline: {b.access['sightline']}")
         if b.access.get("junction_note"):

@@ -160,9 +160,7 @@ def _render_good_bad(ranking_df: pd.DataFrame, year: int, house: str = "Dáil") 
     col_good, col_bad = st.columns(2, gap="medium")
     with col_good:
         st.html('<h2 class="att-hall-heading-good">Highest recorded attendance</h2>')
-        good_cards = [
-            _att_card_link(row, side="good", rank=i + 1) for i, (_, row) in enumerate(top.iterrows())
-        ]
+        good_cards = [_att_card_link(row, side="good", rank=i + 1) for i, (_, row) in enumerate(top.iterrows())]
         st.html("\n".join(good_cards))
 
     with col_bad:

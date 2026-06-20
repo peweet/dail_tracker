@@ -1,42 +1,19 @@
 {
-  "generated_utc": "2026-06-19T18:03:54+00:00",
+  "generated_utc": "2026-06-20T13:21:19+00:00",
   "extractors": {
     "public_body": {
-      "run_utc": "2026-06-19T18:03:54+00:00",
-      "n_failures": 2,
-      "failures": [
-        {
-          "ts_utc": "2026-06-19T18:03:52+00:00",
-          "publisher_id": "ie_prisons",
-          "publisher_name": "Irish Prison Service",
-          "stage": "file",
-          "url": "https://www.irishprisons.ie/wp-content/uploads/documents_pdf/POs-greater-than-E20k-2023.pdf",
-          "listing_url": "https://www.irishprisons.ie/information-centre/procurement/",
-          "error_class": "not_expected_filetype",
-          "http_status": null,
-          "attempts": 1
-        },
-        {
-          "ts_utc": "2026-06-19T18:03:54+00:00",
-          "publisher_id": "ie_prisons",
-          "publisher_name": "Irish Prison Service",
-          "stage": "file",
-          "url": "https://www.irishprisons.ie/wp-content/uploads/documents_pdf/POs-greater-than-E20k-2022.pdf",
-          "listing_url": "https://www.irishprisons.ie/information-centre/procurement/",
-          "error_class": "not_expected_filetype",
-          "http_status": null,
-          "attempts": 1
-        }
-      ],
+      "run_utc": "2026-06-20T13:21:19+00:00",
+      "n_failures": 0,
+      "failures": [],
       "zero_harvest": [],
       "breaker_trips": []
     },
     "la_payments": {
-      "run_utc": "2026-06-18T18:01:50+00:00",
+      "run_utc": "2026-06-20T13:10:56+00:00",
       "n_failures": 4,
       "failures": [
         {
-          "ts_utc": "2026-06-18T17:59:52+00:00",
+          "ts_utc": "2026-06-20T13:09:11+00:00",
           "publisher_id": "kilkenny",
           "publisher_name": "Kilkenny",
           "stage": "file",
@@ -47,7 +24,7 @@
           "attempts": 2
         },
         {
-          "ts_utc": "2026-06-18T18:01:06+00:00",
+          "ts_utc": "2026-06-20T13:10:14+00:00",
           "publisher_id": "galway_county",
           "publisher_name": "Galway County",
           "stage": "file",
@@ -58,7 +35,7 @@
           "attempts": 2
         },
         {
-          "ts_utc": "2026-06-18T18:01:15+00:00",
+          "ts_utc": "2026-06-20T13:10:22+00:00",
           "publisher_id": "sligo",
           "publisher_name": "Sligo",
           "stage": "file",
@@ -69,7 +46,7 @@
           "attempts": 1
         },
         {
-          "ts_utc": "2026-06-18T18:01:16+00:00",
+          "ts_utc": "2026-06-20T13:10:23+00:00",
           "publisher_id": "sligo",
           "publisher_name": "Sligo",
           "stage": "file",
@@ -82,7 +59,7 @@
       ],
       "zero_harvest": [
         {
-          "ts_utc": "2026-06-18T17:59:44+00:00",
+          "ts_utc": "2026-06-20T13:09:03+00:00",
           "publisher_id": "wicklow",
           "publisher_name": "Wicklow",
           "listing_url": "https://www.wicklow.ie/Living/Your-Council/Finance/Procurement/Purchase-Orders-Over-20-000"

@@ -99,6 +99,14 @@ jobs:
           echo "pipeline_exit=$code" >> "$GITHUB_OUTPUT"
           echo "pipeline exit $code (elapsed $(( $(date +%s) - start ))s)"
 
+      # Per-lane freshness beat — only when the pipeline ran clean (exit 0), written before
+      # publish so it ships in the same gated commit. tools/freshness_status.py reads this to
+      # confirm the money-flow lane ran on time. Gated on pipeline_exit because the run step
+      # uses `set +e` (a thinned/partial run must NOT register as a healthy beat).
+      - name: Record freshness heartbeat
+        if: ${{ steps.run.outputs.pipeline_exit == '0' && github.event.inputs.skip_publish != 'true' }}
+        run: uv run python tools/freshness_heartbeat.py money_flow --runner cloud --cadence-hours 24
+
       # Gate + publish. Skipped on a dry validation run. The gate aborts (non-zero) on any
       # gold regression, which fails the job and opens the issue below — nothing ships.
       - name: Publish refreshed gold (gated allow-list)

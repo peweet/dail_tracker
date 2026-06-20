@@ -77,6 +77,14 @@ jobs:
       - name: Rebuild diary→roster judge map
         run: uv run python extractors/judiciary_diary_link.py
 
+      # Per-lane freshness beat — written BEFORE publish so it ships in the same gated
+      # commit. Reaching this step means the poll+extract+link all succeeded; the beat is
+      # what tools/freshness_status.py reads to confirm this lane ran on time. It also
+      # guarantees the publish has at least one changed file every successful run, so a
+      # healthy lane always lands a commit (a stalled lane stops beating — the signal).
+      - name: Record freshness heartbeat
+        run: uv run python tools/freshness_heartbeat.py legal_diary_openview --runner cloud --cadence-hours 24
+
       # Gated publish: stages ONLY data/gold/parquet (+ the other allow-listed paths), aborts
       # on any unreadable/0-row parquet or a gold completeness regression, then pushes to main
       # -> Cloud redeploys. A thinned archive (partial scrape) fails the gate and ships nothing.

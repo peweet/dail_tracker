@@ -57,7 +57,9 @@ def _post_with_retry(body: dict, timeout: tuple[int, int]) -> dict:
         try:
             r = _session.post(URL, json=body, headers=DEFAULT_HEADERS, timeout=timeout)
             if r.status_code in RETRY_STATUS_FORCELIST and attempt < RETRY_MAX_ATTEMPTS:
-                logger.warning("TED search -> HTTP %s (attempt %d/%d), backing off", r.status_code, attempt, RETRY_MAX_ATTEMPTS)
+                logger.warning(
+                    "TED search -> HTTP %s (attempt %d/%d), backing off", r.status_code, attempt, RETRY_MAX_ATTEMPTS
+                )
                 time.sleep(RETRY_BACKOFF_BASE * (2 ** (attempt - 1)))
                 continue
             r.raise_for_status()
@@ -65,7 +67,9 @@ def _post_with_retry(body: dict, timeout: tuple[int, int]) -> dict:
         except _RETRYABLE_EXC as exc:
             last_exc = exc
             if attempt < RETRY_MAX_ATTEMPTS:
-                logger.warning("TED search -> %s (attempt %d/%d), backing off", type(exc).__name__, attempt, RETRY_MAX_ATTEMPTS)
+                logger.warning(
+                    "TED search -> %s (attempt %d/%d), backing off", type(exc).__name__, attempt, RETRY_MAX_ATTEMPTS
+                )
                 time.sleep(RETRY_BACKOFF_BASE * (2 ** (attempt - 1)))
                 continue
             raise

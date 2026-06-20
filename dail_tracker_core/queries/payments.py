@@ -97,20 +97,21 @@ def member_year_summary(
         " FROM v_payments_yearly_evolution"
     )
     if unique_member_code:
-        return _run(conn, f"{select} WHERE unique_member_code = ? AND payment_year = ? LIMIT 1", [unique_member_code, year])
+        return _run(
+            conn, f"{select} WHERE unique_member_code = ? AND payment_year = ? LIMIT 1", [unique_member_code, year]
+        )
     return _run(conn, f"{select} WHERE member_name = ? AND payment_year = ? LIMIT 1", [member_name, year])
 
 
 def member_payments(
     conn: duckdb.DuckDBPyConnection, member_name: str, year: int, unique_member_code: str | None = None
 ) -> QueryResult:
-    select = (
-        "SELECT date_paid, narrative, amount_num, taa_band_label"
-        " FROM v_payments_member_detail"
-    )
+    select = "SELECT date_paid, narrative, amount_num, taa_band_label FROM v_payments_member_detail"
     order = " ORDER BY date_paid ASC, narrative ASC"
     if unique_member_code:
-        return _run(conn, f"{select} WHERE unique_member_code = ? AND payment_year = ?{order}", [unique_member_code, year])
+        return _run(
+            conn, f"{select} WHERE unique_member_code = ? AND payment_year = ?{order}", [unique_member_code, year]
+        )
     return _run(conn, f"{select} WHERE member_name = ? AND payment_year = ?{order}", [member_name, year])
 
 

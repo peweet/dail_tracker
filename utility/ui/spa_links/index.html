@@ -61,7 +61,9 @@ if (!app.__dtSpaInstalled) {
         return;
       }
       var el = ev.target;
-      var a = el && el.closest ? el.closest('a[href^="?"]') : null;
+      // Match plain anchors AND image-map <area> elements (the constituency
+      // choropleth overlays ?constituency= areas on a fixed-size <img usemap>).
+      var a = el && el.closest ? el.closest('a[href^="?"], area[href^="?"]') : null;
       if (!a) return;
       if (a.target && a.target !== "_self") return;
       ev.preventDefault();

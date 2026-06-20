@@ -178,8 +178,7 @@ def estimate(
         if award_idx:
             factor = award_idx / basis_idx
             tpi_note = (
-                f"adjusted to {award_year} via SCSI TPI "
-                f"(index {award_idx:.1f} / {basis_idx:.1f} = ×{factor:.3f})"
+                f"adjusted to {award_year} via SCSI TPI (index {award_idx:.1f} / {basis_idx:.1f} = ×{factor:.3f})"
             )
         else:
             tpi_note = f"no TPI for {award_year}; left at benchmark basis {b.basis_period}"
@@ -206,7 +205,8 @@ def estimate(
             "vat": "includes VAT" if b.vat == "incl" else "excludes VAT",
             "excludes": b.excludes,
         },
-        "caveat": "Indicative range only. " + (
+        "caveat": "Indicative range only. "
+        + (
             "Excludes VAT, site works, professional fees, abnormals and inflation to award date — "
             "so it is a hard-construction FLOOR, materially below a full contract value. "
             if b.vat == "excl"

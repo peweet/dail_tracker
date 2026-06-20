@@ -151,9 +151,7 @@ def build_rows(buyer_rows: list[dict]) -> list[dict]:
             no_winner += 1
             winners = [(None, None)]
             n_win = 0
-        pan_eu = bool(PAN_EU_HINT.search(b.get("buyer_name") or "")) or (
-            n_win > 1 and (val or 0) > PAN_EU_VALUE
-        )
+        pan_eu = bool(PAN_EU_HINT.search(b.get("buyer_name") or "")) or (n_win > 1 and (val or 0) > PAN_EU_VALUE)
         for name, nat in winners:
             pan_eu_row = pan_eu or (bool(PAN_EU_HINT.search(name)) if name else False)
             rows.append(
@@ -197,8 +195,16 @@ def main() -> None:
         pl.read_parquet(BUYER_PARQUET)
         .filter(pl.col("year").is_in(list(BACKFILL_YEARS)))
         .select(
-            "publication_number", "notice_url", "buyer_name", "total_value_eur",
-            "currency", "cpv_code", "cpv_division", "dispatch_date", "year", "month",
+            "publication_number",
+            "notice_url",
+            "buyer_name",
+            "total_value_eur",
+            "currency",
+            "cpv_code",
+            "cpv_division",
+            "dispatch_date",
+            "year",
+            "month",
         )
         .unique(subset=["publication_number"])
         .sort("publication_number")
@@ -255,7 +261,9 @@ def main() -> None:
     }
     OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(f"wrote coverage {OUT_COV}")
-    print("\nLAYER=silver. UNION with ted_ie_awards.parquet via a sql_views/ted_*.sql view for the full 2016+ winner history.")
+    print(
+        "\nLAYER=silver. UNION with ted_ie_awards.parquet via a sql_views/ted_*.sql view for the full 2016+ winner history."
+    )
 
 
 if __name__ == "__main__":

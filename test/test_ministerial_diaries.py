@@ -15,13 +15,15 @@ from extractors.ministerial_diaries_extract import parse_entries
 
 
 def test_long_date_layout_2022_24():
-    text = "\n".join([
-        "Thursday, 04 January 2023",
-        "09:30 – 10:30",
-        "Meeting with IBEC",
-        "11:00 – 12:00",
-        "Pre-Cabinet",
-    ])
+    text = "\n".join(
+        [
+            "Thursday, 04 January 2023",
+            "09:30 – 10:30",
+            "Meeting with IBEC",
+            "11:00 – 12:00",
+            "Pre-Cabinet",
+        ]
+    )
     out = parse_entries(text, default_year=None, default_month=None)
     assert len(out) == 2
     assert out[0]["entry_date"] == date(2023, 1, 4)
@@ -31,11 +33,13 @@ def test_long_date_layout_2022_24():
 
 
 def test_short_date_layout_uses_default_year():
-    text = "\n".join([
-        "9 Feb",
-        "10:00 – 12:30",
-        "Roundtable with Wind Energy Ireland",
-    ])
+    text = "\n".join(
+        [
+            "9 Feb",
+            "10:00 – 12:30",
+            "Roundtable with Wind Energy Ireland",
+        ]
+    )
     out = parse_entries(text, default_year=2025, default_month=2)
     assert len(out) == 1
     assert out[0]["entry_date"] == date(2025, 2, 9)

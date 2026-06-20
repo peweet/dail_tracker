@@ -22,8 +22,7 @@ from pathlib import Path
 import requests
 import yaml
 
-ACP = ("https://services-eu1.arcgis.com/o56BSnENmD5mYs3j/arcgis/rest/services/"
-       "Cases_2016_Onwards/FeatureServer/3")
+ACP = "https://services-eu1.arcgis.com/o56BSnENmD5mYs3j/arcgis/rest/services/Cases_2016_Onwards/FeatureServer/3"
 CATALOGUE = Path("planning_rules/issue_catalogue.yaml")
 _FIELDS = "ABPCASEID,DEVDESC,DECISION,PLANINGATY,DECIDED_ON,LINKABPWEB"
 
@@ -34,27 +33,39 @@ def report_url(case_id: str) -> str:
     return f"https://www.pleanala.ie/anbordpleanala/media/abp/cases/reports/{digits[:3]}/r{digits}.pdf"
 
 
-def query_candidates(keywords: list[str], region: str | None = None,
-                     decision: str = "REFUSE", n: int = 6) -> list[dict]:
+def query_candidates(
+    keywords: list[str], region: str | None = None, decision: str = "REFUSE", n: int = 6
+) -> list[dict]:
     kw = " OR ".join(f"UPPER(DEVDESC) LIKE '%{k.upper()}%'" for k in keywords)
     where = f"({kw})"
     if decision:
         where += f" AND UPPER(DECISION) LIKE '%{decision.upper()}%'"
     if region:
         where += f" AND UPPER(PLANINGATY) LIKE '%{region.upper()}%'"
-    params = {"where": where, "outFields": _FIELDS, "orderByFields": "DECIDED_ON DESC",
-              "resultRecordCount": n, "returnGeometry": "false", "f": "json"}
+    params = {
+        "where": where,
+        "outFields": _FIELDS,
+        "orderByFields": "DECIDED_ON DESC",
+        "resultRecordCount": n,
+        "returnGeometry": "false",
+        "f": "json",
+    }
     r = requests.get(ACP + "/query", params=params, timeout=60)
     r.raise_for_status()
     out = []
     for f in r.json().get("features", []):
         a = f["attributes"]
         cid = a.get("ABPCASEID")
-        out.append({
-            "case": cid, "decision": a.get("DECISION"), "authority": a.get("PLANINGATY"),
-            "desc": (a.get("DEVDESC") or "")[:90],
-            "case_page": a.get("LINKABPWEB"), "report": report_url(cid),
-        })
+        out.append(
+            {
+                "case": cid,
+                "decision": a.get("DECISION"),
+                "authority": a.get("PLANINGATY"),
+                "desc": (a.get("DEVDESC") or "")[:90],
+                "case_page": a.get("LINKABPWEB"),
+                "report": report_url(cid),
+            }
+        )
     return out
 
 
@@ -80,7 +91,7 @@ def verify_in_report(case_id: str, keywords: list[str]) -> tuple[bool, str]:
         for k in keywords:
             i = text.find(k.lower())
             if i >= 0:
-                return True, "…" + text[max(0, i - 40):i + 60].replace("\n", " ") + "…"
+                return True, "…" + text[max(0, i - 40) : i + 60].replace("\n", " ") + "…"
         return False, "keywords not found in first pages"
     except Exception as e:  # noqa: BLE001
         return False, f"{type(e).__name__}"
@@ -90,7 +101,7 @@ def _curate_stubs() -> dict[str, list[str]]:
     d = yaml.safe_load(CATALOGUE.read_text(encoding="utf-8"))
     out = {}
     for node in d.get("nodes", []):
-        for p in (node.get("precedents") or []):
+        for p in node.get("precedents") or []:
             if p.get("curate"):
                 out[node["id"]] = p.get("keywords") or []
     return out

@@ -29,8 +29,6 @@ import unicodedata
 from dataclasses import dataclass
 from functools import lru_cache
 
-import numpy as np
-
 from .catalogue import REPO_ROOT
 from .rulebook import COUNCIL_SUBDIRS, PLANNING_RULES, _council_names
 
@@ -46,10 +44,10 @@ def _norm(s: str) -> str:
 @dataclass(frozen=True)
 class CouncilResult:
     slug: str | None
-    authority: str           # raw PlanningAuthority / plan string
+    authority: str  # raw PlanningAuthority / plan string
     council_name: str
     distance_m: float
-    on_boundary: bool        # nearest app is far -> treat council as uncertain
+    on_boundary: bool  # nearest app is far -> treat council as uncertain
     resolved_via: str = "nearest_application"  # "zoning" (authoritative) | "nearest_application"
 
 
@@ -90,15 +88,30 @@ def _app_points():
     lons = df["lon"].to_numpy()
     lats = df["lat"].to_numpy()
     auth = df["PlanningAuthority"].to_list()
-    pts = [Point(x, y) for x, y in zip(lons, lats)]
+    pts = [Point(x, y) for x, y in zip(lons, lats, strict=False)]
     return STRtree(pts), lons, lats, auth
 
 
 # generic tokens carried by every council/plan name — useless for identifying the council
-_GENERIC_TOKENS = frozenset({
-    "council", "the", "of", "and", "development", "plan", "county", "city",
-    "local", "area", "joint", "urban", "settlement", "plans", "environs",
-})
+_GENERIC_TOKENS = frozenset(
+    {
+        "council",
+        "the",
+        "of",
+        "and",
+        "development",
+        "plan",
+        "county",
+        "city",
+        "local",
+        "area",
+        "joint",
+        "urban",
+        "settlement",
+        "plans",
+        "environs",
+    }
+)
 
 
 def _plan_name_to_slug(plan_name: str) -> str | None:
@@ -126,18 +139,18 @@ def _plan_name_to_slug(plan_name: str) -> str | None:
         if not place or not all(t in plan_toks for t in place):
             continue
         is_city, is_county = "city" in name_toks, "county" in name_toks
-        score = 10 * len(place)                       # specificity: more place tokens wins
+        score = 10 * len(place)  # specificity: more place tokens wins
         if has_city and is_city or has_county and is_county:
-            score += 5                                # type keyword agrees
+            score += 5  # type keyword agrees
         if has_city and is_county and not is_city or has_county and is_city and not is_county:
-            score -= 5                                # type keyword disagrees (city vs county)
+            score -= 5  # type keyword disagrees (city vs county)
         scored.append((score, slug))
 
     if not scored:
         return None
     scored.sort(reverse=True)
     if len(scored) > 1 and scored[0][0] == scored[1][0]:
-        return None                                   # ambiguous -> let nearest-application decide
+        return None  # ambiguous -> let nearest-application decide
     return scored[0][1]
 
 
@@ -170,8 +183,9 @@ def resolve_council(lon: float, lat: float) -> CouncilResult:
     if z:
         slug, plan = z
         name = _council_names().get(slug, (plan, ""))[0]
-        return CouncilResult(slug=slug, authority=plan, council_name=name,
-                             distance_m=0.0, on_boundary=False, resolved_via="zoning")
+        return CouncilResult(
+            slug=slug, authority=plan, council_name=name, distance_m=0.0, on_boundary=False, resolved_via="zoning"
+        )
 
     # 2. fallback: nearest application's PlanningAuthority
     tree, lons, lats, auth = _app_points()
@@ -186,6 +200,9 @@ def resolve_council(lon: float, lat: float) -> CouncilResult:
     slug = authority_to_slug(authority)
     name = _council_names().get(slug, (authority, ""))[0] if slug else authority
     return CouncilResult(
-        slug=slug, authority=authority, council_name=name,
-        distance_m=dist, on_boundary=dist > 2000,
+        slug=slug,
+        authority=authority,
+        council_name=name,
+        distance_m=dist,
+        on_boundary=dist > 2000,
     )

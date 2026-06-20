@@ -26,6 +26,11 @@ _log = logging.getLogger(__name__)
 # must precede legislation_si_index (LEFT JOIN dependency). The order is load-bearing.
 DOMAIN_FILES = [
     "attendance_member_year_summary.sql",
+    # v_attendance_year_rank ranks members within (year, house); it reads ONLY
+    # v_attendance_member_year_summary (registered immediately above), so it must
+    # follow it. Member-overview's hero stat-strip uses it for the "Rank X of Y
+    # TDs" sub-label — omitting it silently blanked that line on every profile.
+    "attendance_year_rank.sql",
     "payments_base.sql",
     "payments_member_detail.sql",
     "payments_yearly_evolution.sql",
@@ -56,6 +61,9 @@ EXTERNAL_LINKS_FILES = ["member_external_links.sql"]
 
 # {CONTACT_DETAILS_PARQUET_PATH} — optional (parquet may be absent on a fresh run).
 CONTACT_DETAILS_FILES = ["member_contact_details.sql"]
+
+# {NEWS_MENTIONS_PARQUET_PATH} — optional (parquet may be absent on a fresh run).
+NEWS_MENTIONS_FILES = ["member_news_mentions.sql"]
 
 # {PARQUET_PATH} + {SEANAD_VOTE_PARQUET_PATH} — vote_base must precede its dependents.
 VOTE_FILES = [
@@ -130,14 +138,25 @@ def register_member_views(conn: duckdb.DuckDBPyConnection) -> None:
             conn,
             CONTACT_DETAILS_FILES,
             substitutions={
-                "{CONTACT_DETAILS_PARQUET_PATH}": (
-                    SILVER_PARQUET_DIR / "member_contact_details.parquet"
-                ).as_posix()
+                "{CONTACT_DETAILS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "member_contact_details.parquet").as_posix()
             },
             swallow_errors=True,
         )
     except Exception as exc:  # noqa: BLE001
         _log.warning("member views: could not load contact-details: %s", exc)
+
+    # Phase 3c — recent news mentions, per-member Google-News search (optional parquet).
+    try:
+        from config import SILVER_PARQUET_DIR
+
+        register_views(
+            conn,
+            NEWS_MENTIONS_FILES,
+            substitutions={"{NEWS_MENTIONS_PARQUET_PATH}": (SILVER_PARQUET_DIR / "news_mentions.parquet").as_posix()},
+            swallow_errors=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("member views: could not load news-mentions: %s", exc)
 
     # Phase 4 — vote views (both houses, explicit two-parquet union in vote_base).
     try:
@@ -190,13 +209,23 @@ def member_overview_conn() -> duckdb.DuckDBPyConnection:
 # members views JOIN the member + demographics views — all registered first.
 CONSTITUENCY_FILES = [
     "constituency_la_crosswalk.sql",
+    "constituency_la_chief_executives.sql",  # council-grain CE roster (reads _meta CSV; no deps)
+    "constituency_la_planning_overturn.sql",  # council ABP-overturn rate (reads silver parquet; no deps)
+    "constituency_la_derelict_sites_levy.sql",  # council Derelict Sites Levy enforcement (reads gold parquet; no deps)
+    "constituency_la_collection_rates.sql",  # council NOAC M2 collection rates (reads gold parquet; no deps)
+    "constituency_la_accountability_summary.sql",  # 1-row national headline; MUST follow the 3 LA views above
+
     "constituency_members.sql",
     "constituency_party_breakdown.sql",
     "constituency_registry.sql",
     "constituency_house_work.sql",
+    "constituency_map_layers.sql",  # choropleth layers; JOINs registry + house_work
     "constituency_housing_context.sql",
     "constituency_ssha_waiting_list.sql",
+    "constituency_waiting_composition.sql",  # JOINs v_ssha_waiting_list_composition (registered below)
     "constituency_council_housing_performance.sql",
+    "constituency_la_housing_performance.sql",  # council-grain DISTINCT of the above (for the LG page)
+    "constituency_la_map_layers.sql",  # LG choropleth layers; JOINs the four v_la_* views above
     "constituency_council_context.sql",
 ]
 
@@ -216,6 +245,8 @@ def constituency_conn() -> duckdb.DuckDBPyConnection:
     register_member_views(conn)
     register_views(conn, ["member_interests_*.sql", "member_zz_interests_*.sql"], swallow_errors=True)
     register_views(conn, ["procurement_*.sql"], swallow_errors=True)
+    # The national SSHA composition view — constituency_waiting_composition JOINs it.
+    register_views(conn, ["housing_ssha_waiting_list_composition.sql"], swallow_errors=True)
     register_views(conn, CONSTITUENCY_FILES, swallow_errors=True)
     return conn
 
@@ -228,6 +259,16 @@ def legislation_conn() -> duckdb.DuckDBPyConnection:
     """
     conn = duckdb.connect()
     register_views(conn, ["legislation_*.sql"], swallow_errors=True)
+    return conn
+
+
+def housing_conn() -> duckdb.DuckDBPyConnection:
+    """A fresh connection for the national Housing screen — the SSHA waiting-list
+    composition + totals views (self-contained: each reads gold parquet directly,
+    no inter-view deps), so a plain glob in any order is safe.
+    """
+    conn = duckdb.connect()
+    register_views(conn, ["housing_*.sql"], swallow_errors=True)
     return conn
 
 
@@ -258,6 +299,9 @@ _API_DOMAIN_GLOBS = [
     "sipo_*.sql",
     "judiciary_*.sql",
     "appointments_*.sql",
+    # ministerial diaries (who ministers meet x lobbying register). Views absolutize their
+    # own gold parquet paths; independent of the member set, so order-insensitive here.
+    "ministerial_diary_*.sql",
 ]
 
 

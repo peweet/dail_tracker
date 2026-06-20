@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import logging
 from pathlib import Path
 
 import polars as pl
@@ -30,12 +31,9 @@ import requests
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
 
-import logging
-
 LOG = logging.getLogger("planning_applications_ingest")
 
-L0 = ("https://services.arcgis.com/NzlPQPKn5QF9v2US/arcgis/rest/services/"
-      "IrishPlanningApplications/FeatureServer/0")
+L0 = "https://services.arcgis.com/NzlPQPKn5QF9v2US/arcgis/rest/services/IrishPlanningApplications/FeatureServer/0"
 PAGE = 2000
 OUT = Path(__file__).resolve().parents[1] / "data/silver/parquet"
 IRELAND_BBOX = (-11.0, 51.0, -5.0, 56.0)  # (min_lon, min_lat, max_lon, max_lat)
@@ -43,16 +41,27 @@ IRELAND_BBOX = (-11.0, 51.0, -5.0, 56.0)  # (min_lon, min_lat, max_lon, max_lat)
 # Columns to DROP: ArcGIS internals, empty ITM attrs (coords come from geometry),
 # and the applicant-identity PII columns (empty at source; dropped regardless).
 DROP_COLS = {
-    "OBJECTID", "ORIG_FID", "ITMEasting", "ITMNorthing",
-    "ApplicantForename", "ApplicantSurname", "ApplicantAddress",
+    "OBJECTID",
+    "ORIG_FID",
+    "ITMEasting",
+    "ITMNorthing",
+    "ApplicantForename",
+    "ApplicantSurname",
+    "ApplicantAddress",
 }
 # Epoch-millisecond date columns (ArcGIS returns dates as ms UTC).
 # Split by direction: PAST events can't legitimately be in the future (ceiling =
 # next year); FORWARD-looking dates (due/expiry/appeal-submitted) legitimately can,
 # so only absurd values (2260-style garbage) are culled with a generous ceiling.
 PAST_DATE_COLS = [
-    "ReceivedDate", "WithdrawnDate", "DecisionDate", "GrantDate",
-    "AppealDecisionDate", "FIRequestDate", "FIRecDate", "ETL_DATE",
+    "ReceivedDate",
+    "WithdrawnDate",
+    "DecisionDate",
+    "GrantDate",
+    "AppealDecisionDate",
+    "FIRequestDate",
+    "FIRecDate",
+    "ETL_DATE",
 ]
 FWD_DATE_COLS = ["DecisionDueDate", "ExpiryDate", "AppealSubmittedDate"]
 DATE_COLS = PAST_DATE_COLS + FWD_DATE_COLS
@@ -75,8 +84,13 @@ def fetch(where: str, max_pages: int | None) -> list[dict]:
     offset, page_no = 0, 0
     while True:
         resp = _query(
-            where=where, outFields="*", returnGeometry="true", outSR="4326",
-            resultOffset=offset, resultRecordCount=PAGE, orderByFields="OBJECTID",
+            where=where,
+            outFields="*",
+            returnGeometry="true",
+            outSR="4326",
+            resultOffset=offset,
+            resultRecordCount=PAGE,
+            orderByFields="OBJECTID",
         )
         feats = resp.get("features", [])
         if not feats:
@@ -147,44 +161,87 @@ def _decision_category(decision_col: str, status_col: str) -> pl.Expr:
     d_blank = d.is_null() | (d == "") | (d == "N/A")
     return (
         # ---- primary: explicit outcome / process in the Decision text ----
-        pl.when(_has_any(d, ["WITHDRAW"])).then(pl.lit("withdrawn"))
-        .when(_has_any(d, ["INVALID", "INVA"])).then(pl.lit("invalid"))
+        pl.when(_has_any(d, ["WITHDRAW"]))
+        .then(pl.lit("withdrawn"))
+        .when(_has_any(d, ["INVALID", "INVA"]))
+        .then(pl.lit("invalid"))
         # Section 5 declaration of exemption (a distinct decision dataset, §11.6)
-        .when(_has_any(d, ["S5 ", "SECTION 5", "EXEMPT"])).then(pl.lit("section_5_exemption"))
+        .when(_has_any(d, ["S5 ", "SECTION 5", "EXEMPT"]))
+        .then(pl.lit("section_5_exemption"))
         # Part 8 / s.179A = local-authority own development approval
         .when(_has_any(d, ["PART 8", "S179A", "PROPOSAL TO PROCEED"]))
         .then(pl.lit("local_authority_development"))
-        .when(_has_any(d, ["SPLIT DECISION"])).then(pl.lit("split_decision"))
-        .when(_has_any(d, ["QUASH", "HIGH COURT"])).then(pl.lit("court_action"))
+        .when(_has_any(d, ["SPLIT DECISION"]))
+        .then(pl.lit("split_decision"))
+        .when(_has_any(d, ["QUASH", "HIGH COURT"]))
+        .then(pl.lit("court_action"))
         .when(_has_any(d, ["REFER", "DETERMINATION", "OTHER BODY", "SECTION 37(5)", "FILE CLOSED"]))
         .then(pl.lit("referral"))
-        .when(_has_any(d, ["COMPLIANCE"])).then(pl.lit("compliance"))
+        .when(_has_any(d, ["COMPLIANCE"]))
+        .then(pl.lit("compliance"))
         # in-process states masquerading as a "decision" — NOT a final outcome
-        .when(_has_any(d, [
-            "ADDITIONAL INFORMATION", "CLARIFICATION", "REQUEST", "EXT OF TIME",
-            "TIME EXTENSION", "EXTENSION OF TIME", "REVISED PUBLIC NOTICE",
-            "REVISED NEWSPAPER NOTICE",
-        ])).then(pl.lit("in_progress"))
-        .when(_has_any(d, ["CANNOT DETERMINE", "CANNOT BE CONSIDERED"])).then(pl.lit("no_decision"))
-        .when(_has_any(d, ["REFUS"])).then(pl.lit("refused"))
-        .when(_has_any(d, ["UNCONDITION"])).then(pl.lit("granted"))
-        .when(_has_any(d, ["CONDITION"])).then(pl.lit("granted_conditional"))
-        .when(_has_any(d, ["GRANT", "PERMISSION", "APPROVE"])).then(pl.lit("granted"))
-        # ---- residual reducer: Decision blank/N/A -> use ApplicationStatus ----
-        .when(d_blank & _has_any(s, ["WITHDRAW"])).then(pl.lit("withdrawn"))
-        .when(d_blank & _has_any(s, ["INVALID"])).then(pl.lit("invalid"))
-        .when(d_blank & _has_any(s, ["INCOMPLET", "PRE_VALIDATION", "VALIDATION",
-                                     "UNREGISTERED", "REGISTRATION", "REGISTERED"]))
-        .then(pl.lit("incomplete"))
-        .when(d_blank & _has_any(s, ["FURTHER INFORMATION", "F.I.", "AWAITING", "ASSESSMENT",
-                                     "NEW APPLICATION", "PLANNERS REPORT", "RECOMMENDATION",
-                                     "PUBLICATION", "OFFICER ALLOCATION", "35 DAY"]))
+        .when(
+            _has_any(
+                d,
+                [
+                    "ADDITIONAL INFORMATION",
+                    "CLARIFICATION",
+                    "REQUEST",
+                    "EXT OF TIME",
+                    "TIME EXTENSION",
+                    "EXTENSION OF TIME",
+                    "REVISED PUBLIC NOTICE",
+                    "REVISED NEWSPAPER NOTICE",
+                ],
+            )
+        )
         .then(pl.lit("in_progress"))
-        .when(d_blank & _has_any(s, ["REFERRAL"])).then(pl.lit("referral"))
+        .when(_has_any(d, ["CANNOT DETERMINE", "CANNOT BE CONSIDERED"]))
+        .then(pl.lit("no_decision"))
+        .when(_has_any(d, ["REFUS"]))
+        .then(pl.lit("refused"))
+        .when(_has_any(d, ["UNCONDITION"]))
+        .then(pl.lit("granted"))
+        .when(_has_any(d, ["CONDITION"]))
+        .then(pl.lit("granted_conditional"))
+        .when(_has_any(d, ["GRANT", "PERMISSION", "APPROVE"]))
+        .then(pl.lit("granted"))
+        # ---- residual reducer: Decision blank/N/A -> use ApplicationStatus ----
+        .when(d_blank & _has_any(s, ["WITHDRAW"]))
+        .then(pl.lit("withdrawn"))
+        .when(d_blank & _has_any(s, ["INVALID"]))
+        .then(pl.lit("invalid"))
+        .when(
+            d_blank
+            & _has_any(s, ["INCOMPLET", "PRE_VALIDATION", "VALIDATION", "UNREGISTERED", "REGISTRATION", "REGISTERED"])
+        )
+        .then(pl.lit("incomplete"))
+        .when(
+            d_blank
+            & _has_any(
+                s,
+                [
+                    "FURTHER INFORMATION",
+                    "F.I.",
+                    "AWAITING",
+                    "ASSESSMENT",
+                    "NEW APPLICATION",
+                    "PLANNERS REPORT",
+                    "RECOMMENDATION",
+                    "PUBLICATION",
+                    "OFFICER ALLOCATION",
+                    "35 DAY",
+                ],
+            )
+        )
+        .then(pl.lit("in_progress"))
+        .when(d_blank & _has_any(s, ["REFERRAL"]))
+        .then(pl.lit("referral"))
         # status says decided/closed but the outcome text is absent -> DO NOT infer it
         .when(d_blank & _has_any(s, ["FINALISED", "DECISION", "FINAL GRANT", "APPEAL", "CLOSED"]))
         .then(pl.lit("no_decision"))
-        .when(d_blank).then(pl.lit("no_decision"))
+        .when(d_blank)
+        .then(pl.lit("no_decision"))
         .otherwise(pl.lit("other"))
     )
 
@@ -196,33 +253,60 @@ def _decision_subtype(decision_col: str, status_col: str) -> pl.Expr:
     cat = pl.col("decision_category")
     return (
         pl.when(cat == "withdrawn")
-        .then(pl.when(_has_any(d, ["DEEMED"]) | _has_any(s, ["DEEMED"]))
-              .then(pl.lit("deemed_withdrawn")).otherwise(pl.lit("withdrawn")))
+        .then(
+            pl.when(_has_any(d, ["DEEMED"]) | _has_any(s, ["DEEMED"]))
+            .then(pl.lit("deemed_withdrawn"))
+            .otherwise(pl.lit("withdrawn"))
+        )
         .when(cat == "section_5_exemption")
-        .then(pl.when(_has_any(d, ["NOT EXEMPT"])).then(pl.lit("not_exempt"))
-              .when(_has_any(d, ["SPLIT"])).then(pl.lit("split"))
-              .when(_has_any(d, ["REQ", "AI"])).then(pl.lit("further_information"))
-              .otherwise(pl.lit("exempt")))
+        .then(
+            pl.when(_has_any(d, ["NOT EXEMPT"]))
+            .then(pl.lit("not_exempt"))
+            .when(_has_any(d, ["SPLIT"]))
+            .then(pl.lit("split"))
+            .when(_has_any(d, ["REQ", "AI"]))
+            .then(pl.lit("further_information"))
+            .otherwise(pl.lit("exempt"))
+        )
         .when(cat == "local_authority_development")
         .then(pl.when(_has_any(d, ["REJECT"])).then(pl.lit("rejected")).otherwise(pl.lit("approved")))
         .when(cat == "compliance")
         .then(pl.when(_has_any(d, ["DISAPPROVE"])).then(pl.lit("disapproved")).otherwise(pl.lit("approved")))
         .when(cat == "in_progress")
-        .then(pl.when(_has_any(d, ["CLARIFICATION"])).then(pl.lit("clarification"))
-              .when(_has_any(d, ["ADDITIONAL INFORMATION", "FURTHER INFORMATION"]) | _has_any(s, ["FURTHER INFORMATION", "F.I."])).then(pl.lit("further_information"))
-              .when(_has_any(d, ["TIME"])).then(pl.lit("time_extension"))
-              .when(_has_any(d, ["NOTICE"])).then(pl.lit("revised_notice"))
-              .when(_has_any(s, ["NEW APPLICATION"])).then(pl.lit("new_application"))
-              .otherwise(pl.lit("in_assessment")))
+        .then(
+            pl.when(_has_any(d, ["CLARIFICATION"]))
+            .then(pl.lit("clarification"))
+            .when(
+                _has_any(d, ["ADDITIONAL INFORMATION", "FURTHER INFORMATION"])
+                | _has_any(s, ["FURTHER INFORMATION", "F.I."])
+            )
+            .then(pl.lit("further_information"))
+            .when(_has_any(d, ["TIME"]))
+            .then(pl.lit("time_extension"))
+            .when(_has_any(d, ["NOTICE"]))
+            .then(pl.lit("revised_notice"))
+            .when(_has_any(s, ["NEW APPLICATION"]))
+            .then(pl.lit("new_application"))
+            .otherwise(pl.lit("in_assessment"))
+        )
         .when(cat == "granted")
-        .then(pl.when(_has_any(d, ["UNCONDITION"])).then(pl.lit("unconditional"))
-              .when(_has_any(d, ["RETENTION"])).then(pl.lit("retention"))
-              .otherwise(pl.lit("grant")))
-        .when(cat == "granted_conditional").then(pl.lit("conditional"))
+        .then(
+            pl.when(_has_any(d, ["UNCONDITION"]))
+            .then(pl.lit("unconditional"))
+            .when(_has_any(d, ["RETENTION"]))
+            .then(pl.lit("retention"))
+            .otherwise(pl.lit("grant"))
+        )
+        .when(cat == "granted_conditional")
+        .then(pl.lit("conditional"))
         .when(cat == "no_decision")
-        .then(pl.when(_has_any(d, ["CANNOT"])).then(pl.lit("cannot_determine"))
-              .when(d.is_null() | (d == "") | (d == "N/A")).then(pl.lit("outcome_unstated"))
-              .otherwise(pl.lit("unknown")))
+        .then(
+            pl.when(_has_any(d, ["CANNOT"]))
+            .then(pl.lit("cannot_determine"))
+            .when(d.is_null() | (d == "") | (d == "N/A"))
+            .then(pl.lit("outcome_unstated"))
+            .otherwise(pl.lit("unknown"))
+        )
         .otherwise(cat)  # refused/invalid/split_decision/court_action/referral/incomplete/other
     )
 
@@ -230,11 +314,16 @@ def _decision_subtype(decision_col: str, status_col: str) -> pl.Expr:
 def _norm_apptype(col: str) -> pl.Expr:
     a = pl.col(col).cast(pl.Utf8).str.to_uppercase().str.strip_chars()
     return (
-        pl.when(a.is_null() | (a == "")).then(pl.lit("Unknown"))
-        .when(a.str.contains("RETENTION")).then(pl.lit("Retention"))
-        .when(a.str.contains("OUTLINE")).then(pl.lit("Outline"))
-        .when(a.str.contains("EXTENSION")).then(pl.lit("Extension of Duration"))
-        .when(a.str.contains("PERMISSION")).then(pl.lit("Permission"))
+        pl.when(a.is_null() | (a == ""))
+        .then(pl.lit("Unknown"))
+        .when(a.str.contains("RETENTION"))
+        .then(pl.lit("Retention"))
+        .when(a.str.contains("OUTLINE"))
+        .then(pl.lit("Outline"))
+        .when(a.str.contains("EXTENSION"))
+        .then(pl.lit("Extension of Duration"))
+        .when(a.str.contains("PERMISSION"))
+        .then(pl.lit("Permission"))
         .otherwise(pl.lit("Other"))
     )
 
@@ -263,9 +352,9 @@ def transform(rows: list[dict]) -> pl.DataFrame:
             | (pl.col("OneOffKPI").cast(pl.Utf8).str.to_uppercase().is_in(["YES", "Y"]))
         ).alias("is_one_off_house"),
         # geo guard
-        (
-            pl.col("lon").is_between(minlon, maxlon) & pl.col("lat").is_between(minlat, maxlat)
-        ).fill_null(False).alias("geo_in_bounds"),
+        (pl.col("lon").is_between(minlon, maxlon) & pl.col("lat").is_between(minlat, maxlat))
+        .fill_null(False)
+        .alias("geo_in_bounds"),
     )
 
     # second pass: subtype + back-compat decision_normalised (both reference decision_category)
@@ -336,11 +425,9 @@ def main() -> None:
     LOG.info("one-off houses: %d/%d (%.1f%%)", df["is_one_off_house"].sum(), n, 100 * df["is_one_off_house"].sum() / n)
     flagged = df.filter(pl.col("dq_flags").list.len() > 0).height
     flag_breakdown = (
-        df.select(pl.col("dq_flags").explode()).drop_nulls()
-        .to_series().value_counts(sort=True).head(12).to_dicts()
+        df.select(pl.col("dq_flags").explode()).drop_nulls().to_series().value_counts(sort=True).head(12).to_dicts()
     )
-    LOG.info("geo_in_bounds: %d/%d | rows with dq_flags: %d | breakdown: %s",
-             geo_ok, n, flagged, flag_breakdown)
+    LOG.info("geo_in_bounds: %d/%d | rows with dq_flags: %d | breakdown: %s", geo_ok, n, flagged, flag_breakdown)
 
     dest = save_parquet(df, OUT / out_name)
     LOG.info("wrote %s (%d rows, %d cols)", dest, df.height, df.width)

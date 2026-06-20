@@ -72,9 +72,7 @@ def setup_logging(run_id: str | None = None) -> None:
         # Legacy fallback for standalone scripts that call setup_logging() with
         # no run_id. Rotate it so it can never grow unbounded again.
         log_path = LOG_DIR / "pipeline.log"
-        file_handler = RotatingFileHandler(
-            log_path, maxBytes=_MAX_BYTES, backupCount=_BACKUP_COUNT, encoding="utf-8"
-        )
+        file_handler = RotatingFileHandler(log_path, maxBytes=_MAX_BYTES, backupCount=_BACKUP_COUNT, encoding="utf-8")
 
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(formatter)

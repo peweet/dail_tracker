@@ -15,11 +15,12 @@ Honesty rules baked in:
 from __future__ import annotations
 
 import string
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from . import rulebook
-from .catalogue import Catalogue, Node, load_catalogue
+from .catalogue import Catalogue, load_catalogue
 from .council import CouncilResult, resolve_council
 from .layers import LayerStore
 
@@ -40,9 +41,9 @@ MONUMENT_ZONE_RADIUS_M = 60.0
 class IssueResult:
     node_id: str
     title: str
-    layer: str                       # A / B / C
+    layer: str  # A / B / C
     fired: bool
-    data_status: str                 # ok | layer_missing | deep_link_only | partial
+    data_status: str  # ok | layer_missing | deep_link_only | partial
     mitigation_class: str
     mitigation_classes: frozenset[str]
     flag: str
@@ -53,7 +54,7 @@ class IssueResult:
     rule: rulebook.ResolvedRule | None
     detail: dict[str, Any] = field(default_factory=dict)
     extra: dict[str, Any] = field(default_factory=dict)  # e.g. {"flood_link": ...}
-    mitigation_path: tuple[dict[str, Any], ...] = ()     # static if/then cascade (from catalogue)
+    mitigation_path: tuple[dict[str, Any], ...] = ()  # static if/then cascade (from catalogue)
 
 
 @dataclass(frozen=True)
@@ -65,9 +66,10 @@ class Exclusion:
     `mitigation` records the narrow, real legal route by which development can still be permitted:
     the exclusion is a presumption-against, not an absolute impossibility.
     """
-    layer: str          # the source layer (e.g. "npws_sac")
-    designation: str    # human label (e.g. "Special Area of Conservation (SAC)")
-    site_name: str      # the specific designated site (e.g. "Lough Corrib SAC")
+
+    layer: str  # the source layer (e.g. "npws_sac")
+    designation: str  # human label (e.g. "Special Area of Conservation (SAC)")
+    site_name: str  # the specific designated site (e.g. "Lough Corrib SAC")
     mitigation: str = ""  # the narrow statutory route that could still permit development
 
 
@@ -138,10 +140,14 @@ def _fmt(template: str, detail: dict[str, Any]) -> str:
 # Each returns whether the issue fires, the placeholder detail, and the data status. Layers not
 # yet ingested return ("layer_missing").
 
+
 def _t_aa(store, lon, lat, dev, slug):  # universal gate
     near = store.covering("npws_sac", lon, lat) or store.covering("npws_spa", lon, lat)
-    extra = ("This site is in/near a European site, so screening is likely to escalate to a "
-             "Natura Impact Statement.") if near else ""
+    extra = (
+        ("This site is in/near a European site, so screening is likely to escalate to a Natura Impact Statement.")
+        if near
+        else ""
+    )
     return True, {"aa_extra": extra}, "ok"
 
 
@@ -149,21 +155,24 @@ def _european_site(store, lon, lat, dev, slug):
     if not store.available() & {"npws_sac", "npws_spa"}:
         return False, {}, "layer_missing"
     inside = store.covering("npws_sac", lon, lat) + store.covering("npws_spa", lon, lat)
-    near = store.near("npws_sac", lon, lat, NEAR_M["european_site"]) + \
-        store.near("npws_spa", lon, lat, NEAR_M["european_site"])
+    near = store.near("npws_sac", lon, lat, NEAR_M["european_site"]) + store.near(
+        "npws_spa", lon, lat, NEAR_M["european_site"]
+    )
     hit = inside or near
     if not hit:
         return False, {}, "ok"
     names = sorted({h.get("SITE_NAME") for h in hit if h.get("SITE_NAME")})
-    return True, {"site_name": "; ".join(names) or "a European site",
-                  "relation": "inside" if inside else "within ~2 km of"}, "ok"
+    return (
+        True,
+        {"site_name": "; ".join(names) or "a European site", "relation": "inside" if inside else "within ~2 km of"},
+        "ok",
+    )
 
 
 def _bats(store, lon, lat, dev, slug):
     if not store.available() & {"npws_sac", "npws_spa"}:
         return False, {}, "layer_missing"
-    near = store.near("npws_sac", lon, lat, NEAR_M["bats"]) + \
-        store.near("npws_spa", lon, lat, NEAR_M["bats"])
+    near = store.near("npws_sac", lon, lat, NEAR_M["bats"]) + store.near("npws_spa", lon, lat, NEAR_M["bats"])
     # NB: trees / watercourse / old-structure parts of the trigger need user input/OSM (pending)
     return bool(near), {}, "ok" if near else "partial"
 
@@ -269,15 +278,22 @@ def _road(store, lon, lat, dev, slug):
     if jn and jn[0] <= JUNCTION_NEAR_M:
         jm = round(jn[0])
         shape = "road junction (possible crossroads)" if jn[1] >= 4 else "road junction"
-        jnote = (f" A {shape} is ~{jm} m away: a new entrance must be SET BACK / STAGGERED from it "
-                 "(not directly opposite — that forms a crossroads), with the sight-triangle land in "
-                 "your control; a Road Safety Audit (#6) will assess the junction.")
+        jnote = (
+            f" A {shape} is ~{jm} m away: a new entrance must be SET BACK / STAGGERED from it "
+            "(not directly opposite — that forms a crossroads), with the sight-triangle land in "
+            "your control; a Road Safety Audit (#6) will assess the junction."
+        )
     # any new vehicular access has an entrance-sightline standard; fire when a road is within
     # ~150 m (i.e. the site fronts/accesses it). Detail carries the speed for the rule text.
     fired = dist <= 150
-    detail = {"maxspeed": ms, "road_class": hw, "road_ref": ref,
-              "is_national": "national road" if is_national else "",
-              "junction_note": jnote, "junction_m": jm}
+    detail = {
+        "maxspeed": ms,
+        "road_class": hw,
+        "road_ref": ref,
+        "is_national": "national road" if is_national else "",
+        "junction_note": jnote,
+        "junction_m": jm,
+    }
     return fired, detail, "ok"
 
 
@@ -309,9 +325,11 @@ def _landscape(store, lon, lat, dev, slug):
     fired = bool(lca_hit) or (t.ok and t.exposed)
     detail = {
         # per-council landscape schemas differ (Galway=NAME, Cork=TYPE, others vary)
-        "lca_class": (next((lca_hit[0].get(k) for k in ("NAME", "TYPE", "CATEGORY")
-                            if lca_hit[0].get(k)), "designated landscape")
-                      if lca_hit else "open countryside"),
+        "lca_class": (
+            next((lca_hit[0].get(k) for k in ("NAME", "TYPE", "CATEGORY") if lca_hit[0].get(k)), "designated landscape")
+            if lca_hit
+            else "open countryside"
+        ),
         "elevation_m": t.elevation_m if t.ok else "",
     }
     # full coverage needs the per-LA landscape-sensitivity layer; DEM-only exposure is partial
@@ -324,17 +342,41 @@ def _landscape(store, lon, lat, dev, slug):
 # does not bite there (a house may face other issues, but not rural need). Restricted rural
 # zones (agricultural / high-amenity / open countryside) are where the policy applies.
 _SETTLEMENT_ZONE_WORDS = (
-    "residential", "city centre", "town centre", "village centre", "mixed use", "mixed-use",
-    "commercial", "retail", "enterprise", "employment", "industrial", "business", "office",
-    "institution", "community", "education", "tourism", "transport", "utilit", "regeneration",
+    "residential",
+    "city centre",
+    "town centre",
+    "village centre",
+    "mixed use",
+    "mixed-use",
+    "commercial",
+    "retail",
+    "enterprise",
+    "employment",
+    "industrial",
+    "business",
+    "office",
+    "institution",
+    "community",
+    "education",
+    "tourism",
+    "transport",
+    "utilit",
+    "regeneration",
 )
 # NB deliberately NOT a bare "amenity" — that substring appears in R-zone descriptions
 # ("protection of existing residential amenity") AND in urban "Recreation and Amenity"
 # (parkland, e.g. Eyre Square); both previously mis-fired this node. Rural-housing-need is
 # about agricultural / countryside / high-amenity-rural land, so match those specifically.
 _RURAL_ZONE_WORDS = (
-    "agricult", "high amenity", "open countryside", "countryside", "rural",
-    "green belt", "greenbelt", "greenfield", "landscape",
+    "agricult",
+    "high amenity",
+    "open countryside",
+    "countryside",
+    "rural",
+    "green belt",
+    "greenbelt",
+    "greenfield",
+    "landscape",
 )
 
 
@@ -344,8 +386,11 @@ def _rural_need(store, lon, lat, dev, slug):
     cov = store.covering("zoning_gzt", lon, lat)
     if not cov:
         # no zone at the point -> typically open countryside, where rural-housing policy bites
-        return True, {"local_need_test": "This appears to be unzoned open countryside.",
-                      "zone": "unzoned countryside"}, "ok"
+        return (
+            True,
+            {"local_need_test": "This appears to be unzoned open countryside.", "zone": "unzoned countryside"},
+            "ok",
+        )
     zone = cov[0]
     orig = str(zone.get("ZONE_ORIG", "")).lower()
     blob = " ".join(str(zone.get(k, "")) for k in ("ZONE_ORIG", "ZONE_DESC", "ZONE_GZT")).lower()
@@ -388,8 +433,11 @@ def _surface_water(store, lon, lat, dev, slug):
     if not t.ok or t.slope_deg is None:
         return False, {}, "layer_missing"
     near_eur = store.near("npws_sac", lon, lat, 1000) + store.near("npws_spa", lon, lat, 1000)
-    receptor = (" — and it drains toward a European site, so run-off RATE and QUALITY must be "
-                "controlled to protect it") if near_eur else ""
+    receptor = (
+        (" — and it drains toward a European site, so run-off RATE and QUALITY must be controlled to protect it")
+        if near_eur
+        else ""
+    )
     fired = t.slope_deg >= SLOPE_FIRE_DEG
     detail = {"slope_deg": t.slope_deg, "receptor_note": receptor}
     return fired, detail, "ok"
@@ -398,6 +446,7 @@ def _surface_water(store, lon, lat, dev, slug):
 def _to_3857(lon: float, lat: float) -> tuple[float, float]:
     """WGS84 -> Web Mercator (easting, northing). Pure math, no pyproj."""
     import math
+
     R = 6378137.0
     x = R * math.radians(lon)
     y = R * math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
@@ -434,19 +483,27 @@ TRIGGERS: dict[str, Callable] = {
 # Regs 2011, which the rulebook already cites): Art. 6(3) a development can proceed only where an
 # Appropriate Assessment concludes no adverse effect on site integrity; failing that, Art. 6(4)
 # IROPI + compensatory measures. These routes are exceptional and rarely open to a private house.
-_AA_ROUTE = ("Only permissible where an Appropriate Assessment concludes no adverse effect on the "
-             "site's integrity (Habitats Directive Art. 6(3)); failing that, only via imperative "
-             "reasons of overriding public interest with compensatory measures (Art. 6(4)) — "
-             "exceptional and rarely available for a private dwelling. Confirm with NPWS.")
+_AA_ROUTE = (
+    "Only permissible where an Appropriate Assessment concludes no adverse effect on the "
+    "site's integrity (Habitats Directive Art. 6(3)); failing that, only via imperative "
+    "reasons of overriding public interest with compensatory measures (Art. 6(4)) — "
+    "exceptional and rarely available for a private dwelling. Confirm with NPWS."
+)
 EXCLUSION_DESIGNATIONS: tuple[tuple[str, str, str], ...] = (
     ("npws_sac", "Special Area of Conservation (SAC)", _AA_ROUTE),
     ("npws_spa", "Special Protection Area (SPA)", _AA_ROUTE),
-    ("npws_nha", "Natural Heritage Area (NHA) — incl. raised/blanket bog",
-     "Activities Requiring Consent apply; some development can be consented by NPWS where it does "
-     "not damage the conservation interest. Confirm with NPWS before relying on this."),
-    ("national_parks", "National Park",
-     "Generally only park-related / designation-compatible uses are permitted (NPWS-managed land); "
-     "confirm any proposal with NPWS and the planning authority."),
+    (
+        "npws_nha",
+        "Natural Heritage Area (NHA) — incl. raised/blanket bog",
+        "Activities Requiring Consent apply; some development can be consented by NPWS where it does "
+        "not damage the conservation interest. Confirm with NPWS before relying on this.",
+    ),
+    (
+        "national_parks",
+        "National Park",
+        "Generally only park-related / designation-compatible uses are permitted (NPWS-managed land); "
+        "confirm any proposal with NPWS and the planning authority.",
+    ),
 )
 
 
@@ -465,8 +522,7 @@ def hard_exclusions(store: LayerStore, lon: float, lat: float) -> list[Exclusion
         hits = store.covering(layer, lon, lat)
         if hits:
             name = hits[0].get("SITE_NAME") or hits[0].get("DESIG") or "a designated site"
-            out.append(Exclusion(layer=layer, designation=label, site_name=str(name),
-                                 mitigation=mitigation))
+            out.append(Exclusion(layer=layer, designation=label, site_name=str(name), mitigation=mitigation))
     return out
 
 
@@ -504,8 +560,7 @@ def evaluate(
 ) -> SitingResult:
     cat: Catalogue = load_catalogue(catalogue_path)
     store = store or LayerStore()
-    council = (CouncilResult(council_slug, "", "", 0.0, False) if council_slug
-               else resolve_council(lon, lat))
+    council = CouncilResult(council_slug, "", "", 0.0, False) if council_slug else resolve_council(lon, lat)
     slug = council.slug
 
     issues: list[IssueResult] = []
@@ -528,16 +583,33 @@ def evaluate(
             extra["flood_link"] = f"https://www.floodinfo.ie/map/floodmaps/?X={round(e[1])}&Y={round(e[0])}&Z=14"
 
         rule = rulebook.resolve(slug, node.id, catalogue_path) if slug else None
-        issues.append(IssueResult(
-            node_id=node.id, title=node.title, layer=node.layer, fired=fired,
-            data_status=status, mitigation_class=node.mitigation_class,
-            mitigation_classes=node.mitigation_classes,
-            flag=_fmt(node.flag_template, detail), engage=node.engage,
-            mitigates=node.mitigates, risk_note=node.risk_note,
-            precedents=node.precedents, rule=rule, detail=detail, extra=extra,
-            mitigation_path=node.mitigation_path,
-        ))
+        issues.append(
+            IssueResult(
+                node_id=node.id,
+                title=node.title,
+                layer=node.layer,
+                fired=fired,
+                data_status=status,
+                mitigation_class=node.mitigation_class,
+                mitigation_classes=node.mitigation_classes,
+                flag=_fmt(node.flag_template, detail),
+                engage=node.engage,
+                mitigates=node.mitigates,
+                risk_note=node.risk_note,
+                precedents=node.precedents,
+                rule=rule,
+                detail=detail,
+                extra=extra,
+                mitigation_path=node.mitigation_path,
+            )
+        )
 
-    return SitingResult(lon=lon, lat=lat, dev_type=dev_type, council=council,
-                        issues=issues, disclaimer=cat.disclaimer,
-                        exclusions=hard_exclusions(store, lon, lat))
+    return SitingResult(
+        lon=lon,
+        lat=lat,
+        dev_type=dev_type,
+        council=council,
+        issues=issues,
+        disclaimer=cat.disclaimer,
+        exclusions=hard_exclusions(store, lon, lat),
+    )

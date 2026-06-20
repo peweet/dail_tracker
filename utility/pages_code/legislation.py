@@ -9,6 +9,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config import BILL_STATUS_CSS
+from data_access.identity_resolver import resolve_member_code
 from data_access.legislation_data import (
     fetch_all_statuses,
     fetch_bill_amendment_intensity,
@@ -42,7 +43,7 @@ from ui.components import (
     stat_item,
     year_selector,
 )
-from ui.entity_links import api_json_link, bill_detail_url, source_link_html
+from ui.entity_links import api_json_link, bill_detail_url, member_link_html, source_link_html
 from ui.export_controls import export_button
 from ui.source_pdfs import provenance_expander
 
@@ -442,8 +443,7 @@ def _render_amendment_intensity(bill_id: str) -> None:
         f'<div class="leg-amend-badge">'
         f'<span class="leg-amend-count">{total}</span>'
         f'<span class="leg-amend-label">amendment list{"s" if total != 1 else ""} tabled</span>'
-        f"</div>"
-        + (f'<div class="leg-amend-breakdown">{html.escape(breakdown)}</div>' if breakdown else "")
+        f"</div>" + (f'<div class="leg-amend-breakdown">{html.escape(breakdown)}</div>' if breakdown else "")
     )
     st.caption(
         "Amendment lists are the documents of amendments formally tabled at each "
@@ -770,12 +770,16 @@ def _render_bill_detail(bill_id: str) -> None:
     # ── Stat strip ────────────────────────────────────────────────────────────
     introduced = _fmt_date(row.get("introduced_date"))
     sponsor = row.get("sponsor", "—") or "—"
+    # Link the sponsor name to their member-overview profile when it resolves to a
+    # registered TD; member_link_html falls back to the plain escaped name otherwise,
+    # so this can never produce a dead link (and "—"/empty pass straight through).
+    sponsor_html = sponsor if sponsor == "—" else member_link_html(resolve_member_code(sponsor), sponsor)
     current_stage = row.get("current_stage") or "—"
     method = row.get("method") or "—"
 
     render_stat_strip(
         stat_item(introduced, "Introduced"),
-        stat_item(sponsor, "Sponsor"),
+        stat_item(sponsor_html, "Sponsor"),
         stat_item(current_stage, "Current stage"),
         stat_item(method, "Method"),
     )

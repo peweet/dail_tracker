@@ -47,6 +47,12 @@ def fetch_constituency_list_result() -> QueryResult:
     return _q.constituency_list(get_constituency_conn())
 
 
+@st.cache_data(ttl=600)
+def fetch_constituency_map_layers_result() -> QueryResult:
+    """All 43 constituencies with choropleth layer values + quintile buckets."""
+    return _q.constituency_map_layers(get_constituency_conn())
+
+
 @st.cache_data(ttl=300)
 def fetch_constituency_header_result(constituency: str) -> QueryResult:
     return _q.constituency_header(get_constituency_conn(), constituency)
@@ -73,8 +79,20 @@ def fetch_constituency_housing_context_result(constituency: str) -> QueryResult:
 
 
 @st.cache_data(ttl=300)
+def fetch_constituency_housing_with_ssha_result(constituency: str) -> QueryResult:
+    """Supply-side housing context already LEFT-joined with the SSHA waiting list in the core
+    (the join lives in the pipeline, not the page)."""
+    return _q.constituency_housing_context_with_ssha(get_constituency_conn(), constituency)
+
+
+@st.cache_data(ttl=300)
 def fetch_constituency_ssha_waiting_list_result(constituency: str) -> QueryResult:
     return _q.constituency_ssha_waiting_list(get_constituency_conn(), constituency)
+
+
+@st.cache_data(ttl=300)
+def fetch_constituency_waiting_composition_result(constituency: str) -> QueryResult:
+    return _q.constituency_waiting_composition(get_constituency_conn(), constituency)
 
 
 @st.cache_data(ttl=300)
