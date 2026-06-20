@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-06-20T23:24:13.533095+00:00",
+  "generated_utc": "2026-06-20T23:36:40.725317+00:00",
   "layer": "gold",
   "source": "extractors/procurement_payments_consolidate.py",
   "n_rows": 220099,
@@ -21,8 +21,8 @@
     "COMMITTED": 16321660325.41
   },
   "vat_status_counts": {
-    "unknown": 188136,
-    "incl_vat": 31963
+    "incl_vat": 31963,
+    "unknown": 188136
   },
   "disclosure_basis_counts": {
     "foi_s8_model_scheme": 220089,
