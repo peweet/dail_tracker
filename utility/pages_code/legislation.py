@@ -442,8 +442,7 @@ def _render_amendment_intensity(bill_id: str) -> None:
         f'<div class="leg-amend-badge">'
         f'<span class="leg-amend-count">{total}</span>'
         f'<span class="leg-amend-label">amendment list{"s" if total != 1 else ""} tabled</span>'
-        f"</div>"
-        + (f'<div class="leg-amend-breakdown">{html.escape(breakdown)}</div>' if breakdown else "")
+        f"</div>" + (f'<div class="leg-amend-breakdown">{html.escape(breakdown)}</div>' if breakdown else "")
     )
     st.caption(
         "Amendment lists are the documents of amendments formally tabled at each "

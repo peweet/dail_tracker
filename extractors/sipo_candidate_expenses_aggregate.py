@@ -85,11 +85,13 @@ def roster_join(head: pl.DataFrame, members: pl.DataFrame) -> pl.DataFrame:
         .drop("join_key")
         .with_columns(pl.col("unique_member_code").is_not_null().alias("is_elected_td"))
         .with_columns(
-            pl.coalesce([
-                canon_party_expr("member_party"),  # registry party, canonicalised
-                pl.col("member_party"),            # registry party not covered by rules -> raw
-                pl.col("party"),                   # not elected -> OCR-declared canonical
-            ]).alias("party")
+            pl.coalesce(
+                [
+                    canon_party_expr("member_party"),  # registry party, canonicalised
+                    pl.col("member_party"),  # registry party not covered by rules -> raw
+                    pl.col("party"),  # not elected -> OCR-declared canonical
+                ]
+            ).alias("party")
         )
         .drop("member_party")
     )
@@ -116,12 +118,7 @@ def build() -> None:
     # --- GOLD candidate fact: keep the plausible, with-a-total rows for serving; the
     # suspect/no-total rows go to the SEPARATE "filed-unquantified" fact below. ---
     is_quantified = pl.col("total_spend_eur").is_not_null() & ~pl.col("total_suspect")
-    fact = (
-        head.lazy()
-        .filter(is_quantified)
-        .with_columns(pl.lit("GE2024").alias("election_event"))
-        .collect()
-    )
+    fact = head.lazy().filter(is_quantified).with_columns(pl.lit("GE2024").alias("election_event")).collect()
 
     # --- GOLD filed-but-UNQUANTIFIED fact: every OTHER filed statement (the complement of
     # the quantified fact). These candidates DID file a return, but we cannot show a
@@ -137,14 +134,21 @@ def build() -> None:
         .with_columns(
             pl.lit("GE2024").alias("election_event"),
             pl.when(pl.col("total_suspect"))
-            .then(pl.lit("figures_unreadable"))   # a number exists but is OCR-corrupt (> cap)
+            .then(pl.lit("figures_unreadable"))  # a number exists but is OCR-corrupt (> cap)
             .otherwise(pl.lit("no_total_declared"))  # the form's total cell was blank/unreadable
             .alias("filed_status"),
         )
         .select(
-            "election_event", "candidate_name", "constituency_name", "party",
-            "party_declared", "unique_member_code", "is_elected_td", "filed_status",
-            "ocr_complete", "source_pdf_url",
+            "election_event",
+            "candidate_name",
+            "constituency_name",
+            "party",
+            "party_declared",
+            "unique_member_code",
+            "is_elected_td",
+            "filed_status",
+            "ocr_complete",
+            "source_pdf_url",
         )
         .collect()
     )
@@ -153,7 +157,8 @@ def build() -> None:
     # with the roster-enriched party + member code (joined per candidate on media_id). ---
     member_map = head.select("media_id", "unique_member_code", "is_elected_td", "party")
     items_clean = (
-        items.filter(~pl.col("cost_suspect")).collect()
+        items.filter(~pl.col("cost_suspect"))
+        .collect()
         .drop("party", "party_declared")
         .join(member_map, on="media_id", how="left")
     )
@@ -210,20 +215,28 @@ def build() -> None:
     print("=== GOLD SIPO candidate expenses ===")
     elected = fact.filter(pl.col("is_elected_td")).height
     print(f"  candidate fact      : {fact.height} rows, Σ €{fact['total_spend_eur'].sum():,.2f}")
-    print(f"    {elected} linked to a sitting TD (unique_member_code), {fact.filter(pl.col('party').is_null()).height} still unknown-party")
+    print(
+        f"    {elected} linked to a sitting TD (unique_member_code), {fact.filter(pl.col('party').is_null()).height} still unknown-party"
+    )
     nq = unquantified.group_by("filed_status").len().sort("filed_status")
-    print(f"  filed-unquantified  : {unquantified.height} rows (searchable, NO amount shown) — "
-          + ", ".join(f"{r['filed_status']}={r['len']}" for r in nq.iter_rows(named=True)))
+    print(
+        f"  filed-unquantified  : {unquantified.height} rows (searchable, NO amount shown) — "
+        + ", ".join(f"{r['filed_status']}={r['len']}" for r in nq.iter_rows(named=True))
+    )
     print(f"  clean line items    : {items_clean.height} rows, Σ €{items_clean['cost_eur'].sum():,.2f}")
     print(f"  spend by detail     : {by_detail.height} distinct detail strings")
     print(f"  spend by category   : {by_category.height} categories")
     print(f"  spend by party      : {by_party.height} parties")
     print("\n  top 12 spend-detail lines (mix of payees + descriptions):")
     for r in by_detail.head(12).iter_rows(named=True):
-        print(f"    €{r['total_eur']:>11,.2f}  {r['n_candidates']:>3} cand  {r['n_items']:>3} items  {r['detail'][:40]}")
+        print(
+            f"    €{r['total_eur']:>11,.2f}  {r['n_candidates']:>3} cand  {r['n_items']:>3} items  {r['detail'][:40]}"
+        )
     print("\n  spend by category:")
     for r in by_category.iter_rows(named=True):
-        print(f"    {r['category']}  {str(r['category_label'])[:24]:24} €{r['total_eur']:>12,.2f}  ({r['n_items']} items)")
+        print(
+            f"    {r['category']}  {str(r['category_label'])[:24]:24} €{r['total_eur']:>12,.2f}  ({r['n_items']} items)"
+        )
 
 
 if __name__ == "__main__":

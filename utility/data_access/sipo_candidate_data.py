@@ -39,8 +39,7 @@ def fetch_totals() -> dict[str, float | int]:
     """Headline totals across all candidates currently loaded."""
     r = _q.candidate_totals(_conn())
     if not r.ok or r.is_empty:
-        return {"candidates": 0, "total": 0.0, "median": 0.0, "elected": 0,
-                "constituencies": 0, "verify": 0}
+        return {"candidates": 0, "total": 0.0, "median": 0.0, "elected": 0, "constituencies": 0, "verify": 0}
     row = r.data.iloc[0]
 
     def _num(col: str) -> float:

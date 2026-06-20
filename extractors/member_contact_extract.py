@@ -130,8 +130,7 @@ def parse_contact(html: str) -> dict:
         out["address"] = _clean(re.sub(r"<[^>]+>", " ", addr.group(1))) or None
 
     phones = [
-        _clean(re.sub(r"<[^>]+>", "", txt))
-        for txt in re.findall(r'<a href="tel:[^"]*">(.*?)</a>', block, re.DOTALL)
+        _clean(re.sub(r"<[^>]+>", "", txt)) for txt in re.findall(r'<a href="tel:[^"]*">(.*?)</a>', block, re.DOTALL)
     ]
     phones = [p for p in phones if p]
     if phones:

@@ -337,5 +337,5 @@ def api_json_link(path: str, label: str = "View as JSON") -> str:
     return (
         f'<a class="dt-api-link" href="{_h(href)}" target="_blank" rel="noopener" '
         f'aria-label="Open this record as JSON on the open-data API">'
-        f"<span aria-hidden=\"true\">{{ }}</span> {_h(label)}</a>"
+        f'<span aria-hidden="true">{{ }}</span> {_h(label)}</a>'
     )

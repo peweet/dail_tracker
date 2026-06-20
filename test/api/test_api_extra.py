@@ -59,10 +59,14 @@ def test_supplier_dossier_sole_trader_404(client):
     from dail_tracker_core.connections import api_conn
 
     try:
-        df = api_conn().execute(
-            "SELECT supplier_norm FROM v_procurement_awards"
-            " WHERE supplier_class = 'sole_trader_or_individual' LIMIT 1"
-        ).df()
+        df = (
+            api_conn()
+            .execute(
+                "SELECT supplier_norm FROM v_procurement_awards"
+                " WHERE supplier_class = 'sole_trader_or_individual' LIMIT 1"
+            )
+            .df()
+        )
     except Exception:
         pytest.skip("procurement gold not available")
     if df.empty:

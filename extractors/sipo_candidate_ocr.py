@@ -25,6 +25,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import json
 import logging
@@ -138,11 +139,16 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--only", help="restrict to one candidate (slug or <slug>__<media_id> key)")
     ap.add_argument("--limit", type=int, help="OCR at most N documents (validation)")
-    ap.add_argument("--max-docs", type=int, help="OCR at most N PENDING (uncached) docs this run. "
-                    "Unlike --limit (first-N), this caps the uncached list, so repeated runs "
-                    "ADVANCE through the corpus — used for chunked/overnight batches.")
-    ap.add_argument("--doc-types", default="expense_statement",
-                    help="comma-separated doc types to OCR (default expense_statement)")
+    ap.add_argument(
+        "--max-docs",
+        type=int,
+        help="OCR at most N PENDING (uncached) docs this run. "
+        "Unlike --limit (first-N), this caps the uncached list, so repeated runs "
+        "ADVANCE through the corpus — used for chunked/overnight batches.",
+    )
+    ap.add_argument(
+        "--doc-types", default="expense_statement", help="comma-separated doc types to OCR (default expense_statement)"
+    )
     ap.add_argument("--dump", metavar="KEY", help="print cached OCR text for KEY and exit")
     args = ap.parse_args()
 
@@ -171,37 +177,54 @@ def main() -> None:
             continue
         if _pending_pages(_doc_key(r), pdf_path) > 0:
             pending.append((r, pdf_path))
-    log.info("%d documents need OCR, %d already complete, %d missing PDFs",
-             len(pending), len(jobs) - len(pending) - missing, missing)
+    log.info(
+        "%d documents need OCR, %d already complete, %d missing PDFs",
+        len(pending),
+        len(jobs) - len(pending) - missing,
+        missing,
+    )
     if not pending:
         log.info("ALL_DONE — nothing to OCR; exiting cleanly without building model")
         return
 
     if args.max_docs and len(pending) > args.max_docs:
-        log.info("chunk: %d pending -> capping to %d this run (--max-docs); rerun to advance",
-                 len(pending), args.max_docs)
+        log.info(
+            "chunk: %d pending -> capping to %d this run (--max-docs); rerun to advance", len(pending), args.max_docs
+        )
         pending = pending[: args.max_docs]
 
     from paddleocr import PaddleOCR
-    ocr = PaddleOCR(lang="en", use_doc_orientation_classify=False, use_doc_unwarping=False,
-                    use_textline_orientation=False, enable_mkldnn=False,
-                    text_det_limit_side_len=1280, text_det_limit_type="max")
+
+    ocr = PaddleOCR(
+        lang="en",
+        use_doc_orientation_classify=False,
+        use_doc_unwarping=False,
+        use_textline_orientation=False,
+        enable_mkldnn=False,
+        text_det_limit_side_len=1280,
+        text_det_limit_type="max",
+    )
 
     total_pages_done = 0
     for i, (r, pdf_path) in enumerate(pending, 1):
         key = _doc_key(r)
         did, total = ocr_document(ocr, key, pdf_path)
         total_pages_done += did
-        log.info("[%d/%d] %s — %s: +%d/%d pages (run total %d)",
-                 i, len(pending), r["constituency_slug"], key, did, total, total_pages_done)
+        log.info(
+            "[%d/%d] %s — %s: +%d/%d pages (run total %d)",
+            i,
+            len(pending),
+            r["constituency_slug"],
+            key,
+            did,
+            total,
+            total_pages_done,
+        )
 
-    log.info("done. OCR'd %d new pages this run across %d documents",
-             total_pages_done, len(pending))
+    log.info("done. OCR'd %d new pages this run across %d documents", total_pages_done, len(pending))
 
 
 if __name__ == "__main__":
-    try:
+    with contextlib.suppress(Exception):
         sys.stdout.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
     main()

@@ -414,6 +414,9 @@ data/silver/sipo_candidate/
 !data/silver/parquet/seanad_member_interests_combined.parquet
 !data/silver/parquet/sponsors.parquet
 !data/silver/parquet/stages.parquet
+# the state-board universe — read at runtime by sql_views/appointments/appointments_stateboards_boards.sql
+# (v_stateboards_boards). Must be committed or a fresh Cloud clone silently loses that view.
+!data/silver/parquet/stateboards_boards.parquet
 !data/silver/parquet/versions.parquet
 # TED Ireland silver layers (services/ted_search.py + extractors/ted_enrich.py) —
 # read at runtime by sql_views/procurement/procurement_ted_*.sql + procurement_competition.sql

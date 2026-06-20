@@ -1060,10 +1060,24 @@ def party_stripe_html(parties: list[tuple[str, int]], *, show_legend: bool = Tru
 # distinct neutral hues for nominal dimensions (tenure/employment/…). Deliberately
 # NOT party colours and NOT red/green (no good/bad encoding).
 _SEQ_RAMP = [
-    "#e9eff5", "#cfe0ec", "#aecbdf", "#86afcd", "#5d8fb6", "#3d719c", "#275680", "#173e5e",
+    "#e9eff5",
+    "#cfe0ec",
+    "#aecbdf",
+    "#86afcd",
+    "#5d8fb6",
+    "#3d719c",
+    "#275680",
+    "#173e5e",
 ]
 _CAT_PALETTE = [
-    "#4c78a8", "#72b7b2", "#dba43c", "#b07aa1", "#9c755f", "#83b26f", "#a3acb9", "#5b9bd5",
+    "#4c78a8",
+    "#72b7b2",
+    "#dba43c",
+    "#b07aa1",
+    "#9c755f",
+    "#83b26f",
+    "#a3acb9",
+    "#5b9bd5",
 ]
 
 
