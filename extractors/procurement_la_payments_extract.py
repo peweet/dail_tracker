@@ -67,6 +67,12 @@ OUT_COV = ROOT / "data/_meta/la_payments_coverage.json"
 CRO = ROOT / "data/silver/cro/companies.parquet"
 PARSER_VERSION = "0.1.0"
 MIN_EUR = 1000.0  # PO-over-20k lists carry the occasional sub-20k line; 1k drops noise/refs
+# Row floor for the overwrite-each-run fact (84,706 rows 2026-06-20). The fact is
+# replaced wholesale every run, so a partial `--only` slice or a mass harvest
+# failure would silently downgrade silver and the next consolidate would wipe gold
+# history (see the --max-files note in main). ~29% headroom below the full count;
+# a partial/debug run is the intended use of DAIL_SKIP_ROW_FLOOR=1.
+MIN_FACT_ROWS = 60_000
 
 DATA_EXT = (".pdf", ".xlsx", ".xls", ".csv")
 
@@ -1289,7 +1295,7 @@ def main() -> None:
     df = df.select([c for c in FACT_COLS if c in df.columns]).sort(["publisher_id", "year", "quarter"])
 
     OUT_FACT.parent.mkdir(parents=True, exist_ok=True)
-    save_parquet(df, OUT_FACT)
+    save_parquet(df, OUT_FACT, min_rows=MIN_FACT_ROWS)
 
     hr("SILVER FACT WRITTEN")
     print(f"rows: {df.height:,}  councils: {df['publisher_id'].n_unique()}  ->  {OUT_FACT}")
