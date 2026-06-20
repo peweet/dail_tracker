@@ -83,14 +83,10 @@ class Catalogue:
 
 def _validate_path_step(step: dict[str, Any], node_id: str) -> None:
     """A mitigation_path step needs a `do`; each branch needs an `if` + a valid `outcome`."""
-    assert isinstance(step, dict) and step.get("do"), (
-        f"node {node_id}: mitigation_path step missing 'do'"
-    )
+    assert isinstance(step, dict) and step.get("do"), f"node {node_id}: mitigation_path step missing 'do'"
     for br in step.get("findings") or ():
         assert br.get("if"), f"node {node_id}: mitigation_path branch missing 'if'"
-        assert br.get("outcome") in _VALID_OUTCOMES, (
-            f"node {node_id}: bad branch outcome {br.get('outcome')!r}"
-        )
+        assert br.get("outcome") in _VALID_OUTCOMES, f"node {node_id}: bad branch outcome {br.get('outcome')!r}"
         for child in br.get("then") or ():
             _validate_path_step(child, node_id)
 
@@ -102,9 +98,7 @@ def _validate(cat: Catalogue) -> None:
         assert n.id not in seen, f"duplicate node id {n.id!r}"
         seen.add(n.id)
         assert n.layer in cat.layers, f"node {n.id}: unknown layer {n.layer!r}"
-        assert n.mitigation_classes <= _VALID_CLASS_CHARS, (
-            f"node {n.id}: bad mitigation_class {n.mitigation_class!r}"
-        )
+        assert n.mitigation_classes <= _VALID_CLASS_CHARS, f"node {n.id}: bad mitigation_class {n.mitigation_class!r}"
         for sl in n.source_layers:
             assert sl in cat.source_layers, f"node {n.id}: unknown source_layer {sl!r}"
         for step in n.mitigation_path:

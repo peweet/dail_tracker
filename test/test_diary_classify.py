@@ -35,6 +35,11 @@ GOLDEN: list[tuple[str, str]] = [
     ("Cabinet Committee on Housing", "govt_business"),
     ("Cabinet Committee C", "govt_business"),
     ("Pre-CC meeting with Tánaiste", "govt_business"),  # CC=Cabinet Committee, beats "meeting"
+    # inter-ministerial coordination (2026-06-19) — Taoiseach/Tánaiste/colleagues = govt business
+    ("Meeting with Taoiseach", "govt_business"),
+    ("Working lunch with Tánaiste", "govt_business"),
+    ("Meeting with Cabinet colleagues", "govt_business"),
+    ("Meeting with Tánaiste and TikTok", "govt_business"),  # label is govt; TikTok still matches downstream
     # --- oireachtas ---
     ("Leaders Questions", "oireachtas"),
     ("ALL MUST ATTEND - Leaders Questions", "oireachtas"),
@@ -64,6 +69,12 @@ GOLDEN: list[tuple[str, str]] = [
     ("DETE Divisional Update", "internal_dept"),  # "divisional" must NOT hit votes/divisions
     ("Minister to be briefed by Dept. of Justice Officials", "internal_dept"),
     ("Sec Gen Meeting", "internal_dept"),
+    # internal counterparties (2026-06-19) — the minister's own office/team, not an outside body
+    ("Meeting with Advisers", "internal_dept"),
+    ("Meeting with Private Secretary", "internal_dept"),
+    ("Catch up with Press Office", "internal_dept"),
+    ("Diary Meeting", "internal_dept"),
+    ("Chief of Staff meeting", "internal_dept"),
     # --- travel ---
     ("Travel to BnM The Accelerate Green Hub, Boora, Co. Offaly", "travel"),
     ("Flight to Dubai", "travel"),

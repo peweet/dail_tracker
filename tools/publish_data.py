@@ -122,7 +122,9 @@ def _validate(root: Path, changed: list[str], *, tolerance: float) -> None:
         try:
             n_rows = pq.ParquetFile(p).metadata.num_rows
         except Exception as e:  # noqa: BLE001 — an unreadable output must abort, not crash
-            raise SystemExit(f"publish: ABORT — {rel} is not a readable parquet ({type(e).__name__}). Nothing committed.")
+            raise SystemExit(
+                f"publish: ABORT — {rel} is not a readable parquet ({type(e).__name__}). Nothing committed."
+            ) from e
         if n_rows == 0:
             raise SystemExit(f"publish: ABORT — {rel} has 0 rows (failed/partial write?). Nothing committed.")
     print(f"publish: gate — {len(parquets)} parquet(s) readable + non-empty.")

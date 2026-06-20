@@ -71,10 +71,19 @@ DEPT_SOURCES: list[tuple[str, str]] = [
     # same flat-listing shape as DETE — verified 2026-06-16. Born-digital PDFs are
     # parsed; any image-only scans fall through to the OCR queue (no OCR on-box).
     ("HEALTH", "https://www.gov.ie/en/department-of-health/collections/department-of-health-ministers-diaries/"),
-    ("JUSTICE", "https://www.gov.ie/en/department-of-justice-home-affairs-and-migration/collections/ministerial-diaries/"),
-    ("HOUSING", "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/collections/ministers-diaries/"),
+    (
+        "JUSTICE",
+        "https://www.gov.ie/en/department-of-justice-home-affairs-and-migration/collections/ministerial-diaries/",
+    ),
+    (
+        "HOUSING",
+        "https://www.gov.ie/en/department-of-housing-local-government-and-heritage/collections/ministers-diaries/",
+    ),
     ("TRANSPORT", "https://www.gov.ie/en/department-of-transport/organisation-information/ministers-diaries/"),
-    ("DCCS", "https://www.gov.ie/en/department-of-culture-communications-and-sport/organisation-information/ministers-diaries/"),
+    (
+        "DCCS",
+        "https://www.gov.ie/en/department-of-culture-communications-and-sport/organisation-information/ministers-diaries/",
+    ),
     # Added 2026-06-19 (coverage audit): departments confirmed to publish via gov.ie search but
     # previously absent from this list. Same flat-listing shape (collection/org-info page → diary
     # PDFs). FINANCE publishes PER-MINISTER collections (no single parent page) so each minister's
@@ -82,7 +91,10 @@ DEPT_SOURCES: list[tuple[str, str]] = [
     # McGrath validated (19 PDFs, born-digital); DFHERIS validated (5 calendar PDFs).
     ("FINANCE", "https://www.gov.ie/en/department-of-finance/collections/minister-michael-mcgrath-tds-diary/"),
     ("FINANCE", "https://www.gov.ie/en/department-of-finance/collections/minister-jack-chambers-tds-diary/"),
-    ("DFHERIS", "https://www.gov.ie/en/department-of-further-and-higher-education-research-innovation-and-science/organisation-information/ministers-diary/"),
+    (
+        "DFHERIS",
+        "https://www.gov.ie/en/department-of-further-and-higher-education-research-innovation-and-science/organisation-information/ministers-diary/",
+    ),
     # Added 2026-06-19 (round 2 — gov.ie search re-probed from a fresh session, crawler-confirmed
     # PDF counts, not just a 200 on the listing page):
     #   EDUCATION  — single collection page, 172 born-digital diary PDFs (current + former ministers).
@@ -90,7 +102,10 @@ DEPT_SOURCES: list[tuple[str, str]] = [
     #   DECC       — the Environment/Climate/Communications lineage (Ryan/Bruton/O'Brien/Canney). The
     #                legacy /en/collection/89b20- URL is this dept's diary hub, NOT Social Protection
     #                (the filenames disambiguate it — do not relabel without re-checking the ministers).
-    ("EDUCATION", "https://www.gov.ie/en/department-of-education/collections/department-of-education-ministers-diaries/"),
+    (
+        "EDUCATION",
+        "https://www.gov.ie/en/department-of-education/collections/department-of-education-ministers-diaries/",
+    ),
     ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2024/"),
     ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2023/"),
     ("TAOISEACH", "https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2022/"),
@@ -214,7 +229,9 @@ def download(url: str, fname: str, *, retries: int = 4) -> Path | None:
             r = requests.get(url, headers=HEADERS, timeout=90)
             if r.status_code in _RETRY_STATUS and attempt < retries:
                 wait = min(30, 2**attempt)  # 2s, 4s, 8s — let the WAF window reset
-                log.info("download %s -> HTTP %d; backoff %ds (attempt %d/%d)", fname, r.status_code, wait, attempt, retries)
+                log.info(
+                    "download %s -> HTTP %d; backoff %ds (attempt %d/%d)", fname, r.status_code, wait, attempt, retries
+                )
                 time.sleep(wait)
                 continue
             r.raise_for_status()

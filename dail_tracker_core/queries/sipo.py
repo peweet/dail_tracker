@@ -171,9 +171,7 @@ def candidate_totals(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     )
 
 
-def candidate_ranked(
-    conn: duckdb.DuckDBPyConnection, limit: int | None = None
-) -> QueryResult:
+def candidate_ranked(conn: duckdb.DuckDBPyConnection, limit: int | None = None) -> QueryResult:
     """Candidates ranked by total spend — the primary league table.
 
     ``limit=None`` (the default) returns EVERY loaded candidate so the page's

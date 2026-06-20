@@ -42,7 +42,7 @@ class Terrain:
     slope_deg: float | None
     relative_height_m: float | None  # point elevation minus the ~2 km window mean
     exposed: bool
-    ok: bool                          # False if the read failed (offline / nodata)
+    ok: bool  # False if the read failed (offline / nodata)
     note: str = ""
 
 
@@ -68,8 +68,8 @@ def _load_cache() -> dict[tuple[float, float, float], Terrain]:
     out: dict[tuple[float, float, float], Terrain] = {}
     for r in pl.read_parquet(DEM_CACHE).iter_rows(named=True):
         out[(r["lon_key"], r["lat_key"], r["radius_m"])] = Terrain(
-            r["elevation_m"], r["slope_deg"], r["relative_height_m"],
-            r["exposed"], r["ok"], r["note"] or "")
+            r["elevation_m"], r["slope_deg"], r["relative_height_m"], r["exposed"], r["ok"], r["note"] or ""
+        )
     return out
 
 
@@ -78,9 +78,20 @@ def _persist(key: tuple[float, float, float], t: Terrain) -> None:
 
     cache = _load_cache()
     cache[key] = t  # mutate the lru-cached dict so it stays warm in-process
-    rows = [{"lon_key": k[0], "lat_key": k[1], "radius_m": k[2], "elevation_m": v.elevation_m,
-             "slope_deg": v.slope_deg, "relative_height_m": v.relative_height_m,
-             "exposed": v.exposed, "ok": v.ok, "note": v.note} for k, v in cache.items()]
+    rows = [
+        {
+            "lon_key": k[0],
+            "lat_key": k[1],
+            "radius_m": k[2],
+            "elevation_m": v.elevation_m,
+            "slope_deg": v.slope_deg,
+            "relative_height_m": v.relative_height_m,
+            "exposed": v.exposed,
+            "ok": v.ok,
+            "note": v.note,
+        }
+        for k, v in cache.items()
+    ]
     DEM_CACHE.parent.mkdir(parents=True, exist_ok=True)
     pl.DataFrame(rows).write_parquet(DEM_CACHE)
 
@@ -118,8 +129,9 @@ def _compute_terrain(lon: float, lat: float, radius_m: float = 2000.0) -> Terrai
             rad = int(max(1, round(radius_m / min(dx, dy))))
             r0, c0 = row - rad, col - rad
             win = Window(c0, r0, 2 * rad + 1, 2 * rad + 1)
-            arr = ds.read(1, window=win, boundless=True,
-                          fill_value=ds.nodata if ds.nodata is not None else 0).astype("float64")
+            arr = ds.read(1, window=win, boundless=True, fill_value=ds.nodata if ds.nodata is not None else 0).astype(
+                "float64"
+            )
             if ds.nodata is not None:
                 arr = np.where(arr == ds.nodata, np.nan, arr)
 
@@ -129,7 +141,7 @@ def _compute_terrain(lon: float, lat: float, radius_m: float = 2000.0) -> Terrai
             return Terrain(None, None, None, False, ok=False, note="nodata at point (sea?)")
 
         # slope from the central 3x3 gradient
-        g = arr[cr - 1: cr + 2, cr - 1: cr + 2]
+        g = arr[cr - 1 : cr + 2, cr - 1 : cr + 2]
         if np.isfinite(g).all():
             gy, gx = np.gradient(g, dy, dx)
             slope = math.degrees(math.atan(math.hypot(gx[1, 1], gy[1, 1])))
@@ -139,8 +151,8 @@ def _compute_terrain(lon: float, lat: float, radius_m: float = 2000.0) -> Terrai
         win_mean = float(np.nanmean(arr))
         rel = float(elev) - win_mean
         exposed = rel >= EXPOSED_REL_HEIGHT_M
-        return Terrain(round(float(elev), 1),
-                       round(slope, 1) if slope is not None else None,
-                       round(rel, 1), exposed, ok=True)
+        return Terrain(
+            round(float(elev), 1), round(slope, 1) if slope is not None else None, round(rel, 1), exposed, ok=True
+        )
     except Exception as e:  # noqa: BLE001 — offline / S3 error -> degrade, never crash the engine
         return Terrain(None, None, None, False, ok=False, note=f"{type(e).__name__}: {e}")

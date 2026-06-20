@@ -67,7 +67,51 @@ _REGISTRY_COLS = ["unique_member_code", "full_name", "party", "constituency_name
 # ("Dáil Éireann", "Ó Murchú") in otherwise-English turns; requiring function
 # words separates a Gaeilge contribution from an English one that names them.
 _IRISH_FUNCTION_WORDS = frozenset(
-    ["agus", "atá", "bhfuil", "bhí", "beidh", "chomh", "chun", "cén", "dom", "duit", "faoi", "freisin", "gach", "leat", "liom", "maith", "mar", "muid", "níl", "níos", "raibh", "sibh", "siad", "táim", "tá", "uirthi", "anois", "ansin", "anseo", "conas", "aon", "seo", "gabhaim", "buíochas", "leis", "ní", "ag", "ar", "leo", "orm", "ort", "dúirt", "déanamh"]
+    [
+        "agus",
+        "atá",
+        "bhfuil",
+        "bhí",
+        "beidh",
+        "chomh",
+        "chun",
+        "cén",
+        "dom",
+        "duit",
+        "faoi",
+        "freisin",
+        "gach",
+        "leat",
+        "liom",
+        "maith",
+        "mar",
+        "muid",
+        "níl",
+        "níos",
+        "raibh",
+        "sibh",
+        "siad",
+        "táim",
+        "tá",
+        "uirthi",
+        "anois",
+        "ansin",
+        "anseo",
+        "conas",
+        "aon",
+        "seo",
+        "gabhaim",
+        "buíochas",
+        "leis",
+        "ní",
+        "ag",
+        "ar",
+        "leo",
+        "orm",
+        "ort",
+        "dúirt",
+        "déanamh",
+    ]
 )
 _FADA_RE = re.compile(r"[áéíóúÁÉÍÓÚ]")
 _WORD_RE = re.compile(r"[A-Za-zÁÉÍÓÚáéíóú]+")

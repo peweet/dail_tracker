@@ -22,13 +22,15 @@ from sipo_promote_to_gold import address_columns  # noqa: E402
 
 
 def test_detects_address_columns():
-    df = pl.DataFrame({
-        "donor_name": ["A. Byrne"],
-        "donor_address_raw": ["1 Main St"],
-        "donor_address": ["Town"],
-        "Address": ["X"],
-        "value_eur": [500.0],
-    })
+    df = pl.DataFrame(
+        {
+            "donor_name": ["A. Byrne"],
+            "donor_address_raw": ["1 Main St"],
+            "donor_address": ["Town"],
+            "Address": ["X"],
+            "value_eur": [500.0],
+        }
+    )
     assert set(address_columns(df)) == {"donor_address_raw", "donor_address", "Address"}
 
 

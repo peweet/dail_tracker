@@ -39,7 +39,7 @@ GLOSSARY_TERMS: dict[str, str] = {
     "Iris Oifigiúil": "The official state gazette of Ireland, published twice weekly. Carries statutory instruments, corporate notices (receiverships, liquidations, examinerships), public appointments, and ICAV strike-offs.",
     "Liquidation": "The formal winding up of a company. Solvent (Members' Voluntary, \"MVL\") liquidation closes a company that can pay its debts; creditors' or court-ordered liquidation handles insolvent ones.",
     "Loan book": "The portfolio of loans held by a bank or fund. After 2010 large Irish loan books were sold by domestic banks (AIB, PTSB, Ulster Bank) to international funds, who hold them through SPVs.",
-    "Local Authority": "A county or city council — the elected local-government body responsible for housing, planning, roads, and local services in its area. Ireland has 31. Often shortened to \"council\" or \"LA\".",
+    "Local Authority": 'A county or city council — the elected local-government body responsible for housing, planning, roads, and local services in its area. Ireland has 31. Often shortened to "council" or "LA".',
     "Minister": "A TD appointed to the Cabinet (Government). Constitutionally required to attend Cabinet meetings and represent Ireland abroad; plenary attendance is therefore lower.",
     "NOAC": "National Oversight and Audit Commission — the independent body that scrutinises how local authorities (councils) perform and spend. Its annual Performance Indicator Report is the source of the council housing-performance figures.",
     "Oireachtas": "The Irish parliament as a whole, comprising the President, Dáil, and Seanad.",

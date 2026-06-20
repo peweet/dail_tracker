@@ -46,9 +46,7 @@ _DM_HEADING = re.compile(
     re.IGNORECASE,
 )
 # concept-keyed heading: "### node: landscape_siting — Title" / "## node:bats - Title"
-_CONCEPT_HEADING = re.compile(
-    r"^\s*#{1,6}\s*node:\s*([a-z][a-z0-9_]+)\s*[:.–—-]\s*(.*)$", re.IGNORECASE
-)
+_CONCEPT_HEADING = re.compile(r"^\s*#{1,6}\s*node:\s*([a-z][a-z0-9_]+)\s*[:.–—-]\s*(.*)$", re.IGNORECASE)
 # an optional source-citation line directly under a concept heading: "ref: …" / "> ref: …"
 _REF_LINE = re.compile(r"^\s*>?\s*ref:\s*(.*)$", re.IGNORECASE)
 
@@ -64,7 +62,7 @@ class ChecklistItem:
 
 @dataclass(frozen=True)
 class DMStandard:
-    number: int          # the plan's "DM Standard N" number, or 0 for a concept-keyed section
+    number: int  # the plan's "DM Standard N" number, or 0 for a concept-keyed section
     title: str
     text: str
     source_ref: str = ""  # the council's own plan citation (concept-keyed councils); else ""

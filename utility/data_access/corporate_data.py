@@ -17,6 +17,7 @@ import streamlit as st
 
 from dail_tracker_core.db import connect_with_views
 from dail_tracker_core.queries import corporate as _q
+from dail_tracker_core.results import QueryResult
 
 
 @st.cache_resource
@@ -30,6 +31,16 @@ def fetch_corporate_notices() -> pd.DataFrame:
     view. Personal insolvency is excluded upstream by enrichment. The page
     does its faceting / search / aggregation in pandas off this frame."""
     return _q.corporate_notices(get_corporate_conn()).data
+
+
+@st.cache_data(ttl=300)
+def fetch_corporate_notices_for_company_result(company_num: int) -> QueryResult:
+    """One CRO company's corporate register / distress notices (Iris Oifigiúil) for the
+    company dossier's corporate-register panel, matched on CRO ``company_num``. A
+    QueryResult (not the bare frame) so the panel can tell 'source unavailable' from
+    'no notices' — display-only public-record annotation, never a civic claim beyond
+    'this CRO entity appears on these statutory notices'."""
+    return _q.corporate_notices_for_company(get_corporate_conn(), company_num)
 
 
 @st.cache_data(ttl=300)

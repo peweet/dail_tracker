@@ -380,9 +380,7 @@ def _is_strong_firm_match_candidate(raw: str, norm: str) -> bool:
         return False
     if _CORP_KEYWORD_RE.search(raw or ""):
         return True
-    if len(norm) >= 14 and len(non_place) >= 2:
-        return True
-    return False
+    return bool(len(norm) >= 14 and len(non_place) >= 2)
 
 
 # ─── 1. DOWNLOAD ──────────────────────────────────────────────────────────────
@@ -419,7 +417,7 @@ def download_all(force: bool = False) -> list[dict]:
         rg = s.get(URL, headers=H, timeout=30)
         sp = BeautifulSoup(rg.text, "html.parser")
 
-        def _hidden(name):
+        def _hidden(name, sp=sp):
             el = sp.find("input", {"name": name})
             return el.get("value", "") if el else ""
 
@@ -478,9 +476,7 @@ def _looks_like_firm_name(line: str) -> bool:
         return False
     # If too many digits, looks like an Eircode/phone/date
     digits = sum(c.isdigit() for c in line)
-    if digits > 0 and digits / len(line) > 0.4:
-        return False
-    return True
+    return not (digits > 0 and digits / len(line) > 0.4)
 
 
 def extract_firms_from_pdf(pdf_path: Path, register_title: str) -> list[dict]:
@@ -631,7 +627,9 @@ def xref_member_interests(firms: pl.DataFrame) -> pl.DataFrame:
     # Apply strict filter row-by-row in Python — small dataset, simple logic.
     strict_mask = [
         _is_strong_firm_match_candidate(raw or "", norm or "")
-        for raw, norm in zip(candidates["firm_name_raw"].to_list(), candidates["firm_name_norm"].to_list())
+        for raw, norm in zip(
+            candidates["firm_name_raw"].to_list(), candidates["firm_name_norm"].to_list(), strict=False
+        )
     ]
     candidates = candidates.filter(pl.Series(strict_mask))
 

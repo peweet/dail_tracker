@@ -39,31 +39,44 @@ _INITIALS = re.compile(r"^[A-Z](?:\.[A-Z])*\.?$")
 
 GOLD_CASES = _ROOT / "data" / "gold" / "parquet" / "judicial_legal_diary_cases.parquet"
 CONTRACT_COLS = {
-    "diary_date", "court", "judge", "list_type", "status", "category",
-    "case_anonymised", "plaintiff", "defendant", "plaintiff_kind",
-    "source", "source_url", "source_sha256",
+    "diary_date",
+    "court",
+    "judge",
+    "list_type",
+    "status",
+    "category",
+    "case_anonymised",
+    "plaintiff",
+    "defendant",
+    "plaintiff_kind",
+    "source",
+    "source_url",
+    "source_sha256",
 }
 FORBIDDEN_COLS = {"raw_case", "party", "parties", "solicitor", "solicitors"}
 
 
 # ----------------------------------------------------------------- no-residual cases
-@pytest.mark.parametrize("raw", [
-    # plain person v person — both sides must initialise
-    "JOHN SMITHFIELD -v- MARY MOORLAND",
-    # bug A: a second 'v' clause must STILL be anonymised
-    "ANNE BRACKENRIDGE -v- ACME PLC -v- DAVID NORTHGATE",
-    "WILLIAM OAKHAM v PETER QUILLFORD v ROBERT STANWICK",
-    # bug B: individuals riding alongside a public body must NOT be kept in clear
-    "JOHN SMITHFIELD AND MARY MOORLAND AND CORK COUNTY COUNCIL -v- THE MINISTER FOR HEALTH",
-    "BARRY ELMWOOD AND THE HEALTH SERVICE EXECUTIVE -v- DUBLIN CITY COUNCIL",
-    # criminal prosecutor side kept, accused anonymised
-    "THE PEOPLE AT THE SUIT OF THE DPP -v- JOHN DOEFIELD",
-    # tail forms must not leak the named lead party
-    "PATRICK MULBERRY & ORS -v- ELECTRICITY SUPPLY BOARD",
-    "SARAH VANBROOK AND ANOTHER -v- THE REVENUE COMMISSIONERS",
-    # in-the-matter single-side person
-    "IN THE MATTER OF GEORGE HOLLOWFIELD A BANKRUPT",
-])
+@pytest.mark.parametrize(
+    "raw",
+    [
+        # plain person v person — both sides must initialise
+        "JOHN SMITHFIELD -v- MARY MOORLAND",
+        # bug A: a second 'v' clause must STILL be anonymised
+        "ANNE BRACKENRIDGE -v- ACME PLC -v- DAVID NORTHGATE",
+        "WILLIAM OAKHAM v PETER QUILLFORD v ROBERT STANWICK",
+        # bug B: individuals riding alongside a public body must NOT be kept in clear
+        "JOHN SMITHFIELD AND MARY MOORLAND AND CORK COUNTY COUNCIL -v- THE MINISTER FOR HEALTH",
+        "BARRY ELMWOOD AND THE HEALTH SERVICE EXECUTIVE -v- DUBLIN CITY COUNCIL",
+        # criminal prosecutor side kept, accused anonymised
+        "THE PEOPLE AT THE SUIT OF THE DPP -v- JOHN DOEFIELD",
+        # tail forms must not leak the named lead party
+        "PATRICK MULBERRY & ORS -v- ELECTRICITY SUPPLY BOARD",
+        "SARAH VANBROOK AND ANOTHER -v- THE REVENUE COMMISSIONERS",
+        # in-the-matter single-side person
+        "IN THE MATTER OF GEORGE HOLLOWFIELD A BANKRUPT",
+    ],
+)
 def test_anonymise_leaves_no_residual_name(raw):
     out = anonymise(raw)
     leaked = residual_name_tokens(out)
@@ -71,10 +84,13 @@ def test_anonymise_leaves_no_residual_name(raw):
 
 
 # ----------------------------------------------------------------- orgs kept in clear
-@pytest.mark.parametrize("raw,expect_substr", [
-    ("ACME LIMITED -v- BETA HOLDINGS DAC", "Acme Limited"),
-    ("THE MINISTER FOR HEALTH -v- GAMMA INSURANCE PLC", "Minister For Health"),
-])
+@pytest.mark.parametrize(
+    "raw,expect_substr",
+    [
+        ("ACME LIMITED -v- BETA HOLDINGS DAC", "Acme Limited"),
+        ("THE MINISTER FOR HEALTH -v- GAMMA INSURANCE PLC", "Minister For Health"),
+    ],
+)
 def test_org_sides_survive_in_clear(raw, expect_substr):
     out = anonymise(raw)
     assert expect_substr.lower() in out.lower(), f"org name dropped: {raw!r} -> {out!r}"
@@ -112,15 +128,18 @@ def test_empty_and_refs_are_safe():
 
 
 # ----------------------------------------------------------------- in-camera drop keys
-@pytest.mark.parametrize("list_type,case,expect_key", [
-    # ampersand variants must hit the same in-camera keys as the spelled-out forms —
-    # "The Child & Family Agency" bypassed the drop until 2026-06-11 (3 gold rows)
-    ("", "14. 2026 159 The Child & Family Agency -v- D", "child and family"),
-    ("", "The Child and Family Agency -v- T", "child and family"),
-    ("", "K v TUSLA CHILD AND FAMILY AGENCY", "child and family"),  # list-order precedence
-    ("Wards Of Court List", "In the matter of J.M.", "wards of court"),
-    ("", "ACME LIMITED -v- BETA HOLDINGS DAC", None),  # ordinary commercial: kept
-])
+@pytest.mark.parametrize(
+    "list_type,case,expect_key",
+    [
+        # ampersand variants must hit the same in-camera keys as the spelled-out forms —
+        # "The Child & Family Agency" bypassed the drop until 2026-06-11 (3 gold rows)
+        ("", "14. 2026 159 The Child & Family Agency -v- D", "child and family"),
+        ("", "The Child and Family Agency -v- T", "child and family"),
+        ("", "K v TUSLA CHILD AND FAMILY AGENCY", "child and family"),  # list-order precedence
+        ("Wards Of Court List", "In the matter of J.M.", "wards of court"),
+        ("", "ACME LIMITED -v- BETA HOLDINGS DAC", None),  # ordinary commercial: kept
+    ],
+)
 def test_protected_reason_catches_ampersand_variants(list_type, case, expect_key):
     assert protected_reason(list_type, case) == expect_key
 
@@ -139,10 +158,12 @@ def test_gold_cases_contract_and_zero_residual_names():
     assert cols == CONTRACT_COLS, f"gold cases columns drifted: {cols ^ CONTRACT_COLS}"
     assert not (FORBIDDEN_COLS & cols), f"raw-name column in gold: {FORBIDDEN_COLS & cols}"
     # zero residual names across every published free-text column (title + party split)
-    offenders = [(col, c, residual_name_tokens(c))
-                 for col in ("case_anonymised", "plaintiff", "defendant")
-                 for c in df.get_column(col).to_list()
-                 if residual_name_tokens(c)]
+    offenders = [
+        (col, c, residual_name_tokens(c))
+        for col in ("case_anonymised", "plaintiff", "defendant")
+        for c in df.get_column(col).to_list()
+        if residual_name_tokens(c)
+    ]
     assert not offenders, f"{len(offenders)} gold cells leak names, e.g. {offenders[:5]}"
 
 
@@ -153,13 +174,16 @@ def test_writer_privacy_gate_is_importable_and_runtime():
 
 
 # ----------------------------------------------------------------- plaintiff split (v1.1)
-@pytest.mark.parametrize("raw,kind", [
-    ("THE PEOPLE AT THE SUIT OF THE DPP -v- JOHN DOEFIELD", "state-prosecutor"),
-    ("ACME MORTGAGE FINANCE DAC -v- MARY MOORLAND", "organisation"),
-    ("BANK OF IRELAND MORTGAGE BANK -v- PETER QUILLFORD", "organisation"),  # not State on "ireland"
-    ("THE MINISTER FOR JUSTICE -v- JOHN SMITHFIELD", "state-body"),
-    ("JOHN SMITHFIELD -v- THE MINISTER FOR JUSTICE", "individual"),
-])
+@pytest.mark.parametrize(
+    "raw,kind",
+    [
+        ("THE PEOPLE AT THE SUIT OF THE DPP -v- JOHN DOEFIELD", "state-prosecutor"),
+        ("ACME MORTGAGE FINANCE DAC -v- MARY MOORLAND", "organisation"),
+        ("BANK OF IRELAND MORTGAGE BANK -v- PETER QUILLFORD", "organisation"),  # not State on "ireland"
+        ("THE MINISTER FOR JUSTICE -v- JOHN SMITHFIELD", "state-body"),
+        ("JOHN SMITHFIELD -v- THE MINISTER FOR JUSTICE", "individual"),
+    ],
+)
 def test_plaintiff_kind_classifies_first_party(raw, kind):
     assert plaintiff_kind(raw.split(" -v- ")[0]) == kind
     assert parties(raw)["plaintiff_kind"] == kind

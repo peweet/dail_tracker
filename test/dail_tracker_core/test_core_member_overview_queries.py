@@ -24,10 +24,16 @@ _EXPECTED_COLUMNS = {
     "member_list": {"unique_member_code", "member_name", "party_name", "constituency", "house"},
     "identity_attendance": {"member_name", "party_name", "constituency", "is_minister", "year"},
     "att_all_years": {"year", "attended_count", "is_minister"},
-    "question_feed": {"question_date", "question_type", "ministry", "topic", "question_text",
-                      "question_ref", "oireachtas_url"},
-    "debate_sections": {"debate_date", "debate_section_id", "chamber", "topic",
-                        "question_count", "oireachtas_url"},
+    "question_feed": {
+        "question_date",
+        "question_type",
+        "ministry",
+        "topic",
+        "question_text",
+        "question_ref",
+        "oireachtas_url",
+    },
+    "debate_sections": {"debate_date", "debate_section_id", "chamber", "topic", "question_count", "oireachtas_url"},
 }
 
 

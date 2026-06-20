@@ -75,10 +75,14 @@ def _acq_type(text: pl.Expr) -> pl.Expr:
     branch first). 'road_land' before 'land_general'; 'cpo' is an explicit compulsory-purchase flag."""
     t = text.str.to_lowercase()
     return (
-        pl.when(t.str.contains("dwelling")).then(pl.lit("dwelling"))
-        .when(t.str.contains("land bank|land-bank")).then(pl.lit("land_bank"))
-        .when(t.str.contains("roadwidening|road works|for road|new road")).then(pl.lit("road_land"))
-        .when(t.str.contains("cpo|compulsory")).then(pl.lit("cpo"))
+        pl.when(t.str.contains("dwelling"))
+        .then(pl.lit("dwelling"))
+        .when(t.str.contains("land bank|land-bank"))
+        .then(pl.lit("land_bank"))
+        .when(t.str.contains("roadwidening|road works|for road|new road"))
+        .then(pl.lit("road_land"))
+        .when(t.str.contains("cpo|compulsory"))
+        .then(pl.lit("cpo"))
         .otherwise(pl.lit("land_general"))
     )
 
@@ -173,8 +177,13 @@ def main() -> None:
     OUT_COV.write_text(json.dumps(cov, indent=2))
     LOG.info("wrote %d cells -> %s", agg.height, OUT)
     LOG.info("coverage -> %s", OUT_COV)
-    LOG.info("total compensation €%.1fm across %d bodies, %d–%d",
-             cov["total_compensation_eur"] / 1e6, cov["n_acquiring_bodies"], cov["year_min"], cov["year_max"])
+    LOG.info(
+        "total compensation €%.1fm across %d bodies, %d–%d",
+        cov["total_compensation_eur"] / 1e6,
+        cov["n_acquiring_bodies"],
+        cov["year_min"],
+        cov["year_max"],
+    )
 
 
 if __name__ == "__main__":

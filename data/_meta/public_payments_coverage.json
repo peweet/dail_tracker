@@ -1,24 +1,24 @@
 {
-  "publishers_attempted": 42,
-  "publishers_with_rows": 39,
-  "rows_extracted": 84002,
-  "rows_deduped_within_file": 30,
-  "rows_public_display": 66256,
-  "rows_review_personal_data": 17746,
-  "rows_quarantined": 17746,
+  "publishers_attempted": 44,
+  "publishers_with_rows": 41,
+  "rows_extracted": 85602,
+  "rows_deduped_within_file": 35,
+  "rows_public_display": 67330,
+  "rows_review_personal_data": 18272,
+  "rows_quarantined": 18272,
   "supplier_class_counts": {
-    "company": 57303,
-    "unknown": 5141,
-    "public_body": 3095,
-    "sole_trader_or_individual": 17746,
-    "foreign_company": 717
+    "foreign_company": 717,
+    "unknown": 5180,
+    "public_body": 3111,
+    "company": 58322,
+    "sole_trader_or_individual": 18272
   },
   "amount_semantics_counts": {
-    "po_committed": 38732,
-    "payment_actual": 45270
+    "payment_actual": 45270,
+    "po_committed": 40332
   },
-  "value_safe_to_sum_rows": 73316,
-  "value_safe_to_sum_total_eur": 13819793557.59598,
+  "value_safe_to_sum_rows": 74856,
+  "value_safe_to_sum_total_eur": 13948980819.835978,
   "by_publisher": [
     {
       "id": "ie_opw",
@@ -523,11 +523,35 @@
       "rows": 777,
       "amount_semantics": "po_committed",
       "privacy_risk": "medium"
+    },
+    {
+      "id": "ie_lmetb",
+      "name": "Louth & Meath ETB",
+      "tier": "D",
+      "files_seen": 9,
+      "files_parsed": 9,
+      "files_skipped": 0,
+      "files_with_rows": 9,
+      "rows": 663,
+      "amount_semantics": "payment_actual",
+      "privacy_risk": "medium"
+    },
+    {
+      "id": "ie_loetb",
+      "name": "Laois & Offaly ETB",
+      "tier": "D",
+      "files_seen": 52,
+      "files_parsed": 52,
+      "files_skipped": 0,
+      "files_with_rows": 41,
+      "rows": 1635,
+      "amount_semantics": "po_committed",
+      "privacy_risk": "medium"
     }
   ],
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-19T18:03:54+00:00",
+  "generated_at": "2026-06-20T08:00:57+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }

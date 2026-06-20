@@ -26,8 +26,8 @@ def _live():
 def test_terrain_galway_city_is_low_and_not_exposed():
     t = _live()
     assert t.ok
-    assert 0 <= t.elevation_m < 40       # Galway city sits near sea level
-    assert t.exposed is False            # flat coastal city, not a prominent hill
+    assert 0 <= t.elevation_m < 40  # Galway city sits near sea level
+    assert t.exposed is False  # flat coastal city, not a prominent hill
     assert t.slope_deg is not None
 
 

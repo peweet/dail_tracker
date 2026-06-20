@@ -3,6 +3,7 @@
 v_member_news_mentions). Pure-logic tests run in CI; the view contract skips if the parquet
 hasn't been built.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -22,8 +23,15 @@ from extractors.news_mentions_extract import (
 ROOT = Path(__file__).resolve().parents[2]
 SILVER = ROOT / "data/silver/parquet/news_mentions.parquet"
 _FETCHED = datetime(2026, 6, 19, 12, 0, tzinfo=UTC)
-_MEMBER = {"unique_member_code": "abc", "full_name": "Helen McEntee", "last_name": "McEntee",
-           "party": "Fine Gael", "constituency_name": "Meath East", "house": "Dail", "is_current": True}
+_MEMBER = {
+    "unique_member_code": "abc",
+    "full_name": "Helen McEntee",
+    "last_name": "McEntee",
+    "party": "Fine Gael",
+    "constituency_name": "Meath East",
+    "house": "Dail",
+    "is_current": True,
+}
 
 _GN_RSS = b"""<?xml version='1.0'?><rss version='2.0'><channel>
 <item><title>Naughton welcomes funding for Galway piers - Galway Advertiser</title>
@@ -60,38 +68,66 @@ def test_parse_gn_items_parse_error_safe():
     assert parse_gn_items(b"<<bad>>") == [] and parse_gn_items(b"") == []
 
 
-@pytest.mark.parametrize("outlet,tier", [
-    ("The Irish Times", "national"), ("RTÉ", "national"), ("Galway Bay FM", "local_radio"),
-    ("Kildare Nationalist", "local_paper"), ("Agriland", "specialist"), ("Mystery Blog", "national"),
-])
+@pytest.mark.parametrize(
+    "outlet,tier",
+    [
+        ("The Irish Times", "national"),
+        ("RTÉ", "national"),
+        ("Galway Bay FM", "local_radio"),
+        ("Kildare Nationalist", "local_paper"),
+        ("Agriland", "specialist"),
+        ("Mystery Blog", "national"),
+    ],
+)
 def test_source_tier(outlet, tier):
     assert source_tier(outlet) == tier
 
 
 def test_rows_match_in_title_and_schema():
-    items = [{"title": "Helen McEntee announces reform", "link": "https://news.google.com/a",
-              "outlet": "RTÉ", "pubDate": "Wed, 18 Jun 2026 09:00:00 GMT"}]
+    items = [
+        {
+            "title": "Helen McEntee announces reform",
+            "link": "https://news.google.com/a",
+            "outlet": "RTÉ",
+            "pubDate": "Wed, 18 Jun 2026 09:00:00 GMT",
+        }
+    ]
     r = rows_for_member(_MEMBER, items, _FETCHED)[0]
     assert r["match_in_title"] is True and r["unique_member_code"] == "abc"
     assert {"article_id", "outlet_tier", "article_url", "published_at", "is_current"}.issubset(r)
 
 
 def test_rows_body_only_kept_and_drift_dropped():
-    body = [{"title": "Minister visits Meath school", "link": "https://news.google.com/b", "outlet": "x", "pubDate": ""}]
+    body = [
+        {"title": "Minister visits Meath school", "link": "https://news.google.com/b", "outlet": "x", "pubDate": ""}
+    ]
     assert rows_for_member(_MEMBER, body, _FETCHED)[0]["match_in_title"] is False
     drift = [{"title": "Unrelated weather story", "link": "", "outlet": "x", "pubDate": ""}]
     assert rows_for_member(_MEMBER, drift, _FETCHED) == []
 
 
 def _row(url, code, fetched):
-    return {"article_id": url[-3:], "unique_member_code": code, "matched_name": code, "party": None,
-            "constituency": None, "house": "Dail", "is_current": True, "outlet": "RTÉ",
-            "outlet_tier": "national", "article_title": "t", "article_url": url,
-            "published_at": _FETCHED.replace(tzinfo=None), "match_in_title": True, "fetched_at": fetched}
+    return {
+        "article_id": url[-3:],
+        "unique_member_code": code,
+        "matched_name": code,
+        "party": None,
+        "constituency": None,
+        "house": "Dail",
+        "is_current": True,
+        "outlet": "RTÉ",
+        "outlet_tier": "national",
+        "article_title": "t",
+        "article_url": url,
+        "published_at": _FETCHED.replace(tzinfo=None),
+        "match_in_title": True,
+        "fetched_at": fetched,
+    }
 
 
 def test_accumulate_dedups_keeping_earliest(tmp_path, monkeypatch):
     import extractors.news_mentions_extract as ext
+
     out = tmp_path / "nm.parquet"
     monkeypatch.setattr(ext, "OUT", out)
     early, late = datetime(2026, 6, 1), datetime(2026, 6, 19)
@@ -110,11 +146,18 @@ def test_view_contract_against_silver():
     import duckdb
 
     from dail_tracker_core.connections import register_member_views
+
     conn = duckdb.connect()
     register_member_views(conn)
     cols = {r[1] for r in conn.execute("PRAGMA table_info('v_member_news_mentions')").fetchall()}
-    assert {"unique_member_code", "article_title", "article_url", "outlet_tier",
-            "published_at", "match_in_title"}.issubset(cols)
+    assert {
+        "unique_member_code",
+        "article_title",
+        "article_url",
+        "outlet_tier",
+        "published_at",
+        "match_in_title",
+    }.issubset(cols)
     n, members = conn.execute(
         "SELECT COUNT(*), COUNT(DISTINCT unique_member_code) FROM v_member_news_mentions"
     ).fetchone()
