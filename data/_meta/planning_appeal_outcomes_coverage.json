@@ -1,13 +1,13 @@
 {
-  "generated_utc": "2026-06-14T17:39:33.465116+00:00",
-  "layer": "sandbox",
+  "generated_utc": "2026-06-20T13:11:46.168828+00:00",
+  "layer": "silver",
   "source": "PC02 ACP Cases_2016_Onwards joined to PC01 applications via AppealRefNumber 6-digit -> ABPCASEID",
-  "acp_cases": 26079,
-  "appeals_joined": 15182,
-  "clear_vs_clear": 13053,
-  "abp_overturned_council": 3442,
-  "overturn_pct": 26.4,
-  "council_grant_to_abp_refuse": 1342,
-  "council_refuse_to_abp_grant": 2100,
+  "acp_cases": 26131,
+  "appeals_joined": 15205,
+  "clear_vs_clear": 13026,
+  "abp_overturned_council": 3425,
+  "overturn_pct": 26.3,
+  "council_grant_to_abp_refuse": 1328,
+  "council_refuse_to_abp_grant": 2097,
   "caveat": "ABP appeals are de novo; overturn = outcome flipped. ACP feed 2016+. Correlation/record, not a quality judgement."
 }

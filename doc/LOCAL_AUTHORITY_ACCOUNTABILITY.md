@@ -31,15 +31,19 @@ performance signals so a citizen can see who runs their county and how it perfor
   councils, no blank name/source, 3 City + 2 City&County + 26 County, all join
   the crosswalk, view builds.
 
-### 2. NOAC collection-rate accountability layer — DONE (scoped)
-- `extractors/noac_collection_rates_extract.py` → sandbox
-  `pipeline_sandbox/_noac_output/noac_collection_rates.parquet` (+ coverage JSON
-  in `data/_meta/`). Parses the three M2 revenue-collection indicators
-  (commercial rates, rent & annuities, housing loans) for 2024: national average
-  + NOAC's own named best/worst councils. 20 rows; joins CE roster with 0 orphans.
-- Framing is firewall-safe: these are **NOAC's published verdicts** (it names the
-  top-3/bottom-3 itself), not our composite score. Per the user's choice:
-  published indicators only, no invented "delinquency score", no editorial label.
+### 2. NOAC collection-rate accountability layer — DONE
+- `v_la_collection_rates` (sql_views/constituency/constituency_la_collection_rates.sql)
+  over **gold `data/gold/parquet/noac_m2_collection_wide.parquet`** — the FULL per-LA
+  M2 grid (31 LAs × 2020–2024; commercial rates, rent & annuities, housing loans),
+  extracted via Camelot by `extractors/noac_collection_rates_extract.py` (PROMOTED
+  2026-06-20: save_parquet, writes by default, fidelity-gated; in pipeline.py). View
+  exposes 2024 rates + national medians (window). Joins CE roster 0 orphans.
+- ⚠️ COURSE-CORRECTION: an earlier sandbox extractor of mine
+  (`noac_collection_rates_extract.py`, best/worst-from-text) was REDUNDANT — the full
+  per-LA table already existed in gold — and was **deleted**. Lesson:
+  [[feedback_check_existing_data_before_pulling]] (grep data/gold for noac_*_wide).
+- Framing is firewall-safe: published values beside the national benchmark, no
+  composite score, no editorial label (the user's choice).
 
 ### 3. Planning overturn rate — DONE
 - `v_la_planning_overturn` (sql_views/constituency/constituency_la_planning_overturn.sql)
@@ -48,7 +52,8 @@ performance signals so a citizen can see who runs their county and how it perfor
   test/sql_views/test_la_planning_overturn.py (skips in CI).
 
 ### 4. Derelict Sites Levy — DONE (the sharpest enforcement signal)
-- Source already existed: `pipeline_sandbox/housing/derelict_sites_levy_extract_experimental.py`
+- `extractors/derelict_sites_levy_extract.py` (PROMOTED 2026-06-20 from sandbox:
+  save_parquet, writes by default, fidelity-gated, --download, in pipeline.py)
   parses the DHLGH 2024 annual-return XLSX (gov.ie, CC-BY; cached at
   doc/source_pdfs/2024_Derelict_Sites_Statistics.xlsx) →
   `data/gold/parquet/derelict_sites_levy_wide.parquet`. Fidelity GREEN: 31 LAs,
@@ -59,19 +64,23 @@ performance signals so a citizen can see who runs their county and how it perfor
   (NULL where nothing levied; can exceed 100% via prior-year arrears) + national
   window totals. Maps "Limerick/Waterford City and County" → bare join key. Joins CE
   roster 0 orphans. Test test/sql_views/test_la_derelict_sites_levy.py (skips in CI).
-- FOLLOW-UP (promotion checkpoint): the extractor is still `_experimental`, writes
-  via bare `write_parquet` (not `save_parquet`), and is 2024-only. Promote = move to
-  extractors/, route through services.parquet_io, add to pipeline, re-fetch each Q2.
+- PROMOTED & WATCHED: extractor in extractors/ + pipeline.py; freshness watch
+  `derelict_sites_levy` (tools/check_freshness.py, 400-day staleness) flags when the
+  cached return ages out. Still 2024-only — re-fetch with --download when DHLGH
+  publishes the next annual return (the watch will go amber to prompt it).
 
-## KEY CONSTRAINT — NOAC ships chart images, not data
-The NOAC Performance Indicator Report (46 indicators, 11 areas, annual since 2014)
-is **PDF-only** — no CSV/Excel/dashboard exists. The full 31-council × 5-year grids
-are drawn as **chart figures**; the text layer holds only the national average and
-NOAC's named highest/lowest councils, plus occasional small exception tables. So a
-complete per-LA/per-indicator parquet is NOT reliably extractable from this source.
-**Do not** attempt to OCR the bar charts (unreliable; local OCR is also banned on
-this box). To get full granular rankings we would need NOAC's underlying data
-(request via info@noac.ie) or a different source.
+## NOAC extraction — what works, what doesn't
+NOAC is **PDF-only** (no CSV/Excel/dashboard). BUT the report contains a mix of real
+data **tables** and chart figures, and **Camelot DOES extract the tables**: the M2
+collection grid and the H-series housing indicators are already pulled to full per-LA
+gold parquets (`data/gold/parquet/noac_m2_collection_wide.parquet`,
+`noac_h{1,2,3,4,6,7}_*_wide.parquet`) by the experimental extractors in
+pipeline_sandbox/housing/ (noac_camelot_extract / noac_collection_wide_extract /
+noac_housing_wide_extract). So per-LA NOAC data for those indicators IS available —
+**check data/gold for `noac_*_wide` before assuming a number is unextractable.**
+The chart-figure limitation only bites for indicators NOT yet run through Camelot;
+the text layer still gives national averages + named best/worst as a fallback. Do
+not OCR bar charts (local OCR banned on this box).
 
 ## Roadmap — more accountability signals (published-indicators framing)
 Ordered by cleanliness of source:
@@ -86,12 +95,25 @@ Ordered by cleanliness of source:
    the text names best/worst (housing voids/re-let, planning enforcement, etc.).
 5. **Local Government Audit Service** — per-council audit findings (PDF set).
 
-## Page plan — "Who runs your county" (NOT yet built)
-Per council: the **named CE + title + salary band + term** (the unelected office),
-a short **reserved-vs-executive explainer** (the educational payload), then a
-**published-indicator panel** beneath — collection rates with the national average
-as the benchmark line, planning overturn rate, council spend — each attributed to
-its source. Wire via the existing constituency/council connection. Follow the
-project's card patterns (no `st.dataframe` on the primary view) and run the
-`shape` / `impeccable` skills before building. Promotion of the NOAC parquet from
-sandbox (tracking + gitignore negation) is a separate data-anchored checkpoint.
+## Page — "Who runs your county" — BUILT
+`utility/pages_code/local_government.py` (`local_government_page`), nav under **Your
+Area** → url_path `local-government`. Stack: page → `data_access/local_government_data.py`
+(reuses the cached `get_constituency_conn`) → `dail_tracker_core/queries/local_government.py`
+→ the registered `v_la_*` views. DISPLAY ONLY (no JOIN/GROUP/derivation on the page).
+- INDEX: hero + national headline strip (`v_la_accountability_summary`: €26.29m
+  uncollected, 9/31 levied €0, 26.4% overturn) + searchable card grid of 31 councils
+  (CE named, "Appointed, not elected") → `?la=` soft-rerun.
+- DOSSIER: CE hero (name, title, "appointed by PAS — not elected", salary band, source
+  ↗) → reserved-vs-executive explainer (two cards) → FOUR performance cards: **Money
+  collected** (NOAC M2), **Social housing management** (NOAC H-series via
+  v_la_housing_performance — vacancy / re-let weeks / upkeep €-per-home / retrofit % /
+  long-term-homeless %), **Derelict sites**, **Planning decisions**. Clean `lg-*`
+  stat-row layout (big value · label · right-aligned "national X ▲/▼"; arrow tinted by
+  direction-of-good, neutral where ambiguous like upkeep). Cork County omits the
+  planning card (source gap).
+- CSS: custom `lg-*` classes in shared_css.py REPLACED the earlier con-grain chips,
+  which squished/overflowed multi-word stats (verified live via Playwright screenshot).
+Tests: test/sql_views/ + test/extractors/ + query layer (~55 council tests, all green).
+FOLLOW-UP: council choropleth (no LA-boundary polygon yet); optional "Council money"
+scale card (v_procurement_council_summary already available); promote NOAC H-series
+extractors out of pipeline_sandbox.

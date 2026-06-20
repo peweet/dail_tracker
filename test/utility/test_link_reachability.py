@@ -83,6 +83,43 @@ _LINK_CONTRACTS = [
         "source": [("v_procurement_supplier_summary", "supplier_norm")],
         "resolver": [("v_procurement_supplier_summary", "supplier_norm")],
     },
+    {
+        # The company dossier links each buyer name (repeat-buyers + top-buyer +
+        # framework call-offs) to /rankings-procurement?authority=<contracting_authority>,
+        # resolved by _render_authority_profile against the authority summary view.
+        "id": "authority_profile_url",
+        "source": [
+            ("v_procurement_incumbency", "contracting_authority"),
+            ("v_procurement_supplier_dependency", "top_authority"),
+        ],
+        "resolver": [("v_procurement_authority_summary", "contracting_authority")],
+    },
+    # ── In-page procurement drill params ────────────────────────────────────────
+    # These are same-domain ?param= filters on the Procurement page (soft-nav), but
+    # the link VALUES come from one view and the router resolves them against another
+    # (a real cross-view risk), so they earn a contract. NOTE: ?ted_winner= is
+    # deliberately NOT contracted here — winner_join_norm in v_procurement_ted_winner_history
+    # is broader than v_procurement_ted_supplier_summary (~4k history rows have no summary
+    # row, e.g. pre-2024 / non-company winners); the precise rendered-link source is a
+    # subset, so a naive whole-history contract would false-fail. Scope + add separately.
+    {
+        # ?cpv= — award rows / category chips → _render_cpv_profile (cpv summary).
+        "id": "cpv_drill",
+        "source": [("v_procurement_awards", "cpv_code")],
+        "resolver": [("v_procurement_cpv_summary", "cpv_code")],
+    },
+    {
+        # ?paid_supplier= — payment rows → _render_payments_supplier_profile (supplier summary).
+        "id": "paid_supplier_drill",
+        "source": [("v_procurement_payments", "supplier_normalised")],
+        "resolver": [("v_procurement_payments_supplier_summary", "supplier_normalised")],
+    },
+    {
+        # ?paid_publisher= — payment rows → _render_payments_publisher_profile (publisher summary).
+        "id": "paid_publisher_drill",
+        "source": [("v_procurement_payments", "publisher_name")],
+        "resolver": [("v_procurement_payments_publisher_summary", "publisher_name")],
+    },
 ]
 
 
@@ -143,6 +180,66 @@ def test_clickable_ids_resolve(conn, contract):
     assert not dead_ends, (
         f"{contract['id']}: {len(dead_ends)} of {len(source_ids)} clickable ids "
         f"do NOT resolve on the target page (dead links).\n"
+        f"  source views:   {source_views}\n"
+        f"  resolver views: {resolver_views}\n"
+        f"  first dead ids: {dead_ends[:10]}"
+    )
+
+
+# ── Constituency → local-government council link ────────────────────────────────
+#
+# council_accountability_url(local_authority) → /local-government?la=<la>, resolved
+# by the local-government page against v_la_chief_executives. These council-grain
+# views live ONLY on the constituency connection (constituency_*.sql is NOT in the
+# api_conn glob set), so this contract needs its own connection, but reuses the same
+# set-based "every clickable id must resolve" check as the api_conn link types above.
+_COUNCIL_LINK = {
+    "id": "council_accountability_url",
+    # Sources: every serving council the constituency dossier surfaces. The council-
+    # context grid + drill-down render the "Who runs this council" link today; the
+    # housing-performance grid names the same councils, so it's included to guard a
+    # future link there — both sets must resolve to a CE dossier.
+    "source": [
+        ("v_constituency_council_context", "local_authority"),
+        ("v_constituency_council_housing_performance", "local_authority"),
+    ],
+    # Resolver: the 31-LA Chief Executive roster the local-government page reads.
+    "resolver": [("v_la_chief_executives", "local_authority")],
+}
+
+
+@pytest.fixture(scope="module")
+def cons_conn():
+    """Constituency connection — hosts the constituency + council-grain LA views that
+    api_conn does not register. Skips cleanly when the data/config isn't on this
+    checkout, mirroring the api_conn fixture."""
+    try:
+        from dail_tracker_core.connections import constituency_conn
+    except Exception as exc:  # noqa: BLE001 — config import side-effects
+        pytest.skip(f"constituency_conn not importable: {exc}")
+    try:
+        return constituency_conn()
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip(f"could not build constituency_conn: {exc}")
+
+
+def test_council_accountability_link_resolves(cons_conn):
+    """Every serving council the constituency page links must resolve to a Chief
+    Executive dossier on the local-government page (NAV graph defect #6 wiring)."""
+    source_ids, source_views = _id_set(cons_conn, _COUNCIL_LINK["source"])
+    resolvable, resolver_views = _id_set(cons_conn, _COUNCIL_LINK["resolver"])
+
+    if not source_views:
+        pytest.skip("council link: no source view present on this checkout")
+    if not resolver_views:
+        pytest.skip("council link: no resolver view present on this checkout")
+    if not source_ids:
+        pytest.skip("council link: source views present but empty (no data)")
+
+    dead_ends = sorted(source_ids - resolvable)
+    assert not dead_ends, (
+        f"council_accountability_url: {len(dead_ends)} of {len(source_ids)} serving "
+        f"councils do NOT resolve on /local-government (dead links).\n"
         f"  source views:   {source_views}\n"
         f"  resolver views: {resolver_views}\n"
         f"  first dead ids: {dead_ends[:10]}"

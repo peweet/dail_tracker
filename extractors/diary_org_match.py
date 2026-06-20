@@ -378,6 +378,14 @@ CURATED_ORGS: dict[str, str] = {
     "linkedin": "LinkedIn",
     "nestle": "Nestlé",
     "boston scientific": "Boston Scientific",
+    # pharma / medtech multinationals that recur but the register misses (added 2026-06-19).
+    # J&J keyed on the FULL form only — bare "johnson" collides with people (Paul Johnson) +
+    # venues (Tom Johnson House). "Analog" deliberately NOT added: its hits are products /
+    # buildings ("Analog Active Learning Device", "Analog Building UL"), not Analog Devices.
+    "astrazeneca": "AstraZeneca",
+    "takeda": "Takeda",
+    "regeneron": "Regeneron",
+    "johnson and johnson": "Johnson & Johnson",
 }
 _CURATED_RE = re.compile(
     r"(?<![a-z0-9])(" + "|".join(sorted(CURATED_ORGS, key=len, reverse=True)) + r")(?![a-z0-9])"
@@ -709,9 +717,14 @@ def main() -> int:
         len(responsible),
     )
 
+    # Match on a URL-STRIPPED subject so a pasted "https://meet.google.com" / "goo.gl/maps"
+    # venue link never false-matches the company (Google/Maps in a URL is not a Google meeting).
+    # The RAW subject is still stored for provenance; the page strips URLs again for display.
+    url_re = re.compile(r"https?://\S+|www\.\S+")
     rows: list[dict] = []
     for r in e.iter_rows(named=True):
-        for m in match_subject(r["subject"], r["minister"], gaz, token_index):
+        subj_for_match = url_re.sub(" ", r["subject"]) if r["subject"] else r["subject"]
+        for m in match_subject(subj_for_match, r["minister"], gaz, token_index):
             rows.append(
                 {
                     "entry_id": r["entry_id"],

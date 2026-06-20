@@ -1,10 +1,10 @@
 import streamlit as st
+from pages_code.accommodation_spend import accommodation_spend_page
 from pages_code.attendance import attendance_page
 from pages_code.committees import committees_page
 from pages_code.company import company_page
 from pages_code.constituency import constituency_page
 from pages_code.corporate import corporate_page
-from pages_code.accommodation_spend import accommodation_spend_page
 from pages_code.council_spending import council_spending_page
 from pages_code.election_2024 import election_2024_page
 from pages_code.glossary import glossary_page
@@ -12,8 +12,9 @@ from pages_code.housing import housing_page
 from pages_code.judiciary import judiciary_page
 from pages_code.legislation import legislation_page
 from pages_code.lobbying_3 import lobbying_poc_page
-from pages_code.ministerial_diaries import ministerial_diaries_page
+from pages_code.local_government import local_government_page
 from pages_code.member_overview import member_overview_page
+from pages_code.ministerial_diaries import ministerial_diaries_page
 from pages_code.payments import payments_page
 from pages_code.procurement import procurement_page
 from pages_code.public_appointments import public_appointments_page
@@ -120,6 +121,12 @@ pg = st.navigation(
                 title="Constituencies",
                 icon=":material/map:",
                 url_path="constituencies",
+            ),
+            st.Page(
+                local_government_page,
+                title="Who Runs Your County",
+                icon=":material/account_balance:",
+                url_path="local-government",
             ),
             st.Page(
                 housing_page,
@@ -241,6 +248,12 @@ pg = st.navigation(
         ],
         "Influence": [
             st.Page(lobbying_poc_page, title="Lobbying", icon=":material/groups:", url_path="rankings-lobbying"),
+            st.Page(
+                ministerial_diaries_page,
+                title="Who Ministers Meet",
+                icon=":material/event_note:",
+                url_path="rankings-ministerial-diaries",
+            ),
             st.Page(
                 public_appointments_page,
                 title="Appointments",

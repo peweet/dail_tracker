@@ -52,6 +52,7 @@ from ui.components import (
 from ui.entity_links import (
     PAGES,
     api_json_link,
+    bill_detail_url,
     member_profile_url,
     oireachtas_profile_url,
     si_detail_url,
@@ -474,11 +475,25 @@ def _section_legislation(conn, join_key: str, member_name: str) -> None:
         )
         if url in ("nan", "None"):
             url = ""
+        bill_id = str(row.get("bill_id", "") or "")
         url_html = source_link_html(
             url,
             "Oireachtas.ie",
             aria_label="Open this bill on oireachtas.ie",
         )
+        # Cross-page jump into the bill detail panel — adds the legislation
+        # page's stages, amendment intensity and SIs made under it. Mirrors the
+        # SI section below. NOTE: the reciprocal bill->sponsor(member) edge does
+        # NOT yet exist (verified absent 2026-06-20), so this is currently a
+        # one-way edge; closing the loop needs defect #8 (bill sponsor -> member).
+        bill_page_html = (
+            f'<a class="dt-source-link" href="{_h(bill_detail_url(bill_id))}" '
+            f'target="_self" aria-label="Open this bill on /rankings-legislation">'
+            f"Full bill detail</a>"
+            if bill_id and bill_id not in ("nan", "None")
+            else ""
+        )
+        links_html = " &nbsp;·&nbsp; ".join(p for p in (url_html, bill_page_html) if p)
         st.html(
             f'<div class="leg-bill-card mo-bill-card">'
             f'<div class="leg-bill-card-header">'
@@ -486,7 +501,7 @@ def _section_legislation(conn, join_key: str, member_name: str) -> None:
             f'<span class="signal {status_css}">{_h(status)}</span>'
             f"</div>"
             f'<div class="leg-bill-card-title">{_h(title)}</div>'
-            f'<div class="mo-bill-card-link-row">{url_html}</div>'
+            f'<div class="mo-bill-card-link-row">{links_html}</div>'
             f"</div>"
         )
 

@@ -58,7 +58,7 @@ from ui.components import (
     pagination_controls,
     text_search_mask,
 )
-from ui.entity_links import source_link_html
+from ui.entity_links import company_profile_url, entity_cta_html, source_link_html
 
 # Shared council audited-accounts (AFS by-division) context block. Cross-page
 # import mirrors member_overview → lobbying_3; the renderer and its fetches are
@@ -380,6 +380,19 @@ def _render_supplier_profile(supplier_norm: str) -> None:
         title=name,
         dek=f"{len(df):,} payment / purchase-order lines from {n_pub:,} public "
         f"bod{'ies' if n_pub != 1 else 'y'}. {safe_total} in sum-safe value.",
+    )
+    # Contextual edge into the canonical company dossier — the same firm's
+    # eTenders/TED awards, lobbying co-occurrence and CRO status, which this
+    # payments-only view doesn't carry. Closes the Public-Payments → Company
+    # cul-de-sac (the supplier_norm param resolves directly on /company). The
+    # dossier degrades gracefully for a body with no award/CRO footprint.
+    st.html(
+        '<div style="margin:-0.25rem 0 1rem">'
+        + entity_cta_html(
+            company_profile_url(supplier_norm),
+            "View full company dossier — awards, lobbying & CRO →",
+        )
+        + "</div>"
     )
     st.caption(
         "Across all publishers, highest-value first. A line is a purchase order or payment record, "

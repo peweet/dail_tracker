@@ -249,7 +249,7 @@ def lobbying_rd(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
 def legislation(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
     return _run(
         conn,
-        "SELECT bill_title, bill_status, bill_year, oireachtas_url"
+        "SELECT bill_id, bill_title, bill_status, bill_year, oireachtas_url"
         " FROM v_legislation_index"
         " WHERE sponsor_join_key = ?"
         " ORDER BY introduced_date DESC NULLS LAST LIMIT 50",

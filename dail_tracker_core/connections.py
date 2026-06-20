@@ -224,6 +224,7 @@ CONSTITUENCY_FILES = [
     "constituency_ssha_waiting_list.sql",
     "constituency_waiting_composition.sql",  # JOINs v_ssha_waiting_list_composition (registered below)
     "constituency_council_housing_performance.sql",
+    "constituency_la_housing_performance.sql",  # council-grain DISTINCT of the above (for the LG page)
     "constituency_council_context.sql",
 ]
 

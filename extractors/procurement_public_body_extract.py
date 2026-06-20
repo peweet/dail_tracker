@@ -61,6 +61,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from shared.name_norm import name_norm_expr  # noqa: E402
+from shared.text_encoding import decode_table_bytes  # noqa: E402
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research probe)"}
 TMP = Path("c:/tmp/procurement_publishers")
@@ -1257,13 +1258,15 @@ def read_csv(b: bytes):
     # "Reference,Payee Name,Tran Value,Description,Paid Y/N". polars' default has_header=True takes
     # the title as the header and the real columns get lost. Read header-less and reuse the shared
     # title-skipping header detector (same as xlsx/xls).
+    # Decode cp1252/UTF-8 robustly BEFORE Polars sees it (see shared.text_encoding): the old
+    # encoding="utf8-lossy" turned every cp1252 '€'/fada/apostrophe into '�' (e.g. TII
+    # "Éamonn Conlon SC", "Signs Programme – works"). Hand Polars clean UTF-8.
     df = pl.read_csv(
-        io.BytesIO(b),
+        io.BytesIO(decode_table_bytes(b).encode("utf-8")),
         has_header=False,
         infer_schema_length=0,
         truncate_ragged_lines=True,
         ignore_errors=True,
-        encoding="utf8-lossy",
     )
     raw = [list(r) for r in df.iter_rows()]
     return _tabular_from_raw(raw)
