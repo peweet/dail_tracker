@@ -61,6 +61,15 @@ OUT_FACT = ROOT / "data/silver/parquet/nphdb_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/nphdb_payments_coverage.json"
 PARSER_VERSION = "0.1.0"
 
+# Min-rows floor for the FULL-registry harvest. The corpus is ~650 rows across 4
+# files; the two backfill listings (2020-23 + 2024-25) alone are ~540, so a healthy
+# full parse can never fall this low. A value under it means the money-line anchor
+# collapsed on most files (a rotated-PDF relayout that still matched a few stray
+# lines, slipping past the zero-row guard below) — refuse to clobber the good fact.
+# The ad-hoc single-file --pdf path legitimately writes one file's rows, so it skips
+# the floor; force a deliberate small full write with DAIL_SKIP_ROW_FLOOR=1.
+FULL_HARVEST_MIN_ROWS = 250
+
 LISTING_URL = "https://newchildrenshospital.ie/freedom-of-information/procurement/"
 
 # Caveat carried by the file that holds the BAM conciliator/adjudicator AWARD rows (the
@@ -124,6 +133,11 @@ OVERALL_SPAN = "2020-Q1..2025-Q4"
 
 MONEY_LINE = re.compile(r"^\s*\d{1,3}(?:,\d{3})*\.\d{2}\s*$")
 HEADER_LINES = {"supplier", "net amount", "description", "net", "amount"}
+# Per-page quarter banner in the multi-quarter rotated listings ("Q1 2024 Purchase Orders
+# Listings for Purchase Orders exceeding €20k"), printed once per page. Matched up to "Listings"
+# so the trailing "€20k"/spacing noise can't break it, and so it can't catch a "Q4 Public
+# Relations" description line. Lets each row carry its own quarter instead of the file's span.
+_QSECTION = re.compile(r"Q([1-4])\s+(20\d{2})\s+Purchase Orders Listings", re.IGNORECASE)
 
 
 def _tokens_with_pages(doc) -> list[tuple[str, int]]:
@@ -140,8 +154,25 @@ def _tokens_with_pages(doc) -> list[tuple[str, int]]:
 
 def parse_records(doc) -> list[dict]:
     """Reading-order parse: each money line is a record anchor. Supplier = preceding token;
-    description = tokens between the money line and the next record's supplier."""
-    toks = _tokens_with_pages(doc)
+    description = tokens between the money line and the next record's supplier.
+
+    Multi-quarter rotated listings (e.g. the 2024-Q1..2025-Q2 file) print a "Qn YYYY Purchase
+    Orders Listings" banner once per page, so each record carries its OWN year+quarter keyed off
+    the page it sits on. Single-quarter files have no banner → year/quarter stay None and
+    build_rows falls back to the file spec."""
+    # Page -> (year, quarter) from the per-page banner; (None, None) where a page has none.
+    page_yq: dict[int, tuple[int | None, int | None]] = {}
+    for p in range(doc.page_count):
+        yq: tuple[int | None, int | None] = (None, None)
+        for ln in doc[p].get_text().splitlines():
+            m = _QSECTION.search(ln)
+            if m:
+                yq = (int(m.group(2)), int(m.group(1)))
+                break
+        page_yq[p + 1] = yq
+
+    # Drop the banner from the token stream so it can't pose as a supplier or bleed into a desc.
+    toks = [(s, pg) for s, pg in _tokens_with_pages(doc) if not _QSECTION.search(s)]
     lines = [t for t, _ in toks]
     money_idx = [i for i, t in enumerate(lines) if MONEY_LINE.match(t)]
     recs: list[dict] = []
@@ -155,13 +186,18 @@ def parse_records(doc) -> list[dict]:
         else:
             desc = " ".join(lines[j + 1 :])  # last record runs to EOF
         amount = float(lines[j].replace(",", ""))
+        page = toks[j][1]
+        year, quarter = page_yq.get(page, (None, None))
         recs.append(
             {
                 "supplier_raw": supplier,
                 "amount_eur": amount,
                 "description": desc or None,
+                "period": f"{year}-Q{quarter}" if year else None,
+                "year": year,
+                "quarter": quarter,
                 "source_row_number": k,
-                "source_page_number": toks[j][1],
+                "source_page_number": page,
             }
         )
     return recs
@@ -365,7 +401,8 @@ def main() -> None:
     ]
     df = df.select([c for c in SCHEMA_COLS if c in df.columns])
 
-    save_parquet(df, OUT_FACT)
+    # Floor only the full-registry harvest; a single-file --pdf run is legitimately partial.
+    save_parquet(df, OUT_FACT, min_rows=None if args.pdf else FULL_HARVEST_MIN_ROWS)
 
     total = float(df["amount_eur"].sum() or 0)
     mx = float(df["amount_eur"].max() or 0)
