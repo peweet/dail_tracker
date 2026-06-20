@@ -76,8 +76,9 @@ PAGES: dict[str, str] = {
     "legislation": "rankings-legislation",
     "statutory_instruments": "rankings-statutory-instruments",
     "committees": "rankings-committees",
-    # /company is the supplier dossier (entity-first flagship, hidden from the nav
-    # bar like Home) — the canonical URL for one firm's public-money footprint.
+    "corporate": "rankings-corporate",
+    # /company is the supplier dossier (entity-first flagship, now a visible
+    # "Companies" tab) — the canonical URL for one firm's public-money footprint.
     "company": "company",
 }
 
@@ -131,6 +132,16 @@ def company_profile_url(supplier_norm: str) -> str:
     views (shared/name_norm form), NOT the display name.
     """
     return f"/{PAGES['company']}?supplier={_q(supplier_norm)}"
+
+
+def corporate_notices_url(query: str | None = None) -> str:
+    """Corporate Notices page URL: /rankings-corporate, optionally pre-filtered to a
+    firm's notices via ``?q=`` (the page reads ``q`` into its search box). Pass a
+    company name to land the user on that firm's notices in the dense notices browser
+    — the single home of per-notice detail (the company dossier only summarises +
+    links here, so notice rendering never diverges across two pages)."""
+    base = f"/{PAGES['corporate']}"
+    return f"{base}?q={_q(query)}" if query else base
 
 
 # ── External profile builders ─────────────────────────────────────────────────

@@ -16,7 +16,7 @@
       ]
     },
     "bilateral_relationships.parquet": {
-      "rows": 68091,
+      "rows": 68063,
       "columns": [
         "lobbyist_name",
         "full_name",
@@ -416,6 +416,19 @@
         "VALUE"
       ]
     },
+    "cso_ndq09.parquet": {
+      "rows": 9519,
+      "columns": [
+        "STATISTIC",
+        "Statistic Label",
+        "TLIST(Q1)",
+        "Quarter",
+        "C03898V04649",
+        "Local Electoral Area",
+        "UNIT",
+        "VALUE"
+      ]
+    },
     "cso_pea01.parquet": {
       "rows": 6156,
       "columns": [
@@ -501,7 +514,7 @@
       ]
     },
     "current_dail_vote_history.parquet": {
-      "rows": 228388,
+      "rows": 230331,
       "columns": [
         "unique_member_code",
         "vote_outcome",
@@ -523,7 +536,7 @@
       ]
     },
     "current_seanad_vote_history.parquet": {
-      "rows": 42333,
+      "rows": 42520,
       "columns": [
         "unique_member_code",
         "vote_outcome",
@@ -567,7 +580,7 @@
       ]
     },
     "debate_summary.parquet": {
-      "rows": 878,
+      "rows": 885,
       "columns": [
         "debate_title",
         "divisions",
@@ -585,6 +598,20 @@
         "lobbyist_name",
         "delivery",
         "delivery_count"
+      ]
+    },
+    "derelict_sites_levy_wide.parquet": {
+      "rows": 31,
+      "columns": [
+        "la",
+        "year",
+        "notices_issued",
+        "sites_on_register_end",
+        "sites_levied",
+        "amount_levied_eur",
+        "amount_received_levied_eur",
+        "total_received_eur",
+        "cumulative_outstanding_eur"
       ]
     },
     "distinct_orgs_per_politician.parquet": {
@@ -607,6 +634,25 @@
         "td_seats_2024",
         "boundaries_label",
         "source_key"
+      ]
+    },
+    "epa_supplier_compliance.parquet": {
+      "rows": 667,
+      "columns": [
+        "company_num",
+        "licence_classes",
+        "licence_statuses",
+        "any_active_licence",
+        "is_public_body",
+        "uww_priority_site",
+        "enforcement_crawled",
+        "last_record_date",
+        "n_licences",
+        "n_enforcement_events",
+        "n_incident",
+        "n_complaint",
+        "n_non_compliance",
+        "n_open"
       ]
     },
     "grassroots_campaigns.parquet": {
@@ -651,7 +697,7 @@
       ]
     },
     "judicial_legal_diary_cases.parquet": {
-      "rows": 5232,
+      "rows": 6368,
       "columns": [
         "diary_date",
         "court",
@@ -669,7 +715,7 @@
       ]
     },
     "judicial_legal_diary_counts.parquet": {
-      "rows": 529,
+      "rows": 624,
       "columns": [
         "diary_date",
         "court",
@@ -714,7 +760,7 @@
       ]
     },
     "judicial_legal_diary_schedule.parquet": {
-      "rows": 902,
+      "rows": 1096,
       "columns": [
         "diary_date",
         "court",
@@ -814,7 +860,7 @@
       ]
     },
     "judiciary_diary_judge_map.parquet": {
-      "rows": 9707,
+      "rows": 9709,
       "columns": [
         "judge",
         "court",
@@ -870,6 +916,74 @@
         "lobby_returns_targeting",
         "distinct_orgs",
         "total_returns"
+      ]
+    },
+    "noac_h1_stock_wide.parquet": {
+      "rows": 31,
+      "columns": [
+        "la",
+        "year",
+        "dwellings_la_ownership_01_01_2024_count",
+        "dwellings_added_la_owned_stock_2024_count",
+        "la_owned_dwellings_sold_2024_count",
+        "la_owned_dwellings_demolished_2024_count",
+        "dwellings_la_ownership_31_12_2024_count",
+        "la_owned_dwellings_planned_for_demolition_count"
+      ]
+    },
+    "noac_h2_vacancies_wide.parquet": {
+      "rows": 31,
+      "columns": [
+        "la",
+        "year",
+        "percentage_la_owned_dwellings_vacant_on_pct"
+      ]
+    },
+    "noac_h3_reletting_wide.parquet": {
+      "rows": 31,
+      "columns": [
+        "la",
+        "year",
+        "average_re_letting_time_vacation_re_weeks",
+        "average_cost_getting_re_tenanted_dwellings_eur"
+      ]
+    },
+    "noac_h4_maintenance_wide.parquet": {
+      "rows": 31,
+      "columns": [
+        "la",
+        "year",
+        "maintenance_expenditure_2024_per_dwelling_h1e_eur"
+      ]
+    },
+    "noac_h6_homeless_wide.parquet": {
+      "rows": 31,
+      "columns": [
+        "la",
+        "year",
+        "long_term_homeless_adults_as_pct_pct"
+      ]
+    },
+    "noac_h7_retrofit_wide.parquet": {
+      "rows": 31,
+      "columns": [
+        "la",
+        "year",
+        "houses_retrofitted_01_01_2024_31_count",
+        "retrofitted_houses_achieving_ber_b2_or_count",
+        "heat_pumps_installed_retrofitted_houses_count",
+        "total_annual_energy_savings_mwh_from_mwh",
+        "total_carbon_emission_reduction_tco2_from_tco2"
+      ]
+    },
+    "noac_m2_collection_wide.parquet": {
+      "rows": 155,
+      "columns": [
+        "la",
+        "year",
+        "commercial_rates_collection_pct",
+        "rent_annuities_collection_pct",
+        "housing_loans_collection_pct"
       ]
     },
     "party_vote_breakdown.parquet": {
@@ -989,7 +1103,7 @@
       ]
     },
     "procurement_payments_fact.parquet": {
-      "rows": 150949,
+      "rows": 219713,
       "columns": [
         "publisher_id",
         "publisher_name",
@@ -1023,6 +1137,11 @@
         "value_kind",
         "realisation_tier",
         "vat_status",
+        "disclosure_basis",
+        "disclosure_threshold_eur",
+        "threshold_vat",
+        "body_procurement_class",
+        "regime_note",
         "cro_company_num",
         "cro_company_status",
         "spend_category"
@@ -1418,6 +1537,145 @@
         "year"
       ]
     },
+    "ssha_a1_1_age_wide.parquet": {
+      "rows": 62,
+      "columns": [
+        "la",
+        "year",
+        "less_than_25_years_old",
+        "25_29_years_old",
+        "30_39_years_old",
+        "40_49_years_old",
+        "50_59_years_old",
+        "60_69_years_old",
+        "70_years_old_or_more",
+        "total"
+      ]
+    },
+    "ssha_a1_2_employment_wide.parquet": {
+      "rows": 62,
+      "columns": [
+        "la",
+        "year",
+        "unemployed_and_in_receipt_of_social_community_welfare_benefit",
+        "employed_full_part_self",
+        "other",
+        "one_parent_family_support_only",
+        "pensioner_retired",
+        "homemaker_no_income",
+        "training_back_to_work_solas_scheme",
+        "total"
+      ]
+    },
+    "ssha_a1_3_income_wide.parquet": {
+      "rows": 62,
+      "columns": [
+        "la",
+        "year",
+        "social_welfare_only",
+        "employment_only",
+        "other",
+        "combination_of_employment_and_social_welfare",
+        "total"
+      ]
+    },
+    "ssha_a1_4_household_size_wide.parquet": {
+      "rows": 62,
+      "columns": [
+        "la",
+        "year",
+        "1_adult",
+        "1_adult_1_2_children",
+        "couple_1_2_children",
+        "couple",
+        "1_adult_3_or_more_children",
+        "couple_3_or_more_children",
+        "2_adults",
+        "2_adults_with_children",
+        "couple_1_or_more_adults_1_2_children",
+        "couple_with_1_or_more_other_adults",
+        "3_or_more_adults",
+        "3_or_more_adults_with_children",
+        "couple_1_or_more_adults_3_or_more_children",
+        "total"
+      ]
+    },
+    "ssha_a1_5_main_need_wide.parquet": {
+      "rows": 62,
+      "columns": [
+        "la",
+        "year",
+        "unsuitable_particular_household_circumstance",
+        "requires_rent_supplement",
+        "requirement_for_separate_accommodation",
+        "homeless_institution_emergency_accommodation",
+        "overcrowded_accommodation",
+        "intellectual_disability",
+        "physical_disability",
+        "mental_health_disability",
+        "unfit_accommodation",
+        "unsustainable_mortgage",
+        "sensory_disability",
+        "medical_or_compassionate_grounds",
+        "other_form_of_disability",
+        "total"
+      ]
+    },
+    "ssha_a1_6_accom_req_wide.parquet": {
+      "rows": 62,
+      "columns": [
+        "la",
+        "year",
+        "no_specific_accommodation_requirement",
+        "household_member_s_is_homeless",
+        "physical_sensory_mental_or_intellectual_impairment",
+        "household_member_s_is_aged_65_years_or_more",
+        "household_member_s_is_a_traveller",
+        "total"
+      ]
+    },
+    "ssha_a1_7_tenure_wide.parquet": {
+      "rows": 62,
+      "columns": [
+        "la",
+        "year",
+        "private_rented_accommodation_with_and_without_rent_supplement",
+        "living_with_parents",
+        "living_with_relatives_friends",
+        "emergency_accommodation_none",
+        "other",
+        "owner_occupier",
+        "total"
+      ]
+    },
+    "ssha_a1_8_time_on_list_wide.parquet": {
+      "rows": 62,
+      "columns": [
+        "la",
+        "year",
+        "less_than_6_months",
+        "6_12_months",
+        "1_2_years",
+        "2_3_years",
+        "3_4_years",
+        "4_5_years",
+        "5_7_years",
+        "more_than_7_years",
+        "total"
+      ]
+    },
+    "ssha_a1_9_citizenship_wide.parquet": {
+      "rows": 62,
+      "columns": [
+        "la",
+        "year",
+        "irish_citizen",
+        "eea_citizen",
+        "non_eea_citizen",
+        "uk_citizen",
+        "total"
+      ]
+    },
     "stateboards_roster.parquet": {
       "rows": 2070,
       "columns": [
@@ -1484,7 +1742,7 @@
       ]
     },
     "top_client_companies.parquet": {
-      "rows": 1990,
+      "rows": 1988,
       "columns": [
         "client_name",
         "return_count",

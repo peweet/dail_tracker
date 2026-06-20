@@ -61,6 +61,7 @@ from ui.components import (
     pagination_controls,
     text_search_mask,
 )
+from ui.entity_links import corporate_notices_url
 
 _LAND_PAGE = 24  # landing cards per page (multiple of 3 for the pr-grid)
 
@@ -132,9 +133,20 @@ def _render_corporate_distress_panel(company_num) -> None:
         "changes) — a firm may appear as the <em>subject</em> of a notice or as a named "
         "practitioner, so this is a public record, not a finding of wrongdoing."
     )
+    # Deep-link into the Corporate Notices page (per-notice detail lives there, not here —
+    # one home for notice rendering). Search by the firm's own notice entity_name (the exact
+    # text that page searches on) so the link reliably lands on these notices.
+    name_mode = df["entity_name"].dropna().astype(str)
+    search_name = name_mode.mode().iloc[0] if not name_mode.empty else ""
+    notices_link = (
+        f'<a href="{_esc(corporate_notices_url(search_name))}" target="_self">'
+        "See all corporate notices for this firm ↗</a>"
+        if search_name
+        else ""
+    )
     st.html(
         '<div class="pr-ted-xref"><div class="pr-ted-xref-h">Corporate register notices (CRO / Iris Oifigiúil)</div>'
-        f'<div class="pr-ted-xref-b">{body} '
+        f'<div class="pr-ted-xref-b">{body} {notices_link} '
         '<a href="https://core.cro.ie/search" target="_blank" rel="noopener">'
         "Check the CRO register ↗</a></div></div>"
     )

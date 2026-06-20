@@ -58,6 +58,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "extractors"))
 from _publisher_regime import regime_for  # noqa: E402
 
+from services.data_contracts import guard_payment_fact, reconciliation_violations  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
 
@@ -68,6 +69,11 @@ SILVER = ROOT / "data/silver/parquet"
 CRO = ROOT / "data/silver/cro/companies.parquet"
 OUT = ROOT / "data/gold/parquet/procurement_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/procurement_payments_fact_coverage.json"
+# Row floor for the consolidated gold fact (219,713 rows 2026-06-20). Consolidate
+# unions the upstream silver facts; if one came in truncated (its own floor was
+# bypassed, or a non-floored source emptied), gold should not be rebuilt smaller.
+# ~30% headroom; force a deliberate small rebuild with DAIL_SKIP_ROW_FLOOR=1.
+MIN_FACT_ROWS = 150_000
 # Hand-curated supplier-class overrides (firms/foreign/semi-states the regex+CRO can't resolve).
 # Only sum-neutral classes (company/foreign_company); transfer bodies live in a separate review CSV.
 CLASS_OVERRIDES = ROOT / "data/_meta/procurement_supplier_class_overrides.csv"
@@ -190,6 +196,20 @@ def _clean_supplier_names(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
+# Per-source (publisher set, rows, summed €) captured at LOAD time, so the consolidation
+# can AUDIT (reconcile) its own output before publishing — see _reconcile() in main().
+# {source_label: {"publishers": frozenset, "rows": int, "eur": float}}
+_SOURCE_STATS: dict[str, dict] = {}
+
+
+def _capture_stats(label: str, df: pl.DataFrame) -> None:
+    _SOURCE_STATS[label] = {
+        "publishers": frozenset(df["publisher_id"].unique().to_list()),
+        "rows": df.height,
+        "eur": float(df["amount_eur"].sum() or 0.0),
+    }
+
+
 def _load_facts() -> pl.DataFrame:
     frames: list[pl.DataFrame] = []
     base_cols: set[str] | None = None
@@ -204,6 +224,7 @@ def _load_facts() -> pl.DataFrame:
         elif set(df.columns) != base_cols:
             raise SystemExit(f"schema drift in {fname}: +{set(df.columns) - base_cols} -{base_cols - set(df.columns)}")
         frames.append(df)
+        _capture_stats(fname, df)
         print(f"  + {fname:38} {df.height:>7,} rows")
     if not frames:
         raise SystemExit("no payment facts found under data/silver/parquet/")
@@ -239,6 +260,10 @@ def _load_la_fact(base: pl.DataFrame) -> pl.DataFrame | None:
     if missing:
         raise SystemExit(f"LA fact cannot conform — missing base columns: {sorted(missing)}")
     la = la.select(base.columns).cast(dict(base.schema))
+    # Capture BEFORE the carry-forward append, keyed by the silver LA publisher set — the
+    # carried rows belong to a council ABSENT from silver, so reconciling gold by this set is
+    # exact and needs no carry-forward fudge (the carried rows are verbatim copies anyway).
+    _capture_stats("la_payments_fact.parquet", la)
     print(f"  + la_payments_fact.parquet (silver)    {n:>7,} rows  [{n_la} local authorities]")
     # Listing-rot guard: a council whose site newly blocks the harvester (bot-wall, moved
     # listing) must not vanish from gold — its published over-€20k disclosures are immutable
@@ -666,6 +691,34 @@ def main() -> None:
     df = _derive_spend_category(df)
     df = _surface_sole_trader_contractors(df)
 
+    # AUDIT (write-audit-publish): this fold maps silver→gold WITHOUT re-parsing, so every
+    # source's rows and € MUST survive exactly. Reconcile the output against the per-source
+    # totals captured at load time, keyed by each source's (disjoint) publisher set. A non-zero
+    # unexplained delta means a concat/dedup/join bug dropped or duplicated rows — the silent
+    # partial-data failure the >50% row-count baseline can't see. Halt before publishing.
+    actual = {
+        label: (
+            df.filter(pl.col("publisher_id").is_in(list(stats["publishers"]))).height,
+            float(df.filter(pl.col("publisher_id").is_in(list(stats["publishers"])))["amount_eur"].sum() or 0.0),
+        )
+        for label, stats in _SOURCE_STATS.items()
+    }
+    expected = {label: (stats["rows"], stats["eur"]) for label, stats in _SOURCE_STATS.items()}
+    recon = reconciliation_violations(expected, actual)
+    if recon:
+        raise SystemExit("RECONCILIATION FAILED — gold does not preserve the source facts:\n  " + "\n  ".join(recon))
+    print(f"  reconciled {len(expected)} source facts: rows + € preserved exactly")
+
+    # DATA CONTRACT (runtime drift gate, see services/data_contracts.py): this is the last
+    # common chokepoint before gold, so it is where we refuse to ship drift. Any closed-vocab
+    # classification column carrying an unrecognised value (a new amount_semantics the map left
+    # as value_kind='unknown', a supplier_class the parsers never emit, …) HALTS the run; the
+    # offending rows — plus the known paid_flag column-misalignment leakage — are written to
+    # data/_meta/quarantine/ for investigation either way. It also re-asserts the cross-column
+    # invariants (no summable public-body transfer, CRO⇒company, privacy …). hard=True so a
+    # green run guarantees a classified, internally-consistent fact.
+    guard_payment_fact(df, name="procurement_payments_fact", hard=True)
+
     # PRIVACY INVARIANT (runtime, -O-proof): mirrors procurement_public_body_extract.py —
     # refuse to write gold if any likely-person row is left displayable.
     leaked = df.filter(
@@ -682,7 +735,7 @@ def main() -> None:
         )
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    save_parquet(df, OUT)
+    save_parquet(df, OUT, min_rows=MIN_FACT_ROWS)
     print(f"\nwrote {df.height:,} rows / {df['publisher_name'].n_unique()} publishers -> {OUT}")
 
     safe = df.filter(pl.col("value_safe_to_sum"))

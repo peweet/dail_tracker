@@ -40,6 +40,24 @@ GOLDEN: list[tuple[str, str]] = [
     ("Working lunch with Tánaiste", "govt_business"),
     ("Meeting with Cabinet colleagues", "govt_business"),
     ("Meeting with Tánaiste and TikTok", "govt_business"),  # label is govt; TikTok still matches downstream
+    ("PreCab (Taoiseach's Meeting Room)", "govt_business"),  # pre-cabinet variants
+    ("Cab Debrief", "govt_business"),
+    # --- oireachtas (noise sweep 2026-06-19) ---
+    ("Leader's Questions", "oireachtas"),  # possessive apostrophe must match
+    ("VOTEABLE", "oireachtas"),
+    ("FG PP", "oireachtas"),  # parliamentary party stays oireachtas (PP), not party-org
+    ("FF PP Thu 16 Feb", "oireachtas"),
+    # --- party (new class 2026-06-19) ---
+    ("FG Front Bench Meeting", "party"),
+    ("Galway West Selection Convention", "party"),
+    ("Addressing the FG Trustees", "party"),
+    ("CORE Group Meeting", "party"),
+    ("Fine Gael", "party"),
+    # --- media: named programmes ---
+    ("Pre-record, Claire Byrne", "media"),
+    ("Hard Shoulder Pre-record", "media"),
+    ("Ireland AM", "media"),
+    ("Meeting today with Aer Lingus", "external_meeting"),  # "today with" must NOT be a show
     # --- oireachtas ---
     ("Leaders Questions", "oireachtas"),
     ("ALL MUST ATTEND - Leaders Questions", "oireachtas"),
@@ -69,6 +87,8 @@ GOLDEN: list[tuple[str, str]] = [
     ("DETE Divisional Update", "internal_dept"),  # "divisional" must NOT hit votes/divisions
     ("Minister to be briefed by Dept. of Justice Officials", "internal_dept"),
     ("Sec Gen Meeting", "internal_dept"),
+    ("SecGen monthly", "internal_dept"),
+    ("Meeting with ASec", "internal_dept"),
     # internal counterparties (2026-06-19) — the minister's own office/team, not an outside body
     ("Meeting with Advisers", "internal_dept"),
     ("Meeting with Private Secretary", "internal_dept"),

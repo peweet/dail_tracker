@@ -209,6 +209,9 @@ def member_overview_conn() -> duckdb.DuckDBPyConnection:
 # members views JOIN the member + demographics views — all registered first.
 CONSTITUENCY_FILES = [
     "constituency_la_crosswalk.sql",
+    "constituency_la_chief_executives.sql",  # council-grain CE roster (reads _meta CSV; no deps)
+    "constituency_la_planning_overturn.sql",  # council ABP-overturn rate (reads silver parquet; no deps)
+    "constituency_la_derelict_sites_levy.sql",  # council Derelict Sites Levy enforcement (reads gold parquet; no deps)
     "constituency_members.sql",
     "constituency_party_breakdown.sql",
     "constituency_registry.sql",

@@ -2703,6 +2703,38 @@ def test_ssha_waiting_list_national_views_build():
     assert (rent["avg_weekly_private_rent"] > 0).all()
 
 
+@pytest.mark.sql
+def test_accommodation_spend_views_build():
+    """Asylum/Ukraine accommodation spend views — the precise spend-category filter must
+    NOT pull in Homeless/Student/Conference accommodation or Coastal/Data Protection, and
+    the Ukraine stream only appears once it exists in the data (2025+)."""
+    import polars as pl
+
+    _skip_missing(GOLD_PARQUET_DIR / "procurement_payments_fact.parquet")
+    con = _con()
+    for fname in ("housing_accommodation_spend_by_year.sql", "housing_accommodation_spend_providers.sql"):
+        try:
+            con.execute(_load(fname))
+        except duckdb.IOException as exc:
+            pytest.skip(f"accommodation spend: source not present for {fname}: {exc}")
+        except Exception as exc:  # noqa: BLE001
+            pytest.fail(f"accommodation spend: {fname} failed: {type(exc).__name__}: {exc}")
+
+    yr = con.execute("SELECT * FROM v_accommodation_spend_by_year").pl()
+    assert yr.height > 0
+    assert (yr["total_eur"] > 0).all()
+    # category filter is tight: no homeless/student/coastal leakage (a leak would balloon
+    # the total well past the C&AG ~€1.1bn/yr commercial denominator for a single year).
+    assert yr["total_eur"].max() < 1_100_000_000
+    # Ukraine stream only from 2025+ (didn't exist before)
+    pre = yr.filter(pl.col("year") < 2022)
+    assert pre["ukraine_eur"].fill_null(0).sum() == 0
+
+    prov = con.execute("SELECT * FROM v_accommodation_spend_providers").pl()
+    assert prov.height > 50 and (prov["total_eur"] > 0).all()
+    assert prov["total_eur"].is_sorted(descending=True)
+
+
 # ---------------------------------------------------------------------------
 # CONSTITUENCY CHOROPLETH TRIPWIRE (2026-06-19)
 # v_constituency_map_layers feeds the national index choropleth. It JOINs

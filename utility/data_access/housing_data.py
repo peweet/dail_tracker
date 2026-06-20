@@ -47,6 +47,16 @@ def fetch_housing_hap_national_result() -> QueryResult:
 
 
 @st.cache_data(ttl=600)
+def fetch_accommodation_spend_by_year_result() -> QueryResult:
+    return _q.accommodation_spend_by_year(get_housing_conn())
+
+
+@st.cache_data(ttl=600)
+def fetch_accommodation_spend_providers_result(limit: int = 40) -> QueryResult:
+    return _q.accommodation_spend_providers(get_housing_conn(), limit)
+
+
+@st.cache_data(ttl=600)
 def fetch_housing_completions_trend_result() -> QueryResult:
     return _q.completions_trend(get_housing_conn())
 
