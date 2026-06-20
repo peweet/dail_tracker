@@ -22,9 +22,11 @@ Run (a department):    .venv/Scripts/python.exe extractors/diary_ocr.py --depts 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import logging
 import re
+from datetime import date
 from pathlib import Path
 
 import duckdb
@@ -119,6 +121,15 @@ def _scanned_files(depts: set[str] | None) -> list[dict]:
     return rows
 
 
+def _clamp_year_to_file(e: dict, file_year: int) -> dict:
+    """Snap an entry whose OCR-read year is one off the file's known single year back to it."""
+    d = e.get("entry_date")
+    if isinstance(d, date) and abs(d.year - file_year) == 1:
+        with contextlib.suppress(ValueError):  # 29 Feb in a non-leap target year — leave as-is
+            e["entry_date"] = d.replace(year=file_year)
+    return e
+
+
 def run(depts: set[str] | None, only_file: str | None, max_files: int | None, max_pages: int | None) -> int:
     setup_standalone_logging("diary_ocr")
     files = _scanned_files(depts)
@@ -146,6 +157,13 @@ def run(depts: set[str] | None, only_file: str | None, max_files: int | None, ma
         mode = "grid"
         if not entries:
             entries, mode = parse_entries(text, year, f["month"]), "linear"
+        # OCR sometimes misreads a date header's year (a "2024" Q4 scan read as "2025"), which
+        # also mis-attributes the minister (Dec-2024 Harris would resolve as Jan-2025 Martin). Each
+        # quarterly diary file is a single calendar year (its filename year), so snap any entry whose
+        # year is off by exactly one back to the file's year — keep month/day, leave wilder dates for
+        # inspection. Done BEFORE resolve_minister so attribution uses the corrected date.
+        if f["year"]:
+            entries = [_clamp_year_to_file(e, int(f["year"])) for e in entries]
         for e in entries:
             e.update(
                 department=f["department"],

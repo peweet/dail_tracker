@@ -1,0 +1,7 @@
+{
+  "lane": "procurement_poller",
+  "last_success_utc": "2026-06-20T23:07:19Z",
+  "runner": "local",
+  "cadence_hours": 168.0,
+  "note": "8 sources, 1 with fresh data"
+}

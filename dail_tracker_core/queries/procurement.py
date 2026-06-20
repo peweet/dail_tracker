@@ -78,7 +78,9 @@ def supplier_summary(
     order = _SUPPLIER_ORDER.get(order_by, _SUPPLIER_ORDER["awards"])
     params: list = []
     if year is None:
-        sql = f"SELECT {_SUPPLIER_COLS} FROM v_procurement_supplier_summary ORDER BY {order}"
+        # has_epa_licence is folded into the all-time view only (the Companies landing
+        # uses it for the EPA filter/count); the per-year view does not carry it.
+        sql = f"SELECT {_SUPPLIER_COLS}, has_epa_licence FROM v_procurement_supplier_summary ORDER BY {order}"
     else:
         sql = f"SELECT {_SUPPLIER_COLS} FROM v_procurement_supplier_year_summary WHERE year = ? ORDER BY {order}"
         params.append(int(year))

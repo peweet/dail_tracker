@@ -30,7 +30,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from data_access.corporate_data import fetch_corporate_notices_for_company_result
 from data_access.lobbying_data import fetch_all_org_names
 from data_access.procurement_data import (
-    fetch_epa_supplier_index_result,
     fetch_lobbying_overlap_result,
     fetch_payments_for_supplier_result,
     fetch_supplier_summary_result,
@@ -120,8 +119,9 @@ def _render_corporate_distress_panel(company_num) -> None:
             ident += f"; the entity is recorded as <strong>{_esc(status_human)}</strong>"
     ident += "."
 
-    # Display-only breakdown by subtype (small per-firm frame — counts only, no business logic).
-    counts = df["notice_subtype"].fillna("unspecified").value_counts()
+    # Display-only breakdown by subtype of THIS firm's already-fetched notices — a
+    # render-time count on the active entity's rows, for one sentence. Not a model.
+    counts = df["notice_subtype"].fillna("unspecified").value_counts()  # logic_firewall: display_only
     parts = [f"{int(cnt)}× {_esc(str(sub).replace('_', ' '))}" for sub, cnt in counts.items()]
     dates = df["issue_date"].dropna().astype(str).str.slice(0, 10)
     span = ""
@@ -271,17 +271,6 @@ def _cnum(v) -> int | None:
         return None
 
 
-def _epa_company_nums() -> set[int]:
-    """CRO company_nums that hold an EPA licence — backs the landing's EPA badge + filter.
-    Display-only membership lookup (the counts are pre-computed in the view); never a money
-    or inference column. Empty set if the EPA index is unavailable, so the badge/filter just
-    don't appear rather than erroring."""
-    res = fetch_epa_supplier_index_result()
-    if not res.ok or res.data.empty:
-        return set()
-    return {n for n in (_cnum(v) for v in res.data["company_num"]) if n is not None}
-
-
 def _landing() -> None:
     hero_banner(
         kicker="PUBLIC MONEY",
@@ -298,7 +287,7 @@ def _landing() -> None:
         return
     df = res.data
     ranks = {str(r.supplier_norm): i for i, r in enumerate(df.itertuples(), start=1)}
-    epa_nums = _epa_company_nums()
+    has_epa = df["has_epa_licence"] if "has_epa_licence" in df.columns else pd.Series(False, index=df.index)
 
     q = st.text_input(
         "Search companies",
@@ -308,13 +297,10 @@ def _landing() -> None:
     )
     # Discovery filter: surface the firms that hold an EPA environmental licence (otherwise
     # the EPA panel is only findable by already knowing a firm's name). Factual register
-    # membership only — no enforcement/inference framing on the list.
-    # Count EPA-licensed firms that are ALSO on the procurement register (most EPA
-    # licensees are private manufacturers that never sell to the state, so this is far
-    # smaller than the full EPA index) — show the count the filter will actually surface.
-    epa_supplier_count = (
-        int(df["company_num"].map(lambda v: _cnum(v) in epa_nums).sum()) if epa_nums else 0
-    )
+    # membership only — no enforcement/inference framing on the list. The membership is the
+    # precomputed has_epa_licence flag on v_procurement_supplier_summary (the EPA-index join
+    # was graduated out of the page); here we only count + filter that column.
+    epa_supplier_count = int(has_epa.sum())
     epa_only = (
         st.checkbox(f"Only firms with an EPA licence ({epa_supplier_count:,})", key="co_epa_only")
         if epa_supplier_count
@@ -325,7 +311,7 @@ def _landing() -> None:
     if qs:
         view = view[text_search_mask(view, qs, ["supplier"])]
     if epa_only:
-        view = view[view["company_num"].map(lambda v: _cnum(v) in epa_nums)]
+        view = view[has_epa.reindex(view.index, fill_value=False)]
     total = len(view)
     epa_clause = " holding an EPA licence" if epa_only else ""
     st.caption(
@@ -347,7 +333,7 @@ def _landing() -> None:
         )
         pills = [_value_pill(r.awarded_value_safe_eur)]
         pills += [p for p in (_cro_pill(r), _lobby_pill(r)) if p]
-        if _cnum(r.company_num) in epa_nums:
+        if bool(getattr(r, "has_epa_licence", False)):
             pills.append('<span class="pr-pill pr-pill-epa">EPA-licensed</span>')
         inner = _card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=ranks.get(str(r.supplier_norm)))
         cards.append(

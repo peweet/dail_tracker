@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from pathlib import Path
 
 import duckdb
@@ -51,11 +52,17 @@ _SUFFIX = re.compile(
 
 
 def fold(name: str | None) -> str:
-    """Deterministic match key shared by both sides — lower, drop legal/geographic suffixes,
-    collapse to single spaces. Coarse on purpose (under-matches rather than over-claims)."""
+    """Deterministic match key shared by both sides — accent-fold, lower, drop legal/geographic
+    suffixes, collapse to single spaces. Coarse on purpose (under-matches rather than over-claims).
+
+    NFKD→ASCII accent fold is the house standard (shared.normalise_join_key, diary_org_match.norm,
+    corporate_receiver_enrich._norm_entity all do it). WITHOUT it accented names get mangled,
+    spelling-asymmetric keys that silently fail to join: "Tirlán Ltd" (awards) → "tirl n" but
+    "TIRLAN" (payments) → "tirlan", so €210k of Tirlán payments were dropped from the output."""
     if not name:
         return ""
-    s = re.sub(r"[^a-z0-9 ]", " ", str(name).lower())
+    s = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode("ascii").lower()
+    s = re.sub(r"[^a-z0-9 ]", " ", s)
     s = _SUFFIX.sub(" ", s)
     return re.sub(r"\s+", " ", s).strip()
 
@@ -71,15 +78,24 @@ def main() -> int:
     con.create_function("fold", fold, ["VARCHAR"], "VARCHAR")
     sql = f"""
     WITH aw AS (
-        SELECT fold(supplier) AS k, any_value(supplier) AS matched_supplier,
+        -- matched_supplier = ALL distinct supplier strings the fold collapsed (deterministic,
+        -- pipe-joined) + n_suppliers_folded so a reader sees when awards_eur SUMS >1 entity
+        -- (e.g. fold 'breffni' bundles 'Breffni Group' + 'Breffni Ireland'); any_value() hid this.
+        SELECT fold(supplier) AS k,
+               string_agg(DISTINCT supplier, ' | ' ORDER BY supplier) AS matched_supplier,
+               count(DISTINCT supplier) AS n_suppliers_folded,
                sum(value_eur) FILTER (WHERE value_safe_to_sum) AS awards_eur, count(*) AS n_awards
         FROM read_parquet('{AWARDS.as_posix()}')
         WHERE supplier_class = 'company' AND length(fold(supplier)) >= 5
         GROUP BY 1
     ),
     pay AS (
+        -- NB no supplier_class filter (unlike awards): the diary-side NOT is_state_body anchor is
+        -- the guard; a company-class filter here drops legit non-'company' payees (Eversheds LLP
+        -- €1.6m, Euronext). n_payees_folded surfaces fold collisions on the payment side too.
         SELECT fold(supplier_normalised) AS k,
-               sum(amount_eur) FILTER (WHERE value_safe_to_sum AND public_display) AS paid_eur
+               sum(amount_eur) FILTER (WHERE value_safe_to_sum AND public_display) AS paid_eur,
+               count(DISTINCT supplier_normalised) AS n_payees_folded
         FROM read_parquet('{PAYMENTS.as_posix()}')
         WHERE length(fold(supplier_normalised)) >= 5
         GROUP BY 1
@@ -90,18 +106,26 @@ def main() -> int:
         SELECT DISTINCT fold(body_full) AS k FROM read_parquet('{STATEBOARDS.as_posix()}') WHERE body_full IS NOT NULL
     ),
     diary AS (
+        -- high_conf_meetings carried through (#2): a meeting is HIGH-confidence iff a >=2-token org
+        -- name was found verbatim (96.3% measured precision); MEDIUM is single-token + cue, UNMEASURED.
+        -- Without this column a downstream consumer can't tell that ~40% of won-money rows rest on
+        -- the unmeasured tier (incl. legit single-token brands like Vodafone/Deloitte — flag, not verdict).
         SELECT matched_org_name AS organisation, fold(matched_org_name) AS k, sector,
-               meetings, ministers_met, ministers_lobbied_and_met, total_lobbying_returns,
+               meetings, high_conf_meetings, ministers_met, ministers_lobbied_and_met, total_lobbying_returns,
                (ministers_lobbied_and_met > 0) AS corroborated, first_meeting, last_meeting
         FROM read_parquet('{OVERLAP.as_posix()}')
         WHERE NOT is_state_body AND length(fold(matched_org_name)) >= 5
           AND fold(matched_org_name) NOT IN (SELECT k FROM sb WHERE length(k) >= 5)
     )
-    SELECT d.organisation, d.sector, d.meetings, d.ministers_met, d.ministers_lobbied_and_met,
+    SELECT d.organisation, d.sector, d.meetings,
+           d.high_conf_meetings, (d.high_conf_meetings > 0) AS has_high_conf_meeting,
+           d.ministers_met, d.ministers_lobbied_and_met,
            d.total_lobbying_returns, d.corroborated, d.first_meeting, d.last_meeting,
            COALESCE(aw.n_awards, 0) AS n_awards,
            COALESCE(aw.awards_eur, 0.0) AS awards_eur,
+           COALESCE(aw.n_suppliers_folded, 0) AS n_suppliers_folded,
            COALESCE(pay.paid_eur, 0.0) AS paid_eur,
+           COALESCE(pay.n_payees_folded, 0) AS n_payees_folded,
            (COALESCE(aw.awards_eur, 0) > 0 OR COALESCE(pay.paid_eur, 0) > 0) AS won_public_money,
            aw.matched_supplier, d.k AS match_key
     FROM diary d

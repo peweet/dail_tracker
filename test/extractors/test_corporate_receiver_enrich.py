@@ -67,6 +67,27 @@ def test_views_register_and_match_gold():
     assert bucket_total == appointer_total
 
 
+def test_cbi_badge_b2_drops_single_token_false_positives():
+    """The CBI badge uses method B2 (exact + >=2-token substring). A notice whose
+    only overlap with a CBI firm is a single short token inside an ADDRESS (the
+    'Donnybrook' street false positive the old page shipped) must NOT be badged;
+    a genuine prefixed entity (Havbell No.2 DAC) MUST be badged."""
+    from dail_tracker_core.db import connect_with_views
+
+    con = connect_with_views(["corporate_*.sql"], swallow_errors=False)
+    addr_fp = con.execute(
+        "SELECT COUNT(*) FROM v_corporate_notices "
+        "WHERE entity_name ILIKE '%Morehampton Road, Donnybrook%' AND cbi_register <> ''"
+    ).fetchone()[0]
+    assert addr_fp == 0, "Donnybrook street-address rows must not carry a CBI badge"
+
+    havbell = con.execute(
+        "SELECT COUNT(*) FROM v_corporate_notices "
+        "WHERE entity_name ILIKE '%Havbell No%2%' AND cbi_register <> ''"
+    ).fetchone()[0]
+    assert havbell >= 1, "genuine prefixed entity (Havbell No.2 DAC) should be badged"
+
+
 def test_v_corporate_notices_carries_receiver_columns():
     """Downstream/firewall contract: the notices view exposes the precomputed
     flags the page now selects instead of recomputing."""
@@ -74,4 +95,12 @@ def test_v_corporate_notices_carries_receiver_columns():
 
     con = connect_with_views(["corporate_*.sql"], swallow_errors=False)
     cols = {d[0] for d in con.execute("DESCRIBE SELECT * FROM v_corporate_notices").fetchall()}
-    assert {"is_receivership", "is_spv", "has_parent_mention", "receiver_firms", "has_receiver_firm"} <= cols
+    assert {
+        "is_receivership",
+        "is_spv",
+        "has_parent_mention",
+        "receiver_firms",
+        "has_receiver_firm",
+        "cbi_register",
+        "cbi_ref_no",
+    } <= cols
