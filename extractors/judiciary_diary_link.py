@@ -263,6 +263,13 @@ def build_map() -> pl.DataFrame:
 
     for r in rows:
         del r["_member"], r["_gender"], r["_maxd"]
+    # Panel explosion emits one row per member, so a panel whose members resolve to the SAME
+    # result — several unmatched members (all judge_key NULL), or two members the matcher maps
+    # to one roster judge — yields IDENTICAL rows. Left in, those fan a single listing out to
+    # duplicate copies in v_judiciary_judge_diary (the join is ON (judge, court)), DOUBLE-
+    # COUNTING a judge's listings. Collapse to distinct rows: full-row unique cannot drop a
+    # semantically-distinct member (a different judge_key stays), so genuine panel fan-out is
+    # preserved while the redundant copies (~1.76k rows, incl. 108 matched double-counts) go.
     return pl.DataFrame(
         rows,
         schema={
@@ -273,7 +280,7 @@ def build_map() -> pl.DataFrame:
             "bench_court": pl.Utf8,
             "match_method": pl.Utf8,
         },
-    )
+    ).unique(maintain_order=True)
 
 
 def _row_level_rate(map_df: pl.DataFrame, fname: str) -> dict:

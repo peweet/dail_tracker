@@ -7,15 +7,15 @@
   "rows_review_personal_data": 24037,
   "rows_quarantined": 24037,
   "supplier_class_counts": {
-    "sole_trader_or_individual": 24037,
-    "unknown": 5224,
-    "public_body": 3161,
     "company": 82402,
-    "foreign_company": 717
+    "foreign_company": 717,
+    "public_body": 3161,
+    "unknown": 5224,
+    "sole_trader_or_individual": 24037
   },
   "amount_semantics_counts": {
-    "payment_actual": 45270,
-    "po_committed": 70271
+    "po_committed": 70271,
+    "payment_actual": 45270
   },
   "value_safe_to_sum_rows": 104637,
   "value_safe_to_sum_total_eur": 16178992560.12598,
@@ -552,6 +552,6 @@
   "privacy_quarantine_applied": true,
   "schema_version": 1,
   "parser_version": "0.1.0",
-  "generated_at": "2026-06-20T10:26:53+00:00",
+  "generated_at": "2026-06-20T12:41:51+00:00",
   "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). One row per source line. amount_semantics distinguishes po_committed/payment_actual/contract_award_value; only value_safe_to_sum (po_committed+payment_actual, EXCLUDING public_body recipients which are intergovernmental transfers/grants e.g. TII road grants) may be totalled, labelled 'ordered/paid', never mixed with award ceilings. PRIVACY QUARANTINE APPLIED: rows flagged privacy_status=review_personal_data (likely sole traders / individuals) are marked public_display=False and must be filtered out before any UI use; they are retained here for analysis only. A line is a purchase order or payment record, not evidence of influence."
 }
