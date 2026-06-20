@@ -39,7 +39,13 @@ agg AS (
         arg_max(d.party_name, d.declaration_year)   AS party_name,
         arg_max(d.constituency, d.declaration_year) AS constituency,
         MAX(d.declaration_year)                      AS declaration_year,
-        COUNT(*)                                     AS total_declarations,
+        -- Count only actual declared interests, not 'No interests declared' Nil
+        -- placeholders (~71% of rows). See member_zz_interests_index.sql for why.
+        COUNT(*) FILTER (
+            WHERE d.interest_text IS NOT NULL
+              AND TRIM(d.interest_text) <> ''
+              AND LOWER(TRIM(d.interest_text)) NOT IN ('no interests declared', 'nan')
+        )                                            AS total_declarations,
         0                                            AS directorship_count,
         COUNT(DISTINCT CASE
                 WHEN d.interest_category = 'Land (including property)'

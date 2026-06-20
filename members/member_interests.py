@@ -593,6 +593,13 @@ def combine_years(silver_dir: pathlib.Path, years: list[str], case: str) -> pl.D
             .cast(pl.String)
             .is_in(["2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"])
         )
+        # Drop exact-duplicate rows. A member can't declare the identical thing
+        # twice, so any full-row duplicate is a parse/OCR artifact (e.g. the 2012
+        # scanned register reconstructed a 'No interests declared' line twice).
+        # total_declarations = COUNT(*) downstream, so undeduped rows inflate the
+        # declaration tally and the /interests leaderboard rank. Full-row dedup =
+        # zero signal loss (DISTINCT property/share counts are untouched).
+        .unique()
         .sort(["unique_member_code", "year_declared", "interest_code"])
     )
     out_path = silver_dir / f"{case}_member_interests_combined.csv"
