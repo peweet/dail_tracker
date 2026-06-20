@@ -379,6 +379,11 @@ data/silver/sipo_candidate/
 !data/silver/parquet/la_afs_divisions.parquet
 # per-LA AFS CAPITAL fact (la_afs_capital_extract.py) — sibling of the revenue fact, same reason
 !data/silver/parquet/la_afs_capital_divisions.parquet
+# ABP planning-appeal outcomes (extractors/planning_appeal_outcomes.py) — a small (~0.2MB)
+# silver fact read DIRECTLY by v_la_planning_overturn, which feeds the "Who runs your county"
+# planning card AND the national council choropleth (v_la_map_layers). Cloud boots from a clean
+# clone with no ETL, so without this the planning JOIN throws and the whole map silently vanishes.
+!data/silver/parquet/planning_appeal_outcomes.parquet
 # Silver facts the deployed app's runtime SQL views read DIRECTLY and query live in
 # DuckDB (registered via utility/data_access/_sql_registry.py + member_overview_data.py).
 # Without these a fresh Cloud clone hard-crashes the Lobbying / Interests / Committees
