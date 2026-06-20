@@ -270,7 +270,10 @@ Public sources change format and cadence, so expect drift. Notable points:
 - Name-based joins can collide or miss matches.
 - Lobbying data before 2020 is inconsistent and filtered out at the gold layer.
 - Some giant Iris PDFs bypass the split logic and are quarantined.
-- Scope is the current Dáil and Seanad only.
+- Public-body "value" and "award" figures are not the same as money paid — these
+  are flagged, never silently summed as spend.
+- Cross-reference panels that name private individuals (CRO directors, charity
+  trustees, CBI-register firms) sit in the sandbox layer, not gold.
 
 Full detail in [`doc/DATA_LIMITATIONS.md`](doc/DATA_LIMITATIONS.md).
 
