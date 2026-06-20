@@ -1,0 +1,10 @@
+supplier_normalised,group_slug,group_label,cro_company_num,entity_kind,note
+BAM CIVIL,bam,BAM,17543,operating,BAM Civil Ltd (operating company)
+BAM CIVIL NON RCT ONLY,bam,BAM,,operating,BAM Civil — non-RCT payment split of the same entity
+BAM BUILDING,bam,BAM,199001,operating,BAM Building Ltd (operating company)
+BAM FM,bam,BAM,459966,operating,BAM FM Ireland Ltd (facilities management)
+BAM GLASGIVEN JV,bam,BAM,680048,jv,BAM Glasgiven joint venture
+BAM CIVIL Q FREE UK JV,bam,BAM,,jv,BAM Civil / Q-Free joint venture
+BAM SCHOOLS BUNDLE THREE,bam,BAM,,ppp_spv,Schools Bundle 3 PPP special-purpose vehicle
+BAM SCHOOL BUNDLE 4,bam,BAM,,ppp_spv,Schools Bundle 4 PPP special-purpose vehicle
+BAM COURTS BUNDLE,bam,BAM,,ppp_spv,Courts Bundle PPP special-purpose vehicle

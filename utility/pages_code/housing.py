@@ -16,6 +16,7 @@ only shown where a real population denominator exists — county/national).
 from __future__ import annotations
 
 import sys
+from html import escape as _h
 from pathlib import Path
 
 import pandas as pd
@@ -131,11 +132,16 @@ def _render_demo_grid(cdf, dims) -> None:
         cols = st.columns(2)
         for col, (dim, title, segs) in zip(cols, cards[i : i + 2], strict=False):
             with col:
-                st.html(f'<p class="hou-dim-title">{title}</p>' + proportion_stripe_html(segs, palette="categorical"))
+                st.html(f'<h3 class="hou-dim-title">{_h(title)}</h3>' + proportion_stripe_html(segs, palette="categorical"))
                 if dim == "citizenship":
                     st.caption(
                         "Citizenship of the main applicant, as a share of qualified "
                         "households — not a measure of who is housed."
+                    )
+                elif dim == "main_need":
+                    st.caption(
+                        "“Disability (any)” combines intellectual, physical, mental-health and "
+                        "sensory needs."
                     )
 
 
@@ -144,11 +150,17 @@ def _lead_sentence(cdf) -> str:
 
     def top(dim: str) -> str:
         d = cdf[cdf["dimension"] == dim].sort_values("count", ascending=False)
-        return str(d.iloc[0]["category"]).lower() if not d.empty else ""
+        return str(d.iloc[0]["category"]) if not d.empty else ""
 
     age, emp, need = top("age"), top("employment"), top("main_need")
-    bits = [b for b in (f"aged {age}" if age else "", emp, f"needing housing because: {need}" if need else "") if b]
-    return "Most applicants are " + ", ".join(bits) + "." if bits else ""
+    parts = []
+    if age:
+        parts.append(f"the largest group is aged {age}")
+    if emp:
+        parts.append(f"most are {emp.lower()}")
+    if need:
+        parts.append(f"the most common reason for needing social housing is “{need.lower()}”")
+    return ("Among those waiting, " + "; ".join(parts) + ".") if parts else ""
 
 
 def _render_supply() -> None:
@@ -179,7 +191,7 @@ def _render_supply() -> None:
     # New homes completed per year — the supply trend.
     ctres = fetch_housing_completions_trend_result()
     if ctres.ok and not ctres.data.empty:
-        st.html('<p class="hou-dim-title" style="margin-top:0.8rem">New homes completed per year</p>')
+        st.html('<h3 class="hou-dim-title hou-chart-label">New homes completed per year</h3>')
         trend = ctres.data.set_index("year")["completions"]
         st.bar_chart(trend, color="#3d719c", height=240)
         st.caption("CSO new dwelling completions (NDQ09), complete calendar years.")
@@ -274,6 +286,59 @@ def _render_county_rent(county: str) -> None:
     )
 
 
+# Top-level sections — synced to ?tab= so the choice survives the county drill, Back, and
+# refresh (st.tabs resets to the first tab on every rerun; a URL-backed segmented control
+# does not — the procurement-page pattern).
+_SECTIONS = {"The list": "list", "Who's waiting": "who", "Supply & cost": "supply", "By county": "county"}
+_SSHA_FOOTER = (
+    f"**Source:** [Housing Agency — Summary of Social Housing Assessments 2025]({_SRC_SSHA}). "
+    "Council-area figures rolled up to county — the area is not a constituency."
+)
+
+
+def _section_picker() -> str:
+    rev = {v: k for k, v in _SECTIONS.items()}
+    url_tab = st.query_params.get("tab")
+    want = url_tab if url_tab in _SECTIONS.values() else "list"
+    want_label = rev[want]
+
+    def _sync() -> None:
+        st.query_params["tab"] = _SECTIONS[st.session_state["hou_section"]]
+
+    if "hou_section" not in st.session_state:
+        st.session_state["hou_section"] = want_label
+    elif url_tab in _SECTIONS.values() and st.session_state["hou_section"] != want_label:
+        st.session_state["hou_section"] = want_label
+    st.segmented_control(
+        "Section", list(_SECTIONS), key="hou_section", on_change=_sync, label_visibility="collapsed"
+    )
+    chosen = _SECTIONS[st.session_state["hou_section"]]
+    st.query_params["tab"] = chosen
+    return chosen
+
+
+def _render_county_detail(county: str) -> None:
+    """Focused breakdown for one county (replaces the section bar). Compact: headline +
+    time bar + a 4-dimension subset, not the full demographic grid."""
+    res = fetch_waiting_list_totals_result("county")
+    if not res.ok or res.data.empty:
+        empty_state("Housing data unavailable", "The waiting-list figures could not be loaded.")
+        return
+    match = res.data[res.data["area"] == county]
+    if match.empty:
+        st.query_params.pop("county", None)
+        st.rerun()
+    st.html(f'<p class="hou-crumb"><a href="?tab=county">Ireland</a> ▸ <strong>{_h(county)}</strong></p>')
+    _render_hero_stats(match.iloc[0])
+    _render_county_rent(county)
+    cdf = _fetch_cdf("county", county)
+    if cdf is not None:
+        _render_time_bar(cdf)
+        evidence_heading("Who is waiting")
+        _render_demo_grid(cdf, _COUNTY_DIMS)
+    st.caption(_SSHA_FOOTER)
+
+
 @page_error_boundary
 def housing_page() -> None:
     hide_sidebar()
@@ -285,38 +350,47 @@ def housing_page() -> None:
         "how long, who they are, and how it differs across the country.",
     )
 
-    county = st.query_params.get("county")
-    grain = "county" if county else "national"
-    area = county if county else "Ireland"
+    if st.query_params.get("county"):
+        _render_county_detail(st.query_params["county"])
+        return
 
-    totals_res = fetch_waiting_list_totals_result(grain)
-    if not totals_res.ok or totals_res.data.empty:
+    res = fetch_waiting_list_totals_result("national")
+    if not res.ok or res.data.empty:
         empty_state(
             "Housing data unavailable",
             "The social-housing waiting-list figures could not be loaded. Try refreshing.",
         )
         return
-    match = totals_res.data[totals_res.data["area"] == area]
-    if match.empty:
-        # unknown ?county — fall back to national
-        st.query_params.pop("county", None)
-        st.rerun()
-    row = match.iloc[0]
+    nat = res.data[res.data["area"] == "Ireland"]
+    if nat.empty:
+        empty_state("Housing data unavailable", "No national figures found.")
+        return
+    _render_hero_stats(nat.iloc[0])
 
-    if county:
-        st.html(f'<p class="hou-crumb"><a href="?">Ireland</a> ▸ <strong>{county}</strong></p>')
-    _render_hero_stats(row)
-    if county:
-        _render_county_rent(county)
-    _render_composition(grain, area)
-    if not county:
+    section = _section_picker()
+    cdf = _fetch_cdf("national", "Ireland")
+
+    if section == "list":
+        if cdf is not None:
+            _render_time_bar(cdf)
+            lead = _lead_sentence(cdf)
+            if lead:
+                st.html(f'<p class="hou-lead">{_h(lead)}</p>')
+        st.caption(_SSHA_FOOTER)
+    elif section == "who":
+        if cdf is not None:
+            evidence_heading("Who is waiting")
+            _render_demo_grid(cdf, _LEAD_DIMS)
+            with st.expander("More about who's waiting"):
+                _render_demo_grid(cdf, _MORE_DIMS)
+        st.caption(_SSHA_FOOTER)
+    elif section == "supply":
         _render_supply()
         _render_hap()
+        st.caption(
+            f"**Sources:** [CSO PxStat]({_SRC_CSO}) — vacancy VAC14, rent F2023B, completions NDQ09, "
+            f"HAP, population [PEA08]({_SRC_PEA08}). Periods differ by source; shown as published."
+        )
+    elif section == "county":
         _render_county_table()
-
-    st.caption(
-        f"**Sources:** [Housing Agency — Summary of Social Housing Assessments 2025]({_SRC_SSHA}) "
-        f"(waiting list, per local authority; counties roll up the city/county authorities) · "
-        f"[CSO PxStat]({_SRC_CSO}) (population [PEA08]({_SRC_PEA08}), completions NDQ09, vacancy "
-        "VAC14, rent F2023B, HAP). Council-area figures — the area is not a constituency."
-    )
+        st.caption(_SSHA_FOOTER + f" Per-capita uses CSO [PEA08]({_SRC_PEA08}) population.")

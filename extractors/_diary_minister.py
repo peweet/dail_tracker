@@ -95,6 +95,8 @@ SURNAME_CANON: dict[str, str] = {
     "ocallaghans": "O'Callaghan",
     "ross": "Ross",
     "chambers": "Chambers",
+    "donohoe": "Donohoe",
+    "donohoes": "Donohoe",
     "smyth": "Smyth",
     "smyths": "Smyth",
 }
@@ -158,6 +160,12 @@ DEPT_DATE_RULES: list[tuple[str, str, date, date | None]] = [
     ("HEALTH", "Donnelly", date(2020, 6, 27), date(2025, 1, 23)),
     ("JUSTICE", "McEntee", date(2020, 6, 27), date(2021, 4, 27)),
     ("EDUCATION", "McEntee", date(2025, 1, 23), None),
+    # Finance publishes generic "April.pdf" calendar exports with no surname in the name, and a
+    # single minister's collection page hosts content spanning predecessors — so attribute by date.
+    ("FINANCE", "McGrath", date(2022, 12, 17), date(2024, 6, 26)),
+    ("FINANCE", "Chambers", date(2024, 6, 26), date(2025, 1, 23)),
+    ("FINANCE", "Donohoe", date(2025, 1, 23), date(2025, 11, 18)),
+    ("FINANCE", "Harris", date(2025, 11, 18), None),
 ]
 
 
