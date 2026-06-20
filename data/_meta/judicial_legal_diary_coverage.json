@@ -1,6 +1,6 @@
 {
   "parser_version": "1.1.1",
-  "generated_at": "2026-06-19T19:45:24.321273+00:00",
+  "generated_at": "2026-06-20T14:08:57.339964+00:00",
   "source_name": "Courts Service Legal Diary",
   "source_url": "https://legaldiary.courts.ie/",
   "days": [
@@ -43,8 +43,8 @@
       "file": "2026-06-15.docx",
       "diary_date": "2026-06-15",
       "sha256": "9698d9bfae570b09",
-      "sessions": 142,
-      "cases": 1439
+      "sessions": 140,
+      "cases": 1440
     },
     {
       "file": "2026-06-16.docx",
@@ -83,11 +83,11 @@
     }
   ],
   "n_days": 11,
-  "tier_a_sessions": 1096,
+  "tier_a_sessions": 1094,
   "tier_b_counts": 624,
-  "case_lines_parsed": 7629,
+  "case_lines_parsed": 7630,
   "cases_dropped_protected": 1254,
-  "cases_kept_anonymised": 6368,
+  "cases_kept_anonymised": 6369,
   "drop_reasons": {
     "asylum": 690,
     "minor": 241,
@@ -98,11 +98,11 @@
     "ward of court": 9,
     "guardian": 7,
     "childcare": 3,
-    "tusla": 1,
-    "special education": 1
+    "special education": 1,
+    "tusla": 1
   },
   "plaintiff_kinds": {
-    "individual": 4006,
+    "individual": 4007,
     "state-prosecutor": 1219,
     "organisation": 1046,
     "state-body": 97

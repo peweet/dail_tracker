@@ -467,7 +467,17 @@ def parse_day(lines: list[str], diary_date: str):
         return (court, room, judge, list_type, time_s)
 
     for ln in lines:
-        hit = next((full for kw, full in COURTS if ln.isupper() and ln.upper().strip().endswith(kw)), None)
+        # A court heading is the court name standing alone — never a CASE that merely
+        # ends in a court's name. e.g. "… GOHERY -V- A JUDGE OF THE DISTRICT COURT" is a
+        # High Court judicial review, not a District Court heading; left unchecked it
+        # flipped `court` and every following High Court list inherited "District Court".
+        # Case lines carry the party separator (-v-) or open "IN THE MATTER" — exclude them.
+        is_case_line = bool(PARTY_RE.search(f" {ln} ")) or ln.upper().lstrip().startswith("IN THE MATTER")
+        hit = (
+            None
+            if is_case_line
+            else next((full for kw, full in COURTS if ln.isupper() and ln.upper().strip().endswith(kw)), None)
+        )
         if hit:
             court, judge, list_type, time_s, status = hit, None, None, None, None
             continue

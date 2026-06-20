@@ -27,6 +27,7 @@ sys.path.insert(0, str(_ROOT / "extractors"))
 from legal_diary_extract import (  # noqa: E402
     PrivacyInvariantError,
     anonymise,
+    parse_day,
     parties,
     plaintiff_kind,
     protected_reason,
@@ -198,6 +199,23 @@ def test_parties_split_is_consistent_with_case_anonymised():
     # the anonymised person in the middle must not leak through plaintiff/defendant
     assert residual_name_tokens(p["plaintiff"]) == []
     assert residual_name_tokens(p["defendant"]) == []
+
+
+def test_case_naming_a_court_is_not_read_as_a_court_heading():
+    """Regression (2026-06-20): a High Court judicial review whose title ends in a court
+    name — 'GOHERY -V- A JUDGE OF THE DISTRICT COURT' — was mistaken for a 'District
+    Court' heading, flipping the state machine so every following High Court list was
+    mislabelled District Court (645 phantom District rows). Case lines carry the party
+    separator and must never set the court."""
+    lines = [
+        "HIGH COURT",
+        "MR JUSTICE EXAMPLE",
+        "CHANCERY LIST",
+        "2025 1340 SS- GOHERY -V- A JUDGE OF THE DISTRICT COURT",
+        "2026 99 ACME LIMITED -V- BETA HOLDINGS DAC",
+    ]
+    _schedule, cases = parse_day(lines, "2026-06-15")
+    assert {c["court"] for c in cases} == {"High Court"}, "case naming a court must not flip the heading"
 
 
 def test_strip_refs_clears_court_record_codes():

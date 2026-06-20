@@ -64,3 +64,8 @@ def council_money(conn: duckdb.DuckDBPyConnection, la: str) -> QueryResult:
 def national_summary(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """One-row national headline for the landing page."""
     return _run(conn, "SELECT * FROM v_la_accountability_summary")
+
+
+def map_layers(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """All 31 councils with choropleth layer values + quintile buckets (index map)."""
+    return _run(conn, "SELECT * FROM v_la_map_layers ORDER BY local_authority")
