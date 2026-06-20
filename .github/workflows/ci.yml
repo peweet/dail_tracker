@@ -113,6 +113,13 @@ jobs:
       # `python tools/check_output_regressions.py --update-baseline` (commit the JSON).
       - name: Gold completeness guard (no silent row/column regression)
         run: uv run python tools/check_output_regressions.py --strict
+      # Content guard: rows+columns can be intact while the DATA rots — a column going
+      # all-null, duplicate rows multiplying, mojibake/sentinels leaking in. Flags only a
+      # REGRESSION vs data/_meta/gold_quality_baseline.json (accepts today's known quirks,
+      # catches tomorrow's drift). Re-baseline an intended change via
+      # `python tools/check_gold_quality.py --update-baseline` (commit the JSON).
+      - name: Gold content-quality guard (no silent content drift)
+        run: uv run python tools/check_gold_quality.py --strict
       - run: uv run pytest -m sql -q
         env:
           DAIL_INTEGRATION_TESTS: "1"

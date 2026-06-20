@@ -1,0 +1,814 @@
+{
+  "metrics": {
+    "attendance_by_td_year.parquet": {
+      "rows": 499,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "bilateral_relationships.parquet": {
+      "rows": 68063,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "bill_statutory_instruments.parquet": {
+      "rows": 390,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cbi_xref_corporate_notices.parquet": {
+      "rows": 228,
+      "all_null_cols": [],
+      "dup_rows": 4,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "charities_enriched.parquet": {
+      "rows": 14448,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {
+        "also_known_as": 3,
+        "aka_norm": 3,
+        "employees_band_latest": 229,
+        "volunteers_band_latest": 1752
+      }
+    },
+    "corporate_notices.parquet": {
+      "rows": 36487,
+      "all_null_cols": [],
+      "dup_rows": 889,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cro_xref_corporate_notices.parquet": {
+      "rows": 19746,
+      "all_null_cols": [],
+      "dup_rows": 602,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_f2021.parquet": {
+      "rows": 1085,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_f2023b.parquet": {
+      "rows": 5208,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_fy005.parquet": {
+      "rows": 200,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_gfa01.parquet": {
+      "rows": 899,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_gfq01.parquet": {
+      "rows": 3328,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_hap01.parquet": {
+      "rows": 8640,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_hap05.parquet": {
+      "rows": 800,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_hap17.parquet": {
+      "rows": 3072,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_hap20.parquet": {
+      "rows": 384,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_hap26.parquet": {
+      "rows": 32,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_hap32.parquet": {
+      "rows": 32,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_hpm03.parquet": {
+      "rows": 790272,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_hpm07.parquet": {
+      "rows": 372960,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_hpm09.parquet": {
+      "rows": 20480,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_hsa07.parquet": {
+      "rows": 7350,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_na012.parquet": {
+      "rows": 450,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_ndq09.parquet": {
+      "rows": 9519,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_pea01.parquet": {
+      "rows": 6156,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_pea08.parquet": {
+      "rows": 13851,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_pea15.parquet": {
+      "rows": 600,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_vac14.parquet": {
+      "rows": 279,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_vac15.parquet": {
+      "rows": 996,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "cso_vac16.parquet": {
+      "rows": 10227,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "current_dail_vote_history.parquet": {
+      "rows": 230331,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "current_seanad_vote_history.parquet": {
+      "rows": 42520,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "current_senator_payment_rankings.parquet": {
+      "rows": 59,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "current_td_payment_rankings.parquet": {
+      "rows": 172,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "debate_summary.parquet": {
+      "rows": 885,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "delivery_method_mix.parquet": {
+      "rows": 9813,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "derelict_sites_levy_wide.parquet": {
+      "rows": 31,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "distinct_orgs_per_politician.parquet": {
+      "rows": 6271,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {
+        "full_name": 1
+      }
+    },
+    "ec_constituency_pop_2022.parquet": {
+      "rows": 43,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "epa_supplier_compliance.parquet": {
+      "rows": 667,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "grassroots_campaigns.parquet": {
+      "rows": 455,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "hse_tusla_payments_fact.parquet": {
+      "rows": 21662,
+      "all_null_cols": [
+        "paid_flag"
+      ],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "judicial_legal_diary_cases.parquet": {
+      "rows": 6368,
+      "all_null_cols": [],
+      "dup_rows": 1493,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "judicial_legal_diary_counts.parquet": {
+      "rows": 624,
+      "all_null_cols": [],
+      "dup_rows": 74,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "judicial_legal_diary_openview_cases.parquet": {
+      "rows": 786090,
+      "all_null_cols": [],
+      "dup_rows": 228111,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "judicial_legal_diary_openview_schedule.parquet": {
+      "rows": 95102,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "judicial_legal_diary_schedule.parquet": {
+      "rows": 1096,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "judiciary_appointments.parquet": {
+      "rows": 154,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "judiciary_bench.parquet": {
+      "rows": 194,
+      "all_null_cols": [
+        "assignment",
+        "assignment_term"
+      ],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "judiciary_courthouses.parquet": {
+      "rows": 94,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "judiciary_courts_clearance.parquet": {
+      "rows": 741,
+      "all_null_cols": [],
+      "dup_rows": 64,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "judiciary_courts_waiting.parquet": {
+      "rows": 48,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "judiciary_diary_judge_map.parquet": {
+      "rows": 9709,
+      "all_null_cols": [],
+      "dup_rows": 2971,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "judiciary_nominations.parquet": {
+      "rows": 16,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "lobbyist_persistence.parquet": {
+      "rows": 2570,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "member_interest_leaderboard.parquet": {
+      "rows": 173,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "most_lobbied_politicians.parquet": {
+      "rows": 5769,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {
+        "full_name": 1
+      }
+    },
+    "noac_h1_stock_wide.parquet": {
+      "rows": 31,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "noac_h2_vacancies_wide.parquet": {
+      "rows": 31,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "noac_h3_reletting_wide.parquet": {
+      "rows": 31,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "noac_h4_maintenance_wide.parquet": {
+      "rows": 31,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "noac_h6_homeless_wide.parquet": {
+      "rows": 31,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "noac_h7_retrofit_wide.parquet": {
+      "rows": 31,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "noac_m2_collection_wide.parquet": {
+      "rows": 155,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "party_vote_breakdown.parquet": {
+      "rows": 32,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "payments_full_psa.parquet": {
+      "rows": 12214,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "payments_full_psa_quarantine.parquet": {
+      "rows": 7,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "policy_area_breakdown.parquet": {
+      "rows": 32,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "politician_policy_exposure.parquet": {
+      "rows": 51730,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {
+        "full_name": 1
+      }
+    },
+    "procurement_awards.parquet": {
+      "rows": 62763,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {
+        "Awarded Suppliers": 2097,
+        "Contracting Authority": 4828,
+        "Tender/Contract Name": 4384,
+        "Procedure": 9393,
+        "sl": 373,
+        "supplier_raw": 373,
+        "supplier": 373
+      },
+      "sentinels": {}
+    },
+    "procurement_lobbying_overlap.parquet": {
+      "rows": 316,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {
+        "supplier": 1
+      },
+      "sentinels": {}
+    },
+    "procurement_payments_fact.parquet": {
+      "rows": 219713,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {
+        "supplier_raw": 3,
+        "description": 4,
+        "spend_category": 4
+      },
+      "sentinels": {
+        "po_number": 3
+      }
+    },
+    "procurement_supplier_cro_match.parquet": {
+      "rows": 9979,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {
+        "supplier": 29
+      },
+      "sentinels": {}
+    },
+    "public_appointments.parquet": {
+      "rows": 1063,
+      "all_null_cols": [],
+      "dup_rows": 2,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "public_payments_fact.parquet": {
+      "rows": 74546,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {
+        "supplier_raw": 1,
+        "description": 4
+      },
+      "sentinels": {
+        "po_number": 3
+      }
+    },
+    "revolving_door_dpos.parquet": {
+      "rows": 1042,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "seanad_attendance_by_year.parquet": {
+      "rows": 142,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "seanad_payments_full_psa.parquet": {
+      "rows": 840,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "seanad_payments_full_psa_quarantine.parquet": {
+      "rows": 0,
+      "all_null_cols": [
+        "house",
+        "member_name",
+        "narrative",
+        "payment_kind",
+        "position",
+        "schema",
+        "source_pdf",
+        "taa_band_label",
+        "taa_band_raw"
+      ],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "si_current_state.parquet": {
+      "rows": 7379,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "si_lrc_enrichment_summary.parquet": {
+      "rows": 5963,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "sipo_campaign_spend_by_category.parquet": {
+      "rows": 8,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "sipo_campaign_spend_by_detail.parquet": {
+      "rows": 4912,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {
+        "detail": 6
+      }
+    },
+    "sipo_campaign_spend_by_party.parquet": {
+      "rows": 17,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "sipo_candidate_expense_items.parquet": {
+      "rows": 17998,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {
+        "detail": 126
+      }
+    },
+    "sipo_candidate_expenses_fact.parquet": {
+      "rows": 473,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {
+        "party_declared": 3
+      }
+    },
+    "sipo_candidate_expenses_unquantified.parquet": {
+      "rows": 127,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "sipo_donations.parquet": {
+      "rows": 74,
+      "all_null_cols": [
+        "donor_irish_citizen"
+      ],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "sipo_expense_categories.parquet": {
+      "rows": 19,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "sipo_expense_items.parquet": {
+      "rows": 169,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "sipo_expenses_fact.parquet": {
+      "rows": 399,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "speeches_fact.parquet": {
+      "rows": 320760,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "speeches_fact_full.parquet": {
+      "rows": 575274,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "ssha_a1_1_age_wide.parquet": {
+      "rows": 62,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "ssha_a1_2_employment_wide.parquet": {
+      "rows": 62,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "ssha_a1_3_income_wide.parquet": {
+      "rows": 62,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "ssha_a1_4_household_size_wide.parquet": {
+      "rows": 62,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "ssha_a1_5_main_need_wide.parquet": {
+      "rows": 62,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "ssha_a1_6_accom_req_wide.parquet": {
+      "rows": 62,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "ssha_a1_7_tenure_wide.parquet": {
+      "rows": 62,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "ssha_a1_8_time_on_list_wide.parquet": {
+      "rows": 62,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "ssha_a1_9_citizenship_wide.parquet": {
+      "rows": 62,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "stateboards_roster.parquet": {
+      "rows": 2070,
+      "all_null_cols": [],
+      "dup_rows": 12,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "statutory_instruments.parquet": {
+      "rows": 5963,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "td_vote_summary.parquet": {
+      "rows": 177,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "top_client_companies.parquet": {
+      "rows": 1988,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {}
+    },
+    "top_lobbyist_organisations.parquet": {
+      "rows": 2551,
+      "all_null_cols": [],
+      "dup_rows": 0,
+      "encoding": {},
+      "sentinels": {
+        "website": 13,
+        "company_registration_number": 1,
+        "company_registered_name": 4
+      }
+    }
+  }
+}

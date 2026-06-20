@@ -41,6 +41,28 @@ performance signals so a citizen can see who runs their county and how it perfor
   top-3/bottom-3 itself), not our composite score. Per the user's choice:
   published indicators only, no invented "delinquency score", no editorial label.
 
+### 3. Planning overturn rate — DONE
+- `v_la_planning_overturn` (sql_views/constituency/constituency_la_planning_overturn.sql)
+  over silver `planning_appeal_outcomes.parquet`. Per-council ABP overturn rate vs
+  26.4% national benchmark. ⚠️ Cork County absent from source (30/31). Test
+  test/sql_views/test_la_planning_overturn.py (skips in CI).
+
+### 4. Derelict Sites Levy — DONE (the sharpest enforcement signal)
+- Source already existed: `pipeline_sandbox/housing/derelict_sites_levy_extract_experimental.py`
+  parses the DHLGH 2024 annual-return XLSX (gov.ie, CC-BY; cached at
+  doc/source_pdfs/2024_Derelict_Sites_Statistics.xlsx) →
+  `data/gold/parquet/derelict_sites_levy_wide.parquet`. Fidelity GREEN: 31 LAs,
+  per-LA sums reconcile to the file Total row. National: €8.59m levied, **€26.29m
+  uncollected**; **9 councils levied nothing**.
+- `v_la_derelict_sites_levy` (sql_views/constituency/constituency_la_derelict_sites_levy.sql):
+  per-council levied/received/outstanding + `levied_nothing` flag + collection_rate
+  (NULL where nothing levied; can exceed 100% via prior-year arrears) + national
+  window totals. Maps "Limerick/Waterford City and County" → bare join key. Joins CE
+  roster 0 orphans. Test test/sql_views/test_la_derelict_sites_levy.py (skips in CI).
+- FOLLOW-UP (promotion checkpoint): the extractor is still `_experimental`, writes
+  via bare `write_parquet` (not `save_parquet`), and is 2024-only. Promote = move to
+  extractors/, route through services.parquet_io, add to pipeline, re-fetch each Q2.
+
 ## KEY CONSTRAINT — NOAC ships chart images, not data
 The NOAC Performance Indicator Report (46 indicators, 11 areas, annual since 2014)
 is **PDF-only** — no CSV/Excel/dashboard exists. The full 31-council × 5-year grids
@@ -53,16 +75,13 @@ this box). To get full granular rankings we would need NOAC's underlying data
 
 ## Roadmap — more accountability signals (published-indicators framing)
 Ordered by cleanliness of source:
-1. **Planning overturn rate** — already clean in
-   `data/silver/parquet/planning_appeal_outcomes.parquet` (council decision vs An
-   Bord Pleanála). Per-council quality signal; just needs surfacing + CE join.
-2. **AFS finance** — `la_afs_divisions` / capital: revenue & capital spend per
-   council, already built.
-3. **Derelict Sites Levy charged vs collected** — the sharpest "delinquent
-   council" signal; DHLGH returns / PQs tend to be tabular (cleaner than NOAC).
-   NOTE: the **Vacant Homes Tax is Revenue-administered, not councils** — do not
-   use it to judge a council. The council-administered levies are the Derelict
-   Sites Levy and the Vacant Sites Levy.
+1. ~~**Planning overturn rate**~~ — DONE (see §3 above).
+2. ~~**Derelict Sites Levy charged vs collected**~~ — DONE (see §4 above). NOTE
+   still: the **Vacant Homes Tax is Revenue-administered, not councils** — do not
+   use it to judge a council. The remaining council-administered one is the **Vacant
+   Sites Levy** (URHA 2015), a possible future add.
+3. **AFS finance** — `la_afs_divisions` / capital: revenue & capital spend per
+   council, already built; surface + CE join.
 4. **More NOAC text highlights** — extend the extractor to other indicators where
    the text names best/worst (housing voids/re-let, planning enforcement, etc.).
 5. **Local Government Audit Service** — per-council audit findings (PDF set).

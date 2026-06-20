@@ -1,12 +1,53 @@
 {
-  "generated_utc": "2026-06-20T08:00:57+00:00",
+  "generated_utc": "2026-06-20T10:26:53+00:00",
   "extractors": {
     "public_body": {
-      "run_utc": "2026-06-20T08:00:57+00:00",
-      "n_failures": 0,
-      "failures": [],
+      "run_utc": "2026-06-20T10:26:53+00:00",
+      "n_failures": 3,
+      "failures": [
+        {
+          "ts_utc": "2026-06-20T10:26:50+00:00",
+          "publisher_id": "dept_children",
+          "publisher_name": "Department of Children, Disability and Equality",
+          "stage": "file",
+          "url": "https://assets.gov.ie/static/documents/1486b051-department-of-children-equality-disability-integration-and-youth-purchase-ord.pdf",
+          "listing_url": "https://www.gov.ie/en/department-of-children-disability-and-equality/collections/department-of-children-equality-disability-integration-and-youth-purchase-orders-for-20000-or-above/",
+          "error_class": "not_expected_filetype",
+          "http_status": null,
+          "attempts": 1
+        },
+        {
+          "ts_utc": "2026-06-20T10:26:51+00:00",
+          "publisher_id": "dept_children",
+          "publisher_name": "Department of Children, Disability and Equality",
+          "stage": "file",
+          "url": "https://assets.gov.ie/static/documents/6ab7d4ac-department-of-children-equality-disability-integration-and-youth-purchase-ord.pdf",
+          "listing_url": "https://www.gov.ie/en/department-of-children-disability-and-equality/collections/department-of-children-equality-disability-integration-and-youth-purchase-orders-for-20000-or-above/",
+          "error_class": "not_expected_filetype",
+          "http_status": null,
+          "attempts": 1
+        },
+        {
+          "ts_utc": "2026-06-20T10:26:53+00:00",
+          "publisher_id": "dept_children",
+          "publisher_name": "Department of Children, Disability and Equality",
+          "stage": "file",
+          "url": "https://assets.gov.ie/static/documents/99f2186b-department-of-children-equality-disability-integration-and-youth-purchase-ord.pdf",
+          "listing_url": "https://www.gov.ie/en/department-of-children-disability-and-equality/collections/department-of-children-equality-disability-integration-and-youth-purchase-orders-for-20000-or-above/",
+          "error_class": "not_expected_filetype",
+          "http_status": null,
+          "attempts": 1
+        }
+      ],
       "zero_harvest": [],
-      "breaker_trips": []
+      "breaker_trips": [
+        {
+          "ts_utc": "2026-06-20T10:26:53+00:00",
+          "publisher_id": "dept_children",
+          "publisher_name": "Department of Children, Disability and Equality",
+          "files_skipped": 9
+        }
+      ]
     },
     "la_payments": {
       "run_utc": "2026-06-18T18:01:50+00:00",

@@ -294,6 +294,9 @@ _API_DOMAIN_GLOBS = [
     "sipo_*.sql",
     "judiciary_*.sql",
     "appointments_*.sql",
+    # ministerial diaries (who ministers meet x lobbying register). Views absolutize their
+    # own gold parquet paths; independent of the member set, so order-insensitive here.
+    "ministerial_diary_*.sql",
 ]
 
 
