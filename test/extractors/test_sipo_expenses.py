@@ -7,6 +7,7 @@ can trust the VERIFIED (flag='ok') rows and the flag system genuinely quarantine
 every OCR anomaly. The Green Party total is a hard checksum: its summed
 expenditure must equal the figure printed on the form's TOTAL row (€36,729.60).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,13 +21,26 @@ CONSTIT = ROOT / "data/gold/parquet/ec_constituency_pop_2022.parquet"
 
 STATUTORY_LIMITS = {38900, 48600, 58350}
 KNOWN_FLAGS = {
-    "ok", "no_amount", "low_confidence_verify", "over_limit_verify",
-    "spend_gt_assigned_verify", "assigned_over_limit_verify",
+    "ok",
+    "no_amount",
+    "low_confidence_verify",
+    "over_limit_verify",
+    "spend_gt_assigned_verify",
+    "assigned_over_limit_verify",
 }
 EXPECTED_COLS = {
-    "party", "candidate_name_raw", "constituency", "constituency_match_score",
-    "amount_assigned_eur", "expenditure_eur", "expenditure_confidence",
-    "row_min_confidence", "statutory_limit_eur", "flag", "source_pdf", "source_page",
+    "party",
+    "candidate_name_raw",
+    "constituency",
+    "constituency_match_score",
+    "amount_assigned_eur",
+    "expenditure_eur",
+    "expenditure_confidence",
+    "row_min_confidence",
+    "statutory_limit_eur",
+    "flag",
+    "source_pdf",
+    "source_page",
 }
 GREEN_TOTAL = 36_729.60  # printed on the Green Party return's TOTAL row
 
@@ -73,23 +87,21 @@ def test_constituency_in_closed_set(df, valid_constituencies):
 
 
 def test_no_duplicate_candidate_rows(df):
-    dupes = (df.group_by("party", "candidate_name_raw", "constituency").len()
-             .filter(pl.col("len") > 1))
+    dupes = df.group_by("party", "candidate_name_raw", "constituency").len().filter(pl.col("len") > 1)
     assert dupes.height == 0, dupes.to_dicts()
 
 
 def test_no_candidate_in_two_parties(df):
     # a person stands for exactly one party at a general election (ignore blank names)
     named = df.filter(pl.col("candidate_name_raw").str.strip_chars() != "")
-    multi = (named.group_by("candidate_name_raw").agg(pl.col("party").n_unique().alias("n"))
-             .filter(pl.col("n") > 1))
+    multi = named.group_by("candidate_name_raw").agg(pl.col("party").n_unique().alias("n")).filter(pl.col("n") > 1)
     assert multi.height == 0, multi.to_dicts()
 
 
 def test_constituency_overcount_bounded(df):
     # no party realistically runs >6 candidates in one constituency; a higher count
     # signals constituency mis-matching (a known soft spot — keep it bounded)
-    oc = (df.group_by("party", "constituency").len().filter(pl.col("len") > 6))
+    oc = df.group_by("party", "constituency").len().filter(pl.col("len") > 6)
     assert oc.height == 0, oc.sort("len", descending=True).to_dicts()
 
 
@@ -118,11 +130,11 @@ def test_verified_expenditure_within_limit(verified):
 
 def test_verified_expenditure_within_assigned(verified):
     bad = verified.filter(
-        pl.col("amount_assigned_eur").is_not_null()
-        & (pl.col("expenditure_eur") > pl.col("amount_assigned_eur") * 1.02)
+        pl.col("amount_assigned_eur").is_not_null() & (pl.col("expenditure_eur") > pl.col("amount_assigned_eur") * 1.02)
     )
-    assert bad.height == 0, bad.select("party", "candidate_name_raw",
-                                       "amount_assigned_eur", "expenditure_eur").to_dicts()
+    assert bad.height == 0, bad.select(
+        "party", "candidate_name_raw", "amount_assigned_eur", "expenditure_eur"
+    ).to_dicts()
 
 
 def test_verified_assigned_within_limit(verified):
@@ -158,8 +170,7 @@ def test_name_quality(df):
     bad = df.filter(
         pl.col("candidate_name_raw").str.contains(r"\d")
         | (pl.col("candidate_name_raw").str.len_chars() > 40)
-        | pl.col("candidate_name_raw").str.to_lowercase().is_in(
-            ["total", "candidate name", "constituency", "name"])
+        | pl.col("candidate_name_raw").str.to_lowercase().is_in(["total", "candidate name", "constituency", "name"])
     )
     assert bad.height == 0, bad.select("party", "candidate_name_raw").to_dicts()
 

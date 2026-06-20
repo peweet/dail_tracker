@@ -61,6 +61,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from shared.name_norm import name_norm_expr  # noqa: E402
+from shared.text_encoding import decode_table_bytes  # noqa: E402
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research probe)"}
 TMP = Path("c:/tmp/procurement_publishers")
@@ -70,6 +71,12 @@ LAST_ERR: dict = {}  # set by fetch_bytes on failure, read by the download loop
 OUT_FACT = ROOT / "data/silver/parquet/public_payments_fact.parquet"
 OUT_COV = ROOT / "data/_meta/public_payments_coverage.json"
 PARSER_VERSION = "0.1.0"
+# Row floor for the overwrite-each-run fact (85,602 rows 2026-06-20). A SAFE
+# `--only X --merge` keeps total ~85k (kept + reparsed), so it passes; a plain
+# `--only` without --merge wipes the fact to one publisher's slice — the floor
+# refuses that write rather than silently downgrading silver. ~30% headroom; a
+# deliberate scoped rebuild uses DAIL_SKIP_ROW_FLOOR=1.
+MIN_FACT_ROWS = 60_000
 
 DATA_EXT = (".pdf", ".xlsx", ".xls", ".csv")
 
@@ -114,17 +121,79 @@ CAVEAT_RE = re.compile(r"\bvat\b|exclud|inclus|indicativ|not (a )?payment|net of
 #     ARUP CONSULTING ENGINEERS / CREATIVE TECHNOLOGY etc. were misclassed sole-trader. Fixed
 #     2026-06-13; the reclassifier in procurement_payments_consolidate.py carries the same vocab.
 _CO_WORDS = (
-    "ltd", "limited", "dac", "plc", "clg", "llp", "teo", "teoranta", "t/a", "uc", "inc", "llc",
-    "gmbh", "co", "company", "companies", "group", "sons", "bros", "university", "college",
-    "council", "hse", "board", "media", "hotel", "ireland", "jv", "ppp",
+    "ltd",
+    "limited",
+    "dac",
+    "plc",
+    "clg",
+    "llp",
+    "teo",
+    "teoranta",
+    "t/a",
+    "uc",
+    "inc",
+    "llc",
+    "gmbh",
+    "co",
+    "company",
+    "companies",
+    "group",
+    "sons",
+    "bros",
+    "university",
+    "college",
+    "council",
+    "hse",
+    "board",
+    "media",
+    "hotel",
+    "ireland",
+    "jv",
+    "ppp",
 )
 _CO_STEMS = (
-    "servic", "solution", "consult", "engineer", "architect", "surveyor", "solicitor", "barrister",
-    "accountant", "advis", "contract", "construct", "develop", "enterprise", "industr", "technolog",
-    "system", "software", "logistic", "distribut", "manufactur", "pharma", "biotech", "diagnostic",
-    "laborator", "healthcare", "medical", "insuranc", "assuranc", "management", "communicat", "telecom",
-    "propert", "holding", "internation", "institut", "foundation", "partner", "associat", "incorporat",
-    "corporat", "centre",
+    "servic",
+    "solution",
+    "consult",
+    "engineer",
+    "architect",
+    "surveyor",
+    "solicitor",
+    "barrister",
+    "accountant",
+    "advis",
+    "contract",
+    "construct",
+    "develop",
+    "enterprise",
+    "industr",
+    "technolog",
+    "system",
+    "software",
+    "logistic",
+    "distribut",
+    "manufactur",
+    "pharma",
+    "biotech",
+    "diagnostic",
+    "laborator",
+    "healthcare",
+    "medical",
+    "insuranc",
+    "assuranc",
+    "management",
+    "communicat",
+    "telecom",
+    "propert",
+    "holding",
+    "internation",
+    "institut",
+    "foundation",
+    "partner",
+    "associat",
+    "incorporat",
+    "corporat",
+    "centre",
 )
 COMPANY_SUFFIX = re.compile(
     r"\b(?:" + "|".join(_CO_WORDS) + r")\b|&|\b(?:" + "|".join(_CO_STEMS) + r")",
@@ -585,7 +654,9 @@ PUBLISHERS: list[dict] = [
         privacy="medium",
         tier="C",
         # One rolling xlsx holding all quarters 2021Q4→2026Q1 (pinned: the listing is a JS widget).
-        direct=["https://tus.ie/app/uploads/ProfessionalServices/FOI/TUS_POs_over_20k_2021QTR4_2022_2023_2024_2025_Q1.2026.xlsx"],
+        direct=[
+            "https://tus.ie/app/uploads/ProfessionalServices/FOI/TUS_POs_over_20k_2021QTR4_2022_2023_2024_2025_Q1.2026.xlsx"
+        ],
     ),
     cfg(
         "ie_mtu",
@@ -783,6 +854,26 @@ PUBLISHERS: list[dict] = [
         include=r"purchase|po[s]?[-_ ]?over|20[,]?000|quarter|q[1-4]",
         caveat="Film-funding body; payees may be individuals/production cos — privacy gate applies.",
     ),
+    # ---- Batch B 2026-06-20: PROBE-FIRST (test parse quality before promoting to gold) ----
+    cfg(
+        "ie_loetb",
+        "Laois & Offaly ETB",
+        "education_body",
+        "education",
+        listing="https://loetb.ie/organisation-support-development/finance/purchase-orders-over-20000/",
+        semantics="po_committed",
+        grain="purchase_order",
+        privacy="medium",
+        tier="D",
+        include=r"purchase|po[s]?[-_ ]?over|20[,]?000|quarter|q[1-4]",
+    ),
+    # ie_lmetb: DEFERRED 2026-06-20 — parse-quality probe FAILED. The 9 "payments-over-E20k" PDFs
+    # parse (63-90 rows each) but the generic reader captures NO supplier (all 662 rows supplier=null,
+    # min amount €2 = column misalignment). Its PDF layout needs a bespoke column-x spec (HSE/Tusla
+    # pattern) before it can be ingested — shipping it would inject 662 nameless rows. Listing:
+    # https://www.lmetb.ie/category/finance/purchase-orders-over-e20000/ (payment_actual grain).
+    # ie_rsa: list-probe harvested 0 files (the /about/reporting page links no PO/payment files) —
+    # deferred to the Playwright/direct-URL tail rather than shipped empty.
 ]
 
 
@@ -1167,13 +1258,15 @@ def read_csv(b: bytes):
     # "Reference,Payee Name,Tran Value,Description,Paid Y/N". polars' default has_header=True takes
     # the title as the header and the real columns get lost. Read header-less and reuse the shared
     # title-skipping header detector (same as xlsx/xls).
+    # Decode cp1252/UTF-8 robustly BEFORE Polars sees it (see shared.text_encoding): the old
+    # encoding="utf8-lossy" turned every cp1252 '€'/fada/apostrophe into '�' (e.g. TII
+    # "Éamonn Conlon SC", "Signs Programme – works"). Hand Polars clean UTF-8.
     df = pl.read_csv(
-        io.BytesIO(b),
+        io.BytesIO(decode_table_bytes(b).encode("utf-8")),
         has_header=False,
         infer_schema_length=0,
         truncate_ragged_lines=True,
         ignore_errors=True,
-        encoding="utf8-lossy",
     )
     raw = [list(r) for r in df.iter_rows()]
     return _tabular_from_raw(raw)
@@ -1737,7 +1830,7 @@ def main() -> None:
         )
 
     OUT_FACT.parent.mkdir(parents=True, exist_ok=True)
-    save_parquet(df, OUT_FACT)
+    save_parquet(df, OUT_FACT, min_rows=MIN_FACT_ROWS)
 
     print(f"\n{'=' * 80}\nGOLD-CANDIDATE WRITTEN\n{'=' * 80}")
     print(f"rows: {df.height:,}  ->  {OUT_FACT}")

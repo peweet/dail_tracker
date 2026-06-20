@@ -165,10 +165,12 @@ def _render_head() -> None:
             "spent themselves. Separate returns at different grains, not a single ledger."
         ),
     )
-    glossary_strip([
-        ("SIPO", "Standards in Public Office Commission"),
-        ("TD", "Teachta Dála (member of the Dáil)"),
-    ])
+    glossary_strip(
+        [
+            ("SIPO", "Standards in Public Office Commission"),
+            ("TD", "Teachta Dála (member of the Dáil)"),
+        ]
+    )
 
 
 def _tab_strip(active: str) -> None:
@@ -200,24 +202,27 @@ def _money_map() -> None:
     loaded = cand["candidates"]
 
     t1 = _tier_html(
-        _C_IN, "↓ Donated to parties", float(don["total"] or 0),
+        _C_IN,
+        "↓ Donated to parties",
+        float(don["total"] or 0),
         f"{don['parties']} parties · {don['donations']} donations",
         "declared receipts over €1,500",
     )
     t2 = _tier_html(
-        _C_AGENT, "→ Party agents' spend", float(exp["total"] or 0),
+        _C_AGENT,
+        "→ Party agents' spend",
+        float(exp["total"] or 0),
         f"{exp['candidates']} candidates · {exp['parties']} parties",
         "national-agent returns (Part 3)",
     )
     t3 = _tier_html(
-        _C_CAND, "→ Candidates' own spend", float(cand["total"] or 0),
+        _C_CAND,
+        "→ Candidates' own spend",
+        float(cand["total"] or 0),
         f"{loaded} of {_CORPUS_TOTAL} statements",
         "each candidate's own return",
     )
-    st.html(
-        f'<div class="e24-map">{t1}<div class="e24-arrow">→</div>'
-        f'{t2}<div class="e24-arrow">→</div>{t3}</div>'
-    )
+    st.html(f'<div class="e24-map">{t1}<div class="e24-arrow">→</div>{t2}<div class="e24-arrow">→</div>{t3}</div>')
     st.html(
         '<div class="e24-nosum">⚠ Three separate official records at different grains — '
         "never add them together. Donations are money <em>received</em>; the other two are "
@@ -340,9 +345,7 @@ def _render_party_donor_list(party: str) -> None:
         date = _h(str(d["date_received_raw"] or "—"))
         method = _h(str(d["nature"] or "")[:24])
         vmark = (
-            f'<span class="don-vmark">verify · SIPO p.{int(d["source_page"])}</span>'
-            if bool(d["needs_verify"])
-            else ""
+            f'<span class="don-vmark">verify · SIPO p.{int(d["source_page"])}</span>' if bool(d["needs_verify"]) else ""
         )
         rows.append(
             f'<div class="don-rrow"><span class="dn">{_h(str(d["donor_name"]))}</span>'
@@ -350,10 +353,7 @@ def _render_party_donor_list(party: str) -> None:
             f'<span class="da">€{amt:,.0f}</span>{vmark}</div>'
         )
     st.html(f'<div class="don-receipts" style="--don-stripe:{stripe}">{"".join(rows)}</div>')
-    st.caption(
-        "Donor name, amount, date and method are the public record. "
-        "Home addresses are never shown."
-    )
+    st.caption("Donor name, amount, date and method are the public record. Home addresses are never shown.")
 
 
 def _render_donations_tab() -> None:
@@ -363,11 +363,13 @@ def _render_donations_tab() -> None:
         "addresses are not shown."
     )
     totals = fetch_donations_totals()
-    totals_strip([
-        (f"€{totals['total']:,.0f}", "declared (> €1,500)"),
-        (str(totals["parties"]), "parties"),
-        (str(totals["donations"]), "donations"),
-    ])
+    totals_strip(
+        [
+            (f"€{totals['total']:,.0f}", "declared (> €1,500)"),
+            (str(totals["parties"]), "parties"),
+            (str(totals["donations"]), "donations"),
+        ]
+    )
     by_party = fetch_donations_by_party()
     if by_party.empty:
         empty_state(
@@ -509,8 +511,7 @@ def _render_party_candidate_list(party: str) -> None:
             else:
                 meta = ""
         rows.append(
-            f'<div class="don-rrow"><span class="dn">{name}</span>'
-            f'<span class="mt">{const}</span>{amt_html}{meta}</div>'
+            f'<div class="don-rrow"><span class="dn">{name}</span><span class="mt">{const}</span>{amt_html}{meta}</div>'
         )
     st.html(f'<div class="don-receipts" style="--don-stripe:{stripe}">{"".join(rows)}</div>')
     st.caption(
@@ -527,11 +528,13 @@ def _render_expenses_tab() -> None:
         "Part-4 itemised central spend by category (Advertising, Posters, …) where loaded."
     )
     totals = fetch_expenses_totals()
-    totals_strip([
-        (f"€{totals['total']:,.0f}", "spent on candidates"),
-        (str(totals["parties"]), "parties"),
-        (str(totals["candidates"]), "candidates"),
-    ])
+    totals_strip(
+        [
+            (f"€{totals['total']:,.0f}", "spent on candidates"),
+            (str(totals["parties"]), "parties"),
+            (str(totals["candidates"]), "candidates"),
+        ]
+    )
     by_party = fetch_expenses_by_party()
     if by_party.empty:
         empty_state(
@@ -554,9 +557,7 @@ def _cand_card(row: pd.Series, rank: int) -> str:
     stripe = party_colour(str(party)) if pd.notna(party) and party else "rgba(0,0,0,0.14)"
     total = float(row["total_spend_eur"] or 0)
     ptxt = _h(str(party)) if pd.notna(party) and party else "Unknown party"
-    td = '<span class="don-vmark" style="background:#eef;color:#224">TD</span>' if bool(
-        row["is_elected_td"]
-    ) else ""
+    td = '<span class="don-vmark" style="background:#eef;color:#224">TD</span>' if bool(row["is_elected_td"]) else ""
     verify = '<span class="don-vmark">verify · SIPO PDF</span>' if bool(row["needs_verify"]) else ""
     return (
         f'<a class="don-card" href="?cand={quote(name)}" target="_self" '
@@ -586,8 +587,7 @@ def _unquantified_card(row: pd.Series) -> str:
     stripe = party_colour(str(party)) if pd.notna(party) and party else "rgba(0,0,0,0.14)"
     ptxt = _h(str(party)) if pd.notna(party) and party else "Unknown party"
     note = _UNQUANT_NOTE.get(str(row["filed_status"]), "amount not available")
-    td = ('<span class="don-vmark" style="background:#eef;color:#224">TD</span>'
-          if bool(row["is_elected_td"]) else "")
+    td = '<span class="don-vmark" style="background:#eef;color:#224">TD</span>' if bool(row["is_elected_td"]) else ""
     pdf = row["source_pdf_url"]
     inner = (
         f'<span class="don-dir">filed · amount not available</span>'
@@ -599,8 +599,10 @@ def _unquantified_card(row: pd.Series) -> str:
         + f'</span><span class="don-vmark">{_h(note)}</span>{td}</div>'
     )
     if pd.notna(pdf) and pdf:
-        return (f'<a class="don-card" href="{_h(str(pdf))}" target="_blank" rel="noopener" '
-                f'style="--don-stripe:{stripe}">{inner}</a>')
+        return (
+            f'<a class="don-card" href="{_h(str(pdf))}" target="_blank" rel="noopener" '
+            f'style="--don-stripe:{stripe}">{inner}</a>'
+        )
     return f'<div class="don-card" style="--don-stripe:{stripe}">{inner}</div>'
 
 
@@ -624,16 +626,21 @@ def _render_candidate(name: str) -> None:
     badges = [f"{const}", ptxt, f"€{total:,.0f} total"]
     if bool(cand["is_elected_td"]):
         badges.append("Elected TD")
-    totals_strip([(f"€{total:,.0f}", "total spend"),
-                  (f"€{float(cand['spend_not_public_eur'] or 0):,.0f}", "not public funds"),
-                  (f"€{float(cand['spend_public_eur'] or 0):,.0f}", "public funds")])
+    totals_strip(
+        [
+            (f"€{total:,.0f}", "total spend"),
+            (f"€{float(cand['spend_not_public_eur'] or 0):,.0f}", "not public funds"),
+            (f"€{float(cand['spend_public_eur'] or 0):,.0f}", "public funds"),
+        ]
+    )
 
     # Cross-link to the canonical member profile (the roster join enabled this).
     code = cand["unique_member_code"]
     if pd.notna(code) and code:
         href = member_profile_url(str(code))
-        st.markdown(f'<a class="dt-member-link" href="{_h(href)}" target="_self">View TD profile ↗</a>',
-                    unsafe_allow_html=True)
+        st.markdown(
+            f'<a class="dt-member-link" href="{_h(href)}" target="_self">View TD profile ↗</a>', unsafe_allow_html=True
+        )
 
     # Category split from the candidate's own grid row. ONLY shown when the statement
     # reconciled — on a non-reconciling statement the per-category cells can carry an
@@ -650,16 +657,17 @@ def _render_candidate(name: str) -> None:
         st.html(_category_bars(pd.DataFrame(cat_rows)))
     elif cat_rows:
         st.markdown("#### Where the money went · by category")
-        st.caption("Category breakdown omitted — this statement's figures did not reconcile "
-                   "on OCR, so the per-category split is unreliable. See the line items below "
-                   "and verify against the source PDF.")
+        st.caption(
+            "Category breakdown omitted — this statement's figures did not reconcile "
+            "on OCR, so the per-category split is unreliable. See the line items below "
+            "and verify against the source PDF."
+        )
 
     # Part-5 line items (the Grealish -> Galway Advertiser detail).
     items = fetch_line_items(name)
     st.markdown("#### Line items")
     if items.empty:
-        empty_state("No line items parsed",
-                    "This statement's itemised Part-5 lines are not available yet.")
+        empty_state("No line items parsed", "This statement's itemised Part-5 lines are not available yet.")
     else:
         rows = []
         for _, it in items.iterrows():
@@ -671,16 +679,18 @@ def _render_candidate(name: str) -> None:
                 f'<span class="esp-ivendor">{detail}</span>'
                 f'<span class="esp-icost">€{cost:,.2f}</span></div>'
             )
-        st.html(f'<div class="esp-items" style="border-left:3px solid {stripe};padding-left:0.5rem">'
-                f'{"".join(rows)}</div>')
-        st.caption("“Detail” is the candidate's free-text entry — a mix of supplier names "
-                   "(e.g. Galway Advertiser) and item descriptions (e.g. Posters), and is "
-                   "captured for only some lines. The items shown are an indicative, partial "
-                   "view and may not sum to the headline total — verify against the source PDF.")
+        st.html(
+            f'<div class="esp-items" style="border-left:3px solid {stripe};padding-left:0.5rem">{"".join(rows)}</div>'
+        )
+        st.caption(
+            "“Detail” is the candidate's free-text entry — a mix of supplier names "
+            "(e.g. Galway Advertiser) and item descriptions (e.g. Posters), and is "
+            "captured for only some lines. The items shown are an indicative, partial "
+            "view and may not sum to the headline total — verify against the source PDF."
+        )
 
     if bool(cand["needs_verify"]):
-        st.caption("⚠ This statement's totals did not reconcile cleanly on OCR — verify against "
-                   "the source PDF.")
+        st.caption("⚠ This statement's totals did not reconcile cleanly on OCR — verify against the source PDF.")
     pdf = cand["source_pdf_url"]
     if pd.notna(pdf) and pdf:
         st.markdown(f"[Official SIPO statement (PDF) ↗]({_h(str(pdf))})")
@@ -691,21 +701,21 @@ def _render_candidates_tab() -> None:
     loaded = totals["candidates"]
     unq = fetch_filed_unquantified()
     filed = loaded + len(unq)
-    totals_strip([
-        (f"{filed}", f"of {_CORPUS_TOTAL} filed"),
-        (f"{loaded}", "with a usable total"),
-        (f"€{totals['total']:,.0f}", "total spend"),
-        (f"€{totals['median']:,.0f}", "median candidate"),
-        (str(totals["elected"]), "elected TDs"),
-    ])
+    totals_strip(
+        [
+            (f"{filed}", f"of {_CORPUS_TOTAL} filed"),
+            (f"{loaded}", "with a usable total"),
+            (f"€{totals['total']:,.0f}", "total spend"),
+            (f"€{totals['median']:,.0f}", "median candidate"),
+            (str(totals["elected"]), "elected TDs"),
+        ]
+    )
     if filed < _CORPUS_TOTAL:
-        st.caption(f"Coverage: {filed} of {_CORPUS_TOTAL} candidate statements processed "
-                   "(extraction is ongoing).")
+        st.caption(f"Coverage: {filed} of {_CORPUS_TOTAL} candidate statements processed (extraction is ongoing).")
 
     ranked = fetch_ranked()
     if ranked.empty and unq.empty:
-        empty_state("No candidate expenses loaded",
-                    "No per-candidate election-expense statements are available yet.")
+        empty_state("No candidate expenses loaded", "No per-candidate election-expense statements are available yet.")
         return
 
     # Display-only filters (row selection, not aggregation) — applied to BOTH the ranked
@@ -715,10 +725,16 @@ def _render_candidates_tab() -> None:
     )
     fcol, scol = st.columns([1, 2])
     sel_party = fcol.selectbox("Party", parties, key="esp_party")
-    search = scol.text_input(
-        "Search candidate", key="esp_search", placeholder="e.g. Grealish",
-        help=f"Searches all {len(ranked) + len(unq)} filed candidate statements by name.",
-    ).strip().lower()
+    search = (
+        scol.text_input(
+            "Search candidate",
+            key="esp_search",
+            placeholder="e.g. Grealish",
+            help=f"Searches all {len(ranked) + len(unq)} filed candidate statements by name.",
+        )
+        .strip()
+        .lower()
+    )
 
     def _apply(df: pd.DataFrame) -> pd.DataFrame:
         if sel_party != "All parties":
@@ -736,8 +752,11 @@ def _render_candidates_tab() -> None:
     heading = "Matching candidates" if filtered else "Top campaign spenders"
     st.markdown(f"#### {heading} · {n} candidate{'' if n == 1 else 's'}")
     if view.empty:
-        st.caption("No candidates with a usable total match — see the “also filed” list below."
-                   if filtered else "No ranked candidates loaded yet.")
+        st.caption(
+            "No candidates with a usable total match — see the “also filed” list below."
+            if filtered
+            else "No ranked candidates loaded yet."
+        )
     else:
         cards = "".join(_cand_card(r, i + 1) for i, (_, r) in enumerate(view.head(120).iterrows()))
         st.html(f'<div class="don-grid">{cards}</div>')
@@ -748,8 +767,7 @@ def _render_candidates_tab() -> None:
     # Filed-but-unquantified: searchable, no amount shown, each links to the official PDF.
     uq_view = _apply(unq)
     if not uq_view.empty:
-        st.markdown(f"#### Also filed · no usable total · {len(uq_view)} candidate"
-                    f"{'' if len(uq_view) == 1 else 's'}")
+        st.markdown(f"#### Also filed · no usable total · {len(uq_view)} candidate{'' if len(uq_view) == 1 else 's'}")
         with st.expander("Show these candidates", expanded=filtered):
             cards = "".join(_unquantified_card(r) for _, r in uq_view.head(150).iterrows())
             st.html(f'<div class="don-grid">{cards}</div>')
@@ -781,9 +799,11 @@ def _render_candidates_tab() -> None:
                 f'<span class="esp-icost">€{total:,.0f}</span></div>'
             )
         st.html(f'<div class="esp-items">{"".join(rows)}</div>')
-        st.caption("A mix of supplier names and item descriptions as written on the returns — "
-                   "not a verified vendor list, and a partial view (a free-text detail is "
-                   "captured for only some line items). Indicative, not exhaustive.")
+        st.caption(
+            "A mix of supplier names and item descriptions as written on the returns — "
+            "not a verified vendor list, and a partial view (a free-text detail is "
+            "captured for only some line items). Indicative, not exhaustive."
+        )
 
 
 # ── provenance (whole-page) ───────────────────────────────────────────────────────

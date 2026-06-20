@@ -68,7 +68,7 @@ class LayerStore:
         """
         return sorted(n for n in self.available() if substr in n)
 
-    @lru_cache(maxsize=64)
+    @lru_cache(maxsize=64)  # noqa: B019
     def _ingest_extents(self, name: str):
         """The bboxes a layer covers — base `bbox_subset` PLUS every region merged via
         add_region (`regions_added` -> `region_<r>.bbox`). Returns None if national (no bbox).
@@ -101,10 +101,11 @@ class LayerStore:
         boxes = self._ingest_extents(name)
         if boxes is None:
             return True
-        return any((b[0] - margin) <= lon <= (b[2] + margin) and (b[1] - margin) <= lat <= (b[3] + margin)
-                   for b in boxes)
+        return any(
+            (b[0] - margin) <= lon <= (b[2] + margin) and (b[1] - margin) <= lat <= (b[3] + margin) for b in boxes
+        )
 
-    @lru_cache(maxsize=32)
+    @lru_cache(maxsize=32)  # noqa: B019
     def load(self, name: str) -> Layer | None:
         import polars as pl
 
@@ -115,8 +116,7 @@ class LayerStore:
         geoms = shapely.from_wkb(df["wkb"].to_list())
         attr_cols = [c for c in df.columns if c != "wkb"]
         attrs = df.select(attr_cols).to_dicts() if attr_cols else [{} for _ in geoms]
-        return Layer(name=name, attrs=attrs, geoms=np.asarray(geoms, dtype=object),
-                     tree=STRtree(geoms))
+        return Layer(name=name, attrs=attrs, geoms=np.asarray(geoms, dtype=object), tree=STRtree(geoms))
 
     def covering(self, name: str, lon: float, lat: float) -> list[dict]:
         """Attributes of every polygon that COVERS the point (exact containment).
@@ -195,7 +195,7 @@ class LayerStore:
         qa, qb = sub.query(garr, predicate="intersects")
         snap_deg = snap_m / (_M_PER_DEG_LAT * cos)
         best: tuple[float, int] | None = None
-        for a, b in zip(qa.tolist(), qb.tolist()):
+        for a, b in zip(qa.tolist(), qb.tolist(), strict=False):
             if a >= b:  # each unordered pair once; drop self-pairs (a == b)
                 continue
             inter = garr[a].intersection(garr[b])

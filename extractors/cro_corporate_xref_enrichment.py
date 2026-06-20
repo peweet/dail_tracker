@@ -41,7 +41,7 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-try:
+try:  # noqa: SIM105
     sys.stdout.reconfigure(encoding="utf-8")  # accented company names on cp1252 consoles
 except Exception:
     pass

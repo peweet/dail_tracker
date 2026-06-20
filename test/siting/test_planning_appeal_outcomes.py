@@ -34,10 +34,13 @@ def test_national_overturn_rate_is_in_known_band():
 
 def test_no_council_shows_implausible_100pct():
     # the whole point: the authoritative ACP join must not reproduce the self-reported 100% artifacts.
-    rank = (_df().group_by("PlanningAuthority")
-            .agg(pl.len().alias("n"), pl.col("overturned").sum().alias("ov"))
-            .filter(pl.col("n") >= 25)
-            .with_columns((100 * pl.col("ov") / pl.col("n")).alias("pct")))
+    rank = (
+        _df()
+        .group_by("PlanningAuthority")
+        .agg(pl.len().alias("n"), pl.col("overturned").sum().alias("ov"))
+        .filter(pl.col("n") >= 25)
+        .with_columns((100 * pl.col("ov") / pl.col("n")).alias("pct"))
+    )
     assert rank.filter(pl.col("pct") >= 95).height == 0, "a council at >=95% overturn — artifact likely back"
 
 

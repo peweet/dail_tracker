@@ -1,4 +1,5 @@
 import streamlit as st
+from pages_code.accommodation_spend import accommodation_spend_page
 from pages_code.attendance import attendance_page
 from pages_code.committees import committees_page
 from pages_code.company import company_page
@@ -7,10 +8,13 @@ from pages_code.corporate import corporate_page
 from pages_code.council_spending import council_spending_page
 from pages_code.election_2024 import election_2024_page
 from pages_code.glossary import glossary_page
+from pages_code.housing import housing_page
 from pages_code.judiciary import judiciary_page
 from pages_code.legislation import legislation_page
 from pages_code.lobbying_3 import lobbying_poc_page
+from pages_code.local_government import local_government_page
 from pages_code.member_overview import member_overview_page
+from pages_code.ministerial_diaries import ministerial_diaries_page
 from pages_code.payments import payments_page
 from pages_code.procurement import procurement_page
 from pages_code.public_appointments import public_appointments_page
@@ -118,6 +122,18 @@ pg = st.navigation(
                 icon=":material/map:",
                 url_path="constituencies",
             ),
+            st.Page(
+                local_government_page,
+                title="Who Runs Your County",
+                icon=":material/account_balance:",
+                url_path="local-government",
+            ),
+            st.Page(
+                housing_page,
+                title="Housing",
+                icon=":material/home:",
+                url_path="housing",
+            ),
         ],
         "Members & Parliament": [
             st.Page(
@@ -164,7 +180,12 @@ pg = st.navigation(
             # url_path kept as "rankings-election-spending" so existing deep links and
             # entity_links.PAGES["election_spending"] keep resolving; the page is now the
             # unified GE2024 hub (donations + party spending + candidate spending).
-            st.Page(election_2024_page, title="Election 2024", icon=":material/savings:", url_path="rankings-election-spending"),
+            st.Page(
+                election_2024_page,
+                title="Election 2024",
+                icon=":material/savings:",
+                url_path="rankings-election-spending",
+            ),
             st.Page(
                 procurement_page,
                 title="Procurement",
@@ -178,19 +199,25 @@ pg = st.navigation(
                 url_path="rankings-council-spending",
             ),
             st.Page(
+                accommodation_spend_page,
+                title="Accommodation Spend",
+                icon=":material/hotel:",
+                url_path="accommodation-spend",
+            ),
+            st.Page(
                 public_payments_page,
                 title="Public Payments",
                 icon=":material/account_balance_wallet:",
                 url_path="rankings-public-payments",
             ),
-            # Company dossier (entity-first flagship): reached from supplier cards on
-            # Procurement / Public Payments, not from the nav bar — hidden like Home.
+            # Company dossier (entity-first flagship): the org-first front door.
+            # Visible in the nav so users can browse/search every firm directly;
+            # also reached from supplier cards on Procurement / Public Payments.
             st.Page(
                 company_page,
-                title="Company",
+                title="Companies",
                 icon=":material/domain:",
                 url_path="company",
-                visibility="hidden",
             ),
         ],
         "Law & Records": [
@@ -221,6 +248,12 @@ pg = st.navigation(
         ],
         "Influence": [
             st.Page(lobbying_poc_page, title="Lobbying", icon=":material/groups:", url_path="rankings-lobbying"),
+            st.Page(
+                ministerial_diaries_page,
+                title="Who Ministers Meet",
+                icon=":material/event_note:",
+                url_path="rankings-ministerial-diaries",
+            ),
             st.Page(
                 public_appointments_page,
                 title="Appointments",

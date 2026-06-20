@@ -295,6 +295,17 @@ lobbyist/raw/
 # a subdir, so the *.csv negation above (top-level only) does not reach it.
 !data/_meta/procurement_publishers/
 !data/_meta/procurement_publishers/*.csv
+# per-lane freshness heartbeats (tools/freshness_heartbeat.py) — a subdir, so the
+# *.json negation above (top-level only) does not reach it. These tiny beats are the
+# refresh ledger the cloud Actions ship via publish_data.py, so they MUST be tracked.
+!data/_meta/heartbeats/
+!data/_meta/heartbeats/*.json
+# data-contract quarantine summaries (services/data_contracts.py) — a subdir, so the
+# *.json negation above (top-level only) does not reach it. Track the small JSON
+# summaries (the investigation ledger for drift / mis-aligned values); the sibling
+# *_quarantine.parquet full-row dumps stay local (swallowed by the blanket *.parquet rule).
+!data/_meta/quarantine/
+!data/_meta/quarantine/*.json
 
 # basedpyright baseline — snapshots known/false-positive type findings so CI
 # fails only on NEW errors. Must be tracked or CI re-flags the baselined items.
@@ -368,6 +379,11 @@ data/silver/sipo_candidate/
 !data/silver/parquet/la_afs_divisions.parquet
 # per-LA AFS CAPITAL fact (la_afs_capital_extract.py) — sibling of the revenue fact, same reason
 !data/silver/parquet/la_afs_capital_divisions.parquet
+# ABP planning-appeal outcomes (extractors/planning_appeal_outcomes.py) — a small (~0.2MB)
+# silver fact read DIRECTLY by v_la_planning_overturn, which feeds the "Who runs your county"
+# planning card AND the national council choropleth (v_la_map_layers). Cloud boots from a clean
+# clone with no ETL, so without this the planning JOIN throws and the whole map silently vanishes.
+!data/silver/parquet/planning_appeal_outcomes.parquet
 # Silver facts the deployed app's runtime SQL views read DIRECTLY and query live in
 # DuckDB (registered via utility/data_access/_sql_registry.py + member_overview_data.py).
 # Without these a fresh Cloud clone hard-crashes the Lobbying / Interests / Committees
@@ -409,6 +425,9 @@ data/silver/sipo_candidate/
 !data/silver/parquet/seanad_member_interests_combined.parquet
 !data/silver/parquet/sponsors.parquet
 !data/silver/parquet/stages.parquet
+# the state-board universe — read at runtime by sql_views/appointments/appointments_stateboards_boards.sql
+# (v_stateboards_boards). Must be committed or a fresh Cloud clone silently loses that view.
+!data/silver/parquet/stateboards_boards.parquet
 !data/silver/parquet/versions.parquet
 # TED Ireland silver layers (services/ted_search.py + extractors/ted_enrich.py) —
 # read at runtime by sql_views/procurement/procurement_ted_*.sql + procurement_competition.sql

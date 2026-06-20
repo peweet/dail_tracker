@@ -595,8 +595,11 @@ def corporate_repeat_distress(limit: int = 50) -> dict:
     firms = _rows(corp.cbi_repeat_distress(_cur()))
     if isinstance(firms, list):
         firms = firms[:limit]
-    return {"firms": firms, "caveat": "regulatory provenance only — not a verdict; "
-            "exact normalised name match (may miss aliases); solvent MVLs excluded from distress count"}
+    return {
+        "firms": firms,
+        "caveat": "regulatory provenance only — not a verdict; "
+        "exact normalised name match (may miss aliases); solvent MVLs excluded from distress count",
+    }
 
 
 # ── Public-body payments (the realised-SPEND grain) ─────────────────────────────

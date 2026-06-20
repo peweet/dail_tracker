@@ -35,8 +35,7 @@ with contextlib.suppress(Exception):
 from reference.ec_constituency_crosswalk_extract import _CONSTITUENCIES  # noqa: E402
 
 _GEOJSON_URL = (
-    "https://data-osi.opendata.arcgis.com/api/download/v1/items/"
-    "a37ad6a3a6ff47e4a5a0ff313b418448/geojson?layers=0"
+    "https://data-osi.opendata.arcgis.com/api/download/v1/items/a37ad6a3a6ff47e4a5a0ff313b418448/geojson?layers=0"
 )
 _CACHE = Path("c:/tmp/constituency_boundaries_2023.geojson")  # 54 MB, NOT committed
 _OUT = _ROOT / "data" / "_meta" / "constituency_outlines.json"
@@ -79,8 +78,9 @@ def build_outlines(geojson_path: Path) -> dict:
             geom = geom.buffer(0)
         by_name.setdefault(name, []).append(geom.simplify(_SIMPLIFY_DEG, preserve_topology=True))
 
-    shapes = {name: unary_union(parts).simplify(_SIMPLIFY_DEG, preserve_topology=True)
-              for name, parts in by_name.items()}
+    shapes = {
+        name: unary_union(parts).simplify(_SIMPLIFY_DEG, preserve_topology=True) for name, parts in by_name.items()
+    }
 
     # Shared projection: one bbox over ALL constituencies (Ireland extent), lon scaled
     # by cos(mid-lat) so the thumbnail isn't horizontally stretched at 53°N.

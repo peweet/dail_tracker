@@ -42,15 +42,15 @@ def _cell(text, x0, y, *, score=1.0, w=80, h=40):
 @pytest.mark.parametrize(
     "text,expected",
     [
-        ("10270-50", 10270.50),       # decimal mark OCR'd as a hyphen — THE bug
-        ("2327-90", 2327.90),         # ditto, verified vs raw cell O'Donoghue C1
-        ("€2,799.48", 2799.48),       # Grealish → Galway Advertiser, clean
+        ("10270-50", 10270.50),  # decimal mark OCR'd as a hyphen — THE bug
+        ("2327-90", 2327.90),  # ditto, verified vs raw cell O'Donoghue C1
+        ("€2,799.48", 2799.48),  # Grealish → Galway Advertiser, clean
         ("€615.00", 615.0),
-        ("1.845.00", 1845.00),        # comma read as period (OCR), 2dp tail wins
-        ("€2,000", 2000.0),           # thousands sep, whole euros
+        ("1.845.00", 1845.00),  # comma read as period (OCR), 2dp tail wins
+        ("€2,000", 2000.0),  # thousands sep, whole euros
         ("174.98", 174.98),
-        ("4", 4.0),                   # bare integer
-        ("€1,234-56", 1234.56),       # mixed thousands ',' + hyphen decimal
+        ("4", 4.0),  # bare integer
+        ("€1,234-56", 1234.56),  # mixed thousands ',' + hyphen decimal
     ],
 )
 def test_parse_money_recovers_decimal_glyphs(text, expected):
@@ -67,8 +67,8 @@ def test_parse_money_none_for_non_numeric():
 def test_decimal_fix_pulls_value_under_statutory_cap():
     """The fix is what moves a high-confidence figure back under the cap so it is NOT
     flagged cost_suspect — whereas genuine multi-cell garble stays above the cap."""
-    assert parse_money("10270-50") <= STATUTORY_MAX_EUR          # recovered → clean
-    assert parse_money("28784724120") > STATUTORY_MAX_EUR        # garble → stays suspect
+    assert parse_money("10270-50") <= STATUTORY_MAX_EUR  # recovered → clean
+    assert parse_money("28784724120") > STATUTORY_MAX_EUR  # garble → stays suspect
 
 
 # ── page_type: twin summary page classification ──────────────────────────────
@@ -87,9 +87,12 @@ def test_page_type_distinguishes_public_twin():
 
 def test_parse_grid_pairs_categories_and_overall():
     cells = [
-        _cell("5A -", 100, 100), _cell("€1,000.00", 1000, 100),
-        _cell("5B -", 100, 200), _cell("€500.00", 1000, 200),
-        _cell("Overall Expense total:", 100, 900), _cell("€1,500.00", 1000, 900),
+        _cell("5A -", 100, 100),
+        _cell("€1,000.00", 1000, 100),
+        _cell("5B -", 100, 200),
+        _cell("€500.00", 1000, 200),
+        _cell("Overall Expense total:", 100, 900),
+        _cell("€1,500.00", 1000, 900),
     ]
     grid, overall = parse_grid(cells)
     assert grid["5A"] == 1000.0
@@ -104,10 +107,16 @@ def test_parse_grid_pairs_categories_and_overall():
 def test_parse_items_extracts_ref_detail_cost():
     pages = {
         "c003": [
-            _cell("A1", 200, 100), _cell("Galway Advertiser", 600, 100), _cell("€2,799.48", 1600, 100),
-            _cell("A2", 200, 200), _cell("Connacht Tribune", 600, 200), _cell("€2,103.30", 1600, 200),
+            _cell("A1", 200, 100),
+            _cell("Galway Advertiser", 600, 100),
+            _cell("€2,799.48", 1600, 100),
+            _cell("A2", 200, 200),
+            _cell("Connacht Tribune", 600, 200),
+            _cell("€2,103.30", 1600, 200),
             # a subtotal row: bare 'A' + Total — must NOT match the Ref regex → skipped
-            _cell("A", 200, 300), _cell("Total:", 600, 300), _cell("€4,902.78", 1600, 300),
+            _cell("A", 200, 300),
+            _cell("Total:", 600, 300),
+            _cell("€4,902.78", 1600, 300),
         ]
     }
     items = parse_items(pages)
@@ -145,30 +154,43 @@ def test_canon_party_canonicalises_and_nulls_unknown():
     import polars as pl
 
     raw = [
-        "Fianna Fáil", "Fianna Fail", "FIANNA FAIL",   # accent/case variants -> one party
-        "Fine Gael", "FINE GAEL.",
-        "Sinn Féin", "Sinn Fein",
-        "Independent Ireland",                          # a PARTY, not generic independent
-        "Non party", "NON-PARTY", "Independant",        # all -> Non-Party
-        "Aontu", "AONTÚ",
-        "Click here to enter text.",                    # MS-Word placeholder -> NULL
-        "Tel: (01) 639 5666",                           # SIPO footer -> NULL
-        "Marie Sherlock",                               # mis-grabbed candidate name -> NULL
+        "Fianna Fáil",
+        "Fianna Fail",
+        "FIANNA FAIL",  # accent/case variants -> one party
+        "Fine Gael",
+        "FINE GAEL.",
+        "Sinn Féin",
+        "Sinn Fein",
+        "Independent Ireland",  # a PARTY, not generic independent
+        "Non party",
+        "NON-PARTY",
+        "Independant",  # all -> Non-Party
+        "Aontu",
+        "AONTÚ",
+        "Click here to enter text.",  # MS-Word placeholder -> NULL
+        "Tel: (01) 639 5666",  # SIPO footer -> NULL
+        "Marie Sherlock",  # mis-grabbed candidate name -> NULL
         None,
     ]
-    out = (
-        pl.DataFrame({"party_declared": raw})
-        .with_columns(canon_party_expr())["party"]
-        .to_list()
-    )
+    out = pl.DataFrame({"party_declared": raw}).with_columns(canon_party_expr())["party"].to_list()
     assert out == [
-        "Fianna Fáil", "Fianna Fáil", "Fianna Fáil",
-        "Fine Gael", "Fine Gael",
-        "Sinn Féin", "Sinn Féin",
+        "Fianna Fáil",
+        "Fianna Fáil",
+        "Fianna Fáil",
+        "Fine Gael",
+        "Fine Gael",
+        "Sinn Féin",
+        "Sinn Féin",
         "Independent Ireland",
-        "Non-Party", "Non-Party", "Non-Party",
-        "Aontú", "Aontú",
-        None, None, None, None,
+        "Non-Party",
+        "Non-Party",
+        "Non-Party",
+        "Aontú",
+        "Aontú",
+        None,
+        None,
+        None,
+        None,
     ]
 
 
@@ -202,8 +224,7 @@ def test_filed_unquantified_carries_no_amount_and_partitions_the_fact():
     uq = pl.read_parquet(_UNQUANT)
     fact = pl.read_parquet(_FACT)
     # (a) no monetary / amount / address column escapes into this fact
-    leak = [c for c in uq.columns
-            if any(t in c.lower() for t in ("eur", "spend", "amount", "total", "address"))]
+    leak = [c for c in uq.columns if any(t in c.lower() for t in ("eur", "spend", "amount", "total", "address"))]
     assert leak == [], f"unquantified fact must carry no figure, found {leak}"
     # status is one of the two documented reasons, never blank
     assert set(uq["filed_status"].unique()) <= {"no_total_declared", "figures_unreadable"}
@@ -245,15 +266,19 @@ def test_roster_join_links_elected_and_keeps_unmatched():
     sys.path.insert(0, str(_ROOT / "extractors"))
     from sipo_candidate_expenses_aggregate import roster_join
 
-    head = pl.DataFrame({
-        "candidate_name": ["Grealish, Noel", "Codd, Jim", "Nobody, Random"],
-        "party": ["Non-Party", None, "Aontú"],          # OCR-declared canonical (Codd unknown)
-    })
-    members = pl.DataFrame({
-        "full_name": ["Noel Grealish", "Jim Codd"],
-        "unique_member_code": ["Noel-Grealish.D.2002-06-06", "Jim-Codd.D.2024-11-29"],
-        "member_party": ["Independent", "Aontú"],         # registry is authoritative
-    })
+    head = pl.DataFrame(
+        {
+            "candidate_name": ["Grealish, Noel", "Codd, Jim", "Nobody, Random"],
+            "party": ["Non-Party", None, "Aontú"],  # OCR-declared canonical (Codd unknown)
+        }
+    )
+    members = pl.DataFrame(
+        {
+            "full_name": ["Noel Grealish", "Jim Codd"],
+            "unique_member_code": ["Noel-Grealish.D.2002-06-06", "Jim-Codd.D.2024-11-29"],
+            "member_party": ["Independent", "Aontú"],  # registry is authoritative
+        }
+    )
     out = roster_join(head, members).sort("candidate_name")
     by_name = {r["candidate_name"]: r for r in out.iter_rows(named=True)}
 
@@ -263,7 +288,7 @@ def test_roster_join_links_elected_and_keeps_unmatched():
     assert by_name["Codd, Jim"]["is_elected_td"] is True
     assert by_name["Codd, Jim"]["party"] == "Aontú"
     assert by_name["Grealish, Noel"]["unique_member_code"] == "Noel-Grealish.D.2002-06-06"
-    assert by_name["Grealish, Noel"]["party"] == "Non-Party"   # 'Independent' canon -> Non-Party
+    assert by_name["Grealish, Noel"]["party"] == "Non-Party"  # 'Independent' canon -> Non-Party
     # unmatched: no code, keeps its declared party (never guessed)
     assert by_name["Nobody, Random"]["unique_member_code"] is None
     assert by_name["Nobody, Random"]["is_elected_td"] is False
@@ -291,9 +316,7 @@ def test_sipo_candidate_views_execute_and_have_rows():
 
     # Resolve the views' relative read_parquet('data/gold/parquet/…') literals to the
     # real gold dir regardless of the test runner's CWD, then register the whole file.
-    sql = _VIEW_SQL.read_text(encoding="utf-8").replace(
-        "data/gold/parquet/", str(_GOLD).replace("\\", "/") + "/"
-    )
+    sql = _VIEW_SQL.read_text(encoding="utf-8").replace("data/gold/parquet/", str(_GOLD).replace("\\", "/") + "/")
     con = duckdb.connect()
     con.execute(sql)
     for v in _VIEWS:

@@ -268,10 +268,17 @@ def what_they_own_page() -> None:
     )
     selected_year: int | None = None if year_choice == _LATEST else int(year_choice)
 
+    # The Seanad register is only published from 2020 — there is no earlier Seanad
+    # history on record (the Dáil reaches back to 2011). Flag it so a short year
+    # list doesn't read as missing data.
+    if house == "Seanad" and years:
+        st.caption(
+            f"ℹ️ Seanad declarations are only on record from **{min(years)}** onward — "
+            "there is no earlier Seanad register published. (The Dáil register reaches back to 2011.)"
+        )
+
     members_df = (
-        fetch_member_index_alltime(house)
-        if selected_year is None
-        else fetch_member_index(house, selected_year)
+        fetch_member_index_alltime(house) if selected_year is None else fetch_member_index(house, selected_year)
     )
     if members_df.empty:
         empty_state(
@@ -289,10 +296,7 @@ def what_they_own_page() -> None:
     # Scope phrase shared by every caption — makes clear the count is a single
     # year's snapshot, never a running total across years.
     if selected_year is None:
-        scope = (
-            "each member's **most recent declaration year** on file "
-            "(includes former members at their last year)"
-        )
+        scope = "each member's **most recent declaration year** on file (includes former members at their last year)"
         year_tag = "most recent year"
     else:
         scope = f"the **{selected_year}** register"

@@ -32,20 +32,23 @@ EUR = 1_000_000  # tolerance: 2019 reports in € millions (rounded to €0.01m 
 
 
 # ---- 1. pure number parsing -------------------------------------------------
-@pytest.mark.parametrize(("raw", "expected"), [
-    ("6,750,822,110", 6_750_822_110.0),     # full euros
-    ("(13,737,809)", -13_737_809.0),         # parenthesised negative
-    ("1,630.75 M", 1_630_750_000.0),         # 2019 € millions notation
-    ("27.31 M", 27_310_000.0),
-    ("0", 0.0),
-    ("-", 0.0),
-    ("", 0.0),
-    # comma-/dot-only cells satisfy the NUM regex but strip to a non-number — these used to
-    # crash to_num with float('') (ValueError) and abort a whole multi-year AFS run.
-    ("(,)", 0.0),
-    (",", 0.0),
-    (".", 0.0),
-])
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("6,750,822,110", 6_750_822_110.0),  # full euros
+        ("(13,737,809)", -13_737_809.0),  # parenthesised negative
+        ("1,630.75 M", 1_630_750_000.0),  # 2019 € millions notation
+        ("27.31 M", 27_310_000.0),
+        ("0", 0.0),
+        ("-", 0.0),
+        ("", 0.0),
+        # comma-/dot-only cells satisfy the NUM regex but strip to a non-number — these used to
+        # crash to_num with float('') (ValueError) and abort a whole multi-year AFS run.
+        ("(,)", 0.0),
+        (",", 0.0),
+        (".", 0.0),
+    ],
+)
 def test_to_num(raw: str, expected: float):
     assert to_num(raw) == pytest.approx(expected)
 
@@ -97,10 +100,13 @@ def test_cross_year_prior_consistency(golden: pl.DataFrame):
     """Year N's restated prior-year column must equal year N-1's reported net —
     an independent cross-document validation that the 8 PDFs were parsed consistently."""
     cur = golden.select(["year", "division", "net_expenditure"])
-    pri = golden.select([
-        (pl.col("year") - 1).alias("year"), "division",
-        pl.col("net_expenditure_prior_yr").alias("prior"),
-    ])
+    pri = golden.select(
+        [
+            (pl.col("year") - 1).alias("year"),
+            "division",
+            pl.col("net_expenditure_prior_yr").alias("prior"),
+        ]
+    )
     joined = cur.join(pri, on=["year", "division"], how="inner").with_columns(
         (pl.col("net_expenditure") - pl.col("prior")).abs().alias("d")
     )

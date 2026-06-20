@@ -31,6 +31,13 @@ def constituency_list(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     return _run(conn, "SELECT * FROM v_constituency_registry ORDER BY constituency_name")
 
 
+def constituency_map_layers(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """All 43 constituencies with the choropleth layer values + precomputed quintile
+    buckets (population, per-TD ratio, % landlord TDs, Dáil questions per TD). The page
+    only maps bucket→colour — the quantile split lives in v_constituency_map_layers."""
+    return _run(conn, "SELECT * FROM v_constituency_map_layers ORDER BY constituency_name")
+
+
 def constituency_header(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
     """Single-row header (population, per-TD ratio, seats, TD count) for one dossier."""
     return _run(
@@ -53,8 +60,7 @@ def constituency_party_breakdown(conn: duckdb.DuckDBPyConnection, constituency: 
     """Seats per party in the constituency (the party-composition bar)."""
     return _run(
         conn,
-        "SELECT * FROM v_constituency_party_breakdown WHERE constituency_name = ? "
-        "ORDER BY n_seats DESC, party_name",
+        "SELECT * FROM v_constituency_party_breakdown WHERE constituency_name = ? ORDER BY n_seats DESC, party_name",
         [constituency],
     )
 
@@ -115,6 +121,46 @@ def constituency_ssha_waiting_list(conn: duckdb.DuckDBPyConnection, constituency
     return _run(
         conn,
         "SELECT * FROM v_constituency_ssha_waiting_list WHERE constituency_name = ?",
+        [constituency],
+    )
+
+
+# Demand-side columns the supply-side housing context is enriched with (kept here, in the core
+# query layer, so the LEFT JOIN of supply + demand lives in the pipeline and not in the page).
+_SSHA_JOIN_COLS = [
+    "local_authority",
+    "link_type",
+    "waiting_total_2025",
+    "waiting_yoy_pct",
+    "long_wait_pct",
+    "over_7yr_pct",
+]
+
+
+def constituency_housing_context_with_ssha(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
+    """Supply-side housing context (vacancy / median price / completions) LEFT-joined with the
+    social-housing waiting list on the serving council, so the page can show supply and demand
+    side by side from ONE result. Degrades to supply-only if the SSHA fact is unavailable — the
+    join happens here (core), never in the UI (logic-firewall: joins belong in the pipeline)."""
+    ctx = constituency_housing_context(conn, constituency)
+    if not ctx.ok or ctx.data.empty:
+        return ctx
+    ssha = constituency_ssha_waiting_list(conn, constituency)
+    if not ssha.ok or ssha.data.empty:
+        return ctx  # supply-only; the page renders what's present
+    cols = [c for c in _SSHA_JOIN_COLS if c in ssha.data.columns]
+    merged = ctx.data.merge(ssha.data[cols], on=["local_authority", "link_type"], how="left")
+    return QueryResult.success(merged)
+
+
+def constituency_waiting_composition(conn: duckdb.DuckDBPyConnection, constituency: str) -> QueryResult:
+    """The social-housing waiting-list composition (time / tenure / employment /
+    household / citizenship) for the council(s) serving this constituency — the
+    "who's waiting here" expander. Council-area grain."""
+    return _run(
+        conn,
+        "SELECT local_authority, link_type, dimension, category, ord, count, pct "
+        "FROM v_constituency_waiting_composition WHERE constituency_name = ?",
         [constituency],
     )
 

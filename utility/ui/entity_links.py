@@ -76,9 +76,15 @@ PAGES: dict[str, str] = {
     "legislation": "rankings-legislation",
     "statutory_instruments": "rankings-statutory-instruments",
     "committees": "rankings-committees",
-    # /company is the supplier dossier (entity-first flagship, hidden from the nav
-    # bar like Home) — the canonical URL for one firm's public-money footprint.
+    "corporate": "rankings-corporate",
+    "procurement": "rankings-procurement",
+    # /company is the supplier dossier (entity-first flagship, now a visible
+    # "Companies" tab) — the canonical URL for one firm's public-money footprint.
     "company": "company",
+    # /local-government is the "Who runs your county" dossier — one council's
+    # appointed Chief Executive + published accountability indicators, keyed by
+    # ?la=<local_authority>. The constituency dossier links serving councils here.
+    "local_government": "local-government",
 }
 
 
@@ -131,6 +137,52 @@ def company_profile_url(supplier_norm: str) -> str:
     views (shared/name_norm form), NOT the display name.
     """
     return f"/{PAGES['company']}?supplier={_q(supplier_norm)}"
+
+
+def authority_profile_url(authority: str) -> str:
+    """Cross-page link to a contracting authority's procurement dossier:
+    /rankings-procurement?authority=<contracting_authority>. The Procurement page
+    resolves ``?authority=`` into the buyer's award record (see procurement_page).
+
+    Use this from OTHER pages (e.g. the company dossier) to close the supplier↔buyer
+    loop. Within the Procurement page itself, prefer the relative ``?authority=`` form
+    so the click is a soft rerun (spa_links) rather than a full cross-page load.
+    ``authority`` is the raw ``contracting_authority`` string the award views carry.
+    """
+    return f"/{PAGES['procurement']}?authority={_q(authority)}"
+
+
+def council_accountability_url(local_authority: str) -> str:
+    """Cross-page link to a council's "Who runs your county" dossier:
+    /local-government?la=<local_authority>. The local-government page resolves
+    ``?la=`` against ``v_la_chief_executives.local_authority`` (the 31-LA roster).
+
+    ``local_authority`` must be the exact join key the council-grain views carry
+    (e.g. ``Dun Laoghaire-Rathdown``, ``Limerick``, ``Waterford``) — the same value
+    ``v_constituency_council_context`` / ``v_la_chief_executives`` share. Use this
+    from the constituency dossier to carry a serving council into the CE page rather
+    than dropping the user on the generic council index.
+    """
+    return f"/{PAGES['local_government']}?la={_q(local_authority)}"
+
+
+def lobbying_org_url(org_name: str) -> str:
+    """Link to one organisation's lobbying record: /rankings-lobbying?lp3_org=<org_name>.
+    The Lobbying page validates ``lp3_org`` against the register's exact org-name set and
+    shows "Organisation not found" on a miss — so callers MUST only build this for a name
+    known to resolve (the procurement↔lobbying overlap name matches the register only ~64%
+    of the time; the company dossier checks membership before linking)."""
+    return f"/{PAGES['lobbying']}?lp3_org={_q(org_name)}"
+
+
+def corporate_notices_url(query: str | None = None) -> str:
+    """Corporate Notices page URL: /rankings-corporate, optionally pre-filtered to a
+    firm's notices via ``?q=`` (the page reads ``q`` into its search box). Pass a
+    company name to land the user on that firm's notices in the dense notices browser
+    — the single home of per-notice detail (the company dossier only summarises +
+    links here, so notice rendering never diverges across two pages)."""
+    base = f"/{PAGES['corporate']}"
+    return f"{base}?q={_q(query)}" if query else base
 
 
 # ── External profile builders ─────────────────────────────────────────────────
@@ -337,5 +389,5 @@ def api_json_link(path: str, label: str = "View as JSON") -> str:
     return (
         f'<a class="dt-api-link" href="{_h(href)}" target="_blank" rel="noopener" '
         f'aria-label="Open this record as JSON on the open-data API">'
-        f"<span aria-hidden=\"true\">{{ }}</span> {_h(label)}</a>"
+        f'<span aria-hidden="true">{{ }}</span> {_h(label)}</a>'
     )

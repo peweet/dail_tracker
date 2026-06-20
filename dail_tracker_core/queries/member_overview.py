@@ -178,6 +178,19 @@ def contact_details(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResu
     )
 
 
+def news_mentions(conn: duckdb.DuckDBPyConnection, join_key: str, limit: int = 30) -> QueryResult:
+    """Recent news mentions (per-member Google-News search), most-recent first. One row per
+    article; empty when the member has no recent coverage. A row is a name match, not an
+    assertion the article is about the member (see v_member_news_mentions)."""
+    return _run(
+        conn,
+        "SELECT article_title, article_url, outlet, outlet_tier, published_at, match_in_title"
+        " FROM v_member_news_mentions WHERE unique_member_code = ?"
+        " ORDER BY published_at DESC NULLS LAST LIMIT ?",
+        [join_key, limit],
+    )
+
+
 def votes_summary(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
     return _run(
         conn,
@@ -236,7 +249,7 @@ def lobbying_rd(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
 def legislation(conn: duckdb.DuckDBPyConnection, join_key: str) -> QueryResult:
     return _run(
         conn,
-        "SELECT bill_title, bill_status, bill_year, oireachtas_url"
+        "SELECT bill_id, bill_title, bill_status, bill_year, oireachtas_url"
         " FROM v_legislation_index"
         " WHERE sponsor_join_key = ?"
         " ORDER BY introduced_date DESC NULLS LAST LIMIT 50",

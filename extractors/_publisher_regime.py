@@ -29,16 +29,16 @@ from __future__ import annotations
 # --- controlled vocabularies ---------------------------------------------------------------
 DISCLOSURE_BASIS = {
     "foi_s8_model_scheme",  # FOI Act 2014 s.8 model publication scheme (origin: Circular FIN 07/12)
-    "circular_fin_0712",    # explicitly cited Circular FIN 07/2012 (departments/agencies, pre-2014)
-    "voluntary",            # body publishes a list with no statutory obligation (commercial state bodies)
-    "utilities_regime",     # EU Utilities Directive 2014/25 contracting entity; publishes voluntarily
-    "aie_only",             # data reachable only via Access to Information on the Environment requests
+    "circular_fin_0712",  # explicitly cited Circular FIN 07/2012 (departments/agencies, pre-2014)
+    "voluntary",  # body publishes a list with no statutory obligation (commercial state bodies)
+    "utilities_regime",  # EU Utilities Directive 2014/25 contracting entity; publishes voluntarily
+    "aie_only",  # data reachable only via Access to Information on the Environment requests
 }
 BODY_PROCUREMENT_CLASS = {
-    "contracting_authority",        # public-sector body, EU Dir. 2014/24 (departments, councils, agencies)
-    "contracting_entity_utility",   # utility, EU Dir. 2014/25 (ESB, EirGrid, Uisce Éireann, daa, ports)
-    "commercial_state",             # commercial state company outside the €20k scheme (RTÉ, Coillte)
-    "foi_body",                     # an FOI body that isn't itself a contracting authority (rare)
+    "contracting_authority",  # public-sector body, EU Dir. 2014/24 (departments, councils, agencies)
+    "contracting_entity_utility",  # utility, EU Dir. 2014/25 (ESB, EirGrid, Uisce Éireann, daa, ports)
+    "commercial_state",  # commercial state company outside the €20k scheme (RTÉ, Coillte)
+    "foi_body",  # an FOI body that isn't itself a contracting authority (rare)
 }
 
 # Default threshold / VAT for the €20k FOI model scheme.
@@ -67,7 +67,8 @@ _CLASS_BY_TYPE = {
 _OVERRIDES: dict[str, dict] = {
     # --- thresholds / VAT that differ from the €20k incl/excl default ----------------------
     "ie_chi": {
-        "threshold_eur": 25000, "vat": "incl_vat",
+        "threshold_eur": 25000,
+        "vat": "incl_vat",
         "note": "Publishes PAID invoices over €25,000 incl-VAT (operator side of the children's hospital).",
     },
     "ie_hse": {
@@ -75,14 +76,22 @@ _OVERRIDES: dict[str, dict] = {
         "note": "HSE model-scheme threshold is €100,000; the file ingested here is the 'PO payments above €20,000' return.",
     },
     "ie_tusla": {"vat": "incl_vat"},
-    "ie_prisons": {"vat": "incl_vat", "note": "Annual (not quarterly) PO list, incl-VAT; security redactions possible."},
+    "ie_prisons": {
+        "vat": "incl_vat",
+        "note": "Annual (not quarterly) PO list, incl-VAT; security redactions possible.",
+    },
     "ie_setu": {"vat": "incl_vat"},
-
     # --- utilities: contracting ENTITIES (Dir. 2014/25), outside the €20k FOI scheme -------
-    "ie_esb": {"basis": "utilities_regime", "body_class": "contracting_entity_utility",
-               "note": "Commercial electricity utility; publishes voluntarily, not under the FOI €20k scheme."},
-    "ie_esbnetworks": {"basis": "utilities_regime", "body_class": "contracting_entity_utility",
-                       "note": "Regulated network utility; publication-scheme financial-information page (voluntary)."},
+    "ie_esb": {
+        "basis": "utilities_regime",
+        "body_class": "contracting_entity_utility",
+        "note": "Commercial electricity utility; publishes voluntarily, not under the FOI €20k scheme.",
+    },
+    "ie_esbnetworks": {
+        "basis": "utilities_regime",
+        "body_class": "contracting_entity_utility",
+        "note": "Regulated network utility; publication-scheme financial-information page (voluntary).",
+    },
     "ie_eirgrid": {"basis": "utilities_regime", "body_class": "contracting_entity_utility"},
     "ie_gni": {"basis": "utilities_regime", "body_class": "contracting_entity_utility"},
     "ie_uisce": {"basis": "utilities_regime", "body_class": "contracting_entity_utility"},
@@ -90,14 +99,19 @@ _OVERRIDES: dict[str, dict] = {
     "ie_dublinport": {"basis": "utilities_regime", "body_class": "contracting_entity_utility"},
     "ie_shannonfoynes": {"basis": "utilities_regime", "body_class": "contracting_entity_utility"},
     "ie_portofcork": {"basis": "utilities_regime", "body_class": "contracting_entity_utility"},
-
     # --- commercial state companies publishing voluntarily / via AIE -----------------------
     "ie_rte": {"basis": "voluntary", "body_class": "commercial_state"},
     "ie_tg4": {"basis": "voluntary", "body_class": "commercial_state"},
-    "ie_bnm": {"basis": "aie_only", "body_class": "commercial_state",
-               "note": "Bord na Móna — financial detail reachable mainly via AIE/OCEI, not a clean PO list."},
-    "ie_coillte": {"basis": "aie_only", "body_class": "commercial_state",
-                   "note": "Coillte — financial detail reachable mainly via AIE/OCEI, not a clean PO list."},
+    "ie_bnm": {
+        "basis": "aie_only",
+        "body_class": "commercial_state",
+        "note": "Bord na Móna — financial detail reachable mainly via AIE/OCEI, not a clean PO list.",
+    },
+    "ie_coillte": {
+        "basis": "aie_only",
+        "body_class": "commercial_state",
+        "note": "Coillte — financial detail reachable mainly via AIE/OCEI, not a clean PO list.",
+    },
 }
 
 

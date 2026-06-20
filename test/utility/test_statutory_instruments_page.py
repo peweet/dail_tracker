@@ -41,23 +41,37 @@ def _si_df() -> pd.DataFrame:
     return pd.DataFrame(
         [
             {
-                "si_id": "2025-332", "si_year": 2025, "si_number": 332,
+                "si_id": "2025-332",
+                "si_year": 2025,
+                "si_number": 332,
                 "si_title": "Fisheries (Amendment) Regulations 2025",
                 "si_signed_date": pd.Timestamp("2025-12-15"),
-                "si_policy_domain": "marine_fisheries", "si_operation": "amendment",
-                "si_department_label": "Agriculture", "si_minister_name": "A Minister",
-                "si_is_eu": True, "bill_id": "bill-1-of-2024", "bill_short_title": "Sea Act",
-                "current_state": "revoked", "lrc_primary_subject": "Fisheries",
+                "si_policy_domain": "marine_fisheries",
+                "si_operation": "amendment",
+                "si_department_label": "Agriculture",
+                "si_minister_name": "A Minister",
+                "si_is_eu": True,
+                "bill_id": "bill-1-of-2024",
+                "bill_short_title": "Sea Act",
+                "current_state": "revoked",
+                "lrc_primary_subject": "Fisheries",
                 "eisb_url": "https://www.irishstatutebook.ie/eli/2025/si/332/made/en/print",
             },
             {
-                "si_id": "2018-10", "si_year": 2018, "si_number": 10,
+                "si_id": "2018-10",
+                "si_year": 2018,
+                "si_number": 10,
                 "si_title": "Health Order 2018",
                 "si_signed_date": pd.Timestamp("2018-05-01"),
-                "si_policy_domain": "health", "si_operation": "commencement",
-                "si_department_label": "Health", "si_minister_name": "B Minister",
-                "si_is_eu": False, "bill_id": None, "bill_short_title": "",
-                "current_state": None, "lrc_primary_subject": "Health",
+                "si_policy_domain": "health",
+                "si_operation": "commencement",
+                "si_department_label": "Health",
+                "si_minister_name": "B Minister",
+                "si_is_eu": False,
+                "bill_id": None,
+                "bill_short_title": "",
+                "current_state": None,
+                "lrc_primary_subject": "Health",
                 "eisb_url": None,
             },
         ]
@@ -152,46 +166,119 @@ def test_tab_label():
 # ── _apply_filters ───────────────────────────────────────────────────────────────
 def test_apply_filters_year_and_search():
     df = _si_df()
-    assert len(si._apply_filters(df, years=[2025], domain="All", op="All", department="All",
-                                 minister="All", eu_only=False, search="")) == 1
-    assert len(si._apply_filters(df, years=[], domain="All", op="All", department="All",
-                                 minister="All", eu_only=False, search="health")) == 1
+    assert (
+        len(
+            si._apply_filters(
+                df, years=[2025], domain="All", op="All", department="All", minister="All", eu_only=False, search=""
+            )
+        )
+        == 1
+    )
+    assert (
+        len(
+            si._apply_filters(
+                df, years=[], domain="All", op="All", department="All", minister="All", eu_only=False, search="health"
+            )
+        )
+        == 1
+    )
 
 
 def test_apply_filters_eu_state_subject_postcommittee():
     df = _si_df()
     # EU-only keeps the 2025 EU row.
-    eu = si._apply_filters(df, years=[], domain="All", op="All", department="All",
-                           minister="All", eu_only=True, search="")
+    eu = si._apply_filters(
+        df, years=[], domain="All", op="All", department="All", minister="All", eu_only=True, search=""
+    )
     assert list(eu["si_year"]) == [2025]
     # state filter.
-    rev = si._apply_filters(df, years=[], domain="All", op="All", department="All",
-                            minister="All", eu_only=False, search="", state="revoked")
+    rev = si._apply_filters(
+        df,
+        years=[],
+        domain="All",
+        op="All",
+        department="All",
+        minister="All",
+        eu_only=False,
+        search="",
+        state="revoked",
+    )
     assert list(rev["si_year"]) == [2025]
     # __unchecked__ keeps the null-state row.
-    unchk = si._apply_filters(df, years=[], domain="All", op="All", department="All",
-                              minister="All", eu_only=False, search="", state="__unchecked__")
+    unchk = si._apply_filters(
+        df,
+        years=[],
+        domain="All",
+        op="All",
+        department="All",
+        minister="All",
+        eu_only=False,
+        search="",
+        state="__unchecked__",
+    )
     assert list(unchk["si_year"]) == [2018]
     # subject filter.
-    subj = si._apply_filters(df, years=[], domain="All", op="All", department="All",
-                             minister="All", eu_only=False, search="", subject="Health")
+    subj = si._apply_filters(
+        df,
+        years=[],
+        domain="All",
+        op="All",
+        department="All",
+        minister="All",
+        eu_only=False,
+        search="",
+        subject="Health",
+    )
     assert list(subj["si_year"]) == [2018]
     # post_committee keeps only the Dec-2025 row.
-    pc = si._apply_filters(df, years=[], domain="All", op="All", department="All",
-                           minister="All", eu_only=False, search="", post_committee=True)
+    pc = si._apply_filters(
+        df,
+        years=[],
+        domain="All",
+        op="All",
+        department="All",
+        minister="All",
+        eu_only=False,
+        search="",
+        post_committee=True,
+    )
     assert list(pc["si_year"]) == [2025]
 
 
 def test_apply_filters_domain_op_dept_minister():
     df = _si_df()
-    assert len(si._apply_filters(df, years=[], domain="health", op="All", department="All",
-                                 minister="All", eu_only=False, search="")) == 1
-    assert len(si._apply_filters(df, years=[], domain="All", op="amendment", department="All",
-                                 minister="All", eu_only=False, search="")) == 1
-    assert len(si._apply_filters(df, years=[], domain="All", op="All", department="Health",
-                                 minister="All", eu_only=False, search="")) == 1
-    assert len(si._apply_filters(df, years=[], domain="All", op="All", department="All",
-                                 minister="B Minister", eu_only=False, search="")) == 1
+    assert (
+        len(
+            si._apply_filters(
+                df, years=[], domain="health", op="All", department="All", minister="All", eu_only=False, search=""
+            )
+        )
+        == 1
+    )
+    assert (
+        len(
+            si._apply_filters(
+                df, years=[], domain="All", op="amendment", department="All", minister="All", eu_only=False, search=""
+            )
+        )
+        == 1
+    )
+    assert (
+        len(
+            si._apply_filters(
+                df, years=[], domain="All", op="All", department="Health", minister="All", eu_only=False, search=""
+            )
+        )
+        == 1
+    )
+    assert (
+        len(
+            si._apply_filters(
+                df, years=[], domain="All", op="All", department="All", minister="B Minister", eu_only=False, search=""
+            )
+        )
+        == 1
+    )
 
 
 # ── _eu_scrutiny_stats ───────────────────────────────────────────────────────────
@@ -231,7 +318,8 @@ def test_load_si_drops_mojibake(monkeypatch):
 def test_load_si_falls_back_to_unclassified(monkeypatch):
     monkeypatch.setattr(si, "fetch_si_entity_index_classified", lambda *a, **k: pd.DataFrame())
     monkeypatch.setattr(
-        si, "fetch_si_entity_index",
+        si,
+        "fetch_si_entity_index",
         lambda *a, **k: pd.DataFrame([{"si_id": "9", "si_title": "Fallback", "si_signed_date": "2020-01-01"}]),
     )
     si.load_si.clear()
@@ -262,7 +350,8 @@ def test_render_legal_status(state):
             "directory_updated_to": "2026-01-01",
             "state_source_url": "https://eisb/x",
             "affecting_sis": ["100/2026"] if state else None,
-            "si_year": 2025, "si_number": 332,
+            "si_year": 2025,
+            "si_number": 332,
             "how_affected_raw": "Revoked on 1 Jan 2026",
             "eisb_url": "https://eisb/orig",
         }
@@ -273,8 +362,9 @@ def test_render_legal_status(state):
 def test_render_lrc_classification():
     _silence_streamlit()
     assert si._render_lrc_classification(pd.Series({"lrc_primary_subject": ""})) is None  # silent
-    row = pd.Series({"lrc_primary_subject": "Fisheries", "lrc_primary_leaf": "Sea fish",
-                     "lrc_list_updated_to": "2026-01-01"})
+    row = pd.Series(
+        {"lrc_primary_subject": "Fisheries", "lrc_primary_leaf": "Sea fish", "lrc_list_updated_to": "2026-01-01"}
+    )
     assert si._render_lrc_classification(row) is None
 
 
@@ -287,8 +377,16 @@ def test_render_amendments_made(monkeypatch):
     assert si._render_amendments_made(pd.Series({"si_year": None, "si_number": None})) is None
     # Populated amendment graph.
     amd = pd.DataFrame(
-        [{"effect": "Revokes", "affected_number": 5, "affected_year": 2010,
-          "affected_title": "Old Reg", "affected_eli_url": "", "provision_note": "Reg. 2"}]
+        [
+            {
+                "effect": "Revokes",
+                "affected_number": 5,
+                "affected_year": 2010,
+                "affected_title": "Old Reg",
+                "affected_eli_url": "",
+                "provision_note": "Reg. 2",
+            }
+        ]
     )
     monkeypatch.setattr(si, "fetch_si_amendments_made", lambda *a, **k: amd)
     assert si._render_amendments_made(pd.Series({"si_year": 2025, "si_number": 332})) is None

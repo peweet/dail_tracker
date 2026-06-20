@@ -48,8 +48,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from extractors.ted_enrich import enrich_winner_rows  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
-from shared.buyer_clean import clean_buyer_display  # noqa: E402
 from services.ted_search import fetch_ted_search  # noqa: E402
+from shared.buyer_clean import clean_buyer_display  # noqa: E402
 
 with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")

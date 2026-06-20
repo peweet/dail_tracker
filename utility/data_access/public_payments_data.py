@@ -73,9 +73,7 @@ def fetch_supplier_summary_result(order_by: str = "value", limit: int | None = N
 def fetch_publisher_lines_result(
     publisher_id: str, year: int | None = None, order_by: str = "value", limit: int | None = None
 ) -> QueryResult:
-    return _q.publisher_lines(
-        get_public_payments_conn(), publisher_id, year=year, order_by=order_by, limit=limit
-    )
+    return _q.publisher_lines(get_public_payments_conn(), publisher_id, year=year, order_by=order_by, limit=limit)
 
 
 @st.cache_data(ttl=300)

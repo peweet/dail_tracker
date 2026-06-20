@@ -46,12 +46,12 @@ import polars as pl
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+import contextlib  # noqa: E402
+
 from services.parquet_io import save_parquet  # noqa: E402
 
-try:
+with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
-except Exception:
-    pass
 
 PDF = ROOT / "data/bronze/scan_pdf/2024_election_donations.pdf"
 OUT_DIR = ROOT / "data/silver/sipo"
@@ -75,7 +75,7 @@ def ocr_page(ocr, page, tmp_png: Path, dpi: int = DPI) -> list[dict]:
         scores = d.get("rec_scores") or []
         boxes = d.get("rec_boxes")
         boxes = boxes.tolist() if hasattr(boxes, "tolist") else (boxes or [])
-        for t, s, b in zip(texts, scores, boxes):
+        for t, s, b in zip(texts, scores, boxes, strict=False):
             cells.append(
                 {
                     "text": t,
@@ -313,7 +313,10 @@ def main() -> None:
                 .sort("party")
                 .to_dicts(),
             )
-            print("flags:", dict(zip(*df["flag"].value_counts().sort("flag").to_dict(as_series=False).values())))
+            print(
+                "flags:",
+                dict(zip(*df["flag"].value_counts().sort("flag").to_dict(as_series=False).values(), strict=False)),
+            )
         else:
             print("no donations parsed (run cache first, or refine the parser).")
 

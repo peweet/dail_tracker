@@ -39,8 +39,16 @@ def _silence_streamlit():
 # ── formatters ───────────────────────────────────────────────────────────────
 @pytest.mark.parametrize(
     "val,expected",
-    [(None, "—"), (float("nan"), "—"), (0, "—"), (-5, "—"), ("x", "—"),
-     (500, "€500"), (12_400, "€12k"), (2_400_000, "€2.4m")],
+    [
+        (None, "—"),
+        (float("nan"), "—"),
+        (0, "—"),
+        (-5, "—"),
+        ("x", "—"),
+        (500, "€500"),
+        (12_400, "€12k"),
+        (2_400_000, "€2.4m"),
+    ],
 )
 def test_eur(val, expected):
     assert pp._eur(val) == expected
@@ -121,16 +129,34 @@ def test_line_row_html():
 # ── render functions (bare mode, monkeypatched QueryResults) ─────────────────
 def _pub_df():
     return pd.DataFrame(
-        [{"publisher_id": "p1", "publisher_name": "OPW", "n_lines": 10, "n_suppliers": 4,
-          "first_year": 2018, "last_year": 2024, "total_safe_eur": 1_500_000.0,
-          "amount_semantics": "payment_actual", "sector": "Government"}]
+        [
+            {
+                "publisher_id": "p1",
+                "publisher_name": "OPW",
+                "n_lines": 10,
+                "n_suppliers": 4,
+                "first_year": 2018,
+                "last_year": 2024,
+                "total_safe_eur": 1_500_000.0,
+                "amount_semantics": "payment_actual",
+                "sector": "Government",
+            }
+        ]
     )
 
 
 def _sup_df():
     return pd.DataFrame(
-        [{"supplier": "Acme Ltd", "supplier_normalised": "acme ltd", "n_lines": 5,
-          "n_publishers": 2, "total_safe_eur": 800_000.0, "supplier_class": "company"}]
+        [
+            {
+                "supplier": "Acme Ltd",
+                "supplier_normalised": "acme ltd",
+                "n_lines": 5,
+                "n_publishers": 2,
+                "total_safe_eur": 800_000.0,
+                "supplier_class": "company",
+            }
+        ]
     )
 
 
@@ -157,9 +183,18 @@ def test_render_suppliers(monkeypatch):
 def test_render_publisher_profile(monkeypatch):
     _silence_streamlit()
     lines = pd.DataFrame(
-        [{"publisher_name": "OPW", "sector": "Government", "supplier": "Acme Ltd",
-          "amount_eur": 50_000.0, "value_safe_to_sum": True, "amount_semantics": "payment_actual",
-          "period": "2024", "description": "Work"}]
+        [
+            {
+                "publisher_name": "OPW",
+                "sector": "Government",
+                "supplier": "Acme Ltd",
+                "amount_eur": 50_000.0,
+                "value_safe_to_sum": True,
+                "amount_semantics": "payment_actual",
+                "period": "2024",
+                "description": "Work",
+            }
+        ]
     )
     monkeypatch.setattr(pp, "fetch_publisher_lines_result", lambda *a, **k: QueryResult.success(lines))
     assert pp._render_publisher_profile("p1") is None
@@ -171,9 +206,17 @@ def test_render_publisher_profile(monkeypatch):
 def test_render_supplier_profile(monkeypatch):
     _silence_streamlit()
     lines = pd.DataFrame(
-        [{"supplier": "Acme Ltd", "publisher_id": "p1", "amount_eur": 50_000.0,
-          "value_safe_to_sum": True, "amount_semantics": "po_committed",
-          "period": "2024", "description": "Work"}]
+        [
+            {
+                "supplier": "Acme Ltd",
+                "publisher_id": "p1",
+                "amount_eur": 50_000.0,
+                "value_safe_to_sum": True,
+                "amount_semantics": "po_committed",
+                "period": "2024",
+                "description": "Work",
+            }
+        ]
     )
     monkeypatch.setattr(pp, "fetch_supplier_lines_result", lambda *a, **k: QueryResult.success(lines))
     assert pp._render_supplier_profile("acme ltd") is None
@@ -182,8 +225,15 @@ def test_render_supplier_profile(monkeypatch):
 def test_stats_strip_and_provenance():
     _silence_streamlit()
     stats = pd.Series(
-        {"total_safe_eur": 6_400_000_000, "first_year": 2016, "last_year": 2024,
-         "n_publishers": 57, "n_suppliers": 12_000, "n_lines": 73_000, "n_safe_lines": 40_000}
+        {
+            "total_safe_eur": 6_400_000_000,
+            "first_year": 2016,
+            "last_year": 2024,
+            "n_publishers": 57,
+            "n_suppliers": 12_000,
+            "n_lines": 73_000,
+            "n_safe_lines": 40_000,
+        }
     )
     cov = {"public_payments": {"rows_quarantined": 100}, "hse_tusla_payments": {"rows_quarantined": 50}}
     assert pp._stats_strip(stats, cov) is None
@@ -193,14 +243,24 @@ def test_stats_strip_and_provenance():
 # ── page entry (bare mode) ───────────────────────────────────────────────────
 def test_public_payments_page_full(monkeypatch):
     _silence_streamlit()
-    stats = pd.DataFrame([{
-        "total_safe_eur": 6.4e9, "first_year": 2016, "last_year": 2024,
-        "n_publishers": 57, "n_suppliers": 12000, "n_lines": 73000, "n_safe_lines": 40000,
-    }])
+    stats = pd.DataFrame(
+        [
+            {
+                "total_safe_eur": 6.4e9,
+                "first_year": 2016,
+                "last_year": 2024,
+                "n_publishers": 57,
+                "n_suppliers": 12000,
+                "n_lines": 73000,
+                "n_safe_lines": 40000,
+            }
+        ]
+    )
     monkeypatch.setattr(pp, "fetch_coverage_stats_result", lambda *a, **k: QueryResult.success(stats))
     monkeypatch.setattr(pp, "fetch_coverage", lambda *a, **k: {})
-    monkeypatch.setattr(pp, "fetch_available_years_result",
-                        lambda *a, **k: QueryResult.success(pd.DataFrame({"year": [2024, 2023]})))
+    monkeypatch.setattr(
+        pp, "fetch_available_years_result", lambda *a, **k: QueryResult.success(pd.DataFrame({"year": [2024, 2023]}))
+    )
     monkeypatch.setattr(pp, "fetch_publisher_summary_result", lambda *a, **k: QueryResult.success(_pub_df()))
     monkeypatch.setattr(pp, "fetch_supplier_summary_result", lambda *a, **k: QueryResult.success(_sup_df()))
     assert pp.public_payments_page() is None

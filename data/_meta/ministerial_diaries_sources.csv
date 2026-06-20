@@ -129,4 +129,6 @@ department-of-agriculture-food-and-the-marine,none,,none_found,2026-06-12,no dia
 department-of-children-disability-and-equality,none,,none_found,2026-06-12,no diary page found via URL probes + 5-query gov.ie search sweep 2026-06-12
 department-of-defence,none,,none_found,2026-06-12,no diary page found via URL probes + 5-query gov.ie search sweep 2026-06-12
 department-of-foreign-affairs,none,,none_found,2026-06-12,no diary page found via URL probes + 5-query gov.ie search sweep 2026-06-12
-department-of-the-taoiseach,none,,none_found,2026-06-12,no diary page found via URL probes + 5-query gov.ie search sweep 2026-06-12
+department-of-the-taoiseach,collection,https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2024/,seeded,2026-06-19,SUPERSEDES the 06-12 none_found — Taoiseach's OWN diary (quarterly); image scans -> off-box OCR queue (12 PDFs 2022-24)
+department-of-the-taoiseach,collection,https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2023/,seeded,2026-06-19,image scans -> off-box OCR queue
+department-of-the-taoiseach,collection,https://www.gov.ie/en/department-of-the-taoiseach/collections/taoiseachs-diary-2022/,seeded,2026-06-19,image scans -> off-box OCR queue

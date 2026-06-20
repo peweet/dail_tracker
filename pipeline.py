@@ -142,6 +142,31 @@ CHAINS: list[tuple[str, str]] = [
     # No network beyond the register itself; the Wikidata candidate generator is a separate
     # un-wired tool (wikidata/stateboards_wikidata_enrich.py) whose output a human reviews.
     ("stateboards", "extractors/stateboards_roster_extract.py"),
+    # ── local-government accountability cluster ("Who runs your county") ──────────
+    # Three independent council-accountability feeds behind the local-government page
+    # (v_la_collection_rates / v_la_derelict_sites_levy / v_la_planning_overturn).
+    # Promoted out of pipeline_sandbox/ 2026-06-20. The 4th feed — the Chief Executive
+    # roster — is the hand-curated data/_meta/la_chief_executives.csv (no chain, like
+    # stateboards' Wikidata identities).
+    #
+    # noac_collection: NOAC Performance Indicator Report M2 revenue-collection tables
+    # (commercial rates / rent & annuities / housing loans, 31 LAs x 2020-2024) -> gold
+    # noac_m2_collection_wide. Reads the git-tracked NOAC PDF (no network), Camelot/fitz
+    # parse, fidelity-gated (refuses a non-GREEN parse), min_rows floor. Standalone.
+    ("noac_collection", "extractors/noac_collection_rates_extract.py"),
+    # derelict_sites: DHLGH Derelict Sites Act annual return -> gold derelict_sites_levy_wide
+    # (per-LA levied/collected/outstanding). Reads the git-tracked XLSX cache by DEFAULT
+    # (no network — re-fetch is the opt-in --download flag, gov.ie CDN 403s a bare GET);
+    # reconciles per-LA sums to the file's own Total row, fidelity-gated. Standalone.
+    ("derelict_sites", "extractors/derelict_sites_levy_extract.py"),
+    # planning_appeal_outcomes: council planning decision vs An Coimisiún Pleanála's OWN
+    # appeal decision (PC02 registry) -> silver planning_appeal_outcomes (the authoritative
+    # ABP-overturn metric; the applications feed's self-reported AppealDecision is unreliable).
+    # FETCHES the ACP ArcGIS FeatureServer (skips the chain on an API outage via raised
+    # error → pipeline isolates it) and JOINs the COMMITTED planning_applications_silver
+    # (a static input — the national planning ingest is NOT yet a chain). min_rows floor
+    # guards against a degraded ArcGIS pull thinning the silver.
+    ("planning_appeal_outcomes", "extractors/planning_appeal_outcomes.py"),
     # freshness runs last: it reads the silver + gold the chains above produced
     # and writes data/_meta/freshness.json (the data-age signal the Streamlit
     # badge + scheduled report read). Pure read — never mutates pipeline data.
@@ -187,6 +212,9 @@ _CHAIN_BLURBS: dict[str, str] = {
     "procurement_consolidate": "fold public_body + hse_tusla + LA facts -> gold procurement_payments_fact (listing-rot guarded)",
     "cso": "CSO PxStat housing/HAP + govt-finance (GFA01/GFQ01/NA012) -> gold denominators",
     "stateboards": "DPER state-boards register: live roster + body universe + hand-curated Wikidata identities (gold)",
+    "noac_collection": "NOAC M2 per-LA revenue-collection rates (commercial/rent/housing-loan, 31 LAs) -> gold (PDF, fidelity-gated)",
+    "derelict_sites": "DHLGH Derelict Sites annual return: per-LA levied/collected/outstanding -> gold (cached XLSX, reconciled)",
+    "planning_appeal_outcomes": "council vs An Coimisiún Pleanála appeal decisions -> silver ABP-overturn metric (ArcGIS + committed planning silver)",
     "freshness": "data-age signal per domain -> data/_meta/freshness.json",
     "source_health": "per-source health -> data/_meta/source_health.json (manual staleness; links opt-in)",
     "output_regressions": "completeness guard: gold row/column drop vs baseline -> data/_meta/output_regressions.json",

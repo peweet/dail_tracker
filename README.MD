@@ -17,7 +17,10 @@ against the Companies Registration Office, the charities register, and Iris
 Oifigiúil notices, so a TD's public footprint can be checked across sources
 programmatically rather than by hand. No other Irish civic-tech tool does this.
 
-Scope is the current Dáil and Seanad only. See
+The member-level pipeline centres on the current Dáil and Seanad (with historic
+interests backfilled for the "What They Own" record), alongside state-level
+accountability datasets — procurement, public payments, courts, corporate
+notices, and local-authority finance — that are not member-scoped. See
 [`doc/DATA_LIMITATIONS.md`](doc/DATA_LIMITATIONS.md) for the rationale, and
 [`doc/COMPETITIVE_LANDSCAPE.md`](doc/COMPETITIVE_LANDSCAPE.md) for how it
 compares to existing tools.
@@ -46,6 +49,9 @@ Inspired by [TheyWorkForYou](https://github.com/mysociety/theyworkforyou),
 | [CSO PxStat](https://data.cso.ie/) | Government-finance & housing denominators | API / JSON |
 | [Central Bank of Ireland registers](https://registers.centralbank.ie/) | Regulated-entity cross-reference for corporate notices | PDF |
 | [Local Authority Annual Financial Statements](https://www.gov.ie/) | Council spend by service division | PDF |
+| [NOAC](https://noac.ie/) / [DHLGH](https://www.gov.ie/) | Local-authority accountability — revenue-collection rates, derelict-sites levy | PDF / XLSX |
+| [An Coimisiún Pleanála](https://www.pleanala.ie/) | Council vs national planning-appeal overturn rates | ArcGIS / API |
+| [State Boards (DPER)](https://www.stateboards.ie/) | State-board roster / public-appointment cross-reference | CSV / web |
 
 Upstream data stays under the publishing bodies' own licences — see
 [Licensing](#licensing) and [`NOTICE.md`](NOTICE.md). Candidate future datasets
@@ -109,16 +115,26 @@ The chains, in run order:
   `attendance`, `seanad` (parity, reuses the Dáil parsers), `interests`,
   `lobbying` (+ CRO + charities join), `iris` (SIs + appointments + corporate
   notices), and `legislation` (bills + questions + amendments + votes).
+- **Courts & judiciary:** `judiciary_bench` (promote validated bench / appointments
+  / clearance / waiting roster to gold), `legal_diary_poller` (archive the daily
+  Legal Diary `.docx`), `legal_diary_extract` (privacy-tiered schedule / counts /
+  cases), and `judiciary_diary_link` (map surname-only diary judges to the bench).
 - **Cross-reference & enrichment:** `afs` (LA financial statements → spend by
   division), `cbi` (Central Bank register ↔ corporate notices), `cro` (CRO
   company register ↔ corporate notices), `procurement` (eTenders awards +
   supplier→CRO match), `procurement_lobbying` (supplier ↔ lobbying overlap),
-  `ted` / `ted_tenders` (EU award and tender notices, silver only), and `cso`
-  (PxStat government-finance & housing denominators).
+  `ted` / `ted_tenders` (EU award and tender notices, silver only), `cso`
+  (PxStat government-finance & housing denominators), and `stateboards` (DPER
+  state-boards roster + body universe).
 - **Public payments (privacy-gated):** `public_body_payments` (departmental and
-  agency PO/payment disclosures over €20k → `public_payments_fact`),
-  `hse_tusla_payments`, and `la_payments` (31 local authorities) — three
-  schema-aligned fact tables folded into one gold payments fact.
+  agency PO/payment disclosures over €20k), `hse_tusla_payments`, and
+  `la_payments` (31 local authorities) feed three schema-aligned fact tables,
+  which `procurement_consolidate` folds into one listing-rot-guarded gold
+  `procurement_payments_fact`.
+- **Local-authority accountability:** `noac_collection` (NOAC per-LA
+  revenue-collection rates), `derelict_sites` (DHLGH derelict-sites levy levied /
+  collected / outstanding), and `planning_appeal_outcomes` (council vs An
+  Coimisiún Pleanála overturn rate).
 - **Monitoring (read-only, never mutate pipeline data):** `freshness`
   (data-age signal per domain → `data/_meta/freshness.json`), `source_health`
   (per-source staleness / listing reachability →
@@ -181,9 +197,9 @@ uvicorn api.main:app
 ```
 
 A read-only FastAPI app over the same data — open, no API key, versioned under
-`/v1`, interactive docs at `/docs`. Fifteen routers cover members, legislation,
-votes, payments, public payments, lobbying, procurement, committees,
-ministerial tenure, political finance, judiciary, charities, and appointments;
+`/v1`, interactive docs at `/docs`. Routers cover members, legislation, votes,
+payments, public payments, lobbying, procurement, committees, ministerial
+tenure, political finance, judiciary, charities, appointments, and bulk exports;
 `/v1/catalog` lists every served dataset. Routers are thin (parse → core →
 serialize) — all retrieval lives in `dail_tracker_core`. Data is served under
 CC-BY 4.0, mirroring the Oireachtas PSI licence. Design rationale in
@@ -196,13 +212,13 @@ CC-BY 4.0, mirroring the Oireachtas PSI licence. Design rationale in
 Active and planned work — data already lands in the pipeline ahead of the UI, so
 several datasets exist in gold/silver before they get a dedicated page.
 
-- **Local-authority & government finance** — the `afs` chain produces council
-  revenue and capital spend-by-division data, and the `cso` chain lands
-  government-finance aggregates (`v_gov_finance_annual`); a public-finance page
-  over them is planned. Plan in
-  [`doc/PER_LA_AFS_BUILD_PLAN.md`](doc/PER_LA_AFS_BUILD_PLAN.md).
+- **Government-finance denominators** — the `cso` chain lands government-finance
+  aggregates (`v_gov_finance_annual`); the council spend-by-division (`afs`),
+  collection-rate, and derelict-sites data now surface on the Council Spending
+  and Who Runs Your County pages, with per-capita denominator usage still to come.
+  Plan in [`doc/PER_LA_AFS_BUILD_PLAN.md`](doc/PER_LA_AFS_BUILD_PLAN.md).
 - **GE2024 candidate expenses** — per-candidate expense statements already show
-  on the Election 2024 page, with 446 of the 607 sourced returns extracted so
+  on the Election 2024 page, with 473 of the 614 sourced candidates extracted so
   far; OCR of the remainder is in progress and the coverage gap is shown
   in-app, never implied complete.
 - **Bulk data exports** — parquet downloads of the gold layer via the API
@@ -243,7 +259,10 @@ Public sources change format and cadence, so expect drift. Notable points:
 - Name-based joins can collide or miss matches.
 - Lobbying data before 2020 is inconsistent and filtered out at the gold layer.
 - Some giant Iris PDFs bypass the split logic and are quarantined.
-- Scope is the current Dáil and Seanad only.
+- Public-body "value" and "award" figures are not the same as money paid — these
+  are flagged, never silently summed as spend.
+- Cross-reference panels that name private individuals (CRO directors, charity
+  trustees, CBI-register firms) sit in the sandbox layer, not gold.
 
 Full detail in [`doc/DATA_LIMITATIONS.md`](doc/DATA_LIMITATIONS.md).
 

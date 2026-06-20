@@ -81,58 +81,82 @@ _NPWS_ORG = "https://services-eu1.arcgis.com/Jhij7i46ouO8Cc0N/arcgis/rest/servic
 
 SPECS: dict[str, LayerSpec] = {
     # NPWS designated areas: layer 0=SPA, 1=pNHA, 2=NHA, 3=SAC (confirmed §13/§23.10)
-    "npws_sac":  LayerSpec("npws_sac",  f"{_NPWS}/3", "polygon", ("SITECODE", "SITE_NAME", "COUNTY"), 25, 180),
-    "npws_spa":  LayerSpec("npws_spa",  f"{_NPWS}/0", "polygon", ("SITECODE", "SITE_NAME", "COUNTY"), 25, 180),
+    "npws_sac": LayerSpec("npws_sac", f"{_NPWS}/3", "polygon", ("SITECODE", "SITE_NAME", "COUNTY"), 25, 180),
+    "npws_spa": LayerSpec("npws_spa", f"{_NPWS}/0", "polygon", ("SITECODE", "SITE_NAME", "COUNTY"), 25, 180),
     "npws_pnha": LayerSpec("npws_pnha", f"{_NPWS}/1", "polygon", ("SITECODE", "SITE_NAME", "COUNTY"), 25, 180),
-    "npws_nha":  LayerSpec("npws_nha",  f"{_NPWS}/2", "polygon", ("SITECODE", "SITE_NAME", "COUNTY"), 25, 180),
+    "npws_nha": LayerSpec("npws_nha", f"{_NPWS}/2", "polygon", ("SITECODE", "SITE_NAME", "COUNTY"), 25, 180),
     # NMS archaeology: the OPERATIVE constraint is the Zone of Notification polygon (§18.1)
-    "smr_zone":   LayerSpec("smr_zone",   f"{_NMS}/SMRZoneOpenData/FeatureServer/0", "polygon", ("ZONE_ID",)),
-    "smr_points": LayerSpec("smr_points", f"{_NMS}/SMROpenData/FeatureServer/0", "point",
-                            ("ENTITY_ID", "MONUMENT_CLASS", "TOWNLAND", "ZONE_ID_1"), bbox=GALWAY_BBOX),
+    "smr_zone": LayerSpec("smr_zone", f"{_NMS}/SMRZoneOpenData/FeatureServer/0", "polygon", ("ZONE_ID",)),
+    "smr_points": LayerSpec(
+        "smr_points",
+        f"{_NMS}/SMROpenData/FeatureServer/0",
+        "point",
+        ("ENTITY_ID", "MONUMENT_CLASS", "TOWNLAND", "ZONE_ID_1"),
+        bbox=GALWAY_BBOX,
+    ),
     # MyPlan zoning composite (material-contravention context)
-    "zoning_gzt": LayerSpec("zoning_gzt", f"{_DHLGH}/GZT_Current_Plan/FeatureServer/0", "polygon",
-                            ("ZONE_GZT", "ZONE_ORIG", "ZONE_DESC", "PLAN_FROM", "PLAN_TO", "PLAN_NAME")),
+    "zoning_gzt": LayerSpec(
+        "zoning_gzt",
+        f"{_DHLGH}/GZT_Current_Plan/FeatureServer/0",
+        "polygon",
+        ("ZONE_GZT", "ZONE_ORIG", "ZONE_DESC", "PLAN_FROM", "PLAN_TO", "PLAN_NAME"),
+    ),
     # NIAH architectural heritage (points)
     "niah": LayerSpec("niah", f"{_NMS}/NIAHBuildingsOpenData/FeatureServer/0", "point", ("REG_NO", "NAME")),
     # GSI septic site-suitability — NATIONAL (covers all councils for the septic node; ~221k polys,
     # one-time slow pull). VUL_CAT X/E/H/M/L. (Was Galway-bbox; national-ised for generalisation.)
     "gsi_vulnerability": LayerSpec(
-        "gsi_vulnerability", f"{_GSI}/IE_GSI_Groundwater_Vulnerability_40K_IE26_ITM/FeatureServer/0",
-        "polygon", ("VUL_CAT", "VUL_DESC"), max_page_size=1000, timeout=180),
+        "gsi_vulnerability",
+        f"{_GSI}/IE_GSI_Groundwater_Vulnerability_40K_IE26_ITM/FeatureServer/0",
+        "polygon",
+        ("VUL_CAT", "VUL_DESC"),
+        max_page_size=1000,
+        timeout=180,
+    ),
     "gsi_karst": LayerSpec(
-        "gsi_karst", f"{_GSI}/IE_GSI_Karst_Datasets_40K_IE32_ITM/FeatureServer/0",
-        "point", ("KARST_TYPE", "KARST_NAME"), bbox=GALWAY_BBOX),
+        "gsi_karst",
+        f"{_GSI}/IE_GSI_Karst_Datasets_40K_IE32_ITM/FeatureServer/0",
+        "point",
+        ("KARST_TYPE", "KARST_NAME"),
+        bbox=GALWAY_BBOX,
+    ),
     # per-LA Galway heritage / landscape (Heritage Council org; CC-BY 4.0)
     "galway_county_rps": LayerSpec(
-        "galway_county_rps", f"{_HC}/Galway_County_RPS/FeatureServer/0", "point",
-        ("NAME", "TOWNLAND", "FEATURES")),
+        "galway_county_rps", f"{_HC}/Galway_County_RPS/FeatureServer/0", "point", ("NAME", "TOWNLAND", "FEATURES")
+    ),
     "galway_city_aca": LayerSpec(
-        "galway_city_aca", f"{_HC}/Galway_City_ACA/FeatureServer/0", "polygon",
-        ("DESCRIPTIO", "ADDRESS", "SPECIALINT")),
+        "galway_city_aca", f"{_HC}/Galway_City_ACA/FeatureServer/0", "polygon", ("DESCRIPTIO", "ADDRESS", "SPECIALINT")
+    ),
     "galway_county_landscape": LayerSpec(
-        "galway_county_landscape", f"{_HC}/Galway_County_Landscape_Categories/FeatureServer/0",
-        "polygon", ("NAME",)),
+        "galway_county_landscape", f"{_HC}/Galway_County_Landscape_Categories/FeatureServer/0", "polygon", ("NAME",)
+    ),
     # per-LA Cork heritage / landscape (Heritage Council org; CC-BY 4.0). Per-county schema
     # variance: County RPS = STRUCTURE/TOWNLAND, City RPS = Building_Name, landscape = TYPE.
     "cork_county_rps": LayerSpec(
-        "cork_county_rps", f"{_HC}/Cork_County_RPS/FeatureServer/0", "point",
-        ("STRUCTURE", "TOWNLAND", "DED")),
+        "cork_county_rps", f"{_HC}/Cork_County_RPS/FeatureServer/0", "point", ("STRUCTURE", "TOWNLAND", "DED")
+    ),
     "cork_city_rps": LayerSpec(
-        "cork_city_rps", f"{_HC}/Cork_City_RPS/FeatureServer/0", "point",
-        ("Building_Name", "Address_1", "Address_2")),
+        "cork_city_rps", f"{_HC}/Cork_City_RPS/FeatureServer/0", "point", ("Building_Name", "Address_1", "Address_2")
+    ),
     "cork_county_landscape": LayerSpec(
-        "cork_county_landscape", f"{_HC}/Cork_County_Landscape_Categories/FeatureServer/0",
-        "polygon", ("TYPE",)),
+        "cork_county_landscape", f"{_HC}/Cork_County_Landscape_Categories/FeatureServer/0", "polygon", ("TYPE",)
+    ),
     # NPWS National Parks — the strongest amenity/nature designation (6 nationally; incl. Connemara
     # + Burren near Galway). National pull (tiny). DESIG/SITE_NAME.
     "national_parks": LayerSpec(
-        "national_parks", f"{_NPWS_ORG}/NationalParkBoundaries/FeatureServer/0", "polygon",
-        ("DESIG", "SITE_NAME")),
+        "national_parks", f"{_NPWS_ORG}/NationalParkBoundaries/FeatureServer/0", "polygon", ("DESIG", "SITE_NAME")
+    ),
     # GSI Quaternary Sediments = subsoil TYPE incl. peat/blanket-bog (for the peat_bog node).
     # Galway-bbox; QSED_TYPE / LEGENDDESC carry the peat label.
     "gsi_quaternary": LayerSpec(
-        "gsi_quaternary", f"{_GSI_Q}/IE_GSI_Quaternary_Sediments_50K_IE26_ITM/FeatureServer/0",
-        "polygon", ("QSED_TYPE", "LEGENDDESC"), max_page_size=1000, timeout=180, bbox=GALWAY_BBOX),
+        "gsi_quaternary",
+        f"{_GSI_Q}/IE_GSI_Quaternary_Sediments_50K_IE26_ITM/FeatureServer/0",
+        "polygon",
+        ("QSED_TYPE", "LEGENDDESC"),
+        max_page_size=1000,
+        timeout=180,
+        bbox=GALWAY_BBOX,
+    ),
 }
 
 
@@ -159,8 +183,7 @@ def server_count(url: str, bbox=None) -> int | None:
 
 def _in_bbox(geom) -> bool:
     minx, miny, maxx, maxy = geom.bounds
-    return (IRELAND_BBOX[0] <= minx and maxx <= IRELAND_BBOX[2]
-            and IRELAND_BBOX[1] <= miny and maxy <= IRELAND_BBOX[3])
+    return IRELAND_BBOX[0] <= minx and maxx <= IRELAND_BBOX[2] and IRELAND_BBOX[1] <= miny and maxy <= IRELAND_BBOX[3]
 
 
 def gate(geom) -> tuple[object | None, str]:
@@ -183,12 +206,14 @@ def gate(geom) -> tuple[object | None, str]:
 def ingest(spec: LayerSpec) -> Path:
     OUT.mkdir(parents=True, exist_ok=True)
     expected = server_count(spec.url, spec.bbox)
-    LOG.info("[%s] %s | server count=%s%s", spec.name, spec.url, expected,
-             " (bbox subset)" if spec.bbox else "")
+    LOG.info("[%s] %s | server count=%s%s", spec.name, spec.url, expected, " (bbox subset)" if spec.bbox else "")
 
     dumper = EsriDumper(
-        spec.url, outSR=4326, geometry_precision=7,
-        timeout=spec.timeout, max_page_size=spec.max_page_size,
+        spec.url,
+        outSR=4326,
+        geometry_precision=7,
+        timeout=spec.timeout,
+        max_page_size=spec.max_page_size,
         extra_query_args=_bbox_args(spec.bbox) or None,
     )
 
@@ -220,19 +245,22 @@ def ingest(spec: LayerSpec) -> Path:
         drift = abs(pulled - int(expected))
         tol = max(50, int(expected) * 0.02) if spec.bbox else max(2, int(expected) * 0.001)
         if spec.bbox and drift > max(2, int(expected) * 0.001):
-            LOG.warning("[%s] bbox edge drift pulled=%d server=%d (within tol=%d)",
-                        spec.name, pulled, expected, tol)
-        assert drift <= tol, (
-            f"[{spec.name}] count drift pulled={pulled} server={expected} (truncated pull?)"
-        )
+            LOG.warning("[%s] bbox edge drift pulled=%d server=%d (within tol=%d)", spec.name, pulled, expected, tol)
+        assert drift <= tol, f"[{spec.name}] count drift pulled={pulled} server={expected} (truncated pull?)"
 
     df = pl.DataFrame(rows)
     dest = save_parquet(df, OUT / f"{spec.name}.parquet")
     coverage = {
-        "layer": spec.name, "url": spec.url, "kind": spec.kind,
-        "server_count": expected, "pulled": pulled, "kept": kept,
-        "quarantined": quarantined, "gate_reasons": reasons,
-        "keep_fields": list(spec.keep), "crs": "EPSG:4326",
+        "layer": spec.name,
+        "url": spec.url,
+        "kind": spec.kind,
+        "server_count": expected,
+        "pulled": pulled,
+        "kept": kept,
+        "quarantined": quarantined,
+        "gate_reasons": reasons,
+        "keep_fields": list(spec.keep),
+        "crs": "EPSG:4326",
         "bbox_subset": list(spec.bbox) if spec.bbox else None,
     }
     cov_path = OUT / f"{spec.name}_coverage.json"
@@ -258,11 +286,16 @@ def add_region(spec: LayerSpec, region: str) -> Path:
     have = set(existing["wkb"].to_list())
 
     expected = server_count(spec.url, bbox)
-    LOG.info("[%s] +region=%s bbox=%s | server count=%s (have %d rows)",
-             spec.name, region, bbox, expected, existing.height)
+    LOG.info(
+        "[%s] +region=%s bbox=%s | server count=%s (have %d rows)", spec.name, region, bbox, expected, existing.height
+    )
     dumper = EsriDumper(
-        spec.url, outSR=4326, geometry_precision=7, timeout=spec.timeout,
-        max_page_size=spec.max_page_size, extra_query_args=_bbox_args(bbox) or None,
+        spec.url,
+        outSR=4326,
+        geometry_precision=7,
+        timeout=spec.timeout,
+        max_page_size=spec.max_page_size,
+        extra_query_args=_bbox_args(bbox) or None,
     )
     rows: list[dict] = []
     reasons: dict[str, int] = {}
@@ -303,8 +336,13 @@ def add_region(spec: LayerSpec, region: str) -> Path:
     cov["kept"] = merged.height
     cov.setdefault("regions_added", [])
     cov["regions_added"] = sorted(set(cov["regions_added"]) | {region})
-    cov[f"region_{region}"] = {"bbox": list(bbox), "server_count": expected,
-                               "pulled": pulled, "added": added, "gate_reasons": reasons}
+    cov[f"region_{region}"] = {
+        "bbox": list(bbox),
+        "server_count": expected,
+        "pulled": pulled,
+        "added": added,
+        "gate_reasons": reasons,
+    }
     cov_path.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     LOG.info("[%s] merged -> %s (%d rows, +%d from %s)", spec.name, dest, merged.height, added, region)
     print(f"OK {spec.name} +{region}: {merged.height} rows (+{added} new) {reasons}")
@@ -314,8 +352,11 @@ def add_region(spec: LayerSpec, region: str) -> Path:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--layer", required=True, help="layer name or 'all'")
-    ap.add_argument("--add-region", choices=sorted(REGIONS),
-                    help="pull this region's bbox and MERGE into the existing parquet (no full re-pull)")
+    ap.add_argument(
+        "--add-region",
+        choices=sorted(REGIONS),
+        help="pull this region's bbox and MERGE into the existing parquet (no full re-pull)",
+    )
     args = ap.parse_args()
     setup_standalone_logging("planning_layers_ingest")
     names = list(SPECS) if args.layer == "all" else [args.layer]

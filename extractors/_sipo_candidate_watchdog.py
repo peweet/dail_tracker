@@ -66,7 +66,9 @@ def main() -> None:
             fh.flush()
             proc = subprocess.Popen(
                 [str(PY), "-m", "extractors.sipo_candidate_ocr", *drv_args],
-                stdout=fh, stderr=subprocess.STDOUT, cwd=str(ROOT),
+                stdout=fh,
+                stderr=subprocess.STDOUT,
+                cwd=str(ROOT),
             )
         last_count = start_count
         last_progress = time.monotonic()
@@ -84,19 +86,24 @@ def main() -> None:
         rc = proc.wait()
         progressed = ckpt_count() > start_count
         ran = time.monotonic() - t_start
-        print(f"[cand-watchdog] launch #{restarts + 1} ended rc={rc} hung={killed_hung} "
-              f"progressed={progressed} ran={ran:.0f}s pages_cached={ckpt_count()}", flush=True)
+        print(
+            f"[cand-watchdog] launch #{restarts + 1} ended rc={rc} hung={killed_hung} "
+            f"progressed={progressed} ran={ran:.0f}s pages_cached={ckpt_count()}",
+            flush=True,
+        )
         if rc == 0 and not killed_hung:
             if progressed:
                 # a chunk finished cleanly -> loop for the next chunk (fresh paddle process)
-                print(f"[cand-watchdog] chunk done (+{ckpt_count() - start_count} pages, "
-                      f"total {ckpt_count()}); next chunk.", flush=True)
+                print(
+                    f"[cand-watchdog] chunk done (+{ckpt_count() - start_count} pages, "
+                    f"total {ckpt_count()}); next chunk.",
+                    flush=True,
+                )
                 fast_fails = 0
                 restarts += 1
                 continue
             # rc==0 with NO progress => driver found nothing pending => corpus complete
-            print(f"[cand-watchdog] corpus COMPLETE — nothing left to OCR "
-                  f"(total {ckpt_count()} pages).", flush=True)
+            print(f"[cand-watchdog] corpus COMPLETE — nothing left to OCR (total {ckpt_count()} pages).", flush=True)
             return
         # BACKOFF + ABORT so a crash-on-start can never become a spin-loop (the 228x bug):
         # a launch that crashed fast AND OCR'd nothing means paddle can't start — usually
@@ -107,17 +114,21 @@ def main() -> None:
         elif not killed_hung and ran < 120:
             fast_fails += 1
             if fast_fails >= 6:
-                print(f"[cand-watchdog] ABORT: {fast_fails} consecutive fast crashes, no progress "
-                      f"(paddle can't start — machine contended/exhausted, or another OCR running). "
-                      f"Stopping to avoid a spin-loop. pages_cached={ckpt_count()}", flush=True)
+                print(
+                    f"[cand-watchdog] ABORT: {fast_fails} consecutive fast crashes, no progress "
+                    f"(paddle can't start — machine contended/exhausted, or another OCR running). "
+                    f"Stopping to avoid a spin-loop. pages_cached={ckpt_count()}",
+                    flush=True,
+                )
                 return
             backoff = min(300, 30 * fast_fails)
-            print(f"[cand-watchdog] fast crash #{fast_fails} (ran {ran:.0f}s, no progress) "
-                  f"-> backoff {backoff}s", flush=True)
+            print(
+                f"[cand-watchdog] fast crash #{fast_fails} (ran {ran:.0f}s, no progress) -> backoff {backoff}s",
+                flush=True,
+            )
             time.sleep(backoff)
         restarts += 1
-    print(f"[cand-watchdog] GAVE UP after {MAX_RESTARTS} restarts "
-          f"(pages_cached={ckpt_count()})", flush=True)
+    print(f"[cand-watchdog] GAVE UP after {MAX_RESTARTS} restarts (pages_cached={ckpt_count()})", flush=True)
 
 
 if __name__ == "__main__":

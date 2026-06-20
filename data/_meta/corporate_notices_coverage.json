@@ -1,37 +1,37 @@
 {
-  "as_of": "2026-06-18T18:35:59",
+  "as_of": "2026-06-20T14:22:10",
   "source": "data\\silver\\iris_oifigiuil\\iris_notice_events_clean.csv",
-  "rows_in_scope_before_exclusion": 36832,
-  "rows_excluded_personal_insolvency": 297,
-  "rows_excluded_limited_partnership": 48,
-  "rows_in_final_parquet": 36487,
+  "rows_in_scope_before_exclusion": 51133,
+  "rows_excluded_personal_insolvency": 353,
+  "rows_excluded_limited_partnership": 57,
+  "rows_in_final_parquet": 50723,
   "category_counts": {
-    "corporate_insolvency": 31614,
-    "corporate_notice": 3984,
-    "investment_vehicle_register_notice": 649,
-    "corporate_rescue": 240
+    "corporate_insolvency": 44158,
+    "corporate_notice": 5553,
+    "investment_vehicle_register_notice": 656,
+    "corporate_rescue": 356
   },
   "subtype_counts": {
-    "members_voluntary_liquidation": 14252,
-    "voluntary_liquidation_unspecified": 7392,
-    "creditors_voluntary_liquidation": 4149,
-    "companies_act_notice": 3984,
-    "liquidation_unspecified": 2699,
-    "receivership": 2605,
-    "icav_voluntary_strike_off": 649,
-    "court_winding_up": 517,
-    "scarp_process_adviser": 131,
-    "examinership": 109
+    "members_voluntary_liquidation": 17369,
+    "voluntary_liquidation_unspecified": 10011,
+    "creditors_voluntary_liquidation": 6235,
+    "receivership": 6028,
+    "companies_act_notice": 5553,
+    "liquidation_unspecified": 3843,
+    "court_winding_up": 672,
+    "icav_voluntary_strike_off": 656,
+    "examinership": 225,
+    "scarp_process_adviser": 131
   },
   "receivership_brand_tagging": {
-    "receivership_notices_total": 2609,
-    "receivership_notices_with_known_brand": 782,
-    "coverage_pct": 30.0,
+    "receivership_notices_total": 6047,
+    "receivership_notices_with_known_brand": 1843,
+    "coverage_pct": 30.5,
     "honest_note": "Of receivership notices, only a minority name a known major loan-book buyer or Irish bank. The rest are appointed by smaller institutions or under private debentures where no major fund is named, OR by brands not yet in data/_meta/loan_book_fund_aliases.csv."
   },
   "entity_name_quality": {
-    "null_or_empty": 2,
-    "junk_pattern_count": 8716
+    "null_or_empty": 8,
+    "junk_pattern_count": 11830
   },
   "personal_insolvency_exclusion_rule": "notice_category == 'bankruptcy' (excluded upstream) PLUS personal-bankruptcy text patterns: A BANKRUPT, ADJUDICATED BANKRUPT, BANKRUPT IN MAIN PROCEEDINGS, PERSONAL INSOLVENCY, DEBT SETTLEMENT ARRANGEMENT, DEBT RELIEF NOTICE, PROTECTIVE CERTIFICATE."
 }

@@ -26,8 +26,16 @@ from dail_tracker_core.queries import legislation as _q
 # so the page frames are byte-identical to before.
 _MOST_CONTESTED_COLS = ["bill_id", "bill_title", "bill_status", "amendment_lists", "committee_lists", "report_lists"]
 _INTENSITY_COLS = [
-    "bill_id", "amendment_lists", "distinct_stages", "committee_lists", "report_lists",
-    "cream_lists", "dail_lists", "seanad_lists", "first_amendment_date", "last_amendment_date",
+    "bill_id",
+    "amendment_lists",
+    "distinct_stages",
+    "committee_lists",
+    "report_lists",
+    "cream_lists",
+    "dail_lists",
+    "seanad_lists",
+    "first_amendment_date",
+    "last_amendment_date",
 ]
 
 

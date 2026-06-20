@@ -108,10 +108,7 @@ def test_known_mappings(rows, constituency, expected_las):
 
 def test_sligo_leitrim_donegal_is_partial(rows):
     """The Donegal sliver in Sligo-Leitrim must be flagged 'partial' so the UI de-emphasises it."""
-    donegal = [
-        r for r in rows
-        if r["constituency_name"] == "Sligo-Leitrim" and r["local_authority"] == "Donegal"
-    ]
+    donegal = [r for r in rows if r["constituency_name"] == "Sligo-Leitrim" and r["local_authority"] == "Donegal"]
     assert len(donegal) == 1
     assert donegal[0]["link_type"] == "partial"
 
@@ -131,9 +128,7 @@ def test_local_authority_strings_join_the_facts(rows):
         pytest.skip("LA facts not present (integration mode only)")
     fact_las = set(pl.read_parquet(afs)["council"].unique().to_list())
     proc_df = pl.read_parquet(proc, columns=["publisher_name", "publisher_type"])
-    fact_las |= set(
-        proc_df.filter(pl.col("publisher_type") == "local_authority")["publisher_name"].unique().to_list()
-    )
+    fact_las |= set(proc_df.filter(pl.col("publisher_type") == "local_authority")["publisher_name"].unique().to_list())
     xwalk_las = {r["local_authority"] for r in rows}
     # the facts must not contain a council spelling absent from the crosswalk
     assert fact_las <= xwalk_las, f"fact councils missing from crosswalk: {fact_las - xwalk_las}"

@@ -1055,6 +1055,73 @@ def party_stripe_html(parties: list[tuple[str, int]], *, show_legend: bool = Tru
     return f'<div class="cmt-stripe">{segs}</div>{legend}'
 
 
+# Non-party distribution palettes. Sequential = single-hue light→dark for ORDERED
+# scales (e.g. time-on-list, so the long-wait tail reads as "heavy"). Categorical =
+# distinct neutral hues for nominal dimensions (tenure/employment/…). Deliberately
+# NOT party colours and NOT red/green (no good/bad encoding).
+_SEQ_RAMP = [
+    "#e9eff5",
+    "#cfe0ec",
+    "#aecbdf",
+    "#86afcd",
+    "#5d8fb6",
+    "#3d719c",
+    "#275680",
+    "#173e5e",
+]
+_CAT_PALETTE = [
+    "#4c78a8",
+    "#72b7b2",
+    "#dba43c",
+    "#b07aa1",
+    "#9c755f",
+    "#83b26f",
+    "#a3acb9",
+    "#5b9bd5",
+]
+
+
+def proportion_stripe_html(
+    segments: list[tuple[str, float]],
+    *,
+    palette: str = "categorical",
+    show_legend: bool = True,
+    unit: str = "",
+) -> str:
+    """Generic stacked proportion stripe — the non-party sibling of party_stripe_html.
+
+    segments — ordered list of (label, value). Caller controls order.
+    palette  — 'sequential' (ordered single-hue ramp) | 'categorical' (distinct hues).
+    Reuses the .cmt-stripe* CSS. Zero/None values are skipped; legend shows % shares.
+    """
+    cleaned = [(str(lbl), float(v)) for lbl, v in segments if v and float(v) > 0]
+    if not cleaned:
+        return ""
+    total = sum(v for _, v in cleaned) or 1.0
+    ramp = _SEQ_RAMP if palette == "sequential" else _CAT_PALETTE
+    n = len(cleaned)
+
+    def colour(i: int) -> str:
+        if palette == "sequential":
+            return ramp[round(i * (len(ramp) - 1) / max(n - 1, 1))]
+        return ramp[i % len(ramp)]
+
+    segs = "".join(
+        f'<div class="cmt-stripe-seg" style="width:{(v / total) * 100:.2f}%;'
+        f'background:{colour(i)}" title="{_h(lbl)}: {v:,.0f}{_h(unit)} ({v / total * 100:.0f}%)"></div>'
+        for i, (lbl, v) in enumerate(cleaned)
+    )
+    legend = ""
+    if show_legend:
+        chips = "".join(
+            f'<span><span class="cmt-stripe-legend-dot" style="background:{colour(i)}"></span>'
+            f"<strong>{_h(lbl)}</strong> {v / total * 100:.0f}%</span>"
+            for i, (lbl, v) in enumerate(cleaned)
+        )
+        legend = f'<div class="cmt-stripe-legend">{chips}</div>'
+    return f'<div class="cmt-stripe">{segs}</div>{legend}'
+
+
 def committee_row_html(
     name: str,
     *,
@@ -1115,11 +1182,17 @@ def committee_identity_strip(
     status: str = "",
     chair: str | None = None,
     chair_party: str | None = None,
+    chair_html: str | None = None,
     member_count: int = 0,
     oireachtas_url: str | None = None,
     source_document_url: str | None = None,
 ) -> None:
-    """Stage-2 identity strip for a single committee."""
+    """Stage-2 identity strip for a single committee.
+
+    Pass ``chair_html`` to render the chair name as an already-safe HTML
+    fragment (e.g. a ``member_link_html`` anchor) instead of the default
+    escaped ``chair`` text — the caller is then responsible for escaping.
+    """
     # P2-3 audit fix: Active / Ended was rendered as inline text inside the
     # meta line, despite the register cards rendering the same value as a
     # coloured chip. Lift status out of the meta line and emit it with the
@@ -1129,15 +1202,22 @@ def committee_identity_strip(
     if status:
         status_cls = "cmt-row-status-active" if status == "Active" else "cmt-row-status-ended"
         status_html = f'<span class="cmt-row-status {status_cls}">{_h(status)}</span>'
+    # Plain parts are escaped here; the chair part may carry already-safe HTML
+    # (a member-profile anchor) so it is assembled separately and spliced in
+    # unescaped after the others are escaped.
     meta_parts: list[str] = []
     if type_:
         meta_parts.append(type_)
     if member_count:
         meta_parts.append(f"{member_count} members")
-    if chair:
+    safe_parts = [_h(p) for p in meta_parts]
+    if chair_html:
+        party_suffix = f" ({_h(chair_party)})" if chair_party else ""
+        safe_parts.append(f"Chair: {chair_html}{party_suffix}")
+    elif chair:
         chair_text = chair if not chair_party else f"{chair} ({chair_party})"
-        meta_parts.append(f"Chair: {chair_text}")
-    meta_html = " · ".join(_h(p) for p in meta_parts)
+        safe_parts.append(_h(f"Chair: {chair_text}"))
+    meta_html = " · ".join(safe_parts)
     links: list[str] = []
     if oireachtas_url or source_document_url:
         from ui.entity_links import source_link_html  # local — avoids any future circular risk
