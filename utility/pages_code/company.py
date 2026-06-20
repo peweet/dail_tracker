@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from data_access.corporate_data import fetch_corporate_notices_for_company_result
 from data_access.lobbying_data import fetch_all_org_names
 from data_access.procurement_data import (
+    fetch_epa_supplier_index_result,
     fetch_lobbying_overlap_result,
     fetch_payments_for_supplier_result,
     fetch_supplier_summary_result,
@@ -262,6 +263,25 @@ def _dossier(supplier_norm: str) -> None:
     st.html(_DOSSIER_FOOT)
 
 
+def _cnum(v) -> int | None:
+    """Coerce a CRO company_num cell (int/float/str/None/NaN) to int, or None."""
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        return None
+
+
+def _epa_company_nums() -> set[int]:
+    """CRO company_nums that hold an EPA licence — backs the landing's EPA badge + filter.
+    Display-only membership lookup (the counts are pre-computed in the view); never a money
+    or inference column. Empty set if the EPA index is unavailable, so the badge/filter just
+    don't appear rather than erroring."""
+    res = fetch_epa_supplier_index_result()
+    if not res.ok or res.data.empty:
+        return set()
+    return {n for n in (_cnum(v) for v in res.data["company_num"]) if n is not None}
+
+
 def _landing() -> None:
     hero_banner(
         kicker="PUBLIC MONEY",
@@ -278,6 +298,7 @@ def _landing() -> None:
         return
     df = res.data
     ranks = {str(r.supplier_norm): i for i, r in enumerate(df.itertuples(), start=1)}
+    epa_nums = _epa_company_nums()
 
     q = st.text_input(
         "Search companies",
@@ -285,14 +306,31 @@ def _landing() -> None:
         key="co_q",
         label_visibility="collapsed",
     )
+    # Discovery filter: surface the firms that hold an EPA environmental licence (otherwise
+    # the EPA panel is only findable by already knowing a firm's name). Factual register
+    # membership only — no enforcement/inference framing on the list.
+    # Count EPA-licensed firms that are ALSO on the procurement register (most EPA
+    # licensees are private manufacturers that never sell to the state, so this is far
+    # smaller than the full EPA index) — show the count the filter will actually surface.
+    epa_supplier_count = (
+        int(df["company_num"].map(lambda v: _cnum(v) in epa_nums).sum()) if epa_nums else 0
+    )
+    epa_only = (
+        st.checkbox(f"Only firms with an EPA licence ({epa_supplier_count:,})", key="co_epa_only")
+        if epa_supplier_count
+        else False
+    )
     view = df
     qs = (q or "").strip()
     if qs:
-        view = df[text_search_mask(df, qs, ["supplier"])]
+        view = view[text_search_mask(view, qs, ["supplier"])]
+    if epa_only:
+        view = view[view["company_num"].map(lambda v: _cnum(v) in epa_nums)]
     total = len(view)
+    epa_clause = " holding an EPA licence" if epa_only else ""
     st.caption(
-        f"{total:,} companies"
-        + (f' matching "{qs}"' if qs else " ranked by number of contract awards")
+        f"{total:,} companies{epa_clause}"
+        + (f' matching "{qs}"' if qs else (" ranked by number of contract awards" if not epa_only else ""))
         + ". Click a company for its full public-money dossier."
     )
     if total == 0:
@@ -309,6 +347,8 @@ def _landing() -> None:
         )
         pills = [_value_pill(r.awarded_value_safe_eur)]
         pills += [p for p in (_cro_pill(r), _lobby_pill(r)) if p]
+        if _cnum(r.company_num) in epa_nums:
+            pills.append('<span class="pr-pill pr-pill-epa">EPA-licensed</span>')
         inner = _card(f"<span>{_esc(r.supplier)}</span>", meta, pills, rank=ranks.get(str(r.supplier_norm)))
         cards.append(
             clickable_card_link(

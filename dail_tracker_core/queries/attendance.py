@@ -87,7 +87,7 @@ def year_ranking(conn: duckdb.DuckDBPyConnection, year: int, house: str = "Dáil
     return _run(
         conn,
         "SELECT member_name, party_name, constituency,"
-        " attended_count, is_minister, rank_high, rank_low"
+        " attended_count, sitting_days, other_days, is_minister, rank_high, rank_low"
         " FROM v_attendance_year_rank WHERE year = ? AND house = ?"
         " ORDER BY rank_high ASC LIMIT 500",
         [year, house],
@@ -96,7 +96,10 @@ def year_ranking(conn: duckdb.DuckDBPyConnection, year: int, house: str = "Dáil
 
 def chamber_sitting_days(conn: duckdb.DuckDBPyConnection, house: str) -> QueryResult:
     """(year, sitting_days) for a house — the data-derived attendance-bar
-    denominator used for the Seanad (the Dáil keeps SITTING_DAYS_BY_YEAR)."""
+    denominator (distinct sitting dates actually in the record). Used for BOTH
+    chambers now: a member can never exceed it, which kills the old "82 scheduled
+    days vs 94 recorded" contradiction. config.SITTING_DAYS_BY_YEAR is kept only
+    as an official cross-check (reconciled in test_attendance_data_consistency)."""
     return _run(
         conn,
         "SELECT year, sitting_days FROM v_attendance_chamber_sitting_days WHERE house = ?",

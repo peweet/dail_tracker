@@ -49,6 +49,7 @@ from pathlib import Path
 
 import polars as pl
 
+from extractors._diary_minister import resolve_minister  # canonical minister from filename/dept+date
 from extractors.diary_org_match import norm  # identical org/subject normaliser
 from services.logging_setup import setup_standalone_logging
 from services.parquet_io import save_parquet
@@ -316,12 +317,23 @@ def main() -> int:
     overlap = (
         mentions.filter(~pl.col("matched_org_name").is_in(list(PERSON_DENYLIST)))
         .filter(~pl.col("matched_org_name").str.contains("(?i)" + _GOV_BODY_RE.pattern))
-        .join(entries.select(["entry_id", "entry_class", "department"]), on="entry_id", how="left")
+        .join(entries.select(["entry_id", "entry_class", "department", "source_pdf_url"]), on="entry_id", how="left")
         .filter(~pl.col("entry_class").is_in(list(EXCLUDE_CLASSES)))
+        .with_columns(
+            # resolve the minister from the source filename (+ dept/date fallback) rather than
+            # the fragile raw filename-guess, so ministers_met / corroboration count the right
+            # person — recovers the ~25% of meetings the old guess left minister-less.
+            pl.struct(["source_pdf_url", "department", "entry_date"])
+            .map_elements(
+                lambda r: resolve_minister(r["source_pdf_url"], r["department"], r["entry_date"]),
+                return_dtype=pl.Utf8,
+            )
+            .alias("minister_resolved")
+        )
         .with_columns(
             [
                 pl.col("matched_org_name").map_elements(norm, return_dtype=pl.Utf8).alias("org_nk"),
-                pl.col("minister").map_elements(surname_key, return_dtype=pl.Utf8).alias("min_sk"),
+                pl.col("minister_resolved").map_elements(surname_key, return_dtype=pl.Utf8).alias("min_sk"),
                 pl.col("matched_org_name").map_elements(sector_for, return_dtype=pl.Utf8).alias("sector"),
             ]
         )

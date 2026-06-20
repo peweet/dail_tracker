@@ -14,15 +14,17 @@
 -- all-council benchmark (window over the whole set) so the page can draw the line.
 --
 -- PlanningAuthority is normalised to the local_authority join key used by
--- v_la_chief_executives / v_constituency_la_crosswalk. ⚠️ Cork County is ABSENT
--- from the appeals source (only 30 of 31 councils present) — it simply won't appear
--- here; that is a source coverage gap, not a zero.
+-- v_la_chief_executives / v_constituency_la_crosswalk. NOTE Cork County publishes NO
+-- AppealRefNumber on its applications, so it has no appeal_ref matches; its appeals are
+-- recovered by the extractor's validated spatial+temporal fallback (match_method =
+-- 'spatial_temporal') so all 31 councils now appear.
 CREATE OR REPLACE VIEW v_la_planning_overturn AS
 WITH base AS (
     SELECT
         CASE PlanningAuthority
             WHEN 'Dun Laoghaire Rathdown County Council' THEN 'Dun Laoghaire-Rathdown'
             WHEN 'Cork City Council'                     THEN 'Cork City'
+            WHEN 'Cork County Council'                    THEN 'Cork County'
             WHEN 'Galway City Council'                   THEN 'Galway City'
             WHEN 'Galway County Council'                 THEN 'Galway County'
             WHEN 'Dublin City Council'                   THEN 'Dublin City'
