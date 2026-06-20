@@ -208,3 +208,30 @@ def test_reclassify_is_noop_without_entry_class() -> None:
     e = pl.DataFrame({"entry_id": ["a"], "subject": ["x"]})
     out, n = reclassify_other_as_external(e, {"a"})
     assert n == 0 and out.equals(e)
+
+
+# --- curated full-name org tier 2026-06-19 (Tier ⑥): well-known orgs the register +
+# norm() miss. Matched on the accent-folded RAW subject (bypasses the suffix-strip trap). ---
+def test_curated_org_recovers_suffix_stripped_name() -> None:
+    # "Enterprise Ireland" norm()s to the stopword "enterprise" → the register tier can't
+    # anchor it; the curated tier matches the full phrase on the folded subject.
+    hits = _matches("Enterprise Ireland Site Visit")
+    assert {m["matched_org_name"] for m in hits} == {"Enterprise Ireland"}
+    assert hits[0]["gaz_origin"] == "curated_org"
+
+
+def test_curated_org_accent_fold_and_single_token() -> None:
+    assert {m["matched_org_name"] for m in _matches("Wyeth site Update - Nestlé Ireland")} == {"Nestlé"}
+    assert {m["matched_org_name"] for m in _matches("Tesco Jobs announcement")} == {"Tesco"}
+
+
+def test_curated_microsoft_teams_is_not_microsoft() -> None:
+    # the video-platform tag must NOT count as a meeting with Microsoft
+    assert _matches("Town Hall (Microsoft Teams Meeting)") == []
+    assert {m["matched_org_name"] for m in _matches("Meeting with Microsoft re jobs")} == {"Microsoft"}
+
+
+def test_curated_central_bank_is_not_bank_of_ireland() -> None:
+    # "Central Bank of Ireland" (the regulator) must not match curated "Bank of Ireland"
+    assert _matches("Meeting with Central Bank of Ireland officials") == []
+    assert {m["matched_org_name"] for m in _matches("Meeting with Bank of Ireland")} == {"Bank of Ireland"}
