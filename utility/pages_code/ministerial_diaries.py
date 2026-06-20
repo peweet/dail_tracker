@@ -18,7 +18,8 @@ reads them via data_access.ministerial_diary_data and does presentation faceting
 
 HONEST COVERAGE (shown, not hidden): diaries are self-curated + non-exhaustive, published
 quarterly-in-arrears; counts are coverage-driven, not a trend; absence is not proof a meeting
-didn't happen. Two departments (Public Expenditure, Taoiseach) are scan-only and await OCR.
+didn't happen. Public Expenditure (DPER) is now included via OCR of its scanned diaries; the
+Taoiseach's own diary is still scan-only and awaits OCR.
 """
 
 from __future__ import annotations
@@ -339,7 +340,8 @@ def _provenance() -> None:
         '<div class="dt-diary-prov">'
         "<b>Source &amp; limits.</b> Ministers' own published diaries (gov.ie / enterprise.gov.ie), "
         "linked per entry. Self-curated, non-exhaustive and published quarterly-in-arrears — what's "
-        "here is what departments published; an absence is not proof a meeting didn't happen. Two "
-        "departments (Public Expenditure, Taoiseach) are scanned and await OCR. We present the record "
+        "here is what departments published; an absence is not proof a meeting didn't happen. Public "
+        "Expenditure (DPER) is now included via OCR of its scanned diaries; the Taoiseach's own diary "
+        "is still scanned and awaits OCR. We present the record "
         "as published — no ranking, scoring, or inference of influence.</div>"
     )

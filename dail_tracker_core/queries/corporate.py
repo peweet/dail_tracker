@@ -63,3 +63,28 @@ def cbi_repeat_distress(conn: duckdb.DuckDBPyConnection) -> QueryResult:
 def brand_aliases(conn: duckdb.DuckDBPyConnection) -> QueryResult:
     """Brand -> parent_fund -> fund_type curated alias map."""
     return _run(conn, "SELECT * FROM v_corporate_brand_aliases")
+
+
+def receiver_appointers(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Funds/banks ranked by receivership notices naming them (precomputed)."""
+    return _run(conn, "SELECT parent, n_notices, dominant_fund_type, type_bucket FROM v_corporate_receiver_appointers")
+
+
+def receiver_bucket_mix(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Appointer type-mix headline (mention-weighted) by bucket."""
+    return _run(conn, "SELECT type_bucket, n FROM v_corporate_receiver_bucket_mix")
+
+
+def receiver_firms(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Professional firms named AS receiver, by notice presence (precomputed)."""
+    return _run(conn, "SELECT firm, n_notices, is_big6 FROM v_corporate_receiver_firms")
+
+
+def receiver_year_counts(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Receivership notices by year — the featured-panel sparkline series."""
+    return _run(conn, "SELECT year, n FROM v_corporate_receiver_year_counts")
+
+
+def receiver_summary(conn: duckdb.DuckDBPyConnection) -> QueryResult:
+    """Featured/operator headline scalar counts (one row)."""
+    return _run(conn, "SELECT n_recv, n_spv, n_tagged, n_any_tagged FROM v_corporate_receiver_summary")
