@@ -12,11 +12,33 @@ WINDOW in SQL, CREATE VIEW, read_parquet, pandas merge/pivot, business-metric de
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import streamlit as st
 from data_access.constituency_data import get_constituency_conn
 
 from dail_tracker_core.queries import local_government as _q
 from dail_tracker_core.results import QueryResult
+
+_OUTLINES = Path(__file__).resolve().parents[2] / "data" / "_meta" / "local_authority_outlines.json"
+
+
+@st.cache_data(ttl=600)
+def fetch_la_outlines() -> dict:
+    """Static simplified SVG outlines (31 local authorities + shared viewbox) for the
+    index choropleth — built by reference/local_authority_boundaries_extract.py.
+    Display-only reference; returns {} if absent so the page just omits the map."""
+    try:
+        return json.loads(_OUTLINES.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 — missing/garbled map data must not break the page
+        return {}
+
+
+@st.cache_data(ttl=600)
+def fetch_la_map_layers_result() -> QueryResult:
+    """All 31 councils with choropleth layer values + quintile buckets."""
+    return _q.map_layers(get_constituency_conn())
 
 
 @st.cache_data(ttl=600)

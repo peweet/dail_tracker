@@ -225,6 +225,7 @@ CONSTITUENCY_FILES = [
     "constituency_waiting_composition.sql",  # JOINs v_ssha_waiting_list_composition (registered below)
     "constituency_council_housing_performance.sql",
     "constituency_la_housing_performance.sql",  # council-grain DISTINCT of the above (for the LG page)
+    "constituency_la_map_layers.sql",  # LG choropleth layers; JOINs the four v_la_* views above
     "constituency_council_context.sql",
 ]
 
