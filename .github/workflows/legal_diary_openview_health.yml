@@ -33,7 +33,7 @@ jobs:
         run: python tools/legal_diary_openview_health.py
       - name: Open issue on source drift (scheduled runs only)
         if: failure() && github.event_name == 'schedule'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             github.rest.issues.create({
