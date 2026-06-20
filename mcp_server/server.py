@@ -49,6 +49,7 @@ from dail_tracker_core.queries import corporate as corp  # noqa: E402
 from dail_tracker_core.queries import judiciary as jud  # noqa: E402
 from dail_tracker_core.queries import lobbying as lb  # noqa: E402
 from dail_tracker_core.queries import ministerial as min_  # noqa: E402
+from dail_tracker_core.queries import ministerial_diary as mdiary  # noqa: E402
 from dail_tracker_core.queries import procurement as proc  # noqa: E402
 from dail_tracker_core.queries import public_payments as pubpay  # noqa: E402
 from dail_tracker_core.queries import sipo  # noqa: E402
@@ -262,6 +263,66 @@ def revolving_door(limit: int = 20) -> list[dict]:
     lobbyists — the revolving-door register."""
     records, _total, _ = dossiers.list_revolving_door(_cur(), limit=limit)
     return records
+
+
+# ── Ministerial diaries — who ministers meet ────────────────────────────────────
+
+
+@mcp.tool(annotations=_RO)
+def ministerial_diary_top_organisations(limit: int = 25, outside_only: bool = True) -> list[dict]:
+    """Organisations ranked by how many meetings ministers logged with them in their OWN
+    published diaries — the access record. Each row has meetings, ministers_met,
+    ministers_lobbied_and_met, total_lobbying_returns and `corroborated` (the org both MET and
+    filed a lobbying return naming the same minister). `outside_only` drops state/semi-state
+    bodies. Co-occurrence only — access, NOT proof of influence; diaries are self-curated,
+    non-exhaustive and quarterly-in-arrears."""
+    return _rows(mdiary.org_overlap_ranked(_cur(), limit=limit, outside_only=outside_only))
+
+
+@mcp.tool(annotations=_RO)
+def ministerial_diary_organisation(name: str) -> dict:
+    """For ONE organisation (fuzzy name), the ministerial-access record from ministers' published
+    diaries: a summary (meetings, distinct ministers met, corroboration vs the lobbying register)
+    plus the individual logged meetings (which minister, date, subject, source link). Use for
+    'who did <company> meet, when, about what'. Access, not influence — no causation implied."""
+    cur = _cur()
+    return {
+        "summary": _rows(mdiary.organisation_summary(cur, name)),
+        "meetings": _rows(mdiary.organisation_meetings(cur, name)),
+    }
+
+
+@mcp.tool(annotations=_RO)
+def who_ministers_meet(minister: str = "", topic: str = "", limit: int = 30) -> list[dict]:
+    """Search every external meeting ministers logged in their published diaries, by minister
+    surname and/or a subject keyword (e.g. minister='Donohoe', topic='data centre'). Returns
+    minister, department, date, the as-published subject and the source link. Diaries are
+    self-curated, non-exhaustive and quarterly-in-arrears; a diary meeting is not a lobbying
+    return."""
+    return _rows(mdiary.meeting_search(_cur(), minister=minister, topic=topic, limit=limit))
+
+
+@mcp.tool(annotations=_RO)
+def company_influence(name: str) -> dict:
+    """The ACCESS × MONEY profile for ONE company (fuzzy name): how many meetings it logged with
+    ministers and how many distinct ministers, its lobbying-register returns, public contracts won
+    (€) and public payments received (€) — the 'follow the access to the money' view, plus the
+    matched supplier name for verification. CO-OCCURRENCE, NOT causation: this maps access and
+    money, it does NOT imply a meeting caused a contract. Empty = the company isn't named in the
+    published ministerial diaries (the procurement_* tools cover suppliers that never met a
+    minister)."""
+    rows = mdiary.company_influence(_cur(), name)
+    return rows if isinstance(rows, dict) else {"company_matches": rows}
+
+
+@mcp.tool(annotations=_RO)
+def access_to_contracts(limit: int = 25, order_by: str = "awards_eur") -> list[dict]:
+    """Companies that BOTH met ministers (in their published diaries) AND won/were paid public
+    money, ranked. order_by ∈ {awards_eur, paid_eur, meetings, total_lobbying_returns}. Each row
+    has meetings, ministers_met, lobbying returns, awards_eur, paid_eur and the matched supplier.
+    Access + money map, never causation; diaries are self-curated/quarterly-in-arrears and the €
+    carry the procurement caveats."""
+    return _rows(mdiary.access_to_contracts(_cur(), limit=limit, order_by=order_by))
 
 
 @mcp.tool(annotations=_RO)

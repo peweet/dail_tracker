@@ -64,3 +64,33 @@ def fetch_brand_aliases() -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=["brand", "parent_fund", "fund_type", "notes"])
     return df
+
+
+@st.cache_data(ttl=300)
+def fetch_receiver_appointers() -> pd.DataFrame:
+    """Receiver-appointer ranking (precomputed gold — corporate_receiver_enrich)."""
+    return _q.receiver_appointers(get_corporate_conn()).data
+
+
+@st.cache_data(ttl=300)
+def fetch_receiver_bucket_mix() -> pd.DataFrame:
+    """Appointer type-mix (mention-weighted) by bucket."""
+    return _q.receiver_bucket_mix(get_corporate_conn()).data
+
+
+@st.cache_data(ttl=300)
+def fetch_receiver_firms() -> pd.DataFrame:
+    """Operator-firm concentration (precomputed gold)."""
+    return _q.receiver_firms(get_corporate_conn()).data
+
+
+@st.cache_data(ttl=300)
+def fetch_receiver_year_counts() -> pd.DataFrame:
+    """Receivership-notices-by-year sparkline series (precomputed gold)."""
+    return _q.receiver_year_counts(get_corporate_conn()).data
+
+
+@st.cache_data(ttl=300)
+def fetch_receiver_summary() -> pd.DataFrame:
+    """Featured/operator headline scalar counts (one-row frame)."""
+    return _q.receiver_summary(get_corporate_conn()).data

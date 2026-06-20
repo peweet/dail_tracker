@@ -22,6 +22,7 @@ from dail_tracker_core import serialize
 from dail_tracker_core.queries import appointments as appt
 from dail_tracker_core.queries import charities as char
 from dail_tracker_core.queries import committees as cmte
+from dail_tracker_core.queries import corporate as corp
 from dail_tracker_core.queries import cross_ref as xref
 from dail_tracker_core.queries import interests as intr
 from dail_tracker_core.queries import judiciary as jud
@@ -29,6 +30,7 @@ from dail_tracker_core.queries import legislation as leg
 from dail_tracker_core.queries import lobbying as lb
 from dail_tracker_core.queries import member_overview as moq
 from dail_tracker_core.queries import ministerial as min_
+from dail_tracker_core.queries import ministerial_diary as mdiary
 from dail_tracker_core.queries import payments as pay
 from dail_tracker_core.queries import procurement as proc
 from dail_tracker_core.queries import public_payments as pubpay
@@ -900,6 +902,132 @@ def search_votes_by_topic(conn: duckdb.DuckDBPyConnection, topics: str, *, house
         elif r.get("vote_type") == "Voted No":
             d["no"] += 1
     return {"topics": kws, "house": house, "debates": list(debates.values()), "votes": rows}
+
+
+# ── Corporate notices (Iris Oifigiúil — the State gazette) ─────────────────────
+# CORPORATE ONLY: personal/individual insolvency is excluded upstream by policy, so
+# no person is named. A wind-up / receivership notice is a FACT about a company's
+# legal status on a date — never a verdict on a director or a finding of wrongdoing.
+
+_CORP_NOTICE_CAVEAT = (
+    "corporate notices only (no individuals); a wind-up/receivership is a legal-status fact, "
+    "not a verdict — and Members' Voluntary Liquidation is a SOLVENT wind-up, not distress"
+)
+_CORP_REPEAT_CAVEAT = (
+    "regulatory provenance only — not a verdict; exact normalised name match (may miss aliases); "
+    "solvent MVLs excluded from the distress count"
+)
+_CORP_RECEIVER_CAVEAT = (
+    "whole-corpus rankings (filter-independent, precomputed gold); an appointer/operator named on a "
+    "receivership notice is a public-record fact, not a verdict on any company or director"
+)
+
+
+def corporate_distress_notices(
+    conn: duckdb.DuckDBPyConnection, *, query: str = "", subtype: str = "", year: int = 0, limit: int = 50
+) -> dict[str, Any]:
+    """Corporate distress / register notices from Iris Oifigiúil — receiverships, court & voluntary
+    wind-ups, examinerships, SCARP rescues, investment-vehicle register notices. Filters AND together:
+    ``query`` (entity-name substring), ``subtype`` (e.g. 'receivership', 'examinership'), ``year``
+    (issue year; 0 = all). Newest first; the bulky raw_text/title scratch columns are dropped."""
+    res = corp.corporate_notices(conn)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    rows = serialize.to_records(res.data, drop_cols=["raw_text", "title"])
+    q = query.strip().lower()
+    st = subtype.strip().lower()
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        if q and q not in str(r.get("entity_name", "")).lower():
+            continue
+        if st and st != str(r.get("notice_subtype", "")).lower():
+            continue
+        if year and not str(r.get("issue_date", "")).startswith(str(year)):
+            continue
+        out.append(r)
+        if len(out) >= limit:
+            break
+    return {"count": len(out), "notices": out, "caveat": _CORP_NOTICE_CAVEAT}
+
+
+def corporate_repeat_distress(conn: duckdb.DuckDBPyConnection, *, limit: int = 50) -> dict[str, Any]:
+    """CBI-authorised firms appearing in REPEAT corporate-distress notices — regulated entities with
+    recurring receivership/wind-up/examinership events. Each row carries the per-subtype counts and the
+    distress-vs-routine split. EXPERIMENTAL (sandbox CBI source)."""
+    res = corp.cbi_repeat_distress(conn)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    return {"firms": serialize.to_records(res.data)[:limit], "caveat": _CORP_REPEAT_CAVEAT}
+
+
+def corporate_receivers(conn: duckdb.DuckDBPyConnection, *, limit: int = 25) -> dict[str, Any]:
+    """The receivership lens over the corporate-notices corpus (precomputed gold): the funds/banks that
+    appoint receivers most, the professional firms named AS receiver, the appointer type-mix, the
+    headline scalar counts and the notices-by-year sparkline series. ``limit`` caps each ranking."""
+    summary = corp.receiver_summary(conn)
+    if not summary.ok:
+        return {"error": summary.unavailable_reason}
+    return {
+        "summary": serialize.first_record(summary.data),
+        "appointers": serialize.to_records(corp.receiver_appointers(conn).data)[:limit],
+        "firms": serialize.to_records(corp.receiver_firms(conn).data)[:limit],
+        "appointer_type_mix": serialize.to_records(corp.receiver_bucket_mix(conn).data),
+        "notices_by_year": serialize.to_records(corp.receiver_year_counts(conn).data),
+        "caveat": _CORP_RECEIVER_CAVEAT,
+    }
+
+
+# ── Ministerial diaries (who ministers meet) ───────────────────────────────────
+# Co-occurrence ACCESS record, never proof of influence: diaries are self-curated,
+# non-exhaustive and quarterly-in-arrears, and a diary meeting is not a lobbying return.
+
+_DIARY_CAVEAT = (
+    "from ministers' own published diaries — access, not influence; self-curated, non-exhaustive and "
+    "quarterly-in-arrears; a diary meeting is not a lobbying return and co-occurrence implies no causation"
+)
+
+
+def ministerial_diary_top_organisations(
+    conn: duckdb.DuckDBPyConnection, *, limit: int = 25, outside_only: bool = True
+) -> dict[str, Any]:
+    """Organisations ranked by how many meetings ministers logged with them in their published diaries.
+    Each row carries meetings, ministers_met, ministers_lobbied_and_met, total_lobbying_returns and
+    ``corroborated`` (the org both MET and filed a lobbying return naming the same minister).
+    ``outside_only`` drops state/semi-state bodies."""
+    res = mdiary.org_overlap_ranked(conn, limit=limit, outside_only=outside_only)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    return {"organisations": serialize.to_records(res.data), "caveat": _DIARY_CAVEAT}
+
+
+def ministerial_diary_organisation(conn: duckdb.DuckDBPyConnection, name: str) -> dict[str, Any] | None:
+    """For ONE organisation (fuzzy name), the ministerial-access record: a summary (meetings, distinct
+    ministers met, corroboration vs the lobbying register) plus the individual logged meetings (which
+    minister, date, subject, source link). None if no logged meeting names the organisation."""
+    summary_res = mdiary.organisation_summary(conn, name)
+    if not summary_res.ok:
+        return {"error": summary_res.unavailable_reason}
+    summary = serialize.first_record(summary_res.data)
+    if summary is None:
+        return None
+    return {
+        "organisation": name,
+        "summary": summary,
+        "meetings": serialize.to_records(mdiary.organisation_meetings(conn, name).data),
+        "caveat": _DIARY_CAVEAT,
+    }
+
+
+def ministerial_diary_meetings(
+    conn: duckdb.DuckDBPyConnection, *, minister: str = "", topic: str = "", limit: int = 30
+) -> dict[str, Any]:
+    """Search every external meeting ministers logged in their published diaries, by minister surname
+    and/or a subject keyword. Returns minister, department, date, the as-published subject and the
+    source link."""
+    res = mdiary.meeting_search(conn, minister=minister, topic=topic, limit=limit)
+    if not res.ok:
+        return {"error": res.unavailable_reason}
+    return {"meetings": serialize.to_records(res.data), "caveat": _DIARY_CAVEAT}
 
 
 # ── Data coverage (scope guard) ────────────────────────────────────────────────

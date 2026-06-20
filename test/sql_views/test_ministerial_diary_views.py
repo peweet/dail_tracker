@@ -40,6 +40,7 @@ def test_all_views_build(conn) -> None:
         "v_ministerial_diary_org_overlap",
         "v_ministerial_diary_engagements",
         "v_ministerial_diary_meetings",
+        "v_ministerial_diary_company_influence",
     }
 
 

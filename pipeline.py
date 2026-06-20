@@ -89,6 +89,13 @@ CHAINS: list[tuple[str, str]] = [
     # silver via cro_normalise): exact normalised-name join of notices to the
     # CRO company register, committed gold, read by the Corporate page badge.
     ("cro", "extractors/cro_corporate_xref_enrichment.py"),
+    # corporate_receiver runs after iris (reads corporate_notices gold): precomputes
+    # the receiver-appointer ranking + operator-firm concentration that the Corporate
+    # page used to recompute in pandas every load (those panels describe the full
+    # corpus, independent of filters — pipeline territory). Writes the notices SUPERSET
+    # (corporate_notices_enriched, read by v_corporate_notices) + appointer/firm gold.
+    # Pure transform, no network. Graduated out of the page per the logic-firewall audit.
+    ("corporate_receiver", "extractors/corporate_receiver_enrich.py"),
     # procurement: eTenders/OGP open data -> gold awards + supplier→CRO match.
     # Self-fetches + caches the source CSV; depends on the CRO silver register
     # (same as cro), so it runs after it.
@@ -202,6 +209,7 @@ _CHAIN_BLURBS: dict[str, str] = {
     "afs": "amalgamated LA Annual Financial Statements: spend by service division (silver)",
     "cbi": "CBI register extract + corporate-notices xref (gold)",
     "cro": "CRO company register <-> corporate-notices exact-name xref (gold)",
+    "corporate_receiver": "receiver-appointer ranking + operator-firm concentration (gold; notices superset)",
     "procurement": "eTenders/OGP awards + supplier->CRO match (gold); value-is-not-spend flags",
     "procurement_lobbying": "supplier <-> lobbying registrant/client overlap xref (gold)",
     "ted": "TED EU award notices (Ireland) + winner->CRO match (silver); award-value-not-spend flags",
