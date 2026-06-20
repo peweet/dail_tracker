@@ -178,6 +178,11 @@ _MONTH_YEAR_HEADER_RE = re.compile(
     r"^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d\d)$",
     re.IGNORECASE,
 )
+# Tell-tale of an Outlook calendar EXPORT (Finance/DFHERIS): a mini-calendar weekday grid. In those
+# layouts the "Month YYYY" lines are mini-cal TITLES (a December page shows a January-next-year
+# mini-cal) and must NOT drive the running year — so we only honour month-year section headers when
+# this grid is absent (the HEALTH/Higgins weekday-LISTS that genuinely span years have no such grid).
+_MINICAL_GRID_RE = re.compile(r"Mo\s*Tu\s*We\s*Th", re.IGNORECASE)
 # Calendar-EXPORT layout noise (the DFIN/Finance "DFIN Diary" Outlook-export generation:
 # repeating page header + two mini-calendars per page). Dropping these stops the per-page
 # header from being glued onto the previous entry's subject. Tight patterns so they cannot
@@ -303,6 +308,8 @@ def parse_entries(text: str, default_year: int | None, default_month: int | None
     cur_time: str | None = None
     subject_parts: list[str] = []
     ctx_year: int | None = default_year
+    # only the true weekday-list layouts get section-header year tracking (see _MINICAL_GRID_RE)
+    honor_year_headers = not _MINICAL_GRID_RE.search(text)
 
     def flush() -> None:
         nonlocal subject_parts, cur_time
@@ -332,7 +339,7 @@ def parse_entries(text: str, default_year: int | None, default_month: int | None
                 subject_parts.append(im.group(6).strip())
             continue
         # "Month YYYY" header → hold the running year for the yearless date lines below
-        if my := _MONTH_YEAR_HEADER_RE.match(line):
+        if honor_year_headers and (my := _MONTH_YEAR_HEADER_RE.match(line)):
             ctx_year = int(my.group(1))
             continue
         if dm := (_DATE_FULL_RE.match(line) or _DATE_SHORT_RE.match(line)):

@@ -33,11 +33,20 @@ LEGAL_SUFFIX_PATTERN = (
 
 
 def name_norm_expr(col: str) -> pl.Expr:
-    """Normalise a company-name column: upper-case, strip punctuation, drop
-    legal suffixes / corporate fillers, drop non-alphanumerics, collapse
-    whitespace. Returns a Polars expression (pure — no IO)."""
+    """Normalise a company-name column: accent-fold, upper-case, strip punctuation,
+    drop legal suffixes / corporate fillers, drop non-alphanumerics, collapse
+    whitespace. Returns a Polars expression (pure — no IO).
+
+    The NFD + combining-mark strip is the house accent-fold standard (shared with
+    normalise_join_key, diary_org_match.norm, cbi_registers_extract._norm_firm).
+    WITHOUT it, accented Irish/foreign company names get mangled, spelling-asymmetric
+    keys that silently fail to join their CRO/ASCII counterpart: "Tirlán" → "TIRL N"
+    (not "TIRLAN"), "Telefónica" → "TELEF NICA", "Gaelchultúr" → "GAELCHULT R". Both
+    sides must fold é→E for the exact-name join to land regardless of fada usage."""
     return (
         pl.col(col)
+        .str.normalize("NFD")  # decompose accents: e-acute -> e + combining mark
+        .str.replace_all(r"[̀-ͯ]", "")  # drop combining marks -> ASCII letter
         .str.to_uppercase()
         .str.replace_all(r"[\.,&'\"]", " ")
         .str.replace_all(LEGAL_SUFFIX_PATTERN, " ")
