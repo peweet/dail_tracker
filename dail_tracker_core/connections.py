@@ -302,6 +302,11 @@ _API_DOMAIN_GLOBS = [
     # ministerial diaries (who ministers meet x lobbying register). Views absolutize their
     # own gold parquet paths; independent of the member set, so order-insensitive here.
     "ministerial_diary_*.sql",
+    # corporate notices (Iris Oifigiúil gazette): distress/register notices + CRO/CBI xref +
+    # receiver-appointer/operator-firm precomputed gold. Same single glob the Streamlit page
+    # uses (utility/data_access/corporate_data.get_corporate_conn); alphabetical within-domain
+    # order is proven there, and swallow_errors degrades a missing optional view, not the conn.
+    "corporate_*.sql",
 ]
 
 

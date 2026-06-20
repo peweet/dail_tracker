@@ -37,6 +37,8 @@ SELECT
     is_spv,
     has_parent_mention,
     receiver_firms,
-    has_receiver_firm
+    has_receiver_firm,
+    cbi_register,
+    cbi_ref_no
 FROM read_parquet('data/gold/parquet/corporate_notices_enriched.parquet')
 ORDER BY issue_date DESC NULLS LAST;

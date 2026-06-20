@@ -207,6 +207,15 @@ DEPT_DATE_RULES: list[tuple[str, str, date, date | None]] = [
     ("DPER", "McGrath", date(2020, 6, 27), date(2022, 12, 17)),
     ("DPER", "Donohoe", date(2022, 12, 17), date(2025, 1, 23)),
     ("DPER", "Chambers", date(2025, 1, 23), None),
+    # The Taoiseach's OWN diary (2022-2024 quarterly scans, OCR'd) carries no surname in its
+    # filename, so attribute by date across the 2020-coalition rotation. Documented public record
+    # (the who_was_minister MCP models departments only, not the office of Taoiseach): Martin from
+    # 2020-06-27, Varadkar from 2022-12-17 (the agreed mid-term rotation), Harris from 2024-04-09
+    # (after Varadkar's resignation), Martin again from 2025-01-23 (new government).
+    ("TAOISEACH", "Martin", date(2020, 6, 27), date(2022, 12, 17)),
+    ("TAOISEACH", "Varadkar", date(2022, 12, 17), date(2024, 4, 9)),
+    ("TAOISEACH", "Harris", date(2024, 4, 9), date(2025, 1, 23)),
+    ("TAOISEACH", "Martin", date(2025, 1, 23), None),
 ]
 
 

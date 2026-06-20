@@ -145,7 +145,12 @@ _FN_PERIOD_RE = re.compile(
 _YEAR_RE = re.compile(r"(20\d\d)")
 
 # entry-parse line tokens
-_WEEKDAY = r"(?:(?:Mon|Tues?|Wednes|Thurs?|Fri|Satur|Sun)(?:day)?,?\s+)?"
+# Weekday prefix is optional; the 3-letter stem + ``[a-z]*`` tail accepts every spelling the
+# published diaries use ("Mon"/"Monday", "Tue"/"Tues"/"Tuesday", "Wed", "Thu"/"Thur"/"Thurs",
+# "Sat", "Sun"). The old list missed the bare 3-letter "Wed"/"Thu"/"Sat" forms used by the
+# HEALTH/Higgins weekday-list layout, so those date headers never matched (parse_status
+# text_layout_unrecognised). Day+month-name after it stays strict, so this cannot false-match.
+_WEEKDAY = r"(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,?\s+)?"
 _DATE_FULL_RE = re.compile(
     rf"^{_WEEKDAY}(\d{{1,2}})(?:st|nd|rd|th)?\s+(January|February|March|April|May|June|July|"
     r"August|September|October|November|December)(?:\s+(\d{4}))?$",
@@ -159,6 +164,20 @@ _DATE_SHORT_RE = re.compile(
 _TIME_RE = re.compile(r"^(?:Time\s+)?(\d{1,2}[:.]\d{2})\s*[–—-]\s*(\d{1,2}[:.]\d{2})\s*(\S.*)?$", re.IGNORECASE)
 _ALL_DAY_RE = re.compile(r"^All\s*Day\s*(\S.*)?$", re.IGNORECASE)
 _NOISE_RE = re.compile(r"^(Time|Subject|Details|Date|Minister .{0,60}(Diary|Calendar).*)$", re.IGNORECASE)
+# Self-contained one-line entry: "DD/MM/YYYY HH:MM <subject>" (Irish day-first). The early DETE
+# 2016-18 layout (Breen/Halligan/Mitchell-O'Connor) and the odd Finance month export ship every
+# engagement on a single line — the date->time->subject state machine had no token for it, so the
+# files parsed to zero. Requires a non-blank subject after the time, so a bare print-timestamp
+# ("14/04/2025 11:35") with nothing trailing falls through to _CAL_NOISE_RE instead of becoming a row.
+_INLINE_DT_RE = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2})[:.](\d{2})\s+(\S.*)$")
+# "Month YYYY" section header in a multi-year weekday-list (HEALTH "April 23 to Jan 25", Higgins):
+# the short date lines that follow ("Sat 1 Apr") carry no year, so we hold the year from the most
+# recent header. NOT an engagement itself. Checked before the date/noise branches so it wins over
+# _CAL_NOISE_RE (which would otherwise silently drop it).
+_MONTH_YEAR_HEADER_RE = re.compile(
+    r"^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d\d)$",
+    re.IGNORECASE,
+)
 # Calendar-EXPORT layout noise (the DFIN/Finance "DFIN Diary" Outlook-export generation:
 # repeating page header + two mini-calendars per page). Dropping these stops the per-page
 # header from being glued onto the previous entry's subject. Tight patterns so they cannot
@@ -273,11 +292,17 @@ def download(url: str, fname: str, *, retries: int = 4) -> Path | None:
 
 
 def parse_entries(text: str, default_year: int | None, default_month: int | None) -> list[dict]:
-    """State machine over diary lines: date header → (time|All Day) → subject."""
+    """State machine over diary lines: date header → (time|All Day) → subject.
+
+    ``ctx_year`` starts at ``default_year`` and is bumped by any "Month YYYY" section header,
+    so a multi-year weekday-list (HEALTH "April 23 to Jan 25") dates its yearless short headers
+    correctly instead of stamping the whole document with one inferred year.
+    """
     entries: list[dict] = []
     cur_date: date | None = None
     cur_time: str | None = None
     subject_parts: list[str] = []
+    ctx_year: int | None = default_year
 
     def flush() -> None:
         nonlocal subject_parts, cur_time
@@ -295,11 +320,26 @@ def parse_entries(text: str, default_year: int | None, default_month: int | None
         line = raw.strip().strip("​")
         if not line:
             continue
+        # one-line "DD/MM/YYYY HH:MM subject" entry (early DETE / Finance export)
+        if im := _INLINE_DT_RE.match(line):
+            flush()
+            try:
+                cur_date = date(int(im.group(3)), int(im.group(2)), int(im.group(1)))
+            except ValueError:
+                cur_date = None
+            cur_time = f"{int(im.group(4)):02d}:{im.group(5)}"
+            if cur_date:
+                subject_parts.append(im.group(6).strip())
+            continue
+        # "Month YYYY" header → hold the running year for the yearless date lines below
+        if my := _MONTH_YEAR_HEADER_RE.match(line):
+            ctx_year = int(my.group(1))
+            continue
         if dm := (_DATE_FULL_RE.match(line) or _DATE_SHORT_RE.match(line)):
             flush()
             day = int(dm.group(1))
             month = _MONTH_NUM[dm.group(2).lower()[:3] if len(dm.group(2)) <= 4 else dm.group(2).lower()]
-            year = int(dm.group(3)) if (dm.lastindex or 0) >= 3 and dm.group(3) else default_year
+            year = int(dm.group(3)) if (dm.lastindex or 0) >= 3 and dm.group(3) else ctx_year
             if year is None:
                 cur_date = None
                 continue

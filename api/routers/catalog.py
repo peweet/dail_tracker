@@ -98,6 +98,28 @@ _RESOURCES = [
         "count_view": "v_member_ministerial_tenure",
     },
     {
+        "resource": "ministerial-diaries",
+        "list": "/v1/ministerial/diary/organisations",
+        "item": "/v1/ministerial/diary/organisations/{name}",
+        "description": "Who ministers meet, from their OWN published diaries: organisations ranked by "
+        "logged meetings (with lobbying-register corroboration), one organisation's full access record, "
+        "and a meeting search (/v1/ministerial/diary/meetings). Access, never proof of influence — "
+        "self-curated, non-exhaustive, quarterly-in-arrears.",
+        "filters": ["outside_only", "minister", "topic"],
+        "count_view": "v_ministerial_diary_meetings",
+    },
+    {
+        "resource": "corporate",
+        "list": "/v1/corporate/notices",
+        "item": None,
+        "description": "Corporate distress/register notices from Iris Oifigiúil (receiverships, wind-ups, "
+        "examinerships, SCARP). CORPORATE ONLY — no individuals; a notice is a legal-status fact, not a "
+        "verdict. Also /v1/corporate/repeat-distress (CBI firms, experimental) and /v1/corporate/receivers "
+        "(appointer/operator-firm rankings).",
+        "filters": ["query", "subtype", "year"],
+        "count_view": "v_corporate_notices",
+    },
+    {
         "resource": "political-finance",
         "list": "/v1/political-finance/donations",
         "item": None,
