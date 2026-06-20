@@ -55,9 +55,8 @@ def test_no_direct_streamlit_import(py_file: Path):
             mod = node.module or ""
             if mod == "streamlit" or mod.startswith("streamlit."):
                 offenders.append(f"line {node.lineno}: from {mod} import ...")
-    assert not offenders, (
-        f"{py_file.relative_to(_ROOT)} imports streamlit (core must be UI-free):\n  "
-        + "\n  ".join(offenders)
+    assert not offenders, f"{py_file.relative_to(_ROOT)} imports streamlit (core must be UI-free):\n  " + "\n  ".join(
+        offenders
     )
 
 

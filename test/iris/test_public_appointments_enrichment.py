@@ -98,7 +98,10 @@ def test_extract_body_irish_body_name_spanning_pipe_lines():
     title = "APPOINTMENT TO THE BOARD OF AN tÚDARÁS | NÁISIÚNTA UM UATHROLLÚ COIGILTIS SCOIR | In exercise of"
     assert extract_body(title, "txt", "state_board") == "National Automatic Enrolment Retirement Savings Authority"
     # OCR-transposed Water Forum body
-    assert extract_body("APPOINTMENT TO AN FORAM USICE | The Minister for Housing", "t", "state_board") == "The Water Forum"
+    assert (
+        extract_body("APPOINTMENT TO AN FORAM USICE | The Minister for Housing", "t", "state_board")
+        == "The Water Forum"
+    )
 
 
 def test_extract_body_irish_a_cheapadh_order_uses_english_parenthetical():

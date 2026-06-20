@@ -18,13 +18,26 @@ from dail_tracker_core.results import QueryResult
 
 _EXPECTED_COLUMNS = {
     "detail": {
-        "member_name", "party_name", "constituency", "declaration_year",
-        "interest_category", "interest_text", "landlord_flag", "property_flag",
+        "member_name",
+        "party_name",
+        "constituency",
+        "declaration_year",
+        "interest_category",
+        "interest_text",
+        "landlord_flag",
+        "property_flag",
     },
     "member_index": {
-        "rank", "member_name", "party_name", "constituency",
-        "total_declarations", "directorship_count", "property_count", "share_count",
-        "is_landlord", "is_property_owner",
+        "rank",
+        "member_name",
+        "party_name",
+        "constituency",
+        "total_declarations",
+        "directorship_count",
+        "property_count",
+        "share_count",
+        "is_landlord",
+        "is_property_owner",
     },
 }
 
@@ -62,9 +75,7 @@ def test_availability_unavailable_reads_as_false():
 
 @pytest.fixture(scope="module")
 def conn():
-    c = connect_with_views(
-        ["member_interests_*.sql", "member_zz_interests_*.sql"], swallow_errors=False
-    )
+    c = connect_with_views(["member_interests_*.sql", "member_zz_interests_*.sql"], swallow_errors=False)
     yield c
     c.close()
 

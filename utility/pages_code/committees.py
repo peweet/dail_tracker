@@ -55,7 +55,7 @@ from data_access.committees_data import (
     fetch_party_seats,
 )
 from data_access.identity_resolver import resolve_member_code
-from ui.entity_links import member_profile_url
+from ui.entity_links import member_link_html, member_profile_url
 from ui.export_controls import export_button
 from ui.table_config import committee_membership_column_config, committee_roster_column_config
 
@@ -304,12 +304,18 @@ def _stage_committee(
     chair_party = str(chair_row["party"].iloc[0]) if not chair_row.empty else None
     url = members["committee_url"].dropna().iloc[0] if members["committee_url"].notna().any() else None
 
+    # Link the chair name to their member-overview profile when the name
+    # resolves to a canonical code; otherwise member_link_html returns the
+    # plain (escaped) name — never a dead link.
+    chair_html = member_link_html(resolve_member_code(chair_name), chair_name) if chair_name else None
+
     committee_identity_strip(
         selected,
         type_=COMMITTEE_TYPES.get(str(members["type"].iloc[0]), str(members["type"].iloc[0])),
         status=str(members["status"].iloc[0]),
         chair=chair_name,
         chair_party=chair_party,
+        chair_html=chair_html,
         member_count=int(len(members)),
         oireachtas_url=url,
         source_document_url=None,  # TODO_PIPELINE_VIEW_REQUIRED below
@@ -388,6 +394,18 @@ def _stage_committee(
                 members[["name", "party", "constituency", "role", "is_chair", "start", "end"]]
                 .sort_values(["is_chair", "name"], ascending=[False, True])
                 .reset_index(drop=True)
+            )
+            # Build a per-row profile URL ONLY when the name resolves to a
+            # canonical code (resolve_member_code is cached, so repeated lookups
+            # are cheap). Rows with no code get an empty URL → the LinkColumn
+            # renders a non-clickable cell rather than a broken link.
+            view.insert(
+                1,
+                "profile_url",
+                [
+                    (member_profile_url(code, section="committees") if (code := resolve_member_code(n)) else None)
+                    for n in view["name"]
+                ],
             )
             st.dataframe(
                 view,

@@ -98,8 +98,18 @@ def test_intensity_for_bill_matches_ranking(conn):
 # ── Wider legislation + SI surface (added with the legislation_data migration) ──
 
 _INDEX_COLS = {
-    "bill_id", "bill_title", "bill_status", "bill_type", "sponsor", "introduced_date",
-    "current_stage", "stage_number", "oireachtas_url", "bill_no", "bill_year", "bill_phase",
+    "bill_id",
+    "bill_title",
+    "bill_status",
+    "bill_type",
+    "sponsor",
+    "introduced_date",
+    "current_stage",
+    "stage_number",
+    "oireachtas_url",
+    "bill_no",
+    "bill_year",
+    "bill_phase",
 }
 
 

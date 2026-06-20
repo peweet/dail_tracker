@@ -32,11 +32,11 @@ def ranking_df() -> pd.DataFrame:
     # rank_high: 1 = highest attendance; rank_low: 1 = lowest attendance.
     return pd.DataFrame(
         [
-            _row("Alice", 95, False, 1, 6),   # top attender
-            _row("Bob", 90, True, 2, 5),      # a MINISTER with high attendance
+            _row("Alice", 95, False, 1, 6),  # top attender
+            _row("Bob", 90, True, 2, 5),  # a MINISTER with high attendance
             _row("Carol", 50, False, 3, 4),
-            _row("Dana", 20, True, 4, 2),     # a MINISTER with low attendance (must NOT show in lowest)
-            _row("Eve", 10, False, 5, 1),     # genuine lowest attender
+            _row("Dana", 20, True, 4, 2),  # a MINISTER with low attendance (must NOT show in lowest)
+            _row("Eve", 10, False, 5, 1),  # genuine lowest attender
         ],
         columns=_COLS,
     )
@@ -75,7 +75,7 @@ def test_lowest_excludes_ministers(ranking_df):
     hall = split_attendance_hall(ranking_df, hall_size=15)
     names = set(hall.lowest["member_name"])
     assert "Dana" not in names  # minister with low attendance — must be excluded
-    assert "Eve" in names       # genuine lowest attender — present
+    assert "Eve" in names  # genuine lowest attender — present
 
 
 def test_lowest_is_ordered_by_rank_low(ranking_df):

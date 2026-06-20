@@ -420,9 +420,7 @@ def test_payment_lines_for_pair_is_the_leaf(conn):
     body = payers.data.iloc[0]["publisher_name"]
     r = q.payment_lines_for_pair(conn, norm, body, tier="SPENT")
     assert r.ok is True and not r.is_empty
-    assert {"period", "year", "description", "po_number", "amount_eur", "source_file_url"}.issubset(
-        set(r.data.columns)
-    )
+    assert {"period", "year", "description", "po_number", "amount_eur", "source_file_url"}.issubset(set(r.data.columns))
     # Biggest first (the order the leaf renders), and the body's reported total reconciles to
     # the aggregate the card showed.
     vals = [v for v in r.data["amount_eur"].tolist() if v is not None]

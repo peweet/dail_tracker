@@ -45,12 +45,12 @@ from bs4 import BeautifulSoup
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+import contextlib  # noqa: E402
+
 from services.parquet_io import save_parquet  # noqa: E402
 
-try:
+with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
-except Exception:
-    pass
 
 BASE = "https://www.irishstatutebook.ie/isbc"
 HDRS = {"User-Agent": "dail-tracker research/enrichment (planning; contact via repo)"}

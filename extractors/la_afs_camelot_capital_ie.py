@@ -14,6 +14,7 @@ Build the isolated venv (one-off, paths are examples — same venv as la_afs_cam
     uv pip install --python c:/tmp/afs_camelot_venv "camelot-py[base]" pypdf
 Run standalone:  <venv>/python.exe extractors/la_afs_camelot_capital_ie.py monaghan kildare …
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -113,15 +114,18 @@ def extract_page(pdf: Path, page1: int):
                     lc = _label_col(r)
                     if lc and lc[1] not in div_rows and nums_in >= 3:
                         div_rows[lc[1]] = (lc[0], r)
-                    elif total_row is None and nums_in >= 6 and (
-                        _is_total_label(r) or not any(ch.isalpha() for ch in " ".join(r))
+                    elif (
+                        total_row is None
+                        and nums_in >= 6
+                        and (_is_total_label(r) or not any(ch.isalpha() for ch in " ".join(r)))
                     ):
                         total_row = r
                 if len(div_rows) < 6:
                     continue
                 # expenditure column = (modal label column) + 2  [skip the opening-balance col]
-                label_c = max(set(lc for lc, _ in div_rows.values()),
-                              key=lambda x: [lc for lc, _ in div_rows.values()].count(x))
+                label_c = max(
+                    set(lc for lc, _ in div_rows.values()), key=lambda x: [lc for lc, _ in div_rows.values()].count(x)
+                )
                 exp_c = label_c + 2
 
                 def cell(row, c):
@@ -171,13 +175,21 @@ def main() -> None:
         recon, ndiv, pg, rows, total_exp, div_exp = best
         flag = "EXACT" if recon else "FAIL"
         h = rows.get("Housing and Building", (None, None))[0]
-        print(f"{slug:<14}{pg:>6}{ndiv:>5}{div_exp/1e6:>11.1f}m{(total_exp/1e6 if total_exp else 0):>11.1f}m  {flag}  housing={(h or 0)/1e6:.1f}m")
+        print(
+            f"{slug:<14}{pg:>6}{ndiv:>5}{div_exp / 1e6:>11.1f}m{(total_exp / 1e6 if total_exp else 0):>11.1f}m  {flag}  housing={(h or 0) / 1e6:.1f}m"
+        )
         if recon:
             for canon, (exp, inc) in rows.items():
-                all_rows.append({"slug": slug, "division": canon,
-                                 "capital_expenditure": exp, "capital_income": inc,
-                                 "source_page_number": pg - 1,
-                                 "printed_total_expenditure": total_exp})
+                all_rows.append(
+                    {
+                        "slug": slug,
+                        "division": canon,
+                        "capital_expenditure": exp,
+                        "capital_income": inc,
+                        "source_page_number": pg - 1,
+                        "printed_total_expenditure": total_exp,
+                    }
+                )
     OUT.write_text(json.dumps(all_rows, indent=2), encoding="utf-8")
     print(f"\nwrote {OUT}  ({len({r['slug'] for r in all_rows})} councils, {len(all_rows)} rows)")
 

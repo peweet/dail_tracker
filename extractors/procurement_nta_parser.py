@@ -55,8 +55,7 @@ with contextlib.suppress(Exception):
 
 # Reuse, don't rebuild: gold-schema classification + safe-to-sum + fetch all live in the
 # generic extractor (graduated to extractors/). Import it by path (same idiom as NPHDB).
-_spec = importlib.util.spec_from_file_location(
-    "pbe", str(ROOT / "extractors/procurement_public_body_extract.py"))
+_spec = importlib.util.spec_from_file_location("pbe", str(ROOT / "extractors/procurement_public_body_extract.py"))
 pbe = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pbe)
 
@@ -94,8 +93,11 @@ def harvest_pdfs() -> list[str]:
             low = href.lower().split("?")[0]
             if not low.endswith(".pdf") or not re.search(r"purchase|order|20k|e20000", href, re.I):
                 continue
-            url = href if href.startswith("http") else \
-                "https://www.nationaltransport.ie" + (href if href.startswith("/") else "/" + href)
+            url = (
+                href
+                if href.startswith("http")
+                else "https://www.nationaltransport.ie" + (href if href.startswith("/") else "/" + href)
+            )
             key = url.rsplit("/", 1)[-1].lower()
             if key not in seen:
                 seen.add(key)
@@ -128,19 +130,25 @@ def parse_records(doc) -> list[dict]:
         amount = float(MONEY_LINE.match(lines[money_i]).group(1).replace(",", ""))
         m = DATE_ANCHOR.match(lines[s])
         date = m.group(1)
-        if m.group(2) and m.group(3):                       # 2026: date + order + supplier inline
+        if m.group(2) and m.group(3):  # 2026: date + order + supplier inline
             po, supplier = m.group(2), m.group(3).strip()
-            desc = " ".join(lines[s + 1:money_i]).strip() or None
-        else:                                               # 2024-25: order / supplier / services
-            body = lines[s + 1:money_i]
+            desc = " ".join(lines[s + 1 : money_i]).strip() or None
+        else:  # 2024-25: order / supplier / services
+            body = lines[s + 1 : money_i]
             po = body[0] if body else None
             supplier = body[1] if len(body) > 1 else None
             desc = " ".join(body[2:]).strip() or None
-        recs.append({
-            "supplier_raw": supplier, "amount_eur": amount, "description": desc,
-            "po_number": po, "order_date": date,
-            "source_row_number": k, "source_page_number": pages[s],
-        })
+        recs.append(
+            {
+                "supplier_raw": supplier,
+                "amount_eur": amount,
+                "description": desc,
+                "po_number": po,
+                "order_date": date,
+                "source_row_number": k,
+                "source_page_number": pages[s],
+            }
+        )
     return recs
 
 
@@ -149,31 +157,35 @@ def build_rows(recs: list[dict], file_url: str, fhash: str) -> list[dict]:
     conf = "high" if len(recs) > 20 else ("medium" if len(recs) > 3 else "low")
     out = []
     for r in recs:
-        out.append({
-            "publisher_id": "ie_nta",
-            "publisher_name": "National Transport Authority",
-            "publisher_type": "agency",
-            "sector": "transport",
-            "source_landing_url": LISTING_URLS[-1],
-            "source_file_url": file_url,
-            "source_file_hash": fhash,
-            "period": period, "year": year, "quarter": quarter,
-            "supplier_raw": r["supplier_raw"],
-            "amount_eur": r["amount_eur"],
-            "amount_semantics": "po_committed",
-            "description": r["description"],
-            "po_number": r["po_number"],
-            "paid_flag": None,
-            "source_row_number": r["source_row_number"],
-            "source_page_number": r["source_page_number"],
-            "parser_name": "nta_reading_order",
-            "parser_version": PARSER_VERSION,
-            "extraction_status": "extracted",
-            "extraction_confidence": conf,
-            "caveat_text_detected": False,
-            "source_caveat": "Rotated-PDF PO listing read in reading order; amount is the "
-                             "order value (po_committed), not a payment.",
-        })
+        out.append(
+            {
+                "publisher_id": "ie_nta",
+                "publisher_name": "National Transport Authority",
+                "publisher_type": "agency",
+                "sector": "transport",
+                "source_landing_url": LISTING_URLS[-1],
+                "source_file_url": file_url,
+                "source_file_hash": fhash,
+                "period": period,
+                "year": year,
+                "quarter": quarter,
+                "supplier_raw": r["supplier_raw"],
+                "amount_eur": r["amount_eur"],
+                "amount_semantics": "po_committed",
+                "description": r["description"],
+                "po_number": r["po_number"],
+                "paid_flag": None,
+                "source_row_number": r["source_row_number"],
+                "source_page_number": r["source_page_number"],
+                "parser_name": "nta_reading_order",
+                "parser_version": PARSER_VERSION,
+                "extraction_status": "extracted",
+                "extraction_confidence": conf,
+                "caveat_text_detected": False,
+                "source_caveat": "Rotated-PDF PO listing read in reading order; amount is the "
+                "order value (po_committed), not a payment.",
+            }
+        )
     return out
 
 
@@ -210,8 +222,7 @@ def main() -> None:
         rows = build_rows(recs, url, fhash)
         all_rows.extend(rows)
         fsum = sum(r["amount_eur"] for r in rows)
-        per_file.append({"file": url.rsplit("/", 1)[-1], "pages": npages,
-                         "rows": len(rows), "sum_eur": fsum})
+        per_file.append({"file": url.rsplit("/", 1)[-1], "pages": npages, "rows": len(rows), "sum_eur": fsum})
         print(f"  -> {url.rsplit('/', 1)[-1][:52]:<52} pages={npages:>2} rows={len(rows):>4} €{fsum:>14,.0f}")
 
     if not all_rows:
@@ -221,13 +232,34 @@ def main() -> None:
     df = pl.DataFrame(all_rows, infer_schema_length=None)
     df = pbe.classify_and_flag(df)
     SCHEMA_COLS = [
-        "publisher_id", "publisher_name", "publisher_type", "sector",
-        "source_landing_url", "source_file_url", "source_file_hash",
-        "period", "year", "quarter", "supplier_raw", "supplier_normalised",
-        "amount_eur", "amount_semantics", "value_safe_to_sum", "description",
-        "po_number", "paid_flag", "source_row_number", "source_page_number",
-        "parser_name", "parser_version", "extraction_status", "extraction_confidence",
-        "caveat_text_detected", "supplier_class", "privacy_status", "public_display",
+        "publisher_id",
+        "publisher_name",
+        "publisher_type",
+        "sector",
+        "source_landing_url",
+        "source_file_url",
+        "source_file_hash",
+        "period",
+        "year",
+        "quarter",
+        "supplier_raw",
+        "supplier_normalised",
+        "amount_eur",
+        "amount_semantics",
+        "value_safe_to_sum",
+        "description",
+        "po_number",
+        "paid_flag",
+        "source_row_number",
+        "source_page_number",
+        "parser_name",
+        "parser_version",
+        "extraction_status",
+        "extraction_confidence",
+        "caveat_text_detected",
+        "supplier_class",
+        "privacy_status",
+        "public_display",
         "source_caveat",
     ]
     df = df.select([c for c in SCHEMA_COLS if c in df.columns])
@@ -240,8 +272,10 @@ def main() -> None:
     outlier_share = mx / total if total else 0.0
     print(f"\n{'=' * 80}\nGOLD-CANDIDATE WRITTEN\n{'=' * 80}")
     print(f"rows: {df.height:,}  ->  {OUT_FACT}")
-    print(f"sum=€{total:,.0f}  max=€{mx:,.0f}  largest_share={outlier_share * 100:.1f}%  "
-          f"quarters={df['period'].n_unique()}")
+    print(
+        f"sum=€{total:,.0f}  max=€{mx:,.0f}  largest_share={outlier_share * 100:.1f}%  "
+        f"quarters={df['period'].n_unique()}"
+    )
     print(df.group_by("supplier_class").len().sort("len", descending=True))
 
     cov = {
@@ -252,8 +286,9 @@ def main() -> None:
         "by_file": per_file,
         "rows_extracted": df.height,
         "quarters_covered": sorted(df["period"].unique().to_list()),
-        "supplier_class_counts": {r["supplier_class"]: r["len"]
-                                  for r in df.group_by("supplier_class").len().iter_rows(named=True)},
+        "supplier_class_counts": {
+            r["supplier_class"]: r["len"] for r in df.group_by("supplier_class").len().iter_rows(named=True)
+        },
         "amount_total_eur": total,
         "largest_amount_eur": mx,
         "largest_amount_share_of_total": round(outlier_share, 4),
@@ -265,10 +300,10 @@ def main() -> None:
         "parser_version": PARSER_VERSION,
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "caveat": "GOLD-CANDIDATE (sandbox, pre-promotion). NTA quarterly purchase orders "
-                  "€20,000+. Rotated PDFs read in reading order. One row per PO line. "
-                  "amount_semantics=po_committed (orders, not payments). Unions with "
-                  "public_payments_fact at promotion. PRIVACY QUARANTINE DEFERRED "
-                  "(public_display=True for all rows).",
+        "€20,000+. Rotated PDFs read in reading order. One row per PO line. "
+        "amount_semantics=po_committed (orders, not payments). Unions with "
+        "public_payments_fact at promotion. PRIVACY QUARANTINE DEFERRED "
+        "(public_display=True for all rows).",
     }
     OUT_COV.write_text(json.dumps(cov, indent=2), encoding="utf-8")
     print(f"wrote coverage {OUT_COV}")

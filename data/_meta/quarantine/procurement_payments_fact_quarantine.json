@@ -1,0 +1,26 @@
+{
+  "generated_utc": "2026-06-20T13:21:24.830676+00:00",
+  "fact": "procurement_payments_fact",
+  "n_rows_total": 219707,
+  "n_rows_quarantined": 13404,
+  "frac_quarantined": 0.061,
+  "breaches": {
+    "paid_flag": {
+      "severity": "quarantine",
+      "n_offending": 13404,
+      "frac": 0.061,
+      "samples": [
+        "Part Paid",
+        "Building Mtce",
+        "Constr Contract",
+        "P",
+        "Drawdown",
+        "Fitouts",
+        "Not Paid",
+        "LTD Constr Contract"
+      ],
+      "escalated": false
+    }
+  },
+  "note": "Out-of-vocabulary / mis-aligned values held for investigation. Full rows in the sibling .parquet. HARD/ESCALATED breaches also halt the pipeline."
+}

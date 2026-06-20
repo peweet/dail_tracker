@@ -38,6 +38,13 @@ jobs:
         env:
           FRESHNESS_MAX_AGE_DAYS: ${{ github.event.inputs.max_age_days || '14' }}
         run: python tools/freshness_report.py
+      # Per-lane refresh ledger: shows whether each independently-scheduled lane (cloud
+      # Actions + local task) beat on time. Informational for now (no --strict) so it reports
+      # the picture without opening issues while the lanes start beating. Flip to
+      # `--strict` once every lane is confirmed beating to make a stalled lane fail the canary.
+      - name: Report refresh-lane freshness
+        if: always()
+        run: python tools/freshness_status.py
       - name: Open issue on staleness (scheduled runs only)
         if: failure() && github.event_name == 'schedule'
         uses: actions/github-script@v7

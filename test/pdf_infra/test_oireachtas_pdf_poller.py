@@ -572,7 +572,9 @@ def test_run_one_flags_supersession_for_held_file(tmp_path):
     (src.target_dir / _FEB_FILENAME).write_bytes(b"y" * 500)
     # Pre-seed a baseline for FEB with a DIFFERENT size than the server will report.
     fp = src.target_dir / FINGERPRINT_FILENAME
-    fp.write_text(json.dumps({_FEB_FILENAME: {"sha256": "old", "bytes": 500, "source_url": _FEB_URL}}), encoding="utf-8")
+    fp.write_text(
+        json.dumps({_FEB_FILENAME: {"sha256": "old", "bytes": 500, "source_url": _FEB_URL}}), encoding="utf-8"
+    )
 
     responses.add(responses.GET, src.index_url, body=_read_payments_fixture(), status=200)
     responses.add(responses.HEAD, _FEB_URL, headers={"Content-Length": "9999"}, status=200)

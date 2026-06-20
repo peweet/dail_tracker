@@ -493,8 +493,8 @@ def inject_css() -> None:
 
         /* ── Selectbox ───────────────────────────── */
         .stSelectbox > div > div {
-            background: var(--bg) !important;
-            border: 1px solid var(--border) !important;
+            background: #ffffff !important;
+            border: 1px solid var(--border-strong) !important;
             border-radius: 2px !important;
             font-family: 'Epilogue', sans-serif !important;
             font-size: 0.92rem !important;
@@ -509,8 +509,8 @@ def inject_css() -> None:
 
         /* ── Buttons ─────────────────────────────── */
         .stButton > button {
-            background: var(--bg) !important;
-            border: 1px solid var(--border) !important;
+            background: #ffffff !important;
+            border: 1px solid var(--border-strong) !important;
             border-radius: 2px !important;
             color: var(--text-primary) !important;
             font-family: 'Epilogue', sans-serif !important;
@@ -522,6 +522,54 @@ def inject_css() -> None:
         .stButton > button:hover {
             background: var(--accent-subtle) !important;
             border-color: var(--accent) !important;
+        }
+
+        /* ── Default buttons (e.g. "Notable members" chips) ───────────
+           Streamlit 1.58's config-driven theme paints st.button surfaces the
+           same warm tone as the page, so the chips read as invisible. The
+           plain `.stButton > button` rule above (specificity 0,1,1) is too
+           weak to beat the theme — it must be stacked under stMain like the
+           working selectbox rule further down. We override colour only and
+           leave the theme's pill radius untouched. This sits BEFORE the
+           scoped back/crumb/cta/nav rules below, so those still win for their
+           own buttons; this covers every other main-area button. */
+        [data-testid="stMain"] [data-testid="stButton"] button {
+            background: #ffffff !important;
+            border: 1px solid var(--border-strong) !important;
+            color: var(--text-primary) !important;
+        }
+        [data-testid="stMain"] [data-testid="stButton"] button:hover {
+            background: var(--accent-subtle) !important;
+            border-color: var(--accent) !important;
+        }
+
+        /* ── Segmented control & pills ─────────────────────────────────
+           (Dáil/Seanad, category toggles like Everyone/Landlords, party
+           filters.) Same specificity problem: a single data-testid (0,1,0)
+           loses to the theme, so we stack stMain + stButtonGroup + the button
+           test ID. Every option becomes a white chip with a defined border;
+           the SELECTED option is filled with the accent so the active choice
+           is unmistakable. Test IDs verified against Streamlit 1.58:
+           stBaseButton-segmented_control / …Active, stBaseButton-pills / …Active. */
+        [data-testid="stMain"] [data-testid="stButtonGroup"] [data-testid="stBaseButton-segmented_control"],
+        [data-testid="stMain"] [data-testid="stButtonGroup"] [data-testid="stBaseButton-pills"] {
+            background: #ffffff !important;
+            border: 1px solid var(--border-strong) !important;
+            color: var(--text-secondary) !important;
+            font-weight: 600 !important;
+        }
+        [data-testid="stMain"] [data-testid="stButtonGroup"] [data-testid="stBaseButton-segmented_control"]:hover,
+        [data-testid="stMain"] [data-testid="stButtonGroup"] [data-testid="stBaseButton-pills"]:hover {
+            background: var(--accent-subtle) !important;
+            border-color: var(--accent) !important;
+            color: var(--text-primary) !important;
+        }
+        [data-testid="stMain"] [data-testid="stButtonGroup"] [data-testid="stBaseButton-segmented_controlActive"],
+        [data-testid="stMain"] [data-testid="stButtonGroup"] [data-testid="stBaseButton-pillsActive"] {
+            background: var(--accent) !important;
+            border: 1px solid var(--accent) !important;
+            color: #ffffff !important;
+            font-weight: 600 !important;
         }
 
         /* ── Back buttons (rendered via components.back_button) ────────
@@ -2392,6 +2440,57 @@ def inject_css() -> None:
         .dt-card-link-wrap:hover .dt-card-arrow {
             color: var(--accent);
             transform: translateY(-50%) translateX(3px);
+        }
+
+        /* ── Ministerial diaries ("Who Ministers Meet") ──────────────────────
+           Ranked org row + drill-down. Inner card for clickable_card_link, so it
+           exposes border-color/background for the wrapper's hover lift. ──────── */
+        .dt-diary-card {
+            display: flex; align-items: center; gap: 1rem;
+            background: #ffffff;
+            border: 1.5px solid var(--border-strong);
+            border-left: 4px solid var(--border-strong);
+            border-radius: 10px;
+            padding: 0.7rem 0.95rem; margin-bottom: 0.4rem;
+            transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+        }
+        .dt-diary-card.is-corr { border-left-color: var(--accent); }
+        .dt-diary-main { flex: 1 1 auto; min-width: 0; }
+        .dt-diary-title { font-weight: 650; font-size: 1.02rem; color: var(--text-primary); }
+        .dt-diary-sub { font-size: 0.8rem; color: var(--text-meta); text-transform: capitalize; margin-top: 0.1rem; }
+        .dt-diary-metrics { display: flex; align-items: center; gap: 1.1rem; flex-shrink: 0; }
+        .dt-diary-metric { font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap; }
+        .dt-diary-metric b { font-size: 1.05rem; color: var(--text-primary); }
+        .dt-diary-corr {
+            font-size: 0.78rem; font-weight: 600; color: var(--accent);
+            background: var(--accent-subtle); border: 1px solid var(--accent);
+            border-radius: 999px; padding: 0.15rem 0.6rem; white-space: nowrap;
+        }
+        .dt-diary-corr.is-muted { color: var(--text-meta); background: transparent; border-color: var(--border-strong); }
+        .dt-diary-hero { margin: 0.4rem 0 0.9rem; }
+        .dt-diary-hero h2 { margin: 0 0 0.2rem; font-size: 1.5rem; }
+        .dt-diary-hero p { margin: 0; color: var(--text-secondary); font-size: 0.92rem; }
+        .dt-diary-lobby {
+            display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.6rem;
+            font-size: 0.9rem; font-weight: 600; color: var(--accent) !important;
+            background: var(--accent-subtle); border: 1.5px solid var(--accent);
+            border-radius: 8px; padding: 0.45rem 0.8rem; text-decoration: none !important;
+        }
+        .dt-diary-lobby:hover { background: var(--accent); color: #ffffff !important; }
+        .dt-diary-back { display:inline-block; margin-bottom:0.6rem; font-size:0.88rem;
+            color: var(--text-secondary) !important; text-decoration:none !important; }
+        .dt-diary-back:hover { color: var(--accent) !important; }
+        .dt-diary-eng {
+            display:flex; align-items:center; gap:1rem; background:#ffffff;
+            border:1px solid var(--border); border-radius:8px; padding:0.55rem 0.85rem; margin-bottom:0.3rem;
+        }
+        .dt-diary-eng-main { flex:1 1 auto; min-width:0; }
+        .dt-diary-eng-subj { font-weight:550; color: var(--text-primary); font-size:0.92rem; }
+        .dt-diary-eng-meta { font-size:0.78rem; color: var(--text-meta); margin-top:0.1rem; }
+        .dt-diary-src { font-size:0.8rem; color: var(--accent) !important; text-decoration:none !important; white-space:nowrap; }
+        .dt-diary-prov {
+            margin-top:1.4rem; padding-top:0.9rem; border-top:1px solid var(--border);
+            font-size:0.8rem; color: var(--text-meta); line-height:1.5;
         }
         /* Reusable: all main-area filter inputs + selectboxes get the
            prominent white treatment. Sidebar widgets are excluded by the
@@ -5498,6 +5597,11 @@ def inject_css() -> None:
         /* lobbying co-occurrence is informational, NOT an alarm — neutral chip,
            never red, so the colour never implies wrongdoing (honesty rail). */
         .pr-pill-lob { background: var(--surface-deep); color: var(--ink-700); border-color: var(--border-strong); }
+        /* a pill that is itself a link (e.g. the dossier's lobbying chip → that org's
+           lobbying record). Only used where the pill is NOT inside a clickable card. */
+        a.pr-pill { text-decoration: none; cursor: pointer; }
+        a.pr-pill:hover { border-color: var(--ink-strong); color: var(--ink-strong); }
+        a.pr-pill:focus-visible { outline: 2px solid var(--ink-strong); outline-offset: 1px; }
 
         /* supplier / buyer profile (?supplier= / ?paid_publisher=) */
         .pr-prof-head { margin: 0.2rem 0 0.5rem; }
@@ -5513,6 +5617,11 @@ def inject_css() -> None:
         }
         .pr-award-body { flex: 1; min-width: 0; }
         .pr-award-auth { font-weight: 600; color: var(--ink-700); font-size: 0.88rem; }
+        /* buyer-dossier link on a supplier's award/relationship rows — keeps the
+           authority-name weight, signals clickability on hover/focus (supplier↔buyer loop) */
+        .pr-auth-link { color: inherit; text-decoration: none; }
+        .pr-auth-link:hover { color: var(--accent); text-decoration: underline; }
+        .pr-auth-link:focus-visible { outline: 2px solid var(--ink-strong); outline-offset: 1px; border-radius: 2px; }
         /* published contract title — the descriptive line between entity and meta */
         .pr-award-title { font-size: 0.8rem; color: var(--ink-strong); line-height: 1.35; margin-top: 0.1rem; }
         .pr-award-meta { font-size: 0.76rem; color: var(--text-meta); margin-top: 0.1rem; }
@@ -5540,6 +5649,20 @@ def inject_css() -> None:
         .pr-notice a { color: var(--accent); font-weight: 600; text-decoration: none; }
         .pr-notice a:hover { text-decoration: underline; }
         .pr-notice-tag { color: var(--text-meta); font-size: 0.78rem; margin-left: 0.4rem; }
+        /* Per-line payment-status pill (Paid / Part paid / Not paid) — shown only where the body
+           published a status. Quiet, factual: Paid in the calm signal-good tint, Not paid in the
+           burnt-orange signal-bad tint (never alarm-red), Part paid neutral. Not a verdict. */
+        .pr-paid-tag {
+            display: inline-block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.01em;
+            padding: 0.05rem 0.4rem; border-radius: 999px; border: 1px solid transparent;
+            vertical-align: middle; white-space: nowrap; margin-left: 0.4rem;
+        }
+        .pr-paid-tag.is-paid { background: var(--signal-good-subtle); color: var(--signal-good-deep);
+            border-color: var(--signal-good-border); }
+        .pr-paid-tag.is-notpaid { background: var(--signal-bad-subtle); color: var(--signal-bad-deep);
+            border-color: var(--signal-bad-border); }
+        .pr-paid-tag.is-partpaid { background: var(--surface-deep); color: var(--text-meta);
+            border-color: var(--border); }
         /* TED cross-reference block on a supplier profile — a quiet, clearly-separate
            "other register" callout. Neutral surface, left rule in accent (informational,
            never alarm); the copy says "not added" so it can't read as a bigger total. */
@@ -5707,6 +5830,22 @@ def inject_css() -> None:
             font-variant-numeric: tabular-nums;
         }
         .con-party-bar { margin: 0.2rem 0 1.1rem; }
+        /* national choropleth (index "Compare every constituency") */
+        .con-choro {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 0.5rem; margin: 0.3rem 0 0.2rem;
+        }
+        /* Fixed size: image-map <area> coords are in image pixels and do NOT
+           rescale with CSS, so the <img> must render at its natural size. */
+        .con-choropleth { display: block; height: auto; cursor: pointer; }
+        .con-choro-legend {
+            display: flex; align-items: center; gap: 0.18rem;
+            font-size: 0.74rem; color: var(--text-meta);
+        }
+        .con-choro-sw {
+            width: 1.5rem; height: 0.6rem; display: inline-block; border-radius: 1px;
+        }
+        .con-choro-end { padding: 0 0.25rem; }
         .con-section-note {
             font-size: 0.86rem; color: var(--text-secondary); line-height: 1.55;
             margin: 0.1rem 0 0.7rem; max-width: 60rem;
@@ -5735,6 +5874,11 @@ def inject_css() -> None:
         .con-grain {
             font-size: 0.78rem; border-radius: 4px; padding: 0.12rem 0.45rem;
             font-variant-numeric: tabular-nums; white-space: nowrap;
+            /* Default chip surface so plain (unmodified) pills don't vanish into
+               the warm near-white page background. Coloured variants below set
+               their own background; the border stays subtle on those tints. */
+            background: #ffffff; color: var(--text-secondary);
+            border: 1px solid var(--border-strong);
         }
         .con-grain em { font-style: normal; color: var(--text-meta); }
         .con-grain-rev { background: #eef4f3; color: #2f5d57; }
@@ -5746,11 +5890,53 @@ def inject_css() -> None:
         .con-grain-ssha { background: #f0f3f8; color: #344b73; }
         .con-grain-wait { background: #f7f1ec; color: #7a4f2f; }
         .con-grain-perf { background: #f1f2f4; color: #3d4654; }
+        .hou-dim-title { font-weight: 600; font-size: 0.9rem; margin: 0.2rem 0 0.4rem; }
+        .hou-crumb { font-size: 0.85rem; color: var(--text-meta); margin: 0 0 0.5rem; }
+        .hou-crumb a { color: var(--text-meta); text-decoration: underline; }
         .con-council-note {
             margin-top: 0.4rem; font-size: 0.74rem; color: var(--text-meta);
             font-style: italic;
         }
         .con-council-empty { font-size: 0.82rem; color: var(--text-meta); }
+        /* ── "Who runs your county" performance cards (clean stat rows, not chips) ── */
+        .lg-perf-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 0.7rem; margin: 0.3rem 0 0.6rem;
+        }
+        .lg-card {
+            background: #ffffff; border: 1px solid rgba(0,0,0,0.08);
+            border-left: 3px solid #8d6e63; border-radius: 8px;
+            padding: 0.8rem 1rem 0.6rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .lg-card-title {
+            font-weight: 700; font-size: 0.96rem; color: var(--text-primary); margin: 0 0 0.5rem;
+        }
+        .lg-metric {
+            display: grid; grid-template-columns: 1fr auto; align-items: baseline;
+            gap: 0.4rem 0.9rem; padding: 0.45rem 0; border-top: 1px solid rgba(0,0,0,0.06);
+        }
+        .lg-metric:first-of-type { border-top: none; }
+        .lg-metric-main { min-width: 0; }
+        .lg-metric-value {
+            font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums;
+            color: var(--text-primary);
+        }
+        .lg-metric-label {
+            display: block; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.3;
+            margin-top: 0.05rem;
+        }
+        .lg-metric-bench {
+            font-size: 0.78rem; color: var(--text-meta); white-space: nowrap;
+            text-align: right; font-variant-numeric: tabular-nums;
+        }
+        .lg-arrow-up { color: #2f6b3a; font-weight: 700; }   /* above benchmark */
+        .lg-arrow-down { color: #a23a1e; font-weight: 700; } /* below benchmark */
+        .lg-badge {
+            display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em;
+            color: #7a4f2f; background: #f7f1ec; border: 1px solid rgba(122,79,47,0.25);
+            border-radius: 4px; padding: 0.1rem 0.4rem; margin-top: 0.3rem;
+        }
+        .lg-card-src { font-size: 0.74rem; color: var(--text-meta); margin-top: 0.55rem; }
         /* council card -> by-division drill-down */
         .con-div-wrap { display: flex; flex-direction: column; gap: 1.1rem; margin: 0.3rem 0 0.4rem; }
         .con-div-head {

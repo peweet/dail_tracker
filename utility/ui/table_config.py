@@ -60,6 +60,11 @@ def committee_roster_column_config(member_label: str = "TD") -> dict:
     _ = member_label  # accepted for backwards compatibility; not rendered
     return {
         "name": st.column_config.TextColumn("Member", width="medium"),
+        # Dedicated profile-jump column. The page populates ``profile_url`` only
+        # for rows whose name resolves to a canonical unique_member_code; rows
+        # with a blank/None URL render as a non-clickable cell — never a dead
+        # link. Mirrors the committee_membership LinkColumn pattern.
+        "profile_url": st.column_config.LinkColumn("Profile", display_text="View ↗", width="small"),
         "party": st.column_config.TextColumn("Party", width="medium"),
         "constituency": st.column_config.TextColumn("Constituency", width="medium"),
         "role": st.column_config.TextColumn("Role", width="medium"),

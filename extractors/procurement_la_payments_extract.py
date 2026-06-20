@@ -59,6 +59,7 @@ import config  # noqa: E402
 from services.fetch_report import Breaker, FetchReport, classify_body, classify_exception, write_sentinel  # noqa: E402
 from services.parquet_io import save_parquet  # noqa: E402
 from shared.name_norm import name_norm_expr  # noqa: E402
+from shared.text_encoding import decode_table_bytes  # noqa: E402
 
 H = {"User-Agent": "Mozilla/5.0 (dail-tracker research)"}
 BRONZE = config.BRONZE_PDF_DIR / "la_procurement"
@@ -67,6 +68,12 @@ OUT_COV = ROOT / "data/_meta/la_payments_coverage.json"
 CRO = ROOT / "data/silver/cro/companies.parquet"
 PARSER_VERSION = "0.1.0"
 MIN_EUR = 1000.0  # PO-over-20k lists carry the occasional sub-20k line; 1k drops noise/refs
+# Row floor for the overwrite-each-run fact (84,706 rows 2026-06-20). The fact is
+# replaced wholesale every run, so a partial `--only` slice or a mass harvest
+# failure would silently downgrade silver and the next consolidate would wipe gold
+# history (see the --max-files note in main). ~29% headroom below the full count;
+# a partial/debug run is the intended use of DAIL_SKIP_ROW_FLOOR=1.
+MIN_FACT_ROWS = 60_000
 
 DATA_EXT = (".pdf", ".xlsx", ".xls", ".csv")
 
@@ -153,29 +160,98 @@ _WB = "https://web.archive.org/web/{}id_/{}"
 LIMERICK_WAYBACK: list[str] = [
     _WB.format(ts, u)
     for ts, u in [
-        ("20171025144903", "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20000_quarter_1_2016_new.pdf"),
-        ("20171025144900", "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20000_quarter_2_2016.pdf"),
-        ("20171025144855", "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20k_q4_2016.pdf"),
-        ("20171025144857", "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_eu20000_-_quarter_3_2016.pdf"),
-        ("20171025144849", "https://www.limerick.ie/sites/default/files/media/documents/2017-08/Purchase%20Orders%20over%20%E2%82%AC20%2C000%20Quarter%202%2C%202017_0.pdf"),
-        ("20190526073200", "https://www.limerick.ie/sites/default/files/media/documents/2018-12/Purchase%20Orders%20over%20%E2%82%AC20000%20Q3%202018%20v2.pdf"),
-        ("20190526073154", "https://www.limerick.ie/sites/default/files/media/documents/2019-02/Purchase%20Orders%20over%20%E2%82%AC20000%20Quarter%204%202018.pdf"),
-        ("20200917233827", "https://www.limerick.ie/sites/default/files/media/documents/2019-09/Purchase-Orders-over-20000-Q2-2019.pdf"),
-        ("20200917233836", "https://www.limerick.ie/sites/default/files/media/documents/2019-09/Purchase-Orders-over-20000-Quarter1-2019.pdf"),
-        ("20200917233821", "https://www.limerick.ie/sites/default/files/media/documents/2020-01/Purchase-Orders-over-20000-Quarter-3-2019.pdf"),
-        ("20200917233817", "https://www.limerick.ie/sites/default/files/media/documents/2020-04/purchase-orders-over-20000-q4-2019.pdf"),
-        ("20210607110505", "https://www.limerick.ie/sites/default/files/media/documents/2020-10/purchase-orders-over-eu20000-quarter-2-2020.pdf"),
-        ("20210607110501", "https://www.limerick.ie/sites/default/files/media/documents/2021-01/purchase-orders-over-eu20000-quarter-3-2020.pdf"),
-        ("20210607110457", "https://www.limerick.ie/sites/default/files/media/documents/2021-04/purchase-orders-over-eu20000-q4-2020.pdf"),
-        ("20220613103544", "https://www.limerick.ie/sites/default/files/media/documents/2022-02/purchase-orders-over-eu20000-q1-2021.pdf"),
-        ("20220613103540", "https://www.limerick.ie/sites/default/files/media/documents/2022-02/purchase-orders-over-eu20000-q2-2021.pdf"),
-        ("20230710100906", "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-3-2021.pdf"),
-        ("20230710100848", "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-4-2021.pdf"),
-        ("20230710100831", "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-1-2022.pdf"),
-        ("20230710100805", "https://www.limerick.ie/sites/default/files/media/documents/2023-01/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-2-2022.pdf"),
-        ("20230710100759", "https://www.limerick.ie/sites/default/files/media/documents/2023-01/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-3-2022.pdf"),
-        ("20230710100752", "https://www.limerick.ie/sites/default/files/media/documents/2023-02/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-4-2022.pdf"),
-        ("20230710100742", "https://www.limerick.ie/sites/default/files/media/documents/2023-06/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-1-2023.pdf"),
+        (
+            "20171025144903",
+            "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20000_quarter_1_2016_new.pdf",
+        ),
+        (
+            "20171025144900",
+            "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20000_quarter_2_2016.pdf",
+        ),
+        (
+            "20171025144855",
+            "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_20k_q4_2016.pdf",
+        ),
+        (
+            "20171025144857",
+            "https://www.limerick.ie/sites/default/files/media/documents/2017-05/purchase_orders_over_eu20000_-_quarter_3_2016.pdf",
+        ),
+        (
+            "20171025144849",
+            "https://www.limerick.ie/sites/default/files/media/documents/2017-08/Purchase%20Orders%20over%20%E2%82%AC20%2C000%20Quarter%202%2C%202017_0.pdf",
+        ),
+        (
+            "20190526073200",
+            "https://www.limerick.ie/sites/default/files/media/documents/2018-12/Purchase%20Orders%20over%20%E2%82%AC20000%20Q3%202018%20v2.pdf",
+        ),
+        (
+            "20190526073154",
+            "https://www.limerick.ie/sites/default/files/media/documents/2019-02/Purchase%20Orders%20over%20%E2%82%AC20000%20Quarter%204%202018.pdf",
+        ),
+        (
+            "20200917233827",
+            "https://www.limerick.ie/sites/default/files/media/documents/2019-09/Purchase-Orders-over-20000-Q2-2019.pdf",
+        ),
+        (
+            "20200917233836",
+            "https://www.limerick.ie/sites/default/files/media/documents/2019-09/Purchase-Orders-over-20000-Quarter1-2019.pdf",
+        ),
+        (
+            "20200917233821",
+            "https://www.limerick.ie/sites/default/files/media/documents/2020-01/Purchase-Orders-over-20000-Quarter-3-2019.pdf",
+        ),
+        (
+            "20200917233817",
+            "https://www.limerick.ie/sites/default/files/media/documents/2020-04/purchase-orders-over-20000-q4-2019.pdf",
+        ),
+        (
+            "20210607110505",
+            "https://www.limerick.ie/sites/default/files/media/documents/2020-10/purchase-orders-over-eu20000-quarter-2-2020.pdf",
+        ),
+        (
+            "20210607110501",
+            "https://www.limerick.ie/sites/default/files/media/documents/2021-01/purchase-orders-over-eu20000-quarter-3-2020.pdf",
+        ),
+        (
+            "20210607110457",
+            "https://www.limerick.ie/sites/default/files/media/documents/2021-04/purchase-orders-over-eu20000-q4-2020.pdf",
+        ),
+        (
+            "20220613103544",
+            "https://www.limerick.ie/sites/default/files/media/documents/2022-02/purchase-orders-over-eu20000-q1-2021.pdf",
+        ),
+        (
+            "20220613103540",
+            "https://www.limerick.ie/sites/default/files/media/documents/2022-02/purchase-orders-over-eu20000-q2-2021.pdf",
+        ),
+        (
+            "20230710100906",
+            "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-3-2021.pdf",
+        ),
+        (
+            "20230710100848",
+            "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-4-2021.pdf",
+        ),
+        (
+            "20230710100831",
+            "https://www.limerick.ie/sites/default/files/media/documents/2022-08/Purchase-Orders-over-20000-Quarter-1-2022.pdf",
+        ),
+        (
+            "20230710100805",
+            "https://www.limerick.ie/sites/default/files/media/documents/2023-01/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-2-2022.pdf",
+        ),
+        (
+            "20230710100759",
+            "https://www.limerick.ie/sites/default/files/media/documents/2023-01/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-3-2022.pdf",
+        ),
+        (
+            "20230710100752",
+            "https://www.limerick.ie/sites/default/files/media/documents/2023-02/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-4-2022.pdf",
+        ),
+        (
+            "20230710100742",
+            "https://www.limerick.ie/sites/default/files/media/documents/2023-06/Purchase-Orders-over-%E2%82%AC20%2C000-Quarter-1-2023.pdf",
+        ),
     ]
 ]
 
@@ -813,8 +889,14 @@ def read_xls(b: bytes) -> tuple[list[dict], int]:
 
 
 def read_csv(b: bytes) -> tuple[list[dict], int]:
+    # Robust cp1252/UTF-8 decode before parsing (see shared.text_encoding): the old
+    # utf8-lossy mangled council exports' cp1252 apostrophes/fadas into '�' (e.g. Meath
+    # "O'Mahony Pike Architects", "Navan O'Mahonys CLG").
     df = pl.read_csv(
-        io.BytesIO(b), infer_schema_length=0, truncate_ragged_lines=True, ignore_errors=True, encoding="utf8-lossy"
+        io.BytesIO(decode_table_bytes(b).encode("utf-8")),
+        infer_schema_length=0,
+        truncate_ragged_lines=True,
+        ignore_errors=True,
     )
     df = df.rename({c: c.replace("﻿", "").strip() for c in df.columns})
     return _tabular_rows([df.columns] + [list(r) for r in df.iter_rows()])
@@ -1220,7 +1302,7 @@ def main() -> None:
     df = df.select([c for c in FACT_COLS if c in df.columns]).sort(["publisher_id", "year", "quarter"])
 
     OUT_FACT.parent.mkdir(parents=True, exist_ok=True)
-    save_parquet(df, OUT_FACT)
+    save_parquet(df, OUT_FACT, min_rows=MIN_FACT_ROWS)
 
     hr("SILVER FACT WRITTEN")
     print(f"rows: {df.height:,}  councils: {df['publisher_id'].n_unique()}  ->  {OUT_FACT}")

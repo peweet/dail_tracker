@@ -1,0 +1,94 @@
+"""Query-layer tests for the 'Who runs your county' data path.
+
+Exercises dail_tracker_core.queries.local_government against the registered council
+views — the same retrieval the Streamlit page uses, minus Streamlit. Registers the
+5 v_la_* views (paths made absolute) and asserts each query returns a QueryResult
+with the expected shape.
+
+Skips in CI: the views read gold/silver parquets that are gitignored. Runs on a dev
+box / integration where the pipeline output is present.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import duckdb
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+from dail_tracker_core.queries import local_government as q  # noqa: E402
+
+SQL_DIR = ROOT / "sql_views" / "constituency"
+CSV = ROOT / "data" / "_meta" / "la_chief_executives.csv"
+M2 = ROOT / "data" / "gold" / "parquet" / "noac_m2_collection_wide.parquet"
+DERELICT = ROOT / "data" / "gold" / "parquet" / "derelict_sites_levy_wide.parquet"
+APPEALS = ROOT / "data" / "silver" / "parquet" / "planning_appeal_outcomes.parquet"
+
+pytestmark = pytest.mark.skipif(
+    not (CSV.exists() and M2.exists() and DERELICT.exists() and APPEALS.exists()),
+    reason="council source data absent (CI)",
+)
+
+_SUBS = {
+    "data/_meta/la_chief_executives.csv": str(CSV).replace("\\", "/"),
+    "data/gold/parquet/noac_m2_collection_wide.parquet": str(M2).replace("\\", "/"),
+    "data/gold/parquet/derelict_sites_levy_wide.parquet": str(DERELICT).replace("\\", "/"),
+    "data/silver/parquet/planning_appeal_outcomes.parquet": str(APPEALS).replace("\\", "/"),
+}
+
+_VIEWS = [
+    "constituency_la_chief_executives.sql",
+    "constituency_la_planning_overturn.sql",
+    "constituency_la_derelict_sites_levy.sql",
+    "constituency_la_collection_rates.sql",
+    "constituency_la_accountability_summary.sql",
+]
+
+
+@pytest.fixture(scope="module")
+def conn():
+    c = duckdb.connect()
+    for fname in _VIEWS:
+        sql = (SQL_DIR / fname).read_text(encoding="utf-8")
+        for k, v in _SUBS.items():
+            sql = sql.replace(k, v)
+        c.execute(sql)
+    return c
+
+
+def test_index_lists_31(conn):
+    res = q.chief_executives(conn)
+    assert res.ok and len(res.data) == 31
+
+
+def test_national_summary_one_row(conn):
+    res = q.national_summary(conn)
+    assert res.ok and len(res.data) == 1
+    row = res.data.iloc[0]
+    assert row["n_councils"] == 31
+    assert row["derelict_outstanding_eur"] > 0
+
+
+def test_dossier_signals_for_donegal(conn):
+    """Donegal resolves on every signal (the cross-signal example used in the UI)."""
+    assert q.chief_executive(conn, "Donegal").data.iloc[0]["chief_executive"]
+    assert len(q.collection_rates(conn, "Donegal").data) == 1
+    assert len(q.planning_overturn(conn, "Donegal").data) == 1
+    assert len(q.derelict_sites_levy(conn, "Donegal").data) == 1
+
+
+def test_cork_county_planning_gap_is_empty(conn):
+    """Cork County is absent from the appeals source — the query returns 0 rows
+    (not an error), which the page degrades gracefully."""
+    res = q.planning_overturn(conn, "Cork County")
+    assert res.ok and res.data.empty
+    # but it IS a real council elsewhere
+    assert len(q.chief_executive(conn, "Cork County").data) == 1
+
+
+def test_unknown_council_returns_empty(conn):
+    res = q.chief_executive(conn, "Atlantis")
+    assert res.ok and res.data.empty

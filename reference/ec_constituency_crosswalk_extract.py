@@ -66,26 +66,85 @@ _APPENDIX1_END_MARKER = "STATISTICS RELATING"  # start of Appendix 2 — bound t
 # Canonical constituency names (registry / v_member_constituency_demographics spelling),
 # kept local so this module needs no polars import (avoids the WMI import-hang trap).
 _CONSTITUENCIES = [
-    "Carlow-Kilkenny", "Cavan-Monaghan", "Clare", "Cork East", "Cork North-Central",
-    "Cork North-West", "Cork South-Central", "Cork South-West", "Donegal",
-    "Dublin Bay North", "Dublin Bay South", "Dublin Central", "Dublin Fingal East",
-    "Dublin Fingal West", "Dublin Mid-West", "Dublin North-West", "Dublin Rathdown",
-    "Dublin South-Central", "Dublin South-West", "Dublin West", "Dún Laoghaire",
-    "Galway East", "Galway West", "Kerry", "Kildare North", "Kildare South", "Laois",
-    "Limerick City", "Limerick County", "Longford-Westmeath", "Louth", "Mayo",
-    "Meath East", "Meath West", "Offaly", "Roscommon-Galway", "Sligo-Leitrim",
-    "Tipperary North", "Tipperary South", "Waterford", "Wexford", "Wicklow",
+    "Carlow-Kilkenny",
+    "Cavan-Monaghan",
+    "Clare",
+    "Cork East",
+    "Cork North-Central",
+    "Cork North-West",
+    "Cork South-Central",
+    "Cork South-West",
+    "Donegal",
+    "Dublin Bay North",
+    "Dublin Bay South",
+    "Dublin Central",
+    "Dublin Fingal East",
+    "Dublin Fingal West",
+    "Dublin Mid-West",
+    "Dublin North-West",
+    "Dublin Rathdown",
+    "Dublin South-Central",
+    "Dublin South-West",
+    "Dublin West",
+    "Dún Laoghaire",
+    "Galway East",
+    "Galway West",
+    "Kerry",
+    "Kildare North",
+    "Kildare South",
+    "Laois",
+    "Limerick City",
+    "Limerick County",
+    "Longford-Westmeath",
+    "Louth",
+    "Mayo",
+    "Meath East",
+    "Meath West",
+    "Offaly",
+    "Roscommon-Galway",
+    "Sligo-Leitrim",
+    "Tipperary North",
+    "Tipperary South",
+    "Waterford",
+    "Wexford",
+    "Wicklow",
     "Wicklow-Wexford",
 ]
 
 # The 31 local authorities, spelled EXACTLY as in the LA spending facts
 # (la_afs_divisions.council / procurement_payments_fact.publisher_name).
 _LOCAL_AUTHORITIES = [
-    "Carlow", "Cavan", "Clare", "Cork City", "Cork County", "Donegal", "Dublin City",
-    "Dun Laoghaire-Rathdown", "Fingal", "Galway City", "Galway County", "Kerry",
-    "Kildare", "Kilkenny", "Laois", "Leitrim", "Limerick", "Longford", "Louth", "Mayo",
-    "Meath", "Monaghan", "Offaly", "Roscommon", "Sligo", "South Dublin", "Tipperary",
-    "Waterford", "Westmeath", "Wexford", "Wicklow",
+    "Carlow",
+    "Cavan",
+    "Clare",
+    "Cork City",
+    "Cork County",
+    "Donegal",
+    "Dublin City",
+    "Dun Laoghaire-Rathdown",
+    "Fingal",
+    "Galway City",
+    "Galway County",
+    "Kerry",
+    "Kildare",
+    "Kilkenny",
+    "Laois",
+    "Leitrim",
+    "Limerick",
+    "Longford",
+    "Louth",
+    "Mayo",
+    "Meath",
+    "Monaghan",
+    "Offaly",
+    "Roscommon",
+    "Sligo",
+    "South Dublin",
+    "Tipperary",
+    "Waterford",
+    "Westmeath",
+    "Wexford",
+    "Wicklow",
 ]
 _DUBLIN_LAS = {"Dublin City", "Fingal", "South Dublin", "Dun Laoghaire-Rathdown"}
 
@@ -115,12 +174,21 @@ def _county_to_la(kind: str, name: str) -> str | None:
     if low == "southdublin":
         return "South Dublin"
     if kind.lower() == "city":
-        return {"cork": "Cork City", "dublin": "Dublin City", "galway": "Galway City",
-                "limerick": "Limerick", "waterford": "Waterford"}.get(low)
+        return {
+            "cork": "Cork City",
+            "dublin": "Dublin City",
+            "galway": "Galway City",
+            "limerick": "Limerick",
+            "waterford": "Waterford",
+        }.get(low)
     # county side
     county_map = {
-        "cork": "Cork County", "galway": "Galway County", "dublin": "Dublin City",
-        "fingal": "Fingal", "limerick": "Limerick", "waterford": "Waterford",
+        "cork": "Cork County",
+        "galway": "Galway County",
+        "dublin": "Dublin City",
+        "fingal": "Fingal",
+        "limerick": "Limerick",
+        "waterford": "Waterford",
     }
     if low in county_map:
         return county_map[low]
@@ -155,8 +223,7 @@ def parse_appendix1(pdf_path: Path) -> list[dict]:
     if cut > 0:
         full = full[:cut]
 
-    heads = [(m.start(), re.sub(r"\s+", " ", m.group(1)).strip(), int(m.group(2)))
-             for m in _HEAD_RE.finditer(full)]
+    heads = [(m.start(), re.sub(r"\s+", " ", m.group(1)).strip(), int(m.group(2))) for m in _HEAD_RE.finditer(full)]
     if len(heads) != 43:
         raise RuntimeError(f"Appendix-1 layout drift: found {len(heads)} headings, expected 43.")
 
@@ -177,8 +244,7 @@ def parse_appendix1(pdf_path: Path) -> list[dict]:
                 las.append(la)
         if not las:
             raise RuntimeError(f"No local authority parsed for {constituency!r}")
-        rows.append({"constituency_name": constituency, "seats": seats, "las": las,
-                     "key": _ascii_key(constituency)})
+        rows.append({"constituency_name": constituency, "seats": seats, "las": las, "key": _ascii_key(constituency)})
     return rows
 
 
@@ -197,15 +263,17 @@ def build_crosswalk(parsed: list[dict]) -> list[dict]:
             la_county_key = _ascii_key(la.replace(" City", "").replace(" County", ""))
             in_name = la_county_key and la_county_key in key
             primary = bool(in_name) or len(las) == 1 or (dublin_family and la in _DUBLIN_LAS)
-            out.append({
-                "constituency_name": name,
-                "local_authority": la,
-                "seats": r["seats"],
-                "link_type": "primary" if primary else "partial",
-                "la_serves_multiple_constituencies": len(serves[la]) > 1,
-                "constituency_multi_la": len(las) > 1,
-                "source_key": "Electoral Commission Constituency Review 2023, App. 1",
-            })
+            out.append(
+                {
+                    "constituency_name": name,
+                    "local_authority": la,
+                    "seats": r["seats"],
+                    "link_type": "primary" if primary else "partial",
+                    "la_serves_multiple_constituencies": len(serves[la]) > 1,
+                    "constituency_multi_la": len(las) > 1,
+                    "source_key": "Electoral Commission Constituency Review 2023, App. 1",
+                }
+            )
     return out
 
 
@@ -219,14 +287,20 @@ def integrity_check(rows: list[dict]) -> dict:
         "all_31_las_present": las == set(_LOCAL_AUTHORITIES),
         "all_las_canonical": las <= set(_LOCAL_AUTHORITIES),
     }
-    return {"checks": checks, "n_rows": len(rows), "n_las": len(las),
-            "green": all(checks.values())}
+    return {"checks": checks, "n_rows": len(rows), "n_las": len(las), "green": all(checks.values())}
 
 
 def write_csv(rows: list[dict], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    cols = ["constituency_name", "local_authority", "seats", "link_type",
-            "la_serves_multiple_constituencies", "constituency_multi_la", "source_key"]
+    cols = [
+        "constituency_name",
+        "local_authority",
+        "seats",
+        "link_type",
+        "la_serves_multiple_constituencies",
+        "constituency_multi_la",
+        "source_key",
+    ]
     rows_sorted = sorted(rows, key=lambda r: (r["constituency_name"], r["local_authority"]))
     with path.open("w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=cols)

@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import html
+import io
 import json
 import os
 import re
@@ -43,6 +44,7 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from shared.name_norm import name_norm_expr  # noqa: E402
+from shared.text_encoding import decode_table_bytes  # noqa: E402
 
 URL = "https://assets.gov.ie/static/documents/7ba65f1b/Public_Procurement_Opendata_Dataset.csv"
 # Provenance: the citable record of where this data came from. Emitted into the
@@ -207,16 +209,19 @@ def main() -> None:
     args = ap.parse_args()
 
     csv_path = ensure_csv(force=args.force, max_age_days=args.cache_max_age_days)
-    # encoding="utf8-lossy": the OGP/eTenders export is Windows-encoded and periodically
-    # carries a stray non-UTF-8 byte (a smart-quote / accented supplier name). Plain utf8
-    # makes Polars raise ComputeError("invalid utf-8 sequence") at the byte level —
-    # ignore_errors=True does NOT cover that — so decode lossily, replacing bad bytes.
+    # The OGP/eTenders export is Windows-1252 (cp1252) encoded: byte 0x80 is '€', 0x92 a
+    # smart apostrophe, and the Irish fadas (á/é/í/ó/ú) live in 0xC0–0xFF. The old
+    # encoding="utf8-lossy" decoded those as invalid UTF-8 and replaced EACH with U+FFFD '�',
+    # silently corrupting ~7.1k authority names, ~6k tender titles and every '€' sign
+    # (verified 2026-06-20: e.g. "Scoil Bhríde", "Gaelchultúr", "St. Patrick's"). Polars
+    # read_csv only speaks utf8/utf8-lossy, so decode the bytes as cp1252 ourselves and hand
+    # Polars clean UTF-8. errors="replace" only bites cp1252's 5 undefined slots
+    # (0x81/8D/8F/90/9D), which are not real data. This recovers the text losslessly.
     df = pl.read_csv(
-        csv_path,
+        io.BytesIO(decode_table_bytes(csv_path.read_bytes()).encode("utf-8")),
         infer_schema_length=0,
         truncate_ragged_lines=True,
         ignore_errors=True,
-        encoding="utf8-lossy",
     )
     df = df.rename({c: c.replace("﻿", "").strip() for c in df.columns})
     # eTenders periodically reshapes its export headers. 2026-06: the pass-through DETAIL columns

@@ -61,8 +61,11 @@ def run_party(key: str) -> bool:
                 break
         rc = proc.wait()
         done_parquet = (BY_PARTY / f"{key}_items.parquet").exists()
-        print(f"[items-wd] {key}: launch #{restarts + 1} ended rc={rc} "
-              f"hung={killed_hung} pages={ckpt_count(key)} parquet={done_parquet}", flush=True)
+        print(
+            f"[items-wd] {key}: launch #{restarts + 1} ended rc={rc} "
+            f"hung={killed_hung} pages={ckpt_count(key)} parquet={done_parquet}",
+            flush=True,
+        )
         if rc == 0:
             return True  # a clean pass (parquet written, or party legitimately had no items)
         restarts += 1

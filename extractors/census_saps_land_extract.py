@@ -8,6 +8,7 @@ Reads  : doc/source_pdfs/_samples/SAPS_2022_SA.csv
          doc/source_pdfs/_samples/SAPS_2022_county.csv
 Writes : data/gold/parquet/census_saps_<level>.parquet
 """
+
 from __future__ import annotations
 
 import argparse
@@ -16,7 +17,7 @@ from pathlib import Path
 
 import polars as pl
 
-try:
+try:  # noqa: SIM105
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 except Exception:
     pass
@@ -26,9 +27,9 @@ _SAMPLES = _ROOT / "doc" / "source_pdfs" / "_samples"
 _OUT = _ROOT / "data" / "gold" / "parquet"
 
 LEVELS = {
-    "small_area":  "SAPS_2022_SA.csv",
-    "lea":         "SAPS_2022_LEA.csv",
-    "county":      "SAPS_2022_county.csv",
+    "small_area": "SAPS_2022_SA.csv",
+    "lea": "SAPS_2022_LEA.csv",
+    "county": "SAPS_2022_county.csv",
 }
 
 
@@ -56,6 +57,7 @@ def main() -> None:
             try:
                 decoded = src.read_bytes().decode("latin-1").encode("utf-8")
                 from io import BytesIO
+
                 df = pl.read_csv(BytesIO(decoded), infer_schema_length=2000)
             except Exception as e:
                 print(f"[{level}] FETCH FAIL: {e}")

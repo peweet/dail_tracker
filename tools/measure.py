@@ -4,6 +4,7 @@ Imports ONLY polars to stay immune to the venv's broken requests/simplejson
 chain. Reports row counts, unique_member_code null/coverage, and duplicate
 rates on the tables that feed the cross-source member profile.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -54,8 +55,10 @@ def dup_check(path: Path, keys: list[str], label: str):
         return
     total = df.height
     uniq = df.select(keys).unique().height
-    line(f"\n[dup] {label} on {keys}: {total:,} rows, {uniq:,} unique, "
-         f"{total-uniq:,} dup rows ({100*(total-uniq)/total:.2f}%)")
+    line(
+        f"\n[dup] {label} on {keys}: {total:,} rows, {uniq:,} unique, "
+        f"{total - uniq:,} dup rows ({100 * (total - uniq) / total:.2f}%)"
+    )
 
 
 def member_code_distinct():
@@ -65,9 +68,11 @@ def member_code_distinct():
     df = pl.read_parquet(fm)
     if "unique_member_code" in df.columns:
         codes = df["unique_member_code"]
-        line(f"\n[members] flattened_members: {df.height} rows, "
-             f"{codes.n_unique()} distinct unique_member_code, "
-             f"{codes.null_count()} null")
+        line(
+            f"\n[members] flattened_members: {df.height} rows, "
+            f"{codes.n_unique()} distinct unique_member_code, "
+            f"{codes.null_count()} null"
+        )
 
 
 def quarantine_report():
@@ -91,7 +96,9 @@ if __name__ == "__main__":
     member_code_distinct()
     # Join-key integrity on the cross-source member tables
     dup_check(GOLD_P / "payments_full_psa.parquet", ["unique_member_code", "year"], "payments_full_psa")
-    dup_check(SILVER_P / "td_attendance_fact_table.parquet", ["unique_member_code", "year", "period"], "attendance_fact")
+    dup_check(
+        SILVER_P / "td_attendance_fact_table.parquet", ["unique_member_code", "year", "period"], "attendance_fact"
+    )
     dup_check(GOLD_P / "current_dail_vote_history.parquet", ["vote_id", "unique_member_code"], "vote_history")
     dup_check(SILVER_P / "flattened_members.parquet", ["unique_member_code"], "flattened_members")
     quarantine_report()
